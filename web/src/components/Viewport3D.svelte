@@ -3940,6 +3940,7 @@
       }
     } else if (data.type === 'plate' || data.type === 'quad') {
       const key = (data.type === 'plate' ? 'p' : 'q') + data.id;
+      sceneCtx.explicitShells?.hover();
       const group = sceneCtx.shellGroups.get(key);
       if (group) {
         const sel = uiStore.selectedShells.has(key);
@@ -4005,6 +4006,7 @@
       if (gizmo) setGroupColor(gizmo, COLORS.elementHovered);
     } else if (data.type === 'plate' || data.type === 'quad') {
       const key = (data.type === 'plate' ? 'p' : 'q') + data.id;
+      sceneCtx.explicitShells?.hover(key);
       const group = sceneCtx.shellGroups.get(key);
       if (group) {
         if (shellContourActive()) paintShellEdge(group, COLORS.elementHovered);

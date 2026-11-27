@@ -5,6 +5,9 @@
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
 import { userVecParts } from '../axes/user-names';
+import { untrack } from 'svelte';
+import { buildTimelapse } from '../store/build-timelapse.svelte';
+import { cellPlane, ExplicitShellBatches, type DisplayCell } from './explicit-shell-batches';
 import { meshHidden, meshOnlyNodes, syncShellMembers } from './shell-members';
 import { shellLoadExtent, shellLoadSamples } from '../engine/shell-load-integration';
 import { distributedGlobalEnds } from '../engine/member-loads';
@@ -111,6 +114,7 @@ export interface SceneSyncContext {
   shellGroups: Map<string, THREE.Group>; // key: "p{id}" or "q{id}"
   /** The slabs and walls drawn as members while their mesh is hidden (`shell-members.ts`). */
   shellMembers?: Map<string, THREE.Group>;
+  explicitShells?: ExplicitShellBatches;
 
   // Single-instance groups (replaced on each sync)
   loadGroup: THREE.Group | null;
@@ -537,7 +541,36 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   // A large model being modelled: its slabs and walls as members, and as shells only those selected.
   const merged = meshHidden();
   syncShellMembers(ctx, project2D, merged);
-  const drawn = (key: string) => !merged || uiStore.selectedShells.has(key);
+  const plates = visiblePlates(), quads = visibleQuads();
+  const physicalEntries = physicalPlates();
+  // Contours and staged views operate on individually addressable shell meshes.
+  const explicit = !merged && !buildTimelapse.active && !resultsStore.results3D && !uiStore.planView3D
+    && uiStore.platesShowMesh && (renderMode === 'wireframe' || renderMode === 'solid')
+    && plates.size + quads.size >= 64;
+  const buckets = new Map<string, DisplayCell[]>();
+  if (explicit) {
+    const owner = new Map<string, number>();
+    for (const plate of physicalEntries) {
+      for (const id of plate.group.members.quads ?? []) owner.set('q' + id, plate.id);
+      for (const id of plate.group.members.plates ?? []) owner.set('p' + id, plate.id);
+    }
+    const add = (key: string, shell: { nodes: readonly number[]; materialId: number }) => {
+      const points = shell.nodes.map(getNode);
+      if (!points.every(p => p !== null)) return;
+      const plane = cellPlane(points);
+      if (!plane) return;
+      const id = [owner.get(key) ?? 'ungrouped', shell.materialId, plane].join('|');
+      const cell = { key, nodes: shell.nodes, points, materialId: shell.materialId };
+      const list = buckets.get(id);
+      if (list) list.push(cell);
+      else buckets.set(id, [cell]);
+    };
+    for (const [id, plate] of plates) add('p' + id, plate);
+    for (const [id, quad] of quads) add('q' + id, quad);
+    ctx.explicitShells ??= new ExplicitShellBatches();
+  }
+  ctx.explicitShells?.sync(ctx.shellsParent, buckets, renderMode === 'wireframe' ? 'wireframe' : 'solid');
+  const drawn = (key: string) => !ctx.explicitShells?.has(key) && (!merged || uiStore.selectedShells.has(key));
   const physical = renderMode === 'sections' && !project2D ? projectPhysicalFrame() : null;
   const netKey = (key: string) => {
     const s = physical?.slab.get(key);
@@ -559,7 +592,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   };
 
   // Plates (triangular DKT)
-  for (const [id, plate] of visiblePlates()) {
+  for (const [id, plate] of plates) {
     const key = `p${id}`;
     if (!drawn(key)) continue;
     const nodes = plate.nodes.map(nid => getNode(nid));
@@ -587,7 +620,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   }
 
   // Quads (MITC4)
-  for (const [id, quad] of visibleQuads()) {
+  for (const [id, quad] of quads) {
     const key = `q${id}`;
     if (!drawn(key)) continue;
     const nodes = quad.nodes.map(nid => getNode(nid));
@@ -615,7 +648,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   }
 
   // Physical plates with no mesh yet: drawn from their outline, so they can be seen and picked.
-  for (const pl of physicalPlates()) {
+  for (const pl of physicalEntries) {
     if ((pl.group.members.quads?.length ?? 0) + (pl.group.members.plates?.length ?? 0) > 0) continue;
     const key = `P${pl.id}`;
     const geo = plateGeometry(modelStore, pl.group);
@@ -644,7 +677,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   // Meshed plates drawn as pieces: their elements' edges hidden and their outline drawn over them.
   // Only the drawing changes: the faces stay, so picking and contours are as with the mesh shown.
   const pieceView = !uiStore.platesShowMesh;
-  for (const pl of physicalPlates()) {
+  for (const pl of physicalEntries) {
     const keys = [...(pl.group.members.quads ?? []).map((q) => `q${q}`), ...(pl.group.members.plates ?? []).map((q) => `p${q}`)];
     if (!keys.length) continue;
     for (const k of keys) ctx.shellGroups.get(k)?.traverse((c) => { if (c.userData?.shellEdge) c.visible = !pieceView; });
@@ -672,7 +705,8 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   }
 
   // Re-apply selection tint to surviving/rebuilt shell groups.
-  applyShellSelection(ctx);
+  if (explicit) untrack(() => applyShellSelection(ctx));
+  else applyShellSelection(ctx);
 
   // Remove shell groups whose backing plate/quad no longer exists
   for (const [key, group] of ctx.shellGroups) {
@@ -699,6 +733,7 @@ function shellContourActive(): boolean {
 export function applyShellSelection(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const selected = uiStore.selectedShells;
+  ctx.explicitShells?.selection(selected);
   // Drawn as members, a shell has a group of its own only while selected: the selection changed, so do they.
   if (!inShellSync && meshHidden() && (selected.size !== [...ctx.shellGroups.keys()].filter((k) => k[0] !== 'P' && k[0] !== 'O').length || [...selected].some((k) => !ctx.shellGroups.has(k)))) {
     syncShells(ctx);
