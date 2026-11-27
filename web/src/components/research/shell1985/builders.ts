@@ -1,13 +1,13 @@
 import { cases, type Case } from './cases';
 
-const restraintKeys = ['dx', 'dy', 'dz', 'drx', 'dry', 'drz', 'isInclined', 'krx', 'kry', 'krz', 'kw', 'kx', 'ky', 'kz', 'normalX', 'normalY', 'normalZ', 'rw'] as const;
+type Support = Case['input']['supports'][string];
+type Load = Case['input']['loads'][number];
 
-function support(nodeId: number, f: boolean[]) {
-  const s: Record<string, unknown> = Object.fromEntries(restraintKeys.map(k => [k, null]));
-  return { ...s, nodeId, rx: f[0], ry: f[1], rz: f[2], rrx: f[3], rry: f[4], rrz: f[5] };
+function support(nodeId: number, f: boolean[]): Support {
+  return { nodeId, rx: f[0], ry: f[1], rz: f[2], rrx: f[3], rry: f[4], rrz: f[5], isInclined: null, rw: null };
 }
 
-const nodal = (nodeId: number, fx: number, fy: number, fz: number) => ({ type: 'nodal', data: { bw: null, fx, fy, fz, mx: 0, my: 0, mz: 0, nodeId } });
+const nodal = (nodeId: number, fx: number, fy: number, fz: number): Load => ({ type: 'nodal', data: { fx, fy, fz, mx: 0, my: 0, mz: 0, nodeId } });
 
 function grid(n: number, at: (i: number, j: number) => [number, number, number]) {
   const nodes: Record<string, { id: number; x: number; y: number; z: number }> = {};
@@ -42,7 +42,7 @@ export function roofInput(n: number) {
     const th = (j / n) * theta;
     return [(i / n) * halfL, r * Math.sin(th), r * Math.cos(th) - r];
   });
-  const supports: Record<string, unknown> = {};
+  const supports: Record<string, Support> = {};
   const loads = [];
   const area = (halfL / n) * r * (theta / n);
   for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) {
@@ -60,7 +60,7 @@ export function cylinderInput(n: number) {
     const th = (j / n) * (Math.PI / 2);
     return [(i / n) * halfL, r * Math.cos(th), r * Math.sin(th)];
   });
-  const supports: Record<string, unknown> = {};
+  const supports: Record<string, Support> = {};
   for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) {
     const f = [false, false, false, false, false, false];
     if (i === 0) { f[0] = true; f[4] = true; f[5] = true; }
@@ -83,6 +83,6 @@ export function caseFor(group: BuiltGroup, n: number): Case & { built: boolean }
   const { input, node } = group === 'roof' ? roofInput(n) : cylinderInput(n);
   return {
     ...template, id: `${group}-${n}`, mesh: n, label: template.label.replace(/\d+×\d+$/, `${n}×${n}`),
-    measurement: { ...template.measurement, node }, input: input as unknown as Case['input'], built: true,
+    measurement: { ...template.measurement, node }, input, built: true,
   };
 }
