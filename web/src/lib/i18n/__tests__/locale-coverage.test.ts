@@ -151,6 +151,15 @@ it('translates Explore, launcher search, mobile tabs and the material form in ev
   }
 });
 
+it('keeps the mode count and hidden-mechanism degree in both forms in every dictionary', () => {
+  for (const [locale, dict] of Object.entries(ALL_DICTS)) {
+    for (const suffix of ['', 'Plural']) {
+      expect(names(dict['kinematic.mechanismDetected' + suffix]).sort(), locale).toEqual(['n']);
+      expect(names(dict['kinematic.hiddenMechanism' + suffix]).sort(), locale).toEqual(['degree', 'n']);
+    }
+  }
+});
+
 it('counts mechanism modes in Chinese without a Latin plural suffix', () => {
   for (const key of ['kinematic.hiddenMechanism','kinematic.mechanismDetected']) expect(ALL_DICTS.zh[key]).not.toContain('{s}');
 });

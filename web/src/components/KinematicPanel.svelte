@@ -18,7 +18,8 @@
   import { modelStore, uiStore } from '../lib/store';
   import type { KinematicReport } from '../lib/engine/kinematic-report';
   import { kinematicReportOfModel } from '../lib/engine/kinematic-model';
-  import { t, tp } from '../lib/i18n';
+  import { t } from '../lib/i18n';
+  import { mechanismModeMessage } from '../lib/advanced/mechanism-mode-message';
 
   // Collapsible sections
   let showStep1 = $state(true);
@@ -303,14 +304,14 @@
               </div>
             {:else if report.hasHiddenMechanism}
               <div class="kp-result kp-danger-bg">
-                {tp('kinematic.hiddenMechanism', { n: report.mechanismModes, s: report.mechanismModes > 1 ? t('kin.plural_s') : '', degree: report.degree })}
+                {mechanismModeMessage(report.mechanismModes, report.degree)}
               </div>
               <div class="kp-explanation">
                 {t('kinematic.hiddenMechanismExplanation')}
               </div>
             {:else}
               <div class="kp-result kp-danger-bg">
-                {tp('kinematic.mechanismDetected', { n: report.mechanismModes, s: report.mechanismModes > 1 ? t('kin.plural_s') : '' })}
+                {mechanismModeMessage(report.mechanismModes)}
               </div>
             {/if}
 
