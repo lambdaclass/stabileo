@@ -3,6 +3,8 @@ import { afterEach, expect, it } from 'vitest';
 import { t } from '../../lib/i18n';
 import { modelStore, uiStore } from '../../lib/store';
 import { applyPlateMeshes, createPlate, planPlateMesh, plateShellKeys } from '../../lib/store/physical-plates';
+import { quickEdit } from '../../lib/store/pro-quick-edit.svelte';
+import ProQuickEdit from '../pro/ProQuickEdit.svelte';
 import ProShellTab from '../pro/ProShellTab.svelte';
 
 afterEach(() => { modelStore.clear(); });
@@ -82,4 +84,24 @@ it('known wrong result: #1928 the raw element table offers its owner exactly unt
   check(false, true);
   uiStore.selectPlates([]);
   uiStore.shellPickScope = 'plate';
+});
+
+it.skip('known wrong result: #1928 the published quick editor can mesh an ownerless quad but not a triangle', () => {
+  modelStore.clear();
+  const nodes = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0)) as [number, number, number, number];
+  const quad = modelStore.addQuad(nodes, 1, 0.15);
+  const triangle = modelStore.addPlate([nodes[0], nodes[1], nodes[2]], 1, 0.15);
+  try {
+    for (const target of [{ kind: 'quad', id: quad }, { kind: 'plate', id: triangle }] as const) {
+      quickEdit.open(target, 0, 0);
+      const html = render(ProQuickEdit).body;
+      const meshable = target.kind === 'quad' && !__PUBLIC_FEATURES__.proPlatesUnified;
+      expect(html.includes('data-testid="qe-mesh-size"')).toBe(meshable);
+      expect(html.includes('data-testid="qe-mesh"')).toBe(meshable);
+      expect(html.includes('data-testid="qe-mesh-plate"')).toBe(false);
+      expect(html.includes('data-testid="qe-flip"')).toBe(true);
+    }
+  } finally {
+    quickEdit.close();
+  }
 });
