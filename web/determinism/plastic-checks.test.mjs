@@ -38,7 +38,7 @@ for (const row of cases) {
 
 for (const dimension of ['2d', '3d']) {
   for (const strength of ['member', 'loaded override', 'unloaded override']) {
-    test.skip('known wrong result: #2658 direct ' + dimension + ' plastic certificate with ' + strength, () => {
+    test('known wrong result: #2658 direct ' + dimension + ' plastic certificate with ' + strength, () => {
       const spatial = dimension === '3d';
       const input = structuredClone(fixtures[spatial ? 'plastic-3d-cantilever' : 'plastic-2d-portal']);
       const s = input.solver;
@@ -56,7 +56,7 @@ for (const dimension of ['2d', '3d']) {
         s.elements[2].sectionId = 2;
       }
       const mp = strength === 'loaded override' ? 100 : 235 * 1000 * b * h ** 2 / 4;
-      input.mpOverrides = strength === 'member' ? null : { 1: spatial ? [100, 100] : 100 };
+      input.mpOverrides = strength === 'member' ? null : { [strength === 'loaded override' ? 2 : 1]: spatial ? [100, 100] : 100 };
       const wire = JSON.stringify(input);
       const out = plain(wasm['certify_plastic_' + dimension](wire));
       const exact = mp / 40;

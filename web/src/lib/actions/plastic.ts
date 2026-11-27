@@ -43,8 +43,7 @@ function withheld(): PlasticWithheld {
  * Throws, with the static solve's own message, on a model the static solve
  * refuses: the collapse analysis starts from that solve, and ran on a beam on
  * two rollers or a stray node as if it had one. A model nothing loads is
- * refused too: its λc = 0 read as "does not collapse". A limit analysis that
- * fails outright throws `PlasticWithheld`.
+ * refused too: its λc = 0 read as "does not collapse".
  */
 export function runPlasticCollapse(): PlasticRun | null {
   const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
@@ -53,20 +52,15 @@ export function runPlasticCollapse(): PlasticRun | null {
   if (refusal) throw new Error(refusal);
   const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
   const mp = memberPlasticMoments(input, mps);
-  let result: PlasticCollapseResult;
-  try {
-    result = plasticCollapse2D(input, {
-      mp: (id) => mp.get(id) ?? Infinity,
-      np: (id) => {
-        const e = input.elements.get(id)!;
-        const fy = modelStore.materials.get(e.materialId)?.fy || DEFAULT_FY;
-        const a = input.sections.get(e.sectionId)?.a ?? 0;
-        return fy * 1000 * a;
-      },
-    });
-  } catch {
-    throw withheld();
-  }
+  const result = plasticCollapse2D(input, {
+    mp: (id) => mp.get(id) ?? Infinity,
+    np: (id) => {
+      const e = input.elements.get(id)!;
+      const fy = modelStore.materials.get(e.materialId)?.fy || DEFAULT_FY;
+      const a = input.sections.get(e.sectionId)?.a ?? 0;
+      return fy * 1000 * a;
+    },
+  });
   if (result.unloaded) throw new Error(t('advanced.plasticNoLoads'));
   if (result.withheld) throw withheld();
   tagPlasticCertificate(result, input, mps);
@@ -101,7 +95,10 @@ export function memberPlasticMoments(input: SolverInput, moments = plasticMoment
   const byMember = capacitiesByMember(moments);
   return new Map([...input.elements.values()].filter(e => e.type === 'frame').map(e => {
     const capacity = byMember.get(e.id);
-    if (!capacity || capacity.materialId !== e.materialId) throw withheld();
+    if (!capacity || capacity.materialId !== e.materialId) {
+      throw new Error(knownIssueMessage({ code: 'plastic_capacity_missing', severity: 'error', elementIds: [e.id],
+        value: e.sectionId, message: `No matching plastic capacity for member ${e.id}, section ${e.sectionId}, material ${e.materialId}` }));
+    }
     return [e.id, capacity.mp];
   }));
 }

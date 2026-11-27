@@ -50,6 +50,7 @@
 import type { SolverInput, SolverLoad, SolverElement, AnalysisResults, ElementForces } from './types';
 import type { PlasticHinge, PlasticResult, PlasticStep } from './result-types';
 import { canonicalSpanLoad, generatedMemberBounds, memberLength, spanEndpoints, splitSpanLoad } from './member-span-loads';
+import { refusedKnownIssues } from './known-issues';
 import { solve, plasticLimit2D, type PlasticLimitResult } from './wasm-solver';
 // The normalized reading: the diagnosis in the active language and the app's axis names.
 import { analyzeKinematics } from './kinematic-2d';
@@ -991,7 +992,9 @@ export function plasticCollapse2D(input: SolverInput, opts: PlasticCollapseOptio
     const elements = [...original.elements.values()];
     const mpOf = new Map(elements.map((e) => [e.id, e.type === 'truss' ? Infinity : opts.mp(e.id)]));
     const npOf = new Map(elements.map((e) => [e.id, opts.np(e.id)]));
-    try { lp = plasticLimit2D(original, mpOf, npOf); } catch { lp = null; }
+    try { lp = plasticLimit2D(original, mpOf, npOf); } catch (error) {
+      if (!refusedKnownIssues(error).some(issue => issue.phase === 'PL-2D-INVARIANCE')) throw error;
+    }
     if (!lp || lp.confirmation.kind !== 'exact' || !(Number.isFinite(lp.lambda) && lp.lambda > 0)) {
       lp = null;
       withheld = true;

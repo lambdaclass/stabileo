@@ -76,7 +76,7 @@ describe('#2658 member plastic capacity', () => {
   );
 });
 
-it.skip('known wrong result: #1927 — missing member strength and a failed solve retain their own diagnostics', () => {
+it('known wrong result: #1927 — missing member strength and a failed solve retain their own diagnostics', () => {
   cantilevers('2d', 355);
   const model = modelStore.buildSolverInput(false)!;
   expect(() => memberPlasticMoments(model, [])).toThrow(/(member|element|barra)/i);
