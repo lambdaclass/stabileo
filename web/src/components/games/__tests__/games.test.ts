@@ -58,23 +58,26 @@ it('speaks to the player as the rest of the site does: Sie, vous and the Turkish
   const informal: Partial<Record<Locale, RegExp>> = {
     de: word('du|dich|dir|dein\\p{L}*|Wähle|Finde|Tippe|Dreh|Prüfe|vergleiche'),
     fr: word('tu|te|toi|ton|ta|tes|choisis|vérifie|réessaie|touche une|tourne ton|compare les'),
-    tr: word('seç|bul|dokun|dene|karşılaştır|çevir'),
+    tr: word('seç|bul|dokun|dene|karşılaştır|çevir|oyna|başla|çık|ilerle|canın'),
   };
 
   for (const [locale, pattern] of Object.entries(informal) as [Locale, RegExp][]) {
     for (const [key, text] of Object.entries(gameStrings[locale]!)) expect(text, `${locale} ${key}`).not.toMatch(pattern);
-    for (const game of GAMES) expect(game.copy[locale].description, `${game.id} ${locale}`).not.toMatch(pattern);
+    for (const [key, text] of Object.entries(hubStrings[locale])) expect(text, `${locale} hub ${key}`).not.toMatch(pattern);
+    for (const game of GAMES) {
+      for (const [key, text] of Object.entries(game.copy[locale])) expect(text, `${game.id} ${locale} ${key}`).not.toMatch(pattern);
+    }
   }
 });
 
-it.skip('known wrong result: #2492 — describes both internal forces and deflected shapes on the Chinese diagram game card', () => {
+it('describes both internal forces and deflected shapes on the Chinese diagram game card', () => {
   const card = GAMES[0]!.copy.zh;
   expect(card.description).toContain('内力图');
   expect(card.description).toContain(gameStrings.zh!['kind.D']);
   expect(card.title).not.toContain('内力图');
 });
 
-it.skip('known wrong result: #2492 — addresses the player formally in Turkish game controls', () => {
+it('addresses the player formally in Turkish game controls', () => {
   expect({
     play: hubStrings.tr.play,
     start: gameStrings.tr!.start,

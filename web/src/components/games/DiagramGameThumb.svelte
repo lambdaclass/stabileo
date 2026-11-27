@@ -2,7 +2,7 @@
   const OPTIONS = [[24, 'M8 4q42 52 84 0'], [124, 'M8 4l42 40 42-40'], [224, 'M8 30h84']] as const;
 </script>
 
-<svg class="thumb" viewBox="0 0 320 180" aria-hidden="true">
+<svg class="thumb" viewBox="0 0 348 180" aria-hidden="true">
   <g class="loads">
     {#each [70, 110, 150, 190, 230, 270] as x (x)}<path d={`M${x} 18v18m-4-6 4 6 4-6`} />{/each}
     <path d="M60 18h220" />

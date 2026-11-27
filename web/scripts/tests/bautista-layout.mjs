@@ -1,5 +1,6 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { assertNoGameLinks, startWithSwitchesOff } from './bautista-switches.mjs';
 const browser = await chromium.launch({ headless: true });
 const base = process.env.BAUTISTA_URL ?? 'http://127.0.0.1:4001';
 try {
@@ -7,9 +8,11 @@ try {
     const page = await browser.newPage({ viewport: { width, height } });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
+    await startWithSwitchesOff(page);
     await page.goto(`${base}/hu/`);
     await page.locator('h1').waitFor();
-    assert.equal(await page.locator('a[href*="/tools/mohr-"], a[href*="/games/"]').count(), 0);
+    await assertNoGameLinks(page);
+    assert.equal(await page.locator('a[href*="/tools/mohr-"]').count(), 0);
     for (const section of ['tools', 'research', 'examples']) assert.ok(await page.locator(`a[href$="/${section}/"]`).count() > 0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.screenshot({ path: `.bautista-${name}-landing.png` });
@@ -17,7 +20,7 @@ try {
     await page.getByText('Nem felel meg', { exact: true }).waitFor();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.screenshot({ path: `.bautista-${name}-article.png` });
-    await page.addInitScript(() => {
+    await page.evaluate(() => {
       for (const name of ['research', 'tools', 'diagram-game']) localStorage.setItem(`stabileo-feature-${name}`, '1');
     });
     for (const [path, testid] of [['/en/tools/mohr-2d/', 'mohr2d-go-tmax'], ['/en/games/diagram-game/', 'dg-start']]) {
@@ -44,7 +47,7 @@ try {
     assert.deepEqual(errors, [], `${name}: uncaught browser errors`);
     await page.close();
   }
-  console.log('phone 390×844 and tablet 768×1024: default-off landing, Hungarian correction, enabled Mohr and diagram game pass');
+  console.log('phone 390×844 and tablet 768×1024: switches-off landing, Hungarian correction, enabled Mohr and diagram game pass');
 } finally {
   await browser.close();
 }

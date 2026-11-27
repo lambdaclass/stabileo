@@ -46,7 +46,7 @@ export const hubStrings: Record<Locale, Record<Key, string>> = {
     metaTitle: 'Öğrenciler için yapı statiği oyunları',
     description: 'Yapı statiği öğrencileri için ücretsiz tarayıcı oyunları: iç kuvvet diyagramlarını okumayı zamana karşı çalışın; basit kirişlerden çerçevelere ve kafes sistemlere kadar.',
     lead: 'Yapıların davranışına göz alıştırmak için kısa oyunlar. Tarayıcınızda ücretsiz çalışır ve Stabileo ile aynı hesap motorunu kullanır.',
-    play: 'Oyna',
+    play: 'Oynayın',
   },
   hu: {
     title: 'Játékok',

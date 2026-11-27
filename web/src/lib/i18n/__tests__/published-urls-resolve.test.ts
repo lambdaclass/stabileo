@@ -258,11 +258,15 @@ describe('every published URL is served, not redirected', () => {
     expect(differ, `hreflang in the sitemap disagrees with the page:\n${differ.join('\n')}`).toEqual([]);
   });
 
-  it('keeps former examples canonical at their built addresses and redirects only when tools are enabled', () => {
+  it('serves each legacy address according to its feature switch', () => {
     const urls = publishedUrls();
     for (const locale of PUBLIC_LOCALES) {
-      for (const from of MOVED_PAGES.filter(from => from !== '/diagram-game' || flags.diagramGame)) {
+      for (const from of MOVED_PAGES) {
         const file = fileServedWithoutRedirect(`/${locale}${from}/`);
+        if (from === '/diagram-game' && !flags.diagramGame) {
+          expect(file, `/${locale}${from}/`).toBeNull();
+          continue;
+        }
         expect(file, `${locale}${from}`).not.toBeNull();
         const moved = movedRoute(from, flags);
         const to = `/${locale}${moved ?? from}/`;

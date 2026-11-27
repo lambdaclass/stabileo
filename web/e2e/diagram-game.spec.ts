@@ -292,22 +292,36 @@ test('@smoke winning feedback stays inside the tablet viewport throughout its an
   await winner.click();
   await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'true');
 
-  const overflow = await winner.evaluate(card => {
+  const figure = winner.locator('.option-figure');
+  expect(await figure.evaluate(el => el.getAnimations().some(animation => animation instanceof CSSAnimation))).toBe(true);
+
+  const frames = await winner.evaluate(card => {
+    const feedback = getComputedStyle(card).overflowX === 'visible' ? [card, card.querySelector('.option-figure')!] : [card];
     const scroller = card.closest('.landing')!;
     const animations = card.getAnimations({ subtree: true }).filter(animation => animation instanceof CSSAnimation);
-    let widest = 0;
+    const frames = [];
     for (let step = 0; step <= 10; step++) {
       for (const animation of animations) {
         animation.currentTime = Number(animation.effect!.getComputedTiming().activeDuration) * step / 10;
       }
-      widest = Math.max(widest, scroller.scrollWidth - scroller.clientWidth, document.documentElement.scrollWidth - innerWidth);
+      const bounds = feedback.map(el => el.getBoundingClientRect());
+      frames.push({
+        left: Math.min(...bounds.map(rect => rect.left)),
+        right: Math.max(...bounds.map(rect => rect.right)),
+        viewport: innerWidth,
+        overflow: Math.max(0, scroller.scrollWidth - scroller.clientWidth, document.documentElement.scrollWidth - innerWidth),
+      });
     }
-    return widest;
+    return frames;
   });
-  expect(overflow).toBe(0);
+  for (const [step, frame] of frames.entries()) {
+    expect(frame.left, `left edge at step ${step}`).toBeGreaterThanOrEqual(0);
+    expect(frame.right, `right edge at step ${step}`).toBeLessThanOrEqual(frame.viewport);
+    expect(frame.overflow, `scroll at step ${step}`).toBe(0);
+  }
 });
 
-test.fixme('@smoke known wrong result: #2492 — the game thumbnail fits all three answer cards inside its viewBox', async ({ page }) => {
+test('@smoke the game thumbnail fits all three answer cards inside its viewBox', async ({ page }) => {
   await page.goto('/en/games/');
   const thumbnail = page.getByTestId('game-card-diagram-game').locator('svg.thumb');
   await expect(thumbnail.locator('rect.option')).toHaveCount(3);

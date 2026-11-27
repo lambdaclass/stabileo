@@ -1,5 +1,6 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { assertNoGameLinks, startWithSwitchesOff } from './bautista-switches.mjs';
 import { readFileSync } from 'node:fs';
 const exampleCopy = JSON.parse(readFileSync(new URL('../../src/components/examples/main-copy.json', import.meta.url), 'utf8'));
 const browser = await chromium.launch({ headless: true });
@@ -9,13 +10,12 @@ try {
     const page = await browser.newPage({ viewport: { width, height } });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.addInitScript(() => {
-      for (const name of ['research', 'tools', 'diagram-game', 'accounts']) if (localStorage.getItem(`stabileo-feature-${name}`) === null) localStorage.setItem(`stabileo-feature-${name}`, '0');
-    });
+    await startWithSwitchesOff(page);
     await page.goto(`${base}/en/`);
     await page.locator('h1').waitFor();
     for (const path of ['examples', 'tools', 'research']) assert.ok(await page.locator(`a[href="/en/${path}/"]`).count() > 0, `${name}: ${path} remains linked`);
-    assert.equal(await page.locator('a[href*="/games/"], a[href*="mohr-"]').count(), 0);
+    await assertNoGameLinks(page);
+    assert.equal(await page.locator('a[href*="mohr-"]').count(), 0);
     for (const [path, selector] of [
       ['/en/tools/', 'li.tool-card:has(a[href="/en/tools/simply-supported-beam/"])'],
       ['/en/tools/simply-supported-beam/', '[data-testid="agreement"]'],
