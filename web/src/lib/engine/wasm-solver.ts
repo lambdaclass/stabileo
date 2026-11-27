@@ -2243,19 +2243,13 @@ export function solveCreepShrinkage3D(config: any): any {
 
 // ─── Multi-Case Solvers ───────────────────────────────────────────
 
-function recordMultiCaseEnvelope(bundle: { envelope?: object; combinationResults?: { results: object }[] } | null): void {
-  if (bundle?.envelope && bundle.combinationResults) recordEnvelopeSources(bundle.envelope, bundle.combinationResults.map(c => c.results));
-}
-
 /** Solve 2D multi-case analysis via WASM. JsValue in/out — no JSON round trip. */
 export function solveMultiCase2D(config: any): any {
   if (!wasmReady || !wasmSolveMultiCase2d) throw new Error('WASM multi-case 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
     config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  const result = wasmSolveMultiCase2d(finiteObjectWire(config));
-  recordMultiCaseEnvelope(result);
-  return result;
+  return wasmSolveMultiCase2d(finiteObjectWire(config));
 }
 
 /** Solve 3D multi-case analysis via WASM. JsValue in/out — no JSON round trip. */
@@ -2273,7 +2267,6 @@ export function solveMultiCase3D(config: any): any {
   console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
   try {
     const result = wasmSolveMultiCase3d(config);
-    recordMultiCaseEnvelope(result);
     // As in `solve3D`, and for every case, combination and the envelope: this
     // is the path behind Calcular with load combinations, and a node the
     // stabiliser supported showed up in all of them as a zero reaction the

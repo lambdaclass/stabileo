@@ -8,6 +8,7 @@ export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { MemberLoadIntervalError, validateMemberLoadInterval } from './member-span-loads';
 import { plainDeepCopy } from '../utils/plain-deep-copy';
 import { knownIssueRefusal } from './known-issues';
+import { recordEnvelopeSources } from './envelope-sources';
 import { isContainmentRefusal, refusedWithCode } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
@@ -1497,6 +1498,7 @@ function solveCombinations2DCore(
 
     console.log(`[solveCombinations2D] WASM multi-case: ${tWasm.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size}`);
 
+    recordEnvelopeSources(mcResult.envelope, mcResult.combinationResults.map((c: { results: AnalysisResults }) => c.results));
     return { perCase, perCombo, envelope: mcResult.envelope };
   } catch (err: any) {
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
@@ -2944,7 +2946,9 @@ function solveCombinations3DCore(
 
     console.log(`[solveCombinations3D] WASM: ${tWasm.toFixed(0)} ms | Shell enrichment: ${tShell.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size}`);
 
-    return pruneComboBundle3D({ perCase, perCombo, envelope: mcResult.envelope }, model);
+    const bundle = pruneComboBundle3D({ perCase, perCombo, envelope: mcResult.envelope }, model);
+    if (bundle.perCombo.size === mcResult.combinationResults.length) recordEnvelopeSources(bundle.envelope, [...bundle.perCombo.values()]);
+    return bundle;
   } catch (err: any) {
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     // Fallback: if multi-case fails, try the old per-case approach
