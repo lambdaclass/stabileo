@@ -7,7 +7,7 @@
  * every transform.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { initSolver, callCertify } from '../wasm-solver';
+import { initSolver, callCertify, solve } from '../wasm-solver';
 import { certifyJobOf } from '../certify-tags';
 import { historyStore, modelStore, uiStore, resultsStore } from '../../store';
 import { plasticCourse } from '../../store/plastic-course.svelte';
@@ -165,6 +165,18 @@ function rescaled({ input, mp }: Model, s: number, f: number): Model {
   });
   return { input: out, mp: new Map([...mp].map(([k, v]) => [k, v * f * s])) };
 }
+
+it('preserves translation per applied force and rotation per applied moment at a planar spring', () => {
+  const fixture = coursePortal();
+  fixture.input.supports = new Map([[1, { id: 1, nodeId: 1, type: 'spring', kx: 200, ky: 400, kz: 800 }]]);
+  fixture.input.loads = [{ type: 'nodal', data: { nodeId: 1, fx: 0, fz: 2, my: 3 } }];
+  for (const [length, force] of [[1, 1], [8, 2]]) {
+    const response = solve(rescaled(fixture, length, force).input);
+    const displacement = response.displacements.find(d => d.nodeId === 1)!;
+    close(displacement.uz, length * 2 / 400, 'vertical spring displacement');
+    close(displacement.ry, 3 / 800, 'rotational spring displacement');
+  }
+});
 
 const run = ({ input, mp }: Model) => plasticCollapse2D(input, { mp: (id) => mp.get(id) ?? Infinity, np: () => Infinity });
 
