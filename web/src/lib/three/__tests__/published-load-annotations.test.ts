@@ -5,7 +5,7 @@ import { createLoadArrowsBatched } from '../load-arrows-batched';
 const sheet = { width: 0, height: 0, getContext: () => ({ fillStyle: '', font: '', textAlign: 'center', textBaseline: 'middle', fillText() {}, measureText: () => ({ width: 10 }) }) };
 const threshold = 250;
 
-it.skip('keeps every published load value on both sides of the enhanced label budget (known wrong result: #1928)', () => {
+it('keeps every published load value on both sides of the enhanced label budget', () => {
   vi.stubGlobal('document', { createElement: () => sheet });
   try {
     for (const count of [1, threshold - 1, threshold, threshold + 1]) {
@@ -18,7 +18,7 @@ it.skip('keeps every published load value on both sides of the enhanced label bu
   } finally { vi.unstubAllGlobals(); }
 });
 
-it.skip('draws published surface and member loads as overlays of their structure (known wrong result: #1928)', () => {
+it('draws published surface and member loads as overlays of their structure', () => {
   vi.stubGlobal('document', { createElement: () => sheet });
   try {
     const batch = createLoadArrowsBatched();

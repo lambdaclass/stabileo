@@ -103,7 +103,7 @@
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, syncLocalAxes as _syncLocalAxes, syncMemberOffsets as _syncMemberOffsets, syncShellOffsets as _syncShellOffsets, applyElementVisibility, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
-  import { applyLowDetail } from '../lib/viewport3d/lod';
+  import { applyLowDetail, isHeavyModel } from '../lib/viewport3d/lod';
   import { meshHidden } from '../lib/viewport3d/shell-members';
   import { buildTimelapse, FORMAT_SIZE } from '../lib/store/build-timelapse.svelte';
   import { createTimelapseView } from '../lib/viewport3d/build-timelapse-view';
@@ -638,8 +638,10 @@
     resultsParent.name = 'results';
     shellsParent = new THREE.Group();
     shellsParent.name = 'shells';
-    shellBatch = new ShellBatch(shellsParent);
-    memberBatches = [new ShellBatch(elementsParent), new ShellBatch(supportsParent)];
+    if (__PUBLIC_FEATURES__.proPlatesUnified) {
+      shellBatch = new ShellBatch(shellsParent);
+      memberBatches = [new ShellBatch(elementsParent), new ShellBatch(supportsParent)];
+    }
     localAxesParent = new THREE.Group();
     localAxesParent.name = 'localAxes';
     // The batched wireframe LineSegments2 lives directly under `scene`, not
@@ -994,8 +996,8 @@
       const _perfT0 = perfHud.on ? performance.now() : 0;
       nodesInstanced.setPixelRatio(renderer.getPixelRatio());
       if (toneDirty) { toneDirty = false; applyCategoryTones(); }
-      const soloHidden = sceneHost.solo ? hideAllBut(scene) : null;
-      if (!isOrbiting && dampingFrames === 0) for (const b of [shellBatch, ...memberBatches]) b?.sync(buildTimelapse.active || !!soloHidden);
+      const soloHidden = __PUBLIC_FEATURES__.proRcSheets && sceneHost.solo ? hideAllBut(scene) : null;
+      if (__PUBLIC_FEATURES__.proPlatesUnified && !isOrbiting && dampingFrames === 0) for (const b of [shellBatch, ...memberBatches]) b?.sync(buildTimelapse.active || !!soloHidden);
       try {
         renderer.render(scene, camera);
         if (!soloHidden) splitView?.render();
@@ -1080,7 +1082,14 @@
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
       // Opt-in "smooth orbit" forces the heavy-model low-detail path for any
       // model during camera motion (collapse to the single batched wireframe).
-      const heavyModel = uiStore.smoothOrbit3D;
+      const heavyModel = uiStore.smoothOrbit3D || (!__PUBLIC_FEATURES__.proPlatesUnified && isHeavyModel(
+        {
+          elements: modelStore.elements.size,
+          shells: modelStore.plates.size + modelStore.quads.size,
+          supports: modelStore.supports.size,
+        },
+        uiStore.renderMode3D,
+      ));
       applyLowDetail(on, {
         nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
         localAxesParent,
@@ -1412,7 +1421,7 @@
     if (!fbCanvas || !container) return;
     const g = fbCanvas.getContext('2d');
     if (!g) return;
-    const on = resultsStore.diagramType === 'despiece' && !!resultsStore.results3D && !buildTimelapse.active && !sceneHost.solo;
+    const on = resultsStore.diagramType === 'despiece' && !!resultsStore.results3D && !buildTimelapse.active && (!__PUBLIC_FEATURES__.proRcSheets || !sceneHost.solo);
     if (!on) {
       if (fbDrawn) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, fbCanvas.width, fbCanvas.height); fbDrawn = false; }
       return;
@@ -1519,12 +1528,17 @@
     invalidate();
   });
 
-  $effect(() => { if (sceneHost.solo) untrack(() => { handleMouseLeave(); uiStore.clearSelection(); }); });
+  $effect(() => { if (__PUBLIC_FEATURES__.proRcSheets && sceneHost.solo) untrack(() => { handleMouseLeave(); uiStore.clearSelection(); }); });
 
   // Meshed plates as pieces or with their mesh: only the drawing changes.
   $effect(() => {
-    void uiStore.platesShowMesh; void resultsStore.results3D;
-    untrack(() => { syncShells(); syncNodes(); syncLoads(); syncLabels3D(); });
+    void uiStore.platesShowMesh;
+    if (__PUBLIC_FEATURES__.proPlatesUnified) {
+      void resultsStore.results3D;
+      untrack(() => { syncShells(); syncNodes(); syncLoads(); syncLabels3D(); });
+    } else {
+      syncShells();
+    }
     invalidate();
   });
 
@@ -4380,15 +4394,15 @@
   class:split-main={splitOn}
   bind:this={container}
   style="cursor: {cursorStyle};"
-  onmousedown={(e) => { if (!sceneHost.solo) handleMouseDown(e); }}
+  onmousedown={__PUBLIC_FEATURES__.proRcSheets ? (e) => { if (!sceneHost.solo) handleMouseDown(e); } : handleMouseDown}
   onpointerdowncapture={onRightDown}
   onpointerupcapture={onRightUp}
-  onmouseup={(e) => { if (!sceneHost.solo) handleMouseUp(e); }}
-  ondblclick={(e) => { if (!sceneHost.solo) handleDoubleClick3D(e); }}
-  onmousemove={(e) => { if (!sceneHost.solo) handleMouseMove(e); }}
+  onmouseup={__PUBLIC_FEATURES__.proRcSheets ? (e) => { if (!sceneHost.solo) handleMouseUp(e); } : handleMouseUp}
+  ondblclick={__PUBLIC_FEATURES__.proRcSheets ? (e) => { if (!sceneHost.solo) handleDoubleClick3D(e); } : handleDoubleClick3D}
+  onmousemove={__PUBLIC_FEATURES__.proRcSheets ? (e) => { if (!sceneHost.solo) handleMouseMove(e); } : handleMouseMove}
   onmouseleave={handleMouseLeave}
-  oncontextmenu={(e) => { if (sceneHost.solo) e.preventDefault(); else handleContextMenu3D(e); }}
-  data-scene-solo={sceneHost.solo || undefined}
+  oncontextmenu={__PUBLIC_FEATURES__.proRcSheets ? (e) => { if (sceneHost.solo) e.preventDefault(); else handleContextMenu3D(e); } : handleContextMenu3D}
+  data-scene-solo={(__PUBLIC_FEATURES__.proRcSheets && sceneHost.solo) || undefined}
 >
   {#if uiStore.planView3D}<PlanViewChip />{/if}
 
@@ -4714,7 +4728,7 @@
   <!-- Shell contour legend (visible only while a shell contour map is active) -->
   <ShellContourLegend />
   <QuickInfoCard />
-  <PlateSelectionCard />
+  {#if __PUBLIC_FEATURES__.proPlatesUnified}<PlateSelectionCard />{/if}
 </div>
 {#if splitOn && scene}
   <SplitView3D bind:this={splitView} {scene} parents={() => ({ elements: elementsParent, nodes: nodesParent })} />

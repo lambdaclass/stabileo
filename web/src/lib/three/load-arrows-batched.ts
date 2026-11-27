@@ -21,12 +21,11 @@
 //
 // Loads are not raycast: the batch records, per load, the world segments it
 // drew (`footprints`), and a click in loads mode is measured against those on
-// screen. Batched objects are drawn after the model (renderOrder 3, no depth
-// write, no frustum culling) and hidden where the structure stands in front of
-// them, as the members and shells hide one another.
+// screen.
 //
 // Reactions/constraint forces keep using create-load-arrow.ts (few per model).
 
+import { unifiedPlates } from '../features';
 import { userComponent } from '../axes/display';
 import * as THREE from 'three';
 import { COLORS, createTextSpriteCached } from './selection-helpers';
@@ -528,6 +527,7 @@ export class LoadArrowsBatched {
   // ── Build the renderable group ─────────────────────────────
 
   build(): THREE.Group {
+    const occluded = unifiedPlates();
     const group = new THREE.Group();
     group.name = 'loadsBatched';
 
@@ -542,7 +542,7 @@ export class LoadArrowsBatched {
       geo.setAttribute('position', new THREE.Float32BufferAttribute(this.shaftPos, 3));
       geo.setAttribute('color', new THREE.Float32BufferAttribute(this.shaftCol, 3));
       group.add(overlay(new THREE.LineSegments(geo, shared('shaft', () => new THREE.LineBasicMaterial({
-        vertexColors: true, toneMapped: false, depthWrite: false,
+        vertexColors: true, toneMapped: false, depthTest: occluded, depthWrite: false,
       })))));
     }
 
@@ -551,7 +551,7 @@ export class LoadArrowsBatched {
       geo.setAttribute('position', new THREE.Float32BufferAttribute(this.envPos, 3));
       geo.setAttribute('color', new THREE.Float32BufferAttribute(this.envCol, 3));
       group.add(overlay(new THREE.LineSegments(geo, shared('envelope', () => new THREE.LineBasicMaterial({
-        vertexColors: true, toneMapped: false, transparent: true, opacity: 0.5, depthWrite: false,
+        vertexColors: true, toneMapped: false, transparent: true, opacity: 0.5, depthTest: occluded, depthWrite: false,
       })))));
     }
 
@@ -560,7 +560,7 @@ export class LoadArrowsBatched {
       // translated so the tip sits at the local origin.
       const geo = new THREE.ConeGeometry(0.5, 1, 8, 1);
       geo.translate(0, -0.5, 0);
-      const mat = shared('cone', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthWrite: false }));
+      const mat = shared('cone', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: occluded, depthWrite: false }));
       const mesh = new THREE.InstancedMesh(geo, mat, this.cones.length);
       const m = new THREE.Matrix4();
       const pos = new THREE.Vector3();
@@ -583,7 +583,7 @@ export class LoadArrowsBatched {
 
     if (this.toruses.length > 0) {
       const geo = new THREE.TorusGeometry(0.2, 0.007, 8, 24, Math.PI * 1.5);
-      const mat = shared('torus', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthWrite: false }));
+      const mat = shared('torus', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: occluded, depthWrite: false }));
       const mesh = new THREE.InstancedMesh(geo, mat, this.toruses.length);
       const m = new THREE.Matrix4();
       const pos = new THREE.Vector3();
@@ -606,12 +606,12 @@ export class LoadArrowsBatched {
       geo.setAttribute('color', new THREE.Float32BufferAttribute(this.fillCol, 3));
       group.add(overlay(new THREE.Mesh(geo, shared('fill', () => new THREE.MeshBasicMaterial({
         vertexColors: true, toneMapped: false, transparent: true, opacity: 0.15,
-        side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+        side: THREE.DoubleSide, depthTest: occluded, depthWrite: false, ...(occluded ? { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 } : {}),
       })))));
     }
 
-    for (const l of thinLabels(this.labels, LOAD_LABEL_BUDGET)) {
-      const sprite = createTextSpriteCached(l.text, l.colorHex, l.fontSize, false, true);
+    for (const l of occluded ? thinLabels(this.labels, LOAD_LABEL_BUDGET) : this.labels) {
+      const sprite = createTextSpriteCached(l.text, l.colorHex, l.fontSize, false, occluded);
       sprite.position.set(l.x, l.y, l.z);
       sprite.renderOrder = 3;
       group.add(sprite);

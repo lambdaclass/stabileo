@@ -1,4 +1,5 @@
 // Color constants and helpers for 3D viewport selection/hover/highlight
+import { unifiedPlates } from '../features';
 import * as THREE from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { colourRampHex } from './colour-ramp';
@@ -292,7 +293,7 @@ export function createTextSpriteCached(
   let mat = labelMaterials.get(key);
   if (!mat) {
     mat = withLabelScale(new THREE.SpriteMaterial({
-      map: texture, depthTest: occluded, depthWrite: false, transparent: true, sizeAttenuation: !screenSized,
+      map: texture, depthTest: occluded, depthWrite: !unifiedPlates(), transparent: true, sizeAttenuation: !screenSized,
     }), screenSized ? [((texture.userData.aspect as number) || 1) * STRIP_OF_SIZE, STRIP_OF_SIZE] : ((texture.userData.shape as [number, number] | undefined) ?? [1, 1]));
     mat.userData.shared = true;
     labelMaterials.set(key, mat);

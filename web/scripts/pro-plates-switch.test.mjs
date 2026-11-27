@@ -506,7 +506,7 @@ test('recovery, footing and sheet-report captions follow their controls', async 
   }
 });
 
-test.skip('known wrong result: #1928 the published viewport imports only the available plate toolbar', async () => {
+test('known wrong result: #1928 the published viewport imports only the available plate toolbar', async () => {
   for (const [plates, sheets] of [[false, false], [false, true], [true, false], [true, true]]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
       const entry = resolve(root, 'src/components/Viewport3D.svelte');

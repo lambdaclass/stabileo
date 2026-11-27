@@ -3,6 +3,7 @@
  * models): they add their objects to it, name the view category that tones them, and ask for a
  * frame.
  */
+import { reinforcementSheets } from '../features';
 import type * as THREE from 'three';
 import type { ViewCategory } from '../store/view-categories.svelte';
 
@@ -21,5 +22,5 @@ export const sceneHost = {
   get toned(): ReadonlyMap<THREE.Object3D, ViewCategory> { return toned; },
   /** While on, the viewport draws and picks only the objects marked `userData.solo`; the model and its overlays keep their own state. */
   get solo() { return solo; },
-  setSolo(on: boolean) { if (solo !== on) { solo = on; host?.redraw(); } },
+  setSolo(on: boolean) { const next = reinforcementSheets() && on; if (solo !== next) { solo = next; host?.redraw(); } },
 };
