@@ -655,3 +655,22 @@ test('known wrong result: #1928 the published mesh error legend and warning reta
     });
   }
 });
+
+test.skip('known wrong result: #1928 ordinary meshing, grid construction and examples exclude the sheet placement writer', async () => {
+  const entries = ['src/lib/store/physical-plates.ts', 'src/lib/model/building/build-on-grid.ts', 'src/lib/data/pro-examples.ts'];
+  for (const sheets of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: sheets }, async configFile => {
+      for (const path of entries) {
+        const entry = resolve(root, path);
+        const result = await build({ root, configFile, logLevel: 'silent', build: {
+          write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+            external: (id, from) => !!from && !/(^|\/)(sheet-placement|active-sheet-placement|placement)(\.ts)?$/.test(id),
+          },
+        } });
+        const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
+        const writer = Object.keys(chunk.modules).some(file => file.endsWith('/src/lib/store/placement.ts') && chunk.modules[file].renderedLength > 0);
+        assert.equal(writer, sheets, path);
+      }
+    });
+  }
+});
