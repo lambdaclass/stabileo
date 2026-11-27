@@ -466,3 +466,23 @@ test('reading member reinforcement does not link disabled sheet designers', asyn
     });
   }
 });
+
+test.skip('known wrong result: #2655 the released document builders do not load the reinforcement sheet implementations', async () => {
+  for (const sheets of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: sheets }, async configFile => {
+      for (const name of ['memoria-inputs', 'ifc-export']) {
+        const entry = resolve(root, 'src/lib/store/' + name + '.ts');
+        const result = await build({ root, configFile, logLevel: 'silent', build: {
+          write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+            external: (id, from) => !!from && !id.includes('rc-sheets-documents'),
+          },
+        } });
+        const chunks = (Array.isArray(result) ? result[0] : result).output.filter(item => item.type === 'chunk');
+        const imports = chunks.flatMap(item => item.imports);
+        for (const dependency of ['rc-sheets-schedule', 'rc-sheets-readers/memoria']) {
+          assert.equal(imports.some(id => id.includes(dependency)), sheets, name + ' loads ' + dependency);
+        }
+      }
+    });
+  }
+});
