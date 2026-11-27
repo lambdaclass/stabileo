@@ -39,3 +39,7 @@ it('keeps no first-version or review-round text in the article strings of any pa
     }
   }
 });
+
+it.skip.each(['Prima versione', 'Eerste versie', 'Revisieronde', 'Turno di revisione'])('known wrong result: #2613 — detects the header %s', text => {
+  expect(text).toMatch(REVIEW_NOTE);
+});

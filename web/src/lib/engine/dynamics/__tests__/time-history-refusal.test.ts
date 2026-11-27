@@ -115,3 +115,16 @@ it.each(['nl', 'it'])('#2613 — the refusal oracle detects English fallback in 
   const key = 'pro.th.refusal.nonFiniteReactions';
   expect(() => expectLocalized(key, locale, teAt({ key }, 'en'))).toThrow();
 });
+
+it.skip('known wrong result: #2613 — a dropped time and unit invalidate a non-finite time-history refusal', () => {
+  const key = 'pro.th.refusal.nonFinite';
+  const dict = allDictFor('nl');
+  const original = dict[key];
+  try {
+    dict[key] = original.replace('{time} s', '');
+    const params = { step: 12, time: 0.024 };
+    expect(() => expectLocalized(key, 'nl', dict[key].replace('{step}', '12'), params)).toThrow();
+  } finally {
+    dict[key] = original;
+  }
+});

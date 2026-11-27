@@ -40,3 +40,11 @@ describe('PRO is presented as available', () => {
     expect(unfinishedProClaims('Die normgemäße Bemessung in PRO ist noch in Entwicklung.', 'de', { aboutPro: false })).toEqual([]);
   });
 });
+
+it.skip.each([
+  ['it', 'L’AI è in beta.', false],
+  ['nl', 'De AI-assistent is in bètafase.', false],
+  ['nl', 'PRO is in bètafase.', true],
+] as const)('known wrong result: #2613 — classifies %s: %s', (locale, sentence, unfinished) => {
+  expect(unfinishedProClaims(sentence, locale, { aboutPro: true })).toEqual(unfinished ? [sentence] : []);
+});

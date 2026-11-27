@@ -132,3 +132,13 @@ it.each(['it', 'nl'])('#2613 — a changed English failure message needs review 
     ALL_DICTS[code]['adv.failed'] = localized;
   }
 });
+
+it.skip.each(['nl', 'it'])('known wrong result: #2613 — an English-only change invalidates the neutral %s template', code => {
+  const original = en['adv.failed'];
+  try {
+    en['adv.failed'] = '{analysis} failed: {error}';
+    expect(translated(code)).not.toContain('adv.failed');
+  } finally {
+    en['adv.failed'] = original;
+  }
+});

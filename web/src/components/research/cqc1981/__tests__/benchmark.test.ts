@@ -101,3 +101,8 @@ it('matches the closed form through the real production WASM boundary', async ()
     }
   }
 });
+
+it.skip('known wrong result: #2613 — rejects addition of squared modal base shears in the correlation equation', () => {
+  const source = translations.nl.impliedNote;
+  expect(numbers(source.replace('V_CQC² − V_SRSS²', 'V_CQC² + V_SRSS²'))).not.toEqual(numbers(source));
+});
