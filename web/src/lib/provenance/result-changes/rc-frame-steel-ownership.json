@@ -23,7 +23,8 @@
     "de": "Bewehrungsstatus von Rahmenstäben",
     "fr": "État du ferraillage des éléments du portique",
     "tr": "Çerçeve elemanlarında donatı durumu",
-    "zh": "框架构件配筋状态"
+    "zh": "框架构件配筋状态",
+    "hu": "A keretelemek vasalási állapota"
   },
   "explanation": {
     "en": "A floor panel or footing could make a bare beam or column with the same number appear modelled. Review previous reinforcement status summaries.",
@@ -32,7 +33,8 @@
     "de": "Durch eine Platte oder ein Fundament konnte ein unbewehrter Balken oder eine unbewehrte Stütze mit derselben Nummer als modelliert erscheinen. Prüfen Sie frühere Bewehrungsübersichten.",
     "fr": "Une dalle ou une semelle pouvait faire apparaître une poutre ou un poteau sans armatures portant le même numéro comme modélisé. Vérifiez les anciens bilans de ferraillage.",
     "tr": "Bir döşeme veya temel, aynı numaralı donatısız kirişin ya da kolonun modellenmiş görünmesine yol açabiliyordu. Önceki donatı durumu özetlerini gözden geçirin.",
-    "zh": "楼板或基础的钢筋可能导致编号相同的无钢筋梁柱显示为已建模。请复核先前的配筋状态汇总。"
+    "zh": "楼板或基础的钢筋可能导致编号相同的无钢筋梁柱显示为已建模。请复核先前的配筋状态汇总。",
+    "hu": "Egy lemez vagy alaptest vasalása miatt az azonos számú, vasalatlan gerenda vagy oszlop modellezettként jelenhetett meg. Ellenőrizze a korábbi vasalási állapotösszesítőket."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-rc-frame-steel-ownership.md",

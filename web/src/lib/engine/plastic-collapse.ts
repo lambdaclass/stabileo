@@ -587,7 +587,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     rotations.length = 0; rotations.push(...s.rotations);
   };
 
-  const movingHinges = () => hingeAt.flatMap((ref, h) => (ref?.stretch && !ref.locked && !ref.mb.yielded ? [{ ref, h }] : []));
+  const spanHinges = () => hingeAt.flatMap((ref, h) => (ref?.stretch && !ref.mb.yielded ? [{ ref, h }] : []));
 
   /**
    * A span hinge put at a section below Mp: the self-stress that takes that section to Mp, as
@@ -596,8 +596,9 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
    */
   const toMp = (r: AnalysisResults, efOf: Map<number, ElementForces>, arrived: ReadonlySet<number>) => {
     const parts: Array<{ coef: number; r: AnalysisResults; efOf: Map<number, ElementForces> }> = [];
-    const open = [...movingHinges(), ...[...arrived].flatMap((h) => (hingeAt[h] ? [{ ref: hingeAt[h]!, h }] : []))];
+    const open = [...spanHinges(), ...[...arrived].flatMap((h) => (hingeAt[h] ? [{ ref: hingeAt[h]!, h }] : []))];
     for (const { ref, h } of open) {
+      if (ref.locked) continue;
       const { mb, t } = ref;
       const gap = Math.sign(hinges[h].moment) * mb.mp - accAt('moment', mb, t);
       if (Math.abs(gap) <= 1e-13 * mb.mp) continue;
@@ -639,7 +640,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     ref.stretch = undefined;
     ref.run = [k];
     mb.hinged[k] = true;
-    release(mb, mb.t[k]);
+    if (!ref.locked) release(mb, mb.t[k]);
     ref.t = mb.t[k];
   };
 
@@ -725,7 +726,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     let efOf = new Map(r.elementForces.map((ef) => [ef.elementId, ef]));
 
     const saved = saveState();
-    const from = new Map(movingHinges().map(({ ref, h }) => [h, ref.t]));
+    const from = new Map(spanHinges().map(({ ref, h }) => [h, ref.t]));
     const arrived = new Set<number>();
     let ev: ReturnType<typeof evaluate>;
     for (let it = 0; ; it++) {
@@ -749,7 +750,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
       if (!Number.isFinite(ev.dMin)) break;
       const dMin = ev.dMin;
       const atMpNow = new Set(ev.cand.flatMap((c) => (c.kind === 'station' && !c.axial && c.d <= dMin * (1 + EPS_EVENT) + 1e-12 ? [`${c.m.id}:${c.k}`] : [])));
-      const moves = movingHinges().flatMap(({ ref, h }) => {
+      const moves = spanHinges().flatMap(({ ref, h }) => {
         const { mb, stretch } = ref;
         const i = members.indexOf(mb);
         const peak = peakAfter(ref, h, dMin, efOf);
@@ -761,7 +762,20 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
         }
         return peak && Math.abs(peak.t - ref.t) > MOVE_TOL ? [{ ref, h, t: peak.t, k: -1 }] : [];
       });
-      if (!moves.length) break;
+      if (!moves.length) {
+        const offYield = hingeAt.some((ref, h) => {
+          if (!ref?.locked || !from.has(h) || ref.mb.yielded) return false;
+          const moment = accAt('moment', ref.mb, ref.t) + dMin * valueAt('moment', ref.mb.pieces, efOf, ref.t);
+          return !(Math.abs(moment - hinges[h].moment) <= 1e-13 * ref.mb.mp);
+        });
+        if (offYield) {
+          restoreState(saved);
+          historyUnavailable = true;
+          unresolved = true;
+          break eventLoop;
+        }
+        break;
+      }
       if (it >= MAX_MOVES) {
         restoreState(saved);
         historyUnavailable = true;

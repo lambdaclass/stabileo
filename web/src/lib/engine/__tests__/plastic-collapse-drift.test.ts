@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import { runLegacyPlasticCollapse } from './legacy-plastic-helper';
+import { runPlasticCollapse } from '../../actions/plastic';
 import { computeDiagramValueAt } from '../diagrams';
 import { solveLimit } from '../plastic/solve-limit';
 import { initSolver } from '../wasm-solver';
@@ -54,11 +55,11 @@ describe('a hinge under a distributed load sits at the peak of the collapse stat
   });
 });
 
-it.skip('known wrong result: #1927 — both simultaneously yielded spans follow their moment peaks', () => {
+it.each([['history', runLegacyPlasticCollapse], ['Basic', runPlasticCollapse]] as const)('known wrong result: #1927 — both simultaneously yielded spans follow their moment peaks in %s', (_name, run) => {
   uiStore.analysisMode = '2d';
   historyStore.clear();
   generate('mixed', 29);
-  const { result } = runLegacyPlasticCollapse()!;
+  const { result } = run()!;
   const formation = result.steps[0].hingesFormed;
   expect(formation.map(h => h.elementId)).toEqual([1, 2]);
   const final = result.steps.at(-1)!;
