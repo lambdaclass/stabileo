@@ -181,7 +181,7 @@ const words: Translations = {
   "steps.m.so-pdelta-phi.opt.axialRigid.label": "Aste assialmente rigide",
   "steps.m.so-pdelta-phi.opt.axialRigid.help": "Le aste mantengono la lunghezza, come nel calcolo a mano: ci sono meno incognite e N deriva dall’equilibrio.",
   "steps.m.so-pdelta-kg.title": "Secondo ordine con la matrice geometrica",
-  "steps.m.so-pdelta-kg.help": "Metodo degli spostamenti con K = K_E + K_G(N): la matrice geometrica consistente (6N/5L, N/10, 2NL/15) oppure la semplificata N/L. Itera come fa il motore; con la matrice consistente e la stessa suddivisione raggiunge il risultato del motore, mentre N/L, che trascura il P-δ all’interno delle aste, può sottostimare in modo sostanziale l’amplificazione e sovrastimare la stabilità vicino all’instabilità.",
+  "steps.m.so-pdelta-kg.help": "Metodo degli spostamenti con K = K_E + K_G(N): la matrice geometrica consistente (6N/5L, N/10, 2NL/15) oppure la semplificata N/L. Itera come fa il motore; con la matrice consistente, la stessa suddivisione e la stessa rigidezza assiale finita raggiunge il risultato del motore, mentre N/L, che trascura il P-δ all’interno delle aste, può sottostimare in modo sostanziale l’amplificazione e sovrastimare la stabilità vicino all’instabilità.",
   "steps.m.so-pdelta-kg.requires": "una struttura piana con al più 12 incognite e senza carichi di temperatura; N è assunto costante lungo ogni asta.",
   "steps.m.so-pdelta-kg.opt.chord.label": "Matrice P/L semplificata",
   "steps.m.so-pdelta-kg.opt.chord.help": "Usa solo N/L sugli spostamenti trasversali (l’effetto P-Δ della corda) invece della matrice consistente.",

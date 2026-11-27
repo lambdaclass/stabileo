@@ -78,7 +78,8 @@ export interface Compat {
   /** End actions on each member (local): N tension positive at each end, V along +y, M counter-clockwise. */
   ends: Map<number, { Ni: number; Nj: number; Vi: number; Vj: number; Mi: number; Mj: number }>;
   reactions: Map<number, { rx: number; rz: number; my: number }>;
-  residual: number;
+  forceResidual: number;
+  momentResidual: number;
 }
 
 export const memberKind = (m: PMember): MKind => (pinEnded(m) ? 'truss' : m.hingeI ? 'hingeI' : m.hingeJ ? 'hingeJ' : 'frame');
@@ -328,7 +329,8 @@ function assemble(
 
   const F = nodeForces(ends);
   const reactions = new Map<number, { rx: number; rz: number; my: number }>();
-  let residual = 0;
+  let forceResidual = 0;
+  let momentResidual = 0;
   for (const id of pm.nodeOrder) {
     const f = F.get(id) ?? { x: 0, z: 0, m: 0 };
     const l = nodalLoadAt(pm, id);
@@ -336,13 +338,13 @@ function assemble(
     const r = { rx: f.x - l.fx, rz: f.z - l.fz, my: f.m - l.my };
     const hasRy = allIndex.has(`${id}:ry`) || !!s?.ry;
     if (s) reactions.set(id, { rx: s.ux ? r.rx : 0, rz: s.uz ? r.rz : 0, my: s.ry ? r.my : 0 });
-    if (!s?.ux) residual = Math.max(residual, Math.abs(r.rx));
-    if (!s?.uz) residual = Math.max(residual, Math.abs(r.rz));
-    if (!s?.ry && hasRy) residual = Math.max(residual, Math.abs(r.my));
+    if (!s?.ux) forceResidual = Math.max(forceResidual, Math.abs(r.rx));
+    if (!s?.uz) forceResidual = Math.max(forceResidual, Math.abs(r.rz));
+    if (!s?.ry && hasRy) momentResidual = Math.max(momentResidual, Math.abs(r.my));
   }
   return {
     inext, all, allIndex, dofs, indep, T, deps, rigid, coords, byMember, kinds, kBlock, A, k, K,
-    QjAll, QeAll, Qj, Qe, Q, q, u, p, P0, P, fe, axialRows, ends, reactions, residual,
+    QjAll, QeAll, Qj, Qe, Q, q, u, p, P0, P, fe, axialRows, ends, reactions, forceResidual, momentResidual,
   };
 }
 

@@ -578,7 +578,7 @@ const stepsDe: Translations = {
   'steps.trusses.compat.endsTable': 'Stabendkräfte (N bei Zug positiv, V in lokaler +y-Richtung, M gegen den Uhrzeigersinn).',
   'steps.trusses.compat.supportTitle': 'Auflager {n}',
   'steps.trusses.compat.globalCheck': 'Globales Gleichgewicht',
-  'steps.trusses.compat.residual': 'Die größte Ungleichgewichtskraft an den freien Knoten beträgt {r} (kN oder kN·m).',
+  'steps.trusses.compat.residual': 'Maximale Ungleichgewichte an freien Knoten: {force} kN, {moment} kN·m.',
   'steps.trusses.compat.residualOk': 'Die freien Knoten sind im Gleichgewicht ✓.',
   'steps.trusses.compat.residualBad': 'Das Ungleichgewicht an den freien Knoten ist größer, als sich durch Rundung erklären lässt.',
   'steps.trusses.compat.momentCaption': 'Momentenlinie, auf der Zugseite angetragen.',

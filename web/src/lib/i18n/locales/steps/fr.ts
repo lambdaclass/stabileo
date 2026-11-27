@@ -578,7 +578,7 @@ const stepsFr: Translations = {
   'steps.trusses.compat.endsTable': 'Efforts d\'extrémité des barres (N positif en traction, V selon +y local, M dans le sens antihoraire).',
   'steps.trusses.compat.supportTitle': 'Appui {n}',
   'steps.trusses.compat.globalCheck': 'Équilibre global',
-  'steps.trusses.compat.residual': 'Le plus grand effort non équilibré aux nœuds libres vaut {r} (kN ou kN·m).',
+  'steps.trusses.compat.residual': 'Déséquilibres maximaux aux nœuds libres: {force} kN, {moment} kN·m.',
   'steps.trusses.compat.residualOk': 'Les nœuds libres sont en équilibre ✓.',
   'steps.trusses.compat.residualBad': 'Le déséquilibre des nœuds libres dépasse ce que les arrondis expliquent.',
   'steps.trusses.compat.momentCaption': 'Diagramme des moments fléchissants, tracé du côté tendu.',

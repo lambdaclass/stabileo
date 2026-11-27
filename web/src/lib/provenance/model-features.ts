@@ -65,7 +65,7 @@ export const FEATURE_IDS = [
   'native:duplicate-json-analysis-table-keys', 'native:wasm-iterable-load-fields', 'native:producer-wire-metadata',
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
-  'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
+  'steelMembers', 'steelChannelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
@@ -521,7 +521,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const loadsCode = roles.loads?.adapterId ?? null;
 
   const released = new Set<number>();
-  const sheared = new Set(values(s.sections).filter((x) => x.shearAreas != null).map((x) => x.id));
+  const sections = values(s.sections);
+  const channels = new Set(sections
+    .filter(section => typeof section === 'object' && 'shape' in section && (section.shape === 'C' || section.shape === 'U'))
+    .map(section => section.id));
+  const sheared = new Set(sections.filter((x) => x.shearAreas != null).map((x) => x.id));
   const fiberSections = new Set(Object.entries(s.fiberSections ?? {})
     .filter(([, section]) => (section.materials?.length ?? 0) > 0).map(([id]) => id));
   const hognestadSections = new Set(Object.entries(s.fiberSections ?? {})
@@ -545,6 +549,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (fam === 'timber' || fam === 'aluminium') f.add('timberOrAluminiumMembers');
     if (fam === 'steel') {
       steel++;
+      if (e.sectionId !== undefined && channels.has(e.sectionId)) f.add('steelChannelMembers');
       if (!e.tensionConnection?.i || !e.tensionConnection?.j) steelWithoutConnection++;
       if ((e.unbracedLength ?? 0) > 0 || e.bracing?.top?.length || e.bracing?.bottom?.length) steelDeclaredLb++;
       if ([e.tensionConnection?.i, e.tensionConnection?.j].some((c) => c?.kind === 'bolted' && (staggerGiven(c.stagger) || (c.connected === 'all' && c.webLines === 0)))) steelChainEnd++;

@@ -83,6 +83,7 @@ export interface F62Input {
   tf?: number;
   /** Minor-axis inertia, m⁴ — the app's `iz` for a tall section. */
   iMinor?: number;
+  minimumSy?: number;
   /** Yield strength, MPa. With it the branch is selected (Table B.4.1b case 14). */
   fy?: number;
   /** Elastic modulus, MPa (default 200 000 — Table B.4.1b's own E). */
@@ -147,7 +148,9 @@ export function f62Report(input: F62Input): F62Report {
    * can use immediately: if their λrf says the flange is slender, this is their Fcr.
    */
   const fcr = 138000 / (lambdaF * lambdaF);
-  const sy = iMinor != null && iMinor > 0 && b != null && b > 0 ? iMinor / (b / 2) : null;
+  const sy = divisor === 2 && iMinor != null && Number.isFinite(iMinor) && iMinor > 0
+    ? iMinor / bf
+    : input.minimumSy != null && Number.isFinite(input.minimumSy) && input.minimumSy > 0 ? input.minimumSy : null;
 
   const geometry = {
     bfM: bf, flangeSlenderness: lambdaF, slendernessFormula: 'bf/tf' as const,

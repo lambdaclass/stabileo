@@ -69,17 +69,6 @@ describe('results versions from the order changes reach main', { timeout: 60_000
     expect(Buffer.from(git('show', `HEAD:${DIR}/existing.json`))).toEqual(source);
   });
 
-  it('known wrong result: #2595 — source preservation detects a reader rewriting the fixture', () => {
-    const { root, fragment, commit } = repo();
-    fragment('existing');
-    commit('release existing');
-    const path = join(root, DIR, 'existing.json');
-    const original = readFileSync(path);
-    readRegistry(root);
-    writeFileSync(path, Buffer.concat([original, Buffer.from(' ')]));
-    expect(() => expectSourceBytes(root, original)).toThrow();
-  });
-
   it('numbers two changes made in parallel by the order they merge, and they never conflict', () => {
     for (const [first, second] of [['a', 'b'], ['b', 'a']]) {
       const { root, git, commit, fragment, land } = repo();

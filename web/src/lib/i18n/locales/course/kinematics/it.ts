@@ -62,7 +62,7 @@ const words: Translations = {
   "course.kinematics.dm.stiff.fullNote": "Asta incastrata a entrambi gli estremi. Δ⊥ è la traslazione relativa trasversale all’asta; ψ = Δ⊥/L è la rotazione della sua corda. ",
   "course.kinematics.dm.stiff.fullCaption": "Aste con entrambi gli estremi rigidi. ",
   "course.kinematics.dm.stiff.threeNote": "Asta con l’estremo j incernierato: il suo momento è nullo (o pari alla coppia applicata), quindi la rotazione di quell’estremo non serve. ",
-  "course.kinematics.dm.stiff.threeWhy": "Svincolare l’estremo incernierato trasferisce metà del suo momento all’altro: 4EI/L − (2EI/L)·½ = 3EI/L. Questa è la rigidezza modificata. ",
+  "course.kinematics.dm.stiff.threeWhy": "Svincolare l’estremo incernierato trasferisce metà della correzione di rilascio all’altro estremo se bloccato: 4EI/L − (2EI/L)·½ = 3EI/L. Questa è la rigidezza modificata. ",
   "course.kinematics.dm.stiff.threeCaption": "Aste con un estremo incernierato (rigidezza modificata). ",
   "course.kinematics.dm.stiff.released": "Estremo incernierato ",
   "course.kinematics.dm.stiff.releasedAt": "in {n} ",

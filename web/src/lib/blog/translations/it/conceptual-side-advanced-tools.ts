@@ -94,7 +94,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "La formula del grado di iperstaticità dà GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. Zero significa isostatica, e qualsiasi programma che si ferma alla formula lo riporterà esattamente così. Ma nulla trattiene la trave in orizzontale: è un meccanismo e non si può risolvere."
+      "t": "La formula del grado di iperstaticità dà GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. Zero soddisfa la condizione di conteggio. Per stabilire l’isostaticità occorre verificare anche la stabilità cinematica. Ma nulla trattiene la trave in orizzontale: è un meccanismo e non si può risolvere."
     },
     {
       "k": "table",

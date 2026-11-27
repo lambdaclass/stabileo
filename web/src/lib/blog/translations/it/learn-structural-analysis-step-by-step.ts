@@ -44,7 +44,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "È l’unità più ampia: travi continue con l’equazione dei tre momenti e la distribuzione dei momenti, telai con il metodo delle rotazioni, distribuzione dei momenti con e senza spostamento laterale e metodo degli spostamenti, travature reticolari per nodi, per sezioni (Ritter) e con la matrice di compatibilità, e deformazioni per doppia integrazione, area dei momenti, lavori virtuali e Castigliano. Il grado di iperstaticità si conta allo stesso modo ovunque (GH = 3·m + r − 3·n − c per un telaio piano, GH = m + r − 2·n per una travatura reticolare), con le cerniere interne scritte per esteso e suddivise nelle sue parti esterna e interna."
+      "t": "È l’unità più ampia: travi continue con l’equazione dei tre momenti e la distribuzione dei momenti, telai con il metodo delle rotazioni, distribuzione dei momenti con e senza spostamento laterale e metodo degli spostamenti, travature reticolari per nodi, per sezioni (Ritter) e con la matrice di compatibilità, e deformazioni per doppia integrazione, area dei momenti, lavori virtuali e Castigliano. Per una struttura cinematicamente stabile il conteggio dà il grado di iperstaticità. In generale dà il numero di ridondanze meno il numero di meccanismi (GH = 3·m + r − 3·n − c per un telaio piano, GH = m + r − 2·n per una travatura reticolare), con le cerniere interne scritte per esteso e suddivise nelle sue parti esterna e interna."
     },
     {
       "k": "p",
@@ -170,7 +170,7 @@ const body: PostBody = {
         [
           "Analisi plastica",
           "2",
-          "Metodo cinematico; metodo statico (trattenuto fino alla correzione di #758)"
+          "Metodo cinematico; metodo statico (entrambi disattivati fino alla correzione di #758)"
         ],
         [
           "Dinamica strutturale",

@@ -120,6 +120,15 @@ it('identifies each released recheck once in the Italian 0.6.2 notes', () => {
   expect(rows.map(([, version, , path]) => version + ' docs/' + path).sort())
     .toEqual(released.map(change => change.resultsVersion + ' ' + change.changelog.file).sort());
   expect(new Set(rows.map(([, , label]) => label)).size).toBe(released.length);
+  const expectedLinks: Record<string, [string, string]> = {
+    'planar-remapped-load-integrals': ['I carichi parziali conservano estremi e intensità interpolati dopo la suddivisione', '#compensated-force-totals-and-remapped-load-refusal-round-67-2223'],
+    'roller-z-fixed-design': ['Le verifiche di progetto 3D usano la distribuzione delle forze degli appoggi corretti', '#coverage-and-applicability'],
+  };
+  const expected = released.map(change => {
+    const [label, anchor] = expectedLinks[change.id] ?? [change.title.it, ''];
+    return `| ${change.resultsVersion} | [${label}](../${change.changelog.file.slice('docs/'.length)}${anchor}) |`;
+  });
+  expect(rows.map(row => row[0]).sort()).toEqual(expected.sort());
 });
 
 it.each([

@@ -105,18 +105,18 @@ const body: PostBody = {
           "Iniziale",
           "25×40 cm",
           "3Ø16",
-          "80.8",
-          "73.3",
-          "1.10",
+          "80,8",
+          "73,3",
+          "1,10",
           "No"
         ],
         [
           "Corretta",
           "30×55 cm",
           "3Ø16",
-          "105.6",
-          "108.6",
-          "0.97",
+          "105,6",
+          "108,6",
+          "0,97",
           "Sì"
         ]
       ]
@@ -160,25 +160,25 @@ const body: PostBody = {
         [
           "Intatto",
           "25×50 (4Φ16)",
-          "54.2",
-          "125.3",
-          "0.43",
+          "54,2",
+          "125,3",
+          "0,43",
           "Sì"
         ],
         [
           "Pilastro eliminato",
           "25×50 (4Φ16)",
-          "203.9",
-          "125.3",
-          "1.63",
+          "203,9",
+          "125,3",
+          "1,63",
           "No"
         ],
         [
           "Ridimensionata",
           "30×65 (5Φ20)",
-          "189.8",
-          "313.7",
-          "0.61",
+          "189,8",
+          "313,7",
+          "0,61",
           "Sì"
         ]
       ]
@@ -195,7 +195,7 @@ const body: PostBody = {
       "k": "ol",
       "items": [
         "Azioni tipizzate invece di generazione di codice libero. In diversi sistemi precedenti, il modello scrive script Python che vengono poi eseguiti su un solutore esterno. Qui l’output dell’agente è limitato a un insieme chiuso di chiamate con contratti espliciti di ingresso e uscita, ciascuna validata rispetto a uno schema prima di essere eseguita. Quel confine è più stretto del codice arbitrario e più facile da verificare.",
-        "Un solutore nostro, invece di uno strato sopra quello di qualcun altro. Il motore è scritto da zero in Rust, senza dipendenze esterne di algebra lineare, e ha una propria suite di verifica rispetto a soluzioni analitiche e benchmark di riferimento: circa 6.800 test superati, più confronti con un programma commerciale sugli stessi modelli, con differenze inferiori allo 0,1%.",
+        "Un solutore nostro, invece di uno strato sopra quello di qualcun altro. Il motore è scritto da zero in Rust, senza dipendenze esterne di algebra lineare, e ha una propria suite di verifica rispetto a soluzioni analitiche e benchmark di riferimento: circa 6 800 test superati, più confronti con un programma commerciale sugli stessi modelli, con differenze inferiori allo 0,1%.",
         "Conformità nativa alle norme di progetto. Verifiche secondo CIRSOC 201 e 301, che non abbiamo trovato implementate in modo nativo in alcun software open source. Il modulo per il calcestruzzo è implementato e testato; il modulo per l’acciaio vive ancora solo nel frontend e non ha una suite di test dedicata. Lo diciamo per non sopravvalutarne la maturità.",
         "Funziona nel browser. Il motore si compila in WebAssembly e gira in locale sulla macchina dell’utente, senza server di calcolo e senza nulla da installare."
       ]
@@ -223,7 +223,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Equilibrio globale: ΣR = P, indipendentemente da geometria, materiali o vincoli.",
+        "Equilibrio globale: ΣR + ΣF_applicate = 0 per le forze con segno negli stessi assi globali in equilibrio statico.",
         "Simmetria della matrice di rigidezza: K = Kᵀ per costruzione.",
         "La matrice di rigidezza elastica lineare, ridotta ai gradi di libertà liberi di una struttura stabile e correttamente vincolata, è definita positiva.",
         "Invarianza per trasformazioni di corpo rigido: traslare o ruotare un modello non cambia le sollecitazioni interne."

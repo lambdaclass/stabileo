@@ -67,9 +67,20 @@ it.each([['−20', '+20'], ['−20', '20'], ['10⁻⁸', '10⁸']])('distinguish
   expect(numbers(original)).not.toEqual(numbers(mutation));
 });
 
-it('supplies complete keys with the same numbers in all ten locales', () => {
+function checkEquations(equations: string) {
+  expect(equations).toContain('det(K − ω²M) = 0');
+  expect(equations).toContain('Sa = 1 m/s²');
+  expect(numbers(equations).sort()).toEqual(numbers(translations.en.equations).sort());
+}
+
+it.each([['K − ω²M', 'K + ω²M'], ['m/s²', 'm/s']])('known wrong result: #2595 — rejects %s replaced by %s', (from, to) => {
+  expect(() => checkEquations(translations.it.equations.replace(from, to))).toThrow();
+});
+
+it('supplies complete keys with the same numbers in all public locales', () => {
   for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'] as const) {
     expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
+    checkEquations(translations[locale].equations);
     expect(translations[locale].limitations).toHaveLength(3);
     expect(translations[locale].title).not.toEqual(translations.en.title);
     expect(translations[locale].lead).not.toEqual(translations.en.lead);
@@ -89,10 +100,4 @@ it('matches the closed form through the real production WASM boundary', async ()
       expect(Math.abs(difference(actual, benchmark.reference[rule === 'SRSS' ? 'roofSRSS' : 'roofCQC'][i]))).toBeLessThan(benchmark.relativeTolerance * 100);
     }
   }
-});
-
-it('#2613 — distinguishes opposite signs in the characteristic equation', () => {
-  const equation = translations.en.equations;
-  expect(equation).toContain('det(K − ω²M) = 0');
-  expect(numbers(equation.replace('K − ω²M', 'K + ω²M'))).not.toEqual(numbers(equation));
 });

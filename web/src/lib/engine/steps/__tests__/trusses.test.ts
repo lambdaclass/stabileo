@@ -311,7 +311,8 @@ describe('compatibility-matrix method', () => {
     expectCompareAgrees(doc, 1e-6);
     expectWordsExist(doc);
     const cm = internals.compatSolve(ctx.pm)!;
-    expect(cm.residual).toBeLessThan(1e-8);
+    expect(cm.forceResidual).toBeLessThan(1e-8);
+    expect(cm.momentResidual).toBeLessThan(1e-8);
   });
 
   it('refuses special supports and too many degrees of freedom', async () => {
@@ -395,7 +396,8 @@ describe('compatibility-matrix method, inextensible frame members', () => {
       expect(cm.dofs.length + cm.deps.length).toBe(flex.dofs.length);
       // No frame member keeps an elongation coordinate.
       expect(cm.coords.some((c) => c.local === 3)).toBe(false);
-      expect(cm.residual).toBeLessThan(1e-8);
+      expect(cm.forceResidual).toBeLessThan(1e-8);
+      expect(cm.momentResidual).toBeLessThan(1e-8);
       const doc = compat.build!(ctx);
       expect(notes(doc)).toContain('steps.trusses.compat.inext.on');
       const w = worstCompare(doc);
@@ -471,4 +473,10 @@ describe('compatibility-matrix method, inextensible frame members', () => {
       expectTexParses(compat.build!(ctxNow()));
     }
   });
+});
+
+it.each(['portal-frame', 'truss'])('known wrong result: #2595 — separate free force and moment residuals on %s', async name => {
+  const ctx = await example(name);
+  const report = txtsOf(compat.build!(ctx)).find(text => text.key === 'steps.trusses.compat.residual');
+  expect(report?.params).toEqual({ force: expect.any(String), moment: expect.any(String) });
 });

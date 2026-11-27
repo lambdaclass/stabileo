@@ -192,7 +192,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Le verifiche del calcestruzzo e dell’acciaio conservano le sollecitazioni della stessa combinazione e della stessa sezione. Dati incompleti di combinazione o di sezione ora vengono rifiutati invece di prendere in prestito il risultato di un estremo. Gli stati di armatura richiesta e fornita restano separati e la mancanza di armatura longitudinale a torsione viene segnalata esplicitamente."
+      "t": "Le verifiche del calcestruzzo e dell’acciaio conservano le sollecitazioni della stessa combinazione e della stessa sezione. La 0.6.1 rifiuta alcuni dati incompleti, ma poteva ancora accettare sollecitazioni concomitanti mancanti (#2096, SA-2026-071). Verificale indipendentemente o riesegui le verifiche con la 0.6.2 o successiva. Gli stati di armatura richiesta e fornita restano separati e la mancanza di armatura longitudinale a torsione viene segnalata esplicitamente."
     },
     {
       "k": "h",
