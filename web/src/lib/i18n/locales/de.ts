@@ -14385,6 +14385,7 @@ const de: Translations = {
   'floorLoad.addedPlates': 'Jeder gewählten Platte wurde eine Last hinzugefügt ({n}).',
   'building.walls.meshAtSolveHint': 'Jede Wand bleibt eine Platte ohne Netz, so bleibt das Modell leicht. Die erste Berechnung vernetzt sie in der angegebenen Größe, mit Linien an den Rändern der Öffnungen.',
   'building.walls.meshNowHint': 'Jede Wand wird jetzt in der angegebenen Größe vernetzt.',
+  'plates.planning': 'Vorbereitung {done} von {total}…',
   'plates.progressPlanning': 'Netz wird geplant: {done} von {total} Platten',
   'plates.progressMeshing': 'Vernetzung: {done} von {total} Platten',
   'plates.problem.needNodes': 'Mindestens drei vorhandene Knoten sind erforderlich.',

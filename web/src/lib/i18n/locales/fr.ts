@@ -14385,6 +14385,7 @@ const fr: Translations = {
   'floorLoad.addedPlates': 'Une charge a été ajoutée à chaque plaque choisie ({n}).',
   'building.walls.meshAtSolveHint': 'Chaque mur reste une plaque non maillée et le modèle reste léger. Le premier calcul le maille à la taille indiquée, avec des lignes sur les bords des ouvertures.',
   'building.walls.meshNowHint': 'Chaque mur est maillé maintenant à la taille indiquée.',
+  'plates.planning': 'Préparation {done} sur {total}…',
   'plates.progressPlanning': 'Planification du maillage : {done} sur {total} plaques',
   'plates.progressMeshing': 'Maillage : {done} sur {total} plaques',
   'plates.problem.needNodes': 'Il faut au moins trois nœuds existants.',

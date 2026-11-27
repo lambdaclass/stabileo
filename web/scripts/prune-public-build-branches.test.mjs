@@ -77,7 +77,7 @@ test('removes the component import when its only use was in discarded markup', (
   assert.equal(prunePublicBuildBranches(sideEffect + branch, off).code, sideEffect);
 });
 
-test.skip('known wrong result: #1928 the original switches retain the published component module dependency', () => {
+test('known wrong result: #1928 the original switches retain the published component module dependency', () => {
   const header = "<script>import Picker from './Picker.svelte';</script>";
   for (const flag of ['research', 'accounts', 'tools', 'globalAxes', 'diagramGame']) {
     const code = header + `{#if __PUBLIC_FEATURES__.${flag}}<Picker />{/if}`;

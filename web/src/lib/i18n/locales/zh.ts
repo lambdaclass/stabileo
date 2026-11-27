@@ -14996,6 +14996,7 @@ const zh: Translations = {
   "floorLoad.addedPlates": "已为每块选中的板添加一项荷载（共 {n} 块）。",
   "building.walls.meshAtSolveHint": "各墙先保留为未划分网格的板，以减小模型规模。首次分析时按指定尺寸划分网格，并沿洞口边缘布置网格线。",
   "building.walls.meshNowHint": "立即按指定尺寸为每面墙划分网格。",
+  "plates.planning": "正在规划 {done} / {total}…",
   "plates.progressPlanning": "正在规划网格：{done}/{total} 块板",
   "plates.progressMeshing": "正在划分网格：{done}/{total} 块板",
   "plates.header": "{plates} 块板 · {elements} 个网格单元",

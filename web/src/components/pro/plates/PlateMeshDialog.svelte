@@ -157,7 +157,11 @@
 
     {#if progress}
       <div class="pmd-progress" data-testid="plate-mesh-progress">
-        <MeshProgressBar phase="planning" done={progress.done} total={progress.total} />
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}
+          <MeshProgressBar phase="planning" done={progress.done} total={progress.total} />
+        {:else}
+          {tp('plates.planning', { done: progress.done, total: progress.total })}
+        {/if}
         <button class="pmd-btn" onclick={cancel}>{t('plates.stop')}</button>
       </div>
     {/if}

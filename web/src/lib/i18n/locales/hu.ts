@@ -14976,6 +14976,7 @@ const hu: Translations = {
   "floorLoad.addedPlates": "Minden kijelölt lemez kapott egy terhet ({n}).",
   "building.walls.meshAtSolveHint": "Minden fal hálózatlan lemez marad, így a modell könnyű marad. Az első analízis a megadott méretben hálózza, a nyílások szélein vonalakkal.",
   "building.walls.meshNowHint": "Minden fal most hálózódik a megadott méretben.",
+  "plates.planning": "Tervezés: {done} / {total}…",
   "plates.progressPlanning": "A háló tervezése: {done} / {total} lemez",
   "plates.progressMeshing": "Hálózás: {done} / {total} lemez",
   "plates.header": "{plates} lemez · {elements} hálóelem",

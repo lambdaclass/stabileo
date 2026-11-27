@@ -12,3 +12,5 @@ The published PRO gallery opens its existing models directly. Generated building
 The published results table shows the full known-issue warning above the numeric tabs in both planar and spatial models. The original diagnostic identifiers remain visible to readers of the published table and PRO diagnostics.
 
 With unified plates disabled, the project recheck asks for acknowledgement when a saved project is reopened in a new session. The read checkbox, the stale-result actions and the under-review notice follow the published workflow.
+
+The published viewport keeps its standalone notices. Mesh planning still reports progress in the plate dialog and serializes changes to the model. The floating progress cards and their expanded recheck controls ship with their respective features.

@@ -1,8 +1,6 @@
 <script lang="ts">
   import OutdatedNotice from './components/pro/design/OutdatedNotice.svelte';
-  import { modelAuditFeatures, underAudit, UNDER_AUDIT_URL } from './lib/provenance/under-audit';
-  import { recheckBanner, boardCovered } from './lib/store/recheck-banner.svelte';
-  import type { ResultNotice } from './lib/store/result-notices';
+  import { modelAuditFeatures } from './lib/provenance/under-audit';
   import { verificationStore } from './lib/store/verification.svelte';
   import { accountGate } from './lib/store/account-gate.svelte';
   import { editorNeedsAccount, framedByAnotherPage } from './lib/store/editor-gate';
@@ -13,14 +11,8 @@
   import './lib/i18n/full-dictionaries';
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
-  import MeshProgressCard from './components/pro/plates/MeshProgressCard.svelte';
-  import SolveProgressCard from './components/SolveProgressCard.svelte';
-  import ExampleProgressCard from './components/pro/ExampleProgressCard.svelte';
-  import { exampleProgress } from './lib/store/example-progress.svelte';
-  import { solveProgress } from './lib/store/solve-progress.svelte';
-  import RcSheetsProgressCard from './components/pro/rc-sheets/RcSheetsProgressCard.svelte';
-  import { sheetsProgress } from './lib/store/rc-sheets-progress.svelte';
-  import { meshProgress } from './lib/store/mesh-progress.svelte';
+  import ProgressToasts from './components/ProgressToasts.svelte';
+  import type { Snippet } from 'svelte';
   import { is3DWorkspace } from './lib/utils/workspace';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
@@ -31,6 +23,7 @@
   import { accounts } from './lib/features';
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
   import AdoptedReinforcementNotice from './components/AdoptedReinforcementNotice.svelte';
+  import ModelNoticeBoard from './components/notices/ModelNoticeBoard.svelte';
   import ContainmentBanner from './components/ContainmentBanner.svelte';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
@@ -1458,27 +1451,7 @@
     window.addEventListener('mouseup', onUp);
   }
 
-  const appNotices = $derived.by((): ResultNotice[] => {
-    const out: ResultNotice[] = [];
-    if (!__PUBLIC_FEATURES__.proPlatesUnified) return out;
-    if (recheckBanner.text && !boardCovered()) out.push({ kind: 'outdated', level: recheckBanner.alert ? 'blocking' : 'warning', details: [], key: `${recheckBanner.alert ? 'advisory' : 'stale'}:${recheckBanner.text}` });
-    if (!deskUi.open && !rebarWorkspace.open && underAudit([...modelAuditFeatures(modelStore.model), ...(verificationStore.concrete.length ? ['rc-design' as const] : [])])) out.push({ kind: 'underReview', level: 'info', details: [] });
-    return out;
-  });
 </script>
-
-{#snippet noticeActions(kind: string)}
-  {#if kind === 'outdated'}
-    <span class="notice-actions" data-testid="recheck-stale-banner" role={recheckBanner.alert ? 'alert' : 'status'}>
-      <span class="notice-text" data-testid={recheckBanner.alert ? 'recheck-advisory-banner' : undefined}>{recheckBanner.text}</span>
-      <button type="button" onclick={() => recheckBanner.review()} data-testid="recheck-banner-details">{t('recheck.bannerDetails')}</button>
-      {#if recheckBanner.canRerun}<button type="button" class="primary" disabled={recheckBanner.busy} onclick={() => recheckBanner.rerun()} data-testid="recheck-banner-rerun">{t('recheck.bannerRerun')}</button>{/if}
-    </span>
-  {:else if kind === 'underReview'}
-    <a href={UNDER_AUDIT_URL} target="_blank" rel="noopener noreferrer" data-testid="under-audit-notice">{t('notices.underReviewMore')}</a>
-  {/if}
-{/snippet}
-
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
@@ -2030,7 +2003,7 @@
           {/if}
         {/snippet}
         {#if __PUBLIC_FEATURES__.proPlatesUnified}
-          <ContainmentBanner preserveModel extra={appNotices} actions={noticeActions} onDiagnostics={uiStore.appMode === 'pro' ? () => (uiStore.proActiveTab = 'diagnostics') : undefined} disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues} diagnostics={uiStore.is3DWorkspace ? resultsStore.knownIssueDiagnostics3D : resultsStore.knownIssueDiagnostics} children={viewport} />
+          <ModelNoticeBoard children={viewport} />
         {:else}
           <ContainmentBanner preserveModel disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues} children={viewport} />
         {/if}
@@ -2386,14 +2359,9 @@
 <RebarWorkspace />
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if uiStore.toasts.length > 0 || meshProgress.now || (__PUBLIC_FEATURES__.proRcSheets && sheetsProgress.now) || (__PUBLIC_FEATURES__.proPlatesUnified && (solveProgress.now || exampleProgress.now))}
+{#snippet toastContainer(progress?: Snippet)}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
-    {#if __PUBLIC_FEATURES__.proPlatesUnified}
-      <ExampleProgressCard />
-      <SolveProgressCard />
-    {/if}
-    {#if !__PUBLIC_FEATURES__.proPlatesUnified || solveProgress.now?.phase !== 'mesh'}<MeshProgressCard />{/if}
-    {#if __PUBLIC_FEATURES__.proRcSheets}<RcSheetsProgressCard />{/if}
+    {@render progress?.()}
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
@@ -2422,6 +2390,11 @@
       </div>
     {/each}
   </div>
+{/snippet}
+{#if __PUBLIC_FEATURES__.proPlatesUnified || __PUBLIC_FEATURES__.proRcSheets}
+  <ProgressToasts hasToasts={uiStore.toasts.length > 0} container={toastContainer} />
+{:else}
+  {#if uiStore.toasts.length > 0}{@render toastContainer()}{/if}
 {/if}
 
 {#if uiStore.liveCalcError}
@@ -2451,7 +2424,11 @@
   The re-check notice for a project last solved with an older version, and the banner that keeps
   its results marked stale until they are re-run (`lib/store/recheck.svelte.ts`).
 -->
-<RecheckNotice hostedOnBoard={__PUBLIC_FEATURES__.proPlatesUnified} />
+{#if __PUBLIC_FEATURES__.proPlatesUnified}
+  <RecheckNotice hostedOnBoard />
+{:else}
+  <RecheckNotice />
+{/if}
 <WorkspaceSaveNotice />
 <ReproduceDialog />
 {#if __PUBLIC_FEATURES__.tools && mohrPanel.open}
@@ -2542,11 +2519,6 @@
 </div>
 
 <style>
-  .notice-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; }
-  .notice-text { flex-basis: 100%; }
-  .notice-actions button { min-height: 44px; padding: 0 10px; border: 1px solid var(--st-hair-strong); border-radius: 4px; background: transparent; color: var(--st-text); font: inherit; cursor: pointer; }
-  .notice-actions button.primary { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }
-  .notice-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
   .saved-plane-choice {
     display: flex;
     flex-wrap: wrap;

@@ -369,17 +369,22 @@ test('known wrong result: #1928 load family choices follow the generator while s
   }
 });
 
-test.skip('known wrong result: #1928 mesh progress and board actions enter the root module only in the unified profile', async () => {
+test('known wrong result: #1928 mesh progress and board actions enter the root module only in the unified profile', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
       const entry = resolve(root, 'src/App.svelte');
       const result = await build({ root, configFile, logLevel: 'silent', build: {
         write: false, lib: { entry, formats: ['es'] },
-        rollupOptions: { external: (_id, from) => from === entry },
+        rollupOptions: { external: (id, from) => {
+          if (!from || id.includes('?svelte&type=style')) return false;
+          if (from === entry) return !id.endsWith('/ProgressToasts.svelte');
+          return from.endsWith('/ProgressToasts.svelte');
+        } },
       } });
       const output = (Array.isArray(result) ? result[0] : result).output;
       const chunk = output.find(item => item.type === 'chunk');
       assert.equal(Object.keys(chunk.importedBindings).some(id => id.includes('MeshProgressCard')), enabled);
+      assert.equal(Object.keys(chunk.importedBindings).some(id => id.includes('ModelNoticeBoard')), enabled);
       assert.equal(Object.keys(chunk.importedBindings).some(id => id.includes('AdoptedReinforcementNotice')), true);
       if (!enabled) {
         assert.equal(chunk.code.includes('recheck-banner-rerun'), false);

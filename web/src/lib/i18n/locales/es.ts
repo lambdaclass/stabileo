@@ -14917,6 +14917,7 @@ const es: Record<string, string> = {
   "floorLoad.addedPlates": "Se agregó una carga a cada placa elegida ({n}).",
   "building.walls.meshAtSolveHint": "Cada muro queda como una placa sin mallar y el modelo sigue liviano. El primer cálculo lo malla al tamaño indicado, con líneas en los bordes de las aberturas.",
   "building.walls.meshNowHint": "Cada muro se malla ahora al tamaño indicado.",
+  "plates.planning": "Preparando {done} de {total}…",
   "plates.progressPlanning": "Planificando la malla: {done} de {total} placas",
   "plates.progressMeshing": "Mallando: {done} de {total} placas",
   "plates.problem.needNodes": "Hacen falta al menos tres nodos existentes.",

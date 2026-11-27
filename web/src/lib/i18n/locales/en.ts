@@ -14928,6 +14928,7 @@ const en: Record<string, string> = {
   "floorLoad.addedPlates": "A load was added to each selected plate ({n}).",
   "building.walls.meshAtSolveHint": "Each wall stays an unmeshed plate, so the model stays light. The first analysis meshes it at the size given, with lines on the edges of its openings.",
   "building.walls.meshNowHint": "Each wall is meshed now at the size given.",
+  "plates.planning": "Planning {done} of {total}…",
   "plates.progressPlanning": "Planning the mesh: {done} of {total} plates",
   "plates.progressMeshing": "Meshing: {done} of {total} plates",
   "plates.problem.needNodes": "At least three existing nodes are needed.",

@@ -14385,6 +14385,7 @@ const tr: Translations = {
   'floorLoad.addedPlates': 'Seçilen her plağa bir yük eklendi ({n}).',
   'building.walls.meshAtSolveHint': 'Her duvar ağsız bir plak olarak kalır, model hafif kalır. İlk hesap onu belirtilen boyutta, açıklıkların kenarlarında çizgilerle ağlar.',
   'building.walls.meshNowHint': 'Her duvar şimdi belirtilen boyutta ağlanır.',
+  'plates.planning': 'Hazırlanıyor {done} / {total}…',
   'plates.progressPlanning': 'Ağ planlanıyor: {total} plaktan {done}',
   'plates.progressMeshing': 'Ağlanıyor: {total} plaktan {done}',
   'plates.problem.needNodes': 'En az üç mevcut düğüm gerekir.',

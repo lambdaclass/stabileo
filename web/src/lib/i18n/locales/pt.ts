@@ -14570,6 +14570,7 @@ const pt: Translations = {
   "floorLoad.addedPlates": "Foi adicionada uma carga a cada placa escolhida ({n}).",
   "building.walls.meshAtSolveHint": "Cada parede fica como uma placa sem malha e o modelo continua leve. O primeiro cálculo a malha no tamanho indicado, com linhas nas bordas das aberturas.",
   "building.walls.meshNowHint": "Cada parede é malhada agora no tamanho indicado.",
+  "plates.planning": "Preparando {done} de {total}…",
   "plates.progressPlanning": "Planejando a malha: {done} de {total} placas",
   "plates.progressMeshing": "Malhando: {done} de {total} placas",
   "plates.problem.needNodes": "São necessários pelo menos três nós existentes.",
