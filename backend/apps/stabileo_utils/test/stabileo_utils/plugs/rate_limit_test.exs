@@ -28,7 +28,7 @@ defmodule StabileoUtils.Plugs.RateLimitTest do
     refute call(opts, ada).halted
     refute call(opts, ada).halted
 
-    limited = call(opts, ada)
+    limited = call(opts, Keyword.put(ada, :client_ip, "10.0.0.2"))
     assert limited.halted
     assert limited.status == 429
     assert Jason.decode!(limited.resp_body)["error"] == "rate_limited"
