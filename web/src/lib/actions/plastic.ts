@@ -11,7 +11,7 @@
  * limit analysis cannot take at all is withheld with the PL-2D-INVARIANCE message.
  */
 import { modelStore, uiStore } from '../store';
-import { plasticMoments, DEFAULT_FY, type SectionMp } from '../engine/plastic-moments';
+import { plasticMoments, capacitiesByMember, plasticMaterials, plasticWireSections, DEFAULT_FY, type SectionMp } from '../engine/plastic-moments';
 import { plasticCollapse2D, type PlasticCollapseResult } from '../engine/plastic-collapse';
 import { advancedRefusal2D, variableRefusal2D } from '../engine/solver-service';
 import { t } from '../i18n';
@@ -56,11 +56,11 @@ export function runPlasticCollapse(): PlasticRun | null {
   const refusal = variableRefusal2D(modelStore.model) ?? advancedRefusal2D(input);
   if (refusal) throw new Error(refusal);
   const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
-  const mpOfSection = new Map(mps.map((m) => [m.sectionId, m.mp]));
+  const mp = memberPlasticMoments(input, mps);
   let result: PlasticCollapseResult;
   try {
     result = plasticCollapse2D(input, {
-      mp: (id) => mpOfSection.get(input.elements.get(id)!.sectionId) ?? Infinity,
+      mp: (id) => mp.get(id) ?? Infinity,
       np: (id) => {
         const e = input.elements.get(id)!;
         const fy = modelStore.materials.get(e.materialId)?.fy || DEFAULT_FY;
@@ -73,11 +73,11 @@ export function runPlasticCollapse(): PlasticRun | null {
   }
   if (result.unloaded) throw new Error(t('advanced.plasticNoLoads'));
   if (result.withheld) {
-    plasticCourse.remember(input, memberPlasticMoments(input, mpOfSection), result);
+    plasticCourse.remember(input, mp, result);
     return { result, mps, uncertified: true };
   }
-  tagPlasticCertificate(result, input, mpOfSection);
-  plasticCourse.remember(input, memberPlasticMoments(input, mpOfSection), result);
+  tagPlasticCertificate(result, input, mps);
+  plasticCourse.remember(input, mp, result);
   return { result, mps };
 }
 
@@ -88,23 +88,15 @@ export function runPlasticCollapse(): PlasticRun | null {
  * against λc only when no bar yielded axially. A section with no Mp (one this analysis takes as
  * never yielding) has no counterpart there, and the result is not certified.
  */
-function tagPlasticCertificate(result: object, input: SolverInput, mpOfSection: Map<number, number>): void {
-  const sections: Record<string, { a: number; iz: number; materialId: number }> = {};
-  const mpOverrides: Record<string, number> = {};
-  for (const e of input.elements.values()) {
-    const s = input.sections.get(e.sectionId);
-    if (!s || String(e.sectionId) in sections) continue;
-    const mp = mpOfSection.get(e.sectionId);
-    if (!(mp !== undefined && Number.isFinite(mp) && mp > 0)) return;
-    sections[String(e.sectionId)] = { a: s.a, iz: s.iz, materialId: e.materialId };
-    mpOverrides[String(e.sectionId)] = mp;
-  }
-  const materials = Object.fromEntries([...input.materials.keys()].map((id) => [String(id), { fy: modelStore.materials.get(id)?.fy || DEFAULT_FY }]));
+function tagPlasticCertificate(result: object, input: SolverInput, moments: SectionMp[]): void {
+  if (moments.some(m => !(m.mp > 0 && Number.isFinite(m.mp)))) return;
+  const { elements, elastic, sections, mpOverrides } = plasticWireSections(input, moments, m => m.mp);
+  const materials = plasticMaterials(modelStore.materials);
   // The certificate refuses temperatures, settlements and axial span loads. None changes the
   // bending collapse factor (an axial span load does the same work as its shares at the nodes),
   // so it certifies the model without them, as the limit analysis solves it.
   const mechanical: SolverInput = {
-    ...input,
+    ...input, elements, sections: elastic,
     supports: new Map([...input.supports].map(([k, s]) => [k, { ...s, dx: undefined, dz: undefined, dry: undefined }])),
     loads: input.loads.flatMap((l) => (l.type === 'thermal' ? [] : l.type === 'axialDistributed' ? axialSpanToNodal2D(input, l.data) : [l])),
   };
@@ -112,7 +104,11 @@ function tagPlasticCertificate(result: object, input: SolverInput, mpOfSection: 
   tagCertifyJob(result, { name: 'certify_plastic_2d', args: [json] });
 }
 
-export function memberPlasticMoments(input: SolverInput, mpOfSection?: Map<number, number>): Map<number, number> {
-  const bySection = mpOfSection ?? new Map(plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements).map((m) => [m.sectionId, m.mp]));
-  return new Map([...input.elements.values()].filter((e) => e.type === 'frame').map((e) => [e.id, bySection.get(e.sectionId) ?? Infinity]));
+export function memberPlasticMoments(input: SolverInput, moments = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements)): Map<number, number> {
+  const byMember = capacitiesByMember(moments);
+  return new Map([...input.elements.values()].filter(e => e.type === 'frame').map(e => {
+    const capacity = byMember.get(e.id);
+    if (!capacity || capacity.materialId !== e.materialId) throw withheld();
+    return [e.id, capacity.mp];
+  }));
 }

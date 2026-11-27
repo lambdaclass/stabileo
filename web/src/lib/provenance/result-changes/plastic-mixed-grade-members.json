@@ -1,0 +1,47 @@
+{
+  "id": "plastic-mixed-grade-members",
+  "date": "2026-11-27",
+  "prs": [
+    1927
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "sharedSectionMaterials"
+      ],
+      [
+        "analysis:plastic",
+        "analysis:nonlinear"
+      ]
+    ]
+  },
+  "quantities": [
+    "collapseFactor",
+    "hinges"
+  ],
+  "title": {
+    "en": "Plastic collapse of members sharing a section across steel grades",
+    "es": "Colapso plástico de barras con igual sección y distintos aceros",
+    "pt": "Colapso plástico de barras com a mesma seção e aços diferentes",
+    "de": "Plastischer Kollaps bei gemeinsamem Querschnitt und unterschiedlichen Stahlgüten",
+    "fr": "Ruine plastique de barres de même section en aciers différents",
+    "hu": "Azonos szelvényű, különböző acélminőségű rudak képlékeny tönkremenetele",
+    "tr": "Aynı kesiti kullanan farklı çelik sınıflarındaki çubukların plastik göçmesi",
+    "zh": "相同截面、不同钢材牌号杆件的塑性倒塌"
+  },
+  "explanation": {
+    "en": "Each member uses its own yield stress. Rerun plastic analyses where members share a section but have different materials.",
+    "es": "Cada barra usa su propia tensión de fluencia. Repita los análisis plásticos si hay barras con la misma sección y distintos materiales.",
+    "pt": "Cada barra usa sua própria tensão de escoamento. Repita as análises plásticas de barras com a mesma seção e materiais diferentes.",
+    "de": "Jeder Stab verwendet seine eigene Streckgrenze. Wiederholen Sie plastische Berechnungen für Stäbe mit gleichem Querschnitt und verschiedenen Werkstoffen.",
+    "fr": "Chaque barre utilise sa propre limite d’élasticité. Relancez les analyses plastiques si des barres de même section ont des matériaux différents.",
+    "hu": "Minden rúd a saját folyáshatárát használja. Ismételje meg a képlékeny vizsgálatot, ha azonos szelvényű rudak anyaga eltér.",
+    "tr": "Her çubuk kendi akma gerilmesini kullanır. Aynı kesiti kullanan çubukların malzemeleri farklıysa plastik analizi yeniden çalıştırın.",
+    "zh": "每根杆件使用自身材料的屈服应力。如果相同截面的杆件采用不同材料，请重新运行塑性分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plastic-mixed-grade-members.md",
+    "heading": "Plastic collapse of members sharing a section across steel grades"
+  }
+}

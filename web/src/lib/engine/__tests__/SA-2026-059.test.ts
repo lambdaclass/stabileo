@@ -45,8 +45,8 @@ it('refuses buckling, influence lines, creep, imperfections and pushover without
     ['pushover', () => {
       modelStore.addNodalLoad3D(b, 1, 0, 0, 0, 0, 0, 1);
       const solver = centerlineInput();
-      const plastic = plasticForSolve(plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements), solver, id => modelStore.elements.get(id)?.sectionId);
-      return wasm.solvePlastic3D({ solver, sections: plastic.sections, materials: plastic.materials, mpOverrides: plastic.mpOverrides, maxHinges: 20 });
+      const plastic = plasticForSolve(plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements), solver);
+      return wasm.solvePlastic3D({ ...plastic, maxHinges: 20 });
     }],
   ];
   for (const [path, run] of paths) await cableRefusal(path, run, cable);

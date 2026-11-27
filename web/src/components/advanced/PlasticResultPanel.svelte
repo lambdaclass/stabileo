@@ -87,9 +87,9 @@
     <button class="small-btn" onclick={() => openMethod('plasticKinematic')} data-testid="plastic-open-kinematic">{t('steps.m.plasticKinematic.title')}</button>
     <button class="small-btn" onclick={() => openMethod('plasticStatic')} data-testid="plastic-open-static">{t('steps.m.plasticStatic.title')}</button>
   </div>
-  {#each mps as m (m.sectionId)}
+  {#each mps as m (m.memberIds[0])}
     <div class="adv-result-info" data-testid="plastic-mp">
-      {m.name}: Mp = {fmtQ(m.mp, 'moment')} {unitQ('moment')} (Zp = {sigQ(m.zp, 'sectionModulus')} {unitQ('sectionModulus')}, fy = {fy(m.fy)}) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {fyAssumedNote()}{/if}
+      {m.name} · {t('plastic.member')} {m.memberIds.join(', ')}: Mp = {fmtQ(m.mp, 'moment')} {unitQ('moment')} (Zp = {sigQ(m.zp, 'sectionModulus')} {unitQ('sectionModulus')}, fy = {fy(m.fy)}) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {fyAssumedNote()}{/if}
     </div>
   {/each}
 {/if}

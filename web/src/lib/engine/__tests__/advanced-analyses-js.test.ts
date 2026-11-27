@@ -196,9 +196,10 @@ describe('pushover', () => {
     const solvedSid = input.elements.get(2)!.sectionId;
     expect(solvedSid).not.toBe(1);
     const p = plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements);
-    expect(p.mpOverrides[String(solvedSid)]).toBeUndefined();
-    const fixed = plasticForSolve(p, input, (id) => modelStore.elements.get(id)?.sectionId);
-    expect(fixed.mpOverrides[String(solvedSid)]).toEqual(p.mpOverrides['1']);
+    expect(p.moments.map(m => m.sectionId)).not.toContain(solvedSid);
+    const fixed = plasticForSolve(p, input);
+    const m = p.moments.find(m => m.memberIds.includes(2))!;
+    expect(fixed.mpOverrides[String(solvedSid)]).toEqual([m.mp, m.mpz]);
   });
 });
 

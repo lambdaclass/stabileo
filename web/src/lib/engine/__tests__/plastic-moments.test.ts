@@ -60,6 +60,7 @@ describe('plastic moments', () => {
 describe('3-D pushover payload', () => {
   it('a steel cantilever collapses at Mp/(P·L), with the members’ fy and the profile’s own Zp', async () => {
     const { plasticInput3D, plasticMoments3D } = await import('../plastic-moments');
+    const { plasticForSolve } = await import('../advanced-analyses');
     const { solvePlastic3D, initSolver } = await import('../wasm-solver');
     const { buildSolverInput3D } = await import('../solver-service');
     await initSolver();
@@ -74,7 +75,7 @@ describe('3-D pushover payload', () => {
     const [m] = plasticMoments3D(modelStore.sections, modelStore.materials, modelStore.elements);
     expect(m.fy).toBe(355);
     expect(m.source).toBe('geometry');
-    const r = solvePlastic3D({ solver: buildSolverInput3D(modelStore.model as never, false, false), ...p, maxHinges: 5 });
+    const r = solvePlastic3D({ ...plasticForSolve(p, buildSolverInput3D(modelStore.model as never, false, false)!), maxHinges: 5 });
     expect(r.collapseFactor).toBeCloseTo(m.mp / (10 * 4), 4);
     uiStore.analysisMode = '2d';
   });

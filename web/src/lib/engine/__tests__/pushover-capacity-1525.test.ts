@@ -18,7 +18,7 @@ describe('the PRO pushover payload on 3D steel examples (#1525)', () => {
       await modelStore.loadExample(name);
       if (pushoverNonSteel(modelStore.elements.values(), modelStore.materials as never).length > 0) { outcome[name] = 'not steel'; continue; }
       const input = centerlineInput({ caseDisplacements: false });
-      const p = plasticForSolve(plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements), input as never, (id) => modelStore.elements.get(id)?.sectionId);
+      const p = plasticForSolve(plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements), input);
       for (const [, e] of (input as { elements: Map<number, { type: string; sectionId: number }> }).elements) {
         if (e.type !== 'frame') continue;
         const mp = p.mpOverrides[String(e.sectionId)];
@@ -26,7 +26,7 @@ describe('the PRO pushover payload on 3D steel examples (#1525)', () => {
         expect(mp!.every((m) => Number.isFinite(m) && m > 0), `${name}: section ${e.sectionId} ${mp}`).toBe(true);
       }
       try {
-        const r = solvePlastic3D({ solver: input, ...p, maxHinges: 2 });
+        const r = solvePlastic3D({ ...p, maxHinges: 2 });
         expect(r.collapseFactor, name).toBeGreaterThan(0);
         outcome[name] = `λ ${r.collapseFactor}`;
       } catch (err) {

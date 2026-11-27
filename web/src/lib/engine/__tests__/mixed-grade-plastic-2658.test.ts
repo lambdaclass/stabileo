@@ -39,7 +39,7 @@ function cantilevers(mode: '2d' | 'pro', idleFy: number, weak = false, modified 
   return { loaded, idle, mp: 235 * 1000 * zp, idleMp: idleFy * 1000 * zp };
 }
 
-describe.skip('known wrong result: #2658', () => {
+describe('#2658 member plastic capacity', () => {
   it.each([355, 235])('uses each cantilever’s material in Basic, teaching, history and certificate with unloaded grade %s', idleFy => {
     const { loaded, idle, mp, idleMp } = cantilevers('2d', idleFy);
     const input = modelStore.buildSolverInput(false)!;
@@ -65,8 +65,8 @@ describe.skip('known wrong result: #2658', () => {
       const { mp, loaded } = cantilevers('pro', idleFy, weak, modified);
       expect(pushoverNonSteel(modelStore.elements.values(), modelStore.materials as never)).toEqual([]);
       const solver = centerlineInput({ caseDisplacements: false });
-      const p = plasticForSolve(plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements), solver as never, id => modelStore.elements.get(id)?.sectionId);
-      const r = solvePlastic3D({ solver, ...p, maxHinges: 20 });
+      const p = plasticForSolve(plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements), solver);
+      const r = solvePlastic3D({ ...p, maxHinges: 20 });
       expect(knownIssueResultDisposition(r).refused).toBe(false);
       expect(r.isMechanism).toBe(true);
       expect(r.hinges[0].elementId).toBe(loaded);
