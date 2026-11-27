@@ -202,3 +202,39 @@ it('signed absolute residuals are stated for every locale', () => {
   }
   expect(strings.hu.tie).toContain('felső korlát');
 });
+
+it.each(['beam', 'sway'] as const)('checks signed %s collapse actions independently of the replay', mode => {
+  const p = { ...PAPER, vertical: (mode === 'beam' ? 4 : 0.5) * PAPER.horizontal };
+  const lambda = mechanisms(p)[mode];
+  const mp = p.mp;
+  const leftColumnEnd = mode === 'beam' ? mp : -mp;
+  const actions = [
+    { elementId: 1, myStart: mode === 'beam' ? mp / 2 : mp, myEnd: leftColumnEnd },
+    { elementId: 2, myStart: -leftColumnEnd, myEnd: mode === 'beam' ? mp : 2 * mp / 3 },
+    { elementId: 3, myStart: mp, myEnd: -mp },
+    { elementId: 4, myStart: mode === 'beam' ? mp : 2 * mp / 3, myEnd: -mp },
+  ];
+  const formed = [
+    { elementId: 3, end: 'start', momentY: mp },
+    { elementId: 3, end: 'end', momentY: -mp },
+    { elementId: 1, end: 'end', momentY: leftColumnEnd },
+    mode === 'beam' ? { elementId: 4, end: 'start', momentY: mp } : { elementId: 1, end: 'start', momentY: mp },
+  ].map(h => ({ ...h, loadFactor: lambda }));
+  const rightVertical = (actions[0].myStart + actions[2].myStart + lambda * (p.horizontal * p.height + p.vertical * p.span / 2)) / p.span;
+  const reactions = [
+    { nodeId: 1, fx: -lambda * p.horizontal, fz: lambda * p.vertical - rightVertical, my: actions[0].myStart },
+    { nodeId: 4, fx: 0, fz: rightVertical, my: actions[2].myStart },
+  ];
+  const r: Result = { collapseFactor: lambda, isMechanism: true, steps: [{ loadFactor: lambda, hingesFormed: formed, results: { displacements: [], elementForces: actions, reactions } }] };
+  const verdict = (id: string) => checks(r, p).find(c => c.id === id)!.passed;
+  expect(checks(r, p).filter(c => !c.passed)).toEqual([]);
+  if (mode === 'beam') {
+    actions[1].myStart *= -1;
+    expect(verdict('hinges')).toBe(false);
+    actions[1].myStart *= -1;
+  }
+  formed.pop();
+  expect(verdict('hinges')).toBe(false);
+  reactions[0].fx += 2e-8 * lambda * p.horizontal;
+  expect(verdict('equilibrium')).toBe(false);
+});
