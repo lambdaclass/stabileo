@@ -12,38 +12,9 @@
  * A steel beam carries its slab on its top flange in either: its top on the slab's soffit.
  * - `axes`: every member on its own axis, none moved.
  */
-import { FIXED_POINT_KINDS, fixedPointsOf, fixedSigns, type FixedPointKind } from '../rc-sheets/fixed-points';
-
-export type LevelReference = 'slabTop' | 'slabAxis' | 'axes';
-export const LEVEL_REFERENCES: readonly LevelReference[] = ['slabTop', 'slabAxis', 'axes'];
-
-export interface Placement {
-  /** Absent: the project never stated one, and the offsets are left as they are. */
-  reference?: LevelReference;
-  /** Each column stack's fixed point by `stackKey`: the point of its section on its axis, every storey. */
-  columns?: Record<string, FixedPointKind>;
-  /** The columns and beams on the floor's edge flush with the slab's edge: a column with no point of its own held by its outer face or corner, a beam with slab on one side moved toward it. */
-  edges?: boolean;
-}
-
-/** The placement a project states, what it names that is known. */
-export function placementOf(v: unknown): { placement?: Placement } {
-  if (!v || typeof v !== 'object') return {};
-  const o = v as Record<string, unknown>;
-  const reference = LEVEL_REFERENCES.includes(o.reference as LevelReference) ? o.reference as LevelReference : undefined;
-  const columns = o.columns && typeof o.columns === 'object'
-    ? Object.fromEntries(Object.entries(o.columns as Record<string, unknown>).filter((e): e is [string, FixedPointKind] => FIXED_POINT_KINDS.includes(e[1] as FixedPointKind)))
-    : {};
-  const out: Placement = { ...(reference ? { reference } : {}), ...(Object.keys(columns).length ? { columns } : {}), ...(o.edges === true ? { edges: true } : {}) };
-  return Object.keys(out).length ? { placement: out } : {};
-}
-
-export function placementWithLegacy(placement: unknown, sheetsFixed: unknown): { placement?: Placement } {
-  const own = placementOf(placement).placement, legacy = fixedPointsOf(sheetsFixed).fixedPoints;
-  const columns = own?.columns ?? legacy;
-  const out = { ...own, ...(columns ? { columns } : {}) };
-  return Object.keys(out).length ? { placement: out } : {};
-}
+import { fixedSigns } from '../rc-sheets/fixed-points';
+import { FIXED_POINT_KINDS, type FixedPointKind, type LevelReference } from './stored-placement';
+export { LEVEL_REFERENCES, placementOf, placementWithLegacy, type LevelReference, type Placement } from './stored-placement';
 
 /**
  * How far a beam's axis stands off its nodes, m (negative: below): `h` its depth, `slab` the

@@ -19,7 +19,7 @@ import { specifiedCoverMm } from '../codes/cirsoc201/cover';
 import { PROPERTY_SIDES, type PropertyLines } from './foundation/edges';
 import { footingSetupOf } from '../rc-sheets/footing-types';
 import { fixedPointsOf } from '../rc-sheets/fixed-points';
-import { placementWithLegacy } from './placement';
+import { placementWithLegacy } from './stored-placement';
 
 export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
 export const DESIGN_KINDS: readonly DesignKind[] = ['beam', 'column', 'slab', 'wall', 'footing'];

@@ -1,4 +1,4 @@
-import { placementWithLegacy } from './placement';
+import { placementWithLegacy } from './stored-placement';
 import { reinforcementSheets } from '../features';
 
 export function ignoresAdoptedReinforcement(data?: { rcSheets?: { adopted?: Record<string, unknown> } } | null): boolean {

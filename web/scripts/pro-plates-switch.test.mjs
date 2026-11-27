@@ -181,9 +181,9 @@ test('report and IFC entry modules call reinforcement sheet readers only in the 
   }
 });
 
-test.skip('known wrong result: the saved-placement notice imports the sheet geometry implementation', async () => {
+test('the saved-placement notice reads metadata without linking sheet geometry', async () => {
   const result = await build({
-    root, configFile, mode: 'production', logLevel: 'silent',
+    root, configFile: resolve(root, 'vite.config.ts'), mode: 'production', logLevel: 'silent',
     build: { write: false, lib: { entry: resolve(root, 'src/lib/model/ignored-adoption.ts'), formats: ['es'] } },
   });
   const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');

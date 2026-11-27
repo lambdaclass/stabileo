@@ -7,15 +7,8 @@
  */
 import type { PlanColumnItem, Pt, StructurePlan } from './structure-plan';
 
-export type FixedPointKind = 'c' | 'px' | 'nx' | 'py' | 'ny' | 'pxpy' | 'pxny' | 'nxpy' | 'nxny';
-export const FIXED_POINT_KINDS: readonly FixedPointKind[] = ['c', 'px', 'nx', 'py', 'ny', 'pxpy', 'pxny', 'nxpy', 'nxny'];
-
-/** The fixed points a project states, those that name a kind it knows. */
-export function fixedPointsOf(v: unknown): { fixedPoints?: Record<string, FixedPointKind> } {
-  if (!v || typeof v !== 'object') return {};
-  const out = Object.fromEntries(Object.entries(v as Record<string, unknown>).filter((e): e is [string, FixedPointKind] => FIXED_POINT_KINDS.includes(e[1] as FixedPointKind)));
-  return Object.keys(out).length ? { fixedPoints: out } : {};
-}
+import type { FixedPointKind } from '../model/stored-placement';
+export { FIXED_POINT_KINDS, fixedPointsOf, type FixedPointKind } from '../model/stored-placement';
 
 /** Which side of the section's centre the point stands on, along b and along h. */
 export function fixedSigns(k: FixedPointKind): [number, number] {
