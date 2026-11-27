@@ -34,22 +34,22 @@ describe('the steps the viewport draws', () => {
     const first = parent.children[0];
     syncStairSteps(parent, 'solid', nodeAt);
     expect(parent.children[0]).toBe(first);
-    syncStairSteps(parent, 'physical', nodeAt);
+    syncStairSteps(parent, 'sections', nodeAt);
     expect(parent.children).not.toContain(first);
     expect(drawn(parent)).toEqual(flights);
 
     meshBeforeAnalysis.value = true;
     expect(preparePlatesForAnalysis().ok).toBe(true);
-    syncStairSteps(parent, 'physical', nodeAt);
+    syncStairSteps(parent, 'sections', nodeAt);
     expect(drawn(parent)).toEqual(flights);
 
     const flight = physicalPlates().find((p) => p.id === flights[1])!;
     viewVisibility.hide({ nodes: [], elements: [], shells: (flight.group.members.quads ?? []).map((q) => `q${q}`) });
-    syncStairSteps(parent, 'physical', nodeAt);
+    syncStairSteps(parent, 'sections', nodeAt);
     expect(drawn(parent)).toEqual(flights.filter((id) => id !== flights[1]));
     viewVisibility.showAll();
     modelStore.model.groups = new Map([...modelStore.model.groups].filter(([id]) => id !== flights[0]));
-    syncStairSteps(parent, 'physical', nodeAt);
+    syncStairSteps(parent, 'sections', nodeAt);
     expect(drawn(parent)).toEqual(flights.slice(1));
   }, 120_000);
 });
