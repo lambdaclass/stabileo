@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { modelStore } from '../model.svelte';
 
-it.skip('known wrong result: #1928 a saved snapshot retains its allocation counters when a different project opens', () => {
+it('known wrong result: #1928 a saved snapshot retains its allocation counters when a different project opens', () => {
   modelStore.clear();
   const first = modelStore.addNode(0, 0, 0);
   const footing = modelStore.addFooting(first);

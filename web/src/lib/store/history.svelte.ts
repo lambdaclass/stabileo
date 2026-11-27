@@ -9,7 +9,8 @@ import { pruneDeletedMembers, pruneStaleSelection } from './selection-prune';
 import type { Release, ProvidedReinforcement } from './model.svelte';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
-import type { Footing, FootingMatPreferences } from '../model/footing';
+import type { StoredFooting } from '../model/foundation/footing-nodes';
+import type { FootingMatPreferences } from '../model/footing';
 import type { ProjectGeotechnical } from '../model/geotechnical';
 import type { ExportRecord } from '../flow/rc-export-record';
 import type { StoredJointDesigns } from '../connection/joint-choices';
@@ -94,7 +95,7 @@ export interface ModelSnapshot {
   /** Joint/spring/bearing primitives. Each entry is [id, ConnectorElement-shaped object]. */
   connectors?: Array<[number, { id: number; nodeI: number; nodeJ: number; kAxial?: number; kShear?: number; kMoment?: number; kShearZ?: number; kBendY?: number; kBendZ?: number }]>;
   /** Isolated spread footings. Each entry is [id, Footing]. Absent before foundations. */
-  footings?: Array<[number, Footing]>;
+  footings?: Array<[number, StoredFooting]>;
   /** Project ground conditions, referenced by footings rather than copied into them. */
   geotechnical?: ProjectGeotechnical;
   /**

@@ -1,3 +1,4 @@
+import { authoredWallStrip, type StoredFooting } from './foundation/footing-nodes';
 /**
  * Isolated spread footings, as a first-class modelled entity.
  *
@@ -474,7 +475,7 @@ export function migrateFootings(raw: unknown, defaults: { cover: number }): Foot
     // Persisted as [id, value] pairs, matching every other Map family on the model.
     const value = Array.isArray(entry) ? entry[1] : entry;
     if (!value || typeof value !== 'object') continue;
-    const e = value as Record<string, unknown>;
+    const e = authoredWallStrip(value as StoredFooting) as unknown as Record<string, unknown>;
 
     const id = typeof e.id === 'number' && Number.isFinite(e.id) ? e.id : null;
     if (id === null || footings.has(id)) continue;

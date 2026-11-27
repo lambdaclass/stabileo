@@ -12,6 +12,7 @@
  * footings' nodes and change the model, so placing them is a model undo step.
  */
 import { reinforcementSheets, unifiedPlates } from '../../features';
+import { wallBase, wallStripAnchors } from './wall-strip';
 import { plateLoops } from '../physical/plate';
 import { modelStore } from '../../store/model.svelte';
 import { holdPlateSidesAt } from '../../store/physical-plates';
@@ -110,14 +111,11 @@ export function combineFootings(nodeIds: number[], thickness: number): number | 
 export function wallBaseNodes(wallGroupId: number): number[] {
   const g = modelStore.model.groups.get(wallGroupId);
   if (!g) return [];
-  const nodes = new Set<number>();
-  for (const q of g.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) nodes.add(n);
-  for (const p of g.members.plates ?? []) for (const n of modelStore.plates.get(p)?.nodes ?? []) nodes.add(n);
-  if (!nodes.size && unifiedPlates()) { const l = plateLoops(g); for (const n of [...l.outer, ...l.holes.flat()]) nodes.add(n); }
-  const pts = [...nodes].map((id) => modelStore.nodes.get(id)!).filter(Boolean);
-  if (pts.length === 0) return [];
-  const zMin = Math.min(...pts.map((p) => p.z ?? 0));
-  return pts.filter((p) => Math.abs((p.z ?? 0) - zMin) < TOL).map((p) => p.id);
+  return wallBase(modelStore.model, g, () => {
+    if (!unifiedPlates()) return [];
+    const loops = plateLoops(g);
+    return [...loops.outer, ...loops.holes.flat()];
+  });
 }
 
 /** A wall stood on the ground: its base nodes fixed where they have no support, and its base held all along with every mesh. A model step. */
@@ -145,12 +143,13 @@ export function stripUnderWall(wallGroupId: number, thickness: number): number |
   const th = Math.atan2(far.y - a.y, far.x - a.x);
   const along = (p: { x: number; y: number }) => (p.x - a.x) * Math.cos(th) + (p.y - a.y) * Math.sin(th);
   const sorted = [...base].sort((p, q) => along(p) - along(q));
+  const anchors = wallStripAnchors(modelStore.model, wallGroupId, sorted.map(point => point.id));
   let id: number | null = null;
   modelStore.batchFoundation(() => {
     id = modelStore.addFooting(sorted[0]!.id);
     modelStore.updateFooting(id, {
       kind: 'strip', thickness, wallGroupId, rotationDeg: (Math.atan2(sorted.at(-1)!.y - sorted[0]!.y, sorted.at(-1)!.x - sorted[0]!.x) * 180) / Math.PI,
-      supportedNodeIds: sorted.slice(1).map((p) => p.id),
+      supportedNodeIds: anchors.slice(1),
     });
   });
   return id;

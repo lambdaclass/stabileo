@@ -142,7 +142,7 @@ it.each([false, true])('known wrong result: #1928 explicit wall foundation place
   }
 });
 
-it.skip.each(['sync', 'async', 'foundation undo', 'renumber', 'reopen'] as const)('known wrong result: #1928 wall-linked strip sizing collects reactions at the current mesh through %s', async route => {
+it.each(['sync', 'async', 'foundation undo', 'renumber', 'reopen'] as const)('known wrong result: #1928 wall-linked strip sizing collects reactions at the current mesh through %s', async route => {
   modelStore.clear();
   historyStore.clear();
   resultsStore.clear();
@@ -168,11 +168,13 @@ it.skip.each(['sync', 'async', 'foundation undo', 'renumber', 'reopen'] as const
   let base = wallBaseNodes(wall.id);
   expect(base.length).toBeGreaterThan(originalIds.length);
   if (route === 'reopen') {
-    const saved = modelStore.snapshot();
-    const strip = saved.footings!.find(([n]) => n === id)![1];
+    const { serializeProject, deserializeProject } = await import('../../../store/file');
+    const project = JSON.parse(serializeProject()) as { snapshot: ReturnType<typeof modelStore.snapshot> };
+    const strip = project.snapshot.footings!.find(([n]) => n === id)![1];
+    delete strip.wallStripSpan;
     strip.supportedNodeIds = originalIds.filter(n => n !== strip.nodeId);
     modelStore.clear();
-    modelStore.restore(saved);
+    expect(deserializeProject(JSON.stringify(project))).toBe(true);
   }
   if (route === 'foundation undo') {
     const snapshot = modelStore.snapshot();
@@ -197,7 +199,7 @@ it.skip.each(['sync', 'async', 'foundation undo', 'renumber', 'reopen'] as const
   expect(current).toEqual(complete);
 });
 
-it.skip('known wrong result: #1928 renumbering keeps the second carried reaction and the strap endpoint on the same physical points', async () => {
+it('known wrong result: #1928 renumbering keeps the second carried reaction and the strap endpoint on the same physical points', async () => {
   modelStore.clear();
   const nodes = [2, 3, 1].map(x => modelStore.addNode(x, 0, 0));
   const a = modelStore.addFooting(nodes[0]!);
@@ -209,7 +211,7 @@ it.skip('known wrong result: #1928 renumbering keeps the second carried reaction
   expect([f.nodeId, ...f.supportedNodeIds!, f.straps![0]!.nodeId!].map(id => modelStore.nodes.get(id)!.x)).toEqual([2, 1, 3]);
 });
 
-it.skip('known wrong result: #1928 strip coverage stops at each authored span endpoint or a different foundation', async () => {
+it('known wrong result: #1928 strip coverage stops at each authored span endpoint or a different foundation', async () => {
   modelStore.clear();
   const { createPlate, planPlateMesh, applyPlateMeshes } = await import('../../../store/physical-plates');
   const { supportWallBase, wallBaseNodes } = await import('../generate');
@@ -229,7 +231,11 @@ it.skip('known wrong result: #1928 strip coverage stops at each authored span en
   expect(new Set(saved.footings![0]![1].supportedNodeIds)).toEqual(new Set(base.slice(2, 4)));
   modelStore.clear();
   modelStore.restore(saved);
+  expect(saved.nextId.footing).toBeGreaterThan(id);
+  expect(modelStore.snapshot().nextId.footing).toBeGreaterThan(id);
+  expect(modelStore.footings.get(id)).toMatchObject({ kind: 'strip', supportedNodeIds: expect.any(Array) });
   const pad = modelStore.addFooting(base[2]!);
+  expect(pad).not.toBe(id);
   expect(carried()).toEqual(ends);
   modelStore.removeFooting(pad);
   expect(carried()).toEqual(new Set(base.slice(1, 4)));
@@ -241,7 +247,7 @@ it.skip('known wrong result: #1928 strip coverage stops at each authored span en
   expect(carried()).toEqual(ends);
 });
 
-it.skip('known wrong result: #1928 welding a named strap endpoint keeps it on the surviving node', async () => {
+it('known wrong result: #1928 welding a named strap endpoint keeps it on the surviving node', async () => {
   modelStore.clear();
   const origin = modelStore.addNode(0, 0, 0);
   const at = modelStore.addNode(3, 0, 0);
@@ -252,4 +258,29 @@ it.skip('known wrong result: #1928 welding a named strap endpoint keeps it on th
   const { mergeNodesInto } = await import('../../edit/cleanup');
   mergeNodesInto(new Map([[at, next]]));
   expect(modelStore.footings.get(id)!.straps).toEqual([{ toFootingId: other, nodeId: next }]);
+});
+
+it('stores all current strip reactions for older readers and preserves only authored points through a mesh change', async () => {
+  modelStore.clear();
+  const { createPlate, planPlateMesh, applyPlateMeshes } = await import('../../../store/physical-plates');
+  const { supportWallBase, wallBaseNodes } = await import('../generate');
+  const outline = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, z]) => modelStore.addNode(x!, 0, z!));
+  const wall = createPlate({ outline, thickness: 0.2, materialId: 1 });
+  if ('problem' in wall) throw Error(wall.problem);
+  expect(applyPlateMeshes([planPlateMesh(wall.id, { size: 1 })!]).refused).toEqual([]);
+  supportWallBase(wall.id);
+  const id = stripUnderWall(wall.id, 0.4)!;
+  const saved = modelStore.snapshot();
+  const strip = saved.footings!.find(([n]) => n === id)![1];
+  const materialized = new Set([strip.nodeId, ...strip.supportedNodeIds!]);
+  expect(materialized).toEqual(new Set(wallBaseNodes(wall.id)));
+  expect(strip.wallStripSpan!.mesh.length).toBeGreaterThan(0);
+  const intermediate = strip.wallStripSpan!.mesh[0]!;
+  modelStore.restore(saved);
+  const support = [...modelStore.supports.values()].find(s => s.nodeId === intermediate)!;
+  modelStore.removeSupport(support.id);
+  expect(modelStore.footings.get(id)!.supportedNodeIds).not.toContain(intermediate);
+  strip.wallStripSpan!.nodeId = intermediate;
+  modelStore.restoreFoundationOnly(saved);
+  expect(modelStore.footings.get(id)!.supportedNodeIds).toContain(intermediate);
 });

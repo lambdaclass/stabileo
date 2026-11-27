@@ -1,3 +1,5 @@
+import { authoredWallStrip, remapFootingNodes, snapshotWallStrip, type StoredFooting } from '../model/foundation/footing-nodes';
+import { resolveWallStrips } from '../model/foundation/wall-strip';
 import { batchedList } from './batched-list.svelte';
 import { is3DWorkspace, isAnalysisMode } from '../utils/workspace';
 import { ModelInputError, migrateModelConstraints, modelInputRefusal, requireCombinationInput, requireLoadInput, requireModelInput, requireStoredProjectInput, requireStructureInput, supportWithStoredId } from '../engine/model-input-numbers';
@@ -1212,6 +1214,7 @@ function createModelStore() {
   let detailing = $state.raw<DetailingStore | undefined>(emptyPublishedDetailing);
   const loadList = batchedList<Load>();
   const constraintList = batchedList<Constraint3D>();
+  let authoredFootings = $state.raw(new Map<number, Footing>());
   let model = $state<StructureModel>({
     name: t('tabBar.newStructure'),
     nodes: new Map(),
@@ -1231,7 +1234,7 @@ function createModelStore() {
     get constraints() { return constraintList.value; },
     set constraints(value) { constraintList.value = value; },
     connectors: new Map(),
-    footings: new Map(),
+    get footings(): Map<number, Footing> { return resolvedFootings; },
     // A new project has no strata, not one invented stratum. See migrateGeotechnical.
     geotechnical: emptyGeotechnical(),
     // Unlike the strata, the mat convention DOES get a starting value, and it is a preference
@@ -1244,6 +1247,8 @@ function createModelStore() {
     get detailing() { return detailing; },
     set detailing(value) { detailing = ownDetailing(value); },
   });
+
+  const resolvedFootings: Map<number, Footing> = $derived.by(() => resolveWallStrips(model, authoredFootings));
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
   let modelVersion = $state(0);
@@ -1622,13 +1627,13 @@ function createModelStore() {
       }
       model.supports = new Map(model.supports);
       let footingsTouched = false;
-      const fm = new Map(model.footings);
+      const fm = new Map(authoredFootings);
       for (const [fid, f] of fm) {
         if (f.columnElementId !== elementId) continue;
         fm.set(fid, { ...f, columnElementId: segmentAt(f.nodeId), revision: f.revision + 1 });
         footingsTouched = true;
       }
-      if (footingsTouched) model.footings = fm;
+      if (footingsTouched) authoredFootings = fm;
 
       model.nodes = new Map(model.nodes);
       model.elements = new Map(model.elements);
@@ -1983,8 +1988,8 @@ function createModelStore() {
      */
     restoreFoundationOnly(s: ModelSnapshot): void {
       requireStoredProjectInput({ footings: s.footings });
-      const nextFootings = new Map((s.footings ?? []).map(([id, f]) => [id, { ...f }]));
-      const beforeFootings = JSON.stringify([...model.footings.entries()]);
+      const nextFootings = new Map((s.footings ?? []).map(([id, f]) => [id, { ...authoredWallStrip(f) }]));
+      const beforeFootings = JSON.stringify([...authoredFootings.entries()]);
       const afterFootings = JSON.stringify([...nextFootings.entries()]);
       const beforeGround = JSON.stringify(model.geotechnical ?? null);
       const afterGround = JSON.stringify(s.geotechnical ?? null);
@@ -1998,7 +2003,7 @@ function createModelStore() {
       if (beforeFootings === afterFootings && beforeGround === afterGround
         && beforePrefs === afterPrefs) return;
 
-      model.footings = nextFootings;
+      authoredFootings = nextFootings;
       model.geotechnical = s.geotechnical
         ? (JSON.parse(JSON.stringify(s.geotechnical)) as typeof model.geotechnical)
         : undefined;
@@ -2250,8 +2255,9 @@ function createModelStore() {
     snapshot(): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
-      const snap = $state.snapshot({ ...model, detailing: undefined }) as unknown as ReturnType<typeof $state.snapshot<typeof model>>;
-      const snapId = $state.snapshot(nextId);
+      const snap = $state.snapshot({ ...model, footings: authoredFootings, detailing: undefined }) as unknown as ReturnType<typeof $state.snapshot<typeof model>>;
+      const snapId = { ...nextId };
+      const currentFootings = model.footings;
       const result: ModelSnapshot = {
         name: snap.name,
         ...(!uiStore.is3DWorkspace ? { drawPlane2D: uiStore.analysisPlane2D } : {}),
@@ -2372,11 +2378,10 @@ function createModelStore() {
         // nested object: a shallow `{ ...v }` would share it between the snapshot and the
         // live model, so editing a pedestal would silently rewrite the undo entry.
         footings: Array.from(snap.footings.entries()).map(
-          ([k, v]): [number, Footing] => [
+          ([k, v]): [number, StoredFooting] => [
             k,
             {
-              ...v, ...(v.pedestal ? { pedestal: { ...v.pedestal } } : {}),
-              ...(v.supportedNodeIds ? { supportedNodeIds: [...v.supportedNodeIds] } : {}),
+              ...snapshotWallStrip(v, currentFootings.get(k)!), ...(v.pedestal ? { pedestal: { ...v.pedestal } } : {}),
               ...(v.anchor ? { anchor: [...v.anchor] as [number, number] } : {}),
               ...(v.piles ? { piles: { ...v.piles } } : {}),
             },
@@ -2615,7 +2620,7 @@ function createModelStore() {
       // stored node reference is not a number rather than repairing it — a footing
       // attached to nothing has no reaction, and inventing a node moves someone's
       // foundation. An absent geotechnical set becomes EMPTY, never a seeded stratum.
-      model.footings = migrateFootings(s.footings, { cover: DEFAULT_COVER }).footings;
+      authoredFootings = migrateFootings(s.footings, { cover: DEFAULT_COVER }).footings;
       model.geotechnical = migrateGeotechnical(s.geotechnical).geotechnical;
       // An absent field is a project saved before mat preferences existed, and it loads at the
       // 16/16/AUTO values the invisible constant was already applying to it. `undefined` is
@@ -2624,7 +2629,7 @@ function createModelStore() {
       model.footingMatPreferences =
         migrateFootingMatPreferences(s.footingMatPreferences).preferences;
       nextId.footing = s.nextId.footing
-        ?? (Math.max(0, ...model.footings.keys()) + 1);
+        ?? (Math.max(0, ...authoredFootings.keys()) + 1);
       nextId.soilProfile = s.nextId.soilProfile
         ?? (Math.max(0, ...(model.geotechnical?.profiles ?? []).map((p) => p.id)) + 1);
       // Older files have no spectrum counter, and a saved one is never behind what is in use.
@@ -2860,10 +2865,14 @@ function createModelStore() {
       if (model.connectors.size > 0) {
         model.connectors = new Map([...model.connectors].map(([id, c]) => [id, { ...c, nodeI: r(c.nodeI), nodeJ: r(c.nodeJ) }]));
       }
-      if ([...model.footings.values()].some((f) => to.has(f.nodeId) || f.supportedNodeIds?.some((n) => to.has(n)))) {
-        model.footings = new Map([...model.footings].map(([id, f]) => [id, to.has(f.nodeId) || f.supportedNodeIds?.some((n) => to.has(n))
-          ? { ...f, nodeId: r(f.nodeId), ...(f.supportedNodeIds ? { supportedNodeIds: f.supportedNodeIds.map(r) } : {}), revision: f.revision + 1 } : f]));
+      let remapped = authoredFootings;
+      for (const [id, f] of authoredFootings) {
+        const next = remapFootingNodes(f, to);
+        if (next === f) continue;
+        if (remapped === authoredFootings) remapped = new Map(authoredFootings);
+        remapped.set(id, { ...next, revision: f.revision + 1 });
       }
+      authoredFootings = remapped;
       // A point mass follows its node; two merged onto one node both stay (their masses add).
       const points = model.massSource?.points;
       if (points?.some((p) => to.has(p.nodeId))) {
@@ -2879,7 +2888,7 @@ function createModelStore() {
         for (const n of [x.masterNode, x.slaveNode, ...(x.slaveNodes ?? []), ...(x.terms ?? []).map((t) => t.nodeId)]) if (typeof n === 'number') out.add(n);
       }
       for (const c of model.connectors.values()) { out.add(c.nodeI); out.add(c.nodeJ); }
-      for (const f of model.footings.values()) { out.add(f.nodeId); for (const n of f.supportedNodeIds ?? []) out.add(n); }
+      for (const f of authoredFootings.values()) { out.add(f.nodeId); for (const n of f.supportedNodeIds ?? []) out.add(n); for (const strap of f.straps ?? []) if (strap.nodeId !== undefined) out.add(strap.nodeId); }
       for (const p of model.massSource?.points ?? []) out.add(p.nodeId);
       return out;
     },
@@ -3131,15 +3140,15 @@ function createModelStore() {
       // keeping it would leave a dimensioned foundation in the schedule and on the plan
       // under a column that is gone.
       let footingsChanged = false;
-      for (const [fid, f] of model.footings) {
-        if (f.nodeId === id) { model.footings.delete(fid); footingsChanged = true; continue; }
+      for (const [fid, f] of authoredFootings) {
+        if (f.nodeId === id) { authoredFootings.delete(fid); footingsChanged = true; continue; }
         // A combined or strip footing loses the node it also carried, and carries the rest.
         if (f.supportedNodeIds?.includes(id)) {
-          model.footings.set(fid, { ...f, supportedNodeIds: f.supportedNodeIds.filter((n) => n !== id), revision: f.revision + 1 });
+          authoredFootings.set(fid, { ...f, supportedNodeIds: f.supportedNodeIds.filter((n) => n !== id), revision: f.revision + 1 });
           footingsChanged = true;
         }
       }
-      if (footingsChanged) model.footings = new Map(model.footings);
+      if (footingsChanged) authoredFootings = new Map(authoredFootings);
       // A point mass goes with its node, as a nodal load does: left, it named a number the next
       // node drawn would take.
       const pts = model.massSource?.points;
@@ -3297,14 +3306,14 @@ function createModelStore() {
       // and the footing reports those as unsupported rather than holding a dangling id that
       // would later resolve to whatever element reuses the number.
       let columnCleared = false;
-      const fm = new Map(model.footings);
+      const fm = new Map(authoredFootings);
       for (const [fid, f] of fm) {
         if (f.columnElementId !== id) continue;
         const { columnElementId: _dropped, ...rest } = f;
         fm.set(fid, { ...rest, revision: f.revision + 1 });
         columnCleared = true;
       }
-      if (columnCleared) model.footings = fm;
+      if (columnCleared) authoredFootings = fm;
     },
 
     /**
@@ -3539,34 +3548,34 @@ function createModelStore() {
         foundingElevation: model.nodes.get(nodeId)?.z ?? 0,
         soilProfileId: model.geotechnical?.defaultProfileId ?? null,
       });
-      const m = new Map(model.footings);
+      const m = new Map(authoredFootings);
       m.set(id, f);
-      model.footings = m;
+      authoredFootings = m;
       _onFoundationChange?.();
       return id;
     },
 
     updateFooting(id: number, data: Partial<Omit<Footing, 'id' | 'revision'>>): void {
       if (!_undoBatching) _pushUndoFoundation?.();
-      const cur = model.footings.get(id);
+      const cur = authoredFootings.get(id);
       if (!cur) return;
-      const m = new Map(model.footings);
+      const m = new Map(authoredFootings);
       m.set(id, { ...cur, ...data, id, revision: cur.revision + 1 });
-      model.footings = m;
+      authoredFootings = m;
       _onFoundationChange?.();
     },
 
     removeFooting(id: number): void {
       if (!_undoBatching) _pushUndoFoundation?.();
-      const m = new Map(model.footings);
+      const m = new Map(authoredFootings);
       m.delete(id);
-      model.footings = m;
+      authoredFootings = m;
       _onFoundationChange?.();
     },
 
     clearFootings(): void {
       if (!_undoBatching) _pushUndoFoundation?.();
-      model.footings = new Map();
+      authoredFootings = new Map();
       _onFoundationChange?.();
     },
 
@@ -3670,13 +3679,13 @@ function createModelStore() {
           : geo.defaultProfileId,
       };
       let orphaned = false;
-      const m = new Map(model.footings);
+      const m = new Map(authoredFootings);
       for (const [fid, f] of m) {
         if (f.soilProfileId !== id) continue;
         m.set(fid, { ...f, soilProfileId: null, revision: f.revision + 1 });
         orphaned = true;
       }
-      if (orphaned) model.footings = m;
+      if (orphaned) authoredFootings = m;
       _onFoundationChange?.();
     },
 
@@ -3930,7 +3939,7 @@ function createModelStore() {
       model.designDecisions = undefined;
       model.constraints = [];
       model.connectors = new Map();
-      model.footings = new Map();
+      authoredFootings = new Map();
       // A new project has no strata. Carrying the previous project's soil over would be
       // founding this building on someone else's borehole.
       model.geotechnical = emptyGeotechnical();

@@ -1,0 +1,35 @@
+{
+  "id": "wall-strip-reaction-points",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "any": [
+      "secondaryFootingReactions"
+    ]
+  },
+  "title": {
+    "en": "Recheck footing reactions after mesh or node edits",
+    "es": "Revisá las reacciones de fundación tras editar la malla o los nudos",
+    "de": "Fundamentreaktionen nach Netz- oder Knotenänderungen prüfen",
+    "fr": "Revoir les réactions des fondations après modification du maillage ou des nœuds",
+    "pt": "Reveja as reações das fundações após editar a malha ou os nós",
+    "hu": "A támaszerők ellenőrzése háló- vagy csomópontmódosítás után",
+    "tr": "Ağ veya düğüm düzenlemesinden sonra temel tepkilerini denetleyin",
+    "zh": "网格或节点变更后请复核基础反力"
+  },
+  "explanation": {
+    "en": "Verify secondary footing and strap nodes after renumbering or welding. Recalculate wall strips after remeshing to include the intermediate support reactions.",
+    "es": "Verificá los nudos secundarios de las bases y los extremos de las vigas centradoras tras renumerar o unir nudos. Recalculá las zapatas corridas tras remallar para incluir las reacciones intermedias.",
+    "de": "Prüfen Sie nach dem Umnummerieren oder Verschmelzen die weiteren Fundamentknoten und die Enden der Kopplungsbalken. Berechnen Sie Streifenfundamente nach der Neuvernetzung mit den Zwischenauflagerreaktionen erneut.",
+    "fr": "Après renumérotation ou fusion, vérifiez les nœuds secondaires des semelles et les extrémités des longrines de redressement. Recalculez les semelles filantes avec les réactions intermédiaires après remaillage.",
+    "pt": "Após renumerar ou unir nós, confira os nós secundários das sapatas e as extremidades das vigas de equilíbrio. Recalcule as sapatas corridas após refazer a malha para incluir as reações intermediárias.",
+    "hu": "Átszámozás vagy összevonás után ellenőrizze az alaptestek további csomópontjait és az összekötő gerendák végeit. Újrahálózás után számítsa újra a sávalapokat a közbenső támaszerőkkel.",
+    "tr": "Düğümleri yeniden numaralandırdıktan veya birleştirdikten sonra temelin diğer düğümlerini ve denge kirişi uçlarını denetleyin. Ağı yeniledikten sonra ara mesnet tepkileriyle sürekli temelleri yeniden hesaplayın.",
+    "zh": "节点重新编号或合并后，请核对基础的其他承力节点和拉梁端点。重新划分网格后，请将中间支座的反力计入条形基础并重新计算。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wall-strip-reaction-points.md",
+    "heading": "Recheck footing reactions after mesh or node edits"
+  }
+}
