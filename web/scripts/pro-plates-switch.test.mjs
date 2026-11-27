@@ -119,6 +119,25 @@ test('load and reinforcement editors publish their own labels independently', as
   }
 });
 
+test('shape dialog translations follow the plate inspector independently of reinforcement sheets', { skip: 'known wrong result: #1928' }, async () => {
+  for (const plates of [false, true]) {
+    for (const sheets of [false, true]) {
+      await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
+        const config = await resolveConfig({ root, configFile }, 'build', 'production');
+        const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+        for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+          const code = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+          const module = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
+          for (const key of ['plates.shape.summary', 'plates.shapeProblem.tooDeep']) {
+            assert.equal(Object.hasOwn(module[locale], key), plates, locale + ' ' + key);
+          }
+          if (!plates) assert.ok(module[locale]['plates.sideThrough'], locale);
+        }
+      });
+    }
+  }
+});
+
 test('the EC2 member resistance reads placed reinforcement and draft profiles only in their builds', async () => {
   for (const [plates, sheets] of [[false, false], [true, false], [false, true], [true, true]]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
