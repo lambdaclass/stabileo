@@ -2,7 +2,7 @@ import { render } from 'svelte/server';
 import { afterEach, expect, it } from 'vitest';
 import { t } from '../../lib/i18n';
 import { modelStore, uiStore } from '../../lib/store';
-import { createPlate } from '../../lib/store/physical-plates';
+import { applyPlateMeshes, createPlate, planPlateMesh, plateShellKeys } from '../../lib/store/physical-plates';
 import ProShellTab from '../pro/ProShellTab.svelte';
 
 afterEach(() => { modelStore.clear(); });
@@ -53,4 +53,33 @@ it('shows the published raw shell inventory, plate status and mesh display defau
   expect(status).toBe(unified ? undefined : t('plates.status.unmeshed'));
   expect(html.includes('data-testid="plate-filter-level"')).toBe(unified);
   expect(uiStore.platesShowMesh).toBe(unified ? null : true);
+});
+
+it.skip('known wrong result: #1928 the raw element table offers its owner exactly until that plate is selected', () => {
+  modelStore.clear();
+  const nodes = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  const plate = createPlate({ outline: nodes, thickness: 0.15, materialId: 1 });
+  if ('problem' in plate) throw Error(plate.problem);
+  const plan = planPlateMesh(plate.id, { size: 1, element: 'quad', followMembers: false });
+  if (!plan?.mesh) throw Error(plan?.refused);
+  applyPlateMeshes([plan]);
+  const key = plateShellKeys(plate.id)[0]!;
+  const unified = Boolean(__PUBLIC_FEATURES__.proPlatesUnified);
+  const check = (owner: boolean, specification: boolean) => {
+    const html = render(ProShellTab).body;
+    expect(html.includes('data-testid="shell-select-owner"')).toBe(owner);
+    expect(html.includes('data-testid="shell-open-spec"')).toBe(specification);
+  };
+  uiStore.shellPickScope = 'plate';
+  uiStore.selectPlates([plate.id]);
+  check(false, false);
+  uiStore.selectShell(key);
+  check(!unified, false);
+  uiStore.shellPickScope = 'element';
+  check(true, unified);
+  const raw = modelStore.addPlate([nodes[0]!, nodes[1]!, nodes[2]!], 1, 0.15);
+  uiStore.selectShell('p' + raw);
+  check(false, unified);
+  uiStore.selectPlates([]);
+  uiStore.shellPickScope = 'plate';
 });
