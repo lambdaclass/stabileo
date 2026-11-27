@@ -219,7 +219,7 @@ test('report and IFC entry modules call reinforcement sheet readers only in the 
   }
 });
 
-test('the specifications route links the placement drawer only with sheets', { skip: 'known wrong result: #1928' }, async () => {
+test('the specifications route links the placement drawer only with sheets', async () => {
   for (const plates of [false, true]) {
     for (const sheets of [false, true]) {
       await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
@@ -230,9 +230,9 @@ test('the specifications route links the placement drawer only with sheets', { s
         });
         const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
         const components = Object.keys(chunk.importedBindings);
-        assert.equal(components.some(path => path.endsWith('/SpecPlacement.svelte')), sheets);
-        assert.ok(components.some(path => path.endsWith('/SpecSurfaces.svelte')));
-        assert.ok(components.some(path => path.endsWith('/SpecList.svelte')));
+        assert.equal(components.some(path => path.split('/').at(-1) === 'SpecPlacement.svelte'), sheets);
+        assert.ok(components.some(path => path.split('/').at(-1) === 'SpecSurfaces.svelte'));
+        assert.ok(components.some(path => path.split('/').at(-1) === 'SpecList.svelte'));
       });
     }
   }

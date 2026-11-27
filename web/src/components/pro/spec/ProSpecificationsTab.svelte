@@ -54,9 +54,14 @@
     {:else if uiStore.specSection === 'supports'}<SpecSupports />
     {:else if uiStore.specSection === 'links'}<ProConstraintsTab />
     {:else if uiStore.specSection === 'surfaces'}<SpecSurfaces />
-    {:else if __PUBLIC_FEATURES__.proRcSheets && uiStore.specSection === 'placement'}<SpecPlacement />
     {:else if uiStore.specSection === 'analysis'}<SpecAnalysis />
-    {:else}<SpecList />{/if}
+    {:else}
+      {#if __PUBLIC_FEATURES__.proRcSheets && uiStore.specSection === 'placement'}
+        <SpecPlacement />
+      {:else}
+        <SpecList />
+      {/if}
+    {/if}
   </div>
 </div>
 
