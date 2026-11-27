@@ -1038,14 +1038,19 @@ export function pinnedDefects(): void {
       expect((await page.evaluate(() => window.__stabileo.viewportPick())).hasResults).toBe(false);
     });
 
-    test('D4 plastic collapse: after "← Back" the solved view shows the collapse state', async ({ page }) => {
+    test('D4 plastic collapse: the hinge view closes and Back restores the solved view', async ({ page }) => {
       const ctx = await boot(page);
       await loadNamed(ctx, 'portal-frame');
       await solveFromRibbon(ctx);
       await openList(ctx);
       const before = await shot(page);
+      const previous = await diagram(page);
       await runFn(ctx, 'plastic');
+      await expect(page.getByTestId('plastic-hinges').locator('tbody tr')).toHaveCount(4);
+      expect(await diagram(page)).toBe('plasticHinges');
       await pressBack(page);
+      await expect(page.getByTestId('plastic-hinges')).toHaveCount(0);
+      expect(await diagram(page)).toBe(previous);
       const d = await diff(page, before, await shot(page));
       expect(d.changed).toBeLessThan(Math.max(400, d.total * 0.002));
     });

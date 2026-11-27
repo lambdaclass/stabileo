@@ -22,7 +22,7 @@ test.describe('@slow plastic collapse, explained', () => {
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
     await page.getByTestId('rb-cmd-advanced').click();
-    await page.locator('button.adv-btn', { hasText: /Plastic collapse|Colapso plástico|Colapso plástico/ }).click();
+    await page.locator('button.adv-btn', { hasText: /Plastic collapse|Colapso plástico/ }).click();
     await expect(page.getByTestId('plastic-verdict')).toContainText('71.296');
     await expect(page.getByTestId('plastic-withheld')).toHaveCount(0);
     await expect(page.getByTestId('plastic-certificate')).toHaveClass(/\bok\b/, { timeout: 30_000 });
@@ -97,7 +97,7 @@ test.describe('@slow plastic collapse, explained', () => {
 });
 
 test.describe('@slow plastic collapse the exact certificate does not confirm', () => {
-  test('still answers, with a note the reader can close and no link out', async ({ page }) => {
+  test('withholds the numerical trace and identifies the refusal', async ({ page }) => {
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
     await page.evaluate(async () => {
@@ -106,13 +106,10 @@ test.describe('@slow plastic collapse the exact certificate does not confirm', (
     });
     await page.getByTestId('rb-cmd-advanced').click();
     await page.locator('button.adv-btn', { hasText: /Plastic collapse|Colapso plástico/ }).click();
-    const note = page.getByTestId('plastic-uncertified');
+    const note = page.getByTestId('plastic-withheld');
     await expect(note).toBeVisible();
-    await expect(note.locator('a')).toHaveCount(0);
-    await expect(page.getByTestId('plastic-withheld')).toHaveCount(0);
-    await expect(page.getByTestId('plastic-step')).toBeVisible();
-    await page.getByTestId('plastic-note-close').click();
-    await expect(note).toHaveCount(0);
-    await expect(page.getByTestId('plastic-step')).toBeVisible();
+    await expect(note.getByRole('link')).toHaveAttribute('href', /issues\/758$/);
+    await expect(page.getByTestId('plastic-step')).toHaveCount(0);
+    await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
   });
 });

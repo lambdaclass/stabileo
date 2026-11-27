@@ -63,7 +63,7 @@ The Basic panel reports that factor. Its step-by-step hinge history is a sequenc
 of the structure with the hinges formed so far released, each next hinge where the smallest load
 increment brings a section to Mp. Member ends and point loads are sections of their own; inside a
 stretch under a span load the critical section is found from the moment function, not on a mesh.
-The history forms at most GH + 1 hinges, never two side by side, and ends at the certified factor.
+The panel distinguishes the certified collapse factor from the end of the traced history. It marks the hinge locations as approximate when the endpoints disagree. If hinge positioning fails to converge or the factor cannot be certified, the action withholds the numerical trace.
 
 A hinge under a distributed load moves with the peak of the moment. Once it forms, the peak moves
 as the load grows, so a hinge held where it formed would leave the moment beside it above Mp. Each

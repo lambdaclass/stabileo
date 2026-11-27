@@ -178,9 +178,11 @@ describe('one hinge where two members meet', () => {
 });
 
 describe('a span load: its hinge is one section, at the peak of the moment, and GH + 1 hinges at most', () => {
-  const peakRatio = (r: ReturnType<typeof plasticHistory2D>, mp: (id: number) => number, k: number) =>
-    Math.max(...r.steps[k].results.elementForces.flatMap((ef) =>
+  const peakRatio = (r: ReturnType<typeof plasticHistory2D>, mp: (id: number) => number, k: number) => {
+    expect(r.steps[k].results.elementForces.map(ef => ef.elementId).sort()).toEqual([1, 2, 3]);
+    return Math.max(...r.steps[k].results.elementForces.flatMap((ef) =>
       Array.from({ length: 2001 }, (_, i) => Math.abs(computeDiagramValueAt('moment', i / 2000, ef)) / mp(ef.elementId))));
+  };
   const closed = (r: ReturnType<typeof plasticHistory2D>) => r.hinges.filter((h) => h.unloadedAt !== undefined).length;
   const hinge = (h: { elementId: number; x: number; loadFactor: number }) => ({ m: h.elementId, x: h.x, lambda: h.loadFactor });
 

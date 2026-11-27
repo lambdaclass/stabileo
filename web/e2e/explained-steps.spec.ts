@@ -45,7 +45,7 @@ test.describe('explained step by step', () => {
     const ids = await page.locator('[data-testid^=steps-method-]').evaluateAll((els) =>
       els.map((e) => e.getAttribute('data-testid')!.replace('steps-method-', '')));
     const documented = ids.filter((id) => id !== 'dsm' && id !== 'fm');
-    expect(documented.length).toBeGreaterThan(0);
+    expect(documented).toEqual(expect.arrayContaining(['plasticKinematic', 'plasticStatic']));
     for (const id of documented) {
       await test.step(id, async () => {
         await page.getByTestId(`steps-example-${id}`).click();

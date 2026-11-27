@@ -36,8 +36,8 @@ describe('the Basic panel on a fixed-fixed beam under a uniform load', () => {
     const r = panel();
     const first = r.steps[0].hingesFormed as Array<{ elementId: number; end: string }>;
     const ids = first.map((h) => `${h.elementId}${h.end}`);
-    expect(ids).toContain('1start');
-    expect(ids).toContain('4end');
+    expect(ids.sort()).toEqual(['1start', '4end']);
+    expect(r.steps.slice(1).flatMap(s => s.hingesFormed).some(h => Math.abs((h.elementId - 1) * L / N + h.x - L / 2) < 1e-9)).toBe(true);
     expect(r.isMechanism).toBe(true);
   });
 });

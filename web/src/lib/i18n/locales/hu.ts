@@ -15089,7 +15089,7 @@ const hu: Translations = {
   "edu.ex9DescP": "{L} m támaszközű kéttámaszú gerenda, közepén {P} kN koncentrált erővel. Téglalap keresztmetszet: b=200 mm, h=400 mm. Számítsa ki a keresztmetszeti modulust: W = bh²/6, és a legnagyobb hajlítófeszültséget: σ = M/W.",
   "edu.ex11DescP": "{L} m hosszú konzol, amelynek végén {P} kN erő hat, IPE 300 keresztmetszettel. Határozza meg a legnagyobb nyomatékot és a feszültségeket a befogásnál: a normálfeszültséget a szélső szálban, a nyírófeszültséget a semleges tengelyen és a von Mises-féle egyenértékű feszültséget.",
   "course.plastic.limitOnly": "A lépésenkénti folyamat nem éri el a tönkremeneteli terhet (λ = {history} értéknél ér véget). A határteherbírás-számításból (statikai és kinematikai tétel) a tönkremeneteli teher λc = {lambda}; a folyamat csuklói közelítőek.",
-  "course.plastic.trace.moved": "A(z) {member}. rúd {i}. csuklója x = {from} helyről x = {to} helyre kerül, ahol most a nyomaték maximális: ott Mp nulla nyíróerővel, az elhagyott keresztmetszet pedig megtartja a már elszenvedett képlékeny elfordulást.",
+  "course.plastic.trace.moved": "A(z) {member}. rúd {i}. csuklója x = {from} helyről x = {to} helyre kerül, ahol most a nyomaték maximális: ott Mp az értéke egy sima maximumban nulla nyíróerőnél vagy egy pontteher alatt, ahol a nyíróerő előjelet vált, az elhagyott keresztmetszet pedig megtartja a már elszenvedett képlékeny elfordulást.",
   "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes.",
   'edu.params.invalidVariant': 'A változat a feladatban nem megengedett értékeket vagy támaszokat tartalmaz.',
   'edu.params.supportLimit': 'A feladat túllépi a támaszkombinációk számának határát ({limit}).',

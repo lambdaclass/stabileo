@@ -64,6 +64,21 @@ for (const width of [390, 820]) {
       await page.getByTestId('plastic-curve').locator('summary').click();
       await noOverflow(page, 'plastic-curve', `${width}-plastic`);
     });
+    test('plastic collapse refusal', async ({ page }) => {
+      test.setTimeout(120_000);
+      await boot(page, width, 'cantilever-point');
+      await page.evaluate(() => window.__stabileoActions.tieNodes(1, 2, [0]));
+      await page.locator('button.adv-btn', { hasText: /Plastic collapse|Colapso plástico/ }).click();
+      const withheld = page.getByTestId('plastic-withheld');
+      await expect(withheld).toContainText(/4[.,]6/);
+      await expect(withheld.locator('a')).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/758');
+      await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
+      const box = (await withheld.boundingBox())!;
+      expect(box.height, `${width}: the refusal is an empty panel`).toBeGreaterThan(40);
+      const link = (await withheld.locator('a').boundingBox())!;
+      expect(link.height, `${width}: the #758 link is too small to tap`).toBeGreaterThanOrEqual(24);
+      await noOverflow(page, 'plastic-withheld', `${width}-plastic`);
+    });
     test('dynamics course panel', async ({ page }) => {
       test.skip(!MODULES.includes('dynamics'));
       test.setTimeout(120_000);

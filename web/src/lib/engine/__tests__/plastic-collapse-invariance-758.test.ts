@@ -197,7 +197,8 @@ describe('#758: the certified plastic collapse factor is invariant under renumbe
       const r = run(m);
       close(r.collapseFactor, 1925 / 27, what);
       expect(r.isMechanism && !r.unresolved && !r.withheld, what).toBe(true);
-      const span = r.limitHinges!.filter((h) => h.kind === 'bending').map((h) => h.position);
+      const beamId = [...m.input.elements.values()].find(e => e.sectionId === 3)!.id;
+      const span = r.limitHinges!.filter((h) => h.kind === 'bending' && h.elementId === beamId).map((h) => h.position);
       expect(span.some((t) => Math.abs(t - 0.5) < 1e-6), `${what}: a hinge at midspan of the beam`).toBe(true);
     }
   });
@@ -211,8 +212,12 @@ describe('#758: the certified plastic collapse factor is invariant under renumbe
     it(`${name}: not confirmed by the exact certificate, withheld under every transform`, () => {
       for (const [what, m] of variants(make())) {
         let r: ReturnType<typeof run> | null = null;
-        try { r = run(m); } catch { r = null; }
-        expect(r === null || (r.withheld && r.unresolved && !r.isMechanism), `${name} ${what}`).toBe(true);
+        try { r = run(m); } catch (err) {
+          expect(err).toBeInstanceOf(Error);
+          expect((err as Error).message).toMatch(/reduced stiffness|rank.*indeterminate/i);
+          continue;
+        }
+        expect(r.withheld && r.unresolved && !r.isMechanism, `${name} ${what}`).toBe(true);
       }
     });
   }
@@ -272,21 +277,7 @@ describe('the Basic "Portal Frame" example through the Plastic collapse action',
 
 });
 
-describe('a constrained Basic cantilever through the Plastic collapse action', () => {
-  it('the tied cantilever returns the step-by-step factor marked uncertified', async () => {
-    historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
-    await modelStore.loadExample('cantilever-point');
-    modelStore.addConstraint({ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] });
-    const run = runPlasticCollapse()!;
-    expect(run.uncertified).toBe(true);
-    expect(run.result.withheld).toBe(true);
-    expect(run.result.collapseFactor).toBeGreaterThan(0);
-    expect(Number.isFinite(run.result.collapseFactor)).toBe(true);
-    expect(certifyJobOf(run.result)).toBeNull();
-  });
-});
-
-it.skip('known wrong result: #758 — the public action withholds unconfirmed numerical steps', async () => {
+it('#758 — the public action withholds unconfirmed numerical steps', async () => {
   historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
   await modelStore.loadExample('cantilever-point');
   modelStore.addConstraint({ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] });

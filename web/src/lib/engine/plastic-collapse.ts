@@ -135,8 +135,6 @@ interface Piece { id: number; t0: number; t1: number }
 const EPS_EVENT = 1e-6;
 const MAX_MOVES = 60;
 const MOVE_TOL = 1e-11;
-/** Relative distance within which the history's end confirms the certified collapse load. */
-const HISTORY_TOL = 1e-3;
 
 function cloneInput(input: SolverInput): SolverInput {
   const copy = <T>(m: Map<number, T>) => new Map([...m].map(([k, v]) => [k, { ...(v as object) } as T]));
@@ -674,8 +672,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     placeHinge(ref, h, t);
   };
 
-  const evaluate = (efOf: Map<number, ElementForces>) => {
-    const values = stationValues(efOf);
+  const evaluate = (efOf: Map<number, ElementForces>, values: ReturnType<typeof stationValues>) => {
     const unit = values.map((v) => v.u), unitN = values.map((v) => v.un);
     let dMin = Infinity;
     let stressed = false;
@@ -717,7 +714,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
   };
 
   let event = 0;
-  for (; event < maxEvents; event++) {
+  eventLoop: for (; event < maxEvents; event++) {
     /*
      * A mechanism is what the kinematic check says it is. An exception from that check or from
      * the solve after it said "solvable" is an error, and it is reported as one.
@@ -738,10 +735,25 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     const saved = saveState();
     const from = new Map(movingHinges().map(({ ref, h }) => [h, ref.t]));
     const arrived = new Set<number>();
-    let ev = evaluate(efOf);
-    for (let it = 0; it < MAX_MOVES; it++) {
+    let ev: ReturnType<typeof evaluate>;
+    for (let it = 0; ; it++) {
+      const values = stationValues(efOf);
+      const scale = Math.max(1e-300, ...values.flatMap(row => row.u.map(Math.abs)));
+      let unlocked = false;
+      hingeAt.forEach((ref, h) => {
+        if (!ref?.locked || ref.mb.yielded) return;
+        const m = valueAt('moment', ref.mb.pieces, efOf, ref.t) * Math.sign(hinges[h].moment);
+        if (m > 1e-6 * scale) { ref.locked = false; release(ref.mb, ref.t); unlocked = true; }
+        else if (m < -1e-6 * scale) {
+          for (const k of ref.run) ref.mb.hinged[k] = false;
+          if (ref.stretch) ref.stretch.hinge = null;
+          hinges[h].unloadedAt = lambda;
+          hingeAt[h] = null;
+        }
+      });
+      if (unlocked) { restoreState(saved); continue eventLoop; }
       for (const p of toMp(r, efOf, arrived)) addIncrement(p.coef, p.r, p.efOf);
-      ev = evaluate(efOf);
+      ev = evaluate(efOf, values);
       if (!Number.isFinite(ev.dMin)) break;
       const dMin = ev.dMin;
       const atMpNow = new Set(ev.cand.flatMap((c) => (c.kind === 'station' && !c.axial && c.d <= dMin * (1 + EPS_EVENT) + 1e-12 ? [`${c.m.id}:${c.k}`] : [])));
@@ -758,6 +770,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
         return peak && Math.abs(peak.t - ref.t) > MOVE_TOL ? [{ ref, h, t: peak.t, k: -1 }] : [];
       });
       if (!moves.length) break;
+      if (it >= MAX_MOVES) throw new Error('Plastic hinge movement did not converge');
       restoreState(saved);
       for (const m of moves) {
         if (m.k >= 0) { arrive(m.ref, m.h, m.k); arrived.add(m.h); } else moveHinge(m.ref, m.h, m.t);
@@ -766,24 +779,6 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
       efOf = new Map(r.elementForces.map((ef) => [ef.elementId, ef]));
     }
     const { unit, unitN, cand, dMin, stressed } = ev;
-    /*
-     * A locked hinge is at Mp with the section kept rigid: released when this increment would
-     * take it past Mp, open again when it turns away from it.
-     */
-    const scale = Math.max(1e-300, ...unit.flat().map(Math.abs));
-    let unlocked = false;
-    hingeAt.forEach((ref, h) => {
-      if (!ref?.locked || ref.mb.yielded) return;
-      const m = valueAt('moment', ref.mb.pieces, efOf, ref.t) * Math.sign(hinges[h].moment);
-      if (m > 1e-6 * scale) { ref.locked = false; release(ref.mb, ref.t); unlocked = true; }
-      else if (m < -1e-6 * scale) {
-        for (const k of ref.run) ref.mb.hinged[k] = false;
-        if (ref.stretch) ref.stretch.hinge = null;
-        hinges[h].unloadedAt = lambda;
-        hingeAt[h] = null;
-      }
-    });
-    if (unlocked) { restoreState(saved); continue; }
     if (!Number.isFinite(dMin)) { // nothing left that can yield
       restoreState(saved);
       if (steps.length === 0 && !stressed && ![...unit, ...unitN].some((row) => row.some((v) => Math.abs(v) > 1e-12))) unloaded = true;
@@ -937,7 +932,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
       }
     }
     steps.push({
-      loadFactor: lambda, hingesFormed: formed, results: snapshot(lambda),
+      loadFactor: lambda, hingesFormed: formed.map(h => ({ ...h })), results: snapshot(lambda),
       trace: { lambdaBefore, dLambda: dMin, events: traced, ...(moved.length ? { moved } : {}) }, rotations: rotations.slice(),
     });
     if (crushed) { isMechanism = true; break; }
@@ -997,7 +992,7 @@ export function plasticCollapse2D(input: SolverInput, opts: PlasticCollapseOptio
       unresolved = true;
     } else {
       collapseFactor = lp.lambda;
-      if (!(settled && Math.abs(lambda - lp.lambda) <= HISTORY_TOL * lp.lambda)) limit = { lambda: lp.lambda, historyLambda: lambda };
+      if (!(settled && lambda >= lp.lambda * (1 - 1e-6) && lambda <= lp.lambda * (1 + 1e-7))) limit = { lambda: lp.lambda, historyLambda: lambda };
       isMechanism = true;
       unresolved = false;
     }

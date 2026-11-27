@@ -6,9 +6,7 @@
  * (250 MPa if it has none, and said so by `plasticMoments`).
  *
  * The collapse factor is the limit analysis's, released only where the exact plastic certificate
- * confirms it (engine `plastic_limit_2d`). A factor it does not confirm is returned as `uncertified`
- * (where the step-by-step analysis stopped) for the panel to show with its caveat; only a model the
- * limit analysis cannot take at all is withheld with the PL-2D-INVARIANCE message.
+ * confirms it (engine `plastic_limit_2d`).
  */
 import { modelStore, uiStore } from '../store';
 import { plasticMoments, capacitiesByMember, plasticMaterials, plasticWireSections, DEFAULT_FY, type SectionMp } from '../engine/plastic-moments';
@@ -25,8 +23,6 @@ import { plasticCourse } from '../store/plastic-course.svelte';
 export interface PlasticRun {
   result: PlasticCollapseResult;
   mps: SectionMp[];
-  /** The exact certificate did not confirm the factor: it is where the step-by-step analysis stopped. */
-  uncertified?: boolean;
 }
 
 export class PlasticWithheld extends Error {
@@ -72,10 +68,7 @@ export function runPlasticCollapse(): PlasticRun | null {
     throw withheld();
   }
   if (result.unloaded) throw new Error(t('advanced.plasticNoLoads'));
-  if (result.withheld) {
-    plasticCourse.remember(input, mp, result);
-    return { result, mps, uncertified: true };
-  }
+  if (result.withheld) throw withheld();
   tagPlasticCertificate(result, input, mps);
   plasticCourse.remember(input, mp, result);
   return { result, mps };

@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import * as peaks from '../plastic/span-peaks';
 import * as wasm from '../wasm-solver';
-import { PlasticWithheld, runPlasticCollapse } from '../../actions/plastic';
+import { memberPlasticMoments, PlasticWithheld, runPlasticCollapse } from '../../actions/plastic';
 import { initSolver } from '../wasm-solver';
 import { computeDiagramValueAt } from '../diagrams';
 import { hingePlaceAt } from '../plastic/hinge-place';
@@ -19,13 +19,16 @@ async function collapse(example: string) {
   historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
   await modelStore.loadExample(example);
   const run = runPlasticCollapse()!;
-  const mpOfSection = new Map(run.mps.map((m) => [m.sectionId, m.mp]));
-  const mp = (elementId: number) => mpOfSection.get(modelStore.elements.get(elementId)!.sectionId)!;
-  const peaks = run.result.steps.map((s) => Math.max(...s.results.elementForces.map((ef) => {
-    let worst = 0;
-    for (let i = 0; i <= SAMPLES; i++) worst = Math.max(worst, Math.abs(computeDiagramValueAt('moment', i / SAMPLES, ef)));
-    return worst / mp(ef.elementId);
-  })));
+  const members = memberPlasticMoments(modelStore.buildSolverInput(false)!, run.mps);
+  const mp = (id: number) => members.get(id)!;
+  const peaks = run.result.steps.map(step => {
+    expect(step.results.elementForces.map(ef => ef.elementId).sort()).toEqual([...members.keys()].sort());
+    return Math.max(...step.results.elementForces.map(ef => {
+      let worst = 0;
+      for (let i = 0; i <= SAMPLES; i++) worst = Math.max(worst, Math.abs(computeDiagramValueAt('moment', i / SAMPLES, ef)));
+      return worst / mp(ef.elementId);
+    }));
+  });
   return { r: run.result, mp, peaks };
 }
 
@@ -60,7 +63,7 @@ describe('the moment stays within Mp at every step of the hinge history', () => 
   });
 });
 
-describe.skip('known wrong result: #758 — history evidence', () => {
+describe('#758 — history evidence', () => {
   it('keeps the event at its formation coordinate after the portal hinge moves', async () => {
     const { r } = await collapse('portal-frame');
     const moved = r.hinges.find(h => h.track?.length)!;

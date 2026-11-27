@@ -3,7 +3,7 @@
    * The collapse analysis, as it happened: step through the events, see λ and
    * the hinges formed at each, and read the whole sequence in one table.
    */
-  import { t, tp } from '../../lib/i18n';
+  import { i18n, t, tp } from '../../lib/i18n';
   import { resultsStore } from '../../lib/store';
   import { DEFAULT_FY, type SectionMp } from '../../lib/engine/plastic-moments';
   import type { PlasticCollapseResult } from '../../lib/engine/plastic-collapse';
@@ -31,6 +31,7 @@
   const fy = (mpa: number) => `${plainNumber(toQ(mpa, 'stress'), 1)} ${unitQ('stress')}`;
   /** The assumed-fy note, with the value in the chosen unit. */
   const fyAssumedNote = () => t('advanced.mpFyAssumed').replace('{fy}', fy(DEFAULT_FY));
+  const factor = (v: number) => v.toLocaleString(i18n.locale, { minimumFractionDigits: 3, maximumFractionDigits: 3, useGrouping: false });
   const goTo = (k: number) => { resultsStore.plasticStep = k; plasticCourse.view = 'steps'; };
   /** Plastic rotation of hinge h at the step on screen (none before it forms, none for an axial yield). */
   const rotation = (h: number) => r?.steps[step]?.rotations?.[h];
@@ -57,7 +58,7 @@
     {/if}
     · GH = {Math.max(0, r.degree)}
   </div>
-  {#if r.limit}<p class="adv-result-info pl-unresolved" data-testid="plastic-limit">{tp('course.plastic.limitOnly', { lambda: r.limit.lambda.toFixed(3), history: r.limit.historyLambda.toFixed(3) })}</p>
+  {#if r.limit}<p class="adv-result-info pl-unresolved" data-testid="plastic-limit">{tp('course.plastic.limitOnly', { lambda: factor(r.limit.lambda), history: factor(r.limit.historyLambda) })}</p>
   {:else if collapseVerdict(r) === 'unresolved'}<p class="adv-result-info pl-unresolved" data-testid="plastic-unresolved">{t('course.plastic.unresolved')}</p>{/if}
   <PlasticCertificate result={r} />
   <table class="pl-table" data-testid="plastic-hinges">

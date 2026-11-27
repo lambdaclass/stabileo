@@ -15091,7 +15091,7 @@ const zh: Translations = {
   "edu.ex9DescP": "{L} m 简支梁，跨中作用 {P} kN 集中荷载。矩形截面 b=200 mm，h=400 mm。计算截面模量 W = bh²/6 和最大弯曲应力 σ = M/W。",
   "edu.ex11DescP": "一根 {L} m 的悬臂梁，端部承受 {P} kN，截面为 IPE 300。求固定端的最大弯矩和应力：最外纤维的正应力、中性轴处的剪应力以及 von Mises 等效应力。",
   "course.plastic.limitOnly": "逐步加载过程未达到倒塌荷载（止于 λ = {history}）。由极限分析（静力定理和机动定理）得到的倒塌荷载为 λc = {lambda}；加载过程中的塑性铰是近似的。",
-  "course.plastic.trace.moved": "杆件 {member} 中的塑性铰 {i} 从 x = {from} 移到 x = {to}，那里的弯矩现在达到峰值：该处为 Mp 且剪力为零，而它离开的截面保留已经产生的塑性转角。",
+  "course.plastic.trace.moved": "杆件 {member} 中的塑性铰 {i} 从 x = {from} 移到 x = {to}，那里的弯矩现在达到峰值：该处弯矩达到 Mp，光滑极值处剪力为零，集中荷载处剪力可能跳变并改变符号，而它离开的截面保留已经产生的塑性转角。",
   "wind.other.minimumSignCase": "风荷载 {dir}，实体标牌最小值 {c}（§4.8）",
   'edu.params.invalidVariant': '此变体含有本作业不允许的参数值或支座。',
   'edu.params.supportLimit': '此练习超过了 {limit} 种支座组合的上限。',
