@@ -260,6 +260,7 @@
    */
   function bucklingFailure(e: unknown): void {
     const { text, kind } = bucklingFailureToast(e, t);
+    if (kind === 'info' && selectedSecondOrder === 'buckling') closeEntry('buckling');
     uiStore.toast(text, kind);
   }
 
