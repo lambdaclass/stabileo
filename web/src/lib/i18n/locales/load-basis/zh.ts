@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "regulations.name.en1991_1_3": "欧洲规范 EN 1991-1-3（{edition}）",
+  "regulations.name.en1990Uk": "BS EN 1990 及英国国家附件（{edition}）",
+  "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 及英国国家附件（{edition}）",
+  "regulations.name.en1991_1_4Uk": "BS EN 1991-1-4 及英国国家附件（{edition}）",
+  "regulations.name.en1991_1_3Uk": "BS EN 1991-1-3 及英国国家附件（{edition}）",
+  "regulations.name.asce7": "ASCE/SEI 7（{edition}）",
+  "regulations.name.asce7Wind": "ASCE/SEI 7 风荷载（{edition}）",
+  "regulations.name.asce7Snow": "ASCE/SEI 7 雪荷载（{edition}）",
+  "regulations.name.asce7Seismic": "ASCE/SEI 7 地震作用（{edition}）",
+  "regulations.name.trBasis": "TS 500 和 TBDY 的组合（{edition}）",
+  "regulations.name.ts498": "TS 498（{edition}）",
+  "regulations.name.ts498Wind": "TS 498 风荷载（{edition}）",
+  "regulations.name.ts498Snow": "TS 498 雪荷载（{edition}）",
+  "regulations.name.tbdy2018": "TBDY（{edition}）",
   "loads.asce7.blocked.concentratedLive": "{occupancy} 必须按 ASCE 7-22 §4.4 和表 4.3-1 验算 {force} kN 的集中活荷载。系统未评估控制位置，也未比较均布与集中荷载两种情况。已阻止自动生成，请手动建模并验算这些作用。",
   "loads.asce7.blocked.concentratedRoof": "ASCE 7-22 表 4.3-1 要求对有维护人员上屋面的情况，在最不利位置施加 300 lb（1.33 kN）集中荷载，并与 §4.8 的屋面活荷载分开验算。系统未进行此项验算，已阻止自动生成。请手动建模并验算屋面作用。",
   "loads.ec.live.localQk": "{occupancy}：集中荷载 Qk = {force} kN 单独作用，用于局部验算（EN 1991-1-1 6.2.1(4)）。整体分析采用均布荷载 qk，请对 Qk 另行做局部验算。",

@@ -659,12 +659,14 @@
   <div class="al-dialog" onclick={(e) => e.stopPropagation()}>
     <div class="al-header">
       <h2>{t('autoLoad.title')}</h2>
-      <label class="al-family" title={t('autoLoad.familyHint')}><span>{t('autoLoad.family')}</span>
-        <select value={family} onchange={(e) => chooseFamily(e.currentTarget.value as LoadFamilyChoice)} data-testid="al-family">
-          {#each LOAD_FAMILY_CHOICES as f (f)}<option value={f}>{t(`autoLoad.familyName.${f}`)}</option>{/each}
-        </select>
-      </label>
-      {#if familyError}<span class="al-warn" data-testid="al-family-error">{familyError}</span>{/if}
+      {#if __PUBLIC_FEATURES__.proPlatesUnified}
+        <label class="al-family" title={t('autoLoad.familyHint')}><span>{t('autoLoad.family')}</span>
+          <select value={family} onchange={(e) => chooseFamily(e.currentTarget.value as LoadFamilyChoice)} data-testid="al-family">
+            {#each LOAD_FAMILY_CHOICES as f (f)}<option value={f}>{t(`autoLoad.familyName.${f}`)}</option>{/each}
+          </select>
+        </label>
+        {#if familyError}<span class="al-warn" data-testid="al-family-error">{familyError}</span>{/if}
+      {/if}
       <button class="al-close" onclick={onclose} aria-label={t('report.cancel')}>&times;</button>
     </div>
 
@@ -1231,12 +1233,12 @@
     <label class="al-field"><span class="al-label">{t('autoLoad.bindHere')}</span>
       <select value="" onchange={(e) => bindRegulation(role, e.currentTarget.value)} data-testid={`al-bind-${role}-select`}>
         <option value="">{t('regulations.none')}</option>
-        {#each roleSelectOptions(role, null).filter((o) => !o.noModule && o.option.adapterId === FAMILY_STACKS[family][role]) as { option: o } (o.adapterId)}
+        {#each roleSelectOptions(role, null).filter((o) => !o.noModule && (!__PUBLIC_FEATURES__.proPlatesUnified || o.option.adapterId === FAMILY_STACKS[family][role])) as { option: o } (o.adapterId)}
           <option value={o.adapterId}>{te(optionLabel(o))}</option>
         {/each}
       </select>
     </label>
-    {#if !FAMILY_STACKS[family][role]}<p class="al-hint" data-testid={`al-bind-${role}-none`}>{t(role === 'seismic' ? 'autoLoad.noFamilySeismic' : 'autoLoad.windNeedsRole')}</p>{/if}
+    {#if __PUBLIC_FEATURES__.proPlatesUnified && !FAMILY_STACKS[family][role]}<p class="al-hint" data-testid={`al-bind-${role}-none`}>{t(role === 'seismic' ? 'autoLoad.noFamilySeismic' : 'autoLoad.windNeedsRole')}</p>{/if}
     <button class="al-link" data-testid={role === 'wind' ? 'al-goto-regulations-wind' : 'al-goto-regulations'}
             onclick={() => { proNav.openRegulations(); onclose(); }}>{t('autoLoad.openRegulations')}</button>
   </div>

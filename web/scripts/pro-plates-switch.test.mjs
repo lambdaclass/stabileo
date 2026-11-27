@@ -353,7 +353,7 @@ test('known wrong result: #1928 concrete and design option text follows the cont
   }
 });
 
-test.skip('known wrong result: #1928 load family choices follow the generator while saved authority names are readable', async () => {
+test('known wrong result: #1928 load family choices follow the generator while saved authority names are readable', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
       const config = await resolveConfig({ root, configFile }, 'build', 'production');

@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "regulations.name.en1991_1_3": "Eurocode — EN 1991-1-3 ({edition})",
+  "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
+  "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 + UK NA ({edition})",
+  "regulations.name.en1991_1_4Uk": "BS EN 1991-1-4 + UK NA ({edition})",
+  "regulations.name.en1991_1_3Uk": "BS EN 1991-1-3 + UK NA ({edition})",
+  "regulations.name.asce7": "ASCE/SEI 7 ({edition})",
+  "regulations.name.asce7Wind": "ASCE/SEI 7, wind ({edition})",
+  "regulations.name.asce7Snow": "ASCE/SEI 7, snow ({edition})",
+  "regulations.name.asce7Seismic": "ASCE/SEI 7, seismic ({edition})",
+  "regulations.name.trBasis": "TS 500 and TBDY combinations ({edition})",
+  "regulations.name.ts498": "TS 498 ({edition})",
+  "regulations.name.ts498Wind": "TS 498, wind ({edition})",
+  "regulations.name.ts498Snow": "TS 498, snow ({edition})",
+  "regulations.name.tbdy2018": "TBDY ({edition})",
   "loads.asce7.blocked.concentratedLive": "{occupancy} requires a {force} kN concentrated live load check under ASCE 7-22 §4.4 and Table 4.3-1. Governing placements and the uniform/concentrated alternative are not evaluated. Automatic generation is blocked; model and check these actions manually.",
   "loads.asce7.blocked.concentratedRoof": "ASCE 7-22 Table 4.3-1 requires a 300 lb (1.33 kN) concentrated load on roofs subject to maintenance workers, at its most unfavourable position and separately from §4.8 roof live loading. This check is not evaluated. Automatic generation is blocked; model and check the roof actions manually.",
   "loads.ec.live.localQk": "{occupancy}: the concentrated load Qk = {force} kN acts alone, for local verifications (EN 1991-1-1 6.2.1(4)). The analysis takes the uniform qk; check Qk locally.",

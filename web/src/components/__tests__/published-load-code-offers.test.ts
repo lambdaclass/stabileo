@@ -27,7 +27,7 @@ it('known wrong result: #1928 load authority cannot be usable without its genera
   expect(roleUsable(roles, 'basis')).toBe(true);
 });
 
-it.skip.each(['deserializeProject', 'loadProject', 'loadFile'] as const)('known wrong result: #1928 %s preserves a saved foreign load authority without granting it an implementation', async opener => {
+it.each(['deserializeProject', 'loadProject', 'loadFile'] as const)('known wrong result: #1928 %s preserves a saved foreign load authority without granting it an implementation', async opener => {
   const { regulationsStore } = await import('../../lib/store/regulations.svelte');
   const { FAMILY_STACKS } = await import('../../lib/codes/families/stacks');
   const { serializeProject, deserializeProject, loadProject, loadFile } = await import('../../lib/store/file');

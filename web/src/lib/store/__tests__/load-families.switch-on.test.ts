@@ -53,3 +53,12 @@ describe('choosing a family of load codes', () => {
     expect(JSON.stringify(regulationsStore.roles)).toBe(before);
   });
 });
+
+it('offers every implemented family in the load dialog', async () => {
+  const { render } = await import('svelte/server');
+  const { default: Dialog } = await import('../../../components/pro/ProAutoLoadsDialog.svelte');
+  const html = render(Dialog, { props: { open: true, onclose() {} } }).body;
+  const select = html.split('data-testid="al-family"')[1]?.split('</select>')[0];
+  expect(select).toBeDefined();
+  for (const family of LOAD_FAMILY_CHOICES) expect(select).toContain(`value="${family}"`);
+});

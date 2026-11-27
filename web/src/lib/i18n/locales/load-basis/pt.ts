@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "regulations.name.en1991_1_3": "Eurocódigo — EN 1991-1-3 ({edition})",
+  "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
+  "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 + UK NA ({edition})",
+  "regulations.name.en1991_1_4Uk": "BS EN 1991-1-4 + UK NA ({edition})",
+  "regulations.name.en1991_1_3Uk": "BS EN 1991-1-3 + UK NA ({edition})",
+  "regulations.name.asce7": "ASCE/SEI 7 ({edition})",
+  "regulations.name.asce7Wind": "ASCE/SEI 7, vento ({edition})",
+  "regulations.name.asce7Snow": "ASCE/SEI 7, neve ({edition})",
+  "regulations.name.asce7Seismic": "ASCE/SEI 7, sismo ({edition})",
+  "regulations.name.trBasis": "Combinações da TS 500 e TBDY ({edition})",
+  "regulations.name.ts498": "TS 498 ({edition})",
+  "regulations.name.ts498Wind": "TS 498, vento ({edition})",
+  "regulations.name.ts498Snow": "TS 498, neve ({edition})",
+  "regulations.name.tbdy2018": "TBDY ({edition})",
   "loads.asce7.blocked.concentratedLive": "{occupancy} exige verificar uma sobrecarga concentrada de {force} kN segundo a ASCE 7-22 §4.4 e a Tabela 4.3-1. As posições determinantes e a alternativa entre carga uniforme e concentrada não são avaliadas. A geração automática está bloqueada; modele e verifique essas ações manualmente.",
   "loads.asce7.blocked.concentratedRoof": "A Tabela 4.3-1 da ASCE 7-22 exige uma carga concentrada de 300 lb (1,33 kN) em coberturas com acesso para manutenção, na posição mais desfavorável e separada da sobrecarga de cobertura de §4.8. Essa verificação não é avaliada. A geração automática está bloqueada; modele e verifique as ações da cobertura manualmente.",
   "loads.ec.live.localQk": "{occupancy}: a carga concentrada Qk = {force} kN atua sozinha, para verificações locais (EN 1991-1-1 6.2.1(4)). A análise usa a carga uniforme qk; verifique Qk localmente.",

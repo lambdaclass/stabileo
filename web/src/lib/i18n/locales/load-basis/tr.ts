@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "regulations.name.en1991_1_3": "Eurokod — EN 1991-1-3 ({edition})",
+  "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
+  "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 + UK NA ({edition})",
+  "regulations.name.en1991_1_4Uk": "BS EN 1991-1-4 + UK NA ({edition})",
+  "regulations.name.en1991_1_3Uk": "BS EN 1991-1-3 + UK NA ({edition})",
+  "regulations.name.asce7": "ASCE/SEI 7 ({edition})",
+  "regulations.name.asce7Wind": "ASCE/SEI 7, rüzgâr ({edition})",
+  "regulations.name.asce7Snow": "ASCE/SEI 7, kar ({edition})",
+  "regulations.name.asce7Seismic": "ASCE/SEI 7, deprem ({edition})",
+  "regulations.name.trBasis": "TS 500 ve TBDY yük birleşimleri ({edition})",
+  "regulations.name.ts498": "TS 498 ({edition})",
+  "regulations.name.ts498Wind": "TS 498, rüzgâr ({edition})",
+  "regulations.name.ts498Snow": "TS 498, kar ({edition})",
+  "regulations.name.tbdy2018": "TBDY ({edition})",
   "loads.asce7.blocked.concentratedLive": "{occupancy}, ASCE 7-22 §4.4 ve Tablo 4.3-1'e göre {force} kN tekil hareketli yük kontrolü gerektirir. Belirleyici konumlar ve yayılı/tekil yük seçeneği değerlendirilmez. Otomatik üretim engellendi; bu etkileri elle modelleyip kontrol edin.",
   "loads.asce7.blocked.concentratedRoof": "ASCE 7-22 Tablo 4.3-1, bakım için erişilen çatılarda, §4.8 çatı hareketli yükünden ayrı olarak, en elverişsiz konumda 300 lb (1,33 kN) tekil yük gerektirir. Bu kontrol değerlendirilmez. Otomatik üretim engellendi; çatı etkilerini elle modelleyip kontrol edin.",
   "loads.ec.live.localQk": "{occupancy}: Qk = {force} kN tekil yükü tek başına, yerel kontroller için etkir (EN 1991-1-1 6.2.1(4)). Analiz yayılı qk yükünü alır; Qk'yı yerel olarak kontrol edin.",

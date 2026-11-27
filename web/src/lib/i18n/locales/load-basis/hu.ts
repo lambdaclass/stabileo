@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "regulations.name.en1991_1_3": "Eurocode — EN 1991-1-3 ({edition})",
+  "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
+  "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 + UK NA ({edition})",
+  "regulations.name.en1991_1_4Uk": "BS EN 1991-1-4 + UK NA ({edition})",
+  "regulations.name.en1991_1_3Uk": "BS EN 1991-1-3 + UK NA ({edition})",
+  "regulations.name.asce7": "ASCE/SEI 7 ({edition})",
+  "regulations.name.asce7Wind": "ASCE/SEI 7, szél ({edition})",
+  "regulations.name.asce7Snow": "ASCE/SEI 7, hó ({edition})",
+  "regulations.name.asce7Seismic": "ASCE/SEI 7, földrengés ({edition})",
+  "regulations.name.trBasis": "TS 500 és TBDY kombinációk ({edition})",
+  "regulations.name.ts498": "TS 498 ({edition})",
+  "regulations.name.ts498Wind": "TS 498, szél ({edition})",
+  "regulations.name.ts498Snow": "TS 498, hó ({edition})",
+  "regulations.name.tbdy2018": "TBDY ({edition})",
   "loads.asce7.blocked.concentratedLive": "{occupancy} esetén az ASCE 7-22 §4.4 és a 4.3-1. táblázat {force} kN koncentrált hasznos teher ellenőrzését írja elő. A mértékadó tehertételeket és a megoszló/koncentrált teher közötti választást a program nem vizsgálja. Az automatikus tehergenerálás letiltva; modellezze és ellenőrizze ezeket a hatásokat kézzel.",
   "loads.asce7.blocked.concentratedRoof": "Az ASCE 7-22 4.3-1. táblázata a karbantartás céljából járható tetőkön 300 lb (1,33 kN) koncentrált terhet ír elő a legkedvezőtlenebb helyzetben, a §4.8 szerinti tető hasznos terhétől külön. A program ezt nem ellenőrzi. Az automatikus tehergenerálás letiltva; modellezze és ellenőrizze a tetőterheket kézzel.",
   "loads.ec.live.localQk": "{occupancy}: a Qk = {force} kN koncentrált teher önmagában, helyi ellenőrzésekhez működik (EN 1991-1-1 6.2.1(4)). Az analízis a megoszló qk terhet veszi; Qk-t helyileg ellenőrizze.",

@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "regulations.name.en1991_1_3": "Eurocode — EN 1991-1-3 ({edition})",
+  "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
+  "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 + UK NA ({edition})",
+  "regulations.name.en1991_1_4Uk": "BS EN 1991-1-4 + UK NA ({edition})",
+  "regulations.name.en1991_1_3Uk": "BS EN 1991-1-3 + UK NA ({edition})",
+  "regulations.name.asce7": "ASCE/SEI 7 ({edition})",
+  "regulations.name.asce7Wind": "ASCE/SEI 7, vent ({edition})",
+  "regulations.name.asce7Snow": "ASCE/SEI 7, neige ({edition})",
+  "regulations.name.asce7Seismic": "ASCE/SEI 7, séisme ({edition})",
+  "regulations.name.trBasis": "Combinaisons TS 500 et TBDY ({edition})",
+  "regulations.name.ts498": "TS 498 ({edition})",
+  "regulations.name.ts498Wind": "TS 498, vent ({edition})",
+  "regulations.name.ts498Snow": "TS 498, neige ({edition})",
+  "regulations.name.tbdy2018": "TBDY ({edition})",
   "loads.asce7.blocked.concentratedLive": "{occupancy} exige de vérifier une charge d'exploitation concentrée de {force} kN selon l'ASCE 7-22 §4.4 et le tableau 4.3-1. Les positions déterminantes et l'alternative entre charge répartie et concentrée ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez ces actions manuellement.",
   "loads.asce7.blocked.concentratedRoof": "Le tableau 4.3-1 de l'ASCE 7-22 exige une charge concentrée de 300 lb (1,33 kN) sur les toitures accessibles pour l'entretien, à sa position la plus défavorable et séparément de la charge de toiture de §4.8. Cette vérification n'est pas évaluée. La génération automatique est bloquée ; modélisez et vérifiez les actions de toiture manuellement.",
   "loads.ec.live.localQk": "{occupancy} : la charge concentrée Qk = {force} kN agit seule, pour les vérifications locales (EN 1991-1-1 6.2.1(4)). L'analyse prend la charge répartie qk ; vérifiez Qk localement.",

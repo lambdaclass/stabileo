@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "regulations.name.en1991_1_3": "Eurocode — EN 1991-1-3 ({edition})",
+  "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
+  "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 + UK NA ({edition})",
+  "regulations.name.en1991_1_4Uk": "BS EN 1991-1-4 + UK NA ({edition})",
+  "regulations.name.en1991_1_3Uk": "BS EN 1991-1-3 + UK NA ({edition})",
+  "regulations.name.asce7": "ASCE/SEI 7 ({edition})",
+  "regulations.name.asce7Wind": "ASCE/SEI 7, Wind ({edition})",
+  "regulations.name.asce7Snow": "ASCE/SEI 7, Schnee ({edition})",
+  "regulations.name.asce7Seismic": "ASCE/SEI 7, Erdbeben ({edition})",
+  "regulations.name.trBasis": "Kombinationen nach TS 500 und TBDY ({edition})",
+  "regulations.name.ts498": "TS 498 ({edition})",
+  "regulations.name.ts498Wind": "TS 498, Wind ({edition})",
+  "regulations.name.ts498Snow": "TS 498, Schnee ({edition})",
+  "regulations.name.tbdy2018": "TBDY ({edition})",
   "loads.asce7.blocked.concentratedLive": "{occupancy} verlangt einen Nachweis für eine Einzelnutzlast von {force} kN nach ASCE 7-22 §4.4 und Tabelle 4.3-1. Die maßgebenden Laststellungen und die Alternative zwischen Flächen- und Einzellast werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie diese Einwirkungen manuell.",
   "loads.asce7.blocked.concentratedRoof": "ASCE 7-22 Tabelle 4.3-1 verlangt auf Dächern mit Wartungszugang eine Einzellast von 300 lb (1,33 kN) in der ungünstigsten Stellung, getrennt von der Dachnutzlast nach §4.8. Dieser Nachweis wird nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie die Dacheinwirkungen manuell.",
   "loads.ec.live.localQk": "{occupancy}: Die Einzellast Qk = {force} kN wirkt allein, für örtliche Nachweise (EN 1991-1-1 6.2.1(4)). Die Berechnung nimmt die Flächenlast qk; weisen Sie Qk örtlich nach.",
