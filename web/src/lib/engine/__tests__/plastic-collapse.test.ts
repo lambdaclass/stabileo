@@ -6,6 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { plasticCollapse2D, plasticHistory2D } from '../plastic-collapse';
+import { solve } from '../wasm-solver';
 import { computeDiagramValueAt } from '../diagrams';
 import type { SolverInput, SolverLoad } from '../types';
 
@@ -271,4 +272,22 @@ describe('a span load: its hinge is one section, at the peak of the moment, and 
     expect(r.hinges.every((h) => h.elementId !== 2)).toBe(true);
     expect(r.collapseFactor).toBeCloseTo((4 * MPC) / (60 * 4), 9);
   });
+});
+
+it.skip.each([-1, 1])('known wrong result: #758 — the unloading column reaches its opposite moment first with lateral load %s', force => {
+  const height = 4;
+  const m = model([[1, 0, 0], [2, 0, height], [3, 6, height], [4, 6, 0]], [[1, 1, 2], [2, 2, 3], [3, 4, 3]],
+    [[1, 'pinned'], [4, 'pinned']], [P(1, 0, -1e11), P(2, force, 0), q(2, -15)]);
+  const initial = new Map(solve(m).elementForces.map(e => [e.elementId, computeDiagramValueAt('moment', 1, e)]));
+  const mp = (id: number) => id === 2 ? 1e5 : Math.abs(initial.get(id)!);
+  const result = plasticHistory2D(m, { mp, np: () => Infinity });
+  const reversing = force > 0 ? 1 : 3;
+  const first = result.steps[0];
+  expect(first.loadFactor).toBeCloseTo(1, 12);
+  expect(first.hingesFormed.map(h => h.elementId)).toEqual([1, 3]);
+  const next = result.steps[1];
+  expect(next.hingesFormed).toHaveLength(1);
+  expect(next.hingesFormed[0]).toMatchObject({ elementId: reversing, x: height, moment: -initial.get(reversing)! });
+  expect(next.loadFactor).toBeCloseTo(1 + 2 * mp(reversing) / (Math.abs(force) * height), 9);
+  expect(result.hinges.find(h => h.elementId === reversing)!.unloadedAt).toBeCloseTo(first.loadFactor, 12);
 });
