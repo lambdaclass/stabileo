@@ -192,6 +192,39 @@ async function person(context: BrowserContext, backend: Backend, signedIn: Perso
 }
 
 test.describe('@smoke Education — homework and exams with an account', () => {
+  test.skip('known wrong result: #1927 — a blank sketch stays unanswered and a failed grading engine can retry', async ({ browser }) => {
+    const backend = new Backend();
+    const context = await browser.newContext();
+    const student = await person(context, backend, STUDENT, []);
+    const exercise = { ...SPEC, diagramSketchQuestions: [{ diagram: 'M', elementIndex: 0 }] };
+    const code = 'K7Q2M9XWPA';
+    backend.assignments.set('asg', { id: 'asg', code, title: exercise.title, owner_id: TEACHER.id,
+      exercise: { stabileoExercise: 1, exercise }, duration_minutes: 45,
+      opens_at: new Date().toISOString(), closes_at: null, reveal: 'on_submit' });
+    await student.goto('/app/exam/' + code + '?e2e=1');
+    await student.getByTestId('exam-start').click();
+    await student.getByTestId('exam-start-confirm').click();
+    await student.locator('.dof-input input').first().fill('0');
+    await student.getByTestId('exam-submit').click();
+    await expect(student.locator('#exam-submit-warn')).toContainText('1 of 5');
+    await student.locator('#exam-submit-warn').locator('..').getByRole('button').last().click();
+    await student.getByTestId('edu-step-diagrams').click();
+    await student.locator('.ds-add').click();
+    await student.getByTestId('exam-submit').click();
+    await expect(student.locator('#exam-submit-warn')).toContainText('2 of 5');
+    await student.getByTestId('exam-submit-confirm').click();
+    await expect(student.getByTestId('exam-score')).toHaveAttribute('data-total', '5');
+    const wasm = /dedaliano_engine_bg[^/]*\.wasm/;
+    await context.route(wasm, route => route.fulfill({ status: 503, body: '' }));
+    await student.reload();
+    const results = student.getByTestId('exam-results');
+    await expect(results.getByRole('alert')).toHaveText('This attempt could not be marked in this browser.');
+    await context.unroute(wasm);
+    await results.getByRole('button', { name: /refresh/i }).click();
+    await expect(student.getByTestId('exam-score')).toHaveAttribute('data-total', '5');
+    await context.close();
+  });
+
   test('a teacher assigns an exercise, a student takes it with the tools locked, and both see the same grade', async ({ browser }) => {
     const backend = new Backend();
     const L = 5;

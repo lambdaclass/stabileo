@@ -99,3 +99,40 @@ test('@slow explore live clears a painted interior peak when live calculation is
   expect(await frame()).toMatchObject({ drawn: false, held: false, diagram: 'none', maxMoment: null });
   expect(await page.evaluate(() => window.__stabileo.hasDrawnResults())).toBe(false);
 });
+
+test.skip('@slow known wrong result: #1927 — held stress-map strokes and value labels fade together', async ({ page }) => {
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions);
+  await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+  await page.evaluate(() => window.__stabileoActions.setLiveCalc(true));
+  await page.evaluate(() => window.__stabileoActions.solve());
+  await page.getByTestId('rb-cmd-stress').click();
+  await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().diagram)).toBe('colorMap');
+  const samples = await page.evaluate(async () => {
+    const proto = CanvasRenderingContext2D.prototype;
+    const stroke = proto.stroke, fillText = proto.fillText;
+    const strokes: number[] = [], labels: number[] = [];
+    proto.stroke = function(...args: [] | [Path2D]) { strokes.push(this.globalAlpha); Reflect.apply(stroke, this, args); };
+    proto.fillText = function(...args) {
+      if (this.fillStyle === '#e8eef4') labels.push(this.globalAlpha);
+      fillText.apply(this, args);
+    };
+    const now = performance.now.bind(performance);
+    try {
+      window.__stabileoActions.updateSection(1, { iy: 0.000196 });
+      Object.defineProperty(performance, 'now', { configurable: true, value: () => now() + 300 });
+      for (let i = 0; i < 4; i++) {
+        await new Promise(requestAnimationFrame);
+        if (window.__stabileo.screenFrame().held && labels.length) break;
+      }
+      return { held: window.__stabileo.screenFrame().held, strokes, labels };
+    } finally {
+      Reflect.deleteProperty(performance, 'now');
+      proto.stroke = stroke; proto.fillText = fillText;
+    }
+  });
+  expect(samples.held).toBe(true);
+  expect(samples.strokes).toContain(0.45);
+  expect(samples.labels.length).toBeGreaterThan(0);
+  expect(samples.labels.every(alpha => alpha === 0.45)).toBe(true);
+});

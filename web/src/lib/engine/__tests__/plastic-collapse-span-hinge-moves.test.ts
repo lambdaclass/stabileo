@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
+import { plasticHistory2D } from '../plastic-collapse';
 import * as peaks from '../plastic/span-peaks';
 import * as wasm from '../wasm-solver';
 import { memberPlasticMoments, runPlasticCollapse } from '../../actions/plastic';
@@ -71,6 +72,36 @@ describe('#758 — history evidence', () => {
     expect(formation.x).toBeCloseTo(moved.track![0].x, 9);
     expect(formation.position).toBeCloseTo(moved.track![0].position, 9);
     expect(formation.x).not.toBe(moved.x);
+  });
+
+  it.skip('known wrong result: #1927 — a trial movement without a next increment preserves the last accepted hinge', async () => {
+    historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
+    await modelStore.loadExample('portal-frame');
+    const input = modelStore.buildSolverInput(false)!;
+    const moments = memberPlasticMoments(input, runPlasticCollapse()!.mps);
+    let trial = false;
+    const minimum = peaks.interiorMinimum;
+    const search = vi.spyOn(peaks, 'interiorMinimum').mockImplementation((...args) => {
+      const result = minimum(...args);
+      if (result && result.value < 0) trial = true;
+      return result;
+    });
+    const solve = wasm.solve;
+    let trialSolves = 0;
+    const failedIncrement = vi.spyOn(wasm, 'solve').mockImplementation((model, session) => {
+      if (!trial) return solve(model, session);
+      trialSolves++;
+      return solve({ ...model, loads: [] });
+    });
+    try {
+      const history = plasticHistory2D(input, { mp: id => moments.get(id)!, np: () => Infinity });
+      expect(trialSolves).toBeGreaterThan(0);
+      const hinge = history.hinges.find(h => h.position > 0 && h.position < 1)!;
+      const formed = history.steps[hinge.step].hingesFormed.find(h => h.elementId === hinge.elementId)!;
+      expect(hinge.x).toBe(formed.x);
+      expect(hinge.position).toBe(formed.position);
+      expect(hinge.track).toBeUndefined();
+    } finally { failedIncrement.mockRestore(); search.mockRestore(); }
   });
 
   it('withholds a history whose hinge location never settles', async () => {

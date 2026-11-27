@@ -716,3 +716,23 @@ fn an_isolated_cantilever_cannot_hide_a_portal_in_the_near_band() {
     assert!(findings.contains(&("LIN-SECOND-ORDER".into(), vec![4])), "{findings:?}");
     assert!(findings.contains(&("LIN-SECOND-ORDER-NEAR".into(), vec![])), "{findings:?}");
 }
+
+#[test]
+#[ignore = "known wrong result: #1927"]
+fn a_transverse_spring_cannot_turn_a_discrete_eigenvalue_into_a_physical_bound() {
+    let mut model = serde_json::to_value(braced_2d(200.0, "spring")).unwrap();
+    model["elements"].as_object_mut().unwrap().remove("2");
+    model["nodes"].as_object_mut().unwrap().remove("2");
+    model["elements"]["1"]["nodeJ"] = json!(3);
+    model["sections"]["1"]["iz"] = json!(1e-4);
+    model["supports"]["2"]["ky"] = json!(1e7);
+    model["loads"] = json!([{"type":"nodal","data":{"nodeId":3,"fx":-200.0,"fz":0,"my":0}}]);
+    let quiet = solve_2d(&serde_json::from_value(model.clone()).unwrap()).unwrap();
+    assert!(second_order(&quiet.structured_diagnostics).is_empty());
+    model["loads"][0]["data"]["fx"] = json!(-270.0);
+    let loaded = solve_2d(&serde_json::from_value(model).unwrap()).unwrap();
+    let combination = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 270.0 / 200.0 }], &[(1, &quiet)]).unwrap();
+    for result in [loaded, combination] {
+        assert_eq!(second_order(&result.structured_diagnostics), unbounded());
+    }
+}
