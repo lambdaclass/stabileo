@@ -38,6 +38,20 @@ describe('applyGeneratedModel — undo', () => {
     await new Promise((r) => setTimeout(r, 0));
   });
 
+  it('retains the generated material even when its name and E match the initial steel', async () => {
+    const g = emitModel(generateTruss({ panelsPerHalf: 3 }), { name: 'Truss', profiles: PROFILES });
+    const material = g.json.materials[0];
+    Object.assign(material, { fy: 310, rho: 76, nu: 0.27 });
+    for (const apply of [
+      () => applyGeneratedModel(g, { source: 'generator-truss', atIso: AT, params: {} }),
+      () => modelStore.loadExample('authored', async () => g.json),
+    ]) {
+      await apply();
+      const first = [...modelStore.elements.values()][0]!;
+      expect(modelStore.materials.get(first.materialId)).toMatchObject({ name: material.name, fy: 310, rho: 76, nu: 0.27 });
+    }
+  });
+
   it('is ONE undo step back to the model that was replaced — never the empty in-between', () => {
     // A non-empty model on screen, then Generate over it.
     const first = emitModel(generateLatticeColumn({ divisions: 6 }), { name: 'Columna', profiles: PROFILES });
