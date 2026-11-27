@@ -161,6 +161,28 @@ test('the saved load message catalog is independent of Turkish generator forms',
   }
 });
 
+test('placement uses the sheet labels only in the setting-out drawer and preserves the viewport tool', { skip: 'known wrong result: #1928' }, async () => {
+  for (const plates of [false, true]) {
+    for (const sheets of [false, true]) {
+      await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
+        const config = await resolveConfig({ root, configFile }, 'build', 'production');
+        const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+        const code = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/en');
+        const { en } = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
+        assert.ok(en['placement.anchor']);
+        assert.ok(en['placement.place']);
+        assert.equal(Object.hasOwn(en, 'spec.section.placement'), sheets);
+        assert.equal(Object.hasOwn(en, 'rcSheets.placement.ref.slabTop'), sheets);
+        assert.equal(Object.hasOwn(en, 'rcSheets.placement.stackOf'), sheets);
+        assert.equal(Object.hasOwn(en, 'placement.ref.slabTop'), false);
+        assert.equal(Object.hasOwn(en, 'quickEdit.meshPlate'), plates);
+        assert.equal(Object.hasOwn(en, 'combos.rules.seedCode'), plates);
+        assert.equal(Object.hasOwn(en, 'combos.rules.noneCode'), plates);
+      });
+    }
+  }
+});
+
 test('the raw shell writer only includes circular creation and mesh adoption for unified plates', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
