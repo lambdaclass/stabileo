@@ -109,6 +109,33 @@ describe('the indicator: how the slab is joined to the columns, and the share th
   });
 });
 
+it.each([6, null])('known wrong result: #2491 — exports the slab-column verdict before reinforcement design for mesh %s', (mesh, context) => {
+  context.skip(mesh !== null);
+  building(mesh);
+  expect(designRunStore.computeDemands().ok).toBe(true);
+  const ids = [...modelStore.elements.keys()];
+  expect(ids).toHaveLength(26);
+  expect(ids.every(id => !verificationStore.outcomeFor(id))).toBe(true);
+  const expected = mesh === null ? [] : ids.map(id => `e${id}`).sort();
+  const report = memoriaInput(tr, 'es');
+  const members = report.elements.filter(e => e.family === 'beam' || e.family === 'column');
+  const reported = members.flatMap(e => e.rows
+    .filter(row => row.titleKey === 'check.slabColumnJoint' && row.status === 'unsupported')
+    .map(() => e.id)).sort();
+  expect.soft(reported).toEqual(expected);
+  expect(members.some(e => e.rows.some(row => row.titleKey === 'check.deflection'))).toBe(true);
+  const [elements, checks] = designSheets(tr, 'es');
+  const rows = checks!.rows.filter(row => (row[1] === 'beam' || row[1] === 'column') && row[2] === 'check.slabColumnJoint');
+  expect.soft(rows.map(row => row[10])).toEqual(expected.map(() => 'unsupported'));
+  if (mesh !== null) {
+    const states = elements!.rows.filter(row => row[1] === 'beam' || row[1] === 'column').map(row => row[6]);
+    expect.soft(states).toEqual(ids.map(() => 'memo.state.open'));
+  }
+  const physical = projectIfcInput(tr, 'es', 'p').members;
+  expect(physical).toHaveLength(ids.length);
+  expect(physical.filter(m => m.props?.SlabColumnJoint)).toHaveLength(expected.length);
+});
+
 /** What every reader says of the run in the stores. */
 interface Readings {
   verdict: string;
