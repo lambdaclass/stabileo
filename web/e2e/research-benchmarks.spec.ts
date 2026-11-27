@@ -77,6 +77,7 @@ test('the paper comparison keeps its failures and the element skew reruns the en
   await skew.fill('45');
   await expect(page.getByTestId('variant')).toHaveCount(0);
   await skew.fill('20');
+  await expect(page.getByTestId('variant')).toContainText(/Reference [\d.]+ m · Stabileo [\d.]+ m/);
   await expect(page.getByTestId('variant')).toContainText('Fail');
   await page.getByRole('link', { name: /Try the parallelogram mesh at 5°/ }).click();
   await expect(page.getByRole('combobox', { name: 'Case' })).toHaveValue('mitc4-parallelogram-in');

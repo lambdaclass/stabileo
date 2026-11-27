@@ -213,3 +213,22 @@ test('@smoke a pending portal has no governing result for the requested ratio', 
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(page.getByTestId('collapse-factor')).toBeVisible();
 });
+
+test('@smoke the Ferrari article uses the signed moment of the displayed live path', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.Worker = class {
+      onmessage?: (event: { data: unknown }) => void;
+      postMessage() { this.onmessage?.({ data: { kind: 'buckling', lambda: 1 } }); }
+      terminate() {}
+    } as unknown as typeof Worker;
+  });
+  await page.goto('/en/research/stability/ferrari-sigmund-2025/');
+  const moments = page.getByTestId('ferrari-sign');
+  const replayMoment = await moments.locator('option:checked').innerText();
+  await expect(page.getByTestId('ferrari-model')).toContainText(replayMoment);
+  await moments.selectOption({ index: 1 });
+  const opposite = await moments.locator('option:checked').innerText();
+  expect(opposite).not.toBe(replayMoment);
+  await expect(page.getByTestId('ferrari-source')).toContainText(opposite);
+  await expect(page.getByTestId('ferrari-model')).toContainText(opposite);
+});
