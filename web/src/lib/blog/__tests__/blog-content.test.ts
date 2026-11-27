@@ -756,6 +756,14 @@ it.each([
   ].map(row => row.map(cell => cell.replace('.', decimal))));
 });
 
+function checkCrossover(note: Block) {
+  expect(note.k === 'p' && note.t).toMatch(/§9\.6\.1\.2.*§9\.6\.1\.3.*4\/3/);
+}
+
+it.skip('known wrong result: #2595 — detects the obsolete reinforcement crossover', () => {
+  expect(() => checkCrossover({ k: 'p', t: 'Mu = 31.5 kN·m. §9.6.1.2, §9.6.1.3, 4/3' })).toThrow();
+});
+
 it.each(['en', 'es', 'pt', 'de', 'fr', 'hu', 'it', 'tr', 'zh'] as const)(
   'known wrong result: #2595 — %s states the minimum reinforcement assumption at the crossover',
   locale => {
@@ -763,6 +771,6 @@ it.each(['en', 'es', 'pt', 'de', 'fr', 'hu', 'it', 'tr', 'zh'] as const)(
     const table = blocks.findIndex(block => block.k === 'table' && block.head.some(cell => /^As,m[ií]n \[cm²\]$/.test(cell)));
     expect(table).toBeGreaterThanOrEqual(0);
     const note = blocks[table + 1];
-    expect(note.k === 'p' && note.t).toMatch(/§9\.6\.1\.2.*§9\.6\.1\.3.*4\/3/);
+    checkCrossover(note);
   },
 );

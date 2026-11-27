@@ -122,6 +122,14 @@ it('identifies each released recheck once in the Italian 0.6.2 notes', () => {
   expect(new Set(rows.map(([, , label]) => label)).size).toBe(released.length);
 });
 
+it.skip('known wrong result: #2595 — each release link identifies its published Italian notice', () => {
+  const notes = readFileSync(new URL('../../../../../docs/releases/v0.6.2.it.md', import.meta.url), 'utf8');
+  const rows = [...notes.matchAll(/^\| (\d+) \| \[([^\]]+)\]\(\.\.\/(results-changes\/[^)#]+)(?:#[^)]+)?\) \|$/gm)];
+  const released = readRegistry().changes.filter(change => change.resultsVersion >= 81 && change.resultsVersion <= 95);
+  expect(rows.map(([, version, label, path]) => `${version} docs/${path} ${label}`).sort()).toEqual(
+    released.map(change => `${change.resultsVersion} ${change.changelog.file} ${change.title.it}`).sort());
+});
+
 it.each([
   [gameStrings.it.level, 'Livello'],
   [fairclough.it.area, 'Area della sezione trasversale'],

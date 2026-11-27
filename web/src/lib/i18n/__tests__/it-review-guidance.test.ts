@@ -194,7 +194,7 @@ it.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const)(
       const values: Record<string, number> = { xBar: offset, L: length, raw, U: Math.min(raw, 0.9) };
       const trace = template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key]));
       expect(trace).toContain(`1 − ${offset}/${length} = ${raw}`);
-      expect(trace.replace('0,9', '0.9')).toContain(`U = min(1 − x̄/L, 0.9) = ${values.U}`);
+      checkCappedTrace(trace, values.U);
     }
   },
 );
@@ -203,4 +203,12 @@ it.each(['de', 'fr'] as const)('known wrong result: #2595 — %s prints the deci
   for (const key of ['c301.d.uShearLag', 'steel.tc.calc.u']) {
     expect(allDictFor(locale)[key]).toContain('0,9)');
   }
+});
+
+function checkCappedTrace(trace: string, expected: number) {
+  expect(trace.replace('0,9', '0.9')).toContain(`U = min(1 − x̄/L, 0.9) = ${expected}`);
+}
+
+it.skip('known wrong result: #2595 — detects the uncapped substitution in the governing result', () => {
+  expect(() => checkCappedTrace('U = min(1 − x̄/L, 0.9) = 0.95  (D.3.2)', 0.9)).toThrow();
 });
