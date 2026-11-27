@@ -6276,6 +6276,7 @@ const de: Translations = {
   'building.drawTitle': 'Einzeln zeichnen',
   'building.draw': 'Zeichnen',
   'building.storey': 'Geschoss',
+  'building.storeyPick': 'Geschoss wählen',
   'building.storeyHint': 'Ein Geschoss reicht von seiner Ebene bis zur nächsten. Was Sie im Grundriss zeichnen, gehört zum gewählten Geschoss: Stützen und Wände von seiner Ebene bis zur oberen, Balken und Decken auf der oberen Ebene, seiner Decke. Seine Hintergrundzeichnung ist der DXF-Grundriss dieses Geschosses.',
   'building.storeyTemplate': 'Zeichnung: {name}',
   'building.storeyNoTemplate': 'Keine Zeichnung',

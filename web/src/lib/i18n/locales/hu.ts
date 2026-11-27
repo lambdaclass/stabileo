@@ -5996,6 +5996,7 @@ const hu: Translations = {
   "building.drawTitle": "Rajzolás egyenként",
   "building.draw": "Rajzolás",
   "building.storey": "Emelet",
+  "building.storeyPick": "Válasszon emeletet",
   "building.storeyHint": "Egy emelet a saját szintjétől a következőig tart. Amit alaprajzban rajzol, a kiválasztott emelethez kerül: az oszlopok és a falak a szintjétől a fölötte lévőig, a gerendák és a födémek a fölötte lévő szintre, a mennyezetére. A háttérrajza annak az emeletnek a DXF alaprajza.",
   "building.storeyTemplate": "Rajz: {name}",
   "building.storeyNoTemplate": "Nincs rajz",

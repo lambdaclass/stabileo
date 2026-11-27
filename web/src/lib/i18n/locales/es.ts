@@ -6722,6 +6722,7 @@ const es: Record<string, string> = {
   'building.drawTitle': "Dibujar una por una",
   'building.draw': 'Dibujar',
   'building.storey': 'Planta',
+  'building.storeyPick': 'Elegí una planta',
   'building.storeyHint': 'Una planta va de su nivel al siguiente. Lo que dibujes en planta va a la planta elegida: las columnas y los tabiques, de su nivel al de arriba; las vigas y las losas, en el de arriba, que es su techo. Su plantilla es el plano DXF de ese piso.',
   'building.storeyTemplate': 'Plantilla: {name}',
   'building.storeyNoTemplate': 'Sin plantilla',

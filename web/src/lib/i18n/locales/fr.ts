@@ -6276,6 +6276,7 @@ const fr: Translations = {
   'building.drawTitle': 'Dessiner un par un',
   'building.draw': 'Dessiner',
   'building.storey': 'Étage',
+  'building.storeyPick': 'Choisissez un étage',
   'building.storeyHint': 'Un étage va de son niveau au suivant. Ce que vous dessinez en plan va à l’étage choisi : les poteaux et les voiles, de son niveau à celui du dessus ; les poutres et les dalles, sur celui du dessus, son plafond. Son fond de plan est le plan DXF de cet étage.',
   'building.storeyTemplate': 'Fond de plan : {name}',
   'building.storeyNoTemplate': 'Sans fond de plan',

@@ -6469,6 +6469,7 @@ const zh: Translations = {
   "building.drawTitle": "逐个绘制",
   "building.draw": "绘制",
   "building.storey": "楼层",
+  "building.storeyPick": "选择楼层",
   "building.storeyHint": "一个楼层从其标高到上一个标高。在平面上绘制的内容属于所选楼层：柱和墙从其标高到上一标高；梁和楼板位于上一标高，即其顶部。其底图是该层的 DXF 平面图。",
   "building.storeyTemplate": "底图：{name}",
   "building.storeyNoTemplate": "无底图",

@@ -2,7 +2,8 @@
   /**
    * The storey being modelled: what is drawn on the plan goes to it, its columns and walls from its
    * level to the next one, its beams and slabs at that next one. Its template is the plan laid on its
-   * level. The working level is the storey's floor, so the plan view and this list agree.
+   * level. The working level is the storey's floor, so the plan view and this list agree; a working
+   * elevation between levels, set elsewhere, is left alone until a storey is picked.
    */
   import Hint from '../Hint.svelte';
   import { modelStore, uiStore } from '../../../lib/store';
@@ -14,7 +15,6 @@
 
   const levels = $derived(sortedLevels(modelStore.grid ?? undefined));
   const current = $derived(levels.find((l) => Math.abs(l.z - uiStore.nodeCreateZ) < 1e-6));
-  $effect(() => { if (!current && levels[0]) uiStore.setActiveLevel(levels[0].z); });
   const template = $derived(current ? modelStore.underlays.find((u) => u.levelId === current.id || Math.abs(u.z - current.z) < 1e-6) : undefined);
   /** With none of its own, the storey draws over the nearest one below, as the snaps do. */
   const borrowed = $derived.by(() => {
@@ -30,6 +30,7 @@
   <div class="st-row">
     <label class="st-field">{t('building.storey')}
       <select value={current?.id ?? ''} onchange={(e) => { const l = levels.find((x) => x.id === e.currentTarget.value); if (l) uiStore.setActiveLevel(l.z); }} data-testid="building-storey-select">
+        {#if !current}<option value="" disabled>{t('building.storeyPick')}</option>{/if}
         {#each [...levels].reverse() as l (l.id)}<option value={l.id}>{storeyLabel(levels, l)}</option>{/each}
       </select>
     </label>

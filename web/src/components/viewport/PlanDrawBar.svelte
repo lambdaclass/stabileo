@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { planDraw, STRUCTURE_SNAPS, type BeamMode, type ColumnMode } from '../../lib/store/plan-draw.svelte';
   import { OSNAP_MODES } from '../../lib/model/osnap-modes';
   import { t, tp } from '../../lib/i18n';
@@ -14,6 +15,7 @@
   let snapsOpen = $state(false);
   const levels = $derived(planDraw.levels);
 
+  $effect(() => { void uiStore.nodeCreateZ; untrack(() => planDraw.drop()); });
   $effect(() => { if (!uiStore.planView3D || (uiStore.currentTool !== 'pan' && uiStore.currentTool !== 'select')) planDraw.stop(); });
 
   const sectionName = (id: number | null) => (id === null ? null : modelStore.sections.get(id)?.name ?? null);
@@ -28,11 +30,14 @@
       if (e.key === 'Escape' || e.key === 'Enter') el.blur();
       return;
     }
+    // A dialog, a menu or a focused button keeps its own keys.
+    if (el && (el.tagName === 'BUTTON' || el.tagName === 'A' || el.closest('[role="dialog"], [role="menu"], [role="listbox"]'))) return;
     const take = () => { e.preventDefault(); e.stopPropagation(); };
+    const pending = planDraw.points.length > 0 || planDraw.typed !== '';
     if (/^[0-9.,]$/.test(e.key)) { if (planDraw.typing) { planDraw.type(e.key); take(); } }
-    else if (e.key === 'Enter') { planDraw.enter(); take(); }
+    else if (e.key === 'Enter') { if (planDraw.typed) { planDraw.enter(); take(); } }
     else if (e.key === 'Backspace') { planDraw.back(); take(); }
-    else if (e.key === 'Escape') { planDraw.cancel(); take(); }
+    else if (e.key === 'Escape') { planDraw.cancel(); if (pending) take(); }
   }
   $effect(() => {
     const keys = (e: KeyboardEvent) => onKey(e);

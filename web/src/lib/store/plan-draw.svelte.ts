@@ -9,7 +9,7 @@ import {
   beamAxis, beamFromFaces, beamFromRect, footprintAt, footprintCorners, footprintFromCorners, footprintFromSide,
   placeBeamOnPlan, placeColumnOnPlan, rectCorners, type Footprint, type P2, type PlanPlaced,
 } from '../model/building/draw-on-plan';
-import { placeSlabOnPlan, slabFraming, type SlabEdge } from '../model/building/slab-on-plan';
+import { framingAt, placeSlabOnPlan, slabFraming, type FramingAt, type SlabEdge } from '../model/building/slab-on-plan';
 import { placeWallOnPlan } from '../model/building/wall-on-plan';
 
 export type PlanDrawKind = 'column' | 'beam' | 'slab' | 'wall';
@@ -42,6 +42,8 @@ let orthoLock = $state(false);
 const column = $state({ mode: 'corners' as ColumnMode, b: 0.3, h: 0.3, angle: 0, fixedPoint: [0, 0] as [number, number], levelFrom: '', levelTo: '', fixBase: true, typology: 'concrete', sectionId: null as number | null });
 const beam = $state({ mode: 'rect' as BeamMode, width: 0.2, height: 0.5, align: 0 as -1 | 0 | 1, topFlush: true, typology: 'dropped', sectionId: null as number | null });
 const slab = $state({ thickness: 0.15, typology: 'solid' });
+/** What can carry a slab on the level being drawn, read once per model change rather than on every pointer move. */
+let framingCache: { key: string; at: FramingAt } | null = null;
 const wall = $state({ typology: 'concrete', meshSize: 1, fixBase: true });
 let modeBefore: 'wireframe' | 'solid' | 'sections' | null = null;
 
@@ -166,7 +168,10 @@ export const planDraw = {
   get slabEdges(): SlabEdge[] {
     if (kind !== 'slab' || points.length !== 1 || !hover) return [];
     const z = beamLevel()?.z;
-    return z === undefined ? [] : slabFraming(rectCorners(points[0]!, hover), z);
+    if (z === undefined) return [];
+    const key = `${modelStore.modelVersion}:${z}`;
+    if (framingCache?.key !== key) framingCache = { key, at: framingAt(z) };
+    return slabFraming(rectCorners(points[0]!, hover), z, framingCache.at);
   },
   /** What a click needs next, as a key of `planDraw.step.*`. */
   get step(): string {
@@ -185,6 +190,8 @@ export const planDraw = {
     kind = null; points = []; typed = ''; hover = null; ortho = false;
     if (modeBefore) { uiStore.renderMode3D = modeBefore; modeBefore = null; }
   },
+  /** What was half drawn is dropped: another storey was taken, and a rectangle cannot start on one and end on another. */
+  drop() { points = []; typed = ''; },
   /** Another way of drawing: what was half drawn the other way is dropped. */
   setMode(m: ColumnMode | BeamMode) {
     if (kind === 'column') column.mode = m as ColumnMode; else if (kind === 'beam') beam.mode = m as BeamMode;

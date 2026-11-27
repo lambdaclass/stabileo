@@ -163,6 +163,30 @@ test.describe('@smoke drawing the building on the plan', () => {
     await page.keyboard.press('F3');
     await page.mouse.move(near.x, near.y);
     await expect(page.getByTestId('plan-draw-snap')).toHaveCount(1);
+
+    // On the level above, a box over the whole bay does not take the columns of the storey below, hidden under it.
+    await page.getByTestId('plan-draw-exit').click();
+    await page.getByTestId('plan-view-up').click();
+    await page.getByTestId('pr-select').click();
+    await page.getByTestId('select-mode-elements').click();
+    const [p0, p1] = [await at(page, -1, -1, 3), await at(page, 7, 6, 3)];
+    await page.mouse.move(p0.x, p1.y);
+    await page.mouse.down();
+    await page.mouse.move((p0.x + p1.x) / 2, (p0.y + p1.y) / 2, { steps: 4 });
+    await page.mouse.move(p1.x, p0.y, { steps: 4 });
+    await page.mouse.up();
+    const snap = await model(page);
+    const z = new Map(snap.nodes.map(([id, n]) => [id, n.z ?? 0]));
+    const columns = snap.elements.filter(([, e]) => z.get(e.nodeI) !== z.get(e.nodeJ)).map(([id]) => id);
+    const taken = await page.evaluate(() => window.__stabileo.selection());
+    expect(columns.length).toBe(4);
+    expect(taken.filter((id) => columns.includes(id))).toEqual([]);
+    await page.getByTestId('plan-view-down').click();
+    await page.mouse.move(p0.x, p1.y);
+    await page.mouse.down();
+    await page.mouse.move(p1.x, p0.y, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(async () => (await page.evaluate(() => window.__stabileo.selection())).length, 'on its own storey the same box takes them').toBeGreaterThan(0);
   });
   test('a wall drawn as a rectangle between two columns reaches them and stands its storey', async ({ pro: page }) => {
     await levelsOnly(page);

@@ -66,3 +66,13 @@ describe('a slab drawn on the plan', () => {
     expect(pts.filter((p) => p.kind === 'corner').length).toBeGreaterThan(0);
   });
 });
+
+describe('a slab between beams that stop at wide columns', () => {
+  beforeEach(() => { modelStore.clear(); historyStore.clear(); });
+
+  it('reads the stretch the column takes as carried, so the side is on beams', () => {
+    for (const [x, y] of [[0, 0], [6, 0]] as const) placeColumnOnPlan({ footprint: footprintAt({ x, y }, 0.4, 0.4, 0, [0, 0]), fixedPoint: [0, 0], levels, levelFrom: 'N0', levelTo: 'N1', materialId: 1 });
+    placeBeamOnPlan({ a: { x: 0.2, y: 0 }, b: { x: 5.8, y: 0 }, width: 0.2, height: 0.5, level: levels[1]!, materialId: 1 });
+    expect(slabFraming(rectCorners({ x: 0.1, y: 0.1 }, { x: 5.9, y: 4.9 }), 3)[0]!.support).toBe('beam');
+  });
+});

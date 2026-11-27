@@ -117,6 +117,24 @@ describe('what lies under the plan', () => {
     expect([foundation.visible, deep.visible]).toEqual([true, false]);
   });
 
+  it('on the top level, with no ceiling, keeps what was just drawn on it and not what arrives from below', () => {
+    modelStore.clear();
+    const parent = new THREE.Group();
+    const beam = member(6, 6), column = member(3, 6);
+    parent.add(beam, column);
+    pass([parent], planCutFor(6, { lowest: false, ceiling: false, below: 'hidden' }));
+    expect([beam.visible, column.visible], 'the column arriving from below goes').toEqual([true, false]);
+  });
+
+  it('cannot pick what the cut takes away above it', () => {
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(0, 0, 6), c = modelStore.addNode(0, 0, 9);
+    const here = modelStore.addElement(a, b), above = modelStore.addElement(b, c);
+    toneBelowPlanCut([], planCutFor(3, { lowest: false, ceiling: true, below: 'ghost', topZ: 6.001 }));
+    expect([underPlanFloor({ type: 'element', id: here }), underPlanFloor({ type: 'element', id: above }), underPlanFloor({ type: 'node', id: c })]).toEqual([false, true, true]);
+    toneBelowPlanCut([], null);
+  });
+
   it('does not show what something else hid', () => {
     const parent = new THREE.Group();
     const lower = at(0);
@@ -156,6 +174,8 @@ describe('what lies under the plan', () => {
     expect(batch.mesh.material.clippingPlanes).toBeNull();
     expect(color(1)[0]).toBeCloseTo(base[0]! * 0.35, 2);
     expect([...color(2)]).toEqual(base);
+    batch.restoreColor(1);
+    expect(color(1)[0], 'a hover put back keeps it dim').toBeCloseTo(base[0]! * 0.35, 2);
     batch.setPlanFloor(null, 'hidden');
     expect([...color(1)]).toEqual(base);
   });

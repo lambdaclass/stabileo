@@ -6159,6 +6159,7 @@ const pt: Translations = {
   'building.drawTitle': "Desenhar uma a uma",
   'building.draw': 'Desenhar',
   'building.storey': 'Pavimento',
+  'building.storeyPick': 'Escolha um pavimento',
   'building.storeyHint': 'Um pavimento vai do seu nível ao seguinte. O que você desenha na planta vai para o pavimento escolhido: pilares e paredes, do seu nível ao de cima; vigas e lajes, no de cima, que é o seu teto. A planta de fundo dele é o DXF desse andar.',
   'building.storeyTemplate': 'Planta de fundo: {name}',
   'building.storeyNoTemplate': 'Sem planta de fundo',

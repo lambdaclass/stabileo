@@ -3,7 +3,7 @@ import { createPlate } from '../../store/physical-plates';
 import type { Level } from '../grid';
 import { PHYSICAL_GROUP_KIND } from '../physical/types';
 import { nextName } from './declare';
-import { beamsAtLevel, nodeFinder, type P2 } from './draw-on-plan';
+import { beamsAtLevel, columnsAtLevel, footprintCorners, nodeFinder, type P2 } from './draw-on-plan';
 
 function wallsAtLevel(z: number): Array<{ A: P2; B: P2; width: number }> {
   const out: Array<{ A: P2; B: P2; width: number }> = [];
@@ -38,6 +38,18 @@ function along(a: P2, b: P2, A: P2, B: P2, w: number): [number, number] | null {
   return hi - lo > 1e-6 ? [lo, hi] : null;
 }
 
+/** The stretch of the edge `a`→`b`, as part of its [0, 1], that a column's footprint `f` takes: a beam framing into the column stops at its face. */
+function across(a: P2, b: P2, f: P2[]): [number, number] | null {
+  const L = Math.hypot(b.x - a.x, b.y - a.y);
+  if (L < 1e-9) return null;
+  const t = { x: (b.x - a.x) / L, y: (b.y - a.y) / L };
+  const off = f.map((p) => (p.x - a.x) * -t.y + (p.y - a.y) * t.x);
+  if (Math.min(...off) > 0.02 || Math.max(...off) < -0.02) return null;
+  const u = f.map((p) => ((p.x - a.x) * t.x + (p.y - a.y) * t.y) / L);
+  const lo = Math.max(0, Math.min(...u)), hi = Math.min(1, Math.max(...u));
+  return hi - lo > 1e-6 ? [lo, hi] : null;
+}
+
 /** Whether the intervals cover [0, 1] to within a few centimetres of an edge `L` long. */
 function covers(spans: Array<[number, number]>, L: number): boolean {
   const gap = 0.05 / Math.max(L, 1e-9);
@@ -51,14 +63,21 @@ function covers(spans: Array<[number, number]>, L: number): boolean {
  * drawn), by walls, or free. A beam's side also gives the line through its nodes, where the slab's
  * edge goes so its mesh shares the beam's nodes.
  */
-export function slabFraming(corners: readonly P2[], z: number): SlabEdge[] {
-  const beams = beamsAtLevel(z), walls = wallsAtLevel(z);
+export type FramingAt = { beams: ReturnType<typeof beamsAtLevel>; walls: ReturnType<typeof wallsAtLevel>; columns: P2[][] };
+
+/** What on level `z` can carry a slab's side; read once and kept while the model is unchanged. */
+export function framingAt(z: number): FramingAt {
+  return { beams: beamsAtLevel(z), walls: wallsAtLevel(z), columns: columnsAtLevel(z).map((c) => footprintCorners(c.footprint)) };
+}
+
+export function slabFraming(corners: readonly P2[], z: number, at: FramingAt = framingAt(z)): SlabEdge[] {
+  const { beams, walls, columns } = at;
   return corners.map((a, k) => {
     const b = corners[(k + 1) % corners.length]!;
     const L = Math.hypot(b.x - a.x, b.y - a.y);
     const onBeams = beams.map((bm) => ({ bm, span: along(a, b, bm.A, bm.B, bm.width) })).filter((x) => x.span);
-    if (onBeams.length && covers(onBeams.map((x) => x.span!), L)) {
-      const bm = onBeams[0]!.bm;
+    if (onBeams.length && covers([...onBeams.map((x) => x.span!), ...columns.map((f) => across(a, b, f)).filter((s): s is [number, number] => s !== null)], L)) {
+      const bm = onBeams.reduce((p, q) => (q.span![1] - q.span![0] > p.span![1] - p.span![0] ? q : p)).bm;
       return { a, b, support: 'beam' as const, line: { a: bm.a, b: bm.b } };
     }
     const onWalls = walls.map((w) => along(a, b, w.A, w.B, w.width)).filter((s): s is [number, number] => s !== null);
@@ -90,13 +109,23 @@ export function placeSlabOnPlan(d: SlabOnPlan): SlabPlaced {
   if (Math.max(...xs) - Math.min(...xs) < 0.1 || Math.max(...ys) - Math.min(...ys) < 0.1 || d.thickness < 0.01) return { created: 0, edges, refused: 'size' };
   const lines = edges.map((e) => e.line ?? { a: e.a, b: e.b });
   const corners = lines.map((l, k) => meet(lines[(k + lines.length - 1) % lines.length]!, l) ?? d.corners[k]!);
+  const area = (ps: readonly P2[]) => ps.reduce((sum, p, k) => { const q = ps[(k + 1) % ps.length]!; return sum + p.x * q.y - q.x * p.y; }, 0) / 2;
+  const before = area(d.corners), after = area(corners);
+  // Checked before anything is made, so a refusal leaves no nodes and no undo step behind.
+  if (Math.sign(after) !== Math.sign(before) || Math.abs(after) < 0.01 || corners.some((p, k) => Math.hypot(p.x - corners[(k + 1) % corners.length]!.x, p.y - corners[(k + 1) % corners.length]!.y) < 0.05)) {
+    return { created: 0, edges, refused: 'shape' };
+  }
   const out: SlabPlaced = { created: 0, edges };
   modelStore.batch(() => {
+    const had = new Set(modelStore.nodes.keys());
     const nodeAt = nodeFinder();
     const outline = corners.map((p) => nodeAt(p.x, p.y, z));
-    if (new Set(outline).size < 3) { out.refused = 'shape'; return; }
     const r = createPlate({ outline, materialId: d.materialId, thickness: d.thickness, name: nextName('L')() });
-    if ('problem' in r) { out.refused = 'shape'; return; }
+    if ('problem' in r) {
+      for (const id of new Set(outline)) if (!had.has(id)) modelStore.removeNode(id);
+      out.refused = 'shape';
+      return;
+    }
     const g = modelStore.model.groups.get(r.id);
     modelStore.setGroupData(r.id, {
       ...(g?.data ?? {}), kind: 'slab', levelFrom: d.level.id, levelTo: d.level.id,

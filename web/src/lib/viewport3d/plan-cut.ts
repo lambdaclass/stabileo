@@ -12,14 +12,21 @@ export const PLAN_OVERHEAD_M = 0.15;
  * slabs of its ceiling. What sits on its floor belongs to the storey below, except on the lowest
  * level, which has none.
  */
-export type PlanCut = { floorZ: number; nodeFloorZ: number; overheadZ: number | null; below: 'hidden' | 'ghost' };
+export type PlanCut = { floorZ: number; nodeFloorZ: number; overheadZ: number | null; below: 'hidden' | 'ghost'; topZ?: number | null; keepFromZ?: number | null };
 
-export function planCutFor(levelZ: number, o: { lowest: boolean; ceiling: boolean; below: 'hidden' | 'ghost' }): PlanCut {
+/**
+ * The plan of the storey on `levelZ`. On the top level, with no ceiling, what is drawn sits on the
+ * level itself: what lies on it stays (`keepFromZ`), and the columns arriving from below go.
+ * `topZ` is where the clipping plane cuts.
+ */
+export function planCutFor(levelZ: number, o: { lowest: boolean; ceiling: boolean; below: 'hidden' | 'ghost'; topZ?: number | null }): PlanCut {
   return {
     floorZ: o.lowest ? levelZ - PLAN_BELOW_LEVEL_M : levelZ + 1e-3,
+    keepFromZ: !o.lowest && !o.ceiling ? levelZ - PLAN_BELOW_LEVEL_M : null,
     nodeFloorZ: levelZ - 1e-3,
     overheadZ: o.ceiling ? levelZ + PLAN_OVERHEAD_M : null,
     below: o.below,
+    topZ: o.topZ ?? null,
   };
 }
 
@@ -28,7 +35,10 @@ export const planClipZ = (cutZ: number): number => cutZ + 1e-3;
 
 const box = new THREE.Box3();
 let census = { hidden: 0, ghost: 0, overhead: 0 };
-let pick: { floorZ: number; nodeFloorZ: number } | null = null;
+let pick: { floorZ: number; nodeFloorZ: number; topZ: number | null; keepFromZ: number | null } | null = null;
+let version = 0;
+/** Bumped by every pass, so a filtered list of what can be picked knows when to be made again. */
+export const planCutVersion = (): number => version;
 
 /** How many objects the last pass hid or toned, for the tests. */
 export const planCutCensus = (): { hidden: number; ghost: number; overhead: number } => ({ ...census });
@@ -38,6 +48,15 @@ const nodeZ = (id: number) => modelStore.nodes.get(id)?.z ?? 0;
 function nodesOf(hit: { type: string; id: number }): readonly number[] {
   if (hit.type === 'node') return [hit.id];
   if (hit.type === 'support') { const n = modelStore.supports.get(hit.id)?.nodeId; return n === undefined ? [] : [n]; }
+  if (hit.type === 'load') {
+    const d = modelStore.model.loads.find((l) => l.data.id === hit.id)?.data as { nodeId?: number; elementId?: number; quadId?: number; plateId?: number } | undefined;
+    if (!d) return [];
+    if (d.nodeId !== undefined) return [d.nodeId];
+    if (d.elementId !== undefined) return nodesOf({ type: 'element', id: d.elementId });
+    if (d.quadId !== undefined) return nodesOf({ type: 'quad', id: d.quadId });
+    if (d.plateId !== undefined) return nodesOf({ type: 'plate', id: d.plateId });
+    return [];
+  }
   if (hit.type === 'element') { const e = modelStore.elements.get(hit.id); return e ? [e.nodeI, e.nodeJ] : []; }
   if (hit.type === 'plate') return modelStore.plates.get(hit.id)?.nodes ?? [];
   if (hit.type === 'quad') return modelStore.quads.get(hit.id)?.nodes ?? [];
@@ -68,7 +87,9 @@ export function clearPlanCut(parents: ReadonlyArray<THREE.Object3D | null | unde
  */
 export function toneBelowPlanCut(parents: ReadonlyArray<THREE.Object3D | null | undefined>, cut: PlanCut | null, slabs: ReadonlyArray<THREE.Object3D | null | undefined> = []): void {
   census = { hidden: 0, ghost: 0, overhead: 0 };
-  pick = cut?.below === 'hidden' ? { floorZ: cut.floorZ, nodeFloorZ: cut.nodeFloorZ } : null;
+  version++;
+  const hidden = cut?.below === 'hidden';
+  pick = cut ? { floorZ: hidden ? cut.floorZ : -Infinity, nodeFloorZ: hidden ? cut.nodeFloorZ : -Infinity, topZ: cut.topZ ?? null, keepFromZ: cut.keepFromZ ?? null } : null;
   if (!cut) return;
   for (const p of parents) {
     if (!p) continue;
@@ -77,7 +98,9 @@ export function toneBelowPlanCut(parents: ReadonlyArray<THREE.Object3D | null | 
       if (!o.visible || o instanceof THREE.InstancedMesh || o instanceof THREE.Points) continue;
       const s = span(o);
       if (!s) continue;
-      if (s.max < cut.floorZ) {
+      const t = (o.userData as { type?: string }).type;
+      const kept = cut.keepFromZ != null && s.min >= cut.keepFromZ;
+      if (!kept && s.max < (t === 'node' || t === 'support' ? cut.nodeFloorZ : cut.floorZ)) {
         if (cut.below === 'hidden') { o.visible = false; o.userData.planHidden = true; census.hidden++; }
         else { toneObject(o, 'halftone'); census.ghost++; }
       } else if (isSlab && cut.overheadZ !== null && s.min > cut.overheadZ) {
@@ -87,10 +110,19 @@ export function toneBelowPlanCut(parents: ReadonlyArray<THREE.Object3D | null | 
   }
 }
 
-/** Whether a picked node, member or shell lies under the storey while it is hidden there. */
+/**
+ * Whether a picked node, member, shell, support or load is out of the plan: under the storey while
+ * it is hidden there, or wholly over the cut, which the clipping plane removes from view but not
+ * from a ray.
+ */
 export function underPlanFloor(hit: { type: string; id: number } | null): boolean {
   if (pick === null || !hit) return false;
   const nodes = nodesOf(hit);
+  if (nodes.length === 0) return false;
+  const zs = nodes.map(nodeZ);
   const floor = hit.type === 'node' || hit.type === 'support' ? pick.nodeFloorZ : pick.floorZ;
-  return nodes.length > 0 && Math.max(...nodes.map(nodeZ)) < floor;
+  const lo = Math.min(...zs), hi = Math.max(...zs);
+  // Over the cut, or starting at it and going up: the storey above's, a column standing on the ceiling.
+  const kept = pick.keepFromZ !== null && lo >= pick.keepFromZ;
+  return (!kept && hi < floor) || (pick.topZ !== null && hi > pick.topZ && lo > pick.topZ - 2e-3);
 }

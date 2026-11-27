@@ -6729,6 +6729,7 @@ const en: Record<string, string> = {
   'building.drawTitle': "Draw one by one",
   'building.draw': 'Draw',
   'building.storey': 'Story',
+  'building.storeyPick': 'Pick a story',
   'building.storeyHint': 'A story runs from its level to the next one. What you draw on the plan goes to the chosen story: columns and walls from its level to the one above; beams and slabs on the one above, its ceiling. Its drawing is that floor\'s DXF plan.',
   'building.storeyTemplate': 'Drawing: {name}',
   'building.storeyNoTemplate': 'No drawing',

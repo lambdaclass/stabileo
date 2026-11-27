@@ -7,7 +7,7 @@
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
   import { focusNodeIds } from '../lib/model/select-like';
-  import { viewState, viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../lib/store/view-state.svelte';
+  import { viewState, viewVisibility, visibleElements as shownElements, visibleNodes as shownNodes, visiblePlates, visibleQuads } from '../lib/store/view-state.svelte';
   import { insidePolygon, extendLasso } from '../lib/viewport/lasso';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { contourOptions } from '../lib/store/contour-options.svelte';
@@ -34,7 +34,7 @@
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
   import { toneObject } from '../lib/viewport3d/category-tone';
-  import { toneBelowPlanCut, clearPlanCut, planCutFor, planClipZ } from '../lib/viewport3d/plan-cut';
+  import { toneBelowPlanCut, clearPlanCut, planCutFor, planClipZ, planCutVersion, underPlanFloor } from '../lib/viewport3d/plan-cut';
   import { storeyAt } from '../lib/model/storeys';
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
@@ -1350,7 +1350,7 @@
   let toneDirty = true;
   function applyCategoryTones() {
     const s = (c: ViewCategory) => viewCategories.state(c);
-    const planned = [elementsParent, nodesParent, shellsParent, supportsParent, loadsParent];
+    const planned = [elementsParent, nodesParent, shellsParent, supportsParent, loadsParent?.getObjectByName('loadsContainer')];
     clearPlanCut(planned);
     toneObject(elementsParent, s('members'));
     toneObject(nodesParent, s('nodes'));
@@ -1362,10 +1362,10 @@
     for (const [obj, c] of sceneHost.toned) toneObject(obj, s(c));
     const storey = storeyAt(modelStore.grid?.levels ?? [], uiStore.nodeCreateZ);
     const cut = uiStore.planView3D && uiStore.planCutZ !== null
-      ? planCutFor(uiStore.nodeCreateZ, { lowest: storey.lowest, ceiling: storey.ceiling !== null, below: uiStore.planBelow }) : null;
+      ? planCutFor(uiStore.nodeCreateZ, { lowest: storey.lowest, ceiling: storey.ceiling !== null, below: uiStore.planBelow, topZ: planClipZ(uiStore.planCutZ) }) : null;
     toneBelowPlanCut(planned, cut, [shellsParent]);
     nodesInstanced.setClipBelow(cut?.below === 'hidden' ? cut.nodeFloorZ : null);
-    elementsBatched.setPlanFloor(cut?.floorZ ?? null, cut?.below ?? 'hidden');
+    elementsBatched.setPlanFloor(cut ? cut.keepFromZ ?? cut.floorZ : null, cut?.below ?? 'hidden');
   }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
   // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
@@ -2302,7 +2302,20 @@
     return uiStore.snapWorld3D(pos.x, pos.y, pos.z);
   }
 
-  let columnSnapCache: { key: string; points: ReturnType<typeof columnSnapPoints>; beams: ReturnType<typeof beamSnapPoints> } | null = null;
+  /** What a box, a lasso or a pick near the pointer can take: shown, and in the plan view inside the storey. */
+  const planShown = new Map<string, { src: Map<number, unknown>; key: string; out: Map<number, unknown> }>();
+  function inPlan<T>(type: 'node' | 'element', src: Map<number, T>): Map<number, T> {
+    if (!uiStore.planView3D) return src;
+    const key = `${planCutVersion()}:${modelStore.modelVersion}`;
+    const c = planShown.get(type);
+    if (c && c.src === src && c.key === key) return c.out as Map<number, T>;
+    const out = new Map([...src].filter(([id]) => !underPlanFloor({ type, id })));
+    planShown.set(type, { src: src as Map<number, unknown>, key, out });
+    return out;
+  }
+  const visibleNodes = () => inPlan('node', shownNodes());
+  const visibleElements = () => inPlan('element', shownElements());
+  let columnSnapCache: { key: string; points: ReturnType<typeof columnSnapPoints>; beams: ReturnType<typeof beamSnapPoints>; nodes: Array<{ x: number; y: number }> } | null = null;
   function planDrawPoint(e: MouseEvent): { x: number; y: number; mode?: string; label?: string } | null {
     const ground = getGroundIntersection(e);
     if (!ground || !camera || !container) return null;
@@ -2317,11 +2330,11 @@
       if (d <= tol && (!best || d < best.d)) best = { x, y, d, mode, label };
     };
     const key = `${modelStore.modelVersion}:${z}`;
-    if (columnSnapCache?.key !== key) columnSnapCache = { key, points: columnSnapPoints(z), beams: beamSnapPoints(z) };
+    if (columnSnapCache?.key !== key) columnSnapCache = { key, points: columnSnapPoints(z), beams: beamSnapPoints(z), nodes: [...modelStore.nodes.values()].filter((n) => Math.abs((n.z ?? 0) - z) < 1e-6).map((n) => ({ x: n.x, y: n.y })) };
     const kindMode = (k: 'corner' | 'face' | 'center') => (k === 'corner' ? 'endpoint' : k === 'face' ? 'midpoint' : 'center');
     if (sn.column) for (const p of columnSnapCache.points) offer(p.x, p.y, kindMode(p.kind), `planDraw.snap.${kindMode(p.kind)}`);
     if (sn.beam) for (const p of columnSnapCache.beams) offer(p.x, p.y, kindMode(p.kind), `planDraw.snap.beam.${kindMode(p.kind)}`);
-    if (sn.node) for (const n of modelStore.nodes.values()) if (Math.abs((n.z ?? 0) - z) < 1e-6) offer(n.x, n.y, 'node', 'planDraw.snap.node');
+    if (sn.node) for (const n of columnSnapCache.nodes) offer(n.x, n.y, 'node', 'planDraw.snap.node');
     let near: { x: number; y: number } | null = null;
     if (sn.template && modelStore.underlays.length) {
       const on = underlayLevelFor(modelStore.underlays, uiStore.nodeCreateZ);
@@ -3155,8 +3168,8 @@
             const flags = nodeIds.map(cornerIn);
             if (isWindow ? flags.every(Boolean) : flags.some(Boolean)) newShells.add(key);
           };
-          for (const p of visiblePlates().values()) collectShell('p' + p.id, p.nodes);
-          for (const q of visibleQuads().values()) collectShell('q' + q.id, q.nodes);
+          for (const p of visiblePlates().values()) if (!underPlanFloor({ type: 'plate', id: p.id })) collectShell('p' + p.id, p.nodes);
+          for (const q of visibleQuads().values()) if (!underPlanFloor({ type: 'quad', id: q.id })) collectShell('q' + q.id, q.nodes);
         }
 
         /*
@@ -3290,7 +3303,8 @@
     const rect = container.getBoundingClientRect();
     const pointLoads = new Set<number>();
     for (const l of modelStore.loads) if (l.type === 'nodal' || l.type === 'nodal3d' || l.type === 'pointOnElement' || l.type === 'pointOnElement3d') pointLoads.add(l.data.id);
-    return pickLoadsWithDistance(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads, sceneCtx?.loadAreas);
+    return pickLoadsWithDistance(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads, sceneCtx?.loadAreas)
+      .filter((h) => !underPlanFloor({ type: 'load', id: h.id }));
   }
   /**
    * The load a click selects. Loads drawn on top of each other (the same load twice on a member,
@@ -4153,7 +4167,10 @@
   const TOP_VIEW_TIP = 0.018;
   function framePlan() {
     if (!camera || !controls) return;
-    const { center, maxDim } = _getModelBounds(modelStore.nodes);
+    let { center, maxDim } = _getModelBounds(modelStore.nodes);
+    // With no model yet, the plan frames the templates laid to draw it over.
+    const drawn = modelStore.nodes.size === 0 && uiStore.analysisMode === 'pro' ? laidExtent(modelStore.underlays) : null;
+    if (drawn) { center = new THREE.Vector3((drawn.x0 + drawn.x1) / 2, (drawn.y0 + drawn.y1) / 2, 0); maxDim = Math.max(drawn.x1 - drawn.x0, drawn.y1 - drawn.y0, 4); }
     placeOverhead(camera, controls, { x: center.x, y: center.y, z: uiStore.nodeCreateZ }, maxDim * 1.8, uiStore.planRotation, OVERHEAD_TIP);
     if (camera === orthoCamera) syncOrthoFrustum(container ? container.clientWidth / container.clientHeight : 1);
     invalidate();

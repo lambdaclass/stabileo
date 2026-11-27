@@ -6285,6 +6285,7 @@ const tr: Translations = {
   'building.drawTitle': 'Tek tek çiz',
   'building.draw': 'Çiz',
   'building.storey': 'Kat',
+  'building.storeyPick': 'Bir kat seçin',
   'building.storeyHint': 'Bir kat, kendi kotundan bir üstteki kota kadar uzanır. Planda çizdikleriniz seçilen kata gider: kolonlar ve perdeler kendi kotundan üstteki kota; kirişler ve döşemeler üstteki kotta, yani tavanında. Arka plan çizimi o katın DXF planıdır.',
   'building.storeyTemplate': 'Çizim: {name}',
   'building.storeyNoTemplate': 'Çizim yok',
