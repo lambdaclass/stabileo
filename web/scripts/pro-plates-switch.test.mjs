@@ -141,6 +141,26 @@ test('generator option and plate form labels follow the editors while saved load
   }
 });
 
+test('the saved load message catalog is independent of Turkish generator forms', { skip: 'known wrong result: #1928' }, async () => {
+  for (const enabled of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const code = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        const module = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
+        const entries = module[locale];
+        for (const key of ['loads.tr.seismic.periodHint', 'loads.tr.snow.title', 'loads.tr.seismic.bks1']) {
+          assert.equal(Object.hasOwn(entries, key), enabled, locale + ' ' + key);
+        }
+        for (const key of ['loads.ec.live.localQk', 'loads.ec.occ.A_floor', 'loads.asce7.snow.assumption.ce', 'loads.tr.live.reduction.fewFloors']) {
+          assert.ok(entries[key], locale + ' ' + key);
+        }
+      }
+    });
+  }
+});
+
 test('the raw shell writer only includes circular creation and mesh adoption for unified plates', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
