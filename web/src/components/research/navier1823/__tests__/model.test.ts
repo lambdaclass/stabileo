@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cases, solverInput, mesh, navierCenter, mindlinCenter, parameters, difference, convergence, reduction, hardCases, hardSupports, runState, build, seriesFor, validPlate, rigidity, PAPER_PLATE, type Row } from '../model';
+import { downward, cases, solverInput, mesh, navierCenter, mindlinCenter, parameters, difference, convergence, reduction, hardCases, hardSupports, runState, build, seriesFor, validPlate, rigidity, PAPER_PLATE, type Row } from '../model';
 import { strings, navierLocale } from '../strings';
 import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 import { solve3D, input3DToWireObject } from '../../../../lib/engine/wasm-solver';
@@ -206,4 +206,14 @@ describe('locales', () => {
       for (const key of ['{mesh}', '{min}', '{max}']) expect(s.viewerLabel).toContain(key);
     }
   });
+});
+
+it.skip('known wrong result: #2505 rejects conflicting duplicate nodes in either order', () => {
+  const { input, center } = build('MITC4', 4, true);
+  const field = Object.values(input.nodes).map(n => ({ nodeId: n.id, uz: 0 }));
+  const duplicate = { nodeId: center, uz: -1 };
+  expect(downward(input, field)).toHaveLength(field.length);
+  for (const records of [[duplicate, ...field], [...field, duplicate]]) {
+    expect(() => downward(input, records)).toThrow();
+  }
 });

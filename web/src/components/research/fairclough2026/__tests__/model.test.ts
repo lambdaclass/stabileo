@@ -13,12 +13,21 @@ describe('Fairclough five-node data contract', () => {
       expect(()=>validateLayout(bad)).toThrow();
     }
   });
-  it('checks the structure of a layout at another unit weight without the paper-case comparison', () => {
-    const other = structuredClone(result.layout);
-    other.volume = 30.4425; other.curves = other.curves.slice(0, 2);
-    expect(validateLayout(other, 1.85).curves).toHaveLength(2);
-    expect(()=>validateLayout(other)).toThrow();
-    expect(()=>validateLayout({...other, curves: [[[0, 0, 0, -1]]]}, 1.85)).toThrow();
+  it.skip('known wrong result: #2505 rejects a replay labeled with another published weight', () => {
+    expect(() => validateLayout(result.layout, 1.85)).toThrow();
+  });
+  it.skip('known wrong result: #2505 requires one curve for each active edge at untabulated weights', () => {
+    for (const change of ['missing', 'duplicate', 'negative area']) {
+      const other = structuredClone(result.layout);
+      if (change === 'missing') other.curves.pop();
+      if (change === 'duplicate') other.curves[1] = other.curves[0];
+      if (change === 'negative area') other.curves[0][16][3] = -1;
+      expect(() => validateLayout(other, 1.66), change).toThrow();
+    }
+  });
+  it.skip('known wrong result: #2505 keeps the absolute replay volume budget', () => {
+    expect(() => validateLayout({ ...result.layout, volume: result.layout.volume + 2e-8 })).toThrow();
+    expect(validateLayout({ ...result.layout, volume: result.layout.volume + 0.5e-8 })).toBeTruthy();
   });
   it('rejects altered geometry and negative residuals but accepts signed end forces', () => {
     for (const field of ['nodes','edges','forces','curves'] as const) {

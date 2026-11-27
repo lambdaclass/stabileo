@@ -65,6 +65,12 @@ describe('Lee frame', () => {
     expect(published.rows.find(r => r.id === 'fig10-elements20')).toMatchObject({ reference: benchmark.reference.load, uncertainty: benchmark.reference.uncertainty });
     expect(comparison.checks.map(r => r.id)).toEqual(published.rows.map(r => r.id));
     expect(comparison.checks.every(r => r.passed && r.observed <= r.tolerance)).toBe(true);
+    for (const row of comparison.checks) {
+      const reading = published.rows.find(r => r.id === row.id)!;
+      expect(row.reference).toBe(reading.reference);
+      expect(row.tolerance).toBe(reading.uncertainty);
+      expect(row.observed).toBe(Math.abs(row.computed - reading.reference));
+    }
     expect(Math.abs(comparison.checks[0].computed - benchmark.regression.firstLimitLoad)).toBeLessThan(benchmark.regression.absoluteTolerance);
     for (const [locale, dictionary] of Object.entries(strings)) for (const r of comparison.checks) expect(dictionary[`row_${r.id.replaceAll('-', '_')}` as keyof typeof dictionary], `${locale} ${r.id}`).toBeTruthy();
   });
@@ -93,7 +99,7 @@ describe('Lee frame', () => {
     expect(Object.keys(strings).sort()).toEqual(['de', 'en', 'es', 'fr', 'hu', 'pt', 'tr', 'zh']);
     for (const [locale, dictionary] of Object.entries(strings)) {
       expect(Object.keys(dictionary)).toEqual(Object.keys(strings.en));
-      if (locale !== 'en') for (const key of ['lead', 'description', 'provenance', 'convergence', 'readout', 'meshLive'] as const) expect(dictionary[key]).not.toBe(strings.en[key]);
+      if (locale !== 'en') for (const key of ['lead', 'description', 'provenance', 'convergence', 'readout', 'meshLive', 'paperWhy'] as const) expect(dictionary[key]).not.toBe(strings.en[key]);
       expect(JSON.stringify(dictionary)).not.toMatch(/provisional|pending|not checked|questions for the authors/i);
     }
   });
@@ -112,4 +118,11 @@ it('runs the shared case through the production WASM wrapper', async () => {
   expect(peak.step).toBe(47);
   expect(peak.load).toBeCloseTo(benchmark.regression.firstLimitLoad, 8);
   expect(Math.abs(point(peak)[0] - point(replay.frames[46])[0])).toBeLessThan(1e-7);
+});
+
+it.skip('known wrong result: #2505 rejects invalid interior loads even with a finite final load', () => {
+  for (const loadFactor of [undefined, NaN, Infinity]) {
+    const steps = [{ loadFactor: 0 }, { loadFactor }, { loadFactor: 1 }];
+    expect(() => frameFrom({ converged: true, finalLoadFactor: 1, steps, results: { displacements: replay.frames[0].displacement } }, 3)).toThrow('invalid');
+  }
 });
