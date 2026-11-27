@@ -201,3 +201,11 @@ it('translates the whole missing-field diagnostic in Spanish', async () => {
   expect(localizeEngineText('Parse error: Error: missing field `method`'))
     .toBe('Error de análisis: Falta el campo method o su valor no es compatible.');
 });
+
+it.skip('known wrong result: #2595 — an Italian P-Delta refusal explains why no result was supplied', async () => {
+  await setLocale('it');
+  const message = 'P-Delta results were withheld because the physical free-DOF residual did not meet the requested tolerance.';
+  const refusal = JSON.stringify({ message, structuredDiagnostics: [{ code: 'result_quantity_unavailable', severity: 'error' }] });
+  expect(localizeEngineText(errorText(refusal, 'Unknown error')))
+    .toBe('I risultati P-Delta non sono stati forniti perché il residuo fisico dei gradi di libertà liberi non rispettava la tolleranza richiesta.');
+});
