@@ -398,6 +398,21 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
         sym.pa_src.len(),
     );
 
+    #[cfg(feature = "parallel")]
+    if sym.l_nnz >= PARALLEL_FROM {
+        return super::sparse_chol_parallel::numeric_cholesky_parallel(sym, a);
+    }
+    numeric_cholesky_in_order(sym, a)
+}
+
+/// The factor entries from which a factorization is spread over threads when the `parallel`
+/// feature is on; below it one thread is faster.
+#[cfg(feature = "parallel")]
+pub(super) const PARALLEL_FROM: usize = 200_000;
+
+/// The factorization one supernode after another. The caller has checked the pattern of `a`.
+pub(super) fn numeric_cholesky_in_order(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<NumericCholesky> {
+    let n = sym.n;
     let pa_col_ptr = &sym.pa_col_ptr;
     let pa_row_idx = &sym.pa_row_idx;
 
@@ -576,7 +591,7 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
 /// every entry takes the subtractions one after another in that order, whatever the number of
 /// columns a pass covers. A source is `(start, factor)`, its column at `values[start + shift..]`.
 #[inline]
-fn subtract_columns(target: &mut [f64], values: &[f64], mut sources: &[(usize, f64)], shift: usize) {
+pub(super) fn subtract_columns(target: &mut [f64], values: &[f64], mut sources: &[(usize, f64)], shift: usize) {
     let len = target.len();
     let column = |source: &(usize, f64)| (&values[source.0 + shift..][..len], source.1);
     while let Some((group, rest)) = sources.split_first_chunk::<4>() {
