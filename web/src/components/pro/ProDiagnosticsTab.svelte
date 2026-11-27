@@ -197,10 +197,10 @@
       {/if}
     {/snippet}
     {@render part('analysis', extraAnalysis)}
-    {#if !notice.refused && containmentDismissal.any}
+    {#if __PUBLIC_FEATURES__.proPlatesUnified && !notice.refused && containmentDismissal.any}
       <button class="pk-btn" onclick={() => containmentDismissal.restore()} data-testid="containment-restore">{t('containment.restore')}</button>
     {/if}
-    {#if noticePrefs.hidden.length}
+    {#if __PUBLIC_FEATURES__.proPlatesUnified && noticePrefs.hidden.length}
       <button class="pk-btn" onclick={() => noticePrefs.showAll()} data-testid="notices-restore-hidden">{t('notices.restoreHidden')}</button>
     {/if}
     {@render part('design', designLines)}

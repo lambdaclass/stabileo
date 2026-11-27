@@ -155,7 +155,13 @@
   }
 </script>
 
-{#if resultsStore.knownIssues3D.refused}<div role="alert" data-testid="results-withheld"><NoticeRow kind="withheld" level="blocking" summary={t('notices.kind.withheld')} details={resultsStore.knownIssues3D.messages} open /></div>{/if}
+{#if __PUBLIC_FEATURES__.proPlatesUnified}
+  {#if resultsStore.knownIssues3D.refused}
+    <div role="alert" data-testid="results-withheld"><NoticeRow kind="withheld" level="blocking" summary={t('notices.kind.withheld')} details={resultsStore.knownIssues3D.messages} open /></div>
+  {/if}
+{:else}
+  {#each resultsStore.knownIssues3D.messages as message}<p role="alert">{message}</p>{/each}
+{/if}
 <div class="tm-bar" role="tablist" data-testid="table-modes-{kind}"><div class="pk-tabs tm-tabs">
   {#each modes as m (m)}
     <button class:on={mode === m} role="tab" aria-selected={mode === m}

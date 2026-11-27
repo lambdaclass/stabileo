@@ -1,19 +1,24 @@
 import { afterEach, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import ProResultTableModes from '../pro/ProResultTableModes.svelte';
-import { resultsStore, uiStore } from '../../lib/store';
+import { modelStore, resultsStore, uiStore } from '../../lib/store';
 
-afterEach(() => { resultsStore.clear(); uiStore.analysisMode = '2d'; });
+afterEach(() => { resultsStore.clear(); modelStore.clear(); uiStore.analysisMode = '2d'; });
 
-it.skip.each(['reactions', 'forces', 'displacements'] as const)('known wrong result: #1928 published PRO %s tables retain the warning in every view', kind => {
+it.each(['reactions', 'forces', 'displacements'] as const)('known wrong result: #1928 published PRO %s tables retain the warning in every view', kind => {
   uiStore.analysisMode = 'pro';
+  modelStore.clear();
+  for (const item of [...modelStore.combinations]) modelStore.removeCombination(item.id);
   const clean = { displacements: [], reactions: [], elementForces: [], structuredDiagnostics: [] };
   const diagnostic = { code: 'known_issue', phase: 'NUM-INVARIANCE', severity: 'warning', value: 762, message: 'ENGINE' };
   const cautioned = { ...clean, structuredDiagnostics: [diagnostic] };
   const views = ['current', 'all', 'summary', 'envelope'] as const;
   for (const combination of [false, true]) {
     resultsStore.setResults3D((combination ? clean : cautioned) as never);
-    if (combination) resultsStore.setCombinationResults3D(new Map(), new Map([[1, cautioned]]) as never, null as never);
+    if (combination) {
+      const id = modelStore.addCombination('Case combination', [{ caseId: modelStore.model.loadCases[0]!.id, factor: 1 }]);
+      resultsStore.setCombinationResults3D(new Map(), new Map([[id, cautioned]]) as never, null as never);
+    }
     const notice = resultsStore.knownIssues3D;
     expect(notice.refused).toBe(false);
     expect(notice.messages).toHaveLength(1);

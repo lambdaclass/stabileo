@@ -316,7 +316,7 @@ test('known wrong result: #1928 every published gallery label belongs to an avai
   }
 });
 
-test.skip('known wrong result: #1928 the board controls ship only with the unified notices', async () => {
+test('known wrong result: #1928 the board controls ship only with the unified notices', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
       const config = await resolveConfig({ root, configFile }, 'build', 'production');
