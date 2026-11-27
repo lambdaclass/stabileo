@@ -23,7 +23,7 @@ import { plateRemeshMessage, wallSlabRefusal } from '../engine/plate-analysis-re
  * follow every mesh; a load put by hand on one shell of the mesh cannot, and is reported.
  */
 import { modelStore } from './model.svelte';
-import { applyPlacement } from './placement';
+import { sheetPlacement } from './sheet-placement';
 import { uiStore } from './ui.svelte';
 import { physicalDataOf, type PhysicalData } from '../model/physical';
 import { levelAt } from '../model/physical/recognize';
@@ -1479,7 +1479,7 @@ function checkPreparedPlates(report: PlateMeshReport): PlatePreparation {
  * which plates stop it instead. Runs once per solve, before its inputs are taken.
  */
 export function preparePlatesForAnalysis(): PlatePreparation {
-  applyPlacement();
+  sheetPlacement?.applyPlacement();
   // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
   const invalid = invalidPreparation();
   if (invalid) return invalid;
@@ -1495,7 +1495,7 @@ export function preparePlatesForAnalysis(): PlatePreparation {
 export async function preparePlatesForAnalysisAsync(recognizePhysicalModel?: () => number): Promise<PlatePreparation> {
   // A mesh the plates' dialog started is let finish: two runs would write the model at once.
   while (meshProgress.now) await nextFrame();
-  applyPlacement();
+  sheetPlacement?.applyPlacement();
   // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
   const invalid = invalidPreparation();
   if (invalid) return invalid;

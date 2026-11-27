@@ -27,7 +27,7 @@
  * senses unless the cases already carry their sign, or the example's own.
  */
 
-import { reinforcementSheets, unifiedPlates } from '../features';
+import { unifiedPlates } from '../features';
 import { modelStore } from '../store/model.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { LATERAL_CASES } from '../engine/detailing/service-reaction';
@@ -44,7 +44,7 @@ import { loadCodeFile, GENERATED_BUILDING_FILES, PUBLISHED_CODE_FILES } from '..
 import { PRO_EXAMPLE_FIXES, declareSteelGrades } from './pro-example-fixes';
 import { localiseExampleNames } from './example-names';
 import { generateSavedLoads } from '../store/saved-loads';
-import { applyPlacement } from '../store/placement';
+import { sheetPlacement } from '../store/sheet-placement';
 import { designData } from '../store/design-data';
 import { exampleProgress } from '../store/example-progress.svelte';
 import { nextFrame } from '../store/mesh-progress.svelte';
@@ -167,7 +167,7 @@ async function loadExampleModel(ex: ProExample): Promise<void> {
   if (generated) { exampleProgress.step('loads'); await nextFrame(); }
   modelStore.batch(() => {
     PRO_EXAMPLE_FIXES[ex.id]?.();
-    if (reinforcementSheets() && designData().placement) applyPlacement();
+    if (sheetPlacement && designData().placement) sheetPlacement.applyPlacement();
     declareSteelGrades();
     // After the fixes and grades, which read the names as written; before the combinations,
     // which are named from the cases.

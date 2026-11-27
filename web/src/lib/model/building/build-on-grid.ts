@@ -8,7 +8,7 @@ import { unifiedPlates } from '../../features';
  * already joins the same two nodes, so building twice over the same place does not double it.
  * Columns and beams share the layout of the grid's own frame (`frameBetweenAxes`).
  */
-import { applyPlacement, placementData, setLevelReference } from '../../store/placement';
+import { sheetPlacement } from '../../store/sheet-placement';
 import { modelStore } from '../../store/model.svelte';
 import { fillHoles } from '../edit/construct';
 import { applyMesh } from '../edit/mesh-apply';
@@ -123,7 +123,7 @@ export function placeFrame(g: StructuralGrid, spec: FrameBetweenAxes, o: {
       }
       if (shift.x || shift.y || shift.z) modelStore.updateElement(b.id, { offset: { frame: 'global', i: shift, j: shift } });
     }
-    if (o.beamTopFlush) setLevelReference('slabTop');
+    if (o.beamTopFlush) sheetPlacement?.setLevelReference('slabTop');
     const colName = nextName('C'), beamName = nextName('V');
     for (const run of runs.values()) {
       const typology = run.kind === 'column' ? o.columnTypology : o.beamTypology;
@@ -180,7 +180,7 @@ export function placeSlabs(g: StructuralGrid, o: {
         platesFromShells([...f.quads.map((q) => `q${q}`), ...f.plates.map((q) => `p${q}`)], { keepMesh: !o.meshAtSolve, size: o.meshSize });
       }
     }
-    if (placementData().reference) applyPlacement();
+    if (sheetPlacement?.placementData().reference) sheetPlacement.applyPlacement();
   });
   return { created, elements: 0, shells, ...(refused && created === 0 ? { refused } : {}) };
 }

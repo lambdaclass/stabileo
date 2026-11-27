@@ -656,7 +656,7 @@ test('known wrong result: #1928 the published mesh error legend and warning reta
   }
 });
 
-test.skip('known wrong result: #1928 ordinary meshing, grid construction and examples exclude the sheet placement writer', async () => {
+test('known wrong result: #1928 ordinary meshing, grid construction and examples exclude the sheet placement writer', async () => {
   const entries = ['src/lib/store/physical-plates.ts', 'src/lib/model/building/build-on-grid.ts', 'src/lib/data/pro-examples.ts'];
   for (const sheets of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: sheets }, async configFile => {
