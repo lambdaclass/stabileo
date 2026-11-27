@@ -21,6 +21,7 @@ import steelEs from '../locales/steel/es';
 import steelPt from '../locales/steel/pt';
 import { stepsEn, stepsEs, stepsPt } from '../locales/steps';
 import { ALL_DICTS } from '../locales/all';
+import { ensureLocale, i18n, setLocale, tp } from '../index';
 
 const merged = {
   en: { ...en, ...steelEn, ...stepsEn } as Record<string, string>,
@@ -124,6 +125,18 @@ describe('the kinematics plural ending glued to a word', () => {
     const dict = pt as Record<string, string>;
     expect(plural(dict, key)).toContain('Detectados 2 modos de mecanismo');
     expect(dict[key].replaceAll('{n}', '1').replaceAll('{s}', '')).toContain('Detectado 1 modo de mecanismo');
+  });
+
+  it.skip('known wrong result: #2491 — agrees with one detected mechanism mode in both Spanish panel messages', async () => {
+    const previous = i18n.locale;
+    try {
+      await ensureLocale('es');
+      setLocale('es');
+      expect.soft(tp('kinematic.mechanismDetected', { n: 1, s: '' })).toBe('✗ Se detectó 1 modo de mecanismo.');
+      expect.soft(tp('kinematic.hiddenMechanism', { n: 1, degree: 0, s: '' })).toBe('✗ Se detectó 1 modo de mecanismo a pesar de que GH = 0 ≥ 0.');
+    } finally {
+      setLocale(previous);
+    }
   });
 
   it('reads as a plural in Spanish and English', () => {
