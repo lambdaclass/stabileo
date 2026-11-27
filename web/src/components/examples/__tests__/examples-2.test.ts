@@ -90,7 +90,7 @@ describe('rc-column bar layout', () => {
 
 describe('outrigger', () => {
   it('known wrong result: #1927 — the drift sweep solves only the core spans between attachments', () => {
-    const values = { ...defaults(outrigger.params), storeys: 15 };
+    const values: Values = { ...defaults(outrigger.params), storeys: 15 };
     let level = 0;
     const points = outriggerSweep(values, { ...engine, solve(input) {
       level++;

@@ -102,7 +102,7 @@ describe('audited output changes are registered narrowly', () => {
 
   it('scopes the outrigger drift sweep to its gallery chart', () => {
     const entry = RESULT_CHANGES.changes.find(c => c.id === 'gallery-outrigger-drift-sweep')!;
-    expect(entry.quantities).toEqual(['charts']);
+    expect(declaredQuantities[entry.id]).toEqual(['charts']);
     expect(conditionHolds(entry.when!, new Set(['gallery:outrigger', 'analysis:linear']))).toBe(true);
     expect(conditionHolds(entry.when!, new Set(['plane2D', 'analysis:linear']))).toBe(false);
   });
