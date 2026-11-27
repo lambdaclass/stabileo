@@ -776,3 +776,10 @@ it('The thick-wall case has a numeric ratio and a qualified description', () => 
   const table = findPost('torsion-bredt-saint-venant')!.i18n.nl!.blocks.find(b => b.k === 'table')!;
   expect(table.rows.at(-1)?.slice(0, 2)).toEqual(['0,50', 'wand van 25,0 mm (dikwandig)']);
 });
+
+it.skip('known wrong result: #2613 — the Dutch three-roller example distinguishes free coordinates from mechanism modes', () => {
+  const blocks = findPost('conceptual-side-advanced-tools')!.i18n.nl!.blocks;
+  const rows = blocks.flatMap(block => block.k === 'table' ? block.rows : []);
+  expect(rows).toContainEqual(['3 · Stijfheidsmatrix', 'Gedetecteerde mechanismevormen', '1']);
+  expect(rows).toContainEqual(['3 · Stijfheidsmatrix', 'Onverhinderde vrijheidsgraden', String(3 * 3 - 3)]);
+});
