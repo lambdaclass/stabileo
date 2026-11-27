@@ -34,6 +34,27 @@ class Isolation(unittest.TestCase):
             (root / "engine/lib.rs").write_text('include_str!("../research/papers.json");')
             self.assertTrue(isolation.check(root))
 
+    @unittest.skip("known wrong result: #2505")
+    def test_engine_manifest_relative_research_reads_follow_the_same_allowlist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "Cargo.toml").write_text("[workspace]\n")
+            source = root / "engine/tests/benchmarks/arch.rs"
+            source.parent.mkdir(parents=True)
+            for suffix, forbidden in [
+                ("/../research/benchmarks/paper/README.md", True),
+                ("/../research/benchmarks/paper/results/stabileo_results.json", True),
+                ("/../research/benchmarks/paper/reference-results/table.json", False),
+                ("/tests/fixtures/case.json", False),
+            ]:
+                with self.subTest(suffix=suffix):
+                    source.write_text(
+                        'std::fs::read_to_string(concat!(\n'
+                        f'    env!("CARGO_MANIFEST_DIR"), "{suffix}"\n'
+                        ')).unwrap();\n'
+                    )
+                    self.assertEqual(bool(isolation.check(root)), forbidden)
+
     def test_engine_tests_may_include_only_reference_results_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
