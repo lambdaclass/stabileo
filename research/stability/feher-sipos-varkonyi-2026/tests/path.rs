@@ -88,3 +88,11 @@ fn optimum_clamp_coordinate_has_its_own_printed_precision_check() {
     assert_eq!(delta["tolerance"], 0.0125 / 2. + 0.01 / 2.);
     assert_eq!(delta["passed"], delta["observed"].as_f64().unwrap() <= delta["tolerance"].as_f64().unwrap());
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn a_steep_upper_branch_at_the_last_load_increment_can_still_start() {
+    let path = run::path_with(1.0, 0.0, 2.5, Distribution::Asymmetric, 20).unwrap();
+    let height = path["frames"][0]["y_mid"].as_f64().unwrap();
+    assert!(height > 0.);
+}
