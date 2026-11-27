@@ -1240,7 +1240,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-128",
-          "Conversie kon normaalkrachtbelastingen met tekenwisseling op vlakke staven of ruimtelijke vakwerken weglaten. Verifieer de verdeelde belastingen en hun equivalente eindkrachten en bereken daarna getroffen analyses, omhullenden en ontwerptoetsingen opnieuw.",
+          "Conversie kon normaalkrachtbelastingen met tekenwisseling op staven van vlakke (2D-)modellen, ongeacht hun doorsnede, of op ruimtelijke vakwerkstaven weglaten. Verifieer de verdeelde belastingen en hun equivalente eindkrachten en bereken daarna getroffen analyses, omhullenden en ontwerptoetsingen opnieuw.",
           "Gemiddeld",
           "Volgende release na 0.6.4"
         ],
