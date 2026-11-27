@@ -414,7 +414,7 @@ it('#2460 automatic solve refuses the complementary plate sweep', async () => {
   expect(resultsStore.results3D).toBeNull();
 });
 
-it.skip('known wrong result: #2460 a refused manual solve releases the next live solve', async () => {
+it('#2460 a refused manual solve releases the next live solve', async () => {
   complementaryMeshMarkedCurrent();
   await expect(runGlobalSolve({ directBase: true })).resolves.toMatchObject({
     ok: false, error: expect.stringMatching(/Test floor.*sweep/i),

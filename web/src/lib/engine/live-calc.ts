@@ -303,17 +303,17 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     outcome = { ok: false, error: e instanceof Error ? e.message : String(e) };
     throw e;
   } finally {
+    manualSolves--;
     if (latest()) {
       onCaseSolved(null);
       onSolveStep(null);
-      const warnings = uiStore.analysisMode === 'pro' ? reviewCount(uiStore.is3DWorkspace).total : uiStore.is3DWorkspace
+      const warnings = !outcome?.ok ? 0 : uiStore.analysisMode === 'pro' ? reviewCount(uiStore.is3DWorkspace).total : uiStore.is3DWorkspace
         ? resultsStore.diagnostics3D.length + resultsStore.solverDiagnostics3D.length + resultsStore.structuredDiagnostics3D.length
         : resultsStore.diagnostics.length + resultsStore.solverDiagnostics.length + resultsStore.structuredDiagnostics.length;
       const error = outcome && !outcome.ok ? outcome.error : '';
       solveProgress.finish(outcome?.ok ? { ok: true, warnings } : { ok: false, error, warnings });
       if (error) uiStore.dismissToastsSaying(error);
     }
-    manualSolves--;
     const held = deferredLive;
     if (manualSolves === 0 && held) {
       deferredLive = null;
