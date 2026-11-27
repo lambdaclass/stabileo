@@ -142,7 +142,7 @@ it.each([false, true])('known wrong result: #1928 explicit wall foundation place
   }
 });
 
-it.skip.each(['sync', 'reopen'] as const)('known wrong result: #1928 wall-linked strip sizing collects reactions at the current mesh through %s', async route => {
+it.skip.each(['sync', 'async', 'foundation undo', 'renumber', 'reopen'] as const)('known wrong result: #1928 wall-linked strip sizing collects reactions at the current mesh through %s', async route => {
   modelStore.clear();
   historyStore.clear();
   resultsStore.clear();
@@ -160,9 +160,12 @@ it.skip.each(['sync', 'reopen'] as const)('known wrong result: #1928 wall-linked
   const id = stripUnderWall(wall.id, 0.4)!;
   const original = modelStore.model.footings.get(id)!;
   const originalIds = [original.nodeId, ...original.supportedNodeIds!];
-  mesh(1);
+  if (route === 'async') {
+    const { applyPlateMeshesAsync } = await import('../../../store/physical-plates');
+    expect((await applyPlateMeshesAsync([planPlateMesh(wall.id, { size: 1 })!])).refused).toEqual([]);
+  } else mesh(1);
   supportWallBase(wall.id);
-  const base = wallBaseNodes(wall.id);
+  let base = wallBaseNodes(wall.id);
   expect(base.length).toBeGreaterThan(originalIds.length);
   if (route === 'reopen') {
     const saved = modelStore.snapshot();
@@ -170,6 +173,16 @@ it.skip.each(['sync', 'reopen'] as const)('known wrong result: #1928 wall-linked
     strip.supportedNodeIds = originalIds.filter(n => n !== strip.nodeId);
     modelStore.clear();
     modelStore.restore(saved);
+  }
+  if (route === 'foundation undo') {
+    const snapshot = modelStore.snapshot();
+    modelStore.removeFooting(id);
+    modelStore.restoreFoundationOnly(snapshot);
+  }
+  if (route === 'renumber') {
+    const { renumber } = await import('../../edit/renumber');
+    expect(renumber({ nodes: true, members: false, order: 'xyz', start: 100 })).toHaveProperty('changedNodes');
+    base = wallBaseNodes(wall.id);
   }
   const reactions = (fz: number) => ({
     displacements: [], elementForces: [], quadStresses: [],
@@ -182,4 +195,16 @@ it.skip.each(['sync', 'reopen'] as const)('known wrong result: #1928 wall-linked
   const complete = presizeModelFootings([id]);
   expect(complete[0]).toHaveProperty('size');
   expect(current).toEqual(complete);
+});
+
+it.skip('known wrong result: #1928 renumbering keeps the second carried reaction and the strap endpoint on the same physical points', async () => {
+  modelStore.clear();
+  const nodes = [3, 2, 1].map(x => modelStore.addNode(x, 0, 0));
+  const a = modelStore.addFooting(nodes[0]!);
+  const b = modelStore.addFooting(nodes[1]!);
+  modelStore.updateFooting(a, { kind: 'combined', supportedNodeIds: [nodes[2]!], straps: [{ toFootingId: b, nodeId: nodes[1]! }] });
+  const { renumber } = await import('../../edit/renumber');
+  expect(renumber({ nodes: true, members: false, order: 'xyz' })).toHaveProperty('changedNodes');
+  const f = modelStore.footings.get(a)!;
+  expect([f.nodeId, ...f.supportedNodeIds!, f.straps![0]!.nodeId!].map(id => modelStore.nodes.get(id)!.x)).toEqual([3, 1, 2]);
 });
