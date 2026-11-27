@@ -1,5 +1,8 @@
+from contextlib import redirect_stdout
 from hashlib import sha256
 import importlib.util
+import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -30,6 +33,84 @@ class ProductionParity(unittest.TestCase):
         self.assertFalse(parity.profiles_enable_off_switch(on, on))
         self.assertFalse(parity.profiles_enable_off_switch(off, production))
 
+    def test_plan_from_before_the_feature_manifest(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            repo = Path(directory)
+            def git(*args):
+                return parity.git(repo, *args).decode().strip()
+
+            git('init', '--quiet')
+            git('config', 'user.name', 'Production parity fixture')
+            git('config', 'user.email', 'parity@example.invalid')
+            web = repo / 'web'
+            web.mkdir()
+            page = web / 'page'
+            page.write_text('old page')
+            git('add', '.')
+            git('commit', '-qm', 'Before the feature manifest')
+            base = git('rev-parse', 'HEAD')
+            page.write_text('new page')
+            git('commit', '-qam', 'Ordinary web change')
+
+            def plan(*args, reference=None):
+                output = io.StringIO()
+                with patch.object(parity, 'ROOT', repo), redirect_stdout(output), patch(
+                        'sys.argv', [str(SCRIPT), reference or base, '--plan', *args]):
+                    parity.main()
+                return output.getvalue()
+
+            flags = repo / parity.FLAGS
+            flags.parent.mkdir()
+            overlay = repo / parity.LEGACY_OVERLAY
+            overlay.write_text('{}')
+            git('add', parity.LEGACY_OVERLAY)
+            self.assertEqual(plan(), 'true\n')
+            git('restore', '--staged', parity.LEGACY_OVERLAY)
+            overlay.unlink()
+            git('switch', '-qc', 'legacy-triggers')
+            git('commit', '--allow-empty', '-qm', 'Require a legacy comparison', '-m', 'Production-Parity: required')
+            self.assertEqual(plan('--candidate', 'HEAD'), 'true\n')
+            git('switch', '-q', '-')
+            for name, manifest, expected in [
+                ('ordinary web change', None, 'false'),
+                ('legacy account defaults', {'production': {'accounts': False},
+                                             'test': {'accounts': True}, 'development': {'accounts': True}}, 'false'),
+                ('new opt-in', {'production': {'example': False}, 'test': {'example': True}}, 'true'),
+                ('production feature', {'production': {'example': True}, 'test': {'example': True}}, 'false'),
+            ]:
+                if manifest is not None:
+                    flags.write_text(json.dumps(manifest))
+                    git('add', parity.FLAGS)
+                    git('commit', '-qm', name)
+                if name == 'legacy account defaults':
+                    self.assertEqual(plan('--candidate', base, reference=git('rev-parse', 'HEAD')), 'false\n')
+                for args in [(), ('--candidate', 'HEAD')]:
+                    with self.subTest(change=name, args=args):
+                        self.assertEqual(plan(*args), expected + '\n')
+
+            flags.write_text('{"production":{"example":false},"test":{"example":"false"}}')
+            with self.assertRaisesRegex(ValueError, 'invalid feature switches'):
+                plan()
+            flags.unlink()
+            with self.assertRaises(FileNotFoundError):
+                plan()
+            flags.write_text('{')
+            with self.assertRaises(json.JSONDecodeError):
+                plan()
+            git('commit', '-qam', 'Malformed historical manifest')
+            base = git('rev-parse', 'HEAD')
+            flags.write_text('{"production":{},"test":{}}')
+            with self.assertRaises(json.JSONDecodeError):
+                plan()
+
+            git('rm', '--cached', parity.FLAGS)
+            flags.unlink()
+            git('commit', '-qm', 'Remove an established manifest')
+            with self.assertRaises(FileNotFoundError):
+                plan('--candidate', 'HEAD', reference='HEAD~2')
+            with self.assertRaises(FileNotFoundError):
+                plan(reference='HEAD')
+
     def test_reference_follows_new_base_and_replays_only_intended_paths(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             repo = Path(directory)
@@ -55,8 +136,7 @@ class ProductionParity(unittest.TestCase):
             added.write_text('unintended')
             git('add', '.')
             reference = repo / 'reference'
-            with patch.object(parity, 'ROOT', repo):
-                parity.snapshot(base, reference, {carried.name})
+            parity.snapshot(repo, base, reference, {carried.name})
             self.assertEqual((reference / new_main.name).read_text(), 'current main')
             self.assertEqual((reference / carried.name).read_text(), 'intended')
             self.assertFalse((reference / added.name).exists())
@@ -130,14 +210,12 @@ class ProductionParity(unittest.TestCase):
             self.assertIn(f'?{base_recipe}', git(repo, 'rev-list', '--objects', '--missing=print', base).splitlines())
             reference = fixture / 'reference'
             git(repo, 'remote', 'set-url', 'origin', (fixture / 'unavailable').as_uri())
-            with patch.object(parity, 'ROOT', repo):
-                with self.assertRaisesRegex(RuntimeError, 'could not fetch all tracked blobs'):
-                    parity.snapshot(base, reference, {'intended.bin'})
+            with self.assertRaisesRegex(RuntimeError, 'could not fetch all tracked blobs'):
+                parity.snapshot(repo, base, reference, {'intended.bin'})
             self.assertFalse(reference.exists())
 
             git(repo, 'remote', 'set-url', 'origin', upstream.as_uri())
-            with patch.object(parity, 'ROOT', repo):
-                parity.snapshot(base, reference, {'intended.bin'})
+            parity.snapshot(repo, base, reference, {'intended.bin'})
             self.assertEqual(git(reference, 'rev-parse', 'HEAD'), base)
             self.assertEqual((reference / 'Makefile').read_text(), SOLVER_RECIPE)
             self.assertEqual((reference / 'intended.bin').read_bytes(), b'\x00\xfe')
@@ -402,7 +480,7 @@ class ProductionParity(unittest.TestCase):
             with patch.object(parity, 'ROOT', repo):
                 git('commit', '--quiet', '--allow-empty', '-m', 'Move head without changing inputs')
                 head = git('rev-parse', 'HEAD')
-                self.assertEqual(parity.research_sides(base, head), ['reference'])
+                self.assertEqual(parity.research_sides(repo, base, head), ['reference'])
                 key = parity.research_key(repo, base, head)
                 parity.build_research(repo, os.environ)
                 output = repo / parity.RESEARCH_WASM
@@ -416,7 +494,7 @@ class ProductionParity(unittest.TestCase):
                     path.write_text('changed')
                     git('add', str(path.relative_to(repo)))
                     changed = git('write-tree')
-                    self.assertEqual(parity.research_sides(base, changed), ['reference', 'candidate'])
+                    self.assertEqual(parity.research_sides(repo, base, changed), ['reference', 'candidate'])
                     with self.assertRaisesRegex(RuntimeError, 'research artifact.*snapshot'):
                         parity.restore_research(shared, repo / 'wrong', parity.research_key(repo, base, head))
                     self.assertFalse((repo / 'wrong').exists())

@@ -17,7 +17,8 @@ assert jobs['ci-ok']['needs'][0] == 'superseded'
 assert jobs['research']['uses'] == './.github/workflows/research.yml'
 assert jobs['research']['needs'] == 'changes'
 assert jobs['research']['if'] == "needs.changes.outputs.research == 'true'"
-filters = yaml.safe_load(jobs['changes']['steps'][1]['with']['filters'])
+path_filter = next(step for step in jobs['changes']['steps'] if step.get('id') == 'filter')
+filters = yaml.safe_load(path_filter['with']['filters'])
 assert {'research/**', 'web/**', '.github/workflows/research.yml'} <= set(x for x in filters['research'] if isinstance(x, str))
 triggers = research.get('on', research.get(True))
 assert 'workflow_call' in triggers
