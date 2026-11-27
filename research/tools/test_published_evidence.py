@@ -12,6 +12,13 @@ row = {'name': 'response', 'source': 'paper', 'metric': 'absolute difference', '
 
 
 class PublishedEvidence(unittest.TestCase):
+    @unittest.skip("known wrong result: #2505")
+    def test_an_in_tolerance_scalar_still_reports_its_actual_error(self):
+        measurement = {**row, 'reference': 1, 'computed': 1 + 5e-10, 'tolerance': 1e-9}
+        self.assertFalse(catalog.valid_checks([measurement], published=True))
+        measurement['observed'] = measurement['computed'] - measurement['reference']
+        self.assertTrue(catalog.valid_checks([measurement], published=True))
+
     def test_roundoff_cannot_certify_an_out_of_tolerance_scalar(self):
         for delta, expected in [(0, True), (5e-10, False)]:
             self.assertEqual(catalog.valid_checks([{**row, 'reference': 1, 'computed': 1 + delta}], published=True), expected)

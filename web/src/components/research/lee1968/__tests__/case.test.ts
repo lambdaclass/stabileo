@@ -63,6 +63,7 @@ describe('Lee frame', () => {
   it('compares the measured Figure 10 reading and Galvão (2000) through the CI-written rows', () => {
     expect(benchmark.reference).toMatchObject({ load: 1.87, uncertainty: .03 });
     expect(published.rows.find(r => r.id === 'fig10-elements20')).toMatchObject({ reference: benchmark.reference.load, uncertainty: benchmark.reference.uncertainty });
+    expect(published.rows.map(r => r.id).sort()).toEqual(['fig10-elements20', 'fig10-extrapolated', 'galvao-extrapolated']);
     expect(comparison.checks.map(r => r.id)).toEqual(published.rows.map(r => r.id));
     expect(comparison.checks.every(r => r.passed && r.observed <= r.tolerance)).toBe(true);
     for (const row of comparison.checks) {
@@ -125,4 +126,11 @@ it('rejects invalid interior loads even with a finite final load', () => {
     const steps = [{ loadFactor: 0 }, { loadFactor }, { loadFactor: 1 }];
     expect(() => frameFrom({ converged: true, finalLoadFactor: 1, steps, results: { displacements: replay.frames[0].displacement } }, 3)).toThrow('invalid');
   }
+});
+
+it.skip('known wrong result: #2505 a frame endpoint must match the last measured step', () => {
+  const run = { converged: true, finalLoadFactor: 2.5, steps: [1, 2, 1.5, 1].map(loadFactor => ({ loadFactor })),
+    results: { displacements: replay.frames[0].displacement } };
+  expect(() => frameFrom(run, 4)).toThrow('invalid');
+  expect(frameFrom({ ...run, finalLoadFactor: 1 }, 4).load).toBe(1);
 });

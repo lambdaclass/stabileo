@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import ComparisonTable from '../ComparisonTable.svelte';
+import VerificationSummary from '../VerificationSummary.svelte';
 import type { PublishedRow } from '../context';
 import ConvergencePlot from '../../shell1985/ConvergencePlot.svelte';
 
@@ -30,4 +31,20 @@ it('only adjacent finite convergence samples form segments', () => {
     expect(body.match(/<line /g)).toHaveLength(1);
     expect(body.match(/<circle /g)).toHaveLength(3);
   }
+});
+
+it.skip('known wrong result: #2505 rejects a stale scalar error and displays the measured gap', () => {
+  for (const [metric, gap] of [['absolute', '2'], ['relative difference', '100']] as const) {
+    const html = table({ metric, reference: 2, computed: 4 });
+    expect(html).toContain('✗');
+    expect(html.split('</td>')[2]).toContain(gap);
+  }
+});
+
+it.skip('known wrong result: #2505 empty verification has no successful verdict or link', () => {
+  const empty = { kind: 'checks' as const, passed: 0, total: 0, href: '#checks' };
+  const html = render(VerificationSummary, { props: { reference: empty, published: empty } }).body;
+  expect(html).toContain('Unavailable');
+  expect(html).not.toContain('✓');
+  expect(html).not.toContain('href="#checks"');
 });

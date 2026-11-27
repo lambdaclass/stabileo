@@ -10,7 +10,7 @@ it('publishes the first confirmed native-step peak before a refined solve stops'
   vi.spyOn(engine, 'initSolver').mockResolvedValue(undefined);
   vi.spyOn(engine, 'solveArcLength').mockImplementation((i) => {
     if (i.maxSteps! > 4) throw new Error('later solver failure');
-    const loads = [1, 3, 2, 1].slice(0, i.maxSteps);
+    const loads = [1, 2, 3, 1].slice(0, i.maxSteps);
     return { converged: true, finalLoadFactor: loads.at(-1)!, steps: loads.map(loadFactor => ({ loadFactor })),
       results: { displacements: Object.values(input.solver.nodes).map(n => ({ nodeId: n.id, ux: 0, uz: 0 })) } } as ReturnType<typeof engine.solveArcLength>;
   });

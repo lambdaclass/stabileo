@@ -240,3 +240,11 @@ it('rejects conflicting duplicate nodes in either order', () => {
     expect(() => downward(input, records)).toThrow();
   }
 });
+
+it('rejects an unknown replacement node or a nonfinite displacement at the expected length', () => {
+  const { input } = build('MITC4', 4, true);
+  const field = Object.values(input.nodes).map(n => ({ nodeId: n.id, uz: 0 }));
+  for (const last of [{ nodeId: -1, uz: 0 }, { ...field.at(-1)!, uz: NaN }]) {
+    expect(() => downward(input, [...field.slice(0, -1), last])).toThrow();
+  }
+});
