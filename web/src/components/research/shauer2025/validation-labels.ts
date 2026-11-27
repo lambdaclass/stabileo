@@ -245,6 +245,22 @@ const labels: Record<string, Record<string, string>> = {
     "force": "Erő a töréssel együtt",
     "mirror": "Csomóponti károsodás, referencia vagy tükörkép"
   },
+  'it': {
+    "mesh": "Impronte della mesh",
+    "steps": "Numero di passi di carico",
+    "iterations": "Iterazioni a ogni passo",
+    "damage": "Danno massimo a ogni passo",
+    "stress": "Tensione al centro a ogni passo",
+    "damageField": "Danno nodale",
+    "displacementField": "Spostamento nodale",
+    "analytic": "Tensione al centro / soluzione 1D AT2, max d < 0.25",
+    "peakStep": "Passo del picco di forza",
+    "peak": "Picco di forza",
+    "preForce": "Forza attraverso il picco",
+    "preDamage": "Danno massimo attraverso il picco",
+    "force": "Forza con la frattura inclusa",
+    "mirror": "Danno nodale, riferimento o specchio"
+  },
   "zh": {
     "mesh": "网格指纹",
     "steps": "荷载步数",
@@ -330,6 +346,14 @@ const metrics: Record<string, Record<string, string>> = {
   "hu": {
     "exact": "Pontos",
     "relative difference": "Relatív eltérés",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "max |Δd|",
+    "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
+  'it': {
+    "exact": "Esatto",
+    "relative difference": "Differenza relativa",
     "absolute difference / AT2 peak stress": "|Δσ| / σc",
     "max absolute difference": "max |Δd|",
     "max absolute difference / max |u|": "max |Δu| / max |u|",

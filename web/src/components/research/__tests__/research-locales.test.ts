@@ -24,7 +24,7 @@ import { shauerLocales } from '../shauer2025/locales';
 import { strings as shell } from '../shell1985/i18n';
 import { translations as shellArticle } from '../shell1985/article';
 
-const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'nl'];
+const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'];
 const defined = (...dictionaries: object[]) => {
   const { research } = buildFeatures();
   return ALL.filter(locale => (locale !== 'hu' || research) && dictionaries.every(dict => locale in dict));

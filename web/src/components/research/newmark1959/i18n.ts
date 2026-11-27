@@ -91,6 +91,32 @@ const hu: Strings = {
   paper: 'A cikk egy időléptetéses eljárást ír le a szerkezetdinamikához. Itt annak átlagos gyorsulású változatát próbáljuk ki egy szándékosan kicsi lineáris referenciafeladaton; nem állítjuk, hogy a cikk valamelyik ábráját reprodukáljuk.',
   alt: 'Tengelyirányú elmozdulás időtörténete a termékben használt Newmark-megoldó futtatásából',
 };
+const it: Strings = {
+  title: 'Accelerazione media di Newmark',
+  metaTitle: 'Newmark (1959) — Stabileo Research',
+  metaDescription: 'Accelerazione media di Newmark di produzione rispetto alla risposta esatta a gradino di un SDOF.',
+  lead: 'Un grado di libertà non smorzato sotto una forza costante improvvisa. Aumenta il passo temporale per vedere crescere il periodo numerico.',
+  model: 'L’esempio',
+  description: 'Un’asta di telaio assiale di {L} m, incastrata a sinistra, con solo la traslazione assiale libera a destra. E = {E} MPa, A = {A} m², densità sintetica = {rho} kg/m³. La massa assiale consistente dà m = ρAL/3 = {m} t e k = EA/L = {k} kN/m. Un gradino di {F} kN agisce da t = 0; spostamento e velocità iniziali sono nulli. È un benchmark esatto a elementi finiti SDOF, non una soluzione di barra continua.',
+  method: 'Il solutore di time-history 3D di produzione gira tramite il wrapper WASM esistente, con β = ¼, γ = ½ e senza smorzamento. La riproduzione è un’esecuzione nativa dello stesso solutore Rust. Non si usa alcun nuovo integratore.',
+  reference: 'Riferimento esatto', difference: 'Differenza', measured: 'T di Stabileo (s)', predicted: 'Previsione discreta Tₙ (s)',
+  formula: 'u(t) = (F/k)[1 − cos(ωt)], ω = √(k/m) = {omega} rad/s, T = 2π/ω = {T} s. La soluzione discreta a accelerazione media è uₙ = (F/k)[1 − cos(nθ)] con θ = 2 atan(ωΔt/2), quindi il suo periodo è Tₙ = πΔt / atan(ωΔt/2). I periodi qui sotto sono misurati dagli attraversamenti successivi verso l’alto di u = F/k; l’interpolazione influenza le misure con passi grossolani.',
+  comparison: 'Allungamento del periodo rispetto al passo temporale', elongation: 'Allungamento rispetto a T (%)',
+  errors: 'Differenze di spostamento', discreteError: 'Max. |u − uₙ| (m)', continuousError: 'Max. |u − u(t)| (mm)', bound: 'Limite dello sfasamento (mm)',
+  error: 'Differenza massima di spostamento (mm)',
+  tolerance: 'Verifiche, calcolate dalle storie mostrate (seguono un ricalcolo in diretta): ogni campione concorda con la soluzione discreta uₙ entro 10⁻¹⁰ m; ogni periodo misurato concorda con Tₙ entro lo 0.5%; la differenza massima dalla soluzione continua resta sotto il limite dello sfasamento (F/k)·min(2, N(ωΔt − θ)) che deriva da uₙ sugli N passi; a Δt/T = 0.025 è anche sotto 0.5 mm su quattro periodi. Passi più grossolani mostrano deliberatamente errori maggiori.',
+  published: 'Nessuno: questa pagina verifica il metodo rispetto a soluzioni esatte in forma chiusa; non riproduce una figura o una tabella stampata nel paper.',
+  notYet: 'Non ancora', limitations: ['Figure ed esempi numerici pubblicati del paper.', 'Smorzamento, carichi armonici, risposta non lineare e telai a più gradi di libertà.', 'Questa non è una certificazione ingegneristica.'],
+  replay: 'Riproduzione precalcolata (stesso solutore)', live: 'Calcolo in diretta nel tuo browser', cached: 'Risultato in cache (calcolato in questo browser)',
+  run: 'Ricalcola in diretta', stop: 'Ferma', restart: 'Riavvia', busy: 'Calcolo in corso…', step: 'Passo temporale', sample: 'Campione',
+  sampleValue: 'Campione {i} di {n}, t = {t} s',
+  speed: 'La riproduzione va {x} volte più lenta del tempo reale a ogni passo temporale, quindi un periodo più lungo dura davvero di più.',
+  displacement: 'Spostamento assiale', time: 'Tempo (s)', scaled: 'Deformazione ×10; nodo sinistro fisso, nodo destro guidato assialmente.',
+  tryCoarse: 'Prova il passo temporale più grossolano', failure: 'Calcolo non riuscito; risultato precedente conservato.',
+  paper: 'Il paper descrive una procedura di integrazione nel tempo per la dinamica strutturale. Qui ne mettiamo alla prova la specializzazione a accelerazione media su un benchmark lineare volutamente piccolo; non sosteniamo di riprodurre una figura del paper.',
+  alt: 'Storia dello spostamento assiale dalla nostra esecuzione di Newmark di produzione',
+};
+
 const zh: Strings = {
   title: 'Newmark 平均加速度法',
   metaTitle: 'Newmark (1959) — Stabileo Research',
@@ -141,7 +167,7 @@ const nl: Strings = {
   paper: 'Het artikel beschrijft een tijdstapprocedure voor constructiedynamica. Hier passen we de variant met gemiddelde versnelling toe op een bewust kleine lineaire benchmark; we beweren geen figuur uit het artikel te reproduceren.',
   alt: 'Tijdsverloop van de axiale verplaatsing uit onze Newmark-berekening van de productieversie',
 };
-export const translations = { en, es, pt, hu, zh, nl };
+export const translations = { en, es, pt, hu, it, zh, nl };
 export const strings = () => translations[researchLocale() as keyof typeof translations] ?? translations.en;
 export const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);

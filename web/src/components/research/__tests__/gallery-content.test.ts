@@ -91,7 +91,7 @@ it('titles the Riks card in the language its article is written in', async () =>
 
 it('names each thumbnail link by its localized card title and keeps the image decorative', async () => {
   const { cardTitle } = await import('../card-title');
-  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'zh', 'nl'].includes(locale))) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'it', 'zh', 'nl'].includes(locale))) {
     setLocale(locale);
     expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);
@@ -106,7 +106,7 @@ it('names each thumbnail link by its localized card title and keeps the image de
 
 it('the bent-strip card shows its own localized lead', async () => {
   const { translations } = await import('../feher2026/strings');
-  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'zh', 'nl'].includes(locale))) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'it', 'zh', 'nl'].includes(locale))) {
     setLocale(locale);
     expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);

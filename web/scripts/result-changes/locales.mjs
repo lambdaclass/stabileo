@@ -1,4 +1,4 @@
-export const REGISTRY_LOCALES = Object.freeze(['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'nl']);
+export const REGISTRY_LOCALES = Object.freeze(['en', 'es', 'pt', 'de', 'fr', 'tr', 'it', 'zh', 'nl']);
 
 export function resultChangeLocaleProblems({ id, title, explanation }) {
   const problems = [];

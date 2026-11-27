@@ -397,7 +397,7 @@ test.describe('@landing landing page', () => {
   });
 
   test('any other browser language gets the English landing', async ({ browser }) => {
-    const ctx = await browser.newContext({ locale: 'it-IT' });
+    const ctx = await browser.newContext({ locale: 'ja-JP' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
     await expect(page.locator('.landing h1')).toHaveText('Structural analysis you can check.');

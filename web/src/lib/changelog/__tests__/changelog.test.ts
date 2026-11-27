@@ -17,7 +17,7 @@ import {
 } from '..';
 import { findStandingPage } from '../../blog/pages';
 
-const LOCALES = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'nl'] as const;
+const LOCALES = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'] as const;
 const changelogPage = findStandingPage('/changelog')!;
 const SCREENSHOTS = resolve(__dirname, '../../../../public/screenshots');
 

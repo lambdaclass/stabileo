@@ -5,7 +5,7 @@ import { POSTS } from '../../blog';
 import { STANDING_PAGES } from '../../blog/pages';
 import { inLocale } from '../../blog/types';
 
-const LOCALES: CopyLocale[] = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'zh', 'nl'];
+const LOCALES: CopyLocale[] = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'it', 'zh', 'nl'];
 
 function proPartOfTour(tour: string): string {
   const start = tour.indexOf('PRO</strong>');

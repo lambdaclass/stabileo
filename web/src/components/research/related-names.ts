@@ -154,6 +154,28 @@ export const LINK_NAMES: Record<string, Record<string, string>> = {
     "newmark-1959": "Newmark-féle időintegrálás: egy szabadságfok",
     "cqc-1981": "SRSS és CQC: modális kombináció"
   },
+  'it': {
+    "simply-supported-beam": "Calcolatore di trave appoggiata",
+    "cantilever-beam": "Calcolatore della deformata di una mensola",
+    "column-buckling": "Calcolatore di instabilità di Eulero per pilastri",
+    "continuous-beam": "Calcolatore di travi continue",
+    "portal-frame": "Calcolatore di telaio a portale",
+    "truss-2d": "Calcolatore di travatura reticolare 2D",
+    "influence-line": "Calcolatore di linee d’influenza",
+    "beam-natural-frequency": "Calcolatore della frequenza propria di una trave",
+    "macneal-harder-1985": "Benchmark a elementi finiti di MacNeal–Harder",
+    "navier-plate": "Flessione della piastra di Navier: benchmark con serie di Fourier",
+    "mattiasson-elastica": "Elastica di Mattiasson: grande deformata di una mensola",
+    "ferrari-sigmund-2025": "Instabilità del telaio di Roorda: Ferrari–Sigmund",
+    "biggins-2026": "Snap-through dell’arco per modellazione della curvatura",
+    "lee-frame-1968": "Benchmark non lineare del telaio di Lee (1968)",
+    "plastic-collapse": "Benchmark di collasso plastico del telaio a portale",
+    "grossman-2026": "Reti di molle auxetiche: Grossman–Boudaoud",
+    "pastrana-2026": "Form finding di cavi: metodo delle densità di forza",
+    "riks-crisfield": "Snap-through con lunghezza d’arco di Riks–Crisfield",
+    "newmark-1959": "Integrazione nel tempo di Newmark: benchmark SDOF",
+    "cqc-1981": "SRSS e CQC: benchmark di combinazione modale"
+  },
   "zh": {
     "simply-supported-beam": "简支梁计算器",
     "cantilever-beam": "悬臂梁挠度计算器",

@@ -208,7 +208,7 @@ describe('strings', () => {
       expect(Object.keys(table).sort(), locale).toEqual(keys);
       for (const [k, v] of Object.entries(table)) expect(v.trim(), `${locale} ${k}`).not.toBe('');
     }
-    expect(Object.keys(gameStrings).sort()).toEqual(['de', 'en', 'es', 'fr', 'hu', 'nl', 'pt', 'tr', 'zh']);
+    expect(Object.keys(gameStrings).sort()).toEqual(['de', 'en', 'es', 'fr', 'hu', 'nl', 'it', 'pt', 'tr', 'zh']);
   });
 
   it('every question about one diagram marks its name exactly once, and nothing else is bracketed', () => {

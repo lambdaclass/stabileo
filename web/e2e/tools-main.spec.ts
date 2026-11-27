@@ -94,7 +94,7 @@ for (const locale of BUILD_PUBLIC_LOCALES) test(`@smoke tools localized index ${
   await expect(page.locator('nav [data-nav="tools"]')).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://stabileo.com/${locale}/tools/`);
   for (const lang of BUILD_PUBLIC_LOCALES) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveAttribute('href', `https://stabileo.com/${lang}/tools/`);
-  for (const lang of ['de', 'fr', 'tr', 'zh', 'nl'].filter((l) => !isComplete(l))) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveCount(0);
+  for (const lang of ['de', 'fr', 'it', 'tr', 'zh', 'nl'].filter((l) => !isComplete(l))) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveCount(0);
 });
 
 for (const id of BATCH_IDS) test(`@smoke tools ${id} prerender and editor handoff`, async ({ page, request }) => {

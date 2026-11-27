@@ -31,7 +31,7 @@ const en = {
 
 export type CqcStrings = typeof en;
 
-export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'nl', CqcStrings> = {
+export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'it' | 'zh' | 'nl', CqcStrings> = {
   en,
   es: {
     srss: 'SRSS', cqc: 'CQC',
@@ -201,6 +201,34 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     step: 'Burkoló megjelenítése', rule: 'Kombináció',
     error: 'Az élő számítás nem sikerült',
   },
+  it: {
+  srss: 'SRSS', cqc: 'CQC',
+  title: 'Modi ravvicinati: SRSS e CQC',
+  metaTitle: 'SRSS e CQC (1981) — Stabileo Research',
+  metaDescription: 'Modi ravvicinati di un edificio confrontati con un riferimento in forma chiusa.',
+  lead: 'Una piccola idealizzazione 3D di edificio a telaio shear-type, risolta dal motore di produzione modale e a spettro di risposta.',
+  citation: '”, illustrazione del metodo basata su',
+  model: 'L’esempio', description: 'Quattro pilastri incastrati alla base, alti 3 m su una pianta di 4 × 3 m. Ogni nodo di copertura porta 5 t in X. Le rotazioni di copertura e le traslazioni Y/Z sono vincolate; vincoli di uguale X collegano ogni coppia trasversale. Due tiranti assiali di copertura accoppiano le due coordinate rimanenti. È la nostra illustrazione del metodo, non l’edificio originale dell’articolo.',
+  method: 'Riferimento in forma chiusa', equations: 'Le matrici ridotte sono M = diag(10, 10) t e K = [[1020, −20], [−20, 1230]] kN/m. Risolvi det(K − ω²M) = 0; normalizza ogni modo a massa modale unitaria. Per Sa = 1 m/s², i tagli alla base modali sono Γ²Sa. SRSS scarta i termini incrociati; CQC ne mantiene la correlazione a smorzamento uguale con ξ = 5%.',
+  rhoSource: 'È il coefficiente di correlazione a smorzamento uguale di Wilson, Der Kiureghian e Bayo (1981), Eq. (14), p. 191; a p. 190 si spiega perché i termini incrociati mantengono il segno. Presuppone smorzamento modale uguale, un moto del suolo di durata lunga rispetto ai periodi modali e uno spettro ampio e regolare. I valori di riferimento qui sotto sono risultati in forma chiusa per questo esempio, non dati dalla Tabella I dell’articolo.',
+  explanation: 'L’articolo propone CQC per ridurre gli errori di combinazione modale e ritrova SRSS per frequenze ben separate. Qui SRSS è inferiore a CQC per il taglio alla base. Questa differenza è relativa alla stima CQC, non un errore misurato rispetto a una registrazione sismica.',
+  referenceLabel: 'Rispetto alla forma chiusa',
+  publishedNote: 'L’edificio e le tabelle dell’articolo non vengono usati: questa pagina verifica il proprio esempio a due modi rispetto alla forma chiusa.',
+  comparison: 'Taglio alla base · kN', roofHeading: 'Inviluppo dello spostamento in X della copertura · mm', node: 'Nodo',
+  modalHeading: 'Dati modali', quantity: 'Grandezza', f1: 'Frequenza 1 · Hz', f2: 'Frequenza 2 · Hz', rho: 'Correlazione modale ρ',
+  impliedNote: 'Il ρ di Stabileo si ricava dai suoi stessi risultati: ρ = (V_CQC² − V_SRSS²) / (2 V₁ V₂), dove Vᵢ sono i suoi tagli alla base modali.',
+  reference: 'Forma chiusa', result: 'Stabileo', delta: 'Differenza · %',
+  deficit: 'SRSS rispetto a CQC · %',
+  checksHeading: 'Verifiche',
+  tolerance: 'Limite di regressione: differenza relativa inferiore a 1 × 10⁻⁸ per entrambe le frequenze, la partecipazione di massa in X, entrambi i tagli alla base ed entrambi gli spostamenti di copertura (9 verifiche). L’esecuzione nativa differisce al massimo di 6.4 × 10⁻¹⁵. Il limite protegge da regressioni questo piccolo problema a due coordinate ben condizionato; non è un obiettivo di precisione, e l’accordo tra solutore e forma chiusa non dice nulla sulla precisione fisica.',
+  scope: 'Ambito',
+  limitations: ['Il confronto è con la forma chiusa di questo esempio a due coordinate; l’edificio e le tabelle numeriche dell’articolo non vengono riprodotti.', 'Nessuna time-history: nessuna delle due regole è misurata rispetto a una registrazione del moto del suolo.', 'Un solo piano, nessuna risposta torsionale e nessuna variazione di parametri.'],
+  run: 'Ricalcola dal vivo', stop: 'Ferma', restart: 'Riavvia', running: 'Calcolo in corso…',
+  replay: 'Riproduzione precalcolata (stesso solutore)', live: 'Risultato dal vivo (WASM di produzione)',
+  viewer: 'Spostamento in X della copertura · mm', viewNote: 'Proiezione assonometrica nel visualizzatore di Stabileo. Deformazione ×40; l’animazione scala l’inviluppo, non è una time-history.',
+  step: 'Visualizzazione dell’inviluppo', rule: 'Combinazione',
+  error: 'Il calcolo dal vivo non è riuscito',
+},
   zh: {
     srss: 'SRSS', cqc: 'CQC',
     title: '密集模态：SRSS 与 CQC',

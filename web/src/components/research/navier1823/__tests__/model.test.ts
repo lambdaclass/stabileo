@@ -146,9 +146,9 @@ describe('run state', () => {
 
 describe('locales', () => {
   it('translates the page into every public locale with the same keys', () => {
-    expect(Object.keys(strings).sort()).toEqual(['de', 'en', 'es', 'fr', 'hu', 'nl', 'pt', 'tr', 'zh']);
+    expect(Object.keys(strings).sort()).toEqual(['de', 'en', 'es', 'fr', 'hu', 'nl', 'it', 'pt', 'tr', 'zh']);
     for (const locale of PUBLIC_LOCALES) expect(navierLocale(locale)).toBe(locale);
-    expect(navierLocale('it')).toBe('en');
+    expect(navierLocale('ja')).toBe('en');
     for (const s of Object.values(strings)) {
       expect(Object.keys(s)).toEqual(Object.keys(strings.en));
       expect(Object.keys(s.errors)).toEqual(Object.keys(strings.en.errors));

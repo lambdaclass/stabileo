@@ -6,6 +6,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Module volumique triangulaire",
     "tr": "Üçgen hacim modülü",
     "hu": "Háromszögrács térfogati modulusa",
+    'it': "Modulo di compressibilità triangolare",
     "zh": "三角形点阵体积模量",
     "nl": "Compressiemodulus driehoeksrooster"
   },
@@ -16,6 +17,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Module de cisaillement triangulaire",
     "tr": "Üçgen kayma modülü",
     "hu": "Háromszögrács nyírási modulusa",
+    'it': "Modulo di taglio triangolare",
     "zh": "三角形点阵剪切模量",
     "nl": "Glijdingsmodulus driehoeksrooster"
   },
@@ -26,6 +28,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Poisson triangulaire = 1/3",
     "tr": "Üçgen Poisson = 1/3",
     "hu": "Háromszögrács Poisson-tényezője = 1/3",
+    'it': "Poisson triangolare = 1/3",
     "zh": "三角形点阵泊松比 = 1/3",
     "nl": "Poisson driehoeksrooster = 1/3"
   },
@@ -36,6 +39,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Isotropie triangulaire",
     "tr": "Üçgen izotropi",
     "hu": "Háromszögrács izotrópiája",
+    'it': "Isotropia triangolare",
     "zh": "三角形点阵各向同性",
     "nl": "Isotropie driehoeksrooster"
   },
@@ -46,6 +50,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Déplacement non affine nul",
     "tr": "Afin olmayan yer değiştirme sıfır",
     "hu": "Nincs nem affin elmozdulás",
+    'it': "Spostamento non affine nullo",
     "zh": "无非仿射位移",
     "nl": "Geen niet-affiene verplaatsing"
   },
@@ -56,6 +61,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Rigidité périodique = Cauchy–Born",
     "tr": "Periyodik rijitlik = Cauchy–Born",
     "hu": "Periodikus merevség = Cauchy–Born",
+    'it': "Rigidezza periodica = Cauchy–Born",
     "zh": "周期性刚度 = Cauchy–Born",
     "nl": "Periodieke stijfheid = Cauchy–Born"
   },
@@ -66,6 +72,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Relation de Cauchy",
     "tr": "Cauchy bağıntısı",
     "hu": "Cauchy-reláció",
+    'it': "Relazione di Cauchy",
     "zh": "Cauchy 关系",
     "nl": "Cauchy-relatie"
   },
@@ -76,6 +83,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Réseau carré : cisaillement nul",
     "tr": "Kare kafes: kayma sıfır",
     "hu": "Négyzetrács: zérus nyírási modulus",
+    'it': "Reticolo quadrato: taglio nullo",
     "zh": "正方形点阵：剪切模量为零",
     "nl": "Vierkant rooster: glijdingsmodulus nul"
   },
@@ -86,6 +94,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Réseau carré : rigidité axiale",
     "tr": "Kare kafes: eksenel rijitlik",
     "hu": "Négyzetrács: tengelyirányú merevség",
+    'it': "Reticolo quadrato: rigidezza assiale",
     "zh": "正方形点阵：轴向刚度",
     "nl": "Vierkant rooster: axiale stijfheid"
   },
@@ -96,6 +105,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Réseau carré en traction : C33 = 2t",
     "tr": "Çekmedeki kare kafes: C33 = 2t",
     "hu": "Húzott négyzetrács: C33 = 2t",
+    'it': "Reticolo quadrato in trazione: C33 = 2t",
     "zh": "受拉正方形点阵：C33 = 2t",
     "nl": "Vierkant rooster onder trek: C33 = 2t"
   },
@@ -106,6 +116,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Énergie non linéaire et tenseur C",
     "tr": "Doğrusal olmayan enerji ve C tensörü",
     "hu": "Nemlineáris energia és a C tenzor",
+    'it': "Energia non lineare e tensore C",
     "zh": "非线性能量与 C 张量",
     "nl": "Niet-lineaire energie en tensor C"
   },
@@ -116,6 +127,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Énergie avec précontrainte",
     "tr": "Öngerilmeli enerji",
     "hu": "Energia előfeszítéssel",
+    'it': "Energia con pretensione",
     "zh": "含预应力的能量",
     "nl": "Energie met voorspanning"
   },
@@ -126,6 +138,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Invariance par rotation",
     "tr": "Dönme değişmezliği",
     "hu": "Forgatási invariancia",
+    'it': "Invarianza per rotazione",
     "zh": "旋转不变性",
     "nl": "Invariantie onder rotatie"
   },
@@ -136,6 +149,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Dilution z = 3 : G nul",
     "tr": "Seyreltme z = 3: G sıfır",
     "hu": "Ritkítás z = 3: G zérus",
+    'it': "Diluizione z = 3: G nullo",
     "zh": "稀化 z = 3：G 为零",
     "nl": "Verdunning z = 3: G nul"
   },
@@ -146,6 +160,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Dilution z = 5.4 : G/k ≥ 0.1",
     "tr": "Seyreltme z = 5.4: G/k ≥ 0.1",
     "hu": "Ritkítás z = 5.4: G/k ≥ 0.1",
+    'it': "Diluizione z = 5.4: G/k ≥ 0.1",
     "zh": "稀化 z = 5.4：G/k ≥ 0.1",
     "nl": "Verdunning z = 5.4: G/k ≥ 0.1"
   },
@@ -156,6 +171,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Déplacements comparés au solveur de production",
     "tr": "Üretim çözücüsüyle yer değiştirmeler",
     "hu": "Elmozdulások a termékben használt megoldóval",
+    'it': "Spostamenti rispetto al motore di produzione",
     "zh": "位移与生产环境求解器对比",
     "nl": "Verplaatsingen ten opzichte van de productie-engine"
   },
@@ -166,6 +182,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Efforts comparés au solveur de production",
     "tr": "Üretim çözücüsüyle kuvvetler",
     "hu": "Erők a termékben használt megoldóval",
+    'it': "Forze rispetto al motore di produzione",
     "zh": "力与生产环境求解器对比",
     "nl": "Krachten ten opzichte van de productie-engine"
   },
@@ -176,6 +193,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Bande 13 × 52 : effet de taille",
     "tr": "Şerit 13 × 52: boyut etkisi",
     "hu": "13 × 52-es sáv: méreteffektus",
+    'it': "Striscia 13 × 52: distorsione di dimensione",
     "zh": "13 × 52 条带：尺寸效应",
     "nl": "Strip 13 × 52: afmetingseffect"
   },
@@ -186,6 +204,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Bande de largeur 26 : ν = 0.354",
     "tr": "Şerit genişliği 26: ν = 0.354",
     "hu": "26-os sávszélesség: ν = 0.354",
+    'it': "Striscia di larghezza 26: ν = 0.354",
     "zh": "条带宽度 26：ν = 0.354",
     "nl": "Strip met breedte 26: ν = 0.354"
   },
@@ -196,6 +215,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Bande de largeur 52 : ν = 0.345",
     "tr": "Şerit genişliği 52: ν = 0.345",
     "hu": "52-es sávszélesség: ν = 0.345",
+    'it': "Striscia di larghezza 52: ν = 0.345",
     "zh": "条带宽度 52：ν = 0.345",
     "nl": "Strip met breedte 52: ν = 0.345"
   },
@@ -206,6 +226,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Extrapolation de Richardson",
     "tr": "Richardson ekstrapolasyonu",
     "hu": "Richardson-extrapoláció",
+    'it': "Estrapolazione di Richardson",
     "zh": "Richardson 外推",
     "nl": "Richardson-extrapolatie"
   },
@@ -216,6 +237,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Éq. (9) du supplément : rigidité inverse au carré",
     "tr": "Ek Denk. (9): ters kare rijitlik",
     "hu": "Kiegészítő (9) egyenlet: fordított négyzetes merevség",
+    'it': "Eq. (9) supplementare: rigidezza inversa al quadrato",
     "zh": "补充材料式 (9)：反平方刚度",
     "nl": "Aanvullende vgl. (9): inverse stijfheid in het kwadraat"
   },
@@ -226,6 +248,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Constantes égales : ν = 1/6",
     "tr": "Eşit sabitler: ν = 1/6",
     "hu": "Azonos állandók: ν = 1/6",
+    'it': "Costanti uguali: ν = 1/6",
     "zh": "相同常数：ν = 1/6",
     "nl": "Gelijke constanten: ν = 1/6"
   },
@@ -236,6 +259,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Éq. (9) : ν = 8/27",
     "tr": "Denk. (9): ν = 8/27",
     "hu": "(9) egyenlet: ν = 8/27",
+    'it': "Eq. (9): ν = 8/27",
     "zh": "式 (9)：ν = 8/27",
     "nl": "Vgl. (9): ν = 8/27"
   },
@@ -246,6 +270,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Fig. 7 : courbe calculée, 741 points",
     "tr": "Şekil 7: hesap eğrisi, 741 nokta",
     "hu": "7. ábra: számított görbe, 741 pont",
+    'it': "Fig. 7: linea calcolata, 741 punti",
     "zh": "图 7：计算线，741 个点",
     "nl": "Fig. 7: berekende lijn, 741 punten"
   },
@@ -256,6 +281,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Nid-d’abeilles : éq. (23), k = 10⁻³",
     "tr": "Petek: Denk. (23), k = 10⁻³",
     "hu": "Méhsejtrács: (23) egyenlet, k = 10⁻³",
+    'it': "Nido d’ape: eq. (23), k = 10⁻³",
     "zh": "蜂窝：式 (23)，k = 10⁻³",
     "nl": "Honingraat: vgl. (23), k = 10⁻³"
   },
@@ -266,6 +292,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Nid-d’abeilles : éq. (23), k = 10⁻⁶",
     "tr": "Petek: Denk. (23), k = 10⁻⁶",
     "hu": "Méhsejtrács: (23) egyenlet, k = 10⁻⁶",
+    'it': "Nido d’ape: eq. (23), k = 10⁻⁶",
     "zh": "蜂窝：式 (23)，k = 10⁻⁶",
     "nl": "Honingraat: vgl. (23), k = 10⁻⁶"
   },
@@ -276,6 +303,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Fig. 9 : modules sans désordre",
     "tr": "Şekil 9: düzensiz olmayan modüller",
     "hu": "9. ábra: rendezetlenség nélküli modulusok",
+    'it': "Fig. 9: moduli senza disordine",
     "zh": "图 9：无无序度时的模量",
     "nl": "Fig. 9: moduli zonder wanorde"
   },
@@ -286,6 +314,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Fig. 5 : comparaison entre cellules périodiques et bandes",
     "tr": "Şekil 5: periyodik hücre ve şerit karşılaştırması",
     "hu": "5. ábra: periodikus cella és sáv összevetése",
+    'it': "Fig. 5: confronto tra protocolli periodici e strisce",
     "zh": "图 5：周期性单元与条带的比较",
     "nl": "Fig. 5: vergelijking tussen periodieke cellen en stroken"
   },
@@ -296,6 +325,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Passage à zéro entre protocoles",
     "tr": "Protokoller arası sıfır geçişi",
     "hu": "Zérushely-átmenet a protokollok között",
+    'it': "Passaggio per zero tra protocolli",
     "zh": "不同方案间的过零点",
     "nl": "Nuldoorgang tussen protocollen"
   },
@@ -306,6 +336,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Régression de l’ensemble périodique à η = 0.5",
     "tr": "η = 0.5 için periyodik topluluk regresyonu",
     "hu": "Periodikus sokaság regressziója η = 0.5 esetén",
+    'it': "Regressione dell’insieme periodico a η = 0.5",
     "zh": "η = 0.5 时周期性系综的回归",
     "nl": "Regressie van het periodieke ensemble bij η = 0.5"
   }

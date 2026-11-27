@@ -1,10 +1,12 @@
+import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { findPost } from '..';
 import huBody from '../translations/hu/safety-advisories';
 import type { PublicLocale } from '../../i18n/store.svelte';
-import notice from '../../provenance/result-changes/shared-demand-completeness.json';
 import witness from '../../../../../docs/results-changes/2096-main-partial-witnesses.json';
+
+const notice = RESULT_CHANGES.changes.find(change => change.id === 'shared-demand-completeness')!;
 
 const filename = 'SA-2026-071-incomplete-concurrent-demands.md';
 const advisory = readFileSync(new URL(`../../../../../docs/advisories/${filename}`, import.meta.url), 'utf8');

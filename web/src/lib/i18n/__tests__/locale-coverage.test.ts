@@ -10,12 +10,13 @@ import { SAME_AS_ENGLISH as deSame } from '../locales/same-as-english/de';
 import { SAME_AS_ENGLISH as frSame } from '../locales/same-as-english/fr';
 import { SAME_AS_ENGLISH as huSame } from '../locales/same-as-english/hu';
 import { SAME_AS_ENGLISH as trSame } from '../locales/same-as-english/tr';
+import { SAME_AS_ENGLISH as itSame } from '../locales/same-as-english/it';
 import { POSTS } from '../../blog';
 import { STANDING_PAGES } from '../../blog/pages';
 
 const en = ALL_DICTS.en;
 const enKeys = Object.keys(en);
-const SAME: Record<string, readonly string[]> = { de: deSame, fr: frSame, tr: trSame, hu: huSame };
+const SAME: Record<string, readonly string[]> = { de: deSame, fr: frSame, tr: trSame, hu: huSame, it: itSame };
 const BASELINE: Record<string, number> = JSON.parse(
   readFileSync(join(import.meta.dirname, 'coverage-baseline.json'), 'utf8'),
 );
