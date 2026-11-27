@@ -114,3 +114,14 @@ it('offset ranges reach authored model dimensions through default and seeded var
   }
   expect([...seen].sort()).toEqual([1.25, 1.75, 2.25]);
 });
+
+it.skip('known wrong result: #1927 — parameter import diagnostics use the selected language', async () => {
+  const { setLocale, ensureLocale } = await import('../../../lib/i18n');
+  await ensureLocale('es');
+  setLocale('es');
+  try {
+    const messages = lintParams({ ...beam, nodes: [[0, 0], ['missing', 0]] }, params);
+    expect(messages.join(' ')).toContain('parámetro desconocido missing');
+    expect(messages.join(' ')).not.toContain('unknown parameter');
+  } finally { setLocale('en'); }
+});
