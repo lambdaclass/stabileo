@@ -56,3 +56,17 @@ it('#2220 Hungarian wind explanation keeps minimum cases separate', async () => 
   const { default: entry } = await import('../result-changes/wind-physical-pressure-field.json');
   expect(entry.explanation.hu).toContain('A minimális vízszintes teheresetek elkülönülnek a számított nyomásmezőktől.');
 });
+
+for (const type of ['W', 'Wa']) it(`shows the landing notice only when a generated ${type} member load crosses an intermediate elevation`, () => {
+  const at = (z: number, generatedBy = 'load-plan') => {
+    const model: FeatureSnapshot = {
+      ...snapshot(type, generatedBy),
+      nodes: [[1, { x: 0, y: 0, z: 5.8 }], [2, { x: 0, y: 0, z: 8.6 }], [3, { x: 1.9, y: 8.5, z }]],
+      elements: [[1, { id: 1, nodeI: 1, nodeJ: 2, materialId: 1 }]],
+    };
+    return assessProject(model, null).changes.some(change => change.id === 'wind-at-landings');
+  };
+  expect(at(7.2)).toBe(true);
+  expect(at(7.2, '')).toBe(false);
+  for (const z of [3, 5.8, 8.6, 11.4]) expect(at(z)).toBe(false);
+});

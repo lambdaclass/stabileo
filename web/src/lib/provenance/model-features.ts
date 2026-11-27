@@ -72,7 +72,7 @@ export const FEATURE_IDS = [
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
-  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
+  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'malformedAuthoredLoad',
@@ -783,6 +783,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (pressureSigns.get(source) === -sign) f.add('opposedShellPressures');
     pressureSigns.set(source, sign);
   };
+  const windMembers = new Set<number>();
   for (const l of loads) {
     const t = hasLoadType(l) ? l.type : '';
     const d = l.data ?? {};
@@ -860,11 +861,26 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       f.add('generatedLoads');
       if (typedCompositeCaseIds.has(d.caseId as number)) loadPlanInCompositeCase = true;
       const type = caseType.get(d.caseId as number) ?? '';
-      if (['W', 'Wa'].includes(type)) f.add('generatedWindLoads');
+      if (['W', 'Wa'].includes(type)) {
+        f.add('generatedWindLoads');
+        if ((t === 'distributed' || t === 'distributed3d') && typeof d.elementId === 'number') windMembers.add(d.elementId);
+      }
       if (type === 'E') generatedSeismic = true;
       if (['D', 'L', 'Lr'].includes(type)) {
         if (t === 'surface3d') shellGravity = true;
         if (t === 'distributed3d' || t === 'distributed') memberGravity = true;
+      }
+    }
+  }
+  if (windMembers.size) {
+    const elevations = [...new Set([...nodeById.values()].map(n => n?.z ?? 0))].sort((a, b) => a - b);
+    const rank = new Map(elevations.map((z, i) => [z, i]));
+    for (const id of windMembers) {
+      const member = elementById.get(id);
+      const i = member && nodeById.get(member.nodeI), j = member && nodeById.get(member.nodeJ);
+      if (i && j && Math.abs(rank.get(i.z ?? 0)! - rank.get(j.z ?? 0)!) > 1) {
+        f.add('windMemberAcrossLevel');
+        break;
       }
     }
   }
