@@ -551,3 +551,35 @@ test('known wrong result: #1928 each published roof label cites the active CIRSO
     });
   }
 });
+
+test.skip('known wrong result: #1928 the surface gallery and physical-piece labels follow the unified plate switch', async () => {
+  for (const enabled of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
+      const entry = resolve(root, 'src/components/pro/generators/ProGeneratorsPanel.svelte');
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] },
+        rollupOptions: { external: (id, from) => from === entry && !id.includes('?svelte&type=style') },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
+      assert.equal(chunk.imports.some(id => id.endsWith('ProSurfaces.svelte')), enabled);
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const source = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        const catalog = Function(source.replace('export default ', 'return '))();
+        if (locale === 'en') {
+          assert.equal(catalog['batch.shells'], 'Group editing: {n} shells');
+          assert.equal(catalog['resultChecks.discretizationHigh'], 'high discretization error');
+        }
+        for (const key of ['surface.summaryFolded', 'plates.openSpecElement', 'plates.openSpec', 'plates.openSpecMany',
+          'plates.fromLevel', 'plates.onItsElements', 'plates.areaLoadHintWall', 'pro.curvedShellAuto',
+          'plates.unified.batchShells', 'plates.unified.discretizationHigh']) {
+          assert.equal(typeof catalog[key] === 'string', enabled, locale + ' ' + key);
+        }
+        for (const key of ['diag.detail.nodes', 'loadPlan.blocked.unmeshedPlateThermal', 'loadPlan.derivation.occupancyCode', 'svc.engine.conflictingConstraints']) {
+          assert.equal(typeof catalog[key], 'string', locale + ' ' + key);
+        }
+      }
+    });
+  }
+});
