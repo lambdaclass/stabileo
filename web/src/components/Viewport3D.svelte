@@ -4383,6 +4383,7 @@
   onmouseleave={handleMouseLeave}
   oncontextmenu={handleContextMenu3D}
 >
+  {#if resultsStore.screen.held}<span class="pending-result" role="status">{t('pro.calculating')}</span>{/if}
   {#if uiStore.planView3D}<PlanViewChip />{/if}
 
   <!-- The despiece, drawn over the scene in screen space (`canvas/free-body.ts`); only while it is on. -->
@@ -4714,6 +4715,7 @@
 
 
 <style>
+  .pending-result { position: absolute; top: 0.5rem; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none; background: var(--st-surface); color: var(--st-text); padding: 0.25rem 0.5rem; }
   .viewport3d-wrapper {
     width: 100%;
     height: 100%;

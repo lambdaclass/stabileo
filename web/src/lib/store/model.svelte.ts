@@ -384,6 +384,10 @@ export function jointHasRelease(j: Joint3D | undefined): boolean {
 import type { ProvidedReinforcement } from '../design-contract/reinforcement';
 export type { RebarGroup, RebarLayer, StirrupDef, LongBarGroup, BeamContinuity, BeamRegions, ColumnReinforcement, ProvidedReinforcement } from '../design-contract/reinforcement';
 
+export function isInteriorSplit(t: number): boolean {
+  return t > 1e-9 && t < 1 - 1e-9;
+}
+
 export interface Element extends Element3DMetadata {
   id: number;
   /** A name of the user's ("V101", "C3 PB"), beside the number; absent when there is none. */
@@ -1513,7 +1517,7 @@ function createModelStore() {
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
     if (!ni || !nj) return null;
-    const raw = [...new Set(ts)].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
+    const raw = [...new Set(ts)].filter(isInteriorSplit).sort((a, b) => a - b);
     /*
      * Each cut, with the node it reuses. An existing node is reused within `reuseNodeTol` per
      * axis, but never further than half the way to the neighbouring cut or end: the weld boxes
@@ -4817,12 +4821,13 @@ function createModelStore() {
       return id;
     },
 
-    updateMaterial(id: number, data: Partial<Omit<Material, 'id'>>): void {
+    updateMaterial(id: number, change: Partial<Omit<Material, 'id'>> | { replacement: Omit<Material, 'id'> }): void {
       if (!_undoBatching) _pushUndo?.();
       const mat = model.materials.get(id);
       if (!mat) return;
       const m = new Map(model.materials);
-      m.set(id, { ...mat, ...data, id });
+      const data = 'replacement' in change ? change.replacement : change;
+      m.set(id, 'replacement' in change ? { ...change.replacement, id } : { ...mat, ...data, id });
       model.materials = m;
       // A composite drawn section stores the parts' ratios to its reference: re-read them, or it
       // keeps the stiffness of the material as it was when the section was drawn.

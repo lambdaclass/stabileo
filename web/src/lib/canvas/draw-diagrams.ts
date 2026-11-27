@@ -82,18 +82,19 @@ export function drawDiagrams(
   colorOverride?: { fill: string; stroke: string; text: string },
   globalMaxOverride?: number,
   towardLocalAxes: boolean = false,
-): void {
+): number | null {
   const colors = colorOverride ?? DIAGRAM_COLORS[kind];
 
   // Use shared globalMax if provided, otherwise compute from this diagram alone
   const globalMax = globalMaxOverride ?? computeDiagramGlobalMax(results, kind);
 
-  if (globalMax < 1e-10) return; // Nothing to draw
+  if (globalMax < 1e-10) return null; // Nothing to draw
 
   // Target diagram height in pixels (~60px), scaled by user multiplier
   const DIAGRAM_PX = 60 * scaleMult;
   const scale = DIAGRAM_PX / globalMax;
 
+  let paintedPeak: number | null = null;
   for (const ef of results.elementForces) {
     const elem = dc.getElement(ef.elementId);
     if (!elem) continue;
@@ -106,8 +107,11 @@ export function drawDiagrams(
     const diagram: ElementDiagram = computeElementDiagram(kind, ef, nodeI.x, nodeI.y, nodeJ.x, nodeJ.y);
     diagram.elementId = ef.elementId;
 
+    if (diagram.points.length < 2) continue;
     drawSingleDiagram(dc, diagram, scale, colors, ef.length, nodeI, nodeJ, kind, showAllValues, globalMax, towardLocalAxes);
+    paintedPeak = Math.max(paintedPeak ?? 0, Math.abs(diagram.maxAbsValue));
   }
+  return paintedPeak;
 }
 
 /**

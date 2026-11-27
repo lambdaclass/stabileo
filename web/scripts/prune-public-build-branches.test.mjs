@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { featureDefines } from '../config/public-features.mjs';
 import { test } from 'node:test';
 import { parse } from 'svelte/compiler';
 import { prunePublicBuildBranches } from './prune-public-build-branches.mjs';
@@ -62,14 +63,14 @@ for (const [file, attribute] of [
 }
 
 test('the compiled Advanced catalogue includes Mohr only in tools builds', async () => {
-  const { build } = await import('esbuild');
+  const { build } = await import('vite');
   for (const tools of [false, true]) {
     const bundle = await build({
-      entryPoints: [new URL('../src/lib/advanced/catalog.ts', import.meta.url).pathname],
-      define: { __PUBLIC_FEATURES__: JSON.stringify({ tools }) },
-      bundle: true, minify: true, write: false, format: 'esm',
+      configFile: false, logLevel: 'silent',
+      define: featureDefines({ ...off, tools }),
+      build: { write: false, lib: { entry: new URL('../src/lib/advanced/catalog.ts', import.meta.url).pathname, formats: ['es'], fileName: 'catalog' } },
     });
-    const code = bundle.outputFiles[0].text;
+    const code = bundle[0].output[0].code;
     const { ADV_FUNCTIONS } = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
     assert.equal(ADV_FUNCTIONS.some(f => f.id === 'mohr'), tools);
     assert.equal(code.includes('advanced.mohr'), tools);

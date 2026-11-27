@@ -33,6 +33,7 @@
     <text class="lbl" x="48" y="30">Δ</text>
   {:else if id === 'buckling'}
     {@render pin(32, 36)}
+    <path class="sup" d="M32 8 l-5 -3.5 v7 z M25 3 v10" />
     <path class="bar dim" d="M32 36 V8" />
     <path class="resp" d="M32 36 C40 28 40 16 32 8" />
     {@render arrowDown(32, 0, 7)}

@@ -64,8 +64,7 @@ import { currentResultProvenance, provenanceForExport, captureProvenanceToken } 
 import { recheckStore } from '../store/recheck.svelte';
 import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
 
-const maxAbsMoment = (r: { elementForces: ReadonlyArray<{ mStart: number; mEnd: number }> }) =>
-  Math.max(0, ...r.elementForces.map((f) => Math.max(Math.abs(f.mStart), Math.abs(f.mEnd))));
+import { response2D } from '../whatif/response';
 
 export const E2E_QUERY_FLAG = 'e2e';
 
@@ -536,6 +535,8 @@ export interface StabileoTestActions {
    */
   combineCases(name: string): number;
   /** Select these members, in this order, as clicking them one after another would. */
+  holdScreen(): void;
+  releaseScreen(): void;
   selectElements(ids: number[]): void;
   /** Select these nodes, in this order, as clicking them one after another would. */
   selectNodes(ids: number[]): void;
@@ -699,12 +700,14 @@ export function installE2EHooks(): void {
     /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
     hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
     screenFrame: () => {
-      const r = resultsStore.screen.results, diagram = String(resultsStore.screen.diagram);
-      return { drawn: r !== null && diagram !== 'none', held: resultsStore.screen.held, diagram, maxMoment: r ? maxAbsMoment(r) : null };
+      const canvas = document.querySelector<HTMLCanvasElement>('.viewport2d-wrapper canvas[data-painted-diagram]');
+      const diagram = canvas?.dataset.paintedDiagram ?? 'none';
+      return { drawn: diagram !== 'none', held: canvas?.dataset.paintedHeld === 'true', diagram,
+        maxMoment: diagram === 'moment' ? Number(canvas?.dataset.paintedPeak) : null };
     },
     freshMaxMoment: () => {
       const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
-      return r && typeof r !== 'string' ? maxAbsMoment(r) : null;
+      return r && typeof r !== 'string' ? response2D(r).moment : null;
     },
     verticalReaction3D: () => resultsStore.results3D?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0) ?? null,
     verticalReaction2D: () => resultsStore.results?.reactions.reduce((sum, reaction) => sum + reaction.rz, 0) ?? null,
@@ -957,6 +960,8 @@ export function installE2EHooks(): void {
     },
     combineCases: (name: string) =>
       modelStore.addCombination(name, modelStore.model.loadCases.map((c) => ({ caseId: c.id, factor: 1 }))),
+    holdScreen: () => resultsStore.clear({ keepScreen: true }),
+    releaseScreen: () => resultsStore.releaseScreen(),
     selectElements: (ids: number[]) => {
       uiStore.selectMode = 'elements';
       ids.forEach((id, i) => uiStore.selectElement(id, i > 0));

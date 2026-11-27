@@ -180,14 +180,7 @@ resultsStore._setTransverseSignProvider((elementId) => {
   return transverseSign(pb.x - pa.x, pb.y - pa.y);
 });
 
-let screenFit: { r: unknown; nodes: unknown; elements: unknown; ok: boolean } | null = null;
-resultsStore._setScreenTopology((r) => {
-  const nodes = modelStore.nodes, elements = modelStore.elements;
-  if (screenFit && screenFit.r === r && screenFit.nodes === nodes && screenFit.elements === elements) return screenFit.ok;
-  const ok = r.elementForces.every((f) => elements.has(f.elementId)) && r.displacements.every((d) => nodes.has(d.nodeId));
-  screenFit = { r, nodes, elements, ok };
-  return ok;
-});
+resultsStore._setScreenModel(screenModel);
 
 // Members of variable section are published as one member each, from any analysis that solved
 // them as pieces (`engine/variable-members.ts`), the advanced ones included.
@@ -314,3 +307,5 @@ import { transverseSign } from '../engine/transverse-sign-2d';
 import { installViewModeRules } from './view-mode';
 import { captureProjectProvenance } from './project-provenance';
 installViewModeRules();
+
+import { screenModel } from './screen-model.svelte';

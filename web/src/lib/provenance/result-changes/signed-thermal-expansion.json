@@ -8,7 +8,7 @@
   "when": {
     "any": [
       "memberThermalLoads",
-      "shells"
+      "shellThermalLoads"
     ]
   },
   "quantities": [

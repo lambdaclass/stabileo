@@ -23,9 +23,18 @@ export type CustomMaterialRead =
   | { ok: true; choice: CustomMaterialChoice }
   | { ok: false; reasonKey: string };
 
-export const ALPHA_MAX_PER_MILLION = 100;
+export function alphaField(alpha: number | undefined): string {
+  return alpha === undefined ? '' : String(alpha * 1e6);
+}
 
-export function readCustomMaterial(form: CustomMaterialForm): CustomMaterialRead {
+export function readAlpha(raw: string, stored?: number): number | null | undefined {
+  if (!raw.trim()) return undefined;
+  if (stored !== undefined && raw === alphaField(stored)) return stored;
+  const value = parseDecimal(raw);
+  return value === null ? null : value * 1e-6;
+}
+
+export function readCustomMaterial(form: CustomMaterialForm, stored?: Pick<Material, 'alpha'>): CustomMaterialRead {
   const name = form.name.trim();
   if (!name) return { ok: false, reasonKey: 'material.custom.needName' };
   const nu = parseDecimal(form.nu);
@@ -35,12 +44,8 @@ export function readCustomMaterial(form: CustomMaterialForm): CustomMaterialRead
   if (nu <= -1 || nu >= 0.5) return { ok: false, reasonKey: 'material.custom.badNu' };
   if (!(rho >= 0)) return { ok: false, reasonKey: 'material.custom.badRho' };
   if (fy !== null && !(fy > 0)) return { ok: false, reasonKey: 'material.custom.badFy' };
-  let alpha: number | undefined;
-  if (form.alpha.trim() !== '') {
-    const a = parseDecimal(form.alpha);
-    if (a === null || a <= 0 || a > ALPHA_MAX_PER_MILLION) return { ok: false, reasonKey: 'materials.alphaInvalid' };
-    alpha = a * 1e-6;
-  }
+  const alpha = readAlpha(form.alpha, stored?.alpha);
+  if (alpha === null) return { ok: false, reasonKey: 'materials.alphaInvalid' };
   return {
     ok: true,
     choice: {
@@ -59,7 +64,7 @@ export function customMaterialForm(m: Pick<Material, 'name' | 'e' | 'nu' | 'rho'
     nu: String(m.nu),
     rho: m.rho,
     fy: m.fy ?? null,
-    alpha: m.alpha !== undefined && m.alpha > 0 ? String(+(m.alpha * 1e6).toPrecision(6)) : '',
+    alpha: alphaField(m.alpha),
   };
 }
 
@@ -87,9 +92,6 @@ export function saveCustomMaterial(choice: CustomMaterialChoice, id: number | nu
 export function saveCatalogueMaterial(preset: MaterialPreset, id: number | null = null): number {
   const fields = toMaterialFields({ kind: 'preset', preset });
   if (id === null || !modelStore.materials.has(id)) return modelStore.addMaterial(fields);
-  modelStore.updateMaterial(id, {
-    fy: undefined, fu: undefined, fc: undefined, alpha: undefined, gradeId: undefined, timber: undefined, userDefined: undefined,
-    ...fields,
-  });
+  modelStore.updateMaterial(id, { replacement: fields });
   return id;
 }

@@ -73,8 +73,22 @@ test('@slow the painted and freshly solved simple-span moments include midspan',
   const moment = 10 * 6 ** 2 / 8;
   await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().maxMoment)).toBeCloseTo(moment, 9);
   expect(await page.evaluate(() => window.__stabileo.freshMaxMoment())).toBeCloseTo(moment, 9);
+});
+
+test('@slow releasing a held diagram clears the idle canvas without a replacement solve', async ({ page }) => {
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions && window.__stabileo.solverReady());
+  await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
+  await page.evaluate(() => window.__stabileoActions.solve());
+  await page.getByTestId('rb-cmd-momentY').click();
+  await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().drawn)).toBe(true);
   await page.evaluate(() => window.__stabileoActions.holdScreen());
   await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().held)).toBe(true);
+  await expect(page.locator('.viewport2d-wrapper .pending-result')).toBeVisible();
+  const canvas = page.locator('.viewport2d-wrapper canvas').first();
+  const heldImage = await canvas.evaluate(c => (c as HTMLCanvasElement).toDataURL());
   await page.evaluate(() => window.__stabileoActions.releaseScreen());
   await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().drawn)).toBe(false);
+  await expect.poll(() => canvas.evaluate((c, snapshot) => (c as HTMLCanvasElement).toDataURL() === snapshot, heldImage)).toBe(false);
+  await expect(page.locator('.viewport2d-wrapper .pending-result')).toHaveCount(0);
 });

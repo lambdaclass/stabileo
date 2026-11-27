@@ -1,5 +1,6 @@
 <script lang="ts">
   import { plainNumber } from '../../lib/utils/units';
+  import { readAlpha, alphaField } from '../../lib/material/custom-material';
   import { thermalAlphaOf } from '../../lib/engine/thermal-alpha';
   /**
    * The PRO materials tab: the list of materials, and one way to add to it.
@@ -187,14 +188,12 @@
 
   /** α in 10⁻⁶/°C. Blank goes back to the family's value. */
   function setAlpha(id: number, raw: string) {
-    const trimmed = raw.trim();
-    if (trimmed === '') { modelStore.updateMaterial(id, { alpha: undefined }); return; }
-    const v = Number(trimmed.replace(',', '.'));
-    if (!Number.isFinite(v) || v <= 0 || v > 100) {
+    const alpha = readAlpha(raw, modelStore.materials.get(id)?.alpha);
+    if (alpha === null) {
       uiStore.toast(t('materials.alphaInvalid'), 'error');
       return;
     }
-    modelStore.updateMaterial(id, { alpha: v * 1e-6 });
+    modelStore.updateMaterial(id, { alpha });
   }
 
   function removeMat(id: number) {
@@ -265,7 +264,7 @@
                   class="agg-input" type="text" inputmode="decimal"
                   data-testid={`mat-alpha-${m.id}`}
                   aria-label={t('materials.alpha')}
-                  value={m.alpha !== undefined ? +(m.alpha * 1e6).toFixed(3) : ''}
+                  value={alphaField(m.alpha)}
                   placeholder={String(+(thermalAlphaOf(m) * 1e6).toFixed(2))}
                   onchange={(e) => setAlpha(m.id, e.currentTarget.value)}
                 />

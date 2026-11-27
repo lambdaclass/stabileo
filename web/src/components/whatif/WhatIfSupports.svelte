@@ -15,7 +15,7 @@
   const nodeOf = (s: { id: number; nodeId: number }) => whatIf.supportNode[s.id] ?? s.nodeId;
   /* A node can hold one support: the others' nodes are not offered. */
   const free = (s: { id: number; nodeId: number }) => {
-    const taken = new Set(supports.filter((o) => o.id !== s.id).map(nodeOf));
+    const taken = new Set(supports.filter((o) => o.id !== s.id && !whatIf.supportAlong[o.id]).map(nodeOf));
     return nodeIds.filter((id) => !taken.has(id));
   };
 

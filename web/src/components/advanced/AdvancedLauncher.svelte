@@ -88,8 +88,9 @@
   let results = $state<HTMLElement | null>(null);
 
   function onKey(ev: KeyboardEvent): void {
+    if (ev.isComposing) return;
     if (ev.key === 'Enter') {
-      const first = flat.find((e) => !blocked(e));
+      const first = flat[0];
       if (first) { ev.preventDefault(); open(first); }
     } else if (ev.key === 'Escape') {
       if (advancedList.query) { ev.preventDefault(); ev.stopPropagation(); advancedList.query = ''; }

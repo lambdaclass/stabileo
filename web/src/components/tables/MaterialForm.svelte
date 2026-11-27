@@ -29,7 +29,7 @@
     e: badE !== null ? null : form.e,
     rho: badRho !== null ? null : form.rho,
     fy: badFy !== null ? -1 : form.fy,
-  }));
+  }, stored));
   const familyAlpha = $derived(String(+(thermalAlphaOf({ e: form.e ?? undefined, gradeId: stored?.gradeId }) * 1e6).toPrecision(3)));
   const extraSummary = $derived(
     `fy ${form.fy !== null ? `${fmtQ(form.fy, 'stress')} ${unitQ('stress')}` : '—'} · α ${form.alpha.trim() || familyAlpha}·10⁻⁶/°C`,
@@ -47,6 +47,7 @@
 
   function keydown(e: KeyboardEvent) {
     e.stopPropagation();
+    if (e.isComposing) return;
     if (e.key === 'Escape') { e.preventDefault(); onDone(null); }
   }
 </script>

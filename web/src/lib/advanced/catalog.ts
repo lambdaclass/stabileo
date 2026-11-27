@@ -99,11 +99,11 @@ export const ADV_FUNCTIONS: readonly AdvFunction[] = [
     steps: [], requires: { model: true, results: true },
     keywords: ['stress', 'tensión', 'tensiones', 'tensão', 'Spannung', 'contrainte', 'gerilme', 'feszültség', '应力', 'σ', 'sigma', 'τ', 'tau', 'Navier', 'Jourawski', 'Zhuravskii', 'shear flow', 'flujo de corte', 'neutral axis', 'eje neutro', 'von Mises', 'Tresca', 'section', 'sección', 'normal stress', 'tensión normal', 'shear stress', 'tensión tangencial'],
   },
-  {
+  ...((typeof __PUBLIC_FEATURES_COMPILED__ !== 'undefined' ? __PUBLIC_FEATURES__.tools : typeof __PUBLIC_FEATURES__ === 'undefined' || __PUBLIC_FEATURES__.tools) ? [{
     id: 'mohr', group: 'sections', titleKey: 'advanced.mohr', helpKey: 'advHelp.mohr.text', thumb: 'mohr', feature: 'tools',
     steps: [], requires: {},
     keywords: ['Mohr', 'círculo de Mohr', 'Mohr circle', 'círculo', 'Mohrscher Kreis', 'cercle de Mohr', 'Mohr çemberi', 'Mohr-kör', '莫尔圆', 'principal stresses', 'tensiones principales', 'σ1', 'σ2', 'τmax', 'stress state', 'estado tensional', 'θ', 'theta', 'plane stress', 'estado plano'],
-  },
+  } satisfies AdvFunction] : []),
   {
     id: 'cirsocFlex', group: 'sections', titleKey: 'flex.title', helpKey: 'advHelp.cirsocFlex.text', thumb: 'concrete', beta: true,
     steps: [], requires: {},

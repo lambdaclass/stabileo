@@ -212,7 +212,7 @@
   let exportFrame: ExportFrame | null = null;
   const dtNow = () => (exportFrame ? diagramFor(exportFrame.content) : resultsStore.screen.diagram);
   const resNow = () => (exportFrame ? resultsStore.results : resultsStore.screen.results);
-  const HELD_DIM_MS = 250;
+  const displayModel = () => (!exportFrame && resultsStore.screen.model) || modelStore;
   const valuesNow = () => (exportFrame ? exportFrame.options.values : resultsStore.showDiagramValues);
   const reactionsNow = () => (exportFrame
     ? exportFrame.content === 'reactions' || exportFrame.content === 'despiece'
@@ -288,10 +288,8 @@
   $effect(() => { resultsStore.results; resultsStore.diagramType; invalidate(); });
   $effect(() => {
     resultsStore.screen.results; resultsStore.screen.diagram; resultsStore.screen.showReactions;
-    if (!resultsStore.screen.held) return;
+    resultsStore.screen.held;
     invalidate();
-    const dim = setTimeout(invalidate, HELD_DIM_MS + 20);
-    return () => clearTimeout(dim);
   });
   // Despiece: restart the pull-apart animation whenever the view (re)activates.
   $effect(() => {
@@ -387,15 +385,15 @@
       getNode: (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; },
       // A hidden member is not drawn: no diagram, no deformed shape, no loads on it.
       getElement: (id: number) => {
-        const elem = viewVisibility.isElementHidden(id) ? undefined : modelStore.elements.get(id);
+        const elem = viewVisibility.isElementHidden(id) ? undefined : displayModel().elements.get(id);
         return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId, type: elem.type } : undefined;
       },
       getMaterial: (id: number) => {
-        const mat = modelStore.materials.get(id);
+        const mat = displayModel().materials.get(id);
         return mat ? { e: mat.e } : undefined;
       },
       getSection: (id: number) => {
-        const sec = modelStore.sections.get(id);
+        const sec = displayModel().sections.get(id);
         // 2D bending uses effective inertia (accounts for section rotation via Mohr)
         return sec ? { iz: effectiveBendingInertia(sec) } : undefined;
       },
@@ -579,6 +577,11 @@
   function draw() {
     if (!ctx) return;
     const shown = resNow();
+    if (import.meta.env.VITE_E2E === '1' && !exportFrame) {
+      canvas.dataset.paintedDiagram = 'none';
+      delete canvas.dataset.paintedPeak;
+      canvas.dataset.paintedHeld = String(resultsStore.screen.held);
+    }
 
     /*
      * Every frame starts from the canvas's own text and compositing defaults.
@@ -697,10 +700,10 @@
 
       if (kind === 'stressRatio' || kind === 'vonMises' || kind === 'sigmaMax' || kind === 'tauMax') {
         for (const ef of shown.elementForces) {
-          const elem = modelStore.elements.get(ef.elementId);
+          const elem = displayModel().elements.get(ef.elementId);
           if (!elem) continue;
-          const sec = modelStore.sections.get(elem.sectionId);
-          const mat = modelStore.materials.get(elem.materialId);
+          const sec = displayModel().sections.get(elem.sectionId);
+          const mat = displayModel().materials.get(elem.materialId);
           /*
            * `fy` is required by the RATIO alone — it is the denominator. Von
            * Mises, the normal stress and the shear stress are absolute
@@ -1202,7 +1205,7 @@
 
     // Draw results
     if (shown) {
-      ctx.globalAlpha = resultsStore.screen.held && !exportFrame && !uiStore.showWhatIf && now - resultsStore.screen.heldSince > HELD_DIM_MS ? 0.45 : 1;
+      ctx.globalAlpha = resultsStore.screen.held && !exportFrame ? 0.45 : 1;
       const dt = dtNow();
       setDiagramUnitSystem(uiStore.unitSystem);
 
@@ -1405,6 +1408,7 @@
         } else {
           try {
             // Normal mode: overlay + main diagram
+            let peak: number | null;
             if (resultsStore.overlayResults && !exportFrame) {
               // Compute shared globalMax so both diagrams use the same scale
               const sharedMax = Math.max(
@@ -1413,11 +1417,15 @@
               );
               const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
               drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
-              drawDiagrams(shown, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
+              peak = drawDiagrams(shown, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
             } else {
               // The certified ± beside the max label on screen only; a figure export stays as it was.
               const dc = exportFrame ? makeDrawContext() : { ...makeDrawContext(), extremeBound };
-              drawDiagrams(shown, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
+              peak = drawDiagrams(shown, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
+            }
+            if (import.meta.env.VITE_E2E === '1' && !exportFrame && peak !== null) {
+              canvas.dataset.paintedDiagram = dkind;
+              canvas.dataset.paintedPeak = String(peak);
             }
           } catch (error) {
             if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
@@ -3343,6 +3351,7 @@
          with the axes; the canvas shrinks for the sheet, so it rises with it. -->
     <div class="vp-delete"><SelectionClipboardButtons floating /><SelectionDeleteButton floating /></div>
   {/if}
+  {#if resultsStore.screen.held}<span class="pending-result" role="status">{t('pro.calculating')}</span>{/if}
   <canvas
     bind:this={canvas}
     onmousedown={handleMouseDown}
@@ -3382,6 +3391,7 @@
 </div>
 
 <style>
+  .pending-result { position: absolute; top: 0.5rem; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none; background: var(--st-surface); color: var(--st-text); padding: 0.25rem 0.5rem; }
   .viewport2d-wrapper {
     width: 100%;
     height: 100%;

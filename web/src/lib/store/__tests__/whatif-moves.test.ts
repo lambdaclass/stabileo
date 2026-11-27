@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore, historyStore, uiStore } from '..';
 import { whatIf } from '../whatif.svelte';
 import { loadLabel } from '../../whatif/load-label';
-import { response2D } from '../../whatif/response';
+import { response2D, response3D } from '../../whatif/response';
 
 const P = -12;
 let n1 = 0, n2 = 0, n3 = 0, m1 = 0, m2 = 0, s1 = 0, s3 = 0;
@@ -232,10 +232,36 @@ for (const workspace of ['2d', '3d'] as const) {
     whatIf.open();
     whatIf.setNodeShift(n2, 0, -2);
     settle();
-    expect(modelStore.loads[0].data.a).toBe(2);
+    expect(modelStore.loads[0].data).toMatchObject({ a: 2 });
   });
 
-  for (const t of [0.01, 0.5, 0.99]) {
+  it(`keeps the last valid support location on an occupied destination in ${workspace}`, () => {
+    uiStore.analysisMode = workspace;
+    whatIf.open();
+    whatIf.setSupportNode(s3, n2);
+    settle();
+    const count = uiStore.toasts.length;
+    whatIf.setSupportNode(s1, n2);
+    settle();
+    expect(uiStore.toasts.length).toBe(count + 1);
+    expect(modelStore.supports.get(s1)?.nodeId).toBe(n1);
+    expect(modelStore.supports.get(s3)?.nodeId).toBe(n2);
+  });
+
+  for (const t of [0, 1e-9, 1 - 1e-9, 1]) {
+    it(`refuses an unsplittable station ${t} in ${workspace}`, () => {
+      uiStore.analysisMode = workspace;
+      whatIf.open();
+      const count = uiStore.toasts.length;
+      whatIf.setSupportAlong(s3, m1, t);
+      settle();
+      expect(uiStore.toasts.length).toBe(count + 1);
+      expect(modelStore.elements.size).toBe(2);
+      expect(modelStore.supports.get(s3)?.nodeId).toBe(n3);
+    });
+  }
+
+  for (const t of [2e-9, 0.01, 0.5, 0.99, 1 - 2e-9]) {
     it(`keeps disconnected nodes separate at station ${t} in ${workspace}`, () => {
       uiStore.analysisMode = workspace;
       const x = t * 4;
@@ -250,7 +276,7 @@ for (const workspace of ['2d', '3d'] as const) {
       const cut = modelStore.elements.get(m1)!.nodeJ;
       expect(cut).not.toBe(nearby);
       expect(modelStore.nodes.get(cut)).toMatchObject({ x, y: 0 });
-      expect(modelStore.loads[0].data.nodeId).toBe(cut);
+      expect(modelStore.loads[0].data).toMatchObject({ nodeId: cut });
       expect(modelStore.supports.get(s3)?.nodeId).toBe(cut);
     });
   }
@@ -264,4 +290,20 @@ it('identifies the node and the member load components in the current units', ()
   expect(distributed).toContain(`(B${m1})`);
   for (const value of [3, 4, 5, 6]) expect(distributed).toContain(String(value));
   expect(distributed).toContain('/m');
+});
+
+it('summarizes the orthogonal components of a space cantilever', () => {
+  modelStore.clear();
+  uiStore.analysisMode = '3d';
+  const fixed = modelStore.addNode(0, 0, 0);
+  const tip = modelStore.addNode(4, 0, 0);
+  modelStore.addElement(fixed, tip);
+  modelStore.addSupport(fixed, 'fixed3d');
+  modelStore.addNodalLoad3D(tip, 0, 3, 4, 0, 0, 0);
+  const result = modelStore.solve3D();
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  const shown = response3D(result);
+  expect(shown.shear).toBeCloseTo(4, 9);
+  expect(shown.moment).toBeCloseTo(4 * 4, 9);
+  expect(shown.reaction).toBeCloseTo(Math.hypot(3, 4), 9);
 });

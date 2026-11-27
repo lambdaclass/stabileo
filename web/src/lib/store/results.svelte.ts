@@ -18,7 +18,7 @@ import { t } from '../i18n';
 // reinforcement-only edit triggers none. Covers the worker/parallel solve paths too.
 import { noteStructuralSolve } from '../utils/solve-counter';
 import { resultsToDrawnAxes, envelopeToDrawnAxes, type SignOf } from '../engine/transverse-sign-2d';
-import { createScreenHold, type ResultTopology } from './screen-hold.svelte';
+import { createScreenHold, type ScreenModel } from './screen-hold.svelte';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges' | 'despiece'
   // 3D-specific diagram types
@@ -973,9 +973,9 @@ function createResultsStore() {
     },
 
     setResults(r: AnalysisResults, preserveDiagram = false) {
-      screen.release();
       _onStaticPublish?.(r, '2d');
       r = drawn(r);
+      screen.published([r]);
       results = r;
       singleResults = r; // Save base solve for "Cargas simples" option
       if (!preserveDiagram) deformedScale = 1;
@@ -1010,11 +1010,11 @@ function createResultsStore() {
     },
 
     setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
-      screen.release();
       _onComboPublish?.(pc, pco, '2d');
       pc = new Map([...pc].map(([k, v]) => [k, drawn(v)]));
       pco = new Map([...pco].map(([k, v]) => [k, drawn(v)]));
       env = envelopeToDrawnAxes(env, _signOf);
+      screen.published([...pc.values(), ...pco.values(), env.maxAbsResults]);
       perCase = pc;
       perCombo = pco;
       envelope = env;
@@ -1170,10 +1170,10 @@ function createResultsStore() {
     get results3D() { return knownIssueResultDisposition(results3D).refused ? null : results3D; },
 
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
-      screen.release();
       _onStaticPublish?.(r, '3d');
       if (_normalise3D) r = _normalise3D(r);
       r = freezeResult(r);
+      screen.published([r]);
       noteStructuralSolve();
       _onResultsPublish?.();
       results3D = r;
@@ -1267,7 +1267,6 @@ function createResultsStore() {
     setGoverning3D(g: Map<number, GoverningPerElement3D>) { governing3D = g; },
 
     setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D, unstable: readonly number[] = []) {
-      screen.release();
       _onComboPublish?.(pc, pco, '3d');
       if (_normalise3D) {
         const n = _normalise3D;
@@ -1275,6 +1274,7 @@ function createResultsStore() {
         pco = new Map([...pco].map(([k, r]) => [k, n(r)]));
         if (_normaliseEnvelope3D && env) env = _normaliseEnvelope3D(env);
       }
+      screen.published([...pc.values(), ...pco.values(), env?.maxAbsResults3D]);
       for (const r of [...pc.values(), ...pco.values(), env?.maxAbsResults3D, env, pc, pco]) freezeResult(r);
       noteStructuralSolve();
       _onResultsPublish?.();
@@ -1449,7 +1449,7 @@ function createResultsStore() {
     get screen() { return screen.view; },
     /** Drop the held picture: the re-solve it waited for failed or will not come. */
     releaseScreen() { screen.release(); },
-    _setScreenTopology(fn: (r: ResultTopology) => boolean) { screen.setTopologyCheck(fn); },
+    _setScreenModel(reader: () => ScreenModel) { screen.setModelReader(reader); },
   };
   return api;
 }

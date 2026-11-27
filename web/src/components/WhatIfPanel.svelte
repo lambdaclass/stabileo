@@ -61,15 +61,20 @@
   const live = $derived<Response | null>(is3D
     ? (resultsStore.results3D ? response3D(resultsStore.results3D) : null)
     : (resultsStore.results ? response2D(resultsStore.results) : null));
-  let shown = $state.raw<Response | null>(null);
-  $effect(() => { if (live) shown = live; });
+  const shown = $derived.by(() => {
+    if (uiStore.liveCalcError) return null;
+    if (live) return live;
+    if (!resultsStore.screen.held) return null;
+    const { results, results3D } = resultsStore.screen;
+    return is3D ? (results3D && response3D(results3D)) : (results && response2D(results));
+  });
   $effect(() => { if (live && !whatIf.reference && !whatIf.changed) whatIf.setReference(live); });
-  const ROWS: Array<{ k: ResponseKey; key: string }> = [
-    { k: 'delta', key: 'whatif.resp.delta' }, { k: 'moment', key: 'whatif.resp.moment' }, { k: 'shear', key: 'whatif.resp.shear' },
+  const ROWS = $derived<Array<{ k: ResponseKey; key: string }>>([
+    { k: 'delta', key: 'whatif.resp.delta' }, { k: 'moment', key: is3D ? 'whatif.resp.momentComponent' : 'whatif.resp.moment' }, { k: 'shear', key: is3D ? 'whatif.resp.shearComponent' : 'whatif.resp.shear' },
     { k: 'axial', key: 'whatif.resp.axial' }, { k: 'reaction', key: 'whatif.resp.reaction' },
-  ];
+  ]);
   const value = (k: ResponseKey, v: number) => `${fmtQ(v, RESPONSE_QUANTITY[k])} ${unitQ(RESPONSE_QUANTITY[k])}`;
-  const rows = $derived(shown ? ROWS.filter((r) => shown![r.k] > 1e-9 || (whatIf.reference?.[r.k] ?? 0) > 1e-9) : []);
+  const rows = $derived(ROWS.filter((r) => (shown?.[r.k] ?? 0) > 1e-9 || (whatIf.reference?.[r.k] ?? 0) > 1e-9));
 
   /* Results off leaves the structure and its loads alone; on again brings back the last diagram. */
   let lastDiagram: DiagramType | null = null;
@@ -86,11 +91,11 @@
   let tab = $state<Tab>('loads');
   $effect(() => { if (tab === 'loads' && !loadsTouched) whatIf.showLoads(true); });
   /* Picking on the canvas is the quickest way to say what to change: a member or a node opens its tab. */
-  let lastPicked = { members: 0, nodes: 0 };
+  let lastPicked = { members: new Set<number>(), nodes: new Set<number>() };
   $effect(() => {
-    const members = uiStore.selectedElements.size, nodes = uiStore.selectedNodes.size;
-    if (members > lastPicked.members) tab = 'members';
-    else if (nodes > lastPicked.nodes && members === 0) tab = 'nodes';
+    const members = new Set(uiStore.selectedElements), nodes = new Set(uiStore.selectedNodes);
+    if ([...members].some(id => !lastPicked.members.has(id))) tab = 'members';
+    else if (members.size === 0 && [...nodes].some(id => !lastPicked.nodes.has(id))) tab = 'nodes';
     lastPicked = { members, nodes };
   });
   const changedIn = $derived<Record<Tab, boolean>>({
@@ -116,7 +121,7 @@
 
     <div class="wif-body">
       <div class="wif-bar">
-        <span class="wif-live" class:busy={resultsStore.screen.held} data-testid="whatif-live"><span class="wif-dot" aria-hidden="true"></span>{t('whatif.liveNote')}</span>
+        <span class="wif-live" class:busy={resultsStore.screen.held} data-testid="whatif-live"><span class="wif-dot" aria-hidden="true"></span>{t(resultsStore.screen.held ? 'pro.calculating' : 'whatif.liveNote')}</span>
         <button class="wif-reset" onclick={() => whatIf.reset()} disabled={!whatIf.changed} title={t('whatif.restoreOriginals')}
           data-testid="whatif-reset">{t('whatif.reset')}</button>
       </div>
@@ -151,11 +156,11 @@
           <tbody>
             {#each rows as r (r.k)}
               {@const before = whatIf.reference?.[r.k]}
-              {@const pct = before === undefined ? null : percentChange(before, shown![r.k])}
+              {@const pct = before === undefined || !shown ? null : percentChange(before, shown[r.k])}
               <tr data-testid="whatif-resp-{r.k}">
                 <th scope="row">{t(r.key)}</th>
                 <td>{before === undefined ? '—' : value(r.k, before)}</td>
-                <td class="wif-now">{value(r.k, shown![r.k])}</td>
+                <td class="wif-now">{shown ? value(r.k, shown[r.k]) : '—'}</td>
                 <td class="wif-pct" class:up={pct !== null && pct > 0.5} class:down={pct !== null && pct < -0.5}>
                   {pct === null || Math.abs(pct) <= 0.5 ? '' : `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct) >= 10 ? Math.round(Math.abs(pct)) : Math.abs(pct).toFixed(1)}%`}
                 </td>

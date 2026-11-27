@@ -1,3 +1,5 @@
+import { assignMemberProfile } from '../assign-member-profile';
+import { PROFILE_FAMILIES } from '../../data/steel-profiles';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import { buildProjectFile, deserializeProject } from '../../store/file';
@@ -172,5 +174,10 @@ describe('saving a hand-entered material', () => {
     const back = modelStore.materials.get(modelStore.elements.get(element)!.materialId);
     expect(back).toMatchObject({ name: 'Madera dura', e: 100000, nu: 0.25, rho: 20, fy: 300, alpha: 11e-6, userDefined: true });
     expect(commercialDefaultFor('IPN', back, 'AR')).toBeNull();
+    const profile = PROFILE_FAMILIES.IPN[0]!;
+    assignMemberProfile(element, profile, 'AR');
+    const assigned = modelStore.elements.get(element)!;
+    expect(modelStore.sections.get(assigned.sectionId)?.name).toBe(profile.name);
+    expect(assigned.materialId).toBe(id);
   });
 });

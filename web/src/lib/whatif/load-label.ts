@@ -44,11 +44,23 @@ export function loadLabel(l: Load | undefined, i: number): string {
     const parts: string[] = [];
     for (const c of userVecParts('F', [d.fx, d.fy, d.fz])) if (c.value) parts.push(`${c.name}=${F(c.value)}`);
     for (const c of userVecParts('M', [d.mx ?? 0, d.my ?? 0, d.mz ?? 0], true)) if (c.value) parts.push(`${c.name}=${M(c.value)}`);
-    return parts.join(', ') || `N${d.nodeId}`;
+    return parts.length ? `${parts.join(', ')} (N${d.nodeId})` : `N${d.nodeId}`;
   }
   if (l.type === 'distributed3d') {
-    const d = l.data as { elementId: number };
-    return `q (B${d.elementId})`;
+    const d = l.data;
+    const components = (end: 'I' | 'J') => {
+      const v: [number, number, number] = [d[`qX${end}`] ?? 0, d[`qY${end}`], d[`qZ${end}`]];
+      return d.frame && d.frame !== 'local' ? userVecParts('q', v)
+        : v.map((value, i) => ({ name: `q${'xyz'[i]}`, value }));
+    };
+    const end = components('J');
+    const parts = components('I').flatMap(({ name, value }, i) => {
+      const other = end[i]!.value;
+      if (!value && !other) return [];
+      const range = value === other ? '' : `${fmtQ(value, 'distributedLoad')}→`;
+      return [`${name}=${range}${q(other, 'distributedLoad')}`];
+    });
+    return `${parts.join(', ') || `q=${q(0, 'distributedLoad')}`} (B${d.elementId})`;
   }
   if (l.type === 'pointOnElement3d') {
     const d = l.data as { elementId: number; frame?: string; px?: number; py: number; pz: number; mx?: number; my?: number; mz?: number };

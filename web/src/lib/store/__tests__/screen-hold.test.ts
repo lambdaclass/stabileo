@@ -147,7 +147,8 @@ it('holds the solved section when a new section modulus is requested', async () 
   resultsStore.diagramType = 'colorMap';
   resultsStore.colorMapKind = 'sigmaMax';
   const original = section.iy;
+  if (original === undefined) throw new Error('Missing test section inertia');
   modelStore.updateSection(section.id, { iy: original * 2 });
   expect(resultsStore.screen.held).toBe(true);
-  expect(resultsStore.screen.memberProperties(member.id)?.section.iy).toBe(original);
+  expect(resultsStore.screen.model?.sections.get(member.sectionId)?.iy).toBe(original);
 });

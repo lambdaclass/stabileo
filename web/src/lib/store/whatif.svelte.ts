@@ -26,7 +26,8 @@ import { recheckStore } from './recheck.svelte';
 import type { SolveStamp } from '../provenance/solve-stamp';
 import { scaledLoad } from '../model/loads/load-magnitudes';
 import { tick } from 'svelte';
-import { modelStore } from './model.svelte';
+import { isInteriorSplit, modelStore } from './model.svelte';
+import { t as translate } from '../i18n';
 import { uiStore } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
 import type { Release, Section, SupportType } from './model.svelte';
@@ -172,11 +173,10 @@ function memberLength(elementId: number): number {
 /* Positions apply after the nodes moved, so a load stays on the member it was on, within its new length. */
 function moveLoads(): void {
   const loads = modelStore.model.loads;
-  for (const [key, a] of Object.entries(loadAt)) {
-    const i = Number(key), l = loads[i];
-    if (!l || (l.type !== 'pointOnElement' && l.type !== 'pointOnElement3d')) continue;
+  for (const [i, l] of loads.entries()) {
+    if (l.type !== 'pointOnElement' && l.type !== 'pointOnElement3d') continue;
     const d = l.data as { elementId: number; a: number };
-    loads[i] = { ...l, data: { ...l.data, a: Math.min(Math.max(a, 0), memberLength(d.elementId)) } } as typeof l;
+    loads[i] = { ...l, data: { ...l.data, a: Math.min(Math.max(loadAt[i] ?? d.a, 0), memberLength(d.elementId)) } } as typeof l;
   }
   for (const [key, nodeId] of Object.entries(loadNode)) {
     const i = Number(key), l = loads[i];
@@ -186,40 +186,29 @@ function moveLoads(): void {
   }
 }
 
-function moveSupports(): void {
-  const m = modelStore.model;
-  const taken = new Set([...m.supports.values()].map((s) => s.nodeId));
-  for (const [key, nodeId] of Object.entries(supportNode)) {
-    if (Number(key) in supportAlong) continue;
-    const s = m.supports.get(Number(key));
-    if (!s || s.nodeId === nodeId || taken.has(nodeId) || !m.nodes.has(nodeId)) continue;
-    taken.delete(s.nodeId);
-    taken.add(nodeId);
-    m.supports.set(s.id, { ...s, nodeId });
-  }
-  m.supports = new Map(m.supports);
+function validStation(elementId: number, t: number): boolean {
+  if (baseline?.elements.some(([id]) => id === elementId) && isInteriorSplit(t)) return true;
+  uiStore.toast(translate('whatif.invalidPlacement'), 'error');
+  return false;
 }
 
-/** The node nearest a point of the model, as a cut at that point left it (a cut may reuse a node). */
-function nodeAt(p: { x: number; y: number; z: number }): number | null {
-  let best: number | null = null, d = Infinity;
-  for (const n of modelStore.model.nodes.values()) {
-    const e = Math.hypot(n.x - p.x, n.y - p.y, (n.z ?? 0) - p.z);
-    if (e < d) { d = e; best = n.id; }
-  }
-  return best;
+function supportDestinationFree(id: number, destination: number | Along): boolean {
+  const occupied = baseline?.supports.some(([other, support]) => {
+    if (id === other) return false;
+    const along = supportAlong[other];
+    if (typeof destination === 'number') return !along && (supportNode[other] ?? support.nodeId) === destination;
+    return along?.elementId === destination.elementId && along.t === destination.t;
+  });
+  if (occupied) uiStore.toast(translate('whatif.invalidPlacement'), 'error');
+  return !occupied;
 }
 
-/*
- * Last, after every other change: cutting a member renumbers the loads on it, and the placements
- * are found again by the point they asked for, since a cut near an existing node reuses it.
- */
 function placeAlong(): void {
   const m = modelStore.model;
+  const destinations = new Map(Object.entries(supportNode).map(([id, node]) => [Number(id), node]));
   const byMember = new Map<number, Array<{ t: number; place: (nodeId: number) => void }>>();
   const add = (a: Along, place: (nodeId: number) => void) => {
-    if (!m.elements.has(a.elementId)) return;
-    const t = Math.min(Math.max(a.t, 0.02), 0.98);
+    const t = a.t;
     byMember.set(a.elementId, [...(byMember.get(a.elementId) ?? []), { t, place }]);
   };
   for (const [key, a] of Object.entries(loadAlong)) {
@@ -227,27 +216,32 @@ function placeAlong(): void {
     if (!load || (load.type !== 'nodal' && load.type !== 'nodal3d')) continue;
     add(a, (nodeId) => {
       const i = modelStore.model.loads.indexOf(load);
-      if (i >= 0) modelStore.model.loads[i] = { ...load, data: { ...load.data, nodeId } } as typeof load;
+      if (i < 0) throw new Error(translate('whatif.invalidPlacement'));
+      modelStore.model.loads[i] = { ...load, data: { ...load.data, nodeId } } as typeof load;
     });
   }
   for (const [key, a] of Object.entries(supportAlong)) {
     const id = Number(key);
-    add(a, (nodeId) => {
-      const sup = modelStore.model.supports.get(id);
-      const taken = [...modelStore.model.supports.values()].some((o) => o.id !== id && o.nodeId === nodeId);
-      if (sup && !taken) modelStore.model.supports.set(id, { ...sup, nodeId });
-    });
+    add(a, nodeId => destinations.set(id, nodeId));
   }
   for (const [elementId, list] of byMember) {
-    const el = m.elements.get(elementId);
-    const a = el && m.nodes.get(el.nodeI), b = el && m.nodes.get(el.nodeJ);
-    if (!a || !b) continue;
-    const at = (t: number) => ({ x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y), z: (a.z ?? 0) + t * ((b.z ?? 0) - (a.z ?? 0)) });
-    const points = list.map((p) => at(p.t));
-    modelStore.withoutUndo(() => modelStore.splitMember(elementId, list.map((p) => p.t), { keepOriginalId: true, reuseNodeTol: 0.01 }));
-    list.forEach((p, k) => { const n = nodeAt(points[k]!); if (n !== null) p.place(n); });
+    const stations = [...new Set(list.map(p => p.t))].sort((a, b) => a - b);
+    modelStore.withoutUndo(() => {
+      const split = modelStore.splitMember(elementId, stations, { keepOriginalId: true });
+      if (!split || split.nodeIds.length !== stations.length) throw new Error(translate('whatif.invalidPlacement'));
+      const nodes = new Map(stations.map((t, i) => [t, split.nodeIds[i]!]));
+      for (const placement of list) placement.place(nodes.get(placement.t)!);
+    });
   }
-  modelStore.model.supports = new Map(modelStore.model.supports);
+  const supports = new Map(m.supports);
+  const occupied = new Set<number>();
+  for (const [id, support] of supports) {
+    const nodeId = destinations.get(id) ?? support.nodeId;
+    if (!m.nodes.has(nodeId) || occupied.has(nodeId)) throw new Error(translate('whatif.invalidPlacement'));
+    occupied.add(nodeId);
+    if (nodeId !== support.nodeId) supports.set(id, { ...support, nodeId });
+  }
+  m.supports = supports;
   modelStore.model.loads = [...modelStore.model.loads];
 }
 
@@ -289,7 +283,6 @@ function apply(): void {
       modelStore.updateSupport(Number(key), { type });
     }
   });
-  moveSupports();
 
   for (const [key, r] of Object.entries(releases)) {
     const el = m.elements.get(Number(key));
@@ -300,7 +293,16 @@ function apply(): void {
   m.sections = new Map(m.sections);
   m.elements = new Map(m.elements);
   m.loads = [...m.loads];
-  placeAlong();
+  try {
+    placeAlong();
+  } catch (error) {
+    whatIf.abandon();
+    uiStore.showWhatIf = false;
+    restoreBaseline(snap);
+    recheckStore.restoreStamp(stampAtOpen);
+    uiStore.toast(error instanceof Error ? error.message : translate('whatif.invalidPlacement'), 'error');
+    return;
+  }
   ownVersion = modelStore.modelVersion;
   // restore() moved the model version, so live calc re-solves what is now here.
   // PRO has no live calc; solve it directly.
@@ -438,12 +440,27 @@ export const whatIf = {
   setSupportType(id: number, type: SupportType) { supportTypes[id] = type; schedule(); },
   setLoadAt(i: number, a: number) { loadAt[i] = a; schedule(); },
   setLoadNode(i: number, nodeId: number) { delete loadAlong[i]; loadNode[i] = nodeId; schedule(); },
-  setSupportNode(id: number, nodeId: number) { delete supportAlong[id]; supportNode[id] = nodeId; schedule(); },
+  setSupportNode(id: number, nodeId: number) {
+    if (!modelStore.nodes.has(nodeId) || !supportDestinationFree(id, nodeId)) return;
+    delete supportAlong[id];
+    supportNode[id] = nodeId;
+    schedule();
+  },
   get loadAlong() { return loadAlong; },
   get supportAlong() { return supportAlong; },
   /** A nodal load carried onto a member, at `t` of its length from node I. */
-  setLoadAlong(i: number, elementId: number, t: number) { delete loadNode[i]; loadAlong[i] = { elementId, t }; schedule(); },
-  setSupportAlong(id: number, elementId: number, t: number) { delete supportNode[id]; supportAlong[id] = { elementId, t }; schedule(); },
+  setLoadAlong(i: number, elementId: number, t: number) {
+    if (!validStation(elementId, t)) return;
+    delete loadNode[i];
+    loadAlong[i] = { elementId, t };
+    schedule();
+  },
+  setSupportAlong(id: number, elementId: number, t: number) {
+    if (!validStation(elementId, t) || !supportDestinationFree(id, { elementId, t })) return;
+    delete supportNode[id];
+    supportAlong[id] = { elementId, t };
+    schedule();
+  },
 
   /** Whether the canvas draws the loads, with or without a diagram on screen. */
   get loadsShown(): boolean {

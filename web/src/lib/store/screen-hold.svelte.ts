@@ -1,4 +1,4 @@
-import type { AnalysisResults } from './model.svelte';
+import type { AnalysisResults, Element, Section, Material } from './model.svelte';
 import type { DiagramType } from './results.svelte';
 import type { FullEnvelope } from '../engine/types';
 import type { AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
@@ -13,37 +13,37 @@ export interface ScreenView {
   showReactions: boolean;
 }
 
-export interface ResultTopology {
-  displacements: ReadonlyArray<{ nodeId: number }>;
-  elementForces: ReadonlyArray<{ elementId: number }>;
+export interface ScreenModel {
+  geometry: string;
+  elements: ReadonlyMap<number, Pick<Element, 'nodeI' | 'nodeJ' | 'type' | 'materialId' | 'sectionId'>>;
+  sections: ReadonlyMap<number, Section>;
+  materials: ReadonlyMap<number, Material>;
 }
 
-type Held = ScreenView & { since: number };
+type Held = ScreenView & { model: ScreenModel };
 
-/** A held picture is drawn only on a model that still has every node and member it names. */
 export function createScreenHold(live: Readonly<ScreenView>, drawable: (d: DiagramType) => boolean) {
   let hold = $state.raw<Held | null>(null);
-  let fits: (r: ResultTopology) => boolean = () => true;
+  let readModel: (() => ScreenModel) | undefined;
+  const models = new WeakMap<object, ScreenModel>();
 
   const isLive = () => live.results !== null || live.results3D !== null;
-  const shown = (): Held | null => {
+  const held = $derived.by((): Held | null => {
     const h = hold;
     if (!h || isLive()) return null;
-    const r = h.results ?? h.results3D;
-    return r && fits(r) ? h : null;
-  };
+    return h.model.geometry === readModel?.().geometry ? h : null;
+  });
 
   const view = {
-    get held() { return shown() !== null; },
-    /** When the held picture was taken (performance.now()), 0 with none held. */
-    get heldSince() { return shown()?.since ?? 0; },
-    get results() { const h = shown(); return h ? h.results : live.results; },
-    get results3D() { const h = shown(); return h ? h.results3D : live.results3D; },
-    get diagram() { const h = shown(); return h ? h.diagram : live.diagram; },
-    get envelopeActive() { const h = shown(); return h ? h.envelopeActive : live.envelopeActive; },
-    get envelope2D() { const h = shown(); return h ? h.envelope2D : live.envelope2D; },
-    get envelope3D() { const h = shown(); return h ? h.envelope3D : live.envelope3D; },
-    get showReactions() { const h = shown(); return h ? h.showReactions : live.showReactions; },
+    get model() { return held?.model; },
+    get held() { return held !== null; },
+    get results() { const h = held; return h ? h.results : live.results; },
+    get results3D() { const h = held; return h ? h.results3D : live.results3D; },
+    get diagram() { const h = held; return h ? h.diagram : live.diagram; },
+    get envelopeActive() { const h = held; return h ? h.envelopeActive : live.envelopeActive; },
+    get envelope2D() { const h = held; return h ? h.envelope2D : live.envelope2D; },
+    get envelope3D() { const h = held; return h ? h.envelope3D : live.envelope3D; },
+    get showReactions() { const h = held; return h ? h.showReactions : live.showReactions; },
   };
 
   return {
@@ -51,7 +51,9 @@ export function createScreenHold(live: Readonly<ScreenView>, drawable: (d: Diagr
     /** With nothing published, keeps the picture an earlier clear held. */
     keep(): void {
       if (!isLive()) return;
-      hold = drawable(live.diagram) ? { ...live, since: performance.now() } : null;
+      const result = live.results ?? live.results3D;
+      const model = result && models.get(result);
+      hold = model && drawable(live.diagram) ? { ...live, model } : null;
     },
     release(): void { hold = null; },
     /** A diagram picked while the re-solve is pending. */
@@ -59,6 +61,11 @@ export function createScreenHold(live: Readonly<ScreenView>, drawable: (d: Diagr
       if (!hold) return;
       hold = drawable(diagram) ? { ...hold, diagram } : null;
     },
-    setTopologyCheck(fn: (r: ResultTopology) => boolean): void { fits = fn; },
+    setModelReader(reader: () => ScreenModel): void { readModel = reader; },
+    published(results: Iterable<AnalysisResults | AnalysisResults3D | undefined>): void {
+      hold = null;
+      const model = readModel?.();
+      if (model) for (const result of results) if (result) models.set(result, model);
+    },
   };
 }

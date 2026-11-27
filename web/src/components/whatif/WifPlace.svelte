@@ -42,7 +42,11 @@
 {#if along}
   {@const span = lengthOf(along.elementId)}
   {#if span > 0}
-    <WifSlider label={t('whatif.alongMember')} min={0.02 * span} max={0.98 * span} step={span / 200} value={along.t * span} changed
-      format={length} oninput={(v) => onAlong(along.elementId, v / span)} testid="{testid}-along" />
+    <WifSlider label={t('whatif.alongMember')} min={0} max={span} step={span / 200} value={along.t * span} changed
+      format={length} oninput={(v) => {
+        const el = entry.get(along.elementId)!;
+        if (v === 0 || v === span) onNode(v === 0 ? el.nodeI : el.nodeJ);
+        else onAlong(along.elementId, v / span);
+      }} testid="{testid}-along" />
   {/if}
 {/if}

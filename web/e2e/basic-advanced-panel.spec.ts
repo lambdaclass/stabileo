@@ -69,7 +69,9 @@ for (const [label, viewport] of [['390×844', { width: 390, height: 844 }], ['36
       await expectFits(page);
 
       await search.dispatchEvent('keydown', { key: 'Enter', isComposing: true });
+      await expect(search).toBeVisible();
       await expect(search).toHaveValue('phi');
+      await expect(page.getByTestId('steps-doc')).toHaveCount(0);
       await expect(page.getByTestId('adv-running')).toHaveCount(0);
       await page.getByTestId('adv-search-clear').tap();
       await page.getByTestId('adv-fn-buckling').tap();

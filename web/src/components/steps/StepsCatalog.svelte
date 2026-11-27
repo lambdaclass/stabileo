@@ -126,7 +126,8 @@
                 {#if v.ok}
                   <p class="sc-state ok">✓ {t('steps.catalog.ready')}</p>
                 {:else}
-                  <p class="sc-state no" data-testid={v.issue ? `steps-withheld-${m.id}` : undefined}>{t('steps.catalog.notReady')} <Prose text={say(v.reason).replace(/\s*\(#\d+\)\s*$/, '')} /></p>
+                  <p class="sc-state no" role={v.issue ? 'alert' : undefined} data-testid={v.issue ? `steps-withheld-${m.id}` : undefined}>{t('steps.catalog.notReady')} <Prose text={say(v.reason)} />
+                    {#if v.issue}<a class="sc-issue" href="https://github.com/lambdaclass/stabileo/issues/{v.issue}" target="_blank" rel="noopener noreferrer">{t('plastic.withheldIssue').replace('{issue}', String(v.issue))}</a>{/if}</p>
                 {/if}
               {/if}
               <div class="sc-actions">
