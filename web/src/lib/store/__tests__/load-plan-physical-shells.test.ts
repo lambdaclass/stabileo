@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { historyStore, modelStore, regulationsStore, uiStore } from '..';
+import { historyStore, modelStore, uiStore } from '..';
+import { regulationsStore } from '../regulations.svelte';
 import { createPlate, editPlateHole, plateEntry } from '../physical-plates';
 import { generateSavedLoads, loadPlanModel } from '../saved-loads';
 import { applyLoadPlan } from '../apply-load-plan';
