@@ -38,6 +38,19 @@ describe('applyGeneratedModel — undo', () => {
     await new Promise((r) => setTimeout(r, 0));
   });
 
+  it('remaps a supplied default from another material ID without claiming the first fixture material', async () => {
+    const g = emitModel(generateTruss({ panelsPerHalf: 3 }), { name: 'Truss', profiles: PROFILES });
+    const defaults = { material: { ...modelStore.materials.get(1)!, id: 7 }, section: { ...modelStore.sections.get(1)! } };
+    Object.assign(g.json.materials[0], { name: 'Measured', e: 173219, nu: 0.27, rho: 76 });
+    g.json.materials.push({ ...defaults.material });
+    g.json.elements[1]!.materialId = 7;
+    await modelStore.loadExample('authored', async () => g.json, { defaults });
+    const [first, second] = [...modelStore.elements.values()];
+    expect(modelStore.materials.get(first!.materialId)).toMatchObject({ name: 'Measured', e: 173219, nu: 0.27, rho: 76 });
+    expect(modelStore.materials.get(second!.materialId)).toMatchObject({ name: defaults.material.name, e: defaults.material.e });
+    for (const [id, material] of modelStore.materials) expect(material.id).toBe(id);
+  });
+
   it('retains the generated material even when its name and E match the initial steel', async () => {
     const g = emitModel(generateTruss({ panelsPerHalf: 3 }), { name: 'Truss', profiles: PROFILES });
     const material = g.json.materials[0];
