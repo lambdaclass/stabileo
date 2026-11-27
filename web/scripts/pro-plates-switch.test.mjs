@@ -352,3 +352,19 @@ test('known wrong result: #1928 concrete and design option text follows the cont
     });
   }
 });
+
+test.skip('known wrong result: #1928 load family choices follow the generator while saved authority names are readable', async () => {
+  for (const enabled of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const source = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        const module = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+        const catalog = module[locale];
+        for (const key of ['autoLoad.family', 'autoLoad.familyHint', 'autoLoad.familyName.us', 'autoLoad.noFamilySeismic']) assert.equal(Object.hasOwn(catalog, key), enabled, locale + ' ' + key);
+        for (const key of ['regulations.name.en1990', 'regulations.name.asce7', 'regulations.name.en1990Uk', 'regulations.name.tbdy2018']) assert.ok(catalog[key], locale + ' ' + key);
+      }
+    });
+  }
+});
