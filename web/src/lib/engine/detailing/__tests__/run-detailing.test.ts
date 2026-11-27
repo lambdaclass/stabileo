@@ -393,7 +393,7 @@ it('checks the placed section at each right-hand cut and blocks a missing axial 
   expect(refused.map(u => u.params?.x).sort()).toEqual(['4.668', '5.277']);
 });
 
-it.skip('known wrong result: unnumbered — withholds a cutoff proof when a pinned stirrup replaces the checked reinforcement', () => {
+it('withholds a cutoff proof when a pinned stirrup replaces the checked reinforcement', () => {
   const initial = runDetailing(scenario()).assemblies;
   const ties = initial.flatMap(a => a.bars).filter(b => b.role === 'transverse' && b.ownerElementIds.includes(12));
   const tie = ties.filter(b => b.segments[0]!.start.x <= 5.277)

@@ -593,6 +593,8 @@ export function transverseAxis(axis: Point3, up: Point3): Point3 {
 export interface GeneratedBeam {
   bars: BarPath[];
   cutoffs: Cutoff[];
+  cutoffTrace: string[];
+  checkPlacedCuts: (bars: readonly BarPath[]) => { cuts: Cutoff[]; trace: string[] };
   stirrupZones: StirrupZone[];
   /**
    * PHYSICAL transverse reinforcement — every closed stirrup and crosstie as a real bar.
@@ -1544,53 +1546,57 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   const cageShift = (raise - drop) / 2;
   const cageH = input.h - raise - drop;
   const cageOrigin = { x: input.origin.x + input.up.x * cageShift, y: input.origin.y + input.up.y * cageShift, z: input.origin.z + input.up.z * cageShift };
-  const cageBars: StationedBarRef[] = [];
-  for (const bar of bars) {
-    if (bar.role !== 'longitudinal') continue;
-    // The MAIN RUN, not segment 0: a bar with a leading hook starts at the hook tip, which is
-    // offset from the bar's own line by the hook extension and would place it in the wrong
-    // section position entirely.
-    let run: BarSegment | null = null;
-    for (const sg of bar.segments) {
-      if (sg.kind !== 'straight') continue;
-      if (run === null || sg.length > run.length) run = sg;
+  function projectCage(paths: readonly BarPath[]): StationedBarRef[] {
+    const cageBars: StationedBarRef[] = [];
+    for (const bar of paths) {
+      if (bar.role !== 'longitudinal') continue;
+      // The MAIN RUN, not segment 0: a bar with a leading hook starts at the hook tip, which is
+      // offset from the bar's own line by the hook extension and would place it in the wrong
+      // section position entirely.
+      let run: BarSegment | null = null;
+      for (const sg of bar.segments) {
+        if (sg.kind !== 'straight') continue;
+        if (run === null || sg.length > run.length) run = sg;
+      }
+      if (run === null) continue;
+      const mid = {
+        x: (run.start.x + run.end.x) / 2,
+        y: (run.start.y + run.end.y) / 2,
+        z: (run.start.z + run.end.z) / 2,
+      };
+      const rel = {
+        x: mid.x - input.origin.x, y: mid.y - input.origin.y, z: mid.z - input.origin.z,
+      };
+      const relStart = {
+        x: run.start.x - input.origin.x, y: run.start.y - input.origin.y,
+        z: run.start.z - input.origin.z,
+      };
+      const relEnd = {
+        x: run.end.x - input.origin.x, y: run.end.y - input.origin.y,
+        z: run.end.z - input.origin.z,
+      };
+      const tA = dot(relStart, input.axis);
+      const tB = dot(relEnd, input.axis);
+      const region = bar.layerId?.split(':')[1];
+      cageBars.push({
+        id: bar.id,
+        face: region?.startsWith('top') ? 'top' : region,
+        across: dot(rel, acrossAxis),
+        up: dot(rel, input.up) - cageShift,
+        diameterMm: bar.diameterMm,
+        from: Math.min(tA, tB),
+        to: Math.max(tA, tB),
+      });
     }
-    if (run === null) continue;
-    const mid = {
-      x: (run.start.x + run.end.x) / 2,
-      y: (run.start.y + run.end.y) / 2,
-      z: (run.start.z + run.end.z) / 2,
-    };
-    const rel = {
-      x: mid.x - input.origin.x, y: mid.y - input.origin.y, z: mid.z - input.origin.z,
-    };
-    const relStart = {
-      x: run.start.x - input.origin.x, y: run.start.y - input.origin.y,
-      z: run.start.z - input.origin.z,
-    };
-    const relEnd = {
-      x: run.end.x - input.origin.x, y: run.end.y - input.origin.y,
-      z: run.end.z - input.origin.z,
-    };
-    const tA = dot(relStart, input.axis);
-    const tB = dot(relEnd, input.axis);
-    const region = bar.layerId?.split(':')[1];
-    cageBars.push({
-      id: bar.id,
-      face: region?.startsWith('top') ? 'top' : region,
-      across: dot(rel, acrossAxis),
-      up: dot(rel, input.up) - cageShift,
-      diameterMm: bar.diameterMm,
-      from: Math.min(tA, tB),
-      to: Math.max(tA, tB),
-    });
+    return cageBars;
   }
-  const resistanceAt = (x: number, layout: StirrupZone[], reservedAreaPerMetre = 0): number => {
+  const cageBars = projectCage(bars);
+  const resistanceAt = (x: number, layout: StirrupZone[], reservedAreaPerMetre = 0, longitudinal = cageBars): number => {
     const samples = cutoffStations(input.stations, x);
     const axial = Math.min(...samples.map(st => st.axialCompression ?? NaN));
     const zones = layout.filter(z => z.from <= x && x <= z.to);
     if (!zones.length || !Number.isFinite(axial)) return NaN;
-    const active = cageBars.filter(bar => bar.from < x && x < bar.to);
+    const active = longitudinal.filter(bar => bar.from < x && x < bar.to);
     let resistance = Infinity;
     for (const face of ['bottom', 'top'] as const) {
       const steel = active.filter(bar => bar.face === face);
@@ -1632,26 +1638,12 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     raw.push({ ...zone, spacing: Math.min(zone.spacing, cut.extraStirrups.maxSpacing) });
   }
   const stirrupZones = mergeStirrupZones(raw, input.L);
-  for (const [i, cut] of cutoffs.entries()) {
-    const extra = cut.extraStirrups;
-    const zones = stirrupZones.filter(zone => zone.from <= cut.actual && cut.actual <= zone.to);
-    const demand = Math.max(...cutoffStations(input.stations, cut.actual).map(s => Math.abs(s.v)));
-    const capacity = resistanceAt(cut.actual, stirrupZones, extra?.minAvOverS);
-    const legal = extra
-      ? zones.every(zone => zone.spacing <= extra.maxSpacing) && demand <= capacity
-      : cut.legality === 'lowShear' && demand <= (2 / 3) * capacity;
-    if (!legal) {
-      cut.legality = 'illegal';
-      cut.note = '§9.7.3.5 — Vu / φVn: —';
-    }
-    const end = terminations[i]!;
-    trace.push(`${end.label} en x = ${end.actual.toFixed(3)} m. ${cut.note}`);
-  }
   trace.push(`${stirrupZones.length} zona(s) de estribos tras fusionar solapes ` +
     '(en cada solape gobierna la separación menor).');
 
   const cageId = `e${input.elementId}:cage`;
 
+  const requiredSets: { station: number; count: number; paths: BarPath[] }[] = [];
   for (let zi = 0; zi < stirrupZones.length; zi++) {
     const z = stirrupZones[zi];
     const next = stirrupZones[zi + 1];
@@ -1662,6 +1654,8 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     const zoneId = `e${input.elementId}:${z.reason}:${zi}`;
     for (let si = 0; si < stations.length; si++) {
       const station = stations[si];
+      const required = { station, count: 1 + Math.max(0, z.legs - 2), paths: [] as BarPath[] };
+      requiredSets.push(required);
       if (input.webOpenings?.some((o) => station > o.from - 0.01 && station < o.to + 0.01)) continue;
       // Only the bars that EXIST at this station. A bend cannot grip a curtailed bar past its
       // cut-off, and the tolerance is the same fabrication tolerance the containment check
@@ -1686,6 +1680,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
         unsupported.push(...set.unsupported.map((r) => formatClause(r)));
         continue;
       }
+      required.paths = set.pieces.map(piece => piece.path);
       transverse.push(...set.pieces);
     }
     // NOT checked here: §25.7.2.3(b)'s "no unbraced bar beyond 15·d_be or 150 mm" rule.
@@ -1753,8 +1748,49 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   trace.push(`${transverse.length} pieza(s) transversales fabricadas ` +
     `(${transverse.filter((p) => p.shape === 'crosstie').length} ganchos suplementarios).`);
 
+  function checkPlacedCuts(paths: readonly BarPath[]) {
+    if (!cutoffs.length) return { cuts: [], trace: [] };
+    const byId = new Map(paths.map(path => [path.id, path]));
+    const longitudinal = projectCage(paths);
+    const cuts = cutoffs.map((plan, i): Cutoff => {
+      const end = terminations[i]!;
+      const extra = plan.extraStirrups;
+      const x = plan.actual;
+      const left = x - (extra?.length ?? 0);
+      const right = x + (extra?.length ?? 0);
+      const firstInside = requiredSets.findIndex(set => set.station > left);
+      const before = firstInside < 0 ? requiredSets.length - 1 : firstInside - 1;
+      const after = requiredSets.findIndex(set => set.station >= right);
+      const sets = requiredSets.slice(Math.max(0, before), after < 0 ? undefined : after + 1);
+      const complete = sets.length > 0 && requiredSets[0]!.station <= x && requiredSets.at(-1)!.station >= x
+        && sets.every(set => set.paths.length === set.count && set.paths.every(piece => {
+          const placed = byId.get(piece.id);
+          return placed?.role === 'transverse' && placed.diameterMm === piece.diameterMm
+            && (placed.segments === piece.segments || JSON.stringify(placed.segments) === JSON.stringify(piece.segments));
+        }));
+      const endsInPlace = cageBars.filter(bar => Math.abs(bar.from - x) < 1e-9 || Math.abs(bar.to - x) < 1e-9)
+        .every(bar => longitudinal.some(actual => actual.id === bar.id && actual.diameterMm === bar.diameterMm
+          && (bar.from === actual.from || Math.abs(bar.from - x) >= 1e-9)
+          && (bar.to === actual.to || Math.abs(bar.to - x) >= 1e-9)));
+      const capacity = complete && endsInPlace ? resistanceAt(x, stirrupZones, 0, longitudinal) : NaN;
+      const checked = evaluateCutoff({
+        theoretical: end.theoretical, placedAt: x, d: input.d, diameterMm: end.diameterMm,
+        stations: input.stations, vn: capacity, b: input.b, fy: shearFy(input.fy),
+        continuingDoubleArea: false, inTensionZone: true, edition: input.edition, towardEnd: end.towardEnd,
+      });
+      if (checked.legality !== 'extraStirrups') return checked;
+      const demand = Math.max(...cutoffStations(input.stations, x).map(s => Math.abs(s.v)));
+      if (extra && stirrupZones.filter(zone => zone.from <= x && x <= zone.to).every(zone => zone.spacing <= extra.maxSpacing)
+        && demand <= resistanceAt(x, stirrupZones, extra.minAvOverS, longitudinal)) return checked;
+      return { ...checked, legality: 'illegal', note: '§9.7.3.5 — Vu / φVn: —' };
+    });
+    return { cuts, trace: cuts.map((cut, i) => `${terminations[i]!.label} en x = ${cut.actual.toFixed(3)} m. ${cut.note}`) };
+  }
+  const placed = checkPlacedCuts([...bars, ...transverse.map(piece => piece.path)]);
+  trace.push(...placed.trace);
+
   return {
-    bars, cutoffs, stirrupZones, transverse,
+    bars, cutoffs: placed.cuts, cutoffTrace: placed.trace, checkPlacedCuts, stirrupZones, transverse,
     transverseFindings: { bendsWithoutBar: looseBends.length },
     bentUp, trace, refs, unsupported, barLayers, drawnLaps,
   };
