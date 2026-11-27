@@ -1,6 +1,6 @@
 /**
  * Use zones over two floors (z = 3 and 6), each with two plates side by side (A: 0–6 × 0–5 with a
- * 1 × 1 m hole at 1–2 × 1–2; B: 6–10 × 0–5) and a balcony with a curved edge off B. On floor 1:
+ * 1 × 1 m hole at 1–2 × 1–2; B: 6–10 × 0–5) and a separate curved slab beyond B. On floor 1:
  * a living room and a bedroom inside A, a corridor crossing from A into B, the balcony, a storage
  * room drawn without a slab under part of it, and one labelled room read from a template.
  *  - a suggestion stays pending (no load) until confirmed; a corridor's label offers several rows;
@@ -37,11 +37,15 @@ function floor(z: number) {
   return [b[1]!, b[2]!] as const;
 }
 
-function floorWithCurvedBalcony(z: number) {
-  const [near, far] = floor(z);
-  const start = modelStore.addNode(12, 0, z);
-  const mid = modelStore.addNode(12.5, 2.5, z);
-  const end = modelStore.addNode(12, 5, z);
+function floorWithCurvedBalcony(z: number, attached = false) {
+  const edge = floor(z);
+  // The zone/load tests use a separate curved slab. The attached balcony below deliberately
+  // reproduces nonconforming stations and belongs only in the refusal regression.
+  const shift = attached ? 0 : 1;
+  const [near, far] = attached ? edge : [modelStore.addNode(11, 0, z), modelStore.addNode(11, 5, z)];
+  const start = modelStore.addNode(12 + shift, 0, z);
+  const mid = modelStore.addNode(12.5 + shift, 2.5, z);
+  const end = modelStore.addNode(12 + shift, 5, z);
   const balcony = createPlate({
     outline: [near, start, mid, end, far], arcMids: [2],
     materialId: 1, thickness: 0.12, name: `Bal${z}`, followArcs: false,
@@ -85,11 +89,11 @@ describe('use zones over two floors', () => {
 
   it('suggests, assigns, loads the right surfaces, copies, changes, remeshes and opens again', () => {
     floorWithCurvedBalcony(3); floorWithCurvedBalcony(6);
-    meshAll(0.5);
+    expect(meshAll(0.5).refused).toEqual([]);
     const living = zone([[0, 2.5], [3, 2.5], [3, 5], [0, 5]], 3, 'Estar');
     const bedroom = zone([[3, 2.5], [6, 2.5], [6, 5], [3, 5]], 3, 'Dormitorio');
     const corridor = zone([[0, 0], [8, 0], [8, 2.5], [0, 2.5]], 3, 'Pasillo');
-    const balcony = zone([[10, 0], [12.5, 0], [12.5, 5], [10, 5]], 3, 'Balcón');
+    const balcony = zone([[11, 0], [13.5, 0], [13.5, 5], [11, 5]], 3, 'Balcón');
     const storage = zone([[8, 0], [10, 0], [10, -2], [8, -2]], 3, 'Depósito');
     for (const z of [living, bedroom, corridor, balcony, storage]) expect(z).toBeGreaterThan(0);
     expect(useZones()).toHaveLength(5);
@@ -158,7 +162,7 @@ describe('use zones over two floors', () => {
     // Exact on straight edges; on the balcony's arc the mesh's chords change with the element size,
     // and with them the area under the zone, by much less than the chord error allows (0.1 %).
     const before = zoneTotals();
-    meshAll(0.4);
+    expect(meshAll(0.4).refused).toEqual([]);
     const after = zoneTotals();
     for (const [z, v] of before) {
       if (z === balcony) expect(Math.abs(after.get(z)! - v), `zone ${z}`).toBeLessThanOrEqual(1e-3 * v);
@@ -184,7 +188,7 @@ describe('use zones over two floors', () => {
     const { addFinishPackage, setFinishPackage } = await import('../use-zones');
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
     floorWithCurvedBalcony(3);
-    meshAll(0.5);
+    expect(meshAll(0.5).refused).toEqual([]);
     const z1 = zone([[0, 2.5], [3, 2.5], [3, 5], [0, 5]], 3, 'Estar');
     setZoneUse([z1], { occupancy: 'vivienda', provenance: 'confirmed' });
     // 5 cm of screed at 20 kN/m³ and 2 cm of floor at 22: 1.44 kN/m².
@@ -214,7 +218,7 @@ describe('use zones over two floors', () => {
     const { addFinishPackage } = await import('../use-zones');
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
     floorWithCurvedBalcony(3);
-    meshAll(0.5);
+    expect(meshAll(0.5).refused).toEqual([]);
     for (const c of modelStore.model.loadCases.filter((c) => c.type === 'D')) modelStore.removeLoadCase(c.id);
     const z1 = zone([[0, 2.5], [3, 2.5], [3, 5], [0, 5]], 3, 'Estar');
     const pkg = addFinishPackage('Piso', { layers: [{ name: 'piso', q: 1 }] });
@@ -225,8 +229,10 @@ describe('use zones over two floors', () => {
   });
 
   it('refuses preparation when the curved balcony leaves unmatched stations on the next slab', () => {
-    floorWithCurvedBalcony(3);
-    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'needsMesh', plates: ['B3'] });
+    floorWithCurvedBalcony(3, true);
+    const before = modelStore.snapshot();
+    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'refused', plates: ['B3'] });
+    expect(modelStore.snapshot()).toEqual(before);
     expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringContaining('B3'));
   });
 
@@ -246,7 +252,7 @@ describe('use zones over two floors', () => {
   it('solves with the zones loading the floor, and the reactions add up to their loads', () => {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
     floor(3);
-    meshAll(0.5);
+    expect(meshAll(0.5).refused).toEqual([]);
     const z1 = zone([[0, 0], [6, 0], [6, 5], [0, 5]], 3, 'Oficina');
     setZoneUse([z1], { occupancy: 'oficina', provenance: 'confirmed' });
     applyZoneLoadPlan(zoneLoadPlan()!);

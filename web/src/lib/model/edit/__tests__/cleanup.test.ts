@@ -6,7 +6,7 @@ import { modelStore } from '../../../store/model.svelte';
 import { historyStore } from '../../../store/history.svelte';
 import { checkCurrentModel } from '../../../engine/solve-diagnostics';
 import {
-  coincidentNodeGroups, mergeCoincidentNodes, removeDuplicateMembers, removeZeroLengthMembers,
+  planCoincidentNodeMerge, coincidentNodeGroups, mergeCoincidentNodes, removeDuplicateMembers, removeZeroLengthMembers,
   removeOrphanNodes, cleanUpModel,
 } from '../cleanup';
 
@@ -33,13 +33,19 @@ describe('merging coincident nodes', () => {
     expect(historyStore.undoCount).toBe(1);
   });
 
-  it('keeps one support where two merge, and says so', () => {
+  it('refuses conflicting supports without changing the model', () => {
     const a = modelStore.addNode(0, 0, 0), a2 = modelStore.addNode(0, 0, 0);
     modelStore.addSupport(a, 'fixed3d');
     modelStore.addSupport(a2, 'pinned3d');
+    const before = modelStore.snapshot();
+    historyStore.clear();
+    expect(planCoincidentNodeMerge().conflicts).toEqual([{ reason: 'supports', nodes: [a, a2] }]);
     const r = mergeCoincidentNodes();
-    expect(r.droppedSupports).toBe(1);
-    expect([...modelStore.supports.values()].map((s) => [s.nodeId, s.type])).toEqual([[a, 'fixed3d']]);
+    expect(r).toMatchObject({ blockedMerges: 1, mergedNodes: 0, droppedSupports: 0 });
+    expect(modelStore.snapshot()).toEqual(before);
+    expect(cleanUpModel().blockedMerges).toBe(1);
+    expect(modelStore.snapshot()).toEqual(before);
+    expect(historyStore.undoCount).toBe(0);
   });
 
   it('renames the nodes a constraint names', () => {
@@ -111,4 +117,64 @@ describe('moving onto the structure welds', () => {
     expect(modelStore.nodes.has(c)).toBe(true);
     expect(modelStore.nodes.get(c)!.y).toBe(2);
   });
+});
+
+describe('merge preflight', () => {
+  it.each(['member', 'connector', 'constraint', 'shell'] as const)('does not collapse a %s', kind => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 0.00001);
+    if (kind === 'member') modelStore.addElement(a, b);
+    if (kind === 'connector') modelStore.addConnector({ nodeI: a, nodeJ: b, kAxial: 100, kShear: 100, kMoment: 100 });
+    if (kind === 'constraint') modelStore.addConstraint({ type: 'rigidLink', masterNode: a, slaveNode: b } as never);
+    if (kind === 'shell') modelStore.addPlate([a, b, modelStore.addNode(1, 0, 0)], 1, 0.1);
+    const before = modelStore.snapshot();
+    expect(planCoincidentNodeMerge().conflicts.some(c => c.reason === 'connection')).toBe(true);
+    expect(mergeCoincidentNodes().blockedMerges).toBeGreaterThan(0);
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+
+  it('does not snap a transitive cluster farther than the tolerance', () => {
+    for (const x of [0, 0.00008, 0.00016]) modelStore.addNode(x, 0, 0);
+    const before = modelStore.snapshot();
+    expect(planCoincidentNodeMerge().conflicts[0]?.reason).toBe('tolerance');
+    expect(mergeCoincidentNodes().blockedMerges).toBe(1);
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+
+  it.each([NaN, Infinity, 0, -1, 1])('refuses invalid tolerance %s', tolerance => {
+    modelStore.addNode(0, 0, 0);
+    expect(mergeCoincidentNodes(tolerance).blockedMerges).toBe(1);
+  });
+
+  it('revalidates the model after a safe preview and preserves identical springs', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 0);
+    expect(planCoincidentNodeMerge().conflicts).toEqual([]);
+    const s = modelStore.addSupport(a, 'spring');
+    const t = modelStore.addSupport(b, 'spring');
+    modelStore.updateSupport(s, { kx: 100 }); modelStore.updateSupport(t, { kx: 100 });
+    const before = modelStore.snapshot();
+    expect(mergeCoincidentNodes().blockedMerges).toBe(1);
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+});
+
+it('preserves unrelated supports during a safe merge', () => {
+  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 0);
+  const remote = modelStore.addNode(5, 0, 0);
+  modelStore.addSupport(remote, 'fixed3d');
+  modelStore.addSupport(remote, 'pinned3d');
+  const supports = modelStore.snapshot().supports;
+  expect(mergeCoincidentNodes()).toMatchObject({ mergedNodes: 1, blockedMerges: 0, droppedSupports: 0 });
+  expect(modelStore.nodes.has(a)).toBe(true);
+  expect(modelStore.nodes.has(b)).toBe(false);
+  expect(modelStore.snapshot().supports).toEqual(supports);
+});
+
+it('does not collapse an unmeshed physical plate outline', async () => {
+  const { createPlate } = await import('../../../store/physical-plates');
+  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0.00005, 0);
+  const c = modelStore.addNode(4, 4, 0), d = modelStore.addNode(4, 0, 0);
+  expect(createPlate({ outline: [a, b, c, d], materialId: 1, thickness: 0.15 })).toHaveProperty('id');
+  const before = modelStore.snapshot();
+  expect(mergeCoincidentNodes().blockedMerges).toBeGreaterThan(0);
+  expect(modelStore.snapshot()).toEqual(before);
 });

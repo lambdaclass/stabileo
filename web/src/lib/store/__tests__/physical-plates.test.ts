@@ -142,7 +142,14 @@ describe('a physical plate', () => {
     expect(atSlab, 'the column is met where it crosses the slab').toBeDefined();
     expect([...modelStore.elements.values()].filter((e) => e.nodeI === atSlab!.id || e.nodeJ === atSlab!.id).length).toBe(2);
     // Meshed again, then taken out: the beam and the column are whole members again.
-    mesh(id, 0.4);
+    // This size falls back to a mesh without the requested beam trace. Refuse it,
+    // preserving the connected mesh, rather than silently accepting that fallback.
+    const before = modelStore.snapshot();
+    const incompatible = planPlateMesh(id, { size: 0.4, followMembers: true, element: 'quad' })!;
+    expect(incompatible.refused).toBe('beamCompatibility');
+    expect(applyPlateMeshes([incompatible]).plates).toBe(0);
+    expect(modelStore.snapshot()).toEqual(before);
+    mesh(id, 0.5);
     expect(plateStatus(id)).toBe('current');
     clearPlateMesh(id);
     expect(modelStore.elements.size).toBe(3);
@@ -153,7 +160,8 @@ describe('a physical plate', () => {
     const { id, corners } = build();
     mesh(id, 0.5);
     expect(plateStatus(id)).toBe('current');
-    const n0 = modelStore.addNode(1, 0, 0), n1 = modelStore.addNode(1, 4, 0);
+    const at = (y: number) => [...modelStore.nodes.values()].find(n => n.x === 1 && n.y === y && !(n.z ?? 0))!.id;
+    const n0 = at(0), n1 = at(4);
     modelStore.addElement(n0, n1);
     expect(plateStatus(id)).toBe('stale');
     mesh(id, 0.5);

@@ -3,6 +3,7 @@ import { nonconformingWallSlab, plateAnalysisIssue, type PlateAnalysisModel } fr
 
 export function plateRemeshMessage(name: string, reason: string): string | null {
   if (reason === 'ambiguousSweep') return tp('plates.remeshAmbiguousSweep', { name });
+  if (reason === 'beamCompatibility') return tp('plates.remeshBeamCompatibility', { name });
   if (reason === 'shellEdits') return tp('plates.remeshShellEdits', { name });
   return null;
 }
