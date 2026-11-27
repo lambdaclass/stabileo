@@ -40,6 +40,7 @@ export const sharedSwitchOnUnitFiles = [
   'src/lib/provenance/__tests__/published-zone-load-regeneration.test.ts',
   'src/components/pro/__tests__/combination-rules-template-ids.test.ts',
   'src/components/__tests__/plate-node-editor-profile.test.ts',
+  'src/components/__tests__/plate-mesh-quality-profile.test.ts',
   'src/components/__tests__/published-floor-load-targets.test.ts',
   'src/components/__tests__/published-result-sections.test.ts',
   'src/components/__tests__/published-diagnostic-list.test.ts',
