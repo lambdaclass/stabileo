@@ -116,3 +116,44 @@ it.each([[], ['x'], ['y'], ['x', 'y']].map(axes => ({ axes: axes as ('x' | 'y')[
   expect.soft(step.match(/IFCPROPERTYSINGLEVALUE\('FixedPoint[XY]?'/g) ?? []).toHaveLength(sheets ? 9 : 0);
   expect.soft(step.includes('=IFCGRID(')).toBe(!!sheets && directions.length === 2);
 });
+
+it.skip('known wrong result: identifies inactive placement rules before calculation, including legacy column points', () => {
+  for (const [rules, active] of [
+    [{ placement: { reference: 'slabTop' } }, true],
+    [{ placement: { edges: true } }, true],
+    [{ rcSheets: { fixedPoints: { '0,0': 'px' } } }, true],
+    [{ placement: { columns: {} } }, false],
+    [{ placement: { edges: false } }, false],
+    [{}, false],
+  ] as const) {
+    const project = snapshot();
+    project.designData = rules as ModelSnapshot['designData'];
+    modelStore.restore(project);
+    const expected = !sheets && active;
+    expect(render(AdoptedReinforcementNotice).body.includes('data-testid="stored-placement-offsets"')).toBe(expected);
+    expect([...modelFeatures({ designData: project.designData })].map(String).includes('inactivePlacementRules')).toBe(expected);
+  }
+});
+
+it.skip('known wrong result: keeps placement editing and specification navigation in the build that applies the rules', async () => {
+  const { setColumnFixedPoint, setLevelReference, setEdgesFlush } = await import('../placement');
+  const project = snapshot();
+  project.designData = { placement: { reference: 'axes' } };
+  modelStore.restore(project);
+  uiStore.specSection = 'members';
+  uiStore.specSection = 'placement';
+  expect.soft(uiStore.specSection).toBe(sheets ? 'placement' : 'members');
+  setLevelReference('slabTop');
+  setEdgesFlush(true);
+  setColumnFixedPoint(null, 'px');
+  const placement = modelStore.snapshot().designData?.placement;
+  if (sheets) {
+    expect(placement?.reference).toBe('slabTop');
+    expect(placement?.edges).toBe(true);
+    expect(Object.values(placement?.columns ?? {})).toContain('px');
+  } else {
+    expect(placement).toEqual(project.designData.placement);
+    expect(modelStore.elements.get(4)?.offset).toBeUndefined();
+  }
+  uiStore.specSection = 'members';
+});
