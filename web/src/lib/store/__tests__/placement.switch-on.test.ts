@@ -41,6 +41,18 @@ function floor() {
 const dz = (id: number) => { const o = modelStore.elements.get(id)!.offset; return o?.i?.z ?? 0; };
 const plateZ = (id: number) => plateEntry(id)!.surface.offset?.z ?? 0;
 
+it.skip('known wrong result: #2365 preparing an unchanged placement preserves the model revision and undo history', () => {
+  floor();
+  for (const reference of [undefined, 'slabTop'] as const) {
+    if (reference) setLevelReference(reference);
+    historyStore.clear();
+    const version = modelStore.modelVersion;
+    expect(applyPlacement()).toBe(0);
+    expect.soft(modelStore.modelVersion).toBe(version);
+    expect.soft(historyStore.canUndo).toBe(false);
+  }
+});
+
 describe('the level reference', () => {
   it('drops the beams and slabs so every top is on the level, or only the beams to the slabs\' top, or nothing', () => {
     const { beams, plate } = floor();
