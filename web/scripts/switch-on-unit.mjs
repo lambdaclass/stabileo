@@ -32,6 +32,7 @@ export const sharedSwitchOnUnitFiles = [
   'src/lib/pro/__tests__/pro-tab-link.test.ts',
   'src/components/__tests__/design-data-profile.test.ts',
   'src/components/__tests__/shell-connectivity-profile.test.ts',
+  'src/components/pro/__tests__/combination-rules-template-ids.test.ts',
   'src/components/__tests__/plate-node-editor-profile.test.ts',
   'src/lib/store/__tests__/plate-edit-node-ownership.test.ts',
   'src/lib/store/__tests__/plate-opening-curvature.test.ts',

@@ -32,7 +32,7 @@ describe('rules from a library template', () => {
   });
 });
 
-it.skip('known wrong result: #1928 the published combination starter names the same source as main', () => {
+it('known wrong result: #1928 the published combination starter names the same source as main', () => {
   modelStore.clear();
   const html = render(ProCombinationRules).body;
   const button = html.match(/data-testid="combo-rule-seed"[^>]*>([^<]*)</)?.[1];

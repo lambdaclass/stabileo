@@ -21,3 +21,5 @@ The published raw shell writer now excludes circular plate construction and the 
 The disabled browser bundles omit circular inputs and generator-only options for structural systems, approximate periods, exposure and terrain. Saved calculation messages keep their translations.
 
 A raw quadrilateral can again be meshed directly from its published quick editor. The existing occupied-region refusal and undo operation apply.
+
+The published combination-rule editor again names its CIRSOC starter. Selecting it uses the same strength and service generators as the released editor, including for a reopened project.
