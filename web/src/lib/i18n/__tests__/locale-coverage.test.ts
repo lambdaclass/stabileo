@@ -119,7 +119,7 @@ it('#2532 translates the discarded session history warning in every locale dicti
   }
 });
 
-it.skip.each([
+it.each([
   ['en', 'transverse component', 'point couple', 'upper extreme fiber', 'every attempt', 'independently'],
   ['es', 'componente transversal', 'par puntual', 'fibra extrema superior', 'todos los intentos', 'independiente'],
   ['pt', 'componente transversal', 'binário pontual', 'fibra extrema superior', 'todas as tentativas', 'independente'],
@@ -136,4 +136,13 @@ it.skip.each([
   for (const key of ['edu.ex11Desc', 'edu.ex11DescP']) expect(dict[key]).toContain(fiber);
   for (const key of ['exam.revealAfterClose', 'exam.resultsLater']) expect(dict[key]).toContain(attempts);
   expect(dict['exam.gradedHere']).toContain(grading);
+});
+
+it('states the factor units, the modal estimate assumptions and the scope of explained methods', () => {
+  const { hu, zh } = ALL_DICTS;
+  expect(zh['course.plastic.limitOnly']).toMatch(/荷载系数[^。]*λ = \{history\}[^。]*。[^。]*倒塌荷载系数[^。]*λc = \{lambda\}/);
+  expect(hu['course.plastic.limitOnly']).toMatch(/teherszorzó[^.]*λc = \{lambda\}/);
+  expect(zh['knownIssue.NL-DYNAMIC-GAPS']).toContain('一阶瑞利估算适用于均匀的简支直梁');
+  const notice = JSON.parse(readFileSync(join(import.meta.dirname, '../../provenance/result-changes/basic-plastic-2d-certified-limit.json'), 'utf8'));
+  expect(notice.explanation.hu).toMatch(/lépésenkénti statikai és kinematikai módszer.*teherszorzó közölhető/i);
 });

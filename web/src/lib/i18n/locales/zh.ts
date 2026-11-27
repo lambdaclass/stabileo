@@ -15037,7 +15037,7 @@ const zh: Translations = {
   "exam.explain.reaction": "用平衡条件求 {support} 的 {dof} 反力。在内铰处分开结构，对各隔离体列平衡方程。超静定结构还需要变形协调条件。",
   "exam.explain.freeBody": "对 {bar}，逐分量检查节点 {node} 的平衡。若支座仅连接一根杆件，在相同符号约定下，节点对杆件的 {dof} 作用等于支座反力与施加于节点的力或力偶之和。",
   "exam.explain.kinematic": "计数得到次数 {degree}。仅当结构稳定且平衡方程独立时，零次才表示静定。",
-  "exam.explain.shape": "绘制 {diagram} 时在各集中作用之间分段考虑。无分布荷载时剪力为常数、弯矩呈线性。均布荷载下剪力呈线性、弯矩呈抛物线。集中力的横向分量引起剪力跳变并改变弯矩图斜率，集中力的横向分量偶引起弯矩跳变。",
+  "exam.explain.shape": "绘制 {diagram} 时在各集中作用之间分段考虑。无分布荷载时剪力为常数、弯矩呈线性。均布荷载下剪力呈线性、弯矩呈抛物线。集中力的横向分量引起剪力跳变并改变弯矩图斜率，集中力偶引起弯矩跳变。",
   "exam.explain.sketch": "您的草图在 41 个点上与杆件 {member} 的 {diagram} 图比较，并检查每一段的次数。",
   "exam.explain.maxAbs": "它是 {force} 在 {where} 上的最大绝对值，从您这一变体的内力图读取。",
   "exam.explain.extremeMax": "它是 {force} 在 {where} 上带符号的最大值。",
