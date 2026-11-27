@@ -33,8 +33,8 @@ export async function codeExampleText(id: CodeExampleId): Promise<string> {
 }
 
 /** Replace the open model with a model-code example, as one undo step. */
-export async function loadCodeExample(id: CodeExampleId): Promise<void> {
-  const parsed = codeToModel(await codeExampleText(id));
+export async function loadCodeExample(id: CodeExampleId, codeFile = CODE_EXAMPLES[id]): Promise<void> {
+  const parsed = codeToModel((await codeFile()).default);
   if (!parsed.snapshot) {
     throw new Error(`${id}: ${parsed.errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')}`);
   }

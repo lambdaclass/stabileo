@@ -27,6 +27,7 @@
  * senses unless the cases already carry their sign, or the example's own.
  */
 
+import { unifiedPlates } from '../features';
 import { modelStore } from '../store/model.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { LATERAL_CASES } from '../engine/detailing/service-reaction';
@@ -49,11 +50,11 @@ import { exampleProgress } from '../store/example-progress.svelte';
 import { nextFrame } from '../store/mesh-progress.svelte';
 
 export type ExampleGroup =
-  | 'rcBuildings' | 'steelBuildings' | 'cad' | 'industrial' | 'towers' | 'longspan' | 'foundations' | 'showcase';
+  | 'firstSteps' | 'buildings' | 'rcBuildings' | 'steelBuildings' | 'cad' | 'industrial' | 'towers' | 'longspan' | 'foundations' | 'showcase';
 
 /** The order the groups are shown in: from what most projects are to the models that stress the app. */
 export const PRO_EXAMPLE_GROUP_ORDER: readonly ExampleGroup[] =
-  ['rcBuildings', 'steelBuildings', 'cad', 'industrial', 'towers', 'longspan', 'foundations', 'showcase'] as const;
+  [...(unifiedPlates() ? ['rcBuildings', 'steelBuildings'] as const : ['firstSteps', 'buildings'] as const), 'cad', 'industrial', 'towers', 'longspan', 'foundations', 'showcase'];
 
 /**
  * The self-weight an example gets: every member and shell, none (a model whose dead load already
@@ -73,6 +74,7 @@ export type ExampleLoads = 'model' | 'generator';
 export interface ProExample {
   id: string;
   source: 'fixture' | 'code';
+  codeFile?: () => Promise<{ default: string }>;
   group: ExampleGroup;
   nameKey: string;
   descKey: string;
@@ -96,6 +98,8 @@ export interface ProExampleGroup {
 }
 
 const GROUP_KEYS: Record<ExampleGroup, string> = {
+  firstSteps: 'pro.examples.groupFirstSteps',
+  buildings: 'pro.examples.groupBuildings',
   rcBuildings: 'pro.examples.groupRcBuildings',
   steelBuildings: 'pro.examples.groupSteelBuildings',
   cad: 'pro.examples.groupCad',
@@ -160,7 +164,7 @@ async function loadExample(ex: ProExample): Promise<void> {
     // The regulation's combinations come from the engine: an example opened while it is still
     // loading waits for it rather than fail.
     try { await initSolver(); } catch { throw new EngineUnavailableError("the example's combinations"); }
-    if (ex.source === 'code') await loadCodeExample(ex.id as CodeExampleId);
+    if (ex.source === 'code') await loadCodeExample(ex.id as CodeExampleId, ex.codeFile);
     else await modelStore.loadExample(ex.id);
     if (ex.loads === 'generator') { exampleProgress.step('loads'); await nextFrame(); }
     modelStore.batch(() => {
@@ -205,7 +209,7 @@ export const exampleEntry = (e: Entry): ProExample => {
 
 const entry = exampleEntry;
 
-export const PRO_EXAMPLES: readonly ProExample[] = [
+export const unifiedBuildingExamples: readonly ProExample[] = [
   // ── Reinforced concrete buildings ── their loads, wind included, from the load generator; the
   // earthquake is for the reader to add there, with the site's zone and soil.
   entry({ id: 'pro-rc-house', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 27, members: 42, plates: 8 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
@@ -219,6 +223,21 @@ export const PRO_EXAMPLES: readonly ProExample[] = [
   entry({ id: 'pro-steel-building-slabs', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 99, members: 153, plates: 48 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
   entry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1420 }, selfWeight: 'all', combinations: 'regulation' }),
 
+];
+
+export const publishedBuildingExamples: readonly ProExample[] = [
+  entry({ id: 'pro-plane-frame-seismic', source: 'code', group: 'firstSteps', tags: ['pro.tagSteel', 'pro.tagSeismic'], stats: { nodes: 20, members: 28 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'rc-qa-diagnostic', source: 'fixture', group: 'firstSteps', tags: ['pro.tagRC', 'pro.tagCombinations'], stats: { nodes: 18, members: 26 }, selfWeight: 'all', combinations: 'regulationAsSigned' }),
+  entry({ id: '3d-building', source: 'fixture', group: 'firstSteps', tags: ['pro.tagRC', 'pro.tagDrift'], stats: { nodes: 54, members: 105 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pro-rc-frame-area-loads', source: 'code', group: 'buildings', tags: ['pro.tagRC', 'pro.tagFloorLoads'], stats: { nodes: 59, members: 113 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pro-edificio-7p', source: 'fixture', group: 'buildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 183, members: 252, shells: 126 }, selfWeight: 'all', combinations: 'regulationAsSigned' }),
+  entry({ id: 'rc-design-frame', source: 'fixture', group: 'buildings', tags: ['pro.tagRC', 'pro.tagDesign'], stats: { nodes: 180, members: 408 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pro-steel-building-slabs', source: 'code', codeFile: () => import('../templates/examples/pro-steel-building-slabs-meshed.stabileo.txt?raw'), group: 'buildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 836, members: 447, shells: 756 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'buildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1420 }, selfWeight: 'all', combinations: 'regulation' }),
+];
+
+export const PRO_EXAMPLES: readonly ProExample[] = [
+  ...(unifiedPlates() ? unifiedBuildingExamples : publishedBuildingExamples),
   // ── From CAD ── their dead load holds the slab's weight, and their provenance lists the
   // combinations they were drafted with.
   entry({ id: 'cad-arch-only-dxf', source: 'fixture', group: 'cad', tags: ['pro.tagRC', 'pro.tagCad'], stats: { nodes: 800, members: 1000, shells: 720 }, selfWeight: 'none', combinations: 'own' }),
@@ -258,7 +277,8 @@ export function proExampleGroups(translate: (key: string) => string): ProExample
   return PRO_EXAMPLE_GROUP_ORDER.map((group) => ({
     group,
     title: translate(GROUP_KEYS[group]),
-    examples: PRO_EXAMPLES.filter((ex) => ex.group === group),
+    examples: unifiedPlates() ? PRO_EXAMPLES.filter(ex => ex.group === group)
+      : PRO_EXAMPLES.filter(ex => ex.group === group).sort((a, b) => a.stats.nodes - b.stats.nodes),
   })).filter((g) => g.examples.length > 0);
 }
 
