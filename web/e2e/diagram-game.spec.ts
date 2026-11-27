@@ -251,11 +251,15 @@ test('@smoke the games hub lists the diagram game, opens it, and the game leads 
   await expect(page.locator('nav.site-header [data-nav="game"]')).toHaveText('Juegos');
   const card = page.getByTestId('game-card-diagram-game');
   await expect(card.getByRole('heading', { level: 2 })).toHaveText('Diagramas: elegí el correcto');
+  const hubUrl = page.url();
   await card.getByRole('link', { name: 'Jugar' }).click();
   await expect(page).toHaveURL(/\/es\/games\/diagram-game\/$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: elegí el correcto');
   await expect(page.getByTestId('dg-start')).toBeVisible();
   await page.goBack();
+  await test.step.skip('known wrong result: #2492', async () => {
+    await expect(page).toHaveURL(hubUrl);
+  });
   await expect(page).toHaveURL(/\/es\/games\/(\?e2e=1)?$/);
   await expect(page.getByTestId('game-card-diagram-game')).toBeVisible();
   await page.goForward();

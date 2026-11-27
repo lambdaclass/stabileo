@@ -158,3 +158,18 @@ test('the app footprint counts a separate lazy import of the games registry and 
   }, appRoots);
   for (const file of ['registry.js', 'thumbnail.js', 'thumbnail.css']) assert.ok(files.has(file), file);
 });
+
+test('the app footprint counts diagram game strings loaded separately from the games page loader', { skip: 'known wrong result: #2492' }, () => {
+  const strings = 'src/components/diagram-game/strings.ts';
+  const loader = 'src/components/games/load-page.ts';
+  const files = routeChunkFiles({
+    ...manifest,
+    'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: [loader, strings] },
+    [loader]: { file: 'game-loader.js', dynamicImports: ['src/components/diagram-game/DiagramGamePage.svelte'] },
+    'src/components/diagram-game/DiagramGamePage.svelte': { file: 'game.js', imports: [strings] },
+    [strings]: { file: 'strings.js' },
+  }, appRoots);
+  assert.ok(files.has('strings.js'));
+  assert.ok(!files.has('game-loader.js'));
+  assert.ok(!files.has('game.js'));
+});
