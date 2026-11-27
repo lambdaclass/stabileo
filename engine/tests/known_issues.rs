@@ -3328,3 +3328,29 @@ fn bending_limit_checks_the_axial_field_under_span_loads_758() {
         assert_ne!(confirm_2d(&input.solver, &transverse, &HashMap::from([(1, 0.4)]), 1.0), Confirmation::Exact);
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #370"]
+fn rotary_inertia_warns_about_unbounded_modes_and_identifies_each_member_family_370() {
+    for analysis in [Analysis::Modal, Analysis::Harmonic, Analysis::TimeHistory] {
+        let beam = make_beam(2, 1.0, E, 1.0, 0.03_f64.powi(2), "fixed", None, vec![]);
+        assert_warning(&dedaliano_engine::known_issues::for_2d(&beam, analysis), "NL-DYNAMIC-MODES", 370.0);
+        let mut mixed = arch3d();
+        let mut e = beam3d().elements["1"].clone();
+        e.node_i = 1;
+        e.node_j = 5;
+        mixed.elements.insert(e.id.to_string(), e);
+        let refs: Vec<_> = for_3d(&mixed, analysis).into_iter()
+            .filter(|d| d.phase.as_deref() == Some("NL-DYNAMIC-GAPS"))
+            .map(|d| (serde_json::to_value(d.element_kind).unwrap(), d.element_ids)).collect();
+        assert!(refs.contains(&(serde_json::json!("frame"), vec![1])));
+        assert!(refs.contains(&(serde_json::json!("curved_beam"), vec![0])));
+        assert_eq!(refs.len(), 2);
+        for section in mixed.sections.values_mut() { section.iy = 1e-7; section.iz = 1e-7; }
+        assert_warning(&for_3d(&mixed, analysis), "NL-DYNAMIC-MODES", 370.0);
+        mixed.elements.clear();
+        assert_warning(&for_3d(&mixed, analysis), "NL-DYNAMIC-MODES", 370.0);
+        mixed.curved_beams.clear();
+        assert!(!ids(&for_3d(&mixed, analysis)).contains(&"NL-DYNAMIC-MODES".into()));
+    }
+}

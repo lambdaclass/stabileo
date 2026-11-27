@@ -50,6 +50,12 @@ describe('rotary inertia in modal analysis (#370)', () => {
     expect(knownIssues(modal as Diagnosed)).not.toContain('NL-UNCONVERGED-INCREMENT');
   }, 60_000);
 
+  it.skip('known wrong result: #370 — modal WASM warns when slender members have no mode-specific bound', async () => {
+    await load('portal-frame');
+    const modal = solveModal(modelStore.buildSolverInput(false)!, densities());
+    expect(knownIssues(modal as Diagnosed)).toContain('NL-DYNAMIC-MODES');
+  });
+
   it('a deep beam (L/h = 3) still warns', async () => {
     await load('deep-beam-bar');
     const concrete = new Map([...modelStore.materials.keys()].map((id) => [id, 2500]));
