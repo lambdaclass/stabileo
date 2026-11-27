@@ -9,7 +9,8 @@ if ! command -v wasm-opt >/dev/null; then
 fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-(cd "$here" && wasm-pack build --release --target web --no-typescript --out-dir "$tmp/pkg" --locked)
+research_workspace "$here" "$tmp/cargo"
+(cd "$wasm_crate" && wasm-pack build --release --target web --no-typescript --out-dir "$tmp/pkg" --locked)
 mkdir -p "$out"
 wasm-opt -O3 --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue \
   "$tmp/pkg/risers_gay_neto_2014_bg.wasm" -o "$out/riser_bg.wasm"

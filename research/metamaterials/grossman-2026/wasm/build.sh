@@ -12,7 +12,8 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 features="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue"
 
-(cd "$here" && wasm-pack build --release --target web --no-typescript --out-dir "$tmp/pkg" --locked)
+research_workspace "$here" "$tmp/cargo"
+(cd "$wasm_crate" && wasm-pack build --release --target web --no-typescript --out-dir "$tmp/pkg" --locked)
 python3 -I "$here/trim_exports.py" "$tmp/pkg/springs_grossman_2026_wasm_bg.wasm" "$tmp/graph.json"
 optimise() {
   wasm-metadce $features -f "$tmp/graph.json" "$tmp/pkg/springs_grossman_2026_wasm_bg.wasm" -o "$tmp/trim.wasm" >/dev/null

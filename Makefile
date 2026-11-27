@@ -620,7 +620,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.switch-on-e2e test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions test.agent-mistakes
+test.ci-scripts: test.research-wasm-paths test.switch-on-e2e test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions test.agent-mistakes
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -706,6 +706,10 @@ web.run: wasm research.wasm
 	$(NIX_RUN) bash -c "cd web && npm install && VITE_API_URL=http://localhost:$(BACKEND_PORT) npm run dev -- --port $(WEB_PORT)"
 
 # The Stabileo Research page's own WASM (web/public/research-wasm/), fetched only on /research pages.
+.PHONY: test.research-wasm-paths
+test.research-wasm-paths:
+	$(NIX_RUN) bash scripts/test-research-wasm-paths.sh
+
 research.wasm: web.deps
 	$(NIX_RUN) research/fracture/shauer-2025/wasm/build.sh
 	$(NIX_RUN) research/optimization/andreassen-2011/wasm/build.sh
