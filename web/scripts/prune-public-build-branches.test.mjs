@@ -132,3 +132,14 @@ test('a similarly named component or comment cannot remove a separate module ini
     assert.equal(prunePublicBuildBranches(input, off).code, header);
   }
 });
+
+test.skip('known wrong result: #1928 a disabled form attribute has the same reactive dependencies as its released markup', () => {
+  const source = '<button disabled={__PUBLIC_FEATURES__.proPlatesUnified ? unavailable() : blocked}>Apply</button>';
+  for (const [enabled, expression] of [[false, 'blocked'], [true, 'unavailable()']]) {
+    const produced = prunePublicBuildBranches(source, { proPlatesUnified: enabled }).code;
+    const attribute = parse(produced, { modern: true }).fragment.nodes[0].attributes[0];
+    assert.equal(produced.slice(attribute.value.expression.start, attribute.value.expression.end), expression);
+  }
+  const scoped = '{#each options as __PUBLIC_FEATURES__}' + source + '{/each}';
+  assert.equal(prunePublicBuildBranches(scoped, { proPlatesUnified: false }).code, scoped);
+});
