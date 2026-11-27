@@ -1,9 +1,10 @@
 import { render } from 'svelte/server';
 import { afterEach, expect, it } from 'vitest';
-import { t } from '../../lib/i18n';
+import { t, tp } from '../../lib/i18n';
 import { modelStore, uiStore } from '../../lib/store';
-import { applyPlateMeshes, createPlate, planPlateMesh, plateShellKeys } from '../../lib/store/physical-plates';
+import { applyPlateMeshes, createPlate, meshBeforeAnalysis, planPlateMesh, plateShellKeys } from '../../lib/store/physical-plates';
 import { quickEdit } from '../../lib/store/pro-quick-edit.svelte';
+import AnalysisMeshControl from '../pro/plates/AnalysisMeshControl.svelte';
 import ProQuickEdit from '../pro/ProQuickEdit.svelte';
 import ProShellTab from '../pro/ProShellTab.svelte';
 
@@ -103,5 +104,30 @@ it('known wrong result: #1928 the published quick editor can mesh an ownerless q
     }
   } finally {
     quickEdit.close();
+  }
+});
+
+it.skip('known wrong result: #1928 the published Analyze ribbon warns about an unmeshed plate and explains the mesh it will use', () => {
+  modelStore.clear();
+  const nodes = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  const plate = createPlate({ outline: nodes, thickness: 0.15, materialId: 1 });
+  if ('problem' in plate) throw Error(plate.problem);
+  const unified = Boolean(__PUBLIC_FEATURES__.proPlatesUnified);
+  const previous = meshBeforeAnalysis.value;
+  try {
+    for (const auto of [false, true]) {
+      meshBeforeAnalysis.value = auto;
+      const html = render(AnalysisMeshControl).body;
+      const label = unified ? (auto ? 'plates.meshShort.willMesh' : 'plates.meshShort.missing') : 'plates.pendingShort';
+      expect(html.includes(tp(label, { n: 1 }))).toBe(true);
+      const state = html.match(/<span class="([^"]*)"[^>]*data-testid="analysis-mesh-state"/)?.[1];
+      expect(state?.split(' ').includes('warn')).toBe(!unified || !auto);
+    }
+    const plan = planPlateMesh(plate.id, { size: 1, element: 'quad', followMembers: false });
+    if (!plan?.mesh) throw Error(String(plan?.refused));
+    applyPlateMeshes([plan]);
+    expect(render(AnalysisMeshControl).body).toContain(unified ? tp('plates.meshShort.ready', { n: 1 }) : t('plates.allCurrent'));
+  } finally {
+    meshBeforeAnalysis.value = previous;
   }
 });
