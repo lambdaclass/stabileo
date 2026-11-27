@@ -208,7 +208,7 @@ describe('locales', () => {
   });
 });
 
-it.skip('known wrong result: #2505 rejects conflicting duplicate nodes in either order', () => {
+it('rejects conflicting duplicate nodes in either order', () => {
   const { input, center } = build('MITC4', 4, true);
   const field = Object.values(input.nodes).map(n => ({ nodeId: n.id, uz: 0 }));
   const duplicate = { nodeId: center, uz: -1 };

@@ -12,7 +12,7 @@
   import PublicLink from '../../landing/PublicLink.svelte';
   import { fieldName, rs } from '../i18n';
   import { paperTextLocale } from '../text-locale';
-  import { provideExperiment, type ExperimentActions, type Check, type PublishedRow } from './context';
+  import { comparisonPasses, provideExperiment, type ExperimentActions, type Check, type PublishedRow } from './context';
   import VerificationSummary from './VerificationSummary.svelte';
   import ComparisonTable from './ComparisonTable.svelte';
   import { BUILD_COMMIT } from '../../../lib/build-info';
@@ -67,7 +67,7 @@
       </p>
       <VerificationSummary
         reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
-        published={verification?.published ?? (comparison?.length ? { kind: 'checks', passed: comparison.filter((r) => r.passed).length, total: comparison.length, href: '#comparison' } : { kind: 'none', why: s.notComparedWhy })}
+        published={comparison ? { kind: 'checks', passed: comparison.filter(comparisonPasses).length, total: comparison.length, href: '#comparison' } : verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
         {referenceLabel}
       />
       {#if comparison?.length}<div id="comparison"><ComparisonTable rows={comparison} names={comparisonNames} /></div>{/if}

@@ -120,7 +120,7 @@ it('runs the shared case through the production WASM wrapper', async () => {
   expect(Math.abs(point(peak)[0] - point(replay.frames[46])[0])).toBeLessThan(1e-7);
 });
 
-it.skip('known wrong result: #2505 rejects invalid interior loads even with a finite final load', () => {
+it('rejects invalid interior loads even with a finite final load', () => {
   for (const loadFactor of [undefined, NaN, Infinity]) {
     const steps = [{ loadFactor: 0 }, { loadFactor }, { loadFactor: 1 }];
     expect(() => frameFrom({ converged: true, finalLoadFactor: 1, steps, results: { displacements: replay.frames[0].displacement } }, 3)).toThrow('invalid');

@@ -155,6 +155,7 @@ export function runState(source: 'replay' | 'live', running: boolean, failed: bo
 /** Downward centre displacement and every node's, in mm, from a solver result. */
 export function downward(input: Wire, displacements: { nodeId: number; uz: number }[]): number[] {
   const byId = new Map(displacements.map(d => [d.nodeId, d.uz]));
+  if (byId.size !== displacements.length || byId.size !== Object.keys(input.nodes).length) throw new Error('Incomplete or duplicate displacement field');
   return Object.values(input.nodes).sort((p, q) => p.id - q.id).map(n => {
     const uz = byId.get(n.id);
     if (uz === undefined || !Number.isFinite(uz)) throw new Error(`node ${n.id}`);

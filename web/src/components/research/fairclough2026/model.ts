@@ -1,4 +1,5 @@
 import result from '../../../../../research/optimisation/fairclough-2026/results/stabileo_results.json';
+import published from '../../../../../research/optimisation/fairclough-2026/reference-results/published_comparison.json';
 export type Layout = {
   volume: number;
   nodes: number[][];
@@ -22,12 +23,20 @@ export function validateLayout(value: unknown, unitWeight = PAPER_UNIT_WEIGHT): 
     || !v.curves.every(c => c.length === 33 && c.every(p => p.length === 4 && p.every(Number.isFinite) && p[3] > 0))
     || !Number.isFinite(v.primal_residual) || v.primal_residual < 0 || v.primal_residual > 1e-8
     || !Number.isFinite(v.dual_residual) || v.dual_residual < 0 || v.dual_residual > 1e-8) throw new Error('Invalid five-node layout');
+  const active = v.edges.filter((_, i) => v.forces[i][0] > 1e-5);
+  if (active.length !== v.curves.length || active.some(([start, end], i) =>
+    [0, 1].some(axis => v.curves[i][0][axis] !== v.nodes[start][axis]
+      || Math.abs(v.curves[i][32][axis] - v.nodes[end][axis]) > 1e-12))) {
+    throw new Error('Missing or mismatched active member curve');
+  }
+  const row = published.checks.find(r => Number(r.id.slice('table1-v5-'.length)) === unitWeight);
+  if (row && Math.abs(v.volume - row.reference) > row.tolerance) throw new Error('Volume differs from the published weight row');
   if (unitWeight !== PAPER_UNIT_WEIGHT) return v;
   function matches(actual: unknown, expected: unknown): boolean {
     if (typeof expected === 'number') return typeof actual === 'number' && Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-8 * Math.max(1, Math.abs(expected));
     return Array.isArray(expected) && Array.isArray(actual) && actual.length === expected.length && expected.every((e, i) => matches(actual[i], e));
   }
-  if (!matches(v.volume, result.layout.volume)) throw new Error('Volume differs from committed solver result');
+  if (Math.abs(v.volume - result.layout.volume) > 1e-8) throw new Error('Volume differs from committed solver result');
   for (const key of ['nodes', 'edges', 'forces', 'curves'] as const) {
     if (!matches(v[key], result.layout[key])) throw new Error('Layout differs from committed solver result');
   }

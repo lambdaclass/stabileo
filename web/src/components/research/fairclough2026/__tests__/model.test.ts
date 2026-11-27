@@ -13,10 +13,10 @@ describe('Fairclough five-node data contract', () => {
       expect(()=>validateLayout(bad)).toThrow();
     }
   });
-  it.skip('known wrong result: #2505 rejects a replay labeled with another published weight', () => {
+  it('rejects a replay labeled with another published weight', () => {
     expect(() => validateLayout(result.layout, 1.85)).toThrow();
   });
-  it.skip('known wrong result: #2505 requires one curve for each active edge at untabulated weights', () => {
+  it('requires one curve for each active edge at untabulated weights', () => {
     for (const change of ['missing', 'duplicate', 'negative area']) {
       const other = structuredClone(result.layout);
       if (change === 'missing') other.curves.pop();
@@ -25,7 +25,7 @@ describe('Fairclough five-node data contract', () => {
       expect(() => validateLayout(other, 1.66), change).toThrow();
     }
   });
-  it.skip('known wrong result: #2505 keeps the absolute replay volume budget', () => {
+  it('keeps the absolute replay volume budget', () => {
     expect(() => validateLayout({ ...result.layout, volume: result.layout.volume + 2e-8 })).toThrow();
     expect(validateLayout({ ...result.layout, volume: result.layout.volume + 0.5e-8 })).toBeTruthy();
   });

@@ -2,7 +2,8 @@
   import { num } from '../shell/format';
   type Point = { n: number; ratio: number | null };
   let { points, title, xLabel, yLabel, selected = null }: { points: Point[]; title: string; xLabel: string; yLabel: string; selected?: number | null } = $props();
-  const finite = $derived(points.filter(p => p.ratio !== null) as { n: number; ratio: number }[]);
+  const measured = (p: Point): p is { n: number; ratio: number } => Number.isFinite(p.ratio);
+  const finite = $derived(points.filter(measured));
   const ymax = $derived(Math.max(1.1, ...finite.map(p => p.ratio * 1.1)));
   const ymin = $derived(Math.min(0, ...finite.map(p => p.ratio * 1.1)));
   const xmin = $derived(Math.min(...points.map(p => p.n)));
@@ -28,11 +29,14 @@
     <text x="44" y="184" text-anchor="end">{fmt(ymin)}</text>
     <text x="44" y="35" text-anchor="end">{fmt(ymax)}</text>
     <text x="50" y="18">{yLabel}</text>
-    {#each finite as point, i (point.n)}
-      {#if i > 0}
-        <line x1={x(finite[i - 1].n)} y1={y(finite[i - 1].ratio)} x2={x(point.n)} y2={y(point.ratio)} stroke="var(--rs-accent, #5ab7da)" stroke-width="2" />
+    {#each points as point, i (point.n)}
+      {@const previous = points[i - 1]}
+      {#if measured(point)}
+      {#if previous && measured(previous)}
+        <line x1={x(previous.n)} y1={y(previous.ratio)} x2={x(point.n)} y2={y(point.ratio)} stroke="var(--rs-accent, #5ab7da)" stroke-width="2" />
       {/if}
       <circle cx={x(point.n)} cy={y(point.ratio)} r={point.n === selected ? 6 : 4} fill="var(--rs-accent, #5ab7da)" stroke={point.n === selected ? 'currentColor' : 'none'}><title>{point.n} × {point.n}: {fmt(point.ratio)}</title></circle>
+      {/if}
     {/each}
     {#each ticks as n (n)}
       <text x={x(n)} y="200" text-anchor="middle">{n}</text>

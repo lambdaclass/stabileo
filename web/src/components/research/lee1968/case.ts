@@ -38,6 +38,7 @@ export function failureCode(error: unknown): Failure {
 export function frameFrom(result: { converged: boolean; steps: unknown[]; finalLoadFactor: number; results: { displacements: Frame['displacement'] } }, step: number, input: LeeInput = data.input): Frame {
   if (!result.converged || result.steps.length !== step) throw new SolveFailure('incomplete');
   const displacement = result.results.displacements;
+  if (result.steps.some(s => !s || typeof s !== 'object' || !('loadFactor' in s) || !Number.isFinite(s.loadFactor))) throw new SolveFailure('invalid');
   if (!Number.isFinite(result.finalLoadFactor) || Object.values(input.solver.nodes).some(n => {
     const d = displacement.find(d => d.nodeId === n.id);
     return !d || !Number.isFinite(d.ux) || !Number.isFinite(d.uz);

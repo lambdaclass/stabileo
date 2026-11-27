@@ -32,3 +32,14 @@ export type PublishedRow = {
   tolerance: number;
   passed: boolean;
 };
+
+export function comparisonShape(row: PublishedRow) {
+  if (Number.isFinite(row.reference) && Number.isFinite(row.computed)) return 'scalar';
+  if (row.reference === undefined && row.computed === undefined && Number.isInteger(row.points) && row.points! > 0) return 'curve';
+  return 'unavailable';
+}
+
+export function comparisonPasses(row: PublishedRow) {
+  return comparisonShape(row) !== 'unavailable' && row.passed === true && Number.isFinite(row.observed)
+    && Number.isFinite(row.tolerance) && row.observed >= 0 && row.observed <= row.tolerance;
+}
