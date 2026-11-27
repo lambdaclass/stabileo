@@ -1011,7 +1011,7 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
         ));
     }
 
-    let mp_of: HashMap<usize, f64> = members.iter().map(|m| (m.id, m.mp)).collect();
+    let mp_of: HashMap<usize, f64> = frames.iter().map(|e| (e.id, mp_map[&e.id])).collect();
     let mut collapse_factor = cumulative_factor;
     match super::plastic_limit::limit_analysis_2d(solver_input, &mp_of, &HashMap::new()) {
         Ok(limit) => {
