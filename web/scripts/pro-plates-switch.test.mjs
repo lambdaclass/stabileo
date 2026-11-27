@@ -761,3 +761,18 @@ test('known wrong result: #1928 the published known-issue result has no grouping
     });
   }
 });
+
+test.skip('known wrong result: #1928 the design-data reader imports the sheet option decoder only in a sheets build', async () => {
+  const entry = resolve(root, 'src/lib/model/design-data.ts');
+  for (const [sheets, plates] of [[false, false], [false, true], [true, false], [true, true]]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: sheets, proPlatesUnified: plates }, async configFile => {
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external: (id, from) => !!from && !/sheet-option-reader/.test(id),
+        },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(x => x.type === 'chunk');
+      assert.equal(Object.keys(chunk.importedBindings).some(id => id.endsWith('/rc-sheets/design-options')), sheets);
+    });
+  }
+});

@@ -157,3 +157,24 @@ it('keeps placement editing and specification navigation in the build that appli
   }
   uiStore.specSection = 'members';
 });
+
+it.skip.each(['deserializeProject', 'loadProject', 'loadFile'] as const)('known wrong result: #1928 saves inactive sheet options without interpreting them through %s', async opener => {
+  const { deserializeProject, loadFile, loadProject, serializeProject } = await import('../file');
+  const { designData, patchDesignData } = await import('../design-data');
+  const options = { faces: true, criteria: { savedByLaterSheetEditor: 17 } };
+  for (const legacy of [false, true]) {
+    const file = JSON.parse(serializeProject());
+    file.snapshot = snapshot();
+    if (legacy) file.snapshot.designData.rcSheets = { ...file.snapshot.designData.rcSheets, ...options };
+    else file.snapshot.designData.designOptions = options;
+    const text = JSON.stringify(file);
+    if (opener === 'deserializeProject') expect(deserializeProject(text)).toBe(true);
+    else await (opener === 'loadFile' ? loadFile : loadProject)(new File([text], 'sheet-options.ded'));
+    patchDesignData({ rebarGrade: 'saved across sheet profiles' });
+    const persisted = JSON.parse(serializeProject()).snapshot.designData;
+    expect.soft(persisted.designOptions).toEqual(sheets ? { faces: true } : options);
+    expect.soft(designData().designOptions).toEqual(sheets ? { faces: true } : undefined);
+    expect(persisted.rcSheets.adopted).toEqual(file.snapshot.designData.rcSheets.adopted);
+    expect(persisted.rebarGrade).toBe('saved across sheet profiles');
+  }
+});
