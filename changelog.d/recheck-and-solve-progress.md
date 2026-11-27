@@ -8,3 +8,5 @@ The notice about results computed with an older version came back at every reloa
 With unified plates disabled, the viewport keeps model refusals visible until the model changes. Standalone results retain their reported warnings, and a notice preference saved in the enabled editor cannot hide them.
 
 The published PRO gallery opens its existing models directly. Generated building examples, their progress messages and their plate counts are available with unified plates enabled.
+
+The published results table shows the full known-issue warning above the numeric tabs in both planar and spatial models. The original diagnostic identifiers remain visible to readers of the published table and PRO diagnostics.

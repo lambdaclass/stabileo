@@ -310,7 +310,7 @@ it('a clean single solve cannot mask a refused combination in the results table'
   expect(resultsStore.knownIssues3D.refused).toBe(true);
 });
 
-it.skip.each(['2d', '3d'] as const)('known wrong result: #1928 the first published %s table tab shows the complete warning beside the permitted result', async mode => {
+it.each(['2d', '3d'] as const)('known wrong result: #1928 the first published %s table tab shows the complete warning beside the permitted result', async mode => {
   uiStore.analysisMode = mode;
   const { default: ResultsTable } = await import('../../../components/tables/ResultsTable.svelte');
   const row = { nodeId: 1, ux: 0.12345, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 };

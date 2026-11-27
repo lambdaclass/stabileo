@@ -6,7 +6,6 @@
 import type { SolverDiagnostic } from '../engine/types';
 import { checkModel } from '../engine/model-diagnostics';
 import { mergeFindings } from '../engine/model-findings';
-import { withoutIssueRef } from '../engine/known-issue-message';
 import { reviewModelSanity, sanityDiagnostics } from '../engine/model-sanity';
 import { plateDiagnostics, zoneDiagnostics } from '../store/plate-diagnostics';
 import { modelStore } from '../store/model.svelte';
@@ -82,7 +81,7 @@ export function groupDiagnostics(list: readonly SolverDiagnostic[]): DiagnosticG
   return [...groups.values()];
 }
 
-export { withoutIssueRef };
+export { withoutIssueRef } from './diagnostic-text';
 
 export interface ReviewCount { model: number; results: number; total: number }
 

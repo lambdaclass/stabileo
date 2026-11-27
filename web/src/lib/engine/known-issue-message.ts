@@ -9,11 +9,6 @@
  */
 import { t, tp } from '../i18n';
 
-/** The engine's own issue numbers, "(#762)", which mean nothing to the reader of the sentence. */
-export function withoutIssueRef(text: string): string {
-  return text.replace(/\s*\(#\d+\)/g, '');
-}
-
 const WARNING_BANDS = new Set(['SH-MITC4-DISTORTION', 'SH-WARPED-MITC4', 'SH-WARPED-MITC9']);
 
 export function knownIssueMessage(d: { code: string; phase?: string; value?: number; message: string; severity?: string; elementIds?: number[]; nodeIds?: number[] }): string {
