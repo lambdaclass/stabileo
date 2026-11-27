@@ -9,7 +9,7 @@ import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import '../../store/index';
 import { t } from '../../i18n';
-import { initSolver } from '../wasm-solver';
+import { initSolver, prepareLoadSession3D, solve3D, solvePDelta3D } from '../wasm-solver';
 
 const ALPHA = 1.2e-5;
 
@@ -71,4 +71,34 @@ describe.each(['quad', 'curved', 'plate'] as const)('thermal load on a %s', (kin
     expect(d(n[3]!).uy).toBeCloseTo(expected * 30 * 2, 9);
     expect(d(n[2]!).ux).toBeCloseTo(expected * 30 * 4, 9);
   });
+});
+
+it.skip('known wrong result: #2491 — direct and prepared WASM shell loads enforce the coefficient boundary', async () => {
+  await initSolver();
+  modelStore.clear();
+  const nodes = [[0, 0], [4, 0], [4, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x, y, 0));
+  const material = modelStore.addMaterial({ name: 'Shell', e: 11000, nu: 0.2, rho: 25, alpha: ALPHA });
+  const quad = modelStore.addQuad(nodes as [number, number, number, number], material, 0.2);
+  modelStore.addThermalLoadQuad3D(quad, 30);
+  modelStore.addSupport(nodes[0]!, 'fixed3d');
+  const input = modelStore.buildSolverInput3D()!;
+  const load = input.loads[0]!;
+  expect(load.type).toBe('quadThermal');
+  const session = prepareLoadSession3D(input);
+  try {
+    for (const alpha of [-0.000999, 0, 0.000999]) {
+      Object.assign(load.data, { alpha });
+      for (const result of [solve3D(input), session.solve(input.loads)]) {
+        expect(result.displacements.find(d => d.nodeId === nodes[1])!.ux).toBeCloseTo(alpha * 30 * 4, 9);
+      }
+    }
+    for (const alpha of [-0.001, 0.001]) {
+      Object.assign(load.data, { alpha });
+      for (const run of [() => solve3D(input), () => session.solve(input.loads), () => solvePDelta3D(input)]) {
+        expect(run).toThrow('|alpha| < 1e-3');
+      }
+    }
+  } finally {
+    session.free();
+  }
 });
