@@ -1,0 +1,35 @@
+{
+  "id": "standard-beam-minimum",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "all": [
+      "savedBeamDetailing"
+    ]
+  },
+  "title": {
+    "en": "Minimum steel in the standard beam check",
+    "es": "Acero mínimo en la verificación habitual de vigas",
+    "pt": "Aço mínimo na verificação usual de vigas",
+    "de": "Mindestbewehrung im regulären Balkennachweis",
+    "fr": "Armature minimale de la vérification courante des poutres",
+    "tr": "Standart kiriş kontrolünde minimum donatı",
+    "zh": "常规梁验算的最小配筋",
+    "hu": "A szokásos gerendaellenőrzés minimális vasalása"
+  },
+  "explanation": {
+    "en": "If sheet options were forwarded to a standard beam check in an integration build, recheck the required tension steel.",
+    "es": "Si en una versión de integración se pasaron opciones de planilla a la verificación habitual de una viga, revisá la armadura de tracción requerida.",
+    "pt": "Se opções da planilha foram enviadas à verificação usual da viga em uma versão de integração, confira a armadura de tração necessária.",
+    "de": "Wenn eine Integrationsversion Blattoptionen an den regulären Balkennachweis weitergegeben hat, prüfen Sie die erforderliche Zugbewehrung erneut.",
+    "fr": "Si une version d’intégration a transmis des options de feuille à la vérification courante d’une poutre, revérifiez les armatures tendues requises.",
+    "tr": "Bir entegrasyon sürümünde standart kiriş kontrolüne föy seçenekleri aktarıldıysa gerekli çekme donatısını yeniden kontrol edin.",
+    "zh": "若曾在集成版本中向常规梁验算传入配筋表选项，请重新核对所需受拉钢筋。",
+    "hu": "Ha egy integrációs verzió munkalap-beállításokat adott át a szokásos gerendaellenőrzésnek, ellenőrizze újra a szükséges húzott vasalást."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-saved-sheet-reinforcement.md",
+    "heading": "Beam minimum reinforcement in the standard designer"
+  }
+}

@@ -1,4 +1,4 @@
-import { checkFlexure, checkShear, checkTorsion, type ConcreteDesignParams } from '../engine/codes/argentina/cirsoc201';
+import { checkSheetFlexure, checkShear, checkTorsion, type ConcreteDesignParams } from '../engine/codes/argentina/cirsoc201';
 import { evaluateBeamSections, type BeamSectionAnswer, type BeamSectionQuery } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { beta1, ductilityStrain, phiFromStrain, shearFy, shearSqrtFc, tensionControlledStrain } from '../engine/codes/argentina/cirsoc201-basis';
 import { crackControlFaceSpacing } from '../engine/design/crack-spacing';
@@ -386,7 +386,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   const p = paramsOf(d, c);
   const fc = c.mat.fc, fy = c.mat.fy;
 
-  const flexReq = (mu: number, nc: number, sagging = false) => checkFlexure(p, mu, nc, { edition: EDITION, minimumExemption: true, ...(sagging && d.flange ? { flange: d.flange } : {}) });
+  const flexReq = (mu: number, nc: number, sagging = false) => checkSheetFlexure(p, mu, nc, sagging ? d.flange : undefined);
   const posReq = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).pos.value, sectionOf(d, s).nPos, true), env: sectionOf(d, s).pos, n: sectionOf(d, s).nPos }));
   const negList = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).neg.value, sectionOf(d, s).nNeg), env: sectionOf(d, s).neg, n: sectionOf(d, s).nNeg }));
   if (d.negAny.value > Math.max(...negList.map((x) => x.env.value)) + 1e-6) negList.push({ s: peakSection(d, d.negAny.source?.x) ?? 'span', r: flexReq(d.negAny.value, d.nNegAny), env: d.negAny, n: d.nNegAny });
@@ -635,7 +635,7 @@ function dataSteps(d: BeamDemand, c: BeamContext, f: Fmt): StepGroup {
 }
 
 function flexureSteps(
-  title: string, d: BeamDemand, c: BeamContext, r: ReturnType<typeof checkFlexure>, mu: Signed, nc: number, where: string,
+  title: string, d: BeamDemand, c: BeamContext, r: ReturnType<typeof checkSheetFlexure>, mu: Signed, nc: number, where: string,
   bars: BarGroup[], checks: FlexureCheck[], f: Fmt,
 ): StepGroup {
   const fy = c.mat.fy, fc = c.mat.fc;

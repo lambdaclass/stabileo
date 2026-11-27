@@ -20,6 +20,7 @@ import { cirsoc201Engine, Cirsoc201EngineUnavailable } from './cirsoc201-engine'
 import { computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity } from '../../station-design-forces';
 import { checkTorsion2025, torsionTransverseMinimums, providedTorsionStirrups, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, torsionShearReserve, torsionActivation, type CageResolution, type SecondaryLongitudinalLayout, type SecondaryShearFace, type SecondaryShearResolution, type StirrupDeclaration, type TorsionSectionEvidence } from '../../../codes/cirsoc201/torsion';
 
+import { reinforcementSheets } from '../../../features';
 import { REBAR_DB, rebarSpec } from './cirsoc201-rebar';
 
 export { REBAR_DB, type RebarSpec } from './cirsoc201-rebar';
@@ -82,8 +83,6 @@ export interface FlexureResult {
   // Doubly reinforced (compression steel A's)
   isDoublyReinforced: boolean;
   AsComp?: number;     // compression steel area (cm²)
-  /** The compression steel the design asks, cm², before bars are chosen for it. */
-  AsCompReq?: number;
   barsComp?: string;   // compression bars description
   barCountComp?: number;
   barDiaComp?: number; // mm
@@ -319,11 +318,6 @@ export interface FlexureOptions {
   edition?: RegulationEdition;
   /** A compression flange (T or L section), m. Absent: a rectangle of width `b`. */
   flange?: { bf: number; hf: number };
-  /**
-   * §9.6.1.3: the minimum of §9.6.1.1–2 need not be met where the steel placed is at least a third
-   * more than required, so the requirement is max(As; min(As,min; 4/3·As)). Absent: the full minimum.
-   */
-  minimumExemption?: boolean;
 }
 
 interface EngineFlexureDesign {
@@ -377,6 +371,20 @@ function enforcePracticalFlexureLimit(result: FlexureResult): FlexureResult {
 export function checkFlexure(
   params: ConcreteDesignParams, Mu: number, Nu: number = 0, opts: FlexureOptions = {},
 ): FlexureResult {
+  return designFlexure(params, Mu, Nu, opts, false);
+}
+
+type SheetFlexureResult = FlexureResult & { AsCompReq?: number };
+
+export function checkSheetFlexure(
+  params: ConcreteDesignParams, Mu: number, Nu: number, flange?: FlexureOptions['flange'],
+): SheetFlexureResult {
+  return designFlexure(params, Mu, Nu, { edition: '2025', flange }, reinforcementSheets());
+}
+
+function designFlexure(
+  params: ConcreteDesignParams, Mu: number, Nu: number, opts: FlexureOptions, sheet: boolean,
+): SheetFlexureResult {
   const { fc, fy, cover, b, h, stirrupDia } = params;
   const edition = opts.edition ?? '2025';
   const steps: string[] = [];
@@ -404,7 +412,7 @@ export function checkFlexure(
   let check!: NonNullable<ReturnType<typeof evaluateBeamSection>>;
   let providedDepth = 0;
   let first: { d: number; design: EngineFlexureDesign } | undefined;
-  const minimumFor = (min: number, As: number) => (opts.minimumExemption ? Math.min(min, (4 / 3) * As) : min);
+  const minimumFor = (min: number, As: number) => (sheet ? Math.min(min, (4 / 3) * As) : min);
   for (let pass = 0; pass < 5; pass++) {
     d = effectiveDepth(h, cover, stirrupDia, barDia);
     design = engineFlexureDesign(edition, fc, fy, b, h, d, dPrimeAssumed, MuAbs, Nu, flange);
@@ -520,7 +528,7 @@ export function checkFlexure(
     steps,
     isDoublyReinforced: isDoubly,
     AsComp: rebarComp?.area,
-    ...(design.kind === 'doubly' ? { AsCompReq: design.AsComp } : {}),
+    ...(sheet && design.kind === 'doubly' ? { AsCompReq: design.AsComp } : {}),
     barsComp: rebarComp?.label,
     barCountComp: rebarComp?.count,
     barDiaComp: rebarComp?.dia,
