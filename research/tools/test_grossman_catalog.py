@@ -21,7 +21,8 @@ def main():
     validation = json.loads((implementation / 'VALIDATION.json').read_text())['checks']
     published = json.loads((implementation / 'reference-results' / 'published_comparison.json').read_text())['checks']
     paper = {c['id'] for c in validation if c['category'] == 'paper'}
-    assert {row['id'].removesuffix('-bulk').removesuffix('-shear') for row in published} == paper
+    expected_ids = (paper - {'fig9'}) | {'fig9-bulk', 'fig9-shear'}
+    assert 'fig9' in paper and sorted(row['id'] for row in published) == sorted(expected_ids)
     assert not (implementation / 'PUBLISHED_COMPARISON.json').exists()
     strip = json.loads((implementation / 'reference-results' / 'fig5_strip_comparison.json').read_text())['checks']
     assert [row['eta'] for row in strip if not row['passed']] == [0.0, 0.05, 0.1, 0.2]

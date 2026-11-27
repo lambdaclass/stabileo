@@ -10,7 +10,6 @@ checker = Path(__file__).with_name('check.mjs')
 
 
 class NativeEvidence(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_corrupted_measurements_are_rejected_on_the_real_parity_path(self):
         changes = [('cylinder-32', {'value': None}), ('cylinder-32', {'id': 'cylinder-16'}),
                    ('cylinder-32', {'value': 0.000018248}), ('cylinder-32', {'failure': 'failed'}),

@@ -751,8 +751,8 @@ papers:
     rows in reference-results/published_comparison.json; largest differences 5·10⁻⁶ relative and 6·10⁻⁵°).
     Heyman's own text is not available here and was not compared; his closed form in the same table solves
     a different tangency condition and is shown, not checked. See research/mechanics/heyman-1966/README.md.
-  status: published-figures-compared
-  reproduced_published_results: true
+  status: numerically-validated
+  reproduced_published_results: false
   benchmarks:
   - 'Rizzi et al. (2010), Table 1: least thickness t/r, haunch hinge angle and thrust of circular arches, Milankovitch and CCR solutions, α = 60°, 90°, 120°, 145°'
   implementation: mechanics/heyman-1966

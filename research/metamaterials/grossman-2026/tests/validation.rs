@@ -48,9 +48,10 @@ impl Checks {
         self.1.push(serde_json::json!({ "id": id, "name": name, "source": source, "unit": "", "reference": reference, "computed": computed, "metric": "absolute difference", "observed": observed, "tolerance": tolerance, "passed": observed <= tolerance }));
     }
 
-    fn paper_curve(&mut self, id: &str, name: &str, source: &str, points: usize, metric: &str, observed: f64, tolerance: f64) {
-        assert!(observed.is_finite() && points >= 2);
-        self.1.push(serde_json::json!({ "id": id, "name": name, "source": source, "unit": "", "points": points, "metric": metric, "observed": observed, "tolerance": tolerance, "passed": observed <= tolerance }));
+    fn paper_curve(&mut self, id: &str, name: &str, source: &str, samples: Vec<Vec<f64>>, metric: &str, observed: f64, tolerance: f64) {
+        let points = samples.len();
+        assert!(observed.is_finite() && points >= 2 && samples.iter().flatten().all(|x| x.is_finite()));
+        self.1.push(serde_json::json!({ "id": id, "name": name, "source": source, "unit": "", "points": points, "samples": samples, "metric": metric, "observed": observed, "tolerance": tolerance, "passed": observed <= tolerance }));
     }
 }
 
@@ -106,7 +107,18 @@ fn rows_match(a: &serde_json::Value, b: &serde_json::Value) -> bool {
             a.is_finite() && b.is_finite() && (a - b).abs() <= 1e-12 + 1e-8 * a.abs().max(b.abs())
         }
         (Value::Array(a), Value::Array(b)) => a.len() == b.len() && a.iter().zip(b).all(|(a, b)| rows_match(a, b)),
-        (Value::Object(a), Value::Object(b)) => a.len() == b.len() && a.iter().all(|(k, v)| b.get(k).is_some_and(|w| rows_match(v, w))),
+        (Value::Object(a), Value::Object(b)) => a.len() == b.len() && a.iter().all(|(k, v)| b.get(k).is_some_and(|w| {
+            match k.as_str() {
+                "tolerance" | "points" | "reference" => v == w,
+                "samples" => v.as_array().zip(w.as_array()).is_some_and(|(left, right)| {
+                    left.len() == right.len() && left.iter().zip(right).all(|(l, r)| {
+                        l.as_array().and_then(|s| s.split_last()).zip(r.as_array().and_then(|s| s.split_last()))
+                            .is_some_and(|((x, p), (y, q))| p == q && rows_match(x, y))
+                    })
+                }),
+                _ => rows_match(v, w),
+            }
+        })),
         _ => a == b,
     }
 }
@@ -296,6 +308,7 @@ fn read_json(rel: &str) -> serde_json::Value {
 }
 
 fn part_b(c: &mut Checks) {
+    let mut samples = Vec::new();
     // B1. Supplemental Eq. (9) is the affine result with equal-weight bonds (k_e = k / l_e^2).
     let mut worst: f64 = 0.0;
     for (phi, psi) in [(2.0, 2.0), (3.0, 0.9), (1.0, 1.0), (1.5, 1.0), (1.0, 0.5), (2.0, 0.5), (0.6, 1.4)] {
@@ -305,11 +318,14 @@ fn part_b(c: &mut Checks) {
         for i in 0..=36 {
             let t = PI * i as f64 / 36.0;
             let ours = moduli::uniaxial(&r.c, PI / 2.0 - t).unwrap().1;
-            worst = finite_max([worst, (ours - paper::ordered_poisson(phi, psi, t)).abs()]);
+            let reference = paper::ordered_poisson(phi, psi, t);
+            samples.push(vec![reference, ours]);
+            worst = finite_max([worst, (ours - reference).abs()]);
         }
     }
     c.at_most("Supplemental Eq. (9) = periodic network with equal-weight springs (7 lattices x 37 angles)", "max |nu difference|", worst, 1e-9);
-    c.paper_curve("eq9", "Poisson's ratio ν of ordered lattices, equal-weight springs (7 lattices × 37 orientations)", "Supplemental Material, App. C, Eq. (9)", 7 * 37, "absolute difference in ν, largest", worst, 1e-9);
+    assert_eq!(samples.len(), 7 * 37);
+    c.paper_curve("eq9", "Poisson's ratio ν of ordered lattices, equal-weight springs (7 lattices × 37 orientations)", "Supplemental Material, App. C, Eq. (9)", samples, "absolute difference in ν, largest", worst, 1e-9);
 
     // B2. For equal Hookean springs (Eq. 3) the exact value differs: lattice (1, 0.5), theta = 0
     // gives nu = 1/6, Eq. (9) gives 8/27.
@@ -331,25 +347,31 @@ fn part_b(c: &mut Checks) {
     for (i, expected) in [(0, [0.00004, 0.14411]), (370, [1.4535, 0.56404]), (740, [3.14225, 0.14411])] {
         assert_eq!(points[i], serde_json::json!(expected));
     }
+    let mut samples = Vec::new();
     for p in points {
         let (t, y) = (p[0].as_f64().unwrap(), p[1].as_f64().unwrap());
         let ours = moduli::uniaxial(&r.c, PI / 2.0 - t).unwrap().0 * tri_area;
+        samples.push(vec![y, ours]);
         worst = finite_max([worst, (ours - y).abs()]);
     }
     c.at_most("Fig. 7 calculation line (741 points) = equal-weight Young's modulus x triangle area", "max |Y difference|", worst, 0.01);
-    c.paper_curve("fig7", "Young's modulus of the (3, 2) lattice against orientation, times the triangle area", "Fig. 7, calculation line (PDF vector data)", points.len(), "absolute difference in Y, largest", worst, 0.01);
+    c.paper_curve("fig7", "Young's modulus of the (3, 2) lattice against orientation, times the triangle area", "Fig. 7, calculation line (PDF vector data)", samples, "absolute difference in Y, largest", worst, 0.01);
 
     // B4. Eq. (23): honeycomb with soft centre springs. The error is O(k_radial).
     for (kr, tol) in [(1e-3, 5e-3), (1e-6, 1e-5)] {
         let mut worst: f64 = 0.0;
+        let mut samples = Vec::new();
         for i in 1..20 {
             let l = 0.05 * i as f64;
             let r = periodic(spec(LatticeKind::Honeycomb { l, k_radial: kr }), 4);
-            worst = finite_max([worst, (r.uniaxial_x.unwrap().1 - paper::honeycomb_poisson(l)).abs()]);
+            let reference = paper::honeycomb_poisson(l);
+            let computed = r.uniaxial_x.unwrap().1;
+            samples.push(vec![reference, computed]);
+            worst = finite_max([worst, (computed - reference).abs()]);
         }
         c.at_most(&format!("Eq. (23) honeycomb, k_radial = {kr:e} (l = 0.05 ... 0.95)"), "max |nu difference|", worst, tol);
         let id = if kr == 1e-3 { "honey-3" } else { "honey-6" };
-        c.paper_curve(id, &format!("Honeycomb Poisson's ratio, k_radial = {kr:e} (l = 0.05 ... 0.95)"), "Eq. (23), p. 7", 19, "absolute difference in ν, largest", worst, tol);
+        c.paper_curve(id, &format!("Honeycomb Poisson's ratio, k_radial = {kr:e} (l = 0.05 ... 0.95)"), "Eq. (23), p. 7", samples, "absolute difference in ν, largest", worst, tol);
     }
 
     let triangular = periodic(spec(tri(1.0, 1.0)), 4);
@@ -364,6 +386,7 @@ fn part_b(c: &mut Checks) {
     let text = std::fs::read_to_string(dir().join("reference-results/fig5_simulation_digitized.csv")).unwrap();
     let mut outside = 0;
     let mut beyond: f64 = 0.0;
+    let mut samples = Vec::new();
     let mut means = Vec::new();
     for line in text.lines().skip(1) {
         let f: Vec<&str> = line.split(',').collect();
@@ -380,6 +403,7 @@ fn part_b(c: &mut Checks) {
         means.push((eta, m));
         if f[4] == "up" {
             let (lo, hi): (f64, f64) = (f[2].parse().unwrap(), f[3].parse().unwrap());
+            samples.push(vec![eta, lo, hi, m]);
             if !inside_error_bar(m, lo, hi) {
                 outside += 1;
             }
@@ -387,7 +411,9 @@ fn part_b(c: &mut Checks) {
         }
     }
     c.at_most("foam: cross-protocol comparison, periodic nu vs Fig. 5 clamped-strip error bars (eta 0 ... 0.45, 10 markers); not strip validation", "markers outside", outside as f64, 0.0);
-    c.paper_curve("fig5-periodic", "Foam Poisson's ratio ν, periodic mean (10 samples) against the Fig. 5 strip error bars (η = 0 … 0.45); cross-protocol", "Fig. 5, p. 6, simulation markers and error bars (digitized)", 10, "absolute distance outside the error bar, largest", beyond, 0.003);
+    let etas: Vec<_> = samples.iter().map(|sample| sample[0]).collect();
+    assert_eq!(etas, (0..10).map(|i| i as f64 / 20.0).collect::<Vec<_>>());
+    c.paper_curve("fig5-periodic", "Foam Poisson's ratio ν, periodic mean (10 samples) against the Fig. 5 strip error bars (η = 0 … 0.45); cross-protocol", "Fig. 5, p. 6, simulation markers and error bars (digitized)", samples, "absolute distance outside the error bar, largest", beyond, 0.003);
     let cross = means.windows(2).find(|w| w[0].1 > 0.0 && w[1].1 <= 0.0).map(|w| w[0].0 + (w[1].0 - w[0].0) * w[0].1 / (w[0].1 - w[1].1)).unwrap_or(f64::NAN);
     c.at_most("foam: periodic zero crossing vs strip text eta = 0.46 (cross-protocol)", "|eta_0 - 0.46|", (cross - 0.46).abs(), 0.02);
     c.paper_value("zero-crossing", "Disorder η at which the foam's Poisson's ratio crosses zero (periodic; cross-protocol)", "Sec. II C 2, p. 6: ν = 0 at η ≈ 0.46", 0.46, cross, 0.02);
@@ -496,7 +522,6 @@ fn record_comparison_covers_every_field_and_near_zero_noise() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn published_curve_metadata_is_exact() {
     let row = serde_json::json!({"points": 259, "tolerance": 1e-9, "observed": 0.0});
     for (field, value) in [("tolerance", 1.0005e-9), ("points", 259.00000001)] {

@@ -106,7 +106,25 @@ def valid_checks(checks, published=False):
         if not text(c.get("name")) or not text(c.get("source")) or not isinstance(c.get("unit", ""), str):
             return False
         if "reference" not in c and "computed" not in c:
-            return type(c.get("points")) is int and c["points"] >= 2
+            samples = c.get("samples")
+            if (type(c.get("points")) is not int or c["points"] < 2 or not isinstance(samples, list)
+                    or len(samples) != c["points"]):
+                return False
+            distances = []
+            for sample in samples:
+                if not isinstance(sample, list) or not all(finite_number(v) for v in sample):
+                    return False
+                if c["metric"].startswith("absolute distance outside the error bar") and len(sample) == 4:
+                    _, lo, hi, value = sample
+                    if lo > hi:
+                        return False
+                    distances.append(max(0, lo - value, value - hi))
+                elif c["metric"].startswith("absolute difference") and len(sample) == 2:
+                    distances.append(abs(sample[1] - sample[0]))
+                else:
+                    return False
+            expected = max(distances)
+            return expected <= c["tolerance"] and math.isclose(c["observed"], expected, rel_tol=1e-9)
         reference, computed = c.get("reference"), c.get("computed")
         if not finite_number(reference) or not finite_number(computed):
             return False
@@ -117,7 +135,7 @@ def valid_checks(checks, published=False):
             expected = abs(computed - reference) / abs(reference)
         else:
             return False
-        return abs(c["observed"] - expected) <= 1e-9 * max(1.0, expected)
+        return expected <= c["tolerance"] and abs(c["observed"] - expected) <= 1e-9 * max(1.0, expected)
 
     return isinstance(checks, list) and bool(checks) and all(
         isinstance(c, dict) and c.get("passed") is True and

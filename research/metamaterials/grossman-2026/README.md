@@ -108,10 +108,10 @@ Fig. 7 and Eq. (23) as curves (the largest difference over 259, 741 and 19 point
 Fig. 9 at eta = 0 as two values read from the vector data (tolerance 0.005 each, as above), the
 periodic foam against the Fig. 5 error bars as the largest distance outside a bar (tolerance 0.003,
 the digitisation precision), and the zero crossing against the text's 0.46. All of these pass.
-The direct strip comparison with the same Fig. 5 markers, our implementation of the paper's own
-protocol, is in `reference-results/fig5_strip_comparison.json`, in the same schema: four of its ten
-rows fail (see the review notes below). The page shows both files in one table, failures included.
-Because a like-for-like comparison with the paper fails, the catalogue records
+The direct strip comparison with the same Fig. 5 markers is in `reference-results/fig5_strip_comparison.json`, in the same schema: four of its ten
+rows fall outside the digitised error bars and allowance. Our top edge receives a displacement increment,
+whereas the paper prescribes the final coordinates of the top vertices. The page shows both files in one table, failures included.
+With four direct strip comparisons outside their bounds, the catalogue records
 `reproduced_published_results: false` and the status stays `numerically-validated`.
 
 The browser bundle is checked in Node by `wasm/check.mjs` (exact lattice values, Eq. 23, input

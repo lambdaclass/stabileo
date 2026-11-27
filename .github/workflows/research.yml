@@ -158,6 +158,7 @@ jobs:
           "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_required_ci.py
       - run: |
           "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_grossman_catalog.py
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_published_evidence.py
       - run: |
           "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_pastrana_catalog.py
       - run: |
@@ -348,6 +349,7 @@ jobs:
       - name: Compare shell obstacle course native and production WASM results
         run: |
           nix develop -c node research/benchmarks/shell-obstacle-course/wasm/check.mjs "$RUNNER_TEMP/shell-native"
+          nix develop -c python3 -B research/benchmarks/shell-obstacle-course/wasm/test_native.py "$RUNNER_TEMP/shell-native"
       - name: Test shell measurement, projection and editor handoff
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/shell1985'
 

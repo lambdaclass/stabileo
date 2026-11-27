@@ -12,26 +12,22 @@ row = {'name': 'response', 'source': 'paper', 'metric': 'absolute difference', '
 
 
 class PublishedEvidence(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_roundoff_cannot_certify_an_out_of_tolerance_scalar(self):
         for delta, expected in [(0, True), (5e-10, False)]:
             self.assertEqual(catalog.valid_checks([{**row, 'reference': 1, 'computed': 1 + delta}], published=True), expected)
 
-    @unittest.skip("known wrong result: #2505")
     def test_a_point_count_alone_cannot_certify_a_curve(self):
         for data in [{}, {'samples': [[0, 0]]}, {'samples': [[0, 0], [1, 2]]}]:
             with self.subTest(data=data):
                 self.assertFalse(catalog.valid_checks([{**row, 'points': 2, **data}], published=True))
         self.assertTrue(catalog.valid_checks([{**row, 'points': 2, 'samples': [[0, 0], [1, 1]]}], published=True))
 
-    @unittest.skip("known wrong result: #2505")
     def test_fig5_records_the_ten_eta_values_used_for_error_bars(self):
         evidence = json.loads((root / 'metamaterials/grossman-2026/reference-results/published_comparison.json').read_text())
         curve = next(r for r in evidence['checks'] if r['id'] == 'fig5-periodic')
         self.assertEqual([p[0] for p in curve.get('samples', [])], [i / 20 for i in range(10)])
         self.assertEqual(curve['points'], len(curve['samples']))
 
-    @unittest.skip("known wrong result: #2505")
     def test_secondary_comparisons_do_not_certify_heymans_own_paper(self):
         papers = json.loads((root / 'papers.json').read_text())['papers']
         paper = next(p for p in papers if p['id'] == 'heyman-1966')

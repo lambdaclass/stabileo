@@ -65,7 +65,7 @@ def main():
         catalog.get_json = lambda url: {"license": {"spdx_id": "NOASSERTION"}, "content": content}
         errors = []
         catalog.check_links(entry, errors)
-        assert (errors if expected == [] else len(errors)) == expected, errors
+        assert len(errors) == expected, errors
     print("ok   a licence GitHub cannot classify is accepted only when the file holds every clause")
     marked = copy.deepcopy(base)
     marked[0]["crossref"]["title"] = "A <i>phase-field</i> method"
@@ -108,11 +108,11 @@ def main():
             catalog.check_entry(entry, errors)
             assert errors, change
         curve = {k: v for k, v in good_row.items() if k not in ("reference", "computed")}
-        for points, expected in [(37, []), (1, 1), (None, 1)]:
+        for points, expected in [(37, 1), (1, 1), (None, 1)]:
             comparison.write_text(json.dumps({"checks": [{**curve, "points": points}]}))
             errors = []
             catalog.check_entry(entry, errors)
-            assert (errors if expected == [] else len(errors)) == expected, (points, errors)
+            assert len(errors) == expected, (points, errors)
         absolute = {**good_row, "metric": "absolute error", "observed": 0.002}
         comparison.write_text(json.dumps({"checks": [absolute]}))
         errors = []
