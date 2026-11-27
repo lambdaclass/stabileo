@@ -65,8 +65,8 @@ const body: PostBody = {
           "8,2 %"
         ],
         [
-          "0,50 (dikwandig)",
-          "wand van 25,0 mm",
+          "0,50",
+          "wand van 25,0 mm (dikwandig)",
           "0,850",
           "15,0 %"
         ]
