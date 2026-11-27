@@ -15,12 +15,19 @@ import { designData } from '../../store/design-data';
 import { meshQuad } from '../edit/mesh-region';
 import { mergeCollinear } from '../edit/merge-collinear';
 import type { PhysicalData } from '../physical/types';
-import type { SurfaceLoad3D, ThermalLoadQuad3D } from '../../store/model.svelte';
+import type { Load } from '../../store/model.svelte';
+import { canonicalExactJson } from '../../provenance/exact-hash';
 import { plateNodeReferences, retainedPlateNodes } from '../../store/plate-node-references';
 import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, releaseFootprintLinks } from './column-footprints';
 
 type Deferred = ReturnType<typeof physicalGroups>[number] & { physical: PhysicalData & { meshAtSolve: NonNullable<PhysicalData['meshAtSolve']> } };
 const deferred = (): Deferred[] => physicalGroups().filter((g): g is Deferred => g.physical.kind === 'slab' && !!g.physical.meshAtSolve);
+
+export function deferredSlabMeshes() {
+  const waiting: number[] = [], meshed: number[] = [];
+  for (const slab of deferred()) (slab.physical.meshAtSolve.meshed ? meshed : waiting).push(slab.id);
+  return { waiting, meshed };
+}
 
 /**
  * The size a waiting slab is meshed at: its own, and for a waffle slab with its rib system chosen
@@ -52,25 +59,63 @@ export function meshDeferredSlabs(): { slabs: number; shells: number } {
   return out;
 }
 
+type QuadLoad = Extract<Load, { type: 'surface3d' | 'thermalQuad3d' }>;
+
+function panelLoads(quads: readonly number[]): QuadLoad[] | null {
+  const byCell = new Map(quads.map(id => [id, [] as QuadLoad[]]));
+  for (const load of modelStore.loads) {
+    if ((load.type !== 'surface3d' && load.type !== 'thermalQuad3d') || load.data.on) continue;
+    const cell = byCell.get(load.data.quadId);
+    if (!cell) continue;
+    if (load.type === 'surface3d' && load.data.qNodes) {
+      const { qNodes, ...data } = load.data;
+      const q = qNodes[0];
+      if (q === undefined || !Number.isFinite(q) || qNodes.length !== 4 || !qNodes.every(value => value === q)) return null;
+      cell.push({ type: load.type, data: { ...data, q } });
+    } else {
+      cell.push(load);
+    }
+  }
+  let expected: string | undefined;
+  for (const [id, loads] of byCell) {
+    const quad = modelStore.quads.get(id)!;
+    if (quad.curved) return null;
+    const fields = loads.map(({ type, data }) => {
+      const { id: _id, quadId: _target, ...field } = data;
+      return canonicalExactJson([type, field]);
+    }).sort();
+    const signature = canonicalExactJson([quad.materialId, quad.thickness, quad.offset, fields]);
+    if (expected !== undefined && signature !== expected) return null;
+    expected = signature;
+  }
+  return byCell.get(quads[0]!) ?? [];
+}
+
 /**
  * Put meshed slabs back to one shell per panel: the panel's corners, the material, thickness and
  * offset of its shells, the surface and thermal loads they carried (the same per square metre on
  * every shell of the mesh, so the first one's), the beams merged where the mesh had cut them, and
  * the mesh's own nodes removed. `ids` limits it to some slabs; absent, every one.
  */
-export function simplifySlabs(ids?: readonly number[]): { slabs: number; removedNodes: number } {
-  const out = { slabs: 0, removedNodes: 0 };
-  const meshed = deferred().filter((g) => g.physical.meshAtSolve.meshed && (!ids || ids.includes(g.id)));
+export function simplifySlabs(ids?: readonly number[]): { slabs: number; removedNodes: number; refused: string[] } {
+  const out = { slabs: 0, removedNodes: 0, refused: [] as string[] };
+  const meshed = deferred().filter(g => g.physical.meshAtSolve.meshed && (!ids || ids.includes(g.id)));
   if (meshed.length === 0) return out;
+  const plans = meshed.flatMap(g => {
+    const quads = g.members.quads ?? [];
+    const panel = g.physical.meshAtSolve.panel;
+    const valid = quads.length > 0 && !g.members.plates?.length && quads.every(id => modelStore.quads.has(id))
+      && panel.length === 4 && panel.every(id => modelStore.nodes.has(id));
+    const loads = valid ? panelLoads(quads) : null;
+    if (!loads) {
+      out.refused.push(g.name);
+      return [];
+    }
+    return [{ g, quads, panel, loads, first: modelStore.quads.get(quads[0]!)! }];
+  });
+  if (out.refused.length) return out;
   modelStore.batch(() => {
-    for (const g of meshed) {
-      const quads = (g.members.quads ?? []).filter((id) => modelStore.quads.has(id));
-      const panel = g.physical.meshAtSolve.panel;
-      if (quads.length === 0 || panel.length !== 4 || panel.some((n) => !modelStore.nodes.has(n))) continue;
-      const first = modelStore.quads.get(quads[0]!)!;
-      const onFirst = (l: { data: { quadId?: number; on?: string } }) => l.data.quadId === first.id && !l.data.on;
-      const surface = modelStore.loads.filter((l) => l.type === 'surface3d' && onFirst(l as never)).map((l) => l.data as SurfaceLoad3D);
-      const thermal = modelStore.loads.filter((l) => l.type === 'thermalQuad3d' && onFirst(l as never)).map((l) => l.data as ThermalLoadQuad3D);
+    for (const { g, quads, panel, loads, first } of plans) {
       const meshNodes = new Set(quads.flatMap((id) => modelStore.quads.get(id)!.nodes));
       for (const n of panel) meshNodes.delete(n);
       // The column ties the mesh made (`column-footprints.ts`) go with its nodes.
@@ -78,11 +123,9 @@ export function simplifySlabs(ids?: readonly number[]): { slabs: number; removed
       for (const id of quads) modelStore.removeQuad(id);
       const q = modelStore.addQuad(panel as [number, number, number, number], first.materialId, first.thickness);
       if (first.offset) modelStore.setShellOffset('quad', q, first.offset);
-      for (const s of surface) {
-        const { id: _id, quadId: _q, q: qv, caseId, qNodes: _n, ...extra } = s;
-        modelStore.addSurfaceLoad3D(q, qv, caseId, extra);
-      }
-      for (const t of thermal) modelStore.addThermalLoadQuad3D(q, t.dtUniform, t.dtGradient, t.caseId);
+      modelStore.addLoadEntries(loads.map(l => l.type === 'surface3d'
+        ? { type: l.type, data: { ...l.data, quadId: q } }
+        : { type: l.type, data: { ...l.data, quadId: q } }));
       const group = modelStore.model.groups.get(g.id);
       if (group) modelStore.setGroupMembers(g.id, { ...group.members, quads: [q] });
       modelStore.setGroupData(g.id, { ...g.physical, meshAtSolve: { ...g.physical.meshAtSolve, meshed: false } } as unknown as Record<string, unknown>);
@@ -136,13 +179,13 @@ export function slabsWithoutFootprints(): number[] {
 }
 
 /** Re-mesh the slabs `slabsWithoutFootprints` names: back to one shell, then on the footprint grid. */
-export function representFootprints(): { slabs: number } {
+export function representFootprints(): { slabs: number; refused: string[] } {
   const ids = slabsWithoutFootprints();
-  if (ids.length === 0) return { slabs: 0 };
-  let n = 0;
+  const result = { slabs: 0, refused: [] as string[] };
+  if (!ids.length) return result;
   modelStore.batch(() => {
-    simplifySlabs(ids);
-    n = meshDeferredSlabs().slabs;
+    result.refused = simplifySlabs(ids).refused;
+    if (!result.refused.length) result.slabs = meshDeferredSlabs().slabs;
   });
-  return { slabs: n };
+  return result;
 }

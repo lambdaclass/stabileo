@@ -72,7 +72,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
-  'physicalPlateDefinitions', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
@@ -666,6 +666,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (mode !== 'pro' && (quads.length || values(s.plates).length)) f.add('shellsInBasic');
   const physicalPlates = new Set<number>();
   for (const entry of Array.isArray(s.groups) ? s.groups : []) {
+    const group = entry?.[1];
+    const slab = group?.data as { kind?: string; meshAtSolve?: { panel?: unknown } } | undefined;
+    if (group?.kind === 'physicalMember' && slab?.kind === 'slab' && Array.isArray(slab.meshAtSolve?.panel) && slab.meshAtSolve.panel.length === 4) f.add('deferredSlabPanels');
     const surface = plateSurfaceOf({ data: entry?.[1]?.data as Record<string, unknown> });
     if (!surface) continue;
     physicalPlates.add(entry[0]);

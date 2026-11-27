@@ -19,7 +19,7 @@ const grid: StructuralGrid = {
 const panel = () => render(BuildingSlabs, { props: { report() {} } }).body;
 afterEach(() => modelStore.clear());
 
-it.skip('reports the grid slab before and after mesh preparation and reopening (known wrong result: #1928)', () => {
+it('reports the grid slab before and after mesh preparation and reopening', () => {
   modelStore.clear();
   const member = { sectionId: 1, materialId: 1 };
   placeFrame(grid, { x: ['A','B'], y: ['1','2'], levels: ['N0','N1'], columns: member, beamsX: member, beamsY: member });
@@ -31,7 +31,7 @@ it.skip('reports the grid slab before and after mesh preparation and reopening (
   expect(panel()).not.toContain('data-testid="building-slabs-waiting"');
 });
 
-it.skip('excludes independently authored plate cells from the published grid slab simplifier (known wrong result: #1928)', () => {
+it('excludes independently authored plate cells from the published grid slab simplifier', () => {
   modelStore.clear();
   const outline = [[0,0], [3,0], [3,2], [0,2]].map(([x,y]) => modelStore.addNode(x!,y!,0));
   const result = createPlate({ outline, materialId: 1, thickness: 0.15 });
@@ -41,7 +41,7 @@ it.skip('excludes independently authored plate cells from the published grid sla
   expect(panel()).not.toContain('data-testid="building-slabs-simplify"');
 });
 
-it.skip('offers deferred walls only when the wall builder can create them (known wrong result: #1928)', () => {
+it('offers deferred walls only when the wall builder can create them', () => {
   const html = render(BuildingWalls, { props: { meshSize: 1, report() {} } }).body;
   expect(html.includes('data-testid="building-wall-mesh-solve"')).toBe(Boolean(__PUBLIC_FEATURES__.proPlatesUnified));
 });

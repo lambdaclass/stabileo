@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "building.slabs.cannotSimplify": "No se puede reemplazar la malla de {names} por un solo paño sin cambiar sus propiedades o cargas. Se conservó la malla existente.",
   "regulations.name.en1991_1_3": "Eurocódigo — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
   "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 + UK NA ({edition})",

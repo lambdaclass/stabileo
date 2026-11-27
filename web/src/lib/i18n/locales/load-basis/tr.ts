@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "building.slabs.cannotSimplify": "{names} ağı, kabuk özellikleri veya yükleri değişmeden tek panele dönüştürülemiyor. Mevcut ağ korundu.",
   "regulations.name.en1991_1_3": "Eurokod — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
   "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 + UK NA ({edition})",

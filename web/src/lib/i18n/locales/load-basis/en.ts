@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "building.slabs.cannotSimplify": "The mesh of {names} cannot be replaced by one panel without changing its shell properties or loads. The existing mesh has been kept.",
   "regulations.name.en1991_1_3": "Eurocode — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
   "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 + UK NA ({edition})",

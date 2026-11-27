@@ -1,0 +1,38 @@
+{
+  "id": "deferred-slab-cell-edits",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "deferredSlabPanels"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Cell edits on deferred slabs",
+    "es": "Cambios por celda en losas de mallado diferido",
+    "pt": "Edições por célula em lajes de malha diferida",
+    "de": "Zelländerungen an nachträglich vernetzten Decken",
+    "fr": "Modifications par maille des dalles à maillage différé",
+    "tr": "Sonradan ağ oluşturulan döşemelerde hücre düzenlemeleri",
+    "zh": "延后划分网格的楼板单元修改",
+    "hu": "Később hálózott födémek celláinak módosításai"
+  },
+  "explanation": {
+    "en": "If this slab was simplified or remeshed for a column footprint, check its shell loads and offsets against the model before simplification.",
+    "es": "Si se simplificó la losa o se rehízo su malla para la huella de una columna, compará las cargas y excentricidades de las cáscaras con el modelo anterior.",
+    "pt": "Se a laje foi simplificada ou remalhada para a seção de um pilar, confira as cargas e excentricidades das cascas no modelo anterior.",
+    "de": "Wenn die Decke vereinfacht oder für eine Stützenfläche neu vernetzt wurde, vergleichen Sie die Schalenlasten und Exzentrizitäten mit dem vorherigen Modell.",
+    "fr": "Si la dalle a été simplifiée ou remaillée pour une emprise de poteau, comparez les charges et les excentrements des coques au modèle antérieur.",
+    "tr": "Döşeme sadeleştirildiyse veya kolon izi için yeniden ağ oluşturulduysa kabuk yüklerini ve dışmerkezlikleri önceki modelle karşılaştırın.",
+    "zh": "若楼板曾被简化或因柱截面而重新划分网格，请将壳荷载与偏心距同简化前的模型核对。",
+    "hu": "Ha a födémet egyszerűsítették vagy az oszlop keresztmetszete miatt újrahálózták, hasonlítsa össze a héjterheket és külpontosságokat a korábbi modellel."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-deferred-slab-cell-edits.md",
+    "heading": "Loads and properties when simplifying a deferred slab"
+  }
+}

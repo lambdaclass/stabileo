@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "building.slabs.cannotSimplify": "Das Netz von {names} lässt sich nicht durch ein einzelnes Feld ersetzen, ohne Schaleneigenschaften oder Lasten zu ändern. Das vorhandene Netz bleibt erhalten.",
   "regulations.name.en1991_1_3": "Eurocode — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
   "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 + UK NA ({edition})",

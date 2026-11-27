@@ -48,7 +48,7 @@
     // The wall and, asked for, its strip footing with its base stood on the ground: one step.
     modelStore.batch(() => {
       const before = new Set(physicalGroups().map((x) => x.id));
-      res = placeWall(g, { axis, from, to, levelFrom, levelTo, thickness, materialId: buildingUi.concreteId, meshSize, typology, openings, meshAtSolve: meshWhen === 'solve' });
+      res = placeWall(g, { axis, from, to, levelFrom, levelTo, thickness, materialId: buildingUi.concreteId, meshSize, typology, openings, meshAtSolve: __PUBLIC_FEATURES__.proPlatesUnified && meshWhen === 'solve' });
       if (!withStrip || res.created === 0) return;
       const zOf = (id?: string) => levels.find((l) => l.id === id)?.z ?? Infinity;
       const fresh = physicalGroups().filter((x) => x.physical.kind === 'wall' && !before.has(x.id));
@@ -100,12 +100,14 @@
     <label class="bw-check"><input type="checkbox" bind:checked={withStrip} data-testid="building-wall-strip" /> {t('building.withStrip')}</label>
     <label class="bw-check">{t('building.thickness')} <input type="number" min="0.2" step="0.05" bind:value={stripThickness} disabled={!withStrip} /></label>
   </div>
-  <div class="bw-mesh" role="radiogroup" aria-label={t('building.slabs.meshWhen')}>
-    <span>{t('building.slabs.meshWhen')}</span>
-    <label><input type="radio" name="bw-mesh" value="solve" bind:group={meshWhen} data-testid="building-wall-mesh-solve" /> {t('building.slabs.meshAtSolve')}</label>
-    <label><input type="radio" name="bw-mesh" value="now" bind:group={meshWhen} data-testid="building-wall-mesh-now" /> {t('building.slabs.meshNow')}</label>
-  </div>
-  <Hint text={t(meshWhen === 'solve' ? 'building.walls.meshAtSolveHint' : 'building.walls.meshNowHint')} />
+  {#if __PUBLIC_FEATURES__.proPlatesUnified}
+    <div class="bw-mesh" role="radiogroup" aria-label={t('building.slabs.meshWhen')}>
+      <span>{t('building.slabs.meshWhen')}</span>
+      <label><input type="radio" name="bw-mesh" value="solve" bind:group={meshWhen} data-testid="building-wall-mesh-solve" /> {t('building.slabs.meshAtSolve')}</label>
+      <label><input type="radio" name="bw-mesh" value="now" bind:group={meshWhen} data-testid="building-wall-mesh-now" /> {t('building.slabs.meshNow')}</label>
+    </div>
+    <Hint text={t(meshWhen === 'solve' ? 'building.walls.meshAtSolveHint' : 'building.walls.meshNowHint')} />
+  {/if}
   <button class="pk-btn pk-btn-primary" onclick={place} disabled={from === to} data-testid="building-place-wall">{t('building.place')}</button>
 </section>
 

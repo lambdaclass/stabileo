@@ -11,6 +11,7 @@
   import { placeSlabs, type PlaceResult } from '../../../lib/model/building/build-on-grid';
   import { buildingUi } from '../../../lib/store/building-ui.svelte';
   import { clearPlateMesh, physicalPlates, plateStatus } from '../../../lib/store/physical-plates';
+  import { deferredSlabMeshes, simplifySlabs } from '../../../lib/model/building/deferred-slabs';
   import { tp } from '../../../lib/i18n';
 
   let { meshSize = $bindable(1), report }: { meshSize?: number; report: (r: PlaceResult) => void } = $props();
@@ -20,11 +21,31 @@
   let typology = $state('solid'), thickness = $state(0.15), chosen = $state<string[]>([]);
   /** When the analysis mesh is made: at the first solve (the default, the model stays light) or now. */
   let meshWhen = $state<'solve' | 'now'>('solve');
-  const slabs = $derived.by(() => { void modelStore.model.groups; void modelStore.modelVersion; return physicalPlates().filter((p) => p.physical.kind === 'slab').map((p) => ({ id: p.id, status: plateStatus(p.id) })); });
-  const waiting = $derived(slabs.filter((s) => s.status === 'unmeshed').length);
-  const meshed = $derived(slabs.filter((s) => s.status === 'current' || s.status === 'stale'));
+  const meshes = $derived.by(() => {
+    void modelStore.model.groups;
+    void modelStore.modelVersion;
+    if (!__PUBLIC_FEATURES__.proPlatesUnified) return deferredSlabMeshes();
+    const waiting: number[] = [], meshed: number[] = [];
+    for (const plate of physicalPlates()) {
+      if (plate.physical.kind !== 'slab') continue;
+      const status = plateStatus(plate.id);
+      if (status === 'unmeshed') waiting.push(plate.id);
+      if (status === 'current' || status === 'stale') meshed.push(plate.id);
+    }
+    return { waiting, meshed };
+  });
   let simplified = $state<string | null>(null);
-  function simplify() { const ids = meshed.map((s) => s.id); modelStore.batch(() => { for (const id of ids) clearPlateMesh(id); }); simplified = tp('building.slabs.simplified', { n: ids.length }); }
+  function simplify() {
+    const ids = meshes.meshed;
+    if (__PUBLIC_FEATURES__.proPlatesUnified) {
+      modelStore.batch(() => { for (const id of ids) clearPlateMesh(id); });
+      simplified = tp('building.slabs.cleared', { n: ids.length });
+    } else {
+      const result = simplifySlabs(ids);
+      simplified = result.refused.length ? tp('building.slabs.cannotSimplify', { names: result.refused.join(', ') })
+        : tp('building.slabs.simplified', { n: result.slabs });
+    }
+  }
   const toggle = (id: string) => (chosen = chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]);
   /** Every level above the lowest, unless some are chosen. */
   const onLevels = () => (chosen.length > 0 ? chosen : levels.slice(1).map((l) => l.id));
@@ -53,11 +74,11 @@
   </div>
   <p class="pk-hint">{t('building.levelsDefault')}</p>
   <button class="pk-btn pk-btn-primary" onclick={place} data-testid="building-place-slabs">{t('building.place')}</button>
-  {#if waiting > 0}<p class="pk-hint" data-testid="building-slabs-waiting">{tp('building.slabs.waiting', { n: waiting })}</p>{/if}
-  {#if meshed.length > 0}
+  {#if meshes.waiting.length}<p class="pk-hint" data-testid="building-slabs-waiting">{tp('building.slabs.waiting', { n: meshes.waiting.length })}</p>{/if}
+  {#if meshes.meshed.length}
     <div class="bs-simplify">
-      <span class="pk-hint">{tp('building.slabs.meshedCount', { n: meshed.length })}</span>
-      <button class="pk-btn" onclick={simplify} data-testid="building-slabs-simplify">{t('building.slabs.simplify')}</button>
+      <span class="pk-hint">{tp(__PUBLIC_FEATURES__.proPlatesUnified ? 'building.slabs.withMesh' : 'building.slabs.meshedCount', { n: meshes.meshed.length })}</span>
+      <button class="pk-btn" onclick={simplify} data-testid="building-slabs-simplify">{t(__PUBLIC_FEATURES__.proPlatesUnified ? 'building.slabs.clearMesh' : 'building.slabs.simplify')}</button>
     </div>
   {/if}
   {#if simplified}<p class="pk-hint" role="status">{simplified}</p>{/if}

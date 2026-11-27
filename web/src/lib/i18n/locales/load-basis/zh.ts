@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "building.slabs.cannotSimplify": "若将 {names} 的网格替换为单个板块，壳属性或荷载将发生变化。已保留现有网格。",
   "regulations.name.en1991_1_3": "欧洲规范 EN 1991-1-3（{edition}）",
   "regulations.name.en1990Uk": "BS EN 1990 及英国国家附件（{edition}）",
   "regulations.name.en1991_1_1Uk": "BS EN 1991-1-1 及英国国家附件（{edition}）",

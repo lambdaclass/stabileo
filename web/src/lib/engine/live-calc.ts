@@ -329,6 +329,13 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
 
 type ProgressStep = (phase: Exclude<SolvePhase, 'done' | 'failed'>, done?: number, total?: number) => void;
 
+function refuseSpatialMesh(error: string): GlobalSolveOutcome {
+  nextSolveGuard();
+  resultsStore.clear3D();
+  uiStore.toast(error, 'error');
+  return { ok: false, error };
+}
+
 async function globalSolve(options: { directBase?: boolean }, run: { latest: () => boolean; step: ProgressStep }): Promise<GlobalSolveOutcome> {
   const startedAt = performance.now();
   cancelPendingLiveCalc?.();
@@ -342,6 +349,7 @@ async function globalSolve(options: { directBase?: boolean }, run: { latest: () 
       // A slab meshed before its columns' sections were represented is meshed again with them
       // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.
       const f = representFootprints();
+      if (f.refused.length) return refuseSpatialMesh(tp('building.slabs.cannotSimplify', { names: f.refused.join(', ') }));
       if (f.slabs > 0) uiStore.toast(tp('building.slabs.footprintsAtSolve', { n: f.slabs }), 'info');
       const m = meshDeferredSlabs();
       if (m.slabs > 0) uiStore.toast(tp('building.slabs.meshedAtSolve', { n: m.slabs, shells: m.shells }), 'info');
@@ -358,10 +366,7 @@ async function globalSolve(options: { directBase?: boolean }, run: { latest: () 
         localLoads: 'plates.analysisLocalLoads',
         refused: 'plates.analysisMeshRefused',
       }[p.reason], { names: p.plates.join(', ') });
-      nextSolveGuard();
-      resultsStore.clear3D();
-      uiStore.toast(error, 'error');
-      return { ok: false, error };
+      return refuseSpatialMesh(error);
     }
     if (p.stale?.length) uiStore.toast(tp('plates.analysisStale', { names: p.stale.join(', ') }), 'info', undefined, true);
     if (p.meshed > 0) {

@@ -105,6 +105,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
         if (!proPlatesUnified) {
           if (/^plates\.(?:firstSide|drawingLabel|qualityGood|qualityPoor|qualityHint|planTotalOnly|localLoadsWarnOne|keptNodesNoteOne|remeshNote(?:One|Some|All))$/.test(key)) return false;
           if (/^plates\.(?:state\.|summary\.|(?:meshHeading|filterKind|kindAll|kindSlabs|kindWalls|filterLevel|allLevels|nSelectedOf|selectAll|scopePlates|scopeElements|elementsNote|header)$)/.test(key)) return false;
+          if (/^building\.(?:walls\.mesh(?:AtSolve|Now)Hint|slabs\.(?:withMesh|clearMesh|cleared))$/.test(key)) return false;
           if (key.startsWith('diag.reviewSummary')) return false;
           if (key === 'file.workspaceNoticeClose') return false;
           if (/^loads\.(asce7|ec|tr)\./.test(key)) return false;
