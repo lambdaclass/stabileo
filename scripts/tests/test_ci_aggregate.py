@@ -381,6 +381,25 @@ class ParityWorkflow(unittest.TestCase):
             with self.subTest(base=base):
                 self.parity(merge, f'BASE={base}', 'REQUIRE_PARITY=1')
 
+    @unittest.skip('known wrong result: merging the target rejects an already published change')
+    def test_integration_merging_target_retires_only_changes_already_on_both_sides(self):
+        self.git('switch', '--quiet', '--detach', self.target)
+        (self.repo / 'web/page').write_text('candidate page\n')
+        target = self.commit('Target lands the same page')
+        self.git('switch', '--quiet', '--detach', self.head)
+        self.git('merge', '--quiet', '--no-ff', target, '-m', 'Integrate the new target')
+        merge = self.git('rev-parse', 'HEAD')
+        self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1')
+
+    def test_target_merge_does_not_validate_a_declaration_for_a_target_only_edit(self):
+        self.git('switch', '--quiet', '--detach', self.head)
+        self.commit('Declare a file changed only on target', '--allow-empty', '-m',
+                    'Production-Change: web/package.json')
+        self.git('merge', '--quiet', '--no-ff', self.target, '-m', 'Integrate the target')
+        merge = self.git('rev-parse', 'HEAD')
+        result = self.parity(merge, f'BASE={self.target}', 'REQUIRE_PARITY=1', succeeds=False)
+        self.assertIn('Production-Change trailers must name actual changed paths', result.stderr)
+
     def test_target_only_edit_cannot_validate_a_pr_declaration(self):
         self.git('switch', '--quiet', '--detach', self.head)
         head = self.commit('Declare a path untouched by the PR', '--allow-empty', '-m',
