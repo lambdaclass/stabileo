@@ -12,10 +12,14 @@ fn check(id: &str, metric: &str, observed: f64, tolerance: f64) -> Value {
     json!({"id": id, "metric": metric, "observed": observed, "tolerance": tolerance, "passed": observed.is_finite() && observed <= tolerance})
 }
 
-fn row(id: &str, name: String, source: String, unit: &str, reference: f64, computed: f64, tolerance: f64) -> Value {
-    let observed = (computed - reference).abs();
-    json!({"id": id, "name": name, "source": source, "unit": unit, "reference": reference, "computed": computed,
-        "metric": "absolute difference", "observed": observed, "tolerance": tolerance, "passed": observed <= tolerance})
+fn row(id: &str, name: String, source: String, unit: &str, reference: Option<f64>, computed: Option<f64>, tolerance: f64) -> Value {
+    let observed = reference.zip(computed).map(|(r, c)| (c - r).abs());
+    let mut result = json!({"id": id, "name": name, "source": source, "unit": unit, "reference": reference, "computed": computed,
+        "metric": "absolute difference", "observed": observed, "tolerance": tolerance, "passed": observed.is_some_and(|e| e <= tolerance)});
+    if observed.is_none() {
+        result["status"] = json!("unresolved");
+    }
+    result
 }
 
 fn close(a: &Value, b: &Value, path: &str) -> Result<(), String> {
@@ -50,9 +54,11 @@ fn main() {
             heights.insert(format!("{span}-{b}"), json!({"stabileo": ours, "elastica": reference}));
             checks.push(check(&format!("elastica-{span}-{b}"), &format!("B = {span}L, a = {CUT}, b = {b}, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference"), ((ours - reference) / reference).abs(), 1e-3));
             let panel = digitized["panels"].as_array().unwrap().iter().find(|p| p["B_over_L"] == json!(span) && p["b"] == json!(b)).unwrap();
-            let first = panel["experiment"].as_array().unwrap().iter().min_by(|p, q| p[0].as_f64().unwrap().partial_cmp(&q[0].as_f64().unwrap()).unwrap()).unwrap();
-            rows.push(row(&format!("height-{span}-{b}"), format!("Unloaded midpoint height, B = {span}L, a = {CUT}, b = {b}, measured"),
-                format!("{SOURCE}, {}, measured heights, digitized", figure(span, b)), "mm", first[1].as_f64().unwrap(), ours, HEIGHT_TOLERANCE));
+            let zero = panel["experiment"].as_array().unwrap().iter()
+                .filter(|p| p[0].as_f64().unwrap().abs() <= 2.0 * 0.005)
+                .min_by(|p, q| p[0].as_f64().unwrap().abs().total_cmp(&q[0].as_f64().unwrap().abs()));
+            rows.push(row(&format!("height-{span}-{b}"), format!("Unloaded midpoint height, B = {span}L, a = {CUT}, b = {b}"),
+                format!("{SOURCE}, {}, measured heights, digitized", figure(span, b)), "mm", zero.and_then(|p| p[1].as_f64()), Some(ours), HEIGHT_TOLERANCE));
         }
     }
     let strip = Strip { a: CUT, b: 0.5 };
@@ -62,17 +68,20 @@ fn main() {
 
     for (span, b, back) in [(0.5, 0.2, false), (0.5, 0.5, false), (0.5, 0.5, true), (0.75, 0.2, false)] {
         let cycle = load_cycle(&Strip { a: CUT, b }, span * LENGTH, 4.0, STEP, 10.0).unwrap();
-        let snaps = cycle["snaps"].as_array().unwrap();
-        let big: Vec<&Value> = snaps.iter().filter(|s| (s["to"].as_f64().unwrap() - s["from"].as_f64().unwrap()).abs() > 50.0).collect();
-        let snap = if back { big.iter().find(|s| s["to"].as_f64().unwrap() > s["from"].as_f64().unwrap()) } else { big.first() };
-        let lost = (!back).then(|| cycle["lost_at"].as_f64()).flatten();
-        let computed = snap.map(|s| s["load"].as_f64().unwrap()).or(lost).unwrap_or(f64::NAN);
+        let computed = cycle["points"].as_array().unwrap().windows(2).find_map(|pair| {
+            let previous = &pair[0];
+            let next = &pair[1];
+            let load = next[0].as_f64()?;
+            let increment = load - previous[0].as_f64()?;
+            let rise = next[1].as_f64()? - previous[1].as_f64()?;
+            ((back && increment < 0.0 && rise > 50.0) || (!back && increment > 0.0 && rise < -50.0)).then_some(load)
+        });
         let panel = digitized["panels"].as_array().unwrap().iter().find(|p| p["B_over_L"] == json!(span) && p["b"] == json!(b)).unwrap();
         let loads = panel["unstable_curve"].as_array().unwrap().iter().map(|p| p[0].as_f64().unwrap());
         let reference = if back { loads.fold(f64::INFINITY, f64::min) } else { loads.fold(0.0, f64::max) };
         let kind = if back { "Snap-back load" } else { "Snap-through load" };
         rows.push(row(&format!("{}-{span}-{b}", if back { "snap-back" } else { "snap-through" }), format!("{kind}, B = {span}L, a = {CUT}, b = {b}"),
-            format!("{SOURCE}, {}, end of the unstable branch, digitized", figure(span, b)), "N", reference, computed, LOAD_TOLERANCE));
+            format!("{SOURCE}, {}, end of the unstable branch, digitized", figure(span, b)), "N", Some(reference), computed, LOAD_TOLERANCE));
     }
 
     let validation = json!({
@@ -82,7 +91,7 @@ fn main() {
     });
     let comparison = json!({
         "reproduced_published_results": false,
-        "scope": "Measured unloaded heights and the snap loads of the computed curves in Figures 10 and 11 (a = 0.5), digitized from the preprint. Failing rows stay listed; the README explains them.",
+        "scope": "Zero-load heights where a measured marker lies within digitization uncertainty, and directional snap loads of the computed curves in Figures 10 and 11 (a = 0.5), digitized from the preprint. A missing zero-load marker or unobserved jump leaves the comparison unresolved.",
         "checks": rows,
     });
     let mut stale = false;

@@ -81,16 +81,16 @@ branch (red) gives its snap-through and snap-back loads.
 
 | Case (a = 0.5) | Quantity | Paper | Ours | Difference |
 |---|---|---|---|---|
-| B = 0.5L, b = 0.2 | unloaded height (measured) | 125.6 mm | 125.8 mm | +0.2 mm |
-| B = 0.5L, b = 0.2 | snap-through load | 2.98 N | 2.85 N | −4.4 % |
-| B = 0.5L, b = 0.5 | unloaded height (measured) | 126.0 mm | 125.7 mm | −0.3 mm |
+| B = 0.5L, b = 0.2 | unloaded height (measured) | No zero-load marker | 125.8 mm | — |
+| B = 0.5L, b = 0.2 | snap-through load | 2.98 N | Unresolved | — |
+| B = 0.5L, b = 0.5 | unloaded height (measured) | No zero-load marker | 125.7 mm | — |
 | B = 0.5L, b = 0.5 | snap-through load | 2.22 N | 2.05 N | −7.7 % |
 | B = 0.5L, b = 0.5 | snap-back load | 0.96 N | 0.95 N | −1.4 % |
-| B = 0.5L, b = 0.8 | unloaded height (measured) | 124.4 mm | 124.1 mm | −0.3 mm |
-| B = 0.75L, b = 0.2 | unloaded height (measured) | 88.4 mm | 86.6 mm | −1.8 mm |
+| B = 0.5L, b = 0.8 | unloaded height (measured) | No zero-load marker | 124.1 mm | — |
+| B = 0.75L, b = 0.2 | unloaded height (measured) | No zero-load marker | 86.6 mm | — |
 | B = 0.75L, b = 0.2 | snap-through load | 1.64 N | 1.55 N | −5.3 % |
-| B = 0.75L, b = 0.5 | unloaded height (measured) | 86.8 mm | 85.7 mm | −1.1 mm |
-| B = 0.75L, b = 0.8 | unloaded height (measured) | 84.1 mm | 82.0 mm | −2.1 mm |
+| B = 0.75L, b = 0.5 | unloaded height (measured) | No zero-load marker | 85.7 mm | — |
+| B = 0.75L, b = 0.8 | unloaded height (measured) | No zero-load marker | 82.0 mm | — |
 
 The b = 0.8 cases (and b = 0.5 at 0.75L) have no snap in either the paper or our runs. Against
 the measured heights at each load step our curves differ by 7 to 23 mm on average. The largest
@@ -109,7 +109,7 @@ symmetry-breaking bifurcations) has not been run.
 
 - Arc-length from a start state with prescribed rotations, to trace the unstable
   branches drawn in red and choose the post-snap branch.
-- The snap-through loads come out 4–8 % low: check the self-weight distribution and
+- The two resolved snap-through loads come out below the paper values: check the self-weight distribution and
   the effective-width rule near the cut corners.
 - B = 0.25L with branch switching; then a page.
 
@@ -135,29 +135,28 @@ increments.
 
 | Row | Paper | Stabileo | Difference | Tolerance |
 |---|---:|---:|---:|---:|
-| Unloaded height, B = 0.5L, b = 0.2 (measured) | 125.6 mm | 125.81 mm | 0.21 mm | 0.7 mm |
-| Unloaded height, B = 0.5L, b = 0.5 (measured) | 126.0 mm | 125.74 mm | 0.26 mm | 0.7 mm |
-| Unloaded height, B = 0.5L, b = 0.8 (measured) | 124.4 mm | 124.15 mm | 0.25 mm | 0.7 mm |
-| Unloaded height, B = 0.75L, b = 0.2 (measured) | 88.4 mm | 86.60 mm | 1.80 mm ✗ | 0.7 mm |
-| Unloaded height, B = 0.75L, b = 0.5 (measured) | 86.8 mm | 85.70 mm | 1.10 mm ✗ | 0.7 mm |
-| Unloaded height, B = 0.75L, b = 0.8 (measured) | 84.1 mm | 82.00 mm | 2.10 mm ✗ | 0.7 mm |
-| Snap-through load, B = 0.5L, b = 0.2 | 2.977 N | 2.85 N | 0.127 N ✗ | 0.06 N |
+| Unloaded height, B = 0.5L, b = 0.2 (measured) | No zero-load marker | 125.81 mm | — | 0.7 mm |
+| Unloaded height, B = 0.5L, b = 0.5 (measured) | No zero-load marker | 125.74 mm | — | 0.7 mm |
+| Unloaded height, B = 0.5L, b = 0.8 (measured) | No zero-load marker | 124.15 mm | — | 0.7 mm |
+| Unloaded height, B = 0.75L, b = 0.2 (measured) | No zero-load marker | 86.60 mm | — | 0.7 mm |
+| Unloaded height, B = 0.75L, b = 0.5 (measured) | No zero-load marker | 85.70 mm | — | 0.7 mm |
+| Unloaded height, B = 0.75L, b = 0.8 (measured) | No zero-load marker | 82.00 mm | — | 0.7 mm |
+| Snap-through load, B = 0.5L, b = 0.2 | 2.977 N | Unresolved | — | 0.06 N |
 | Snap-through load, B = 0.5L, b = 0.5 | 2.221 N | 2.05 N | 0.171 N ✗ | 0.06 N |
 | Snap-back load, B = 0.5L, b = 0.5 | 0.963 N | 0.95 N | 0.013 N | 0.06 N |
 | Snap-through load, B = 0.75L, b = 0.2 | 1.637 N | 1.55 N | 0.087 N ✗ | 0.06 N |
 
 Tolerances: heights, the paper's stated ±0.5 mm measurement uncertainty plus about one pixel of
 the 400 dpi digitization (0.12–0.2 mm on the height axis); loads, our 0.05 N load step (the
-first load without a nearby equilibrium, or with a jump, bounds the limit from above) plus about
-two pixels on the load axis (0.004–0.005 N each). Our snap-through value is the first such load.
+first converged step with a directional jump locates the jump to within one increment) plus about
+two pixels on the load axis (0.004–0.005 N each). A failed solve leaves the snap load unresolved.
 
-The heights agree at B = 0.5L. At B = 0.75L our strip is 1.1 to 2.1 mm lower than measured,
-while it matches the exact elastica of the same model to 0.01 mm: the difference is between the
-model and the experiment, or in the inputs (self-weight, clamp length), not in the solver.
-The snap-through loads are 4 to 8 % below the paper's computed curves, also with the exact model
-behind the engine at zero load; the paper's own continuation method, its treatment of the
-cut-corner triangles and its self-weight distribution are the candidates. These stay as failing
-rows. The status is `numerically-validated`, with `reproduced_published_results: false`.
+The six lowest-load experimental markers lie at 0.037–0.038 N. None is within the two-pixel
+uncertainty of zero, so a comparison of measured and calculated unloaded height is unavailable.
+The largest absolute difference between the two model predictions at zero load is 0.0133 mm
+when rounded up. The measured downward jumps for the other two cases lie below the paper's
+computed limit loads. The catalog records `numerically-validated` and
+`reproduced_published_results: false`.
 
 **No page yet.** The page, its WASM bundle, the replay and eight locales are the next step; the
 crate has the interfaces a page needs (`prepare`, `load_cycle`, `loaded_height`).

@@ -117,13 +117,26 @@ pub fn prepare(strip: &Strip, span: f64) -> Result<State, String> {
     s.go(strip.model(PI / 2.0, Some(span), 1.0, 0.0), 4)
 }
 
+fn load_steps(load: f64, step: f64) -> Result<usize, String> {
+    let count = (load.abs() / step).ceil();
+    if !step.is_finite() || step <= 0.0 || !load.is_finite() || count >= usize::MAX as f64 {
+        return Err("invalid load or increment".into());
+    }
+    Ok(count as usize)
+}
+
 /// Midpoint height under a midspan load raised from zero in `step` increments on the branch the
 /// strip starts on.
 pub fn loaded_height(strip: &Strip, span: f64, load: f64, step: f64) -> Result<f64, String> {
+    let steps = load_steps(load, step)?;
     let mut s = prepare(strip, span)?;
-    let steps = (load / step).round().max(1.0) as usize;
     for k in 1..=steps {
-        s = s.go(strip.model(PI / 2.0, Some(span), 1.0, load * k as f64 / steps as f64), 2)?;
+        let next = s.go(strip.model(PI / 2.0, Some(span), 1.0, load * (k as f64 / steps as f64)), 2)?;
+        let movement = (next.height() - s.height()).abs();
+        if !movement.is_finite() || movement > 10.0 {
+            return Err("continuity of the initial equilibrium branch could not be established".into());
+        }
+        s = next;
     }
     Ok(s.height())
 }
@@ -132,17 +145,16 @@ pub fn loaded_height(strip: &Strip, span: f64, load: f64, step: f64) -> Result<f
 /// experiments; a step whose midpoint moves more than `jump` mm is a snap, and
 /// a load with no equilibrium found from the previous state ends the cycle.
 pub fn load_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, jump: f64) -> Result<serde_json::Value, String> {
+    let steps = load_steps(max_load, step)?;
+    if max_load < 0.0 || !jump.is_finite() || jump <= 0.0 { return Err("invalid load cycle".into()); }
     let mut s = prepare(strip, span)?;
-    let mut load = 0.0f64;
     let mut points = vec![[0.0, s.height()]];
     let mut snaps = vec![];
     let mut lost = serde_json::Value::Null;
-    'cycle: for sign in [1.0f64, -1.0] {
-        loop {
-            let next = ((load + sign * step) / step).round() * step;
-            if next > max_load + 1e-9 || next < -1e-9 {
-                break;
-            }
+    'cycle: for loading in [true, false] {
+        for k in 1..=steps {
+            let index = if loading { k } else { steps - k };
+            let next = (step * index as f64).min(max_load);
             let model = strip.model(PI / 2.0, Some(span), 1.0, next);
             let Ok(n) = s.go(model.clone(), 2).or_else(|_| s.go(model, 50)) else {
                 lost = json!(next);
@@ -152,9 +164,25 @@ pub fn load_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, jump: f64)
                 snaps.push(json!({"load": next, "from": s.height(), "to": n.height()}));
             }
             s = n;
-            load = next;
-            points.push([load, s.height()]);
+            points.push([next, s.height()]);
         }
     }
     Ok(json!({"a": strip.a, "b": strip.b, "span": span, "points": points, "snaps": snaps, "lost_at": lost}))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::load_steps;
+
+    #[test]
+    fn signed_subdivisions_respect_the_requested_spacing() {
+        for load in [-1.0, 1.0] {
+            assert_eq!(load_steps(load, 0.4).unwrap(), 3);
+            assert_eq!(load_steps(load, 0.25).unwrap(), 4);
+        }
+        assert_eq!(load_steps(0.0, 0.1).unwrap(), 0);
+        for load in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(load_steps(load, 0.1).is_err());
+        }
+    }
 }
