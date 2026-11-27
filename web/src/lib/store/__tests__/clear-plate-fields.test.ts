@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, expect, it } from 'vitest';
 import { initSolver } from '../../engine/wasm-solver';
 import { createArc, remakeArc } from '../curved-members';
 import { modelStore, uiStore } from '../index';
-import { applyPlateMeshes, clearPlateMesh, createPlate, deletePlate, planPlateMesh, plateLoadDefs, plateShellKeys } from '../physical-plates';
+import { applyPlateMeshes, applyPlateMeshesAsync, clearPlateMesh, createPlate, deletePlate, planPlateMesh, plateLoadDefs, plateShellKeys } from '../physical-plates';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); uiStore.analysisMode = 'pro'; });
@@ -22,11 +22,14 @@ function pressure(key: string, q: number) {
 }
 
 for (const element of ['quad', 'tri'] as const) {
-  it.skip.each(['pressure', 'offset'] as const)('known wrong result: #2461 clearing a ' + element + ' mesh retains a cell-specific %s', field => {
+  it.skip.each(['pressure', 'offset', 'thickness'] as const)('known wrong result: #2461 clearing a ' + element + ' mesh retains a cell-specific %s', field => {
     const { id, keys } = panel(element);
     const key = keys.at(-1)!;
     if (field === 'pressure') pressure(key, -2);
-    else modelStore.setShellOffset(key[0] === 'p' ? 'plate' : 'quad', Number(key.slice(1)), { frame: 'local', x: 0, y: 0, z: 0.1 });
+    else if (field === 'thickness') {
+      const update = key[0] === 'p' ? modelStore.updatePlate : modelStore.updateQuad;
+      update(Number(key.slice(1)), { thickness: 0.25 });
+    } else modelStore.setShellOffset(key[0] === 'p' ? 'plate' : 'quad', Number(key.slice(1)), { frame: 'local', x: 0, y: 0, z: 0.1 });
     const original = modelStore.snapshot();
     expect.soft(clearPlateMesh(id)).toMatchObject({ refused: ['Loaded panel'] });
     expect(modelStore.snapshot()).toEqual(original);
@@ -55,4 +58,30 @@ it.skip('known wrong result: #2461 changing an arc preserves the touching plate 
   const before = modelStore.snapshot();
   expect.soft(remakeArc(arcId, { segments: 6 })).toMatchObject({ platesCleared: 0, refused: ['Loaded panel'] });
   expect(modelStore.snapshot()).toEqual(before);
+});
+
+
+it.skip.each(['quad', 'tri'] as const)('known wrong result: #2461 preserves local %s stiffness during synchronous and asynchronous replacement', async element => {
+  const { id, keys } = panel(element);
+  const shell = Number(keys.at(-1)!.slice(1));
+  const update = element === 'quad' ? modelStore.updateQuad : modelStore.updatePlate;
+  const shells = () => element === 'quad' ? modelStore.quads : modelStore.plates;
+  const nodes = shells().get(shell)!.nodes.slice().sort();
+  update(shell, { thickness: 0.25 });
+  for (const apply of [applyPlateMeshes, applyPlateMeshesAsync]) {
+    expect((await apply([planPlateMesh(id)!])).plates).toBe(1);
+    const saved = [...shells().values()].find(cell => JSON.stringify(cell.nodes.slice().sort()) === JSON.stringify(nodes));
+    expect.soft(saved?.thickness).toBe(0.25);
+  }
+});
+
+it.skip('known wrong result: #2461 checks an entire selection before clearing either mesh', () => {
+  const empty = panel('quad'), loaded = panel('quad', 8);
+  pressure(loaded.keys[0]!, -2);
+  const before = modelStore.snapshot();
+  expect.soft(clearPlateMesh([empty.id, loaded.id])).toMatchObject({ refused: ['Loaded panel'] });
+  expect(modelStore.snapshot()).toEqual(before);
+  deletePlate(loaded.id);
+  expect(clearPlateMesh([empty.id])).not.toHaveProperty('refused');
+  expect(plateShellKeys(empty.id)).toHaveLength(0);
 });

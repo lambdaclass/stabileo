@@ -25,11 +25,11 @@ export const switchOnUnitFiles = [
   'src/lib/model/code/__tests__/model-code-frame.test.ts',
   'src/lib/model/loads/__tests__/load-frame.test.ts',
   'src/lib/store/__tests__/auth-store.test.ts',
-  'src/lib/store/__tests__/clear-plate-fields.test.ts',
   'src/lib/tracking/__tests__/activity.test.ts',
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/lib/store/__tests__/clear-plate-fields.test.ts',
   'src/lib/model/foundation/__tests__/generate.test.ts',
   'src/lib/store/__tests__/bulk-model-inventory.test.ts',
   'src/lib/engine/design/__tests__/column-end-zones.test.ts',
