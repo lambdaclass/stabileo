@@ -1,0 +1,33 @@
+import { afterEach, expect, it } from 'vitest';
+import { render } from 'svelte/server';
+import { setPublicLocale } from '../../../../lib/i18n/store.svelte';
+import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
+import { fieldName } from '../../i18n';
+import Heyman from '../../heyman1966/ArchPage.svelte';
+import Shape from '../../feher2026/ShapePage.svelte';
+import { strings as arch } from '../../dadeppo1975/i18n';
+import { shapeStrings } from '../../feher2026/strings';
+import { archInput } from '../../dadeppo1975/case';
+
+afterEach(() => setPublicLocale('en'));
+it.skip('known wrong result: #2505 — credits the source of the masonry comparisons in the verdict', () => {
+  expect(render(Heyman).body.match(/<dl class="rs-verify[^"]*">.*?<\/dl>/s)?.[0]).toContain('Rizzi');
+});
+
+it.skip.each(PUBLIC_LOCALES)('known wrong result: #2505 — displays circle target and verdict, and mesh-specific path length in %s', locale => {
+  setPublicLocale(locale);
+  const row = render(Shape).body.split(shapeStrings().arcNote)[1]?.split('</p>')[0];
+  expect(row).toMatch(/\b0\b/);
+  expect(row).toContain('✓');
+  expect(arch[locale].fullPath).toContain('{n}');
+  expect(arch[locale].fullPath.replace('{n}', String(archInput(80).maxSteps))).toContain('200');
+});
+
+it.skip.each(['de', 'fr', 'tr'] as const)('known wrong result: #2505 — localizes all three research fields in %s', locale => {
+  for (const field of ['differentiable-fem', 'constitutive', 'digital-twins']) {
+    setPublicLocale('en');
+    const english = fieldName(field);
+    setPublicLocale(locale);
+    expect(fieldName(field)).not.toEqual(english);
+  }
+});

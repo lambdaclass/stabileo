@@ -45,3 +45,23 @@ test('an interrupted custom plate has no measured field', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('data-plate-terminated', 'true');
   await expect(page.getByTestId('navier-source')).toContainText(/stop|interrupt/i);
 });
+
+test.skip('known wrong result: #2505 — the Fairclough paper row sends a live request', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.Worker = class {
+      postMessage() { document.documentElement.dataset.liveLayout = 'requested'; }
+      terminate() {}
+    } as unknown as typeof Worker;
+  });
+  await page.goto('/en/research/optimisation/fairclough-2026/');
+  await page.locator('.rs-xlink').filter({ hasText: '1.65' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-live-layout', 'requested');
+});
+
+test.skip('known wrong result: #2505 — thin plate warns when the predicted displacement exceeds its thickness', async ({ page }) => {
+  await page.goto('/en/research/benchmarks/navier-plate/');
+  await page.getByTestId('navier-t').selectOption('0.02');
+  await expect(page.getByTestId('navier-small-deflection')).toContainText(/thickness/i);
+  await page.getByTestId('navier-t').selectOption('0.1');
+  await expect(page.getByTestId('navier-small-deflection')).toHaveCount(0);
+});
