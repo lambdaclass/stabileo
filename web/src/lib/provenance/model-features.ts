@@ -43,6 +43,7 @@ import { is3DWorkspace } from '../utils/workspace';
 import { ignoresAdoptedReinforcement, inactivePlacementRules } from '../model/ignored-adoption';
 import { findOccupancy } from '../codes/cirsoc101/live-loads';
 import type { ZoneUse } from '../model/use-zones';
+import { AXIS_TOLERANCE, inwardFooting } from '../model/foundation/support-axes';
 import { globalAxes, unifiedPlates } from '../features';
 import { GRAVITY_SELF_WEIGHT, type AnalysisSettings, type SelfWeightLoad } from '../engine/analysis-settings';
 import { planarSelfWeightComponents, resolveSelfWeightScope, selfWeightFor } from '../engine/self-weight';
@@ -75,7 +76,7 @@ export const FEATURE_IDS = [
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
   'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
-  'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
+  'shortOffAxisStrap', 'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'unpublishedZoneLiveLoads', 'possibleOccupancySubstitution', 'magnitudeCombinations',
@@ -244,6 +245,29 @@ export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && 
 
 function hasLoadType(load: FeatureLoad): load is FeatureLoad & { type: string } {
   return typeof load.type === 'string';
+}
+
+function hasShortOffAxisStrap(s: FeatureSnapshot, nodeById: ReadonlyMap<number, { x: number; y: number }>): boolean {
+  if (!Array.isArray(s.footings) || !s.footings.length) return false;
+  type StrapFooting = { nodeId: number; anchor?: [number, number]; straps?: { toFootingId: number; nodeId?: number }[] };
+  const footings = new Map<number, StrapFooting>();
+  for (const row of s.footings ?? []) if (Array.isArray(row) && row[1] && typeof row[1] === 'object') footings.set(row[0], row[1] as StrapFooting);
+  for (const footing of footings.values()) {
+    if (!Array.isArray(footing?.straps) || !Array.isArray(footing.anchor)) continue;
+    const origin = nodeById.get(footing.nodeId);
+    if (!origin) continue;
+    for (const strap of footing.straps) {
+      const id = strap?.nodeId ?? footings.get(strap?.toFootingId)?.nodeId;
+      const target = id === undefined ? undefined : nodeById.get(id);
+      if (!target || id === undefined) continue;
+      const dx = target.x - origin.x, dy = target.y - origin.y;
+      for (const dir of [[footing.anchor[0], 0], [0, footing.anchor[1]]] as [number, number][]) {
+        const along = -dx * dir[0] - dy * dir[1], across = Math.abs(dx * dir[1] - dy * dir[0]);
+        if (along > AXIS_TOLERANCE && across <= AXIS_TOLERANCE && !inwardFooting({ id: footing.nodeId, ...origin }, dir, [{ id, ...target }])) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function orphanedBatchAssignment(s: FeatureSnapshot, loads: readonly FeatureLoad[], constraints: readonly Record<string, unknown>[]): boolean {
@@ -803,6 +827,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (f.has('space3D') && elements.some(e => e.behaviour === 'inactive')) f.add('inactiveSpatialMembers');
   const elementById = new Map(elements.map(e => [e.id, e]));
   const nodeById = new Map(Array.isArray(s.nodes) ? s.nodes : []);
+  if (hasShortOffAxisStrap(s, nodeById)) f.add('shortOffAxisStrap');
   const axialMembers = new Set(elements.filter((e) => e.type === 'truss' || e.type === 'cable').map((e) => e.id));
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
   if (globalAxes() && cases.some(c => c.axisNamed === true)) f.add(GLOBAL_AXES_EVIDENCE);

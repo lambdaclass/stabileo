@@ -285,7 +285,7 @@ it('stores all current strip reactions for older readers and preserves only auth
   expect(modelStore.footings.get(id)!.supportedNodeIds).toContain(intermediate);
 });
 
-it.skip('known wrong result: #1928 a point footing outside the inward cone cannot attract an ordinary strap', () => {
+it('known wrong result: #1928 a point footing outside the inward cone cannot attract an ordinary strap', () => {
   modelStore.clear();
   const from = modelStore.addNode(0, 0, 0);
   const outside = modelStore.addNode(0.002, 0.001, 0);
@@ -295,4 +295,16 @@ it.skip('known wrong result: #1928 a point footing outside the inward cone canno
   modelStore.addFooting(outside);
   modelStore.addFooting(ahead);
   expect(proposeStraps()).toEqual([{ a: from, b: ahead, kind: 'strap' }]);
+});
+
+it('prompts review only for a saved strap in the former off-axis tolerance band', async () => {
+  const { modelFeatures } = await import('../../../provenance/model-features');
+  const saved = (x: number, y: number) => modelFeatures({
+    nodes: [[1, { x: 0, y: 0 }], [2, { x, y }]],
+    footings: [[1, { nodeId: 1, anchor: [-1, 0], straps: [{ toFootingId: 2 }] }], [2, { nodeId: 2 }]],
+  }).has('shortOffAxisStrap');
+  expect(saved(0.002, 0.001)).toBe(true);
+  expect(saved(0.002, 0.0011)).toBe(false);
+  expect(saved(0.002, 0)).toBe(false);
+  expect(saved(-0.002, 0.001)).toBe(false);
 });

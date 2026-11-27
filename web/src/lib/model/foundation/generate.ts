@@ -11,17 +11,15 @@
  * Footings go on the foundation undo channel, which keeps the solve. Beams are bars between the
  * footings' nodes and change the model, so placing them is a model undo step.
  */
-import { reinforcementSheets, unifiedPlates } from '../../features';
 import { wallBase, wallStripAnchors } from './wall-strip';
-import { plateLoops } from '../physical/plate';
+import { wallFoundation } from './wall-foundation';
 import { modelStore } from '../../store/model.svelte';
-import { holdPlateSidesAt } from '../../store/physical-plates';
 import type { Footing } from '../footing';
 import type { PhysicalData } from '../physical/types';
 import { levelAt } from '../physical/recognize';
 import { declare, nextName } from '../building/declare';
-import { planHalf } from '../building/build-on-grid';
-import { anchorsOf, inwardPartner, type PropertyLines } from './edges';
+import { sheetAnchors } from './sheet-anchors';
+import { axisAnchors, inwardFooting, type PropertyLines } from './support-axes';
 
 export type { PropertyLines };
 
@@ -53,20 +51,11 @@ export function columnOn(nodeId: number): number | undefined {
 
 /** Where each node's footing is held: against the property lines it stands on, inward. */
 export function anchorsFor(nodeIds: number[], lines: PropertyLines): Map<number, [number, number]> {
-  const halfAt = (id: number): [number, number] | null => {
-    for (const e of modelStore.elements.values()) {
-      if (e.nodeI !== id && e.nodeJ !== id) continue;
-      const a = modelStore.nodes.get(e.nodeI), b = modelStore.nodes.get(e.nodeJ);
-      if (a && b && Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6) { const h = planHalf(e.id); if (h) return h; }
-    }
-    return null;
-  };
-  return anchorsOf(nodeIds.map((id) => {
-    const n = modelStore.nodes.get(id);
-    if (!n) return null;
-    const h = reinforcementSheets() ? halfAt(id) : null;
-    return { id, x: n.x, y: n.y, ...(h ? { hx: h[0], hy: h[1] } : {}) };
-  }).filter((p): p is { id: number; x: number; y: number; hx?: number; hy?: number } => !!p), lines);
+  if (sheetAnchors) return sheetAnchors(nodeIds, lines);
+  return axisAnchors(nodeIds.flatMap(id => {
+    const point = modelStore.nodes.get(id);
+    return point ? [point] : [];
+  }), lines);
 }
 
 /** Footings under the nodes given, one each, in one undo step. Returns their ids. */
@@ -111,23 +100,18 @@ export function combineFootings(nodeIds: number[], thickness: number): number | 
 export function wallBaseNodes(wallGroupId: number): number[] {
   const g = modelStore.model.groups.get(wallGroupId);
   if (!g) return [];
-  return wallBase(modelStore.model, g, () => {
-    if (!unifiedPlates()) return [];
-    const loops = plateLoops(g);
-    return [...loops.outer, ...loops.holes.flat()];
-  });
+  return wallBase(modelStore.model, g, () => wallFoundation?.outline(g) ?? []);
 }
 
 /** A wall stood on the ground: its base nodes fixed where they have no support, and its base held all along with every mesh. A model step. */
 export function supportWallBase(wallGroupId: number): number {
   const base = wallBaseNodes(wallGroupId);
   if (!base.length) return 0;
-  const continuous = unifiedPlates();
   const existing = new Set([...modelStore.supports.values()].map(s => s.nodeId));
-  if (!continuous && base.every(node => existing.has(node))) return 0;
+  if (!wallFoundation && base.every(node => existing.has(node))) return 0;
   const before = modelStore.supports.size;
   modelStore.batch(() => {
-    if (continuous) holdPlateSidesAt(wallGroupId, modelStore.nodes.get(base[0]!)!.z ?? 0, 'fixed3d');
+    wallFoundation?.hold(wallGroupId, modelStore.nodes.get(base[0]!)!.z ?? 0);
     const held = new Set([...modelStore.supports.values()].map(s => s.nodeId));
     for (const n of base) if (!held.has(n)) modelStore.addSupport(n, 'fixed3d');
   });
@@ -212,7 +196,7 @@ export function proposeStraps(): BeamProposal[] {
     const p = pts.find((q) => q.id === f.id)!;
     for (const dir of [[ax, 0], [0, ay]] as Array<[number, number]>) {
       if (!dir[0] && !dir[1]) continue;
-      const best = inwardPartner(p, dir, pts);
+      const best = inwardFooting(p, dir, pts);
       if (best && !out.some((s) => (s.a === f.nodeId && s.b === best.nodeId) || (s.b === f.nodeId && s.a === best.nodeId))) out.push({ a: f.nodeId, b: best.nodeId, kind: 'strap' });
     }
   }

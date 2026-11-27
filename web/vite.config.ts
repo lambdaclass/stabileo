@@ -68,6 +68,10 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (importer && ((features.proRcSheets && id === './sheet-anchors') || (features.proPlatesUnified && id === './wall-foundation'))
+          && dirname(importer) === resolve(__dirname, 'src/lib/model/foundation')) {
+          return resolve(dirname(importer), 'active-' + id.slice(2) + '.ts');
+        }
         if (features.proPlatesUnified && importer && id.endsWith('/selected-floor-load') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/selected-floor-load')) {
           return resolve(__dirname, 'src/lib/store/selected-floor-load-enabled.svelte.ts');
         }

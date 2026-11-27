@@ -38,7 +38,7 @@ describe('the room a mat\'s bars have to anchor past its outer columns', () => {
   });
 });
 
-it.skip('known wrong result: #1928 a pier width must be positive before its band can extend strap selection', () => {
+it('known wrong result: #1928 a pier width must be positive before its band can extend strap selection', () => {
   const p = { id: 1, x: 0, y: 0 };
   const others = [{ id: 2, x: 0.002, y: 0.001 }, { id: 3, x: 1, y: 0 }];
   expect(inwardPartner(p, [-1, 0], others)?.id).toBe(3);

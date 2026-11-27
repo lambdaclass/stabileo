@@ -727,7 +727,7 @@ test('known wrong result: #1928 bulk plate load application and pending requests
   }
 });
 
-test.skip('known wrong result: #1928 the ordinary foundation generator only imports the geometry policies selected by its build', async () => {
+test('known wrong result: #1928 the ordinary foundation generator only imports the geometry policies selected by its build', async () => {
   for (const [sheets, plates] of [[false, false], [true, false], [false, true], [true, true]]) {
     await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: sheets, proPlatesUnified: plates }, async configFile => {
       const entry = resolve(root, 'src/lib/model/foundation/generate.ts');
@@ -738,8 +738,8 @@ test.skip('known wrong result: #1928 the ordinary foundation generator only impo
       } });
       const chunk = (Array.isArray(result) ? result[0] : result).output.find(x => x.type === 'chunk');
       const imports = Object.keys(chunk.importedBindings);
-      assert.equal(imports.some(id => id.endsWith('/edges')), sheets);
-      assert.equal(imports.some(id => id.endsWith('/physical-plates')), plates);
+      assert.equal(imports.some(id => /(^|\/)edges$/.test(id)), sheets, JSON.stringify({ sheets, plates, imports }));
+      assert.equal(imports.some(id => /(^|\/)physical-plates$/.test(id)), plates, JSON.stringify({ sheets, plates, imports }));
     });
   }
 });
