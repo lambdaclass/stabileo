@@ -72,7 +72,7 @@ export const fr: Strings = {
   absolute: 'abs.',
   differencesHeading: 'Là où nous divergeons',
   toyRate: 'Vitesse critique du modèle jouet : l’article donne |µ̇_c| ≈ {paper} par une réduction asymptotique près du nœud-col ; en intégrant ses équations (S74)–(S75) et en cherchant par dichotomie si la trajectoire entre dans f < 0, nous obtenons {ours} ({diff}).',
-  figureCompare: 'Fig. 2c, simulations. Nous lisons les points de l’article sur la figure (au pixel) et interpolons nos balayages aux mêmes |µ̇| jusqu’à 0,3 : l’écart médian est de {oneEnd} pour notre protocole à un encastrement, parti comme celui de l’article de ΔL/L = 0,2, et de {envelope} pour le plus grand A avec germe sur la phase. Les points de l’article passent pour la première fois sous A = 2 vers |µ̇| ≈ {paperBelow} ; les nôtres vers ≈ {oursBelow} (un encastrement).',
+  figureCompare: 'Fig. 2c, simulations. Nous lisons les points de l’article sur la figure (au pixel) et interpolons nos balayages aux mêmes |µ̇| jusqu’à 0,3 : les deux courbes donnent le maximum de A sur douze phases initiales. L’écart médian est de {oneEnd} pour un encastrement mobile partant de ΔL/L = 0,2 et de {envelope} pour deux encastrements mobiles. Les points de l’article passent pour la première fois sous A = 2 vers |µ̇| ≈ {paperBelow} ; les nôtres vers ≈ {oursBelow} (un encastrement).',
   experiments: 'Le tableau S1 (30 expériences) est tracé avec des vitesses converties par |µ̇| = 2,358 s/m × |ΔL̇|, notre lecture des unités de l’article (les croix de la fig. 2c s’y trouvent ; l’axe supérieur de la figure implique 2,50 s/m). Les expériences ne sont pas ici une cible numérique.',
 
   sensitivityHeading: 'Sensibilité',
@@ -91,7 +91,7 @@ export const fr: Strings = {
     'Les constantes, fréquences et t_osc du modèle jouet.',
   ],
   doesnt: [
-    'Les facteurs d’amplification de la fig. 2c sont trois à huit fois plus faibles dans la plage comparée. La vitesse critique du modèle jouet diffère d’environ 10 %.',
+    'Les facteurs d’amplification de la fig. 2c sont {factorMin} à {factorMax} fois plus faibles dans la plage comparée. La vitesse critique du modèle jouet diffère d’environ 10 %.',
     'Les expériences du tableau S1 ; rien ici n’est une comparaison de laboratoire.',
     'Le code DER de l’article : il n’est pas publié, si bien que son germe, son origine des temps et la fin de sa fenêtre de saut sont nos hypothèses.',
     'La gravité, l’amortissement, l’inertie de rotation et l’impact sur la butée ne sont pas modélisés.',
@@ -137,7 +137,7 @@ export const fr: Strings = {
   oursEnvelope: 'Stabileo, avec germe, maximum sur la phase',
   muAMark: 'µ_A',
   muStarMark: 'µ*',
-  rateReference: 'Courbes enregistrées (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = 0. Repère du calcul affiché: |µ̇| = {rate}.',
+  rateReference: 'Courbes enregistrées (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = {seed} rad. Repère du calcul affiché: |µ̇| = {rate}.',
   diagramReference: 'Les courbes et les repères correspondent au réglage de la relecture (α = {alpha}, {n} éléments), tirés de l’étude enregistrée.',
   diagramLive: 'µ_A et µ* du calcul en direct figurent dans le résumé ci-dessous.',
 

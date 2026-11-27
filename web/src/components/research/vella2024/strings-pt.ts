@@ -72,7 +72,7 @@ export const pt: Strings = {
   absolute: 'abs.',
   differencesHeading: 'Onde diferimos',
   toyRate: 'Taxa crítica do modelo de brinquedo: o artigo dá |µ̇_c| ≈ {paper} a partir de uma redução assintótica perto da sela-nó; integrando suas equações (S74)–(S75) e bissectando conforme a trajetória entra ou não em f < 0 obtemos {ours} ({diff}).',
-  figureCompare: 'Fig. 2c, simulações. Lemos os pontos do artigo na figura (ao pixel) e interpolamos nossas varreduras nos mesmos |µ̇| até 0,3: a diferença mediana é {oneEnd} para nosso protocolo de um engaste, que parte como o do artigo de ΔL/L = 0,2, e {envelope} para o maior A com semente sobre a fase. Os pontos do artigo caem pela primeira vez abaixo de A = 2 em |µ̇| ≈ {paperBelow}; os nossos em ≈ {oursBelow} (um engaste).',
+  figureCompare: 'Fig. 2c, simulações. Lemos os pontos do artigo na figura (ao pixel) e interpolamos nossas varreduras nos mesmos |µ̇| até 0,3: ambas as curvas usam o maior A entre doze fases iniciais. A diferença mediana é {oneEnd} com um engaste móvel a partir de ΔL/L = 0,2 e {envelope} com dois engastes móveis. Os pontos do artigo caem pela primeira vez abaixo de A = 2 em |µ̇| ≈ {paperBelow}; os nossos em ≈ {oursBelow} (um engaste).',
   experiments: 'A Tabela S1 (30 experimentos) é desenhada com as taxas convertidas por |µ̇| = 2,358 s/m × |ΔL̇|, nossa leitura das unidades do artigo (as cruzes da Fig. 2c estão ali; o eixo superior da figura implica 2,50 s/m). Os experimentos não são aqui um alvo numérico.',
 
   sensitivityHeading: 'Sensibilidade',
@@ -91,7 +91,7 @@ export const pt: Strings = {
     'As constantes, frequências e t_osc do modelo de brinquedo.',
   ],
   doesnt: [
-    'Os fatores de amplificação da Fig. 2c são três a oito vezes menores no intervalo comparado. A taxa crítica do modelo de brinquedo difere em cerca de 10 %.',
+    'Os fatores de amplificação da Fig. 2c são {factorMin} a {factorMax} vezes menores no intervalo comparado. A taxa crítica do modelo de brinquedo difere em cerca de 10 %.',
     'Os experimentos da Tabela S1; nada disto é uma comparação de laboratório.',
     'O código DER do artigo: não é publicado, então sua semente, sua origem do tempo e o fim da sua janela do salto são suposições nossas.',
     'Gravidade, amortecimento, inércia de rotação e o impacto no batente não são modelados.',
@@ -137,7 +137,7 @@ export const pt: Strings = {
   oursEnvelope: 'Stabileo, com semente, máximo sobre a fase',
   muAMark: 'µ_A',
   muStarMark: 'µ*',
-  rateReference: 'Varreduras armazenadas (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = 0. Marcador da simulação exibida: |µ̇| = {rate}.',
+  rateReference: 'Varreduras armazenadas (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = {seed} rad. Marcador da simulação exibida: |µ̇| = {rate}.',
   diagramReference: 'As curvas e as marcas são do ajuste da reprodução (α = {alpha}, {n} elementos), tiradas do estudo guardado.',
   diagramLive: 'Os µ_A e µ* do cálculo ao vivo estão no resumo abaixo.',
 

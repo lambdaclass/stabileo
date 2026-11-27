@@ -72,7 +72,7 @@ export const tr: Strings = {
   absolute: 'mutlak',
   differencesHeading: 'Nerede ayrılıyoruz',
   toyRate: 'Oyuncak modelin kritik hızı: makale, eyer-düğüm yakınında asimptotik bir indirgemeyle |µ̇_c| ≈ {paper} verir; modelin (S74)–(S75) denklemlerini integre edip yörüngenin f < 0 bölgesine girip girmediğine göre ikiye bölmeyle {ours} buluyoruz ({diff}).',
-  figureCompare: 'Şek. 2c, simülasyonlar. Makalenin noktalarını şekilden piksel hassasiyetiyle okuyor ve taramalarımızı 0,3’e kadar aynı |µ̇| değerlerinde enterpole ediyoruz: medyan fark, makaledeki gibi ΔL/L = 0,2’den başlayan tek uç protokolümüz için {oneEnd}, faz üzerinden en büyük tohumlu A için {envelope}. Makalenin noktaları ilk kez |µ̇| ≈ {paperBelow}’de A = 2’nin altına iner; bizimkiler ≈ {oursBelow}’de (tek uç).',
+  figureCompare: 'Şek. 2c, simülasyonlar. Makalenin noktalarını şekilden piksel hassasiyetiyle okuyor ve taramalarımızı 0,3’e kadar aynı |µ̇| değerlerinde enterpole ediyoruz: iki eğri de on iki başlangıç fazındaki en büyük A değerini gösterir. Medyan fark, ΔL/L = 0,2’den başlayan tek hareketli uç için {oneEnd}, iki hareketli uç için {envelope}. Makalenin noktaları ilk kez |µ̇| ≈ {paperBelow}’de A = 2’nin altına iner; bizimkiler ≈ {oursBelow}’de (tek uç).',
   experiments: 'Tablo S1 (30 deney), hızlar |µ̇| = 2,358 s/m × |ΔL̇| ile dönüştürülerek çizilir; bu, makalenin birimlerine ilişkin okumamızdır (Şek. 2c’deki çarpılar oradadır; şeklin üst ekseni 2,50 s/m’ye karşılık gelir). Deneyler burada sayısal bir hedef değildir.',
 
   sensitivityHeading: 'Duyarlılık',
@@ -91,7 +91,7 @@ export const tr: Strings = {
     'Oyuncak modelin sabitleri, frekansları ve t_osc değeri.',
   ],
   doesnt: [
-    'Şek. 2c büyütme katsayıları karşılaştırma aralığında üç ila sekiz kat daha küçüktür. Oyuncak modelin kritik hızı yaklaşık %10 farklıdır.',
+    'Şek. 2c büyütme katsayıları karşılaştırma aralığında {factorMin} ila {factorMax} kat daha küçüktür. Oyuncak modelin kritik hızı yaklaşık %10 farklıdır.',
     'Tablo S1’deki deneyler; buradaki hiçbir şey laboratuvar karşılaştırması değildir.',
     'Makalenin DER kodu: yayımlanmamıştır; bu yüzden tohumu, zaman başlangıcı ve sıçrama penceresinin sonu bizim varsayımlarımızdır.',
     'Yerçekimi, sönüm, dönme ataleti ve dayanağa çarpma modellenmemiştir.',
@@ -137,7 +137,7 @@ export const tr: Strings = {
   oursEnvelope: 'Stabileo, tohumlu, faz üzerinden en büyük',
   muAMark: 'µ_A',
   muStarMark: 'µ*',
-  rateReference: 'Kayıtlı taramalar (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = 0. Gösterilen koşunun işareti: |µ̇| = {rate}.',
+  rateReference: 'Kayıtlı taramalar (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = {seed} rad. Gösterilen koşunun işareti: |µ̇| = {rate}.',
   diagramReference: 'Eğriler ve işaretler tekrar oynatımın ayarına (α = {alpha}, {n} eleman) aittir ve kayıtlı çalışmadan alınmıştır.',
   diagramLive: 'Canlı hesabın µ_A ve µ* değerleri aşağıdaki özettedir.',
 

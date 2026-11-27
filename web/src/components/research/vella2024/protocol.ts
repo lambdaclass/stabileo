@@ -54,11 +54,12 @@ export function decodeRun(value: unknown): SnapRun {
   const magnitude = (v: unknown) => finite(v) && v >= 0;
   if (!o || typeof o.snapped !== 'boolean' || !magnitude(o.thetaBefore) || !magnitude(o.thetaBeforeMuA)) throw new Error('Invalid outcome');
   const ratio = (v: number | null, before: number) => before === 0 ? v === null : magnitude(v);
+  const crossed = r.frames.some(f => f.height > 0) || t.height.some(h => h > 0);
+  if (o.snapped !== crossed) throw new Error('Invalid outcome');
   if (o.snapped) {
     if (!finite(o.tSnap) || !finite(o.muSnap) || !finite(o.tEnd) || o.tEnd < o.tSnap || !magnitude(o.thetaDuring)
       || !ratio(o.amplification, o.thetaBefore) || !ratio(o.amplificationFromMuA, o.thetaBeforeMuA)) throw new Error('Invalid outcome');
-  } else if (r.frames.some(f => f.height > 0) || t.height.some(h => h > 0)
-    || [o.tSnap, o.muSnap, o.tEnd, o.thetaDuring, o.amplification, o.amplificationFromMuA].some(v => v !== null)) throw new Error('Invalid outcome');
+  } else if ([o.tSnap, o.muSnap, o.tEnd, o.thetaDuring, o.amplification, o.amplificationFromMuA].some(v => v !== null)) throw new Error('Invalid outcome');
   const m = r.mode;
   if (!m || !(['x', 'z', 'dx', 'dz'] as const).every(key => numbers(m[key], nodes))) throw new Error('Invalid mode');
   const rateMS = (r as { rate_m_s?: number }).rate_m_s ?? r.rateMS;
@@ -114,6 +115,10 @@ export function thetaPeaks(trace: Pick<SnapRun['trace'], 't' | 'thetaMin' | 'the
     else zeros++;
   });
   return { points, zeros };
+}
+
+export function envelopeCurve(points: { rate: number; envelope: number }[]): [number, number][] {
+  return points.map(p => [p.rate, p.envelope]);
 }
 
 export function parseFigure(csv: string) {

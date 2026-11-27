@@ -9,17 +9,25 @@ fn study() -> Value {
 }
 
 #[test]
-#[ignore = "known wrong result: #2320"]
 fn figure_2a_shortening_and_travel_follow_the_clamps_into_the_hold() {
-    for run in study()["dynamics"]["figure_2a"].as_array().unwrap() {
-        assert_eq!(run["paper_mu"], run["trace"]["mu"], "shortening differs from the accepted sample");
+    let study = study();
+    let runs = study["dynamics"]["figure_2a"].as_array().unwrap();
+    assert_eq!(runs.len(), 2);
+    for run in runs {
+        let accepted = run["trace"]["mu"].as_array().unwrap();
+        let reported = run["paper_mu"].as_array().unwrap();
+        assert!(accepted.len() >= 2);
+        assert_eq!(reported.len(), accepted.len());
+        for (i, (a, b)) in reported.iter().zip(accepted).enumerate() {
+            assert_eq!(a, b, "shortening at sample {i}");
+        }
         let travel = run["travel_mm"].as_array().unwrap();
+        assert_eq!(travel.len(), accepted.len());
         assert_eq!(travel.last(), travel.iter().rev().nth(1));
     }
 }
 
 #[test]
-#[ignore = "known wrong result: #2320"]
 fn each_one_clamp_rate_carries_the_maximum_of_the_seeded_phase_runs() {
     let study = study();
     let d = &study["dynamics"];
@@ -67,5 +75,5 @@ fn straight_strip_assembles_unit_bending_and_the_rectangular_axial_rigidity() {
 fn finite_seed_toy_trajectory_obeys_the_s52_potential_and_s73_masses() {
     let (least, amplification) = Toy::paper().run(0.1, 0.1, 0.0);
     assert!((amplification - 1.5421927447902124).abs() < 2e-6, "{amplification}");
-    assert!((least - -0.01947399873410017).abs() < 1e-8, "{least}");
+    assert!((least + 0.01947399873410017).abs() < 1e-8, "{least}");
 }

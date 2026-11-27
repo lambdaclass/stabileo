@@ -36,7 +36,7 @@ floor of the internal force).
 ## Model
 
 - Strip of unit length, EI = 1, ρA = 1; time in t* = L²√(ρA/EI) (Eq. S5); EA·L²/EI = 12(L/h)² with
-  L/h = 108/0.0508 (the paper's simulated strip, SM p. 12). 48 elements by default.
+  L/h = 108/0.0508 (the paper's simulated strip, SM p. 12). 48 elements by default. The engine takes the material modulus in MPa and assembles it in kN/m². With I = 1, the input modulus for unit EI is 0.001 MPa.
 - Clamps: both ends fixed in z, rotated to ±α (anticlockwise tangent +α on the left), moved in x.
   µ = ΔL/(α²L) (Eq. 1).
 - Natural state: turn the clamps with the right end sliding, then move both ends to ±ΔL/2
@@ -115,25 +115,27 @@ The analytic shallow values computed here: τ* = 8.98682 (paper 8.987), τ_fold 
 
 ### Step 3, dynamics
 
-| \|µ̇\| | A, seeded, phase 0 | A, largest over 12 phases | A, one clamp from ΔL/L = 0.2 | µ at the snap |
-|---|---|---|---|---|
-| 0.005 | 96.1 | 104 | 156 | 0.2344 |
-| 0.0075 | 89.4 | 89.4 | 98.8 | 0.2306 |
-| 0.01 | 34.4 | 61.4 | 38.1 | 0.2273 |
-| 0.015 | 34.2 | 41.4 | 40.1 | 0.2213 |
-| 0.02 | 28.8 | 30.7 | 10.5 | 0.2165 |
-| 0.03 | 6.51 | 15.4 | 4.12 | 0.2067 |
-| 0.04 | 0.925 | 11.4 | 5.24 | 0.2006 |
-| 0.05 | 6.08 | 7.81 | 7.52 | 0.1936 |
-| 0.06 | 1.54 | 7.65 | 4.12 | 0.1897 |
-| 0.08 | 4.57 | 5.46 | 2.18 | 0.1789 |
-| 0.1 | 1.04 | 2.63 | 3.17 | 0.1646 |
-| 0.12 | 1.5 | 2.92 | 2.35 | 0.1591 |
-| 0.15 | 1.63 | 2.27 | 1.1 | 0.1539 |
-| 0.2 | 0.895 | 1.16 | 0.85 | 0.1242 |
-| 0.3 | 1.45 | 1.45 | 0.717 | 0.1188 |
-| 0.5 | 0.536 | 1.19 | 0.928 | 0.0930 |
-| 0.7 | 0.792 | 0.922 | 0.945 | 0.0547 |
+| \|µ̇\| | A, two clamps, phase 0 | Two-clamp envelope | A, one clamp, zero seed | One-clamp envelope | µ at the two-clamp phase-zero snap |
+|---|---|---|---|---|---|
+| 0.005 | 96.1 | 104 | 156 | 118 | 0.2344 |
+| 0.0075 | 89.4 | 89.4 | 98.8 | 95.5 | 0.2306 |
+| 0.01 | 34.4 | 61.4 | 38.1 | 63.2 | 0.2273 |
+| 0.015 | 34.2 | 41.4 | 40.1 | 44 | 0.2213 |
+| 0.02 | 28.8 | 30.7 | 10.5 | 28.9 | 0.2166 |
+| 0.03 | 6.51 | 15.4 | 4.12 | 17.4 | 0.2068 |
+| 0.04 | 0.925 | 11.4 | 5.24 | 11.6 | 0.2007 |
+| 0.05 | 6.08 | 7.81 | 7.52 | 8.5 | 0.1936 |
+| 0.06 | 1.54 | 7.65 | 4.12 | 6.18 | 0.1897 |
+| 0.08 | 4.57 | 5.46 | 2.18 | 3.56 | 0.1789 |
+| 0.1 | 1.04 | 2.63 | 3.17 | 3.41 | 0.1649 |
+| 0.12 | 1.5 | 2.92 | 2.35 | 2.51 | 0.1596 |
+| 0.15 | 1.63 | 2.27 | 1.1 | 1.28 | 0.1545 |
+| 0.2 | 0.895 | 1.16 | 0.85 | 0.917 | 0.1251 |
+| 0.3 | 1.45 | 1.45 | 0.717 | 0.795 | 0.1192 |
+| 0.5 | 0.536 | 1.19 | 0.928 | 0.972 | 0.0939 |
+| 0.7 | 0.792 | 0.922 | 0.945 | 0.951 | 0.0568 |
+
+Both envelopes take the maximum A over twelve phases of the same nonzero initial modal seed. The one-clamp runs start at ΔL/L = 0.2. In the separate zero-seed control, the moving clamp alone excites the asymmetric mode. Each envelope’s individual phase ratios are stored in phase order in `phase_amplifications`.
 
 Replay (default): |µ̇| = 0.01 (4.31 mm/s for the paper's strip), seed 10⁻³ rad, A = 34.4, snap at
 µ = 0.2273, 1.81 T_osc after µ*. Both clamps without a seed: largest |θ| was 7.065 × 10⁻¹⁰ rad at
@@ -142,20 +144,19 @@ Replay (default): |µ̇| = 0.01 (4.31 mm/s for the paper's strip), seed 10⁻³ 
 
 Times in `study.json` and on the page are in T_osc, which is 0.01718 s for the simulated strip
 (`units.t_osc_simulations`; t* = 0.15908 s is `units.time_unit_simulations`). Each Fig. 2a run
-also stores `time_s` and the paper coordinate `travel_mm = 1000 × rate_m_s × time_s`. The corresponding shortening on the paper axis is `paper_mu = mu_star − rate × t`,
-where `mu_star` is the fold of that run's prepared branch. After the clamps stop, `travel_mm` keeps increasing and
-`paper_mu` keeps decreasing. The physical shortening in `trace.mu` follows the clamp during acceleration,
-constant-speed travel, braking and rest. Once the clamp rests, the strip continues to move at fixed shortening.
-During constant-speed motion before µ*, the slope of `travel_mm` against `time_s` gives the
-clamp speed in mm/s. At 246.6 mm/s the clamp moves 0.02118 mm per
+stores the accepted shortening in both `trace.mu` and `paper_mu`. The end-node displacements
+give the measured clamp travel `travel_mm`, relative to the fold. Both series follow acceleration,
+constant-speed travel, braking and rest. During the hold the midpoint continues to oscillate.
+The paper’s horizontal time axis is stored separately in `paper_axis_mm = 1000 × rate_m_s × time_s`.
+Its linear shortening extrapolation is `nominal_mu = mu_star − rate × t`. At 246.6 mm/s the clamp moves 0.02118 mm per
 0.005 T_osc = 8.59 × 10⁻⁵ s.
 
 **Against Fig. 2c (simulations).** The largest A over phase falls below 2 at |µ̇| ≈
-0.161 by log-rate interpolation. Using the first sampled rate below 2 for both curves gives 0.20 for the envelope and 0.1855 for the digitized paper simulations. The model brackets this crossing between 0.15 and 0.20, the paper between 0.1801 and 0.1855. Between |µ̇| = 0.04 and 0.1 the paper's 11 points are 11.5–35.6 and
-ours 2.9–10.1 (largest over phase) or 2.2–7.1 (one clamp), lower at every one of them by a factor
-of 2.9–4.2 and 3.8–8.2. Over the paper's 49 points up to |µ̇| = 0.3 the median relative difference
-is 36 % (largest over phase) and 55 % (one clamp); above |µ̇| ≈ 0.2, where both are near 1, ours is
-sometimes the larger. The paper's
+0.161 by log-rate interpolation. Using the first sampled rate below 2 for both curves gives 0.20 for the envelope and 0.1855 for the digitized paper simulations. The model brackets this crossing between 0.15 and 0.20, the paper between 0.1801 and 0.1855. Between |µ̇| = 0.04 and 0.1 the paper's 11 points span 11.5–35.6.
+At the same rates the envelopes span 2.9–10.1 for two clamps and 3.4–10.5 for one clamp.
+The paper/model ratios are 2.9–4.2 and 3.4–5.2, respectively.
+Across the 49 sampled paper rates up to |µ̇| = 0.3 the median absolute relative differences
+are 36 % for two clamps and 48 % for one clamp. The paper's
 seed (the acceleration of its one moving end) is not given; at one phase A swings by an order of
 magnitude between neighbouring rates (0.93 at |µ̇| = 0.04, 6.1 at 0.05), as the paper's Fig. S7
 shows for the toy model, so only the envelope is a fair comparison. Row-by-row numbers are in
@@ -183,6 +184,7 @@ rounding of β and L₀C), µ_A^vM = 0.24935 (0.25), angular frequencies at µ =
 0.6629 and 0.7320 (paper "0.663" and "0.734", printed as ω_A/t_osc and ω_S/t_osc and labelled the
 other way round, see the extraction) and t_osc = 9.479 √(m/k)/α (9.477). The time scale √(m/k)/α
 is that of (S72); the paper's "ω/t_osc" is ω in its inverse, dimensionless, and t_osc = 2π/ω.
+Equation (S52) includes ½ f ψ_A². From (S73) the effective masses in the symmetric and antisymmetric coordinates are 2 and ½. Applying the inverse masses to the energy gradient gives the coupling −½ b₃ ψ_S ψ_A² in (S74).
 Integrating (S74)–(S75) and bisecting on whether the trajectory reaches f < 0 gives a critical rate
 of 0.1052 against the paper's 0.0961 from its near-saddle-node reduction (+9.4 %). This paper comparison fails the 1% relative tolerance.
 
@@ -209,7 +211,7 @@ numbers in the paper (all 16 paper verdicts appear in `reference-results/publish
 rate at which Fig. 2c's amplification falls below 2 (0.20 against 0.1855, within 20 %, the spread of
 the paper's own points around A = 2). `not_reproduced` lists the comparisons we fail, each with its
 number and the tolerance it would need: Fig. 2c's amplitudes between |µ̇| = 0.04 and 0.1 (median
-|A_ours/A_paper − 1| = 0.73 for the largest A over phase, 0.84 for one clamp, against 0.25) and the
+|A_ours/A_paper − 1| = 0.73 for the largest A over phase, 0.77 for the one-clamp envelope, against 0.25) and the
 toy model's critical rate (|0.1052/0.0961 − 1| = 0.094 against 0.01). `differences` keeps the
 row-by-row Fig. 2c numbers. The page's badge against the paper counts all of them: 13 of 16, marked
 as failing. The catalogue records the partial reproduction in its relevance text. Its all-passed flag is false and its status is `interactive`.
@@ -231,13 +233,13 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
 - Bifurcation order: µ*/µ_A ≤ 0.995 at α = π/12 (observed 0.9879).
 - Critical heights: 10⁻⁴ αL between h_A, h* and the heights where the drawn branch's ω²_A and ω²_S
   cross zero, read by linear interpolation between branch points 0.002 αL apart (5 % of that
-  step; observed 4.1 × 10⁻⁶). The old heights, in L, were off by the factor α = 0.26 and fail it
+  step; observed 4.1 × 10⁻⁶). The old heights, in L, were off by the factor α = π/12 and fail it
   by 0.10.
 - Fig. 2a speed uses a relative tolerance of 10⁻⁹. Over the same pre-fold window, the validator
-  compares both the slope of the paper time coordinate and the clamp speed recovered independently
-  from shortening with the prescribed speed in m/s.
+  compares both the slope of measured end-node travel and the speed derived from prescribed
+  shortening with the prescribed speed in m/s.
 - Before reducing, `validate` checks that every run it reduces over is present (the 17 rates of
-  both sweeps, the four unseeded rates, the 40 sensitivity runs, both Fig. 2a runs, 707 runs in
+  both twelve-phase sweeps, their 17 one-clamp zero-seed controls, four unseeded two-clamp runs, the 40 twelve-phase sensitivity settings and both Fig. 2a runs, 911 runs in
   all), snapped, and finite; a missing run or a NaN fails instead of vanishing in a max or min.
 - **WASM parity** (`check-wasm.mjs`, run by `build.sh`): the WASM build gives the same bits on
   every host, and differs from the native `replay.json` only through the last bits of libm,

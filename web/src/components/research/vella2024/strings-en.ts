@@ -71,7 +71,7 @@ export const en = {
   absolute: 'abs.',
   differencesHeading: 'Where we differ',
   toyRate: 'Toy model critical rate: the paper gives |µ̇_c| ≈ {paper} from an asymptotic reduction near the saddle-node; integrating the toy model’s equations (S74)–(S75) and bisecting on whether the trajectory enters f < 0 gives {ours} ({diff}).',
-  figureCompare: 'Fig. 2c, simulations. We read the paper’s points off the figure (to the pixel) and interpolate our sweeps at the same |µ̇| up to 0.3: the median difference is {oneEnd} for our one-clamp protocol started, like the paper’s, at ΔL/L = 0.2, and {envelope} for the largest seeded A over phase. The paper’s points first fall below A = 2 at |µ̇| ≈ {paperBelow}; ours at ≈ {oursBelow} (one clamp).',
+  figureCompare: 'Fig. 2c, simulations. We read the paper’s points off the figure (to the pixel) and interpolate our sweeps at the same |µ̇| up to 0.3. Both curves use the largest A over twelve seed phases. The median difference is {oneEnd} with one moving clamp starting at ΔL/L = 0.2 and {envelope} with two moving clamps. The paper’s points first fall below A = 2 at |µ̇| ≈ {paperBelow}; ours at ≈ {oursBelow} (one clamp).',
   experiments: 'Table S1 (30 experiments) is drawn with the rates converted by |µ̇| = 2.358 s/m × |ΔL̇|, our reading of the paper’s units (the crosses in Fig. 2c sit there; the figure’s top axis implies 2.50 s/m). Experiments are not a numerical target here.',
 
   sensitivityHeading: 'Sensitivity',
@@ -90,7 +90,7 @@ export const en = {
     'The toy model’s constants, frequencies and t_osc.',
   ],
   doesnt: [
-    'Fig. 2c amplification factors in the comparison band are three to eight times smaller. The toy critical rate differs by about 10 %.',
+    'Fig. 2c amplification factors in the comparison band are {factorMin} to {factorMax} times smaller. The toy critical rate differs by about 10 %.',
     'The experiments of Table S1; nothing here is a laboratory comparison.',
     'The paper’s DER code: it is not published, so its seed, its exact time origin and its end of the snap window are our assumptions.',
     'Gravity, damping, rotary inertia and the stopper’s impact are not modelled.',
@@ -136,7 +136,7 @@ export const en = {
   oursEnvelope: 'Stabileo, seeded, largest over phase',
   muAMark: 'µ_A',
   muStarMark: 'µ*',
-  rateReference: 'Stored sweeps (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = 0. Selected run marker: |µ̇| = {rate}.',
+  rateReference: 'Stored sweeps (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = {seed} rad. Selected run marker: |µ̇| = {rate}.',
   diagramReference: 'Curves and markers are the replay’s setting (α = {alpha}, {n} elements), from the stored study.',
   diagramLive: 'The live run’s µ_A and µ* are in the summary below.',
 

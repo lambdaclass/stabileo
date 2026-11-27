@@ -161,8 +161,8 @@
     },
     {
       "id": "fig2c-amplitude-one-end",
-      "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our one-clamp protocol from DeltaL/L = 0.2 (ours lower at every point)",
-      "observed": 0.8422225097423848,
+      "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, largest A over twelve seed phases with one clamp from DeltaL/L = 0.2",
+      "observed": 0.7657845463245581,
       "passed": false,
       "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
       "tolerance": 0.25

@@ -74,8 +74,8 @@
     },
     {
       "id": "fig2a-rate",
-      "metric": "Fig. 2a runs: abs(0.001 * slope_mm_s / rate_m_s - 1), largest error for the paper time coordinate and clamp travel from shortening, -1 <= t/T_osc <= 0",
-      "observed": 4.951594689828198e-14,
+      "metric": "Fig. 2a runs: abs(0.001 * slope_mm_s / rate_m_s - 1), largest error for measured clamp travel and prescribed shortening, -1 <= t/T_osc <= 0",
+      "observed": 5.67323965583455e-14,
       "passed": true,
       "source": "units",
       "tolerance": 1e-9
@@ -235,7 +235,7 @@
   "differences": {
     "figure_2c": {
       "median_abs_error_envelope": 0.360563107732746,
-      "median_abs_error_one_end": 0.5460141883515952,
+      "median_abs_error_one_end": 0.4817227804126275,
       "ours_envelope_transition": 0.16084751658504906,
       "ours_one_end_first_rate_below_2": 0.15,
       "ours_seeded_transition": 0.03784601553866758,
@@ -244,392 +244,392 @@
         {
           "envelope": 12.191481725595008,
           "envelope_error": -0.7006021187231088,
-          "one_end": 4.955004676230772,
-          "one_end_error": -0.8783152093263563,
+          "one_end": 12.719275914209632,
+          "one_end_error": -0.6876405718514333,
           "paper": 40.72,
           "rate": 0.0374
         },
         {
           "envelope": 10.100278737697751,
           "envelope_error": -0.7161248246852796,
-          "one_end": 5.8714164717168815,
-          "one_end_error": -0.8349798630770973,
+          "one_end": 10.496821358393724,
+          "one_end_error": -0.7049797257337346,
           "paper": 35.58,
           "rate": 0.0429
         },
         {
           "envelope": 8.251240097146038,
           "envelope_error": -0.7622806079762017,
-          "one_end": 7.136094999336064,
-          "one_end_error": -0.7944080956687968,
+          "one_end": 8.89225768382515,
+          "one_end_error": -0.7438128008117214,
           "paper": 34.71,
           "rate": 0.0484
         },
         {
           "envelope": 7.744035228807122,
           "envelope_error": -0.7454294796578855,
-          "one_end": 5.868406092618348,
-          "one_end_error": -0.807087242188746,
+          "one_end": 7.455678518436836,
+          "one_end_error": -0.7549086614583551,
           "paper": 30.42,
           "rate": 0.0539
         },
         {
           "envelope": 7.655142662717702,
           "envelope_error": -0.7162660243618346,
-          "one_end": 4.256836687150459,
-          "one_end_error": -0.8422225097423848,
+          "one_end": 6.289538267027487,
+          "one_end_error": -0.7668814578566536,
           "paper": 26.98,
           "rate": 0.0594
         },
         {
           "envelope": 7.01200023624229,
           "envelope_error": -0.7494819494018474,
-          "one_end": 3.4955563095095434,
-          "one_end_error": -0.8751141011250609,
+          "one_end": 5.3649029484257404,
+          "one_end_error": -0.8083278689379871,
           "paper": 27.99,
           "rate": 0.0646
         },
         {
           "envelope": 6.350534076345519,
           "envelope_error": -0.6834230271014198,
-          "one_end": 2.8978401122515427,
-          "one_end_error": -0.855541370276593,
+          "one_end": 4.563099915016654,
+          "one_end_error": -0.7725274219832177,
           "paper": 20.06,
           "rate": 0.0703
         },
         {
           "envelope": 5.841096199373958,
           "envelope_error": -0.7136717549326491,
-          "one_end": 2.4736761572848915,
-          "one_end_error": -0.8787413648389759,
+          "one_end": 3.98042842943538,
+          "one_end_error": -0.8048809593414029,
           "paper": 20.4,
           "rate": 0.0755
         },
         {
           "envelope": 5.157495362299701,
           "envelope_error": -0.6597958204287796,
-          "one_end": 2.2401106588213686,
-          "one_end_error": -0.8522354446687752,
+          "one_end": 3.5507062777196996,
+          "one_end_error": -0.7657845463245581,
           "paper": 15.16,
           "rate": 0.0814
         },
         {
           "envelope": 4.197785426975237,
           "envelope_error": -0.7443492431805581,
-          "one_end": 2.4911536088666972,
-          "one_end_error": -0.8482854074989832,
+          "one_end": 3.5069405901611304,
+          "one_end_error": -0.786422619356813,
           "paper": 16.42,
           "rate": 0.0867
         },
         {
           "envelope": 3.4342394086831587,
           "envelope_error": -0.7308589805107242,
-          "one_end": 2.7630047534861553,
-          "one_end_error": -0.7834635773129972,
+          "one_end": 3.4647853547924368,
+          "one_end_error": -0.7284650975867997,
           "paper": 12.76,
           "rate": 0.0922
         },
         {
           "envelope": 2.851976764784762,
           "envelope_error": -0.752002020453499,
-          "one_end": 3.040932539547752,
-          "one_end_error": -0.7355710835175868,
+          "one_end": 3.426226819118917,
+          "one_end_error": -0.7020672331200941,
           "paper": 11.5,
           "rate": 0.0976
         },
         {
           "envelope": 2.682943649311845,
           "envelope_error": -0.7402765102311863,
-          "one_end": 3.004636055519399,
-          "one_end_error": -0.7091349413824396,
+          "one_end": 3.227892453157881,
+          "one_end_error": -0.6875225117949777,
           "paper": 10.33,
           "rate": 0.1033
         },
         {
           "envelope": 2.76066342286547,
           "envelope_error": -0.7255801766535319,
-          "one_end": 2.7651935156141425,
-          "one_end_error": -0.7251298692232463,
+          "one_end": 2.9616343839445216,
+          "one_end_error": -0.7056029439418965,
           "paper": 10.06,
           "rate": 0.1087
         },
         {
           "envelope": 2.835310011786533,
           "envelope_error": -0.5961096849306933,
-          "one_end": 2.558755477456762,
-          "one_end_error": -0.635504917741202,
+          "one_end": 2.732752118221011,
+          "one_end_error": -0.6107190714784885,
           "paper": 7.02,
           "rate": 0.114
         },
         {
           "envelope": 2.9125425490744257,
           "envelope_error": -0.5797196898882502,
-          "one_end": 2.3663877357437575,
-          "one_end_error": -0.658529908262084,
+          "one_end": 2.5200774232551026,
+          "one_end_error": -0.6363524641767528,
           "paper": 6.93,
           "rate": 0.1196
         },
         {
           "envelope": 2.779564067323012,
           "envelope_error": -0.4440871865353976,
-          "one_end": 2.0304106454794364,
-          "one_end_error": -0.5939178709041127,
+          "one_end": 2.2015784725736753,
+          "one_end_error": -0.5596843054852649,
           "paper": 5.0,
           "rate": 0.1253
         },
         {
           "envelope": 2.648473824499063,
           "envelope_error": -0.6371953665069776,
-          "one_end": 1.7532015197459876,
-          "one_end_error": -0.7598354082539743,
+          "one_end": 1.9357235698497526,
+          "one_end_error": -0.7348323876918147,
           "paper": 7.3,
           "rate": 0.1308
         },
         {
           "envelope": 2.5348669059081947,
           "envelope_error": -0.6008083612743,
-          "one_end": 1.5345323937438566,
-          "one_end_error": -0.7583413553159281,
+          "one_end": 1.7223511857865066,
+          "one_end_error": -0.7287635927895265,
           "paper": 6.35,
           "rate": 0.136
         },
         {
           "envelope": 2.4224094734722765,
           "envelope_error": -0.4340164781606831,
-          "one_end": 1.3368827367814777,
-          "one_end_error": -0.6876442203781594,
+          "one_end": 1.5262407839374137,
+          "one_end_error": -0.6434016859959314,
           "paper": 4.28,
           "rate": 0.1416
         },
         {
           "envelope": 2.3243462726615163,
           "envelope_error": 0.1393854277752531,
-          "one_end": 1.179128403497754,
-          "one_end_error": -0.4219958806383559,
+          "one_end": 1.3671468379498044,
+          "one_end_error": -0.3298299813971547,
           "paper": 2.04,
           "rate": 0.1469
         },
         {
           "envelope": 2.1773579410255826,
           "envelope_error": -0.3577115218213621,
-          "one_end": 1.0806384334941428,
-          "one_end_error": -0.6812276007391909,
+          "one_end": 1.257681921925745,
+          "one_end_error": -0.6290023829127596,
           "paper": 3.39,
           "rate": 0.1527
         },
         {
           "envelope": 2.0039508456353414,
           "envelope_error": -0.3757162474656257,
-          "one_end": 1.047166612759752,
-          "one_end_error": -0.6737798714144074,
+          "one_end": 1.206624034057959,
+          "one_end_error": -0.6241046622872402,
           "paper": 3.21,
           "rate": 0.1582
         },
         {
           "envelope": 1.8549039456328746,
           "envelope_error": -0.1719178814138953,
-          "one_end": 1.0169282180924268,
-          "one_end_error": -0.5460141883515952,
+          "one_end": 1.1609409718757144,
+          "one_end_error": -0.4817227804126275,
           "paper": 2.24,
           "rate": 0.1635
         },
         {
           "envelope": 1.7211815281524872,
           "envelope_error": -0.1562835646311338,
-          "one_end": 0.9884866511979585,
-          "one_end_error": -0.5154477200010008,
+          "one_end": 1.118363749855974,
+          "one_end_error": -0.4517824755607971,
           "paper": 2.04,
           "rate": 0.1688
         },
         {
           "envelope": 1.5858034928227898,
           "envelope_error": -0.360563107732746,
-          "one_end": 0.9582584381361624,
-          "one_end_error": -0.6136054684934829,
+          "one_end": 1.0735361491258588,
+          "one_end_error": -0.5671225205137667,
           "paper": 2.48,
           "rate": 0.1748
         },
         {
           "envelope": 1.4785097827625875,
           "envelope_error": -0.2857440662982669,
-          "one_end": 0.9331421076308394,
-          "one_end_error": -0.5492067112894495,
+          "one_end": 1.0366284229748322,
+          "one_end_error": -0.49921332223438053,
           "paper": 2.07,
           "rate": 0.1801
         },
         {
           "envelope": 1.3795335816746137,
           "envelope_error": 0.242823046553706,
-          "one_end": 0.9089484675736278,
-          "one_end_error": -0.18112750669042543,
+          "one_end": 1.0013732011181353,
+          "one_end_error": -0.09786198097465293,
           "paper": 1.11,
           "rate": 0.1855
         },
         {
           "envelope": 1.2913310973177552,
           "envelope_error": -0.28655740479682035,
-          "one_end": 0.8864627041745693,
-          "one_end_error": -0.5102415999035529,
+          "one_end": 0.9688723727473788,
+          "one_end_error": -0.4647113962721664,
           "paper": 1.81,
           "rate": 0.1908
         },
         {
           "envelope": 1.221157498705211,
           "envelope_error": 0.09031919527250976,
-          "one_end": 0.8678820561715531,
-          "one_end_error": -0.22510530698968478,
+          "one_end": 0.9422123229371145,
+          "one_end_error": -0.15873899737757635,
           "paper": 1.12,
           "rate": 0.1954
         },
         {
           "envelope": 1.1592397765858087,
           "envelope_error": -0.15383957913444624,
-          "one_end": 0.8485143487503641,
-          "one_end_error": -0.3806464607661576,
+          "one_end": 0.915439609741379,
+          "one_end_error": -0.33179590529826364,
           "paper": 1.37,
           "rate": 0.2009
         },
         {
           "envelope": 1.176761468024629,
           "envelope_error": -0.019365443312809094,
-          "one_end": 0.8391500797855392,
-          "one_end_error": -0.300708266845384,
+          "one_end": 0.906970799760201,
+          "one_end_error": -0.24419100019983242,
           "paper": 1.2,
           "rate": 0.2063
         },
         {
           "envelope": 1.194085022147953,
           "envelope_error": 0.08553183831632083,
-          "one_end": 0.8301271688012202,
-          "one_end_error": -0.24533893745343627,
+          "one_end": 0.8987961669606596,
+          "one_end_error": -0.1829125754903096,
           "paper": 1.1,
           "rate": 0.2117
         },
         {
           "envelope": 1.2115331640577702,
           "envelope_error": 0.07215324252900035,
-          "one_end": 0.8212666789275898,
-          "one_end_error": -0.2732153283826638,
+          "one_end": 0.8907546231512252,
+          "one_end_error": -0.21172157243254397,
           "paper": 1.13,
           "rate": 0.2172
         },
         {
           "envelope": 1.228478293712321,
           "envelope_error": -0.04769124518424728,
-          "one_end": 0.8128715740769469,
-          "one_end_error": -0.36986699683957613,
+          "one_end": 0.8831224349016684,
+          "one_end_error": -0.31540896519250516,
           "paper": 1.29,
           "rate": 0.2226
         },
         {
           "envelope": 1.2452457668119814,
           "envelope_error": -0.11684697389221177,
-          "one_end": 0.8047604647886405,
-          "one_end_error": -0.42924789731302093,
+          "one_end": 0.8757362591471782,
+          "one_end_error": -0.3789104545055473,
           "paper": 1.41,
           "rate": 0.228
         },
         {
           "envelope": 1.2621473367788556,
           "envelope_error": -0.0061831993867278445,
-          "one_end": 0.79677454082071,
-          "one_end_error": -0.3726184717947165,
+          "one_end": 0.8684522527322731,
+          "one_end_error": -0.31617932855726527,
           "paper": 1.27,
           "rate": 0.2335
         },
         {
           "envelope": 1.278574154940094,
           "envelope_error": 0.022859323952075128,
-          "one_end": 0.7891892274666207,
-          "one_end_error": -0.36864861802670346,
+          "one_end": 0.8615226530732198,
+          "one_end_error": -0.31078187754142417,
           "paper": 1.25,
           "rate": 0.2389
         },
         {
           "envelope": 1.294840446177174,
           "envelope_error": 0.04422616627191456,
-          "one_end": 0.7818432818241019,
-          "one_end_error": -0.36948122433540165,
+          "one_end": 0.8548014059799749,
+          "one_end_error": -0.3106440274355041,
           "paper": 1.24,
           "rate": 0.2443
         },
         {
           "envelope": 1.3112481901247255,
           "envelope_error": 0.0747935984628898,
-          "one_end": 0.7745943312318998,
-          "one_end_error": -0.36508661374434437,
+          "one_end": 0.8481588387721707,
+          "one_end_error": -0.3047878370719912,
           "paper": 1.22,
           "rate": 0.2498
         },
         {
           "envelope": 1.3272056141877473,
           "envelope_error": 0.17451824264402416,
-          "one_end": 0.7676941192609645,
-          "one_end_error": -0.32062467322038535,
+          "one_end": 0.8418264480702456,
+          "one_end_error": -0.25502084241571177,
           "paper": 1.13,
           "rate": 0.2552
         },
         {
           "envelope": 1.3430170146192744,
           "envelope_error": 0.23212570148557266,
-          "one_end": 0.7609979516903066,
-          "one_end_error": -0.30183674156852613,
+          "one_end": 0.8356724626315238,
+          "one_end_error": -0.2333280159343819,
           "paper": 1.09,
           "rate": 0.2606
         },
         {
           "envelope": 1.3589755824639493,
           "envelope_error": 0.3193937693824751,
-          "one_end": 0.7543771082594463,
-          "one_end_error": -0.2675950405248094,
+          "one_end": 0.8295790451948748,
+          "one_end_error": -0.19458345126711185,
           "paper": 1.03,
           "rate": 0.2661
         },
         {
           "envelope": 1.3745051766495606,
           "envelope_error": 0.227236764865679,
-          "one_end": 0.7480628192722029,
-          "one_end_error": -0.33208676850696184,
+          "one_end": 0.8237596611052722,
+          "one_end_error": -0.26450030258457846,
           "paper": 1.12,
           "rate": 0.2715
         },
         {
           "envelope": 1.3899011585492045,
           "envelope_error": 0.26354650777200406,
-          "one_end": 0.7419241934083582,
-          "one_end_error": -0.3255234605378562,
+          "one_end": 0.8180945153839396,
+          "one_end_error": -0.2562777132873276,
           "paper": 1.1,
           "rate": 0.2769
         },
         {
           "envelope": 1.4054487536668716,
           "envelope_error": 0.3645133530746325,
-          "one_end": 0.7358440121554706,
-          "one_end_error": -0.2855883377131354,
+          "one_end": 0.8124757932264737,
+          "one_end_error": -0.2111885502655596,
           "paper": 1.03,
           "rate": 0.2824
         },
         {
           "envelope": 1.4205861979680325,
           "envelope_error": 0.3792099009398373,
-          "one_end": 0.730035614313967,
-          "one_end_error": -0.2912275589184786,
+          "one_end": 0.8071011776581335,
+          "one_end_error": -0.2164066236328801,
           "paper": 1.03,
           "rate": 0.2878
         },
         {
           "envelope": 1.4356007512375732,
           "envelope_error": 0.25929890459436256,
-          "one_end": 0.7243797732952449,
-          "one_end_error": -0.3645791462322412,
+          "one_end": 0.801861044522727,
+          "one_end_error": -0.2966131188397131,
           "paper": 1.14,
           "rate": 0.2932
         },
         {
           "envelope": 1.4507703702467687,
           "envelope_error": 0.3686512926856307,
-          "one_end": 0.7187690793637413,
-          "one_end_error": -0.32191596286439494,
+          "one_end": 0.7966561670812609,
+          "one_end_error": -0.2484375782252256,
           "paper": 1.06,
           "rate": 0.2987
         }
@@ -653,8 +653,8 @@
     },
     {
       "id": "fig2c-amplitude-one-end",
-      "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our one-clamp protocol from DeltaL/L = 0.2 (ours lower at every point)",
-      "observed": 0.8422225097423848,
+      "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, largest A over twelve seed phases with one clamp from DeltaL/L = 0.2",
+      "observed": 0.7657845463245581,
       "passed": false,
       "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
       "tolerance": 0.25

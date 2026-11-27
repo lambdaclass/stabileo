@@ -5,9 +5,9 @@
   "files_sha256": {
     "published.json": "2624a26068f90847b85884ae771e22993de1837c75ba26b20bd56befafbc7fa7",
     "fig2c_digitized.csv": "2498a29beed27db90065a5c847e322e7aeae325ca57db121d2f94a72afccb046",
-    "study.json": "4e08c3804dc4cd31aa429a6f9d9f766394a972f9d85f8a74e8c4b319c80b3c8a",
+    "study.json": "042739cbd800e51529ba3e5331413f539e6cc180f6e4569bf3d348a614b199da",
     "replay.json": "2a763a0a4b6c7c481745a6fd8de56113fb5efc638afae321d7f2a4707c6cb72e",
-    "published_comparison.json": "92b1a3be56421966d6d33dc3ab0457beaf62294bb88e5c71caad6e6f5aa79972"
+    "published_comparison.json": "9f84b135cc652bae14666ca2cb0505662448d76026b332f4564f3619435b17e6"
   },
   "not_hashed": "../VALIDATION.json: research/tools/catalog.py accepts hashed files only inside reference-results/ (as for every other crate); instead `validate` (CI's research job) recomputes it and fails if the stored file differs from a fresh run."
 }

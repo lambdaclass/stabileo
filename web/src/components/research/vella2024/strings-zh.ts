@@ -72,7 +72,7 @@ export const zh: Strings = {
   absolute: '绝对值',
   differencesHeading: '我们的不同之处',
   toyRate: '简化模型的临界速率：论文由鞍结点附近的渐近约化给出 |µ̇_c| ≈ {paper}；对简化模型的方程 (S74)–(S75) 积分，并按轨迹是否进入 f < 0 做二分，得到 {ours}（{diff}）。',
-  figureCompare: '图 2c，模拟。我们从图中（精确到像素）读取论文的数据点，并在相同的 |µ̇| 处对我们的扫描结果插值，直到 0.3：对于与论文一样从 ΔL/L = 0.2 开始的单夹具方案，中位差为 {oneEnd}；对于各相位中最大的带种子 A，中位差为 {envelope}。论文的数据点在 |µ̇| ≈ {paperBelow} 处首次降到 A = 2 以下；我们的在 ≈ {oursBelow} 处（单夹具）。',
+  figureCompare: '图 2c，模拟。我们从图中（精确到像素）读取论文的数据点，并在相同的 |µ̇| 处对我们的扫描结果插值，直到 0.3：两条曲线均取十二个初始相位中的最大 A。单夹具从 ΔL/L = 0.2 开始移动时，中位差为 {oneEnd}；双夹具移动时为 {envelope}。论文的数据点在 |µ̇| ≈ {paperBelow} 处首次降到 A = 2 以下；我们的在 ≈ {oursBelow} 处（单夹具）。',
   experiments: '表 S1（30 个实验）按 |µ̇| = 2.358 s/m × |ΔL̇| 换算速率后绘出，这是我们对论文单位的理解（图 2c 中的叉号正位于此处；该图的上方坐标轴意味着 2.50 s/m）。实验在这里不是数值目标。',
 
   sensitivityHeading: '敏感性',
@@ -91,7 +91,7 @@ export const zh: Strings = {
     '简化模型的常数、频率和 t_osc。',
   ],
   doesnt: [
-    '在比较区间内，图 2c 的放大系数仅为论文数值的八分之一至三分之一。玩具模型的临界速率相差约 10%。',
+    '在比较区间内，图 2c 的放大系数仅为论文数值的1/{factorMax} 至 1/{factorMin}。玩具模型的临界速率相差约 10%。',
     '表 S1 的实验；这里没有任何实验室对照。',
     '论文的 DER 代码：它没有公开，因此其种子、确切的时间原点和突跳窗口的终点都是我们的假定。',
     '没有模拟重力、阻尼、转动惯量和止动器的撞击。',
@@ -137,7 +137,7 @@ export const zh: Strings = {
   oursEnvelope: 'Stabileo，带种子，各相位中的最大值',
   muAMark: 'µ_A',
   muStarMark: 'µ*',
-  rateReference: '已存扫描曲线 (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = 0. 所示计算的标记: |µ̇| = {rate}.',
+  rateReference: '已存扫描曲线 (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = {seed} rad. 所示计算的标记: |µ̇| = {rate}.',
   diagramReference: '曲线和标记对应回放的设置（α = {alpha}，{n} 个单元），取自已保存的研究结果。',
   diagramLive: '实时计算的 µ_A 和 µ* 见下方摘要。',
 

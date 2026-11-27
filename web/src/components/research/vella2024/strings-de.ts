@@ -72,7 +72,7 @@ export const de: Strings = {
   absolute: 'abs.',
   differencesHeading: 'Wo wir abweichen',
   toyRate: 'Kritische Rate des Spielzeugmodells: Die Arbeit gibt |µ̇_c| ≈ {paper} aus einer asymptotischen Reduktion nahe dem Sattel-Knoten an; Integration seiner Gleichungen (S74)–(S75) und Bisektion danach, ob die Trajektorie f < 0 erreicht, ergibt {ours} ({diff}).',
-  figureCompare: 'Abb. 2c, Simulationen. Wir lesen die Punkte der Arbeit pixelgenau aus der Abbildung ab und interpolieren unsere Ratenreihen bei denselben |µ̇| bis 0,3: Der mittlere Unterschied (Median) beträgt {oneEnd} für unser Protokoll mit einer Einspannung, das wie in der Arbeit bei ΔL/L = 0,2 beginnt, und {envelope} für das größte A mit Keim über die Phase. Die Punkte der Arbeit fallen erstmals bei |µ̇| ≈ {paperBelow} unter A = 2, unsere bei ≈ {oursBelow} (eine Einspannung).',
+  figureCompare: 'Abb. 2c, Simulationen. Wir lesen die Punkte der Arbeit pixelgenau aus der Abbildung ab und interpolieren unsere Ratenreihen bei denselben |µ̇| bis 0,3. Beide Kurven zeigen das größte A über zwölf Anfangsphasen. Die mediane Abweichung beträgt {oneEnd} bei einer bewegten Einspannung ab ΔL/L = 0,2 und {envelope} bei zwei bewegten Einspannungen. Die Punkte der Arbeit fallen erstmals bei |µ̇| ≈ {paperBelow} unter A = 2, unsere bei ≈ {oursBelow} (eine Einspannung).',
   experiments: 'Tabelle S1 (30 Versuche) wird mit Raten gezeichnet, die mit |µ̇| = 2,358 s/m × |ΔL̇| umgerechnet sind, unserer Lesart der Einheiten der Arbeit (dort liegen die Kreuze in Abb. 2c; die obere Achse der Abbildung entspricht 2,50 s/m). Die Versuche sind hier kein numerisches Ziel.',
 
   sensitivityHeading: 'Empfindlichkeit',
@@ -91,7 +91,7 @@ export const de: Strings = {
     'Die Konstanten, Frequenzen und t_osc des Spielzeugmodells.',
   ],
   doesnt: [
-    'Die Verstärkungsfaktoren in Abb. 2c sind im Vergleichsbereich drei- bis achtmal kleiner. Die kritische Rate des Spielzeugmodells weicht um etwa 10 % ab.',
+    'Die Verstärkungsfaktoren in Abb. 2c sind im Vergleichsbereich um den Faktor {factorMin} bis {factorMax} kleiner. Die kritische Rate des Spielzeugmodells weicht um etwa 10 % ab.',
     'Die Versuche aus Tabelle S1; nichts hier ist ein Laborvergleich.',
     'Den DER-Code der Arbeit: Er ist nicht veröffentlicht, daher sind sein Keim, sein Zeitnullpunkt und das Ende seines Sprungfensters unsere Annahmen.',
     'Schwerkraft, Dämpfung, Drehträgheit und der Aufprall am Anschlag werden nicht modelliert.',
@@ -137,7 +137,7 @@ export const de: Strings = {
   oursEnvelope: 'Stabileo, mit Keim, Größtwert über die Phase',
   muAMark: 'µ_A',
   muStarMark: 'µ*',
-  rateReference: 'Gespeicherte Kurven (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = 0. Markierung des angezeigten Laufs: |µ̇| = {rate}.',
+  rateReference: 'Gespeicherte Kurven (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = {seed} rad. Markierung des angezeigten Laufs: |µ̇| = {rate}.',
   diagramReference: 'Kurven und Markierungen gehören zur Einstellung der Wiedergabe (α = {alpha}, {n} Elemente) und stammen aus der gespeicherten Studie.',
   diagramLive: 'µ_A und µ* der Live-Rechnung stehen in der Zusammenfassung unten.',
 

@@ -72,7 +72,7 @@ export const hu: Strings = {
   absolute: 'abszolút',
   differencesHeading: 'Ahol eltérünk',
   toyRate: 'A játékmodell kritikus sebessége: a cikk a nyereg-csomó közeli aszimptotikus redukcióból |µ̇_c| ≈ {paper} értéket ad; a modell (S74)–(S75) egyenleteit integrálva és felezéssel keresve, hogy a pálya belép-e az f < 0 tartományba, {ours} adódik ({diff}).',
-  figureCompare: '2c ábra, szimulációk. A cikk pontjait pixelpontossággal leolvassuk az ábráról, és sorozatainkat ugyanazoknál a |µ̇| értékeknél interpoláljuk 0,3-ig: a medián eltérés {oneEnd} az egybefogásos protokollunkra, amely a cikkhez hasonlóan ΔL/L = 0,2-ről indul, és {envelope} a fázisra vett legnagyobb csírás A-ra. A cikk pontjai először |µ̇| ≈ {paperBelow}-nál esnek A = 2 alá, a mieink ≈ {oursBelow}-nál (egy befogás).',
+  figureCompare: '2c ábra, szimulációk. A cikk pontjait pixelpontossággal leolvassuk az ábráról, és sorozatainkat ugyanazoknál a |µ̇| értékeknél interpoláljuk 0,3-ig: mindkét görbén az A tizenkét kezdeti fázisra vett maximuma szerepel. A medián eltérés a ΔL/L = 0,2-ről induló, egy mozgó befogásos esetben {oneEnd}, két mozgó befogás esetén {envelope}. A cikk pontjai először |µ̇| ≈ {paperBelow}-nál esnek A = 2 alá, a mieink ≈ {oursBelow}-nál (egy befogás).',
   experiments: 'Az S1 táblázat (30 kísérlet) |µ̇| = 2,358 s/m × |ΔL̇| szerint átszámított sebességekkel szerepel; ez a cikk mértékegységeinek mi olvasatunk (a 2c ábra keresztjei ott vannak; az ábra felső tengelye 2,50 s/m-nek felel meg). A kísérletek itt nem numerikus célértékek.',
 
   sensitivityHeading: 'Érzékenység',
@@ -80,7 +80,7 @@ export const hu: Strings = {
   envelopeColumn: 'fázisra vett maximum',
   sensitivityTable: { setting: 'Beállítás', value: 'Érték' },
   settingNames: { dt: 'Időlépés Δt/T_osc', hht: 'HHT α', imperfection: 'Csíra θ₀ (rad)', n: 'Elemszám', start: 'Kezdő µ₀' },
-  sensitivityText: 'Δt felezése 0,005 T_osc alatt A-t {dt}-kal változtatja; a HHT α −0,05 és −0,3 között kevésbé. Rögzített fázisnál A a hálóval változik ({meshPhase} 48-ról 96 elemre |µ̇| = 0,03-nál), mert az átpattanáskori rezgés fázisa µ_A-val, µ*-gal és a frekvenciákkal együtt eltolódik; a fázisra vett legnagyobb A {meshEnvelope}-kal változik. A alig függ a csíra nagyságától (a (2) egyenlet kiosztja, ahogy a cikk 2b ábrájának betétje is mutatja), a µ₀ kezdőérték viszont ugyanazon a fázison át megváltoztatja.',
+  sensitivityText: 'Δt felezése 0,005 T_osc alatt A-t {dt}-kal változtatja; a HHT α −0,05 és −0,3 között kevésbé. Rögzített fázisnál A a hálóval változik ({meshPhase} 48-ról 96 elemre |µ̇| = 0,03-nál), mert az átpattanáskori rezgés fázisa µ_A-val, µ*-gal és a frekvenciákkal együtt eltolódik; a fázisra vett legnagyobb A {meshEnvelope}-kal változik. A alig függ a csíra nagyságától (a (2) egyenlet osztással kiejti a csíra nagyságát, ahogy a cikk 2b ábrájának betétje is mutatja), a µ₀ kezdőérték viszont ugyanazon a fázison át megváltoztatja.',
 
   reproducesHeading: 'Mit reprodukál ez, és mit nem',
   reproduces: [
@@ -91,7 +91,7 @@ export const hu: Strings = {
     'A játékmodell állandóit, frekvenciáit és t_osc-át.',
   ],
   doesnt: [
-    'A 2c ábrán az erősítési tényezők az összehasonlított tartományban három–nyolcszor kisebbek, a játékmodell kritikus sebessége pedig körülbelül 10 %-kal eltér.',
+    'A 2c ábrán az erősítési tényezők az összehasonlított tartományban a cikk értékeinek 1/{factorMax}–1/{factorMin} részét érik el, a játékmodell kritikus sebessége pedig körülbelül 10 %-kal eltér.',
     'Az S1 táblázat kísérleteit; itt semmi sem laboratóriumi összevetés.',
     'A cikk DER-kódját: nem publikus, így csírája, időkezdőpontja és ugrásablakának vége a mi feltevéseink.',
     'A gravitációt, a csillapítást, a forgási tehetetlenséget és az ütközőnek csapódást nem modellezzük.',
@@ -137,7 +137,7 @@ export const hu: Strings = {
   oursEnvelope: 'Stabileo, csírával, fázisra vett maximum',
   muAMark: 'µ_A',
   muStarMark: 'µ*',
-  rateReference: 'Tárolt görbék (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = 0. A megjelenített futás jelölője: |µ̇| = {rate}.',
+  rateReference: 'Tárolt görbék (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = {seed} rad. A megjelenített futás jelölője: |µ̇| = {rate}.',
   diagramReference: 'A görbék és a jelölések a visszajátszás beállításához tartoznak (α = {alpha}, {n} elem), a tárolt vizsgálatból.',
   diagramLive: 'Az élő számítás µ_A és µ* értéke lent, az összefoglalóban látható.',
 
@@ -163,7 +163,7 @@ export const hu: Strings = {
     symmetric: 'A < 2',
     asymmetric: 'A ≥ 2',
     noSnap: 'nincs átpattanás: a középpont nem lépte át a befogások vonalát',
-    snapAt: 'Átpattanás',
+    snapAt: 'Átpattanás helye',
     before: 'Legnagyobb |θ| t = 0 előtt',
     during: 'Legnagyobb |θ| az ugrás alatt',
     critical: 'µ_A és µ*',

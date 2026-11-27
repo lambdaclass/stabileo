@@ -141,6 +141,8 @@ pub struct Frame {
 #[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Trace {
+    #[serde(skip)]
+    pub end_shortening: Vec<f64>,
     pub t: Vec<f64>,
     pub mu: Vec<f64>,
     pub theta_min: Vec<f64>,
@@ -203,12 +205,20 @@ pub struct Simulation {
 }
 
 struct Sample {
+    end_shortening: f64,
     t: f64,
     mu: f64,
     theta: f64,
     height: f64,
     /// The step of length dt this sample ends or lies in (0 for the start).
     step: usize,
+}
+
+impl Sample {
+    fn at(strip: &Strip, q: &[f64], t: f64, mu: f64, step: usize) -> Self {
+        let mid = DOFS * strip.mid();
+        Self { t, mu, step, end_shortening: q[0] - q[DOFS * strip.n], height: q[mid + 1], theta: q[mid + 2] }
+    }
 }
 
 fn frame(strip: &Strip, q: &[f64], t: f64, mu: f64) -> Frame {
@@ -587,13 +597,12 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
     let clock = |t: f64| (t - t_star) / T_OSC;
 
     let mut integrator = integrator(settings, start, Profile { stop: when(STOPPER), ..free })?;
-    let mid = strip.mid();
     let fine = (0.125 / settings.dt).round().max(1.0) as usize;
     let coarse = (((settings.start - mu_star) / settings.rate) / 60.0).max(0.125);
     let mut frames: Vec<Frame> = vec![frame(&strip, &integrator.q, clock(0.0), mu_at(0.0, &free))];
     let mut recent: std::collections::VecDeque<Frame> = Default::default();
     let keep = 48;
-    let mut samples = vec![Sample { t: clock(0.0), mu: mu_at(0.0, &free), theta: integrator.q[DOFS * mid + 2], height: integrator.q[DOFS * mid + 1], step: 0 }];
+    let mut samples = vec![Sample::at(&strip, &integrator.q, clock(0.0), mu_at(0.0, &free), 0)];
     let mut crossed = false;
     let mut ended = false;
     let mut end_time = f64::INFINITY;
@@ -610,12 +619,11 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
         let after = settings.after * T_OSC;
         let h = if t == 0.0 && t_a > 0.0 && t_a <= dt { 0.5 * t_a } else { dt };
         let result = integrator.advance(t, h, &mut |integrator, now| {
-            let q = &integrator.q;
-            let (theta, height) = (q[DOFS * mid + 2], q[DOFS * mid + 1]);
-            let falling = samples.last().is_some_and(|last| height < last.height);
             let mu = mu_at(now, &integrator.motion.profile);
-            samples.push(Sample { t: clock(now), mu, theta, height, step: step + 1 });
-            crossed |= height > 0.0;
+            let sample = Sample::at(&strip, &integrator.q, clock(now), mu, step + 1);
+            let falling = samples.last().is_some_and(|last| sample.height < last.height);
+            crossed |= sample.height > 0.0;
+            samples.push(sample);
             if crossed && falling && !ended {
                 ended = true;
                 end_time = now + after;
@@ -634,7 +642,7 @@ fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, 
             }
             Err(Halt::Newton(at)) => {
                 let q = &integrator.q;
-                return Err(format!("Newton did not converge at t = {:.4} T_osc (µ {:.4}, h {:.4}){}", clock(at), mu_at(at, &integrator.motion.profile), q[DOFS * mid + 1], if crossed { ", during the jump" } else { "" }));
+                return Err(format!("Newton did not converge at t = {:.4} T_osc (µ {:.4}, h {:.4}){}", clock(at), mu_at(at, &integrator.motion.profile), q[DOFS * strip.mid() + 1], if crossed { ", during the jump" } else { "" }));
             }
             Err(Halt::Error(e)) => return Err(e),
         }
@@ -677,6 +685,7 @@ fn bin(samples: &[Sample], count: usize, steps: usize) -> Trace {
     let mut trace = Trace::default();
     for chunk in samples.chunk_by(|a, b| group(a) == group(b)) {
         let last = chunk.last().unwrap();
+        trace.end_shortening.push(last.end_shortening);
         trace.t.push(last.t);
         trace.mu.push(last.mu);
         trace.theta_min.push(chunk.iter().map(|s| s.theta).fold(f64::INFINITY, f64::min));
@@ -859,7 +868,7 @@ mod tests {
     #[test]
     fn review_snapped_with_zero_pre_fold_angle_has_no_ratio() {
         let samples: Vec<_> = [(-1., -1.), (0.5, -0.5), (1., 0.5), (2., 1.), (3., 0.5)].into_iter()
-            .enumerate().map(|(step, (t, height))| Sample { t, height, mu: 1.0, theta: 0.0, step }).collect();
+            .enumerate().map(|(step, (t, height))| Sample { end_shortening: 1.0, t, height, mu: 1.0, theta: 0.0, step }).collect();
         let result = outcome(&samples, -0.5, 4, 4, |_| 1.0).unwrap();
         assert!(result.snapped);
         assert_eq!(result.amplification, None);

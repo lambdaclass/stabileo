@@ -1,5 +1,6 @@
 use dedaliano_engine::solver::corotational::assemble_corotational_public;
 use dedaliano_engine::solver::dof::DofNumbering;
+use dedaliano_engine::types::units::ModulusMPa;
 use dedaliano_engine::types::{Displacement, SolverInput};
 use serde_json::json;
 
@@ -74,10 +75,11 @@ impl Strip {
         } else {
             vec![]
         };
+        let unit_modulus_mpa = 1.0 / ModulusMPa::from_mpa(1.0).to_internal().in_kn_per_m2();
         serde_json::from_value(json!({
             "nodes": nodes,
             "elements": elements,
-            "materials": {"0": {"id": 0, "e": 0.001 * stiffness, "nu": 0.3}},
+            "materials": {"0": {"id": 0, "e": unit_modulus_mpa * stiffness, "nu": 0.3}},
             "sections": {"0": {"id": 0, "a": self.axial_stiffness(), "iz": 1.0}},
             "supports": {
                 "0": {"id": 0, "nodeId": 0, "type": "fixed", "dx": clamps.left, "dz": 0.0, "dry": angle},

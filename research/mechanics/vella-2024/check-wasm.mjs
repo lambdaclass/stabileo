@@ -16,6 +16,12 @@ const near = (a, b, abs, rel = 0) => Number.isFinite(a) && Number.isFinite(b) &&
 const TRACE = ['t', 'mu', 'height', 'thetaMin', 'thetaMax'];
 const JUMP = ['amplification', 'amplificationFromMuA', 'tSnap', 'muSnap', 'tEnd', 'thetaDuring'];
 
+function hasJumpValue(outcome, key) {
+  if (key === 'amplification') return outcome.snapped && outcome.thetaBefore > 0;
+  if (key === 'amplificationFromMuA') return outcome.snapped && outcome.thetaBeforeMuA > 0;
+  return outcome.snapped;
+}
+
 export function compare(run, reference) {
   const problems = [];
   const check = (ok, what) => { if (!ok) problems.push(what); };
@@ -23,11 +29,11 @@ export function compare(run, reference) {
   check(run.outcome.snapped === reference.outcome.snapped, 'outcome.snapped');
   for (const key of ['thetaBefore', 'thetaBeforeMuA']) check(near(run.outcome[key], reference.outcome[key], 1e-8, 1e-6), `outcome.${key}`);
   for (const key of JUMP) {
-    const undefinedRatio = (key === 'amplification' && reference.outcome.thetaBefore === 0)
-      || (key === 'amplificationFromMuA' && reference.outcome.thetaBeforeMuA === 0);
-    const same = reference.outcome.snapped && !undefinedRatio
+    const actualDefined = hasJumpValue(run.outcome, key);
+    const expectedDefined = hasJumpValue(reference.outcome, key);
+    const same = actualDefined === expectedDefined && (actualDefined
       ? near(run.outcome[key], reference.outcome[key], 1e-8, 1e-6)
-      : run.outcome[key] === null && reference.outcome[key] === null;
+      : run.outcome[key] === null && reference.outcome[key] === null);
     check(same, `outcome.${key}`);
   }
   check(run.frames.length === reference.frames.length, 'frame count');
@@ -102,6 +108,10 @@ assert.throws(() => simulation_run('{}'));
 for (const oneEnd of [true, false]) {
   const trial = JSON.parse(simulation_run(JSON.stringify({ ...replay.settings, n: 24, rate: 0.7, dt: 0.1, ramp: 0, oneEnd })));
   assert.ok(trial.outcome.snapped);
+  for (const f of trial.frames) {
+    const shortening = 1 - (f.x.at(-1) - f.x[0]);
+    assert.ok(near(shortening, f.mu * trial.settings.alpha ** 2, PRE.coordinate));
+  }
   assert.ok(Math.abs(trial.trace.mu.at(-1) - 0.02) < 1e-12);
   assert.equal(trial.frames.at(-1).t, trial.trace.t.at(-1));
   const k = trial.trace.height.findIndex(h => h > 0);
@@ -144,7 +154,6 @@ assert.ok(Number.isFinite(earlyFold.outcome.amplification) && Number.isFinite(ea
   }
 }
 
-console.log('production-mode WASM: replay agrees in critical points, outcome, every frame and every plotted trace series; null and missing values and bad settings are refused');
 
 {
   const zero = structuredClone(replay);
@@ -154,6 +163,7 @@ console.log('production-mode WASM: replay agrees in critical points, outcome, ev
   for (const [angle, ratio] of [['thetaBefore', 'amplification'], ['thetaBeforeMuA', 'amplificationFromMuA']]) {
     const finite = structuredClone(zero);
     finite.outcome[ratio] = 0;
+    assert.deepEqual(compare(finite, finite), [`outcome.${ratio}`]);
     assert.deepEqual(compare(finite, zero), [`outcome.${ratio}`]);
     assert.deepEqual(compare(zero, finite), [`outcome.${ratio}`]);
     const tiny = structuredClone(zero);
@@ -165,3 +175,22 @@ console.log('production-mode WASM: replay agrees in critical points, outcome, ev
     assert.deepEqual(compare(finite, tiny), [`outcome.${ratio}`]);
   }
 }
+
+{
+  const { dynamics } = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, 'reference-results/study.json')));
+  const sweep = dynamics.one_end.at(-1);
+  const control = dynamics.one_end_unseeded.at(-1);
+  assert.equal(control.rate, sweep.rate);
+  const settings = { ...dynamics.base, oneEnd: true, rate: sweep.rate, start: dynamics.one_end_start };
+  const index = 3;
+  const phase = 2 * Math.PI * index / sweep.phase_amplifications.length;
+  for (const [seed, angle, expected] of [
+    [settings.imperfection, phase, sweep.phase_amplifications[index]],
+    [0, 0, control.amplification],
+  ]) {
+    const trial = JSON.parse(simulation_run(JSON.stringify({ ...settings, imperfection: seed, phase: angle })));
+    assert.ok(trial.outcome.snapped && near(trial.outcome.amplification, expected, 1e-8, 1e-6));
+  }
+}
+
+console.log('production-mode WASM: replay agrees in critical points, outcome, every frame and every plotted trace series; null and missing values and bad settings are refused');

@@ -129,12 +129,11 @@ factor is 2.321 s/m; the page reports both \|µ̇\| and the corresponding \|ΔL�
 5. **End of the jump** for Eq. (2): the first maximum of the midpoint height after it crosses
    zero. The paper's simulation window after t = 0 is not stated; the experiments stop at a
    local extremum of h after the snap (p. 8), which is the same idea.
-6. **Start**: the page and the rate sweeps start on the inverted branch at µ₀ = 0.6, not at
-   ΔL/L = 0.2 (µ₀ = 2.92 at α = π/12), to keep live runs short. The sensitivity to µ₀ is reported.
+6. **Start**: the default live run and two-clamp sweep start on the inverted branch at µ₀ = 0.6. Both one-clamp sweeps start at ΔL/L = 0.2 (µ₀ = 2.92 at α = π/12). The sensitivity to µ₀ is reported.
 7. **Asymmetric seed.** (a) Both ends move and the start state carries the lowest antisymmetric
    vibration mode with midpoint angle θ₀ = 10⁻³ rad (default; Fig. 2b's θ_b is of this order by
    eye), and (b) the paper's one-end protocol with the experiments' acceleration time 0.01 s
-   (p. 7) and no seed. The acceleration used in the paper's simulations is not given.
+   (p. 7) and no seed. The additional one-clamp phase envelope uses the same motion and the same nonzero modal seed as the two-clamp envelope. The acceleration used in the paper's simulations is not given.
 8. **Stopper.** After the jump ends (or at µ = 0.02 if it has not), the moving clamp brakes
    uniformly over the acceleration time. Its position is not given (p. 7).
 9. **No gravity, no damping, no rotary inertia.** The theory has none (Eq. S2); the DER mentions

@@ -196,32 +196,37 @@ pub fn diagram(alpha: f64, n: usize) -> Result<Diagram, String> {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct RatePoint {
+pub struct RunPoint {
     pub truncated: bool,
     pub rate: f64,
     pub amplification: f64,
     pub amplification_from_mu_a: f64,
-    /// Largest amplification over the seed's phase (seeded runs only).
-    pub envelope: Option<f64>,
     pub t_snap: f64,
     pub mu_snap: f64,
     pub theta_before: f64,
     pub theta_during: f64,
 }
 
-fn rate_point(sim: &Simulation, envelope: Option<f64>, truncated: bool) -> Result<RatePoint, String> {
+fn run_point(sim: &Simulation, truncated: bool) -> Result<RunPoint, String> {
     let j = sim.outcome.jump()?;
-    Ok(RatePoint {
+    Ok(RunPoint {
         truncated,
         rate: sim.settings.rate,
         amplification: j.amplification,
         amplification_from_mu_a: j.amplification_from_mu_a,
-        envelope,
         t_snap: j.t_snap,
         mu_snap: j.mu_snap,
         theta_before: sim.outcome.theta_before,
         theta_during: j.theta_during,
     })
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RatePoint {
+    #[serde(flatten)]
+    pub point: RunPoint,
+    pub phase_amplifications: [f64; PHASES],
+    pub envelope: f64,
 }
 
 #[derive(Default)]
@@ -247,15 +252,23 @@ impl Runs {
         Ok(sim)
     }
 
-    fn envelope(&mut self, sweep: &str, settings: &Settings, prepared: &(Equilibrium, Critical)) -> Result<(Simulation, f64, bool), String> {
+    fn envelope(&mut self, sweep: &str, settings: &Settings, prepared: &(Equilibrium, Critical)) -> Result<RatePoint, String> {
+        if settings.imperfection == 0.0 || settings.phase != 0.0 {
+            return Err("a phase sweep requires a nonzero seed and phase-zero reference".into());
+        }
         let prior = self.truncated.len();
         let first = self.run(sweep, settings, prepared)?;
-        let mut best = first.outcome.jump()?.amplification;
-        for k in 1..PHASES {
+        let mut phases = [0.0; PHASES];
+        phases[0] = first.outcome.jump()?.amplification;
+        for (k, amplitude) in phases.iter_mut().enumerate().skip(1) {
             let s = Settings { phase: 2.0 * PI * k as f64 / PHASES as f64, ..*settings };
-            best = best.max(self.run(sweep, &s, prepared)?.outcome.jump()?.amplification);
+            *amplitude = self.run(sweep, &s, prepared)?.outcome.jump()?.amplification;
         }
-        Ok((first, best, self.truncated.len() != prior))
+        Ok(RatePoint {
+            point: run_point(&first, self.truncated.len() != prior)?,
+            envelope: phases.into_iter().fold(f64::NEG_INFINITY, f64::max),
+            phase_amplifications: phases,
+        })
     }
 }
 
@@ -281,6 +294,8 @@ pub struct Figure2a {
     pub travel_mm: Vec<f64>,
     pub mu_star: f64,
     pub paper_mu: Vec<f64>,
+    pub nominal_mu: Vec<f64>,
+    pub paper_axis_mm: Vec<f64>,
     pub trace: Trace,
     pub amplification: f64,
 }
@@ -294,6 +309,7 @@ pub struct Dynamics {
     /// acceleration, no seed.
     pub one_end_start: f64,
     pub one_end: Vec<RatePoint>,
+    pub one_end_unseeded: Vec<RunPoint>,
     /// Both clamps, no seed: largest |θ| during the run.
     pub unseeded: Vec<[f64; 2]>,
     pub sensitivity: Vec<Sensitivity>,
@@ -316,7 +332,7 @@ pub fn first_downward_bracket(points: &[(f64, f64)]) -> Result<[(f64, f64); 2], 
 }
 
 fn crossing(points: &[RatePoint], value: impl Fn(&RatePoint) -> f64) -> Result<f64, String> {
-    let curve: Vec<_> = points.iter().map(|p| (p.rate, value(p))).collect();
+    let curve: Vec<_> = points.iter().map(|p| (p.point.rate, value(p))).collect();
     let [(r0, a), (r1, b)] = first_downward_bracket(&curve)?;
     let fraction = (a - ASYMMETRIC) / (a - b);
     Ok((r0.ln() + fraction * (r1.ln() - r0.ln())).exp())
@@ -329,16 +345,17 @@ pub fn dynamics() -> Result<Dynamics, String> {
     let prepared = prepare(&strip, START)?;
     let mut seeded = vec![];
     for &rate in &RATES {
-        let (first, best, truncated) = runs.envelope("seeded", &Settings { rate, ..base }, &prepared)?;
-        seeded.push(rate_point(&first, Some(best), truncated)?);
+        seeded.push(runs.envelope("seeded", &Settings { rate, ..base }, &prepared)?);
     }
     let one_end_start = 0.2 / (PAPER_ALPHA * PAPER_ALPHA);
     let far = prepare(&strip, one_end_start)?;
     let mut one_end = vec![];
+    let mut one_end_unseeded = vec![];
     for &rate in &RATES {
         let s = Settings { rate, start: one_end_start, one_end: true, imperfection: 0.0, ..base };
-        let sim = runs.run("one_end", &s, &far)?;
-        one_end.push(rate_point(&sim, None, sim.outcome.truncated)?);
+        let sim = runs.run("one_end_unseeded", &s, &far)?;
+        one_end_unseeded.push(run_point(&sim, sim.outcome.truncated)?);
+        one_end.push(runs.envelope("one_end", &Settings { imperfection: base.imperfection, ..s }, &far)?);
     }
     let mut unseeded = vec![];
     let mut unseeded_truncated = vec![];
@@ -349,30 +366,29 @@ pub fn dynamics() -> Result<Dynamics, String> {
         unseeded.push([rate, worst]);
     }
     let mut sensitivity = vec![];
-    let mut add = |parameter: &str, value: f64, (sim, envelope, truncated): &(Simulation, f64, bool)| -> Result<(), String> {
-        let j = sim.outcome.jump()?;
-        sensitivity.push(Sensitivity { truncated: *truncated, parameter: parameter.into(), value, rate: sim.settings.rate, amplification: j.amplification, envelope: *envelope, t_snap: j.t_snap, mu_snap: j.mu_snap });
-        Ok(())
+    let mut add = |parameter: &str, value: f64, sweep: RatePoint| {
+        let p = &sweep.point;
+        sensitivity.push(Sensitivity { truncated: p.truncated, parameter: parameter.into(), value, rate: p.rate, amplification: p.amplification, envelope: sweep.envelope, t_snap: p.t_snap, mu_snap: p.mu_snap });
     };
     for rate in [0.03, 0.1] {
         for dt in [0.02, 0.01, 0.005, 0.0025] {
-            add("dt", dt, &runs.envelope("dt", &Settings { rate, dt, ..base }, &prepared)?)?;
+            add("dt", dt, runs.envelope("dt", &Settings { rate, dt, ..base }, &prepared)?);
         }
         for hht in [-0.05, -0.1, -0.2, -0.3] {
-            add("hht", hht, &runs.envelope("hht", &Settings { rate, hht, ..base }, &prepared)?)?;
+            add("hht", hht, runs.envelope("hht", &Settings { rate, hht, ..base }, &prepared)?);
         }
         for seed in [1e-4, 3e-4, 1e-3, 3e-3, 1e-2] {
-            add("imperfection", seed, &runs.envelope("imperfection", &Settings { rate, imperfection: seed, ..base }, &prepared)?)?;
+            add("imperfection", seed, runs.envelope("imperfection", &Settings { rate, imperfection: seed, ..base }, &prepared)?);
         }
         for n in [24, 48, 96] {
             let s = Settings { rate, n, ..base };
             let p = if n == MESH { prepared.clone() } else { prepare(&s.strip(), START)? };
-            add("n", n as f64, &runs.envelope("n", &s, &p)?)?;
+            add("n", n as f64, runs.envelope("n", &s, &p)?);
         }
         for start in [0.4, 0.6, 1.0, one_end_start] {
             let s = Settings { rate, start, ..base };
             let p = if start == START { prepared.clone() } else if start == one_end_start { far.clone() } else { prepare(&strip, start)? };
-            add("start", start, &runs.envelope("start", &s, &p)?)?;
+            add("start", start, runs.envelope("start", &s, &p)?);
         }
     }
     let mut figure_2a = vec![];
@@ -383,17 +399,19 @@ pub fn dynamics() -> Result<Dynamics, String> {
         let sim = runs.run("figure_2a", &s, &far)?;
         let mu_star = far.1.mu_star;
         let time_s: Vec<_> = sim.trace.t.iter().map(|t| t * SIMULATIONS.t_osc()).collect();
-        let travel_mm = time_s.iter().map(|seconds| seconds * rate_m_s * 1000.0).collect();
-        let paper_mu = sim.trace.t.iter().map(|t| mu_star - rate * t).collect();
+        let paper_axis_mm = time_s.iter().map(|seconds| seconds * rate_m_s * 1000.0).collect();
+        let nominal_mu = sim.trace.t.iter().map(|t| mu_star - rate * t).collect();
         figure_2a.push(Figure2a {
             truncated: sim.outcome.truncated,
             rate_m_s,
             rate,
             time_s,
-            travel_mm,
+            travel_mm: sim.trace.end_shortening.iter().map(|shortening| (mu_star * s.alpha.powi(2) - shortening) * SIMULATIONS.length * 1000.0).collect(),
             mu_star,
-            paper_mu,
-            trace: sim.trace.clone(),
+            nominal_mu,
+            paper_axis_mm,
+            paper_mu: sim.trace.mu.clone(),
+            trace: sim.trace,
             amplification: sim.outcome.jump()?.amplification,
         });
     }
@@ -402,13 +420,14 @@ pub fn dynamics() -> Result<Dynamics, String> {
         truncated_runs: runs.truncated.len(),
         truncated_settings: runs.truncated,
         unseeded_truncated,
-        transition: crossing(&seeded, |p| p.amplification)?,
-        transition_envelope: crossing(&seeded, |p| p.envelope.unwrap())?,
+        transition: crossing(&seeded, |p| p.point.amplification)?,
+        transition_envelope: crossing(&seeded, |p| p.envelope)?,
         base,
         critical: prepared.1.clone(),
         seeded,
         one_end_start,
         one_end,
+        one_end_unseeded,
         unseeded,
         sensitivity,
         figure_2a,
@@ -497,6 +516,23 @@ pub fn study() -> Result<Study, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_phase_sweep_requires_an_excited_mode_and_starts_at_phase_zero() {
+        let settings = Settings { n: 8, rate: 0.1, ..default_settings() };
+        let prepared = prepare(&settings.strip(), settings.start).unwrap();
+        let mut runs = Runs::default();
+        for one_end in [true, false] {
+            for (imperfection, phase) in [(0.0, 0.0), (settings.imperfection, 0.5)] {
+                assert!(runs.envelope("test", &Settings { one_end, imperfection, phase, ..settings }, &prepared).is_err());
+            }
+        }
+        assert_eq!(runs.count, 0);
+        let sweep = runs.envelope("test", &settings, &prepared).unwrap();
+        assert_eq!(runs.count, PHASES);
+        assert_eq!(sweep.phase_amplifications[0], sweep.point.amplification);
+        assert_eq!(sweep.envelope, sweep.phase_amplifications.into_iter().reduce(f64::max).unwrap());
+    }
 
     #[test]
     fn run_accounting_belongs_to_each_study() {

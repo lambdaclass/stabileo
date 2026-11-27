@@ -12,7 +12,7 @@
   import { rs } from '../i18n';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { snapStrings } from './strings';
-  import { ALPHA_RANGE, ASYMMETRIC, RATE_RANGE, SEED_RANGE, asymmetry, decodeRun, displacementOf, logStep, logValue, parseFigure, restGeometry, sameSettings, snapFrame, thetaPeaks, type Settings, type SnapRun } from './protocol';
+  import { ALPHA_RANGE, ASYMMETRIC, RATE_RANGE, SEED_RANGE, asymmetry, decodeRun, displacementOf, envelopeCurve, logStep, logValue, parseFigure, restGeometry, sameSettings, snapFrame, thetaPeaks, type Settings, type SnapRun } from './protocol';
   import replay from '../../../../../research/mechanics/vella-2024/reference-results/replay.json';
   import study from '../../../../../research/mechanics/vella-2024/reference-results/study.json';
   import published from '../../../../../research/mechanics/vella-2024/reference-results/published.json';
@@ -65,9 +65,9 @@
   const rateSeries = $derived([
     { name: s.paperSimulations, color: 'var(--rs-plot-ref)', markers: true, points: figure.simulation.filter(p => p[1] > 0) },
     { name: s.paperExperiments, color: 'var(--fg-2)', markers: true, points: published.table_s1.rows.map(r => [r[1] * EXPERIMENT_FACTOR, r[2]] as [number, number]).filter(p => p[0] <= RATE_RANGE[1]).sort((a, b) => a[0] - b[0]) },
-    { name: s.oursOneEnd, color: 'var(--rs-plot-ours)', points: d.one_end.map(p => [p.rate, p.amplification] as [number, number]) },
-    { name: s.oursSeeded, color: 'var(--rs-plot-variant)', points: d.seeded.map(p => [p.rate, p.amplification] as [number, number]) },
-    { name: s.oursEnvelope, color: 'var(--rs-plot-variant)', dashed: true, points: d.seeded.map(p => [p.rate, p.envelope] as [number, number]) },
+    { name: `${s.oursOneEnd} (${s.envelopeColumn})`, color: 'var(--rs-plot-ours)', points: envelopeCurve(d.one_end) },
+    { name: s.oursSeeded, color: 'var(--rs-plot-variant)', markers: true, points: d.seeded.map(p => [p.rate, p.amplification] as [number, number]) },
+    { name: s.oursEnvelope, color: 'var(--rs-plot-variant)', dashed: true, points: envelopeCurve(d.seeded) },
   ]);
   const D = study.diagram;
   const referenceCritical = { muA: D.critical.muA, muStar: D.critical.muStar };
@@ -89,9 +89,11 @@
   const own = validation.checks.filter(c => !published_.includes(c));
   const paper = study.paper;
   const shallowRef = study.shallow_analytic.mu_star;
+  const diff = validation.differences;
+  const paperFactors = diff.figure_2c.rows.filter(r => r.rate >= 0.04 && r.rate <= 0.1)
+    .flatMap(r => [r.paper / r.one_end, r.paper / r.envelope]);
   const unseeded = Math.max(...d.unseeded.map(u => u[1]));
   const fast = d.seeded.find(p => p.rate === 0.3)!;
-  const diff = validation.differences;
   const sens = (parameter: string, rate: number) => d.sensitivity.filter(x => x.parameter === parameter && x.rate === rate);
   const meshChange = Math.abs(sens('n', 0.03).find(x => x.value === 96)!.amplification / sens('n', 0.03).find(x => x.value === 48)!.amplification - 1);
   const meshEnvelopeChange = Math.abs(sens('n', 0.03).find(x => x.value === 96)!.envelope / sens('n', 0.03).find(x => x.value === 48)!.envelope - 1);
@@ -228,7 +230,7 @@
     <p>{fill(s.sensitivityText, { dt: pct(check('dt').observed), meshPhase: pct(meshChange), meshEnvelope: pct(meshEnvelopeChange) })}</p>
     <h2>{s.reproducesHeading}</h2>
     <ul>{#each s.reproduces as item}<li>{item}</li>{/each}</ul>
-    <ul class="not">{#each s.doesnt as item}<li>{item}</li>{/each}</ul>
+    <ul class="not">{#each s.doesnt as item}<li>{fill(item, { factorMin: num(Math.min(...paperFactors), { sig: 2 }), factorMax: num(Math.max(...paperFactors), { sig: 2 }) })}</li>{/each}</ul>
     <p>{s.assumptionsText} <a href="https://github.com/lambdaclass/stabileo/blob/main/research/mechanics/vella-2024/reference/paper-extraction.md">{s.extraction}</a></p>
     <h2>{s.citeHeading}</h2>
     <p>{citation[0]}<span lang="en">{TITLE}</span>{citation[1]} <a href={`https://doi.org/${DOI}`}>{`doi:${DOI}`}</a> · <a href="https://arxiv.org/abs/2312.13908v2">{s.arxiv}</a></p>

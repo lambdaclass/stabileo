@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { render } from 'svelte/server';
-import { asymmetry, decodeRun, displacementOf, logStep, logValue, parseFigure, RATE_RANGE, restGeometry, sameSettings, snapFrame, thetaPeaks } from '../protocol';
+import { asymmetry, decodeRun, displacementOf, envelopeCurve, logStep, logValue, parseFigure, RATE_RANGE, restGeometry, sameSettings, snapFrame, thetaPeaks } from '../protocol';
 import { summaryIn } from '../../summaries';
 import papers from '../../../../../../research/papers.json';
 import SnapChecks from '../SnapChecks.svelte';
@@ -183,7 +183,7 @@ it('publishes each paper verdict and both sampling brackets', () => {
 
 it('uses the paper time coordinate even after the clamps stop', () => {
   for (const run of study.dynamics.figure_2a) {
-    expect(run.travel_mm.at(-1)).toBeCloseTo(run.time_s.at(-1)! * run.rate_m_s * 1000, 12);
+    expect(run.paper_axis_mm.at(-1)).toBeCloseTo(run.time_s.at(-1)! * run.rate_m_s * 1000, 12);
   }
   expect(validation.checks.find(c => c.id === 'fig2a-rate')!.metric).toContain('0.001 * slope_mm_s / rate_m_s');
 });
@@ -223,11 +223,13 @@ it('records paper shortening and the physical clamp through startup, coasting an
   const { dynamics, units } = study;
   for (const run of dynamics.figure_2a) {
     const { t, mu, height } = run.trace;
-    const paperMu = run.paper_mu;
+    const paperMu = run.nominal_mu;
+    expect(run.paper_mu).toEqual(mu);
     expect(paperMu).toHaveLength(t.length);
     const mmPerMu = 1000 * units.t_osc_simulations * run.rate_m_s / run.rate;
     for (const [i, value] of paperMu.entries()) {
-      expect(value).toBeCloseTo(run.mu_star - run.travel_mm[i] / mmPerMu, 12);
+      expect(mu[i]).toBeCloseTo(run.mu_star - run.travel_mm[i] / mmPerMu, 12);
+      expect(value).toBeCloseTo(run.mu_star - run.paper_axis_mm[i] / mmPerMu, 12);
     }
     const ramp = dynamics.base.ramp;
     const start = dynamics.one_end_start;
@@ -256,5 +258,23 @@ it('requires a strictly positive observed midpoint for a snapped verdict', () =>
     else trial.trace.height[trial.trace.height.length - 1] = Number.EPSILON;
     expect(decodeRun(trial).outcome.snapped).toBe(true);
     expect(() => decodeRun({ ...trial, outcome: noSnap().outcome })).toThrow('Invalid outcome');
+  }
+});
+
+it('compares both plotted envelopes to the digitized data at the paper rates', () => {
+  for (const [sweep, key] of [[study.dynamics.one_end, 'one_end'], [study.dynamics.seeded, 'envelope']] as const) {
+    const curve = envelopeCurve(sweep);
+    for (const [i, p] of sweep.entries()) expect(curve[i]).toEqual([p.rate, Math.max(...p.phase_amplifications)]);
+    for (const row of validation.differences.figure_2c.rows) {
+      const i = curve.findIndex(([rate]) => rate >= row.rate);
+      if (i === 0 && row.rate < curve[0][0]) {
+        expect(row[key]).toBeNull();
+        continue;
+      }
+      const [r1, a1] = curve[i];
+      const [r0, a0] = curve[Math.max(0, i - 1)];
+      const expected = r1 === row.rate ? a1 : a0 * (a1 / a0) ** (Math.log(row.rate / r0) / Math.log(r1 / r0));
+      expect(row[key]).toBeCloseTo(expected, 10);
+    }
   }
 });

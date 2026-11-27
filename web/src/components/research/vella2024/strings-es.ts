@@ -72,7 +72,7 @@ export const es: Strings = {
   absolute: 'abs.',
   differencesHeading: 'Dónde diferimos',
   toyRate: 'Velocidad crítica del modelo de juguete: el artículo da |µ̇_c| ≈ {paper} con una reducción asintótica cerca del silla-nodo; integrando sus ecuaciones (S74)–(S75) y bisecando según si la trayectoria entra en f < 0 obtenemos {ours} ({diff}).',
-  figureCompare: 'Fig. 2c, simulaciones. Leemos los puntos del artículo en la figura (al píxel) e interpolamos nuestros barridos en los mismos |µ̇| hasta 0,3: la diferencia mediana es {oneEnd} para nuestro protocolo de un empotramiento, que parte como el del artículo de ΔL/L = 0,2, y {envelope} para el mayor A con semilla sobre la fase. Los puntos del artículo caen por primera vez bajo A = 2 en |µ̇| ≈ {paperBelow}; los nuestros en ≈ {oursBelow} (un empotramiento).',
+  figureCompare: 'Fig. 2c, simulaciones. Leemos los puntos del artículo en la figura (al píxel) e interpolamos nuestros barridos en los mismos |µ̇| hasta 0,3: ambas curvas usan el mayor A entre doce fases iniciales. La diferencia mediana es {oneEnd} con un empotramiento móvil desde ΔL/L = 0,2 y {envelope} con dos empotramientos móviles. Los puntos del artículo caen por primera vez bajo A = 2 en |µ̇| ≈ {paperBelow}; los nuestros en ≈ {oursBelow} (un empotramiento).',
   experiments: 'La Tabla S1 (30 experimentos) se dibuja con las velocidades convertidas por |µ̇| = 2,358 s/m × |ΔL̇|, nuestra lectura de las unidades del artículo (las cruces de la Fig. 2c están ahí; el eje superior de la figura implica 2,50 s/m). Los experimentos no son aquí un objetivo numérico.',
 
   sensitivityHeading: 'Sensibilidad',
@@ -91,7 +91,7 @@ export const es: Strings = {
     'Las constantes, frecuencias y t_osc del modelo de juguete.',
   ],
   doesnt: [
-    'Los factores de amplificación de la Fig. 2c son de tres a ocho veces menores en el intervalo comparado. La velocidad crítica del modelo de juguete difiere alrededor de un 10 %.',
+    'Los factores de amplificación de la Fig. 2c son de {factorMin} a {factorMax} veces menores en el intervalo comparado. La velocidad crítica del modelo de juguete difiere alrededor de un 10 %.',
     'Los experimentos de la Tabla S1; nada de esto es una comparación de laboratorio.',
     'El código DER del artículo: no está publicado, así que su semilla, su origen de tiempos y el fin de su ventana del salto son supuestos nuestros.',
     'No se modelan la gravedad, el amortiguamiento, la inercia rotacional ni el impacto contra el tope.',
@@ -137,7 +137,7 @@ export const es: Strings = {
   oursEnvelope: 'Stabileo, con semilla, máximo sobre la fase',
   muAMark: 'µ_A',
   muStarMark: 'µ*',
-  rateReference: 'Barridos guardados (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = 0. Marca de la corrida mostrada: |µ̇| = {rate}.',
+  rateReference: 'Barridos guardados (α = {alpha}, n = {n}). {both}: µ₀ = {start}, θ₀ = {seed} rad. {one}: µ₀ = {far}, θ₀ = {seed} rad. Marca de la corrida mostrada: |µ̇| = {rate}.',
   diagramReference: 'Las curvas y las marcas son del ajuste de la reproducción (α = {alpha}, {n} elementos), tomadas del estudio guardado.',
   diagramLive: 'Los µ_A y µ* del cálculo en vivo están en el resumen de abajo.',
 

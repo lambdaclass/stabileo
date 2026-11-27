@@ -47,6 +47,12 @@ impl Toy {
         self.b1 - self.b2 * mu + self.b3 * psi * psi
     }
 
+    fn accelerations(&self, s: f64, a: f64, mu: f64) -> [f64; 2] {
+        let du_ds = self.gradient(s, mu) + self.b3 * s * a * a;
+        let du_da = self.f(s, mu) * a + self.b4 * a.powi(3);
+        [-0.5 * du_ds, -2.0 * du_da]
+    }
+
     /// The saddle-node (S65): µ*vM and ψ*_S.
     pub fn fold(&self) -> (f64, f64) {
         let mu = self.a2 / self.a3 + 1.5 / self.a3 * (2.0 * self.a1 * self.a1 * self.a4).cbrt();
@@ -112,12 +118,8 @@ impl Toy {
         let rhs = |tau: f64, y: &[f64; 4]| {
             let mu = mu_i - rate * tau;
             let (s, ds, a, da) = (y[0], y[1], y[2], y[3]);
-            [
-                ds,
-                k * (0.5 * self.a1 - 0.5 * (self.a2 - self.a3 * mu) * s - 0.5 * self.a4 * s.powi(3) - 0.5 * self.b3 * s * a * a),
-                da,
-                k * (-2.0 * self.f(s, mu) * a - 2.0 * self.b4 * a.powi(3)),
-            ]
+            let [s_acc, a_acc] = self.accelerations(s, a, mu);
+            [ds, k * s_acc, da, k * a_acc]
         };
         let h = 1e-3;
         let mut tau = 0.0;
@@ -157,5 +159,28 @@ impl Toy {
             if self.run(m, 1e-9, 0.0).0 < 0.0 { slow = m } else { fast = m }
         }
         (slow * fast).sqrt()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Toy;
+
+    #[test]
+    fn generalized_inertia_balances_each_energy_derivative() {
+        let toy = Toy::paper();
+        let mu = toy.fold().0;
+        let potential = |s: f64, a: f64| {
+            -toy.a1 * s + 0.5 * (toy.a2 - toy.a3 * mu) * s * s + 0.25 * toy.a4 * s.powi(4)
+                + 0.5 * (toy.b1 - toy.b2 * mu + toy.b3 * s * s) * a * a + 0.25 * toy.b4 * a.powi(4)
+        };
+        let h = 1e-5;
+        for s in [-0.4, 0.0, 0.4] {
+            for a in [-0.2, 0.0, 0.2] {
+                let [s_acc, a_acc] = toy.accelerations(s, a, mu);
+                assert!((2.0 * s_acc + (potential(s + h, a) - potential(s - h, a)) / (2.0 * h)).abs() < 1e-9);
+                assert!((0.5 * a_acc + (potential(s, a + h) - potential(s, a - h)) / (2.0 * h)).abs() < 1e-9);
+            }
+        }
     }
 }

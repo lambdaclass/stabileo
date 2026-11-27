@@ -1,5 +1,5 @@
 use serde_json::{json, Map, Value};
-use snap_symmetry_vella_2024::study::{first_downward_bracket, study, BranchPoint, Figure2a, Study, ASYMMETRIC, PAPER_ALPHA, PHASES, RATES};
+use snap_symmetry_vella_2024::study::{first_downward_bracket, study, BranchPoint, Figure2a, RatePoint, Study, ASYMMETRIC, PAPER_ALPHA, PHASES, RATES};
 use snap_symmetry_vella_2024::units::SIMULATIONS;
 use std::{fs, path::Path};
 
@@ -66,16 +66,22 @@ fn exact_values(actual: impl Iterator<Item=f64>, expected: &[f64]) -> bool {
 fn complete(s: &Study) -> Result<(), String> {
     let d = &s.dynamics;
     for (name, points) in [("seeded", &d.seeded), ("one_end", &d.one_end)] {
-        let rates: Vec<f64> = points.iter().map(|p| p.rate).collect();
+        let rates: Vec<f64> = points.iter().map(|p| p.point.rate).collect();
         if rates != RATES {
             return Err(format!("{name}: rates {rates:?}, expected {RATES:?}"));
         }
-        for p in points.iter() {
-            finite(&[p.amplification, p.amplification_from_mu_a, p.t_snap, p.mu_snap, p.theta_before, p.theta_during], &format!("{name} at {}", p.rate))?;
-            if name == "seeded" {
-                finite(&[p.envelope.ok_or("missing envelope")?], &format!("seeded envelope at {}", p.rate))?;
+        for sweep in points {
+            let p = &sweep.point;
+            if largest(&sweep.phase_amplifications, name)? != sweep.envelope || sweep.phase_amplifications[0] != p.amplification {
+                return Err(format!("{name}: inconsistent phase envelope at {}", p.rate));
             }
         }
+    }
+    for p in d.seeded.iter().chain(&d.one_end).map(|sweep| &sweep.point).chain(&d.one_end_unseeded) {
+        finite(&[p.amplification, p.amplification_from_mu_a, p.t_snap, p.mu_snap, p.theta_before, p.theta_during], &format!("rate point at {}", p.rate))?;
+    }
+    if d.one_end_unseeded.iter().map(|p| p.rate).ne(RATES) {
+        return Err("missing unseeded one-clamp control".into());
     }
     let unseeded: Vec<f64> = d.unseeded.iter().map(|u| u[0]).collect();
     if unseeded != [0.01, 0.03, 0.1, 0.3] {
@@ -104,7 +110,7 @@ fn complete(s: &Study) -> Result<(), String> {
     if !exact_values(d.figure_2a.iter().map(|f| f.rate_m_s), &[0.0018, 0.2466]) {
         return Err("figure 2a: two runs expected".into());
     }
-    let seeded_runs = RATES.len() * PHASES + 2 * expected.iter().map(|e| e.1.len()).sum::<usize>() * PHASES;
+    let seeded_runs = 2 * RATES.len() * PHASES + 2 * expected.iter().map(|e| e.1.len()).sum::<usize>() * PHASES;
     let others = RATES.len() + d.unseeded.len() + d.figure_2a.len();
     if d.runs != seeded_runs + others {
         return Err(format!("{} dynamic runs, expected {}", d.runs, seeded_runs + others));
@@ -181,8 +187,8 @@ fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
         dt_changes.push((at(0.005)? / at(0.0025)? - 1.0).abs());
     }
     let dt_change = largest(&dt_changes, "dt change")?;
-    let slow = least(&d.seeded.iter().filter(|x| x.rate <= 0.01).map(|x| x.amplification).collect::<Vec<_>>(), "slow seeded runs")?;
-    let fast = largest(&d.seeded.iter().filter(|x| x.rate >= 0.3).map(|x| x.amplification).collect::<Vec<_>>(), "fast seeded runs")?;
+    let slow = least(&d.seeded.iter().map(|p| &p.point).filter(|x| x.rate <= 0.01).map(|x| x.amplification).collect::<Vec<_>>(), "slow seeded runs")?;
+    let fast = largest(&d.seeded.iter().map(|p| &p.point).filter(|x| x.rate >= 0.3).map(|x| x.amplification).collect::<Vec<_>>(), "fast seeded runs")?;
     let unseeded = largest(&d.unseeded.iter().map(|x| x[1].abs()).collect::<Vec<_>>(), "unseeded runs")?;
     let diagram = &s.diagram;
     let height_a = zero_crossing(&diagram.inverted, |p| p.spectrum.omega2_antisymmetric)?;
@@ -199,11 +205,14 @@ fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
         check("fast-symmetric", "seeded, rates >= 0.3: largest amplification / 2", fast / ASYMMETRIC, 1.0, "paper Fig. 2c: A ~ 1 at fast rates"),
         check("dt", "amplification change from dt = 0.005 to 0.0025 T_osc, rates 0.03 and 0.1", dt_change, 0.02, "time-step study"),
         check("critical-heights", "alpha = pi/12, 48 elements: |h_A - h where omega2_antisymmetric crosses zero| and |h* - h where omega2_symmetric crosses zero| along the drawn inverted branch, in alpha L (linear interpolation between points 0.002 apart)", heights, CROSSING_TOLERANCE, "diagram"),
-        check("fig2a-rate", "Fig. 2a runs: abs(0.001 * slope_mm_s / rate_m_s - 1), largest error for the paper time coordinate and clamp travel from shortening, -1 <= t/T_osc <= 0", rate_units, 1e-9, "units"),
+        check("fig2a-rate", "Fig. 2a runs: abs(0.001 * slope_mm_s / rate_m_s - 1), largest error for measured clamp travel and prescribed shortening, -1 <= t/T_osc <= 0", rate_units, 1e-9, "units"),
     ];
     let figure = figure_2c(root);
-    let one_end: Vec<(f64, f64)> = d.one_end.iter().map(|x| (x.rate, x.amplification)).collect();
-    let envelope: Vec<(f64, f64)> = d.seeded.iter().map(|x| (x.rate, x.envelope.unwrap())).collect();
+    let curve = |points: &[RatePoint]| -> Vec<_> {
+        points.iter().map(|p| (p.point.rate, p.envelope)).collect()
+    };
+    let one_end = curve(&d.one_end);
+    let envelope = curve(&d.seeded);
     let paper = first_downward_bracket(&figure)?.map(|(rate, _)| rate);
     let model = first_downward_bracket(&envelope)?.map(|(rate, _)| rate);
     let mut transition = published(
@@ -225,7 +234,7 @@ fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
     let not_reproduced = vec![
         json!({"id": "fig2c-amplitude", "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our largest A over twelve seed phases (ours lower at every point)",
                "observed": median_in_band(&envelope), "tolerance": 0.25, "passed": median_in_band(&envelope) <= 0.25, "source": fig}),
-        json!({"id": "fig2c-amplitude-one-end", "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our one-clamp protocol from DeltaL/L = 0.2 (ours lower at every point)",
+        json!({"id": "fig2c-amplitude-one-end", "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, largest A over twelve seed phases with one clamp from DeltaL/L = 0.2",
                "observed": median_in_band(&one_end), "tolerance": 0.25, "passed": median_in_band(&one_end) <= 0.25, "source": fig}),
         {
             let observed = (toy.critical_rate / pv("toy", "critical_rate") - 1.0).abs();
@@ -466,13 +475,16 @@ mod tests {
     #[test]
     fn review_incomplete_evidence_cannot_pass_reductions() {
         use snap_symmetry_vella_2024::dynamics::Trace;
-        let valid = Figure2a { truncated: false, rate_m_s: 0.0018, rate: 1.0, mu_star: 0.0, paper_mu: vec![1.0, 0.0],
+        let valid = Figure2a { truncated: false, rate_m_s: 0.0018, rate: 1.0, mu_star: 0.0, paper_mu: vec![1.0, 0.0], nominal_mu: vec![1.0, 0.0], paper_axis_mm: vec![-1.8, 0.0],
             time_s: vec![-1.0, 0.0], travel_mm: vec![-1.8, 0.0],
             trace: Trace { t: vec![-1.0, 0.0], mu: vec![0.0018 / (PAPER_ALPHA.powi(2) * SIMULATIONS.length), 0.0], ..Trace::default() }, amplification: 1.0 };
         assert!(figure_2a_rate(std::slice::from_ref(&valid)).unwrap() < 1e-14);
         let mut stationary = valid.clone();
         stationary.trace.mu.fill(0.0);
         assert_eq!(figure_2a_rate(&[stationary]).unwrap(), 1.0);
+        let mut frozen_ends = valid.clone();
+        frozen_ends.travel_mm.fill(0.0);
+        assert_eq!(figure_2a_rate(&[frozen_ends]).unwrap(), 1.0);
         let mut undefined = valid.clone();
         undefined.time_s.fill(0.0);
         undefined.travel_mm.fill(0.0);
