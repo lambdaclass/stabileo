@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { assessProject } from '../applicability';
 import { RESULT_CHANGES } from '../full-registry';
+import { registryLocale } from '../registry';
 import { stampSolve } from '../solve-stamp';
 import type { FeatureSnapshot } from '../model-features';
 const CURRENT_RESULT_CHANGES = RESULT_CHANGES;
@@ -55,4 +56,13 @@ it('#2220 manual wind plus generated gravity does not require wind regeneration'
 it('#2220 Hungarian wind explanation keeps minimum cases separate', async () => {
   const { default: entry } = await import('../result-changes/wind-physical-pressure-field.json');
   expect(entry.explanation.hu).toContain('A minimális vízszintes teheresetek elkülönülnek a számított nyomásmezőktől.');
+});
+
+it.skip.each(['W', 'Wa'])('known wrong result: #2595 — an Italian saved %s case explains how to regenerate its wind loads', type => {
+  const { changes } = assessProject(snapshot(type), null);
+  const notice = changes.find(change => change.id === 'wind-two-part-moments')!;
+  const locale = registryLocale('it', notice.title, notice.explanation);
+  expect(locale).toBe('it');
+  expect(notice.title[locale]).toContain('vento');
+  expect(notice.explanation[locale]).toMatch(/Rigenera.*W e Wa.*analisi.*combinazioni.*verifiche/);
 });
