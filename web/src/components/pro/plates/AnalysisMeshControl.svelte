@@ -16,7 +16,7 @@
     const on = meshBeforeAnalysis.value;
     const all = physicalPlates();
     const pending = platesNeedingMesh({ coarse: on });
-    const asCame = on ? 0 : all.filter((p) => coarseAsModelled(p)).length;
+    const asCame = __PUBLIC_FEATURES__.proPlatesUnified && !on ? all.filter((p) => coarseAsModelled(p)).length : 0;
     return { on, total: all.length, pending, asCame, kept: all.length - pending.length - asCame, ids: all.map((p) => p.id) };
   });
   // One short line in the ribbon, so the ribbon keeps its height; the whole sentence in its tooltip.
@@ -35,13 +35,19 @@
 </script>
 
 {#if info.total > 0}
-  <div class="amc" data-testid="analysis-mesh-control">
-    {#if meshProgress.now}
-      <MeshProgressBar phase={meshProgress.now.phase} done={meshProgress.now.done} total={meshProgress.now.total} />
+  <div class="amc" class:unified={__PUBLIC_FEATURES__.proPlatesUnified} data-testid="analysis-mesh-control">
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      {#if meshProgress.now}
+        <MeshProgressBar phase={meshProgress.now.phase} done={meshProgress.now.done} total={meshProgress.now.total} />
+      {:else}
+        <span class="amc-state" class:warn={info.pending.length > 0 && !info.on} title={stateLong} data-testid="analysis-mesh-state" data-pending={info.pending.length} data-kept={info.kept}>{stateText}</span>
+      {/if}
     {:else}
-      <span class="amc-state" class:warn={info.pending.length > 0 && !info.on} title={stateLong} data-testid="analysis-mesh-state" data-pending={info.pending.length} data-kept={info.kept}>{stateText}</span>
+      <span class="amc-state" class:warn={info.pending.length > 0} data-testid="analysis-mesh-state">
+        {info.pending.length ? tp('plates.pendingShort', { n: info.pending.length }) : t('plates.allCurrent')}
+      </span>
     {/if}
-    <label class="amc-check" title={t('plates.meshBeforeAnalysisHint')}>
+    <label class="amc-check" title={t(__PUBLIC_FEATURES__.proPlatesUnified ? 'plates.unified.meshBeforeAnalysisHint' : 'plates.meshBeforeAnalysisHint')}>
       <input type="checkbox" checked={meshBeforeAnalysis.value} onchange={(e) => (meshBeforeAnalysis.value = e.currentTarget.checked)} data-testid="analysis-mesh-auto" />
       {t('plates.meshBeforeAnalysis')}
     </label>
@@ -51,8 +57,10 @@
 {/if}
 
 <style>
-  .amc { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 0 6px; font-size: 0.66rem; color: var(--st-text-3); max-width: 170px; }
-  .amc-state { color: var(--st-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .amc { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 0 6px; font-size: 0.66rem; color: var(--st-text-3); max-width: 150px; }
+  .amc.unified { max-width: 170px; }
+  .amc-state { color: var(--st-text-2); }
+  .amc.unified .amc-state { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .amc-state.warn { color: var(--st-warn, #d9a441); }
   .amc-check { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
   .amc-btn { align-self: flex-start; padding: 0 6px; background: none; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); color: var(--st-text-2); font: inherit; cursor: pointer; }

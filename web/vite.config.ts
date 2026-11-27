@@ -96,7 +96,8 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
           if (/^loads\.asce7\.(period|system|ui)\./.test(key)) return false;
           if (/^loads\.ec\.(exposure|period|terrain|ui)\./.test(key)) return false;
           if (key.startsWith('loads.tr.system.')) return false;
-          if (key === 'drawBar.circle' || /^plates\.(circle|shape|shapeProblem)\./.test(key)) return false;
+          if (key === 'drawBar.circle' || /^plates\.(circle|shape|shapeProblem|meshShort|unified)\./.test(key)) return false;
+          if (/^plates\.meshState(?:WillMesh|Missing|AsCame|Ready|Kept)$/.test(key)) return false;
         }
         if (!proRcSheets) {
           if (key.startsWith('rcSheets.')) return false;

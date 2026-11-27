@@ -23,3 +23,5 @@ The disabled browser bundles omit circular inputs and generator-only options for
 A raw quadrilateral can again be meshed directly from its published quick editor. The existing occupied-region refusal and undo operation apply.
 
 The published combination-rule editor again names its CIRSOC starter. Selecting it uses the same strength and service generators as the released editor, including for a reopened project.
+
+The published Analyze ribbon marks pending and current meshes again. Its help and the viewport mesh checkbox describe the behavior of the active build.

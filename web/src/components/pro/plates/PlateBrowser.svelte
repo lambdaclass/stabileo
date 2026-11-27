@@ -77,7 +77,7 @@
 
     <div class="pb-head">
       <label class="pb-all"><input type="checkbox" checked={allShown} onchange={pickAll} data-testid="plate-select-all" /> {selected.size ? tp('plates.nSelectedOf', { n: selected.size, of: rows.length }) : t('plates.selectAll')}</label>
-      <label class="pb-mesh" title={t('plates.showMeshHint')}><input type="checkbox" checked={uiStore.platesShowMesh ?? resultsStore.results3D != null} onchange={(e) => (uiStore.platesShowMesh = e.currentTarget.checked)} data-testid="plates-show-mesh" /> {t('plates.showMesh')}</label>
+      <label class="pb-mesh" title={t('plates.unified.showMeshHint')}><input type="checkbox" checked={uiStore.platesShowMesh ?? resultsStore.results3D != null} onchange={(e) => (uiStore.platesShowMesh = e.currentTarget.checked)} data-testid="plates-show-mesh" /> {t('plates.showMesh')}</label>
     </div>
 
     <div class="pb-list" bind:this={listEl} role="listbox" aria-multiselectable="true" aria-label={tp('plates.scopePlates', { n: rows.length })}>

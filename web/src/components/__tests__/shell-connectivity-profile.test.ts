@@ -55,6 +55,8 @@ it('shows the published raw shell inventory, plate status and mesh display defau
   const status = html.match(/<span class="chip chip-unmeshed[^"]*">([^<]*)<\/span>/)?.[1];
   expect(status).toBe(unified ? undefined : t('plates.status.unmeshed'));
   expect(html.includes('data-testid="plate-filter-level"')).toBe(unified);
+  const hint = t(unified ? 'plates.unified.showMeshHint' : 'plates.showMeshHint');
+  expect(html).toContain('title="' + hint + '"');
   expect(uiStore.platesShowMesh).toBe(unified ? null : true);
 });
 
@@ -107,7 +109,7 @@ it('known wrong result: #1928 the published quick editor can mesh an ownerless q
   }
 });
 
-it.skip('known wrong result: #1928 the published Analyze ribbon warns about an unmeshed plate and explains the mesh it will use', () => {
+it('known wrong result: #1928 the published Analyze ribbon warns about an unmeshed plate and explains the mesh it will use', () => {
   modelStore.clear();
   const nodes = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
   const plate = createPlate({ outline: nodes, thickness: 0.15, materialId: 1 });
@@ -120,6 +122,8 @@ it.skip('known wrong result: #1928 the published Analyze ribbon warns about an u
       const html = render(AnalysisMeshControl).body;
       const label = unified ? (auto ? 'plates.meshShort.willMesh' : 'plates.meshShort.missing') : 'plates.pendingShort';
       expect(html.includes(tp(label, { n: 1 }))).toBe(true);
+      const hint = t(unified ? 'plates.unified.meshBeforeAnalysisHint' : 'plates.meshBeforeAnalysisHint');
+      expect(html).toContain('title="' + hint + '"');
       const state = html.match(/<span class="([^"]*)"[^>]*data-testid="analysis-mesh-state"/)?.[1];
       expect(state?.split(' ').includes('warn')).toBe(!unified || !auto);
     }

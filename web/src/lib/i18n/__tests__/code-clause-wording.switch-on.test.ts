@@ -53,8 +53,8 @@ describe('code clauses as the code words them', () => {
     for (const [l, s] of each('autoLoad.patternsHintCode')) expect(s, l).not.toMatch(/give the larger|dan los momentos|dão os maiores|ergeben die größeren|donnent les plus grands|momentleri verir|adják a nagyobb/);
   });
   it('mesh before analysis: a plate with a current mesh keeps it, and coarse means the discretisation', () => {
-    expect(en['plates.meshBeforeAnalysisHint']).toMatch(/^A plate with a current mesh keeps it\./);
-    expect(pt['plates.meshBeforeAnalysisHint']).not.toContain('cascas grossas');
+    expect(en['plates.unified.meshBeforeAnalysisHint']).toMatch(/^A plate with a current mesh keeps it\./);
+    expect(pt['plates.unified.meshBeforeAnalysisHint']).not.toContain('cascas grossas');
   });
   it('German and French wording the review found', () => {
     expect(de['physical.pending']).not.toContain('Lesungen');
