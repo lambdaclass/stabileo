@@ -70,7 +70,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
-  'physicalPlateDefinitions', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'physicalPlateDefinitions', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
@@ -658,8 +658,16 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     s.detailing.assemblies.some(a => Array.isArray(a?.families) && a.families.some(r => r?.family === 'wall')))) f.add('savedWallDesign');
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
   if (mode !== 'pro' && (quads.length || values(s.plates).length)) f.add('shellsInBasic');
-  const physicalPlates = new Set((Array.isArray(s.groups) ? s.groups : []).flatMap(entry =>
-    plateSurfaceOf({ data: entry?.[1]?.data as Record<string, unknown> }) ? [entry[0]] : []));
+  const physicalPlates = new Set<number>();
+  for (const entry of Array.isArray(s.groups) ? s.groups : []) {
+    const surface = plateSurfaceOf({ data: entry?.[1]?.data as Record<string, unknown> });
+    if (!surface) continue;
+    physicalPlates.add(entry[0]);
+    if (surface.loops.length > 1 && Array.isArray(surface.arcMids)) {
+      const end = surface.loops.reduce((sum, count) => sum + count, 0);
+      if (surface.arcMids.some(i => Number.isInteger(i) && i >= surface.loops[0]! && i < end)) f.add('curvedPlateOpenings');
+    }
+  }
   addPlateEditFeatures(s, physicalPlates, f);
   if (physicalPlates.size) {
     f.add('physicalPlateDefinitions');

@@ -518,6 +518,21 @@ export function setPlateHoles(id: number, holes: number[][]): PlateProblem | nul
   return setPlateLoops(id, loops.outer, holes, outerArcs);
 }
 
+function retainedArcIndices(e: PlateEntry, loops: number[][], newPoint?: number | null): number[] {
+  const controls = new Set((e.surface.arcMids ?? []).map(index => e.group.members.nodes?.[index]));
+  if (newPoint != null) controls.add(newPoint);
+  return loops.flat().flatMap((node, index) => controls.has(node) ? [index] : []);
+}
+
+export function editPlateHole(id: number, edit: { append: number[] } | { remove: number }): PlateProblem | null {
+  const e = plateEntry(id);
+  if (!e) return 'needNodes';
+  const { outer, holes } = plateLoops(e.group);
+  if ('remove' in edit && !holes[edit.remove]) return 'needNodes';
+  const updated = 'append' in edit ? [...holes, edit.append] : holes.filter((_, i) => i !== edit.remove);
+  return setPlateLoops(id, outer, updated, retainedArcIndices(e, [outer, ...updated]));
+}
+
 /**
  * Replace a plate's outline and holes (node loops, `arcMids` the outline's curved-side points);
  * one undo step. The plate's own holes are then its openings: a wall's openings as placed are dropped.
@@ -554,19 +569,18 @@ export function setPlateSideArc(id: number, side: number, mid: number | null): P
   if (at === undefined) return 'needNodes';
   const next = (at + 1) % loops.outer.length;
   const outer = [...loops.outer];
-  let arcList = [...mids];
   let corner = at;
   if (mids.has(next)) {
     outer.splice(next, 1);
-    arcList = arcList.filter((k) => k !== next).map((k) => (k > next ? k - 1 : k));
     if (next < corner) corner--;
   }
-  if (mid !== null) { const pos = corner + 1; outer.splice(pos, 0, mid); arcList = arcList.map((k) => (k >= pos ? k + 1 : k)); arcList.push(pos); }
+  if (mid !== null) outer.splice(corner + 1, 0, mid);
+  const arcList = retainedArcIndices(e, [outer, ...loops.holes], mid);
   const problem = plateProblem(plateModel(), outer, loops.holes, arcList);
   if (problem) return problem;
   modelStore.batch(() => {
     modelStore.setGroupMembers(id, { ...e.group.members, nodes: [...outer, ...loops.holes.flat(), ...loops.owned] });
-    writeSurface(id, (s) => ({ ...s, loops: [outer.length, ...loops.holes.map((h) => h.length)], ...(arcList.length ? { arcMids: arcList.sort((x, y) => x - y) } : { arcMids: undefined }) }));
+    writeSurface(id, (s) => ({ ...s, loops: [outer.length, ...loops.holes.map((h) => h.length)], ...(arcList.length ? { arcMids: arcList } : { arcMids: undefined }) }));
   });
   return null;
 }

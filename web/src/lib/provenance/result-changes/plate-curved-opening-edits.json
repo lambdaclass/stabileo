@@ -1,0 +1,52 @@
+{
+  "id": "plate-curved-opening-edits",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "curvedPlateOpenings"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-edit-node-ownership.md",
+    "heading": "Curved openings during plate edits"
+  },
+  "title": {
+    "en": "Curved openings in plates",
+    "es": "Huecos curvos en placas",
+    "pt": "Aberturas curvas em placas",
+    "de": "Gekrümmte Öffnungen in Platten",
+    "fr": "Ouvertures courbes dans les plaques",
+    "hu": "Íves lemeznyílások",
+    "tr": "Plaklardaki eğri kenarlı boşluklar",
+    "zh": "板的曲边开口",
+    "ar": "الفتحات المنحنية في البلاطات",
+    "hi": "प्लेट में वक्र किनारों वाले छेद",
+    "id": "Bukaan bertepi lengkung pada pelat",
+    "it": "Aperture curve nelle piastre",
+    "ja": "板の曲線開口",
+    "ko": "판의 곡선 개구부",
+    "ru": "Криволинейные отверстия в пластинах"
+  },
+  "explanation": {
+    "en": "Editing a plate edge preserves the curves of its openings. Check previously edited openings against the original project.",
+    "es": "La edición de un borde de la placa conserva las curvas de sus huecos. Compare los huecos editados anteriormente con el proyecto original.",
+    "pt": "A edição de uma borda da placa preserva as curvas das aberturas. Compare as aberturas editadas anteriormente com o projeto original.",
+    "de": "Beim Bearbeiten eines Plattenrands bleiben die Kurven der Öffnungen erhalten. Vergleichen Sie zuvor bearbeitete Öffnungen mit dem ursprünglichen Projekt.",
+    "fr": "La modification du bord d’une plaque conserve les courbes de ses ouvertures. Comparez les ouvertures précédemment modifiées au projet initial.",
+    "hu": "A lemez szélének szerkesztése megőrzi a nyílások íveit. A korábban módosított nyílásokat ellenőrizze az eredeti terv alapján.",
+    "tr": "Plak kenarı düzenlenirken boşlukların eğrileri korunur. Daha önce düzenlenen boşlukları özgün projeyle karşılaştırın.",
+    "zh": "编辑板边缘时会保留开口边界的曲线。请对照原始项目核查以前编辑过的开口。",
+    "ar": "يحافظ تحرير حافة البلاطة على انحناء فتحاتها. قارن الفتحات المعدلة سابقاً بالمشروع الأصلي.",
+    "hi": "प्लेट के किनारे को संपादित करने पर छेदों की वक्रता बनी रहती है। पहले संपादित किए गए छेदों की मूल परियोजना से तुलना करें।",
+    "id": "Menyunting tepi pelat mempertahankan lengkungan bukaannya. Bandingkan bukaan yang pernah disunting dengan proyek asli.",
+    "it": "La modifica di un bordo della piastra conserva le curve delle aperture. Confrontare le aperture già modificate con il progetto originale.",
+    "ja": "板の外縁を編集しても開口の曲線は保持されます。過去に編集した開口は元のプロジェクトと照合してください。",
+    "ko": "판 가장자리를 편집해도 개구부의 곡선이 유지됩니다. 이전에 편집한 개구부를 원래 프로젝트와 비교하세요.",
+    "ru": "При изменении края пластины сохраняются кривые контуры отверстий. Сравните ранее изменённые отверстия с исходным проектом."
+  }
+}

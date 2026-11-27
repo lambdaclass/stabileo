@@ -6,7 +6,7 @@
 import { modelStore } from './model.svelte';
 import { retainedPlateNodes } from './plate-node-references';
 import {
-  applyPlateMeshes, arcEdgeBetween, planPlateMesh, plateEntry, plateSides, plateStatus, setPlateLoops, setPlateSideArc,
+  applyPlateMeshes, arcEdgeBetween, editPlateHole, planPlateMesh, plateEntry, plateSides, plateStatus, setPlateLoops, setPlateSideArc,
 } from './physical-plates';
 import { plateGeometry, plateLoops, type PlateFrame, type PlateProblem } from '../model/physical/plate';
 import type { Vec3 } from '../model/edit/affine';
@@ -232,9 +232,7 @@ export function closePlateHole(id: number, k: number): PlateShapeProblem | null 
   if (!loops.holes[k]) return 'needNodes';
   let problem: PlateShapeProblem | null = null;
   modelStore.batch(() => {
-    const from = loops.outer.length + loops.holes.slice(0, k).reduce((n, h) => n + h.length, 0), to = from + loops.holes[k]!.length;
-    const arcMids = (e.surface.arcMids ?? []).filter((x) => x < from || x >= to).map((x) => (x >= to ? x - (to - from) : x));
-    problem = setPlateLoops(id, loops.outer, loops.holes.filter((_, i) => i !== k), arcMids);
+    problem = editPlateHole(id, { remove: k });
     if (problem) return;
     remeshIfMeshed(id);
     removeShapeNodes(id, loops.holes[k]!);

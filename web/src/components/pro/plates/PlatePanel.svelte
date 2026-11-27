@@ -11,7 +11,7 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import {
-    addPlateLoad, clearPlateMesh, deletePlate, liftableLoads, plateEntry, plateLoadDefs, plateShellKeys, plateStatus,
+    addPlateLoad, arcEdgeBetween, clearPlateMesh, deletePlate, editPlateHole, liftableLoads, plateEntry, plateLoadDefs, plateShellKeys, plateSides, plateStatus, setPlateSideArc,
     setPlateProperties, type PlateStatus,
   } from '../../../lib/store/physical-plates';
   import { closePlateHole, plateSideShapes, setPlateSideSagitta } from '../../../lib/store/plate-shape';
@@ -47,7 +47,7 @@
   const sharedThickness = $derived(entries.length && entries.every((e) => e.surface.thickness === entries[0]!.surface.thickness) ? entries[0]!.surface.thickness : null);
   const sharedMaterial = $derived(entries.length && entries.every((e) => e.surface.materialId === entries[0]!.surface.materialId) ? entries[0]!.surface.materialId : null);
 
-  const sides = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return one ? plateSideShapes(one.id) : []; });
+  const sides = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return __PUBLIC_FEATURES__.proPlatesUnified && one ? plateSideShapes(one.id) : []; });
   const curved = $derived(sides.map((s, k) => ({ ...s, k })).filter((s) => s.mid !== null));
   let loadCase = $state(1);
   let loadQ = $state(1);
@@ -56,7 +56,28 @@
   let shapeOpen = $state<'holes' | 'sides' | null>(null);
   // What one plate's panel says belongs to that plate: another plate's message is not carried over.
   let shown = $state<number | null>(null);
-  $effect(() => { const id = one?.id ?? null; if (id !== shown) { shown = id; message = null; shapeOpen = null; } });
+  $effect(() => { const id = one?.id ?? null; if (id !== shown) { shown = id; message = null; shapeOpen = null; sideMid = {}; holeText = ''; } });
+
+  const nodeSides = $derived.by(() => {
+    void modelStore.model.groups;
+    return !__PUBLIC_FEATURES__.proPlatesUnified && one ? plateSides(one.id) : [];
+  });
+  let sideMid = $state<Record<number, string>>({});
+  let holeText = $state('');
+
+  function curveThroughNode(k: number) {
+    if (!one) return;
+    const node = Number(sideMid[k]?.trim());
+    const problem = Number.isInteger(node) && modelStore.nodes.has(node) ? setPlateSideArc(one.id, k, node) : 'needNodes';
+    message = problem ? t(`plates.problem.${problem}`) : t('plates.sideCurved');
+  }
+
+  function editOpening(change: { append: number[] } | { remove: number }) {
+    if (!one) return;
+    const problem = editPlateHole(one.id, change);
+    message = problem ? t(`plates.problem.${problem}`) : 'append' in change ? t('plates.holeAdded') : null;
+    if (!problem) holeText = '';
+  }
 
   function straighten(k: number) {
     if (!one) return;
@@ -160,23 +181,53 @@
     <button class="pp-link" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">{one ? tp('plates.openSpec', { name: one.name }) : tp('plates.openSpecMany', { n: entries.length })} ›</button>
 
     {#if one && loops}
-      <div class="pp-block" data-testid="plate-shape">
-        <span class="pp-label">{t('plates.shape.title')}</span>
-        <span class="pp-dim" data-testid="plate-shape-summary">{tp('plates.shape.summary', { sides: sides.length, curved: curved.length, holes: loops.holes.length })}</span>
-        {#each curved as c (c.k)}
-          <div class="pp-line" data-testid="plate-curved-side-{c.k}">
-            <span>{tp('plates.shape.sideN', { n: c.k + 1 })}: {c.followsMember ? t('plates.shape.followsMember') : tp('plates.shape.sagittaOf', { s: significantNumber(c.sagitta, 'length', uiStore.unitSystem, 3), unit: unitQ('length') })}</span>
-            {#if !c.followsMember}<button class="pp-x" onclick={() => straighten(c.k)} title={t('plates.sideStraighten')} data-testid="plate-side-straight-{c.k}">×</button>{/if}
+      {#if __PUBLIC_FEATURES__.proPlatesUnified}
+        <div class="pp-block" data-testid="plate-shape">
+          <span class="pp-label">{t('plates.shape.title')}</span>
+          <span class="pp-dim" data-testid="plate-shape-summary">{tp('plates.shape.summary', { sides: sides.length, curved: curved.length, holes: loops.holes.length })}</span>
+          {#each curved as c (c.k)}
+            <div class="pp-line" data-testid="plate-curved-side-{c.k}">
+              <span>{tp('plates.shape.sideN', { n: c.k + 1 })}: {c.followsMember ? t('plates.shape.followsMember') : tp('plates.shape.sagittaOf', { s: significantNumber(c.sagitta, 'length', uiStore.unitSystem, 3), unit: unitQ('length') })}</span>
+              {#if !c.followsMember}<button class="pp-x" onclick={() => straighten(c.k)} title={t('plates.sideStraighten')} data-testid="plate-side-straight-{c.k}">×</button>{/if}
+            </div>
+          {/each}
+          {#each loops.holes as h, i (i)}
+            <div class="pp-line" data-testid="plate-hole-{i}"><span>{tp('plates.shape.holeN', { n: i + 1, corners: h.length })}</span><button class="pp-x" onclick={() => closeHole(i)} title={t('plates.shape.closeHole')}>×</button></div>
+          {/each}
+          <div class="pp-actions">
+            <button class="pp-btn" onclick={() => (shapeOpen = 'holes')} data-testid="plate-shape-open-holes">{t('plates.shape.editHoles')}…</button>
+            <button class="pp-btn" onclick={() => (shapeOpen = 'sides')} data-testid="plate-shape-open-sides">{t('plates.shape.editSides')}…</button>
           </div>
-        {/each}
-        {#each loops.holes as h, i (i)}
-          <div class="pp-line" data-testid="plate-hole-{i}"><span>{tp('plates.shape.holeN', { n: i + 1, corners: h.length })}</span><button class="pp-x" onclick={() => closeHole(i)} title={t('plates.shape.closeHole')}>×</button></div>
-        {/each}
-        <div class="pp-actions">
-          <button class="pp-btn" onclick={() => (shapeOpen = 'holes')} data-testid="plate-shape-open-holes">{t('plates.shape.editHoles')}…</button>
-          <button class="pp-btn" onclick={() => (shapeOpen = 'sides')} data-testid="plate-shape-open-sides">{t('plates.shape.editSides')}…</button>
         </div>
-      </div>
+      {:else}
+        <details class="pp-block" data-testid="plate-sides" open={nodeSides.some((x) => x.mid !== null)}>
+          <summary class="pp-label">{t('plates.sides')} ({tp('plates.sidesSummary', { n: nodeSides.length, curved: nodeSides.filter((x) => x.mid !== null).length })})</summary>
+          {#each nodeSides as sd, k (k)}
+            {@const member = arcEdgeBetween(sd.from, sd.to)}
+            <div class="pp-line">
+              <span class="pp-dim">{sd.from} → {sd.to}</span>
+              {#if sd.mid !== null}
+                <span>{member ? tp('plates.sideFollows', { id: member.arcId }) : tp('plates.sideCurvedThrough', { n: sd.mid })}</span>
+                <button class="pp-x" onclick={() => one && setPlateSideArc(one.id, k, null)} title={t('plates.sideStraighten')} data-testid="plate-side-straight-{k}">×</button>
+              {:else}
+                <input class="pp-text pp-mid" placeholder={t('plates.sideThrough')} value={sideMid[k] ?? ''} oninput={(e) => (sideMid = { ...sideMid, [k]: e.currentTarget.value })} data-testid="plate-side-mid-{k}" />
+                <button class="pp-btn" disabled={!(sideMid[k] ?? '').trim()} onclick={() => curveThroughNode(k)} data-testid="plate-side-curve-{k}">{t('plates.sideCurve')}</button>
+              {/if}
+            </div>
+          {/each}
+        </details>
+
+        <details class="pp-block">
+          <summary class="pp-label">{t('plates.holes')} ({loops.holes.length})</summary>
+          {#each loops.holes as h, i (i)}
+            <div class="pp-line"><span class="pp-dim">{h.join(', ')}</span><button class="pp-x" onclick={() => editOpening({ remove: i })} title={t('plates.removeHole')}>×</button></div>
+          {/each}
+          <div class="pp-line">
+            <input class="pp-text" placeholder={t('plates.holeNodes')} bind:value={holeText} data-testid="plate-hole-nodes" />
+            <button class="pp-btn" disabled={!holeText.trim()} onclick={() => editOpening({ append: holeText.split(/[,;\s]+/).filter(Boolean).map(Number) })} data-testid="plate-hole-add">{t('plates.addHole')}</button>
+          </div>
+        </details>
+      {/if}
 
       <details class="pp-block" open={loads.length + elementLoads.length > 0}>
         <summary class="pp-label" data-testid="plate-loads-toggle">{t('plates.areaLoads')} ({loads.length + elementLoads.length})</summary>
@@ -217,7 +268,11 @@
     </div>
   </section>
   {#if meshOpen}<PlateMeshDialog ids={ids} onclose={() => (meshOpen = false)} />{/if}
-  {#if shapeOpen && one}{#key one.id}<PlateShapeDialog id={one.id} start={shapeOpen} onclose={() => (shapeOpen = null)} />{/key}{/if}
+  {#if __PUBLIC_FEATURES__.proPlatesUnified}
+    {#if shapeOpen && one}
+      {#key one.id}<PlateShapeDialog id={one.id} start={shapeOpen} onclose={() => (shapeOpen = null)} />{/key}
+    {/if}
+  {/if}
 {/if}
 
 <style>

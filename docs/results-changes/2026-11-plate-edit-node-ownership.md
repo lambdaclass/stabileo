@@ -13,3 +13,11 @@ Clearing a physical plate mesh or simplifying a deferred slab could delete a use
 Footprint meshing now records which meshes created or share each generated rigid link. Removing a mesh releases its own connections. An authored link, or an older saved link without matching ownership evidence, keeps its nodes and degrees of freedom. A shared generated link remains until its last owner releases it. Ownership is stored separately from the analytical constraint in project files.
 
 For a previously simplified or remeshed model, compare the rigid-link endpoints and degrees of freedom with a copy saved before the edit. Restore any missing links and rerun the analysis.
+
+## Curved openings during plate edits
+
+Replacing, adding or removing the control point of an outside plate edge previously discarded the arc markers of existing openings. The opening boundary then followed straight segments between its nodes. Meshing and analysis could use an opening with a different shape and area, even though the user edited only the outside edge.
+
+The plate editor now retains curve control points by their node identity and derives their positions in the new boundary list. Entering an exterior midpoint by node ID and editing a side by its sagitta use the same rule. Adding or removing a single opening preserves every other opening.
+
+Review plates with curved openings that were saved after an outside-edge edit. A missing arc marker cannot be recovered from its node coordinates alone. Compare the opening with the original project, restore its curves and remesh before rerunning affected analyses.
