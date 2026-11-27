@@ -315,9 +315,67 @@ describe('during the attempt', () => {
     expect(examLock.locked).toBe(false);
   });
 
+  it.skip('known wrong result: #1927 — submit freezes the final answers while an autosave is still in flight', async () => {
+    let finish!: (a: Attempt) => void;
+    const { s, api } = await running({ saveAnswers: vi.fn(() => new Promise<Attempt>(resolve => { finish = resolve; })) });
+    s.update(answer('old'));
+    const save = s.flush();
+    await vi.advanceTimersByTimeAsync(0);
+    s.update(answer('final'));
+    const handIn = s.submit();
+    s.update(answer('too late'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(api.submit).toHaveBeenCalledTimes(1);
+    expect(api.submit.mock.calls[0]![1].answers.answers).toEqual(answer('final'));
+    expect(s.answers).toEqual(answer('final'));
+    finish(attempt());
+    await Promise.all([save, handIn]);
+    expect(s.attempt?.closed).toBe(true);
+  });
+
+  it.skip.each(['save', 'start'])('known wrong result: #1927 — disposal during %s cannot reengage the lock', async operation => {
+    let finish!: (a: Attempt) => void;
+    const pending = vi.fn(() => new Promise<Attempt>(resolve => { finish = resolve; }));
+    const { d } = deps(operation === 'start' ? { start: pending } : { saveAnswers: pending });
+    const s = createExamSession(d);
+    await s.load('K7Q2M9XWPA');
+    let action;
+    if (operation === 'start') action = s.start();
+    else {
+      await s.start();
+      s.update(answer('last'));
+      action = s.flush();
+    }
+    await vi.advanceTimersByTimeAsync(0);
+    s.dispose();
+    finish(attempt());
+    await action;
+    expect(examLock.locked).toBe(false);
+    expect(examLock.releaseReason).toBe('left');
+  });
+
+  it.skip('known wrong result: #1927 — a failed manual hand-in crossing the deadline retries the frozen payload', async () => {
+    let fail!: (e: Error) => void;
+    const submit = vi.fn().mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }))
+      .mockResolvedValueOnce(attempt({ closed: true }));
+    const { s } = await running({ submit });
+    await vi.advanceTimersByTimeAsync(3_599_999);
+    s.update(answer('final'));
+    const done = s.submit();
+    await vi.advanceTimersByTimeAsync(2);
+    fail(new Error('interrupted'));
+    await done;
+    s.update(answer('too late'));
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect(submit.mock.calls[1]).toEqual(submit.mock.calls[0]);
+  });
+
   it('refresh picks up results that open later', async () => {
     const { s, api } = await running();
+    api.submit.mockResolvedValueOnce(attempt({ closed: true, reveal_allowed: false }));
     await s.submit();
+    expect(s.attempt?.reveal_allowed).toBe(false);
     api.attempt.mockResolvedValueOnce(attempt({ closed: true, reveal_allowed: true }));
     await s.refresh();
     expect(s.attempt?.reveal_allowed).toBe(true);

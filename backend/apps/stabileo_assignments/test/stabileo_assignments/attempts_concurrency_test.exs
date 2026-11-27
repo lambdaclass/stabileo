@@ -64,6 +64,19 @@ defmodule StabileoAssignments.AttemptsConcurrencyTest do
            ) == 1
   end
 
+  @tag :regression_1927
+  @tag skip: "known wrong result: #1927"
+  test "known wrong result: #1927 concurrent saves require the acknowledged revision", %{owner: owner, student: student} do
+    {:ok, {a, _}} = Assignments.create(owner, %{"title" => "Exam", "exercise" => %{}, "duration_minutes" => 10, "reveal" => "on_submit"})
+    {:ok, {t, _}} = Exams.start(student, a.code)
+    writes = race(2, fn i -> Exams.save_answers(student, t.id, %{"revision" => 0, "answers" => %{"v" => i}}) end)
+    assert [{:ok, {saved, _}}] = Enum.filter(writes, &match?({:ok, _}, &1))
+    assert {:error, :stale_revision} in writes
+    assert {:error, :stale_revision} = Exams.submit(student, t.id, %{"revision" => 0})
+    assert {:ok, {handed, _}} = Exams.submit(student, t.id, %{"revision" => 1})
+    assert handed.answers == saved.answers
+  end
+
   test "creates racing at the limit stop at 100", %{owner: owner} do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 

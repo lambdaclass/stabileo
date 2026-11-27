@@ -74,6 +74,42 @@ defmodule StabileoAssignments.ExamsTest do
     end
   end
 
+  @tag :regression_1927
+  @tag skip: "known wrong result: #1927"
+  test "known wrong result: #1927 deadlines finalize the saved answers without a student request", %{owner: owner, student: student} do
+    a = assignment(owner)
+    {:ok, {t, _}} = Exams.start(student, a.code, @opens)
+    {:ok, _} = Exams.save_answers(student, t.id, %{"answers" => %{"v" => 3}, "revision" => 0}, @opens)
+    Assignments.purge_expired(DateTime.add(t.deadline_at, 30))
+    refute Repo.get!(AssignmentAttempt, t.id).submitted_at
+    Assignments.purge_expired(DateTime.add(t.deadline_at, 31))
+    saved = Repo.get!(AssignmentAttempt, t.id)
+    assert saved.submitted_at == t.deadline_at
+    assert saved.answers == %{"v" => 3}
+    assert {:ok, {_, %{submitted: 1}}} = Assignments.get(owner, a.id)
+  end
+
+  @tag :regression_1927
+  @tag skip: "known wrong result: #1927"
+  test "known wrong result: #1927 retention preserves the entire writing window", %{owner: owner, student: student} do
+    a = assignment(owner, %{"closes_at" => nil})
+    Repo.update_all(from(row in StabileoRepo.Schemas.Assignment, where: row.id == ^a.id), set: [inserted_at: DateTime.add(@opens, -365, :day)])
+    {:ok, {t, _}} = Exams.start(student, a.code, @opens)
+    assert Assignments.purge_expired(DateTime.add(t.deadline_at, 30)) == 0
+    assert Assignments.purge_expired(DateTime.add(t.deadline_at, 31)) == 1
+  end
+
+  @tag :regression_1927
+  @tag skip: "known wrong result: #1927"
+  test "known wrong result: #1927 score visibility follows the release window", %{owner: owner, student: student} do
+    a = assignment(owner, %{"reveal" => "after_close"})
+    {:ok, {t, _}} = Exams.start(student, a.code, @opens)
+    {:ok, row} = Exams.submit(student, t.id, %{"revision" => 0, "client_score" => 1}, @opens)
+    refute StabileoAssignments.AssignmentJSON.attempt(row, @closes).client_score
+    assert StabileoAssignments.AssignmentJSON.attempt(row, DateTime.add(@closes, 31)).client_score == 1
+    refute Map.has_key?(StabileoAssignments.AssignmentJSON.owner_attempt({elem(row, 0), student}), :client_score)
+  end
+
   describe "start" do
     test "creates the attempt with a server seed and the deadline from the duration", %{
       owner: owner,
