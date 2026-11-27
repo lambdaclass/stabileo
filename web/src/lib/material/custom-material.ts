@@ -76,10 +76,14 @@ export function saveCustomMaterial(choice: CustomMaterialChoice, id: number | nu
   if (id === null || !original) return modelStore.addMaterial({ ...fields, userDefined: true });
   if (original.e === fields.e && original.nu === fields.nu && original.rho === fields.rho
     && original.fy === fields.fy) {
-    modelStore.updateMaterial(id, { name: fields.name, ...(original.alpha !== fields.alpha ? { alpha: fields.alpha, userDefined: true } : {}) });
+    modelStore.updateMaterial(id, { name: fields.name, ...(original.alpha !== fields.alpha ? { alpha: fields.alpha } : {}) });
     return id;
   }
-  modelStore.updateMaterial(id, { replacement: { ...fields, userDefined: true } });
+  if (!original.gradeId && original.userDefined !== false) {
+    modelStore.updateMaterial(id, { ...fields, fy: fields.fy, alpha: fields.alpha, userDefined: true });
+  } else {
+    modelStore.updateMaterial(id, { replacement: { ...fields, userDefined: true } });
+  }
   return id;
 }
 

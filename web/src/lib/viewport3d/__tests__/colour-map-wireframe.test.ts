@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { modelStore, resultsStore, uiStore } from '../../store';
 import { ElementsBatched } from '../../three/elements-batched';
 import { syncColorMap3D, type ResultsSyncContext } from '../results-sync';
+import { computeEnvelope3D } from '../../engine/wasm-solver';
 import { axialForceColor } from '../../three/selection-helpers';
 
 /** Two members, no hinges — so wireframe builds no groups for either. */
@@ -155,4 +156,30 @@ describe('colour maps in wireframe render mode (no element groups)', () => {
     // Both are frames, so both land on the same wireframe grey.
     expect(eb.getBaseColor(tie)).toBe(eb.getBaseColor(strut));
   });
+});
+
+it('paints both signs of the calculated envelope of two opposite axial tip loads', () => {
+  modelStore.clear();
+  resultsStore.clear3D();
+  const root = modelStore.addNode(0, 0, 0);
+  const tip = modelStore.addNode(4, 0, 0);
+  const bar = modelStore.addElement(root, tip);
+  modelStore.addSupport(root, 'fixed3d');
+  const cases = [3, -7].map(force => {
+    const load = modelStore.addNodalLoad3D(tip, force, 0, 0, 0, 0, 0);
+    const result = modelStore.solve3D();
+    if (!result || typeof result === 'string') throw Error(String(result));
+    modelStore.removeLoad(load);
+    return result;
+  });
+  const envelope = computeEnvelope3D(cases)!;
+  expect(Math.max(...envelope.axial.elements[0].posValues)).toBeCloseTo(3, 12);
+  expect(Math.min(...envelope.axial.elements[0].negValues)).toBeCloseTo(-7, 12);
+  resultsStore.setCombinationResults3D(new Map(cases.map((r, i) => [i + 1, r])), new Map(), envelope);
+  resultsStore.activeView = 'envelope';
+  resultsStore.diagramType = 'axialColor';
+  const batched = new ElementsBatched();
+  batched.upsert(bar, 0, 0, 0, 4, 0, 0);
+  syncColorMap3D(context(batched));
+  expect(batched.getBaseColor(bar)).toBe(0x895a70);
 });

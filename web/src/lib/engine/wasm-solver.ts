@@ -1,4 +1,5 @@
-import { computeDiagram3D } from './diagrams-3d';
+import { recordEnvelopeSources } from './envelope-sources';
+import { computeDiagram3D, hasUnsignedForces } from './diagrams-3d';
 import { unavailableDiagramExtrema } from './member-diagram';
 import { collapseVariableEnvelope, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
 import { registerMemberIntervalKernel } from './member-interval-kernel';
@@ -1665,7 +1666,8 @@ export function combineResultsEnvelope3D(
   const [results, envelope]: [Array<unknown | null>, FullEnvelope3D | null] = wasmCombineResultsEnvelope3d({
     combinations, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]),
   });
-  return { combinations: results.map(result => result == null ? null : results3DFromWasm(result)), envelope };
+  const combined = results.map(result => result == null ? null : results3DFromWasm(result));
+  return { combinations: combined, envelope: recordEnvelopeSources(envelope, combined.filter(result => result !== null)) };
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */
@@ -1673,7 +1675,7 @@ export function computeEnvelope(results: AnalysisResults[]): FullEnvelope | null
   if (!wasmReady || !wasmComputeEnvelope2d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
-  return wasmComputeEnvelope2d(results);
+  return recordEnvelopeSources(wasmComputeEnvelope2d(results), results);
 }
 
 /** Compute 3D envelope via WASM. JsValue in/out — no JSON round trip. */
@@ -1681,8 +1683,8 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (!wasmReady || !wasmComputeEnvelope3d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
-  if (results.some(r => r.magnitude || r.elementForces.some(f => f.combined))) throw unavailableDiagramExtrema();
-  if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) return wasmComputeEnvelope3d(results);
+  if (results.some(r => r.magnitude || r.elementForces.some(hasUnsignedForces))) throw unavailableDiagramExtrema();
+  if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) return recordEnvelopeSources(wasmComputeEnvelope3d(results), results);
   const expanded = results.map(reexpandVariableResults);
   if (expanded.some(r => r.results.elementForces.some(f => f.pieces?.length))) throw unavailableDiagramExtrema();
   const reference = expanded[0]!;
@@ -1692,7 +1694,7 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (expanded.some(({ results, exp }) => !sameVariableLayout(layout, exp) ||
     results.elementForces.some(ef => lengths.get(ef.elementId) !== ef.length))) throw unavailableDiagramExtrema();
   const raw = wasmComputeEnvelope3d(expanded.map(r => r.results));
-  return raw && collapseVariableEnvelope(raw, layout);
+  return recordEnvelopeSources(raw && collapseVariableEnvelope(raw, layout), results);
 }
 
 // ─── Influence Lines ─────────────────────────────────────────────
@@ -2241,13 +2243,19 @@ export function solveCreepShrinkage3D(config: any): any {
 
 // ─── Multi-Case Solvers ───────────────────────────────────────────
 
+function recordMultiCaseEnvelope(bundle: { envelope?: object; combinationResults?: { results: object }[] } | null): void {
+  if (bundle?.envelope && bundle.combinationResults) recordEnvelopeSources(bundle.envelope, bundle.combinationResults.map(c => c.results));
+}
+
 /** Solve 2D multi-case analysis via WASM. JsValue in/out — no JSON round trip. */
 export function solveMultiCase2D(config: any): any {
   if (!wasmReady || !wasmSolveMultiCase2d) throw new Error('WASM multi-case 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
     config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return wasmSolveMultiCase2d(finiteObjectWire(config));
+  const result = wasmSolveMultiCase2d(finiteObjectWire(config));
+  recordMultiCaseEnvelope(result);
+  return result;
 }
 
 /** Solve 3D multi-case analysis via WASM. JsValue in/out — no JSON round trip. */
@@ -2265,6 +2273,7 @@ export function solveMultiCase3D(config: any): any {
   console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
   try {
     const result = wasmSolveMultiCase3d(config);
+    recordMultiCaseEnvelope(result);
     // As in `solve3D`, and for every case, combination and the envelope: this
     // is the path behind Calcular with load combinations, and a node the
     // stabiliser supported showed up in all of them as a zero reaction the

@@ -6,7 +6,7 @@
    */
   import { t, tp } from '../../lib/i18n';
   import type { AdvFunction } from '../../lib/advanced/catalog';
-  import { openStepMethod } from '../../lib/advanced/open-step';
+  import { openStepMethod, stepBlockedReason } from '../../lib/advanced/open-step';
   import { panelTrail } from '../../lib/advanced/panel-trail.svelte';
   import Prose from '../steps/Prose.svelte';
 
@@ -27,7 +27,7 @@
     <summary><span>{t('advCat.related')}</span><span class="afh-n" aria-label={tp('advCat.stepsBadge', { n: steps.length })}>{steps.length}</span></summary>
     <div class="afh-list">
       {#each steps as m (m)}
-        <button class="afh-step" onclick={() => openStepMethod(m)} data-testid="adv-related-{m}"><Prose text={t(`steps.m.${m}.title`)} /> <span aria-hidden="true">›</span></button>
+        <button class="afh-step" disabled={!!stepBlockedReason(m)} title={stepBlockedReason(m) ? t(stepBlockedReason(m)!) : undefined} onclick={() => openStepMethod(m)} data-testid="adv-related-{m}"><Prose text={t(`steps.m.${m}.title`)} /> <span aria-hidden="true">›</span></button>
       {/each}
     </div>
   </details>

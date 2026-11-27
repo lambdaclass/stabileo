@@ -186,3 +186,31 @@ test('@slow a support station slider cannot select an occupied endpoint', async 
   await slider.press('Home');
   await expect(place).toHaveValue(/^n:/);
 });
+
+test('@slow two supports can use different stations on one member', async ({ page }) => {
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions);
+  await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
+  await openAdvancedFunction(page, 'whatif');
+  await page.getByTestId('whatif-tab-supports').click();
+  const controls = page.locator('select[data-testid^="whatif-supportnode-"]');
+  const member = (await controls.first().locator('option[value^="m:"]').first().getAttribute('value'))!;
+  await controls.first().selectOption(member);
+  const sliders = page.locator('input[data-testid^="whatif-supportnode-"]');
+  const setFraction = (index: number, fraction: number) => sliders.nth(index).evaluate((el: HTMLInputElement, f) => {
+    el.value = String(Number(el.max) * f);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, fraction);
+  await setFraction(0, 0.5);
+  const positions = () => page.evaluate(() => {
+    const { snapshot } = JSON.parse(window.__stabileo.serializeProject());
+    const nodes = new Map<number, { x: number }>(snapshot.nodes);
+    return snapshot.supports.map(([, s]: [number, { nodeId: number }]) => nodes.get(s.nodeId)!.x);
+  });
+  const span = Number(await sliders.first().getAttribute('max'));
+  await expect.poll(positions).toContain(span / 2);
+  await controls.nth(1).selectOption(member);
+  await expect(sliders).toHaveCount(2);
+  await setFraction(1, 0.25);
+  await expect.poll(positions).toEqual([span / 2, span / 4]);
+});

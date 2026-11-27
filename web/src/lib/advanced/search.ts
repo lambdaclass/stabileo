@@ -37,7 +37,7 @@ const ALIASES: Record<string, readonly string[]> = {
 export function fold(text: string): string {
   let s = '';
   for (const ch of text.toLowerCase()) s += GREEK[ch] ? ` ${GREEK[ch]} ` : SCRIPTS[ch] ?? ch;
-  return s.normalize('NFD').replace(/\p{M}+/gu, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  return s.normalize('NFD').replace(/(\p{Script=Latin})\p{M}+/gu, '$1').normalize('NFC').replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ').trim();
 }
 
 export function words(text: string): string[] {

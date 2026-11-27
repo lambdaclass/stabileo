@@ -296,6 +296,10 @@ fn implausible_alpha_or_depth_is_rejected() {
         let e = solve_2d(&fixed_2d(1, 5.0, STEEL, 0.01, 1e-4, "frame", t.clone())).unwrap_err();
         assert!(e.contains("Thermal load on element 1"), "{t}: {e}");
     }
+    for alpha in [-0.0011, -0.001, 0.001, 0.0011] {
+        let e = solve_3d(&fixed_3d(STEEL, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 1.0, "dtGradientY": 0.0, "dtGradientZ": 0.0, "alpha": alpha}))).unwrap_err();
+        assert!(e.contains("alpha"), "{e}");
+    }
     let e = solve_3d(&fixed_3d(STEEL, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 0.0, "dtGradientY": 1.0, "dtGradientZ": 0.0, "depthY": -1.0}))).unwrap_err();
     assert!(e.contains("depthY"), "{e}");
 }
@@ -398,7 +402,6 @@ fn issue_2656_free_thermal_gradient_reverses_rotation_on_every_member_solve() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2656"]
 fn second_order_results_identify_assumed_thermal_properties() {
     for (alpha, depth) in [(true, true), (false, false), (true, false), (false, true)] {
         let mut thermal = json!({"dtUniform": 1.0, "dtGradient": 2.0, "dtGradientY": 0.0, "dtGradientZ": 2.0});
@@ -415,10 +418,12 @@ fn second_order_results_identify_assumed_thermal_properties() {
         space.supports.remove("2");
         let plane = solve_pdelta_2d(&plane, 30, 1e-10).unwrap();
         let space = solve_pdelta_3d(&space, 30, 1e-10).unwrap();
+        assert!(plane.converged && space.converged);
+        let expected: Vec<_> = [("alpha", alpha), ("depth", depth)].into_iter().filter_map(|(field, stated)| (!stated).then_some(Some(field))).collect();
         for diagnostics in [&plane.results.structured_diagnostics, &space.results.structured_diagnostics] {
-            for (property, stated) in [("alpha", alpha), ("depth", depth)] {
-                assert_eq!(diagnostics.iter().any(|d| d.code == DiagnosticCode::ThermalDefaultAssumed && d.phase.as_deref() == Some(property)), !stated, "{property}: {diagnostics:?}");
-            }
+            let mut actual: Vec<_> = diagnostics.iter().filter(|d| d.code == DiagnosticCode::ThermalDefaultAssumed).map(|d| d.phase.as_deref()).collect();
+            actual.sort_unstable();
+            assert_eq!(actual, expected, "{diagnostics:?}");
         }
     }
 }

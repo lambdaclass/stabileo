@@ -11,8 +11,9 @@
 
   let { showsPrimary = true, showsSecondary = false, inBar = false }: { showsPrimary?: boolean; showsSecondary?: boolean; inBar?: boolean } = $props();
   const is3D = $derived(uiStore.is3DWorkspace);
-  const caseKeys = $derived(is3D ? [...resultsStore.perCase3D.keys()] : [...resultsStore.perCase.keys()]);
-  const comboKeys = $derived(is3D ? [...resultsStore.perCombo3D.keys()] : [...resultsStore.perCombo.keys()]);
+  const sets = $derived(is3D ? resultsStore.displaySets3D : resultsStore.displaySets2D);
+  const caseKeys = $derived([...sets.cases.keys()]);
+  const comboKeys = $derived([...sets.combos.keys()]);
   const hasEnvelope = $derived(is3D ? resultsStore.fullEnvelope3D !== null : resultsStore.fullEnvelope !== null);
 </script>
 
@@ -28,7 +29,7 @@
     <select
       aria-label={t('results.primary')}
       value={resultsStore.activeView === 'envelope' ? 'envelope'
-                 : resultsStore.activeCaseId !== null ? `case_${resultsStore.activeCaseId}`
+                 : resultsStore.activeView === 'single' && resultsStore.activeCaseId !== null ? `case_${resultsStore.activeCaseId}`
                  : resultsStore.activeView === 'combo' ? `combo_${resultsStore.activeComboId ?? ''}`
                  : 'single'}
       onchange={(e) => {
@@ -59,7 +60,7 @@
         {@const combo = modelStore.model.combinations.find(c => c.id === comboId)}
         <option value={`combo_${comboId}`}>{(combo ? combinationNameShown(combo) : undefined) ?? `${t('results.comboFallback')} ${comboId}`}</option>
       {/each}
-      <option value="envelope">{t('results.envelope')}</option>
+      {#if hasEnvelope}<option value="envelope">{t('results.envelope')}</option>{/if}
     </select>
   </div>
   <!--
@@ -86,10 +87,10 @@
           const lc = modelStore.model.loadCases.find(c => c.id === id);
           const label = (lc ? caseNameShown(lc) : undefined) ?? `${t('results.caseFallback')} ${id}`;
           if (is3D) {
-            const r3d = resultsStore.perCase3D.get(id);
+            const r3d = resultsStore.displaySets3D.cases.get(id);
             if (r3d) resultsStore.setOverlay3D(r3d, label);
           } else {
-            const r = resultsStore.perCase.get(id);
+            const r = resultsStore.displaySets2D.cases.get(id);
             if (r) resultsStore.setOverlay(r, label);
           }
         } else if (val.startsWith('combo_')) {
@@ -97,10 +98,10 @@
           const combo = modelStore.model.combinations.find(c => c.id === id);
           const label = (combo ? combinationNameShown(combo) : undefined) ?? `${t('results.comboFallback')} ${id}`;
           if (is3D) {
-            const r3d = resultsStore.perCombo3D.get(id);
+            const r3d = resultsStore.displaySets3D.combos.get(id);
             if (r3d) resultsStore.setOverlay3D(r3d, label);
           } else {
-            const r = resultsStore.perCombo.get(id);
+            const r = resultsStore.displaySets2D.combos.get(id);
             if (r) resultsStore.setOverlay(r, label);
           }
         }

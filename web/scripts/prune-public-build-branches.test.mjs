@@ -80,10 +80,14 @@ test('the compiled Advanced catalogue includes Mohr only in tools builds', async
 
 test('a tools-disabled launcher and toolbar contain no directly rendered Mohr action', async () => {
   const { readFileSync } = await import('node:fs');
+  const { build } = await import('esbuild');
   for (const file of ['advanced/AdvancedLauncher', 'toolbar/ToolbarAdvanced']) {
     const filename = new URL('../src/components/' + file + '.svelte', import.meta.url).pathname;
     const source = prunePublicBuildBranches(readFileSync(filename, 'utf8'), off).code;
     const { js } = compile(source, { filename, generate: 'client', dev: false });
-    assert.doesNotMatch(js.code, /(?:data-testid=["'](?:adv|tool)-mohr|(?:click|onclick)[^\n]*openMohr|>\s*Mohr[^<]*<)/i);
+    const built = await build({ stdin: { contents: js.code }, bundle: true, external: ['*'],
+      format: 'esm', write: false, minifySyntax: true, define: featureDefines(off) });
+    const code = built.outputFiles[0].text;
+    assert.doesNotMatch(code, /\bopenMohr\b|adv-(?:fn-)?mohr|advanced\.mohr|>[^<>]*Mohr[^<>]*<|openFunction\(["']mohr["']\)/i);
   }
 });

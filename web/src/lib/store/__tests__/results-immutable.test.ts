@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { resultsStore, uiStore } from '../../store';
+import { render } from 'svelte/server';
+import ResultsTable from '../../../components/tables/ResultsTable.svelte';
+import { modelStore, resultsStore, uiStore } from '../../store';
 import { freezeResult, knownIssueDiagnosticsIn, knownIssueResultDisposition } from '../../engine/known-issues';
 
 const refusal = () => ({ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'ENGINE' });
@@ -430,4 +432,49 @@ it.each(['2d', '3d'] as const)('selects an independent solved combination when a
   const shown = mode === '3d' ? resultsStore.results3D : resultsStore.results;
   expect(shown?.displacements[0].ux).toBe(2);
   expect(resultsStore.activeComboId).toBe(2);
+});
+
+it.each(['2d', '3d'] as const)('displays an independently computed envelope after the supplied combinations refuse in %s', async mode => {
+  const { initSolver, computeEnvelope, computeEnvelope3D } = await import('../../engine/wasm-solver');
+  await initSolver();
+  resultsStore.clear();
+  resultsStore.clear3D();
+  const source = result(17);
+  const refused = new Map([[1, result(41, [refusal()])]]);
+  if (mode === '3d') {
+    const env = computeEnvelope3D([source as never])!;
+    expect(env.maxAbsResults3D.displacements[0].ux).toBe(17);
+    resultsStore.setCombinationResults3D(new Map(), refused as never, env);
+  } else {
+    const env = computeEnvelope([{ reactions: [], elementForces: [], displacements: [{ nodeId: 1, ux: 17, uz: 0, ry: 0 }] }])!;
+    expect(env.maxAbsResults.displacements[0].ux).toBe(17);
+    resultsStore.setCombinationResults(new Map(), refused as never, env);
+  }
+  expect(resultsStore.activeView).toBe('envelope');
+  expect((mode === '3d' ? resultsStore.results3D : resultsStore.results)?.displacements[0].ux).toBe(17);
+});
+
+it.each(['2d', '3d'] as const)('a refused case hides only the displayed combinations which use it in %s', mode => {
+  modelStore.clear();
+  resultsStore.clear();
+  uiStore.analysisMode = mode === '3d' ? 'pro' : '2d';
+  const unusable = modelStore.addLoadCase('refused', 'L');
+  const independent = modelStore.addLoadCase('independent', 'D');
+  const bad = modelStore.addCombination('refused source', [{ caseId: unusable, factor: 1 }]);
+  const good = modelStore.addCombination('other source', [{ caseId: independent, factor: 1 }, { caseId: unusable, factor: 0 }]);
+  const cases = new Map([[unusable, result(41, [refusal()])]]);
+  const combos = new Map([[bad, result(7)], [good, result(23)]]);
+  if (mode === '3d') resultsStore.setCombinationResults3D(cases as never, combos as never, null);
+  else resultsStore.setCombinationResults(cases as never, combos as never, null);
+  const displayed = () => mode === '3d' ? resultsStore.results3D : resultsStore.results;
+  expect(displayed()?.displacements[0].ux).toBe(23);
+  const table = render(ResultsTable).body;
+  expect(table).toContain('role="alert"');
+  expect(table).toContain('23000.0000');
+  expect(resultsStore.activeComboId).toBe(good);
+  expect((mode === '3d' ? resultsStore.perCombo3D : resultsStore.perCombo).size).toBe(0);
+  resultsStore.activeComboId = bad;
+  expect(displayed()).toBeNull();
+  resultsStore.activeComboId = good;
+  expect(displayed()?.displacements[0].ux).toBe(23);
 });

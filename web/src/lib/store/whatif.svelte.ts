@@ -37,6 +37,7 @@ import { type Response, response2D, response3D } from '../whatif/response';
 import { loadsDrawn2D } from '../viewport/pick-visibility';
 import { currentLoadDrawView, loadsLayerDrawn } from '../viewport3d/load-drawn';
 import { liveCalcFollowsEdits, liveSolveBusy } from '../engine/live-calc-state';
+import { projectNode, to2D, to3D } from '../geometry/plane-projection';
 import { modelCoords, shownCoords } from '../axes/display';
 import { is3DWorkspace } from '../utils/workspace';
 
@@ -71,9 +72,12 @@ let referenceSelection = $state('');
 function resultSelection(): string {
   const view = resultsStore.activeView;
   const id = view === 'single' ? resultsStore.activeCaseId : view === 'combo' ? resultsStore.activeComboId : null;
-  return JSON.stringify([uiStore.analysisMode, view, id]);
+  return JSON.stringify([uiStore.analysisMode, uiStore.drawPlane2D, uiStore.axisConvention3D, uiStore.includeSelfWeight, uiStore.selfWeightCaseId, view, id]);
 }
 let appliedChange = false;
+let rebuilt = false;
+let splitStations = new Map<number, Along>();
+let originalMembers = new Map<number, { nodeI: number; nodeJ: number }>();
 let referenceSolve: ModelSnapshot | null = null;
 let entryLengths = new Map<number, number>();
 let frame: { cancel: () => void } | null = null;
@@ -169,18 +173,25 @@ function moveNodes(): void {
   for (const [key, d] of Object.entries(nodeShift)) {
     const n = m.nodes.get(Number(key));
     if (!n || d.every((v) => v === 0)) continue;
-    const at = shownCoords(n, space).map((v, i) => v + (d[i] ?? 0));
+    const plane = uiStore.drawPlane2D;
+    const at = shownCoords(space ? n : projectNode(plane, n), space).map((v, i) => v + (d[i] ?? 0));
     const { x, y, z } = modelCoords(at, space);
-    m.nodes.set(n.id, space ? { ...n, x, y, z } : { ...n, x, y });
+    if (space) m.nodes.set(n.id, { ...n, x, y, z });
+    else if (plane === 'xy') m.nodes.set(n.id, { ...n, x, y });
+    else m.nodes.set(n.id, { ...n, ...to3D(plane, x, y, n) });
   }
   m.nodes = new Map(m.nodes);
 }
 
 function memberLength(elementId: number): number {
   const m = modelStore.model;
-  const el = m.elements.get(elementId);
+  const el = originalMembers.get(elementId);
   const a = el && m.nodes.get(el.nodeI), b = el && m.nodes.get(el.nodeJ);
-  return a && b ? Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) : 0;
+  if (!a || !b) return 0;
+  const dx = b.x - a.x, dy = b.y - a.y, dz = (b.z ?? 0) - (a.z ?? 0);
+  if (uiStore.is3DWorkspace) return Math.hypot(dx, dy, dz);
+  const projected = to2D(uiStore.drawPlane2D, dx, dy, dz);
+  return Math.hypot(projected.x, projected.y);
 }
 
 /* Positions apply after the nodes moved, so a load stays on the member it was on, within its new length. */
@@ -221,7 +232,8 @@ function supportDestinationFree(id: number, destination: number | Along): boolea
   return !occupied;
 }
 
-function placeAlong(): void {
+function placeAlong(): boolean {
+  splitStations.clear();
   const m = modelStore.model;
   const destinations = new Map(Object.entries(supportNode).map(([id, node]) => [Number(id), node]));
   const byMember = new Map<number, Array<{ t: number; place: (nodeId: number) => void }>>();
@@ -244,28 +256,51 @@ function placeAlong(): void {
   }
   for (const [elementId, list] of byMember) {
     const stations = [...new Set(list.map(p => p.t))].sort((a, b) => a - b);
-    modelStore.withoutUndo(() => {
-      const split = modelStore.splitMember(elementId, stations, { keepOriginalId: true });
+    try {
+      const split = modelStore.withoutUndo(() => modelStore.splitMember(elementId, stations, { keepOriginalId: true }));
       if (!split || split.nodeIds.length !== stations.length) throw new Error(translate('whatif.invalidPlacement'));
       const nodes = new Map(stations.map((t, i) => [t, split.nodeIds[i]!]));
+      for (const [t, nodeId] of nodes) splitStations.set(nodeId, { elementId, t });
       for (const placement of list) placement.place(nodes.get(placement.t)!);
-    });
+    } catch {
+      for (const edits of [loadAlong, supportAlong]) {
+        for (const [key, along] of Object.entries(edits)) if (along.elementId === elementId) delete edits[Number(key)];
+      }
+      uiStore.toast(translate('whatif.invalidPlacement'), 'error');
+      return false;
+    }
   }
   const supports = new Map(m.supports);
-  const occupied = new Set<number>();
   for (const [id, support] of supports) {
     const nodeId = destinations.get(id) ?? support.nodeId;
-    if (!m.nodes.has(nodeId) || occupied.has(nodeId)) throw new Error(translate('whatif.invalidPlacement'));
-    occupied.add(nodeId);
     if (nodeId !== support.nodeId) supports.set(id, { ...support, nodeId });
   }
   m.supports = supports;
   modelStore.model.loads = [...modelStore.model.loads];
+  return true;
 }
 
 function apply(): void {
   const snap = baseline;
   if (!snap) return;
+  if (!rebuilt && !whatIf.changed) return;
+  rebuilt = true;
+  rebuild(snap);
+  while (!placeAlong()) {
+    let conflicting: [string, number] | undefined;
+    while ((conflicting = Object.entries(supportNode).find(([id, node]) => !supportDestinationFree(Number(id), node)))) {
+      delete supportNode[Number(conflicting[0])];
+    }
+    rebuild(snap);
+  }
+  appliedChange = whatIf.changed;
+  ownVersion = modelStore.modelVersion;
+  if (uiStore.analysisMode === 'pro') {
+    void import('../engine/live-calc').then(({ runLiveCalc }) => runLiveCalc('pro', uiStore.axisConvention3D));
+  }
+}
+
+function rebuild(snap: ModelSnapshot): void {
   restoreBaseline(snap);
   const m = modelStore.model;
   moveNodes();
@@ -311,20 +346,6 @@ function apply(): void {
   m.sections = new Map(m.sections);
   m.elements = new Map(m.elements);
   m.loads = [...m.loads];
-  try {
-    placeAlong();
-  } catch (error) {
-    void whatIf.close();
-    uiStore.toast(error instanceof Error ? error.message : translate('whatif.invalidPlacement'), 'error');
-    return;
-  }
-  appliedChange = whatIf.changed;
-  ownVersion = modelStore.modelVersion;
-  // restore() moved the model version, so live calc re-solves what is now here.
-  // PRO has no live calc; solve it directly.
-  if (uiStore.analysisMode === 'pro') {
-    void import('../engine/live-calc').then(({ runLiveCalc }) => runLiveCalc('pro', uiStore.axisConvention3D));
-  }
 }
 
 function nextFrame(run: () => void): { cancel: () => void } {
@@ -366,6 +387,7 @@ function cancelScheduled(): void {
 
 export const whatIf = {
   pointStation,
+  memberLength,
   get active() { return baseline !== null; },
   get loadFactors() { return loadFactors; },
   get all() { return all; },
@@ -421,6 +443,9 @@ export const whatIf = {
     supportAlong = {};
     reference = null;
     appliedChange = false;
+    rebuilt = false;
+    splitStations.clear();
+    originalMembers = new Map(baseline.elements);
     entryLengths = new Map([...modelStore.elements.keys()].map(id => [id, memberLength(id)]));
     viewAtOpen = { showLoads: uiStore.showLoads, showLoads3D: uiStore.showLoads3D, hideLoadsWithDiagram: uiStore.hideLoadsWithDiagram };
     liveWasOn = uiStore.liveCalc;
@@ -428,8 +453,6 @@ export const whatIf = {
     uiStore.showWhatIf = true;
     ownVersion = modelStore.modelVersion;
     captureReference();
-    // The first rebuild pays one-time costs; paid here, the first slider move is as quick as the rest.
-    schedule();
   },
 
   /** True when the model version moved and this session did not move it. */
@@ -447,6 +470,7 @@ export const whatIf = {
     const was = liveWasOn;
     uiStore.liveCalc = was;
     restoreView();
+    if (!rebuilt) return;
     restoreBaseline(snap);
     // What the what-if solves stamped belongs to a model that no longer exists (recheck.svelte.ts).
     recheckStore.restoreStamp(stampAtOpen);
@@ -496,13 +520,28 @@ export const whatIf = {
     schedule();
   },
   setLoadNode(i: number, nodeId: number) {
+    const load = baseline?.loads[i];
+    if (!load || (load.type !== 'nodal' && load.type !== 'nodal3d')) return;
+    const along = splitStations.get(nodeId);
+    if (along) { this.setLoadAlong(i, along.elementId, along.t); return; }
+    if (!baseline?.nodes.some(([id]) => id === nodeId)) {
+      uiStore.toast(translate('whatif.invalidPlacement'), 'error');
+      return;
+    }
     delete loadAlong[i];
     if (baseline?.loads[i]?.data.nodeId === nodeId) delete loadNode[i];
     else loadNode[i] = nodeId;
     schedule();
   },
   setSupportNode(id: number, nodeId: number) {
-    if (!modelStore.nodes.has(nodeId) || !supportDestinationFree(id, nodeId)) return;
+    if (!baseline?.supports.some(([key]) => key === id)) return;
+    const along = splitStations.get(nodeId);
+    if (along) { this.setSupportAlong(id, along.elementId, along.t); return; }
+    if (!baseline?.nodes.some(([key]) => key === nodeId)) {
+      uiStore.toast(translate('whatif.invalidPlacement'), 'error');
+      return;
+    }
+    if (!supportDestinationFree(id, nodeId)) return;
     delete supportAlong[id];
     if (baseline?.supports.find(([key]) => key === id)?.[1].nodeId === nodeId) delete supportNode[id];
     else supportNode[id] = nodeId;
@@ -512,13 +551,14 @@ export const whatIf = {
   get supportAlong() { return supportAlong; },
   /** A nodal load carried onto a member, at `t` of its length from node I. */
   setLoadAlong(i: number, elementId: number, t: number) {
-    if (!validStation(elementId, t)) return;
+    const load = baseline?.loads[i];
+    if (!load || (load.type !== 'nodal' && load.type !== 'nodal3d') || !validStation(elementId, t)) return;
     delete loadNode[i];
     loadAlong[i] = { elementId, t };
     schedule();
   },
   setSupportAlong(id: number, elementId: number, t: number) {
-    if (!validStation(elementId, t) || !supportDestinationFree(id, { elementId, t })) return;
+    if (!baseline?.supports.some(([key]) => key === id) || !validStation(elementId, t) || !supportDestinationFree(id, { elementId, t })) return;
     delete supportNode[id];
     supportAlong[id] = { elementId, t };
     schedule();

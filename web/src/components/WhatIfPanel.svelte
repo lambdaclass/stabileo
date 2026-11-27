@@ -71,9 +71,9 @@
   });
   onMount(() => { void whatIf.startReferenceSolve(); });
   $effect(() => { if (live) whatIf.captureReference(); });
-  const bound = $derived(shown?.componentEnvelopeBound || whatIf.reference?.componentEnvelopeBound);
+  const boundKey = (k: ResponseKey, response: Response | null) => response?.componentEnvelopeBound && (k === 'moment' || k === 'shear') ? 'whatif.resp.' + k + 'Bound' : null;
   const ROWS = $derived<Array<{ k: ResponseKey; key: string }>>([
-    { k: 'delta', key: 'whatif.resp.delta' }, { k: 'moment', key: bound ? 'whatif.resp.momentBound' : is3D ? 'whatif.resp.momentResultant' : 'whatif.resp.moment' }, { k: 'shear', key: bound ? 'whatif.resp.shearBound' : is3D ? 'whatif.resp.shearResultant' : 'whatif.resp.shear' },
+    { k: 'delta', key: 'whatif.resp.delta' }, { k: 'moment', key: is3D ? 'whatif.resp.momentResultant' : 'whatif.resp.moment' }, { k: 'shear', key: is3D ? 'whatif.resp.shearResultant' : 'whatif.resp.shear' },
     { k: 'axial', key: 'whatif.resp.axial' }, { k: 'reaction', key: 'whatif.resp.reaction' },
   ]);
   const scientific = $derived(new Intl.NumberFormat(i18n.locale, { notation: 'scientific', maximumSignificantDigits: 4 }));
@@ -174,11 +174,13 @@
           <tbody>
             {#each ROWS as r (r.k)}
               {@const before = whatIf.reference?.[r.k]}
-              {@const pct = before === undefined || !shown ? null : percentChange(before, shown[r.k])}
+              {@const originalBasis = boundKey(r.k, whatIf.reference)}
+              {@const currentBasis = boundKey(r.k, shown)}
+              {@const pct = before === undefined || !shown || originalBasis !== currentBasis ? null : percentChange(before, shown[r.k])}
               <tr data-testid="whatif-resp-{r.k}">
-                <th scope="row">{t(r.key)}</th>
-                <td>{before === undefined ? '—' : value(r.k, before)}</td>
-                <td class="wif-now">{shown ? value(r.k, shown[r.k]) : '—'}</td>
+                <th scope="row">{t(originalBasis && originalBasis === currentBasis ? originalBasis : r.key)}</th>
+                <td>{before === undefined ? '—' : value(r.k, before)}{#if originalBasis && originalBasis !== currentBasis} ({t(originalBasis)}){/if}</td>
+                <td class="wif-now">{shown ? value(r.k, shown[r.k]) : '—'}{#if currentBasis && originalBasis !== currentBasis} ({t(currentBasis)}){/if}</td>
                 <td class="wif-pct" class:up={pct !== null && pct > 0.5} class:down={pct !== null && pct < -0.5}>
                   {pct === null || pct === 0 ? '' : `${pct > 0 ? '▲' : '▼'} ${percent.format(Math.abs(pct) / 100)}`}
                 </td>

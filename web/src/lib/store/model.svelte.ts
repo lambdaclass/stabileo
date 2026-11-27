@@ -2127,10 +2127,10 @@ function createModelStore() {
      * so it reads under the current rules (the self-weight migration). Undoing past them would
      * bring back a model the app then fixes again, pushing a new step and clearing redo.
      */
-    withoutUndo(fn: () => void): void {
-      if (_undoBatching) { fn(); return; }
+    withoutUndo<T>(fn: () => T): T {
+      if (_undoBatching) return fn();
       _undoBatching = true;
-      try { fn(); } finally { _undoBatching = false; }
+      try { return fn(); } finally { _undoBatching = false; }
     },
 
     /**
@@ -4839,7 +4839,7 @@ function createModelStore() {
       const data = 'replacement' in change ? change.replacement : change;
       const updated = 'replacement' in change ? { ...change.replacement, id } : { ...mat, ...data, id };
       if (!('replacement' in change) && mat.userDefined === false && Object.entries(change)
-        .some(([key, value]) => key !== 'name' && value !== mat[key as keyof Material])) updated.userDefined = true;
+        .some(([key, value]) => key !== 'name' && key !== 'alpha' && value !== mat[key as keyof Material])) updated.userDefined = true;
       m.set(id, updated);
       model.materials = m;
       // A composite drawn section stores the parts' ratios to its reference: re-read them, or it

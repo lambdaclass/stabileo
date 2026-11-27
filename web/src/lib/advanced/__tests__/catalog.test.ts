@@ -70,9 +70,9 @@ describe('advanced functions catalog', () => {
 
 it.each([false, true])('dispatches buckling exclusively to its workspace handler, space=%s', async space => {
   const { dispatchSecondOrder } = await import('../second-order-dispatch');
-  const handlers = { buckling: [vi.fn(), vi.fn()], pdelta: [vi.fn(), vi.fn()] } as const;
+  const handlers = { handleBuckling: vi.fn(), handleBuckling3D: vi.fn(), handlePDelta: vi.fn(), handlePDelta3D: vi.fn() };
   dispatchSecondOrder('buckling', space, handlers);
-  expect(handlers.buckling[Number(space)]).toHaveBeenCalledOnce();
-  expect(handlers.buckling[Number(!space)]).not.toHaveBeenCalled();
-  for (const handler of handlers.pdelta) expect(handler).not.toHaveBeenCalled();
+  expect(space ? handlers.handleBuckling3D : handlers.handleBuckling).toHaveBeenCalledOnce();
+  expect(space ? handlers.handleBuckling : handlers.handleBuckling3D).not.toHaveBeenCalled();
+  for (const handler of [handlers.handlePDelta, handlers.handlePDelta3D]) expect(handler).not.toHaveBeenCalled();
 });

@@ -28,7 +28,7 @@
   import { placementStore } from '../lib/store/placement.svelte';
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
-  import { signedAxialRange, axialPaintLabel } from '../lib/viewport/axial-paint';
+  import { envelopeAxialRanges, signedAxialRange, axialPaintLabel } from '../lib/viewport/axial-paint';
   import { computeElementDiagram, computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
   import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { solverBendingForces2D } from '../lib/engine/transverse-sign-2d';
@@ -659,8 +659,9 @@
     const axialLabels = new Map<number, { text: string; color: string }>();
     if (shown && dtNow() === 'axialColor') {
       // Axial color: blue = compression, red = tension, intensity by magnitude
+      const signed = resultsStore.screen.envelopeActive ? envelopeAxialRanges(resultsStore.screen.envelope2D?.axial) : null;
       const ranges = shown.elementForces.flatMap(ef => {
-        const range = resultsStore.screen.envelopeActive ? null : signedAxialRange(() => computeElementDiagram('axial', ef, 0, 0, ef.length, 0));
+        const range = signed ? signed.get(ef.elementId) : signedAxialRange(() => computeElementDiagram('axial', ef, 0, 0, ef.length, 0));
         if (range) return [{ id: ef.elementId, ...range }];
         axialLabels.set(ef.elementId, { text: t('whatif.paint.axialUnavailable'), color: '#e8eef4' });
         return [];
@@ -1375,11 +1376,8 @@
       } else if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
         const dkind = dt as DiagramKind;
         // Check if we should render envelope dual curves
-        const showEnvelopeDual = (resultsStore.screen.envelopeActive || resultsStore.movingLoadShowEnvelope) && (
-          resultsStore.screen.envelopeActive ? resultsStore.screen.envelope2D : resultsStore.movingLoadEnvelope?.fullEnvelope
-        );
-        if (showEnvelopeDual) {
-          const envSrc = resultsStore.screen.envelopeActive ? resultsStore.screen.envelope2D! : resultsStore.movingLoadEnvelope!.fullEnvelope!;
+        const envSrc = resultsStore.screen.envelopeActive && resultsStore.screen.envelope2D;
+        if (envSrc) {
           const envData = dkind === 'moment' ? envSrc.moment
                         : dkind === 'shear'  ? envSrc.shear
                         :                       envSrc.axial;

@@ -155,15 +155,21 @@ describe('moving a node', () => {
 });
 
 describe('leaving', () => {
-  it.each([['2d', false], ['3d', false], ['pro', false], ['pro', true]] as const)('re-solves the restored model after placement fails in %s with live=%s', async (mode, live) => {
+  it.each([['2d', false], ['3d', false], ['pro', false], ['pro', true]] as const)('keeps independent edits after a failed split and re-solves on exit in %s with live=%s', async (mode, live) => {
     uiStore.analysisMode = mode;
     uiStore.liveCalc = live;
     const run = vi.spyOn(calc, 'runLiveCalc').mockResolvedValue();
     const split = vi.spyOn(modelStore, 'splitMember').mockReturnValue(null);
     try {
       whatIf.open();
+      whatIf.setMember(m2, 'e', 2);
       whatIf.setSupportAlong(s3, m1, 0.5);
       settle();
+      expect(whatIf.active).toBe(true);
+      expect(whatIf.memberFactors(m2).e).toBe(2);
+      expect(whatIf.supportAlong[s3]).toBeUndefined();
+      expect(modelStore.supports.get(s3)?.nodeId).toBe(n3);
+      await whatIf.close();
       await vi.waitFor(() => expect(run).toHaveBeenCalledWith(mode, uiStore.axisConvention3D));
       expect(whatIf.active).toBe(false);
       expect(uiStore.liveCalc).toBe(live);
@@ -442,7 +448,7 @@ it('summarizes the transverse resultants of a space cantilever', () => {
     const combined = { ...member, combined: { method, parts: [member, member] } };
     expect(response3D({ ...result, elementForces: [combined] }).moment)
       .toBeCloseTo((method === 'abs' ? 2 : Math.SQRT2) * peak, 12);
-    const piece = { ...member, pieces: [{ x0: 0, x1: member.length, forces: combined }] };
+    const piece = { ...member, pieces: [{ x0: 0, x1: member.length, sectionId: 1, forces: combined }] };
     for (const ef of [combined, piece]) expect.soft(response3D({ ...result, elementForces: [ef] }).componentEnvelopeBound, method).toBe(true);
     const nested = { ...member, combined: { method, parts: [member, combined] } };
     const bounds = response3D({ ...result, elementForces: [nested] });
@@ -565,31 +571,40 @@ it('leaves the verified model untouched throughout an unedited session', async (
   expect(modelStore.modelVersion).toBe(version);
 });
 
-it('uses the projected member length when placing a plane point load', () => {
-  modelStore.updateNode(n2, 3, 0, 4);
-  modelStore.addPointLoadOnElement(m1, 1, P);
-  whatIf.open();
-  whatIf.setLoadAt(0, 5);
-  settle();
-  expect(modelStore.loads[0].data.a).toBe(3);
+it.each([['xy', 3, 0, 4], ['xz', 3, 4, 0], ['yz', 4, 3, 0]] as const)('uses the projected member length when placing a point load in %s', (plane, x, y, z) => {
+  const originalPlane = uiStore.drawPlane2D;
+  uiStore.drawPlane2D = plane;
+  try {
+    modelStore.updateNode(n2, x, y, z);
+    modelStore.addPointLoadOnElement(m1, 1, P);
+    whatIf.open();
+    whatIf.setLoadAt(0, 5);
+    settle();
+    expect(modelStore.loads[0]).toMatchObject({ type: 'pointOnElement', data: { a: 3 } });
+  } finally {
+    uiStore.drawPlane2D = originalPlane;
+  }
 });
 
-it('binds a nodal destination to the split station that created it', () => {
-  modelStore.addNodalLoad(n2, 0, P);
+it.each(['2d', '3d'] as const)('binds a nodal destination to its split station in %s', mode => {
+  uiStore.analysisMode = mode;
+  if (mode === '2d') modelStore.addNodalLoad(n2, 0, P);
+  else modelStore.addNodalLoad3D(n2, 0, 0, P, 0, 0, 0);
+  const type = mode === '2d' ? 'nodal' : 'nodal3d';
   whatIf.open();
   whatIf.setSupportAlong(s1, m1, 0.5);
   settle();
   const split = modelStore.supports.get(s1)!.nodeId;
   whatIf.setLoadNode(0, split);
   settle();
-  expect(modelStore.loads[0].data.nodeId).toBe(modelStore.supports.get(s1)!.nodeId);
+  expect(modelStore.loads[0]).toMatchObject({ type, data: { nodeId: modelStore.supports.get(s1)!.nodeId } });
   whatIf.setSupportNode(s3, split);
   settle();
   expect(whatIf.active).toBe(true);
   expect(modelStore.supports.get(s3)!.nodeId).toBe(n3);
   whatIf.setLoadNode(0, 99999);
   settle();
-  expect(modelStore.loads[0].data.nodeId).toBe(modelStore.supports.get(s1)!.nodeId);
+  expect(modelStore.loads[0]).toMatchObject({ type, data: { nodeId: modelStore.supports.get(s1)!.nodeId } });
 });
 
 it('requires the plane and self weight of the original solve', () => {
@@ -618,5 +633,39 @@ it('reports temperature differences in the selected unit system', () => {
     expect(loadLabel(modelStore.loads[0], 0)).toMatch(/-9(?:\.0+)? °F/);
   } finally {
     uiStore.unitSystem = units;
+  }
+});
+
+it.each(['xz', 'yz'] as const)('moves the projected endpoint and clamps the point load on the %s analysis plane', plane => {
+  const savedPlane = uiStore.drawPlane2D;
+  uiStore.drawPlane2D = plane;
+  try {
+    modelStore.updateNode(n2, plane === 'xz' ? 0 : 3, plane === 'xz' ? 3 : 0, 4);
+    modelStore.addPointLoadOnElement(m1, 4, P);
+    whatIf.open();
+    whatIf.setNodeShift(n2, 1, -2);
+    settle();
+    expect(modelStore.nodes.get(n2)?.z).toBe(2);
+    expect(modelStore.loads[0]).toMatchObject({ data: { a: 2 } });
+  } finally {
+    uiStore.drawPlane2D = savedPlane;
+  }
+});
+
+it('drops dependent support moves if a failed cut restores an occupied node', () => {
+  whatIf.open();
+  whatIf.setSupportAlong(s1, m1, 0.5);
+  whatIf.setSupportNode(s3, n1);
+  whatIf.setMember(m2, 'e', 2);
+  const split = vi.spyOn(modelStore, 'splitMember').mockImplementationOnce(() => { throw new Error('unavailable cut'); });
+  try {
+    settle();
+    expect(whatIf.active).toBe(true);
+    expect(modelStore.supports.get(s1)?.nodeId).toBe(n1);
+    expect(modelStore.supports.get(s3)?.nodeId).toBe(n3);
+    expect(whatIf.supportNode[s3]).toBeUndefined();
+    expect(whatIf.memberFactors(m2).e).toBe(2);
+  } finally {
+    split.mockRestore();
   }
 });

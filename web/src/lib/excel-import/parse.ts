@@ -1,4 +1,5 @@
 import { globalAxes } from '../features';
+import { catalogueGradeFamily } from '../model/grade-family';
 import { isValidThermalAlpha } from '../engine/thermal-alpha';
 import { readLoadData } from './load-data';
 import { GRAVITY_SELF_WEIGHT } from '../engine/analysis-settings';
@@ -702,7 +703,11 @@ export function parseWorkbookSheets(
     const gradeId = str(row.cells.gradeid);
     const authored = str(row.cells.userdefined).toLowerCase();
     if (alpha !== null && !isValidThermalAlpha(alpha)) {
-      problems.push({ sheet: 'Materials', row: row.n, column: 'alpha', message: t('materials.alphaInvalid'), blocking: true });
+      problems.push({ sheet: 'Materials', row: row.n, column: 'alpha', message: t('materials.workbookAlphaInvalid'), blocking: true });
+      continue;
+    }
+    if (gradeId && !catalogueGradeFamily(gradeId)) {
+      problems.push({ sheet: 'Materials', row: row.n, column: 'gradeId', message: tp('svc.engine.invalidInputField', { path: 'gradeId: ' + gradeId }), blocking: true });
       continue;
     }
     if (authored && authored !== 'true' && authored !== 'false') {

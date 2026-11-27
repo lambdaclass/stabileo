@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { t } from '../../lib/i18n';
   import ToolbarResults from '../toolbar/ToolbarResults.svelte';
   import SelectionPanel from '../SelectionPanel.svelte';
@@ -167,6 +167,14 @@
    */
   /* A step-by-step solution is on screen in the Advanced panel. */
   const stepsOpen = $derived(panel === 'advanced' && (dsmStepsStore.isOpen || fmStepsStore.isOpen || explainedSteps.isOpen));
+  let closeParent: (() => void) | undefined;
+  $effect.pre(() => {
+    closeParent = stepsOpen ? untrack(() => panelTrail.current?.running ? panelTrail.current.home : undefined) : undefined;
+  });
+  function goHome() {
+    closeParent?.();
+    trail?.home?.();
+  }
   let course = $state<Course | null>(null);
   $effect(() => {
     if (stepsOpen && !course) loadCourse().then((c) => { course = c; }, () => {});
@@ -230,7 +238,7 @@
     <header class="bp-head" class:bp-trail={crumbs.length > 0}>
       <nav class="bp-crumbs" aria-label={title} data-testid="bp-title">
         {#if crumbs.length && trail?.home}
-          <button type="button" class="bp-crumb bp-home" onclick={trail.home} data-testid="bp-home">{title}</button>
+          <button type="button" class="bp-crumb bp-home" onclick={goHome} data-testid="bp-home">{title}</button>
         {:else}
           <span class="bp-crumb bp-home" class:bp-here={!crumbs.length}>{title}</span>
         {/if}

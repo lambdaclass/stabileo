@@ -32,7 +32,7 @@ import { initSolver, isWasmReady, combineResults3D } from './wasm-solver';
 import { computeGoverning2D, computeGoverning3D } from './governing-case';
 import { hasNonlinearBehaviour } from './member-behaviour';
 import { allLoadsResult3D } from './shell-combos';
-import { markAllLoads } from './solver-service';
+import { hasLoadCarrying3D, markAllLoads } from './solver-service';
 import { singleSolveFactors } from './case-effects';
 import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
@@ -118,7 +118,8 @@ export function runLiveCalc(analysisMode: string, axisConvention3D: string, prev
 
 async function liveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): Promise<void> {
   // Skip if model is incomplete (e.g., mid-example-load after clear but before fixture applied)
-  if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) { resultsStore.releaseScreen(); return; }
+  const hasElements = is3DWorkspace(analysisMode) ? hasLoadCarrying3D(modelStore.model) : modelStore.elements.size > 0;
+  if (modelStore.nodes.size < 2 || !hasElements) { resultsStore.releaseScreen(); return; }
   // Floor loads kept as definitions, current before the guard is taken: the edit that started this
   // solve may not have been rewritten yet (`store/defined-loads.ts`).
   if (is3DWorkspace(analysisMode)) {

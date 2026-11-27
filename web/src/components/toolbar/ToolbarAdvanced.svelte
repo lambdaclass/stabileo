@@ -99,6 +99,7 @@
   import { advFunction, unavailable, unavailableReasonKey } from '../../lib/advanced/catalog';
   import { advancedList } from '../../lib/advanced/panel-state.svelte';
   import AdvancedLauncher from '../advanced/AdvancedLauncher.svelte';
+  import { dispatchSecondOrder } from '../../lib/advanced/second-order-dispatch';
   import AdvFunctionHead from '../advanced/AdvFunctionHead.svelte';
   import SelfCheckBanner from '../advanced/SelfCheckBanner.svelte';
 
@@ -592,9 +593,9 @@
         uiStore.currentTool = 'select';
         uiStore.selectMode = 'stress';
         return;
-      case 'mohr': openMohr({ kind: is3D ? 'space' : 'plane' }); return;
-      case 'pdelta': if (is3D) void handlePDelta3D(); else handlePDelta(); return;
-      case 'buckling': if (is3D) void handleBuckling3D(); else handleBuckling(); return;
+      case 'mohr': if (__PUBLIC_FEATURES__.tools) openMohr({ kind: is3D ? 'space' : 'plane' }); return;
+      case 'pdelta':
+      case 'buckling': dispatchSecondOrder(id, is3D, { handleBuckling, handleBuckling3D, handlePDelta, handlePDelta3D }); return;
       case 'modal': if (is3D) void handleModal3D(); else handleModal(); return;
       case 'plastic': handlePlastic(); return;
       case 'influenceLine':
@@ -615,7 +616,7 @@
 <div class="toolbar-section flat" data-tour="advanced-section" bind:this={section} onclickcapture={noteOpening}>
   {#if courseReady}
     {#if active && activeFn}
-      <AdvFunctionHead fn={activeFn} onBack={() => { if (active) closeEntry(active.key); }} />
+      <AdvFunctionHead fn={activeFn} onBack={closeEntry.bind(null, active.key)} />
       {#if active.key === 'despiece'}<DespieceOptions />{/if}
       {#if (active.key === 'pdelta' || active.key === 'buckling') && !is3D}
         <SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling, selectedSecondOrder)} />

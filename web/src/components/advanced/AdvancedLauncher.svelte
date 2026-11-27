@@ -11,7 +11,7 @@
   import { ADV_FUNCTIONS, ADV_GROUPS, ownerOfMethod, linkedMethods, unavailable, unavailableReasonKey, type AdvFunction, type AdvGroupId } from '../../lib/advanced/catalog';
   import { buildIndex, fold, search, type SearchDoc } from '../../lib/advanced/search';
   import { advancedList } from '../../lib/advanced/panel-state.svelte';
-  import { openStepMethod } from '../../lib/advanced/open-step';
+  import { openStepMethod, stepBlockedReason } from '../../lib/advanced/open-step';
   import AdvThumb from './AdvThumb.svelte';
   import Prose from '../steps/Prose.svelte';
 
@@ -74,9 +74,8 @@
   }
 
   const ownerOf = (e: Entry) => (e.kind === 'fn' ? e.fn : e.owner);
-  const withheld = (e: Entry) => e.kind === 'step' && e.owner.id === 'plastic';
-  const blockedReason = (e: Entry) => unavailable(ownerOf(e), modelState) === 'plane' ? 'advanced.only2d'
-    : withheld(e) ? 'knownIssue.PL-2D-INVARIANCE' : null;
+  const blockedReason = (e: Entry) => e.kind === 'step' ? stepBlockedReason(e.method)
+    : unavailable(ownerOf(e), modelState) === 'plane' ? 'advanced.only2d' : null;
   const blocked = (e: Entry) => blockedReason(e) !== null;
 
   function open(e: Entry): void {

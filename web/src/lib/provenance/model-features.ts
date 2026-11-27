@@ -35,7 +35,7 @@ import { modelAliasRefusalFeature } from '../model/canonical-aliases';
 import type { ArcSpec } from '../model/curved-member';
 import { plateAnalysisIssue, type PlateAnalysisModel } from '../model/physical/plate-analysis';
 import { plateSurfaceOf } from '../model/physical/plate';
-import { thermalAlphaOf } from '../engine/thermal-alpha';
+import { isValidThermalAlpha, thermalAlphaOf } from '../engine/thermal-alpha';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
@@ -819,7 +819,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       if (material && thermalAlphaOf(material) === undefined && thermalAlphaOf({ ...material, userDefined: false }) !== undefined) {
         f.add('assumedThermalFamily');
       }
-      if (alpha !== undefined && Number.isFinite(alpha) && alpha <= 0) f.add('nonpositiveThermalCoefficient');
+      if (alpha !== undefined && isValidThermalAlpha(alpha) && alpha <= 0) f.add('nonpositiveThermalCoefficient');
     }
     if (t === 'thermal') f.add('memberThermalLoads');
     if (t === 'thermalQuad3d') f.add('shellThermalLoads');

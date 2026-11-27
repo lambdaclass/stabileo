@@ -1,12 +1,12 @@
 /**
- * The handful of numbers "What if?" compares while the reader moves things: the largest
- * displacement, internal forces along every member (not only at its ends, where a span load's
+ * The handful of numbers "What if?" compares while the reader moves things: the maximum nodal
+ * translation, internal forces along every member (not only at its ends, where a span load's
  * peak is not) and support reaction.
  */
 import type { AnalysisResults } from '../engine/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { computeElementDiagram } from '../engine/diagrams';
-import { computeGlobalMax3D, transverseResultantMax3D } from '../engine/diagrams-3d';
+import { computeGlobalMax3D, hasUnsignedForces, transverseResultantMax3D } from '../engine/diagrams-3d';
 import { get2DDisplayDisplacementVertical } from '../geometry/coordinate-system';
 import type { Quantity } from '../utils/units';
 
@@ -35,7 +35,7 @@ export function response3D(r: AnalysisResults3D): Response {
   const ef = r.elementForces;
   return {
     delta: peak(r.displacements.map((d) => Math.hypot(d.ux, d.uy, d.uz))),
-    ...(ef.some(member => member.combined?.method === 'abs') ? { componentEnvelopeBound: true } : {}),
+    ...(r.magnitude || ef.some(hasUnsignedForces) ? { componentEnvelopeBound: true } : {}),
     moment: transverseResultantMax3D(ef, 'moment'),
     shear: transverseResultantMax3D(ef, 'shear'),
     axial: computeGlobalMax3D(ef, 'axial'),

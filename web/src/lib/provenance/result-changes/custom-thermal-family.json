@@ -24,14 +24,14 @@
     "zh": "复核未指定牌号材料的热膨胀系数"
   },
   "explanation": {
-    "en": "An ungraded material with no expansion coefficient could be assigned a family by stiffness alone. Check the coefficient before using the recalculated thermal response.",
-    "es": "La rigidez podía determinar la familia de un material sin grado ni coeficiente de dilatación. Revisá el coeficiente antes de usar la respuesta térmica recalculada.",
-    "pt": "A rigidez podia determinar a família de um material sem classe nem coeficiente de dilatação. Confira o coeficiente antes de usar a resposta térmica recalculada.",
-    "fr": "La rigidité pouvait déterminer la famille d’un matériau sans nuance ni coefficient de dilatation. Vérifiez le coefficient avant d’utiliser la réponse thermique recalculée.",
-    "de": "Bei fehlender Güte und fehlendem Ausdehnungskoeffizienten konnte allein die Steifigkeit die Werkstofffamilie bestimmen. Prüfen Sie den Koeffizienten vor Verwendung der neu berechneten Ergebnisse.",
-    "hu": "Anyagminőség és hőtágulási együttható hiányában korábban a merevség határozhatta meg az anyagcsaládot. Az újraszámított eredmények használata előtt ellenőrizze az együtthatót.",
-    "tr": "Sınıfı ve genleşme katsayısı belirtilmeyen malzemelerin ailesi yalnızca rijitliğe göre belirlenebiliyordu. Yeni ısıl sonuçları kullanmadan önce katsayıyı denetleyin.",
-    "zh": "未指定牌号和热膨胀系数时，以前可能仅凭刚度推断材料类别。使用重新计算的温度响应前，请核对热膨胀系数。"
+    "en": "An ungraded material with no expansion coefficient could be assigned a family by stiffness alone. An earlier coefficient edit could also lose an automatic family when the field was cleared. Check the coefficient before using the recalculated thermal response.",
+    "es": "La rigidez podía determinar la familia de un material sin grado ni coeficiente de dilatación. Editar el coeficiente y luego borrarlo también podía perder la familia automática. Revisá el coeficiente antes de usar la respuesta térmica recalculada.",
+    "pt": "A rigidez podia determinar a família de um material sem classe nem coeficiente de dilatação. Editar e depois apagar o coeficiente também podia remover a família automática. Confira o coeficiente antes de usar a resposta térmica recalculada.",
+    "fr": "La rigidité pouvait déterminer la famille d’un matériau sans nuance ni coefficient de dilatation. Modifier puis effacer le coefficient pouvait aussi faire perdre la famille automatique. Vérifiez le coefficient avant d’utiliser la réponse thermique recalculée.",
+    "de": "Bei fehlender Güte und fehlendem Ausdehnungskoeffizienten konnte allein die Steifigkeit die Werkstofffamilie bestimmen. Beim Ändern und anschließenden Löschen des Koeffizienten konnte auch die automatisch bestimmte Familie verloren gehen. Prüfen Sie den Koeffizienten vor Verwendung der neu berechneten Ergebnisse.",
+    "hu": "Anyagminőség és hőtágulási együttható hiányában korábban a merevség határozhatta meg az anyagcsaládot. Az együttható módosítása, majd törlése az automatikusan megállapított anyagcsalád elvesztését is okozhatta. Az újraszámított eredmények használata előtt ellenőrizze az együtthatót.",
+    "tr": "Sınıfı ve genleşme katsayısı belirtilmeyen malzemelerin ailesi yalnızca rijitliğe göre belirlenebiliyordu. Katsayı değiştirildikten sonra silindiğinde otomatik belirlenen malzeme ailesi de kaybolabiliyordu. Yeni ısıl sonuçları kullanmadan önce katsayıyı denetleyin.",
+    "zh": "未指定牌号和热膨胀系数时，以前可能仅凭刚度推断材料类别。修改后再清空系数，也可能丢失自动识别的材料类别。使用重新计算的温度响应前，请核对热膨胀系数。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-custom-thermal-family.md",

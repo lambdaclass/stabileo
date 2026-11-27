@@ -1,6 +1,5 @@
 <script lang="ts">
   /** Where a nodal load or a support stands: on a node, or anywhere along a member with a slider. */
-  import { modelStore } from '../../lib/store';
   import { whatIf, type Along } from '../../lib/store/whatif.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import { t } from '../../lib/i18n';
@@ -14,16 +13,13 @@
   /* The members as they were on entry: a cut the session made is not a member to place on. */
   const entry = $derived(new Map(whatIf.baseline?.elements ?? []));
   const members = $derived([...entry.keys()].sort((a, b) => a - b));
-  const value = $derived(along ? `m:${along.elementId}` : `n:${nodeId}`);
+  let picked = $state<number | null>(null);
+  const member = $derived(picked ?? along?.elementId);
+  const value = $derived(member !== undefined ? 'm:' + member : 'n:' + nodeId);
   function pick(v: string) {
     const [kind, id] = [v.slice(0, 1), Number(v.slice(2))];
-    if (kind === 'n') onNode(id); else onAlong(id, 0.5);
-  }
-  /* The member as it was on entry, between its nodes as they stand now. */
-  function lengthOf(id: number): number {
-    const el = entry.get(id);
-    const a = el && modelStore.nodes.get(el.nodeI), b = el && modelStore.nodes.get(el.nodeJ);
-    return a && b ? Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) : 0;
+    picked = kind === 'n' ? null : id;
+    if (kind === 'n') onNode(id);
   }
   const length = (v: number) => `${fmtQ(v, 'length')} ${unitQ('length')}`;
 </script>
@@ -39,17 +35,21 @@
     </optgroup>
   </select>
 </label>
-{#if along}
-  {@const span = lengthOf(along.elementId)}
+{#if member !== undefined}
+  {@const span = whatIf.memberLength(member)}
   {#if span > 0}
-    <WifSlider label={t('whatif.alongMember')} min={0} max={span} step={span / 200} value={along.t * span} changed
+    {#if member !== along?.elementId}
+      <button type="button" onclick={() => onAlong(member, 0.5)}>{t('pro.apply')} ({length(span / 2)})</button>
+    {/if}
+    <WifSlider label={t('whatif.alongMember')} min={0} max={span} step={span / 200} value={(along?.elementId === member ? along.t : 0.5) * span} changed={along?.elementId === member}
       format={length} oninput={(v) => {
-        const el = entry.get(along.elementId)!;
+        const el = entry.get(member)!;
         if (v === 0 || v === span) {
           const endpoint = v === 0 ? el.nodeI : el.nodeJ;
           if (!nodes.includes(endpoint)) return false;
           onNode(endpoint);
-        } else onAlong(along.elementId, v / span);
+          picked = null;
+        } else onAlong(member, v / span);
       }} testid="{testid}-along" />
   {/if}
 {/if}

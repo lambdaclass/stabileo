@@ -6,6 +6,7 @@ import { initSolver, solvePDelta, solvePDelta3D } from '../wasm-solver';
 import type { AnalysisResults } from '../types';
 import type { AnalysisResults3D } from '../types-3d';
 import { modelStore, uiStore } from '../../store';
+import { saveCustomMaterial } from '../../material/custom-material';
 import { buildProjectFile, deserializeProject } from '../../store/file';
 
 const jobs: string[] = [];
@@ -39,12 +40,19 @@ beforeAll(async () => {
 });
 afterAll(() => { setWorkerFactoryForTests(null); vi.unstubAllGlobals(); });
 
-async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefined, worker = false, strain = 0, secondOrder = false, gradient = 0) {
+async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefined, worker = false, strain = 0, secondOrder = false, gradient = 0, edit?: 'basic' | 'pro') {
   modelStore.clear();
   uiStore.analysisMode = workspace;
   const length = 4;
   const temperature = gradient ? 0 : 20;
-  const material = modelStore.addMaterial({ name: 'Thermal specimen', userDefined: true, e: alpha === undefined ? 70000 : 30000, nu: 0.2, rho: 25, alpha });
+  const material = modelStore.addMaterial({ name: 'Thermal specimen', userDefined: !edit, e: alpha === undefined ? 70000 : 30000, nu: 0.2, rho: 25, alpha });
+  if (edit) {
+    const before = modelStore.materials.get(material)!;
+    for (const declared of [0, undefined]) {
+      if (edit === 'basic') saveCustomMaterial({ ...before, kind: 'custom', alpha: declared }, material);
+      else modelStore.updateMaterial(material, { alpha: declared });
+    }
+  }
   const fixed = modelStore.addNode(0, 0, 0);
   const free = modelStore.addNode(length, 0, 0);
   const member = modelStore.addElement(fixed, free, 'frame');
@@ -79,9 +87,9 @@ async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefin
     solver: result.solverDiagnostics ?? [],
     structured: result.structuredDiagnostics ?? [],
   };
-  expect(diagnostics.structured.some(d => d.code === 'thermal_default_assumed' && d.phase === 'alpha')).toBe(alpha === undefined);
+  expect(diagnostics.structured.some(d => d.code === 'thermal_default_assumed' && d.phase === 'alpha')).toBe(alpha === undefined && !edit);
   const ux = result.displacements.find(d => d.nodeId === free)!.ux;
-  expect(ux, JSON.stringify(diagnostics)).toBeCloseTo(((alpha ?? 12e-6) * temperature + strain) * length, 12);
+  expect(ux, JSON.stringify(diagnostics)).toBeCloseTo(((alpha ?? (edit ? 23e-6 : 12e-6)) * temperature + strain) * length, 12);
   return result.displacements.find(d => d.nodeId === free)!.ry;
 }
 
@@ -122,4 +130,12 @@ for (const workspace of ['2d', '3d'] as const) {
       expect(await rotation(0)).toBe(0);
     });
   }
+}
+
+for (const workspace of ['2d', '3d'] as const) for (const edit of ['basic', 'pro'] as const) {
+  it('restores automatic aluminium expansion across a thermal-only ' + edit + ' edit in ' + workspace, async () => {
+    for (const [worker, secondOrder] of [[false, false], [true, false], [false, true]]) {
+      await checkDisplacement(workspace, undefined, worker, 0, secondOrder, 0, edit);
+    }
+  });
 }

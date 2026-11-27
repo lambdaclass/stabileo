@@ -73,7 +73,7 @@
    * down the results panel, while a result is drawn.
    */
   const resultsView = $derived(
-    uiStore.appMode === 'basico' && uiStore.loadCasesEnabled && resultsStore.hasCombinations
+    uiStore.appMode === 'basico' && uiStore.loadCasesEnabled && resultsStore.hasDisplayChoices
     && uiStore.showPrimarySelector
     && (activeQuantity() !== null || resultsStore.diagramType === 'deformed'),
   );

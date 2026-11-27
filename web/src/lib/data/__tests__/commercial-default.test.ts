@@ -130,3 +130,8 @@ describe('reusing a material the model already has', () => {
     expect(findMaterialWithGrade(materials, undefined as never)).toBeUndefined();
   });
 });
+
+it.each([-5e-6, 0, 5e-6])('preserves an explicit thermal coefficient %s when choosing a section', alpha => {
+  expect(commercialDefaultFor('IPN', { userDefined: false, alpha }, 'AR')).toBeNull();
+  expect(commercialDefaultFor('IPN', { userDefined: false, alpha: undefined }, 'AR')?.id).toBe('iram-f24');
+});

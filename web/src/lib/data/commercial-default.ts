@@ -44,6 +44,7 @@ export interface MaterialLike {
   gradeId?: string;
   /** True when the user entered the material's own numbers. */
   userDefined?: boolean;
+  alpha?: number;
 }
 
 /**
@@ -60,7 +61,7 @@ export function commercialDefaultFor(
   region?: GradeRegion | null,
 ): StructuralGrade | null {
   // A steel was chosen on purpose. Not ours to change.
-  if (current?.gradeId || current?.userDefined !== false) return null;
+  if (current?.alpha !== undefined || current?.gradeId || current?.userDefined !== false) return null;
   if (!family) return null;
 
   const pairing = region

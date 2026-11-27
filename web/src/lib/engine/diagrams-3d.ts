@@ -102,6 +102,10 @@ function magnitudeCurve(curves: SpatialCurve[], method: MagnitudeMethod, length:
   };
 }
 
+export function hasUnsignedForces(member: ElementForces3D): boolean {
+  return !!member.combined || !!member.pieces?.some(piece => hasUnsignedForces(piece.forces));
+}
+
 function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
   if (ef.combined) {
     const { method, parts } = ef.combined;

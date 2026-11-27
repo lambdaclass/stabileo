@@ -4,6 +4,8 @@ Recalculate members and shells with a temperature load if their material has nei
 
 For the regression's 4 m member under a uniform 20 °C rise, the previous aluminium assignment of 23 × 10⁻⁶ /°C gives 0.00184 m of free expansion. The engine's reported assumption of 12 × 10⁻⁶ /°C gives 0.00096 m. A declared coefficient of 9 × 10⁻⁶ /°C instead gives 0.00072 m by αΔTL. A prescribed strain alone is independent of α.
 
+For an automatic, ungraded aluminium material, setting and clearing α restores the original family coefficient. The Basic material form and the Pro material table previously marked that edit as a change of mechanical provenance. For the same member and temperature rise above, clearing the field then gave 0.00096 m instead of 0.00184 m. A saved file that already lost its automatic status requires confirmation of the material family or an explicit coefficient before recalculation.
+
 Second-order member solves now carry the same coefficient and section-depth assumption diagnostics as their linear input.
 
 A separate material import defect could discard the properties of the first workbook or generated material when its name and modulus matched the automatic seed. Reimport the original source to recover those values. For projects edited after import, compare the stored material against the source before recalculating. Assigning a profile now preserves an ungraded material unless its record explicitly identifies it as automatic.
@@ -40,7 +42,7 @@ The fixture heats member 2 between (0, 4) and (5, 4) m. Its ungraded material ha
 | `base.elementForces[e3].nStart` | -0.6010594726 | -0.7212713671 | -0.72127136712 | Member equilibrium and compatibility |
 | `base.elementForces[e3].vEnd` | -2.115325867 | -2.53839104 | -2.5383910404 | Member equilibrium and compatibility |
 | `base.elementForces[e3].vStart` | -2.115325867 | -2.53839104 | -2.5383910404 | Member equilibrium and compatibility |
-| `base.equilibrium.reactionForceSum[2]` | -3.005297363 | -3.606356836 | -3.6063568356 | Support equilibrium |
+| `base.equilibrium.reactionForceSum[2]` | -3.005297363 | -3.606356836 | -3.6063568356 | Sum of planar support moments about Y (kN·m) |
 | `base.reactions[n1].my` | -3.005297363 | -3.606356836 | -3.6063568356 | Support equilibrium |
 | `base.reactions[n1].rx` | 2.115325867 | 2.53839104 | 2.5383910404 | Support equilibrium |
 | `base.reactions[n1].rz` | -0.6010594726 | -0.7212713671 | -0.72127136712 | Support equilibrium |
@@ -58,11 +60,11 @@ The fixture heats member 2 between (0, 4) and (5, 4) m. Its ungraded material ha
 
 ## Workbook and material edits
 
-A project workbook exported its explicit expansion coefficient, but import blocked a populated coefficient column. Import now accepts finite coefficients within the material form’s range, including zero and negative values. A 4 m free bar with a workbook coefficient of 9 × 10⁻⁶/°C and a 20 °C rise extends by 0.00072 m in both 2D and 3D, under linear and second-order analysis. Older workbooks can lack the grade and provenance columns, so review the assumption on ungraded materials. Changing a material's mechanical definition now replaces its former concrete and catalogue properties. Renaming the material or changing only its coefficient preserves those strengths.
+A project workbook exported its explicit expansion coefficient, but import blocked a populated coefficient column. Import now accepts finite coefficients within the material form’s range, including zero and negative values. A 4 m free bar with a workbook coefficient of 9 × 10⁻⁶/°C and a 20 °C rise extends by 0.00072 m in both 2D and 3D, under linear and second-order analysis. Older workbooks can lack the grade and provenance columns, so review the assumption on ungraded materials. Changing a catalogue material’s mechanical definition removes its grade-specific properties. Editing the unit weight of a hand-entered material preserves its independently entered strengths and aggregate size. Renaming the material or changing only its coefficient preserves those strengths.
 
 
 ## Reading axial colors and spatial combinations
 
-A fixed-ended bar with a central 10 kN axial load has equal support reactions by symmetry. The axial diagram has a 10 kN jump at the load, giving +5 kN on one side and −5 kN on the other. Both the plane and space axial color views now identify the mixed member and show the signed extrema. A space ABS or SRSS combination stores unsigned magnitudes, so its axial color view reports that signed forces are unavailable.
+A fixed-ended bar with a central 10 kN axial load has equal support reactions by symmetry. The axial diagram has a 10 kN jump at the load, giving +5 kN on one side and −5 kN on the other. Both the plane and space axial color views now identify the mixed member and show the signed extrema. When a moving-load or static envelope is displayed, the paint reads both signed curves of that envelope. A space ABS or SRSS combination stores unsigned magnitudes, so its axial color view reports that signed forces are unavailable.
 
 For the ABS combination of section moment vectors (10, 10) and (10, −10) kN·m, the possible vector sums have magnitude 20 kN·m. The separate component envelopes are 20 and 20 kN·m, giving an upper bound of √800 kN·m. Explore explicitly labels that bound for moment and shear.

@@ -91,7 +91,7 @@ describe('the picture held for a live re-solve', () => {
 
   it('is dropped when the re-solve finds a mechanism', async () => {
     await solvedPortal();
-    for (const support of modelStore.supports.values()) modelStore.updateSupport(support.id, { type: 'rollerX' });
+    for (const element of modelStore.elements.values()) modelStore.updateElement(element.id, { releaseI: { my: false, mz: true, t: false }, releaseJ: { my: false, mz: true, t: false } });
     expect(resultsStore.screen.held).toBe(true);
     await runLiveCalc('2d', uiStore.axisConvention3D);
     expect(uiStore.liveCalcError).toMatch(/mechanism|singular|unstable|hipostática|mecanismo/i);
@@ -271,17 +271,18 @@ it.each(['quad9s', 'solidShells', 'curvedShells'])('invalidates a space publicat
 
 it.each(['plate', 'quad'] as const)('updates a shell-only %s after a live load edit', async kind => {
   modelStore.clear();
-  uiStore.analysisMode = '3d';
-  const nodes = [[0, 0], [2, 0], [2, 1], [0, 1]].map(([x, y]) => modelStore.addNode(x, y, 0));
+  uiStore.analysisMode = 'pro';
+  uiStore.includeSelfWeight = false;
+  const nodes = [[0, 0], [2, 0], [2, 1], [0, 1]].slice(0, kind === 'plate' ? 3 : 4).map(([x, y]) => modelStore.addNode(x, y, 0));
   const shell = kind === 'plate' ? modelStore.addPlate([nodes[0], nodes[1], nodes[2]], 1, 0.2)
     : modelStore.addQuad(nodes as [number, number, number, number], 1, 0.2);
-  for (const id of nodes.slice(0, kind === 'plate' ? 3 : 4)) modelStore.addSupport(id, 'fixed3d');
+  for (const id of nodes.slice(0, 2)) modelStore.addSupport(id, 'fixed3d');
   const pressure = -3;
-  const load = () => modelStore.addSurfaceLoad3D(shell, pressure, undefined, kind === 'plate' ? { on: 'plate' } : {});
+  const load = () => modelStore.addSurfaceLoad3D(shell, pressure, undefined, { frame: 'global', dir: [0, 0, 1], ...(kind === 'plate' ? { on: 'plate' } : {}) });
   const reaction = () => resultsStore.results3D?.reactions.reduce((sum, r) => sum + r.fz, 0);
   for (const factor of [1, 2]) {
     load();
-    await runLiveCalc('3d', uiStore.axisConvention3D);
-    expect(reaction()).toBeCloseTo(-pressure * (kind === 'plate' ? 1 : 2) * factor, 8);
+    await runLiveCalc('pro', uiStore.axisConvention3D);
+    expect(reaction(), uiStore.liveCalcError ?? 'No published reactions').toBeCloseTo(-pressure * (kind === 'plate' ? 1 : 2) * factor, 8);
   }
 });

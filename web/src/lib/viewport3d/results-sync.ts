@@ -27,8 +27,8 @@ import { verificationStore } from '../store/verification.svelte';
 import { discretizationStore } from '../store/discretization.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import { dofQuantity } from '../utils/units';
-import { signedAxialRange, axialPaintLabel } from '../viewport/axial-paint';
-import { computeDiagram3D, type Diagram3DKind } from '../engine/diagrams-3d';
+import { envelopeAxialRanges, signedAxialRange, axialPaintLabel } from '../viewport/axial-paint';
+import { hasUnsignedForces, computeDiagram3D, type Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { timeHistoryView } from '../store/time-history-view.svelte';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellNodalColors, displaceShellFace, type HeatmapVariable } from '../three/stress-heatmap';
@@ -474,13 +474,12 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
 // ─── Color map (axialColor / colorMap) ──────────────────────
 
 
-function hasUnsignedAxialForces(member: ElementForces3D): boolean {
-  return !!member.combined || !!member.pieces?.some(piece => hasUnsignedAxialForces(piece.forces));
-}
-
-function axialRange3D(member: ElementForces3D) {
-  if (resultsStore.screen.envelopeActive || hasUnsignedAxialForces(member)) return null;
-  return signedAxialRange(() => computeDiagram3D(member, 'axial'));
+function axialRangeReader() {
+  const envelope = resultsStore.screen.envelopeActive ? envelopeAxialRanges(resultsStore.screen.envelope3D?.axial) : null;
+  return (member: ElementForces3D) => {
+    if (resultsStore.screen.results3D?.magnitude || hasUnsignedForces(member)) return null;
+    return envelope ? envelope.get(member.elementId) : signedAxialRange(() => computeDiagram3D(member, 'axial'));
+  };
 }
 
 export function syncColorMap3D(ctx: ResultsSyncContext): void {
@@ -538,6 +537,7 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   }
 
   if (dt === 'axialColor') {
+    const axialRange3D = axialRangeReader();
     clearHeatmapMeshes(ctx);
     forEachElementVisual(ctx, (id, group) => {
       if (group) showOriginalMeshes(group, true);
@@ -643,6 +643,7 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
   const axial = resultsStore.screen.diagram === 'axialColor' && resultsStore.screen.results3D;
   if (!axial && (resultsStore.screen.diagram !== 'verification' || (!verificationStore.hasResults && !verificationStore.hasDemandData))) return;
   const mixedLabels = new Map<number, { text: string; color: string }>();
+  const axialRange3D = axialRangeReader();
   if (axial) for (const ef of axial.elementForces) {
     const range = axialRange3D(ef);
     if (!range || range.mixed) mixedLabels.set(ef.elementId, {

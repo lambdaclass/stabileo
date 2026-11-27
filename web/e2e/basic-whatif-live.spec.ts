@@ -306,3 +306,21 @@ test('@slow a pending Explore result keeps the solved hinge until the edited mem
   expect(observed).toMatchObject({ held: true, edited: true, pendingHinges: 0, final: { held: false, drawn: true } });
   expect(observed.finalHinges).toBeGreaterThan(0);
 });
+
+test('@slow inspecting Explore preserves verification and the solved model', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions && window.__stabileo.solverReady());
+  await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+  await page.evaluate(() => window.__stabileoActions.solve());
+  const publication = () => page.evaluate(() => [
+    window.__stabileo.analysisRevision(), window.__stabileo.modelVersion(), window.__stabileo.solveCount(),
+  ]);
+  const original = await publication();
+  await openAdvancedFunction(page, 'whatif');
+  await expect(page.getByTestId('whatif-response')).toBeVisible();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(await publication()).toEqual(original);
+  await page.getByTestId('adv-close').click();
+  expect(await publication()).toEqual(original);
+});
