@@ -86,7 +86,7 @@ it('known wrong result: #1928 the raw element table offers its owner exactly unt
   uiStore.shellPickScope = 'plate';
 });
 
-it.skip('known wrong result: #1928 the published quick editor can mesh an ownerless quad but not a triangle', () => {
+it('known wrong result: #1928 the published quick editor can mesh an ownerless quad but not a triangle', () => {
   modelStore.clear();
   const nodes = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0)) as [number, number, number, number];
   const quad = modelStore.addQuad(nodes, 1, 0.15);

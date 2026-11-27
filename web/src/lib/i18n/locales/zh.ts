@@ -11353,6 +11353,10 @@ const zh: Translations = {
   "quickEdit.moreInSpec": "更多见规格",
   "quickEdit.flip": "翻转",
   "quickEdit.flipHint": "反向排列节点顺序：局部 z 轴随之翻向另一侧，顶面也随之翻转。",
+  "quickEdit.meshSize": "单元尺寸",
+  "quickEdit.mesh": "网格",
+  "quickEdit.meshHint": "用该尺寸的网格取代四边形，并与周围的杆件连接。",
+  "quickEdit.meshed": "已划分为 {n} 个四边形。",
 
   "pro.supportFree": "无约束",
   "autoLoad.windSpeed": "基本风速 V",

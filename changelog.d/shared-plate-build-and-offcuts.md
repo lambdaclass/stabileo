@@ -19,3 +19,5 @@ Selecting the owner of a mesh cell in the published shell table now opens that p
 The published raw shell writer now excludes circular plate construction and the unified mesh-adoption undo step.
 
 The disabled browser bundles omit circular inputs and generator-only options for structural systems, approximate periods, exposure and terrain. Saved calculation messages keep their translations.
+
+A raw quadrilateral can again be meshed directly from its published quick editor. The existing occupied-region refusal and undo operation apply.

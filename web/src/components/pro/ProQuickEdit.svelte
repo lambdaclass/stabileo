@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
+  import { meshQuad } from '../../lib/model/edit/mesh-region';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
    * PRO's double-click editor: what Basic's node and member cards offer, in PRO's terms, and a
@@ -121,7 +123,17 @@
     if (plates.length) uiStore.toast(tp('plates.editedWhole', { names: plates.map((id) => modelStore.model.groups.get(id)?.name ?? `#${id}`).join(', '), n: plates.length }), 'info');
   }
 
-  const ownerPlate = $derived(shell && target && (target.kind === 'plate' || target.kind === 'quad') ? plateOfShell(`${target.kind === 'plate' ? 'p' : 'q'}${shell.id}`) : null);
+  let meshSize = $state(0.5);
+  function mesh() {
+    if (!shell || target?.kind !== 'quad' || !(meshSize > 0)) return;
+    const r = meshQuad(shell.id, { density: { mode: 'targetSize', size: meshSize }, splitBeams: true });
+    if (!r) return;
+    if ('refused' in r) { uiStore.toast(t(r.refused === 'occupied' ? 'mesher.occupied' : 'mesher.failed'), 'error'); return; }
+    uiStore.toast(tp('quickEdit.meshed', { n: r.quadCount }), 'success');
+    quickEdit.close();
+  }
+
+  const ownerPlate = $derived(__PUBLIC_FEATURES__.proPlatesUnified && shell && target && (target.kind === 'plate' || target.kind === 'quad') ? plateOfShell(`${target.kind === 'plate' ? 'p' : 'q'}${shell.id}`) : null);
   let meshing = $state<number[] | null>(null);
   /** The button names one plate, so it meshes that one alone, whatever else is selected. */
   function meshPlate() {
@@ -191,13 +203,25 @@
           </label>
         </div>
         <button class="qe-btn" onclick={flip} title={t('quickEdit.flipHint')} data-testid="qe-flip">{t('quickEdit.flip')}</button>
-        {#if ownerPlate !== null}
-          <button class="qe-btn" onclick={meshPlate} data-testid="qe-mesh-plate">{t('quickEdit.meshPlate')}…</button>
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}
+          {#if ownerPlate !== null}
+            <button class="qe-btn" onclick={meshPlate} data-testid="qe-mesh-plate">{t('quickEdit.meshPlate')}…</button>
+          {/if}
+        {:else}
+          {#if target.kind === 'quad'}
+            <div class="qe-row">
+              <label class="qe-field qe-narrow"><span>{t('quickEdit.meshSize')}</span>
+                <QuantityInput min={0.05} bind:value={meshSize} quantity="length" cls="qe-num" testid="qe-mesh-size" />
+              </label>
+              <button class="qe-btn" onclick={mesh} disabled={!(meshSize > 0)} data-testid="qe-mesh">{t('quickEdit.mesh')}</button>
+            </div>
+            <Hint text={t('quickEdit.meshHint')} />
+          {/if}
         {/if}
       {/if}
     </div>
   </EditorCard>
-{#if meshing}<PlateMeshDialog ids={meshing} onclose={() => { meshing = null; quickEdit.close(); }} />{/if}
+{#if __PUBLIC_FEATURES__.proPlatesUnified && meshing}<PlateMeshDialog ids={meshing} onclose={() => { meshing = null; quickEdit.close(); }} />{/if}
 {/if}
 
 <style>
