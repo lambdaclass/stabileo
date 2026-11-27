@@ -344,8 +344,8 @@ function createUIStore() {
   let showSecondarySelector = $state<boolean>(true);
 
   // 3D rendering mode — per-mode
-  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections' | 'physical'>('wireframe');
-  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections' | 'physical'>('wireframe');
+  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
+  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
 
   // Smooth-orbit LOD: when on, collapse to the batched wireframe during camera
   // motion for ANY model (not just heavy ones). Opt-in so the default "keep full
@@ -368,6 +368,8 @@ function createUIStore() {
    * person sets (`clippingEnabled`). Null outside the plan view.
    */
   let planCutZ = $state<number | null>(null);
+  let planBelow = $state<'hidden' | 'ghost'>('hidden');
+  let planRotation = $state<number>(0);
   /** What a left drag does with the Pan tool in 3D: orbit the model, or slide over the view's plane. */
   let dragMode3D = $state<'orbit' | 'slide'>('orbit');
 
@@ -1070,7 +1072,10 @@ function createUIStore() {
     set showSecondarySelector(v: boolean) { showSecondarySelector = v; },
 
     get renderMode3D() { return analysisMode === 'pro' ? renderMode3D_pro : renderMode3D_basic; },
-    set renderMode3D(v: 'wireframe' | 'solid' | 'sections' | 'physical') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
+    set renderMode3D(v: 'wireframe' | 'solid' | 'sections') {
+      const m = (v as string) === 'physical' ? 'sections' : v;
+      if (analysisMode === 'pro') renderMode3D_pro = m; else renderMode3D_basic = m;
+    },
     get smoothOrbit3D() { return smoothOrbit3D; },
     set smoothOrbit3D(v: boolean) { smoothOrbit3D = v; },
 
@@ -1083,6 +1088,10 @@ function createUIStore() {
     set planView3D(v: boolean) { planView3D = v; },
     get planCutZ() { return planCutZ; },
     set planCutZ(v: number | null) { planCutZ = v; },
+    get planBelow() { return planBelow; },
+    set planBelow(v: 'hidden' | 'ghost') { planBelow = v; },
+    get planRotation() { return planRotation; },
+    set planRotation(v: number) { planRotation = ((Math.round(v / 90) * 90) % 360 + 360) % 360; },
     get dragMode3D() { return dragMode3D; },
     set dragMode3D(v: 'orbit' | 'slide') { dragMode3D = v; },
 

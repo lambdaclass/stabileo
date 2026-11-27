@@ -8,12 +8,15 @@
   import type { Count, UsageBreakdown } from '../lib/api/admin';
   import { acquisition } from './admin-marketing.svelte';
   import AcquisitionPanel from './ads/AcquisitionPanel.svelte';
+  import { adminSettings } from './admin-settings.svelte';
+  import UsageOffNotice from './UsageOffNotice.svelte';
 
   const PERIODS = [7, 30, 90];
   const USE_PANELS: UsageBreakdown[] = ['modes', 'diagrams', 'tools', 'advanced', 'step_methods', 'examples', 'exports'];
   const DAY_MS = 86_400_000;
 
   onMount(() => {
+    if (!adminSettings.settings) void adminSettings.load();
     void adminMetrics.load();
     void acquisition.load(adminMetrics.days);
   });
@@ -62,6 +65,8 @@
     </div>
   </div>
   <p class="ins-lede">{t('admin.metrics.lede')}</p>
+
+  <UsageOffNotice />
 
   {#if adminMetrics.error}
     <div class="ins-banner" role="alert">{adminErrorText(adminMetrics.error)}</div>

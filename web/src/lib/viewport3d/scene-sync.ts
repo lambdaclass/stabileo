@@ -228,10 +228,9 @@ export function syncElements(ctx: SceneSyncContext): void {
   }
 
   const groupOf = groupIndex();
-  // The concrete as built: each member's solid and the joints attributed to it. In the physical
-  // mode, and in the sections mode too for the concrete the frame cuts: swept from node to node,
-  // two beams meeting at a corner overlapped in one quarter and left the outer one empty.
-  const physical = (renderMode === 'physical' || renderMode === 'sections') && !project2D ? projectPhysicalFrame() : null;
+  // The concrete as built: each member's solid and the joints attributed to it. Swept from node to
+  // node, two beams meeting at a corner overlapped in one quarter and left the outer one empty.
+  const physical = renderMode === 'sections' && !project2D ? projectPhysicalFrame() : null;
   const physicalOf = (id: number) => (physical ? physicalLayersOf(physical, id) : undefined);
   const physicalKey = (id: number) => {
     const ls = physicalOf(id);
@@ -541,8 +540,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   const merged = meshHidden();
   syncShellMembers(ctx, project2D, merged);
   const drawn = (key: string) => !merged || uiStore.selectedShells.has(key);
-  // The physical mode's slabs, net of the frame; a shell it does not cover is drawn as in 'sections'.
-  const physical = renderMode === 'physical' && !project2D ? projectPhysicalFrame() : null;
+  const physical = renderMode === 'sections' && !project2D ? projectPhysicalFrame() : null;
   const netKey = (key: string) => {
     const s = physical?.slab.get(key);
     return s ? `|ph:${s.volume.toFixed(9)}:${s.layers.length}` : '';
@@ -556,7 +554,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
     pts: Array<{ x: number; y: number; z: number }>,
     offset: import('../model/element-3d-metadata').ShellOffset | undefined,
   ): Array<{ x: number; y: number; z: number }> => {
-    if ((renderMode !== 'sections' && renderMode !== 'physical') || project2D || !offset) return pts;
+    if (renderMode !== 'sections' || project2D || !offset) return pts;
     const v = resolveShellOffsetGlobal(offset, pts);
     if (!v) return pts;
     return pts.map(p => ({ x: p.x + v.x, y: p.y + v.y, z: p.z + v.z }));

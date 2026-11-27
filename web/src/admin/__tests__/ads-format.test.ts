@@ -13,5 +13,9 @@ describe('ads formatting', () => {
     expect(triggerLabel('gate.save')).not.toBe('gate.save');
     expect(triggerLabel('register.hero')).not.toBe('register.hero');
     expect(triggerLabel('something_new')).toBe('something_new');
+    for (const notice of ['project_files', 'project_io']) {
+      expect(triggerLabel(notice), notice).not.toBe(notice);
+      expect(triggerLabel(notice), notice).not.toMatch(/_/);
+    }
   });
 });
