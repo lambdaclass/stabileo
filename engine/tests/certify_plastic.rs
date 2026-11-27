@@ -54,6 +54,7 @@ fn nodal(n: usize, fx: f64, fz: f64) -> SolverLoad {
 fn assert_released(inp: &PlasticInput, exact: f64) {
     let out = certify_plastic_2d(inp).expect("an exactly certified collapse factor is released");
     let (lo, up) = (out.certificate.lambda_lower.unwrap(), out.certificate.lambda_upper.unwrap());
+    assert!(out.certificate.certified && lo <= up);
     assert!(out.results.is_mechanism && (out.results.collapse_factor - exact).abs() <= 1e-9 * exact, "{} vs {exact}", out.results.collapse_factor);
     assert!(up - lo <= 1e-6 * exact && lo <= exact * (1.0 + 1e-12) && exact <= up * (1.0 + 1e-12), "[{lo}, {up}] vs {exact}");
 }

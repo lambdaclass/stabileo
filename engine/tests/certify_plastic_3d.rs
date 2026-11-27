@@ -852,6 +852,7 @@ fn issue_2658_shared_section_cantilevers_use_the_loaded_material_3d() {
             input.materials.insert("2".into(), PlasticMaterialData { fy: Some(235.0) });
             let expected = 235.0 * 1000.0 * b * h * (if weak { b } else { h }) / (4.0 * 40.0);
             let out = certify_plastic_3d(&input).unwrap();
+            assert!((solve_plastic_3d(&input).unwrap().collapse_factor - expected).abs() <= 1e-9 * expected);
             assert_encloses("mixed grade", &out.certificate, expected, 1e-9);
             assert_eq!(out.results.hinges[0].element_id, 2);
         }
