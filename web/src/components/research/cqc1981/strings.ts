@@ -220,7 +220,7 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
   reference: 'Forma chiusa', result: 'Stabileo', delta: 'Differenza · %',
   deficit: 'SRSS rispetto a CQC · %',
   checksHeading: 'Verifiche',
-  tolerance: 'Limite di regressione: differenza relativa inferiore a 1 × 10⁻⁸ per entrambe le frequenze, la partecipazione di massa in X, entrambi i tagli alla base ed entrambi gli spostamenti di copertura (9 verifiche). L’esecuzione nativa differisce al massimo di 6.4 × 10⁻¹⁵. Il limite protegge da regressioni questo piccolo problema a due coordinate ben condizionato; non è un obiettivo di precisione, e l’accordo tra solutore e forma chiusa non dice nulla sulla precisione fisica.',
+  tolerance: 'Limite di regressione: differenza relativa inferiore a 1 × 10⁻⁸ per le frequenze dei due modi, la somma delle masse modali efficaci in X e, per ciascuna regola (SRSS e CQC), il taglio alla base e gli spostamenti in X dei nodi di copertura 5 e 6 (9 verifiche). La massima differenza relativa osservata nell’esecuzione nativa è circa 6,4 × 10⁻¹⁵. Il limite protegge da regressioni questo piccolo problema a due coordinate ben condizionato; non è un obiettivo di precisione, e l’accordo tra solutore e forma chiusa non dice nulla sulla precisione fisica.',
   scope: 'Ambito',
   limitations: ['Il confronto è con la forma chiusa di questo esempio a due coordinate; l’edificio e le tabelle numeriche dell’articolo non vengono riprodotti.', 'Nessuna time-history: nessuna delle due regole è misurata rispetto a una registrazione del moto del suolo.', 'Un solo piano, nessuna risposta torsionale e nessuna variazione di parametri.'],
   run: 'Ricalcola dal vivo', stop: 'Ferma', restart: 'Riavvia', running: 'Calcolo in corso…',

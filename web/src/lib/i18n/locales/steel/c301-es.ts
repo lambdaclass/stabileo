@@ -56,7 +56,7 @@ const c301Es: Record<string, string> = {
   // §F
   'c301.f.titleStrong': '§F — Flexión, eje fuerte:',
   'c301.f.titleWeak': '§F — Flexión, eje débil:',
-  'c301.f.moduli': '  Zx = {Zx} mm³, Sxt = Sxc = Sx = {Sx} mm³',
+  'c301.f.moduli': '  Zx = {Zx} mm³, Sx = {Sx} mm³',
   'c301.f.mpCapped': '  Mp = 1,5·My = {Mp} kN·m — gobierna el tope de F.2.1 (Zx/Sx = {ratio} > 1,5)',
   'c301.f.mpPlastic': '  Mp = Fy·Zx = {Mp} kN·m — el tope de F.2.1 no gobierna (Zx/Sx = {ratio} ≤ 1,5)',
   'c301.f.flangeClass': '  Ala: λf = {lam}, λpf = {lamP}, λrf = {lamR} → {cls} (Tabla B.4.1b caso {case})',
@@ -73,7 +73,7 @@ const c301Es: Record<string, string> = {
   'c301.f.lr': '  FL = Fy − Fr = {FL} MPa; Lr = {Lr} mm ({eq}); Mr = FL·Sx = {Mr} kN·m (F.2.7)',
   'c301.f.ltbInelastic': '  Lp < Lb ≤ Lr → pandeo lateral-torsional inelastico: Mn = Cb·[Mp − (Mp − Mr)·(Lb − Lp)/(Lr − Lp)] ≤ Mp = {Mn} kN·m  (F.2.2)',
   'c301.f.ltbElastic': '  Lb > Lr → pandeo lateral-torsional elástico: Mn = Mcr ≤ Mp = {Mn} kN·m  ({eq}, F.2.3)',
-  'c301.f.f4Rpc': '  §F.4: Myc = Fy·Sxc = {Myc} kN·m; Rpc = {Rpc} (F.4.9b); Rpc·Myc = {RM} kN·m  (F.4.1)',
+  'c301.f.f4Rpc': '  §F.4: Sxt = Sxc = Sx, Myc = Fy·Sxc = {Myc} kN·m; Rpc = {Rpc} (F.4.9b); Rpc·Myc = {RM} kN·m  (F.4.1)',
   'c301.f.f4Lengths': '  rt = {rt} mm ({eq}); Lp = {Lp} mm (F.4.7); Lr = {Lr} mm (F.4.8); Lb = {Lb} mm',
   'c301.f.governsF4': '  §F.4: gobierna {name}, Mn = {Mn} kN·m',
   'c301.f.f5': '  §F.5: aw = {aw}; rt = {rt} mm; Lp = {Lp} mm (F.5.5a); Lr = {Lr} mm (F.5.5b); Lb = {Lb} mm',

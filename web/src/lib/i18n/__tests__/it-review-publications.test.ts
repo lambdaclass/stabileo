@@ -73,9 +73,13 @@ for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as c
   it.each([
     ['c301.d.anHoles', 'n·dh·t'],
     ['c301.e.e4Geometry', '{ro2} × 100 mm²'],
-    ['c301.f.moduli', 'Sxt = Sxc = Sx = {Sx} mm³'],
   ])(`known wrong result: #2595 — ${locale} shows the supplied quantity in %s`, (key, expression) => {
     expect(dict[key]).toContain(expression);
+  });
+  it(`known wrong result: #2595 — ${locale} gives numeric moduli for every web and identifies both flanges in the F.4 calculation`, () => {
+    const comma = locale === 'zh' ? '，' : ', ';
+    expect(dict['c301.f.moduli']).toBe(`  Zx = {Zx} mm³${comma}Sx = {Sx} mm³`);
+    expect(dict['c301.f.f4Rpc']).toContain(`Sxt = Sxc = Sx${comma}Myc = Fy·Sxc = {Myc} kN·m`);
   });
   it(`known wrong result: #2595 — ${locale} reports the governing F.4 state without a general flange exemption`, () => {
     expect(dict['c301.f.governsF4']).toContain('{name}');
@@ -93,7 +97,7 @@ it.each([
   expect(text).not.toContain(claim);
 });
 
-it.skip('known wrong result: #2595 — the DXF release example gives both bending moments in kN·m', () => {
+it('known wrong result: #2595 — the DXF release example gives both bending moments in kN·m', () => {
   const paragraph = release('0.4.0').split('**Il DXF PRO')[1].split('\n\n')[0].replace(/\s+/g, ' ');
   expect(paragraph).toMatch(/momenti (?:flettenti )?di estremità/);
   expect(paragraph).toContain('320,59 kN·m');

@@ -2,6 +2,7 @@ import mergedValueAudit from '../../../../../docs/results-changes/1952-main-merg
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { findPost } from '..';
+import { LOCALE_NAMES } from '../../i18n/offered';
 import type { PublicLocale } from '../../i18n/store.svelte';
 
 const advisoryUrl = new URL('../../../../../docs/advisories/SA-2026-061-path-solver-reactions.md', import.meta.url);
@@ -126,9 +127,9 @@ describe('safety-advisories SA-2026-092', () => {
   });
 });
 
-const releaseRangeLocales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const;
+const releaseRangeLocales = Object.keys(LOCALE_NAMES) as PublicLocale[];
 
-it.skip('known wrong result: #2595 — release range checks cover every published advisory translation', () => {
+it('known wrong result: #2595 — release range checks cover every published advisory translation', () => {
   expect([...releaseRangeLocales].sort()).toEqual(Object.keys(findPost('safety-advisories')!.i18n).sort());
 });
 

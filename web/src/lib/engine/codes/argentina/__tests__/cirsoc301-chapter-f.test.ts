@@ -149,7 +149,7 @@ describe('F.4 — doubly symmetric I with a noncompact web', () => {
     Zx: 1541.2e-6, Sx: 1355.5e-6, J: 26.77e-8, L: 10, Lb: 2, shape: 'I', builtUp: true, ...over,
   });
 
-  it.skip('known wrong result: #2595 — the F.4 calculation identifies both flange moduli where it evaluates Myc', () => {
+  it('known wrong result: #2595 — the F.4 calculation identifies both flange moduli where it evaluates Myc', () => {
     const section = v2();
     const result = checkSteelFlexure(section, 280.8, 'strong');
     expect(result.clause).toBe('F.4');
