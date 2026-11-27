@@ -99,3 +99,9 @@ describe('0.6.1 release article', () => {
     expect(JSON.stringify(body)).not.toMatch(/\binfra(?:structure)?\b|\breview counts?\b|\bpull requests?\b|\bworkflow\b|\bbenchmark\b|\bcache\b|\bmigration\b/i);
   });
 });
+
+it.skip.each([0, 1, 2, 3, 4])('known wrong result: #2595 — Italian 0.6.%i requires independent verification before use', patch => {
+  const text = readFileSync(new URL(`../../../../../docs/releases/v0.6.${patch}.it.md`, import.meta.url), 'utf8');
+  const limitation = text.split('\n').find(line => line.startsWith('- **') && line.includes('SA-2026-056'));
+  expect(limitation).toMatch(/verifica in modo indipendente le sollecitazioni dinamiche.*prima di usarle/i);
+});
