@@ -542,9 +542,9 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
     forEachElementVisual(ctx, (id, group) => {
       if (group) showOriginalMeshes(group, true);
       const ef = forcesMap.get(id);
-      if (!ef) return;
-      const range = axialRange3D(ef);
-      const c = range?.mixed ? 0x895a70 : axialForceColor(Math.sign(range?.tension || range?.compression || 0));
+      const range = ef && axialRange3D(ef);
+      const c = !range ? (modelStore.elements.get(id)?.type === 'truss' ? COLORS.truss : wireframe ? COLORS.frameWire : COLORS.frame)
+        : range.mixed ? 0x895a70 : axialForceColor(Math.sign(range.tension || range.compression || 0));
       if (group) setGroupColor(group, c);
       // The batched wireframe primary is where a plain member's colour lives:
       // without this, axial colours are silently invisible in wireframe.

@@ -26,7 +26,12 @@
   const nActive = $derived(active ? combos.filter((c) => active.has(c.id) && !isMagnitudeCombination(c)).length : designComboIds(combos).length);
   /** The envelope whose combinations are being picked. */
   let editing = $state<number | null>(null);
-  const solved = $derived(resultsStore.perCombo3D.size > 0);
+  const available = $derived(resultsStore.displaySets3D);
+  function canShow(env: NamedEnvelope) {
+    const caseIds = env.caseIds ?? [];
+    return env.comboIds.length + caseIds.length > 0 && env.comboIds.every(id => available.combos.has(id))
+      && caseIds.every(id => available.cases.has(id));
+  }
 
   function write(next: ResultScopes) {
     const clean: ResultScopes = {
@@ -82,7 +87,8 @@
   }
 
   function show(env: NamedEnvelope) {
-    const e = envelopeOver(resultsStore.perCombo3D, env.comboIds, resultsStore.perCase3D, env.caseIds ?? []);
+    if (!canShow(env)) return;
+    const e = envelopeOver(available.combos, env.comboIds, available.cases, env.caseIds ?? []);
     if (!e) return;
     resultsStore.viewEnvelope3D(e, env.name);
     resultsStore.activeView = 'envelope';
@@ -138,7 +144,7 @@
         <button class="pk-btn" class:on={editing === env.id} onclick={() => (editing = editing === env.id ? null : env.id)}>
           {tp('scopes.nCombos', { n: env.comboIds.length })}{#if env.caseIds?.length} · {tp('scopes.nCases', { n: env.caseIds.length })}{/if}
         </button>
-        <button class="pk-btn" disabled={!solved || env.comboIds.length + (env.caseIds?.length ?? 0) === 0} onclick={() => show(env)} title={solved ? '' : t('scopes.solveFirst')} data-testid="rs-show">{t('scopes.show')}</button>
+        <button class="pk-btn" disabled={!canShow(env)} onclick={() => show(env)} title={canShow(env) ? '' : t('scopes.solveFirst')} data-testid="rs-show">{t('scopes.show')}</button>
         <button class="pk-btn pk-btn-icon" onclick={() => removeEnvelope(env.id)} aria-label={t('scopes.remove')}>×</button>
       </div>
       {#if editing === env.id}

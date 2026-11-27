@@ -16,7 +16,7 @@ const ALPHA = 1.2e-5;
 describe.each(['quad', 'curved', 'plate'] as const)('thermal load on a %s', (kind) => {
   beforeAll(async () => { await initSolver(); uiStore.analysisMode = 'pro'; });
 
-  it.skip('known wrong result: #2491 — reverses the free edge rotation under a through-depth gradient', () => {
+  it('reverses the free edge rotation under a through-depth gradient', () => {
     const rotation = (alpha: number, freeCurvature = false) => {
       modelStore.clear();
       const nodes = [[0, 0], [4, 0], [4, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x, y, 0));

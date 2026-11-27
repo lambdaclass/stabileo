@@ -479,7 +479,7 @@ it.each(['2d', '3d'] as const)('a refused case hides only the displayed combinat
   expect(displayed()?.displacements[0].ux).toBe(23);
 });
 
-it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — keeps the simple-load diagram and preselects the first usable combination in %s', mode => {
+it.each(['2d', '3d'] as const)('keeps the simple-load diagram and preselects the first usable combination in %s', mode => {
   modelStore.clear();
   resultsStore.clear();
   resultsStore.clear3D();
@@ -504,7 +504,7 @@ it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — keeps the sim
   expect(shown()).toBe(13);
 });
 
-it.skip('known wrong result: #2491 — selects the checked named envelope or the independently checked base with its matching name', async () => {
+it('selects the checked named envelope or the independently checked base with its matching name', async () => {
   const { initSolver, computeEnvelope3D } = await import('../../engine/wasm-solver');
   await initSolver();
   resultsStore.clear3D();
@@ -522,4 +522,21 @@ it.skip('known wrong result: #2491 — selects the checked named envelope or the
     expect.soft(resultsStore.fullEnvelope3D?.maxAbsResults3D.displacements[0].ux).toBe(expected);
     expect.soft(resultsStore.viewedEnvelopeName).toBe(name);
   }
+});
+
+it('retains the checked base diagram when only the requested named envelope refuses', async () => {
+  const { initSolver, computeEnvelope3D } = await import('../../engine/wasm-solver');
+  await initSolver();
+  resultsStore.clear3D();
+  uiStore.analysisMode = '3d';
+  const base = computeEnvelope3D([result(5) as never])!;
+  resultsStore.setCombinationResults3D(new Map(), new Map(), base);
+  resultsStore.viewEnvelope3D({ ...base, maxAbsResults3D: result(9, [refusal()]) as never }, 'Refused');
+  resultsStore.activeView = 'envelope';
+  resultsStore.diagramType = 'axial';
+  expect(resultsStore.viewedEnvelopeName).toBeNull();
+  expect(resultsStore.results3D?.displacements[0].ux).toBe(5);
+  expect(resultsStore.diagramType).toBe('axial');
+  expect(resultsStore.screen.diagram).toBe('axial');
+  expect(resultsStore.knownIssues3D.refused).toBe(true);
 });

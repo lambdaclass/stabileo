@@ -670,7 +670,7 @@ it('drops dependent support moves if a failed cut restores an occupied node', ()
   }
 });
 
-it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — scales the listed section properties for global and individual edits in %s', mode => {
+it.each(['2d', '3d'] as const)('scales the listed section properties for global and individual edits in %s', mode => {
   uiStore.analysisMode = mode;
   const props = { a: 0.12, iy: 0.003, iz: 0.001, j: 0.0002 };
   const section = modelStore.addSection({ name: 'Explicit properties', ...props });
@@ -689,7 +689,7 @@ it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — scales the li
   }
 });
 
-it.skip('known wrong result: #2491 — names a legacy member moment when the stored primary component is zero', () => {
+it('names a legacy member moment when the stored primary component is zero', () => {
   const data = { id: 1, elementId: m1, a: 1, p: 0, my: 0, mz: 6 };
   const label = (my: number, mz: number) => loadLabel({ type: 'pointOnElement', data: { ...data, my, mz } }, 0);
   expect(label(0, 6)).toBe(label(6, 0));
@@ -697,14 +697,40 @@ it.skip('known wrong result: #2491 — names a legacy member moment when the sto
   expect(label(0, 0)).toContain(unitQ('force'));
 });
 
-it.skip('known wrong result: #2491 — names imposed translations and rotations in display units', () => {
+it('names imposed translations and rotations in display units', () => {
   const label = loadLabel({ type: 'displacement3d', data: { id: 1, nodeId: 7, dx: 0.03, drx: 0.02 } }, 0);
   expect(label).toContain(fmtQ(0.03, 'displacement') + ' ' + unitQ('displacement'));
   expect(label).toContain(fmtQ(0.02, 'rotation') + ' ' + unitQ('rotation'));
 });
 
-it.skip.each([undefined, 'plate'] as const)('known wrong result: #2491 — identifies both temperature terms on shell %s', on => {
+it.each([undefined, 'plate'] as const)('identifies both temperature terms on shell %s', on => {
   const label = loadLabel({ type: 'thermalQuad3d', data: { id: 1, quadId: 7, on, dtUniform: 10, dtGradient: -4 } }, 0);
   expect(label).toContain('ΔT=' + fmtQ(10, 'temperatureDelta'));
   expect(label).toContain('ΔTg=' + fmtQ(-4, 'temperatureDelta'));
+});
+
+it('scales the spatial cantilever response in both bending planes and torsion', () => {
+  modelStore.clear();
+  uiStore.analysisMode = '3d';
+  const root = modelStore.addNode(0, 0, 0);
+  const tip = modelStore.addNode(4, 0, 0);
+  const member = modelStore.addElement(root, tip);
+  const section = modelStore.addSection({ name: 'Cantilever', a: 0.12, iy: 0.003, iz: 0.001, j: 0.0002 });
+  modelStore.updateElementSection(member, section);
+  modelStore.addSupport(root, 'fixed3d');
+  modelStore.addNodalLoad3D(tip, 0, 2, 3, 5, 0, 0);
+  const response = () => {
+    const result = modelStore.solve3D();
+    if (!result || typeof result === 'string') throw Error(String(result));
+    return result.displacements.find(d => d.nodeId === tip)!;
+  };
+  const before = response();
+  whatIf.open();
+  whatIf.setMember(member, 'iy', 2);
+  settle();
+  const after = response();
+  for (const component of ['uy', 'uz', 'rx'] as const) {
+    expect(Math.abs(before[component])).toBeGreaterThan(0);
+    expect(after[component] / before[component]).toBeCloseTo(0.5, 10);
+  }
 });

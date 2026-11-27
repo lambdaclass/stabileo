@@ -10,7 +10,7 @@ import { test, expect } from './fixtures';
 import { openAdvancedFunction } from './advanced-panel';
 
 test.describe('@slow explore', () => {
-  test.skip('known wrong result: #2491 — a slider keeps the diagram, a mechanism is said, closing restores', async ({ page }) => {
+  test('a slider keeps the diagram, a mechanism is said, closing restores', async ({ page }) => {
     test.setTimeout(120_000);
     await page.addInitScript(() => { try { localStorage.setItem('liveCalc', 'false'); } catch { /* private mode */ } });
     await page.goto('/app/basic?e2e=1');
@@ -191,7 +191,7 @@ test('@slow a support station slider cannot select an occupied endpoint', async 
   await expect(place).toHaveValue(/^n:/);
 });
 
-test.skip('known wrong result: #2491 — @slow two supports can use different stations on one member', async ({ page }) => {
+test('@slow two supports can use different stations on one member', async ({ page }) => {
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileoActions);
   await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));

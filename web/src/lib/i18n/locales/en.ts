@@ -8274,7 +8274,7 @@ const en: Record<string, string> = {
   'whatif.nodeTag': "N{id}",
   'whatif.memberTag': "B{id}",
   'whatif.thermalTerm': "{symbol}={value}",
-  'materials.alphaHelp': "Thermal expansion in 10⁻⁶/°C. A blank field uses the known family value (concrete 10, steel 12, aluminum 23). For an unknown family, the solver assumes 12 and reports this assumption. For a user-defined material without a catalogue grade, E does not identify the family.",
+  'materials.alphaHelp': "Thermal expansion in 10⁻⁶/°C. A blank field uses the known family value (concrete 10, steel 12, aluminum 23). For an unknown family, the solver assumes 12 and reports this assumption. For a user-defined material without a catalog grade, E does not identify the family.",
   'materials.alphaInvalid': 'Enter a finite thermal expansion coefficient in 10⁻⁶/°C (−1000 < α < 1000).',
   'materials.aggregateHelp': 'Maximum nominal coarse-aggregate size. Used by the minimum bar-spacing rule.',
   'materials.family': 'Family',

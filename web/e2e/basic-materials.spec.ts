@@ -31,12 +31,15 @@ test.describe('@smoke materials typed by hand in Basic', () => {
     const save = page.getByTestId('mat-form-save');
     const problem = page.getByTestId('mat-form-problem');
     for (const [field, invalid, valid, message] of [
+      ['e', '0', '200000', 'E must be greater than zero.'],
       ['nu', '-1', '-0.99', 'Poisson’s ratio must lie between −1 and 0.5: outside that range either the bulk or the shear modulus comes out negative.'],
       ['nu', '0.5', '0.49', 'Poisson’s ratio must lie between −1 and 0.5: outside that range either the bulk or the shear modulus comes out negative.'],
       ['nu', '3', '0.49', 'Poisson’s ratio must lie between −1 and 0.5: outside that range either the bulk or the shear modulus comes out negative.'],
       ['rho', '-1', '0', 'The unit weight cannot be negative.'],
       ['fy', '0', '1', 'fy is optional, but if it is stated it must be greater than zero.'],
       ['fy', '-1', '', 'fy is optional, but if it is stated it must be greater than zero.'],
+      ['alpha', '1000', '999', 'Enter a finite thermal expansion coefficient in 10⁻⁶/°C (−1000 < α < 1000).'],
+      ['alpha', '-1000', '-999', 'Enter a finite thermal expansion coefficient in 10⁻⁶/°C (−1000 < α < 1000).'],
       ['alpha', 'Infinity', '0', 'Enter a finite thermal expansion coefficient in 10⁻⁶/°C (−1000 < α < 1000).'],
     ]) {
       const input = page.getByTestId('mat-form-' + field);

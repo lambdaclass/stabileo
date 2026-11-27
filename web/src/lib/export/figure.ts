@@ -43,12 +43,12 @@ export function resultSetName(f: AxesFrame = axesStore.frame): string {
     return c ? combinationNameIn(f, c) : `${t('pro.comboN')}${resultsStore.activeComboId}`;
   }
   // A single load case is the single view with a case chosen.
-  if (v === 'single' && resultsStore.activeCaseId !== null && resultsStore.perCase3D.size > 0) {
+  if (v === 'single' && resultsStore.activeCaseId !== null) {
     const c = modelStore.loadCases.find((x) => x.id === resultsStore.activeCaseId);
     return c ? caseNameIn(f, c) : `${t('pro.caseN')}${resultsStore.activeCaseId}`;
   }
   if (v === 'envelope') return resultsStore.viewedEnvelopeName ?? t('tables.mode.envelope');
-  if (v === 'single' && Math.max(resultsStore.perCase3D.size, resultsStore.perCase.size) > 1) return t('tables.shownSum');
+  if (v === 'single' && resultsStore.hasMultipleSolvedCases) return t('tables.shownSum');
   return t('tables.shown');
 }
 

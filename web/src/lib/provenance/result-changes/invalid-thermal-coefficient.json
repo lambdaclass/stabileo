@@ -1,0 +1,54 @@
+{
+  "id": "invalid-thermal-coefficient",
+  "date": "2026-11-27",
+  "prs": [
+    2491
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "invalidThermalCoefficient"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Check the units of out-of-range thermal expansion coefficients",
+    "es": "Revisar las unidades del coeficiente de dilatación fuera de rango",
+    "pt": "Verificar as unidades dos coeficientes de dilatação fora do intervalo",
+    "fr": "Vérifier les unités des coefficients de dilatation hors limites",
+    "de": "Einheit unzulässiger Wärmeausdehnungskoeffizienten prüfen",
+    "hu": "Ellenőrizze a tartományon kívüli hőtágulási együttható mértékegységét",
+    "tr": "Sınır dışı ısıl genleşme katsayılarının birimlerini kontrol edin",
+    "zh": "检查超出范围的热膨胀系数的单位",
+    "it": "Verificare le unità dei coefficienti di dilatazione fuori intervallo",
+    "ar": "تحقق من وحدات معاملات التمدد الحراري الخارجة عن النطاق",
+    "hi": "सीमा से बाहर के तापीय प्रसार गुणांकों की इकाइयाँ जाँचें",
+    "id": "Periksa satuan koefisien muai termal di luar rentang",
+    "ja": "範囲外の熱膨張係数の単位を確認",
+    "ko": "범위를 벗어난 열팽창계수의 단위 확인",
+    "ru": "Проверьте единицы коэффициента теплового расширения за пределами диапазона"
+  },
+  "explanation": {
+    "en": "A thermal load with an invalid material coefficient now refuses calculation. Earlier versions could substitute a family value for a negative coefficient outside the supported range. Verify the material value in 1/°C before recalculating.",
+    "es": "Una carga térmica con un coeficiente inválido impide el cálculo. Antes se podía sustituir un coeficiente negativo fuera de rango por el valor de la familia. Revisá el valor del material en 1/°C antes de recalcular.",
+    "pt": "Uma carga térmica com um coeficiente inválido impede o cálculo. Antes, um coeficiente negativo fora do intervalo podia ser substituído pelo valor da família. Verifique o valor do material em 1/°C antes de recalcular.",
+    "fr": "Un coefficient de matériau invalide empêche le calcul sous charge thermique. Une ancienne version pouvait remplacer une valeur négative hors limites par celle de la famille. Vérifiez le coefficient en 1/°C avant de relancer le calcul.",
+    "de": "Ein ungültiger Werkstoffkoeffizient verhindert die Berechnung bei Temperaturlast. Frühere Versionen konnten einen negativen Wert außerhalb des zulässigen Bereichs durch den Wert der Werkstofffamilie ersetzen. Prüfen Sie den Koeffizienten in 1/°C vor der Neuberechnung.",
+    "hu": "Érvénytelen anyagjellemző esetén a hőterhelés számítása leáll. Korábban a tartományon kívüli negatív együtthatót az anyagcsalád értéke helyettesíthette. Újraszámítás előtt ellenőrizze az együtthatót 1/°C egységben.",
+    "tr": "Geçersiz malzeme katsayısı ısıl yük hesabını engeller. Önceki sürümler sınır dışı negatif bir katsayı yerine malzeme ailesinin değerini kullanabiliyordu. Yeniden hesaplamadan önce katsayıyı 1/°C cinsinden kontrol edin.",
+    "zh": "材料系数无效时，温度荷载计算将被拒绝。旧版本可能用材料类别的系数替代超出范围的负值。请在重新计算前以 1/°C 为单位核对该系数。",
+    "it": "Un coefficiente non valido impedisce il calcolo sotto carico termico. In precedenza un valore negativo fuori intervallo poteva essere sostituito con quello della famiglia del materiale. Prima del ricalcolo verificare il coefficiente in 1/°C.",
+    "ar": "يمنع معامل المادة غير الصالح الحساب تحت حمل حراري. في السابق كان من الممكن استبدال معامل سالب خارج النطاق بقيمة فئة المادة. تحقق من المعامل بوحدة 1/°C قبل إعادة الحساب.",
+    "hi": "सामग्री का गुणांक अमान्य होने पर तापीय भार की गणना रुक जाती है। पहले सीमा से बाहर के ऋणात्मक गुणांक की जगह सामग्री वर्ग का मान लग सकता था। दोबारा गणना करने से पहले गुणांक को 1/°C में जाँचें।",
+    "id": "Koefisien material yang tidak valid menghentikan perhitungan beban termal. Versi sebelumnya dapat mengganti koefisien negatif di luar rentang dengan nilai jenis material. Periksa koefisien dalam 1/°C sebelum menghitung ulang.",
+    "ja": "材料の係数が無効な場合は温度荷重の計算を停止します。以前は範囲外の負の係数が材料の種類に応じた値に置き換わることがありました。再計算の前に係数を 1/°C 単位で確認してください。",
+    "ko": "재료 계수가 유효하지 않으면 열하중 계산이 중단됩니다. 이전 버전은 범위를 벗어난 음의 계수를 재료 종류에 따른 값으로 대체할 수 있었습니다. 다시 계산하기 전에 계수를 1/°C 단위로 확인하세요.",
+    "ru": "Недопустимый коэффициент материала блокирует расчёт на температурную нагрузку. Ранее отрицательный коэффициент вне допустимого диапазона мог заменяться значением для типа материала. Перед повторным расчётом проверьте коэффициент в 1/°C."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-invalid-thermal-coefficient.md",
+    "heading": "Check the units of out-of-range thermal expansion coefficients"
+  }
+}

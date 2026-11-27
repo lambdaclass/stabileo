@@ -740,6 +740,9 @@ export function requireStructureInput(model: {
   for (const [id, material] of model.materials) {
     const path = `materials.${id}`;
     const row = recordAt(path, material);
+    if (row.alpha !== undefined && !isFiniteInputNumber(row.alpha)) {
+      throw new InvalidModelNumber(`${path}.alpha`, row.alpha, t('materials.workbookAlphaInvalid'));
+    }
     recordNumbers(path, row, materialFields);
     if (row.rho !== undefined && !(allowStoredNullDensity && row.rho === null)) numberAt(`${path}.rho`, row.rho);
   }

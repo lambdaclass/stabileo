@@ -110,5 +110,6 @@ it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)(
 it.each([-0.002, -0.001, -0.000999, 0, 0.000999, 0.001])('only flags usable nonpositive thermal coefficients: %s', alpha => {
   const features = modelFeatures({ materials: [[1, { id: 1, alpha }]], elements: [[1, { id: 1, materialId: 1 }]],
     loads: [{ type: 'thermal', data: { elementId: 1, dtUniform: 1 } }] } as never);
+  expect(features.has('invalidThermalCoefficient')).toBe(Math.abs(alpha) >= 0.001);
   expect(features.has('nonpositiveThermalCoefficient')).toBe(alpha > -0.001 && alpha <= 0);
 });

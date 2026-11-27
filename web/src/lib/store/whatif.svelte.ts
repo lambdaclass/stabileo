@@ -31,6 +31,7 @@ import { t as translate } from '../i18n';
 import { uiStore } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
 import type { Release, Section, SupportType } from './model.svelte';
+import { spaceBendingInertias } from '../engine/solver-service';
 import { solverProperties } from '../section/state';
 import { resultsStore } from './results.svelte';
 import { type Response, response2D, response3D } from '../whatif/response';
@@ -161,8 +162,10 @@ function scaleLoads(): void {
  */
 function scaledSection(sec: Section, fa: number, fi: number): Section {
   const p = solverProperties(sec);
-  const out = { ...sec, a: p.a * fa, iy: p.iy * fi, iz: p.iz } as Section;
-  if (p.j != null) (out as { j?: number }).j = p.j;
+  const spatialFactor = uiStore.is3DWorkspace ? fi : 1;
+  const { iy, iz } = uiStore.is3DWorkspace ? spaceBendingInertias(sec, p) : p;
+  const out = { ...sec, a: p.a * fa, iy: iy * fi, iz: iz * spatialFactor };
+  if (p.j != null) out.j = p.j * spatialFactor;
   delete (out as { canonical?: unknown }).canonical;
   return out;
 }

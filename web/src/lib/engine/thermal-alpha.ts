@@ -26,7 +26,7 @@ export const FAMILY_ALPHA: Readonly<Record<StructuralMaterialFamily, number>> = 
 };
 
 export function isValidThermalAlpha(alpha: number): boolean {
-  return Math.abs(alpha) < 1e-3;
+  return Number.isFinite(alpha) && Math.abs(alpha) < 1e-3;
 }
 
 export interface AlphaReadableMaterial { e?: number; gradeId?: string; userDefined?: boolean; alpha?: number }
@@ -45,15 +45,18 @@ export function thermalFamilyOf(material: AlphaReadableMaterial | undefined | nu
 
 /** The α a material is solved with, 1/°C. */
 export function thermalAlphaForDisplay(material: AlphaReadableMaterial | undefined | null): number {
-  return thermalAlphaOf(material) ?? ENGINE_ALPHA;
+  return material?.alpha ?? FAMILY_ALPHA[thermalFamilyOf(material)];
 }
 
 /**
  * The α a member's thermal load is sent with: the material's own, or its family's when the
  * family is known; undefined when neither is (the engine then keeps its default and warns).
  */
-export function thermalAlphaOf(material: AlphaReadableMaterial | undefined | null): number | undefined {
-  if (material?.alpha != null) return material.alpha;
+export function thermalAlphaOf(material: AlphaReadableMaterial | undefined | null, invalid = () => new RangeError('materials.workbookAlphaInvalid')): number | undefined {
+  if (material?.alpha !== undefined) {
+    if (!isValidThermalAlpha(material.alpha)) throw invalid();
+    return material.alpha;
+  }
   const family = thermalFamilyOf(material);
   return family === 'unknown' ? undefined : FAMILY_ALPHA[family];
 }

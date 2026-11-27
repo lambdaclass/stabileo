@@ -72,7 +72,7 @@ export const FEATURE_IDS = [
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
-  'shellThermalLoads', 'nonpositiveThermalCoefficient', 'assumedThermalFamily',
+  'shellThermalLoads', 'invalidThermalCoefficient', 'nonpositiveThermalCoefficient', 'assumedThermalFamily',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
@@ -816,10 +816,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
         : (d.on === 'plate' ? plateMaterials : quadMaterials).get(d.quadId as number);
       const material = materialId === undefined ? undefined : materials.get(materialId);
       const alpha = material?.alpha;
-      if (material && thermalAlphaOf(material) === undefined && thermalAlphaOf({ ...material, userDefined: false }) !== undefined) {
+      if (material && alpha === undefined && thermalAlphaOf(material) === undefined && thermalAlphaOf({ ...material, userDefined: false }) !== undefined) {
         f.add('assumedThermalFamily');
       }
-      if (alpha !== undefined && isValidThermalAlpha(alpha) && alpha <= 0) f.add('nonpositiveThermalCoefficient');
+      if (alpha !== undefined) {
+        if (!isValidThermalAlpha(alpha)) f.add('invalidThermalCoefficient');
+        else if (alpha <= 0) f.add('nonpositiveThermalCoefficient');
+      }
     }
     if (t === 'thermal') f.add('memberThermalLoads');
     if (t === 'thermalQuad3d') f.add('shellThermalLoads');

@@ -144,13 +144,35 @@ for (const workspace of ['2d', '3d'] as const) for (const edit of ['basic', 'pro
 
 for (const workspace of ['2d', '3d'] as const) {
   for (const [worker, secondOrder] of [[false, false], [true, false], [false, true]]) {
-    it.skip.each([-0.5, -0.001, 0.001, 0.01])('known wrong result: #2491 — refuses reopened α=%s before ' + workspace + ' solve, worker=' + worker + ', secondOrder=' + secondOrder, async alpha => {
+    it.each([-0.5, -0.001, 0.001, 0.01])('refuses reopened α=%s before ' + workspace + ' solve, worker=' + worker + ', secondOrder=' + secondOrder, async alpha => {
       await expect(checkDisplacement(workspace, alpha, worker, 0, secondOrder)).rejects.toThrow(t('materials.workbookAlphaInvalid'));
     });
-    it.each([-0.000999, 0.000999])('solves inside the coefficient limit at %s in ' + workspace + ', worker=' + worker + ', secondOrder=' + secondOrder, alpha =>
-      checkDisplacement(workspace, alpha, worker, 0, secondOrder));
+    it.each([-0.000999, 0.000999])('solves inside the coefficient limit at %s in ' + workspace + ', worker=' + worker + ', secondOrder=' + secondOrder, async alpha => {
+      await checkDisplacement(workspace, alpha, worker, 0, secondOrder);
+    });
   }
 }
-it.skip.each([NaN, Infinity, -Infinity])('known wrong result: #2491 — refuses an explicit nonfinite coefficient %s', alpha => {
+it.each([NaN, Infinity, -Infinity])('refuses an explicit nonfinite coefficient %s', alpha => {
   expect(() => thermalAlphaOf({ alpha, gradeId: 'A36' })).toThrow();
+});
+
+it.each(['2d', '3d'] as const)('refuses invalid material coefficients for combinations and for nonfinite live edits in %s', async mode => {
+  await checkDisplacement(mode, 5e-6);
+  const member = [...modelStore.elements.values()][0]!;
+  const caseId = modelStore.loadCases[0]!.id;
+  modelStore.addCombination('Thermal case', [{ caseId, factor: 1 }]);
+  for (const alpha of [-0.001, 0.001, Infinity, -Infinity, NaN]) {
+    modelStore.updateMaterial(member.materialId, { alpha });
+    const message = t('materials.workbookAlphaInvalid');
+    if (mode === '2d') {
+      expect(modelStore.solveCombinations()).toContain(message);
+      expect(modelStore.solve()).toContain(message);
+      expect(await modelStore.solveAsync()).toContain(message);
+    } else {
+      expect(modelStore.solveCombinations3D(false, false, true)).toContain(message);
+      expect(await modelStore.solveCombinations3DParallel(false, false, true)).toContain(message);
+      expect(modelStore.solve3D()).toContain(message);
+      expect(await modelStore.solve3DAsync()).toContain(message);
+    }
+  }
 });

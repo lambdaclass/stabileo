@@ -155,7 +155,7 @@ it('counts mechanism modes in Chinese without a Latin plural suffix', () => {
   for (const key of ['kinematic.hiddenMechanism','kinematic.mechanismDetected']) expect(ALL_DICTS.zh[key]).not.toContain('{s}');
 });
 
-it.skip.each(['custom-thermal-family', 'signed-thermal-expansion'])('known wrong result: #2491 — explains %s in every dictionary language', id => {
+it.each(['custom-thermal-family', 'signed-thermal-expansion', 'invalid-thermal-coefficient'])('explains %s in every dictionary language', id => {
   const entry = JSON.parse(readFileSync(join(import.meta.dirname, '../../provenance/result-changes', id + '.json'), 'utf8'));
   for (const locale of Object.keys(ALL_DICTS)) for (const field of ['title', 'explanation']) {
     expect.soft(entry[field][locale]?.trim(), locale + ' ' + field).toBeTruthy();

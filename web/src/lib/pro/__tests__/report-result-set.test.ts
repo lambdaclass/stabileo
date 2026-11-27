@@ -8,7 +8,7 @@ import type { ReportConfig } from '../../engine/pro-report';
 import { t } from '../../i18n';
 
 /** A portal with a dead and a wind case and two combinations, solved as PRO solves them. */
-function solvedPortal(): void {
+async function solvedPortal() {
   modelStore.clear();
   uiStore.analysisMode = 'pro';
   for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
@@ -21,9 +21,8 @@ function solvedPortal(): void {
   modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0, w);
   modelStore.addCombination('1.4 D', [{ caseId: 1, factor: 1.4 }]);
   modelStore.addCombination('1.2 D + 1.6 W', [{ caseId: 1, factor: 1.2 }, { caseId: w, factor: 1.6 }]);
-  const r = modelStore.solveCombinations3D(false, false, true);
-  if (!r || typeof r === 'string') throw new Error(String(r));
-  resultsStore.setCombinationResults3D(r.perCase, r.perCombo, r.envelope);
+  const outcome = await runGlobalSolve();
+  if (!outcome.ok) throw new Error(JSON.stringify(outcome));
 }
 
 const config = (resultSetKey?: string): ReportConfig => ({
@@ -37,12 +36,18 @@ describe('what the report is of', () => {
   beforeEach(solvedPortal);
 
   it('names the sum of every case at factor 1 for what it is', () => {
+    resultsStore.activeCaseId = null;
     resultsStore.activeView = 'single';
     expect(resultSetName()).toBe(t('tables.shownSum'));
     expect(reactionX(resultsStore.results3D!)).toBeCloseTo(-10, 6);
     resultsStore.activeCaseId = 1;
     expect(resultSetName()).toBe(modelStore.loadCases[0]!.name);
     expect(reactionX(resultsStore.results3D!)).toBeCloseTo(0, 6);
+    resultsStore.activeCaseId = 9999;
+    expect(resultsStore.results3D).toBeNull();
+    resultsStore.activeCaseId = null;
+    expect(resultSetName()).toBe(t('tables.shownSum'));
+    expect(reactionX(resultsStore.results3D!)).toBeCloseTo(-10, 6);
   });
 
   it('defaults to the envelope when there are combinations', () => {
@@ -58,6 +63,7 @@ describe('what the report is of', () => {
   });
 
   it('prints the screen, named honestly, when nothing is chosen', () => {
+    resultsStore.activeCaseId = null;
     resultsStore.activeView = 'single';
     expect(buildProReportData({ config: config(), t })!.resultSetName).toBe(t('tables.shownSum'));
   });
@@ -72,8 +78,8 @@ describe('a chosen result set that is not there', () => {
   });
 });
 
-it.skip('known wrong result: #2491 — obtains the simple-load state independently when a contributing wind case refuses', async () => {
-  solvedPortal();
+it('obtains the simple-load state independently when a contributing wind case refuses', async () => {
+  await solvedPortal();
   const bundle = modelStore.solveCombinations3D(false, false, true);
   if (!bundle || typeof bundle === 'string') throw Error(String(bundle));
   const wind = modelStore.loadCases.find(c => c.name === 'W')!;

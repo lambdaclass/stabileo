@@ -42,9 +42,9 @@
     return end === 'i' ? el?.releaseI : el?.releaseJ;
   }
 
-  const FACTORS: Array<{ k: keyof MemberFactors; label: string }> = [
-    { k: 'e', label: 'E' }, { k: 'a', label: 'A' }, { k: 'iy', label: 'I' },
-  ];
+  const factors = $derived<Array<{ k: keyof MemberFactors; label: string }>>([
+    { k: 'e', label: 'E' }, { k: 'a', label: 'A' }, { k: 'iy', label: is3D ? 'Iy, Iz, J' : 'Iy' },
+  ]);
   const times = (v: number) => `${v.toFixed(2)}×`;
 </script>
 
@@ -58,7 +58,7 @@
 
 <div class="wif-item">
   <div class="wif-item-title">{t('whatif.allMembers')}</div>
-  {#each FACTORS as f (f.k)}
+  {#each factors as f (f.k)}
     <WifSlider label={f.label} min={0.1} max={5} step={0.05} value={whatIf.all[f.k]} changed={whatIf.all[f.k] !== 1}
       format={times} oninput={(v) => whatIf.setAll(f.k, v)} />
   {/each}
@@ -77,7 +77,7 @@
       {#if el.type === 'truss'}<span class="wif-tag">{t('whatif.truss')}</span>{/if}
     </button>
     {#if open}
-      {#each FACTORS as fk (fk.k)}
+      {#each factors as fk (fk.k)}
         {#if !(el.type === 'truss' && fk.k === 'iy')}
           <WifSlider label={fk.label} min={0.1} max={5} step={0.05} value={f[fk.k]} changed={f[fk.k] !== 1}
             format={times} oninput={(v) => whatIf.setMember(el.id, fk.k, v)} />

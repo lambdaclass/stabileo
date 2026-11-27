@@ -85,9 +85,13 @@ import type {
  * The α a member's thermal load is sent with: its material's (`thermal-alpha.ts`), or undefined
  * when the app does not know it (the engine then keeps 12·10⁻⁶ and says so).
  */
+function materialThermalAlpha(material: Material | undefined): number | undefined {
+  return thermalAlphaOf(material, () => new ModelInputError(t('materials.workbookAlphaInvalid')));
+}
+
 function thermalAlphaOfElement(model: { elements: Map<number, { materialId: number }>; materials: Map<number, Material> }, elementId: number): number | undefined {
   const e = model.elements.get(elementId);
-  return thermalAlphaOf(e ? model.materials.get(e.materialId) : undefined);
+  return materialThermalAlpha(e ? model.materials.get(e.materialId) : undefined);
 }
 
 /**
@@ -1792,7 +1796,7 @@ export function buildSolverLoads3D(
       const tq = l.data as ThermalLoadQuad3D;
       const quad = tq.on === 'plate' ? model.plates?.get(tq.quadId) : model.quads?.get(tq.quadId);
       const curved = tq.on !== 'plate' && !!model.quads?.get(tq.quadId)?.curved;
-      emit(...convertThermalQuadLoad(tq, thermalAlphaOf(quad ? model.materials.get(quad.materialId) : undefined), curved));
+      emit(...convertThermalQuadLoad(tq, materialThermalAlpha(quad ? model.materials.get(quad.materialId) : undefined), curved));
     }
   }
 

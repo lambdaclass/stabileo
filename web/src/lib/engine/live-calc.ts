@@ -1,5 +1,5 @@
 import { errorText } from '../utils/error-text';
-import { knownIssueRefusal } from './known-issues';
+import { knownIssueRefusal, knownIssueResultDisposition } from './known-issues';
 /**
  * live-calc.ts — Extracted live-calculation logic from App.svelte.
  *
@@ -469,7 +469,9 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     const caseIds = [...comboResult.perCase.keys()];
     const factors = caseIds.map((caseId) => ({ caseId, factor: listedFactors?.get(caseId) ?? 1 })).filter((f) => f.factor !== 0);
     let firstCaseResult;
-    if (listedFactors === null || factors.length === 0) {
+    const direct = listedFactors === null || factors.length === 0 ||
+      factors.some(({ caseId }) => knownIssueResultDisposition(comboResult.perCase.get(caseId)).refused);
+    if (direct) {
       const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro, { isCancelled: isStale });
       if (isStale() || modelStore.modelVersion !== solveEpoch) return stale;
       if (typeof single === 'string') return single;
@@ -495,7 +497,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     // direct single solve's (store/result-provenance.ts), so reports carry engine hashes and the
     // CLI reproduce has an input to run.
     noteBaseSolveInput(modelStore.singleSolveInput3D(uiStore.includeSelfWeight, leftHand, isPro),
-      listedFactors === null || factors.length === 0 ? 'direct' : 'case-superposition');
+      direct ? 'direct' : 'case-superposition');
     publishCombinations3D(comboResult);
 
     const elapsed = performance.now() - t0;

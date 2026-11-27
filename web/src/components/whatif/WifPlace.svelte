@@ -15,18 +15,21 @@
   const members = $derived([...entry.keys()].sort((a, b) => a - b));
   let picked = $state<number | null>(null);
   const member = $derived(picked ?? along?.elementId);
-  const value = $derived(member !== undefined ? 'm:' + member : 'n:' + nodeId);
-  function pick(v: string) {
-    const [kind, id] = [v.slice(0, 1), Number(v.slice(2))];
+  const value = $derived(along ? 'm:' + along.elementId : 'n:' + nodeId);
+  function pick(select: HTMLSelectElement) {
+    const kind = select.value[0];
+    const id = Number(select.value.slice(2));
     picked = kind === 'n' ? null : id;
     if (kind === 'n') onNode(id);
+    else onAlong(id, 0.5);
+    select.value = along ? 'm:' + along.elementId : 'n:' + nodeId;
   }
   const length = (v: number) => `${fmtQ(v, 'length')} ${unitQ('length')}`;
 </script>
 
 <label class="wif-row">
   <span class="wif-label">{t('whatif.atPlace')}</span>
-  <select class="wif-select" {value} onchange={(e) => pick(e.currentTarget.value)} data-testid={testid}>
+  <select class="wif-select" {value} onchange={(e) => pick(e.currentTarget)} data-testid={testid}>
     <optgroup label={t('whatif.nodes')}>
       {#each nodes as id (id)}<option value="n:{id}">{t('whatif.node').replace('{n}', String(id))}</option>{/each}
     </optgroup>

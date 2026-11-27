@@ -124,7 +124,7 @@ describe('colour maps in wireframe render mode (no element groups)', () => {
     expect(eb.getBaseColor(strut)).toBe(0x895a70);
   });
 
-  it.skip.each(['abs', 'srss'] as const)('known wrong result: #2491 — does not color an unsigned %s envelope as tension', method => {
+  it.each(['abs', 'srss'] as const)('does not color an unsigned %s envelope as tension', method => {
     const { tie } = twoBarModel();
     const eb = new ElementsBatched();
     eb.upsert(tie, 0, 0, 0, 4, 0, 0);

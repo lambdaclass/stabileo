@@ -21,7 +21,14 @@
     "de": "Wärmeausdehnung von Werkstoffen ohne Güte prüfen",
     "hu": "Az osztályba nem sorolt anyagok hőtágulásának ellenőrzése",
     "tr": "Sınıfı belirtilmemiş malzemelerin ısıl genleşmesini denetleyin",
-    "zh": "复核未指定牌号材料的热膨胀系数"
+    "zh": "复核未指定牌号材料的热膨胀系数",
+    "ar": "راجع معامل التمدد الحراري للمواد من دون رتبة محددة",
+    "hi": "बिना ग्रेड वाली सामग्री का तापीय प्रसार गुणांक जाँचें",
+    "id": "Periksa kembali koefisien muai termal material tanpa mutu yang ditentukan",
+    "it": "Ricontrollare il coefficiente di dilatazione termica dei materiali senza classe",
+    "ja": "等級未指定の材料の熱膨張係数を再確認",
+    "ko": "등급을 지정하지 않은 재료의 열팽창계수 재확인",
+    "ru": "Перепроверьте коэффициент теплового расширения материалов без указанной марки"
   },
   "explanation": {
     "en": "An ungraded material with no expansion coefficient could be assigned a family by stiffness alone. An earlier coefficient edit could also lose an automatic family when the field was cleared. Check the coefficient before using the recalculated thermal response.",
@@ -31,7 +38,14 @@
     "de": "Bei fehlender Güte und fehlendem Ausdehnungskoeffizienten konnte allein die Steifigkeit die Werkstofffamilie bestimmen. Beim Ändern und anschließenden Löschen des Koeffizienten konnte auch die automatisch bestimmte Familie verloren gehen. Prüfen Sie den Koeffizienten vor Verwendung der neu berechneten Ergebnisse.",
     "hu": "Anyagminőség és hőtágulási együttható hiányában korábban a merevség határozhatta meg az anyagcsaládot. Az együttható módosítása, majd törlése az automatikusan megállapított anyagcsalád elvesztését is okozhatta. Az újraszámított eredmények használata előtt ellenőrizze az együtthatót.",
     "tr": "Sınıfı ve genleşme katsayısı belirtilmeyen malzemelerin ailesi yalnızca rijitliğe göre belirlenebiliyordu. Katsayı değiştirildikten sonra silindiğinde otomatik belirlenen malzeme ailesi de kaybolabiliyordu. Yeni ısıl sonuçları kullanmadan önce katsayıyı denetleyin.",
-    "zh": "未指定牌号和热膨胀系数时，以前可能仅凭刚度推断材料类别。修改后再清空系数，也可能丢失自动识别的材料类别。使用重新计算的温度响应前，请核对热膨胀系数。"
+    "zh": "未指定牌号和热膨胀系数时，以前可能仅凭刚度推断材料类别。修改后再清空系数，也可能丢失自动识别的材料类别。使用重新计算的温度响应前，请核对热膨胀系数。",
+    "ar": "كان من الممكن استنتاج فئة المادة من صلابتها وحدها إذا لم تُحدد رتبتها ولا معامل تمددها. وكان تعديل المعامل ثم مسحه قد يفقد المادة فئتها التلقائية. تحقق من المعامل قبل استخدام الاستجابة الحرارية المعاد حسابها.",
+    "hi": "ग्रेड और प्रसार गुणांक दोनों अनुपस्थित होने पर केवल कठोरता के आधार पर सामग्री का वर्ग तय हो सकता था। पहले गुणांक बदलकर मिटाने से स्वतः चुना गया वर्ग भी हट सकता था। दोबारा निकाली गई तापीय प्रतिक्रिया का उपयोग करने से पहले गुणांक जाँचें।",
+    "id": "Jika mutu dan koefisien muai tidak ditentukan, jenis material sebelumnya dapat ditetapkan hanya berdasarkan kekakuan. Mengubah lalu mengosongkan koefisien juga dapat menghilangkan jenis yang ditetapkan otomatis. Periksa koefisien sebelum menggunakan respons termal hasil perhitungan ulang.",
+    "it": "In assenza di classe e coefficiente di dilatazione, la famiglia del materiale poteva essere dedotta dalla sola rigidezza. Modificare e poi cancellare il coefficiente poteva anche far perdere la famiglia assegnata automaticamente. Verificare il coefficiente prima di usare la risposta termica ricalcolata.",
+    "ja": "等級と熱膨張係数がともに未指定の場合、以前は剛性だけで材料の種類が決まることがありました。また、係数を編集してから消去すると、自動判定した種類が失われる場合がありました。再計算した温度荷重応答を使用する前に係数を確認してください。",
+    "ko": "이전에는 등급과 열팽창계수가 없는 재료의 종류를 강성만으로 결정하기도 했습니다. 계수를 수정한 뒤 지우면 자동으로 지정된 재료 종류가 사라질 수도 있었습니다. 다시 계산한 열응답을 사용하기 전에 계수를 확인하세요.",
+    "ru": "Если не были указаны ни марка, ни коэффициент расширения, тип материала мог определяться только по жёсткости. При изменении и последующей очистке коэффициента автоматически назначенный тип также мог теряться. Проверьте коэффициент перед использованием результатов повторного расчёта на температурные воздействия."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-custom-thermal-family.md",

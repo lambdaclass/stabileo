@@ -34,10 +34,12 @@
 
   const plain = (text: string) => proseParts(text).map((p) => p.text).join('');
 
-  $effect(() => panelTrail.publish({
-    crumbs: name === undefined ? [catalog] : fromCatalog ? [catalog, { label: plain(name) }] : [{ label: plain(name) }],
-    back: { run: onBack, title: backTitle, testid: backTestid },
-    home: leaveAll,
-    help,
-  }));
+  $effect(() => {
+    return panelTrail.publish({
+      crumbs: name === undefined ? [catalog] : fromCatalog ? [catalog, { label: plain(name) }] : [{ label: plain(name) }],
+      back: { run: onBack, title: backTitle, testid: backTestid },
+      home: leaveAll,
+      help,
+    });
+  });
 </script>
