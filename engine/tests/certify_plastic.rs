@@ -857,7 +857,6 @@ fn a_fixed_tie_can_govern_two_redundant_axial_paths() {
 }
 
 #[test]
-#[ignore = "known wrong result: #758"]
 fn an_explicit_full_axial_span_matches_an_omitted_diagonal_endpoint() {
     use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
     let beam = |end| make_input(

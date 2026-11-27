@@ -27,6 +27,9 @@ pub(super) fn assemble(input: &SolverInput, model: &mut PlasticModel) -> Result<
         let e = members.get(&load.element_id).ok_or("axial span load on unknown element")?;
         let fraction = |x| -> Result<Q, String> {
             if x == 0.0 { return Ok(Q::zero()); }
+            let dx = crate::certify::exact::to_f64(&e.dx);
+            let dz = crate::certify::exact::to_f64(&e.dz);
+            if x == (dx * dx + dz * dz).sqrt() { return Ok(Q::one()); }
             Ok(q(x).ok_or("non-finite axial load position")? / e.l.as_ref().ok_or("partial axial load on a member of irrational length")?)
         };
         let a = fraction(load.a.unwrap_or(0.0))?;

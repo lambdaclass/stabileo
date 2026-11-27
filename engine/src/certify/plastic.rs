@@ -717,29 +717,73 @@ pub(crate) fn truss_axial_factor_is_exact(model: &PlasticModel, capacities: &Has
     if model.elems.len() != free_translations + eq.null.len() {
         return Ok(false);
     }
-    let mut first_yield: Option<Q> = None;
-    let mut fixed_at_yield = false;
+    let mut fixed_limit: Option<Q> = None;
+    let mut paths = Vec::new();
     for (index, element) in model.elems.iter().enumerate() {
         let Some(&capacity) = capacities.get(&element.id) else { continue };
         let capacity = q(capacity).filter(|v| v.is_positive()).ok_or("invalid axial yield force")?;
-        let force_times_length = |field: &[Q]| &field[3 * index] * &element.dx + &field[3 * index + 1] * &element.dz;
-        let force = force_times_length(&eq.xp);
-        if force.is_zero() { continue; }
-        let squared = &capacity * &capacity * &element.l2 / (&force * &force);
-        if first_yield.as_ref().is_some_and(|current| current < &squared) { continue; }
-        if first_yield.as_ref() != Some(&squared) {
-            fixed_at_yield = false;
+        let axial = |field: &[Q]| &field[3 * index] * &element.dx + &field[3 * index + 1] * &element.dz;
+        let force = axial(&eq.xp);
+        let basis: Vec<Q> = eq.null.iter().map(|v| axial(v)).collect();
+        let capacity2 = &capacity * &capacity * &element.l2;
+        if basis.iter().all(Zero::is_zero) {
+            if !force.is_zero() {
+                let limit = capacity2 / (&force * &force);
+                fixed_limit = Some(fixed_limit.map_or_else(|| limit.clone(), |v| v.min(limit.clone())));
+            }
+        } else {
+            paths.push((basis, force, capacity2));
         }
-        fixed_at_yield |= eq.null.iter().all(|field| force_times_length(field).is_zero());
-        first_yield = Some(squared);
     }
-    let Some(squared) = first_yield.filter(|_| fixed_at_yield) else { return Ok(false) };
+    let Some(squared) = fixed_limit else { return Ok(false) };
+    if !paths.iter().all(|(_, force, capacity2)| force * force * &squared <= *capacity2) {
+        let mut rows = Vec::new();
+        for (basis, force, capacity2) in paths {
+            let upper2 = capacity2 / &squared;
+            let bound = &upper2 / super::plastic_3d::sqrt_up(&upper2);
+            let mut negative: Vec<Q> = basis.iter().map(|v| -v).collect();
+            negative.push(&bound + &force);
+            let mut positive = basis;
+            positive.push(bound - force);
+            rows.extend([positive, negative]);
+        }
+        if !axial_constraints_feasible(rows, eq.null.len()) { return Ok(false); }
+    }
     let reported_squared = &factor * &factor;
     Ok(match reported_squared.cmp(&squared) {
         std::cmp::Ordering::Equal => true,
         std::cmp::Ordering::Less => q(lambda.next_up()).is_some_and(|upper| &upper * &upper > squared),
         std::cmp::Ordering::Greater => q(lambda.next_down()).is_some_and(|lower| &lower * &lower < squared),
     })
+}
+
+fn axial_constraints_feasible(mut rows: Vec<Vec<Q>>, variables: usize) -> bool {
+    use super::plastic_budget::{EXACT_CELL_BYTES, MAX_EXACT_BITS, MAX_EXACT_WORKSPACE_BYTES};
+    for remaining in (1..=variables).rev() {
+        let (mut lower, mut upper, mut next) = (Vec::new(), Vec::new(), Vec::new());
+        for row in rows {
+            let coefficient = &row[0];
+            if coefficient.is_zero() {
+                next.push(row[1..].to_vec());
+            } else {
+                let normalized: Vec<Q> = row[1..].iter().map(|v| v / coefficient.abs()).collect();
+                if coefficient.is_positive() { upper.push(normalized); } else { lower.push(normalized); }
+            }
+        }
+        let count = next.len().saturating_add(lower.len().saturating_mul(upper.len()));
+        if count.saturating_mul(remaining).saturating_mul(EXACT_CELL_BYTES) > MAX_EXACT_WORKSPACE_BYTES / 2 {
+            return false;
+        }
+        for lo in &lower {
+            for hi in &upper {
+                let row: Vec<Q> = lo.iter().zip(hi).map(|(l, u)| l + u).collect();
+                if row.iter().any(|v| v.numer().bits().max(v.denom().bits()) > MAX_EXACT_BITS) { return false; }
+                next.push(row);
+            }
+        }
+        rows = next;
+    }
+    rows.iter().all(|row| !row[0].is_negative())
 }
 
 fn equilibrium_equation_count(model: &PlasticModel) -> usize {
