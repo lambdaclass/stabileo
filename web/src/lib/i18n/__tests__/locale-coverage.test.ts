@@ -118,3 +118,22 @@ it('#2532 translates the discarded session history warning in every locale dicti
     expect.soft(dict['file.sessionHistoryDiscarded'], code).toContain('{names}');
   }
 });
+
+it.skip.each([
+  ['en', 'transverse component', 'point couple', 'upper extreme fiber', 'every attempt', 'independently'],
+  ['es', 'componente transversal', 'par puntual', 'fibra extrema superior', 'todos los intentos', 'independiente'],
+  ['pt', 'componente transversal', 'binário pontual', 'fibra extrema superior', 'todas as tentativas', 'independente'],
+  ['de', 'Querkomponente', 'Einzelmoment', 'oberen Randfaser', 'alle Bearbeitungs-', 'unabhängig'],
+  ['fr', 'composante transversale', 'couple ponctuel', 'fibre extrême supérieure', 'tous les délais', 'indépendamment'],
+  ['tr', 'enine bileşen', 'Tekil moment', 'en üst lif', 'tüm denemelerin', 'bağımsız'],
+  ['hu', 'keresztirányú összetevő', 'Pontszerű nyomaték', 'felső szélső szál', 'valamennyi kitöltési', 'önállóan'],
+  ['zh', '横向分量', '集中力偶', '上缘纤维', '所有考生', '独立'],
+])('known wrong result: #1927 — %s distinguishes point forces from couples and names the grading conditions', (locale, transverse, couple, fiber, attempts, grading) => {
+  const dict = ALL_DICTS[locale];
+  const shape = dict['exam.explain.shape'].toLowerCase();
+  expect(shape).toContain(transverse.toLowerCase());
+  expect(shape).toContain(couple.toLowerCase());
+  for (const key of ['edu.ex11Desc', 'edu.ex11DescP']) expect(dict[key]).toContain(fiber);
+  for (const key of ['exam.revealAfterClose', 'exam.resultsLater']) expect(dict[key]).toContain(attempts);
+  expect(dict['exam.gradedHere']).toContain(grading);
+});
