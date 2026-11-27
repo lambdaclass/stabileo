@@ -651,7 +651,7 @@ describe('the designed and detailed 7-storey building', () => {
   }, 300_000);
 });
 
-it.skip.each(['2d', '3d', 'pro'] as const)('known wrong result: #1928 the %s published workspace keeps the file rescue action throughout failed saves', async mode => {
+it.each(['2d', '3d', 'pro'] as const)('the %s published workspace keeps the file rescue action throughout failed saves', async mode => {
   let full = false;
   storage = memoryStorage(key => full && key === WORKSPACE_KEY ? quota() : null);
   vi.stubGlobal('localStorage', storage);

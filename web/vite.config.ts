@@ -104,6 +104,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
         if (proPlatesUnified && /^plates\.(?:qualityCell|planTotal)$/.test(key)) return false;
         if (!proPlatesUnified) {
           if (/^plates\.(?:firstSide|drawingLabel|qualityGood|qualityPoor|qualityHint|planTotalOnly|localLoadsWarnOne|keptNodesNoteOne|remeshNote(?:One|Some|All))$/.test(key)) return false;
+          if (key === 'file.workspaceNoticeClose') return false;
           if (/^loads\.(asce7|ec|tr)\./.test(key)) return false;
           if (/^ex\.pro-rc-(house|four-storey|steel-columns|lift-core|party-wall)(\.|$)/.test(key)) return false;
           if (/^pro\.(examples\.(loading\.|group(Rc|Steel)Buildings$)|tag(Core|Stair)$|stats\.plates$)/.test(key)) return false;
@@ -121,6 +122,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
           if (/^plates\.meshState(?:WillMesh|Missing|AsCame|Ready|Kept)$/.test(key)) return false;
         }
         if (!proRcSheets) {
+          if (/^(?:footing\.ui\.(?:inSheets|openSheets)|memo\.rc\.(?:line|notAdopted|supportTop))$/.test(key)) return false;
           if (key === 'spec.section.placement' || key.startsWith('rcSheets.')) return false;
           if (/^designData\.(alt|crit|criteria|deflectionSupports|flange|opt)\./.test(key)) return false;
           if (/^designData\.(?:seismic\.|presumedBearing|foundingElevation|deflection(?:Months|Sustained|Creep|Always)|minTieSpacing|maxAggregate)/.test(key)) return false;

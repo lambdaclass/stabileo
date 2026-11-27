@@ -487,7 +487,7 @@ test('the released document builders do not load the reinforcement sheet impleme
   }
 });
 
-test.skip('known wrong result: #1928 recovery, footing and sheet-report captions follow their controls', async () => {
+test('recovery, footing and sheet-report captions follow their controls', async () => {
   for (const [plates, sheets] of [[false, false], [true, false], [false, true]]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
       const config = await resolveConfig({ root, configFile }, 'build', 'production');
