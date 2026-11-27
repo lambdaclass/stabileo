@@ -5,6 +5,7 @@ import { ANALYSIS_KINDS, modelFeatures, type FeatureSnapshot } from '../model-fe
 import { GRAVITY_SELF_WEIGHT } from '../../engine/analysis-settings';
 import { stampSolve } from '../solve-stamp';
 import declaration from '../result-changes/distributed-load-diagram-integration.json';
+import resultantsDeclaration from '../result-changes/planar-nonlinear-resultants.json';
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 
 const entry = RESULT_CHANGES.changes.find(c => c.id === 'distributed-load-diagram-integration')!;
@@ -29,11 +30,42 @@ it('known wrong result: #2223 — unrelated older nodal projects have no diagram
       const snapshot: FeatureSnapshot = {
         analysisMode,
         supports: [[1, { nodeId: 1, type: analysisMode === '2d' ? 'fixed' : 'fixed3d' }]],
-        loads: [{ type: 'nodal3d', data: { nodeId: 1, fz: -20, caseId: 1 } }],
+        loads: [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -20, mx: 0, my: 0, mz: 0, caseId: 1 } }],
         loadCases: [{ id: 1, type: 'D' }],
         includeSelfWeight: true,
       };
       expect(assessProject(snapshot, stamp, analysisMode).changes).toEqual([]);
+    }
+  }
+});
+
+it('known wrong result: #2539 — planar nonlinear resultants require structural evidence', () => {
+  const change = RESULT_CHANGES.changes.find(c => c.id === 'planar-nonlinear-resultants');
+  expect(change).toBeDefined();
+  const snapshots: Array<[string, FeatureSnapshot]> = [
+    ['nodal only', { supports: [[1, { nodeId: 1, type: 'fixed' }]] }],
+    ['member', { elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]] }],
+    ['spring', { supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] }],
+    ['constraint', { constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }] }],
+  ];
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const analysis of ['linear', 'nonlinear'] as const) {
+      for (const [structure, snapshot] of snapshots) {
+        const model: FeatureSnapshot = {
+          ...snapshot, analysisMode,
+          loads: [{ type: 'nodal3d', data: { nodeId: 1, fx: 1 } }],
+        };
+        const expected = analysisMode === '2d' && analysis === 'nonlinear' && structure !== 'nodal only';
+        const label = `${analysisMode} ${analysis} ${structure}`;
+        for (const offset of [-1, 0, 1]) {
+          const stamp = { ...stampSolve(analysis, null), resultsVersion: change!.resultsVersion + offset };
+          const changes = assessProject(model, stamp, analysisMode).changes;
+          expect(changes.some(c => c.id === change!.id), `${label} version offset ${offset}`)
+            .toBe(expected && offset === -1);
+        }
+        const features = modelFeatures(model, { analysesRun: [analysis], analysesRecorded: ANALYSIS_KINDS });
+        expect(fieldCovered(resultantsDeclaration, 'nonlinear.results.reactions[0].rx', [...features]), label).toBe(expected);
+      }
     }
   }
 });

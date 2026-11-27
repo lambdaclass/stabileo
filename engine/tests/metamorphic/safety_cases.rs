@@ -201,27 +201,172 @@ fn issue_760_seed_20780_refuses_combined_singular_mass() {
     assert!(error.starts_with(&format!("{code}:")), "{}: {error}", c.name);
 }
 
+const ISSUE_762_CORPUS: u64 = 20754;
+
+fn issue_762_units() -> [dedaliano_engine::metamorphic::units::Units; 4] {
+    use dedaliano_engine::metamorphic::units::Units;
+    [(0.001, 1000.0), (25.0, 0.01), (0.3048, 4.448), (1000.0, 1000.0)]
+        .map(|(length, force)| Units::froude(length, force))
+}
+
+fn issue_762_static_path(name: &str) -> bool {
+    name.starts_with("linear") || matches!(name, "constrained" | "certified linear" | "load combinations")
+}
+
+fn issue_762_refusal(error: &str) -> &str {
+    error.strip_prefix("Failed to solve case 'A': ").unwrap_or(error)
+}
+
 #[test]
-#[ignore = "known wrong result: #762"]
-fn near_mechanism_units_and_orientation() {
-    let c = corpus::cases_2d(Tier::Nightly, 20754)
-        .into_iter()
-        .find(|c| c.name == "fuzz_rich_2d/20800")
-        .unwrap();
-    let a: Vec<_> = ana2::rows()
-        .into_iter()
-        .filter(|a| a.name == "linear")
-        .collect();
-    let t = Tally::default();
+fn issue_762_2d_refuses_reported_unreliable_models_in_equivalent_frames() {
+    assert_issue_762_planar_refusals(&[20756, 20795, 20800, 20806, 20833, 20865]);
+}
+
+#[test]
+fn issue_762_seed_20824_refuses_proven_mechanism_in_equivalent_frames() {
+    assert_issue_762_planar_refusals(&[20824]);
+}
+
+fn assert_issue_762_planar_refusals(seeds: &[u64]) {
+    use dedaliano_engine::metamorphic::transform::Iso2;
+
+    let analyses: Vec<_> = ana2::rows().into_iter().filter(|a| issue_762_static_path(a.name)).collect();
+    for &seed in seeds {
+        let case = corpus::fuzz_case_2d(ISSUE_762_CORPUS, seed - ISSUE_762_CORPUS);
+        let mut copies = vec![("original".into(), case.clone())];
+        for units in issue_762_units() {
+            copies.push((format!("units {}/{}", units.length, units.force), case.units(&units)));
+        }
+        for (label, iso) in [
+            ("quarter turn", Iso2::rotation(std::f64::consts::FRAC_PI_2)),
+            ("mirror", Iso2::mirror_x()),
+        ] {
+            copies.push((label.into(), case.iso(&iso).unwrap()));
+        }
+        if !matches!(seed, 20795 | 20833 | 20865) {
+            copies.push(("skew rotation".into(), case.iso(&Iso2::rotation(0.37)).unwrap()));
+        }
+
+        for (label, copy) in copies {
+            for analysis in &analyses {
+                let context = format!("{} {label} {}", copy.name, analysis.name);
+                let error = (analysis.run)(&copy).expect_err(&context);
+                let reason = issue_762_refusal(&error);
+                if seed == 20865 {
+                    crate::common::assert_support_conflict(reason);
+                } else if analysis.name == "linear (dense reference)" && !copy.s.constraints.is_empty() {
+                    assert!(reason.starts_with("prepared static solve does not support constraints"), "{context}: {reason}");
+                } else {
+                    let matches = match seed {
+                        20756 | 20795 => reason.contains("constraint reduction cancels stiffness contributions"),
+                        20824 => reason.starts_with("the structure is a mechanism at nodes [4]: a node can move freely in a direction no member, support or spring stiffens"),
+                        _ => reason.starts_with("the structure is a mechanism at nodes [3]: a node can move freely"),
+                    };
+                    assert!(matches, "{context}: {reason}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn issue_762_3d_refuses_reported_mechanisms_in_equivalent_frames() {
+    use dedaliano_engine::metamorphic::{reversal::reverse_3d, transform::Iso3};
+
+    let analyses: Vec<_> = ana3::rows().into_iter().filter(|a| issue_762_static_path(a.name)).collect();
+    for seed in [20761, 20788] {
+        let case = corpus::fuzz_case_3d(ISSUE_762_CORPUS, seed - ISSUE_762_CORPUS);
+        let reversed = crate::case::Case3 { s: reverse_3d(&case.s, &|_| true).unwrap(), ..case.clone() };
+        let mut copies = vec![
+            ("original".into(), case.clone()),
+            ("axis permutation".into(), case.iso(&Iso3::axis_permutation(1)).unwrap()),
+            ("member reversal".into(), reversed),
+        ];
+        if seed == 20761 {
+            copies.push(("mirror".into(), case.mirror(0, [0.0; 3]).unwrap()));
+            copies.push(("skew rotation".into(), case.iso(&Iso3::about_z(0.37)).unwrap()));
+        }
+        for units in issue_762_units() {
+            copies.push((format!("units {}/{}", units.length, units.force), case.units(&units)));
+        }
+
+        for (label, copy) in copies {
+            for analysis in &analyses {
+                let context = format!("{} {label} {}", copy.name, analysis.name);
+                let error = (analysis.run)(&copy).expect_err(&context);
+                let reason = issue_762_refusal(&error);
+                if seed == 20761 {
+                    assert!(reason.starts_with("Nodal moment at node 2 is not supported:")
+                        && reason.contains("loaded released rotation"), "{context}: {reason}");
+                } else {
+                    assert!(reason.starts_with("the structure is a mechanism at nodes [3]: a node can move freely"), "{context}: {reason}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn issue_762_seed_20840_agrees_with_physical_reference_and_preserves_invariance() {
+    use crate::response::{Dim, Kind, Resp};
+    use dedaliano_engine::metamorphic::{conditioning, transform::Iso2};
+
+    let case = corpus::fuzz_case_2d(ISSUE_762_CORPUS, 20840 - ISSUE_762_CORPUS);
+    let mut expected = Resp::default();
+    for (id, ux, uz, ry) in [
+        (1, 0.0, 0.0, 0.0),
+        (2, -1.3772993952784738, -1.900261023004616, 0.316687849249401),
+        (3, 0.3454848294796218, 0.3411836055644066, 0.316687849249401),
+        (4, -3.6493716248418354, -2.9717154581410382, 0.3251711806559395),
+        (5, -3.0027603426348232, -2.059522956805617, 0.3251711806559395),
+    ] {
+        expected.push(Some(id), None, "u", Kind::V2(Dim::LEN), vec![ux, uz]);
+        expected.push(Some(id), None, "ry", Kind::P2(Dim::NONE), vec![ry]);
+    }
+    expected.push(Some(1), None, "R", Kind::V2(Dim::FORCE), vec![24.57768118783663, 11.58952776957052]);
+    expected.push(Some(1), None, "RM", Kind::P2(Dim::MOMENT), vec![-370.4975683778451]);
+
+    let mut copies = vec![("original".into(), case.clone(), expected.clone())];
+    for units in issue_762_units() {
+        copies.push((format!("units {}/{}", units.length, units.force), case.units(&units), expected.units(&units)));
+    }
+    for (label, iso) in [
+        ("quarter turn", Iso2::rotation(std::f64::consts::FRAC_PI_2)),
+        ("skew rotation", Iso2::rotation(0.37)),
+        ("mirror", Iso2::mirror_x()),
+    ] {
+        copies.push((label.into(), case.iso(&iso).unwrap(), expected.iso2(&iso).unwrap()));
+    }
+
+    let analyses: Vec<_> = ana2::rows().into_iter().filter(|a| issue_762_static_path(a.name)
+        && a.name != "linear (dense reference)").collect();
+    for (label, copy, expected) in copies {
+        let cond = conditioning::of_2d(&copy.s).unwrap();
+        let floor = checks2::load_floor_2d(&copy.s, cond.lchar);
+        for analysis in &analyses {
+            let context = format!("{} {label} {}", copy.name, analysis.name);
+            let actual = (analysis.run)(&copy).unwrap_or_else(|e| panic!("{context}: {e}"));
+            let actual = actual.common(&expected);
+            assert_eq!(actual.0.len(), expected.0.len(), "{context}");
+            let rel = checks2::rel_for(analysis.name, analysis.iter_tol, &cond);
+            crate::analysis_accuracy::compare(&actual, &expected, cond.lchar, rel, floor, [0.0; 2])
+                .unwrap_or_else(|e| panic!("{context}: {e}"));
+        }
+    }
+
+    let tally = Tally::default();
     checks2::check_case(
-        &checks2::Ctx {
-            tally: &t,
-            rng_seed: 20754,
-        },
-        &c,
-        &a,
-        crate::INV_2D,
+        &checks2::Ctx { tally: &tally, rng_seed: ISSUE_762_CORPUS },
+        &case,
+        &analyses,
+        &["rotation", "mirror", "units", "linear agreement", "energy"],
     );
-    assert_eq!(t.symbol("linear", "units"), "✓", "{}", t.report());
-    crate::finish("safety_762", &t);
+    for analysis in &analyses {
+        for invariant in ["rotation", "mirror", "units", "energy"] {
+            assert_eq!(tally.symbol(analysis.name, invariant), "✓", "{}", tally.report());
+        }
+        if analysis.name != "linear" {
+            assert_eq!(tally.symbol(analysis.name, "linear agreement"), "✓", "{}", tally.report());
+        }
+    }
 }

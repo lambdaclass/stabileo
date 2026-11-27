@@ -1,4 +1,3 @@
-import { BUILD_FEATURES } from './build-features';
 import { test, expect } from './fixtures';
 
 /**
@@ -121,70 +120,36 @@ test.describe('@smoke PRO — one lit button, and drawing from the panel', () =>
 });
 
 test.describe('@smoke PRO — plates are one creator', () => {
-  if (BUILD_FEATURES.proPlatesUnified) {
-    test('three corners make a triangle and four make a quad, from one form', { tag: '@switch-on' }, async ({ pro: page }) => {
-      /*
-       * There were two creators, "Plate (DKT triangle)" and "Quad (MITC4)".
-       * Those are element FORMULATIONS, and a reader drawing a slab starts from
-       * the corners — how many there are already decides which applies.
-       */
-      await page.getByTestId('pr-stage-model').click();
-      await page.getByTestId('pr-cmd-shells').click();
+  test('three corners make a triangle and four make a quad, from one form', async ({ pro: page }) => {
+    /*
+     * There were two creators, "Plate (DKT triangle)" and "Quad (MITC4)".
+     * Those are element FORMULATIONS, and a reader drawing a slab starts from
+     * the corners — how many there are already decides which applies.
+     */
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-shells').click();
 
-      /* Two buttons at the top, like every other panel: Draw uses the mouse,
-         Write opens the form, whose own button only ever adds what the boxes hold. */
-      await expect(page.getByTestId('draw-plate')).toBeVisible();
-      await page.getByTestId('write-plate').click();
-      const add = page.getByTestId('write-plate-card-submit');
-      await expect(add, 'nothing typed yet').toBeDisabled();
+    /* Two buttons at the top, like every other panel: Draw uses the mouse,
+       Write opens the form, whose own button only ever adds what the boxes hold. */
+    await expect(page.getByTestId('draw-plate')).toBeVisible();
+    await page.getByTestId('write-plate').click();
+    const add = page.getByTestId('write-plate-card-submit');
+    await expect(add, 'nothing typed yet').toBeDisabled();
 
-      /* Three or four corners is a choice in plain sight, not a count inferred from filled boxes. */
-      await page.getByTestId('write-corners-3').click();
-      await expect(page.getByTestId('shell-node-3')).toHaveCount(0);
-      await page.getByTestId('shell-node-0').fill('1');
-      await page.getByTestId('shell-node-1').fill('2');
-      await page.getByTestId('shell-node-2').fill('3');
-      await expect(add, 'three corners is a triangle').toBeEnabled();
+    /* Three or four corners is a choice in plain sight, not a count inferred from filled boxes. */
+    await page.getByTestId('write-corners-3').click();
+    await expect(page.getByTestId('shell-node-3')).toHaveCount(0);
+    await page.getByTestId('shell-node-0').fill('1');
+    await page.getByTestId('shell-node-1').fill('2');
+    await page.getByTestId('shell-node-2').fill('3');
+    await expect(add, 'three corners is a triangle').toBeEnabled();
 
-      await page.getByTestId('write-corners-4').click();
-      await expect(add, 'a quad wants its fourth corner').toBeDisabled();
-      await page.getByTestId('shell-node-3').fill('4');
-      await expect(add).toBeEnabled();
-      /* Curvature is read off the corners: there is no box to tick. */
-      await expect(page.getByTestId('quad-curved')).toHaveCount(0);
-    });
-  } else {
-    test('three corners make a triangle and four make a quad, from one form', async ({ pro: page }) => {
-      /*
-       * There were two creators, "Plate (DKT triangle)" and "Quad (MITC4)".
-       * Those are element FORMULATIONS, and a reader drawing a slab starts from
-       * the corners — how many there are already decides which applies.
-       */
-      await page.getByTestId('pr-stage-model').click();
-      await page.getByTestId('pr-cmd-shells').click();
-
-      /* Two buttons at the top, like every other panel: Draw uses the mouse,
-         Write opens the form, whose own button only ever adds what the boxes hold. */
-      await expect(page.getByTestId('draw-plate')).toBeVisible();
-      await page.getByTestId('write-plate').click();
-      const add = page.getByTestId('write-plate-card-submit');
-      await expect(add, 'nothing typed yet').toBeDisabled();
-
-      /* Three or four corners is a choice in plain sight, not a count inferred from filled boxes. */
-      await page.getByTestId('write-corners-3').click();
-      await expect(page.getByTestId('shell-node-3')).toHaveCount(0);
-      await page.getByTestId('shell-node-0').fill('1');
-      await page.getByTestId('shell-node-1').fill('2');
-      await page.getByTestId('shell-node-2').fill('3');
-      await expect(add, 'three corners is a triangle').toBeEnabled();
-
-      /* The curved option appears only where it can mean anything: three points
-         are coplanar by definition. */
-      await expect(page.getByTestId('quad-curved')).toHaveCount(0);
-      await page.getByTestId('write-corners-4').click();
-      await expect(add, 'a quad wants its fourth corner').toBeDisabled();
-      await page.getByTestId('shell-node-3').fill('4');
-      await expect(page.getByTestId('quad-curved')).toHaveCount(1);
-    });
-  }
+    /* The curved option appears only where it can mean anything: three points
+       are coplanar by definition. */
+    await expect(page.getByTestId('quad-curved')).toHaveCount(0);
+    await page.getByTestId('write-corners-4').click();
+    await expect(add, 'a quad wants its fourth corner').toBeDisabled();
+    await page.getByTestId('shell-node-3').fill('4');
+    await expect(page.getByTestId('quad-curved')).toHaveCount(1);
+  });
 });

@@ -1,0 +1,8 @@
+{
+  "nodes": {"1":{"id":1,"x":0,"z":0},"2":{"id":2,"x":2,"z":0}},
+  "elements": {"1":{"id":1,"type":"truss","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+  "materials": {"1":{"id":1,"e":0.002,"nu":0.3}},
+  "sections": {"1":{"id":1,"a":1,"iz":1}},
+  "supports": {"1":{"id":1,"nodeId":1,"type":"fixed"},"2":{"id":2,"nodeId":2,"type":"rollerX"}},
+  "loads": [{"type":"nodal","data":{"nodeId":2,"fx":2,"fz":0,"my":0}}]
+}

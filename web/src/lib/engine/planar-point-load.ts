@@ -1,3 +1,5 @@
+import { isFiniteInputNumber } from './model-input-numbers';
+
 export function planarPointProjectionTooShort(dx: number, dPlan: number): boolean {
   return Math.hypot(dx, dPlan) < 1e-10;
 }
@@ -5,8 +7,8 @@ export function planarPointProjectionTooShort(dx: number, dPlan: number): boolea
 export type PlanarMomentFields = { my?: unknown; mz?: unknown };
 
 export function planarPointMoment({ my, mz }: PlanarMomentFields): number | undefined | null {
-  if (my != null && (typeof my !== 'number' || !Number.isFinite(my))) return null;
-  if (mz != null && (typeof mz !== 'number' || !Number.isFinite(mz))) return null;
+  if (my !== undefined && !isFiniteInputNumber(my)) return null;
+  if (mz !== undefined && !isFiniteInputNumber(mz)) return null;
   if (my) return mz && mz !== my ? null : my;
   return mz ?? my ?? undefined;
 }

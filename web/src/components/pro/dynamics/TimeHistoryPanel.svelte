@@ -20,7 +20,7 @@
   import { recheckStore } from '../../../lib/store/recheck.svelte';
   import { solveTimeHistory3D } from '../../../lib/engine/wasm-solver';
   import { errorText } from '../../../lib/utils/error-text';
-  import { te } from '../../../lib/i18n/engine-text';
+  import { localizeEngineText, te } from '../../../lib/i18n/engine-text';
   import { timeHistoryRefusal } from '../../../lib/engine/dynamics/time-history-refusal';
   import { peakBaseShear, HHT_ALPHA_RANGE } from '../../../lib/engine/dynamics/requests';
   import { recordSummary } from '../../../lib/engine/dynamics/accelerogram';
@@ -134,7 +134,7 @@
     } catch (e) {
       const text = errorText(e, 'Error');
       const refusal = timeHistoryRefusal(text);
-      onError(`${t('pro.th.title')}: ${refusal ? te(refusal) : text}`);
+      onError(`${t('pro.th.title')}: ${refusal ? te(refusal) : localizeEngineText(text)}`);
     } finally {
       running = false;
     }

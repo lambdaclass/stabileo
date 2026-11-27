@@ -4,7 +4,6 @@
   import { is3DWorkspace } from '../lib/utils/workspace';
   import { displayUnits, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
-  import PlateSelectionCard from './pro/plates/PlateSelectionCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
   import { focusNodeIds } from '../lib/model/select-like';
@@ -34,6 +33,7 @@
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
   import { toneObject } from '../lib/viewport3d/category-tone';
+  import { toneBelowPlanCut, clearPlanCut, planFloorFor, planClipZ } from '../lib/viewport3d/plan-cut';
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
   import { syncFootings } from '../lib/three/footings-3d';
@@ -58,6 +58,7 @@
   import { createDrawFeedback } from '../lib/viewport3d/draw-feedback';
   import PlanViewChip from './viewport/PlanViewChip.svelte';
   import PointerModeButton from './PointerModeButton.svelte';
+  import ViewMenu3D from './ViewMenu3D.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
   import SelectionClipboardButtons from './ribbon/SelectionClipboardButtons.svelte';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
@@ -91,7 +92,7 @@
   import { toDisplay } from '../lib/utils/units';
   import type { StationBound3D } from '../lib/engine/wasm-solver';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D, worldPerPixel } from '../lib/viewport3d/picking';
-  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum, nearPlaneFor, farPlaneFor } from '../lib/viewport3d/camera';
+  import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, placeOverhead, type PresetView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum, nearPlaneFor, farPlaneFor } from '../lib/viewport3d/camera';
   import { createFrameCoalescer } from '../lib/viewport3d/frame-coalesce';
   import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ, GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../lib/geometry/coordinate-system';
   import { setCameraProbe, setWorldProjector } from '../lib/viewport3d/camera-probe';
@@ -104,7 +105,6 @@
   import { buildTimelapse, FORMAT_SIZE } from '../lib/store/build-timelapse.svelte';
   import { createTimelapseView } from '../lib/viewport3d/build-timelapse-view';
   import { createTimelapseCompositor } from '../lib/viewport3d/timelapse-compositor';
-  import { timelapseSound } from '../lib/viewport3d/timelapse-sound';
   import { setLineResolution } from '../lib/three/create-element-mesh';
   import BuildTimelapsePanel from './BuildTimelapsePanel.svelte';
   import { drawFreeBody, freeBodyFocus } from '../lib/canvas/free-body';
@@ -211,8 +211,6 @@
   let timelapseAspect: number | null = null;
   let toolBeforeTimelapse: typeof uiStore.currentTool | null = null;
   /** How the bars can be drawn, one at a time, from the lightest to the building as built. */
-  const RENDER_MODES = ['wireframe', 'solid', 'sections', 'physical'] as const;
-  const RENDER_GLYPH: Record<(typeof RENDER_MODES)[number], string> = { wireframe: '╱', solid: '▬', sections: '⬡', physical: '▣' };
   let boxSelect3D = $state<{ startX: number; startY: number; endX: number; endY: number; additive: boolean } | null>(null);
   /** The lasso's outline while one is being drawn (`viewState.lasso`). */
   let lassoPath = $state<Array<{ x: number; y: number }>>([]);
@@ -419,7 +417,7 @@
      * the scene graph. Both branches of this rebase hid the markers in sections mode
      * and each did it its own way; this is the one that says why.
      */
-    const drawn = uiStore.renderMode3D !== 'sections' && uiStore.renderMode3D !== 'physical';
+    const drawn = uiStore.renderMode3D !== 'sections';
     nodesInstanced.setDrawn(drawn);
     publishMarkerState(drawn, drawn ? undefined : null);
     if (!drawn) return;
@@ -854,28 +852,30 @@
         camera.position.add(forward);
       }
 
-      // Q/E — vertical movement
-      if (keysPressed.has('q')) {
-        controls.target.z -= panSpeed;
-        camera.position.z -= panSpeed;
-      }
-      if (keysPressed.has('e')) {
-        controls.target.z += panSpeed;
-        camera.position.z += panSpeed;
-      }
+      if (!uiStore.planView3D) {
+        // Q/E — vertical movement
+        if (keysPressed.has('q')) {
+          controls.target.z -= panSpeed;
+          camera.position.z -= panSpeed;
+        }
+        if (keysPressed.has('e')) {
+          controls.target.z += panSpeed;
+          camera.position.z += panSpeed;
+        }
 
-      // Arrow keys — orbit around target
-      _orbitSpherical.setFromVector3(
-        camera.position.clone().sub(controls.target)
-      );
-      if (keysPressed.has('ArrowLeft')) _orbitSpherical.theta -= orbitSpeed;
-      if (keysPressed.has('ArrowRight')) _orbitSpherical.theta += orbitSpeed;
-      if (keysPressed.has('ArrowUp')) _orbitSpherical.phi = Math.max(0.1, _orbitSpherical.phi - orbitSpeed);
-      if (keysPressed.has('ArrowDown')) _orbitSpherical.phi = Math.min(Math.PI - 0.1, _orbitSpherical.phi + orbitSpeed);
-      if (keysPressed.has('ArrowLeft') || keysPressed.has('ArrowRight') || keysPressed.has('ArrowUp') || keysPressed.has('ArrowDown')) {
-        camera.position.copy(controls.target).add(
-          _panVec.setFromSpherical(_orbitSpherical)
+        // Arrow keys — orbit around target
+        _orbitSpherical.setFromVector3(
+          camera.position.clone().sub(controls.target)
         );
+        if (keysPressed.has('ArrowLeft')) _orbitSpherical.theta -= orbitSpeed;
+        if (keysPressed.has('ArrowRight')) _orbitSpherical.theta += orbitSpeed;
+        if (keysPressed.has('ArrowUp')) _orbitSpherical.phi = Math.max(0.1, _orbitSpherical.phi - orbitSpeed);
+        if (keysPressed.has('ArrowDown')) _orbitSpherical.phi = Math.min(Math.PI - 0.1, _orbitSpherical.phi + orbitSpeed);
+        if (keysPressed.has('ArrowLeft') || keysPressed.has('ArrowRight') || keysPressed.has('ArrowUp') || keysPressed.has('ArrowDown')) {
+          camera.position.copy(controls.target).add(
+            _panVec.setFromSpherical(_orbitSpherical)
+          );
+        }
       }
     }
 
@@ -1345,6 +1345,8 @@
   let toneDirty = true;
   function applyCategoryTones() {
     const s = (c: ViewCategory) => viewCategories.state(c);
+    const planned = [elementsParent, nodesParent, shellsParent, supportsParent, loadsParent];
+    clearPlanCut(planned);
     toneObject(elementsParent, s('members'));
     toneObject(nodesParent, s('nodes'));
     toneObject(shellsParent, s('shells'));
@@ -1353,6 +1355,10 @@
     for (const g of [resultsCtx?.nodeLabelsGroup, resultsCtx?.elementLabelsGroup, resultsCtx?.shellLabelsGroup]) toneObject(g, s('labels'));
     toneObject(underlaysGroup, s('underlays'));
     for (const [obj, c] of sceneHost.toned) toneObject(obj, s(c));
+    const cut = uiStore.planView3D && uiStore.planCutZ !== null ? { floorZ: planFloorFor(uiStore.nodeCreateZ), below: uiStore.planBelow } : null;
+    toneBelowPlanCut(planned, cut);
+    nodesInstanced.setClipBelow(cut?.below === 'hidden' ? cut.floorZ : null);
+    elementsBatched.setPlanFloor(cut?.floorZ ?? null, cut?.below ?? 'hidden');
   }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
   // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
@@ -1511,8 +1517,8 @@
 
   // Meshed plates as pieces or with their mesh: only the drawing changes.
   $effect(() => {
-    void uiStore.platesShowMesh; void resultsStore.results3D;
-    untrack(() => { syncShells(); syncNodes(); syncLoads(); syncLabels3D(); });
+    void uiStore.platesShowMesh;
+    syncShells();
     invalidate();
   });
 
@@ -4013,6 +4019,7 @@
 
 
   function zoomToFit() {
+    if (uiStore.planView3D) { framePlan(); return; }
     _zoomToFit(camera, controls, modelStore.nodes, orthoCamera, container);
     invalidate();
   }
@@ -4052,11 +4059,25 @@
     controls.update();
     invalidate();
   }
+  const OVERHEAD_TIP = 2e-6;
+  const TOP_VIEW_TIP = 0.018;
+  function framePlan() {
+    if (!camera || !controls) return;
+    const { center, maxDim } = _getModelBounds(modelStore.nodes);
+    placeOverhead(camera, controls, { x: center.x, y: center.y, z: uiStore.nodeCreateZ }, maxDim * 1.8, uiStore.planRotation, OVERHEAD_TIP);
+    if (camera === orthoCamera) syncOrthoFrustum(container ? container.clientWidth / container.clientHeight : 1);
+    invalidate();
+  }
+  function turnPlan() {
+    if (!camera || !controls) return;
+    placeOverhead(camera, controls, controls.target, camera.position.distanceTo(controls.target), uiStore.planRotation, OVERHEAD_TIP);
+    invalidate();
+  }
   function enterPlanView() {
     if (!camera || !controls || beforePlan) return;
     beforePlan = { mode: uiStore.cameraMode3D, tool: uiStore.currentTool };
-    setView('top');
-    if (uiStore.cameraMode3D === 'perspective') toggleCameraMode();
+    if (uiStore.cameraMode3D === 'perspective') setCameraMode('orthographic');
+    framePlan();
     followLevel(uiStore.nodeCreateZ);
     // On entering, a drag slides over the floor (the Pan tool); any other tool can still be taken.
     uiStore.currentTool = 'pan';
@@ -4068,13 +4089,26 @@
     beforePlan = null;
     uiStore.planCutZ = null;
     if (uiStore.currentTool === 'pan' && b.tool !== 'pan') uiStore.currentTool = b.tool;
-    if (uiStore.cameraMode3D !== b.mode) toggleCameraMode();
+    // Left straight down, the first orbit would spin about the pole.
+    if (camera && controls && camera.position.z - controls.target.z > 0.999 * camera.position.distanceTo(controls.target)) {
+      placeOverhead(camera, controls, controls.target, camera.position.distanceTo(controls.target), uiStore.planRotation, TOP_VIEW_TIP);
+    }
+    if (uiStore.cameraMode3D !== b.mode) setCameraMode(b.mode);
     applyNavigation();
     invalidate();
   }
   $effect(() => {
     const on = uiStore.planView3D;
     untrack(() => { if (on) enterPlanView(); else exitPlanView(); });
+  });
+  $effect(() => {
+    void uiStore.planRotation;
+    untrack(() => { if (uiStore.planView3D && beforePlan) turnPlan(); });
+  });
+  $effect(() => {
+    void uiStore.planView3D; void uiStore.planCutZ; void uiStore.planBelow; void uiStore.nodeCreateZ;
+    toneDirty = true;
+    invalidate();
   });
   // The working level moves the plan view with it: the camera and the cut follow.
   $effect(() => {
@@ -4127,6 +4161,7 @@
   function setView(view: PresetView) {
     // Another standard view leaves the plan view (which holds the camera above the floor).
     if (view !== 'top' && uiStore.planView3D) uiStore.planView3D = false;
+    if (uiStore.planView3D) { framePlan(); return; }
     _setView(view, camera, controls, modelStore.nodes);
     invalidate();
   }
@@ -4175,9 +4210,13 @@
 
 
   function toggleCameraMode() {
+    setCameraMode(camera === orthoCamera ? 'perspective' : 'orthographic');
+  }
+  function setCameraMode(newMode: 'perspective' | 'orthographic') {
     if (!camera || !controls || !renderer) return;
-    const isPersp = uiStore.cameraMode3D === 'perspective';
-    const newMode = isPersp ? 'orthographic' : 'perspective';
+    if (uiStore.planView3D && newMode === 'perspective') { uiStore.cameraMode3D = 'orthographic'; return; }
+    const isPersp = camera !== orthoCamera;
+    if ((newMode === 'perspective') === isPersp) { uiStore.cameraMode3D = newMode; return; }
     const from = isPersp ? perspCamera : orthoCamera;
     const to = isPersp ? orthoCamera : perspCamera;
 
@@ -4200,6 +4239,10 @@
     uiStore.cameraMode3D = newMode;
     invalidate();
   }
+  $effect(() => {
+    const m = uiStore.cameraMode3D;
+    untrack(() => { if (camera && (m === 'orthographic') !== (camera === orthoCamera)) setCameraMode(m); });
+  });
 
   // ─── Utils ──────────────────────────────────────────────────
 
@@ -4213,7 +4256,7 @@
     const planes: THREE.Plane[] = [];
     // The plan view's own cut, beside the cut plane a person set.
     if (uiStore.planView3D && uiStore.planCutZ !== null) {
-      planPlane.constant = uiStore.planCutZ;
+      planPlane.constant = planClipZ(uiStore.planCutZ);
       planes.push(planPlane);
     }
     if (uiStore.clippingEnabled) {
@@ -4478,82 +4521,7 @@
           aria-label={t('ribbon.close')}
           tabindex="-1"
         ></button>
-        <div class="cam-menu" data-testid="cam-menu-pop">
-          <button class="cam-item" onclick={() => { zoomToFit(); camMenuOpen = false; }}>
-            <Icon name="fit" size={15} /><span>{t('viewport3d.zoomToFit')}</span>
-          </button>
-          <div class="cam-sep"></div>
-          <button class="cam-item" onclick={() => { setView('top'); camMenuOpen = false; }}>
-            <span class="cam-glyph">⊤</span><span>{t('viewport3d.topView')}</span>
-          </button>
-          <button class="cam-item" onclick={() => { setView('front'); camMenuOpen = false; }}>
-            <span class="cam-glyph">⊡</span><span>{t('viewport3d.frontView')}</span>
-          </button>
-          <button class="cam-item" onclick={() => { setView('side'); camMenuOpen = false; }}>
-            <span class="cam-glyph">⊟</span><span>{t('viewport3d.sideView')}</span>
-          </button>
-          <div class="cam-sep"></div>
-          <!--
-            These four are STATES, so they stay open on click and show a tick:
-            a reader turning clipping on usually wants to reach for the axis
-            next, and a menu that vanished would make them open it again.
-          -->
-          <!-- The plan view and what a drag does: states too, how the reader holds the view while modelling. -->
-          <button class="cam-item" class:on={uiStore.planView3D} onclick={() => { uiStore.planView3D = !uiStore.planView3D; }}
-                  title={uiStore.planView3D ? t('viewport.planViewOff') : t('viewport.planViewOn')} data-testid="nav-plan-view">
-            <span class="cam-glyph">▦</span><span>{t('viewport.planView')}</span>
-          </button>
-          {#if uiStore.analysisMode === 'pro' && !uiStore.isMobile}
-            <button class="cam-item" class:on={viewState.split} onclick={() => { viewState.split = !viewState.split; }} data-testid="nav-split-view">
-              <span class="cam-glyph">◫</span><span>{t('viewport.split')}</span>
-            </button>
-          {/if}
-          <button class="cam-item" onclick={toggleCameraMode}>
-            <span class="cam-glyph">{uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}</span>
-            <span>{uiStore.cameraMode3D === 'perspective'
-              ? t('viewport3d.switchToOrtho') : t('viewport3d.switchToPersp')}</span>
-          </button>
-          <button
-            class="cam-item" class:on={uiStore.clippingEnabled}
-            onclick={() => { uiStore.clippingEnabled = !uiStore.clippingEnabled; }}
-          >
-            <span class="cam-glyph">✂</span>
-            <span>{uiStore.clippingEnabled
-              ? t('viewport3d.disableClipping') : t('viewport3d.enableClipping')}</span>
-          </button>
-          <button
-            class="cam-item" class:on={uiStore.measureMode}
-            onclick={() => { uiStore.measureMode = !uiStore.measureMode; }}
-          >
-            <span class="cam-glyph">📏</span>
-            <span>{uiStore.measureMode
-              ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}</span>
-          </button>
-          <div class="cam-sep"></div>
-          <!--
-            How the bars are drawn: one choice of four (QA of 20-oct: «Modelo con secciones» and
-            «Geometría física» read as two things on at once). Each says what it draws.
-          -->
-          <div class="cam-group" role="radiogroup" aria-label={t('viewport.render.title')} data-testid="cam-render">
-            <span class="cam-group-title">{t('viewport.render.title')}</span>
-            {#each RENDER_MODES as m (m)}
-              <button class="cam-item" class:on={uiStore.renderMode3D === m} role="radio" aria-checked={uiStore.renderMode3D === m}
-                      onclick={() => { uiStore.renderMode3D = m; }} title={t(`viewport.render.${m}Hint`)}
-                      data-testid={m === 'physical' ? 'cam-physical' : `cam-render-${m}`}>
-                <span class="cam-glyph">{RENDER_GLYPH[m]}</span>
-                <span class="cam-two"><span>{t(`config.${m}`)}</span><small>{t(`viewport.render.${m}Hint`)}</small></span>
-              </button>
-            {/each}
-          </div>
-          <div class="cam-sep"></div>
-          <button
-            class="cam-item" class:on={buildTimelapse.active} data-testid="cam-build-timelapse"
-            onclick={() => { if (buildTimelapse.active) buildTimelapse.close(); else { timelapseSound.unlock(); buildTimelapse.open(); } camMenuOpen = false; }}
-          >
-            <span class="cam-glyph">▶</span>
-            <span>{t('timelapse.menu')}</span>
-          </button>
-        </div>
+        <ViewMenu3D pro={uiStore.analysisMode === 'pro'} onfit={zoomToFit} onview={setView} onprojection={(m) => { if (uiStore.cameraMode3D !== m) toggleCameraMode(); }} onclose={() => (camMenuOpen = false)} />
       {/if}
     </div>
   </div>
@@ -4739,7 +4707,6 @@
   <!-- Shell contour legend (visible only while a shell contour map is active) -->
   <ShellContourLegend />
   <QuickInfoCard />
-  <PlateSelectionCard />
 </div>
 {#if splitOn && scene}
   <SplitView3D bind:this={splitView} {scene} parents={() => ({ elements: elementsParent, nodes: nodesParent })} />

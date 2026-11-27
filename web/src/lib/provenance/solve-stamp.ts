@@ -10,6 +10,7 @@
  * version solved it", and it is read as the oldest version: the conservative answer, because it
  * shows every registered change that concerns the model rather than none.
  */
+import { isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
 import { RESULTS_VERSION } from './registry';
 import { buildIdentity } from './build-identity';
 import { ANALYSIS_KINDS, LEGACY_RECORDED_ANALYSES, type AnalysisKind, type FeatureContext } from './model-features';
@@ -31,6 +32,7 @@ export interface SolveStamp {
   solvedAt: string;
   /** The analyses run under this stamp (best effort: the static solve and the advanced panels). */
   analyses: AnalysisKind[];
+  drawPlane2D?: DrawPlane;
   /**
    * The analyses the stamp knows the runs of: one listed here and absent from `analyses` was not
    * run. Absent on stamps written before #1658 (`LEGACY_RECORDED_ANALYSES`). A solve in another
@@ -41,8 +43,8 @@ export interface SolveStamp {
 }
 
 /** What a stamp says about which analyses its results came from (`modelFeatures`). */
-export function analysesContext(s: SolveStamp): Pick<FeatureContext, 'analysesRun' | 'analysesRecorded'> {
-  return { analysesRun: s.resultsVersion > 0 ? s.analyses : null, analysesRecorded: s.recorded };
+export function analysesContext(s: SolveStamp): Pick<FeatureContext, 'analysesRun' | 'analysesRecorded' | 'drawPlane2D'> {
+  return { analysesRun: s.resultsVersion > 0 ? s.analyses : null, analysesRecorded: s.recorded, drawPlane2D: s.drawPlane2D };
 }
 
 /** A stamp for a project that carries none: the oldest version, nothing else known. */
@@ -78,7 +80,7 @@ export function freshStamp(now = new Date()): SolveStamp {
  * The stamp for a solve that just finished in this build. Analyses accumulate while the results
  * version stays the same: a modal run after the static solve is part of the same results.
  */
-export function stampSolve(kind: AnalysisKind, previous: SolveStamp | null | undefined, now = new Date()): SolveStamp {
+export function stampSolve(kind: AnalysisKind, previous: SolveStamp | null | undefined, now = new Date(), drawPlane2D?: DrawPlane): SolveStamp {
   const b = buildIdentity();
   const keep = previous && previous.resultsVersion === RESULTS_VERSION && previous.commit === b.commit ? previous.analyses : [];
   const analyses = [...new Set<AnalysisKind>([...keep, kind])].sort();
@@ -94,6 +96,7 @@ export function stampSolve(kind: AnalysisKind, previous: SolveStamp | null | und
     wasmHash: b.wasmHash,
     solvedAt: now.toISOString(),
     analyses,
+    ...(drawPlane2D === undefined ? {} : { drawPlane2D }),
     recorded: [...new Set<AnalysisKind>([...known, kind])].sort(),
   };
 }
@@ -118,6 +121,7 @@ export function readStamp(v: unknown): SolveStamp | undefined {
     wasmHash: str('wasmHash'),
     solvedAt: str('solvedAt', ''),
     analyses: Array.isArray(s.analyses) ? (s.analyses.filter((a) => typeof a === 'string') as AnalysisKind[]) : [],
+    ...(isDrawPlane(s.drawPlane2D) ? { drawPlane2D: s.drawPlane2D } : {}),
     ...(Array.isArray(s.recorded) ? { recorded: s.recorded.filter((a): a is AnalysisKind => (ANALYSIS_KINDS as readonly unknown[]).includes(a)) } : {}),
   };
 }

@@ -406,8 +406,6 @@
   "loads": [
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 1,
         "qI": -10.375,
         "qJ": -10.375
@@ -416,8 +414,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 2,
         "qI": -11.125,
         "qJ": -11.125
@@ -426,8 +422,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 3,
         "qI": -11.875,
         "qJ": -11.875
@@ -436,8 +430,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 4,
         "qI": -12.625,
         "qJ": -12.625
@@ -446,8 +438,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 5,
         "qI": -13.375,
         "qJ": -13.375
@@ -456,8 +446,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 6,
         "qI": -14.125,
         "qJ": -14.125
@@ -466,8 +454,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 7,
         "qI": -14.875,
         "qJ": -14.875
@@ -476,8 +462,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 8,
         "qI": -15.625,
         "qJ": -15.625
@@ -486,8 +470,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 9,
         "qI": -16.375,
         "qJ": -16.375
@@ -496,8 +478,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 10,
         "qI": -17.125,
         "qJ": -17.125
@@ -506,8 +486,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 11,
         "qI": -17.875,
         "qJ": -17.875
@@ -516,8 +494,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 12,
         "qI": -18.625,
         "qJ": -18.625
@@ -526,8 +502,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 13,
         "qI": -19.375,
         "qJ": -19.375
@@ -536,8 +510,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 14,
         "qI": -20.125,
         "qJ": -20.125
@@ -546,8 +518,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 15,
         "qI": -20.875,
         "qJ": -20.875
@@ -556,8 +526,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 16,
         "qI": -21.625,
         "qJ": -21.625
@@ -566,8 +534,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 17,
         "qI": -22.375,
         "qJ": -22.375
@@ -576,8 +542,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 18,
         "qI": -23.125,
         "qJ": -23.125
@@ -586,8 +550,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 19,
         "qI": -23.875,
         "qJ": -23.875
@@ -596,8 +558,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 20,
         "qI": -24.625,
         "qJ": -24.625
@@ -606,8 +566,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 21,
         "qI": -25.375,
         "qJ": -25.375
@@ -616,8 +574,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 22,
         "qI": -26.125,
         "qJ": -26.125
@@ -626,8 +582,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 23,
         "qI": -26.875,
         "qJ": -26.875
@@ -636,8 +590,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 24,
         "qI": -27.625,
         "qJ": -27.625
@@ -646,8 +598,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 25,
         "qI": -28.375,
         "qJ": -28.375
@@ -656,8 +606,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 26,
         "qI": -29.125,
         "qJ": -29.125
@@ -666,8 +614,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 27,
         "qI": -29.875,
         "qJ": -29.875
@@ -676,8 +622,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 28,
         "qI": -30.625,
         "qJ": -30.625
@@ -686,8 +630,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 29,
         "qI": -31.375,
         "qJ": -31.375
@@ -696,8 +638,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 30,
         "qI": -32.125,
         "qJ": -32.125
@@ -706,8 +646,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 31,
         "qI": -32.875,
         "qJ": -32.875
@@ -716,8 +654,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 32,
         "qI": -33.625,
         "qJ": -33.625
@@ -726,8 +662,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 33,
         "qI": -34.375,
         "qJ": -34.375
@@ -736,8 +670,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 34,
         "qI": -35.125,
         "qJ": -35.125
@@ -746,8 +678,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 35,
         "qI": -35.875,
         "qJ": -35.875
@@ -756,8 +686,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 36,
         "qI": -36.625,
         "qJ": -36.625
@@ -766,8 +694,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 37,
         "qI": -37.375,
         "qJ": -37.375
@@ -776,8 +702,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 38,
         "qI": -38.125,
         "qJ": -38.125
@@ -786,8 +710,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 39,
         "qI": -38.875,
         "qJ": -38.875
@@ -796,8 +718,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 40,
         "qI": -39.625,
         "qJ": -39.625
@@ -1035,14 +955,7 @@
   "solverOptions": null,
   "supports": {
     "1": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
-      "dz": null,
       "id": 1,
-      "kx": null,
-      "ky": null,
-      "kz": null,
       "nodeId": 1,
       "type": "fixed"
     }

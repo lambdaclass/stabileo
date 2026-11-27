@@ -100,6 +100,7 @@ export function splitElementLoads(
   newId: () => number,
   segmentLengths: readonly number[],
   points?: MemberEndpoints,
+  inherit: (descendant: Load, source: Load) => Load = load => load,
 ): { kept: Load[]; added: Load[] } {
   const kept: Load[] = [];
   const added: Load[] = [];
@@ -113,6 +114,7 @@ export function splitElementLoads(
 
   for (const l of loads) {
     if (!onThis(l)) { kept.push(l); continue; }
+    const deliver = (load: Load) => added.push(inherit(load, l));
     switch (l.type) {
       case 'distributed': {
         const d = l.data as DistributedLoad;
@@ -124,7 +126,7 @@ export function splitElementLoads(
           const data: DistributedLoad = { ...meta, id: newId(), elementId: segmentIds[k]!, qI: c.values[0]![0], qJ: c.values[0]![1] };
           if (c.a !== undefined) data.a = c.a;
           if (c.b !== undefined) data.b = c.b;
-          added.push({ type: 'distributed', data });
+          deliver({ type: 'distributed', data });
         }
         break;
       }
@@ -143,25 +145,25 @@ export function splitElementLoads(
           };
           if (c.a !== undefined) data.a = c.a;
           if (c.b !== undefined) data.b = c.b;
-          added.push({ type: 'distributed3d', data });
+          deliver({ type: 'distributed3d', data });
         }
         break;
       }
       case 'pointOnElement': {
         const d = l.data as PointLoadOnElement;
         const k = segmentOf(bounds, d.a);
-        added.push({ type: 'pointOnElement', data: { ...d, id: newId(), elementId: segmentIds[k]!, a: Math.max(0, d.a - bounds[k]!) } });
+        deliver({ type: 'pointOnElement', data: { ...d, id: newId(), elementId: segmentIds[k]!, a: Math.max(0, d.a - bounds[k]!) } });
         break;
       }
       case 'pointOnElement3d': {
         const d = l.data as PointLoadOnElement3D;
         const k = segmentOf(bounds, d.a);
-        added.push({ type: 'pointOnElement3d', data: { ...d, id: newId(), elementId: segmentIds[k]!, a: Math.max(0, d.a - bounds[k]!) } });
+        deliver({ type: 'pointOnElement3d', data: { ...d, id: newId(), elementId: segmentIds[k]!, a: Math.max(0, d.a - bounds[k]!) } });
         break;
       }
       case 'thermal': {
         const d = l.data as ThermalLoad;
-        for (const sid of segmentIds) added.push({ type: 'thermal', data: { ...d, id: newId(), elementId: sid } });
+        for (const sid of segmentIds) deliver({ type: 'thermal', data: { ...d, id: newId(), elementId: sid } });
         break;
       }
       case 'prestress3d': {
@@ -169,7 +171,7 @@ export function splitElementLoads(
         // and middle, and the anchor loads of neighbours cancel at the node they share (exact).
         const d = l.data as PrestressLoad3D;
         for (let k = 0; k < segmentIds.length; k++) {
-          added.push({ type: 'prestress3d', data: { ...tendonStretch(d, bounds[k]!, bounds[k + 1]!, L), id: newId(), elementId: segmentIds[k]! } });
+          deliver({ type: 'prestress3d', data: { ...tendonStretch(d, bounds[k]!, bounds[k + 1]!, L), id: newId(), elementId: segmentIds[k]! } });
         }
         break;
       }

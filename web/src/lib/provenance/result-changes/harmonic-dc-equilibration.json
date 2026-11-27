@@ -1,0 +1,34 @@
+{
+  "id": "harmonic-dc-equilibration",
+  "date": "2026-11-26",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": ["recordedHarmonic"]
+  },
+  "quantities": ["solve.ok", "responsePoints", "peakAmplitude", "peakFrequency"],
+  "title": {
+    "en": "Unit-independent direct harmonic stiffness at zero frequency",
+    "es": "Rigidez armónica directa a frecuencia cero independiente de las unidades",
+    "pt": "Rigidez harmônica direta em frequência zero independente das unidades",
+    "de": "Einheitenunabhängige direkte harmonische Steifigkeit bei Frequenz null",
+    "fr": "Raideur harmonique directe à fréquence nulle indépendante des unités",
+    "hu": "Egységfüggetlen közvetlen harmonikus merevség zérus frekvencián",
+    "tr": "Sıfır frekansta birimden bağımsız doğrudan harmonik rijitlik",
+    "zh": "零频时与单位无关的直接谐响应刚度"
+  },
+  "explanation": {
+    "en": "The direct harmonic solver checks zero-frequency stiffness in an equilibrated system. Re-run affected sweeps that include zero frequency.",
+    "es": "El solver armónico directo comprueba la rigidez a frecuencia cero en un sistema equilibrado. Repita los barridos afectados que incluyan la frecuencia cero.",
+    "pt": "O solver harmônico direto verifica a rigidez em frequência zero em um sistema equilibrado. Refaça as varreduras afetadas que incluem a frequência zero.",
+    "de": "Der direkte harmonische Löser prüft die Steifigkeit bei Frequenz null in einem äquilibrierten System. Wiederholen Sie betroffene Frequenzgänge mit Frequenz null.",
+    "fr": "Le solveur harmonique direct vérifie la raideur à fréquence nulle dans un système équilibré. Relancez les balayages concernés qui incluent la fréquence nulle.",
+    "hu": "A közvetlen harmonikus megoldó egyensúlyozott rendszerben vizsgálja a zérus frekvenciájú merevséget. Ismételje meg a zérus frekvenciát tartalmazó érintett vizsgálatokat.",
+    "tr": "Doğrudan harmonik çözücü, sıfır frekanstaki rijitliği dengelenmiş bir sistemde denetler. Sıfır frekansı içeren etkilenen taramaları yeniden çalıştırın.",
+    "zh": "直接谐响应求解器在均衡后的系统中检查零频刚度。请重新运行包含零频的受影响扫频分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-harmonic-dc-equilibration.md",
+    "heading": "Unit-independent direct harmonic stiffness at zero frequency"
+  }
+}

@@ -1,7 +1,7 @@
 /**
  * Editing a designed and detailed building keeps the pace of the analytical model: a node moved
- * on the 7-storey example, in the wireframe view and in the physical geometry, each edit timed
- * until the viewer has drawn it. The physical view stays within a small multiple of the
+ * on the 7-storey example, in the wireframe view and with the sections, each edit timed
+ * until the viewer has drawn it. The sections view stays within a small multiple of the
  * wireframe one and under a frame budget a person feels as immediate.
  */
 import { test, expect, designAll, loadModel, designPlace } from './fixtures';
@@ -31,12 +31,10 @@ async function editTimes(page: Page, n = 8): Promise<number> {
 }
 
 test.describe('@timing model fluidity with design', () => {
-  test('a node moved on the detailed 7-storey building, wireframe and physical', async ({ pro: page }) => {
+  test('a node moved on the detailed 7-storey building, wireframe and sections', async ({ pro: page }) => {
     test.setTimeout(600_000);
-    await loadModel(page, 'pro-edificio-7p', { meshBeforeAnalysis: false });
-    const shells = await page.evaluate(() => window.__stabileo.quadIds());
+    await loadModel(page, 'pro-edificio-7p');
     await designAll(page);
-    expect(await page.evaluate(() => window.__stabileo.quadIds()), 'the detailed building uses its original shells').toEqual(shells);
     await designPlace(page, 'detailing');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(async () => page.evaluate(() =>
@@ -44,13 +42,13 @@ test.describe('@timing model fluidity with design', () => {
     await page.keyboard.press('Escape');
 
     const wire = await editTimes(page);
-    await page.getByTestId('cam-menu').click();
-    await page.getByTestId('cam-menu-pop').getByText(/physical geometry|geometr[ií]a f[ií]sica/i).click();
-    await expect.poll(() => page.evaluate(() => window.__stabileo.renderMode3D())).toBe('physical');
-    const physical = await editTimes(page);
-    console.log(`FLUIDITY wireframe ${wire.toFixed(0)} ms · physical ${physical.toFixed(0)} ms`);
-    test.info().annotations.push({ type: 'fluidity', description: `wireframe ${wire.toFixed(0)} ms, physical ${physical.toFixed(0)} ms` });
-    expect(Number.isFinite(physical) && Number.isFinite(wire), 'both views were timed').toBe(true);
-    if (assertBudget(physical, Math.max(250, 4 * wire), 'fluidity: an edit in the physical view, drawn')) expect(physical, 'an edit in the physical view, drawn').toBeLessThan(Math.max(250, 4 * wire));
+    await page.evaluate(() => window.__stabileoActions.openProTab('view'));
+    await page.getByTestId('view-style').selectOption('sections');
+    await expect.poll(() => page.evaluate(() => window.__stabileo.renderMode3D())).toBe('sections');
+    const sections = await editTimes(page);
+    console.log(`FLUIDITY wireframe ${wire.toFixed(0)} ms · sections ${sections.toFixed(0)} ms`);
+    test.info().annotations.push({ type: 'fluidity', description: `wireframe ${wire.toFixed(0)} ms, sections ${sections.toFixed(0)} ms` });
+    expect(Number.isFinite(sections) && Number.isFinite(wire), 'both views were timed').toBe(true);
+    if (assertBudget(sections, Math.max(250, 4 * wire), 'fluidity: an edit in the sections view, drawn')) expect(sections, 'an edit in the sections view, drawn').toBeLessThan(Math.max(250, 4 * wire));
   });
 });

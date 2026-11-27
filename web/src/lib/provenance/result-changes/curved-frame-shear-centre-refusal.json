@@ -1,0 +1,32 @@
+{
+  "id": "curved-frame-shear-centre-refusal",
+  "date": "2026-11-23",
+  "prs": [2510],
+  "area": "analysis",
+  "when": { "allOf": [["space3D"], ["arcMembers"], ["analysis:nonlinear"]] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Curved-frame co-rotation checks shear-centre offsets",
+    "es": "El análisis corrotacional de barras curvas verifica el centro de cortante",
+    "pt": "A análise corrotacional de barras curvas verifica o centro de cisalhamento",
+    "de": "Die korotationale Analyse gekrümmter Stäbe prüft Schubmittelpunktversätze",
+    "fr": "L’analyse corotationnelle des barres courbes vérifie le centre de cisaillement",
+    "hu": "Az íves rudak korotációs elemzése ellenőrzi a nyírási középpontot",
+    "tr": "Eğri çubukların eş dönel analizi kayma merkezi kaçıklığını denetler",
+    "zh": "曲梁共旋分析检查剪切中心偏移"
+  },
+  "explanation": {
+    "en": "Spatial co-rotational analysis now refuses used curved-frame sections with a shear-centre offset because the solver omits flexural-torsional coupling.",
+    "es": "El análisis corrotacional espacial rechaza secciones de barras curvas con centro de cortante desplazado, porque el solver omite el acoplamiento de flexión y torsión.",
+    "pt": "A análise corrotacional espacial recusa seções de barras curvas com centro de cisalhamento deslocado, pois o solver omite o acoplamento de flexão e torção.",
+    "de": "Die räumliche korotationale Analyse lehnt Querschnitte gekrümmter Stäbe mit Schubmittelpunktversatz ab, da der Löser die Biege-Torsions-Kopplung auslässt.",
+    "fr": "L’analyse corotationnelle spatiale refuse les sections utilisées par des barres courbes dont le centre de cisaillement est excentré, car le solveur omet le couplage flexion-torsion.",
+    "hu": "A térbeli korotációs elemzés elutasítja az eltolt nyírási középpontú íves rúdszelvényeket, mert a megoldó nem veszi figyelembe a hajlítás és csavarás csatolását.",
+    "tr": "Uzaysal eş dönel analiz, eğilme-burulma bağlaşımını içermediği için kayma merkezi kaçık eğri çubuk kesitlerini reddeder.",
+    "zh": "空间共旋分析拒绝使用剪切中心偏移截面的曲梁，因为求解器省略了弯扭耦合。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-production-nonlinear-drivers.md",
+    "heading": "Correct production continuation and curved-frame nonlinear results (2026-11-23)"
+  }
+}

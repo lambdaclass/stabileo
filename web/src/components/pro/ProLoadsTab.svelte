@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { floorLoadRequest } from '../../lib/store/floor-load-request.svelte';
   import Hint from './Hint.svelte';
   import ProWriteLoadCard from './loads/ProWriteLoadCard.svelte';
   import ProLoadTables from './loads/ProLoadTables.svelte';
@@ -7,11 +6,11 @@
   import ProCombinationsList from './ProCombinationsList.svelte';
   import { windCaseReversible } from '../../lib/store/wind-reversal';
   import ProFloorLoadSection from './ProFloorLoadSection.svelte';
-  import { expandCombinations, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
-  import { addGeneratedCombinations, addCompositeCases, combinationExists, templateCombinationSpecs } from '../../lib/store/generated-combinations';
+  import { expandCombinations, modelCombinationCases, presentSymbols, type CaseCombination } from '../../lib/engine/loads/combination-cases';
+  import { activeCombinationFactors, addGeneratedCombinations, addCompositeCases, generatedCombinationMatcher, templateCombinationSpecs } from '../../lib/store/generated-combinations';
   import { withNotionalVariants } from '../../lib/engine/loads/notional-combinations';
   import { modelStore, uiStore } from '../../lib/store';
-  import { runEngineAction } from '../../lib/store/engine-action';
+  import { errorText, runEngineAction } from '../../lib/store/engine-action';
   import { t, tp, capitalized } from '../../lib/i18n';
   import WriteInPanelButton from './WriteInPanelButton.svelte';
   import WriteCard from './WriteCard.svelte';
@@ -61,11 +60,6 @@
   let seismicBothSenses = $state(true);
   let windBySign = $state(false);
 
-  // Read through the composite cases: one written as a composite case is the same combination.
-  function comboExists(factors: Array<{caseId: number; factor: number}>): boolean {
-    return combinationExists(factors, combinations, modelStore.model.loadCases);
-  }
-
   function buildCandidates(template: ComboTemplate): CandidateCombo[] {
     return candidatesFrom(template);
   }
@@ -80,7 +74,7 @@
    * and an ASD set labelled "service", which is allowable-stress design and not serviceability.
    */
   function candidatesFrom(template: ComboTemplate): CandidateCombo[] {
-    const cases = modelStore.model.loadCases;
+    const cases = modelCombinationCases(modelStore.model);
     const present = presentSymbols(cases);
     // The project's rules carry their own factors: W is written as the engineer means it. Each
     // says which code wrote it and what for, so service ones stay out of design.
@@ -90,12 +84,15 @@
       // A wind case with roof suction is not reversed by sign (store/wind-reversal.ts).
       reversible: (id) => windCaseReversible(modelStore.model, id),
     });
+    const alreadyExists = generatedCombinationMatcher(combinations, asComposite ? modelStore.model : undefined, (combo, error) => {
+      uiStore.toast(`${combo.name} — ${errorText(error)}`, 'error');
+    });
     // The notional cases, each with its source's factor, in the combinations without lateral load.
     const out = (addNotionals ? withNotionalVariants(expanded, cases) : expanded).map((c) => {
-      const factors = cases.map((lc) => ({ caseId: lc.id, factor: c.factors.find((f) => f.caseId === lc.id)?.factor ?? 0 }));
-      return { name: c.name, factors, exists: comboExists(factors), selected: false, template, generated: c };
+      const factors = activeCombinationFactors(c.factors);
+      const exists = alreadyExists(factors);
+      return { name: c.name, factors, exists, selected: !exists, template, generated: c };
     });
-    for (const c of out) c.selected = !c.exists;
     return out;
   }
 
@@ -140,7 +137,6 @@
    * belongs to a case, so the case is chosen before the load exists.
    */
   let loadSection = $state('cases');
-  $effect(() => { if (floorLoadRequest.target) loadSection = 'floor'; });
 
   let autoLoadsFocus = $state<AutoLoadFocus | null>(null);
 </script>
@@ -253,12 +249,12 @@
         </label>
       {/if}
       <label class="combo-wind-basis" data-testid="combo-as-composite">
-        <input type="checkbox" bind:checked={asComposite} />
+        <input type="checkbox" bind:checked={asComposite} onchange={() => { candidateCombos = runEngineAction(() => buildCandidates(activeTemplate)) ?? candidateCombos; }} />
         <span>{t('combos.asComposite')}</span>
       </label>
       <div class="combo-modal-body">
         {#each candidateCombos as cand, i}
-          {@const nonZero = cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
+          {@const nonZero = [...cand.factors].sort((a, b) => {
             const typePri = (id: number) => {
               const lc2 = loadCases.find(c => c.id === id);
               const tp = (lc2?.type || '').toUpperCase();

@@ -32,7 +32,7 @@ export function shellColorForMaterial(materialId: number | undefined): number {
   return SHELL_PALETTE[((materialId % n) + n) % n];
 }
 
-export type ShellRenderMode = 'wireframe' | 'solid' | 'sections' | 'physical';
+export type ShellRenderMode = 'wireframe' | 'solid' | 'sections';
 
 export interface ShellRenderOpts {
   renderMode: ShellRenderMode;
@@ -40,7 +40,7 @@ export interface ShellRenderOpts {
   thickness: number;
   /** Face colour (defaults to the material palette / teal). */
   faceColor?: number;
-  /** In `physical` mode, the slab net of the frame (`store/physical-frame.ts`); absent, drawn as `sections`. */
+  /** In `sections` mode, the slab net of the frame (`store/physical-frame.ts`); absent, drawn whole. */
   physicalLayers?: readonly PrismLayer[];
 }
 
@@ -49,7 +49,7 @@ type Vec3 = { x: number; y: number; z: number };
 /** Build a per-shell face material (cloned per mesh so selection/contour code
  *  can mutate colour/vertexColors without touching other shells). */
 function makeFaceMaterial(color: number, mode: ShellRenderMode): THREE.MeshStandardMaterial {
-  const sections = mode === 'sections' || mode === 'physical';
+  const sections = mode === 'sections';
   const wire = mode === 'wireframe';
   return new THREE.MeshStandardMaterial({
     color,
@@ -197,7 +197,7 @@ function buildPrismGeometry(verts: Vec3[], normal: THREE.Vector3, t: number): TH
 
 /** Crisp outline geometry (coplanar fan diagonals suppressed for flat faces). */
 function buildEdges(geo: THREE.BufferGeometry, mode: ShellRenderMode): THREE.LineSegments {
-  const thresholdDeg = mode === 'sections' || mode === 'physical' ? 20 : 1;
+  const thresholdDeg = mode === 'sections' ? 20 : 1;
   const eg = new THREE.EdgesGeometry(geo, thresholdDeg);
   const mat = new THREE.LineBasicMaterial({ color: EDGE_COLOR, linewidth: 1 });
   const edges = new THREE.LineSegments(eg, mat);
@@ -235,10 +235,10 @@ function buildShellGroup(
   const faceColor = opts.faceColor ?? SHELL_COLOR;
   const mode = opts.renderMode;
 
-  const net = mode === 'physical' && opts.physicalLayers ? prismLayersGeometry(opts.physicalLayers) : null;
+  const net = mode === 'sections' && opts.physicalLayers ? prismLayersGeometry(opts.physicalLayers) : null;
   // A slab the frame covers whole keeps its flat face, so it can still be picked.
-  const geo = mode === 'physical' && opts.physicalLayers ? (net ? withCornerMaps(net, verts) : buildFlatGeometry(verts))
-    : mode === 'sections' || mode === 'physical'
+  const geo = mode === 'sections' && opts.physicalLayers ? (net ? withCornerMaps(net, verts) : buildFlatGeometry(verts))
+    : mode === 'sections'
       ? buildPrismGeometry(verts, faceNormal(verts), opts.thickness)
       : buildFlatGeometry(verts);
 
@@ -383,7 +383,7 @@ export function createPhysicalPlateMesh(
   const hs = uv.holes.map((h) => h.map(([x, y]) => new THREE.Vector2(x, y)));
   const faces = THREE.ShapeUtils.triangulateShape(contour, hs);
   const pts = [...outer, ...holes.flat()];
-  const solid = (opts.renderMode === 'sections' || opts.renderMode === 'physical') && (opts.thickness ?? 0) > 0;
+  const solid = (opts.renderMode === 'sections') && (opts.thickness ?? 0) > 0;
   const geo = solid ? plateSlabGeometry(outer, holes, faces, opts.thickness!) : (() => {
     const pos = new Float32Array(pts.length * 3);
     pts.forEach((p, i) => { pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z; });
@@ -395,7 +395,7 @@ export function createPhysicalPlateMesh(
   })();
   const faceColor = opts.faceColor ?? SHELL_COLOR;
   // Drawn as a slab where the view draws thickness, with that view's opaque material; flat otherwise.
-  const faceMat = makeFaceMaterial(faceColor, solid ? opts.renderMode : opts.renderMode === 'sections' || opts.renderMode === 'physical' ? 'solid' as ShellRenderMode : opts.renderMode);
+  const faceMat = makeFaceMaterial(faceColor, solid ? opts.renderMode : opts.renderMode === 'sections' ? 'solid' as ShellRenderMode : opts.renderMode);
   const mesh = new THREE.Mesh(geo, faceMat);
   mesh.userData.shellFace = true;
   mesh.userData.ownShellMaterial = true;

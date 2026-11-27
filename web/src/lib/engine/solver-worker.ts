@@ -15,9 +15,9 @@
  * Inputs/outputs are plain JS objects — structured-cloned both ways, no JSON text.
  */
 
-import { assertFiniteWire, finiteWireJson, certificateOnly, isCertifyExport, readCertifyAnswer } from './wasm-solver';
+import { finiteObjectWire, certificateOnly, isCertifyExport, readCertifyAnswer, solvePDelta3DWire } from './wasm-solver';
 import { nonlinearWorkerReply, nonlinearWorkerSession } from './nonlinear-worker-session';
-import { finishSolve3D, finishPDelta3D } from './solve-finish';
+import { finishSolve3D } from './solve-finish';
 
 let solve_2d: ((input: any) => any) | null = null;
 let solve_3d: ((input: any) => any) | null = null;
@@ -36,8 +36,7 @@ function handleSolve(msg: any, solveFn: ((input: any) => any) | null): void {
   }
   try {
     // The finiteness guard preserves the old JSON-boundary semantics (NaN/Inf rejected).
-    assertFiniteWire(msg.input);
-    const raw = solveFn(msg.input);
+    const raw = solveFn(finiteObjectWire(msg.input));
     /* Finished as the main thread finishes it (`solve-finish.ts`). */
     const result = msg.type === 'solve3d' ? finishSolve3D(raw, msg.input) : raw;
     self.postMessage({ type: 'result', id: msg.id, result });
@@ -100,9 +99,8 @@ self.onmessage = async (e: MessageEvent) => {
       return;
     }
     try {
-      assertFiniteWire(msg.input);
       // Only the certificate crosses back: the results are the solve's, already on screen.
-      self.postMessage({ type: 'result', id: msg.id, result: certificateOnly(certify(msg.input)) });
+      self.postMessage({ type: 'result', id: msg.id, result: certificateOnly(certify(finiteObjectWire(msg.input))) });
     } catch (err: any) {
       self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err) });
     }
@@ -119,8 +117,8 @@ self.onmessage = async (e: MessageEvent) => {
     }
     try {
       const args: unknown[] = Array.isArray(msg.input) ? msg.input : [];
-      for (const a of args) if (a && typeof a === 'object') assertFiniteWire(a);
-      self.postMessage({ type: 'result', id: msg.id, result: readCertifyAnswer(name, (fn as (...a: unknown[]) => unknown)(...args)) });
+      const wireArgs = args.map(a => a && typeof a === 'object' ? finiteObjectWire(a) : a);
+      self.postMessage({ type: 'result', id: msg.id, result: readCertifyAnswer(name, (fn as (...a: unknown[]) => unknown)(...wireArgs)) });
     } catch (err: any) {
       self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err) });
     }
@@ -134,9 +132,7 @@ self.onmessage = async (e: MessageEvent) => {
     }
     try {
       const { maxIter, tol: tolerance } = msg;
-      const json = finiteWireJson(msg.input, { maxIter, tolerance });
-      const result = JSON.parse(solve_pdelta_3d(json, maxIter, tolerance));
-      finishPDelta3D(result, msg.input);
+      const result = solvePDelta3DWire(msg.input, maxIter, tolerance, solve_pdelta_3d);
       self.postMessage({ type: 'result', id: msg.id, result });
     } catch (err: any) {
       self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err) });

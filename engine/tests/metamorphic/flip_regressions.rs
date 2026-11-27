@@ -28,7 +28,10 @@ fn rotated_rigid_control_keeps_its_pdelta_equilibrium() {
         "rotated equilibrium did not converge in {} iterations",
         got.iterations
     );
-    assert!(!pdelta::solve_pdelta_2d(&tc.s, 1, 1e-12).unwrap().converged);
+    crate::red_ci::assert_pdelta_physical_refusal(
+        &pdelta::solve_pdelta_2d(&tc.s, 1, 1e-12).unwrap_err(),
+        1e-12,
+    );
     let certified =
         dedaliano_engine::certify::pdelta::certify_pdelta_2d(&tc.s, 100, 1e-12).unwrap();
     assert!(certified.results.converged);
@@ -198,8 +201,10 @@ fn minimal_761() -> SolverInput {
 
 #[test]
 fn corrected_cantilevers_match_independent_element_equilibria() {
-    let issue_971: SolverInput =
-        serde_json::from_str(include_str!("../metamorphic_corpus/nightly/issue-971.json")).unwrap();
+    let issue_971: SolverInput = crate::common::nightly_solver_from_str(include_str!(
+        "../metamorphic_corpus/nightly/issue-971.json"
+    ))
+    .unwrap();
     let mut calls = Vec::new();
     for (issue, base, analysis) in [
         (761, minimal_761(), "corotational"),
@@ -325,7 +330,7 @@ fn supported_response(
 
 #[test]
 fn supported_nodal_load_mirrors_keep_the_exact_zero_strain_answer() {
-    let s: SolverInput = serde_json::from_str(include_str!(
+    let s: SolverInput = crate::common::nightly_solver_from_str(include_str!(
         "../metamorphic_corpus/nightly/issue-1100.json"
     ))
     .unwrap();
@@ -609,7 +614,10 @@ pub(crate) fn verify_generated_corotational_equilibria(count: u64) {
 }
 
 fn r19_physical_cantilever(dim: usize) {
-    let original: SolverInput = serde_json::from_str(include_str!("../metamorphic_corpus/nightly/issue-971.json")).unwrap();
+    let original: SolverInput = crate::common::nightly_solver_from_str(include_str!(
+        "../metamorphic_corpus/nightly/issue-971.json"
+    ))
+    .unwrap();
     let base = Case2::new("r19-971", original);
     let mut calls = Vec::new();
     for (l, f) in [(1.0, 1.0), (1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)] {
@@ -620,25 +628,33 @@ fn r19_physical_cantilever(dim: usize) {
                 if dim == 2 {
                     let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(&c.s);
                     for sparse in [false,true] {
-                        let result = pdelta::solve_pdelta_2d_on(&c.s,&dofs,None,sparse,iterations,1e-12).unwrap();
+                        let outcome = pdelta::solve_pdelta_2d_on(&c.s,&dofs,None,sparse,iterations,1e-12);
+                        if iterations == 0 {
+                            crate::red_ci::assert_pdelta_physical_refusal(&outcome.unwrap_err(), 1e-12);
+                            continue;
+                        }
+                        let result = outcome.unwrap();
                         let equilibrium = result.results.equilibrium.as_ref().unwrap();
                         eprintln!("r19 {dim}D sparse={sparse} iter={iterations} units={l:e}/{f:e} residual={:e}",equilibrium.relative_residual);
-                        assert_eq!(equilibrium.residual_ok, iterations > 0);
-                        assert_eq!(result.results.reactions.iter().all(|r|r.rx.is_finite() && r.rz.is_finite() && r.my.is_finite()), iterations > 0);
-                        if iterations > 0 { check_tip_2d(&c.s,&result.results,expected); }
+                        assert!(equilibrium.residual_ok);
+                        assert!(result.results.reactions.iter().all(|r|r.rx.is_finite() && r.rz.is_finite() && r.my.is_finite()));
+                        check_tip_2d(&c.s,&result.results,expected);
                     }
                 } else {
                     for plane in Plane::ALL {
                         let spatial = embed_2d(&c.s,plane).unwrap();
-                        let result = pdelta::solve_pdelta_3d(&spatial,iterations,1e-12).unwrap();
+                        let outcome = pdelta::solve_pdelta_3d(&spatial,iterations,1e-12);
+                        if iterations == 0 {
+                            crate::red_ci::assert_pdelta_physical_refusal(&outcome.unwrap_err(), 1e-12);
+                            continue;
+                        }
+                        let result = outcome.unwrap();
                         let equilibrium = result.results.equilibrium.as_ref().unwrap();
                         eprintln!("r19 {dim}D iter={iterations} units={l:e}/{f:e} residual={:e}",equilibrium.relative_residual);
-                        assert_eq!(equilibrium.residual_ok, iterations > 0);
-                        assert_eq!(result.results.reactions.iter().all(|r|[r.fx,r.fy,r.fz,r.mx,r.my,r.mz].iter().all(|v|v.is_finite())), iterations > 0);
-                        if iterations > 0 {
-                            check_tip_3d(&c.s,&result.results,expected,plane);
-                            calls.push(json!({"dim":dim,"model":spatial,"expected":expected_3d(expected,plane),"length":l}));
-                        }
+                        assert!(equilibrium.residual_ok);
+                        assert!(result.results.reactions.iter().all(|r|[r.fx,r.fy,r.fz,r.mx,r.my,r.mz].iter().all(|v|v.is_finite())));
+                        check_tip_3d(&c.s,&result.results,expected,plane);
+                        calls.push(json!({"dim":dim,"model":spatial,"expected":expected_3d(expected,plane),"length":l}));
                     }
                 }
             }

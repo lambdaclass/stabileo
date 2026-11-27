@@ -31,7 +31,7 @@
   const currentCase = $derived(data.cases.find((c) => c.id === caseId) ?? defaultCase);
   let parameters = $state<RunParameters>(DEFAULT_PARAMETERS(defaultCase));
   let invalid = $state({ riseSpan: false, initialDs: false });
-  const valid = $derived(!invalid.riseSpan && !invalid.initialDs && parameters.riseSpan >= 0.005 && parameters.riseSpan <= 0.8 && parameters.initialDs >= 1e-8 && parameters.initialDs <= currentCase.input.maxDs);
+  const valid = $derived(!invalid.riseSpan && !invalid.initialDs && parameters.riseSpan >= 0.005 && parameters.riseSpan <= 0.8 && parameters.initialDs >= currentCase.input.minDs && parameters.initialDs <= currentCase.input.maxDs);
   let tab = $state('viewer');
   let pane: HTMLElement | undefined = $state();
   let runTimer: ReturnType<typeof setTimeout> | undefined;
@@ -265,8 +265,8 @@
         <ParamRow id="p-direction" name={strings.benchmark.loadDirection}>
           <select id="p-direction" bind:value={parameters.direction}><option value="downward">{strings.benchmark.downward}</option><option value="upward">{strings.benchmark.upward}</option></select>
         </ParamRow>
-        <ParamRow id="p-ds" name={strings.benchmark.arcLengthStep} hint={`10⁻⁸–${num(currentCase.input.maxDs)}`} invalid={invalid.initialDs}>
-          <NumberField id="p-ds" label={strings.benchmark.arcLengthStep} min={1e-8} max={currentCase.input.maxDs} bind:value={parameters.initialDs} bind:invalid={invalid.initialDs} />
+        <ParamRow id="p-ds" name={strings.benchmark.arcLengthStep} hint={`${num(currentCase.input.minDs, { sig: 15 })}–${num(currentCase.input.maxDs)}`} invalid={invalid.initialDs}>
+          <NumberField id="p-ds" label={strings.benchmark.arcLengthStep} min={currentCase.input.minDs} max={currentCase.input.maxDs} bind:value={parameters.initialDs} bind:invalid={invalid.initialDs} />
         </ParamRow>
         <div class="rs-buttons">
           {#if runner.status === 'running'}

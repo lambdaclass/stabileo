@@ -11,7 +11,9 @@ use dedaliano_engine::types::{SolverInput, SolverInput3D};
 fn input(issue: &str) -> serde_json::Value {
     let fixtures: serde_json::Value =
         serde_json::from_str(include_str!("../fixtures/cause-c-replay.json")).unwrap();
-    fixtures.get(issue).unwrap().clone()
+    let mut model = fixtures.get(issue).unwrap().clone();
+    crate::common::take_nightly_metadata(&mut model);
+    model
 }
 
 fn mechanism_2d(issue: &str, analysis: &str, node: usize) {
@@ -188,7 +190,7 @@ fn issue_1095_modal_refuses_the_free_translation_without_dropping_its_mode() {
             .expect_err("a modal result omitted the mechanism mode");
         assert!(error.starts_with("MODAL-MECHANISM:"), "{analysis}: {error}");
         assert!(
-            error.contains("moves node 3 along ux") && error.contains("No modes are returned"),
+            error.contains("mechanism at node 3 (dominant component: ux)") && error.contains("No modes are returned"),
             "{analysis}: {error}"
         );
     }

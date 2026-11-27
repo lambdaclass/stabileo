@@ -101,6 +101,32 @@ describe('solver-worker message round-trip', () => {
     expect(tip.uz / (-10 * 12 ** 3 / (3 * 200e6 * 1000 * 1e-4))).toBeCloseTo(1, 6);
   });
 
+  it.each([
+    { job: 'pdelta3d', id: 2100, fixture: 'issue-2100-pdelta', iterations: 31 },
+    { job: 'certify_pdelta_3d', id: 2101, fixture: 'issue-2100-pdelta', iterations: 31 },
+    { job: 'certify_pdelta_2d', id: 2102, fixture: 'reaction-recovery-2d', iterations: 0 },
+  ])('#2100 forwards the P-Delta equilibrium refusal from $job', async ({ job, id, fixture, iterations }) => {
+    const path = new URL(`../../../../../engine/tests/fixtures/${fixture}.json`, import.meta.url);
+    const input = JSON.parse(readFileSync(path, 'utf8'));
+    if (job === 'certify_pdelta_2d') input.loads[0].data.fx = -3;
+    const tolerance = 1e-8;
+    await dispatch(job === 'pdelta3d'
+      ? { type: job, id, input, maxIter: iterations, tol: tolerance }
+      : { type: 'certify', id, name: job, input: [JSON.stringify(input), iterations, tolerance] });
+    const reply = posted.find(m => m.type === 'result' && m.id === id);
+    expect(reply?.result).toBeUndefined();
+    expect(reply?.error).toBeDefined();
+    const refusal = JSON.parse(reply!.error!);
+    expect(refusal.structuredDiagnostics[0]).toMatchObject({
+      code: 'result_quantity_unavailable',
+      severity: 'error',
+      phase: 'equilibrium',
+      threshold: tolerance,
+    });
+    expect(refusal.structuredDiagnostics[0].value).toBeGreaterThan(tolerance);
+    expect(refusal.message).toContain('physical free-DOF residual');
+  });
+
   it('#2292 the P-Delta worker refuses non-finite scalar options', async () => {
     for (const [id, tol] of [NaN, Infinity, -Infinity].entries()) {
       await dispatch({ type: 'pdelta3d', id: 2292 + id, input: cantileverWire(), maxIter: 20, tol });
@@ -108,6 +134,39 @@ describe('solver-worker message round-trip', () => {
       expect.soft(reply?.result).toBeUndefined();
       expect.soft(reply?.error).toMatch(/Non-finite number .* at .*tolerance/);
     }
+  });
+
+  it.each(['solve3d', 'pdelta3d', 'nonlinear-step'])('forwards an unresolved inclined support rank from %s', async (type) => {
+    const input = cantileverWire();
+    const angle = 0.4;
+    const x = Math.sin(angle);
+    const z = Math.cos(angle);
+    Object.assign(input.nodes[2], { x, z });
+    input.elements[1].type = 'truss';
+    input.supports[2] = {
+      nodeId: 2, rx: false, ry: false, rz: false, rrx: true, rry: true, rrz: true,
+      isInclined: true, normalX: x, normalY: 0, normalZ: z, ky: 1,
+    };
+    input.loads = [];
+
+    const run = async (id: number) => {
+      await dispatch(type === 'nonlinear-step'
+        ? { type, id, sessionId: id, input: { kind: 'ssi', input, soilSprings: [] } }
+        : { type, id, input, maxIter: 8, tol: 1e-12 });
+      return posted.find(message => message.type === 'result' && message.id === id)!;
+    };
+    const id = 2600 + ['solve3d', 'pdelta3d', 'nonlinear-step'].indexOf(type) * 3;
+    const refused = await run(id);
+    expect(refused.result).toBeUndefined();
+    expect(JSON.parse(refused.error!).structuredDiagnostics).toEqual([
+      expect.objectContaining({ code: 'reduced_stiffness_rank', severity: 'error' }),
+    ]);
+
+    input.nodes[2].x += 0.25;
+    const solved = await run(id + 1);
+    expect(solved.error).toBeUndefined();
+    expect(solved.result).toBeDefined();
+    if (type === 'nonlinear-step') await dispatch({ type: 'nonlinear-free', id: id + 2, sessionId: id + 1 });
   });
 
   it('reports an error for structurally invalid input instead of hanging', async () => {

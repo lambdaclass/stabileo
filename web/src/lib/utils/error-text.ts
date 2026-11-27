@@ -1,4 +1,5 @@
 import { knownIssueRefusal } from '../engine/known-issues';
+import { asCodedRefusal } from '../engine/containment-error';
 
 /**
  * The readable text of a thrown value.
@@ -21,6 +22,7 @@ import { knownIssueRefusal } from '../engine/known-issues';
 export function errorText(e: unknown, fallback: string): string {
   const refusal = knownIssueRefusal(e);
   if (refusal) return refusal;
+  e = asCodedRefusal(e, 'result_quantity_unavailable');
   if (typeof e === 'string') return e.trim() ? e : fallback;
   const message = (e as { message?: unknown } | null | undefined)?.message;
   if (typeof message === 'string' && message.trim()) return message;

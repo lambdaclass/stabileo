@@ -10,6 +10,7 @@
  */
 import { BUILD_OFFERED_LOCALES } from './build-locales';
 import { test, expect, loadModel, solveModel, bootPro } from './fixtures';
+import type { Release } from '../src/lib/store/model.svelte';
 import type { Locator, Page } from '@playwright/test';
 
 // Vite names the lazy chunk after applicability.ts; full-registry.ts is its static dependency.
@@ -23,7 +24,7 @@ const CONCRETE = { id: 2, name: 'H-25', e: 30000, nu: 0.2, rho: 25, fy: 25 };
 
 /** A `.ded` as a build before solve stamps wrote it: no `snapshot.solvedWith`. */
 function oldProject(materialId: 1 | 2, type: 'truss' | 'frame') {
-  const rel = { tx: false, ry: false, rz: false, my: false, mz: false, t: false };
+  const rel = { my: false, mz: false, t: false } satisfies Release;
   return {
     version: '2.0',
     name: materialId === 1 ? 'Old steel truss' : 'Old concrete frame',

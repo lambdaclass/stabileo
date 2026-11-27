@@ -43,7 +43,7 @@ import { generateShed, DEFAULT_SHED_PARAMS as BRACED_DEFAULTS, BRACING_BAYS } fr
 import { emitModel, defaultProfileSpec, type EmitOptions } from '../emit';
 import { modelFromFixture, assertRealSolver } from '../../design/__tests__/helpers';
 import { validateAndSolve3D, buildSolverInput3D } from '../../solver-service';
-import { input3DToWireObject } from '../../wasm-solver';
+import { finiteObjectWire, input3DToWireObject } from '../../wasm-solver';
 import { solve_3d } from '../../../wasm/dedaliano_engine.js';
 
 const DEFAULT_SHED_PARAMS = { ...BRACED_DEFAULTS, wallBracing: false, roofBracing: false, trussBracing: false };
@@ -116,7 +116,7 @@ function solve(json: any, kn: number, direction: 'y' | 'z' = 'y', method?: 'dire
   if (method) {
     const input = buildSolverInput3D(model, false, false)!;
     try {
-      return solve_3d({ ...input3DToWireObject(input), solverOptions: { method } });
+      return solve_3d(finiteObjectWire({ ...input3DToWireObject(input), solverOptions: { method } }));
     } catch (error) {
       return String(error);
     }

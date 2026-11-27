@@ -36,7 +36,7 @@ for (const [index, c] of cases.entries()) {
       if (path === 'linear') result = engine[`solve_${c.dim}d`](c.model);
       else if (path === 'arc') result = JSON.parse(engine.solve_arc_length(JSON.stringify(wrapper)));
       else if (path === 'corotational') result = JSON.parse(engine[`${name}_${c.dim}d`](JSON.stringify(c.model),50,1e-10,3));
-      else result = JSON.parse(engine[`${name}_${c.dim}d`](JSON.stringify(path === 'staged' ? c.model : wrapper)));
+      else result = JSON.parse(engine[`${name}_${c.dim}d`](JSON.stringify(path === 'staged' ? { ...c.model, stages: c.stages } : wrapper)));
       replay.push({index,path,result,bits:numericBits(result)});
       if (c.motion === 0) {
         const legacyShape = structuredClone(result);

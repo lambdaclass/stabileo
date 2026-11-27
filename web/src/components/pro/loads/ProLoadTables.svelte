@@ -17,6 +17,7 @@
   import LazySelect from '../../tables/LazySelect.svelte';
   import { progressiveLimit } from '../../../lib/utils/progressive-rows.svelte';
   import { appliedResultant } from '../../../lib/engine/statics-check';
+  import { InvalidSelfWeightScope } from '../../../lib/engine/self-weight';
   import { withCaseEffects } from '../../../lib/engine/case-effects';
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
   import { loadedLength } from '../../../lib/model/loads/load-stretch';
@@ -161,9 +162,24 @@
   const totals = $derived.by(() => {
     const ids = scope === 'all' ? cases.map((c) => c.id) : [uiStore.activeLoadCaseId];
     const types = new Map(cases.map((c) => [c.id, c.type]));
-    // A composite case's totals are those of what it takes in (`case-effects.ts`).
-    const m = withCaseEffects(modelStore.model as never, modelStore.model.loadCases, { includeSelfWeight: uiStore.includeSelfWeight, leftHand: uiStore.axisConvention3D === 'leftHand' });
-    return ids.map((id) => ({ id, ...appliedResultant(m as never, id, { includeSelfWeight: uiStore.includeSelfWeight, caseTypes: types, leftHand: uiStore.axisConvention3D === 'leftHand' }) }));
+    const opts = { includeSelfWeight: uiStore.includeSelfWeight, leftHand: uiStore.axisConvention3D === 'leftHand' };
+    const project = (ids: number[]) => withCaseEffects(modelStore.model as never, cases, opts, new Set(ids));
+    let shared: ReturnType<typeof project> | undefined;
+    if (ids.length > 1) {
+      try {
+        shared = project(ids);
+      } catch (error) {
+        if (!(error instanceof InvalidSelfWeightScope)) throw error;
+      }
+    }
+    return ids.map(id => {
+      try {
+        return { id, total: appliedResultant(shared ?? project([id]), id, { ...opts, caseTypes: types }) };
+      } catch (error) {
+        if (!(error instanceof InvalidSelfWeightScope)) throw error;
+        return { id, error: error.message };
+      }
+    });
   });
   // In the project's units and the reader's decimals, with the unit said: the cells are typed in SI
   // and their headers say so, and a total in tf with no unit beside them read as kN.
@@ -391,10 +407,14 @@
     {#each totals as r (r.id)}
       <div class="lt-total-row" data-testid="lt-total-{r.id}">
         <span class="lt-total-case">{caseName(r.id)}</span>
-        {#each userVec(r.applied.fx, r.applied.fy, r.applied.fz) as c, i (i)}<span>ΣF{'xyz'[i]} {F(c)}</span>{/each}
-        {#each userRot(r.applied.mx, r.applied.my, r.applied.mz) as c, i (i)}<span>ΣM{'xyz'[i]} {M(c)}</span>{/each}
-        {#if r.selfWeightIncluded}<span class="lt-note">{t('loadTables.withSelfWeight')}</span>{/if}
-        {#if r.uncovered.length}<span class="lt-warn">{tp('loadTables.uncovered', { list: r.uncovered.join(', ') })}</span>{/if}
+        {#if r.total}
+          {#each userVec(r.total.applied.fx, r.total.applied.fy, r.total.applied.fz) as c, i (i)}<span>ΣF{'xyz'[i]} {F(c)}</span>{/each}
+          {#each userRot(r.total.applied.mx, r.total.applied.my, r.total.applied.mz) as c, i (i)}<span>ΣM{'xyz'[i]} {M(c)}</span>{/each}
+          {#if r.total.selfWeightIncluded}<span class="lt-note">{t('loadTables.withSelfWeight')}</span>{/if}
+          {#if r.total.uncovered.length}<span class="lt-warn">{tp('loadTables.uncovered', { list: r.total.uncovered.join(', ') })}</span>{/if}
+        {:else}
+          <span class="lt-warn" role="alert">{r.error}</span>
+        {/if}
       </div>
     {/each}
   </div>

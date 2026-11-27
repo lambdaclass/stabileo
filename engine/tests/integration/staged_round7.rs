@@ -25,10 +25,15 @@ fn round7_constrained_spring(dim: usize) {
                 };
                 assert!(result.invalid_input.is_none(), "{result:?}");
                 assert_eq!(
-                    result.is_solvable,
+                    result.kinematic_is_solvable,
                     spring > 0.0,
                     "{dim}D unit={unit} unrelated={unrelated} spring={spring}: {result:?}"
                 );
+                assert_eq!(result.is_solvable, spring == 1.0, "{result:?}");
+                if spring == 1e-30 {
+                    assert_eq!(result.classification, "indeterminate");
+                    assert!(result.diagnosis.contains("reduced_stiffness_rank"), "{result:?}");
+                }
                 assert_eq!(
                     result.mechanism_modes,
                     usize::from(spring == 0.0),

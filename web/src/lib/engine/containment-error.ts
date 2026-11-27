@@ -1,4 +1,6 @@
-type Refusal = { message?: unknown; structuredDiagnostics: Array<{ code?: string; severity?: string } | null> };
+import type { StructuredDiagnostic } from './types';
+
+type Refusal = { message?: unknown; structuredDiagnostics: Array<StructuredDiagnostic | null> };
 
 function refusal(error: unknown): Refusal | null {
   const text = error instanceof Error ? error.message : error;
@@ -31,6 +33,11 @@ export function asCodedRefusal(error: unknown, code: string): unknown {
   if (error instanceof CodedRefusal || !refusedWithCode(error, code)) return error;
   const message = refusal(error)?.message;
   return typeof message === 'string' ? new CodedRefusal(message, code) : error;
+}
+
+export function refusalDiagnostic(error: unknown, code: string): StructuredDiagnostic | undefined {
+  if (isContainmentRefusal(error)) return undefined;
+  return refusal(error)?.structuredDiagnostics.find((d): d is StructuredDiagnostic => d?.code === code && d.severity === 'error');
 }
 
 export class ContainmentExportError extends Error {}

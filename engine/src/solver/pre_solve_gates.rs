@@ -13,8 +13,8 @@ use crate::element::solid_shell::{solid_shell_quality_metrics, solid_shell_check
 use crate::element::curved_shell::{compute_element_directors, curved_shell_check_jacobian};
 use crate::element::plate::plate_element_quality;
 use crate::types::{
-    SolverInput, SolverInput3D, SolverNode, SolverNode3D, DiagnosticCode, Severity,
-    StructuredDiagnostic, ElementKind,
+    SolverInput, SolverInput3D, SolverNode, DiagnosticCode, Severity,
+    StructuredDiagnostic, ElementKind, node_positions_3d,
 };
 
 // ---------------------------------------------------------------------------
@@ -189,8 +189,7 @@ pub fn check_near_duplicate_nodes_3d(input: &SolverInput3D) -> Vec<StructuredDia
 
     // Characteristic length = max element length (min 1e-3). Indexed once,
     // for the same reason as the 2D gate above.
-    let node_by_id: HashMap<usize, &SolverNode3D> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let node_by_id = input.nodes_by_id();
     let l_char = input
         .elements
         .values()
@@ -399,19 +398,11 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
     // resolved by scanning `nodes.values()`, so the gate cost
     // O(shell corners × nodes): measured at 190 ms on a 10k-node shell mesh,
     // against 0.8 ms for the isolated-node gate on the same model.
-    let node_by_id: HashMap<usize, &SolverNode3D> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let node_by_id = input.nodes_by_id();
 
     // ── Quad (MITC4) elements ──
     for q in crate::ordered::values(&input.quads) {
-        let coords: Option<[[f64; 3]; 4]> = (|| {
-            let mut c = [[0.0; 3]; 4];
-            for (i, &nid) in q.nodes.iter().enumerate() {
-                let node = node_by_id.get(&nid).copied()?;
-                c[i] = [node.x, node.y, node.z];
-            }
-            Some(c)
-        })();
+        let coords = node_positions_3d(&node_by_id, &q.nodes);
 
         if let Some(coords) = coords {
             let qm = quad_quality_metrics(&coords);
@@ -641,14 +632,7 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
 
     // ── Quad9 (MITC9) elements ──
     for q9 in crate::ordered::values(&input.quad9s) {
-        let coords: Option<[[f64; 3]; 9]> = (|| {
-            let mut c = [[0.0; 3]; 9];
-            for (i, &nid) in q9.nodes.iter().enumerate() {
-                let node = node_by_id.get(&nid).copied()?;
-                c[i] = [node.x, node.y, node.z];
-            }
-            Some(c)
-        })();
+        let coords = node_positions_3d(&node_by_id, &q9.nodes);
 
         if let Some(coords) = coords {
             let qm = quad9_quality_metrics(&coords);
@@ -1038,8 +1022,7 @@ pub fn check_suspicious_local_axes_3d(input: &SolverInput3D) -> Vec<StructuredDi
     // Indexed once. Resolving each end by scanning `nodes.values()` made this
     // gate cost O(elements × nodes): on a 10k-node frame it was the single
     // most expensive thing in the solve.
-    let node_by_id: HashMap<usize, &SolverNode3D> =
-        crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let node_by_id = input.nodes_by_id();
 
     for el in crate::ordered::values(&input.elements) {
         let (Some(ni), Some(nj)) = (

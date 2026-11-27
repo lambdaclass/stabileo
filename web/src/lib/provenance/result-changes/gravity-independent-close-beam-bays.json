@@ -1,0 +1,43 @@
+{
+  "id": "gravity-independent-close-beam-bays",
+  "date": "2026-11-24",
+  "prs": [
+    2512
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "space3D",
+      "generatedPanelGravity"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Restore gravity on separate flat beam bays",
+    "es": "Restaurar las cargas gravitatorias en paños planos de vigas independientes",
+    "pt": "Restaurar as cargas gravitacionais em painéis planos de vigas independentes",
+    "de": "Schwerkraftlasten auf getrennten ebenen Trägerfeldern wiederherstellen",
+    "fr": "Rétablir les charges gravitaires sur les travées planes indépendantes",
+    "tr": "Ayrı düz kiriş panellerinde yerçekimi yüklerini geri yükle",
+    "zh": "恢复独立水平梁格的重力荷载",
+    "hu": "Különálló sík gerendamezők gravitációs terheinek helyreállítása"
+  },
+  "explanation": {
+    "en": "Regenerate panel gravity. With every panel selected, flat bays in disconnected beam frames at distinct levels each retain their loads in models without shells or constraints.",
+    "es": "Regenerá las cargas gravitatorias por paños. Al seleccionar todos los paños, los paños planos de pórticos desconectados en niveles distintos conservan sus cargas en modelos sin láminas ni restricciones multipunto.",
+    "pt": "Gere novamente as cargas gravitacionais por painéis. Ao selecionar todos os painéis, os painéis planos de pórticos desconectados em níveis distintos mantêm suas cargas em modelos sem cascas ou restrições multiponto.",
+    "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Sind alle Felder ausgewählt, behalten ebene Felder in getrennten Tragwerken auf unterschiedlichen Höhen ihre Lasten in Modellen ohne Schalen oder Mehrpunktkopplungen.",
+    "fr": "Régénérez les charges gravitaires par travée. Quand toutes les travées sont sélectionnées, les travées planes d’ossatures séparées à des niveaux distincts conservent leurs charges dans les modèles sans coques ni liaisons multipoints.",
+    "tr": "Panel yerçekimi yüklerini yeniden üretin. Tüm paneller seçildiğinde, kabuk veya çok noktalı kısıt bulunmayan modellerde farklı kotlardaki bağlantısız çerçevelerin düz panelleri kendi yüklerini korur.",
+    "zh": "请重新生成梁格重力荷载。在没有壳单元或多点约束的模型中，选择所有梁格后，处于不同标高且互不相连的水平梁格各自保留荷载。",
+    "hu": "Generálja újra a mezőnkénti gravitációs terheket. Az összes mező kijelölésekor a különálló vázak eltérő szintű sík mezői megtartják a terheiket a héjak és többpontos kényszerek nélküli modellekben."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-independent-close-beam-bays.md",
+    "heading": "Restore gravity on independent, explicitly selected beam bays"
+  }
+}

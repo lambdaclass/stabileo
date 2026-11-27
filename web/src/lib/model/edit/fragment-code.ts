@@ -6,6 +6,7 @@
  * project. A snapshot (an imported file, a template, a generated model) becomes a fragment the
  * same way, which is how any of them is placed into the current model instead of replacing it.
  */
+import { canonicalizeModelAliases } from '../canonical-aliases';
 import type { ModelSnapshot } from '../../store/history.svelte';
 import type { Element, Load, LoadCase, Material, ModelGroup, Plate, Quad, Section, Support } from '../../store/model.svelte';
 import { snapshotHasSpatialRecords } from '../code/frame';
@@ -34,7 +35,8 @@ export function fragmentToSnapshot(frag: Fragment): Partial<ModelSnapshot> {
 }
 
 /** Everything a snapshot holds that a fragment can carry, detached from its ids. */
-export function fragmentFromSnapshot(s: Partial<ModelSnapshot>): Fragment {
+export function fragmentFromSnapshot(snapshot: Partial<ModelSnapshot>): Fragment {
+  const s = canonicalizeModelAliases(snapshot);
   const vals = <T>(list: Array<[number, unknown]> | undefined) => (list ?? []).map(([, v]) => clone(v) as T);
   const analysisMode = s.analysisMode ?? (snapshotHasSpatialRecords(s) ? '3d' : undefined);
   return {
@@ -65,19 +67,13 @@ export function fragmentFromCode(text: string): Fragment | null {
   return f.nodes.length ? f : null;
 }
 
-const NO_RELEASE = { my: false, mz: false, t: false };
-
-/**
- * A generated or template model (`JSONModel`) as a fragment, with the same reading
- * `loadFixture` gives it: a hinge flag releases the in-plane moment, offsets and rolls are
- * carried, supports keep every field they state.
- */
-export function fragmentFromJSONModel(json: JSONModel): Fragment {
+export function fragmentFromJSONModel(raw: JSONModel): Fragment {
+  const json = canonicalizeModelAliases(raw);
   return {
     nodes: json.nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, z: n.z ?? 0 })),
     elements: json.elements.map((e) => ({
       id: e.id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ, materialId: e.materialId, sectionId: e.sectionId,
-      releaseI: { ...NO_RELEASE, mz: !!e.hingeStart }, releaseJ: { ...NO_RELEASE, mz: !!e.hingeEnd },
+      releaseI: clone(e.releaseI), releaseJ: clone(e.releaseJ),
       ...(e.offset ? { offset: clone(e.offset) } : {}),
       ...(e.rollAngle !== undefined ? { rollAngle: e.rollAngle } : {}),
       ...(e.variableSection ? { variableSection: { ...e.variableSection } } : {}),

@@ -3,6 +3,7 @@
   import { modelAuditFeatures } from './lib/provenance/under-audit';
   import { verificationStore } from './lib/store/verification.svelte';
   import { accountGate } from './lib/store/account-gate.svelte';
+  import { editorNeedsAccount, framedByAnotherPage } from './lib/store/editor-gate';
   import { userComponent, axisName, twoD } from './lib/axes/display';
   import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
@@ -10,10 +11,6 @@
   import './lib/i18n/full-dictionaries';
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
-  import MeshProgressCard from './components/pro/plates/MeshProgressCard.svelte';
-  import RcSheetsProgressCard from './components/pro/rc-sheets/RcSheetsProgressCard.svelte';
-  import { sheetsProgress } from './lib/store/rc-sheets-progress.svelte';
-  import { meshProgress } from './lib/store/mesh-progress.svelte';
   import { is3DWorkspace } from './lib/utils/workspace';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
@@ -49,6 +46,8 @@
   import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
+  import { planeName } from './lib/axes/user-names';
+  import { DRAW_PLANES } from './lib/geometry/plane-projection';
   import { LOCALE_NAMES } from './lib/i18n/offered';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
   import { deleteSelection } from './lib/actions/delete-selection';
@@ -781,9 +780,7 @@
   function restoreAutosave() {
     if (autosaveData) {
       // As a .ded open adopts it (`adoptStoredProject`): its hand edits and exports with it.
-      adoptStoredProject(autosaveData.snapshot, autosaveData.name);
-      // Restore analysis mode and axis convention from autosave
-      if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
+      adoptStoredProject(autosaveData.snapshot, autosaveData.name, autosaveData.analysisMode);
       if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;
       if (autosaveData.viewportPresentation3D) uiStore.viewportPresentation3D = autosaveData.viewportPresentation3D;
       // As a .ded open does: the project's own toggle, so an older PRO autosave is migrated with
@@ -954,6 +951,19 @@
     if (fig) { downloadDataUrlPNG(fig.dataUrl, embed); return; }
     if (canvas) downloadCanvasPNG(canvas, embed);
   }
+
+  /* Opening the editor asks for the account first when the admin site says so; turning it down goes back home. */
+  $effect(() => {
+    const needed = accountsEnabled && editorNeedsAccount({
+      configKnown: authStore.configKnown,
+      restoring: authStore.status === 'loading',
+      required: authStore.editorRequiresAccount,
+      signedIn: authStore.isAuthenticated,
+      embedded: uiStore.embedMode || uiStore.viewerMode || framedByAnotherPage(),
+      editorShown: !publicActive,
+    });
+    if (needed) untrack(() => accountGate.requireForEditor(() => navigatePublic('/')));
+  });
 
   onMount(() => {
     if (accountsEnabled) void authStore.init();
@@ -1761,6 +1771,17 @@
     <ToolOptionsBar />
   {/if}
 
+  {#if !uiStore.is3DWorkspace && uiStore.analysisPlane2D === undefined}
+    <div class="saved-plane-choice" role="group" aria-label={t('svc.savedPlaneRequired')}>
+      <span>{t('svc.savedPlaneRequired')}</span>
+      {#each DRAW_PLANES as plane (plane)}
+        <button type="button" onclick={() => { uiStore.drawPlane2D = plane; void requestAutosave('timer'); }}>
+          {planeName(plane)}
+        </button>
+      {/each}
+    </div>
+  {/if}
+
   <!--
     The bottom-bar reservation follows the bottom bar.
     ─────────────────────────────────────────────────
@@ -2349,10 +2370,8 @@
 <RebarWorkspace />
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now}
+{#if uiStore.toasts.length > 0}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
-    <MeshProgressCard />
-    {#if __PUBLIC_FEATURES__.proRcSheets}<RcSheetsProgressCard />{/if}
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
@@ -2501,6 +2520,14 @@
 </div>
 
 <style>
+  .saved-plane-choice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+  }
+
   .import-textarea {
     width: 100%;
     background: var(--st-surface-2);

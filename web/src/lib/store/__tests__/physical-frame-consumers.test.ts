@@ -140,13 +140,13 @@ describe('one geometry for every output that draws or measures the concrete', ()
     expect(total).toBeCloseTo(frameVolume(f), 9);
   });
 
-  it('the model viewer draws exactly the frame in its physical mode', () => {
+  it('the model viewer draws exactly the frame, member by member, with the sections', () => {
     const f = projectPhysicalFrame();
     let total = 0;
     for (const id of ids()) {
       const layers = physicalLayersOf(f, id)!;
       const own = layers.reduce((a, l) => a + layerVolume(l), 0);
-      const g = createElementGroup({ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { elementId: id, elementType: 'frame', renderMode: 'physical', physicalLayers: layers });
+      const g = createElementGroup({ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { elementId: id, elementType: 'frame', renderMode: 'sections', physicalLayers: layers });
       let drawn = 0;
       g.traverse((o) => { if ((o as THREE.Mesh).isMesh && o.userData.physicalConcrete) drawn += meshVolume((o as THREE.Mesh).geometry); });
       // Float32 positions: within a millionth of the volume, relative.
@@ -182,7 +182,7 @@ describe('the analysis model is not touched by the physical representation', () 
     expect(before.length).toBeGreaterThan(1000);
     projectPhysicalFrame(); measure(); projectIfcInput((k) => k, 'en', 'test');
     const prev = uiStore.renderMode3D;
-    uiStore.renderMode3D = 'physical';
+    uiStore.renderMode3D = 'sections';
     expect(snap()).toBe(before);
     uiStore.renderMode3D = prev;
     // The model's own geometry: nodes, lengths and sections as loaded.
