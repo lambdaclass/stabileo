@@ -6,9 +6,13 @@
   ],
   "area": "design",
   "when": {
-    "all": [
-      "steelCirsoc301",
-      "steelChannelMembers"
+    "allOf": [
+      [
+        "steelCirsoc301"
+      ],
+      [
+        "steelChannelMembers"
+      ]
     ]
   },
   "quantities": [
@@ -23,6 +27,7 @@
     "tr": "F.6 kanal kesitlerin zayıf eksendeki en küçük mukavemet momentini bildirir",
     "hu": "Az F.6 a csatornaszelvény gyenge tengelyéhez tartozó legkisebb keresztmetszeti tényezőt adja meg",
     "it": "F.6 riporta il modulo resistente minimo dei canali rispetto all’asse debole",
+    "nl": "F.6: Sy om de zwakke as van een kanaalprofiel ontbreekt zonder geverifieerd weerstandsmoment",
     "zh": "F.6 报告槽形截面绕弱轴的最小弹性截面模量"
   },
   "explanation": {
@@ -34,6 +39,7 @@
     "tr": "Bir kanal kesit için F.6 raporundaki Sy değerini kullandıysanız ağırlık merkezinden en uzak başlık kenarına olan mesafeyi kontrol edin. Önceden genişliğin yarısı kullanılıyordu. Doğrulanmış bir mukavemet momenti yoksa Sy artık verilmez. Bu alan eleman dayanımında kullanılmıyordu.",
     "hu": "Ha csatornaszelvényhez az F.6 jelentés Sy értékét használta, ellenőrizze a súlypont és a távolabbi övszél távolságát. A jelentés korábban a szélesség felét használta. Igazolt keresztmetszeti tényező hiányában az Sy most nem érhető el. Ez a mező nem szerepelt a rúd teherbírásának számításában.",
     "it": "Se hai usato Sy dal rapporto F.6 per un canale, verifica la distanza dal baricentro al bordo più lontano dell’ala. Il rapporto usava metà della larghezza. Ora Sy richiede un modulo verificato e resta indisponibile se manca. Il campo non interveniva nella resistenza dell’asta.",
+    "nl": "Bij gebruik van Sy uit het F.6-rapport voor een kanaalprofiel moet je de afstand van het zwaartepunt tot de verst verwijderde flensrand controleren. Het rapport gebruikte de halve breedte. Zonder geverifieerd weerstandsmoment is Sy nu niet beschikbaar. Dit veld speelde geen rol in de berekende staafcapaciteit.",
     "zh": "如果使用过 F.6 报告中的槽形截面 Sy，请核查形心至最远翼缘边缘的距离。报告先前采用截面宽度的一半。现在仅在有经核实的截面模量时给出 Sy。该报告字段未用于构件承载力计算。"
   },
   "changelog": {

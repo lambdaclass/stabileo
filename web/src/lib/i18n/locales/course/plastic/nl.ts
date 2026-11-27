@@ -1,3 +1,4 @@
+import { axialPlasticWork } from './axial-work';
 import type { Translations } from '../../../types';
 
 const words: Translations = {
@@ -135,7 +136,7 @@ const words: Translations = {
   "course.plastic.mech.show": "Het mechanisme tekenen",
   "course.plastic.mech.hide": "Terug naar de momenten",
   "course.plastic.mech.manyDof": "De scharnieren laten {k} vrijheidsgraden over; de getekende beweging is die waarin de belastingen de meeste arbeid verrichten.",
-  "course.plastic.mech.axialNote": "Sommige staven zijn axiaal gaan vloeien: hun arbeid Np·Δ komt ook in de vergelijking voor, die hier niet is uitgeschreven.",
+  "course.plastic.mech.axialNote": `Sommige staven zijn axiaal gaan vloeien: hun arbeid ${axialPlasticWork} komt ook in de vergelijking voor, die hier niet is uitgeschreven.`,
   "course.plastic.mech.vwLead": "Virtuele arbeid met dit mechanisme:",
   "course.plastic.mech.vwAgree": "De stap-voor-stap-berekening gaf λc = {lambda}.",
   "course.plastic.mech.vwDiffer": "Ze verschillen: het mechanisme in de figuur is niet het mechanisme dat de stap-voor-stap-berekening bereikte. Controleer het model voordat je λc gebruikt.",

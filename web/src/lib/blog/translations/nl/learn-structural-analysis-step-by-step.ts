@@ -164,8 +164,8 @@ const body: PostBody = {
         ],
         [
           "Tweede orde en knik",
-          "2",
-          "Tweede orde met φ-functies en met de geometrische matrix; knik met aantal vormen en met eigenwaarden"
+          "4",
+          "P-Δ met φ-functies; P-Δ met een geometrische matrix (consistent of koordematrix P/L); knik met modustelling; knik met eigenwaarden"
         ],
         [
           "Plastische berekening",

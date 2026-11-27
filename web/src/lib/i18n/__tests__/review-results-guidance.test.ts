@@ -4,7 +4,7 @@ import { RESULT_CHANGES } from '../../provenance/full-registry';
 import channelNotice from '../../provenance/result-changes/f62-channel-minimum-modulus.json';
 import { conditionHolds } from '../../provenance/applicability';
 
-it.skip.each([
+it.each([
   ['it', 'basic-pdelta-projected-loads', 'title', 'in Base'],
   ['it', 'basic-pdelta-projected-loads', 'explanation', 'In Base'],
   ['it', 'planar-spatial-distributed-load-component', 'explanation', 'analisi Base'],
@@ -21,7 +21,7 @@ it.skip.each([
   expect(notice?.[field][locale]).toContain(term);
 });
 
-it.skip('known wrong result: #2613 — the new channel notice carries its own Dutch recheck instructions', () => {
+it('known wrong result: #2613 — the new channel notice carries its own Dutch recheck instructions', () => {
   expect(channelNotice.title).toHaveProperty('nl');
   expect(channelNotice.explanation).toHaveProperty('nl', expect.stringContaining('verst verwijderde flensrand'));
   for (const features of [[], ['steelCirsoc301'], ['steelChannelMembers'], ['steelCirsoc301', 'steelChannelMembers']]) {
@@ -29,7 +29,7 @@ it.skip('known wrong result: #2613 — the new channel notice carries its own Du
   }
 });
 
-it.skip.each([
+it.each([
   'Een randvoorwaarde in een onafhankelijke constructie',
   'Correcties aan randvoorwaarden en hellende opleggingen',
   'de elementen en de randvoorwaarden',

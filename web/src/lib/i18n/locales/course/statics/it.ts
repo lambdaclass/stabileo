@@ -40,7 +40,7 @@ const words: Translations = {
   "course.statics.fm.fund.auto": "Automatica",
   "course.statics.fm.fund.manual": "La scelgo io",
   "course.statics.fm.fund.autoNote": "L’app ha scelto cosa svincolare. Per provare un’altra struttura principale, tocca La scelgo io.",
-  "course.statics.fm.fund.how": "Tocca il disegno o spunta nell’elenco i vincoli e le sollecitazioni interne che svincoli. Ognuno diventa un’incognita iperstatica X, numerata nell’ordine in cui lo scegli. Ne servono {gh}.",
+  "course.statics.fm.fund.how": "Tocca il disegno o spunta nell’elenco i vincoli e le sollecitazioni interne che svincoli. Ogni componente svincolata corrisponde a un’incognita iperstatica X, numerata in ordine di scelta. Un taglio può liberare più componenti (N, V e M). Ne servono {gh}.",
   "course.statics.fm.fund.counter": "Incognite iperstatiche scelte: {n} di {gh}",
   "course.statics.fm.fund.solve": "Risolvi con questa struttura principale",
   "course.statics.fm.fund.clear": "Cancella",

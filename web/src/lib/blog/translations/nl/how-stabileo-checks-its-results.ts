@@ -1,3 +1,4 @@
+import { certificateFigureAlt } from '../../certificate-figure-nl';
 import type { PostBody } from '../../types';
 
 const body: PostBody =  {
@@ -77,7 +78,7 @@ const body: PostBody =  {
       "base": "blog/certificate",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo Basic met het voorbeeld van het portaal opgelost. Het resultatenpaneel toont de knoopverplaatsingen en, onder Resultaatcontroles, „Gecertificeerd: verplaatsingsfout ≤ 3.41e-16” met een link om het certificaat te downloaden, en „End-to-end gecontroleerd: een onafhankelijke herassemblage van het model komt overeen”.",
+      "alt": certificateFigureAlt,
       "caption": "Een opgelost raamwerk: de grens van het certificaat op de verplaatsingsfout en de end-to-end-controle, onder Resultaatcontroles."
     },
     {

@@ -1,3 +1,4 @@
+import { certificateFigureAlt } from '../../certificate-figure-nl';
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
@@ -43,14 +44,14 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "De stelling achter de grens is in Lean bewezen. In de app toont het resultatenpaneel de regel “Checked end to end” met de grens op de verplaatsingsfout, of de reden waarom het niet kon worden gecontroleerd."
+      "t": "De stelling achter de grens is in Lean bewezen. In de app toont het resultatenpaneel de regel “End-to-end gecontroleerd” met de grens op de verplaatsingsfout, of de reden waarom het niet kon worden gecontroleerd."
     },
     {
       "k": "img",
       "base": "blog/certificate",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo Basic met het voorbeeld van het portaal berekend. Onder Result checks in het resultatenpaneel staat de regel “Checked end to end: an independent re-assembly of the model agrees; displacement error ≤ 3.68e-15” onder het certificaat.",
+      "alt": certificateFigureAlt,
       "caption": "De regel in het resultatenpaneel, bij het voorbeeld van het portaal."
     },
     {

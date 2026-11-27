@@ -1,3 +1,4 @@
+import { axialPlasticWork } from './axial-work';
 import type { Translations } from '../../../types';
 
 const words: Translations = {
@@ -135,7 +136,7 @@ const words: Translations = {
   "course.plastic.mech.show": "Disegna il meccanismo",
   "course.plastic.mech.hide": "Torna ai momenti",
   "course.plastic.mech.manyDof": "Le cerniere lasciano {k} gradi di libertà; il moto disegnato è quello in cui i carichi compiono più lavoro.",
-  "course.plastic.mech.axialNote": "Alcune aste hanno plasticizzato assialmente: entra nell’equazione anche il loro lavoro Np·|Δ|, che qui non è scritto.",
+  "course.plastic.mech.axialNote": `Alcune aste hanno plasticizzato assialmente: entra nell’equazione anche il loro lavoro ${axialPlasticWork}, che qui non è scritto.`,
   "course.plastic.mech.vwLead": "Lavoro virtuale con questo meccanismo:",
   "course.plastic.mech.vwAgree": "L’analisi passo dopo passo ha dato λc = {lambda}.",
   "course.plastic.mech.vwDiffer": "Differiscono: il meccanismo in figura non è quello raggiunto dall’analisi passo dopo passo. Controlla il modello prima di usare λc.",

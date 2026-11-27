@@ -27,7 +27,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Artikel 9.6.1.2 vraagt een minimale buigwapening gelijk aan de grootste van 0.25·√f'c/fy·bw·d en 1.4/fy·bw·d. Het wordt meestal behandeld als een ondergrens die bijna nooit wordt bereikt. Bij woningliggers wordt die voortdurend bereikt."
+      "t": "Artikel 9.6.1.2 vraagt een minimale buigwapening gelijk aan de grootste van 0,25·√f'c/fy·bw·d en 1,4/fy·bw·d. Het wordt meestal behandeld als een ondergrens die bijna nooit wordt bereikt. Bij woningliggers wordt die voortdurend bereikt."
     },
     {
       "k": "table",
@@ -57,40 +57,40 @@ const body: PostBody = {
       "caption": "De twee uitdrukkingen voor het minimum, voor fy 420, in promille.",
       "head": [
         "Beton",
-        "0.25·√f'c/fy",
-        "1.4/fy",
+        "0,25·√f'c/fy",
+        "1,4/fy",
         "Maatgevend"
       ],
       "rows": [
         [
           "H-20",
-          "2.6620",
-          "3.3333",
-          "1.4/fy"
+          "2,6620",
+          "3,3333",
+          "1,4/fy"
         ],
         [
           "H-25",
-          "2.9762",
-          "3.3333",
-          "1.4/fy"
+          "2,9762",
+          "3,3333",
+          "1,4/fy"
         ],
         [
           "H-30",
-          "3.2603",
-          "3.3333",
-          "1.4/fy"
+          "3,2603",
+          "3,3333",
+          "1,4/fy"
         ],
         [
           "H-35",
-          "3.5215",
-          "3.3333",
+          "3,5215",
+          "3,3333",
           "√f'c"
         ]
       ]
     },
     {
       "k": "p",
-      "t": "Het kruispunt ligt bij f'c = 31,36 MPa. In het hele bereik dat bij woningbouw wordt gebruikt (H-20, H-25, H-30) hangt de minimumwapening niet af van het beton: ze komt uit 1.4/fy en niets anders. Van H-20 naar H-30 gaan verlaagt het minimum niet met één enkele vierkante centimeter."
+      "t": "Het kruispunt ligt bij f'c = 31,36 MPa. In het hele bereik dat bij woningbouw wordt gebruikt (H-20, H-25, H-30) hangt de minimumwapening niet af van het beton: ze komt uit 1,4/fy en niets anders. Van H-20 naar H-30 gaan verlaagt het minimum niet met één enkele vierkante centimeter."
     },
     {
       "k": "h",
@@ -98,7 +98,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "De reductiefactor voor sterkte wordt onderwezen als 0,90 voor buiging en daarna als constante behandeld. Dat is hij niet. Hij komt uit de rek in het trekstaal in de uiterste toestand, en de module zegt dat in stap 9: εt ≥ 5‰ → trekgestuurd → φ = 0.90. Breng meer staal in de doorsnede en εt daalt, en φ daalt mee."
+      "t": "De reductiefactor voor sterkte wordt onderwezen als 0,90 voor buiging en daarna als constante behandeld. Dat is hij niet. Hij komt uit de rek in het trekstaal in de uiterste toestand, en de module zegt dat in stap 9: εt ≥ 5‰ → trekgestuurd → φ = 0,90. Breng meer staal in de doorsnede en εt daalt, en φ daalt mee."
     },
     {
       "k": "table",
@@ -167,7 +167,7 @@ const body: PostBody = {
       "k": "ol",
       "items": [
         "Controleer vóór het dimensioneren of het moment boven of onder het kruispunt met het minimum ligt. Eronder bepaalt het minimum de wapening bij toepassing van §9.6.1.2. Bij toepassing van §9.6.1.3 hangt de benodigde wapening af van de berekende staaloppervlakte.",
-        "Van H-20 tot H-30 hangt het minimum niet af van het beton. Het komt uit 1.4/fy.",
+        "Van H-20 tot H-30 hangt het minimum niet af van het beton. Het komt uit 1,4/fy.",
         "φ hangt af van εt: lees de twee altijd samen.",
         "Drukwapening kan nodig zijn om voldoende ductiliteit te behouden of om bij beperkte liggerhoogte de vereiste momentcapaciteit te bereiken. Controleer de rekken voor de gekozen wapening."
       ]

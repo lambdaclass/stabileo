@@ -271,7 +271,7 @@ const words: Translations = {
   "course.dynamics.mass.guyan.none": "Er is geen vrijheidsgraad meer om te condenseren.",
   "course.dynamics.mass.guyan.refused": "Met n = {n} is er geen Guyan-systeem: er blijft geen translatie met massa over om te behouden.",
   "course.dynamics.mass.guyan.freqCaption": "Frequenties van het gecondenseerde systeem.",
-  "course.dynamics.mass.guyan.exactness": "De gecondenseerde frequenties komen nooit onder die van de volledige consistente massa uit, omdat het opleggen van de statische relatie een beperking toevoegt. De lage eigenvormen worden alleen goed benaderd als de geëlimineerde rotaties die statische relatie echt volgen; een eigenvorm die door rotaties wordt gedomineerd kan zelfs onder de eerste slecht uitkomen, dus vergelijk ze met de volledige consistente massa.",
+  "course.dynamics.mass.guyan.exactness": "De gecondenseerde frequenties komen nooit onder die van de volledige consistente massa uit, omdat het opleggen van de statische relatie een beperking toevoegt. De lage eigenvormen worden alleen goed benaderd als de geëlimineerde rotaties die statische relatie echt volgen; een eigenvorm die door rotaties wordt gedomineerd kan zelfs bij de laagste eigenvormen slecht worden benaderd. Ook dan ligt de gecondenseerde frequentie niet onder de overeenkomstige frequentie met de volledige consistente massa.",
   "course.dynamics.mass.freq.lead": "Frequenties van de eerste eigenvormen met {n} segmenten per staaf en het gekozen massamodel.",
   "course.dynamics.mass.freq.caption": "Frequenties in Hz.",
   "course.dynamics.mass.col.lumped": "Geconcentreerd",

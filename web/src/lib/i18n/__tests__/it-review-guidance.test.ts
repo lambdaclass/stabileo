@@ -26,7 +26,7 @@ it.each([
   ["course.plastic.kin.positionLead", "massimo |M|"],
   ["course.plastic.kin.positionWhy", "|M| = Mp"],
   ["course.kinematics.req.mechanism", "gli svincoli e la connessione"],
-  ["course.kinematics.req.noUnknowns", "possono anche essere nulle e si recuperano"],
+  ["course.kinematics.req.noUnknowns", "possono essere diverse da zero e si recuperano"],
   ["course.dynamics.ui.explain.freq", "modi poco smorzati"],
   ["course.second-order.doc.intro.so-buckling-phi", "numero, con molteplicità"],
   ["course.second-order.doc.bk.det.what", "contati con molteplicità"],

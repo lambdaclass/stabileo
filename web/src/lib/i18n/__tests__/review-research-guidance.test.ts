@@ -6,7 +6,7 @@ import { articleStrings } from '../../../components/research/riksCrisfield/artic
 import { comparisonFailureLabel } from '../../../components/research/shauer2025/failure-labels';
 import { publicI18n, setLocale } from '../store.svelte';
 
-it.skip.each([
+it.each([
   ["interactive", feher.nl.interactive, "na het bevestigen"],
   ["Fehér refinement", feher.nl.why.items.find(item => item.title === 'Twee numerieke modellen van dezelfde strip')?.body, "EA blijft eindig"],
   ["method", arch.method, "λmax × P in kN"],
@@ -21,7 +21,7 @@ it.skip.each([
   expect(actual).toContain(expected);
 });
 
-it.skip('known wrong result: #2613 — an invalid Shauer step identifies invalid results in Italian', () => {
+it('known wrong result: #2613 — an invalid Shauer step identifies invalid results in Italian', () => {
   const original = publicI18n.locale;
   try {
     setLocale('it');

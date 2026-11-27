@@ -134,7 +134,7 @@ it('gives every card its own paper’s lead in every language, never another pap
   }
 });
 
-it.skip('known wrong result: #2613 — Italian gallery identifies the English-only article before navigation', () => {
+it('known wrong result: #2613 — Italian gallery identifies the English-only article before navigation', () => {
   setLocale('it');
   const cards = render(Gallery).body.match(/<li class="rs-g-runcard[^>]*>[\s\S]*?<\/li>/g) ?? [];
   const notice = 'Questo articolo è disponibile solo in inglese.';

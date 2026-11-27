@@ -104,7 +104,7 @@ const translations: Record<Locale, Record<ComparisonFailure, string>> = {
   },
   it: {
     'frame-order': "Fotogrammi mancanti o fuori ordine",
-    'nonfinite-step': "Risultati del passo non finiti",
+    'nonfinite-step': "Risultati del passo non validi",
     'nonconverged': "Passi senza convergenza",
     'load-coordinate-mismatch': "Il tempo o lo spostamento differisce",
     'damage-max': "Il danno massimo differisce",

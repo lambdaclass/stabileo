@@ -744,7 +744,7 @@ const body: PostBody = {
           "SA-2026-044",
           "2D plastisch bezwijken: de bezwijkfactor veranderde met knoopnummering, staafrichting en eenheden (tot 4,6 keer op dezelfde constructie)",
           "Hoog",
-          "Niet verholpen in 0.5.0: 2D plastisch bezwijken wordt achtergehouden tot #758 is gesloten; de limietanalyse zit in 0.5.0"
+          "Niet verholpen in 0.5.0: 2D plastisch bezwijken wordt achtergehouden tot #758 is gesloten; de limietanalyse is in 0.5.0 ingedamd"
         ],
         [
           "SA-2026-045",

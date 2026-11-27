@@ -1,3 +1,4 @@
+import { axialPlasticWork } from './axial-work';
 import type { Translations } from '../../../types';
 
 const words: Translations = {
@@ -143,7 +144,7 @@ const words: Translations = {
   'course.plastic.mech.show': 'Mechanismus zeichnen',
   'course.plastic.mech.hide': 'Zurück zu den Momenten',
   'course.plastic.mech.manyDof': 'Die Gelenke lassen {k} Freiheitsgrade; gezeichnet wird die Bewegung, in der die Lasten die meiste Arbeit leisten.',
-  'course.plastic.mech.axialNote': 'Einige Stäbe sind unter Normalkraft geflossen: Ihre Arbeit Np·Δ gehört ebenfalls in die Gleichung, die hier nicht aufgestellt wird.',
+  'course.plastic.mech.axialNote': `Einige Stäbe sind unter Normalkraft geflossen: Ihre Arbeit ${axialPlasticWork} gehört ebenfalls in die Gleichung, die hier nicht aufgestellt wird.`,
   'course.plastic.mech.vwLead': 'Virtuelle Arbeit mit diesem Mechanismus:',
   'course.plastic.mech.vwAgree': 'Die schrittweise Berechnung ergab λc = {lambda}.',
   'course.plastic.mech.vwDiffer': 'Sie stimmen nicht überein: Der Mechanismus in der Abbildung ist nicht der der schrittweisen Berechnung. Prüfen Sie das Modell, bevor Sie λc verwenden.',

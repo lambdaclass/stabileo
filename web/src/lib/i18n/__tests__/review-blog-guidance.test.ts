@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { findPost } from '../../blog';
 import { allDictFor } from '../locales/all';
 
-it.skip.each([
+it.each([
   ["it", "learn-structural-analysis-step-by-step", "cinese e olandese"],
   ["it", "safety-advisories", "1,2D + 1,6W, dopo una modifica"],
   ["it", "safety-advisories", "0,9 D + 1,6 H e 1,2 D + 1,6 H"],
@@ -18,7 +18,7 @@ it.skip.each([
   expect(JSON.stringify(findPost(slug)?.i18n[locale]?.blocks)).toContain(expected);
 });
 
-it.skip.each(['end-to-end-certificates', 'how-stabileo-checks-its-results'])(
+it.each(['end-to-end-certificates', 'how-stabileo-checks-its-results'])(
   'known wrong result: #2613 — %s identifies both bounds shown in the certificate figure', slug => {
     const figure = findPost(slug)?.i18n.nl?.blocks.find(block => block.k === 'img' && block.base === 'blog/certificate');
     expect(figure?.k).toBe('img');
@@ -30,7 +30,7 @@ it.skip.each(['end-to-end-certificates', 'how-stabileo-checks-its-results'])(
   },
 );
 
-it.skip.each([
+it.each([
   ['it', 'stabileo-0-3-0', ['-56,67', '-41,67', '176,47', '424,3', '5,18', '4,34', '35,0']],
   ['nl', 'the-determinism-boundary', ['80,8', '1,10', '54,2', '0,43']],
   ['nl', 'torsion-bredt-saint-venant', ['11,08', '315,79']],

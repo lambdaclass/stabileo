@@ -1,3 +1,4 @@
+import { axialPlasticWork } from './axial-work';
 import type { Translations } from '../../../types';
 
 const words: Translations = {
@@ -143,7 +144,7 @@ const words: Translations = {
   'course.plastic.mech.show': 'Mekanizmayı çiz',
   'course.plastic.mech.hide': 'Momentlere dön',
   'course.plastic.mech.manyDof': 'Mafsallar {k} serbestlik derecesi bırakıyor; yüklerin en çok iş yaptığı hareket çizilir.',
-  'course.plastic.mech.axialNote': 'Bazı çubuklar eksenel kuvvetle aktı: onların Np·Δ işi de denkleme girer; denklem burada yazılmıyor.',
+  'course.plastic.mech.axialNote': `Bazı çubuklar eksenel kuvvetle aktı: onların ${axialPlasticWork} işi de denkleme girer; denklem burada yazılmıyor.`,
   'course.plastic.mech.vwLead': 'Bu mekanizmayla virtüel iş:',
   'course.plastic.mech.vwAgree': 'Adım adım hesap λc = {lambda} verdi.',
   'course.plastic.mech.vwDiffer': 'Uyuşmuyorlar: şekildeki mekanizma adım adım hesabın ulaştığı mekanizma değil. λc değerini kullanmadan önce modeli kontrol edin.',

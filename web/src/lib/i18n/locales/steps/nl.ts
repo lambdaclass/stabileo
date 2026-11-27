@@ -79,7 +79,7 @@ const stepsNl: Translations = {
   "steps.req.beam.chain": "De staven vormen geen enkele doorlopende lijn.",
   "steps.req.beam.supportType": "De oplegging bij knoop {n} is geen inklemming, scharnier of verticale roloplegging.",
   "steps.req.beam.noSupports": "De ligger heeft geen opleggingen.",
-  "steps.common.units": "Gebruikte eenheden: L [m], F [kN], M [kN·m], q [kN/m], E [kN/m²], A [m²], I [m⁴]; verplaatsingen in mm en rotaties in rad.",
+  "steps.common.units": "Gebruikte eenheden: L [m], F [kN], M [kN·m], q [kN/m], E [kN/m²], A [m²], I [m⁴]; verplaatsingen in m en rotaties in rad. In tabellen met de eenheid mm zijn de verplaatsingen met 1000 vermenigvuldigd.",
   "steps.common.structure": "Gegevens van de constructie",
   "steps.common.structureCaption": "Geometrie, opleggingen en belastingen van de berekende constructie.",
   "steps.common.classification": "Statische indeling",

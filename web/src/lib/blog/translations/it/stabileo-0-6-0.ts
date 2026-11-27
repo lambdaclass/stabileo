@@ -68,7 +68,7 @@ const body: PostBody = {
         [
           "SA-2026-056",
           "Alta",
-          "Non corretto: la dinamica di modelli misti telaio/guscio vincolati cambia con descrizioni equivalenti del modello. Verifica in modo indipendente le sollecitazioni interessate prima di usarle; non è stabilito alcun coefficiente correttivo a favore di sicurezza."
+          "Non corretto: la dinamica di modelli misti telaio/guscio vincolati cambia con descrizioni equivalenti del modello. Verifica in modo indipendente le sollecitazioni dinamiche delle aste e le reazioni degli appoggi interessati prima di usarle; non è stabilito alcun coefficiente correttivo a favore di sicurezza."
         ],
         [
           "SA-2026-057",
@@ -258,7 +258,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "SA-2026-056 resta non corretto: verifica in modo indipendente le sollecitazioni dinamiche dei modelli misti telaio–guscio vincolati prima di usarle, anche quando rinumerazione, rotazione o conversione delle unità danno risultati concordi. Non è stabilito alcun coefficiente correttivo a favore di sicurezza.",
+        "SA-2026-056 resta non corretto: verifica in modo indipendente le sollecitazioni dinamiche delle aste e le reazioni degli appoggi in tutti i modelli misti telaio–guscio vincolati interessati prima di usarle, anche quando rinumerazione, rotazione o conversione delle unità danno risultati concordi. Non è stabilito alcun coefficiente correttivo a favore di sicurezza.",
         "Il collasso plastico 2D resta rifiutato in attesa di #758, come descritto in SA-2026-044. Un limite inferiore 3D certificato non certifica la storia grezza delle cerniere.",
         "La time-history non fornisce le sollecitazioni dinamiche totali sui vincoli. Usa un’analisi indipendente che includa inerzia, smorzamento e carico sui vincoli. Le analisi dei cavi non supportate e il moto imposto non nullo dei vincoli nei flussi con cavi/time-history vengono rifiutati esplicitamente.",
         "I solutori spaziali a lunghezza d’arco e a controllo di spostamento non sono aggiunti. Gli avvisi e le restrizioni esistenti restano applicabili."

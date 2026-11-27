@@ -78,15 +78,15 @@ const body: PostBody =  {
     },
     {
       "k": "p",
-      "t": "Zodra het model is berekend, draagt elke kolom een verticale reactie van 90 kN en geldt het globale evenwicht exact: ΣRz = 180 kN = q·L. Het maatgevende liggermoment is Mu = 80.8 kN·m in het midden van de overspanning. De buigtoetsing van de ligger van 25×40 met 3Ø16 volgens CIRSOC 201 geeft een capaciteit van φMn = 73.3 kN·m, dus de ligger voldoet niet."
+      "t": "Zodra het model is berekend, draagt elke kolom een verticale reactie van 90 kN en geldt het globale evenwicht exact: ΣRz = 180 kN = q·L. Het maatgevende liggermoment is Mu = 80,8 kN·m in het midden van de overspanning. De buigtoetsing van de ligger van 25×40 met 3Ø16 volgens CIRSOC 201 geeft een capaciteit van φMn = 73,3 kN·m, dus de ligger voldoet niet."
     },
     {
       "k": "img",
       "base": "blog/determinism-portal",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo Basic met een betonnen portaal, 6 m breed en 4 m hoog op ingeklemde voeten, berekend onder 30 kN/m op de ligger. De momentenlijn toont 80.8 kN·m in het midden van de overspanning, −54.2 kN·m aan de liggeruiteinden en 27.0 kN·m aan de kolomvoeten.",
-      "caption": "Het raamwerk uit deze sectie in Stabileo (H-21, kolommen 30×30, ligger 25×40): de solver geeft het hierboven genoemde moment van 80.8 kN·m in het midden van de overspanning."
+      "alt": "Stabileo Basic met een betonnen portaal, 6 m breed en 4 m hoog op ingeklemde voeten, berekend onder 30 kN/m op de ligger. De momentenlijn toont 80,8 kN·m in het midden van de overspanning, −54,2 kN·m aan de liggeruiteinden en 27,0 kN·m aan de kolomvoeten.",
+      "caption": "Het raamwerk uit deze sectie in Stabileo (H-21, kolommen 30×30, ligger 25×40): de solver geeft het hierboven genoemde moment van 80,8 kN·m in het midden van de overspanning."
     },
     {
       "k": "table",
@@ -105,18 +105,18 @@ const body: PostBody =  {
           "Initieel",
           "25×40 cm",
           "3Ø16",
-          "80.8",
-          "73.3",
-          "1.10",
+          "80,8",
+          "73,3",
+          "1,10",
           "Nee"
         ],
         [
           "Gecorrigeerd",
           "30×55 cm",
           "3Ø16",
-          "105.6",
-          "108.6",
-          "0.97",
+          "105,6",
+          "108,6",
+          "0,97",
           "Ja"
         ]
       ]
@@ -160,25 +160,25 @@ const body: PostBody =  {
         [
           "Intact",
           "25×50 (4Φ16)",
-          "54.2",
-          "125.3",
-          "0.43",
+          "54,2",
+          "125,3",
+          "0,43",
           "Ja"
         ],
         [
           "Kolom weggehaald",
           "25×50 (4Φ16)",
-          "203.9",
-          "125.3",
-          "1.63",
+          "203,9",
+          "125,3",
+          "1,63",
           "Nee"
         ],
         [
           "Aangepast",
           "30×65 (5Φ20)",
-          "189.8",
-          "313.7",
-          "0.61",
+          "189,8",
+          "313,7",
+          "0,61",
           "Ja"
         ]
       ]

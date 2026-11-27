@@ -258,7 +258,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "SA-2026-056 blijft onopgelost: verifieer de berekende dynamische respons, waaronder staafkrachten en oplegreacties, onafhankelijk voor gekoppelde gemengde raamwerk-schaalmodellen waarvan de berekende respons na hernummeren, rotatie of eenhedenconversie wezenlijk verandert. Er is geen conservatieve correctiefactor vastgesteld.",
+        "SA-2026-056 blijft onopgelost: verifieer de berekende dynamische respons, waaronder staafkrachten en oplegreacties, onafhankelijk voor alle getroffen gekoppelde raamwerk-schaalmodellen, ook als hernummeren, rotatie en eenhedenconversie dezelfde respons geven. Er is geen conservatieve correctiefactor vastgesteld.",
         "2D plastisch bezwijken blijft geweigerd in afwachting van #758, zoals beschreven in SA-2026-044. Een gecertificeerde 3D ondergrens certificeert de ruwe scharnierhistorie niet.",
         "Tijdsdomeinanalyse levert geen totale dynamische oplegbelastingen. Gebruik een onafhankelijke analyse met traagheid, demping en oplegbelasting. Niet ondersteunde kabelanalyses en niet-nul opgelegde oplegbeweging in kabel- of tijdsdomeinwerkstromen weigeren expliciet.",
         "Ruimtelijke booglengte- en verplaatsingsgestuurde solvers zijn niet toegevoegd. Bestaande waarschuwingen en beperkingen blijven van toepassing."

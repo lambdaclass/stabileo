@@ -419,10 +419,6 @@
     "explanation": "Alleen het meegeleverde voorbeeld is veranderd; een opgeslagen model geeft dezelfde getallen als voorheen. De torsieligger wrong 0.45 rad onder zijn wringend moment van 8 kN·m op een open IPN 300, buiten het bereik van lineaire analyse (#1446): hij gebruikt nu een gesloten SHS 140×140×8 (IRAM-IAS-tabel: J 1813.95 cm⁴), het gebruikelijke antwoord op torsie, en wringt 0.011 rad.",
     "title": "Het voorbeeld van de 3D torsieligger gebruikt een gesloten doorsnede en blijft binnen kleine rotaties"
   },
-  "f62-channel-minimum-modulus": {
-    "title": "F.6 rapporteert het kleinste weerstandsmoment om de zwakke as van een kanaalprofiel",
-    "explanation": "Bij gebruik van Sy uit het F.6-rapport voor een kanaalprofiel moet je de afstand van het zwaartepunt tot de verst verwijderde flensrand controleren. Het rapport gebruikte de halve breedte. Zonder geverifieerd weerstandsmoment is Sy nu niet beschikbaar. Dit veld speelde geen rol in de berekende staafcapaciteit."
-  },
   "fail-closed-ratios": {
     "explanation": "Een belasting gedeeld door een capaciteit die nul, negatief, NaN of oneindig was, kon als verhouding 0 uitkomen, wat als geslaagd leest: een CIRSOC 301-grenstoestand waarvan de slankheid of belasting NaN was, een belaste boutgroep zonder bouten of een las zonder keeldikte, een afschuif- of ponscontrole van een fundering zonder bruikbare weerstand, een niet-positieve toelaatbare gronddruk, of een ductiliteitsverhouding volgens CIRSOC 201. Hetzelfde geldt voor elke staal-, hout-, metselwerk- en betoncontrole die een verhouding vormt. Elke zo'n controle wordt nu vermeld als niet geëvalueerd (de staaf of fundering wordt niet als OK gemarkeerd), en elk resultaat met NaN of oneindig wordt achtergehouden met een bericht dat de waarde noemt, behalve een tussenwaarde (zoals een reductiefactor) waarvan de controle al als niet geëvalueerd is vermeld, die als onbekend wordt getoond. Modellen waarvan alle controles bruikbare capaciteiten hadden, geven dezelfde getallen.",
     "title": "Een toetsing die niet kan worden geëvalueerd wordt geweigerd in plaats van te slagen"
@@ -1145,7 +1141,7 @@
   },
   "rc-drawn-joint-and-corner-verification": {
     "explanation": "CIRSOC 201-verificatie toetst de verankering van getekende omtrekstaven aan staafuiteinden en opleggingen. De secundaire dwarskrachttoetsing met alleen beton vereist bezette beugelbochten en gebruikt de getekende staafposities voor de effectieve hoogte.",
-    "title": "Ontwikkeling van getekende betonligger-staven en hoekzittingen"
+    "title": "Getekende langswapening van betonliggers: verankering en beugelhoeken"
   },
   "rc-drawn-station-checks": {
     "explanation": "CIRSOC-liggertoetsingen gebruiken de beugels die bij elke doorsnede zijn getekend, nemen beide zijden van kooiovergangen mee en toetsen torsie bij geïnterpoleerde staafafkappingen. Langstorsiestaven moeten voldoen aan de minimumdiameter voor de uitgave en de h.o.h.-afstand van de beugel. Voer de verificatie op de betreffende liggers opnieuw uit.",
@@ -1381,7 +1377,7 @@
   },
   "snow-fallback-runs": {
     "explanation": "Vlakke modellen met een overschrijving van de dakhelling gebruiken onevenwichtige zijden en nokdeling op basis van coördinaten. Het splitsen van een verbonden collineaire dakreeks behoudt haar breedte en sneeuwbelastingen. Genereer sneeuwbelastingen opnieuw en voer berekeningen, combinaties en ontwerptoetsingen opnieuw uit (#2095). Deze correctie zit in 0.6.1.",
-    "title": "Sneeuwoverschrijvingen behouden onevenwichtige zijden en doorsnedereeksen"
+    "title": "Sneeuwoverschrijvingen behouden onevenwichtige zijden en dakreeksen"
   },
   "snow-flat-frame": {
     "explanation": "Het onderverdelen van lange liggers op een plat dak met een overschrijving van de helling behoudt het sneeuwraamwerk, de breedte en de gegenereerde belastingen. Genereer sneeuwbelastingen opnieuw en voer berekeningen, combinaties en ontwerptoetsingen opnieuw uit (#2095). Deze correctie zit in 0.6.1.",

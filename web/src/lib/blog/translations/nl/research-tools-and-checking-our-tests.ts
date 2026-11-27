@@ -95,7 +95,7 @@ const body: PostBody = {
       "items": [
         "MacNeal–Harder vergeleek absolute waarden, dus een resultaat met het verkeerde teken zou zijn geslaagd. Referenties hebben nu hun teken, en een test weigert voor elk geval een omgekeerde respons.",
         "Riks/Crisfield kon een limietpunt melden zonder dat de belasting daalde. Een limiet vereist nu een daling tussen geconvergeerde stappen; de pagina zegt dat de berekening het bovenste limietpunt passeert in plaats van “de doorklapping te volgen”, en de toleranties gingen van 5 % naar tussen 5e-3 en 1e-5.",
-        "Navier verklaarde de MITC4-fout in plaats van hem te meten. Hij wordt nu vergeleken met een onafhankelijke Reissner–Mindlin-reeks, en de MITC4-fout bij een harde oplegging daalt van −1,951 % bij 4×4 naar −0,036 % bij 32×32, met tweede orde.",
+        "Navier verklaarde de MITC4-fout in plaats van hem te meten. Hij wordt nu vergeleken met een onafhankelijke Reissner–Mindlin-reeks, en de MITC4-fout bij een harde oplegging daalt van −1,951 % bij 4×4 naar −0,036 % bij 32×32, met convergentie van de tweede orde.",
         "Pagina’s zeggen waarmee ze worden vergeleken. Newmark wordt getoetst aan exacte oplossingen in gesloten vorm, niet aan “de code van de auteur”; SRSS/CQC is een illustratie van de methode, geen reproductie van het gebouw uit het artikel; de grenzen voor plastisch bezwijken zijn onze eigen handmatige afleidingen, geen citaat; de referentie van 1,83 kN van het Lee-raamwerk is een afgelezen waarde uit een gepubliceerde figuur, dus alleen verschillen van hele procenten worden beweerd."
       ]
     },

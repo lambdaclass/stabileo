@@ -94,7 +94,7 @@ const steelNl: Translations = {
   "generator.problem.heightPositive": "De hoogte moet groter zijn dan nul.",
   "generator.problem.widthPositive": "De breedte moet groter zijn dan nul.",
   "generator.problem.depthPositive": "De hoogte van de doorsnede moet groter zijn dan nul.",
-  "generator.problem.plateauExceedsSpan": "Het vlakke bovendeel kan niet even lang zijn als de overspanning.",
+  "generator.problem.plateauExceedsSpan": "Het vlakke bovendeel moet korter zijn dan de overspanning.",
   "generator.problem.archNeedsRise": "Een boog zonder pijl is een rechte lijn met oneindige straal.",
   "generator.problem.portalNeedsRise": "Een portaal met schuin dak heeft een nokhoogte nodig.",
   "generator.problem.trussHasNoDepth": "Het vakwerk heeft nergens een hoogte.",

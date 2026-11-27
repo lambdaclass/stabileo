@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 
-it.skip.each([
+it.each([
   ["0.4.0.nl", "| [SA-2026-021]", "controleer de richting langs de nok én de dwarsrichting"],
   ["0.4.0.nl", "| [SA-2026-022]", "controleer of zowel 0,9 D + 1,6 H als 1,2 D + 1,6 H"],
-  ["0.6.0.it", "| 65 |", "divisa per la rigidezza di contatto"],
+  ["0.6.0.it", "2026-11-staged-cable-refusal-and-contact-tolerance.md", "divisa per la rigidezza di contatto"],
   ["0.6.0.it", "| [SA-2026-056]", "delle aste e le reazioni degli appoggi"],
   ["0.6.0.it", "- **SA-2026-056", "delle aste e le reazioni degli appoggi"],
   ["0.6.1.it", "- **[SA-2026-056]", "delle aste e le reazioni degli appoggi"],

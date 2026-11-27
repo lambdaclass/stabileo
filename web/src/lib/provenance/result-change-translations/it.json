@@ -60,8 +60,8 @@
     "title": "Le linee d’influenza del momento flettente tornano al segno precedente alla versione 14"
   },
   "basic-pdelta-projected-loads": {
-    "title": "P-Delta in Basic usa il piano selezionato",
-    "explanation": "In Basic l’analisi P-Delta prepara i carichi nello stesso piano selezionato per l’analisi lineare e verifica le forze proiettate rispetto ai carichi spaziali di origine."
+    "title": "P-Delta in Base usa il piano selezionato",
+    "explanation": "In Base l’analisi P-Delta prepara i carichi nello stesso piano selezionato per l’analisi lineare e verifica le forze proiettate rispetto ai carichi spaziali di origine."
   },
   "basic-plastic-closes-unloading-hinges": {
     "explanation": "Il collasso passo dopo passo si fermava al primo meccanismo apparente. Con carichi distribuiti si forma una seconda cerniera accanto alla prima e si scarica; l’analisi si fermava lì con un moltiplicatore di collasso basso (un telaio a portale dava 64,06 invece di 71,30). Quelle cerniere ora si chiudono e l’analisi prosegue; una cerniera che scorre lungo un’asta conta una volta. Un’esecuzione che non raggiunge un meccanismo ammissibile entro il suo limite di passi viene riportata come non confermata invece che come collasso. Ricontrolla i moltiplicatori di collasso plastico dei telai piani, soprattutto con carichi distribuiti.",
@@ -993,7 +993,7 @@
   },
   "planar-spatial-distributed-load-component": {
     "title": "Conservazione della componente nel piano dei carichi distribuiti spaziali",
-    "explanation": "L’analisi Basic nel piano XY può trattare carichi distribuiti spaziali rappresentabili usando i valori di qY alle estremità e i limiti originari del tratto caricato. Nei piani XZ e YZ si usa qZ. I carichi con componenti non rappresentabili nel piano vengono ancora rifiutati."
+    "explanation": "L’analisi Base nel piano XY può trattare carichi distribuiti spaziali rappresentabili usando i valori di qY alle estremità e i limiti originari del tratto caricato. Nei piani XZ e YZ si usa qZ. I carichi con componenti non rappresentabili nel piano vengono ancora rifiutati."
   },
   "planar-start-couple-without-projection": {
     "explanation": "Una coppia piana pura all’inizio di un’asta spaziale senza proiezione utilizzabile agisce ora sul nodo iniziale attorno alla normale del piano di carico. Rieseguisci le analisi interessate.",
@@ -1376,8 +1376,8 @@
     "title": "I casi di neve coprono ogni orientamento del colmo"
   },
   "snow-roof-connectivity": {
-    "explanation": "I collegamenti tra coperture controllano tutti i confini delle superfici prima di estendere il fetch dell’accumulo o ricevere neve scivolata. Le coperture selezionate determinano il proprio telaio di neve, la larghezza e le direzioni. Rigenera i carichi di neve e riesegui analisi, combinazioni e verifiche di progetto (#2095). Questa correzione è inclusa nella 0.6.1.",
-    "title": "Il fetch della neve segue le coperture continue e la geometria selezionata"
+    "explanation": "I collegamenti tra coperture controllano tutti i confini delle superfici prima di estendere la lunghezza di esposizione sopravento per l’accumulo o ricevere neve scivolata. Le coperture selezionate determinano il proprio telaio di neve, la larghezza e le direzioni. Rigenera i carichi di neve e riesegui analisi, combinazioni e verifiche di progetto (#2095). Questa correzione è inclusa nella 0.6.1.",
+    "title": "La lunghezza di esposizione sopravento della neve segue le coperture continue e la geometria selezionata"
   },
   "snow-roof-rotation": {
     "explanation": "Una pura rotazione in pianta riduceva del 30% il carico di neve lineare bilanciato generato nel modello testimone conservato. La larghezza della copertura e le luci del carico parziale ora usano gli assi della copertura; lo stesso piano fornisce pendenza e quota. Rigenera i carichi di neve, poi riesegui analisi, combinazioni e verifiche derivate. Ruotare indietro un vecchio modello non è una riparazione (SA-2026-067, #2093). La correzione è inclusa nella 0.6.1.",
@@ -1704,12 +1704,12 @@
     "title": "Le forze a fasi non disponibili sono trattenute"
   },
   "workbook-support-rotations": {
-    "explanation": "Le esportazioni del foglio di lavoro includono le rotazioni di appoggio prescritte in ogni riferimento. Ricalcola i risultati interessati, ed esporta di nuovo il modello originale se un foglio di lavoro ometteva le rotazioni.",
-    "title": "Rotazioni di appoggio nel foglio di lavoro"
+    "explanation": "Le esportazioni della cartella di lavoro includono le rotazioni di appoggio prescritte in ogni riferimento. Ricalcola i risultati interessati, ed esporta di nuovo il modello originale se una cartella di lavoro ometteva le rotazioni.",
+    "title": "Rotazioni di appoggio nella cartella di lavoro"
   },
   "xy-constraint-projection": {
     "title": "Proiezione dei vincoli nel piano XY",
-    "explanation": "L’analisi Basic conserva i vincoli sui moti nel piano XY. Un disassamento Z è normale a XY. Il calcolo rifiuta un collegamento eccentrico quando tale disassamento accoppia moti nel piano e fuori piano. Nel recupero dei vecchi progetti piani si verificano anche gli assi salvati dei collegamenti rigidi che usano le traslazioni predefinite."
+    "explanation": "L’analisi Base conserva i vincoli sui moti nel piano XY. Un disassamento Z è normale a XY. Il calcolo rifiuta un collegamento eccentrico quando tale disassamento accoppia moti nel piano e fuori piano. Nel recupero dei vecchi progetti piani si verificano anche gli assi salvati dei collegamenti rigidi che usano le traslazioni predefinite."
   },
   "zero-weight-shell-cases": {
     "explanation": "Solo i casi di carico con fattore netto diverso da zero contribuiscono alla tensione e al taglio trasversale dei gusci. Riesegui le combinazioni di gusci che includono fattori zero o che si annullano.",

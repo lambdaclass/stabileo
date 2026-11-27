@@ -6,7 +6,7 @@ const body: PostBody =  {
   "blocks": [
     {
       "k": "p",
-      "t": "Bereken getroffen beton- en staalontwerptoetsingen opnieuw. Voor gegenereerde sneeuw geldt: genereer eerst de belastingen opnieuw, en bereken daarna getroffen belastinggevallen, combinaties, omhullenden en afgeleide ontwerptoetsingen opnieuw. Alleen eerder opgeslagen belastingen opnieuw berekenen herstelt ze niet. Vergelijk belastingen, capaciteiten, wapening, benuttingsgraad, maatgevende combinaties en certificaten met de resultaten die je al gebruikte. Beoordeel geleverde berekeningen en de dimensionering die erop is gebaseerd. Een weigering, een niet beschikbare grootheid of niet getoetste wapening geeft geen geslaagd antwoord en is geen nulbelasting."
+      "t": "Bereken getroffen beton- en staalontwerptoetsingen opnieuw. Voor gegenereerde sneeuw geldt: genereer eerst de belastingen opnieuw, en bereken daarna getroffen belastinggevallen, combinaties, omhullenden en afgeleide ontwerptoetsingen opnieuw. Alleen eerder opgeslagen belastingen opnieuw berekenen herstelt ze niet. Vergelijk de berekende ontwerpsnedekrachten en -momenten, belastingen, capaciteiten, wapening, benuttingsgraad, maatgevende combinaties en certificaten met de resultaten die je al gebruikte. Beoordeel geleverde berekeningen en de dimensionering die erop is gebaseerd. Een weigering, een niet beschikbare grootheid of niet getoetste wapening geeft geen geslaagd antwoord en is geen nulbelasting."
     },
     {
       "k": "note",
@@ -48,7 +48,7 @@ const body: PostBody =  {
         [
           "SA-2026-068",
           "Hoog",
-          "Torsie kon voldoen met ontoereikende ontworpen beugels (#2141). Bereken betonontwerptoetsingen opnieuw en beoordeel de werkelijk aangebrachte dwarswapening, de beugelafstand en de niet-geslaagde en niet-getoetste torsiegevallen. Niet getoetste langswapening is geen voldoende wapeningskorf."
+          "Torsie kon voldoen met ontoereikende ontworpen beugels (#2141). Bereken betonontwerptoetsingen opnieuw en beoordeel de werkelijk aangebrachte dwarswapening, de dwarscapaciteit, de beugelafstand en de niet-geslaagde en niet-getoetste torsiegevallen. Niet getoetste langswapening is geen voldoende wapeningskorf."
         ]
       ]
     },
@@ -80,7 +80,7 @@ const body: PostBody =  {
         ],
         [
           "79",
-          "Sneeuwoverschrijvingen behouden onevenwichtige zijden en doorsnedereeksen"
+          "Sneeuwoverschrijvingen behouden onevenwichtige zijden en dakreeksen"
         ],
         [
           "79",
@@ -202,7 +202,7 @@ const body: PostBody =  {
       "k": "ul",
       "items": [
         "Bekende onjuiste resultaten blijven open: #2096, #2142, #2143 en #2144. Deze release lost ze niet op. Raadpleeg hun getroffen reikwijdte en verifieer getroffen resultaten onafhankelijk voordat je ze gebruikt.",
-        "SA-2026-056 blijft onopgelost: verifieer de berekende dynamische respons, waaronder staafkrachten en oplegreacties, onafhankelijk voor gekoppelde gemengde raamwerk-schaalmodellen waarvan de berekende respons na hernummeren, rotatie of eenhedenconversie wezenlijk verandert. Er is geen conservatieve correctiefactor vastgesteld.",
+        "SA-2026-056 blijft onopgelost: verifieer de berekende dynamische respons, waaronder staafkrachten en oplegreacties, onafhankelijk voor alle getroffen gekoppelde raamwerk-schaalmodellen, ook als hernummeren, rotatie en eenhedenconversie dezelfde respons geven. Er is geen conservatieve correctiefactor vastgesteld.",
         "2D plastisch bezwijken blijft geweigerd in afwachting van #758, zoals beschreven in SA-2026-044. Een gecertificeerde 3D ondergrens certificeert de ruwe scharnierhistorie niet.",
         "Tijdsdomeinanalyse levert geen totale dynamische oplegbelastingen. Gebruik een onafhankelijke analyse met traagheid, demping en oplegbelasting. Niet ondersteunde kabelanalyses en niet-nul opgelegde oplegbeweging in kabel- of tijdsdomeinwerkstromen weigeren expliciet.",
         "Ruimtelijke booglengte- en verplaatsingsgestuurde solvers zijn niet toegevoegd. Bestaande waarschuwingen en beperkingen blijven van toepassing."

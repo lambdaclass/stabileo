@@ -1,7 +1,9 @@
 import { expect, it } from 'vitest';
+import { generateLatticeColumn } from '../../engine/generators/lattice-column';
+import { DEFAULT_TRUSS_PARAMS, validateTrussParams } from '../../engine/generators/truss-topology';
 import { allDictFor } from '../locales/all';
 
-it.skip.each([
+it.each([
   ["it", "course.dynamics.sdof.damp.wdLabel", "Pulsazione smorzata"],
   ["it", "course.dynamics.sdof.damp.noOscillation", "pulsazione smorzata"],
   ["it", "course.dynamics.sdof.free.why", "pulsazione ω_D"],
@@ -53,4 +55,19 @@ it.skip.each([
   ["it", "steps.deformation.req.constraints", "vincoli interni o connettori"],
 ] as const)('known wrong result: #2613 — %s %s states %s', (locale, key, expected) => {
   expect(allDictFor(locale)[key]).toContain(expected);
+});
+
+it.each([9, 10, 11])('Dutch plateau guidance follows the span boundary at %i', plateauM => {
+  const problems = validateTrussParams({ ...DEFAULT_TRUSS_PARAMS, kind: 'trapezoidal', spanM: 10, plateauM });
+  const problem = problems.find(p => p.key === 'generator.problem.plateauExceedsSpan');
+  if (plateauM < 10) expect(problem).toBeUndefined();
+  else expect(allDictFor('nl')[problem!.key]).toContain('korter zijn dan');
+});
+
+it.each([
+  ['zigzag', 'Zigzagvulling, om en om van vak tot vak.'],
+  ['parallel', 'Vulling waarbij elke diagonaal dezelfde kant op helt.'],
+] as const)('the generated %s lacing identifies its arrangement in Dutch', (lacing, description) => {
+  const labels = generateLatticeColumn({ lacing }).assumptions.map(key => allDictFor('nl')[key]);
+  expect(labels).toContain(description);
 });

@@ -941,7 +941,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Gecontroleerd 3D-plastisch bezwijken rapporteert zijn gecertificeerde ondergrens en weigert een onbetrouwbaar certificaat. Plastische berekening controleert zijn rekenwerk en geheugenbehoefte vóór het toewijzen. Vezelbelastingsturing omsluit zijn belastinggrens in plaats van er een te rapporteren die met de stapgrootte verandert.",
           "Contactberekeningen weigeren een bevroren toestand die niet aan de laatste contactvoorwaarden voldoet. Kabelelementen worden geweigerd buiten de speciale kabelberekening, waar hun slap worden niet kan worden weergegeven. Deze grenzen gelden voor zowel native als browserberekeningen.",
           "Schaalcombinaties behouden spanningen uit gevallen met opgelegde verplaatsing en bevatten knoopspanningen van vierhoekelementen; SSI geeft opleggingsreacties terug in 2D en 3D. Knik- en meergevallenberekeningen weigeren niet-eindige resultaten. Opgeslagen projecten herkennen berekeningen uit versies met bekende foute resultaten en vragen om de betreffende berekening opnieuw uit te voeren.",
-          "Knikberekeningen in 2D en 3D houden de afrondingsgrenzen voor normaalkracht beperkt tot delen die werkelijk gekoppeld zijn. Een inklemming in een onafhankelijke constructie belet niet meer dat een andere kolom wordt berekend; onzekere druk binnen een gekoppeld deel wordt nog steeds geweigerd. Voer opgeslagen knik- en P-Delta-berekeningen opnieuw uit om B2-factoren en stabiliteit te vernieuwen.",
+          "Knikberekeningen in 2D en 3D houden de afrondingsgrenzen voor normaalkracht beperkt tot delen die werkelijk gekoppeld zijn. Een randvoorwaarde in een onafhankelijke constructie belet niet meer dat een andere kolom wordt berekend; onzekere druk binnen een gekoppeld deel wordt nog steeds geweigerd. Voer opgeslagen knik- en P-Delta-berekeningen opnieuw uit om B2-factoren en stabiliteit te vernieuwen.",
           "Regressiecontroles dekken 28 gemelde modellen die nu met een reden worden geweigerd; de beoordeling van het bewijs liet 25 kandidaat-problemen sluiten. Zeven oude schaalmodellen hebben een vrije starre rotatie in het vlak: native tests en browsertests bevestigen hun weigering en controleren de antwoorden na het toevoegen van de ontbrekende verhindering van starre rotatie in het vlak.",
           "Gefaseerde 2D- en 3D-berekeningen delen de behandeling van vrije rotatie met de lineaire berekening. Eindvrijgaven en eenhedenwijzigingen voegen geen kunstmatige rotatiestijfheid meer toe en zettingen behouden hun bedoelde beweging. Voer de betreffende gefaseerde berekeningen en afgeleide ontwerptoetsingen opnieuw uit (SA-2026-060). Aanvankelijke elastische weigeringen in 3D-plastische berekening blijven nu weigeringen in plaats van stille nulbezwijkfactoren te worden (SA-2026-062).",
           "Plastische evenwichtstoetsen crashen niet meer bij geïmporteerde modellen waarvan de recordlabels afwijken van hun staaf- en knoop-ID’s. Plastische certificaten tellen de werkelijk benodigde opslag en behouden de laatste geldige grenzen wanneer een optionele verfijning de limiet overschrijdt. Eerder geweigerde raamwerken kunnen nu binnen dezelfde limieten certificeren.",
@@ -2524,7 +2524,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         "items": [
           "Het bewerken van het model maakt de resultaten en ontwerptoetsingen die daardoor verouderd zijn ongeldig, zodat resultaten die niet meer gelden nooit worden getoond.",
           "Snellere berekening: belastinggevallen hergebruiken de factorisatie, combinaties worden in batches berekend en de berekening draait op de achtergrond.",
-          "Correcties aan inklemmingen en hellende opleggingen.",
+          "Correcties aan randvoorwaarden en hellende opleggingen.",
         ]
       },
     },
@@ -2978,7 +2978,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         "title": "Een soepelere 3D-weergave en een robuustere engine",
         "items": [
           "Een opnieuw ontworpen landingspagina.",
-          "Bijna duizend nieuwe robuustheidstests, met nauwkeurigheidscorrecties in de engine, de elementen en de inklemmingen, en instabiliteitswaarschuwingen voordat de berekening draait.",
+          "Bijna duizend nieuwe robuustheidstests, met nauwkeurigheidscorrecties in de engine, de elementen en de randvoorwaarden, en instabiliteitswaarschuwingen voordat de berekening draait.",
           "Scharnieren in 3D die per as worden vrijgegeven aan elk staafuiteinde.",
           "De 3D-weergave beweegt soepel bij modellen met meer dan duizend knopen: knopen worden in één keer getekend en het kiezen van staven is sneller.",
           "Assen zijn in de hele app gelijkgetrokken met Z omhoog, en de momenten My en Mz zijn gecorrigeerd in spanningen en ontwerptoetsingen.",

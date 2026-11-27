@@ -8,6 +8,7 @@
   import PublicLink from '../landing/PublicLink.svelte';
   import ResearchLink from './ResearchLink.svelte';
   import { isHttpUrl } from './urls';
+  import { researchLocales } from '../../lib/i18n/research-routes';
   import { cardTitle } from './card-title';
   import { cardHook } from './card-hook';
   import { summaryIn } from './catalogue-summaries';
@@ -48,6 +49,7 @@
     <h2 class="rs-g-h2">{s.runIt}</h2>
     <ul class="rs-g-run">
       {#each run as { e, p } (e.paperId)}
+        {@const languages = researchLocales(e.path)}
         <li class="rs-g-runcard">
           <ResearchLink to={e.path} class="rs-g-thumb" aria-label={cardTitle(e)}>
             {#if e.thumbnail && !thumbFailed[e.paperId]}
@@ -60,6 +62,9 @@
             <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
             <h3><ResearchLink to={e.path}>{cardTitle(e)}</ResearchLink></h3>
             <p class="rs-g-hook">{cardHook(e)}</p>
+            {#if s.onlyEnglish && languages.length === 1 && languages[0] === 'en'}
+              <p>{s.onlyEnglish}</p>
+            {/if}
             <p class="rs-g-by" lang="en">{p.crossref.title}. {citation(p)}.</p>
             <div class="rs-g-actions">
               <ResearchLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</ResearchLink>
