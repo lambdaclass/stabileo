@@ -5,7 +5,7 @@
  */
 import { modelStore } from './model.svelte';
 import {
-  applyPlateMeshes, arcEdgeBetween, planPlateMesh, plateEntry, plateSides, plateStatus, setPlateLoops, setPlateSideArc,
+  applyPlateMeshes, arcEdgeBetween, planPlateMesh, plateEntry, plateSides, plateStatus, retainedPlateNodes, setPlateLoops, setPlateSideArc,
 } from './physical-plates';
 import { plateGeometry, plateLoops, type PlateFrame, type PlateProblem } from '../model/physical/plate';
 import type { Vec3 } from '../model/edit/affine';
@@ -88,14 +88,11 @@ export function plateSideShapes(id: number): Array<{ from: number; to: number; m
   });
 }
 
-/** Whether a node is held by nothing but this plate's loops: no member, support, load or other group. */
-function onlyThisPlate(node: number, plate: number): boolean {
-  for (const el of modelStore.elements.values()) if (el.nodeI === node || el.nodeJ === node) return false;
-  for (const s of modelStore.supports.values()) if (s.nodeId === node) return false;
-  for (const sh of [...modelStore.quads.values(), ...modelStore.plates.values()]) if (sh.nodes.includes(node)) return false;
-  for (const g of modelStore.model.groups.values()) if (g.id !== plate && g.members.nodes?.includes(node)) return false;
-  for (const l of modelStore.loads) if ((l.data as { nodeId?: number }).nodeId === node) return false;
-  return true;
+function removeShapeNodes(plate: number, detached: readonly number[]): void {
+  const owned = detached.filter(id => modelStore.nodes.get(id)?.plateShapeOwner === plate);
+  if (!owned.length) return;
+  const retained = retainedPlateNodes();
+  for (const id of owned) if (!retained.has(id)) modelStore.removeNode(id);
 }
 
 /**
@@ -120,12 +117,12 @@ export function setPlateSideSagitta(id: number, side: number, sagitta: number | 
     } else {
       const n = outward(geo.frame, a, b, windingOf(geo.frame, plateLoops(e.group).outer));
       const p: Vec3 = [(a[0] + b[0]) / 2 + n[0] * s, (a[1] + b[1]) / 2 + n[1] * s, (a[2] + b[2]) / 2 + n[2] * s];
-      const mid = modelStore.addNode(p[0], p[1], p[2]);
+      const mid = modelStore.addNode(p[0], p[1], p[2], id);
       problem = setPlateSideArc(id, side, mid);
       if (problem) modelStore.removeNode(mid);
     }
     if (problem) return;
-    if (oldMid !== null && onlyThisPlate(oldMid, -1)) modelStore.removeNode(oldMid);
+    if (oldMid !== null) removeShapeNodes(id, [oldMid]);
     remeshIfMeshed(id);
   });
   return problem;
@@ -212,10 +209,10 @@ export function cutPlateCells(id: number, figure: PlateFigure, chosen: ReadonlyS
       const n = nodeAt(i);
       if (n !== null) return n;
       const p = figure.points[i]!;
-      const id = modelStore.addNode(p[0], p[1], p[2]);
-      byKey.set(key(p), id);
-      made.push(id);
-      return id;
+      const node = modelStore.addNode(p[0], p[1], p[2], id);
+      byKey.set(key(p), node);
+      made.push(node);
+      return node;
     };
     const outer = sameOutline ? loops.outer : corners(outerLoop, uv, keep).map(idOf);
     const holes = holeLoops.map((l) => corners(l, uv, keep).map(idOf));
@@ -239,7 +236,7 @@ export function closePlateHole(id: number, k: number): PlateShapeProblem | null 
     problem = setPlateLoops(id, loops.outer, loops.holes.filter((_, i) => i !== k), arcMids);
     if (problem) return;
     remeshIfMeshed(id);
-    for (const n of loops.holes[k]!) if (modelStore.nodes.has(n) && onlyThisPlate(n, -1)) modelStore.removeNode(n);
+    removeShapeNodes(id, loops.holes[k]!);
   });
   return problem;
 }

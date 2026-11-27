@@ -649,9 +649,16 @@ export interface PlateMeshPlan {
   footprints?: { columns: ColumnFootprint[]; z: number };
 }
 
+function plateNodeReferences(): Set<number> {
+  const nodes = modelStore.referencedNodeIds();
+  for (const force of modelStore.model.dynamics?.timeHistory?.forces ?? []) nodes.add(force.nodeId);
+  for (const node of modelStore.nodes.values()) if (node.name) nodes.add(node.id);
+  return nodes;
+}
+
 /** Every node something holds; `except` a plate whose own outline and mesh do not count. */
-const held = (except?: number): Set<number> => {
-  const s = new Set<number>();
+export const retainedPlateNodes = (except?: number): Set<number> => {
+  const s = plateNodeReferences();
   for (const e of modelStore.elements.values()) { s.add(e.nodeI); s.add(e.nodeJ); }
   for (const q of modelStore.quads.values()) q.nodes.forEach((n) => s.add(n));
   for (const p of modelStore.plates.values()) p.nodes.forEach((n) => s.add(n));
@@ -711,7 +718,7 @@ function keptMeshNodes(e: PlateEntry): number {
   const owned = plateLoops(e.group).owned;
   if (!owned.length) return 0;
   const mine = new Set([...(e.group.members.quads ?? []).map((q) => `q${q}`), ...(e.group.members.plates ?? []).map((p) => `p${p}`)]);
-  const busy = new Set<number>();
+  const busy = plateNodeReferences();
   for (const sp of modelStore.supports.values()) busy.add(sp.nodeId);
   for (const l of modelStore.loads) if ('nodeId' in l.data) busy.add((l.data as { nodeId: number }).nodeId);
   for (const q of modelStore.quads.values()) if (!mine.has(`q${q.id}`)) q.nodes.forEach((n) => busy.add(n));
@@ -951,8 +958,12 @@ function removePlateMesh(id: number, updateNeighbours = true, preserveNodes?: Re
     respringAt(springNodes);
     // The members the mesh cut, whole again where the cut node is the mesh's and holds nothing else.
     const cut = [...modelStore.elements.values()].filter((el) => owned.has(el.nodeI) || owned.has(el.nodeJ)).map((el) => el.id);
-    if (cut.length) removedNodes += mergeCollinear(cut, preserveNodes).removedNodes;
-    const h = held(id);
+    if (cut.length) {
+      const retained = plateNodeReferences();
+      for (const n of preserveNodes ?? []) retained.add(n);
+      removedNodes += mergeCollinear(cut, retained).removedNodes;
+    }
+    const h = retainedPlateNodes(id);
     if (owned.size) modelStore.bulkMutate(() => {
       for (const n of owned) {
         if (!modelStore.nodes.has(n) || preserveNodes?.has(n)) continue;
@@ -1413,7 +1424,7 @@ export function deletePlate(id: number): void {
     const corner = new Set(g?.members.nodes ?? []);
     modelStore.removeGroup(id);
     // Outline nodes that held only the plate go with it.
-    const h = held();
+    const h = retainedPlateNodes();
     for (const n of corner) if (modelStore.nodes.has(n) && !h.has(n)) modelStore.removeNode(n);
   });
 }

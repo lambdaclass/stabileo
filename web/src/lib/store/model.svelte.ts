@@ -89,6 +89,7 @@ import { reverseElementInModel } from './reverse-element';
 import { resetSwitchBackup } from './switch-2d';
 
 export interface Node {
+  plateShapeOwner?: number;
   id: number;
   x: number;
   y: number;
@@ -2642,11 +2643,12 @@ function createModelStore() {
       return changed;
     },
 
-    addNode(x: number, y: number, z?: number): number {
+    addNode(x: number, y: number, z?: number, plateShapeOwner?: number): number {
       if (!_undoBatching) _pushUndo?.();
       this.ensureSpaceCoordinates();
       const id = nextId.node++;
       const node: Node = { id, x, y };
+      if (plateShapeOwner !== undefined) node.plateShapeOwner = plateShapeOwner;
       if (z !== undefined && z !== 0) node.z = z;
       model.nodes.set(id, node);
       if (!_bulkMutating) model.nodes = new Map(model.nodes);
