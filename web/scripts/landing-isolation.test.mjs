@@ -13,11 +13,11 @@ async function landingBuild(features) {
         name: 'landing-isolation-fixture',
         enforce: 'pre',
         resolveId(id) {
-          if (/components\/(research|tools|examples|diagram-game)\/load-page$/.test(id) || /components\/(blog\/BlogPage|paper\/PaperPage)\.svelte$/.test(id)) return '\0landing-other-page';
+          if (/components\/(research|tools|examples|games)\/load-page$/.test(id) || /components\/(blog\/BlogPage|paper\/PaperPage)\.svelte$/.test(id)) return '\0landing-other-page';
           if (id === './App.svelte') return '\0landing-app';
         },
         load(id) {
-          if (id === '\0landing-other-page') return 'export default {}; export const loadResearchPage = () => null, loadToolsPage = () => null, loadExamplesPage = () => null, loadDiagramGamePage = () => null;';
+          if (id === '\0landing-other-page') return 'export default {}; export const loadResearchPage = () => null, loadToolsPage = () => null, loadExamplesPage = () => null, loadGamesPage = () => null;';
           if (id === '\0landing-app') return `import Landing from ${JSON.stringify(resolve(import.meta.dirname, '../src/components/LandingPage.svelte'))}; export default function App() { return Landing; }`;
         },
       }],

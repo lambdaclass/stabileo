@@ -9,7 +9,7 @@ const correctIndex = (page: Page) => page.evaluate(() => (window as unknown as {
 test('@smoke diagram game: a right answer scores and explains every option; three mistakes end it and the best score survives a reload', async ({ page }) => {
   const fetched: string[] = [];
   page.on('request', (r) => fetched.push(new URL(r.url()).pathname));
-  await page.goto('/en/diagram-game/?e2e=1&seed=12345');
+  await page.goto('/en/games/diagram-game/?e2e=1&seed=12345');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pick the right diagram');
   expect(fetched.some((p) => /\/App-[^/]*\.js$/.test(p))).toBe(false);
   await page.getByTestId('dg-start').click();
@@ -48,7 +48,7 @@ test('@smoke diagram game: a right answer scores and explains every option; thre
 });
 
 test('@smoke diagram game: a round that shows one diagram and asks which of four structures it belongs to', async ({ page }) => {
-  await page.goto('/es/diagram-game/?e2e=1&seed=99');
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=99');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
   await page.evaluate(() => (window as unknown as { __diagramGame: Hook }).__diagramGame.level(3));
@@ -124,7 +124,7 @@ async function fitsOneScreen(page: Page, what: string, minDrawing: number) {
 }
 
 async function playThrough(page: Page, label: string, minDrawing: number) {
-  await page.goto('/es/diagram-game/?e2e=1&seed=31');
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=31');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
   await fitsOneScreen(page, `${label} first round`, minDrawing);
@@ -165,7 +165,7 @@ test.describe('on a phone', () => {
 
   test('@smoke held upright, the start screen suggests turning the phone; held sideways, it does not', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 664 });
-    await page.goto('/es/diagram-game/?e2e=1');
+    await page.goto('/es/games/diagram-game/?e2e=1');
     await expect(page.getByTestId('dg-rotate')).toContainText('Girá el teléfono');
     await page.setViewportSize({ width: 844, height: 340 });
     await expect(page.getByTestId('dg-rotate')).toHaveCount(0);
@@ -173,7 +173,7 @@ test.describe('on a phone', () => {
 });
 
 test('@smoke when the clock runs out a life is lost and the right option is shown', async ({ page }) => {
-  await page.goto('/es/diagram-game/?e2e=1&seed=41');
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=41');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
   const right = (await correctIndex(page))!;
@@ -189,7 +189,7 @@ test('@smoke when the clock runs out a life is lost and the right option is show
 });
 
 test('@smoke auto-next starts off, moves on by itself once ticked, holds while a card is read, and is remembered', async ({ page }) => {
-  await page.goto('/es/diagram-game/?e2e=1&seed=77');
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=77');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
   await page.getByTestId(`dg-option-${(await correctIndex(page))!}`).click();
@@ -217,7 +217,7 @@ test('@smoke auto-next starts off, moves on by itself once ticked, holds while a
 
 test('@smoke the question names the diagram in its own colour, with its symbol, and quitting keeps the best score and goes back to the start', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/es/diagram-game/?e2e=1&seed=5');
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=5');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
   const term = page.getByTestId('dg-term');
@@ -236,6 +236,48 @@ test('@slow Educational mode links to the diagram game', async ({ page }) => {
   await page.goto('/app/education?e2e=1');
   await expect(page.locator('.edu-panel')).toBeVisible({ timeout: 45_000 });
   await page.getByTestId('edu-open-game').click();
-  await expect(page).toHaveURL(/\/diagram-game\/?$/);
+  await expect(page).toHaveURL(/\/games\/diagram-game\/?$/);
   await expect(page.getByTestId('dg-start')).toBeVisible();
+});
+
+test('@smoke the games hub lists the diagram game, opens it, and the game leads back to the hub', async ({ page }) => {
+  await page.goto('/es/games/?e2e=1');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Juegos');
+  await expect(page).toHaveTitle('Juegos de análisis estructural para estudiantes — Stabileo');
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://stabileo.com/es/games/');
+  await expect(page.locator('link[rel="alternate"][hreflang="zh"]')).toHaveAttribute('href', 'https://stabileo.com/zh/games/');
+  await expect(page.locator('nav.site-header [aria-current="page"]')).toHaveAttribute('data-nav', 'game');
+  await expect(page.locator('nav.site-header [data-nav="game"]')).toHaveText('Juegos');
+  const card = page.getByTestId('game-card-diagram-game');
+  await expect(card.getByRole('heading', { level: 2 })).toHaveText('Diagramas: elegí el correcto');
+  await card.getByRole('link', { name: 'Jugar' }).click();
+  await expect(page).toHaveURL(/\/es\/games\/diagram-game\/$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: elegí el correcto');
+  await expect(page.getByTestId('dg-start')).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/es\/games\/(\?e2e=1)?$/);
+  await expect(page.getByTestId('game-card-diagram-game')).toBeVisible();
+  await page.goForward();
+  await page.locator('.dg-intro .crumb a').click();
+  await expect(page).toHaveURL(/\/es\/games\/(\?e2e=1)?$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Juegos');
+});
+
+test('@smoke the old game address lands on the game under /games, keeping the language and the query', async ({ page }) => {
+  await page.goto('/pt/diagram-game/?e2e=1&seed=9');
+  await expect(page).toHaveURL(/\/pt\/games\/diagram-game\/\?e2e=1&seed=9$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: escolha o correto');
+});
+
+test('@smoke on a phone the games hub has no sideways scroll and every link is a full-size target', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto('/de/games/?e2e=1');
+  await expect(page.getByTestId('game-card-diagram-game')).toBeVisible();
+  const overflow = await page.evaluate(() => [document.documentElement, document.querySelector('.landing.games')!].map(el => el.scrollWidth - el.clientWidth));
+  expect(overflow).toEqual([0, 0]);
+  const targets = page.locator('.landing.games main a');
+  expect(await targets.count()).toBeGreaterThanOrEqual(3);
+  for (const box of await targets.evaluateAll(links => links.map(a => { const r = a.getBoundingClientRect(); return { text: a.textContent?.trim() ?? '', width: r.width, height: r.height }; }))) {
+    expect(Math.min(box.width, box.height), box.text).toBeGreaterThanOrEqual(44);
+  }
 });

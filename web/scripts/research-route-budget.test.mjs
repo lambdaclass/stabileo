@@ -134,14 +134,15 @@ test('the course route boundary and what only it reaches leave the app footprint
   assert.ok(files.has('shared.js'));
 });
 
-test('the diagram game page loader is a route boundary: the game and what only it reaches leave the app footprint', () => {
-  const loader = 'src/components/diagram-game/load-page.ts';
+test('the games page loader is a route boundary: the hub, the game and what only they reach leave the app footprint', () => {
+  const loader = 'src/components/games/load-page.ts';
   const withGame = { ...manifest,
     'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: [...manifest['src/App.svelte'].dynamicImports, loader] },
-    [loader]: { file: 'game-loader.js', dynamicImports: ['src/components/diagram-game/DiagramGamePage.svelte'] },
+    [loader]: { file: 'game-loader.js', dynamicImports: ['src/components/games/GamesPage.svelte', 'src/components/diagram-game/DiagramGamePage.svelte'] },
+    'src/components/games/GamesPage.svelte': { file: 'games.js', imports: ['_shared.js'] },
     'src/components/diagram-game/DiagramGamePage.svelte': { file: 'game.js', imports: ['_shared.js'] } };
   assert.ok(isLazyRouteBoundary(loader));
   const files = routeChunkFiles(withGame, appRoots);
-  for (const file of ['game-loader.js', 'game.js']) assert.ok(!files.has(file), file);
+  for (const file of ['game-loader.js', 'games.js', 'game.js']) assert.ok(!files.has(file), file);
   assert.ok(files.has('shared.js'));
 });
