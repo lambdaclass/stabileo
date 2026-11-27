@@ -459,6 +459,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     ['hu', 'a tervezett csatlakozás teljes hosszában'],
     ['tr', 'amaçlanan birleşimin tamamı boyunca'],
     ['it', 'lungo tutta la giunzione prevista'],
+    ['nl', 'langs de hele bedoelde aansluiting'],
     ['zh', '沿整个预期连接线'],
   ])('SA-2026-127 %s requires full-length shared mesh connectivity', (locale, wording) => {
     expectAdvisoryWording(locale, 'SA-2026-127', wording);
@@ -466,6 +467,7 @@ describe('the safety-advisories post quotes the advisories', () => {
 
   it.each<[PublicLocale, string]>([
     ['it', 'aste dei modelli piani (2D), indipendentemente dalla sezione'],
+    ['nl', 'staven van vlakke (2D-)modellen, ongeacht hun doorsnede'],
     ['es', 'barras de modelos planos (2D), independientemente de su sección'],
     ['pt', 'barras de modelos planos (2D), independentemente da seção transversal'],
   ])('SA-2026-128 %s identifies 2D models regardless of section', (locale, wording) => {
