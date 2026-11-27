@@ -101,8 +101,8 @@ test.describe('@slow plastic collapse the exact certificate does not confirm', (
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
     await page.evaluate(async () => {
-      await window.__stabileoActions.loadExample('portal-frame');
-      window.__stabileoActions.tieNodes(2, 3, [0]);
+      await window.__stabileoActions.loadExample('cantilever-point');
+      window.__stabileoActions.tieNodes(1, 2, [0]);
     });
     await page.getByTestId('rb-cmd-advanced').click();
     await page.locator('button.adv-btn', { hasText: /Plastic collapse|Colapso plástico/ }).click();

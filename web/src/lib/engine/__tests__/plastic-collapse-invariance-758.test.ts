@@ -270,10 +270,13 @@ describe('the Basic "Portal Frame" example through the Plastic collapse action',
     }
   });
 
-  it('a model with a constraint, outside the exact certificate, still answers: the step-by-step factor, marked uncertified', async () => {
+});
+
+describe('a constrained Basic cantilever through the Plastic collapse action', () => {
+  it('the tied cantilever returns the step-by-step factor marked uncertified', async () => {
     historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
-    await modelStore.loadExample('portal-frame');
-    modelStore.addConstraint({ type: 'equalDOF', masterNode: 2, slaveNode: 3, dofs: [0] });
+    await modelStore.loadExample('cantilever-point');
+    modelStore.addConstraint({ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] });
     const run = runPlasticCollapse()!;
     expect(run.uncertified).toBe(true);
     expect(run.result.withheld).toBe(true);
