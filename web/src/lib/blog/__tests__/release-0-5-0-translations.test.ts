@@ -170,7 +170,7 @@ it('publishes the Hungarian 0.6.1 article with every block and its safety data w
   });
 });
 
-it.skip('known wrong result: #2595 — the Italian release summary fits search results with both open checks', () => {
+it('known wrong result: #2595 — the Italian release summary fits search results with both open checks', () => {
   const excerpt = findPost('stabileo-0-5-0')!.i18n.it!.excerpt;
   expect(excerpt).toMatch(/torsione.*?incompleta \(SA-2026-040\)/);
   expect(excerpt).toMatch(/collasso plastico 2D.*?rifiutato \(SA-2026-044\)/);
