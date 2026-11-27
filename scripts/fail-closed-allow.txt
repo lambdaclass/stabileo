@@ -334,4 +334,4 @@ engine/src/solver/buckling.rs: let at = |node: usize, i: usize| dof_num.global_d
 engine/src/solver/buckling.rs: let n = mean_n.get(&t.element_id).copied().unwrap_or(0.0);
 
 ## The second-order screen's largest μ = 1/λcr: no positive eigenvalue means no buckling under these loads, so 1/λcr is exactly zero.
-engine/src/solver/buckling.rs: Some(if last > 0.0 { last } else { 0.0 })
+engine/src/solver/buckling.rs: largest.is_finite().then(|| largest.max(0.0))

@@ -312,10 +312,10 @@ fn a_compressed_truss_bar_counts_only_when_supports_hold_both_its_ends() {
     assert!(loaded.element_forces.iter().filter(|f| f.element_id != 3).all(|f| f.n_start < -1.0), "{:?}", loaded.element_forces);
     let factor = solve_buckling_2d(&truss_v(false), 1).unwrap().modes[0].load_factor;
     assert!(factor * SECOND_ORDER_RATIO > SECOND_ORDER_NEAR_FACTOR, "{factor}");
-    assert_eq!(second_order(&loaded.structured_diagnostics), vec![], "the bars are not held by supports at both ends; the structure's critical factor {factor} bounds them");
+    assert_eq!(second_order(&loaded.structured_diagnostics), unbounded(), "truss members can buckle locally despite the global factor {factor}");
     let settled = solve_2d(&truss_v(true)).unwrap();
     assert!(settled.element_forces.iter().filter(|f| f.element_id != 3).all(|f| f.n_start < -1.0), "{:?}", settled.element_forces);
-    assert_eq!(second_order(&settled.structured_diagnostics), vec![]);
+    assert_eq!(second_order(&settled.structured_diagnostics), warned(vec![1, 2]));
 }
 
 #[test]
@@ -587,7 +587,6 @@ fn planar_screen_uses_magnitude_and_preserves_the_reversal_diagnostic() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1551"]
 fn review_1927_orthogonal_bars_retain_the_compressive_buckling_mode() {
     let axis = 1.618_033_988_75_f64.atan();
     for angle in [axis, axis + 0.31] {
@@ -610,7 +609,6 @@ fn review_1927_orthogonal_bars_retain_the_compressive_buckling_mode() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1551"]
 fn review_1927_member_buckling_is_independent_of_truss_joint_buckling() {
     for settled in [false, true] {
         for inertia in [1e-5, 1e-9] {
@@ -619,7 +617,35 @@ fn review_1927_member_buckling_is_independent_of_truss_joint_buckling() {
             value["sections"]["2"]["id"] = json!(2);
             value["sections"]["2"]["iz"] = json!(inertia);
             for id in ["1", "2"] { value["elements"][id]["sectionId"] = json!(2); }
-            let input = serde_json::from_value(value).unwrap();
+            let input = serde_json::from_value(value.clone()).unwrap();
+            if settled {
+                for node in value["nodes"].as_object_mut().unwrap().values_mut() {
+                    node["y"] = json!(0);
+                }
+                for support in value["supports"].as_object_mut().unwrap().values_mut() {
+                    let fixed = support["type"] == "fixed";
+                    let dz = support.get("dz").cloned();
+                    *support = json!({"nodeId":support["nodeId"],"rx":true,"ry":true,"rz":true,
+                        "rrx":fixed,"rry":fixed,"rrz":fixed});
+                    if let Some(value) = dz { support["dz"] = value; }
+                }
+                for section in value["sections"].as_object_mut().unwrap().values_mut() {
+                    section["iy"] = section["iz"].clone();
+                    section["j"] = section["iz"].clone();
+                }
+                for e in value["elements"].as_object_mut().unwrap().values_mut() {
+                    e.as_object_mut().unwrap().remove("hingeStart");
+                    e.as_object_mut().unwrap().remove("hingeEnd");
+                }
+                let spatial: SolverInput3D = serde_json::from_value(value).unwrap();
+                let r = solve_3d(&spatial).unwrap();
+                let expected = if inertia == 1e-9 { warned(vec![1, 2]) } else { vec![] };
+                assert_eq!(second_order(&r.structured_diagnostics), expected);
+                if let Ok(path) = std::env::var("TRUSS_SCREEN_1927_CASES") {
+                    let file = format!("{path}-{}.json", if expected.is_empty() { "bounded" } else { "over" });
+                    std::fs::write(file, serde_json::to_string(&json!([input, spatial])).unwrap()).unwrap();
+                }
+            }
             let r = solve_2d(&input).unwrap();
             let findings = second_order(&r.structured_diagnostics);
             if settled {
@@ -633,7 +659,6 @@ fn review_1927_member_buckling_is_independent_of_truss_joint_buckling() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1551"]
 fn review_1927_global_buckling_preserves_the_compressed_column_ids() {
     let mut value = serde_json::to_value(portal("pinned", 250.0, 0.01)).unwrap();
     value["nodes"]["5"] = json!({"id":5,"x":20,"z":0});

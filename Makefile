@@ -1430,3 +1430,7 @@ test.engine.nonlinear-drivers-2510-wasm: wasm scripts/tests/arc-review-wasm.mjs 
 .PHONY: test.engine.prescribed-motion-2227-wasm
 test.engine.prescribed-motion-2227-wasm: wasm
 	$(NIX_RUN) node --test scripts/tests/prescribed-motion-2227-wasm.mjs
+
+.PHONY: test.engine.truss-screen-1927-wasm
+test.engine.truss-screen-1927-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp -d "$(CURDIR)/target/truss-screen-1927.XXXXXX"); trap '\''rm -rf -- "$$cases"'\'' EXIT; TRUSS_SCREEN_1927_CASES="$$cases/truss" $(MAKE) test.engine.targeted TEST=robustness FILTER=review_1927; node scripts/tests/truss-screen-1927.mjs "$$cases/truss"'

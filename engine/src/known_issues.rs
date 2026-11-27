@@ -1018,9 +1018,6 @@ fn chain_ends(m: &ScreenModel, chain: &[usize]) -> Vec<usize> {
 
 /// A linear result's second-order screen (#1551). The K = 2 and K = 1 bounds hold for the frame
 /// only because the clamp or both braces are supports: restraint from other members does not count.
-/// When they leave a member unbounded, `global` gives 1/λ_cr of the whole structure (None when it
-/// cannot be computed), which is every compressed member's N/Ncr with Ncr = λ_cr·N, so the same
-/// limits apply to it.
 pub(crate) fn second_order(m: &ScreenModel, global: impl FnOnce() -> Option<f64>) -> (Vec<StructuredDiagnostic>, f64) {
     if !m.bars.iter().any(|b| b.compression > 0.0) { return (Vec::new(), 0.0); }
     let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
@@ -1042,14 +1039,22 @@ pub(crate) fn second_order(m: &ScreenModel, global: impl FnOnce() -> Option<f64>
         Some(r) => *largest = largest.max(r),
         None => unbounded = true,
     };
-    for i in 0..m.bars.len() {
-        let b = &m.bars[i];
-        if !b.frame && b.compression > 0.0 && !b.ends.iter().all(|n| m.braced.contains(n)) { unbound(&[i], b.compression, &mut largest); }
-    }
-    for chain in member_chains(m, 1.0) {
+    let mut local_unbounded = false;
+    let mut chains = member_chains(m, 1.0);
+    chains.extend(m.bars.iter().enumerate().filter(|(_, bar)| !bar.frame).map(|(i, _)| vec![i]));
+    for chain in chains {
         let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
         if n <= 0.0 { continue; }
-        let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbound(&chain, n, &mut largest); continue };
+        let frame = m.bars[chain[0]].frame;
+        let k = if frame && clamped(&chain) {
+            2.0
+        } else if braced(&chain) {
+            1.0
+        } else {
+            if !frame && let_off(&chain, n).is_none() { local_unbounded = true; }
+            unbound(&chain, n, &mut largest);
+            continue;
+        };
         let ratio = n * k * k / euler(&chain);
         let ids = chain.iter().map(|&i| m.bars[i].id);
         largest = if ratio.is_nan() { f64::INFINITY } else { largest.max(ratio) };
@@ -1065,15 +1070,16 @@ pub(crate) fn second_order(m: &ScreenModel, global: impl FnOnce() -> Option<f64>
             Some(ratio) => {
                 largest = if ratio.is_nan() { f64::INFINITY } else { largest.max(ratio) };
                 if !(ratio <= SECOND_ORDER_RATIO) {
-                    found = vec![whole_frame("LIN-SECOND-ORDER")];
+                    found.push(whole_frame("LIN-SECOND-ORDER"));
                 } else if ratio * SECOND_ORDER_NEAR_FACTOR > SECOND_ORDER_RATIO
                     && !found.iter().any(|d| matches!(d.phase.as_deref(), Some("LIN-SECOND-ORDER" | "LIN-SECOND-ORDER-NEAR"))) {
                     found.push(whole_frame("LIN-SECOND-ORDER-NEAR"));
                 }
             }
-            None => found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")),
+            None => local_unbounded = true,
         }
     }
+    if local_unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
     (found, largest)
 }
 
@@ -1262,7 +1268,8 @@ fn deep_curved_beams(input: &SolverInput3D) -> Vec<usize> {
 /// (a prepared solve under the solve that called it) does not repeat it.
 pub fn attach(target: &mut Vec<StructuredDiagnostic>, new: Vec<StructuredDiagnostic>) {
     for d in new {
-        let seen = target.iter().any(|t| t.code == d.code && t.phase == d.phase);
+        let seen = target.iter().any(|t| t.code == d.code && t.phase == d.phase
+            && (d.code != DiagnosticCode::KnownIssue || (t.element_kind == d.element_kind && t.element_ids == d.element_ids)));
         if !seen {
             target.push(d);
         }

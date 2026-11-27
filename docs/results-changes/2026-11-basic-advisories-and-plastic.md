@@ -15,20 +15,17 @@ support holds, a column above the first storey, a truss bar that ends at free jo
 whole result warn `LIN-SECOND-ORDER-UNBOUNDED`, which holds the CIRSOC 301 checks, on frames
 nowhere near buckling.
 
-In 2D the screen now bounds such a structure by its lowest elastic critical load factor λcr,
-solved from the linear result it already has (the buckling eigenproblem, without a second linear
-solve). Every compressed member then has N/Ncr = 1/λcr, so the existing limits apply unchanged:
-`LIN-SECOND-ORDER` when λcr < 1/0.07483 = 13.4, `LIN-SECOND-ORDER-NEAR` when λcr < 1.6/0.07483 =
-21.4. The recorded ratio is the larger of the member bounds and 1/λcr, so combinations keep their
-factored bound. `LIN-SECOND-ORDER-UNBOUNDED` stays when λcr cannot be computed. 3D keeps the
-member screen alone, because its buckling factors can be unconservatively high (#818).
+For planar frames the screen uses the buckling solver's complete mode search on the stiffness and
+geometric stiffness of the linear solution. The reciprocal of the first positive critical factor
+is the applied fraction of the global proportional buckling load. The screen compares that fraction
+and the independent member ratios with the existing warning thresholds. A global warning preserves
+the identifiers of members that already exceed a threshold.
 
-What moves: the diagnostic codes of Basic 2D solves. The Basic 2D frames and trusses have λcr from
-113 to 19 000 and no longer warn; in the results corpus, `warning:known_issue` leaves the base,
-case, combination and envelope codes of `2d-building-3story-dlw`, `2d-frame-cirsoc-dl`,
-`2d-frame-seismic`, `2d-howe-truss`, `2d-multi-section-frame`, `2d-portal-frame`, `2d-thermal`,
-`2d-three-hinge-arch` (one of its two), `2d-two-story-frame` and `2d-warren-truss`. No displacement,
-force, reaction or envelope value changes.
+A two-node truss element has no internal bending mode. In both dimensions a compressed truss bar
+restrained in translation at both ends is screened against the pinned Euler load using its own
+length and bending stiffness. Where the supports do not establish this local bound, the linear
+result keeps the unresolved-member warning. Factored combinations propagate that warning.
+These changes affect diagnostic codes and the recorded second-order screening ratio.
 
 ## Dynamics warnings split, the rotary-inertia one on deep members only
 
