@@ -585,3 +585,64 @@ fn planar_screen_uses_magnitude_and_preserves_the_reversal_diagnostic() {
     }
     assert_eq!(batch.combination_results.len(), factors.len());
 }
+
+#[test]
+#[ignore = "known wrong result: #1551"]
+fn review_1927_orthogonal_bars_retain_the_compressive_buckling_mode() {
+    let axis = 1.618_033_988_75_f64.atan();
+    for angle in [axis, axis + 0.31] {
+        let (s, c) = angle.sin_cos();
+        let load = 10.0;
+        let input = serde_json::from_value(json!({
+            "nodes": {"1":{"id":1,"x":-c,"z":-s},"2":{"id":2,"x":s,"z":-c},"3":{"id":3,"x":0,"z":0}},
+            "elements": {"1":{"id":1,"nodeI":1,"nodeJ":3,"type":"truss","sectionId":1,"materialId":1},
+                         "2":{"id":2,"nodeI":2,"nodeJ":3,"type":"truss","sectionId":1,"materialId":1}},
+            "sections": {"1":{"id":1,"a":0.01,"iz":1e-5}},
+            "materials": {"1":{"id":1,"e":E,"nu":0.3}},
+            "supports": {"1":{"id":1,"nodeId":1,"type":"pinned"},"2":{"id":2,"nodeId":2,"type":"pinned"}},
+            "loads": [{"type":"nodal","data":{"nodeId":3,"fx":load*(-c-s),"fz":load*(-s+c),"my":0}}]
+        })).unwrap();
+        let response = solve_2d(&input).unwrap();
+        let ratio = response.result_summary.unwrap().second_order_ratio.unwrap();
+        let factor = solve_buckling_2d(&input, 1).unwrap().modes[0].load_factor;
+        assert!((ratio * factor - 1.0).abs() < 1e-9, "{angle}: {ratio} times {factor}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1551"]
+fn review_1927_member_buckling_is_independent_of_truss_joint_buckling() {
+    for settled in [false, true] {
+        for inertia in [1e-5, 1e-9] {
+            let mut value = serde_json::to_value(truss_v(settled)).unwrap();
+            value["sections"]["2"] = value["sections"]["1"].clone();
+            value["sections"]["2"]["id"] = json!(2);
+            value["sections"]["2"]["iz"] = json!(inertia);
+            for id in ["1", "2"] { value["elements"][id]["sectionId"] = json!(2); }
+            let input = serde_json::from_value(value).unwrap();
+            let r = solve_2d(&input).unwrap();
+            let findings = second_order(&r.structured_diagnostics);
+            if settled {
+                let expected = if inertia == 1e-9 { warned(vec![1, 2]) } else { vec![] };
+                assert_eq!(findings, expected);
+            } else {
+                assert!(findings.iter().any(|(phase, _)| phase == "LIN-SECOND-ORDER-UNBOUNDED"), "{findings:?}");
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #1551"]
+fn review_1927_global_buckling_preserves_the_compressed_column_ids() {
+    let mut value = serde_json::to_value(portal("pinned", 250.0, 0.01)).unwrap();
+    value["nodes"]["5"] = json!({"id":5,"x":20,"z":0});
+    value["nodes"]["6"] = json!({"id":6,"x":23,"z":0});
+    value["elements"]["4"] = json!({"id":4,"type":"frame","nodeI":5,"nodeJ":6,"materialId":1,"sectionId":1});
+    value["supports"]["5"] = json!({"id":5,"nodeId":5,"type":"fixed"});
+    value["loads"].as_array_mut().unwrap().push(json!({"type":"nodal","data":{"nodeId":6,"fx":-1000,"fz":0,"my":0}}));
+    let r = solve_2d(&serde_json::from_value(value).unwrap()).unwrap();
+    let findings = second_order(&r.structured_diagnostics);
+    assert!(findings.contains(&("LIN-SECOND-ORDER".into(), vec![4])), "{findings:?}");
+    assert!(findings.contains(&("LIN-SECOND-ORDER".into(), vec![])), "{findings:?}");
+}
