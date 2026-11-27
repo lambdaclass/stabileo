@@ -105,6 +105,19 @@ describe('colour maps in wireframe render mode (no element groups)', () => {
     expect([TENSION, COMPRESSION]).not.toContain(eb.getBaseColor(tie));
   });
 
+  it.each(['abs', 'srss'] as const)('does not color an unsigned %s envelope as tension', method => {
+    const { tie } = twoBarModel();
+    const eb = new ElementsBatched();
+    eb.upsert(tie, 0, 0, 0, 4, 0, 0);
+    publishAxial([{ elementId: tie, n: -5 }]);
+    const r = resultsStore.results3D!;
+    const member = r.elementForces[0]!;
+    resultsStore.setResults3D({ ...r, elementForces: [{ ...member, combined: { method, parts: [member] } }] });
+    resultsStore.diagramType = 'axialColor';
+    syncColorMap3D(context(eb));
+    expect([TENSION, COMPRESSION]).not.toContain(eb.getBaseColor(tie));
+  });
+
   it('turning the map off restores the per-type base colour', () => {
     const { tie, strut } = twoBarModel();
     const eb = new ElementsBatched();
