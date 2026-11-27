@@ -112,7 +112,7 @@ describe('known wrong result: #2655 wall axial tension', () => {
   });
 });
 
-describe.skip('known wrong result: #2655 supplied boundary bars between two curtains', () => {
+describe('known wrong result: #2655 supplied boundary bars between two curtains', () => {
   it('places exactly the stated number at both ends and credits only those bars for tension', () => {
     for (const count of [0, 1, 2, 3, 4]) {
       const run = floor(-400, true, false, count);

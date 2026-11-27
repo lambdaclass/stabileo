@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const ar: Translations = {
   'wall.tensionRequiresBarLayout': "يتطلب التحقق من الشد مع الانحناء توزيع القضبان الرأسية.",
+  'wall.boundaryBarCount': "أدخل عدداً صحيحاً غير سالب لقضبان التسليح الحدّية عند كل طرف من طرفي الجدار.",
   'wall.tensionAtOpenings': "يتطلب الشد عند فتحات الجدار المقطع الصافي والتسليح المستمر عبره.",
   'wall.tensionShearEdition': "يتعذر التحقق من الشد والقص معاً في الجدار وفق إصدار {edition}.",
   'svc.accountingMismatch': "رُفض التحليل. حالة الحمل {case}، المركبة {component}. المُدخل {entered}، المُجمّع {assembled}.",

@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const id: Translations = {
   'wall.tensionRequiresBarLayout': "Tarik dan lentur gabungan memerlukan tata letak tulangan vertikal.",
+  'wall.boundaryBarCount': "Masukkan jumlah batang tulangan tepi pada setiap ujung dinding sebagai bilangan bulat nol atau lebih.",
   'wall.tensionAtOpenings': "Tarik pada bukaan dinding memerlukan penampang neto dan tulangan menerus yang melintasinya.",
   'wall.tensionShearEdition': "Tarik dan geser gabungan pada dinding tidak dapat diperiksa untuk edisi {edition}.",
   'svc.accountingMismatch': "Analisis ditolak. Kasus beban {case}, {component}. Nilai masukan {entered}, nilai rakitan {assembled}.",

@@ -1,5 +1,6 @@
 const es: Record<string, string> = {
   'wall.tensionRequiresBarLayout': "La tracción combinada con flexión requiere la disposición de las barras verticales.",
+  'wall.boundaryBarCount': "Ingresá una cantidad entera de barras de borde, mayor o igual que cero, en cada extremo del tabique.",
   'wall.tensionAtOpenings': "La tracción en un tabique con aberturas requiere la sección neta y la armadura continua que la atraviesa.",
   'wall.tensionShearEdition': "No se puede verificar el tabique a tracción y corte combinados para la edición {edition}.",
   'svc.accountingMismatch': "Análisis rechazado. Caso de carga {case}, {component}. Valor ingresado {entered}, valor ensamblado {assembled}.",

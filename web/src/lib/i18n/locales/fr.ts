@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const fr: Translations = {
   'wall.tensionRequiresBarLayout': "La traction combinée à la flexion exige la disposition des barres verticales.",
+  'wall.boundaryBarCount': "Saisissez un nombre entier positif ou nul de barres de rive à chaque extrémité du voile.",
   'wall.tensionAtOpenings': "La traction au droit des ouvertures exige la section nette et les armatures continues qui la traversent.",
   'wall.tensionShearEdition': "La vérification du voile en traction et cisaillement combinés est indisponible pour l’édition {edition}.",
   'svc.accountingMismatch': "Analyse refusée. Cas de charge {case}, {component}. Valeur saisie {entered}, valeur assemblée {assembled}.",

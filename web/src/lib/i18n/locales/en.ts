@@ -1,5 +1,6 @@
 const en: Record<string, string> = {
   'wall.tensionRequiresBarLayout': "Combined tension and bending require the vertical bar layout.",
+  'wall.boundaryBarCount': "Enter a whole number of boundary bars, zero or more, at each end of the wall.",
   'wall.tensionAtOpenings': "Wall tension at openings requires a net section and the continuous reinforcement through that section.",
   'wall.tensionShearEdition': "Wall design cannot verify combined tension and shear for edition {edition}.",
   'svc.accountingMismatch': "Analysis refused. Load case {case}, {component}. Entered {entered}, assembled {assembled}.",

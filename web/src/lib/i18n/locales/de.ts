@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const de: Translations = {
   'wall.tensionRequiresBarLayout': "Für Zug mit Biegung ist die Lage der vertikalen Stäbe erforderlich.",
+  'wall.boundaryBarCount': "Geben Sie für jedes Wandende eine ganze Anzahl Randstäbe ab null ein.",
   'wall.tensionAtOpenings': "Für Zug an Wandöffnungen werden der Nettoquerschnitt und die durchlaufende Bewehrung benötigt.",
   'wall.tensionShearEdition': "Der Wandnachweis für Zug mit Querkraft ist für die Ausgabe {edition} nicht verfügbar.",
   'svc.accountingMismatch': "Berechnung abgelehnt. Lastfall {case}, {component}. Eingegeben {entered}, assembliert {assembled}.",

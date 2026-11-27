@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 const it: Translations = {
   'wall.tensionRequiresBarLayout': "La verifica a trazione e flessione richiede la disposizione delle barre verticali.",
+  'wall.boundaryBarCount': "Inserire un numero intero non negativo di barre di bordo a ciascuna estremità della parete.",
   'wall.tensionAtOpenings': "La trazione in corrispondenza delle aperture richiede la sezione netta e le armature continue che la attraversano.",
   'wall.tensionShearEdition': "La verifica della parete a trazione e taglio combinati non è disponibile per l’edizione {edition}.",
   'svc.accountingMismatch': "Analisi rifiutata. Caso di carico {case}, {component}. Valore inserito {entered}, valore assemblato {assembled}.",

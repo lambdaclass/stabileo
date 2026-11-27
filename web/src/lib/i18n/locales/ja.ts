@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const ja: Translations = {
   'wall.tensionRequiresBarLayout': "引張と曲げの組合せを照査するには縦筋の配置が必要です。",
+  'wall.boundaryBarCount': "壁の各端部の境界鉄筋の本数には、0 以上の整数を入力してください。",
   'wall.tensionAtOpenings': "壁開口部の引張照査には純断面と、その断面を連続して通る鉄筋が必要です。",
   'wall.tensionShearEdition': "{edition} 年版に基づく壁の引張とせん断の組合せ照査はできません。",
   'svc.accountingMismatch': "解析を拒否しました。荷重ケース {case}、成分 {component}。入力値 {entered}、組立値 {assembled}。",

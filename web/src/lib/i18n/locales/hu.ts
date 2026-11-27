@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const hu: Translations = {
   'wall.tensionRequiresBarLayout': "Együttes húzás és hajlítás esetén szükséges a függőleges vasalás kiosztása.",
+  'wall.boundaryBarCount': "A fal mindkét végén adja meg a peremvasak számát nemnegatív egész számként.",
   'wall.tensionAtOpenings': "Nyílásos fal húzási ellenőrzéséhez szükséges a nettó keresztmetszet és az azon átmenő folytonos vasalás.",
   'wall.tensionShearEdition': "A fal együttes húzása és nyírása a(z) {edition} kiadás szerint nem ellenőrizhető.",
   'svc.accountingMismatch': "A számítás elutasítva. {case} tehereset, {component}. Megadott érték {entered}, összeállított érték {assembled}.",

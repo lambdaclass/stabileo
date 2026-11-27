@@ -103,7 +103,7 @@ function evaluate(d: WallDemand, c: WallContext, a: WallAdopted): Eval {
   const shearSteel = d.combos.some(k => k.vu > PHI_WALL_SHEAR * wallConcreteShear(k.pu, acv, c.mat.fc));
   const s0 = maxWallSpacing(d.thickness, EDITION).spacing;
   const sMaxV = shearSteel ? Math.min(s0, d.length / 3) : s0, sMaxH = shearSteel ? Math.min(s0, d.length / 5) : s0;
-  const r = { vertical: a.vertical, horizontal: a.horizontal, curtains: a.curtains, ...(a.boundary && a.boundary.count > 0 ? { boundary: a.boundary } : {}) };
+  const r = a;
   const base = { length: d.length, thickness: d.thickness, cover: c.cover, fc: c.mat.fc, fy: c.mat.fy };
   const pm = d.combos.map((k) => (c.pier ? 0 : wallInPlane({ ...base, pu: k.pu, mu: k.mu, r }).utilization));
   const out = d.combos.map((k) => Math.max(0, ...wallOutOfPlane({ ...base, pu: k.pu, muV: k.muV, muH: k.muH, r }).map((x) => x.utilization)));
@@ -162,7 +162,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     if (!e.shear.every(ok1) || e.rhoT < e.rhoTMin - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextWallBar(bars, a.horizontal.diameter), spacing: a.horizontal.spacing } };
     e = evaluate(d, c, a);
   }
-  const seisOf = (x: WallAdopted) => wallSeismic(d, c, x, d.combos.map((k) => wallInPlane({ length: d.length, thickness: d.thickness, cover: c.cover, fc: c.mat.fc, fy: c.mat.fy, pu: k.pu, mu: k.mu, r: { vertical: x.vertical, horizontal: x.horizontal, curtains: x.curtains, ...(x.boundary && x.boundary.count > 0 ? { boundary: x.boundary } : {}) } }).c), fmt);
+  const seisOf = (x: WallAdopted) => wallSeismic(d, c, x, d.combos.map((k) => wallInPlane({ length: d.length, thickness: d.thickness, cover: c.cover, fc: c.mat.fc, fy: c.mat.fy, pu: k.pu, mu: k.mu, r: x }).c), fmt);
   // Hoops the code spaces closer than the project allows: the thinnest of the bars they hold grows, so 6·db (8·db) lifts the spacing.
   for (let guard = 0; c.seismic && !adopted && guard < 8; guard++) {
     if (!seisOf(a).underFloor?.byBars) break;

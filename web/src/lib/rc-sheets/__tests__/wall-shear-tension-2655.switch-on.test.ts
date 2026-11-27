@@ -22,3 +22,16 @@ it('known wrong result: #2655 pairs shear with signed axial force in each sheet 
     expect(row.ratio).toBeCloseTo(Math.max(500 / shear, -p / (0.9 * fy * area * 1000)), 6);
   }
 });
+
+it('known wrong result: #2655 wall sheet credits exactly the supplied boundary bars and rejects impossible counts', () => {
+  const d = { key: 'wall', name: 'wall', length: 4, thickness: 0.2, height: 3, combos: [{ pu: -400, combo: 'T', mu: 0, vu: 0, muV: 0, muH: 0 }] };
+  const c = { mat: { fc: 25, fy: 420 }, cover: 0.025, diameters: [12, 16], barDia: 12 };
+  const withCount = (count: number) => wallRow(d, c, {
+    curtains: 2, vertical: { diameter: 12, spacing: 0.25 }, horizontal: { diameter: 12, spacing: 0.25 }, boundary: { count, diameter: 16 },
+  }, makeFmt('.'));
+  for (const count of [0, 1, 2, 3]) {
+    const area = 2 * (Math.floor(d.length / 0.25) + 1) * Math.PI * 0.006 ** 2 + 2 * count * Math.PI * 0.008 ** 2;
+    expect(withCount(count).combos.rows[0]!.ratio).toBeCloseTo(400 / (0.9 * c.mat.fy * area * 1000), 6);
+  }
+  for (const count of [-1, 2.5]) expect(() => withCount(count)).toThrow('wall.boundaryBarCount');
+});

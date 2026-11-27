@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const ko: Translations = {
   'wall.tensionRequiresBarLayout': "인장과 휨의 조합 검토에는 수직 철근 배치가 필요합니다.",
+  'wall.boundaryBarCount': "벽 양쪽 끝의 경계 철근 개수를 0 이상의 정수로 입력하세요.",
   'wall.tensionAtOpenings': "벽체 개구부 인장 검토에는 순단면과 그 단면을 관통하는 연속 철근이 필요합니다.",
   'wall.tensionShearEdition': "{edition} 판으로는 벽체의 인장과 전단 조합을 검토할 수 없습니다.",
   'svc.accountingMismatch': "해석을 거부했습니다. 하중 케이스 {case}, 성분 {component}. 입력값 {entered}, 조립값 {assembled}.",

@@ -7,6 +7,7 @@
  * not carry the in-plane moment the design concentrates bars at both ends (boundary elements)
  * before closing the spacing.
  */
+import { EngineMessageError, msg } from '../codes/message';
 import type { WallReinforcement } from '../design-contract/reinforcement';
 import { wallTensileCapacity } from './wall-design';
 import { momentCapacityAtAxial, axialRange } from '../engine/codes/argentina/cirsoc-flex-surface';
@@ -25,11 +26,14 @@ export function wallVerticalBars(length: number, thickness: number, cover: numbe
   const n = Math.max(2, Math.floor(length / r.vertical.spacing) + 1);
   const span = length - 2 * (cover + hd + vd / 2);
   const edge: Array<Bar & { mark: string; boundary: true }> = [];
+  if (r.boundary && (!Number.isSafeInteger(r.boundary.count) || r.boundary.count < 0)) {
+    throw new EngineMessageError(msg('wall.boundaryBarCount'));
+  }
   if (r.boundary && r.boundary.count > 0) {
     // Each end's extra bars, split between the curtains, inward from the end bar at 2·db (≥ 50 mm).
     const bd = r.boundary.diameter / 1000, pitch = Math.max(0.05, 2 * bd);
-    const per = Math.ceil(r.boundary.count / ys.length);
-    for (const end of [-1, 1]) for (const [curtain, y] of ys.entries()) for (let i = 0; i < per; i++) {
+    for (const end of [-1, 1]) for (const [curtain, y] of ys.entries()) for (let bar = curtain; bar < r.boundary.count; bar += ys.length) {
+      const i = Math.floor(bar / ys.length);
       edge.push({ x: end * (span / 2 - (i + 1) * pitch), y, area: area(r.boundary.diameter), boundary: true, mark: `b${end < 0 ? 0 : 1}${curtain}-${i}` });
     }
   }
