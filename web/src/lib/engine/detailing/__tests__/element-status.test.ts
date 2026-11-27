@@ -154,6 +154,23 @@ describe('the document is the authority on a proposal, not the session', () => {
   });
 });
 
+it.skip.each(['beam', 'column'] as const)('known wrong result: #1927 — family bars cannot supply a %s with steel', kind => {
+  const frame = solid(5, { kind });
+  const familyBar: SceneBar = { ...barFor(5), ownerScope: 'family', family: 'slab', layerId: 'e5:topRun:0' };
+  const report = reportElementStatus(scene([frame], [familyBar]), new Map());
+  expect(report.entries[0]).toMatchObject({ status: 'NOT_EVALUATED', hasSteel: false, topSteel: 'none' });
+});
+
+it.skip.each([true, false])('known wrong result: #1927 — coincident footing and frame owners stay distinct, footing first %s', footingFirst => {
+  const frame = solid(5, { kind: 'column' });
+  const footing = solid(5, { id: 'footing:5', kind: 'footing', reinforced: true });
+  const report = reportElementStatus(scene(footingFirst ? [footing, frame] : [frame, footing]), new Map([
+    [5, { outcome: 'VERIFIED' }],
+  ]));
+  expect(report.counts.DESIGNED_NOT_MODELLED).toBe(1);
+  expect(report.counts.MODELLED).toBe(1);
+});
+
 describe('the report covers what is on screen', () => {
   it('is driven by the SOLIDS, so a member with no outcome still gets a state', () => {
     /**
