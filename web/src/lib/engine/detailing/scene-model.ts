@@ -869,6 +869,7 @@ export interface SceneFilter {
   hideBars?: boolean;
   /** Show only these members. Used when the user isolates one element from the list. */
   elementIds?: readonly number[];
+  statusFootingIds?: readonly number[];
 }
 
 /**
@@ -914,6 +915,25 @@ export function barSolidKind(
   return undefined;
 }
 
+export function statusOwnerOf(item: Pick<SceneSolid, 'kind'> | Pick<SceneBar, 'ownerScope' | 'family'>): 'frame' | 'footing' | undefined {
+  if ('kind' in item) {
+    if (item.kind === 'beam' || item.kind === 'column' || item.kind === 'joint') return 'frame';
+    return item.kind === 'footing' ? 'footing' : undefined;
+  }
+  if (item.ownerScope === 'frame') return 'frame';
+  return item.family === 'footing' ? 'footing' : undefined;
+}
+
+function matchesElementFilter(item: SceneSolid | SceneBar, filter: SceneFilter): boolean {
+  let ids = filter.elementIds;
+  if (filter.statusFootingIds) {
+    const owner = statusOwnerOf(item);
+    if (!owner) return false;
+    if (owner === 'footing') ids = filter.statusFootingIds;
+  }
+  return !ids || item.elementIds.some(id => ids.includes(id));
+}
+
 export function barMatchesFilter(
   b: SceneBar, f: SceneFilter, kindOfElement?: ReadonlyMap<number, SceneSolidKind>,
 ): boolean {
@@ -944,7 +964,7 @@ export function barMatchesFilter(
    * a support belongs to both spans, and dropping it when the user isolates one of them would
    * cut the bar in the picture at a point where it is not cut in the cage.
    */
-  if (f.elementIds && !b.elementIds.some((id) => f.elementIds!.includes(id))) return false;
+  if (!matchesElementFilter(b, f)) return false;
   /**
    * A bar with no family passes a family filter only when the filter is absent.
    *
@@ -966,7 +986,7 @@ export function barMatchesFilter(
  */
 export function solidMatchesFilter(s: SceneSolid, f: SceneFilter): boolean {
   if (f.solidKinds && !f.solidKinds.includes(s.kind)) return false;
-  if (f.elementIds && !s.elementIds.some((id) => f.elementIds!.includes(id))) return false;
+  if (!matchesElementFilter(s, f)) return false;
   if (f.hideUnreinforced && !s.reinforced) return false;
   /**
    * An assembly filter cannot exclude concrete that belongs to no assembly.

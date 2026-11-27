@@ -6,6 +6,7 @@
  * what stops a level plan quietly gathering two storeys.
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { detailExteriorFrame } from '../../store/__tests__/detail-exterior-frame';
 import { designFamiliesWithWorkerYields } from './design-families-fixture';
 import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { modelStore } from '../../store/model.svelte';
@@ -42,12 +43,12 @@ async function build7p(variant?: Variant) {
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
   await yieldToEventLoop();
   resultsStore.setCombinationResults3D(r.perCase as never, r.perCombo as never, r.envelope as never);
-  await designFamiliesWithWorkerYields(['column', 'beam'],
+  detailExteriorFrame(ROLLED_BEAMS.rollBeams.ids, 'cirsoc201.provided.v2.2025');
+  await yieldToEventLoop();
+  const floors = await designFamiliesWithWorkerYields(['slab', 'wall'],
     { verifierId: 'cirsoc201.provided.v2.2025' });
   await yieldToEventLoop();
-  await designFamiliesWithWorkerYields(['slab', 'wall'],
-    { verifierId: 'cirsoc201.provided.v2.2025' });
-  await yieldToEventLoop();
+  expect(floors.ok).toBe(true);
   const doc = detailingStore.buildDocument({ author: 's', at: '2026-08-09T00:00:00Z' })!;
   const { members } = membersFromModel({
     elementIds: [...modelStore.model.elements.keys()],
@@ -66,7 +67,7 @@ async function build7p(variant?: Variant) {
     }
   }
   const report = reportElementStatus(scene, outcomes);
-  const byId = new Map(report.entries.map((e) => [e.elementId, e.status]));
+  const byId = new Map(report.entries.filter(e => !e.footing).map(e => [e.elementId, e.status]));
   statusOf = (id) => byId.get(id);
   // A real assembly: the title block reads its provenance, its revision and its review state,
   // and a stub would produce a sheet whose header does not describe the document it belongs to.
@@ -183,6 +184,11 @@ describe('the four sheet kinds exist and carry real geometry', () => {
     // none any more, so five beams are turned about their axis to produce some (`ROLLED_BEAMS`).
     await build7p(ROLLED_BEAMS);
     const sheet = drawGeneralPlan({ scene, title, statusOf });
+    expect(ROLLED_BEAMS.rollBeams.ids.some(id => {
+      const status = statusOf(id);
+      return status && ['PROVISIONAL', 'UNSUPPORTED', 'REFUSED'].includes(status)
+        && sheet.notes.some(note => note.startsWith(status) && note.split(': ').pop()?.split(', ').includes(String(id)));
+    })).toBe(true);
     expect(sheet.notes.some((n) => /PROVISIONAL|UNSUPPORTED|REFUSED|NOT_EVALUATED/.test(n)))
       .toBe(true);
     // And the note says what the state COSTS, not only what it is called. A reader who does
@@ -190,7 +196,7 @@ describe('the four sheet kinds exist and carry real geometry', () => {
     expect(sheet.notes.some((n) => /NO APTO PARA EMISIÓN CONSTRUCTIVA/.test(n))).toBe(true);
   }, 300_000);
 
-  it.skip('known wrong result: #1927 — the same plan has a detailed column and an unselected column', () => {
+  it('known wrong result: #1927 — the same plan has a detailed column and an unselected column', () => {
     const columns = scene.solids.filter(s => s.kind === 'column');
     expect(columns.some(s => s.reinforced)).toBe(true);
     const bare = columns.find(s => !s.reinforced && statusOf(s.elementIds[0]) === 'NOT_EVALUATED');
@@ -198,15 +204,6 @@ describe('the four sheet kinds exist and carry real geometry', () => {
     const sheet = drawColumnDetail({ scene, title, statusOf, elementId: bare!.elementIds[0] });
     expect(sheet.notes.join(' ')).toMatch(/Sin armadura|0 longitudinal/);
   });
-
-  it('a column with no steel says so instead of showing an empty box', () => {
-    const bare = scene.solids.find((s) => s.kind === 'column' && !s.reinforced);
-    if (!bare) return;
-    const sheet = drawColumnDetail({
-      scene, title, statusOf, elementId: bare.elementIds[0],
-    });
-    expect(sheet.notes.join(' ')).toMatch(/Sin armadura|0 longitudinal/);
-  }, 300_000);
 });
 
 describe('the sheets reconcile with the 3-D view', () => {

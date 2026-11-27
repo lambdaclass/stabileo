@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { statusOwnerOf } from '../../../lib/engine/detailing/scene-model';
   import { editorActivity } from '../../../lib/utils/editor-activity';
   const editorActive = editorActivity();
   /**
@@ -34,7 +35,7 @@
   import { membersFromModel } from '../../../lib/engine/detailing/member-geometry';
   import { cachedSceneModel } from '../../../lib/engine/detailing/scene-cache';
   import {
-    reportElementStatus, summariseStatusReasons, type DesignOutcomeSummary,
+    findElementStatus, reportElementStatus, summariseStatusReasons, type DesignOutcomeSummary,
   } from '../../../lib/engine/detailing/element-status';
   import RebarViewport3D from './RebarViewport3D.svelte';
   import RebarStatusPanel from './RebarStatusPanel.svelte';
@@ -168,11 +169,10 @@
    * "no member matches" and must show nothing, and that distinction is the one a filter UI
    * gets wrong by default.
    */
-  const statusElementIds = $derived.by(() => {
+  const visibleStatuses = $derived.by(() => {
     if (!report || rebarWorkspace.statusFilter.length === 0) return null;
     return report.entries
-      .filter((e) => rebarWorkspace.statusFilter.includes(e.status))
-      .map((e) => e.elementId);
+      .filter((e) => rebarWorkspace.statusFilter.includes(e.status));
   });
 
   /**
@@ -183,7 +183,10 @@
    * component cannot be mounted in the test environment, so every toggle test had to restate
    * the translation instead of exercising it.
    */
-  const filter = $derived<SceneFilter>(rebarWorkspace.filterFor(statusElementIds));
+  const filter = $derived<SceneFilter>(rebarWorkspace.filterFor(
+    visibleStatuses?.filter(entry => !entry.footing).map(entry => entry.elementId) ?? null,
+    visibleStatuses?.filter(entry => entry.footing).map(entry => entry.elementId),
+  ));
 
   const visible = $derived(built ? filterScene(built.scene, filter) : null);
   const summary = $derived(visible ? summariseScene(visible) : null);
@@ -211,7 +214,7 @@
     const id = sel.elementIds[0];
     return id === undefined
       ? null
-      : visible.solids.find((s) => s.elementIds.includes(id)) ?? null;
+      : visible.solids.find(s => (s.kind === 'beam' || s.kind === 'column') && s.elementIds.includes(id)) ?? null;
   });
 
   /** What the inspector reports as the member, even when no solid could be resolved. */
@@ -222,7 +225,9 @@
   const selectedStatus = $derived.by(() => {
     const ids = rebarWorkspace.selection?.elementIds ?? [];
     if (!report || ids.length === 0) return null;
-    return report.entries.find((e) => e.elementId === ids[0]) ?? null;
+    const picked = selectedBar ?? selectedSolid;
+    const owner = picked ? statusOwnerOf(picked) : 'frame';
+    return findElementStatus(report, ids[0], owner) ?? null;
   });
 
   function fmt(n: number, digits = 2): string {
@@ -248,7 +253,7 @@
     const req = rebarWorkspace.focusRequest;
     if (!req || req.nonce === lastNonce) return;
     lastNonce = req.nonce;
-    if (viewport?.focusElement(req.elementId)) focusedElement = req.elementId;
+    if (viewport?.focusElement(req.elementId, req.owner)) focusedElement = req.elementId;
   });
 
   /**
@@ -326,7 +331,7 @@
         <RebarLayersPanel {summary} {emptyKinds} {pieces} bounds={built?.scene.bounds ?? null} />
 
         {#if report}
-          <RebarStatusPanel {report} {reasons} {reasonGroups} />
+          <RebarStatusPanel {report} {reasons} {reasonGroups} selectedFooting={selectedStatus?.footing?.id} />
         {/if}
       </aside>
 
@@ -422,7 +427,7 @@
             elementIds={selectedElementIds}
             lockedMembers={built?.scene.lockedMembers ?? []}
             status={selectedStatus}
-            reason={selectedStatus ? reasons.get(selectedStatus.elementId) ?? null : null}
+            reason={selectedStatus && !selectedStatus.footing ? reasons.get(selectedStatus.elementId) ?? null : null}
             torsionUnevaluated={selectedElementIds.some(
               (id) => built?.scene.torsionUnevaluatedMembers.includes(id) ?? false)}
           />

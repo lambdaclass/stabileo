@@ -109,6 +109,7 @@ export interface WorkspaceLayerState {
    * outcomes, and this module knows about neither.
    */
   statusElementIds: readonly number[] | null;
+  statusFootingIds?: readonly number[];
 }
 
 /**
@@ -139,7 +140,10 @@ export function workspaceFilter(s: WorkspaceLayerState): SceneFilter {
   // Isolation wins over the status filter: it is the more specific gesture, and the user
   // performed it more recently.
   if (s.isolated.length > 0) f.elementIds = [...s.isolated];
-  else if (s.statusElementIds) f.elementIds = [...s.statusElementIds];
+  else if (s.statusElementIds) {
+    f.elementIds = [...s.statusElementIds];
+    if (s.statusFootingIds) f.statusFootingIds = s.statusFootingIds;
+  }
   return f;
 }
 
@@ -189,7 +193,7 @@ function createRebarWorkspace() {
    * gesture — the user has orbited away and wants to come back — and an id that has not
    * changed would not re-trigger the effect that performs it.
    */
-  let focusRequest = $state<{ elementId: number; nonce: number } | null>(null);
+  let focusRequest = $state<{ elementId: number; nonce: number; owner?: 'frame' | 'footing' } | null>(null);
   let nonce = 0;
 
   return {
@@ -228,9 +232,9 @@ function createRebarWorkspace() {
      * them — the switches stay reactive and the translation stays testable, which is the point
      * of it being a function at all.
      */
-    filterFor(statusElementIds: readonly number[] | null): SceneFilter {
+    filterFor(statusElementIds: readonly number[] | null, statusFootingIds?: readonly number[]): SceneFilter {
       return workspaceFilter({
-        hiddenKinds, showBars, hideUnreinforced, isolated, statusElementIds,
+        hiddenKinds, showBars, hideUnreinforced, isolated, statusElementIds, statusFootingIds,
       });
     },
 
@@ -336,9 +340,9 @@ function createRebarWorkspace() {
     },
 
     /** Ask the viewport to centre on a member. */
-    focus(elementId: number) {
+    focus(elementId: number, owner?: 'frame' | 'footing') {
       nonce += 1;
-      focusRequest = { elementId, nonce };
+      focusRequest = { elementId, nonce, ...(owner && { owner }) };
     },
 
     /**
@@ -347,9 +351,9 @@ function createRebarWorkspace() {
      * One action because they are one intention. A list that selects without moving the
      * camera makes the user hunt for what they just clicked in a cage of thousands of bars.
      */
-    selectAndFocus(elementId: number) {
-      this.select({ elementIds: [elementId] });
-      this.focus(elementId);
+    selectAndFocus(elementId: number, footingId?: string) {
+      this.select({ elementIds: [elementId], ...(footingId && { solidId: footingId }) });
+      this.focus(elementId, footingId ? 'footing' : 'frame');
     },
 
     /**
