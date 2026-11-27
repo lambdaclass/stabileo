@@ -446,7 +446,7 @@ const fr: Record<Key, string> = {
   level: 'Niveau',
   lives: 'Vies',
   streak: 'Série',
-  livesLeft: 'Il vous reste {n} vies',
+  livesLeft: 'Vies restantes : {n}',
   points: '+{n} points',
   levelUp: 'Niveau {n} !',
   right: 'Juste.',

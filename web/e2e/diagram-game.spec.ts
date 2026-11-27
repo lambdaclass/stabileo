@@ -270,7 +270,7 @@ test('@smoke the old game address lands on the game under /games, keeping the la
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: escolha o correto');
 });
 
-test.fixme('@smoke known wrong result: #2492 the unprefixed legacy game link keeps its seed and fragment through language selection', async ({ page }) => {
+test('@smoke the unprefixed legacy game link keeps its seed and fragment through language selection', async ({ page }) => {
   await page.goto('/diagram-game/?seed=9#play');
   await expect(page.getByTestId('dg-start')).toBeVisible();
   await pickLanguage(page, 'nav-lang', 'pt');

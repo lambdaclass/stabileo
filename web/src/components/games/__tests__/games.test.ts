@@ -106,7 +106,7 @@ it.each(['meta', 'how.1'] as const)('describes both diagram types and asks for t
   expect(reverse).not.toMatch(/内力图|变形图/);
 });
 
-it.skip.each([0, 1, 2, 3])('known wrong result: #2492 labels %i remaining lives in French', n => {
+it.each([0, 1, 2, 3])('labels %i remaining lives in French', n => {
   setPublicLocale('fr');
   expect(tg('livesLeft', { n })).toBe(`Vies restantes : ${n}`);
 });
