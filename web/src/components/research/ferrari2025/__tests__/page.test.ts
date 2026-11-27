@@ -5,6 +5,8 @@ import paper from '../../../../../../research/stability/ferrari-sigmund-2025/ref
 import comparison from '../../../../../../research/stability/ferrari-sigmund-2025/reference-results/published_comparison.json';
 import replay from '../../../../../../research/stability/ferrari-sigmund-2025/results/stabileo_results.json';
 import validation from '../../../../../../research/stability/ferrari-sigmund-2025/VALIDATION.json';
+import { comparisonDifference } from '../../shell/context';
+import { sci } from '../../shell/format';
 import PlotXY from '../../grossman2026/PlotXY.svelte';
 import { setLocale } from '../../../../lib/i18n/store.svelte';
 import { rs } from '../../i18n';
@@ -36,11 +38,20 @@ it('writes the comparison rows from the validation test, with beta left as a fai
   expect(rows['beta-closed'].reference).toBe(paper.closed_form.beta);
   for (const id of ['lambda-numerical', 'lambda-closed', 'alpha-closed']) expect(rows[id].passed).toBe(true);
   expect(rows['beta-closed'].passed).toBe(false);
-  for (const row of comparison.checks) {
-    const expected = row.metric.startsWith('absolute') ? Math.abs(row.computed - row.reference) : Math.abs(row.computed - row.reference) / Math.abs(row.reference);
-    expect(row.observed).toBeCloseTo(expected, 12);
-    expect(row.passed).toBe(row.observed <= row.tolerance);
+  const lba = validation.study.lba_load_factor.values;
+  const fine = validation.study.corotational.find(c => c.elements_per_member === 40)!;
+  const expected = {
+    'lambda-numerical': [lba[1], 1e-4, 'absolute difference'],
+    'lambda-closed': [lba[3], 1e-3, 'relative difference'],
+    'alpha-closed': [fine.alpha, 4e-3, 'relative difference'],
+    'beta-closed': [fine.beta, 1.1e-2, 'relative difference'],
+  };
+  for (const [id, [computed, tolerance, metric]] of Object.entries(expected)) {
+    expect(rows[id]).toMatchObject({ computed, tolerance, metric });
+    expect(rows[id].observed).toBeCloseTo(comparisonDifference(rows[id]), 12);
+    expect(rows[id].passed).toBe(rows[id].observed <= rows[id].tolerance);
   }
+  expect(comparisonDifference({ ...rows['alpha-closed'], metric: 'unknown difference' })).toBeNaN();
   expect(validation.checks.every(c => c.passed)).toBe(true);
 });
 
@@ -70,13 +81,25 @@ for (const locale of PUBLIC_LOCALES) {
     expect(model).toContain(scientific(paper.parameters.inertia_m4));
     const evidence = text(body.match(/data-testid="ferrari-checks"[^>]*>(.*?)<\/p>/s)![1]);
     for (const x of [Math.max(...validation.checks.slice(0, 4).map(c => c.observed)), validation.checks[0].tolerance]) expect(evidence).toContain(scientific(x));
-    expect(page).toContain(`3 ${rs().of} 4 ${rs().checksPass}`);
+    const summary = body.match(/<dl class="rs-verify[^"]*">(.*?)<\/dl>/s)![1];
+    const groups = [...summary.matchAll(/<div[^>]*>(.*?)<\/div>/gs)].map(m => text(m[1]));
+    expect(groups[0]).toContain(s.checksLabel);
+    expect(groups[1]).toContain(rs().againstPaper);
+    expect(groups[1]).toContain(`3 ${rs().of} 4 ${rs().checksPass}`);
+    const critical = comparison.checks.find(r => r.id === 'lambda-numerical')!;
+    const criticalRow = [...body.matchAll(/<tr[^>]*>(.*?)<\/tr>/gs)].find(m => m[1].includes(s.rows[critical.id]))![1];
+    const cells = [...criticalRow.matchAll(/<td[^>]*>(.*?)<\/td>/gs)].map(m => m[1].replace(/<!--.*?-->/gs, ''));
+    for (const [i, v] of [Math.abs(validation.study.lba_load_factor.values[1] - critical.reference), critical.tolerance].entries()) {
+      const { mantissa, exp } = sci(v, 2);
+      expect(cells[i + 2]).toContain(mantissa);
+      expect(cells[i + 2]).toMatch(new RegExp(`<sup[^>]*>${exp}</sup>`));
+    }
     expect(model).toContain(new Intl.NumberFormat(locale, { maximumFractionDigits: 6, signDisplay: 'always' }).format(moment) + ' kN·m');
     const beta = text(body.match(/data-testid="ferrari-beta"[^>]*>(.*?)<\/p>/s)![1]);
     expect(beta).toContain(new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(comparison.checks.find(r => r.id === 'beta-closed')!.computed));
     expect(beta).toContain(format(paper.closed_form.beta));
     expect(page).toContain(`λ₁ = ${format(replay.lambda)}`);
-    expect(page).toContain(`${validation.checks.length} ${rs().of} ${validation.checks.length} ${rs().checksPass}`);
+    expect(groups[0]).toContain(`${validation.checks.length} ${rs().of} ${validation.checks.length} ${rs().checksPass}`);
     expect(page).not.toMatch(/\{\w+\}|undefined|NaN/);
   });
 }

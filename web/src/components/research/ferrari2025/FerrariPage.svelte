@@ -45,7 +45,7 @@
   const sourceLabel = $derived(source === 'replay' ? s.replay : source === 'live' ? s.live : s.cached);
   const values = $derived({
     length: format(replay.model.nodes['21'].x), young: format(replay.model.materials['1'].e), area: format(replay.model.sections['1'].a),
-    inertia: scientific(replay.model.sections['1'].iz), force: format(-replay.model.loads[0].data.fz), moment: signed(MOMENTS[0]),
+    inertia: scientific(replay.model.sections['1'].iz), force: format(-replay.model.loads[0].data.fz), moment: signed(displayedMoment),
     elements: format(Object.keys(replay.model.elements).length / 2),
   });
   function stop() {
@@ -108,7 +108,7 @@
     <p>{comparisonStrings().paper} · α = {format(paper.numerical.alpha)}, β = {format(paper.numerical.beta)}</p>
     <p>{fill(s.method, { factor: format(study.inextensional_area_m2 / paper.parameters.area_m2), elements: format(fine.elements_per_member) })}</p>
     <div data-testid="ferrari-reference">
-    <p data-testid="ferrari-extensible">{fill(s.extensible, { first: short(study.paper_area_not_a_bifurcation[0].alpha), second: short(study.paper_area_not_a_bifurcation[1].alpha) })}</p>
+    <p data-testid="ferrari-extensible">{fill(s.extensible, { first: short(study.paper_area_step_sensitivity[0].alpha), second: short(study.paper_area_step_sensitivity[1].alpha) })}</p>
     <p data-testid="ferrari-beta">{fill(s.beta, { beta: short(beta.computed!), modal: short(fine.beta_modal), paper: format(beta.reference!) })}</p>
     </div>
     <p>{s.tolerances}</p>

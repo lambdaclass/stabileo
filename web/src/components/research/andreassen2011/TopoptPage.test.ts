@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { parse } from 'svelte/compiler';
 import { render } from 'svelte/server';
 import TopoptPage from './TopoptPage.svelte';
 import validation from '../../../../../research/optimization/andreassen-2011/VALIDATION.json';
@@ -23,8 +24,19 @@ it('renders every evidence measurement, unchanged tolerance and translated ratio
         for (const [column, v] of [check.observed, check.tolerance].entries()) {
           const plain = v === 0 || (Math.abs(v) >= 1e-3 && Math.abs(v) < 1e6);
           const { mantissa, exp } = sci(v, 3);
-          const content = cells[column].replace(/<\/?span(?: [^>]*)?>/g, '').trim();
-          expect(content).toBe(plain ? num(v, { sig: 3 }) : `${mantissa}\u200a×\u200a10<sup>${exp}</sup>`);
+          const nodes = parse(cells[column], { modern: true }).fragment.nodes;
+          type Nodes = typeof nodes;
+          const contents = (items: Nodes): string => items.map(n => n.type === 'Text' ? n.data : n.type === 'RegularElement' ? contents(n.fragment.nodes) : '').join('');
+          const exponents: string[] = [];
+          function visit(items: Nodes) {
+            for (const n of items) if (n.type === 'RegularElement') {
+              if (n.name === 'sup') exponents.push(contents(n.fragment.nodes));
+              visit(n.fragment.nodes);
+            }
+          }
+          visit(nodes);
+          expect(contents(nodes).trim()).toBe(plain ? num(v, { sig: 3 }) : `${mantissa} × 10${exp}`);
+          expect(exponents).toEqual(plain ? [] : [exp]);
         }
         expect(cells[2]).toBe(text[locale].reasons[index]);
         expect(check.observed).toBeLessThanOrEqual(check.tolerance);

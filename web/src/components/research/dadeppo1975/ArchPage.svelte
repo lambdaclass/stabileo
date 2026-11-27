@@ -27,6 +27,7 @@
   let host: HTMLDivElement;
   let worker: Worker | null = null;
   const s = $derived(archStrings(publicI18n.locale));
+  const inspection = $derived(limit && frames.length ? frames.reduce((nearest, f, i) => Math.abs(f.step - limit!.peakStep) < Math.abs(frames[nearest].step - limit!.peakStep) ? i : nearest, 0) : undefined);
   const current = $derived(frames[playback.shown]);
   const view = $derived(viewerData(current, shownInput));
   const comparison = $derived(steps.length ? compare(steps, shownInput.maxSteps) : null);
@@ -103,7 +104,7 @@
           </tbody>
         </table>
       </div>
-      <p><ExperimentLink step={12}>{s.inspect}</ExperimentLink></p>
+      <p><ExperimentLink step={inspection} disabled={inspection === undefined}>{s.inspect.replace('{step}', inspection === undefined ? '—' : String(frames[inspection].step))}</ExperimentLink></p>
       <p>{s.meshLive} <ExperimentLink params={{ elements: 20 }}>{s.meshRun.replace('{n}', '20')}</ExperimentLink> · <ExperimentLink params={{ elements: 80 }}>{s.meshRun.replace('{n}', '80')}</ExperimentLink></p>
       <p>{s.replayNote}</p>
       <h2>{s.notYet}</h2><ul>{#each s.limitations as item (item)}<li>{item}</li>{/each}</ul>

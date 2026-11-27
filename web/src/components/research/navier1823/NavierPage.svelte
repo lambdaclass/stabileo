@@ -142,21 +142,20 @@
     w.postMessage({ plate: $state.snapshot(plate), token });
   }
   function setParams(p: Record<string, number | string | boolean>) {
-    if ((p.family !== undefined && p.family !== 'MITC4' && p.family !== 'DKT')
-      || (p.support !== undefined && p.support !== 'hard' && p.support !== 'soft')) {
-      stop();
-      view = 'plate';
-      plateRow = null;
-      plateError = 'input';
-      return;
-    }
     const next: Plate = {
       family: p.family === 'DKT' || p.family === 'MITC4' ? p.family as Family : plate.family,
       n: p.n !== undefined ? Number(p.n) : plate.n,
       hard: p.support !== undefined ? p.support === 'hard' : plate.hard,
       thickness: p.t !== undefined ? Number(p.t) : plate.thickness,
     };
-    if (!validPlate(next)) return;
+    if ((p.family !== undefined && p.family !== 'MITC4' && p.family !== 'DKT')
+      || (p.support !== undefined && p.support !== 'hard' && p.support !== 'soft') || !validPlate(next)) {
+      stop();
+      view = 'plate';
+      plateRow = null;
+      plateError = 'input';
+      return;
+    }
     plate = next;
     support = next.hard ? 'hard' : 'soft';
     solvePlate();

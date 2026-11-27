@@ -71,6 +71,7 @@
 
   async function run() {
     if (busy) return;
+    token++; built = {}; solving = false;
     busy = true; failure = ''; rows = [];
     try { await runCases(row => { rows = [...rows, row]; }); }
     catch (e) {

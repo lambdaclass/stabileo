@@ -120,11 +120,11 @@
           <p class="mh-small">{s.skewHint}</p>
           {#if varied}
             <p role="status" data-testid="variant">
-              {s.variant.replace('{deg}', String(skew))}:
+              {s.variant.replace('{deg}', String(skew))}{punct(':')}
               {#if variantBusy}{s.running}
               {:else if variant?.refused}<a class="mh-link" href={ISSUE}>{s.withheld}</a>
               {:else if variant?.failure}<strong>{s.engineError}</strong> {variant.failure}
-              {:else if variant}{s.reference} {fmt(base.reference)} · Stabileo {fmt(variant.value)} · {s.errorPct} {pct(variant.error)} · {variant.marginal ? (variant.pass ? s.marginal : s.marginalFail) : (variant.pass ? s.pass : s.fail)}{/if}
+              {:else if variant}{s.reference} {fmt(base.reference)} {unitOf(current)} · Stabileo {fmt(variant.value)} {unitOf(current)} · {s.errorPct} {pct(variant.error)} · {variant.marginal ? (variant.pass ? s.marginal : s.marginalFail) : (variant.pass ? s.pass : s.fail)}{/if}
             </p>
           {/if}
         {/if}

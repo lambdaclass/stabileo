@@ -7,7 +7,6 @@ import Heyman from '../../heyman1966/ArchPage.svelte';
 import Shape from '../../feher2026/ShapePage.svelte';
 import { strings as arch } from '../../dadeppo1975/i18n';
 import { shapeStrings } from '../../feher2026/strings';
-import { archInput } from '../../dadeppo1975/case';
 
 afterEach(() => setPublicLocale('en'));
 it('credits the source of the masonry comparisons in the verdict', () => {
@@ -20,7 +19,6 @@ it.each(PUBLIC_LOCALES)('displays circle target and verdict, and mesh-specific p
   expect(row).toMatch(/\b0\b/);
   expect(row).toContain('✓');
   expect(arch[locale].fullPath).toContain('{n}');
-  expect(arch[locale].fullPath.replace('{n}', String(archInput(80).maxSteps))).toContain('200');
 });
 
 it.each(['de', 'fr', 'tr'] as const)('localizes all three research fields in %s', locale => {

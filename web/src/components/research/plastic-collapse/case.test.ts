@@ -194,7 +194,7 @@ describe('page text', () => {
   });
 });
 
-it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 signed absolute residuals are stated for every locale', () => {
+it('signed absolute residuals are stated for every locale', () => {
   for (const locale of PUBLIC_LOCALES) {
     for (const item of [strings[locale].equilibriumVariant, strings[locale].checks.equilibrium]) {
       for (const residual of ['|ΣRₓ + λH|', '|ΣR_z − λV|', '|ΣM + λ(Hh + VL/2)|']) expect(item).toContain(residual);

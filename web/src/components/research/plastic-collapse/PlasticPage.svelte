@@ -16,14 +16,15 @@
   let params = $state<Portal>({ ...PAPER });
   let solved = $state<Portal>({ ...PAPER });
   const ratio = $derived(params.vertical / params.horizontal);
+  const changing = $derived(running && (params.vertical !== solved.vertical || params.height !== solved.height));
   const bounds = $derived(mechanisms(solved));
   const mode = $derived(governing(solved));
   let host: HTMLDivElement;
   const playback = new Playback(900, 2000);
-  const frame = $derived(cumulativeStep(result?.steps ?? [], playback.shown));
+  const frame = $derived(cumulativeStep(changing ? [] : result?.steps ?? [], playback.shown));
   const data = $derived(viewer(frame, solved));
-  const rows = $derived(result ? events(result) : []);
-  const list = $derived(result ? checks(result, solved) : []);
+  const rows = $derived(result && !changing ? events(result) : []);
+  const list = $derived(result && !changing ? checks(result, solved) : []);
   const passed = $derived(list.filter(c => c.passed).length);
   const nf = (n: number, dp = 6) => fixed(n, locale, dp);
   const shown = $derived({ span: nf(solved.span, 0), height: nf(solved.height, Number.isInteger(solved.height) ? 0 : 1), mp: nf(solved.mp, 0), horizontal: nf(solved.horizontal, 0), vertical: nf(solved.vertical, Number.isInteger(solved.vertical) ? 0 : 1) });
@@ -83,12 +84,12 @@
   actions={{ goToStep: i => playback.seek(i), setParams: p => setParams({ ...(typeof p.ratio === 'number' ? { vertical: p.ratio * params.horizontal } : {}), ...(typeof p.height === 'number' ? { height: p.height } : {}) }), showTab: () => {} }}>
   {#snippet article()}
     <p data-testid="model">{fill(s.model, shown)}</p>
-    <p>{s.method} <a href="#portal" onclick={() => playback.seek((result?.steps.length ?? 1) - 1)}>{s.combined} →</a></p>
-    <ul data-testid="bounds">
+    <p>{s.method} {#if result && !changing}<a href="#portal" onclick={() => playback.seek((result?.steps.length ?? 1) - 1)}>{s.step} →</a>{/if}</p>
+    {#if !changing}<ul data-testid="bounds">
       <li>{s.beam}: λ = 8Mp / (VL) = {nf(bounds.beam)}</li>
       <li>{s.sway}: λ = 4Mp / (Hh) = {nf(bounds.sway)}</li>
       <li>{s.combined}: λ = 6Mp / (Hh + VL/2) = {nf(bounds.combined)}</li>
-    </ul>
+    </ul>{/if}
     <h2 id="loads">{s.paramsHeading}</h2>
     <p>{s.paramsText}</p>
     <ul class="links">
@@ -118,7 +119,7 @@
         <label>{s.height} <output>{nf(params.height, 1)}</output>
           <input type="range" min="2" max="5" step="0.5" value={params.height} aria-valuetext={nf(params.height, 1)} data-testid="height" oninput={e => setParams({ height: Number(e.currentTarget.value) })} />
         </label>
-        <p class="small" data-testid="governs">{mode ? fill(s.governs, { m: label(mode) }) : s.tie}</p>
+        {#if !changing}<p class="small" data-testid="governs">{mode ? fill(s.governs, { m: label(mode) }) : s.tie}</p>{/if}
       </div>
       <div class="controls">
         <button onclick={() => recompute()} disabled={running}>{s.run}</button>
@@ -126,13 +127,14 @@
         <button onclick={restart}>{s.restart}</button>
       </div>
       {#if error}<p role="alert">{result ? s.error : s.noResult}. {s.errorDetail}: <code>{error}</code></p>{/if}
-      {#if result}
+      {#if result && !changing}
         <label>{s.step} {playback.shown + 1}/{result.steps.length}
           <input aria-label={s.step} type="range" min="0" max={result.steps.length - 1} value={playback.shown} oninput={e => playback.seek(Number(e.currentTarget.value))} />
         </label>
         <p data-testid="frame-lambda">λ = {nf(frame?.loadFactor ?? 0)}</p>
         {#if !result.isMechanism || result.warnings?.length}<p role="alert">{s.warning}: {result.warnings?.join('; ')}</p>{/if}
       {:else}<p>{s.pending}</p>{/if}
+      {#if !changing}
       <h2>{s.comparison}</h2>
       <p data-testid="collapse-factor">Stabileo λ = {result ? nf(result.collapseFactor) : '—'}</p>
       <table>
@@ -141,7 +143,7 @@
           <tr data-testid="bound-row"><th scope="row">{s[key as 'beam' | 'sway' | 'combined']}</th><td>{nf(value)}</td><td>{result ? nf(result.collapseFactor - value) : '—'}</td></tr>
         {/each}</tbody>
       </table>
-      <p class="small">{s.explanation}</p>
+      <p class="small">{s.explanation}</p>{/if}
       <h2>{s.eventsHeading}</h2>
       <table>
         <thead><tr><th scope="col">{s.event}</th><th scope="col">{s.location}</th><th scope="col">λ</th><th scope="col">{s.moment}</th></tr></thead>

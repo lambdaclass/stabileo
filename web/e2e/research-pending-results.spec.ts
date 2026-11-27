@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import plateReplay from '../../research/benchmarks/navier-plate/results/stabileo_results.json' with { type: 'json' };
 import archReplay from '../../research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json' with { type: 'json' };
 import arch from '../../engine/tests/benchmarks/dadeppo_arch.json' with { type: 'json' };
 
@@ -56,13 +57,18 @@ test('@smoke an interrupted custom plate has no measured field', async ({ page }
 test('@smoke the Fairclough paper row sends a live request', async ({ page }) => {
   await page.addInitScript(() => {
     window.Worker = class {
-      postMessage() { document.documentElement.dataset.liveLayout = 'requested'; }
+      postMessage(request: { unitWeight: number }) {
+        const data = document.documentElement.dataset;
+        data.layoutRequests = JSON.stringify([...JSON.parse(data.layoutRequests ?? '[]'), request.unitWeight]);
+      }
       terminate() {}
     } as unknown as typeof Worker;
   });
   await page.goto('/en/research/optimisation/fairclough-2026/');
+  const requests = () => page.evaluate(() => JSON.parse(document.documentElement.dataset.layoutRequests ?? '[]') as number[]);
+  const before = await requests();
   await page.locator('.rs-xlink').filter({ hasText: '1.65' }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-live-layout', 'requested');
+  await expect.poll(requests).toEqual([...before, 1.65]);
 });
 
 test('@smoke thin plate warns when the predicted displacement exceeds its thickness', async ({ page }) => {
@@ -91,16 +97,21 @@ for (const elements of [20, 80] as const) {
     await page.addInitScript(data => {
       window.Worker = class {
         onmessage?: (event: { data: unknown }) => void;
-        postMessage() { this.onmessage?.({ data }); }
+        postMessage() {
+          for (const step of [20, 60, data.frame.step]) this.onmessage?.({ data: { frame: { ...data.frame, step }, steps: data.steps } });
+          this.onmessage?.({ data: { limit: data.limit, done: true } });
+        }
         terminate() {}
       } as unknown as typeof Worker;
-    }, { frame, steps, limit: { loadFactor, crown }, done: true });
+    }, { frame, steps, limit: { loadFactor, crown, peakStep: 52 } });
     await page.goto('/en/research/benchmarks/dadeppo-arch-1975/');
     const controls = page.locator('.controls');
     await controls.locator('select').first().selectOption(String(elements));
     await expect(controls.locator('option[value="400"]')).toContainText(String(maxSteps));
     await controls.locator('button').first().click();
     await expect(page.getByTestId('arch-verdict')).toHaveText('Outside tolerance');
+    await page.getByRole('button', { name: 'Inspect the arch near its peak (step 60)' }).click();
+    await expect(page.locator('.arch-app .slider input[type="range"]').first()).toHaveValue('1');
   });
 }
 
@@ -122,11 +133,10 @@ test('@smoke discarded plate rows cannot enter the next run', async ({ page }) =
     window.Worker = class {
       onmessage?: (event: {data: unknown}) => void;
       postMessage() {
-        if (document.documentElement.dataset.firstPlateWorker) return;
-        document.documentElement.dataset.firstPlateWorker = 'true';
-        window.addEventListener('deliver-plate-row', () => this.onmessage?.({ data: {
-          row: { family: 'DKT', n: 4, center_mm: 1, values: [] }, index: 0
-        } }), { once: true });
+        const data = document.documentElement.dataset;
+        const id = Number(data.plateWorkers ?? 0) + 1;
+        data.plateWorkers = String(id);
+        window.addEventListener(`deliver-plate-${id}`, e => this.onmessage?.({ data: { row: (e as CustomEvent).detail, index: 0 } }), { once: true });
       }
       terminate() {}
     } as unknown as typeof Worker;
@@ -137,8 +147,13 @@ test('@smoke discarded plate rows cannot enter the next run', async ({ page }) =
   await page.getByRole('button', { name: 'Restart' }).click();
   await expect(page.getByTestId('navier-results').locator('tbody tr')).toHaveCount(6);
   await run.click();
-  await page.evaluate(() => window.dispatchEvent(new Event('deliver-plate-row')));
-  await expect(page.getByTestId('navier-results').locator('tbody tr')).toHaveCount(0);
+  const deliver = (id: number) => page.evaluate(({ id, row }) => window.dispatchEvent(new CustomEvent(`deliver-plate-${id}`, { detail: row })), { id, row: plateReplay.rows[0] });
+  await deliver(1);
+  const rows = page.getByTestId('navier-results').locator('tbody tr');
+  await expect(rows).toHaveCount(0);
+  await deliver(2);
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText(plateReplay.rows[0].family);
 });
 
 test('@smoke a failed portal variant has no result or evidence link', async ({ page }) => {
@@ -173,8 +188,7 @@ test('@smoke an interrupted refined Lee solve exposes an undetermined peak', asy
   await expect(page.locator('.rs-verify dd').first().getByRole('link')).toHaveAttribute('href', /lee-frame-1968\/VALIDATION\.json$/);
 });
 
-test('@smoke known wrong result: #2505 restarting the cable replay clears a live failure', async ({ page }) => {
-  test.skip(!process.env.RUN_KNOWN_WRONG, 'known wrong result: #2505');
+test('@smoke restarting the cable replay clears a live failure', async ({ page }) => {
   await page.addInitScript(() => {
     window.Worker = class {
       onerror?: () => void;
@@ -185,12 +199,11 @@ test('@smoke known wrong result: #2505 restarting the cable replay clears a live
   await page.goto('/en/research/optimisation/fairclough-2026/');
   await page.locator('.rs-xlink').filter({ hasText: '1.65' }).click();
   await expect(page.getByRole('alert')).toBeVisible();
-  await page.getByRole('button', { name: 'Restart', exact: true }).click();
+  await page.getByRole('button', { name: 'Restart replay', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
-test('@smoke known wrong result: #2505 a pending portal has no governing result for the requested ratio', async ({ page }) => {
-  test.skip(!process.env.RUN_KNOWN_WRONG, 'known wrong result: #2505');
+test('@smoke a pending portal has no governing result for the requested ratio', async ({ page }) => {
   await page.route(/dedaliano_engine_bg[^/]*\.wasm/, () => {});
   await page.goto('/en/research/benchmarks/plastic-collapse/');
   await page.getByTestId('ratio').fill('4');

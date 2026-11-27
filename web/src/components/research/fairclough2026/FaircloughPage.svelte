@@ -39,7 +39,7 @@
   const view = $derived(viewerData(author ? referenceCurves : layout.curves,plan));
   const format = (v:number) => new Intl.NumberFormat(researchLocale(), {maximumSignificantDigits:10}).format(v);
   function stop() { playback.interact(); worker?.terminate(); worker = undefined; busy = false; if (source === 'live') source = hasLive ? 'cached' : 'replay'; }
-  function restart() { stop(); layout = result.layout; unitWeight = PAPER_UNIT_WEIGHT; computedWeight = PAPER_UNIT_WEIGHT; hasLive = false; source = 'replay'; author = false; playback.play(); }
+  function restart() { stop(); failed = false; layout = result.layout; unitWeight = PAPER_UNIT_WEIGHT; computedWeight = PAPER_UNIT_WEIGHT; hasLive = false; source = 'replay'; author = false; playback.play(); }
   function run() {
     stop(); failed = false; busy = true; author = false;
     const requested = unitWeight;
