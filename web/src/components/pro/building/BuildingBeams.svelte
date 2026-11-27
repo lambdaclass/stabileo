@@ -16,12 +16,12 @@
   import { fittingChoice, sectionFits, typologyFamily } from '../../../lib/model/building/typology-defaults';
   import { buildingUi } from '../../../lib/store/building-ui.svelte';
   import { nextMember } from '../../../lib/store/next-member.svelte';
+  import { planDraw } from '../../../lib/store/plan-draw.svelte';
   import { untrack } from 'svelte';
 
   let { report }: { report: (text: string) => void } = $props();
 
   const grid = $derived(modelStore.grid);
-  const levels = $derived([...(grid?.levels ?? [])].sort((a, b) => a.z - b.z));
   const sections = $derived([...modelStore.sections.values()]);
   let typology = $state('dropped'), sectionX = $state(0), sectionY = $state(0), wantX = $state(true), wantY = $state(true);
   /** Where a beam sits across its axis: −1, centred, +1, or the edges' beams flush with the columns' outer face. */
@@ -68,18 +68,35 @@
     uiStore.setSelection(new Set(), new Set(r.bars), false);
     report(tp('grid.frameCreated', { members: r.elements, nodes: r.nodes, welded: r.welded, duplicates: r.duplicates }));
   }
-  let drawKind = $state<'beam' | 'brace'>('beam'), workLevel = $state('');
-  $effect(() => { if (!levels.some((l) => l.id === workLevel)) workLevel = levels[1]?.id ?? levels[0]?.id ?? ''; });
+  let drawKind = $state<'beam' | 'brace'>('beam');
   function draw() {
+    if (drawKind === 'beam') {
+      const sec = modelStore.sections.get(sectionX);
+      const rect = sec?.shape === 'rect';
+      Object.assign(planDraw.beam, { typology, topFlush, align: align === 'perimeter' ? 0 : Math.sign(align) as -1 | 0 | 1,
+        sectionId: sec && !rect ? sec.id : null, ...(sec?.b && sec.h ? { width: sec.b, height: sec.h } : {}) });
+      planDraw.start('beam');
+      report(t('planDraw.started.beam'));
+      return;
+    }
     nextMember.physical = { kind: drawKind, typology: drawKind === 'brace' ? (fam === 'timber' ? 'timber' : 'steel') : typology };
-    const l = levels.find((x) => x.id === workLevel);
-    if (l) uiStore.setActiveLevel(l.z);
     uiStore.currentTool = 'element';
     report(t(drawKind === 'brace' ? 'building.beam.drawingBrace' : 'building.beam.drawing'));
   }
 </script>
 
 <section class="pk-card" data-testid="building-beams">
+  <div class="bk-draw">
+  <div class="bk-row">
+    <div class="bk-seg" role="radiogroup" aria-label={t('physical.kindCol')}>
+      {#each ['beam', 'brace'] as const as k}
+        <button class="pk-btn" class:on={drawKind === k} role="radio" aria-checked={drawKind === k} onclick={() => (drawKind = k)} data-testid="building-draw-{k}">{t(`physical.kind.${k}`)}</button>
+      {/each}
+    </div>
+    <button class="pk-btn pk-btn-primary" onclick={draw} data-testid="building-beams-draw">{t('building.draw')}</button>
+  </div>
+    <span class="pk-hint">{t('building.beam.drawHint')}</span>
+  </div>
   <TypologyPicker kind="beam" bind:value={typology} testid="building-beam-typology" />
   <div class="bk-row">
     <label class="bk-check"><input type="checkbox" bind:checked={wantX} /> {planNamesIn(t('grid.beamsX'))}</label>
@@ -128,32 +145,25 @@
     </svg>
   </figure>
 
-  <h5 class="bk-h">{t('building.betweenAxesTitle')}</h5>
+  <details class="bk-axes" open={(grid?.axes.length ?? 0) > 0} data-testid="building-beams-axes">
+    <summary class="bk-h">{t('building.betweenAxesTitle')}</summary>
   <BuildingRange bind:x0 bind:x1 bind:y0 bind:y1 bind:levelFrom bind:levelTo levelsLabel={t('building.beam.levels')} />
   <button class="pk-btn pk-btn-primary" disabled={count === 0} onclick={place} data-testid="building-beams-place">
     {count ? tp('building.beam.place', { n: count }) : t('grid.frameNothing')}
   </button>
+  </details>
 
-  <h5 class="bk-h">{t('building.drawTitle')}</h5>
-  <div class="bk-row">
-    <div class="bk-seg" role="radiogroup" aria-label={t('physical.kindCol')}>
-      {#each ['beam', 'brace'] as const as k}
-        <button class="pk-btn" class:on={drawKind === k} role="radio" aria-checked={drawKind === k} onclick={() => (drawKind = k)} data-testid="building-draw-{k}">{t(`physical.kind.${k}`)}</button>
-      {/each}
-    </div>
-    <label class="bk-field">{t('building.workLevel')}
-      <select bind:value={workLevel}>{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>
-    </label>
-    <button class="pk-btn" onclick={draw} data-testid="building-beams-draw">{t('building.draw')}</button>
-  </div>
 </section>
 
 <style>
+  .bk-draw { display: flex; flex-direction: column; gap: 3px; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--st-hair); }
   .bk-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 12px; margin: 4px 0; font-size: 0.7rem; }
   .bk-row select { font-size: 0.72rem; max-width: 12rem; min-width: 0; }
   .bk-field { display: flex; flex-direction: column; gap: 2px; font-size: 0.7rem; color: var(--st-text-2); }
   .bk-field input[type='number'] { width: 4.5rem; font-size: 0.72rem; }
   .bk-check { display: flex; align-items: center; gap: 4px; color: var(--st-text-2); min-width: 6rem; }
+  .bk-axes { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--st-hair); }
+  .bk-axes summary { cursor: pointer; }
   .bk-h { margin: 8px 0 2px; font-size: 0.72rem; font-weight: 600; color: var(--st-text-2); }
   .bk-warn { color: var(--st-warn); }
   .bk-seg { display: flex; gap: 4px; }

@@ -224,7 +224,7 @@ type Shells = { quads: number[]; plates: number[] };
  * already there, the members along its edges cut at its edge nodes. A panel already holding
  * shells in its plane is refused, not meshed twice.
  */
-function meshPanel(corners: Vec3[], holes: Vec3[][], o: { size: number; materialId: number; thickness: number }): Shells | { refused: string } {
+export function meshPanel(corners: Vec3[], holes: Vec3[][], o: { size: number; materialId: number; thickness: number }): Shells | { refused: string } {
   const input: MeshInput = { outer: { kind: 'polygon', points: corners }, holes: holes.map((h) => ({ kind: 'polygon' as const, points: h })), size: o.size, element: 'quad' };
   const r = applyMesh(input, { materialId: o.materialId, thickness: o.thickness, splitBeams: true });
   if (!r) return { refused: 'cannotMesh' };

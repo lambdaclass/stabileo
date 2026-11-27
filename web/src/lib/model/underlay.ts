@@ -166,3 +166,18 @@ export function underlayExtent(segments: number[]): { minX: number; minY: number
 
 // Capturing a point on a drawing: `model/osnap.ts`, with the snaps the person chose.
 
+
+/** Where the shown drawings lie in the model, or null with none. */
+export function laidExtent(list: readonly Underlay[]): { x0: number; x1: number; y0: number; y1: number } | null {
+  let b: { x0: number; x1: number; y0: number; y1: number } | null = null;
+  for (const u of list) {
+    if (!u.visible) continue;
+    const e = underlayExtent(u.segments);
+    if (!e) continue;
+    for (const [x, y] of [[e.minX, e.minY], [e.maxX, e.minY], [e.maxX, e.maxY], [e.minX, e.maxY]] as const) {
+      const [px, py] = laidPoint(u, x, y);
+      b = b ? { x0: Math.min(b.x0, px), x1: Math.max(b.x1, px), y0: Math.min(b.y0, py), y1: Math.max(b.y1, py) } : { x0: px, x1: px, y0: py, y1: py };
+    }
+  }
+  return b;
+}

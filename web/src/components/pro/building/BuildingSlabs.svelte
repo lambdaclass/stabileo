@@ -13,6 +13,7 @@
   import { buildingUi } from '../../../lib/store/building-ui.svelte';
   import { simplifySlabs, slabsToMesh, slabsToSimplify } from '../../../lib/model/building/deferred-slabs';
   import { tp } from '../../../lib/i18n';
+  import { planDraw } from '../../../lib/store/plan-draw.svelte';
 
   let { meshSize = $bindable(1), report }: { meshSize?: number; report: (r: PlaceResult) => void } = $props();
 
@@ -28,6 +29,10 @@
   const toggle = (id: string) => (chosen = chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]);
   /** Every level above the lowest, unless some are chosen. */
   const onLevels = () => (chosen.length > 0 ? chosen : levels.slice(1).map((l) => l.id));
+  function draw() {
+    Object.assign(planDraw.slab, { thickness, typology });
+    planDraw.start('slab');
+  }
   function place() {
     if (!grid) return;
     report(placeSlabs(grid, { levels: onLevels(), thickness, materialId: buildingUi.concreteId, meshSize, typology, meshAtSolve: meshWhen === 'solve' }));
@@ -35,6 +40,10 @@
 </script>
 
 <section class="pk-card" data-testid="building-slabs">
+  <div class="bs-draw">
+    <button class="pk-btn pk-btn-primary" onclick={draw} data-testid="building-slabs-draw">{t('building.slab.draw')}</button>
+    <span class="pk-hint">{t('building.slab.drawHint')}</span>
+  </div>
   <TypologyPicker kind="slab" bind:value={typology} exclude={['ramp']} testid="building-slab-typology" />
   <div class="bs-grid">
     <label>{t('building.thickness')}<input type="number" min="0.05" step="0.01" bind:value={thickness} data-testid="building-slab-thickness" /></label>
@@ -51,6 +60,7 @@
       <label><input type="checkbox" checked={chosen.includes(l.id)} onchange={() => toggle(l.id)} /> {l.name}</label>
     {/each}
   </div>
+  <h5 class="bs-h">{t('building.betweenAxesTitle')}</h5>
   <p class="pk-hint">{t('building.levelsDefault')}</p>
   <button class="pk-btn pk-btn-primary" onclick={place} data-testid="building-place-slabs">{t('building.place')}</button>
   {#if waiting > 0}<p class="pk-hint" data-testid="building-slabs-waiting">{tp('building.slabs.waiting', { n: waiting })}</p>{/if}
@@ -64,6 +74,8 @@
 </section>
 
 <style>
+  .bs-draw { display: flex; flex-direction: column; gap: 3px; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--st-hair); }
+  .bs-h { margin: 8px 0 2px; font-size: 0.7rem; font-weight: 600; color: var(--st-text-2); }
   .bs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 6px; margin: 4px 0 6px; }
   .bs-grid label { display: flex; flex-direction: column; gap: 2px; font-size: 0.7rem; color: var(--st-text-2); }
   .bs-grid input { font-size: 0.72rem; }

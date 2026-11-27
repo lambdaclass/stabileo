@@ -7,7 +7,7 @@
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
   import { focusNodeIds } from '../lib/model/select-like';
-  import { viewState, viewVisibility, visibleElements, visibleNodes, visiblePlates, visibleQuads } from '../lib/store/view-state.svelte';
+  import { viewState, viewVisibility, visibleElements as shownElements, visibleNodes as shownNodes, visiblePlates, visibleQuads } from '../lib/store/view-state.svelte';
   import { insidePolygon, extendLasso } from '../lib/viewport/lasso';
   import { timeHistoryView } from '../lib/store/time-history-view.svelte';
   import { contourOptions } from '../lib/store/contour-options.svelte';
@@ -28,16 +28,18 @@
   import { setGeometryDrag } from '../lib/store/physical-frame';
   import { discretizationStore } from '../lib/store/discretization.svelte';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
+  import { laidExtent } from '../lib/model/underlay';
   import { sceneHost } from '../lib/viewport3d/scene-host.svelte';
   import SplitView3D from './viewport/SplitView3D.svelte';
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
   import { toneObject } from '../lib/viewport3d/category-tone';
-  import { toneBelowPlanCut, clearPlanCut, planFloorFor, planClipZ } from '../lib/viewport3d/plan-cut';
+  import { toneBelowPlanCut, clearPlanCut, planCutFor, planClipZ, planCutVersion, underPlanFloor } from '../lib/viewport3d/plan-cut';
+  import { storeyAt } from '../lib/model/storeys';
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
   import { syncFootings } from '../lib/three/footings-3d';
-  import { osnapUnderlays } from '../lib/model/osnap';
+  import { osnapUnderlays, underlayLevelFor } from '../lib/model/osnap';
   import { PlacementGhost } from '../lib/three/placement-ghost';
   import { placementStore } from '../lib/store/placement.svelte';
   import { editPreview } from '../lib/store/edit-preview.svelte';
@@ -62,6 +64,9 @@
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
   import SelectionClipboardButtons from './ribbon/SelectionClipboardButtons.svelte';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
+  import PlanDrawBar from './viewport/PlanDrawBar.svelte';
+  import { planDraw } from '../lib/store/plan-draw.svelte';
+  import { beamSnapPoints, columnSnapPoints } from '../lib/model/building/draw-on-plan';
   import { askAboutNewMember } from '../lib/model/edit/connection-questions';
   import { addThermalLoadIfAny } from '../lib/store/load-ops';
   import Icon from './ribbon/Icon.svelte';
@@ -1345,7 +1350,7 @@
   let toneDirty = true;
   function applyCategoryTones() {
     const s = (c: ViewCategory) => viewCategories.state(c);
-    const planned = [elementsParent, nodesParent, shellsParent, supportsParent, loadsParent];
+    const planned = [elementsParent, nodesParent, shellsParent, supportsParent, loadsParent?.getObjectByName('loadsContainer')];
     clearPlanCut(planned);
     toneObject(elementsParent, s('members'));
     toneObject(nodesParent, s('nodes'));
@@ -1355,10 +1360,12 @@
     for (const g of [resultsCtx?.nodeLabelsGroup, resultsCtx?.elementLabelsGroup, resultsCtx?.shellLabelsGroup]) toneObject(g, s('labels'));
     toneObject(underlaysGroup, s('underlays'));
     for (const [obj, c] of sceneHost.toned) toneObject(obj, s(c));
-    const cut = uiStore.planView3D && uiStore.planCutZ !== null ? { floorZ: planFloorFor(uiStore.nodeCreateZ), below: uiStore.planBelow } : null;
-    toneBelowPlanCut(planned, cut);
-    nodesInstanced.setClipBelow(cut?.below === 'hidden' ? cut.floorZ : null);
-    elementsBatched.setPlanFloor(cut?.floorZ ?? null, cut?.below ?? 'hidden');
+    const storey = storeyAt(modelStore.grid?.levels ?? [], uiStore.nodeCreateZ);
+    const cut = uiStore.planView3D && uiStore.planCutZ !== null
+      ? planCutFor(uiStore.nodeCreateZ, { lowest: storey.lowest, ceiling: storey.ceiling !== null, below: uiStore.planBelow, topZ: planClipZ(uiStore.planCutZ) }) : null;
+    toneBelowPlanCut(planned, cut, [shellsParent]);
+    nodesInstanced.setClipBelow(cut?.below === 'hidden' ? cut.nodeFloorZ : null);
+    elementsBatched.setPlanFloor(cut ? cut.keepFromZ ?? cut.floorZ : null, cut?.below ?? 'hidden');
   }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
   // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
@@ -1969,7 +1976,7 @@
   let underlaysGroup: THREE.Group | null = null;
   $effect(() => {
     const list = uiStore.analysisMode === 'pro' ? modelStore.underlays : [];
-    const z = uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null;
+    const z = uiStore.workingPlane === 'XY' ? underlayLevelFor(list, uiStore.nodeCreateZ) ?? uiStore.nodeCreateZ : null;
     if (!scene) return;
     underlaysGroup = syncUnderlays(scene, underlaysGroup, list, z);
     toneDirty = true;
@@ -1992,10 +1999,10 @@
     const grid = uiStore.analysisMode === 'pro' ? modelStore.grid : undefined;
     const z = uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null;
     if (!scene) return;
-    structuralGridGroup = syncStructuralGrid(scene, structuralGridGroup, grid, z);
+    structuralGridGroup = syncStructuralGrid(scene, structuralGridGroup, grid, z, laidExtent(uiStore.analysisMode === 'pro' ? modelStore.underlays : []));
   }
   $effect(() => {
-    void modelStore.grid; void uiStore.analysisMode; void uiStore.workingPlane; void uiStore.nodeCreateZ;
+    void modelStore.grid; void uiStore.analysisMode; void uiStore.workingPlane; void uiStore.nodeCreateZ; void modelStore.underlays;
     syncStructGrid();
     invalidate();
   });
@@ -2277,7 +2284,8 @@
     // A point of the background drawing on this level, of the kinds turned on, within a few pixels.
     if (uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' && modelStore.underlays.length > 0 && camera && container) {
       const tol = worldPerPixel(camera, pos, container.clientHeight) * 10;
-      const hit = osnapUnderlays(modelStore.underlays, pos.x, pos.y, tol, uiStore.nodeCreateZ, uiStore.osnapModes, osnapFrom());
+      const on = underlayLevelFor(modelStore.underlays, uiStore.nodeCreateZ);
+      const hit = on === null ? null : osnapUnderlays(modelStore.underlays, pos.x, pos.y, tol, on, uiStore.osnapModes, osnapFrom());
       if (hit) return { x: hit.x, y: hit.y, z: uiStore.nodeCreateZ, label: t(`osnap.${hit.mode}`), mode: hit.mode };
     }
     const grid = uiStore.analysisMode === 'pro' && uiStore.snapToAxes && uiStore.workingPlane === 'XY' ? modelStore.grid : undefined;
@@ -2293,6 +2301,97 @@
     }
     return uiStore.snapWorld3D(pos.x, pos.y, pos.z);
   }
+
+  /** What a box, a lasso or a pick near the pointer can take: shown, and in the plan view inside the storey. */
+  const planShown = new Map<string, { src: Map<number, unknown>; key: string; out: Map<number, unknown> }>();
+  function inPlan<T>(type: 'node' | 'element', src: Map<number, T>): Map<number, T> {
+    if (!uiStore.planView3D) return src;
+    const key = `${planCutVersion()}:${modelStore.modelVersion}`;
+    const c = planShown.get(type);
+    if (c && c.src === src && c.key === key) return c.out as Map<number, T>;
+    const out = new Map([...src].filter(([id]) => !underPlanFloor({ type, id })));
+    planShown.set(type, { src: src as Map<number, unknown>, key, out });
+    return out;
+  }
+  const visibleNodes = () => inPlan('node', shownNodes());
+  const visibleElements = () => inPlan('element', shownElements());
+  let columnSnapCache: { key: string; points: ReturnType<typeof columnSnapPoints>; beams: ReturnType<typeof beamSnapPoints>; nodes: Array<{ x: number; y: number }> } | null = null;
+  function planDrawPoint(e: MouseEvent): { x: number; y: number; mode?: string; label?: string } | null {
+    const ground = getGroundIntersection(e);
+    if (!ground || !camera || !container) return null;
+    if (planDraw.capturing) return { x: ground.x, y: ground.y };
+    const free = { x: Math.round(ground.x * 100) / 100, y: Math.round(ground.y * 100) / 100 };
+    const sn = planDraw.snap;
+    if (!sn.on) return free;
+    const tol = worldPerPixel(camera, ground, container.clientHeight) * 10;
+    const z = planDraw.z;
+    let best: { x: number; y: number; d: number; mode: string; label: string } | null = null;
+    const offer = (x: number, y: number, mode: string, label: string) => {
+      const d = Math.hypot(x - ground.x, y - ground.y);
+      if (d <= tol && (!best || d < best.d)) best = { x, y, d, mode, label };
+    };
+    const key = `${modelStore.modelVersion}:${z}`;
+    if (columnSnapCache?.key !== key) columnSnapCache = { key, points: columnSnapPoints(z), beams: beamSnapPoints(z), nodes: [...modelStore.nodes.values()].filter((n) => Math.abs((n.z ?? 0) - z) < 1e-6).map((n) => ({ x: n.x, y: n.y })) };
+    const kindMode = (k: 'corner' | 'face' | 'center') => (k === 'corner' ? 'endpoint' : k === 'face' ? 'midpoint' : 'center');
+    if (sn.column) for (const p of columnSnapCache.points) offer(p.x, p.y, kindMode(p.kind), `planDraw.snap.${kindMode(p.kind)}`);
+    if (sn.beam) for (const p of columnSnapCache.beams) offer(p.x, p.y, kindMode(p.kind), `planDraw.snap.beam.${kindMode(p.kind)}`);
+    if (sn.node) for (const n of columnSnapCache.nodes) offer(n.x, n.y, 'node', 'planDraw.snap.node');
+    let near: { x: number; y: number } | null = null;
+    if (sn.template && modelStore.underlays.length) {
+      const on = underlayLevelFor(modelStore.underlays, uiStore.nodeCreateZ);
+      const last = planDraw.points[planDraw.points.length - 1] ?? null;
+      const hit = on === null ? null : osnapUnderlays(modelStore.underlays, ground.x, ground.y, tol, on, uiStore.osnapModes, last);
+      if (hit && hit.mode === 'nearest') near = hit;
+      else if (hit) offer(hit.x, hit.y, hit.mode, `osnap.${hit.mode}`);
+    }
+    const b = best as { x: number; y: number; d: number; mode: string; label: string } | null;
+    if (b) return { x: b.x, y: b.y, mode: b.mode, label: t(b.label) };
+    if (near) return { x: near.x, y: near.y, mode: 'nearest', label: t('osnap.nearest') };
+    if (sn.axes && modelStore.grid) {
+      const hit = snapToAxes(modelStore.grid, ground.x, ground.y, tol);
+      if (hit?.kind === 'intersection') return { x: hit.x, y: hit.y, mode: 'intersection', label: hit.label };
+      if (hit) return { x: hit.x, y: hit.y, mode: 'axis', label: hit.label };
+    }
+    if (sn.grid) { const s = uiStore.snapWorld3D(ground.x, ground.y, z); return { x: s.x, y: s.y, mode: 'grid' }; }
+    return free;
+  }
+  let planHint = $state<{ snap: { sx: number; sy: number; mode: string; label?: string } | null; outline: string; frames: string[]; mx: number; my: number; text: string; free: Array<{ x1: number; y1: number; x2: number; y2: number }> } | null>(null);
+  let planHintFrame = 0;
+  let planHintEvent: MouseEvent | null = null;
+  let planLast: { cx: number; cy: number; p: { x: number; y: number; mode?: string; label?: string } | null } | null = null;
+  function schedulePlanHint(e: MouseEvent) {
+    planHintEvent = e;
+    if (planHintFrame) return;
+    planHintFrame = requestAnimationFrame(() => {
+      planHintFrame = 0;
+      const ev = planHintEvent; planHintEvent = null;
+      if (!ev || !container || !planDraw.active) { planHint = null; return; }
+      const p = planDrawPoint(ev);
+      planDraw.hover = p ? { x: p.x, y: p.y } : null;
+      planLast = { cx: ev.clientX, cy: ev.clientY, p };
+      refreshPlanHint(ev.clientX, ev.clientY, p);
+    });
+  }
+  function refreshPlanHint(cx: number, cy: number, p: { x: number; y: number; mode?: string; label?: string } | null) {
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const z = planDraw.z;
+    const outline = planDraw.preview.map((q) => { const s = projectToScreen(q.x, q.y, z); return `${s.x},${s.y}`; }).join(' ');
+    const h = planDraw.hover;
+    const snap = h && p?.mode ? (() => { const s = projectToScreen(h.x, h.y, z); return { sx: s.x, sy: s.y, mode: p.mode!, ...(p.label ? { label: p.label } : {}) }; })() : null;
+    const len = planDraw.rubber;
+    const into = planDraw.frames;
+    const frames = (into?.outlines ?? []).map((o) => o.map((q) => { const s = projectToScreen(q.x, q.y, z); return `${s.x},${s.y}`; }).join(' '));
+    const text = planDraw.typed ? `${planDraw.typed} m ⏎` : into?.text ?? planDraw.size ?? (len !== null ? `${len.toFixed(2)} m` : '');
+    const free = planDraw.slabEdges.filter((ed) => ed.support === 'free').map((ed) => { const a = projectToScreen(ed.a.x, ed.a.y, z), b = projectToScreen(ed.b.x, ed.b.y, z); return { x1: a.x, y1: a.y, x2: b.x, y2: b.y }; });
+    planHint = { snap, outline, frames, mx: cx - rect.left, my: cy - rect.top, text, free };
+  }
+  $effect(() => {
+    void planDraw.points; void planDraw.typed; void planDraw.column.b; void planDraw.column.h; void planDraw.column.angle; void planDraw.column.fixedPoint;
+    void planDraw.beam.width; void planDraw.beam.align; void planDraw.kind; void planDraw.column.mode; void planDraw.beam.mode;
+    if (!planDraw.active) { planHint = null; return; }
+    untrack(() => { if (planLast) refreshPlanHint(planLast.cx, planLast.cy, planLast.p); });
+  });
 
   // ─── Placement ─────────────────────────────────────────────
   let ghost: PlacementGhost | null = null;
@@ -3072,8 +3171,8 @@
             const flags = nodeIds.map(cornerIn);
             if (isWindow ? flags.every(Boolean) : flags.some(Boolean)) newShells.add(key);
           };
-          for (const p of visiblePlates().values()) collectShell('p' + p.id, p.nodes);
-          for (const q of visibleQuads().values()) collectShell('q' + q.id, q.nodes);
+          for (const p of visiblePlates().values()) if (!underPlanFloor({ type: 'plate', id: p.id })) collectShell('p' + p.id, p.nodes);
+          for (const q of visibleQuads().values()) if (!underPlanFloor({ type: 'quad', id: q.id })) collectShell('q' + q.id, q.nodes);
         }
 
         /*
@@ -3207,7 +3306,8 @@
     const rect = container.getBoundingClientRect();
     const pointLoads = new Set<number>();
     for (const l of modelStore.loads) if (l.type === 'nodal' || l.type === 'nodal3d' || l.type === 'pointOnElement' || l.type === 'pointOnElement3d') pointLoads.add(l.data.id);
-    return pickLoadsWithDistance(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads, sceneCtx?.loadAreas);
+    return pickLoadsWithDistance(e.clientX - rect.left, e.clientY - rect.top, fp, projectToScreen, 10, pointLoads, sceneCtx?.loadAreas)
+      .filter((h) => !underPlanFloor({ type: 'load', id: h.id }));
   }
   /**
    * The load a click selects. Loads drawn on top of each other (the same load twice on a member,
@@ -3342,6 +3442,12 @@
 
     raycaster.setFromCamera(mouse, camera);
     raycaster.camera = camera;
+
+    if (planDraw.active) {
+      const p = planDrawPoint(e);
+      if (p) planDraw.add({ x: p.x, y: p.y });
+      return;
+    }
 
     // ── Drawing a use zone: a click is a point of its outline, captured as a new node would be ──
     if (zoneDraw.active) {
@@ -3507,7 +3613,7 @@
       } else if (pick?.kind === 'load') { uiStore.selectLoad(pick.id, addToSel); hit = true; }
       if (!hit && uiStore.selectsKind('supports') && !viewCategories.isHidden('supports')) {
         for (const h of raycaster.intersectObjects(supportsParent.children, true)) {
-          const ud = findUserData(h.object);
+          const ud = resolveHitUserData(h);
           if (ud?.type === 'support') {
             uiStore.selectSupport(ud.id, addToSel);
             hit = true;
@@ -3530,7 +3636,7 @@
     if (sm === 'supports') {
       const supHits = !viewCategories.isHidden('supports') ? raycaster.intersectObjects(supportsParent.children, true) : [];
       for (const hit of supHits) {
-        const ud = findUserData(hit.object);
+        const ud = resolveHitUserData(hit);
         if (ud?.type === 'support') {
           uiStore.selectSupport(ud.id, addToSel);
           return;
@@ -3608,6 +3714,7 @@
     else if (nodeHint) nodeHint = null;
     if (uiStore.currentTool === 'element') scheduleSnapHint(e);
     else if (snapHint) snapHint = null;
+    if (planDraw.active) schedulePlanHint(e);
     if (uiStore.currentTool === 'load' && uiStore.loadType === 'distributed' && uiStore.distLoadPartial && uiStore.appMode !== 'pro') scheduleStretchHint(e);
     else if (stretchHint) stretchHint = null;
 
@@ -4044,15 +4151,15 @@
 
   /** What the plan view replaced, put back when it is left. */
   let beforePlan: { mode: 'perspective' | 'orthographic'; tool: typeof uiStore.currentTool } | null = null;
-  /** Above the working level, a little over its floor: the beams and the slab on it stay, the storeys above go. */
+  /** With no level above, the cut a little over the floor: the beams and the slab on it stay. */
   const PLAN_CUT_M = 0.15;
   /**
-   * The plan view on level `z`: the camera over it and the plan's own cut a little above its floor.
-   * The cut plane a person set stays as it was: the two are separate (QA of 20-oct).
+   * The plan view of the storey on level `z`: the camera over it and the plan's own cut at the next
+   * level, its ceiling, so its beams and slab show. The cut plane a person set stays as it was.
    */
   function followLevel(z: number) {
     if (!camera || !controls) return;
-    uiStore.planCutZ = z + PLAN_CUT_M;
+    uiStore.planCutZ = storeyAt(modelStore.grid?.levels ?? [], z).ceiling?.z ?? z + PLAN_CUT_M;
     const dz = z - controls.target.z;
     controls.target.z += dz;
     camera.position.z += dz;
@@ -4063,8 +4170,23 @@
   const TOP_VIEW_TIP = 0.018;
   function framePlan() {
     if (!camera || !controls) return;
-    const { center, maxDim } = _getModelBounds(modelStore.nodes);
-    placeOverhead(camera, controls, { x: center.x, y: center.y, z: uiStore.nodeCreateZ }, maxDim * 1.8, uiStore.planRotation, OVERHEAD_TIP);
+    let { center, maxDim } = _getModelBounds(modelStore.nodes);
+    // The plan frames the templates laid to draw over, with what is already drawn, close.
+    const laid = uiStore.analysisMode === 'pro' ? laidExtent(modelStore.underlays) : null;
+    let near = 1.8;
+    if (laid) {
+      const h = modelStore.nodes.size ? maxDim / 2 : 0;
+      const b = modelStore.nodes.size
+        ? { x0: Math.min(laid.x0, center.x - h), x1: Math.max(laid.x1, center.x + h), y0: Math.min(laid.y0, center.y - h), y1: Math.max(laid.y1, center.y + h) }
+        : laid;
+      center = new THREE.Vector3((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, 0);
+      maxDim = Math.max(b.x1 - b.x0, b.y1 - b.y0, 4);
+      near = 1.45;
+      // Held a little high, clear of the drawing bar along the bottom of the view.
+      const r = (uiStore.planRotation * Math.PI) / 180, lift = maxDim * 0.1;
+      center = new THREE.Vector3(center.x + Math.sin(r) * lift, center.y - Math.cos(r) * lift, 0);
+    }
+    placeOverhead(camera, controls, { x: center.x, y: center.y, z: uiStore.nodeCreateZ }, maxDim * near, uiStore.planRotation, OVERHEAD_TIP);
     if (camera === orthoCamera) syncOrthoFrustum(container ? container.clientWidth / container.clientHeight : 1);
     invalidate();
   }
@@ -4106,13 +4228,14 @@
     untrack(() => { if (uiStore.planView3D && beforePlan) turnPlan(); });
   });
   $effect(() => {
-    void uiStore.planView3D; void uiStore.planCutZ; void uiStore.planBelow; void uiStore.nodeCreateZ;
+    void uiStore.planView3D; void uiStore.planCutZ; void uiStore.planBelow; void uiStore.nodeCreateZ; void modelStore.grid;
     toneDirty = true;
     invalidate();
   });
   // The working level moves the plan view with it: the camera and the cut follow.
   $effect(() => {
     const z = uiStore.nodeCreateZ;
+    void (modelStore.grid?.levels ?? []).map((l) => l.z).join();
     untrack(() => { if (uiStore.planView3D && beforePlan) followLevel(z); });
   });
 
@@ -4439,6 +4562,19 @@
       {#if label}<text class="nh-text" x={x + 12} y={y - 12}>{label}</text>{/if}
     </g>
   {/snippet}
+  {#if planDraw.active && planHint}
+    <svg class="node-hint plan-draw-hint" aria-hidden="true" data-testid="plan-draw-hint">
+      {#each planHint.frames as f, i (i)}<polygon class="pd-frames" points={f} data-testid="plan-draw-frames" />{/each}
+      {#if planHint.outline}<polygon points={planHint.outline} data-testid="plan-draw-outline" />{/if}
+      {#each planHint.free as f, i (i)}<line class="pd-free" x1={f.x1} y1={f.y1} x2={f.x2} y2={f.y2} data-testid="plan-draw-free-edge" />{/each}
+      {#if planHint.snap}<g data-testid="plan-draw-snap" data-mode={planHint.snap.mode}>{@render osnapGlyph(planHint.snap.mode, planHint.snap.sx, planHint.snap.sy, planHint.snap.label)}</g>{/if}
+      {#if planHint.text}<text class="nh-text" x={planHint.mx + 14} y={planHint.my + 22}>{planHint.text}</text>{/if}
+    </svg>
+  {/if}
+  {#if planDraw.active}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="vp-plan-draw" onmousedown={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()}><PlanDrawBar /></div>
+  {/if}
   {#if snapHint && uiStore.currentTool === 'element'}
     <svg class="node-hint" aria-hidden="true" data-testid="osnap-hint" data-mode={snapHint.mode}>
       {@render osnapGlyph(snapHint.mode, snapHint.sx, snapHint.sy, snapHint.label)}
@@ -4747,6 +4883,10 @@
     z-index: 2;
   }
   .node-hint { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
+  .plan-draw-hint .pd-free { stroke: var(--st-warn, #e0a030); stroke-width: 3; }
+  .plan-draw-hint polygon { fill: color-mix(in srgb, var(--st-accent) 18%, transparent); stroke: var(--st-accent); stroke-width: 1.5; stroke-dasharray: 5 3; }
+  .plan-draw-hint polygon.pd-frames { fill: color-mix(in srgb, var(--st-ok, #3fb68b) 22%, transparent); stroke: var(--st-ok, #3fb68b); stroke-width: 2; stroke-dasharray: none; }
+  .vp-plan-draw { position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 24px); z-index: 7; }
   .nh-member { stroke: var(--st-accent); stroke-width: 6; stroke-linecap: round; opacity: 0.45; }
   .nh-split { fill: var(--st-surface); stroke: var(--st-accent); stroke-width: 2; }
   .nh-plus { stroke: var(--st-accent); stroke-width: 2; }

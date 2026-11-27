@@ -14,14 +14,13 @@
   import { frameBetweenAxes } from '../../../lib/model/grid';
   import { fittingChoice, sectionFits, typologyFamily } from '../../../lib/model/building/typology-defaults';
   import { buildingUi } from '../../../lib/store/building-ui.svelte';
-  import { nextMember } from '../../../lib/store/next-member.svelte';
+  import { planDraw } from '../../../lib/store/plan-draw.svelte';
   import { setMemberCovers } from '../../../lib/store/design-data';
   import { untrack } from 'svelte';
 
   let { report }: { report: (text: string) => void } = $props();
 
   const grid = $derived(modelStore.grid);
-  const levels = $derived([...(grid?.levels ?? [])].sort((a, b) => a.z - b.z));
   const sections = $derived([...modelStore.sections.values()]);
   let typology = $state('concrete'), section = $state(0), fixBase = $state(true), angle = $state(0);
   let fixedPoint = $state<[number, number]>([0, 0]);
@@ -69,18 +68,21 @@
     uiStore.setSelection(new Set(), new Set(r.bars), false);
     report(tp('grid.frameCreated', { members: r.elements, nodes: r.nodes, welded: r.welded, duplicates: r.duplicates }));
   }
-  let workLevel = $state('');
-  $effect(() => { if (!levels.some((l) => l.id === workLevel)) workLevel = levels[1]?.id ?? levels[0]?.id ?? ''; });
   function draw() {
-    nextMember.physical = { kind: 'column', typology };
-    const l = levels.find((x) => x.id === workLevel);
-    if (l) uiStore.setActiveLevel(l.z);
-    uiStore.currentTool = 'element';
-    report(t('building.col.drawing'));
+    const sec = modelStore.sections.get(section);
+    const rect = sec?.shape === 'rect';
+    Object.assign(planDraw.column, { typology, fixedPoint: [...fixedPoint] as [number, number], angle, fixBase, levelFrom: '', levelTo: '',
+      sectionId: sec && !rect ? sec.id : null, ...(sec?.b && sec.h ? { b: sec.b, h: sec.h } : {}) });
+    planDraw.start('column');
+    report(t('planDraw.started.column'));
   }
 </script>
 
 <section class="pk-card" data-testid="building-columns">
+  <div class="bk-draw">
+    <button class="pk-btn pk-btn-primary" onclick={draw} data-testid="building-columns-draw">{t('building.col.draw')}</button>
+    <span class="pk-hint">{t('building.col.drawHint')}</span>
+  </div>
   <TypologyPicker kind="column" bind:value={typology} testid="building-col-typology" />
   <div class="bk-row">
     <label class="bk-field">{t('building.section')}
@@ -111,27 +113,25 @@
     {#if uiStore.designInPro}<label class="bk-field">{t('building.col.cover')} <input type="number" min="10" step="5" placeholder={t('building.col.coverProject')} value={cover ?? ''} onchange={(e) => (cover = e.currentTarget.value === '' ? null : Number(e.currentTarget.value))} data-testid="building-col-cover" /></label>{/if}
   </div>
 
-  <h5 class="bk-h">{t('building.betweenAxesTitle')}</h5>
+  <details class="bk-axes" open={(grid?.axes.length ?? 0) > 0} data-testid="building-columns-axes">
+    <summary class="bk-h">{t('building.betweenAxesTitle')}</summary>
   <BuildingRange bind:x0 bind:x1 bind:y0 bind:y1 bind:levelFrom bind:levelTo levelsLabel={t('building.col.levels')} />
   <button class="pk-btn pk-btn-primary" disabled={count === 0} onclick={place} data-testid="building-columns-place">
     {count ? tp('building.col.place', { n: count }) : t('grid.frameNothing')}
   </button>
+  </details>
 
-  <h5 class="bk-h">{t('building.drawTitle')}</h5>
-  <div class="bk-row">
-    <label class="bk-field">{t('building.workLevel')}
-      <select bind:value={workLevel}>{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select>
-    </label>
-    <button class="pk-btn" onclick={draw} data-testid="building-columns-draw">{t('building.col.draw')}</button>
-  </div>
 </section>
 
 <style>
+  .bk-draw { display: flex; flex-direction: column; gap: 3px; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--st-hair); }
   .bk-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 12px; margin: 4px 0; }
   .bk-field { display: flex; flex-direction: column; gap: 2px; font-size: 0.7rem; color: var(--st-text-2); }
   .bk-field input[type='number'] { width: 4.5rem; font-size: 0.72rem; }
   .bk-field select { font-size: 0.72rem; max-width: 12rem; }
   .bk-check { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--st-text-2); }
+  .bk-axes { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--st-hair); }
+  .bk-axes summary { cursor: pointer; }
   .bk-h { margin: 8px 0 2px; font-size: 0.72rem; font-weight: 600; color: var(--st-text-2); }
   .bk-warn { color: var(--st-warn); }
   .bk-fp { display: grid; grid-template-columns: repeat(3, 12px); gap: 2px; padding: 2px; border: 1px dashed var(--st-hair-strong); }

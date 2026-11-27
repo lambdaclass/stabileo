@@ -52,7 +52,7 @@ test.describe('@smoke the plan view', () => {
     await expect(page.getByTestId('plan-view-cut')).toHaveValue('0.65');
   });
 
-  test('without levels offers to define them, and with them picks the floor plan by name and height', async ({ pro: page }) => {
+  test('without levels offers to define them, and with them picks the storey by name and heights', async ({ pro: page }) => {
     await enterPlan(page);
     await expect(page.getByTestId('plan-view-level')).toHaveCount(0);
     await page.getByTestId('plan-view-define-levels').click();
@@ -61,10 +61,11 @@ test.describe('@smoke the plan view', () => {
     await page.getByTestId('grid-generate-levels').click();
     const level = page.getByTestId('plan-view-level');
     await expect(page.getByTestId('plan-view-define-levels')).toHaveCount(0);
-    await expect(level.locator('option:checked')).toContainText('(+0.00 m)');
+    await expect(level.locator('option:checked')).toContainText('(+0.00 → +3.20 m)');
+    await expect(page.getByTestId('plan-view-cut'), 'the storey up to its ceiling').toHaveValue('3.20');
     await level.selectOption({ index: 0 });
     await expect(level.locator('option:checked')).toContainText('(+3.20 m)');
-    await expect(page.getByTestId('plan-view-cut')).toHaveValue('0.15');
+    await expect(page.getByTestId('plan-view-cut'), 'the top level has no ceiling').toHaveValue('0.15');
   });
 
   test('hides what lies under the level, or shows it faded; the cut moves without hiding the level', async ({ pro: page }) => {
@@ -77,20 +78,22 @@ test.describe('@smoke the plan view', () => {
     await page.getByTestId('nav-plan-view').click();
     await page.locator('.cam-backdrop').click({ position: { x: 420, y: 460 } });
     await expect.poll(async () => (await census(page)).hidden).toBe(0);
+    expect((await census(page)).supports, 'the supports go while what is below is hidden').toBeGreaterThan(0);
     await page.getByTestId('plan-view-up').click();
     await expect(page.getByTestId('plan-view-below')).toHaveAttribute('aria-pressed', 'false');
-    await expect.poll(async () => (await census(page)).hidden).toBeGreaterThan(0);
+    await expect.poll(async () => { const c = await census(page); return c.hidden + c.supports; }).toBeGreaterThan(0);
     const atLevel = (await census(page)).hidden;
     await page.getByTestId('plan-view-cut').fill('1,5');
     await page.getByTestId('plan-view-cut').press('Enter');
     await expect(page.getByTestId('plan-view-cut')).toHaveValue('1.50');
     expect((await census(page)).hidden, 'a higher cut hides nothing more').toBe(atLevel);
-    const hidden = (await census(page)).hidden;
+    const gone = await census(page);
     await page.getByTestId('plan-view-below').click();
     await expect(page.getByTestId('plan-view-below')).toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(async () => (await census(page)).ghost).toBe(hidden);
+    await expect.poll(async () => (await census(page)).ghost, 'what was hidden, the supports under the floor too, comes back faded').toBe(gone.hidden + gone.supports);
     expect((await census(page)).hidden).toBe(0);
+    expect((await census(page)).supports, 'and come back with it').toBe(0);
     await page.getByTestId('plan-view-exit').click();
-    await expect.poll(async () => census(page)).toEqual({ hidden: 0, ghost: 0 });
+    await expect.poll(async () => census(page)).toEqual({ hidden: 0, ghost: 0, overhead: 0, supports: 0 });
   });
 });

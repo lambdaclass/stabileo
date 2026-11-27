@@ -10,6 +10,7 @@
   import { tick } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
   import { buildingUi } from '../../lib/store/building-ui.svelte';
+  import { storeyLabel } from '../../lib/model/storeys';
   import { tp, t } from '../../lib/i18n';
 
   const levels = $derived([...(modelStore.grid?.levels ?? [])].sort((a, b) => b.z - a.z));
@@ -63,7 +64,7 @@
     <select class="pv-level" value={current?.id ?? ''} onchange={(e) => { const l = levels.find((x) => x.id === e.currentTarget.value); if (l) uiStore.setActiveLevel(l.z); }}
             aria-label={t('viewport.planLevel')} title={`${t('viewport.planLevel')} (PgUp / PgDn)`} data-testid="plan-view-level">
       {#if !current}<option value="" disabled>{tp('viewport.planChip', { level })}</option>{/if}
-      {#each levels as l (l.id)}<option value={l.id}>{tp('viewport.planChip', { level: `${l.name} (${elevation(l.z)})` })}</option>{/each}
+      {#each levels as l (l.id)}<option value={l.id}>{tp('viewport.planChip', { level: storeyLabel(levels, l) })}</option>{/each}
     </select>
     <button onclick={() => step(1)} disabled={!above} aria-label={t('viewport.planUp')} title={`${t('viewport.planUp')} (PgUp)`} data-testid="plan-view-up">▲</button>
     <button onclick={() => step(-1)} disabled={!below} aria-label={t('viewport.planDown')} title={`${t('viewport.planDown')} (PgDn)`} data-testid="plan-view-down">▼</button>

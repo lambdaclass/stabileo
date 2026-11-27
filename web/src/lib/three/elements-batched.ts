@@ -141,7 +141,7 @@ export class ElementsBatched {
 
   setBaseColor(id: number, color: number): void {
     this.baseColorById.set(id, color);
-    this.setColor(id, color);
+    this.setColor(id, this.shown(id, color));
   }
 
   getBaseColor(id: number): number {
@@ -149,10 +149,16 @@ export class ElementsBatched {
   }
 
   restoreColor(id: number): void {
-    this.setColor(id, this.getBaseColor(id));
+    this.setColor(id, this.shown(id, this.getBaseColor(id)));
+  }
+
+  /** A member drawn dim under the plan's floor stays dim when its colour is put back. */
+  private shown(id: number, color: number): number {
+    return this.dimmed.has(id) ? this._colorTmp.setHex(color).multiplyScalar(0.35).getHex() : color;
   }
 
   clear(): void {
+    this.dimmed.clear();
     this.idToIndex.clear();
     this.indexToId.length = 0;
     this.baseColorById.clear();

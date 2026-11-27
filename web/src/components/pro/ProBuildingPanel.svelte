@@ -19,13 +19,13 @@
   import BuildingStairs from './building/BuildingStairs.svelte';
   import BuildingTools from './building/BuildingTools.svelte';
   import ProGridPanel from './ProGridPanel.svelte';
+  import BuildingStorey from './building/BuildingStorey.svelte';
   import { untrack } from 'svelte';
   import { physicalGroups } from '../../lib/store/physical';
 
   const grid = $derived(modelStore.grid);
   const levels = $derived(grid?.levels ?? []);
-  const axes = $derived(grid?.axes ?? []);
-  const ready = $derived(levels.length >= 2 && axes.filter((a) => a.axis === 'x').length + axes.filter((a) => a.axis === 'y').length >= 2);
+  const ready = $derived(levels.length >= 2);
   /**
    * Without a grid the only tool that can do anything is the one that makes it. Opened without
    * one, the panel stays on it once the grid is complete too (the heights may still be under
@@ -87,6 +87,9 @@
 
   {#if last}<p class="pk-hint bd-result" data-testid="building-result" role="status">{last}</p>{/if}
 
+  {#if !ready}<p class="pk-warn bd-need" role="status" data-testid="building-need-levels">{t('building.needLevels')}</p>{/if}
+  {#if tool !== 'levels' && tool !== 'tools'}<BuildingStorey />{/if}
+
   {#if tool === 'levels'}
     <ProGridPanel embedded />
   {:else if tool === 'columns'}
@@ -115,6 +118,7 @@
   .bd-tab svg :global(.ax) { stroke-dasharray: 2 2; stroke-width: 0.9; }
   .bd-n { font-weight: 600; color: var(--st-text-3); }
   .bd-done { color: var(--st-ok); }
+  .bd-need { margin: 0 0 6px; font-size: 0.72rem; }
   .bd-next { align-self: flex-start; font-size: 0.7rem; margin: 0 0 6px; }
   .bd-result { position: sticky; top: 0; z-index: 1; background: var(--st-surface); padding: 4px 6px; border-left: 2px solid var(--st-hair-strong); }
 </style>

@@ -12,6 +12,7 @@
   import { stripUnderWall, supportWallBase } from '../../../lib/model/foundation/generate';
   import { placeWall, type PlaceResult, type WallOpening } from '../../../lib/model/building/build-on-grid';
   import { buildingUi } from '../../../lib/store/building-ui.svelte';
+  import { planDraw } from '../../../lib/store/plan-draw.svelte';
 
   let { meshSize, report }: { meshSize: number; report: (r: PlaceResult) => void } = $props();
 
@@ -39,6 +40,10 @@
     const end = openings.reduce((m, w) => Math.max(m, w.offset + w.width), 0);
     openings = [...openings, door ? { offset: end + 0.5, width: 0.9, sill: 0, height: 2.1 } : { offset: end + 0.5, width: 1.2, sill: 0.9, height: 1.2 }];
   };
+  function draw() {
+    Object.assign(planDraw.wall, { typology, meshSize, fixBase: true });
+    planDraw.start('wall');
+  }
   function place() {
     const g = grid;
     if (!g) return;
@@ -58,6 +63,10 @@
 </script>
 
 <section class="pk-card" data-testid="building-walls">
+  <div class="bw-draw">
+    <button class="pk-btn pk-btn-primary" onclick={draw} data-testid="building-walls-draw">{t('building.wall.draw')}</button>
+    <span class="pk-hint">{t('building.wall.drawHint')}</span>
+  </div>
   <TypologyPicker kind="wall" bind:value={typology} testid="building-wall-typology" />
   <div class="bw-grid">
     <label>{t('building.thickness')}<input type="number" min="0.05" step="0.01" bind:value={thickness} /></label>
@@ -102,6 +111,7 @@
 </section>
 
 <style>
+  .bw-draw { display: flex; flex-direction: column; gap: 3px; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--st-hair); }
   .bw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 6px; margin: 4px 0 6px; }
   .bw-grid label { display: flex; flex-direction: column; gap: 2px; font-size: 0.7rem; color: var(--st-text-2); }
   .bw-grid select, .bw-grid input { font-size: 0.72rem; }

@@ -3,7 +3,7 @@
  * when turned on, never from a hidden layer, and laid with the drawing's shift and turn.
  */
 import { describe, it, expect } from 'vitest';
-import { osnapUnderlays, type OsnapMode } from '../osnap';
+import { osnapUnderlays, underlayLevelFor, type OsnapMode } from '../osnap';
 import type { Underlay } from '../underlay';
 
 /** A 10 × 6 m rectangle of lines, a diagonal, a circle r = 1 at (5, 3), an arc and a bulged polyline. */
@@ -80,5 +80,16 @@ describe('object snaps on a background drawing', () => {
     expect(p.x).toBeCloseTo(100, 9); expect(p.y).toBeCloseTo(60, 9);
     expect(osnapUnderlays([drawing({ visible: false })], 0.1, 0.1, 0.3, 0, new Set(['endpoint']))).toBeNull();
     expect(osnapUnderlays([drawing()], 0.1, 0.1, 0.3, 3, new Set(['endpoint'])), 'another level').toBeNull();
+  });
+});
+
+describe('which drawing a level snaps to', () => {
+  it('its own; without one, the nearest level under it that has one; hidden ones do not count', () => {
+    const at = (z: number, visible = true) => drawing({ id: `u${z}`, z, visible });
+    expect(underlayLevelFor([at(0), at(3)], 3)).toBe(3);
+    expect(underlayLevelFor([at(0), at(3)], 6)).toBe(3);
+    expect(underlayLevelFor([at(0), at(3, false)], 6)).toBe(0);
+    expect(underlayLevelFor([at(3)], 0)).toBeNull();
+    expect(underlayLevelFor([], 3)).toBeNull();
   });
 });
