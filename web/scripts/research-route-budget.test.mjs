@@ -159,7 +159,7 @@ test('the app footprint counts a separate lazy import of the games registry and 
   for (const file of ['registry.js', 'thumbnail.js', 'thumbnail.css']) assert.ok(files.has(file), file);
 });
 
-test('the app footprint counts diagram game strings loaded separately from the games page loader', { skip: 'known wrong result: #2492' }, () => {
+test('the app footprint counts diagram game strings loaded separately from the games page loader', () => {
   const strings = 'src/components/diagram-game/strings.ts';
   const loader = 'src/components/games/load-page.ts';
   const files = routeChunkFiles({
