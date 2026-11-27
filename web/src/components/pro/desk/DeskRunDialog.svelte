@@ -33,7 +33,9 @@
     scope = a.scope === 'selection' && uiStore.selectedElements.size === 0 ? 'all' : a.scope;
     edited = 'keep';
     confirming = false;
-    untrack(() => { const p = solveProgress.now; if (p?.phase === 'done' || p?.phase === 'failed') solveProgress.dismiss(); });
+    if (__PUBLIC_FEATURES__.proPlatesUnified) {
+      untrack(() => { const p = solveProgress.now; if (p?.phase === 'done' || p?.phase === 'failed') solveProgress.dismiss(); });
+    }
   });
   const selected = $derived([...uiStore.selectedElements]);
   const undesigned = $derived(deskUi.ask ? undesignedMembers().length : 0);

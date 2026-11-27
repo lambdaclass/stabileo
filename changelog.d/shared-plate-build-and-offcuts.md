@@ -25,3 +25,5 @@ A raw quadrilateral can again be meshed directly from its published quick editor
 The published combination-rule editor again names its CIRSOC starter. Selecting it uses the same strength and service generators as the released editor, including for a reopened project.
 
 The published Analyze ribbon marks pending and current meshes again. Its help and the viewport mesh checkbox describe the behavior of the active build.
+
+The published manual solver keeps its refusal notification visible. The unified progress card continues to show the failure and dismiss its duplicate notification.

@@ -2374,11 +2374,11 @@
 <RebarWorkspace />
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if solveProgress.now || uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now || exampleProgress.now}
+{#if (__PUBLIC_FEATURES__.proPlatesUnified && solveProgress.now) || uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now || exampleProgress.now}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
     <ExampleProgressCard />
-    <SolveProgressCard />
-    {#if !(solveProgress.now && solveProgress.now.phase === 'mesh')}<MeshProgressCard />{/if}
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}<SolveProgressCard />{/if}
+    {#if !__PUBLIC_FEATURES__.proPlatesUnified || solveProgress.now?.phase !== 'mesh'}<MeshProgressCard />{/if}
     {#if __PUBLIC_FEATURES__.proRcSheets}<RcSheetsProgressCard />{/if}
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">

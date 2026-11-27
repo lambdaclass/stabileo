@@ -290,11 +290,16 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   manualSolves++;
   const run = ++latestRun;
   const latest = () => run === latestRun;
-  const step: ProgressStep = (phase, done = 0, total = 0) => { if (latest()) solveProgress.step(phase, done, total); };
+  const showProgress = unifiedPlates();
+  const step: ProgressStep = (phase, done = 0, total = 0) => {
+    if (showProgress && latest()) solveProgress.step(phase, done, total);
+  };
   solvedInput = null;
-  solveProgress.begin();
-  onCaseSolved((done, total) => step('cases', done, total));
-  onSolveStep(step);
+  if (showProgress) {
+    solveProgress.begin();
+    onCaseSolved((done, total) => step('cases', done, total));
+    onSolveStep(step);
+  }
   let outcome: GlobalSolveOutcome | undefined;
   try {
     outcome = await globalSolve(options, { latest, step });
@@ -304,7 +309,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     throw e;
   } finally {
     manualSolves--;
-    if (latest()) {
+    if (showProgress && latest()) {
       onCaseSolved(null);
       onSolveStep(null);
       const warnings = !outcome?.ok ? 0 : uiStore.analysisMode === 'pro' ? reviewCount(uiStore.is3DWorkspace).total : uiStore.is3DWorkspace

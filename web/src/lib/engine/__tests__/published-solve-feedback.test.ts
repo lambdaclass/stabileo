@@ -12,7 +12,7 @@ beforeEach(() => {
 });
 afterEach(() => { meshBeforeAnalysis.value = true; uiStore.analysisMode = '2d'; });
 
-it.skip('known wrong result: #1928 the published solve keeps the unmeshed-plate refusal visible', async () => {
+it('known wrong result: #1928 the published solve keeps the unmeshed-plate refusal visible', async () => {
   uiStore.analysisMode = 'pro';
   const nodes = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
   for (const id of nodes) modelStore.addSupport(id, 'fixed');
@@ -25,7 +25,7 @@ it.skip('known wrong result: #1928 the published solve keeps the unmeshed-plate 
   expect(resultsStore.results3D).toBeNull();
 });
 
-it.skip.each(['2d', 'pro'] as const)('known wrong result: #1928 the published %s solve reports a supported cantilever normally', async mode => {
+it.each(['2d', 'pro'] as const)('known wrong result: #1928 the published %s solve reports a supported cantilever normally', async mode => {
   uiStore.analysisMode = mode;
   const a = modelStore.addNode(0, 0, 0);
   const b = modelStore.addNode(2, 0, 0);
@@ -34,4 +34,11 @@ it.skip.each(['2d', 'pro'] as const)('known wrong result: #1928 the published %s
   const outcome = await runGlobalSolve();
   expect(outcome.ok).toBe(true);
   expect(uiStore.toasts.some(toast => toast.type === 'success')).toBe(true);
+});
+
+it.each(['2d', 'pro'] as const)('the published %s solve keeps the empty-model refusal', async mode => {
+  uiStore.analysisMode = mode;
+  const outcome = await runGlobalSolve();
+  if (outcome.ok) throw Error('unexpected successful empty solve');
+  expect(uiStore.toasts.some(toast => toast.type === 'error' && toast.message === outcome.error)).toBe(true);
 });

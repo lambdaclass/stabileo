@@ -95,6 +95,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       if (pruneEntries) {
         if (!proPlatesUnified) {
           if (/^loads\.(asce7|ec|tr)\./.test(key)) return false;
+          if (key.startsWith('solveProgress.')) return false;
           if (key === 'quickEdit.meshPlate' || /^combos\.rules\.(seed|none)Code$/.test(key)) return false;
           if (key === 'drawBar.circle' || /^plates\.(circle|shape|shapeProblem|meshShort|unified)\./.test(key)) return false;
           if (/^plates\.meshState(?:WillMesh|Missing|AsCame|Ready|Kept)$/.test(key)) return false;
