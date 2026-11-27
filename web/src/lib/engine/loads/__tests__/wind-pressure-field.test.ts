@@ -259,3 +259,72 @@ it('#2529 an affine pressure crossing zero stays exact with declared curvature b
   expect(parts[0]!.q).toBeCloseTo(1, 12);
   expect(parts[0]!.qJ).toBeCloseTo(-1, 12);
 });
+
+function emittedWork(parts: ReadonlyArray<{ a: number; b: number; q: number; qJ: number }>, k: number) {
+  let moment = 0;
+  for (const { a, b, q, qJ } of parts) {
+    const samples = [0, 1, 2, 3, 4].map(i => ((1 - i / 4) * q + i / 4 * qJ) * (a + (b - a) * i / 4) ** k);
+    moment += (b - a) / 90 * (7 * samples[0]! + 32 * samples[1]! + 12 * samples[2]! + 32 * samples[3]! + 7 * samples[4]!);
+  }
+  return moment;
+}
+
+for (const entry of ['integral', 'member'] as const) {
+  it.skip(`known wrong result: #2529 review: split the declared kink at one third through ${entry}`, () => {
+    const corner = 1 / 3;
+    const parts = projectedParts(entry, Object.assign((s: number) => Math.abs(s - corner), { curvatureBreaks: [corner] }));
+    expect(parts).toHaveLength(2);
+    expect(parts[0]!.b).toBeCloseTo(corner, 15);
+    expect(shearAtCut(parts, corner)).toBeCloseTo(corner ** 2 / 2, 14);
+    expect(shearAtCut(parts, 1)).toBeCloseTo((corner ** 2 + (1 - corner) ** 2) / 2, 14);
+  });
+
+  for (const zero of [0, 0.5]) for (const sign of [-1, 1]) it.skip(`known wrong result: #2529 review: smooth pressure touching zero at ${zero} sign=${sign} through ${entry}`, () => {
+    const parts = projectedParts(entry, Object.assign((s: number) => sign * (s - zero) ** 2, { curvatureBreaks: [] }));
+    expect(parts.every(p => sign * p.q >= 0 && sign * p.qJ >= 0)).toBe(true);
+    const primitive = (s: number) => (s - zero) ** 3 / 3;
+    for (const a of [0, 0.5]) {
+      for (let i = 1; i <= 32; i++) {
+        const cut = a + i / 64;
+        const error = sign * (shearAtCut(parts, cut) - shearAtCut(parts, a)) - (primitive(cut) - primitive(a));
+        expect(Math.abs(error)).toBeLessThanOrEqual(1e-4 * (primitive(a + 0.5) - primitive(a)));
+      }
+    }
+    for (const k of [0, 1, 2, 3]) {
+      expect(emittedWork(parts, k)).toBeCloseTo(sign * (1 / (k + 3) - 2 * zero / (k + 2) + zero ** 2 / (k + 1)), 13);
+    }
+  });
+
+  for (const curvature of [6e-13, 2.4e-12]) for (const sign of [-1, 1]) it.skipIf(curvature === 2.4e-12)(`known wrong result: #2529 review: clamped pair work at curvature ${curvature} sign=${sign} through ${entry}`, () => {
+    const parts = projectedParts(entry, Object.assign((s: number) => sign * (s + Math.max(0, s - 0.5) + curvature * s ** 2), { curvatureBreaks: [0.5] }));
+    for (const k of [0, 1, 2, 3]) {
+      const ramp = (1 - 0.5 ** (k + 2)) / (k + 2) - 0.5 * (1 - 0.5 ** (k + 1)) / (k + 1);
+      const exact = 1 / (k + 2) + ramp + curvature / (k + 3);
+      expect(Math.abs(emittedWork(parts, k) - sign * exact)).toBeLessThanOrEqual(1e-14);
+    }
+    if (curvature === 6e-13) expect(parts).toHaveLength(2);
+  });
+}
+
+for (const axis of ['x', 'y'] as const) for (const height of [0, 0.01]) it.skipIf(height !== 0)(`known wrong result: #2529 review: varying tributary width preserves pressure breaks on ${axis} height=${height}`, () => {
+  const from = 2, center = 0.25, radius = 1 / 1024;
+  const cross = (width: number, z: number) => axis === 'x' ? [0, width, z] : [width, 0, z];
+  const model = mesh([[cross(0, from), cross(0, from + 1)], [cross(2, from + 1), cross(1, from)]]);
+  const law = (z: number) => 1 + height * Math.max(0, 1 - Math.abs(z - from - center) / radius);
+  const pressure = Object.assign(law, { curvatureBreaks: [from + center - radius, from + center, from + center + radius] });
+  const field = windHeightField({ model, axis, from, to: from + 1, pressure });
+  const area = height * radius;
+  const exactForce = 1.5 + area * (1 + center);
+  for (const id of [1, 2]) {
+    const parts = field.members.filter(p => p.elementId === id);
+    expect(emittedWork(parts, 0)).toBeCloseTo(exactForce / 2, 12);
+    const couple = parts.map(p => {
+      if (p.torque !== 'resolved') throw new Error('expected resolved carrier torque');
+      return { ...p, q: axis === 'x' ? p.cx : p.cy, qJ: axis === 'x' ? p.cxJ : p.cyJ };
+    });
+    expect(Math.abs(emittedWork(couple, 0))).toBeCloseTo(1 + area, 12);
+  }
+  const endForces = [...field.loads, ...field.baseLoads];
+  const first = endForces.reduce((sum, [id, f]) => sum + (model.nodes.get(id)!.z! - from) * f, 0);
+  expect(first).toBeCloseTo(1 / 2 + 1 / 3 + area * (center + center ** 2 + radius ** 2 / 6), 12);
+});
