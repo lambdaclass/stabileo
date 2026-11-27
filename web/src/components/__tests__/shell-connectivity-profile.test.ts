@@ -55,13 +55,13 @@ it('shows the published raw shell inventory, plate status and mesh display defau
   expect(uiStore.platesShowMesh).toBe(unified ? null : true);
 });
 
-it.skip('known wrong result: #1928 the raw element table offers its owner exactly until that plate is selected', () => {
+it('known wrong result: #1928 the raw element table offers its owner exactly until that plate is selected', () => {
   modelStore.clear();
   const nodes = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
   const plate = createPlate({ outline: nodes, thickness: 0.15, materialId: 1 });
   if ('problem' in plate) throw Error(plate.problem);
   const plan = planPlateMesh(plate.id, { size: 1, element: 'quad', followMembers: false });
-  if (!plan?.mesh) throw Error(plan?.refused);
+  if (!plan?.mesh) throw Error(String(plan?.refused));
   applyPlateMeshes([plan]);
   const key = plateShellKeys(plate.id)[0]!;
   const unified = Boolean(__PUBLIC_FEATURES__.proPlatesUnified);
@@ -72,14 +72,14 @@ it.skip('known wrong result: #1928 the raw element table offers its owner exactl
   };
   uiStore.shellPickScope = 'plate';
   uiStore.selectPlates([plate.id]);
-  check(false, false);
+  check(false, unified);
   uiStore.selectShell(key);
-  check(!unified, false);
+  check(!unified, !unified);
   uiStore.shellPickScope = 'element';
-  check(true, unified);
+  check(true, true);
   const raw = modelStore.addPlate([nodes[0]!, nodes[1]!, nodes[2]!], 1, 0.15);
   uiStore.selectShell('p' + raw);
-  check(false, unified);
+  check(false, true);
   uiStore.selectPlates([]);
   uiStore.shellPickScope = 'plate';
 });

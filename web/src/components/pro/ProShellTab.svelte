@@ -330,7 +330,18 @@
       </div>
     {:else}
       <PlatePanel />
+      {#if uiStore.selectedPlates.size === 0 && uiStore.selectedShells.size > 0}
+        {@const owner = plateOfShell([...uiStore.selectedShells][0]!)}
+        {#if owner !== null}
+          <button class="pro-btn" onclick={() => { uiStore.shellPickScope = 'plate'; uiStore.selectPlates([owner]); }} data-testid="shell-select-owner">{tp('plates.selectOwner', { name: modelStore.model.groups.get(owner)?.name ?? '' })}</button>
+        {/if}
+      {/if}
       <PlateList />
+      {#if uiStore.selectedShells.size === 1}
+        <button class="pro-btn shell-open-spec" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">
+          {tp('spec.surfaces.open', { n: uiStore.selectedShells.size })}
+        </button>
+      {/if}
       <div class="section">
         <button class="section-toggle" onclick={() => showMeshGen = !showMeshGen}>
           <span class="toggle-arrow">{showMeshGen ? '\u25BE' : '\u25B8'}</span>
@@ -363,19 +374,21 @@
       <PlateBrowser />
       <PlatePanel />
     {:else}
-      <p class="mesh-hint pro-shells-note">{t('plates.elementsNote')}</p>
-      {#if uiStore.selectedShells.size > 0}
-        {@const owner = plateOfShell([...uiStore.selectedShells][0]!)}
-        <div class="pro-shells-actions-row">
-          {#if owner !== null}
-            <button class="pk-btn" onclick={() => toScope('plate')} data-testid="shell-select-owner">{tp('plates.selectOwner', { name: modelStore.model.groups.get(owner)?.name ?? '' })}</button>
-          {/if}
-          {#if uiStore.selectedShells.size === 1}
-            <button class="pk-btn" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">{t('plates.openSpecElement')}</button>
-          {/if}
-        </div>
+      {#if __PUBLIC_FEATURES__.proPlatesUnified}
+        <p class="mesh-hint pro-shells-note">{t('plates.elementsNote')}</p>
+        {#if uiStore.selectedShells.size > 0}
+          {@const owner = plateOfShell([...uiStore.selectedShells][0]!)}
+          <div class="pro-shells-actions-row">
+            {#if owner !== null}
+              <button class="pk-btn" onclick={() => toScope('plate')} data-testid="shell-select-owner">{tp('plates.selectOwner', { name: modelStore.model.groups.get(owner)?.name ?? '' })}</button>
+            {/if}
+            {#if uiStore.selectedShells.size === 1}
+              <button class="pk-btn" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">{t('plates.openSpecElement')}</button>
+            {/if}
+          </div>
+        {/if}
       {/if}
-      <div class="shell-table"><DataTable pinned="plates" /></div>
+      <div class="shell-table" class:section={!__PUBLIC_FEATURES__.proPlatesUnified}><DataTable pinned="plates" /></div>
     {/if}
   </div>
 </div>

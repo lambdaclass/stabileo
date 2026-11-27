@@ -178,7 +178,9 @@
       </div>
     </div>
 
-    <button class="pp-link" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">{one ? tp('plates.openSpec', { name: one.name }) : tp('plates.openSpecMany', { n: entries.length })} ›</button>
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      <button class="pp-link" onclick={() => { uiStore.specSection = 'surfaces'; uiStore.proActiveTab = 'specifications'; }} data-testid="shell-open-spec">{one ? tp('plates.openSpec', { name: one.name }) : tp('plates.openSpecMany', { n: entries.length })} ›</button>
+    {/if}
 
     {#if one && loops}
       {#if __PUBLIC_FEATURES__.proPlatesUnified}
