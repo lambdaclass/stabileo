@@ -89,6 +89,20 @@ describe.skip.each(['linear', 'pdelta'] as const)('known wrong result: #1928 %s 
     expectWithheld(member, 'scopes.noneActive');
   });
 
+  it.each(['srss', 'abs'] as const)('withholds an active %s magnitude when the project defines a signed combination', magnitude => {
+    const { member } = fixture(method);
+    const load = modelStore.model.loadCases[0]!.id;
+    const combo = modelStore.addCombination('Magnitude test load', [{ caseId: load, factor: 2 }]);
+    modelStore.updateCombination(combo, { method: magnitude });
+    modelStore.setResultScopes({ active: [combo] });
+    solveSingle();
+    publish();
+    resultsStore.activeComboId = combo;
+    resultsStore.activeView = 'combo';
+    expect(resultsStore.results3D?.magnitude?.method).toBe(magnitude);
+    expectWithheld(member, 'design.error.noLinearCombination');
+  });
+
   it('reports the active combination and permits the signed single solve with no project combinations', () => {
     const { member, combo } = fixture(method);
     solveSingle();
