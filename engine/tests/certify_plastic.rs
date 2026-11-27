@@ -688,7 +688,6 @@ fn two_member_cantilever() -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #758"]
 fn direct_confirmation_requires_positive_finite_supplied_capacities() {
     use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
     let solver = two_member_cantilever();

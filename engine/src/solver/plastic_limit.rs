@@ -183,7 +183,19 @@ pub fn confirm_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<us
     certificate_encloses(input, mp, np, lambda).map(|check| check.confirmation(lambda)).unwrap_or_else(|reason| Confirmation::OutOfScope { reason })
 }
 
+fn validate_capacities(mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>) -> Result<(), String> {
+    for (what, map) in [("plastic moment", mp), ("axial yield force", np)] {
+        let mut bad: Vec<(usize, f64)> = map.iter().filter(|(_, v)| !(v.is_finite() && **v > 0.0)).map(|(k, v)| (*k, *v)).collect();
+        bad.sort_by_key(|b| b.0);
+        if let Some((id, v)) = bad.first() {
+            return Err(format!("element {id}: {what} {v} must be finite and positive; leave out a member that never yields"));
+        }
+    }
+    Ok(())
+}
+
 fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<FactorCheck, String> {
+    validate_capacities(mp, np)?;
     super::support::validate_supports_2d(input)?;
     use crate::certify::exact::to_f64_up;
     if input.elements.len() > MAX_CERTIFIED_ELEMENTS {
@@ -289,7 +301,7 @@ fn static_lower(
     let bending = check_static(model, field)?.lambda_lower;
     let mut lower_sq = bending.pow(2);
     for (e, [fx, fz, _]) in model.elems.iter().zip(&field.elems) {
-        let Some(&capacity) = np.get(&e.id).filter(|v| v.is_finite()) else { continue };
+        let Some(&capacity) = np.get(&e.id) else { continue };
         let capacity = q(capacity).ok_or("non-finite axial capacity")?;
         let peak = axial::peak(axial_fields.get(&e.id).cloned().unwrap_or_default(), e, &field.lambda, fx * &e.dx + fz * &e.dz)?;
         let demand = peak.pow(2);
@@ -431,13 +443,7 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
     if input.elements.len() > MAX_LIMIT_ELEMENTS {
         return Err(format!("more than {MAX_LIMIT_ELEMENTS} members: too large for the limit analysis"));
     }
-    for (what, map) in [("plastic moment", mp), ("axial yield force", np)] {
-        let mut bad: Vec<(usize, f64)> = map.iter().filter(|(_, v)| !(v.is_finite() && **v > 0.0)).map(|(k, v)| (*k, *v)).collect();
-        bad.sort_by_key(|b| b.0);
-        if let Some((id, v)) = bad.first() {
-            return Err(format!("element {id}: {what} {v} must be finite and positive; leave out a member that never yields"));
-        }
-    }
+    validate_capacities(mp, np)?;
     let mut frames: Vec<usize> = crate::ordered::values(&input.elements).filter(|e| e.elem_type == "frame").map(|e| e.id).collect();
     frames.sort();
     if let Some(id) = frames.iter().find(|id| !mp.get(id).is_some_and(|m| m.is_finite())) {
