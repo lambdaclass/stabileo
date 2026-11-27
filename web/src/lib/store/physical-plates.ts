@@ -28,6 +28,7 @@ import {
   plateSignature, plateSurfaceOf, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
 } from '../model/physical/plate';
 import { generateMesh, MAX_MESH_CELLS, type MeshOutput } from '../model/edit/mesher';
+import { auditMeshCompatibility, segmentIntervals, segmentIntervalWork, MAX_COMPATIBILITY_WORK } from '../model/edit/mesh-compatibility';
 import { frameAlong, gridMesh } from '../model/edit/grid-mesh';
 import { applyPlacedMesh, placeMesh, regionOccupied, type MeshPlacement } from '../model/edit/mesh-apply';
 import { mergeCollinear } from '../model/edit/merge-collinear';
@@ -273,7 +274,7 @@ export function plateLoadDefs(id: number): ModelGroup[] {
 
 // ─── Meshing ─────────────────────────────────────────────────────
 
-export type PlateMeshRefusalReason = 'invalid' | 'tooManyCells' | 'cannotMesh' | 'occupied' | 'ambiguousSweep' | 'shellEdits';
+export type PlateMeshRefusalReason = 'invalid' | 'tooManyCells' | 'cannotMesh' | 'occupied' | 'ambiguousSweep' | 'shellEdits' | 'beamCompatibility';
 
 export interface PlateMeshPlan {
   id: number;
@@ -374,6 +375,9 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>,
   const estimate = plateAreaEstimate(f.geo, spec);
   if (estimate > MAX_MESH_CELLS * 1.5) return { ...base, mesh: null, refused: 'tooManyCells', cells: Math.round(estimate), quality: null, signature, input, mixed: false };
   const preview = (mesh: MeshOutput, mixed: boolean, grid?: PlateMeshPlan['grid']): PlateMeshPlan => {
+    if (spec.followMembers && !auditMeshCompatibility(input, mesh).ok) {
+      return { ...base, mesh: null, refused: 'beamCompatibility', cells: 0, quality: null, signature, input, mixed: false };
+    }
     const placed = placeMesh(mesh);
     const used = new Set(placed.cells.flatMap(cell => cell.nodes));
     if (!required.every(n => used.has(n.id))) {
@@ -531,6 +535,27 @@ function placePlateEdits(e: PlateEntry, mesh: MeshOutput): MeshPlacement | undef
   return placement;
 }
 
+/** Geometric coincidence is insufficient: every in-region beam piece must use
+ * an actual shell edge's node IDs. This also catches refused cuts and duplicate nodes. */
+function sharedBeamEdges(input: NonNullable<PlateMeshPlan['input']>, mesh: MeshOutput, quads: readonly number[], plates: readonly number[]): boolean {
+  const edges = new Set<string>();
+  const key = (a: number, b: number) => a < b ? `${a},${b}` : `${b},${a}`;
+  const cells = [...quads.map(id => modelStore.quads.get(id)!.nodes), ...plates.map(id => modelStore.plates.get(id)!.nodes)];
+  for (const cell of cells) for (let i = 0; i < cell.length; i++) edges.add(key(cell[i]!, cell[(i + 1) % cell.length]!));
+  let work = 0;
+  const loopWork = segmentIntervalWork(input);
+  for (const beam of modelStore.elements.values()) {
+    if (edges.has(key(beam.nodeI, beam.nodeJ))) continue;
+    work += loopWork;
+    if (work > MAX_COMPATIBILITY_WORK) return false;
+    const a = modelStore.nodes.get(beam.nodeI), b = modelStore.nodes.get(beam.nodeJ);
+    if (!a || !b) return false;
+    const intervals = segmentIntervals(input, mesh.plane, [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]]);
+    if (!intervals || intervals.length) return false;
+  }
+  return true;
+}
+
 export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: PlateMeshRefusalReason }>; droppedLocalLoads: number; keptNodes: number }
 
 export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshReport {
@@ -557,6 +582,7 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
       const before = new Set(modelStore.nodes.keys());
       const r = applyPlacedMesh(mesh, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers }, placed);
       const created = [...new Set(r.nodeIds)].filter(n => !before.has(n) || oldOwned.has(n));
+      if (p.spec.followMembers && !sharedBeamEdges(p.input!, mesh, r.quads, r.plates)) { refuse('beamCompatibility'); return; }
       const g = modelStore.model.groups.get(p.id)!;
       const loops = plateLoops(g);
       modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });

@@ -1,3 +1,4 @@
+import { segmentIntervals } from '../edit/mesh-compatibility';
 /**
  * A plate as a physical object: an outline with holes, a material and a thickness, and the mesh it
  * is analysed with, which is made from it and can be made again.
@@ -340,7 +341,9 @@ export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: Reado
     const pa = pos(a), pb = pos(b);
     const ia = inPlane(pa), ib = inPlane(pb);
     if (ia && ib) {
-      if (insidePlate(geo, pa) || insidePlate(geo, pb) || insidePlate(geo, [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, (pa[2] + pb[2]) / 2])) segments.push([pa, pb]);
+      const intervals = segmentIntervals({ outer: { kind: 'polygon', points: geo.outer }, holes: geo.holes.map(points => ({ kind: 'polygon', points })) }, geo.frame, [pa, pb]);
+      // An inconclusive clip must reach the mesh audit and be refused, not disappear.
+      if (intervals === null || intervals.length) segments.push([pa, pb]);
       external.add(a); external.add(b);
       continue;
     }

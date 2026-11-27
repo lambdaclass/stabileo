@@ -26,7 +26,7 @@
   import { nextMember } from '../../lib/store/next-member.svelte';
   import { mergeCollinear } from '../../lib/model/edit/merge-collinear';
   import {
-    coincidentNodeGroups, zeroLengthMembers, cleanUpModel, mergeCoincidentNodes, removeDuplicateMembers,
+    planCoincidentNodeMerge, zeroLengthMembers, cleanUpModel, mergeCoincidentNodes, removeDuplicateMembers,
     removeOrphanNodes, removeZeroLengthMembers, type CleanupReport,
   } from '../../lib/model/edit/cleanup';
   import { editPreview } from '../../lib/store/edit-preview.svelte';
@@ -176,7 +176,8 @@
   const findings = $derived.by(() => {
     void weldMm;
     void modelStore.modelVersion;
-    const coincident = coincidentNodeGroups().reduce((s, g) => s + g.length - 1, 0);
+    const mergePlan = planCoincidentNodeMerge();
+    const coincident = mergePlan.groups.reduce((s, g) => s + g.length - 1, 0);
     // Exact duplicates (the same two nodes) as the model check finds them; the clean-up removes them.
     const duplicates = checkModel(modelStore.model as never).filter((d) => d.code === 'MODEL_DUPLICATE_ELEMENT').length;
     // Collinear members that overlap along a stretch with different end nodes: listed, not removed,
@@ -185,7 +186,7 @@
       .map((d) => ({ a: d.elementIds![0]!, b: d.elementIds![1]!, length: Number(d.details?.overlapLength ?? 0) }));
     // The same test the clean-up applies, at the same tolerance.
     const zero = zeroLengthMembers().length;
-    return { coincident, duplicates, overlaps, zero };
+    return { coincident, duplicates, overlaps, zero, mergePlan };
   });
   function selectOverlaps(list: ReadonlyArray<{ a: number; b: number }>) {
     uiStore.selectMode = 'elements';
@@ -295,8 +296,16 @@
     <label class="pk-row ep-weld">{t('edit.weldTol')}
       <input type="number" min="0.001" max="100" step="0.1" value={weldMm} onchange={(e) => (weldMm = setWeldTolerance(Number(e.currentTarget.value) / 1000) * 1000)} data-testid="ep-weld-tol" /> mm
     </label>
+    {#if findings.mergePlan.conflicts.length}
+      <p class="pk-hint" data-testid="ep-merge-conflicts">{tp('edit.clean.blockedMerges', { n: findings.mergePlan.conflicts.length })}</p>
+      <ul class="ep-findings">
+        {#each findings.mergePlan.conflicts.slice(0, 12) as conflict}
+          <li>{t(`edit.mergeConflict.${conflict.reason}`)}: {conflict.nodes.slice(0, 12).join(', ')}</li>
+        {/each}
+      </ul>
+    {/if}
     <ul class="ep-findings">
-      <li>{tp('edit.found.coincident', { n: findings.coincident })} <button class="pk-btn" disabled={findings.coincident === 0} onclick={() => (message = cleanupMessage(mergeCoincidentNodes()))} data-testid="ep-merge-nodes">{t('edit.fix')}</button></li>
+      <li>{tp('edit.found.coincident', { n: findings.coincident })} <button class="pk-btn" disabled={findings.coincident === 0 || findings.mergePlan.conflicts.length > 0} onclick={() => (message = cleanupMessage(mergeCoincidentNodes()))} data-testid="ep-merge-nodes">{t('edit.fix')}</button></li>
       <li data-testid="ep-duplicates">{tp('edit.found.duplicates', { n: findings.duplicates })} <button class="pk-btn" disabled={findings.duplicates === 0} onclick={() => (message = cleanupMessage(removeDuplicateMembers()))} data-testid="ep-remove-duplicates">{t('edit.fix')}</button></li>
       <li data-testid="ep-overlaps">{tp('edit.found.overlaps', { n: findings.overlaps.length })} <button class="pk-btn" disabled={findings.overlaps.length === 0} onclick={() => selectOverlaps(findings.overlaps)} data-testid="ep-select-overlaps">{t('edit.select')}</button>
         {#if findings.overlaps.length}
@@ -319,7 +328,7 @@
           onclick={() => { const n = unifyProperties('materials', hygiene.repeated.materials) + unifyProperties('sections', hygiene.repeated.sections); message = tp('edit.unified', { n }); }} data-testid="ep-unify">{t('edit.unify')}</button></li>
     </ul>
     <div class="pk-row"><button class="pk-btn" disabled={members.length === 0} onclick={doFlip} data-testid="ep-flip">{tp('edit.flip', { n: members.length })}</button></div>
-    <button class="pk-btn pk-btn-primary" onclick={() => (message = cleanupMessage(cleanUpModel()))} data-testid="ep-clean-all">{t('edit.cleanAll')}</button>
+    <button class="pk-btn pk-btn-primary" disabled={findings.mergePlan.conflicts.length > 0} onclick={() => (message = cleanupMessage(cleanUpModel()))} data-testid="ep-clean-all">{t('edit.cleanAll')}</button>
   </section>
 
   <section class="pk-card" data-testid="ep-taper">

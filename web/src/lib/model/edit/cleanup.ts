@@ -7,18 +7,17 @@
  *
  * ── Merging coincident nodes ──────────────────────────────────────
  *
- * Nodes within the tolerance of each other become the lowest-numbered of them, and everything that
- * named the others is renamed: member ends, shell corners, supports, nodal loads, constraints,
- * connectors, footings and groups. Two supports on nodes that merge cannot both stay; the first is
- * kept and the other is counted as dropped. A member whose two ends merge has become zero-length,
- * and a member that now duplicates another is a duplicate; both are left for the functions below,
- * which the combined clean-up runs next.
+ * The manual merge previews all candidates and refuses the operation when it would
+ * discard supports, collapse a connection or move a cluster beyond the tolerance.
+ * Low-level mergeNodesInto remains available to topology commands with their own checks.
  */
 
 import { weldTolerance } from '../weld-tolerance';
 import { modelStore } from '../../store/model.svelte';
 import type { Load, Node } from '../../store/model.svelte';
 import { WELD_TOL } from '../../engine/mesh-weld';
+import { plateLoops, plateSurfaceOf } from '../physical/plate';
+import { constraintNodes } from '../../engine/steel/unbraced-length';
 import { generatedMetadata } from './generated-metadata';
 
 /**
@@ -30,6 +29,7 @@ export const MERGE_TOL = WELD_TOL;
 
 export interface CleanupReport {
   mergedNodes: number;
+  blockedMerges: number;
   droppedSupports: number;
   removedDuplicates: number;
   removedLoadsOnDuplicates: number;
@@ -38,7 +38,7 @@ export interface CleanupReport {
 }
 
 const empty = (): CleanupReport => ({
-  mergedNodes: 0, droppedSupports: 0, removedDuplicates: 0, removedLoadsOnDuplicates: 0, removedZeroLength: 0, removedOrphans: 0,
+  mergedNodes: 0, blockedMerges: 0, droppedSupports: 0, removedDuplicates: 0, removedLoadsOnDuplicates: 0, removedZeroLength: 0, removedOrphans: 0,
 });
 
 /** Groups of coincident nodes, each sorted, lowest id first. Spatial hash on the tolerance. */
@@ -67,13 +67,60 @@ export function coincidentNodeGroups(tol = weldTolerance(), nodes: ReadonlyMap<n
   return [...groups.values()].filter((g) => g.length > 1).map((g) => g.sort((a, b) => a - b));
 }
 
+export type MergeConflictReason = 'invalid' | 'tolerance' | 'supports' | 'connection';
+export interface NodeMergePlan {
+  groups: number[][];
+  to: Map<number, number>;
+  conflicts: Array<{ reason: MergeConflictReason; nodes: number[] }>;
+}
+
+/** Read-only preview. Execution always recomputes this against the current model. */
+export function planCoincidentNodeMerge(tol = weldTolerance()): NodeMergePlan {
+  const plan: NodeMergePlan = { groups: [], to: new Map(), conflicts: [] };
+  if (!Number.isFinite(tol) || tol <= 0 || tol >= 1
+    || [...modelStore.nodes.values()].some(n => [n.x, n.y, n.z ?? 0].some(v => !Number.isFinite(v) || !Number.isSafeInteger(Math.round(v / tol))))) {
+    plan.conflicts.push({ reason: 'invalid', nodes: [] });
+    return plan;
+  }
+  plan.groups = coincidentNodeGroups(tol);
+  for (const g of plan.groups) {
+    const target = modelStore.nodes.get(g[0]!)!;
+    for (const id of g.slice(1)) plan.to.set(id, g[0]!);
+    // A transitive cluster may be longer than the tolerance: never snap its far end.
+    if (g.some(id => { const n = modelStore.nodes.get(id)!; return Math.hypot(n.x - target.x, n.y - target.y, (n.z ?? 0) - (target.z ?? 0)) > tol; })) {
+      plan.conflicts.push({ reason: 'tolerance', nodes: g });
+    }
+  }
+  const r = (id: number) => plan.to.get(id) ?? id;
+  const affected = new Set(plan.groups.flat());
+  const supported = new Map<number, number[]>();
+  for (const s of modelStore.supports.values()) {
+    if (!affected.has(s.nodeId)) continue;
+    const list = supported.get(r(s.nodeId)) ?? [];
+    list.push(s.nodeId); supported.set(r(s.nodeId), list);
+  }
+  // Even identical springs add stiffness; silently dropping either is not equivalent.
+  for (const nodes of supported.values()) if (nodes.length > 1) plan.conflicts.push({ reason: 'supports', nodes });
+  const check = (nodes: number[]) => {
+    if (!nodes.some(n => plan.to.has(n))) return;
+    if (new Set(nodes.map(r)).size < new Set(nodes).size) plan.conflicts.push({ reason: 'connection', nodes });
+  };
+  for (const e of modelStore.elements.values()) check([e.nodeI, e.nodeJ]);
+  for (const e of modelStore.model.connectors.values()) check([e.nodeI, e.nodeJ]);
+  for (const c of modelStore.model.constraints) check([...constraintNodes([c])]);
+  for (const q of modelStore.quads.values()) check(q.nodes);
+  for (const p of modelStore.plates.values()) check(p.nodes);
+  for (const g of modelStore.model.groups.values()) if (plateSurfaceOf(g)) {
+    const loops = plateLoops(g);
+    check([...loops.outer, ...loops.holes.flat()]);
+  }
+  return plan;
+}
+
 export function mergeCoincidentNodes(tol = weldTolerance()): CleanupReport {
-  const report = empty();
-  const groups = coincidentNodeGroups(tol);
-  if (groups.length === 0) return report;
-  const to = new Map<number, number>();
-  for (const g of groups) for (const id of g.slice(1)) to.set(id, g[0]!);
-  mergeNodesInto(to, report);
+  const report = empty(), plan = planCoincidentNodeMerge(tol);
+  if (plan.conflicts.length) { report.blockedMerges = plan.conflicts.length; return report; }
+  mergeNodesInto(plan.to, report);
   return report;
 }
 
@@ -93,8 +140,10 @@ export function mergeNodesInto(to: ReadonlyMap<number, number>, report: CleanupR
     for (const q of [...modelStore.quads.values()]) if (q.nodes.some((n) => to.has(n))) modelStore.updateQuadNodes(q.id, q.nodes.map(r) as typeof q.nodes);
     for (const p of [...modelStore.plates.values()]) if (p.nodes.some((n) => to.has(n))) modelStore.updatePlateNodes(p.id, p.nodes.map(r) as typeof p.nodes);
     const supported = new Set<number>();
+    const targets = new Set(to.values());
     for (const s of [...modelStore.supports.values()].sort((a, b) => a.id - b.id)) {
       const target = r(s.nodeId);
+      if (!targets.has(target)) continue;
       if (supported.has(target)) { modelStore.removeSupport(s.id); report.droppedSupports++; continue; }
       supported.add(target);
       if (target !== s.nodeId) modelStore.updateSupport(s.id, { nodeId: target });
@@ -180,8 +229,10 @@ export function removeOrphanNodes(): CleanupReport {
 /** All four, in the order that lets each clear what the previous one uncovers. One undo step. */
 export function cleanUpModel(tol = weldTolerance()): CleanupReport {
   const total = empty();
+  const plan = planCoincidentNodeMerge(tol);
+  if (plan.conflicts.length) { total.blockedMerges = plan.conflicts.length; return total; }
   modelStore.batch(() => {
-    for (const r of [mergeCoincidentNodes(tol), removeZeroLengthMembers(tol), removeDuplicateMembers(), removeOrphanNodes()]) {
+    for (const r of [mergeNodesInto(plan.to), removeZeroLengthMembers(tol), removeDuplicateMembers(), removeOrphanNodes()]) {
       for (const k of Object.keys(total) as (keyof CleanupReport)[]) total[k] += r[k];
     }
   });
