@@ -2,7 +2,7 @@ import type { PostBody } from '../../types';
 
 const body: PostBody = {
   "title": "Stabileo 0.5.0: altri ventitré bollettini, e ogni issue aperta su risultati errati con avviso o rifiuto",
-  "excerpt": "Dalla 0.4.0 sono stati segnalati 23 difetti e ventuno corretti, con la verifica a torsione incompleta e il collasso plastico 2D ancora rifiutato. Ogni difetto aperto genera un avviso o un rifiuto. La versione Base include il corso passo dopo passo.",
+  "excerpt": "Dalla 0.4.0 abbiamo segnalato ventitré difetti: ventuno corretti, con la verifica a torsione ancora incompleta (SA-2026-040) e il collasso plastico 2D rifiutato (SA-2026-044). Ogni difetto aperto ha un avviso o un rifiuto. In Base arriva il corso passo dopo passo.",
   "blocks": [
     {
       "k": "p",

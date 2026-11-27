@@ -3,6 +3,7 @@ import { render } from 'svelte/server';
 import { GAME_IDS, GAME_PATHS, isGameRoute } from '../../../lib/game-routes';
 import { setPublicLocale } from '../../../lib/i18n/store.svelte';
 import type { Locale } from '../../../lib/i18n/offered';
+import { LOCALE_NAMES } from '../../../lib/i18n/offered';
 import { gameStrings, tg } from '../../diagram-game/strings';
 import { GAMES } from '../games';
 import { hubStrings } from '../strings';
@@ -11,6 +12,9 @@ import GamesPage from '../GamesPage.svelte';
 
 const LOCALES: Locale[] = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'];
 LOCALES.push('it', 'nl');
+for (const locale of Object.keys(LOCALE_NAMES) as Locale[]) {
+  if (!LOCALES.includes(locale)) LOCALES.push(locale);
+}
 const width = (s: string) => s.length + (s.match(/[\p{Script=Han}　-〿＀-￯]/gu)?.length ?? 0);
 afterEach(() => setPublicLocale('en'));
 
@@ -129,4 +133,13 @@ it.each(['nl', 'it'] as const)('known wrong result: #2613 — renders the games 
   expect(hubStrings[locale].title).toBe(locale === 'nl' ? 'Spellen' : 'Giochi');
   expect(GAMES[0].copy[locale].title).toBe(gameStrings[locale].title);
   expect(render(GamesPage, { props: { path: '/games' } }).body).toContain(hubStrings[locale].title);
+});
+
+it('known wrong result: #2595 — the Italian games hub renders its own heading and diagram game card', () => {
+  setPublicLocale('it');
+  const body = render(GamesPage, { props: { path: '/games' } }).body;
+  expect.soft(body).toMatch(/<h1[^>]*>Giochi<\/h1>/);
+  expect.soft(body).toContain(gameStrings.it!.title);
+  expect.soft(body).toContain('Gioca');
+  expect(body).toContain('href="/it/games/diagram-game/"');
 });

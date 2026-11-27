@@ -2,6 +2,7 @@ import mergedValueAudit from '../../../../../docs/results-changes/1952-main-merg
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { findPost } from '..';
+import { LOCALE_NAMES } from '../../i18n/offered';
 import type { PublicLocale } from '../../i18n/store.svelte';
 
 const advisoryUrl = new URL('../../../../../docs/advisories/SA-2026-061-path-solver-reactions.md', import.meta.url);
@@ -124,4 +125,16 @@ describe('safety-advisories SA-2026-092', () => {
     expect(workedExample.t).toContain(vonMisesVersusYield);
     expect(workedExample.t).toContain(oldStresses);
   });
+});
+
+const releaseRangeLocales = Object.keys(LOCALE_NAMES) as PublicLocale[];
+
+it('known wrong result: #2595 — release range checks cover every published advisory translation', () => {
+  expect([...releaseRangeLocales].sort()).toEqual(Object.keys(findPost('safety-advisories')!.i18n).sort());
+});
+
+it.each(releaseRangeLocales)('known wrong result: #2595 — %s dates the first two advisory ranges to their releases', locale => {
+  const blocks = findPost('safety-advisories')!.i18n[locale]!.blocks;
+  const note = blocks.find(block => block.k === 'note')!;
+  expect(note.t).toMatch(/SA-2026-001.{1,12}004.{1,60}0\.2\.0.{1,30}SA-2026-005.{1,12}020.{1,60}0\.3\.0/);
 });

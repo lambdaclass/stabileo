@@ -580,6 +580,7 @@ const stepsTr: Translations = {
   'steps.trusses.compat.globalCheck': 'Genel denge',
   'steps.trusses.compat.residual': 'Serbest düğümlerdeki en büyük dengesizlikler: {force} kN, {moment} kN·m.',
   'steps.trusses.compat.residualOk': 'Serbest düğümler dengede ✓.',
+  'steps.trusses.compat.globalUnbalanced': 'Uygulanan kuvvetler ve mesnet tepkileri dengede değil.',
   'steps.trusses.compat.residualBad': 'Serbest düğümlerdeki dengesizlik, yuvarlamayla açıklanabilecek olandan büyük.',
   'steps.trusses.compat.momentCaption': 'Çekme tarafına çizilmiş eğilme momenti diyagramı.',
   'steps.trusses.compat.compareNote': 'İki hesap da aynı modeli, eksenel şekil değiştirme dahil aynı rijitliklerle çözer; bu yüzden yuvarlama dışında örtüşürler.',

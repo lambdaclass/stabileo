@@ -118,6 +118,7 @@ it('identifies each released recheck once in the Italian 0.6.2 notes', () => {
   const notes = readFileSync(new URL('../../../../../docs/releases/v0.6.2.it.md', import.meta.url), 'utf8');
   const rows = [...notes.matchAll(/^\| (\d+) \| \[([^\]]+)\]\(\.\.\/(results-changes\/[^)#]+)(?:#[^)]+)?\) \|$/gm)];
   const released = readRegistry().changes.filter(change => change.resultsVersion >= 81 && change.resultsVersion <= 95);
+  expect(notes).toContain(`Tutti i **${released.length}** nuovi avvisi`);
   expect(rows.map(([, version, , path]) => version + ' docs/' + path).sort())
     .toEqual(released.map(change => change.resultsVersion + ' ' + change.changelog.file).sort());
   expect(new Set(rows.map(([, , label]) => label)).size).toBe(released.length);

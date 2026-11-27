@@ -580,6 +580,7 @@ const stepsDe: Translations = {
   'steps.trusses.compat.globalCheck': 'Globales Gleichgewicht',
   'steps.trusses.compat.residual': 'Maximale Ungleichgewichte an freien Knoten: {force} kN, {moment} kN·m.',
   'steps.trusses.compat.residualOk': 'Die freien Knoten sind im Gleichgewicht ✓.',
+  'steps.trusses.compat.globalUnbalanced': 'Die aufgebrachten Kräfte und die Auflagerreaktionen stehen nicht im Gleichgewicht.',
   'steps.trusses.compat.residualBad': 'Das Ungleichgewicht an den freien Knoten ist größer, als sich durch Rundung erklären lässt.',
   'steps.trusses.compat.momentCaption': 'Momentenlinie, auf der Zugseite angetragen.',
   'steps.trusses.compat.compareNote': 'Beide Berechnungen lösen dasselbe Modell mit denselben Steifigkeiten, einschließlich der Längsdehnung, daher stimmen sie bis auf Rundungen überein.',

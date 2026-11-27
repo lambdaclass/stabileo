@@ -2322,7 +2322,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'it' | 'zh' | 'nl', ResearchSt
     inProgress: 'in corso',
     catalog: 'Nella nostra lista: articoli che prevediamo di riprodurre',
     field: 'Campo',
-    status: 'Status',
+    status: 'Stato',
     all: 'Tutti',
     readRun: 'Leggi ed esegui',
     paper: 'Articolo',

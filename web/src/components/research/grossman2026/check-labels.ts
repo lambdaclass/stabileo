@@ -193,7 +193,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Bande 13 × 52 : effet de taille",
     "tr": "Şerit 13 × 52: boyut etkisi",
     "hu": "13 × 52-es sáv: méreteffektus",
-    'it': "Striscia 13 × 52: distorsione di dimensione",
+    'it': "Striscia 13 × 52: effetto di scala",
     "zh": "13 × 52 条带：尺寸效应",
     "nl": "Strip 13 × 52: afmetingseffect"
   },
@@ -314,7 +314,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Fig. 5 : comparaison entre cellules périodiques et bandes",
     "tr": "Şekil 5: periyodik hücre ve şerit karşılaştırması",
     "hu": "5. ábra: periodikus cella és sáv összevetése",
-    'it': "Fig. 5: confronto tra protocolli periodici e strisce",
+    'it': "Fig. 5: confronto tra celle periodiche e strisce",
     "zh": "图 5：周期性单元与条带的比较",
     "nl": "Fig. 5: vergelijking tussen periodieke cellen en stroken"
   },

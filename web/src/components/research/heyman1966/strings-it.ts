@@ -30,7 +30,7 @@ export const it: Strings = {
   milankovitch: 'α = {a}°, pesi reali, a confronto con Milankovitch',
   ccr: 'α = {a}°, peso sulla linea d’asse, a confronto con CCR',
   quantities: { eta: 'Spessore minimo t/r', beta: 'Cerniera dei reni β', h: 'Spinta H/(w r)' },
-  heyman: 'La stessa tabella riporta la forma chiusa di Heyman, che è più sottile: t/r = {h90} a α = 90°, {d90} sotto Milankovitch, e {d145} a α = 145°. Come spiegano Rizzi et al., essa rende la risultante tangente all’intradosso invece della linea delle pressioni. La mostriamo per confronto e non verifichiamo rispetto a essa.',
+  heyman: 'La stessa tabella riporta la forma chiusa di Heyman, che è più sottile: t/r = {h90} a α = 90°, {d90} sotto Milankovitch, e {d145} a α = 145°. Heyman assume un peso distribuito lungo la linea d’asse e adotta una condizione di tangenza diversa da quella di Milankovitch. Alla cerniera dei reni, Heyman considera la direzione della risultante e Milankovitch la tangente alla linea delle pressioni. La mostriamo per confronto e non verifichiamo rispetto a essa.',
   convergence: 'Con pochi conci le cerniere possono stare solo sui giunti, quindi t/r si avvicina al valore pubblicato dal basso: {n51} con 51 conci, {n101} con 101 e {n201} con 201. Un’implementazione indipendente dello stesso modello in Python con il solutore HiGHS dà gli stessi valori fino a {python}.',
 
   ringHeading: 'Un anello sotto un carico concentrato',

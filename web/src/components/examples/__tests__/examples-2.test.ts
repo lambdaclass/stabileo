@@ -47,7 +47,7 @@ describe('rc-column', () => {
     expect(beta1(70)).toBe(0.65);
     const d = 0.25 + (0.25 - 0.04 - 0.01 - 0.01);
     expect(balancedPoint(m).c).toBeCloseTo(d * 0.003 / (0.003 + 420 / 200000), 12);
-    expect(tieSpacing(m)).toBeCloseTo(0.24, 12);
+    expect(tieSpacing(m)).toBeCloseTo(0.32, 12);
   });
   it('utilisation is below one inside the diagram and above it outside', () => {
     expect(readout(run(rcColumn, { pu: 1000, mu: 50 }), 'utilisation').value).toBeLessThan(1);
@@ -166,4 +166,21 @@ describe('tower', () => {
   it('draws three mode shapes and the buckling mode', () => {
     expect(Object.keys(run(tower).views)).toEqual(['mode1', 'mode2', 'mode3', 'buckling']);
   });
+});
+
+it.each([
+  [0.40, 20, 0.32],
+  [0.34, 32, 0.34],
+  [0.31, 20, 0.31],
+  [0.32, 20, 0.32],
+  [0.33, 20, 0.32],
+])('known wrong result: #2595 — 2025 column of width %s with bar diameter %s', (b, barDia, spacing) => {
+  const out = run(rcColumn, { b, barDia });
+  const { xy, cells, values } = out.views.elevation;
+  const ties = values.flatMap((category, i) => {
+    const start = 2 * cells[i * 2], end = 2 * cells[i * 2 + 1];
+    return category === 1 && xy[start + 1] === xy[end + 1] ? [xy[start + 1]] : [];
+  });
+  expect(ties[1] - ties[0]).toBeCloseTo(spacing, 12);
+  expect(readout(out, 'tieSpacing').value).toBeCloseTo(spacing * 100, 12);
 });

@@ -1,0 +1,43 @@
+{
+  "id": "gallery-column-tie-spacing",
+  "date": "2026-11-27",
+  "prs": [
+    2595
+  ],
+  "area": "design",
+  "when": {
+    "all": [
+      "gallery:rc-column"
+    ]
+  },
+  "quantities": [
+    "readouts",
+    "views"
+  ],
+  "title": {
+    "en": "Column example uses 2025 tie spacing",
+    "it": "Passo delle staffe secondo l’edizione 2025 nell’esempio del pilastro",
+    "es": "El ejemplo de columna usa la separación de estribos de 2025",
+    "pt": "O exemplo de pilar usa o espaçamento de estribos de 2025",
+    "de": "Das Stützenbeispiel verwendet den Bügelabstand der Ausgabe 2025",
+    "fr": "L’exemple de poteau applique l’espacement des cadres de l’édition 2025",
+    "tr": "Kolon örneği 2025 baskısındaki etriye aralığını kullanıyor",
+    "hu": "Az oszloppélda a 2025-ös kiadás szerinti kengyelosztást használja",
+    "zh": "柱示例采用 2025 年版的箍筋间距规定"
+  },
+  "explanation": {
+    "en": "Check elevations and spacing copied from the public column example. Its longitudinal-bar limit used the older edition.",
+    "it": "Controlla i prospetti e i passi copiati dall’esempio del pilastro. Il limite basato sul diametro delle barre longitudinali seguiva l’edizione precedente.",
+    "es": "Revisa las elevaciones y separaciones copiadas del ejemplo público. El límite por diámetro de barra longitudinal seguía la edición anterior.",
+    "pt": "Revise as elevações e os espaçamentos copiados do exemplo público. O limite pelo diâmetro da barra longitudinal seguia a edição anterior.",
+    "de": "Prüfen Sie Ansichten und Bügelabstände aus dem öffentlichen Beispiel. Die Grenze für den Längsstabdurchmesser stammte aus der früheren Ausgabe.",
+    "fr": "Vérifiez les élévations et les espacements repris de l’exemple public. La limite liée au diamètre des barres longitudinales venait de l’édition précédente.",
+    "tr": "Genel kolon örneğinden alınan görünüşleri ve etriye aralıklarını kontrol edin. Boyuna donatı çapına bağlı sınır önceki baskıdan alınmıştı.",
+    "hu": "Ellenőrizze a nyilvános oszloppéldából átvett nézeteket és kengyelosztásokat. A hosszvas átmérőjéhez kötött határ a korábbi kiadást követte.",
+    "zh": "请复核从公开柱示例抄录的立面图和箍筋间距。按纵筋直径确定的间距上限原先采用旧版规定。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-column-example-and-compatibility.md",
+    "heading": "Tie spacing in the public column example"
+  }
+}

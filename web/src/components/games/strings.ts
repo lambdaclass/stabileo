@@ -56,9 +56,11 @@ export const hubStrings: Record<Locale, Record<Key, string>> = {
     play: 'Játsszon',
   },
   it: {
-    title: 'Giochi', metaTitle: 'Giochi di analisi strutturale per studenti',
-    description: 'Giochi gratuiti nel browser per chi studia le strutture: impara a leggere i diagrammi delle sollecitazioni e le deformate di travi, telai e reticolari.',
-    lead: 'Giochi brevi per allenare lo sguardo sul comportamento delle strutture, con lo stesso motore di Stabileo.', play: 'Gioca',
+    title: 'Giochi',
+    metaTitle: 'Giochi di analisi strutturale per studenti',
+    description: 'Giochi gratuiti di analisi strutturale nel browser. Allenati a riconoscere diagrammi delle sollecitazioni e deformate di travi, telai e reticolari prima che scada il tempo.',
+    lead: 'Scopri come si comportano le strutture con brevi giochi gratuiti. Si gioca nel browser con lo stesso motore di calcolo di Stabileo.',
+    play: 'Gioca',
   },
   nl: {
     title: 'Spellen', metaTitle: 'Spellen over constructiemechanica voor studenten',

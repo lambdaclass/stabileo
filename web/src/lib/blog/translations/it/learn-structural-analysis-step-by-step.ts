@@ -81,7 +81,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Con un telaio caricato, Avanzate → P-Δ (2º ordine) o Pcr (Eulero). Sotto “Come si calcola” scegli il metodo, con funzioni di stabilità φ, la matrice geometrica o la matrice della corda (P/L), e quanti elementi ha ogni asta. P-Δ mostra le sue iterazioni, e B₂ = 1/(1 − 1/λ₁) deriva dall’instabilità dello stesso modello con la stessa discretizzazione, accanto all’amplificazione dello spostamento nel nodo che si muove di più al primo ordine. L’instabilità usa quattro elementi per asta per impostazione predefinita, e quando la discretizzazione non può rappresentare il moltiplicatore lo rifiuta invece di riportarlo. Nel catalogo, il gruppo “Secondo ordine e instabilità” viene con un telaio preparato per tutti e quattro i metodi."
+      "t": "Con un telaio caricato, Avanzate → P-Δ (2º ordine) o Pcr (Eulero). Sotto “Come si calcola” scegli la formulazione e quanti elementi usare per asta. Nei metodi con matrice geometrica puoi scegliere l’approssimazione della corda (P/L). P-Δ mostra le sue iterazioni, e B₂ = 1/(1 − 1/λ₁) deriva dall’instabilità dello stesso modello con la stessa discretizzazione, accanto all’amplificazione dello spostamento nel nodo che si muove di più al primo ordine. L’instabilità usa quattro elementi per asta per impostazione predefinita, e quando la discretizzazione non può rappresentare il moltiplicatore lo rifiuta invece di riportarlo. Nel catalogo, il gruppo “Secondo ordine e instabilità” viene con un telaio preparato per tutti e quattro i metodi."
     },
     {
       "k": "h",

@@ -583,6 +583,7 @@ const stepsIt: Translations = {
   "steps.trusses.compat.globalCheck": "Equilibrio globale",
   "steps.trusses.compat.residual": "Massimi squilibri nei nodi liberi: {force} kN, {moment} kN·m.",
   "steps.trusses.compat.residualOk": "I nodi liberi sono in equilibrio ✓.",
+  "steps.trusses.compat.globalUnbalanced": "Le forze applicate e le reazioni vincolari non sono in equilibrio.",
   "steps.trusses.compat.residualBad": "I nodi liberi sono squilibrati più di quanto spieghino gli arrotondamenti.",
   "steps.trusses.compat.momentCaption": "Diagramma del momento flettente, disegnato dalla parte tesa.",
   "steps.trusses.compat.compareNote": "Entrambi i calcoli risolvono lo stesso modello con le stesse rigidezze, deformazione assiale inclusa, quindi concordano salvo gli arrotondamenti.",

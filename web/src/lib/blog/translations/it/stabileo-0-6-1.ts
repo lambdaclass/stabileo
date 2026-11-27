@@ -100,7 +100,7 @@ const body: PostBody = {
         ],
         [
           "79",
-          "La lunghezza di esposizione sopravento della neve segue le coperture continue e la geometria selezionata"
+          "La distanza di trasporto della neve dipende dall’esposizione sopravento lungo le coperture continue e dalla geometria selezionata"
         ],
         [
           "79",
@@ -192,7 +192,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Le verifiche del calcestruzzo e dell’acciaio conservano le sollecitazioni della stessa combinazione e della stessa sezione. La 0.6.1 rifiuta alcuni dati incompleti, ma poteva ancora accettare sollecitazioni concomitanti mancanti (#2096, SA-2026-071). Verificale indipendentemente o riesegui le verifiche con la 0.6.2 o successiva; gli stati di armatura richiesta e fornita restano separati e la mancanza di armatura longitudinale a torsione viene segnalata esplicitamente."
+      "t": "Le verifiche del calcestruzzo e dell’acciaio usano le sollecitazioni della stessa combinazione e della stessa sezione quando disponibili, ma la 0.6.1, pur rifiutando alcuni dati incompleti, poteva ancora accettare sollecitazioni concomitanti mancanti (#2096, SA-2026-071). Verificale indipendentemente o riesegui le verifiche con la 0.6.2 o successiva. Gli stati di armatura richiesta e fornita restano separati e la mancanza di armatura longitudinale a torsione viene segnalata esplicitamente."
     },
     {
       "k": "h",

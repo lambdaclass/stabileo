@@ -89,8 +89,17 @@ class Workflow(unittest.TestCase):
         self.assertFalse(allows('web/scripts/research-route-allowancesXjson'))
         self.assertFalse(allows('web/scripts/research-route-allowances.json.bak'))
         self.assertFalse(allows('web/src/x.ts'))
-        strict = subprocess.run(['bash', '-c', f'set -euo pipefail; {cond}'], env={**os.environ, 'CHANGED': 'web/scripts/research-route-allowances.json\n' + 'web/src/x.ts\n' * 9000})
-        self.assertEqual(strict.returncode, 0)
+        block = re.search(re.escape(test) + r'\n.*?^ *fi$', job, re.MULTILINE | re.DOTALL).group()
+        with tempfile.TemporaryDirectory() as tmp:
+            output = pathlib.Path(tmp, 'output')
+            for changed, expected in [
+                ('web/scripts/research-route-allowances.json\n' + 'web/src/x.ts\n' * 9000, 'allowances=true\n'),
+                ('web/src/x.ts\n' * 9000, ''),
+            ]:
+                output.write_text('')
+                subprocess.run(['bash', '-c', 'set -euo pipefail\n' + block], check=True,
+                               env={**os.environ, 'CHANGED': changed, 'GITHUB_OUTPUT': str(output)})
+                self.assertEqual(output.read_text(), expected)
 
 
 if __name__ == '__main__':

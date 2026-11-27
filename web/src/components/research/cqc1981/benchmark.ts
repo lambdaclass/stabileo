@@ -1,6 +1,7 @@
 import type { SolverInput3D } from '../../../lib/engine/types-3d';
 import type { SpectralModeInput3D } from '../../../lib/engine/dynamics/requests';
 import shared from '../../../../../engine/tests/benchmarks/cqc_1981.json';
+import { roofNodeIds } from './checks';
 
 export const benchmark = shared;
 export type SpectrumResult = { baseShear: number; displacements: { nodeId: number; ux: number }[] };
@@ -58,5 +59,5 @@ export function impliedRho(results: Results): number {
 }
 
 export function roof(result: SpectrumResult): number[] {
-  return [5, 6].map(id => Math.abs(result.displacements.find(d => d.nodeId === id)!.ux));
+  return roofNodeIds.map(id => Math.abs(result.displacements.find(d => d.nodeId === id)!.ux));
 }
