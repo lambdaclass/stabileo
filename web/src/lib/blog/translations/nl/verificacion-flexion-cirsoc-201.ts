@@ -1,5 +1,5 @@
 import type { PostBody } from '../../types';
-import { flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
+import { minimumSteelExampleRows, flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "Buigtoetsing volgens CIRSOC 201, stap voor stap",
@@ -38,36 +38,11 @@ const body: PostBody = {
         "As,min [cm²]",
         "Maatgevend"
       ],
-      "rows": [
-        [
-          "15",
-          "1.12",
-          "2.39",
-          "het minimum"
-        ],
-        [
-          "30",
-          "2.28",
-          "2.39",
-          "het minimum"
-        ],
-        [
-          "60",
-          "4.73",
-          "2.39",
-          "sterkte"
-        ],
-        [
-          "90",
-          "7.38",
-          "2.39",
-          "sterkte"
-        ]
-      ]
+      "rows": minimumSteelExampleRows("het minimum", "sterkte", ",")
     },
     {
       "k": "p",
-      "t": "Het kruispunt ligt bij Mu = 31,5 kN·m. Onder dat moment levert dimensioneren op sterkte niets op: de doorsnede draagt in beide gevallen 2,39 cm². Het loont om te weten aan welke kant van het kruispunt een ligger zit voordat je over de wapening discussieert."
+      "t": "Het kruispunt ligt bij Mu = 31,1 kN·m bij toepassing van §9.6.1.2. Waar de uitzondering van §9.6.1.3 geldt, mag in elke doorsnede ten minste 4/3 van de volgens de analyse vereiste wapening worden aangebracht. Het loont om te weten aan welke kant van het kruispunt een ligger zit voordat je over de wapening discussieert."
     },
     {
       "k": "h",

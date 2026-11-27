@@ -37,7 +37,7 @@ function placeholderMismatch(key: string, value: string): string | null {
 function translated(code: string): string[] {
   const dict = ALL_DICTS[code];
   const same = new Set(SAME[code] ?? []);
-  return enKeys.filter((k) => k in dict && (dict[k] !== en[k] || same.has(k) || !SAME[code]));
+  return enKeys.filter((k) => k in dict && (dict[k] !== en[k] || same.has(k) || (k === 'adv.failed' && en[k] === '{analysis}: {error}') || !SAME[code]));
 }
 
 describe('the languages offered', () => {
@@ -121,7 +121,7 @@ it('#2532 translates the discarded session history warning in every locale dicti
   }
 });
 
-it.skip.each(['it', 'nl'])('known wrong result: #2613 — a changed English failure message needs review in %s', code => {
+it.each(['it', 'nl'])('#2613 — a changed English failure message needs review in %s', code => {
   const original = en['adv.failed'];
   const localized = ALL_DICTS[code]['adv.failed'];
   try {

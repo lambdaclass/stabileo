@@ -61,7 +61,7 @@ it('dispatches both combinations through production WASM wrappers with the modal
   } finally { vi.restoreAllMocks(); }
 });
 
-const numbers = (v: unknown) => JSON.stringify(v).match(/[+−-]?\d+(?:\.\d+)*(?:[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)?|[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g) ?? [];
+const numbers = (v: unknown) => JSON.stringify(v).match(/det\([^)]*\)\s*=\s*0|[+−-]?\d+(?:\.\d+)*(?:[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)?|[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g) ?? [];
 
 it.each([['−20', '+20'], ['−20', '20'], ['10⁻⁸', '10⁸']])('distinguishes %s from %s in translated benchmark data', (original, mutation) => {
   expect(numbers(original)).not.toEqual(numbers(mutation));
@@ -91,7 +91,7 @@ it('matches the closed form through the real production WASM boundary', async ()
   }
 });
 
-it.skip('known wrong result: #2613 — distinguishes opposite signs in the characteristic equation', () => {
+it('#2613 — distinguishes opposite signs in the characteristic equation', () => {
   const equation = translations.en.equations;
   expect(equation).toContain('det(K − ω²M) = 0');
   expect(numbers(equation.replace('K − ω²M', 'K + ω²M'))).not.toEqual(numbers(equation));

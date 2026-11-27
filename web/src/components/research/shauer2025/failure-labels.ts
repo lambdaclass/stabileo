@@ -16,7 +16,7 @@ const english = {
 
 export type ComparisonFailure = keyof typeof english;
 
-const translations: Partial<Record<Locale, Record<ComparisonFailure, string>>> = {
+const translations: Record<Locale, Record<ComparisonFailure, string>> = {
   en: english,
   es: {
     'frame-order': "Fotogramas faltantes o desordenados",
@@ -102,6 +102,18 @@ const translations: Partial<Record<Locale, Record<ComparisonFailure, string>>> =
     'peak-step': "峰值出现在不同的步",
     'iterations': "迭代次数不同",
   },
+  it: {
+    'frame-order': "Fotogrammi mancanti o fuori ordine",
+    'nonfinite-step': "Risultati del passo non finiti",
+    'nonconverged': "Passi senza convergenza",
+    'load-coordinate-mismatch': "Il tempo o lo spostamento differisce",
+    'damage-max': "Il danno massimo differisce",
+    'fields': "Verifica dei campi nodali o delle tensioni non superata",
+    'force-relative': "Tolleranza relativa sulla forza superata",
+    'force-absolute': "Tolleranza assoluta sulla forza superata",
+    'peak-step': "Il picco si verifica in un passo diverso",
+    'iterations': "Il numero di iterazioni differisce",
+  },
   nl: {
     'frame-order': "Ontbrekende of verkeerd geordende frames",
     'nonfinite-step': "Ongeldige stapresultaten",
@@ -117,5 +129,5 @@ const translations: Partial<Record<Locale, Record<ComparisonFailure, string>>> =
 };
 
 export function comparisonFailureLabel(id: ComparisonFailure): string {
-  return (translations[researchLocale()] ?? english)[id];
+  return translations[researchLocale()][id];
 }

@@ -1,62 +1,116 @@
 import { parseAst } from 'rollup/parseAst';
 
 export const measuredLocales = ['it', 'nl'];
+const tableKeys = new Set(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl']);
 
 function dictionaryLocale(id) {
   return id.match(/(?:\/i18n\/locales\/(?:[^/]+\/)*|virtual:(?:app|public)-i18n\/)(it|nl)(?:\.ts)?$/)?.[1];
 }
 
-function isData(node) {
-  switch (node.type) {
-    case 'Literal': return true;
-    case 'TemplateLiteral': return !node.expressions.length;
-    case 'ArrayExpression': return node.elements.every(item => item && isData(item));
-    case 'ObjectExpression': return node.properties.every(p => p.type === 'Property' && !p.computed && isData(p.value));
-    default: return false;
-  }
+function propertyName(property) {
+  if (property.type === 'Property' && !property.computed) return property.key.name ?? property.key.value;
 }
 
 export function localeBytes(code, moduleIds) {
   const owners = new Set(moduleIds.map(dictionaryLocale));
-  const dictionary = owners.size === 1 ? [...owners][0] : undefined;
+  const dedicated = owners.size === 1 ? [...owners][0] : undefined;
   const bytes = { it: 0, nl: 0 };
-  if (!dictionary && !/\b(?:it|nl)["']?\s*:/.test(code)) return bytes;
-  function visit(node, locale) {
-    if (!node || typeof node !== 'object') return;
-    if (node.type === 'Property' && !node.computed) {
-      const key = node.key.name ?? node.key.value;
-      const owner = locale ?? (measuredLocales.includes(key) ? key : undefined);
-      if (owner && isData(node.value)) {
-        bytes[owner] += Buffer.byteLength(code.slice(node.start, node.end));
-        return;
-      }
-      visit(node.value, owner);
-      return;
-    }
-    if (dictionary && node.type === 'VariableDeclarator' && node.init?.type === 'ObjectExpression') {
-      visit(node.init, dictionary);
-      return;
-    }
-    const nested = node.type === 'ObjectExpression' || node.type === 'ArrayExpression' ? locale : undefined;
-    for (const child of Object.values(node)) {
-      if (Array.isArray(child)) child.forEach(item => visit(item, nested));
-      else if (child && typeof child === 'object') visit(child, nested);
+  if (!dedicated && !/\b(?:it|nl)\b/.test(code)) return bytes;
+  const program = parseAst(code);
+  const bindings = new Map();
+  for (const statement of program.body) {
+    const declaration = statement.declaration ?? statement;
+    if (declaration.type !== 'VariableDeclaration' || declaration.kind !== 'const') continue;
+    for (const variable of declaration.declarations) {
+      if (variable.id.type === 'Identifier') bindings.set(variable.id.name, variable.init);
     }
   }
-  visit(parseAst(code));
+  const literals = new Map();
+  const resolved = new Map();
+  function attribute(node, locale, resolve) {
+    if (!node) return;
+    if (node.type === 'Identifier' && resolve) {
+      if (!resolved.has(locale)) resolved.set(locale, new Set());
+      if (resolved.get(locale).has(node.name)) return;
+      resolved.get(locale).add(node.name);
+      return attribute(bindings.get(node.name), locale, true);
+    }
+    if (node.type === 'ObjectExpression') {
+      for (const field of node.properties) {
+        if (field.type === 'SpreadElement') attribute(field.argument, locale, resolve);
+        else if (propertyName(field) !== undefined) attribute(field.value, locale, resolve);
+      }
+    } else if (node.type === 'ArrayExpression') {
+      for (const item of node.elements) attribute(item, locale, resolve);
+    } else if ((node.type === 'Literal' && typeof node.value === 'string') || (node.type === 'TemplateLiteral' && !node.expressions.length)) {
+      if (!literals.has(node)) literals.set(node, new Set());
+      literals.get(node).add(locale);
+    }
+  }
+  function visit(node, moduleScope) {
+    if (!node?.type) return;
+    if (node.type === 'ObjectExpression') {
+      const keys = node.properties.map(propertyName);
+      if (keys.includes('en') && keys.some(key => measuredLocales.includes(key)) && keys.every(key => tableKeys.has(key))) {
+        for (const field of node.properties) attribute(field.value, propertyName(field), moduleScope);
+        return;
+      }
+    }
+    const sameScope = moduleScope && !['BlockStatement', 'FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression', 'ClassBody'].includes(node.type);
+    for (const child of Object.values(node)) {
+      if (Array.isArray(child)) child.forEach(item => visit(item, sameScope));
+      else if (child?.type) visit(child, sameScope);
+    }
+  }
+  if (dedicated) {
+    for (const statement of program.body) {
+      if (statement.type === 'ExportDefaultDeclaration') attribute(statement.declaration, dedicated, true);
+      if (statement.type === 'ExportNamedDeclaration' && !statement.source) {
+        for (const specifier of statement.specifiers) attribute(specifier.local, dedicated, true);
+        for (const variable of statement.declaration?.declarations ?? []) attribute(variable.init, dedicated, true);
+      }
+    }
+  } else {
+    visit(program, true);
+  }
+  for (const [node, langs] of literals) {
+    if (langs.size !== 1) continue;
+    const [lang] = langs;
+    if (measuredLocales.includes(lang)) bytes[lang] += Buffer.byteLength(code.slice(node.start, node.end));
+  }
   return bytes;
 }
 
 export function publicDictionaryFootprint(chunks) {
-  const sizes = chunks.map(({ bytes, localized }) =>
-    bytes - measuredLocales.reduce((total, locale) => total + localized[locale], 0));
-  let bytes = Math.max(0, ...sizes);
-  const localized = {};
-  for (const locale of measuredLocales) {
-    chunks.forEach((chunk, index) => { sizes[index] += chunk.localized[locale]; });
-    const next = Math.max(0, ...sizes);
-    localized[locale] = next - bytes;
-    bytes = next;
+  const alternatives = chunks.map(({ bytes, localized }) => ({
+    shared: bytes - measuredLocales.reduce((sum, locale) => sum + localized[locale], 0), bytes, localized,
+  }));
+  const shared = Math.max(0, ...alternatives.map(chunk => chunk.shared));
+  const localized = Object.fromEntries(measuredLocales.map(locale => [
+    locale, Math.max(0, ...alternatives.map(chunk => chunk.localized[locale])),
+  ]));
+  return { bytes: Math.max(0, ...alternatives.map(chunk => chunk.bytes)), shared, localized };
+}
+
+export function measureRouteFiles(files, publicLocaleChunks, size, chunkLocaleBytes) {
+  const rest = [...files].filter(file => !publicLocaleChunks.has(file));
+  const dictionary = publicDictionaryFootprint([...publicLocaleChunks].map(file => ({
+    bytes: size(file), localized: chunkLocaleBytes.get(file) ?? { it: 0, nl: 0 },
+  })));
+  const localeSizes = { ...dictionary.localized, shared: dictionary.shared };
+  let bytes = dictionary.bytes;
+  for (const file of rest) {
+    const total = size(file);
+    const localized = chunkLocaleBytes.get(file);
+    bytes += total;
+    localeSizes.shared += total;
+    for (const locale of measuredLocales) {
+      const count = localized?.[locale] ?? 0;
+      localeSizes[locale] += count;
+      localeSizes.shared -= count;
+    }
   }
-  return { bytes, localized };
+  localeSizes.publicPayload = dictionary.localized;
+  localeSizes.sharedAlternative = dictionary.shared;
+  return { bytes, localeSizes };
 }

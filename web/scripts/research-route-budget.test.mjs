@@ -1,5 +1,4 @@
-import { italianCopyBytes } from './italian-route-bytes.mjs';
-import { parseAst } from 'rollup/parseAst';
+import { localeBytes } from './route-locale-bytes.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -151,22 +150,23 @@ test('the diagram game page loader is a route boundary: the game and what only i
 test('shared app growth cannot spend unshipped Dutch or Italian dictionary bytes', () => {
   const main = { '/app/basic': 2000 };
   const sharedLimit = 2446888 + 128;
-  reviewRouteGrowth(main, { '/app/basic': 2000 + sharedLimit }, 'true');
-  assert.throws(() => reviewRouteGrowth(main, { '/app/basic': 2001 + sharedLimit }, 'true'), /research isolation/);
+  const zeros = { '/app/basic': { it: 0, nl: 0 } };
+  reviewRouteGrowth(main, { '/app/basic': 2000 + sharedLimit }, 'true', undefined, zeros, zeros);
+  assert.throws(() => reviewRouteGrowth(main, { '/app/basic': 2001 + sharedLimit }, 'true', undefined, zeros, zeros), /research isolation/);
 });
 
 test('only shipped locale data earns its own allowance', async () => {
   const { localeBytes, publicDictionaryFootprint } = await import('./route-locale-bytes.mjs');
   const code = 'export const words={en:{name:"Bolt"},nl:{name:"Bout"},it:{name:"Bullone"}}; runSharedCode()';
-  assert.deepEqual(localeBytes(code, ['/app/shared.js']), { it: Buffer.byteLength('it:{name:"Bullone"}'), nl: Buffer.byteLength('nl:{name:"Bout"}') });
+  assert.deepEqual(localeBytes(code, ['/app/shared.js']), { it: Buffer.byteLength('"Bullone"'), nl: Buffer.byteLength('"Bout"') });
   const dictionary = 'const d={title:"Belasting"}; export default d;';
-  assert.equal(localeBytes(dictionary, ['/app/src/lib/i18n/locales/nl.ts']).nl, Buffer.byteLength('title:"Belasting"'));
+  assert.equal(localeBytes(dictionary, ['/app/src/lib/i18n/locales/nl.ts']).nl, Buffer.byteLength('"Belasting"'));
   const alternatives = [
     { bytes: 100, localized: { it: 0, nl: 0 } },
     { bytes: 110, localized: { it: 80, nl: 0 } },
     { bytes: 115, localized: { it: 0, nl: 85 } },
   ];
-  assert.deepEqual(publicDictionaryFootprint(alternatives), { bytes: 115, localized: { it: 10, nl: 5 } });
+  assert.deepEqual(publicDictionaryFootprint(alternatives), { bytes: 115, shared: 100, localized: { it: 80, nl: 85 } });
   const allowances = { '/app': { bytes: 12, localeLimits: { it: 5, nl: 7 } } };
   const from = { '/app': 100 };
   const before = { '/app': { it: 10, nl: 20 } };
@@ -180,18 +180,18 @@ test('only shipped locale data earns its own allowance', async () => {
 test('credits only literal Italian copy in the emitted chunk', () => {
   const data = '"è"';
   const mixed = `export const labels = {en:{text:"shared"},it:{text:${data},run:()=>"logic"}};`;
-  assert.equal(italianCopyBytes(mixed, ['labels.ts'], parseAst), Buffer.byteLength(data));
-  assert.equal(italianCopyBytes('export const obj = {it:"unrelated"}', ['other.ts'], parseAst), 0);
+  assert.equal(localeBytes(mixed, ['labels.ts']).it, Buffer.byteLength(data));
+  assert.equal(localeBytes('export const obj = {it:"unrelated"}', ['other.ts']).it, 0);
   const dedicated = `export default {title:${data},values:[${data}]};`;
-  assert.equal(italianCopyBytes(dedicated, ['/app/src/lib/i18n/locales/steel/it.ts'], parseAst), 2 * Buffer.byteLength(data));
-  assert.equal(italianCopyBytes(dedicated, ['/app/src/lib/i18n/locales/steel/it.ts', 'other.ts'], parseAst), 0);
+  assert.equal(localeBytes(dedicated, ['/app/src/lib/i18n/locales/steel/it.ts']).it, 2 * Buffer.byteLength(data));
+  assert.equal(localeBytes(dedicated, ['/app/src/lib/i18n/locales/steel/it.ts', 'other.ts']).it, 0);
 });
 
-test.skip('known wrong result: #2613 — a partitioned route requires both locale measurements', () => {
+test('#2613 — a partitioned route requires both locale measurements', () => {
   assert.throws(() => reviewRouteGrowth({ '/app/basic': 0 }, { '/app/basic': 1400000 }, 'true'), /measurement/i);
 });
 
-test.skip('known wrong result: #2613 — shrinking the Italian alternative cannot increase the Dutch charge', async () => {
+test('#2613 — shrinking the Italian alternative cannot increase the Dutch charge', async () => {
   const { publicDictionaryFootprint } = await import('./route-locale-bytes.mjs');
   const measure = it => publicDictionaryFootprint([
     { bytes: 100, localized: { it: 0, nl: 0 } },
@@ -202,16 +202,20 @@ test.skip('known wrong result: #2613 — shrinking the Italian alternative canno
   assert.equal(measure(1000).localized.nl, measure(100).localized.nl);
 });
 
-test.skip('known wrong result: #2613 — only verified translation bindings earn locale bytes', async () => {
+test('#2613 — only verified translation bindings earn locale bytes', async () => {
   const { localeBytes } = await import('./route-locale-bytes.mjs');
   const code = 'const en={text:"Bolt"},it={text:"Vite"},nl={text:"Bout"};export const tables={en,it,nl}';
   const actual = localeBytes(code, ['labels.ts']);
   assert.ok(actual.it >= Buffer.byteLength('"Vite"'));
   assert.ok(actual.nl >= Buffer.byteLength('"Bout"'));
   assert.deepEqual(localeBytes('const options={nl:{text:"unrelated"}}', ['feature.ts']), { it: 0, nl: 0 });
+  const shared = 'const common = { msg: "shared" }; export const dict = { en: common, nl: common };';
+  assert.deepEqual(localeBytes(shared, ['feature.ts']), { it: 0, nl: 0 });
+  const dedicated = 'const opts = { nl: "unrelated" }; log(opts); const words = { msg: "Bout" }; export default { ...words };';
+  assert.deepEqual(localeBytes(dedicated, ['/app/src/lib/i18n/locales/nl.ts']), { it: 0, nl: Buffer.byteLength('"Bout"') });
 });
 
-test.skip('known wrong result: #2613 — old route baselines apply the shared limit without locale credit', async () => {
+test('#2613 — old route baselines apply the shared limit without locale credit', async () => {
   const { reviewRouteBaseline } = await import('./research-route-budget.mjs');
   const previous = { routes: { '/en/': 100 } };
   const allowances = { '/en/': { bytes: 23, localeLimits: { it: 10, nl: 10 } } };
@@ -221,7 +225,7 @@ test.skip('known wrong result: #2613 — old route baselines apply the shared li
   assert.throws(() => compare(232), /research isolation/);
 });
 
-test.skip('known wrong result: #2613 — the emitted route fixture charges every loaded chunk at its byte limit', async () => {
+test('#2613 — the emitted route fixture charges every loaded chunk at its byte limit', async () => {
   const { measureRouteFiles, localeBytes } = await import('./route-locale-bytes.mjs');
   const code = 'const en={text:"Bolt"},nl={text:"Bout"};export const words={en,nl}';
   const files = new Set(['entry.js', 'feature.js', 'entry.css', 'public-nl.js']);
@@ -240,4 +244,16 @@ test.skip('known wrong result: #2613 — the emitted route fixture charges every
   };
   compare('12345');
   assert.throws(() => compare('123456'), /nl resource growth/);
+});
+
+test('an existing Dutch alternative below the route maximum still has its own growth limit', async () => {
+  const { measureRouteFiles } = await import('./route-locale-bytes.mjs');
+  const dictionaries = new Set(['shared', 'nl']);
+  const measure = n => measureRouteFiles([], dictionaries, file => file === 'nl' ? n : 1000, new Map([['nl', { it: 0, nl: n }]]));
+  const baseline = { route: 1000 };
+  const before = { route: measure(100).localeSizes };
+  const compare = n => reviewRouteGrowth(baseline, baseline, 'true',
+    { route: { bytes: 10, localeLimits: { nl: 10, it: 0 } } }, before, { route: measure(n).localeSizes });
+  compare(110);
+  assert.throws(() => compare(111), /nl resource growth 11 exceeds 10/);
 });

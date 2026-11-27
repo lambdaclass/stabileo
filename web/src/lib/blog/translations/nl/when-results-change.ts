@@ -191,21 +191,21 @@ const body: PostBody = {
       "rows": [
         [
           "Console, druk oplopend van 0 bij de inklemming tot P aan de top",
-          "3.477",
-          "4.972 (+43 %)",
-          "3.542 (+1.9 %)"
+          "3,477",
+          "4,972 (+43 %)",
+          "3,542 (+1,9 %)"
         ],
         [
           "Console, drukkracht P aan de top en een tegengestelde normaalkracht P op halve overspanning: druk P alleen van halve overspanning tot de top",
-          "2.961",
-          "4.972 (+68 %)",
-          "3.056 (+3.2 %)"
+          "2,961",
+          "4,972 (+68 %)",
+          "3,056 (+3,2 %)"
         ],
         [
           "Euler's zware kolom, druk het grootst bij de inklemming",
-          "7.837",
-          "4.972 (−37 %)",
-          "7.889 (+0.7 %)"
+          "7,837",
+          "4,972 (−37 %)",
+          "7,889 (+0,7 %)"
         ]
       ]
     },

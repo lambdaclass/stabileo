@@ -164,7 +164,7 @@ const axialJointMechanism: Record<Locale, string> = {
   fr: 'Le nœud {node} présente un mécanisme. Il peut se déplacer sans déformer les barres de treillis connectées ni violer les contraintes.',
   hu: 'A(z) {node} csomópontnál mechanizmus van. A csomópont elmozdulhat a kapcsolódó rácsrudak alakváltozása és a kényszerek megsértése nélkül.',
   it: 'Il nodo {node} presenta un meccanismo. Può traslare senza deformare le aste reticolari collegate né violare i vincoli.',
-  nl: 'Knoop {node} vormt een mechanisme. De knoop kan zich verplaatsen zonder de aangesloten vakwerkstaven te vervormen of de oplegvoorwaarden te schenden.',
+  nl: 'Knoop {node} vormt een mechanisme. De knoop kan zich verplaatsen zonder de aangesloten vakwerkstaven te vervormen of de kinematische rand- en koppelvoorwaarden te schenden.',
   pt: 'Há um mecanismo no nó {node}. O nó pode se deslocar sem deformar as barras de treliça ligadas a ele e sem violar as restrições.',
   tr: '{node} düğümünde bir mekanizma var. Düğüm, bağlı kafes çubuklarını deforme etmeden ve kısıtları ihlal etmeden ötelenebilir.',
   zh: '节点 {node} 处存在机构。该节点可以平移，而不使相连的桁架杆产生应变，也不违反约束。',

@@ -136,7 +136,7 @@ jobs:
             export VITE_RESEARCH VITE_TOOLS STABILEO_ROUTE_BUDGET_LEGACY=1
           fi
           nix develop . -c sh -c "cd route-main/web && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json' --update"
-          nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
+          nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-route-meter.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
       - name: Check measured translation allowances when main still uses pooled allowances
         if: steps.scope.outputs.research == 'true' && steps.scope.outputs.allowances == 'true'
         run: nix develop . -c bash .github/scripts/check-initial-locale-budget.sh route-main .

@@ -126,7 +126,7 @@ it('names every comparison failure in every public locale', () => {
   } finally { setLocale(previous); }
 });
 
-it.skip.each(PUBLIC_LOCALES.filter(locale => locale !== 'en'))('known wrong result: #2613 — %s owns each comparison diagnosis', locale => {
+it.each(PUBLIC_LOCALES.filter(locale => locale !== 'en'))('#2613 — %s owns each comparison diagnosis', locale => {
   const previous = publicI18n.locale;
   try {
     for (const id of ['frame-order', 'nonfinite-step', 'nonconverged', 'load-coordinate-mismatch', 'damage-max', 'fields', 'force-relative', 'force-absolute', 'peak-step', 'iterations'] as const) {

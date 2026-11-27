@@ -24,7 +24,7 @@
     "title": "Weiger dubbelzinnige analysetabellen en ongeldige itereerbare belastingen"
   },
   "arc-length-reactions": {
-    "explanation": "Booglengte- en verplaatsingsbesturing herstellen nu reacties en staafbelasting bij de laatste belastingfactor. Beperkingskrachten die in ingeklemde masters terechtkomen, zijn opgenomen in de reacties van gefaseerde, P-Delta-, Winkler-, Guyan-, corotationele, materieel niet-lineaire, contact- en kabelberekeningen. Niet beschikbare totale dynamische reacties en fasen zonder stijfheid worden expliciet gediagnosticeerd (#1949). Onverenigbare gefaseerde opleggingstoestanden worden geweigerd; fasen met alleen beperkingen en zonder fysieke stijfheid behouden een waarschuwing dat de toestand niet beschikbaar is. Guyan-staafkrachten in 3D worden hersteld. P-Delta-toestanden die het evenwicht bij eindige verplaatsingen niet halen, worden gediagnosticeerd.",
+    "explanation": "Booglengte- en verplaatsingsbesturing herstellen nu reacties en staafbelasting bij de laatste belastingfactor. Beperkingskrachten die in verhinderde vrijheidsgraden van masterknopen terechtkomen, zijn opgenomen in de reacties van gefaseerde, P-Delta-, Winkler-, Guyan-, corotationele, materieel niet-lineaire, contact- en kabelberekeningen. Niet beschikbare totale dynamische reacties en fasen zonder stijfheid worden expliciet gediagnosticeerd (#1949). Onverenigbare gefaseerde opleggingstoestanden worden geweigerd; fasen met alleen beperkingen en zonder fysieke stijfheid behouden een waarschuwing dat de toestand niet beschikbaar is. Guyan-staafkrachten in 3D worden hersteld. P-Delta-toestanden die het evenwicht bij eindige verplaatsingen niet halen, worden gediagnosticeerd.",
     "title": "Opleggingsreacties volgen de gerapporteerde evenwichtstoestand"
   },
   "arc-length-reference-norm": {
@@ -53,11 +53,11 @@
   },
   "basic-influence-line-moment-sign": {
     "explanation": "De invloedslijn van M in een doorsnede neemt M nu positief wanneer de onderste vezel op trek wordt belast, zoals elk ander moment in Basic. Ordinaten van momenteninvloedslijnen wisselen van teken; hun grootte niet.",
-    "title": "Invloedslijnen van het buigend moment gebruiken een positief moment bij trek in de ondervezel"
+    "title": "Invloedslijnen van het buigend moment nemen het moment positief bij trek in de ondervezel"
   },
   "basic-influence-line-moment-sign-returns": {
     "explanation": "Versie 15 trok deze wijziging van versie 14 (#871) in totdat de reviewcorrecties main bereikten; ze keert met die correcties terug (#1304). De invloedslijn van M in een doorsnede neemt M positief wanneer de onderste vezel op trek wordt belast, zoals elk ander moment in Basic. Ordinaten van momenteninvloedslijnen wisselen van teken; hun grootte niet.",
-    "title": "Invloedslijnen van het buigend moment gebruiken opnieuw een positief moment bij trek in de ondervezel"
+    "title": "Invloedslijnen van het buigend moment nemen het moment opnieuw positief bij trek in de ondervezel"
   },
   "basic-influence-line-moment-sign-withdrawn": {
     "explanation": "De cursuseenheden van Basic van versie 14 (#871) werden ingetrokken omdat hun reviewcorrecties main er niet mee hadden bereikt. De invloedslijn van M in een doorsnede neemt M met het teken dat het in versie 13 had, het tegenovergestelde van versie 14: ordinaten van momenteninvloedslijnen wisselen opnieuw van teken; hun grootte niet.",
@@ -196,7 +196,7 @@
     "title": "CIRSOC 301: artikelen over dwarskracht in het lijf, slanke elementen en buiging gecorrigeerd"
   },
   "cirsoc301-q-nonpositive-refused": {
-    "explanation": "Wanneer het oppervlak van een staaf kleiner was dan de platen die zijn drukelementen beschrijven (een kokerprofiel of buis met een oppervlak dat niet bij zijn breedtes en dikten past), gaf §E.7 een negatieve Qa, kwam de slankheid NaN uit en gaf de elastische tak een capaciteit boven de plastische normaalkracht A·Fy: 1 098 908 kN op een doorsnede van 976 kN, en de staaf slaagde. De drukcontrole weigert nu Q ≤ 0 en elke Fcr boven Fy, en de staaf wordt met de reden tegengehouden (SA-2026-030). Een ronde buis net voorbij D/t = 0.11·E/Fy wordt ook beïnvloed: E.7.2(c) geeft daar Q tot 1.012, wat zijn drukcapaciteit tot 1.2 % verhoogde; Q wordt nu op 1 begrensd. Andere doorsneden zijn ongewijzigd. Het betreft modellen met CIRSOC 301-staalstaven onder druk.",
+    "explanation": "Wanneer het oppervlak van een staaf kleiner was dan de platen die zijn drukelementen beschrijven (een kokerprofiel of buis met een oppervlak dat niet bij zijn breedtes en dikten past), gaf §E.7 een negatieve Qa, kwam de slankheid NaN uit en gaf de elastische tak een capaciteit boven de plastische normaalkracht A·Fy: 1 098 908 kN op een doorsnede van 976 kN, en de staaf slaagde. De drukcontrole weigert nu Q ≤ 0 en elke Fcr boven Fy, en de staaf wordt met de reden tegengehouden (SA-2026-030). Een ronde buis net voorbij D/t = 0.11·E/Fy wordt ook beïnvloed: E.7.2(c) geeft daar Q tot 1,012, wat zijn drukcapaciteit tot 1,2 % verhoogde; Q wordt nu op 1 begrensd. Andere doorsneden zijn ongewijzigd. Het betreft modellen met CIRSOC 301-staalstaven onder druk.",
     "title": "CIRSOC 301: een doorsnede met Qa ≤ 0 wordt tegengehouden, niet doorgelaten boven haar plastische normaalkracht"
   },
   "cirsoc301-refused-limit-state-holds": {
@@ -292,7 +292,7 @@
     "title": "3D: knooprotaties die een verbindingselement koppelt maar vrij laat, worden geweigerd"
   },
   "connector-mechanism-2d-refused": {
-    "explanation": "Een vlak model waarin een verbindingselement met een rotatieveer een knoop vastlegt waarvan alle staven aan andere knopen gescharnierd zijn, is een mechanisme wanneer niets anders de rotatie vasthoudt, maar de solver hield het met een kunstmatige veer vast en gaf rotaties van ongeveer 10 rad terug zonder reactiemoment, wat het certificaat accepteerde (#1414). Zo'n model wordt nu als mechanisme geweigerd. Wanneer een oplegging, een niet-gescharnierde staaf of een ander verbindingselement de rotatie vasthoudt, wordt het nog steeds berekend, zonder het kleine aandeel van de kunstmatige veer in het moment. Voer vlakke modellen met verbindingselementen bij gescharnierde knopen opnieuw uit.",
+    "explanation": "Een vlak model waarin een verbindingselement met een rotatieveer een knoop vastlegt waar alle aangesloten staven aan die knoop scharnierend zijn verbonden, is een mechanisme wanneer niets anders de rotatie vasthoudt, maar de solver hield het met een kunstmatige veer vast en gaf rotaties van ongeveer 10 rad terug zonder reactiemoment, wat het certificaat accepteerde (#1414). Zo'n model wordt nu als mechanisme geweigerd. Wanneer een oplegging, een niet-gescharnierde staaf of een ander verbindingselement de rotatie vasthoudt, wordt het nog steeds berekend, zonder het kleine aandeel van de kunstmatige veer in het moment. Voer vlakke modellen met verbindingselementen bij gescharnierde knopen opnieuw uit.",
     "title": "2D: een mechanisme achter een verbindingselement wordt geweigerd"
   },
   "connectors-shear-and-dofs": {
@@ -492,7 +492,7 @@
     "title": "Vervangen: bevroren oppervlaktecontacten valideren de uiteindelijke geometrie"
   },
   "gallery-slab-hard-walls": {
-    "explanation": "PR #1627 wijzigde de invoer van de demo van de op wanden opgelegde vloer: rotaties tangentieel aan de rand zijn nu naast de verticale beweging ook verhinderd, en de referentie bevat nu Reissner–Mindlin-afschuifvervorming. De doorbuiging en de getoonde referentie veranderen daardoor samen. Deze vermelding geldt alleen voor de openbare galerij van de vloer op kolommen met wanden geselecteerd; kolomopleggingen en opgeslagen projecten worden niet beïnvloed door deze correctie van de demo-invoer.",
+    "explanation": "PR #1627 wijzigde de invoer van de demo van de op wanden opgelegde vloer: de verticale verplaatsing en de rotatie om de in het plaatvlak gelegen randnormaal zijn verhinderd. Rotatie om de randraaklijn is vrij, en de referentie bevat nu Reissner–Mindlin-afschuifvervorming. De doorbuiging en de getoonde referentie veranderen daardoor samen. Deze vermelding geldt alleen voor de openbare galerij van de vloer op kolommen met wanden geselecteerd; kolomopleggingen en opgeslagen projecten worden niet beïnvloed door deze correctie van de demo-invoer.",
     "title": "De openbare vloergalerij gebruikt harde eenvoudige opleggingen op wanden"
   },
   "generated-area-loads-headroom": {
@@ -1672,7 +1672,7 @@
     "title": "Meshcontact tussen wand en vloer"
   },
   "warped-quad-containment": {
-    "explanation": "Basic-berekening kon schaalstijfheid weglaten en een raamwerkresultaat teruggeven. Open het model in PRO en voer het opnieuw uit met de schalen erbij. De rekenkern past de bestaande MITC4- en MITC9-torsielimieten toe.",
+    "explanation": "Basic-berekening kon schaalstijfheid weglaten en een raamwerkresultaat teruggeven. Open het model in PRO en voer het opnieuw uit met de schalen erbij. De rekenkern past de bestaande grenzen voor de afwijking van de vierhoek uit zijn vlak bij MITC4 en MITC9 toe.",
     "title": "Basic-berekening weigert modellen met schalen"
   },
   "wasm-iterable-solver-tables": {
@@ -1721,7 +1721,7 @@
   },
   "wind-physical-pressure-field": {
     "explanation": "Eén open wand kon een verder gesloten gebouw ten onrechte als open classificeren. Gegenereerde wandwind liet funderingskracht weg; de plaatsing van dak- en andere constructiedrukken hing af van de onderverdeling van staven. Bekijk de openingsoppervlakte van elke wand en elk dak, bepaal opnieuw of het gebouw open, gedeeltelijk gesloten of gesloten is, genereer W- en Wa-belastingen opnieuw en voer daarna berekeningen, combinaties en ontwerptoetsingen opnieuw uit. Alleen opnieuw berekenen met opgeslagen belastingen corrigeert ze niet (#2203–#2206). Minimale horizontale gevallen worden gescheiden gehouden van berekende drukvelden. SA-2026-076 (#2203); SA-2026-077 (#2204); SA-2026-078 (#2205). Excentrische gevallen dragen het krachtenkoppel in het grondplan nu over als verdeelde staafbelasting; de breedte van een massief bord sluit opleggingen onder het vlak uit.",
-    "title": "Winddichtheid en drukvelden volgen de fysieke constructie"
+    "title": "Gebouwclassificatie en winddrukvelden volgen de fysieke constructie"
   },
   "wind-plan-couple-and-sign-face": {
     "explanation": "Bij niet-gemergede builds van PR #2220 kon geïntegreerde excentrische wind lokale kolomtorsie worden in plaats van een krachtenkoppel in het grondplan, en kon een bredere steun onder een massief bord de coëfficiëntbreedte en excentriciteit vergroten. Genereer W en Wa opnieuw en voer daarna berekeningen, combinaties en ontwerptoetsingen opnieuw uit. Alleen opnieuw berekenen met opgeslagen belastingen corrigeert ze niet. De afzonderlijke windberichten voor de main-bron zijn SA-2026-076–078 (#2203–#2205); #2206 is conservatief en heeft geen bericht.",

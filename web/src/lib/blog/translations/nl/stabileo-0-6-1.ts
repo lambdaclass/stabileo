@@ -48,7 +48,7 @@ const body: PostBody =  {
         [
           "SA-2026-068",
           "Hoog",
-          "Torsie kon voldoen met ontoereikende ontworpen beugels (#2141). Bereken betonontwerptoetsingen opnieuw en beoordeel de werkelijke dwarscapaciteit, de beugelafstand en torsiefalen. Niet getoetste langswapening is geen voldoende wapeningskorf."
+          "Torsie kon voldoen met ontoereikende ontworpen beugels (#2141). Bereken betonontwerptoetsingen opnieuw en beoordeel de werkelijke dwarscapaciteit, de beugelafstand en niet-getoetste torsiegevallen. Niet getoetste langswapening is geen voldoende wapeningskorf."
         ]
       ]
     },
@@ -202,7 +202,7 @@ const body: PostBody =  {
       "k": "ul",
       "items": [
         "Bekende onjuiste resultaten blijven open: #2096, #2142, #2143 en #2144. Deze release lost ze niet op. Raadpleeg hun getroffen reikwijdte en verifieer getroffen resultaten onafhankelijk voordat je ze gebruikt.",
-        "SA-2026-056 blijft onopgelost: verifieer de berekende dynamische respons, waaronder staafkrachten en oplegreacties, onafhankelijk voor gekoppelde gemengde raamwerk-schaalmodellen die na hernummeren, rotatie of eenhedenconversie wezenlijk veranderen. Er is geen conservatieve correctiefactor vastgesteld.",
+        "SA-2026-056 blijft onopgelost: verifieer de berekende dynamische respons, waaronder staafkrachten en oplegreacties, onafhankelijk voor gekoppelde gemengde raamwerk-schaalmodellen waarvan de berekende respons na hernummeren, rotatie of eenhedenconversie wezenlijk verandert. Er is geen conservatieve correctiefactor vastgesteld.",
         "2D plastisch bezwijken blijft geweigerd in afwachting van #758, zoals beschreven in SA-2026-044. Een gecertificeerde 3D ondergrens certificeert de ruwe scharnierhistorie niet.",
         "Tijdsdomeinanalyse levert geen totale dynamische oplegbelastingen. Gebruik een onafhankelijke analyse met traagheid, demping en oplegbelasting. Niet ondersteunde kabelanalyses en niet-nul opgelegde oplegbeweging in kabel- of tijdsdomeinwerkstromen weigeren expliciet.",
         "Ruimtelijke booglengte- en verplaatsingsgestuurde solvers zijn niet toegevoegd. Bestaande waarschuwingen en beperkingen blijven van toepassing."

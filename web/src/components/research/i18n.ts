@@ -3039,7 +3039,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'it' | 'zh' | 'nl', ResearchSt
     springsAxial: "Normaalkracht N / k",
     springsNodes: "knopen",
     springsBars: "veren",
-    springsStripSeries: "Onze, het stripprotocol van 13 × 52 van het artikel",
+    springsStripSeries: "Stabileo: lineaire strip van 13 × 52",
     springsFigureSeries: "Artikel, simulaties uit fig. 5 (gedigitaliseerd, met foutbalken)",
     springsTextSeries: "Artikel, tekst: ν = 0 bij η ≃ 0.46, −0.1 voor η → 0.5",
     springsBulkSeries: "Compressiemodulus B / k",
@@ -3141,7 +3141,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'it' | 'zh' | 'nl', ResearchSt
     atFixed: "bij vaste",
     drivingEnergy: "Drijvende energie",
     positiveStrains: "over de positieve hoofdrekken, met σ",
-    hybridModel: "de onbeschadigde hoofdspanningen. Deze hybride splitsing van de referentiecode degradeert de hele elastische spanning. In gemengde rektoestanden kan een positieve hoofdrek samengaan met negatieve spanning, wat negatieve drijvende energie en mogelijk negatieve schade geeft. Bij elke stap wordt H het maximum van nul, de vorige waarde van H en de huidige drijvende energie ψ; hij legt geen knoopgrenzen aan de schade op.",
+    hybridModel: "de onbeschadigde hoofdspanningen. Deze hybride splitsing van de referentiecode degradeert de hele elastische spanning. In gemengde rektoestanden kan een positieve hoofdrek samengaan met negatieve spanning, wat negatieve drijvende energie en mogelijk negatieve schade geeft. Als het geschiedenisveld is ingeschakeld, wordt H bij elke stap het maximum van nul, de vorige waarde van H en de huidige drijvende energie ψ; hij legt geen knoopgrenzen aan de schade op.",
     alternatingSolution: "Alternerende oplossing",
     solvePerStep: "per belastingstap: los op",
     currentDamage: "met de huidige d, daarna d met de nieuwe",
@@ -3925,7 +3925,7 @@ export const FIELD_NAMES: Record<string, Record<string, string>> = {
   pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem', 'limit-analysis': 'Análise limite e alvenaria' },
   it: { fracture: 'Frattura e danno', 'differentiable-fem': 'FEM differenziabile', optimization: 'Ottimizzazione', metamaterials: 'Metamateriali', constitutive: 'Modelli costitutivi', 'digital-twins': 'Gemelli digitali', 'numerical-methods': 'Metodi numerici', seismic: 'Sismica e dinamica', shells: 'Gusci e instabilità', 'limit-analysis': 'Analisi limite e muratura' },
   zh: { fracture: '断裂与损伤', 'differentiable-fem': '可微分有限元', optimization: '优化', metamaterials: '超材料', constitutive: '本构模型', 'digital-twins': '数字孪生', 'numerical-methods': '数值方法', seismic: '地震与动力学', shells: '壳与屈曲', 'limit-analysis': '极限分析与砌体' },
-  nl: { fracture: 'Breuk en schade', 'differentiable-fem': 'Differentieerbare EEM', optimization: 'Optimalisatie', metamaterials: 'Metamaterialen', constitutive: 'Constitutieve modellen', 'digital-twins': 'Digitale tweelingen', 'numerical-methods': 'Numerieke methoden', seismic: 'Seismiek en dynamica', shells: 'Schalen en knik', 'limit-analysis': 'Grenstoestandsanalyse en metselwerk' },
+  nl: { fracture: 'Breuk en schade', 'differentiable-fem': 'Differentieerbare EEM', optimization: 'Optimalisatie', metamaterials: 'Metamaterialen', constitutive: 'Constitutieve modellen', 'digital-twins': 'Digitale tweelingen', 'numerical-methods': 'Numerieke methoden', seismic: 'Seismiek en dynamica', shells: 'Schalen en knik', 'limit-analysis': 'Grenslastanalyse en metselwerk' },
   ...(__PUBLIC_FEATURES__.research ? { hu: { fracture: 'Törés és károsodás', 'differentiable-fem': 'Differenciálható VEM', optimization: 'Optimalizálás', metamaterials: 'Metaanyagok', constitutive: 'Anyagmodellek', 'digital-twins': 'Digitális ikrek', 'numerical-methods': 'Numerikus módszerek', seismic: 'Földrengés és dinamika', shells: 'Héjak és stabilitásvesztés', 'limit-analysis': 'Határteherbírás és falazott szerkezetek' } } : {}),
 };
 

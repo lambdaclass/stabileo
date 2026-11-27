@@ -43,7 +43,7 @@ const body: PostBody = {
         [
           "SA-2026-051",
           "Hoog",
-          "3D bewegende belastingen misten pieken in het binnenste deel en het normaalkrachtgewicht van de as. Bereken omhullenden opnieuw en beoordeel de staafdimensionering en ontwerpbelastingen."
+          "3D bewegende belastingen misten pieken in het binnenste deel en de component van het eigen gewicht van de as in de lengterichting van de staaf. Bereken omhullenden opnieuw en beoordeel de staafdimensionering en ontwerpbelastingen."
         ],
         [
           "SA-2026-052",
@@ -58,7 +58,7 @@ const body: PostBody = {
         [
           "SA-2026-054",
           "Hoog",
-          "Lineaire berekeningen konden onopgeloste stijfheidsresponsen teruggeven of een belastingcomponent missen. Bereken statische gevallen en combinaties opnieuw; verifieer belastingen onafhankelijk wanneer de gecorrigeerde solver weigert."
+          "Lineaire berekeningen konden onopgeloste stijfheidsresponsen teruggeven of een belastingcomponent missen. Bereken statische gevallen en combinaties opnieuw; bepaal de getroffen staafkrachten en oplegreacties onafhankelijk wanneer de gecorrigeerde solver weigert."
         ],
         [
           "SA-2026-055",
@@ -103,7 +103,7 @@ const body: PostBody = {
         [
           "SA-2026-063",
           "Hoog",
-          "Koppelingen lieten de opgelegde beweging van ingeklemde masters vallen. Bereken volledige verlopen opnieuw en beoordeel verplaatsingen, staafkrachten en reacties samen met SA-2026-061. Niet ondersteunde oplegbeweging van kabels of tijdsdomeinanalyses weigert nu."
+          "Koppelingen lieten de beweging in een voorgeschreven vrijheidsgraad van de masterknoop vallen. Bereken volledige verlopen opnieuw en beoordeel verplaatsingen, staafkrachten en reacties samen met SA-2026-061. Niet ondersteunde oplegbeweging van kabels of tijdsdomeinanalyses weigert nu."
         ]
       ]
     },
@@ -258,7 +258,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "SA-2026-056 blijft onopgelost: verifieer de berekende dynamische respons, waaronder staafkrachten en oplegreacties, onafhankelijk voor gekoppelde gemengde raamwerk-schaalmodellen die na hernummeren, rotatie of eenhedenconversie wezenlijk veranderen. Er is geen conservatieve correctiefactor vastgesteld.",
+        "SA-2026-056 blijft onopgelost: verifieer de berekende dynamische respons, waaronder staafkrachten en oplegreacties, onafhankelijk voor gekoppelde gemengde raamwerk-schaalmodellen waarvan de berekende respons na hernummeren, rotatie of eenhedenconversie wezenlijk verandert. Er is geen conservatieve correctiefactor vastgesteld.",
         "2D plastisch bezwijken blijft geweigerd in afwachting van #758, zoals beschreven in SA-2026-044. Een gecertificeerde 3D ondergrens certificeert de ruwe scharnierhistorie niet.",
         "Tijdsdomeinanalyse levert geen totale dynamische oplegbelastingen. Gebruik een onafhankelijke analyse met traagheid, demping en oplegbelasting. Niet ondersteunde kabelanalyses en niet-nul opgelegde oplegbeweging in kabel- of tijdsdomeinwerkstromen weigeren expliciet.",
         "Ruimtelijke booglengte- en verplaatsingsgestuurde solvers zijn niet toegevoegd. Bestaande waarschuwingen en beperkingen blijven van toepassing."

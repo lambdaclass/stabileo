@@ -381,7 +381,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-100 — Volgende release (0.6.4)."
+      "t": "SA-2026-100 — Verholpen in 0.6.4."
     },
     {
       "k": "ext",
@@ -391,7 +391,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-101 — Volgende release (0.6.4)."
+      "t": "SA-2026-101 — Verholpen in 0.6.4."
     },
     {
       "k": "ext",
@@ -401,7 +401,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-102 — Volgende release (0.6.4)."
+      "t": "SA-2026-102 — Verholpen in 0.6.4."
     },
     {
       "k": "ext",
@@ -411,7 +411,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-103 — Volgende release (0.6.4)."
+      "t": "SA-2026-103 — Verholpen in 0.6.4."
     },
     {
       "k": "ext",
@@ -421,7 +421,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-104 — Volgende release (0.6.4)."
+      "t": "SA-2026-104 — Verholpen in 0.6.4."
     },
     {
       "k": "ext",
@@ -431,7 +431,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-105 — Volgende release na 0.6.3."
+      "t": "SA-2026-105 — Verholpen in 0.6.4."
     },
     {
       "k": "ext",
@@ -441,7 +441,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-106 — Volgende release na 0.6.3 (indamming)."
+      "t": "SA-2026-106 — Ingedamd in 0.6.4."
     },
     {
       "k": "ext",
@@ -451,7 +451,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-107 — Volgende release na 0.6.3 (indamming)."
+      "t": "SA-2026-107 — Ingedamd in 0.6.4."
     },
     {
       "k": "ext",
@@ -784,7 +784,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-051",
-          "3D bewegende belastingen: omhullenden misten pieken van snedekrachten binnen de staaf en verloren de normaalcomponent van het aslastgewicht op schuine staven, wat de belasting zonder waarschuwing kon onderschatten; 0.2.0 tot 0.5.0 en desktop-v0.1.0-alpha.1 tot en met alpha.3",
+          "3D bewegende belastingen: omhullenden misten pieken van snedekrachten binnen de staaf en misten de component van de aslast langs de staaf op schuine staven. Controleer de snedekrachtenomhullende opnieuw; 0.2.0 tot 0.5.0 en desktop-v0.1.0-alpha.1 tot en met alpha.3",
           "Hoog",
           "Verholpen na 0.5.0; op stabileo.com sinds 9 november 2026"
         ],
@@ -1000,7 +1000,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-088",
-          "ABS- en SRSS-staafdiagrammen bevatten extrema van de gecombineerde functie tussen belastinggrenzen. Voer combinaties, diagrammen en afhankelijke controles opnieuw uit (#2273).",
+          "ABS- en SRSS-staafdiagrammen misten extrema van de gecombineerde functie tussen belastinggrenzen. Voer combinaties, diagrammen en afhankelijke controles opnieuw uit (#2273).",
           "—",
           "Verholpen in 0.6.2"
         ],
@@ -1074,49 +1074,49 @@ const body: PostBody = {
           "SA-2026-100",
           "Reactiemomenten, uitlezingen van het vrije lichaam en lijsten van puntlasten konden de verkeerde tekens of assen tonen. Verifieer de getoonde waarden tegen het evenwicht en de bedoelde belastingrichtingen. Inspecteer de getroffen resultaten opnieuw en genereer rapporten opnieuw.",
           "Gemiddeld",
-          "Volgende release (0.6.4)"
+          "Verholpen in 0.6.4"
         ],
         [
           "SA-2026-101",
           "PRO kon berekenen met weggelaten platen, netten op basis van onvolledige invoer of losgekoppelde wand-vloerverbindingen. Vergelijk het net met de bedoelde geometrie, herstel de getroffen platen en aansluitingen, en bereken analyse en ontwerptoetsingen opnieuw.",
           "Hoog",
-          "Volgende release (0.6.4)"
+          "Verholpen in 0.6.4"
         ],
         [
           "SA-2026-102",
           "Diagrammen konden verkeerde pieken of snedekrachten geven bij geconcentreerde acties, en omgekeerde overspanningsstukken konden betonontwerpzijden verwisselen. Controleer maatgevende krachten, wapeningszijden en invoer voor de momentgradiënt bij staal. Bereken getroffen analyses en toetsingen opnieuw.",
           "Hoog",
-          "Volgende release (0.6.4)"
+          "Verholpen in 0.6.4"
         ],
         [
           "SA-2026-103",
           "Betontoetsingen van torsie en dwarskracht konden onvoldoende dwarswapening accepteren of niet-geverifieerde omtrek- of trekstaven meetellen. Herhaal de verificatie met de werkelijke wapening en gelijktijdig optredende snedekrachten en momenten uit de maatgevende combinatie, en beoordeel getroffen rapporten.",
           "Hoog",
-          "Volgende release (0.6.4)"
+          "Verholpen in 0.6.4"
         ],
         [
           "SA-2026-104",
           "Het omkeren van staven kon verdeelde belastingen omleiden, en de analyse kon oude vlakke puntkoppels weglaten. Controleer opgeslagen belastingrichtingen, eindordinaten en koppelvelden. Herstel de belastingen en bereken getroffen analyses en ontwerptoetsingen opnieuw.",
           "Hoog",
-          "Volgende release (0.6.4)"
+          "Verholpen in 0.6.4"
         ],
         [
           "SA-2026-105",
           "Een hersteld vlak puntkoppel op nul zetten kon het oude moment actief laten. Verifieer en voer de bedoelde momenten opnieuw in, en bereken daarna getroffen analyses en ontwerptoetsingen opnieuw.",
           "Hoog",
-          "Volgende release na 0.6.3"
+          "Verholpen in 0.6.4"
         ],
         [
           "SA-2026-106",
           "Opnieuw meshen kon de complementaire boog van een gekromde plaatrand gebruiken. Verifieer het net tegen de opgegeven hoek, bouw getroffen netten opnieuw op, en bereken analyse en ontwerptoetsingen opnieuw.",
           "Hoog",
-          "Volgende release na 0.6.3 (indamming)"
+          "Ingedamd in 0.6.4"
         ],
         [
           "SA-2026-107",
           "Opnieuw meshen kon schaaloffsets en kromtebewerkingen weggooien. Verifieer en herstel de bedoelde schaaleigenschappen voordat je analyse en ontwerptoetsingen opnieuw uitvoert.",
           "Hoog",
-          "Volgende release na 0.6.3 (indamming)"
+          "Ingedamd in 0.6.4"
         ],
         [
           "SA-2026-108",
@@ -1283,44 +1283,44 @@ const body: PostBody = {
       "rows": [
         [
           "SA-2026-024",
-          "Portaal 6 × 4 m, 20 kN/m permanente belasting op de ligger, 15 kN wind, 1.2D + 1.6W, na een bewerking met live berekening aan: verticale reactie van de fundering aan de windzijde",
-          "65.61",
-          "56.01",
+          "Portaal 6 × 4 m, 20 kN/m permanente belasting op de ligger, 15 kN wind, 1,2D + 1,6W, na een bewerking met live berekening aan: verticale reactie van de fundering aan de windzijde",
+          "65,61",
+          "56,01",
           "kN"
         ],
         [
           "SA-2026-023",
           "Kolom 30×30 cm, 6 Ø20 (drie aan de onderzijde), Nu = 100 kN: φMn met de zijde met drie staven onder druk",
-          "78.57",
-          "101.57",
+          "78,57",
+          "101,57",
           "kN·m"
         ],
         [
           "SA-2026-013",
-          "Koker van vier gekromde schalen, 4 × 1 × 0.2 m, 10 kN aan de top: mx in het element aan de inklemming",
-          "35.0",
+          "Koker van vier gekromde schalen, 4 × 1 × 0,2 m, 10 kN aan de top: mx in het element aan de inklemming",
+          "35,0",
           "0",
           "kN·m/m"
         ],
         [
           "SA-2026-014",
           "Ruimtelijk raamwerk met 10 staven (frame3d-2), hernummerd: plastische bezwijkfactor",
-          "176.47",
-          "424.3",
+          "176,47",
+          "424,3",
           "—"
         ],
         [
           "SA-2026-015",
           "Mast van 20 m met tuidraad van staal van 1 cm², 5 kN aan de top: trek in de tuidraad",
-          "5.18",
-          "4.34",
+          "5,18",
+          "4,34",
           "kN"
         ],
         [
           "SA-2026-011",
           "Ligger op 0, 4 en 8 m, oplegging op 8 m getekend als ingeklemd: doorbuiging bij die oplegging",
           "0",
-          "-14.4",
+          "-14,4",
           "mm"
         ],
         [
@@ -1332,9 +1332,9 @@ const body: PostBody = {
         ],
         [
           "SA-2026-008",
-          "Twee vormen bij ω en 1.1ω: basisdwarskracht ten opzichte van de CQC-waarde",
-          "1.00",
-          "0.81",
+          "Twee vormen bij ω en 1,1ω: basisdwarskracht ten opzichte van de CQC-waarde",
+          "1,00",
+          "0,81",
           "—"
         ],
         [
@@ -1347,57 +1347,57 @@ const body: PostBody = {
         [
           "SA-2026-006",
           "Portaal met knoopmomenten en krachten: zijdelingse verplaatsing",
-          "0.92",
-          "2.52",
+          "0,92",
+          "2,52",
           "mm"
         ],
         [
           "SA-2026-005",
           "Dakspar van een zadeldak: normaalkracht aan de voet",
-          "-56.67",
-          "-41.67",
+          "-56,67",
+          "-41,67",
           "kN"
         ],
         [
           "SA-2026-019",
           "IPE 300 aan beide uiteinden ingeklemd, gradiënt van 20 °C: eindmoment",
-          "14.04",
-          "9.76",
+          "14,04",
+          "9,76",
           "kN·m"
         ],
         [
           "SA-2026-012",
-          "Gevloeide koker van 4 m, puntlast aan de top 1.2·Mp/L: moment bij de inklemming",
-          "1012.5",
+          "Gevloeide koker van 4 m, puntlast aan de top 1,2·Mp/L: moment bij de inklemming",
+          "1012,5",
           "101250",
           "kN·m"
         ],
         [
           "SA-2026-016",
           "Halfronde boog van 5 m in het Y–Z-vlak, 40 segmenten: doorbuiging in de top",
-          "-7.29",
-          "-6.18",
+          "-7,29",
+          "-6,18",
           "mm"
         ],
         [
           "SA-2026-018",
-          "MITC9 cilindrisch veld 2×2 m, pijl 0.2 m, staal, 50 mm, starre rotatie van 1 mrad: grootste Von Mises-spanning in een knoop",
+          "MITC9 cilindrisch veld 2×2 m, pijl 0,2 m, staal, 50 mm, starre rotatie van 1 mrad: grootste Von Mises-spanning in een knoop",
           "0",
           "101",
           "MPa"
         ],
         [
           "SA-2026-020",
-          "3D koker 4 m, N = 0.5·Np, puntlast aan de top: belasting bij eerste vloeien",
-          "158.2",
-          "182.7",
+          "3D koker 4 m, N = 0,5·Np, puntlast aan de top: belasting bij eerste vloeien",
+          "158,2",
+          "182,7",
           "kN"
         ],
         [
           "SA-2026-009",
-          "Dunne plaat op buiging, ν = 0.3: stijfheid ten opzichte van de juiste waarde",
-          "1.000",
-          "1.225",
+          "Dunne plaat op buiging, ν = 0,3: stijfheid ten opzichte van de juiste waarde",
+          "1,000",
+          "1,225",
           "—"
         ]
       ]
@@ -1442,7 +1442,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Hoe je weet of het jou raakt: het model heeft betonkolommen die met CIRSOC 201 worden getoetst en waarvan de staven niet symmetrisch zijn om de buigas: 6, 10, 14, 18 of 22 staven van de ontwerper, of met de hand ingevoerde zijden met een verschillend aantal staven op tegenoverliggende zijden.",
-        "Wat je moet doen: gebruik in een versie van vóór de correctie symmetrische indelingen (4, 8, 12, 16, 20 of 24 staven, of gelijke tegenoverliggende zijden), of toets de kolom ook met gespiegelde staven: de kleinste van de twee capaciteiten is maatgevend.",
+        "Wat je moet doen: behoud bij een bestaande kolom de werkelijke wapening, toets beide momentrichtingen en gebruik de laagste capaciteit. Een symmetrische indeling is alleen een optie bij een daadwerkelijk herontwerp.",
         "Status: verholpen in 0.4.0, live op stabileo.com sinds 25 oktober 2026. De rekenkern berekent beide tekens en neemt het zwakste; symmetrische indelingen geven precies wat ze eerder gaven."
       ]
     },
@@ -1663,7 +1663,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Hoe je weet of het jou raakt: je hebt de 3D-knikfactor of 3D P-Delta gebruikt voor constructies met open dunwandige doorsneden met lage wringstijfheid: kruisvormige profielen, enkele of dubbele hoekprofielen, T-profielen, U-profielen. Dubbel symmetrische I-doorsneden, waar buigknik maatgevend is, zijn niet getroffen. Ontwerptoetsingen die zelf de wringknik berekenen (CIRSOC 301 E.4, sinds 0.2.0) zijn evenmin getroffen.",
+        "Hoe je weet of het jou raakt: je hebt de 3D-knikfactor of 3D P-Delta gebruikt voor constructies met open dunwandige doorsneden met lage wringstijfheid: kruisvormige profielen, enkele of dubbele hoekprofielen, T-profielen, U-profielen. Dubbel symmetrische I-doorsneden, waarvoor onafhankelijk is aangetoond dat buigknik maatgevend is, zijn niet getroffen. Ontwerptoetsingen die zelf de wringknik berekenen (CIRSOC 301 E.4, sinds 0.2.0) zijn evenmin getroffen.",
         "Wat je moet doen: bereken de getroffen modellen opnieuw op stabileo.com en vergelijk met de resultaten die je al hebt gebruikt. De tijdelijke oplossing die dit bericht vóór de correctie gaf, geldt niet meer.",
         "Status: verholpen op stabileo.com op 21 oktober 2026."
       ]

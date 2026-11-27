@@ -9,8 +9,9 @@ import { allDictFor } from '../locales/all';
 import { teAt } from '../engine-text';
 
 const nl = allDictFor('nl');
+const changelog = CHANGELOG.flatMap(entry => entry.i18n.nl.items).join('\n');
 
-it.skip.each([
+it.each([
   ["course.dynamics.mdof.shear.why", "relatief horizontaal verplaatsingsverschil Δ"],
   ["course.plastic.doc.assumptions", "|M| = Mp"],
   ["course.plastic.kin.combineLead", "even grote en tegengestelde rotaties"],
@@ -49,34 +50,36 @@ it.skip.each([
   ["steps.trusses.compat.aWhy", "afhankelijke knoopverplaatsingen"],
   ["steps.trusses.compat.elong", "Axiale verlenging"],
   ["steps.m.momentArea.areasWhy", "momentoppervlakken door EI van het segment"],
-])('known wrong result: #2613 — Dutch %s identifies the quantity or condition', (key, expected) => {
+])('#2613 — Dutch %s identifies the quantity or condition', (key, expected) => {
   expect(nl[key]).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   ["0.6.0", "| [SA-2026-051", "de component van het eigen gewicht van de as in de lengterichting van de staaf"],
-  ["0.6.0", "| 57 | [", "de component van het eigen gewicht van de as in de lengterichting van de staaf"],
+  ["0.6.0", "../results-changes/2026-11-moving-loads-3d.md", "de component van het eigen gewicht van de as in de lengterichting van de staaf"],
   ["0.6.0", "| [SA-2026-054", "bepaal de getroffen staafkrachten en oplegreacties onafhankelijk"],
   ["0.6.0", "| [SA-2026-063", "de beweging in een voorgeschreven vrijheidsgraad van de masterknoop"],
-  ["0.6.0", "| 63 | [", "expliciete oplegvoorwaarden"],
-  ["0.6.1", "Bereken getroffen beto", "Vergelijk de berekende ontwerpsnedekrachten en -momenten, belastingen"],
+  ["0.6.0", "../results-changes/2026-11-generated-structure-stability.md", "expliciete oplegvoorwaarden"],
+  ["0.6.1", "Bereken getroffen beton", "Vergelijk de berekende ontwerpsnedekrachten en -momenten, belastingen"],
   ["0.6.1", "| [SA-2026-068", "niet-getoetste torsiegevallen"],
-  ["0.6.2", "Bereken getroffen beto", "Vergelijk doorbuigingen, berekende ontwerpsnedekrachten en -momenten, belastingen"],
-  ["0.6.2", "| 91 | [", "vlakke staafbelastingen na onderverdeling]("],
-  ["0.6.2", "| 93 | [", "opnieuw uitvoeren]("],
+  ["0.6.2", "Bereken getroffen beton", "Vergelijk doorbuigingen, berekende ontwerpsnedekrachten en -momenten, belastingen"],
+  ["0.6.2", "Hercontrole van omgerekende vlakke staafbelastingen", "vlakke staafbelastingen na onderverdeling]("],
+  ["0.6.2", "Ontwerptoetsingen na correctie van 3D-opleggingen", "opnieuw uitvoeren]("],
   ["0.6.3", "| [SA-2026-091", "Controleer welke staven en beugels ter plaatse daadwerkelijk aanwezig zijn bij"],
-  ["0.6.3", "| 104 | [", "import volgens het in het werkboek opgegeven assenstelsel"],
+  ["0.6.3", "../results-changes/2026-11-fixture-replay-and-framed-import.md", "import volgens het in het werkboek opgegeven assenstelsel"],
   ["0.6.3", "Vereenvoudigd Chinees ", "relatieve horizontale verplaatsing tussen opeenvolgende verdiepingen"],
-  ["0.6.3", "- Er blijven open bevi", "oplegreacties in de verhinderde vrijheidsgraden"],
-  ["0.6.3", "- **[SA-2026-056](../a", "waarvan de berekende respons na hernummeren, rotatie of eenhedenconversie wezenlijk verandert"],
-  ["0.6.4", "- Er blijven open bevi", "oplegreacties in de verhinderde vrijheidsgraden"],
-  ["0.6.4", "- **[SA-2026-056](../a", "waarvan de berekende respons na hernummeren, rotatie of eenhedenconversie wezenlijk verandert"],
-])('known wrong result: #2613 — release %s gives the recheck at %s', (version, anchor, expected) => {
+  ["0.6.3", "- Er blijven open bevindingen", "oplegreacties in de verhinderde vrijheidsgraden"],
+  ["0.6.3", "- **[SA-2026-056]", "waarvan de berekende respons na hernummeren, rotatie of eenhedenconversie wezenlijk verandert"],
+  ["0.6.4", "- Er blijven open bevindingen", "oplegreacties in de verhinderde vrijheidsgraden"],
+  ["0.6.4", "- **[SA-2026-056]", "waarvan de berekende respons na hernummeren, rotatie of eenhedenconversie wezenlijk verandert"],
+])('#2613 — release %s gives the recheck at %s', (version, anchor, expected) => {
   const markdown = readFileSync(new URL(`../../../../../docs/releases/v${version}.nl.md`, import.meta.url), 'utf8');
-  expect(markdown.split('\n').find(line => line.startsWith(anchor))).toContain(expected);
+  const matching = markdown.split('\n').filter(line => line.includes(anchor));
+  expect(matching).toHaveLength(1);
+  expect(matching[0]).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   ["safety-advisories", "misten de component van de aslast langs de staaf op schuine staven"],
   ["safety-advisories", "misten extrema"],
   ["safety-advisories", "behoud bij een bestaande kolom de werkelijke wapening, toets beide momentrichtingen en gebruik de laagste capaciteit"],
@@ -85,35 +88,35 @@ it.skip.each([
   ["torsion-bredt-saint-venant", "Vormt de dunne wand één gesloten cel? Gebruik Bredt met Aₘ binnen de middellijn"],
   ["stabileo-0-5-0", "een doorbuigend moment als positief"],
   ["stabileo-0-5-0", "Na een eenhedenconversie of hernummering moeten dezelfde fysieke resultaten volgen"],
-])('known wrong result: #2613 — published %s explains %s', (slug, expected) => {
+])('#2613 — published %s explains %s', (slug, expected) => {
   expect(JSON.stringify(findPost(slug)!.i18n.nl)).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   ["cirsoc301-q-nonpositive-refused", "explanation", "Q tot 1,012"],
   ["cirsoc301-q-nonpositive-refused", "explanation", "1,2 %"],
   ["connector-mechanism-2d-refused", "explanation", "waar alle aangesloten staven aan die knoop scharnierend zijn verbonden"],
   ["gallery-slab-hard-walls", "explanation", "de verticale verplaatsing en de rotatie om de in het plaatvlak gelegen randnormaal zijn verhinderd. Rotatie om de randraaklijn is vrij"],
   ["warped-quad-containment", "explanation", "grenzen voor de afwijking van de vierhoek uit zijn vlak bij MITC4 en MITC9"],
   ["wind-physical-pressure-field", "title", "Gebouwclassificatie en winddrukvelden"],
-])('known wrong result: #2613 — saved notice %s localizes its %s', (key, field, expected) => {
+])('#2613 — saved notice %s localizes its %s', (key, field, expected) => {
   const notice = RESULT_CHANGES.changes.find(change => change.id === key);
   expect(field === 'title' ? notice?.title.nl : notice?.explanation.nl).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   [STRINGS.nl.springsStripSeries, "Stabileo: lineaire strip van 13 × 52"],
   [STRINGS.nl.hybridModel, "Als het geschiedenisveld is ingeschakeld, wordt H bij elke stap"],
   [FIELD_NAMES.nl['limit-analysis'], "Grenslastanalyse en metselwerk"],
   [riser.nl.method, "zodat Newton lokaal kwadratisch kan convergeren nabij een reguliere oplossing op een gladde tak met ongewijzigde contact- en wrijvingstoestand"],
   [teAt({ key: 'svc.engine.axialJointMechanism', params: { node: 1 } }, 'nl'), "of de kinematische rand- en koppelvoorwaarden te schenden"],
-  [CHANGELOG.flatMap(entry => entry.i18n.nl.items).join("\n"), "alleen de beschikbare snedekrachten en momenten te toetsen"],
-  [CHANGELOG.flatMap(entry => entry.i18n.nl.items).join("\n"), "de ontbrekende verhindering van starre rotatie in het vlak"],
-])('known wrong result: #2613 — published guidance includes %s', (actual, expected) => {
+  [changelog, "alleen de beschikbare snedekrachten en momenten te toetsen"],
+  [changelog, "de ontbrekende verhindering van starre rotatie in het vlak"],
+])('published engineering guidance %#', (actual, expected) => {
   expect(actual).toContain(expected);
 });
 
-it.skip.each(Array.from({ length: 8 }, (_, i) => 100 + i))('known wrong result: #2613 — both Dutch notices identify the released disposition for SA-2026-%i', number => {
+it.each(Array.from({ length: 8 }, (_, i) => 100 + i))('#2613 — both Dutch notices identify the released disposition for SA-2026-%i', number => {
   const blocks = findPost('safety-advisories')!.i18n.nl!.blocks;
   const id = 'SA-2026-' + number;
   const status = number < 106 ? 'Verholpen in 0.6.4' : 'Ingedamd in 0.6.4';
@@ -122,20 +125,20 @@ it.skip.each(Array.from({ length: 8 }, (_, i) => 100 + i))('known wrong result: 
   expect(row?.at(-1)).toBe(status);
 });
 
-it.skip('known wrong result: #2613 — all worked advisory ratios use Dutch decimal commas', () => {
+it('#2613 — all worked advisory ratios use Dutch decimal commas', () => {
   const table = (locale: 'en' | 'nl') => findPost('safety-advisories')!.i18n[locale]!.blocks
-    .filter(b => b.k === 'table').find(b => b.rows.some(row => row[0] === 'SA-2026-009' && row.includes('1.000'.replace('.', locale === 'nl' ? ',' : '.'))));
+    .filter(b => b.k === 'table').find(b => b.rows.some(row => row[0] === 'SA-2026-009' && row.length === 5));
   const rows = table('en')!.rows.map(row => [row[0], ...row.slice(2, 4).map(value => value.replace('.', ','))]);
   expect(table('nl')?.rows.map(row => [row[0], ...row.slice(2, 4)])).toEqual(rows);
 });
 
-it.skip('known wrong result: #2613 — Dutch buckling coefficients retain decimal magnitudes in every row', () => {
+it('#2613 — Dutch buckling coefficients retain decimal magnitudes in every row', () => {
   const table = (locale: 'en' | 'nl') => findPost('when-results-change')!.i18n[locale]!.blocks
     .filter(b => b.k === 'table').find(b => b.caption?.includes('SA-2026-042'))!;
   expect(table('nl').rows.map(row => row.slice(1))).toEqual(table('en').rows.map(row => row.slice(1).map(cell => cell.replaceAll('.', ',').replace(/\s*%/g, ' %'))));
 });
 
-it.skip('known wrong result: #2613 — Dutch flexure sizing uses the illustrated effective depth', () => {
+it('#2613 — Dutch flexure sizing uses the illustrated effective depth', () => {
   const blocks = findPost('verificacion-flexion-cirsoc-201')!.i18n.nl!.blocks;
   const table = blocks.find(b => b.k === 'table');
   expect(table?.rows.find(row => row[0] === '60')).toEqual(['60', '4,76', '2,38', 'sterkte']);

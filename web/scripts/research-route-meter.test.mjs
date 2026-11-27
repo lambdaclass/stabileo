@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
-test.skip('known wrong result: #2613 — route CLI measures a loaded dictionary and rejects one byte past its isolated limit', t => {
+test('The route CLI measures a loaded dictionary and rejects one byte past its isolated limit', t => {
   const cli = fileURLToPath(new URL('./check-research-route-size.mjs', import.meta.url));
   const root = mkdtempSync(join(dirname(cli), '.route-meter-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));

@@ -8,12 +8,12 @@
  * its page chunk; per-page details (load-detail) are excluded, so every paper's code stays out.
  * Every route counts the largest per-language public dictionary chunk, which it loads lazily: a reader loads one.
  */
-import { localeBytes, measuredLocales, publicDictionaryFootprint } from './route-locale-bytes.mjs';
+import { localeBytes, measureRouteFiles } from './route-locale-bytes.mjs';
 import { build } from 'vite';
 import { readFileSync, writeFileSync, appendFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { growthTable, isBlogPostsChunk, isLazyRouteBoundary, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth } from './research-route-budget.mjs';
+import { growthTable, isBlogPostsChunk, isLazyRouteBoundary, overCeilings, reviewRouteBaseline, routeChunkFiles, routeGrowth } from './research-route-budget.mjs';
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined);
 const baselinePath = arg('--baseline');
@@ -97,14 +97,7 @@ try {
       }
     }
     const size = (file) => statSync(join(outDir, file)).size;
-    const rest = [...files].filter((file) => !publicLocaleChunks.has(file));
-    const publicDictionary = publicDictionaryFootprint([...publicLocaleChunks].map(file => ({
-      bytes: size(file), localized: chunkLocaleBytes.get(file) ?? { it: 0, nl: 0 },
-    })));
-    const localeSizes = Object.fromEntries(measuredLocales.map(locale => [
-      locale, rest.reduce((sum, file) => sum + (chunkLocaleBytes.get(file)?.[locale] ?? 0), publicDictionary.localized[locale]),
-    ]));
-    return { bytes: rest.reduce((total, file) => total + size(file), publicDictionary.bytes), localeSizes };
+    return measureRouteFiles(files, publicLocaleChunks, size, chunkLocaleBytes);
   }
   const landing = footprint(false), app = footprint(true);
   const footprints = { '/en/': landing, '/es/': landing, '/pt/': landing,
@@ -141,16 +134,16 @@ try {
     for (const r of over) console.log(`${r.route} is over its ceiling: ${r.bytes} > ${r.ceiling} bytes`);
     if (over.length) process.exitCode = 1;
   } else if (process.argv.includes('--update')) {
-    writeFileSync(baselinePath, JSON.stringify({ routes: measured, localized }, null, 2) + '\n');
+    writeFileSync(baselinePath, JSON.stringify({ version: 2, routes: measured, localized }, null, 2) + '\n');
     console.log(`Updated ${baselinePath}.`);
   } else {
-    const { routes: baseline, localized: previous } = JSON.parse(readFileSync(baselinePath, 'utf8'));
-    if (!previous) throw new Error('Regenerate the route baseline with locale byte measurements');
+    const previous = JSON.parse(readFileSync(baselinePath, 'utf8'));
+    const baseline = previous.routes;
     const table = growthTable(routeGrowth(baseline, measured));
     console.log(table);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Route size against main\n\n${table}\n`);
     for (const r of routeGrowth(baseline, measured)) if (r.growth > 0) console.log(`::notice title=Route size::${r.route} grew by ${r.growth} bytes against main`);
-    reviewRouteGrowth(baseline, measured, process.env.RESEARCH_ISOLATION, undefined, previous, localized);
+    reviewRouteBaseline(previous, measured, localized);
   }
 } finally {
   rmSync(outDir, { recursive: true, force: true });

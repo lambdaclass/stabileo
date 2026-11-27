@@ -155,7 +155,7 @@ const words: Translations = {
   "course.dynamics.mdof.m.fCaption": "Belastingvector F, in kN op translaties en kN·m op rotaties: de belastingen van het model op de behouden vrijheidsgraden, waarbij die op de weggecondenseerde worden overgedragen als Tᵀ·F.",
   "course.dynamics.mdof.shear.lead": "De constructie wordt geïdealiseerd als een afschuifgebouw van {n} verdiepingen: elke verdieping is een horizontaal bewegende massa, verbonden met die eronder door een veer die haar kolommen voorstelt.",
   "course.dynamics.mdof.shear.assume": "Aannames: oneindig stijve liggers (de knopen roteren niet), axiaal stijve kolommen en de massa geconcentreerd op het niveau van elke verdieping. Elke verdieping heeft dan één vrijheidsgraad.",
-  "course.dynamics.mdof.shear.why": "Bij knopen die niet roteren heeft een kolom waarvan de uiteinden Δ uit elkaar bewegen een kracht van 12EI/h³·Δ nodig. De verdiepingsstijfheid is de som van die van haar kolommen, omdat ze samen vervormen.",
+  "course.dynamics.mdof.shear.why": "Bij knopen die niet roteren heeft een kolom met een relatief horizontaal verplaatsingsverschil Δ tussen de uiteinden een kracht van 12EI/h³·Δ nodig. De verdiepingsstijfheid is de som van die van haar kolommen, omdat ze samen vervormen.",
   "course.dynamics.mdof.shear.colNote": "(1) kolom waarvan geen van beide uiteinden roteert; (2) kolom met een scharnier aan één uiteinde.",
   "course.dynamics.mdof.shear.floor": "Verdieping",
   "course.dynamics.mdof.shear.columns": "Kolommen",

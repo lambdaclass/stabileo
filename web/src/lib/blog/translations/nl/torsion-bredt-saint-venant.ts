@@ -2,7 +2,7 @@ import type { PostBody } from '../../types';
 
 const body: PostBody = {
   "title": "Bredt of Saint-Venant: welke torsietheorie geldt, en wat de verkeerde keuze kost",
-  "excerpt": "Drie formules, één doorsnede, drie verschillende getallen. Welke geldt hangt af van de wand; waar er twee tegelijk gelden, komt Bredt 2 tot 15% te laag uit.",
+  "excerpt": "Drie formules, één doorsnede, drie verschillende getallen. Welke geldt hangt af van de wand; in de vier tabelvoorbeelden ligt de Bredt-spanning 2,4 tot 15% onder de exacte buitenvezelspanning.",
   "blocks": [
     {
       "k": "p",
@@ -160,7 +160,7 @@ const body: PostBody = {
     {
       "k": "ol",
       "items": [
-        "Vormt de wand een gesloten circuit? Bredt, met Aₘ gemeten op de middellijn.",
+        "Vormt de dunne wand één gesloten cel? Gebruik Bredt met Aₘ binnen de middellijn. Bepaal bij meerdere cellen de afzonderlijke schuifstromen uit evenwicht en gelijke verwringing per lengte-eenheid.",
         "Is hij open? Saint-Venant, en de dikte komt in de derde macht voor: de dikste wand is maatgevend.",
         "Is hij cirkelvormig? Cauchy, en die is exact. Als je ook Bredt gebruikt, verwacht dan dat die te laag uitkomt.",
         "Is welving verhinderd? Dan is Saint-Venant alleen niet genoeg."

@@ -15,7 +15,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "admin.mkt.meta",
   "admin.no",
   "admin.signIn.google",
-  "adv.failed",
   "adv.name.pdelta",
   "adv.name.winkler",
   "adv.participationAbbr",
