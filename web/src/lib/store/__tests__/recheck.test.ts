@@ -122,6 +122,7 @@ describe('recheckStore', () => {
       const snapshot = { analysisMode: mode, loadCases: [{ id: 1, type }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }], designData: { loadBasis: { resultsVersion: 0 } }, solvedWith: recheckStore.capture() };
       const expected = ['generated-area-loads-headroom', 'gravity-physical-thresholds', ...(mode === '2d' ? [] : ['gravity-resolved-cover']), 'gravity-retained-span-midpoint', 'snow-panel-geometry', 'wind-apex-torque', 'wind-band-width-and-shares', 'wind-carriers-and-continuous-width', 'wind-member-pressure-transfer', 'wind-physical-apex', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face', 'wind-pressure-work-moments', 'wind-triangular-and-sign-minimum', 'wind-triangular-centroid'];
       expected.unshift('concentrated-live-actions');
+      expected.push('wind-two-part-moments');
       recheckStore.openProject(snapshot, mode);
       await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
       expect(recheckStore.assessment?.changes.map(c => c.id).sort()).toEqual(expected);
