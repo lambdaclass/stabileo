@@ -101,3 +101,19 @@ describe('foundations in the model', () => {
     expect(f.rotationDeg).toBeCloseTo(0, 9);
   });
 });
+
+it.skip('known wrong result: #1928 only the sheet generator uses a column face beyond the outer support axes', () => {
+  modelStore.clear();
+  const points = [[0.15, 0, 0.3], [0.25, 5, 0.5], [6, 2.5, 0.4]];
+  const bases = points.map(([x, y, side]) => {
+    const base = modelStore.addNode(x!, y!, 0);
+    const top = modelStore.addNode(x!, y!, 3);
+    const section = modelStore.addSection({ name: 'square', b: side, h: side, a: side! ** 2, iz: side! ** 4 / 12, iy: side! ** 4 / 12, shape: 'rect' });
+    modelStore.updateElement(modelStore.addElement(base, top), { sectionId: section });
+    return base;
+  });
+  expect([...anchorsFor(bases, { minX: true }).values()]).toEqual([[-1, 0], [__PUBLIC_FEATURES__.proRcSheets ? -1 : 0, 0], [0, 0]]);
+  expect([...anchorsFor(bases, {}).values()]).toEqual([[0, 0], [0, 0], [0, 0]]);
+  const nodes = [0, 0.0005, 0.001, 0.002].map(x => modelStore.addNode(x, 9, 0));
+  expect([...anchorsFor(nodes, { minX: true }).values()]).toEqual([[-1, 0], [-1, 0], [0, 0], [0, 0]]);
+});
