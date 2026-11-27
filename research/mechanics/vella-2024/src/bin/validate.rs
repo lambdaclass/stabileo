@@ -392,6 +392,16 @@ mod tests {
     use super::*;
     use snap_symmetry_vella_2024::study::richardson;
 
+    #[test]
+    #[ignore = "known wrong result: #2320"]
+    fn published_time_unit_matches_the_prescribed_solver_scale() {
+        let evidence: Value = serde_json::from_str(include_str!("../../reference-results/study.json")).unwrap();
+        let units = &evidence["units"];
+        let period = units["t_osc_over_t_star"].as_f64().expect("dimensionless solver period");
+        assert_eq!(period, snap_symmetry_vella_2024::dynamics::T_OSC);
+        assert_eq!(period * units["time_unit_simulations"].as_f64().unwrap(), units["t_osc_simulations"]);
+    }
+
     fn study_of(omegas: [f64; 3]) -> Value {
         let r = richardson(omegas[0], omegas[1], omegas[2]).unwrap();
         json!({"meshes": omegas.map(|w| json!({"omega_antisymmetric": w})), "omega": {"value": r.value, "order": r.order, "correction": r.correction}})

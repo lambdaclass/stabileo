@@ -93,3 +93,34 @@ const earlyFold = JSON.parse(simulation_run(JSON.stringify({
 })));
 assert.ok(earlyFold.outcome.snapped && earlyFold.outcome.thetaBefore > 0 && earlyFold.outcome.thetaBeforeMuA > 0);
 assert.ok(Number.isFinite(earlyFold.outcome.amplification) && Number.isFinite(earlyFold.outcome.amplificationFromMuA));
+
+if (process.env.VELLA_REVIEW_2320) {
+  const crossing = replay.trace.height.findIndex(h => h > 0);
+  assert.ok(crossing > 0);
+  const keys = ['t', 'mu', 'height', 'thetaMin', 'thetaMax'];
+  for (const key of keys) {
+    for (const side of ['run', 'reference']) {
+      const compareMutation = mutate => {
+        const copy = structuredClone(replay);
+        mutate(copy);
+        return side === 'run' ? compare(copy, replay) : compare(replay, copy);
+      };
+      for (const mutate of [
+        r => { delete r.trace; },
+        r => { delete r.trace[key]; },
+        r => { r.trace[key].pop(); },
+        r => { r.trace[key].push(0); },
+        r => { r.trace[key][0] = NaN; },
+        r => { r.trace[key][crossing] = null; },
+      ]) assert.ok(compareMutation(mutate).length > 0, `${side} invalid trace.${key}`);
+    }
+    for (const index of [crossing - 1, crossing]) {
+      const tolerance = ['t', 'mu'].includes(key) || index < crossing ? PRE.value : POST.value;
+      for (const factor of [0.5, 2]) {
+        const changed = structuredClone(replay);
+        changed.trace[key][index] += tolerance * factor;
+        assert.equal(compare(changed, replay).length, factor < 1 ? 0 : 1, `trace.${key}[${index}]`);
+      }
+    }
+  }
+}

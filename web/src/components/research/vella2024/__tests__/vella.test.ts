@@ -218,3 +218,23 @@ it('offers the Wang catalogue summary and quantitative verdict in every research
     expect(copy.reproduces.join(' ')).toContain('A < 2');
   }
 });
+
+it.skipIf(!process.env.VELLA_REVIEW_2320)('records paper shortening and the physical clamp through startup, coasting and rest', () => {
+  const { dynamics, units } = study;
+  for (const run of dynamics.figure_2a) {
+    const { t, mu, height } = run.trace;
+    const paperMu: number[] = Reflect.get(run, 'paper_mu');
+    expect(paperMu).toHaveLength(t.length);
+    const mmPerMu = 1000 * units.t_osc_simulations * run.rate_m_s / run.rate;
+    for (const [i, value] of paperMu.entries()) {
+      expect(value).toBeCloseTo(Reflect.get(run, 'mu_star') - run.travel_mm[i] / mmPerMu, 12);
+    }
+    expect(mu[0]).toBeLessThan(paperMu[0]);
+    const coasting = t.findIndex(time => time >= -1);
+    expect(mu[coasting]).toBeCloseTo(paperMu[coasting], 12);
+    expect(mu.at(-1)).toBe(mu.at(-2));
+    expect(height.at(-1)).not.toBe(height.at(-2));
+    expect(paperMu.at(-1)!).toBeLessThan(paperMu.at(-2)!);
+    expect(mu.at(-1)!).toBeGreaterThan(paperMu.at(-1)!);
+  }
+});

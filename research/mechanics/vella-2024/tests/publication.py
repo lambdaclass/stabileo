@@ -9,6 +9,29 @@ import unittest
 
 
 class PublicationTest(unittest.TestCase):
+    @unittest.skipUnless(os.getenv("VELLA_REVIEW_2320"), "known wrong result: #2320")
+    def test_unseeded_maximum_agrees_with_validation_in_each_section(self):
+        study = Path(__file__).resolve().parents[1]
+        validation = json.loads((study / "VALIDATION.json").read_text())
+        observed = next(c["observed"] for c in validation["checks"] if c["id"] == "symmetric-protocol")
+        digits, power = f"{observed:.3e}".split("e")
+        exponent = str(int(power)).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
+        claim = f"{digits} × 10{exponent} rad"
+        readme = (study / "README.md").read_text()
+        for context in ["Both clamps without a seed: largest |θ|", "a thousandth of the default seed);", "absolute floor covers"]:
+            with self.subTest(context=context):
+                self.assertIn(claim, readme.split(context, 1)[1][:145])
+
+    @unittest.skipUnless(os.getenv("VELLA_REVIEW_2320"), "known wrong result: #2320")
+    def test_toy_rate_text_records_the_failed_paper_comparison(self):
+        study = Path(__file__).resolve().parents[1]
+        validation = json.loads((study / "VALIDATION.json").read_text())
+        check = next(c for c in validation["not_reproduced"] if c["id"] == "toy-critical-rate")
+        self.assertGreater(check["observed"], check["tolerance"])
+        section = (study / "README.md").read_text().split("### Toy model", 1)[1].split("## ", 1)[0]
+        self.assertIn(f"fails the {check['tolerance']:.0%} relative tolerance", section)
+
+
     def test_mesh_claim_names_its_refinement_interval(self):
         study = Path(__file__).resolve().parents[1]
         data = json.loads((study / "reference-results/study.json").read_text())["dynamics"]
