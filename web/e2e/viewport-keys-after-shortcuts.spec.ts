@@ -20,7 +20,7 @@ async function basic3D(page: Page) {
   await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 }).toBe(true);
   await loadModel(page, 'two-story-frame');
-  await page.getByTestId('rb-cmd-dim').click();
+  await page.getByTestId('ws-space').click();
   await expect.poll(() => camera(page).then(Boolean), { timeout: 10_000 }).toBe(true);
   await page.waitForTimeout(1000);
 }

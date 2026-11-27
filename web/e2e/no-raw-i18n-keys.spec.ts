@@ -166,7 +166,7 @@ for (const locale of LOCALES) {
 
       // A dialog: switching a 3D model to 2D.
       await loadModel(page, '3d-portal-frame');
-      await page.getByTestId('rb-cmd-dim').click();
+      await page.getByTestId('ws-plane').click();
       await expect(page.locator('.s2d')).toBeVisible();
       await expectNoRawKeys(page, `the switch-to-2D dialog (${locale})`);
       await page.getByTestId('s2d-cancel').click();

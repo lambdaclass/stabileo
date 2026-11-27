@@ -732,7 +732,7 @@ async function loadNamed(ctx: Ctx, name: string): Promise<void> {
   }
   await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBeGreaterThan(0);
   if (variant === '3d' && !(await is3D(page))) {
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-space').click();
     await expect.poll(() => is3D(page)).toBe(true);
   }
   await page.waitForTimeout(400);
@@ -872,7 +872,7 @@ export function sweepGenerated(names: readonly string[]): void {
 
 /** Press the ribbon's 2D/3D switch and wait for the other view. */
 async function flipDimension(ctx: Ctx, to3d: boolean): Promise<void> {
-  await ctx.page.getByTestId('rb-cmd-dim').click();
+  await ctx.page.getByTestId(to3d ? 'ws-space' : 'ws-plane').click();
   /* A plane model comes back without the "Switch to 2D" dialog; a real 3D one would ask. */
   await expect.poll(() => is3D(ctx.page)).toBe(to3d);
   await ctx.page.waitForTimeout(400);

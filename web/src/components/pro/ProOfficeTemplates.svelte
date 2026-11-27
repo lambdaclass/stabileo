@@ -46,33 +46,70 @@
   }
 </script>
 
-<details class="ot" data-testid="office-templates">
-  <summary class="pp-heading">{t('templates.title')}{list.length ? ` · ${list.length}` : ''}</summary>
+<div class="ot" data-testid="office-templates">
   <Hint text={t('templates.hint')} />
   <div class="ot-row">
     <input bind:value={name} placeholder={t('templates.name')} data-testid="ot-name" />
-    <button class="pp-btn" disabled={!name.trim()} onclick={save} data-testid="ot-save">{t('templates.save')}</button>
-    <button class="pp-btn" onclick={() => fileInput?.click()} data-testid="ot-import">{t('templates.import')}</button>
+    <button class="ot-btn ot-primary" disabled={!name.trim()} onclick={save} data-testid="ot-save">{t('templates.save')}</button>
+    <button class="ot-btn" onclick={() => fileInput?.click()} data-testid="ot-import">{t('templates.import')}</button>
     <input type="file" accept=".json,application/json" hidden bind:this={fileInput} onchange={onFile} />
   </div>
-  {#each list as tpl (tpl.name)}
-    <div class="ot-row" data-testid="ot-template">
-      <span class="ot-name">{tpl.name}</span>
-      <span class="ot-meta">{tp('templates.contents', { materials: tpl.materials.length, sections: tpl.sections.length, combos: tpl.combinations.length })}</span>
-      <button class="pp-btn" onclick={() => apply(tpl)} data-testid="ot-apply">{t('templates.apply')}</button>
-      <button class="pp-btn" onclick={() => exportFile(tpl)}>{t('templates.export')}</button>
-      <button class="pp-btn ot-x" onclick={() => { removeTemplate(tpl.name); refresh(); }} aria-label={t('templates.remove')}>×</button>
-    </div>
-  {/each}
   {#if message}<p class="ot-hint" data-testid="ot-message">{message}</p>{/if}
-</details>
+  {#if list.length}
+    <ul class="ot-list">
+      {#each list as tpl (tpl.name)}
+        <li class="ot-item" data-testid="ot-template">
+          <span class="ot-text">
+            <span class="ot-name">{tpl.name}</span>
+            <span class="ot-meta">{tp('templates.contents', { materials: tpl.materials.length, sections: tpl.sections.length, combos: tpl.combinations.length })}</span>
+          </span>
+          <button class="ot-btn" onclick={() => apply(tpl)} data-testid="ot-apply">{t('templates.apply')}</button>
+          <button class="ot-btn" onclick={() => exportFile(tpl)}>{t('templates.export')}</button>
+          <button class="ot-btn ot-x" onclick={() => { removeTemplate(tpl.name); refresh(); }} aria-label={t('templates.remove')} title={t('templates.remove')}>×</button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</div>
 
 <style>
-  .ot summary { cursor: pointer; }
-  .ot-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin: 4px 0; font-size: 0.66rem; }
-  .ot-row input { flex: 1; min-width: 120px; }
-  .ot-name { font-weight: 600; color: var(--st-text); }
-  .ot-meta { flex: 1; color: var(--st-text-3); font-size: 0.6rem; }
-  .ot-x { padding: 0 6px; }
-  .ot-hint { margin: 4px 0; font-size: 0.6rem; color: var(--st-text-3); }
+  .ot { display: flex; flex-direction: column; gap: 8px; }
+  .ot-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .ot-row input {
+    flex: 1;
+    min-width: 160px;
+    height: 30px;
+    padding: 0 8px;
+    background: var(--st-surface);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
+    font: inherit;
+    font-size: 0.78rem;
+  }
+  .ot-row input:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 1px; }
+  .ot-btn {
+    flex: none;
+    height: 30px;
+    padding: 0 10px;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    color: var(--st-text-2);
+    font: inherit;
+    font-size: 0.76rem;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .ot-btn:hover:not(:disabled) { background: var(--st-surface-3); color: var(--st-text); }
+  .ot-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .ot-primary { border-color: var(--st-interactive); color: var(--st-text); font-weight: 600; }
+  .ot-x { width: 30px; padding: 0; }
+  .ot-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--st-hair); border-radius: var(--st-radius); }
+  .ot-item { display: flex; gap: 6px; align-items: center; padding: 8px 10px; }
+  .ot-item + .ot-item { border-top: 1px solid var(--st-hair); }
+  .ot-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .ot-name { font-size: 0.8rem; font-weight: 600; color: var(--st-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ot-meta { font-size: 0.68rem; color: var(--st-text-3); }
+  .ot-hint { margin: 0; font-size: 0.72rem; color: var(--st-text-2); }
 </style>

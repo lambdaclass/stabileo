@@ -126,6 +126,8 @@
 
   @media (max-width: 1100px) {
     .acc-hint { display: none; }
+    .acc-entry:not(.signed) .acc-name { display: none; }
+    .acc-entry:not(.signed) { width: 32px; padding: 0; justify-content: center; }
   }
 
   @media (max-width: 768px) {

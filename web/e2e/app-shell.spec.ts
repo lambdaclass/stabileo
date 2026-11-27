@@ -160,14 +160,54 @@ test.describe('@smoke examples on a phone', () => {
   });
 });
 
-test.describe('@smoke reporting a bug', () => {
-  test('with sign-in off, the button opens a GitHub issue instead of doing nothing', async ({ page }) => {
+test.describe('@smoke the project’s properties, apart from saving and exporting', () => {
+  test('File › Project properties holds the data, the regulations and the templates', async ({ page }) => {
+    await page.goto('/app/pro?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
+    await page.getByTestId('pr-project').click();
+    const panel = page.getByTestId('pro-project-tab');
+    await expect(panel.getByTestId('pp-save')).toBeVisible();
+    await expect(panel.getByTestId('project-info')).toHaveCount(0);
+    await expect(panel.getByTestId('office-templates')).toHaveCount(0);
+    await expect(panel.getByTestId('project-regulations')).toHaveCount(0);
+
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-project-settings').click();
+    const dialog = page.getByTestId('project-settings');
+    await expect(dialog.getByTestId('project-info')).toBeVisible();
+    await dialog.getByTestId('pi-job').fill('Nave Norte');
+    await dialog.getByTestId('pi-job').blur();
+    expect(await page.evaluate(() => (window.__stabileo.entityData('setting', 'projectInfo') as { job?: string })?.job)).toBe('Nave Norte');
+
+    await dialog.getByTestId('ps-page-regulations').click();
+    await expect(dialog.getByTestId('project-regulations')).toBeVisible();
+    await dialog.getByTestId('ps-page-templates').click();
+    await expect(dialog.getByTestId('office-templates')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test('a way out of the regulations to the side panel closes the dialog', async ({ page }) => {
+    await page.goto('/app/pro?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-project-settings').click();
+    await page.getByTestId('ps-page-regulations').click();
+    await page.getByTestId('regs-edit-materials').click();
+    await expect(page.getByTestId('project-settings')).toHaveCount(0);
+  });
+});
+
+test.describe('@smoke reaching us from the title bar', () => {
+  test('Discord opens the community, and with sign-in off there is no comment button to fail', async ({ page }) => {
     await openBasic(page);
-    const bug = page.getByTestId('report-bug');
-    await expect(bug).toBeVisible();
-    expect(await bug.evaluate((n) => n.tagName), 'a link, since there is no form to open').toBe('A');
-    await expect(bug).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/new');
-    await expect(bug).toHaveAttribute('target', '_blank');
+    await expect(page.getByTestId('report-bug')).toHaveCount(0);
+    const discord = page.getByTestId('tb-discord');
+    await expect(discord).toBeVisible();
+    await expect(discord).toHaveAttribute('href', 'https://discord.gg/Q53rp7FKXA');
+    await expect(discord).toHaveAttribute('target', '_blank');
+    await expect(page.getByTestId('tb-feedback')).toHaveCount(0);
   });
 });
 

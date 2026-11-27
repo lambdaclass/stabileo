@@ -5,6 +5,7 @@
   import { accountGate } from '../../lib/store/account-gate.svelte';
   import Icon from '../ribbon/Icon.svelte';
   import { examplesUi } from '../../lib/store/examples-ui.svelte';
+  import { projectSettings } from '../../lib/store/project-settings.svelte';
 
   type Props = {
     mode: 'basico' | 'pro';
@@ -93,6 +94,11 @@
         <button role="menuitem" class="tb-item" onclick={() => { menu = null; onProject(); }}>
           <Icon name="bars" size={15} /><span>{t('ribbon.project')}…</span>
         </button>
+        {#if pro}
+          <button role="menuitem" class="tb-item" onclick={() => { menu = null; projectSettings.show('data'); }} data-testid="tb-project-settings">
+            <Icon name="settings" size={15} /><span>{t('appShell.projectSettings')}…</span>
+          </button>
+        {/if}
       </div>
     {/if}
   </div>

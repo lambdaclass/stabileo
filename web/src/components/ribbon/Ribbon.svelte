@@ -2,7 +2,7 @@
   import { t } from '../../lib/i18n';
   import { showDiagram, armTool } from '../../lib/store/view-mode';
   import { commandShowsQuantity, showStressMap, activeMapMeasure } from '../../lib/store/result-view';
-  import { needsPlaneChoice, switchPlain, hasBackup, restore3D } from '../../lib/store/switch-2d';
+  import { enterPlane, enterSpace } from '../../lib/store/workspace-switch';
   import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../../lib/geometry/coordinate-system';
   import { uiStore, EDIT_TOOLS } from '../../lib/store/ui.svelte';
   import { historyStore } from '../../lib/store/history.svelte';
@@ -208,39 +208,15 @@
          */
         { id: 'move', icon: 'move', labelKey: 'move.title', panel: 'move' },
         { id: 'select', icon: 'select', labelKey: 'ribbon.selection', panel: 'selection' },
-        /*
-         * One button, not two. A pair where one is always lit reads as a
-         * permanent alarm — the accent is for what you are doing now, and
-         * "the view is 2D" is a condition, not an action. The button shows the
-         * mode you would switch TO, which is how a toggle explains itself.
-         */
-        {
+        ...(narrow ? [{
           id: 'dim',
           icon: () => (threeD ? 'view2d' : 'view3d'),
           labelKey: () => (threeD ? 'ribbon.view2d' : 'ribbon.view3d'),
-          /*
-           * Going UP is free — a 2D model is a 3D model with one coordinate
-           * at zero. Coming DOWN throws a dimension away, and what to do with
-           * it is a decision only the author can make: flatten everything, or
-           * take the frame on one grid line. So that direction asks, unless
-           * the model is already flat and there is nothing to decide.
-           */
           action: () => {
-            /*
-             * Coming back up restores the 3D original if this 2D model was cut
-             * or flattened out of one. Without that the trip is one-way: the
-             * button returns to a 3D viewport showing the derived model, and
-             * the structure the user built is gone with no message saying so.
-             */
-            if (!threeD) {
-              if (hasBackup()) restore3D();
-              else uiStore.analysisMode = '3d';
-              return;
-            }
-            if (needsPlaneChoice()) uiStore.switchTo2DPrompt = true;
-            else switchPlain();
+            if (!threeD) enterSpace();
+            else if (enterPlane() === 'ask') uiStore.switchTo2DPrompt = true;
           },
-        },
+        }] : []),
       ],
     },
     /*

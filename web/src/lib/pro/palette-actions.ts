@@ -4,6 +4,7 @@
  */
 import type { ProCmd } from './stages';
 import { proNav } from '../store/pro-nav.svelte';
+import { projectSettings } from '../store/project-settings.svelte';
 import { examplesUi } from '../store/examples-ui.svelte';
 import { uiStore } from '../store';
 import { viewCategories } from '../store/view-categories.svelte';
@@ -28,7 +29,9 @@ export function paletteActions(): PaletteAction[] {
     a('results', 'proExport.resultsBtn', project, () => proNav.ask('data')),
     a('drawings', 'proExport.drawingsBtn', project, () => proNav.ask('drawings')),
     a('reproduce', 'provenance.reproduce.link', project, () => window.dispatchEvent(new Event('stabileo-reproduce'))),
+    a('project-data', 'projectInfo.title', project, () => proNav.openProjectInfo()),
     a('regulations', 'regulations.title', project, () => proNav.openRegulations()),
+    a('templates', 'templates.title', project, () => projectSettings.show('templates')),
     ...(['top', 'front', 'right', 'iso'] as const).map((f) => a(`view-${f}`, `view.preset.${f}`, view, camera(f))),
     a('split', 'viewport.split', view, () => { viewState.split = !viewState.split; }),
     a('plan', 'viewport.planView', view, () => { uiStore.planView3D = !uiStore.planView3D; }),

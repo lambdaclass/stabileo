@@ -3,12 +3,7 @@
   import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
   import { authStore } from '../../lib/store/auth.svelte';
   import { accountGate } from '../../lib/store/account-gate.svelte';
-  import ProProjectInfo from './ProProjectInfo.svelte';
-  import ProOfficeTemplates from './ProOfficeTemplates.svelte';
   import { proNav } from '../../lib/store/pro-nav.svelte';
-  import ProjectRegulationsPanel from './design/ProjectRegulationsPanel.svelte';
-  let regulationsEl: HTMLElement | undefined = $state();
-  $effect(() => { if (proNav.regulationsOpen) regulationsEl?.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
   import { t, tp, i18n } from '../../lib/i18n';
   import { exportProjectIfc } from '../../lib/store/ifc-export';
   import { prepareExportProvenance } from '../../lib/export/provenance-attach';
@@ -30,23 +25,6 @@
   import { MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { codeShareUrl } from '../../lib/model/code/share';
   import { autosaveStatus, autosaveRevisions } from '../../lib/store/autosave-db';
-
-  /**
-   * PRO's project view: what you have open, and how it gets in and out.
-   *
-   * PRO had no such place. Saving was a keyboard shortcut, opening was a file
-   * input owned by another component, exporting lived at the bottom of a tab
-   * about something else, and "Examples" was a button that opened a floating
-   * gallery over the canvas and nothing else. So the one screen every project
-   * starts and ends at did not exist.
-   *
-   * Basic answered this with a Project panel, and the answer transfers — but
-   * the content does not. PRO's examples are curated engineering cases with a
-   * stated intent and a size, so they keep more than a name; at panel width
-   * that is the name, one line of description and the model's size, which is
-   * what anyone actually chooses on.
-   */
-
 
   /* Saving asks what and where, exactly as Basic does. */
   let showSave = $state(false);
@@ -183,16 +161,6 @@
 
   $effect(() => { void refreshStatus(); });
 
-  /*
-   * The gallery lives IN the panel, not over the canvas.
-   *
-   * It was a floating menu with a backdrop, anchored to a button — so choosing
-   * a model meant covering the model, and the one screen a project starts at
-   * threw a dialog at you. At panel width the cards drop to one line of name
-   * plus one of description, which is what you actually choose on; the tags
-   * and the node counts follow underneath.
-   */
-
   const hasModel = $derived(modelStore.nodes.size > 0);
   /** Where the project workbook reads each member. */
   /* The export dialogs: each button opens one, with its format chosen. */
@@ -251,22 +219,6 @@
     instant they were pressed, with the difference between "pestaña" and
     "sesión" explained nowhere a reader would meet it.
   -->
-  <!-- The job's data: what the documents' covers and title blocks state. -->
-  <section class="pp-card">
-    <ProProjectInfo />
-  </section>
-  <section class="pp-card">
-    <ProOfficeTemplates />
-  </section>
-
-  <!-- The project's regulations, where the loads that need them are made — not only in Design. -->
-  <section class="pp-card" data-testid="pp-regulations">
-    <details bind:open={proNav.regulationsOpen} bind:this={regulationsEl}>
-      <summary class="pp-heading">{t('regulations.title')}</summary>
-      <ProjectRegulationsPanel />
-    </details>
-  </section>
-
   <section class="pp-card">
     <h4 class="pp-heading">{t('project.fileSection')}</h4>
     <div class="pp-grid">
@@ -348,7 +300,7 @@
     the project workbook (`store/project-workbook.ts`): the model and every
     case and combination, built from the result tables the screen shows.
   -->
-  {#if uiStore.isMobile}<section class="pp-card"><LibraryButtons /></section>{/if}
+  {#if uiStore.isMobile}<section class="pp-card"><LibraryButtons pro /></section>{/if}
   <section class="pp-card">
     <h4 class="pp-heading">{t('project.importExport')}</h4>
 
@@ -695,8 +647,7 @@
     border-bottom: 1px solid var(--st-hair);
   }
 
-  /* Every heading is now first inside its own card, so the top margin never applies. */
-  .pp-heading:first-child,
+  .pp-heading:first-child { margin-top: 0; }
 
   /*
      Sized by content, not by count: a three-column grid gives three items a

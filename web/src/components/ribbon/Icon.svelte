@@ -58,9 +58,6 @@
   {:else if name === 'panelRight'}
     <rect x="3" y="4" width="18" height="16" rx="2" />
     <path d="M15 4v16M17 8h2M17 11h2" />
-  {:else if name === 'bug'}
-    <path d="M8 10a4 4 0 0 1 8 0v4a4 4 0 0 1-8 0z" />
-    <path d="M12 10v8M4 13h4M16 13h4M5 8l3 2M19 8l-3 2M5 19l3-2.5M19 19l-3-2.5M10 6.5 9 4M14 6.5 15 4" />
   {:else if name === 'history'}
     <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
     <path d="M3.5 4.5V9H8" />
@@ -331,6 +328,16 @@
     <path d="M9 5H6v15h12V5h-3M9 3h6v4H9zM9 12h6M9 16h4" />
   {:else if name === 'diagnostics'}
     <path d="M12 4l9 16H3zM12 10v4.5M12 17.2v.3" />
+  {:else if name === 'close'}
+    <path d="M6 6l12 12M18 6 6 18" />
+  {:else if name === 'book'}
+    <path d="M5 4.5h11a2 2 0 0 1 2 2V20H7a2 2 0 0 1-2-2z" />
+    <path d="M5 18a2 2 0 0 1 2-2h11M9 8.5h5M9 11.5h5" />
+  {:else if name === 'template'}
+    <path d="M4 4h12v4H4zM4 11h7v9H4zM14 11h6v4h-6zM14 18h6" />
+  {:else if name === 'message'}
+    <path d="M4 5h16v11H10l-4 3.5V16H4z" />
+    <path d="M8 9h8M8 12h5" />
   {/if}
 </svg>
 

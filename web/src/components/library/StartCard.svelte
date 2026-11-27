@@ -82,6 +82,7 @@
     border: 1px solid var(--st-hair-strong);
     border-radius: 10px;
     box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.75);
+    container-type: inline-size;
   }
   .start-head { display: flex; align-items: center; justify-content: space-between; }
   .start-head strong { font-family: var(--st-display); font-size: 1rem; color: var(--st-text); }
@@ -125,8 +126,11 @@
   .start-off { background: none; border: none; padding: 0; color: var(--st-text-3); font: inherit; font-size: 0.7rem; cursor: pointer; }
   .start-off:hover { color: var(--st-text-2); text-decoration: underline; }
 
+  @container (max-width: 480px) {
+    .start-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
   @media (max-width: 767px) {
     .start { top: 96px; transform: translateX(-50%); padding: 10px 12px; gap: 8px; }
-    .start-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 </style>

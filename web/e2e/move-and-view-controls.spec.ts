@@ -164,7 +164,7 @@ test.describe('@smoke the two controls over a 3D model', () => {
   async function go3D(page: Page) {
     await openBasic(page);
     await loadModel(page, 'two-story-frame');
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-space').click();
     await page.waitForTimeout(2500);
   }
 

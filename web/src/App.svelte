@@ -83,6 +83,8 @@
   import TutorialsDialog from './components/library/TutorialsDialog.svelte';
   import { examplesUi } from './lib/store/examples-ui.svelte';
   import ProToBasicDialog from './components/shell/ProToBasicDialog.svelte';
+  import ProjectSettingsDialog from './components/shell/ProjectSettingsDialog.svelte';
+  import { projectSettings } from './lib/store/project-settings.svelte';
   import {
     currentWorkspace, enterPlane, enterPro, enterSpace, leaveProInPlace, needsBasicCopy, openBasicCopy,
     type Workspace,
@@ -2356,6 +2358,7 @@
     {#if examplesUi.view === 'examples'}<ExamplesDialog mode={uiStore.appMode === 'pro' ? 'pro' : 'basico'} />{/if}
     {#if examplesUi.view === 'tutorials'}<TutorialsDialog onStart={startTutorial} />{/if}
   {/if}
+  {#if uiStore.appMode === 'pro' && projectSettings.page}<ProjectSettingsDialog />{/if}
 
   <!--
     Mobile drawers (overlay on top of canvas) — PRO and Education only.
@@ -3285,6 +3288,9 @@
   }
   @media (min-width: 768px) and (max-width: 1100px) {
     .logo-text { display: none; }
+    .header-actions { gap: 0.35rem; }
+    .header-actions .btn-help { display: none; }
+    .app-header :global(.tab-bar) { min-width: 104px; }
   }
   .ribbon-shell {
     display: flex;

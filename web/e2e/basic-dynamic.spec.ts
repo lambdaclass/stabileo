@@ -62,7 +62,7 @@ test.describe('@smoke dynamic analysis in Basic', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await boot(page);
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-space').click();
     await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
     await runDynamic(page);
     await expect(page.getByTestId('adv-running')).toBeVisible();

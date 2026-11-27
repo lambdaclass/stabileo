@@ -657,6 +657,24 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(backend.feedback).toEqual([expect.objectContaining({ kind: 'bug', message: 'El diálogo quedaba tapado' })]);
   });
 
+  test('a comment from the title bar reaches the inbox, asking for an account first', async ({ page }) => {
+    const backend = await boot(page);
+    await page.getByTestId('usage-notice-share').click();
+    await page.getByTestId('tb-feedback').click();
+
+    await expect(page.getByTestId('auth-reason')).toBeVisible();
+    await continueWithGoogle(page);
+    await page.getByTestId('auth-accept-terms').check();
+    await page.getByTestId('auth-submit').click();
+
+    await expect(page.getByTestId('feedback-dialog')).toBeVisible();
+    await page.getByTestId('feedback-kind').selectOption('bug');
+    await page.getByTestId('feedback-message').fill('El menú Archivo tapa la pestaña');
+    await page.getByTestId('feedback-send').click();
+    await expect(page.getByTestId('feedback-msg')).toBeVisible();
+    expect(backend.feedback).toEqual([expect.objectContaining({ kind: 'bug', message: 'El menú Archivo tapa la pestaña', page: '/app/basic' })]);
+  });
+
   test('a comment from the contact menu reaches the inbox, asking for an account first', async ({ page }) => {
     const backend = await boot(page);
     await page.getByTestId('usage-notice-share').click();
