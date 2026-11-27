@@ -92,3 +92,26 @@ it.skip.each(['uplift', 'holdHorizontal'] as const)('known wrong result: #1928 a
   const shared = [...modelStore.supports.values()].find(s => s.nodeId === left[1]);
   expect(shared?.kz).toBe((2 * 2 / 4) * (soil.ks + soil.ks * 2));
 });
+
+it.skip('known wrong result: #1928 individual and whole shells require distinct foundation nodes', async () => {
+  modelStore.clear();
+  uiStore.analysisMode = 'pro';
+  const corners = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  const plate = createPlate({ outline: corners, materialId: 1, thickness: 0.2 });
+  if ('problem' in plate) throw Error(plate.problem);
+  expect(applyPlateMeshes([planPlateMesh(plate.id, { size: 2, element: 'quad' })!]).plates).toBe(1);
+  const whole = [...modelStore.quads.keys()].map(id => 'q' + id);
+  const raw = (x: number, near?: number) => {
+    const ids = [near ?? modelStore.addNode(x, 0, 0), modelStore.addNode(x + 1, 0, 0), modelStore.addNode(x + 1, 1, 0), modelStore.addNode(x, 1, 0)];
+    return 'q' + modelStore.addQuad(ids as [number, number, number, number], 1, 0.2);
+  };
+  const adjacent = raw(2, corners[1]);
+  const disjoint = raw(5);
+  const { preparePlateSprings } = await import('../selected-plate-spec');
+  const soil = { ks: 20000, uplift: true, holdHorizontal: false };
+  const plan = (...keys: string[]) => preparePlateSprings!(new Set(keys), soil);
+  expect(plan(...whole, adjacent)).toEqual({ error: expect.stringContaining('share a foundation node') });
+  expect(modelStore.supports.size).toBe(0);
+  expect(plan(disjoint)).toMatchObject({ owned: new Set() });
+  expect(plan(...whole, disjoint)).toMatchObject({ owned: new Set(corners) });
+});
