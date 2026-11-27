@@ -174,7 +174,7 @@
 </details>
 
 <details class="pk-card do" data-testid="design-options-foundations">
-  <summary><span class="do-h">{t('designData.foundations')}</span> <span class="do-sum" data-testid="design-options-foundations-summary">{tp('designData.presumedBearingSummary', { v: fmt(d.presumedBearingKPa, 0) })}{#if d.propertyLines} · {t('fdn.propertyLines')} {PROPERTY_SIDES.filter((k) => d.propertyLines?.[k]).map((k) => ({ minX: '−X', maxX: '+X', minY: '−Y', maxY: '+Y' })[k]).join(' ')}{/if}</span></summary>
+  <summary><span class="do-h">{t('designData.foundations')}</span> <span class="do-sum" data-testid="design-options-foundations-summary">{tp('designData.presumedBearingSummary', { v: fmt(d.presumedBearingKPa, 0) })}{#if __PUBLIC_FEATURES__.proRcSheets && d.propertyLines} · {t('fdn.propertyLines')} {PROPERTY_SIDES.filter((k) => d.propertyLines?.[k]).map((k) => ({ minX: '−X', maxX: '+X', minY: '−Y', maxY: '+Y' })[k]).join(' ')}{/if}</span></summary>
   <div class="do-opt">
     <label class="do-inline">{t('designData.presumedBearing')}
       <input type="number" min={PRESUMED_BEARING_RANGE.min} max={PRESUMED_BEARING_RANGE.max} step="10" value={d.presumedBearingKPa} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= PRESUMED_BEARING_RANGE.min && v <= PRESUMED_BEARING_RANGE.max) patchDesignData({ presumedBearingKPa: v }); else e.currentTarget.value = String(d.presumedBearingKPa); }} data-testid="design-data-presumed-bearing" /> {'kPa'}
@@ -188,8 +188,10 @@
     <Hint text={t('designData.foundingElevationHint')} />
   </div>
   <div class="do-opt">
+    {#if __PUBLIC_FEATURES__.proRcSheets}
     <span class="do-inline">{t('fdn.propertyLines')} <PropertyLinesPicker testid="design-data-property-line" /></span>
     <Hint text={t('designData.propertyLinesHint')} />
+    {/if}
   </div>
 </details>
 

@@ -62,7 +62,7 @@ export function anchorsFor(nodeIds: number[], lines: PropertyLines): Map<number,
   return anchorsOf(nodeIds.map((id) => {
     const n = modelStore.nodes.get(id);
     if (!n) return null;
-    const h = halfAt(id);
+    const h = __PUBLIC_FEATURES__.proRcSheets ? halfAt(id) : null;
     return { id, x: n.x, y: n.y, ...(h ? { hx: h[0], hy: h[1] } : {}) };
   }).filter((p): p is { id: number; x: number; y: number; hx?: number; hy?: number } => !!p), lines);
 }

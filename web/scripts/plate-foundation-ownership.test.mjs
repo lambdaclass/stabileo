@@ -101,7 +101,7 @@ mount(Panel, {target: document.body});
 `;
 
 for (const mode of ['production', 'development']) {
-  test.skip(`known wrong result: #1928 ${mode} footing and pile-cap placement uses the applicable property lines`, async () => {
+  test(`known wrong result: #1928 ${mode} footing and pile-cap placement uses the applicable property lines`, async () => {
     const sheets = featuresForMode(mode).proRcSheets;
     await withFoundationForm(mode, propertyLineProject, async (page, url) => {
       for (const kind of ['isolated', 'pileCap']) {
@@ -109,13 +109,14 @@ for (const mode of ['production', 'development']) {
           await page.goto(url);
           await page.getByTestId('foundation-kind-' + kind).click();
           const minX = page.getByTestId('foundation-line-minX');
-          assert.equal(await minX.isChecked(), !!sheets);
+          const initial = await minX.isChecked();
           if (chooseX) await minX.check();
           await page.getByTestId('foundation-line-maxY').check();
           await page.getByTestId('foundation-place').click();
           assert.deepEqual(await page.evaluate(() => window.placedAnchors()), [
             [sheets || chooseX ? -1 : 0, 0], [sheets ? -1 : 0, 1], [0, 0],
           ]);
+          assert.equal(initial, !!sheets);
         }
       }
     });

@@ -29,6 +29,7 @@ export const switchOnUnitFiles = [
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/lib/model/foundation/__tests__/generate.test.ts',
   'src/lib/store/__tests__/bulk-model-inventory.test.ts',
   'src/lib/engine/design/__tests__/column-end-zones.test.ts',
   'src/lib/store/__tests__/load-plan-physical-shells.test.ts',

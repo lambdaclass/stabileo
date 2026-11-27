@@ -102,7 +102,7 @@ describe('foundations in the model', () => {
   });
 });
 
-it.skip('known wrong result: #1928 only the sheet generator uses a column face beyond the outer support axes', () => {
+it('known wrong result: #1928 only the sheet generator uses a column face beyond the outer support axes', () => {
   modelStore.clear();
   const points = [[0.15, 0, 0.3], [0.25, 5, 0.5], [6, 2.5, 0.4]];
   const bases = points.map(([x, y, side]) => {
