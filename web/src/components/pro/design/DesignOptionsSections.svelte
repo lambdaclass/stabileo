@@ -24,7 +24,7 @@
   import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
   import PropertyLinesPicker from './PropertyLinesPicker.svelte';
   import ProDeflectionLimits from '../ProDeflectionLimits.svelte';
-  import { setBeamsLateral } from '../../../lib/store/lateral-system';
+  import BeamsLateralSelect from './BeamsLateralSelect.svelte';
   import StabileoCriteria from './StabileoCriteria.svelte';
   import FlangeBeamsPicker from './FlangeBeamsPicker.svelte';
   import { PROPERTY_SIDES } from '../../../lib/model/foundation/edges';
@@ -94,11 +94,7 @@
   <div class="do-opt" data-testid="design-data-lateral">
     <span class="do-inline do-label">{t('lateral.title')}</span>
     <label class="do-inline">{t('lateral.beams')}
-      <select value={d.lateralSystem?.beams ?? ''} onchange={(e) => { const v = e.currentTarget.value; setBeamsLateral(v === 'lateral' || v === 'gravity' ? v : null); }} data-testid="design-data-lateral-beams">
-        <option value="">{t('lateral.option.undeclared')}</option>
-        <option value="lateral">{t('lateral.option.lateral')}</option>
-        <option value="gravity">{t('lateral.option.gravity')}</option>
-      </select>
+      <BeamsLateralSelect value={d.lateralSystem?.beams ?? ''} />
     </label>
     <Hint text={t('lateral.projectHint')} />
   </div>

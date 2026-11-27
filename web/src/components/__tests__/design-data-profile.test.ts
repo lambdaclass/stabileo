@@ -4,7 +4,7 @@ import ProDesignDataPanel from '../pro/ProDesignDataPanel.svelte';
 import { modelStore } from '../../lib/store';
 import { patchDesignData } from '../../lib/store/design-data';
 
-it.skip('known wrong result: disabled design-data panel — offers the diameter inputs the design actually reads and the options its profile supports', () => {
+it('offers the diameter inputs the design actually reads and the options its profile supports', () => {
   modelStore.clear();
   try {
     patchDesignData({ stirrupDiaMm: 10, wallBarDiaMm: 16 });

@@ -16,6 +16,8 @@
   } from '../../lib/model/design-data';
   import { designData, patchDesignData, setDesignData, storedDesignData } from '../../lib/store/design-data';
   import ProConcreteByLevel from './ProConcreteByLevel.svelte';
+  import BeamsLateralSelect from './design/BeamsLateralSelect.svelte';
+  import ProDeflectionLimits from './ProDeflectionLimits.svelte';
   import DesignOptionsSections from './design/DesignOptionsSections.svelte';
   import { SLAB_BAR_RANGE, TIE_BAR_RANGE, WALL_BAR_RANGE, inRange } from '../../lib/rc-sheets/types';
   import { SLAB_FACES } from '../../lib/rc-sheets/slab-row';
@@ -31,8 +33,10 @@
   const LISTS: Array<{ key: ListKey; id: string; label: string; range: { min: number; max: number } }> = [
     { key: 'longDiametersMm', id: 'long', label: 'designData.longitudinal', range: { min: 8, max: Infinity } },
     { key: 'stirrupDiametersMm', id: 'ties', label: 'designData.stirrups', range: TIE_BAR_RANGE },
-    { key: 'slabDiametersMm', id: 'slab', label: 'designData.slabBars', range: SLAB_BAR_RANGE },
-    { key: 'wallDiametersMm', id: 'wall', label: 'designData.wallBar', range: WALL_BAR_RANGE },
+    ...(__PUBLIC_FEATURES__.proPlatesUnified ? [
+      { key: 'slabDiametersMm' as const, id: 'slab', label: 'designData.slabBars', range: SLAB_BAR_RANGE },
+      { key: 'wallDiametersMm' as const, id: 'wall', label: 'designData.wallBar', range: WALL_BAR_RANGE },
+    ] : []),
   ];
   const slabBaseSummary = $derived.by(() => {
     const on = SLAB_FACES.flatMap((k) => { const v = d.slabBase?.[k]; return v ? [`${t(`slabEd.key.${k}`)} Ø${v.diameter} c/${Math.round(v.spacing * 1000) / 10}`] : []; });
@@ -70,6 +74,13 @@
         </select>
       </label>
       <label class="dd-inline">fy <input type="number" min="200" step="10" value={d.rebarFy} onchange={(e) => patchDesignData({ rebarFy: Number(e.currentTarget.value) || d.rebarFy })} data-testid="design-data-fy" /> MPa</label>
+      {#if !__PUBLIC_FEATURES__.proPlatesUnified}
+        <label class="dd-inline">{t('designData.stirrup')}
+          <select value={d.stirrupDiaMm} onchange={(e) => patchDesignData({ stirrupDiaMm: Number(e.currentTarget.value) })} data-testid="design-data-stirrup">
+            {#each BAR_DIAMETERS_MM.filter((x) => x <= 16) as dia}<option value={dia}>Ø{dia}</option>{/each}
+          </select>
+        </label>
+      {/if}
     </div>
     <h5 class="dd-h dd-gap">{t('designData.diameters')}</h5>
     <Hint text={t('designData.diametersHint')} />
@@ -81,12 +92,25 @@
         {/each}
       </div>
     {/each}
+    {#if !__PUBLIC_FEATURES__.proPlatesUnified}
+      <label class="dd-inline">{t('designData.wallBar')}
+        <select value={d.wallBarDiaMm} onchange={(e) => patchDesignData({ wallBarDiaMm: Number(e.currentTarget.value) })} data-testid="design-data-wall">
+          {#each BAR_DIAMETERS_MM.filter((x) => x >= 8 && x <= 20) as dia}<option value={dia}>Ø{dia}</option>{/each}
+        </select>
+      </label>
+    {/if}
+    {#if !__PUBLIC_FEATURES__.proRcSheets}
+      <label class="dd-inline dd-check"><input type="checkbox" checked={d.columnEndZones === true} onchange={(e) => patchDesignData({ columnEndZones: e.currentTarget.checked })} data-testid="design-data-end-zones" /> {t('designData.columnEndZones')}</label>
+      <Hint text={t('designData.columnEndZonesHint')} />
+    {/if}
   </section>
 
   <section class="pk-card" data-testid="design-data-covers">
     <h5 class="dd-h">{t('designData.covers')}</h5>
     <Hint text={t('designData.coversHint')} />
-    <label class="dd-inline"><input type="checkbox" checked={d.executionControl !== false} onchange={(e) => patchDesignData({ executionControl: e.currentTarget.checked ? undefined : false })} data-testid="design-data-control" /> {t('designData.executionControl')}</label>
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      <label class="dd-inline"><input type="checkbox" checked={d.executionControl !== false} onchange={(e) => patchDesignData({ executionControl: e.currentTarget.checked ? undefined : false })} data-testid="design-data-control" /> {t('designData.executionControl')}</label>
+    {/if}
     <table class="dd-table">
       <thead><tr><th></th><th>{t('designData.exposure')}</th><th>{t('designData.cover')}</th><th>{t('designData.minimum')}</th></tr></thead>
       <tbody>
@@ -112,7 +136,21 @@
 
   <ProConcreteByLevel />
 
-  <DesignOptionsSections />
+  {#if __PUBLIC_FEATURES__.proRcSheets}
+    <DesignOptionsSections />
+  {:else}
+    <section class="pk-card" data-testid="design-data-lateral">
+      <h5 class="dd-h">{t('lateral.title')}</h5>
+      <Hint text={t('lateral.projectHint')} />
+      <label class="dd-inline">{t('lateral.beams')}
+        <BeamsLateralSelect value={d.lateralSystem?.beams ?? ''} />
+      </label>
+    </section>
+    <section class="pk-card">
+      <h5 class="dd-h">{t('designData.deflection')}</h5>
+      <ProDeflectionLimits />
+    </section>
+  {/if}
 
   <details class="pk-card dd-more" data-testid="design-data-slab-base">
     <summary><span class="dd-h">{t('designData.slabBase')}</span> <span class="dd-sum">{slabBaseSummary}</span></summary>
