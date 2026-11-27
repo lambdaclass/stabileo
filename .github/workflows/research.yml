@@ -139,13 +139,14 @@ jobs:
           nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
       - name: Compare isolated Italian payloads with the pinned transition meter
         env:
-          METER_REV: 9a9468517454bc283d61b274f64579971155247c
+          METER_REV: 30dd216be66c9a5b23193ea2bd7b3e32909ec1a6
           RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}
         run: |
-          if [ ! -e route-main/web/scripts/italian-route-bytes.mjs ]; then
-            mkdir -p web/.route-transition
-            git archive "$METER_REV" web/scripts | tar -x -C web/.route-transition --strip-components=2
-            meter="$GITHUB_WORKSPACE/web/.route-transition/check-research-route-size.mjs"
+          if ! jq -e 'has("publicLocales")' "$RUNNER_TEMP/route-main.json" >/dev/null; then
+            meter_root=$(mktemp -d "$RUNNER_TEMP/route-meter.XXXXXX")
+            git archive "$METER_REV" web/scripts web/package.json web/package-lock.json web/src | tar -x -C "$meter_root"
+            .github/scripts/retry-infra.sh nix develop . -c npm ci --prefix "$meter_root/web"
+            meter="$meter_root/web/scripts/check-research-route-size.mjs"
             (cd route-main/web && nix develop ../.. -c node "$meter" --baseline "$RUNNER_TEMP/route-partition.json" --update)
             (cd web && nix develop .. -c node "$meter" --baseline "$RUNNER_TEMP/route-partition.json")
           fi

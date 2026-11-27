@@ -157,7 +157,6 @@ def check_transition_meter():
     assert step['run'].count('node "$meter"') == 2
 
 
-@unittest.skip("known wrong result: #2595")
 def check_meter_dependencies():
     step = next(s for s in route if 'METER_REV' in s.get('env', {}))
     assert 'web/package.json web/package-lock.json' in step['run']
@@ -165,6 +164,7 @@ def check_meter_dependencies():
 
 
 check_transition_meter()
+check_meter_dependencies()
 assert measured and all('if' not in step for step in measured)
 assert measured[0]['env']['RESEARCH_ISOLATION'] == '${{ steps.scope.outputs.research }}'
 assert not any(line.strip().startswith('cp ') for line in measured[0]['run'].splitlines())
