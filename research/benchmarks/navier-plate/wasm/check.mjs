@@ -16,10 +16,13 @@ try {
   const engine = await server.ssrLoadModule('/src/lib/engine/wasm-solver.ts');
   await engine.initSolver();
   const p = m.parameters;
+  const totalLoad = p.pressure * p.a * p.b;
+  let equilibrium = 0;
   const solve = input => {
     const result = engine.solve3D(m.toSolverInput(input));
     const reaction = result.reactions.reduce((sum, r) => sum + r.fz, 0);
-    return { values: m.downward(input, result.displacements), reaction };
+    equilibrium = Math.max(equilibrium, Math.abs(reaction - totalLoad));
+    return m.downward(input, result.displacements);
   };
   const relative = (w, ref) => Math.abs(w / ref - 1);
   const checks = [];
@@ -32,42 +35,49 @@ try {
   }
   check('plate builder (TypeScript) against the six engine-owned fixture cases: cases that differ', builderDifferences, 0);
 
-  const totalLoad = p.pressure * p.a * p.b;
-  let parity = 0, equilibrium = 0;
+  let parity = 0;
+  const compareField = (input, values, recorded) => {
+    const count = Object.keys(input.nodes).length;
+    assert.equal(values.length, count);
+    assert.equal(recorded.length, count);
+    values.forEach((v, k) => {
+      assert.ok(Number.isFinite(v) && Number.isFinite(recorded[k]));
+      parity = Math.max(parity, Math.abs(v - recorded[k]));
+    });
+  };
   const soft = { DKT: [], MITC4: [] };
   fixture.cases.forEach((c, i) => {
-    const { values, reaction } = solve(c.input);
+    const values = solve(c.input);
     const row = replay.rows[i];
     assert.deepEqual([row.family, row.n], [c.family, c.n]);
-    assert.equal(values.length, row.values.length);
-    values.forEach((v, k) => { parity = Math.max(parity, Math.abs(v - row.values[k])); });
-    equilibrium = Math.max(equilibrium, Math.abs(reaction - totalLoad));
+    compareField(c.input, values, row.values);
     soft[c.family].push(values[c.center - 1]);
   });
   const hard = [];
   m.hardCases.forEach((index, k) => {
     const c = fixture.cases[index];
     const { input } = m.build('MITC4', c.n, true);
-    const { values, reaction } = solve(input);
-    values.forEach((v, j) => { parity = Math.max(parity, Math.abs(v - replay.hard_rows[k].values[j])); });
-    equilibrium = Math.max(equilibrium, Math.abs(reaction - totalLoad));
+    const values = solve(input);
+    assert.deepEqual([replay.hard_rows[k].family, replay.hard_rows[k].n], [c.family, c.n]);
+    compareField(input, values, replay.hard_rows[k].values);
     hard.push(values[c.center - 1]);
   });
   check('production WASM against the native replay, every node of the six soft-support and three hard-support meshes: largest difference (mm)', parity, 1e-9);
-  check('vertical equilibrium, reactions against the 150 kN load, every mesh: largest difference (kN)', equilibrium, 1e-6);
-
-  const kirchhoff = p.reference_mm, mindlin = p.mindlin_reference_mm;
-  check('thin-plate series, 100 × 100 odd terms, against the stored reference (mm)', Math.abs(m.navierCenter() - kirchhoff), 1e-12);
-  check('thin-plate series truncation, 400 × 400 against 100 × 100 odd terms (mm)', Math.abs(m.navierCenter(4 * p.terms) - kirchhoff), 1e-9);
-  check('Reissner–Mindlin series, 1000 × 1000 odd terms, against the stored reference (mm)', Math.abs(m.mindlinCenter() - mindlin), 1e-11);
-  check('Reissner–Mindlin series truncation, 2000 × 2000 against 1000 × 1000 odd terms (mm)', Math.abs(m.mindlinCenter(2 * p.mindlin_terms) - mindlin), 1e-9);
-  check('published 1.28375 mm against the thin-plate series (mm)', Math.abs(p.published_mm - kirchhoff), 5e-6);
 
   const finer = (family, hardSupport, n) => {
     const { input, center } = m.build(family, n, hardSupport);
-    return solve(input).values[center - 1];
+    return solve(input)[center - 1];
   };
   const dkt = soft.DKT, dkt32 = finer('DKT', false, 32), hard32 = finer('MITC4', true, 32);
+  const soft32 = finer('MITC4', false, 32), soft64 = finer('MITC4', false, 64);
+  check('vertical equilibrium, reactions against the 150 kN load, every mesh: largest difference (kN)', equilibrium, 1e-6);
+  const kirchhoff = m.navierCenter(), mindlin = m.mindlinCenter();
+  check('thin-plate series, 100 × 100 odd terms, against the stored reference (mm)', Math.abs(kirchhoff - p.reference_mm), 1e-12);
+  check('thin-plate series truncation, 400 × 400 against 100 × 100 odd terms (mm)', Math.abs(m.navierCenter(4 * p.terms) - kirchhoff), 1e-9);
+  check('Reissner–Mindlin series, 1000 × 1000 odd terms, against the stored reference (mm)', Math.abs(mindlin - p.mindlin_reference_mm), 1e-11);
+  check('Reissner–Mindlin series truncation, 2000 × 2000 against 1000 × 1000 odd terms (mm)', Math.abs(m.mindlinCenter(2 * p.mindlin_terms) - mindlin), 1e-9);
+  check('published 1.28375 mm against the thin-plate series (mm)', Math.abs(p.published_mm - kirchhoff), 5e-6);
+
   const monotone = (w, ref) => w.slice(1).filter((x, i) => !(relative(x, ref) < relative(w[i], ref))).length;
   check('DKT 4, 8, 16: refinements whose thin-plate error does not decrease', monotone(dkt, kirchhoff), 0);
   check('DKT 16 × 16 against the thin-plate series: relative difference', relative(dkt[2], kirchhoff), 0.0025);
@@ -77,7 +87,6 @@ try {
   check('MITC4 hard support 16 × 16 against the Reissner–Mindlin series: relative difference', relative(hard[2], mindlin), 0.0016);
   check('MITC4 hard support increment ratio (8 → 16) / (16 → 32): distance from 4 (second order)', Math.abs((hard[2] - hard[1]) / (hard32 - hard[2]) - 4), 0.5);
   check('MITC4 hard support Richardson extrapolation of 16 × 16 and 32 × 32 against the Reissner–Mindlin series: relative difference', relative(m.richardson(hard[2], hard32), mindlin), 1e-4);
-  const soft32 = finer('MITC4', false, 32), soft64 = finer('MITC4', false, 64);
   check('MITC4 soft support 32 × 32 against the documented 1.305399383 mm: relative difference', relative(soft32, 1.305399383), 1e-6);
   check('MITC4 soft support 64 × 64 against the documented 1.310611471 mm: relative difference', relative(soft64, 1.310611471), 1e-6);
   const mitc4 = soft.MITC4;
@@ -100,6 +109,7 @@ try {
   const comparison = { what: 'The published worked example against Stabileo, written by this script.', command: COMMAND, checks: rows };
   const paths = { validation: new URL('VALIDATION.json', here), comparison: new URL('reference-results/published_comparison.json', here), manifest: new URL('reference-results/MANIFEST.json', here) };
   const text = value => JSON.stringify(value, null, 2) + '\n';
+  assert.equal(failing.length, 0, JSON.stringify(failing));
   if (write) {
     writeFileSync(paths.validation, text(validation));
     writeFileSync(paths.comparison, text(comparison));

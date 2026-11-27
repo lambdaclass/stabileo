@@ -299,17 +299,20 @@ jobs:
       - name: Compare the page runner through the production WASM wrapper
         run: |
           nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs "$RUNNER_TEMP/macneal-native.json"
+          nix develop -c python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_macneal_rejects_stale_measurements_even_with_a_matching_digest "$RUNNER_TEMP/macneal-native.json"
       - name: Test measurement and editor handoff
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/macneal1985/__tests__/cases.test.ts'
       - name: Navier plate production WASM against the series, the native replay and the published example
         run: |
           nix develop -c node research/benchmarks/navier-plate/wasm/check.mjs
+          nix develop -c python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_hard_plate_replay_contains_one_displacement_per_mesh_node
           nix develop -c sh -c 'cd web && npx vitest run src/components/research/navier1823'
       - name: Plastic collapse native assertions
         run: nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test integration plastic_collapse_benchmark::portal_combined_mechanism
       - name: Plastic collapse production WASM against the hand bounds, the native replay and VALIDATION.json
         run: |
           nix develop -c node research/benchmarks/plastic-collapse/wasm/check.mjs
+          nix develop -c python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_portal_requires_every_recorded_node_and_member
           nix develop -c sh -c 'cd web && npx vitest run src/components/research/plastic-collapse'
       - name: Mattiasson native regression assertions
         run: nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation corotational_benchmarks

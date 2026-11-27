@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
+import archReplay from '../../research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json' with { type: 'json' };
+import arch from '../../engine/tests/benchmarks/dadeppo_arch.json' with { type: 'json' };
 
-test('stopping a moment change preserves the displayed replay', async ({ page }) => {
+test('@smoke stopping a moment change preserves the displayed replay', async ({ page }) => {
   await page.addInitScript(() => { window.Worker = class { postMessage() {} terminate() {} } as unknown as typeof Worker; });
   await page.goto('/en/research/stability/ferrari-sigmund-2025/');
   const select = page.getByTestId('ferrari-sign');
@@ -11,7 +13,7 @@ test('stopping a moment change preserves the displayed replay', async ({ page })
   await expect(page.getByTestId('ferrari-source')).toContainText('Precomputed replay');
 });
 
-test('stopping a portal update restores its model', async ({ page }) => {
+test('@smoke stopping a portal update restores its model', async ({ page }) => {
   await page.route(/dedaliano_engine_bg[^/]*\.wasm/, () => {});
   await page.goto('/en/research/benchmarks/plastic-collapse/');
   const height = page.getByTestId('height');
@@ -21,7 +23,7 @@ test('stopping a portal update restores its model', async ({ page }) => {
   await expect(height).toHaveValue(original);
 });
 
-test('mesh links respect the running Mattiasson mesh', async ({ page }) => {
+test('@smoke mesh links respect the running Mattiasson mesh', async ({ page }) => {
   await page.route(/dedaliano_engine_bg[^/]*\.wasm/, () => {});
   await page.goto('/en/research/benchmarks/mattiasson-elastica/');
   const mesh = page.locator('.benchmark-pane select');
@@ -30,7 +32,7 @@ test('mesh links respect the running Mattiasson mesh', async ({ page }) => {
   await expect(mesh).toHaveValue('16');
 });
 
-test('an interrupted custom plate has no measured field', async ({ page }) => {
+test('@smoke an interrupted custom plate has no measured field', async ({ page }) => {
   await page.addInitScript(() => {
     window.Worker = class {
       postMessage() {}
@@ -46,7 +48,7 @@ test('an interrupted custom plate has no measured field', async ({ page }) => {
   await expect(page.getByTestId('navier-source')).toContainText(/stop|interrupt/i);
 });
 
-test('known wrong result: #2505 — the Fairclough paper row sends a live request', async ({ page }) => {
+test('@smoke the Fairclough paper row sends a live request', async ({ page }) => {
   await page.addInitScript(() => {
     window.Worker = class {
       postMessage() { document.documentElement.dataset.liveLayout = 'requested'; }
@@ -58,7 +60,7 @@ test('known wrong result: #2505 — the Fairclough paper row sends a live reques
   await expect(page.locator('html')).toHaveAttribute('data-live-layout', 'requested');
 });
 
-test('known wrong result: #2505 — thin plate warns when the predicted displacement exceeds its thickness', async ({ page }) => {
+test('@smoke thin plate warns when the predicted displacement exceeds its thickness', async ({ page }) => {
   await page.goto('/en/research/benchmarks/navier-plate/');
   await page.getByTestId('navier-t').selectOption('0.02');
   await expect(page.getByTestId('navier-small-deflection')).toContainText(/thickness/i);
@@ -66,7 +68,7 @@ test('known wrong result: #2505 — thin plate warns when the predicted displace
   await expect(page.getByTestId('navier-small-deflection')).toHaveCount(0);
 });
 
-test('known wrong result: #2505 — a built shell mesh reports initialization failure and offers retry', async ({ page }) => {
+test('@smoke a built shell mesh reports initialization failure and offers retry', async ({ page }) => {
   await page.route(/dedaliano_engine_bg[^/]*\.wasm/, route => route.abort());
   await page.goto('/en/research/benchmarks/shell-obstacle-course/');
   await page.getByTestId('try-roof-20').click();
@@ -75,13 +77,12 @@ test('known wrong result: #2505 — a built shell mesh reports initialization fa
 });
 
 for (const elements of [20, 80] as const) {
-  test.skip(`known wrong result: #2505 — matching the ${elements}-element arch peak alone cannot certify the descending branch`, async ({ page }) => {
-    const { archInput, studyValue } = await import('../src/components/research/dadeppo1975/case');
-    const input = archInput(elements);
-    const loadFactor = studyValue(elements, 'loadFactor');
-    const frame = { step: input.maxSteps, loadFactor, displacements: Object.values(input.solver.nodes).map(n => ({ nodeId: n.id, ux: 0, uz: 0, ry: 0 })) };
-    const steps = Array.from({ length: input.maxSteps }, (_, i) => ({ step: i + 1, converged: true, loadFactor: i === input.maxSteps - 1 ? loadFactor * 0.99 : loadFactor }));
-    const crown = { uOverR: studyValue(elements, 'uOverR'), vOverR: studyValue(elements, 'vOverR'), rotation: studyValue(elements, 'rotation') };
+  test(`@smoke matching the ${elements}-element arch peak alone cannot certify the descending branch`, async ({ page }) => {
+    const { loadFactor, uOverR, vOverR, rotation } = archReplay.convergence.meshes.find(mesh => mesh.elements === elements)!;
+    const maxSteps = elements === 80 ? arch.input.maxSteps / 2 : arch.input.maxSteps;
+    const frame = { step: maxSteps, loadFactor, displacements: Array.from({ length: elements + 1 }, (_, i) => ({ nodeId: i, ux: 0, uz: 0, ry: 0 })) };
+    const steps = Array.from({ length: maxSteps }, (_, i) => ({ step: i + 1, converged: true, loadFactor: i === maxSteps - 1 ? loadFactor * 0.99 : loadFactor }));
+    const crown = { uOverR, vOverR, rotation };
     await page.addInitScript(data => {
       window.Worker = class {
         onmessage?: (event: { data: unknown }) => void;
@@ -93,6 +94,6 @@ for (const elements of [20, 80] as const) {
     const controls = page.locator('.controls');
     await controls.locator('select').first().selectOption(String(elements));
     await controls.locator('button').first().click();
-    await expect(page.getByTestId('arch-verdict')).not.toContainText(/descending branch reached/i);
+    await expect(page.getByTestId('arch-verdict')).toHaveText('Outside tolerance');
   });
 }

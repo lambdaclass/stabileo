@@ -16,7 +16,7 @@
     },
     {
       "metric": "vertical equilibrium, reactions against the 150 kN load, every mesh: largest difference (kN)",
-      "observed": 8.137135409924667e-11,
+      "observed": 2.1413484319054987e-9,
       "tolerance": 0.000001,
       "passed": true
     },
@@ -28,7 +28,7 @@
     },
     {
       "metric": "thin-plate series truncation, 400 × 400 against 100 × 100 odd terms (mm)",
-      "observed": 2.6318724977159036e-11,
+      "observed": 2.631539430808516e-11,
       "tolerance": 1e-9,
       "passed": true
     },
@@ -40,13 +40,13 @@
     },
     {
       "metric": "Reissner–Mindlin series truncation, 2000 × 2000 against 1000 × 1000 odd terms (mm)",
-      "observed": 7.167599846980011e-13,
+      "observed": 1.0966783037247296e-12,
       "tolerance": 1e-9,
       "passed": true
     },
     {
       "metric": "published 1.28375 mm against the thin-plate series (mm)",
-      "observed": 0.0000018857703654173719,
+      "observed": 0.0000018857703620867028,
       "tolerance": 0.000005,
       "passed": true
     },
@@ -58,7 +58,7 @@
     },
     {
       "metric": "DKT 16 × 16 against the thin-plate series: relative difference",
-      "observed": 0.0022018496629908624,
+      "observed": 0.002201849662993416,
       "tolerance": 0.0025,
       "passed": true
     },
@@ -70,7 +70,7 @@
     },
     {
       "metric": "DKT Richardson extrapolation of 16 × 16 and 32 × 32 against the thin-plate series: relative difference",
-      "observed": 8.180138491020728e-7,
+      "observed": 8.180138516555857e-7,
       "tolerance": 0.0001,
       "passed": true
     },
@@ -82,7 +82,7 @@
     },
     {
       "metric": "MITC4 hard support 16 × 16 against the Reissner–Mindlin series: relative difference",
-      "observed": 0.0014231150284841343,
+      "observed": 0.0014231150281895921,
       "tolerance": 0.0016,
       "passed": true
     },
@@ -94,7 +94,7 @@
     },
     {
       "metric": "MITC4 hard support Richardson extrapolation of 16 × 16 and 32 × 32 against the Reissner–Mindlin series: relative difference",
-      "observed": 0.0000014744418193046727,
+      "observed": 0.000001474441524318415,
       "tolerance": 0.0001,
       "passed": true
     },

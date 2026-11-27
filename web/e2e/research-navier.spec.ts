@@ -75,6 +75,10 @@ for (const [width, height] of [[360, 900], [390, 844], [844, 390], [810, 1080]])
     });
     expect(appFirst).toBe(true);
 
+    const first = page.locator('.rs-shell-app button:visible:enabled, .rs-shell-app select:visible:enabled, .rs-shell-app [tabindex="0"]:visible').first();
+    const article = page.locator('.rs-shell-article a[href]:visible, .rs-shell-article button:visible:enabled').first();
+    expect(await first.evaluate((control, link) => Boolean(control.compareDocumentPosition(link as Node) & Node.DOCUMENT_POSITION_FOLLOWING), await article.elementHandle())).toBe(true);
+
     await page.screenshot({ path: testInfo.outputPath('navier.png'), fullPage: true });
   });
 }
@@ -152,14 +156,14 @@ const LOCALES = [
   ['hu', 'Navier-lemez: hálókonvergencia', 'Előre kiszámított visszajátszás (ugyanaz a megoldó)'],
   ['zh', 'Navier 板：网格收敛', '预先计算的回放（同一求解器）'],
 ] as const;
-const CONJUNCTION: Record<string, string> = { es: 'y', pt: 'e', de: 'und', fr: 'et', tr: 've' };
+const CONJUNCTION: Record<string, string> = { es: 'y', pt: 'e', de: 'und', fr: 'et', tr: 've', hu: 'és', zh: '和' };
 
 for (const [locale, title, replayLabel] of LOCALES) {
   test(`@smoke Navier plate in ${locale}`, async ({ page }) => {
     test.skip(!isComplete(locale), 'not offered until a native speaker checks it (#1628)');
     await open(page, locale, 390, 844);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
-    if (CONJUNCTION[locale]) await expect(page).toHaveTitle(`${title} (Ventsel ${CONJUNCTION[locale]} Krauthammer 2001) — Stabileo Research`);
+    await expect(page).toHaveTitle(`${title} (Ventsel ${CONJUNCTION[locale]} Krauthammer 2001) — Stabileo Research`);
     await expect(page.getByTestId('navier-source')).toHaveText(replayLabel);
     await expectRows(page, replay.rows);
     await expect(page.getByTestId('navier-reference')).toHaveText(new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(reference));

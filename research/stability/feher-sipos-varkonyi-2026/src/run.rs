@@ -69,6 +69,38 @@ impl std::fmt::Display for PathError {
     }
 }
 
+fn load_arch(state: &State, target: Setting) -> Result<State, PathError> {
+    let advance = |s: &State, to| s.advance(to, 4).or_else(|_| s.advance(to, 40));
+    let trial = advance(state, target).map_err(|_| PathError::StartUnsolved)?;
+    if state.jump_to(&trial) <= SNAP {
+        return Ok(trial);
+    }
+    for pieces in 2..=32 {
+        let mut current = state.clone();
+        let mut continuous = true;
+        let mut completed = true;
+        for i in 1..=pieces {
+            let q = state.setting.q + (target.q - state.setting.q) * i as f64 / pieces as f64;
+            let Ok(next) = advance(&current, Setting { q, ..target }) else {
+                completed = false;
+                break;
+            };
+            if current.jump_to(&next) > SNAP {
+                continuous = false;
+                let landed = next.snapshot();
+                if current.snapshot().y_mid > 0. && landed.y_mid < 0. && landed.stable && trial.snapshot().y_mid < 0. {
+                    return Err(PathError::StartSnaps);
+                }
+            }
+            current = next;
+        }
+        if completed && continuous {
+            return Ok(current);
+        }
+    }
+    Err(PathError::StartUnsolved)
+}
+
 /// The path of Section 3.4 with the far corner of the rectangle at
 /// `(theta, delta)`: (1,0) → (Θ,0) → (Θ,Δ) → (1,Δ) → (1,0) under the paper's
 /// uniform load 2.5, on 60 members.
@@ -92,14 +124,10 @@ pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, ele
     let pieces = (q / LOAD_STEP).ceil().max(1.0) as usize;
     for k in 1..=pieces {
         let to = Setting { theta: 1.0, delta: 0.0, q: q * k as f64 / pieces as f64 };
-        let next = s.advance(to, 4).or_else(|_| s.advance(to, 40)).map_err(|_| PathError::StartUnsolved)?;
-        if s.jump_to(&next) > SNAP {
-            return Err(PathError::StartSnaps);
-        }
-        s = next;
+        s = load_arch(&s, to)?;
     }
     if s.snapshot().y_mid <= 0.0 {
-        return Err(PathError::StartSnaps);
+        return Err(PathError::StartUnsolved);
     }
     let mut frames = vec![frame(&s)];
     let mut corners = vec![0];

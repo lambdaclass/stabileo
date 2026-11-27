@@ -10,7 +10,7 @@ self.onmessage = async ({ data }: MessageEvent<{ split?: Split }>) => {
       const result = solveArcLength({ ...input, maxSteps: step });
       const frame = frameFrom(result, step, input);
       if (peak === null) {
-        const loads = result.steps.map(s => s.loadFactor);
+        const loads: number[] = result.steps.map((s: { loadFactor: number }) => s.loadFactor);
         const i = loads.findIndex((load, k) => k > 0 && k + 1 < loads.length && load > loads[k - 1] && load > loads[k + 1]);
         if (i >= 0) peak = loads[i];
       }

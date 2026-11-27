@@ -10,7 +10,7 @@
     {
       "id": "arc-curvature",
       "metric": "unloaded strip at Θ = 1: curvature relative error against the exact 2",
-      "observed": 0.00012523609621983844,
+      "observed": 0.00012523609621606369,
       "passed": true,
       "tolerance": 0.001
     },
@@ -38,7 +38,7 @@
     {
       "id": "mesh",
       "metric": "arch at Θ = 1, q = 2.5: y(1/2) change from 60 to 120 elements, relative",
-      "observed": 0.0001873382735769367,
+      "observed": 0.00018733827357705966,
       "passed": true,
       "tolerance": 0.001
     },
@@ -66,7 +66,7 @@
     {
       "id": "shape-4",
       "metric": "Figure 9(c) shape 4: median distance from the digitized curve to the closest state on our path",
-      "observed": 0.0017540803944765266,
+      "observed": 0.0017540803944765268,
       "passed": true,
       "tolerance": 0.008
     },
@@ -112,7 +112,7 @@
     },
     "4": {
       "delta": 1.18,
-      "median_distance": 0.0017540803944765266,
+      "median_distance": 0.0017540803944765268,
       "paper_delta": 1.3,
       "paper_theta": 1.0,
       "step": 103,

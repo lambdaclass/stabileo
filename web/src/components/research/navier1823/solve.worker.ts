@@ -1,7 +1,7 @@
 import { initSolver, solve3D } from '../../../lib/engine/wasm-solver';
 import { build, cases, downward, toSolverInput, validPlate, type Plate, type Row } from './model';
 
-export type WorkerError = 'init' | 'solve' | 'displacement';
+export type WorkerError = 'input' | 'init' | 'solve' | 'displacement';
 export type WorkerRequest = { run: true } | { plate: Plate; token: number };
 
 self.onmessage = async ({ data }: MessageEvent<WorkerRequest>) => {
@@ -10,6 +10,7 @@ self.onmessage = async ({ data }: MessageEvent<WorkerRequest>) => {
   try {
     await initSolver();
     if ('plate' in data) {
+      stage = 'input';
       if (!validPlate(data.plate)) throw new Error('invalid plate');
       const { family, n, hard, thickness } = data.plate;
       const { input, center } = build(family, n, hard, thickness);

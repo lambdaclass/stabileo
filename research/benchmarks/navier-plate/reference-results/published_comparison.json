@@ -20,9 +20,9 @@
       "source": "Haukaas (2018), Navier’s Solution for Uniform Load, p. 3",
       "unit": "mm",
       "reference": 1.28375,
-      "computed": 1.2837481142296345,
+      "computed": 1.2837481142296379,
       "metric": "absolute difference (printed to five decimals)",
-      "observed": 0.0000018857703654173719,
+      "observed": 0.0000018857703620867028,
       "tolerance": 0.000005,
       "passed": true
     },

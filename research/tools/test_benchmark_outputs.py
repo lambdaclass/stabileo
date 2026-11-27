@@ -41,7 +41,6 @@ class BenchmarkOutputs(unittest.TestCase):
                 file.write_text(json.dumps({'checks': incomplete}))
                 self.reject(folder)
 
-    @unittest.skip('known wrong result: #2505')
     def test_hard_plate_replay_contains_one_displacement_per_mesh_node(self):
         folder = self.benchmark('benchmarks/navier-plate')
         file = folder / 'results/stabileo_results.json'
@@ -86,5 +85,5 @@ class BenchmarkOutputs(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    native = Path(sys.argv.pop()).resolve()
+    native = Path(sys.argv.pop()).resolve() if sys.argv[-1].endswith('.json') else None
     unittest.main()

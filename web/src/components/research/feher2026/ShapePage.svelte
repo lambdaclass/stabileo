@@ -15,6 +15,7 @@
   import { decodeRun, endAngles, isPaper, sameSettings, settingsOf, PAPER, type ShapeRun, type ShapeSettings } from './protocol';
   import replay from '../../../../../research/stability/feher-sipos-varkonyi-2026/reference-results/replay.json';
   import validation from '../../../../../research/stability/feher-sipos-varkonyi-2026/VALIDATION.json';
+  import { comparisonStrings } from '../shell/comparison-strings';
   import publishedComparison from '../../../../../research/stability/feher-sipos-varkonyi-2026/reference-results/published_comparison.json';
 
   type Check = { id: string; observed: number; passed: boolean };
@@ -94,6 +95,7 @@
         const k = c.id.slice('figure-9c-'.length);
         return [c.id, `${fill(s.shapeRow, { k })} · ${setting(matches[k].paper_theta, matches[k].paper_delta)}`];
       }
+      if (c.id === 'qlim-half-optimum-delta') return [c.id, `Δ · ${s.optimumRow}`];
       if (c.id === 'qlim-half-optimum') {
         const optimum = c as PublishedRow & { reference_delta: number; computed_delta: number | null };
         return [c.id, `${s.optimumRow} · ${fill(s.optimumNote, { p: num(optimum.reference_delta, { dp: 2 }), o: optimum.computed_delta == null ? '—' : num(optimum.computed_delta, { dp: 2 }) })}`];
@@ -181,7 +183,7 @@
     <p>{s.limits}</p>
     <h2 id="checks">{s.checksHeading}</h2>
     <p>{s.tableIntro}</p>
-    <p>{s.arcRow}, {s.arcNote}: {scientific(arc.observed)}.</p>
+    <p>{s.arcRow}, {s.arcNote}: {scientific(arc.observed)} · {comparisonStrings().paper} = 0. <span aria-label={arc.passed ? comparisonStrings().within : comparisonStrings().outside}>{arc.passed ? '✓' : '✗'}</span></p>
     <p>{s.openNote}</p>
     {#if extended}
     <h2 id="why">{s.why.heading}</h2>

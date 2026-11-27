@@ -15,13 +15,17 @@ it('renders every evidence measurement, unchanged tolerance and translated ratio
       expect(body).toContain(`<button disabled="">${text[locale].run}</button>`);
       for (const [i, check] of validation.checks.entries()) {
         const index = i < 12 ? i % 6 : i - 6;
-        expect(body).toContain(text[locale].checkNames[index]);
-        for (const v of [check.observed, check.tolerance]) {
+        const rows = [...body.matchAll(/<tr[^>]*>(.*?)<\/tr>/gs)].filter(r => r[1].includes('<td>') && r[1].includes('<th'));
+        const row = rows.slice(-validation.checks.length)[i][1];
+        expect(row).toContain(text[locale].checkNames[index]);
+        if (i < 12) expect(row).toContain(i < 6 ? text[locale].sensitivity : text[locale].density);
+        const cells = [...row.matchAll(/<td>(.*?)<\/td>/gs)].map(m => m[1]);
+        for (const [column, v] of [check.observed, check.tolerance].entries()) {
           const plain = v === 0 || (Math.abs(v) >= 1e-3 && Math.abs(v) < 1e6);
           const { mantissa, exp } = sci(v, 3);
-          expect(body).toContain(plain ? `<td>${num(v, { sig: 3 })}</td>` : `${mantissa}\u200a×\u200a10<sup>${exp}</sup>`);
+          expect(cells[column]).toContain(plain ? num(v, { sig: 3 }) : `${mantissa}\u200a×\u200a10<sup>${exp}</sup>`);
         }
-        expect(body).toContain(text[locale].reasons[index]);
+        expect(cells[2]).toBe(text[locale].reasons[index]);
         expect(check.observed).toBeLessThanOrEqual(check.tolerance);
       }
       expect(body).toContain(text[locale].model);

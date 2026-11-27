@@ -89,9 +89,14 @@
     solving = true;
     await new Promise(resolve => setTimeout(resolve, 120));
     if (mine !== token) return;
-    const [row] = await runCases(undefined, [c]);
-    built = { ...built, [c.id]: row };
-    if (mine === token) solving = false;
+    try {
+      const [row] = await runCases(undefined, [c]);
+      if (mine === token) built = { ...built, [c.id]: row };
+    } catch (e) {
+      if (mine === token) built = { ...built, [c.id]: { id: c.id, value: null, error: null, pass: false, failure: String(e) } };
+    } finally {
+      if (mine === token) solving = false;
+    }
   }
 
   $effect(() => {
@@ -100,6 +105,7 @@
   });
 
   function setMesh(group: Group, n: number) {
+    if (!['roof', 'cylinder', 'hemisphere'].includes(group) || !options(group).includes(n)) return;
     selected = group;
     meshes = { ...meshes, [group]: n };
     tab = 'viewer';
@@ -173,6 +179,7 @@
         </label>
         <p class="source" data-testid="mesh-source">{current.built ? s.fromBuilder.replace('{n}', String(current.mesh)) : s.fromFixture}{#if current.built && solving && !result} · {s.solving.replaceAll('{n}', String(current.mesh))}{/if}</p>
         <p data-testid="selected-result">{current.mesh} × {current.mesh} · {s.reference}: {fmt(signedReference(current))} · Stabileo: {fmt(shown(result).value)} · {s.errorPct}: {pct(shown(result).error)} · {result ? (result.refused ? s.withheld : result.pass ? s.pass : s.fail) : s.pending}</p>
+        {#if current.built && result?.failure && !result.refused}<p role="alert">{result.failure}</p><button data-testid="retry-mesh" disabled={solving} onclick={() => solveBuilt(current)}>{s.run}</button>{/if}
         <label>{s.scale}<span class="range"><input type="range" min="0" max="10" step="0.5" bind:value={scale} /><output>×{num(deformation, { sig: 3 })}</output></span></label>
         <label class="check"><input type="checkbox" bind:checked={showMesh} />{s.showMesh}</label>
         <p>{s.subset}</p>

@@ -145,6 +145,8 @@ fn main() {
     best["computed_delta"] = json!(optimum.map(|o| o.1));
     best["reference_delta"] = json!(1.36);
     published_checks.push(best);
+    published_checks.push(published("qlim-half-optimum-delta", "Clamp setting at the largest half-span limit load along Θ = 0.66", "rad",
+        optimum.map(|o| o.1), 1.36, 0.0125 / 2. + 0.01 / 2., "Sec. 3.2.1 p.19; half the search spacing plus half the last printed decimal"));
     let kappa = |theta, delta, d| curvature_at(96, theta, delta, d, 2.5).ok().map(|(k, _)| k);
     published_checks.push(published("kappa-uniform-0.96-0", "Largest curvature at q = 2.5, uniform load, Θ = 0.96, Δ = 0", "1/L", kappa(0.96, 0.0, Distribution::Uniform), 2.1, 0.05, "Table 1 p.20"));
     published_checks.push(published("kappa-half-0.96-0", "Largest curvature at q = 2.5, load on half the span, Θ = 0.96, Δ = 0, reached after a snap", "1/L", kappa(0.96, 0.0, Distribution::Asymmetric), 7.6, 0.05, "Table 1 p.20"));

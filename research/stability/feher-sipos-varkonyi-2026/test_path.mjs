@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-test('a continuous steep upper branch starts, confirmed inversion and nonconvergence remain separate', { skip: 'known wrong result: #2505' }, async () => {
+test('a continuous steep upper branch starts, confirmed inversion and nonconvergence remain separate', async () => {
   const folder = resolve(process.env.SHAPE_BUNDLE ?? 'web/public/research-wasm/feher-sipos-varkonyi-2026');
   const { default: init, simulation_run } = await import(pathToFileURL(resolve(folder, 'shape.js')).href);
   await init({ module_or_path: await readFile(resolve(folder, 'shape_bg.wasm')) });

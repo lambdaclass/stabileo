@@ -41,6 +41,7 @@
   const verdict = $derived(
     !complete ? (busy ? s.running : s.incomplete.replace('{n}', String(steps.length)).replace('{total}', String(shownInput.maxSteps)))
       : !rows ? (busy ? s.running : s.verdictFail)
+      : !comparison?.passedPeak ? s.verdictFail
       : parity ? (parity.every(Boolean) ? s.verdictStudy.replace('{n}', String(shownElements)) : s.verdictStudyFail.replace('{n}', String(shownElements)))
       : comparison?.pass && rows.every(r => r.pass) ? s.verdictPass : s.verdictFail,
   );
@@ -124,7 +125,7 @@
         <label class="path">{s.livePath}
           <select aria-label={s.livePath} bind:value={liveSteps} disabled={busy}>
             <option value={20}>{s.shortPath}</option>
-            <option value={400}>{s.fullPath}</option>
+            <option value={400}>{s.fullPath.replace('{n}', String(archInput(elements).maxSteps))}</option>
           </select>
         </label>
         <button onclick={run} disabled={busy}>{s.run}</button><button onclick={stop}>{s.stop}</button><button onclick={restart}>{s.restart}</button>

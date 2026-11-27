@@ -27,6 +27,7 @@
     checks?: { passed: number; total: number } | null;
     /** What the experiment is checked against; defaults from `checks` and the catalogue. */
     verification?: { reference: Check; published: Check } | null;
+    publishedLabel?: string;
     referenceLabel?: string | null;
     /** The rows of published_comparison.json, shown as the paper against Stabileo. */
     comparison?: PublishedRow[] | null;
@@ -46,7 +47,7 @@
     /** Replaces "reproduction of" in Cite this when the page does not reproduce the paper. */
     citationRelation?: string;
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, comparison = null, comparisonNames = {}, actions, sourcePath, article, app, wide = false, locale, citationRelation, compactHeader = false, introInArticle = true }: Props = $props();
+  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, publishedLabel, comparison = null, comparisonNames = {}, actions, sourcePath, article, app, wide = false, locale, citationRelation, compactHeader = false, introInArticle = true }: Props = $props();
   provideExperiment(actions);
 
   const entry = catalog.papers.find((p) => p.id === paperId)!;
@@ -68,7 +69,7 @@
       <VerificationSummary
         reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
         published={comparison ? { kind: 'checks', passed: comparison.filter(comparisonPasses).length, total: comparison.length, href: '#comparison' } : verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
-        {referenceLabel}
+        {referenceLabel} {publishedLabel}
       />
       {#if comparison?.length}<div id="comparison"><ComparisonTable rows={comparison} names={comparisonNames} /></div>{/if}
       <p class="rs-lead" lang={locale ?? paperTextLocale(paperId)}>{lead}</p>
@@ -82,6 +83,9 @@
       {#if !introInArticle}{@render introduction()}{/if}
     </header>
     <div class="rs-shell-grid" class:rs-wide={wide}>
+      <aside lang={locale} class="rs-shell-app" aria-label={s.theExperiment}>
+        {@render app()}
+      </aside>
       <article class="rs-shell-article rs-prose" lang={locale ?? paperTextLocale(paperId)}>
         {#if introInArticle}{@render introduction()}{/if}
         {@render article()}
@@ -90,9 +94,6 @@
           {s.citationTitle}{name}{citationRelation ?? s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
         </p>
       </article>
-      <aside lang={locale} class="rs-shell-app" aria-label={s.theExperiment}>
-        {@render app()}
-      </aside>
     </div>
   </div>
 </section>

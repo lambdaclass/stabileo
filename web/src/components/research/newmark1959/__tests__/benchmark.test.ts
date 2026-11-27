@@ -77,6 +77,10 @@ describe('Newmark SDOF benchmark', () => {
     for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const) {
       expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
       expect(Object.values(translations[locale]).every(v => Array.isArray(v) ? v.length === 3 : v.length > 0)).toBe(true);
+      for (const key of Object.keys(translations.en) as (keyof typeof translations.en)[]) {
+        const slots = (value: string | readonly string[]) => [value].flat().map(s => (s.match(/\{\w+\}/g) ?? []).sort());
+        expect(slots(translations[locale][key])).toEqual(slots(translations.en[key]));
+      }
       for (const v of Object.values(translations[locale]).flat()) expect(fill(v, values)).not.toMatch(/\{\w+\}/);
       expect(fill(translations[locale].description, values)).toMatch(/k = EA\/L = 100 kN\/m/);
     }

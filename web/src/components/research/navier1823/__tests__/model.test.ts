@@ -101,6 +101,8 @@ describe('plate builder', () => {
     expect(seriesFor({ ...PAPER_PLATE, hard: true })).toEqual({ kind: 'mindlin', mm: parameters.mindlin_reference_mm });
     expect(seriesFor({ ...PAPER_PLATE, family: 'DKT', thickness: 0.2 })!.mm).toBeCloseTo(parameters.reference_mm / 8, 12);
     expect(Math.abs(seriesFor({ ...PAPER_PLATE, hard: true, thickness: 0.1 + 1e-12 })!.mm - parameters.mindlin_reference_mm)).toBeLessThan(1e-6);
+    const doubled = parameters.reference_mm / 8 + (parameters.mindlin_reference_mm - parameters.reference_mm) / 2;
+    expect(Math.abs(seriesFor({ ...PAPER_PLATE, hard: true, thickness: 0.2 })!.mm - doubled)).toBeLessThan(1e-6);
     expect(validPlate({ ...PAPER_PLATE, n: 3 })).toBe(false);
     expect(validPlate({ ...PAPER_PLATE, n: 34 })).toBe(false);
     expect(validPlate({ ...PAPER_PLATE, thickness: 0.6 })).toBe(false);
@@ -171,6 +173,27 @@ describe('evidence shown on the page', () => {
   it('names every published row in every locale and keeps all checks passing', () => {
     for (const s of Object.values(strings)) expect(Object.keys(s.names)).toEqual(published.checks.map(r => r.id));
     expect(published.checks.every(r => r.passed && r.observed <= r.tolerance)).toBe(true);
+    expect(validation.checks.map(c => c.metric)).toEqual([
+      "plate builder (TypeScript) against the six engine-owned fixture cases: cases that differ",
+      "production WASM against the native replay, every node of the six soft-support and three hard-support meshes: largest difference (mm)",
+      "vertical equilibrium, reactions against the 150 kN load, every mesh: largest difference (kN)",
+      "thin-plate series, 100 × 100 odd terms, against the stored reference (mm)",
+      "thin-plate series truncation, 400 × 400 against 100 × 100 odd terms (mm)",
+      "Reissner–Mindlin series, 1000 × 1000 odd terms, against the stored reference (mm)",
+      "Reissner–Mindlin series truncation, 2000 × 2000 against 1000 × 1000 odd terms (mm)",
+      "published 1.28375 mm against the thin-plate series (mm)",
+      "DKT 4, 8, 16: refinements whose thin-plate error does not decrease",
+      "DKT 16 × 16 against the thin-plate series: relative difference",
+      "DKT increment ratio (4 → 8) / (8 → 16): distance from 4 (second order)",
+      "DKT Richardson extrapolation of 16 × 16 and 32 × 32 against the thin-plate series: relative difference",
+      "MITC4 hard support 4, 8, 16: refinements whose Reissner–Mindlin error does not decrease",
+      "MITC4 hard support 16 × 16 against the Reissner–Mindlin series: relative difference",
+      "MITC4 hard support increment ratio (8 → 16) / (16 → 32): distance from 4 (second order)",
+      "MITC4 hard support Richardson extrapolation of 16 × 16 and 32 × 32 against the Reissner–Mindlin series: relative difference",
+      "MITC4 soft support 32 × 32 against the documented 1.305399383 mm: relative difference",
+      "MITC4 soft support 64 × 64 against the documented 1.310611471 mm: relative difference",
+      "MITC4 soft support 8, 16, 32, 64 keeps rising and ends above 1.015 × Reissner–Mindlin: violations"
+    ]);
     expect(validation.checks.every(c => c.passed && c.observed <= c.tolerance)).toBe(true);
     const dkt16 = published.checks.find(r => r.id === 'dkt-16')!;
     expect(dkt16.computed).toBe(replay.rows.find(r => r.family === 'DKT' && r.n === 16)!.center_mm);

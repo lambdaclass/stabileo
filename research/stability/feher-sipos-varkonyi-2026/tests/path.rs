@@ -43,7 +43,8 @@ fn an_arch_that_snaps_while_loaded_is_reported_before_the_path() {
 fn a_start_past_the_limit_load_never_runs_a_path() {
     for elements in [20, 40, 60, 80, 100, 120] {
         let e = run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err();
-        assert!(matches!(e, run::PathError::StartSnaps | run::PathError::StartUnsolved), "{elements}: {e:?}");
+        let expected = if elements <= 60 { run::PathError::StartSnaps } else { run::PathError::StartUnsolved };
+        assert_eq!(e, expected, "{elements}");
     }
     assert_eq!(run::PathError::StartUnsolved.code(), "start_unsolved");
 }
@@ -77,7 +78,6 @@ fn slider_limits_accept_the_boundary_and_refuse_both_outside_sides() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn optimum_clamp_coordinate_has_its_own_printed_precision_check() {
     let data: serde_json::Value = serde_json::from_str(include_str!("../reference-results/published_comparison.json")).unwrap();
     let rows = data["checks"].as_array().unwrap();
@@ -90,7 +90,6 @@ fn optimum_clamp_coordinate_has_its_own_printed_precision_check() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn a_steep_upper_branch_at_the_last_load_increment_can_still_start() {
     let path = run::path_with(1.0, 0.0, 2.5, Distribution::Asymmetric, 20).unwrap();
     let height = path["frames"][0]["y_mid"].as_f64().unwrap();

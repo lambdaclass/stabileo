@@ -175,11 +175,13 @@ assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "$
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
 for job, evidence in {'engine-benchmarks': ['research/benchmarks/cqc-1981/VALIDATION.json', 'research/benchmarks/newmark-1959/VALIDATION.json'],
                       'koiter': ['VALIDATION.json', 'reference-results/published_comparison.json']}.items():
-    commands = [step.get("run", "") for step in research["jobs"][job]["steps"]]
+    commands = [line.strip() for step in research["jobs"][job]["steps"] for line in step.get("run", "").splitlines()]
     for path in evidence:
         copied = next(i for i, c in enumerate(commands) if f"cp {path} " in c)
+        writer = 'cargo test' if job == 'koiter' else ('cqc' if '/cqc-' in path else 'newmark')
+        regenerated = next(i for i, c in enumerate(commands) if 'cargo test' in c and writer in c and (job != 'koiter' or i > copied))
         compared = next(i for i, c in enumerate(commands) if "compare_evidence.py" in c and f" {path}" in c)
-        assert copied <= compared, (job, path)
+        assert copied < regenerated < compared, (job, path, copied, regenerated, compared)
 
 assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
 for caller, event, route_only, expected in [

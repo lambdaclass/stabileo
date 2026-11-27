@@ -169,7 +169,7 @@
 
 <ExperimentShell paperId="heyman-1966" name={s.title} lead={s.lead} introInArticle compactHeader locale={publicI18n.locale}
   sourcePath="research/mechanics/heyman-1966"
-  referenceLabel={s.referenceLabel}
+  referenceLabel={s.referenceLabel} publishedLabel={s.rizzi}
   verification={{ reference: { kind: 'checks', passed: checks.filter(c => c.passed).length, total: checks.length, href: '#checks' }, published: { kind: 'checks', passed: comparison.filter(c => c.passed).length, total: comparison.length, href: '#comparison' } }}
   {comparison} {comparisonNames}
   actions={{ goToStep, setParams, showTab: setTab }}>

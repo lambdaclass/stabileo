@@ -5,12 +5,12 @@
    */
   import { rs } from '../i18n';
   import type { Check } from './context';
-  let { reference, published, referenceLabel = null }: { reference: Check; published: Check; referenceLabel?: string | null } = $props();
+  let { reference, published, referenceLabel = null, publishedLabel }: { reference: Check; published: Check; referenceLabel?: string | null; publishedLabel?: string } = $props();
   const s = $derived(rs());
 </script>
 
 <dl class="rs-verify">
-  {#each [[referenceLabel ?? s.againstCode, reference], [s.againstPaper, published]] as [label, c] (label)}
+  {#each [[referenceLabel ?? s.againstCode, reference], [publishedLabel ?? s.againstPaper, published]] as [label, c] (label)}
     {@const check = c as Check}
     <div>
       <dt>{label}</dt>

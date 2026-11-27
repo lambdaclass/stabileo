@@ -10,11 +10,11 @@ import { shapeStrings } from '../../feher2026/strings';
 import { archInput } from '../../dadeppo1975/case';
 
 afterEach(() => setPublicLocale('en'));
-it.skip('known wrong result: #2505 — credits the source of the masonry comparisons in the verdict', () => {
+it('credits the source of the masonry comparisons in the verdict', () => {
   expect(render(Heyman).body.match(/<dl class="rs-verify[^"]*">.*?<\/dl>/s)?.[0]).toContain('Rizzi');
 });
 
-it.skip.each(PUBLIC_LOCALES)('known wrong result: #2505 — displays circle target and verdict, and mesh-specific path length in %s', locale => {
+it.each(PUBLIC_LOCALES)('displays circle target and verdict, and mesh-specific path length in %s', locale => {
   setPublicLocale(locale);
   const row = render(Shape).body.split(shapeStrings().arcNote)[1]?.split('</p>')[0];
   expect(row).toMatch(/\b0\b/);
@@ -23,7 +23,7 @@ it.skip.each(PUBLIC_LOCALES)('known wrong result: #2505 — displays circle targ
   expect(arch[locale].fullPath.replace('{n}', String(archInput(80).maxSteps))).toContain('200');
 });
 
-it.skip.each(['de', 'fr', 'tr'] as const)('known wrong result: #2505 — localizes all three research fields in %s', locale => {
+it.each(['de', 'fr', 'tr'] as const)('localizes all three research fields in %s', locale => {
   for (const field of ['differentiable-fem', 'constitutive', 'digital-twins']) {
     setPublicLocale('en');
     const english = fieldName(field);

@@ -56,7 +56,18 @@ for (const locale of PUBLIC_LOCALES) {
     for (const value of [paper.parameters.length_m, paper.parameters.young_MPa, paper.parameters.area_m2, -paper.parameters.corner_force_N / 1000, Object.keys(replay.model.elements).length / 2]) {
       expect(model).toContain(format(value));
     }
-    expect(model).toContain(new Intl.NumberFormat(locale, { maximumFractionDigits: 6, signDisplay: 'always' }).format(replay.model.loads[0].data.my));
+    const moment = -paper.parameters.corner_force_N / 1000 * paper.parameters.eccentricity_m;
+    expect(replay.model.loads[0].data.my).toBe(moment);
+    const scientific = (x: number) => {
+      const [m, e] = x.toExponential(3).split('e');
+      const mantissa = new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(Number(m));
+      return mantissa + ' × 10' + String(Number(e)).replace(/[-0-9]/g, c => c === '-' ? '⁻' : '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(c)]);
+    };
+    expect(model).toContain(scientific(paper.parameters.inertia_m4));
+    const evidence = text(body.match(/data-testid="ferrari-checks"[^>]*>(.*?)<\/p>/s)![1]);
+    for (const x of [Math.max(...validation.checks.slice(0, 4).map(c => c.observed)), validation.checks[0].tolerance]) expect(evidence).toContain(scientific(x));
+    expect(page).toContain(`3 ${rs().of} 4 ${rs().checksPass}`);
+    expect(model).toContain(new Intl.NumberFormat(locale, { maximumFractionDigits: 6, signDisplay: 'always' }).format(moment));
     const beta = text(body.match(/data-testid="ferrari-beta"[^>]*>(.*?)<\/p>/s)![1]);
     expect(beta).toContain(new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(comparison.checks.find(r => r.id === 'beta-closed')!.computed));
     expect(beta).toContain(format(paper.closed_form.beta));

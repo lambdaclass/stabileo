@@ -10,7 +10,7 @@
   import { Playback } from '../shell/playback.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import type { PublishedRow } from '../shell/context';
-  import { parameters, cases, mesh, geometry, build, difference, convergence, reduction, runState, seriesFor, validPlate, LIMITS, PAPER_PLATE, type Family, type Plate, type Row } from './model';
+  import { parameters, cases, mesh, geometry, build, difference, convergence, reduction, runState, navierCenter, seriesFor, validPlate, LIMITS, PAPER_PLATE, type Family, type Plate, type Row } from './model';
   import type { WorkerError } from './solve.worker';
   import replay from '../../../../../research/benchmarks/navier-plate/results/stabileo_results.json';
   import validation from '../../../../../research/benchmarks/navier-plate/VALIDATION.json';
@@ -233,6 +233,7 @@
         <button onclick={finest}>{s.try}</button>
       </div>
       {#if view === 'paper' && error}<p role="alert">{s.error}: {s.errors[error]}</p>{/if}
+      {#if view === 'plate' && (series?.mm ?? navierCenter(parameters.terms, plate.thickness)) > 1000 * plate.thickness}<p data-testid="navier-small-deflection">{s.smallDeflection}</p>{/if}
       {#if view === 'plate' && plateError}<p role="alert">{s.error}: {s.errors[plateError]}</p>{/if}
       <section class="plate" aria-labelledby="navier-plate-heading">
         <h2 id="navier-plate-heading">{s.plateHeading}</h2>

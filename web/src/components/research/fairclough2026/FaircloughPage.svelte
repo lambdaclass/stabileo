@@ -53,7 +53,6 @@
   }
   function setParams(params: Record<string, number | string | boolean>) {
     if (typeof params.pg !== 'number') return;
-    if (params.pg === PAPER_UNIT_WEIGHT) { restart(); return; }
     unitWeight = params.pg;
     run();
   }
