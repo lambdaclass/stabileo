@@ -843,4 +843,14 @@ mod tests {
         let (short, long) = (gap(0.003 * dt), gap(0.1 * dt));
         assert!(short < 0.05 * scale && short < long, "{short} and {long} against {scale}");
     }
+    #[test]
+    #[ignore = "known wrong result: #2320"]
+    fn review_snapped_with_zero_pre_fold_angle_has_no_ratio() {
+        let samples: Vec<_> = [(-1., -1.), (0.5, -0.5), (1., 0.5), (2., 1.), (3., 0.5)].into_iter()
+            .enumerate().map(|(step, (t, height))| Sample { t, height, mu: 1.0, theta: 0.0, step }).collect();
+        let result = outcome(&samples, -0.5, 4, 4).unwrap();
+        assert!(result.snapped);
+        assert_eq!(result.amplification, None);
+        assert_eq!(result.amplification_from_mu_a, None);
+    }
 }

@@ -62,3 +62,12 @@ assert.deepEqual(compare(run, unsnapped), ['outcome.snapped', ...JUMP.map(k => `
 assert.throws(() => simulation_run(JSON.stringify({ ...replay.settings, rate: -1 })));
 assert.throws(() => simulation_run('{}'));
 console.log('production-mode WASM: replay agrees in critical points, outcome and every frame (t, mu, theta, height, x, z); null and missing values and bad settings are refused');
+
+if (process.env.VELLA_REVIEW_2320) {
+  const inverted = structuredClone(unsnapped);
+  inverted.frames = inverted.frames.slice(0, inverted.frames.findIndex(f => f.height > 0));
+  assert.deepEqual(compare(inverted, inverted), []);
+  const perturbed = structuredClone(inverted);
+  perturbed.frames[1].theta += 1e-7;
+  assert.deepEqual(compare(perturbed, inverted), ['frame 1 theta']);
+}

@@ -67,3 +67,21 @@ test('@smoke research snap-through: Stop during a live run keeps the shown resul
   await expect(app).toHaveAttribute('data-alpha', '0.35');
   await expect(app).toHaveAttribute('data-stale', 'false');
 });
+
+test.skip('reviewed study settings, branch markers and internal checks are inspectable', async ({ page }) => {
+  await page.goto(PAGE);
+  const own = page.locator('a[href="#internal-checks"]').first();
+  await expect(own).toBeVisible();
+  await own.click();
+  await expect(page.locator('#internal-checks + table tbody tr')).toHaveCount(10);
+  await page.locator('#rs-tab-rates').click();
+  await expect(page.locator('[data-rate-provenance]')).toContainText('θ₀');
+  await page.locator('#rs-tab-stability').click();
+  const study = (await import('../../research/mechanics/vella-2024/reference-results/study.json')).default;
+  const branch = study.diagram.inverted;
+  for (const [chart, mode] of (['omega2_antisymmetric', 'omega2_symmetric'] as const).entries()) {
+    const k = branch.findIndex((p, i) => i > 0 && p.spectrum[mode] <= 0 && branch[i - 1].spectrum[mode] > 0);
+    const marker = Number(await page.locator('.snap-app [data-marker]').nth(chart).getAttribute('data-marker'));
+    expect(Math.abs(marker - branch[k].mu)).toBeLessThanOrEqual(Math.abs(branch[k].mu - branch[k - 1].mu) + 1e-6);
+  }
+});

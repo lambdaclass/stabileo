@@ -88,3 +88,35 @@ fn a_stopper_reached_before_the_snap_does_not_end_the_jump_window() {
     let peak = sim.trace.height.iter().cloned().fold(f64::MIN, f64::max);
     assert!(sim.trace.height.last().unwrap() < &peak, "the run ended while the height was still rising");
 }
+#[test]
+#[ignore = "known wrong result: #2320"]
+fn review_stopper_is_the_scheduled_start_of_braking() {
+    for one_end in [true, false] {
+        let s = Settings { rate: 0.7, dt: 0.1, ramp: 0.0, one_end, ..base() };
+        let sim = run(s);
+        assert!((sim.trace.mu.last().unwrap() - STOPPER).abs() < 1e-12);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2320"]
+fn review_crossing_and_terminal_frame_follow_accepted_states() {
+    let sim = run(base());
+    let t = &sim.trace;
+    let k = t.height.iter().position(|h| *h > 0.0).unwrap();
+    let fraction = -t.height[k-1] / (t.height[k] - t.height[k-1]);
+    let crossing = t.t[k-1] + fraction * (t.t[k] - t.t[k-1]);
+    assert!((sim.outcome.t_snap.unwrap() - crossing).abs() < 1e-12);
+    assert_eq!(sim.frames.last().unwrap().t, *t.t.last().unwrap());
+}
+
+#[test]
+#[ignore = "known wrong result: #2320"]
+fn review_jump_window_matches_independent_height_peak() {
+    let sim = run(Settings { after: 0.0, ..base() });
+    let trace = &sim.trace;
+    let k = trace.height.windows(3).position(|w| w[1] > 0.0 && w[0] <= w[1] && w[1] > w[2]).unwrap() + 1;
+    let jump = sim.outcome.jump().unwrap();
+    assert!(jump.t_snap < trace.t[trace.height.iter().position(|v| *v > 0.0).unwrap()]);
+    assert!(trace.t[k-1] < jump.t_end && jump.t_end <= trace.t[k+1]);
+}

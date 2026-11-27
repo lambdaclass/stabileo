@@ -52,3 +52,33 @@ fn the_inverted_state_loses_stability_to_an_antisymmetric_mode_before_its_fold()
         assert!(asymmetry < 1e-12);
     }
 }
+#[test]
+#[ignore = "known wrong result: #2320"]
+fn review_natural_clamps_are_prescribed_and_optional_spectra_are_absent() {
+    let strip = Strip { n: 24, alpha: PI / 12.0, slenderness: 2126.0 };
+    for mu in [0.25, 0.6] {
+        let shortening = mu * strip.alpha.powi(2);
+        let up = natural(&strip, shortening).unwrap();
+        assert_eq!(up.clamps.shortening(), shortening);
+        if mu == 0.6 {
+            for eigen in [true, false] {
+                let path = invert(&strip, &up, eigen).unwrap().0;
+                assert!(path.points.iter().all(|p| serde_json::to_value(p).unwrap()["spectrum"].is_object() == eigen));
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2320"]
+fn review_only_bracketed_roots_and_converging_meshes_supply_values() {
+    let fold = shallow::fold();
+    for (mu, valid) in [(0.2, false), (fold.1, true), (0.6, true)] {
+        assert_eq!(serde_json::to_value(shallow::tau_at(mu, true)).unwrap().is_number(), valid);
+    }
+    for (values, valid) in [([0.0, 4.0, 3.0], false), ([0.0, 4.0, 5.0], true)] {
+        let [a,b,c] = values;
+        let r = snap_symmetry_vella_2024::study::richardson(a,b,c);
+        assert_eq!(serde_json::to_value(r).unwrap()["value"].is_number(), valid);
+    }
+}

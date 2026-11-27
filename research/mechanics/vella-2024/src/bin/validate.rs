@@ -426,4 +426,25 @@ mod tests {
         assert!(stale(&spectrum(0.07153081671261309), &spectrum(0.07152997994083818)).is_empty());
         assert_eq!(stale(&spectrum(0.0725), &spectrum(0.07152997994083818)).len(), 1);
     }
+#[test]
+#[ignore = "known wrong result: #2320"]
+    fn review_counts_and_stability_signs_must_agree() {
+        assert!(!stale(&json!({"truncated_runs": 10}), &json!({"truncated_runs": 9})).is_empty());
+        let pair = |x| json!({"omega2_symmetric": x, "omega2_antisymmetric": -195.0});
+        assert!(!stale(&pair(-0.00008), &pair(0.00008)).is_empty());
+    }
+    #[test]
+    #[ignore = "known wrong result: #2320"]
+    fn review_incomplete_evidence_cannot_pass_reductions() {
+        let mut s = study().unwrap();
+        complete(&s).unwrap();
+        s.dynamics.figure_2a[0].time_s.fill(0.0);
+        s.dynamics.figure_2a[0].travel_mm.fill(0.0);
+        assert!(figure_2a_rate(&s).is_err());
+        s.dynamics.figure_2a[0].rate_m_s = s.dynamics.figure_2a[1].rate_m_s;
+        assert!(complete(&s).is_err());
+        s.dynamics.figure_2a[0].rate_m_s = 0.0018;
+        s.dynamics.sensitivity[0].value = s.dynamics.sensitivity[1].value;
+        assert!(complete(&s).is_err());
+    }
 }

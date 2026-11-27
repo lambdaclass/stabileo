@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { asymmetry, decodeRun, displacementOf, logStep, logValue, parseFigure, RATE_RANGE, restGeometry, sameSettings, snapFrame, thetaPeaks } from '../protocol';
+import { summaryIn } from '../../summaries';
+import papers from '../../../../../../research/papers.json';
 import SnapChecks from '../SnapChecks.svelte';
 import replay from '../../../../../../research/mechanics/vella-2024/reference-results/replay.json';
 import study from '../../../../../../research/mechanics/vella-2024/reference-results/study.json';
@@ -140,5 +142,59 @@ it('labels every source in every locale with the same pages, equations and figur
       expect(references(label), `${locale} ${c.id}`).toEqual(references(c.source.replace(/^arXiv:2312\.13908v2 /, '').replace(/, read off the figure.*$/, '')));
     }
     expect(strings.citation.split('{title}'), locale).toHaveLength(2);
+  }
+});
+
+const review = it.skip;
+
+review('rejects contradicted outcomes and invalid jump magnitudes or intervals', () => {
+  expect(() => decodeRun(noSnap())).toThrow('Invalid outcome');
+  for (const key of ['amplification', 'amplificationFromMuA', 'thetaBefore', 'thetaDuring'])
+    expect(() => decodeRun({ ...replay, outcome: { ...replay.outcome, [key]: -1 } })).toThrow('Invalid outcome');
+  expect(() => decodeRun({ ...replay, outcome: { ...replay.outcome, tEnd: replay.outcome.tSnap - 1 } })).toThrow('Invalid outcome');
+});
+
+review('publishes each paper verdict and both sampling brackets', () => {
+  expect(comparison.checks.filter(c => !c.passed)).toEqual(validation.not_reproduced);
+  const transition = comparison.checks.find(c => c.id === 'fig2c-transition')!;
+  const bracket = (pairs: number[][]) => {
+    const k = pairs.findIndex((p, i) => i > 0 && p[1] < 2 && pairs[i - 1][1] >= 2);
+    return [pairs[k - 1][0], pairs[k][0]];
+  };
+  expect(transition).toMatchObject({
+    paper_bracket: bracket(parseFigure(figureCsv).simulation),
+    model_bracket: bracket(study.dynamics.seeded.map(p => [p.rate, p.envelope])),
+  });
+});
+
+review('uses the paper time coordinate even after the clamps stop', () => {
+  for (const run of study.dynamics.figure_2a) {
+    expect(run.travel_mm.at(-1)).toBeCloseTo(run.time_s.at(-1)! * run.rate_m_s * 1000, 12);
+  }
+  expect(validation.checks.find(c => c.id === 'fig2a-rate')!.metric).toContain('0.001 * slope_mm_s / rate_m_s');
+});
+
+review('identifies truncated phases and the sense of the first seeded crossing', () => {
+  const d = study.dynamics;
+  expect(d).toHaveProperty('first_downward_crossing_A2');
+  expect(d).toHaveProperty('truncated_settings');
+  expect(Reflect.get(d, 'truncated_settings')).toHaveLength(d.truncated_runs);
+  for (const p of [...d.seeded, ...d.sensitivity]) expect(p).toHaveProperty('truncated');
+});
+
+review('ends playback at the final solver state', () => {
+  expect(replay.frames.at(-1)!.t).toBe(replay.trace.t.at(-1));
+  expect(replay.frames.at(-1)!.height).toBe(replay.trace.height.at(-1));
+});
+
+review('offers the Wang catalogue summary and quantitative verdict in every research locale', () => {
+  const paper = papers.papers.find(p => p.id === 'wang-2024')!;
+  for (const locale of PUBLIC_LOCALES) {
+    const copy = translations[locale as keyof typeof translations];
+    if (locale !== 'en') expect(summaryIn(paper, locale)).not.toEqual(paper.summary);
+    expect(copy.summary.symmetric).toContain('A < 2');
+    expect(copy.summary.asymmetric).toContain('A ≥ 2');
+    expect(copy.stale).toContain(copy.computedWith);
+    expect(copy.reproduces.join(' ')).toContain('Fig. 2c');
   }
 });
