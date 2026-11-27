@@ -3234,3 +3234,36 @@ fn issue_2588_exported_default_rigid_link_3d() {
     assert_eq!(analyze(archived.clone()), (archived.clone(), tied));
     assert_eq!(analyze(json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3}])), (archived, tied));
 }
+
+#[test]
+#[ignore = "known wrong result: #2608"]
+fn certified_limit_keeps_the_equilibrium_proven_axial_yield_mechanism_2608() {
+    use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
+    use serde_json::json;
+
+    let capacity = 30.0;
+    for load in [-15.0, 15.0] {
+        let mut input: LimitInput = serde_json::from_value(json!({
+            "solver": {
+                "nodes": {"1":{"id":1,"x":-3,"z":0},"2":{"id":2,"x":3,"z":0},"3":{"id":3,"x":0,"z":0},"4":{"id":4,"x":0,"z":4}},
+                "elements": {"1":{"id":1,"type":"truss","nodeI":1,"nodeJ":3,"sectionId":1,"materialId":1},
+                             "2":{"id":2,"type":"truss","nodeI":2,"nodeJ":3,"sectionId":1,"materialId":1},
+                             "3":{"id":3,"type":"truss","nodeI":3,"nodeJ":4,"sectionId":1,"materialId":1}},
+                "materials":{"1":{"id":1,"e":200000,"nu":0.3}}, "sections":{"1":{"id":1,"a":0.01,"iz":1e-4}},
+                "supports":{"1":{"id":1,"nodeId":1,"type":"pinned"},"2":{"id":2,"nodeId":2,"type":"pinned"},"4":{"id":4,"nodeId":4,"type":"pinned"}},
+                "loads":[{"type":"nodal","data":{"nodeId":3,"fx":0,"fz":load,"my":0}}]
+            },
+            "np":{"3":capacity}
+        })).unwrap();
+        let expected = capacity / f64::abs(load);
+        let result = certified_limit_2d(&input).unwrap();
+        assert_eq!(result.confirmation, Confirmation::Exact);
+        assert!((result.lambda - expected).abs() <= f64::EPSILON * expected);
+        let np = HashMap::from([(3, capacity)]);
+        for wrong in [expected * 0.5, expected * 2.0] {
+            assert_ne!(confirm_2d(&input.solver, &HashMap::new(), &np, wrong), Confirmation::Exact);
+        }
+        input.np.clear();
+        assert!(certified_limit_2d(&input).is_err());
+    }
+}

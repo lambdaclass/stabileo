@@ -5,7 +5,7 @@
  * one. Each also has to form its hinges where the theory puts them.
  */
 import { describe, it, expect } from 'vitest';
-import { plasticHistory2D } from '../plastic-collapse';
+import { plasticCollapse2D, plasticHistory2D } from '../plastic-collapse';
 import { computeDiagramValueAt } from '../diagrams';
 import type { SolverInput, SolverLoad } from '../types';
 
