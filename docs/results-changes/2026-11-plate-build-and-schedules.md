@@ -14,7 +14,7 @@ On the unmerged integration branch, two linear loads could match a curved pressu
 
 ## Shared edges of declared plates
 
-A disabled-profile integration build could accept two plate meshes with different nodes along their common edge. Both profiles now reconcile and check those nodes before applying a batch. Remesh affected adjoining plates and verify connectivity before solving again.
+A disabled-profile integration build could accept two plate meshes with different nodes along their common edge. Both profiles now reconcile and check those nodes before applying a batch. Explicit rectangular grids now share their required grid lines during batch planning in both profiles. This can change panel subdivisions and member cuts. Remesh affected adjoining plates and verify connectivity before solving again.
 
 ## Positive overlaps on split members
 

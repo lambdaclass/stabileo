@@ -70,7 +70,7 @@ beforeAll(async () => {
 describe('a physical plate', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); meshBeforeAnalysis.value = true; });
 
-  it.skip('known wrong result: #2365 rectangular neighbors plan the same stations before a batch is applied', async () => {
+  it('known wrong result: #2365 rectangular neighbors plan the same stations before a batch is applied', async () => {
     const node = (x: number, y: number) => modelStore.addNode(x, y, 0);
     const middle = [node(2, 0), node(2, 3)] as const;
     const outlines = [[node(0, 0), middle[0], middle[1], node(0, 3)], [middle[0], node(4, 0), node(4, 3), middle[1]]];
@@ -90,7 +90,7 @@ describe('a physical plate', () => {
   for (const [example, name] of [
     ['pro-steel-building-slabs', 'Losa 0–6 × 3–6 · 1º piso'],
     ['pro-rc-party-wall', 'Tabique escalera 3 · 1º piso (abajo)'],
-  ] as const) it.skip(`known wrong result: #2365 honors the declared rectangular grid on ${name}`, async () => {
+  ] as const) it(`known wrong result: #2365 honors the declared rectangular grid on ${name}`, async () => {
     await loadCodeExample(example);
     const plate = physicalPlates().find(p => p.name === name)!;
     for (const plan of [planPlateMesh(plate.id), ...(await planPlateMeshes([plate.id]))!]) {

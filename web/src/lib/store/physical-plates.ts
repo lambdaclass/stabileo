@@ -167,11 +167,11 @@ let tartan: Map<number, AxisLines> | null = null;
 
 /** Every coordinate the plates `ids` force along each global axis their planes contain, laid out at each one's mesh size. A slab's column faces are its floor's own, added by the slab: a column narrower above would otherwise put both faces on every floor. */
 function tartanOf(ids: Iterable<number>, specs: ReadonlyMap<number, PlateMeshSpec>, replaced?: ReadonlyMap<number, number>): Map<number, AxisLines> {
-  if (!unifiedPlates()) return new Map();
   const forced = new Map<number, [number[], number[], number[]]>();
   for (const id of ids) {
     const e = plateEntry(id), spec = specs.get(id);
-    const f = e && spec ? featuresOf(e, replaced) : null;
+    if (!spec || (!unifiedPlates() && !gridOfSpec(spec))) continue;
+    const f = e ? featuresOf(e, replaced) : null;
     if (!e || !spec || !f) continue;
     const n = f.geo.frame.n, size = spec.size;
     const lists = forced.get(size) ?? [[], [], []];
@@ -865,7 +865,7 @@ function meshHangsNeighbours(e: PlateEntry, f = featuresOf(e)): boolean {
  * mesher meets better: the grid stands, and that neighbour waits for a mesh of its own.
  */
 function rectGridOf(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: PlateMeshSpec, features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null, shellNeighbours: ReadonlyArray<readonly [Vec3, Vec3]>, along?: { frame: PlateFrameLike; a: number; b: number }): MeshOutput | null {
-  if (!unifiedPlates()) return null;
+  if (!unifiedPlates() && !along) return null;
   const frame = along?.frame ?? geo.frame, lines = tartanLines(spec, frame, along ? { a: along.a, b: along.b } : undefined);
   const g = rectGrid({
     frame, outer: geo.outer, holes: geo.holes, a: along?.a ?? spec.size, b: along?.b ?? spec.size, element: spec.element, maxCells: MAX_MESH_CELLS,
