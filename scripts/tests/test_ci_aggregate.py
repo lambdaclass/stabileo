@@ -157,19 +157,26 @@ class ParityWorkflow(unittest.TestCase):
             'research.wasm:\n\tmkdir -p web/public/research-wasm\n'
             '\tcp web/page web/public/research-wasm/asset\n'
         )
+        (web / 'caption').write_text('old caption')
         self.base = self.commit('Published source predating the parity checker')
         self.git('switch', '--quiet', '-c', 'feature')
         (web / 'page').write_text('candidate page\n')
+        (web / 'caption').write_text('new caption')
         self.undeclared = self.commit('Change the production page', '-m', 'Production-Parity: required')
         self.head = self.commit('Declare the intended production change', '--allow-empty', '-m',
                                 'Production-Change: web/page')
         self.git('switch', '--quiet', 'target')
         (self.repo / 'Cargo.lock').write_text('target only')
         self.queue_base = self.commit('Base recorded for the merge group')
-        for name in ['Makefile', 'scripts/check-production-parity.py']:
-            destination = self.repo / name
-            destination.parent.mkdir(exist_ok=True)
-            destination.write_bytes((ROOT / name).read_bytes())
+        target_build = build + ' && cp caption dist/caption'
+        (web / 'package.json').write_text(json.dumps({'scripts': {'build': target_build}}))
+        makefile = (ROOT / 'Makefile').read_text()
+        parity_target = re.search(r'^check\.web\.production-parity:\n.*?(?=\n\n)', makefile, re.M | re.S)[0]
+        with (self.repo / 'Makefile').open('a') as fixture:
+            fixture.write(parity_target + '\n')
+        script = pathlib.Path('scripts/check-production-parity.py')
+        (self.repo / script.parent).mkdir()
+        (self.repo / script).write_bytes((ROOT / script).read_bytes())
         self.target = self.commit('Add the checker after the group base')
         self.git('update-ref', 'refs/remotes/origin/target', self.target)
         self.git('update-ref', 'refs/remotes/origin/main', self.target)
@@ -219,6 +226,42 @@ class ParityWorkflow(unittest.TestCase):
         else:
             self.assertNotEqual(result.returncode, 0, result.stdout)
         return result
+
+    @unittest.skip("known wrong result: #2657")
+    def test_required_workflow_builds_detect_an_asset_published_only_by_the_target(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        for event, pr_head, selection_base in [('pull_request', self.head, self.base),
+                                               ('merge_group', '', self.target)]:
+            with self.subTest(event=event):
+                result = self.step('parity', BASE=selection_base, CANDIDATE=pr_head or self.merge,
+                                   GITHUB_SHA=self.merge, GITHUB_EVENT_NAME=event)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                outputs = dict(line.split('=', 1) for line in self.output.read_text().splitlines())
+                self.assertEqual(outputs['required'], 'true')
+                self.assertEqual(json.loads(outputs['research_sides']), ['reference', 'candidate'])
+                values = {'needs.changes.outputs.base': selection_base,
+                          'github.event.pull_request.head.sha || github.sha': pr_head or self.merge,
+                          'needs.changes.outputs.parity_base': outputs.get('base'),
+                          'github.sha': self.merge}
+
+                def job_args(job):
+                    body = workflow.split(f'\n  {job}:\n', 1)[1].split('    steps:', 1)[0]
+                    pins = re.findall(r'^      (BASE|CANDIDATE): \$\{\{ (.*?) \}\}$', body, re.M)
+                    self.assertEqual({key for key, _ in pins}, {'BASE', 'CANDIDATE'})
+                    return [f'{key}={values[expr]}' for key, expr in pins]
+
+                for side in ['reference', 'candidate']:
+                    asset = f'{event}-research-{side}'
+                    self.parity('', *job_args('production-parity-research'), f'PARITY_SIDE={side}',
+                                f'PARITY_RESEARCH_OUT={asset}')
+                    self.parity('', *job_args('production-parity-build'), f'PARITY_SIDE={side}',
+                                f'PARITY_RESEARCH_IN={asset}', f'PARITY_OUT={side}.json')
+                result = self.parity('', *job_args('production-parity'), 'PARITY_COMPARE=.', succeeds=False)
+                self.assertIn('\n  web/dist/caption\n', result.stderr)
+                for side, caption in [('reference', b'old caption'), ('candidate', b'new caption')]:
+                    inventory = json.loads((self.repo / f'{side}.json').read_text())
+                    self.assertEqual((inventory['base'], inventory['head']), (self.target, self.merge))
+                    self.assertEqual(inventory['files']['web/dist/caption'], sha256(caption).hexdigest())
 
     def test_candidate_defaults_to_merge_base_and_honours_explicit_base(self):
         for base in [self.queue_base, 'origin/main']:

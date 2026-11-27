@@ -1,5 +1,8 @@
+from contextlib import redirect_stdout
 from hashlib import sha256
 import importlib.util
+import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -29,6 +32,59 @@ class ProductionParity(unittest.TestCase):
         self.assertTrue(parity.profiles_enable_off_switch({}, on))
         self.assertFalse(parity.profiles_enable_off_switch(on, on))
         self.assertFalse(parity.profiles_enable_off_switch(off, production))
+
+    @unittest.skip("known wrong result: #2657")
+    def test_plan_from_before_the_feature_manifest(self):
+        with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
+            repo = Path(directory)
+            def git(*args):
+                return parity.git(repo, *args).decode().strip()
+
+            git('init', '--quiet')
+            git('config', 'user.name', 'Production parity fixture')
+            git('config', 'user.email', 'parity@example.invalid')
+            web = repo / 'web'
+            web.mkdir()
+            page = web / 'page'
+            page.write_text('old page')
+            git('add', '.')
+            git('commit', '-qm', 'Before the feature manifest')
+            base = git('rev-parse', 'HEAD')
+            page.write_text('new page')
+            git('commit', '-qam', 'Ordinary web change')
+
+            def plan(*args):
+                output = io.StringIO()
+                with patch.object(parity, 'ROOT', repo), redirect_stdout(output), patch(
+                        'sys.argv', [str(SCRIPT), base, '--plan', *args]):
+                    parity.main()
+                return output.getvalue()
+
+            flags = repo / parity.FLAGS
+            flags.parent.mkdir()
+            for name, manifest, expected in [
+                ('ordinary web change', None, 'false'),
+                ('legacy account defaults', {'production': {'accounts': False},
+                                             'test': {'accounts': True}, 'development': {'accounts': True}}, 'false'),
+                ('new opt-in', {'production': {'example': False}, 'test': {'example': True}}, 'true'),
+                ('production feature', {'production': {'example': True}, 'test': {'example': True}}, 'false'),
+            ]:
+                if manifest is not None:
+                    flags.write_text(json.dumps(manifest))
+                    git('add', parity.FLAGS)
+                    git('commit', '-qm', name)
+                for args in [(), ('--candidate', 'HEAD')]:
+                    with self.subTest(change=name, args=args):
+                        self.assertEqual(plan(*args), expected + '\n')
+
+            flags.write_text('{')
+            with self.assertRaises(json.JSONDecodeError):
+                plan()
+            git('commit', '-qam', 'Malformed historical manifest')
+            base = git('rev-parse', 'HEAD')
+            flags.write_text('{"production":{},"test":{}}')
+            with self.assertRaises(json.JSONDecodeError):
+                plan()
 
     def test_reference_follows_new_base_and_replays_only_intended_paths(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
