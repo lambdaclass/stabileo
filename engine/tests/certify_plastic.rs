@@ -688,6 +688,19 @@ fn two_member_cantilever() -> SolverInput {
 }
 
 #[test]
+#[ignore = "known wrong result: #758"]
+fn direct_confirmation_requires_positive_finite_supplied_capacities() {
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let solver = two_member_cantilever();
+    let mp = HashMap::from([(1, 1.0), (2, 1.0)]);
+    assert_eq!(confirm_2d(&solver, &mp, &HashMap::from([(1, 1.0)]), 0.5), Confirmation::Exact);
+    for n in [-1.0, 0.0, f64::INFINITY, f64::NAN] {
+        let result = confirm_2d(&solver, &mp, &HashMap::from([(1, n)]), 0.5);
+        assert!(matches!(result, Confirmation::OutOfScope { reason } if reason.contains("element 1: axial yield force")));
+    }
+}
+
+#[test]
 fn issue_758_limit_analysis_refuses_a_capacity_that_is_not_positive_and_finite() {
     use dedaliano_engine::solver::plastic_limit::{limit_analysis_2d, limit_analysis_2d_input, LimitInput};
     let solver = two_member_cantilever();
