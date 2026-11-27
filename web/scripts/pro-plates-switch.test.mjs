@@ -505,3 +505,17 @@ test('recovery, footing and sheet-report captions follow their controls', async 
     });
   }
 });
+
+test.skip('known wrong result: #1928 the published viewport imports only the available plate toolbar', async () => {
+  for (const [plates, sheets] of [[false, false], [false, true], [true, false], [true, true]]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
+      const entry = resolve(root, 'src/components/Viewport3D.svelte');
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] },
+        rollupOptions: { external: (id, from) => from === entry && !id.includes('?svelte&type=style') },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
+      assert.equal(chunk.imports.some(id => id.includes('PlateSelectionCard')), plates);
+    });
+  }
+});
