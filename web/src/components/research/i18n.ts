@@ -2826,8 +2826,8 @@ export const STATUS_NAMES: Record<string, Record<string, string>> = {
   de: { proposed: 'Vorgeschlagen', 'reference-reproduced': 'Referenz reproduziert', 'implementation-in-progress': 'Implementierung läuft', 'numerically-validated': 'Numerisch validiert', 'published-figures-compared': 'Mit veröffentlichten Werten verglichen', interactive: 'Interaktiv' },
   fr: { proposed: 'Proposé', 'reference-reproduced': 'Référence reproduite', 'implementation-in-progress': 'Implémentation en cours', 'numerically-validated': 'Validé numériquement', 'published-figures-compared': 'Comparé aux valeurs publiées', interactive: 'Interactif' },
   tr: { proposed: 'Önerildi', 'reference-reproduced': 'Referans yeniden üretildi', 'implementation-in-progress': 'Uygulama sürüyor', 'numerically-validated': 'Sayısal olarak doğrulandı', 'published-figures-compared': 'Yayımlanmış değerlerle karşılaştırıldı', interactive: 'Etkileşimli' },
-  zh: { proposed: '已提议', 'reference-reproduced': '已复现参考结果', 'implementation-in-progress': '实现进行中', 'numerically-validated': '已通过数值验证', 'published-figures-compared': 'Összevetve a közölt értékekkel', interactive: '可交互' },
-  ...(__PUBLIC_FEATURES__.research ? { hu: { proposed: 'Javasolt', 'reference-reproduced': 'Referencia reprodukálva', 'implementation-in-progress': 'Megvalósítás folyamatban', 'numerically-validated': 'Numerikusan validálva', 'published-figures-compared': '已与已发表数值比较', interactive: 'Interaktív' } } : {}),
+  zh: { proposed: '已提议', 'reference-reproduced': '已复现参考结果', 'implementation-in-progress': '实现进行中', 'numerically-validated': '已通过数值验证', 'published-figures-compared': '已与已发表数值比较', interactive: '可交互' },
+  ...(__PUBLIC_FEATURES__.research ? { hu: { proposed: 'Javasolt', 'reference-reproduced': 'Referencia reprodukálva', 'implementation-in-progress': 'Megvalósítás folyamatban', 'numerically-validated': 'Numerikusan validálva', 'published-figures-compared': 'Összevetve a közölt értékekkel', interactive: 'Interaktív' } } : {}),
 };
 
 export const fieldName = (f: string) => FIELD_NAMES[publicI18n.locale]?.[f] ?? FIELD_NAMES.en[f] ?? f;
