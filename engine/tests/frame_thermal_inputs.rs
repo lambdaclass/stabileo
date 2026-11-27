@@ -394,3 +394,27 @@ fn issue_2656_free_thermal_gradient_reverses_rotation_on_every_member_solve() {
         assert_eq!(zero, 0.0);
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2491"]
+fn second_order_results_identify_assumed_thermal_properties() {
+    for stated in [false, true] {
+        let mut thermal = json!({"dtUniform": 1.0, "dtGradient": 2.0, "dtGradientY": 0.0, "dtGradientZ": 2.0});
+        if stated {
+            thermal["alpha"] = json!(ALPHA_ALU);
+            thermal["depth"] = json!(IPE_H);
+            thermal["depthZ"] = json!(IPE_H);
+        }
+        let mut plane = fixed_2d(1, 5.0, ALU, IPE_A, IPE_I_STRONG, "frame", thermal.clone());
+        let mut space = fixed_3d(ALU, IPE_A, IPE_I_STRONG, IPE_I_WEAK, "frame", thermal);
+        plane.supports.remove("2");
+        space.supports.remove("2");
+        let plane = solve_pdelta_2d(&plane, 30, 1e-10).unwrap();
+        let space = solve_pdelta_3d(&space, 30, 1e-10).unwrap();
+        for diagnostics in [&plane.results.structured_diagnostics, &space.results.structured_diagnostics] {
+            for property in ["alpha", "depth"] {
+                assert_eq!(diagnostics.iter().any(|d| d.code == DiagnosticCode::ThermalDefaultAssumed && d.phase.as_deref() == Some(property)), !stated, "{property}: {diagnostics:?}");
+            }
+        }
+    }
+}
