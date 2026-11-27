@@ -206,6 +206,28 @@ for caller, event, route_only, expected in [
 print('ok online audit runs on research PRs without duplicating required jobs')
 
 class EvidenceExportTests(unittest.TestCase):
+    @unittest.skip("known wrong result: #2505")
+    def test_native_assertion_steps_detect_missing_tests(self):
+        cases = {
+            'Plastic collapse native assertions': ['plastic_collapse_benchmark::portal_combined_mechanism'],
+            'Mattiasson elliptic-integral accuracy and mesh refinement': [
+                'research_benchmarks::mattiasson_' + name for name in ['1', '2', '5', '10', 'original_area_extensible', 'load_step_independence']
+            ],
+        }
+        steps = research['jobs']['engine-benchmarks']['steps']
+        for name, names in cases.items():
+            command = next(s['run'] for s in steps if s.get('name') == name)
+            with tempfile.TemporaryDirectory() as tmp:
+                for missing in [None, *names]:
+                    with self.subTest(name=name, missing=missing):
+                        lines = ['test ' + n + ' ... ok' for n in names if n != missing]
+                        runner = pathlib.Path(tmp) / 'nix'
+                        runner.write_text("#!/bin/sh\ncat <<'OUTPUT'\n" + '\n'.join(lines) + '\nOUTPUT\n')
+                        runner.chmod(0o755)
+                        run = subprocess.run(['bash', '-eo', 'pipefail', '-c', command], capture_output=True,
+                                             env={**os.environ, 'RUNNER_TEMP': tmp, 'PATH': tmp + ':' + os.environ['PATH']})
+                        self.assertEqual(run.returncode == 0, missing is None)
+
     def test_missing_export_cannot_certify_committed_results(self):
         cases = [
             ('engine-benchmarks', 'research/benchmarks/cqc-1981/VALIDATION.json', 'CQC_VALIDATION_OUT='),

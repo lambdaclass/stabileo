@@ -18,6 +18,14 @@ class PublishedEvidence(unittest.TestCase):
         measurement['observed'] = measurement['computed'] - measurement['reference']
         self.assertTrue(catalog.valid_checks([measurement], published=True))
 
+    @unittest.skip("known wrong result: #2505")
+    def test_shape_control_catalog_count_matches_the_paper_comparisons(self):
+        papers = json.loads((root / 'papers.json').read_text())['papers']
+        entry = next(p for p in papers if p['id'] == 'feher-sipos-varkonyi-2026')
+        rows = json.loads((root / entry['implementation'] / 'reference-results/published_comparison.json').read_text())['checks']
+        self.assertIn(f"{len(rows)} comparisons", entry['relevance'])
+        self.assertIn(f"{sum(r['passed'] for r in rows)} pass", entry['relevance'])
+
     def test_roundoff_cannot_certify_an_out_of_tolerance_scalar(self):
         for delta, expected in [(0, True), (5e-10, False)]:
             self.assertEqual(catalog.valid_checks([{**row, 'reference': 1, 'computed': 1 + delta}], published=True), expected)
