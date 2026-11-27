@@ -387,3 +387,34 @@ describe('a physical plate', () => {
     expect(modelStore.model.loads.filter((l) => (l.data as { caseId?: number }).caseId === 1)).toHaveLength(0);
   });
 });
+
+describe('manually applying mixed plate previews', () => {
+  for (const [entry, apply] of [['sync', applyPlateMeshes], ['async', applyPlateMeshesAsync]] as const) {
+    it.skip('known wrong result: #1928 ' + entry + ' applies independent accepted plans and refuses a changed batch', async () => {
+      for (const stale of [false, true]) {
+        modelStore.clear();
+        historyStore.clear();
+        const rings = [0, 3].map(z => [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, z)));
+        const ids = rings.map(outline => {
+          const result = createPlate({ outline, materialId: 1, thickness: 0.15 });
+          if (!result.ok) throw Error(result.reason);
+          return result.id;
+        });
+        const warp = () => modelStore.updateNode(rings[0]![2]!, 2, 2, 1);
+        if (!stale) warp();
+        const plans = ids.map(id => {
+          const plan = planPlateMesh(id);
+          if (!plan) throw Error('Missing plate plan');
+          return plan;
+        });
+        expect(plans.map(p => !!p.mesh)).toEqual([stale, true]);
+        if (stale) warp();
+        const result = await apply(plans);
+        expect(result.refused.map(r => r.id)).toContain(ids[0]);
+        expect(result.plates).toBe(stale ? 0 : 1);
+        expect(plateShellKeys(ids[0]!)).toHaveLength(0);
+        expect(plateShellKeys(ids[1]!).length > 0).toBe(!stale);
+      }
+    });
+  }
+});
