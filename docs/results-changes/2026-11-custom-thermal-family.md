@@ -59,3 +59,10 @@ The fixture heats member 2 between (0, 4) and (5, 4) m. Its ungraded material ha
 ## Workbook and material edits
 
 A project workbook exported its explicit expansion coefficient, but import blocked a populated coefficient column. Import now accepts finite coefficients within the material form’s range, including zero and negative values. A 4 m free bar with a workbook coefficient of 9 × 10⁻⁶/°C and a 20 °C rise extends by 0.00072 m in both 2D and 3D, under linear and second-order analysis. Older workbooks can lack the grade and provenance columns, so review the assumption on ungraded materials. Changing a material's mechanical definition now replaces its former concrete and catalogue properties. Renaming the material or changing only its coefficient preserves those strengths.
+
+
+## Reading axial colors and spatial combinations
+
+A fixed-ended bar with a central 10 kN axial load has equal support reactions by symmetry. The axial diagram has a 10 kN jump at the load, giving +5 kN on one side and −5 kN on the other. Both the plane and space axial color views now identify the mixed member and show the signed extrema. A space ABS or SRSS combination stores unsigned magnitudes, so its axial color view reports that signed forces are unavailable.
+
+For the ABS combination of section moment vectors (10, 10) and (10, −10) kN·m, the possible vector sums have magnitude 20 kN·m. The separate component envelopes are 20 and 20 kN·m, giving an upper bound of √800 kN·m. Explore explicitly labels that bound for moment and shear.

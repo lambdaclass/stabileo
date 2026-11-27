@@ -3226,8 +3226,8 @@ fn each_heated_shell_reports_only_an_assumed_coefficient() {
         (Quad9Thermal, ElementKind::Quad9), (CurvedShellThermal, ElementKind::CurvedShell),
     ];
     for (load, kind) in variants {
-        for (dt_uniform, dt_gradient) in [(0.0, 0.0), (12.0, 0.0), (0.0, -10.0)] {
-            for alpha in [None, Some(0.0), Some(-5e-6)] {
+        for (dt_uniform, dt_gradient) in [(0.0, 0.0), (12.0, 0.0), (-12.0, 0.0), (0.0, 10.0), (0.0, -10.0)] {
+            for alpha in [None, Some(0.0), Some(-5e-6), Some(5e-6)] {
                 let d = dedaliano_engine::known_issues::loads_3d(&[load(SolverPlateThermalLoad {
                     element_id: 7, dt_uniform, dt_gradient, alpha,
                 })]);

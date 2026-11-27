@@ -251,3 +251,57 @@ test('@slow axial paint shows the opposite forces on a fixed bar under a central
   await page.getByTestId('whatif-paint-axial').click();
   await expect.poll(() => labels.evaluate(s => [...s].join(' '))).toMatch(/-5\.0.*\+5\.0|\+5\.0.*-5\.0/);
 });
+
+test('@slow a pending Explore result keeps the solved hinge until the edited member is solved', async ({ page }) => {
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions && window.__stabileo.solverReady());
+  await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+  await page.evaluate(() => window.__stabileoActions.solve());
+  await page.getByTestId('rb-cmd-momentY').click();
+  await openAdvancedFunction(page, 'whatif');
+  await page.getByTestId('whatif-tab-members').click();
+  await page.getByTestId('whatif-member-1').getByRole('button').first().click();
+  const end = page.getByTestId('whatif-end-1-j');
+  await expect(end).toHaveValue('none');
+  await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame())).toMatchObject({ drawn: true, held: false });
+  const observed = await end.evaluate(async sel => {
+    const canvas = document.querySelector<HTMLCanvasElement>('.viewport2d-wrapper canvas')!;
+    const ctx = canvas.getContext('2d')!;
+    const { fill, arc } = ctx;
+    let circle = false, hinges = 0;
+    ctx.arc = function (...args) { circle = true; arc.apply(this, args); };
+    ctx.fill = new Proxy(fill, {
+      apply(target, receiver, args) {
+        if (circle && ctx.fillStyle === '#0a0a1e') hinges++;
+        circle = false;
+        return Reflect.apply(target, receiver, args);
+      },
+    });
+    const next = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    const schedule = window.setTimeout.bind(window);
+    const queued: Array<() => void> = [];
+    try {
+      window.setTimeout = (handler, delay, ...args) => {
+        if (delay !== 0 || typeof handler !== 'function') return schedule(handler, delay, ...args);
+        queued.push(() => handler(...args));
+        return -queued.length;
+      };
+      const select = sel as HTMLSelectElement;
+      select.value = 'hinge';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let i = 0; i < 5; i++) await next();
+      const held = window.__stabileo.screenFrame().held;
+      const edited = window.__stabileo.memberStatement(1)?.releaseJ?.mz;
+      const pendingHinges = hinges;
+      window.setTimeout = schedule;
+      for (const run of queued) run();
+      for (let i = 0; i < 120 && (window.__stabileo.screenFrame().held || hinges === pendingHinges); i++) await next();
+      return { held, edited, pendingHinges, finalHinges: hinges - pendingHinges, final: window.__stabileo.screenFrame() };
+    } finally {
+      window.setTimeout = schedule;
+      Object.assign(ctx, { arc, fill });
+    }
+  });
+  expect(observed).toMatchObject({ held: true, edited: true, pendingHinges: 0, final: { held: false, drawn: true } });
+  expect(observed.finalHinges).toBeGreaterThan(0);
+});
