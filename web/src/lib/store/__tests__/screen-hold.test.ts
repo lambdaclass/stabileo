@@ -286,3 +286,33 @@ it.each(['plate', 'quad'] as const)('updates a shell-only %s after a live load e
     expect(reaction(), uiStore.liveCalcError ?? 'No published reactions').toBeCloseTo(-pressure * (kind === 'plate' ? 1 : 2) * factor, 8);
   }
 });
+
+it.skip.each(['2d', '3d', 'pro'] as const)('known wrong result: #2491 — retires the thermal diagram as soon as alpha is edited in %s', async mode => {
+  uiStore.analysisMode = mode;
+  modelStore.clear();
+  const length = 4, temperature = 20, alpha = -5e-6;
+  const root = modelStore.addNode(0, 0, 0), tip = modelStore.addNode(length, 0, 0);
+  const member = modelStore.addElement(root, tip);
+  const material = modelStore.elements.get(member)!.materialId;
+  modelStore.addSupport(root, mode === '2d' ? 'fixed' : 'fixed3d');
+  modelStore.updateMaterial(material, { alpha });
+  modelStore.addThermalLoad(member, temperature);
+  const publish = () => {
+    if (mode === '2d') {
+      const r = modelStore.solve();
+      if (!r || typeof r === 'string') throw Error(String(r));
+      resultsStore.setResults(r);
+    } else {
+      const r = modelStore.solve3D();
+      if (!r || typeof r === 'string') throw Error(String(r));
+      resultsStore.setResults3D(r);
+    }
+    resultsStore.diagramType = 'deformed';
+    return (resultsStore.screen.results ?? resultsStore.screen.results3D)?.displacements.find(d => d.nodeId === tip)?.ux;
+  };
+  expect(publish()).toBeCloseTo(length * temperature * alpha, 12);
+  modelStore.updateMaterial(material, { alpha: 0 });
+  expect(resultsStore.screen.results ?? resultsStore.screen.results3D).toBeNull();
+  expect(resultsStore.hasAnyResults).toBe(false);
+  expect(publish()).toBe(0);
+});

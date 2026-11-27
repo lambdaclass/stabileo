@@ -76,3 +76,29 @@ it.each([false, true])('dispatches buckling exclusively to its workspace handler
   expect(space ? handlers.handleBuckling : handlers.handleBuckling3D).not.toHaveBeenCalled();
   for (const handler of [handlers.handlePDelta, handlers.handlePDelta3D]) expect(handler).not.toHaveBeenCalled();
 });
+
+it.skip('known wrong result: #2491 — gives plastic analysis and its methods the same containment reason', async () => {
+  const { stepBlockedReason } = await import('../open-step');
+  const { unavailableReasonKey } = await import('../catalog');
+  const { uiStore } = await import('../../store');
+  uiStore.analysisMode = '2d';
+  const plastic = ADV_FUNCTIONS.find(f => f.id === 'plastic')!;
+  const reason = unavailable(plastic, { is3D: false, members: 1, solved: true });
+  for (const id of plastic.steps) expect(reason && unavailableReasonKey[reason]).toBe(stepBlockedReason(id));
+});
+
+it.skip('known wrong result: #2491 — looks up pending functions with the same runtime tools policy as the launcher', async () => {
+  const { advFunction } = await import('../catalog');
+  const flags = new Map<string, string>();
+  vi.stubGlobal('localStorage', { getItem: (key: string) => flags.get(key) ?? null });
+  try {
+    flags.set('stabileo-feature-tools', '0');
+    expect(advFunction('mohr')).toBeUndefined();
+    expect(advFunction('buckling')?.id).toBe('buckling');
+    flags.set('stabileo-feature-tools', '1');
+    const { tools } = await import('../../features');
+    expect(!!advFunction('mohr')).toBe(tools());
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

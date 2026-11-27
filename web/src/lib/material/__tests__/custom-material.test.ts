@@ -250,3 +250,14 @@ describe('saving a hand-entered material', () => {
     expect(assigned.materialId).toBe(id);
   });
 });
+
+it.skip.each(['e', 'nu', 'rho', 'fy'] as const)('known wrong result: #2491 — marks an edited legacy %s as authored through a profile change', field => {
+  const material = { name: 'Legacy', e: 100000, nu: 0.25, rho: 20, fy: 300 };
+  modelStore.clear();
+  const id = modelStore.addMaterial(material);
+  const { element } = cantilever(id);
+  modelStore.updateMaterial(id, { [field]: material[field] / 2 });
+  assignMemberProfile(element, PROFILE_FAMILIES.IPN[0]!, 'AR');
+  expect(modelStore.elements.get(element)?.materialId).toBe(id);
+  expect(modelStore.materials.get(id)).toMatchObject({ [field]: material[field] / 2, userDefined: true });
+});

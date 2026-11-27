@@ -162,3 +162,11 @@ it.each(['custom-thermal-family', 'signed-thermal-expansion', 'invalid-thermal-c
     if (locale !== 'en') expect.soft(entry[field][locale]).not.toBe(entry[field].en);
   }
 });
+
+it.skip('known wrong result: #2491 — names the placement modes, groups and numbered destinations in every language', () => {
+  for (const [locale, dict] of Object.entries(ALL_DICTS)) {
+    expect.soft(dict['whatif.elements']?.trim(), locale).toBeTruthy();
+    for (const key of ['whatif.node', 'whatif.member']) expect.soft(dict[key], locale + key).toContain('{n}');
+    expect.soft(dict['whatif.atPlace'], locale).not.toBe(dict['whatif.position']);
+  }
+});
