@@ -589,6 +589,15 @@
       "planes": {"exempt": "no 3D counterpart to embed the 2D model into"},
       "prepared": {"exempt": "no prepared or duplicate linear path: it solves its own iterative, eigenvalue or frequency-domain system"}
     }},
+    "solve_experimental_beam_study_2d": {"scope": "solve", "calls": "beam_study::from_json", "invariances": {
+      "units": {"tracked": 1497},
+      "relabel": {"tracked": 1497},
+      "reversal": {"tracked": 1497},
+      "rotation": {"tracked": 1497},
+      "mirror": {"tracked": 1497},
+      "planes": {"exempt": "no finite-rotation 3D beam counterpart"},
+      "prepared": {"exempt": "no alternate prepared solve path"}
+    }},
     "solve_experimental_arc_length": {"scope": "solve", "calls": "super::solve_arc_length", "invariances": {
       "units": {"tracked": 1497},
       "relabel": {"tracked": 1497},

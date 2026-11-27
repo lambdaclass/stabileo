@@ -4,9 +4,11 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { registerArcReviewTests, registerDisplacementFixture, registerRoundTwoTests, registerRounding2560Tests } from './arc-review-wasm.mjs';
 import { registerChordEquilibriumTests, registerExactMemberActionTests, registerMemberRotationTests } from './planar-exact-member-actions.mjs';
+import { registerBeamStudyTests } from './experimental-beam-study.mjs';
 
 const require = createRequire(import.meta.url);
 const engine = require('../../target/experimental-nonlinear-wasm/dedaliano_engine.js');
+registerBeamStudyTests(engine);
 
 const frame = {
   elements: { 1: { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 } },

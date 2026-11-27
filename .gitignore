@@ -97,3 +97,7 @@ web/.result-change-order.json
 .handoff-r7.md
 
 .handoff-r8.md
+
+# Opt-in local finite-rotation beam viewer; never part of the application bundle.
+/web/src/experimental-beams/engine/
+/web/dist-experimental-beams/

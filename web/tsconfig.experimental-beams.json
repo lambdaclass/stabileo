@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/experimental-beams/**/*.ts", "src/experimental-beams/**/*.svelte"]
+}
