@@ -363,7 +363,7 @@
     // Relative to each member's chord — the number a span limit is written for.
     { id: 'deflections', labelKey: 'defl.title', count: () => (results ? [...modelStore.elements.values()].filter(e => e.type === 'frame').length : 0) },
     { id: 'drift', labelKey: 'drift.title', count: () => !results ? 0 : modelStore.model.loadCases.filter((c) => (c.type || '').toUpperCase() === 'E').length },
-    { id: 'centres', labelKey: 'centres.title', count: () => centreLevels().length },
+    ...(__PUBLIC_FEATURES__.proPlatesUnified ? [{ id: 'centres', labelKey: 'centres.title', count: () => centreLevels().length }] : []),
     { id: 'shells', labelKey: 'pro.shellStresses', count: () => shellRows.length },
     // These two are computed inside the markup as `{@const}`, so the counts are
     // taken from the same source rather than from a binding that is not in
@@ -372,7 +372,7 @@
       count: () => results?.quadStresses?.filter(qs => qs.nodalVonMises?.length).length ?? 0 },
     { id: 'constraints', labelKey: 'pro.constraintForces',
       count: () => (results?.constraintForces?.length ?? 0) || resultsStore.constraintForces3D.length },
-    { id: 'diagnostics', labelKey: 'pro.elementQualityTitle', count: () => results?.diagnostics?.length ?? 0 },
+    { id: 'diagnostics', labelKey: __PUBLIC_FEATURES__.proPlatesUnified ? 'pro.elementQualityTitle' : 'pro.diagnosticsTitle', count: () => results?.diagnostics?.length ?? 0 },
     { id: 'query', labelKey: 'pro.queryTitle', count: () => 1, always: true },
     // Always offered, like the query: a report you cannot reach until the model is solved is a
     // report whose configuration you cannot read either, and its own blockers say what is
@@ -902,8 +902,8 @@
       {#if resSection === 'drift'}
         <ProStoryDriftTable />
       {/if}
-      {#if resSection === 'centres'}
-        <ProLevelCentresTable />
+      {#if __PUBLIC_FEATURES__.proPlatesUnified}
+        {#if resSection === 'centres'}<ProLevelCentresTable />{/if}
       {/if}
 
       {#if shellRows.length}

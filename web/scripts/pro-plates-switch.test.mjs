@@ -408,7 +408,7 @@ test('known wrong result: #1928 published CIRSOC tables and load modules exclude
   }
 });
 
-test.skip('known wrong result: #1928 the level-centre table and its labels belong to the unified results picker', async () => {
+test('known wrong result: #1928 the level-centre table and its labels belong to the unified results picker', async () => {
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       const entry = resolve(root, 'src/components/pro/ProResultsTab.svelte');

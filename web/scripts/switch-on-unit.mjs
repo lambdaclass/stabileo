@@ -41,6 +41,7 @@ export const sharedSwitchOnUnitFiles = [
   'src/components/pro/__tests__/combination-rules-template-ids.test.ts',
   'src/components/__tests__/plate-node-editor-profile.test.ts',
   'src/components/__tests__/published-floor-load-targets.test.ts',
+  'src/components/__tests__/published-result-sections.test.ts',
   'src/lib/store/__tests__/plate-edit-node-ownership.test.ts',
   'src/lib/store/__tests__/plate-opening-curvature.test.ts',
   'src/lib/store/__tests__/adopted-frame.test.ts',

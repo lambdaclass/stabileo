@@ -6,7 +6,7 @@ import { t } from '../../lib/i18n';
 
 afterEach(() => { resultsStore.clear(); modelStore.clear(); uiStore.analysisMode = '2d'; });
 
-it.skip('known wrong result: #1928 published analysis results keep the released sections and diagnostics title', () => {
+it('known wrong result: #1928 published analysis results keep the released sections and diagnostics title', () => {
   modelStore.clear();
   uiStore.analysisMode = 'pro';
   const unified = !!__PUBLIC_FEATURES__.proPlatesUnified;
