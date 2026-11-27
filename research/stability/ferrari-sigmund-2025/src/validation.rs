@@ -149,7 +149,7 @@ pub fn evidence(paper: &Value, stored_replay: &Value) -> (Value, Value) {
             "corotational": study.iter().zip([10, 20, 40]).map(|(c, n)| json!({"elements_per_member": n, "theta_step": 0.02, "lambda_1": c.lambda, "alpha": -c.alpha, "beta": c.beta, "alpha_modal": -c.alpha_modal, "beta_modal": c.beta_modal})).collect::<Vec<_>>(),
             "theta_step_0_01": {"elements_per_member": 40, "alpha": -finer.alpha, "beta": finer.beta},
             "area_x100": {"elements_per_member": 40, "alpha": -softer.alpha, "beta": softer.beta},
-            "paper_area_not_a_bifurcation": extensible.iter().map(|(h, c)| json!({"elements_per_member": 40, "area_m2": 0.01, "theta_step": h, "alpha": -c.alpha, "beta": c.beta})).collect::<Vec<_>>(),
+            "paper_area_step_sensitivity": extensible.iter().map(|(h, c)| json!({"elements_per_member": 40, "area_m2": 0.01, "theta_step": h, "alpha": -c.alpha, "beta": c.beta})).collect::<Vec<_>>(),
             "richardson": {"lambda_1": richardson(|c| c.lambda), "alpha": -richardson(|c| c.alpha), "beta": richardson(|c| c.beta), "beta_modal": richardson(|c| c.beta_modal)},
             "orientation": "theta is the production corner rotation ry with its sign reversed, so that the load rises on the positive branch, as the paper's positive alpha does",
         },

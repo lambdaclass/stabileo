@@ -52,9 +52,7 @@ Review validation: 196 web unit tests passed (research components, hard-coded-te
 
 Without `UPDATE_VALIDATION`, `tests/reference.rs` compares the committed `VALIDATION.json` with the
 measurements of the same run, as the research CI runs it: names, metrics, tolerances and pass flags
-must match exactly, and each recorded observation may differ from the fresh one by at most 1% of its
-tolerance, which absorbs cross-platform roundoff in errors of order 1e-11 without letting a stale
-record pass.
+must match exactly. Zero observations and iteration counts must agree exactly. The absolute freshness budget for nonzero filter diagnostics is 2.1 × 10⁻¹¹ and for other measurements it is 10⁻¹⁵.
 
 ## The paper's own numbers
 

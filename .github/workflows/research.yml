@@ -433,19 +433,8 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - name: Fetch Rust dependencies
         run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
-      - name: Keep the committed evidence for comparison
-        run: |
-          cp VALIDATION.json "$RUNNER_TEMP/koiter-validation.json"
-          cp reference-results/published_comparison.json "$RUNNER_TEMP/koiter-comparison.json"
-          rm VALIDATION.json reference-results/published_comparison.json
-      - name: Buckling, energy derivatives, Koiter slope and every replay frame; writes VALIDATION.json
+      - name: Verify buckling, energy derivatives, Koiter slope, every replay frame and both committed records
         run: cargo test --release --locked -- --nocapture
-      - name: Every validation check passes
-        run: python3 -I -c "import json, sys; c = json.load(open('VALIDATION.json'))['checks']; sys.exit(len(c) != 12 or not all(x['passed'] for x in c))"
-      - name: The committed VALIDATION.json and published comparison are what the fresh run gives
-        run: |
-          python3 -I "$GITHUB_WORKSPACE/research/tools/compare_evidence.py" "$RUNNER_TEMP/koiter-validation.json" VALIDATION.json
-          python3 -I "$GITHUB_WORKSPACE/research/tools/compare_evidence.py" "$RUNNER_TEMP/koiter-comparison.json" reference-results/published_comparison.json
   form-finding:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
     name: Four-cable FDM (Pastrana 2026) validation

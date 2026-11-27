@@ -100,7 +100,7 @@ With the paper's own area (0.01 m²) the column shortens under the corner load, 
 member's chord rotates, and the corner turns from the first load step. The corner rotation includes prebuckling motion. Establishing whether the exact path
 bifurcates would require a tangent-stability and branch analysis. Extracting α as above from that model is not stable: at 40 elements
 per member it is 0.433 with h = 0.02 and 1.018 with h = 0.01 (recorded in `VALIDATION.json`,
-`study.paper_area_not_a_bifurcation`). Reproducing 0.3820 and 0.1436 would need the asymptotic
+`study.paper_area_step_sensitivity`). Reproducing 0.3820 and 0.1436 would need the asymptotic
 reduction of Eqs. 2–5 with the production energy; `src/energy.rs` already provides its
 derivatives through order four, but the reduction is not implemented.
 
@@ -199,3 +199,5 @@ code. Rendered reference values are checked against that fixture in en/es/pt; un
 de/fr/tr research pages are excluded from prerendering and numeric formatting covers all six.
 Derivative evidence uses a 0.1% relative regression tolerance, in addition to the unchanged
 2e-5 acceptance bound. Horizontal/rotated derivative coverage is not claimed.
+
+The native validation test checks both committed JSON records. Use `UPDATE_FERRARI=1 cargo test --release --locked --test validation validation_and_published_comparison -- --exact` to regenerate them after verifying the twelve internal checks.

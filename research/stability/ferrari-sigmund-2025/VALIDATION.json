@@ -137,7 +137,7 @@
       ]
     },
     "orientation": "theta is the production corner rotation ry with its sign reversed, so that the load rises on the positive branch, as the paper's positive alpha does",
-    "paper_area_not_a_bifurcation": [
+    "paper_area_step_sensitivity": [
       {
         "alpha": 0.43304656202320174,
         "area_m2": 0.01,

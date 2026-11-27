@@ -149,3 +149,23 @@ mod displacement_tests {
         assert_eq!(vector(1, &[node(3), node(1), node(2)]), vec![1.,0.,0.,2.,0.,0.,3.,0.,0.]);
     }
 }
+
+#[cfg(test)]
+mod spring_tests {
+    use super::*;
+    use dedaliano_engine::solver::{assembly::support_spring_entries_2d, dof::DofNumbering};
+
+    #[test]
+    fn the_corner_rotation_balances_the_applied_holding_moment() {
+        let n = 4;
+        for theta in [-0.02, 0.02] {
+            let model = held(n, 0.01, 1., theta);
+            let dofs = DofNumbering::build_2d(&model);
+            let rotation = dofs.global_dof(n + 1, 2).unwrap();
+            let entries = support_spring_entries_2d(&model, &dofs);
+            assert_eq!(entries, vec![(rotation, rotation, SPRING)]);
+            let SolverLoad::Nodal(load) = &model.loads[0] else { panic!() };
+            assert_eq!(entries[0].2 * theta, load.my);
+        }
+    }
+}
