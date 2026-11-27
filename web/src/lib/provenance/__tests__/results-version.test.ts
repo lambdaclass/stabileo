@@ -207,3 +207,16 @@ for (const mode of ['2d', '3d', 'pro']) it(`retains the exact generated snow not
     expect(assessProject(snapshot, stamp, mode, RESULT_CHANGES, undefined, 0).changes.map(c => c.id).sort()).toEqual(expected);
   }
 });
+
+it.skip('known wrong result: #2539 — review distinguishes a bare node from a nonlinear spring or member', () => {
+  const change = RESULT_CHANGES.changes.find(c => c.id === 'dynamics-rotary-inertia-advisory-deep-members')!;
+  const affected = (snapshot: FeatureSnapshot) => assessProject(snapshot, {
+    resultsVersion: change.resultsVersion - 1, recorded: [...ANALYSIS_KINDS], analyses: ['nonlinear'],
+  } as SolveStamp, 'pro').changes.some(c => c.id === change.id);
+  expect.soft(affected({ elements: [], supports: [[1, { nodeId: 1, type: 'fixed' }]] })).toBe(false);
+  expect(affected({ elements: [], supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] })).toBe(true);
+  expect(affected({ elements: [[1, { id: 1, type: 'truss', materialId: 1, nodeI: 1, nodeJ: 2 }]] })).toBe(true);
+  for (const field of ['quad9s', 'curvedShells'] as const) {
+    expect.soft(affected({ elements: [], [field]: [[1, { id: 1, materialId: 1 }]] }), field).toBe(true);
+  }
+});

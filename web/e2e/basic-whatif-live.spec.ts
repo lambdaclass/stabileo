@@ -137,3 +137,42 @@ test('@slow known wrong result: #1927 — held stress-map strokes and value labe
   expect(samples.labels.length).toBeGreaterThan(0);
   expect(samples.labels.at(-1)).toBe(samples.expected);
 });
+
+test.skip('@slow known wrong result: #1927 — the point probe reads the moment on the held canvas', async ({ page }) => {
+  await page.goto('/app/basic?e2e=1');
+  await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
+  await page.evaluate(() => window.__stabileoActions.setLiveCalc(true));
+  await page.evaluate(() => window.__stabileoActions.solve());
+  await page.getByTestId('rb-cmd-momentY').click();
+  await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().diagram)).toBe('moment');
+  await page.clock.install({ time: new Date('2026-01-01T12:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-01-01T12:00:01Z'));
+  const labels = await page.evaluateHandle(() => {
+    const captured: string[] = [];
+    const fillText = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function(...args) {
+      if (args[0].startsWith('M = ')) captured.push(args[0]);
+      return fillText.apply(this, args);
+    };
+    return captured;
+  });
+  const probe = async () => {
+    await labels.evaluate(values => { values.length = 0; });
+    await page.evaluate(() => {
+      const h = window.__stabileo;
+      const ends = h.elementEnds(h.elementIds()[0])!;
+      const a = h.nodeScreenPos(ends.i)!, b = h.nodeScreenPos(ends.j)!;
+      document.querySelector('.viewport2d-wrapper > canvas')!.dispatchEvent(new MouseEvent('mousemove', {
+        clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2, bubbles: true,
+      }));
+    });
+    await page.clock.runFor(32);
+    return labels.evaluate(values => values.at(-1));
+  };
+  const fresh = await probe();
+  expect(fresh).toMatch(/^M = /);
+  await page.evaluate(() => window.__stabileoActions.updateSection(1, { iy: 0.000196 }));
+  await page.clock.runFor(16);
+  expect(await page.evaluate(() => window.__stabileo.screenFrame().held)).toBe(true);
+  expect(await probe()).toBe(fresh);
+});

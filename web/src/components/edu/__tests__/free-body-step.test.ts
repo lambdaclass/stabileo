@@ -9,7 +9,7 @@ import { toExercise } from '../exercises';
 import { readDisplayedReaction } from '../edu-reactions';
 import type { ModelSpec } from '../exercise-spec';
 import {
-  BAR_ENDS, endElement, freeBodyBars, freeBodyKeys, freeBodyTruth, parseFreeBodyKey, studentBalanced,
+  BAR_ENDS, endElement, freeBodyBars, freeBodyKey, freeBodyKeys, freeBodyTruth, parseFreeBodyKey, studentBalanced,
   type BarTruth, type FreeBodyBar,
 } from '../free-body-step';
 
@@ -247,4 +247,16 @@ it('known wrong result: #1927 — rotating an axial bar preserves the transverse
   for (const change of [{ Fx: 596, Fy: 803 }, { M: 5 }]) {
     expect(studentBalanced(model, bar, { ...truth, i: { ...truth.i, ...change } }, truth)).toBe(false);
   }
+});
+
+it.skip.each([NaN, Infinity, -Infinity])('known wrong result: #1927 — review withholds an unavailable free-body component %s', async value => {
+  const { render } = await import('svelte/server');
+  const { default: Drawing } = await import('../FreeBodyStep.svelte');
+  const model: ModelSpec = { nodes: [[0, 0], [1, 0]], elements: [[0, 1]], supports: [] };
+  const bar = { nodes: [0, 1], elements: [{ index: 0, forward: true }] };
+  const key = freeBodyKey(0, 'i', 'Fx');
+  const html = render(Drawing, { props: { model, bars: [bar], truth: [{ i: { Fx: value, Fy: 0, M: 0 }, j: { Fx: 0, Fy: 0, M: 0 } }],
+    answers: { [key]: '1' }, verif: { [key]: 'incorrect' }, revealed: {}, exam: false, complete: false, canReveal: true } }).body;
+  expect(html).not.toContain('class="reveal-btn');
+  expect(html).not.toContain('verif-incorrect');
 });

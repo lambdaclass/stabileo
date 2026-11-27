@@ -35,3 +35,9 @@ it('known wrong result: #1927 — an education route identifier cannot enable a 
     expect(liveCalcFollowsEdits(false, mode)).toBe(false);
   }
 });
+
+it.skip.each(['/app/exam', '/app/exam/AB', '/app/exam/ABCD/extra', '/app/exam/AB%2FCD'])('known wrong result: #1927 — review keeps %s in education', path => {
+  expect(examCodeFromPath(path)).toBeNull();
+  expect(pathToMode(path)).toBe('educativo');
+  expect(pathToMode('/app/example')).toBe('basico');
+});

@@ -317,6 +317,40 @@ describe('during the attempt', () => {
     expect([s.phase, s.note]).toEqual(['closed', 'autoSubmitted']);
   });
 
+  it.skip.each([false, true])('known wrong result: #1927 — review retries early manual hand-in with the exact frozen body after refresh %s', async refresh => {
+    const { s, api } = await running();
+    api.submit.mockRejectedValueOnce(new Error('network'));
+    s.update(answer('final'));
+    await s.submit();
+    if (refresh) await s.refresh();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(api.submit).toHaveBeenCalledTimes(2);
+    expect(api.submit.mock.calls[1]).toEqual(api.submit.mock.calls[0]);
+    expect(s.phase).toBe('closed');
+  });
+
+  it.skip('known wrong result: #1927 — review ignores unreadable refresh times during an active attempt', async () => {
+    const { s, api } = await running();
+    s.update(answer('mine'));
+    api.attempt.mockResolvedValueOnce(attempt({ deadline_at: 'invalid', now: iso(T0 + 4_000_000) }));
+    await s.refresh();
+    expect.soft(s.phase).toBe('running');
+    expect.soft(s.attempt?.deadline_at).toBe(iso(T0 + 3_600_000));
+    expect.soft(s.answers).toEqual(answer('mine'));
+    expect(examLock.remainingMs()).toBe(3_600_000);
+  });
+
+  it.skip('known wrong result: #1927 — keeps the valid deadline on an autosave acknowledgement with unreadable timing', async () => {
+    const { s, api } = await running();
+    s.update(answer('saved'));
+    api.saveAnswers.mockImplementationOnce(async (_id, answers) => attempt({ answers, revision: 1, now: iso(T0 + 4_000_000), deadline_at: 'invalid' }));
+    await s.flush();
+    expect.soft(s.phase).toBe('running');
+    expect.soft(s.saveState).toBe('saved');
+    expect.soft(s.attempt?.deadline_at).toBe(iso(T0 + 3_600_000));
+    expect(examLock.remainingMs()).toBe(3_600_000);
+  });
+
   it('a submit after the grace keeps the last autosave and closes gracefully', async () => {
     const saved = { stabileoSubmission: 1, exerciseId: 'frame-varying-supports', exerciseTitle: 'x', student: '', submittedAt: iso(T0), answers: answer('last-saved'), seed: 1 };
     const { s, api } = await running({

@@ -45,3 +45,12 @@ it.each([false, true])('#1986 saved projects match exact origin/main inputs and 
     }
   } finally { vi.unstubAllGlobals(); axesStore.reset(); }
 });
+
+it.skip('known wrong result: #1551 — review preserves the member and global warnings in the portal reference', () => {
+  const portal = JSON.parse(readFileSync(out, 'utf8'))['portal-second-order'];
+  for (const result of [portal.linear, portal.nonlinear.linearResults]) {
+    const warnings = result.structuredDiagnostics.filter((d: { phase: string }) => d.phase === 'LIN-SECOND-ORDER');
+    expect(warnings.map((d: { elementIds?: number[]; elementKind?: string }) => [d.elementIds, d.elementKind]))
+      .toEqual([[[1, 3], 'frame'], [undefined, undefined]]);
+  }
+});

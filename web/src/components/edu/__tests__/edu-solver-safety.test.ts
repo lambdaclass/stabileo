@@ -221,3 +221,18 @@ it.each([{ converged: false, isStable: true }, { converged: true, isStable: fals
   expect(eduStore.results?.reactions).toEqual(result.results.reactions);
   expect(solveModel(model, 'pdelta')).toEqual(result.results);
 });
+
+it.skip.each(['linear', 'pdelta'] as const)('known wrong result: #1927 — review clears the last %s answer and screen on refusal', async mode => {
+  const wasm = await import('../../../lib/engine/wasm-solver');
+  eduStore.loadExercise({ id: 'prior', solverType: mode } as never);
+  vi.spyOn(modelStore, 'solve').mockReturnValueOnce(fakeResult()).mockReturnValue('refused');
+  const solve = vi.spyOn(wasm, 'solvePDelta');
+  solve.mockReturnValueOnce({ results: fakeResult(), isStable: true, converged: true } as never);
+  solve.mockReturnValue({ results: fakeResult(), isStable: true, converged: false } as never);
+  solveForEdu();
+  expect(eduStore.results).not.toBeNull();
+  solveForEdu();
+  expect.soft(eduStore.results).toBeNull();
+  expect.soft(resultsStore.screen.results).toBeNull();
+  expect(toasts.at(-1)?.type).toBe('error');
+});

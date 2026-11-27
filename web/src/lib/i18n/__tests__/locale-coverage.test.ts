@@ -146,3 +146,23 @@ it('states the factor units, the modal estimate assumptions and the scope of exp
   const notice = JSON.parse(readFileSync(join(import.meta.dirname, '../../provenance/result-changes/basic-plastic-2d-certified-limit.json'), 'utf8'));
   expect(notice.explanation.hu).toMatch(/lépésenkénti statikai és kinematikai módszer.*teherszorzó közölhető/i);
 });
+
+it.skip('known wrong result: #1927 — review checks exam attempts, determinacy and rotary-inertia assumptions', () => {
+  for (const key of ['exam.revealAfterClose', 'exam.resultsLater']) {
+    expect.soft(ALL_DICTS.fr[key]).toContain('chaque tentative');
+    expect.soft(ALL_DICTS.zh[key]).toContain('每次作答');
+  }
+  expect.soft(ALL_DICTS.de['edu.ex14Desc']).toContain('Klassifizieren Sie das Tragwerk');
+  for (const locale of ['pt', 'tr']) expect.soft(ALL_DICTS[locale]['knownIssue.NL-DYNAMIC-GAPS']).toContain('Rayleigh');
+});
+
+it.skip('known wrong result: #1551 — review publishes the continuous bound and combination warning in each translation', () => {
+  const change = JSON.parse(readFileSync(join(import.meta.dirname, '../../provenance/result-changes/linear-second-order-critical-factor-2d.json'), 'utf8'));
+  for (const [lang, bound, combination] of [
+    ['es', 'continuas', 'combinaciones'], ['pt', 'contínuas', 'combinações'], ['de', 'kontinuierliche', 'Lastkombinationen'],
+    ['fr', 'continues', 'combinaisons'], ['tr', 'sürekli', 'birleşim'], ['hu', 'folytonos', 'teherkombináció'], ['zh', '连续', '荷载组合'],
+  ]) {
+    expect.soft(change.explanation[lang], lang).toContain(bound);
+    expect.soft(change.explanation[lang], lang).toContain(combination);
+  }
+});

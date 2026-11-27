@@ -250,3 +250,21 @@ it('known wrong result: #1927 — validation checks each requested sketch member
   expect(checkResolved({ ...ex, diagramSketchQuestions: [{ diagram: 'M', elementIndex: 0 }] })).toEqual([]);
   expect(checkResolved({ ...ex, diagramSketchQuestions: [{ diagram: 'M', elementIndex: 5 }] })).not.toEqual([]);
 });
+
+it.skip('known wrong result: #1927 — review rejects an imported non-default mechanism', async () => {
+  const { fromFile, toFile } = await import('../exercise-capture');
+  const { fromShareLink, toShareLink } = await import('../exercise-library');
+  const base = beam();
+  const invalid = { ...base, params: { ...base.params!, supportChoices: [{ support: 0, types: ['pinned', 'rollerX'] as ('pinned' | 'rollerX')[] }] } };
+  expect.soft(fromFile(toFile(invalid)).ok).toBe(false);
+  expect(fromShareLink(toShareLink(invalid, ''))?.ok).toBe(false);
+  expect(fromFile(toFile(base)).ok).toBe(true);
+});
+
+it.each(['linear', 'pdelta'] as const)('review verifies the authored nodal force and couple reach the %s solver', mode => {
+  const model = { nodes: [[0, 0], [1, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'fixed' }],
+    nodalLoads: [{ node: 0, fy: -3, mz: 2 }] } satisfies import('../exercise-spec').ModelSpec;
+  const result = solveModel(model, mode);
+  if (typeof result === 'string') throw new Error(result);
+  expect(result.reactions[0]).toMatchObject({ rz: 3, my: -2 });
+});

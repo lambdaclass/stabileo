@@ -60,6 +60,7 @@ fn material_nonlinear_results_are_flagged() {
     };
     let r = solve_nonlinear_material_2d(&input).unwrap();
     assert!(ids(&r.results.structured_diagnostics).contains(&"NL-5".to_string()));
+    assert!(ids(&r.results.structured_diagnostics).contains(&"NL-UNCONVERGED-INCREMENT".to_string()));
 }
 
 fn beam3d() -> SolverInput3D {
@@ -3367,4 +3368,11 @@ fn a_semicircle_uses_its_arc_for_the_deep_member_screen() {
             assert_warning(&for_3d(&arch, analysis), expected, 370.0);
         }
     }
+}
+
+#[test]
+#[ignore = "known wrong result: #370"]
+fn material_nonlinear_evidence_is_listed_for_the_increment_warning() {
+    let row = include_str!("../../testing/docs/CONTAINMENT.md").lines().find(|row| row.starts_with("| #370 |")).unwrap();
+    assert!(row.contains("material_nonlinear_results_are_flagged"));
 }

@@ -655,3 +655,19 @@ describe('consents and server switches', () => {
     });
   });
 });
+
+it.skip.each(['config', 'refresh'])('known wrong result: #1927 — review retries an unavailable %s on ready', async failed => {
+  storage.set('stabileo-refresh-token', 'refresh-0');
+  const { authStore } = await load();
+  const config = () => json(200, { user_login_enabled: true });
+  const refresh = () => json(200, session(1));
+  const unavailable = () => json(503, {});
+  on('GET /config', failed === 'config' ? unavailable : config, config);
+  on('POST /refresh', failed === 'refresh' ? unavailable : refresh, refresh);
+  await authStore.init();
+  expect(authStore.status).not.toBe('loading');
+  await Promise.all([authStore.ready(), authStore.ready()]);
+  expect(authStore.configKnown).toBe(true);
+  expect(authStore.isAuthenticated).toBe(true);
+  expect(seen.filter(r => r.route === 'GET /config')).toHaveLength(2);
+});

@@ -82,3 +82,20 @@ it.each([-5000, 5000])('known wrong result: #1927 — an active lock reschedules
   vi.advanceTimersByTime(1);
   expect(examLock.locked).toBe(false);
 });
+
+it.skip.each(['serverNow', 'deadlineAt'])('known wrong result: #1927 — review preserves active lock on invalid %s', field => {
+  examLock.engage({ deadlineAt: iso(T0 + 60_000), serverNow: iso(T0) });
+  expect(examLock.engage({ deadlineAt: iso(T0 + 100_000), serverNow: iso(T0 + 70_000), [field]: 'invalid' })).toBe(false);
+  expect.soft(examLock.locked).toBe(true);
+  expect.soft(examLock.remainingMs()).toBe(60_000);
+  expect(examLock.serverNow()).toBe(T0);
+});
+
+it.skip.each(['submitted', 'deadline', 'error'] as const)('known wrong result: #1927 — review preserves %s on room exit and stops countdown', reason => {
+  examLock.enterRoom();
+  examLock.engage({ deadlineAt: iso(T0 + 60_000), serverNow: iso(T0) });
+  examLock.release(reason);
+  examLock.leaveRoom();
+  expect.soft(examLock.releaseReason).toBe(reason);
+  expect(examLock.remainingMs()).toBeNull();
+});

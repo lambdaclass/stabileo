@@ -175,3 +175,24 @@ it('known wrong result: #1927 — every numbered step localizes its position as 
     expect(tp(key, { n: 17 })).toContain('17');
   }
 });
+
+it.skip('known wrong result: #1927 — review grades keyed work alongside unattributed legacy rows', () => {
+  const base = spec();
+  const rows = rightReactions(base, 5);
+  const extra = { label: 'Legacy row', answer: 'legacy entry', outcome: 'correct' as const };
+  const work = examSubmission(base, 5, [...rows, extra]);
+  const grade = gradeAttempt(base, 5, work);
+  expect(grade?.correct).toBe(rows.length);
+  expect(grade?.total).toBe(questionKeys(variantOf(base, 5)).length);
+});
+
+it.skip('known wrong result: #1927 — review independently marks a legacy file with a known exercise', async () => {
+  const { render } = await import('svelte/server');
+  const { default: Review } = await import('../SubmissionReview.svelte');
+  const base = spec();
+  const submission = examSubmission(base, 5, [{ label: 'Legacy row', answer: 'legacy entry', outcome: 'correct' }]);
+  const html = render(Review, { props: { submission, spec: base, onclose() {} } }).body;
+  expect.soft(html).toContain('review-remarked');
+  expect.soft(html).not.toContain(tp('edu.review.remarkFailed', {}));
+  expect(html).toContain('legacy entry');
+});

@@ -282,3 +282,16 @@ it('known wrong result: #1927 — the held free body keeps the loads and support
   expect(displayedLoads2D().some(l => l.data.id === loads[0])).toBe(false);
   expect(modelStore.supports.has(supportId)).toBe(false);
 });
+
+it.skip('known wrong result: #1927 — review keeps member labels and point probes on the displayed solve', async () => {
+  const result = await solvedPortal();
+  editE(2);
+  const member = result.elementForces[0];
+  expect(resultsStore.screen.results?.elementForces.find(f => f.elementId === member.elementId)).toEqual(member);
+  expect(resultsStore.getElementForces(member.elementId)).toBeUndefined();
+  const { readFileSync } = await import('node:fs');
+  const viewport = readFileSync(new URL('../../../components/Viewport.svelte', import.meta.url), 'utf8');
+  expect.soft(viewport.slice(viewport.indexOf('function drawMemberValueLabel'), viewport.indexOf('function drawDeformedValues'))).not.toContain('modelStore.model');
+  expect.soft(viewport).not.toContain('const n = modelStore.model.nodes.get(nodeId), d = byId.get(nodeId)');
+  expect(viewport).not.toMatch(/resultsStore\.get(?:ElementForces|Reaction|Displacement)\(/);
+});
