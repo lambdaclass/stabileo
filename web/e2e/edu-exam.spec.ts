@@ -103,7 +103,8 @@ class Backend {
     let m: RegExpMatchArray | null;
     if (path === '/assignments' && method === 'GET') {
       const data = [...this.assignments.values()].filter((a) => a.owner_id === me.id).map((a) => this.owner(a));
-      return json(200, { data, meta: { total: data.length, limit: 100, offset: 0, max_assignments: 100 } });
+      const offset = Number(url.searchParams.get('offset') ?? 0);
+      return json(200, { data: data.slice(offset, offset + 1), meta: { total: data.length, limit: 1, offset, max_assignments: 100 } });
     }
     if (path === '/assignments' && method === 'POST') {
       const id = `asg-${this.assignments.size + 1}`;
@@ -202,6 +203,75 @@ function sketchAssignment() {
 }
 
 test.describe('@smoke Education — homework and exams with an account', () => {
+  test.skip('known wrong result: #1927 — all teacher pages load and a writable attempt has no score', async ({ browser }) => {
+    const { backend } = sketchAssignment();
+    backend.assignments.set('second', { ...backend.assignments.get('asg'), id: 'second', code: 'SECOND', title: 'Second page' });
+    const now = Date.now();
+    backend.attempts.set('open', { id: 'open', assignment_id: 'asg', account_id: STUDENT.id, revision: 0,
+      seed: SEED, started_at: new Date(now).toISOString(), deadline_at: new Date(now + 60000).toISOString(), submitted_at: null, answers: {} });
+    const context = await browser.newContext();
+    const teacher = await person(context, backend, TEACHER, [SPEC]);
+    await teacher.goto('/app/education?e2e=1');
+    await expect.soft(teacher.getByTestId('assignment-row')).toHaveCount(2);
+    await teacher.getByTestId('assignment-attempts').first().click();
+    await expect(teacher.getByTestId('attempt-row')).toBeVisible();
+    await expect(teacher.getByTestId('attempt-score')).toHaveText('—');
+    await context.close();
+  });
+
+  test.skip('known wrong result: #1927 — an invalid nonempty opening date blocks creation', async ({ browser }) => {
+    const context = await browser.newContext();
+    const teacher = await person(context, new Backend(), TEACHER, [SPEC]);
+    await teacher.goto('/app/education?e2e=1');
+    await teacher.getByTestId('edu-assign').click();
+    const opens = teacher.getByTestId('assign-opens');
+    await opens.evaluate((input: HTMLInputElement) => { input.type = 'text'; });
+    await opens.fill('invalid time');
+    await expect(teacher.getByTestId('assign-save')).toBeDisabled();
+    await opens.fill('');
+    await expect(teacher.getByTestId('assign-save')).toBeEnabled();
+    await context.close();
+  });
+
+  test.skip('known wrong result: #1927 — the undated lobby and same-document exit preserve the handoff', async ({ browser }) => {
+    const { code, backend } = sketchAssignment();
+    backend.assignments.get('asg')!.reveal = 'after_close';
+    const context = await browser.newContext();
+    const student = await person(context, backend, STUDENT, []);
+    await student.goto('/app/exam/' + code + '?e2e=1');
+    await expect(student.getByTestId('exam-start')).toBeVisible();
+    await expect.soft(student.getByTestId('exam-panel')).toContainText('Your results are not available yet.');
+    await student.evaluate(() => {
+      sessionStorage.setItem('stabileo.exam.steps.v2', JSON.stringify({ title: 'Handoff beam', solverType: 'linear',
+        model: { nodes: [[0, 0], [3, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'fixed' }] } }));
+      history.pushState(null, '', '/app/basic?e2e=1');
+      dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await expect(student.locator('.tab-bar')).toContainText('Handoff beam');
+    expect(await student.evaluate(() => sessionStorage.getItem('stabileo.exam.steps.v2'))).toBeNull();
+    await context.close();
+  });
+
+  test.skip('known wrong result: #1927 — preview preserves the teacher canvas and saves automatic variant shapes', async ({ browser }) => {
+    const context = await browser.newContext();
+    const teacher = await person(context, new Backend(), TEACHER, [{ ...SPEC, diagramShapeQuestions: [{ diagram: 'M', correct: 'constant' }] }]);
+    await teacher.goto('/app/education?e2e=1');
+    await teacher.locator('.edu-panel .edit-btn').first().click();
+    await teacher.waitForFunction(() => !!window.__stabileoActions);
+    await teacher.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    const before = await teacher.evaluate(() => window.__stabileo.nodeIds().map(id => window.__stabileo.nodePosition(id)));
+    await teacher.getByTestId('edu-preview-student').click();
+    await expect(teacher.getByTestId('edu-variant-gate')).toBeVisible();
+    expect.soft(await teacher.evaluate(() => window.__stabileo.nodeIds())).toEqual([]);
+    await teacher.locator('.edu-back-btn').click();
+    expect(await teacher.evaluate(() => window.__stabileo.nodeIds().map(id => window.__stabileo.nodePosition(id)))).toEqual(before);
+    await teacher.locator('.btn-primary', { hasText: /Save/ }).click();
+    const stored = await teacher.evaluate(() => JSON.parse(localStorage.getItem('stabileo.edu.exercises.v1')!));
+    expect(stored[0].model.nodes[1][0]).toBe('L');
+    expect(stored[0].diagramShapeQuestions[0].correct).toBe('auto');
+    await context.close();
+  });
+
   test('known wrong result: #1927 — a blank sketch stays unanswered until the student draws', async ({ browser }) => {
     const { backend, code } = sketchAssignment();
     const context = await browser.newContext();
