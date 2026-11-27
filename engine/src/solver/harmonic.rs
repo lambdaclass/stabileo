@@ -522,6 +522,7 @@ const UNCORRECTED_WARNING: &str = "static correction not applied at";
 #[allow(clippy::too_many_arguments)]
 fn harmonic_modal_from_eigen(
     eigen: &EigenResult,
+    pencil: &super::self_checks::Pencil,
     m_times: &dyn Fn(&[f64]) -> Vec<f64>,
     k_times: &dyn Fn(&[f64]) -> Vec<f64>,
     k_solve: &dyn Fn(&[f64]) -> Option<Vec<f64>>,
@@ -572,6 +573,7 @@ fn harmonic_modal_from_eigen(
     if mode_indices.is_empty() {
         return None;
     }
+    super::self_checks::check_basis(pencil, eigen, &mode_indices).ok()?;
 
     let p = mode_indices.len();
 
@@ -838,7 +840,7 @@ fn solve_harmonic_modal(
     let k_solve = |b: &[f64]| -> Option<Vec<f64>> {
         k_spd.then(|| back_solve(&l, &forward_solve(&l, b, n), n))
     };
-    let mut sweep = harmonic_modal_from_eigen(&eigen, &m_times, &k_times, &k_solve, f, n, frequencies, damping_ratio, target)?;
+    let mut sweep = harmonic_modal_from_eigen(&eigen, &super::self_checks::Pencil::Dense(k, m, n), &m_times, &k_times, &k_solve, f, n, frequencies, damping_ratio, target)?;
     crate::known_issues::attach(&mut sweep.result.structured_diagnostics, crate::known_issues::dense_factor_conditioning(k, n, k_spd.then_some(l.as_slice())).into_iter().collect());
     Some(sweep)
 }
@@ -861,7 +863,7 @@ fn solve_harmonic_modal_sparse(
     let k_solve = |b: &[f64]| -> Option<Vec<f64>> {
         factor.as_ref().map(|fac| sparse_cholesky_solve(fac, b))
     };
-    let mut sweep = harmonic_modal_from_eigen(&eigen, &m_times, &k_times, &k_solve, f, n, frequencies, damping_ratio, target)?;
+    let mut sweep = harmonic_modal_from_eigen(&eigen, &super::self_checks::Pencil::Sparse(k_csc, m), &m_times, &k_times, &k_solve, f, n, frequencies, damping_ratio, target)?;
     crate::known_issues::attach(&mut sweep.result.structured_diagnostics, crate::known_issues::sparse_factor_conditioning(k_csc, factor.as_ref()).into_iter().collect());
     Some(sweep)
 }
@@ -1101,6 +1103,22 @@ fn get_target_dof_3d(dof_num: &DofNumbering, node_id: usize, dof: &str) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exact_eigenvectors_that_are_not_mass_orthogonal_are_not_superposed() {
+        let n = 3;
+        let (k, m) = (vec![100.0, 0.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 100.0], vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
+        let times = |a: &[f64], x: &[f64]| -> Vec<f64> { (0..n).map(|i| dot(&a[i * n..(i + 1) * n], x)).collect() };
+        let h = 0.5f64.sqrt();
+        let sweep = |vectors: Vec<f64>| harmonic_modal_from_eigen(
+            &EigenResult { values: vec![100.0; 3], vectors }, &crate::solver::self_checks::Pencil::Dense(&k, &m, n),
+            &|x| times(&m, x), &|x| times(&k, x), &|b| Some(b.iter().map(|v| v / 100.0).collect()),
+            &[1.0, 2.0, 3.0], n, &[0.5], 0.05, &[(0, 1.0)],
+        );
+        let orthogonal = sweep(vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]).expect("an orthogonal basis is superposed");
+        assert_eq!(orthogonal.result.modes_used, 3);
+        assert!(sweep(vec![1.0, h, 0.0, 0.0, h, 0.0, 0.0, 0.0, 1.0]).is_none(), "the second column is an eigenvector along the first and the second axes");
+    }
 
     #[test]
     fn damping_anchors_precede_harmonic_mode_filtering() {

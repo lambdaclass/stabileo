@@ -692,6 +692,7 @@ fn craig_bampton_2d_dense(input: &CraigBamptonInput, dof_num: &DofNumbering) -> 
     // Use Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
     let eigen = lanczos_generalized_eigen(&k_ii, &m_ii, ni, n_modes, 0.0)
         .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ni))?;
+    check_interior_modes(&super::self_checks::Pencil::Dense(&k_ii, &m_ii, ni), &eigen, n_modes)?;
 
     // Lanczos returns eigenvalues sorted ascending, already filtered to n_modes
     let n_modes = n_modes.min(eigen.values.len());
@@ -940,6 +941,7 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
     // Sparse Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
     let eigen = lanczos_generalized_eigen_sparse(&k_ii, &m_ii, n_modes, 0.0)
         .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_ii.n))?;
+    check_interior_modes(&super::self_checks::Pencil::Sparse(&k_ii, &m_ii), &eigen, n_modes)?;
 
     // Lanczos returns eigenvalues sorted ascending, already filtered to n_modes
     let n_modes = n_modes.min(eigen.values.len());
@@ -1293,6 +1295,13 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
     Ok(r)
 }
 
+/// Refuses the interior modes a reduction would keep unless those with a frequency pass the
+/// modal checks as one basis.
+fn check_interior_modes(pencil: &super::self_checks::Pencil, eigen: &EigenResult, n_modes: usize) -> Result<(), String> {
+    let kept: Vec<usize> = (0..n_modes.min(eigen.values.len())).filter(|&m| eigen.values[m] > 0.0 && eigen.values[m].is_finite()).collect();
+    super::self_checks::check_basis(pencil, eigen, &kept).map(|_| ())
+}
+
 fn craig_bampton_3d_contained(input: &CraigBamptonInput3D) -> Result<CraigBamptonResult, String> {
     // Curved beams become segments first, as in `solve_3d`: assembled from the
     // unexpanded model they were silently left out.
@@ -1384,6 +1393,7 @@ fn craig_bampton_3d_contained(input: &CraigBamptonInput3D) -> Result<CraigBampto
     // Sparse Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
     let eigen = lanczos_generalized_eigen_sparse(&k_ii, &m_ii, n_modes, 0.0)
         .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_ii.n))?;
+    check_interior_modes(&super::self_checks::Pencil::Sparse(&k_ii, &m_ii), &eigen, n_modes)?;
 
     let n_modes = n_modes.min(eigen.values.len());
     let nk = eigen.values.len();
@@ -1507,4 +1517,29 @@ fn craig_bampton_3d_contained(input: &CraigBamptonInput3D) -> Result<CraigBampto
         interior_frequencies: frequencies,
         boundary_dofs,
     })
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interior_modes_that_are_not_mass_orthogonal_refuse_the_reduction() {
+        let n = 3;
+        let (k, m) = (vec![100.0, 0.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 100.0], vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
+        let h = 0.5f64.sqrt();
+        let (rows, cols): (Vec<usize>, Vec<usize>) = ((0..n).collect(), (0..n).collect());
+        let (k_sparse, m_sparse) = (CscMatrix::from_triplets(n, &rows, &cols, &[100.0; 3]), CscMatrix::from_triplets(n, &rows, &cols, &[1.0; 3]));
+        for pencil in [crate::solver::self_checks::Pencil::Dense(&k, &m, n), crate::solver::self_checks::Pencil::Sparse(&k_sparse, &m_sparse)] {
+            let orthogonal = EigenResult { values: vec![100.0; 3], vectors: vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0] };
+            assert_eq!(check_interior_modes(&pencil, &orthogonal, 3), Ok(()));
+            let skewed = EigenResult { values: vec![100.0; 3], vectors: vec![1.0, h, 0.0, 0.0, h, 0.0, 0.0, 0.0, 1.0] };
+            let refusal = check_interior_modes(&pencil, &skewed, 3).unwrap_err();
+            assert!(refusal.starts_with("REFUSE: self-check modal_orthogonality"), "{refusal}");
+            assert_eq!(check_interior_modes(&pencil, &skewed, 1), Ok(()), "the modes past those kept are not part of the basis");
+            let without_frequency = EigenResult { values: vec![100.0, 0.0, 100.0], vectors: skewed.vectors.clone() };
+            assert_eq!(check_interior_modes(&pencil, &without_frequency, 3), Ok(()));
+        }
+    }
 }
