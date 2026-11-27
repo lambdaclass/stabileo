@@ -324,7 +324,7 @@ fn prepared_solves_refuse_invalid_thermal_properties() {
     let model = fixed_3d(200_000.0, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 0.0, "dtGradientY": 0.0, "dtGradientZ": 0.0}));
     let unloaded = SolverInput3D { loads: vec![], ..model };
     let prepared = prepare_static_3d(&unloaded).unwrap();
-    for (alpha, dy, dz) in [(Some(12.0), None, None), (None, Some(0.0), None), (None, None, Some(-0.3))] {
+    for (alpha, dy, dz) in [(Some(12.0), None, None), (Some(-1e-3), None, None), (Some(1e-3), None, None), (None, Some(0.0), None), (None, None, Some(-0.3))] {
         let load = SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: 1, dt_uniform: 10.0, dt_gradient_y: 5.0, dt_gradient_z: 5.0, alpha, depth_y: dy, depth_z: dz });
         assert!(prepared.solve_loads(&[load]).is_err(), "3D alpha {alpha:?} depths {dy:?} {dz:?} solved");
     }
@@ -352,10 +352,12 @@ fn issue_2656_signed_thermal_strain_in_plane_and_space() {
         plane.supports.remove("2");
         let mut space = fixed_3d(STEEL, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 1.0, "dtGradientY": 0.0, "dtGradientZ": 0.0, "alpha": alpha}));
         space.supports.remove("2");
-        for r in [solve_2d(&plane).unwrap(), solve_pdelta_2d(&plane, 30, 1e-10).unwrap().results] {
+        let prepared_plane = prepare_static_2d(&plane).unwrap().solve_loads(&plane.loads).unwrap();
+        for r in [solve_2d(&plane).unwrap(), prepared_plane, solve_pdelta_2d(&plane, 30, 1e-10).unwrap().results] {
             close("plane free expansion", r.displacements.iter().find(|d| d.node_id == 2).unwrap().ux, alpha * 5.0, 1e-12);
         }
-        for r in [solve_3d(&space).unwrap(), solve_pdelta_3d(&space, 30, 1e-10).unwrap().results] {
+        let prepared_space = dedaliano_engine::solver::linear::prepare_static_3d(&space).unwrap().solve_loads(&space.loads).unwrap();
+        for r in [solve_3d(&space).unwrap(), prepared_space, solve_pdelta_3d(&space, 30, 1e-10).unwrap().results] {
             close("space free expansion", r.displacements.iter().find(|d| d.node_id == 3).unwrap().ux, alpha * 5.0, 1e-12);
         }
     }
