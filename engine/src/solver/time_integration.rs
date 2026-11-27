@@ -143,6 +143,8 @@ fn solve_time_history_2d_inner(
     // 4. Damping in reduced space: C = a0·M + a1·K, anchored on the first
     // two modes (sparse Lanczos). None when no damping was requested.
     let rayleigh = compute_damping_sparse(&k_s, &m_s, input.damping_xi);
+    let unanchored = rayleigh.as_ref().err().cloned();
+    let rayleigh = rayleigh.unwrap_or(None);
     let c_s: Option<&CscMatrix> = rayleigh.as_ref().map(|(c, _, _)| c);
 
     // 5. Determine method parameters
@@ -185,6 +187,9 @@ fn solve_time_history_2d_inner(
     };
     let f_dot = slope_at(0.0, false);
     let massless_rows = compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &[], &mut a_vec)?;
+    if let Some(refusal) = unanchored {
+        return Err(refusal);
+    }
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
         tr.push(&f_0, &u, &v, &a_vec);
@@ -454,17 +459,13 @@ pub(crate) const MAX_DENSE_FALLBACK_DOFS: usize = 6000;
 /// structure's first two modes (sparse Lanczos). None when no damping.
 fn compute_damping_sparse(
     k_s: &CscMatrix, m_s: &CscMatrix, damping_xi: Option<f64>,
-) -> Option<(CscMatrix, f64, f64)> {
+) -> Result<Option<(CscMatrix, f64, f64)>, String> {
     let xi = match damping_xi {
         Some(x) if x > 0.0 => x,
-        _ => return None,
+        _ => return Ok(None),
     };
-
-    // Anchored on the structure's real first two modes (see the note in
-    // damping::rayleigh_from_modes for why the diagonal estimate is only a
-    // last resort).
-    let (a0, a1) = damping::rayleigh_from_modes_sparse(k_s, m_s, xi);
-    Some((CscMatrix::linear_combination(a0, m_s, a1, k_s), a0, a1))
+    let (a0, a1) = damping::rayleigh_from_modes_sparse(k_s, m_s, xi)?;
+    Ok(Some((CscMatrix::linear_combination(a0, m_s, a1, k_s), a0, a1)))
 }
 
 /// Solve A·x = b with A sparse symmetric: sparse Cholesky first, dense LU
@@ -1282,6 +1283,8 @@ fn solve_time_history_3d_inner(
     // 4. Damping in reduced space: C = a0·M + a1·K, anchored on the first
     // two modes (sparse Lanczos). None when no damping was requested.
     let rayleigh = compute_damping_sparse(&k_s, &m_s, input.damping_xi);
+    let unanchored = rayleigh.as_ref().err().cloned();
+    let rayleigh = rayleigh.unwrap_or(None);
     let c_s: Option<&CscMatrix> = rayleigh.as_ref().map(|(c, _, _)| c);
 
     // 5. Determine method parameters
@@ -1324,6 +1327,9 @@ fn solve_time_history_3d_inner(
     let f_dot = slope_at(0.0, false);
     let triads = rotation_triads(&dof_num, cs3.as_ref());
     let massless_rows = compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &triads, &mut a_vec)?;
+    if let Some(refusal) = unanchored {
+        return Err(refusal);
+    }
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
         tr.push(&f_0, &u, &v, &a_vec);

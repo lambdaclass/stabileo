@@ -8,50 +8,25 @@ pub fn rayleigh_coefficients(omega1: f64, omega2: f64, xi: f64) -> (f64, f64) {
     (a0, a1)
 }
 
-/// Rayleigh coefficients anchored on the structure's OWN first two natural
-/// frequencies, solved for rather than guessed at.
-///
-/// `ξ(ω) = a₀/2ω + a₁ω/2` is a U-shaped curve, so the pair only means anything
-/// relative to the frequencies it was anchored on, and anchoring above the real
-/// spectrum sends the `a₀/2ω` branch through the roof exactly where a building
-/// responds. `time_integration` used to anchor on `√(Σ|K_ii| / Σ|M_ii|)`, which is
-/// a mass-weighted average of diagonal ratios and not a fundamental frequency at
-/// all: on the repo's 10-storey frame it returns 1027 rad/s against a true 1.15,
-/// and hands the fundamental mode ~669× the requested damping. A mode damped that
-/// hard does not respond, and a seismic run that suppresses the dominant mode
-/// under-predicts demand.
-///
-/// Rigid-body modes are filtered out — they are not what Rayleigh should anchor
-/// on — and the diagonal estimate survives only as the last resort when the
-/// eigensolve finds nothing usable, where being crude beats returning nothing.
-pub fn rayleigh_from_modes(k: &[f64], m: &[f64], n: usize, xi: f64) -> (f64, f64) {
-    if let Some(result) = crate::linalg::lanczos_generalized_eigen(k, m, n, 2, 0.0) {
-        let positive: Vec<f64> = result.values.iter().copied().filter(|&v| v.is_finite() && v > 1e-10).collect();
-        if positive.len() >= 2 {
-            return rayleigh_coefficients(positive[0].sqrt(), positive[1].sqrt(), xi);
-        } else if positive.len() == 1 {
-            let omega1 = positive[0].sqrt();
-            // One usable mode: bracket it rather than anchoring twice on the same
-            // frequency, which would leave the curve unconstrained on one side.
-            return rayleigh_coefficients(omega1, 3.0 * omega1, xi);
-        }
-    }
+pub const ANCHOR_UNRESOLVED: &str = "DAMPING-ANCHOR-UNRESOLVED";
 
-    // Last resort: the smallest diagonal ratio, which at least tracks the softest
-    // DOF rather than the average of all of them.
-    let mut omega1_sq = f64::INFINITY;
-    for i in 0..n {
-        let kii = k[i * n + i];
-        let mii = m[i * n + i];
-        if mii > 1e-20 && kii > 1e-20 {
-            omega1_sq = omega1_sq.min(kii / mii);
-        }
+/// Rayleigh coefficients anchored on the structure's own first two natural frequencies.
+///
+/// `ξ(ω) = a₀/2ω + a₁ω/2` only means the requested ratio at the frequencies it is anchored on,
+/// so there is no estimate to fall back on when they cannot be computed: the ratio of the
+/// diagonals of K and M is not a natural frequency and has given hundreds of times the damping
+/// asked for. A model with one natural frequency is anchored on it and on three times it.
+pub fn rayleigh_from_modes(k: &[f64], m: &[f64], n: usize, xi: f64) -> Result<(f64, f64), String> {
+    anchored(crate::linalg::lanczos_generalized_eigen(k, m, n, 2, 0.0), xi)
+}
+
+fn anchored(eigen: Option<crate::linalg::EigenResult>, xi: f64) -> Result<(f64, f64), String> {
+    let positive: Vec<f64> = eigen.iter().flat_map(|result| &result.values).copied().filter(|&v| v.is_finite() && v > 1e-10).collect();
+    match positive[..] {
+        [first, second, ..] => Ok(rayleigh_coefficients(first.sqrt(), second.sqrt(), xi)),
+        [only] => Ok(rayleigh_coefficients(only.sqrt(), 3.0 * only.sqrt(), xi)),
+        [] => Err(format!("{ANCHOR_UNRESOLVED}: Rayleigh damping: the natural frequencies the damping ratio is anchored on could not be computed for this model, so the requested damping cannot be applied; no result is returned")),
     }
-    if !omega1_sq.is_finite() || omega1_sq < 1e-20 {
-        return (0.0, 0.0);
-    }
-    let omega1 = omega1_sq.sqrt();
-    rayleigh_coefficients(omega1, 3.0 * omega1, xi)
 }
 
 /// Assemble Rayleigh damping matrix C = a0*M + a1*K.
@@ -64,47 +39,37 @@ pub fn rayleigh_damping_matrix(m: &[f64], k: &[f64], n: usize, a0: f64, a1: f64)
     c
 }
 
-/// Sparse counterpart of `rayleigh_from_modes`: same anchoring logic, with the
-/// two-mode eigensolve on the sparse Lanczos path and the last-resort diagonal
-/// estimate read from the CSC diagonal.
 pub fn rayleigh_from_modes_sparse(
     k: &crate::linalg::sparse::CscMatrix,
     m: &crate::linalg::sparse::CscMatrix,
     xi: f64,
-) -> (f64, f64) {
-    if let Some(result) = crate::linalg::lanczos_generalized_eigen_sparse(k, m, 2, 0.0) {
-        let positive: Vec<f64> = result.values.iter().copied().filter(|&v| v.is_finite() && v > 1e-10).collect();
-        if positive.len() >= 2 {
-            return rayleigh_coefficients(positive[0].sqrt(), positive[1].sqrt(), xi);
-        } else if positive.len() == 1 {
-            let omega1 = positive[0].sqrt();
-            // One usable mode: bracket it rather than anchoring twice on the same
-            // frequency, which would leave the curve unconstrained on one side.
-            return rayleigh_coefficients(omega1, 3.0 * omega1, xi);
-        }
-    }
-
-    // Last resort: the smallest diagonal ratio, which at least tracks the softest
-    // DOF rather than the average of all of them.
-    let kd = k.diagonal();
-    let md = m.diagonal();
-    let mut omega1_sq = f64::INFINITY;
-    for i in 0..k.n {
-        let (kii, mii) = (kd[i], md[i]);
-        if mii > 1e-20 && kii > 1e-20 {
-            omega1_sq = omega1_sq.min(kii / mii);
-        }
-    }
-    if !omega1_sq.is_finite() || omega1_sq < 1e-20 {
-        return (0.0, 0.0);
-    }
-    let omega1 = omega1_sq.sqrt();
-    rayleigh_coefficients(omega1, 3.0 * omega1, xi)
+) -> Result<(f64, f64), String> {
+    anchored(crate::linalg::lanczos_generalized_eigen_sparse(k, m, 2, 0.0), xi)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_model_without_computed_frequencies_is_refused_not_given_an_estimate() {
+        let refused = |r: Result<(f64, f64), String>| r.unwrap_err().starts_with(&format!("{ANCHOR_UNRESOLVED}: "));
+        let eigen = |values: &[f64]| Some(crate::linalg::EigenResult { values: values.to_vec(), vectors: Vec::new() });
+        assert!(refused(anchored(None, 0.05)));
+        assert!(refused(anchored(eigen(&[]), 0.05)));
+        assert!(refused(anchored(eigen(&[0.0, -4.0, f64::INFINITY, f64::NAN]), 0.05)));
+        assert_eq!(anchored(eigen(&[4.0, 25.0, 100.0]), 0.05), Ok(rayleigh_coefficients(2.0, 5.0, 0.05)));
+        assert_eq!(anchored(eigen(&[0.0, 4.0, f64::INFINITY]), 0.05), Ok(rayleigh_coefficients(2.0, 6.0, 0.05)));
+
+        let stiffness = [3.0, 0.0, 0.0, 5.0];
+        let indefinite_mass = [1.0, 2.0, 2.0, 1.0];
+        assert!(crate::linalg::lanczos_generalized_eigen(&stiffness, &indefinite_mass, 2, 2, 0.0).is_none());
+        assert!(refused(rayleigh_from_modes(&stiffness, &indefinite_mass, 2, 0.05)));
+        let (rows, cols) = ([0, 1, 1], [0, 0, 1]);
+        let sparse = |a: &[f64; 4]| crate::linalg::sparse::CscMatrix::from_triplets(2, &rows, &cols, &[a[0], a[2], a[3]]);
+        assert!(refused(rayleigh_from_modes_sparse(&sparse(&stiffness), &sparse(&indefinite_mass), 0.05)));
+        assert_eq!(rayleigh_from_modes(&stiffness, &[1.0, 0.0, 0.0, 1.0], 2, 0.05), Ok(rayleigh_coefficients(3f64.sqrt(), 5f64.sqrt(), 0.05)));
+    }
 
     #[test]
     fn test_rayleigh_coefficients_symmetry() {

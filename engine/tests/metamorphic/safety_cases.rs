@@ -201,6 +201,24 @@ fn issue_760_seed_20780_refuses_combined_singular_mass() {
     assert!(error.starts_with(&format!("{code}:")), "{}: {error}", c.name);
 }
 
+#[test]
+fn issue_2661_seed_47056_ground_motion_does_not_change_with_units() {
+    let a: Vec<_> = ana3::rows().into_iter().filter(|a| a.name == "time history (ground motion)").collect();
+    let c = corpus::cases_3d(Tier::Nightly, 47000).into_iter()
+        .find(|c| c.name == "fuzz_rich_3d/47056").unwrap();
+    let anchor = dedaliano_engine::solver::damping::ANCHOR_UNRESOLVED;
+    if let Err(refusal) = (a[0].run)(&c) {
+        assert!(refusal.starts_with(&format!("{anchor}: ")), "{refusal}");
+    }
+    for rng_seed in 0..12 {
+        let t = Tally::default();
+        checks3::check_case(&checks3::Ctx { tally: &t, rng_seed }, &c, &a, &["units"]);
+        let cells = t.cells.lock().unwrap();
+        let cell = &cells[&("time history (ground motion)".into(), "units".into())];
+        assert!(cell.fails.is_empty(), "seed {rng_seed}: {cell:?}");
+    }
+}
+
 const ISSUE_762_CORPUS: u64 = 20754;
 
 fn issue_762_units() -> [dedaliano_engine::metamorphic::units::Units; 4] {
