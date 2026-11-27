@@ -10,7 +10,7 @@ beforeEach(() => {
   uiStore.includeSelfWeight = false;
 });
 
-describe.skip('known wrong result: #1928 batched commands and analyses share the edited inventories', () => {
+describe('known wrong result: #1928 batched commands and analyses share the edited inventories', () => {
   for (const mode of ['2d', '3d'] as const) {
     it.each(['single', 'multiple', 'case'] as const)(mode + ' keeps a removed load out of the solve after %s removal', async method => {
       uiStore.analysisMode = mode;
@@ -81,7 +81,7 @@ describe.skip('known wrong result: #1928 batched commands and analyses share the
   });
 });
 
-describe.skip('known wrong result: #1928 load arrays share single-entry alias validation', () => {
+describe('known wrong result: #1928 load arrays share single-entry alias validation', () => {
   it.each([false, true])('converts compatible aliases and refuses the entire conflicting array, bulk=%s', bulk => {
     const nodeId = modelStore.addNode(0, 0, 0);
     const record = (extra: Record<string, number>) => ({ type: 'nodal', data: { id: 0, nodeId, fx: 0, fy: 2, mz: 3, ...extra } } as never);

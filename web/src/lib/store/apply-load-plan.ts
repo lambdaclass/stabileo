@@ -161,12 +161,12 @@ const NODAL_TYPES: readonly string[] = ['nodal', 'nodal3d'];
  * `addDistributedLoad3D` stores `distributed3d`, and counting `distributed` alone read 0 in PRO.
  */
 export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nameOf']): CurrentLoadState {
-  const loads = modelStore.loadsForEdit, cases = modelStore.model.loadCases, combinations = modelStore.model.combinations;
+  const loads = modelStore.loads, cases = modelStore.model.loadCases, combinations = modelStore.model.combinations;
   return describeCurrentLoads(replaceScope(p, loads, cases, combinations, nameOf));
 }
 
 function describeCurrentLoads(s: ReplaceScope): CurrentLoadState {
-  const loads = modelStore.loadsForEdit, cases = modelStore.model.loadCases, combinations = modelStore.model.combinations;
+  const loads = modelStore.loads, cases = modelStore.model.loadCases, combinations = modelStore.model.combinations;
   const typeOf = new Map(cases.map((c) => [c.id, String(c.type)]));
   const byType = (ids: readonly number[]) => {
     const want = new Set(ids);
@@ -223,10 +223,10 @@ function prepareCombinationCases(
   });
   const planIds = new Set(bindings.map(b => b.projectedId));
   const removedLoads = new Set(replaced?.loads);
-  const replacedCaseIds = new Set(modelStore.loadsForEdit.filter(l => removedLoads.has(l.data.id)).map(l => l.data.caseId ?? 1));
+  const replacedCaseIds = new Set(modelStore.loads.filter(l => removedLoads.has(l.data.id)).map(l => l.data.caseId ?? 1));
   const occupied = loadCasesWithDirectEffects({
     loadCases: retained,
-    loads: modelStore.loadsForEdit.filter(l => !removedLoads.has(l.data.id)),
+    loads: modelStore.loads.filter(l => !removedLoads.has(l.data.id)),
     analysis: modelStore.model.analysis,
   });
   const supplementedTypes = new Set(p.cases.filter(c => c.own || c.type === 'Lr').map(c => c.type.toUpperCase()));
@@ -253,7 +253,7 @@ function prepareCombinationCases(
 export function previewLoadPlan(
   p: LoadPlan, nameOf: ApplyLoadPlanOptions['nameOf'], options: Parameters<typeof describePlanDelta>[2],
 ) {
-  const scope = replaceScope(p, modelStore.loadsForEdit, modelStore.loadCases, modelStore.combinations, nameOf);
+  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf);
   const replaced = options.replaceExisting ? replacementFromScope(scope, options.alsoUnmarked) : undefined;
   const { cases, retainedCases } = prepareCombinationCases(p, nameOf, scope, replaced);
   return describePlanDelta(p, describeCurrentLoads(scope), { ...options, retainedCases }, cases);
@@ -264,7 +264,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
   const refusal = physicalPlanRefusal(p);
   if (refusal) return refusal;
   const expandOptions = { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions };
-  const scope = replaceScope(p, modelStore.loadsForEdit, modelStore.loadCases, modelStore.combinations, opts.nameOf);
+  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, opts.nameOf);
   const replaced = opts.clearExisting ? replacementFromScope(scope, opts.alsoUnmarked) : undefined;
   const { bindings, cases, retainedCases, caseRetirement } = prepareCombinationCases(p, opts.nameOf, scope, replaced);
   const expanded = expandPlannedCombinations(p, { ...expandOptions, retainedCases }, cases);
@@ -272,7 +272,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     return msg(MODAL_SEISMIC_UNAVAILABLE);
   }
   modelStore.batch(() => {
-    const saved = { designData: designData(), loads: modelStore.loadsForEdit as never, loadCases: modelStore.loadCases, regulations: modelStore.model.regulations };
+    const saved = { designData: designData(), loads: modelStore.loads as never, loadCases: modelStore.loadCases, regulations: modelStore.model.regulations };
     const legacySeismic = new Set(unverifiedSeismicLoads(saved).map(l => l.data?.id));
     const before = loadsGeneratedWith(saved);
     const oldOccupancyNeedsReview = needsOccupancyReview(saved.designData.loadBasis);
@@ -289,7 +289,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     for (const id of scope.defaults.cases) modelStore.removeLoadCase(id);
     if (replaced) {
       const ids = new Set(replaced.loads);
-      modelStore.replaceLoads(modelStore.loadsForEdit.filter((l) => !ids.has(l.data.id)));
+      modelStore.replaceLoads(modelStore.loads.filter((l) => !ids.has(l.data.id)));
       const types = new Set(p.cases.map((c) => String(c.type)));
       for (const g of [...modelStore.model.groups.values()]) {
         const def = g.kind === 'floorLoad' ? g.data as unknown as FloorLoadDef & { generatedBy?: string } : null;
@@ -299,7 +299,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     for (const [id, autoLoadsRetired] of caseRetirement) {
       modelStore.updateLoadCaseFields(id, { autoLoadsRetired });
     }
-    const retainedLoads = modelStore.loadsForEdit.filter(l => !legacySeismic.has(l.data.id) && fromLoadPlan((l.data as { generatedBy?: string }).generatedBy));
+    const retainedLoads = modelStore.loads.filter(l => !legacySeismic.has(l.data.id) && fromLoadPlan((l.data as { generatedBy?: string }).generatedBy));
     const retainedDefinitions = [...modelStore.model.groups.values()].filter(g => g.kind === 'floorLoad' && fromLoadPlan(g.data?.generatedBy));
     if (retainedLoads.length || retainedDefinitions.length) {
       const liveCases = new Set(modelStore.loadCases.filter(c => c.type === 'L' || c.type === 'Lr').map(c => c.id));
@@ -309,7 +309,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
         ...(oldOccupancyNeedsReview && keptLive ? { occupancySelection: 'review' } : {}),
       } });
     }
-    const firstNewLoad = modelStore.loadsForEdit.reduce((max, load) => Math.max(max, load.data.id), 0) + 1;
+    const firstNewLoad = modelStore.loads.reduce((max, load) => Math.max(max, load.data.id), 0) + 1;
 
     // Every planned case to a real id, creating only what is missing. A case the plan has no
     // match for is still reused when one of the same type already carries its name, so applying
@@ -393,7 +393,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     // What the generator wrote says so, for the next "replace".
     const by = p.generatedBy ?? 'generator';
     const seismicIds = new Set(caseIdByType.get('E'));
-    modelStore.replaceLoads(modelStore.loadsForEdit.map(l => {
+    modelStore.replaceLoads(modelStore.loads.map(l => {
       if (l.data.id < firstNewLoad) {
         return legacySeismic.has(l.data.id) && l.data.seismicGeneration !== 'unverified'
           ? { ...l, data: { ...l.data, seismicGeneration: 'unverified' } } as Load : l;

@@ -1,0 +1,39 @@
+{
+  "id": "bulk-load-and-constraint-edits",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "loads",
+  "when": {
+    "any": [
+      "storedLoadsOrConstraints"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Review loads and constraints after batched edits",
+    "es": "Revisá las cargas y restricciones después de una edición por lotes",
+    "pt": "Revise cargas e restrições após edições em lote",
+    "de": "Lasten und Zwangsbedingungen nach Sammeländerungen prüfen",
+    "fr": "Vérifier les charges et les liaisons après une modification groupée",
+    "tr": "Toplu düzenlemeden sonra yükleri ve kısıtları denetleyin",
+    "zh": "批量编辑后检查荷载和约束",
+    "hu": "A terhek és kényszerek ellenőrzése kötegelt szerkesztés után"
+  },
+  "explanation": {
+    "en": "A batched edit could restore a removed load or constraint, or lose a changed load value. Check the saved loads, cases and constraint endpoints against the intended model and rerun the analysis.",
+    "es": "Una edición por lotes podía restablecer una carga o restricción eliminada o perder un cambio de valor. Verificá las cargas, los casos y los nodos de las restricciones guardadas y repetí el análisis.",
+    "pt": "Uma edição em lote podia restaurar uma carga ou restrição removida ou perder uma alteração de valor. Confira as cargas, os casos e os nós das restrições salvas e repita a análise.",
+    "de": "Eine Sammeländerung konnte entfernte Lasten oder Zwangsbedingungen wiederherstellen oder einen geänderten Lastwert verlieren. Prüfen Sie gespeicherte Lasten, Lastfälle und beteiligte Knoten und wiederholen Sie die Berechnung.",
+    "fr": "Une modification groupée pouvait rétablir une charge ou une liaison supprimée ou perdre une modification de charge. Vérifiez les charges, les cas et les nœuds des liaisons enregistrées, puis relancez le calcul.",
+    "tr": "Toplu düzenleme, silinen bir yükü veya kısıtı geri getirebiliyor ya da yük değerindeki değişikliği kaybedebiliyordu. Kayıtlı yükleri, yük durumlarını ve kısıtların bağlandığı düğümleri denetleyip analizi yeniden çalıştırın.",
+    "zh": "批量编辑可能恢复已删除的荷载或约束，或丢失对荷载值的修改。请对照预期模型检查已保存的荷载、工况和约束节点，然后重新分析。",
+    "hu": "Kötegelt szerkesztéskor visszakerülhetett egy törölt teher vagy kényszer, illetve elveszhetett egy teherérték módosítása. Ellenőrizze a mentett terheket, tehereseteket és a kényszerek csomópontjait, majd futtassa újra a számítást."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-bulk-load-and-constraint-edits.md",
+    "heading": "Review loads and constraints after batched edits"
+  }
+}

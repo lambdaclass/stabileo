@@ -1,8 +1,10 @@
+import { batchedList } from './batched-list.svelte';
 import { is3DWorkspace, isAnalysisMode } from '../utils/workspace';
 import { ModelInputError, migrateModelConstraints, modelInputRefusal, requireCombinationInput, requireLoadInput, requireModelInput, requireStoredProjectInput, requireStructureInput, supportWithStoredId } from '../engine/model-input-numbers';
 import { canonicalizeLoadAliases, canonicalizeModelAliases, NO_RELEASE } from '../model/canonical-aliases';
 import { accountingProjection, scenarioSurfaceAdjustment } from '../engine/accounting-source';
-import { defaultDesignData, migrateStoredDesignData } from '../model/design-data';
+import { defaultDesignData } from '../model/design-data';
+import { migrateStoredDesignData } from '../model/stored-design-data';
 import { globalAxes } from '../features';
 import type { SupportType } from '../model/support-types';
 import { caseNameShown, combinationNameShown } from '../axes/case-names';
@@ -1208,6 +1210,8 @@ function createModelStore() {
   }
 
   let detailing = $state.raw<DetailingStore | undefined>(emptyPublishedDetailing);
+  const loadList = batchedList<Load>();
+  const constraintList = batchedList<Constraint3D>();
   let model = $state<StructureModel>({
     name: t('tabBar.newStructure'),
     nodes: new Map(),
@@ -1215,7 +1219,8 @@ function createModelStore() {
     sections: new Map(),
     elements: new Map(),
     supports: new Map(),
-    loads: [],
+    get loads() { return loadList.value; },
+    set loads(value) { loadList.value = value; },
     loadCases: defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type])),
     combinations: defaultCombinations(),
     plates: new Map(),
@@ -1223,7 +1228,8 @@ function createModelStore() {
     // A new project has no groups. Absent and empty mean the same here, unlike
     // `geotechnical`, because a group is something a user states and never a default.
     groups: new Map(),
-    constraints: [],
+    get constraints() { return constraintList.value; },
+    set constraints(value) { constraintList.value = value; },
     connectors: new Map(),
     footings: new Map(),
     // A new project has no strata, not one invented stratum. See migrateGeotechnical.
@@ -1480,8 +1486,6 @@ function createModelStore() {
   // bulkMutate() reassigns everything once at the end.
   let _bulkMutating = false;
   let _replayingFixture = false;
-  let _bulkLoadBuffer: Load[] | null = null;
-  let _bulkConstraintBuffer: Constraint3D[] | null = null;
 
   /**
    * Replace or remove one entity id in every group that holds it.
@@ -1742,9 +1746,21 @@ function createModelStore() {
     return includeSelfWeight ? [{ caseId: target, ...GRAVITY_SELF_WEIGHT }] : [];
   }
 
+  function insertLoadEntries(loads: readonly Load[]): number[] {
+    if (!loads.length) return [];
+    const firstId = nextId.load;
+    const entries = loads.map((load, index) => {
+      const canonical = canonicalizeLoadAliases({ type: load.type, data: { ...load.data, id: firstId + index } } as Load);
+      return { type: canonical.type, data: JSON.parse(JSON.stringify(canonical.data)) } as Load;
+    });
+    if (!_undoBatching) _pushUndo?.();
+    loadList.append(entries);
+    nextId.load += entries.length;
+    return entries.map(entry => entry.data.id);
+  }
+
   function retainLoads(keep: (load: Load) => boolean): void {
     model.loads = model.loads.filter(keep);
-    if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keep);
   }
 
   function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
@@ -2177,15 +2193,11 @@ function createModelStore() {
       const ownUndoBatch = !_undoBatching;
       if (ownUndoBatch) _undoBatching = true;
       _bulkMutating = true;
-      _bulkLoadBuffer = [...model.loads];
-      _bulkConstraintBuffer = [...model.constraints];
+      loadList.begin();
+      constraintList.begin();
       try {
         fn();
       } finally {
-        const commitLoads = _bulkLoadBuffer!;
-        const commitConstraints = _bulkConstraintBuffer!;
-        _bulkLoadBuffer = null;
-        _bulkConstraintBuffer = null;
         _bulkMutating = false;
         if (ownUndoBatch) _undoBatching = false;
         // Single reactive commit — one bump, one scene sync pass
@@ -2196,8 +2208,8 @@ function createModelStore() {
         model.sections = new Map(model.sections);
         model.plates = new Map(model.plates);
         model.quads = new Map(model.quads);
-        model.loads = commitLoads;
-        model.constraints = commitConstraints;
+        loadList.publish();
+        constraintList.publish();
         modelVersion++;
         _onMutation?.();
       }
@@ -2211,7 +2223,6 @@ function createModelStore() {
     get elements() { return model.elements; },
     get supports() { return model.supports; },
     get loads() { return model.loads; },
-    get loadsForEdit(): readonly Load[] { return _bulkLoadBuffer ?? model.loads; },
     get materials() { return model.materials; },
     get sections() { return model.sections; },
     get loadCases() { return model.loadCases; },
@@ -2230,7 +2241,7 @@ function createModelStore() {
     get designDecisions() { return model.designDecisions; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
-    get constraints() { return _bulkConstraintBuffer ?? model.constraints; },
+    get constraints() { return model.constraints; },
     get connectors() { return model.connectors; },
     get footings() { return model.footings; },
     get geotechnical() { return model.geotechnical; },
@@ -2896,33 +2907,18 @@ function createModelStore() {
       const canonical = loads.map(l => canonicalizeLoadAliases({ type: l.type, data: { ...l.data } } as Load));
       if (!_undoBatching) _pushUndo?.();
       model.loads = canonical;
-      if (_bulkLoadBuffer) _bulkLoadBuffer = [...model.loads];
     },
 
     /** Add a load of any type, whole, under a new id. For the edit layer; see `addSupportEntry`. */
     addLoadEntry(load: Load): number {
-      const id = nextId.load;
-      const canonical = canonicalizeLoadAliases({ type: load.type, data: { ...load.data, id } } as Load);
-      const entry = { type: canonical.type, data: JSON.parse(JSON.stringify(canonical.data)) } as Load;
-      if (!_undoBatching) _pushUndo?.();
-      nextId.load++;
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
-      return id;
+      return insertLoadEntries([load])[0]!;
     },
 
     /**
      * Many loads at once, each under a new id, in one write of the list. One at a time, every
      * write copied the whole list: a building's thousands of slab loads took a minute.
      */
-    addLoadEntries(loads: readonly Load[]): number[] {
-      if (!loads.length) return [];
-      if (!_undoBatching) _pushUndo?.();
-      const entries = loads.map((load) => ({ type: load.type, data: { ...JSON.parse(JSON.stringify(load.data)), id: nextId.load++ } }) as Load);
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(...entries);
-      else model.loads = [...model.loads, ...entries];
-      return entries.map((e) => (e.data as { id: number }).id);
-    },
+    addLoadEntries: insertLoadEntries,
 
     /** Add a quad or a plate with every field it carries. For the edit layer. */
     addShellEntry(kind: 'quad' | 'plate', fields: Omit<Quad, 'id'> | Omit<Plate, 'id'>): number {
@@ -2988,8 +2984,7 @@ function createModelStore() {
       const data: NodalLoad = { id, nodeId, fx, fz, my };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'nodal' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3003,8 +2998,7 @@ function createModelStore() {
       if (a !== undefined && a > 0) data.a = a;
       if (b !== undefined) data.b = b;
       const entry = { type: 'distributed' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3019,8 +3013,7 @@ function createModelStore() {
       if (opts?.isGlobal) data.isGlobal = true;
       if (opts?.caseId !== undefined) data.caseId = opts.caseId;
       const entry = { type: 'pointOnElement' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3030,8 +3023,7 @@ function createModelStore() {
       const data: ThermalLoad = { id, elementId, dtUniform, dtGradient };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'thermal' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3045,8 +3037,7 @@ function createModelStore() {
       const data: NodalLoad3D = { id, nodeId, fx, fy, fz, mx, my, mz };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'nodal3d' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3064,8 +3055,7 @@ function createModelStore() {
       if (b !== undefined) data.b = b;
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'distributed3d' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3077,8 +3067,7 @@ function createModelStore() {
       const data: PointLoadOnElement3D = { id, elementId, a, py, pz };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'pointOnElement3d' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3088,8 +3077,7 @@ function createModelStore() {
       const data: SurfaceLoad3D = { id, quadId, q, ...(extra ?? {}) };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'surface3d' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3099,8 +3087,7 @@ function createModelStore() {
       const data: ThermalLoadQuad3D = { id, quadId, dtUniform, dtGradient };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'thermalQuad3d' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3173,9 +3160,7 @@ function createModelStore() {
           return (c.masterNode === id || c.slaveNode === id) ? null : c;
         })
         .filter((c): c is Constraint3D => c !== null);
-      // Inside bulkMutate the commit writes the buffer over model.constraints: prune the buffer, or dangling constraints resurrect.
-      if (_bulkConstraintBuffer) _bulkConstraintBuffer = pruneConstraints(_bulkConstraintBuffer);
-      else model.constraints = pruneConstraints(model.constraints);
+      model.constraints = pruneConstraints(model.constraints);
     },
 
     // ── Named groups ────────────────────────────────────────────────
@@ -3272,7 +3257,6 @@ function createModelStore() {
       // solve with nothing to say where they came from.
       const keepLoad = (l: Load) => (l.data as { fromDef?: number }).fromDef !== id;
       if (!model.loads.every(keepLoad)) model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
       model.groups.delete(id);
       model.groups = new Map(model.groups);
       return 'removed';
@@ -3457,22 +3441,21 @@ function createModelStore() {
 
     addConstraint(c: Constraint3D): void {
       if (!_undoBatching) _pushUndo?.();
-      if (_bulkConstraintBuffer) _bulkConstraintBuffer.push({ ...c });
-      else model.constraints = [...model.constraints, { ...c }];
+      constraintList.append([{ ...c }]);
     },
 
     replaceConstraint(index: number, constraint: Constraint3D): void {
       const constraints = this.constraints;
       if (!constraints[index]) return;
       if (!_undoBatching) _pushUndo?.();
-      if (_bulkConstraintBuffer) _bulkConstraintBuffer[index] = { ...constraint };
+      if (_bulkMutating) model.constraints[index] = { ...constraint };
       else model.constraints = constraints.map((current, i) => i === index ? { ...constraint } : current);
     },
 
     removeConstraint(index: number): void {
       if (!_undoBatching) _pushUndo?.();
-      if (_bulkConstraintBuffer) {
-        if (Number.isInteger(index) && index >= 0 && index < _bulkConstraintBuffer.length) _bulkConstraintBuffer.splice(index, 1);
+      if (_bulkMutating) {
+        if (Number.isInteger(index) && index >= 0 && index < model.constraints.length) model.constraints.splice(index, 1);
       } else model.constraints = model.constraints.filter((_, i) => i !== index);
     },
 
