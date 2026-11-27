@@ -13,7 +13,7 @@ root = Path(__file__).resolve().parents[2]
 
 class BenchmarkOutputs(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(dir=root / 'target')
+        self.tmp = tempfile.TemporaryDirectory(dir=root)
         self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name)
         for name in ['web', 'engine']:
@@ -139,7 +139,6 @@ const createServer = async settings => {
 
 
 class CleanCheckout(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_checker_scratch_without_a_native_build(self):
         with tempfile.TemporaryDirectory(dir=root) as checkout:
             with patch.dict(BenchmarkOutputs.setUp.__globals__, root=Path(checkout)):
