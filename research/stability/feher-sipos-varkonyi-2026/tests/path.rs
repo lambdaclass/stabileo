@@ -75,3 +75,16 @@ fn slider_limits_accept_the_boundary_and_refuse_both_outside_sides() {
         assert_eq!(run::path_with(theta, delta, 1.5, Distribution::Uniform, 30).unwrap_err(), run::PathError::CornerOutOfRange);
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn optimum_clamp_coordinate_has_its_own_printed_precision_check() {
+    let data: serde_json::Value = serde_json::from_str(include_str!("../reference-results/published_comparison.json")).unwrap();
+    let rows = data["checks"].as_array().unwrap();
+    let load = rows.iter().find(|r| r["id"] == "qlim-half-optimum").unwrap();
+    let delta = rows.iter().find(|r| r["id"] == "qlim-half-optimum-delta").unwrap();
+    assert_eq!(delta["reference"], load["reference_delta"]);
+    assert_eq!(delta["computed"], load["computed_delta"]);
+    assert_eq!(delta["tolerance"], 0.0125 / 2. + 0.01 / 2.);
+    assert_eq!(delta["passed"], delta["observed"].as_f64().unwrap() <= delta["tolerance"].as_f64().unwrap());
+}
