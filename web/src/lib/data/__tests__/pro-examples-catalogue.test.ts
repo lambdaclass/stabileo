@@ -13,13 +13,23 @@ import { initSolver } from '../../engine/wasm-solver';
 import es from '../../i18n/locales/es';
 import en from '../../i18n/locales/en';
 import pt from '../../i18n/locales/pt';
-import { PRO_EXAMPLES, PRO_EXAMPLE_GROUP_ORDER, proExampleGroups, isHeavyExample } from '../pro-examples';
+import { PRO_EXAMPLES, PRO_EXAMPLE_GROUP_ORDER, proExampleGroups, isHeavyExample, publishedBuildingExamples, unifiedBuildingExamples } from '../pro-examples';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { uiStore.analysisMode = 'pro'; });
 afterEach(() => { uiStore.analysisMode = '3d'; });
 
 describe('the catalogue', () => {
+  it('describes the loads supplied by each steel gallery card', () => {
+    const id = 'pro-steel-building-slabs';
+    const published = publishedBuildingExamples.find(card => card.id === id)!;
+    const generated = unifiedBuildingExamples().find(card => card.id === id)!;
+    expect(published.loads).toBe('model');
+    expect(generated.loads).toBe('generator');
+    expect(en[published.descKey]).toBe('A three-story steel frame with concrete slabs meshed as shells and a core of walls. The beams sit under the slab, their axis offset.');
+    expect(en[generated.descKey]).toContain('loads and the wind come from the code load generator');
+  });
+
   it('has every group populated, in order, and each group from small to large', () => {
     const groups = proExampleGroups((k) => k);
     expect(groups.map((g) => g.group)).toEqual([...PRO_EXAMPLE_GROUP_ORDER]);

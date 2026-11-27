@@ -220,7 +220,7 @@ export const unifiedBuildingExamples = (): readonly ProExample[] => [
 
   // ── Steel buildings ──
   entry({ id: 'pro-plane-frame-seismic', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagSeismic'], stats: { nodes: 20, members: 28 }, selfWeight: 'all', combinations: 'regulation' }),
-  entry({ id: 'pro-steel-building-slabs', source: 'code', codeFile: GENERATED_BUILDING_FILES['pro-steel-building-slabs'], group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 99, members: 153, plates: 48 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  { ...entry({ id: 'pro-steel-building-slabs', source: 'code', codeFile: GENERATED_BUILDING_FILES['pro-steel-building-slabs'], group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 99, members: 153, plates: 48 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }), descKey: 'ex.pro-steel-building-slabs.generatedDesc' },
   entry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1420 }, selfWeight: 'all', combinations: 'regulation' }),
 
 ];
