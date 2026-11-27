@@ -838,3 +838,21 @@ fn issue_2658_shared_section_cantilevers_use_the_loaded_material_2d() {
         assert_containment(solve_plastic_2d(&input), "PL-2D-INVARIANCE");
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1927"]
+fn a_fixed_tie_can_govern_two_redundant_axial_paths() {
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 2.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
+        vec![(1, "truss", 1, 2, 1, 1, false, false), (2, "truss", 2, 3, 1, 1, false, false), (3, "truss", 2, 3, 1, 1, false, false)],
+        vec![(1, 1, "pinned"), (2, 2, "rollerX"), (3, 3, "rollerX")], vec![nodal(3, 1.0, 0.0)],
+    );
+    for capacity in [5.0, 6.0] {
+        let np = HashMap::from([(1, 10.0), (2, capacity), (3, capacity)]);
+        assert_eq!(confirm_2d(&input, &HashMap::new(), &np, 10.0), Confirmation::Exact);
+        assert_ne!(confirm_2d(&input, &HashMap::new(), &np, 11.0), Confirmation::Exact);
+    }
+    let insufficient = HashMap::from([(1, 10.0), (2, 4.0), (3, 5.0)]);
+    assert_ne!(confirm_2d(&input, &HashMap::new(), &insufficient, 10.0), Confirmation::Exact);
+}

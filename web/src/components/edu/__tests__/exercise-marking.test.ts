@@ -163,3 +163,15 @@ it('known wrong result: #1927 — a fractional or suffixed degree cannot earn in
     expect(remarkSubmission(base, sub)!.answers.find(a => a.key === 'kd')?.outcome).toBe(expected);
   }
 });
+
+it.skip('known wrong result: #1927 — saved homework can be regraded only against its assigned revision', () => {
+  const assigned = spec();
+  const sub = rightAnswersFor('37');
+  const exerciseRevision = toExercise(variantOf(assigned, sub.seed)).revision;
+  const file = fromSubmissionFile(toSubmissionFile({ ...sub, exerciseRevision }));
+  expect(file.ok && file.submission.exerciseRevision).toMatch(/^[0-9a-f]{64}$/);
+  if (!file.ok) throw new Error(file.error);
+  expect(remarkSubmission(assigned, file.submission)).not.toBeNull();
+  const edited = { ...assigned, characteristics: [...assigned.characteristics, { label: 'extra', unit: 'kN', answer: { kind: 'literal' as const, value: 3 } }] };
+  expect(remarkSubmission(edited, file.submission)).toBeNull();
+});
