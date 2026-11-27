@@ -747,3 +747,41 @@ fn a_unit_combination_preserves_the_near_case_it_repeats() {
     let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &case)]).unwrap();
     assert_eq!(second_order(&combined.structured_diagnostics), near(vec![1, 2]));
 }
+
+#[test]
+#[ignore = "known wrong result: #1927"]
+fn review_1927_a_physical_bound_covers_every_contributing_load_and_component() {
+    let mut model = serde_json::to_value(truss_v(false)).unwrap();
+    model["nodes"]["5"] = json!({"id":5,"x":0,"z":5});
+    model["nodes"]["6"] = json!({"id":6,"x":6,"z":5});
+    model["sections"]["2"] = json!({"id":2,"a":6.9e-3,"iz":1e-4});
+    model["elements"]["4"] = json!({"id":4,"nodeI":5,"nodeJ":6,"type":"frame","materialId":1,"sectionId":2});
+    model["supports"]["5"] = json!({"id":5,"nodeId":5,"type":"pinned"});
+    model["supports"]["6"] = json!({"id":6,"nodeId":6,"type":"spring","ky":1e7});
+    let truss_load = model["loads"][0].clone();
+    let beam_load = json!({"type":"nodal","data":{"nodeId":6,"fx":-200,"fz":0,"my":0}});
+    let run = |loads| {
+        let mut input = model.clone();
+        input["loads"] = loads;
+        solve_2d(&serde_json::from_value(input).unwrap()).unwrap()
+    };
+    let beam = run(json!([beam_load]));
+    let truss = run(json!([truss_load]));
+    let both = run(json!([beam_load, truss_load]));
+    if let Ok(path) = std::env::var("TRUSS_SCREEN_1927_CASES") {
+        model["loads"] = json!([beam_load, truss_load]);
+        std::fs::write(format!("{path}-partial.json"), model.to_string()).unwrap();
+    }
+    let bound = |r: &AnalysisResults| r.result_summary.as_ref().unwrap().second_order_physical_bound;
+    assert!(bound(&beam).is_some());
+    assert!(bound(&truss).is_none());
+    let combined = |beam_factor, truss_factor| combine_results_refs(
+        &[CombinationFactor { case_id: 1, factor: beam_factor }, CombinationFactor { case_id: 2, factor: truss_factor }],
+        &[(1, &beam), (2, &truss)],
+    ).unwrap();
+    assert_eq!(bound(&combined(1.0, 0.0)), bound(&beam));
+    for result in [both, combined(1.0, 1.0), combined(-1.0, 0.0)] {
+        assert!(result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-UNBOUNDED")));
+        assert_eq!(bound(&result), None);
+    }
+}
