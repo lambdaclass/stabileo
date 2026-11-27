@@ -35,11 +35,9 @@ async function checkDisplacement(workspace: '2d' | '3d', alpha: number, worker =
   expect(ux, JSON.stringify(diagnostics)).toBeCloseTo((alpha * temperature + strain) * length, 12);
 }
 
-const issue2656 = process.env.RUN_KNOWN_WRONG === '2656' ? it : it.skip;
-
 for (const workspace of ['2d', '3d'] as const) {
   for (const alpha of [0, -5e-6]) {
-    issue2656(`known wrong result: #2656 uses the project's explicit α=${alpha} for free expansion in ${workspace}`, () => {
+    it(`#2656 uses the project's explicit α=${alpha} for free expansion in ${workspace}`, () => {
       return checkDisplacement(workspace, alpha);
     });
   }
@@ -51,7 +49,7 @@ for (const workspace of ['2d', '3d'] as const) {
 
 for (const workspace of ['2d', '3d'] as const) {
   for (const alpha of [0, -5e-6, 5e-6]) {
-    issue2656(`known wrong result: #2656 async ${workspace} combines prescribed strain with α=${alpha}`, () =>
+    it(`#2656 async ${workspace} combines prescribed strain with α=${alpha}`, () =>
       checkDisplacement(workspace, alpha, true, 0.0001));
   }
 }

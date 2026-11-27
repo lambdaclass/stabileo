@@ -48,8 +48,7 @@ export function thermalFamilyOf(material: AlphaReadableMaterial | undefined | nu
 
 /** The α a material is solved with, 1/°C. */
 export function thermalAlphaOf(material: AlphaReadableMaterial | undefined | null): number {
-  if (material && material.alpha !== undefined && material.alpha > 0) return material.alpha;
-  return FAMILY_ALPHA[thermalFamilyOf(material)];
+  return memberAlphaOf(material) ?? ENGINE_ALPHA;
 }
 
 /**
@@ -57,7 +56,7 @@ export function thermalAlphaOf(material: AlphaReadableMaterial | undefined | nul
  * family is known; undefined when neither is (the engine then keeps its default and warns).
  */
 export function memberAlphaOf(material: AlphaReadableMaterial | undefined | null): number | undefined {
-  if (material && material.alpha !== undefined && material.alpha > 0) return material.alpha;
+  if (material?.alpha != null) return material.alpha;
   const family = thermalFamilyOf(material);
   return family === 'unknown' ? undefined : FAMILY_ALPHA[family];
 }

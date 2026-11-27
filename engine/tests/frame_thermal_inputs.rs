@@ -288,7 +288,7 @@ fn the_end_to_end_certificate_rejects_a_result_that_ignores_alpha() {
 
 #[test]
 fn implausible_alpha_or_depth_is_rejected() {
-    for bad in [json!({"alpha": 12.0}), json!({"alpha": -1e-5}), json!({"depth": 0.0}), json!({"depth": -0.3})] {
+    for bad in [json!({"alpha": 12.0}), json!({"alpha": -1e-3}), json!({"alpha": 1e-3}), json!({"depth": 0.0}), json!({"depth": -0.3})] {
         let mut t = json!({"dtUniform": 10.0, "dtGradient": 5.0});
         for (k, v) in bad.as_object().unwrap() {
             t[k] = v.clone();
@@ -317,7 +317,7 @@ fn prepared_solves_refuse_invalid_thermal_properties() {
     let model = fixed_2d(2, 4.0, 200_000.0, 0.01, 1e-4, "frame", json!({"dtUniform": 0.0, "dtGradient": 0.0}));
     let unloaded = SolverInput { loads: vec![], ..model };
     let prepared = prepare_static_2d(&unloaded).unwrap();
-    for (alpha, depth) in [(Some(12.0), None), (None, Some(0.0)), (Some(-1e-5), None)] {
+    for (alpha, depth) in [(Some(12.0), None), (None, Some(0.0)), (Some(-1e-3), None), (Some(1e-3), None)] {
         let load = SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 10.0, dt_gradient: 5.0, alpha, depth });
         assert!(prepared.solve_loads(&[load]).is_err(), "2D alpha {alpha:?} depth {depth:?} solved");
     }
@@ -346,7 +346,6 @@ fn a_positive_y_gradient_heats_the_minus_y_face_and_a_positive_z_gradient_the_pl
 }
 
 #[test]
-#[ignore = "known wrong result: #2656"]
 fn issue_2656_signed_thermal_strain_in_plane_and_space() {
     for alpha in [-0.000999, -5e-6, 0.0, 5e-6, 0.000999] {
         let mut plane = fixed_2d(1, 5.0, STEEL, 0.01, 1e-4, "frame", json!({"dtUniform": 1.0, "dtGradient": 0.0, "alpha": alpha}));
@@ -354,10 +353,10 @@ fn issue_2656_signed_thermal_strain_in_plane_and_space() {
         let mut space = fixed_3d(STEEL, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 1.0, "dtGradientY": 0.0, "dtGradientZ": 0.0, "alpha": alpha}));
         space.supports.remove("2");
         for r in [solve_2d(&plane).unwrap(), solve_pdelta_2d(&plane, 30, 1e-10).unwrap().results] {
-        close("plane free expansion", r.displacements.iter().find(|d| d.node_id == 2).unwrap().ux, alpha * 5.0, 1e-12);
+            close("plane free expansion", r.displacements.iter().find(|d| d.node_id == 2).unwrap().ux, alpha * 5.0, 1e-12);
         }
         for r in [solve_3d(&space).unwrap(), solve_pdelta_3d(&space, 30, 1e-10).unwrap().results] {
-        close("space free expansion", r.displacements.iter().find(|d| d.node_id == 3).unwrap().ux, alpha * 5.0, 1e-12);
+            close("space free expansion", r.displacements.iter().find(|d| d.node_id == 3).unwrap().ux, alpha * 5.0, 1e-12);
         }
     }
 }

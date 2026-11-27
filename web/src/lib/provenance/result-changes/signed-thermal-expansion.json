@@ -1,0 +1,41 @@
+{
+  "id": "signed-thermal-expansion",
+  "date": "2026-11-27",
+  "prs": [
+    2491
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "memberThermalLoads",
+      "shells"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Use declared zero and negative thermal expansion coefficients",
+    "es": "Usar los coeficientes de dilatación térmica nulos y negativos declarados",
+    "pt": "Usar os coeficientes de dilatação térmica nulos e negativos declarados",
+    "de": "Angegebene nullwertige und negative Wärmeausdehnungskoeffizienten verwenden",
+    "fr": "Utiliser les coefficients de dilatation thermique nuls et négatifs déclarés",
+    "tr": "Bildirilen sıfır ve negatif ısıl genleşme katsayılarını kullan",
+    "zh": "使用指定的零值和负值热膨胀系数",
+    "hu": "A megadott nulla és negatív hőtágulási együtthatók használata"
+  },
+  "explanation": {
+    "en": "Recalculate members and shells with thermal loads. A declared zero produces zero thermal strain. A negative coefficient causes contraction under heating.",
+    "es": "Recalculá las barras y láminas con cargas térmicas. Un cero declarado produce deformación térmica nula. Un coeficiente negativo produce contracción al calentar.",
+    "pt": "Recalcule as barras e cascas com cargas térmicas. Um zero declarado produz deformação térmica nula. Um coeficiente negativo causa contração no aquecimento.",
+    "de": "Stäbe und Schalen mit Temperaturlasten neu berechnen. Ein angegebener Nullwert ergibt keine thermische Dehnung. Ein negativer Koeffizient führt beim Erwärmen zur Verkürzung.",
+    "fr": "Recalculer les barres et coques sous charge thermique. Une valeur nulle déclarée donne une déformation thermique nulle. Un coefficient négatif entraîne une contraction au chauffage.",
+    "tr": "Isıl yük altındaki çubuk ve kabukları yeniden hesaplayın. Bildirilen sıfır değeri ısıl birim şekil değiştirmeyi sıfırlar. Negatif katsayı ısınma sırasında büzülmeye yol açar.",
+    "zh": "请重新计算承受温度荷载的杆件和壳体。指定零值时热应变为零，负系数会使构件在升温时收缩。",
+    "hu": "Számítsa újra a hőterhelésű rudakat és héjakat. A megadott nulla érték nulla hőalakváltozást ad. Negatív együttható esetén a melegítés összehúzódást okoz."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-signed-thermal-expansion.md",
+    "heading": "Use declared zero and negative thermal expansion coefficients"
+  }
+}
