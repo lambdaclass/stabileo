@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { computeElementDiagram } from '../diagrams';
+import { distributedActionTerms, diagramLineValue, memberDiagram } from '../member-diagram';
 import { computeDiagram3D, criticalDiagramStations3D, type Diagram3DKind } from '../diagrams-3d';
 import type { ElementForces3D } from '../types-3d';
 
@@ -115,4 +116,16 @@ it('known wrong result: #2250 preserves an interval-local shear peak in both dim
   expect(criticalDiagramStations3D({
     ...spatial, distributedLoadsZ: [{ a: 0, b: length, qI: 1, qJ: -1 }],
   })).toContainEqual({ t: 0.5 });
+});
+
+it('keeps the original signed force sum at cuts, inside a band and in the gaps', () => {
+  for (const force of [-0, 1, -3, Number.MIN_VALUE]) {
+    const loads = [{ a: 0, b: 0.25, qI: force, qJ: force }, { a: 0.5, b: 1, qI: force, qJ: -force }];
+    const curve = memberDiagram(1, -0, -0, loads, [], 'force', -1, -0);
+    for (const t of [-0, 0, 0.125, 0.25, 0.375, 0.5, 0.75, 1]) {
+      const x = curve.cutDistances.get(t) ?? t;
+      const expected = loads.reduce((sum, load) => sum - distributedActionTerms(load, x)[0], diagramLineValue(-0, -0, -0, x, t));
+      expect(curve.value({ t })).toBe(expected);
+    }
+  }
 });

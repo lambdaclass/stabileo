@@ -1,6 +1,6 @@
 import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
-import { LoadVector, scaleAssembledMagnitudes3D, zero, type MemberLinePieces, type Wrench } from './accounting-math';
+import { assembledMagnitudes3D, LoadVector, scaleAssembledMagnitudes3D, zero, type MemberLinePieces, type Wrench } from './accounting-math';
 import { accountCombination, accountLoads2D, accountSource3D, accountWeight2D, hasGeneratedSource, weightSource3D, type CheckedSource3D, loadAccounting3D, loadCaseBatches, verifyFactoredSurfaceNode, verifyScenarioSurfaceLoads } from './load-accounting';
 import { accountPlateGeometry, SolveAccountingError } from './plate-accounting';
 import { mapModelNodeToSolver3D, shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -1991,6 +1991,28 @@ function buildValidatedSolverInput3D(
   userLeftHand = false,
   opts: { expandMemberOffsets?: boolean; plateCases?: boolean | readonly number[] } = {},
 ): SolverInput3D | null {
+  return buildStructuralInput3D(model, opts.expandMemberOffsets, (active, input) =>
+    checkedSolverLoads3D(active, input, active.loads, includeSelfWeight, userLeftHand, opts.plateCases ?? true));
+}
+
+export function reviewedStructure3D(model: ModelData, leftHand: boolean): Omit<SolverInput3D, 'loads'> | null {
+  assertPlateAnalysisReady(model);
+  return buildStructuralInput3D(model, true, (active, input) => {
+    const accounting = loadAccounting3D(active, input, shouldEmbedFlat2DModelIn3D(active), leftHand,
+      accountPlateGeometry(active[accountingSource] ?? active, input), true);
+    for (const [id, loads] of loadCaseBatches(active.loads, [...accounting.cases])) {
+      checkedSolverLoads3D(active, input, loads, [], leftHand, [id], accounting);
+      accounting.releaseIndependentCase(id);
+    }
+    checkedSolverLoads3D(active, input, [], false, leftHand, [], accounting);
+    return [];
+  });
+}
+
+function buildStructuralInput3D(
+  model: ModelData, expandOffsets: boolean | undefined,
+  assemble: (model: ModelData, input: SolverInput3D) => SolverLoad3D[],
+): SolverInput3D | null {
   requireModelInput(model);
   model = solvableModel(model);
   if (model.nodes.size < 2 || !hasLoadCarrying3D(model) || model.supports.size < 1) return null;
@@ -2156,7 +2178,7 @@ function buildValidatedSolverInput3D(
   // Stiffness modifiers, through solve-only sections, before offsets split any member.
   applyStiffnessModifiers(input, model);
 
-  if (opts.expandMemberOffsets !== false) {
+  if (expandOffsets !== false) {
     // Member/shell offsets are a genuine-3D concept (an offset of a flat-2D
     // embed is ill-defined), so they expand only on the non-embedded path.
     if (!project2DToXZ) {
@@ -2194,7 +2216,7 @@ function buildValidatedSolverInput3D(
    * member end releases its moments — get the vanishing spring the plane
    * solver already gives them. See `orphan-rotations-3d.ts`.
    */
-  input.loads = checkedSolverLoads3D(model, input, model.loads, includeSelfWeight, userLeftHand, opts.plateCases ?? true);
+  input.loads = assemble(model, input);
   stabiliseOrphanRotations3D(input);
 
   return input;
@@ -3314,11 +3336,16 @@ function assembleCaseLoads3D(
     const loads = enteredByCase.get(lc.id) ?? [];
     const verified: CheckedSource3D[] = [];
     sources.set(lc.id, verified);
-    caseLoads.set(lc.id, checkedSolverLoads3D(model, input, loads, selfWeightFor(model, lc, includeSelfWeight), leftHand, [lc.id], accounting,
+    const rows = checkedSolverLoads3D(model, input, loads, selfWeightFor(model, lc, includeSelfWeight), leftHand, [lc.id], accounting,
       retainFactoredSources ? (id, assembled, totals) => {
         entered.set(id, totals);
         for (const load of assembled) authored.add(load);
-      } : undefined, retainFactoredSources ? source => verified.push(source) : undefined));
+      } : undefined, retainFactoredSources ? source => verified.push(source) : undefined);
+    caseLoads.set(lc.id, rows);
+    if (!retainFactoredSources) {
+      for (const row of rows) assembledMagnitudes3D.delete(row);
+      accounting.releaseIndependentCase(lc.id);
+    }
   }
   if (retainFactoredSources) combinationAccounting.set(caseLoads, { model, input, entered, authored, sources });
   return caseLoads;

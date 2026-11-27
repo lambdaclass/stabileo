@@ -81,8 +81,35 @@ export function memberDiagram(
     return cutDistances = mapped;
   };
   const component = order === 'force' ? 0 : 1;
+  const orderedForces = component === 0 && change === 0 && rate === 0 && Math.abs(sign) === 1
+    && !points.length && distributed.length > 1 && distributed.every((load, i) =>
+      Number.isFinite(load.qI) && Number.isFinite(load.qJ) && load.a >= 0 && load.b <= length && load.b > load.a
+      && (i === 0 || distributed[i - 1]!.b <= load.a));
+  const completedForces: number[] = [];
+  if (orderedForces) {
+    completedForces.push(diagramLineValue(start, change, rate, 0, 0));
+    for (const load of distributed) {
+      completedForces.push(completedForces[completedForces.length - 1]! + sign * distributedActionTerm(load, load.b, 0));
+    }
+  }
+  const completedCount = (x: number) => {
+    let lo = 0, hi = distributed.length;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (distributed[mid]!.b <= x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
   const physicalValue = (x: number, t: number, right: boolean) => {
     let result = diagramLineValue(start, change, rate, x, t);
+    if (orderedForces && x >= 0 && x <= length && t >= 0 && t <= 1 && Object.is(completedForces[0], result)) {
+      const end = completedCount(x);
+      let value = completedForces[end]!;
+      if (end < distributed.length) value += sign * distributedActionTerm(distributed[end]!, x, 0);
+      if (end + 1 < distributed.length) value += sign * 0;
+      return value;
+    }
     for (const load of distributed) result += sign * distributedActionTerm(load, x, component);
     for (const point of points) {
       if (point.a < x || (right && point.a === x)) {
@@ -126,7 +153,10 @@ export function memberDiagram(
       for (const point of points) {
         if (point.slope && point.a <= x0) linear += point.slope * width;
       }
-      for (const load of distributed) {
+      const from = orderedForces ? completedCount(x0) : 0;
+      const until = orderedForces ? Math.min(from + 1, distributed.length) : distributed.length;
+      for (let i = from; i < until; i++) {
+        const load = distributed[i]!;
         if (component === 1) linear += sign * distributedActionTerm(load, x0, 0) * width;
         if (x0 < load.a || x0 >= load.b) continue;
         const span = load.b - load.a;

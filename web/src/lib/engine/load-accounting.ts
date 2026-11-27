@@ -56,13 +56,13 @@ const stationComponents = ['Fx', 'Fy', 'Fz', 's·Fx', 's·Fy', 's·Fz'];
 
 function compare(label: string, entered: Wrench, assembled: Wrench): void {
   compareMeasures(label, components, entered, assembled);
-  const empty = new Wrench();
+  let empty: Wrench | undefined;
   for (const source of memberLineSources) {
     const first = entered.memberLineMeasures(source), second = assembled.memberLineMeasures(source);
     if (!first && !second) continue;
     for (const id of new Set([...(first?.keys() ?? []), ...(second?.keys() ?? [])])) {
       compareMeasures(`${label} · ${tp('whatif.member', { n: id })}`, stationComponents,
-        first?.get(id) ?? empty, second?.get(id) ?? empty);
+        first?.get(id) ?? (empty ??= new Wrench()), second?.get(id) ?? (empty ??= new Wrench()));
     }
   }
 }
@@ -662,6 +662,7 @@ function generatedExpected(
   for (const [original, group] of groups) {
     const first = group[0]!;
     const measure = () => {
+      if (group.length === 1 && factor === 1) return enteredLoads(model, group, frame, leftHand, caseId, new Set(), onNodes);
       const expected = new Wrench();
       for (const load of group) {
         expected.addScaled(enteredLoads(model, [load], frame, leftHand, caseId, new Set(), onNodes), factor);
@@ -889,6 +890,9 @@ export function loadAccounting3D(
   };
 
   return {
+    releaseIndependentCase(id: number) {
+      if (!effects) cache.delete(id);
+    },
     cases: effects?.targets ?? new Set([...authored.keys(), ...pressures.keys()]),
     verifyGenerated,
     verifySlabs,
