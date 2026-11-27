@@ -158,3 +158,25 @@ test('the EC2 member resistance reads placed reinforcement and draft profiles on
     });
   }
 });
+
+test('report and IFC entry modules call reinforcement sheet readers only in the sheet build', { skip: 'known wrong result: disabled documents link sheet readers' }, async () => {
+  for (const enabled of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: enabled }, async configFile => {
+      for (const name of ['memoria-inputs', 'ifc-export']) {
+        const entry = resolve(root, 'src/lib/store', name + '.ts');
+        const result = await build({
+          root, configFile, logLevel: 'silent',
+          build: {
+            write: false, lib: { entry, formats: ['es'] },
+            rollupOptions: { external: (id, importer) => importer === entry && !id.startsWith('\0') },
+          },
+        });
+        const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+        const readers = Object.entries(chunk.importedBindings)
+          .filter(([id, names]) => id.includes('rc-sheets') && names.length > 0)
+          .map(([id]) => id);
+        assert.equal(readers.length > 0, enabled, name + ' links ' + readers.join(', '));
+      }
+    });
+  }
+});
