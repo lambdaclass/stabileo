@@ -85,6 +85,11 @@ for (const width of [360, 390]) {
       const input = panel.getByTestId('tab-switcher-input');
       await expect(input).toBeFocused();
       await input.fill('Beam B');
+      for (const key of ['Enter', 'Escape']) {
+        await input.dispatchEvent('keydown', { key, isComposing: true, bubbles: true });
+        await expect(input).toBeFocused();
+        await expect(input).toHaveValue('Beam B');
+      }
       await input.press('Enter');
       await expect(rows.nth(1)).toContainText('Beam B');
       await expect(rows.nth(1).getByTestId('tab-switcher-rename')).toBeFocused();

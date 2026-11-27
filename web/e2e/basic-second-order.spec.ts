@@ -12,6 +12,24 @@ test.describe('@slow second order and buckling in Basic', () => {
     await page.getByTestId('rb-cmd-advanced').click();
   });
 
+  test('recovers from a refused thermal teaching solve by switching back to the engine', async ({ page }) => {
+    const opened = await page.evaluate(() => {
+      const file = JSON.parse(window.__stabileo.serializeProject());
+      const elementId = file.snapshot.elements[0][0];
+      file.snapshot.loads.push({ type: 'thermal', data: { id: file.snapshot.nextId.load++, elementId, dtUniform: 1, dtGradient: 0 } });
+      return window.__stabileoActions.loadProject(file);
+    });
+    expect(opened).toBe(true);
+    await openAdvancedFunction(page, 'pdelta');
+    await page.getByTestId('so-options-toggle').click();
+    const method = page.getByTestId('so-method');
+    await method.selectOption('phi');
+    await expect(page.getByTestId('pdelta-result')).toHaveCount(0);
+    await expect(method).toBeVisible();
+    await method.selectOption('consistent');
+    await expect(page.getByTestId('pdelta-result')).toBeVisible();
+  });
+
   test('P-Δ with φ and 4 elements per member, its step by step, and buckling with 4 elements', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));

@@ -15,6 +15,31 @@ const ALPHA = 1.2e-5;
 describe.each(['quad', 'curved', 'plate'] as const)('thermal load on a %s', (kind) => {
   beforeAll(async () => { await initSolver(); uiStore.analysisMode = 'pro'; });
 
+  it('reverses the free edge rotation under a through-depth gradient', () => {
+    const rotation = (alpha: number) => {
+      modelStore.clear();
+      const nodes = [[0, 0], [4, 0], [4, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x, y, 0));
+      const material = modelStore.addMaterial({ name: 'Gradient specimen', e: 11000, nu: 0.2, rho: 25, alpha });
+      if (kind === 'plate') {
+        for (const triangle of [[0, 1, 2], [0, 2, 3]]) {
+          const id = modelStore.addPlate(triangle.map(i => nodes[i]!) as [number, number, number], material, 0.2);
+          modelStore.addLoadEntry({ type: 'thermalQuad3d', data: { id, on: 'plate', quadId: id, dtUniform: 0, dtGradient: 10 } });
+        }
+      } else {
+        const id = modelStore.addQuad(nodes as [number, number, number, number], material, 0.2, { curved: kind === 'curved' });
+        modelStore.addThermalLoadQuad3D(id, 0, 10);
+      }
+      for (const i of [0, 3]) modelStore.addSupport(nodes[i]!, 'fixed3d');
+      const result = modelStore.solve3D(false, false, true);
+      if (!result || typeof result === 'string') throw new Error(String(result));
+      return result.displacements.find(d => d.nodeId === nodes[1])!.ry;
+    };
+    const positive = rotation(5e-6);
+    expect(Math.abs(positive)).toBeGreaterThan(0);
+    expect(rotation(-5e-6)).toBeCloseTo(-positive, 12);
+    expect(rotation(0)).toBe(0);
+  });
+
   it.each(['family', ALPHA, 0, -5e-6, undefined] as const)('#2656 expands the plate with its declared coefficient %s', (alpha) => {
     modelStore.clear();
     const n = [modelStore.addNode(0, 0, 0), modelStore.addNode(4, 0, 0), modelStore.addNode(4, 2, 0), modelStore.addNode(0, 2, 0)];

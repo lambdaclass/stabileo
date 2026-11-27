@@ -65,6 +65,12 @@ describe('search', () => {
     expect(ids('concrete')).toEqual(['flex']);
   });
 
+  it('matches two Han characters inside a keyword', () => {
+    const index = buildIndex([doc('moving', { keywords: ['移动荷载'] })]);
+    expect(search(index, '荷载').map(h => h.doc.id)).toEqual(['moving']);
+    expect(search(index, '荷')).toEqual([]);
+  });
+
   it('matches the start of a word', () => {
     expect(ids('pand')[0]).toBe('buckling');
     expect(ids('influ')).toContain('influence');

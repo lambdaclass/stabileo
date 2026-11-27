@@ -4,6 +4,8 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore, historyStore, uiStore } from '..';
+import { resultsStore } from '..';
+import { response2D } from '../../whatif/response';
 import { whatIf } from '../whatif.svelte';
 import { liveSolveBusy, trackLiveSolve } from '../../engine/live-calc-state';
 
@@ -42,12 +44,16 @@ describe('Explore while a live solve is running', () => {
     expect(modelStore.modelVersion).toBe(version);
     expect(firstLoadValue()).toBe(base);
 
+    const original = modelStore.solve();
+    if (!original || typeof original === 'string') throw new Error(String(original));
+    resultsStore.setResults(original);
     finish();
     await solving;
     expect(liveSolveBusy()).toBe(false);
     vi.advanceTimersByTime(20);
     expect(modelStore.modelVersion).toBe(version + 1);
     expect(firstLoadValue()).toBeCloseTo(2 * base, 12);
+    expect(whatIf.reference).toEqual(response2D(original));
   });
 
   it('coalesces the moves of one frame into one rebuild', () => {

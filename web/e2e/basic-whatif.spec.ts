@@ -111,6 +111,10 @@ test.describe('@slow explore', () => {
     const moment = page.getByTestId('whatif-resp-moment');
     await expect(moment.locator('.wif-now')).toHaveText('—');
     await expect(moment.locator('.wif-pct')).toBeEmpty();
+    await expect.poll(() => page.evaluate(() => {
+      const frame = window.__stabileo.screenFrame();
+      return { held: frame.held, drawn: frame.drawn };
+    })).toEqual({ held: false, drawn: false });
     await page.getByTestId('whatif-reset').click();
     await expect(page.getByTestId('whatif-error')).toHaveCount(0);
 
@@ -143,6 +147,8 @@ test.describe('@slow explore in 3D', () => {
     const moment = page.getByTestId('whatif-resp-moment');
     await expect(moment.locator('.wif-now')).toHaveText('—');
     await expect(moment.locator('.wif-pct')).toBeEmpty();
+    await expect(page.getByTestId('whatif-live')).not.toHaveClass(/busy/);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.diagramMembers())).toBe(0);
     await page.getByTestId('whatif-reset').click();
     await expect(page.getByTestId('whatif-error')).toHaveCount(0, { timeout: 20_000 });
     await page.getByTestId('adv-close').click();

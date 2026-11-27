@@ -108,6 +108,13 @@ test.describe('@smoke plane-only functions in a 3D workspace', () => {
     }
     await search.fill('influence');
     await expect(page.getByTestId('adv-step-influenceLine')).toBeDisabled();
+    const hits = page.getByTestId('adv-search-results').getByRole('button');
+    await expect(hits.first()).toBeDisabled();
+    const firstAvailable = page.getByTestId('adv-search-results').locator('button:enabled').first();
+    const target = await firstAvailable.getAttribute('data-testid');
+    await search.press('Enter');
+    await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', target!.replace('adv-fn-', ''));
+    await openAdvancedList(page);
     await search.fill('');
     await openStepsCatalog(page);
     await expandStepsCatalog(page);

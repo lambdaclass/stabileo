@@ -295,6 +295,8 @@ test.describe('@smoke the calculator behaves like the other advanced functions',
     // Kinematic analysis needs no solved model.
     await openAdvancedFunction(page, 'kinematic');
     await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'kinematic');
+    await expect(page.locator('.kp-panel')).toBeVisible();
+    await expect(page.getByTestId('flex-panel')).toHaveCount(0);
     /* The defect: the calculator used to stay on screen underneath whatever
        else was open, which no other entry in this panel can do. */
     await expect(page.getByTestId('adv-fn-cirsocFlex')).toHaveCount(0);

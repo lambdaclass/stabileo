@@ -7,7 +7,7 @@ import { buildProjectFile, deserializeProject } from '../../store/file';
 
 beforeAll(initSolver);
 
-async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefined, worker = false, strain = 0, secondOrder = false) {
+async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefined, worker = false, strain = 0, secondOrder = false, gradient = 0) {
   modelStore.clear();
   uiStore.analysisMode = workspace;
   const length = 4;
@@ -18,7 +18,7 @@ async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefin
   const member = modelStore.addElement(fixed, free, 'frame');
   modelStore.updateElementMaterial(member, material);
   modelStore.addSupport(fixed, workspace === '2d' ? 'fixed' : 'fixed3d');
-  const load = modelStore.addThermalLoad(member, temperature);
+  const load = modelStore.addThermalLoad(member, temperature, gradient);
   if (strain) modelStore.updateLoad(load, { strain });
   const project = JSON.stringify(buildProjectFile());
   modelStore.clear();
@@ -38,6 +38,7 @@ async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefin
   expect(diagnostics.structured.some(d => d.code === 'thermal_default_assumed' && d.phase === 'alpha')).toBe(alpha === undefined);
   const ux = result.displacements.find(d => d.nodeId === free)!.ux;
   expect(ux, JSON.stringify(diagnostics)).toBeCloseTo(((alpha ?? 12e-6) * temperature + strain) * length, 12);
+  return result.displacements.find(d => d.nodeId === free)!.ry;
 }
 
 for (const workspace of ['2d', '3d'] as const) {
@@ -60,5 +61,17 @@ for (const workspace of ['2d', '3d'] as const) {
       checkDisplacement(workspace, alpha, false, 0, true));
     it(`#2656 async ${workspace} combines prescribed strain with α=${alpha}`, () =>
       checkDisplacement(workspace, alpha, true, 0.0001));
+  }
+}
+
+for (const workspace of ['2d', '3d'] as const) {
+  for (const [worker, secondOrder] of [[false, false], [true, false], [false, true]]) {
+    it(`reverses thermal rotation in ${workspace}, worker=${worker}, secondOrder=${secondOrder}`, async () => {
+      const rotation = (alpha: number) => checkDisplacement(workspace, alpha, worker, 0, secondOrder, 10);
+      const positive = await rotation(5e-6);
+      expect(Math.abs(positive)).toBeGreaterThan(0);
+      expect(await rotation(-5e-6)).toBeCloseTo(-positive, 12);
+      expect(await rotation(0)).toBe(0);
+    });
   }
 }

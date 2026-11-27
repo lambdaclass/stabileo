@@ -22,6 +22,23 @@ async function displacements(page: Page) {
 }
 
 test.describe('@smoke materials typed by hand in Basic', () => {
+  for (const micro of [-5, 0]) {
+    test(`saves and reopens a Basic material with alpha ${micro}`, async ({ page }) => {
+      await openPortal(page);
+      await page.getByTestId('rb-cmd-materials').click();
+      const id = (await materials(page))[0]!.id;
+      await page.getByTestId(`mat-edit-${id}`).click();
+      await page.getByTestId('mat-form-extra-summary').click();
+      await page.getByTestId('mat-form-alpha').fill('1000');
+      await expect(page.getByTestId('mat-form-save')).toBeDisabled();
+      await page.getByTestId('mat-form-alpha').fill(String(micro));
+      await page.getByTestId('mat-form-save').click();
+      const reopened = await page.evaluate(() => window.__stabileoActions.loadProject(JSON.parse(window.__stabileo.serializeProject())));
+      expect(reopened).toBe(true);
+      expect((await materials(page)).find(m => m.id === id)?.alpha).toBe(micro * 1e-6);
+    });
+  }
+
   test('a new material with half the E doubles every displacement', async ({ page }) => {
     await openPortal(page);
     const members = await page.evaluate(() => window.__stabileo.elementIds());

@@ -42,7 +42,7 @@ function mutations(value: unknown, path: string[] = []): Array<{ path: string[];
 
 function missedMutations(kind: 'material' | 'section'): string[] {
   const source = kind === 'material' ? material : section;
-  const excluded = kind === 'material' ? ['id', 'name', 'userDefined'] : ['id', 'built'];
+  const excluded = kind === 'material' ? ['id', 'name', 'userDefined'] : ['id'];
   const fields = Object.fromEntries(Object.entries(source).filter(([key]) => !excluded.includes(key)));
   const missed: string[] = [];
   for (const workspace of ['2d', '3d', 'pro'] as const) {

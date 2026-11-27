@@ -3,7 +3,8 @@
  * nothing else can read it: the store itself is cleared as on any edit.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { modelStore, resultsStore, uiStore, historyStore, verificationStore } from '..';
+import { modelStore, resultsStore, uiStore, historyStore, verificationStore, tabManager } from '..';
+import { buildProjectFile, deserializeProject } from '../file';
 import { whatIf } from '../whatif.svelte';
 import { runLiveCalc } from '../../engine/live-calc';
 import { initSolver } from '../../engine/wasm-solver';
@@ -90,7 +91,7 @@ describe('the picture held for a live re-solve', () => {
   it('is dropped when the re-solve finds a mechanism', async () => {
     await solvedPortal();
     for (const s of [...modelStore.supports.values()]) modelStore.updateSupport(s.id, { type: 'rollerX' });
-    expect(resultsStore.screen.held).toBe(true);
+    expect(resultsStore.screen.held).toBe(false);
     await runLiveCalc('2d', uiStore.axisConvention3D);
     expect(uiStore.liveCalcError).toBeTruthy();
     expect(resultsStore.results).toBeNull();
@@ -106,7 +107,18 @@ describe('the picture held for a live re-solve', () => {
 
     await solvedPortal();
     editE(2);
-    resultsStore.forgetView();
+    const file = JSON.stringify(buildProjectFile());
+    expect(resultsStore.screen.held).toBe(true);
+    expect(deserializeProject(file)).toBe(true);
+    expect(resultsStore.screen.results).toBeNull();
+
+    tabManager.init();
+    const other = tabManager.activeTabId!;
+    tabManager.createTab();
+    await solvedPortal();
+    editE(2);
+    expect(resultsStore.screen.held).toBe(true);
+    tabManager.switchTab(other);
     expect(resultsStore.screen.held).toBe(false);
 
     await solvedPortal();
@@ -120,6 +132,28 @@ describe('the picture held for a live re-solve', () => {
     editE(2);
     expect(resultsStore.screen.results).toBe(shown);
     modelStore.removeElement(shown.elementForces[0].elementId);
+    expect(resultsStore.screen.held).toBe(false);
+    expect(resultsStore.screen.results).toBeNull();
+  });
+
+  it('keeps a detached copy of both member endpoints until a node edit invalidates the diagram', async () => {
+    const r = await solvedPortal();
+    const member = modelStore.elements.get(r.elementForces[0].elementId)!;
+    const endpoints = [member.nodeI, member.nodeJ].map(id => ({ ...modelStore.nodes.get(id)! }));
+    editE(2);
+    const model = resultsStore.screen.model!;
+    expect(endpoints.map(n => model.nodes.get(n.id))).toEqual(endpoints);
+    const tip = endpoints[1]!;
+    modelStore.updateNode(tip.id, tip.x + 1, tip.y);
+    expect(endpoints.map(n => model.nodes.get(n.id))).toEqual(endpoints);
+    expect(resultsStore.screen.held).toBe(false);
+  });
+
+  it('drops reactions when a support moves between existing nodes', async () => {
+    await solvedPortal();
+    const support = [...modelStore.supports.values()][0]!;
+    const free = [...modelStore.nodes.keys()].find(id => ![...modelStore.supports.values()].some(s => s.nodeId === id))!;
+    modelStore.updateSupport(support.id, { nodeId: free });
     expect(resultsStore.screen.held).toBe(false);
     expect(resultsStore.screen.results).toBeNull();
   });

@@ -5,6 +5,11 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore, historyStore, uiStore } from '..';
+import * as calc from '../../engine/live-calc';
+import { resultsStore } from '..';
+import { render } from 'svelte/server';
+import WhatIfPanel from '../../../components/WhatIfPanel.svelte';
+import { i18n, setLocale } from '../../i18n';
 import { whatIf } from '../whatif.svelte';
 import { loadLabel } from '../../whatif/load-label';
 import { response2D, response3D } from '../../whatif/response';
@@ -102,6 +107,32 @@ describe('moving a support to another node', () => {
   });
 });
 
+it.each([0, 1e-13])('shows every solved quantity for a tip load of %s', force => {
+  modelStore.addNodalLoad(n2, 0, force);
+  whatIf.open();
+  resultsStore.setResults(solve());
+  const html = render(WhatIfPanel).body;
+  for (const key of ['delta', 'moment', 'shear', 'axial', 'reaction']) expect(html).toContain(`data-testid="whatif-resp-${key}"`);
+  expect(html).toMatch(/class="wif-now"[^>]*>0[.0]* kN/);
+});
+
+it('formats a response change with the active French percent convention', () => {
+  const originalLocale = i18n.locale;
+  try {
+    setLocale('fr');
+    modelStore.addNodalLoad(n2, 0, P);
+    whatIf.open();
+    const original = solve();
+    whatIf.setReference(response2D(original));
+    whatIf.setLoadFactor(0, 1.015);
+    settle();
+    resultsStore.setResults(solve());
+    expect(render(WhatIfPanel).body).toContain(new Intl.NumberFormat('fr', { style: 'percent', maximumFractionDigits: 1 }).format(0.015));
+  } finally {
+    setLocale(originalLocale);
+  }
+});
+
 describe('moving a node', () => {
   it('moves the members that meet it, and the change is gone on reset', () => {
     whatIf.open();
@@ -120,6 +151,25 @@ describe('moving a node', () => {
 });
 
 describe('leaving', () => {
+  it.each([['2d', false], ['3d', false], ['pro', false], ['pro', true]] as const)('re-solves the restored model after placement fails in %s with live=%s', async (mode, live) => {
+    uiStore.analysisMode = mode;
+    uiStore.liveCalc = live;
+    const run = vi.spyOn(calc, 'runLiveCalc').mockResolvedValue();
+    const split = vi.spyOn(modelStore, 'splitMember').mockReturnValue(null);
+    try {
+      whatIf.open();
+      whatIf.setSupportAlong(s3, m1, 0.5);
+      settle();
+      await vi.waitFor(() => expect(run).toHaveBeenCalledWith(mode, uiStore.axisConvention3D));
+      expect(whatIf.active).toBe(false);
+      expect(uiStore.liveCalc).toBe(live);
+      expect(modelStore.supports.get(s3)?.nodeId).toBe(n3);
+    } finally {
+      run.mockRestore();
+      split.mockRestore();
+    }
+  });
+
   it('puts back every load, support and node as they were', async () => {
     modelStore.addPointLoadOnElement(m1, 1, P);
     modelStore.addNodalLoad(n2, 0, P);
@@ -214,6 +264,49 @@ describe('what the canvas shows', () => {
 });
 
 for (const workspace of ['2d', '3d'] as const) {
+  it(`preserves an out-of-member baseline station on entry, unrelated edits and reset in ${workspace}`, () => {
+    uiStore.analysisMode = workspace;
+    if (workspace === '2d') modelStore.addPointLoadOnElement(m1, 6, P);
+    else modelStore.addPointLoadOnElement3D(m1, 6, 0, P);
+    whatIf.open();
+    settle();
+    expect(modelStore.loads[0].data).toMatchObject({ a: 6 });
+    whatIf.setNodeShift(n3, 0, 1);
+    settle();
+    expect(modelStore.loads[0].data).toMatchObject({ a: 6 });
+    whatIf.setLoadAt(0, 2);
+    settle();
+    expect(modelStore.loads[0].data).toMatchObject({ a: 2 });
+    whatIf.reset();
+    settle();
+    expect(modelStore.loads[0].data).toMatchObject({ a: 6 });
+  });
+
+  it(`returning placements to their original values clears changed in ${workspace}`, () => {
+    uiStore.analysisMode = workspace;
+    modelStore.addPointLoadOnElement(m1, 1, P);
+    modelStore.addNodalLoad(n2, 0, P);
+    whatIf.open();
+    for (const [away, back] of [
+      [() => whatIf.setLoadAt(0, 2), () => whatIf.setLoadAt(0, 1)],
+      [() => whatIf.setLoadNode(1, n3), () => whatIf.setLoadNode(1, n2)],
+      [() => whatIf.setSupportAlong(s1, m1, 0.5), () => whatIf.setSupportNode(s1, n1)],
+      [() => whatIf.setSupportType(s1, 'fixed'), () => whatIf.setSupportType(s1, 'pinned')],
+    ]) {
+      away(); settle();
+      expect(whatIf.changed).toBe(true);
+      back(); settle();
+      expect(whatIf.changed).toBe(false);
+    }
+  });
+
+  it(`shows loads when the diagram is off in ${workspace}`, () => {
+    uiStore.analysisMode = workspace;
+    uiStore.showLoads = uiStore.showLoads3D = true;
+    uiStore.hideLoadsWithDiagram = true;
+    expect(whatIf.loadsShown).toBe(true);
+  });
+
   it(`applies support destinations together in ${workspace}`, () => {
     uiStore.analysisMode = workspace;
     whatIf.open();
@@ -286,10 +379,15 @@ it('identifies the node and the member load components in the current units', ()
   modelStore.addNodalLoad3D(n2, 2, 0, 0, 0, 0, 0);
   modelStore.addDistributedLoad3D(m1, 3, 4, 5, 6);
   expect(loadLabel(modelStore.loads[0], 0)).toContain(`(N${n2})`);
-  const distributed = loadLabel(modelStore.loads[1], 1);
-  expect(distributed).toContain(`(B${m1})`);
-  for (const value of [3, 4, 5, 6]) expect(distributed).toContain(String(value));
-  expect(distributed).toContain('/m');
+  const before = uiStore.unitSystem;
+  try {
+    uiStore.unitSystem = 'SI';
+    expect(loadLabel(modelStore.loads[1], 1)).toBe(`qy=3.00→4.00 kN/m, qz=5.00→6.00 kN/m (B${m1})`);
+    uiStore.unitSystem = 'Imperial';
+    expect(loadLabel(modelStore.loads[1], 1)).toBe(`qy=0.2056→0.2741 kip/ft, qz=0.3426→0.4111 kip/ft (B${m1})`);
+  } finally {
+    uiStore.unitSystem = before;
+  }
 });
 
 it('summarizes the orthogonal components of a space cantilever', () => {

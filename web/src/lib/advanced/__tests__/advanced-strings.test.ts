@@ -10,7 +10,7 @@ const SRC = join(import.meta.dirname, '../../../');
 const SURFACE = [
   'components/toolbar/ToolbarAdvanced.svelte', 'components/KinematicPanel.svelte', 'components/WhatIfPanel.svelte',
   'components/SectionStressPanel.svelte', 'components/CirsocFlexPanel.svelte', 'components/DespieceOptions.svelte',
-  'components/advanced', 'components/steps', 'lib/advanced',
+  'components/advanced', 'components/whatif', 'components/steps', 'lib/advanced',
 ];
 
 function files(rel: string, out: string[] = []): string[] {
@@ -44,6 +44,7 @@ const placeholders = (s: string) => new Set([...s.matchAll(/\{(\w+)\}/g)].map((m
 
 describe('the Advanced panel speaks words, not keys', () => {
   it('collects the panel’s keys', () => {
+    expect(KEYS).toContain('pro.custom3d');
     expect(KEYS.length).toBeGreaterThan(400);
     expect(KEYS).toContain('advCat.search.placeholder');
     expect(KEYS).toContain('steps.m.so-buckling-kg.title');

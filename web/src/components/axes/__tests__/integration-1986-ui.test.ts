@@ -34,6 +34,20 @@ it('known wrong result: #1986 Explore displays the global plane point load in th
   expect(render(WhatIfLoads).body).toContain('P=-7');
 });
 
+it('renders both global line load endpoints in the selected vertical direction', async () => {
+  uiStore.analysisMode = '2d';
+  uiStore.unitSystem = 'SI';
+  await modelStore.loadExample('cantilever');
+  const member = [...modelStore.elements.keys()][0]!;
+  modelStore.addDistributedLoad(member, 3, 7, 0, true);
+  modelStore.addDistributedLoad(member, 3, 7, 0, false);
+  axesStore.choice = { up: '-Z', right: '+X', hand: 'right' };
+  whatIf.open();
+  const html = render(WhatIfLoads).body;
+  expect(html).toContain('q=-3.00→-7.00 kN/m');
+  expect(html).toContain('q=3.00→7.00 kN/m');
+});
+
 it('known wrong result: #1986 custom curve directions are printed in user component order', () => {
   uiStore.analysisMode = 'pro';
   modelStore.clear();

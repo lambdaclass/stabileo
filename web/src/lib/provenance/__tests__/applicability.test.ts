@@ -288,6 +288,20 @@ describe('which registered changes concern a model', () => {
     expect(ids(straight)).not.toContain('arc-member-local-axes');
   });
 
+  it.each(['member', 'plate', 'quad'] as const)('scopes the signed-alpha notice to the heated %s material', kind => {
+    for (const alpha of [undefined, 0, -5e-6, 5e-6]) {
+      const snapshot = model({
+        elements: [member(1, 1, 'frame')],
+        materials: [[1, { ...STEEL, alpha }], [2, { ...CONCRETE, alpha: -5e-6 }]],
+        plates: [[1, { id: 1, materialId: kind === 'plate' ? 1 : 2 }]],
+        quads: [[1, { id: 1, materialId: kind === 'quad' ? 1 : 2 }]],
+        loads: kind === 'member' ? [{ type: 'thermal', data: { elementId: 1, dtUniform: 20 } }]
+          : [{ type: 'thermalQuad3d', data: { on: kind, quadId: 1, dtUniform: 20 } }],
+      });
+      expect(ids(snapshot).includes('signed-thermal-expansion')).toBe(alpha !== undefined && alpha <= 0);
+    }
+  });
+
   it('shows the member thermal change only for models with temperature loads on members (#407)', () => {
     const heated = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'thermal', data: { elementId: 1, dtUniform: 0, dtGradient: 20, caseId: 1 } }] });
     expect(ids(heated)).toContain('frame-thermal-alpha-depth');

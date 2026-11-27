@@ -164,7 +164,7 @@ test.describe('explained step by step', () => {
     await openAdvancedList(page);
     const launcher = page.getByTestId('adv-launcher');
     const groups = await launcher.locator('section[data-testid^=adv-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
-    expect(groups).toEqual(ADV_GROUPS.map((g) => `adv-group-${g}`));
+    expect(groups).toEqual(['analysis', 'moving', 'sections', 'explore', 'learn'].map((g) => `adv-group-${g}`));
     // Closed until opened, each header naming what it holds.
     await expect(launcher.locator('button[data-testid^=adv-fn-]')).toHaveCount(0);
     for (const g of ADV_GROUPS) await expect(page.getByTestId(`adv-group-toggle-${g}`)).toHaveAttribute('aria-expanded', 'false');

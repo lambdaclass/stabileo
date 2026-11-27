@@ -31,6 +31,14 @@ describe('new second-order settings rerun what is on screen', () => {
     expect(resultsStore.bucklingResult).toBeNull();
   });
 
+  it.each(['buckling', 'pdelta'] as const)('retries the selected %s after the previous method refused', selected => {
+    resultsStore.clearAdvanced();
+    const pd = vi.fn(), bk = vi.fn();
+    rerunSecondOrder(pd, bk, selected);
+    expect(pd).toHaveBeenCalledTimes(Number(selected === 'pdelta'));
+    expect(bk).toHaveBeenCalledTimes(Number(selected === 'buckling'));
+  });
+
   it('with neither on screen nothing runs', () => {
     const pd = vi.fn(), bk = vi.fn();
     rerunSecondOrder(pd, bk);

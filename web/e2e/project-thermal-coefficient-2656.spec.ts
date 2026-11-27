@@ -24,7 +24,9 @@ for (const mode of ['2d', '3d'] as const) {
       const table = page.locator('.results-content table');
       await expect(table.locator('th').nth(1)).toContainText('(mm)');
       const tip = table.locator('tbody tr').filter({ has: page.getByRole('cell', { name: '2', exact: true }) });
-      expect(Number(await tip.locator('td').nth(1).innerText())).toBeCloseTo(alpha * 20 * 4 * 1000, 9);
+      const cell = tip.locator('td').nth(1);
+      await expect(cell).toHaveText(/^\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?\s*$/i);
+      expect(Number(await cell.innerText())).toBeCloseTo(alpha * 20 * 4 * 1000, 9);
     });
   }
 }

@@ -21,6 +21,13 @@ describe('reading the form', () => {
     });
   });
 
+  it.each([-1001, -1000, 1000, 1001, NaN, Infinity, -Infinity])('rejects out-of-range coefficient %s on entry and reopening', micro => {
+    const original = { alpha: micro * 1e-6 };
+    for (const stored of [undefined, original]) {
+      expect(readCustomMaterial(form({ alpha: String(micro) }), stored)).toEqual({ ok: false, reasonKey: 'materials.alphaInvalid' });
+    }
+  });
+
   it('leaves fy and α out when they are blank', () => {
     const r = readCustomMaterial(form());
     expect(r.ok && r.choice).toEqual({ kind: 'custom', name: 'Madera dura', e: 12000, nu: 0.3, rho: 9 });
@@ -52,7 +59,7 @@ describe('reading the form', () => {
     expect(readCustomMaterial(form({ rho: 0, nu: '0.499' })).ok).toBe(true);
   });
 
-  it.each([0, -12, 100, 101])('accepts a finite signed coefficient of %s µm/(m·°C)', (a) => {
+  it.each([-999.999, -5, 0, -12, 100, 101, 999.999])('accepts a finite signed coefficient of %s µm/(m·°C)', (a) => {
     const r = readCustomMaterial(form({ alpha: String(a) }));
     expect(r.ok && r.choice.alpha).toBe(a * 1e-6);
   });
@@ -102,6 +109,29 @@ describe('saving a hand-entered material', () => {
     if (!r.ok) throw new Error(r.reasonKey);
     return r.choice;
   };
+
+  it.each([0, -5])('reopens the coefficient %s entered in the Basic form', micro => {
+    const r = readCustomMaterial(form({ alpha: String(micro) }));
+    if (!r.ok) throw new Error(r.reasonKey);
+    const id = saveCustomMaterial(r.choice);
+    const file = JSON.stringify(buildProjectFile());
+    modelStore.clear();
+    expect(deserializeProject(file)).toBe(true);
+    expect(Number(customMaterialForm(modelStore.materials.get(id)!).alpha)).toBeCloseTo(micro, 12);
+    expect(modelStore.materials.get(id)?.alpha).toBe(micro * 1e-6);
+  });
+
+  it('preserves grade and timber properties when only the name changes', () => {
+    const preset = getMaterialPresets().find(p => p.category === 'madera' && p.gradeId)!;
+    const id = saveCatalogueMaterial(preset);
+    const timber = { fb: 1, ft: 2, fc: 3, fcPerp: 4, fv: 5, e: preset.e, emin: 6, kind: 'sawn' as const };
+    modelStore.updateMaterial(id, { timber });
+    const original = modelStore.materials.get(id)!;
+    const r = readCustomMaterial({ ...customMaterialForm(original), name: 'Renamed' }, original);
+    if (!r.ok) throw new Error(r.reasonKey);
+    saveCustomMaterial(r.choice, id);
+    expect(modelStore.materials.get(id)).toMatchObject({ name: 'Renamed', gradeId: preset.gradeId, timber });
+  });
 
   it('adds it to the model with every field, in one undo step', () => {
     const before = modelStore.materials.size;
