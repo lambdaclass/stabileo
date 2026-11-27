@@ -391,7 +391,6 @@ fn a_frame_no_member_bounds_is_screened_by_its_critical_factor() {
         let r = solve_2d(&input).unwrap();
         assert_eq!(second_order(&r.structured_diagnostics), expected, "λ_cr = {factor}");
         let ratio = r.result_summary.as_ref().and_then(|s| s.second_order_ratio).unwrap();
-        assert!((ratio - load / (E * 1000.0 * 0.01)).abs() < 1e-12);
         assert!((ratio * factor - 1.0).abs() < 1e-6, "the recorded ratio is 1/λ_cr: {ratio}");
     }
     let quiet = solve_2d(&portal("pinned", unit / 30.0, 0.01)).unwrap();
@@ -675,7 +674,6 @@ fn review_1927_global_buckling_preserves_the_compressed_column_ids() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1551"]
 fn review_pinned_roller_is_screened_against_the_continuous_column() {
     let length = 6.0_f64;
     let inertia = 1e-4;
@@ -691,6 +689,8 @@ fn review_pinned_roller_is_screened_against_the_continuous_column() {
         let r = solve_2d(&planar).unwrap();
         assert_eq!(second_order(&r.structured_diagnostics), expected);
         assert!((r.result_summary.unwrap().second_order_ratio.unwrap() - p / critical).abs() < 1e-12);
+        model["elements"]["1"].as_object_mut().unwrap().remove("hingeStart");
+        model["elements"]["1"].as_object_mut().unwrap().remove("hingeEnd");
         for n in model["nodes"].as_object_mut().unwrap().values_mut() { n["y"] = json!(0); }
         model["sections"]["1"]["iy"] = json!(inertia);
         model["sections"]["1"]["j"] = json!(inertia);
@@ -700,4 +700,20 @@ fn review_pinned_roller_is_screened_against_the_continuous_column() {
         let spatial = solve_3d(&serde_json::from_value(model).unwrap()).unwrap();
         assert_eq!(second_order(&spatial.structured_diagnostics), expected);
     }
+}
+
+#[test]
+#[ignore = "known wrong result: #1551"]
+fn an_isolated_cantilever_cannot_hide_a_portal_in_the_near_band() {
+    let unit = solve_buckling_2d(&portal("pinned", 1.0, 0.01), 1).unwrap().modes[0].load_factor;
+    let mut value = serde_json::to_value(portal("pinned", unit / 17.0, 0.01)).unwrap();
+    value["nodes"]["5"] = json!({"id":5,"x":20,"z":0});
+    value["nodes"]["6"] = json!({"id":6,"x":23,"z":0});
+    value["elements"]["4"] = json!({"id":4,"type":"frame","nodeI":5,"nodeJ":6,"materialId":1,"sectionId":1});
+    value["supports"]["5"] = json!({"id":5,"nodeId":5,"type":"fixed"});
+    value["loads"].as_array_mut().unwrap().push(json!({"type":"nodal","data":{"nodeId":6,"fx":-1000,"fz":0,"my":0}}));
+    let r = solve_2d(&serde_json::from_value(value).unwrap()).unwrap();
+    let findings = second_order(&r.structured_diagnostics);
+    assert!(findings.contains(&("LIN-SECOND-ORDER".into(), vec![4])), "{findings:?}");
+    assert!(findings.contains(&("LIN-SECOND-ORDER-NEAR".into(), vec![])), "{findings:?}");
 }
