@@ -1,5 +1,6 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  'project.adoptedReinforcementIgnored': "Esta versão ignora a armadura adotada salva no projeto e usa a armadura de dimensionamento.",
   'wall.tensionRequiresBarLayout': "A tração combinada com flexão exige a disposição das barras verticais.",
   'wall.boundaryBarCount': "Informe um número inteiro de barras de extremidade, maior ou igual a zero, em cada ponta da parede.",
   'wall.tensionAtOpenings': "A tração em paredes com aberturas exige a seção líquida e a armadura contínua que a atravessa.",

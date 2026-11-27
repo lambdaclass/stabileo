@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
+  'project.adoptedReinforcementIgnored': "يتجاهل هذا الإصدار التسليح المعتمد المحفوظ في المشروع ويستخدم تسليح التصميم.",
   'wall.tensionRequiresBarLayout': "يتطلب التحقق من الشد مع الانحناء توزيع القضبان الرأسية.",
   'wall.boundaryBarCount': "أدخل عدداً صحيحاً غير سالب لقضبان التسليح الحدّية عند كل طرف من طرفي الجدار.",
   'wall.tensionAtOpenings': "يتطلب الشد عند فتحات الجدار المقطع الصافي والتسليح المستمر عبره.",

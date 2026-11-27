@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  'project.adoptedReinforcementIgnored': "이 버전은 프로젝트에 저장된 채택 배근을 무시하고 설계 배근을 사용합니다.",
   'wall.tensionRequiresBarLayout': "인장과 휨의 조합 검토에는 수직 철근 배치가 필요합니다.",
   'wall.boundaryBarCount': "벽 양쪽 끝의 경계 철근 개수를 0 이상의 정수로 입력하세요.",
   'wall.tensionAtOpenings': "벽체 개구부 인장 검토에는 순단면과 그 단면을 관통하는 연속 철근이 필요합니다.",

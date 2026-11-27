@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  'project.adoptedReinforcementIgnored': "Cette version ignore les armatures adoptées enregistrées dans le projet et utilise les armatures de dimensionnement.",
   'wall.tensionRequiresBarLayout': "La traction combinée à la flexion exige la disposition des barres verticales.",
   'wall.boundaryBarCount': "Saisissez un nombre entier positif ou nul de barres de rive à chaque extrémité du voile.",
   'wall.tensionAtOpenings': "La traction au droit des ouvertures exige la section nette et les armatures continues qui la traversent.",

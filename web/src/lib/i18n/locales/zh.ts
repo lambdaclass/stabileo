@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  'project.adoptedReinforcementIgnored': "此版本忽略项目中保存的已选用配筋，使用设计配筋。",
   'wall.tensionRequiresBarLayout': "拉弯组合验算需要竖向钢筋的布置。",
   'wall.boundaryBarCount': "墙体每一端的边缘钢筋根数必须为非负整数。",
   'wall.tensionAtOpenings': "带洞口墙的受拉验算需要净截面及贯穿该截面的连续钢筋。",

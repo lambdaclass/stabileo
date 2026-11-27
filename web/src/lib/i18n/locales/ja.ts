@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
+  'project.adoptedReinforcementIgnored': "このバージョンはプロジェクトに保存された採用配筋を無視し、設計配筋を使用します。",
   'wall.tensionRequiresBarLayout': "引張と曲げの組合せを照査するには縦筋の配置が必要です。",
   'wall.boundaryBarCount': "壁の各端部の境界鉄筋の本数には、0 以上の整数を入力してください。",
   'wall.tensionAtOpenings': "壁開口部の引張照査には純断面と、その断面を連続して通る鉄筋が必要です。",

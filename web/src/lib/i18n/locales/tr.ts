@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  'project.adoptedReinforcementIgnored': "Bu sürüm projede kayıtlı kabul edilmiş donatıyı dikkate almaz ve tasarım donatısını kullanır.",
   'wall.tensionRequiresBarLayout': "Çekme ve eğilmenin birlikte kontrolü için düşey donatı yerleşimi gereklidir.",
   'wall.boundaryBarCount': "Perdenin her iki ucu için sıfır veya daha büyük bir tam sayı olarak uç donatısı adedini girin.",
   'wall.tensionAtOpenings': "Boşluklu perdede çekme kontrolü için net kesit ve bu kesitten geçen sürekli donatı gereklidir.",

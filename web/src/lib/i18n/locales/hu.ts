@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  'project.adoptedReinforcementIgnored': "Ez a verzió figyelmen kívül hagyja a projektben mentett, elfogadott vasalást, és a méretezett vasalást használja.",
   'wall.tensionRequiresBarLayout': "Együttes húzás és hajlítás esetén szükséges a függőleges vasalás kiosztása.",
   'wall.boundaryBarCount': "A fal mindkét végén adja meg a peremvasak számát nemnegatív egész számként.",
   'wall.tensionAtOpenings': "Nyílásos fal húzási ellenőrzéséhez szükséges a nettó keresztmetszet és az azon átmenő folytonos vasalás.",

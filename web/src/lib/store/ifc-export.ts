@@ -39,7 +39,7 @@ import { ifcPhysicalBodies } from './ifc-physical';
 import { designData } from './design-data';
 import { provenanceLines } from '../export/provenance-attach';
 import type { ResultProvenance } from '../provenance/result-provenance';
-import { sheetsForDocuments } from './rc-sheets-documents';
+import { sheetsForDocuments } from './rc-sheets-reinforcement';
 import { sheetRowElements, sheetsIfcBars } from './rc-sheets-ifc';
 import { sheetsSchedule } from './rc-sheets-schedule';
 import type { MemoriaElement } from '../report/memoria/types';

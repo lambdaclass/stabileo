@@ -5,10 +5,15 @@
  * each span's extra bottom bars and the bent bars). Only adopted bars count: a proposal nobody
  * adopted is not the beam's reinforcement.
  */
+import { reinforcementSheets } from '../features';
+import { i18n } from '../i18n';
+import { resultsStore } from './results.svelte';
+import { sheetsRun, sheetsStale } from './rc-sheets-view.svelte';
+import { decimalFor, makeFmt } from '../rc-sheets/format';
 import { modelStore } from './model.svelte';
 import { designData } from './design-data';
 import { physicalGroups } from './physical';
-import { liveAdopted, rcSheetsData, sheetCode } from './rc-sheets.svelte';
+import { buildSheetRows, liveAdopted, rcSheetsData, sheetCode, type SheetRows } from './rc-sheets.svelte';
 import { beamDemands, type DemandInput } from '../rc-sheets/demands';
 import type { LineAdopted } from '../rc-sheets/beam-line';
 import type { Adopted, BarGroup, BeamAdopted } from '../rc-sheets/types';
@@ -69,7 +74,7 @@ export function elementsBetween(ids: readonly number[], from: number, to: number
  * A reader of the adopted beam bars by element id. Build it once for a pass over many elements:
  * it splits every beam line into its spans when built.
  */
-export function sheetBeamBars(): SheetBeamBarsReader {
+function readBeamBars(): SheetBeamBarsReader {
   const adopted = liveAdopted(rcSheetsData(), sheetCode());
   if (!Object.keys(adopted).some((k) => k.startsWith('beam:') || k.startsWith('line:'))) return () => null;
   const groups = physicalGroups().filter((g) => g.physical.kind === 'beam');
@@ -93,3 +98,14 @@ export function sheetBeamBars(): SheetBeamBarsReader {
   }
   return (id) => byElement.get(id) ?? null;
 }
+
+function readDocumentRows(): SheetRows | null {
+  if (!resultsStore.results3D) return null;
+  if (sheetsRun.rows && !sheetsRun.progress && !sheetsStale()) return sheetsRun.rows;
+  if (!Object.keys(liveAdopted(rcSheetsData(), sheetCode())).length) return null;
+  return buildSheetRows(makeFmt(decimalFor(i18n.locale)));
+}
+
+export const { sheetBeamBars, sheetsForDocuments } = reinforcementSheets()
+  ? { sheetBeamBars: readBeamBars, sheetsForDocuments: readDocumentRows }
+  : { sheetBeamBars: (): SheetBeamBarsReader => () => null, sheetsForDocuments: () => null };

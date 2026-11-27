@@ -29,6 +29,7 @@
   import { authStore } from './lib/store/auth.svelte';
   import { accounts } from './lib/features';
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
+  import AdoptedReinforcementNotice from './components/AdoptedReinforcementNotice.svelte';
   import ContainmentBanner from './components/ContainmentBanner.svelte';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
@@ -1774,6 +1775,8 @@
     <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
     <ToolOptionsBar />
   {/if}
+
+  <AdoptedReinforcementNotice />
 
   {#if !uiStore.is3DWorkspace && uiStore.analysisPlane2D === undefined}
     <div class="saved-plane-choice" role="group" aria-label={t('svc.savedPlaneRequired')}>

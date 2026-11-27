@@ -1,4 +1,5 @@
 const es: Record<string, string> = {
+  'project.adoptedReinforcementIgnored': "Esta versión ignora la armadura adoptada guardada en el proyecto y usa la armadura de diseño.",
   'wall.tensionRequiresBarLayout': "La tracción combinada con flexión requiere la disposición de las barras verticales.",
   'wall.boundaryBarCount': "Ingresá una cantidad entera de barras de borde, mayor o igual que cero, en cada extremo del tabique.",
   'wall.tensionAtOpenings': "La tracción en un tabique con aberturas requiere la sección neta y la armadura continua que la atraviesa.",

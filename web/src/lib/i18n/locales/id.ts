@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  'project.adoptedReinforcementIgnored': "Versi ini mengabaikan tulangan pilihan yang tersimpan dalam proyek dan menggunakan tulangan hasil desain.",
   'wall.tensionRequiresBarLayout': "Tarik dan lentur gabungan memerlukan tata letak tulangan vertikal.",
   'wall.boundaryBarCount': "Masukkan jumlah batang tulangan tepi pada setiap ujung dinding sebagai bilangan bulat nol atau lebih.",
   'wall.tensionAtOpenings': "Tarik pada bukaan dinding memerlukan penampang neto dan tulangan menerus yang melintasinya.",

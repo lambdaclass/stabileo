@@ -1,5 +1,6 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  'project.adoptedReinforcementIgnored': "यह संस्करण परियोजना में सहेजे गए स्वीकृत प्रबलन को अनदेखा करता है और डिज़ाइन किए गए प्रबलन का उपयोग करता है।",
   'wall.tensionRequiresBarLayout': "तनाव और बंकन की संयुक्त जाँच के लिए ऊर्ध्वाधर सरियों का विन्यास चाहिए।",
   'wall.boundaryBarCount': "दीवार के प्रत्येक सिरे पर सीमांत सरियों की संख्या शून्य या उससे बड़ी पूर्ण संख्या में दर्ज करें।",
   'wall.tensionAtOpenings': "दीवार के खुलाव पर तनाव की जाँच के लिए शुद्ध अनुप्रस्थ काट और उससे गुजरता सतत प्रबलन चाहिए।",
