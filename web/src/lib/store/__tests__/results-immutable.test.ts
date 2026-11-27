@@ -540,3 +540,35 @@ it('retains the checked base diagram when only the requested named envelope refu
   expect(resultsStore.screen.diagram).toBe('axial');
   expect(resultsStore.knownIssues3D.refused).toBe(true);
 });
+
+it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — retires an envelope when its independent contributor subsequently refuses in %s', async mode => {
+  const { initSolver, computeEnvelope, computeEnvelope3D } = await import('../../engine/wasm-solver');
+  await initSolver();
+  resultsStore.clear();
+  resultsStore.clear3D();
+  uiStore.analysisMode = mode;
+  const source = result(11);
+  if (mode === '3d') {
+    const base = computeEnvelope3D([result(5) as never])!;
+    const named = computeEnvelope3D([source as never])!;
+    resultsStore.setCombinationResults3D(new Map(), new Map(), base);
+    resultsStore.viewEnvelope3D(named, 'Selected');
+    resultsStore.activeView = 'envelope';
+    expect(resultsStore.results3D?.displacements[0].ux).toBe(11);
+    source.structuredDiagnostics.push(refusal());
+    expect.soft(resultsStore.viewedEnvelopeName).toBeNull();
+    expect.soft(resultsStore.fullEnvelope3D).toBe(base);
+    expect(resultsStore.results3D?.displacements[0].ux).toBe(5);
+    expect(resultsStore.knownIssues3D.refused).toBe(true);
+  } else {
+    const plane = { ...source, displacements: [{ nodeId: 1, ux: 11, uz: 0, ry: 0 }] };
+    const base = computeEnvelope([plane as never])!;
+    resultsStore.setCombinationResults(new Map(), new Map(), base);
+    resultsStore.activeView = 'envelope';
+    expect(resultsStore.results?.displacements[0].ux).toBe(11);
+    source.structuredDiagnostics.push(refusal());
+    expect.soft(resultsStore.fullEnvelope).toBeNull();
+    expect(resultsStore.results).toBeNull();
+    expect(resultsStore.knownIssues.refused).toBe(true);
+  }
+});
