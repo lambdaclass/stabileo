@@ -13,6 +13,12 @@ QUANTITIES = [
     ('crown-v', 'vOverR', 'Crown vertical displacement v/R at the limit point'),
     ('crown-rotation', 'rotation', 'Crown rotation at the limit point'),
 ]
+EXTRAPOLATION_CEILINGS = {
+    'loadFactor': 0.0019418224410364838,
+    'uOverR': 0.00030645931246425805,
+    'vOverR': 0.00022911597743576926,
+    'rotation': 0.010315309692828298,
+}
 SOURCE = 'DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308'
 UNITS = {'loadFactor': '', 'uOverR': '', 'vOverR': '', 'rotation': ''}
 COMMAND = ('DADEPPO_EXPORT=<fresh.json> cargo test --release --manifest-path engine/Cargo.toml --test solver dadeppo_arch; '
@@ -95,7 +101,8 @@ def evidence(fresh):
         checks.append({'name': f'{name}: observed order of mesh convergence', 'metric': 'absolute difference from 2',
                        'observed': abs(order - 2), 'tolerance': 0.5, 'passed': abs(order - 2) <= 0.5})
         extrapolated = q80 + (q80 - q40) / (2 ** order - 1)
-        allowed = safety * abs((q80 - extrapolated) / extrapolated) + rounding(reference[key])
+        estimated = safety * abs((q80 - extrapolated) / extrapolated) + rounding(reference[key])
+        allowed = min(estimated, EXTRAPOLATION_CEILINGS[key])
         observed = relative(extrapolated, reference[key])
         checks.append({'name': f'{name}: extrapolated to zero element length', 'metric': 'relative difference',
                        'observed': observed, 'tolerance': allowed, 'passed': observed <= allowed,
