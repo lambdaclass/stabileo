@@ -1,5 +1,6 @@
 mod adaptive;
 mod anderson;
+mod broyden;
 pub(super) mod incremental;
 mod line_search;
 

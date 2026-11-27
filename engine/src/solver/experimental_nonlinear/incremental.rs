@@ -1,6 +1,7 @@
 use super::{
     adaptive::solve_by_adaptive_increments,
     anderson::{Anderson, MAX_ANDERSON_DEPTH},
+    broyden::{Broyden, MAX_BROYDEN_MEMORY},
     line_search::NewtonLineSearch,
 };
 
@@ -127,6 +128,9 @@ pub(crate) fn validate(method: IterationMethod) -> Result<(), String> {
         IterationMethod::Anderson { depth } if depth == 0 || depth > MAX_ANDERSON_DEPTH => Err(
             format!("Anderson acceleration needs a depth from 1 to {MAX_ANDERSON_DEPTH}"),
         ),
+        IterationMethod::Broyden { memory } if memory == 0 || memory > MAX_BROYDEN_MEMORY => Err(
+            format!("Broyden's method needs a memory from 1 to {MAX_BROYDEN_MEMORY}"),
+        ),
         _ => Ok(()),
     }
 }
@@ -139,6 +143,7 @@ pub enum IterationMethod {
     ModifiedNewton,
     NewtonLineSearch,
     Anderson { depth: usize },
+    Broyden { memory: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -259,6 +264,14 @@ pub(crate) fn solve_stepped<P: IncrementalProblem + ?Sized>(
                 depth,
                 lag_tangent: true,
             },
+            stepping,
+            n_increments,
+            tolerance,
+            max_iter,
+        ),
+        IterationMethod::Broyden { memory } => run(
+            problem,
+            &Broyden { memory },
             stepping,
             n_increments,
             tolerance,
@@ -972,6 +985,91 @@ mod tests {
         assert_eq!(mixed(&state, &correction, &dependent), None);
         let poisoned = vec![(vec![f64::INFINITY, 0.1], vec![-0.05, 0.02])];
         assert_eq!(mixed(&state, &correction, &poisoned), None);
+    }
+
+    #[test]
+    fn broyden_needs_one_tangent_per_increment_and_reaches_newtons_solution() {
+        let load = [4.0, -1.0, 2.5, 0.5, 3.0];
+        for n_increments in [1, 3] {
+            let mut newton = Chain::new(mild, 0.7, &load);
+            solve_by_load_increments(&mut newton, &Newton { lag_tangent: false }, n_increments, 1e-12, 200).unwrap();
+            let mut modified = Chain::new(mild, 0.7, &load);
+            let plain = solve_by_load_increments(&mut modified, &Newton { lag_tangent: true }, n_increments, 1e-10, 2000).unwrap();
+            assert!(plain.converged);
+            for memory in [1, 3, 10] {
+                let mut updated = Chain::new(mild, 0.7, &load);
+                let outcome = solve_by_load_increments(&mut updated, &Broyden { memory }, n_increments, 1e-10, 2000).unwrap();
+                assert!(outcome.converged, "memory {memory}");
+                assert_eq!(updated.tangents, n_increments);
+                assert!(updated.unbalance(1.0) <= 1e-9);
+                for (got, want) in updated.u.iter().zip(&newton.u) {
+                    assert!((got - want).abs() <= 1e-8, "memory {memory}: {got} vs {want}");
+                }
+                assert!(outcome.iterations < plain.iterations, "memory {memory}: {} against {}", outcome.iterations, plain.iterations);
+            }
+        }
+    }
+
+    #[test]
+    fn broyden_with_one_unknown_is_the_secant_method() {
+        let mut spring = Chain::spring(mild, 4.0);
+        let outcome = solve_by_load_increments(&mut spring, &Broyden { memory: 10 }, 1, 1e-12, 200).unwrap();
+        assert!(outcome.converged);
+        let tail: Vec<f64> = spring.trace.iter().copied().filter(|r| *r < 1e-2 && *r > 1e-13).collect();
+        assert!(tail.len() >= 2 && tail.windows(2).all(|pair| pair[1] <= 0.1 * pair[0]), "{:?}", spring.trace);
+        assert!(outcome.iterations <= 14, "{}", outcome.iterations);
+        assert_eq!(spring.tangents, 1);
+    }
+
+    #[test]
+    fn broyden_keeps_the_rules_every_iteration_keeps() {
+        let mut owed = Chain::spring(stiffening, 0.0);
+        owed.owed = true;
+        let outcome = solve_by_load_increments(&mut owed, &Broyden { memory: 5 }, 1, 1e-10, 50).unwrap();
+        assert_eq!((outcome.iterations, outcome.converged, outcome.load_factor), (2, true, 1.0));
+
+        let mut short = Chain::spring(stiffening, 30.0);
+        let outcome = solve_by_load_increments(&mut short, &Broyden { memory: 5 }, 1, 1e-10, 2).unwrap();
+        assert_eq!((outcome.converged, outcome.load_factor), (false, 0.0));
+        assert_eq!(short.u, vec![0.0]);
+        assert_eq!(short.linearizations, 2);
+
+        let mut failing = Chain::spring(stiffening, 30.0);
+        failing.fail_at = Some(3);
+        let error = solve_by_load_increments(&mut failing, &Broyden { memory: 5 }, 2, 1e-10, 50).unwrap_err();
+        assert_eq!(error, "the tangent is singular");
+        assert_eq!(failing.linearizations, 3);
+
+        for memory in [0, MAX_BROYDEN_MEMORY + 1, usize::MAX] {
+            assert_eq!(validate(IterationMethod::Broyden { memory }).unwrap_err(), "Broyden's method needs a memory from 1 to 50");
+        }
+        assert_eq!(validate(IterationMethod::Broyden { memory: 1 }), Ok(()));
+        assert_eq!(validate(IterationMethod::Broyden { memory: MAX_BROYDEN_MEMORY }), Ok(()));
+    }
+
+    #[test]
+    fn the_broyden_step_is_the_secant_update_and_is_dropped_when_it_cannot_be_trusted() {
+        use crate::solver::experimental_nonlinear::broyden::updated;
+        let correction = [0.2, -0.1];
+        assert_eq!(updated(&correction, &[]), Some(vec![0.2, -0.1]));
+
+        let taken = vec![vec![1.0, 0.0]];
+        let step = updated(&correction, &taken).unwrap();
+        assert!((step[0] - 0.25).abs() <= 1e-15 && (step[1] + 0.125).abs() <= 1e-15, "{step:?}");
+
+        let two = vec![vec![1.0, 0.0], vec![0.0, 2.0]];
+        let z = [0.2, -0.1 + 0.2 * 2.0];
+        let expected: Vec<f64> = z.iter().map(|v| v / (1.0 - (2.0 * z[1]) / 4.0)).collect();
+        let step = updated(&correction, &two).unwrap();
+        assert!((step[0] - expected[0]).abs() <= 1e-15 && (step[1] - expected[1]).abs() <= 1e-15, "{step:?} vs {expected:?}");
+
+        assert_eq!(updated(&[1.0, 0.0], &[vec![1.0, 0.0]]), None);
+        assert_eq!(updated(&[1.0 - 1e-9, 0.0], &[vec![1.0, 0.0]]), None);
+        assert_eq!(updated(&[1e-300 * (1.0 - 1e-9), 0.0], &[vec![1e-300, 0.0]]), None);
+        assert!(updated(&[0.999, 0.0], &[vec![1.0, 0.0]]).is_some());
+        assert_eq!(updated(&correction, &[vec![0.0, 0.0]]), None);
+        assert_eq!(updated(&[1.0, 0.0], &[vec![1e-200, 0.0]]), None);
+        assert_eq!(updated(&correction, &[vec![f64::NAN, 1.0]]), None);
     }
 
     #[test]
