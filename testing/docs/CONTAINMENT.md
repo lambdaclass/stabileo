@@ -250,7 +250,7 @@ Models with findings:
 - warning:NL-DYNAMIC-GAPS: pro-3d-portal-frame, pro-3d-tower.
 - warning:NUM-INVARIANCE: 2d-three-hinge-arch.
 
-The 41 results-project tests (39 models plus two negative controls) pass. The comparison with the original snapshots has exactly three changed diagnostic strings: 2d-three-hinge-arch base.diagnosticCodes and pro-3d-portal-frame spectral.X/Y.diagnosticCodes. All 145,515 numerical result values are identical to the original snapshots at their existing 10-significant-digit storage precision; all 39 format-version fields are also unchanged, with no added or removed quantities. Numerical baseline files outside these diagnostic-only edits were not regenerated.
+The Round 2 audit passed all 41 results-project tests (39 models plus two negative controls). At that revision the original snapshots differed in exactly three diagnostic strings: 2d-three-hinge-arch base.diagnosticCodes and pro-3d-portal-frame spectral.X/Y.diagnosticCodes. All 145,515 numerical result values are identical to the original snapshots at their existing 10-significant-digit storage precision; all 39 format-version fields are also unchanged, with no added or removed quantities. Numerical baseline files outside these diagnostic-only edits were not regenerated. The later #370 correction retained a mode-dependent rotary inertia warning for the portal in both spectral directions. Its current spectral diagnostic counts match the original snapshot.
 
 Reproduce the audit from web/: `CONTAINMENT_AUDIT_DIR=/tmp/containment-corpus nix develop .. -c npx vitest run --project results`. `CONTAINMENT_UPDATE_DIAGNOSTICS=1` permits only existing diagnostic string updates and fails on numerical differences or added/removed fields.
 
