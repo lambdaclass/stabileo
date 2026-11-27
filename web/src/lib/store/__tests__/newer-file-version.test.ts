@@ -1,7 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import '../index';
+import { recheckStore } from '../recheck.svelte';
+import { RESULT_CHANGES } from '../../provenance/full-registry';
+import { createPlate, plateEntry } from '../physical-plates';
 import { modelStore } from '../model.svelte';
 import { historyStore } from '../history.svelte';
 import { uiStore } from '../ui.svelte';
@@ -127,4 +130,28 @@ describe('a file from a newer version is refused before anything is changed', ()
     await expect(loadFile(new File([SESSION_V1], 'session.ded'))).resolves.toEqual({ type: 'session', count: 3 });
     expect(tabManager.tabs).toHaveLength(3);
   });
+});
+
+it.each(['deserializeProject', 'loadProject', 'loadFile'] as const)('a wind-release project with a curved opening sees the later geometry notice through %s', async opener => {
+  modelStore.clear();
+  uiStore.analysisMode = 'pro';
+  const nodes = (points: number[][]) => points.map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  const outline = nodes([[0, 0], [8, 0], [8, 6], [0, 6]]);
+  const opening = nodes([[2, 2], [3, 1.5], [4, 2], [4, 4], [2, 4]]);
+  const plate = createPlate({ outline, holes: [opening], materialId: 1, thickness: 0.15 });
+  if ('problem' in plate) throw new Error(plate.problem);
+  const entry = plateEntry(plate.id)!;
+  modelStore.setGroupData(plate.id, { ...entry.group.data, surface: { ...entry.surface, arcMids: [outline.length + 1] } });
+  recheckStore.noteSolved('linear');
+  const project = JSON.parse(serializeProject());
+  const release = RESULT_CHANGES.changes.find(c => c.id === 'wind-two-part-moments')!;
+  project.snapshot.solvedWith.resultsVersion = release.resultsVersion;
+  const text = JSON.stringify(project);
+  openModel();
+  recheckStore.reset();
+  if (opener === 'deserializeProject') expect(deserializeProject(text)).toBe(true);
+  else if (opener === 'loadProject') await loadProject(new File([text], 'curved.ded'));
+  else await loadFile(new File([text], 'curved.ded'));
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  expect(recheckStore.assessment?.changes.map(c => c.id)).toContain('plate-curved-opening-edits');
 });
