@@ -234,7 +234,7 @@ fn solve_harmonic_2d_contained(input: &HarmonicInput) -> Result<(HarmonicResult,
     }
 
     // Fallback: direct 2n×2n block LU per frequency
-    let (a0, a1) = compute_rayleigh_from_stiffness_mass(&k_s, &m_s, ns, input.damping_ratio);
+    let (a0, a1) = compute_rayleigh_from_stiffness_mass(&k_s, &m_s, ns, input.damping_ratio)?;
     let c_s = rayleigh_damping_matrix(&m_s, &k_s, ns, a0, a1);
 
     let mut response_points = Vec::new();
@@ -422,7 +422,7 @@ fn solve_harmonic_3d_contained(input: &HarmonicInput3D) -> Result<(HarmonicResul
     }
 
     // Fallback: direct 2n×2n block LU per frequency
-    let (a0, a1) = compute_rayleigh_from_stiffness_mass(&k_s, &m_s, ns, input.damping_ratio);
+    let (a0, a1) = compute_rayleigh_from_stiffness_mass(&k_s, &m_s, ns, input.damping_ratio)?;
     let c_s = rayleigh_damping_matrix(&m_s, &k_s, ns, a0, a1);
 
     let mut response_points = Vec::new();
@@ -990,7 +990,7 @@ fn solve_complex_scaled(
 /// accuracy is how the seismic path ended up anchoring its damping 892× high.
 fn compute_rayleigh_from_stiffness_mass(
     k: &[f64], m: &[f64], n: usize, xi: f64,
-) -> (f64, f64) {
+) -> Result<(f64, f64), String> {
     rayleigh_from_modes(k, m, n, xi)
 }
 

@@ -255,7 +255,7 @@ fn rayleigh_delivers_the_requested_ratio_at_the_real_fundamental() {
     }
 
     let xi = 0.05;
-    let (a0, a1) = damping::rayleigh_from_modes(&k_ff, &m_ff, nf, xi);
+    let (a0, a1) = damping::rayleigh_from_modes(&k_ff, &m_ff, nf, xi).unwrap();
 
     let rho_a_solver = DENSITY * A / 1000.0;
     let omega1 = (std::f64::consts::PI / L).powi(2) * (EI / rho_a_solver).sqrt();

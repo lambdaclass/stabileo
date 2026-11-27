@@ -1,0 +1,51 @@
+{
+  "id": "rayleigh-anchor-unresolved-refused",
+  "date": "2026-11-27",
+  "prs": [
+    2664
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "members",
+        "shells",
+        "springs",
+        "constraints"
+      ],
+      [
+        "analysis:timeHistory",
+        "analysis:harmonic"
+      ]
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "timeHistory",
+    "harmonic"
+  ],
+  "title": {
+    "en": "Refuse damping whose anchor frequencies cannot be computed",
+    "es": "Rechazar el amortiguamiento cuando no se pueden calcular sus frecuencias de anclaje",
+    "pt": "Recusar o amortecimento quando não é possível calcular as suas frequências de ancoragem",
+    "de": "Dämpfung ablehnen, wenn ihre Ankerfrequenzen nicht berechnet werden können",
+    "fr": "Refuser l’amortissement lorsque ses fréquences d’ancrage ne peuvent pas être calculées",
+    "tr": "Sabitleme frekansları hesaplanamayan sönümü reddetme",
+    "zh": "锚定频率无法计算时拒绝施加阻尼",
+    "hu": "A csillapítás elutasítása, ha a rögzítő frekvenciái nem számíthatók ki"
+  },
+  "explanation": {
+    "en": "Rayleigh damping is anchored on the model's first two natural frequencies. When they could not be computed, a time history or a direct harmonic analysis applied an estimate from the matrix diagonals instead, without warning, which could be several times the damping requested. Such an analysis is now refused.",
+    "es": "El amortiguamiento de Rayleigh se ancla en las dos primeras frecuencias propias del modelo. Cuando no se podían calcular, un análisis en el tiempo o un armónico directo aplicaba en su lugar, sin aviso, una estimación a partir de las diagonales de las matrices, que podía ser varias veces el amortiguamiento pedido. Ese análisis ahora se rechaza.",
+    "pt": "O amortecimento de Rayleigh é ancorado nas duas primeiras frequências próprias do modelo. Quando não era possível calculá-las, uma análise no tempo ou uma harmônica direta aplicava em seu lugar, sem aviso, uma estimativa a partir das diagonais das matrizes, que podia ser várias vezes o amortecimento pedido. Essa análise agora é recusada.",
+    "de": "Die Rayleigh-Dämpfung wird an den ersten beiden Eigenfrequenzen des Modells verankert. Konnten diese nicht berechnet werden, wendete eine Zeitverlaufsberechnung oder eine direkte harmonische Berechnung stattdessen ohne Hinweis eine Schätzung aus den Diagonalen der Matrizen an, die ein Mehrfaches der verlangten Dämpfung betragen konnte. Eine solche Berechnung wird nun abgelehnt.",
+    "fr": "L’amortissement de Rayleigh est ancré sur les deux premières fréquences propres du modèle. Lorsqu’elles ne pouvaient pas être calculées, une analyse temporelle ou une analyse harmonique directe appliquait à la place, sans avertissement, une estimation tirée des diagonales des matrices, qui pouvait valoir plusieurs fois l’amortissement demandé. Une telle analyse est désormais refusée.",
+    "tr": "Rayleigh sönümü, modelin ilk iki doğal frekansına sabitlenir. Bu frekanslar hesaplanamadığında, zaman tanım alanı analizi veya doğrudan harmonik analiz, uyarı vermeden bunun yerine matris köşegenlerinden bir tahmin uyguluyordu; bu tahmin istenen sönümün birkaç katı olabiliyordu. Böyle bir analiz artık reddedilir.",
+    "zh": "瑞利阻尼锚定在模型的前两阶固有频率上。当这两个频率无法计算时，时程分析或直接谐响应分析会在不作提示的情况下改用由矩阵对角元得到的估计值，其阻尼可能是所要求阻尼的数倍。现在这类分析会被拒绝。",
+    "hu": "A Rayleigh-csillapítás a modell első két sajátfrekvenciájához van rögzítve. Ha ezek nem voltak kiszámíthatók, az időtörténeti vagy a közvetlen harmonikus analízis figyelmeztetés nélkül a mátrixok átlóiból vett becslést alkalmazott helyettük, amely a kért csillapítás többszöröse is lehetett. Az ilyen analízist a program most elutasítja."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rayleigh-anchor-unresolved.md",
+    "heading": "Refuse damping whose anchor frequencies cannot be computed"
+  }
+}
