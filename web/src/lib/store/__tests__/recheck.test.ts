@@ -60,7 +60,14 @@ describe('recheckStore', () => {
     recheckStore.openProject(solved as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(true);
-    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint', 'gravity-physical-thresholds', 'gravity-resolved-cover']);
+    const expectedNoticeIds = [
+      'generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass',
+      'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership',
+      'gravity-local-deck-coverage', 'gravity-retained-span-midpoint', 'gravity-physical-thresholds', 'gravity-resolved-cover',
+    ].map(id => RESULT_CHANGES.changes.find(change => change.id === id)!)
+      .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+      .map(change => change.id);
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(expectedNoticeIds);
     recheckStore.reset();
     recheckStore.openProject({ ...solved, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } } as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
@@ -73,7 +80,7 @@ describe('recheckStore', () => {
     recheckStore.reset();
     recheckStore.openProject(generated(headroom), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint', 'gravity-physical-thresholds', 'gravity-resolved-cover']);
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(expectedNoticeIds.filter(id => id !== 'generated-area-loads-headroom'));
     expect(recheckStore.noticeOpen).toBe(true);
     recheckStore.reset();
     const { designData: _basis, ...unstamped } = generated() as unknown as Record<string, unknown>;
