@@ -66,10 +66,15 @@ class Backend {
     const a = this.assignments.get(x.assignment_id as string)!;
     const now = Date.now();
     const closed = !!x.submitted_at || now > Date.parse(x.deadline_at as string) + 30_000;
+    const reveal = a.reveal === 'on_submit' && closed;
+    const envelope = a.exercise as { stabileoExercise: number; exercise: typeof SPEC };
+    const exercise = reveal ? envelope : { ...envelope, questionsOnly: true, exercise: {
+      ...envelope.exercise, characteristics: envelope.exercise.characteristics.map(({ label, unit }) => ({ label, unit })),
+    } };
     return {
       id: x.id, revision: x.revision, code: a.code, title: a.title, seed: x.seed, started_at: x.started_at, deadline_at: x.deadline_at,
       submitted_at: x.submitted_at, answers: x.answers, client_score: x.client_score, closed, reveal: a.reveal,
-      closes_at: a.closes_at, reveal_allowed: a.reveal === 'on_submit' ? closed : false, exercise: a.exercise, now: new Date(now).toISOString(),
+      closes_at: a.closes_at, reveal_allowed: reveal, exercise, now: new Date(now).toISOString(),
     };
   }
 
@@ -114,6 +119,7 @@ class Backend {
       return a && a.owner_id === me.id ? json(200, { data: { ...this.owner(a), exercise: a.exercise } }) : json(404, { error: 'not_found', message: 'nope' });
     }
     if ((m = path.match(/^\/assignments\/([^/]+)\/attempts$/))) {
+      if (this.assignments.get(m[1]!)?.owner_id !== me.id) return json(404, { error: 'not_found' });
       const data = [...this.attempts.values()].filter((x) => x.assignment_id === m![1]).map((x) => {
         const p = x.account_id === STUDENT.id ? STUDENT : TEACHER;
         return { id: x.id, student: { id: p.id, name: p.name, email: p.email }, seed: x.seed, started_at: x.started_at, deadline_at: x.deadline_at, submitted_at: x.submitted_at, answers: x.answers, client_score: x.client_score };
@@ -219,6 +225,11 @@ test.describe('@smoke Education — homework and exams with an account', () => {
     await student.getByTestId('exam-start').click();
     await student.getByTestId('exam-start-confirm').click();
     await expect(panel).toHaveAttribute('data-phase', 'running');
+    const denied = await student.evaluate(async id => {
+      const response = await fetch('/api/v1/assignments/' + id + '/attempts', { headers: { authorization: 'Bearer access-S' } });
+      return [response.status, await response.json()];
+    }, [...backend.assignments.keys()][0]!);
+    expect(denied).toEqual([404, { error: 'not_found' }]);
     await expect(student.getByTestId('exam-countdown').first()).toBeVisible();
     await student.waitForFunction(() => (window.__stabileo?.nodeIds?.() ?? []).length === 2, null, { timeout: 30_000 });
 
@@ -251,11 +262,11 @@ test.describe('@smoke Education — homework and exams with an account', () => {
     await expect(score).toHaveAttribute('data-correct', '3');
     await expect(score).toHaveAttribute('data-total', '4');
     await expect(student.locator('[data-testid="exam-answer"][data-key="r:1:Ry"]')).toHaveAttribute('data-outcome', 'incorrect');
-    await expect(student.locator('[data-testid="exam-answer"][data-key="r:1:Ry"]')).toContainText((5 * L).toFixed(2));
+    await expect(student.locator('[data-testid="exam-answer"][data-key="r:1:Ry"]')).toContainText(String(5 * L));
     await expect(student.locator('[data-testid="exam-answer"][data-key="c:0"]')).toContainText('largest absolute value');
     await expect(student.getByTestId('account-button'), 'the lock is lifted once handed in').toBeVisible();
     expect(backend.submits).toHaveLength(1);
-    expect(backend.submits[0]!.client_score).toBe(0.75);
+    expect(backend.submits[0]!.client_score ?? null).toBeNull();
 
     const stored = [...backend.attempts.values()][0]!;
     stored.client_score = 1;

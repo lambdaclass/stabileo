@@ -22,6 +22,8 @@ test.describe('@slow explore live', () => {
     await expect(panel).toBeVisible();
     await expect.poll(async () => (await frame()).drawn).toBe(true);
     const before = (await frame()).maxMoment!;
+    const distributed = () => page.evaluate(() => window.__stabileo.allLoads().find(load => load.type === 'distributed')!.data as { qI: number; qJ: number });
+    const original = await distributed();
 
     // A slower machine: each solve then spans frames, so the frames between an edit and its solve are sampled.
     const cdp = await page.context().newCDPSession(page);
@@ -55,6 +57,7 @@ test.describe('@slow explore live', () => {
 
     await expect(panel.locator('.wif-val').first()).toHaveText('3.00×');
     await expect(panel.getByTestId('whatif-diagram-moment')).toHaveClass(/active/);
+    expect(await distributed()).toMatchObject({ qI: 3 * original.qI, qJ: 3 * original.qJ });
     const last = await frame();
     expect(last.held).toBe(false);
     const fresh = await page.evaluate(() => window.__stabileo.freshMaxMoment());
@@ -88,5 +91,11 @@ test('@slow explore live clears a painted interior peak when live calculation is
   });
   expect(held).toMatchObject({ drawn: true, held: true, diagram: 'moment' });
   await expect.poll(frame).toMatchObject({ drawn: false, held: false, diagram: 'none', maxMoment: null });
+  await page.evaluate(async () => {
+    await new Promise(resolve => setTimeout(resolve, 600));
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+  });
+  expect(await frame()).toMatchObject({ drawn: false, held: false, diagram: 'none', maxMoment: null });
   expect(await page.evaluate(() => window.__stabileo.hasDrawnResults())).toBe(false);
 });

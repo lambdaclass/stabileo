@@ -111,5 +111,6 @@ test.describe('@slow plastic collapse the exact certificate does not confirm', (
     await expect(note.getByRole('link')).toHaveAttribute('href', /issues\/758$/);
     await expect(page.getByTestId('plastic-step')).toHaveCount(0);
     await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
+    for (const id of ['plastic-trace', 'plastic-curve', 'plastic-mechanism', 'plastic-open-kinematic', 'plastic-open-static']) await expect(page.getByTestId(id)).toHaveCount(0);
   });
 });

@@ -262,6 +262,27 @@ test.describe('@smoke Education — the whole flow', () => {
 });
 
 test.describe('@smoke Education — free bodies and handing in', () => {
+  test('grades independently balanced end actions and rejects a reversed end moment', async ({ page }) => {
+    const exercise = {
+      ...EXERCISE.exercise,
+      model: { ...EXERCISE.exercise.model, nodes: [[0, 0], [0, 2], [4, 2]], elements: [[0, 1], [1, 2]], nodalLoads: [{ node: 2, fy: -10 }] },
+    };
+    const encoded = Buffer.from(JSON.stringify({ ...EXERCISE, exercise })).toString('base64');
+    await bootEducation(page, `${EDU_URL}#edu-ex=${encoded}`);
+    await expect(page.locator('.exercise-view')).toHaveAttribute('data-solved', 'yes');
+    await page.getByTestId('edu-step-freeBody').click();
+    const tab = page.getByTestId('edu-fb-bar-1');
+    await tab.click();
+    const values = { 'i-Fx': 0, 'i-Fy': 10, 'i-M': -4 * 10, 'j-Fx': 0, 'j-Fy': -10, 'j-M': 0 };
+    for (const [field, value] of Object.entries(values)) await page.getByTestId('edu-fb-1-' + field).fill(String(value));
+    await page.getByTestId('edu-fb-verify').click();
+    await expect(tab).toHaveClass(/done/);
+    await page.getByTestId('edu-fb-1-i-M').fill(String(-values['i-M']));
+    await page.getByTestId('edu-fb-verify').click();
+    await expect(page.locator('.verif-incorrect input')).toHaveAttribute('data-testid', 'edu-fb-1-i-M');
+    await expect(tab).not.toHaveClass(/done/);
+  });
+
   test('the list reads ranges, a frame asks for each bar on its own, and handing in is the last step', async ({ page }) => {
     await bootEducation(page);
     const statements = await page.locator('.exercise-desc').allTextContents();
