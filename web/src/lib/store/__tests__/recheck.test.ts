@@ -452,7 +452,7 @@ describe('edited projects with older provenance', () => {
     'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
     'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
     'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
-    'reduced-stiffness-rank',
+    'reduced-stiffness-rank', 'dynamics-rotary-inertia-advisory-deep-members',
     ...(registry.changes.some(c => c.id === 'ssi-support-reactions') ? ['ssi-support-reactions'] : []),
   ].map(id => registry.changes.find(c => c.id === id)!)
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
@@ -482,7 +482,7 @@ describe('edited projects with older provenance', () => {
     await vi.waitFor(() => expect(store.pending).toBe(false));
     const received = store.assessment?.changes.map(c => c.id);
     const expected = openingNoticeIds(mergedRegistry);
-    const tail = ['compensated-applied-force-totals', 'reduced-stiffness-rank', 'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
+    const tail = ['dynamics-rotary-inertia-advisory-deep-members', 'compensated-applied-force-totals', 'reduced-stiffness-rank', 'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
       .map(id => mergedRegistry.changes.find(c => c.id === id)!)
       .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
       .map(c => c.id);
@@ -491,9 +491,9 @@ describe('edited projects with older provenance', () => {
         .map(id => mergedRegistry.changes.find(c => c.id === id)!)
         .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
         .map(c => c.id);
-      expect(expected.slice(-12)).toEqual([...combinedTail, 'linear-stability-refusals', 'linear-pin-coupling']);
+      expect(expected.slice(-13)).toEqual([...combinedTail, 'linear-stability-refusals', 'linear-pin-coupling']);
     } else {
-    expect(expected.slice(-11)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
+    expect(expected.slice(-12)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
     }
     expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
   });

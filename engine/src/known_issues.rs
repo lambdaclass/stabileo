@@ -41,7 +41,8 @@ pub struct Entry {
 
 pub const ENTRIES: &[Entry] = &[
     Entry { id: "SH-MITC4-CONVERGENCE", issue: 810, mode: Mode::Warn, message: "MITC4 shell benchmarks show excessive stiffness and error increasing with mesh refinement. The affected subset is unresolved; independently verify shell response before design" },
-    Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Beam dynamic models omit bending rotary inertia, and these members are deep enough for it to lower their bending frequencies by more than 1 % (radius of gyration over member length above 0.045). Independently verify the dynamic response of these members" },
+    Entry { id: "NL-DYNAMIC-MODES", issue: 370, mode: Mode::Warn, message: "Omitting bending rotary inertia can overestimate bending frequencies. The member geometry alone does not bound the error for the modes used. Verify the dynamic response" },
+    Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Omitting bending rotary inertia can overestimate bending frequencies. These members exceed the geometric screen r/L > 0.045. The actual error depends on the mode. Verify the dynamic response" },
     Entry { id: "NL-UNCONVERGED-INCREMENT", issue: 370, mode: Mode::Warn, message: "Material nonlinear analysis may continue after an unconverged increment. Independently verify convergence" },
     Entry { id: "PL-3D-CERTIFICATE-MISMATCH", issue: 1760, mode: Mode::Warn, message: "The raw incremental 3D plastic collapse factor lies outside the certified interval. The returned collapse factor is the certified lower bound; incremental steps and hinges retain raw solver values" },
     Entry { id: "PL-3D-INVARIANCE", issue: 758, mode: Mode::Warn, message: "3D plastic collapse of curved beams has shown numbering-dependent factors. Independently verify the collapse factor" },
@@ -493,7 +494,7 @@ pub fn for_2d_loads(input: &SolverInput, loads: &[SolverLoad], analysis: Analysi
         out.push(diagnostic("CERT-MECHANISM"));
     }
     if analysis == Analysis::MaterialNonlinear { out.push(diagnostic("NL-UNCONVERGED-INCREMENT")); }
-    if is_dynamic(analysis) { out.extend(rotary_inertia(&screen_model_2d(input, &Default::default()), Vec::new())); }
+    if is_dynamic(analysis) { out.extend(rotary_inertia(&screen_model_2d(input, &Default::default()), Vec::new(), false)); }
     if analysis == Analysis::Plastic { out.push(diagnostic("PL-2D-INVARIANCE")); }
     out.extend(loads_2d(loads));
     out
@@ -506,7 +507,7 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
     if analysis == Analysis::Buckling { out.push(diagnostic("BU-ACCURACY")); }
 
     if analysis == Analysis::MaterialNonlinear { out.push(diagnostic("NL-UNCONVERGED-INCREMENT")); }
-    if is_dynamic(analysis) { out.extend(rotary_inertia(&screen_model_3d(input, &Default::default()), deep_curved_beams(input))); }
+    if is_dynamic(analysis) { out.extend(rotary_inertia(&screen_model_3d(input, &Default::default()), deep_curved_beams(input), !input.curved_beams.is_empty())); }
     if analysis == Analysis::Plastic && !input.curved_beams.is_empty() { out.push(diagnostic("PL-3D-INVARIANCE")); }
     if analysis == Analysis::Modal { out.push(diagnostic("MD-ORTHOGONALITY")); }
     out.extend(model_3d(input));
@@ -1221,15 +1222,13 @@ fn is_dynamic(analysis: Analysis) -> bool {
     matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic)
 }
 
-/// r/L above which leaving out rotary inertia overestimates the first bending frequency by more than 1 %:
-/// ω/ω_EB = 1/√(1 + (π·r/L)²).
 pub const ROTARY_INERTIA_DEPTH: f64 = 0.045;
 
 /// cos 30°: a curved beam's segments (18° each for a half circle in the default 10) stay one member
 /// for the rotary-inertia length, a frame knee (60° or more) does not.
 const SMOOTH_TURN_COS: f64 = 0.866_025_403_784_438_6;
 
-fn rotary_inertia(m: &ScreenModel, curved: Vec<usize>) -> Option<StructuredDiagnostic> {
+fn rotary_inertia(m: &ScreenModel, curved: Vec<usize>, has_curved: bool) -> Vec<StructuredDiagnostic> {
     let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
         (Some(&a), Some(&c)) => norm(sub(c, a)),
         _ => f64::NAN,
@@ -1239,16 +1238,24 @@ fn rotary_inertia(m: &ScreenModel, curved: Vec<usize>) -> Option<StructuredDiagn
         let r = chain.iter().map(|&i| m.bars[i].radius).fold(0.0, |a: f64, r| if r.is_nan() { f64::NAN } else { a.max(r) });
         !(r <= ROTARY_INERTIA_DEPTH * l)
     }).flatten().map(|i| m.bars[i].id).collect();
-    if deep.is_empty() && curved.is_empty() { return None; }
-    let mut d = diagnostic("NL-DYNAMIC-GAPS");
-    d.threshold = Some(ROTARY_INERTIA_DEPTH);
-    if !deep.is_empty() {
-        deep.sort_unstable();
-        deep.dedup();
-        d.element_kind = Some(ElementKind::Frame);
-        d.element_ids = deep;
+    if deep.is_empty() && curved.is_empty() {
+        return if has_curved || m.bars.iter().any(|bar| bar.frame) {
+            vec![diagnostic("NL-DYNAMIC-MODES")]
+        } else {
+            Vec::new()
+        };
     }
-    Some(d)
+    deep.sort_unstable();
+    deep.dedup();
+    [(ElementKind::Frame, deep), (ElementKind::CurvedBeam, curved)].into_iter()
+        .filter(|(_, ids)| !ids.is_empty())
+        .map(|(kind, ids)| {
+            let mut d = diagnostic("NL-DYNAMIC-GAPS");
+            d.threshold = Some(ROTARY_INERTIA_DEPTH);
+            d.element_kind = Some(kind);
+            d.element_ids = ids;
+            d
+        }).collect()
 }
 
 /// The polygon start–mid–end is shorter than the arc, so the length errs toward warning.

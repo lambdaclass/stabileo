@@ -3330,7 +3330,6 @@ fn bending_limit_checks_the_axial_field_under_span_loads_758() {
 }
 
 #[test]
-#[ignore = "known wrong result: #370"]
 fn rotary_inertia_warns_about_unbounded_modes_and_identifies_each_member_family_370() {
     for analysis in [Analysis::Modal, Analysis::Harmonic, Analysis::TimeHistory] {
         let beam = make_beam(2, 1.0, E, 1.0, 0.03_f64.powi(2), "fixed", None, vec![]);

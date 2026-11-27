@@ -42,7 +42,7 @@ describe('second-order screen on the Basic 2D frames (#1551)', () => {
 });
 
 describe('rotary inertia in modal analysis (#370)', () => {
-  it.each(FRAMES)('%s: modal analysis carries neither half of #370', async (name) => {
+  it.each(FRAMES)('%s: modal analysis distinguishes mode uncertainty from deep members and nonlinear increments', async (name) => {
     await load(name);
     const modal = solveModal(modelStore.buildSolverInput(false)!, densities());
     expect(modal.modes.length).toBeGreaterThan(0);
@@ -50,7 +50,7 @@ describe('rotary inertia in modal analysis (#370)', () => {
     expect(knownIssues(modal as Diagnosed)).not.toContain('NL-UNCONVERGED-INCREMENT');
   }, 60_000);
 
-  it.skip('known wrong result: #370 — modal WASM warns when slender members have no mode-specific bound', async () => {
+  it('#370 — modal WASM warns when slender members have no mode-specific bound', async () => {
     await load('portal-frame');
     const modal = solveModal(modelStore.buildSolverInput(false)!, densities());
     expect(knownIssues(modal as Diagnosed)).toContain('NL-DYNAMIC-MODES');
@@ -75,6 +75,9 @@ describe('an advisory is shown once', () => {
     expect(resultsStore.knownIssues.messages.join(' ')).toContain('#426');
     const { default: ResultsTable } = await import('../../../components/tables/ResultsTable.svelte');
     const html = render(ResultsTable).body;
+    const { default: Banner } = await import('../../../components/ContainmentBanner.svelte');
+    const banner = render(Banner, { props: { disposition: resultsStore.knownIssues, preserveModel: true } }).body;
+    expect((banner + html).match(/#426/g)).toHaveLength(1);
     expect(html).not.toContain('#426');
     expect(html).not.toContain('role="alert"');
   }, 60_000);

@@ -143,6 +143,15 @@ describe('results versions', () => {
   });
   });
 
+  it('#370 includes a material nonlinear solve without any dynamic analysis', () => {
+    const change = RESULT_CHANGES.changes.find(c => c.id === 'dynamics-rotary-inertia-advisory-deep-members')!;
+    const notices = (analysis: 'nonlinear' | 'linear') => assessProject({}, {
+      resultsVersion: change.resultsVersion - 1, recorded: [...ANALYSIS_KINDS], analyses: [analysis],
+    } as SolveStamp, 'pro').changes.map(c => c.id);
+    expect(notices('nonlinear')).toContain(change.id);
+    expect(notices('linear')).not.toContain(change.id);
+  });
+
   it('#761 distinguishes unknown nonlinear history from complete linear and modal histories', () => {
     const nonlinearIds = ['nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium'];
     const before = Math.min(...nonlinearIds.map(id => RESULT_CHANGES.changes.find(c => c.id === id)!.resultsVersion)) - 1;

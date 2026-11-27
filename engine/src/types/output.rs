@@ -320,6 +320,7 @@ pub struct StructuredDiagnostic {
 #[serde(rename_all = "snake_case")]
 pub enum ElementKind {
     Frame,
+    CurvedBeam,
     Plate,
     Quad,
     Quad9,

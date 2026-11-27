@@ -230,7 +230,7 @@ export interface StructuredDiagnostic {
 }
 
 /** Mirrors `ElementKind` in `engine/src/types/output.rs` (serialized snake_case). */
-export type ElementKind = 'frame' | 'plate' | 'quad' | 'quad9' | 'solid_shell' | 'curved_shell';
+export type ElementKind = 'frame' | 'curved_beam' | 'plate' | 'quad' | 'quad9' | 'solid_shell' | 'curved_shell';
 
 export interface AnalysisResults {
   displacements: Displacement[];

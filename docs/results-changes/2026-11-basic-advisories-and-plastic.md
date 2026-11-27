@@ -27,24 +27,19 @@ length and bending stiffness. Where the supports do not establish this local bou
 result keeps the unresolved-member warning. Factored combinations propagate that warning.
 These changes affect diagnostic codes and the recorded second-order screening ratio.
 
-## Dynamics warnings split, the rotary-inertia one on deep members only
+## Beam dynamics and nonlinear convergence warnings
 
 Results-change entry `dynamics-rotary-inertia-advisory-deep-members` (#370).
 
-`NL-DYNAMIC-GAPS` joined two known issues in one warning: a material nonlinear analysis may go on
-after an unconverged increment, and beam dynamics omits the rotary inertia of bending. It was on
-every material nonlinear analysis and on every modal, time-history and harmonic analysis of a
-model with a frame member (or, in 3D, a curved beam).
+Omitting bending rotary inertia can overestimate frequencies. The approximate geometric screen
+r/L > 0.045 identifies deep members, with r the larger radius of gyration. The Rayleigh
+estimate ω/ω_EB = 1/√(1 + (πr/L)²) applies to the first mode of a uniform, simply supported
+straight beam. It does not bound a structural mode or higher modes.
 
-- `NL-UNCONVERGED-INCREMENT` is the nonlinear half, on material nonlinear analyses only.
-- `NL-DYNAMIC-GAPS` keeps the rotary-inertia half, on dynamic analyses only when a frame member or
-  curved beam has r/L > 0.045, r being its larger radius of gyration. The Rayleigh-beam correction
-  ω/ω_EB = 1/√(1 + (πr/L)²) keeps the first-mode error under 1 % below that. Members are taken as
-  chains of elements through free joints that turn by less than 30°, so a curved beam's segments
-  count as one member, and the warning names them.
-
-What moves: diagnostic codes only. In the corpus, `pro-3d-portal-frame` loses one of the two
-`warning:known_issue` codes of its spectral X and Y results. No number changes.
+Modal, spectral, time-history and harmonic analyses identify deep frame members and curved
+beam input indices separately under `NL-DYNAMIC-GAPS`. Other beam models receive
+`NL-DYNAMIC-MODES` because the mode-specific error is unknown. Material nonlinear analyses
+receive `NL-UNCONVERGED-INCREMENT`. Only diagnostic codes and references change.
 
 ## Basic 2D plastic collapse at the certified limit-analysis factor
 
