@@ -50,6 +50,21 @@ const createServer = async settings => {
 """.replace('EXPORT', json.dumps(export)).replace('REPLACEMENT', replacement)
         checker.write_text(source.replace('const server = await createServer', wrapper + 'const server = await createServer'))
 
+    @unittest.skip("known wrong result: #2505")
+    def test_optimized_newmark_check_rejects_a_stale_period(self):
+        folder = self.benchmark('benchmarks/newmark-1959')
+        script = folder / 'reference.py'
+        shutil.copyfile(root / 'research/benchmarks/newmark-1959/reference.py', script)
+        command = [sys.executable, '-I', '-O', script]
+        subprocess.run(command, check=True, capture_output=True)
+        file = folder / 'reference-results/closed-form.json'
+        stored = json.loads(file.read_text())
+        stored['period'] *= 2
+        file.write_text(json.dumps(stored))
+        process = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertIn('MANIFEST.json hashes are stale', process.stderr)
+
     def test_every_mesh_reaction_is_included_in_the_plate_verdict(self):
         folder = self.benchmark('benchmarks/navier-plate')
         self.wrap_export(folder, 'solve3D', """input => {
