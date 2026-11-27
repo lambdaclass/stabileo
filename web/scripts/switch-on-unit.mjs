@@ -25,6 +25,7 @@ export const switchOnUnitFiles = [
   'src/lib/model/code/__tests__/model-code-frame.test.ts',
   'src/lib/model/loads/__tests__/load-frame.test.ts',
   'src/lib/store/__tests__/auth-store.test.ts',
+  'src/lib/store/__tests__/clear-plate-fields.test.ts',
   'src/lib/tracking/__tests__/activity.test.ts',
 ];
 
