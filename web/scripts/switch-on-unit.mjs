@@ -29,6 +29,7 @@ export const switchOnUnitFiles = [
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/lib/store/__tests__/adopted-frame.test.ts',
   'src/lib/rc-sheets/schedule/__tests__/exported-offcut.test.ts',
   'src/lib/i18n/__tests__/engine-purity.test.ts',
   'src/lib/i18n/__tests__/pro-flow-coverage.test.ts',
