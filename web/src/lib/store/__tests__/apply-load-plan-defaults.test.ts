@@ -8,6 +8,8 @@ import { defaultCombinations, defaultLoadCases, DEFAULT_CASE_NAME_KEYS } from '.
 import { t } from '../../i18n';
 import es from '../../i18n/locales/es';
 import { loadsGeneratedWith } from '../../provenance/model-features';
+import { assessProject } from '../../provenance/applicability';
+import { stampSolve } from '../../provenance/solve-stamp';
 import { RESULTS_VERSION } from '../../provenance/registry';
 import { designData, patchDesignData } from '../design-data';
 
@@ -66,6 +68,23 @@ describe('the example cases and combinations of a new project, when the generato
     expect(loadsGeneratedWith(modelStore.snapshot() as never)).toBe(Infinity);
     applyLoadPlan(buildLoadPlan(planInput()), { clearExisting: true, bothSenses: true, nameOf });
     expect(loadsGeneratedWith(modelStore.snapshot() as never)).toBe(RESULTS_VERSION);
+  });
+
+  it.skip('known wrong result: #1928 a mixed load basis keeps a possible occupancy substitution until the old loads are replaced', () => {
+    const apply = (occupancyKey: string, clearExisting: boolean) =>
+      applyLoadPlan(buildLoadPlan({ ...planInput(), occupancyKey }), { clearExisting, bothSenses: true, nameOf });
+    const affected = () => assessProject(modelStore.snapshot() as never, stampSolve('linear', null), 'pro')
+      .changes.some(c => c.id === 'generated-occupancy-choice');
+    apply('archivos', true);
+    expect(affected()).toBe(false);
+    const old = { ...designData().loadBasis! };
+    Reflect.deleteProperty(old, 'occupancySelection');
+    patchDesignData({ loadBasis: old });
+    expect.soft(affected()).toBe(true);
+    apply('vivienda', false);
+    expect.soft(affected()).toBe(true);
+    apply('vivienda', true);
+    expect(affected()).toBe(false);
   });
 
   it('keeps the older version while loads generated before stay beside the new ones', () => {
