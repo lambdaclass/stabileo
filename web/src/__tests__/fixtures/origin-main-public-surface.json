@@ -49,6 +49,7 @@
     "/research/mechanics/biggins-2026",
     "/research/mechanics/gay-neto-2014",
     "/research/mechanics/heyman-1966",
+    "/research/mechanics/vella-2024",
     "/research/metamaterials/grossman-2026",
     "/research/optimisation/fairclough-2026",
     "/research/optimization/andreassen-2011",
@@ -120,6 +121,7 @@
     "/research/mechanics/biggins-2026",
     "/research/stability/feher-sipos-varkonyi-2026",
     "/research/mechanics/heyman-1966",
+    "/research/mechanics/vella-2024",
     "/research/mechanics/gay-neto-2014",
     "/research/benchmarks/cqc-1981",
     "/research/benchmarks/riks-crisfield"
@@ -150,6 +152,15 @@
       "zh"
     ],
     "/research/mechanics/heyman-1966": [
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr",
+      "zh"
+    ],
+    "/research/mechanics/vella-2024": [
       "en",
       "es",
       "pt",

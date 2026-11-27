@@ -1,0 +1,52 @@
+{
+  "source": "Wang, Giudici, Huang, Wang, Liu, Tawfick & Vella, Phys. Rev. Lett. 132, 267201 (2024), doi:10.1103/PhysRevLett.132.267201; read from arXiv:2312.13908v2 (sha256 33d95f01b305100739562691008f63d97ee2d4262eb573ecc022060f47fa0329). Pages are PDF pages of that file; see reference/paper-extraction.md.",
+  "strip": {
+    "length_m": {"value": 0.108, "source": "p. 1; p. 7; p. 12"},
+    "thickness_experiments_m": {"value": 0.00005, "source": "p. 1; p. 7"},
+    "thickness_simulations_m": {"value": 0.0000508, "source": "p. 12"},
+    "width_m": {"value": 0.025, "source": "p. 1; p. 7; p. 12"},
+    "young_modulus_pa": {"value": 200e9, "source": "p. 1 (approx.); p. 12"},
+    "density_kg_m3": {"value": 8000, "source": "p. 12 (simulations only)"},
+    "clamp_angle_rad": {"value": 0.2617993877991494, "source": "pi/12; p. 1; p. 7; p. 12"},
+    "initial_shortening_simulations": {"value": 0.2, "source": "Delta L / L, p. 12"},
+    "acceleration_time_experiments_s": {"value": 0.01, "source": "p. 7"},
+    "der_nodes": {"value": 100, "source": "p. 13, Fig. S4"},
+    "der_time_step_s": {"value": 0.00001, "source": "p. 13, Fig. S4"}
+  },
+  "shallow": {
+    "mu_star": {"value": 0.247, "digits": 3, "source": "p. 2 after Eq. (1); p. 11"},
+    "tau_fold": {"value": 9.203, "digits": 4, "source": "p. 11"},
+    "mu_a": {"value": 0.25, "exact": true, "source": "p. 2; Eq. (S17), p. 11"},
+    "tau_asymmetric": {"value": 8.987, "digits": 4, "source": "p. 11"},
+    "lambda2_natural_mu_quarter": {"value": -3348.04, "source": "p. 12, SM II.D"},
+    "omega_natural_mu_quarter": {"value": 57.86, "source": "p. 12, SM II.D"},
+    "t_osc": {"value": 0.108, "source": "p. 12, SM II.D"}
+  },
+  "toy": {
+    "beta": {"value": 0.110, "source": "p. 20"},
+    "l0c": {"value": 0.655, "source": "p. 20"},
+    "mu_star": {"value": 0.247, "source": "p. 20 (matched to the arch)"},
+    "mu_a": {"value": 0.25, "source": "p. 20 (matched to the arch)"},
+    "omega_lower": {"value": 0.663, "unit": "alpha sqrt(k/m), the inverse of the time scale of (S72)", "source": "p. 22, printed as omega_A/t_osc"},
+    "omega_upper": {"value": 0.734, "unit": "alpha sqrt(k/m)", "source": "p. 22, printed as omega_S/t_osc"},
+    "t_osc": {"value": 9.477, "unit": "sqrt(m/k)/alpha", "source": "Eq. (S80), p. 22"},
+    "critical_rate": {"value": 0.0961, "source": "p. 4, Fig. 4 caption; 0.096 on p. 25"}
+  },
+  "figure_2a_rates_m_s": {"slow": 0.0018, "fast": 0.2466, "source": "p. 3, Fig. 2 caption"},
+  "table_s1": {
+    "source": "p. 8, Table S1: measured |dDeltaL/dt| (m/s) and amplification A (Eq. S1)",
+    "rows": [
+      [1, 0.000094, 20.31], [2, 0.00084, 30.32], [3, 0.00084, 30.53], [4, 0.0018, 39.22], [5, 0.0055, 36.14],
+      [6, 0.0055, 32.09], [7, 0.013, 39.11], [8, 0.017, 24.40], [9, 0.017, 26.76], [10, 0.017, 23.71],
+      [11, 0.035, 35.40], [12, 0.035, 10.02], [13, 0.035, 19.95], [14, 0.056, 18.44], [15, 0.058, 6.67],
+      [16, 0.082, 16.19], [17, 0.083, 23.07], [18, 0.084, 16.22], [19, 0.10, 4.52], [20, 0.11, 13.57],
+      [21, 0.12, 4.18], [22, 0.12, 4.53], [23, 0.12, 3.74], [24, 0.14, 9.11], [25, 0.23, 5.87],
+      [26, 0.23, 7.76], [27, 0.25, 5.70], [28, 0.26, 1.85], [29, 0.28, 3.70], [30, 0.29, 2.41]
+    ]
+  },
+  "figure_2c": {
+    "file": "fig2c_digitized.csv",
+    "how": "reference/digitize_fig2c.py on the panel's embedded raster; values to the pixel (0.00105 in mu_dot, 0.102 in A). Simulation points are the paper's DER runs; experiment crosses are used only to recover the rate units against Table S1.",
+    "source": "p. 3, Fig. 2(c)"
+  }
+}

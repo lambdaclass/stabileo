@@ -42,44 +42,74 @@ describe('recheckStore', () => {
     expect(stamp.analyses).toEqual(['linear']);
   });
 
-  it('keeps telling a project solved in this build that its loads came from an older generator, until they are generated again', async () => {
-    const generated = (resultsVersion?: number) => ({
-      ...(steelTruss() as object),
-      loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }],
-      designData: { loadBasis: resultsVersion === undefined ? {} : { resultsVersion } },
-      solvedWith: { ...recheckStore.capture()!, analyses: ['linear'] },
-    }) as never;
-    recheckStore.openProject(generated(), 'pro');
-    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.noticeOpen).toBe(true);
-    expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
-    recheckStore.acknowledge();
-    recheckStore.noteSolved('linear');
-    const solved = { ...(generated() as object), solvedWith: recheckStore.capture() };
-    recheckStore.reset();
-    recheckStore.openProject(solved as never, 'pro');
-    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.noticeOpen).toBe(true);
-    expect(recheckStore.assessment?.changes.map((c) => c.id)).toEqual(['generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint', 'gravity-physical-thresholds', 'gravity-resolved-cover']);
-    recheckStore.reset();
-    recheckStore.openProject({ ...solved, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } } as never, 'pro');
-    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.noticeOpen).toBe(false);
-    recheckStore.reset();
-    const headroom = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom')!.resultsVersion;
-    recheckStore.openProject(generated(headroom - 1), 'pro');
-    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
-    recheckStore.reset();
-    recheckStore.openProject(generated(headroom), 'pro');
-    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass', 'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership', 'gravity-local-deck-coverage', 'gravity-retained-span-midpoint', 'gravity-physical-thresholds', 'gravity-resolved-cover']);
-    expect(recheckStore.noticeOpen).toBe(true);
-    recheckStore.reset();
-    const { designData: _basis, ...unstamped } = generated() as unknown as Record<string, unknown>;
-    recheckStore.openProject(unstamped as never, 'pro');
-    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-    expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
+  describe.each(['checkout', 'shared landing', 'separate landings'] as const)('%s', history => {
+    it('keeps telling a project solved in this build that its loads came from an older generator, until they are generated again', async () => {
+      const retained = 'gravity-retained-span-midpoint';
+      const lastPair = ['gravity-physical-thresholds', 'gravity-resolved-cover'];
+      const registry = history === 'checkout' ? RESULT_CHANGES : {
+        ...RESULT_CHANGES,
+        changes: RESULT_CHANGES.changes.map(c => ({
+          ...c,
+          resultsVersion: lastPair.includes(c.id) || (c.id === retained && history === 'shared landing')
+            ? RESULTS_VERSION
+            : c.id === retained ? RESULTS_VERSION - 1 : Math.min(c.resultsVersion, RESULTS_VERSION - 1),
+        })),
+      };
+      const store = history === 'checkout' ? recheckStore : createRecheckStore(async () => {
+        const module = await import('../../provenance/applicability');
+        return {
+          ...module,
+          assessProject: (...args: Parameters<typeof module.assessProject>) =>
+            module.assessProject(args[0], args[1], args[2], registry, args[4], args[5]),
+        };
+      });
+      const generated = (resultsVersion?: number) => ({
+        ...(steelTruss() as object),
+        loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }],
+        designData: { loadBasis: resultsVersion === undefined ? {} : { resultsVersion } },
+        solvedWith: { ...store.capture()!, analyses: ['linear'] },
+      }) as never;
+      store.openProject(generated(), 'pro');
+      await vi.waitFor(() => expect(store.pending).toBe(false));
+      expect(store.noticeOpen).toBe(true);
+      expect(store.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
+      store.acknowledge();
+      store.noteSolved('linear');
+      const solved = { ...(generated() as object), solvedWith: store.capture() };
+      store.reset();
+      store.openProject(solved as never, 'pro');
+      await vi.waitFor(() => expect(store.pending).toBe(false));
+      expect(store.noticeOpen).toBe(true);
+      const versionOf = (id: string) => registry.changes.find(c => c.id === id)!.resultsVersion;
+      const retainedLandedFirst = history === 'checkout'
+        ? versionOf(retained) < versionOf(lastPair[0])
+        : history === 'separate landings';
+      const expectedNoticeIds = [
+        'generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass',
+        'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership',
+        'gravity-local-deck-coverage', ...(retainedLandedFirst ? [retained, ...lastPair] : [...lastPair, retained]),
+      ];
+      expect(store.assessment?.changes.map(c => c.id)).toEqual(expectedNoticeIds);
+      store.reset();
+      store.openProject({ ...solved, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } } as never, 'pro');
+      await vi.waitFor(() => expect(store.pending).toBe(false));
+      expect(store.noticeOpen).toBe(false);
+      store.reset();
+      const headroom = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom')!.resultsVersion;
+      store.openProject(generated(headroom - 1), 'pro');
+      await vi.waitFor(() => expect(store.pending).toBe(false));
+      expect(store.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
+      store.reset();
+      store.openProject(generated(headroom), 'pro');
+      await vi.waitFor(() => expect(store.pending).toBe(false));
+      expect(store.assessment?.changes.map(c => c.id)).toEqual(expectedNoticeIds.filter(id => id !== 'generated-area-loads-headroom'));
+      expect(store.noticeOpen).toBe(true);
+      store.reset();
+      const { designData: _basis, ...unstamped } = generated() as unknown as Record<string, unknown>;
+      store.openProject(unstamped as never, 'pro');
+      await vi.waitFor(() => expect(store.pending).toBe(false));
+      expect(store.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
+    });
   });
 
   it.each(['2d', '3d', 'pro'])('#2144 keeps the exact snow regeneration notices after re-solving in %s', async mode => {

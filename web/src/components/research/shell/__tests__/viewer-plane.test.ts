@@ -31,6 +31,7 @@ const expected: Record<string, string[]> = {
   'gayNeto2014/RiserPage.svelte': ['elevation', 'elevation'],
   'grossman2026/SpringsPage.svelte': ['elevation'],
   'heyman1966/ArchPage.svelte': ['elevation'],
+  'vella2024/VellaPage.svelte': ['elevation'],
   'lee1968/LeePage.svelte': ['elevation'],
   'macneal1985/MacnealPage.svelte': ["current.dimension === 2 ? 'elevation' : 'plan'"],
   'mattiasson1981/MattiassonPage.svelte': ['elevation'],

@@ -201,7 +201,7 @@ class ResearchCacheTests(unittest.TestCase):
     def test_registered_bundles_and_cache_invalidation(self):
         steps = jobs['research-wasm']['steps']
         caches = {step['id'].removeprefix('research-'): step for step in steps if step.get('id', '').startswith('research-')}
-        assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026', 'gay-neto-2014', 'feher-sipos-varkonyi-2026', 'heyman-1966'}, sorted(caches)
+        assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026', 'gay-neto-2014', 'feher-sipos-varkonyi-2026', 'heyman-1966', 'vella-2024'}, sorted(caches)
         for name, cache in caches.items():
             assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
         build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
@@ -261,7 +261,8 @@ class ResearchCacheTests(unittest.TestCase):
                                 ('andreassen-2011', 'research/optimization/andreassen-2011'), ('pastrana-2026', 'research/form-finding/pastrana-2026'),
                                 ('biggins-2026', 'research/mechanics/biggins-2026'), ('fairclough-2026', 'research/optimisation/fairclough-2026'),
                                 ('feher-sipos-varkonyi-2026', 'research/stability/feher-sipos-varkonyi-2026'),
-                                ('heyman-1966', 'research/mechanics/heyman-1966')]:
+                                ('heyman-1966', 'research/mechanics/heyman-1966'),
+                                ('vella-2024', 'research/mechanics/vella-2024')]:
                 for relative in ['src/lib.rs', 'Cargo.toml', 'Cargo.lock', 'build.sh', 'build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml', 'wasm/build.sh']:
                     assert invalidated(checkout / crate / relative) == {name}, (crate, relative)
         print('ok research caches invalidate for their own inputs, and every engine change for all of them')

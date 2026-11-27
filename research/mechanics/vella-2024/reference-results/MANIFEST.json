@@ -1,0 +1,13 @@
+{
+  "produced_by": "make evidence.research.vella: cargo run --release --bin replay (replay.json) and --bin validate -- --write (study.json, published_comparison.json, ../VALIDATION.json), on the engine of this commit",
+  "published_inputs": "published.json transcribes arXiv:2312.13908v2 (sha256 33d95f01b305100739562691008f63d97ee2d4262eb573ecc022060f47fa0329) with page sources; fig2c_digitized.csv is the output of reference/digitize_fig2c.py (PyMuPDF 1.26.5) on that PDF",
+  "toolchain": "rustc 1.99.1 (58cf8f9c3 2026-10-13); Linux x86_64",
+  "files_sha256": {
+    "published.json": "2624a26068f90847b85884ae771e22993de1837c75ba26b20bd56befafbc7fa7",
+    "fig2c_digitized.csv": "2498a29beed27db90065a5c847e322e7aeae325ca57db121d2f94a72afccb046",
+    "study.json": "042739cbd800e51529ba3e5331413f539e6cc180f6e4569bf3d348a614b199da",
+    "replay.json": "2a763a0a4b6c7c481745a6fd8de56113fb5efc638afae321d7f2a4707c6cb72e",
+    "published_comparison.json": "9f84b135cc652bae14666ca2cb0505662448d76026b332f4564f3619435b17e6"
+  },
+  "not_hashed": "../VALIDATION.json: research/tools/catalog.py accepts hashed files only inside reference-results/ (as for every other crate); instead `validate` (CI's research job) recomputes it and fails if the stored file differs from a fresh run."
+}

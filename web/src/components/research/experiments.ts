@@ -1,3 +1,5 @@
+import { snapCard } from './vella2024/card';
+
 /**
  * The experiments that run on this site, and the ones being built. The gallery and the
  * experiment pages read this; papers.json (the catalogue) is joined to it by `paperId`.
@@ -145,6 +147,16 @@ export const EXPERIMENTS: Experiment[] = [
     thumbnailAlt: 'A semicircular arch of voussoirs at its least thickness from our run, with the line of thrust touching the five hinges',
     thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/heyman-1966',
+  },
+  {
+    paperId: 'wang-2024',
+    path: '/research/mechanics/vella-2024',
+    name: snapCard.en.title,
+    hook: snapCard.en.hook,
+    thumbnail: 'research-thumbs/vella-2024.svg',
+    thumbnailAlt: 'Shapes of the strip from our run: the inverted arch, the lopsided jump and the post-snap shape',
+    thumbnailQuery: '',
+    code: 'https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/vella-2024',
   },
   {
     paperId: 'gay-neto-2014',
