@@ -279,6 +279,7 @@ jobs:
       - name: CQC 1981 production modal and spectrum checks match the committed VALIDATION.json
         run: |
           cp research/benchmarks/cqc-1981/VALIDATION.json "$RUNNER_TEMP/cqc-committed.json"
+          jq '.checks = []' "$RUNNER_TEMP/cqc-committed.json" > research/benchmarks/cqc-1981/VALIDATION.json
           CQC_VALIDATION_OUT="$PWD/research/benchmarks/cqc-1981/VALIDATION.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test solver cqc_1981 -- --nocapture
           python3 -I -c "import json, sys; c = json.load(open('research/benchmarks/cqc-1981/VALIDATION.json'))['checks']; sys.exit(len(c) != 9 or not all(x['passed'] for x in c))"
           python3 -I research/tools/compare_evidence.py "$RUNNER_TEMP/cqc-committed.json" research/benchmarks/cqc-1981/VALIDATION.json
@@ -287,6 +288,7 @@ jobs:
       - name: Newmark 1959 production time-history checks match the committed VALIDATION.json
         run: |
           cp research/benchmarks/newmark-1959/VALIDATION.json "$RUNNER_TEMP/newmark-committed.json"
+          jq '.checks = []' "$RUNNER_TEMP/newmark-committed.json" > research/benchmarks/newmark-1959/VALIDATION.json
           NEWMARK_VALIDATION_OUT="$PWD/research/benchmarks/newmark-1959/VALIDATION.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test integration newmark_1959 -- --nocapture
           python3 -I -c "import json, sys; c = json.load(open('research/benchmarks/newmark-1959/VALIDATION.json'))['checks']; sys.exit(len(c) != 13 or not all(x['passed'] for x in c))"
           python3 -I research/tools/compare_evidence.py "$RUNNER_TEMP/newmark-committed.json" research/benchmarks/newmark-1959/VALIDATION.json
@@ -413,6 +415,7 @@ jobs:
         run: |
           cp VALIDATION.json "$RUNNER_TEMP/koiter-validation.json"
           cp reference-results/published_comparison.json "$RUNNER_TEMP/koiter-comparison.json"
+          rm VALIDATION.json reference-results/published_comparison.json
       - name: Buckling, energy derivatives, Koiter slope and every replay frame; writes VALIDATION.json
         run: cargo test --release --locked -- --nocapture
       - name: Every validation check passes

@@ -32,7 +32,6 @@ class CompareEvidenceTests(unittest.TestCase):
     def test_identical_evidence_matches(self):
         self.assertEqual(module.differences(EVIDENCE, copy.deepcopy(EVIDENCE)), [])
 
-    @unittest.skip("known wrong result: #2505")
     def test_check_numbers_move_within_a_tenth_of_their_tolerance(self):
         fresh = changed(lambda v: v['checks'][0].update(observed=0.9e-9))
         self.assertEqual(module.differences(EVIDENCE, fresh), [])
@@ -41,7 +40,6 @@ class CompareEvidenceTests(unittest.TestCase):
         fresh = changed(lambda v: v['checks'][1].update(computed=0.454))
         self.assertTrue(module.differences(EVIDENCE, fresh))
 
-    @unittest.skip("known wrong result: #2505")
     def test_measurements_and_paper_constants_have_independent_budgets(self):
         row = {'passed': True, 'reference': 0.002, 'computed': 0.001, 'tolerance': 0.05}
         for key, value in [('reference', 0.002000000000001), ('computed', 0.003),
@@ -50,7 +48,6 @@ class CompareEvidenceTests(unittest.TestCase):
                 self.assertTrue(module.differences(row, {**row, key: value}))
         self.assertFalse(module.differences(row, {**row, 'computed': 0.0010000000005}))
 
-    @unittest.skip("known wrong result: #2505")
     def test_cli_rejects_nonfinite_evidence_on_either_side(self):
         with tempfile.TemporaryDirectory() as tmp:
             left, right = (Path(tmp, name) for name in ('left.json', 'right.json'))
@@ -62,7 +59,6 @@ class CompareEvidenceTests(unittest.TestCase):
                         with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit):
                             module.main([left, right])
 
-    @unittest.skip("known wrong result: #2505")
     def test_ferrari_derivative_and_buckling_keep_original_drift_budgets(self):
         evidence = Path(__file__).resolve().parents[1] / 'stability/ferrari-sigmund-2025/VALIDATION.json'
         rows = json.loads(evidence.read_text())['checks']

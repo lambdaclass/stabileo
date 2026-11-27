@@ -1,4 +1,5 @@
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -9,37 +10,40 @@ def number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def check_scale(value):
-    if 'passed' in value and number(value.get('tolerance')):
-        return abs(value['tolerance'])
-    return None
+def observation_budget(row):
+    observed = row.get('observed')
+    if not number(observed) or not math.isfinite(observed):
+        return 0
+    if row.get('metric') == 'max abs(AD-central difference)/(1+abs(AD)), best of three step sizes':
+        return 1e-3 * abs(observed) + 1e-14
+    return min(1e-9, 0.1 * abs(row['tolerance']))
 
 
-def differences(committed, fresh, path='$', scale=None):
+def differences(committed, fresh, path='$', budget=None):
     if isinstance(committed, dict) and isinstance(fresh, dict):
         if committed.keys() != fresh.keys():
             return [f'{path}: keys {sorted(committed)} != {sorted(fresh)}']
-        own = check_scale(committed)
-        if own is not None and check_scale(fresh) is None:
-            return [f'{path}: a check in the committed file is not a check in the fresh one']
-        inner = scale if own is None else own
         found = []
-        for key in committed:
-            if key == 'tolerance' and own is not None:
-                if abs(committed[key] - fresh[key]) > 1e-12 * max(abs(committed[key]), abs(fresh[key])):
-                    found.append(f'{path}.{key}: {committed[key]!r} != {fresh[key]!r}')
-                continue
-            found.extend(differences(committed[key], fresh[key], f'{path}.{key}', inner))
+        for key, value in committed.items():
+            allowed = None
+            if key in ('reference', 'tolerance', 'points') or isinstance(value, int):
+                allowed = 0
+            elif key == 'computed' and number(fresh[key]):
+                allowed = 1e-9 * abs(fresh[key])
+            elif key == 'observed' and number(fresh.get('tolerance')):
+                allowed = observation_budget(fresh)
+            found.extend(differences(value, fresh[key], f'{path}.{key}', allowed))
         return found
     if isinstance(committed, list) and isinstance(fresh, list):
         if len(committed) != len(fresh):
             return [f'{path}: {len(committed)} items != {len(fresh)}']
-        return [d for i, (a, b) in enumerate(zip(committed, fresh)) for d in differences(a, b, f'{path}[{i}]', scale)]
+        return [d for i, (a, b) in enumerate(zip(committed, fresh)) for d in differences(a, b, f'{path}[{i}]', budget)]
     if number(committed) and number(fresh):
-        allowed = 1e-9 * max(abs(committed), abs(fresh), 1.0)
-        if scale is not None:
-            allowed = max(allowed, 0.1 * scale)
-        return [] if abs(committed - fresh) <= allowed else [f'{path}: {committed!r} != {fresh!r}']
+        if math.isfinite(committed) and math.isfinite(fresh):
+            allowed = budget if budget is not None else 1e-9 * max(abs(committed), abs(fresh), 1.0)
+            if abs(committed - fresh) <= allowed:
+                return []
+        return [f'{path}: {committed!r} != {fresh!r}']
     if committed == fresh and type(committed) is type(fresh):
         return []
     return [f'{path}: {committed!r} != {fresh!r}']

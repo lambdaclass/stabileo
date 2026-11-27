@@ -204,7 +204,6 @@ for caller, event, route_only, expected in [
 print('ok online audit runs on research PRs without duplicating required jobs')
 
 class EvidenceExportTests(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_missing_export_cannot_certify_committed_results(self):
         cases = [
             ('engine-benchmarks', 'research/benchmarks/cqc-1981/VALIDATION.json', 'CQC_VALIDATION_OUT='),
