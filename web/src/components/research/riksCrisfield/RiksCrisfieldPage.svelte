@@ -265,7 +265,7 @@
         <ParamRow id="p-direction" name={strings.benchmark.loadDirection}>
           <select id="p-direction" bind:value={parameters.direction}><option value="downward">{strings.benchmark.downward}</option><option value="upward">{strings.benchmark.upward}</option></select>
         </ParamRow>
-        <ParamRow id="p-ds" name={strings.benchmark.arcLengthStep} hint={`${num(currentCase.input.minDs, { sig: 15 })}–${num(currentCase.input.maxDs)}`} invalid={invalid.initialDs}>
+        <ParamRow id="p-ds" name={strings.benchmark.arcLengthStep} hint={`${currentCase.input.minDs}–${currentCase.input.maxDs}`} invalid={invalid.initialDs}>
           <NumberField id="p-ds" label={strings.benchmark.arcLengthStep} min={currentCase.input.minDs} max={currentCase.input.maxDs} bind:value={parameters.initialDs} bind:invalid={invalid.initialDs} />
         </ParamRow>
         <div class="rs-buttons">
