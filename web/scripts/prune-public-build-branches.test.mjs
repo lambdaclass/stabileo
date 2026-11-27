@@ -86,3 +86,17 @@ test('known wrong result: #1928 the original switches retain the published compo
   const independent = header + '{#if false && __PUBLIC_FEATURES__.proRcSheets}<Picker />{/if}';
   assert.equal(prunePublicBuildBranches(independent, off).code, header);
 });
+
+test.skip('known wrong result: #1928 resolve physical report options before Svelte compiles the released script', () => {
+  const wrap = body => '<script>' + body + '</script>';
+  const source = wrap("const rows = [first(), ...(__PUBLIC_FEATURES__.proPlatesUnified ? [centres()] : []), last()]; const label = __PUBLIC_FEATURES__.proPlatesUnified ? 'quality' : 'diagnostics';");
+  for (const enabled of [false, true]) {
+    const output = prunePublicBuildBranches(source, { ...off, proPlatesUnified: enabled }).code;
+    const read = code => {
+      const ast = parse(code, { modern: true }).instance.content;
+      return JSON.stringify(ast.body, (key, value) => ['start', 'end', 'loc', 'raw'].includes(key) ? undefined : value);
+    };
+    const rows = enabled ? '[first(), ...([centres()]), last()]' : '[first(), last()]';
+    assert.equal(read(output), read(wrap('const rows = ' + rows + "; const label = '" + (enabled ? 'quality' : 'diagnostics') + "';")));
+  }
+});
