@@ -9,7 +9,7 @@ import en from '../../i18n/locales/en';
 import { writeIfc } from '../../ifc/ifc-writer';
 import { publishCombinations3D } from '../active-results';
 import type { ModelSnapshot } from '../history.svelte';
-import { projectIfcInput } from '../ifc-export';
+import { exportProjectIfc, projectIfcInput } from '../ifc-export';
 import { modelStore, resultsStore, uiStore } from '../index';
 import { memoriaInput } from '../memoria-inputs';
 import { deflectionChecks } from '../serviceability';
@@ -98,4 +98,21 @@ it('shows one project notice before solving and retains even stale adopted bars 
   expect(modelFeatures({ designData: data }).has('ignoredAdoptedReinforcement')).toBe(false);
   modelStore.clear();
   expect(notice()).not.toContain('role="status"');
+});
+
+it.skip.each([[], ['x'], ['y'], ['x', 'y']].map(axes => ({ axes: axes as ('x' | 'y')[] })))('known wrong result: integrated IFC setting-out — exports sheet setting-out only in its build profile (axes $axes)', ({ axes: directions }) => {
+  const project = snapshot();
+  project.grid = { axes: directions.map(axis => ({ id: axis, name: axis, axis, at: 0 })), levels: [] };
+  modelStore.restore(project);
+  const input = projectIfcInput(key => key, 'en', 'columns');
+  const columns = input.members.filter(member => member.kind === 'column');
+  expect(columns).toHaveLength(3);
+  for (const column of columns) {
+    const properties = Object.fromEntries(Object.entries(column.props ?? {}).filter(([name]) => name.startsWith('FixedPoint')));
+    expect.soft(properties).toEqual(sheets ? { FixedPoint: 'centre', FixedPointX: column.a[0], FixedPointY: column.a[1] } : {});
+  }
+  expect(input.members.filter(member => member.kind === 'beam')).toHaveLength(2);
+  const step = exportProjectIfc(key => key, 'en', 'columns');
+  expect.soft(step.match(/IFCPROPERTYSINGLEVALUE\('FixedPoint[XY]?'/g) ?? []).toHaveLength(sheets ? 9 : 0);
+  expect.soft(step.includes('=IFCGRID(')).toBe(!!sheets && directions.length === 2);
 });
