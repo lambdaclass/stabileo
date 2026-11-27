@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import data from '../../../../../../engine/tests/benchmarks/macneal_harder.json';
-import { cases, compare, counts, nativeOnly, refusalFor, runCases, tolerance, verdict, viewerData, type Case, type Result } from '../cases';
+import { cases, compare, counts, distortable, nativeOnly, PAPER_SKEW, refusalFor, runCases, runVariant, skewedCase, skewOffset, tolerance, verdict, viewerData, type Case, type Result } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
-import { caseLabel, nativeReason, pageLocale, strings } from '../i18n';
+import { caseLabel, comparisonNames, nativeReason, pageLocale, strings } from '../i18n';
+import published from '../../../../../../research/benchmarks/macneal-harder-1985/reference-results/published_comparison.json';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
 import { buildSolverInput2D, buildSolverInput3D, type ModelData } from '../../../../lib/engine/solver-service';
 import { initSolver, solve, solve3D } from '../../../../lib/engine/wasm-solver';
@@ -224,6 +225,45 @@ describe('engine benchmark evidence', () => {
   });
 });
 
+describe('element skew parameter', () => {
+  const distorted = cases.filter(distortable);
+  it('applies only to the trapezoidal and parallelogram meshes', () => {
+    expect(distorted.map(c => c.id)).toEqual(['mitc4-trapezoidal-out', 'mitc4-trapezoidal-in', 'mitc4-parallelogram-out', 'mitc4-parallelogram-in']);
+    expect(() => skewedCase(byId('mitc4-regular-out'), 20)).toThrow();
+  });
+  it('rebuilds the paper’s meshes at 45° and the regular mesh at 0°', () => {
+    expect(skewOffset(PAPER_SKEW)).toBe(0.1);
+    for (const c of distorted) {
+      expect(skewedCase(c, PAPER_SKEW)).toEqual(c);
+      const regular = byId(c.id.replace(/trapezoidal|parallelogram/, 'regular'));
+      expect(skewedCase(c, 0).input.nodes).toEqual(regular.input.nodes);
+      expect(skewedCase(c, 0).input.loads).toEqual(regular.input.loads);
+    }
+  });
+  it('reruns the production engine on a gentler skew and keeps the Table 3 reference', async () => {
+    const out = await runVariant(skewedCase(byId('mitc4-parallelogram-out'), 20));
+    expect(out.failure).toBeUndefined();
+    expect(out.value).toBeGreaterThan(0);
+    const atPaper = await runVariant(skewedCase(byId('mitc4-parallelogram-out'), PAPER_SKEW));
+    expect(Math.abs(atPaper.value! / (byId('mitc4-parallelogram-out').nativeBounds as { pinnedValue: number }).pinnedValue - 1)).toBeLessThan(1e-8);
+    const regular = await runVariant(skewedCase(byId('mitc4-parallelogram-out'), 0));
+    expect(regular.error!).toBeLessThan(out.error!);
+  });
+});
+
+describe('published comparison', () => {
+  it('names every row in every locale and keeps the paper values from Tables 3 and 5', () => {
+    for (const loc of PUBLIC_LOCALES) {
+      const names = comparisonNames(strings[loc]);
+      for (const row of published.checks) expect(names[row.id], `${loc} ${row.id}`).toBeTruthy();
+    }
+    expect(published.checks.map(r => [r.id, r.reference])).toEqual([
+      ['straight-regular-out', 0.4321], ['straight-regular-in', 0.1081], ['straight-trapezoidal-out', 0.4321], ['straight-parallelogram-out', 0.4321], ['scordelis-lo-16', 0.3024],
+    ]);
+    expect(published.checks.filter(r => !r.passed).map(r => r.id)).toEqual(['straight-trapezoidal-out', 'straight-parallelogram-out']);
+  });
+});
+
 describe('page language coverage', () => {
   const locales = PUBLIC_LOCALES;
   it.each(locales)('%s has every key, non-empty, with case labels and native reasons', locale => {
@@ -235,7 +275,7 @@ describe('page language coverage', () => {
     expect(pageLocale(locale)).toBe(locale);
   });
   it.each(locales.filter(l => l !== 'en'))('%s translates the article instead of copying English', locale => {
-    for (const key of ['title', 'lead', 'publishedWhy', 'testedDescription', 'modelDescription', 'accuracyDescription', 'referenceProvenance', 'shells', 'frames', 'documented', 'mismatch', 'caption'] as const) {
+    for (const key of ['title', 'lead', 'testedDescription', 'modelDescription', 'accuracyDescription', 'referenceProvenance', 'shells', 'frames', 'documented', 'mismatch', 'caption'] as const) {
       expect(strings[locale][key], key).not.toBe(strings.en[key]);
     }
   });

@@ -10,6 +10,7 @@ import { translations as riser } from '../gayNeto2014/strings';
 import { translations as shape } from '../feher2026/strings';
 import { translations as heyman } from '../heyman1966/strings';
 import { translations as cqc } from '../cqc1981/strings';
+import { translations as ferrari } from '../ferrari2025/strings';
 import { strings as dadeppo } from '../dadeppo1975/i18n';
 import { translations as fairclough } from '../fairclough2026/translations';
 import { springTranslations } from '../grossman2026/translations';
@@ -21,6 +22,7 @@ import { translations as newmark } from '../newmark1959/i18n';
 import { strings as plastic } from '../plastic-collapse/i18n';
 import { translations as riks } from '../riksCrisfield/article';
 import { shauerLocales } from '../shauer2025/locales';
+import { pastranaLocales } from '../pastrana2026/locales';
 import { strings as shell } from '../shell1985/i18n';
 import { translations as shellArticle } from '../shell1985/article';
 
@@ -45,14 +47,14 @@ const DICTIONARIES: Record<string, object[]> = {
   '/research/benchmarks/cqc-1981': [cqc],
   '/research/benchmarks/dadeppo-arch-1975': [dadeppo],
   '/research/optimisation/fairclough-2026': [fairclough],
-  '/research/stability/ferrari-sigmund-2025': [STRINGS],
+  '/research/stability/ferrari-sigmund-2025': [ferrari],
   '/research/metamaterials/grossman-2026': [either(STRINGS, springTranslations)],
   '/research/benchmarks/lee-frame-1968': [lee],
   '/research/benchmarks/macneal-harder-1985': [macneal],
   '/research/benchmarks/mattiasson-elastica': [mattiasson],
   '/research/benchmarks/navier-plate': [navier],
   '/research/benchmarks/newmark-1959': [newmark],
-  '/research/form-finding/pastrana-2026': [STRINGS],
+  '/research/form-finding/pastrana-2026': [either(STRINGS, pastranaLocales)],
   '/research/benchmarks/plastic-collapse': [plastic],
   '/research/benchmarks/riks-crisfield': [riks],
   '/research/fracture/shauer-2025': [either(STRINGS, shauerLocales)],
@@ -67,8 +69,8 @@ it.each(Object.entries(DICTIONARIES))('publishes %s exactly in the languages its
   expect([...researchLocales(path)]).toEqual(defined(...dictionaries));
 });
 
-it('publishes a paper without German copy without /de/, and one with it under /de/', () => {
-  expect(supportsResearchRoute('/research/stability/ferrari-sigmund-2025', 'de')).toBe(false);
+it('publishes a page without German copy without /de/, and one with it under /de/', () => {
+  expect(supportsResearchRoute('/research', 'de')).toBe(false);
   expect(supportsResearchRoute('/research/benchmarks/navier-plate', 'de')).toBe(true);
   expect(supportsResearchRoute('/research/benchmarks/navier-plate/', 'de')).toBe(true);
   expect(researchLocales('/research/unknown-paper')).toEqual(['en']);

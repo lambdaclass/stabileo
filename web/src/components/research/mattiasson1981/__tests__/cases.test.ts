@@ -7,6 +7,7 @@ import { initSolver, solveCorotational2D } from '../../../../lib/engine/wasm-sol
 import { tAt } from '../../../../lib/i18n/store.svelte';
 import { scalarViewerTranslations } from '../../../viewport/scalar-viewer-i18n';
 import { strings } from '../i18n';
+import { describeCase } from '../text';
 import LZString from 'lz-string';
 
 const c = cases.find(c => c.parameter === 1 && c.kind === 'force')!;
@@ -82,11 +83,16 @@ describe('Mattiasson evidence', () => {
     const stated = `${meshErrorCeilings.map(c => c.elements).join('/')}`;
     const values = `${meshErrorCeilings.map(c => percent(c.relativeError)).join('/')}%`;
     expect(values).toBe('0.0801/0.0384/0.0281%');
-    for (const dictionary of Object.values(strings)) {
+    const inputs = { tolerance, meshErrorCeilings, axialExtensionBound, momentArea: .01, first: .5, last: 10 };
+    for (const [locale, dictionary] of Object.entries(strings)) {
       expect(dictionary.solverDescription).toContain(stated);
-      expect(dictionary.solverDescription).toContain(values);
-      expect(dictionary.solverDescription).toContain(`${percent(axialExtensionBound)}%`);
-      expect(dictionary.solverDescription.match(/\d+(?:\.\d+)?%/g)).toEqual(['0.1%', '0.0281%', '0.025%']);
+      for (const key of ['{ceilings}', '{extension}', '{tolerance}', '{range}']) expect(dictionary.solverDescription).toContain(key);
+      expect(dictionary.modelDescription).toContain('{momentArea}');
+      const text = describeCase(dictionary, locale, inputs);
+      expect(Object.values(text).join(' ')).not.toMatch(/\{\w+\}/);
+      if (locale === 'en') expect(text.solverDescription.match(/\d+(?:\.\d+)?%/g)).toEqual(['0.1%', '0.0281%', '0.025%']);
+      if (locale === 'en') expect(text.solverDescription).toContain(values);
+      if (locale === 'es') expect(text.solverDescription).toContain('0,0801/0,0384/0,0281');
     }
   });
   it('round trips the shared input through the editor without changing the solve', async () => {

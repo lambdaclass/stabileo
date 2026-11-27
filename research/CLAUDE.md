@@ -46,6 +46,24 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
 - The gallery: thumbnails rendered from our own runs for experiments we run; a drawn field icon
   for the rest (never the paper's figures); "Run it" first, then "Coming next", then the catalog.
 
+## Every experiment page, the same way
+- **The paper against Stabileo.** Wherever the paper publishes a number we compute (a table, a
+  value in the text, a point read from a figure with its reading uncertainty), it is a row of
+  `reference-results/published_comparison.json`: the paper's value, ours, the difference and the
+  tolerance with its justification in the README. The page passes those rows to
+  `ExperimentShell`'s `comparison` prop, which draws the shared `ComparisonTable` under the
+  verification summary, with the row names translated through `comparisonNames`. Never retype
+  these numbers in page strings.
+- **Validated before it is listed.** A paper in "Run it" has a `VALIDATION.json` written by a test
+  in the research CI, every check green, and `reference-results/MANIFEST.json`. A reference the
+  engine misses stays visible on the page as a failure with its issue; its tolerance is never
+  widened to pass, and the experiment keeps the status its passing evidence supports.
+- **Interactive.** The paper's case loads first, and at least one parameter of the model reruns
+  our solver; the article links set those parameters.
+- **Every locale reads as written in it.** The eight locales (en, es, pt, de, fr, tr, hu, zh) carry
+  every visible string of the page, in the conventions of the product's dictionaries (es with
+  voseo, US English, Brazilian Portuguese); no English left in another locale, no raw keys.
+
 ## Phone and tablet
 - Every gallery and runnable catalogue page must pass `web/e2e/research-mobile.spec.ts`
   (`@smoke`): no horizontal overflow at 360×740, 390×844, 844×390 and 810×1080;
@@ -55,8 +73,9 @@ how to add a paper is [CONTRIBUTING.md](CONTRIBUTING.md). These rules are not op
 
 ## Evidence and integrity
 - Status badges come from evidence files, never set by hand: Proposed → Reference reproduced →
-  Implementation in progress → Numerically validated → Published figures compared → Interactive.
-  Claim nothing beyond the evidence.
+  Implementation in progress → Numerically validated → Compared with the paper
+  (`published-figures-compared`). Claim nothing beyond the evidence. Interactive is not a status:
+  every runnable experiment is interactive and must be at least numerically validated.
 - Citations verified against Crossref by the catalog checker. **Summaries only from the abstract
   (Crossref or publisher), the full text, or the repository README for code facts — never from
   memory or the title.** If none is available, no summary.

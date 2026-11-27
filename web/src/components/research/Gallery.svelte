@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ferrariStrings } from './ferrari2025/strings';
   import { citation } from './catalogue';
   /**
    * /research: the experiments that run here first, then what is being built, then the
@@ -17,7 +18,7 @@
   import { publicI18n, tPublic } from '../../lib/i18n/store.svelte';
 
   type Paper = (typeof catalog.papers)[number];
-  const ORDER = ['interactive', 'published-figures-compared', 'numerically-validated', 'implementation-in-progress', 'reference-reproduced', 'proposed'];
+  const ORDER = ['published-figures-compared', 'numerically-validated', 'implementation-in-progress', 'reference-reproduced', 'proposed'];
   const papers: Paper[] = [...catalog.papers].sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status) || b.crossref.year - a.crossref.year);
   const byId = new Map(papers.map((p) => [p.id, p]));
   const run = EXPERIMENTS.map((e) => ({ e, p: byId.get(e.paperId)! })).filter((x) => x.p);
@@ -57,7 +58,7 @@
             {/if}
           </ResearchLink>
           <div class="rs-g-runbody">
-            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
+            <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span><span class="rs-g-status rs-g-interactive">{statusName('interactive')}</span></div>
             <h3><ResearchLink to={e.path}>{cardTitle(e)}</ResearchLink></h3>
             <p class="rs-g-hook">{cardHook(e)}</p>
             <p class="rs-g-by" lang="en">{p.crossref.title}. {citation(p)}.</p>
@@ -109,7 +110,7 @@
               <p class="rs-g-by">{s.summaryIntro} {s.sourceLabel[p.summary_source as keyof typeof s.sourceLabel] ?? ''}.</p>
             {/if}
             {#if p.id === 'ferrari-2025'}
-              <p><PublicLink to="/research/stability/ferrari-sigmund-2025">{s.ferrariTitle}</PublicLink></p>
+              <p><PublicLink to="/research/stability/ferrari-sigmund-2025">{ferrariStrings().title}</PublicLink></p>
             {/if}
             {#if p.code.length}
               <p class="rs-g-by">{s.code}: {#each p.code as c, i (c.url)}{i ? ', ' : ''}{#if isHttpUrl(c.url)}<a href={c.url} rel="noreferrer" target="_blank">{c.url.replace('https://github.com/', '')}</a>{:else}{c.url}{/if} ({c.license === 'none' ? s.noLicence : c.license}){/each}</p>

@@ -9,7 +9,7 @@ use serde_json::json;
 
 pub const BENDING_STIFFNESS: f64 = 1.0 / (4.0 * std::f64::consts::PI * std::f64::consts::PI);
 pub const AXIAL_STIFFNESS: f64 = 2.0e4;
-const TOLERANCE: f64 = 1e-7;
+const TOLERANCE: f64 = 1e-10;
 const MAX_ITERATIONS: usize = 60;
 
 pub fn span() -> f64 {

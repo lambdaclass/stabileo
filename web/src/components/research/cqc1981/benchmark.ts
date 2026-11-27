@@ -22,13 +22,42 @@ export function model(): SolverInput3D {
   };
 }
 
-export async function recompute(): Promise<Results> {
+export const DAMPING = [0.02, 0.05, 0.1, 0.2];
+
+export type ClosedForm = typeof shared.reference;
+
+export function closedForm(xi: number): ClosedForm {
+  const [a, b, d, mass] = [1020, -20, 1230, 10];
+  const roots = [-1, 1].map(sign => (a + d + sign * Math.hypot(a - d, 2 * b)) / (2 * mass));
+  const omega = roots.map(Math.sqrt);
+  const forces: number[] = [];
+  const shapes: number[][] = [];
+  for (const root of roots) {
+    const raw = [1, (mass * root - a) / b];
+    const norm = Math.sqrt(mass * raw.reduce((s, v) => s + v * v, 0));
+    const vector = raw.map(v => v / norm);
+    const gamma = mass * vector.reduce((s, v) => s + v, 0);
+    forces.push(gamma * gamma);
+    shapes.push(vector.map(v => v * gamma / root));
+  }
+  const r = omega[1] / omega[0];
+  const rho = 8 * xi ** 2 * (1 + r) * r ** 1.5 / ((1 - r * r) ** 2 + 4 * xi ** 2 * r * (1 + r) ** 2);
+  const combine = (values: number[], correlation: number) => Math.sqrt(values[0] ** 2 + values[1] ** 2 + 2 * correlation * values[0] * values[1]);
+  return {
+    frequencies: omega.map(w => w / (2 * Math.PI)), rho, modalBaseShear: forces,
+    SRSS: combine(forces, 0), CQC: combine(forces, rho),
+    roofSRSS: [0, 1].map(i => combine(shapes.map(s => s[i]), 0)),
+    roofCQC: [0, 1].map(i => combine(shapes.map(s => s[i]), rho)),
+  };
+}
+
+export async function recompute(xi = shared.xi): Promise<Results> {
   const engine = await import('../../../lib/engine/wasm-solver');
   await engine.initSolver();
   const solver = model();
   const densities = new Map([[1, 0]]);
   const modal = engine.solveModal3D(solver, densities, shared.numModes);
-  const config = { solver, densities, modes: modal.modes, spectrum: shared.spectrum, direction: 'X' as const, xi: shared.xi };
+  const config = { solver, densities, modes: modal.modes, spectrum: shared.spectrum, direction: 'X' as const, xi };
   return { modal, SRSS: engine.solveSpectral3D({ ...config, rule: 'SRSS' }), CQC: engine.solveSpectral3D({ ...config, rule: 'CQC' }) };
 }
 

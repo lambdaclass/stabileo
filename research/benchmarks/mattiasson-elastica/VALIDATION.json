@@ -1,0 +1,250 @@
+{
+  "command": "cargo run --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- <native.json> <mesh.json>; python3 -I research/benchmarks/mattiasson-elastica/validate.py generate <native.json> <mesh.json>",
+  "case": "engine/tests/benchmarks/mattiasson_elastica.json",
+  "checks": [
+    {
+      "name": "Every case reaches full load",
+      "metric": "cases short of full load",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 1: u/L, 16 elements",
+      "metric": "relative difference",
+      "reference": 0.056433236283377,
+      "computed": 0.05639026407427379,
+      "observed": 0.0007614698701209719,
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 1: v/L, 16 elements",
+      "metric": "relative difference",
+      "reference": 0.301720773799814,
+      "computed": 0.3017558226110826,
+      "observed": 0.0001161630696726373,
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 2: u/L, 16 elements",
+      "metric": "relative difference",
+      "reference": 0.160641720825167,
+      "computed": 0.16055937091106154,
+      "observed": 0.0005126309260288125,
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 2: v/L, 16 elements",
+      "metric": "relative difference",
+      "reference": 0.493457480396712,
+      "computed": 0.4935986170808759,
+      "observed": 0.00028601589756104706,
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 5: u/L, 16 elements",
+      "metric": "relative difference",
+      "reference": 0.38762836072443,
+      "computed": 0.3875545068694874,
+      "observed": 0.0001905274805089222,
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 5: v/L, 16 elements",
+      "metric": "relative difference",
+      "reference": 0.713791523611913,
+      "computed": 0.7141910099687707,
+      "observed": 0.0005596681154691246,
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 10: u/L, 16 elements",
+      "metric": "relative difference",
+      "reference": 0.554995597753751,
+      "computed": 0.5549515817175827,
+      "observed": 7.930880235151858e-05,
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 10: v/L, 16 elements",
+      "metric": "relative difference",
+      "reference": 0.810609024880296,
+      "computed": 0.8112575405852658,
+      "observed": 0.000800035140326236,
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "name": "tip moment, θ = 1 rad: u/L, 16 elements",
+      "metric": "relative difference",
+      "reference": 0.1585290151921035,
+      "computed": 0.15839204141831778,
+      "observed": 0.0008640296769631193,
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "name": "tip moment, θ = 1 rad: v/L, 16 elements",
+      "metric": "relative difference",
+      "reference": -0.45969769413186023,
+      "computed": -0.4597725232452991,
+      "observed": 0.0001627789619005655,
+      "tolerance": 0.001,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 1: 16 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.0007614698701209719,
+      "tolerance": 0.000801,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 1: 32 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.0002719877079972672,
+      "tolerance": 0.000384,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 1: both errors shrink from 16 to 32 elements",
+      "metric": "components whose error grows",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 1: 64 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.00014948669637632566,
+      "tolerance": 0.000281,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 1: both errors shrink from 32 to 64 elements",
+      "metric": "components whose error grows",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 2: 16 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.0005126309260288125,
+      "tolerance": 0.000801,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 2: 32 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.00019280128168580897,
+      "tolerance": 0.000384,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 2: both errors shrink from 16 to 32 elements",
+      "metric": "components whose error grows",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 2: 64 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.00011263783092796048,
+      "tolerance": 0.000281,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 2: both errors shrink from 32 to 64 elements",
+      "metric": "components whose error grows",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 5: 16 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.0005596681154691246,
+      "tolerance": 0.000801,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 5: 32 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.00023251094839234955,
+      "tolerance": 0.000384,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 5: both errors shrink from 16 to 32 elements",
+      "metric": "components whose error grows",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 5: 64 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.00015112270030634875,
+      "tolerance": 0.000281,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 5: both errors shrink from 32 to 64 elements",
+      "metric": "components whose error grows",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 10: 16 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.000800035140326236,
+      "tolerance": 0.000801,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 10: 32 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.0003838084650821595,
+      "tolerance": 0.000384,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 10: both errors shrink from 16 to 32 elements",
+      "metric": "components whose error grows",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 10: 64 elements, larger component error",
+      "metric": "relative difference",
+      "observed": 0.0002807489980892131,
+      "tolerance": 0.000281,
+      "passed": true
+    },
+    {
+      "name": "PL²/EI = 10: both errors shrink from 32 to 64 elements",
+      "metric": "components whose error grows",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "name": "RESULTS.json is a fresh native run",
+      "metric": "largest absolute difference in u/L, v/L",
+      "observed": 0.0,
+      "tolerance": 1e-10,
+      "passed": true
+    }
+  ]
+}

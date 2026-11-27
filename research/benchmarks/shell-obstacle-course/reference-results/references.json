@@ -1,0 +1,26 @@
+{
+  "what": "References used by the shell obstacle course page, read from the engine-owned case file by wasm/check.mjs.",
+  "fixture": "engine/tests/benchmarks/shell_obstacle_course.json",
+  "accuracyTolerance": 0.02,
+  "accuracyPolicy": "Same strict 2% page policy as MacNeal–Harder; not a published tolerance. Existing native assertions are unchanged.",
+  "references": [
+    {
+      "group": "roof",
+      "component": "uz",
+      "signedReference": -0.3024,
+      "provenance": "Inherited from shell_benchmark.rs. Equals the normalization value of MacNeal and Harder (1985), Table 5(a), p. 11 (theoretical value 0.3086 quoted there from Scordelis and Lo). Belytschko et al. (1985) tables not inspected."
+    },
+    {
+      "group": "cylinder",
+      "component": "uy",
+      "signedReference": -0.000018248,
+      "provenance": "Inherited from shell_benchmark.rs and solid_shell_locking.rs. Not checked against a published table here; Belytschko et al. (1985) tables not inspected."
+    },
+    {
+      "group": "hemisphere",
+      "component": "ux",
+      "signedReference": 0.185,
+      "provenance": "Engine test convention of shell_benchmark.rs::benchmark_hemisphere_hole_convergence (quarter loads ±2). MacNeal and Harder (1985), Table 5(b), p. 11, normalize their loading by 0.0940; the conventions are not reconciled here. Belytschko et al. (1985) tables not inspected."
+    }
+  ]
+}

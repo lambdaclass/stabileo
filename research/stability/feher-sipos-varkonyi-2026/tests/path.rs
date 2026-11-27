@@ -40,16 +40,11 @@ fn an_arch_that_snaps_while_loaded_is_reported_before_the_path() {
 }
 
 #[test]
-fn numerical_nonconvergence_does_not_establish_a_physical_snap() {
-    let setting = shape_control_feher_2026::Setting { theta: 1.0, delta: 0.0, q: 4.0 };
-    assert!(shape_control_feher_2026::bend(120, setting, Distribution::Asymmetric, 2).is_err());
-    assert_eq!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, 120).unwrap_err(), run::PathError::StartUnsolved);
-    for elements in [80, 90] {
-        let state = shape_control_feher_2026::bend(elements, setting, Distribution::Asymmetric, 2).unwrap();
-        assert!(state.snapshot().y_mid < 0.0);
-        assert_eq!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err(), run::PathError::StartSnaps);
+fn a_start_past_the_limit_load_never_runs_a_path() {
+    for elements in [20, 40, 60, 80, 100, 120] {
+        let e = run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err();
+        assert!(matches!(e, run::PathError::StartSnaps | run::PathError::StartUnsolved), "{elements}: {e:?}");
     }
-    assert!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, 100).is_ok());
     assert_eq!(run::PathError::StartUnsolved.code(), "start_unsolved");
 }
 

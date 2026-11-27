@@ -4,7 +4,6 @@ export const en = {
   title: archCard.en.title,
   lead: archCard.en.hook,
   referenceLabel: 'Against published solutions and an independent implementation',
-  publishedWhy: 'Heyman’s paper was not read here; the table compares with the published solutions tabulated by Rizzi et al. (2010).',
 
   ideaHeading: 'Masonry as a plastic material',
   idea: 'Heyman’s plastic theory of masonry rests on three assumptions: the stone carries no tension, it never crushes, and the blocks never slide on each other. Under them an arch is safe if a line of thrust in equilibrium with the loads can be drawn inside the masonry. Where the line touches a face, the joint can open there and acts as a hinge; with enough hinges the arch becomes a mechanism and collapses. Strength hardly matters: stability is a question of geometry.',

@@ -1,4 +1,4 @@
-use gridshell_fairclough_2026::{engine, square};
+use gridshell_fairclough_2026::{engine, square, square_with};
 use serde_json::{json, Value};
 use std::{fs, path::Path};
 
@@ -127,7 +127,35 @@ fn five_node_reference_and_engine() {
     );
     assert!(engine_check["max_displacement"].as_f64().unwrap() > 0.);
     let evidence = json!({"scope":"Table 1: five nodes, rho_g L/sigma=1.65 only", "checks":checks});
-    let published = json!({"checks":[{"name":"Table 1 five-node volume, first row","source":"https://eprints.whiterose.ac.uk/id/eprint/236639/ — accepted manuscript PDF page 29, printed page 28, Table 1; Section 4.3","metric":"absolute normalized volume error FL/sigma","reference":13.8394,"volume":layout.volume,"observed":(layout.volume-13.8394).abs(),"tolerance":0.00005,"passed":(layout.volume-13.8394).abs()<=0.00005}]});
+    let table: Vec<Value> = [
+        (1.65, 13.8394),
+        (1.68, 15.2528),
+        (1.72, 17.5301),
+        (1.76, 20.4014),
+        (1.80, 24.0981),
+        (1.85, 30.4425),
+        (2.00, 80.7391),
+    ]
+    .iter()
+    .map(|&(pg, printed): &(f64, f64)| {
+        let computed = square_with(pg).unwrap().volume;
+        let observed = (computed - printed).abs();
+        json!({
+            "id": format!("table1-v5-{pg:.2}"),
+            "name": format!("Volume V, five-node ground structure, ρgL/σ = {pg:.2}"),
+            "source": "Accepted manuscript, White Rose eprint 236639, Table 1, V5-nodes, printed page 28 (PDF page 29)",
+            "unit": "FL/σ",
+            "reference": printed,
+            "computed": computed,
+            "metric": "absolute volume difference",
+            "observed": observed,
+            "tolerance": 0.00005,
+            "rationale": "Half a unit of the fourth printed decimal",
+            "passed": observed <= 0.00005,
+        })
+    })
+    .collect();
+    let published = json!({"reproduced_published_results": true, "checks": table});
     fs::create_dir_all(root.join("target/reference-results")).unwrap();
     fs::write(
         root.join("target/VALIDATION.json"),

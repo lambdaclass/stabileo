@@ -6,6 +6,7 @@
   import PaneTabs from '../shell/PaneTabs.svelte';
   import LineChart from '../shauer2025/LineChart.svelte';
   import { Playback } from '../shell/playback.svelte';
+  import type { PublishedRow } from '../shell/context';
   import { num } from '../shell/format';
   import { rs } from '../i18n';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
@@ -14,10 +15,10 @@
   import { decodeRun, endAngles, isPaper, sameSettings, settingsOf, PAPER, type ShapeRun, type ShapeSettings } from './protocol';
   import replay from '../../../../../research/stability/feher-sipos-varkonyi-2026/reference-results/replay.json';
   import validation from '../../../../../research/stability/feher-sipos-varkonyi-2026/VALIDATION.json';
+  import publishedComparison from '../../../../../research/stability/feher-sipos-varkonyi-2026/reference-results/published_comparison.json';
 
-  type Check = { id: string; computed?: number | null; reference?: number; observed: number | null; passed: boolean; computed_delta?: number | null; reference_delta?: number };
+  type Check = { id: string; observed: number; passed: boolean };
   type Match = { step: number; theta: number; delta: number; median_distance: number; paper_theta: number; paper_delta: number };
-  type Row = { quantity: string; note: string; paper: string; ours: string; difference: string; passed: boolean };
 
   const s = $derived(shapeStrings());
   const shared = $derived(rs());
@@ -36,9 +37,8 @@
   let worker: Worker | null = null;
 
   const matches = validation.figure_9c_matches as Record<string, Match>;
-  const published = validation.published_checks as Check[];
+  const comparison = publishedComparison.checks as PublishedRow[];
   const checks = validation.checks as Check[];
-  const byId = (id: string) => [...published, ...checks].find(c => c.id === id)!;
 
   const frame = $derived(run.frames[Math.min(playback.shown, run.frames.length - 1)]);
   const angles = $derived(endAngles(frame));
@@ -86,47 +86,25 @@
     const sup = String(exponent).replace('-', '⁻').replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(c)]);
     return `${num(v / 10 ** exponent, { dp: 1 })} × 10${sup}`;
   };
-  const percent = (d: number) => `${d > 0 ? '+' : d < 0 ? '−' : ''}${num(Math.abs(100 * d), { dp: 1 })} %`;
-  const groups = $derived.by(() => {
+  const comparisonNames = $derived.by(() => {
     const setting = (t: number, d: number) => fill(s.setting, { t: num(t, { dp: 2 }), d: num(d, { dp: 2 }) });
-    const signed = (d: number, dp: number) => `${d > 0 ? '+' : d < 0 ? '−' : ''}${num(Math.abs(d), { dp })}`;
-    const figure: Row[] = Object.entries(matches).map(([k, m]) => {
-      const c = byId(`figure-9c-${k}`);
-      return {
-        quantity: fill(s.shapeRow, { k }),
-        note: setting(m.paper_theta, m.paper_delta),
-        paper: num(c.reference!, { dp: 3 }),
-        ours: num(c.computed!, { dp: 3 }),
-        difference: signed(c.computed! - c.reference!, 3),
-        passed: c.passed,
-      };
-    });
     const afterSnap = new Set(['kappa-half-0.96-0', 'kappa-uniform-0.64-1.16']);
-    const values: Row[] = published.filter(c => c.id.startsWith('qlim-') || c.id.startsWith('kappa-')).map(c => {
-      const reference = c.reference!;
-      const computed = c.computed ?? null;
-      const difference = computed === null ? '—' : percent((computed - reference) / reference);
-      const ours = computed === null ? s.notReached : num(computed, { dp: 2 });
+    return Object.fromEntries(comparison.map(c => {
+      if (c.id.startsWith('figure-9c-')) {
+        const k = c.id.slice('figure-9c-'.length);
+        return [c.id, `${fill(s.shapeRow, { k })} · ${setting(matches[k].paper_theta, matches[k].paper_delta)}`];
+      }
       if (c.id === 'qlim-half-optimum') {
-        return {
-          quantity: s.optimumRow,
-          note: fill(s.optimumNote, { p: num(c.reference_delta!, { dp: 2 }), o: c.computed_delta == null ? '—' : num(c.computed_delta, { dp: 2 }) }),
-          paper: `≈ ${num(reference, { dp: 1 })}`, ours, difference, passed: c.passed,
-        };
+        const optimum = c as PublishedRow & { reference_delta: number; computed_delta: number | null };
+        return [c.id, `${s.optimumRow} · ${fill(s.optimumNote, { p: num(optimum.reference_delta, { dp: 2 }), o: optimum.computed_delta == null ? '—' : num(optimum.computed_delta, { dp: 2 }) })}`];
       }
       const [kind, load, t, d] = c.id.split('-');
       const where = setting(Number(t), Number(d));
-      return {
-        quantity: fill(kind === 'qlim' ? s.limitRow : s.curvatureRow, { load: load === 'uniform' ? s.uniform : s.half }),
-        note: afterSnap.has(c.id) ? `${where} · ${s.afterSnap}` : where,
-        paper: kind === 'qlim' ? `≈ ${num(reference, { dp: 1 })}` : num(reference, { dp: 2 }),
-        ours, difference, passed: c.passed,
-      };
-    });
-    const arc = byId('arc-radius');
-    const exact: Row[] = [{ quantity: s.arcRow, note: s.arcNote, paper: s.exactZero, ours: scientific(arc.observed!), difference: scientific(arc.observed!), passed: arc.passed }];
-    return [{ title: s.groups.figure, rows: figure }, { title: s.groups.values, rows: values }, { title: s.groups.exact, rows: exact }];
+      const quantity = fill(kind === 'qlim' ? s.limitRow : s.curvatureRow, { load: load === 'uniform' ? s.uniform : s.half });
+      return [c.id, `${quantity} · ${afterSnap.has(c.id) ? `${where} · ${s.afterSnap}` : where}`];
+    }));
   });
+  const arc = checks.find(c => c.id === 'arc-radius')!;
 
   function stop() { playback.interact(); worker?.terminate(); worker = null; busy = false; }
   function compute() {
@@ -179,7 +157,8 @@
 <ExperimentShell paperId="feher-sipos-varkonyi-2026" name={s.title} lead={s.lead} introInArticle compactHeader locale={publicI18n.locale}
   sourcePath="research/stability/feher-sipos-varkonyi-2026"
   referenceLabel={s.referenceLabel}
-  verification={{ reference: { kind: 'checks', passed: checks.filter(c => c.passed).length, total: checks.length, href: '#checks' }, published: { kind: 'checks', passed: published.filter(c => c.passed).length, total: published.length, href: '#checks' } }}
+  verification={{ reference: { kind: 'checks', passed: checks.filter(c => c.passed).length, total: checks.length, href: '#checks' }, published: { kind: 'checks', passed: comparison.filter(c => c.passed).length, total: comparison.length, href: '#comparison' } }}
+  {comparison} {comparisonNames}
   actions={{ goToStep, setParams, showTab: setTab }}>
   {#snippet article()}
     <h2>{s.modelHeading}</h2>
@@ -202,24 +181,7 @@
     <p>{s.limits}</p>
     <h2 id="checks">{s.checksHeading}</h2>
     <p>{s.tableIntro}</p>
-    <div class="table-scroll">
-      <table class="checks">
-        <thead><tr><th scope="col">{s.table.quantity}</th><th scope="col">{s.table.paper}</th><th scope="col">{s.table.ours}</th><th scope="col">{s.table.difference}</th></tr></thead>
-        {#each groups as group}
-          <tbody>
-            <tr class="group"><th scope="rowgroup" colspan="4">{group.title}</th></tr>
-            {#each group.rows as row}
-              <tr class:open={!row.passed}>
-                <th scope="row">{row.quantity}{#if row.note}<span>{row.note}</span>{/if}</th>
-                <td>{row.paper}</td>
-                <td>{row.ours}</td>
-                <td><span class="mark" aria-hidden="true">{row.passed ? '✓' : '✗'}</span> {row.difference}</td>
-              </tr>
-            {/each}
-          </tbody>
-        {/each}
-      </table>
-    </div>
+    <p>{s.arcRow}, {s.arcNote}: {scientific(arc.observed)}.</p>
     <p>{s.openNote}</p>
     {#if extended}
     <h2 id="why">{s.why.heading}</h2>
@@ -356,15 +318,4 @@
   .why summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; line-height: 1.35; }
   .why details[open] summary { margin-bottom: 0.5rem; }
   .why details p { font-size: 0.9rem; line-height: 1.5; }
-  .table-scroll { overflow-x: auto; }
-  .checks { width: 100%; border-collapse: collapse; font-size: 0.85rem; line-height: 1.35; }
-  .checks th, .checks td { text-align: left; vertical-align: top; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--hair); }
-  .checks thead th { color: var(--fg-2); font-weight: 500; }
-  .checks thead th + th { text-align: right; }
-  .checks td { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .checks tbody th { font-weight: 500; min-width: 9rem; }
-  .checks tbody th span { display: block; color: var(--fg-2); font-weight: 400; font-size: 0.8rem; }
-  .checks .group th { color: var(--fg-2); font-weight: 600; font-size: 0.8rem; padding-top: 0.9rem; }
-  .checks .mark { color: var(--rs-plot-ours); }
-  .checks tr.open .mark { color: #e5484d; }
 </style>

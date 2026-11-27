@@ -259,7 +259,7 @@
             {#each data.cases as c (c.id)}<option value={c.id}>{c.id === 'shallow-toggle' ? copy.shallowCase : copy.vonMisesCase}</option>{/each}
           </select>
         </ParamRow>
-        <ParamRow id="p-rise" name={strings.benchmark.riseSpan} hint="0.005–0.8" invalid={invalid.riseSpan}>
+        <ParamRow id="p-rise" name={strings.benchmark.riseSpan} hint={`${num(0.005)}–${num(0.8)}`} invalid={invalid.riseSpan}>
           <NumberField id="p-rise" label={strings.benchmark.riseSpan} min={0.005} max={0.8} bind:value={parameters.riseSpan} bind:invalid={invalid.riseSpan} />
         </ParamRow>
         <ParamRow id="p-direction" name={strings.benchmark.loadDirection}>

@@ -11,7 +11,7 @@ paper = next(p for p in json.loads((root / 'papers.json').read_text())['papers']
 errors = []
 catalog.check_entry(paper, errors)
 assert not errors, errors
-assert paper['status'] == 'numerically-validated'
+assert paper['status'] == 'published-figures-compared'
 folder = root / paper['implementation']
 manifest = json.loads((folder / 'reference-results/MANIFEST.json').read_text())
 assert manifest['source_modified'] is False
@@ -22,10 +22,8 @@ assert not list(folder.rglob('vaultopt.py'))
 for name, digest in manifest['files_sha256'].items():
     assert hashlib.sha256((folder / 'reference-results' / name).read_bytes()).hexdigest() == digest
 published = json.loads((folder / 'reference-results/published_comparison.json').read_text())['checks']
-assert len(published) == 1
-assert published[0]['reference'] == 13.8394
-assert 'Table 1' in published[0]['source']
-assert 'page 29' in published[0]['source']
+assert [row['reference'] for row in published] == [13.8394, 15.2528, 17.5301, 20.4014, 24.0981, 30.4425, 80.7391]
+assert all('Table 1' in row['source'] and 'page 29' in row['source'] for row in published)
 assert catalog.valid_checks(published, published=True)
 assert not catalog.valid_checks([{**published[0], 'observed': 0.001}], published=True)
 print('ok Fairclough scope, external GPL reference, hashes and published comparison')

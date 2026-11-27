@@ -11,6 +11,18 @@ export const shapeCard = {
     title: 'Guiar uma lâmina curvada entre duas formas',
     hook: 'Gire as duas garras de uma lâmina curvada ativamente sob uma carga fixa e leve-a de arco à forma invertida sem salto.',
   },
+  de: {
+    title: 'Einen gebogenen Streifen zwischen zwei Formen führen',
+    hook: 'Drehen Sie die beiden Einspannungen eines aktiv gebogenen Streifens unter fester Last und führen Sie ihn ohne Durchschlagen vom Bogen in seine invertierte Form.',
+  },
+  fr: {
+    title: 'Guider une lame fléchie entre deux formes',
+    hook: 'Faites tourner les deux encastrements d’une lame fléchie activement sous une charge fixe et menez-la de l’arc à sa forme inversée sans claquage.',
+  },
+  tr: {
+    title: 'Bükülmüş bir şeridi iki biçim arasında yönlendirmek',
+    hook: 'Aktif olarak bükülmüş bir şeridin iki kıskacını sabit bir yük altında döndürün ve onu ani sıçrama olmadan kemerden ters dönmüş biçimine taşıyın.',
+  },
   hu: {
     title: 'Egy hajlított csík vezetése két alak között',
     hook: 'Forgassa el egy aktívan hajlított csík két befogását állandó teher alatt, és vigye át ívből az átfordult alakjába átpattanás nélkül.',

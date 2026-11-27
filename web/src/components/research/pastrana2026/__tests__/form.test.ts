@@ -6,7 +6,7 @@ import { compactModel, editorUrl, projection } from '../form';
 import reference from '../../../../../../research/form-finding/pastrana-2026/reference-results/four_bar.json';
 import frames from '../../../../../../research/form-finding/pastrana-2026/results/stabileo_results.json';
 import { setLocale, publicI18n, PUBLIC_LOCALES } from '../../../../lib/i18n/store.svelte';
-import { rs, researchLocale } from '../../i18n';
+import { rs, researchLocale, STRINGS } from '../../i18n';
 import { paperTextLocale } from '../../text-locale';
 const baseline = frames.at(-1)!;
 
@@ -66,9 +66,9 @@ describe('four-cable model handoff', () => {
     try {
       for (const locale of PUBLIC_LOCALES) {
         setLocale(locale);
-        expect(paperTextLocale('pastrana-2026')).toBe(['es', 'pt', 'hu', 'zh'].includes(locale) ? locale : 'en');
+        expect(paperTextLocale('pastrana-2026')).toBe(locale);
         expect(researchLocale()).toBe(locale);
-        expect(rs().researchLanguages.length).toBeGreaterThan(locale === 'zh' ? 20 : 40);
+        if (locale !== 'en') for (const key of ['formTitle', 'formLead', 'formScope', 'formMethod', 'formEvidence', 'formLimits', 'formExportNote', 'editInStabileo'] as const) expect(rs()[key]).not.toBe(STRINGS.en[key]);
         expect(rs().formScope).toContain('2.1');
         expect(rs().formReference).toContain('9a17fd379071fb3511ca914f46e8d1e8c286460e');
         expect(rs().formExportNote.length).toBeGreaterThan(locale === 'zh' ? 25 : 60);

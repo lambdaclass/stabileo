@@ -43,7 +43,7 @@ for name, job in research['jobs'].items():
         if 'catalog.py check' in run and job.get('if') != "github.workflow == 'Research'":
             assert '--offline' in run, (name, run)
 for job, tests in {
-    'isolation': ['test_asset_identity.py', 'test_docker_context.py'],
+    'isolation': ['test_asset_identity.py', 'test_docker_context.py', 'test_compare_evidence.py'],
     'catalog': ['test_grossman_catalog.py'],
 }.items():
     assert research['jobs'][job]['if'] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}"
@@ -173,6 +173,13 @@ print('ok required research CI propagates failures and accepts skipped jobs')
 koiter = research["jobs"]["koiter"]
 assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
+for job, evidence in {'engine-benchmarks': ['research/benchmarks/cqc-1981/VALIDATION.json', 'research/benchmarks/newmark-1959/VALIDATION.json'],
+                      'koiter': ['VALIDATION.json', 'reference-results/published_comparison.json']}.items():
+    commands = [step.get("run", "") for step in research["jobs"][job]["steps"]]
+    for path in evidence:
+        copied = next(i for i, c in enumerate(commands) if f"cp {path} " in c)
+        compared = next(i for i, c in enumerate(commands) if "compare_evidence.py" in c and f" {path}" in c)
+        assert copied <= compared, (job, path)
 
 assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
 for caller, event, route_only, expected in [

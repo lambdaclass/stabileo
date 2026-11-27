@@ -4,6 +4,9 @@ function step(lo: number, hi: number, n = 5): number {
   return [1, 2, 2.5, 5, 10].map((k) => k * p).find((s) => s >= raw) ?? raw;
 }
 export function axis(lo: number, hi: number, fixed: boolean) {
+  // No finite data yet (a live run before its first frame) or a single value: the axis still needs a width.
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) [lo, hi] = [0, 1];
+  if (hi <= lo) [lo, hi] = lo === 0 ? [0, 1] : [lo - Math.abs(lo) / 2, lo + Math.abs(lo) / 2];
   const s = step(lo, hi);
   const a = fixed ? lo : Math.floor(lo / s + 1e-9) * s;
   const b = fixed ? hi : Math.ceil(hi / s - 1e-9) * s;

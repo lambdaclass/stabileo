@@ -9,14 +9,17 @@ fn close_modes_against_closed_form() {
     let densities: HashMap<String, f64> = serde_json::from_value(case["densities"].clone()).unwrap();
     let modes = modal::solve_modal_3d(&solver, &densities, 2).unwrap();
     let tolerance = case["relativeTolerance"].as_f64().unwrap();
-    let close = |got: f64, want: f64| {
-        assert!(got.is_finite() && (got - want).abs() <= tolerance * want.abs(), "{got} != {want}");
+    let mut checks = vec![];
+    let mut close = |name: String, got: f64, want: f64| {
+        assert!(got.is_finite() && (got - want).abs() <= tolerance * want.abs(), "{name}: {got} != {want}");
+        let observed = (got - want).abs() / want.abs();
+        checks.push(json!({"name": name, "metric": "relative difference", "observed": observed, "tolerance": tolerance, "passed": true}));
     };
     assert_eq!(modes.modes.len(), 2);
     for (i, mode) in modes.modes.iter().enumerate() {
-        close(mode.frequency, case["reference"]["frequencies"][i].as_f64().unwrap());
+        close(format!("frequency {}", i + 1), mode.frequency, case["reference"]["frequencies"][i].as_f64().unwrap());
     }
-    close(modes.cumulative_mass_ratio_x, 1.0);
+    close("X effective mass sum".into(), modes.cumulative_mass_ratio_x, 1.0);
     let mut results = json!({"modal": modes});
     for rule in ["SRSS", "CQC"] {
         let input: SpectralInput3D = serde_json::from_value(json!({
@@ -25,10 +28,10 @@ fn close_modes_against_closed_form() {
             "xi": case["xi"], "rule": rule
         })).unwrap();
         let result = spectral::solve_spectral_3d(&input).unwrap();
-        close(result.base_shear, case["reference"][rule].as_f64().unwrap());
+        close(format!("{rule} base shear"), result.base_shear, case["reference"][rule].as_f64().unwrap());
         for (i, id) in [5, 6].iter().enumerate() {
             let displacement = result.displacements.iter().find(|d| d.node_id == *id).unwrap();
-            close(displacement.ux, case["reference"][format!("roof{rule}")][i].as_f64().unwrap());
+            close(format!("{rule} roof {id} X displacement"), displacement.ux, case["reference"][format!("roof{rule}")][i].as_f64().unwrap());
         }
         println!("{rule}: reference={} Stabileo={:.12} kN", case["reference"][rule], result.base_shear);
         results[rule] = serde_json::to_value(result).unwrap();
@@ -36,5 +39,10 @@ fn close_modes_against_closed_form() {
     assert!(results["CQC"]["baseShear"].as_f64().unwrap() > results["SRSS"]["baseShear"].as_f64().unwrap() * 1.1);
     if let Ok(path) = std::env::var("CQC_REPLAY_OUTPUT") {
         std::fs::write(path, serde_json::to_string_pretty(&json!({"case":case,"results":results})).unwrap() + "\n").unwrap();
+    }
+    if let Ok(path) = std::env::var("CQC_VALIDATION_OUT") {
+        let mut evidence: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        evidence["checks"] = Value::Array(checks);
+        std::fs::write(path, serde_json::to_string_pretty(&evidence).unwrap() + "\n").unwrap();
     }
 }

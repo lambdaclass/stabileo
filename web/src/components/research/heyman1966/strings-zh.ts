@@ -5,7 +5,6 @@ export const zh: Strings = {
   title: archCard.zh.title,
   lead: archCard.zh.hook,
   referenceLabel: '与已发表的解和一个独立实现对照',
-  publishedWhy: '此处未查阅 Heyman 的论文；表格对照的是 Rizzi 等人（2010）列出的已发表解。',
 
   ideaHeading: '作为塑性材料的砌体',
   idea: 'Heyman 的砌体塑性理论基于三个假定：石材不承受拉力，永远不会被压碎，各块之间永远不会相互滑移。在这些假定下，只要能在砌体内画出一条与荷载平衡的推力线，拱就是安全的。推力线触及某个表面之处，该接缝可以张开并起铰的作用；铰足够多时，拱成为机构并倒塌。强度几乎无关紧要：稳定性是一个几何问题。',

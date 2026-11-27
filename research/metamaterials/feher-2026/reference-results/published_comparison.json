@@ -1,0 +1,126 @@
+{
+  "checks": [
+    {
+      "computed": 125.80535323808868,
+      "id": "height-0.5-0.2",
+      "metric": "absolute difference",
+      "name": "Unloaded midpoint height, B = 0.5L, a = 0.5, b = 0.2, measured",
+      "observed": 0.20535323808869066,
+      "passed": true,
+      "reference": 125.6,
+      "source": "arXiv:2601.20793v2, Figure 10(a) p. 9, measured heights, digitized",
+      "tolerance": 0.7,
+      "unit": "mm"
+    },
+    {
+      "computed": 125.73966900524844,
+      "id": "height-0.5-0.5",
+      "metric": "absolute difference",
+      "name": "Unloaded midpoint height, B = 0.5L, a = 0.5, b = 0.5, measured",
+      "observed": 0.2603309947515555,
+      "passed": true,
+      "reference": 126.0,
+      "source": "arXiv:2601.20793v2, Figure 10(b) p. 9, measured heights, digitized",
+      "tolerance": 0.7,
+      "unit": "mm"
+    },
+    {
+      "computed": 124.14505394204257,
+      "id": "height-0.5-0.8",
+      "metric": "absolute difference",
+      "name": "Unloaded midpoint height, B = 0.5L, a = 0.5, b = 0.8, measured",
+      "observed": 0.2549460579574401,
+      "passed": true,
+      "reference": 124.4,
+      "source": "arXiv:2601.20793v2, Figure 10(c) p. 9, measured heights, digitized",
+      "tolerance": 0.7,
+      "unit": "mm"
+    },
+    {
+      "computed": 86.59539506152882,
+      "id": "height-0.75-0.2",
+      "metric": "absolute difference",
+      "name": "Unloaded midpoint height, B = 0.75L, a = 0.5, b = 0.2, measured",
+      "observed": 1.8046049384711864,
+      "passed": false,
+      "reference": 88.4,
+      "source": "arXiv:2601.20793v2, Figure 11(a) p. 9, measured heights, digitized",
+      "tolerance": 0.7,
+      "unit": "mm"
+    },
+    {
+      "computed": 85.70043112455592,
+      "id": "height-0.75-0.5",
+      "metric": "absolute difference",
+      "name": "Unloaded midpoint height, B = 0.75L, a = 0.5, b = 0.5, measured",
+      "observed": 1.0995688754440778,
+      "passed": false,
+      "reference": 86.8,
+      "source": "arXiv:2601.20793v2, Figure 11(b) p. 9, measured heights, digitized",
+      "tolerance": 0.7,
+      "unit": "mm"
+    },
+    {
+      "computed": 81.99771841198645,
+      "id": "height-0.75-0.8",
+      "metric": "absolute difference",
+      "name": "Unloaded midpoint height, B = 0.75L, a = 0.5, b = 0.8, measured",
+      "observed": 2.1022815880135397,
+      "passed": false,
+      "reference": 84.1,
+      "source": "arXiv:2601.20793v2, Figure 11(c) p. 9, measured heights, digitized",
+      "tolerance": 0.7,
+      "unit": "mm"
+    },
+    {
+      "computed": 2.85,
+      "id": "snap-through-0.5-0.2",
+      "metric": "absolute difference",
+      "name": "Snap-through load, B = 0.5L, a = 0.5, b = 0.2",
+      "observed": 0.12699999999999978,
+      "passed": false,
+      "reference": 2.977,
+      "source": "arXiv:2601.20793v2, Figure 10(a) p. 9, end of the unstable branch, digitized",
+      "tolerance": 0.06,
+      "unit": "N"
+    },
+    {
+      "computed": 2.0500000000000003,
+      "id": "snap-through-0.5-0.5",
+      "metric": "absolute difference",
+      "name": "Snap-through load, B = 0.5L, a = 0.5, b = 0.5",
+      "observed": 0.17099999999999982,
+      "passed": false,
+      "reference": 2.221,
+      "source": "arXiv:2601.20793v2, Figure 10(b) p. 9, end of the unstable branch, digitized",
+      "tolerance": 0.06,
+      "unit": "N"
+    },
+    {
+      "computed": 0.9500000000000001,
+      "id": "snap-back-0.5-0.5",
+      "metric": "absolute difference",
+      "name": "Snap-back load, B = 0.5L, a = 0.5, b = 0.5",
+      "observed": 0.0129999999999999,
+      "passed": true,
+      "reference": 0.963,
+      "source": "arXiv:2601.20793v2, Figure 10(b) p. 9, end of the unstable branch, digitized",
+      "tolerance": 0.06,
+      "unit": "N"
+    },
+    {
+      "computed": 1.55,
+      "id": "snap-through-0.75-0.2",
+      "metric": "absolute difference",
+      "name": "Snap-through load, B = 0.75L, a = 0.5, b = 0.2",
+      "observed": 0.08699999999999997,
+      "passed": false,
+      "reference": 1.637,
+      "source": "arXiv:2601.20793v2, Figure 11(a) p. 9, end of the unstable branch, digitized",
+      "tolerance": 0.06,
+      "unit": "N"
+    }
+  ],
+  "reproduced_published_results": false,
+  "scope": "Measured unloaded heights and the snap loads of the computed curves in Figures 10 and 11 (a = 0.5), digitized from the preprint. Failing rows stay listed; the README explains them."
+}

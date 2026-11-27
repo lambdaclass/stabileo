@@ -6,6 +6,7 @@ pub const LOAD: f64 = 2.5;
 pub const CORNER: (f64, f64) = (1.3, 1.3);
 const STEP: f64 = 0.02;
 const SNAP: f64 = 0.05;
+const LOAD_STEP: f64 = 0.25;
 
 fn round(v: f64) -> f64 {
     (v * 1e5).round() / 1e5
@@ -86,8 +87,17 @@ pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, ele
     if !(0.0..=4.0).contains(&q) || !(20..=120).contains(&elements) {
         return Err(PathError::LoadOrMeshOutOfRange);
     }
-    let mut s = bend(elements, Setting { theta: 1.0, delta: 0.0, q }, distribution, 2)
+    let mut s = bend(elements, Setting { theta: 1.0, delta: 0.0, q: 0.0 }, distribution, 2)
         .map_err(|_| PathError::StartUnsolved)?;
+    let pieces = (q / LOAD_STEP).ceil().max(1.0) as usize;
+    for k in 1..=pieces {
+        let to = Setting { theta: 1.0, delta: 0.0, q: q * k as f64 / pieces as f64 };
+        let next = s.advance(to, 4).or_else(|_| s.advance(to, 40)).map_err(|_| PathError::StartUnsolved)?;
+        if s.jump_to(&next) > SNAP {
+            return Err(PathError::StartSnaps);
+        }
+        s = next;
+    }
     if s.snapshot().y_mid <= 0.0 {
         return Err(PathError::StartSnaps);
     }

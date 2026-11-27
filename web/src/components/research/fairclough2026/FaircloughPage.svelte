@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
+  import ExperimentLink from '../shell/ExperimentLink.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import { Playback } from '../shell/playback.svelte';
   import { rs, researchLocale } from '../i18n';
   import { fs } from './i18n';
-  import { editorHash, validateLayout, viewerData, type Layout } from './model';
+  import { editorHash, validateLayout, viewerData, PAPER_UNIT_WEIGHT, type Layout } from './model';
+  import { num } from '../shell/format';
   import result from '../../../../../research/optimisation/fairclough-2026/results/stabileo_results.json';
   import reference from '../../../../../research/optimisation/fairclough-2026/reference-results/five-node.json';
   import published from '../../../../../research/optimisation/fairclough-2026/reference-results/published_comparison.json';
@@ -14,8 +16,13 @@
   const text = $derived(fs());
   const common = $derived(rs());
   const playback = new Playback();
-  const publishedChecks = published.checks;
+  const comparison = published.checks;
+  const unitWeightOf = (id: string) => Number(id.slice('table1-v5-'.length));
+  const comparisonNames = $derived(Object.fromEntries(comparison.map(r => [r.id, text.rowName.replace('{pg}', num(unitWeightOf(r.id), { dp: 2 }))])));
   let layout = $state<Layout>(result.layout);
+  let unitWeight = $state(PAPER_UNIT_WEIGHT);
+  let computedWeight = $state(PAPER_UNIT_WEIGHT);
+  const atPaper = $derived(computedWeight === PAPER_UNIT_WEIGHT);
   let plan = $state(false);
   let author = $state(false);
   let source = $state<'replay' | 'live' | 'cached'>('replay');
@@ -30,18 +37,25 @@
   const view = $derived(viewerData(author ? referenceCurves : layout.curves,plan));
   const format = (v:number) => new Intl.NumberFormat(researchLocale(), {maximumSignificantDigits:10}).format(v);
   function stop() { playback.interact(); worker?.terminate(); worker = undefined; busy = false; if (source === 'live') source = hasLive ? 'cached' : 'replay'; }
-  function restart() { stop(); layout = result.layout; hasLive = false; source = 'replay'; author = false; playback.play(); }
+  function restart() { stop(); layout = result.layout; unitWeight = PAPER_UNIT_WEIGHT; computedWeight = PAPER_UNIT_WEIGHT; hasLive = false; source = 'replay'; author = false; playback.play(); }
   function run() {
     stop(); failed = false; busy = true; author = false;
+    const requested = unitWeight;
     worker = new Worker(new URL('./solve.worker.ts',import.meta.url), {type:'module'});
     worker.onmessage = (event) => {
-      try { layout = validateLayout(event.data.layout); hasLive = true; source = 'cached'; }
+      try { layout = validateLayout(event.data.layout, requested); computedWeight = requested; hasLive = true; source = 'cached'; }
       catch { failed = true; source = hasLive ? 'cached' : 'replay'; }
       worker?.terminate(); worker = undefined; busy = false;
     };
     worker.onerror = () => { stop(); failed = true; };
     source = 'live';
-    worker.postMessage(new URL(`${import.meta.env.BASE_URL}research-wasm/fairclough-2026/gridshell_fairclough_2026.js`,location.origin).href);
+    worker.postMessage({ url: new URL(`${import.meta.env.BASE_URL}research-wasm/fairclough-2026/gridshell_fairclough_2026.js`,location.origin).href, unitWeight: requested });
+  }
+  function setParams(params: Record<string, number | string | boolean>) {
+    if (typeof params.pg !== 'number') return;
+    if (params.pg === PAPER_UNIT_WEIGHT) { restart(); return; }
+    unitWeight = params.pg;
+    run();
   }
   onMount(() => {
     playback.setCount(1);
@@ -62,13 +76,15 @@
 <ExperimentShell paperId="fairclough-2026" name={text.title} lead={text.lead} introInArticle compactHeader
   sourcePath="research/optimisation/fairclough-2026"
   checks={{passed:validation.checks.filter(c=>c.passed).length,total:validation.checks.length}}
-  verification={{reference:{kind:'checks',passed:validation.checks.filter(c=>c.passed).length,total:validation.checks.length},published:{kind:'checks',passed:publishedChecks.filter(c=>c.passed).length,total:publishedChecks.length}}}
-  actions={{goToStep:()=>restart(),setParams:()=>stop(),showTab:()=>{plan=!plan;stop();}}}>
+  verification={{reference:{kind:'checks',passed:validation.checks.filter(c=>c.passed).length,total:validation.checks.length,href:'#checks'},published:{kind:'checks',passed:comparison.filter(c=>c.passed).length,total:comparison.length,href:'#comparison'}}}
+  {comparison} {comparisonNames}
+  actions={{goToStep:()=>restart(),setParams,showTab:()=>{plan=!plan;stop();}}}>
   {#snippet article()}
     <h2>{text.model}</h2><p>{text.method}</p>
     <h2>{text.comparison}</h2>
-    <dl><dt>{text.published}</dt><dd>{format(published.checks[0].reference)}</dd><dt>{text.reference}</dt><dd>{format(reference.volume)}</dd><dt>{text.rust}</dt><dd data-testid="volume">{format(layout.volume)}</dd></dl>
+    <dl><dt>{text.published}</dt><dd>{format(published.checks[0].reference)}</dd><dt>{text.reference}</dt><dd>{format(reference.volume)}</dd><dt>{text.rust}</dt><dd data-testid="volume">{format(atPaper ? layout.volume : result.layout.volume)}</dd></dl>
     <p>{text.source}</p><p><a href="https://doi.org/10.15131/shef.data.29046755.v1">{text.reference}</a></p>
+    <p>{text.tableRows} {#each comparison as r, i}{#if i > 0}{' · '}{/if}<ExperimentLink params={{ pg: unitWeightOf(r.id) }}>ρgL/σ = {num(unitWeightOf(r.id), { dp: 2 })}</ExperimentLink>{/each}</p>
     <h2 id="checks">{text.scope}</h2><p>{text.agreement}</p>
     <h2>{text.engine}</h2><p>{text.engineText}</p>
     <p>{text.balance}: {new Intl.NumberFormat(researchLocale(), {maximumSignificantDigits:3}).format(result.engine.relative_balance_error)}</p>
@@ -82,7 +98,11 @@
       </div>
       <StabileoViewer plane={plan ? 'plan' : 'elevation'} {...view} cellSize={2} title={text.area} unit="F/σ" height="clamp(10rem, 45dvh, 23rem)" lineWidth={5}
         showMesh={false} oninteract={stop} editorButton={false} ariaLabel={`${author ? text.author : text.own} · ${text.alt}`}/>
-      <p>{text.volume}: <strong data-testid="selected-volume">{format(author ? reference.volume : layout.volume)}</strong> · {text.height}: <span data-testid="selected-height">{format(author ? reference.elevations[4] : layout.nodes[4][2])}</span></p>
+      <p>{text.volume}: <strong data-testid="selected-volume">{format(author ? reference.volume : layout.volume)}</strong> · {text.height}: <span data-testid="selected-height">{format(author ? reference.elevations[4] : layout.nodes[4][2])}</span> · ρgL/σ = <span data-testid="unit-weight">{num(computedWeight, { dp: 2 })}</span></p>
+      <label class="weight">{text.unitWeight} <strong>{num(unitWeight, { dp: 2 })}</strong>
+        <input id="fairclough-unit-weight" type="range" min="0.5" max="2.2" step="0.01" bind:value={unitWeight} onchange={run} aria-describedby="fairclough-unit-weight-hint" />
+        <span id="fairclough-unit-weight-hint" class="hint">{text.unitWeightHint}</span>
+      </label>
       <div class="controls">
         <button onclick={run} disabled={busy}>{text.run}</button>
         <button onclick={stop}>{text.stop}</button>
@@ -92,9 +112,10 @@
         <button aria-pressed={!plan} onclick={()=>{stop();plan=false;}}>{text.section}</button>
         <button aria-pressed={plan} onclick={()=>{stop();plan=true;}}>{text.plan}</button>
         <button aria-pressed={!author} onclick={()=>{stop();author=false;}}>{text.own}</button>
-        <button aria-pressed={author} onclick={()=>{stop();author=true;}}>{text.author}</button>
+        <button aria-pressed={author} disabled={!atPaper} onclick={()=>{stop();author=true;}}>{text.author}</button>
       </div>
-      {#if editor}<a id="edit" class="editor" href={editor} onclick={stop}>{text.open} · {text.own}</a>{/if}
+      {#if !atPaper}<p class="hint">{text.paperOnly}</p>{/if}
+      {#if editor && atPaper}<a id="edit" class="editor" href={editor} onclick={stop}>{text.open} · {text.own}</a>{/if}
       {#if exportFailed}<p role="alert">{text.exportFailed}</p>{/if}
       {#if failed}<p role="alert">{text.failed}</p>{/if}
     </div>
@@ -112,6 +133,10 @@
   .experiment :global(small), .experiment :global(.cam-group-title), .experiment :global(.vc-status) {font-size:12px;}
   .experiment :global(.sfv-mark), .experiment :global(.shell-legend), .experiment :global(.legend-unit-inline), .experiment :global(.status-value) {font-size:12px;}
   .notice {font-weight:700;margin:0.25rem 0;}
+  .weight {display:flex;flex-direction:column;gap:0.15rem;}
+  .weight input {width:100%;min-height:44px;margin:0;}
+  .hint {font-size:0.8rem;color:var(--fg-2);}
+  button:disabled {opacity:0.6;cursor:default;}
   dl {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0.5rem;font-size:0.9rem;}
   dd {margin:0;}
   .fairclough :global(.rs-shell-app) {height:auto;overflow:visible;}

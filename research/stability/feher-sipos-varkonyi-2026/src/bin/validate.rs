@@ -1,18 +1,32 @@
 use serde_json::{json, Value};
 use shape_control_feher_2026::{bend, curvature_at, limit_load, optimum_limit_load, run, span, Distribution, Setting};
 
-const SOURCE: &str = "Fehér, Sipos & Várkonyi, doi:10.1016/j.euromechsol.2025.106000; arXiv:2509.12916v1";
+const SOURCE: &str = "arXiv:2509.12916v1";
 
 fn check(id: &str, metric: &str, observed: f64, tolerance: f64) -> Value {
     json!({"id": id, "metric": metric, "observed": observed, "tolerance": tolerance, "passed": observed.is_finite() && observed <= tolerance})
 }
 
-fn published(id: &str, metric: &str, computed: Option<f64>, reference: f64, tolerance: f64, where_: &str) -> Value {
+fn published(id: &str, name: &str, unit: &str, computed: Option<f64>, reference: f64, tolerance: f64, where_: &str) -> Value {
     let observed = computed.map(|c| ((c - reference) / reference).abs()).unwrap_or(f64::INFINITY);
     json!({
-        "id": id, "metric": metric, "computed": computed, "reference": reference, "observed": if observed.is_finite() { json!(observed) } else { json!(null) },
+        "id": id, "name": name, "unit": unit, "metric": "relative difference", "computed": computed, "reference": reference,
+        "observed": if observed.is_finite() { json!(observed) } else { json!(null) },
         "tolerance": tolerance, "passed": observed <= tolerance, "source": format!("{SOURCE}, {where_}")
     })
+}
+
+fn close(a: &Value, b: &Value, path: &str) -> Result<(), String> {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => {
+            let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
+            if (x - y).abs() <= 1e-12 + 1e-6 * y.abs() { Ok(()) } else { Err(format!("{path}: {x} (committed {y})")) }
+        }
+        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => x.iter().zip(y).enumerate().try_for_each(|(i, (p, q))| close(p, q, &format!("{path}[{i}]"))),
+        (Value::Object(x), Value::Object(y)) if x.len() == y.len() => x.iter().try_for_each(|(k, p)| y.get(k).map_or(Err(format!("{path}.{k} missing")), |q| close(p, q, &format!("{path}.{k}")))),
+        _ if a == b => Ok(()),
+        _ => Err(format!("{path}: {a} (committed {b})")),
+    }
 }
 
 /// The height at half the arc length of a digitized curve: the points are
@@ -107,9 +121,11 @@ fn main() {
         }));
         published_checks.push(json!({
             "id": format!("figure-9c-{label}"),
-            "metric": format!("Figure 9(c) shape {label}: midpoint height y(1/2) at the clamp angles where Figure 9(b) places it, absolute difference"),
+            "name": format!("Figure 9(c) shape {label}: midpoint height y(1/2) at Θ = {}, Δ = {}", corner["theta"], corner["delta"]),
+            "unit": "L",
+            "metric": "absolute difference",
             "computed": ours, "reference": paper, "observed": (ours - paper).abs(), "tolerance": 0.008, "passed": (ours - paper).abs() <= 0.008,
-            "source": format!("{SOURCE}, Figure 9(b,c) p.24, digitized (reference-results/fig9c_digitized.json); y(1/2) at half the arc length of the digitized curve")
+            "source": format!("{SOURCE}, Figure 9(b,c) p.24, digitized")
         }));
         checks.push(check(&format!("shape-{label}"), &format!("Figure 9(c) shape {label}: median distance from the digitized curve to the closest state on our path"), best.0, 0.008));
     }
@@ -121,29 +137,51 @@ fn main() {
     checks.push(check("ends", "shapes 1 and 5 of Figure 9(c) are the start and the end of the path, both at Θ = 1, Δ = 0", if on("1", 1.0, 0.0, false) && on("5", 1.0, 0.0, true) { 0.0 } else { 1.0 }, 0.0));
 
     let qlim = |theta, delta, d| limit_load(96, theta, delta, d, 10.0, 1.0).unwrap().map(|(q, _)| q);
-    published_checks.push(published("qlim-uniform-0.9-0", "Section 3.2.1: limit load, uniform load, Θ = 0.9, Δ = 0 (paper −4.2, downward)", qlim(0.9, 0.0, Distribution::Uniform), 4.2, 0.05, "Sec. 3.2.1 p.18"));
-    published_checks.push(published("qlim-uniform-0.9-0.04", "Section 3.2.1: limit load, uniform load, Θ = 0.9, Δ = 0.04 (paper −3.9, downward)", qlim(0.9, 0.04, Distribution::Uniform), 3.9, 0.05, "Sec. 3.2.1 p.19"));
-    published_checks.push(published("qlim-half-0.9-0", "Section 3.2.1: limit load, half-span load, Θ = 0.9, Δ = 0 (paper −2.5, downward)", qlim(0.9, 0.0, Distribution::Asymmetric), 2.5, 0.05, "Sec. 3.2.1 p.19"));
+    published_checks.push(published("qlim-uniform-0.9-0", "Limit load, uniform load, Θ = 0.9, Δ = 0 (printed as ≈ −4.2, downward)", "", qlim(0.9, 0.0, Distribution::Uniform), 4.2, 0.05, "Sec. 3.2.1 p.18"));
+    published_checks.push(published("qlim-uniform-0.9-0.04", "Limit load, uniform load, Θ = 0.9, Δ = 0.04 (printed as ≈ −3.9, downward)", "", qlim(0.9, 0.04, Distribution::Uniform), 3.9, 0.05, "Sec. 3.2.1 p.19"));
+    published_checks.push(published("qlim-half-0.9-0", "Limit load, load on half the span, Θ = 0.9, Δ = 0 (printed as ≈ −2.5, downward)", "", qlim(0.9, 0.0, Distribution::Asymmetric), 2.5, 0.05, "Sec. 3.2.1 p.19"));
     let optimum = optimum_limit_load(96, 0.66, (1.0, 1.5), 0.0125, Distribution::Asymmetric);
-    let mut best = published("qlim-half-optimum", "Section 3.2.1: largest limit load with the half-span load along Θ = 0.66 (paper −4.0 at Δ = 1.36, on a bifurcation curve)", optimum.map(|o| o.0), 4.0, 0.05, "Sec. 3.2.1 p.19");
+    let mut best = published("qlim-half-optimum", "Largest limit load, load on half the span, along Θ = 0.66 (paper ≈ −4.0 at Δ = 1.36)", "", optimum.map(|o| o.0), 4.0, 0.05, "Sec. 3.2.1 p.19");
     best["computed_delta"] = json!(optimum.map(|o| o.1));
     best["reference_delta"] = json!(1.36);
     published_checks.push(best);
     let kappa = |theta, delta, d| curvature_at(96, theta, delta, d, 2.5).ok().map(|(k, _)| k);
-    published_checks.push(published("kappa-uniform-0.96-0", "Table 1: largest curvature at q = 2.5, uniform load, Θ = 0.96, Δ = 0", kappa(0.96, 0.0, Distribution::Uniform), 2.1, 0.05, "Table 1 p.20"));
-    published_checks.push(published("kappa-half-0.96-0", "Table 1: largest curvature at q = 2.5, half-span load, Θ = 0.96, Δ = 0", kappa(0.96, 0.0, Distribution::Asymmetric), 7.6, 0.05, "Table 1 p.20"));
-    published_checks.push(published("kappa-uniform-0.64-1.16", "Table 1: largest curvature at q = 2.5, uniform load, Θ = 0.64, Δ = 1.16", kappa(0.64, 1.16, Distribution::Uniform), 11.7, 0.05, "Table 1 p.20"));
-    published_checks.push(published("kappa-half-0.64-1.16", "Table 1: largest curvature at q = 2.5, half-span load, Θ = 0.64, Δ = 1.16", kappa(0.64, 1.16, Distribution::Asymmetric), 3.35, 0.05, "Table 1 p.20"));
+    published_checks.push(published("kappa-uniform-0.96-0", "Largest curvature at q = 2.5, uniform load, Θ = 0.96, Δ = 0", "1/L", kappa(0.96, 0.0, Distribution::Uniform), 2.1, 0.05, "Table 1 p.20"));
+    published_checks.push(published("kappa-half-0.96-0", "Largest curvature at q = 2.5, load on half the span, Θ = 0.96, Δ = 0, reached after a snap", "1/L", kappa(0.96, 0.0, Distribution::Asymmetric), 7.6, 0.05, "Table 1 p.20"));
+    published_checks.push(published("kappa-uniform-0.64-1.16", "Largest curvature at q = 2.5, uniform load, Θ = 0.64, Δ = 1.16, reached after a snap", "1/L", kappa(0.64, 1.16, Distribution::Uniform), 11.7, 0.05, "Table 1 p.20"));
+    published_checks.push(published("kappa-half-0.64-1.16", "Largest curvature at q = 2.5, load on half the span, Θ = 0.64, Δ = 1.16", "1/L", kappa(0.64, 1.16, Distribution::Asymmetric), 3.35, 0.05, "Table 1 p.20"));
 
     let validation = json!({
         "checks": checks,
-        "published_checks": published_checks,
         "figure_9c_matches": matches,
         "scope": "Planar inextensible elastica approximated by the production co-rotational frame (60–96 elements, EA/EI·L² = 8·10⁵·π²); stability from the definiteness of the tangent. Numerical comparison with the paper's figures and text, not laboratory validation.",
     });
-    let text = serde_json::to_string_pretty(&validation).unwrap() + "\n";
-    if write {
-        std::fs::write(concat!(env!("CARGO_MANIFEST_DIR"), "/VALIDATION.json"), &text).unwrap();
+    let comparison = json!({
+        "reproduced_published_results": false,
+        "scope": "Figure 9(c) digitized from the preprint, and the limit loads and curvatures printed in Section 3.2 and Table 1. Rows that fail stay listed with the paper's value; the README explains each one.",
+        "checks": published_checks,
+    });
+    let here = env!("CARGO_MANIFEST_DIR");
+    let files = [("VALIDATION.json", &validation), ("reference-results/published_comparison.json", &comparison)];
+    let mut stale = false;
+    for (name, fresh) in files {
+        let text = serde_json::to_string_pretty(fresh).unwrap() + "\n";
+        let path = format!("{here}/{name}");
+        if write {
+            std::fs::write(&path, &text).unwrap();
+        } else {
+            let stored: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            if let Err(at) = close(fresh, &stored, name) {
+                println!("FAIL {name} differs from this run at {at}");
+                stale = true;
+            }
+        }
     }
-    print!("{text}");
+    let failed: Vec<&str> = checks.iter().filter(|c| c["passed"] != true).map(|c| c["id"].as_str().unwrap()).collect();
+    for c in checks.iter().chain(&published_checks) {
+        println!("{} {}", if c["passed"] == true { "ok  " } else { "FAIL" }, c["id"].as_str().unwrap());
+    }
+    if stale || !failed.is_empty() {
+        std::process::exit(1);
+    }
 }

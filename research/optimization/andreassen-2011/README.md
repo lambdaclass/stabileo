@@ -48,6 +48,17 @@ There was no “Questions for the authors” section on this page. These researc
 
 Review validation: 196 web unit tests passed (research components, hard-coded-text gate and viewer locale isolation); TypeScript gate: 247 existing errors, zero new errors. Seven Rust tests passed (six optimizer tests and the WASM wrapper allocation-limit test) under `CARGO_TARGET_DIR=/private/tmp/claude-501/rfix-andreassen-2011-target CARGO_BUILD_JOBS=4`. The reference regeneration reproduced `VALIDATION.json` unchanged. Three Node checker tests and the complete two-filter WASM/native/reference/replay comparison passed. Shared viewer build and offline catalogue validation passed. The Playwright spec typechecks; browser cases were added but not executed, as required by this environment. The additional full Svelte check reports no errors in changed files, with 343 errors elsewhere in the repository.
 
-## Follow-ups
+## Freshness of the evidence
 
-- Add CI regeneration/diff enforcement for `VALIDATION.json`. Iteration-count error is now measured rather than hard-coded, but regeneration is still an explicit maintainer operation.
+Without `UPDATE_VALIDATION`, `tests/reference.rs` compares the committed `VALIDATION.json` with the
+measurements of the same run, as the research CI runs it: names, metrics, tolerances and pass flags
+must match exactly, and each recorded observation may differ from the fresh one by at most 1% of its
+tolerance, which absorbs cross-platform roundoff in errors of order 1e-11 without letting a stale
+record pass.
+
+## The paper's own numbers
+
+The accessible manuscript (DTU copy, pp. 1–15) gives the optimized images of Figs. 3–5 and, in
+Tables 1–3, computation times per iteration on a 2010 laptop. It prints no compliance, volume or
+iteration count for these cases, so there is no published value to set next to ours; timings depend
+on the machine and are not compared. The page says so under the paper's published values.

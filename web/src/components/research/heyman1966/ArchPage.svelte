@@ -5,7 +5,6 @@
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import PaneTabs from '../shell/PaneTabs.svelte';
   import Segmented from '../shell/Segmented.svelte';
-  import ArchChecks from './ArchChecks.svelte';
   import { Playback } from '../shell/playback.svelte';
   import { num } from '../shell/format';
   import { rs } from '../i18n';
@@ -15,6 +14,7 @@
   import type { ArchRequest } from './sim.worker';
   import replay from '../../../../../research/mechanics/heyman-1966/reference-results/replay.json';
   import validation from '../../../../../research/mechanics/heyman-1966/VALIDATION.json';
+  import published from '../../../../../research/mechanics/heyman-1966/reference-results/published_comparison.json';
 
   type Tab = 'weight' | 'load';
   type Issue = 'infeasible' | 'unbounded' | 'solver' | null;
@@ -35,6 +35,11 @@
   let worker: Worker | null = null;
 
   const checks = validation.checks;
+  const comparison = published.checks;
+  const comparisonNames = $derived(Object.fromEntries(comparison.map(r => {
+    const [key, alpha, quantity] = r.id.split('-') as ['milankovitch' | 'ccr', string, 'eta' | 'beta' | 'h'];
+    return [r.id, `${fill(s[key], { a: num(Number(alpha)) })} · ${s.quantities[quantity]}`];
+  })));
   const run = $derived(runs[tab]);
   const source = $derived(sources[tab]);
   const issue = $derived(issues[tab]);
@@ -165,7 +170,8 @@
 <ExperimentShell paperId="heyman-1966" name={s.title} lead={s.lead} introInArticle compactHeader locale={publicI18n.locale}
   sourcePath="research/mechanics/heyman-1966"
   referenceLabel={s.referenceLabel}
-  verification={{ reference: { kind: 'checks', passed: checks.filter(c => c.passed).length, total: checks.length, href: '#checks' }, published: { kind: 'none', why: s.publishedWhy } }}
+  verification={{ reference: { kind: 'checks', passed: checks.filter(c => c.passed).length, total: checks.length, href: '#checks' }, published: { kind: 'checks', passed: comparison.filter(c => c.passed).length, total: comparison.length, href: '#comparison' } }}
+  {comparison} {comparisonNames}
   actions={{ goToStep, setParams, showTab: setTab }}>
   {#snippet article()}
     <h2>{s.ideaHeading}</h2>
@@ -182,7 +188,6 @@
     <p><ExperimentLink params={{ centreline: true }}>{s.tryCentreline}</ExperimentLink> · <ExperimentLink params={{ alpha: 60 }}>{s.tryFlat}</ExperimentLink> · <ExperimentLink params={{ alpha: 145 }}>{s.tryDeep}</ExperimentLink></p>
     <h2 id="checks">{s.checksHeading}</h2>
     <p>{s.tableIntro}</p>
-    <ArchChecks {s} />
     <p>{fill(s.heyman, { h90: num(heyman90.eta, { dp: 6 }), d90: pct(heyman90.milankovitch_over_heyman), d145: pct(heyman145.milankovitch_over_heyman) })}</p>
     <p>{fill(s.convergence, { ...convergence, python: `${num(pythonEta * 1e6, { dp: 0 })} × 10⁻⁶` })}</p>
     <h2>{s.ringHeading}</h2>

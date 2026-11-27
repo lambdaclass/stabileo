@@ -1,0 +1,89 @@
+{
+  "what": "Kinematic upper bounds by virtual work: beam 8Mp/(VL), sway 4Mp/(Hh), combined 6Mp/(Hh + VL/2); our own hand derivations (README), not values from Horne (1979).",
+  "cases": [
+    {
+      "case": "our example",
+      "span": 4,
+      "height": 3,
+      "mp": 100,
+      "horizontal": 1,
+      "vertical": 2,
+      "bounds": {
+        "beam": 100,
+        "sway": 133.33333333333334,
+        "combined": 85.71428571428571
+      },
+      "governing": "combined"
+    },
+    {
+      "case": "V/H = 0.5, h = 3 m (sway governs)",
+      "span": 4,
+      "height": 3,
+      "mp": 100,
+      "horizontal": 1,
+      "vertical": 0.5,
+      "bounds": {
+        "beam": 400,
+        "sway": 133.33333333333334,
+        "combined": 150
+      },
+      "governing": "sway"
+    },
+    {
+      "case": "V/H = 1, h = 3 m (combined governs)",
+      "span": 4,
+      "height": 3,
+      "mp": 100,
+      "horizontal": 1,
+      "vertical": 1,
+      "bounds": {
+        "beam": 200,
+        "sway": 133.33333333333334,
+        "combined": 120
+      },
+      "governing": "combined"
+    },
+    {
+      "case": "V/H = 4, h = 3 m (beam governs)",
+      "span": 4,
+      "height": 3,
+      "mp": 100,
+      "horizontal": 1,
+      "vertical": 4,
+      "bounds": {
+        "beam": 50,
+        "sway": 133.33333333333334,
+        "combined": 54.54545454545455
+      },
+      "governing": "beam"
+    },
+    {
+      "case": "V/H = 2, h = 2.5 m (combined governs)",
+      "span": 4,
+      "height": 2.5,
+      "mp": 100,
+      "horizontal": 1,
+      "vertical": 2,
+      "bounds": {
+        "beam": 100,
+        "sway": 160,
+        "combined": 92.3076923076923
+      },
+      "governing": "combined"
+    },
+    {
+      "case": "V/H = 2, h = 5 m (combined governs)",
+      "span": 4,
+      "height": 5,
+      "mp": 100,
+      "horizontal": 1,
+      "vertical": 2,
+      "bounds": {
+        "beam": 100,
+        "sway": 80,
+        "combined": 66.66666666666667
+      },
+      "governing": "combined"
+    }
+  ]
+}

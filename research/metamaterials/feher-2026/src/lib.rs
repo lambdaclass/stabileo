@@ -3,12 +3,16 @@ use dedaliano_engine::types::{Displacement, SolverInput};
 use serde_json::json;
 use std::f64::consts::PI;
 
+pub mod exact;
+
 pub const LENGTH: f64 = 340.0;
 pub const WIDTH: f64 = 90.0;
 pub const THICKNESS: f64 = 0.5;
 pub const YOUNG: f64 = 2800.0;
 pub const WEIGHT_DENSITY: f64 = 1.33e-6 * 9.81;
 pub const ELEMENTS: usize = 136;
+/// Tight enough that a converged state does not depend on how many increments reached it.
+const TOLERANCE: f64 = 1e-10;
 
 /// The cut strip of Section 2.1 in N and mm: two symmetric edge cuts of
 /// relative length `a` and depth `b`, with the inactive 45° triangles beside
@@ -85,7 +89,7 @@ pub struct State {
 impl State {
     fn go(&self, next: SolverInput, increments: usize) -> Result<State, String> {
         let start = CorotationalStart2D { input: &self.input, displacements: &self.displacements };
-        let r = solve_corotational_2d_from(&next, Some(&start), 80, 1e-7, increments, false)?;
+        let r = solve_corotational_2d_from(&next, Some(&start), 80, TOLERANCE, increments, false)?;
         if !r.converged {
             return Err(format!("no equilibrium (stopped at {} of the step)", r.load_factor));
         }
@@ -111,6 +115,17 @@ pub fn prepare(strip: &Strip, span: f64) -> Result<State, String> {
         s = s.go(strip.model(PI / 2.0, Some(from + (span - from) * k as f64 / moves as f64), 0.0, 0.0), 2)?;
     }
     s.go(strip.model(PI / 2.0, Some(span), 1.0, 0.0), 4)
+}
+
+/// Midpoint height under a midspan load raised from zero in `step` increments on the branch the
+/// strip starts on.
+pub fn loaded_height(strip: &Strip, span: f64, load: f64, step: f64) -> Result<f64, String> {
+    let mut s = prepare(strip, span)?;
+    let steps = (load / step).round().max(1.0) as usize;
+    for k in 1..=steps {
+        s = s.go(strip.model(PI / 2.0, Some(span), 1.0, load * k as f64 / steps as f64), 2)?;
+    }
+    Ok(s.height())
 }
 
 /// Load-controlled loading to `max_load` and unloading back to zero, as in the

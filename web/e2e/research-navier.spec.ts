@@ -39,7 +39,10 @@ for (const [width, height] of [[360, 900], [390, 844], [844, 390], [810, 1080]])
       expect(number(await hard.nth(i).locator('td').nth(2).textContent())).toBeCloseTo(100 * (row.center_mm / mindlin - 1), 3);
     }
     expect(number(await page.getByTestId('navier-mindlin').textContent())).toBeCloseTo(mindlin, 6);
-    expect(number(await page.getByTestId('navier-published').textContent())).toBe(1.28375);
+    const comparison = page.locator('#comparison tbody tr');
+    await expect(comparison).toHaveCount(4);
+    for (const i of [1, 2, 3]) await expect(comparison.nth(i).locator('td').first()).toHaveText(/^1\.28375\s*mm$/);
+    await expect(comparison.locator('.ok')).toHaveCount(4);
     await expect(page.getByTestId('navier-reduction')).toHaveText('Absolute-error reduction, 4×4 → 16×16: DKT against the thin-plate series: 15.78×; MITC4 with hard support against the Reissner–Mindlin series: 13.71×');
     await expect(page.getByTestId('navier-closer')).toHaveText('Closer to the thin-plate series (not an accuracy ranking): 4×4: MITC4; 8×8: MITC4; 16×16: DKT');
 
@@ -65,12 +68,12 @@ for (const [width, height] of [[360, 900], [390, 844], [844, 390], [810, 1080]])
       .map(el => `${el.tagName}.${el.className}`));
     expect(overflowing).toEqual([]);
 
-    const order = await page.evaluate(() => {
-      const focusable = [...document.querySelectorAll<HTMLElement>('.panes a, .panes button, .panes input, .panes [tabindex="0"]')].filter(el => el.offsetParent !== null);
-      return { firstInApp: focusable[0].closest('.app') !== null, firstLink: focusable.findIndex(el => el.tagName === 'A'), lastApp: focusable.findLastIndex(el => el.closest('.app') !== null) };
+    const appFirst = await page.evaluate(() => {
+      const app = document.querySelector('.rs-shell-app')!.getBoundingClientRect();
+      const article = document.querySelector('.rs-shell-article')!.getBoundingClientRect();
+      return innerWidth >= 1120 ? app.left > article.left : app.top < article.top;
     });
-    expect(order.firstInApp).toBe(true);
-    expect(order.lastApp).toBeLessThan(order.firstLink);
+    expect(appFirst).toBe(true);
 
     await page.screenshot({ path: testInfo.outputPath('navier.png'), fullPage: true });
   });
@@ -80,13 +83,43 @@ test('@smoke Navier plate recomputes live and restores the replay', async ({ pag
   await open(page, 'en', 390, 844);
   await page.getByRole('button', { name: 'Recompute live' }).click();
   await expect(page.getByTestId('navier-source')).toHaveText('Live result: all six meshes computed in this browser', { timeout: 40_000 }); // slow-ok: The WASM worker loads the production engine and solves all six plate meshes.
-  await expect(page.locator('.table-scroll').first()).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('.table-scroll[aria-busy]')).toHaveAttribute('aria-busy', 'false');
   await expectRows(page, replay.rows);
   await page.getByRole('button', { name: 'Show the finest MITC4 mesh' }).click();
   await expect(page.getByTestId('navier-source')).toHaveText('Live result: all six meshes computed in this browser');
   await expect(page.locator('label.step')).toContainText('MITC4 16 × 16');
   await page.getByRole('button', { name: 'Restart', exact: true }).click();
   await expect(page.getByTestId('navier-source')).toHaveText('Precomputed replay (same solver)');
+});
+
+test('@smoke Navier plate solves the reader’s plate live with the production engine', async ({ page }) => {
+  await open(page, 'en', 390, 844);
+  await page.getByRole('radio', { name: 'DKT' }).click();
+  await expect(page.getByTestId('navier-source')).toHaveText('Live result: your plate, computed in this browser', { timeout: 40_000 }); // slow-ok: The WASM worker loads the production engine before the first plate.
+  await page.getByTestId('navier-n').selectOption('8');
+  await expect(page.getByTestId('navier-plate-centre')).not.toHaveText('…', { timeout: 20_000 });
+  const dkt8 = replay.rows.find(r => r.family === 'DKT' && r.n === 8)!;
+  expect(number(await page.getByTestId('navier-plate-centre').textContent())).toBeCloseTo(dkt8.center_mm, 6);
+  expect(number(await page.getByTestId('navier-plate-series').textContent())).toBeCloseTo(reference, 6);
+  await page.getByRole('radio', { name: 'MITC4' }).click();
+  await page.getByRole('radio', { name: 'Hard' }).click();
+  await page.getByTestId('navier-n').selectOption('16');
+  await expect(page.getByTestId('navier-plate-centre')).not.toHaveText('…', { timeout: 20_000 });
+  expect(number(await page.getByTestId('navier-plate-centre').textContent())).toBeCloseTo(replay.hard_rows[2].center_mm, 6);
+  expect(number(await page.getByTestId('navier-plate-series').textContent())).toBeCloseTo(mindlin, 6);
+  await page.getByTestId('navier-t').selectOption('0.2');
+  await expect(page.getByTestId('navier-plate-centre')).not.toHaveText('…', { timeout: 20_000 });
+  expect(number(await page.getByTestId('navier-plate-centre').textContent())).toBeLessThan(replay.hard_rows[2].center_mm / 5);
+  await page.getByRole('button', { name: 'Back to the paper’s meshes' }).click();
+  await expect(page.getByTestId('navier-source')).toHaveText('Precomputed replay (same solver)');
+});
+
+test('@smoke Navier article links set the plate', async ({ page }) => {
+  await open(page, 'en', 1280, 900);
+  await page.getByRole('button', { name: 'MITC4 with soft support on a 2 × 2 mesh' }).click();
+  await expect(page.getByTestId('navier-n')).toHaveValue('2');
+  await expect(page.getByTestId('navier-plate')).toContainText('No series reference');
+  await expect(page.getByTestId('navier-plate-centre')).not.toHaveText('…', { timeout: 40_000 }); // slow-ok: first live solve loads the engine.
 });
 
 test('@smoke Navier plate stopped before the first result says so and shows no live rows', async ({ page }) => {
@@ -116,14 +149,17 @@ const LOCALES = [
   ['de', 'Navier-Platte: Netzkonvergenz', 'Vorberechnete Wiedergabe (gleicher Solver)'],
   ['fr', 'Plaque de Navier : convergence du maillage', 'Relecture précalculée (même solveur)'],
   ['tr', 'Navier plağı: ağ yakınsaması', 'Önceden hesaplanmış tekrar (aynı çözücü)'],
+  ['hu', 'Navier-lemez: hálókonvergencia', 'Előre kiszámított visszajátszás (ugyanaz a megoldó)'],
+  ['zh', 'Navier 板：网格收敛', '预先计算的回放（同一求解器）'],
 ] as const;
+const CONJUNCTION: Record<string, string> = { es: 'y', pt: 'e', de: 'und', fr: 'et', tr: 've' };
 
 for (const [locale, title, replayLabel] of LOCALES) {
   test(`@smoke Navier plate in ${locale}`, async ({ page }) => {
     test.skip(!isComplete(locale), 'not offered until a native speaker checks it (#1628)');
     await open(page, locale, 390, 844);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
-    await expect(page).toHaveTitle(`${title} (Ventsel ${({ en: '&', es: 'y', pt: 'e', de: 'und', fr: 'et', tr: 've' } as Record<string, string>)[locale]} Krauthammer 2001) — Stabileo Research`);
+    if (CONJUNCTION[locale]) await expect(page).toHaveTitle(`${title} (Ventsel ${CONJUNCTION[locale]} Krauthammer 2001) — Stabileo Research`);
     await expect(page.getByTestId('navier-source')).toHaveText(replayLabel);
     await expectRows(page, replay.rows);
     await expect(page.getByTestId('navier-reference')).toHaveText(new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(reference));

@@ -101,5 +101,19 @@ fn authors_iterations() {
             serde_json::to_string_pretty(&v).unwrap() + "\n",
         )
         .unwrap();
+    } else {
+        let recorded: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/VALIDATION.json")).unwrap(),
+        )
+        .unwrap();
+        let recorded = recorded["checks"].as_array().unwrap();
+        assert_eq!(recorded.len(), checks.len(), "VALIDATION.json is stale: rerun with UPDATE_VALIDATION=1");
+        for (r, c) in recorded.iter().zip(&checks) {
+            for key in ["name", "metric", "tolerance", "passed"] {
+                assert_eq!(r[key], c[key], "VALIDATION.json is stale at {key}: rerun with UPDATE_VALIDATION=1");
+            }
+            let (a, b, tolerance) = (r["observed"].as_f64().unwrap(), c["observed"].as_f64().unwrap(), c["tolerance"].as_f64().unwrap());
+            assert!((a - b).abs() <= 0.01 * tolerance, "VALIDATION.json is stale for {}: recorded {a}, measured {b}", c["name"]);
+        }
     }
 }

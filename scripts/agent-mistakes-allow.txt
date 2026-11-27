@@ -605,7 +605,6 @@ test-skip web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('secon
 test-skip web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('statics'))
 
 ## Only published Ferrari research locales have an English fallback page to render.
-test-skip web/src/components/research/ferrari2025/__tests__/page.test.ts: it.skipIf(!PUBLIC_LOCALES.includes(locale))(`renders English copy with ${locale} numbers`)
 
 ## The real DXF samples are local, non-distributed fixtures; checked-in synthetic coverage runs independently.
 test-skip web/src/lib/cad/__tests__/cad-real-dxf.test.ts: describe.skipIf(!HAS_V1)(`real DXF V1 — shipped path${HAS_V1 ? '' : ABSENT}`)

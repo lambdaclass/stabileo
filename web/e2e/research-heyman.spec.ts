@@ -14,7 +14,8 @@ test('@smoke research masonry arch: the replay ends on the five-hinge least thic
   await page.getByRole('button', { name: 'Watch the bisection' }).click();
   await expect(app).toHaveAttribute('data-kind', 'bisection');
   await expect(app).toContainText('no thrust line fits');
-  await expect(page.locator('table.checks')).toContainText('0.107478');
+  await expect(page.locator('#comparison')).toContainText('0.107478');
+  await expect(page.locator('#comparison tbody tr')).toHaveCount(24);
 });
 
 test('@smoke research masonry arch: a live recompute of a flatter arch and of the ring', async ({ page }) => {

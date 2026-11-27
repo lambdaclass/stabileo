@@ -1,4 +1,4 @@
-# Classic plastic collapse — first version, 2 review rounds
+# Classic plastic collapse
 
 Effort/impact: low effort (one existing solver call), high educational impact (the
 combined mechanism governs below either elementary mechanism). No new solver.
@@ -91,11 +91,43 @@ solver hinge events; the viewer sums the returned displacement increments throug
 the selected event. A per-event table lists hinge location, λ and My, and a nodal
 table gives ux/uz in metres for the selected event.
 
+## Parameters on the page
+
+Our example loads first (V/H = 2, h = 3 m). The page lets the reader change the load ratio
+V/H (0.5–5) and the height h (2–5 m); each change rebuilds the shared case with the new roof
+height and vertical load and reruns `solvePlastic3D` in the browser. With L = 4 m the hand
+bounds give: sway governs below V/H = h/L, the beam mechanism above V/H = 4h/L, the combined
+mechanism in between. When two bounds coincide (within 1e-6) the hinge check is not applied,
+because either mechanism may form. For a variant the page checks: λ equals the lowest bound
+(1e-6), a mechanism without warnings, the hinge set of the governing mechanism (exact for sway
+and combined; for the beam mechanism, a partial mechanism, its three hinges must be among those
+formed, since a base can yield first, as at V/H = 4), |My| ≤ Mp at every member end, and
+equilibrium relative to λH, λV and λ(Hh + VL/2) within 1e-8. That relative bound applies only
+to variants: at V/H = 0.5 and 1 the summed reactions leave absolute residuals of about 1e-7 kN·m
+(3e-10 relative), above the 1e-9 absolute regression bound that our example keeps. The corner
+statics check applies when the combined mechanism governs.
+
+## Validation (VALIDATION.json)
+
+`wasm/check.mjs` runs the production WASM wrapper through the page module and writes
+`VALIDATION.json` and `reference-results/hand_calculation.json` (hashed in
+`reference-results/MANIFEST.json`). Without `--write` it recomputes both and fails if they differ
+from the committed files (1e-9 relative) or if a check fails. The Research workflow runs it in
+the engine-benchmarks job. Checks: for our example, |λ − 600/7| ≤ 1e-6, mechanism without
+warnings, every event λ against the native events (1e-6), the hinge order and |My| = Mp (1e-9),
+yield admissibility (1e-9), equilibrium (1e-9 absolute), the left-corner statics (1e-6), and
+WASM against the committed native replay (nodal ux/uz 1e-9 m, λ 1e-6); for five variants
+(V/H = 0.5, 1, 4 at h = 3 m; h = 2.5 and 5 m at V/H = 2), λ against the lowest hand bound
+(1e-6), the relative equilibrium (1e-8) and the page checks. All 24 pass.
+
+There is no published comparison: Horne (1979) was not available to us, and the example is
+ours, so no paper value exists to compare. The catalogue status is `numerically-validated`.
+
 ## Scope
 
 - Not a design check.
-- One load ratio and one uniform section; no axial–moment interaction, buckling or
-  large displacements.
+- One span and one uniform section; no axial–moment interaction, buckling or large
+  displacements.
 - 2D plastic collapse while the reported #758 containment applies.
 - No hinge symbols or curved member deformation in the viewer.
 
@@ -107,14 +139,16 @@ table gives ux/uz in metres for the selected event.
 
 ## Reproduction
 
-Run `make test.engine.targeted TEST=integration FILTER=portal_combined_mechanism`.
+Run `cargo test --locked --manifest-path engine/Cargo.toml --test integration portal_combined_mechanism`
+(`make test.engine.targeted TEST=integration FILTER=portal_combined_mechanism` inside Nix), then
+`node research/benchmarks/plastic-collapse/wasm/check.mjs` after building the engine WASM.
 The test prints its production result; `results/stabileo_results.json` records that
 run for replay. The web unit tests (`case.test.ts`, `live.test.ts`) check the model
 parameters, formulas, replay events and checks, the live WASM history, viewer
 mapping and locale completeness. The Playwright smoke spec recomputes through WASM
 at 360×800, 390×844, 844×390 and 810×1080 in all six public locales.
 
-The stage is `first-version`; catalogue status remains `proposed`.
+The catalogue status is `numerically-validated`.
 
 ## Recorded result
 

@@ -56,11 +56,11 @@ export function shown(result?: Result): { value: number | null; error: number | 
   return { value: result.value, error: result.error };
 }
 
-export async function runCases(onResult?: (r: Result) => void): Promise<Result[]> {
+export async function runCases(onResult?: (r: Result) => void, only: Case[] = cases): Promise<Result[]> {
   const engine = await import('../../../lib/engine/wasm-solver');
   await engine.initSolver();
   const rows: Result[] = [];
-  for (const c of cases) {
+  for (const c of only) {
     let row: Result;
     try {
       const result = engine.solve3D(inputFor(c));

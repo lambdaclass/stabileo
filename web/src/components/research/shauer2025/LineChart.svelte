@@ -148,7 +148,7 @@
       <line x1={M.l} x2={width - M.r} y1={sy(r.y)} y2={sy(r.y)} class="rule" />
       <text x={width - M.r} y={sy(r.y) - 4} class="tick" text-anchor="end">{r.text}</text>
     {/each}
-    <defs><clipPath id={clipId}><rect x={M.l} y={M.t - 6} width={width - M.l - M.r} height={height - M.t - M.b + 12} /></clipPath></defs>
+    <defs><clipPath id={clipId}><rect x={M.l} y={M.t - 6} width={Math.max(0, width - M.l - M.r)} height={Math.max(0, height - M.t - M.b + 12)} /></clipPath></defs>
     <g clip-path="url(#{clipId})">
       {#each ordered as s (s.name)}
         {#if s.dashed}

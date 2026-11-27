@@ -44,9 +44,18 @@ Each tolerance is the 40-element grid-convergence index (1.25 × |q₄₀ − q_
 
 The previous version used an underived 1% tolerance on the limit load only; the derived 0.6% is tighter. Regression bounds (10⁻⁶ absolute) remain on the step peak, the load at step 300 (8.418779219590325) and the final load.
 
+## Validation in CI
+
+`validate.py` reads a fresh native export (`DADEPPO_EXPORT`) of the engine test and writes `VALIDATION.json`, `reference-results/published_comparison.json` and `reference-results/MANIFEST.json`. Its 18 checks are the four published values at 40 elements, the descending branch, for each quantity the observed order of mesh convergence (within 0.5 of 2), the Richardson limit against the published value within the 80-element grid-convergence index plus the rounding, the tolerance within 1.25 times its budget, and the committed replay against the fresh run (10⁻⁹ relative). Each extrapolation check must also meet the ceiling from the previously accepted mesh study. The research workflow runs the engine test, then `validate.py check`, which fails when the committed files differ from a fresh run. The four published rows are what the page shows as the paper against Stabileo. Schmidt gives the rotation as β without units or sign convention; the row has no unit.
+
+```sh
+DADEPPO_EXPORT=$PWD/fresh.json cargo test --release --manifest-path engine/Cargo.toml --test solver dadeppo_arch
+python3 -I research/benchmarks/dadeppo-arch-1975/validate.py generate fresh.json
+```
+
 ## Data and replay
 
-`engine/tests/benchmarks/dadeppo_arch.json` owns the full solver input, the published values and the tolerances; the native test and web worker read that same file. The solver returns complete nodal displacements only at the endpoint, so the replay and live computation rerun prefixes of 20, 40, …, 400 steps. Each frame is a real equilibrium result, never an interpolated shape. The chart plots load factor against step number; it does not mislabel the solver's first-free-DOF scalar as crown displacement. A full live recomputation also reruns the three steps around the peak to place the limit point in the browser.
+`engine/tests/benchmarks/dadeppo_arch.json` owns the full solver input, the published values and the tolerances; the native test and web worker read that same file. The solver returns complete nodal displacements only at the endpoint, so the replay and live computation rerun prefixes of 20, 40, …, 400 steps. Each frame is a real equilibrium result, never an interpolated shape. The chart plots load factor against step number; it does not mislabel the solver's first-free-DOF scalar as crown displacement. A full live recomputation also reruns the three steps around the peak to place the limit point in the browser. The live run can use 20, 40 or 80 elements, generated in the browser exactly as `arch()` in the engine test generates them (80 elements with twice the arc length, as in the mesh study). Only the 40-element run is checked against the published tolerances; with 20 or 80 elements the page compares the live limit point with the native mesh study (10⁻⁶ relative).
 
 ## Run
 
@@ -71,7 +80,7 @@ Open `/en/research/benchmarks/dadeppo-arch-1975/` (also `/es/`, `/pt/`, `/de/`, 
 - The rotation sign convention of the 1975 table: the quotation gives 0.0498 without a convention we could check. The engine's `ry` is positive at the limit point and its extrapolated value (0.04987) matches; the test pins that sign, but the mapping is established by agreement, not from the source.
 - Whether the 1975 table's values come from an inextensible formulation or a specific discretization; the extrapolated Stabileo values are close to them, but u/R differs by 0.028% (0.611428 against 0.6116), more than the table's rounding, so this agreement does not establish which formulation or discretization the table used.
 
-The catalogue keeps `stage: first-version` and the conservative evidence status `implementation-in-progress`. Agreement here is a benchmark comparison, not experimental validation or certification.
+The catalogue status is `published-figures-compared` with `reproduced_published_results: true`: the four Table 1 values, as quoted by the paper's coauthor, are compared within the tolerances derived above. The quotation, not the 1975 table, is what we inspected. Agreement here is a benchmark comparison, not experimental validation or certification.
 
 The gallery's static SVG is a projection of native replay frame 260 (undeformed dashed, deformed blue), regenerated with `python3 -I research/benchmarks/dadeppo-arch-1975/render-thumbnail.py`. It is not a paper figure or a browser screenshot; the interactive page uses the shared viewer bundle.
 

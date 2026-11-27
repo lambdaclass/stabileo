@@ -13,6 +13,13 @@ describe('Fairclough five-node data contract', () => {
       expect(()=>validateLayout(bad)).toThrow();
     }
   });
+  it('checks the structure of a layout at another unit weight without the paper-case comparison', () => {
+    const other = structuredClone(result.layout);
+    other.volume = 30.4425; other.curves = other.curves.slice(0, 2);
+    expect(validateLayout(other, 1.85).curves).toHaveLength(2);
+    expect(()=>validateLayout(other)).toThrow();
+    expect(()=>validateLayout({...other, curves: [[[0, 0, 0, -1]]]}, 1.85)).toThrow();
+  });
   it('rejects altered geometry and negative residuals but accepts signed end forces', () => {
     for (const field of ['nodes','edges','forces','curves'] as const) {
       const value = structuredClone(result.layout);

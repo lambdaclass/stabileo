@@ -75,7 +75,6 @@
   sourcePath="research/form-finding/pastrana-2026"
 >
   {#snippet article()}
-    <p>{s.researchLanguages}</p>
     <h2>{s.formScopeTitle}</h2><p>{s.formScope}</p>
     <h2>{s.formMethodTitle}</h2><p>{s.formMethod}</p>
     <p class="equation">x* = (Σ qⱼ sⱼ + p) / Σ qⱼ</p>

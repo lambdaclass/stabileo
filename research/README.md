@@ -25,15 +25,15 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 | `fracture/shauer-2025/` | Phase-field fracture (AT2), after Shauer (2025), reference code and Rust implementation |
 | `optimization/andreassen-2011/` | MBB topology optimization, unmodified Octave reference capture and Rust SIMP/OC implementation |
 | `metamaterials/grossman-2026/` | Spring networks after Grossman & Boudaoud (2026): moduli, auxetic foam, honeycomb, against the paper's published values |
-| `stability/ferrari-sigmund-2025/` | Roorda-frame buckling and energy derivatives; Koiter reproduction in progress |
+| `stability/ferrari-sigmund-2025/` | Roorda frame: production buckling and the post-buckling slope α against the paper; β does not agree |
 | `form-finding/pastrana-2026/` | Four-cable forward FDM, pinned jax_fdm comparison and production truss check |
 | `mechanics/biggins-2026/` | Centered curvature-patterned shallow arches, using production frame buckling modes |
 | `optimisation/fairclough-2026/` | One five-node self-weight gridshell from Table 1, externally executed reference and isolated Rust/Clarabel implementation |
 | `benchmarks/macneal-harder-1985/` | Production engine accuracy cases using the shared benchmark page format |
-| `benchmarks/mattiasson-elastica/` | Production corotational cantilever benchmark with provisional reference transcriptions |
+| `benchmarks/mattiasson-elastica/` | Production corotational cantilever against independent elliptic integrals and Mattiasson's table as reproduced by Nanakorn & Vu (2006) |
 | `benchmarks/cqc-1981/` | First version, 1 review round: close building modes, production modal + spectrum solvers versus closed form |
 | `benchmarks/navier-plate/` | First version: one simply supported plate, production DKT vs the thin-plate Navier series and MITC4 (hard support) vs the Reissner–Mindlin series; published `results/stabileo_results.json` |
-| `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay, mesh and step study, first-peak comparison with a by-eye reading of a published figure (2 review rounds) |
+| `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay, mesh and step study, first-peak comparison with a measured reading of a published figure and a tabulated later solution (2 review rounds) |
 | `numerical-methods/riks-crisfield/` | Production arc-length benchmarks against closed-form snap-through paths, with native/WASM parity checks |
 | `templates/` | Starting point for a new paper entry |
 | `tools/` | Catalog checker and other research-only tooling |
@@ -62,8 +62,11 @@ Statuses in `papers.yaml` are assigned from evidence in the repository, not by h
 | `reference-reproduced` | The authors' code ran here; its outputs are committed with the exact environment |
 | `implementation-in-progress` | A Stabileo implementation exists but its validation tests do not yet pass |
 | `numerically-validated` | Tests compare our implementation with the reproduced reference within documented tolerances, and pass in CI. When the authors publish no code, the reference is the paper's published values plus exact results (see that experiment's README). Whether published numbers were reproduced is the separate `reproduced_published_results` field |
-| `published-figures-compared` | Numerical validation plus `reproduced_published_results: true` and `reference-results/published_comparison.json` (legacy: `PUBLISHED_COMPARISON.json`) with passing checks naming published sources, metrics, observations and tolerances |
-| `interactive` | Numerical validation plus an existing repository-relative `page` file; this does not imply published-results agreement |
+| `published-figures-compared` | Numerical validation plus `reproduced_published_results: true` and `reference-results/published_comparison.json` (legacy: `PUBLISHED_COMPARISON.json`) with passing rows. Each row names the quantity (`name`), where the paper gives it (`source`), its `unit`, the paper's value (`reference`), ours (`computed`), the `metric` (`absolute …` or `relative …`), the difference that metric gives (`observed`, checked against `reference` and `computed`) and the `tolerance`. A row that compares a whole curve gives `points` instead of `reference` and `computed`, and `observed` is the largest difference. Pages show these rows as a table, "the paper against Stabileo" |
+
+Interactivity is not a status. Every experiment listed in `web/src/components/research/experiments.ts`
+runs on its page, shows an "Interactive" chip in the gallery and must be at least
+`numerically-validated`; a web test enforces it.
 
 `summary_source` is declared provenance for human review, not machine-verified summary content.
 The checker verifies the allowed source label; it does not compare the prose to the source.
@@ -124,7 +127,8 @@ measurements.
 The Mattiasson engine benchmark (`benchmarks/mattiasson-elastica`) reads the
 engine-owned `engine/tests/benchmarks/mattiasson_elastica.json` through its native
 adapter and production WASM page. It publishes no research solver or imported
-research results. Reference transcriptions remain unverified and status proposed.
+research results. `validate.py` writes its VALIDATION.json and the published comparison with
+Mattiasson's table, read from its reproduction in Nanakorn & Vu (2006), Table 1.
 ## Newmark (1959), first version
 
 `benchmarks/newmark-1959/` documents one exact SDOF step-response benchmark using
@@ -141,4 +145,4 @@ production WASM wrapper and shared Stabileo viewer. Stage: first-version; 1 revi
 1 review round. The page reports hand mechanism bounds separately from the solver result.
 ## First-version engine benchmark
 
-`benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the native results `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json` (replay, limit point and mesh study). Stage: first-version, 2 review rounds. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.
+`benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the native results `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json` (replay, limit point and mesh study), plus its `VALIDATION.json` and `reference-results/`. Stage: first-version, 2 review rounds. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.

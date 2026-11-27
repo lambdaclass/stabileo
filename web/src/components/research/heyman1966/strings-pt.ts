@@ -5,7 +5,6 @@ export const pt: Strings = {
   title: archCard.pt.title,
   lead: archCard.pt.hook,
   referenceLabel: 'Frente a soluções publicadas e uma implementação independente',
-  publishedWhy: 'O artigo de Heyman não foi lido aqui; a tabela compara com as soluções publicadas tabuladas por Rizzi et al. (2010).',
 
   ideaHeading: 'A alvenaria como material plástico',
   idea: 'A teoria plástica da alvenaria de Heyman se apoia em três hipóteses: a pedra não resiste à tração, nunca se esmaga e os blocos nunca deslizam entre si. Com elas, um arco é seguro se for possível traçar dentro da alvenaria uma linha de pressões em equilíbrio com as cargas. Onde a linha toca uma face, a junta pode abrir e funciona como rótula; com rótulas suficientes o arco vira um mecanismo e colapsa. A resistência quase não importa: a estabilidade é uma questão de geometria.',

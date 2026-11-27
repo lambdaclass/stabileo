@@ -8,6 +8,16 @@ export const tolerance = data.accuracyTolerance;
 export const meshErrorCeilings = data.meshErrorCeilings;
 export const axialExtensionBound = data.axialExtensionBound;
 export type Case = typeof cases[number];
+export const meshes = meshErrorCeilings.map(c => c.elements);
+
+export function refined(c: Case, elements = 16): Case {
+  if (elements === Object.keys(c.input.elements).length) return c;
+  const template = c.input.elements['1'];
+  const nodes = Object.fromEntries(Array.from({ length: elements + 1 }, (_, i) => [String(i + 1), { id: i + 1, x: c.length * i / elements, z: 0 }]));
+  const members = Object.fromEntries(Array.from({ length: elements }, (_, i) => [String(i + 1), { ...template, id: i + 1, nodeI: i + 1, nodeJ: i + 2 }]));
+  const loads = c.input.loads.map(l => ({ ...l, data: { ...l.data, nodeId: elements + 1 } }));
+  return { ...c, tipNode: elements + 1, input: { ...c.input, nodes, elements: members, loads } } as unknown as Case;
+}
 export type Displacement = { nodeId: number; ux: number; uz: number; ry: number };
 export type Output = { converged: boolean; loadFactor: number; results: { displacements: Displacement[] } };
 export type Result = { id: string; u: number | null; v: number | null; errors: number[] | null; pass: boolean | null; failure?: string; displacement?: Displacement[] };
@@ -30,12 +40,13 @@ export function compare(c: Case, output: Output): Result {
   const errors = c.reference?.map((ref, i) => Math.abs(([u, v][i] - ref) / ref)) ?? null;
   return { id: c.id, u, v, errors, pass: errors ? errors.every(withinTolerance) : null, displacement };
 }
-export async function runCases(onResult?: (r: Result) => void, stopped = () => false): Promise<Result[]> {
+export async function runCases(onResult?: (r: Result) => void, stopped = () => false, elements = 16): Promise<Result[]> {
   const engine = await import('../../../lib/engine/wasm-solver');
   await engine.initSolver();
   const rows: Result[] = [];
-  for (const c of cases) {
+  for (const original of cases) {
     if (stopped()) break;
+    const c = refined(original, elements);
     let row: Result;
     try { row = compare(c, engine.solveCorotational2D(inputFor(c), c.solver.maxIter, c.solver.tolerance, c.solver.nIncrements)); }
     catch (error) { row = { id: c.id, u: null, v: null, errors: null, pass: false, failure: error instanceof Error && ['incomplete', 'invalid'].includes(error.message) ? error.message : 'solveError' }; }

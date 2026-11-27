@@ -1,0 +1,80 @@
+{
+  "checks": [
+    {
+      "id": "elastica-0.5-0.2",
+      "metric": "B = 0.5L, a = 0.5, b = 0.2, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
+      "observed": 0.000046468525551068955,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "id": "elastica-0.5-0.5",
+      "metric": "B = 0.5L, a = 0.5, b = 0.5, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
+      "observed": 0.00005012007440915394,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "id": "elastica-0.5-0.8",
+      "metric": "B = 0.5L, a = 0.5, b = 0.8, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
+      "observed": 0.00009036426665332036,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "id": "elastica-0.75-0.2",
+      "metric": "B = 0.75L, a = 0.5, b = 0.2, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
+      "observed": 0.00009733620532212136,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "id": "elastica-0.75-0.5",
+      "metric": "B = 0.75L, a = 0.5, b = 0.5, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
+      "observed": 0.00009397547141108059,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "id": "elastica-0.75-0.8",
+      "metric": "B = 0.75L, a = 0.5, b = 0.8, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
+      "observed": 0.0001610192149953393,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "id": "elastica-loaded-0.5-0.5",
+      "metric": "B = 0.5L, a = 0.5, b = 0.5, self-weight and 1 N at midspan: midpoint height against the inextensible elastica, relative difference",
+      "observed": 0.00016149950318118173,
+      "passed": true,
+      "tolerance": 0.001
+    }
+  ],
+  "heights_mm": {
+    "0.5-0.2": {
+      "elastica": 125.79950752045916,
+      "stabileo": 125.80535323808868
+    },
+    "0.5-0.5": {
+      "elastica": 125.73336723952669,
+      "stabileo": 125.73966900524844
+    },
+    "0.5-0.8": {
+      "elastica": 124.13383667892421,
+      "stabileo": 124.14505394204257
+    },
+    "0.75-0.2": {
+      "elastica": 86.58696701472925,
+      "stabileo": 86.59539506152882
+    },
+    "0.75-0.5": {
+      "elastica": 85.6923781429236,
+      "stabileo": 85.70043112455592
+    },
+    "0.75-0.8": {
+      "elastica": 81.98451732936431,
+      "stabileo": 81.99771841198645
+    }
+  },
+  "scope": "Cut strip of Section 2 on the production co-rotational frame (136 members, N and mm, self-weight), against the inextensible elastica with the same variable stiffness and weight solved by shooting. Numerical comparison, not a laboratory test."
+}

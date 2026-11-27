@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { benchmark, convergence, fill, firstPeak, frameFrom, percentAgainstReference, point, SolveFailure, failureCode, viewer } from '../case';
+import { benchmark, convergence, fill, firstPeak, frameFrom, loadNodeOf, point, refinedInput, SolveFailure, failureCode, studyCase, viewer } from '../case';
+import published from '../../../../../../research/benchmarks/lee-frame-1968/reference-results/published-peaks.json';
+import comparison from '../../../../../../research/benchmarks/lee-frame-1968/reference-results/published_comparison.json';
 import { strings } from '../i18n';
 import replay from '../../../../../../research/benchmarks/lee-frame-1968/results/stabileo_results.json';
 
@@ -58,11 +60,26 @@ describe('Lee frame', () => {
     expect(convergence.stepEffectBound).toBe(1e-4);
   });
 
-  it('compares with the Figure 10 reading only to the nearest percent', () => {
-    expect(benchmark.reference.load).toBe(1.83);
-    expect(benchmark.reference.displayedPercentDigits).toBe(0);
-    expect(percentAgainstReference(benchmark.regression.firstLimitLoad)).toBe(2);
-    expect(percentAgainstReference(convergence.elements80.firstPeak)).toBe(1);
+  it('compares the measured Figure 10 reading and Galvão (2000) through the CI-written rows', () => {
+    expect(benchmark.reference).toMatchObject({ load: 1.87, uncertainty: .03 });
+    expect(published.rows.find(r => r.id === 'fig10-elements20')).toMatchObject({ reference: benchmark.reference.load, uncertainty: benchmark.reference.uncertainty });
+    expect(comparison.checks.map(r => r.id)).toEqual(published.rows.map(r => r.id));
+    expect(comparison.checks.every(r => r.passed && r.observed <= r.tolerance)).toBe(true);
+    expect(Math.abs(comparison.checks[0].computed - benchmark.regression.firstLimitLoad)).toBeLessThan(benchmark.regression.absoluteTolerance);
+    for (const [locale, dictionary] of Object.entries(strings)) for (const r of comparison.checks) expect(dictionary[`row_${r.id.replaceAll('-', '_')}` as keyof typeof dictionary], `${locale} ${r.id}`).toBeTruthy();
+  });
+
+  it('refines the shared case like the native mesh study', () => {
+    expect(refinedInput(1)).toBe(benchmark.input);
+    for (const split of [2, 4] as const) {
+      const input = refinedInput(split);
+      expect(Object.keys(input.solver.nodes)).toHaveLength(20 * split + 1);
+      expect(Object.keys(input.solver.elements)).toHaveLength(20 * split);
+      expect(input.solver.loads[0].data.nodeId).toBe(loadNodeOf(split));
+      expect(input.solver.nodes[String(loadNodeOf(split)) as keyof typeof input.solver.nodes]).toMatchObject({ x: .24, z: 1.2 });
+      expect(Object.values(input.solver.supports).map(s => s.nodeId)).toEqual([1, 20 * split + 1]);
+      expect(input.maxSteps).toBe(studyCase(split).maxSteps);
+    }
   });
 
   it('fills every placeholder of the localized templates', () => {
@@ -76,7 +93,7 @@ describe('Lee frame', () => {
     expect(Object.keys(strings).sort()).toEqual(['de', 'en', 'es', 'fr', 'hu', 'pt', 'tr', 'zh']);
     for (const [locale, dictionary] of Object.entries(strings)) {
       expect(Object.keys(dictionary)).toEqual(Object.keys(strings.en));
-      if (locale !== 'en') for (const key of ['lead', 'description', 'provenance', 'convergence', 'paperWhy', 'codeWhy', 'readout'] as const) expect(dictionary[key]).not.toBe(strings.en[key]);
+      if (locale !== 'en') for (const key of ['lead', 'description', 'provenance', 'convergence', 'readout', 'meshLive'] as const) expect(dictionary[key]).not.toBe(strings.en[key]);
       expect(JSON.stringify(dictionary)).not.toMatch(/provisional|pending|not checked|questions for the authors/i);
     }
   });

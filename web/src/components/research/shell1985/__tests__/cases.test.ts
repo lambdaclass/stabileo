@@ -119,14 +119,23 @@ describe('shell obstacle course evidence', () => {
   }, 120_000);
 });
 
-describe('the containment passages of the article', () => {
-  it('state the withheld hemisphere meshes and the #810 warning', async () => {
-    const { articleStrings } = await import('../article');
-    const en = articleStrings('en');
-    expect(en.containsShellContainment).toMatch(/withholds the distorted hemisphere meshes/);
-    expect(en.containsShellContainment).toContain('#798');
-    expect(en.containsShellContainment).toContain('#810');
-    expect(en.theHeadlineCountsTheFinestSelectedBrowser).toContain('#798');
-    expect(en.theHeadlineCountsTheFinestSelectedBrowser).toContain('1/3 passing');
+describe('the page strings', () => {
+  it('state the withheld hemisphere meshes, the #810 correction and the 1/3 headline in every locale', async () => {
+    const { strings } = await import('../i18n');
+    const { nativeOnly } = await import('../cases');
+    const keys = Object.keys(strings.en).sort();
+    for (const [locale, s] of Object.entries(strings)) {
+      expect(Object.keys(s).sort(), locale).toEqual(keys);
+      for (const [key, value] of Object.entries(s)) {
+        if (typeof value === 'string' && !['ledgerBefore'].includes(key)) expect(value.trim(), `${locale}.${key}`).not.toBe('');
+      }
+      expect(s.nativeOnly, locale).toHaveLength(nativeOnly.length);
+      expect(s.ledgerAfter, locale).toContain('#798');
+      expect(s.ledgerAfter, locale).toContain('#810');
+      expect(s.verdictText, locale).toContain('#798');
+      for (const key of ['running', 'fromBuilder'] as const) expect(s[key], `${locale}.${key}`).toMatch(/\{n\}/);
+      if (locale !== 'en') expect(s.obstacleText, locale).not.toBe(strings.en.obstacleText);
+    }
+    expect(strings.es.lead).not.toMatch(/\busted\b/i);
   });
 });

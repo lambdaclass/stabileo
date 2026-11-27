@@ -5,7 +5,6 @@ export const fr: Strings = {
   title: archCard.fr.title,
   lead: archCard.fr.hook,
   referenceLabel: 'Comparé aux solutions publiées et à une implémentation indépendante',
-  publishedWhy: 'L’article de Heyman n’a pas été lu ici ; le tableau compare avec les solutions publiées que tabulent Rizzi et al. (2010).',
 
   ideaHeading: 'La maçonnerie comme matériau plastique',
   idea: 'La théorie plastique de la maçonnerie de Heyman repose sur trois hypothèses : la pierre ne résiste pas à la traction, elle ne s’écrase jamais et les blocs ne glissent jamais les uns sur les autres. Sous ces hypothèses, un arc est sûr si l’on peut tracer dans la maçonnerie une ligne des pressions en équilibre avec les charges. Là où la ligne touche une face, le joint peut s’ouvrir et agit comme une rotule ; avec assez de rotules l’arc devient un mécanisme et s’effondre. La résistance compte à peine : la stabilité est une affaire de géométrie.',
