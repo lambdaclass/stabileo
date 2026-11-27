@@ -36,11 +36,11 @@ export function paramTargets(model: ModelSpec): Array<{ target: ParamTarget; lab
   const out: Array<{ target: ParamTarget; label: string; value: number }> = [];
   const xs = stations(model.nodes.map(([x]) => x));
   for (let i = 0; i + 1 < xs.length; i++) {
-    out.push({ target: { kind: 'segX', index: i }, label: tp('edu.params.segX', { a: round6(xs[i]!), b: round6(xs[i + 1]!) }), value: round6(xs[i + 1]! - xs[i]!) });
+    out.push({ target: { kind: 'segX', index: i }, label: tp('edu.params.segX', { a: round6(xs[i]!), b: round6(xs[i + 1]!) }), value: xs[i + 1]! - xs[i]! });
   }
   const ys = stations(model.nodes.map(([, y]) => y));
   for (let i = 0; i + 1 < ys.length; i++) {
-    out.push({ target: { kind: 'segY', index: i }, label: tp('edu.params.segY', { a: round6(ys[i]!), b: round6(ys[i + 1]!) }), value: round6(ys[i + 1]! - ys[i]!) });
+    out.push({ target: { kind: 'segY', index: i }, label: tp('edu.params.segY', { a: round6(ys[i]!), b: round6(ys[i + 1]!) }), value: ys[i + 1]! - ys[i]! });
   }
   (model.nodalLoads ?? []).forEach((l, i) => {
     const n = l.node + 1;
@@ -59,12 +59,12 @@ const BASE_NAME: Record<ParamTarget['kind'], string> = { segX: 'L', segY: 'h', f
 const UNIT: Record<ParamTarget['kind'], string> = { segX: 'm', segY: 'm', fx: 'kN', fy: 'kN', mz: 'kN·m', q: 'kN/m' };
 
 function roundTo(v: number, step: number) {
-  return Number((Math.round(v / step) * step).toFixed(6));
+  return Number((Math.round(v / step) * step).toPrecision(15));
 }
 
 export function suggestRange(kind: ParamTarget['kind'], value: number): ParamRange {
   const length = kind === 'segX' || kind === 'segY';
-  const step = length ? 0.5 : value >= 10 ? 5 : value >= 2 ? 1 : 0.5;
+  const step = value > 0 && value < 0.5 ? 10 ** Math.floor(Math.log10(value)) : length ? 0.5 : value >= 10 ? 5 : value >= 2 ? 1 : 0.5;
   const min = Math.min(Math.max(step, roundTo(value * 0.5, step)), roundTo(value, step) || step);
   const max = Math.max(roundTo(value * 1.5, step), min + step);
   return { min, max, step, unit: UNIT[kind] };
@@ -80,14 +80,14 @@ export function suggestBinding(model: ModelSpec, target: ParamTarget, taken: Ite
 }
 
 function sum(constant: number, names: string[]): Expr {
-  const c = round6(constant);
+  const c = constant;
   if (!names.length) return c;
   const joined = names.join(' + ');
   return c === 0 ? joined : `${c} + ${joined}`;
 }
 
 function scaled(value: number, magnitude: number, name: string): Expr {
-  const f = round6(value / magnitude);
+  const f = value / magnitude;
   if (f === 1) return name;
   if (f === -1) return `-${name}`;
   return `${f} * ${name}`;

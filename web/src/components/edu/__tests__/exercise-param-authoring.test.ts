@@ -47,7 +47,7 @@ describe('turning a drawn structure into parameters', () => {
     expect(r.params).toEqual({ values: {}, supportChoices: [{ support: 1, types: ['rollerX', 'pinned'] }] });
   });
 
-  it.skip('known wrong result: #1927 — suggests round ranges that contain the drawn value', () => {
+  it('known wrong result: #1927 — suggests round ranges that contain the drawn value', () => {
     expect(suggestRange('fy', 12)).toEqual({ min: 5, max: 20, step: 5, unit: 'kN' });
     expect(suggestRange('segX', 8)).toEqual({ min: 4, max: 12, step: 0.5, unit: 'm' });
     for (const v of [0.3, 1, 3.7, 15, 48]) {
@@ -58,7 +58,7 @@ describe('turning a drawn structure into parameters', () => {
   });
 });
 
-it.skip('known wrong result: #1927 — choosing the original magnitude reproduces both ends of a trapezoid', () => {
+it('known wrong result: #1927 — choosing the original magnitude reproduces both ends of a trapezoid', () => {
   const drawn = { ...overhang, distributedLoads: [{ element: 0, qI: 1, qJ: 3 }] };
   const binding = suggestBinding(drawn, { kind: 'q', index: 0 }, []);
   const { model } = parametrize({ model: drawn, bindings: [binding], supportChoices: [] });

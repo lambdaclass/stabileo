@@ -12103,6 +12103,7 @@ const de: Translations = {
   'edu.lint.whereHinge': 'Gelenk {k}',
   'edu.lint.whereTruss': 'Fachwerkstab {k}',
   "edu.support.guidedX": "Geführtes Lager (in X frei verschieblich)",
+  "edu.support.guidedZ": "Geführtes Lager (in Z frei verschieblich)",
   'edu.support.fixed': 'Einspannung',
   'edu.support.pinned': 'Festlager',
   'edu.support.rollerX': 'Loslager (vertikale Reaktion)',

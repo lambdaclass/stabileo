@@ -2,7 +2,7 @@
   import { formatParam } from './exercise-variant';
   import { t, tp } from '../../lib/i18n';
   import type { ModelSpec } from './exercise-spec';
-  import { readAnswer, withinTolerance } from './exercise-marking';
+  import { formatAnswer, readAnswer, withinTolerance } from './exercise-marking';
   import {
     BAR_ENDS, END_DOFS, barName, endElement, freeBodyKey, freeBodyUnit, studentBalanced,
     type BarEnd, type BarTruth, type EndAction, type EndDof, type FreeBodyBar,
@@ -29,7 +29,7 @@
   const bar = $derived(bars[active] ?? bars[0]!);
 
   const num = (s: string | undefined) => readAnswer(s ?? '');
-  const fmt = (v: number) => (Math.abs(v) < 0.005 ? '0' : v.toFixed(2).replace(/\.?0+$/, ''));
+  const fmt = (v: number) => String(Number(formatAnswer(v)));
 
   function barDone(b: number): boolean {
     return BAR_ENDS.every((end) => END_DOFS.every((dof) => verif[freeBodyKey(b, end, dof)] === 'correct'));
@@ -46,7 +46,6 @@
         student[end] = { Fx: 0, Fy: 0, M: 0 };
         for (const dof of END_DOFS) {
           const key = freeBodyKey(b, end, dof);
-          if (revealed[key]) { next[key] = 'correct'; student[end][dof] = truth[b]![end][dof]; continue; }
           const v = num(answers[key]);
           if (v === null) { next[key] = 'pending'; entered = false; continue; }
           student[end][dof] = v;

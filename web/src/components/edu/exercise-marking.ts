@@ -65,7 +65,12 @@ export function submissionVariant(spec: EduExerciseSpec, sub: Submission): { whi
   return { seedMismatch: false };
 }
 
-const fixed = (v: number | null) => (v === null || !Number.isFinite(v) ? undefined : v.toFixed(2));
+export function formatAnswer(value: number): string {
+  const rounded = value.toFixed(2);
+  return withinTolerance(Number(rounded), value) ? rounded : String(value);
+}
+
+const fixed = (v: number | null) => (v === null || !Number.isFinite(v) ? undefined : formatAnswer(v));
 
 /** Rebuilds the variant the submission was made against, solves it and marks every keyed answer again. Null when it cannot. */
 export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark | null {

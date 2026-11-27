@@ -12112,6 +12112,7 @@ const tr: Translations = {
   'edu.lint.whereHinge': 'mafsal {k}',
   'edu.lint.whereTruss': 'kafes çubuğu {k}',
   "edu.support.guidedX": "Kılavuzlu mesnet (X yönünde serbest öteleme)",
+  "edu.support.guidedZ": "Kılavuzlu mesnet (Z yönünde serbest öteleme)",
   'edu.support.fixed': 'Ankastre mesnet',
   'edu.support.pinned': 'Sabit mafsallı mesnet',
   'edu.support.rollerX': 'Kayıcı mesnet (düşey tepki)',

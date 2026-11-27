@@ -12639,6 +12639,7 @@ const es: Record<string, string> = {
   'edu.lint.whereHinge': 'articulación {k}',
   'edu.lint.whereTruss': 'barra de reticulado {k}',
   "edu.support.guidedX": "Apoyo guiado (desplazamiento libre en X)",
+  "edu.support.guidedZ": "Apoyo guiado (desplazamiento libre en Z)",
   'edu.support.fixed': 'Empotramiento',
   'edu.support.pinned': 'Apoyo fijo',
   'edu.support.rollerX': 'Apoyo móvil (reacción vertical)',

@@ -1,5 +1,7 @@
 import { modelStore, resultsStore, uiStore } from '../../lib/store';
 import { viewportCanvas } from '../../lib/utils/viewport-canvas';
+import { tp } from '../../lib/i18n';
+import { sectionFromProfile } from './exercise-stress';
 import { eduStore } from './edu-store.svelte';
 import type { EduExerciseAPI } from './exercise-spec';
 import type { EduExercise } from './exercises';
@@ -24,6 +26,14 @@ export function leaveExercise(): void {
 /** Builds into the model store; `record` collects node ids in `addNode()` order, which `supports[].nodeIndex` indexes. */
 export function exerciseStoreApi(record?: number[]): EduExerciseAPI {
   return {
+    setMemberProperties: (profile, fy) => {
+      if (profile) {
+        const section = sectionFromProfile(profile);
+        if (!section) throw new Error(tp('xls.err.sectionUnknown', { name: profile }));
+        modelStore.updateSection(1, section);
+      }
+      if (fy !== undefined) modelStore.updateMaterial(1, { fy });
+    },
     addNode: (x, y) => {
       const id = modelStore.addNode(x, y);
       record?.push(id);

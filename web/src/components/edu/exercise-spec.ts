@@ -63,6 +63,7 @@ export interface ModelSpec {
 export interface EduExerciseAPI {
   addNode: (x: number, y: number) => number;
   addElement: (nI: number, nJ: number, type?: 'frame' | 'truss') => number;
+  setMemberProperties?: (profile?: string, fy?: number) => void;
   addHinge?: (elementId: number, end: 'start' | 'end') => void;
   addSupport: (nodeId: number, type: SupportType) => void;
   addNodalLoad: (nodeId: number, fx: number, fy: number, mz?: number) => void;
@@ -77,6 +78,7 @@ export interface EduExerciseAPI {
  * moved.
  */
 export function buildFromSpec(model: ModelSpec, api: EduExerciseAPI): void {
+  if (model.profile || model.fy !== undefined) api.setMemberProperties?.(model.profile, model.fy);
   const nodeIds = model.nodes.map(([x, y]) => api.addNode(x, y));
   const truss = new Set(model.truss ?? []);
   const elementIds = model.elements.map(([i, j], k) =>

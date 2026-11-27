@@ -18,7 +18,7 @@
   } from './diagram-sketch';
   import { modelStore } from '../../lib/store';
   import { sketchTruth } from './sketch-truth';
-  import { TOLERANCE, withinTolerance, readAnswer, markDegree } from './exercise-marking';
+  import { formatAnswer, TOLERANCE, withinTolerance, readAnswer, markDegree } from './exercise-marking';
   import FreeBodyStep from './FreeBodyStep.svelte';
   import { freeBodyKeys, freeBodyLabel, freeBodyTruth, freeBodyUnit, parseFreeBodyKey } from './free-body-step';
 
@@ -428,7 +428,7 @@
     revealedReactions = newRevealed;
 
     const newAnswers = reactionAnswers.map(a => ({ ...a }));
-    newAnswers[supIdx][dof] = correct.toFixed(2);
+    newAnswers[supIdx][dof] = formatAnswer(correct);
     reactionAnswers = newAnswers;
 
     const newVerif = reactionVerif.map(v => ({ ...v }));
@@ -468,7 +468,7 @@
     const correct = exercise.diagramQuestions[idx].getCorrect(results.elementForces);
     if (correct === null || !Number.isFinite(correct)) return;
     revealedDiagrams = revealedDiagrams.map((v, j) => j === idx ? true : v);
-    diagramAnswers = diagramAnswers.map((v, j) => j === idx ? Math.abs(correct).toFixed(2) : v);
+    diagramAnswers = diagramAnswers.map((v, j) => j === idx ? formatAnswer(Math.abs(correct)) : v);
     diagramVerif = diagramVerif.map((v, j) => j === idx ? 'correct' as VerifState : v);
     diagramHints = diagramHints.filter(h => !h.startsWith(exercise.diagramQuestions[idx].question));
   }
@@ -503,7 +503,7 @@
     const correct = exercise.characteristics[idx].getCorrect(results.elementForces);
     if (correct === null || !Number.isFinite(correct)) return;
     revealedChars = revealedChars.map((v, j) => j === idx ? true : v);
-    charAnswers = charAnswers.map((v, j) => j === idx ? Math.abs(correct).toFixed(2) : v);
+    charAnswers = charAnswers.map((v, j) => j === idx ? formatAnswer(Math.abs(correct)) : v);
     charVerif = charVerif.map((v, j) => j === idx ? 'correct' as VerifState : v);
     charHints = charHints.filter(h => !h.startsWith(exercise.characteristics[idx].label));
   }

@@ -110,11 +110,11 @@ describe('grades as CSV', () => {
   });
 });
 
-it.skip.each([null, [], { typo: true }, { ...examSubmission(spec(), 1, []), submittedAt: 'yesterday' }])('known wrong result: #1927 — malformed saved work has no grade', stored => {
+it.each([null, [], { typo: true }, { ...examSubmission(spec(), 1, []), submittedAt: 'yesterday' }])('known wrong result: #1927 — malformed saved work has no grade', stored => {
   expect(gradeAttempt(spec(), 1, stored)).toBeNull();
 });
 
-it.skip('known wrong result: #1927 — displayed expected reactions round-trip through the grader', () => {
+it('known wrong result: #1927 — displayed expected reactions round-trip through the grader', () => {
   const input = { ...spec(), params: undefined, model: { nodes: [[0, 0], [1, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'fixed' }], nodalLoads: [{ node: 1, fy: -0.012 }] }, supports: [{ label: 'A', nodeIndex: 0, dofs: ['Ry'] }] } as EduExerciseSpec;
   const row = gradeAttempt(input, 1, {})!.answers.find(a => a.key === 'r:0:Ry')!;
   const again = gradeAttempt(input, 1, examSubmission(input, 1, [{ ...row, answer: row.expected! }]))!;

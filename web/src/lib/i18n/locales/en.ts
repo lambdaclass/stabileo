@@ -12650,6 +12650,7 @@ const en: Record<string, string> = {
   'edu.lint.whereHinge': 'hinge {k}',
   'edu.lint.whereTruss': 'truss bar {k}',
   "edu.support.guidedX": "Guided support (free X translation)",
+  "edu.support.guidedZ": "Guided support (free Z translation)",
   'edu.support.fixed': 'Fixed support',
   'edu.support.pinned': 'Pinned support',
   'edu.support.rollerX': 'Roller (vertical reaction)',

@@ -14884,6 +14884,7 @@ const hu: Translations = {
   "edu.lint.whereHinge": "{k}. csukló",
   "edu.lint.whereTruss": "{k}. rácsrúd",
   "edu.support.guidedX": "Vezetett támasz (szabad X irányú eltolódás)",
+  "edu.support.guidedZ": "Vezetett támasz (szabad Z irányú eltolódás)",
   "edu.support.fixed": "Befogás",
   "edu.support.pinned": "Csuklós támasz",
   "edu.support.rollerX": "Görgős támasz (függőleges támaszerő)",

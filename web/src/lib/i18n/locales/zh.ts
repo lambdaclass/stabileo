@@ -14886,6 +14886,7 @@ const zh: Translations = {
   "edu.lint.whereHinge": "铰 {k}",
   "edu.lint.whereTruss": "桁架杆件 {k}",
   "edu.support.guidedX": "导向支座（X 向可自由平移）",
+  "edu.support.guidedZ": "导向支座（Z 向可自由平移）",
   "edu.support.fixed": "固定支座",
   "edu.support.pinned": "铰支座",
   "edu.support.rollerX": "滚动支座（竖向反力）",

@@ -12292,6 +12292,7 @@ const pt: Translations = {
   'edu.lint.whereHinge': 'articulação {k}',
   'edu.lint.whereTruss': 'barra de treliça {k}',
   "edu.support.guidedX": "Apoio guiado (translação livre em X)",
+  "edu.support.guidedZ": "Apoio guiado (translação livre em Z)",
   'edu.support.fixed': 'Engaste',
   'edu.support.pinned': 'Apoio fixo',
   'edu.support.rollerX': 'Apoio móvel (reação vertical)',

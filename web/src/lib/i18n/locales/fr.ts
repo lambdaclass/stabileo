@@ -12103,6 +12103,7 @@ const fr: Translations = {
   'edu.lint.whereHinge': 'articulation {k}',
   'edu.lint.whereTruss': 'barre de treillis {k}',
   "edu.support.guidedX": "Appui guidé (translation libre en X)",
+  "edu.support.guidedZ": "Appui guidé (translation libre en Z)",
   'edu.support.fixed': 'Encastrement',
   'edu.support.pinned': 'Appui fixe',
   'edu.support.rollerX': 'Appui simple (réaction verticale)',

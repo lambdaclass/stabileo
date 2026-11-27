@@ -18,7 +18,8 @@ import {
 } from './exercise-spec';
 import { degreeOfSamples } from './diagram-sketch';
 import { readDisplayedReaction } from './edu-reactions';
-import { stressContext } from './exercise-stress';
+import { sketchTruth } from './sketch-truth';
+import { sectionFromProfile, stressContext } from './exercise-stress';
 import { SUPPORT_TYPE_KEYS } from './exercise-presets';
 
 export function isParametric(spec: Pick<EduExerciseSpec, 'params'>): boolean {
@@ -39,6 +40,7 @@ export function studentSeed(exerciseId: string, legajo: string): number {
 export function reactionDofsFor(type: SupportType): ReactionDof[] {
   switch (type) {
     case 'fixed': return ['Rx', 'Ry', 'M'];
+    case 'guidedZ': return ['Rx', 'M'];
     case 'guidedX': return ['Ry', 'M'];
     case 'rollerX': return ['Ry'];
     case 'rollerY':
@@ -148,6 +150,8 @@ const EDU_SECTION: Section = {
 export function specModelData(model: ModelSpec): ModelData {
   const hinged = (k: number, end: 'start' | 'end') => (model.hinges ?? []).some((h) => h.element === k && h.end === end);
   const truss = new Set(model.truss ?? []);
+  const section = model.profile ? sectionFromProfile(model.profile) : resolveDefaultSection({ ...EDU_SECTION });
+  if (!section) throw new Error(tp('xls.err.sectionUnknown', { name: model.profile! }));
   const loads: Load[] = [];
   for (const l of model.nodalLoads ?? []) {
     loads.push({ type: 'nodal', data: { id: loads.length + 1, nodeId: l.node + 1, fx: l.fx ?? 0, fz: l.fy ?? 0, my: l.mz ?? 0 } } as Load);
@@ -164,8 +168,8 @@ export function specModelData(model: ModelSpec): ModelData {
     } as Element])),
     supports: new Map(model.supports.map((s, k) => [k + 1, { id: k + 1, nodeId: s.node + 1, type: s.type } as Support])),
     loads,
-    materials: new Map([[1, { ...EDU_MATERIAL }]]),
-    sections: new Map([[1, resolveDefaultSection({ ...EDU_SECTION })]]),
+    materials: new Map([[1, { ...EDU_MATERIAL, fy: model.fy ?? EDU_MATERIAL.fy }]]),
+    sections: new Map([[1, section]]),
   };
 }
 
@@ -174,8 +178,8 @@ export function specNodeIds(model: ModelSpec): number[] {
 }
 
 export function solveModel(model: ModelSpec, solverType: 'linear' | 'pdelta' = 'linear'): AnalysisResults | string {
-  const data = specModelData(model);
   try {
+    const data = specModelData(model);
     if (solverType === 'pdelta') {
       const input = buildSolverInput2D(data, false);
       if (!input) return t('results.emptyModelError');
@@ -199,19 +203,14 @@ export function kinematicsOf(model: ModelSpec): KinematicQuestion | null {
 const SHAPE_RANK: DiagramShape[] = ['zero', 'constant', 'linear', 'quadratic', 'cubic'];
 const SHAPE_STATIONS = 41;
 
-/** The highest power any member's diagram has; a member carrying a millionth of the peak is read as carrying nothing. */
 export function shapeOf(diagram: 'N' | 'V' | 'M', forces: ElementForces[]): DiagramShape | null {
   if (!forces.length) return null;
   const kind = diagram === 'N' ? 'axial' : diagram === 'V' ? 'shear' : 'moment';
   const per = forces.map((ef) =>
     Array.from({ length: SHAPE_STATIONS }, (_, k) => diagramValueAsShown(kind, k / (SHAPE_STATIONS - 1), ef)));
-  const peakOf = (s: number[]) => s.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
-  const amp = per.reduce((m, s) => Math.max(m, peakOf(s)), 0);
-  if (!Number.isFinite(amp)) return null;
-  if (amp < 1e-9) return 'zero';
   let best = 0;
   for (const s of per) {
-    if (peakOf(s) < amp * 1e-6) continue;
+    if (!s.every(Number.isFinite)) return null;
     best = Math.max(best, SHAPE_RANK.indexOf(degreeOfSamples(s)));
   }
   return SHAPE_RANK[best]!;
@@ -276,6 +275,10 @@ export function checkResolved(ex: ResolvedExerciseSpec): string[] {
     if (v === null || !Number.isFinite(v)) bad(q.question || q.unit);
   }
   for (const q of ex.diagramShapeQuestions ?? []) if (shapeAnswer(q, forces) === null) bad(q.diagram);
+  for (const q of ex.diagramSketchQuestions ?? []) {
+    const truth = sketchTruth(q, results, specModelData(ex.model));
+    if (!truth?.length || !truth.every(Number.isFinite)) bad(q.diagram);
+  }
   return problems;
 }
 

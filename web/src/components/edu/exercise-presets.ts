@@ -122,6 +122,7 @@ export function suggestShapes(
 }
 
 export const SUPPORT_TYPE_KEYS: Record<string, string> = {
+  guidedZ: 'edu.support.guidedZ',
   guidedX: 'edu.support.guidedX',
   fixed: 'edu.support.fixed',
   pinned: 'edu.support.pinned',

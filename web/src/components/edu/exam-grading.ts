@@ -45,8 +45,12 @@ export function gradeAttempt(spec: EduExerciseSpec, seed: number, stored: unknow
   let resolved: ResolvedExerciseSpec;
   try { resolved = variantOf(spec, seed); } catch { return null; }
   const base = storedSubmission(stored);
+  if (!base && (!stored || typeof stored !== 'object' || Array.isArray(stored) || Object.keys(stored).length !== 0)) return null;
+  if (base && (base.exerciseId !== spec.id || base.answers.some(row => !row.key))) return null;
+  const at = new Date(base?.submittedAt || 0);
+  if (!Number.isFinite(at.getTime())) return null;
   const submission: Submission = {
-    ...examSubmission(spec, seed, base?.answers ?? [], base?.submittedAt ? new Date(base.submittedAt) : new Date(0)),
+    ...examSubmission(spec, seed, base?.answers ?? [], at),
     student,
   };
   const remark = remarkSubmission(spec, submission);

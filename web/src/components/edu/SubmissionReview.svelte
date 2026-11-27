@@ -73,7 +73,7 @@
     {#if remark.seedMismatch}<p class="note warn">{t('edu.review.seedMismatch')}</p>{/if}
   {:else if spec === null}
     <p class="note">{t('edu.review.unknownExercise')}</p>
-  {:else}
+  {:else if spec}
     <p class="note warn" role="alert">{t('edu.review.remarkFailed')}</p>
   {/if}
 
@@ -109,6 +109,12 @@
     </tbody>
   </table>
 
+  {#if spec && submission.answers.some(a => !a.key)}
+    <p class="note warn">{t('edu.review.remarkFailed')}</p>
+    {#each submission.answers.filter(a => !a.key) as a}
+      <p>{a.label} — {a.answer} {a.unit ?? ''}</p>
+    {/each}
+  {/if}
   <p class="disclaimer">{t('edu.review.notProof')}</p>
 </div>
 
