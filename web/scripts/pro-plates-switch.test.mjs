@@ -132,3 +132,34 @@ test('disabled builds resolve a module the branch removed, imported with or with
     assert.equal(plugin.resolveId(`./${name.split('/').pop()}`, importer), target, name);
   }
 });
+
+test('both plate profiles build the checked-out solver, mesher, file reader and registry', { skip: 'known wrong result: #2365' }, async () => {
+  const entry = fileURLToPath(new URL('../.pro-plates-off-fixture.mjs', import.meta.url));
+  for (const enabled of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
+      const result = await build({
+        configFile,
+        root,
+        logLevel: 'silent',
+        plugins: [{
+          name: entry,
+          resolveId: id => id === entry ? '\0' + entry : null,
+          load: id => id === '\0' + entry ? `
+            import analysis from '/src/lib/engine/live-calc.ts?raw';
+            import metadata from 'virtual:result-change-metadata';
+            import mesher from '/src/components/pro/ProMesher.svelte?raw';
+            import file from '/src/lib/store/file.ts?raw';
+            export default [analysis, metadata.currentResultsVersion, mesher, file];
+          ` : null,
+        }],
+        build: { write: false, lib: { entry, formats: ['es'] } },
+      });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+      const { default: [source, version, mesher, file] } = await import('data:text/javascript;base64,' + Buffer.from(chunk.code).toString('base64'));
+      assert.equal(source, readFileSync(resolve(root, 'src/lib/engine/live-calc.ts'), 'utf8'));
+      assert.equal(version, readRegistry().currentResultsVersion);
+      assert.equal(mesher, readFileSync(resolve(root, 'src/components/pro/ProMesher.svelte'), 'utf8'));
+      assert.equal(file, readFileSync(resolve(root, 'src/lib/store/file.ts'), 'utf8'));
+    });
+  }
+});
