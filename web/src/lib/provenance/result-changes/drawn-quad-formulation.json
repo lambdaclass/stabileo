@@ -1,0 +1,40 @@
+{
+  "id": "drawn-quad-formulation",
+  "date": "2026-11-27",
+  "prs": [
+    2535
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "curvedShells"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-build-and-schedules.md",
+    "heading": "Formulation of drawn quadrilateral shells"
+  },
+  "title": {
+    "en": "Formulation of drawn quadrilateral shells",
+    "es": "Formulación de láminas cuadriláteras dibujadas",
+    "pt": "Formulação de cascas quadrilaterais desenhadas",
+    "de": "Formulierung gezeichneter Viereckschalen",
+    "fr": "Formulation des coques quadrilatérales dessinées",
+    "tr": "Çizilen dörtgen kabukların formülasyonu",
+    "zh": "绘制的四边形壳单元的计算形式",
+    "hu": "Rajzolt négyszögű héjelemek formulációja"
+  },
+  "explanation": {
+    "en": "A disabled-profile integration build could select the curved formulation automatically. Review the formulation of saved warped shells and rerun the analysis.",
+    "es": "Una compilación de integración con la opción desactivada podía seleccionar automáticamente la formulación curva. Revise la formulación de las láminas alabeadas guardadas y repita el análisis.",
+    "pt": "Uma versão de integração com a opção desativada podia selecionar automaticamente a formulação curva. Reveja a formulação das cascas empenadas salvas e repita a análise.",
+    "de": "Ein Integrationsbuild konnte bei ausgeschalteter Option automatisch die gekrümmte Schalenformulierung wählen. Prüfen Sie die Formulierung gespeicherter verwundener Schalen und wiederholen Sie die Berechnung.",
+    "fr": "Une version d’intégration pouvait sélectionner automatiquement la formulation courbe lorsque l’option était désactivée. Vérifiez la formulation des coques gauches enregistrées et relancez le calcul.",
+    "tr": "Bir entegrasyon sürümü, seçenek kapalıyken eğri kabuk formülasyonunu otomatik seçebiliyordu. Kayıtlı çarpık kabukların formülasyonunu kontrol edip analizi tekrarlayın.",
+    "zh": "某个集成版本在选项关闭时仍可能自动选择曲壳形式。请检查已保存翘曲壳单元的计算形式并重新分析。",
+    "hu": "Egy integrációs változat kikapcsolt opciónál is automatikusan választhatta a görbült héj formulációját. Ellenőrizze a mentett, nem síkbeli héjak formulációját és ismételje meg a számítást."
+  }
+}

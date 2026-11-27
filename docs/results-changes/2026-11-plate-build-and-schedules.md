@@ -19,3 +19,7 @@ A disabled-profile integration build could accept two plate meshes with differen
 ## Positive overlaps on split members
 
 An unmerged integration build could discard part of a distributed load when that part covered a very short interval on a child member. The split now refuses any positive overlap below the solver's existing geometric limit. An exactly empty intersection still transfers no load. Check the original load extents and redo any affected edits before analysis.
+
+## Formulation of drawn quadrilateral shells
+
+In the production profile, a newly drawn quadrilateral retains the flat formulation unless the user explicitly selects curved. A warped flat shell reaches the solver's normal warp check. Unified PRO retains its automatic curved-shell selection. A disabled-profile integration build could mark a drawn shell curved automatically; its saved flag does not record who selected it. Review the formulation of such shells before reanalysis.

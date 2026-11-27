@@ -295,7 +295,7 @@
                  onchange={(v) => { if (v > 0) drawState.plateThickness = v; }} testid="shell-thickness" />
         </label>
 
-        {#if newCount === 4 && newOutOfPlane != null && newOutOfPlane > CURVED_QUAD_TOL}
+        {#if unifiedPlates() && newCount === 4 && newOutOfPlane != null && newOutOfPlane > CURVED_QUAD_TOL}
           <p class="mesh-hint" data-testid="quad-curved-hint">{tp('pro.curvedShellAuto', { mm: (newOutOfPlane * 1000).toFixed(1) })}</p>
         {/if}
 

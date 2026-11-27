@@ -7,3 +7,5 @@ Both plate profiles now build the checkout's solver and saved-result notices. Un
 Regenerating curved wind pressure also restores the local moment checks used for interior member diagrams.
 
 Declared plates must meet at shared edge nodes in both profiles. Member splits refuse a positive load overlap below the existing geometry limit.
+
+Production drawing again preserves the flat quadrilateral formulation unless curved is explicitly selected.

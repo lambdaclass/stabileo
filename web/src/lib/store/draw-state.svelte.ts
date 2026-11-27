@@ -10,6 +10,7 @@
  * Drawing preferences, not model data: none of this is saved with the project.
  */
 import { modelStore } from './model.svelte';
+import { unifiedPlates } from '../features';
 import { uiStore } from './ui.svelte';
 import { defaultShellMaterial } from '../pro/design-home';
 import { DOF_SPRING, support3DFrom, type Dof3D } from '../model/support-3d';
@@ -218,9 +219,7 @@ export function addShellOnCorners(
   if (ids.length === 3) {
     return { key: 'p' + modelStore.addPlate(ids as [number, number, number], materialId, thickness) };
   }
-  const id = modelStore.addQuad(ids as [number, number, number, number], materialId, thickness);
-  /* A curved quad goes to the solver as a degenerated continuum rather than a flat MITC4. */
-  const q = modelStore.model.quads.get(id);
-  if (q && (curved ?? (quadOutOfPlane(ids) ?? 0) > CURVED_QUAD_TOL)) q.curved = true;
+  const useCurved = curved ?? (unifiedPlates() && (quadOutOfPlane(ids) ?? 0) > CURVED_QUAD_TOL);
+  const id = modelStore.addQuad(ids as [number, number, number, number], materialId, thickness, { curved: useCurved });
   return { key: 'q' + id };
 }

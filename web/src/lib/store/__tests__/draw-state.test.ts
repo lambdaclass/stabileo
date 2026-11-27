@@ -16,7 +16,7 @@ describe('addShellOnCorners', () => {
     expect(addShellOnCorners([a!, b!, c!, d!], mat(), 0.2)).toEqual({ key: expect.stringMatching(/^q\d+$/) });
   });
 
-  it.skip('known wrong result: #2535 drawing warped corners in production keeps the flat formulation', () => {
+  it('known wrong result: #2535 drawing warped corners in production keeps the flat formulation', () => {
     const [a, b, c, d] = square();
     modelStore.updateNode(c!, 1, 1, 0.1);
     for (const curved of [undefined, false, true]) {
