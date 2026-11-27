@@ -208,3 +208,16 @@ it.each(['reconnect', 'move'])('drops a held 3D diagram on a %s with identical I
   }
   expect(resultsStore.screen.results3D).toBeNull();
 });
+
+it.skip('known wrong result: #1927 — restoring identical geometry keeps the solved section on a reassigned member', async () => {
+  const { getSectionProps } = await import('../../viewport3d/results-sync');
+  const r = await solvedPortal();
+  const id = r.elementForces[0].elementId;
+  const e = modelStore.elements.get(id)!;
+  const original = getSectionProps(id);
+  const oldMaterial = modelStore.materials.get(e.materialId)!;
+  const changed = modelStore.addMaterial({ ...oldMaterial, fy: (oldMaterial.fy ?? 1) * 2 });
+  modelStore.updateElementMaterial(id, changed);
+  expect(resultsStore.screen.results).toBe(r);
+  expect(getSectionProps(id)).toEqual(original);
+});
