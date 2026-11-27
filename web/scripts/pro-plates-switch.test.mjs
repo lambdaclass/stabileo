@@ -315,3 +315,23 @@ test('known wrong result: #1928 every published gallery label belongs to an avai
     });
   }
 });
+
+test.skip('known wrong result: #1928 the board controls ship only with the unified notices', async () => {
+  for (const enabled of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const source = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        const module = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+        const catalog = module[locale];
+        for (const key of ['notices.kind.withheld', 'notices.hideKind', 'notices.restoreHidden', 'containment.restore', 'containment.toDiagnostics']) {
+          assert.equal(Object.hasOwn(catalog, key), enabled, locale + ' ' + key);
+        }
+        for (const key of ['containment.more', 'containment.less', 'knownIssue.NUM-INVARIANCE']) {
+          assert.ok(catalog[key], locale + ' ' + key);
+        }
+      }
+    });
+  }
+});
