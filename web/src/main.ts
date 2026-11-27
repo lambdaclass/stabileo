@@ -36,7 +36,7 @@ function installTestHooks() {
 
 async function bootstrap() {
   restoreRedirectedRoute();
-  if (__PUBLIC_FEATURES__.tools) restoreMovedRoute();
+  if (__PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame) restoreMovedRoute();
   if (__PUBLIC_FEATURES__.accounts && accounts()) void import('./lib/tracking/tracking').then(m => m.startTracking());
   const target = document.getElementById('app')!;
   window.addEventListener('stabileo-app-ready', installTestHooks, { once: true });

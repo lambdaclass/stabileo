@@ -47,7 +47,7 @@
   };
   let { to, class: cls = '', children, ...rest }: Props = $props();
 
-  const target = $derived(__PUBLIC_FEATURES__.tools ? movedRoute(to) ?? to : to);
+  const target = $derived(__PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame ? movedRoute(to) ?? to : to);
   const href = $derived(publicHref(target, __PUBLIC_FEATURES__.research ? publishedLocale(target, publicI18n.locale) : publicI18n.locale));
 
   function onclick(e: MouseEvent) {

@@ -177,7 +177,9 @@ describe('every published URL is served, not redirected', () => {
       ['/en/terms/', flags.accounts],
       ['/en/privacy/', flags.accounts],
       ['/en/usage-data/', flags.accounts],
-      ['/en/diagram-game/', flags.diagramGame],
+      ['/en/games/', flags.diagramGame],
+      ['/es/games/diagram-game/', flags.diagramGame],
+      ['/zh/games/diagram-game/', flags.diagramGame],
     ] as const;
     for (const [path, published] of routes) {
       expect(fileServedWithoutRedirect(path) !== null, path).toBe(published);
@@ -259,7 +261,7 @@ describe('every published URL is served, not redirected', () => {
   it('keeps former examples canonical at their built addresses and redirects only when tools are enabled', () => {
     const urls = publishedUrls();
     for (const locale of PUBLIC_LOCALES) {
-      for (const from of MOVED_PAGES) {
+      for (const from of MOVED_PAGES.filter(from => from !== '/diagram-game' || flags.diagramGame)) {
         const file = fileServedWithoutRedirect(`/${locale}${from}/`);
         expect(file, `${locale}${from}`).not.toBeNull();
         const moved = movedRoute(from, flags);

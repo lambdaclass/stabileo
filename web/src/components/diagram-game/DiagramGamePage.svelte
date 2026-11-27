@@ -16,6 +16,9 @@
   import { figure, sharedFrame } from './figure';
   import type { DiagramKind } from './traces';
   import '../landing/landing.css';
+  import PublicLink from '../landing/PublicLink.svelte';
+  import { th } from '../games/strings';
+  import { GAMES_HUB } from '../../lib/game-routes';
 
   let { path }: { path: string } = $props();
 
@@ -54,7 +57,7 @@
     const locale = publicI18n.locale, route = path.replace(/\/+$/, '');
     applyPageMeta({
       title: `${tg('title')} — Stabileo`, description: tg('meta'), locale, path: route,
-      graph: [stabileoSoftware(locale), breadcrumbs(locale, [['Stabileo', '/'], [tg('title'), route]])],
+      graph: [stabileoSoftware(locale), breadcrumbs(locale, [['Stabileo', '/'], [th('title'), GAMES_HUB], [tg('title'), route]])],
     });
     return () => restorePageMeta();
   });
@@ -306,6 +309,7 @@
   <main class="sec sec--ink">
     <div class="wrap dg-wrap">
       <header class="dg-intro">
+        {#if !game}<p class="crumb"><PublicLink to={GAMES_HUB}>{th('title')}</PublicLink></p>{/if}
         <h1 bind:this={heading} tabindex="-1" class:sr-only={!!game}>{tg('title')}</h1>
         {#if !game}
           <p class="lead">{tg('lead')}</p>
@@ -452,6 +456,8 @@
   h1 { font: 600 clamp(1.75rem, 4.5vw, 2.75rem)/1.1 var(--lp-display); margin: 0 0 .75rem; outline: none; overflow-wrap: anywhere; }
   h1.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .dg-intro { display: flex; flex-direction: column; align-items: flex-start; }
+  .crumb { margin: 0 0 .25rem; font-size: .95rem; color: var(--st-text-2); }
+  .crumb :global(a) { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; color: inherit; text-underline-offset: 3px; }
   .lead { font-size: 1.05rem; max-width: 46rem; }
   .how { list-style: none; margin: 1rem 0; padding: 0; display: grid; gap: .6rem; max-width: 46rem; }
   .how li { display: flex; align-items: flex-start; gap: .7rem; }
@@ -549,6 +555,7 @@
     .bar { min-height: 44px; }
     .dg-intro > :global(*) { order: 4; }
     .dg-intro h1 { order: 0; }
+    .dg-intro .crumb { order: 0; }
     .dg-start { order: 1; }
     .rotate { order: 2; padding: .6rem; gap: .6rem; }
     .rotate svg { width: 2.25rem; height: 2.25rem; }
