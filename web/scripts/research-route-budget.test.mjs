@@ -168,3 +168,32 @@ test('credits only literal Italian copy in the emitted chunk', () => {
   assert.equal(italianCopyBytes(dedicated, ['/app/src/lib/i18n/locales/steel/it.ts'], parseAst), 2 * Buffer.byteLength(data));
   assert.equal(italianCopyBytes(dedicated, ['/app/src/lib/i18n/locales/steel/it.ts', 'other.ts'], parseAst), 0);
 });
+
+test.skip('known wrong result: #2595 — a static Italian dictionary binding is counted once', () => {
+  const copy = '"città"';
+  for (const map of ['{en, it}', '{en, it:it}']) {
+    const source = `const en={}, it={label:${copy}}; export const a=${map}, b=${map};`;
+    assert.equal(italianCopyBytes(source, ['labels.ts'], parseAst), Buffer.byteLength(copy));
+  }
+});
+
+test.skip('known wrong result: #2595 — shared bytes inside the largest public chunk retain their own budget', async () => {
+  const { comparePartitions } = await import('./research-route-budget.mjs');
+  const route = '/en/';
+  const snapshot = (total, copy) => ({
+    routes: { [route]: total }, italian: { [route]: total - 90000 },
+    publicLocales: { en: { total: 90000, italian: 0 }, it: { total, italian: copy } },
+  });
+  const base = snapshot(100000, 40000);
+  const allowances = { [route]: { bytes: 20000, italianBytes: 20000 } };
+  const check = candidate => comparePartitions(base, candidate, 'true', allowances);
+  check(snapshot(110000, 50000));
+  check(snapshot(100128, 40000));
+  assert.throws(() => check(snapshot(100129, 40000)), /research isolation/);
+  assert.throws(() => check(snapshot(110000, 40000)), /research isolation/);
+});
+
+test.skip('known wrong result: #2595 — legacy route baselines require measuring the base revision', async () => {
+  const { comparePartitions } = await import('./research-route-budget.mjs');
+  assert.throws(() => comparePartitions({ routes: baseline }, { routes: baseline }), /base revision.*--update/i);
+});

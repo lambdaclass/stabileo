@@ -472,3 +472,9 @@ describe('compatibility-matrix method, inextensible frame members', () => {
     }
   });
 });
+
+it.skip.each(['portal-frame', 'truss'])('known wrong result: #2595 — separate free force and moment residuals on %s', async name => {
+  const ctx = await example(name);
+  const report = txtsOf(compat.build!(ctx)).find(text => text.key === 'steps.trusses.compat.residual');
+  expect(report?.params).toEqual({ force: expect.any(String), moment: expect.any(String) });
+});
