@@ -48,7 +48,7 @@
       <span class="wif-label">{t('whatif.supportType')}</span>
       <select class="wif-select" value={type} onchange={(e) => whatIf.setSupportType(s.id, e.currentTarget.value as SupportType)}
         data-testid="whatif-support-{s.id}">
-        {#if !options.some((o) => o.v === type)}<option value={type}>{currentLabel(type)}</option>{/if}
+        {#if !options.some((o) => o.v === s.type)}<option value={s.type}>{currentLabel(s.type)}</option>{/if}
         {#each options as o (o.v)}<option value={o.v}>{label(o)}</option>{/each}
       </select>
     </label>

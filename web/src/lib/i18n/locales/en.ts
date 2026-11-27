@@ -1,4 +1,6 @@
 const en: Record<string, string> = {
+  'whatif.resp.shearBound': "Upper bound on resultant shear (component envelopes)",
+  'whatif.resp.momentBound': "Upper bound on resultant moment (component envelopes)",
   'svc.accountingMismatch': "Analysis refused. Load case {case}, {component}. Entered {entered}, assembled {assembled}.",
   'svc.accountingLineEnd': "Analysis refused. Load case {case}, member {member} end {end}. Redistributed load reached node {actual}. Expected node {expected}.",
   'svc.accountingUnsupported': "Analysis refused. Load case {case} includes {kind} {id}, whose forces and moments cannot be accounted for.",
@@ -8267,7 +8269,7 @@ const en: Record<string, string> = {
   'materials.aggregate': 'Maximum nominal coarse-aggregate size (mm)',
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.alpha': 'Coefficient of thermal expansion',
-  'materials.alphaHelp': 'Coefficient of thermal expansion, in 10⁻⁶/°C. Blank: the material family’s (concrete 10, steel 12, aluminum 23), shown grayed.',
+  'materials.alphaHelp': "Thermal expansion in 10⁻⁶/°C. A blank field uses the known family value (concrete 10, steel 12, aluminum 23). For an unknown family, the solver assumes 12 and reports this assumption.",
   'materials.alphaInvalid': 'Enter a finite thermal expansion coefficient in 10⁻⁶/°C (−1000 < α < 1000).',
   'materials.aggregateHelp': 'Maximum nominal coarse-aggregate size. Used by the minimum bar-spacing rule.',
   'materials.family': 'Family',

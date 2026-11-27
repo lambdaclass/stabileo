@@ -26,7 +26,8 @@ import { verificationStore } from '../store/verification.svelte';
 import { discretizationStore } from '../store/discretization.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import { dofQuantity } from '../utils/units';
-import type { Diagram3DKind } from '../engine/diagrams-3d';
+import { axialPaintRange, axialPaintLabel } from '../viewport/axial-paint';
+import { computeDiagram3D, type Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { timeHistoryView } from '../store/time-history-view.svelte';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellNodalColors, displaceShellFace, type HeatmapVariable } from '../three/stress-heatmap';
@@ -532,8 +533,8 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
       if (group) showOriginalMeshes(group, true);
       const ef = forcesMap.get(id);
       if (!ef) return;
-      const nAvg = (ef.nStart + ef.nEnd) / 2;
-      const c = axialForceColor(nAvg);
+      const range = axialPaintRange(computeDiagram3D(ef, 'axial'));
+      const c = range.mixed ? 0x895a70 : axialForceColor(range.tension || range.compression);
       if (group) setGroupColor(group, c);
       // The batched wireframe primary is where a plain member's colour lives:
       // without this, axial colours are silently invisible in wireframe.
@@ -629,8 +630,13 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
     ctx.verificationLabelsGroup = null;
   }
 
-  if (resultsStore.screen.diagram !== 'verification') return;
-  if (!verificationStore.hasResults && !verificationStore.hasDemandData) return;
+  const axial = resultsStore.screen.diagram === 'axialColor' && resultsStore.screen.results3D;
+  if (!axial && (resultsStore.screen.diagram !== 'verification' || (!verificationStore.hasResults && !verificationStore.hasDemandData))) return;
+  const mixedLabels = new Map<number, { text: string; color: string }>();
+  if (axial) for (const ef of axial.elementForces) {
+    const range = axialPaintRange(computeDiagram3D(ef, 'axial'));
+    if (range.mixed) mixedLabels.set(ef.elementId, { text: axialPaintLabel(range, uiStore.unitSystem), color: '#e8eef4' });
+  }
 
   const project2D = projectFlag();
 
@@ -640,8 +646,8 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
   // Same partial-registry trap as the colour maps: in wireframe the labels
   // would appear only on the handful of members that happen to have a group.
   forEachElementVisual(ctx, (id) => {
-    const v = verificationStore.memberVerdict(id);
-    const label = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) }).label;
+    const v = axial ? null : verificationStore.memberVerdict(id);
+    const label = v ? verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) }).label : mixedLabels.get(id);
     if (!label) return;
 
     const elem = modelStore.elements.get(id);

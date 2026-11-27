@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  'whatif.resp.shearBound': "Bileşke kesme kuvvetinin üst sınırı (bileşen zarfları)",
+  'whatif.resp.momentBound': "Bileşke momentin üst sınırı (bileşen zarfları)",
   'svc.accountingMismatch': "Analiz reddedildi. Yük durumu {case}, {component}. Girilen {entered}, birleştirilen {assembled}.",
   'svc.accountingLineEnd': "Analiz reddedildi. Yük durumu {case}, {member} numaralı elemanın {end} ucu. Yeniden dağıtılan yük {actual} düğümüne uygulandı. Beklenen düğüm {expected}.",
   'svc.accountingUnsupported': "Analiz reddedildi. {case} yük durumunda {kind} {id} için kuvvet ve moment hesabı yapılamıyor.",
@@ -7808,7 +7810,7 @@ const tr: Translations = {
   'materials.aggregate': 'En büyük nominal iri agrega boyutu (mm)',
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.alpha': 'Isıl genleşme katsayısı',
-  'materials.alphaHelp': 'Isıl genleşme katsayısı, 10⁻⁶/°C cinsinden. Boş: malzeme ailesinin değeri (beton 10, çelik 12, alüminyum 23), gri gösterilir.',
+  'materials.alphaHelp': "Isıl genleşme (10⁻⁶/°C). Boş bırakılırsa bilinen malzeme ailesi kullanılır (beton 10, çelik 12, alüminyum 23). Aile bilinmiyorsa çözücü 12 değerini varsayar ve bunu bildirir.",
   'materials.alphaInvalid': '10⁻⁶/°C cinsinden sonlu bir ısıl genleşme katsayısı girin (−1000 < α < 1000).',
   'materials.aggregateHelp': 'En büyük nominal iri agrega boyutu. En küçük donatı aralığı kuralında kullanılır.',
   'materials.family': 'Aile',

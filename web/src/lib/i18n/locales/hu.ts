@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  'whatif.resp.shearBound': "Az eredő nyíróerő felső korlátja (komponensenkénti burkolók)",
+  'whatif.resp.momentBound': "Az eredő hajlítónyomaték felső korlátja (komponensenkénti burkolók)",
   'svc.accountingMismatch': "A számítás elutasítva. {case} tehereset, {component}. Megadott érték {entered}, összeállított érték {assembled}.",
   'svc.accountingLineEnd': "A számítás elutasítva. {case} tehereset, a(z) {member} rúd {end} vége. Az átosztott teher a(z) {actual} csomópontra került. A várt csomópont {expected}.",
   'svc.accountingUnsupported': "A számítás elutasítva. A(z) {case} teheresetben a(z) {kind} {id} erői és nyomatékai nem ellenőrizhetők.",
@@ -7497,7 +7499,7 @@ const hu: Translations = {
   "materials.aggregate": "Durva adalékanyag legnagyobb névleges mérete (mm)",
   "materials.aggregateShort": "d_agg (mm)",
   "materials.alpha": "Hőtágulási együttható",
-  "materials.alphaHelp": "Hőtágulási együttható, 10⁻⁶/°C egységben. Üresen: az anyagcsaládé (beton 10, acél 12, alumínium 23), szürkén megjelenítve.",
+  'materials.alphaHelp': "Hőtágulás 10⁻⁶/°C egységben. Üres mezőnél az ismert anyagcsalád értéke érvényes (beton 10, acél 12, alumínium 23). Ismeretlen család esetén a számítás 12 értéket feltételez, és ezt jelzi.",
   "materials.alphaInvalid": "Adjon meg véges hőtágulási együtthatót 10⁻⁶/°C egységben (−1000 < α < 1000).",
   "materials.aggregateHelp": "Durva adalékanyag legnagyobb névleges mérete. A legkisebb szálköz szabálya használja.",
   "materials.family": "Család",

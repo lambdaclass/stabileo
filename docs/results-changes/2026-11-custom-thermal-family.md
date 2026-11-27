@@ -55,3 +55,7 @@ The fixture heats member 2 between (0, 4) and (5, 4) m. Its ungraded material ha
 | `base.resultSummary.reactionResultant.minValue` | 2.19906253 | 2.638875036 | 2.638875036 | Extremum of the scaled response |
 | `base.resultSummary.rotation.maxValue` | 0.0002012623094 | 0.0002415147713 | 0.00024151477128 | Extremum of the scaled response |
 | `base.resultSummary.rotation.minValue` | -0.0006344219836 | -0.0007613063803 | -0.00076130638032 | Extremum of the scaled response |
+
+## Workbook and material edits
+
+A project workbook could export an explicit expansion coefficient and then ignore its column during import. This affected zero and negative coefficients as well as positive coefficients. Reimport the workbook containing the original coefficient. Older workbooks can lack the grade and provenance columns, so review the assumption on ungraded materials. Changing a material's mechanical definition now replaces its former concrete and catalogue properties. Renaming the material or changing only its coefficient preserves those strengths.

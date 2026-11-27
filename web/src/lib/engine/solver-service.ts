@@ -1008,6 +1008,7 @@ function prepareSolve2D(
   onKinematic?: (k: KinematicResult | null) => void,
   caseIds?: readonly number[],
 ): Solve2DPreparation | string | null {
+  noteStructuralSolve();
   if (model.nodes.size < 2 || model.elements.size < 1) {
     return t('svc.needNodesAndElements');
   }

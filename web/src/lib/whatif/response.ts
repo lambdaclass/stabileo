@@ -7,10 +7,11 @@ import type { AnalysisResults } from '../engine/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { computeElementDiagram } from '../engine/diagrams';
 import { computeGlobalMax3D, transverseResultantMax3D } from '../engine/diagrams-3d';
+import { get2DDisplayDisplacementVertical } from '../geometry/coordinate-system';
 import type { Quantity } from '../utils/units';
 
 export type ResponseKey = 'delta' | 'moment' | 'shear' | 'axial' | 'reaction';
-export type Response = Record<ResponseKey, number>;
+export type Response = Record<ResponseKey, number> & { componentEnvelopeBound?: boolean };
 
 export const RESPONSE_QUANTITY: Record<ResponseKey, Quantity> = {
   delta: 'displacement', moment: 'moment', shear: 'force', axial: 'force', reaction: 'force',
@@ -22,7 +23,7 @@ export function response2D(r: AnalysisResults): Response {
   const along = (kind: 'moment' | 'shear' | 'axial') =>
     peak(r.elementForces.map((ef) => computeElementDiagram(kind, ef, 0, 0, ef.length, 0).maxAbsValue));
   return {
-    delta: peak(r.displacements.map((d) => Math.hypot(d.ux, d.uz))),
+    delta: peak(r.displacements.map((d) => Math.hypot(d.ux, get2DDisplayDisplacementVertical(d)))),
     moment: along('moment'),
     shear: along('shear'),
     axial: along('axial'),
@@ -34,6 +35,7 @@ export function response3D(r: AnalysisResults3D): Response {
   const ef = r.elementForces;
   return {
     delta: peak(r.displacements.map((d) => Math.hypot(d.ux, d.uy, d.uz))),
+    ...(ef.some(member => member.combined?.method === 'abs') ? { componentEnvelopeBound: true } : {}),
     moment: transverseResultantMax3D(ef, 'moment'),
     shear: transverseResultantMax3D(ef, 'shear'),
     axial: computeGlobalMax3D(ef, 'axial'),

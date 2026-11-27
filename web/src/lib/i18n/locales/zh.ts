@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  'whatif.resp.shearBound': "合成剪力上界（分量包络）",
+  'whatif.resp.momentBound': "合成弯矩上界（分量包络）",
   'svc.accountingMismatch': "分析已拒绝。荷载工况 {case}，分量 {component}。输入值 {entered}，组装值 {assembled}。",
   'svc.accountingLineEnd': "分析已拒绝。荷载工况 {case}，构件 {member} 的 {end} 端。重新分配的荷载施加到了节点 {actual}，应施加到节点 {expected}。",
   'svc.accountingUnsupported': "分析已拒绝。无法核算荷载工况 {case} 中 {kind} {id} 的力和力矩。",
@@ -2588,9 +2590,9 @@ const zh: Translations = {
   "kinematic.noMechanisms": "✓ 未检测到机构。结构稳定。",
   "kinematic.rankUnavailable": "⏳ 尚未验证：计算引擎尚未加载完成。稳定性未得到确认。",
   "kinematic.invalidInput": "✗ 未验证：模型存在无效数据：{n}",
-  "kinematic.hiddenMechanism": "✗ 检测到 {n} 个机构模态，尽管 GH = {degree} ≥ 0。",
+  "kinematic.hiddenMechanism": "✗ 检测到 {n} 个机构模态{s}，尽管 GH = {degree} ≥ 0。",
   "kinematic.hiddenMechanismExplanation": "第 2 步公式整体统计约束数量，但不检查其位置。此时结构的某一区域约束过多，而另一区域约束不足。",
-  "kinematic.mechanismDetected": "✗ 检测到 {n} 个机构模态。",
+  "kinematic.mechanismDetected": "✗ 检测到 {n} 个机构模态{s}。",
   "kinematic.freeMovements": "检测到的自由运动：",
   "kinematic.nodeDof": "节点 {id}：{dofName}",
   "kinematic.barByBarAnalysis": "逐杆分析",
@@ -7965,7 +7967,7 @@ const zh: Translations = {
   "materials.aggregate": "粗骨料最大公称粒径 (mm)",
   "materials.aggregateShort": "d_agg (mm)",
   "materials.alpha": "热膨胀系数",
-  "materials.alphaHelp": "热膨胀系数，单位 10⁻⁶/°C。留空：取材料类别的默认值（混凝土 10、钢材 12、铝 23），以灰色显示。",
+  'materials.alphaHelp': "热膨胀系数，单位为 10⁻⁶/°C。留空时采用已知材料类别的值（混凝土 10、钢材 12、铝 23）。类别未知时，求解器采用 12 并提示此假定。",
   "materials.alphaInvalid": "请输入有限的热膨胀系数，单位为 10⁻⁶/°C（−1000 < α < 1000）。",
   "materials.aggregateHelp": "粗骨料最大公称粒径。用于钢筋最小间距规则。",
   "materials.family": "类别",

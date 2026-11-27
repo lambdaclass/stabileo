@@ -3219,7 +3219,6 @@ fn issue_2588_exported_default_rigid_link_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2656"]
 fn each_heated_shell_reports_only_an_assumed_coefficient() {
     use SolverLoad3D::{PlateThermal, QuadThermal, Quad9Thermal, CurvedShellThermal};
     let variants: [(fn(SolverPlateThermalLoad) -> SolverLoad3D, ElementKind); 4] = [

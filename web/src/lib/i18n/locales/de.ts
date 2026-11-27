@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  'whatif.resp.shearBound': "Obergrenze der resultierenden Querkraft (Komponentenhüllkurven)",
+  'whatif.resp.momentBound': "Obergrenze des resultierenden Biegemoments (Komponentenhüllkurven)",
   'svc.accountingMismatch': "Berechnung abgelehnt. Lastfall {case}, {component}. Eingegeben {entered}, assembliert {assembled}.",
   'svc.accountingLineEnd': "Berechnung abgelehnt. Lastfall {case}, Stab {member}, Ende {end}. Die umgelagerte Last wirkt am Knoten {actual}. Erwartet wurde Knoten {expected}.",
   'svc.accountingUnsupported': "Berechnung abgelehnt. Kräfte und Momente von {kind} {id} im Lastfall {case} können nicht bilanziert werden.",
@@ -7799,7 +7801,7 @@ const de: Translations = {
   'materials.aggregate': 'Nennwert des Größtkorns der Gesteinskörnung (mm)',
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.alpha': 'Wärmeausdehnungskoeffizient',
-  'materials.alphaHelp': 'Wärmeausdehnungskoeffizient, in 10⁻⁶/°C. Leer: der Wert der Materialfamilie (Beton 10, Stahl 12, Aluminium 23), ausgegraut angezeigt.',
+  'materials.alphaHelp': "Wärmeausdehnung in 10⁻⁶/°C. Bei leerem Feld gilt die bekannte Werkstofffamilie (Beton 10, Stahl 12, Aluminium 23). Bei unbekannter Familie setzt der Solver 12 an und meldet diese Annahme.",
   'materials.alphaInvalid': 'Geben Sie einen endlichen Wärmeausdehnungskoeffizienten in 10⁻⁶/°C ein (−1000 < α < 1000).',
   'materials.aggregateHelp': 'Nennwert des Größtkorns der Gesteinskörnung. Wird von der Regel für den Mindeststababstand verwendet.',
   'materials.family': 'Familie',

@@ -78,10 +78,7 @@ export function saveCustomMaterial(choice: CustomMaterialChoice, id: number | nu
     modelStore.updateMaterial(id, { name: fields.name, ...(original.alpha !== fields.alpha ? { alpha: fields.alpha, userDefined: true } : {}) });
     return id;
   }
-  modelStore.updateMaterial(id, {
-    name: fields.name, e: fields.e, nu: fields.nu, rho: fields.rho, fy: fields.fy, alpha: fields.alpha,
-    gradeId: undefined, fu: undefined, timber: undefined, userDefined: true,
-  });
+  modelStore.updateMaterial(id, { replacement: { ...fields, userDefined: true } });
   return id;
 }
 

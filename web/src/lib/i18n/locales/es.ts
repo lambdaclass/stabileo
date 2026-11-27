@@ -1,4 +1,6 @@
 const es: Record<string, string> = {
+  'whatif.resp.shearBound': "Cota superior del corte resultante (envolventes por componente)",
+  'whatif.resp.momentBound': "Cota superior del momento resultante (envolventes por componente)",
   'svc.accountingMismatch': "Análisis rechazado. Caso de carga {case}, {component}. Valor ingresado {entered}, valor ensamblado {assembled}.",
   'svc.accountingLineEnd': "Análisis rechazado. Caso de carga {case}, extremo {end} de la barra {member}. La carga redistribuida llegó al nodo {actual}. Se esperaba el nodo {expected}.",
   'svc.accountingUnsupported': "Análisis rechazado. En el caso de carga {case} no se pueden contabilizar las fuerzas ni los momentos de {kind} {id}.",
@@ -8260,7 +8262,7 @@ const es: Record<string, string> = {
   'materials.aggregate': 'Tamaño máximo nominal del agregado grueso (mm)',
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.alpha': 'Coeficiente de dilatación térmica',
-  'materials.alphaHelp': 'Coeficiente de dilatación térmica, en 10⁻⁶/°C. Vacío: el de la familia del material (hormigón 10, acero 12, aluminio 23), que se muestra en gris.',
+  'materials.alphaHelp': "Dilatación térmica en 10⁻⁶/°C. En blanco se usa la familia conocida (hormigón 10, acero 12, aluminio 23). Para una familia desconocida, el cálculo supone 12 e informa esa hipótesis.",
   'materials.alphaInvalid': 'Ingresá un coeficiente de dilatación térmica finito en 10⁻⁶/°C (−1000 < α < 1000).',
   'materials.aggregateHelp': 'Tamaño máximo nominal del agregado grueso. Lo usa la regla de separación mínima entre barras.',
   'materials.family': 'Familia',

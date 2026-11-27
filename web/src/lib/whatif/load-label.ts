@@ -39,7 +39,12 @@ export function loadLabel(l: Load | undefined, i: number): string {
     if (m) parts.push(`${TWO_D_NODAL_LOAD_LABELS.moment}=${M(twoD.rot(m))}`);
     return `${parts.join(', ') || 'P=0'} (B${d.elementId})`;
   }
-  if (l.type === 'thermal') return t('whatif.thermal');
+  if (l.type === 'thermal') {
+    const d = l.data;
+    const parts = [d.dtUniform && `ΔT=${d.dtUniform} °C`, d.dtGradient && `ΔTg=${d.dtGradient} °C`,
+      d.dtGradientY && `ΔTgy=${d.dtGradientY} °C`, d.strain && `ε=${d.strain}`].filter(Boolean);
+    return `${t('whatif.thermal')} ${parts.join(', ') || 'ΔT=0 °C'} (B${d.elementId})`;
+  }
   if (l.type === 'nodal3d') {
     const d = l.data as { nodeId: number; fx: number; fy: number; fz: number; mx?: number; my?: number; mz?: number };
     const parts: string[] = [];

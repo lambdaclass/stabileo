@@ -28,7 +28,8 @@
   import { placementStore } from '../lib/store/placement.svelte';
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
-  import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
+  import { axialPaintRange, axialPaintLabel } from '../lib/viewport/axial-paint';
+  import { computeElementDiagram, computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
   import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { solverBendingForces2D } from '../lib/engine/transverse-sign-2d';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
@@ -655,13 +656,14 @@
     const colorMapOverrides = new Map<number, string>();
     // The value behind each member's colour, for its label when values are shown.
     let colorMapValues: { values: Map<number, number>; kind: string } | null = null;
+    const axialLabels = new Map<number, { text: string; color: string }>();
     if (shown && dtNow() === 'axialColor') {
       // Axial color: blue = compression, red = tension, intensity by magnitude
-      let globalMaxN = 0;
-      for (const ef of shown.elementForces) {
-        const absN = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-        if (absN > globalMaxN) globalMaxN = absN;
-      }
+      const ranges = shown.elementForces.map(ef => {
+        const diagram = computeElementDiagram('axial', ef, 0, 0, ef.length, 0);
+        return { id: ef.elementId, ...axialPaintRange(diagram) };
+      });
+      const globalMaxN = ranges.reduce((m, r) => Math.max(m, r.peak), 0);
       if (globalMaxN > 1e-10) {
         const axTheme = canvasTheme();
         /*
@@ -685,15 +687,12 @@
           const g = (i: number, base: number) => Math.round(rgb[i] * n + base * (1 - n));
           return `rgb(${g(0, 143)},${g(1, 163)},${g(2, 179)})`;
         };
-        for (const ef of shown.elementForces) {
-          const avgN = (ef.nStart + ef.nEnd) / 2;
-          const intensity = Math.min(Math.abs(avgN) / globalMaxN, 1.0);
-          if (avgN > 0.001) {
-            colorMapOverrides.set(ef.elementId, mix(tensionRgb, intensity));
-          } else if (avgN < -0.001) {
-            colorMapOverrides.set(ef.elementId, mix(compressionRgb, intensity));
-          } else {
-            colorMapOverrides.set(ef.elementId, axTheme.neutralMember);
+        for (const range of ranges) {
+          const { id, tension, mixed, peak } = range;
+          const rgb = mixed ? tensionRgb.map((v, i) => (v + compressionRgb[i]) / 2) : tension > 0 ? tensionRgb : compressionRgb;
+          colorMapOverrides.set(id, peak > 0 ? mix(rgb, peak / globalMaxN) : axTheme.neutralMember);
+          if (peak > 0) {
+            axialLabels.set(id, { text: axialPaintLabel(range, uiStore.unitSystem), color: mixed ? '#e8eef4' : tension > 0 ? '#ff6b6b' : '#6bc5ff' });
           }
         }
       }
@@ -771,7 +770,7 @@
     }
 
     // Pre-compute bar count per node (for hinge offset logic)
-    const paintedModel = colorMapOverrides.size ? displayModel() : modelStore;
+    const paintedModel = displayModel();
     const nodeBarCount = new Map<number, number>();
     for (const elem of paintedModel.elements.values()) {
       nodeBarCount.set(elem.nodeI, (nodeBarCount.get(elem.nodeI) ?? 0) + 1);
@@ -791,16 +790,7 @@
     // Member local axes (Basic 2D): one unified "Local axes" setting (localAxesMode3D).
     if (!exportFrame) drawLocalAxes2D();
 
-    // Draw axial value labels when axialColor mode is active
-    if (shown && dtNow() === 'axialColor') {
-      for (const ef of shown.elementForces) {
-        const avgN = (ef.nStart + ef.nEnd) / 2;
-        if (Math.abs(avgN) < 0.001) continue;
-        const sign = avgN > 0 ? '+' : '';
-        // High-contrast text: bright red for tension, bright cyan for compression
-        drawMemberValueLabel(ef.elementId, `${sign}${fixedQuantity(avgN, 'force', 1, uiStore.unitSystem)}`, avgN > 0 ? '#ff6b6b' : '#6bc5ff');
-      }
-    }
+    for (const [id, label] of axialLabels) drawMemberValueLabel(id, label.text, label.color);
 
     /*
      * A colour map says "more" and "less"; with values shown, each member

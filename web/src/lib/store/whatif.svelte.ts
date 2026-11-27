@@ -33,7 +33,7 @@ import type { ModelSnapshot } from './history.svelte';
 import type { Release, Section, SupportType } from './model.svelte';
 import { solverProperties } from '../section/state';
 import { resultsStore } from './results.svelte';
-import { response2D, response3D } from '../whatif/response';
+import { type Response, response2D, response3D } from '../whatif/response';
 import { loadsDrawn2D } from '../viewport/pick-visibility';
 import { currentLoadDrawView, loadsLayerDrawn } from '../viewport3d/load-drawn';
 import { liveCalcFollowsEdits, liveSolveBusy } from '../engine/live-calc-state';
@@ -66,7 +66,13 @@ let viewAtOpen: { showLoads: boolean; showLoads3D: boolean; hideLoadsWithDiagram
 /** A node moved, in the coordinates the reader sees (`shownCoords`). */
 let nodeShift = $state<Record<number, number[]>>({});
 /** The response before any change, for the panel's comparison. */
-let reference = $state.raw<Record<string, number> | null>(null);
+let reference = $state.raw<Response | null>(null);
+let referenceSelection = $state('');
+function resultSelection(): string {
+  const view = resultsStore.activeView;
+  const id = view === 'single' ? resultsStore.activeCaseId : view === 'combo' ? resultsStore.activeComboId : null;
+  return JSON.stringify([uiStore.analysisMode, view, id]);
+}
 let appliedChange = false;
 let referenceSolve: ModelSnapshot | null = null;
 let entryLengths = new Map<number, number>();
@@ -335,6 +341,7 @@ function captureReference(): void {
   if (uiStore.is3DWorkspace) {
     if (resultsStore.results3D) reference = response3D(resultsStore.results3D);
   } else if (resultsStore.results) reference = response2D(resultsStore.results);
+  if (reference) referenceSelection = resultSelection();
 }
 
 function pump(): void {
@@ -369,7 +376,7 @@ export const whatIf = {
   get loadNode() { return loadNode; },
   get supportNode() { return supportNode; },
   get nodeShift() { return nodeShift; },
-  get reference() { return reference; },
+  get reference() { return referenceSelection === resultSelection() ? reference : null; },
   /** The response before any change: taken once, on the first results of an unchanged model. */
   captureReference,
   async startReferenceSolve(): Promise<void> {

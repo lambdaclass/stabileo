@@ -19,6 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { modelStore, type Section } from '../store/model.svelte';
+import type { JSONModel } from '../templates/load-fixture';
 import releaseDefaults from './release-defaults.json';
 import { resultPropertyFingerprint } from '../model/result-properties';
 import { historyStore } from '../store/history.svelte';
@@ -252,7 +253,14 @@ export async function openExample(
 ): Promise<{ values: Values; fingerprint: Values }> {
   const defaults = opts.release === undefined ? undefined : defaultsForRelease(opts.release);
   reset(workspace);
-  await modelStore.loadExample(id, opts.fixture, {
+  const archivedLoader = opts.fixture;
+  const load = defaults && archivedLoader ? async () => {
+    const json = await archivedLoader() as JSONModel;
+    const seed = defaults.material;
+    return { ...json, materials: json.materials.map(m =>
+      m.id === seed.id && m.name === seed.name && m.e === seed.e ? { ...seed } : m) };
+  } : archivedLoader;
+  await modelStore.loadExample(id, load, {
     keepCombinations: opts.keepCombinations,
     defaults: defaults ? { material: defaults.material, section: defaults.section as Section } : undefined,
   });

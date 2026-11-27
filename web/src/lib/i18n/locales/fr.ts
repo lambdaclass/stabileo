@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  'whatif.resp.shearBound': "Borne supérieure de l’effort tranchant résultant (enveloppes des composantes)",
+  'whatif.resp.momentBound': "Borne supérieure du moment résultant (enveloppes des composantes)",
   'svc.accountingMismatch': "Analyse refusée. Cas de charge {case}, {component}. Valeur saisie {entered}, valeur assemblée {assembled}.",
   'svc.accountingLineEnd': "Analyse refusée. Cas de charge {case}, extrémité {end} de la barre {member}. La charge redistribuée a été appliquée au nœud {actual}. Le nœud attendu est {expected}.",
   'svc.accountingUnsupported': "Analyse refusée. Les forces et les moments de {kind} {id} dans le cas de charge {case} ne peuvent pas être comptabilisés.",
@@ -7799,7 +7801,7 @@ const fr: Translations = {
   'materials.aggregate': 'Dimension nominale maximale des gros granulats (mm)',
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.alpha': 'Coefficient de dilatation thermique',
-  'materials.alphaHelp': 'Coefficient de dilatation thermique, en 10⁻⁶/°C. Vide : celui de la famille du matériau (béton 10, acier 12, aluminium 23), affiché en grisé.',
+  'materials.alphaHelp': "Dilatation thermique en 10⁻⁶/°C. Un champ vide utilise la famille connue (béton 10, acier 12, aluminium 23). Pour une famille inconnue, le solveur prend 12 et signale cette hypothèse.",
   'materials.alphaInvalid': 'Saisissez un coefficient de dilatation thermique fini en 10⁻⁶/°C (−1000 < α < 1000).',
   'materials.aggregateHelp': 'Dimension nominale maximale des gros granulats. Utilisée par la règle d\'espacement minimal entre barres.',
   'materials.family': 'Famille',

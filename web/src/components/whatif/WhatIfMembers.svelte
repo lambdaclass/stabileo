@@ -12,7 +12,7 @@
 
   const is3D = $derived(uiStore.is3DWorkspace);
   const MANY = 30;
-  const elements = $derived([...modelStore.elements.values()].sort((a, b) => a.id - b.id));
+  const elements = $derived((whatIf.baseline?.elements.map(([, member]) => member) ?? [...modelStore.elements.values()]).sort((a, b) => a.id - b.id));
   const selected = $derived(new Set([...uiStore.selectedElements].filter((id) => modelStore.elements.has(id))));
   const listed = $derived(elements.length <= MANY ? elements : elements.filter((e) => selected.has(e.id) || whatIf.isMemberChanged(e.id)));
 
@@ -38,7 +38,7 @@
   function releaseOf(id: number, end: 'i' | 'j') {
     const o = whatIf.releases[id]?.[end];
     if (o) return o;
-    const el = modelStore.elements.get(id);
+    const el = elements.find(member => member.id === id);
     return end === 'i' ? el?.releaseI : el?.releaseJ;
   }
 

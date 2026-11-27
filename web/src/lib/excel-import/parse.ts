@@ -697,7 +697,21 @@ export function parseWorkbookSheets(
        silent default — the same contract the Materials panel has. */
     const dAgg = num(row.cells.dagg);
     const margin = num(row.cells.spacingmargin);
+    const alpha = num(row.cells.alpha);
+    const gradeId = str(row.cells.gradeid);
+    const authored = str(row.cells.userdefined).toLowerCase();
+    if (alpha !== null && Math.abs(alpha) >= 1e-3) {
+      problems.push({ sheet: 'Materials', row: row.n, column: 'alpha', message: t('materials.alphaInvalid'), blocking: true });
+      continue;
+    }
+    if (authored && authored !== 'true' && authored !== 'false') {
+      problems.push({ sheet: 'Materials', row: row.n, column: 'userDefined', message: tp('svc.engine.invalidInputField', { path: 'userDefined' }), blocking: true });
+      continue;
+    }
     model.materials.push({
+      ...(gradeId ? { gradeId } : {}),
+      ...(authored ? { userDefined: authored === 'true' } : {}),
+      ...(alpha !== null ? { alpha } : {}),
       id, name, e, nu,
       rho: num(row.cells.rho) ?? 0,
       fy: num(row.cells.fy) ?? undefined,

@@ -93,8 +93,7 @@
     if (ev.isComposing) return;
     if (ev.key === 'Enter') {
       const exact = flat.find(e => e.kind === 'step' && both(methodTitle(e.method)).some(name => fold(name) === fold(advancedList.query)));
-      if (exact && withheld(exact)) { ev.preventDefault(); return; }
-      const first = flat.find(entry => !blocked(entry));
+      const first = exact ?? flat.find(entry => !blocked(entry));
       if (first) { ev.preventDefault(); open(first); }
     } else if (ev.key === 'Escape') {
       if (advancedList.query) { ev.preventDefault(); ev.stopPropagation(); advancedList.query = ''; }

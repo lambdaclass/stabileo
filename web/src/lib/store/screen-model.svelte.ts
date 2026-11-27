@@ -14,10 +14,14 @@ const current = $derived.by((): ScreenModel => {
   const sections = new Map([...modelStore.sections].map(([id, section]) => [id, plainDeepCopy(section)]));
   const materials = new Map([...modelStore.materials].map(([id, material]) => [id, plainDeepCopy(material)]));
   const space = uiStore.is3DWorkspace;
+  const shellCollections = space && ['plates', 'quads', 'quad9s', 'solidShells', 'curvedShells'].map(key => {
+    const collection = Reflect.get(modelStore.model, key);
+    return collection instanceof Map ? [...collection] : collection;
+  });
   const geometry = JSON.stringify([
     uiStore.analysisMode, uiStore.drawPlane2D, [...nodes], [...modelStore.supports],
     [...modelStore.elements.values()].map(e => [e.id, e.type, e.nodeI, e.nodeJ, e.offset, e.rollAngle, e.localYx, e.localYy, e.localYz]),
-    space && [uiStore.viewportPresentation3D, uiStore.axisConvention3D, [...modelStore.plates], [...modelStore.quads],
+    space && [uiStore.viewportPresentation3D, uiStore.axisConvention3D, shellCollections,
       [...elements], [...sections], [...materials], loads],
   ]);
   return { geometry, nodes, elements, sections, materials, loads };

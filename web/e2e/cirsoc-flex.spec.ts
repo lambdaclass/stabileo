@@ -296,7 +296,7 @@ test.describe('@smoke the calculator behaves like the other advanced functions',
     await openFlex(page);
     await page.getByTestId('adv-close').click();
 
-    // Kinematic analysis needs no solved model.
+    await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
     await openAdvancedFunction(page, 'kinematic');
     await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'kinematic');
     await expect(page.locator('.kp-panel')).toBeVisible();

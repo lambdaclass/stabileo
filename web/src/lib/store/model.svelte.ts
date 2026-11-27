@@ -4758,17 +4758,19 @@ function createModelStore() {
       // [] for the example's own rule: the example solved without its self-weight.
       const json = await loader() as JSONModel;
       validateFixtureReferences(json);
-      const first = json.materials.find(m => m.id === defaultMaterial.id && m.name === defaultMaterial.name && m.e === defaultMaterial.e);
-      const useDefault = first && (options.defaults || (!fixture && Object.entries(first).every(([key, value]) => defaultMaterial[key as keyof Material] === value)));
+      const seed = options.defaults?.material ?? defaultMaterial;
+      const first = json.materials.find(m => m.id === seed.id && m.name === seed.name && m.e === seed.e);
+      const useDefault = first && (options.defaults || !fixture) && Object.entries(first).every(([key, value]) => seed[key as keyof Material] === value);
       const authored = first && !useDefault && typeof first.nu === 'number' && typeof first.rho === 'number'
-        ? { ...first, name: defaultMaterial.name, e: defaultMaterial.e, nu: first.nu, rho: first.rho } : undefined;
+        ? { ...first, name: seed.name, e: seed.e, nu: first.nu, rho: first.rho } : undefined;
       const opts = { ...options, firstMaterialInstalled: !!(useDefault || authored) };
       this.batch(() => {
         this.clear();
         if (opts.defaults) {
           model.materials.set(1, structuredClone(opts.defaults.material));
           model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
-        } else if (authored) {
+        }
+        if (authored) {
           model.materials.set(authored.id, authored);
         }
         loadFixture(json, this.fixtureApi() as any, opts);

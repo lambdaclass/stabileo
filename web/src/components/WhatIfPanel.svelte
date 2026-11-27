@@ -71,8 +71,9 @@
   });
   onMount(() => { void whatIf.startReferenceSolve(); });
   $effect(() => { if (live) whatIf.captureReference(); });
+  const bound = $derived(shown?.componentEnvelopeBound || whatIf.reference?.componentEnvelopeBound);
   const ROWS = $derived<Array<{ k: ResponseKey; key: string }>>([
-    { k: 'delta', key: 'whatif.resp.delta' }, { k: 'moment', key: is3D ? 'whatif.resp.momentResultant' : 'whatif.resp.moment' }, { k: 'shear', key: is3D ? 'whatif.resp.shearResultant' : 'whatif.resp.shear' },
+    { k: 'delta', key: 'whatif.resp.delta' }, { k: 'moment', key: bound ? 'whatif.resp.momentBound' : is3D ? 'whatif.resp.momentResultant' : 'whatif.resp.moment' }, { k: 'shear', key: bound ? 'whatif.resp.shearBound' : is3D ? 'whatif.resp.shearResultant' : 'whatif.resp.shear' },
     { k: 'axial', key: 'whatif.resp.axial' }, { k: 'reaction', key: 'whatif.resp.reaction' },
   ]);
   const scientific = $derived(new Intl.NumberFormat(i18n.locale, { notation: 'scientific', maximumSignificantDigits: 4 }));
@@ -179,7 +180,7 @@
                 <td>{before === undefined ? '—' : value(r.k, before)}</td>
                 <td class="wif-now">{shown ? value(r.k, shown[r.k]) : '—'}</td>
                 <td class="wif-pct" class:up={pct !== null && pct > 0.5} class:down={pct !== null && pct < -0.5}>
-                  {pct === null || Math.abs(pct) <= 0.5 ? '' : `${pct > 0 ? '▲' : '▼'} ${percent.format(Math.abs(pct) / 100)}`}
+                  {pct === null || pct === 0 ? '' : `${pct > 0 ? '▲' : '▼'} ${percent.format(Math.abs(pct) / 100)}`}
                 </td>
               </tr>
             {/each}
