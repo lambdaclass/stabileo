@@ -690,7 +690,7 @@ test('known wrong result: #1928 ordinary meshing, grid construction and examples
   }
 });
 
-test.skip('known wrong result: #1928 released shell controls edit the selection without changing physical plate defaults', async () => {
+test('known wrong result: #1928 released shell controls edit the selection without changing physical plate defaults', async () => {
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       for (const [file, action] of [['spec/SpecSurfaces', 'shell-offset-apply'], ['ProFoundationSprings', 'fs-apply']]) {

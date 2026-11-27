@@ -68,6 +68,9 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (features.proPlatesUnified && importer && id.endsWith('/selected-plate-spec') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/selected-plate-spec')) {
+          return resolve(__dirname, 'src/lib/store/active-selected-plate-spec.ts');
+        }
         if (features.proRcSheets && importer && id.endsWith('/sheet-placement') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/sheet-placement')) {
           return resolve(__dirname, 'src/lib/store/active-sheet-placement.ts');
         }
