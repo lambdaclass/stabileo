@@ -244,7 +244,7 @@ export const translations = {
     author: 'Riferimento degli autori',
     section: 'Quota in diagonale',
     plan: 'Pianta',
-    area: 'Cross-sectional area',
+    area: 'Area della sezione trasversale',
     scope: 'Che cosa stabilisce',
     agreement: 'Le verifiche confrontano volume, aste attive, forze, aree delle sezioni, coordinate delle linee d’asse, quota del vertice e ammissibilità conica. Il volume stampato è verificato a mezza unità nell’ultima cifra decimale. L’accordo con il codice di riferimento non è una validazione sperimentale né una certificazione ingegneristica.',
     engine: 'Contabilità di reazioni/carichi ed editor',

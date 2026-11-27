@@ -118,7 +118,7 @@ const body: PostBody = {
         [
           "3 · Merevségi mátrix",
           "Meg nem támasztott szabadságfokok",
-          "1"
+          "6"
         ],
         [
           "4 · Javaslatok",

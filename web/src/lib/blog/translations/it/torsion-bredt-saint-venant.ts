@@ -2,7 +2,7 @@ import type { PostBody } from '../../types';
 
 const body: PostBody = {
   "title": "Bredt o De Saint-Venant: quale teoria della torsione si applica e quanto costa sbagliare scelta",
-  "excerpt": "Tre formule, una sezione, tre numeri diversi. Quale si applica dipende dalla parete; dove ne valgono due insieme, Bredt risulta dal 2 al 15% troppo basso.",
+  "excerpt": "Tre formule, una sezione, tre numeri diversi. Quale si applica dipende dalla parete; nei quattro tubi illustrati Bredt sottostima il picco esterno dal 2 al 15%. Il caso del 15% è fuori dall’ipotesi di parete sottile.",
   "blocks": [
     {
       "k": "p",
@@ -20,13 +20,13 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Cauchy, τ = T·r / Iₚ. Solo sezioni circolari, e lì è esatta: è l’unico caso in cui le sezioni piane restano piane. La tensione cresce linearmente con il raggio, da un minimo sulla faccia interna a un massimo sulla faccia esterna.",
-        "Bredt, τ = T / (2·Aₘ·t). Per sezioni chiuse a parete sottile. Il momento torcente è portato da un flusso di taglio che circola attorno all’area racchiusa. Aₘ è l’area racchiusa dalla linea media della parete, non dalla sua faccia esterna; confondere le due è un errore comune.",
-        "De Saint-Venant, τ = T·t / J con J = (1/3)·Σb·t³. Per sezioni aperte a parete sottile. Senza un percorso chiuso, il flusso deve tornare su se stesso attraverso lo spessore, ed è per questo che lo spessore compare al cubo."
+        "Bredt, τ = T / (2·Aₘ·t). Per sezioni chiuse monocellulari a parete sottile. Per più celle occorrono l’equilibrio del momento torcente e la compatibilità della rotazione torsionale. Il momento torcente è portato da un flusso di taglio che circola attorno all’area racchiusa. Aₘ è l’area racchiusa dalla linea media della parete, non dalla sua faccia esterna; confondere le due è un errore comune.",
+        "De Saint-Venant, τmax ≈ T·t / J con J = (1/3)·Σb·t³. Per una striscia aperta a parete sottile è il massimo approssimato: la tensione cambia segno nello spessore ed è nulla sul piano medio. Senza un percorso chiuso, il flusso deve tornare su se stesso attraverso lo spessore, ed è per questo che lo spessore compare al cubo."
       ]
     },
     {
       "k": "note",
-      "t": "De Saint-Venant viene spesso presentata come “la teoria delle sezioni aperte”, ma è la teoria generale, e le altre due ne sono casi particolari con soluzione in forma chiusa. Su una sezione circolare la sua soluzione coincide esattamente con quella di Cauchy, perché la simmetria circolare fa sì che la sezione non si ingobbi. Su una parete chiusa sottile, la sua soluzione è quella di Bredt."
+      "t": "De Saint-Venant viene spesso presentata come “la teoria delle sezioni aperte”, ma è la teoria generale, e le altre due ne sono casi particolari con soluzione in forma chiusa. Su una sezione circolare la sua soluzione coincide esattamente con quella di Cauchy, perché la simmetria circolare fa sì che la sezione non si ingobbi. Su una parete chiusa sottile monocellulare, la sua soluzione è quella di Bredt."
     },
     {
       "k": "h",
@@ -34,11 +34,11 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Prendi un tubo circolare. Cauchy si applica ed è esatta. Si applica anche Bredt: la parete è chiusa e un flusso di taglio la percorre. Ma Bredt assume la tensione costante nello spessore, mentre in Cauchy cresce con il raggio. Quindi Bredt dà la media e Cauchy dà il massimo."
+      "t": "Prendi un tubo circolare. Cauchy si applica ed è esatta. Per una parete chiusa sottile Bredt approssima la tensione media nello spessore. La soluzione esatta di Cauchy cresce con il raggio: la tabella confronta Bredt con il massimo sulla faccia esterna."
     },
     {
       "k": "table",
-      "caption": "Tubo circolare cavo: quanto Bredt sta sotto il valore esatto, per spessore relativo della parete.",
+      "caption": "Tubo circolare cavo: quanto Bredt sta sotto il picco esatto sulla faccia esterna, per spessore relativo della parete.",
       "head": [
         "t / rₘ",
         "Esempio (rₘ = 50 mm)",
@@ -47,28 +47,28 @@ const body: PostBody = {
       ],
       "rows": [
         [
-          "0.05",
+          "0,05",
           "parete di 2,5 mm",
-          "0.976",
-          "2.4 %"
+          "0,976",
+          "2,4 %"
         ],
         [
-          "0.10",
+          "0,10",
           "parete di 5,0 mm",
-          "0.955",
-          "4.5 %"
+          "0,955",
+          "4,5 %"
         ],
         [
-          "0.20",
+          "0,20",
           "parete di 10,0 mm",
-          "0.918",
-          "8.2 %"
+          "0,918",
+          "8,2 %"
         ],
         [
-          "0.50",
-          "parete di 25,0 mm",
-          "0.850",
-          "15.0 %"
+          "0,50",
+          "parete di 25,0 mm (fuori dall’ipotesi di parete sottile)",
+          "0,850",
+          "15,0 %"
         ]
       ]
     },
@@ -78,7 +78,7 @@ const body: PostBody = {
     },
     {
       "k": "quote",
-      "t": "L’errore ha sempre lo stesso segno: Bredt risulta basso."
+      "t": "Nelle quattro righe Bredt sottostima il picco esterno. Per t/rₘ = 0,50 sovrastima invece la media esatta nello spessore del 6,25 %."
     },
     {
       "k": "p",
@@ -117,14 +117,14 @@ const body: PostBody = {
       "rows": [
         [
           "J [mm⁴]",
-          "4,286,875",
-          "15,833",
+          "4 286 875",
+          "15 833",
           "271"
         ],
         [
-          "τ [MPa]",
-          "11.08",
-          "315.79",
+          "τ (chiuso), τmax (aperto) [MPa]",
+          "11,08",
+          "315,79",
           "29"
         ]
       ]
@@ -135,7 +135,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "C’è un altro termine che spesso si trascura: l’ingobbamento. Quando una sezione aperta non può ingobbarsi liberamente, perché è vincolata o perché il momento torcente varia lungo l’asta, si aggiunge la torsione da ingobbamento a quella di De Saint-Venant. Ignorarla porta anch’essa a una sottostima."
+      "t": "C’è un altro termine che spesso si trascura: l’ingobbamento. Quando una sezione aperta non può ingobbarsi liberamente, perché è vincolata o perché il momento torcente varia lungo l’asta, si aggiunge la torsione da ingobbamento a quella di De Saint-Venant. Il calcolo di sola torsione uniforme omette le tensioni normali longitudinali e le tensioni tangenziali dovute all’ingobbamento impedito. Il vincolo può ridurre la rotazione e la quota di momento portata dalla torsione uniforme."
     },
     {
       "k": "h",
@@ -160,7 +160,7 @@ const body: PostBody = {
     {
       "k": "ol",
       "items": [
-        "La parete forma un circuito chiuso? Bredt, con Aₘ misurata sulla linea media.",
+        "La sezione ha una sola cella chiusa a parete sottile? Usa Bredt con Aₘ sulla linea media. Per più celle imponi equilibrio e compatibilità della torsione.",
         "È aperta? De Saint-Venant, e lo spessore entra al cubo: governa la parete più spessa.",
         "È circolare? Cauchy, ed è esatta. Se usi anche Bredt, aspettati che risulti basso.",
         "L’ingobbamento è impedito? Allora De Saint-Venant da sola non basta."

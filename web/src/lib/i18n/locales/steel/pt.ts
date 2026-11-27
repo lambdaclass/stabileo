@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 import c301Pt from './c301-pt';
 /**
  * Contrapartida em português de `steel/es.ts`. As mesmas chaves, na mesma ordem — um teste
@@ -626,7 +627,7 @@ const steelPt: Record<string, string> = {
   'steel.f62.branch.undetermined': 'ramo indeterminado',
   'steel.f62.missing.flangeGeometry': 'Largura e espessura da mesa.',
   'steel.f62.missing.slendernessLimits': 'Os limites de esbeltez λpf e λrf da Tabela B.4.1b, caso 14. As células numéricas dessa tabela não estão no markdown embarcado: apenas o título, as notas e a simbologia.',
-  'steel.f62.lambdaLabel': 'Esbeltez da mesa λf = bf/tf',
+  'steel.f62.lambdaLabel': 'Esbeltez da mesa λf',
   'steel.f62.fcrLabel': 'Fcr se a mesa resultar esbelta (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — fator de gradiente de momento (F.1.1)',
   'steel.workflow.clause.cbState': 'Calculado do diagrama de momentos quando há estações e a seção está no escopo da F.1.1; caso contrário Cb = 1, que a norma permite. Calculá-lo não certifica o travamento.',
@@ -1277,7 +1278,7 @@ const steelPt: Record<string, string> = {
   'steel.tc.calc.connection': 'Ligação: {what}',
   'steel.tc.calc.bolted': 'parafusada, {lines} linha(s) × {n} parafuso(s) M{d}, furos {hole}, passo {pitch} mm, ligada por: {connected}',
   'steel.tc.calc.welded': 'soldada, soldas: {weld}, L = {L} mm, ligada por: {connected}',
-  'steel.tc.calc.u': 'U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0,9 → {U}  (D.3.2)',
+  'steel.tc.calc.u': shearLagTrace(','),
   'steel.tc.calc.uFloor': 'U ≥ A ligada/Ag = {Aconn}/{Ag} = {U}  (D.3, seções abertas)',
   'steel.tc.calc.weldNoHoles': 'Sem furos na ligação soldada: An = Ag  (B.4.2.2)',
   'steel.tc.calc.plateTable': 'Chapa soldada nas duas bordas: L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))',

@@ -1,5 +1,5 @@
 import type { PostBody } from '../../types';
-import { flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
+import { minimumSteelExampleRows, flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "Vérification en flexion selon CIRSOC 201, pas à pas",
@@ -38,36 +38,11 @@ const body: PostBody = {
         "As,min [cm²]",
         "Déterminant"
       ],
-      "rows": [
-        [
-          "15",
-          "1,12",
-          "2,39",
-          "le minimum"
-        ],
-        [
-          "30",
-          "2,28",
-          "2,39",
-          "le minimum"
-        ],
-        [
-          "60",
-          "4,73",
-          "2,39",
-          "la résistance"
-        ],
-        [
-          "90",
-          "7,38",
-          "2,39",
-          "la résistance"
-        ]
-      ]
+      "rows": minimumSteelExampleRows("le minimum", "la résistance", ",")
     },
     {
       "k": "p",
-      "t": "Le croisement se situe à Mu = 31,5 kN·m. En dessous de ce moment, dimensionner à la résistance ne sert à rien : la section porte 2,39 cm² de toute façon. Il vaut la peine de savoir de quel côté du croisement se trouve une poutre avant de discuter de son armature."
+      "t": "Le croisement se situe à Mu = 31,1 kN·m. Cet exemple applique le §9.6.1.2. Lorsque l’exception du §9.6.1.3 est applicable, on peut prévoir dans chaque section au moins 4/3 de l’armature requise par le calcul. Il vaut la peine de savoir de quel côté du croisement se trouve une poutre avant de discuter de son armature."
     },
     {
       "k": "h",

@@ -64,9 +64,9 @@ const S: Record<'es' | 'en', PaperStrings> & Partial<Record<PublicLocale, PaperS
     venue: 'Presentato al 29.º Congresso argentino di ingegneria strutturale (JAIE 2026).',
     download: 'Scarica il PDF',
     original: 'Originale in spagnolo (PDF)',
-    language: '',
-    metaTitle: 'Sviluppare un agente di calcolo strutturale sopra un solutore verificato (articolo) — Stabileo',
-    metaDescription: 'L’articolo completo: un agente AI per il calcolo strutturale è affidabile solo se orchestra un solutore verificato e non produce mai un numero da solo.',
+    language: 'Articolo in inglese. Il PDF originale è in spagnolo.',
+    metaTitle: 'Sviluppare un agente di calcolo strutturale sopra un solutore verificato (articolo in inglese) — Stabileo',
+    metaDescription: 'L’articolo completo in inglese: un agente AI per il calcolo strutturale è affidabile solo se orchestra un solutore verificato e non produce mai un numero da solo.',
   },
   zh: {
     venue: '发表于第 29 届阿根廷结构工程会议（JAIE 2026）。',

@@ -1,5 +1,5 @@
 import type { PostBody } from '../../types';
-import { flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
+import { minimumSteelExampleRows, flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "按 CIRSOC 201 分步验算受弯",
@@ -38,36 +38,11 @@ const body: PostBody = {
         "As,min [cm²]",
         "起控制作用"
       ],
-      "rows": [
-        [
-          "15",
-          "1.12",
-          "2.39",
-          "最小配筋"
-        ],
-        [
-          "30",
-          "2.28",
-          "2.39",
-          "最小配筋"
-        ],
-        [
-          "60",
-          "4.73",
-          "2.39",
-          "强度"
-        ],
-        [
-          "90",
-          "7.38",
-          "2.39",
-          "强度"
-        ]
-      ]
+      "rows": minimumSteelExampleRows("最小配筋", "强度", ".")
     },
     {
       "k": "p",
-      "t": "转折点在 Mu = 31.5 kN·m。弯矩低于该值时，按强度配筋毫无意义：无论如何，截面都配置 2.39 cm²。在讨论一根梁的配筋之前，值得先弄清它处在转折点的哪一侧。"
+      "t": "转折点在 Mu = 31.1 kN·m。本例采用 §9.6.1.2，低于该弯矩时由最小配筋量 2.38 cm² 控制。满足 §9.6.1.3 的例外条件时，可在每个截面提供不少于分析所需钢筋面积的 4/3。在讨论一根梁的配筋之前，值得先弄清它处在转折点的哪一侧。"
     },
     {
       "k": "h",

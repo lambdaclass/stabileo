@@ -36,7 +36,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "I calcoli girano sul tuo computer. Il salvataggio automatico, le preferenze e i progetti aperti sono conservati nel tuo browser e non vengono inviati ai nostri server."
+      "t": "I calcoli girano sul tuo computer. Aprire e analizzare un modello e salvarlo automaticamente nel browser sono operazioni locali. Il modello viene trasmesso quando lo alleghi a un feedback o lo salvi nel cloud."
     },
     {
       "k": "h",

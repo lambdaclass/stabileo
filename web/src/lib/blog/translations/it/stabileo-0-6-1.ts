@@ -202,7 +202,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Restano aperti risultati errati noti: #2096, #2142, #2143 e #2144. Questa versione non li corregge. Consulta il loro ambito di applicazione e verifica in modo indipendente i risultati interessati prima di usarli.",
-        "SA-2026-056 resta non corretto: verifica in modo indipendente le sollecitazioni dinamiche per i modelli misti telaio-guscio vincolati che cambiano in modo sostanziale dopo rinumerazione, rotazione o conversione delle unità. Non è stato stabilito alcun fattore di correzione cautelativo.",
+        "SA-2026-056 resta non corretto: verifica in modo indipendente le sollecitazioni dinamiche dei modelli misti telaio–guscio vincolati prima di usarle, anche quando rinumerazione, rotazione o conversione delle unità danno risultati concordi. Non è stato stabilito alcun fattore di correzione cautelativo.",
         "Il collasso plastico 2D resta rifiutato in attesa di #758, come descritto in SA-2026-044. Un limite inferiore 3D certificato non certifica la cronologia grezza delle cerniere.",
         "L’analisi time-history non fornisce le sollecitazioni dinamiche totali ai vincoli. Usa un’analisi indipendente che comprenda inerzia, smorzamento e carico sui vincoli. Le analisi dei cavi non supportate e il moto imposto non nullo ai vincoli nei flussi con cavi/time-history vengono rifiutati esplicitamente.",
         "I solutori spaziali a lunghezza d’arco e a controllo di spostamento non sono stati aggiunti. Gli avvisi e le restrizioni esistenti restano applicabili."

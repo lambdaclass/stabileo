@@ -118,7 +118,7 @@ const body: PostBody = {
         [
           "3 · Steifigkeitsmatrix",
           "Ungehaltene Freiheitsgrade",
-          "1"
+          "6"
         ],
         [
           "4 · Vorschläge",

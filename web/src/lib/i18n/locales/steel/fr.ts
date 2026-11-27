@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 import type { Translations } from '../../types';
 
 const steelFr: Translations = {
@@ -610,7 +611,7 @@ const steelFr: Translations = {
   'steel.f62.branch.undetermined': 'branche indéterminée',
   'steel.f62.missing.flangeGeometry': 'Largeur et épaisseur de semelle.',
   'steel.f62.missing.slendernessLimits': 'Les limites d\'élancement λpf et λrf du tableau B.4.1b, cas 14. Les cellules numériques de ce tableau ne figurent pas dans le markdown livré : seulement son titre, ses notes et la liste des symboles.',
-  'steel.f62.lambdaLabel': 'Élancement de semelle λf = bf/tf',
+  'steel.f62.lambdaLabel': 'Élancement de semelle λf',
   'steel.f62.fcrLabel': 'Fcr si la semelle s\'avère élancée (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — facteur de gradient de moment (F.1.1)',
   'steel.workflow.clause.cbState': 'Calculé à partir du diagramme de moments lorsqu\'il existe des points d\'évaluation et que la section entre dans le champ de F.1.1 ; sinon Cb = 1, ce que la norme permet. Le calculer ne certifie pas le maintien latéral.',
@@ -1257,7 +1258,7 @@ const steelFr: Translations = {
   'steel.tc.calc.connection': 'Assemblage : {what}',
   'steel.tc.calc.bolted': 'boulonné, {lines} file(s) × {n} boulon(s) M{d}, trous {hole}, entraxe {pitch} mm, assemblé par : {connected}',
   'steel.tc.calc.welded': 'soudé, cordons {weld}, L = {L} mm, assemblé par : {connected}',
-  'steel.tc.calc.u': 'U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0.9 → {U}  (D.3.2)',
+  'steel.tc.calc.u': shearLagTrace('.'),
   'steel.tc.calc.uFloor': 'U ≥ A assemblée/Ag = {Aconn}/{Ag} = {U}  (D.3, sections ouvertes)',
   'steel.tc.calc.weldNoHoles': 'Pas de trous dans l\'assemblage soudé : An = Ag  (B.4.2.2)',
   'steel.tc.calc.plateTable': 'Plat soudé le long des deux bords : L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))',
@@ -1357,7 +1358,7 @@ const steelFr: Translations = {
   'c301.d.uGiven': '  U = {U} (donné)',
   'c301.d.allConnected': '  Tous les éléments assemblés : Ae = An  (D.3(1))',
   'c301.d.plateWeld': '  Plat avec cordons longitudinaux : L = {L} mm, w = {w} mm → U = {U}  (D.3.5)',
-  'c301.d.uShearLag': '  U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0.9 → {U}  (D.3.2)',
+  'c301.d.uShearLag': '  ' + shearLagTrace('.'),
   'c301.d.uFloor': '  U ≥ A assemblée/Ag = {U}  (D.3, sections ouvertes)',
   'c301.d.aeBase': '  Ae = {base}·U  ({clause})',
   'c301.e.title': '§E — Compression :',

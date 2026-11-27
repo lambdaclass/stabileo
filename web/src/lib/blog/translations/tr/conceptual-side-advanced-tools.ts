@@ -118,7 +118,7 @@ const body: PostBody = {
         [
           "3 · Rijitlik matrisi",
           "Tutulmamış serbestlik dereceleri",
-          "1"
+          "6"
         ],
         [
           "4 · Öneriler",

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DIR, LEGACY, NUMBERED, ORDER_FILE, readRegistry, readRegistryAt, writeOrderFile } from '../result-changes/registry.mjs';
@@ -35,6 +35,10 @@ function repo() {
 const versions = (r: { changes: { id: string; resultsVersion: number }[] }) =>
   Object.fromEntries(r.changes.map((c) => [c.id, c.resultsVersion]));
 
+function expectSourceBytes(root: string, before: Buffer) {
+  expect(readFileSync(join(root, DIR, 'existing.json'))).toEqual(before);
+}
+
 describe('results versions from the order changes reach main', { timeout: 60_000 }, () => {
   it('keeps the numbered versions and their current version when nothing has landed since', () => {
     const { root } = repo();
@@ -48,7 +52,7 @@ describe('results versions from the order changes reach main', { timeout: 60_000
     const english = { title: { en: 'Title' }, explanation: { en: 'Explanation' } };
     fragment('existing', english);
     commit('publish the original notice');
-    const source = git('show', `HEAD:${DIR}/existing.json`);
+    const source = readFileSync(join(root, DIR, 'existing.json'));
     write('web/src/lib/provenance/result-change-translations/it.json', {
       existing: { title: 'Titolo', explanation: 'Spiegazione' },
     });
@@ -61,7 +65,19 @@ describe('results versions from the order changes reach main', { timeout: 60_000
     expect(current).toMatchObject(localized);
     expect(readRegistryAt('HEAD', root)!.changes).toContainEqual(current);
     expect(readRegistryAt('HEAD~1', root)!.changes.find(change => change.id === 'existing')!.title).toEqual(english.title);
-    expect(git('show', `HEAD:${DIR}/existing.json`)).toBe(source);
+    expectSourceBytes(root, source);
+    expect(Buffer.from(git('show', `HEAD:${DIR}/existing.json`))).toEqual(source);
+  });
+
+  it('known wrong result: #2595 — source preservation detects a reader rewriting the fixture', () => {
+    const { root, fragment, commit } = repo();
+    fragment('existing');
+    commit('release existing');
+    const path = join(root, DIR, 'existing.json');
+    const original = readFileSync(path);
+    readRegistry(root);
+    writeFileSync(path, Buffer.concat([original, Buffer.from(' ')]));
+    expect(() => expectSourceBytes(root, original)).toThrow();
   });
 
   it('numbers two changes made in parallel by the order they merge, and they never conflict', () => {

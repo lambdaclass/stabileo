@@ -763,7 +763,7 @@ const it: Dict = {
   'mohr.title3d': 'Stato di tensione 3D',
   'mohr.stressTensor': 'Tensore delle tensioni',
   'mohr.mirror': 'Il tensore è simmetrico, quindi il triangolo inferiore ripete quello superiore.',
-  'mohr.rotation': 'Angolo del piano θ',
+  'mohr.rotation': 'Angolo della normale al piano θ, misurato da x',
   'mohr.animate': 'Scansione',
   'mohr.principal': 'Tensioni principali',
   'mohr.rotated': 'Tensioni sull’elemento ruotato',

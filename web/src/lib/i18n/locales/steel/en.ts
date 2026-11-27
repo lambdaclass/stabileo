@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 import c301En from './c301-en';
 /**
  * English counterpart of `steel/es.ts`. Same keys, same order — a test asserts it.
@@ -614,7 +615,7 @@ const steelEn: Record<string, string> = {
   'steel.f62.branch.undetermined': 'branch undetermined',
   'steel.f62.missing.flangeGeometry': 'Flange width and thickness.',
   'steel.f62.missing.slendernessLimits': 'The λpf and λrf slenderness limits of Table B.4.1b, case 14. That table’s numeric cells are not in the shipped markdown: only its caption, footnotes and symbol list.',
-  'steel.f62.lambdaLabel': 'Flange slenderness λf = bf/tf',
+  'steel.f62.lambdaLabel': 'Flange slenderness λf',
   'steel.f62.fcrLabel': 'Fcr if the flange turns out slender (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — moment gradient factor (F.1.1)',
   'steel.workflow.clause.cbState': 'Computed from the moment diagram when stations exist and the section is within F.1.1’s scope; otherwise Cb = 1, which the code permits. Computing it does not certify the bracing.',
@@ -1273,7 +1274,7 @@ const steelEn: Record<string, string> = {
   'steel.tc.calc.connection': 'Connection: {what}',
   'steel.tc.calc.bolted': 'bolted, {lines} line(s) × {n} M{d} bolt(s), {hole} holes, pitch {pitch} mm, connected through: {connected}',
   'steel.tc.calc.welded': 'welded, {weld} welds, L = {L} mm, connected through: {connected}',
-  'steel.tc.calc.u': 'U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0.9 → {U}  (D.3.2)',
+  'steel.tc.calc.u': shearLagTrace('.'),
   'steel.tc.calc.uFloor': 'U ≥ A connected/Ag = {Aconn}/{Ag} = {U}  (D.3, open sections)',
   'steel.tc.calc.weldNoHoles': 'No holes in the welded connection: An = Ag  (B.4.2.2)',
   'steel.tc.calc.plateTable': 'Plate welded along both edges: L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))',

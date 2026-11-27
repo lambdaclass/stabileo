@@ -15,7 +15,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Stato al 12 novembre 2026: da SA-2026-001 a 020 sono corretti nella versione 0.3.0, da SA-2026-021 a 024 nella versione 0.4.0 e da SA-2026-025 a 047 nella versione 0.5.0 (SA-2026-040 contenuto: la verifica è segnata come incompleta), tranne SA-2026-044: il collasso plastico 2D resta rifiutato finché #758 non si chiude. SA-2026-048 è stato corretto dopo la versione 0.5.0 ed è su stabileo.com dall’8 novembre 2026. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 e SA-2026-053 sono stati corretti dopo la versione 0.5.0 e sono su stabileo.com dal 9 novembre 2026. Pubblicarli fa parte di come verifichiamo i risultati, non è segno che siano ancora aperti. Un bollettino conta come corretto quando la correzione è online su stabileo.com, non quando la modifica esiste. Finché un bollettino è aperto, usa il suo rimedio e controlla a mano il risultato interessato prima di firmare. SA-2026-054 — Bozza: correzione non ancora integrata né distribuita. SA-2026-055 — Bozza: correzione non ancora integrata né distribuita. SA-2026-056 — Bozza: irrisolto; nessuna correzione integrata né distribuita. SA-2026-057 — Bozza: correzione non ancora integrata né distribuita. SA-2026-059 — Corretto nella PR #1921, in attesa del rilascio. SA-2026-060 — Bozza: correzione locale in attesa di revisione e rilascio. SA-2026-062 — Bozza: correzione locale in attesa di revisione e rilascio."
+      "t": "Stato dopo la versione 0.6.0: da SA-2026-001 a 020 sono corretti nella versione 0.3.0, da SA-2026-021 a 024 nella versione 0.4.0 e da SA-2026-025 a 047 nella versione 0.5.0, con due eccezioni. Per SA-2026-040 la verifica a torsione resta incompleta. Per SA-2026-044 il collasso plastico 2D resta rifiutato finché #758 non si chiude. SA-2026-048 è stato corretto dopo la versione 0.5.0 ed è su stabileo.com dall’8 novembre 2026. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 e SA-2026-053 sono stati corretti dopo la versione 0.5.0 e sono su stabileo.com dal 9 novembre 2026. Pubblicarli fa parte di come verifichiamo i risultati, non è segno che siano ancora aperti. Un bollettino conta come corretto quando la correzione è online su stabileo.com, non quando la modifica esiste. Finché un bollettino è aperto, usa il suo rimedio e controlla a mano il risultato interessato prima di firmare. Da SA-2026-054 a SA-2026-063 le correzioni sono incluse nella 0.6.0, tranne SA-2026-056: verifica in modo indipendente le sollecitazioni dinamiche interessate prima di usarle."
     },
     {
       "k": "note",
@@ -307,7 +307,7 @@ const body: PostBody = {
       "k": "ext",
       "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md",
       "label": "SA-2026-092",
-      "t": "L’esempio del tubo sottile colloca la fibra negli assi locali dell’asta (y = 0.0995 m, z = 0). Il vecchio calcolo dava 4.5697 MPa di taglio totale e 7.9149 MPa di von Mises, e la verifica passava per entrambi i segni del momento torcente. Quando i contributi di taglio si sommano, la somma di taglio con segno è 6.4625 MPa. La tensione di von Mises corrispondente è 11.1934 MPa, che supera la tensione di snervamento di 9 MPa. Quando i contributi si elidono, la tensione di von Mises è prossima a zero e la verifica è superata."
+      "t": "L’esempio del tubo sottile colloca la fibra negli assi locali dell’asta (y = 0,0995 m, z = 0). Il vecchio calcolo dava 4,5697 MPa di taglio totale e 7,9149 MPa di von Mises, e la verifica passava per entrambi i segni del momento torcente. Quando i contributi di taglio si sommano, la somma di taglio con segno è 6,4625 MPa. La tensione di von Mises corrispondente è 11,1934 MPa, che supera la tensione di snervamento di 9 MPa. Quando i contributi si elidono, la tensione di von Mises è prossima a zero e la verifica è superata."
     },
     {
       "k": "note",
@@ -381,7 +381,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-100 — Prossimo rilascio (0.6.4)."
+      "t": "SA-2026-100 — Corretto nella 0.6.4."
     },
     {
       "k": "ext",
@@ -391,7 +391,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-101 — Prossimo rilascio (0.6.4)."
+      "t": "SA-2026-101 — Corretto nella 0.6.4."
     },
     {
       "k": "ext",
@@ -401,7 +401,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-102 — Prossimo rilascio (0.6.4)."
+      "t": "SA-2026-102 — Corretto nella 0.6.4."
     },
     {
       "k": "ext",
@@ -411,7 +411,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-103 — Prossimo rilascio (0.6.4)."
+      "t": "SA-2026-103 — Corretto nella 0.6.4."
     },
     {
       "k": "ext",
@@ -421,7 +421,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-104 — Prossimo rilascio (0.6.4)."
+      "t": "SA-2026-104 — Corretto nella 0.6.4."
     },
     {
       "k": "ext",
@@ -431,7 +431,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-105 — Prossimo rilascio dopo la 0.6.3."
+      "t": "SA-2026-105 — Corretto nella 0.6.4."
     },
     {
       "k": "ext",
@@ -441,7 +441,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-106 — Prossimo rilascio dopo la 0.6.3 (contenimento)."
+      "t": "SA-2026-106 — Contenuto nella 0.6.4."
     },
     {
       "k": "ext",
@@ -451,7 +451,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-107 — Prossimo rilascio dopo la 0.6.3 (contenimento)."
+      "t": "SA-2026-107 — Contenuto nella 0.6.4."
     },
     {
       "k": "ext",
@@ -766,7 +766,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-048",
-          "Acciaio CIRSOC 301: Cb non coglieva un cambio di segno agli estremi di una lunghezza non controventata dichiarata più corta dell’asta (un profilo a C a doppia curvatura otteneva Cb = 2,55 invece di 1, sovrastimando la capacità flesso-torsionale); da 0.2.0 a 0.5.0, le alfa desktop e stabileo.com fino all’8 novembre 2026",
+          "Acciaio CIRSOC 301: Cb poteva perdere un cambio di segno o omettere i momenti di estremità da Mmax. Ricontrolla ogni sezione con lunghezza non controventata dichiarata più corta dell’asta, anche senza inversione di segno (un profilo a C a doppia curvatura otteneva Cb = 2,55 invece di 1, sovrastimando la capacità flesso-torsionale); da 0.2.0 a 0.5.0, le alfa desktop e stabileo.com fino all’8 novembre 2026",
           "Alta",
           "Risolto dopo la 0.5.0; su stabileo.com dal 8 novembre 2026"
         ],
@@ -804,61 +804,61 @@ const body: PostBody = {
           "SA-2026-054",
           "L’analisi lineare poteva restituire in silenzio risultati imprecisi per rigidezza non risolta o componenti di carico PCG mancate",
           "Alta",
-          "Bozza: correzione non ancora integrata né rilasciata"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-055",
           "Il P-Delta 2D e 3D poteva sottostimare l’amplificazione e segnalare stabilità quando lo sforzo normale variava sotto carichi distribuiti o concentrati lungo un’asta di telaio",
           "Alta",
-          "Bozza: correzione non ancora integrata né rilasciata"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-056",
           "Modelli 3D di telai e gusci con vincoli interni: i risultati armonici e time-history forzati cambiano con descrizioni equivalenti; l’estensione oltre il modello mantenuto non è stabilita",
           "Alta",
-          "Bozza: non risolto; nessuna correzione integrata né rilasciata"
+          "Irrisolto: verifica indipendente prima dell’uso"
         ],
         [
           "SA-2026-057",
           "Le visualizzazioni dei certificati plastici potevano etichettare come interni fattori fuori dal loro intervallo certificato; l’estrazione esatta dei meccanismi scartava i rifiuti per risorse nelle build precedenti alla correzione della PR #1888",
           "Media",
-          "Bozza: correzione non ancora integrata né rilasciata"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-058",
           "I modelli armonici 2D/3D grandi, oltre 3000 gradi di libertà liberi indipendenti, potevano mantenere risposte inaccurate dei modi omessi fuori da q ≤ 1/16 a frequenze non coperte dall’avviso di troncamento (misurato un errore complesso del bersaglio dell’8,079%)",
           "Alta",
-          "Risolto nella PR #1922, in attesa di rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-059",
           "Le analisi avanzate web potevano dare ai cavi resistenza a compressione senza avviso (replay P-Delta: −4,599884347090908 kN); rivedi le sollecitazioni dei modelli di cavo provenienti da analisi avanzate, analisi diretta e procedure guidate didattiche",
           "Alta",
-          "Risolto nella PR #1921, in attesa di rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-060",
           "L’analisi per fasi poteva irrigidire in silenzio rotazioni reali dopo cambi di unità o negli estremi svincolati con molle di vincolo; ricontrolla i modelli per fasi con svincoli nelle aste",
           "Alta",
-          "Bozza: correzione locale in attesa di revisione e rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-061",
           "L’arc-length e il controllo in spostamento omettevano le reazioni e usavano carichi sulle aste non scalati; vanno riviste anche le omissioni nei risultati 2D/3D con vincoli interni, Guyan, per fasi e time-history. Riesegui i risultati interessati o verificali in modo indipendente; 0.2.0–0.5.0 e le build successive di main interessate.",
           "Alta",
-          "Risolto nella PR #1952, in attesa di rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-062",
           "L’analisi plastica 3D grezza poteva riportare zero in silenzio quando falliva lo stato elastico iniziale; le build certificate più vecchie mantenevano quel fattore. Main restituisce già un limite certificato positivo con un avviso; la PR #1943 propaga il rifiuto iniziale",
           "Alta",
-          "Bozza: correzione locale in attesa di revisione e rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-063",
           "Le analisi per fasi e non lineari con vincoli interni scartavano il moto imposto del master; cavi e time-history ora rifiutano il moto di vincolo non supportato. Gli avvisi dinamici generali esistenti restano distinti da questa omissione",
           "Alta",
-          "Risolto nella PR #2009, in attesa di rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-064",
@@ -868,7 +868,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-065",
-          "Lo spostamento del gradino di copertura poteva essere omesso su una copertura ricevente a falde (#2082). Rigenera i carichi di neve CIRSOC 104 e riesegui le analisi e le verifiche di progetto interessate.",
+          "L’accumulo di neve dovuto al dislivello della copertura poteva essere omesso su una copertura ricevente a falde (#2082). Rigenera i carichi di neve CIRSOC 104 e riesegui le analisi e le verifiche di progetto interessate.",
           "Alta",
           "Risolto nella 0.6.1"
         ],
@@ -898,7 +898,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-070",
-          "Lo spostamento e la rotazione di un’asta interna omettevano i carichi di luce (#2143). Rivedi le deformate, le letture didattiche e le verifiche di esercizio di acciaio e calcestruzzo, inclusi i trapezi pieni e parziali. Il recupero con carico senza EI sufficiente ora rifiuta in modo esplicito.",
+          "Gli spostamenti e le rotazioni nelle sezioni interne dell’asta non tenevano conto dei carichi applicati lungo la campata (#2143). Rivedi le deformate, le letture didattiche e le verifiche di esercizio di acciaio e calcestruzzo, inclusi i trapezi pieni e parziali. Il recupero con carico senza EI sufficiente ora rifiuta in modo esplicito.",
           "Alta",
           "Risolto nella 0.6.2"
         ],
@@ -1074,49 +1074,49 @@ const body: PostBody = {
           "SA-2026-100",
           "I momenti delle reazioni, le letture a corpo libero e gli elenchi dei carichi concentrati potevano mostrare segni o assi sbagliati. Verifica i valori mostrati rispetto all’equilibrio e alle direzioni di carico previste. Ispeziona di nuovo i risultati interessati e rigenera le relazioni.",
           "Media",
-          "Prossimo rilascio (0.6.4)"
+          "Corretto nella 0.6.4"
         ],
         [
           "SA-2026-101",
           "PRO poteva risolvere con piastre omesse, mesh basate su dati incompleti o collegamenti parete-solaio scollegati. Confronta la mesh con la geometria prevista, ripara le piastre e le giunzioni interessate e riesegui analisi e verifiche di progetto.",
           "Alta",
-          "Prossimo rilascio (0.6.4)"
+          "Corretto nella 0.6.4"
         ],
         [
           "SA-2026-102",
           "I diagrammi potevano dare picchi o sollecitazioni di sezione sbagliati vicino ad azioni concentrate, e i tratti di campata invertiti potevano scambiare le facce di progetto del calcestruzzo. Controlla le sollecitazioni dominanti, le facce dell’armatura e i dati del gradiente di momento per l’acciaio. Riesegui le analisi e le verifiche interessate.",
           "Alta",
-          "Prossimo rilascio (0.6.4)"
+          "Corretto nella 0.6.4"
         ],
         [
           "SA-2026-103",
           "Le verifiche di torsione e taglio del calcestruzzo potevano accettare acciaio trasversale insufficiente o accreditare barre perimetrali o tese non verificate. Ripeti la verifica con l’armatura effettiva e le sollecitazioni concomitanti e rivedi le relazioni interessate.",
           "Alta",
-          "Prossimo rilascio (0.6.4)"
+          "Corretto nella 0.6.4"
         ],
         [
           "SA-2026-104",
           "Invertire le aste poteva reindirizzare i carichi distribuiti, e l’analisi poteva omettere coppie concentrate piane precedenti. Controlla le direzioni di carico salvate, le ordinate di estremità e i campi delle coppie. Ripara i carichi e riesegui le analisi e le verifiche di progetto interessate.",
           "Alta",
-          "Prossimo rilascio (0.6.4)"
+          "Corretto nella 0.6.4"
         ],
         [
           "SA-2026-105",
           "Modificare a zero una coppia concentrata piana ripristinata poteva lasciare attivo il vecchio momento. Verifica e reinserisci i momenti previsti, poi riesegui le analisi e le verifiche di progetto interessate.",
           "Alta",
-          "Prossimo rilascio dopo la 0.6.3"
+          "Corretto nella 0.6.4"
         ],
         [
           "SA-2026-106",
           "La rigenerazione della mesh poteva usare l’arco complementare di un bordo curvo di una piastra. Verifica la mesh rispetto all’ampiezza indicata, ricostruisci le mesh interessate e riesegui analisi e verifiche di progetto.",
           "Alta",
-          "Prossimo rilascio dopo la 0.6.3 (contenimento)"
+          "Contenuto nella 0.6.4"
         ],
         [
           "SA-2026-107",
           "La rigenerazione della mesh poteva scartare le eccentricità dei gusci e le modifiche di curvatura. Verifica e ripristina le proprietà previste dei gusci prima di rieseguire analisi e verifiche di progetto.",
           "Alta",
-          "Prossimo rilascio dopo la 0.6.3 (contenimento)"
+          "Contenuto nella 0.6.4"
         ],
         [
           "SA-2026-108",
@@ -1283,44 +1283,44 @@ const body: PostBody = {
       "rows": [
         [
           "SA-2026-024",
-          "Portale 6 × 4 m, 20 kN/m di carico permanente sulla trave, 15 kN di vento, 1.2D + 1.6W, dopo una modifica con il calcolo in tempo reale attivo: reazione verticale del plinto sopravento",
-          "65.61",
-          "56.01",
+          "Portale 6 × 4 m, 20 kN/m di carico permanente sulla trave, 15 kN di vento, 1,2D + 1.6W, dopo una modifica con il calcolo in tempo reale attivo: reazione verticale del plinto sopravento",
+          "65,61",
+          "56,01",
           "kN"
         ],
         [
           "SA-2026-023",
           "Pilastro 30×30 cm, 6 Ø20 (tre sulla faccia inferiore), Nu = 100 kN: φMn con la faccia a tre barre compressa",
-          "78.57",
-          "101.57",
+          "78,57",
+          "101,57",
           "kN·m"
         ],
         [
           "SA-2026-013",
           "Mensola di quattro gusci curvi, 4 × 1 × 0,2 m, 10 kN in punta: mx nell’elemento all’incastro",
-          "35.0",
+          "35,0",
           "0",
           "kN·m/m"
         ],
         [
           "SA-2026-014",
           "Telaio spaziale di 10 aste (frame3d-2), rinumerato: moltiplicatore di collasso plastico",
-          "176.47",
-          "424.3",
+          "176,47",
+          "424,3",
           "—"
         ],
         [
           "SA-2026-015",
           "Antenna strallata di 20 m, strallo d’acciaio da 1 cm², 5 kN in testa: tensione dello strallo",
-          "5.18",
-          "4.34",
+          "5,18",
+          "4,34",
           "kN"
         ],
         [
           "SA-2026-011",
           "Trave a 0, 4 e 8 m, vincolo disegnato come incastro a 8 m: freccia in quel vincolo",
           "0",
-          "-14.4",
+          "-14,4",
           "mm"
         ],
         [
@@ -1333,8 +1333,8 @@ const body: PostBody = {
         [
           "SA-2026-008",
           "Due modi a ω e 1,1ω: taglio alla base rispetto al valore CQC",
-          "1.00",
-          "0.81",
+          "1,00",
+          "0,81",
           "—"
         ],
         [
@@ -1347,36 +1347,36 @@ const body: PostBody = {
         [
           "SA-2026-006",
           "Portale con momenti e forze nodali: spostamento laterale",
-          "0.92",
-          "2.52",
+          "0,92",
+          "2,52",
           "mm"
         ],
         [
           "SA-2026-005",
           "Puntone di falda a capanna: sforzo normale alla base",
-          "-56.67",
-          "-41.67",
+          "-56,67",
+          "-41,67",
           "kN"
         ],
         [
           "SA-2026-019",
           "IPE 300 incastrata a entrambi gli estremi, gradiente di 20 °C: momento di estremità",
-          "14.04",
-          "9.76",
+          "14,04",
+          "9,76",
           "kN·m"
         ],
         [
           "SA-2026-012",
-          "Mensola snervata di 4 m, carico in punta 1.2·Mp/L: momento all’incastro",
-          "1012.5",
+          "Mensola snervata di 4 m, carico in punta 1,2·Mp/L: momento all’incastro",
+          "1012,5",
           "101250",
           "kN·m"
         ],
         [
           "SA-2026-016",
           "Arco semicircolare di 5 m nel piano Y–Z, 40 segmenti: freccia in chiave",
-          "-7.29",
-          "-6.18",
+          "-7,29",
+          "-6,18",
           "mm"
         ],
         [
@@ -1388,16 +1388,16 @@ const body: PostBody = {
         ],
         [
           "SA-2026-020",
-          "Mensola 3D di 4 m, N = 0.5·Np, carico in punta: carico al primo snervamento",
-          "158.2",
-          "182.7",
+          "Mensola 3D di 4 m, N = 0,5·Np, carico in punta: carico al primo snervamento",
+          "158,2",
+          "182,7",
           "kN"
         ],
         [
           "SA-2026-009",
           "Piastra sottile inflessa, ν = 0,3: rigidezza rispetto al valore corretto",
-          "1.000",
-          "1.225",
+          "1,000",
+          "1,225",
           "—"
         ]
       ]
@@ -1422,7 +1422,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Con i carichi H, la CIRSOC 101-2025 chiede gli effetti dei carichi non agenti. Le combinazioni 0.9 D + 1.6 H e 1.2 D + 1.6 H non venivano mai generate, quindi dove il carico permanente contrasta la spinta del terreno (il ribaltamento o lo scorrimento di un muro) l’effetto risultava basso. Ora vengono generate, con o senza vento o sisma nel modello."
+      "t": "Con i carichi H, la CIRSOC 101-2025 richiede di valutare anche le combinazioni in cui i carichi pertinenti sono assenti. Le combinazioni 0.9 D + 1.6 H e 1.2 D + 1.6 H non venivano mai generate, quindi dove il carico permanente contrasta la spinta del terreno (il ribaltamento o lo scorrimento di un muro) l’effetto risultava basso. Ora vengono generate, con o senza vento o sisma nel modello."
     },
     {
       "k": "ext",
@@ -1458,7 +1458,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Con combinazioni definite e nessuna di esse calcolata, plinti e nodi leggono il risultato a schermo, che in quel caso è ogni carico con coefficiente 1: sono stati progettati per i carichi di esercizio anziché per le combinazioni amplificate. Succedeva con il calcolo in tempo reale attivo (dopo una modifica ricalcola solo “Tutti i carichi” finché è a schermo la vista singola) oppure quando il calcolo delle combinazioni falliva e subentrava quello singolo. In un portale sotto 1.2D + 1.6W la reazione di un plinto risultava inferiore del 15 %; con carichi permanenti e variabili, del 29-38 %. Lo stesso accadeva a solai e pareti, all’ottimizzatore dell’acciaio e con un elenco vuoto di combinazioni attive. Ora ogni progetto si rifiuta e ne spiega il motivo finché le combinazioni non sono calcolate."
+      "t": "Con combinazioni definite e nessuna di esse calcolata, plinti e nodi leggono il risultato a schermo, che in quel caso è ogni carico con coefficiente 1: sono stati progettati per i carichi di esercizio anziché per le combinazioni amplificate. Succedeva con il calcolo in tempo reale attivo (dopo una modifica ricalcola solo “Tutti i carichi” finché è a schermo la vista singola) oppure quando il calcolo delle combinazioni falliva e subentrava quello singolo. In un portale sotto 1,2D + 1,6W la reazione di un plinto risultava inferiore del 15 %; con carichi permanenti e variabili, del 29-38 %. Lo stesso accadeva a solai e pareti, all’ottimizzatore dell’acciaio e con un elenco vuoto di combinazioni attive. Ora ogni progetto si rifiuta e ne spiega il motivo finché le combinazioni non sono calcolate."
     },
     {
       "k": "ext",
@@ -1491,7 +1491,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Come capire se sei interessato: un vincolo era prima una molla (o aveva costanti elastiche) ed è stato poi cambiato in incastro, cerniera o carrello, oppure un grado di libertà è stato spuntato come vincolato. Nei risultati, quel vincolo mostra uno spostamento o una rotazione diversi da zero.",
+        "Come capire se sei interessato: un vincolo era prima una molla (o aveva costanti elastiche) ed è stato poi cambiato in incastro, cerniera o carrello, oppure un grado di libertà è stato spuntato come vincolato. Nei risultati, controlla lo spostamento o la rotazione del solo grado di libertà passato da elastico a bloccato: deve essere nullo.",
         "Cosa fare: ricalcola su stabileo.com i modelli 3D i cui vincoli sono stati modificati da molle a rigidi e confronta i risultati vicino a quei vincoli con quelli che hai già usato.",
         "Stato: corretto su stabileo.com il 20 ottobre 2026. Ogni grado di libertà vincolato è calcolato come vincolato, anche nei progetti salvati prima."
       ]
@@ -1622,7 +1622,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "In 2D un’asta snerva quando (N/Np)² + |M|/Mp supera 1. In 3D il solutore usava (N/Np)² + (My/Mpy)² + (Mz/Mpz)², con i rapporti dei momenti al quadrato, quindi con sforzo normale o flessione attorno a entrambi gli assi un’asta 3D snervava più tardi della stessa asta in 2D e il coefficiente di utilizzo riportato era basso: con N = 0.5·Np il carico al primo snervamento risultava superiore del 15 %. Ora il 3D usa (N/Np)² + |My|/Mpy + |Mz|/Mpz, che per flessione attorno a un solo asse è la superficie 2D. Questo solutore è raggiungibile solo dal motore o dalla sua API WASM: nessuna schermata dell’app lo richiama, quindi i risultati ottenuti su stabileo.com non sono interessati."
+      "t": "In 2D un’asta snerva quando (N/Np)² + |M|/Mp supera 1. In 3D il solutore usava (N/Np)² + (My/Mpy)² + (Mz/Mpz)², con i rapporti dei momenti al quadrato, quindi con sforzo normale o flessione attorno a entrambi gli assi un’asta 3D snervava più tardi della stessa asta in 2D e il coefficiente di utilizzo riportato era basso: con N = 0,5·Np il carico al primo snervamento risultava superiore del 15 %. Ora il 3D usa (N/Np)² + |My|/Mpy + |Mz|/Mpz, che per flessione attorno a un solo asse è la superficie 2D. Questo solutore è raggiungibile solo dal motore o dalla sua API WASM: nessuna schermata dell’app lo richiama, quindi i risultati ottenuti su stabileo.com non sono interessati."
     },
     {
       "k": "ext",

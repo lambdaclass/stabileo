@@ -118,7 +118,7 @@ const body: PostBody = {
         [
           "3 · Matrice di rigidezza",
           "Gradi di libertà non vincolati",
-          "1"
+          "6"
         ],
         [
           "4 · Suggerimenti",
@@ -129,7 +129,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "L’app non si limita a riportare lo zero e lavarsene le mani. Lo smentisce nello stesso passo 2 che l’ha prodotto: “La formula dà GH = 0 (condizione necessaria per l’isostaticità), ma NON sufficiente”. Il passo 3 assembla la matrice di rigidezza globale, qui 6×6, e segnala “Rilevato 1 modo di meccanismo” nonostante GH = 0 ≥ 0. Indica il nodo 3 e il suo spostamento orizzontale, fa notare che l’equazione del passo 2 conta i vincoli senza verificare dove stanno, e chiude con “✗ Meccanismo: non si può risolvere”."
+      "t": "L’app non si limita a riportare lo zero e lavarsene le mani. Lo smentisce nello stesso passo 2 che l’ha prodotto: “La formula dà GH = 0 (condizione necessaria per l’isostaticità), ma NON sufficiente”. Il passo 3 assembla la matrice di rigidezza globale 9×9 e, dopo i tre vincoli verticali, esamina la matrice ridotta 6×6, e segnala “Rilevato 1 modo di meccanismo” nonostante GH = 0 ≥ 0. Indica il nodo 3 e il suo spostamento orizzontale, fa notare che l’equazione del passo 2 conta i vincoli senza verificare dove stanno, e chiude con “✗ Meccanismo: non si può risolvere”."
     },
     {
       "k": "img",

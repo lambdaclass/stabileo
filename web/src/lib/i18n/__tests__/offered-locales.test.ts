@@ -69,6 +69,7 @@ describe('the languages the app offers', () => {
   it('is English, Español and Português, plus Deutsch, Français, Türkçe, Magyar, Italiano, 中文 and Nederlands each once it is complete', async () => {
     const { store } = await boot(['en']);
     const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'].filter(isComplete)];
+    expect(store.OFFERED_LOCALES).toContain('it');
     expect([...store.OFFERED_LOCALES].sort()).toEqual(expected.sort());
   });
 

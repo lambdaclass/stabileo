@@ -83,7 +83,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Réseau carré : cisaillement nul",
     "tr": "Kare kafes: kayma sıfır",
     "hu": "Négyzetrács: zérus nyírási modulus",
-    'it': "Reticolo quadrato: taglio nullo",
+    'it': "Reticolo quadrato: modulo di taglio nullo",
     "zh": "正方形点阵：剪切模量为零",
     "nl": "Vierkant rooster: glijdingsmodulus nul"
   },
@@ -149,7 +149,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Dilution z = 3 : G nul",
     "tr": "Seyreltme z = 3: G sıfır",
     "hu": "Ritkítás z = 3: G zérus",
-    'it': "Diluizione z = 3: G nullo",
+    'it': "Diluizione z = 3: G/k < 10⁻⁶",
     "zh": "稀化 z = 3：G 为零",
     "nl": "Verdunning z = 3: G nul"
   },
