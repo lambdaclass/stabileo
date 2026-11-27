@@ -138,7 +138,7 @@ test('shape dialog translations follow the plate inspector independently of rein
   }
 });
 
-test('the raw shell writer only includes circular creation and mesh adoption for unified plates', { skip: 'known wrong result: #1928' }, async () => {
+test('the raw shell writer only includes circular creation and mesh adoption for unified plates', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
       const entry = resolve(root, 'src/components/pro/ProShellTab.svelte');

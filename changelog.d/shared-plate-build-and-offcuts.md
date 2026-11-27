@@ -15,3 +15,5 @@ The published shell panel again counts triangles and quads separately, shows eac
 The published locale bundles omit the unified shape dialog's instructions when only the node-based inspector is available.
 
 Selecting the owner of a mesh cell in the published shell table now opens that physical plate even when whole-plate picking is already active.
+
+The published raw shell writer now excludes circular plate construction and the unified mesh-adoption undo step.

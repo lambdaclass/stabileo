@@ -166,7 +166,7 @@
 
   function addShell() {
     newError = null;
-    if (circle) {
+    if (__PUBLIC_FEATURES__.proPlatesUnified && circle) {
       const c = point(circleCenter), h = point(holeCenter);
       const r = c && (!circleHole || h) ? createCircularPlate({ center: c, radius: circleRadius, ...(circleHole ? { hole: { center: h!, radius: holeRadius } } : {}), materialId: drawState.plateMaterialId, thickness: drawState.plateThickness }) : null;
       if (!r || 'problem' in r) { newError = t('plates.circle.invalid'); return; }
@@ -191,7 +191,9 @@
     if ('error' in r) { newError = t(r.error); return; }
     // The plate it is made into belongs to the same undo step as the shell.
     let plate: number | undefined;
-    modelStore.amendLastStep(() => { [plate] = platesFromShells([r.key]); });
+    if (__PUBLIC_FEATURES__.proPlatesUnified) {
+      modelStore.amendLastStep(() => { [plate] = platesFromShells([r.key]); });
+    }
     if (plate !== undefined) { uiStore.selectMode = 'shells'; uiStore.selectPlates([plate]); } else uiStore.selectShell(r.key, false);
     /* The recommendation follows the corners, so clearing them clears it. */
     newNodeIds = ['', '', '', ''];
@@ -254,7 +256,7 @@
           <button type="button" class:on={!circle && drawState.plateCorners === 4} aria-pressed={!circle && drawState.plateCorners === 4} onclick={() => cornersAs(4)} data-testid="write-corners-4">{t('drawBar.quad')}</button>
           {#if __PUBLIC_FEATURES__.proPlatesUnified}<button type="button" class:on={circle} aria-pressed={circle} onclick={() => (circle = true)} data-testid="write-corners-circle">{t('drawBar.circle')}</button>{/if}
         </div>
-        {#if circle}
+        {#if __PUBLIC_FEATURES__.proPlatesUnified && circle}
           <label>{t('plates.circle.center')} <input type="text" class="node-input outline-input" placeholder="x; y; z" bind:value={circleCenter} data-testid="plate-circle-center" /></label>
           <label>{t('plates.circle.radius')} <QuantityInput min={0.01} bind:value={circleRadius} quantity="length" cls="node-input" testid="plate-circle-radius" /></label>
           <label><input type="checkbox" bind:checked={circleHole} data-testid="plate-circle-hole" /> {t('plates.circle.hole')}</label>
@@ -262,23 +264,25 @@
             <label>{t('plates.circle.holeCenter')} <input type="text" class="node-input outline-input" placeholder="x; y; z" bind:value={holeCenter} data-testid="plate-circle-hole-center" /></label>
             <label>{t('plates.circle.holeRadius')} <QuantityInput min={0.01} bind:value={holeRadius} quantity="length" cls="node-input" testid="plate-circle-hole-radius" /></label>
           {/if}
-        {:else if drawState.plateCorners === 'outline'}
-          <label>{t('plates.outlineNodes')}
-            <input type="text" class="node-input outline-input" placeholder="1, 2, 3, 4" bind:value={outlineText} data-testid="plate-outline-nodes" />
-          </label>
         {:else}
-        <span class="node-row">
-          {#each Array.from({ length: cornerBoxes }, (_, i) => i) as i (i)}
-            <input
-              type="text" inputmode="numeric"
-              class="node-input"
-              placeholder={`N${i + 1}`}
-              value={newNodeIds[i]}
-              oninput={(e) => { newNodeIds[i] = e.currentTarget.value; }}
-              data-testid="shell-node-{i}"
-            />
-          {/each}
-        </span>
+          {#if drawState.plateCorners === 'outline'}
+            <label>{t('plates.outlineNodes')}
+              <input type="text" class="node-input outline-input" placeholder="1, 2, 3, 4" bind:value={outlineText} data-testid="plate-outline-nodes" />
+            </label>
+          {:else}
+            <span class="node-row">
+            {#each Array.from({ length: cornerBoxes }, (_, i) => i) as i (i)}
+              <input
+                type="text" inputmode="numeric"
+                class="node-input"
+                placeholder={`N${i + 1}`}
+                value={newNodeIds[i]}
+                oninput={(e) => { newNodeIds[i] = e.currentTarget.value; }}
+                data-testid="shell-node-{i}"
+              />
+            {/each}
+            </span>
+          {/if}
         {/if}
         <label>{t('pro.thMaterial')}
           <select value={drawState.plateMaterialId} onchange={(e) => (drawState.plateMaterialId = Number(e.currentTarget.value))} class="mat-select">
