@@ -90,6 +90,21 @@ describe('colour maps in wireframe render mode (no element groups)', () => {
     expect(eb.getBaseColor(strut), 'strut should be the compression colour').toBe(COMPRESSION);
   });
 
+  it('distinguishes a mixed-sign bar under a midspan axial force from an unloaded member', () => {
+    const { tie, strut } = twoBarModel();
+    const eb = new ElementsBatched();
+    eb.upsert(tie, 0, 0, 0, 4, 0, 0);
+    eb.upsert(strut, 4, 0, 0, 4, 3, 0);
+    publishAxial([{ elementId: tie, n: 5 }, { elementId: strut, n: 0 }]);
+    const r = resultsStore.results3D!;
+    const mixed = { ...r.elementForces[0], length: 4, nEnd: -5, pointLoadsX: [{ a: 2, p: 10 }] };
+    resultsStore.setResults3D({ ...r, elementForces: [mixed, r.elementForces[1]] });
+    resultsStore.diagramType = 'axialColor';
+    syncColorMap3D(context(eb));
+    expect(eb.getBaseColor(tie)).not.toBe(eb.getBaseColor(strut));
+    expect([TENSION, COMPRESSION]).not.toContain(eb.getBaseColor(tie));
+  });
+
   it('turning the map off restores the per-type base colour', () => {
     const { tie, strut } = twoBarModel();
     const eb = new ElementsBatched();

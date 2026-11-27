@@ -245,3 +245,26 @@ it.each(['plate', 'quad', 'curved'] as const)('drops a space reaction when only 
   expect([...modelStore.nodes.keys()]).toEqual(before);
   expect(resultsStore.screen.results3D).toBeNull();
 });
+
+it.each(['quad9s', 'solidShells', 'curvedShells'])('invalidates a space publication when the %s collection changes', async key => {
+  uiStore.analysisMode = '3d';
+  await modelStore.loadExample('3d-portal-frame');
+  const result = modelStore.solve3D();
+  if (!result || typeof result === 'string') throw Error(String(result));
+  const source = modelStore.model as unknown as Record<string, unknown>;
+  const nodes = [...modelStore.nodes.keys()];
+  try {
+    source[key] = new Map([[7, { id: 7, nodes }]]);
+    modelStore.bumpModelVersion();
+    resultsStore.setResults3D(result);
+    resultsStore.diagramType = 'momentY';
+    resultsStore.clear({ keepScreen: true });
+    expect(resultsStore.screen.held).toBe(true);
+    source[key] = new Map();
+    modelStore.bumpModelVersion();
+    expect([...modelStore.nodes.keys()]).toEqual(nodes);
+    expect(resultsStore.screen.held).toBe(false);
+  } finally {
+    delete source[key];
+  }
+});
