@@ -138,3 +138,11 @@ it('registers viewer strings for a fresh research visit in every locale', () => 
     }
   }
 });
+
+it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 labels each mesh ceiling as a percentage in every locale', () => {
+  for (const [locale, dictionary] of Object.entries(strings)) {
+    const text = describeCase(dictionary, locale, { tolerance, meshErrorCeilings, axialExtensionBound, momentArea: .01, first: .5, last: 10 });
+    const format = new Intl.NumberFormat(locale, { style: 'percent', maximumSignificantDigits: 3 });
+    expect(text.solverDescription).toContain(meshErrorCeilings.map(c => format.format(c.relativeError)).join('/'));
+  }
+});

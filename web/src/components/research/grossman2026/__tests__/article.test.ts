@@ -40,3 +40,8 @@ it.each(OFFERED_LOCALES)('names every paper-against-Stabileo row in %s', (locale
     if (locale !== 'en') expect(names[row.id!]).not.toBe(english[row.id!]);
   }
 });
+
+it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 uses the periodic samples for the periodic eta range', () => {
+  const periodic = comparisonRows.find(r => r.id === 'fig5-periodic')!;
+  expect(comparisonNames([periodic as { id: string }], 'en')['fig5-periodic']).toContain('0.45');
+});

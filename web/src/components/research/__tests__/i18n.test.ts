@@ -108,3 +108,9 @@ it('attributes missing roof loads to nodal tributary areas', () => {
   expect(shells.hu.auditText).toContain('csomópontokhoz tartozó terület');
   expect(shells.zh.auditText).toContain('节点分担面积');
 });
+
+it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 preserves signs and signed superscript exponents across locales', () => {
+  expect(numbers('−0.2', 'en')).toEqual(numbers('-0,2', 'es'));
+  expect(numbers('−0.2', 'en')).not.toEqual(numbers('0,2', 'es'));
+  expect(numbers('10⁻⁹', 'en')).not.toEqual(numbers('10⁹', 'es'));
+});

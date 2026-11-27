@@ -248,3 +248,11 @@ it('rejects an unknown replacement node or a nonfinite displacement at the expec
     expect(() => downward(input, [...field.slice(0, -1), last])).toThrow();
   }
 });
+
+it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 accepts only representable thicknesses and boolean support conditions', () => {
+  expect(validPlate({ ...PAPER_PLATE, hard: 'soft' as unknown as boolean })).toBe(false);
+  expect(validPlate({ ...PAPER_PLATE, thickness: 0.024 })).toBe(false);
+  for (const hard of [false, true]) for (const thickness of [0.02, 0.05, 0.1, 0.2, 0.3, 0.5]) {
+    expect(validPlate({ ...PAPER_PLATE, hard, thickness })).toBe(true);
+  }
+});
