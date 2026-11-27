@@ -64,7 +64,7 @@ export const FEATURE_IDS = [
   'native:duplicate-json-connector-keys', 'native:staged-unconsumed-tables', 'native:staged-unknown-fields',
   'native:duplicate-json-analysis-table-keys', 'native:wasm-iterable-load-fields', 'native:producer-wire-metadata',
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
-  'plane2D', 'space3D', 'members', 'sharedSectionMaterials', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
+  'plane2D', 'educationWorkspace', 'space3D', 'members', 'sharedSectionMaterials', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
@@ -509,6 +509,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   };
   const mode = ctx.analysisMode ?? s.analysisMode ?? '2d';
   if (ctx.analysesRun == null || ctx.analysesRun.some(k => k !== 'modal' && k !== 'buckling')) f.add('forceSummaryResults');
+  if (mode === 'edu') f.add('educationWorkspace');
   f.add(is3DWorkspace(mode) ? 'space3D' : 'plane2D');
 
   const materials = new Map(values(s.materials).map((m) => [m.id, m]));
