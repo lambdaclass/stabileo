@@ -285,7 +285,9 @@ jobs:
           python3 -I -c "import json, sys; c = json.load(open('research/benchmarks/cqc-1981/VALIDATION.json'))['checks']; sys.exit(len(c) != 9 or not all(x['passed'] for x in c))"
           python3 -I research/tools/compare_evidence.py "$RUNNER_TEMP/cqc-committed.json" research/benchmarks/cqc-1981/VALIDATION.json
       - name: Newmark 1959 closed form matches the shared case
-        run: python3 -I research/benchmarks/newmark-1959/reference.py
+        run: |
+          python3 -I research/benchmarks/newmark-1959/reference.py
+          python3 -IB research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_optimized_newmark_check_rejects_a_stale_period
       - name: Newmark 1959 production time-history checks match the committed VALIDATION.json
         run: |
           cp research/benchmarks/newmark-1959/VALIDATION.json "$RUNNER_TEMP/newmark-committed.json"

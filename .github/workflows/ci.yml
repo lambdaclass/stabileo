@@ -1303,7 +1303,7 @@ jobs:
         run: |
           nix develop --command node research/optimisation/fairclough-2026/wasm/check.mjs
           nix develop --command node --test research/optimisation/fairclough-2026/wasm/test-layout.mjs
-          nix develop --command python3 -B research/tools/test_benchmark_outputs.py BenchmarkOutputs.test_fairclough_needs_every_weight
+          nix develop --command python3 -B research/tools/test_benchmark_outputs.py CleanCheckout.test_checker_scratch_without_a_native_build BenchmarkOutputs.test_fairclough_needs_every_weight
       - name: Shape-control bundle distinguishes continuous loading, snapping and nonconvergence
         run: nix develop --command node --test research/stability/feher-sipos-varkonyi-2026/test_path.mjs
       - name: The spring-network bundle gives the exact lattice answers (Node)

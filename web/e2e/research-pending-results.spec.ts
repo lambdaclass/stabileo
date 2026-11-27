@@ -141,7 +141,7 @@ test('@smoke discarded plate rows cannot enter the next run', async ({ page }) =
   await expect(page.getByTestId('navier-results').locator('tbody tr')).toHaveCount(0);
 });
 
-test.skip('@smoke known wrong result: #2505 a failed portal variant has no result or evidence link', async ({ page }) => {
+test('@smoke a failed portal variant has no result or evidence link', async ({ page }) => {
   await page.route(/dedaliano_engine_bg[^/]*\.wasm/, route => route.abort());
   await page.goto('/en/research/benchmarks/plastic-collapse/');
   await page.getByTestId('ratio').fill('4');
@@ -151,14 +151,14 @@ test.skip('@smoke known wrong result: #2505 a failed portal variant has no resul
   await expect(page.locator('.rs-verify dd').first().getByRole('link')).toHaveCount(0);
 });
 
-test.skip('@smoke known wrong result: #2505 a tied portal checks either compatible hinge pattern', async ({ page }) => {
+test('@smoke a tied portal checks either compatible hinge pattern', async ({ page }) => {
   await page.goto('/en/research/benchmarks/plastic-collapse/');
   await page.getByTestId('ratio').fill('3');
   await expect(page.getByTestId('governs')).toContainText('either compatible pattern');
   await expect(page.getByTestId('check').filter({ hasText: 'either compatible pattern' })).toHaveAttribute('data-passed', 'true');
 });
 
-test.skip('@smoke known wrong result: #2505 an interrupted refined Lee solve exposes an undetermined peak', async ({ page }) => {
+test('@smoke an interrupted refined Lee solve exposes an undetermined peak', async ({ page }) => {
   await page.addInitScript(() => {
     window.Worker = class {
       onmessage?: (message: {data: unknown}) => void;
