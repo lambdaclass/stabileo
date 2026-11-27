@@ -60,7 +60,6 @@ class CiAggregate(unittest.TestCase):
             self.assertNotIn('stop-failed-run.yml', jobs[name])
         self.assertIn('make check.web.production-parity', jobs['production-parity'])
 
-    @unittest.skip('known wrong result: #2505')
     def test_pr_parity_uses_one_merge_base_from_the_actual_pr_head(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertEqual(workflow.count('github.event.pull_request.base.sha'), 0,
@@ -73,9 +72,11 @@ class CiAggregate(unittest.TestCase):
         self.assertIn('git merge-base "$PR_HEAD" "refs/remotes/origin/$GITHUB_BASE_REF"', changes)
         self.assertIn('BASE_SHA: ${{ steps.base.outputs.sha }}', changes)
         self.assertIn('BASE: ${{ steps.base.outputs.sha }}', changes)
+        self.assertIn('CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}', changes)
+        self.assertIn('git switch --detach "$CANDIDATE"', changes)
+        self.assertIn('fetch-depth: 0', changes)
         for job in ['production-parity-research', 'production-parity-build', 'production-parity']:
             self.assertIn('BASE: ${{ needs.changes.outputs.base }}', jobs[job], job)
-        for job in ['changes', 'production-parity-research', 'production-parity-build', 'production-parity']:
             self.assertIn('ref: ${{ github.event.pull_request.head.sha || github.sha }}', jobs[job], job)
             self.assertIn('fetch-depth: 0', jobs[job], job)
 
@@ -84,7 +85,7 @@ class CiAggregate(unittest.TestCase):
         jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow.split('\njobs:\n', 1)[1], re.M))
         self.assertNotIn('check.web.production-parity', jobs['web-build'])
         self.assertIn('side: [reference, candidate]', jobs['production-parity-build'])
-        self.assertIn('needs: [production-parity-build]', jobs['production-parity'])
+        self.assertIn('needs: [changes, production-parity-build]', jobs['production-parity'])
         for job in ['production-parity-build', 'production-parity']:
             for aggregate in ['ci-ok', 'superseded']:
                 self.assertRegex(jobs[aggregate], rf'(?m)^      - {job}$')

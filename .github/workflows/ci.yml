@@ -101,6 +101,7 @@ jobs:
       pull-requests: read
       actions: read
     outputs:
+      base: ${{ steps.base.outputs.sha }}
       retest: ${{ steps.select.outputs.retest }}
       engine: ${{ steps.select.outputs.engine }}
       web: ${{ steps.select.outputs.web }}
@@ -132,6 +133,19 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Resolve comparison base
+        id: base
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            base=$(git merge-base "$PR_HEAD" "refs/remotes/origin/$GITHUB_BASE_REF")
+          else
+            base=${QUEUE_BASE:?missing merge group base}
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         if: github.event_name == 'pull_request'
@@ -266,24 +280,11 @@ jobs:
         id: select
         env:
           TESTED: ${{ steps.tested.outputs.tested }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          BASE_SHA: ${{ steps.base.outputs.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           CHANGED_FILES: ${{ steps.filter.outputs.all_files }}
           FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}
         run: python3 .github/scripts/select-ci.py
-      - name: Determine whether switch-off production parity is required
-        id: parity
-        if: steps.select.outputs.web_build == 'true' && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-        env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-        run: |
-          required=$(make --silent check.web.production-parity NIX_RUN= PARITY_PLAN=1)
-          case "$required" in true|false) ;; *) exit 1 ;; esac
-          echo "required=$required" >> "$GITHUB_OUTPUT"
-          if [[ "$required" == true ]]; then
-            sides=$(make --silent check.web.production-parity NIX_RUN= PARITY_RESEARCH_PLAN=1)
-            echo "research_sides=$sides" >> "$GITHUB_OUTPUT"
-          fi
       # Every E2E shard balances from this one table, so a run that cannot read it uses the committed one everywhere.
       - name: Latest measured E2E timings (main or merge queue)
         id: timings
@@ -301,6 +302,21 @@ jobs:
           done
           echo "run=$run" >> "$GITHUB_OUTPUT"
           echo "E2E timings from run: ${run:-none (the committed table)}"
+      - name: Determine whether switch-off production parity is required
+        id: parity
+        if: steps.select.outputs.web_build == 'true' && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+          CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git switch --detach "$CANDIDATE"
+          required=$(make --silent check.web.production-parity NIX_RUN= PARITY_PLAN=1)
+          case "$required" in true|false) ;; *) exit 1 ;; esac
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+          if [[ "$required" == true ]]; then
+            sides=$(make --silent check.web.production-parity NIX_RUN= PARITY_RESEARCH_PLAN=1)
+            echo "research_sides=$sides" >> "$GITHUB_OUTPUT"
+          fi
 
   docker-smoke:
     name: Docker build smoke
@@ -1647,11 +1663,12 @@ jobs:
       matrix:
         side: ${{ fromJSON(needs.changes.outputs.parity_research_sides) }}
     env:
-      BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+      BASE: ${{ needs.changes.outputs.base }}
       PARITY_SIDE: ${{ matrix.side }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           clean: true
           persist-credentials: false
           fetch-depth: 0
@@ -1697,11 +1714,12 @@ jobs:
       matrix:
         side: [reference, candidate]
     env:
-      BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+      BASE: ${{ needs.changes.outputs.base }}
       PARITY_SIDE: ${{ matrix.side }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           clean: true
           persist-credentials: false
           fetch-depth: 0
@@ -1741,12 +1759,13 @@ jobs:
     name: Switch-off production parity
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [production-parity-build]
+    needs: [changes, production-parity-build]
     env:
-      BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+      BASE: ${{ needs.changes.outputs.base }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
           fetch-depth: 0
           filter: blob:none

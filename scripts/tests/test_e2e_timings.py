@@ -73,7 +73,7 @@ class LiveTimings(unittest.TestCase):
     def test_only_an_artifact_from_this_repository_s_push_or_queue_run_is_used(self):
         changes = jobs((ROOT / '.github/workflows/ci.yml').read_text())['changes']
         step = changes.split('Latest measured E2E timings', 1)[1].split('        run: |\n', 1)[1]
-        script = '\n'.join(line[10:] for line in step.splitlines() if line.startswith('          '))
+        script = re.match(r'(?:          [^\n]*\n)+', step).group()
         def run(event='push', repo='o/r', head='o/r', path='.github/workflows/ci.yml'):
             return {'event': event, 'path': path, 'repository': {'full_name': repo}, 'head_repository': {'full_name': head}}
         artifact = lambda id, branch, expired=False: {'expired': expired, 'workflow_run': {'id': id, 'head_branch': branch}}
