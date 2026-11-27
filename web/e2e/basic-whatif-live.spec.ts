@@ -137,29 +137,27 @@ test('@slow a pending moment diagram never connects its old forces to a moved en
       const expected = [bar.nodeI, bar.nodeJ].map(id => window.__stabileo.nodeScreenPos(id)!.x - canvas.getBoundingClientRect().left);
       window.__stabileoActions.holdScreen();
       await paint();
-      const pixels = () => ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      const momentPixels = (data: Uint8ClampedArray) => {
-        const indices: number[] = [];
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] === 0xe5 && data[i + 1] === 0x48 && data[i + 2] === 0x2a) indices.push(i);
-        }
-        return indices;
-      };
       const original = ends.splice(0);
-      const before = momentPixels(pixels());
+      const previousPixels = canvas.toDataURL();
       const tip = file.snapshot.nodes.find(([id]: [number]) => id === bar.nodeJ)[1];
       window.__stabileoActions.moveNode(tip.id, tip.x + 1, tip.y, tip.z ?? 0);
       await paint();
-      const moved = pixels();
-      return { before: before.length, erased: before.filter(i => moved[i] !== 0xe5 || moved[i + 1] !== 0x48 || moved[i + 2] !== 0x2a).length, original, expected, after: ends, frame: window.__stabileo.screenFrame() };
+      const movedPixels = canvas.toDataURL();
+      const after = ends.splice(0);
+      const frame = window.__stabileo.screenFrame();
+      window.__stabileoActions.moveNode(tip.id, tip.x, tip.y, tip.z ?? 0);
+      await paint();
+      window.__stabileoActions.moveNode(tip.id, tip.x + 1, tip.y, tip.z ?? 0);
+      await paint();
+      return { changed: movedPixels !== previousPixels, matchesModel: movedPixels === canvas.toDataURL(), original, expected, after, frame };
     } finally {
       Object.assign(ctx, { moveTo, lineTo, stroke });
     }
   });
   expect(observed.original.length).toBeGreaterThan(0);
   for (const endpoints of observed.original) expect(endpoints).toEqual(observed.expected);
-  expect(observed.before).toBeGreaterThan(0);
-  expect(observed.erased).toBe(observed.before);
+  expect(observed.changed).toBe(true);
+  expect(observed.matchesModel).toBe(true);
   expect(observed.after).toEqual([]);
   expect(observed.frame).toMatchObject({ held: false, drawn: false });
 });

@@ -176,11 +176,13 @@ test('@slow a support station slider cannot select an occupied endpoint', async 
   await place.selectOption(member!);
   const slider = page.locator('input[data-testid^=whatif-supportnode-]').first();
   await slider.focus();
+  const originalStation = await slider.inputValue();
   const version = await page.evaluate(() => window.__stabileo.modelVersion());
   await slider.press('End');
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   expect(await page.evaluate(() => window.__stabileo.modelVersion())).toBe(version);
   await expect(place).toHaveValue(member!);
+  await expect(slider).toHaveValue(originalStation);
   await slider.press('Home');
   await expect(place).toHaveValue(/^n:/);
 });

@@ -294,6 +294,7 @@ for (const workspace of ['2d', '3d'] as const) {
     }
     whatIf.open();
     const baseline = { ...modelStore.elements.get(m1)!.releaseI };
+    const support = modelStore.supports.get(s1)!.type;
     for (const [away, back] of [
       [() => { whatIf.setLoadAt(0, 2); settle(); expect(modelStore.loads[0].data).toMatchObject({ a: 2 }); },
         () => { whatIf.setLoadAt(0, 1); settle(); expect(modelStore.loads[0].data).toMatchObject({ a: 1 }); }],
@@ -301,7 +302,7 @@ for (const workspace of ['2d', '3d'] as const) {
         () => { whatIf.setLoadNode(1, n2); settle(); expect(modelStore.loads[1].data).toMatchObject({ nodeId: n2 }); }],
       [() => whatIf.setRelease(m1, 'i', { ...baseline, my: !baseline.my }), () => whatIf.setRelease(m1, 'i', baseline)],
       [() => whatIf.setSupportAlong(s1, m1, 0.5), () => whatIf.setSupportNode(s1, n1)],
-      [() => whatIf.setSupportType(s1, 'fixed'), () => whatIf.setSupportType(s1, 'pinned')],
+      [() => whatIf.setSupportType(s1, workspace === '2d' ? 'fixed' : 'fixed3d'), () => whatIf.setSupportType(s1, support)],
     ]) {
       away(); settle();
       expect(whatIf.changed).toBe(true);
@@ -416,7 +417,13 @@ it('summarizes the transverse resultants of a space cantilever', () => {
   expect(shown.reaction).toBeCloseTo(Math.hypot(3, 4), 9);
   const member = { ...result.elementForces[0], length: 1, myStart: 1 - 0.25 ** 2, mzStart: 1 - 0.75 ** 2,
     vzStart: 0.5, vyStart: -1.5, qZI: -2, qZJ: -2, qYI: 2, qYJ: 2 };
-  expect(response3D({ ...result, elementForces: [member] }).moment).toBeCloseTo(Math.SQRT2 * (1 - 0.25 ** 2), 12);
+  const peak = Math.SQRT2 * (1 - 0.25 ** 2);
+  expect(response3D({ ...result, elementForces: [member] }).moment).toBeCloseTo(peak, 12);
+  for (const method of ['abs', 'srss'] as const) {
+    const combined = { ...member, combined: { method, parts: [member, member] } };
+    expect(response3D({ ...result, elementForces: [combined] }).moment)
+      .toBeCloseTo((method === 'abs' ? 2 : Math.SQRT2) * peak, 12);
+  }
 });
 
 it('labels the zero maximum nodal displacement of a loaded single span', async () => {
