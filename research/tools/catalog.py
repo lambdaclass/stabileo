@@ -95,6 +95,10 @@ def crossref_block(doi):
     }
 
 
+with open(os.path.join(os.path.dirname(__file__), "published-metrics.json"), encoding="utf-8") as metric_file:
+    PUBLISHED_METRICS = json.load(metric_file)
+
+
 def valid_checks(checks, published=False):
     def finite_number(value):
         return type(value) in (int, float) and math.isfinite(value)
@@ -108,7 +112,8 @@ def valid_checks(checks, published=False):
     def paper_row(c):
         if not text(c.get("name")) or not text(c.get("source")) or not isinstance(c.get("unit", ""), str):
             return False
-        curve_metric = c["metric"].startswith("absolute distance outside the error bar") or c["metric"].endswith(", largest")
+        metric = c["metric"]
+        curve_metric = metric in PUBLISHED_METRICS["errorBar"] or metric in PUBLISHED_METRICS["paired"]
         if curve_metric or "samples" in c or "points" in c:
             if "reference" in c or "computed" in c:
                 return False
@@ -120,14 +125,14 @@ def valid_checks(checks, published=False):
             for sample in samples:
                 if not isinstance(sample, list) or not all(finite_number(v) for v in sample):
                     return False
-                if c["metric"].startswith("absolute distance outside the error bar") and len(sample) == 4:
+                if metric in PUBLISHED_METRICS["errorBar"] and len(sample) == 4:
                     _, lo, hi, value = sample
                     if lo > hi:
                         return False
                     distances.append(max(0, lo - value, value - hi))
-                elif c.get("id") == "fig7" and c.get("orientation_unit") == "rad" and len(sample) == 3:
+                elif metric == "absolute difference in Y, largest" and c.get("id") == "fig7" and c.get("orientation_unit") == "rad" and len(sample) == 3:
                     distances.append(abs(sample[2] - sample[1]))
-                elif c.get("id") != "fig7" and c["metric"].startswith("absolute difference") and len(sample) == 2:
+                elif c.get("id") != "fig7" and (metric in PUBLISHED_METRICS["paired"] or metric == "absolute difference") and len(sample) == 2:
                     distances.append(abs(sample[1] - sample[0]))
                 else:
                     return False
@@ -136,10 +141,9 @@ def valid_checks(checks, published=False):
         reference, computed = c.get("reference"), c.get("computed")
         if not finite_number(reference) or not finite_number(computed):
             return False
-        metric = c["metric"].lower()
-        if metric.startswith("absolute"):
+        if metric in PUBLISHED_METRICS["absolute"]:
             expected = abs(computed - reference)
-        elif metric.startswith("relative") and reference != 0:
+        elif metric in PUBLISHED_METRICS["relative"] and reference != 0:
             expected = abs(computed - reference) / abs(reference)
         else:
             return False

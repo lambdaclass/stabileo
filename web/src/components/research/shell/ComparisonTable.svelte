@@ -6,11 +6,12 @@
   import { comparisonDifference, comparisonShape, comparisonPasses, type PublishedRow } from './context';
   import { comparisonStrings } from './comparison-strings';
   import { num } from './format';
+  import metrics from '../../../../../research/tools/published-metrics.json';
   import Sci from './Sci.svelte';
 
   let { rows, names = {} }: { rows: PublishedRow[]; names?: Record<string, string> } = $props();
   const s = $derived(comparisonStrings());
-  const relative = (r: PublishedRow) => r.metric.toLowerCase().startsWith('relative');
+  const relative = (r: PublishedRow) => metrics.relative.includes(r.metric);
   const plain = (v: number) => v === 0 || (Math.abs(v) >= 1e-3 && Math.abs(v) < 1e6);
 </script>
 

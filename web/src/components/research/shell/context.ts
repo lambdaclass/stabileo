@@ -1,3 +1,4 @@
+import metrics from '../../../../../research/tools/published-metrics.json';
 import { getContext, setContext } from 'svelte';
 
 /** What the article can ask of the app pane (links such as "watch step 54" or "try ℓ = 0.015"). */
@@ -36,8 +37,10 @@ export type PublishedRow = {
 };
 
 export function comparisonShape(row: PublishedRow) {
-  if (Number.isFinite(row.reference) && Number.isFinite(row.computed)) return 'scalar';
-  if (row.reference === undefined && row.computed === undefined && Number.isInteger(row.points) && row.points! > 0) return 'curve';
+  if (Number.isFinite(row.reference) && Number.isFinite(row.computed) && row.points === undefined && row.samples === undefined
+    && (metrics.absolute.includes(row.metric) || metrics.relative.includes(row.metric))) return 'scalar';
+  if (row.reference === undefined && row.computed === undefined && Number.isInteger(row.points) && row.points! > 0
+    && (metrics.paired.includes(row.metric) || metrics.errorBar.includes(row.metric) || ['absolute difference', 'absolute'].includes(row.metric))) return 'curve';
   return 'unavailable';
 }
 
@@ -49,9 +52,9 @@ export function comparisonDifference(row: PublishedRow): number {
     let largest = 0;
     for (const p of row.samples) {
       if (!Array.isArray(p) || !p.every(Number.isFinite)) return NaN;
-      if (row.metric === 'absolute distance outside the error bar, largest' && p.length === 4 && p[1] <= p[2]) {
+      if (metrics.errorBar.includes(row.metric) && p.length === 4 && p[1] <= p[2]) {
         largest = Math.max(largest, p[1] - p[3], p[3] - p[2]);
-      } else if (['absolute difference in Y, largest', 'absolute difference in ν, largest', 'absolute difference'].includes(row.metric) && (p.length === 2 || (p.length === 3 && row.orientation_unit === 'rad'))) {
+      } else if ((metrics.paired.includes(row.metric) || row.metric === 'absolute difference') && ((row.id !== 'fig7' && p.length === 2) || (row.metric === 'absolute difference in Y, largest' && p.length === 3 && row.orientation_unit === 'rad'))) {
         largest = Math.max(largest, Math.abs(p[p.length - 1] - p[p.length - 2]));
       } else return NaN;
     }
@@ -59,9 +62,8 @@ export function comparisonDifference(row: PublishedRow): number {
   }
   if (shape === 'scalar') {
     const difference = Math.abs(row.computed! - row.reference!);
-    const metric = row.metric.toLowerCase();
-    if (metric.startsWith('absolute')) return difference;
-    if (metric.startsWith('relative') && row.reference !== 0) return difference / Math.abs(row.reference!);
+    if (metrics.absolute.includes(row.metric)) return difference;
+    if (metrics.relative.includes(row.metric) && row.reference !== 0) return difference / Math.abs(row.reference!);
   }
   return NaN;
 }

@@ -20,7 +20,6 @@ class PublishedEvidence(unittest.TestCase):
         for metric in ('absolute distance outside the error bar, largest', 'absolute difference in Y, largest'):
             self.assertFalse(catalog.valid_checks([{**row, 'metric': metric, 'computed': 1, 'reference': 1}], published=True))
 
-    @unittest.skipUnless(os.environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_unrecognized_metrics_cannot_certify_scalars_or_oriented_samples(self):
         for metric in ('relative typo', 'absolute typo'):
             self.assertFalse(catalog.valid_checks([{**row, 'reference': 1, 'computed': 1, 'metric': metric}], published=True))

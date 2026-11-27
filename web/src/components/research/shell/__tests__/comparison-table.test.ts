@@ -56,7 +56,7 @@ it('rejects a stale curve maximum and distinguishes inconsistent evidence', () =
   expect(table({ reference: 1, computed: 1, observed: 0.1, tolerance: 0.2 })).toContain('aria-label="Unavailable"');
 });
 
-it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 rejects scalar fields for curve metrics and unrecognized scalar metrics', () => {
+it('rejects scalar fields for curve metrics and unrecognized scalar metrics', () => {
   for (const metric of ['absolute distance outside the error bar, largest', 'absolute difference in Y, largest', 'absolute typographical error', 'relative typo']) {
     expect(table({ metric, reference: 1, computed: 1 })).not.toContain('✓');
   }
