@@ -6,8 +6,9 @@ import { applyPlateMeshes, createPlate, planPlateMeshes } from '../../lib/store/
 
 afterEach(() => { uiStore.clearSelection(); modelStore.clear(); });
 
-it.skip('known wrong result: #1928 the published floor load editor offers a slab after it has shell elements and leaves the target explicit', async () => {
+it('known wrong result: #1928 the published floor load editor offers a slab after it has shell elements and leaves the target explicit', async () => {
   modelStore.clear();
+  const unified = !!__PUBLIC_FEATURES__.proPlatesUnified;
   const ids = [0, 2].map(z => {
     const outline = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, z));
     const created = createPlate({ outline, materialId: 1, thickness: 0.15 });
@@ -18,11 +19,11 @@ it.skip('known wrong result: #1928 the published floor load editor offers a slab
   for (const selection of [[], ids.slice(0, 1), ids]) {
     uiStore.selectPlates(selection);
     const html = options();
-    expect.soft(html).not.toContain('value="plates"');
-    for (const id of ids) expect.soft(html).not.toContain(`value="g:${id}"`);
+    expect.soft(html.includes('value="plates"')).toBe(unified && selection.length > 1);
+    for (const id of ids) expect.soft(html.includes(`value="g:${id}"`)).toBe(unified);
     expect(html).toContain('value="sel"');
   }
   applyPlateMeshes(await planPlateMeshes([ids[0]!], { size: 1 }));
   expect(options()).toContain(`value="g:${ids[0]}"`);
-  expect(options()).not.toContain(`value="g:${ids[1]}"`);
+  expect(options().includes(`value="g:${ids[1]}"`)).toBe(unified);
 });

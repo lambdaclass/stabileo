@@ -260,7 +260,9 @@
           </div>
         {/each}
         <Hint text={t(one.physical.kind === 'wall' ? 'plates.areaLoadHintWall' : 'plates.areaLoadHint')} />
-        <button class="pp-link" onclick={openInLoads} data-testid="plate-open-loads">{t('plates.openInLoads')} ›</button>
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}
+          <button class="pp-link" onclick={openInLoads} data-testid="plate-open-loads">{t('plates.openInLoads')} ›</button>
+        {/if}
       </details>
     {/if}
 

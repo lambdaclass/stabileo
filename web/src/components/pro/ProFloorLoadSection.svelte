@@ -27,9 +27,13 @@
   const floorGroups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'floor' && (g.members.elements?.length ?? 0) > 0));
   const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
   /** The slabs and walls placed or recognised (`model/physical`): a load on one goes onto its shells, normal to a wall. */
-  const slabs = $derived(physicalGroups().filter((g) => (g.physical.kind === 'slab' || g.physical.kind === 'wall') && ((g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0 || !!plateSurfaceOf(g))));
+  const slabs = $derived(physicalGroups().filter(g => {
+    const meshed = (g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0;
+    if (!__PUBLIC_FEATURES__.proPlatesUnified) return g.physical.kind === 'slab' && meshed;
+    return (g.physical.kind === 'slab' || g.physical.kind === 'wall') && (meshed || !!plateSurfaceOf(g));
+  }));
   /** The plates selected whole: one definition each, so every one follows its own plate. */
-  const pickedPlates = $derived([...uiStore.selectedPlates].filter((id) => !!plateEntry(id)));
+  const pickedPlates = $derived(__PUBLIC_FEATURES__.proPlatesUnified ? [...uiStore.selectedPlates].filter((id) => !!plateEntry(id)) : []);
   /** The levels to offer: the grid's, or else every elevation that has horizontal beams. */
   const levels = $derived.by(() => {
     const named = sortedLevels(modelStore.grid);
@@ -63,13 +67,15 @@
     { key: 'range', label: t('floorLoad.range') },
   ]);
   // A slab is loaded on its own shells.
+  const bulkTarget = $derived(__PUBLIC_FEATURES__.proPlatesUnified && targetKey === 'plates');
   let lastTarget = '';
   $effect(() => {
-    if (targetKey !== lastTarget && (targetKey === 'plates' || slabs.some((g) => `g:${g.id}` === targetKey))) distribution = 'slab';
+    if (targetKey !== lastTarget && (bulkTarget || slabs.some((g) => `g:${g.id}` === targetKey))) distribution = 'slab';
     lastTarget = targetKey;
   });
   // Asked for from a plate's panel, or the plates selected whole as the panel opens.
   $effect(() => {
+    if (!__PUBLIC_FEATURES__.proPlatesUnified) return;
     const asked = floorLoadRequest.target;
     if (asked) { targetKey = asked; floorLoadRequest.target = null; }
   });
@@ -107,7 +113,7 @@
   const target = $derived.by((): FloorTarget | null => {
     if (targetKey.startsWith('z:')) return { by: 'level', z: Number(targetKey.slice(2)) };
     if (targetKey.startsWith('g:')) return { by: 'group', groupId: Number(targetKey.slice(2)) };
-    if (targetKey === 'plates') return pickedPlates.length ? { by: 'group', groupId: pickedPlates[0]! } : null;
+    if (bulkTarget) return pickedPlates.length ? { by: 'group', groupId: pickedPlates[0]! } : null;
     if (targetKey.startsWith('zone:')) return { by: 'zone', zoneId: Number(targetKey.slice(5)) };
     if (targetKey === 'range') return rangeOf(range);
     return { by: 'own' };
@@ -120,20 +126,20 @@
   const def = $derived<FloorLoadDef | null>(caseId === null || target === null ? null : {
     caseId, q, target, distribution, ...(distribution === 'oneWay' ? { spanAxis } : {}), ...(perPlanArea ? { perPlanArea } : {}),
   });
-  const plateDefs = $derived(targetKey === 'plates' && def ? pickedPlateDefs(pickedPlates, def) : []);
+  const plateDefs = $derived(bulkTarget && def ? pickedPlateDefs(pickedPlates, def) : []);
   const preview = $derived(def && q !== 0
-    ? targetKey === 'plates'
+    ? bulkTarget
       ? previewPlateDefs(plateDefs, { leftHand: uiStore.axisConvention3D === 'leftHand' })
       : expandDefinition(modelStore.model as unknown as DefinitionModel, def, own, -1, { leftHand: uiStore.axisConvention3D === 'leftHand' })
     : null);
   const result = $derived(preview?.result ?? null);
   /** A slab plate waiting for its mesh takes its load now, which lands on its shells when it is meshed. */
-  const waitingPlate = $derived(def?.target.by === 'group' && def.distribution === 'slab' && !!plateSurfaceOf(modelStore.model.groups.get(def.target.groupId)));
-  const canAdd = $derived(!!def && !!preview && (preview.loads.length > 0 || waitingPlate || targetKey === 'plates'));
+  const waitingPlate = $derived(__PUBLIC_FEATURES__.proPlatesUnified && def?.target.by === 'group' && def.distribution === 'slab' && !!plateSurfaceOf(modelStore.model.groups.get(def.target.groupId)));
+  const canAdd = $derived(!!def && !!preview && (preview.loads.length > 0 || waitingPlate || bulkTarget));
 
   function add() {
     if (!def || !canAdd) return;
-    if (targetKey === 'plates') {
+    if (bulkTarget) {
       const label = name.trim() || t('floorLoad.plateDefault');
       modelStore.batch(() => { for (const p of plateDefs) addFloorLoadDef(`${label} · ${plateEntry(p.id)!.name}`, p.def); });
       applied = tp('floorLoad.addedPlates', { n: plateDefs.length });

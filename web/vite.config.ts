@@ -102,6 +102,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
           if (/^designData\.(?:executionControl|slabBars|diametersHint)$/.test(key)) return false;
           if (/^autoLoad\.(?:family(?:Hint|Name\..+)?|noFamilySeismic)$/.test(key)) return false;
           if (key.startsWith('solveProgress.')) return false;
+          if (key === 'plates.openInLoads' || /^floorLoad\.(?:pickedPlates|addedPlates|plateDefault)$/.test(key)) return false;
           if (/^plates\.progress(?:Planning|Meshing|Title|TitleAnalysis|Undo)$/.test(key)) return false;
           if (key.startsWith('notices.') || /^containment\.(?:restore|dismissHintPro|dismissHintBasic|toDiagnostics|dismiss)$/.test(key)) return false;
           if (key === 'quickEdit.meshPlate' || /^combos\.rules\.(seed|none)Code$/.test(key)) return false;
