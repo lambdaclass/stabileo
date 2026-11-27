@@ -138,6 +138,27 @@ test('shape dialog translations follow the plate inspector independently of rein
   }
 });
 
+test('generator option and circular plate form labels follow the editors while saved load derivations remain readable', { skip: 'known wrong result: #1928' }, async () => {
+  for (const plates of [false, true]) {
+    for (const sheets of [false, true]) {
+      await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
+        const config = await resolveConfig({ root, configFile }, 'build', 'production');
+        const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+        for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+          const code = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+          const module = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
+          const entries = module[locale];
+          for (const key of ['loads.asce7.period.other', 'loads.asce7.system.steelSMF', 'loads.ec.exposure.normal', 'loads.ec.period.other', 'loads.ec.terrain.II', 'loads.tr.system.A11', 'drawBar.circle', 'plates.circle.center']) {
+            assert.equal(Object.hasOwn(entries, key), plates, locale + ' ' + key);
+          }
+          assert.ok(entries['plates.outlineNodes'], locale);
+          assert.ok(entries['loads.ec.snow.duoAsMono'], locale);
+        }
+      });
+    }
+  }
+});
+
 test('the raw shell writer only includes circular creation and mesh adoption for unified plates', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
