@@ -1,9 +1,10 @@
 import { positiveBendingMoment } from '../../lib/i18n/dutch-engineering-terms';
-import { columnTieBarFactor, COLUMN_TIE_DIAMETERS } from '../../lib/codes/cirsoc201/transverse-spacing';
+import { CIRSOC201_DESIGN_EDITION } from '../../lib/engine/codes/argentina/cirsoc201-basis';
+import { cirsoc201ColumnTies } from '../../lib/engine/design/adapters/cirsoc201-column-ties';
 import mainCopy from './main-copy.json';
 import { publicI18n } from '../../lib/i18n/store.svelte';
 
-const columnBarFactor = columnTieBarFactor('2025');
+const columnTies = cirsoc201ColumnTies(CIRSOC201_DESIGN_EDITION);
 
 const en = {
   publisher: 'Published by Ergodic Group.',
@@ -128,7 +129,7 @@ const en = {
   'c.interaction': 'Interaction diagram φPn–φMn',
   'c.demand': 'Demand (Mu, Pu)',
   'c.driftSweep': 'Top drift against outrigger height',
-  'rc-column.about': `A tied rectangular column with the same bars on the two faces across the bending direction, 10 mm ties and the clear cover given. The interaction diagram, the axial cap and the utilisation are computed by the engine’s CIRSOC 201 (2025) section kernel by strain compatibility. The squash load and the balanced point are shown beside their hand calculation. Tie spacing is the smallest of ${columnBarFactor} bar diameters, ${COLUMN_TIE_DIAMETERS} tie diameters and the least column dimension.`,
+  'rc-column.about': `A tied rectangular column with the same bars on the two faces across the bending direction, 10 mm ties and the clear cover given. The interaction diagram, the axial cap and the utilisation are computed by the engine’s CIRSOC 201 (2025) section kernel by strain compatibility. The squash load and the balanced point are shown beside their hand calculation. Tie spacing is the smallest of ${columnTies.longitudinalBarDiameters} bar diameters, ${columnTies.tieDiameters} tie diameters and the least column dimension.`,
   'rc-column.p.b': 'Width b',
   'rc-column.p.h': 'Depth h (bending direction)',
   'rc-column.p.perFace': 'Bars per face',
@@ -283,7 +284,7 @@ const es: Record<Key, string> = {
   'c.interaction': 'Diagrama de interacción φPn–φMn',
   'c.demand': 'Demanda (Mu, Pu)',
   'c.driftSweep': 'Desplazamiento superior según la altura del outrigger',
-  'rc-column.about': `Una columna rectangular con estribos de 10 mm, las mismas barras en las dos caras perpendiculares a la flexión y el recubrimiento libre indicado. El diagrama de interacción, el tope axial y el aprovechamiento los calcula el núcleo de sección CIRSOC 201 (2025) del motor por compatibilidad de deformaciones. La carga de aplastamiento y el punto balanceado se muestran junto a su cálculo a mano. La separación de estribos es la menor entre ${columnBarFactor} diámetros de barra, ${COLUMN_TIE_DIAMETERS} diámetros de estribo y la menor dimensión de la columna.`,
+  'rc-column.about': `Una columna rectangular con estribos de 10 mm, las mismas barras en las dos caras perpendiculares a la flexión y el recubrimiento libre indicado. El diagrama de interacción, el tope axial y el aprovechamiento los calcula el núcleo de sección CIRSOC 201 (2025) del motor por compatibilidad de deformaciones. La carga de aplastamiento y el punto balanceado se muestran junto a su cálculo a mano. La separación de estribos es la menor entre ${columnTies.longitudinalBarDiameters} diámetros de barra, ${columnTies.tieDiameters} diámetros de estribo y la menor dimensión de la columna.`,
   'rc-column.p.b': 'Ancho b',
   'rc-column.p.h': 'Altura h (dirección de flexión)',
   'rc-column.p.perFace': 'Barras por cara',
@@ -436,7 +437,7 @@ const pt: Record<Key, string> = {
   'c.interaction': 'Diagrama de interação φPn–φMn',
   'c.demand': 'Demanda (Mu, Pu)',
   'c.driftSweep': 'Deslocamento no topo segundo a altura do outrigger',
-  'rc-column.about': `Um pilar retangular com estribos de 10 mm, as mesmas barras nas duas faces perpendiculares à flexão e o cobrimento livre indicado. O diagrama de interação, o limite axial e o aproveitamento são calculados pelo núcleo de seção CIRSOC 201 (2025) do motor por compatibilidade de deformações. A carga de esmagamento e o ponto balanceado aparecem ao lado do cálculo à mão. O espaçamento dos estribos é o menor entre ${columnBarFactor} diâmetros de barra, ${COLUMN_TIE_DIAMETERS} diâmetros de estribo e a menor dimensão do pilar.`,
+  'rc-column.about': `Um pilar retangular com estribos de 10 mm, as mesmas barras nas duas faces perpendiculares à flexão e o cobrimento livre indicado. O diagrama de interação, o limite axial e o aproveitamento são calculados pelo núcleo de seção CIRSOC 201 (2025) do motor por compatibilidade de deformações. A carga de esmagamento e o ponto balanceado aparecem ao lado do cálculo à mão. O espaçamento dos estribos é o menor entre ${columnTies.longitudinalBarDiameters} diâmetros de barra, ${columnTies.tieDiameters} diâmetros de estribo e a menor dimensão do pilar.`,
   'rc-column.p.b': 'Largura b',
   'rc-column.p.h': 'Altura h (direção da flexão)',
   'rc-column.p.perFace': 'Barras por face',
@@ -589,7 +590,7 @@ const de: Record<Key, string> = {
   'c.interaction': 'Interaktionsdiagramm φPn–φMn',
   'c.demand': 'Einwirkung (Mu, Pu)',
   'c.driftSweep': 'Kopfverschiebung über der Outrigger-Höhe',
-  'rc-column.about': `Eine Rechteckstütze mit 10-mm-Bügeln, gleichen Stäben auf den beiden Seiten quer zur Biegerichtung und der angegebenen Betondeckung. Interaktionsdiagramm, Normalkraftgrenze und Ausnutzung berechnet der CIRSOC-201-(2025)-Querschnittskern der Engine aus der Dehnungsverträglichkeit. Quetschlast und Balancepunkt stehen neben ihrer Handrechnung. Der Bügelabstand ist das Kleinste aus ${columnBarFactor} Stabdurchmessern, ${COLUMN_TIE_DIAMETERS} Bügeldurchmessern und der kleinsten Stützenabmessung.`,
+  'rc-column.about': `Eine Rechteckstütze mit 10-mm-Bügeln, gleichen Stäben auf den beiden Seiten quer zur Biegerichtung und der angegebenen Betondeckung. Interaktionsdiagramm, Normalkraftgrenze und Ausnutzung berechnet der CIRSOC-201-(2025)-Querschnittskern der Engine aus der Dehnungsverträglichkeit. Quetschlast und Balancepunkt stehen neben ihrer Handrechnung. Der Bügelabstand ist das Kleinste aus ${columnTies.longitudinalBarDiameters} Stabdurchmessern, ${columnTies.tieDiameters} Bügeldurchmessern und der kleinsten Stützenabmessung.`,
   'rc-column.p.b': 'Breite b',
   'rc-column.p.h': 'Höhe h (Biegerichtung)',
   'rc-column.p.perFace': 'Stäbe je Seite',
@@ -742,7 +743,7 @@ const fr: Record<Key, string> = {
   'c.interaction': 'Diagramme d’interaction φPn–φMn',
   'c.demand': 'Sollicitation (Mu, Pu)',
   'c.driftSweep': 'Déplacement en tête selon la hauteur de l’outrigger',
-  'rc-column.about': `Un poteau rectangulaire à cadres de 10 mm, avec les mêmes barres sur les deux faces perpendiculaires à la flexion et l’enrobage indiqué. Le diagramme d’interaction, le plafond axial et le taux de travail sont calculés par le noyau de section CIRSOC 201 (2025) du moteur, par compatibilité des déformations. La charge d’écrasement et le point d’équilibre sont affichés à côté de leur calcul à la main. L’espacement des cadres est le plus petit de ${columnBarFactor} diamètres de barre, ${COLUMN_TIE_DIAMETERS} diamètres de cadre et la plus petite dimension du poteau.`,
+  'rc-column.about': `Un poteau rectangulaire à cadres de 10 mm, avec les mêmes barres sur les deux faces perpendiculaires à la flexion et l’enrobage indiqué. Le diagramme d’interaction, le plafond axial et le taux de travail sont calculés par le noyau de section CIRSOC 201 (2025) du moteur, par compatibilité des déformations. La charge d’écrasement et le point d’équilibre sont affichés à côté de leur calcul à la main. L’espacement des cadres est le plus petit de ${columnTies.longitudinalBarDiameters} diamètres de barre, ${columnTies.tieDiameters} diamètres de cadre et la plus petite dimension du poteau.`,
   'rc-column.p.b': 'Largeur b',
   'rc-column.p.h': 'Hauteur h (sens de flexion)',
   'rc-column.p.perFace': 'Barres par face',
@@ -895,7 +896,7 @@ const tr: Record<Key, string> = {
   'c.interaction': 'Etkileşim diyagramı φPn–φMn',
   'c.demand': 'Talep (Mu, Pu)',
   'c.driftSweep': 'Outrigger yüksekliğine göre tepe ötelenmesi',
-  'rc-column.about': `Eğilme doğrultusuna dik iki yüzünde aynı donatılar, 10 mm etriyeler ve verilen net paspayı olan dikdörtgen bir kolon. Etkileşim diyagramını, eksenel sınırı ve kullanım oranını motorun CIRSOC 201 (2025) kesit çekirdeği şekil değiştirme uygunluğuyla hesaplar. Ezilme yükü ve dengeli nokta el hesabının yanında gösterilir. Etriye aralığı ${columnBarFactor} donatı çapı, ${COLUMN_TIE_DIAMETERS} etriye çapı ve en küçük kolon boyutunun en küçüğüdür.`,
+  'rc-column.about': `Eğilme doğrultusuna dik iki yüzünde aynı donatılar, 10 mm etriyeler ve verilen net paspayı olan dikdörtgen bir kolon. Etkileşim diyagramını, eksenel sınırı ve kullanım oranını motorun CIRSOC 201 (2025) kesit çekirdeği şekil değiştirme uygunluğuyla hesaplar. Ezilme yükü ve dengeli nokta el hesabının yanında gösterilir. Etriye aralığı ${columnTies.longitudinalBarDiameters} donatı çapı, ${columnTies.tieDiameters} etriye çapı ve en küçük kolon boyutunun en küçüğüdür.`,
   'rc-column.p.b': 'Genişlik b',
   'rc-column.p.h': 'Yükseklik h (eğilme doğrultusu)',
   'rc-column.p.perFace': 'Yüz başına donatı',
@@ -1048,7 +1049,7 @@ const hu: Record<Key, string> = {
   'c.interaction': 'φPn–φMn interakciós diagram',
   'c.demand': 'Igénybevétel (Mu, Pu)',
   'c.driftSweep': 'Csúcseltolódás a kitámasztó magasságának függvényében',
-  'rc-column.about': `Kengyelezett téglalap keresztmetszetű oszlop, a hajlítás irányára merőleges két oldalán azonos betonacélokkal, 10 mm-es kengyelekkel és a megadott betonfedéssel. Az interakciós diagramot, a normálerő-korlátot és a kihasználtságot a számítómag CIRSOC 201 (2025) keresztmetszeti magja számítja az alakváltozások összeférhetősége alapján. A központos nyomási teherbírás és az egyensúlyi pont a kézi számításuk mellett jelenik meg. A kengyeltávolság a ${columnBarFactor} betonacél-átmérő, a ${COLUMN_TIE_DIAMETERS} kengyelátmérő és a legkisebb oszlopméret közül a legkisebb.`,
+  'rc-column.about': `Kengyelezett téglalap keresztmetszetű oszlop, a hajlítás irányára merőleges két oldalán azonos betonacélokkal, 10 mm-es kengyelekkel és a megadott betonfedéssel. Az interakciós diagramot, a normálerő-korlátot és a kihasználtságot a számítómag CIRSOC 201 (2025) keresztmetszeti magja számítja az alakváltozások összeférhetősége alapján. A központos nyomási teherbírás és az egyensúlyi pont a kézi számításuk mellett jelenik meg. A kengyeltávolság a ${columnTies.longitudinalBarDiameters} betonacél-átmérő, a ${columnTies.tieDiameters} kengyelátmérő és a legkisebb oszlopméret közül a legkisebb.`,
   'rc-column.p.b': 'Szélesség b',
   'rc-column.p.h': 'Magasság h (hajlítás iránya)',
   'rc-column.p.perFace': 'Betonacélok oldalanként',
@@ -1201,7 +1202,7 @@ const it: Record<Key, string> = {
   'c.interaction': 'Diagramma di interazione φPn–φMn',
   'c.demand': 'Sollecitazione (Mu, Pu)',
   'c.driftSweep': 'Spostamento in sommità in funzione dell’altezza dell’outrigger',
-  'rc-column.about': `Un pilastro rettangolare staffato con le stesse barre sulle due facce trasversali alla direzione di flessione, staffe da 10 mm e il copriferro indicato. Il diagramma di interazione, il limite assiale e il coefficiente di utilizzo sono calcolati dal kernel di sezione CIRSOC 201 (2025) del motore per compatibilità delle deformazioni. Il carico di schiacciamento e il punto bilanciato sono mostrati accanto al loro calcolo a mano. Il passo delle staffe è il minore tra ${columnBarFactor} diametri delle barre, ${COLUMN_TIE_DIAMETERS} diametri delle staffe e la dimensione minima del pilastro.`,
+  'rc-column.about': `Un pilastro rettangolare staffato con le stesse barre sulle due facce trasversali alla direzione di flessione, staffe da 10 mm e il copriferro indicato. Il diagramma di interazione, il limite assiale e il coefficiente di utilizzo sono calcolati dal kernel di sezione CIRSOC 201 (2025) del motore per compatibilità delle deformazioni. Il carico di schiacciamento e il punto bilanciato sono mostrati accanto al loro calcolo a mano. Il passo delle staffe è il minore tra ${columnTies.longitudinalBarDiameters} diametri delle barre, ${columnTies.tieDiameters} diametri delle staffe e la dimensione minima del pilastro.`,
   'rc-column.p.b': 'Larghezza b',
   'rc-column.p.h': 'Altezza h (direzione di flessione)',
   'rc-column.p.perFace': 'Barre per faccia',
@@ -1354,7 +1355,7 @@ const zh: Record<Key, string> = {
   'c.interaction': '相互作用图 φPn–φMn',
   'c.demand': '需求（Mu，Pu）',
   'c.driftSweep': '顶部位移与伸臂高度的关系',
-  'rc-column.about': `一根配有箍筋的矩形柱，垂直于弯曲方向的两个面配置相同的钢筋，箍筋直径 10 mm，并给定净保护层厚度。相互作用图、轴力上限和利用率由计算引擎的 CIRSOC 201 (2025) 截面内核按应变协调计算。轴压承载力和界限点与手算结果并排显示。箍筋间距取 ${columnBarFactor} 倍钢筋直径、${COLUMN_TIE_DIAMETERS} 倍箍筋直径和柱最小边长中的最小值。`,
+  'rc-column.about': `一根配有箍筋的矩形柱，垂直于弯曲方向的两个面配置相同的钢筋，箍筋直径 10 mm，并给定净保护层厚度。相互作用图、轴力上限和利用率由计算引擎的 CIRSOC 201 (2025) 截面内核按应变协调计算。轴压承载力和界限点与手算结果并排显示。箍筋间距取 ${columnTies.longitudinalBarDiameters} 倍钢筋直径、${columnTies.tieDiameters} 倍箍筋直径和柱最小边长中的最小值。`,
   'rc-column.p.b': '宽度 b',
   'rc-column.p.h': '高度 h（弯曲方向）',
   'rc-column.p.perFace': '每面钢筋根数',
@@ -1507,7 +1508,7 @@ const nl: Record<Key, string> = {
   'c.interaction': 'Interactiediagram φPn–φMn',
   'c.demand': 'Belasting (Mu, Pu)',
   'c.driftSweep': 'Topverplaatsing tegen outriggerhoogte',
-  'rc-column.about': `Een rechthoekige kolom met beugels, met dezelfde staven aan de twee zijden loodrecht op de buigrichting, beugels van 10 mm en de gegeven dekking. Het interactiediagram, de axiale bovengrens en de benuttingsgraad worden door de CIRSOC 201 (2025)-doorsnedekernel van de engine berekend met rekcompatibiliteit. De pletlast en het balanspunt worden naast de handberekening getoond. Bij het balanspunt bereikt het beton zijn uiterste drukrek op het moment dat de trekwapening begint te vloeien. De beugelafstand is de kleinste van ${columnBarFactor} staafdiameters, ${COLUMN_TIE_DIAMETERS} beugeldiameters en de kleinste kolomafmeting.`,
+  'rc-column.about': `Een rechthoekige kolom met beugels, met dezelfde staven aan de twee zijden loodrecht op de buigrichting, beugels van 10 mm en de gegeven dekking. Het interactiediagram, de axiale bovengrens en de benuttingsgraad worden door de CIRSOC 201 (2025)-doorsnedekernel van de engine berekend met rekcompatibiliteit. De pletlast en het balanspunt worden naast de handberekening getoond. Bij het balanspunt bereikt het beton zijn uiterste drukrek op het moment dat de trekwapening begint te vloeien. De beugelafstand is de kleinste van ${columnTies.longitudinalBarDiameters} staafdiameters, ${columnTies.tieDiameters} beugeldiameters en de kleinste kolomafmeting.`,
   'rc-column.p.b': 'Breedte b',
   'rc-column.p.h': 'Hoogte h (buigrichting)',
   'rc-column.p.perFace': 'Staven per zijde',
