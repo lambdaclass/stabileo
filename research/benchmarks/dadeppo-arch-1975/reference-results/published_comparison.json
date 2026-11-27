@@ -40,7 +40,7 @@
       "id": "crown-rotation",
       "name": "Crown rotation magnitude at the limit point, 40 elements",
       "source": "DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308",
-      "unit": "",
+      "unit": "rad",
       "reference": 0.0498,
       "computed": 0.051345604456124745,
       "metric": "relative difference",

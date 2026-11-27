@@ -1257,7 +1257,7 @@ papers:
   relevance: One rectangular plate reuses production shell elements and the shared viewer. The published
     numbers compared are those of the Haukaas worked example listed under data (D, p. 2; centre deflection
     1.28375 mm, p. 3), against the series, DKT 16×16 and its Richardson extrapolation.
-  status: published-figures-compared
+  status: numerically-validated
   stage: first-version
   reviews:
   - round: 1
@@ -1266,7 +1266,7 @@ papers:
   - round: 2
     reviewers: [kimi, codex, claude]
     date: "2026-10-30"
-  reproduced_published_results: true
+  reproduced_published_results: false
   benchmarks:
   - Centre displacement of the 3 by 5 metre uniformly loaded simply supported plate
   implementation: benchmarks/navier-plate

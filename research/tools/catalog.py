@@ -108,7 +108,10 @@ def valid_checks(checks, published=False):
     def paper_row(c):
         if not text(c.get("name")) or not text(c.get("source")) or not isinstance(c.get("unit", ""), str):
             return False
-        if "reference" not in c and "computed" not in c:
+        curve_metric = c["metric"].startswith("absolute distance outside the error bar") or c["metric"].endswith(", largest")
+        if curve_metric or "samples" in c or "points" in c:
+            if "reference" in c or "computed" in c:
+                return False
             samples = c.get("samples")
             if (type(c.get("points")) is not int or c["points"] < 2 or not isinstance(samples, list)
                     or len(samples) != c["points"]):

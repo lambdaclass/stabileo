@@ -9,7 +9,6 @@ spec.loader.exec_module(arch)
 
 
 class EvidenceFreshness(unittest.TestCase):
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_numbered_equilibria_are_required_despite_matching_exports(self):
         for mutation in ('missing', 'duplicate', 'reordered'):
             run = arch.load(arch.REPLAY)
@@ -25,18 +24,15 @@ class EvidenceFreshness(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'step'):
                     arch.evidence(run)
 
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_frame_node_order_does_not_change_drift(self):
         run = arch.load(arch.REPLAY)
         run['frames'][0]['displacements'].reverse()
         self.assertEqual(arch.evidence(run)[0]['checks'][-1]['observed'], 0)
 
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_descent_ratio_freshness_is_independent_of_acceptance(self):
         row = next(c for c in arch.evidence(arch.load(arch.REPLAY))[0]['checks'] if c['metric'] == 'final load / largest load')
         self.assertTrue(arch.differences({**row, 'observed': row['observed'] - 0.09}, row))
 
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_crown_rotation_comparison_names_the_interpreted_unit(self):
         self.assertEqual(arch.evidence(arch.load(arch.REPLAY))[1]['checks'][-1]['unit'], 'rad')
 

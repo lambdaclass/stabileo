@@ -10,7 +10,6 @@ spec.loader.exec_module(model)
 
 
 class PublishedTable(unittest.TestCase):
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_each_tip_is_measured_once(self):
         d = {'nodeId': 8, 'ux': 1, 'uz': -2}
         data = {'converged': True, 'loadFactor': 1, 'results': {'displacements': [d]}}
@@ -20,7 +19,6 @@ class PublishedTable(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'tip'):
             model.tip(case, {'result': data})
 
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_complete_refinement_study_is_independent_of_the_generator(self):
         data = model.load(model.CASE)
         native, mesh = [], []

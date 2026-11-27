@@ -21,9 +21,9 @@ EXTRAPOLATION_CEILINGS = {
     'rotation': 0.010315309692828298,
 }
 SOURCE = 'DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308'
-UNITS = {'loadFactor': '', 'uOverR': '', 'vOverR': '', 'rotation': ''}
-COMMAND = ('DADEPPO_EXPORT=<fresh.json> cargo test --release --manifest-path engine/Cargo.toml --test solver dadeppo_arch; '
-           'python3 -I research/benchmarks/dadeppo-arch-1975/validate.py generate <fresh.json>')
+UNITS = {'loadFactor': '', 'uOverR': '', 'vOverR': '', 'rotation': 'rad'}
+COMMAND = ('DADEPPO_EXPORT=$PWD/fresh.json cargo test --release --manifest-path engine/Cargo.toml --test solver dadeppo_arch; '
+           'python3 -I research/benchmarks/dadeppo-arch-1975/validate.py generate fresh.json')
 
 
 def load(path):
@@ -47,6 +47,9 @@ def max_relative(a, b, path='$'):
     if isinstance(a, list):
         if len(a) != len(b):
             raise ValueError(path)
+        if path.endswith('.displacements'):
+            a = sorted(a, key=lambda d: d['nodeId'])
+            b = sorted(b, key=lambda d: d['nodeId'])
         return max([max_relative(x, y, f'{path}[{i}]') for i, (x, y) in enumerate(zip(a, b))] or [0.0])
     if isinstance(a, bool) or not isinstance(a, (int, float)):
         if a != b:
@@ -93,6 +96,11 @@ def evidence(fresh):
                'observed': observed, 'tolerance': tolerance[key], 'passed': observed <= tolerance[key]}
         rows.append(row)
         checks.append({k: row[k] for k in ('name', 'metric', 'observed', 'tolerance', 'passed', 'reference', 'computed')})
+    replay = load(REPLAY)
+    expected_steps = list(range(1, case['input']['maxSteps'] + 1))
+    for run in (replay, fresh):
+        if [s['step'] for s in run['steps']] != expected_steps or any(s['converged'] is not True or not math.isfinite(s['loadFactor']) for s in run['steps']):
+            raise ValueError('Expected each converged load step once, in order')
     loads = [s['loadFactor'] for s in fresh['steps']]
     peak = max(loads)
     checks.append({'name': 'The path passes the limit point and descends', 'metric': 'final load / largest load',
@@ -122,7 +130,6 @@ def evidence(fresh):
         checks.append({'name': f'{name}: tolerance within 1.25 × its 40-element budget', 'metric': 'tolerance / budget − 1',
                        'observed': tolerance[key] / budget - 1, 'tolerance': 0.25,
                        'passed': 0 <= tolerance[key] / budget - 1 <= 0.25})
-    replay = load(REPLAY)
     steps = range(20, case['input']['maxSteps'] + 1, 20)
     node_ids = {node['id'] for node in case['input']['solver']['nodes'].values()}
     for run in (replay, fresh):
@@ -174,7 +181,7 @@ def differences(a, b, path='$', scale=None):
         return [d for i, (x, y) in enumerate(zip(a, b)) for d in differences(x, y, f'{path}[{i}]', scale)]
     if isinstance(a, bool) or isinstance(b, bool) or not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
         return [] if a == b else [f'{path}: {a!r} != {b!r}']
-    allowed = 0.1 * scale if scale is not None else 1e-9 * max(abs(a), abs(b))
+    allowed = min(1e-9, 0.1 * scale) if scale is not None else 1e-9 * max(abs(a), abs(b))
     return [] if abs(a - b) <= allowed else [f'{path}: {a!r} != {b!r}']
 
 

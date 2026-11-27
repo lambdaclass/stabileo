@@ -1,5 +1,5 @@
 {
-  "command": "DADEPPO_EXPORT=<fresh.json> cargo test --release --manifest-path engine/Cargo.toml --test solver dadeppo_arch; python3 -I research/benchmarks/dadeppo-arch-1975/validate.py generate <fresh.json>",
+  "command": "DADEPPO_EXPORT=$PWD/fresh.json cargo test --release --manifest-path engine/Cargo.toml --test solver dadeppo_arch; python3 -I research/benchmarks/dadeppo-arch-1975/validate.py generate fresh.json",
   "case": "engine/tests/benchmarks/dadeppo_arch.json",
   "checks": [
     {

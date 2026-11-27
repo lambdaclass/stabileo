@@ -22,7 +22,11 @@ def tip(case, row, node=None):
     result = row.get('result')
     if not result or not result['converged'] or abs(result['loadFactor'] - 1) > 1e-12:
         return None
-    d = next(d for d in result['results']['displacements'] if d['nodeId'] == (node or case['tipNode']))
+    target = case['tipNode'] if node is None else node
+    tips = [d for d in result['results']['displacements'] if d['nodeId'] == target]
+    if len(tips) != 1:
+        raise ValueError(f'Expected one displacement for tip {target}')
+    d = tips[0]
     return -d['ux'] / case['length'], -d['uz'] / case['length']
 
 
@@ -68,10 +72,18 @@ def evidence(native, mesh):
                            'reference': c['reference'][i], 'computed': values[i],
                            'observed': observed, 'tolerance': tolerance, 'passed': observed <= tolerance})
     ceilings = {m['elements']: m['relativeError'] for m in data['meshErrorCeilings']}
-    for c in (c for c in cases if c['kind'] == 'force' and c['reference']):
+    meshes = (16, 32, 64)
+    if sorted(m['elements'] for m in data['meshErrorCeilings']) != list(meshes):
+        raise ValueError('Expected a ceiling for each refinement mesh')
+    forces = [c for c in cases if c['kind'] == 'force' and c['reference']]
+    measured = {(r['id'], r['elements']): r for r in mesh}
+    if len(measured) != len(mesh) or measured.keys() != {(c['id'], n) for c in forces for n in meshes}:
+        raise ValueError('Expected a single measurement per force case and mesh')
+    for c in forces:
         previous = None
-        for elements, ceiling in ceilings.items():
-            row = next(r for r in mesh if r['id'] == c['id'] and r['elements'] == elements)
+        for elements in meshes:
+            ceiling = ceilings[elements]
+            row = measured[c['id'], elements]
             values = tip(c, row, row['tipNode'])
             errors = [relative(values[i], c['reference'][i]) for i in range(2)] if values else [float('inf')] * 2
             observed = max(errors)

@@ -26,12 +26,14 @@ def differences(committed, fresh, path='$', budget=None):
         found = []
         for key, value in committed.items():
             allowed = None
-            if key in ('reference', 'tolerance', 'points') or isinstance(value, int):
+            if key in ('reference', 'tolerance', 'points'):
                 allowed = 0
             elif key == 'computed' and number(fresh[key]):
                 allowed = 1e-9 * abs(fresh[key])
             elif key == 'observed' and number(fresh.get('tolerance')):
                 allowed = observation_budget(fresh)
+            elif isinstance(value, int):
+                allowed = 0
             found.extend(differences(value, fresh[key], f'{path}.{key}', allowed))
         return found
     if isinstance(committed, list) and isinstance(fresh, list):

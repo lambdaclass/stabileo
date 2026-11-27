@@ -16,18 +16,15 @@ row = {'name': 'response', 'source': 'paper', 'metric': 'absolute difference', '
 
 
 class PublishedEvidence(unittest.TestCase):
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_scalar_fields_cannot_replace_a_curve(self):
         for metric in ('absolute distance outside the error bar, largest', 'absolute difference in Y, largest'):
             self.assertFalse(catalog.valid_checks([{**row, 'metric': metric, 'computed': 1, 'reference': 1}], published=True))
 
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_haukaas_reference_does_not_certify_naviers_paper(self):
         paper = next(p for p in json.loads((root / 'papers.json').read_text())['papers'] if p['implementation'] == 'benchmarks/navier-plate')
         self.assertEqual(paper['status'], 'numerically-validated')
         self.assertFalse(paper['reproduced_published_results'])
 
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_shape_manifest_preserves_digitization_on_regeneration(self):
         import shutil
         with tempfile.TemporaryDirectory(dir=root) as tmp:
@@ -54,9 +51,12 @@ class PublishedEvidence(unittest.TestCase):
             folder = Path(scratch)
             evidence = folder / 'reference-results'
             evidence.mkdir()
+            import hashlib
+            digitization = b'independent reference'
+            (evidence / 'fig9c_digitized.json').write_bytes(digitization)
             (evidence / 'replay.json').write_text('new replay')
             manifest = evidence / 'MANIFEST.json'
-            manifest.write_text(json.dumps({'platform': 'earlier toolchain', 'files_sha256': {'replay.json': 'old hash'}}))
+            manifest.write_text(json.dumps({'platform': 'earlier toolchain', 'files_sha256': {'replay.json': 'old hash', 'fig9c_digitized.json': hashlib.sha256(digitization).hexdigest()}}))
             runner = folder / 'run'
             runner.write_text('#!/bin/sh\nif [ "$1" != cargo ]; then exec "$@"; fi\n')
             runner.chmod(0o755)
