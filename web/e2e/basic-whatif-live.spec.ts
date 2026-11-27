@@ -111,15 +111,23 @@ test('@slow releasing a held diagram clears the idle canvas without a replacemen
   await expect(page.locator('.viewport2d-wrapper .pending-result')).toHaveCount(0);
 });
 
-test('@slow a pending moment diagram never connects its old forces to a moved endpoint', async ({ page }) => {
+test('@slow a pending moment diagram never connects its old forces to a moved endpoint', async ({ page, browser }) => {
   await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileoActions && window.__stabileo.solverReady());
+  const canvas = page.locator('.viewport2d-wrapper canvas').first();
+  const size = await canvas.evaluate(el => ({ width: (el as HTMLCanvasElement).width, height: (el as HTMLCanvasElement).height }));
+  const sizeCanvas = async (target: typeof page) => {
+    await target.addStyleTag({ content: `.viewport2d-wrapper { flex: none !important; width: ${size.width}px !important; height: ${size.height}px !important; }` });
+    const surface = target.locator('.viewport2d-wrapper canvas').first();
+    await expect(surface).toHaveAttribute('width', String(size.width));
+    await expect(surface).toHaveAttribute('height', String(size.height));
+  };
+  await sizeCanvas(page);
   await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
   await page.evaluate(() => window.__stabileoActions.solve());
   await page.getByTestId('rb-cmd-momentY').click();
   await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().drawn)).toBe(true);
-  const canvas = page.locator('.viewport2d-wrapper canvas').first();
   const observed = await canvas.evaluate(async element => {
     const canvas = element as HTMLCanvasElement;
     const ctx = canvas.getContext('2d')!;
@@ -154,11 +162,8 @@ test('@slow a pending moment diagram never connects its old forces to a moved en
       const movedPixels = patch();
       const after = ends.splice(0);
       const frame = window.__stabileo.screenFrame();
-      const moved = JSON.parse(window.__stabileo.serializeProject());
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (!window.__stabileoActions.loadProject(moved)) throw Error('Model reopen failed');
-      await paint();
-      return { changed: movedPixels !== previousPixels, matchesModel: movedPixels === patch(), original, expected, after, frame };
+      return { changed: movedPixels !== previousPixels, x, y, movedPixels, original, expected, after, frame,
+        movedImage: canvas.toDataURL(), node: { id: tip.id, x: tip.x + 1, y: tip.y, z: tip.z ?? 0 } };
     } finally {
       Object.assign(ctx, { moveTo, lineTo, stroke });
     }
@@ -166,7 +171,29 @@ test('@slow a pending moment diagram never connects its old forces to a moved en
   expect(observed.original.length).toBeGreaterThan(0);
   for (const endpoints of observed.original) expect(endpoints).toEqual(observed.expected);
   expect(observed.changed).toBe(true);
-  expect(observed.matchesModel).toBe(true);
+  const reference = await browser.newPage({ viewport: page.viewportSize()! });
+  try {
+    await reference.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
+    await reference.goto(page.url());
+    await reference.waitForFunction(() => !!window.__stabileoActions && window.__stabileo.solverReady());
+    await reference.evaluate(async node => {
+      await window.__stabileoActions.loadExample('simply-supported');
+      window.__stabileoActions.moveNode(node.id, node.x, node.y, node.z);
+    }, observed.node);
+    const referenceCanvas = reference.locator('.viewport2d-wrapper canvas').first();
+    await sizeCanvas(reference);
+    const clean = await referenceCanvas.evaluate(async (el, { x, y }) => {
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const canvas = el as HTMLCanvasElement;
+      const pixels = canvas.getContext('2d')!.getImageData(Math.floor(x) - 2, Math.floor(y) - 2, 5, 5).data;
+      return { patch: Array.from(pixels).join(','), image: canvas.toDataURL(), drawn: window.__stabileo.screenFrame().drawn };
+    }, { x: observed.x, y: observed.y });
+    expect(clean.drawn).toBe(false);
+    expect(observed.movedPixels).toBe(clean.patch);
+    expect(observed.movedImage === clean.image).toBe(true);
+  } finally {
+    await reference.close();
+  }
   expect(observed.after).toEqual([]);
   expect(observed.frame).toMatchObject({ held: false, drawn: false });
 });

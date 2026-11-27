@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 const hi: Translations = {
   'materials.alphaHelp': "तापीय प्रसार 10⁻⁶/°C में। खाली रखने पर ज्ञात सामग्री वर्ग का मान लिया जाता है (कंक्रीट 10, इस्पात 12, एल्युमिनियम 23)। वर्ग अज्ञात हो तो सॉल्वर 12 मानता है और इस धारणा की सूचना देता है।",
+  'whatif.paint.axialUnavailable': "अक्षीय बल का चिह्न उपलब्ध नहीं है",
   'whatif.resp.shearBound': "परिणामी अपरूपण बल की ऊपरी सीमा (घटक आवरणों से)",
   'whatif.resp.momentBound': "परिणामी बंकन आघूर्ण की ऊपरी सीमा (घटक आवरणों से)",
   'advCat.search.label': "उन्नत कार्य खोजें",

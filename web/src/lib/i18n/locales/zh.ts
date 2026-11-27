@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  'whatif.paint.axialUnavailable': "无法确定轴力的正负",
   'whatif.resp.shearBound': "合成剪力上界（分量包络）",
   'whatif.resp.momentBound': "合成弯矩上界（分量包络）",
   'svc.accountingMismatch': "分析已拒绝。荷载工况 {case}，分量 {component}。输入值 {entered}，组装值 {assembled}。",

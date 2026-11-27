@@ -1,4 +1,5 @@
 const es: Record<string, string> = {
+  'whatif.paint.axialUnavailable': "Esfuerzos axiales con signo no disponibles",
   'whatif.resp.shearBound': "Cota superior del corte resultante (envolventes por componente)",
   'whatif.resp.momentBound': "Cota superior del momento resultante (envolventes por componente)",
   'svc.accountingMismatch': "Análisis rechazado. Caso de carga {case}, {component}. Valor ingresado {entered}, valor ensamblado {assembled}.",

@@ -127,10 +127,10 @@ it('formats a response change with the active French percent convention', () => 
     resultsStore.setResults(solve());
     whatIf.open();
     for (const factor of [1.015, 1.004, 0.996]) {
-    whatIf.setLoadFactor(0, factor);
-    settle();
-    resultsStore.setResults(solve());
-    expect(render(WhatIfPanel).body).toContain(new Intl.NumberFormat('fr', { style: 'percent', maximumFractionDigits: 1 }).format(Math.abs(factor - 1)));
+      whatIf.setLoadFactor(0, factor);
+      settle();
+      resultsStore.setResults(solve());
+      expect(render(WhatIfPanel).body).toContain(new Intl.NumberFormat('fr', { style: 'percent', maximumFractionDigits: 1 }).format(Math.abs(factor - 1)));
     }
   } finally {
     setLocale(originalLocale);
@@ -427,7 +427,13 @@ it('summarizes the transverse resultants of a space cantilever', () => {
   whatIf.open();
   resultsStore.setResults3D({ ...result, elementForces: [pair] });
   expect(response3D(resultsStore.results3D!).moment).toBeCloseTo(Math.hypot(20, 20), 12);
-  expect(render(WhatIfPanel).body).toMatch(/upper bound/i);
+  const shearCase = { ...constant, vyStart: 10, vzStart: 10 };
+  const shearPair = { ...shearCase, combined: { method: 'abs' as const, parts: [shearCase, { ...shearCase, vzStart: -10 }] } };
+  resultsStore.setResults3D({ ...result, elementForces: [shearPair] });
+  expect(response3D(resultsStore.results3D!).shear).toBeCloseTo(Math.hypot(20, 20), 12);
+  const html = render(WhatIfPanel).body;
+  expect(html).toMatch(/Upper bound on resultant moment/);
+  expect(html).toMatch(/Upper bound on resultant shear/);
   for (const method of ['abs', 'srss'] as const) {
     const combined = { ...member, combined: { method, parts: [member, member] } };
     expect(response3D({ ...result, elementForces: [combined] }).moment)
@@ -506,6 +512,7 @@ it('identifies each thermal load by member and signed uniform change and gradien
   modelStore.addThermalLoad(m2, -10, 4);
   modelStore.loads.forEach((load, i) => {
     const label = loadLabel(load, i);
+    if (load.type !== 'thermal') throw Error('Expected a thermal load');
     const d = load.data;
     expect(label).toContain('B' + d.elementId);
     expect(label).toContain('ΔT=' + d.dtUniform);

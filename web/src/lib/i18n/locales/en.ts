@@ -1,4 +1,5 @@
 const en: Record<string, string> = {
+  'whatif.paint.axialUnavailable': "Signed axial forces unavailable",
   'whatif.resp.shearBound': "Upper bound on resultant shear (component envelopes)",
   'whatif.resp.momentBound': "Upper bound on resultant moment (component envelopes)",
   'svc.accountingMismatch': "Analysis refused. Load case {case}, {component}. Entered {entered}, assembled {assembled}.",

@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const id: Translations = {
   'materials.alphaHelp': "Muai termal dalam 10⁻⁶/°C. Jika kosong, gunakan kelompok material yang diketahui (beton 10, baja 12, aluminium 23). Jika kelompok tidak diketahui, perhitungan menggunakan 12 dan melaporkan asumsi ini.",
+  'whatif.paint.axialUnavailable': "Tanda gaya aksial tidak tersedia",
   'whatif.resp.shearBound': "Batas atas gaya geser resultan (selubung komponen)",
   'whatif.resp.momentBound': "Batas atas momen resultan (selubung komponen)",
   'advCat.search.label': "Cari fungsi lanjutan",

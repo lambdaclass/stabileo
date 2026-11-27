@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const ko: Translations = {
   'materials.alphaHelp': "열팽창 계수(10⁻⁶/°C). 비워 두면 알려진 재료군의 값(콘크리트 10, 강재 12, 알루미늄 23)을 사용합니다. 재료군을 알 수 없으면 해석기가 12를 가정하고 이를 알립니다.",
+  'whatif.paint.axialUnavailable': "축력의 부호를 확인할 수 없습니다",
   'whatif.resp.shearBound': "합성 전단력의 상한(성분별 포락값)",
   'whatif.resp.momentBound': "합성 휨모멘트의 상한(성분별 포락값)",
   'advCat.search.label': "고급 기능 검색",

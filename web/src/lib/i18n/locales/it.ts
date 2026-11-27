@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 const it: Translations = {
   'materials.alphaHelp': "Dilatazione termica in 10⁻⁶/°C. Se vuoto, si usa la famiglia nota (calcestruzzo 10, acciaio 12, alluminio 23). Per una famiglia sconosciuta il solutore assume 12 e lo segnala.",
+  'whatif.paint.axialUnavailable': "Sforzi assiali con segno non disponibili",
   'whatif.resp.shearBound': "Limite superiore del taglio risultante (inviluppi delle componenti)",
   'whatif.resp.momentBound': "Limite superiore del momento risultante (inviluppi delle componenti)",
   'advCat.search.label': "Cerca nelle funzioni avanzate",

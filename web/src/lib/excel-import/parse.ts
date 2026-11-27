@@ -1,4 +1,5 @@
 import { globalAxes } from '../features';
+import { isValidThermalAlpha } from '../engine/thermal-alpha';
 import { readLoadData } from './load-data';
 import { GRAVITY_SELF_WEIGHT } from '../engine/analysis-settings';
 import { resolveSelfWeightScope, selfWeightFor, selfWeightScopeRefusal } from '../engine/self-weight';
@@ -700,7 +701,7 @@ export function parseWorkbookSheets(
     const alpha = num(row.cells.alpha);
     const gradeId = str(row.cells.gradeid);
     const authored = str(row.cells.userdefined).toLowerCase();
-    if (alpha !== null && Math.abs(alpha) >= 1e-3) {
+    if (alpha !== null && !isValidThermalAlpha(alpha)) {
       problems.push({ sheet: 'Materials', row: row.n, column: 'alpha', message: t('materials.alphaInvalid'), blocking: true });
       continue;
     }

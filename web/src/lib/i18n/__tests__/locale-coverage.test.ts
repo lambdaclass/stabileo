@@ -141,10 +141,10 @@ it('translates Explore, launcher search, mobile tabs and the material form in ev
     'matEdit.e', 'matEdit.nu', 'matEdit.gamma', 'matEdit.fy',
     'matEdit.alpha', 'matEdit.extra', 'matEdit.fyHelp', 'matEdit.save',
     'matEdit.delete', 'matEdit.invent', 'materials.alphaInvalid',
-    'materials.alphaHelp',
+    'materials.alphaHelp', 'whatif.paint.axialUnavailable', 'whatif.resp.momentBound', 'whatif.resp.shearBound',
   ];
   for (const [locale, dict] of Object.entries(ALL_DICTS)) {
     for (const key of keys) expect.soft(dict[key]?.trim(), locale + ' ' + key).toBeTruthy();
-    expect.soft(dict['materials.alphaHelp'], locale).toMatch(/12.*12|12.*23.*12/);
+    expect.soft(dict['materials.alphaHelp'], locale).toMatch(/12.*12/);
   }
 });

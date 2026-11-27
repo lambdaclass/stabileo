@@ -9,7 +9,7 @@ import { modelStore, uiStore } from '../../store';
 import { buildProjectFile, deserializeProject } from '../../store/file';
 
 const jobs: string[] = [];
-let lastReply: unknown;
+let lastJob = -1;
 let dispatch: (msg: unknown) => Promise<void>;
 
 beforeAll(async () => {
@@ -29,7 +29,8 @@ beforeAll(async () => {
       }
       jobs.push(msg.type);
       scope.postMessage = reply => {
-        lastReply = reply.result;
+        lastJob = reply.id;
+        if (reply.result) reply.result.workerJob = reply.id;
         this.onmessage?.({ data: structuredClone(reply) } as MessageEvent);
       };
       void dispatch(structuredClone(msg));
@@ -67,7 +68,7 @@ async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefin
   if (!result || typeof result === 'string') throw new Error(String(result));
   if (worker) {
     expect(jobs.slice(start)).toContain(workspace === '2d' ? 'solve' : 'solve3d');
-    expect(result.displacements).toEqual((lastReply as AnalysisResults).displacements);
+    expect(result).toHaveProperty('workerJob', lastJob);
   }
   const diagnostics = {
     assembly: result.diagnostics ?? [],

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { initSolver } from '../../engine/wasm-solver';
 import { modelStore, type Material } from '../../store/model.svelte';
-import { againstExample, openAndSolve, openExample, readCorpusText, readManifest, savedFixture } from '../legacy';
+import { againstExample, openAndSolve, openExample, readCorpusText, readManifest } from '../legacy';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -74,9 +74,8 @@ describe('release example semantics #2091', () => {
 
   it('refuses a reference without recorded release defaults, below and above the recorded releases', async () => {
     const entry = readManifest('v0.4.0').examples.find(e => e.example === 'truss')!;
-    const { fixture } = savedFixture(entry.example, entry.fixtureBlob);
     for (const version of ['v0.1.0', 'v0.5.0']) {
-      await expect(openExample('truss', '2d', { solve: false, release: version, fixture }))
+      await expect(openExample('truss', '2d', { solve: false, release: version, fixtureBlob: entry.fixtureBlob }))
         .rejects.toThrow('no verified example defaults recorded');
     }
     const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`), { solve: false });

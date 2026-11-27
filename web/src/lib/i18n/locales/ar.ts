@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const ar: Translations = {
   'materials.alphaHelp': "التمدد الحراري بوحدة 10⁻⁶/°C. عند ترك الحقل فارغاً تُستخدم قيمة فئة المادة المعروفة (الخرسانة 10، الفولاذ 12، الألومنيوم 23). إذا كانت الفئة مجهولة يفترض المحلّل 12 ويبيّن هذا الافتراض.",
+  'whatif.paint.axialUnavailable': "لا يمكن تحديد إشارة القوة المحورية",
   'whatif.resp.shearBound': "الحد الأعلى لمحصلة قوة القص من أغلفة المركبات",
   'whatif.resp.momentBound': "الحد الأعلى لمحصلة عزم الانحناء من أغلفة المركبات",
   'advCat.search.label': "البحث في الوظائف المتقدمة",

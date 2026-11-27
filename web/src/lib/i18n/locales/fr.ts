@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  'whatif.paint.axialUnavailable': "Efforts axiaux signés indisponibles",
   'whatif.resp.shearBound': "Borne supérieure de l’effort tranchant résultant (enveloppes des composantes)",
   'whatif.resp.momentBound': "Borne supérieure du moment résultant (enveloppes des composantes)",
   'svc.accountingMismatch': "Analyse refusée. Cas de charge {case}, {component}. Valeur saisie {entered}, valeur assemblée {assembled}.",

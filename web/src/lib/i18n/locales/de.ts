@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  'whatif.paint.axialUnavailable': "Normalkräfte mit Vorzeichen nicht verfügbar",
   'whatif.resp.shearBound': "Obergrenze der resultierenden Querkraft (Komponentenhüllkurven)",
   'whatif.resp.momentBound': "Obergrenze des resultierenden Biegemoments (Komponentenhüllkurven)",
   'svc.accountingMismatch': "Berechnung abgelehnt. Lastfall {case}, {component}. Eingegeben {entered}, assembliert {assembled}.",

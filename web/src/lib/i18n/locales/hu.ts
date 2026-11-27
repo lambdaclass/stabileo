@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  'whatif.paint.axialUnavailable': "A normálerők előjele nem határozható meg",
   'whatif.resp.shearBound': "Az eredő nyíróerő felső korlátja (komponensenkénti burkolók)",
   'whatif.resp.momentBound': "Az eredő hajlítónyomaték felső korlátja (komponensenkénti burkolók)",
   'svc.accountingMismatch': "A számítás elutasítva. {case} tehereset, {component}. Megadott érték {entered}, összeállított érték {assembled}.",

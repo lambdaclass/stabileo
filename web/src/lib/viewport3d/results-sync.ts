@@ -10,7 +10,8 @@ import * as THREE from 'three';
 import { canvasUnitSystem } from '../canvas/canvas-units';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
 import { modelStore, uiStore, resultsStore } from '../store';
-import { tp } from '../i18n';
+import { t, tp } from '../i18n';
+import type { ElementForces3D } from '../engine/types-3d';
 import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
 import { colourScaleSource } from '../store/result-view';
@@ -26,7 +27,7 @@ import { verificationStore } from '../store/verification.svelte';
 import { discretizationStore } from '../store/discretization.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import { dofQuantity } from '../utils/units';
-import { axialPaintRange, axialPaintLabel } from '../viewport/axial-paint';
+import { signedAxialRange, axialPaintLabel } from '../viewport/axial-paint';
 import { computeDiagram3D, type Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { timeHistoryView } from '../store/time-history-view.svelte';
@@ -473,6 +474,15 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
 // ─── Color map (axialColor / colorMap) ──────────────────────
 
 
+function hasUnsignedAxialForces(member: ElementForces3D): boolean {
+  return !!member.combined || !!member.pieces?.some(piece => hasUnsignedAxialForces(piece.forces));
+}
+
+function axialRange3D(member: ElementForces3D) {
+  if (resultsStore.screen.envelopeActive || hasUnsignedAxialForces(member)) return null;
+  return signedAxialRange(() => computeDiagram3D(member, 'axial'));
+}
+
 export function syncColorMap3D(ctx: ResultsSyncContext): void {
   if (!ctx.initialized) return;
 
@@ -533,8 +543,8 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
       if (group) showOriginalMeshes(group, true);
       const ef = forcesMap.get(id);
       if (!ef) return;
-      const range = axialPaintRange(computeDiagram3D(ef, 'axial'));
-      const c = range.mixed ? 0x895a70 : axialForceColor(range.tension || range.compression);
+      const range = axialRange3D(ef);
+      const c = range?.mixed ? 0x895a70 : axialForceColor(Math.sign(range?.tension || range?.compression || 0));
       if (group) setGroupColor(group, c);
       // The batched wireframe primary is where a plain member's colour lives:
       // without this, axial colours are silently invisible in wireframe.
@@ -634,8 +644,10 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
   if (!axial && (resultsStore.screen.diagram !== 'verification' || (!verificationStore.hasResults && !verificationStore.hasDemandData))) return;
   const mixedLabels = new Map<number, { text: string; color: string }>();
   if (axial) for (const ef of axial.elementForces) {
-    const range = axialPaintRange(computeDiagram3D(ef, 'axial'));
-    if (range.mixed) mixedLabels.set(ef.elementId, { text: axialPaintLabel(range, uiStore.unitSystem), color: '#e8eef4' });
+    const range = axialRange3D(ef);
+    if (!range || range.mixed) mixedLabels.set(ef.elementId, {
+      text: range ? axialPaintLabel(range, uiStore.unitSystem) : t('whatif.paint.axialUnavailable'), color: '#e8eef4',
+    });
   }
 
   const project2D = projectFlag();

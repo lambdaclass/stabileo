@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  'whatif.paint.axialUnavailable': "Eksenel kuvvetlerin işareti belirlenemiyor",
   'whatif.resp.shearBound': "Bileşke kesme kuvvetinin üst sınırı (bileşen zarfları)",
   'whatif.resp.momentBound': "Bileşke momentin üst sınırı (bileşen zarfları)",
   'svc.accountingMismatch': "Analiz reddedildi. Yük durumu {case}, {component}. Girilen {entered}, birleştirilen {assembled}.",

@@ -25,6 +25,10 @@ export const FAMILY_ALPHA: Readonly<Record<StructuralMaterialFamily, number>> = 
   unknown: ENGINE_ALPHA,
 };
 
+export function isValidThermalAlpha(alpha: number): boolean {
+  return Math.abs(alpha) < 1e-3;
+}
+
 export interface AlphaReadableMaterial { e?: number; gradeId?: string; userDefined?: boolean; alpha?: number }
 
 export function thermalFamilyOf(material: AlphaReadableMaterial | undefined | null): StructuralMaterialFamily {

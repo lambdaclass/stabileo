@@ -56,7 +56,7 @@ describe('a deliberate choice is never overwritten', () => {
   it('leaves a material that came from the catalogue alone', () => {
     // The destructive case. An engineer set S355 and is now trying sections
     // against it; changing the section must not change the steel.
-    expect(commercialDefaultFor('IPN', { gradeId: 'en-s355' }, 'AR')).toBeNull();
+    expect(commercialDefaultFor('IPN', { userDefined: false, gradeId: 'en-s355' }, 'AR')).toBeNull();
   });
 
   it('leaves it alone even when the pairing is an unusual one', () => {

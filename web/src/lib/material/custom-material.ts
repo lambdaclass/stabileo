@@ -1,4 +1,5 @@
 /** The rules and reason keys must stay those of PRO's `CustomMaterialPanel.svelte` and `materials.alphaInvalid`. */
+import { isValidThermalAlpha } from '../engine/thermal-alpha';
 import { parseDecimal } from '../utils/numeric-input';
 import { modelStore, type Material } from '../store/model.svelte';
 import { toMaterialFields, type MaterialChoice } from './material-choice';
@@ -32,7 +33,7 @@ export function readAlpha(raw: string, stored?: number): number | null | undefin
   const value = parseDecimal(raw);
   if (value === null) return null;
   const alpha = stored !== undefined && Number.isFinite(stored) && raw === alphaField(stored) ? stored : value * 1e-6;
-  return Math.abs(alpha) < 1e-3 ? alpha : null;
+  return isValidThermalAlpha(alpha) ? alpha : null;
 }
 
 export function readCustomMaterial(form: CustomMaterialForm, stored?: Pick<Material, 'alpha'>): CustomMaterialRead {

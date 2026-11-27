@@ -28,7 +28,7 @@
   import { placementStore } from '../lib/store/placement.svelte';
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
-  import { axialPaintRange, axialPaintLabel } from '../lib/viewport/axial-paint';
+  import { signedAxialRange, axialPaintLabel } from '../lib/viewport/axial-paint';
   import { computeElementDiagram, computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
   import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { solverBendingForces2D } from '../lib/engine/transverse-sign-2d';
@@ -659,12 +659,14 @@
     const axialLabels = new Map<number, { text: string; color: string }>();
     if (shown && dtNow() === 'axialColor') {
       // Axial color: blue = compression, red = tension, intensity by magnitude
-      const ranges = shown.elementForces.map(ef => {
-        const diagram = computeElementDiagram('axial', ef, 0, 0, ef.length, 0);
-        return { id: ef.elementId, ...axialPaintRange(diagram) };
+      const ranges = shown.elementForces.flatMap(ef => {
+        const range = resultsStore.screen.envelopeActive ? null : signedAxialRange(() => computeElementDiagram('axial', ef, 0, 0, ef.length, 0));
+        if (range) return [{ id: ef.elementId, ...range }];
+        axialLabels.set(ef.elementId, { text: t('whatif.paint.axialUnavailable'), color: '#e8eef4' });
+        return [];
       });
       const globalMaxN = ranges.reduce((m, r) => Math.max(m, r.peak), 0);
-      if (globalMaxN > 1e-10) {
+      if (globalMaxN > 0) {
         const axTheme = canvasTheme();
         /*
          * Tension and compression are the palette's, not screen primaries.
@@ -827,7 +829,7 @@
     if (loadsVisible) {
     // A load is hidden with the node or member it stands on.
     // A reaction figure must carry the same applied loads as its selected result.
-    const figureLoads = exportFrame?.content === 'reactions' ? displayedLoads2D() : displayModel().loads;
+    const figureLoads = exportFrame?.content === 'reactions' ? displayedLoads2D() : paintedModel.loads;
     const shownLoads = viewVisibility.active ? figureLoads.filter((l) => !isLoadHidden(l.data as never)) : figureLoads;
 
     // Draw nodal loads (grouped by node for stacked labels)
@@ -942,21 +944,21 @@
     // Draw selected load highlights
     if (!exportFrame && uiStore.selectedLoads.size > 0) {
       for (const loadId of uiStore.selectedLoads) {
-        const load = modelStore.model.loads.find(l => l.data.id === loadId);
+        const load = paintedModel.loads.find(l => l.data.id === loadId);
         if (!load) continue;
         let hx = 0, hy = 0;
         if (load.type === 'nodal') {
           const d = load.data as { nodeId: number };
-          const node = modelStore.getNode(d.nodeId);
+          const node = paintedModel.nodes.get(d.nodeId);
           if (!node) continue;
           const pn = project2DNode(node);
           hx = pn.x; hy = pn.y;
         } else {
           const d = load.data as { elementId: number; a?: number };
-          const elem = modelStore.elements.get(d.elementId);
+          const elem = paintedModel.elements.get(d.elementId);
           if (!elem) continue;
-          const ni = getProjectedNode(elem.nodeI);
-          const nj = getProjectedNode(elem.nodeJ);
+          const ni = resultNode(elem.nodeI);
+          const nj = resultNode(elem.nodeJ);
           if (!ni || !nj) continue;
           if (load.type === 'pointOnElement' && d.a != null) {
             const L = Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2);
@@ -984,7 +986,7 @@
     }
 
     // Draw nodes (projected to current 2D drawing plane)
-    for (const node of modelStore.nodes.values()) {
+    for (const node of paintedModel.nodes.values()) {
       if (viewVisibility.isNodeHidden(node.id)) continue;
       drawNode(project2DNode(node));
     }

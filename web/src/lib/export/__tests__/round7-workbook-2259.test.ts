@@ -126,7 +126,7 @@ it.each([undefined, false, true])('round trips the material selection and signed
   modelStore.clear();
   const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
   const member = modelStore.addElement(a, b);
-  for (const alpha of [undefined, -5e-6, 0, 7e-6]) {
+  for (const alpha of [undefined, -0.000999999, -5e-6, 0, 7e-6, 0.000999999]) {
     const material = modelStore.addMaterial({ name: 'Specimen', e: 173219, nu: 0.27, rho: 76, gradeId: 'iram-f36', userDefined, alpha });
     modelStore.updateElementMaterial(member, material);
     const sheets = Object.fromEntries(currentWorkbookSheets(2, { results: false }).map(s => [s.name, s.rows]));
@@ -143,4 +143,30 @@ it.each([-0.001, 0.001, 'bad'])('refuses an invalid workbook coefficient %s befo
     Materials: [['id', 'name', 'E', 'nu', 'alpha [1/°C]'], [1, 'Test', 173219, 0.27, alpha]] };
   expect(applyWorkbook(sheets).problems).toContainEqual(expect.objectContaining({ sheet: 'Materials', column: 'alpha', blocking: true }));
   expect(modelStore.nodes.get(node)?.x).toBe(7);
+});
+
+for (const space of [false, true]) it('reopening a workbook preserves free thermal extension in ' + (space ? '3D' : '2D'), () => {
+  uiStore.analysisMode = space ? 'pro' : '2d';
+  modelStore.clear();
+  const start = modelStore.addNode(0, 0, 0), end = modelStore.addNode(4, 0, 0);
+  const member = modelStore.addElement(start, end);
+  modelStore.addSupport(start, space ? 'fixed3d' : 'fixed');
+  const material = modelStore.addMaterial({ name: 'Measured specimen', e: 70000, nu: 0.2, rho: 25, alpha: 9e-6 });
+  modelStore.updateElementMaterial(member, material);
+  modelStore.addThermalLoad(member, 20);
+  const sheets = Object.fromEntries(currentWorkbookSheets(2, { results: false }).map(s => [s.name, s.rows]));
+  expect(applyWorkbook(sheets).problems).toEqual([]);
+  const solveBar = () => {
+    if (space) {
+      const input = buildSolverInput3D(modelStore.model, false)!;
+      return [solve3D(input), solvePDelta3D(input)] as const;
+    }
+    const input = buildSolverInput2D(modelStore.model, false)!;
+    return [solve(input), solvePDelta(input)] as const;
+  };
+  const [linear, nonlinear] = solveBar();
+  expect(nonlinear.converged).toBe(true);
+  for (const r of [linear, nonlinear.results] as Array<typeof linear>) {
+    expect(r.displacements.find(d => d.nodeId === end)!.ux).toBeCloseTo(9e-6 * 20 * 4, 12);
+  }
 });

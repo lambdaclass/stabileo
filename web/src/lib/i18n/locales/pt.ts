@@ -1,5 +1,6 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  'whatif.paint.axialUnavailable': "Esforços axiais com sinal indisponíveis",
   'whatif.resp.shearBound': "Limite superior da força cortante resultante (envoltórias por componente)",
   'whatif.resp.momentBound': "Limite superior do momento resultante (envoltórias por componente)",
   'svc.accountingMismatch': "Análise recusada. Caso de carga {case}, {component}. Valor introduzido {entered}, valor montado {assembled}.",

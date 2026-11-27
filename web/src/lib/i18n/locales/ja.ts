@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 
 const ja: Translations = {
   'materials.alphaHelp': "熱膨張係数（10⁻⁶/°C）。空欄では既知の材料区分の値（コンクリート 10、鋼 12、アルミニウム 23）を使用します。区分が不明な場合は 12 を仮定し、その旨を表示します。",
+  'whatif.paint.axialUnavailable': "軸力の符号を判定できません",
   'whatif.resp.shearBound': "合成せん断力の上限（成分別包絡値）",
   'whatif.resp.momentBound': "合成曲げモーメントの上限（成分別包絡値）",
   'advCat.search.label': "高度な機能を検索",
