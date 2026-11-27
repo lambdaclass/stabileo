@@ -141,3 +141,45 @@ it.each([false, true])('known wrong result: #1928 explicit wall foundation place
     expect(new Set([f.nodeId, ...f.supportedNodeIds!])).toEqual(new Set(nodes));
   }
 });
+
+it.skip.each(['sync', 'reopen'] as const)('known wrong result: #1928 wall-linked strip sizing collects reactions at the current mesh through %s', async route => {
+  modelStore.clear();
+  historyStore.clear();
+  resultsStore.clear();
+  const { createPlate, planPlateMesh, applyPlateMeshes } = await import('../../../store/physical-plates');
+  const { supportWallBase, wallBaseNodes } = await import('../generate');
+  const outline = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, z]) => modelStore.addNode(x!, 0, z!));
+  const wall = createPlate({ outline, thickness: 0.2, materialId: 1 });
+  if ('problem' in wall) throw Error(wall.problem);
+  const mesh = (size: number) => expect(applyPlateMeshes([planPlateMesh(wall.id, { size })!]).refused).toEqual([]);
+  mesh(4);
+  supportWallBase(wall.id);
+  const soil = modelStore.addSoilProfile('Arena');
+  modelStore.updateSoilProfile(soil, { bearing: { kind: 'allowablePressure', allowableBearingKPa: 200 } });
+  modelStore.setDefaultSoilProfile(soil);
+  const id = stripUnderWall(wall.id, 0.4)!;
+  const original = modelStore.model.footings.get(id)!;
+  const originalIds = [original.nodeId, ...original.supportedNodeIds!];
+  mesh(1);
+  supportWallBase(wall.id);
+  const base = wallBaseNodes(wall.id);
+  expect(base.length).toBeGreaterThan(originalIds.length);
+  if (route === 'reopen') {
+    const saved = modelStore.snapshot();
+    const strip = saved.footings!.find(([n]) => n === id)![1];
+    strip.supportedNodeIds = originalIds.filter(n => n !== strip.nodeId);
+    modelStore.clear();
+    modelStore.restore(saved);
+  }
+  const reactions = (fz: number) => ({
+    displacements: [], elementForces: [], quadStresses: [],
+    reactions: base.map(nodeId => ({ nodeId, fx: 0, fy: 0, fz, mx: 0, my: 0, mz: 0 })),
+  }) as never;
+  resultsStore.setCombinationResults3D(new Map([[1, reactions(-400)], [2, reactions(-200)]]), new Map([[1, reactions(-900)]]), {} as never);
+  const current = presizeModelFootings([id]);
+  const f = modelStore.model.footings.get(id)!;
+  modelStore.updateFooting(id, { supportedNodeIds: base.filter(n => n !== f.nodeId) });
+  const complete = presizeModelFootings([id]);
+  expect(complete[0]).toHaveProperty('size');
+  expect(current).toEqual(complete);
+});
