@@ -78,6 +78,14 @@ it('known wrong result: #1986 storey shear magnitudes use the axis names of thei
   expect(html).toContain('<td>6.0</td><td>8.0</td>');
 });
 
+it('names the existing custom restraint in the Explore support editor', () => {
+  uiStore.analysisMode = 'pro';
+  const node = modelStore.addNode(0, 0, 0);
+  modelStore.addSupport(node, 'custom3d');
+  whatIf.open();
+  expect(render(WhatIfSupports).body).toMatch(/<option value="custom3d"[^>]*>Custom<\/option>/);
+});
+
 it('known wrong result: #2259 Explore maps every spatial roller option to its selected user axis', async () => {
   uiStore.analysisMode = 'pro';
   await modelStore.loadExample('3d-portal-frame');
