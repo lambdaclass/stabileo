@@ -744,7 +744,7 @@ test('known wrong result: #1928 the ordinary foundation generator only imports t
   }
 });
 
-test.skip('known wrong result: #1928 the published known-issue result has no grouping or hide-preference implementation', async () => {
+test('known wrong result: #1928 the published known-issue result has no grouping or hide-preference implementation', async () => {
   const entry = resolve(root, 'src/components/KnownIssueResult.svelte');
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {

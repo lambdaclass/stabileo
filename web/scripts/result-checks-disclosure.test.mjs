@@ -44,7 +44,7 @@ test('known wrong result: #1928 a coarse-mesh warning opens the published result
   }
 });
 
-test.skip('known wrong result: #1928 certificate text uses the result panel’s typography in each profile', async () => {
+test('known wrong result: #1928 certificate text uses the result panel’s typography in each profile', async () => {
   for (const mode of ['production', 'test']) {
     await withComponent(mode, solvedShell, async (page, url) => {
       await page.goto(url);

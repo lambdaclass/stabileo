@@ -20,6 +20,7 @@
   </details>
 
 <style>
+  .rc :global(.cert) { font-size: 12px; line-height: 1.4; }
   .rc { margin-top: 8px; border-top: 1px solid var(--st-hair); padding-top: 6px; }
   summary { display: flex; align-items: center; min-height: 44px; flex-wrap: wrap; gap: 8px; cursor: pointer; list-style: none; font-size: 12px; color: var(--st-text-2); }
   summary::-webkit-details-marker { display: none; }
