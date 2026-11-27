@@ -1,7 +1,19 @@
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, beforeAll, expect, it } from 'vitest';
 import { modelStore } from '..';
 import { closePlateHole, setPlateSideSagitta } from '../plate-shape';
-import { createPlate, deletePlate, plateSides, setPlateSideArc } from '../physical-plates';
+import { applyPlateMeshes, applyPlateMeshesAsync, clearPlateMesh, createPlate, deletePlate, plateEntry, plateSides, planPlateMesh, setPlateSideArc } from '../physical-plates';
+
+import { serializeProject, deserializeProject } from '../file';
+import { plateLoops } from '../../model/physical/plate';
+import { initSolver } from '../../engine/wasm-solver';
+
+beforeAll(async () => { await initSolver(); });
+
+function reopen() {
+  const file = serializeProject();
+  modelStore.clear();
+  expect(deserializeProject(file)).toBe(true);
+}
 
 afterEach(() => modelStore.clear());
 
@@ -17,34 +29,34 @@ function fixture() {
 
 it.skip('known wrong result: closing a saved hole deletes its authored nodes', () => {
   const { id, hole } = fixture();
-  modelStore.restore(modelStore.snapshot());
+  reopen();
   expect(closePlateHole(id, 0)).toBeNull();
   expect(hole.filter(n => modelStore.nodes.has(n))).toEqual(hole);
   expect(closePlateHole(id, 0)).toBe('needNodes');
 });
 
-it.skip.each([0, 0.3])('known wrong result: changing a side to sagitta %s deletes the supplied arc node', sagitta => {
+it.skip.each([0, 0.3])('changing a side to sagitta %s deletes the supplied arc node', sagitta => {
   const { id } = fixture();
   const mid = modelStore.addNode(3, -0.5, 0);
   expect(setPlateSideArc(id, 0, mid)).toBeNull();
-  modelStore.restore(modelStore.snapshot());
+  reopen();
   expect(setPlateSideSagitta(id, 0, sagitta)).toBeNull();
   expect(modelStore.nodes.has(mid)).toBe(true);
 });
 
-it.skip.each([true, false])('known wrong result: straightening a generated side must retain a mass-bearing point (attached %s)', attached => {
-  const { id } = fixture();
+it.skip.each([true, false])('straightening a generated side must retain a mass-bearing point (attached %s)', attached => {
+  const { id, hole } = fixture();
   expect(setPlateSideSagitta(id, 0, 0.3)).toBeNull();
   const mid = plateSides(id)[0]!.mid!;
-  const points = attached ? [{ nodeId: mid, m: 2 }] : [];
+  const points = [{ nodeId: hole[0]!, m: 3 }, ...(attached ? [{ nodeId: mid, m: 2 }] : [])];
   modelStore.setMassSource({ kind: 'custom', factors: [], points });
-  modelStore.restore(modelStore.snapshot());
+  reopen();
   expect(setPlateSideSagitta(id, 0, 0)).toBeNull();
   expect(modelStore.nodes.has(mid)).toBe(attached);
   expect(modelStore.model.massSource?.points).toEqual(points);
 });
 
-it.skip('known wrong result: deleting a plate silently removes a point mass at a released corner', () => {
+it.skip('known wrong result: deleting a plate preserves a point mass at a released corner', () => {
   const { id, outline } = fixture();
   const points = [{ nodeId: outline[0]!, m: 2 }];
   modelStore.setMassSource({ kind: 'custom', factors: [], points });
@@ -52,4 +64,20 @@ it.skip('known wrong result: deleting a plate silently removes a point mass at a
   expect(modelStore.model.massSource?.points).toEqual(points);
   expect(modelStore.nodes.has(outline[0]!)).toBe(true);
   expect(modelStore.nodes.has(outline[1]!)).toBe(false);
+});
+
+it.skip.each([applyPlateMeshes, applyPlateMeshesAsync])('clearing a mesh preserves attached mass points (%p)', async apply => {
+  const { id } = fixture();
+  const plan = planPlateMesh(id, { size: 1, element: 'quad', followMembers: false });
+  if (!plan?.mesh) throw Error(String(plan?.refused));
+  expect((await apply([plan])).refused).toEqual([]);
+  const [first, second] = plateLoops(plateEntry(id)!.group).owned;
+  if (first === undefined || second === undefined) throw Error('expected two mesh-created nodes');
+  const points = [{ nodeId: first, m: 2 }];
+  modelStore.setMassSource({ kind: 'custom', factors: [], points });
+  reopen();
+  clearPlateMesh(id);
+  expect(modelStore.model.massSource?.points).toEqual(points);
+  expect(modelStore.nodes.has(first)).toBe(true);
+  expect(modelStore.nodes.has(second)).toBe(false);
 });
