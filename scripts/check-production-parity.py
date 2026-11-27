@@ -57,9 +57,17 @@ def production_changes(source, base, head, paths):
 
     remaining = declared.copy()
     merges = git(source, 'log', '--first-parent', '--ancestry-path', '--min-parents=2', '--max-parents=2',
-                 '--format=%P', f'{base}..{head}')
+                 '--format=%H %P', f'{base}..{head}')
     for parents in merges.decode().splitlines():
-        target, pr = parents.split()
+        merge, target, pr = parents.split()
+        if pr == base:
+            previously_declared = trailers(source, base, 'Production-Change', target)
+            absorbed = (remaining - paths) & previously_declared
+            if absorbed:
+                branch_edits = changed_paths(source, f'{base}...{target}')
+                upstream_edits = changed_paths(source, f'{target}...{base}')
+                merge_edits = changed_paths(source, f'{base}..{merge}')
+                remaining -= (absorbed & branch_edits & upstream_edits) - merge_edits
         if git(source, 'rev-list', '--max-count=1', base, '--not', target):
             continue
         incoming = trailers(source, target, 'Production-Change', pr)

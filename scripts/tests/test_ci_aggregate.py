@@ -381,7 +381,6 @@ class ParityWorkflow(unittest.TestCase):
             with self.subTest(base=base):
                 self.parity(merge, f'BASE={base}', 'REQUIRE_PARITY=1')
 
-    @unittest.skip('known wrong result: merging the target rejects an already published change')
     def test_integration_merging_target_retires_only_changes_already_on_both_sides(self):
         self.git('switch', '--quiet', '--detach', self.target)
         (self.repo / 'web/page').write_text('candidate page\n')
@@ -389,7 +388,11 @@ class ParityWorkflow(unittest.TestCase):
         self.git('switch', '--quiet', '--detach', self.head)
         self.git('merge', '--quiet', '--no-ff', target, '-m', 'Integrate the new target')
         merge = self.git('rev-parse', 'HEAD')
-        self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1')
+        result = self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1', succeeds=False)
+        self.assertIn('\n  web/dist/caption\n', result.stderr)
+        self.git('restore', f'--source={target}', '--', 'web/caption')
+        repaired = self.commit('Keep the target caption')
+        self.parity(repaired, f'BASE={target}', 'REQUIRE_PARITY=1')
 
     def test_target_merge_does_not_validate_a_declaration_for_a_target_only_edit(self):
         self.git('switch', '--quiet', '--detach', self.head)
