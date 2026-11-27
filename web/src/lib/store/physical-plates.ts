@@ -1,4 +1,4 @@
-import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, plateMeshFeatures, plateStatusOf, type PlateStatus } from '../model/physical/plate-analysis';
+import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, indexPlatePreview, plateMeshFeatures, plateStatusOf, type PlateStatus } from '../model/physical/plate-analysis';
 import { plateRemeshMessage, wallSlabRefusal } from '../engine/plate-analysis-refusal';
 /**
  * Physical plates in the model (`model/physical/plate.ts`): made from an outline, meshed on demand
@@ -344,9 +344,17 @@ function keptMeshNodes(e: PlateEntry): number {
  */
 export async function planPlateMeshes(ids: readonly number[], spec?: Partial<PlateMeshSpec>, opts: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void } = {}): Promise<PlateMeshPlan[] | null> {
   const out: PlateMeshPlan[] = [];
+  let version: number | undefined;
+  let groups: typeof modelStore.model.groups | undefined;
+  let index: ReturnType<typeof indexPlatePreview> | undefined;
   for (let i = 0; i < ids.length; i++) {
     if (opts.signal?.aborted) return null;
-    const plan = planPlateMesh(ids[i]!, spec);
+    if (ids.length > 1 && (version !== modelStore.modelVersion || groups !== modelStore.model.groups)) {
+      version = modelStore.modelVersion;
+      groups = modelStore.model.groups;
+      index = indexPlatePreview(modelStore.model);
+    }
+    const plan = planPlateMesh(ids[i]!, spec, false, index);
     if (plan) out.push(plan);
     opts.onProgress?.(i + 1, ids.length);
     // Give the page a frame between plates, so a long batch can be watched and stopped.
@@ -356,12 +364,12 @@ export async function planPlateMeshes(ids: readonly number[], spec?: Partial<Pla
 }
 
 /** One plate's plan, synchronously. */
-export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>, retainRequired = false): PlateMeshPlan | null {
+export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>, retainRequired = false, index?: ReturnType<typeof indexPlatePreview>): PlateMeshPlan | null {
   const e = plateEntry(id);
   if (!e) return null;
   const spec = { ...e.surface.mesh, ...(specOverride ?? {}) };
   const base = { id, name: e.name, spec, version: modelStore.modelVersion, localLoads: localLoadsOn(e), keptNodes: keptMeshNodes(e) };
-  const f = plateMeshFeatures(modelStore.model, e.group, spec);
+  const f = plateMeshFeatures(modelStore.model, e.group, spec, index);
   if (f.refused) return { ...base, mesh: null, refused: f.refused, cells: 0, quality: null, signature: '', input: null, mixed: false };
   const signature = plateSignature(f.geo, spec, f.features);
   const busy = new Set(constraintNodes(modelStore.model.constraints));
@@ -378,11 +386,12 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>,
     if (spec.followMembers && !auditMeshCompatibility(input, mesh).ok) {
       return { ...base, mesh: null, refused: 'beamCompatibility', cells: 0, quality: null, signature, input, mixed: false };
     }
-    const placed = placeMesh(mesh);
-    const used = new Set(placed.cells.flatMap(cell => cell.nodes));
-    if (!required.every(n => used.has(n.id))) {
-      if (!retainRequired) return planPlateMesh(id, specOverride, true)!;
-      return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
+    if (required.length) {
+      const used = new Set(placeMesh(mesh).cells.flatMap(cell => cell.nodes));
+      if (!required.every(n => used.has(n.id))) {
+        if (!retainRequired) return planPlateMesh(id, specOverride, true, index)!;
+        return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
+      }
     }
     if (placePlateEdits(e, mesh) === null) {
       return { ...base, mesh: null, refused: 'shellEdits', cells: 0, quality: null, signature, input, mixed: false };

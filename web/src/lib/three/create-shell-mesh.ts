@@ -291,11 +291,9 @@ export function paintShell(group: THREE.Group, faceColor: number, edgeColor: num
       // Don't fight an active contour (vertexColors) — only tint flat material.
       if (!mat.vertexColors) {
         mat.color.setHex(faceColor);
-        mat.needsUpdate = true;
       }
     } else if (child instanceof THREE.LineSegments && child.userData?.shellEdge) {
       (child.material as THREE.LineBasicMaterial).color.setHex(edgeColor);
-      (child.material as THREE.LineBasicMaterial).needsUpdate = true;
     }
   });
 }
@@ -306,7 +304,6 @@ export function paintShellEdge(group: THREE.Group, edgeColor: number): void {
   group.traverse((child) => {
     if (child instanceof THREE.LineSegments && child.userData?.shellEdge) {
       (child.material as THREE.LineBasicMaterial).color.setHex(edgeColor);
-      (child.material as THREE.LineBasicMaterial).needsUpdate = true;
     }
   });
 }
