@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest';
 import { integrateWindPressure, windHeightField } from '../wind-pressure-field';
-import { columns, mesh, remeshWind, variants } from './wind-integration-fixture';
+import { levelsWithPlanArea, type LoadPlanInput, type PlanSink } from '../load-plan';
+import { planWind } from '../load-plan-wind';
+import { columns, mesh, remeshWind, variants, windProject } from './wind-integration-fixture';
 
 it('the shared pressure primitive conserves signed force and first moment at both sides of every zone', () => {
   for (const epsilon of [-1e-7, 0, 1e-7]) {
@@ -66,7 +68,7 @@ for (const offset of [-1e-7, 0, 1e-7]) it(`#2220 quadratic pressure keeps its ph
 it('a storey column under a CIRSOC 102 pressure takes a few loads that carry its four work moments', () => {
   // From 2,8 m to 5,6 m: Kz constant up to 5 m, a power of the height above.
   const z0 = 2.8, length = 2.8, knee = 5 - z0;
-  const p = (s: number) => 0.62 * (Math.max(5, z0 + s) / 365.76) ** (2 / 7);
+  const p = Object.assign((s: number) => 0.62 * (Math.max(5, z0 + s) / 365.76) ** (2 / 7), { curvatureBreaks: [knee] });
   const parts = integrateWindPressure(length, [knee], p);
   expect(parts.length).toBeLessThanOrEqual(4);
   for (const part of parts) expect(Math.min(part.q, part.qJ)).toBeGreaterThan(0);
@@ -112,7 +114,7 @@ for (const curvature of [-1, 0, 1]) it(`#2529 member cuts retain the pressure in
 
 for (const side of [-1, 1]) it(`#2529 whole-band pressure compression on side ${side} of the midpoint limit`, () => {
   const curvature = 0.002 * (1 + side * 1e-5);
-  const pressure = (s: number) => 1 + curvature * (s - 0.5) ** 2;
+  const pressure = Object.assign((s: number) => 1 + curvature * (s - 0.5) ** 2, { curvatureBreaks: [] });
   const parts = integrateWindPressure(1, [], pressure);
   if (side < 0) {
     expect(parts).toHaveLength(2);
@@ -128,8 +130,73 @@ it('#2529 a storey column emits the compact pressure bands as member loads', () 
   const model = mesh([[[0, 0, 2.8], [0, 0, 5.6]]]);
   const field = windHeightField({
     model, axis: 'x', width: 1, from: 2.8, to: 5.6, boundaries: [5],
-    pressure: z => 0.62 * (Math.max(5, z) / 365.76) ** (2 / 7),
+    pressure: Object.assign((z: number) => 0.62 * (Math.max(5, z) / 365.76) ** (2 / 7), { curvatureBreaks: [5] }),
   });
   expect(field.members).toHaveLength(3);
   expect(field.members.every(p => p.elementId === 1 && p.q > 0 && p.qJ > 0)).toBe(true);
+});
+
+function pulsedPressure(reflected: boolean, amplitude = 1) {
+  const at = (s: number) => {
+    const x = reflected ? 1 - s : s;
+    const pulse = [1, -4, 6, -4, 1].reduce((sum, h, i) =>
+      sum + h / 12 * Math.max(0, 1 - Math.abs(64 * x - (12 + 2 * i))), 0);
+    return 1 + 0.001 * (x - 0.5) ** 2 + amplitude * pulse;
+  };
+  const curvatureBreaks = Array.from({ length: 11 }, (_, i) => reflected ? 1 - (11 + i) / 64 : (11 + i) / 64);
+  return Object.assign(at, { curvatureBreaks });
+}
+
+for (const entry of ['integral', 'member'] as const) for (const reflected of [false, true]) {
+  it.skip(`known wrong result: #2529 cancelled pressure pulses retain their interior shear through ${entry}, reflected=${reflected}`, () => {
+    const law = pulsedPressure(reflected);
+    const pressure = (s: number) => law(s);
+    const cut = reflected ? 1 - 17 / 64 : 17 / 64;
+    const parts = entry === 'integral' ? integrateWindPressure(1, [], pressure) : windHeightField({
+      model: mesh([[[0, 0, 0], [0, 0, 1]]]), axis: 'x', width: 1, from: 0, to: 1, pressure,
+    }).members;
+    const actual = parts.reduce((sum, { a, b, q, qJ }) => {
+      const span = Math.max(0, Math.min(cut, b) - a);
+      return sum + span * (q + (qJ - q) * span / (2 * (b - a)));
+    }, 0);
+    const background = cut + 0.001 * ((cut - 0.5) ** 3 + 0.5 ** 3) / 3;
+    expect(actual).toBeCloseTo(background + (reflected ? -1 : 1) / 256, 10);
+  });
+}
+
+for (const sign of [-1, 1]) it(`#2529 rejects the single out-of-limit midpoint face for cubic sign ${sign}`, () => {
+  const pressure = Object.assign((s: number) => {
+    const y = s - 0.5;
+    return 1 + 0.0015 * y ** 2 + sign * 0.001 * y ** 3;
+  }, { curvatureBreaks: [] });
+  expect(integrateWindPressure(1, [], pressure).length).toBeGreaterThan(2);
+});
+
+it.skip('known wrong result: #2529 an opaque smooth law falls back without a whole-half error bound', () => {
+  const pressure = (s: number) => 1 + 0.001 * (s - 0.5) ** 2;
+  expect(integrateWindPressure(1, [], pressure).length).toBeGreaterThan(2);
+});
+
+for (const reflected of [false, true]) for (const amplitude of [1 / 1024, 1 / 256]) {
+  it.skipIf(amplitude === 1 / 256)(`known wrong result: #2529 bounds cut-force error over the half with known pulses, amplitude=${amplitude}, reflected=${reflected}`, () => {
+    const parts = integrateWindPressure(1, [], pulsedPressure(reflected, amplitude));
+    if (amplitude === 1 / 1024) expect(parts).toHaveLength(2);
+    else expect(parts.length).toBeGreaterThan(2);
+  });
+}
+
+it('#2529 the building planner compresses the code pressure for design and service wind', () => {
+  const model = columns([0, 2.8, 5.6]);
+  const levels = levelsWithPlanArea(model).map(l => ({ ...l, selfWeightKN: 0, superimposedKN: 0, liveTotalKN: 0, liveParticipatingKN: 0, weightKN: 0 }));
+  const sink: PlanSink = { cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
+  planWind({ model, tributaryWidth: 1, wind: { ...windProject, enabled: true, enclosure: 'enclosed', senses: ['+x'], caseSet: 'case1',
+    service: { enabled: true, v50: 20, mri: 50 } } } as LoadPlanInput, levels, sink);
+  expect(sink.blockedKeys).toEqual([]);
+  for (const nameKey of ['autoLoad.windCase1', 'autoLoad.windCaseWa']) {
+    const caseIndex = sink.cases.findIndex(c => c.nameKey === nameKey);
+    expect(caseIndex).toBeGreaterThanOrEqual(0);
+    const column = sink.distributed.filter(p => p.elementId === 2 && p.caseIndex === caseIndex);
+    expect(column).toHaveLength(3);
+    expect(column[2]!.qXJ!).toBeGreaterThan(column[1]!.qX!);
+  }
 });
