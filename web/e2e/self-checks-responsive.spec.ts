@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 async function openPhonePanel(page: Page) {
   const toggle = page.getByTestId('mobile-panel-toggle');
@@ -52,8 +53,7 @@ for (const width of [390, 810]) {
       await page.goto('/app/basic?e2e=1');
       await page.waitForFunction(() => !!window.__stabileoActions);
       await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
-      await page.getByTestId('rb-cmd-advanced').click();
-      await page.getByRole('button', { name: /^Dynamic$/ }).first().click();
+      await openAdvancedFunction(page, 'modal');
       const row = page.locator('.adv-result-row').filter({ has: page.locator('.small-btn') }).first();
       await expect(row).toBeVisible();
       await page.evaluate(() => window.__stabileoActions.seedSelfCheckWarning(100));

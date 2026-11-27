@@ -107,7 +107,8 @@ describe('Task 2 — Select→Stresses removed, Advanced→Section Analysis kept
 
   it("Advanced Analysis → Section Analysis still activates stress mode (selectMode='stress')", () => {
     const adv = read('../../../components/toolbar/ToolbarAdvanced.svelte');
-    expect(adv).toContain("t('advanced.sectionAnalysis')");
+    expect(read('../../advanced/catalog.ts')).toContain("titleKey: 'advanced.sectionAnalysis'");
+    expect(adv).toContain("case 'stress':");
     expect(adv).toContain("uiStore.selectMode = 'stress'");
   });
 

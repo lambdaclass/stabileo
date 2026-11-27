@@ -1,4 +1,5 @@
 import { test as it, expect, CURRENT_STAMP, type Page } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 type Mode = '2d' | '3d';
 type Vector = [number, number, number];
@@ -55,8 +56,7 @@ it.describe('@smoke Basic reaction display equilibrium', () => {
         const couple: Vector = [mode === '3d' ? 2 : 0, -3, mode === '3d' ? 4 : 0];
         await openCantilever(page, mode, force, couple);
         if (nonlinear) {
-          await page.getByTestId('rb-cmd-advanced').click();
-          await page.locator('button.adv-btn', { hasText: 'P-Δ' }).click();
+          await openAdvancedFunction(page, 'pdelta');
           await expect(page.getByText(/P-Δ converged in/)).toBeVisible();
           await page.getByTestId('rb-cmd-deformed').click();
         } else {

@@ -64,6 +64,9 @@ import { currentResultProvenance, provenanceForExport, captureProvenanceToken } 
 import { recheckStore } from '../store/recheck.svelte';
 import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
 
+const maxAbsMoment = (r: { elementForces: ReadonlyArray<{ mStart: number; mEnd: number }> }) =>
+  Math.max(0, ...r.elementForces.map((f) => Math.max(Math.abs(f.mStart), Math.abs(f.mEnd))));
+
 export const E2E_QUERY_FLAG = 'e2e';
 
 /** Build-time gate. Statically replaced by Vite, so the false branch is eliminated. */
@@ -207,6 +210,10 @@ export interface StabileoTestHooks {
   diagramType(): string;
   /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
   hasDrawnResults(): boolean;
+  /** What the 2D viewport draws this frame: a diagram or not, whether it is the held picture, and its largest |M|. */
+  screenFrame(): { drawn: boolean; held: boolean; diagram: string; maxMoment: number | null };
+  /** The largest |M| of a fresh plane solve of the model as it is now, outside the stores. */
+  freshMaxMoment(): number | null;
   verticalReaction3D(): number | null;
   verticalReaction2D(): number | null;
   /**
@@ -268,6 +275,7 @@ export interface StabileoTestHooks {
   elementEnds(elementId: number): { i: number; j: number } | null;
   /** The 2D static results' axial force N at the start of every member, ordered by member id; null before a solve. */
   memberAxialForces(): { id: number; n: number }[] | null;
+  nodeDisplacement(id: number): { ux: number; uz: number } | null;
   pointLoadsOn(elementId: number): Array<{ p: number; px?: number; my?: number; angle?: number; isGlobal?: boolean }>;
   /** How many nodes and supports the model holds — what a delete must not touch. */
   /** Where the 3D viewport drew a load: the middle of its middle segment, in page coordinates. */
@@ -690,6 +698,14 @@ export function installE2EHooks(): void {
     diagramType: () => String(resultsStore.diagramType),
     /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
     hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
+    screenFrame: () => {
+      const r = resultsStore.screen.results, diagram = String(resultsStore.screen.diagram);
+      return { drawn: r !== null && diagram !== 'none', held: resultsStore.screen.held, diagram, maxMoment: r ? maxAbsMoment(r) : null };
+    },
+    freshMaxMoment: () => {
+      const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
+      return r && typeof r !== 'string' ? maxAbsMoment(r) : null;
+    },
     verticalReaction3D: () => resultsStore.results3D?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0) ?? null,
     verticalReaction2D: () => resultsStore.results?.reactions.reduce((sum, reaction) => sum + reaction.rz, 0) ?? null,
     cameraState: () => readCamera(),
@@ -712,6 +728,10 @@ export function installE2EHooks(): void {
     currentTool: () => String(uiStore.currentTool),
     memberAxialForces: () =>
       resultsStore.results ? resultsStore.results.elementForces.map((f) => ({ id: f.elementId, n: f.nStart })).sort((a, b) => a.id - b.id) : null,
+    nodeDisplacement: (id: number) => {
+      const d = resultsStore.results?.displacements.find((x) => x.nodeId === id);
+      return d ? { ux: d.ux, uz: d.uz } : null;
+    },
     elementEnds: (elementId: number) => {
       const e = modelStore.elements.get(elementId);
       return e ? { i: e.nodeI, j: e.nodeJ } : null;

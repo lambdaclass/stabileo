@@ -9,7 +9,7 @@ import {
 
 const material: Required<Material> = {
   id: 1, name: 'test material', e: 101, nu: 0.21, rho: 12, fy: 31, fu: 47, fc: 23,
-  alpha: 0.001, gradeId: 'test-grade', maxAggregateSizeMm: 11, spacingMarginMm: 2,
+  alpha: 0.001, gradeId: 'test-grade', userDefined: true, maxAggregateSizeMm: 11, spacingMarginMm: 2,
   shotcrete: false,
   timber: { fb: 1, ft: 2, fc: 3, fcPerp: 4, fv: 5, e: 6, emin: 7, kind: 'sawn', cf: { b: 1, t: 2, c: 3 } },
 };
@@ -42,7 +42,8 @@ function mutations(value: unknown, path: string[] = []): Array<{ path: string[];
 
 function missedMutations(kind: 'material' | 'section'): string[] {
   const source = kind === 'material' ? material : section;
-  const fields = Object.fromEntries(Object.entries(source).filter(([k]) => k !== 'id' && (kind !== 'material' || k !== 'name')));
+  const policy: Record<string, true | { nonResult: string }> = RESULT_PROPERTY_POLICY[kind];
+  const fields = Object.fromEntries(Object.entries(source).filter(([k]) => k !== 'id' && policy[k] === true));
   const missed: string[] = [];
   for (const workspace of ['2d', '3d', 'pro'] as const) {
     reset(workspace);

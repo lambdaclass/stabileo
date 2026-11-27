@@ -1,5 +1,6 @@
 import { test, expect, solveModel, bootPro } from '../../e2e/fixtures';
 import type { Page } from '@playwright/test';
+import { openAdvancedFunction, openStepsCatalog } from '../../e2e/advanced-panel';
 import { mkdirSync } from 'node:fs';
 
 const OUT = process.env.BLOG_SHOTS_OUT ?? 'e2e/.artifacts/blog-shots';
@@ -220,8 +221,8 @@ async function basicWith(page: Page, example: string) {
 
 test('course: the explained step-by-step catalog', async ({ page }) => {
   await basicWith(page, 'portal-frame');
-  await page.getByTestId('adv-steps').click();
-  await expect(page.getByTestId('steps-catalog')).toBeVisible();
+  await openStepsCatalog(page);
+  await page.getByTestId('steps-group-toggle-stiffness').click();
   await expect(page.getByTestId('steps-open-dsm')).toBeEnabled();
   await hide(page, '.toast-container');
   await settle(page);
@@ -230,7 +231,8 @@ test('course: the explained step-by-step catalog', async ({ page }) => {
 
 test('course: the force method with a primary structure chosen by hand', async ({ page }) => {
   await basicWith(page, 'portal-frame');
-  await page.getByTestId('adv-steps').click();
+  await openStepsCatalog(page);
+  await page.getByTestId('steps-group-toggle-flexibility').click();
   await page.getByTestId('steps-open-fm').click();
   await expect(page.getByTestId('fm-wizard')).toBeVisible();
   await page.getByTestId('fm-dot-2').click();
@@ -246,7 +248,7 @@ test('course: the force method with a primary structure chosen by hand', async (
 
 test('course: a moment influence line on the continuous beam, loaded', async ({ page }) => {
   await basicWith(page, 'continuous-beam');
-  await page.locator('button.adv-btn', { hasText: /^Influence line$/ }).click();
+  await openAdvancedFunction(page, 'influenceLine');
   await expect(page.getByTestId('il-panel')).toBeVisible();
   await page.getByTestId('il-q-M').click();
   const mid = await page.evaluate(() => {
@@ -267,7 +269,7 @@ test('course: a moment influence line on the continuous beam, loaded', async ({ 
 
 test('course: plastic collapse of the portal frame, withheld until #758', async ({ page }) => {
   await basicWith(page, 'portal-frame');
-  await page.locator('button.adv-btn', { hasText: /Plastic collapse/ }).click();
+  await openAdvancedFunction(page, 'plastic');
   await expect(page.getByTestId('plastic-withheld')).toContainText('4.6');
   await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
   await page.getByTestId('plastic-withheld').scrollIntoViewIfNeeded();

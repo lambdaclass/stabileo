@@ -41,7 +41,7 @@ function showPanel() {
 }
 
 /** Open the stiffness wizard on the current model; false (with a toast) when it cannot. */
-export async function openStiffnessWizard(): Promise<boolean> {
+export async function openStiffnessWizard(fromCatalog = true): Promise<boolean> {
   let course: Course;
   try {
     course = await loadCourse();
@@ -58,7 +58,7 @@ export async function openStiffnessWizard(): Promise<boolean> {
     const { solveDetailed, solveDetailed3D } = course;
     const data = threeD ? solveDetailed3D(input as never) : solveDetailed(input as never);
     fmStepsStore.close();
-    explainedSteps.leaveForWizard();
+    explainedSteps.leaveForWizard(fromCatalog);
     dsmStepsStore.setStepData(data);
     dsmStepsStore.open();
     showPanel();
@@ -82,7 +82,7 @@ function solvePlaneWithChoice({ solveForceMethod, ForceMethodError }: Course, in
 }
 
 /** Open the flexibility wizard on the current model; false (with a toast) when it cannot. */
-export async function openFlexibilityWizard(): Promise<boolean> {
+export async function openFlexibilityWizard(fromCatalog = true): Promise<boolean> {
   let course: Course;
   try {
     course = await loadCourse();
@@ -99,7 +99,7 @@ export async function openFlexibilityWizard(): Promise<boolean> {
     if (refused(input, threeD)) return false;
     const result = threeD ? solveForceMethod3D(input as never) : solvePlaneWithChoice(course, input as never);
     dsmStepsStore.close();
-    explainedSteps.leaveForWizard();
+    explainedSteps.leaveForWizard(fromCatalog);
     fmStepsStore.setResult(result);
     fmStepsStore.open();
     showPanel();
@@ -115,18 +115,18 @@ export async function openFlexibilityWizard(): Promise<boolean> {
   }
 }
 
-/** Open the catalog in the data panel (the wizards and documents live there too). */
-export function openExplainedCatalog(): void {
+/** Open the catalog in the data panel (the wizards and documents live there too), at one of its groups when given. */
+export function openExplainedCatalog(focus: string | null = null): void {
   dsmStepsStore.close();
   fmStepsStore.close();
-  explainedSteps.openCatalog();
+  explainedSteps.openCatalog(focus);
   showPanel();
 }
 
-/** Open one explained method's document from another panel. */
+/** Open one explained method's document from an advanced function or the list: going back returns there. */
 export function openExplainedMethod(id: string): void {
   dsmStepsStore.close();
   fmStepsStore.close();
-  explainedSteps.openMethod(id);
+  explainedSteps.openMethod(id, 'tool');
   showPanel();
 }

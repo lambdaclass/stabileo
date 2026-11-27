@@ -27,8 +27,8 @@
 </script>
 
 <div class="sd" data-testid="steps-doc">
-  <StepsHeader backLabel={explainedSteps.fromTool ? t('adv.back') : t('steps.view.back')} backTitle={explainedSteps.fromTool ? t('adv.backToList') : t('steps.view.backToCatalog')} onBack={() => explainedSteps.back()}
-    name={t('steps.catalog.title')} backTestid="steps-back" />
+  <StepsHeader name={doc ? say(doc.title) : method ? t(`steps.m.${method.id}.title`) : t('steps.catalog.title')} fromCatalog={!explainedSteps.fromTool}
+    backTitle={explainedSteps.fromTool ? t('adv.backToList') : t('steps.view.backToCatalog')} onBack={() => explainedSteps.back()} backTestid="steps-back" />
 
   {#if explainedSteps.error}
     <p class="sd-error" data-testid="steps-error"><Prose text={say(explainedSteps.error)} /></p>

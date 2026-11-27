@@ -345,6 +345,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'mat.timber.f.e',
   'mat.timber.f.emin',
   'matEdit.name',
+  'matEdit.nameLabel',
   'matEdit.optional',
   'matEdit.title',
   'materials.aggregateShort',

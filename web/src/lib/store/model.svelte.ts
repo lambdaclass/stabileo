@@ -126,6 +126,8 @@ export interface Material {
    * reads this should warn about its absence.
    */
   gradeId?: string;
+  /** Entered by the user's own numbers: as deliberate as a catalogued grade, so a profile never swaps it. */
+  userDefined?: boolean;
   /** Timber reference design values, MPa: the material is timber and is designed by CIRSOC 601. */
   timber?: import('../engine/design/materials/timber').TimberReference;
   /**

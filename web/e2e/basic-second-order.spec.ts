@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 const SHOTS = process.env.SO_SHOTS;
 
@@ -15,10 +16,10 @@ test.describe('@slow second order and buckling in Basic', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
 
+    await openAdvancedFunction(page, 'pdelta');
     await page.getByTestId('so-options-toggle').click();
     await page.getByTestId('so-method').selectOption('phi');
     await page.getByTestId('so-n-4').click();
-    await page.locator('button.adv-btn', { hasText: 'P-Δ' }).click();
     await expect(page.getByTestId('pdelta-result')).toContainText(/B₂ = 1\.\d{3}/);
     await expect(page.getByTestId('pdelta-b2-line')).toContainText('λ₁');
     await page.getByTestId('pdelta-iterations').locator('summary').click();
@@ -27,19 +28,18 @@ test.describe('@slow second order and buckling in Basic', () => {
     await expect(page.getByTestId('pdelta-compare').locator('tbody tr')).toHaveCount(4);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/pdelta-panel.png` });
 
-    await page.getByTestId('pdelta-open-steps').click();
+    await page.getByTestId('adv-related-steps').locator('summary').click();
+    await page.getByTestId('adv-related-so-pdelta-phi').click();
     await expect(page.getByTestId('steps-doc')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('steps-error')).toHaveCount(0);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/steps-doc.png` });
     await page.getByTestId('steps-back').click();
-    await page.getByTestId('steps-catalog-back').click();
 
     await page.getByTestId('so-options-toggle').click();
     await page.getByTestId('so-method').selectOption('consistent');
     await expect(page.getByTestId('pdelta-compare')).toHaveCount(0);
-    await page.getByTestId('adv-close').click();
-    await page.locator('button.adv-btn', { hasText: 'Pcr' }).click();
-    await expect(page.locator('.adv-result-info').filter({ hasText: /λ_cr = \d/ })).toBeVisible();
+    await openAdvancedFunction(page, 'buckling');
+    await expect(page.locator('.adv-result-info').filter({ hasText: /λcr = \d/ })).toBeVisible();
     await expect(page.getByTestId('buckling-how')).toContainText('4');
     await expect(page.getByTestId('buckling-n1-warning')).toHaveCount(0);
     await page.getByTestId('buckling-keff').locator('summary').click();

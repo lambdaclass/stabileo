@@ -24,6 +24,7 @@
  */
 
 import { test, expect, loadModel } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 type Page = import('@playwright/test').Page;
 
@@ -56,7 +57,7 @@ async function armSectionAnalysis(page: Page) {
     .poll(() => page.evaluate(() => window.__stabileo.hasResults?.() ?? true), { timeout: 45_000 })
     .toBeTruthy();
   await page.getByRole('button', { name: 'Advanced', exact: true }).click();
-  await page.getByRole('button', { name: /^Section analysis$/i }).click();
+  await openAdvancedFunction(page, 'stress');
 }
 
 /**

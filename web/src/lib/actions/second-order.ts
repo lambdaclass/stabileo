@@ -13,7 +13,7 @@ import { secondOrderSettings } from '../store/second-order.svelte';
 import { modelStore, resultsStore } from '../store';
 import type { DrawPlane } from '../geometry/plane-projection';
 import { explainedSteps } from '../store/explained-steps.svelte';
-import { openExplainedCatalog } from './step-wizards';
+import { openExplainedMethod } from './step-wizards';
 import { tp } from '../i18n';
 
 /** 2D P-Δ with the panel's settings; a sentence when the chosen method cannot take the model. */
@@ -46,8 +46,7 @@ export function withFirstModeB2<R extends { b2Factor: number; isStable: boolean 
 
 /** Open one of the second-order explained methods over the model on screen, with the panel's assumptions. */
 export function openSecondOrderSteps(methodId: string, s: Pick<SoSettings, 'method' | 'axialRigid'> = secondOrderSettings.snapshot()): void {
-  openExplainedCatalog();
-  explainedSteps.openMethod(methodId);
+  openExplainedMethod(methodId);
   explainedSteps.setOption('axialRigid', s.axialRigid);
   if (methodId.endsWith('-kg')) explainedSteps.setOption('chord', s.method === 'string');
 }
