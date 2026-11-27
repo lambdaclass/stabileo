@@ -18,7 +18,8 @@ let offsetMs = $state(0);
 let reason = $state<ReleaseReason | null>(null);
 let title = $state('');
 let timer: Timer | null = null;
-let clock: () => number = () => Date.now();
+const monotonicNow = () => performance.now();
+let clock = monotonicNow;
 
 function clearTimer(): void {
   if (timer !== null) clearTimeout(timer);
@@ -93,7 +94,7 @@ export const examLock = {
   },
 
   /** Test seam. */
-  reset(now: () => number = () => Date.now()): void {
+  reset(now: () => number = monotonicNow): void {
     clearTimer();
     room = false;
     locked = false;

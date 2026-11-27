@@ -152,15 +152,16 @@ export const freeBodyUnit = (dof: EndDof) => (dof === 'M' ? 'kN·m' : 'kN');
  */
 export function studentBalanced(model: ModelSpec, bar: FreeBodyBar, student: Record<BarEnd, EndAction>, truth: BarTruth): boolean {
   const [ox, oy] = model.nodes[bar.nodes[0]!]!;
-  let fx = 0, fy = 0, m = 0, scaleF = 0, scaleM = 0;
+  let fx = 0, fy = 0, m = 0, scaleX = 0, scaleY = 0, scaleM = 0;
   for (const end of BAR_ENDS) {
     const [x, y] = model.nodes[endElement(bar, end).node]!;
     const dx = student[end].Fx - truth[end].Fx, dy = student[end].Fy - truth[end].Fy;
     fx += dx; fy += dy;
     m += truth[end].M - student[end].M + (x - ox) * dy - (y - oy) * dx;
-    scaleF = Math.max(scaleF, Math.abs(truth[end].Fx), Math.abs(truth[end].Fy));
-    scaleM = Math.max(scaleM, Math.abs(truth[end].M), scaleF * Math.hypot(x - ox, y - oy));
+    scaleX = Math.max(scaleX, Math.abs(truth[end].Fx));
+    scaleY = Math.max(scaleY, Math.abs(truth[end].Fy));
+    scaleM = Math.max(scaleM, Math.abs(truth[end].M), Math.abs((x - ox) * truth[end].Fy), Math.abs((y - oy) * truth[end].Fx));
   }
   const tol = (scale: number) => TOLERANCE * scale + 0.1;
-  return Math.abs(fx) <= tol(scaleF) && Math.abs(fy) <= tol(scaleF) && Math.abs(m) <= tol(scaleM);
+  return Math.abs(fx) <= tol(scaleX) && Math.abs(fy) <= tol(scaleY) && Math.abs(m) <= tol(scaleM);
 }

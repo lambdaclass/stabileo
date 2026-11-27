@@ -18,7 +18,7 @@
   } from './diagram-sketch';
   import { modelStore } from '../../lib/store';
   import { sketchTruth } from './sketch-truth';
-  import { TOLERANCE, withinTolerance } from './exercise-marking';
+  import { TOLERANCE, withinTolerance, readAnswer, markDegree } from './exercise-marking';
   import FreeBodyStep from './FreeBodyStep.svelte';
   import { freeBodyKeys, freeBodyLabel, freeBodyTruth, freeBodyUnit, parseFreeBodyKey } from './free-body-step';
 
@@ -374,12 +374,12 @@
       const sup = exercise.supports[i];
       for (const dof of sup.dofs) {
         if (revealedReactions[i][dof]) { newVerif[i][dof] = 'correct'; continue; }
-        const studentVal = parseFloat(reactionAnswers[i][dof].replace(',', '.'));
+        const studentVal = readAnswer(reactionAnswers[i][dof]);
         const correct = getCorrectReaction(i, dof);
         // `correct` is null when the reaction cannot be read at all. Grading
         // against a fabricated value is how the old code marked every right
         // answer wrong, so refuse instead and leave the field pending.
-        if (correct === null || !Number.isFinite(correct) || isNaN(studentVal)) {
+        if (correct === null || !Number.isFinite(correct) || studentVal === null) {
           newVerif[i][dof] = 'pending';
           continue;
         }
@@ -399,8 +399,7 @@
     if (!kq) return;
     kinematicVerif = kinematicAnswer === kq.classification ? 'correct' : (kinematicAnswer ? 'incorrect' : 'pending');
     if (kinematicAnswer === 'hyperstatic' && kq.classification === 'hyperstatic' && kq.degree !== undefined) {
-      const deg = parseInt(kinematicDegreeAnswer);
-      kinematicDegreeVerif = !isNaN(deg) && deg === kq.degree ? 'correct' : (kinematicDegreeAnswer ? 'incorrect' : 'pending');
+      kinematicDegreeVerif = markDegree(kinematicDegreeAnswer, kq.degree);
     } else if (kinematicAnswer === 'hyperstatic' && kq.classification !== 'hyperstatic') {
       // Wrong classification — degree is irrelevant
       kinematicDegreeVerif = 'pending';
@@ -449,10 +448,11 @@
     for (let i = 0; i < exercise.diagramQuestions.length; i++) {
       if (revealedDiagrams[i]) { newVerif[i] = 'correct'; continue; }
       const dq = exercise.diagramQuestions[i];
-      const studentVal = parseFloat(diagramAnswers[i].replace(',', '.'));
-      if (isNaN(studentVal)) { newVerif[i] = 'pending'; continue; }
+      const studentVal = readAnswer(diagramAnswers[i]);
+      if (studentVal === null) { newVerif[i] = 'pending'; continue; }
 
       const correct = dq.getCorrect(results.elementForces);
+      if (correct === null || !Number.isFinite(correct)) { newVerif[i] = 'pending'; continue; }
       newVerif[i] = checkTolerance(Math.abs(studentVal), Math.abs(correct));
       if (newVerif[i] === 'incorrect') {
         const hint = generateHint(studentVal, correct, dq.question, '');
@@ -466,6 +466,7 @@
     const results = eduStore.results;
     if (!results) return;
     const correct = exercise.diagramQuestions[idx].getCorrect(results.elementForces);
+    if (correct === null || !Number.isFinite(correct)) return;
     revealedDiagrams = revealedDiagrams.map((v, j) => j === idx ? true : v);
     diagramAnswers = diagramAnswers.map((v, j) => j === idx ? Math.abs(correct).toFixed(2) : v);
     diagramVerif = diagramVerif.map((v, j) => j === idx ? 'correct' as VerifState : v);
@@ -482,10 +483,11 @@
     for (let i = 0; i < exercise.characteristics.length; i++) {
       if (revealedChars[i]) { newVerif[i] = 'correct'; continue; }
       const ch = exercise.characteristics[i];
-      const studentVal = parseFloat(charAnswers[i].replace(',', '.'));
-      if (isNaN(studentVal)) { newVerif[i] = 'pending'; continue; }
+      const studentVal = readAnswer(charAnswers[i]);
+      if (studentVal === null) { newVerif[i] = 'pending'; continue; }
 
       const correct = ch.getCorrect(results.elementForces);
+      if (correct === null || !Number.isFinite(correct)) { newVerif[i] = 'pending'; continue; }
       newVerif[i] = checkTolerance(Math.abs(studentVal), Math.abs(correct));
       if (newVerif[i] === 'incorrect') {
         const hint = generateHint(studentVal, correct, ch.label, '');
@@ -499,6 +501,7 @@
     const results = eduStore.results;
     if (!results) return;
     const correct = exercise.characteristics[idx].getCorrect(results.elementForces);
+    if (correct === null || !Number.isFinite(correct)) return;
     revealedChars = revealedChars.map((v, j) => j === idx ? true : v);
     charAnswers = charAnswers.map((v, j) => j === idx ? Math.abs(correct).toFixed(2) : v);
     charVerif = charVerif.map((v, j) => j === idx ? 'correct' as VerifState : v);

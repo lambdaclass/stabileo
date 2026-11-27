@@ -64,7 +64,7 @@ describe('the exam lock fails open', () => {
   });
 });
 
-it.skip('known wrong result: #1927 — changing the wall clock during an attempt preserves the remaining exam time', () => {
+it('known wrong result: #1927 — changing the wall clock during an attempt preserves the remaining exam time', () => {
   examLock.engage({ deadlineAt: iso(T0 + 60_000), serverNow: iso(T0) });
   vi.spyOn(Date, 'now').mockReturnValue(T0 + 120_000);
   try {

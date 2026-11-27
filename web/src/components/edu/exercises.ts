@@ -16,7 +16,7 @@ export interface DiagramQuestion {
   /** i18n key or plain text — the question prompt */
   question: string;
   /** Function that extracts the correct answer from element forces */
-  getCorrect: (forces: ElementForces[]) => number;
+  getCorrect: (forces: ElementForces[]) => number | null;
   unit: string;
 }
 
@@ -73,7 +73,7 @@ export interface EduExercise {
     label: string;
     unit: string;
     /** Function that extracts the correct value from element forces */
-    getCorrect: (forces: ElementForces[]) => number;
+    getCorrect: (forces: ElementForces[]) => number | null;
   }>;
   /** Questions about diagrams (Step 2) — the solver computes answers from results */
   diagramQuestions: DiagramQuestion[];
@@ -127,12 +127,12 @@ export function toExercise(spec: ResolvedExerciseSpec, who: { legajo?: string } 
     characteristics: spec.characteristics.map((c) => ({
       label: c.label,
       unit: c.unit,
-      getCorrect: (forces) => evaluateAnswer(c.answer, forces, stressCtx()) ?? 0,
+      getCorrect: (forces) => evaluateAnswer(c.answer, forces, stressCtx()),
     })),
     diagramQuestions: spec.diagramQuestions.map((q) => ({
       question: q.question,
       unit: q.unit,
-      getCorrect: (forces) => evaluateAnswer(q.answer, forces, stressCtx()) ?? 0,
+      getCorrect: (forces) => evaluateAnswer(q.answer, forces, stressCtx()),
     })),
     kinematicQuestion: spec.kinematicQuestion,
     diagramShapeQuestions: spec.diagramShapeQuestions?.map((q) => ({

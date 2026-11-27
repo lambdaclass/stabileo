@@ -4,8 +4,7 @@ import type { EduExerciseSpec, ResolvedExerciseSpec } from './exercise-spec';
 import { fromSubmissionFile, type Submission, type SubmittedAnswer } from './exercise-submission';
 import { remarkSubmission, type RemarkedAnswer } from './exercise-marking';
 import { variantOf } from './exercise-variant';
-import { exerciseBars, freeBodyKeys, freeBodyLabel, freeBodyUnit } from './free-body-step';
-import { t } from '../../lib/i18n';
+export { questionKeys, questionLabel } from './exercise-questions';
 
 /** The exercise as an assignment stores it: the same envelope as an exercise file. */
 export function exerciseEnvelope(spec: EduExerciseSpec): JsonObject {
@@ -29,48 +28,6 @@ export function storedSubmission(json: unknown): Submission | null {
   return r.ok ? r.submission : null;
 }
 
-/** Every question an exercise asks, by answer key, so a blank attempt still counts against all of them. */
-export function questionKeys(ex: ResolvedExerciseSpec): string[] {
-  const keys: string[] = [];
-  ex.supports.forEach((s, i) => { for (const dof of s.dofs) keys.push(`r:${i}:${dof}`); });
-  if (ex.kinematicQuestion) {
-    keys.push('k');
-    if (ex.kinematicQuestion.classification === 'hyperstatic') keys.push('kd');
-  }
-  keys.push(...freeBodyKeys(exerciseBars(ex)));
-  (ex.diagramShapeQuestions ?? []).forEach((_, i) => keys.push(`s:${i}`));
-  ex.diagramQuestions.forEach((_, i) => keys.push(`d:${i}`));
-  (ex.diagramSketchQuestions ?? []).forEach((_, i) => keys.push(`sk:${i}`));
-  ex.characteristics.forEach((_, i) => keys.push(`c:${i}`));
-  return keys;
-}
-
-/** The label a question carries in the exercise view, for a question the student never reached. */
-export function questionLabel(ex: ResolvedExerciseSpec, key: string): string {
-  const [kind, i, dof] = key.split(':');
-  const n = Number(i);
-  switch (kind) {
-    case 'r': return `${ex.supports[n]?.label ?? ''} — ${dof}`;
-    case 'k': return t('edu.kinematicQuestion');
-    case 'kd': return t('edu.hyperstaticDegree');
-    case 's': return `${t('edu.shapeQuestion')} — ${ex.diagramShapeQuestions?.[n]?.diagram ?? ''}`;
-    case 'd': return ex.diagramQuestions[n]?.question ?? key;
-    case 'sk': return `${t('edu.sketch.span')} ${ex.diagramSketchQuestions?.[n]?.diagram ?? ''}`;
-    case 'c': return ex.characteristics[n]?.label ?? key;
-    case 'fb': return freeBodyLabel(exerciseBars(ex), key);
-    default: return key;
-  }
-}
-
-const unitOf = (ex: ResolvedExerciseSpec, key: string): string | undefined => {
-  const [kind, i, dof] = key.split(':');
-  if (kind === 'r') return dof === 'M' ? 'kN·m' : 'kN';
-  if (kind === 'd') return ex.diagramQuestions[Number(i)]?.unit;
-  if (kind === 'c') return ex.characteristics[Number(i)]?.unit;
-  if (kind === 'fb') return freeBodyUnit(key.endsWith(':M') ? 'M' : 'Fx');
-  return undefined;
-};
-
 export interface Grade {
   correct: number;
   total: number;
@@ -87,20 +44,16 @@ export interface Grade {
 export function gradeAttempt(spec: EduExerciseSpec, seed: number, stored: unknown, student = ''): Grade | null {
   let resolved: ResolvedExerciseSpec;
   try { resolved = variantOf(spec, seed); } catch { return null; }
-  const keys = questionKeys(resolved);
   const base = storedSubmission(stored);
-  const given = new Map((base?.answers ?? []).filter((a) => a.key).map((a) => [a.key!, a]));
-  const full: SubmittedAnswer[] = keys.map((key) => given.get(key)
-    ?? { key, label: questionLabel(resolved, key), answer: '', unit: unitOf(resolved, key), outcome: 'pending' });
   const submission: Submission = {
-    ...examSubmission(spec, seed, full, base?.submittedAt ? new Date(base.submittedAt) : new Date(0)),
+    ...examSubmission(spec, seed, base?.answers ?? [], base?.submittedAt ? new Date(base.submittedAt) : new Date(0)),
     student,
   };
   const remark = remarkSubmission(spec, submission);
   if (!remark) return null;
   const answers = remark.answers;
   const correct = answers.filter((a) => a.outcome === 'correct').length;
-  const total = keys.length;
+  const total = answers.length;
   return { correct, total, fraction: total ? correct / total : 0, answers, submission: { ...submission, answers }, resolved };
 }
 

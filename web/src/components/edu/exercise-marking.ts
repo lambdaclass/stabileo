@@ -1,3 +1,4 @@
+import { assignedAnswers } from './exercise-questions';
 import type { ElementForces } from '../../lib/engine/types';
 import { t } from '../../lib/i18n';
 import type { Variant } from './exercise-params';
@@ -14,16 +15,29 @@ export const TOLERANCE = 0.05;
 
 export type Outcome = 'correct' | 'incorrect' | 'pending';
 
+export function readAnswer(raw: string): number | null {
+  const token = raw.trim().replace(',', '.');
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(token)) return null;
+  const value = Number(token);
+  return Number.isFinite(value) ? value : null;
+}
+
+export function markDegree(raw: string, expected: number): Outcome {
+  const value = readAnswer(raw);
+  return !Number.isSafeInteger(value) ? 'pending' : value === expected ? 'correct' : 'incorrect';
+}
+
 export function withinTolerance(student: number, correct: number): boolean {
   const abs = Math.abs(correct);
-  const tol = abs > 0.01 ? abs * TOLERANCE : 0.1;
+  if (student * correct < 0) return false;
+  const tol = abs > 0.01 ? abs * TOLERANCE : 0.005;
   return Math.abs(student - correct) <= tol;
 }
 
 /** Reactions keep their sign; diagram and characteristic values are marked on magnitude, as the exercise view does. */
 export function markNumber(answer: string, correct: number | null, signed: boolean): Outcome {
-  const v = parseFloat(answer.replace(',', '.'));
-  if (correct === null || !Number.isFinite(correct) || Number.isNaN(v)) return 'pending';
+  const v = readAnswer(answer);
+  if (correct === null || !Number.isFinite(correct) || v === null) return 'pending';
   return (signed ? withinTolerance(v, correct) : withinTolerance(Math.abs(v), Math.abs(correct))) ? 'correct' : 'incorrect';
 }
 
@@ -93,8 +107,7 @@ export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark
         const k = ex.kinematicQuestion;
         if (!k) return null;
         const deg = k.classification === 'hyperstatic' ? k.degree ?? 0 : 0;
-        const v = parseInt(a.answer, 10);
-        return { outcome: Number.isNaN(v) ? 'pending' : v === deg ? 'correct' : 'incorrect', expected: String(deg) };
+        return { outcome: markDegree(a.answer, deg), expected: String(deg) };
       }
       case 's': {
         const q = ex.diagramShapeQuestions?.[n];
@@ -120,7 +133,7 @@ export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark
   };
 
   let changed = 0;
-  const answers = sub.answers.map((a): RemarkedAnswer => {
+  const answers = assignedAnswers(ex, sub.answers).map((a): RemarkedAnswer => {
     // A submission is the student's own file or request: an outcome the solver did not mark again earns nothing.
     const m = a.revealed ? { outcome: 'incorrect' as const } : mark(a) ?? { outcome: 'pending' as const };
     if (m.outcome !== a.outcome) changed++;

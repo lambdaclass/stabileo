@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t, tp } from '../../lib/i18n';
   import type { ModelSpec } from './exercise-spec';
-  import { withinTolerance } from './exercise-marking';
+  import { readAnswer, withinTolerance } from './exercise-marking';
   import {
     BAR_ENDS, END_DOFS, barName, endElement, freeBodyKey, freeBodyUnit, studentBalanced,
     type BarEnd, type BarTruth, type EndAction, type EndDof, type FreeBodyBar,
@@ -27,10 +27,7 @@
   let hints = $state<string[]>([]);
   const bar = $derived(bars[active] ?? bars[0]!);
 
-  const num = (s: string | undefined) => {
-    const v = parseFloat((s ?? '').replace(',', '.'));
-    return Number.isFinite(v) ? v : null;
-  };
+  const num = (s: string | undefined) => readAnswer(s ?? '');
   const fmt = (v: number) => (Math.abs(v) < 0.005 ? '0' : v.toFixed(2).replace(/\.?0+$/, ''));
 
   function barDone(b: number): boolean {
@@ -279,7 +276,7 @@
               <input
                 type="text" inputmode="decimal" placeholder="0.00"
                 value={answers[key] ?? ''}
-                oninput={(ev) => { answers = { ...answers, [key]: (ev.target as HTMLInputElement).value }; }}
+                oninput={(ev) => { answers = { ...answers, [key]: (ev.target as HTMLInputElement).value }; verif = { ...verif, [key]: 'pending' }; hints = []; }}
                 class:revealed={revealed[key]}
                 readonly={revealed[key]}
                 data-testid="edu-fb-{active}-{e.end}-{dof}"

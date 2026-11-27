@@ -170,7 +170,9 @@ describe('free-body answers in a hand-in and an exam', () => {
     const remark = remarkSubmission(spec(), {
       stabileoSubmission: 1, exerciseId: ex.id, exerciseTitle: ex.title, student: '', submittedAt: '', answers, seed: 7,
     })!;
-    const wrong = remark.answers.filter((a) => a.outcome !== 'correct').map((a) => a.key);
+    const wrong = remark.answers.filter(a => a.key?.startsWith('fb:') && a.outcome !== 'correct').map(a => a.key);
+    expect(remark.answers.filter(a => !a.key?.startsWith('fb:')).every(a => a.outcome === 'pending')).toBe(true);
+    expect(remark.answers.map(a => a.key)).toEqual(questionKeys(ex));
     expect(Math.abs(truth[1]!.j.Fy)).toBeGreaterThan(0.5);
     expect(wrong).toEqual(['fb:1:j:Fy']);
   });
@@ -196,7 +198,7 @@ describe('the exercise list', () => {
   });
 });
 
-it.skip('known wrong result: #1927 — axial force cannot mask a transverse imbalance or a spurious moment', () => {
+it('known wrong result: #1927 — axial force cannot mask a transverse imbalance or a spurious moment', () => {
   const model: ModelSpec = { nodes: [[0, 0], [4, 0]], elements: [[0, 1]], supports: [] };
   const bar: FreeBodyBar = { nodes: [0, 1], elements: [{ index: 0, forward: true }] };
   const truth = { i: { Fx: 1000, Fy: 0, M: 0 }, j: { Fx: -1000, Fy: 0, M: 0 } };
