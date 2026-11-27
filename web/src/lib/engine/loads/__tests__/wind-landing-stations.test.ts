@@ -4,7 +4,7 @@ import { levelsWithPlanArea, type PlanSink, type LoadPlanInput } from '../load-p
 import { remapSpanInterval } from '../../member-span-loads';
 import { columns } from './wind-integration-fixture';
 
-for (const reverse of [false, true]) it.skip(`known wrong result: #2222 gallery wind meets a declared landing with reversed carrier ${reverse}`, () => {
+for (const reverse of [false, true]) it(`known wrong result: #2222 gallery wind meets a declared landing with reversed carrier ${reverse}`, () => {
   const model = columns([0, 5.8, 8.6]);
   model.nodes.set(100, { id: 100, x: 1.9, y: 8.5, z: 7.2 });
   const carrier = [...model.elements.values()].find(e => model.nodes.get(e.nodeI)!.z === 5.8)!;
