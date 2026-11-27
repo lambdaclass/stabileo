@@ -22,8 +22,7 @@ import { PHYSICAL_GROUP_KIND } from '../physical/types';
 import { computeLocalAxes3D, memberRoll } from '../../engine/local-axes-3d';
 import { declare, nextName } from './declare';
 import { platesFromShells } from '../../store/plates-from-shells';
-import { clearPlateMesh, holdPlateSidesAt } from '../../store/physical-plates';
-import type { SupportType } from '../../store/model.svelte';
+import { clearPlateMesh } from '../../store/physical-plates';
 
 export interface PlaceResult { created: number; elements: number; shells: number; refused?: string }
 
@@ -241,16 +240,6 @@ function meshPanel(corners: Vec3[], holes: Vec3[][], o: { size: number; material
   return { quads: r.quads, plates: r.plates };
 }
 
-/** The support both ends of a wall's base stand on, where they are the same plain one: the base then rests on it all along. */
-function baseSupport(ends: readonly Vec3[]): SupportType | null {
-  const types = ends.map((p) => {
-    const n = [...modelStore.nodes.values()].find((q) => Math.abs(q.x - p[0]) < 1e-6 && Math.abs(q.y - p[1]) < 1e-6 && Math.abs((q.z ?? 0) - p[2]) < 1e-6);
-    const sp = n ? [...modelStore.supports.values()].find((x) => x.nodeId === n.id) : undefined;
-    return sp && Object.keys(sp).every((key) => key === 'id' || key === 'nodeId' || key === 'type') ? sp.type : null;
-  });
-  return types[0] && types.every((t) => t === types[0]) ? types[0] : null;
-}
-
 /**
  * A wall along one grid axis, between two crossing axes, from one level to another, one per
  * storey. Openings, if any, repeat on every storey; one that does not fit inside the storey's
@@ -302,8 +291,7 @@ export function placeWall(g: StructuralGrid, o: {
       });
       const made = platesFromShells([...r.quads.map((q) => `q${q}`), ...r.plates.map((q) => `p${q}`)], { size: o.meshSize });
       if (made.length && o.meshAtSolve) { for (const id of made) clearPlateMesh(id); shells -= r.quads.length + r.plates.length; }
-      const held = k === 0 && lv[0]!.z <= Math.min(...g.levels.map((l) => l.z)) + 1e-9 ? baseSupport([pt(s0, z0), pt(s0 + length, z0)]) : null;
-      if (held) for (const id of made) holdPlateSidesAt(id, z0, held);
+
     }
   });
   return { created, elements: 0, shells, ...(refused ? { refused } : {}) };

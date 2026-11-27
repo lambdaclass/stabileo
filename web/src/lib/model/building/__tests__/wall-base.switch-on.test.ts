@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '../../../store';
+import { supportWallBase } from '../../foundation/generate';
 import { placeFrame, placeWall } from '../build-on-grid';
 import { physicalPlates, plateEntry, plateShellKeys, preparePlatesForAnalysis } from '../../../store/physical-plates';
 import type { StructuralGrid } from '../../grid';
@@ -28,8 +29,9 @@ beforeAll(async () => { await wasmSolver.initSolver(); });
 
 describe('a wall the building tool stands on the foundation', () => {
   for (const meshAtSolve of [false, true]) {
-    it(`holds its whole base on the supports its ends stand on, meshed ${meshAtSolve ? 'at the solve' : 'at placement'}`, () => {
+    it(`holds its whole base when explicitly founded, meshed ${meshAtSolve ? 'at the solve' : 'at placement'}`, () => {
       const [low, high] = build(true, meshAtSolve);
+      supportWallBase(low!.id);
       expect(plateEntry(low!.id)!.surface.edgeSupports).toEqual([expect.objectContaining({ type: 'fixed3d' })]);
       expect(plateEntry(high!.id)!.surface.edgeSupports ?? []).toEqual([]);
       expect(preparePlatesForAnalysis().ok).toBe(true);
@@ -45,7 +47,7 @@ describe('a wall the building tool stands on the foundation', () => {
   });
 });
 
-it.skip.each([false, true])('known wrong result: #1928 matching frame point restraints do not add a wall foundation, deferred mesh %s', async deferred => {
+it.each([false, true])('known wrong result: #1928 matching frame point restraints do not add a wall foundation, deferred mesh %s', async deferred => {
   const [low] = build(true, deferred);
   const { serializeProject, deserializeProject } = await import('../../../store/file');
   expect(deserializeProject(serializeProject())).toBe(true);
@@ -56,6 +58,6 @@ it.skip.each([false, true])('known wrong result: #1928 matching frame point rest
   const held = new Set([...modelStore.supports.values()].map(s => s.nodeId));
   expect(base.length).toBeGreaterThan(2);
   const xs = base.map(n => modelStore.nodes.get(n)!.x);
-  expect(base.filter(n => held.has(n)).map(n => modelStore.nodes.get(n)!.x).sort((a, b) => a-b)).toEqual([Math.min(...xs), Math.max(...xs)]);
+  expect(base.filter(n => held.has(n)).map(n => modelStore.nodes.get(n)!.x).sort((a, b) => a - b)).toEqual([Math.min(...xs), Math.max(...xs)]);
   expect(plateEntry(low!.id)!.surface.edgeSupports ?? []).toEqual([]);
 });

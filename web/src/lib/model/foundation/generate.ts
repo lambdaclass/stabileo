@@ -11,6 +11,7 @@
  * Footings go on the foundation undo channel, which keeps the solve. Beams are bars between the
  * footings' nodes and change the model, so placing them is a model undo step.
  */
+import { reinforcementSheets, unifiedPlates } from '../../features';
 import { plateLoops } from '../physical/plate';
 import { modelStore } from '../../store/model.svelte';
 import { holdPlateSidesAt } from '../../store/physical-plates';
@@ -62,7 +63,7 @@ export function anchorsFor(nodeIds: number[], lines: PropertyLines): Map<number,
   return anchorsOf(nodeIds.map((id) => {
     const n = modelStore.nodes.get(id);
     if (!n) return null;
-    const h = __PUBLIC_FEATURES__.proRcSheets ? halfAt(id) : null;
+    const h = reinforcementSheets() ? halfAt(id) : null;
     return { id, x: n.x, y: n.y, ...(h ? { hx: h[0], hy: h[1] } : {}) };
   }).filter((p): p is { id: number; x: number; y: number; hx?: number; hy?: number } => !!p), lines);
 }
@@ -112,7 +113,7 @@ export function wallBaseNodes(wallGroupId: number): number[] {
   const nodes = new Set<number>();
   for (const q of g.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) nodes.add(n);
   for (const p of g.members.plates ?? []) for (const n of modelStore.plates.get(p)?.nodes ?? []) nodes.add(n);
-  if (!nodes.size) { const l = plateLoops(g); for (const n of [...l.outer, ...l.holes.flat()]) nodes.add(n); }
+  if (!nodes.size && unifiedPlates()) { const l = plateLoops(g); for (const n of [...l.outer, ...l.holes.flat()]) nodes.add(n); }
   const pts = [...nodes].map((id) => modelStore.nodes.get(id)!).filter(Boolean);
   if (pts.length === 0) return [];
   const zMin = Math.min(...pts.map((p) => p.z ?? 0));
@@ -121,15 +122,18 @@ export function wallBaseNodes(wallGroupId: number): number[] {
 
 /** A wall stood on the ground: its base nodes fixed where they have no support, and its base held all along with every mesh. A model step. */
 export function supportWallBase(wallGroupId: number): number {
-  const held = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
   const base = wallBaseNodes(wallGroupId);
-  const add = base.filter((n) => !held.has(n));
   if (!base.length) return 0;
+  const continuous = unifiedPlates();
+  const existing = new Set([...modelStore.supports.values()].map(s => s.nodeId));
+  if (!continuous && base.every(node => existing.has(node))) return 0;
+  const before = modelStore.supports.size;
   modelStore.batch(() => {
-    for (const n of add) modelStore.addSupport(n, 'fixed3d');
-    holdPlateSidesAt(wallGroupId, modelStore.nodes.get(base[0]!)?.z ?? 0, 'fixed3d');
+    if (continuous) holdPlateSidesAt(wallGroupId, modelStore.nodes.get(base[0]!)!.z ?? 0, 'fixed3d');
+    const held = new Set([...modelStore.supports.values()].map(s => s.nodeId));
+    for (const n of base) if (!held.has(n)) modelStore.addSupport(n, 'fixed3d');
   });
-  return add.length;
+  return modelStore.supports.size - before;
 }
 
 /** A strip footing under a wall: along its base, carrying every node of it. */

@@ -1,0 +1,35 @@
+{
+  "id": "wall-base-edge-supports",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "wallEdgeRestraints"
+    ]
+  },
+  "title": {
+    "en": "Review continuous restraints at wall bases",
+    "es": "Revisá los apoyos continuos en la base de los tabiques",
+    "pt": "Revise os apoios contínuos na base das paredes",
+    "de": "Durchgehende Lagerungen am Wandfuß prüfen",
+    "fr": "Vérifier les appuis continus en pied de voile",
+    "tr": "Perde tabanındaki sürekli mesnetleri denetleyin",
+    "zh": "检查墙底的连续约束",
+    "hu": "A falalap folytonos megtámasztásának ellenőrzése"
+  },
+  "explanation": {
+    "en": "Earlier unified wall creation could extend matching point supports into a continuous base restraint. Verify each saved wall edge against the intended foundation and correct the supports before rerunning the analysis.",
+    "es": "Al crear un tabique unificado, dos apoyos puntuales iguales podían convertirse en un apoyo continuo en la base. Compará los bordes guardados con la fundación prevista, corregí los apoyos y repetí el análisis.",
+    "pt": "A criação de paredes unificadas podia prolongar apoios pontuais iguais por toda a base. Confira as bordas salvas em relação à fundação prevista, corrija os apoios e refaça a análise.",
+    "de": "Beim Erstellen einer vereinheitlichten Wand konnten gleiche Punktlager zu einer durchgehenden Lagerung des Wandfußes werden. Vergleichen Sie gespeicherte Wandränder mit der geplanten Gründung, korrigieren Sie die Lager und wiederholen Sie die Berechnung.",
+    "fr": "La création d’un voile unifié pouvait prolonger des appuis ponctuels identiques sur toute la base. Comparez les rives enregistrées à la fondation prévue, corrigez les appuis et relancez le calcul.",
+    "tr": "Birleşik perde oluşturulurken aynı türdeki noktasal mesnetler tüm taban boyunca sürekli bir mesnede dönüşebiliyordu. Kayıtlı perde kenarlarını tasarlanan temelle karşılaştırın, mesnetleri düzeltin ve analizi yineleyin.",
+    "zh": "旧版统一墙体工具可能将相同的点支座扩展为整个墙底的连续约束。请对照预期基础检查已保存的墙边，修正支座并重新分析。",
+    "hu": "Egységes fal létrehozásakor az egyforma ponttámaszok az egész falaljra kiterjedő megtámasztássá válhattak. Vesse össze a mentett faléleket a tervezett alapozással, javítsa a támaszokat, majd ismételje meg a számítást."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wall-base-edge-supports.md",
+    "heading": "Review continuous restraints at wall bases"
+  }
+}

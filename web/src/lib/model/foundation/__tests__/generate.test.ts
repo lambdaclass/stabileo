@@ -118,7 +118,7 @@ it('known wrong result: #1928 only the sheet generator uses a column face beyond
   expect([...anchorsFor(nodes, { minX: true }).values()]).toEqual([[-1, 0], [-1, 0], [0, 0], [0, 0]]);
 });
 
-it.skip.each([false, true])('known wrong result: #1928 explicit wall foundation placement respects the available analytical base, meshed %s', async meshed => {
+it.each([false, true])('known wrong result: #1928 explicit wall foundation placement respects the available analytical base, meshed %s', async meshed => {
   modelStore.clear();
   const { createPlate, plateEntry, planPlateMesh, applyPlateMeshes } = await import('../../../store/physical-plates');
   const { supportWallBase, wallBaseNodes } = await import('../generate');
@@ -127,7 +127,7 @@ it.skip.each([false, true])('known wrong result: #1928 explicit wall foundation 
   if ('problem' in wall) throw Error(wall.problem);
   if (meshed) expect(applyPlateMeshes([planPlateMesh(wall.id, { size: 1 })!]).refused).toEqual([]);
   const nodes = wallBaseNodes(wall.id);
-  const active = meshed || __PUBLIC_FEATURES__.proPlatesUnified;
+  const active = meshed || __PUBLIC_FEATURES__.proPlatesUnified === true;
   expect(nodes.length > 0).toBe(active);
   if (meshed) expect(nodes.length).toBeGreaterThan(2);
   if (active) modelStore.addSupport(nodes[0]!, 'pinned3d');

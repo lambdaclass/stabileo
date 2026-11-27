@@ -287,12 +287,13 @@ export function holdPlateSides(id: number, sides: ReadonlyArray<readonly [number
   const fresh = sides.map(([from, to]) => ({ from, to, type }))
     .filter((x) => !have.some((h) => (h.from === x.from && h.to === x.to) || (h.from === x.to && h.to === x.from)));
   if (!fresh.length) return 0;
-  const outer = plateLoops(e.group).outer;
+  const outer = new Set(plateLoops(e.group).outer);
   let added = 0;
   modelStore.batch(() => {
-    const ends = supportSides(fresh, outer);
-    const onMesh = supportSides(fresh, [...new Set(plateShellKeys(id).flatMap(shellNodes))]);
-    added = ends.length + onMesh.length;
+    const nodes = new Set([...plateShellKeys(id).flatMap(shellNodes), ...outer]);
+    const supports = supportSides(fresh, [...nodes]);
+    const onMesh = supports.filter(support => !outer.has(support.nodeId));
+    added = supports.length;
     writeSurface(id, (s) => ({
       ...s, edgeSupports: [...have, ...fresh],
       ...(s.meshed && onMesh.length ? { meshed: {
