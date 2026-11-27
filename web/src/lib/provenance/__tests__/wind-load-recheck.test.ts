@@ -58,7 +58,7 @@ it('#2220 Hungarian wind explanation keeps minimum cases separate', async () => 
   expect(entry.explanation.hu).toContain('A minimális vízszintes teheresetek elkülönülnek a számított nyomásmezőktől.');
 });
 
-it.skip.each(['W', 'Wa'])('known wrong result: #2595 — an Italian saved %s case explains how to regenerate its wind loads', type => {
+it.each(['W', 'Wa'])('known wrong result: #2595 — an Italian saved %s case explains how to regenerate its wind loads', type => {
   const { changes } = assessProject(snapshot(type), null);
   const notice = changes.find(change => change.id === 'wind-two-part-moments')!;
   const locale = registryLocale('it', notice.title, notice.explanation);
