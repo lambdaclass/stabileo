@@ -40,7 +40,7 @@ import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, modelCombinationCases, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from '../store/generated-combinations';
-import { loadCodeExample, type CodeExampleId } from '../templates/examples';
+import { loadCodeFile, GENERATED_BUILDING_FILES, PUBLISHED_CODE_FILES } from '../templates/examples';
 import { PRO_EXAMPLE_FIXES, declareSteelGrades } from './pro-example-fixes';
 import { localiseExampleNames } from './example-names';
 import { generateSavedLoads } from '../store/saved-loads';
@@ -164,7 +164,7 @@ async function loadExample(ex: ProExample): Promise<void> {
     // The regulation's combinations come from the engine: an example opened while it is still
     // loading waits for it rather than fail.
     try { await initSolver(); } catch { throw new EngineUnavailableError("the example's combinations"); }
-    if (ex.source === 'code') await loadCodeExample(ex.id as CodeExampleId, ex.codeFile);
+    if (ex.source === 'code') await loadCodeFile(ex.id, ex.codeFile ?? PUBLISHED_CODE_FILES[ex.id as keyof typeof PUBLISHED_CODE_FILES]);
     else await modelStore.loadExample(ex.id);
     if (ex.loads === 'generator') { exampleProgress.step('loads'); await nextFrame(); }
     modelStore.batch(() => {
@@ -209,18 +209,18 @@ export const exampleEntry = (e: Entry): ProExample => {
 
 const entry = exampleEntry;
 
-export const unifiedBuildingExamples: readonly ProExample[] = [
+export const unifiedBuildingExamples = (): readonly ProExample[] => [
   // ── Reinforced concrete buildings ── their loads, wind included, from the load generator; the
   // earthquake is for the reader to add there, with the site's zone and soil.
-  entry({ id: 'pro-rc-house', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 27, members: 42, plates: 8 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  entry({ id: 'pro-rc-four-storey', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagWind'], stats: { nodes: 60, members: 116, plates: 24 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  entry({ id: 'pro-rc-steel-columns', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagSteel'], stats: { nodes: 48, members: 87, plates: 18 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  entry({ id: 'pro-rc-lift-core', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagCore'], stats: { nodes: 164, members: 238, plates: 107 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
-  entry({ id: 'pro-rc-party-wall', source: 'code', group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagStair'], stats: { nodes: 415, members: 410, plates: 287 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-rc-house', source: 'code', codeFile: GENERATED_BUILDING_FILES['pro-rc-house'], group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 27, members: 42, plates: 8 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-rc-four-storey', source: 'code', codeFile: GENERATED_BUILDING_FILES['pro-rc-four-storey'], group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagWind'], stats: { nodes: 60, members: 116, plates: 24 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-rc-steel-columns', source: 'code', codeFile: GENERATED_BUILDING_FILES['pro-rc-steel-columns'], group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagSteel'], stats: { nodes: 48, members: 87, plates: 18 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-rc-lift-core', source: 'code', codeFile: GENERATED_BUILDING_FILES['pro-rc-lift-core'], group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagCore'], stats: { nodes: 164, members: 238, plates: 107 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-rc-party-wall', source: 'code', codeFile: GENERATED_BUILDING_FILES['pro-rc-party-wall'], group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagStair'], stats: { nodes: 415, members: 410, plates: 287 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
 
   // ── Steel buildings ──
   entry({ id: 'pro-plane-frame-seismic', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagSeismic'], stats: { nodes: 20, members: 28 }, selfWeight: 'all', combinations: 'regulation' }),
-  entry({ id: 'pro-steel-building-slabs', source: 'code', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 99, members: 153, plates: 48 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
+  entry({ id: 'pro-steel-building-slabs', source: 'code', codeFile: GENERATED_BUILDING_FILES['pro-steel-building-slabs'], group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 99, members: 153, plates: 48 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),
   entry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'steelBuildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1420 }, selfWeight: 'all', combinations: 'regulation' }),
 
 ];
@@ -232,12 +232,12 @@ export const publishedBuildingExamples: readonly ProExample[] = [
   entry({ id: 'pro-rc-frame-area-loads', source: 'code', group: 'buildings', tags: ['pro.tagRC', 'pro.tagFloorLoads'], stats: { nodes: 59, members: 113 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'pro-edificio-7p', source: 'fixture', group: 'buildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 183, members: 252, shells: 126 }, selfWeight: 'all', combinations: 'regulationAsSigned' }),
   entry({ id: 'rc-design-frame', source: 'fixture', group: 'buildings', tags: ['pro.tagRC', 'pro.tagDesign'], stats: { nodes: 180, members: 408 }, selfWeight: 'all', combinations: 'regulation' }),
-  entry({ id: 'pro-steel-building-slabs', source: 'code', codeFile: () => import('../templates/examples/pro-steel-building-slabs-meshed.stabileo.txt?raw'), group: 'buildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 836, members: 447, shells: 756 }, selfWeight: 'all', combinations: 'regulation' }),
+  entry({ id: 'pro-steel-building-slabs', source: 'code', group: 'buildings', tags: ['pro.tagSteel', 'pro.tagShells'], stats: { nodes: 836, members: 447, shells: 756 }, selfWeight: 'all', combinations: 'regulation' }),
   entry({ id: 'torre-irregular-con-retiros', source: 'fixture', group: 'buildings', tags: ['pro.tagSteel', 'pro.tagDrift'], stats: { nodes: 556, members: 1420 }, selfWeight: 'all', combinations: 'regulation' }),
 ];
 
 export const PRO_EXAMPLES: readonly ProExample[] = [
-  ...(unifiedPlates() ? unifiedBuildingExamples : publishedBuildingExamples),
+  ...(unifiedPlates() ? unifiedBuildingExamples() : publishedBuildingExamples),
   // ── From CAD ── their dead load holds the slab's weight, and their provenance lists the
   // combinations they were drafted with.
   entry({ id: 'cad-arch-only-dxf', source: 'fixture', group: 'cad', tags: ['pro.tagRC', 'pro.tagCad'], stats: { nodes: 800, members: 1000, shells: 720 }, selfWeight: 'none', combinations: 'own' }),

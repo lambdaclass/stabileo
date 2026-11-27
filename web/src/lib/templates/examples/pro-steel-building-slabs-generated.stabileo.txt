@@ -1,0 +1,334 @@
+stabileo-model 1
+# A two-by-three bay steel frame, three storeys, with 12 cm concrete slabs on main and secondary
+# beams, a plate between them, and a concrete core, a column at its corner on the grid. The beams
+# sit under the slab: their axis is offset below its mid-plane.
+name "Edificio de acero con losas y núcleo"
+mode pro
+axes zUpStrongAxis
+
+node 1 0 0 0
+node 2 0 0 3.6
+node 3 0 0 7.2
+node 4 0 0 10.8
+node 5 0 6 0
+node 6 0 6 3.6
+node 7 0 6 7.2
+node 8 0 6 10.8
+node 9 0 12 0
+node 10 0 12 3.6
+node 11 0 12 7.2
+node 12 0 12 10.8
+node 13 0 18 0
+node 14 0 18 3.6
+node 15 0 18 7.2
+node 16 0 18 10.8
+node 17 6 0 0
+node 18 6 0 3.6
+node 19 6 0 7.2
+node 20 6 0 10.8
+node 21 6 6 0
+node 22 6 6 3.6
+node 23 6 6 7.2
+node 24 6 6 10.8
+node 25 6 12 0
+node 26 6 12 3.6
+node 27 6 12 7.2
+node 28 6 12 10.8
+node 29 6 18 0
+node 30 6 18 3.6
+node 31 6 18 7.2
+node 32 6 18 10.8
+node 33 12 0 0
+node 34 12 0 3.6
+node 35 12 0 7.2
+node 36 12 0 10.8
+node 37 12 6 0
+node 38 12 6 3.6
+node 39 12 6 7.2
+node 40 12 6 10.8
+node 41 12 12 0
+node 42 12 12 3.6
+node 43 12 12 7.2
+node 44 12 12 10.8
+node 45 12 18 0
+node 46 12 18 3.6
+node 47 12 18 7.2
+node 48 12 18 10.8
+node 49 3 6 0
+node 50 3 6 3.6
+node 51 3 6 7.2
+node 52 3 6 10.8
+node 53 3 9 0
+node 54 3 9 3.6
+node 55 3 9 7.2
+node 56 3 9 10.8
+node 57 0 9 0
+node 58 0 9 3.6
+node 59 0 9 7.2
+node 60 0 9 10.8
+node 61 3 0 3.6
+node 62 3 12 3.6
+node 63 3 18 3.6
+node 64 0 3 3.6
+node 65 0 15 3.6
+node 66 6 3 3.6
+node 67 6 9 3.6
+node 68 6 15 3.6
+node 69 12 3 3.6
+node 70 12 9 3.6
+node 71 12 15 3.6
+node 72 3 3 3.6
+node 73 3 15 3.6
+node 74 3 0 7.2
+node 75 3 12 7.2
+node 76 3 18 7.2
+node 77 0 3 7.2
+node 78 0 15 7.2
+node 79 6 3 7.2
+node 80 6 9 7.2
+node 81 6 15 7.2
+node 82 12 3 7.2
+node 83 12 9 7.2
+node 84 12 15 7.2
+node 85 3 3 7.2
+node 86 3 15 7.2
+node 87 3 0 10.8
+node 88 3 12 10.8
+node 89 3 18 10.8
+node 90 0 3 10.8
+node 91 0 15 10.8
+node 92 6 3 10.8
+node 93 6 9 10.8
+node 94 6 15 10.8
+node 95 12 3 10.8
+node 96 12 9 10.8
+node 97 12 15 10.8
+node 98 3 3 10.8
+node 99 3 15 10.8
+
+material 1 name="Acero F-24" e=200000 nu=0.3 rho=77 alpha=0.000012 fy=240 fu=370 gradeId="iram-f24"
+material 2 name="Hormigón H-25" e=23500 nu=0.2 rho=25 alpha=0.00001 fy=25
+section 1 name="HEB 240" profileFamily="HEB" shape="H" a=0.0106 iy=0.0001126 iz=0.00003923 b=0.24 h=0.24 tw=0.01 tf=0.017
+section 2 name="IPE 360" profileFamily="IPE" shape="I" a=0.00727 iy=0.0001627 iz=0.00001043 b=0.17 h=0.36 tw=0.008 tf=0.0127
+section 3 name="IPE 270" profileFamily="IPE" shape="I" a=0.00459 iy=0.0000579 iz=0.0000042 b=0.135 h=0.27 tw=0.0066 tf=0.0102
+member 1 frame 1 2 materialId=1 sectionId=1
+member 2 frame 2 3 materialId=1 sectionId=1
+member 3 frame 3 4 materialId=1 sectionId=1
+member 4 frame 5 6 materialId=1 sectionId=1
+member 5 frame 6 7 materialId=1 sectionId=1
+member 6 frame 7 8 materialId=1 sectionId=1
+member 7 frame 9 10 materialId=1 sectionId=1
+member 8 frame 10 11 materialId=1 sectionId=1
+member 9 frame 11 12 materialId=1 sectionId=1
+member 10 frame 13 14 materialId=1 sectionId=1
+member 11 frame 14 15 materialId=1 sectionId=1
+member 12 frame 15 16 materialId=1 sectionId=1
+member 13 frame 17 18 materialId=1 sectionId=1
+member 14 frame 18 19 materialId=1 sectionId=1
+member 15 frame 19 20 materialId=1 sectionId=1
+member 16 frame 21 22 materialId=1 sectionId=1
+member 17 frame 22 23 materialId=1 sectionId=1
+member 18 frame 23 24 materialId=1 sectionId=1
+member 19 frame 25 26 materialId=1 sectionId=1
+member 20 frame 26 27 materialId=1 sectionId=1
+member 21 frame 27 28 materialId=1 sectionId=1
+member 22 frame 29 30 materialId=1 sectionId=1
+member 23 frame 30 31 materialId=1 sectionId=1
+member 24 frame 31 32 materialId=1 sectionId=1
+member 25 frame 33 34 materialId=1 sectionId=1
+member 26 frame 34 35 materialId=1 sectionId=1
+member 27 frame 35 36 materialId=1 sectionId=1
+member 28 frame 37 38 materialId=1 sectionId=1
+member 29 frame 38 39 materialId=1 sectionId=1
+member 30 frame 39 40 materialId=1 sectionId=1
+member 31 frame 41 42 materialId=1 sectionId=1
+member 32 frame 42 43 materialId=1 sectionId=1
+member 33 frame 43 44 materialId=1 sectionId=1
+member 34 frame 45 46 materialId=1 sectionId=1
+member 35 frame 46 47 materialId=1 sectionId=1
+member 36 frame 47 48 materialId=1 sectionId=1
+member 37 frame 2 61 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 38 frame 61 18 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 39 frame 18 34 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 40 frame 6 50 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 41 frame 50 22 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 42 frame 22 38 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 43 frame 10 62 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 44 frame 62 26 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 45 frame 26 42 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 46 frame 14 63 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 47 frame 63 30 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 48 frame 30 46 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 49 frame 2 64 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 50 frame 64 6 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 51 frame 6 58 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 52 frame 58 10 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 53 frame 10 65 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 54 frame 65 14 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 55 frame 18 66 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 56 frame 66 22 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 57 frame 22 67 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 58 frame 67 26 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 59 frame 26 68 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 60 frame 68 30 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 61 frame 34 69 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 62 frame 69 38 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 63 frame 38 70 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 64 frame 70 42 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 65 frame 42 71 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 66 frame 71 46 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 67 frame 64 72 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 68 frame 72 66 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 69 frame 66 69 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 70 frame 58 54 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 71 frame 54 67 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 72 frame 67 70 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 73 frame 65 73 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 74 frame 73 68 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 75 frame 68 71 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 76 frame 3 74 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 77 frame 74 19 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 78 frame 19 35 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 79 frame 7 51 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 80 frame 51 23 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 81 frame 23 39 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 82 frame 11 75 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 83 frame 75 27 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 84 frame 27 43 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 85 frame 15 76 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 86 frame 76 31 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 87 frame 31 47 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 88 frame 3 77 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 89 frame 77 7 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 90 frame 7 59 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 91 frame 59 11 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 92 frame 11 78 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 93 frame 78 15 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 94 frame 19 79 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 95 frame 79 23 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 96 frame 23 80 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 97 frame 80 27 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 98 frame 27 81 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 99 frame 81 31 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 100 frame 35 82 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 101 frame 82 39 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 102 frame 39 83 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 103 frame 83 43 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 104 frame 43 84 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 105 frame 84 47 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 106 frame 77 85 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 107 frame 85 79 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 108 frame 79 82 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 109 frame 59 55 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 110 frame 55 80 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 111 frame 80 83 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 112 frame 78 86 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 113 frame 86 81 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 114 frame 81 84 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 115 frame 4 87 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 116 frame 87 20 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 117 frame 20 36 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 118 frame 8 52 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 119 frame 52 24 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 120 frame 24 40 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 121 frame 12 88 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 122 frame 88 28 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 123 frame 28 44 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 124 frame 16 89 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 125 frame 89 32 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 126 frame 32 48 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 127 frame 4 90 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 128 frame 90 8 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 129 frame 8 60 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 130 frame 60 12 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 131 frame 12 91 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 132 frame 91 16 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 133 frame 20 92 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 134 frame 92 24 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 135 frame 24 93 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 136 frame 93 28 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 137 frame 28 94 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 138 frame 94 32 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 139 frame 36 95 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 140 frame 95 40 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 141 frame 40 96 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 142 frame 96 44 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 143 frame 44 97 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 144 frame 97 48 materialId=1 sectionId=2 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.24},"j":{"x":0,"y":0,"z":-0.24}}
+member 145 frame 90 98 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 146 frame 98 92 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 147 frame 92 95 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 148 frame 60 56 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 149 frame 56 93 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 150 frame 93 96 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 151 frame 91 99 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 152 frame 99 94 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+member 153 frame 94 97 materialId=1 sectionId=3 offset={"frame":"global","i":{"x":0,"y":0,"z":-0.195},"j":{"x":0,"y":0,"z":-0.195}}
+
+grid {"axes":[{"id":"ax-x1","name":"1","axis":"x","at":0},{"id":"ax-x2","name":"2","axis":"x","at":6},{"id":"ax-x3","name":"3","axis":"x","at":12},{"id":"ax-y1","name":"A","axis":"y","at":0},{"id":"ax-y2","name":"B","axis":"y","at":6},{"id":"ax-y3","name":"C","axis":"y","at":12},{"id":"ax-y4","name":"D","axis":"y","at":18}],"levels":[{"id":"lv-0","name":"PB","z":0},{"id":"lv-1","name":"1º piso","z":3.6},{"id":"lv-2","name":"2º piso","z":7.2},{"id":"lv-3","name":"Azotea","z":10.8}]}
+support 1 1 fixed3d
+support 2 5 fixed3d
+support 3 9 fixed3d
+support 4 13 fixed3d
+support 5 17 fixed3d
+support 6 21 fixed3d
+support 7 25 fixed3d
+support 8 29 fixed3d
+support 9 33 fixed3d
+support 10 37 fixed3d
+support 11 41 fixed3d
+support 12 45 fixed3d
+support 13 49 fixed3d
+group 1 physicalMember "Tabique núcleo 1 · PB" members={"nodes":[5,49,50,6]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[{"from":5,"to":49,"type":"fixed3d"}]}}
+group 2 physicalMember "Tabique núcleo 1 · 1º piso" members={"nodes":[6,50,51,7]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 3 physicalMember "Tabique núcleo 1 · 2º piso" members={"nodes":[7,51,52,8]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+support 14 53 fixed3d
+group 4 physicalMember "Tabique núcleo 2 · PB" members={"nodes":[49,53,54,50]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[{"from":49,"to":53,"type":"fixed3d"}]}}
+group 5 physicalMember "Tabique núcleo 2 · 1º piso" members={"nodes":[50,54,55,51]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 6 physicalMember "Tabique núcleo 2 · 2º piso" members={"nodes":[51,55,56,52]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+support 15 57 fixed3d
+group 7 physicalMember "Tabique núcleo 3 · PB" members={"nodes":[53,57,58,54]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[{"from":53,"to":57,"type":"fixed3d"}]}}
+group 8 physicalMember "Tabique núcleo 3 · 1º piso" members={"nodes":[54,58,59,55]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 9 physicalMember "Tabique núcleo 3 · 2º piso" members={"nodes":[55,59,60,56]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 10 physicalMember "Tabique núcleo 4 · PB" members={"nodes":[57,5,6,58]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[{"from":57,"to":5,"type":"fixed3d"}]}}
+group 11 physicalMember "Tabique núcleo 4 · 1º piso" members={"nodes":[58,6,7,59]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 12 physicalMember "Tabique núcleo 4 · 2º piso" members={"nodes":[59,7,8,60]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.2,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 13 physicalMember "Losa 0–6 × 0–3 · 1º piso" members={"nodes":[2,18,66,64]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 14 physicalMember "Losa 0–6 × 3–6 · 1º piso" members={"nodes":[64,66,22,6]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 15 physicalMember "Losa 0–6 × 6–9 · 1º piso" members={"nodes":[6,22,67,58]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 16 physicalMember "Losa 0–6 × 9–12 · 1º piso" members={"nodes":[58,67,26,10]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 17 physicalMember "Losa 0–6 × 12–15 · 1º piso" members={"nodes":[10,26,68,65]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 18 physicalMember "Losa 0–6 × 15–18 · 1º piso" members={"nodes":[65,68,30,14]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 19 physicalMember "Losa 6–12 × 0–3 · 1º piso" members={"nodes":[18,34,69,66]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 20 physicalMember "Losa 6–12 × 3–6 · 1º piso" members={"nodes":[66,69,38,22]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 21 physicalMember "Losa 6–12 × 6–9 · 1º piso" members={"nodes":[22,38,70,67]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 22 physicalMember "Losa 6–12 × 9–12 · 1º piso" members={"nodes":[67,70,42,26]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 23 physicalMember "Losa 6–12 × 12–15 · 1º piso" members={"nodes":[26,42,71,68]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 24 physicalMember "Losa 6–12 × 15–18 · 1º piso" members={"nodes":[68,71,46,30]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 25 physicalMember "Losa 0–6 × 0–3 · 2º piso" members={"nodes":[3,19,79,77]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 26 physicalMember "Losa 0–6 × 3–6 · 2º piso" members={"nodes":[77,79,23,7]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 27 physicalMember "Losa 0–6 × 6–9 · 2º piso" members={"nodes":[7,23,80,59]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 28 physicalMember "Losa 0–6 × 9–12 · 2º piso" members={"nodes":[59,80,27,11]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 29 physicalMember "Losa 0–6 × 12–15 · 2º piso" members={"nodes":[11,27,81,78]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 30 physicalMember "Losa 0–6 × 15–18 · 2º piso" members={"nodes":[78,81,31,15]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 31 physicalMember "Losa 6–12 × 0–3 · 2º piso" members={"nodes":[19,35,82,79]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 32 physicalMember "Losa 6–12 × 3–6 · 2º piso" members={"nodes":[79,82,39,23]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 33 physicalMember "Losa 6–12 × 6–9 · 2º piso" members={"nodes":[23,39,83,80]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 34 physicalMember "Losa 6–12 × 9–12 · 2º piso" members={"nodes":[80,83,43,27]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 35 physicalMember "Losa 6–12 × 12–15 · 2º piso" members={"nodes":[27,43,84,81]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 36 physicalMember "Losa 6–12 × 15–18 · 2º piso" members={"nodes":[81,84,47,31]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 37 physicalMember "Losa 0–6 × 0–3 · Azotea" members={"nodes":[4,20,92,90]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 38 physicalMember "Losa 0–6 × 3–6 · Azotea" members={"nodes":[90,92,24,8]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 39 physicalMember "Losa 0–6 × 6–9 · Azotea" members={"nodes":[8,24,93,60]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 40 physicalMember "Losa 0–6 × 9–12 · Azotea" members={"nodes":[60,93,28,12]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 41 physicalMember "Losa 0–6 × 12–15 · Azotea" members={"nodes":[12,28,94,91]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 42 physicalMember "Losa 0–6 × 15–18 · Azotea" members={"nodes":[91,94,32,16]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 43 physicalMember "Losa 6–12 × 0–3 · Azotea" members={"nodes":[20,36,95,92]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 44 physicalMember "Losa 6–12 × 3–6 · Azotea" members={"nodes":[92,95,40,24]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 45 physicalMember "Losa 6–12 × 6–9 · Azotea" members={"nodes":[24,40,96,93]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 46 physicalMember "Losa 6–12 × 9–12 · Azotea" members={"nodes":[93,96,44,28]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 47 physicalMember "Losa 6–12 × 12–15 · Azotea" members={"nodes":[28,44,97,94]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 48 physicalMember "Losa 6–12 × 15–18 · Azotea" members={"nodes":[94,97,48,32]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":2,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+designData {"version":1,"placement":{"reference":"slabTop","edges":true}}
+regulations {"version":2,"roles":{"basis":{"role":"basis","adapterId":"cirsoc101-2025-basis","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"generateCombinations":true,"dialog":{"comboSet":"ultimate","comboSource":"regulation","bothSenses":true,"patternsInCompanions":false}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"loads":{"role":"loads","adapterId":"cirsoc101-2025-loads","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"occupancyKey":"vivienda","dead":[{"labelKey":"loads.dead.contrapiso_cemento","q":1.44},{"labelKey":"loads.dead.piso_baldosa_ceramica","q":0.28},{"labelKey":"loads.dead.cielo_acustico","q":0.05}],"tributaryWidth":3,"applyLiveReduction":true,"reductionElementKind":"interiorBeam","floorsSupported":1,"dialog":{"deadRows":[{"entryKey":"contrapiso_cemento","thickness":0.08,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"piso_baldosa_ceramica","thickness":0,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"cielo_acustico","thickness":0,"onBattens":false,"q":0,"isPartition":false}],"partitionLive":{"on":true,"q":0.75},"gravityMode":"panels","gravitySlab":"twoWay","gravitySpan":"x","gravityLoadEveryPanel":false,"roofCfg":{"enabled":false,"use":"maintenance","dead":null,"weight":null,"occupancyKey":"azotea_privada","slopeDeg":null},"livePatterns":"all","special":{"thermal":{"on":false,"dt":20,"grad":0},"soil":{"on":false,"gradeZ":0,"gamma":17.3,"k":0.5,"surcharge":0,"permanent":true,"sideOn":false,"sideX":0,"sideY":0},"fluid":{"on":false,"levelZ":3,"gamma":10,"insideOn":false,"insideX":0,"insideY":0}}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"wind":{"role":"wind","adapterId":"cirsoc102-2025","nameKey":"regulations.name.cirsoc102","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"basicSpeed":45,"exposure":"B","enclosure":"enclosed","siteAltitudeM":0,"kzt":1,"kztSurveyed":false,"roofSlopeDeg":0,"dynamics":{"n1Source":"modal","beta":0.02,"rigidG":"default"},"dialog":{"windDirs":["+x","-x","+y","-y"],"windCaseSet":"all","windService":{"enabled":false,"v50":0,"mri":10},"windStructure":{"kind":"building","roof":"pitched","blocked":false,"towerSection":"square","round":false,"solidity":0.2,"diagonal":true,"members":"flat","clearance":2,"chimney":"roundRough","width":0,"diameter":0,"areaX":0,"areaY":0}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"snow":{"role":"snow","adapterId":"cirsoc104-2005","nameKey":"regulations.name.cirsoc104","edition":"2005","maturity":"IMPLEMENTED_PROVISIONAL","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"applied","appliedAtRevision":0,"refs":[]},"seismic":{"role":"seismic","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"thermal":{"role":"thermal","adapterId":"cirsoc101-2025-thermal","nameKey":"regulations.name.cirsoc101Thermal","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"concrete":{"role":"concrete","adapterId":"cirsoc","nameKey":"regulations.name.cirsoc201","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"steel":{"role":"steel","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"masonry":{"role":"masonry","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"timber":{"role":"timber","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]}}}
+

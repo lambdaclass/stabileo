@@ -327,6 +327,7 @@ const texts: Array<[string, () => string]> = [
 for (const [id, text0] of texts) {
   if (only.length && !only.includes(id)) continue;
   const text = text0();
-  writeFileSync(`${OUT}${id}.stabileo.txt`, text);
+  const fileId = id === 'pro-steel-building-slabs' ? `${id}-generated` : id;
+  writeFileSync(`${OUT}${fileId}.stabileo.txt`, text);
   console.log(id, text.split('\n').length, 'lines');
 }

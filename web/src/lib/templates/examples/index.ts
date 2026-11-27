@@ -11,12 +11,16 @@ import { uiStore } from '../../store/ui.svelte';
 import { codeToModel } from '../../model/code/format';
 import { mergeCode } from '../../model/code/apply';
 
-export const CODE_EXAMPLES = {
+export const GENERATED_BUILDING_FILES = {
   'pro-rc-house': () => import('./pro-rc-house.stabileo.txt?raw'),
   'pro-rc-four-storey': () => import('./pro-rc-four-storey.stabileo.txt?raw'),
   'pro-rc-steel-columns': () => import('./pro-rc-steel-columns.stabileo.txt?raw'),
   'pro-rc-lift-core': () => import('./pro-rc-lift-core.stabileo.txt?raw'),
   'pro-rc-party-wall': () => import('./pro-rc-party-wall.stabileo.txt?raw'),
+  'pro-steel-building-slabs': () => import('./pro-steel-building-slabs-generated.stabileo.txt?raw'),
+} as const;
+
+export const PUBLISHED_CODE_FILES = {
   'pro-plane-frame-seismic': () => import('./pro-plane-frame-seismic.stabileo.txt?raw'),
   'pro-rc-frame-area-loads': () => import('./pro-rc-frame-area-loads.stabileo.txt?raw'),
   'pro-steel-building-slabs': () => import('./pro-steel-building-slabs.stabileo.txt?raw'),
@@ -26,6 +30,8 @@ export const CODE_EXAMPLES = {
   'pro-guyed-tower': () => import('./pro-guyed-tower.stabileo.txt?raw'),
 } as const;
 
+export const CODE_EXAMPLES = { ...PUBLISHED_CODE_FILES, ...GENERATED_BUILDING_FILES };
+
 export type CodeExampleId = keyof typeof CODE_EXAMPLES;
 
 export async function codeExampleText(id: CodeExampleId): Promise<string> {
@@ -34,6 +40,10 @@ export async function codeExampleText(id: CodeExampleId): Promise<string> {
 
 /** Replace the open model with a model-code example, as one undo step. */
 export async function loadCodeExample(id: CodeExampleId, codeFile = CODE_EXAMPLES[id]): Promise<void> {
+  return loadCodeFile(id, codeFile);
+}
+
+export async function loadCodeFile(id: string, codeFile: () => Promise<{ default: string }>): Promise<void> {
   const parsed = codeToModel((await codeFile()).default);
   if (!parsed.snapshot) {
     throw new Error(`${id}: ${parsed.errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')}`);

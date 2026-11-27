@@ -5,7 +5,7 @@
 import { PRO_EXAMPLES, publishedBuildingExamples, unifiedBuildingExamples, type ProExample } from '../pro-examples';
 
 export function galleryExample(id: string): ProExample {
-  const ex = [...unifiedBuildingExamples, ...PRO_EXAMPLES, ...publishedBuildingExamples].find((e) => e.id === id);
+  const ex = [...unifiedBuildingExamples(), ...PRO_EXAMPLES, ...publishedBuildingExamples].find((e) => e.id === id);
   if (!ex) throw new Error(`no gallery example ${id}`);
   return ex;
 }
