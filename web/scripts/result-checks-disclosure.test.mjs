@@ -25,7 +25,7 @@ try {
 } catch (error) { globalThis.solveFailure = String(error); }
 `;
 
-test.skip('known wrong result: #1928 a coarse-mesh warning opens the published results checks on a solved shell', async () => {
+test('known wrong result: #1928 a coarse-mesh warning opens the published results checks on a solved shell', async () => {
   for (const mode of ['production', 'test']) {
     await withComponent(mode, solvedShell, async (page, url) => {
       await page.goto(url);

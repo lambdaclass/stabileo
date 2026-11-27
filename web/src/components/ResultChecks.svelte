@@ -3,18 +3,19 @@
   import { uiStore } from '../lib/store';
   import { certificateStore } from '../lib/store/certificate.svelte';
   import { discretizationStore } from '../lib/store/discretization.svelte';
+  import * as UnifiedResultCheckDetails from './UnifiedResultCheckDetails.svelte';
   import CertificateStatus from './CertificateStatus.svelte';
   import DiscretizationStatus from './DiscretizationStatus.svelte';
-  import { noticePrefs } from '../lib/store/notice-prefs.svelte';
 
   const is3D = $derived(uiStore.is3DWorkspace);
   const cert = $derived(certificateStore.shown(is3D));
   const est = $derived(discretizationStore.estimate);
   const study = $derived(discretizationStore.study);
   const discretizationShown = $derived(is3D && est.status !== 'idle' && discretizationStore.applies());
-  const discretizationHigh = $derived(discretizationShown && !noticePrefs.isHidden('discretization') && (
+  const discretizationHigh = $derived((__PUBLIC_FEATURES__.proPlatesUnified ? discretizationShown && UnifiedResultCheckDetails.discretizationVisible() : discretizationShown) && (
     (est.status === 'done' && est.estimate.exceedsThreshold) || (study.status === 'done' && study.study.exceedsThreshold)));
   const notCertified = $derived(cert.status === 'done' && (cert.certificate.status !== 'certified' || cert.endToEnd?.status === 'failed'));
+  const warn = $derived(notCertified || discretizationHigh);
 
   const summary = $derived([
     cert.status === 'pending' ? t('resultChecks.pending')
@@ -22,14 +23,18 @@
     discretizationHigh ? t(__PUBLIC_FEATURES__.proPlatesUnified ? 'plates.unified.discretizationHigh' : 'resultChecks.discretizationHigh') : null,
   ].filter(Boolean).join(' · '));
 
-  const flagged = $derived(notCertified || discretizationHigh);
-
   let open = $state(false);
-  $effect(() => { if (notCertified) open = true; });
+  $effect(() => { if (__PUBLIC_FEATURES__.proPlatesUnified ? notCertified : warn) open = true; });
 </script>
 
 {#if cert.status !== 'idle' || discretizationShown}
-  <details class="rc" class:flagged class:warn={notCertified} bind:open data-testid="result-checks" data-flagged={flagged} data-flag-level={notCertified ? 'warn' : discretizationHigh ? 'info' : undefined}>
+  {#if __PUBLIC_FEATURES__.proPlatesUnified}
+  <UnifiedResultCheckDetails.default bind:open {warn} {notCertified} {summary}>
+    <CertificateStatus />
+    <DiscretizationStatus />
+  </UnifiedResultCheckDetails.default>
+  {:else}
+  <details class="rc" class:warn bind:open data-testid="result-checks">
     <summary data-testid="result-checks-toggle">
       <span class="rc-title">{t('resultChecks.title')}</span>
       {#if summary}<span class="rc-summary">{summary}</span>{/if}
@@ -37,6 +42,7 @@
     <CertificateStatus />
     <DiscretizationStatus />
   </details>
+  {/if}
 {/if}
 
 <style>
@@ -47,8 +53,5 @@
   details[open] > summary::before { content: '▾'; }
   .rc-title { font-weight: 500; }
   .rc-summary { min-width: 0; overflow-wrap: anywhere; color: var(--st-text-3); font-size: 12px; }
-  .flagged > summary { border-left: 3px solid var(--st-info); padding-left: 6px; }
-  .flagged .rc-summary { color: var(--st-info); }
-  .flagged.warn > summary { border-left-color: var(--st-warn); }
-  .flagged.warn .rc-summary { color: var(--st-warn); }
+  .warn .rc-summary { min-width: 0; overflow-wrap: anywhere; color: var(--st-warn); }
 </style>
