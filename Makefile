@@ -467,7 +467,11 @@ check.results-snapshot-gate:
 # The WASM must give bit-identical results in Node, Chromium, Firefox and WebKit
 # (testing/docs/TRUSTED_BASE.md). Needs make wasm and make web.deps first.
 test.web.determinism:
+ifneq ($(strip $(FILE)),)
+	$(NIX_RUN) bash -c "cd web && node --test $(FILE)"
+else
 	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs determinism/plastic-checks.test.mjs determinism/containment.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
+endif
 
 e2e.web.setup:
 	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium"
