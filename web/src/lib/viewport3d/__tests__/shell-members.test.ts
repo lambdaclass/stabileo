@@ -12,12 +12,15 @@ import * as THREE from 'three';
 import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import { uiStore } from '../../store/ui.svelte';
-import { viewState } from '../../store/view-state.svelte';
-import '../../store';
+import { viewState, viewVisibility } from '../../store/view-state.svelte';
+import { resultsStore } from '../../store';
+import { applyShellNodalColors } from '../../three/stress-heatmap';
+import { COLORS } from '../../three/selection-helpers';
+import { cellPlane } from '../explicit-shell-batches';
 import { NodesInstanced } from '../../three/nodes-instanced';
 import { ElementsBatched } from '../../three/elements-batched';
 import { ElementsPicking } from '../../three/elements-picking';
-import { syncNodes, syncShells, syncShellOffsets, type SceneSyncContext } from '../scene-sync';
+import { applyShellSelection, syncNodes, syncShells, syncShellOffsets, type SceneSyncContext } from '../scene-sync';
 import { meshHidden, MESH_SHOWN_UP_TO } from '../shell-members';
 import { resolveHitUserData } from '../picking';
 
@@ -52,7 +55,7 @@ function floor(): { corner: number } {
 const objects = (o: THREE.Object3D) => { let n = 0; o.traverse(() => { n++; }); return n; };
 
 describe('a large floor while it is modelled', () => {
-  beforeEach(() => { modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro'; uiStore.renderMode3D = 'wireframe'; viewState.shellMesh = 'auto'; uiStore.clearSelection(); });
+  beforeEach(() => { resultsStore.clear(); uiStore.platesShowMesh = true; modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro'; uiStore.renderMode3D = 'wireframe'; viewState.shellMesh = 'auto'; uiStore.clearSelection(); });
 
   it('is drawn as a member: a handful of objects, its outline its border, its mesh nodes not drawn', () => {
     const { corner } = floor();
@@ -74,17 +77,166 @@ describe('a large floor while it is modelled', () => {
     expect(ctx.nodesInstanced.has(corner)).toBe(false);
   });
 
-  it('is drawn as its mesh when asked, with results, and in the volume views', () => {
+  it('draws every visible mesh edge once and preserves shell offsets', () => {
     floor();
     const ctx = makeCtx();
     viewState.shellMesh = 'show';
     syncShells(ctx); syncShellOffsets(ctx);
-    expect(ctx.shellGroups.size).toBe(N * N);
+    expect(ctx.shellGroups.size).toBe(0);
+    expect(ctx.shellsParent.children).toHaveLength(1);
+    const edges = ctx.shellsParent.children[0]!.children[1] as THREE.LineSegments;
+    expect(edges.geometry.getAttribute('position').count / 2).toBe(2 * N * (N + 1));
     // The offsets in two draw calls however many shells there are.
     expect(ctx.shellOffsetVizGroup!.children).toHaveLength(2);
     viewState.shellMesh = 'auto';
     uiStore.renderMode3D = 'sections';
     expect(meshHidden()).toBe(false);
+  });
+
+  it('picks, highlights and restores individual cells around an opening and across floors', () => {
+    viewState.shellMesh = 'show';
+    uiStore.renderMode3D = 'solid';
+    const ids: number[] = [];
+    let triangle = 0;
+    modelStore.batch(() => {
+      for (const z of [1, 4]) {
+        const grid = Array.from({ length: 9 }, (_, x) =>
+          Array.from({ length: 9 }, (_, y) => modelStore.addNode(x, y, z)));
+        for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) {
+          if (x === 3 && y === 3) continue;
+          const nodes: [number, number, number, number] = [grid[x]![y]!, grid[x + 1]![y]!, grid[x + 1]![y + 1]!, grid[x]![y + 1]!];
+          if (x === 1 && y === 0 && z === 4) {
+            triangle = modelStore.addPlate([nodes[0], nodes[1], nodes[3]], 1, 0.2);
+          } else {
+            const id = modelStore.addQuad(nodes, 1, 0.2);
+            if (x === 0 && y === 0) ids.push(id);
+          }
+        }
+      }
+    });
+    const ctx = makeCtx();
+    syncShells(ctx);
+    expect(ctx.shellsParent.children).toHaveLength(2);
+    const pick = (x: number, y: number, z: number) => {
+      const ray = new THREE.Raycaster(new THREE.Vector3(x, y, z), new THREE.Vector3(0, 0, -1));
+      const hit = ray.intersectObjects(ctx.shellsParent.children, true)[0];
+      return hit ? resolveHitUserData(hit) : null;
+    };
+    expect(pick(3.5, 3.5, 10)).toBeNull();
+    expect(pick(1.1, 0.1, 10)).toMatchObject({ type: 'plate', id: triangle });
+    expect(pick(0.1, 0.6, 10)).toMatchObject({ type: 'quad', id: ids[1] });
+    expect(pick(0.1, 0.6, 2)).toMatchObject({ type: 'quad', id: ids[0] });
+    try {
+      viewVisibility.restore({ elements: [], shells: ['q' + ids[1]] });
+      syncShells(ctx);
+      expect(pick(0.1, 0.6, 10)).toMatchObject({ type: 'quad', id: ids[0] });
+      expect(ctx.explicitShells!.has('q' + ids[1])).toBe(false);
+      // Same number visible, different membership.
+      viewVisibility.restore({ elements: [], shells: ['p' + triangle] });
+      syncShells(ctx);
+      expect(pick(0.1, 0.6, 10)).toMatchObject({ type: 'quad', id: ids[1] });
+      expect(ctx.explicitShells!.has('p' + triangle)).toBe(false);
+    } finally {
+      viewVisibility.showAll();
+    }
+    syncShells(ctx);
+    expect(pick(0.1, 0.6, 10)).toMatchObject({ type: 'quad', id: ids[1] });
+
+    const triKey = 'p' + triangle, quadKey = 'q' + ids[1];
+    const upper = ctx.shellsParent.children.find(g => g.children[0]!.userData.faceKeys.includes(triKey))!;
+    const face = upper.children[0] as THREE.Mesh;
+    const lines = upper.children[1] as THREE.LineSegments;
+    const colors = face.geometry.getAttribute('color');
+    const lineColors = lines.geometry.getAttribute('color');
+    const faceIndex = (key: string) => face.userData.faceKeys.indexOf(key) * 3;
+    const colorAt = (attr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, i: number) =>
+      new THREE.Color(attr.getX(i), attr.getY(i), attr.getZ(i)).getHex();
+    const base = colorAt(colors, faceIndex(triKey));
+    const positions = lines.geometry.getAttribute('position');
+    let shared = -1;
+    for (let i = 0; i < positions.count; i += 2) {
+      if (positions.getX(i) === 1 && positions.getX(i + 1) === 1 &&
+          Math.min(positions.getY(i), positions.getY(i + 1)) === 0) shared = i;
+    }
+    expect(shared).toBeGreaterThanOrEqual(0);
+    uiStore.selectShell(quadKey, false);
+    applyShellSelection(ctx);
+    ctx.explicitShells!.hover(triKey);
+    expect(colorAt(colors, faceIndex(quadKey))).toBe(COLORS.elementSelected);
+    expect(colorAt(colors, faceIndex(triKey))).toBe(COLORS.elementHovered);
+    expect(colorAt(lineColors, shared)).toBe(COLORS.elementHovered);
+    ctx.explicitShells!.hover();
+    expect(colorAt(lineColors, shared)).toBe(COLORS.elementSelected);
+    expect(colorAt(colors, faceIndex(triKey))).toBe(base);
+    syncShells(ctx);
+    expect(ctx.shellsParent.children).toContain(upper);
+
+    resultsStore.setResults3D({ displacements: [], reactions: [], elementForces: [] });
+    syncShells(ctx);
+    expect(ctx.explicitShells!.has(quadKey)).toBe(false);
+    const contour = ctx.shellGroups.get(quadKey)!.children[0] as THREE.Mesh;
+    expect(contour.geometry.userData.vertexNodeWeights.length).toBeGreaterThan(6);
+    applyShellNodalColors(contour, [0, 1, 2, 3], { min: 0, max: 3 }, true);
+    expect(contour.geometry.hasAttribute('color')).toBe(true);
+    resultsStore.clear();
+    syncShells(ctx);
+    expect(ctx.shellGroups.size).toBe(0);
+    expect(pick(1.1, 0.1, 10)).toMatchObject({ type: 'plate', id: triangle });
+
+    const corner = modelStore.quads.get(ids[1]!)!.nodes[0];
+    modelStore.updateNode(corner, 0, 0, 4.25);
+    syncShells(ctx);
+    expect(ctx.explicitShells!.has(quadKey)).toBe(false);
+    expect(ctx.shellGroups.has(quadKey)).toBe(true);
+    expect(ctx.explicitShells!.has(triKey)).toBe(true);
+    expect(pick(0.1, 0.6, 10)).toMatchObject({ type: 'quad', id: ids[1] });
+  });
+
+  it('counts cells that can share a batch and recovers it after the scene is cleared', () => {
+    viewState.shellMesh = 'show';
+    let lastCorner = 0, isolated = 0;
+    modelStore.batch(() => {
+      // 63 cells share a plane, one has a raised corner, one is on a different floor.
+      for (let i = 0; i < 65; i++) {
+        const z = i === 64 ? 4 : 1;
+        const x = 2 * i;
+        const d = modelStore.addNode(x, 1, i === 63 ? 2 : z);
+        const id = modelStore.addQuad([modelStore.addNode(x, 0, z), modelStore.addNode(x + 1, 0, z),
+          modelStore.addNode(x + 1, 1, z), d], 1, 0.2);
+        if (i === 63) lastCorner = d;
+        if (i === 64) isolated = id;
+      }
+    });
+    const ctx = makeCtx();
+    syncShells(ctx);
+    expect(ctx.shellGroups.size).toBe(65);
+
+    modelStore.updateNode(lastCorner, 126, 1, 1);
+    syncShells(ctx);
+    expect([...ctx.shellGroups.keys()]).toEqual(['q' + isolated]);
+    const ray = new THREE.Raycaster(new THREE.Vector3(0.2, 0.3, 10), new THREE.Vector3(0, 0, -1));
+    const hit = () => ray.intersectObjects(ctx.shellsParent.children, true)[0]!;
+    const original = hit();
+    const picked = resolveHitUserData(original);
+    original.object.parent!.removeFromParent();
+    syncShells(ctx);
+    expect(hit().object).not.toBe(original.object);
+    expect(resolveHitUserData(hit())).toEqual(picked);
+    // The bucket and cell IDs are unchanged when a corner moves within the floor.
+    const recovered = hit().object;
+    modelStore.updateNode(lastCorner, 126, 1.5, 1);
+    syncShells(ctx);
+    expect(hit().object).toBe(recovered);
+    ray.ray.origin.set(126.1, 1.3, 10);
+    expect(resolveHitUserData(hit())?.type).toBe('quad');
+  });
+
+  it('keeps warped, concave and degenerate faces on the tessellated path', () => {
+    const p = (x: number, y: number, z = 0) => ({ x, y, z });
+    expect(cellPlane([p(0, 0), p(2, 0), p(2, 1), p(0, 1, 0.01)])).toBeNull();
+    expect(cellPlane([p(0, 0), p(2, 0), p(0.5, 0.1), p(0, 1)])).toBeNull();
+    expect(cellPlane([p(0, 0), p(0, 0), p(2, 0)])).toBeNull();
+    expect(cellPlane([p(0, 0, Infinity), p(2, 0, Infinity), p(0, 2, Infinity)])).toBeNull();
   });
 
   it('picks the shell under a click on the member and draws a selected one as a shell', () => {

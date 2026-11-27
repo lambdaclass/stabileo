@@ -48,7 +48,7 @@ type Vec3 = { x: number; y: number; z: number };
 
 /** Build a per-shell face material (cloned per mesh so selection/contour code
  *  can mutate colour/vertexColors without touching other shells). */
-function makeFaceMaterial(color: number, mode: ShellRenderMode): THREE.MeshStandardMaterial {
+export function makeShellFaceMaterial(color: number, mode: ShellRenderMode): THREE.MeshStandardMaterial {
   const sections = mode === 'sections';
   const wire = mode === 'wireframe';
   return new THREE.MeshStandardMaterial({
@@ -242,7 +242,7 @@ function buildShellGroup(
       ? buildPrismGeometry(verts, faceNormal(verts), opts.thickness)
       : buildFlatGeometry(verts);
 
-  const faceMat = makeFaceMaterial(faceColor, mode);
+  const faceMat = makeShellFaceMaterial(faceColor, mode);
   const mesh = new THREE.Mesh(geo, faceMat);
   mesh.userData.shellFace = true;
   mesh.userData.ownShellMaterial = true;
@@ -392,7 +392,7 @@ export function createPhysicalPlateMesh(
   })();
   const faceColor = opts.faceColor ?? SHELL_COLOR;
   // Drawn as a slab where the view draws thickness, with that view's opaque material; flat otherwise.
-  const faceMat = makeFaceMaterial(faceColor, solid ? opts.renderMode : opts.renderMode === 'sections' ? 'solid' as ShellRenderMode : opts.renderMode);
+  const faceMat = makeShellFaceMaterial(faceColor, solid ? opts.renderMode : opts.renderMode === 'sections' ? 'solid' as ShellRenderMode : opts.renderMode);
   const mesh = new THREE.Mesh(geo, faceMat);
   mesh.userData.shellFace = true;
   mesh.userData.ownShellMaterial = true;
