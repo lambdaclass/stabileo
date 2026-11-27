@@ -8,10 +8,11 @@ import { plain } from './cases.mjs';
 import { requirementProblems } from './checks.mjs';
 
 wasm.initSync({ module: readFileSync(resolve(wasmDir, 'dedaliano_engine_bg.wasm')) });
+const fixtures = loadFixtures();
 const cases = ['plastic-2d-portal', 'plastic-2d-continuous'].map(id => ({
   name: id + '/certify_plastic_2d',
   text: 'OK',
-  value: plain(wasm.certify_plastic_2d(JSON.stringify(loadFixtures()[id]))),
+  value: plain(wasm.certify_plastic_2d(JSON.stringify(fixtures[id]))),
 }));
 
 for (const row of cases) {
@@ -21,7 +22,7 @@ for (const row of cases) {
     assert.deepEqual(problems(cases), []);
   });
   for (const mutation of ['missing case', 'missing results', 'outside bounds', 'mismatched solver', 'inverted bounds']) {
-    test.skip('known wrong result: #758 ' + row.name + ' ' + mutation, () => {
+    test('known wrong result: #758 ' + row.name + ' ' + mutation, () => {
       const copy = structuredClone(row);
       const { results, certificate } = copy.value;
       if (mutation === 'missing results') delete copy.value.results;

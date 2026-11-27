@@ -1032,9 +1032,22 @@ fn issue_758_certified_invariance(transform: &str, limit: Limit758) -> Vec<Strin
             };
             let Some(base) = check("base".into(), issue_758_limit(&c, limit), &mut failures) else { continue };
             let mut released = Vec::new();
+            let unsupported = if matches!(transform, "rotation" | "mirror") {
+                match (corpus, c.name.as_str()) {
+                    (_, "fuzz_rich_2d/20772" | "fuzz_rich_2d/20787" | "fuzz_rich_2d/20832" | "fuzz_rich_2d/20833") =>
+                        Some("unrepresentable: guided support whose slide direction leaves the axes"),
+                    (20754, "fuzz_rich_2d/20843") => Some("unrepresentable: constraint on a single translation that leaves the axes"),
+                    _ => None,
+                }
+            } else { None };
             for seed in 0..8u64 {
-                // A rigid link or a constraint some isometries cannot carry is skipped, not compared.
-                let Ok(other) = variant(&c, seed) else { continue };
+                let other = match variant(&c, seed) {
+                    Ok(other) => other,
+                    Err(reason) => {
+                        assert_eq!(Some(reason.as_str()), unsupported, "{corpus} {} {transform}/{seed}", c.name);
+                        continue;
+                    }
+                };
                 if let Some(r) = check(format!("{transform}/{seed}"), issue_758_limit(&other, limit), &mut failures) {
                     released.push(r);
                     if r != base {
@@ -1042,6 +1055,7 @@ fn issue_758_certified_invariance(transform: &str, limit: Limit758) -> Vec<Strin
                     }
                 }
             }
+            assert_eq!(released.len(), if unsupported.is_some() { 0 } else { 8 }, "{corpus} {} {transform}", c.name);
             outcomes.push(format!("{corpus} {}: base released {base}, {transform} {released:?}", c.name));
         }
     }
