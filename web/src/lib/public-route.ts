@@ -9,6 +9,7 @@ import { isStandingPagePath } from './blog/pages/paths';
 import { publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE } from './features';
 import { isMainToolPath } from './main-tool-routes';
 import { movedRoute } from './legacy-routes';
+import { isGameRoute } from './game-routes';
 
 /**
  * The fragments `utils/url-sharing.ts` restores a model from (`CODE_HASH` is '#code='; not
@@ -31,9 +32,9 @@ export function isPaperPath(path: string): boolean {
   return path === '/paper' || path === '/paper/';
 }
 
-/** `/diagram-game`: the diagram game, which loads the engine but not the application. */
+/** `/games` and each game under it; a game loads the engine but not the application. */
 export function isGamePath(path: string): boolean {
-  return path === '/diagram-game' || path === '/diagram-game/';
+  return isGameRoute(path);
 }
 
 export function isRegisterPath(path: string): boolean {
@@ -47,7 +48,7 @@ export function isDemoPath(pathname: string): boolean {
 
 export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = location): { kind: RouteKind; path: string } {
   const parsed = parsePublicPath(loc.pathname).path;
-  const path = PUBLIC_POLICY_AVAILABLE ? (__PUBLIC_FEATURES__.tools ? movedRoute(parsed) : null) ?? (parsed.replace(/\/+$/, '') || '/') : parsed;
+  const path = PUBLIC_POLICY_AVAILABLE ? (__PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame ? movedRoute(parsed) : null) ?? (parsed.replace(/\/+$/, '') || '/') : parsed;
   const params = new URLSearchParams(loc.search);
   const p = loc.pathname;
   if (params.has('embed') || isAppPath(p) || isDemoPath(p) || SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };

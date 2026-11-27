@@ -644,7 +644,7 @@
 
   async function syncRouteState() {
     const token = ++publicRevision;
-    if (__PUBLIC_FEATURES__.tools) restoreMovedRoute();
+    if (__PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame) restoreMovedRoute();
     if (location.pathname.startsWith('/hu/')) {
       const { restoreUnpublishedResearchRoute } = await import('./lib/research-fallback');
       if (token !== publicRevision) return;

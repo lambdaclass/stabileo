@@ -14425,7 +14425,7 @@ const hu: Translations = {
   "viewer.copyLink": "Csak olvasható hivatkozás másolása",
   "viewer.linkTip": "Aki megnyitja, 3D-ben és alaprajzon látja a modellt, szerkesztő nélkül, és duplikálhatja, hogy a saját másolatát szerkessze.",
   "viewer.linkCopied": "A csak olvasható hivatkozás átmásolva.",
-  "landing.navGame": "Ábrajáték",
+  "landing.navGame": "Játékok",
   "landing.footAdCookies": "Hirdetési sütik",
   "landing.footPrivacy": "Adatvédelem",
   "landing.footTerms": "Felhasználási feltételek",
