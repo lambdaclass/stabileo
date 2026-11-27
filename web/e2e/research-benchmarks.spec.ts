@@ -73,7 +73,7 @@ test('the paper comparison keeps its failures and the element skew reruns the en
   await expect(page.getByTestId('variant')).toHaveCount(0);
   await skew.fill('0');
   await expect(page.getByTestId('variant')).toContainText('Live result at 0°');
-  await expect(page.getByTestId('variant')).toContainText('Marginal');
+  await expect(page.getByTestId('variant')).toContainText('Pass (marginal)');
   await skew.fill('45');
   await expect(page.getByTestId('variant')).toHaveCount(0);
   await skew.fill('20');
@@ -171,7 +171,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   });
 }
 
-test.skip('@smoke known wrong result: #2505 retry solves the selected skew after initialization failure', async ({ page }) => {
+test('@smoke retry solves the selected skew after initialization failure', async ({ page }) => {
   const wasm = /dedaliano_engine_bg[^/]*\.wasm/;
   await page.route(wasm, route => route.abort());
   await page.goto(PAGE);

@@ -23,7 +23,8 @@ it('renders every evidence measurement, unchanged tolerance and translated ratio
         for (const [column, v] of [check.observed, check.tolerance].entries()) {
           const plain = v === 0 || (Math.abs(v) >= 1e-3 && Math.abs(v) < 1e6);
           const { mantissa, exp } = sci(v, 3);
-          expect(cells[column]).toContain(plain ? num(v, { sig: 3 }) : `${mantissa}\u200a×\u200a10<sup>${exp}</sup>`);
+          const content = cells[column].replace(/<\/?span(?: [^>]*)?>/g, '').trim();
+          expect(content).toBe(plain ? num(v, { sig: 3 }) : `${mantissa}\u200a×\u200a10<sup>${exp}</sup>`);
         }
         expect(cells[2]).toBe(text[locale].reasons[index]);
         expect(check.observed).toBeLessThanOrEqual(check.tolerance);

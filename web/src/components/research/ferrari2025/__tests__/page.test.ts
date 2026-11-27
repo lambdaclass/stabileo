@@ -16,7 +16,8 @@ const text = (html: string) => html.replace(/<!--.*?-->/g, '').replace(/<[^>]*>/
 
 it('keeps every key, list and placeholder in all eight locales', () => {
   const placeholders = (v: string) => (v.match(/\{\w+\}/g) ?? []).sort();
-  for (const locale of Object.keys(translations) as (keyof typeof translations)[]) {
+  expect(Object.keys(translations).sort()).toEqual([...PUBLIC_LOCALES].sort());
+  for (const locale of PUBLIC_LOCALES) {
     expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
     expect(Object.keys(translations[locale].rows).sort()).toEqual(comparison.checks.map(r => r.id).sort());
     for (const key of Object.keys(translations.en) as (keyof typeof translations.en)[]) {
@@ -46,10 +47,13 @@ it('writes the comparison rows from the validation test, with beta left as a fai
 for (const locale of PUBLIC_LOCALES) {
   it(`renders the model, the evidence and the comparison in ${locale}`, () => {
     setLocale(locale);
-    const s = translations[locale as keyof typeof translations] ?? translations.en;
+    const s = translations[locale];
     const body = render(FerrariPage).body;
     const page = text(body);
     const format = (v: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(v);
+    expect(body).toContain(`lang="${locale}"`);
+    expect(page).toContain(`α = ${format(paper.numerical.alpha)}`);
+    expect(page).toContain(`β = ${format(paper.numerical.beta)}`);
     expect(page).toContain(s.title);
     for (const row of comparison.checks) expect(page).toContain(s.rows[row.id]);
     const model = text(body.match(/data-testid="ferrari-model"[^>]*>(.*?)<\/p>/s)![1]);
@@ -67,7 +71,7 @@ for (const locale of PUBLIC_LOCALES) {
     const evidence = text(body.match(/data-testid="ferrari-checks"[^>]*>(.*?)<\/p>/s)![1]);
     for (const x of [Math.max(...validation.checks.slice(0, 4).map(c => c.observed)), validation.checks[0].tolerance]) expect(evidence).toContain(scientific(x));
     expect(page).toContain(`3 ${rs().of} 4 ${rs().checksPass}`);
-    expect(model).toContain(new Intl.NumberFormat(locale, { maximumFractionDigits: 6, signDisplay: 'always' }).format(moment));
+    expect(model).toContain(new Intl.NumberFormat(locale, { maximumFractionDigits: 6, signDisplay: 'always' }).format(moment) + ' kN·m');
     const beta = text(body.match(/data-testid="ferrari-beta"[^>]*>(.*?)<\/p>/s)![1]);
     expect(beta).toContain(new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(comparison.checks.find(r => r.id === 'beta-closed')!.computed));
     expect(beta).toContain(format(paper.closed_form.beta));

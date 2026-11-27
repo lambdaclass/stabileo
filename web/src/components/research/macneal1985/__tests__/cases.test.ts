@@ -241,12 +241,25 @@ describe('element skew parameter', () => {
     }
   });
   it('reruns the production engine on a gentler skew and keeps the Table 3 reference', async () => {
-    const out = await runVariant(skewedCase(byId('mitc4-parallelogram-out'), 20));
+    const mesh = skewedCase(byId('mitc4-parallelogram-out'), 20);
+    const node = Object.values(mesh.input.nodes).find(n => 'y' in n && n.y > 0 && Math.round(n.x) === 1)!;
+    const width = Math.max(...Object.values(mesh.input.nodes).map(n => 'y' in n ? n.y as number : 0))
+      - Math.min(...Object.values(mesh.input.nodes).map(n => 'y' in n ? n.y as number : 0));
+    expect(node.x).toBeCloseTo(1 + width / 2 * Math.tan(20 * Math.PI / 180), 12);
+    const out = await runVariant(mesh);
     expect(out.failure).toBeUndefined();
     expect(out.value).toBeGreaterThan(0);
     const atPaper = await runVariant(skewedCase(byId('mitc4-parallelogram-out'), PAPER_SKEW));
     expect(Math.abs(atPaper.value! / (byId('mitc4-parallelogram-out').nativeBounds as { pinnedValue: number }).pinnedValue - 1)).toBeLessThan(1e-8);
     const regular = await runVariant(skewedCase(byId('mitc4-parallelogram-out'), 0));
+    expect(regular.failure).toBeUndefined();
+    expect(regular.error).not.toBeNull();
+    const interior = await runVariant(skewedCase(byId('mitc4-parallelogram-in'), 0));
+    const baseline = await runVariant(byId('mitc4-regular-in'));
+    expect(baseline.failure).toBeUndefined();
+    expect(baseline.value).not.toBeNull();
+    expect(interior.failure).toBeUndefined();
+    expect(interior.value).toBe(baseline.value);
     expect(regular.error!).toBeLessThan(out.error!);
   });
 });

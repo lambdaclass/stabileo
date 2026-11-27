@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { run, portal, checks, cumulativeStep, governing, mechanisms, viewer, PAPER, type Result } from './case';
+import { run, portal, checks, hingeNode, cumulativeStep, governing, mechanisms, viewer, PAPER, type Result } from './case';
 import replayFile from '../../../../../research/benchmarks/plastic-collapse/results/stabileo_results.json';
 
 const replay = replayFile.result as Result;
@@ -55,4 +55,18 @@ it.each(['horizontal', 'vertical'] as const)('pure loading checks equilibrium wi
   const reaction = result.steps[0].results.reactions![0];
   reaction[direction === 'horizontal' ? 'fx' : 'fz'] += portal.equilibriumTolerance * 2;
   expect(checks(result, model).find(c => c.id === 'equilibrium')?.passed).toBe(false);
+});
+
+it.skip('known wrong result: #2505 beam midspan cannot yield in the reverse bending sense', async () => {
+  const params = { ...PAPER, vertical: 4 * PAPER.horizontal };
+  const result = await run(params);
+  const hinges = () => checks(result, params).find(row => row.id === 'hinges')!.passed;
+  expect(hinges()).toBe(true);
+  const hinge = result.steps.flatMap(step => step.hingesFormed ?? []).find(h => hingeNode(h) === 5)!;
+  hinge.momentY *= -1;
+  for (const step of result.steps) {
+    const member = step.results.elementForces!.find(f => f.elementId === hinge.elementId)!;
+    member[hinge.end === 'start' ? 'myStart' : 'myEnd'] *= -1;
+  }
+  expect(hinges()).toBe(false);
 });

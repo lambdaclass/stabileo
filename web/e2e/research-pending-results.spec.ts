@@ -117,11 +117,13 @@ test('@smoke a shell retry recovers after the WASM download becomes available', 
   await expect(page.getByTestId('selected-result')).toContainText(/pass/i);
 });
 
-test.skip('@smoke known wrong result: #2505 discarded plate rows cannot enter the next run', async ({ page }) => {
+test('@smoke discarded plate rows cannot enter the next run', async ({ page }) => {
   await page.addInitScript(() => {
     window.Worker = class {
       onmessage?: (event: {data: unknown}) => void;
       postMessage() {
+        if (document.documentElement.dataset.firstPlateWorker) return;
+        document.documentElement.dataset.firstPlateWorker = 'true';
         window.addEventListener('deliver-plate-row', () => this.onmessage?.({ data: {
           row: { family: 'DKT', n: 4, center_mm: 1, values: [] }, index: 0
         } }), { once: true });
@@ -133,6 +135,8 @@ test.skip('@smoke known wrong result: #2505 discarded plate rows cannot enter th
   const run = page.getByRole('button', { name: 'Recompute live' });
   await run.click();
   await page.getByRole('button', { name: 'Restart' }).click();
-  await page.evaluate(() => window.dispatchEvent(new Event('deliver-plate-row')));
   await expect(page.getByTestId('navier-results').locator('tbody tr')).toHaveCount(6);
+  await run.click();
+  await page.evaluate(() => window.dispatchEvent(new Event('deliver-plate-row')));
+  await expect(page.getByTestId('navier-results').locator('tbody tr')).toHaveCount(0);
 });

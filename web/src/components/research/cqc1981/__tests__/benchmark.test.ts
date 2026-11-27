@@ -104,7 +104,12 @@ it.each(DAMPING)('compares both roofs and base shear to the closed form at dampi
   const reference = closedForm(xi);
   expect(Math.abs(difference(impliedRho(results), reference.rho))).toBeLessThan(benchmark.relativeTolerance * 100);
   for (const rule of ['SRSS', 'CQC'] as const) {
-    roof(results[rule]).forEach((u, i) => {
+    const measured = roof(results[rule]);
+    const expected = reference[rule === 'SRSS' ? 'roofSRSS' : 'roofCQC'];
+    expect(measured).toHaveLength(2);
+    expect(expected).toHaveLength(2);
+    expected.forEach((_, i) => {
+      const u = measured[i];
       expect(Math.abs(difference(u, reference[rule === 'SRSS' ? 'roofSRSS' : 'roofCQC'][i]))).toBeLessThan(benchmark.relativeTolerance * 100);
     });
     expect(Math.abs(difference(results[rule].baseShear, reference[rule]))).toBeLessThan(benchmark.relativeTolerance * 100);
