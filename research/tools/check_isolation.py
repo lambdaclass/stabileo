@@ -6,6 +6,7 @@ import sys
 DATA = re.compile(r"research/(?:papers\.json|[^/]+/[^/]+/(?:VALIDATION\.json|results/stabileo_results\.json|reference-results/[^/]+\.(?:csv|json)))$")
 ENGINE_TEST_DATA = re.compile(r"research/[^/]+/[^/]+/reference-results/[^/]+\.json$")
 QUOTED = re.compile(r'''["'`]([^"'`\n]+)["'`]''')
+ENGINE_MANIFEST_PATH = re.compile(r'(concat!\s*\(\s*env!\s*\(\s*"CARGO_MANIFEST_DIR"\s*\)\s*,\s*")(/[^"\n]*)"')
 
 
 def check(root):
@@ -15,7 +16,12 @@ def check(root):
         for path in (root / tree).rglob("*"):
             if not path.is_file() or path.suffix not in {".rs", ".toml", ".ts", ".js", ".svelte", ".css"} or "target" in path.parts:
                 continue
-            for line, text in enumerate(path.read_text().splitlines(), 1):
+            source = path.read_text()
+            if tree == "engine" and path.suffix == ".rs" and "CARGO_MANIFEST_DIR" in source:
+                source = ENGINE_MANIFEST_PATH.sub(
+                    lambda m: m[1] + str((root / "engine" / m[2][1:]).resolve()) + '"', source
+                )
+            for line, text in enumerate(source.splitlines(), 1):
                 for raw in QUOTED.findall(text):
                     if re.fullmatch(r'\s*sourcePath="research/[^/]+/[^/]+"\s*', text):
                         continue

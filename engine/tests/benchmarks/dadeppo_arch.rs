@@ -189,22 +189,3 @@ fn mesh_step_and_axial_stiffness_study_bounds_the_tolerances() {
     let stiffer = limit_point(&arch(40, 10.0, 1.0));
     assert!((stiffer.load / medium.load - 1.0).abs() < 1e-4, "axial stiffness: {} vs {}", stiffer.load, medium.load);
 }
-
-#[test]
-fn live_mesh_readme_distinguishes_arch_opening_from_element_spacing() {
-    let readme = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"), "/../research/benchmarks/dadeppo-arch-1975/README.md"
-    )).unwrap();
-    let opening = case()["openingDegrees"].as_f64().unwrap();
-    let replay: Value = serde_json::from_str(include_str!(
-        "../../../research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json"
-    )).unwrap();
-    let table = readme.split_once("| Elements | Arch opening | Angle per element |")
-        .expect("live mesh geometry table").1.trim_start().lines().skip(1);
-    let rows: Vec<_> = table.take_while(|line| line.starts_with('|')).collect();
-    let expected: Vec<_> = replay["convergence"]["meshes"].as_array().unwrap().iter().map(|mesh| {
-        let elements = mesh["elements"].as_u64().unwrap();
-        format!("| {elements} | {opening}° | {}° |", opening / elements as f64)
-    }).collect();
-    assert_eq!(rows, expected);
-}

@@ -9,6 +9,26 @@ spec.loader.exec_module(arch)
 
 
 class EvidenceFreshness(unittest.TestCase):
+    def test_live_mesh_readme_distinguishes_arch_opening_from_element_spacing(self):
+        opening = arch.load(arch.CASE)['openingDegrees']
+        meshes = arch.load(arch.REPLAY)['convergence']['meshes']
+        expected = []
+        for mesh in meshes:
+            elements = mesh['elements']
+            self.assertIs(type(elements), int)
+            self.assertGreater(elements, 0)
+            spacing = str(opening / elements).removesuffix('.0')
+            expected.append(f"| {elements} | {str(opening).removesuffix('.0')}° | {spacing}° |")
+
+        lines = (arch.HERE / 'README.md').read_text().splitlines()
+        header = lines.index('| Elements | Arch opening | Angle per element |')
+        rows = []
+        for line in lines[header + 2:]:
+            if not line.startswith('|'):
+                break
+            rows.append(line)
+        self.assertEqual(rows, expected)
+
     def test_numbered_equilibria_are_required_despite_matching_exports(self):
         for mutation in ('missing', 'duplicate', 'reordered'):
             run = arch.load(arch.REPLAY)

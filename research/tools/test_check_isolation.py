@@ -34,7 +34,6 @@ class Isolation(unittest.TestCase):
             (root / "engine/lib.rs").write_text('include_str!("../research/papers.json");')
             self.assertTrue(isolation.check(root))
 
-    @unittest.skip("known wrong result: #2505")
     def test_engine_manifest_relative_research_reads_follow_the_same_allowlist(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
