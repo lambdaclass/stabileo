@@ -176,3 +176,20 @@ describe('an unknown or absent edition fails CLOSED', () => {
     }
   });
 });
+
+it.skip('known wrong result: #2595 — the 2025 adapter supplies the teaching example’s column tie factors and governing limit', () => {
+  const ties = cirsoc201Adapter2025.columnTies;
+  expect(ties).toMatchObject({ edition: '2025', barFactor: 16, tieFactor: 48 });
+  const limits = [
+    { longBar: 20, tie: 10, width: 0.40, expected: 0.32, governs: 'longBar' },
+    { longBar: 20, tie: 10, width: 0.31, expected: 0.31, governs: 'leastDimension' },
+    { longBar: 20, tie: 10, width: 0.32, expected: 0.32, governs: 'longBar' },
+    { longBar: 20, tie: 10, width: 0.33, expected: 0.32, governs: 'longBar' },
+    { longBar: 32, tie: 10, width: 0.50, expected: 0.48, governs: 'tie' },
+  ];
+  for (const { longBar, tie, width, expected, governs } of limits) {
+    expect(ties.spacing(longBar, tie, width)).toMatchObject({
+      spacing: expected, governedBy: governs, ref: { edition: ties.edition, clause: '25.7.2.1' },
+    });
+  }
+});
