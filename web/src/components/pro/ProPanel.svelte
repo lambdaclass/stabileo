@@ -41,7 +41,7 @@
   import { runEngineActionAsync } from '../../lib/store/engine-action';
   import { t } from '../../lib/i18n';
   import { leaveSelfWeightRule, selfWeightRuleEffect } from '../../lib/store/self-weight-migration';
-  import { ensurePhysicalModelEffect } from '../../lib/store/plates-from-shells';
+  import RecognizePhysicalModel from './plates/RecognizePhysicalModel.svelte';
   import SelectionPanel from '../SelectionPanel.svelte';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ProTransformPanel from './ProTransformPanel.svelte';
@@ -149,7 +149,11 @@
     solving = true;
     try {
       const outcome = await runGlobalSolve();
-      if (!outcome.ok) { solving = false; return; }
+      if (!outcome.ok) {
+        if (!__PUBLIC_FEATURES__.proPlatesUnified) solveError = outcome.error;
+        solving = false;
+        return;
+      }
       if (!resultsStore.results3D) {
         solveError = t('pro.noResults');
         solving = false;
@@ -190,7 +194,6 @@
 
   // A model without a self-weight rule (older file, link, tab, first member) is given one.
   $effect(selfWeightRuleEffect);
-  $effect(ensurePhysicalModelEffect);
   // What is drawn in another mode is not drawn in PRO: a model seen empty here is migrated on return.
   onDestroy(leaveSelfWeightRule);
 
@@ -264,13 +267,22 @@
   };
 </script>
 
+{#if __PUBLIC_FEATURES__.proPlatesUnified}<RecognizePhysicalModel />{/if}
+
 <div class="pro-panel" data-testid="pro-panel" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile}>
   {#if uiStore.isMobile}
     <ProPhoneNav {shell} />
   {/if}
 
   {#if solveError}
-    <div class="pro-solve-error" data-testid="pro-solve-error"><span>{solveError}</span><button type="button" class="pro-solve-error-x" aria-label={t('toast.dismiss')} onclick={() => (solveError = null)} data-testid="pro-solve-error-close">×</button></div>
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      <div class="pro-solve-error dismissible" data-testid="pro-solve-error">
+        <span>{solveError}</span>
+        <button type="button" class="pro-solve-error-x" aria-label={t('toast.dismiss')} onclick={() => (solveError = null)} data-testid="pro-solve-error-close">×</button>
+      </div>
+    {:else}
+      <div class="pro-solve-error">{solveError}</div>
+    {/if}
   {/if}
 
   <!--
@@ -462,7 +474,8 @@
   */
 
   .pro-solve-error-x { flex: none; margin-left: auto; min-width: 26px; min-height: 26px; padding: 0; border: none; background: transparent; color: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
-  .pro-solve-error { display: flex; align-items: flex-start; gap: 8px; padding: 4px 10px; font-size: 0.7rem; color: var(--st-danger); background: rgba(229, 72, 42, 0.1); border-bottom: 1px solid var(--st-surface-3); }
+  .pro-solve-error.dismissible { display: flex; align-items: flex-start; gap: 8px; }
+  .pro-solve-error { padding: 4px 10px; font-size: 0.7rem; color: var(--st-danger); background: rgba(229, 72, 42, 0.1); border-bottom: 1px solid var(--st-surface-3); }
 
   /* ─── Content area ─── */
   .pro-content {

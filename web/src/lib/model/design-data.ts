@@ -9,8 +9,9 @@
  * CIRSOC 201-2025 Table 20.5.1.3.1 is known for it: a cover under it is said, and a click sets
  * every cover to it.
  */
+import { BEAM_BAR_RANGE, COLUMN_BAR_RANGE, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, WALL_BAR_RANGE, inRange, type SlabFace } from './reinforcement-bars';
 import { unifiedPlates } from '../features';
-import { AGGREGATE_RANGE, BEAM_BAR_RANGE, COLUMN_BAR_RANGE, DEFAULT_AGGREGATE_MM, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, WALL_BAR_RANGE, inRange, type SheetCode } from '../rc-sheets/types';
+import { AGGREGATE_RANGE, DEFAULT_AGGREGATE_MM, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, type SheetCode } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
 import { migrateDesignOptions } from '../rc-sheets/design-options';
 import { migrateLateralSystem } from './lateral-system';
@@ -150,7 +151,7 @@ export interface ProjectDesignData {
   /** Where the members stand on their lines: the beams' and slabs' level reference and each column stack's fixed point (`placement.ts`). */
   placement?: import('./placement').Placement;
   /** A predetermined slab base mat, deducted before bands are added (absent: the minimum). */
-  slabBase?: Partial<Record<'topX' | 'topY' | 'bottomX' | 'bottomY', { diameter: number; spacing: number }>>;
+  slabBase?: Partial<Record<SlabFace, { diameter: number; spacing: number }>>;
 }
 
 /**

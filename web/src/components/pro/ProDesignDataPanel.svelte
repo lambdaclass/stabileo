@@ -19,8 +19,7 @@
   import BeamsLateralSelect from './design/BeamsLateralSelect.svelte';
   import ProDeflectionLimits from './ProDeflectionLimits.svelte';
   import DesignOptionsSections from './design/DesignOptionsSections.svelte';
-  import { SLAB_BAR_RANGE, TIE_BAR_RANGE, WALL_BAR_RANGE, inRange } from '../../lib/rc-sheets/types';
-  import { SLAB_FACES } from '../../lib/rc-sheets/slab-row';
+  import { SLAB_FACES, SLAB_BAR_RANGE, TIE_BAR_RANGE, WALL_BAR_RANGE, inRange } from '../../lib/model/reinforcement-bars';
 
   const d = $derived.by(() => { void modelStore.designData; return designData(); });
   const stated = $derived(modelStore.designData !== undefined);

@@ -1,3 +1,4 @@
+import { inRange } from '../model/reinforcement-bars';
 import type { WallReinforcement } from '../design-contract/reinforcement';
 
 export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching' | 'footing' | 'stair';
@@ -21,15 +22,7 @@ export const SHEET_CODES: Record<SheetCode, { name: string; country: string }> =
 
 export type RowStatus = 'ok' | 'warn' | 'fail' | 'none';
 
-/** The slabs' meshes when the project states none, mm, and the ranges of the project's lists each family takes its bars from. */
-export const SLAB_MESH_DIAMETERS: readonly number[] = [8, 10, 12, 16];
-export const SLAB_BAR_RANGE = { min: 6, max: 16 } as const;
-export const BEAM_BAR_RANGE = { min: 10, max: 25 } as const;
-export const COLUMN_BAR_RANGE = { min: 12, max: 32 } as const;
-export const TIE_BAR_RANGE = { min: 6, max: 16 } as const;
-export const WALL_BAR_RANGE = { min: 8, max: 20 } as const;
-export const FOOTING_BAR_RANGE = { min: 10, max: 25 } as const;
-export const inRange = (dia: number, r: { min: number; max: number }): boolean => dia >= r.min && dia <= r.max;
+export { SLAB_MESH_DIAMETERS, SLAB_BAR_RANGE, BEAM_BAR_RANGE, COLUMN_BAR_RANGE, TIE_BAR_RANGE, WALL_BAR_RANGE, FOOTING_BAR_RANGE, inRange } from '../model/reinforcement-bars';
 
 /** The stirrups, hoops and ties a context may use when it states none, mm. */
 export const DEFAULT_TIE_DIAMETERS: readonly number[] = [6, 8, 10, 12];

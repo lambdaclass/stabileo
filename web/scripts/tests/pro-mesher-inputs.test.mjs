@@ -224,7 +224,7 @@ for (const unified of [false, true]) {
   });
 }
 
-test.skip('known wrong result: #1928 the released PRO panel keeps the unmeshed plate refusal after its toast closes', async t => {
+test('known wrong result: #1928 the released PRO panel keeps the unmeshed plate refusal after its toast closes', async t => {
   const server = await createServer({ root, mode: 'production', server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
   t.after(() => server.close());
   await server.listen();

@@ -520,7 +520,7 @@ test('known wrong result: #1928 the published viewport imports only the availabl
   }
 });
 
-test.skip('known wrong result: #1928 editing ordinary project bars has no dependency on the reinforcement sheets', async () => {
+test('known wrong result: #1928 editing ordinary project bars has no dependency on the reinforcement sheets', async () => {
   const entry = resolve(root, 'src/components/pro/ProDesignDataPanel.svelte');
   const result = await build({ root, logLevel: 'silent', build: {
     write: false, lib: { entry, formats: ['es'] },

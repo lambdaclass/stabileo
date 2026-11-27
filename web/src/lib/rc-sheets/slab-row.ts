@@ -1,3 +1,4 @@
+import { SLAB_FACES, type SlabFace } from '../model/reinforcement-bars';
 import { computeAsFlexure, slabProvisions, stripCapacity, stripStrain } from '../engine/codes/argentina/losas';
 import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { concreteBelowTopBars, confinementOf, deriveDevelopment, deriveLap, topBarFactor, type DevelopmentResult } from '../codes/cirsoc201/anchorage';
@@ -9,8 +10,7 @@ import { check, ratioOf, type CheckLine, type ComboTable, type MeshBars, type Ma
 
 const EDITION = '2025' as const;
 
-export type SlabFace = 'bottomX' | 'bottomY' | 'topX' | 'topY';
-export const SLAB_FACES: readonly SlabFace[] = ['bottomX', 'bottomY', 'topX', 'topY'];
+export { SLAB_FACES, type SlabFace } from '../model/reinforcement-bars';
 
 export interface SlabDemand {
   key: string; name: string; level?: string;

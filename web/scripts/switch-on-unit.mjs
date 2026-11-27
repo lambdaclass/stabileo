@@ -44,6 +44,8 @@ export const sharedSwitchOnUnitFiles = [
   'src/lib/engine/codes/argentina/__tests__/beam-sheet-minimum-profile.test.ts',
   'src/lib/three/__tests__/published-load-annotations.test.ts',
   'src/lib/viewport3d/__tests__/published-solo-mode.test.ts',
+  'src/lib/viewport3d/__tests__/published-piece-loads.test.ts',
+  'src/lib/viewport3d/__tests__/unmeshed-plate-presentation.test.ts',
   'src/components/__tests__/published-floor-load-targets.test.ts',
   'src/components/__tests__/published-result-sections.test.ts',
   'src/components/__tests__/published-diagnostic-list.test.ts',
