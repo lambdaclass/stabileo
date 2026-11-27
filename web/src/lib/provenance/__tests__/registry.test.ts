@@ -232,3 +232,33 @@ it('known wrong result: #2588 — registers added load validation separately fro
   expect(badSelector).not.toContain('authored-load-validation');
   expect(found([distributed])).not.toContain('authored-load-validation');
 });
+
+describe.skip('known wrong result: #1928 model edits and report filters do not explain unrelated saved analyses', () => {
+  const load = { type: 'nodal', data: { id: 1, nodeId: 1, fx: 2, fz: 0, my: 0, caseId: 1 } };
+  const cases = [{ id: 1, name: 'Permanent', type: 'D' }];
+  const combos = [{ id: 1, name: 'Factored', factors: [{ caseId: 1, factor: 2 }] }];
+  const notices = (s: FeatureSnapshot, mode = 'pro') => assessProject(s, unknownStamp(), mode).changes.map(change => change.id);
+
+  it('does not explain any changed solver quantity for a previously edited model', () => {
+    expect(RESULT_CHANGES.changes.find(change => change.id === 'bulk-load-and-constraint-edits')).not.toHaveProperty('quantities');
+    expect(notices({ loads: [load], loadCases: cases })).not.toContain('bulk-load-and-constraint-edits');
+    expect(notices({ loads: [load], loadCases: [{ ...cases[0]!, id: 2 }] })).toContain('bulk-load-and-constraint-edits');
+  });
+
+  it('checks constraint references against the saved node inventory', () => {
+    const nodes: FeatureSnapshot['nodes'] = [[1, { x: 0, y: 0 }], [2, { x: 1, y: 0 }]];
+    const constraints = [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }];
+    expect(notices({ nodes, constraints })).not.toContain('bulk-load-and-constraint-edits');
+    expect(notices({ nodes: nodes.slice(0, 1), constraints })).toContain('bulk-load-and-constraint-edits');
+  });
+
+  it('restricts the member table notice to saved PRO combination choices', () => {
+    const base = { loadCases: cases, combinations: combos };
+    const scoped = { ...base, resultScopes: { active: [] } };
+    expect(notices(base)).not.toContain('member-force-table-scope');
+    expect(notices(scoped, '3d')).not.toContain('member-force-table-scope');
+    expect(notices(scoped)).toContain('member-force-table-scope');
+    expect(notices({ ...base, resultScopes: { active: [1] } } as FeatureSnapshot)).not.toContain('member-force-table-scope');
+    expect(notices({ ...base, combinations: [{ ...combos[0], method: 'srss' }] })).toContain('member-force-table-scope');
+  });
+});
