@@ -71,6 +71,35 @@ defmodule StabileoAssignments.Controllers.ExamControllerTest do
     assert {again["id"], again["seed"]} == {data["id"], data["seed"]}
   end
 
+  @tag skip: "known wrong result: #1927"
+  test "a writing attempt gets prompts and the revealed attempt gets its original marking key", %{
+    assignment: a,
+    token: token
+  } do
+    exercise = %{
+      "id" => "beam",
+      "kinematicQuestion" => %{"classification" => "hyperstatic", "degree" => 2},
+      "diagramShapeQuestions" => [%{"diagram" => "M", "correct" => "quadratic"}],
+      "characteristics" => [%{"label" => "stress", "unit" => "MPa", "answer" => %{"kind" => "literal", "value" => 7}}],
+      "diagramQuestions" => [%{"question" => "M?", "unit" => "kNm", "answer" => %{"kind" => "literal", "value" => 4}}],
+      "authoredFrom" => %{"private" => true}
+    }
+    envelope = %{"stabileoExercise" => 1, "exercise" => exercise}
+    Repo.update_all(from(x in Assignment, where: x.id == ^a.id), set: [exercise: envelope])
+    writing = (start(a.code, token) |> json_body(200))["data"]
+    visible = writing["exercise"]["exercise"]
+    assert visible["kinematicQuestion"] == %{}
+    assert visible["diagramShapeQuestions"] == [%{"diagram" => "M"}]
+    assert visible["characteristics"] == [%{"label" => "stress", "unit" => "MPa"}]
+    assert visible["diagramQuestions"] == [%{"question" => "M?", "unit" => "kNm"}]
+    refute Map.has_key?(visible, "authoredFrom")
+    path = "/attempts/#{writing["id"]}"
+    assert (exam_request(:get, path, %{}, token) |> json_body(200))["data"]["exercise"] == writing["exercise"]
+    closed = (exam_request(:post, path <> "/submit", %{"answers" => %{}, "revision" => 0}, token) |> json_body(200))["data"]
+    assert closed["reveal_allowed"]
+    assert closed["exercise"] == envelope
+  end
+
   test "409 assignment_not_open before opens_at and assignment_closed after closes_at", %{
     assignment: a,
     token: token

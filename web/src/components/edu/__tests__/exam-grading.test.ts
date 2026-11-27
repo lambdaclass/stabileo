@@ -120,3 +120,25 @@ it('known wrong result: #1927 — displayed expected reactions round-trip throug
   const again = gradeAttempt(input, 1, examSubmission(input, 1, [{ ...row, answer: row.expected! }]))!;
   expect(again.answers.find(a => a.key === row.key)?.outcome).toBe('correct');
 });
+
+it.skip('known wrong result: #1927 — Basic rejects a saved P-delta handoff before opening a model', async () => {
+  const { takeStepsHandoff } = await import('../exam-steps-handoff');
+  const model = variantOf(spec(), 1).model;
+  const storage = new Map<string, string>();
+  const prev = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
+  Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: {
+    getItem: (key: string) => storage.get(key) ?? null,
+    removeItem: (key: string) => storage.delete(key),
+  } });
+  try {
+    for (const solverType of ['linear', 'pdelta']) {
+      for (const version of [1, 2]) storage.set('stabileo.exam.steps.v' + version, JSON.stringify({ title: 'beam', model, solverType }));
+      const handoff = takeStepsHandoff();
+      if (solverType === 'linear') expect(handoff?.model).toEqual(model);
+      else expect(handoff).toBeNull();
+    }
+  } finally {
+    if (prev) Object.defineProperty(globalThis, 'sessionStorage', prev);
+    else Reflect.deleteProperty(globalThis, 'sessionStorage');
+  }
+});
