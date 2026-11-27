@@ -281,3 +281,28 @@ test('@smoke on a phone the games hub has no sideways scroll and every link is a
     expect(Math.min(box.width, box.height), box.text).toBeGreaterThanOrEqual(44);
   }
 });
+
+test.fixme('@smoke known wrong result: #2492 — winning feedback stays inside the tablet viewport throughout its animation', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=31');
+  await page.getByTestId('dg-start').click();
+  await expect(page.getByTestId('dg-options')).toBeVisible();
+  await page.addStyleTag({ content: '.option.won, .option.won * { animation-play-state: paused !important; }' });
+  const winner = page.getByTestId(`dg-option-${await correctIndex(page)}`);
+  await winner.click();
+  await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'true');
+
+  const overflow = await winner.evaluate(card => {
+    const scroller = card.closest('.landing')!;
+    const animations = card.getAnimations({ subtree: true }).filter(animation => animation instanceof CSSAnimation);
+    let widest = 0;
+    for (let step = 0; step <= 10; step++) {
+      for (const animation of animations) {
+        animation.currentTime = Number(animation.effect!.getComputedTiming().activeDuration) * step / 10;
+      }
+      widest = Math.max(widest, scroller.scrollWidth - scroller.clientWidth, document.documentElement.scrollWidth - innerWidth);
+    }
+    return widest;
+  });
+  expect(overflow).toBe(0);
+});
