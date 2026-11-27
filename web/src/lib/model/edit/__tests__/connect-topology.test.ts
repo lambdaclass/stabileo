@@ -72,6 +72,52 @@ describe('connecting a model', () => {
     }
   });
 
+  it('uses the requested tolerance in preview and in the actual cut', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(6, 0, 0), near = modelStore.addNode(3, 0.0005, 0);
+    modelStore.addElement(a, b, 'frame');
+    expect(topologyPreview(0.0001).atNodes).toBe(0);
+    expect(topologyPreview(0.001).atNodes).toBe(1);
+    const report = connectTopology(0.001);
+    expect(report.atNodes.cut).toHaveLength(1);
+    expect(modelStore.elements.size).toBe(2);
+    for (const element of modelStore.elements.values()) expect([element.nodeI, element.nodeJ]).toContain(near);
+  });
+
+  it('does not count a crossing that becomes a shared endpoint after merging', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(4, 0, 4);
+    const duplicate = modelStore.addNode(4.00005, 0, 4);
+    modelStore.addElement(a, c, 'frame');
+    modelStore.addElement(b, duplicate, 'frame');
+    expect(topologyPreview().crossings).toBe(0);
+    const report = connectTopology();
+    expect(report.intersections.cut).toHaveLength(0);
+    expect(modelStore.elements.size).toBe(2);
+  });
+
+  it('removes a member collapsed by the first merge before cutting the others', () => {
+    const a = modelStore.addNode(0, 0, 0), duplicate = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+    const c = modelStore.addNode(2, 0, 2), d = modelStore.addNode(2, 0, -2);
+    const collapsed = modelStore.addElement(a, duplicate, 'frame');
+    modelStore.addElement(b, c, 'frame');
+    modelStore.addElement(c, d, 'frame');
+    const report = connectTopology();
+    expect(report.removedZeroLength).toBe(1);
+    expect(modelStore.elements.has(collapsed)).toBe(false);
+    expect(modelStore.elements.size).toBe(2);
+    expect(report.intersections.cut).toHaveLength(0);
+  });
+
+  it('counts a member with several interior nodes once in preview and in the report', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(6, 0, 0);
+    modelStore.addNode(2, 0, 0);
+    modelStore.addNode(4, 0, 0);
+    modelStore.addElement(a, b, 'frame');
+    expect(topologyPreview().atNodes).toBe(1);
+    const report = connectTopology();
+    expect(report.atNodes.cut).toHaveLength(1);
+    expect(modelStore.elements.size).toBe(3);
+  });
+
   it('drops a constraint that becomes self-referential', () => {
     const a = modelStore.addNode(0, 0, 3), duplicate = modelStore.addNode(0, 0, 3);
     modelStore.addConstraint({ type: 'rigidLink', masterNode: a, slaveNode: duplicate } as never);
