@@ -202,3 +202,22 @@ describe('a P-Δ exercise on a model the solver refuses', () => {
     expect(toasts.some((t) => t.type === 'error')).toBe(true);
   });
 });
+
+it.skip.each([{ converged: false, isStable: true }, { converged: true, isStable: false }])('known wrong result: #1927 — withholds unsafe P-Delta iterate %o from students and teacher grading', async flags => {
+  const wasm = await import('../../../lib/engine/wasm-solver');
+  const { solveModel } = await import('../exercise-variant');
+  const model: import('../exercise-spec').ModelSpec = {
+    nodes: [[0, 0], [4, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'fixed' }],
+  };
+  eduStore.loadExercise({ id: 'pd', solverType: 'pdelta' } as never);
+  const result = { results: fakeResult(), ...flags };
+  const solve = vi.spyOn(wasm, 'solvePDelta').mockReturnValue(result as never);
+  solveForEdu();
+  expect(eduStore.results).toBeNull();
+  expect(toasts.some(({ type }) => type === 'error')).toBe(true);
+  expect(typeof solveModel(model, 'pdelta')).toBe('string');
+  solve.mockReturnValue({ ...result, converged: true, isStable: true } as never);
+  solveForEdu();
+  expect(eduStore.results?.reactions).toEqual(result.results.reactions);
+  expect(solveModel(model, 'pdelta')).toEqual(result.results);
+});
