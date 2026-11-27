@@ -24,7 +24,7 @@ A two-node truss element has no internal bending mode. In both dimensions a comp
 restrained in translation at both ends is screened against the pinned Euler load using its own
 length and bending stiffness. Where the supports do not establish this local bound, the linear
 result keeps the unresolved-member warning. Factored combinations propagate that warning.
-A roller that restrains transverse displacement can establish the same local bound while allowing axial movement. Disconnected frames are screened individually. The finite-element eigenvalue alone can overestimate the physical critical load. For an eligible planar frame, the screen bounds chord motion with the assembled stiffness and bounds the deformation relative to the chord using each member’s bending and shear stiffness. If these bounds cannot exclude a higher warning band, the result carries the unresolved warning. Combinations propagate the physical upper bound separately from the reported screening ratio.
+A roller that restrains transverse displacement can establish the same local bound while allowing axial movement. Disconnected frames are screened individually. The finite-element eigenvalue alone can overestimate the physical critical load. For an eligible planar frame, the screen bounds chord motion with the assembled stiffness and bounds the deformation relative to the chord using each member’s bending and shear stiffness. If these bounds cannot exclude a higher warning band, the result carries the unresolved warning. A disconnected solve or combination reports a physical upper bound only when it covers every contributing component and load. A negative factor can introduce unexamined compression and withholds that bound.
 
 ## Beam dynamics and nonlinear convergence warnings
 

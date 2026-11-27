@@ -749,7 +749,6 @@ fn a_unit_combination_preserves_the_near_case_it_repeats() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1927"]
 fn review_1927_a_physical_bound_covers_every_contributing_load_and_component() {
     let mut model = serde_json::to_value(truss_v(false)).unwrap();
     model["nodes"]["5"] = json!({"id":5,"x":0,"z":5});

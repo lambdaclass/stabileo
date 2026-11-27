@@ -1217,7 +1217,7 @@ pub(crate) fn second_order_2d_with_bound(input: &SolverInput, loads: &[SolverLoa
             components.push(nodes);
         }
         if components.len() > 1 {
-            let (mut found, mut ratio, mut physical) = (Vec::new(), 0.0_f64, 0.0_f64);
+            let (mut found, mut ratio, mut physical) = (Vec::new(), 0.0_f64, Some(0.0_f64));
             for nodes in components {
                 let mut part = input.clone();
                 part.nodes.retain(|_, nd| nodes.contains(&nd.id));
@@ -1235,11 +1235,12 @@ pub(crate) fn second_order_2d_with_bound(input: &SolverInput, loads: &[SolverLoa
                 response.displacements.retain(|d| nodes.contains(&d.node_id));
                 response.element_forces.retain(|f| members.contains(&f.element_id));
                 let (diagnostics, observed, upper) = second_order_component(&part, &part_loads, &response, &n, &screen_model_2d(&part, &n));
+                let part_bound = physical_screen_bound(&diagnostics, upper, Some(observed));
+                physical = physical.zip(part_bound).map(|(a, b)| a.max(b));
                 attach(&mut found, diagnostics);
                 ratio = ratio.max(observed);
-                physical = physical.max(upper.unwrap_or(observed));
             }
-            return (found, ratio, (physical > ratio).then_some(physical));
+            return (found, ratio, physical.filter(|&p| p > ratio));
         }
     }
     second_order_component(input, loads, r, &n, &model)
@@ -1257,6 +1258,12 @@ fn second_order_component(input: &SolverInput, loads: &[SolverLoad], r: &Analysi
     let locally_unresolved = found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-UNBOUNDED"));
     if global_needed { check_physical_band(&mut found, physical); }
     (found, ratio, physical.filter(|&upper| !locally_unresolved && upper > ratio))
+}
+
+pub(crate) fn physical_screen_bound(findings: &[StructuredDiagnostic], upper: Option<f64>, observed: Option<f64>) -> Option<f64> {
+    upper.or_else(|| {
+        if findings.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-UNBOUNDED")) { None } else { observed }
+    })
 }
 
 pub(crate) fn check_physical_band(found: &mut Vec<StructuredDiagnostic>, upper: Option<f64>) {

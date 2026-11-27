@@ -510,15 +510,16 @@ fn combined_screen_2d(resolved: &ResolvedFactors, cases: &[(usize, &AnalysisResu
         let factor = resolved.terms.iter().find(|&&(_, s)| s == slot).map_or(0.0, |&(factor, _)| factor);
         (factor.abs(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))
     }));
-    let extra: f64 = resolved.contributions(cases).map(|(factor, _, r)| {
-        let summary = r.result_summary.as_ref();
-        let excess = summary.and_then(|s| s.second_order_physical_bound.zip(s.second_order_ratio)).map_or(0.0, |(bound, ratio)| crate::check::positive_part(bound - ratio));
-        factor.abs() * excess
-    }).sum();
-    let upper = ratio.map(|r| r + extra);
+    let physical = resolved.contributions(cases).try_fold(0.0, |total, (factor, _, r)| {
+        if factor < 0.0 { return None; }
+        let summary = r.result_summary.as_ref()?;
+        let upper = crate::known_issues::physical_screen_bound(&r.structured_diagnostics, summary.second_order_physical_bound, summary.second_order_ratio)?;
+        Some(total + factor * upper)
+    });
+    let extra_bound = physical.filter(|&upper| ratio.is_some_and(|reported| upper > reported));
     let mut diagnostics = resolved.second_order_screen(carried, ratio);
-    if extra > 0.0 { crate::known_issues::check_physical_band(&mut diagnostics, upper); }
-    (ratio, upper.filter(|_| extra > 0.0), diagnostics)
+    if extra_bound.is_some() { crate::known_issues::check_physical_band(&mut diagnostics, extra_bound); }
+    (ratio, extra_bound, diagnostics)
 }
 
 pub(crate) fn combine_results_refs_checked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Result<Option<AnalysisResults>, String> {
