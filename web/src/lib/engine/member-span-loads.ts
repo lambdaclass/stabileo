@@ -92,8 +92,6 @@ export function remapSpanInterval(id: number, a: number, b: number, start: numbe
   }
   const lo = Math.max(a, start), hi = Math.min(b, end);
   if (hi <= lo) return null;
-  // A cut a rounding away from where the load ends leaves the piece a sliver of it, not a load.
-  if ((hi - lo) / (end - start) < MEMBER_GEOMETRY_LIMIT && (a < start || b > end) && (lo === start || hi === end)) return null;
   validateMemberLoadInterval(id, lo - start, hi - start, end - start);
   const scale = measure === 'member' ? 1 : (end - start) / length;
   const local = (x: number) => (x - start) / scale;

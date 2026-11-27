@@ -15,3 +15,7 @@ On the unmerged integration branch, two linear loads could match a curved pressu
 ## Shared edges of declared plates
 
 A disabled-profile integration build could accept two plate meshes with different nodes along their common edge. Both profiles now reconcile and check those nodes before applying a batch. Remesh affected adjoining plates and verify connectivity before solving again.
+
+## Positive overlaps on split members
+
+An unmerged integration build could discard part of a distributed load when that part covered a very short interval on a child member. The split now refuses any positive overlap below the solver's existing geometric limit. An exactly empty intersection still transfers no load. Check the original load extents and redo any affected edits before analysis.

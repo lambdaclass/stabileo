@@ -1,0 +1,41 @@
+{
+  "id": "positive-split-load-overlaps",
+  "date": "2026-11-27",
+  "prs": [
+    2222
+  ],
+  "area": "analysis",
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Positive load overlaps on split members",
+    "es": "Solapes positivos de carga en barras divididas",
+    "pt": "Sobreposição positiva de cargas em barras divididas",
+    "de": "Positive Lastüberdeckung an geteilten Stäben",
+    "fr": "Recouvrement de charge sur une barre divisée",
+    "tr": "Bölünmüş çubuklarda pozitif yük örtüşmeleri",
+    "zh": "杆件分割后的荷载重叠区间",
+    "hu": "Terhek átfedése felosztott rudakon"
+  },
+  "explanation": {
+    "en": "An integration build could drop a short part of a distributed load at a split. Check the original load extents and repeat the split. Positive overlaps below the geometry limit now give a refusal.",
+    "es": "Una compilación de integración podía omitir un tramo corto de una carga distribuida al dividir una barra. Compruebe la extensión original y repita la división. Se rechazan los solapes positivos por debajo del límite geométrico.",
+    "pt": "Uma versão de integração podia omitir um trecho curto de carga distribuída na divisão de uma barra. Confira a extensão original e repita a divisão. Sobreposições positivas abaixo do limite geométrico são recusadas.",
+    "de": "Ein Integrationsbuild konnte beim Teilen eines Stabs einen kurzen Teil einer Streckenlast verwerfen. Prüfen Sie die ursprüngliche Lastausdehnung und wiederholen Sie die Teilung. Positive Überdeckungen unter der Geometriegrenze werden abgelehnt.",
+    "fr": "Une version d’intégration pouvait omettre un court tronçon de charge répartie lors de la division d’une barre. Vérifiez l’étendue initiale de la charge et répétez la division. Les recouvrements positifs sous la limite géométrique sont refusés.",
+    "tr": "Bir entegrasyon sürümü çubuğu bölerken yayılı yükün kısa bir bölümünü kaybedebiliyordu. İlk yük sınırlarını kontrol edip bölmeyi yineleyin. Geometri sınırının altındaki pozitif örtüşmeler artık reddedilir.",
+    "zh": "某个集成版本在分割杆件时可能丢失很短一段分布荷载。请核对原始荷载范围并重新分割。现会拒绝低于几何限值的非空重叠区间。",
+    "hu": "Egy integrációs változat a rúd felosztásakor elhagyhatta a megoszló teher egy rövid szakaszát. Ellenőrizze az eredeti teher kiterjedését és ismételje meg a felosztást. A geometriai határ alatti pozitív átfedést a program elutasítja."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-build-and-schedules.md",
+    "heading": "Positive overlaps on split members"
+  },
+  "when": {
+    "any": [
+      "partialDistributedMemberLoads"
+    ]
+  }
+}
