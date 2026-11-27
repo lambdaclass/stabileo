@@ -45,6 +45,7 @@ export const sharedSwitchOnUnitFiles = [
   'src/components/pro/__tests__/imposed-load-controls-profile.test.ts',
   'src/components/__tests__/plate-node-editor-profile.test.ts',
   'src/components/__tests__/plate-mesh-quality-profile.test.ts',
+  'src/components/__tests__/selected-plate-load-editor.test.ts',
   'src/lib/engine/codes/argentina/__tests__/beam-sheet-minimum-profile.test.ts',
   'src/lib/three/__tests__/published-load-annotations.test.ts',
   'src/lib/viewport3d/__tests__/published-solo-mode.test.ts',

@@ -14973,7 +14973,6 @@ const hu: Translations = {
   "plates.shapeProblem.curvedOutline": "A körvonalnak íves oldalai vannak: a kivágás előtt tegye őket egyenessé.",
   "plates.shapeProblem.nothingChosen": "Jelöljön ki legalább egy cellát.",
   "plates.fromLevel": "a szintről ({name})",
-  "plates.areaLoadHintWall": "Falon a felületi teher a fal síkjára merőlegesen, nyomásként hat. Minden hálón át követi a falat; a lyukak nem viselnek terhet.",
   "plates.openInLoads": "Megtekintés és szerkesztés a Terhek között",
   "floorLoad.pickedPlates": "Kijelölt lemezek ({n})",
   "floorLoad.plateDefault": "Felületi teher",

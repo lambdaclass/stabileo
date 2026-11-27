@@ -14377,7 +14377,6 @@ const fr: Translations = {
   'plates.shapeProblem.curvedOutline': 'Le contour a des côtés courbes : redressez-les avant de l\'entailler.',
   'plates.shapeProblem.nothingChosen': 'Marquez au moins une cellule.',
   'plates.fromLevel': 'du niveau ({name})',
-  'plates.areaLoadHintWall': 'Sur un mur, la charge surfacique agit normalement à son plan, comme une pression. Elle suit le mur à chaque maillage ; les trous n\'en reçoivent pas.',
   'plates.openInLoads': 'Voir et modifier dans Charges',
   'floorLoad.pickedPlates': 'Plaques choisies ({n})',
   'floorLoad.plateDefault': 'Charge surfacique',

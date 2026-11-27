@@ -14377,7 +14377,6 @@ const de: Translations = {
   'plates.shapeProblem.curvedOutline': 'Der Umriss hat gekrümmte Seiten: Begradigen Sie sie, bevor Sie ihn ausschneiden.',
   'plates.shapeProblem.nothingChosen': 'Markieren Sie mindestens eine Zelle.',
   'plates.fromLevel': 'von der Ebene ({name})',
-  'plates.areaLoadHintWall': 'Auf einer Wand wirkt die Flächenlast senkrecht zu ihrer Ebene, als Druck. Sie folgt der Wand durch jedes Netz; die Löcher tragen keine.',
   'plates.openInLoads': 'In Lasten ansehen und bearbeiten',
   'floorLoad.pickedPlates': 'Gewählte Platten ({n})',
   'floorLoad.plateDefault': 'Flächenlast',

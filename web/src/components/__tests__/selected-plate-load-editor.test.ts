@@ -9,7 +9,7 @@ import { shellLoadForces } from '../../lib/engine/shell-load-integration';
 const previousHelp = uiStore.inlineHelp;
 afterEach(() => { uiStore.inlineHelp = previousHelp; uiStore.clearSelection(); modelStore.clear(); });
 
-it.skip.each(['wall', 'slab'] as const)('known wrong result: #1928 the selected %s describes the direction it applies and offers only supported mesh edits', kind => {
+it.each(['wall', 'slab'] as const)('known wrong result: #1928 the selected %s describes the direction it applies and offers only supported mesh edits', kind => {
   for (const triangular of [false, true]) {
     modelStore.clear();
     const points = [[0, 0], [2, 0], [2, 2], [0, 2]].slice(0, triangular ? 3 : 4)
@@ -30,6 +30,8 @@ it.skip.each(['wall', 'slab'] as const)('known wrong result: #1928 the selected 
     if (!equivalent) throw new Error('missing equivalent forces');
     expect(equivalent.forces.every(([x, y, z]) => x === 0 && y === 0 && z < 0)).toBe(true);
     modelStore.addSurfaceLoad3D(mesh, 3, 1, triangular ? { on: 'plate' } : {});
+    const direct = modelStore.addLoadCase('Element pressure', 'L');
+    modelStore.addSurfaceLoad3D(mesh, 3, direct, triangular ? { on: 'plate' } : {});
     uiStore.inlineHelp = true;
     uiStore.selectMode = 'shells';
     uiStore.shellPickScope = 'plate';
@@ -38,11 +40,12 @@ it.skip.each(['wall', 'slab'] as const)('known wrong result: #1928 the selected 
     expect.soft(html).toContain(t('plates.areaLoadHint'));
     expect.soft(html).toContain('data-testid="plate-load-add"');
     expect.soft(html.includes('data-testid="plate-typology"')).toBe(Boolean(__PUBLIC_FEATURES__.proPlatesUnified));
-    expect.soft(html.includes('data-testid="plate-element-load-1"')).toBe(kind === 'slab' && Boolean(__PUBLIC_FEATURES__.proPlatesUnified));
+    expect.soft(html.includes('data-testid="plate-element-load-1"')).toBe(false);
+    expect.soft(html.includes('data-testid="plate-element-load-' + direct + '"')).toBe(kind === 'slab' && Boolean(__PUBLIC_FEATURES__.proPlatesUnified));
   }
 });
 
-it.skip('known wrong result: #1928 the selected panel offers level loads only on a matching horizontal slab in the unified view', () => {
+it('known wrong result: #1928 the selected panel offers level loads only on a matching horizontal slab in the unified view', () => {
   modelStore.clear();
   const nodes = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
   const plate = createPlate({ outline: nodes, materialId: 1, thickness: 0.15 });

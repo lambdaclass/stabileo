@@ -14378,7 +14378,6 @@ const tr: Translations = {
   'plates.shapeProblem.curvedOutline': 'Dış hattın eğri kenarları var: oymadan önce onları düzleştirin.',
   'plates.shapeProblem.nothingChosen': 'En az bir hücre işaretleyin.',
   'plates.fromLevel': 'kattan ({name})',
-  'plates.areaLoadHintWall': 'Bir duvarda alan yükü, düzlemine dik olarak bir basınç gibi etkir. Her ağda duvarı izler; boşluklara yük gelmez.',
   'plates.openInLoads': 'Yüklerde gör ve düzenle',
   'floorLoad.pickedPlates': 'Seçilen plaklar ({n})',
   'floorLoad.plateDefault': 'Alan yükü',

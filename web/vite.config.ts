@@ -108,7 +108,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
           if (/^plates\.(?:firstSide|drawingLabel|qualityGood|qualityPoor|qualityHint|planTotalOnly|localLoadsWarnOne|keptNodesNoteOne|remeshNote(?:One|Some|All))$/.test(key)) return false;
           if (/^plates\.(?:state\.|summary\.|(?:meshHeading|filterKind|kindAll|kindSlabs|kindWalls|filterLevel|allLevels|nSelectedOf|selectAll|scopePlates|scopeElements|elementsNote|header)$)/.test(key)) return false;
           if (/^building\.(?:walls\.mesh(?:AtSolve|Now)Hint|slabs\.(?:withMesh|clearMesh|cleared))$/.test(key)) return false;
-          if (/^plates\.(?:openSpec(?:Element|Many)?|fromLevel|onItsElements|areaLoadHintWall)$/.test(key) || key === 'pro.curvedShellAuto' || key === 'surface.summaryFolded') return false;
+          if (/^plates\.(?:openSpec(?:Element|Many)?|fromLevel|onItsElements)$/.test(key) || key === 'pro.curvedShellAuto' || key === 'surface.summaryFolded') return false;
           if (key.startsWith('diag.reviewSummary')) return false;
           if (/^autoLoad\.(?:occupancy|roof\.(?:occupancyOf|maintenanceCode|occupancyCode)|fromTableLoCode|live\.(?:partitionTitleCode|partitionOnCode|partitionValueCode|partitionChoice|reductionTitleCode)|applyLiveReductionCode|reductionElementCode|patterns(?:Code|NoRef|HintCode)|dead\.codeHint)$/.test(key)) return false;
           if (key === 'file.workspaceNoticeClose') return false;

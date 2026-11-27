@@ -14994,7 +14994,6 @@ const zh: Translations = {
   "plates.shapeProblem.curvedOutline": "轮廓含有曲边。请先将曲边拉直，再切割轮廓。",
   "plates.shapeProblem.nothingChosen": "请至少标记一个单元。",
   "plates.fromLevel": "来自楼层（{name}）",
-  "plates.areaLoadHintWall": "墙上的面荷载以压力形式垂直于墙面作用。重新划分网格后，荷载仍随墙保留，孔洞不承受荷载。",
   "plates.openInLoads": "在「荷载」中查看和编辑",
   "floorLoad.pickedPlates": "选中的板（{n}）",
   "floorLoad.plateDefault": "面荷载",

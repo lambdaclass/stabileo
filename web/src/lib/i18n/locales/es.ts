@@ -14911,7 +14911,6 @@ const es: Record<string, string> = {
   "plates.shapeProblem.curvedOutline": "El contorno tiene lados curvos: enderezalos antes de recortarlo.",
   "plates.shapeProblem.nothingChosen": "Marcá al menos una celda.",
   "plates.fromLevel": "del nivel ({name})",
-  "plates.areaLoadHintWall": "En un muro, la carga superficial actúa normal a su plano, como una presión. Sigue al muro en cada malla; los huecos quedan descargados.",
   "plates.openInLoads": "Ver y editar en Cargas",
   "floorLoad.pickedPlates": "Placas elegidas ({n})",
   "floorLoad.plateDefault": "Carga superficial",

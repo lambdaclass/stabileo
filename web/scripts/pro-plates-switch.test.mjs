@@ -571,8 +571,9 @@ test('known wrong result: #1928 the surface gallery and physical-piece labels fo
           assert.equal(catalog['batch.shells'], 'Group editing: {n} shells');
           assert.equal(catalog['resultChecks.discretizationHigh'], 'high discretization error');
         }
+        assert.equal(Object.hasOwn(catalog, 'plates.areaLoadHintWall'), false, locale);
         for (const key of ['surface.summaryFolded', 'plates.openSpecElement', 'plates.openSpec', 'plates.openSpecMany',
-          'plates.fromLevel', 'plates.onItsElements', 'plates.areaLoadHintWall', 'pro.curvedShellAuto',
+          'plates.fromLevel', 'plates.onItsElements', 'pro.curvedShellAuto',
           'plates.unified.batchShells', 'plates.unified.discretizationHigh']) {
           assert.equal(typeof catalog[key] === 'string', enabled, locale + ' ' + key);
         }

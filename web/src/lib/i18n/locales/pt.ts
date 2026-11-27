@@ -14564,7 +14564,6 @@ const pt: Translations = {
   "plates.shapeProblem.curvedOutline": "O contorno tem lados curvos: deixe-os retos antes de recortá-lo.",
   "plates.shapeProblem.nothingChosen": "Marque pelo menos uma célula.",
   "plates.fromLevel": "do nível ({name})",
-  "plates.areaLoadHintWall": "Em uma parede, a carga de superfície atua normal ao seu plano, como uma pressão. Ela segue a parede em cada malha; os furos ficam sem carga.",
   "plates.openInLoads": "Ver e editar em Cargas",
   "floorLoad.pickedPlates": "Placas escolhidas ({n})",
   "floorLoad.plateDefault": "Carga de superfície",

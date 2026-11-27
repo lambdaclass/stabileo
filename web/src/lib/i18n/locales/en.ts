@@ -14922,7 +14922,6 @@ const en: Record<string, string> = {
   "plates.shapeProblem.curvedOutline": "The outline has curved sides: straighten them before cutting it.",
   "plates.shapeProblem.nothingChosen": "Mark at least one cell.",
   "plates.fromLevel": "from the level ({name})",
-  "plates.areaLoadHintWall": "On a wall, the area load acts normal to its plane, as a pressure. It follows the wall through every mesh; the holes carry none.",
   "plates.openInLoads": "View and edit in Loads",
   "floorLoad.pickedPlates": "Selected plates ({n})",
   "floorLoad.plateDefault": "Area load",

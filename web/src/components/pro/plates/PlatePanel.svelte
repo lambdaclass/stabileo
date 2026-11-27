@@ -43,7 +43,7 @@
   });
   const loops = $derived(one ? plateLoops(one.group) : null);
   const loads = $derived.by(() => { void modelStore.model.groups; return one ? plateLoadDefs(one.id) : []; });
-  const elementLoads = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return one ? liftableLoads(one).cases : []; });
+  const elementLoads = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return __PUBLIC_FEATURES__.proPlatesUnified && one ? liftableLoads(one).cases : []; });
   const sharedThickness = $derived(entries.length && entries.every((e) => e.surface.thickness === entries[0]!.surface.thickness) ? entries[0]!.surface.thickness : null);
   const sharedMaterial = $derived(entries.length && entries.every((e) => e.surface.materialId === entries[0]!.surface.materialId) ? entries[0]!.surface.materialId : null);
 
@@ -92,11 +92,11 @@
   /** Definitions on the plate's level that reach it as well as its own: a slab's, by elevation. */
   const levelLoads = $derived.by(() => {
     void modelStore.model.groups; void modelStore.modelVersion;
-    if (!one || one.physical.kind !== 'slab') return [];
+    if (!__PUBLIC_FEATURES__.proPlatesUnified || !one || one.physical.kind !== 'slab') return [];
     const g = plateGeometry(modelStore, one.group);
     if (!g || Math.abs(g.frame.n[2]) < 1 - 1e-6) return [];
     const z = g.outer[0]![2];
-    return [...modelStore.model.groups.values()].filter((d) => d.kind === 'floorLoad' && (d.data as unknown as FloorLoadDef | undefined)?.target.by === 'level'
+    return [...modelStore.model.groups.values()].filter((d) => d.kind === 'floorLoad' && (d.data as unknown as FloorLoadDef | undefined)?.target?.by === 'level'
       && Math.abs(((d.data as unknown as FloorLoadDef).target as { z: number }).z - z) < 1e-3);
   });
   const typologies = $derived(one ? TYPOLOGIES[one.physical.kind] ?? [] : []);
@@ -137,9 +137,9 @@
 {#if entries.length}
   <section class="pp" data-testid="plate-panel">
     <header class="pp-head">
-      <strong data-testid="plate-panel-title">{one ? one.name : tp('plates.nSelected', { n: entries.length })}</strong>
+      <strong data-testid={__PUBLIC_FEATURES__.proPlatesUnified ? 'plate-panel-title' : undefined}>{one ? one.name : tp('plates.nSelected', { n: entries.length })}</strong>
       {#if one}<span class="pp-kind">{t(`plates.kind.${one.physical.kind === 'wall' ? 'wall' : 'slab'}`)} · {fmtQ(area, 'planArea')} {unitQ('planArea')}</span>
-      {:else}<span class="pp-kind">{entries.slice(0, 8).map((e) => e.name).join(', ')}{entries.length > 8 ? '…' : ''}</span>{/if}
+      {:else if __PUBLIC_FEATURES__.proPlatesUnified}<span class="pp-kind">{entries.slice(0, 8).map((e) => e.name).join(', ')}{entries.length > 8 ? '…' : ''}</span>{/if}
     </header>
 
     <div class="pp-row">
@@ -153,7 +153,7 @@
         <QuantityInput min={0.001} value={sharedThickness ?? 0} quantity="length" cls="pp-num" testid="plate-thickness"
           onchange={(v) => { if (v > 0) modelStore.batch(() => { for (const id of ids) setPlateProperties(id, { thickness: v }); }); }} />
       </label>
-      {#if one && typologies.length}
+      {#if __PUBLIC_FEATURES__.proPlatesUnified && one && typologies.length}
         <label>{t('physical.typology')}
           <select value={one.physical.typology ?? ''} onchange={(e) => one && declarePhysicalTypology(one.id, e.currentTarget.value || null)} data-testid="plate-typology">
             <option value="">—</option>
@@ -247,12 +247,14 @@
 
       <details class="pp-block" open={loads.length + elementLoads.length > 0}>
         <summary class="pp-label" data-testid="plate-loads-toggle">{t('plates.areaLoads')} ({loads.length + elementLoads.length})</summary>
-        {#each elementLoads as l (l.caseId)}
-          <div class="pp-line" data-testid="plate-element-load-{l.caseId}">
-            <span>{cases.find((c) => c.id === l.caseId)?.name ?? `#${l.caseId}`}: {fmtQ(l.q, 'areaLoad')} {unitQ('areaLoad')} <span class="pp-dim">{t('plates.onItsElements')}</span></span>
-            <button class="pp-x" onclick={() => modelStore.removeLoads(l.ids)} title={t('plates.removeLoad')}>×</button>
-          </div>
-        {/each}
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}
+          {#each elementLoads as l (l.caseId)}
+            <div class="pp-line" data-testid="plate-element-load-{l.caseId}">
+              <span>{cases.find((c) => c.id === l.caseId)?.name ?? `#${l.caseId}`}: {fmtQ(l.q, 'areaLoad')} {unitQ('areaLoad')} <span class="pp-dim">{t('plates.onItsElements')}</span></span>
+              <button class="pp-x" onclick={() => modelStore.removeLoads(l.ids)} title={t('plates.removeLoad')}>×</button>
+            </div>
+          {/each}
+        {/if}
         {#each loads as d (d.id)}
           {@const def = d.data as { caseId: number; q: number }}
           <div class="pp-line">
@@ -267,13 +269,15 @@
           <QuantityInput value={loadQ} quantity="areaLoad" cls="pp-num" testid="plate-load-q" onchange={(v) => (loadQ = v)} />
           <button class="pp-btn" onclick={addLoad} data-testid="plate-load-add">{t('plates.addLoad')}</button>
         </div>
-        {#each levelLoads as d (d.id)}
-          {@const def = d.data as unknown as FloorLoadDef}
-          <div class="pp-line" data-testid="plate-level-load-{d.id}">
-            <span>{cases.find((c) => c.id === def.caseId)?.name ?? `#${def.caseId}`}: {fmtQ(def.q, 'areaLoad')} {unitQ('areaLoad')} <span class="pp-dim">{tp('plates.fromLevel', { name: d.name })}</span></span>
-          </div>
-        {/each}
-        <Hint text={t(one.physical.kind === 'wall' ? 'plates.areaLoadHintWall' : 'plates.areaLoadHint')} />
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}
+          {#each levelLoads as d (d.id)}
+            {@const def = d.data as unknown as FloorLoadDef}
+            <div class="pp-line" data-testid="plate-level-load-{d.id}">
+              <span>{cases.find((c) => c.id === def.caseId)?.name ?? `#${def.caseId}`}: {fmtQ(def.q, 'areaLoad')} {unitQ('areaLoad')} <span class="pp-dim">{tp('plates.fromLevel', { name: d.name })}</span></span>
+            </div>
+          {/each}
+        {/if}
+        <Hint text={t('plates.areaLoadHint')} />
         {#if __PUBLIC_FEATURES__.proPlatesUnified}
           <button class="pp-link" onclick={openInLoads} data-testid="plate-open-loads">{t('plates.openInLoads')} ›</button>
         {/if}
