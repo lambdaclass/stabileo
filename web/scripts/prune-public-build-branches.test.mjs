@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { parse } from 'svelte/compiler';
 import { prunePublicBuildBranches } from './prune-public-build-branches.mjs';
 
-const off = { accounts: false, research: false, tools: false, diagramGame: false };
+const off = { proRcSheets: false, accounts: false, research: false, tools: false, diagramGame: false };
 const on = Object.fromEntries(Object.keys(off).map(key => [key, true]));
 const cases = [
   ['disabled branch', '{#if __PUBLIC_FEATURES__.research}<p>Research</p>{:else}<p>Main</p>{/if}', off, '<p>Main</p>'],
@@ -32,6 +32,7 @@ test('else-if chains retain their syntax and runtime decision', () => {
 });
 
 for (const [file, tags] of [
+  ['src/components/pro/ProPanel.svelte', ['ProRcSheetsTab']],
   ['src/App.svelte', ['MohrDialog', 'ResultsDisclaimer', 'UsageNotice', 'TermsUpdateDialog', 'AccountGateDialog', 'FeedbackDialog']],
   ['src/components/account/ProfileDialog.svelte', ['CloudProjectsDialog']],
   ['src/components/toolbar/ToolbarProject.svelte', ['CloudProjectsDialog']],
