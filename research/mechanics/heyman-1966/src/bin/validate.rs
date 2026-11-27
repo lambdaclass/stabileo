@@ -234,3 +234,20 @@ fn a_failed_check_preserves_both_evidence_files() {
     for path in &paths { assert_eq!(serde_json::from_slice::<Value>(&std::fs::read(path).unwrap()).unwrap(), pass); }
     std::fs::remove_dir_all(folder).unwrap();
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn a_partial_rizzi_table_cannot_be_published() {
+    let folder = std::path::Path::new(HERE).join("target").join(format!("partial-table-{}", std::process::id()));
+    std::fs::create_dir_all(folder.join("reference-results")).unwrap();
+    let all = read("published_comparison.json");
+    for duplicate in [false, true] {
+        let mut partial = all.clone();
+        let rows = partial["checks"].as_array_mut().unwrap();
+        rows.pop();
+        if duplicate { rows.push(rows[0].clone()); }
+        assert!(std::panic::catch_unwind(|| publish(folder.to_str().unwrap(), &all, &partial)).is_err());
+        assert!(!folder.join("VALIDATION.json").exists());
+    }
+    std::fs::remove_dir_all(folder).unwrap();
+}

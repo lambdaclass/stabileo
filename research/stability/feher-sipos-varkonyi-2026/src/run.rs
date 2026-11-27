@@ -172,3 +172,30 @@ fn start_recovers_when_a_full_increment_fails_but_half_steps_converge() {
     assert_eq!(result.setting.q, target.q);
     assert!(result.snapshot().y_mid > 0.0);
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn start_rejects_an_indefinite_positive_height_landing() {
+    let start = Setting { theta: 1., delta: 0., q: 0. };
+    let arch = bend(20, start, Distribution::Uniform, 2).unwrap();
+    let mut unstable = arch.clone();
+    for material in unstable.input.materials.values_mut() { material.e = -material.e; }
+    assert!(unstable.snapshot().y_mid > 0. && !unstable.snapshot().stable);
+    let result = load_arch_with(&arch, start, |_, _| Ok(unstable.clone()));
+    assert_eq!(result.err(), Some(PathError::StartUnsolved));
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn start_recognizes_repeat_inversion_after_a_failed_full_increment() {
+    let start = Setting { theta: 1., delta: 0., q: 0. };
+    let arch = bend(20, start, Distribution::Uniform, 2).unwrap();
+    let mut inverted = arch.clone();
+    for d in &mut inverted.displacements { d.uz = -d.uz; d.ry = -d.ry; }
+    assert!(inverted.snapshot().stable && inverted.snapshot().y_mid < 0.);
+    let result = load_arch_with(&arch, Setting { q: LOAD_STEP, ..start }, |s, to| {
+        if to.q - s.setting.q >= LOAD_STEP { return Err("full increment failed".into()); }
+        Ok(inverted.clone())
+    });
+    assert_eq!(result.err(), Some(PathError::StartSnaps));
+}

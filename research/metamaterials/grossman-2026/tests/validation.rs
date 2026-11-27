@@ -531,3 +531,29 @@ fn published_curve_metadata_is_exact() {
     }
     assert!(rows_match(&row, &row));
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn committed_samples_must_still_meet_the_paper_tolerance() {
+    let row = read_json("reference-results/published_comparison.json")["checks"][0].clone();
+    let mut stale = row.clone();
+    let sample = stale["samples"].as_array_mut().unwrap().iter_mut().find(|s| s[0] == 1.0).unwrap();
+    sample[1] = serde_json::json!(1.000000005);
+    assert!(!rows_match(&stale, &row));
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn fig7_preserves_the_published_orientations_in_radians() {
+    let published = read_json("reference-results/published_comparison.json");
+    let row = published["checks"].as_array().unwrap().iter().find(|r| r["id"] == "fig7").unwrap();
+    let source = read_json("reference-results/paper_figures_vector.json");
+    let points = source["fig7"]["calculation_line"].as_array().unwrap();
+    assert_eq!(row["orientation_unit"], "rad");
+    let samples = row["samples"].as_array().unwrap();
+    assert_eq!(samples.len(), points.len());
+    for (s, p) in samples.iter().zip(points) {
+        assert_eq!(&s.as_array().unwrap()[..2], p.as_array().unwrap());
+        assert_eq!(s.as_array().unwrap().len(), 3);
+    }
+}
