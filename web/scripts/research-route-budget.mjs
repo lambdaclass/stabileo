@@ -59,9 +59,14 @@ export function growthTable(rows) {
 
 export const BLOG_ROUTE_BOUNDARY = 'src/components/blog/BlogPage.svelte';
 export const COURSE_ROUTE_BOUNDARY = 'src/lib/course/course-route.ts';
+const GAMES_ROUTE_BOUNDARY = 'src/components/games/load-page.ts';
 
 export function isLazyRouteBoundary(key) {
-  return /components\/research\//.test(key) || /components\/(tools|examples|diagram-game|games)\//.test(key) || key === BLOG_ROUTE_BOUNDARY || key === COURSE_ROUTE_BOUNDARY;
+  return /components\/research\//.test(key)
+    || /components\/(tools|examples|diagram-game)\//.test(key)
+    || key === BLOG_ROUTE_BOUNDARY
+    || key === COURSE_ROUTE_BOUNDARY
+    || key === GAMES_ROUTE_BOUNDARY;
 }
 
 export function isBlogPostsChunk(moduleIds) {

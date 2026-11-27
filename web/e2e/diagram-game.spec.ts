@@ -304,13 +304,13 @@ async function winTabletRound(page: Page) {
 }
 
 test('@smoke winning feedback respects reduced motion on a tablet', async ({ page }) => {
-  test.fixme(true, 'known wrong result: #2492');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const winner = await winTabletRound(page);
   expect(await winner.locator('.option-figure').evaluate(el => el.getAnimations().length)).toBe(0);
 });
 
 test('@smoke winning feedback stays inside the tablet viewport throughout its animation', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   const winner = await winTabletRound(page);
   const figure = winner.locator('.option-figure');
   expect(await figure.evaluate(el => el.getAnimations().some(animation => animation instanceof CSSAnimation))).toBe(true);
@@ -350,7 +350,7 @@ test('@smoke winning feedback stays inside the tablet viewport throughout its an
   }
 });
 
-test('@smoke the game thumbnail fits all three answer cards inside its viewBox', async ({ page }) => {
+test('@smoke the game thumbnail fits all three answer cards inside its viewBox with space between their outlines', async ({ page }) => {
   await page.goto('/en/games/');
   const thumbnail = page.getByTestId('game-card-diagram-game').locator('svg.thumb');
   await expect(thumbnail.locator('rect.option')).toHaveCount(3);
@@ -380,10 +380,8 @@ test('@smoke the game thumbnail fits all three answer cards inside its viewBox',
     expect(box.top, `${box.name} top edge`).toBeGreaterThanOrEqual(view.y);
     expect(box.bottom, `${box.name} bottom edge`).toBeLessThanOrEqual(view.y + view.height);
   }
-  await test.step.skip('known wrong result: #2492', async () => {
-    const cards = bounds.slice(1);
-    for (const [i, card] of cards.slice(1).entries()) {
-      expect(card.left, `gap before ${card.name}`).toBeGreaterThan(cards[i]!.right);
-    }
-  });
+  const cards = bounds.slice(1);
+  for (const [i, card] of cards.slice(1).entries()) {
+    expect(card.left, `gap before ${card.name}`).toBeGreaterThan(cards[i]!.right);
+  }
 });

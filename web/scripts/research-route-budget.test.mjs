@@ -147,7 +147,7 @@ test('the games page loader is a route boundary: the hub, the game and what only
   assert.ok(files.has('shared.js'));
 });
 
-test('the app footprint counts a separate lazy import of the games registry and its thumbnail', { skip: 'known wrong result: #2492' }, () => {
+test('the app footprint counts a separate lazy import of the games registry and its thumbnail', () => {
   const registry = 'src/components/games/games.ts';
   const thumbnail = 'src/components/games/DiagramGameThumb.svelte';
   const files = routeChunkFiles({

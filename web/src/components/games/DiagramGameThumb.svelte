@@ -1,5 +1,7 @@
 <script lang="ts">
-  const OPTIONS = [[24, 'M8 4q42 52 84 0'], [124, 'M8 4l42 40 42-40'], [224, 'M8 30h84']] as const;
+  const CARD_WIDTH = 100;
+  const CARD_GAP = 8;
+  const OPTIONS = ['M8 4q42 52 84 0', 'M8 4l42 40 42-40', 'M8 30h84'];
 </script>
 
 <svg class="thumb" viewBox="0 0 348 180" aria-hidden="true">
@@ -9,9 +11,9 @@
   </g>
   <path class="beam" d="M60 46h220" />
   <path class="support" d="M60 46l-9 14h18zM280 46l-9 14h18zM48 66h24M268 66h24" />
-  {#each OPTIONS as [x, d], i (x)}
-    <g transform={`translate(${x} 96)`} class:right={i === 0}>
-      <rect class="option" width="100" height="64" rx="6" />
+  {#each OPTIONS as d, i (d)}
+    <g transform={`translate(${16 + i * (CARD_WIDTH + CARD_GAP)} 96)`} class:right={i === 0}>
+      <rect class="option" width={CARD_WIDTH} height="64" rx="6" />
       <g transform="translate(0 12)"><path class="axis" d="M8 4h84" /><path class="diagram" {d} /></g>
     </g>
   {/each}
