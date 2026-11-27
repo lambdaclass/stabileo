@@ -322,8 +322,9 @@ describe('GATE: ProPanel was decomposed', () => {
     // The three responsibilities that left. Naming them individually is the point: a future
     // edit that inlines any one of them back is what the ceiling alone would only catch once
     // the file had already grown past 600.
-    expect(panel, 'the example catalogue is data').toContain("from '../../lib/data/pro-examples'");
-    expect(read('../../../components/pro/ProProjectTab.svelte'), 'the example gallery is its own component').toContain('<ProExampleGallery');
+    expect(panel, 'the example catalogue is data, not panel code').not.toMatch(/PRO_EXAMPLES\s*=|entry\(\{ id:/);
+    expect(read('../../../lib/data/pro-examples.ts'), 'the catalogue lives in its data module').toContain('export const PRO_EXAMPLES');
+    expect(read('../../../components/library/ExamplesDialog.svelte'), 'the example gallery is its own component').toContain('<ProExampleGallery');
     /*
      * The PROPERTY, not one module's name.
      *

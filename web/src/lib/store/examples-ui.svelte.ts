@@ -1,5 +1,5 @@
 export type LibraryView = 'examples' | 'tutorials';
-export type ExampleShelf = '2d' | '3d';
+export type ExampleShelf = 'plane' | 'space';
 
 const START_KEY = 'stabileo-start-card';
 
@@ -18,7 +18,7 @@ export const examplesUi = {
   set shelf(v: ExampleShelf | null) { shelf = v; },
   open(v: LibraryView, s: ExampleShelf | null = null): void {
     view = v;
-    if (s) shelf = s;
+    shelf = s;
   },
   close(): void { view = null; },
 

@@ -47,3 +47,10 @@ export async function loadBasicExample(id: string, to3D: boolean): Promise<void>
   resultsStore.clear3D();
   setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50);
 }
+
+/** On a phone the panel is a sheet over the model: get it out of the way of what just loaded. */
+export function clearPhoneSheet(): void {
+  if (!uiStore.isMobile) return;
+  if (uiStore.appMode === 'pro') uiStore.rightDrawerOpen = false;
+  else window.dispatchEvent(new CustomEvent('stabileo-open-panel', { detail: null }));
+}

@@ -2235,7 +2235,7 @@
             title={t('proRibbon.reopenPanel')}
             aria-label={t('proRibbon.reopenPanel')}
             data-testid="pro-panel-reopen"
-          ><span class="ppr-text">‹ {t('proRibbon.reopenPanel')}</span></button>
+          ><span class="ppr-text">{shellLayout.panelSide === 'left' ? '›' : '‹'} {t('proRibbon.reopenPanel')}</span></button>
         {/if}
       {:else if uiStore.appMode === 'educativo'}
         <aside class="sidebar right edu-sidebar">
@@ -3205,6 +3205,9 @@
   }
   .app-body.app-body-pro {
     flex-direction: column;
+  }
+  @media (min-width: 768px) and (max-width: 1100px) {
+    .logo-text { display: none; }
   }
   .ribbon-shell {
     display: flex;

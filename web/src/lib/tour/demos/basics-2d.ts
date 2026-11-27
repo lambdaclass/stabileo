@@ -50,7 +50,7 @@ export function buildBasics2D(): TourStep[] {
       description: t('demo.basics2d.examplesDesc'),
       position: 'left',
       allowInteraction: true,
-      onEnter: () => examplesUi.open('examples', '2d'),
+      onEnter: () => examplesUi.open('examples', 'plane'),
       /*
        * Loads the portal frame on the way out — unless the reader already
        * picked something, in which case theirs is kept. Overwriting a choice

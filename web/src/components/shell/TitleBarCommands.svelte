@@ -46,6 +46,8 @@
   }
 </script>
 
+<svelte:window onkeydown={(e) => { if (menu && e.key === 'Escape') menu = null; }} />
+
 <div class="tb-cmds" data-testid="titlebar-commands">
   <button
     class="tb-btn tb-project"
@@ -55,7 +57,7 @@
     aria-label={t('ribbon.project')}
     data-testid={pro ? 'pr-project' : 'hdr-project'}
   ><Icon name="bars" size={18} /></button>
-  <button class="tb-btn" onclick={onHome} title={t('app.backHome')} aria-label={t('app.backHome')} data-testid="tb-home">
+  <button class="tb-btn tb-home" onclick={onHome} title={t('app.backHome')} aria-label={t('app.backHome')} data-testid="tb-home">
     <Icon name="home" size={17} />
   </button>
 
@@ -259,6 +261,10 @@
     font-family: var(--st-mono);
     font-size: 0.7rem;
     color: var(--st-text-3);
+  }
+
+  @media (max-width: 1100px) {
+    .tb-home { display: none; }
   }
 
   .tb-backdrop {

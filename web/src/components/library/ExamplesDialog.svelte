@@ -2,7 +2,7 @@
   import { t } from '../../lib/i18n';
   import { modelStore, uiStore } from '../../lib/store';
   import { examplesUi } from '../../lib/store/examples-ui.svelte';
-  import { EXAMPLES_2D, EXAMPLES_3D, loadBasicExample, type BasicExample } from '../../lib/examples/basic-examples';
+  import { EXAMPLES_2D, EXAMPLES_3D, clearPhoneSheet, loadBasicExample, type BasicExample } from '../../lib/examples/basic-examples';
   import { proExampleGroups } from '../../lib/pro/example-catalog';
   import { loadProExample } from '../../lib/pro/load-pro-example';
   import ProExampleGallery from '../pro/ProExampleGallery.svelte';
@@ -10,8 +10,8 @@
 
   let { mode }: { mode: 'basico' | 'pro' } = $props();
 
-  const shelf = $derived(examplesUi.shelf ?? (uiStore.is3DWorkspace ? '3d' : '2d'));
-  const items = $derived<readonly BasicExample[]>(shelf === '3d' ? EXAMPLES_3D : EXAMPLES_2D);
+  const shelf = $derived(examplesUi.shelf ?? (uiStore.is3DWorkspace ? 'space' : 'plane'));
+  const items = $derived<readonly BasicExample[]>(shelf === 'space' ? EXAMPLES_3D : EXAMPLES_2D);
   const groups = $derived(proExampleGroups(t));
 
   let asking = $state<string | null>(null);
@@ -21,7 +21,8 @@
     if (hasModel() && asking !== ex.id) { asking = ex.id; return; }
     asking = null;
     examplesUi.close();
-    void loadBasicExample(ex.id, shelf === '3d');
+    clearPhoneSheet();
+    void loadBasicExample(ex.id, shelf === 'space');
   }
 
   function onKey(e: KeyboardEvent) {
@@ -38,10 +39,10 @@
       <h3>{t('pro.exampleBtn')}</h3>
       {#if mode === 'basico'}
         <div class="lib-shelves" role="tablist">
-          <button role="tab" class:on={shelf === '2d'} aria-selected={shelf === '2d'} onclick={() => { examplesUi.shelf = '2d'; asking = null; }} data-testid="ex-group-2d">
+          <button role="tab" class:on={shelf === 'plane'} aria-selected={shelf === 'plane'} onclick={() => { examplesUi.shelf = 'plane'; asking = null; }} data-testid="ex-group-2d">
             {t('examples.title2d')} <span>{EXAMPLES_2D.length}</span>
           </button>
-          <button role="tab" class:on={shelf === '3d'} aria-selected={shelf === '3d'} onclick={() => { examplesUi.shelf = '3d'; asking = null; }} data-testid="ex-group-3d">
+          <button role="tab" class:on={shelf === 'space'} aria-selected={shelf === 'space'} onclick={() => { examplesUi.shelf = 'space'; asking = null; }} data-testid="ex-group-3d">
             {t('examples.title3d')} <span>{EXAMPLES_3D.length}</span>
           </button>
         </div>
@@ -51,7 +52,7 @@
     </div>
 
     {#if mode === 'pro'}
-      <ProExampleGallery {groups} onLoad={(ex) => { examplesUi.close(); void loadProExample(ex); }} />
+      <ProExampleGallery {groups} onLoad={(ex) => { examplesUi.close(); clearPhoneSheet(); void loadProExample(ex); }} />
     {:else}
       <div class="lib-grid" data-tour="examples-section">
         {#each items as ex (ex.id)}

@@ -11,8 +11,8 @@
   let { mode }: { mode: 'basico' | 'pro' } = $props();
 
   const PICKS = {
-    '2d': ['portal-frame', 'howe-truss', 'three-hinge-arch'],
-    '3d': ['3d-portal-frame', '3d-space-truss', '3d-nave-industrial'],
+    plane: ['portal-frame', 'howe-truss', 'three-hinge-arch'],
+    space: ['3d-portal-frame', '3d-space-truss', '3d-nave-industrial'],
     pro: ['pro-plane-frame-seismic', '3d-building', 'pro-simple-shed'],
   } as const;
 
@@ -21,10 +21,10 @@
   const visible = $derived(empty && !examplesUi.startOff && !examplesUi.view && !tourStore.isActive
     && !examplesUi.startDismissedFor(tabManager.activeTabId));
 
-  const shelf = $derived(mode === 'pro' ? 'pro' : uiStore.is3DWorkspace ? '3d' : '2d');
+  const shelf = $derived(mode === 'pro' ? 'pro' : uiStore.is3DWorkspace ? 'space' : 'plane');
   const picks = $derived.by(() => {
     if (shelf === 'pro') return PICKS.pro.map((id) => PRO_EXAMPLES.find((e) => e.id === id)).filter((e) => !!e).map((e) => ({ id: e!.id, nameKey: e!.nameKey }));
-    const list = shelf === '3d' ? EXAMPLES_3D : EXAMPLES_2D;
+    const list = shelf === 'space' ? EXAMPLES_3D : EXAMPLES_2D;
     return PICKS[shelf].map((id) => list.find((e) => e.id === id)).filter((e) => !!e).map((e) => ({ id: e!.id, nameKey: e!.nameKey }));
   });
 
@@ -33,7 +33,7 @@
       const ex = PRO_EXAMPLES.find((e) => e.id === id);
       if (ex) void loadProExample(ex);
     } else {
-      void loadBasicExample(id, shelf === '3d');
+      void loadBasicExample(id, shelf === 'space');
     }
   }
 </script>

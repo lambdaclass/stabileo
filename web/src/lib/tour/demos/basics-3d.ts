@@ -39,7 +39,7 @@ export function buildBasics3D(): TourStep[] {
       description: t('demo.basics3d.examplesDesc'),
       position: 'left',
       allowInteraction: true,
-      onEnter: () => examplesUi.open('examples', '3d'),
+      onEnter: () => examplesUi.open('examples', 'space'),
       /*
        * Loads the portal frame on the way out — unless the reader already
        * picked something, in which case theirs is kept. Overwriting a choice

@@ -1,6 +1,5 @@
 <script lang="ts">
   import LibraryButtons from '../library/LibraryButtons.svelte';
-  import { examplesUi } from '../../lib/store/examples-ui.svelte';
   import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
   import { authStore } from '../../lib/store/auth.svelte';
   import { accountGate } from '../../lib/store/account-gate.svelte';
@@ -210,8 +209,6 @@
     if (r === 'save') showSave = true;
     else if (r === 'data') dataOpen = true;
     else if (r === 'drawings') openDrawings();
-    else if (r === 'examples') examplesUi.open('examples');
-    else if (r === 'videos') examplesUi.open('tutorials');
     else if (r === 'viewerLink') void copyViewerLink();
   });
   function pickDrawing(f: DrawingFormat) {

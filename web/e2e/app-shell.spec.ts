@@ -149,3 +149,14 @@ test.describe('@smoke examples on a phone', () => {
     await expect(page.getByTestId('tutorials-youtube')).toBeVisible();
   });
 });
+
+test.describe('@smoke reporting a bug', () => {
+  test('with sign-in off, the button opens a GitHub issue instead of doing nothing', async ({ page }) => {
+    await openBasic(page);
+    const bug = page.getByTestId('report-bug');
+    await expect(bug).toBeVisible();
+    expect(await bug.evaluate((n) => n.tagName), 'a link, since there is no form to open').toBe('A');
+    await expect(bug).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/new');
+    await expect(bug).toHaveAttribute('target', '_blank');
+  });
+});
