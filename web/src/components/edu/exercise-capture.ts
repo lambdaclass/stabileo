@@ -218,9 +218,9 @@ export function fromFile(text: string): ParseResult {
     characteristics: ex.characteristics ?? [],
     diagramQuestions: ex.diagramQuestions ?? [],
   } as EduExerciseSpec;
-  const paramProblems = ex.params ? lintParams(exercise.model, exercise.params!) : [];
-  if (paramProblems.length) return { ok: false, error: tp('edu.capture.errBadParams', { error: paramProblems[0]! }) };
   try {
+    const problems = ex.params !== undefined ? lintParams(exercise.model, exercise.params!) : [];
+    if (problems.length) return { ok: false, error: tp('edu.capture.errBadParams', { error: problems[0]! }) };
     variantOf(exercise);
   } catch (e) {
     return { ok: false, error: tp('edu.capture.errBadParams', { error: (e as Error).message }) };

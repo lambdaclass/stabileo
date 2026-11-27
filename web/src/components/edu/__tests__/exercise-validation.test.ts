@@ -137,7 +137,9 @@ describe('the answers match hand calculation, which is the point', () => {
   });
 
   it('the cantilever gives P L at the fixed end', () => {
-    const spec = variantOf(getExerciseSpecs().find((s) => s.id === 'cantilever-point')!, { values: { L: 4, P: 12 }, supports: {} });
+    const cantilever = structuredClone(getExerciseSpecs().find((s) => s.id === 'cantilever-point')!);
+    cantilever.params!.values.P!.step = 1;
+    const spec = variantOf(cantilever, { values: { L: 4, P: 12 }, supports: {} });
     const forces = solveSpec(spec).elementForces as ElementForces[];
     expect(Math.abs(evaluateAnswer(spec.characteristics[0].answer, forces)!)).toBeCloseTo(48, 1);
     expect(Math.abs(evaluateAnswer(spec.characteristics[1].answer, forces)!)).toBeCloseTo(12, 1);

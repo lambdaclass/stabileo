@@ -12134,6 +12134,8 @@ const tr: Translations = {
   'edu.ex14Desc': '{L} m açıklıklı, {h} m yüksekliğinde çerçeve; sol üst düğümde {H} kN yatay yük ve kirişte {q} kN/m. Her tabanda çizimde görülen mesnet var: önce yapıyı sınıflandırın, sonra tepkileri bulun.',
   'edu.params.supportN': 'Mesnet {n}',
   'edu.params.noAnswer': '{what} hesaplanamıyor',
+  'edu.params.invalidVariant': 'Varyant bu ödev için izin verilmeyen değerler veya mesnetler içeriyor.',
+  'edu.params.supportLimit': 'Alıştırma {limit} mesnet kombinasyonu sınırını aşıyor.',
   'edu.params.mechanism': 'yapı bir mekanizma',
   'edu.params.exprWithoutParams': '{where} bir parametre kullanıyor, ancak alıştırma hiç parametre tanımlamıyor',
   'edu.capture.errBadParams': 'Alıştırmanın parametreleri okunamıyor: {error}',

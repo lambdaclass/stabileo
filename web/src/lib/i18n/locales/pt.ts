@@ -12313,6 +12313,8 @@ const pt: Translations = {
   'edu.ex14Desc': 'Pórtico de {L} m de vão e {h} m de altura com uma carga horizontal de {H} kN no nó superior esquerdo e {q} kN/m na viga. Cada base tem o apoio mostrado no desenho: classifique a estrutura e depois determine as reações.',
   'edu.params.supportN': 'Apoio {n}',
   'edu.params.noAnswer': 'não é possível calcular {what}',
+  'edu.params.invalidVariant': 'A variante contém valores ou apoios fora dos permitidos nesta tarefa.',
+  'edu.params.supportLimit': 'O exercício excede o limite de {limit} combinações de apoios.',
   'edu.params.mechanism': 'a estrutura é um mecanismo',
   'edu.params.exprWithoutParams': '{where} usa um parâmetro e o exercício não declara nenhum',
   'edu.capture.errBadParams': 'Não é possível ler os parâmetros do exercício: {error}',

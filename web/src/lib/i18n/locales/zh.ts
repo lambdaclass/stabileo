@@ -15093,6 +15093,8 @@ const zh: Translations = {
   "course.plastic.limitOnly": "逐步加载过程未达到倒塌荷载（止于 λ = {history}）。由极限分析（静力定理和机动定理）得到的倒塌荷载为 λc = {lambda}；加载过程中的塑性铰是近似的。",
   "course.plastic.trace.moved": "杆件 {member} 中的塑性铰 {i} 从 x = {from} 移到 x = {to}，那里的弯矩现在达到峰值：该处为 Mp 且剪力为零，而它离开的截面保留已经产生的塑性转角。",
   "wind.other.minimumSignCase": "风荷载 {dir}，实体标牌最小值 {c}（§4.8）",
+  'edu.params.invalidVariant': '此变体含有本作业不允许的参数值或支座。',
+  'edu.params.supportLimit': '此练习超过了 {limit} 种支座组合的上限。',
 };
 
 export default zh;

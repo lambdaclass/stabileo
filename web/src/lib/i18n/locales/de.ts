@@ -12125,6 +12125,8 @@ const de: Translations = {
   'edu.ex14Desc': 'Rahmen mit {L} m Spannweite und {h} m Höhe, Horizontallast von {H} kN am oberen linken Knoten und {q} kN/m auf dem Riegel. Jeder Fuß hat das Auflager, das die Zeichnung zeigt: Bestimmen Sie die Art der Struktur, dann die Auflagerreaktionen.',
   'edu.params.supportN': 'Auflager {n}',
   'edu.params.noAnswer': '{what} lässt sich nicht berechnen',
+  'edu.params.invalidVariant': 'Die Variante enthält unzulässige Werte oder Lager für diese Aufgabe.',
+  'edu.params.supportLimit': 'Die Aufgabe überschreitet die Grenze von {limit} Lagerkombinationen.',
   'edu.params.mechanism': 'die Struktur ist ein Mechanismus',
   'edu.params.exprWithoutParams': '{where} verwendet einen Parameter, die Aufgabe deklariert aber keinen',
   'edu.capture.errBadParams': 'Die Parameter der Aufgabe lassen sich nicht lesen: {error}',

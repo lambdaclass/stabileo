@@ -12671,6 +12671,8 @@ const en: Record<string, string> = {
   'edu.ex14Desc': 'A {L} m span, {h} m high frame with a {H} kN horizontal load at the top left joint and {q} kN/m on the beam. Each base has the support the drawing shows: classify the structure, then find the reactions.',
   'edu.params.supportN': 'Support {n}',
   'edu.params.noAnswer': '{what} cannot be computed',
+  'edu.params.invalidVariant': 'The variant contains values or supports outside this assignment.',
+  'edu.params.supportLimit': 'This exercise exceeds the limit of {limit} support combinations.',
   'edu.params.mechanism': 'the structure is a mechanism',
   'edu.params.exprWithoutParams': '{where} uses a parameter, and the exercise declares none',
   'edu.capture.errBadParams': 'The exercise\'s parameters cannot be read: {error}',

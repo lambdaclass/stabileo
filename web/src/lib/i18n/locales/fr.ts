@@ -12125,6 +12125,8 @@ const fr: Translations = {
   'edu.ex14Desc': 'Portique de {L} m de portée et {h} m de hauteur avec une charge horizontale de {H} kN au nœud supérieur gauche et {q} kN/m sur la poutre. Chaque pied a l\'appui que montre le schéma : classez la structure, puis déterminez les réactions.',
   'edu.params.supportN': 'Appui {n}',
   'edu.params.noAnswer': '{what} ne peut pas être calculé',
+  'edu.params.invalidVariant': 'La variante contient des valeurs ou des appuis non autorisés pour cet exercice.',
+  'edu.params.supportLimit': 'Cet exercice dépasse la limite de {limit} combinaisons d’appuis.',
   'edu.params.mechanism': 'la structure est un mécanisme',
   'edu.params.exprWithoutParams': '{where} utilise un paramètre, et l\'exercice n\'en déclare aucun',
   'edu.capture.errBadParams': 'Les paramètres de l\'exercice sont illisibles : {error}',

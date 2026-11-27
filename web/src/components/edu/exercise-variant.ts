@@ -47,7 +47,7 @@ export function reactionDofsFor(type: SupportType): ReactionDof[] {
 }
 
 export function formatParam(v: number): string {
-  return new Intl.NumberFormat(i18n.locale || 'en', { maximumFractionDigits: 3, useGrouping: false }).format(v);
+  return new Intl.NumberFormat(i18n.locale || 'en', { maximumSignificantDigits: 17, useGrouping: false }).format(v);
 }
 
 export function fillText(text: string, values: Record<string, number>): string {
@@ -68,16 +68,28 @@ export function previewText(text: string, params: ExerciseParams | undefined): s
   });
 }
 
-function chosenVariant(params: ExerciseParams | undefined, which: number | Variant | undefined): Variant {
+function chosenVariant(spec: EduExerciseSpec, which: number | Variant | undefined): Variant {
+  const params = spec.params;
   if (!params) return { values: {}, supports: {} };
   if (which === undefined) return defaultVariant(params);
-  return typeof which === 'number' ? drawVariant(params, which) : which;
+  if (typeof which === 'number') return drawVariant(params, which);
+  const ranges = Object.entries(params.values);
+  if (Object.keys(which.values).length !== ranges.length ||
+      ranges.some(([name, range]) => !Object.hasOwn(which.values, name) || !rangeValues(range).includes(which.values[name]!))) {
+    throw new Error(t('edu.params.invalidVariant'));
+  }
+  const choices = params.supportChoices ?? [];
+  if (Object.keys(which.supports).some(key => !choices.some(c => String(c.support) === key)) ||
+      choices.some(c => !c.types.includes(which.supports[c.support] ?? spec.model.supports[c.support]!.type))) {
+    throw new Error(t('edu.params.invalidVariant'));
+  }
+  return which;
 }
 
 /** The exercise a student actually gets. Without params the spec comes back meaning exactly what it meant. */
 export function variantOf(spec: EduExerciseSpec, which?: number | Variant): ResolvedExerciseSpec {
   const parametric = isParametric(spec);
-  const variant = chosenVariant(spec.params, which);
+  const variant = chosenVariant(spec, which);
   const values = variant.values;
   const model = resolveModel(spec.model, variant);
   const fill = (s: string) => fillText(s, values);

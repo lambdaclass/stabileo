@@ -12660,6 +12660,8 @@ const es: Record<string, string> = {
   'edu.ex14Desc': 'Pórtico de {L} m de luz y {h} m de altura con una carga horizontal de {H} kN en el nudo superior izquierdo y {q} kN/m en la viga. Cada base tiene el apoyo que muestra el esquema: clasificá la estructura y después hallá las reacciones.',
   'edu.params.supportN': 'Apoyo {n}',
   'edu.params.noAnswer': 'no se puede calcular {what}',
+  'edu.params.invalidVariant': 'La variante contiene valores o apoyos fuera de los permitidos en esta tarea.',
+  'edu.params.supportLimit': 'El ejercicio supera el límite de {limit} combinaciones de apoyos.',
   'edu.params.mechanism': 'la estructura es un mecanismo',
   'edu.params.exprWithoutParams': '{where} usa un parámetro y el ejercicio no declara ninguno',
   'edu.capture.errBadParams': 'No se pueden leer los parámetros del ejercicio: {error}',

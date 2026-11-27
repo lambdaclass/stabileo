@@ -1,4 +1,6 @@
 import type { SupportType } from '../../lib/store/ui.svelte';
+import { isPlaneSupportType } from '../../lib/model/support-types';
+import { t, tp } from '../../lib/i18n';
 import type { ModelSpec } from './exercise-spec';
 
 /** FNV-1a: a teacher rebuilding a student's variant later depends on it never changing. */
@@ -212,14 +214,20 @@ export function supportCombos(p: ExerciseParams, limit = 256): Array<Record<numb
   let out: Array<Record<number, SupportType>> = [{}];
   for (const c of p.supportChoices ?? []) {
     if (!c.types.length) continue;
+    if (out.length * c.types.length > limit) throw new Error(tp('edu.params.supportLimit', { limit }));
     out = out.flatMap((combo) => c.types.map((type) => ({ ...combo, [c.support]: type })));
-    if (out.length > limit) return out.slice(0, limit);
   }
   return out;
 }
 
 export function lintParams(model: ParametricModelSpec, p: ExerciseParams): string[] {
+  const record = (v: unknown) => v !== null && typeof v === 'object' && !Array.isArray(v);
+  if (!record(p) || !record(p.values) || Object.values(p.values).some(range => !record(range)) ||
+      (p.supportChoices !== undefined && (!Array.isArray(p.supportChoices) ||
+        p.supportChoices.some(c => !record(c) || !Number.isSafeInteger(c.support) ||
+          !Array.isArray(c.types) || !c.types.every(isPlaneSupportType))))) return [t('edu.params.invalidVariant')];
   const problems: string[] = [];
+  try { supportCombos(p); } catch (error) { problems.push((error as Error).message); }
   for (const [k, r] of Object.entries(p.values)) {
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(k)) problems.push(`parameter name "${k}" is not an identifier`);
     if (rangeValues(r).length === 0) problems.push(`parameter ${k} has no values (min ${r.min}, max ${r.max}, step ${r.step})`);
