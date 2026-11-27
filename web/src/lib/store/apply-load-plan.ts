@@ -7,6 +7,7 @@ import { needsOccupancyReview } from '../provenance/occupancy-selection';
  * times.
  */
 import { modelStore } from './index';
+import { physicalPlanRefusal } from './load-plan-model';
 import { addGeneratedCombinations, takeBackCompositeCases } from './generated-combinations';
 import type { LoadPlan } from '../engine/loads/load-plan';
 import { eligibleCombinationCase, isCompositeCase, loadCasesWithDirectEffects, type CaseCombination } from '../engine/loads/combination-cases';
@@ -260,6 +261,8 @@ export function previewLoadPlan(
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
   if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return p.blockedKeys[0];
+  const refusal = physicalPlanRefusal(p);
+  if (refusal) return refusal;
   const expandOptions = { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions };
   const scope = replaceScope(p, modelStore.loadsForEdit, modelStore.loadCases, modelStore.combinations, opts.nameOf);
   const replaced = opts.clearExisting ? replacementFromScope(scope, opts.alsoUnmarked) : undefined;

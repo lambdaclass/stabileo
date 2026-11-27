@@ -58,6 +58,7 @@ import type { DrawnSection } from '../../section/drawn';
 type PlanShell = { id: number; nodes: number[]; thickness?: number; materialId?: number; curved?: boolean; offset?: import('../../model/element-3d-metadata').ShellOffset };
 
 export interface LoadModelData extends GravityModel {
+  physicalPlateSource?: string;
   elements: Map<number, {
     id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss';
     offset?: import('../../model/element-3d-metadata').MemberOffset;
@@ -427,6 +428,7 @@ export interface SeismicPlanDetail {
 }
 
 export interface LoadPlan {
+  physicalPlateSource?: string;
   seismicGeneration?: 'static';
   outcome: PlanOutcome;
   cases: PlannedCase[];
@@ -1234,6 +1236,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     ...(roofWeight ? { roofWeight } : {}),
     seismic: seismicDetail,
     ...(cases.some(c => c.type === 'E') ? { seismicGeneration: 'static' as const } : {}),
+    ...(input.model.physicalPlateSource ? { physicalPlateSource: input.model.physicalPlateSource } : {}),
     generatedBy: codes.basis.adapterId,
     assumptions: dedupeMessages(assumptions),
     unsupportedKeys, refs, derivation, blockedKeys,

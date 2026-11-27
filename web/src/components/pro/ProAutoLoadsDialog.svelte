@@ -53,7 +53,7 @@
   import { defaultBeta, isBuildingKind, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
   import { applyLoadPlan, previewLoadPlan } from '../../lib/store/apply-load-plan';
   import { engineGuarded } from '../../lib/store/engine-action';
-  import { loadPlanModel } from '../../lib/store/saved-loads';
+  import { loadPlanModel } from '../../lib/store/load-plan-model';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import { snowPreview, type SnowConfig } from '../../lib/engine/loads/snow-config';
   import { roofGeometry } from '../../lib/engine/loads/snow-loads';

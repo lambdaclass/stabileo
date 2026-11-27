@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.meshPhysicalPlate": "Vernetzen Sie die physische Platte #{id} und erzeugen Sie die Lasten erneut. Der Lastplan benötigt ihre analytischen Elemente.",
   "loadPlan.blocked.unmeshedPlatePressure": "Erd- oder Flüssigkeitsdruck wirkt auf eine Platte, die noch nicht vernetzt ist. Vernetzen Sie die Platte (oder rechnen Sie einmal) und erzeugen Sie die Lasten erneut.",
   "loadPlan.blocked.unmeshedPlateThermal": "Eine Temperaturlast wirkt auf eine Platte, die noch nicht vernetzt ist. Vernetzen Sie die Platte (oder rechnen Sie einmal) und erzeugen Sie die Lasten erneut.",
   'loads.cirsoc101.reduction.applied': 'K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0,25 + 4,57/√{kllAt}) = {raw} kN/m².',

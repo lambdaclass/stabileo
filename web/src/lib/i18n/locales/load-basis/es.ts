@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.meshPhysicalPlate": "Mallá la placa física #{id} y volvé a generar las cargas. El plan necesita sus elementos analíticos.",
   "loadPlan.blocked.unmeshedPlatePressure": "Hay empuje de suelo o de fluido sobre una placa que todavía no tiene malla. Mallá la placa (o calculá una vez) y volvé a generar las cargas.",
   "loadPlan.blocked.unmeshedPlateThermal": "Hay una temperatura sobre una placa que todavía no tiene malla. Mallá la placa (o calculá una vez) y volvé a generar las cargas.",
   "loads.uk.roofLive": "Cubierta de categoría H, inaccesible salvo para mantenimiento (Tabla NA.7), pendiente {deg}°: qk = {qk} kN/m².",

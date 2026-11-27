@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.meshPhysicalPlate": "Hálózza be a(z) #{id} fizikai lemezt, majd generálja újra a terheket. A tehertervhez a lemez számítási elemei szükségesek.",
   "loadPlan.blocked.unmeshedPlatePressure": "Talaj- vagy folyadéknyomás hat egy még nem hálózott lemezre. Hálózza a lemezt (vagy futtasson egy számítást), majd készítse el újra a terheket.",
   "loadPlan.blocked.unmeshedPlateThermal": "Hőmérsékleti teher hat egy még nem hálózott lemezre. Hálózza a lemezt (vagy futtasson egy számítást), majd készítse el újra a terheket.",
   "loads.cirsoc101.reduction.applied": "K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0,25 + 4,57/√{kllAt}) = {raw} kN/m².",

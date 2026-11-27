@@ -45,6 +45,7 @@ import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/
 import { rigidLinkDofs, type Constraint3D } from '../types-3d';
 
 export interface GravityModel {
+  plateRequiringMesh?: number;
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId?: number; type?: 'frame' | 'truss' }>;
   quads?: Map<number, { id: number; nodes: number[] }>;
@@ -233,6 +234,7 @@ export function hasBoundedRafterGap(model: GravityModel): boolean {
 }
 
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
+  if (model.plateRequiringMesh !== undefined) refuseGravityGeometry(msg('loadPlan.blocked.meshPhysicalPlate', { id: model.plateRequiringMesh }));
   const eligibility = new Map<number, ReturnType<typeof beamLike>>();
   const out: GravityLayout = {
     pieces: [], points: [], panelAreas: [], memberMeasures: eligibility, areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),

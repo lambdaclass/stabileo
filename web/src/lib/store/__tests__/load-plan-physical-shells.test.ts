@@ -49,7 +49,7 @@ function state() {
   return JSON.stringify([modelStore.loads, modelStore.loadCases, modelStore.combinations, [...modelStore.model.groups], modelStore.model.designData]);
 }
 
-describe.skip('known wrong result: #1928 physical shells in the load generator', () => {
+describe('known wrong result: #1928 physical shells in the load generator', () => {
   it('plans and applies the released analytical model or the offered whole-plate definition', () => {
     const { id } = slab('straight');
     const real = modelStore.model.quads;
