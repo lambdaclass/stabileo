@@ -78,7 +78,6 @@ export interface Compat {
   /** End actions on each member (local): N tension positive at each end, V along +y, M counter-clockwise. */
   ends: Map<number, { Ni: number; Nj: number; Vi: number; Vj: number; Mi: number; Mj: number }>;
   reactions: Map<number, { rx: number; rz: number; my: number }>;
-  residual: number;
   forceResidual: number;
   momentResidual: number;
 }
@@ -346,7 +345,6 @@ function assemble(
   return {
     inext, all, allIndex, dofs, indep, T, deps, rigid, coords, byMember, kinds, kBlock, A, k, K,
     QjAll, QeAll, Qj, Qe, Q, q, u, p, P0, P, fe, axialRows, ends, reactions, forceResidual, momentResidual,
-    residual: Math.max(forceResidual, momentResidual),
   };
 }
 
