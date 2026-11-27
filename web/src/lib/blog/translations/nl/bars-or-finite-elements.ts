@@ -26,7 +26,7 @@ const body: PostBody = {
     },
     {
       "k": "table",
-      "caption": "Ligger op twee steunpunten van 6 m, doorsnede 20×60, 10 kN/m, E = 30,000 MPa. Doorbuiging in het midden van de overspanning wanneer de ligger in verschillende aantallen raamwerkelementen is verdeeld.",
+      "caption": "Ligger op twee steunpunten van 6 m, doorsnede 20×60 cm, 10 kN/m, E = 30 000 MPa. Doorbuiging in het midden van de overspanning wanneer de ligger in verschillende aantallen raamwerkelementen is verdeeld.",
       "head": [
         "Raamwerkelementen in de ligger",
         "Doorbuiging midden overspanning [mm]"
@@ -34,23 +34,23 @@ const body: PostBody = {
       "rows": [
         [
           "2",
-          "1.5625"
+          "1,5625"
         ],
         [
           "4",
-          "1.5625"
+          "1,5625"
         ],
         [
           "10",
-          "1.5625"
+          "1,5625"
         ],
         [
           "50",
-          "1.5625"
+          "1,5625"
         ],
         [
           "Gesloten vorm 5qL⁴/384EI",
-          "1.5625"
+          "1,5625"
         ]
       ]
     },
@@ -60,11 +60,11 @@ const body: PostBody = {
     },
     {
       "k": "quote",
-      "t": "Een rechte staaf in een net opdelen maakt hem niet nauwkeuriger: het maakt hem trager."
+      "t": "Bij alle getoonde verdelingen ligt in het midden een knoop. Verdere onderverdeling verandert de verplaatsing op die knoop niet."
     },
     {
       "k": "note",
-      "t": "Die exactheid geldt binnen de liggertheorie. De matrix lost de Euler-Bernoulli-vergelijking exact op, maar als de staaf zich niet gedraagt als een Euler-Bernoulli-ligger, helpt een exacte oplossing van die vergelijking niet. De rest van dit bericht gaat over die gevallen."
+      "t": "Die exactheid geldt binnen de liggertheorie. De knoopverplaatsingen zijn in dit voorbeeld exact binnen de Euler-Bernoulli-theorie, maar als de staaf zich niet gedraagt als een Euler-Bernoulli-ligger, helpt een exacte oplossing van die vergelijking niet. De rest van dit bericht gaat over die gevallen."
     },
     {
       "k": "h",
@@ -80,7 +80,7 @@ const body: PostBody = {
     },
     {
       "k": "table",
-      "caption": "Ligger op twee steunpunten van 6 m, 20 cm breed, 10 kN/m, E = 30,000 MPa, ν = 0.2. Doorbuiging in het midden van de overspanning, op de as.",
+      "caption": "Ligger op twee steunpunten van 6 m, 20 cm breed, 10 kN/m, E = 30 000 MPa, ν = 0,2. Doorbuiging in het midden van de overspanning, op de as.",
       "head": [
         "L/h",
         "Hoogte h [m]",
@@ -91,38 +91,38 @@ const body: PostBody = {
       "rows": [
         [
           "20",
-          "0.30",
-          "12.500",
-          "12.567",
-          "0.5 %"
+          "0,30",
+          "12,500",
+          "12,567",
+          "0,5 %"
         ],
         [
           "10",
-          "0.60",
-          "1.5625",
-          "1.5961",
-          "2.1 %"
+          "0,60",
+          "1,5625",
+          "1,5961",
+          "2,1 %"
         ],
         [
           "5",
-          "1.20",
-          "0.19531",
-          "0.21206",
-          "7.9 %"
+          "1,20",
+          "0,19531",
+          "0,21206",
+          "7,9 %"
         ],
         [
           "3",
-          "2.00",
-          "0.042188",
-          "0.052145",
-          "19.1 %"
+          "2,00",
+          "0,042188",
+          "0,052145",
+          "19,1 %"
         ],
         [
           "2",
-          "3.00",
-          "0.012500",
-          "0.019017",
-          "34.3 %"
+          "3,00",
+          "0,012500",
+          "0,019017",
+          "34,3 %"
         ]
       ]
     },
@@ -132,7 +132,7 @@ const body: PostBody = {
     },
     {
       "k": "quote",
-      "t": "Het raamwerkmodel maakt de ligger altijd stijver dan hij werkelijk is."
+      "t": "Bij deze belasting geeft het verwaarlozen van schuifvervorming een kleinere doorbuiging."
     },
     {
       "k": "h",
@@ -152,19 +152,19 @@ const body: PostBody = {
       "rows": [
         [
           "Raamwerkelementen (Euler-Bernoulli)",
-          "0.0422"
+          "0,0422"
         ],
         [
           "Raamwerkelementen plus de schuifterm, met de hand",
-          "0.0530"
+          "0,0530"
         ],
         [
           "MITC4-schalen",
-          "0.0521"
+          "0,0521"
         ],
         [
           "Vlakke elasticiteit, gesloten vorm",
-          "0.0523"
+          "0,0523"
         ]
       ]
     },
@@ -174,7 +174,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Doorbuiging is niet het hele verhaal. Bij die hoogte is de verdeling van de normaalspanning niet meer lineair, dus ook de formule van Navier geldt niet. Daarom behandelt ACI 318, de basis van CIRSOC 201, elke staaf met een vrije overspanning van ten hoogste vier keer zijn hoogte als hoge ligger, en vereist een ontwerp dat rekening houdt met de niet-lineaire rekverdeling, bijvoorbeeld met een stempel-en-trekbandmodel."
+      "t": "Doorbuiging is niet het hele verhaal. Bij die hoogte is de verdeling van de normaalspanning niet meer lineair, dus ook de formule van Navier geldt niet. Daarom behandelt ACI 318, de basis van CIRSOC 201, liggers die op één vlak worden belast en op het tegenoverliggende vlak worden ondersteund zodat drukschoren kunnen ontstaan, als hoge liggers wanneer de vrije overspanning hoogstens viermaal de hoogte is of een gebied een puntlast binnen tweemaal de hoogte van het oplegvlak bevat, en vereist een ontwerp dat rekening houdt met de niet-lineaire rekverdeling, bijvoorbeeld met een stempel-en-trekbandmodel."
     },
     {
       "k": "h",
@@ -201,38 +201,38 @@ const body: PostBody = {
       "rows": [
         [
           "4 × 3",
-          "0.75",
-          "0.0281",
-          "0.0627",
-          "2.23 keer"
+          "0,75",
+          "0,0281",
+          "0,0627",
+          "2,23 keer"
         ],
         [
           "3 × 3",
-          "1.00",
-          "0.0667",
-          "0.1129",
-          "1.69 keer"
+          "1,00",
+          "0,0667",
+          "0,1129",
+          "1,69 keer"
         ],
         [
           "2 × 3",
-          "1.50",
-          "0.2250",
-          "0.2943",
-          "1.31 keer"
+          "1,50",
+          "0,2250",
+          "0,2943",
+          "1,31 keer"
         ],
         [
           "3 × 6",
-          "2.00",
-          "0.533",
-          "0.625",
-          "1.17 keer"
+          "2,00",
+          "0,533",
+          "0,625",
+          "1,17 keer"
         ],
         [
           "3 × 9",
-          "3.00",
-          "1.800",
-          "1.937",
-          "1.08 keer"
+          "3,00",
+          "1,800",
+          "1,937",
+          "1,08 keer"
         ]
       ]
     },
@@ -284,7 +284,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Raamwerkelementen en schalen in hetzelfde programma hebben is niets nieuws. SAP2000, ETABS, Robot en midas combineren beide in één model, en dat is de basis voor professionele software. Maar ze zijn niet gebouwd om uit te leggen wat ze berekenen. Aan de andere kant leren onderwijstools zoals Ftool en MASTAN2 raamwerkberekening heel goed aan, maar stoppen voor eindige elementen."
+      "t": "Raamwerkelementen en schalen in hetzelfde programma hebben is niets nieuws. SAP2000, ETABS, Robot en midas combineren beide in één model, en dat is de basis voor professionele software. Maar ze zijn niet gebouwd om uit te leggen wat ze berekenen. Aan de andere kant leren onderwijstools zoals Ftool en MASTAN2 raamwerkberekening heel goed aan, maar bieden geen schaalmodellering."
     },
     {
       "k": "p",
@@ -301,13 +301,13 @@ const body: PostBody = {
     {
       "k": "embed",
       "query": "example=deep-beam-bar",
-      "label": "De ligger met L/h = 3 in de Basic-modus: overspanning 6 m, doorsnede 20×200 cm en 10 kN/m, gemodelleerd als twee raamwerkelementen. Beweeg de aanwijzer over het midden van de ligger en er staat \"uz: -0.042 mm\", overeenkomend met de Euler-Bernoulli-formule."
+      "label": "De ligger met L/h = 3 in de Basic-modus: overspanning 6 m, doorsnede 20×200 cm en 10 kN/m, gemodelleerd als twee raamwerkelementen. Beweeg de aanwijzer over het midden van de ligger en er staat \"uz: -0,042 mm\", overeenkomend met de Euler-Bernoulli-formule."
     },
     {
       "k": "embed",
       "query": "example=deep-beam-shell",
       "mode": "pro",
-      "label": "Dezelfde ligger in de PRO-modus, gemodelleerd als een schaal met 192 MITC4-elementen van 25 cm. Onder Analyseren → Verplaatsingen staat bij knoop 113 (midden overspanning, op halve hoogte) \"-5.19e-5\" m, dat is 0,0519 mm. De tabel hierboven gebruikt een fijner net en geeft 0,0521 mm."
+      "label": "Dezelfde ligger in de PRO-modus, gemodelleerd als een schaal met 192 MITC4-elementen van 25 cm. Onder Analyseren → Verplaatsingen staat bij knoop 113 (midden overspanning, op halve hoogte) \"-5.19e-5\" m, dat is −0,0519 mm. De tabel hierboven gebruikt een fijner net en geeft 0,0521 mm."
     },
     {
       "k": "link",
@@ -322,8 +322,8 @@ const body: PostBody = {
       "k": "ol",
       "items": [
         "Voor een prismatische staaf is de verplaatsingsmethode het exacte bijzondere geval van eindige elementen. Wat je kiest is het model.",
-        "Een rechte staaf heeft geen net nodig. Als opdelen het resultaat verandert, is er iets anders mis.",
-        "Onder L/h ≈ 5 onderschat het raamwerkmodel de doorbuiging met meer dan 8%, en onder 3 met meer dan 19%. Het maakt de ligger altijd stijver.",
+        "Bij deze lineair-elastische prismatische Euler-Bernoulli-ligger met consistente knooplasten veranderen de verplaatsingen op bestaande knopen niet door onderverdeling. Tussen knopen kan de interpolatie wel veranderen.",
+        "Voor de vrij opgelegde rechthoekige ligger onder gelijkmatig verdeelde belasting in de tabel is de doorbuiging bij L/h = 5 circa 8% en bij L/h = 3 circa 19% kleiner dan in het schaalmodel.",
         "In een onbepaalde constructie verandert die fout hoe belastingen worden verdeeld. Controleer gedrongen wanden vóór liggers.",
         "Vlakke plaatvloeren, wanden met openingen en belastingen bij opleggingen roepen vragen op die een raamwerkmodel niet kan beantwoorden.",
         "Waar de staaf slank is, moeten de twee modellen overeenkomen. Als dat niet zo is, controleer dan het net."

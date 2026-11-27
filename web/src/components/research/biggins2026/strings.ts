@@ -327,8 +327,8 @@ const nl: Strings = {
   "checkLabels": {
     "max relative threshold error against 31 Zenodo software outputs": "Zenodo-curve: maximale relatieve fout",
     "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Verfijning van elementennet en vormen",
-    "Euler f0 relative error": "Eerste eulerlast",
-    "Euler f1 relative error": "Tweede eulerlast"
+    "Euler f0 relative error": "Relatieve fout in de eerste eulerlast",
+    "Euler f1 relative error": "Relatieve fout in de tweede eulerlast"
   }
 };
 export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, it, zh, nl };

@@ -30,7 +30,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Het tweede geval was een gebouw met vier overspanningen en drie verdiepingen waarvan één kolom is weggenomen. Sommige liggers voldoen niet meer, hun doorsneden worden aangepast en elke staaf voldoet weer, waarbij de solver bij elke stap het hele model berekent."
+      "t": "Het tweede geval was een gebouw met vier overspanningen en drie verdiepingen waarvan één kolom is weggenomen. Sommige liggers voldoen niet meer, hun doorsneden worden aangepast en elke ligger voldoet weer, waarbij de solver bij elke stap het hele model berekent."
     },
     {
       "k": "h",

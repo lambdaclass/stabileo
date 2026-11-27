@@ -15,7 +15,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Stand per 12 november 2026: SA-2026-001 tot 020 zijn verholpen in versie 0.3.0, SA-2026-021 tot 024 in versie 0.4.0 en SA-2026-025 tot 047 in versie 0.5.0 (SA-2026-040 ingedamd: de toetsing is als onvolledig gemarkeerd), behalve SA-2026-044: 2D plastisch bezwijken blijft geweigerd tot #758 is gesloten. SA-2026-048 is verholpen na versie 0.5.0 en staat sinds 8 november 2026 op stabileo.com. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 en SA-2026-053 zijn verholpen na versie 0.5.0 en staan sinds 9 november 2026 op stabileo.com. Ze publiceren hoort bij hoe we de resultaten verifiëren en is geen teken dat ze nog openstaan. Een bericht geldt als verholpen wanneer de correctie live staat op stabileo.com, niet wanneer de wijziging bestaat. Zolang een bericht openstaat, gebruik je de bijbehorende tijdelijke oplossing en controleer je het getroffen resultaat met de hand voordat je tekent. SA-2026-054 — Concept: correctie nog niet samengevoegd of uitgerold. SA-2026-055 — Concept: correctie nog niet samengevoegd of uitgerold. SA-2026-056 — Concept: onopgelost; geen correctie samengevoegd of uitgerold. SA-2026-057 — Concept: correctie nog niet samengevoegd of uitgerold. SA-2026-059 — Verholpen in PR #1921, wacht op release. SA-2026-060 — Concept: lokale correctie wacht op review en release. SA-2026-062 — Concept: lokale correctie wacht op review en release."
+      "t": "Stand per 12 november 2026: SA-2026-001 tot 004 zijn verholpen in versie 0.2.0 en SA-2026-005 tot 020 in versie 0.3.0, SA-2026-021 tot 024 in versie 0.4.0 en SA-2026-025 tot 047 in versie 0.5.0 (SA-2026-040 ingedamd: de toetsing is als onvolledig gemarkeerd), behalve SA-2026-044: 2D plastisch bezwijken blijft geweigerd tot #758 is gesloten. SA-2026-048 is verholpen na versie 0.5.0 en staat sinds 8 november 2026 op stabileo.com. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 en SA-2026-053 zijn verholpen na versie 0.5.0 en staan sinds 9 november 2026 op stabileo.com. Ze publiceren hoort bij hoe we de resultaten verifiëren en is geen teken dat ze nog openstaan. Een bericht geldt als verholpen wanneer de correctie live staat op stabileo.com, niet wanneer de wijziging bestaat. Zolang een bericht openstaat, gebruik je de bijbehorende tijdelijke oplossing en controleer je het getroffen resultaat met de hand voordat je tekent. SA-2026-054 — Concept: correctie nog niet samengevoegd of uitgerold. SA-2026-055 — Concept: correctie nog niet samengevoegd of uitgerold. SA-2026-056 — Concept: onopgelost; geen correctie samengevoegd of uitgerold. SA-2026-057 — Concept: correctie nog niet samengevoegd of uitgerold. SA-2026-059 — Verholpen in PR #1921, wacht op release. SA-2026-060 — Concept: lokale correctie wacht op review en release. SA-2026-062 — Concept: lokale correctie wacht op review en release."
     },
     {
       "k": "note",
@@ -307,7 +307,7 @@ const body: PostBody = {
       "k": "ext",
       "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md",
       "label": "SA-2026-092",
-      "t": "Het voorbeeld van de dunne buis plaatst de vezel in de lokale assen van de staaf (y = 0.0995 m, z = 0). De oude berekening gaf 4.5697 MPa totale dwarskracht en 7.9149 MPa Von Mises, en de toetsing slaagde voor beide tekens van het wringend moment. Wanneer de dwarskrachtbijdragen elkaar versterken, is de som met teken 6.4625 MPa. De bijbehorende Von Mises-spanning is 11.1934 MPa, wat de vloeigrens van 9 MPa overschrijdt. Wanneer de bijdragen elkaar opheffen, is de Von Mises-spanning bijna nul en slaagt de toetsing."
+      "t": "Het voorbeeld van de dunne buis plaatst de vezel in de lokale assen van de staaf (y = 0.0995 m, z = 0). De oude berekening gaf 4.5697 MPa resulterende schuifspanning en 7.9149 MPa Von Mises, en de toetsing slaagde voor beide tekens van het wringend moment. Wanneer de schuifspanningsbijdragen elkaar versterken, is de som met teken 6.4625 MPa. De bijbehorende Von Mises-spanning is 11.1934 MPa, wat de vloeigrens van 9 MPa overschrijdt. Wanneer de bijdragen elkaar opheffen, is de Von Mises-spanning bijna nul en slaagt de toetsing."
     },
     {
       "k": "note",
@@ -868,7 +868,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-065",
-          "Sneeuwophoping bij een daktrap kon ontbreken op een hellend ontvangend dak (#2082). Genereer de CIRSOC 104-sneeuwbelastingen opnieuw en voer de getroffen berekeningen en ontwerptoetsingen opnieuw uit.",
+          "Sneeuwophoping bij een daksprong kon ontbreken op een hellend ontvangend dak (#2082). Genereer de CIRSOC 104-sneeuwbelastingen opnieuw en voer de getroffen berekeningen en ontwerptoetsingen opnieuw uit.",
           "Hoog",
           "Verholpen in 0.6.1"
         ],
@@ -904,7 +904,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-071",
-          "Staafverificatie kon voldoen met onvolledige gelijktijdige belastingen (#2096). Bereken beton- en staalontwerpen opnieuw en beoordeel combinaties, staven, sneden en certificaten.",
+          "Staafverificatie kon voldoen met onvolledige gelijktijdig optredende snedekrachten en momenten uit de maatgevende combinatie (#2096). Bereken beton- en staalontwerpen opnieuw en beoordeel combinaties, staven, sneden en certificaten.",
           "Hoog",
           "Verholpen in 0.6.2"
         ],
@@ -922,7 +922,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-074",
-          "Het onderverdelen van een hellend dakspant kon een expliciet dakvlak als vloer classificeren en de sneeuw aan de dakrand stilzwijgend verwijderen. De classificatie van daken gebruikt nu fysieke voetafdrukken van vlakken. Genereer alle betreffende gegenereerde oppervlaktebelastingen opnieuw en voer daarna berekeningen, combinaties en ontwerptoetsingen opnieuw uit. Alleen opnieuw berekenen met opgeslagen belastingen corrigeert ze niet. (#2172). Een ongesplitst hellend dakspant boven een apart lager vlak kon dat vlak ook ten onrechte als dak classificeren, waardoor dak- en vloeroppervlaktebelastingen veranderden en in breedtemodus stilzwijgend sneeuw werd toegevoegd.",
+          "Het onderverdelen van een schuin spantbeen kon een expliciet dakvlak als vloer classificeren en de sneeuw aan de dakrand stilzwijgend verwijderen. De classificatie van daken gebruikt nu fysieke voetafdrukken van vlakken. Genereer alle betreffende gegenereerde oppervlaktebelastingen opnieuw en voer daarna berekeningen, combinaties en ontwerptoetsingen opnieuw uit. Alleen opnieuw berekenen met opgeslagen belastingen corrigeert ze niet. (#2172). Een ongesplitst schuin spantbeen boven een apart lager vlak kon dat vlak ook ten onrechte als dak classificeren, waardoor dak- en vloeroppervlaktebelastingen veranderden en in breedtemodus stilzwijgend sneeuw werd toegevoegd.",
           "Hoog",
           "Verholpen in 0.6.2"
         ],
@@ -1024,7 +1024,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-092",
-          "Gedetailleerde doorsnedespanning kon de totale dwarskracht en Von Mises onderschatten en een voldoende teruggeven. Bereken de getroffen spanningen opnieuw en beoordeel de diagrammen, toetsingen en rapporten.",
+          "Gedetailleerde doorsnedespanning kon de resulterende schuifspanning en de von Mises-spanning onderschatten en een voldoende teruggeven. Bereken de getroffen spanningen opnieuw en beoordeel de diagrammen, toetsingen en rapporten.",
           "Hoog",
           "Gecombineerd geval geweigerd in #2372 en sneden gecorrigeerd in #2382, wacht op release"
         ],
@@ -1060,7 +1060,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-098",
-          "Betontoetsingen konden een te grote beugelafstand accepteren of wapening meetellen die in de doorsnede ontbreekt. Kolomtekeningen konden de verkeerde staafdiameters tonen. Controleer opnieuw tegen de aangebrachte wapening en gelijktijdige belastingen, en beoordeel daarna de getroffen tekeningen, staten en rapporten.",
+          "Betontoetsingen konden een te grote beugelafstand accepteren of wapening meetellen die in de doorsnede ontbreekt. Kolomtekeningen konden de verkeerde staafdiameters tonen. Controleer opnieuw tegen de aangebrachte wapening en gelijktijdig optredende snedekrachten en momenten uit de maatgevende combinatie, en beoordeel daarna de getroffen tekeningen, staten en rapporten.",
           "Hoog",
           "Verholpen in 0.6.3"
         ],
@@ -1090,7 +1090,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-103",
-          "Betontoetsingen van torsie en dwarskracht konden onvoldoende dwarswapening accepteren of niet-geverifieerde omtrek- of trekstaven meetellen. Herhaal de verificatie met de werkelijke wapening en gelijktijdige belastingen, en beoordeel getroffen rapporten.",
+          "Betontoetsingen van torsie en dwarskracht konden onvoldoende dwarswapening accepteren of niet-geverifieerde omtrek- of trekstaven meetellen. Herhaal de verificatie met de werkelijke wapening en gelijktijdig optredende snedekrachten en momenten uit de maatgevende combinatie, en beoordeel getroffen rapporten.",
           "Hoog",
           "Volgende release (0.6.4)"
         ],
@@ -1422,7 +1422,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Bij H-belastingen vraagt CIRSOC 101-2025 om de effecten van belastingen die niet werken. De combinaties 0.9 D + 1.6 H en 1.2 D + 1.6 H werden nooit gegenereerd, dus waar het eigen gewicht de gronddruk weerstaat (kantelen of glijden van een wand) kwam het effect te laag uit. Ze worden nu gegenereerd, met of zonder wind of aardbeving in het model."
+      "t": "Bij H-belastingen moet je volgens CIRSOC 101-2025 ook rekening houden met het wegvallen van belastingen. De combinaties 0.9 D + 1.6 H en 1.2 D + 1.6 H werden nooit gegenereerd, dus waar het eigen gewicht de gronddruk weerstaat (kantelen of glijden van een wand) kwam het effect te laag uit. Ze worden nu gegenereerd, met of zonder wind of aardbeving in het model."
     },
     {
       "k": "ext",

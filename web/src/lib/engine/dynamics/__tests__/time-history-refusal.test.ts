@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { timeHistoryRefusal, modalMechanismRefusal } from '../time-history-refusal';
+import { OFFERED_LOCALES } from '../../../i18n/offered';
 import { teAt } from '../../../i18n/engine-text';
+
+const refusalLocales = new Set([...OFFERED_LOCALES, 'hu']);
 
 const engineText = 'TH-NONFINITE: Time history: the response is not finite (NaN or infinite) from step 12 (t = 0.024 s); no result is returned';
 
@@ -12,7 +15,7 @@ describe('timeHistoryRefusal', () => {
   it('reads the refusal of non-finite peak reactions, which has no step', () => {
     const m = timeHistoryRefusal('TH-NONFINITE: Time history: the reactions at the peak response are not finite (NaN or infinite); no result is returned');
     expect(m).toEqual({ key: 'pro.th.refusal.nonFiniteReactions' });
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) expect(teAt(m!, locale), locale).not.toBe('pro.th.refusal.nonFiniteReactions');
+    for (const locale of refusalLocales) expect(teAt(m!, locale), locale).not.toBe('pro.th.refusal.nonFiniteReactions');
   });
 
   it('leaves every other engine error to be shown as it is', () => {
@@ -21,7 +24,7 @@ describe('timeHistoryRefusal', () => {
 
   it('is translated in every offered language, with the step and time in it', () => {
     const m = timeHistoryRefusal(engineText)!;
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    for (const locale of refusalLocales) {
       const text = teAt(m, locale);
       expect(text, locale).not.toBe('pro.th.refusal.nonFinite');
       expect(text, locale).toContain('12');
@@ -39,7 +42,7 @@ describe('the refusals of a singular mass', () => {
     it(`maps ${key} and translates it in every offered language`, () => {
       const m = timeHistoryRefusal(text);
       expect(m).toEqual({ key });
-      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) expect(teAt(m!, locale), locale).not.toBe(key);
+      for (const locale of refusalLocales) expect(teAt(m!, locale), locale).not.toBe(key);
     });
   }
 });
@@ -53,7 +56,7 @@ describe('modalMechanismRefusal', () => {
 
   it('is translated in every offered language, with the node in it', () => {
     const m = modalMechanismRefusal(engineText)!;
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    for (const locale of refusalLocales) {
       const text = teAt(m, locale);
       expect(text, locale).toContain('7');
       expect(text, locale).toContain('ux');
@@ -68,7 +71,7 @@ describe('modalMechanismRefusal', () => {
     });
     const message = modalMechanismRefusal(text);
     expect(message).toEqual({ key: 'advanced.modalTranslationMechanism', params: { node: 7, dof: 'ux' } });
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'hu', 'tr', 'zh', 'nl']) {
+    for (const locale of refusalLocales) {
       const translated = teAt(message!, locale);
       expect(translated, locale).toContain('7');
       expect(translated, locale).toContain('ux');

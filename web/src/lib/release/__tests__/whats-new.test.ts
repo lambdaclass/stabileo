@@ -32,7 +32,7 @@ describe("what's-new notice", () => {
   });
 
   it('links notes that exist in the repository, in each offered language', () => {
-    for (const [locale, file] of [['en', ''], ['es', '.es'], ['pt', '.pt'], ['de', '.de'], ['fr', '.fr'], ['tr', '.tr'], ['it', '']] as const) {
+    for (const [locale, file] of [['en', ''], ['es', '.es'], ['pt', '.pt'], ['de', '.de'], ['fr', '.fr'], ['tr', '.tr'], ['it', '.it']] as const) {
       const url = releaseNotesUrl(locale);
       expect(url).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${RESULTS_CHANGED_IN}${file}.md`);
       expect(existsSync(resolve(repo, `docs/releases/v${RESULTS_CHANGED_IN}${file}.md`))).toBe(true);
@@ -71,7 +71,13 @@ it('links Chinese release notes that exist in the repository', () => {
   expect(existsSync(resolve(repo, `docs/releases/v${RESULTS_CHANGED_IN}.zh.md`))).toBe(true);
 });
 
-it.skip.each(['nl', 'it'])('known wrong result: #2613 — links %s release notes that exist in the repository', locale => {
+it.each(['nl', 'it'])('links %s release notes that exist in the repository', locale => {
   expect(releaseNotesUrl(locale)).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${RESULTS_CHANGED_IN}.${locale}.md`);
   expect(existsSync(resolve(repo, `docs/releases/v${RESULTS_CHANGED_IN}.${locale}.md`))).toBe(true);
+});
+
+it.each(['nl', 'it'])('uses %s only when that earlier release has translated notes', locale => {
+  expect(releaseNotesUrl(locale, '0.4.0')).toMatch(new RegExp('v0\\.4\\.0\\.' + locale + '\\.md$'));
+  expect(existsSync(resolve(repo, `docs/releases/v0.4.0.${locale}.md`))).toBe(true);
+  expect(releaseNotesUrl(locale, '0.5.0')).toMatch(/v0\.5\.0\.md$/);
 });

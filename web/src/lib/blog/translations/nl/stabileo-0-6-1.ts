@@ -43,7 +43,7 @@ const body: PostBody =  {
         [
           "SA-2026-067",
           "Hoog",
-          "Rotatie in het grondvlak kon gegenereerde sneeuwbelastingen veranderen (#2093). Genereer belastingen opnieuw met de werkelijke daggeometrie, en bereken daarna analyses en toetsingen opnieuw; een oud model terugdraaien is geen herstel."
+          "Rotatie in het grondvlak kon gegenereerde sneeuwbelastingen veranderen (#2093). Genereer belastingen opnieuw met de werkelijke dakgeometrie, en bereken daarna analyses en toetsingen opnieuw; een oud model terugdraaien is geen herstel."
         ],
         [
           "SA-2026-068",
@@ -202,7 +202,7 @@ const body: PostBody =  {
       "k": "ul",
       "items": [
         "Bekende onjuiste resultaten blijven open: #2096, #2142, #2143 en #2144. Deze release lost ze niet op. Raadpleeg hun getroffen reikwijdte en verifieer getroffen resultaten onafhankelijk voordat je ze gebruikt.",
-        "SA-2026-056 blijft onopgelost: verifieer dynamische belastingen onafhankelijk voor gekoppelde gemengde raamwerk-schaalmodellen die na hernummeren, rotatie of eenhedenconversie wezenlijk veranderen. Er is geen conservatieve correctiefactor vastgesteld.",
+        "SA-2026-056 blijft onopgelost: verifieer de berekende dynamische respons, waaronder staafkrachten en oplegreacties, onafhankelijk voor gekoppelde gemengde raamwerk-schaalmodellen die na hernummeren, rotatie of eenhedenconversie wezenlijk veranderen. Er is geen conservatieve correctiefactor vastgesteld.",
         "2D plastisch bezwijken blijft geweigerd in afwachting van #758, zoals beschreven in SA-2026-044. Een gecertificeerde 3D ondergrens certificeert de ruwe scharnierhistorie niet.",
         "Tijdsdomeinanalyse levert geen totale dynamische oplegbelastingen. Gebruik een onafhankelijke analyse met traagheid, demping en oplegbelasting. Niet ondersteunde kabelanalyses en niet-nul opgelegde oplegbeweging in kabel- of tijdsdomeinwerkstromen weigeren expliciet.",
         "Ruimtelijke booglengte- en verplaatsingsgestuurde solvers zijn niet toegevoegd. Bestaande waarschuwingen en beperkingen blijven van toepassing."

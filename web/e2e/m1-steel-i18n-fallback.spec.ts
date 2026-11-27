@@ -85,6 +85,9 @@ test.describe('a stored locale the app no longer offers', () => {
     const body = await page.getByTestId('conn-experimental-banner').innerText();
     expect(body.trim().length).toBeGreaterThan(20);
 
+    await expect(page.getByTestId('conn-sec-bolts').locator('.title')).toHaveText('Bolts');
+    await expect(page.getByTestId('conn-sec-welds').locator('.title')).toHaveText('Welds');
+
     const leak = await page.evaluate(() => {
       const root = document.querySelector('.conn-tab') ?? document.body;
       const text = root.textContent ?? '';

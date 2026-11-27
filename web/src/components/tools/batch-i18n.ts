@@ -1,3 +1,4 @@
+import { positiveBendingMoment } from '../../lib/i18n/dutch-engineering-terms';
 import { shearConvention } from './shear-convention';
 
 // Kept behind the tools route boundary: these dictionaries never enter landing/app bundles.
@@ -626,7 +627,7 @@ export const batchTranslations: Record<string, Record<string, string>> = {
     "tools.batch.reaction": "Linkse reactie",
     "tools.batch.pinned": "Scharnierend",
     "tools.batch.fixed": "Ingeklemd",
-    "tools.batch.sagging": "Maximaal positief moment (zakking)",
+    "tools.batch.sagging": "Maximaal positief moment (trek onderaan)",
     "tools.batch.hogging": "Maximaal negatief moment (negatief)",
     "tools.batch.sway": "Zijdelingse uitwijking van de top",
     "tools.batch.axial": "Normaalkrachten in de staven",
@@ -650,8 +651,8 @@ export const batchTranslations: Record<string, Record<string, string>> = {
     "tools.batch.influenceMethod": "Statica voor één overspanning; krachtenmethode voor twee overspanningen: maak de middenoplegging vrij en leg daar nuldoorbuiging op. Aslasteffect = aslast × ordinaat van de invloedslijn.",
     "tools.batch.displacementShort": "Verplaatsing |u|",
     "tools.batch.references": "Hoekverdraaiingsmethode, krachtenmethode, knooppuntenmethode en invloedslijnen: R. C. Hibbeler, Structural Analysis (elke recente editie), hoofdstukken over die methoden. Eigenfrequenties: R. D. Blevins, Formulas for Natural Frequency and Mode Shape (1979), hoofdstuk 8. Uitwijking van het portaal: hoekverdraaiingsmethode met axiaal stijve staven.",
-    "tools.batch.influenceSign": `Ordinaten per eenheid neerwaartse belasting. Reactie: positief omhoog. Moment: positief bij zakking. De dwarskracht wordt direct links van de doorsnede bepaald, waar ${shearConvention.nl}.`,
-    "tools.batch.signConvention": `Tekenafspraak: op horizontale staven is het buigend moment positief bij zakking (trek onderaan) en ${shearConvention.nl}; portaalkolommen volgen dezelfde regel in hun lokale assen, van voet naar top. De reacties Rx en Rz zijn positief langs globaal +x en +z (omhoog). Normaalkracht is positief bij trek.`,
+    "tools.batch.influenceSign": `Ordinaten per eenheid neerwaartse belasting. Reactie: positief omhoog. Moment: ${positiveBendingMoment}. De dwarskracht wordt direct links van de doorsnede bepaald, waar ${shearConvention.nl}.`,
+    "tools.batch.signConvention": `Tekenafspraak: op horizontale staven is het buigend moment ${positiveBendingMoment} en ${shearConvention.nl}; portaalkolommen volgen dezelfde regel in hun lokale assen, van voet naar top. De reacties Rx en Rz zijn positief langs globaal +x en +z (omhoog). Normaalkracht is positief bij trek.`,
     "tools.batch.node": "Knoop",
     "tools.batch.bases": "Kolomvoeten",
     "tools.batch.zeroReference": "elke referentiewaarde is nul; grootste absolute verschil",

@@ -30,7 +30,7 @@ test('Node locale and sitemap consumers agree with the production config', async
   } finally {
     rmSync(outfile, { force: true });
   }
-  const expected = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'it', 'zh', ...(research ? ['hu'] : [])];
+  const expected = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'it', 'zh', 'nl', ...(research ? ['hu'] : [])];
   assert.deepEqual([...result.offered].sort(), [...expected].sort());
   assert.deepEqual(result.public, expected);
   assert.deepEqual(result.sitemap, expected);

@@ -1,3 +1,4 @@
+import { positiveBendingMoment } from '../../lib/i18n/dutch-engineering-terms';
 import { shearConvention } from './shear-convention';
 
 export const toolTranslations: Record<string, Record<string, string>> = {
@@ -547,11 +548,11 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.invalid": "Voer eindige positieve waarden in binnen de getoonde grenzen; EI moet minstens 10⁻⁶ kN·m² zijn en de puntlast moet op de staaf liggen.",
   "tools.failed": "De berekening is mislukt.",
   "tools.diagramNote": "De ordinaten van de lijnen zijn voor de zichtbaarheid geschaald; zie de tekenafspraak hieronder.",
-  "tools.signConvention": `Tekenafspraak: doorbuiging wordt positief omhoog getekend (neerwaartse doorbuiging is negatief); buigend moment is positief bij zakking (trek onderaan); ${shearConvention.nl}. De resultaatkaarten tonen absolute maxima.`,
+  "tools.signConvention": `Tekenafspraak: doorbuiging wordt positief omhoog getekend (neerwaartse doorbuiging is negatief); buigend moment is ${positiveBendingMoment}; ${shearConvention.nl}. De resultaatkaarten tonen absolute maxima.`,
   "tools.absoluteDifference": "Absoluut verschil",
   "tools.solverWarning": "De solver heeft dit model gemarkeerd ({code}). De resultaten zijn mogelijk onbetrouwbaar; controleer de invoer.",
   "tools.warnSlenderness": "De slankheid L/r = {slenderness} ligt onder 20. De Euler–Bernoulli-theorie verwaarloost dwarskrachtvervorming en rotatietraagheid, dus deze frequenties worden overschat.",
-  "tools.warnReference": "De engine en de klassieke referentie verschillen {difference} %, meer dan 1 %. De aannamen van de klassieke formule (zie de opmerkingen) gelden niet voor deze invoer; controleer de invoer voordat je een van beide waarden gebruikt.",
+  "tools.warnReference": "De engine en de klassieke referentie verschillen {difference} %, meer dan 1 %. Controleer de invoer en de aannamen van de klassieke formule (zie de opmerkingen) voordat je een van beide waarden gebruikt.",
   "tools.warnDeflection": "De grootste verplaatsing is {ratio} × de overspanning, boven de grens van 1/50 van de lineaire theorie voor kleine doorbuiging. Deze resultaten zijn niet betrouwbaar: verlaag de belasting of vergroot de stijfheid.",
   "tools.indexAssumptions": (__PUBLIC_FEATURES__.tools ? "Elke tool vermeldt zijn eigen model, aannamen, tekenafspraak en referentie. SI-eenheden. Een hulpmiddel voor onderwijs en controle, geen normtoetsing." : "Lineair elastisch, kleine verplaatsingen, prismatische Euler–Bernoulli-staven; vakwerkstaven nemen alleen normaalkracht op. SI-eenheden. Eigen gewicht uitgesloten. Elke tool vermeldt zijn eigen aannamen, tekenafspraak en klassieke referentie. Geen normtoetsing."),
   "tools.loading": "Berekenen…",

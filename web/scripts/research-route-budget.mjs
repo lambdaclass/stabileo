@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { measuredLocales } from './route-locale-bytes.mjs';
 
 export const RESEARCH_ISOLATION_BYTES = 128;
 
@@ -15,12 +16,15 @@ export function routeAllowances(text, exists) {
   return Object.fromEntries(Object.entries(routes).map(([route, entry]) => {
     const list = Array.isArray(entry) ? entry : [entry];
     for (const a of list) {
-      if (!Number.isInteger(a?.bytes) || a.bytes <= 0 || typeof a.reason !== 'string' || !a.reason.trim() || typeof a.module !== 'string' || !exists(a.module)) {
+      if ((a?.locale !== undefined && !measuredLocales.includes(a.locale)) || !Number.isInteger(a?.bytes) || a.bytes <= 0 || typeof a.reason !== 'string' || !a.reason.trim() || typeof a.module !== 'string' || !exists(a.module)) {
         throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
       }
     }
     if (!list.length) throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
-    return [route, { bytes: list.reduce((n, a) => n + a.bytes, 0), reason: list.map((a) => a.reason).join(' + '), modules: list.map((a) => a.module) }];
+    const localeLimits = Object.fromEntries(measuredLocales.map(locale => [
+      locale, list.filter(a => a.locale === locale).reduce((total, a) => total + a.bytes, 0),
+    ]));
+    return [route, { ...(list.some(a => a.locale) ? { localeLimits } : {}), bytes: list.reduce((n, a) => n + a.bytes, 0), reason: list.map((a) => a.reason).join(' + '), modules: list.map((a) => a.module) }];
   }));
 }
 
@@ -29,17 +33,38 @@ function shippedAllowances() {
   return routeAllowances(read('./research-route-allowances.json'), (module) => existsSync(new URL(`../${module}`, import.meta.url)));
 }
 
-export function checkResearchIsolation(rows, allowances = {}) {
+export function checkResearchIsolation(rows, allowances = {}, beforeLocales, afterLocales) {
+  const measured = beforeLocales !== undefined || afterLocales !== undefined;
   const limit = (route) => RESEARCH_ISOLATION_BYTES + (allowances[route]?.bytes ?? 0);
   const grown = rows.filter((r) => r.growth > limit(r.route));
   if (grown.length) {
     throw new Error(grown.map((r) => `${r.route} grew: ${r.before} -> ${r.after} bytes (${limit(r.route)} byte tolerance${allowances[r.route] ? `, with ${allowances[r.route].bytes} allowed for ${allowances[r.route].reason}` : ''}, research isolation: the change touches research code shipped to the browser)`).join('\n'));
   }
+  for (const row of rows) {
+    const allowance = allowances[row.route];
+    if (!allowance?.localeLimits) continue;
+    let sharedBefore = row.before;
+    let sharedAfter = row.after;
+    let sharedLimit = allowance.bytes;
+    for (const [locale, limit] of Object.entries(allowance.localeLimits)) {
+      const before = measured ? beforeLocales?.[row.route]?.[locale] : 0;
+      const after = measured ? afterLocales?.[row.route]?.[locale] : 0;
+      if (![before, after].every(n => Number.isSafeInteger(n) && n >= 0)) throw new Error(`Invalid ${row.route} ${locale} resource measurement`);
+      if (after - before > limit) throw new Error(`${row.route} ${locale} resource growth ${after - before} exceeds ${limit} bytes`);
+      sharedBefore -= before;
+      sharedAfter -= after;
+      sharedLimit -= limit;
+    }
+    if (sharedBefore < 0 || sharedAfter < 0) throw new Error(`Locale data exceeds total bytes for ${row.route}`);
+    if (sharedAfter - sharedBefore > sharedLimit + RESEARCH_ISOLATION_BYTES) {
+      throw new Error(`${row.route} shared bytes grew: ${sharedBefore} -> ${sharedAfter} (research isolation limit ${sharedLimit + RESEARCH_ISOLATION_BYTES})`);
+    }
+  }
 }
 
-export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances()) {
+export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances(), beforeLocales, afterLocales) {
   const rows = routeGrowth(baseline, measured);
-  if (isolation !== 'false') checkResearchIsolation(rows, allowances);
+  if (isolation !== 'false') checkResearchIsolation(rows, allowances, beforeLocales, afterLocales);
   return rows;
 }
 

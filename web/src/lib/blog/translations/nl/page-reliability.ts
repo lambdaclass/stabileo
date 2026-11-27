@@ -47,7 +47,7 @@ const body: StandingPage['i18n']['en'] = {
         "SA-2026-001 tot 004 zijn opgelost in versie 0.2.0.",
         "SA-2026-005 tot 020 zijn opgelost in versie 0.3.0.",
         "SA-2026-021 tot 024 zijn opgelost in versie 0.4.0.",
-        "SA-2026-025 tot 047 zijn gepubliceerd met versie 0.5.0 en daarin opgelost (SA-2026-040 is ingeperkt: de toetsing is gemarkeerd als onvolledig), behalve SA-2026-044: plastisch bezwijken in 2D blijft geweigerd totdat #758 is gesloten.",
+        "Versie 0.5.0 verhielp SA-2026-025 tot 039, 041 tot 043 en 045 tot 047. Voor SA-2026-040 werd de toetsing als onvolledig gemarkeerd. Voor SA-2026-044 werd plastisch bezwijken in 2D destijds geweigerd.",
         "De app meldt één keer wanneer resultaten kunnen zijn veranderd, en projecten die zijn opgeslagen vóór een wijziging die hen aangaat vragen om een nieuwe controle wanneer je ze opent."
       ]
     },
@@ -98,7 +98,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "q": "Zijn de gepubliceerde berichten opgelost?",
-      "a": "Op twee na allemaal. SA-2026-001 tot 004 zijn opgelost in versie 0.2.0, SA-2026-005 tot 020 in 0.3.0, SA-2026-021 tot 024 in 0.4.0 en SA-2026-025 tot 047 in 0.5.0, behalve SA-2026-040 en SA-2026-044. SA-2026-040 is ingeperkt: de toetsing is gemarkeerd als onvolledig. SA-2026-044 is niet opgelost: plastisch bezwijken in 2D blijft geweigerd totdat #758 is gesloten."
+      "a": "Van de eerste 47 waren er bij versie 0.5.0 twee ingeperkt. Raadpleeg de volledige lijst veiligheidsberichten voor de actuele status. SA-2026-001 tot 004 zijn opgelost in versie 0.2.0, SA-2026-005 tot 020 in 0.3.0, SA-2026-021 tot 024 in 0.4.0 en SA-2026-025 tot 047 in 0.5.0, behalve SA-2026-040 en SA-2026-044. SA-2026-040 is ingeperkt: de toetsing is gemarkeerd als onvolledig. Voor SA-2026-044 werd plastisch bezwijken in 2D in die versie geweigerd."
     }
   ]
 };

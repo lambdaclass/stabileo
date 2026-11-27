@@ -137,6 +137,9 @@ jobs:
           fi
           nix develop . -c sh -c "cd route-main/web && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json' --update"
           nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
+      - name: Check measured translation allowances when main still uses pooled allowances
+        if: steps.scope.outputs.research == 'true' && steps.scope.outputs.allowances == 'true'
+        run: nix develop . -c bash .github/scripts/check-initial-locale-budget.sh route-main .
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.

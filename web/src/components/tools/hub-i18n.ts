@@ -448,7 +448,7 @@ export const hubTranslations: Record<string, Record<string, string>> = {
     "tools.fig.mode": "Eigenvorm {n}",
     "tools.fig.buckling": "Eerste knikvorm",
     "tools.figures": "Resultaten, bijgewerkt terwijl je een waarde wijzigt",
-    "tools.peak.max": "|max|",
+    "tools.peak.max": "max |·|",
     "tools.peak.f": "f =",
     "tools.peak.lambda": "λ =",
     "tools.peak.pcr": "Pcr =",

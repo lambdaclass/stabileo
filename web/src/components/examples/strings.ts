@@ -1,3 +1,4 @@
+import { positiveBendingMoment } from '../../lib/i18n/dutch-engineering-terms';
 import mainCopy from './main-copy.json';
 import { publicI18n } from '../../lib/i18n/store.svelte';
 
@@ -1426,10 +1427,10 @@ const nl: Record<Key, string> = {
   'r.totalLoad': 'Totale belasting',
   'r.period': 'Eerste periode',
   'r.peakRoof': 'Maximale dakverplaatsing',
-  'r.peakDrift': 'Maximale verdiepingsverplaatsing',
+  'r.peakDrift': 'Maximale relatieve verplaatsing tussen opeenvolgende verdiepingen',
   'r.peakElasticBaseShear': 'Maximale elastische voetdwarskracht',
   'note.elasticShear': 'Voetdwarskracht uit de stijfheidskrachten K·u van de kolommen, dezelfde grootheid als de maximale reacties van de engine. Dempingskrachten en de eigen traagheid van de kolommen zijn niet inbegrepen.',
-  'c.moment': 'Buigend moment (positief bij zakking)',
+  'c.moment': `Buigend moment (${positiveBendingMoment})`,
   'c.shear': 'Dwarskracht',
   'c.deflection': 'Doorbuiging (positief omhoog)',
   'c.roof': 'Dakverplaatsing',
@@ -1524,7 +1525,7 @@ const nl: Record<Key, string> = {
   'outrigger.p.columnArea': 'Kolomoppervlak',
   'outrigger.p.wind': 'Windbelasting op de kern',
   'outrigger.benchmark': 'Tools: ingeklemde console, getoetst aan gesloten oplossingen',
-  'tower.about': 'Een ronde stalen buis (E = 210 GPa, 7850 kg/m³) aan de voet ingeklemd, in 20 elementen. De frequenties worden getoond naast de wortels van de frequentievergelijking van de console met een topmassa, en de knikfactor van de topbelasting naast de π²EI/4H² van Euler. Het eigen gewicht maakt geen deel uit van de kniklast.',
+  'tower.about': 'Een ronde stalen buis (E = 210 GPa, 7850 kg/m³) aan de voet ingeklemd, in 20 elementen. De frequenties worden getoond naast de wortels van de frequentievergelijking van de console met een topmassa, en de kritieke topbelasting naast de eulerkniklast π²EI/(4H²). Het eigen gewicht maakt geen deel uit van de kniklast.',
   'tower.p.height': 'Hoogte',
   'tower.p.diameter': 'Diameter',
   'tower.p.thickness': 'Wanddikte',

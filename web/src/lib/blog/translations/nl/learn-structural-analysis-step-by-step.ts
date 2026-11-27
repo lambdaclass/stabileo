@@ -10,7 +10,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "De cursus is geschreven door Bautista Chesta, civiel ingenieur (FIUBA), en komt in zes eenheden: de gedeelde basis, statica en klassieke methoden, invloedslijnen, tweede orde en knik, plastische berekening en dynamica. Hij is gratis, net als heel Basic: hij opent in de browser, zonder iets te installeren en zonder account, en de teksten zijn in het Spaans, Engels, Portugees, Duits, Frans en Turks."
+      "t": "De cursus is geschreven door Bautista Chesta, civiel ingenieur (FIUBA), en komt in zes eenheden: de gedeelde basis, statica en klassieke methoden, invloedslijnen, tweede orde en knik, plastische berekening en dynamica. Hij is gratis, net als heel Basic: hij opent in de browser, zonder iets te installeren en zonder account, en bij de introductie waren de teksten beschikbaar in het Spaans, Engels, Portugees, Duits, Frans en Turks."
     },
     {
       "k": "h",
@@ -88,7 +88,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Voorbeelden → Portaal, daarna Geavanceerd → Plastisch bezwijken. De eenheid is geschreven: elke belastingstap, de λ–verplaatsingskromme, de plastische rotaties, het mechanisme getekend op het model en gecontroleerd met virtuele arbeid, en een mechanisme dat je kiest door te tikken waar de scharnieren komen. De resultaten worden voorlopig achtergehouden. We ontdekten dat de grensberekening erachter een bezwijkfactor kan geven die tot 4,6 keer verschilt wanneer de staven worden hernummerd of omgekeerd, of de eenheden veranderen (#758). Totdat dat is opgelost zegt het paneel dat en linkt het de kwestie, en de statische en kinematische methoden in de catalogus zijn uitgeschakeld met dezelfde reden: geen getal is beter dan een getal dat afhangt van hoe het model is getekend."
+      "t": "Voorbeelden → Portaal, daarna Geavanceerd → Plastisch bezwijken. De eenheid is geschreven: elke belastingstap, de λ–verplaatsingskromme, de plastische rotaties, het mechanisme getekend op het model en gecontroleerd met virtuele arbeid, en een mechanisme dat je kiest door te tikken waar de scharnieren komen. Bij de introductie werden de resultaten achtergehouden. We ontdekten dat de grensberekening erachter een bezwijkfactor kan geven die tot 4,6 keer verschilt wanneer de staven worden hernummerd of omgekeerd, of de eenheden veranderen (#758). De beoordeelde correcties in resultaatversies 27–29 hieven deze weigering voor het 2D-portaal niet op. Het paneel en beide cursusmethoden verwijzen voor dit geval nog steeds naar #758."
     },
     {
       "k": "img",
@@ -96,7 +96,7 @@ const body: PostBody = {
       "w": 1600,
       "h": 1000,
       "alt": "Stabileo Basic met het voorbeeld Portaal en Geavanceerd → Plastisch bezwijken gekozen: er wordt geen kromme of mechanisme getoond; een omkaderde melding zegt dat de resultaten worden achtergehouden omdat de plastische bezwijkfactor in 2D tot 4,6 keer kan veranderen met nummering, staafrichting of eenheden, en linkt kwestie #758.",
-      "caption": "Plastisch bezwijken van het portaal, achtergehouden totdat #758 is opgelost."
+      "caption": "Plastisch bezwijken van het portaal, bij de introductie achtergehouden wegens #758. Deze weigering geldt nog voor het getoonde 2D-portaal."
     },
     {
       "k": "h",
@@ -170,7 +170,7 @@ const body: PostBody = {
         [
           "Plastische berekening",
           "2",
-          "Kinematische methode; statische methode (achtergehouden tot #758)"
+          "Kinematische methode; statische methode (voor dit 2D-portaal geweigerd wegens #758)"
         ],
         [
           "Constructiedynamica",

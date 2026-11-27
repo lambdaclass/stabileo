@@ -117,7 +117,7 @@ const body: PostBody =  {
         ],
         [
           "3 · Stijfheidsmatrix",
-          "Niet-vastgehouden vrijheidsgraden",
+          "Vrije translatie van de constructie als star lichaam",
           "1"
         ],
         [

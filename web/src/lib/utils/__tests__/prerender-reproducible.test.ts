@@ -158,7 +158,7 @@ it('Ferrari prerenders omit live WebGL diagnostics (#2483)', async () => {
   try {
     await prepareBuild(out);
     await prerender(out, '4', [path]);
-    for (const locale of ['es', 'en', 'pt', 'it', 'zh', 'hu']) {
+    for (const locale of ['es', 'en', 'pt', 'it', 'zh', 'nl', 'hu']) {
       const html = readFileSync(join(out, locale + path, 'index.html'), 'utf8');
       const canvas = html.match(/<canvas data-engine="three\.js [^"]+"[^>]*>/)?.[0];
       expect(canvas, locale).toBeDefined();

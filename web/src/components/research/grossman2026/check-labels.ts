@@ -239,7 +239,7 @@ const labels: Record<string, Record<string, string>> = {
     "hu": "Kiegészítő (9) egyenlet: fordított négyzetes merevség",
     'it': "Eq. (9) supplementare: rigidezza inversa al quadrato",
     "zh": "补充材料式 (9)：反平方刚度",
-    "nl": "Aanvullende vgl. (9): inverse stijfheid in het kwadraat"
+    "nl": "Aanvullende vgl. (9): omgekeerd-kwadratische afhankelijkheid van de stijfheid"
   },
   "hookean-convention": {
     "es": "Constantes iguales: ν = 1/6",

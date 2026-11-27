@@ -586,7 +586,7 @@ export const translations = {
     "scopeText": "Dit is een methodebenchmark ten opzichte van analytisch evenwicht en native resultaten van de productieversie. Het reproduceert geen numeriek voorbeeld uit Riks (1979) of Crisfield (1981).",
     "accuracy": "Een geconvergeerde belastingomkering omsluit het bovenste grenspunt; een parabool door drie aangrenzende punten schat de positie. Elke maat heeft zijn eigen tolerantie in het casebestand. Een niet bereikt grenspunt wordt niet beoordeeld. De toename van de lastfactor Δλ wordt begrensd door Δs / ‖f_ref‖; dit is een bemonsteringsgrens, geen bewering over nauwkeurigheid.",
     "isolation": "Elk verplaatsingsframe is een onafhankelijke berekening met de productieversie, waarbij het volledige voorvoegsel van stappen wordt gecontroleerd. De vergelijking native/WASM controleert iteraties, convergentie en verplaatsingen. Deze symmetrische 2D-gevallen valideren geen bifurcatie of 3D-gedrag. Onderzoek, geen ontwerptool.",
-    "downwardLoadAgainstDownwardApexDisplacementOrange": "Belasting P (kN) / verplaatsing van de top v (m)",
+    "downwardLoadAgainstDownwardApexDisplacementOrange": "Belasting P (kN) tegen topverplaatsing v (m), beide positief naar beneden",
     "formula": "L₀ = √(a² + h²); y = h − v; L = √(a² + y²); β = atan(y/a) − atan(h/a). P = 2EA(1 − L/L₀)y/L; U = EA(L−L₀)²/L₀ + 3EIβ²/L₀; P_frame = P − 6EI a β/(L₀L²)."
   }
 };

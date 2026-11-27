@@ -147,7 +147,7 @@ const body: PostBody = {
       "items": [
         "Geweigerd: de 2D-factor voor plastisch bezwijken, die tot 4.6 keer kan veranderen met de nummering, de richting van staven en de eenheden (#758); een knikfactor buiten de grenzen van zijn eigen certificaat (#741); MITC4-schalen op vervormde elementennetten onder aanzienlijke buiging in het vlak (#798); en MITC4- en MITC9-schalen op gedraaide geometrie (#1057).",
         "Gewaarschuwd: onder andere tijdsdomeinanalyse, 3D modale superpositie, bijna singuliere modellen, contact, materieel niet-lineaire analyse en verbindingen met ongelijke stijfheden.",
-        "Behalve wat het weigert, verandert de beperking één getal: de 2D-reactie van een gezette oplegging die ook een veer in de gezette richting draagt, bevat nu de kracht van die veer. Elke andere waarde van de 145,515 in het resultatencorpus is identiek."
+        "Behalve wat het weigert, verandert de beperking één getal: de 2D-reactie van een scharnierende oplegging die ook een veer in de vastgehouden richting draagt, bevat nu de kracht van die veer. Elke andere waarde van de 145,515 in het resultatencorpus is identiek."
       ]
     },
     {

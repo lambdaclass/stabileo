@@ -12,7 +12,7 @@ const UNFINISHED: Record<CopyLocale, RegExp> = {
   hu: /fejlesztés alatt|fejlesztési fázis|fejleszt(jük|ik)\b|\bb[eé]t[aá](?:ban\b|verzió|változat|\b)/i,
   it: /sviluppo|\bbeta\b/i,
   zh: /开发中|正在开发|开发阶段|测试版|\b[Bb]eta\b/,
-  nl: /in ontwikkeling|ontwikkelfase|wordt ontwikkeld|\bbeta\b/i,
+  nl: /in ontwikkeling|ontwikkelfase|wordt ontwikkeld|\bb[eè]ta(?:versie)?\b/i,
 };
 
 const DESIGN_OR_AI: Record<CopyLocale, RegExp> = {

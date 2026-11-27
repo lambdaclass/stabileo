@@ -61,9 +61,9 @@ it('dispatches both combinations through production WASM wrappers with the modal
   } finally { vi.restoreAllMocks(); }
 });
 
-const numbers = (v: unknown) => JSON.stringify(v).match(/\d+(?:\.\d+)*/g) ?? [];
+const numbers = (v: unknown) => JSON.stringify(v).match(/[+−-]?\d+(?:\.\d+)*(?:[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)?|[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g) ?? [];
 
-it.skip.each([['−20', '+20'], ['10⁻⁸', '10⁸']])('known wrong result: #2613 — distinguishes %s from %s in translated benchmark data', (original, mutation) => {
+it.each([['−20', '+20'], ['10⁻⁸', '10⁸']])('distinguishes %s from %s in translated benchmark data', (original, mutation) => {
   expect(numbers(original)).not.toEqual(numbers(mutation));
 });
 

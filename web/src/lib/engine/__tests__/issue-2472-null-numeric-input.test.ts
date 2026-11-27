@@ -209,10 +209,10 @@ it('#2472 the null-moment notice follows explicit null and has its own translati
       expect.soft(conditionHolds(resultChange.when!, modelFeatures(snapshot, { storedLoads: loads }))).toBe(applies);
     }
   }
-  for (const locale of ['ar', 'hi', 'id', 'it', 'ja', 'ko', 'ru']) {
+  for (const locale of ['ar', 'hi', 'id', 'it', 'nl', 'ja', 'ko', 'ru']) {
     expect(registryLocale(locale, resultChange.title, resultChange.explanation)).toBe(locale);
     expect(registryLocale(locale, torsionChange.title, torsionChange.explanation)).toBe(locale);
-    expect(registryLocale(locale, dynamicDensityChange.title, dynamicDensityChange.explanation)).toBe(locale === 'it' ? 'it' : 'en');
+    expect(registryLocale(locale, dynamicDensityChange.title, dynamicDensityChange.explanation)).toBe(['it', 'nl'].includes(locale) ? locale : 'en');
     for (const text of [resultChange.title, resultChange.explanation, torsionChange.title, torsionChange.explanation]) {
       const translated = (text as Record<string, string>)[locale];
       expect.soft(translated, locale).toBeTruthy();

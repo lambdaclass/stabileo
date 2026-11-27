@@ -194,7 +194,7 @@ const body: PostBody = {
         "Controleer vóór het dimensioneren of het moment boven of onder het kruispunt met het minimum ligt. Eronder is de wapening al bepaald.",
         "Van H-20 tot H-30 hangt het minimum niet af van het beton. Het komt uit 1.4/fy.",
         "φ hangt af van εt: lees de twee altijd samen.",
-        "Als er drukwapening verschijnt, komt dat doordat de doorsnede ductiliteit verloor, niet doordat ze capaciteit tekortkomt."
+        "Drukwapening kan nodig zijn om voldoende ductiliteit te behouden of om bij beperkte liggerhoogte de vereiste momentcapaciteit te bereiken. Controleer de rekken voor de gekozen wapening."
       ]
     },
     {

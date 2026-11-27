@@ -26,7 +26,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Saint-Venant wordt vaak gepresenteerd als \"de theorie voor open doorsneden\", maar het is de algemene theorie, en de andere twee zijn bijzondere gevallen ervan met oplossingen in gesloten vorm. Bij een cirkelvormige doorsnede komt haar oplossing exact overeen met Cauchy, omdat cirkelsymmetrie betekent dat de doorsnede niet welft. Bij een dunne gesloten wand is haar oplossing die van Bredt."
+      "t": "Saint-Venant wordt vaak gepresenteerd als \"de theorie voor open doorsneden\", maar het is de algemene theorie, en de andere twee zijn bijzondere gevallen ervan met oplossingen in gesloten vorm. Bij een cirkelvormige doorsnede komt haar oplossing exact overeen met Cauchy, omdat cirkelsymmetrie betekent dat de doorsnede niet welft. Bij een dunne gesloten wand benadert de formule van Bredt haar oplossing."
     },
     {
       "k": "h",
@@ -34,11 +34,11 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Neem een cirkelvormige buis. Cauchy is van toepassing en is exact. Bredt is ook van toepassing: de wand is gesloten en er loopt een schuifstroom omheen. Maar Bredt veronderstelt dat de spanning constant is over de dikte, terwijl ze bij Cauchy met de straal groeit. Bredt geeft dus het gemiddelde en Cauchy het maximum."
+      "t": "Neem een cirkelvormige buis. Cauchy is van toepassing en is exact. Bredt is ook van toepassing: de wand is gesloten en er loopt een schuifstroom omheen. Maar Bredt veronderstelt dat de spanning constant is over de dikte, terwijl ze bij Cauchy met de straal groeit. Bredt benadert de spanning in een dunne wand. De tabel vergelijkt die benadering met de exacte piekspanning aan het buitenoppervlak. De dikste wand laat de fout buiten het dunwandige bereik zien."
     },
     {
       "k": "table",
-      "caption": "Cirkelvormige holle buis: hoeveel Bredt onder de exacte waarde blijft, per relatieve wanddikte.",
+      "caption": "Cirkelvormige holle buis: hoeveel Bredt onder de exacte piekspanning aan het buitenoppervlak blijft, per relatieve wanddikte.",
       "head": [
         "t / rₘ",
         "Voorbeeld (rₘ = 50 mm)",
@@ -47,28 +47,28 @@ const body: PostBody = {
       ],
       "rows": [
         [
-          "0.05",
-          "wand van 2.5 mm",
-          "0.976",
-          "2.4 %"
+          "0,05",
+          "wand van 2,5 mm",
+          "0,976",
+          "2,4 %"
         ],
         [
-          "0.10",
-          "wand van 5.0 mm",
-          "0.955",
-          "4.5 %"
+          "0,10",
+          "wand van 5,0 mm",
+          "0,955",
+          "4,5 %"
         ],
         [
-          "0.20",
-          "wand van 10.0 mm",
-          "0.918",
-          "8.2 %"
+          "0,20",
+          "wand van 10,0 mm",
+          "0,918",
+          "8,2 %"
         ],
         [
-          "0.50",
-          "wand van 25.0 mm",
-          "0.850",
-          "15.0 %"
+          "0,50 (dikwandig)",
+          "wand van 25,0 mm",
+          "0,850",
+          "15,0 %"
         ]
       ]
     },
@@ -89,7 +89,7 @@ const body: PostBody = {
       "base": "blog/torsion-tube",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo Basic met een CHS 105×5 console onder een wringend moment van 1 kN·m. Het doorsnedepaneel staat open op Torsion: T = 1.00 kN·m, τmax = 13.34 MPa, J = 393.7 cm⁴, met het label “Circular — exact”, gevolgd door de drie theorieën, te beginnen met Saint-Venant.",
+      "alt": "Stabileo Basic met een CHS 105×5 console onder een wringend moment van 1 kN·m. Het doorsnedepaneel staat open op Torsion: T = 1,00 kN·m, τmax = 13,34 MPa, J = 393,7 cm⁴, met het label “Circular — exact”, gevolgd door de drie theorieën, te beginnen met Saint-Venant.",
       "caption": "De buis uit de tabel in Stabileo: 13,34 MPa, met daaronder elke theorie en haar formule."
     },
     {
@@ -117,8 +117,8 @@ const body: PostBody = {
       "rows": [
         [
           "J [mm⁴]",
-          "4,286,875",
-          "15,833",
+          "4 286 875",
+          "15 833",
           "271"
         ],
         [

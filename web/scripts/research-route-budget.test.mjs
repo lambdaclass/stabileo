@@ -53,18 +53,18 @@ test('the shipped allowances are the #1483 related links on research and tools, 
   const routes = routeAllowances(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'), () => true);
   assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/beam-frame/', '/en/tools/continuous-beam/', '/en/tools/mohr-2d/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
   for (const route of ['/en/', '/es/', '/pt/']) {
-    assert.deepEqual(routes[route], { bytes: 2926, reason: "#1916 Hungarian, the seventh offered language: its name and lazy loader + #2256 Chinese, the eighth offered language: its name and lazy loader + #2595 Italian, the ninth offered language: its name and lazy loader + #2613 Dutch, the tenth offered language: its name and lazy loader", modules: ["src/lib/i18n/offered.ts", "src/lib/i18n/offered.ts", "src/lib/i18n/offered.ts", "src/lib/i18n/offered.ts"] });
+    assert.deepEqual(routes[route], { bytes: 2926, localeLimits: { it: 900, nl: 823 }, reason: "#1916 Hungarian, the seventh offered language: its name and lazy loader + #2256 Chinese, the eighth offered language: its name and lazy loader + #2595 Italian, the ninth offered language: its name and lazy loader + #2613 Dutch, the tenth offered language: its name and lazy loader", modules: ["src/lib/i18n/offered.ts", "src/lib/i18n/offered.ts", "src/lib/i18n/offered.ts", "src/lib/i18n/offered.ts"] });
   }
   for (const route of ['/app/basic', '/app/education', '/app/pro']) {
-    assert.deepEqual(routes[route], { bytes: 5108236, reason: "#818 original-pencil Rayleigh refinement + #1916 Hungarian, the seventh offered language: its lazily loaded app dictionary + #2256 Chinese, the eighth offered language: its lazily loaded app dictionaries + #2595 Italian, the ninth offered language: its lazily loaded app dictionaries + #2613 Dutch, the tenth offered language: its lazily loaded app dictionaries", modules: ["src/lib/engine/second-order/dense.ts", "src/lib/i18n/locales/hu.ts", "src/lib/i18n/locales/zh.ts", "src/lib/i18n/locales/it.ts", "src/lib/i18n/locales/nl.ts"] });
+    assert.deepEqual(routes[route], { bytes: 5108236, localeLimits: { it: 1340000, nl: 1321348 }, reason: "#818 original-pencil Rayleigh refinement + #1916 Hungarian, the seventh offered language: its lazily loaded app dictionary + #2256 Chinese, the eighth offered language: its lazily loaded app dictionaries + #2595 Italian, the ninth offered language: its lazily loaded app dictionaries + #2613 Dutch, the tenth offered language: its lazily loaded app dictionaries", modules: ["src/lib/engine/second-order/dense.ts", "src/lib/i18n/locales/hu.ts", "src/lib/i18n/locales/zh.ts", "src/lib/i18n/locales/it.ts", "src/lib/i18n/locales/nl.ts"] });
   }
-  assert.deepEqual(routes['/en/research/'], { bytes: 363979, reason: "#1483 related links styled as theme chips + #1619 riser gallery card and catalogue entry, with its own lead in seven languages + #2257 masonry arch gallery card and catalogue entry + #1916 Hungarian copy of the research gallery and catalogue + #2256 Chinese copy of the research gallery and catalogue + #2595 Italian copy of the research gallery and catalogue + #2613 Dutch copy of the research gallery and catalogue", modules: ["src/components/research/RelatedLinks.svelte", "src/components/research/gayNeto2014/card.ts", "src/components/research/heyman1966/card.ts", "src/components/research/gallery-i18n.ts", "src/components/research/gallery-i18n.ts", "src/components/research/gallery-i18n.ts", "src/components/research/gallery-i18n.ts"] });
-  assert.deepEqual(routes['/en/tools/'], { bytes: 228489, reason: "#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators + #2256 Chinese copy of the free calculators + #2595 Italian copy of the free calculators + #2613 Dutch copy of the free calculators", modules: ["src/components/research/RelatedLinks.svelte", "src/lib/engine/known-issue-message.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts"] });
+  assert.deepEqual(routes['/en/research/'], { bytes: 363979, localeLimits: { it: 92000, nl: 89194 }, reason: "#1483 related links styled as theme chips + #1619 riser gallery card and catalogue entry, with its own lead in seven languages + #2257 masonry arch gallery card and catalogue entry + #1916 Hungarian copy of the research gallery and catalogue + #2256 Chinese copy of the research gallery and catalogue + #2595 Italian copy of the research gallery and catalogue + #2613 Dutch copy of the research gallery and catalogue", modules: ["src/components/research/RelatedLinks.svelte", "src/components/research/gayNeto2014/card.ts", "src/components/research/heyman1966/card.ts", "src/components/research/gallery-i18n.ts", "src/components/research/gallery-i18n.ts", "src/components/research/gallery-i18n.ts", "src/components/research/gallery-i18n.ts"] });
+  assert.deepEqual(routes['/en/tools/'], { bytes: 228489, localeLimits: { it: 60000, nl: 57480 }, reason: "#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators + #2256 Chinese copy of the free calculators + #2595 Italian copy of the free calculators + #2613 Dutch copy of the free calculators", modules: ["src/components/research/RelatedLinks.svelte", "src/lib/engine/known-issue-message.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts"] });
   for (const route of ['/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']) {
-    assert.deepEqual(routes[route], { bytes: 231110, reason: "#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators + the shared scalar-field viewer's plan/elevation plane and unlit category colours (calculators keep plan) + #2256 Chinese copy of the free calculators + #2595 Italian copy of the free calculators + #2613 Dutch copy of the free calculators", modules: ["src/components/research/RelatedLinks.svelte", "src/lib/engine/known-issue-message.ts", "src/components/tools/batch-i18n.ts", "src/components/viewport/scalar-field-plane.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts"] });
+    assert.deepEqual(routes[route], { bytes: 231110, localeLimits: { it: 60000, nl: 57540 }, reason: "#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators + the shared scalar-field viewer's plan/elevation plane and unlit category colours (calculators keep plan) + #2256 Chinese copy of the free calculators + #2595 Italian copy of the free calculators + #2613 Dutch copy of the free calculators", modules: ["src/components/research/RelatedLinks.svelte", "src/lib/engine/known-issue-message.ts", "src/components/tools/batch-i18n.ts", "src/components/viewport/scalar-field-plane.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts"] });
   }
-  assert.deepEqual(routes['/en/tools/beam-frame/'], { bytes: 203293, reason: "#2256 Chinese copy of the free calculators + #2595 Italian copy of the free calculators + #2613 Dutch copy of the free calculators", modules: ["src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts"] });
-  assert.deepEqual(routes['/en/tools/mohr-2d/'], { bytes: 185287, reason: "#2256 Chinese copy of the free calculators and the Mohr tools + #2595 Italian copy of the free calculators and the Mohr tools + #2613 Dutch copy of the free calculators and the Mohr tools", modules: ["src/components/mohr/i18n.ts", "src/components/mohr/i18n.ts", "src/components/mohr/i18n.ts"] });
+  assert.deepEqual(routes['/en/tools/beam-frame/'], { bytes: 203293, localeLimits: { it: 73000, nl: 69721 }, reason: "#2256 Chinese copy of the free calculators + #2595 Italian copy of the free calculators + #2613 Dutch copy of the free calculators", modules: ["src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts", "src/components/tools/batch-i18n.ts"] });
+  assert.deepEqual(routes['/en/tools/mohr-2d/'], { bytes: 185287, localeLimits: { it: 66500, nl: 63646 }, reason: "#2256 Chinese copy of the free calculators and the Mohr tools + #2595 Italian copy of the free calculators and the Mohr tools + #2613 Dutch copy of the free calculators and the Mohr tools", modules: ["src/components/mohr/i18n.ts", "src/components/mohr/i18n.ts", "src/components/mohr/i18n.ts"] });
 });
 test('missing and non-finite measurements fail', () => {
   assert.throws(() => routeGrowth({ '/en/': 1000 }, {}), /coverage/);
@@ -146,9 +146,31 @@ test('the diagram game page loader is a route boundary: the game and what only i
   assert.ok(files.has('shared.js'));
 });
 
-test.skip('known wrong result: #2613 — shared app growth cannot spend unshipped Dutch or Italian dictionary bytes', () => {
+test('shared app growth cannot spend unshipped Dutch or Italian dictionary bytes', () => {
   const main = { '/app/basic': 2000 };
   const sharedLimit = 2446888 + 128;
   reviewRouteGrowth(main, { '/app/basic': 2000 + sharedLimit }, 'true');
   assert.throws(() => reviewRouteGrowth(main, { '/app/basic': 2001 + sharedLimit }, 'true'), /research isolation/);
+});
+
+test('only shipped locale data earns its own allowance', async () => {
+  const { localeBytes, publicDictionaryFootprint } = await import('./route-locale-bytes.mjs');
+  const code = 'export const words={en:{name:"Bolt"},nl:{name:"Bout"},it:{name:"Bullone"}}; runSharedCode()';
+  assert.deepEqual(localeBytes(code, ['/app/shared.js']), { it: Buffer.byteLength('it:{name:"Bullone"}'), nl: Buffer.byteLength('nl:{name:"Bout"}') });
+  const dictionary = 'const d={title:"Belasting"}; export default d;';
+  assert.equal(localeBytes(dictionary, ['/app/src/lib/i18n/locales/nl.ts']).nl, Buffer.byteLength('title:"Belasting"'));
+  const alternatives = [
+    { bytes: 100, localized: { it: 0, nl: 0 } },
+    { bytes: 110, localized: { it: 80, nl: 0 } },
+    { bytes: 115, localized: { it: 0, nl: 85 } },
+  ];
+  assert.deepEqual(publicDictionaryFootprint(alternatives), { bytes: 115, localized: { it: 10, nl: 5 } });
+  const allowances = { '/app': { bytes: 12, localeLimits: { it: 5, nl: 7 } } };
+  const from = { '/app': 100 };
+  const before = { '/app': { it: 10, nl: 20 } };
+  const after = { '/app': { it: 15, nl: 27 } };
+  assert.throws(() => reviewRouteGrowth(from, from, 'true', allowances, {}, after), /Invalid/);
+  reviewRouteGrowth(from, { '/app': 240 }, 'true', allowances, before, after);
+  assert.throws(() => reviewRouteGrowth(from, { '/app': 240 }, 'true', allowances, before, { '/app': { it: 15, nl: 26 } }), /research isolation/);
+  assert.throws(() => reviewRouteGrowth(from, { '/app': 240 }, 'true', allowances, before, { '/app': { it: 16, nl: 26 } }), /it resource growth/);
 });

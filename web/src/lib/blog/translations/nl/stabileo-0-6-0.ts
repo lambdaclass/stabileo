@@ -33,7 +33,7 @@ const body: PostBody = {
         [
           "SA-2026-049",
           "Hoog",
-          "Een starre inklemming plus veer kon in 3D een elastische oplegging worden. Kies de bedoelde randvoorwaarde expliciet en bereken getroffen analyses opnieuw."
+          "Een vastgezette vrijheidsgraad met een veer in dezelfde richting kon in 3D een elastische oplegging worden. Kies de bedoelde randvoorwaarde expliciet en bereken getroffen analyses opnieuw."
         ],
         [
           "SA-2026-050",
@@ -68,7 +68,7 @@ const body: PostBody = {
         [
           "SA-2026-056",
           "Hoog",
-          "Onopgelost: de dynamica van gekoppelde gemengde raamwerk-schaalmodellen verandert bij gelijkwaardige modelbeschrijvingen. Verifieer getroffen belastingen onafhankelijk voordat je ze gebruikt; er is geen conservatieve correctiefactor vastgesteld."
+          "Onopgelost: de dynamica van gekoppelde gemengde raamwerk-schaalmodellen verandert bij gelijkwaardige modelbeschrijvingen. Verifieer de berekende dynamische staafkrachten en oplegreacties onafhankelijk voordat je ze gebruikt; er is geen conservatieve correctiefactor vastgesteld."
         ],
         [
           "SA-2026-057",
@@ -258,7 +258,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "SA-2026-056 blijft onopgelost: verifieer dynamische belastingen onafhankelijk voor gekoppelde gemengde raamwerk-schaalmodellen die na hernummeren, rotatie of eenhedenconversie wezenlijk veranderen. Er is geen conservatieve correctiefactor vastgesteld.",
+        "SA-2026-056 blijft onopgelost: verifieer de berekende dynamische respons, waaronder staafkrachten en oplegreacties, onafhankelijk voor gekoppelde gemengde raamwerk-schaalmodellen die na hernummeren, rotatie of eenhedenconversie wezenlijk veranderen. Er is geen conservatieve correctiefactor vastgesteld.",
         "2D plastisch bezwijken blijft geweigerd in afwachting van #758, zoals beschreven in SA-2026-044. Een gecertificeerde 3D ondergrens certificeert de ruwe scharnierhistorie niet.",
         "Tijdsdomeinanalyse levert geen totale dynamische oplegbelastingen. Gebruik een onafhankelijke analyse met traagheid, demping en oplegbelasting. Niet ondersteunde kabelanalyses en niet-nul opgelegde oplegbeweging in kabel- of tijdsdomeinwerkstromen weigeren expliciet.",
         "Ruimtelijke booglengte- en verplaatsingsgestuurde solvers zijn niet toegevoegd. Bestaande waarschuwingen en beperkingen blijven van toepassing."

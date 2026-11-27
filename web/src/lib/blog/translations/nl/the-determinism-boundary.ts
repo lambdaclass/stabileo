@@ -123,7 +123,7 @@ const body: PostBody =  {
     },
     {
       "k": "p",
-      "t": "Kijk naar de kolom Mu. De ligger vergroten van 25×40 naar 30×55 verhoogt de vraag van 80.8 naar 105.6 kN·m. In een statisch onbepaald raamwerk legt de statica de som van het eindmoment en het moment in het midden vast; de stijfheid verandert alleen hoe die som wordt verdeeld. Een ligger die stijver is ten opzichte van zijn kolommen, krijgt minder inklemming van hen en gedraagt zich meer als een vrij opgelegde ligger, dus gaat zijn moment in het midden, dat hier maatgevend is, omhoog."
+      "t": "Kijk naar de kolom Mu. De ligger vergroten van 25×40 naar 30×55 verhoogt de vraag van 80,8 naar 105,6 kN·m. Voor dit symmetrische, gelijkmatig belaste veld geeft evenwicht M_midden − M_eind = 80,8 − (−54,2) = 135,0 kN·m = qL²/8. De stijfheid bepaalt hoe groot beide momenten afzonderlijk zijn. Een ligger die stijver is ten opzichte van zijn kolommen, krijgt minder inklemming van hen en gedraagt zich meer als een vrij opgelegde ligger, dus gaat zijn moment in het midden, dat hier maatgevend is, omhoog."
     },
     {
       "k": "quote",
@@ -225,7 +225,7 @@ const body: PostBody =  {
       "items": [
         "Globaal evenwicht: ΣR = P, ongeacht geometrie, materialen of opleggingen.",
         "Symmetrie van de stijfheidsmatrix: K = Kᵀ per constructie.",
-        "Positieve definietheid van K voor elke constructie zonder mechanismen.",
+        "Positieve definietheid van de gereduceerde elastische stijfheidsmatrix van een stabiel, voldoende ondersteund lineair model met positieve staafstijfheden.",
         "Invariantie onder starrelichaamstransformaties: een model verschuiven of roteren verandert de snedekrachten niet."
       ]
     },

@@ -40,9 +40,10 @@ for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-mo
     expect(rows[0]!.slice(2)).toEqual([severity, status]);
     expect(rows[0]![1]).toContain(`#${issue}`);
     if (issue === 2172) {
-      const unsplit = { en: 'unsplit sloped rafter', es: 'sin subdividir', pt: 'sem subdivisão', de: 'ungeteilter geneigter Sparren', fr: 'non subdivisé', tr: 'bölünmemiş eğimli mertek', hu: 'felosztatlan ferde szarufa', it: 'puntone inclinato non suddiviso', zh: '未拆分的坡屋面斜梁', nl: 'ongesplitst hellend dakspant' };
+      const unsplit = { en: 'unsplit sloped rafter', es: 'sin subdividir', pt: 'sem subdivisão', de: 'ungeteilter geneigter Sparren', fr: 'non subdivisé', tr: 'bölünmemiş eğimli mertek', hu: 'felosztatlan ferde szarufa', it: 'puntone inclinato non suddiviso', zh: '未拆分的坡屋面斜梁', nl: 'ongesplitst schuin spantbeen' };
       expect(rows[0]![1]).toContain(unsplit[locale]);
       expect(notice.explanation[locale]).toContain(unsplit[locale]);
+      if (locale === 'nl') expect(document('releases/v0.6.2.nl.md')).toContain(unsplit.nl);
     }
 
     expect(rows[0]![1]).toContain(regenerationAction[locale]);
