@@ -121,5 +121,5 @@ it('retains a buffered manual force when a nested command applies a load plan', 
   const retained = modelStore.loads.find(l => l.data.id === manual);
   expect(retained?.data).toMatchObject({ nodeId: node, fx: -2, caseId: wind });
   expect(retained?.data).not.toHaveProperty('generatedBy');
-  for (const load of modelStore.loads.filter(l => l !== retained)) expect(load.data.generatedBy).toBeDefined();
+  for (const load of modelStore.loads.filter(l => l !== retained)) expect(load.data).toHaveProperty('generatedBy', expect.any(String));
 });

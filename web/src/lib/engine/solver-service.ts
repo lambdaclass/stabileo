@@ -2832,26 +2832,35 @@ function withCaseDisplacements(solved: Bundle3D, model: ModelData, combinations:
   return { ...solved, perCase, perCombo, envelope };
 }
 
+function linearCombinationLoads3D(
+  model: ModelData, loadCases: LoadCase[], combinations: LoadCombination[], includeSelfWeight: boolean, leftHand: boolean,
+) {
+  if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) return t('svc.needNodesAndElements');
+  if (model.supports.size < 1) return t('svc.needSupport');
+  if (combinations.length === 0) return t('svc.needCombination');
+
+  const baseInput = buildSolveInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false });
+  if (!baseInput) return t('svc.emptyModel');
+  if (typeof baseInput === 'string') return baseInput;
+  const unheld = unheldMomentRefusal3D({ ...baseInput, loads: buildSolverLoads3D(model, model.loads, false, leftHand) });
+  if (unheld) return unheld;
+
+  const caseLoads = assembleCaseLoads3D(model, loadCases, includeSelfWeight, leftHand, baseInput, false);
+  return caseLoads.size ? { baseInput, caseLoads } : t('svc.noLoadsApplied');
+}
+
 function solveCombinations3DCore(
   model: ModelData,
   loadCases: LoadCase[],
   combinations: LoadCombination[],
   includeSelfWeight = false,
   leftHand = false,
+  prepared = linearCombinationLoads3D(model, loadCases, combinations, includeSelfWeight, leftHand),
 ): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
   noteStructuralSolve();
-  if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) return t('svc.needNodesAndElements');
-  if (model.supports.size < 1) return t('svc.needSupport');
-  if (combinations.length === 0) return t('svc.needCombination');
-
+  if (typeof prepared === 'string') return prepared;
+  const { baseInput, caseLoads } = prepared;
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
-
-  // Build base solver input once (structural data without loads)
-  const baseInput = buildSolveInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false });
-  if (!baseInput) return t('svc.emptyModel');
-  if (typeof baseInput === 'string') return baseInput;
-  const unheld = unheldMomentRefusal3D({ ...baseInput, loads: buildSolverLoads3D(model, model.loads, false, leftHand) });
-  if (unheld) return unheld;
 
   // Build per-case load arrays — reuse baseInput structure, only build loads per case
   const mcLoadCases: Array<{ name: string; loads: SolverLoad3D[] }> = [];
@@ -2863,12 +2872,10 @@ function solveCombinations3DCore(
    * to one case at a time without a word. Each goes to the engine under its id.
    */
   const caseKey = (id: number) => `case#${id}`;
-  for (const [caseId, loads] of caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand, baseInput)) {
+  for (const [caseId, loads] of caseLoads) {
     mcLoadCases.push({ name: caseKey(caseId), loads });
     caseNameToId.set(caseKey(caseId), caseId);
   }
-
-  if (mcLoadCases.length === 0) return t('svc.noLoadsApplied');
 
   // Build combination definitions (name-based factors for WASM multi-case)
   const mcCombinations: Array<{ name: string; factors: Record<string, number> }> = [];
@@ -3284,6 +3291,13 @@ const combinationAccounting = new WeakMap<ReadonlyMap<number, SolverLoad3D[]>, {
 export function caseSolverLoads3D(
   model: ModelData, loadCases: LoadCase[], includeSelfWeight: boolean, leftHand: boolean, input?: SolverInput3D,
 ): Map<number, SolverLoad3D[]> {
+  return assembleCaseLoads3D(model, loadCases, includeSelfWeight, leftHand, input, true);
+}
+
+function assembleCaseLoads3D(
+  model: ModelData, loadCases: LoadCase[], includeSelfWeight: boolean, leftHand: boolean, input: SolverInput3D | undefined,
+  retainFactoredSources: boolean,
+): Map<number, SolverLoad3D[]> {
   // On the members the solver input has: a variable member's loads are its pieces' (idempotent).
   requireModelInput(model);
   model = solvableModel(model);
@@ -3301,12 +3315,12 @@ export function caseSolverLoads3D(
     const verified: CheckedSource3D[] = [];
     sources.set(lc.id, verified);
     caseLoads.set(lc.id, checkedSolverLoads3D(model, input, loads, selfWeightFor(model, lc, includeSelfWeight), leftHand, [lc.id], accounting,
-      (id, assembled, totals) => {
+      retainFactoredSources ? (id, assembled, totals) => {
         entered.set(id, totals);
         for (const load of assembled) authored.add(load);
-      }, source => verified.push(source)));
+      } : undefined, retainFactoredSources ? source => verified.push(source) : undefined));
   }
-  combinationAccounting.set(caseLoads, { model, input, entered, authored, sources });
+  if (retainFactoredSources) combinationAccounting.set(caseLoads, { model, input, entered, authored, sources });
   return caseLoads;
 }
 
@@ -3420,19 +3434,11 @@ async function solveCombinations3DParallelCore(
   includeSelfWeight = false,
   leftHand = false,
 ): Promise<Bundle3D | string | null> {
-  if (model.nodes.size < 2 || !hasLoadCarrying3D(model)) return t('svc.needNodesAndElements');
-  if (model.supports.size < 1) return t('svc.needSupport');
-  if (combinations.length === 0) return t('svc.needCombination');
-
+  const prepared = linearCombinationLoads3D(model, loadCases, combinations, includeSelfWeight, leftHand);
+  if (typeof prepared === 'string') return prepared;
+  const { baseInput, caseLoads } = prepared;
   const solveStep = solveSteps();
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
-
-  // Build base solver input once (structural data without loads)
-  const baseInput = buildSolveInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false });
-  if (!baseInput) return t('svc.emptyModel');
-  if (typeof baseInput === 'string') return baseInput;
-  const unheld = unheldMomentRefusal3D({ ...baseInput, loads: buildSolverLoads3D(model, model.loads, false, leftHand) });
-  if (unheld) return unheld;
 
   // Plain-object wire form of the base structure (shared across all cases).
   // Built straight from the Maps — the old JSON.parse(serializeInput3D(...))
@@ -3443,13 +3449,11 @@ async function solveCombinations3DParallelCore(
   // no JSON.stringify per case)
   const caseInputs: Array<{ caseId: number; caseName: string; input: Record<string, any> }> = [];
 
-  for (const [caseId, loads] of caseSolverLoads3D(model, loadCases, includeSelfWeight, leftHand, baseInput)) {
+  for (const [caseId, loads] of caseLoads) {
     // Create full solver input with this case's loads
     const fullInput = { ...baseWire, loads };
     caseInputs.push({ caseId, caseName: loadCases.find(c => c.id === caseId)!.name, input: fullInput });
   }
-
-  if (caseInputs.length === 0) return t('svc.noLoadsApplied');
 
   // Try parallel solving via Web Workers
   try {
@@ -3536,6 +3540,6 @@ async function solveCombinations3DParallelCore(
   } catch (err: any) {
     // Fallback to synchronous solving if workers fail
     console.warn('Parallel solve failed, falling back to sequential:', err.message);
-    return solveCombinations3DCore(model, loadCases, combinations, includeSelfWeight, leftHand);
+    return solveCombinations3DCore(model, loadCases, combinations, includeSelfWeight, leftHand, prepared);
   }
 }
