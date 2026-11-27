@@ -70,6 +70,23 @@ beforeAll(async () => {
 describe('a physical plate', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); meshBeforeAnalysis.value = true; });
 
+  it.skip('known wrong result: #2365 rectangular neighbors plan the same stations before a batch is applied', async () => {
+    const node = (x: number, y: number) => modelStore.addNode(x, y, 0);
+    const middle = [node(2, 0), node(2, 3)] as const;
+    const outlines = [[node(0, 0), middle[0], middle[1], node(0, 3)], [middle[0], node(4, 0), node(4, 3), middle[1]]];
+    modelStore.addElement(node(3, 0.75), node(4, 0.75));
+    const ids = outlines.map(outline => {
+      const result = createPlate({ outline, mesh: { size: 1, element: 'quad', pattern: 'rect', followMembers: true }, materialId: 1, thickness: 0.15 });
+      if (!('id' in result)) throw new Error(result.problem);
+      return result.id;
+    });
+    const plans = (await planPlateMeshes(ids))!;
+    expect(plans).toHaveLength(2);
+    const stations = plans.map(p => p.mesh!.points.filter(point => point[0] === 2).map(point => point[1]).sort((a, b) => a - b));
+    expect(stations[0]).toEqual(stations[1]);
+    expect(stations[0]).toContain(0.75);
+  });
+
   for (const [example, name] of [
     ['pro-steel-building-slabs', 'Losa 0–6 × 3–6 · 1º piso'],
     ['pro-rc-party-wall', 'Tabique escalera 3 · 1º piso (abajo)'],
