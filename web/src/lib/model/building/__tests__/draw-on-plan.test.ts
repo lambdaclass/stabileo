@@ -22,14 +22,14 @@ const ends = (id: number) => { const e = modelStore.elements.get(id)!; return [n
 describe('a column drawn on the plan', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
-  it('from two corners: its section, its nodes on the fixed point at every level and the bars offset to the centre, in one undo step', () => {
+  it('from two corners: its section, its nodes on the centre of what was drawn at every level with no offset, in one undo step', () => {
     const r = placeColumnOnPlan({ footprint: footprintFromCorners({ x: 0, y: 0 }, { x: 0.4, y: 0.3 }), fixedPoint: [-1, -1], levels, levelFrom: 'N0', levelTo: 'N2', materialId: 1, fixBase: true, typology: 'concrete' });
     expect(r.created).toBe(1);
     expect(r.bars).toHaveLength(2);
     for (const id of r.bars) {
       const e = modelStore.elements.get(id)!;
-      expect(ends(id).map((n) => [n.x, n.y])).toEqual([[0, 0], [0, 0]]);
-      expect(e.offset).toEqual({ frame: 'global', i: { x: 0.2, y: 0.15, z: 0 }, j: { x: 0.2, y: 0.15, z: 0 } });
+      expect(ends(id).map((n) => [n.x, n.y])).toEqual([[0.2, 0.15], [0.2, 0.15]]);
+      expect(e.offset).toBeUndefined();
       const [hx, hy] = planHalf(id)!;
       expect(hx).toBeCloseTo(0.2, 9);
       expect(hy).toBeCloseTo(0.15, 9);
@@ -39,6 +39,16 @@ describe('a column drawn on the plan', () => {
     expect(g!.physical).toMatchObject({ kind: 'column', levelFrom: 'N0', levelTo: 'N2', fixedPoint: [-1, -1], typology: 'concrete' });
     historyStore.undo();
     expect([modelStore.elements.size, modelStore.nodes.size, physicalGroups().length]).toEqual([0, 0, 0]);
+  });
+
+  it('standing on a column of another section, it takes that column\'s node and is offset from it, so the two are joined', () => {
+    placeColumnOnPlan({ footprint: footprintFromCorners({ x: 0, y: 0 }, { x: 0.4, y: 0.4 }), fixedPoint: [-1, -1], levels, levelFrom: 'N0', levelTo: 'N1', materialId: 1 });
+    const r = placeColumnOnPlan({ footprint: footprintFromCorners({ x: 0, y: 0 }, { x: 0.3, y: 0.3 }), fixedPoint: [-1, -1], levels, levelFrom: 'N1', levelTo: 'N2', materialId: 1 });
+    const e = modelStore.elements.get(r.bars[0]!)!;
+    expect(ends(r.bars[0]!).map((n) => [n.x, n.y, n.z])).toEqual([[0.2, 0.2, 3], [0.15, 0.15, 6]]);
+    expect(e.offset?.i?.x).toBeCloseTo(-0.05, 9);
+    expect(e.offset?.i?.y).toBeCloseTo(-0.05, 9);
+    expect(Math.hypot(e.offset!.j!.x, e.offset!.j!.y)).toBe(0);
   });
 
   it('turned: its section lies on the footprint drawn, b along its local y', () => {

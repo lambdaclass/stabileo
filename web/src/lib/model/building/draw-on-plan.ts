@@ -41,12 +41,6 @@ export function footprintAt(at: P2, b: number, h: number, angleDeg: number, fixe
   return { center: { x: at.x - u.x * fx * b / 2 - v.x * fy * h / 2, y: at.y - u.y * fx * b / 2 - v.y * fy * h / 2 }, u, v, b, h };
 }
 
-/** Where a footprint's fixed point is. */
-export function fixedPointOf(f: Footprint, fixedPoint: [number, number]): P2 {
-  const [fx, fy] = fixedPoint;
-  return { x: f.center.x + f.u.x * fx * f.b / 2 + f.v.x * fy * f.h / 2, y: f.center.y + f.u.y * fx * f.b / 2 + f.v.y * fy * f.h / 2 };
-}
-
 export const footprintCorners = (f: Footprint): P2[] => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => ({
   x: f.center.x + f.u.x * i! * f.b / 2 + f.v.x * j! * f.h / 2,
   y: f.center.y + f.u.y * i! * f.b / 2 + f.v.y * j! * f.h / 2,
@@ -142,9 +136,10 @@ export interface ColumnOnPlan {
 }
 
 /**
- * A column drawn on the plan: its nodes on the fixed point at every level from one to the other,
- * one bar per storey offset to the footprint's centre (`Element.offset`), so it grows from that
- * point when its section changes. Declared one physical column, with its fixed point kept.
+ * A column drawn on the plan: one bar per storey on the centre of what was drawn, so the analysis
+ * axis is the section's. Where it stands on a column already there, or one stands on it, it takes
+ * that column's node and is offset from it (`Element.offset`), so the two are joined whatever their
+ * sections. Declared one physical column; its fixed point is kept for a section that changes.
  */
 export function placeColumnOnPlan(c: ColumnOnPlan): PlanPlaced {
   const lv = levelsBetween(c.levels, c.levelFrom, c.levelTo);
@@ -154,23 +149,28 @@ export function placeColumnOnPlan(c: ColumnOnPlan): PlanPlaced {
   modelStore.batch(() => {
     const nodeAt = nodeFinder();
     const held = heldByPhysical();
-    const at = fixedPointOf(c.footprint, c.fixedPoint);
-    const shift = { x: c.footprint.center.x - at.x, y: c.footprint.center.y - at.y, z: 0 };
-    const offset = Math.hypot(shift.x, shift.y) > 1e-9 ? { offset: { frame: 'global' as const, i: shift, j: shift } } : {};
-    const ids = lv.map((l) => nodeAt(at.x, at.y, l.z));
+    const at = c.footprint.center;
+    const ends = lv.map((l) => {
+      const other = columnsAtLevel(l.z).find((col) => inside(col.footprint, at, INSIDE_M));
+      if (!other) return { node: nodeAt(at.x, at.y, l.z), off: { x: 0, y: 0, z: 0 } };
+      const n = modelStore.nodes.get(other.node)!;
+      return { node: other.node, off: { x: at.x - n.x, y: at.y - n.y, z: 0 } };
+    });
     const mine: number[] = [];
     const spans: number[] = [];
-    for (let k = 0; k + 1 < ids.length; k++) {
-      const there = barBetween(ids[k]!, ids[k + 1]!);
+    for (let k = 0; k + 1 < ends.length; k++) {
+      const i = ends[k]!, j = ends[k + 1]!;
+      const there = barBetween(i.node, j.node);
       if (there !== undefined && held.has(there)) continue;
-      const id = there ?? modelStore.addElement(ids[k]!, ids[k + 1]!);
-      modelStore.updateElement(id, { materialId: c.materialId, ...offset } as never);
+      const id = there ?? modelStore.addElement(i.node, j.node);
+      const moved = Math.hypot(i.off.x, i.off.y) > 1e-9 || Math.hypot(j.off.x, j.off.y) > 1e-9;
+      modelStore.updateElement(id, { materialId: c.materialId, ...(moved ? { offset: { frame: 'global' as const, i: i.off, j: j.off } } : {}) } as never);
       seatColumnSection(id, c.footprint, c.sectionId);
       mine.push(id);
       spans.push(k);
     }
     if (mine.length === 0) return;
-    const base = ids[0]!;
+    const base = ends[0]!.node;
     const lowest = Math.min(...c.levels.map((l) => l.z));
     if (c.fixBase && spans[0] === 0 && Math.abs(lv[0]!.z - lowest) < 1e-9 && ![...modelStore.supports.values()].some((s) => s.nodeId === base)) modelStore.addSupport(base, 'fixed3d');
     out.groupId = declare(nextName('C')(), { elements: mine }, {

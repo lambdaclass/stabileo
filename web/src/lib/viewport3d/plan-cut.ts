@@ -34,14 +34,14 @@ export function planCutFor(levelZ: number, o: { lowest: boolean; ceiling: boolea
 export const planClipZ = (cutZ: number): number => cutZ + 1e-3;
 
 const box = new THREE.Box3();
-let census = { hidden: 0, ghost: 0, overhead: 0 };
+let census = { hidden: 0, ghost: 0, overhead: 0, supports: 0 };
 let pick: { floorZ: number; nodeFloorZ: number; topZ: number | null; keepFromZ: number | null } | null = null;
 let version = 0;
 /** Bumped by every pass, so a filtered list of what can be picked knows when to be made again. */
 export const planCutVersion = (): number => version;
 
-/** How many objects the last pass hid or toned, for the tests. */
-export const planCutCensus = (): { hidden: number; ghost: number; overhead: number } => ({ ...census });
+/** How many objects the last pass hid or toned, and how many supports it hid, for the tests. */
+export const planCutCensus = (): { hidden: number; ghost: number; overhead: number; supports: number } => ({ ...census });
 
 const nodeZ = (id: number) => modelStore.nodes.get(id)?.z ?? 0;
 
@@ -82,11 +82,12 @@ export function clearPlanCut(parents: ReadonlyArray<THREE.Object3D | null | unde
 }
 
 /**
- * What lies under the storey: hidden, or in halftone; and the slabs of its ceiling in halftone. Runs
- * after the category tones. `slabs` are the parents whose children are slabs.
+ * What lies under the storey: hidden, or in halftone; and the slabs of its ceiling in halftone. The
+ * supports are drawn only with what is below shown: modelled in plan, a support's symbol covers the
+ * column standing on it. Runs after the category tones. `slabs` are the parents whose children are slabs.
  */
 export function toneBelowPlanCut(parents: ReadonlyArray<THREE.Object3D | null | undefined>, cut: PlanCut | null, slabs: ReadonlyArray<THREE.Object3D | null | undefined> = []): void {
-  census = { hidden: 0, ghost: 0, overhead: 0 };
+  census = { hidden: 0, ghost: 0, overhead: 0, supports: 0 };
   version++;
   const hidden = cut?.below === 'hidden';
   pick = cut ? { floorZ: hidden ? cut.floorZ : -Infinity, nodeFloorZ: hidden ? cut.nodeFloorZ : -Infinity, topZ: cut.topZ ?? null, keepFromZ: cut.keepFromZ ?? null } : null;
@@ -99,6 +100,7 @@ export function toneBelowPlanCut(parents: ReadonlyArray<THREE.Object3D | null | 
       const s = span(o);
       if (!s) continue;
       const t = (o.userData as { type?: string }).type;
+      if (t === 'support' && cut.below === 'hidden') { o.visible = false; o.userData.planHidden = true; census.supports++; continue; }
       const kept = cut.keepFromZ != null && s.min >= cut.keepFromZ;
       if (!kept && s.max < (t === 'node' || t === 'support' ? cut.nodeFloorZ : cut.floorZ)) {
         if (cut.below === 'hidden') { o.visible = false; o.userData.planHidden = true; census.hidden++; }
@@ -117,6 +119,7 @@ export function toneBelowPlanCut(parents: ReadonlyArray<THREE.Object3D | null | 
  */
 export function underPlanFloor(hit: { type: string; id: number } | null): boolean {
   if (pick === null || !hit) return false;
+  if (hit.type === 'support' && pick.floorZ !== -Infinity) return true;
   const nodes = nodesOf(hit);
   if (nodes.length === 0) return false;
   const zs = nodes.map(nodeZ);

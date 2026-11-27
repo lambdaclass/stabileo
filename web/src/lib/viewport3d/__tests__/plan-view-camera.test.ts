@@ -135,6 +135,20 @@ describe('what lies under the plan', () => {
     toneBelowPlanCut([], null);
   });
 
+  it('draws the supports only with what is below shown, the lowest level included', () => {
+    const parent = new THREE.Group();
+    const gizmo = new THREE.Group();
+    gizmo.userData = { type: 'support', id: 1 };
+    gizmo.add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2)));
+    parent.add(gizmo);
+    toneBelowPlanCut([parent], planCutFor(0, { lowest: true, ceiling: true, below: 'hidden' }));
+    expect(gizmo.visible).toBe(false);
+    clearPlanCut([parent]);
+    toneBelowPlanCut([parent], planCutFor(0, { lowest: true, ceiling: true, below: 'ghost' }));
+    expect(gizmo.visible).toBe(true);
+    toneBelowPlanCut([parent], null);
+  });
+
   it('does not show what something else hid', () => {
     const parent = new THREE.Group();
     const lower = at(0);
@@ -155,9 +169,10 @@ describe('what lies under the plan', () => {
     expect([low, onFloor, column].map((id) => underPlanFloor({ type: 'element', id }))).toEqual([true, true, false]);
     expect([underPlanFloor({ type: 'node', id: a }), underPlanFloor({ type: 'node', id: c })]).toEqual([true, false]);
     const base = modelStore.addSupport(a, 'fixed3d'), upper = modelStore.addSupport(c, 'fixed3d');
-    expect([underPlanFloor({ type: 'support', id: base }), underPlanFloor({ type: 'support', id: upper })], 'a support goes with its node').toEqual([true, false]);
+    expect([underPlanFloor({ type: 'support', id: base }), underPlanFloor({ type: 'support', id: upper })], 'no support while what is below is hidden').toEqual([true, true]);
     toneBelowPlanCut([], storey3('ghost'));
     expect(underPlanFloor({ type: 'element', id: low })).toBe(false);
+    expect(underPlanFloor({ type: 'support', id: upper }), 'with it shown, the supports are there').toBe(false);
     toneBelowPlanCut([], null);
   });
 

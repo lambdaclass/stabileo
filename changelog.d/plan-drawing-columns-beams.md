@@ -49,3 +49,9 @@ its face. While it is drawn, what it frames into is outlined and named («C1 →
 What was placed is said in the bar rather than in a toast over the drawing. The plan view frames the
 template close, clear of the bar. Placing between axes folds away in the Columns and Beams tabs until
 the grid has axes.
+
+A column drawn on the plan has its analysis axis on the centre of what was drawn, whatever its fixed
+point, which is kept for a section that changes between storeys. Where it stands on a column of
+another section, it takes that column's node and is offset from it, so the two stay joined. In the
+plan view the supports are drawn only with «Show below» on: modelling a storey, a support's symbol
+covered the column standing on it.

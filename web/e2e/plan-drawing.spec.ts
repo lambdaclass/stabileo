@@ -43,7 +43,10 @@ test.describe('@smoke drawing the building on the plan', () => {
     const columns = (m.groups ?? []).filter(([, g]) => g.kind === 'physicalMember' && g.data?.kind === 'column');
     expect(columns.map(([, g]) => g.data?.fixedPoint)).toEqual([[-1, -1], [0, 0]]);
     const corner = m.elements[0]![1];
-    expect(corner.offset).toMatchObject({ frame: 'global', i: { x: expect.closeTo(0.2, 1), y: expect.closeTo(0.15, 1) } });
+    expect(corner.offset, 'the analysis axis on the centre of what was drawn').toBeFalsy();
+    const base = new Map(m.nodes).get(corner.nodeI)!;
+    expect(base.x, 'the centre of the rectangle drawn, to the snap').toBeCloseTo(0.2, 1);
+    expect(base.y).toBeCloseTo(0.15, 1);
 
     await page.getByTestId('plan-draw-exit').click();
     await page.getByTestId('building-tab-beams').click();
