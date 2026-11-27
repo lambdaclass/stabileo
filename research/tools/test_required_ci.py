@@ -203,6 +203,36 @@ for caller, event, route_only, expected in [
     assert selected == expected, (caller, event, route_only, selected)
 print('ok online audit runs on research PRs without duplicating required jobs')
 
+class EvidenceExportTests(unittest.TestCase):
+    @unittest.skip("known wrong result: #2505")
+    def test_missing_export_cannot_certify_committed_results(self):
+        cases = [
+            ('engine-benchmarks', 'research/benchmarks/cqc-1981/VALIDATION.json', 'CQC_VALIDATION_OUT='),
+            ('engine-benchmarks', 'research/benchmarks/newmark-1959/VALIDATION.json', 'NEWMARK_VALIDATION_OUT='),
+            ('koiter', 'VALIDATION.json', 'cargo test --release --locked'),
+            ('koiter', 'reference-results/published_comparison.json', 'cargo test --release --locked'),
+        ]
+        for job, path, exporter in cases:
+            with self.subTest(job=job, path=path), tempfile.TemporaryDirectory() as tmp:
+                lines = [line.strip() for step in research['jobs'][job]['steps']
+                         for line in step.get('run', '').splitlines()]
+                copy = next(i for i, line in enumerate(lines) if line.startswith(f'cp {path} '))
+                run = next(i for i, line in enumerate(lines) if line.startswith(exporter))
+                compare = next(i for i, line in enumerate(lines) if 'compare_evidence.py' in line and line.endswith(' ' + path))
+                self.assertLess(copy, run)
+                self.assertLess(run, compare)
+                outputs = [path] if job != 'koiter' else ['VALIDATION.json', 'reference-results/published_comparison.json']
+                for output in outputs:
+                    target = pathlib.Path(tmp, output)
+                    target.parent.mkdir(exist_ok=True, parents=True)
+                    source = root / ('research/stability/ferrari-sigmund-2025' if job == 'koiter' else '') / output
+                    target.write_bytes(source.read_bytes())
+                command = '\n'.join(lines[copy:run] + ['true', lines[compare].replace(' -I research/tools/', ' -I "$GITHUB_WORKSPACE"/research/tools/')])
+                attempt = subprocess.run(['bash', '-ec', command], cwd=tmp, capture_output=True,
+                                         env={**os.environ, 'RUNNER_TEMP': tmp, 'GITHUB_WORKSPACE': str(root)})
+                self.assertNotEqual(attempt.returncode, 0, attempt.stdout)
+
+
 class ResearchCacheTests(unittest.TestCase):
     def test_registered_bundles_and_cache_invalidation(self):
         steps = jobs['research-wasm']['steps']
