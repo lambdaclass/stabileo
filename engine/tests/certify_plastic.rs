@@ -889,6 +889,26 @@ fn restrained_truss_spans_redistribute_up_to_the_full_axial_range() {
 }
 
 #[test]
+#[ignore = "known wrong result: #758"]
+fn two_independent_partial_diagonals_publish_the_checked_interval() {
+    use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, Confirmation, LimitInput};
+    let mut beam = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 1.0), (3, -1.0, 1.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
+        vec![(1, "frame", 2, 1, 1, 1, false, false), (2, "frame", 3, 1, 1, 1, false, false)], vec![(1, 1, "fixed")],
+        vec![nodal(2, 0.0, -1.0), nodal(3, 0.0, -1.0)],
+    );
+    for element_id in [1, 2] {
+        for (a, b, q_i, q_j) in [(0.1, 0.75, -1.0, -2.0), (0.5, 1.125, 1.0, 0.0)] {
+            beam.loads.push(SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id, q_i, q_j, a: Some(a), b: Some(b) }));
+        }
+    }
+    let wire = LimitInput { solver: beam, mp: HashMap::from([("1".into(), 1.0), ("2".into(), 2.0)]), np: HashMap::from([("1".into(), 10.0), ("2".into(), 10.0)]) };
+    let result = certified_limit_2d(&wire).unwrap();
+    assert_eq!(result.confirmation, Confirmation::Exact);
+    assert_eq!((result.lambda, result.lambda_upper), (1.0, 1.0));
+}
+
+#[test]
 fn bending_collapse_survives_partial_axial_loads_on_a_diagonal() {
     use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
     for (a, b) in [(None, Some(1.0)), (Some(0.5), None), (Some(0.5), Some(1.0))] {

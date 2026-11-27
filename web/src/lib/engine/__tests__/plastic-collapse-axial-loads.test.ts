@@ -64,6 +64,22 @@ describe('plastic collapse under loads along members', () => {
     expect(() => solve(2)).toThrow();
   });
 
+  it.skip('known wrong result: #758 — two independent diagonal span loads publish the certified interval', () => {
+    const input = model(1, [1, 2], 'frame', [[1, 'fixed']], []);
+    for (const id of [1, 2]) {
+      input.nodes.set(id + 1, { id: id + 1, x: id === 1 ? 1 : -1, z: 1 });
+      input.elements.set(id, { ...input.elements.get(id)!, nodeI: id + 1, nodeJ: 1 });
+      input.loads.push({ type: 'nodal', data: { nodeId: id + 1, fx: 0, fz: -1, my: 0 } });
+      for (const [a, b, qI, qJ] of [[0.1, 0.75, -1, -2], [0.5, 1.125, 1, 0]]) {
+        input.loads.push({ type: 'axialDistributed', data: { elementId: id, a, b, qI, qJ } });
+      }
+    }
+    const result = plasticLimit2D(input, new Map([[1, 1], [2, 2]]), new Map([[1, 10], [2, 10]]));
+    expect(result.confirmation.kind).toBe('exact');
+    expect([result.lambda, result.lambdaUpper]).toEqual([1, 1]);
+    expect(plasticCollapse2D(input, { mp: id => id, np: () => 10 }).collapseFactor).toBe(1);
+  });
+
   it('a truss yields where |N| peaks inside it, not at its ends', () => {
     // Fixed at both ends, 4 m, q_x = 10 → −10 kN/m over [1.8, 2.2]: the load's resultant is 0,
     // the ends carry N = 1/15 and midspan N = −14/15. With Np = 1, λc = 15/14 (it was 15).
