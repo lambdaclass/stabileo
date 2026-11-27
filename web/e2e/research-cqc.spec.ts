@@ -57,6 +57,37 @@ test.describe('@smoke CQC first version', () => {
     });
   }
 
+  test('a stopped or failed live run leaves the references on the damping of the results shown', async ({ page }) => {
+    let release = () => {};
+    const engine = new Promise<void>(resolve => { release = resolve; });
+    await page.route(/dedaliano_engine_bg[^/]*\.wasm$/, async route => {
+      await engine;
+      await route.abort();
+    });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(route('en'));
+    const referenceOf = (result: string) => page.getByRole('row').filter({ has: page.getByTestId(result) }).locator('td').first();
+    const shown = ['result-CQC', 'roof-5-CQC', 'modal-2'];
+    const before = await Promise.all(shown.map(id => referenceOf(id).textContent()));
+    const unchanged = async () => {
+      for (const [i, id] of shown.entries()) await expect(referenceOf(id)).toHaveText(before[i]!);
+      await expect(page.getByTestId('result-CQC')).toHaveText('17.549732');
+    };
+    await page.getByTestId('cqc-damping').selectOption('0.2');
+    await expect(page.getByTestId('cqc-displayed-damping')).toHaveText('5%');
+    await expect(page.getByRole('button', { name: 'Computing…' })).toBeDisabled();
+    await unchanged();
+    await page.getByRole('button', { name: 'Stop', exact: true }).click();
+    await unchanged();
+    await expect(page.getByTestId('cqc-damping')).toHaveValue('0.05');
+    await page.getByTestId('cqc-damping').selectOption('0.1');
+    release();
+    await expect(page.locator('.cqc-app').getByRole('alert')).toBeVisible();
+    await unchanged();
+    await expect(page.getByTestId('cqc-damping')).toHaveValue('0.05');
+    await expect(page.getByTestId('cqc-source')).toHaveText('Precomputed replay (same solver)');
+  });
+
   for (const [locale, title, meta, run, cqc] of [
     ['en', 'Closely spaced modes: SRSS vs CQC', 'SRSS vs CQC (1981)', 'Recompute live', '17.549732'],
     ['es', 'Modos próximos: SRSS y CQC', 'SRSS y CQC (1981)', 'Recalcular en vivo', '17,549732'],

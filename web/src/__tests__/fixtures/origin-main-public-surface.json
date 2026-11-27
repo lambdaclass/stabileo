@@ -198,12 +198,18 @@
       "en",
       "es",
       "pt",
+      "de",
+      "fr",
+      "tr",
       "zh"
     ],
     "/research/stability/ferrari-sigmund-2025": [
       "en",
       "es",
       "pt",
+      "de",
+      "fr",
+      "tr",
       "zh"
     ],
     "/research/metamaterials/grossman-2026": [
@@ -255,12 +261,18 @@
       "en",
       "es",
       "pt",
+      "de",
+      "fr",
+      "tr",
       "zh"
     ],
     "/research/form-finding/pastrana-2026": [
       "en",
       "es",
       "pt",
+      "de",
+      "fr",
+      "tr",
       "zh"
     ],
     "/research/benchmarks/plastic-collapse": [
@@ -291,7 +303,13 @@
       "zh"
     ],
     "/research/benchmarks/shell-obstacle-course": [
-      "en"
+      "en",
+      "es",
+      "pt",
+      "de",
+      "fr",
+      "tr",
+      "zh"
     ]
   }
 }

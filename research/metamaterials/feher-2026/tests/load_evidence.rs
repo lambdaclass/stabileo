@@ -1,0 +1,125 @@
+use cut_strip_feher_2026::{loaded_height, Strip, LENGTH};
+use serde_json::Value;
+
+fn comparison() -> Value {
+    serde_json::from_str(include_str!("../reference-results/published_comparison.json")).unwrap()
+}
+
+#[test]
+fn measured_shallow_cut_snap_is_published_with_the_failed_paper_comparison() {
+    let evidence = comparison();
+    let rows = evidence["checks"].as_array().unwrap();
+    let row = rows.iter().find(|r| r["id"] == "snap-through-0.5-0.2").unwrap();
+    let curves: Value = serde_json::from_str(include_str!("../reference-results/curves.json")).unwrap();
+    let cycle = curves.as_array().unwrap().iter().find(|c| c["span"] == 0.5 * LENGTH && c["b"] == 0.2).unwrap();
+    let snap = cycle["snaps"].as_array().unwrap().iter().find(|e| e["loading"] == true).unwrap();
+    assert_eq!(row["computed"], snap["load"]);
+    assert_eq!(row["observed"], (row["computed"].as_f64().unwrap() - row["reference"].as_f64().unwrap()).abs());
+    assert!(row["observed"].as_f64().unwrap() > row["tolerance"].as_f64().unwrap());
+    assert_eq!(row["passed"], false);
+    for id in ["snap-through-0.5-0.5", "snap-back-0.5-0.5"] {
+        assert!(rows.iter().find(|r| r["id"] == id).unwrap()["computed"].is_number());
+    }
+}
+
+#[test]
+fn a_loaded_marker_is_not_an_unloaded_height_reference() {
+    let evidence = comparison();
+    let rows: Vec<_> = evidence["checks"].as_array().unwrap().iter()
+        .filter(|r| r["id"].as_str().unwrap().starts_with("height-")).collect();
+    assert_eq!(rows.len(), 6);
+    for row in rows {
+        assert!(row["reference"].is_null() && row["observed"].is_null());
+        assert!(row["computed"].is_number());
+        assert_eq!(row["passed"], false);
+    }
+}
+
+#[test]
+fn a_height_on_the_inverted_branch_is_withheld() {
+    let strip = Strip { a: 0.5, b: 0.5 };
+    assert!(loaded_height(&strip, 0.5 * LENGTH, 2.05, 0.05).is_err());
+    assert!(loaded_height(&strip, 0.5 * LENGTH, 1.0, 0.05).unwrap() > 0.0);
+}
+
+#[test]
+fn invalid_load_increments_are_rejected_before_solving() {
+    let strip = Strip { a: 0.5, b: 0.5 };
+    for step in [0.0, -0.05, f64::NAN, f64::INFINITY] {
+        assert!(loaded_height(&strip, 0.5 * LENGTH, 0.0, step).is_err());
+    }
+}
+
+#[test]
+fn steep_retracing_branches_have_no_recorded_switches() {
+    let curves: Value = serde_json::from_str(include_str!("../reference-results/curves.json")).unwrap();
+    for (span, b) in [(0.5, 0.8), (0.75, 0.5)] {
+        let stored = curves.as_array().unwrap().iter().find(|c| c["span"] == span * LENGTH && c["b"] == b).unwrap();
+        assert_eq!(stored["snaps"], serde_json::json!([]));
+        let live = cut_strip_feher_2026::load_cycle(&Strip { a: 0.5, b }, span * LENGTH, 4.0, 0.05, 10.0).unwrap();
+        let points = live["points"].as_array().unwrap();
+        assert!(live["lost_at"].is_null());
+        assert_eq!(points.len(), 161);
+        assert_eq!(points[80][0], 4.);
+        assert_eq!(points.last().unwrap()[0], 0.);
+        assert_eq!(live["snaps"], stored["snaps"]);
+    }
+}
+
+#[test]
+fn a_steep_continuous_height_is_independent_of_the_first_increment() {
+    let strip = Strip { a: 0.5, b: 0.8 };
+    let fine = loaded_height(&strip, 0.5 * LENGTH, 2.0, 0.05).unwrap();
+    let coarse = loaded_height(&strip, 0.5 * LENGTH, 2.0, 2.0).unwrap();
+    assert!((coarse - fine).abs() < 1e-7, "coarse {coarse}, fine {fine}");
+}
+
+#[test]
+fn snap_back_for_the_long_shallow_cut_is_published() {
+    let curves: Value = serde_json::from_str(include_str!("../reference-results/curves.json")).unwrap();
+    let cycle = curves.as_array().unwrap().iter().find(|c| c["span"] == 0.75 * LENGTH && c["b"] == 0.2).unwrap();
+    let event = cycle["snaps"].as_array().unwrap().iter().find(|e| e["loading"] == false).unwrap();
+    let comparison = comparison();
+    let row = comparison["checks"].as_array().unwrap().iter().find(|r| r["id"] == "snap-back-0.75-0.2").unwrap();
+    assert_eq!(row["computed"], event["load"]);
+}
+
+#[test]
+fn steep_segment_refines_with_distinct_increments() {
+    let strip = Strip { a: 0.5, b: 0.5 };
+    let mut heights = Vec::new();
+    for step in [0.05, 0.025, 0.0125] {
+        heights.push(loaded_height(&strip, 0.75 * LENGTH, 1.3, step).unwrap());
+    }
+    assert!((heights[0] - heights[1]).abs() < 1e-7, "{heights:?}");
+    assert!((heights[1] - heights[2]).abs() < 1e-7, "{heights:?}");
+}
+
+#[test]
+fn shallow_cut_cycle_reaches_the_inverted_branch_and_returns_to_zero_load() {
+    use cut_strip_feher_2026::{load_cycle, CYCLE_LOAD_STEP, HEIGHT_INCREMENT};
+    let cycle = load_cycle(&Strip { a: 0.5, b: 0.2 }, LENGTH / 2., 4., CYCLE_LOAD_STEP, HEIGHT_INCREMENT).unwrap();
+    assert!(cycle["lost_at"].is_null(), "{}", cycle["lost_at"]);
+    let snap = cycle["snaps"].as_array().unwrap().iter().find(|e| e["loading"] == true).unwrap();
+    assert!(snap["from"].as_f64().unwrap() > 0. && snap["to"].as_f64().unwrap() < 0.);
+    assert_eq!(cycle["points"].as_array().unwrap().last().unwrap()[0], 0.);
+}
+
+#[test]
+fn next_steps_report_each_snap_load_against_its_paper_tolerance() {
+    let readme = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md")).unwrap();
+    let next = readme.split_once("## Next\n").unwrap().1.split("\n## ").next().unwrap();
+    let rows: Vec<_> = next.lines().filter(|line| line.starts_with("| Snap-")).collect();
+    let evidence = comparison();
+    let mut expected = Vec::new();
+    for check in evidence["checks"].as_array().unwrap().iter().filter(|c| c["unit"] == "N") {
+        let name = check["name"].as_str().unwrap().replace(", a = 0.5", "");
+        let paper = check["reference"].as_f64().unwrap();
+        let measured = check["computed"].as_f64().unwrap();
+        let difference = (paper - measured).abs();
+        let tolerance = check["tolerance"].as_f64().unwrap();
+        let mark = if difference > tolerance { " ✗" } else { "" };
+        expected.push(format!("| {name} | {paper:.3} N | {measured:.2} N | {difference:.3} N{mark} | {tolerance} N |"));
+    }
+    assert_eq!(rows, expected);
+}

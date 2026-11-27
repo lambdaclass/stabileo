@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import data from '../../../../../../engine/tests/benchmarks/macneal_harder.json';
-import { cases, compare, counts, nativeOnly, refusalFor, runCases, tolerance, verdict, viewerData, type Case, type Result } from '../cases';
+import { cases, compare, counts, inputFor, distortable, nativeOnly, PAPER_SKEW, refusalFor, runCases, runVariant, skewedCase, skewOffset, tolerance, verdict, viewerData, type Case, type Result } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
-import { caseLabel, nativeReason, pageLocale, strings } from '../i18n';
+import { caseLabel, comparisonNames, nativeReason, pageLocale, strings } from '../i18n';
+import published from '../../../../../../research/benchmarks/macneal-harder-1985/reference-results/published_comparison.json';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
 import { buildSolverInput2D, buildSolverInput3D, type ModelData } from '../../../../lib/engine/solver-service';
 import { initSolver, solve, solve3D } from '../../../../lib/engine/wasm-solver';
@@ -224,6 +225,58 @@ describe('engine benchmark evidence', () => {
   });
 });
 
+describe('element skew parameter', () => {
+  const distorted = cases.filter(distortable);
+  it('applies only to the trapezoidal and parallelogram meshes', () => {
+    expect(distorted.map(c => c.id)).toEqual(['mitc4-trapezoidal-out', 'mitc4-trapezoidal-in', 'mitc4-parallelogram-out', 'mitc4-parallelogram-in']);
+    expect(() => skewedCase(byId('mitc4-regular-out'), 20)).toThrow();
+  });
+  it('rebuilds the paper’s meshes at 45° and the regular mesh at 0°', () => {
+    expect(skewOffset(PAPER_SKEW)).toBe(0.1);
+    for (const c of distorted) {
+      expect(skewedCase(c, PAPER_SKEW)).toEqual(c);
+      const regular = byId(c.id.replace(/trapezoidal|parallelogram/, 'regular'));
+      expect(skewedCase(c, 0).input.nodes).toEqual(regular.input.nodes);
+      expect(skewedCase(c, 0).input.loads).toEqual(regular.input.loads);
+    }
+  });
+  it('reruns the production engine on a gentler skew and keeps the Table 3 reference', async () => {
+    const mesh = skewedCase(byId('mitc4-parallelogram-out'), 20);
+    const node = Object.values(mesh.input.nodes).find(n => 'y' in n && n.y > 0 && Math.round(n.x) === 1)!;
+    const width = Math.max(...Object.values(mesh.input.nodes).map(n => 'y' in n ? n.y as number : 0))
+      - Math.min(...Object.values(mesh.input.nodes).map(n => 'y' in n ? n.y as number : 0));
+    expect(node.x).toBeCloseTo(1 + width / 2 * Math.tan(20 * Math.PI / 180), 12);
+    const out = await runVariant(mesh);
+    expect(out.failure).toBeUndefined();
+    expect(out.value).toBeGreaterThan(0);
+    const atPaper = await runVariant(skewedCase(byId('mitc4-parallelogram-out'), PAPER_SKEW));
+    expect(Math.abs(atPaper.value! / (byId('mitc4-parallelogram-out').nativeBounds as { pinnedValue: number }).pinnedValue - 1)).toBeLessThan(1e-8);
+    const regular = await runVariant(skewedCase(byId('mitc4-parallelogram-out'), 0));
+    expect(regular.failure).toBeUndefined();
+    expect(regular.error).not.toBeNull();
+    const interior = await runVariant(skewedCase(byId('mitc4-parallelogram-in'), 0));
+    const baseline = await runVariant(byId('mitc4-regular-in'));
+    expect(baseline.failure).toBeUndefined();
+    expect(baseline.value).not.toBeNull();
+    expect(interior.failure).toBeUndefined();
+    expect(interior.value).toBe(baseline.value);
+    expect(regular.error!).toBeLessThan(out.error!);
+  });
+});
+
+describe('published comparison', () => {
+  it('names every row in every locale and keeps the paper values from Tables 3 and 5', () => {
+    for (const loc of PUBLIC_LOCALES) {
+      const names = comparisonNames(strings[loc]);
+      for (const row of published.checks) expect(names[row.id], `${loc} ${row.id}`).toBeTruthy();
+    }
+    expect(published.checks.map(r => [r.id, r.reference])).toEqual([
+      ['straight-regular-out', 0.4321], ['straight-regular-in', 0.1081], ['straight-trapezoidal-out', 0.4321], ['straight-parallelogram-out', 0.4321], ['scordelis-lo-16', 0.3024],
+    ]);
+    expect(published.checks.filter(r => !r.passed).map(r => r.id)).toEqual(['straight-trapezoidal-out', 'straight-parallelogram-out']);
+  });
+});
+
 describe('page language coverage', () => {
   const locales = PUBLIC_LOCALES;
   it.each(locales)('%s has every key, non-empty, with case labels and native reasons', locale => {
@@ -235,7 +288,7 @@ describe('page language coverage', () => {
     expect(pageLocale(locale)).toBe(locale);
   });
   it.each(locales.filter(l => l !== 'en'))('%s translates the article instead of copying English', locale => {
-    for (const key of ['title', 'lead', 'publishedWhy', 'testedDescription', 'modelDescription', 'accuracyDescription', 'referenceProvenance', 'shells', 'frames', 'documented', 'mismatch', 'caption'] as const) {
+    for (const key of ['title', 'lead', 'testedDescription', 'modelDescription', 'accuracyDescription', 'referenceProvenance', 'shells', 'frames', 'documented', 'mismatch', 'caption'] as const) {
       expect(strings[locale][key], key).not.toBe(strings.en[key]);
     }
   });
@@ -262,4 +315,39 @@ describe('containment explanation is localized', () => {
       expect(strings[loc].issueLink, loc).toMatch(/#798/);
     }
   });
+});
+
+it('a variant initialization rejection reaches the page as a failure', async () => {
+  const engine = await import('../../../../lib/engine/wasm-solver');
+  vi.spyOn(engine, 'initSolver').mockRejectedValueOnce(new Error('unavailable module'));
+  const result = await runVariant(cases.find(c => c.id === 'mitc4-parallelogram-out')!);
+  expect(result).toMatchObject({ value: null, error: null, pass: false, failure: 'Error: unavailable module' });
+  expect(result.refused).toBeUndefined();
+});
+
+it('holds back in-plane variant results with the original issue', async () => {
+  const result = await runVariant(cases.find(c => c.id === 'mitc4-parallelogram-in')!);
+  expect(result).toMatchObject({ issue: 798, refused: true, value: null, error: null, pass: false });
+});
+
+it('surfaces an unrelated variant solve error without claiming issue 798', async () => {
+  const engine = await import('../../../../lib/engine/wasm-solver');
+  const solve = vi.spyOn(engine, 'solve3D').mockImplementationOnce(() => { throw new Error('backend unavailable'); });
+  try {
+    const result = await runVariant(cases.find(c => c.id === 'mitc4-parallelogram-in')!);
+    expect(result).toMatchObject({ value: null, error: null, pass: false, failure: 'Error: backend unavailable' });
+    expect(result.refused).not.toBe(true);
+    expect(result.issue).toBeUndefined();
+  } finally { solve.mockRestore(); }
+});
+
+it('returns the measured tip on the linked gentle skew meshes', async () => {
+  await initSolver();
+  for (const [direction, angle] of [['out', 20], ['in', 5]] as const) {
+    const c = skewedCase(byId(`mitc4-parallelogram-${direction}`), angle);
+    const displacements = solve3D(inputFor(c) as Parameters<typeof solve3D>[0]).displacements;
+    const values = c.measurement.nodes.map(id => displacements.find(d => d.nodeId === id)![c.measurement.component as 'ux' | 'uy' | 'uz']);
+    const expected = values.reduce((a, b) => a + b, 0) / values.length;
+    expect((await runVariant(c)).value).toBe(expected);
+  }
 });

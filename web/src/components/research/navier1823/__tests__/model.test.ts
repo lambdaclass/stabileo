@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { cases, solverInput, mesh, navierCenter, mindlinCenter, parameters, difference, convergence, reduction, hardCases, hardSupports, runState, type Row } from '../model';
+import { downward, cases, solverInput, mesh, navierCenter, mindlinCenter, parameters, difference, convergence, reduction, hardCases, hardSupports, runState, build, seriesFor, validPlate, rigidity, PAPER_PLATE, type Row } from '../model';
 import { strings, navierLocale } from '../strings';
 import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 import { solve3D, input3DToWireObject } from '../../../../lib/engine/wasm-solver';
 import replay from '../../../../../../research/benchmarks/navier-plate/results/stabileo_results.json';
+import published from '../../../../../../research/benchmarks/navier-plate/reference-results/published_comparison.json';
+import validation from '../../../../../../research/benchmarks/navier-plate/VALIDATION.json';
 
 const { a, b, e, nu, thickness, pressure } = parameters;
 const near = (x: number, y: number) => Math.abs(x - y) < 1e-9;
@@ -80,6 +82,40 @@ describe.each(cases.map((c, i) => [c.family, c.n, i] as const))('%s %s', (family
   });
 });
 
+describe('plate builder', () => {
+  it.each(cases.map((c, i) => [c.family, c.n, i] as const))('reproduces the engine-owned %s %s fixture exactly', (family, n, index) => {
+    const built = build(family, n, false);
+    expect(built.center).toBe(cases[index].center);
+    expect(JSON.stringify(built.input)).toBe(JSON.stringify(cases[index].input));
+  });
+  it('builds hard support as the fixture with the edge rotations restrained', () => {
+    for (const index of hardCases) {
+      const { family, n, input } = cases[index];
+      expect(build(family, n, true).input.supports).toEqual(hardSupports(input.supports, input.nodes));
+    }
+  });
+  it('scales the series with thickness and refuses plates outside the controls', () => {
+    expect(rigidity()).toBeCloseTo(5468.75, 9);
+    expect(seriesFor(PAPER_PLATE)).toBeNull();
+    expect(seriesFor({ ...PAPER_PLATE, family: 'DKT' })).toEqual({ kind: 'kirchhoff', mm: parameters.reference_mm });
+    expect(seriesFor({ ...PAPER_PLATE, hard: true })).toEqual({ kind: 'mindlin', mm: parameters.mindlin_reference_mm });
+    expect(seriesFor({ ...PAPER_PLATE, family: 'DKT', thickness: 0.2 })!.mm).toBeCloseTo(parameters.reference_mm / 8, 12);
+    expect(Math.abs(seriesFor({ ...PAPER_PLATE, hard: true, thickness: 0.1 + 1e-12 })!.mm - parameters.mindlin_reference_mm)).toBeLessThan(1e-6);
+    const doubled = parameters.reference_mm / 8 + (parameters.mindlin_reference_mm - parameters.reference_mm) / 2;
+    expect(Math.abs(seriesFor({ ...PAPER_PLATE, hard: true, thickness: 0.2 })!.mm - doubled)).toBeLessThan(1e-6);
+    expect(validPlate({ ...PAPER_PLATE, n: 3 })).toBe(false);
+    expect(validPlate({ ...PAPER_PLATE, n: 34 })).toBe(false);
+    expect(validPlate({ ...PAPER_PLATE, thickness: 0.6 })).toBe(false);
+    expect(validPlate({ ...PAPER_PLATE, thickness: Number.NaN })).toBe(false);
+    expect(validPlate({ ...PAPER_PLATE, n: 2 })).toBe(true);
+  });
+  it('solves a built plate in production WASM with the load balanced by the reactions', () => {
+    const { input } = build('MITC4', 6, true, 0.2);
+    const result = solve3D({ nodes: new Map(Object.entries(input.nodes).map(([k, v]) => [Number(k), v])), materials: new Map([[1, input.materials[1]]]), sections: new Map(), elements: new Map(), supports: new Map(Object.entries(input.supports).map(([k, v]) => [Number(k), v])), loads: input.loads, plates: new Map(), quads: new Map(Object.entries(input.quads).map(([k, v]) => [Number(k), v])) });
+    expect(result.reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(150, 6);
+  });
+});
+
 describe('hard simple support', () => {
   it('also restrains the rotation along each edge and nothing else', () => {
     const wire = cases[hardCases[0]].input;
@@ -133,6 +169,37 @@ describe('displayed convergence numbers', () => {
   });
 });
 
+describe('evidence shown on the page', () => {
+  it('names every published row in every locale and keeps all checks passing', () => {
+    for (const s of Object.values(strings)) expect(Object.keys(s.names)).toEqual(published.checks.map(r => r.id));
+    expect(published.checks.every(r => r.passed && r.observed <= r.tolerance)).toBe(true);
+    expect(validation.checks.map(c => c.metric)).toEqual([
+      "plate builder (TypeScript) against the six engine-owned fixture cases: cases that differ",
+      "production WASM against the native replay, every node of the six soft-support and three hard-support meshes: largest difference (mm)",
+      "vertical equilibrium, reactions against the 150 kN load, every mesh: largest difference (kN)",
+      "thin-plate series, 100 × 100 odd terms, against the stored reference (mm)",
+      "thin-plate series truncation, 400 × 400 against 100 × 100 odd terms (mm)",
+      "Reissner–Mindlin series, 1000 × 1000 odd terms, against the stored reference (mm)",
+      "Reissner–Mindlin series truncation, 2000 × 2000 against 1000 × 1000 odd terms (mm)",
+      "published 1.28375 mm against the thin-plate series (mm)",
+      "DKT 4, 8, 16: refinements whose thin-plate error does not decrease",
+      "DKT 16 × 16 against the thin-plate series: relative difference",
+      "DKT increment ratio (4 → 8) / (8 → 16): distance from 4 (second order)",
+      "DKT Richardson extrapolation of 16 × 16 and 32 × 32 against the thin-plate series: relative difference",
+      "MITC4 hard support 4, 8, 16: refinements whose Reissner–Mindlin error does not decrease",
+      "MITC4 hard support 16 × 16 against the Reissner–Mindlin series: relative difference",
+      "MITC4 hard support increment ratio (8 → 16) / (16 → 32): distance from 4 (second order)",
+      "MITC4 hard support Richardson extrapolation of 16 × 16 and 32 × 32 against the Reissner–Mindlin series: relative difference",
+      "MITC4 soft support 32 × 32 against the documented 1.305399383 mm: relative difference",
+      "MITC4 soft support 64 × 64 against the documented 1.310611471 mm: relative difference",
+      "MITC4 soft support 8, 16, 32, 64 keeps rising and ends above 1.015 × Reissner–Mindlin: violations"
+    ]);
+    expect(validation.checks.every(c => c.passed && c.observed <= c.tolerance)).toBe(true);
+    const dkt16 = published.checks.find(r => r.id === 'dkt-16')!;
+    expect(dkt16.computed).toBe(replay.rows.find(r => r.family === 'DKT' && r.n === 16)!.center_mm);
+  });
+});
+
 describe('run state', () => {
   it('distinguishes replay, running, complete, partial, cancelled and failed runs', () => {
     expect(runState('replay', false, false, 6)).toBe('replay');
@@ -153,10 +220,39 @@ describe('locales', () => {
       expect(Object.keys(s)).toEqual(Object.keys(strings.en));
       expect(Object.keys(s.errors)).toEqual(Object.keys(strings.en.errors));
       expect(s.limitations).toHaveLength(4);
+      expect(Object.keys(s.names)).toEqual(['rigidity', 'series', 'dkt-16', 'dkt-richardson']);
+      for (const key of ['{family}', '{n}', '{support}', '{t}']) expect(s.plateLabel).toContain(key);
+      for (const key of ['{passed}', '{total}']) expect(s.checksText).toContain(key);
       expect(Object.values(s).every(value => value && (typeof value !== 'string' || value.length > 0))).toBe(true);
       expect(s.partial).toContain('{k}');
       expect(s.partial).toContain('{n}');
       for (const key of ['{mesh}', '{min}', '{max}']) expect(s.viewerLabel).toContain(key);
     }
   });
+});
+
+it('rejects conflicting duplicate nodes in either order', () => {
+  const { input, center } = build('MITC4', 4, true);
+  const field = Object.values(input.nodes).map(n => ({ nodeId: n.id, uz: 0 }));
+  const duplicate = { nodeId: center, uz: -1 };
+  expect(downward(input, field)).toHaveLength(field.length);
+  for (const records of [[duplicate, ...field], [...field, duplicate]]) {
+    expect(() => downward(input, records)).toThrow();
+  }
+});
+
+it('rejects an unknown replacement node or a nonfinite displacement at the expected length', () => {
+  const { input } = build('MITC4', 4, true);
+  const field = Object.values(input.nodes).map(n => ({ nodeId: n.id, uz: 0 }));
+  for (const last of [{ nodeId: -1, uz: 0 }, { ...field.at(-1)!, uz: NaN }]) {
+    expect(() => downward(input, [...field.slice(0, -1), last])).toThrow();
+  }
+});
+
+it('accepts only representable thicknesses and boolean support conditions', () => {
+  expect(validPlate({ ...PAPER_PLATE, hard: 'soft' as unknown as boolean })).toBe(false);
+  expect(validPlate({ ...PAPER_PLATE, thickness: 0.024 })).toBe(false);
+  for (const hard of [false, true]) for (const thickness of [0.02, 0.05, 0.1, 0.2, 0.3, 0.5]) {
+    expect(validPlate({ ...PAPER_PLATE, hard, thickness })).toBe(true);
+  }
 });

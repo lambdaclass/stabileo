@@ -34,7 +34,7 @@ describe('Newmark SDOF benchmark', () => {
       r.u.forEach((u, i) => expect(Math.abs(u - amplitude * (1 - Math.cos(i * 2 * Math.atan(Math.PI * r.ratio))))).toBeLessThan(1e-10));
     }
     expect(replay.runs[0].maxError).toBeLessThan(0.0005);
-    expect(phaseLagBound(0.025)).toBeCloseTo(0.01 * 8 * Math.PI * (1 - Math.atan(Math.PI * 0.025) / (Math.PI * 0.025)), 9);
+    expect(phaseLagBound(0.025)).toBeCloseTo(0.02 * Math.sin(4 * Math.PI * (1 - Math.atan(Math.PI * 0.025) / (Math.PI * 0.025))) + 1e-10, 9);
   });
   it('recomputes every evidence check from the replay histories', () => {
     const computed = evaluate(replay.runs.map(r => summarize(r.ratio, r.time, r.u)));
@@ -74,11 +74,23 @@ describe('Newmark SDOF benchmark', () => {
   });
   it('has complete research translations with every placeholder filled', () => {
     const values = { L: '1', E: '10', A: '0.01', rho: '300000', m: '1', k: '100', F: '1', omega: '10', T: '0.628319', i: '0', n: '80', t: '0', x: '2.5' };
-    for (const locale of ['en', 'es', 'pt', 'hu', 'zh'] as const) {
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const) {
       expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
       expect(Object.values(translations[locale]).every(v => Array.isArray(v) ? v.length === 3 : v.length > 0)).toBe(true);
+      for (const key of Object.keys(translations.en) as (keyof typeof translations.en)[]) {
+        const slots = (value: string | readonly string[]) => [value].flat().map(s => (s.match(/\{\w+\}/g) ?? []).sort());
+        expect(slots(translations[locale][key])).toEqual(slots(translations.en[key]));
+      }
       for (const v of Object.values(translations[locale]).flat()) expect(fill(v, values)).not.toMatch(/\{\w+\}/);
       expect(fill(translations[locale].description, values)).toMatch(/k = EA\/L = 100 kN\/m/);
     }
   });
+});
+
+it('bounds the coarse trace by the actual phase separation of two cosines', () => {
+  const ratio = Math.max(...benchmark.ratios);
+  const lag = steps(ratio) * (2 * Math.PI * ratio - 2 * Math.atan(Math.PI * ratio));
+  expect(phaseLagBound(ratio)).toBeCloseTo(2 * amplitude * Math.sin(Math.min(Math.PI, lag) / 2) + 1e-10, 14);
+  const r = replay.runs.find(r => r.ratio === ratio)!;
+  expect(() => summarize(ratio, r.time, r.u.map(() => 0))).toThrow();
 });

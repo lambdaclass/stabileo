@@ -54,7 +54,7 @@ test.describe('@smoke plastic collapse', () => {
       await expect(page.locator('.axis-gizmo')).toBeHidden();
       await checkLayout(page, viewport);
 
-      const slider = page.getByRole('slider');
+      const slider = page.getByRole('slider', { name: 'Hinge event' });
       await slider.focus();
       await page.keyboard.press('Home');
       await expect(slider).toHaveValue('0');
@@ -63,7 +63,7 @@ test.describe('@smoke plastic collapse', () => {
       const run = page.getByRole('button', { name: 'Recompute live', exact: true });
       await run.focus();
       await page.keyboard.press('Enter');
-      await expect(page.getByRole('status')).toHaveText('Live computation');
+      await expect(page.getByTestId('source')).toHaveText('Live computation');
       await expect(slider).toHaveValue('3');
       await page.getByRole('button', { name: 'Restart', exact: true }).click();
       await expect(page.getByTestId('source')).toHaveText('Live computation');
@@ -71,6 +71,35 @@ test.describe('@smoke plastic collapse', () => {
       await expect(page.getByRole('alert')).toHaveCount(0);
     });
   }
+
+  test('the load ratio and height rerun the solver and change the governing mechanism', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(route('en'));
+    await expect(page.getByTestId('source')).toHaveText('Live computation');
+    await expect(page.getByTestId('governs')).toHaveText('Lowest bound: Combined');
+    await page.getByRole('link', { name: 'Make the beam mechanism govern (V/H = 4)' }).click();
+    await expect(page.getByTestId('collapse-factor')).toHaveText('Stabileo λ = 50.000000');
+    await expect(page.getByTestId('governs')).toHaveText('Lowest bound: Beam');
+    await expect(page.getByTestId('check').filter({ hasText: 'Hinges form at both roof corners and at midspan' })).toHaveAttribute('data-passed', 'true');
+    await expect(page.getByTestId('model')).toContainText('λV = λ × 4 kN');
+    await expect(page.locator('[data-testid="check"][data-passed="false"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="check"]')).toHaveCount(5);
+    await page.getByRole('link', { name: 'Make sway govern (V/H = 0.5)' }).click();
+    await expect(page.getByTestId('collapse-factor')).toHaveText('Stabileo λ = 133.333333');
+    await expect(page.getByTestId('governs')).toHaveText('Lowest bound: Sway');
+    await expect(page.getByTestId('check').filter({ hasText: 'Hinges form at both bases and at both roof corners; midspan does not yield.' })).toHaveAttribute('data-passed', 'true');
+    await expect(page.locator('[data-testid="check"][data-passed="false"]')).toHaveCount(0);
+    const height = page.getByTestId('height');
+    await height.fill('2');
+    await expect(page.getByTestId('governs')).toHaveText('Two mechanisms share the lowest bound. The hinge check accepts either compatible pattern and checks the signed yield moments.');
+    await expect(page.getByTestId('collapse-factor')).toHaveText('Stabileo λ = 200.000000');
+    await page.getByTestId('ratio').fill('1');
+    await expect(page.getByTestId('governs')).toHaveText('Lowest bound: Combined');
+    await expect(page.getByTestId('collapse-factor')).toHaveText('Stabileo λ = 150.000000');
+    await page.getByRole('link', { name: 'Back to our example' }).click();
+    await expect(page.getByTestId('collapse-factor')).toHaveText('Stabileo λ = 85.714286');
+    await expect(page.locator('[data-testid="check"][data-passed="true"]')).toHaveCount(6);
+  });
 
   for (const [locale, title, meta, run, lambda, place] of [
     ['en', 'Classic plastic collapse', 'Classic plastic collapse', 'Recompute live', '85.714286', 'Midspan'],

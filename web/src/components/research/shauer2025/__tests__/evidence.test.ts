@@ -67,7 +67,7 @@ it('provides German, French and Turkish copy for every Shauer and shell string i
   const previous = publicI18n.locale;
   const files = ['ShauerPage.svelte', 'ShauerArticle.svelte', 'ShauerParameters.svelte', 'IterationsChart.svelte', '../shell/ExperimentShell.svelte', '../shell/VerificationSummary.svelte', '../shell/PaneTabs.svelte'];
   const keys = new Set(files.flatMap(f => [...readFileSync(new URL(`../${f}`, import.meta.url), 'utf8').matchAll(f.startsWith('../shell/') ? /\bs\.(\w+)/g : /\bstrings\.(\w+)/g)].map(m => m[1])));
-  // This fallback is not used: Shauer supplies its comparison scope explicitly.
+  // notComparedWhy comes from the shared shell translations.
   keys.delete('notComparedWhy');
   for (const mesh of Object.values(MESHES)) keys.add(mesh.label);
   try {

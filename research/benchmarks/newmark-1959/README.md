@@ -34,10 +34,10 @@ Period elongation of average acceleration is also discussed in Chopra,
 *Dynamics of Structures*, ch. 5. These expressions are reference formulas, not a
 second solver.
 
-Because |cos a − cos b| ≤ |a − b|, the difference from the continuous solution
-after N steps is bounded by the phase lag:
-max|u_n − u(t_n)| ≤ (F/k)·min(2, N(ωΔt − θ)). At Δt/T=0.025 over four periods
-this is (F/k)·8π(1 − atan(π/40)/(π/40)) = 0.515 mm.
+The difference from the continuous solution
+over N steps follows from |cos a − cos b| = 2|sin((a+b)/2) sin((a−b)/2)|. The uncapped linear estimate is (F/k)·N(ωΔt − θ), and 2F/k is the global amplitude limit. The tighter bound is
+max|u_n − u(t_n)| ≤ 2(F/k)·sin(min(π, N(ωΔt − θ))/2). At Δt/T=0.025 over four periods
+this gives 0.515 mm to three decimal places.
 
 Periods are measured from upward crossings of the equilibrium displacement,
 using linear interpolation and averaging over the available full periods.
@@ -62,10 +62,21 @@ recomputes every check from the replay and compares it with `VALIDATION.json`.
 Increasing phase error with coarser steps is intentional, not a failed or relaxed
 tolerance. These are analytical verification checks, not certification.
 
+`reference.py` evaluates the exact period, T_n and the phase-lag bound for every
+time step from the shared case alone, independently of engine code, and stores
+them in `reference-results/closed-form.json` (hashed in
+`reference-results/MANIFEST.json`). The research CI (`engine-benchmarks` job)
+runs it, then runs the engine test with `NEWMARK_VALIDATION_OUT` so that
+`VALIDATION.json` is rewritten by the test itself, and fails unless all 13
+checks pass.
+
 Regenerate the replay and the evidence (test-only opt-in export):
 
 ```sh
-make research.newmark.replay
+python3 -I research/benchmarks/newmark-1959/reference.py --write
+NEWMARK_REPLAY_OUT=$PWD/research/benchmarks/newmark-1959/results/stabileo_results.json \
+NEWMARK_VALIDATION_OUT=$PWD/research/benchmarks/newmark-1959/VALIDATION.json \
+  cargo test --locked --manifest-path engine/Cargo.toml --test integration newmark_1959
 ```
 
 The page uses the shared Stabileo scalar-field viewer, a deformed axial member
@@ -74,30 +85,32 @@ as native production output; live values replace only the selected run. Stop
 cancels a pending result and playback; the tiny synchronous WASM solve itself
 cannot be interrupted midway. Playback is tied to physical time: every time
 step plays 2.5 times slower than real time, so the coarse run's longer period is
-visible as a longer cycle. Catalogue status remains conservatively `proposed`;
-runnable does not imply reviewed.
+visible as a longer cycle. The time step is the model parameter: choosing one
+reruns the production solver for it in the browser.
 
 What the page is compared with: the exact step response and the closed-form
 discrete solution above. No number printed in the 1959 paper is compared, and
 the page says so plainly; it cites this page as a "benchmark after" the paper,
-not a reproduction.
+not a reproduction. The paper is not open access (ASCE Library) and we found no
+open copy, so its own examples could not be transcribed; the catalogue keeps
+`reproduced_published_results: false` and the status `numerically-validated`.
 
 ## Native results
 
 | Δt/T | Exact T (s) | Discrete T_n (s) | Stabileo T (s) | Elongation (%) | Max displacement difference (mm) | Phase-lag bound (mm) |
 |---|---|---|---|---|---|---|
-| 0.025 | 0.628318531 | 0.629608341 | 0.629609884 | 0.205525 | 0.482500 | 0.514867 |
-| 0.05 | 0.628318531 | 0.633452674 | 0.633443883 | 0.815725 | 1.898113 | 2.037012 |
-| 0.1 | 0.628318531 | 0.648471791 | 0.648495262 | 3.211227 | 7.239456 | 7.810774 |
-| 0.2 | 0.628318531 | 0.703737543 | 0.704207520 | 12.078108 | 19.012563 | 20.000000 |
+| 0.025 | 0.628318531 | 0.629608341 | 0.629609884 | 0.205525 | 0.482500 | 0.514810 |
+| 0.05 | 0.628318531 | 0.633452674 | 0.633443883 | 0.815725 | 1.898113 | 2.033492 |
+| 0.1 | 0.628318531 | 0.648471791 | 0.648495262 | 3.211227 | 7.239456 | 7.613733 |
+| 0.2 | 0.628318531 | 0.703737543 | 0.704207520 | 12.078108 | 19.012563 | 19.500032 |
 
 ## Not yet
 
 - Published paper figures or numerical examples.
 - Damping, harmonic loading, nonlinear response or multi-DOF frames.
 - Engineering certification.
-- Page text in German, French and Turkish (research pages are English, Spanish
-  and Portuguese for now; those locales fall back to English).
+
+The page is written in all eight research languages (en, es, pt, de, fr, tr, hu, zh).
 
 ## Local verification of this first version (historical)
 

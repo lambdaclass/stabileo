@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { strings } from '../i18n';
 import { cases, compare, finest, inputFor, refusalFor, runCases, responseRatio, shown, signedReference, viewerData } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
@@ -119,14 +120,69 @@ describe('shell obstacle course evidence', () => {
   }, 120_000);
 });
 
-describe('the containment passages of the article', () => {
-  it('state the withheld hemisphere meshes and the #810 warning', async () => {
-    const { articleStrings } = await import('../article');
-    const en = articleStrings('en');
-    expect(en.containsShellContainment).toMatch(/withholds the distorted hemisphere meshes/);
-    expect(en.containsShellContainment).toContain('#798');
-    expect(en.containsShellContainment).toContain('#810');
-    expect(en.theHeadlineCountsTheFinestSelectedBrowser).toContain('#798');
-    expect(en.theHeadlineCountsTheFinestSelectedBrowser).toContain('1/3 passing');
+describe('the page strings', () => {
+  it('state the withheld hemisphere meshes, the #810 correction and the 1/3 headline in every locale', async () => {
+    const { nativeOnly } = await import('../cases');
+    const keys = Object.keys(strings.en).sort();
+    for (const [locale, s] of Object.entries(strings)) {
+      expect(Object.keys(s).sort(), locale).toEqual(keys);
+      for (const [key, value] of Object.entries(s)) {
+        if (typeof value === 'string' && !['ledgerBefore'].includes(key)) expect(value.trim(), `${locale}.${key}`).not.toBe('');
+      }
+      expect(s.nativeOnly, locale).toHaveLength(nativeOnly.length);
+      expect(s.ledgerAfter, locale).toContain('#798');
+      expect(s.ledgerAfter, locale).toContain('#810');
+      expect(s.verdictText, locale).toContain('#798');
+      for (const key of ['running', 'fromBuilder'] as const) expect(s[key], `${locale}.${key}`).toMatch(/\{n\}/);
+      if (locale !== 'en') expect(s.obstacleText, locale).not.toBe(strings.en.obstacleText);
+    }
+    expect(strings.es.lead).not.toMatch(/\busted\b/i);
   });
+});
+
+it.each(Object.entries(strings))('signed shell validation and recorded mesh coverage in %s', (locale, s) => {
+  expect(s.checkRoof).toMatch(/−0[.,]3024/);
+  expect(s.checkCylinder32).toMatch(/−1[.,]8248/);
+  expect(s.summary).toContain('16 × 16');
+  expect(s.verdictText).toContain('1/3');
+  expect(s.validationText).toContain('32 × 32');
+  expect(s.paperText).toContain('5(a)');
+  const withheld = { en: 'withholds', es: 'retiene', pt: 'retém', de: 'zurück', fr: 'retient', tr: 'vermez', hu: 'visszatartja', zh: '暂不提供' };
+  expect(s.verdictText).toContain(withheld[locale as keyof typeof withheld]);
+});
+
+it('withholds the glyph and count together when a claimed pass exceeds the measured limit', async () => {
+  const { render } = await import('svelte/server');
+  const validation = (await import('../../../../../../research/benchmarks/shell-obstacle-course/VALIDATION.json')).default;
+  const { default: Page } = await import('../ShellPage.svelte');
+  const row = validation.checks.find(c => c.id === 'parity')!;
+  const original = row.observed;
+  try {
+    row.observed = row.tolerance;
+    expect(render(Page).body).toContain('9 of 9');
+    row.observed = row.tolerance * 2;
+    const html = render(Page).body;
+    expect(html).toContain('8 of 9');
+    expect(html.match(/data-testid="validation-checks"(.*?)<\/table>/s)![1].match(/✗/g)).toHaveLength(1);
+    const roof = validation.checks.find(c => c.id === 'roof-16')!;
+    const observed = roof.observed;
+    try {
+      roof.observed = roof.tolerance;
+      expect(render(Page).body).toContain('7 of 9');
+    } finally {
+      roof.observed = observed;
+    }
+  } finally {
+    row.observed = original;
+  }
+});
+
+it('keeps the roof displacement consistent with the percent and names either missing refusal', async () => {
+  const { strings } = await import('../i18n');
+  for (const s of Object.values(strings)) {
+    expect(s.auditText.replaceAll(',', '.')).toContain('0.30242554');
+    expect(s.auditText.replaceAll(',', '.')).toContain('0.0084');
+  }
+  expect(strings.de.checkRefusals).toContain('von beiden Laufzeiten');
+  expect(strings.hu.checkRefusals).toContain('legalább az egyik');
 });

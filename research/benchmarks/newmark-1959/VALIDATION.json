@@ -16,7 +16,7 @@
       "metric": "dt/T=0.025: maximum continuous displacement error (m) within the phase-lag bound",
       "observed": 0.00048250043984137715,
       "passed": true,
-      "tolerance": 0.0005148671419043544
+      "tolerance": 0.0005148102749925308
     },
     {
       "metric": "dt/T=0.025: maximum continuous displacement error (m)",
@@ -40,7 +40,7 @@
       "metric": "dt/T=0.05: maximum continuous displacement error (m) within the phase-lag bound",
       "observed": 0.0018981125827873535,
       "passed": true,
-      "tolerance": 0.002037012435916666
+      "tolerance": 0.0020334924212428982
     },
     {
       "metric": "dt/T=0.1: maximum discrete displacement error (m)",
@@ -58,7 +58,7 @@
       "metric": "dt/T=0.1: maximum continuous displacement error (m) within the phase-lag bound",
       "observed": 0.007239455714233801,
       "passed": true,
-      "tolerance": 0.007810774495491382
+      "tolerance": 0.0076137326346066994
     },
     {
       "metric": "dt/T=0.2: maximum discrete displacement error (m)",
@@ -76,7 +76,7 @@
       "metric": "dt/T=0.2: maximum continuous displacement error (m) within the phase-lag bound",
       "observed": 0.01901256283348757,
       "passed": true,
-      "tolerance": 0.020000000100000002
+      "tolerance": 0.019500032322274694
     }
   ],
   "reference": "Exact SDOF step response, the discrete average-acceleration closed form and the phase-lag bound it implies, independently evaluated from native solver histories",

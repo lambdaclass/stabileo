@@ -12,8 +12,9 @@
   import PublicLink from '../../landing/PublicLink.svelte';
   import { fieldName, rs } from '../i18n';
   import { paperTextLocale } from '../text-locale';
-  import { provideExperiment, type ExperimentActions, type Check } from './context';
+  import { comparisonPasses, provideExperiment, type ExperimentActions, type Check, type PublishedRow } from './context';
   import VerificationSummary from './VerificationSummary.svelte';
+  import ComparisonTable from './ComparisonTable.svelte';
   import { BUILD_COMMIT } from '../../../lib/build-info';
   import { paperHead } from '../head.svelte';
 
@@ -25,8 +26,13 @@
     /** Passed / total of the validation checks, when the experiment has them. */
     checks?: { passed: number; total: number } | null;
     /** What the experiment is checked against; defaults from `checks` and the catalogue. */
-    verification?: { reference: Check; published: Check } | null;
+    verification?: { reference: Check; published?: Check } | null;
+    publishedLabel?: string;
     referenceLabel?: string | null;
+    /** The rows of published_comparison.json, shown as the paper against Stabileo. */
+    comparison?: PublishedRow[] | null;
+    /** Translated row names by row id; rows without one show the JSON's English name. */
+    comparisonNames?: Record<string, string>;
     actions: ExperimentActions;
     /** Where the implementation lives, for Cite this and the source link. */
     sourcePath: string;
@@ -41,7 +47,7 @@
     /** Replaces "reproduction of" in Cite this when the page does not reproduce the paper. */
     citationRelation?: string;
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, locale, citationRelation, compactHeader = false, introInArticle = true }: Props = $props();
+  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, publishedLabel, comparison = null, comparisonNames = {}, actions, sourcePath, article, app, wide = false, locale, citationRelation, compactHeader = false, introInArticle = true }: Props = $props();
   provideExperiment(actions);
 
   const entry = catalog.papers.find((p) => p.id === paperId)!;
@@ -57,14 +63,15 @@
 
 {#snippet introduction()}
       <p class="rs-cite">
-        {s.afterAuthors} <span lang="en">{#if authors}{authors}, {/if}“{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
+        {s.afterAuthors} <span lang="en">{#if authors}{authors},{' '}{/if}“{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
         <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">{"doi:"}{paper.doi}</a></span>.
       </p>
       <VerificationSummary
         reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
-        published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
-        {referenceLabel}
+        published={comparison ? { kind: 'checks', passed: comparison.filter(comparisonPasses).length, total: comparison.length, href: '#comparison' } : verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
+        {referenceLabel} {publishedLabel}
       />
+      {#if comparison?.length}<div id="comparison"><ComparisonTable rows={comparison} names={comparisonNames} /></div>{/if}
       <p class="rs-lead" lang={locale ?? paperTextLocale(paperId)}>{lead}</p>
 {/snippet}
 
@@ -76,6 +83,9 @@
       {#if !introInArticle}{@render introduction()}{/if}
     </header>
     <div class="rs-shell-grid" class:rs-wide={wide}>
+      <aside lang={locale} class="rs-shell-app" aria-label={s.theExperiment}>
+        {@render app()}
+      </aside>
       <article class="rs-shell-article rs-prose" lang={locale ?? paperTextLocale(paperId)}>
         {#if introInArticle}{@render introduction()}{/if}
         {@render article()}
@@ -84,9 +94,6 @@
           {s.citationTitle}{name}{citationRelation ?? s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
         </p>
       </article>
-      <aside lang={locale} class="rs-shell-app" aria-label={s.theExperiment}>
-        {@render app()}
-      </aside>
     </div>
   </div>
 </section>

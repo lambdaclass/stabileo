@@ -39,6 +39,28 @@ implementation of published mathematics: no GPL source has been copied or adapte
 | Independent cone feasibility violation | 3.09264e-12 | Same |
 | Reaction/load bookkeeping, relative | 1.37741e-11 | Same |
 
+### Table 1, column V5-nodes
+
+`square_with(ρgL/σ)` solves the same five-node ground structure at any normalized unit weight in
+(0, 2.2]; the bound keeps sin(ρgL/σ · √2) positive on the longest candidate member, the corner
+diagonal. The validation test solves the seven unit weights of the V5-nodes column and writes
+them to `reference-results/published_comparison.json`, the table at the top of the page:
+
+| ρgL/σ | Published V σ/(FL) | Rust / Clarabel | Difference |
+|---|---:|---:|---:|
+| 1.65 | 13.8394 | 13.83937 | 2.6·10⁻⁵ |
+| 1.68 | 15.2528 | 15.25283 | 2.7·10⁻⁵ |
+| 1.72 | 17.5301 | 17.53007 | 2.7·10⁻⁵ |
+| 1.76 | 20.4014 | 20.40140 | 2.0·10⁻⁶ |
+| 1.80 | 24.0981 | 24.09811 | 5.1·10⁻⁶ |
+| 1.85 | 30.4425 | 30.44250 | 3.9·10⁻⁸ |
+| 2.00 | 80.7391 | 80.73905 | 4.6·10⁻⁵ |
+
+The tolerance is half a unit of the fourth printed decimal, 5·10⁻⁵, for every row: the solver's
+own gap (10⁻¹⁰ relative) is far below it. The V11×11 and V13-nodes columns need the 11×11 grid
+and the node-position search, which are not implemented. The page's unit-weight slider reruns this
+solver in the browser; the author reference and the editor model stay at 1.65.
+
 Four active curved members connect the centre to the corners. Layout comparisons include
 all ten force triples and 33 sampled points on each active curve, not just volume.
 The reference and Rust configurations can be switched in the shared Stabileo viewer in
@@ -110,8 +132,8 @@ values on a numerical mismatch. CI needs only the committed outputs; the externa
 GPL script is never needed by `cargo test`.
 To intentionally refresh: set `UPDATE_FAIRCLOUGH=1`, run the test, inspect the evidence,
 and rerun without that variable. `reference-results/published_comparison.json` names the exact table/page
-and uses a 0.00005 rounding tolerance. Catalogue status remains `numerically-validated`,
-limited to this example even though a browser solver exists.
+and uses a 0.00005 rounding tolerance on each of its seven rows. Catalogue status is
+`published-figures-compared`, limited to the V5-nodes column.
 
 Web tests: `web/src/components/research/fairclough2026/__tests__/model.test.ts` checks
 viewer geometry, corrupt results, all translated keys, exact editor data and compressed
@@ -121,7 +143,7 @@ The CI research job runs the Rust validation; the research WASM build includes t
 
 ## Scope limits
 
-Not reproduced: other Table 1 rows, 11×11 grid, optimized 13-node layouts, member addition,
+Not reproduced: the V11×11 and V13-nodes columns of Table 1, the 11×11 grid, optimized 13-node layouts, member addition,
 position search, counterweights, holes, larger examples, or the full general catenary layout
 formulation. This first version is not a general layout optimizer. No experimental or
 stability validation is claimed. No paper figure is copied.

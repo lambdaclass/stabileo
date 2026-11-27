@@ -38,7 +38,7 @@ AREAS = {
 }
 STATUSES = [
     "proposed", "reference-reproduced", "implementation-in-progress",
-    "numerically-validated", "published-figures-compared", "interactive",
+    "numerically-validated", "published-figures-compared",
 ]
 # Keep this explicit: catalog edits must not expand their own URL allowlist.
 CODE_HOSTS = {"github.com", "gitlab.com", "zenodo.org", "doi.org"}
@@ -95,16 +95,66 @@ def crossref_block(doi):
     }
 
 
+with open(os.path.join(os.path.dirname(__file__), "../../web/src/components/research/shell/published-metrics.json"), encoding="utf-8") as metric_file:
+    PUBLISHED_METRICS = json.load(metric_file)
+
+
 def valid_checks(checks, published=False):
     def finite_number(value):
         return type(value) in (int, float) and math.isfinite(value)
 
+    def text(value):
+        return isinstance(value, str) and bool(value.strip())
+
+    def matches_observation(c, expected):
+        return expected <= c["tolerance"] and math.isclose(c["observed"], expected, rel_tol=1e-9)
+
+    def paper_row(c):
+        if not text(c.get("name")) or not text(c.get("source")) or not isinstance(c.get("unit", ""), str):
+            return False
+        metric = c["metric"]
+        curve_metric = metric in PUBLISHED_METRICS["errorBar"] or metric in PUBLISHED_METRICS["paired"]
+        if curve_metric or "samples" in c or "points" in c:
+            if "reference" in c or "computed" in c:
+                return False
+            samples = c.get("samples")
+            if (type(c.get("points")) is not int or c["points"] < 2 or not isinstance(samples, list)
+                    or len(samples) != c["points"]):
+                return False
+            distances = []
+            for sample in samples:
+                if not isinstance(sample, list) or not all(finite_number(v) for v in sample):
+                    return False
+                if metric in PUBLISHED_METRICS["errorBar"] and len(sample) == 4:
+                    _, lo, hi, value = sample
+                    if lo > hi:
+                        return False
+                    distances.append(max(0, lo - value, value - hi))
+                elif metric == "absolute difference in Y, largest" and c.get("id") == "fig7" and c.get("orientation_unit") == "rad" and len(sample) == 3:
+                    distances.append(abs(sample[2] - sample[1]))
+                elif c.get("id") != "fig7" and (metric in PUBLISHED_METRICS["paired"] or metric == "absolute difference") and len(sample) == 2:
+                    distances.append(abs(sample[1] - sample[0]))
+                else:
+                    return False
+            expected = max(distances)
+            return matches_observation(c, expected)
+        reference, computed = c.get("reference"), c.get("computed")
+        if not finite_number(reference) or not finite_number(computed):
+            return False
+        if metric in PUBLISHED_METRICS["absolute"]:
+            expected = abs(computed - reference)
+        elif metric in PUBLISHED_METRICS["relative"] and reference != 0:
+            expected = abs(computed - reference) / abs(reference)
+        else:
+            return False
+        return matches_observation(c, expected)
+
     return isinstance(checks, list) and bool(checks) and all(
         isinstance(c, dict) and c.get("passed") is True and
-        isinstance(c.get("metric"), str) and bool(c["metric"].strip()) and
+        text(c.get("metric")) and
         finite_number(c.get("observed")) and finite_number(c.get("tolerance")) and
         0 <= c["observed"] <= c["tolerance"] and
-        (not published or isinstance(c.get("source"), str) and bool(c["source"].strip()))
+        (not published or paper_row(c))
         for c in checks
     )
 
@@ -197,11 +247,7 @@ def check_entry(p, errors):
                 evidence = json.load(f)
             checks = evidence.get("checks", [])
             if not valid_checks(checks, published=True):
-                errors.append(f"{pid}: published comparison needs passing checks with sources, metrics, observations and tolerances")
-    if status == "interactive":
-        page = p.get("page")
-        if not page or not os.path.isfile(os.path.join(ROOT, "..", page)):
-            errors.append(f"{pid}: interactive status needs an existing page")
+                errors.append(f"{pid}: published comparison needs passing checks, each with a name, source, metric, tolerance and either the paper value (reference) and ours (computed) whose difference is the observed value, or a point count for a curve")
     for c in p.get("code") or []:
         if not valid_code_url(c.get("url")):
             errors.append(f"{pid}: code URL must use HTTPS on an allowed host")

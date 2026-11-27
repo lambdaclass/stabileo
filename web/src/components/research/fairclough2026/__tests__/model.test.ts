@@ -13,6 +13,13 @@ describe('Fairclough five-node data contract', () => {
       expect(()=>validateLayout(bad)).toThrow();
     }
   });
+  it('rejects a replay labeled with another published weight', () => {
+    expect(() => validateLayout(result.layout, 1.85)).toThrow();
+  });
+  it('keeps the absolute replay volume budget', () => {
+    expect(() => validateLayout({ ...result.layout, volume: result.layout.volume + 2e-8 })).toThrow();
+    expect(validateLayout({ ...result.layout, volume: result.layout.volume + 0.5e-8 })).toBeTruthy();
+  });
   it('rejects altered geometry and negative residuals but accepts signed end forces', () => {
     for (const field of ['nodes','edges','forces','curves'] as const) {
       const value = structuredClone(result.layout);
@@ -90,4 +97,22 @@ it('uses the selected public language for the page and its shared shell', async 
       if (locale !== 'en') expect(rs().notDesign).not.toBe('Research, not a design tool');
     }
   } finally { setLocale(original); }
+});
+
+it('untabulated weight cannot relabel a solved layout', () => {
+  expect(() => validateLayout(result.layout, 1.66)).toThrow();
+});
+
+it('pairs the fixed-weight article volume with its own Table 1 row after reordering', async () => {
+  const { render } = await import('svelte/server');
+  const published = (await import('../../../../../../research/optimisation/fairclough-2026/reference-results/published_comparison.json')).default;
+  const { default: Page } = await import('../FaircloughPage.svelte');
+  const rows = published.checks;
+  const before = render(Page).body.split('<dl').find(section => section.includes('data-testid="volume"'))!.split('</dl>')[0];
+  rows.reverse();
+  try {
+    expect(render(Page).body.split('<dl').find(section => section.includes('data-testid="volume"'))!.split('</dl>')[0]).toBe(before);
+  } finally {
+    rows.reverse();
+  }
 });

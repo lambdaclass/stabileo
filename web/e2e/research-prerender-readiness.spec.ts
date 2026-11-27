@@ -6,7 +6,7 @@ const benchmarks = [
   ['mattiasson-elastica', 'mattiasson-summary', 'Computing', 'Analytical checks passed: 5/5'],
   ['macneal-harder-1985', 'benchmark-summary', 'Running production engine',
     'Shell cases (paper reference): 2/6 within 2%; 2 withheld by the engine · Frame adaptations (analytical reference): 6/6 within 2%'],
-  ['shell-obstacle-course', 'shell-summary', 'Running production engine', 'Finest selected meshes passing: 1/3'],
+  ['shell-obstacle-course', 'shell-summary', 'Running production engine', 'Cases passing at 16 × 16: 1/3'],
 ] as const;
 
 async function captureFirstRun(page: Page, benchmark: string, summaryId: string, pending: string, outcome: 'continue' | 'abort') {

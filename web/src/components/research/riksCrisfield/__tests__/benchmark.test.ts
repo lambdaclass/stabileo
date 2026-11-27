@@ -1,5 +1,5 @@
 import native from '../../../../../../research/numerical-methods/riks-crisfield/reference-results/native-results.json';
-import validation from '../../../../../../research/numerical-methods/riks-crisfield/reference-results/VALIDATION.json';
+import validation from '../../../../../../research/numerical-methods/riks-crisfield/VALIDATION.json';
 import { nativeReplay } from '../replay';
 import { measuredLimitFrame, compareFrameRun, passesLimit, type ComparisonCheck } from '../benchmark';
 import { describe, expect, it } from 'vitest';

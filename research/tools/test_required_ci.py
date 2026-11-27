@@ -44,7 +44,7 @@ for name, job in research['jobs'].items():
         if 'catalog.py check' in run and job.get('if') != "github.workflow == 'Research'":
             assert '--offline' in run, (name, run)
 for job, tests in {
-    'isolation': ['test_asset_identity.py', 'test_docker_context.py'],
+    'isolation': ['test_asset_identity.py', 'test_docker_context.py', 'test_compare_evidence.py'],
     'catalog': ['test_grossman_catalog.py'],
 }.items():
     assert research['jobs'][job]['if'] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}"
@@ -174,6 +174,15 @@ print('ok required research CI propagates failures and accepts skipped jobs')
 koiter = research["jobs"]["koiter"]
 assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
+for job, evidence in {'engine-benchmarks': ['research/benchmarks/cqc-1981/VALIDATION.json', 'research/benchmarks/newmark-1959/VALIDATION.json'],
+                      'koiter': ['VALIDATION.json', 'reference-results/published_comparison.json']}.items():
+    commands = [line.strip() for step in research["jobs"][job]["steps"] for line in step.get("run", "").splitlines()]
+    for path in evidence:
+        copied = next(i for i, c in enumerate(commands) if f"cp {path} " in c)
+        writer = 'cargo test' if job == 'koiter' else ('cqc' if '/cqc-' in path else 'newmark')
+        regenerated = next(i for i, c in enumerate(commands) if 'cargo test' in c and writer in c and (job != 'koiter' or i > copied))
+        compared = next(i for i, c in enumerate(commands) if "compare_evidence.py" in c and f" {path}" in c)
+        assert copied < regenerated < compared, (job, path, copied, regenerated, compared)
 
 assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
 for caller, event, route_only, expected in [
@@ -196,6 +205,56 @@ for caller, event, route_only, expected in [
             selected.add(name)
     assert selected == expected, (caller, event, route_only, selected)
 print('ok online audit runs on research PRs without duplicating required jobs')
+
+class EvidenceExportTests(unittest.TestCase):
+    def test_native_assertion_steps_detect_missing_tests(self):
+        cases = {
+            'Plastic collapse native assertions': ['plastic_collapse_benchmark::portal_combined_mechanism'],
+            'Mattiasson elliptic-integral accuracy and mesh refinement': [
+                'research_benchmarks::mattiasson_' + name for name in ['1', '2', '5', '10', 'original_area_extensible', 'load_step_independence']
+            ],
+        }
+        steps = research['jobs']['engine-benchmarks']['steps']
+        for name, names in cases.items():
+            command = next(s['run'] for s in steps if s.get('name') == name)
+            with tempfile.TemporaryDirectory() as tmp:
+                for missing in [None, *names]:
+                    with self.subTest(name=name, missing=missing):
+                        lines = ['test ' + n + ' ... ok' for n in names if n != missing]
+                        runner = pathlib.Path(tmp) / 'nix'
+                        runner.write_text("#!/bin/sh\ncat <<'OUTPUT'\n" + '\n'.join(lines) + '\nOUTPUT\n')
+                        runner.chmod(0o755)
+                        run = subprocess.run(['bash', '-eo', 'pipefail', '-c', command], capture_output=True,
+                                             env={**os.environ, 'RUNNER_TEMP': tmp, 'PATH': tmp + ':' + os.environ['PATH']})
+                        self.assertEqual(run.returncode == 0, missing is None)
+
+    def test_missing_export_cannot_certify_committed_results(self):
+        cases = [
+            ('engine-benchmarks', 'research/benchmarks/cqc-1981/VALIDATION.json', 'CQC_VALIDATION_OUT='),
+            ('engine-benchmarks', 'research/benchmarks/newmark-1959/VALIDATION.json', 'NEWMARK_VALIDATION_OUT='),
+            ('koiter', 'VALIDATION.json', 'cargo test --release --locked'),
+            ('koiter', 'reference-results/published_comparison.json', 'cargo test --release --locked'),
+        ]
+        for job, path, exporter in cases:
+            with self.subTest(job=job, path=path), tempfile.TemporaryDirectory() as tmp:
+                lines = [line.strip() for step in research['jobs'][job]['steps']
+                         for line in step.get('run', '').splitlines()]
+                copy = next(i for i, line in enumerate(lines) if line.startswith(f'cp {path} '))
+                run = next(i for i, line in enumerate(lines) if line.startswith(exporter))
+                compare = next(i for i, line in enumerate(lines) if 'compare_evidence.py' in line and line.endswith(' ' + path))
+                self.assertLess(copy, run)
+                self.assertLess(run, compare)
+                outputs = [path] if job != 'koiter' else ['VALIDATION.json', 'reference-results/published_comparison.json']
+                for output in outputs:
+                    target = pathlib.Path(tmp, output)
+                    target.parent.mkdir(exist_ok=True, parents=True)
+                    source = root / ('research/stability/ferrari-sigmund-2025' if job == 'koiter' else '') / output
+                    target.write_bytes(source.read_bytes())
+                command = '\n'.join(lines[copy:run] + ['true', lines[compare].replace(' -I research/tools/', ' -I "$GITHUB_WORKSPACE"/research/tools/')])
+                attempt = subprocess.run(['bash', '-ec', command], cwd=tmp, capture_output=True,
+                                         env={**os.environ, 'RUNNER_TEMP': tmp, 'GITHUB_WORKSPACE': str(root)})
+                self.assertNotEqual(attempt.returncode, 0, attempt.stdout)
+
 
 class ResearchCacheTests(unittest.TestCase):
     def test_registered_bundles_and_cache_invalidation(self):

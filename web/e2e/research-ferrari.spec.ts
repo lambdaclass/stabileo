@@ -34,7 +34,8 @@ test.describe('Ferrari research', () => {
     await expectFrame(page, replay.frames.at(-1)!.displacement);
     await slider.press('Home');
     await expectFrame(page, replay.frames[0].displacement);
-    await expect(page.getByTestId('ferrari-reference')).toContainText('2.4313');
+    await expect(page.locator('#comparison')).toContainText('2.4313');
+    await expect(page.getByTestId('ferrari-beta')).toContainText('0.4632');
     await page.getByRole('button', { name: 'Recompute live', exact: true }).click();
     await expect(page.getByTestId('ferrari-source')).toContainText('Cached result', { timeout: 90_000 });
     await expect(page.getByTestId('ferrari-buckling')).toContainText('2.431356');
@@ -50,6 +51,8 @@ test.describe('Ferrari research', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/en/research/stability/ferrari-sigmund-2025/');
     await expectFrame(page, replay.frames.at(-1)!.displacement);
+    const beta = page.locator('#comparison tr').filter({ hasText: '0.1421' });
+    await expect(beta.locator('.bad')).toHaveText('✗');
     // A controlled worker keeps this race deterministic, independent of solver speed.
     await page.evaluate(() => {
       const RealWorker = window.Worker;
@@ -75,6 +78,14 @@ test.describe('Ferrari research', () => {
     await expect(page.getByRole('slider')).toHaveValue('0');
     await expectFrame(page, replay.frames[0].displacement);
     await send({ kind: 'done' });
+    for (const index of [1, 2]) {
+      await page.getByTestId('ferrari-sign').selectOption({ index });
+      await send({ kind: 'buckling', lambda: replay.lambda });
+      await send({ kind: 'frame', frame: replay.frames[2] });
+      await send({ kind: 'done' });
+      await expect(page.getByRole('slider')).toHaveAttribute('max', '0');
+      await expectFrame(page, replay.frames[2].displacement);
+    }
   });
   for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]]) {
     for (const locale of ['en', 'es', 'pt']) {

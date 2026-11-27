@@ -82,6 +82,44 @@ export async function runCases(onResult?: (r: Result) => void): Promise<Result[]
   return rows;
 }
 
+/** Distorted shapes of Fig. 4: interior stations shift by ∓d at the root edge and ±d at the free edge. */
+export const distortable = (c: Case) => c.element === 'MITC4' && !/-regular-/.test(c.id);
+export const PAPER_SKEW = 45;
+const WIDTH = 0.2;
+
+export function skewOffset(degrees: number): number {
+  return Number((WIDTH / 2 * Math.tan(degrees * Math.PI / 180)).toFixed(12));
+}
+
+export function skewedCase(c: Case, degrees: number): Case {
+  if (!distortable(c)) throw new Error(`Not a distorted MacNeal–Harder mesh: ${c.id}`);
+  const d = skewOffset(degrees);
+  const length = Math.max(...Object.values(c.input.nodes).map(n => n.x));
+  const trapezoidal = c.id.includes('trapezoidal');
+  const nodes = Object.fromEntries(Object.entries(c.input.nodes).map(([id, n]) => {
+    const station = Math.round(n.x);
+    const interior = station > 0 && station < length;
+    const sign = trapezoidal && station % 2 === 0 ? -1 : 1;
+    const top = 'y' in n && n.y > 0;
+    return [id, { ...n, x: interior ? station + sign * (top ? d : -d) : station }];
+  }));
+  return { ...c, input: { ...c.input, nodes } } as Case;
+}
+
+export async function runVariant(c: Case): Promise<Result> {
+  try {
+    const engine = await import('../../../lib/engine/wasm-solver');
+    await engine.initSolver();
+    const result = engine.solve3D(inputFor(c) as SolverInput3D);
+    if (knownIssueResultDisposition(result).refused) throw new Error(JSON.stringify({ structuredDiagnostics: result.structuredDiagnostics }));
+    return compare(c, result.displacements as unknown as Record<string, number>[]);
+  } catch (e) {
+    const failure = knownIssueRefusal(e) ?? String(e);
+    const refused = refusedKnownIssues(e).some(d => d.phase === 'SH-MITC4-DISTORTION' && d.value === 798);
+    return { id: c.id, value: null, error: null, pass: false, failure, ...(refused ? { refused: true, knownIssue: 'SH-MITC4-DISTORTION', issue: 798 } : {}) };
+  }
+}
+
 export function viewerData(c: Case, result?: Result) {
   const nodes = Object.values(c.input.nodes).sort((a, b) => a.id - b.id);
   const index = new Map(nodes.map((n, i) => [n.id, i]));

@@ -101,5 +101,48 @@ fn authors_iterations() {
             serde_json::to_string_pretty(&v).unwrap() + "\n",
         )
         .unwrap();
+    } else {
+        let recorded: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/VALIDATION.json")).unwrap(),
+        )
+        .unwrap();
+        let recorded = recorded["checks"].as_array().unwrap();
+        assert_eq!(recorded.len(), checks.len(), "VALIDATION.json is stale: rerun with UPDATE_VALIDATION=1");
+        for (r, c) in recorded.iter().zip(&checks) {
+            for key in ["name", "metric", "tolerance", "passed"] {
+                assert_eq!(r[key], c[key], "VALIDATION.json is stale at {key}: rerun with UPDATE_VALIDATION=1");
+            }
+            assert!(fresh_observation(r, c), "VALIDATION.json is stale for {}: recorded {}, measured {}", c["name"], r["observed"], c["observed"]);
+        }
+    }
+}
+
+fn fresh_observation(recorded: &serde_json::Value, fresh: &serde_json::Value) -> bool {
+    let a = recorded["observed"].as_f64().unwrap();
+    let b = fresh["observed"].as_f64().unwrap();
+    if fresh["metric"] == "exact" || a == 0.0 || b == 0.0 { return a == b; }
+    let budget = if fresh["name"].as_str().unwrap().starts_with("ft") { 2.1e-11 } else { 1e-15 };
+    (a - b).abs() <= budget
+}
+
+#[test]
+fn stale_zero_cannot_erase_measured_iteration_errors() {
+    let validation: serde_json::Value = serde_json::from_str(include_str!("../VALIDATION.json")).unwrap();
+    let row = &validation["checks"][1];
+    let mut stale = row.clone();
+    stale["observed"] = serde_json::json!(0);
+    assert!(row["observed"].as_f64().unwrap() > 0.0);
+    assert!(!fresh_observation(&stale, row));
+    assert!(fresh_observation(row, row));
+}
+
+#[test]
+fn observation_freshness_distinguishes_zero_and_each_roundoff_budget() {
+    let row = |name: &str, observed: f64| serde_json::json!({"name": name, "metric": "difference", "observed": observed});
+    for (name, budget, outside) in [("residual", 1e-15, 1e-14), ("ft1", 2.1e-11, 2.2e-11)] {
+        assert!(!fresh_observation(&row(name, 0.), &row(name, 1e-16)));
+        assert!(!fresh_observation(&row(name, 1e-16), &row(name, 0.)));
+        assert!(fresh_observation(&row(name, budget), &row(name, 2. * budget)));
+        assert!(!fresh_observation(&row(name, outside), &row(name, 2. * outside)));
     }
 }

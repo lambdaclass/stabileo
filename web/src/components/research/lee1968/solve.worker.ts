@@ -1,12 +1,29 @@
-import { benchmark, failureCode, frameFrom } from './case';
+import { SolveFailure, failureCode, frameFrom, refinedInput, splits, type Split } from './case';
 import { initSolver, solveArcLength } from '../../../lib/engine/wasm-solver';
-self.onmessage = async () => {
+self.onmessage = async ({ data }: MessageEvent<{ split?: Split }>) => {
   try {
     await initSolver();
-    for (let step = 1; step <= benchmark.input.maxSteps; step++) {
-      const result = solveArcLength({ ...benchmark.input, maxSteps: step });
-      self.postMessage({ frame: frameFrom(result, step) });
+    const split = splits.includes(data?.split as Split) ? data.split! : 1;
+    const input = refinedInput(split);
+    let peak: number | null = null;
+    for (let step = split; step <= input.maxSteps; step += split) {
+      const result = solveArcLength({ ...input, maxSteps: step });
+      const frame = frameFrom(result, step, input);
+      if (peak === null) {
+        const loads: number[] = result.steps.map((s: { loadFactor: number }) => s.loadFactor);
+        const i = loads.findIndex((load, k) => k > 0 && k + 1 < loads.length && load > loads[k - 1] && load > loads[k + 1]);
+        if (i >= 0) {
+          peak = loads[i];
+          const peakStep = i + 1;
+          if (peakStep > step - split && peakStep < step) {
+            const peakFrame = frameFrom(solveArcLength({ ...input, maxSteps: peakStep }), peakStep, input);
+            if (peakFrame.load !== peak) throw new SolveFailure('invalid');
+            self.postMessage({ frame: peakFrame, peak });
+          }
+        }
+      }
+      self.postMessage({ frame, peak });
     }
-    self.postMessage({ done: true });
+    self.postMessage({ done: true, peak });
   } catch (error) { self.postMessage({ error: failureCode(error) }); }
 };

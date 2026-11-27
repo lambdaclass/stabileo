@@ -6,6 +6,7 @@ pub const LOAD: f64 = 2.5;
 pub const CORNER: (f64, f64) = (1.3, 1.3);
 const STEP: f64 = 0.02;
 const SNAP: f64 = 0.05;
+const LOAD_STEP: f64 = 0.25;
 
 fn round(v: f64) -> f64 {
     (v * 1e5).round() / 1e5
@@ -68,6 +69,35 @@ impl std::fmt::Display for PathError {
     }
 }
 
+fn load_arch(state: &State, target: Setting) -> Result<State, PathError> {
+    load_arch_with(state, target, |s, to| s.advance(to, 4).or_else(|_| s.advance(to, 40)))
+}
+
+fn load_arch_with(state: &State, target: Setting, advance: impl Fn(&State, Setting) -> Result<State, String>) -> Result<State, PathError> {
+    let mut inverted_intervals = Vec::new();
+    let mut corroborated = false;
+    for pieces in 1..=32 {
+        let mut current = state.clone();
+        for i in 1..=pieces {
+            let q = state.setting.q + (target.q - state.setting.q) * i as f64 / pieces as f64;
+            let Ok(next) = advance(&current, Setting { q, ..target }) else { break };
+            let landed = next.snapshot();
+            if !landed.stable { break; }
+            if landed.y_mid <= 0. || current.jump_to(&next) > SNAP {
+                if landed.y_mid < 0. && current.snapshot().y_mid > 0. {
+                    let interval = (current.setting.q, next.setting.q);
+                    corroborated |= inverted_intervals.iter().any(|&(lo, hi)| interval.0 < hi && lo < interval.1);
+                    inverted_intervals.push(interval);
+                }
+                break;
+            }
+            current = next;
+            if i == pieces { return Ok(current); }
+        }
+    }
+    Err(if corroborated { PathError::StartSnaps } else { PathError::StartUnsolved })
+}
+
 /// The path of Section 3.4 with the far corner of the rectangle at
 /// `(theta, delta)`: (1,0) → (Θ,0) → (Θ,Δ) → (1,Δ) → (1,0) under the paper's
 /// uniform load 2.5, on 60 members.
@@ -86,10 +116,15 @@ pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, ele
     if !(0.0..=4.0).contains(&q) || !(20..=120).contains(&elements) {
         return Err(PathError::LoadOrMeshOutOfRange);
     }
-    let mut s = bend(elements, Setting { theta: 1.0, delta: 0.0, q }, distribution, 2)
+    let mut s = bend(elements, Setting { theta: 1.0, delta: 0.0, q: 0.0 }, distribution, 2)
         .map_err(|_| PathError::StartUnsolved)?;
+    let pieces = (q / LOAD_STEP).ceil().max(1.0) as usize;
+    for k in 1..=pieces {
+        let to = Setting { theta: 1.0, delta: 0.0, q: q * k as f64 / pieces as f64 };
+        s = load_arch(&s, to)?;
+    }
     if s.snapshot().y_mid <= 0.0 {
-        return Err(PathError::StartSnaps);
+        return Err(PathError::StartUnsolved);
     }
     let mut frames = vec![frame(&s)];
     let mut corners = vec![0];
@@ -124,4 +159,59 @@ pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, ele
         "snaps": snaps,
         "frames": frames,
     }))
+}
+
+#[test]
+fn start_recovers_when_a_full_increment_fails_but_half_steps_converge() {
+    let start = Setting { theta: 1.0, delta: 0.0, q: 0.0 };
+    let arch = bend(20, start, Distribution::Uniform, 2).unwrap();
+    let target = Setting { q: LOAD_STEP, ..start };
+    let result = load_arch_with(&arch, target, |s, to| {
+        if to.q - s.setting.q > LOAD_STEP / 2.0 { return Err("full increment failed".into()); }
+        s.advance(to, 4)
+    }).unwrap();
+    assert_eq!(result.setting.q, target.q);
+    assert!(result.snapshot().y_mid > 0.0);
+}
+
+#[test]
+fn start_rejects_an_indefinite_positive_height_landing() {
+    let start = Setting { theta: 1., delta: 0., q: 0. };
+    let arch = bend(20, start, Distribution::Uniform, 2).unwrap();
+    let mut unstable = arch.clone();
+    for material in unstable.input.materials.values_mut() { material.e = -material.e; }
+    assert!(unstable.snapshot().y_mid > 0. && !unstable.snapshot().stable);
+    let result = load_arch_with(&arch, start, |_, _| Ok(unstable.clone()));
+    assert_eq!(result.err(), Some(PathError::StartUnsolved));
+}
+
+#[test]
+fn start_recognizes_repeat_inversion_after_a_failed_full_increment() {
+    let start = Setting { theta: 1., delta: 0., q: 0. };
+    let arch = bend(20, start, Distribution::Uniform, 2).unwrap();
+    let mut inverted = arch.clone();
+    for d in &mut inverted.displacements { d.uz = -d.uz; d.ry = -d.ry; }
+    assert!(inverted.snapshot().stable && inverted.snapshot().y_mid < 0.);
+    let result = load_arch_with(&arch, Setting { q: LOAD_STEP, ..start }, |s, to| {
+        if to.q - s.setting.q >= LOAD_STEP { return Err("full increment failed".into()); }
+        let mut next = inverted.clone();
+        next.setting = to;
+        Ok(next)
+    });
+    assert_eq!(result.err(), Some(PathError::StartSnaps));
+}
+
+#[test]
+fn start_with_only_one_inversion_is_unresolved() {
+    let start = Setting { theta: 1., delta: 0., q: 0. };
+    let arch = bend(20, start, Distribution::Uniform, 2).unwrap();
+    let mut inverted = arch.clone();
+    for d in &mut inverted.displacements { d.uz = -d.uz; d.ry = -d.ry; }
+    let result = load_arch_with(&arch, Setting { q: LOAD_STEP, ..start }, |_, to| {
+        if to.q != LOAD_STEP { return Err("refinement failed".into()); }
+        let mut next = inverted.clone();
+        next.setting = to;
+        Ok(next)
+    });
+    assert_eq!(result.err(), Some(PathError::StartUnsolved));
 }

@@ -4,6 +4,7 @@
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import { Playback } from '../shell/playback.svelte';
   import { num } from '../shell/format';
+  import Sci from '../shell/Sci.svelte';
   import NumberField from '../shauer2025/NumberField.svelte';
   import LineChart from '../shauer2025/LineChart.svelte';
   import ConvergenceLegend from './ConvergenceLegend.svelte';
@@ -115,6 +116,7 @@
   sourcePath="research/optimization/andreassen-2011"
   verification={{ reference: { kind: 'checks', passed: referenceChecks.filter(c => c.passed).length, total: referenceChecks.length, href: '#checks' }, published: { kind: 'none', why: s.publishedLimitations } }}
   actions={{ goToStep: n => playback.seek(n - 1), setParams: p => { playback.interact(); config = { ...config, ...p } as Config; }, showTab: t => { playback.interact(); tab = t; } }}>
+  {#snippet value(v: number)}{#if v === 0 || (Math.abs(v) >= 1e-3 && Math.abs(v) < 1e6)}{num(v, { sig: 3 })}{:else}<Sci value={v} sig={3} />{/if}{/snippet}
   {#snippet article()}
     <h2>{s.experimentHeading}</h2>
     <p>{s.overview}</p>
@@ -126,8 +128,8 @@
     <p>{s.rounding}</p>
     <h2 id="checks">{s.evidenceHeading}</h2>
     <p>{s.referenceDescription}</p>
-    <div class="table-scroll"><table><caption>{s.evidenceHeading}</caption><thead><tr><th>{s.check}</th><th>{s.observed}</th><th>{s.tolerance}</th><th>{s.reason}</th></tr></thead><tbody>
-      {#each validation.checks as check, i}<tr><th>{i < 12 ? `${s.filter} ${Math.floor(i / 6) + 1}: ` : ''}{s.checkNames[i < 12 ? i % 6 : i - 6]}</th><td>{num(check.observed, { sig: 16 })}</td><td>{num(check.tolerance, { sig: 16 })}</td><td>{s.reasons[i < 12 ? i % 6 : i - 6]}</td></tr>{/each}
+    <div class="table-scroll"><table aria-labelledby="checks"><thead><tr><th>{s.check}</th><th>{s.observed}</th><th>{s.tolerance}</th><th>{s.reason}</th></tr></thead><tbody>
+      {#each validation.checks as check, i}<tr><th>{i < 12 ? `${s.filter} (${i < 6 ? s.sensitivity : s.density}): ` : ''}{s.checkNames[i < 12 ? i % 6 : i - 6]}</th><td>{@render value(check.observed)}</td><td>{@render value(check.tolerance)}</td><td>{s.reasons[i < 12 ? i % 6 : i - 6]}</td></tr>{/each}
     </tbody></table></div>
     <p>{s.limitations}</p>
     <p><a href="https://www.topopt.mek.dtu.dk/apps-and-software/efficient-topology-optimization-in-matlab">{s.referenceLink}</a>. {s.publication}</p>

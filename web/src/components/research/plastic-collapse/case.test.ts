@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checks, compare, cornerMoment, cumulativeStep, events, fixed, hingeNode, mechanisms, portal, residual, run, viewer, type Result } from './case';
+import { checks, compare, cornerMoment, cumulativeStep, events, fixed, governing, hingeNode, isPaper, mechanisms, PAPER, portal, portalInput, residual, run, viewer, type Result } from './case';
 import { fill, plasticLocale, ps, strings } from './i18n';
 import { publicI18n, setLocale } from '../../../lib/i18n/store.svelte';
 import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
@@ -59,6 +59,35 @@ describe('portal mechanism benchmark', () => {
     const steps = [1, 2].map(n => ({ loadFactor: n, results: { displacements: [{ nodeId: 1, ux: n, uz: -n }] } }));
     expect(cumulativeStep(steps, 1)?.results.displacements).toEqual([{ nodeId: 1, ux: 3, uz: -3 }]);
     expect(cumulativeStep([], 0)).toBeUndefined();
+  });
+});
+
+describe('model parameters', () => {
+  it('builds exactly the shared case for our example', () => {
+    expect(isPaper(PAPER)).toBe(true);
+    expect(portalInput(PAPER)).toEqual(portal.input);
+    expect(portalInput()).not.toBe(portal.input);
+  });
+  it('moves the roof and scales the vertical load for a variant', () => {
+    const p = { ...PAPER, height: 4.5, vertical: 3 };
+    const input = portalInput(p);
+    expect(Object.values(input.solver.nodes).map(n => [n.id, n.x, n.z])).toEqual([[1, 0, 0], [2, 0, 4.5], [3, 4, 4.5], [4, 4, 0], [5, 2, 4.5]]);
+    expect(input.solver.loads.map(l => [l.data.nodeId, l.data.fx, l.data.fz])).toEqual([[2, 1, 0], [5, 0, -3]]);
+    expect(portal.input.solver.nodes['2'].z).toBe(3);
+  });
+  it('switches the governing mechanism at V/H = h/L and V/H = 4h/L, and reports ties', () => {
+    expect(governing(PAPER)).toBe('combined');
+    expect(governing({ ...PAPER, vertical: 0.5 })).toBe('sway');
+    expect(governing({ ...PAPER, vertical: 4 })).toBe('beam');
+    expect(governing({ ...PAPER, vertical: 0.75 })).toBeNull();
+    expect(governing({ ...PAPER, vertical: 3 })).toBeNull();
+    expect(governing({ ...PAPER, height: 2 })).toBeNull();
+    const aboveMinimum = { ...PAPER, vertical: 1.5 };
+    const bounds = mechanisms(aboveMinimum);
+    expect(bounds.beam).toBe(bounds.sway);
+    expect(bounds.combined).toBeLessThan(bounds.beam);
+    expect(governing(aboveMinimum)).toBe('combined');
+    expect(mechanisms({ ...PAPER, vertical: 4 }).beam).toBe(50);
   });
 });
 
@@ -163,4 +192,49 @@ describe('page text', () => {
       expect(ps()).toBe(strings[code as keyof typeof strings]);
     }
   });
+});
+
+it('signed absolute residuals are stated for every locale', () => {
+  for (const locale of PUBLIC_LOCALES) {
+    for (const item of [strings[locale].equilibriumVariant, strings[locale].checks.equilibrium]) {
+      for (const residual of ['|ΣRₓ + λH|', '|ΣR_z − λV|', '|ΣM + λ(Hh + VL/2)|']) expect(item).toContain(residual);
+    }
+  }
+  expect(strings.hu.tie).toContain('felső korlát');
+});
+
+it.each(['beam', 'sway'] as const)('checks signed %s collapse actions independently of the replay', mode => {
+  const p = { ...PAPER, vertical: (mode === 'beam' ? 4 : 0.5) * PAPER.horizontal };
+  const lambda = mechanisms(p)[mode];
+  const mp = p.mp;
+  const leftColumnEnd = mode === 'beam' ? mp : -mp;
+  const actions = [
+    { elementId: 1, myStart: mode === 'beam' ? mp / 2 : mp, myEnd: leftColumnEnd },
+    { elementId: 2, myStart: -leftColumnEnd, myEnd: mode === 'beam' ? mp : 2 * mp / 3 },
+    { elementId: 3, myStart: mp, myEnd: -mp },
+    { elementId: 4, myStart: mode === 'beam' ? mp : 2 * mp / 3, myEnd: -mp },
+  ];
+  const formed = [
+    { elementId: 3, end: 'start', momentY: mp },
+    { elementId: 3, end: 'end', momentY: -mp },
+    { elementId: 1, end: 'end', momentY: leftColumnEnd },
+    mode === 'beam' ? { elementId: 4, end: 'start', momentY: mp } : { elementId: 1, end: 'start', momentY: mp },
+  ].map(h => ({ ...h, loadFactor: lambda }));
+  const rightVertical = (actions[0].myStart + actions[2].myStart + lambda * (p.horizontal * p.height + p.vertical * p.span / 2)) / p.span;
+  const reactions = [
+    { nodeId: 1, fx: -lambda * p.horizontal, fz: lambda * p.vertical - rightVertical, my: actions[0].myStart },
+    { nodeId: 4, fx: 0, fz: rightVertical, my: actions[2].myStart },
+  ];
+  const r: Result = { collapseFactor: lambda, isMechanism: true, steps: [{ loadFactor: lambda, hingesFormed: formed, results: { displacements: [], elementForces: actions, reactions } }] };
+  const verdict = (id: string) => checks(r, p).find(c => c.id === id)!.passed;
+  expect(checks(r, p).filter(c => !c.passed)).toEqual([]);
+  if (mode === 'beam') {
+    actions[1].myStart *= -1;
+    expect(verdict('hinges')).toBe(false);
+    actions[1].myStart *= -1;
+  }
+  formed.pop();
+  expect(verdict('hinges')).toBe(false);
+  reactions[0].fx += 2e-8 * lambda * p.horizontal;
+  expect(verdict('equilibrium')).toBe(false);
 });

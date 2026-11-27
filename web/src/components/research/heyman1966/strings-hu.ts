@@ -5,7 +5,6 @@ export const hu: Strings = {
   title: archCard.hu.title,
   lead: archCard.hu.hook,
   referenceLabel: 'Közölt megoldásokkal és egy független implementációval összevetve',
-  publishedWhy: 'Heyman cikkét itt nem olvastuk; a táblázat a Rizzi és mtsai. (2010) által táblázatba foglalt közölt megoldásokkal vet össze.',
 
   ideaHeading: 'A falazat mint képlékeny anyag',
   idea: 'Heyman képlékenységi falazatelmélete három feltevésen nyugszik: a kő nem visel húzást, sosem morzsolódik szét, és a kövek sosem csúsznak el egymáson. Ezek mellett egy ív biztonságos, ha a falazaton belül megrajzolható egy, a terhekkel egyensúlyban lévő támaszvonal. Ahol a vonal eléri a falazat szélét, a hézag ott kinyílhat és csuklóként működik; elegendő csuklóval az ív mechanizmussá válik és összeomlik. A szilárdság alig számít: az állékonyság geometriai kérdés.',

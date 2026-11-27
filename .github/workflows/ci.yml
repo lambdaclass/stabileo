@@ -1335,7 +1335,12 @@ jobs:
       - name: The browser bundle reproduces the reference (Node)
         run: nix develop --command node research/fracture/shauer-2025/wasm/check.mjs web/public/research-wasm/shauer-2025 research/fracture/shauer-2025/reference-results/ex2_steps.csv
       - name: The five-node gridshell bundle reproduces Table 1 (Node)
-        run: nix develop --command node research/optimisation/fairclough-2026/wasm/check.mjs
+        run: |
+          nix develop --command node research/optimisation/fairclough-2026/wasm/check.mjs
+          nix develop --command node --test research/optimisation/fairclough-2026/wasm/test-layout.mjs
+          nix develop --command python3 -B research/tools/test_benchmark_outputs.py CleanCheckout.test_checker_scratch_without_a_native_build BenchmarkOutputs.test_fairclough_needs_every_weight
+      - name: Shape-control bundle distinguishes continuous loading, snapping and nonconvergence
+        run: nix develop --command node --test research/stability/feher-sipos-varkonyi-2026/test_path.mjs
       - name: The spring-network bundle gives the exact lattice answers (Node)
         run: nix develop --command node research/metamaterials/grossman-2026/wasm/check.mjs web/public/research-wasm/grossman-2026
       - name: Four-cable browser solver

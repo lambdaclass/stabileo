@@ -36,10 +36,12 @@ solver, results in the real viewer. (Phase 2; see §4.)
 | Reference reproduced | The authors' code ran unmodified; its outputs are stored with versions and checksums |
 | Implementation in progress | Our code exists; checks not yet complete |
 | Numerically validated | Our results match the reference within documented tolerances, all checks green |
-| Published figures compared | Additionally compared with the paper's own tables/figures (needs the text) |
-| Interactive | The page runs our solver live |
+| Compared with the paper | Additionally compared with the paper's own published values (needs the text); the page shows each value next to ours and the difference |
 
-Badges are generated from these files; a page cannot claim more than its evidence.
+Badges are generated from these files; a page cannot claim more than its evidence. Being
+interactive is not a rung of this ladder: every experiment in "Run it" runs our solver on its
+page, carries an "Interactive" chip next to its status, and must be at least numerically
+validated.
 
 ## 3. How it is built (one repo, one site, isolation by rule)
 

@@ -100,7 +100,8 @@ fn lee_frame_first_peak_converges_in_mesh_and_step() {
     let data = benchmark();
     let check = &data["convergence"];
     let tolerance = check["absoluteTolerance"].as_f64().unwrap();
-    let mut peaks: Vec<(usize, f64)> = Vec::new();
+    let mut peaks = Vec::new();
+    let mut study = Vec::new();
     for case in check["cases"].as_array().unwrap() {
         let split = case["split"].as_u64().unwrap() as usize;
         let scale = case["stepScale"].as_f64().unwrap();
@@ -110,19 +111,53 @@ fn lee_frame_first_peak_converges_in_mesh_and_step() {
         let peak = first_peak(&result.steps).expect("first peak reached");
         println!("{} elements, step scale {}: first sampled peak {} kN at step {}", 20 * split, scale, peak.load_factor, peak.step);
         assert!((peak.load_factor - case["firstPeak"].as_f64().unwrap()).abs() < tolerance);
-        peaks.push((split, peak.load_factor));
+        peaks.push((split, scale, peak.load_factor));
+        study.push(json!({"split": split, "stepScale": scale, "firstPeak": peak.load_factor}));
     }
     let step_bound = check["stepEffectBound"].as_f64().unwrap();
     for split in [1, 2, 4] {
-        let same: Vec<f64> = peaks.iter().filter(|p| p.0 == split).map(|p| p.1).collect();
-        assert!(same.len() >= 2);
+        let same: Vec<f64> = peaks.iter().filter(|p| p.0 == split).map(|p| p.2).collect();
+        assert!(independent_steps(&peaks, split));
         let spread = same.iter().cloned().fold(f64::MIN, f64::max) - same.iter().cloned().fold(f64::MAX, f64::min);
         assert!(spread < step_bound, "{} elements: step-size spread {spread}", 20 * split);
     }
-    let finest_step = |split: usize| peaks.iter().filter(|p| p.0 == split).last().unwrap().1;
-    let (p20, p40, p80) = (finest_step(1), finest_step(2), finest_step(4));
+    let [p20, p40, p80] = mesh_peaks(&peaks).unwrap();
     assert!(p20 > p40 && p40 > p80);
     let ratio = (p20 - p40) / (p40 - p80);
     println!("mesh change ratio {ratio}");
     assert!((3.0..5.0).contains(&ratio), "mesh change ratio {ratio}");
+    if let Ok(path) = std::env::var("LEE_REPLAY_OUTPUT") {
+        std::fs::write(format!("{path}.study.json"), serde_json::to_string(&study).unwrap()).unwrap();
+    }
+}
+
+
+fn independent_steps(peaks: &[(usize, f64, f64)], split: usize) -> bool {
+    let mut scales: Vec<_> = peaks.iter().filter(|p| p.0 == split).map(|p| p.1).collect();
+    scales.sort_by(f64::total_cmp);
+    scales.len() >= 2 && scales.iter().all(|s| s.is_finite() && *s > 0.) && scales.windows(2).all(|w| w[0] != w[1])
+}
+
+#[test]
+fn repeated_step_scales_cannot_verify_refinement() {
+    assert!(!independent_steps(&[(1, 0.5, 1.), (1, 0.5, 1.)], 1));
+    assert!(!independent_steps(&[(1, 0.5, 1.), (1, 1., 1.), (1, 1., 1.)], 1));
+    assert!(independent_steps(&[(1, 0.5, 1.), (1, 1., 1.)], 1));
+}
+
+fn mesh_peaks(peaks: &[(usize, f64, f64)]) -> Option<[f64; 3]> {
+    let meshes = [1, 2, 4];
+    let scale = peaks.iter().filter(|p| p.0 == 1 && p.1.is_finite() && p.1 > 0.)
+        .map(|p| p.1)
+        .filter(|scale| meshes.iter().all(|split| peaks.iter().any(|p| p.0 == *split && p.1 == *scale)))
+        .min_by(f64::total_cmp)?;
+    Some(meshes.map(|split| peaks.iter().find(|p| p.0 == split && p.1 == scale).unwrap().2))
+}
+
+#[test]
+fn lee_frame_mesh_ratio_holds_the_step_scale_fixed() {
+    let mut cases = vec![(1, 1., 3.), (2, 1., 2.), (4, 1., 1.), (1, 0.5, 99.)];
+    assert_eq!(mesh_peaks(&cases), Some([3., 2., 1.]));
+    cases[2].1 = 0.25;
+    assert_eq!(mesh_peaks(&cases), None);
 }

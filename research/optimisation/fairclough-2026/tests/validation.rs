@@ -1,6 +1,43 @@
-use gridshell_fairclough_2026::{engine, square};
+use gridshell_fairclough_2026::{engine, square, square_with};
 use serde_json::{json, Value};
 use std::{fs, path::Path};
+
+const TABLE_ONE: [(f64, f64); 7] = [
+    (1.65, 13.8394),
+    (1.68, 15.2528),
+    (1.72, 17.5301),
+    (1.76, 20.4014),
+    (1.80, 24.0981),
+    (1.85, 30.4425),
+    (2.00, 80.7391),
+];
+
+fn published_table(table: Vec<Value>) -> Value {
+    let reproduced = table.len() == TABLE_ONE.len() && TABLE_ONE.iter().all(|(weight, _)| {
+        let id = format!("table1-v5-{weight:.2}");
+        table.iter().any(|r| r["id"] == id && r["passed"] == true)
+    });
+    assert!(reproduced, "incomplete or failed published comparisons: {table:?}");
+    json!({"reproduced_published_results": reproduced, "checks": table})
+}
+
+#[test]
+fn every_paper_row_must_pass_before_publication() {
+    let rows: Vec<_> = TABLE_ONE.iter().map(|(weight, _)| json!({"id": format!("table1-v5-{weight:.2}"), "passed": true})).collect();
+    let accepted = published_table(rows.clone());
+    assert_eq!(accepted["reproduced_published_results"], true);
+    let mut extra = rows.clone();
+    extra.push(rows[0].clone());
+    assert!(std::panic::catch_unwind(|| published_table(extra)).is_err());
+    for count in [0, 6] {
+        assert!(std::panic::catch_unwind(|| published_table(rows[..count].to_vec())).is_err());
+    }
+    for index in 0..7 {
+        let mut rows = rows.clone();
+        rows[index]["passed"] = json!(false);
+        assert!(std::panic::catch_unwind(|| published_table(rows)).is_err());
+    }
+}
 
 #[test]
 fn five_node_reference_and_engine() {
@@ -127,7 +164,27 @@ fn five_node_reference_and_engine() {
     );
     assert!(engine_check["max_displacement"].as_f64().unwrap() > 0.);
     let evidence = json!({"scope":"Table 1: five nodes, rho_g L/sigma=1.65 only", "checks":checks});
-    let published = json!({"checks":[{"name":"Table 1 five-node volume, first row","source":"https://eprints.whiterose.ac.uk/id/eprint/236639/ — accepted manuscript PDF page 29, printed page 28, Table 1; Section 4.3","metric":"absolute normalized volume error FL/sigma","reference":13.8394,"volume":layout.volume,"observed":(layout.volume-13.8394).abs(),"tolerance":0.00005,"passed":(layout.volume-13.8394).abs()<=0.00005}]});
+    let table: Vec<Value> = TABLE_ONE
+    .iter()
+    .map(|&(pg, printed): &(f64, f64)| {
+        let computed = square_with(pg).unwrap().volume;
+        let observed = (computed - printed).abs();
+        json!({
+            "id": format!("table1-v5-{pg:.2}"),
+            "name": format!("Volume V, five-node ground structure, ρgL/σ = {pg:.2}"),
+            "source": "Accepted manuscript, White Rose eprint 236639, Table 1, V5-nodes, printed page 28 (PDF page 29)",
+            "unit": "FL/σ",
+            "reference": printed,
+            "computed": computed,
+            "metric": "absolute volume difference",
+            "observed": observed,
+            "tolerance": 0.00005,
+            "rationale": "Half a unit of the fourth printed decimal",
+            "passed": observed <= 0.00005,
+        })
+    })
+    .collect();
+    let published = published_table(table);
     fs::create_dir_all(root.join("target/reference-results")).unwrap();
     fs::write(
         root.join("target/VALIDATION.json"),
@@ -237,4 +294,12 @@ fn chord_volume_refines_quadratically() {
     assert!(errors[1] < 0.00025);
     assert!(errors[2] < 0.000062);
     for pair in errors.windows(2) { assert!(pair[0]/pair[1] > 3.9 && pair[0]/pair[1] < 4.1); }
+}
+
+#[test]
+fn a_duplicate_weight_cannot_replace_a_missing_paper_comparison() {
+    let reference: Value = serde_json::from_str(include_str!("../reference-results/published_comparison.json")).unwrap();
+    let mut rows = reference["checks"].as_array().unwrap().clone();
+    rows[1] = rows[0].clone();
+    assert!(std::panic::catch_unwind(|| published_table(rows)).is_err());
 }

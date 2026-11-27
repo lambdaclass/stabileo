@@ -5,7 +5,6 @@ export const es: Strings = {
   title: archCard.es.title,
   lead: archCard.es.hook,
   referenceLabel: 'Frente a soluciones publicadas y una implementación independiente',
-  publishedWhy: 'No se leyó el artículo de Heyman; la tabla compara con las soluciones publicadas que tabulan Rizzi et al. (2010).',
 
   ideaHeading: 'La mampostería como material plástico',
   idea: 'La teoría plástica de la mampostería de Heyman se apoya en tres hipótesis: la piedra no resiste tracción, nunca se aplasta y los bloques nunca deslizan entre sí. Con ellas, un arco es seguro si se puede trazar dentro de la mampostería una línea de presiones en equilibrio con las cargas. Donde la línea toca una cara, la junta puede abrirse y funciona como rótula; con suficientes rótulas el arco se vuelve un mecanismo y colapsa. La resistencia casi no importa: la estabilidad es una cuestión de geometría.',

@@ -1,3 +1,6 @@
+import { render } from 'svelte/server';
+import BigginsPage from '../BigginsPage.svelte';
+import published from '../../../../../../research/mechanics/biggins-2026/reference-results/published_comparison.json';
 import { expect, it } from 'vitest';
 import { decodeRun, postSnapStep } from '../protocol';
 import replay from '../../../../../../research/mechanics/biggins-2026/reference-results/replay.json';
@@ -68,4 +71,12 @@ it('checks the evidence numbers and keys used in every locale', async () => {
     }
     expect(labels.size).toBe(PUBLIC_LOCALES.length);
   } finally { setLocale('en'); }
+});
+
+it('reordering the Euler modes leaves the threshold prose unchanged', () => {
+  const before = render(BigginsPage).body.split('id="checks"')[1].split('</p>')[0];
+  published.checks.reverse();
+  try {
+    expect(render(BigginsPage).body.split('id="checks"')[1].split('</p>')[0]).toBe(before);
+  } finally { published.checks.reverse(); }
 });

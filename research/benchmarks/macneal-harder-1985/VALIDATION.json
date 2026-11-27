@@ -1,0 +1,96 @@
+{
+  "what": "Production native and WASM engines on the MacNeal–Harder straight cantilever and analytical frame adaptations, with a separate WASM comparison for the Scordelis–Lo roof; written by wasm/check.mjs in the Research workflow.",
+  "command": "node research/benchmarks/macneal-harder-1985/wasm/check.mjs <native results> [--write]",
+  "checks": [
+    {
+      "metric": "frame-shear-1-uz: relative error of the WASM result against its Euler–Bernoulli reference -0.0036",
+      "observed": 3.3306690738754696e-16,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "metric": "frame-shear-2-uz: relative error of the WASM result against its Euler–Bernoulli reference -0.0036",
+      "observed": 6.661338147750939e-16,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "metric": "frame-shear-4-uz: relative error of the WASM result against its Euler–Bernoulli reference -0.0036",
+      "observed": 1.0436096431476471e-14,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "metric": "frame-shear-8-uz: relative error of the WASM result against its Euler–Bernoulli reference -0.0036",
+      "observed": 8.948397578478762e-14,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "metric": "frame-moment-4-uz: relative error of the WASM result against its Euler–Bernoulli reference 0.009",
+      "observed": 9.2148511043888e-15,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "metric": "frame-moment-4-ry: relative error of the WASM result against its Euler–Bernoulli reference 0.003",
+      "observed": 6.106226635438361e-15,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "metric": "mitc4-regular-out: relative error of the WASM result against its Table 3 reference 0.4321",
+      "observed": 0.019936024904640637,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "metric": "mitc4-regular-in: relative error of the WASM result against its Table 3 reference 0.1081",
+      "observed": 0.009508259508542727,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "metric": "mitc4-regular-out: Timoshenko beam theory (shear factor 5/6) from the case inputs against the printed Table 3 value 0.4321",
+      "observed": 0.000006400000000128525,
+      "tolerance": 0.00005,
+      "passed": true
+    },
+    {
+      "metric": "mitc4-regular-in: Timoshenko beam theory (shear factor 5/6) from the case inputs against the printed Table 3 value 0.1081",
+      "observed": 0.000006400000000045258,
+      "tolerance": 0.00005,
+      "passed": true
+    },
+    {
+      "metric": "mitc4-trapezoidal-out: documented failure (#798) pinned as a regression to 0.4162053612497649, not an accuracy pass",
+      "observed": 1.806068452258087e-10,
+      "tolerance": 1e-8,
+      "passed": true
+    },
+    {
+      "metric": "mitc4-parallelogram-out: documented failure (#798) pinned as a regression to 0.42257240188170075, not an accuracy pass",
+      "observed": 5.309924018126198e-11,
+      "tolerance": 1e-8,
+      "passed": true
+    },
+    {
+      "metric": "mitc4-trapezoidal-in, mitc4-parallelogram-in: cases not withheld by both native and WASM with known issue #798 (SH-MITC4-DISTORTION)",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "metric": "computed cantilever and frame cases: largest relative difference between WASM and native values",
+      "observed": 0,
+      "tolerance": 1e-8,
+      "passed": true
+    },
+    {
+      "metric": "roof-16 (shared shell obstacle course input): relative error of the WASM midside deflection against Table 5(a) 0.3024",
+      "observed": 0.00008445507141293468,
+      "tolerance": 0.02,
+      "passed": true
+    }
+  ]
+}

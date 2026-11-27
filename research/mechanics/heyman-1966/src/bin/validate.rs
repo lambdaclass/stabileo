@@ -65,6 +65,28 @@ fn read(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(format!("{HERE}/reference-results/{name}")).unwrap()).unwrap()
 }
 
+fn publish(directory: &str, out: &Value, comparison: &Value) {
+    for evidence in [out, comparison] {
+        let rows = evidence["checks"].as_array().expect("missing checks");
+        assert!(!rows.is_empty() && rows.iter().all(|row| row["passed"] == true), "failed required checks");
+    }
+    let rows = comparison["checks"].as_array().unwrap();
+    let mut ids: Vec<_> = rows.iter().map(|r| r["id"].as_str().expect("missing comparison id")).collect();
+    let mut expected = Vec::new();
+    for angle in [60, 90, 120, 145] {
+        for solution in ["ccr", "milankovitch"] {
+            for quantity in ["eta", "beta", "h"] {
+                expected.push(format!("{solution}-{angle}-{quantity}"));
+            }
+        }
+    }
+    ids.sort_unstable();
+    expected.sort_unstable();
+    assert_eq!(ids, expected, "incomplete Rizzi table");
+    std::fs::write(format!("{directory}/VALIDATION.json"), serde_json::to_string_pretty(out).unwrap() + "\n").unwrap();
+    std::fs::write(format!("{directory}/reference-results/published_comparison.json"), serde_json::to_string_pretty(comparison).unwrap() + "\n").unwrap();
+}
+
 fn main() {
     let write = std::env::args().any(|a| a == "--write");
     let mut checks = vec![];
@@ -153,18 +175,94 @@ fn main() {
         "ring": ring_rows,
         "scope": "Rigid voussoirs with radial joints, no tension, unlimited compressive strength, no sliding; equilibrium checked at the joints. A numerical comparison with published analytical solutions and with an independent implementation, not a laboratory validation.",
     });
+    let published: Vec<Value> = rizzi["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|row| {
+            let a = row["alpha"].as_f64().unwrap() as i64;
+            [("milankovitch", "Milankovitch, true voussoir weights"), ("ccr", "CCR, weight on the centreline")]
+                .into_iter()
+                .flat_map(move |(key, solution)| {
+                    [("eta", "least thickness t/r", "", true, 1e-4), ("beta", "haunch hinge angle from the crown", "°", false, 0.01), ("h", "thrust H/(w r)", "", true, 1e-4)]
+                        .map(|(quantity, what, unit, relative, tolerance)| (a, key, solution, quantity, what, unit, relative, tolerance))
+                })
+        })
+        .map(|(a, key, solution, quantity, what, unit, relative, tolerance)| {
+            let id = format!("{key}-{a}-{quantity}");
+            let c = checks.iter().find(|c| c["id"] == id.as_str()).unwrap();
+            json!({
+                "id": id,
+                "name": format!("α = {a}°, {solution}: {what}"),
+                "source": RIZZI,
+                "unit": unit,
+                "reference": c["reference"],
+                "computed": c["computed"],
+                "metric": if relative { "relative difference" } else { "absolute difference" },
+                "observed": c["observed"],
+                "tolerance": tolerance,
+                "passed": c["passed"],
+            })
+        })
+        .collect();
+    let comparison = json!({
+        "reproduced_published_results": !published.is_empty() && published.iter().all(|row| row["passed"] == true),
+        "scope": "Least thickness of circular arches under self-weight, α = 60° to 145°: the Milankovitch and CCR solutions tabulated by Rizzi et al. (2010). Heyman's own closed form in the same table is not compared: it places the resultant, not the line of thrust, tangent to the intrados.",
+        "checks": published,
+    });
     let failed = checks.iter().filter(|c| c["passed"] != true).count();
     for c in &checks {
         println!("{} {} {:.3e} (≤ {})", if c["passed"] == true { "ok  " } else { "FAIL" }, c["id"].as_str().unwrap(), c["observed"].as_f64().unwrap(), c["tolerance"]);
     }
     if write {
-        std::fs::write(format!("{HERE}/VALIDATION.json"), serde_json::to_string_pretty(&out).unwrap() + "\n").unwrap();
+        publish(HERE, &out, &comparison);
     } else {
-        let (drift, at) = drift(&out, &read_root("VALIDATION.json"), None, "");
-        println!("{} VALIDATION.json against this run: largest difference {drift:.3e} of the allowed one{}{at}", if drift <= 1.0 { "ok  " } else { "FAIL" }, if at.is_empty() { "" } else { ", at " });
-        if drift > 1.0 {
+        let mut stale = false;
+        for (name, fresh, stored) in [("VALIDATION.json", &out, read_root("VALIDATION.json")), ("reference-results/published_comparison.json", &comparison, read("published_comparison.json"))] {
+            let (drift, at) = drift(fresh, &stored, None, "");
+            println!("{} {name} against this run: largest difference {drift:.3e} of the allowed one{}{at}", if drift <= 1.0 { "ok  " } else { "FAIL" }, if at.is_empty() { "" } else { ", at " });
+            stale |= drift > 1.0;
+        }
+        if stale {
             std::process::exit(1);
         }
     }
     std::process::exit(if failed == 0 { 0 } else { 1 });
+}
+
+#[test]
+fn a_failed_check_preserves_both_evidence_files() {
+    let folder = std::path::Path::new(HERE).join("target").join(format!("publication-{}", std::process::id()));
+    std::fs::create_dir_all(folder.join("reference-results")).unwrap();
+    let paths = [folder.join("VALIDATION.json"), folder.join("reference-results/published_comparison.json")];
+    for path in &paths { std::fs::write(path, "previous").unwrap(); }
+    let pass = json!({"checks": [{"passed": true}]});
+    let fail = json!({"checks": [{"passed": false}]});
+    for (validation, published) in [(&fail, &pass), (&pass, &fail)] {
+        let outcome = std::panic::catch_unwind(|| publish(folder.to_str().unwrap(), validation, published));
+        assert!(outcome.is_err());
+        for path in &paths { assert_eq!(std::fs::read_to_string(path).unwrap(), "previous"); }
+    }
+    let complete = read("published_comparison.json");
+    publish(folder.to_str().unwrap(), &pass, &complete);
+    for (path, expected) in paths.iter().zip([pass, complete]) {
+        assert_eq!(serde_json::from_slice::<Value>(&std::fs::read(path).unwrap()).unwrap(), expected);
+    }
+    std::fs::remove_dir_all(folder).unwrap();
+}
+
+#[test]
+fn a_partial_rizzi_table_cannot_be_published() {
+    let folder = std::path::Path::new(HERE).join("target").join(format!("partial-table-{}", std::process::id()));
+    std::fs::create_dir_all(folder.join("reference-results")).unwrap();
+    let all = read("published_comparison.json");
+    for duplicate in [false, true] {
+        let mut partial = all.clone();
+        let rows = partial["checks"].as_array_mut().unwrap();
+        rows.pop();
+        if duplicate { rows.push(rows[0].clone()); }
+        assert!(std::panic::catch_unwind(|| publish(folder.to_str().unwrap(), &all, &partial)).is_err());
+        assert!(!folder.join("VALIDATION.json").exists());
+    }
+    std::fs::remove_dir_all(folder).unwrap();
 }

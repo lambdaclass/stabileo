@@ -40,16 +40,11 @@ fn an_arch_that_snaps_while_loaded_is_reported_before_the_path() {
 }
 
 #[test]
-fn numerical_nonconvergence_does_not_establish_a_physical_snap() {
-    let setting = shape_control_feher_2026::Setting { theta: 1.0, delta: 0.0, q: 4.0 };
-    assert!(shape_control_feher_2026::bend(120, setting, Distribution::Asymmetric, 2).is_err());
-    assert_eq!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, 120).unwrap_err(), run::PathError::StartUnsolved);
-    for elements in [80, 90] {
-        let state = shape_control_feher_2026::bend(elements, setting, Distribution::Asymmetric, 2).unwrap();
-        assert!(state.snapshot().y_mid < 0.0);
-        assert_eq!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err(), run::PathError::StartSnaps);
+fn a_start_past_the_limit_load_never_runs_a_path() {
+    for elements in [20, 40, 60, 80, 100, 120] {
+        let e = run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err();
+        assert_eq!(e, run::PathError::StartSnaps, "{elements}");
     }
-    assert!(run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, 100).is_ok());
     assert_eq!(run::PathError::StartUnsolved.code(), "start_unsolved");
 }
 
@@ -79,4 +74,32 @@ fn slider_limits_accept_the_boundary_and_refuse_both_outside_sides() {
     for (theta, delta) in [(1.0 - f64::EPSILON, 0.0), (1.6 + f64::EPSILON, 0.0), (1.0, -f64::EPSILON), (1.0, 1.8 + f64::EPSILON)] {
         assert_eq!(run::path_with(theta, delta, 1.5, Distribution::Uniform, 30).unwrap_err(), run::PathError::CornerOutOfRange);
     }
+}
+
+#[test]
+fn optimum_clamp_coordinate_has_its_own_printed_precision_check() {
+    let data: serde_json::Value = serde_json::from_str(include_str!("../reference-results/published_comparison.json")).unwrap();
+    let rows = data["checks"].as_array().unwrap();
+    let load = rows.iter().find(|r| r["id"] == "qlim-half-optimum").unwrap();
+    let delta = rows.iter().find(|r| r["id"] == "qlim-half-optimum-delta").unwrap();
+    assert_eq!(delta["reference"], load["reference_delta"]);
+    assert_eq!(delta["computed"], load["computed_delta"]);
+    assert_eq!(delta["tolerance"], 0.0125 / 2. + 0.01 / 2.);
+    assert_eq!(delta["passed"], delta["observed"].as_f64().unwrap() <= delta["tolerance"].as_f64().unwrap());
+}
+
+#[test]
+fn a_steep_upper_branch_at_the_last_load_increment_can_still_start() {
+    let path = run::path_with(1.0, 0.0, 2.5, Distribution::Asymmetric, 20).unwrap();
+    let height = path["frames"][0]["y_mid"].as_f64().unwrap();
+    assert!(height > 0.);
+}
+
+#[test]
+fn clamp_position_uses_an_absolute_angular_distance() {
+    let data: serde_json::Value = serde_json::from_str(include_str!("../reference-results/published_comparison.json")).unwrap();
+    let row = data["checks"].as_array().unwrap().iter().find(|r| r["id"] == "qlim-half-optimum-delta").unwrap();
+    assert_eq!(row["metric"], "absolute difference");
+    let distance = (row["computed"].as_f64().unwrap() - row["reference"].as_f64().unwrap()).abs();
+    assert_eq!(row["observed"].as_f64().unwrap(), distance);
 }

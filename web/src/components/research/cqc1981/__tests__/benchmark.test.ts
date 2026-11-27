@@ -1,5 +1,6 @@
+import { numbers } from '../../__tests__/localized-numbers';
 import { expect, it, vi } from 'vitest';
-import { benchmark, difference, impliedRho, model, projection, recompute, roof, type Results } from '../benchmark';
+import { benchmark, closedForm, DAMPING, difference, impliedRho, model, projection, recompute, roof, type Results } from '../benchmark';
 import { translations } from '../strings';
 import replay from '../../../../../../research/benchmarks/cqc-1981/results/stabileo_results.json';
 
@@ -62,14 +63,13 @@ it('dispatches both combinations through production WASM wrappers with the modal
 });
 
 it('supplies complete keys with the same numbers in all eight locales', () => {
-  const numbers = (v: unknown) => JSON.stringify(v).match(/\d+(?:\.\d+)*/g) ?? [];
   for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const) {
     expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
     expect(translations[locale].limitations).toHaveLength(3);
     expect(translations[locale].title).not.toEqual(translations.en.title);
     expect(translations[locale].lead).not.toEqual(translations.en.lead);
     for (const key of Object.keys(translations.en) as (keyof typeof translations.en)[]) {
-      expect(numbers(translations[locale][key]).sort(), `${locale}.${key}`).toEqual(numbers(translations.en[key]).sort());
+      expect(numbers(JSON.stringify(translations[locale][key]), locale).sort(), `${locale}.${key}`).toEqual(numbers(JSON.stringify(translations.en[key]), "en").sort());
     }
   }
 });
@@ -83,5 +83,35 @@ it('matches the closed form through the real production WASM boundary', async ()
       const actual = results[rule].displacements.find(d => d.nodeId === nodeId)!.ux;
       expect(Math.abs(difference(actual, benchmark.reference[rule === 'SRSS' ? 'roofSRSS' : 'roofCQC'][i]))).toBeLessThan(benchmark.relativeTolerance * 100);
     }
+  }
+});
+
+it('evaluates the closed form for every damping ratio offered, matching the shared case at 5%', () => {
+  expect(DAMPING).toContain(benchmark.xi);
+  const at = closedForm(benchmark.xi);
+  for (const key of Object.keys(benchmark.reference) as (keyof typeof benchmark.reference)[]) {
+    const want = benchmark.reference[key];
+    const got = at[key];
+    (Array.isArray(want) ? want : [want]).forEach((w, i) => expect(Math.abs((Array.isArray(got) ? got[i] : got) - w)).toBeLessThan(1e-12 * Math.abs(w)));
+  }
+  const rhos = DAMPING.map(xi => closedForm(xi).rho);
+  expect(rhos.every((r, i) => i === 0 || r > rhos[i - 1])).toBe(true);
+  for (const xi of DAMPING) expect(closedForm(xi).SRSS).toBe(at.SRSS);
+});
+
+it.each(DAMPING)('compares both roofs and base shear to the closed form at damping %s', async xi => {
+  const results = await recompute(xi);
+  const reference = closedForm(xi);
+  expect(Math.abs(difference(impliedRho(results), reference.rho))).toBeLessThan(benchmark.relativeTolerance * 100);
+  for (const rule of ['SRSS', 'CQC'] as const) {
+    const measured = roof(results[rule]);
+    const expected = reference[rule === 'SRSS' ? 'roofSRSS' : 'roofCQC'];
+    expect(measured).toHaveLength(2);
+    expect(expected).toHaveLength(2);
+    expected.forEach((_, i) => {
+      const u = measured[i];
+      expect(Math.abs(difference(u, reference[rule === 'SRSS' ? 'roofSRSS' : 'roofCQC'][i]))).toBeLessThan(benchmark.relativeTolerance * 100);
+    });
+    expect(Math.abs(difference(results[rule].baseShear, reference[rule]))).toBeLessThan(benchmark.relativeTolerance * 100);
   }
 });

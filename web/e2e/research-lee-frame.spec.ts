@@ -32,9 +32,16 @@ test('@smoke Lee frame replay, reduced-motion live run and stop', async ({ page 
   await expect(page.getByRole('heading', { name: 'Lee frame (1968)', exact: true })).toBeVisible();
   await expect(page.locator('body')).not.toContainText(/First version|review rounds?/);
   await expect(page.getByTestId('lee-limit')).toHaveText('1.8658');
-  await expect(page.getByTestId('lee-difference')).toHaveText('≈ +2%');
-  await expect(page.getByTestId('lee-fine')).toHaveText('1.8563');
-  await expect(page.getByTestId('lee-fine-difference')).toHaveText('≈ +1%');
+  await expect(page.getByTestId('lee-native')).toHaveText('1.8658');
+  const comparison = page.locator('#comparison');
+  await expect(comparison.locator('tbody tr')).toHaveCount(3);
+  await expect(comparison).toContainText('First peak load, 20 elements, against the Figure 10 reading');
+  await expect(comparison).toContainText('Galvão (2000)');
+  await expect(comparison.locator('.bad')).toHaveCount(0);
+  await expect(page.locator('.rs-verify')).toContainText('Checked in CI');
+  await expect(page.locator('.rs-verify a[href="#comparison"]')).toBeVisible();
+  await expect(page.locator('.rs-verify')).toContainText('3 of 3 checks pass');
+  await expect(page.locator('.rs-shell-article')).toContainText('Lee, Manuel & Rossow (1968) was not available to us');
   await expect(page.getByTestId('lee-convergence')).toContainText('1.8658 kN at step 47');
   await expect(page.getByTestId('lee-convergence')).toContainText('1.8582 and 1.8563 kN');
   await expect(page.getByTestId('lee-convergence')).toContainText('less than 0.0001 kN');
@@ -60,6 +67,17 @@ test('@smoke Lee frame replay, reduced-motion live run and stop', async ({ page 
   await page.getByRole('button', { name: 'Restart replay', exact: true }).click();
   await expect(page.getByTestId('lee-source')).toContainText('Precomputed replay');
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
+});
+
+test('Lee frame reruns the solver with a finer mesh', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(URL('en'));
+  await page.getByRole('button', { name: '40 elements', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Elements' })).toHaveValue('2');
+  await expect(page.getByTestId('lee-source')).toHaveText('Cached result · 45/45', { timeout: 150_000 }); // slow-ok: 45 prefix runs of the 40-element path through the production WASM.
+  await expect(page.getByTestId('lee-native')).toHaveText('1.8581');
+  await expect(page.getByTestId('lee-limit')).toHaveText('1.8581');
 });
 
 for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]]) {

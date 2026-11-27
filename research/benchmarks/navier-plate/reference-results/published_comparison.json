@@ -1,0 +1,54 @@
+{
+  "what": "The published worked example against Stabileo, written by this script.",
+  "command": "node research/benchmarks/navier-plate/wasm/check.mjs",
+  "checks": [
+    {
+      "id": "rigidity",
+      "name": "Flexural rigidity D = Et³ / [12(1 − ν²)] of the case inputs",
+      "source": "Haukaas (2018), Navier’s Solution for Uniform Load, p. 2",
+      "unit": "kN·m",
+      "reference": 5468.75,
+      "computed": 5468.750000000002,
+      "metric": "absolute difference (printed to two decimals)",
+      "observed": 1.8189894035458565e-12,
+      "tolerance": 0.005,
+      "passed": true
+    },
+    {
+      "id": "series",
+      "name": "Centre displacement, thin-plate Navier series (100 × 100 odd terms)",
+      "source": "Haukaas (2018), Navier’s Solution for Uniform Load, p. 3",
+      "unit": "mm",
+      "reference": 1.28375,
+      "computed": 1.2837481142296379,
+      "metric": "absolute difference (printed to five decimals)",
+      "observed": 0.0000018857703620867028,
+      "tolerance": 0.000005,
+      "passed": true
+    },
+    {
+      "id": "dkt-16",
+      "name": "Centre displacement, production DKT 16 × 16",
+      "source": "Haukaas (2018), Navier’s Solution for Uniform Load, p. 3",
+      "unit": "mm",
+      "reference": 1.28375,
+      "computed": 1.2809214938769529,
+      "metric": "relative difference",
+      "observed": 0.0022033153830941237,
+      "tolerance": 0.0025,
+      "passed": true
+    },
+    {
+      "id": "dkt-richardson",
+      "name": "Centre displacement, production DKT, Richardson extrapolation of 16 × 16 and 32 × 32",
+      "source": "Haukaas (2018), Navier’s Solution for Uniform Load, p. 3",
+      "unit": "mm",
+      "reference": 1.28375,
+      "computed": 1.2837470641058983,
+      "metric": "relative difference",
+      "observed": 0.000002286967167756785,
+      "tolerance": 0.0001,
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "method": "Mattiasson (1981) table values transcribed by hand from the open copy of Nanakorn & Vu (2006), Table 1 (see mattiasson-table.json); published_comparison.json written by validate.py from a fresh native run.",
+  "files_sha256": {
+    "mattiasson-table.json": "fd935e16e60466fd2b966d9a3793007fe80f09728f5eee308cb802c21eb58500",
+    "published_comparison.json": "b409462d4a5ccc5d333dfbf0f78eede0b61c08224ba95883bca2aff5b8bd707d"
+  }
+}

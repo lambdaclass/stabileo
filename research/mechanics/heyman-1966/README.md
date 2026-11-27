@@ -64,6 +64,14 @@ All checks are in `VALIDATION.json`. Least thickness with 2·round(800·α/90) v
 
 Tolerances: 10⁻⁴ relative on t/r and h (the table prints six significant figures), 0.01° on β.
 
+`src/bin/validate.rs` writes these 24 rows (t/r, β and h for both solutions at four angles) to
+`reference-results/published_comparison.json`, the paper-against-Stabileo table at the top of the
+page; without `--write` it fails when either file differs from a fresh run. The tolerances are
+acceptance budgets for a discretized arch, not rounding bounds: hinges can only form at joints, so
+t/r converges to the continuum value from below (see the voussoir counts below), and β is
+interpolated between joints. At the voussoir counts used the largest differences are 5·10⁻⁶
+relative on t/r and h and 6·10⁻⁵° on β, well inside them.
+
 Heyman's closed form in the same table is thinner (t/r = 0.105965 at α = 90°, 1.4 % below
 Milankovitch; 15 % at α = 145°): as Rizzi et al. explain, it imposes tangency on the resultant
 instead of on the line of thrust. It is shown for comparison and not used as a check.

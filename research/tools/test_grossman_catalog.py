@@ -1,4 +1,5 @@
 import json
+import unittest
 from pathlib import Path
 
 import importlib.util
@@ -7,6 +8,28 @@ spec = importlib.util.spec_from_file_location('catalog', Path(__file__).with_nam
 catalog = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(catalog)
 check_entry, valid_checks = catalog.check_entry, catalog.valid_checks
+
+
+def compare_paper_rows(validation, published):
+    paper = {r['id']: r for r in validation if r['category'] == 'paper'}
+    expected_ids = (paper.keys() - {'fig9'}) | {'fig9-bulk', 'fig9-shear'}
+    assert 'fig9' in paper and sorted(row['id'] for row in published) == sorted(expected_ids)
+    assert valid_checks(published, published=True)
+    rows = {r['id']: r for r in published}
+    for key, check in paper.items():
+        if key == 'fig9':
+            pair = [rows['fig9-bulk'], rows['fig9-shear']]
+            assert all(r['tolerance'] == check['tolerance'] for r in pair)
+            assert max(r['observed'] for r in pair) == check['observed']
+            assert all(r['passed'] for r in pair) == check['passed']
+        elif key == 'fig5-periodic':
+            row = rows[key]
+            outside = sum(not lo - row['tolerance'] <= value <= hi + row['tolerance']
+                          for _, lo, hi, value in row['samples'])
+            assert row['tolerance'] == 0.003 and check['tolerance'] == 0
+            assert outside == check['observed'] and row['passed'] == check['passed']
+        else:
+            assert all(rows[key][field] == check[field] for field in ['observed', 'tolerance', 'passed']), key
 
 
 def main():
@@ -19,8 +42,12 @@ def main():
     grossman = next(p for p in papers if p['id'] == 'grossman-2026')
     implementation = root / grossman['implementation']
     validation = json.loads((implementation / 'VALIDATION.json').read_text())['checks']
-    published = json.loads((implementation / 'PUBLISHED_COMPARISON.json').read_text())['checks']
-    assert published == [c for c in validation if c['category'] == 'paper']
+    published = json.loads((implementation / 'reference-results' / 'published_comparison.json').read_text())['checks']
+    compare_paper_rows(validation, published)
+    assert not (implementation / 'PUBLISHED_COMPARISON.json').exists()
+    strip = json.loads((implementation / 'reference-results' / 'fig5_strip_comparison.json').read_text())['checks']
+    assert [row['eta'] for row in strip if not row['passed']] == [0.0, 0.05, 0.1, 0.2]
+    assert valid_checks([row for row in strip if row['passed']], published=True)
     for name in ['dilution z = 5.4']:
         check = next(c for c in validation if c['name'].startswith(name))
         assert check['observed'] == check['tolerance'] == 0
@@ -36,5 +63,18 @@ def main():
     print('ok   committed catalog, Grossman signed checks and published comparisons')
 
 
+class PublicationConsistency(unittest.TestCase):
+    def test_unchanged_id_does_not_mask_a_different_measurement(self):
+        root = Path(__file__).resolve().parents[1] / 'metamaterials/grossman-2026'
+        validation = json.loads((root / 'VALIDATION.json').read_text())['checks']
+        rows = json.loads((root / 'reference-results/published_comparison.json').read_text())['checks']
+        compare_paper_rows(validation, rows)
+        for row_id, key, value in [('fig7', 'observed', 0), ('fig9-bulk', 'observed', 0),
+                                   ('honey-3', 'tolerance', 1), ('fig9-shear', 'passed', False)]:
+            with self.subTest(id=row_id, key=key), self.assertRaises(AssertionError):
+                compare_paper_rows(validation, [{**r, key: value} if r['id'] == row_id else r for r in rows])
+
+
 if __name__ == '__main__':
     main()
+    unittest.main()

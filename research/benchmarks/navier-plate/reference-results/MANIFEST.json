@@ -1,0 +1,9 @@
+{
+  "what": "Comparison of Stabileo with the published Navier worked example; the paper values are transcribed in check.mjs with their page numbers.",
+  "source": "Terje Haukaas, \"Theory of Plates and Shells, Article 28, Navier’s Solution for Uniform Load\", University of British Columbia, updated 9 February 2018; Wayback Machine copy of https://civil-terje.sites.olt.ubc.ca/files/2019/06/Naviers-Plate-Solution-for-Uniform-Load.pdf",
+  "command": "node research/benchmarks/navier-plate/wasm/check.mjs --write",
+  "date": "2026-11-27",
+  "files_sha256": {
+    "published_comparison.json": "eac1f55d27ec00e8089033c44a2fb43fbac8f74fdcc47c7e813f72116515181c"
+  }
+}

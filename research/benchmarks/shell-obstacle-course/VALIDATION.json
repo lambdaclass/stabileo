@@ -1,0 +1,87 @@
+{
+  "what": "Shell obstacle course: production MITC4 through the WASM wrapper and natively, from the engine-owned case file.",
+  "command": "node research/benchmarks/shell-obstacle-course/wasm/check.mjs <native results directory>",
+  "checks": [
+    {
+      "id": "roof-6",
+      "metric": "Scordelis–Lo roof 6×6 (WASM): relative error of signed u_z against −0.3024",
+      "kind": "relative",
+      "observed": 0.015559672949233772,
+      "tolerance": 0.02,
+      "relation": "<",
+    "passed": true
+    },
+    {
+      "id": "roof-8",
+      "metric": "Scordelis–Lo roof 8×8 (WASM): relative error of signed u_z against −0.3024",
+      "kind": "relative",
+      "observed": 0.006868072987872953,
+      "tolerance": 0.02,
+      "relation": "<",
+    "passed": true
+    },
+    {
+      "id": "roof-12",
+      "metric": "Scordelis–Lo roof 12×12 (WASM): relative error of signed u_z against −0.3024",
+      "kind": "relative",
+      "observed": 0.0016068494649317255,
+      "tolerance": 0.02,
+      "relation": "<",
+    "passed": true
+    },
+    {
+      "id": "roof-16",
+      "metric": "Scordelis–Lo roof 16×16 (WASM): relative error of signed u_z against −0.3024",
+      "kind": "relative",
+      "observed": 0.00008445507141296993,
+      "tolerance": 0.02,
+      "relation": "<",
+    "passed": true
+    },
+    {
+      "id": "cylinder-32",
+      "metric": "Pinched cylinder 32×32 (native): relative error of signed u_y against −1.8248e-5",
+      "kind": "relative",
+      "observed": 0.010063143404593133,
+      "tolerance": 0.02,
+      "relation": "<",
+    "passed": true
+    },
+    {
+      "id": "cylinder-convergence",
+      "metric": "Pinched cylinder 6, 8, 12, 16 (WASM) and 32 (native): largest ratio of successive relative errors, must be below 1",
+      "kind": "ratio",
+      "observed": 0.649911727448644,
+      "tolerance": 1,
+      "relation": "<",
+    "passed": true
+    },
+    {
+      "id": "parity",
+      "metric": "Roof and cylinder browser meshes: largest relative difference between WASM and native values",
+      "kind": "relative",
+      "observed": 0,
+      "tolerance": 1e-8,
+      "relation": "<=",
+    "passed": true
+    },
+    {
+      "id": "hemisphere-refusals",
+      "metric": "Hemisphere 4, 8, 16: meshes not withheld by both runtimes with known issue #798 (SH-MITC4-DISTORTION)",
+      "kind": "count",
+      "observed": 0,
+      "tolerance": 0,
+      "relation": "<=",
+    "passed": true
+    },
+    {
+      "id": "builders",
+      "metric": "Browser roof and cylinder builders against every engine-owned case input: largest relative difference",
+      "kind": "relative",
+      "observed": 1.225585385327558e-16,
+      "tolerance": 1e-12,
+      "relation": "<=",
+    "passed": true
+    }
+  ]
+}

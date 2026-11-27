@@ -14,23 +14,50 @@ export type Result = { collapseFactor: number; isMechanism: boolean; warnings?: 
 export type Place = 'leftBase' | 'leftCorner' | 'midspan' | 'rightCorner' | 'rightBase';
 export type CheckId = 'collapse' | 'mechanism' | 'hinges' | 'yield' | 'equilibrium' | 'corner';
 
-const nodes = Object.values(portal.input.solver.nodes).sort((a, b) => a.id - b.id);
+export type Mechanism = 'beam' | 'sway' | 'combined';
+export type Portal = { span: number; height: number; mp: number; horizontal: number; vertical: number };
+export const PAPER: Portal = { span: portal.span, height: portal.height, mp: portal.mp, horizontal: portal.horizontal, vertical: portal.vertical };
+export const isPaper = (p: Portal) => (Object.keys(PAPER) as (keyof Portal)[]).every(k => p[k] === PAPER[k]);
+
 const elements = Object.values(portal.input.solver.elements);
 const PLACES: Record<number, Place> = { 1: 'leftBase', 2: 'leftCorner', 3: 'rightCorner', 4: 'rightBase', 5: 'midspan' };
+const HINGES: Record<Mechanism, string> = { beam: '2,3,5', sway: '1,2,3,4', combined: '1,3,4,5' };
 
-export function mechanisms() {
-  const { mp, horizontal: h, vertical: v, span: l, height } = portal;
+export function portalInput(p: Portal = PAPER): typeof portal.input {
+  if (isPaper(p)) return structuredClone(portal.input);
+  const input = structuredClone(portal.input);
+  const at: Record<number, [number, number]> = { 1: [0, 0], 2: [0, p.height], 3: [p.span, p.height], 4: [p.span, 0], 5: [p.span / 2, p.height] };
+  for (const n of Object.values(input.solver.nodes)) [n.x, n.z] = at[n.id];
+  for (const { data } of input.solver.loads) {
+    if (data.fx) data.fx = p.horizontal;
+    if (data.fz) data.fz = -p.vertical;
+  }
+  input.mpOverrides = { 1: [p.mp, p.mp] };
+  return input;
+}
+const nodesOf = (p: Portal) => Object.values(portalInput(p).solver.nodes).sort((a, b) => a.id - b.id);
+
+export function mechanisms(p: Portal = PAPER): Record<Mechanism, number> {
+  const { mp, horizontal: h, vertical: v, span: l, height } = p;
   return { beam: 8 * mp / (v * l), sway: 4 * mp / (h * height), combined: 6 * mp / (h * height + v * l / 2) };
 }
-export function compare(result: Result) {
-  if (!Number.isFinite(result.collapseFactor) || !result.steps?.length) throw new Error('Invalid plastic-collapse result');
-  return Object.entries(mechanisms()).map(([mechanism, reference]) => ({ mechanism, reference, difference: result.collapseFactor - reference }));
+function lowestMechanisms(bounds: Record<Mechanism, number>): Mechanism[] {
+  const minimum = Math.min(...Object.values(bounds));
+  return (Object.keys(bounds) as Mechanism[]).filter(key => bounds[key] - minimum <= portal.tolerance);
 }
-export async function run(): Promise<Result> {
+export function governing(p: Portal = PAPER): Mechanism | null {
+  const modes = lowestMechanisms(mechanisms(p));
+  return modes.length === 1 ? modes[0] : null;
+}
+export function compare(result: Result, p: Portal = PAPER) {
+  if (!Number.isFinite(result.collapseFactor) || !result.steps?.length) throw new Error('Invalid plastic-collapse result');
+  return Object.entries(mechanisms(p)).map(([mechanism, reference]) => ({ mechanism, reference, difference: result.collapseFactor - reference }));
+}
+export async function run(p: Portal = PAPER): Promise<Result> {
   const engine = await import('../../../lib/engine/wasm-solver');
   await engine.initSolver();
-  const result: Result = engine.solvePlastic3D(structuredClone(portal.input));
-  compare(result);
+  const result: Result = engine.solvePlastic3D(portalInput(p));
+  compare(result, p);
   return result;
 }
 
@@ -65,28 +92,71 @@ export function collapseState(result: Result) {
   return { moments, reactions };
 }
 
-export function residual(result: Result) {
+export function residual(result: Result, p: Portal = PAPER) {
   const lambda = result.collapseFactor;
+  const nodes = nodesOf(p);
   const at = (id: number) => nodes.find(n => n.id === id)!;
   let fx = 0, fz = 0, my = 0;
   for (const [id, r] of collapseState(result).reactions) {
     const n = at(id);
     fx += r.fx; fz += r.fz; my += r.my + n.z * r.fx - n.x * r.fz;
   }
-  for (const { data: load } of portal.input.solver.loads) {
+  for (const { data: load } of portalInput(p).solver.loads) {
     const n = at(load.nodeId);
     fx += lambda * load.fx; fz += lambda * load.fz; my += lambda * (load.my + n.z * load.fx - n.x * load.fz);
   }
   return { fx, fz, my };
 }
 
-export const cornerMoment = (lambda: number) => 3 * portal.mp - lambda * portal.horizontal * portal.height;
+function hingeSetMatches(nodes: number[], modes: Mechanism[], moments: ReturnType<typeof collapseState>['moments'], mp: number): boolean {
+  const formed = new Set(nodes);
+  const patterns = modes.map(mode => HINGES[mode].split(',').map(Number));
+  const permitted = new Set(patterns.flat());
+  if (modes.length === 1 && modes[0] === 'beam') {
+    const atYield = (m: number | undefined, sign: number) => m !== undefined && Math.abs(m - sign * mp) <= portal.yieldTolerance * mp;
+    if (!atYield(moments.get(1)?.myEnd, 1) || !atYield(moments.get(2)?.myStart, -1)) return false;
+    for (const [base, column] of [[1, 1], [4, 3]]) {
+      if (atYield(moments.get(column)?.myStart, 1)) permitted.add(base);
+    }
+  }
+  return formed.size === nodes.length && patterns.some(needed => needed.every(n => formed.has(n)))
+    && nodes.every(n => permitted.has(n));
+}
 
-export function checks(result: Result): { id: CheckId; passed: boolean }[] {
-  const { mp, vertical: v, span: l, tolerance, yieldTolerance, equilibriumTolerance } = portal;
+export const RELATIVE_EQUILIBRIUM = 1e-8;
+export function relativeResidual(r: { fx: number; fz: number; my: number }, lambda: number, p: Portal): number {
+  const scaled = (force: number, applied: number) => applied === 0
+    ? Math.abs(force) / portal.equilibriumTolerance * RELATIVE_EQUILIBRIUM
+    : Math.abs(force / applied);
+  return Math.max(scaled(r.fx, lambda * p.horizontal), scaled(r.fz, lambda * p.vertical),
+    scaled(r.my, lambda * (p.horizontal * p.height + p.vertical * p.span / 2)));
+}
+
+export const cornerMoment = (lambda: number, p: Portal = PAPER) => 3 * p.mp - lambda * p.horizontal * p.height;
+
+export function checks(result: Result, p: Portal = PAPER): { id: CheckId; passed: boolean }[] {
+  const { mp, vertical: v, span: l } = p;
+  const { tolerance, yieldTolerance, equilibriumTolerance } = portal;
+  const paper = isPaper(p);
+  const bounds = mechanisms(p);
+  const possible = lowestMechanisms(bounds);
+  const mode = possible.length === 1 ? possible[0] : null;
   const lambda = result.collapseFactor;
   const { moments, reactions } = collapseState(result);
-  const hingesMatch = result.steps.length === portal.events.length && result.steps.every((s, i) => {
+  const hingesMatch = !paper ? result.steps.every(s => !!s.hingesFormed?.length && s.hingesFormed.every(h => {
+    if (!elements.some(e => e.id === h.elementId) || !['start', 'end'].includes(h.end)) return false;
+    const node = hingeNode(h);
+    if (node === 2) {
+      return possible.some(mechanism => {
+        if (mechanism === 'combined') return false;
+        const columnSign = mechanism === 'beam' ? 1 : -1;
+        const sign = h.elementId === 1 ? columnSign : -columnSign;
+        return Math.abs(h.momentY - sign * mp) <= yieldTolerance * mp;
+      });
+    }
+    const target = node === 5 || node === 1 || node === 4 ? mp : -mp;
+    return Math.abs(h.momentY - target) <= yieldTolerance * mp;
+  })) : result.steps.length === portal.events.length && result.steps.every((s, i) => {
     const want = portal.events[i];
     const formed = s.hingesFormed ?? [];
     return formed.length === 1 && formed.every(h => h.elementId === want.elementId && h.end === want.end && Math.sign(h.momentY) === want.momentSign && Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance)
@@ -116,18 +186,20 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
     if ([...running.values()].flat().some(m => !(Math.abs(m) <= mp * (1 + yieldTolerance)))) yieldedOnTheWay = true;
   }
   const corner = moments.get(1)?.myEnd ?? NaN;
-  const r = reactionsAtSupports ? residual(result) : { fx: NaN, fz: NaN, my: NaN };
-  return [
-    { id: 'collapse', passed: Math.abs(lambda - mechanisms().combined) < tolerance },
+  const r = reactionsAtSupports ? residual(result, p) : { fx: NaN, fz: NaN, my: NaN };
+  const list: { id: CheckId; passed: boolean }[] = [
+    { id: 'collapse', passed: Math.abs(lambda - Math.min(...Object.values(bounds))) < tolerance },
     { id: 'mechanism', passed: result.isMechanism && !(result.warnings ?? []).length },
-    { id: 'hinges', passed: hingeNodes.join() === '1,3,4,5' && hingesMatch && hingesCarryForces },
+    { id: 'hinges', passed: hingesMatch && hingesCarryForces && hingeSetMatches(hingeNodes, possible, moments, mp) },
     { id: 'yield', passed: completeEvents && ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) && !yieldedOnTheWay },
-    { id: 'equilibrium', passed: reactionsAtSupports && [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) },
-    { id: 'corner', passed: Math.abs(corner - cornerMoment(lambda)) < tolerance && Math.abs(3 * mp + corner - lambda * v * l / 2) < tolerance },
+    { id: 'equilibrium', passed: reactionsAtSupports && (paper ? [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) : relativeResidual(r, lambda, p) < RELATIVE_EQUILIBRIUM) },
   ];
+  if (mode === 'combined') list.push({ id: 'corner', passed: Math.abs(corner - cornerMoment(lambda, p)) < tolerance && Math.abs(3 * mp + corner - lambda * v * l / 2) < tolerance });
+  return list;
 }
 
-export function viewer(step?: Step) {
+export function viewer(step?: Step, p: Portal = PAPER) {
+  const nodes = nodesOf(p);
   const index = new Map(nodes.map((n, i) => [n.id, i]));
   const displacement = step ? nodes.flatMap(n => {
     const d = step.results.displacements.find(d => d.nodeId === n.id);

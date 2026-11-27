@@ -1,0 +1,7 @@
+{
+  "method": "published-peaks.json transcribed by hand from the cited figures and texts; published_comparison.json written by validate.py from a fresh native run.",
+  "files_sha256": {
+    "published-peaks.json": "c400af9021fa647f26d7872534bb99c45eb81eaa60786555b71294347e026b18",
+    "published_comparison.json": "1b04cb7d5078ac1c33c220acf64f670229e564222bc0835006ea04671e5228db"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "what": "The paper’s theoretical values against the production engine; written by wasm/check.mjs.",
+  "command": "node research/benchmarks/macneal-harder-1985/wasm/check.mjs <native results> [--write]",
+  "checks": [
+    {
+      "id": "straight-regular-out",
+      "name": "Straight cantilever, regular 6×1 MITC4 mesh, out-of-plane tip displacement",
+      "source": "MacNeal & Harder (1985), Table 3, p. 10 (geometry Fig. 4, p. 7)",
+      "unit": "",
+      "reference": 0.4321,
+      "computed": 0.4234856436387048,
+      "metric": "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)",
+      "observed": 0.019936024904640606,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "id": "straight-regular-in",
+      "name": "Straight cantilever, regular 6×1 MITC4 mesh, in-plane tip displacement",
+      "source": "MacNeal & Harder (1985), Table 3, p. 10 (geometry Fig. 4, p. 7)",
+      "unit": "",
+      "reference": 0.1081,
+      "computed": 0.10707215714712653,
+      "metric": "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)",
+      "observed": 0.009508259508542713,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "id": "straight-trapezoidal-out",
+      "name": "Straight cantilever, trapezoidal 6×1 MITC4 mesh, out-of-plane tip displacement",
+      "source": "MacNeal & Harder (1985), Table 3, p. 10 (geometry Fig. 4, p. 7)",
+      "unit": "",
+      "reference": 0.4321,
+      "computed": 0.4162053611745954,
+      "metric": "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)",
+      "observed": 0.036784630468420725,
+      "tolerance": 0.02,
+      "passed": false
+    },
+    {
+      "id": "straight-parallelogram-out",
+      "name": "Straight cantilever, parallelogram 6×1 MITC4 mesh, out-of-plane tip displacement",
+      "source": "MacNeal & Harder (1985), Table 3, p. 10 (geometry Fig. 4, p. 7)",
+      "unit": "",
+      "reference": 0.4321,
+      "computed": 0.4225724018592625,
+      "metric": "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)",
+      "observed": 0.022049521269931736,
+      "tolerance": 0.02,
+      "passed": false
+    },
+    {
+      "id": "scordelis-lo-16",
+      "name": "Scordelis–Lo roof, 16×16 quarter MITC4 mesh, downward deflection at the midpoint of the free edge",
+      "source": "MacNeal & Harder (1985), Table 5(a), p. 11 (normalization value; model Fig. 8, p. 8)",
+      "unit": "",
+      "reference": 0.3024,
+      "computed": 0.3024255392135953,
+      "metric": "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)",
+      "observed": 0.00008445507141293468,
+      "tolerance": 0.02,
+      "passed": true
+    }
+  ]
+}

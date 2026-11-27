@@ -1,0 +1,82 @@
+{
+  "command": "LEE_REPLAY_OUTPUT=<fresh.json> cargo test --release --manifest-path engine/Cargo.toml --test solver lee_frame; python3 -I research/benchmarks/lee-frame-1968/validate.py generate <fresh.json>",
+  "case": "engine/tests/benchmarks/lee_frame.json",
+  "checks": [
+    {
+      "name": "The production solver converges at every one of the 90 arc-length steps",
+      "metric": "steps short of the full path",
+      "observed": 0,
+      "tolerance": 0,
+      "passed": true
+    },
+    {
+      "name": "Regression: first sampled peak, 20 elements",
+      "metric": "absolute difference (kN)",
+      "observed": 2.220446049250313e-16,
+      "tolerance": 1e-08,
+      "passed": true
+    },
+    {
+      "name": "20 elements: smaller arc-length steps move the first peak",
+      "metric": "largest change (kN)",
+      "observed": 9.81824657044772e-05,
+      "tolerance": 0.0001,
+      "passed": true
+    },
+    {
+      "name": "40 elements: smaller arc-length steps move the first peak",
+      "metric": "largest change (kN)",
+      "observed": 8.770120668710746e-05,
+      "tolerance": 0.0001,
+      "passed": true
+    },
+    {
+      "name": "80 elements: smaller arc-length steps move the first peak",
+      "metric": "largest change (kN)",
+      "observed": 1.1512876284092144e-05,
+      "tolerance": 0.0001,
+      "passed": true
+    },
+    {
+      "name": "Mesh refinement: ratio of successive changes (4 for second order)",
+      "metric": "absolute difference from 4",
+      "observed": 0.13564031682260946,
+      "tolerance": 1,
+      "passed": true
+    },
+    {
+      "name": "The page replay is a fresh native run",
+      "metric": "largest absolute difference in load (kN), translation (m) and rotation (rad)",
+      "observed": 1.3877787807814457e-15,
+      "tolerance": 1e-09,
+      "passed": true
+    },
+    {
+      "name": "First peak load, 20 elements against Figure 10 reading",
+      "metric": "absolute difference",
+      "reference": 1.87,
+      "computed": 1.8657781212114988,
+      "observed": 0.004221878788501332,
+      "tolerance": 0.03,
+      "passed": true
+    },
+    {
+      "name": "First peak load, extrapolated to zero element length against Figure 10 reading",
+      "metric": "absolute difference",
+      "reference": 1.87,
+      "computed": 1.855716706023603,
+      "observed": 0.014283293976397049,
+      "tolerance": 0.03,
+      "passed": true
+    },
+    {
+      "name": "First peak load, extrapolated to zero element length against Galvão (2000)",
+      "metric": "absolute difference",
+      "reference": 1.86,
+      "computed": 1.855716706023603,
+      "observed": 0.00428329397639704,
+      "tolerance": 0.005,
+      "passed": true
+    }
+  ]
+}

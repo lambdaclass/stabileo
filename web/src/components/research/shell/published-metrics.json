@@ -1,0 +1,25 @@
+{
+  "absolute": [
+    "absolute",
+    "absolute error",
+    "absolute difference",
+    "absolute volume difference",
+    "absolute difference (printed to two decimals)",
+    "absolute difference (printed to five decimals)",
+    "absolute difference (tolerance: the error bar on that side plus 0.003 digitization)"
+  ],
+  "relative": [
+    "relative",
+    "relative error",
+    "relative difference",
+    "relative error, |Stabileo − paper| / paper; Stabileo passes below 2%; the paper awards grade A at or below 2% (p. 14)"
+  ],
+  "paired": [
+    "absolute difference in Y, largest",
+    "absolute difference in ν, largest"
+  ],
+  "errorBar": [
+    "absolute distance outside the error bar",
+    "absolute distance outside the error bar, largest"
+  ]
+}
