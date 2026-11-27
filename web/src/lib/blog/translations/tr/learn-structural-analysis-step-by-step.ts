@@ -1,3 +1,4 @@
+import { courseMethodCounts } from '../../posts/course-method-counts';
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
@@ -48,16 +49,16 @@ const body: PostBody = {
       caption: '“Açıklamalı adım adım” yöntemleri, gruplara göre, katalog sırasıyla.',
       head: ['Grup', 'Sayı', 'Yöntemler'],
       rows: [
-        ['Rijitlik yöntemi', '1', 'Matris yöntemi, sihirbaz olarak'],
-        ['Esneklik yöntemi', '1', 'Kuvvet yöntemi, sihirbaz olarak'],
-        ['Sürekli kirişler', '2', 'Üç moment (Clapeyron); Cross'],
-        ['Çerçeveler', '4', 'Kinematik bilinmeyenler; yanal ötelemesiz ve ötelemeli moment dağıtma; açı yöntemi'],
-        ['Kafes kirişler', '3', 'Düğüm noktaları; kesim (Ritter); uygunluk matrisi'],
-        ['Şekil değiştirmeler ve enerji', '5', 'Çift integrasyon; moment alanı; virtüel iş; Castigliano; kesim yöntemiyle iç kuvvetler'],
-        ['Tesir çizgileri', '1', 'Tesir çizgisi'],
-        ['İkinci mertebe ve burkulma', '2', 'φ fonksiyonlarıyla ve geometrik matrisle ikinci mertebe; mod sayımıyla ve özdeğerlerle burkulma'],
-        ['Plastik hesap', '2', 'Kinematik yöntem; statik yöntem (#758’e kadar alıkonuyor)'],
-        ['Yapı dinamiği', '3', 'Tek serbestlik derecesi; modal ayrıştırmayla çok serbestlik derecesi; yayılı kütle'],
+        ['Rijitlik yöntemi', courseMethodCounts.stiffness, 'Matris yöntemi, sihirbaz olarak'],
+        ['Esneklik yöntemi', courseMethodCounts.flexibility, 'Kuvvet yöntemi, sihirbaz olarak'],
+        ['Sürekli kirişler', courseMethodCounts.continuous, 'Üç moment (Clapeyron); Cross'],
+        ['Çerçeveler', courseMethodCounts.frames, 'Kinematik bilinmeyenler; yanal ötelemesiz ve ötelemeli moment dağıtma; açı yöntemi'],
+        ['Kafes kirişler', courseMethodCounts.trusses, 'Düğüm noktaları; kesim (Ritter); uygunluk matrisi'],
+        ['Şekil değiştirmeler ve enerji', courseMethodCounts.deformation, 'Çift integrasyon; moment alanı; virtüel iş; Castigliano; kesim yöntemiyle iç kuvvetler'],
+        ['Tesir çizgileri', courseMethodCounts.influence, 'Tesir çizgisi'],
+        ['İkinci mertebe ve burkulma', courseMethodCounts.secondOrder, 'φ fonksiyonlarıyla ve geometrik matrisle ikinci mertebe; mod sayımıyla ve özdeğerlerle burkulma'],
+        ['Plastik hesap', courseMethodCounts.plastic, 'Kinematik yöntem; statik yöntem (#758’e kadar alıkonuyor)'],
+        ['Yapı dinamiği', courseMethodCounts.dynamics, 'Tek serbestlik derecesi; modal ayrıştırmayla çok serbestlik derecesi; yayılı kütle'],
       ],
     },
     { k: 'p', t: 'Yapı dersi veriyorsanız olduğu gibi derste kullanabilirsiniz: model bir bağlantıyla paylaşılır ve her öğrenci onu kendi tarayıcısında, kendi dilinde açar. Bir adım anlaşılmıyorsa ya da bir sayı elle bulduğunuzla uyuşmuyorsa bize yazın: tam olarak bilmemiz gereken şey bu.' },

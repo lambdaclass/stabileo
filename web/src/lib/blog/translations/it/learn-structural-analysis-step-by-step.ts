@@ -1,3 +1,4 @@
+import { courseMethodCounts } from '../../posts/course-method-counts';
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
@@ -129,52 +130,52 @@ const body: PostBody = {
       "rows": [
         [
           "Metodo della rigidezza",
-          "1",
+          courseMethodCounts.stiffness,
           "Metodo matriciale, come procedura guidata"
         ],
         [
           "Metodo della flessibilità",
-          "1",
+          courseMethodCounts.flexibility,
           "Metodo delle forze, come procedura guidata"
         ],
         [
           "Travi continue",
-          "2",
+          courseMethodCounts.continuous,
           "Tre momenti (Clapeyron); distribuzione dei momenti (Hardy Cross)"
         ],
         [
           "Telai",
-          "4",
+          courseMethodCounts.frames,
           "Incognite cinematiche; distribuzione dei momenti senza e con spostamento laterale; metodo delle rotazioni"
         ],
         [
           "Travature reticolari",
-          "3",
+          courseMethodCounts.trusses,
           "Nodi; sezioni (Ritter); matrice di compatibilità"
         ],
         [
           "Deformazioni ed energia",
-          "5",
+          courseMethodCounts.deformation,
           "Doppia integrazione; area dei momenti; lavori virtuali; Castigliano; sollecitazioni interne per tagli"
         ],
         [
           "Linee d’influenza",
-          "1",
+          courseMethodCounts.influence,
           "Linea d’influenza"
         ],
         [
           "Secondo ordine e instabilità",
-          "2",
+          courseMethodCounts.secondOrder,
           "Secondo ordine con funzioni φ e con la matrice geometrica; instabilità per numero di modi e per autovalori"
         ],
         [
           "Analisi plastica",
-          "2",
+          courseMethodCounts.plastic,
           "Metodo cinematico; metodo statico (entrambi disattivati fino alla correzione di #758)"
         ],
         [
           "Dinamica strutturale",
-          "3",
+          courseMethodCounts.dynamics,
           "Un grado di libertà; più gradi di libertà per decomposizione modale; massa distribuita"
         ]
       ]

@@ -1,3 +1,4 @@
+import { evidence } from '../../../components/research/grossman2026/evidence';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
@@ -69,7 +70,7 @@ it.each([
   ["formEditorLabel", STRINGS.it["formEditorLabel"], "stesso carico verticale, senza pretensione"],
   ["springsStripSeries", STRINGS.it["springsStripSeries"], "Stabileo, striscia"],
   ["lost", feher.it["lost"], "possibile interpretazione fisica"],
-  ["dilution-floppy", checkLabel({ id: 'dilution-floppy', name: 'dilution' }, 'it'), "G/k < 10⁻⁶"],
+  ["dilution-floppy", checkLabel(evidence.flatMap(group => group.checks).find(check => check.id === 'dilution-floppy')!, 'it'), "max |G|/k ≤ 1e-6"],
   ["plate mesh release note", JSON.stringify(CHANGELOG.map(entry => itemsByArea(entry, 'it'))), "Il generatore della mesh"],
 ] as const)('known wrong result: #2595 — %s', (_label, actual, expected) => {
   expect(actual).toContain(expected);

@@ -508,8 +508,8 @@
     "title": "Controle van gegenereerde belastingbronnen vóór de berekening"
   },
   "generated-structure-stability": {
-    "explanation": "Losstaande vlakke vakwerken, gewalste liggers, vakwerkliggers, Howe-daken en sheddaken hebben nu expliciete laterale paneelbeperkingen en vorkopleggingen. Losstaande vakwerkkolommen krijgen standaard ingeklemde voeten. Hallen krijgen standaard wand-, dak- en verticaal vakwerkverband; ze gebruiken fysiek verband in plaats van losstaande vlakke opleggingen. De vorige invoer had fysieke nulmodi en blijft geweigerd, ook wanneer de belastingen ze niet aanslaan. Opgeslagen modellen zijn ongewijzigd: genereer opnieuw, controleer de opleggingen en het verband, en bereken opnieuw.",
-    "title": "Gegenereerde vlakke constructies krijgen expliciete beperkingen en hallen krijgen standaard windverband"
+    "explanation": "Losstaande vlakke vakwerken, gewalste liggers, vakwerkliggers, Howe-daken en sheddaken hebben nu expliciete laterale paneelbeperkingen en vorkopleggingen. Losstaande vakwerkkolommen krijgen standaard ingeklemde voeten. Hallen (sheds) krijgen standaard wand-, dak- en verticaal vakwerkverband; ze gebruiken fysiek verband in plaats van losstaande vlakke opleggingen. De vorige invoer had fysieke nulmodi en blijft geweigerd, ook wanneer de belastingen ze niet aanslaan. Opgeslagen modellen zijn ongewijzigd: genereer opnieuw, controleer de opleggingen en het verband, en bereken opnieuw.",
+    "title": "Gegenereerde vlakke constructies krijgen expliciete beperkingen en hallen (sheds) krijgen standaard windverband"
   },
   "global-axes-inputs": {
     "explanation": "Canonieke opgeslagen modellen behouden hun resultaten. Importeer modellen die via de niet-gemergde functie voor globale assen zijn ingevoerd opnieuw: expliciete 2D-geometrie, gespiegelde niet-lineaire veerkrommen en opleggingsrichtingen in werkmappen behouden nu hun fysieke betekenis (#1986). Normalen van lokale beperkingen in de modelcode volgen nu het opgegeven globale assenstelsel, en losstaand zwaartekrachtgebruik in werkmappen behoudt zijn aparte betekenis van alle belastingen (#2259). Openstaande globale belastingconcepten en doelen met coördinatenbereik behouden nu hun fysieke betekenis wanneer assen veranderen; snelle info behoudt de SRSS/ABS-componentgroottes (#2259). Openstaande concepten voor geometrie, transformaties, diafragma's en ondergronden behouden hun fysieke betekenis; opleggingsvelden die lokaal bij de staaf horen, blijven lokaal. Ondersteunde LoadData-belastingen uit werkmappen geven bij heen-en-terugconversie hun fysieke krachten, momenten en gevalslidmaatschap terug (#2259).",
@@ -1284,8 +1284,8 @@
     "title": "Eerder gegenereerde seismische belastingen controleren"
   },
   "seismic-shell-geometry": {
-    "explanation": "Statische seismische generatie stopt wanneer schaal- of plaathoeken ontbreken of niet eindig zijn. Herstel de betreffende geometrie, genereer de E-belastingen opnieuw en herhaal berekeningen en ontwerptoetsingen (#2316).",
-    "title": "Statische seismische generatie vereist eindige schaalhoeken"
+    "explanation": "Statische seismische generatie stopt wanneer hoekpunten van een schaal of plaat ontbreken of de coördinaten van die hoekpunten niet eindig zijn. Herstel de betreffende geometrie, genereer de E-belastingen opnieuw en herhaal berekeningen en ontwerptoetsingen (#2316).",
+    "title": "Statische seismische generatie vereist eindige coördinaten van de schaalhoekpunten"
   },
   "seismic-story-level-forces": {
     "explanation": "Statische seismische krachten werken op verdiepingsknopen in verhouding tot hun belaste massa. Modellen met deelnemende massa onder het referentieniveau van de opleggingen worden geweigerd. Genereer de betreffende E-belastingen opnieuw en herhaal berekeningen en ontwerptoetsingen (#2316).",

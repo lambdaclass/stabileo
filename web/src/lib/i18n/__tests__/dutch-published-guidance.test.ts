@@ -1,3 +1,4 @@
+import { evidence } from '../../../components/research/grossman2026/evidence';
 import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { findPost } from '../../blog';
@@ -47,7 +48,7 @@ it.each([
 
 it.each([
   [mohrTranslations.nl['mohr.rotation'], "Hoek θ van de vlaknormaal, tegen de klok in vanaf de x-as"],
-  [checkLabel({ id: 'dilution-floppy', name: '' }, 'nl'), "G/k < 10⁻⁶"],
+  [checkLabel(evidence.flatMap(group => group.checks).find(check => check.id === 'dilution-floppy')!, 'nl'), "max |G|/k ≤ 1e-6"],
   [riser.nl.checkLabels["T16 step 3: touchdown (moment at half its plateau) vs reference data [m]"], "helft van het momentplateau"],
   [riser.nl.checkLabels["T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]"], "laatste knoop op de zeebodem"],
   [mainCopy.nl.runNote, "Bevestig de wijziging van de verre hoek"],

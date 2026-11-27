@@ -1,3 +1,4 @@
+import { courseMethodCounts } from '../../posts/course-method-counts';
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
@@ -129,52 +130,52 @@ const body: PostBody = {
       "rows": [
         [
           "Verplaatsingsmethode",
-          "1",
+          courseMethodCounts.stiffness,
           "Matrixmethode, als wizard"
         ],
         [
           "Krachtenmethode",
-          "1",
+          courseMethodCounts.flexibility,
           "Krachtenmethode, als wizard"
         ],
         [
           "Doorlopende liggers",
-          "2",
+          courseMethodCounts.continuous,
           "Drie momenten (Clapeyron); momentenverdeling (Hardy Cross)"
         ],
         [
           "Raamwerken",
-          "4",
+          courseMethodCounts.frames,
           "Kinematische onbekenden; momentenverdeling zonder en met zijdelingse verplaatsing; hoekverdraaiingsmethode"
         ],
         [
           "Vakwerken",
-          "3",
+          courseMethodCounts.trusses,
           "Knopen; sneden (Ritter); compatibiliteitsmatrix"
         ],
         [
           "Vervormingen en energie",
-          "5",
+          courseMethodCounts.deformation,
           "Dubbele integratie; momentenoppervlakken; virtuele arbeid; Castigliano; snedekrachten door sneden"
         ],
         [
           "Invloedslijnen",
-          "1",
+          courseMethodCounts.influence,
           "Invloedslijn"
         ],
         [
           "Tweede orde en knik",
-          "4",
+          courseMethodCounts.secondOrder,
           "P-Δ met φ-functies; P-Δ met een geometrische matrix (consistent of koordematrix P/L); knik met modustelling; knik met eigenwaarden"
         ],
         [
           "Plastische berekening",
-          "2",
+          courseMethodCounts.plastic,
           "Kinematische methode; statische methode (voor dit 2D-portaal geweigerd wegens #758)"
         ],
         [
           "Constructiedynamica",
-          "3",
+          courseMethodCounts.dynamics,
           "Eén vrijheidsgraad; meerdere vrijheidsgraden door modale ontbinding; verdeelde massa"
         ]
       ]

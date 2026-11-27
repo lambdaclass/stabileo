@@ -271,7 +271,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Le strutture piane generate ricevono vincoli espliciti, e le tettoie usano per impostazione predefinita un controventamento fisico. Rigenera e rivedi vincoli e controventi; i modelli salvati non cambiano.",
+        "Le strutture piane generate ricevono vincoli espliciti, e i capannoni (sheds) usano per impostazione predefinita un controventamento fisico. Rigenera e rivedi vincoli e controventi; i modelli salvati non cambiano.",
         "L’esperimento di controllo di forma di strisce piegate di Fehér, Sipos e Várkonyi ha un solutore interattivo, percorsi degli attuatori e un confronto con l’articolo in inglese, spagnolo e portoghese. Anche il riepilogo della striscia tagliata è tradotto in spagnolo e portoghese.",
         "L’articolo di rilascio sul blog della 0.5.0 ha ora traduzioni complete in tedesco, francese e turco. Gli avvisi dei certificati plastici e i rifiuti per risorse sono tradotti in ogni lingua offerta."
       ]

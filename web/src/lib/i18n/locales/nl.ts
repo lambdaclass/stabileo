@@ -1403,7 +1403,7 @@ const nl: Translations = {
   "flex.out.a": "a (blok)",
   "flex.out.epsT": "εt (netto trekrek)",
   "flex.out.phi": "φ",
-  "flex.out.balanced": "Evenwichtspunt",
+  "flex.out.balanced": "Balanspunt",
   "flex.out.stirrups": "Beugels",
   "flex.out.blockIn": "Het blok valt",
   "flex.out.inFlange": "binnen de flens",

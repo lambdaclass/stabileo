@@ -1,3 +1,4 @@
+import { courseMethodCounts } from '../../posts/course-method-counts';
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
@@ -129,52 +130,52 @@ const body: PostBody = {
       "rows": [
         [
           "刚度法",
-          "1",
+          courseMethodCounts.stiffness,
           "矩阵法，以向导形式"
         ],
         [
           "柔度法",
-          "1",
+          courseMethodCounts.flexibility,
           "力法，以向导形式"
         ],
         [
           "连续梁",
-          "2",
+          courseMethodCounts.continuous,
           "三弯矩方程（Clapeyron）；力矩分配法（Hardy Cross）"
         ],
         [
           "框架",
-          "4",
+          courseMethodCounts.frames,
           "运动学未知量；无侧移与有侧移的力矩分配法；转角位移法"
         ],
         [
           "桁架",
-          "3",
+          courseMethodCounts.trusses,
           "结点法；截面法（Ritter）；协调矩阵"
         ],
         [
           "变形与能量",
-          "5",
+          courseMethodCounts.deformation,
           "二次积分；弯矩面积法；虚功原理；Castigliano 定理；截断法求内力"
         ],
         [
           "影响线",
-          "1",
+          courseMethodCounts.influence,
           "影响线"
         ],
         [
           "二阶分析与屈曲",
-          "2",
+          courseMethodCounts.secondOrder,
           "用 φ 函数和几何矩阵的二阶分析；按振型数和按特征值的屈曲分析"
         ],
         [
           "塑性分析",
-          "2",
+          courseMethodCounts.plastic,
           "机动法；静力法（在 #758 修复前暂不提供）"
         ],
         [
           "结构动力学",
-          "3",
+          courseMethodCounts.dynamics,
           "单自由度；多自由度的振型分解；分布质量"
         ]
       ]

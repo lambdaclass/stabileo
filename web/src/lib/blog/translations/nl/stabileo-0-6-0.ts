@@ -271,7 +271,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Gegenereerde vlakke constructies krijgen expliciete inklemmingen, en afdaken krijgen standaard fysiek verband. Genereer opnieuw en beoordeel de opleggingen en het verband; opgeslagen modellen zijn ongewijzigd.",
+        "Gegenereerde vlakke constructies krijgen expliciete oplegvoorwaarden, en hallen (sheds) krijgen standaard fysiek verband. Genereer opnieuw en beoordeel de opleggingen en het verband; opgeslagen modellen zijn ongewijzigd.",
         "Het experiment met vormcontrole van de gebogen strook van Fehér, Sipos en Várkonyi heeft een interactieve solver, actuatorpaden en een papervergelijking in het Engels, Spaans en Portugees. De samenvatting van de gesneden strook is ook vertaald naar het Spaans en Portugees.",
         "Het blogartikel over release 0.5.0 heeft nu volledige Duitse, Franse en Turkse vertalingen. Waarschuwingen over plastische certificaten en weigeringen wegens middelen zijn vertaald in elke aangeboden taal."
       ]

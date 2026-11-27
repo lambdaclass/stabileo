@@ -1,3 +1,4 @@
+import { courseMethodCounts } from '../../posts/course-method-counts';
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
@@ -48,16 +49,16 @@ const body: PostBody = {
       caption: 'Les méthodes de « Pas à pas expliqué », par groupe, dans l’ordre du catalogue.',
       head: ['Groupe', 'Nombre', 'Méthodes'],
       rows: [
-        ['Méthode des rigidités', '1', 'Matricielle, en assistant'],
-        ['Méthode des flexibilités', '1', 'Méthode des forces, en assistant'],
-        ['Poutres continues', '2', 'Trois moments (Clapeyron) ; Cross'],
-        ['Portiques', '4', 'Inconnues cinématiques ; Cross à nœuds fixes et déplaçables ; méthode des rotations'],
-        ['Treillis', '3', 'Nœuds ; coupes (Ritter) ; matrice de compatibilité'],
-        ['Déformations et énergie', '5', 'Double intégration ; aires des moments ; travaux virtuels ; Castigliano ; efforts internes par coupures'],
-        ['Lignes d’influence', '1', 'Ligne d’influence'],
-        ['Second ordre et flambement', '2', 'Second ordre avec fonctions φ et avec matrice géométrique ; flambement par comptage des modes et par valeurs propres'],
-        ['Calcul plastique', '2', 'Méthode cinématique ; méthode statique (retenues jusqu’à #758)'],
-        ['Dynamique des structures', '3', 'Un degré de liberté ; plusieurs degrés par décomposition modale ; masse répartie'],
+        ['Méthode des rigidités', courseMethodCounts.stiffness, 'Matricielle, en assistant'],
+        ['Méthode des flexibilités', courseMethodCounts.flexibility, 'Méthode des forces, en assistant'],
+        ['Poutres continues', courseMethodCounts.continuous, 'Trois moments (Clapeyron) ; Cross'],
+        ['Portiques', courseMethodCounts.frames, 'Inconnues cinématiques ; Cross à nœuds fixes et déplaçables ; méthode des rotations'],
+        ['Treillis', courseMethodCounts.trusses, 'Nœuds ; coupes (Ritter) ; matrice de compatibilité'],
+        ['Déformations et énergie', courseMethodCounts.deformation, 'Double intégration ; aires des moments ; travaux virtuels ; Castigliano ; efforts internes par coupures'],
+        ['Lignes d’influence', courseMethodCounts.influence, 'Ligne d’influence'],
+        ['Second ordre et flambement', courseMethodCounts.secondOrder, 'Second ordre avec fonctions φ et avec matrice géométrique ; flambement par comptage des modes et par valeurs propres'],
+        ['Calcul plastique', courseMethodCounts.plastic, 'Méthode cinématique ; méthode statique (retenues jusqu’à #758)'],
+        ['Dynamique des structures', courseMethodCounts.dynamics, 'Un degré de liberté ; plusieurs degrés par décomposition modale ; masse répartie'],
       ],
     },
     { k: 'p', t: 'Si vous enseignez les structures, vous pouvez l’utiliser en cours tel quel : un modèle se partage par lien et chaque étudiant l’ouvre dans son navigateur, dans sa langue. Si une étape n’est pas claire ou si un nombre ne correspond pas à votre calcul à la main, écrivez-nous : c’est exactement ce que nous avons besoin de savoir.' },

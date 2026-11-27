@@ -1,3 +1,4 @@
+import { evidence } from '../../../components/research/grossman2026/evidence';
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
@@ -136,7 +137,7 @@ it.each([
   [fairclough.it.area, 'Area della sezione trasversale'],
   [feher.it.tabs.path, 'Percorso'],
   [gayNeto.it.code, 'Codice di riferimento (BSD-3-Clause)'],
-  [checkLabel({ id: 'square-shear', name: 'square lattice shear modulus' }, 'it'), 'Reticolo quadrato: modulo di taglio nullo'],
+  [checkLabel(evidence.flatMap(group => group.checks).find(check => check.id === 'square-shear')!, 'it'), 'Reticolo quadrato: modulo di taglio nullo'],
 ])('labels the published control or benchmark as %s', (actual, expected) => {
   expect(actual).toBe(expected);
 });

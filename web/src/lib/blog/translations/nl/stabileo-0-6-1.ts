@@ -192,7 +192,7 @@ const body: PostBody =  {
     },
     {
       "k": "p",
-      "t": "Beton- en staaltoetsingen behouden krachten uit dezelfde combinatie en snede. Onvolledige combinatie- of snededata weigert nu in plaats van een eindpuntresultaat te lenen. Vereiste en aangebrachte wapeningstoestanden blijven gescheiden, en ontbrekende langstorsiewapening wordt expliciet gemeld."
+      "t": "Beton- en staaltoetsingen behouden krachten uit dezelfde combinatie en snede. Versie 0.6.1 weigerde sommige onvolledige combinatie- of snedegegevens, maar kon ontbrekende gelijktijdige snedekrachten nog accepteren (#2096, SA-2026-071), dus controleer de getroffen resultaten onafhankelijk of herhaal de toetsingen met versie 0.6.2 of later. Vereiste en aangebrachte wapeningstoestanden blijven gescheiden, en ontbrekende langstorsiewapening wordt expliciet gemeld."
     },
     {
       "k": "h",

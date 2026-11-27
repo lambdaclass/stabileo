@@ -143,15 +143,15 @@ const labels: Record<string, Record<string, string>> = {
     "nl": "Invariantie onder rotatie"
   },
   "dilution-floppy": {
-    "es": "Dilución z = 3: G nulo",
-    "pt": "Diluição z = 3: G nulo",
-    "de": "Verdünnung z = 3: G verschwindet",
-    "fr": "Dilution z = 3 : G nul",
-    "tr": "Seyreltme z = 3: G sıfır",
-    "hu": "Ritkítás z = 3: G zérus",
-    'it': "Diluizione z = 3: G/k < 10⁻⁶",
-    "zh": "稀化 z = 3：G 为零",
-    "nl": "Verdunning z = 3: G/k < 10⁻⁶"
+    "es": "Dilución z = 3",
+    "pt": "Diluição z = 3",
+    "de": "Verdünnung z = 3",
+    "fr": "Dilution z = 3",
+    "tr": "Seyreltme z = 3",
+    "hu": "Ritkítás z = 3",
+    'it': "Diluizione z = 3",
+    "zh": "稀化 z = 3",
+    "nl": "Verdunning z = 3"
   },
   "dilution-rigid": {
     "es": "Dilución z = 5.4: G/k ≥ 0.1",
@@ -341,8 +341,9 @@ const labels: Record<string, Record<string, string>> = {
     "nl": "Regressie van het periodieke ensemble bij η = 0.5"
   }
 };
-export function checkLabel(check: {id: string; name: string}, locale: string) {
+export function checkLabel(check: {id: string; name: string; tolerance: number}, locale: string) {
   const value = labels[check.id]?.[locale] ?? check.name;
+  if (check.id === 'dilution-floppy') return `${value}: max |G|/k ≤ ${check.tolerance.toExponential()}`;
   return value.replace(/\b\d+\.\d+\b/g, (n) => new Intl.NumberFormat(locale).format(Number(n)));
 }
 export function checkMetric(metric: string, locale: string) {

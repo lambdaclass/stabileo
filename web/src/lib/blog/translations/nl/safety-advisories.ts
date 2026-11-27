@@ -1246,7 +1246,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-129",
-          "Bewegende-belastingomhullenden konden dwarskracht of normaalkracht verkeerd weergeven, en opgeslagen voertuigposities konden sprongen in de normaalkracht in ruimtelijke vakwerken weglaten. Bij exact samenvallen geven de as en de permanente puntlast samen één sprong in de dwarskracht. De dwarskracht ertussen heeft eenzijdige limieten wanneer de as de last nadert of passeert. Controleer beide limieten met de as net vóór en net na de last. Bereken de getroffen omhullenden opnieuw, genereer opgeslagen gevallen opnieuw en voer afhankelijke berekeningen en ontwerptoetsingen opnieuw uit.",
+          "Voertuigsweeps konden onjuiste waarden voor dwarskracht en normaalkracht opleveren, en opgeslagen voertuigposities konden sprongen in de normaalkracht in ruimtelijke vakwerken weglaten. Bij exact samenvallen geven de as en de permanente puntlast samen één sprong in de dwarskracht. De dwarskracht ertussen heeft eenzijdige limieten wanneer de as de last nadert of passeert. Controleer beide limieten met de as net vóór en net na de last. Voer eerst de getroffen voertuigsweeps opnieuw uit en bouw daaruit de omhullenden opnieuw op, genereer opgeslagen gevallen opnieuw en voer afhankelijke berekeningen en ontwerptoetsingen opnieuw uit.",
           "Hoog",
           "Volgende release na 0.6.4"
         ],

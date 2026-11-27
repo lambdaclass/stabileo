@@ -1028,7 +1028,7 @@ const nl: Record<Key, string> = {
   'tag.vertexWrongEnd.V': 'De parabool heeft haar top aan het verkeerde uiteinde: de raaklijn is horizontaal waar de belasting nul is.',
   'tag.jumpMissing': 'Er ontbreekt een sprong: een puntlast laat de dwarskracht springen en een koppel laat het moment springen.',
   'tag.nonZeroAtRelease': 'Het moment is niet nul waar het dat moet zijn: bij een momentscharnier of bij een vrij of scharnierend uiteinde zonder aangebracht eindkoppel.',
-  'tag.inflectionMisplaced': 'Het buigpunt zit op de verkeerde plek: de kromming wisselt van teken waar het moment van teken wisselt.',
+  'tag.inflectionMisplaced': 'Het buigpunt ligt waar de kromming van het diagram van teken wisselt. Een nulmoment alleen is daarvoor niet voldoende.',
   'tag.supportDisplaced': 'De doorbuiging is niet nul bij een oplegging.',
   'tag.memberSignFlipped': 'Verwisselt trek en druk in sommige staven.',
   'tag.zeroForceLoaded': 'Geeft een kracht aan een staaf die er geen draagt.',

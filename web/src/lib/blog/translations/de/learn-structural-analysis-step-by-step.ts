@@ -1,3 +1,4 @@
+import { courseMethodCounts } from '../../posts/course-method-counts';
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
@@ -48,16 +49,16 @@ const body: PostBody = {
       caption: 'Die Verfahren in „Schritt für Schritt erklärt“, nach Gruppen, in der Reihenfolge des Katalogs.',
       head: ['Gruppe', 'Anzahl', 'Verfahren'],
       rows: [
-        ['Weggrößenverfahren', '1', 'Matrixform, als Assistent'],
-        ['Kraftgrößenverfahren', '1', 'Kraftgrößenverfahren, als Assistent'],
-        ['Durchlaufträger', '2', 'Dreimomentengleichung (Clapeyron); Momentenausgleich (Cross)'],
-        ['Rahmen', '4', 'Kinematische Unbekannte; Momentenausgleich unverschieblich und verschieblich; Drehwinkelverfahren'],
-        ['Fachwerke', '3', 'Knotenpunktverfahren; Ritterschnitt; Kompatibilitätsmatrix'],
-        ['Verformungen und Energie', '5', 'Zweifache Integration; Momentenflächen; Arbeitssatz; Castigliano; Schnittgrößen nach dem Schnittprinzip'],
-        ['Einflusslinien', '1', 'Einflusslinie'],
-        ['Theorie II. Ordnung und Knicken', '2', 'II. Ordnung mit φ-Funktionen und mit geometrischer Matrix; Knicken durch Modenzählung und über Eigenwerte'],
-        ['Traglastverfahren', '2', 'Kinematisches Verfahren; statisches Verfahren (zurückgehalten bis #758)'],
-        ['Baudynamik', '3', 'Ein Freiheitsgrad; mehrere Freiheitsgrade durch modale Zerlegung; verteilte Masse'],
+        ['Weggrößenverfahren', courseMethodCounts.stiffness, 'Matrixform, als Assistent'],
+        ['Kraftgrößenverfahren', courseMethodCounts.flexibility, 'Kraftgrößenverfahren, als Assistent'],
+        ['Durchlaufträger', courseMethodCounts.continuous, 'Dreimomentengleichung (Clapeyron); Momentenausgleich (Cross)'],
+        ['Rahmen', courseMethodCounts.frames, 'Kinematische Unbekannte; Momentenausgleich unverschieblich und verschieblich; Drehwinkelverfahren'],
+        ['Fachwerke', courseMethodCounts.trusses, 'Knotenpunktverfahren; Ritterschnitt; Kompatibilitätsmatrix'],
+        ['Verformungen und Energie', courseMethodCounts.deformation, 'Zweifache Integration; Momentenflächen; Arbeitssatz; Castigliano; Schnittgrößen nach dem Schnittprinzip'],
+        ['Einflusslinien', courseMethodCounts.influence, 'Einflusslinie'],
+        ['Theorie II. Ordnung und Knicken', courseMethodCounts.secondOrder, 'II. Ordnung mit φ-Funktionen und mit geometrischer Matrix; Knicken durch Modenzählung und über Eigenwerte'],
+        ['Traglastverfahren', courseMethodCounts.plastic, 'Kinematisches Verfahren; statisches Verfahren (zurückgehalten bis #758)'],
+        ['Baudynamik', courseMethodCounts.dynamics, 'Ein Freiheitsgrad; mehrere Freiheitsgrade durch modale Zerlegung; verteilte Masse'],
       ],
     },
     { k: 'p', t: 'Wenn Sie Baustatik unterrichten, können Sie es so, wie es ist, in der Vorlesung einsetzen: Ein Modell wird per Link geteilt, und jede Studentin und jeder Student öffnet es im eigenen Browser, in der eigenen Sprache. Wenn ein Schritt unklar ist oder eine Zahl nicht mit Ihrer Handrechnung übereinstimmt, schreiben Sie uns: Genau das müssen wir wissen.' },
