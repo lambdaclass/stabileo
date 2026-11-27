@@ -30,7 +30,7 @@
       "computed": 1.1378066999020306
     },
     {
-      "name": "Crown rotation at the limit point, 40 elements",
+      "name": "Crown rotation magnitude at the limit point, 40 elements",
       "metric": "relative difference",
       "observed": 0.031036234058729885,
       "tolerance": 0.04,
@@ -115,14 +115,14 @@
       "passed": true
     },
     {
-      "name": "Crown rotation at the limit point: observed order of mesh convergence",
+      "name": "Crown rotation magnitude at the limit point: observed order of mesh convergence",
       "metric": "absolute difference from 2",
       "observed": 0.009722877218416581,
       "tolerance": 0.5,
       "passed": true
     },
     {
-      "name": "Crown rotation at the limit point: extrapolated to zero element length",
+      "name": "Crown rotation magnitude at the limit point: extrapolated to zero element length",
       "metric": "relative difference",
       "observed": 0.0013988265223782168,
       "tolerance": 0.010315309692828298,
@@ -131,7 +131,7 @@
       "computed": 0.04986966156081443
     },
     {
-      "name": "Crown rotation at the limit point: tolerance within 1.25 × its 40-element budget",
+      "name": "Crown rotation magnitude at the limit point: tolerance within 1.25 × its 40-element budget",
       "metric": "tolerance / budget − 1",
       "observed": 0.05265856346717723,
       "tolerance": 0.25,

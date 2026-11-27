@@ -10,7 +10,7 @@ DaDeppo, D. A. and Schmidt, R. (1975), “Instability of Clamped-Hinged Circular
 
 Robert Schmidt's 2000 discussion, Journal of Engineering Mechanics 126(12), p. 1308, quotes Table 1 of the 1975 paper for the limit point: **PR²/EI = 8.97**, crown **u/R = 0.6116**, **v/R = 1.1372** and rotation **0.0498**. Source: https://userweb.eng.gla.ac.uk/sondipon.adhikari/fulltext/journal/ft7a.pdf (second PDF page). All four values are compared. The comparison is with this quotation by the paper's coauthor; the 1975 table itself was not available to us. No reference code or copyrighted figures are copied.
 
-Signs: u is positive toward the pinned end (engine +x), v downward (engine −uz). The rotation is compared with the engine's crown rotation `ry`, which is positive at the limit point; see "Open questions".
+Signs: u is positive toward the pinned end (engine +x), v downward (engine −uz). The paper comparison uses the magnitude of the crown rotation. The signed engine regression independently checks `ry`, which is positive at the limit point; see "Open questions".
 
 The frequently reported **P = 897** uses **R = 100, EI = 10⁶**. It is a dimensional load, not PR²/EI. Our equivalent normalized model uses R = 1 m, EI = 1 kN·m², EA = 10⁶ kN and reference P = 1 kN. Engine modulus input E = 1000 MPa, A = 1 m², I = 10⁻⁶ m⁴.
 

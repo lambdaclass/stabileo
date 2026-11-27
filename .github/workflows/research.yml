@@ -324,7 +324,7 @@ jobs:
       - name: Mattiasson validation and published comparison are what the fresh run gives
         run: |
           python3 -I research/benchmarks/mattiasson-elastica/validate.py check "$RUNNER_TEMP/mattiasson-native.json" "$RUNNER_TEMP/mattiasson-mesh.json"
-          python3 -I research/benchmarks/mattiasson-elastica/test_validate.py "$RUNNER_TEMP/mattiasson-native.json" "$RUNNER_TEMP/mattiasson-mesh.json"
+          python3 -I research/benchmarks/mattiasson-elastica/test_validate.py
       - name: Mattiasson production WASM parity and measurements
         run: |
           nix develop -c node research/benchmarks/mattiasson-elastica/wasm/check.mjs "$RUNNER_TEMP/mattiasson-native.json"

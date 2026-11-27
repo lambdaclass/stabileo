@@ -10,7 +10,6 @@ spec.loader.exec_module(lee)
 
 
 class LeeEvidence(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_declared_readings_and_limits_are_exact(self):
         row = {'reference': 1.0, 'computed': 1.0, 'observed': 0.0, 'tolerance': 1e-10}
         for key in ('reference', 'tolerance'):
@@ -18,7 +17,6 @@ class LeeEvidence(unittest.TestCase):
                 self.assertFalse(lee.same(row, {**row, key: row[key] + 1e-10}))
         self.assertTrue(lee.same(row, row))
 
-    @unittest.skip("known wrong result: #2505")
     def test_rejects_incorrect_paper_result_selector(self):
         reading = lee.load(lee.READING)
         reading['rows'][1]['computed'] = 'elements20'
@@ -26,7 +24,6 @@ class LeeEvidence(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'selector'):
                 lee.evidence(self.run)
 
-    @unittest.skip("known wrong result: #2505")
     def test_duplicate_study_settings_cannot_verify_step_sensitivity(self):
         self.case['convergence']['cases'] += self.case['convergence']['cases'][:1]
         self.run['study'] += self.run['study'][:1]
@@ -34,7 +31,6 @@ class LeeEvidence(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'refinement'):
                 lee.evidence(self.run)
 
-    @unittest.skip("known wrong result: #2505")
     def test_equal_or_reversed_refined_peaks_withhold_extrapolation(self):
         p40 = min((r for r in self.run['study'] if r['split'] == 2), key=lambda r: r['stepScale'])['firstPeak']
         for offset in (0, 1):

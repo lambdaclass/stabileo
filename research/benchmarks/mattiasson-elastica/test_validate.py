@@ -10,7 +10,6 @@ spec.loader.exec_module(model)
 
 
 class PublishedTable(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_replay_rejects_an_extra_or_repeated_case(self):
         stored = model.load(model.HERE / 'RESULTS.json')['cases']
         expected = [r['id'] for r in stored]
@@ -19,7 +18,6 @@ class PublishedTable(unittest.TestCase):
                 model.replay_cases([extra] + stored, expected)
         self.assertEqual(set(model.replay_cases(stored, expected)), set(expected))
 
-    @unittest.skip("known wrong result: #2505")
     def test_failed_generation_preserves_evidence(self):
         failed = {'checks': [{'name': 'missing measurement', 'passed': False}]}
         with patch.object(model, 'load', return_value=[]), patch.object(model, 'evidence', return_value=(failed, {'checks': []})), patch.object(Path, 'write_text') as write:
@@ -27,7 +25,6 @@ class PublishedTable(unittest.TestCase):
                 model.main('generate', 'run', 'mesh')
             write.assert_not_called()
 
-    @unittest.skip("known wrong result: #2505")
     def test_declared_readings_and_limits_are_exact(self):
         row = {'reference': 1.0, 'computed': 1.0, 'observed': 0.0, 'tolerance': 1e-10}
         for key in ('reference', 'tolerance'):
@@ -41,9 +38,8 @@ class PublishedTable(unittest.TestCase):
         for rows in [[], table['rows'][:-1], table['rows'][:-1] + table['rows'][:1]]:
             with self.subTest(count=len(rows)), patch.object(model, 'load', side_effect=lambda p: {**table, 'rows': rows} if p == model.TABLE else original(p)):
                 with self.assertRaises(ValueError):
-                    model.evidence(native, mesh)
+                    model.published_table()
 
 
 if __name__ == '__main__':
-    native, mesh = map(model.load, sys.argv[1:])
     unittest.main(argv=sys.argv[:1])

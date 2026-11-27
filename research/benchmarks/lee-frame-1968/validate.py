@@ -6,6 +6,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
+sys.path.insert(0, str(ROOT / 'research/tools'))
+from compare_evidence import differences
+
 CASE = ROOT / 'engine/tests/benchmarks/lee_frame.json'
 READING = HERE / 'reference-results/published-peaks.json'
 COMMAND = ('LEE_REPLAY_OUTPUT=<fresh.json> cargo test --release --manifest-path engine/Cargo.toml --test solver lee_frame; '
@@ -41,6 +44,10 @@ def evidence(fresh):
         return sorted((r['split'], r['stepScale']) for r in rows)
     if settings(study) != settings(case['convergence']['cases']) or not all(math.isfinite(m['firstPeak']) for m in study):
         raise ValueError('Incomplete native refinement study')
+    for split in (1, 2, 4):
+        scales = [r['stepScale'] for r in study if r['split'] == split]
+        if len(set(scales)) != len(scales) or len(scales) < 2:
+            raise ValueError('Expected distinct refinement step scales per mesh')
     finest = {}
     for split in (1, 2, 4):
         values = [c['firstPeak'] for c in study if c['split'] == split]
@@ -49,10 +56,11 @@ def evidence(fresh):
                        'observed': spread, 'tolerance': case['convergence']['stepEffectBound'], 'passed': spread < case['convergence']['stepEffectBound']})
         finest[split] = min((c for c in study if c['split'] == split), key=lambda c: c['stepScale'])['firstPeak']
     p20, p40, p80 = finest[1], finest[2], finest[4]
-    ratio = (p20 - p40) / (p40 - p80)
+    ratio = (p20 - p40) / (p40 - p80) if p20 > p40 > p80 else None
+    ratio_error = abs(ratio - 4) if ratio is not None else None
     checks.append({'name': 'Mesh refinement: ratio of successive changes (4 for second order)', 'metric': 'absolute difference from 4',
-                   'observed': abs(ratio - 4), 'tolerance': 1, 'passed': abs(ratio - 4) < 1})
-    extrapolated = p80 + (p80 - p40) / (ratio - 1)
+                   'observed': ratio_error, 'tolerance': 1, 'passed': ratio_error is not None and ratio_error < 1})
+    extrapolated = p80 + (p80 - p40) / (ratio - 1) if ratio is not None and ratio > 1 else None
     stored = load(HERE / 'results/stabileo_results.json')['frames']
     node_ids = {n['id'] for n in case['input']['solver']['nodes'].values()}
     if len(stored) != steps or len(frames) != steps:
@@ -80,7 +88,10 @@ def evidence(fresh):
               'extrapolated': 'First peak load, extrapolated to zero element length'}
     rows = []
     for entry in reading['rows']:
-        value = computed[entry['computed']]
+        expected = 'elements20' if entry['id'] == 'fig10-elements20' else 'extrapolated'
+        if entry['computed'] != expected:
+            raise ValueError(f"Wrong result selector for {entry['id']}")
+        value = computed[expected]
         observed = abs(value - entry['reference']) if value is not None else None
         row = {'id': entry['id'], 'name': f'{labels[entry["computed"]]} against {entry["label"]}', 'source': entry['source'], 'unit': 'kN',
                'reference': entry['reference'], 'computed': value, 'metric': 'absolute difference',
@@ -99,16 +110,8 @@ def manifest(files):
             'files_sha256': {name: hashlib.sha256(text.encode()).hexdigest() for name, text in sorted(files.items())}}
 
 
-def same(a, b):
-    if isinstance(a, dict):
-        return isinstance(b, dict) and a.keys() == b.keys() and all(same(a[k], b[k]) for k in a)
-    if isinstance(a, list):
-        return isinstance(b, list) and len(a) == len(b) and all(same(x, y) for x, y in zip(a, b))
-    if a is None or b is None:
-        return a is b
-    if isinstance(a, float) or isinstance(b, float):
-        return abs(a - b) <= 1e-9 * max(1.0, abs(a), abs(b))
-    return a == b
+def same(committed, fresh):
+    return not differences(committed, fresh)
 
 
 USAGE = 'usage: validate.py generate|check <fresh export>'
@@ -129,9 +132,12 @@ def main(mode, export):
         (HERE / 'reference-results/MANIFEST.json').write_text(dump(manifest(files)))
     else:
         committed = {name: (HERE / 'reference-results' / name).read_text() for name in files}
-        assert same(load(HERE / 'VALIDATION.json'), validation), 'VALIDATION.json is not what the fresh run gives'
-        assert same(json.loads(committed['published_comparison.json']), comparison), 'published_comparison.json is stale'
-        assert load(HERE / 'reference-results/MANIFEST.json') == manifest(committed), 'MANIFEST.json hashes are stale'
+        if not (same(load(HERE / 'VALIDATION.json'), validation)):
+            raise ValueError('VALIDATION.json is not what the fresh run gives')
+        if not (same(json.loads(committed['published_comparison.json']), comparison)):
+            raise ValueError('published_comparison.json is stale')
+        if not (load(HERE / 'reference-results/MANIFEST.json') == manifest(committed)):
+            raise ValueError('MANIFEST.json hashes are stale')
     print(json.dumps({'mode': mode, 'checks': len(validation['checks']), 'comparisonRows': len(comparison['checks']), 'failed': failed}, ensure_ascii=False))
 
 

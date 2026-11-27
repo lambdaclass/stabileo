@@ -50,7 +50,6 @@ const createServer = async settings => {
 """.replace('EXPORT', json.dumps(export)).replace('REPLACEMENT', replacement)
         checker.write_text(source.replace('const server = await createServer', wrapper + 'const server = await createServer'))
 
-    @unittest.skip("known wrong result: #2505")
     def test_optimized_newmark_check_rejects_a_stale_period(self):
         folder = self.benchmark('benchmarks/newmark-1959')
         script = folder / 'reference.py'

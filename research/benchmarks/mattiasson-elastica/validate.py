@@ -5,6 +5,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
+sys.path.insert(0, str(ROOT / 'research/tools'))
+from compare_evidence import differences
+
 CASE = ROOT / 'engine/tests/benchmarks/mattiasson_elastica.json'
 TABLE = HERE / 'reference-results/mattiasson-table.json'
 COMMAND = ('cargo run --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- <native.json> <mesh.json>; '
@@ -27,12 +30,27 @@ def relative(computed, reference):
     return abs(computed - reference) / abs(reference)
 
 
+def published_table():
+    table = load(TABLE)
+    if sorted(row['parameter'] for row in table['rows']) != list(range(1, 11)):
+        raise ValueError('Expected ten distinct published load parameters, 1 through 10')
+    return table
+
+
+def replay_cases(rows, expected):
+    keyed = {row['id']: row for row in rows}
+    if len(keyed) != len(rows) or set(keyed) != set(expected):
+        raise ValueError('Expected one replay row per case')
+    return keyed
+
+
 def evidence(native, mesh):
     data = load(CASE)
     cases = data['cases']
     tolerance = data['accuracyTolerance']
     by_id = {r['id']: r for r in native}
-    assert [r['id'] for r in native] == [c['id'] for c in cases]
+    if not ([r['id'] for r in native] == [c['id'] for c in cases]):
+        raise ValueError("Invalid benchmark data: [r['id'] for r in native] == [c['id'] for c in cases]")
     checks = []
     full = sum(tip(c, by_id[c['id']]) is not None for c in cases)
     checks.append({'name': 'Every case reaches full load', 'metric': 'cases short of full load',
@@ -65,13 +83,11 @@ def evidence(native, mesh):
                                'metric': 'components whose error grows', 'observed': sum(e >= p for e, p in zip(errors, previous)),
                                'tolerance': 0, 'passed': shrinks})
             previous = errors
-    stored = {r['id']: r for r in load(HERE / 'RESULTS.json')['cases']}
+    stored = replay_cases(load(HERE / 'RESULTS.json')['cases'], by_id)
     drift = max((abs(stored[i][k] - v[j]) for i, v in computed.items() if v for j, k in enumerate(['u', 'v'])), default=None)
     checks.append({'name': 'RESULTS.json is a fresh native run', 'metric': 'largest absolute difference in u/L, v/L',
                    'observed': drift, 'tolerance': 1e-10, 'passed': drift is not None and drift <= 1e-10})
-    table = load(TABLE)
-    if sorted(row['parameter'] for row in table['rows']) != list(range(1, 11)):
-        raise ValueError('Expected ten distinct published load parameters, 1 through 10')
+    table = published_table()
     rows = []
     for entry in table['rows']:
         c = next(c for c in cases if c['kind'] == 'force' and c['parameter'] == entry['parameter'])
@@ -96,16 +112,8 @@ def manifest(files):
             'files_sha256': {name: hashlib.sha256(text.encode()).hexdigest() for name, text in sorted(files.items())}}
 
 
-def same(a, b):
-    if isinstance(a, dict):
-        return isinstance(b, dict) and a.keys() == b.keys() and all(same(a[k], b[k]) for k in a)
-    if isinstance(a, list):
-        return isinstance(b, list) and len(a) == len(b) and all(same(x, y) for x, y in zip(a, b))
-    if a is None or b is None:
-        return a is b
-    if isinstance(a, float) or isinstance(b, float):
-        return abs(a - b) <= 1e-9 * max(1.0, abs(a), abs(b))
-    return a == b
+def same(committed, fresh):
+    return not differences(committed, fresh)
 
 
 USAGE = 'usage: validate.py generate|check <native.json> <mesh.json>'
@@ -115,6 +123,10 @@ def main(mode, native, mesh):
     if mode not in ('generate', 'check'):
         raise SystemExit(USAGE)
     validation, comparison = evidence(load(native), load(mesh))
+    failed = [c['name'] for c in validation['checks'] + comparison['checks'] if not c['passed']]
+    print(json.dumps({'mode': mode, 'checks': len(validation['checks']), 'comparisonRows': len(comparison['checks']), 'failed': failed}, ensure_ascii=False))
+    if failed:
+        raise SystemExit(1)
     text = dump(comparison)
     files = {'mattiasson-table.json': TABLE.read_text(), 'published_comparison.json': text}
     if mode == 'generate':
@@ -123,13 +135,13 @@ def main(mode, native, mesh):
         (HERE / 'reference-results/MANIFEST.json').write_text(dump(manifest(files)))
     else:
         committed = {name: (HERE / 'reference-results' / name).read_text() for name in files}
-        assert same(load(HERE / 'VALIDATION.json'), validation), 'VALIDATION.json is not what the fresh run gives'
-        assert same(json.loads(committed['published_comparison.json']), comparison), 'published_comparison.json is stale'
-        assert load(HERE / 'reference-results/MANIFEST.json') == manifest(committed), 'MANIFEST.json hashes are stale'
-    failed = [c['name'] for c in validation['checks'] + comparison['checks'] if not c['passed']]
-    print(json.dumps({'mode': mode, 'checks': len(validation['checks']), 'comparisonRows': len(comparison['checks']), 'failed': failed}, ensure_ascii=False))
-    if failed:
-        raise SystemExit(1)
+        if not (same(load(HERE / 'VALIDATION.json'), validation)):
+            raise ValueError('VALIDATION.json is not what the fresh run gives')
+        if not (same(json.loads(committed['published_comparison.json']), comparison)):
+            raise ValueError('published_comparison.json is stale')
+        if not (load(HERE / 'reference-results/MANIFEST.json') == manifest(committed)):
+            raise ValueError('MANIFEST.json hashes are stale')
+
 
 
 if __name__ == '__main__':

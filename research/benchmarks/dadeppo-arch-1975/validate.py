@@ -12,7 +12,7 @@ QUANTITIES = [
     ('limit-load', 'loadFactor', 'Limit load PR²/EI'),
     ('crown-u', 'uOverR', 'Crown horizontal displacement u/R at the limit point'),
     ('crown-v', 'vOverR', 'Crown vertical displacement v/R at the limit point'),
-    ('crown-rotation', 'rotation', 'Crown rotation at the limit point'),
+    ('crown-rotation', 'rotation', 'Crown rotation magnitude at the limit point'),
 ]
 EXTRAPOLATION_CEILINGS = {
     'loadFactor': 0.0019418224410364838,
@@ -41,13 +41,16 @@ def relative(computed, reference):
 
 def max_relative(a, b, path='$'):
     if isinstance(a, dict):
-        assert a.keys() == b.keys(), path
+        if not (a.keys() == b.keys()):
+            raise ValueError(path)
         return max([max_relative(a[k], b[k], f'{path}.{k}') for k in a] or [0.0])
     if isinstance(a, list):
-        assert len(a) == len(b), path
+        if not (len(a) == len(b)):
+            raise ValueError(path)
         return max([max_relative(x, y, f'{path}[{i}]') for i, (x, y) in enumerate(zip(a, b))] or [0.0])
     if isinstance(a, bool) or not isinstance(a, (int, float)):
-        assert a == b, (path, a, b)
+        if not (a == b):
+            raise ValueError((path, a, b))
         return 0.0
     return abs(a - b) / max(abs(a), abs(b), 1.0)
 
@@ -74,10 +77,14 @@ def evidence(fresh):
     published = load(HERE / 'reference-results/limit-load.json')
     reference = {'loadFactor': case['reference'], **case['crownReference']}
     tolerance = {'loadFactor': case['relativeTolerance'], **case['crownRelativeTolerance']}
-    assert published['normalizedLimitLoad'] == reference['loadFactor']
-    assert published['crownAtLimitPoint'] == case['crownReference']
+    if not (published['normalizedLimitLoad'] == reference['loadFactor']):
+        raise ValueError("Invalid benchmark data: published['normalizedLimitLoad'] == reference['loadFactor']")
+    if not (published['crownAtLimitPoint'] == case['crownReference']):
+        raise ValueError("Invalid benchmark data: published['crownAtLimitPoint'] == case['crownReference']")
     limit = fresh['limitPoint']
     computed = {'loadFactor': limit['loadFactor'], **limit['crown']}
+    computed['rotation'] = abs(computed['rotation'])
+    reference['rotation'] = abs(reference['rotation'])
     rows, checks = [], []
     for row_id, key, name in QUANTITIES:
         observed = relative(computed[key], reference[key])
@@ -92,9 +99,12 @@ def evidence(fresh):
                    'observed': loads[-1] / peak, 'tolerance': 0.95, 'passed': loads[-1] / peak <= 0.95})
     meshes = fresh['convergence']['meshes']
     safety = fresh['convergence']['gciSafetyFactor']
-    assert [m['elements'] for m in meshes] == [20, 40, 80]
+    if not ([m['elements'] for m in meshes] == [20, 40, 80]):
+        raise ValueError("Invalid benchmark data: [m['elements'] for m in meshes] == [20, 40, 80]")
     for row_id, key, name in QUANTITIES:
         q20, q40, q80 = (m[key] for m in meshes)
+        if key == 'rotation':
+            q20, q40, q80 = abs(q20), abs(q40), abs(q80)
         order = observed_order(q20, q40, q80)
         if order is None:
             checks.extend(unconverged(name, reference[key]))
@@ -113,6 +123,17 @@ def evidence(fresh):
                        'observed': tolerance[key] / budget - 1, 'tolerance': 0.25,
                        'passed': 0 <= tolerance[key] / budget - 1 <= 0.25})
     replay = load(REPLAY)
+    steps = range(20, case['input']['maxSteps'] + 1, 20)
+    node_ids = {node['id'] for node in case['input']['solver']['nodes'].values()}
+    for run in (replay, fresh):
+        if [frame['step'] for frame in run['frames']] != list(steps):
+            raise ValueError('Incomplete displacement frame coverage')
+        for frame in run['frames']:
+            field = frame['displacements']
+            if len(field) != len(node_ids) or {d['nodeId'] for d in field} != node_ids:
+                raise ValueError(f"Wrong displacement nodes at frame {frame['step']}")
+            if not all(math.isfinite(d[key]) for d in field for key in ('ux', 'uz', 'ry')):
+                raise ValueError(f"Nonfinite displacement at frame {frame['step']}")
     drift = max(max_relative(replay['steps'], fresh['steps']), max_relative(replay['frames'], fresh['frames']),
                 max_relative(replay['limitPoint'], fresh['limitPoint']), max_relative(replay['convergence'], fresh['convergence']))
     checks.append({'name': 'The page replay is a fresh native run', 'metric': 'largest difference over every stored value, relative to max(|stored|, |fresh|, 1)',
@@ -178,13 +199,17 @@ def main(mode, export):
         (HERE / 'reference-results/published_comparison.json').write_text(comparison_text)
         (HERE / 'reference-results/MANIFEST.json').write_text(dump(manifest(files)))
     else:
-        assert all(recorded.get(key) == value for key, value in metadata.items()), 'replay manifest is stale'
+        if not (all(recorded.get(key) == value for key, value in metadata.items())):
+            raise ValueError('replay manifest is stale')
         committed = {name: (HERE / 'reference-results' / name).read_text() for name in files}
         stale = differences(load(HERE / 'VALIDATION.json'), validation)
-        assert not stale, 'VALIDATION.json is not what the fresh run gives: ' + '; '.join(stale[:5])
+        if not (not stale):
+            raise ValueError('VALIDATION.json is not what the fresh run gives: ' + '; '.join(stale[:5]))
         stale = differences(json.loads(committed['published_comparison.json']), comparison)
-        assert not stale, 'published_comparison.json is stale: ' + '; '.join(stale[:5])
-        assert load(HERE / 'reference-results/MANIFEST.json') == manifest(committed), 'MANIFEST.json hashes are stale'
+        if not (not stale):
+            raise ValueError('published_comparison.json is stale: ' + '; '.join(stale[:5]))
+        if not (load(HERE / 'reference-results/MANIFEST.json') == manifest(committed)):
+            raise ValueError('MANIFEST.json hashes are stale')
     print(json.dumps({'mode': mode, 'checks': len(validation['checks']), 'comparisonRows': len(comparison['checks']), 'failed': failed}))
 
 

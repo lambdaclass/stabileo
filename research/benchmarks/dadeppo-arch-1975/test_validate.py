@@ -9,7 +9,6 @@ spec.loader.exec_module(arch)
 
 
 class EvidenceFreshness(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_matching_incomplete_exports_do_not_certify_the_path(self):
         for mutation in ('frame', 'node', 'duplicate'):
             with self.subTest(mutation=mutation):
@@ -27,7 +26,6 @@ class EvidenceFreshness(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'frame|node'):
                         arch.evidence(run)
 
-    @unittest.skip("known wrong result: #2505")
     def test_table_compares_rotation_magnitude(self):
         run = arch.load(arch.REPLAY)
         run['limitPoint']['crown']['rotation'] *= -1
