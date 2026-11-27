@@ -43,7 +43,7 @@ describe('recheckStore', () => {
   });
 
   describe.each(['checkout', 'shared landing', 'separate landings'] as const)('%s', history => {
-    it.skipIf(history !== 'checkout' && !process.env.VELLA_REVIEW_2320)('keeps telling a project solved in this build that its loads came from an older generator, until they are generated again', async () => {
+    it('keeps telling a project solved in this build that its loads came from an older generator, until they are generated again', async () => {
       const retained = 'gravity-retained-span-midpoint';
       const lastPair = ['gravity-physical-thresholds', 'gravity-resolved-cover'];
       const registry = history === 'checkout' ? RESULT_CHANGES : {
@@ -80,10 +80,14 @@ describe('recheckStore', () => {
       store.openProject(solved as never, 'pro');
       await vi.waitFor(() => expect(store.pending).toBe(false));
       expect(store.noticeOpen).toBe(true);
+      const versionOf = (id: string) => registry.changes.find(c => c.id === id)!.resultsVersion;
+      const retainedLandedFirst = history === 'checkout'
+        ? versionOf(retained) < versionOf(lastPair[0])
+        : history === 'separate landings';
       const expectedNoticeIds = [
         'generated-area-loads-headroom', 'snow-panel-geometry', 'concentrated-live-actions', 'gravity-width-mass',
         'gravity-stations-and-exact-coverage', 'gravity-coverage-decisions', 'gravity-exact-ownership',
-        'gravity-local-deck-coverage', 'gravity-physical-thresholds', 'gravity-resolved-cover', 'gravity-retained-span-midpoint',
+        'gravity-local-deck-coverage', ...(retainedLandedFirst ? [retained, ...lastPair] : [...lastPair, retained]),
       ];
       expect(store.assessment?.changes.map(c => c.id)).toEqual(expectedNoticeIds);
       store.reset();

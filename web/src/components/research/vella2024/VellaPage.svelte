@@ -189,7 +189,7 @@
     <h2>{s.showsHeading}</h2>
     <p>{s.shows}</p>
     <h2>{s.modelHeading}</h2>
-    <p>{fill(s.model, { n: String(PAPER.n) })}</p>
+    <p>{fill(s.model, { n: String(PAPER.n), period: num(study.units.t_osc_over_t_star) })}</p>
     <p>{s.staticsMethod}</p>
     <p>{fill(s.dynamicsMethod, { start: num(PAPER.start, { dp: 1 }) })}</p>
     <p>{fill(s.seedText, { seed: num(PAPER.imperfection, { sig: 1 }), unseeded: num(unseeded, { sig: 1 }) })}</p>

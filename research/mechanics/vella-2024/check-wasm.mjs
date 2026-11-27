@@ -13,6 +13,7 @@ const replay = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, 'refere
 const PRE = { coordinate: 1.5e-7, value: 1e-9 };
 const POST = { coordinate: 1e-6, value: 1e-6 };
 const near = (a, b, abs, rel = 0) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= abs + rel * Math.max(Math.abs(a), Math.abs(b));
+const TRACE = ['t', 'mu', 'height', 'thetaMin', 'thetaMax'];
 const JUMP = ['amplification', 'amplificationFromMuA', 'tSnap', 'muSnap', 'tEnd', 'thetaDuring'];
 
 export function compare(run, reference) {
@@ -30,16 +31,30 @@ export function compare(run, reference) {
     check(same, `outcome.${key}`);
   }
   check(run.frames.length === reference.frames.length, 'frame count');
-  const snap = reference.frames.findIndex(f => f.height > 0);
+  const bandAt = t => reference.outcome.snapped && t >= reference.outcome.tSnap ? POST : PRE;
+  const tolerance = (key, t) => key === 't' || key === 'mu' ? PRE.value : bandAt(t).value;
+  const count = reference.trace?.t?.length;
+  for (const trace of [run.trace, reference.trace]) {
+    check(trace && Object.keys(trace).every(key => TRACE.includes(key)), 'trace series');
+  }
+  for (const key of TRACE) {
+    const actual = run.trace?.[key];
+    const expected = reference.trace?.[key];
+    if (!Array.isArray(actual) || !Array.isArray(expected) || !count || actual.length !== count || expected.length !== count) {
+      problems.push(`trace.${key} length`);
+      continue;
+    }
+    for (let i = 0; i < count; i++) {
+      check(near(actual[i], expected[i], tolerance(key, reference.trace.t[i])), `trace.${key}[${i}]`);
+    }
+  }
   run.frames.forEach((f, i) => {
     const r = reference.frames[i];
     if (!r) return;
-    const band = snap < 0 || i < snap ? PRE : POST;
-    for (const key of ['t', 'mu']) check(near(f[key], r[key], 1e-9), `frame ${i} ${key}`);
-    for (const key of ['theta', 'height']) check(near(f[key], r[key], band.value), `frame ${i} ${key}`);
+    for (const key of ['t', 'mu', 'theta', 'height']) check(near(f[key], r[key], tolerance(key, r.t)), `frame ${i} ${key}`);
     for (const key of ['x', 'z']) {
       check(f[key].length === r[key].length, `frame ${i} ${key} length`);
-      f[key].forEach((v, j) => check(near(v, r[key][j], band.coordinate), `frame ${i} ${key}[${j}]`));
+      f[key].forEach((v, j) => check(near(v, r[key][j], bandAt(r.t).coordinate), `frame ${i} ${key}[${j}]`));
     }
   });
   return problems;
@@ -66,7 +81,6 @@ unsnapped.outcome = { ...unsnapped.outcome, snapped: false, ...Object.fromEntrie
 assert.deepEqual(compare(run, unsnapped), ['outcome.snapped', ...JUMP.map(k => `outcome.${k}`)]);
 assert.throws(() => simulation_run(JSON.stringify({ ...replay.settings, rate: -1 })));
 assert.throws(() => simulation_run('{}'));
-console.log('production-mode WASM: replay agrees in critical points, outcome and every frame (t, mu, theta, height, x, z); null and missing values and bad settings are refused');
 
 {
   const inverted = structuredClone(unsnapped);
@@ -77,6 +91,12 @@ console.log('production-mode WASM: replay agrees in critical points, outcome and
   const perturbed = structuredClone(inverted);
   perturbed.frames[1].theta += 1e-7;
   assert.deepEqual(compare(perturbed, inverted), ['frame 1 theta']);
+  inverted.trace.thetaMax[0] = 0;
+  const atLimit = structuredClone(inverted);
+  atLimit.trace.thetaMax[0] = PRE.value;
+  assert.deepEqual(compare(atLimit, inverted), []);
+  atLimit.trace.thetaMax[0] += Number.EPSILON * PRE.value;
+  assert.deepEqual(compare(atLimit, inverted), ['trace.thetaMax[0]']);
 }
 
 for (const oneEnd of [true, false]) {
@@ -94,11 +114,10 @@ const earlyFold = JSON.parse(simulation_run(JSON.stringify({
 assert.ok(earlyFold.outcome.snapped && earlyFold.outcome.thetaBefore > 0 && earlyFold.outcome.thetaBeforeMuA > 0);
 assert.ok(Number.isFinite(earlyFold.outcome.amplification) && Number.isFinite(earlyFold.outcome.amplificationFromMuA));
 
-if (process.env.VELLA_REVIEW_2320) {
+{
   const crossing = replay.trace.height.findIndex(h => h > 0);
   assert.ok(crossing > 0);
-  const keys = ['t', 'mu', 'height', 'thetaMin', 'thetaMax'];
-  for (const key of keys) {
+  for (const key of Object.keys(replay.trace)) {
     for (const side of ['run', 'reference']) {
       const compareMutation = mutate => {
         const copy = structuredClone(replay);
@@ -124,3 +143,5 @@ if (process.env.VELLA_REVIEW_2320) {
     }
   }
 }
+
+console.log('production-mode WASM: replay agrees in critical points, outcome, every frame and every plotted trace series; null and missing values and bad settings are refused');

@@ -219,16 +219,22 @@ it('offers the Wang catalogue summary and quantitative verdict in every research
   }
 });
 
-it.skipIf(!process.env.VELLA_REVIEW_2320)('records paper shortening and the physical clamp through startup, coasting and rest', () => {
+it('records paper shortening and the physical clamp through startup, coasting and rest', () => {
   const { dynamics, units } = study;
   for (const run of dynamics.figure_2a) {
     const { t, mu, height } = run.trace;
-    const paperMu: number[] = Reflect.get(run, 'paper_mu');
+    const paperMu = run.paper_mu;
     expect(paperMu).toHaveLength(t.length);
     const mmPerMu = 1000 * units.t_osc_simulations * run.rate_m_s / run.rate;
     for (const [i, value] of paperMu.entries()) {
-      expect(value).toBeCloseTo(Reflect.get(run, 'mu_star') - run.travel_mm[i] / mmPerMu, 12);
+      expect(value).toBeCloseTo(run.mu_star - run.travel_mm[i] / mmPerMu, 12);
     }
+    const ramp = dynamics.base.ramp;
+    const start = dynamics.one_end_start;
+    const timeFromRest = t[0] + (start - run.mu_star) / run.rate + ramp / 2;
+    expect(timeFromRest).toBeGreaterThan(0);
+    expect(timeFromRest).toBeLessThan(ramp);
+    expect(mu[0]).toBeCloseTo(start - run.rate * timeFromRest ** 2 / (2 * ramp), 12);
     expect(mu[0]).toBeLessThan(paperMu[0]);
     const coasting = t.findIndex(time => time >= -1);
     expect(mu[coasting]).toBeCloseTo(paperMu[coasting], 12);

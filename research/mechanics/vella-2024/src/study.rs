@@ -279,6 +279,8 @@ pub struct Figure2a {
     pub rate: f64,
     pub time_s: Vec<f64>,
     pub travel_mm: Vec<f64>,
+    pub mu_star: f64,
+    pub paper_mu: Vec<f64>,
     pub trace: Trace,
     pub amplification: f64,
 }
@@ -379,12 +381,18 @@ pub fn dynamics() -> Result<Dynamics, String> {
         let rate = rate_m_s * SIMULATIONS.rate_factor(PAPER_ALPHA);
         let s = Settings { rate, start: one_end_start, one_end: true, imperfection: 0.0, ..base };
         let sim = runs.run("figure_2a", &s, &far)?;
+        let mu_star = far.1.mu_star;
+        let time_s: Vec<_> = sim.trace.t.iter().map(|t| t * SIMULATIONS.t_osc()).collect();
+        let travel_mm = time_s.iter().map(|seconds| seconds * rate_m_s * 1000.0).collect();
+        let paper_mu = sim.trace.t.iter().map(|t| mu_star - rate * t).collect();
         figure_2a.push(Figure2a {
             truncated: sim.outcome.truncated,
             rate_m_s,
             rate,
-            time_s: sim.trace.t.iter().map(|t| t * SIMULATIONS.t_osc()).collect(),
-            travel_mm: sim.trace.t.iter().map(|t| t * SIMULATIONS.t_osc() * rate_m_s * 1000.0).collect(),
+            time_s,
+            travel_mm,
+            mu_star,
+            paper_mu,
             trace: sim.trace.clone(),
             amplification: sim.outcome.jump()?.amplification,
         });
@@ -432,6 +440,7 @@ pub fn toy() -> ToyResults {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Units {
+    pub t_osc_over_t_star: f64,
     /// t* in s.
     pub time_unit_simulations: f64,
     pub time_unit_experiments: f64,
@@ -473,6 +482,7 @@ pub fn study() -> Result<Study, String> {
         dynamics: dynamics().map_err(|e| format!("dynamics: {e}"))?,
         toy: toy(),
         units: Units {
+            t_osc_over_t_star: crate::dynamics::T_OSC,
             time_unit_simulations: SIMULATIONS.time_unit(),
             time_unit_experiments: EXPERIMENTS.time_unit(),
             t_osc_simulations: SIMULATIONS.t_osc(),

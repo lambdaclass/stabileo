@@ -229,7 +229,7 @@ fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
                "observed": median_in_band(&one_end), "tolerance": 0.25, "passed": median_in_band(&one_end) <= 0.25, "source": fig}),
         {
             let observed = (toy.critical_rate / pv("toy", "critical_rate") - 1.0).abs();
-            json!({"id": "toy-critical-rate", "metric": "toy model critical rate: |ours / paper - 1|; ours integrates (S84)-(S85) and bisects on whether the trajectory reaches f < 0, the paper's comes from the near-saddle-node reduction (S87)-(S92)",
+            json!({"id": "toy-critical-rate", "metric": "toy model critical rate: |ours / paper - 1|; ours integrates (S74)-(S75) and bisects on whether the trajectory reaches f < 0, the paper's comes from the near-saddle-node reduction (S87)-(S92)",
                    "reference": pv("toy", "critical_rate"), "computed": toy.critical_rate, "relative": true,
                    "observed": observed, "tolerance": 0.01, "passed": observed <= 0.01, "source": src("toy", "critical_rate")})
         },
@@ -250,7 +250,7 @@ fn evidence(s: &Study, root: &Path) -> Result<(Value, Value), String> {
     };
     let differences = json!({
         "toy_critical_rate": {"paper": pv("toy", "critical_rate"), "ours": toy.critical_rate, "relative": toy.critical_rate / pv("toy", "critical_rate") - 1.0,
-            "note": "ours integrates (S84)-(S85) and bisects on whether min f < 0; the paper's 0.0961 comes from the near-saddle-node reduction (S87)-(S92)"},
+            "note": "ours integrates (S74)-(S75) and bisects on whether min f < 0; the paper's 0.0961 comes from the near-saddle-node reduction (S87)-(S92)"},
         "figure_2c": {"rows": rows, "median_abs_error_one_end": median("one_end_error"), "median_abs_error_envelope": median("envelope_error"),
             "paper_first_rate_below_2": first_below(&figure, ASYMMETRIC), "ours_one_end_first_rate_below_2": first_below(&one_end, ASYMMETRIC),
             "ours_seeded_transition": d.transition, "ours_envelope_transition": d.transition_envelope},
@@ -393,7 +393,6 @@ mod tests {
     use snap_symmetry_vella_2024::study::richardson;
 
     #[test]
-    #[ignore = "known wrong result: #2320"]
     fn published_time_unit_matches_the_prescribed_solver_scale() {
         let evidence: Value = serde_json::from_str(include_str!("../../reference-results/study.json")).unwrap();
         let units = &evidence["units"];
@@ -467,7 +466,7 @@ mod tests {
     #[test]
     fn review_incomplete_evidence_cannot_pass_reductions() {
         use snap_symmetry_vella_2024::dynamics::Trace;
-        let valid = Figure2a { truncated: false, rate_m_s: 0.0018, rate: 1.0,
+        let valid = Figure2a { truncated: false, rate_m_s: 0.0018, rate: 1.0, mu_star: 0.0, paper_mu: vec![1.0, 0.0],
             time_s: vec![-1.0, 0.0], travel_mm: vec![-1.8, 0.0],
             trace: Trace { t: vec![-1.0, 0.0], mu: vec![0.0018 / (PAPER_ALPHA.powi(2) * SIMULATIONS.length), 0.0], ..Trace::default() }, amplification: 1.0 };
         assert!(figure_2a_rate(std::slice::from_ref(&valid)).unwrap() < 1e-14);

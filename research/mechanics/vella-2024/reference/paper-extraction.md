@@ -65,7 +65,7 @@ Newton–Raphson; converged at **N = 100 nodes, δt = 0.01 ms** (Fig. S4). pp. 1
 | Fold (saddle-node) of the inverted branch, shallow theory | µ* ≈ 0.247 at τ ≈ 9.203 | p. 2 (after Eq. 1); p. 11 |
 | Asymmetric bifurcation, shallow theory | µ_A = 1/4 | p. 2; Eq. (S17), p. 11 |
 | Force of the asymmetric solutions | τ* ≈ 8.987 (τ*/2 = tan τ*/2) | p. 11 |
-| Natural state, µ = 0.25 (τ = π): lowest (antisymmetric) frequency | ω = √(−λ²) ≈ √3348.04 ≈ 57.86; T_osc = 2π/ω = 0.108 | p. 12 [SM §II.D] |
+| Natural state, µ = 0.25 (τ = π): lowest (antisymmetric) frequency | ω = √(−λ²) ≈ √3348.04 ≈ 57.86; the paper gives 0.108 for T_osc, which the simulation uses as its time unit | p. 12 [SM §II.D] |
 | Shallow branch height | h = ζ(0) from Eq. (S14) | p. 10 |
 | Toy model parameters | β = 0.110, L₀C = 0.655 (chosen so that µ*vM = 0.247, µ_A^vM = 1/4) | p. 20 |
 | Toy model frequencies at µ = 1/4 | "ω_A/t_osc = 0.663", "ω_S/t_osc = 0.734", t_osc = 2π/ω_s = 9.477 (time in √(m/k)/α, (S72): the printed ratios are ω√(m/k)/α, dimensionless, and t_osc is in √(m/k)/α) | p. 22, Eq. (S80) |

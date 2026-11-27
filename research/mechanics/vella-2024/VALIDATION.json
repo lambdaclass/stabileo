@@ -636,7 +636,7 @@
       ]
     },
     "toy_critical_rate": {
-      "note": "ours integrates (S84)-(S85) and bisects on whether min f < 0; the paper's 0.0961 comes from the near-saddle-node reduction (S87)-(S92)",
+      "note": "ours integrates (S74)-(S75) and bisects on whether min f < 0; the paper's 0.0961 comes from the near-saddle-node reduction (S87)-(S92)",
       "ours": 0.1051508223134337,
       "paper": 0.0961,
       "relative": 0.09418129358411753
@@ -662,7 +662,7 @@
     {
       "computed": 0.1051508223134337,
       "id": "toy-critical-rate",
-      "metric": "toy model critical rate: |ours / paper - 1|; ours integrates (S84)-(S85) and bisects on whether the trajectory reaches f < 0, the paper's comes from the near-saddle-node reduction (S87)-(S92)",
+      "metric": "toy model critical rate: |ours / paper - 1|; ours integrates (S74)-(S75) and bisects on whether the trajectory reaches f < 0, the paper's comes from the near-saddle-node reduction (S87)-(S92)",
       "observed": 0.09418129358411753,
       "passed": false,
       "reference": 0.0961,

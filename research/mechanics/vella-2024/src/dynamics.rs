@@ -4,8 +4,6 @@ use crate::spectrum::antisymmetric_mode;
 use crate::statics::Equilibrium;
 use serde::{Deserialize, Serialize};
 
-/// The paper's time scale: the period of the natural arch's lowest (antisymmetric) vibration at
-/// µ = 1/4, T_osc = 2π/ω = 0.108 in units of t* = L²√(ρbh/B) (SM §II.D, after Eq. S24).
 pub const T_OSC: f64 = 0.108;
 
 /// µ at which the moving clamp starts to brake if the jump has not ended by then, standing in

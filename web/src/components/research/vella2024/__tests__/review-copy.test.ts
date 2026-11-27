@@ -23,18 +23,18 @@ it('states the Hungarian critical-rate discrepancy as a complete comparison', ()
   expect(translations.hu.doesnt.join(' ')).toMatch(/10 %-kal eltér/);
 });
 
-it.skipIf(!process.env.VELLA_REVIEW_2320).each(Object.entries(translations))('%s cites the integrated toy equations', (_locale, copy) => {
+it.each(Object.entries(translations))('%s cites the integrated toy equations', (_locale, copy) => {
   expect(copy.toyRate).toContain('(S74)–(S75)');
 });
 
-it.skipIf(!process.env.VELLA_REVIEW_2320).each(Object.entries(translations))('%s uses the study time scale in the rate definition', (_locale, copy) => {
+it.each(Object.entries(translations))('%s uses the study time scale in the rate definition', (_locale, copy) => {
   expect(copy.model).toContain('T_osc = {period} t*');
 });
 
-it.skipIf(!process.env.VELLA_REVIEW_2320)('names the mesh refinement comparison in Chinese', () => {
+it('names the mesh refinement comparison in Chinese', () => {
   expect(translations.zh.referenceLabel).toContain('网格加密研究');
 });
 
-it.skipIf(!process.env.VELLA_REVIEW_2320)('states the starting step of the Chinese halving comparison', () => {
+it('states the starting step of the Chinese halving comparison', () => {
   expect(translations.zh.sensitivityText).toContain('在 Δt 低于 0.005 T_osc 时再将 Δt 减半，A 变化 {dt}');
 });

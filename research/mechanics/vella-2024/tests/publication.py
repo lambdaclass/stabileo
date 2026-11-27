@@ -9,7 +9,6 @@ import unittest
 
 
 class PublicationTest(unittest.TestCase):
-    @unittest.skipUnless(os.getenv("VELLA_REVIEW_2320"), "known wrong result: #2320")
     def test_unseeded_maximum_agrees_with_validation_in_each_section(self):
         study = Path(__file__).resolve().parents[1]
         validation = json.loads((study / "VALIDATION.json").read_text())
@@ -22,7 +21,6 @@ class PublicationTest(unittest.TestCase):
             with self.subTest(context=context):
                 self.assertIn(claim, readme.split(context, 1)[1][:145])
 
-    @unittest.skipUnless(os.getenv("VELLA_REVIEW_2320"), "known wrong result: #2320")
     def test_toy_rate_text_records_the_failed_paper_comparison(self):
         study = Path(__file__).resolve().parents[1]
         validation = json.loads((study / "VALIDATION.json").read_text())
@@ -30,7 +28,6 @@ class PublicationTest(unittest.TestCase):
         self.assertGreater(check["observed"], check["tolerance"])
         section = (study / "README.md").read_text().split("### Toy model", 1)[1].split("## ", 1)[0]
         self.assertIn(f"fails the {check['tolerance']:.0%} relative tolerance", section)
-
 
     def test_mesh_claim_names_its_refinement_interval(self):
         study = Path(__file__).resolve().parents[1]

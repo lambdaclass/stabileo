@@ -136,13 +136,18 @@ The analytic shallow values computed here: τ* = 8.98682 (paper 8.987), τ_fold 
 | 0.7 | 0.792 | 0.922 | 0.945 | 0.0547 |
 
 Replay (default): |µ̇| = 0.01 (4.31 mm/s for the paper's strip), seed 10⁻³ rad, A = 34.4, snap at
-µ = 0.2273, 1.81 T_osc after µ*. Both clamps without a seed: largest |θ| ≤ 2.0 × 10⁻¹⁰ rad at
+µ = 0.2273, 1.81 T_osc after µ*. Both clamps without a seed: largest |θ| was 7.065 × 10⁻¹⁰ rad at
 |µ̇| = 0.01–0.3 (round-off, amplified at slow rates). Fig. 2a's rates on the one-clamp protocol:
 1.8 mm/s (|µ̇| = 0.0042) gives A = 175, 246.6 mm/s (|µ̇| = 0.572) gives A = 1.07.
 
 Times in `study.json` and on the page are in T_osc, which is 0.01718 s for the simulated strip
 (`units.t_osc_simulations`; t* = 0.15908 s is `units.time_unit_simulations`). Each Fig. 2a run
-also stores `time_s` and the paper coordinate `travel_mm = 1000 × rate_m_s × time_s`. This coordinate advances after the clamps stop. Before µ*, its slope in mm/s converts to the prescribed speed in m/s: at 246.6 mm/s the trace moves 0.02118 mm per
+also stores `time_s` and the paper coordinate `travel_mm = 1000 × rate_m_s × time_s`. The corresponding shortening on the paper axis is `paper_mu = mu_star − rate × t`,
+where `mu_star` is the fold of that run's prepared branch. After the clamps stop, `travel_mm` keeps increasing and
+`paper_mu` keeps decreasing. The physical shortening in `trace.mu` follows the clamp during acceleration,
+constant-speed travel, braking and rest. Once the clamp rests, the strip continues to move at fixed shortening.
+During constant-speed motion before µ*, the slope of `travel_mm` against `time_s` gives the
+clamp speed in mm/s. At 246.6 mm/s the clamp moves 0.02118 mm per
 0.005 T_osc = 8.59 × 10⁻⁵ s.
 
 **Against Fig. 2c (simulations).** The largest A over phase falls below 2 at |µ̇| ≈
@@ -178,9 +183,8 @@ rounding of β and L₀C), µ_A^vM = 0.24935 (0.25), angular frequencies at µ =
 0.6629 and 0.7320 (paper "0.663" and "0.734", printed as ω_A/t_osc and ω_S/t_osc and labelled the
 other way round, see the extraction) and t_osc = 9.479 √(m/k)/α (9.477). The time scale √(m/k)/α
 is that of (S72); the paper's "ω/t_osc" is ω in its inverse, dimensionless, and t_osc = 2π/ω.
-Integrating (S84)–(S85) and bisecting on whether the trajectory reaches f < 0 gives a critical rate
-of 0.1052 against the paper's 0.0961 from its near-saddle-node reduction (+9.4 %); this is reported,
-not checked.
+Integrating (S74)–(S75) and bisecting on whether the trajectory reaches f < 0 gives a critical rate
+of 0.1052 against the paper's 0.0961 from its near-saddle-node reduction (+9.4 %). This paper comparison fails the 1% relative tolerance.
 
 ## What is reproduced and what is not
 
@@ -223,7 +227,7 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
 - Mesh: observed order within 0.2 of 2. Time step: amplification changes by less than 2 % from
   Δt = 0.005 to 0.0025 T_osc.
 - Both clamps without a seed: largest |θ| below 10⁻⁶ rad (a thousandth of the default seed); the
-  observed 2.4 × 10⁻¹⁰ is round-off amplified near the fold and differs between platforms.
+  observed maximum of 7.065 × 10⁻¹⁰ rad is round-off amplified near the fold and differs between platforms.
 - Bifurcation order: µ*/µ_A ≤ 0.995 at α = π/12 (observed 0.9879).
 - Critical heights: 10⁻⁴ αL between h_A, h* and the heights where the drawn branch's ω²_A and ω²_S
   cross zero, read by linear interpolation between branch points 0.002 αL apart (5 % of that
@@ -239,7 +243,7 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
   every host, and differs from the native `replay.json` only through the last bits of libm,
   measured at 8 × 10⁻¹² before the snap and 2 × 10⁻¹⁰ after it (the asymmetry has grown 34 times
   by then). Before the snap: 10⁻⁹ on θ, h, t and µ, 1.5 × 10⁻⁷ on the node coordinates (stored
-  rounded to 10⁻⁷). After it: 10⁻⁶. Outcome: 10⁻⁸ absolute plus 10⁻⁶ relative; critical points 10⁻⁹.
+  rounded to 10⁻⁷). From the snap onward the band is 10⁻⁶ for angles, heights and node coordinates. Time and shortening retain the 10⁻⁹ band throughout frames and traces. Outcome: 10⁻⁸ absolute plus 10⁻⁶ relative; critical points 10⁻⁹.
   Both sides must be finite numbers (a `null` from a non-finite Rust value never passes), `snapped`
   must agree, and without a snap every jump value must be `null` on both sides.
 - Evidence files are compared with a fresh run (`validate` without `--write`), which lists every
@@ -248,7 +252,7 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
   round-off amplified through Newton and the integrator: raising the dynamics' Newton floor by 37 %
   moved every dynamic number by at most 10⁻⁷ relative, and on Linux CI the Fig. 2c transition moved
   by 7 × 10⁻⁹. The absolute floor covers numbers that are round-off themselves, such as the
-  10⁻¹¹ rad asymmetry of the unseeded runs. Three kinds of number are worse conditioned and get
+  7.065 × 10⁻¹⁰ rad maximum asymmetry of the unseeded runs. Three kinds of number are worse conditioned and get
   bands from their conditioning instead:
   - A check's `observed` is a difference of close numbers; it may move by 10⁻³ of that check's
     tolerance, which cannot turn a verdict unless it sits within 0.1 % of the threshold.
@@ -296,7 +300,7 @@ the sensitivity studies.
 5. **Toy frequencies.** Linearising (S73)–(S75) we get the lower frequency (0.663) for the symmetric
    mode and 0.732 for the antisymmetric one, the reverse of the labels on p. 22; t_osc uses the lower
    one, while T_osc of the arch uses its antisymmetric mode. Is that the intended matching?
-6. **Critical rate.** Is 0.0961 from (S89)–(S92) alone? Integrating (S84)–(S85) directly we find
+6. **Critical rate.** Is 0.0961 from (S89)–(S92) alone? Integrating (S74)–(S75) directly we find
    0.105.
 7. **Fig. S1c** is labelled h/L; its values are h/(αL). **(S86)** has the opposite sign of the
    ((2+L₀C)µ − 2β)ψ_S term to (S74).
