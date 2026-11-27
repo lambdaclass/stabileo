@@ -231,6 +231,43 @@ impl ModalChecks {
     }
 }
 
+pub(super) enum Pencil<'a> {
+    Sparse(&'a crate::linalg::CscMatrix, &'a crate::linalg::CscMatrix),
+    Dense(&'a [f64], &'a [f64], usize),
+}
+
+/// The modal checks on the given columns of an eigensolution of `K φ = λ M φ`, taken in that
+/// order as one basis: their diagnostics, or the refusal of the first column that fails.
+pub(super) fn check_basis(pencil: &Pencil, eigen: &crate::linalg::EigenResult, columns: &[usize]) -> Result<Vec<StructuredDiagnostic>, String> {
+    let mut checks = ModalChecks::default();
+    let n = match *pencil {
+        Pencil::Sparse(k, m) => {
+            checks.scales = energy_scale(&k.diagonal());
+            checks.stiffness = ProductBound::sparse(k, &checks.scales);
+            checks.mass = ProductBound::sparse(m, &checks.scales);
+            k.n
+        }
+        Pencil::Dense(k, m, n) => {
+            checks.scales = energy_scale(&(0..n).map(|i| k[i*n+i]).collect::<Vec<_>>());
+            checks.stiffness = ProductBound::dense(k, n, &checks.scales);
+            checks.mass = ProductBound::dense(m, n, &checks.scales);
+            n
+        }
+    };
+    let dense_times = |a: &[f64], x: &[f64]| (0..n).map(|i| a[i*n..(i+1)*n].iter().zip(x).map(|(a, x)| a*x).sum()).collect::<Vec<f64>>();
+    let stride = eigen.values.len();
+    for &column in columns {
+        let phi: Vec<f64> = (0..n).map(|i| eigen.vectors[i*stride+column]).collect();
+        let abs_phi: Vec<f64> = phi.iter().map(|p| p.abs()).collect();
+        let (k_phi, m_phi, abs_m_phi) = match *pencil {
+            Pencil::Sparse(k, m) => (k.sym_mat_vec(&phi), m.sym_mat_vec(&phi), super::modal::abs_mat_vec_sparse(m, &abs_phi)),
+            Pencil::Dense(k, m, n) => (dense_times(k, &phi), dense_times(m, &phi), super::modal::abs_mat_vec_dense(m, &abs_phi, n)),
+        };
+        checks.check(&phi, eigen.values[column], &k_phi, &m_phi, &abs_m_phi)?;
+    }
+    Ok(checks.diagnostics)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

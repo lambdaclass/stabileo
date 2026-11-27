@@ -698,7 +698,7 @@ fn with_replacements(
     Ok(found)
 }
 
-fn abs_mat_vec_sparse(a: &crate::linalg::CscMatrix, x: &[f64]) -> Vec<f64> {
+pub(super) fn abs_mat_vec_sparse(a: &crate::linalg::CscMatrix, x: &[f64]) -> Vec<f64> {
     let mut y = vec![0.0; a.n];
     for j in 0..a.n {
         for p in a.col_ptr[j]..a.col_ptr[j + 1] {
@@ -712,7 +712,7 @@ fn abs_mat_vec_sparse(a: &crate::linalg::CscMatrix, x: &[f64]) -> Vec<f64> {
     y
 }
 
-fn abs_mat_vec_dense(a: &[f64], x: &[f64], n: usize) -> Vec<f64> {
+pub(super) fn abs_mat_vec_dense(a: &[f64], x: &[f64], n: usize) -> Vec<f64> {
     (0..n).map(|i| a[i * n..(i + 1) * n].iter().zip(x).map(|(v, x)| v.abs() * x).sum()).collect()
 }
 
