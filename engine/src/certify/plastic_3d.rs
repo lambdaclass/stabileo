@@ -172,15 +172,16 @@ fn mp_3d(sec: &PlasticSectionData3D, fy: f64, over: Option<[f64; 2]>) -> Result<
         let a = q(o[0]).ok_or("non-finite Mp override")?;
         let b = q(o[1]).ok_or("non-finite Mp override")?;
         if !a.is_positive() || !b.is_positive() {
-            return Err("Mp overrides must be positive".into());
+            return Ok(None);
         }
         return Ok(Some([(a.clone(), a), (b.clone(), b)]));
     }
     let fyk = q(fy).ok_or("non-finite fy")? * qi(1000);
+    if !fyk.is_positive() { return Ok(None); }
     let fq = |x: f64| q(x).ok_or_else(|| "non-finite section dimension".to_string());
     let exact = |m: Q| -> Result<Option<(Q, Q)>, String> {
         if !m.is_positive() {
-            return Err("non-positive plastic moment".into());
+            return Ok(None);
         }
         Ok(Some((m.clone(), m)))
     };

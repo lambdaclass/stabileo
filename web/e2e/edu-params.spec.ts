@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { drawVariant, seedFrom, type ExerciseParams } from '../src/components/edu/exercise-params';
+import { drawVariant, seedFrom, type ExerciseParams } from '../src/components/edu/exercise-draw';
 
 declare global {
   interface Window {

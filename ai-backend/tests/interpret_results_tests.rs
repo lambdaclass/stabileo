@@ -14,23 +14,9 @@ fn valid_interpret_json() -> &'static str {
     }"#
 }
 
-fn test_result_summary() -> ResultSummary {
-    ResultSummary {
-        displacement_x: None,
-        displacement_y: None,
-        displacement_z: None,
-        rotation: None,
-        displacement_resultant: None,
-        reaction_resultant: None,
-        second_order_ratio: None,
-        member_chords: None,
-        member_spans: None,
-    }
-}
-
 fn test_request() -> InterpretResultsRequest {
     InterpretResultsRequest {
-        result_summary: test_result_summary(),
+        result_summary: ResultSummary::default(),
         question: "Is the maximum deflection acceptable for L/300?".into(),
         model_info: Some(ModelInfo {
             n_elements: Some(4),
@@ -186,7 +172,7 @@ async fn interpret_results_with_stub_returns_parsed_response() {
 async fn interpret_results_without_model_info() {
     let provider = Provider::Stub(StubProvider::ok(valid_interpret_json()));
     let req = InterpretResultsRequest {
-        result_summary: test_result_summary(),
+        result_summary: ResultSummary::default(),
         question: "What is the max displacement?".into(),
         model_info: None,
         locale: None,

@@ -505,7 +505,7 @@ e2e.web.visual:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "visual baselines" $(if $(UPDATE_SNAPSHOTS),--update-snapshots)'
 
 test.ai-backend:
-	$(NIX_RUN) cargo test -p dedaliano-backend
+	$(NIX_RUN) cargo test -p dedaliano-backend $(ARGS)
 
 ## Measure the engine test inventory published in docs/BENCHMARKS.md.
 ## Engine-coupled = every target except `reference`, whose tests recompute
