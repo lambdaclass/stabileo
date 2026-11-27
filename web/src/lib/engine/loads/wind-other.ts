@@ -1,4 +1,4 @@
-import { G_RIGID, velocityPressure, EXPOSURE_CONSTANTS, type WindProject } from '../../codes/cirsoc102/wind';
+import { G_RIGID, velocityPressure, velocityPressureHeightBreaks, type WindProject } from '../../codes/cirsoc102/wind';
 import {
   freeRoofCn, freeRoofCnAlong, solidSignCf, openSignCf, towerCf, chimneyCf, MIN_OTHER_KNM2,
   type FreeRoofKind, type LatticeMembers, type ChimneySection, type LoadCaseAB,
@@ -179,14 +179,19 @@ export function otherStructureWind(i: {
   for (const d of dirsHere) {
     const axis = axisFor(d);
     const G = d.diagonal ? Math.max(gOf('x'), gOf('y')) : gOf(axis);
-    const fieldFor = (minimum: boolean) => windHeightField({ model, axis, from: base, to: H, boundaries: [5, EXPOSURE_CONSTANTS[project.exposure].zg], width: given, pressure: (z, width, widthKind) => {
-      const q = qz(z);
-      let cf: number, solidity = 1, projection = 1;
-      if (s.kind === 'latticeTower') { cf = towerCf(s.solidity, s.section, s.round, d.diagonal); solidity = s.solidity; }
-      else if (s.kind === 'openSign') { cf = openSignCf(s.solidity, s.members); solidity = s.solidity; }
-      else { cf = chimneyCf(s.section, H / width, width * Math.sqrt(q * 1000)); if (s.section === 'squareDiagonal' && widthKind === 'declared') projection = Math.SQRT2; }
-      return (minimum ? MIN_OTHER_KNM2 : q * G * cf) * solidity * projection;
-    } });
+    const boundaries = velocityPressureHeightBreaks(project.exposure);
+    const fieldFor = (minimum: boolean) => {
+      const pressure = (z: number, width: number, widthKind: 'physical' | 'declared') => {
+        const q = qz(z);
+        let cf: number, solidity = 1, projection = 1;
+        if (s.kind === 'latticeTower') { cf = towerCf(s.solidity, s.section, s.round, d.diagonal); solidity = s.solidity; }
+        else if (s.kind === 'openSign') { cf = openSignCf(s.solidity, s.members); solidity = s.solidity; }
+        else { cf = chimneyCf(s.section, H / width, width * Math.sqrt(q * 1000)); if (s.section === 'squareDiagonal' && widthKind === 'declared') projection = Math.SQRT2; }
+        return (minimum ? MIN_OTHER_KNM2 : q * G * cf) * solidity * projection;
+      };
+      const law = s.kind === 'latticeTower' || s.kind === 'openSign' ? Object.assign(pressure, { curvatureBreaks: boundaries }) : pressure;
+      return windHeightField({ model, axis, from: base, to: H, boundaries, width: given, pressure: law });
+    };
     const field = fieldFor(false), minimum = fieldFor(true);
     const sum = (f: typeof field) => [...f.loads.values(), ...f.baseLoads.values()].reduce((sum, n) => sum + n, 0);
     const total = sum(field);
