@@ -45,3 +45,24 @@ fn invalid_load_increments_are_rejected_before_solving() {
         assert!(loaded_height(&strip, 0.5 * LENGTH, 0.0, step).is_err());
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn steep_retracing_branches_have_no_recorded_switches() {
+    let curves: Value = serde_json::from_str(include_str!("../reference-results/curves.json")).unwrap();
+    for (span, b) in [(0.5, 0.8), (0.75, 0.5)] {
+        let stored = curves.as_array().unwrap().iter().find(|c| c["span"] == span * LENGTH && c["b"] == b).unwrap();
+        assert_eq!(stored["snaps"], serde_json::json!([]));
+        let live = cut_strip_feher_2026::load_cycle(&Strip { a: 0.5, b }, span * LENGTH, 4.0, 0.05, 10.0).unwrap();
+        assert_eq!(live["snaps"], stored["snaps"]);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn a_steep_continuous_height_is_independent_of_the_first_increment() {
+    let strip = Strip { a: 0.5, b: 0.8 };
+    let fine = loaded_height(&strip, 0.5 * LENGTH, 2.0, 0.05).unwrap();
+    let coarse = loaded_height(&strip, 0.5 * LENGTH, 2.0, 2.0).unwrap();
+    assert!((coarse - fine).abs() < 1e-7);
+}

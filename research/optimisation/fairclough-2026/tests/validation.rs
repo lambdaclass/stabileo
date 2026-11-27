@@ -287,3 +287,12 @@ fn chord_volume_refines_quadratically() {
     assert!(errors[2] < 0.000062);
     for pair in errors.windows(2) { assert!(pair[0]/pair[1] > 3.9 && pair[0]/pair[1] < 4.1); }
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn a_duplicate_weight_cannot_replace_a_missing_paper_comparison() {
+    let reference: Value = serde_json::from_str(include_str!("../reference-results/published_comparison.json")).unwrap();
+    let mut rows = reference["checks"].as_array().unwrap().clone();
+    rows[1] = rows[0].clone();
+    assert!(std::panic::catch_unwind(|| published_table(rows)).is_err());
+}

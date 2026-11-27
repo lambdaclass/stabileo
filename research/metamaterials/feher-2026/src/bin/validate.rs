@@ -114,3 +114,15 @@ fn main() {
         std::process::exit(1);
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn paper_fields_are_exact_even_within_solver_roundoff() {
+    let row = json!({"reference": 4.2, "computed": 4.2, "tolerance": 0.06, "points": 10});
+    for field in ["reference", "tolerance"] {
+        let mut stored = row.clone();
+        stored[field] = json!(row[field].as_f64().unwrap() * 1.0000005);
+        assert!(close(&row, &stored, "checks[0]").is_err(), "{field}");
+    }
+    assert!(close(&row, &row, "checks[0]").is_ok());
+}
