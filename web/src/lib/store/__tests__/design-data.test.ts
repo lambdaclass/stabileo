@@ -26,7 +26,7 @@ const model = {
 describe('the project design data', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
-  it.skip('known wrong result: #2365 restores stated bar diameters independently of the allowed lists', () => {
+  it('known wrong result: #2365 restores stated bar diameters independently of the allowed lists', () => {
     const saved = modelStore.snapshot();
     saved.designData = { version: 1, stirrupDiaMm: 10, wallBarDiaMm: 10, stirrupDiametersMm: [8, 10] };
     modelStore.restore(saved);

@@ -2,7 +2,8 @@
   "id": "wind-pressure-at-member-cuts",
   "date": "2026-11-27",
   "prs": [
-    2220
+    2220,
+    2529
   ],
   "area": "loads",
   "when": {

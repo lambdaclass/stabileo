@@ -63,7 +63,7 @@ for (const offset of [-1e-7, 0, 1e-7]) it(`#2220 quadratic pressure keeps its ph
   expect(parts.reduce((sum, p) => sum + p.force, 0)).toBeCloseTo(1 / 3 + offset, 10);
 });
 
-for (const curvature of [-1, 0, 1]) it.skip(`known wrong result: #2529 member cuts retain the pressure integral for curvature ${curvature}`, () => {
+for (const curvature of [-1, 0, 1]) it(`known wrong result: #2529 member cuts retain the pressure integral for curvature ${curvature}`, () => {
   const model = mesh([[[0, 0, 0], [0, 0, 1]]]);
   const field = windHeightField({
     model, axis: 'x', width: 1, from: 0, to: 1,
@@ -88,7 +88,7 @@ for (const curvature of [-1, 0, 1]) it.skip(`known wrong result: #2529 member cu
   }
 });
 
-for (const side of [-1, 1]) it.skip(`known wrong result: #2529 whole-band pressure compression on side ${side} of the midpoint limit`, () => {
+for (const side of [-1, 1]) it(`known wrong result: #2529 whole-band pressure compression on side ${side} of the midpoint limit`, () => {
   const curvature = 0.002 * (1 + side * 1e-5);
   const pressure = (s: number) => 1 + curvature * (s - 0.5) ** 2;
   const parts = integrateWindPressure(1, [], pressure);
@@ -102,7 +102,7 @@ for (const side of [-1, 1]) it.skip(`known wrong result: #2529 whole-band pressu
   }
 });
 
-it.skip('known wrong result: #2529 a storey column emits the compact pressure bands as member loads', () => {
+it('known wrong result: #2529 a storey column emits the compact pressure bands as member loads', () => {
   const model = mesh([[[0, 0, 2.8], [0, 0, 5.6]]]);
   const field = windHeightField({
     model, axis: 'x', width: 1, from: 2.8, to: 5.6, boundaries: [5],

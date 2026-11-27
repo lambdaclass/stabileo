@@ -9,6 +9,7 @@
  * CIRSOC 201-2025 Table 20.5.1.3.1 is known for it: a cover under it is said, and a click sets
  * every cover to it.
  */
+import { unifiedPlates } from '../features';
 import { AGGREGATE_RANGE, BEAM_BAR_RANGE, COLUMN_BAR_RANGE, DEFAULT_AGGREGATE_MM, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, WALL_BAR_RANGE, inRange, type SheetCode } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
 import { migrateDesignOptions } from '../rc-sheets/design-options';
@@ -159,9 +160,8 @@ export interface ProjectDesignData {
 export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure'>>
   & { covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
 
-const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'wallDiametersMm', 'minTieSpacingMm', 'maxAggregateMm', 'presumedBearingKPa'] as const;
-/** Read from the lists, never stored. */
-export const DERIVED_DESIGN_KEYS = ['stirrupDiaMm', 'wallBarDiaMm'] as const;
+const STATED_BY_DEFAULT = ['stirrupDiaMm', 'wallBarDiaMm', 'rebarGrade', 'rebarFy', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'wallDiametersMm', 'minTieSpacingMm', 'maxAggregateMm', 'presumedBearingKPa'] as const;
+const derivedDesignKeys: readonly string[] = unifiedPlates() ? ['stirrupDiaMm', 'wallBarDiaMm'] : [];
 
 /** Read any stored shape keeping only what it states: the defaults stay out, to be read when the data is. */
 export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefined {
@@ -170,7 +170,7 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
   const full = migrateDesignData(raw);
   const out: Record<string, unknown> = { version: 1 };
   for (const [k, v] of Object.entries(full)) {
-    if (k === 'version' || k === 'covers' || k === 'exposure' || (DERIVED_DESIGN_KEYS as readonly string[]).includes(k)) continue;
+    if (k === 'version' || k === 'covers' || k === 'exposure' || derivedDesignKeys.includes(k)) continue;
     if ((STATED_BY_DEFAULT as readonly string[]).includes(k) && !(k in e)) continue;
     out[k] = v;
   }
@@ -247,7 +247,9 @@ export function defaultDesignData(): ProjectDesignData {
     version: 1,
     rebarGrade: 'ADN 420', rebarFy: 420,
     stirrupDiaMm: preferredBar(stirrups, 8),
-    covers: { beam: 0.03, column: 0.03, slab: 0.025, wall: 0.025, footing: 0.055 },
+    covers: unifiedPlates()
+      ? { beam: 0.03, column: 0.03, slab: 0.025, wall: 0.025, footing: 0.055 }
+      : { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 },
     exposure: { beam: 'interior', column: 'interior', slab: 'interior', wall: 'interior', footing: 'ground' },
     longDiametersMm: BAR_DIAMETERS_MM.filter((d) => d >= 10),
     stirrupDiametersMm: stirrups,
@@ -266,6 +268,12 @@ export function defaultDesignData(): ProjectDesignData {
  * and, for beams and columns, the stirrup it is measured to; under execution control unless said.
  */
 export function minimumCover(kind: DesignKind, exposure: Exposure, largestBarMm: number, o: { stirrupMm?: number; control?: boolean } = {}): number {
+  if (!unifiedPlates()) {
+    if (exposure === 'ground' || kind === 'footing') return 0.075;
+    if (exposure === 'exterior') return largestBarMm >= 19 ? 0.05 : 0.04;
+    if (kind === 'slab' || kind === 'wall') return largestBarMm >= 43 ? 0.04 : 0.02;
+    return 0.04;
+  }
   return specifiedCoverMm({ element: kind, exposure, dbMm: largestBarMm, ...o }) / 1000;
 }
 
@@ -275,6 +283,7 @@ export const minimumCoverFor = (d: ProjectDesignData, kind: DesignKind): number 
 
 /** The largest bar a kind of element takes under these data, mm: from the bars its rows choose among, not another family's. */
 export function largestBar(d: ProjectDesignData, kind: DesignKind): number {
+  if (!unifiedPlates()) return kind === 'wall' ? d.wallBarDiaMm : Math.max(0, ...d.longDiametersMm);
   if (kind === 'wall') return Math.max(...d.wallDiametersMm);
   if (kind === 'slab') return Math.max(...d.slabDiametersMm);
   const range = kind === 'beam' ? BEAM_BAR_RANGE : kind === 'column' ? COLUMN_BAR_RANGE : null;
@@ -327,11 +336,15 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
   };
   const stirrups = known(e.stirrupDiametersMm, def.stirrupDiametersMm);
   const walls = known(Array.isArray(e.wallDiametersMm) ? e.wallDiametersMm.filter((x) => inRange(x as number, WALL_BAR_RANGE)) : undefined, def.wallDiametersMm);
+  const selectedBar = (stored: unknown, allowed: number[], fallback: number) => {
+    if (unifiedPlates()) return preferredBar(allowed, fallback);
+    return typeof stored === 'number' && BAR_DIAMETERS_MM.includes(stored) ? stored : fallback;
+  };
   return {
     version: 1,
     rebarGrade: typeof e.rebarGrade === 'string' && e.rebarGrade ? e.rebarGrade : def.rebarGrade,
     rebarFy: pos(e.rebarFy, def.rebarFy),
-    stirrupDiaMm: preferredBar(stirrups, 8),
+    stirrupDiaMm: selectedBar(e.stirrupDiaMm, stirrups, def.stirrupDiaMm),
     covers: byKind(e.covers, def.covers, (x): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 0),
     exposure: byKind(e.exposure, def.exposure, (x): x is Exposure => x === 'interior' || x === 'exterior' || x === 'ground'),
     longDiametersMm: known(e.longDiametersMm, def.longDiametersMm),
@@ -340,7 +353,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     minTieSpacingMm: typeof e.minTieSpacingMm === 'number' && Number.isFinite(e.minTieSpacingMm) && e.minTieSpacingMm >= MIN_TIE_SPACING_RANGE.min && e.minTieSpacingMm <= MIN_TIE_SPACING_RANGE.max ? e.minTieSpacingMm : def.minTieSpacingMm,
     maxAggregateMm: typeof e.maxAggregateMm === 'number' && Number.isFinite(e.maxAggregateMm) && e.maxAggregateMm >= AGGREGATE_RANGE.min && e.maxAggregateMm <= AGGREGATE_RANGE.max ? e.maxAggregateMm : def.maxAggregateMm,
     wallDiametersMm: walls,
-    wallBarDiaMm: preferredBar(walls, 12),
+    wallBarDiaMm: selectedBar(e.wallBarDiaMm, walls, def.wallBarDiaMm),
     presumedBearingKPa: typeof e.presumedBearingKPa === 'number' && Number.isFinite(e.presumedBearingKPa) && e.presumedBearingKPa >= PRESUMED_BEARING_RANGE.min && e.presumedBearingKPa <= PRESUMED_BEARING_RANGE.max ? e.presumedBearingKPa : def.presumedBearingKPa,
     ...(e.presumedPile && typeof e.presumedPile === 'object' ? { presumedPile: presumedPileOf(e.presumedPile as Partial<PresumedPile>) } : {}),
     ...((l) => (l ? { propertyLines: l } : {}))(propertyLinesOf(e.propertyLines)),

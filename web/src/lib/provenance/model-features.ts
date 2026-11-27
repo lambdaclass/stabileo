@@ -593,7 +593,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (concreteCode === 'aci-aisc') f.add('aci318');
   }
   if (values(s.footings).length) f.add('footings');
-  if ((concrete || values(s.footings).length) && !s.designData?.covers) f.add('defaultDesignCovers');
+  if (unifiedPlates() && (concrete || values(s.footings).length) && !s.designData?.covers) f.add('defaultDesignCovers');
   const jd = s.jointDesigns;
   if (jd && (Array.isArray(jd) ? jd.length : typeof jd === 'object' && Object.keys(jd as object).length)) f.add('jointDesigns');
 

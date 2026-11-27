@@ -4358,7 +4358,7 @@ function createModelStore() {
      */
     setDesignData(d: import('../model/design-data').StoredDesignData | null): void {
       if (!_undoBatching) _pushUndoView?.();
-      model.designData = d ? JSON.parse(JSON.stringify(d)) : undefined;
+      model.designData = migrateStoredDesignData(d ? JSON.parse(JSON.stringify(d)) : undefined);
     },
 
     /** State the background drawings. Undoable; they touch no result. */
