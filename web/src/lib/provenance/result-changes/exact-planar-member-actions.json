@@ -19,7 +19,6 @@
     "fr": "Cumuler exactement les actions de barre en analyse non linéaire plane",
     "hu": "Rúdterhek pontos összegzése síkbeli nemlineáris számításban",
     "tr": "Düzlemsel doğrusal olmayan analizde eleman yüklerini tam olarak topla",
-    "it": "Accumula esattamente le azioni sulle aste nell’analisi non lineare piana",
     "zh": "精确累加平面非线性分析中的杆件作用"
   },
   "explanation": {
@@ -30,7 +29,6 @@
     "fr": "L’analyse non linéaire plane arrondit les actions nodales équivalentes après avoir cumulé les contributions des forces ponctuelles, des couples et des charges réparties sur les barres. Cela préserve leur annulation dans les réactions et les efforts d’extrémité.",
     "hu": "A síkbeli nemlineáris számítás a pontszerű erők, nyomatékok és megoszló rúdterhek hozzájárulásainak összege után kerekíti az egyenértékű csomóponti terheket. Így megmarad a reakciók és a rúdvégi erők kioltása.",
     "tr": "Düzlemsel doğrusal olmayan analiz, tekil kuvvetlerin, momentlerin ve yayılı eleman yüklerinin katkılarını topladıktan sonra eşdeğer düğüm yüklerini yuvarlar. Böylece mesnet tepkilerinde ve eleman uç kuvvetlerinde yüklerin birbirini götürmesi korunur.",
-    "it": "L’analisi non lineare piana arrotonda le azioni nodali equivalenti dopo averle accumulate da forze concentrate, coppie e carichi distribuiti sulle aste. Ciò preserva le cancellazioni nelle reazioni e nelle sollecitazioni di estremità delle aste.",
     "zh": "平面非线性分析在累加集中力、力偶和杆件分布荷载的贡献后，才对等效节点作用进行舍入。这保留了支座反力和杆端内力中的抵消。"
   },
   "changelog": {

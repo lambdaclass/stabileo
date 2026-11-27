@@ -34,7 +34,6 @@
     "fr": "La continuation en longueur d’arc regroupe le calcul de la charge de référence",
     "hu": "Az ívhossz-folytatás átcsoportosítja a referenciateher aritmetikáját",
     "tr": "Yay uzunluğu devamı referans yük hesabını yeniden grupluyor",
-    "it": "La continuazione arc-length raggruppa diversamente l’aritmetica del carico di riferimento",
     "zh": "弧长法延续对参考荷载的运算进行了重新分组"
   },
   "explanation": {
@@ -45,7 +44,6 @@
     "fr": "La PR #1885 ajoute les mouvements d’appui imposés et la continuation depuis un état convergé à l’analyse 2D en longueur d’arc. Le précalcul de la norme au carré de la charge de référence et le calcul direct de la norme appliquée modifient aussi les derniers chiffres des chemins existants partant de zéro. Les échantillons audités conservent leur convergence et leurs contrôles indépendants. Les anciens tampons ne distinguent pas les méthodes non linéaires : cet avis couvre les calculs 2D non linéaires enregistrés, en excluant la 3D et les calculs linéaires enregistrés.",
     "hu": "A PR #1885 előírt támaszmozgást és konvergált állapotból való folytatást adott a 2D ívhosszvizsgálathoz. A négyzetes referenciateher-norma előszámítása és az alkalmazott teher normájának közvetlen kiértékelése a korábbi nulláról induló utak utolsó számjegyeit is módosítja. Az auditált minták konvergenciája és független referenciaellenőrzései megmaradnak. Az értesítés a rögzített 2D nemlineáris futásokat érinti, mert a régi bélyegek nem különböztetik meg az ívhosszt más nemlineáris módszerektől; a 3D és rögzített lineáris futások kizártak.",
     "tr": "PR #1885, 2B yay uzunluğu analizine tanımlı mesnet hareketi ve yakınsamış durumdan devam ekledi. Referans yük normunun karesinin önceden hesaplanması ve uygulanan yük normunun doğrudan değerlendirilmesi, sıfırdan başlayan mevcut yolların son basamaklarını da değiştiriyor. Denetlenen örnekler yakınsamayı ve bağımsız referans kontrollerini koruyor. Eski kayıtlar doğrusal olmayan yöntemleri ayırmadığından bildirim kayıtlı 2B doğrusal olmayan çözümleri kapsar; 3B ve kayıtlı doğrusal çözümler kapsam dışıdır.",
-    "it": "La PR #1885 ha aggiunto all’analisi arc-length 2D il moto imposto dei vincoli e la continuazione da uno stato convergente. Precalcolare il quadrato della norma del carico di riferimento e valutare direttamente la norma del carico applicato cambia anche le cifre di ordine basso dei percorsi esistenti a partenza da zero. I campioni di benchmark sottoposti ad audit mantengono la convergenza e le loro verifiche indipendenti di riferimento. Questo avviso copre le esecuzioni 2D non lineari registrate perché i timbri più vecchi non distinguono l’arc-length dagli altri metodi non lineari; sono escluse le esecuzioni 3D e quelle lineari registrate.",
     "zh": "PR #1885 为 2D 弧长分析增加了指定支座位移以及从已收敛状态继续计算的功能。预先计算参考荷载范数的平方，并直接计算所加荷载的范数，也会改变现有零起点路径的低位数字。经审核的基准算例样本仍保持收敛，并通过了其独立的参考验证。本通知涵盖已记录的 2D 非线性运行，因为较早的标记无法区分弧长法与其他非线性方法；3D 以及已记录的线性运行不在此列。"
   },
   "changelog": {

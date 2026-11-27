@@ -22,7 +22,6 @@
     "fr": "Les charges de neige conservent leur moment au passage du faîtage",
     "tr": "Kar yükleri mahyayı geçerken yük momentini korur",
     "hu": "A hóterhek megőrzik a gerinckeresztezés nyomatékát",
-    "it": "I carichi di neve conservano il loro momento all’attraversamento del colmo",
     "zh": "雪荷载保留其跨屋脊的弯矩"
   },
   "explanation": {
@@ -33,7 +32,6 @@
     "fr": "Les barres traversant le faîtage recevaient une pression uniforme et perdaient le moment physique. Les charges sont désormais divisées au faîtage géométrique. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2176; SA-2026-073).",
     "tr": "Mahyayı geçen çubuklara düzgün basınç uygulanıyor ve fiziksel yük momenti kayboluyordu. Yükler artık fiziksel mahyada bölünür. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2176; SA-2026-073).",
     "hu": "A hógerincet keresztező rudak egyetlen egyenletes nyomást kaptak, így elveszett a fizikai teher nyomatéka. A terhek most a fizikai gerincnél oszlanak meg. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2176; SA-2026-073).",
-    "it": "Le aste che attraversavano un colmo di neve ricevevano un’unica pressione uniforme e perdevano il momento fisico del carico. I carichi ora si dividono al colmo fisico. Rigenera tutti i carichi di superficie generati interessati, poi riesegui analisi, combinazioni e verifiche di progetto. Ricalcolare solo i carichi generati memorizzati non li corregge. (#2176; SA-2026-073).",
     "zh": "跨越雪脊的杆件以前受到一个均匀压力，丢失了荷载的实际弯矩。现在荷载在实际屋脊处分开。请重新生成所有受影响的生成面荷载，然后重新运行分析、组合和设计验算。仅重新求解已存储的生成荷载并不能更正它们。（#2176；SA-2026-073）。"
   },
   "changelog": {

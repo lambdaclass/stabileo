@@ -22,7 +22,6 @@
     "de": "Automatische Schwerkraftlasten auf getrennten gekoppelten Geschossen erhalten",
     "fr": "Conserver les charges gravitaires automatiques sur les niveaux distincts liés",
     "tr": "Birbirine bağlı ayrı döşemelerde otomatik yerçekimi yüklerini koruma",
-    "it": "Mantieni la gravità automatica su impalcati separati uniti da collegamenti",
     "zh": "保留通过约束连接的独立楼层上的自动重力荷载",
     "hu": "Az automatikus gravitációs terhek megőrzése összekötött, különálló szinteken"
   },
@@ -33,7 +32,6 @@
     "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Eine Schale und ihr gekoppeltes Trägerfeld oder ihr gekoppelter Sparren behalten getrennte Lasten, wenn sie zu verschiedenen Geschossen gehören. Nahezu horizontale einachsig spannende Felder erhalten die projizierte Lastresultierende auf den geneigten Auflagerträgern.",
     "fr": "Régénérez les charges gravitaires par panneaux. Une coque et la travée ou le chevron qui lui est lié conservent leurs charges respectives s’ils appartiennent à des niveaux distincts. Les panneaux unidirectionnels presque horizontaux conservent la résultante projetée sur les poutres inclinées qui les portent.",
     "tr": "Panel yerçekimi yüklerini yeniden üretin. Bir kabuk ile ona bağlı kiriş açıklığı veya mertek, farklı döşemelere ait olduklarında ayrı yüklerini korur. Yataya yakın tek doğrultulu paneller eğimli taşıyıcı kirişlerde izdüşüm yükünün bileşkesini korur.",
-    "it": "Rigenera i carichi gravitazionali dei pannelli. Un guscio e il suo campo o puntone collegato conservano carichi separati quando appartengono a impalcati separati. I campi in una direzione quasi orizzontali conservano la risultante del carico proiettato sulle travi riceventi inclinate.",
     "zh": "请重新生成按板格分配的重力荷载。壳与相连的梁格或椽条属于不同楼层时，各自保留荷载。近水平单向板格在倾斜承重梁上保持投影荷载的合力。",
     "hu": "Generálja újra a mezőnkénti gravitációs terheket. A héj és a hozzá kapcsolt gerendamező vagy szarufa megtartja saját terhét, ha külön szintekhez tartoznak. A közel vízszintes egyirányú mezők ferde tartógerendáin megmarad a vetített teher eredője."
   },

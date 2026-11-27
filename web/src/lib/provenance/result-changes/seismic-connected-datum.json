@@ -22,7 +22,6 @@
     "de": "Statische Erdbebenlasten erfordern eine gemeinsame Höhe der verbundenen Auflager",
     "fr": "Les charges sismiques statiques exigent une cote commune aux appuis reliés",
     "tr": "Statik deprem yükleri bağlı mesnetlerin aynı kotta olmasını gerektirir",
-    "it": "I carichi sismici statici richiedono una quota comune nei vincoli collegati",
     "zh": "等效静力地震荷载要求相连支座具有相同标高",
     "hu": "A statikus szeizmikus terhekhez a kapcsolódó támaszoknak azonos magasságban kell lenniük"
   },
@@ -33,7 +32,6 @@
     "de": "Die mit der seismischen Masse verbundenen Auflager bestimmen die Bezugshöhe. Eine abgestufte Basis verhindert die statische Lasterzeugung. Erzeugen Sie betroffene E-Lasten neu (#2316).",
     "fr": "Les appuis reliés à la masse sismique définissent la cote de référence. Une base à redans bloque la génération statique. Régénérez les charges E concernées (#2316).",
     "tr": "Sismik kütleye bağlı mesnetler referans kotunu belirler. Kademeli taban statik yük üretimini engeller. Etkilenen E yüklerini yeniden oluşturun (#2316).",
-    "it": "I vincoli collegati alla massa sismica definiscono il piano di riferimento. Una base a gradini blocca la generazione statica. Rigenera i carichi E interessati (#2316).",
     "zh": "与地震质量相连的支座确定基准标高。阶梯形基础会阻止生成等效静力地震荷载。请重新生成受影响的 E 荷载（#2316）。",
     "hu": "A szeizmikus tömeghez kapcsolódó támaszok határozzák meg a viszonyítási magasságot. A lépcsőzetes alap megakadályozza a statikus terhek előállítását. Generálja újra az érintett E terheket (#2316)."
   },

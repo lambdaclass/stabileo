@@ -22,7 +22,6 @@
     "fr": "Arrondi de direction des charges de treillis",
     "hu": "A rácsrúdterhek irányának kerekítése",
     "tr": "Kafes çubuk yük yönü yuvarlaması",
-    "it": "Arrotondamento della direzione dei carichi nelle travature reticolari",
     "zh": "桁架荷载方向的舍入"
   },
   "explanation": {
@@ -33,7 +32,6 @@
     "fr": "Les charges de treillis et de câbles incluent désormais l’incertitude d’arrondi de direction en 2D et 3D. Les charges compatibles conservent leur réponse ; les charges résiduelles dépassant la limite calculée restent refusées. Recalculer les modèles chargés sur ces barres (#2074).",
     "hu": "A rácsrudak és kábelek terhei most 2D-ben és 3D-ben is tartalmazzák az irány kerekítésének bizonytalanságát. Az összeférő terhek szerkezeti válasza megmarad; a számított korlátot meghaladó maradó terhek elutasítása továbbra is érvényes. Futtassa újra azokat a modelleket, amelyekben ilyen rudakra működnek terhek (#2074).",
     "tr": "Kafes çubuk ve kablo yükleri artık 2B ve 3B yön yuvarlama belirsizliğini içerir. Uyumlu yükler yanıtlarını korur; hesaplanan sınırın üzerindeki artık yükler reddedilmeye devam eder. Bu çubuklara yük uygulanan modelleri yeniden çözün (#2074).",
-    "it": "I carichi sulle aste di travature reticolari e cavi ora includono l’incertezza di arrotondamento della direzione in 2D e 3D. I carichi compatibili conservano la loro risposta; i carichi residui oltre il limite calcolato restano rifiutati. Riesegui i modelli con carichi applicati a queste aste (#2074).",
     "zh": "桁架和索的杆件荷载现在在 2D 和 3D 中包含方向舍入的不确定性。相容的荷载保留其响应；超出所计算界限的残余荷载仍会被拒绝。请重新运行带有作用在这些杆件上的荷载的模型（#2074）。"
   },
   "changelog": {

@@ -21,7 +21,6 @@
     "de": "Vollständige Stationsraster für die Trägerbemessung",
     "fr": "Grilles de stations complètes pour le dimensionnement des travées",
     "tr": "Açıklık tasarımı için eksiksiz istasyon ağı",
-    "it": "Griglie di stazioni complete per le campate di progetto",
     "zh": "跨段设计要求完整的测站网格",
     "hu": "Teljes állomásrács a gerendamezők méretezéséhez"
   },
@@ -32,7 +31,6 @@
     "de": "Für die Bemessung von Trägerfeldern müssen für jede aktive Kombination Schnittgrößen an allen deklarierten Stationen vorliegen. Bei fehlenden Schnittgrößen wird die Bemessung abgebrochen. Dies gilt auch, wenn für ein Trägerteilstück keine Kombinationsergebnisse vorliegen.",
     "fr": "Le dimensionnement des travées exige les efforts à chaque station déclarée pour toutes les combinaisons actives. Des efforts manquants interrompent le dimensionnement. Cela inclut le cas où une portion de poutre ne fournit de résultats pour aucune combinaison.",
     "tr": "Kiriş açıklığı tasarımı, her etkin birleşim için beyan edilen tüm istasyonlarda kesit tesirlerini gerektirir. Eksik kesit tesirleri tasarımı durdurur. Bu kural, hiçbir birleşim sonucu bulunmayan kiriş parçaları için de geçerlidir.",
-    "it": "Il progetto delle campate di trave richiede che ogni combinazione attiva fornisca le sollecitazioni in ogni stazione dichiarata. Le sollecitazioni di stazione mancanti fermano il progetto. Ciò include un elemento che non fornisce alcun risultato di combinazione.",
     "zh": "梁跨设计要求每个启用组合在所有声明的测站上提供内力。测站内力缺失时，设计将停止。这也包括未提供任何组合结果的梁段。",
     "hu": "A gerendamezők méretezéséhez minden megadott állomáson szükség van az összes aktív kombináció igénybevételeire. Hiányzó igénybevételek esetén a méretezés leáll. Ez arra az esetre is vonatkozik, amikor egy gerendaszakaszhoz egyetlen kombináció eredménye sem áll rendelkezésre."
   },

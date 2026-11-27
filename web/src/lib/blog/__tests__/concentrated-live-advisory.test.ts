@@ -1,10 +1,12 @@
+import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { findPost } from '..';
 import hu from '../translations/hu/safety-advisories';
-import notice from '../../provenance/result-changes/concentrated-live-actions.json';
 import { buildPublicLocales } from '../../i18n/offered-research';
 import type { PublicLocale } from '../../i18n/store.svelte';
+
+const notice = RESULT_CHANGES.changes.find(change => change.id === 'concentrated-live-actions')!;
 
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');
 const advisoryId = 'SA-2026-083';

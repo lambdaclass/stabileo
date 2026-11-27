@@ -21,7 +21,6 @@
     "de": "Schneelasten berücksichtigen lokale Positionen und Grenzen",
     "fr": "Les charges de neige respectent les positions et limites locales",
     "tr": "Kar yükleri yerel konumları ve sınırları izliyor",
-    "it": "I carichi di neve rispettano le posizioni locali e i confini degli accumuli",
     "zh": "雪荷载遵从局部位置和堆积边界"
   },
   "explanation": {
@@ -31,7 +30,6 @@
     "de": "Knotenschneelasten verwenden den zugehörigen Knoten. Verwehungs- und Gleitlasten werden an Anwendungs- und Streifengrenzen geteilt. Dachkanten verwenden tatsächliche Höhen; sich kreuzende Dächer werden bei jeder Drehung abgelehnt. Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2095). In 0.6.1 enthalten.",
     "fr": "La neige nodale utilise son nœud tributaire. Les congères et charges de glissement sont divisées aux limites applicables. Les bords utilisent les altitudes réelles ; les toits qui se croisent sont refusés pour toute rotation. Régénérez les charges et relancez analyses, combinaisons et vérifications (#2095). Correction incluse dans 0.6.1.",
     "tr": "Düğüm kar yükleri ilgili düğümü kullanır. Birikme ve kayma yükleri uygulama ve şerit sınırlarında bölünür. Kenarlarda gerçek kotlar kullanılır; kesişen çatılar her dönüşte reddedilir. Kar yüklerini yeniden üretip analizleri, birleşimleri ve tasarım kontrollerini çalıştırın (#2095). Düzeltme 0.6.1 sürümüne dahildir.",
-    "it": "La neve nodale usa il proprio nodo d’influenza. I carichi di accumulo e scivolamento si dividono ai confini di applicabilità e di fascia. I bordi esterni usano le quote effettive delle superfici; l’ordine delle coperture che si incrociano viene rifiutato in modo coerente sotto rotazione. Rigenera i carichi di neve e riesegui analisi, combinazioni e verifiche di progetto (#2095). Questa correzione è inclusa nella 0.6.1.",
     "zh": "节点雪荷载使用其从属节点。堆积和滑落荷载在适用范围和分带边界处分开。外边缘使用实际的表面标高；相交的屋面顺序在旋转下一致地被拒绝。请重新生成雪荷载，并重新运行分析、组合和设计验算（#2095）。此修正已包含在 0.6.1 中。"
   },
   "changelog": {

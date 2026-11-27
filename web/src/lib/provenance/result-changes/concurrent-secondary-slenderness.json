@@ -17,7 +17,6 @@
     "de": "Betonnachweise behalten die Nebenschlankheit",
     "fr": "Le béton conserve l’élancement secondaire",
     "tr": "Beton kontrolleri ikincil narinliği korur",
-    "it": "Le verifiche del calcestruzzo mantengono la snellezza secondaria",
     "zh": "混凝土验算保留次要方向的长细比"
   },
   "explanation": {
@@ -27,7 +26,6 @@
     "de": "Betonstützen und Wände behalten die maßgebende Schlankheit der Nebenachse und ihren Rechengang auch ohne zweiachsigen Nachweis. Die Auswahl folgt Schlankheit und Momentenvergrößerung unabhängig von der zweiachsigen Ausnutzung. Gespeicherte Betonbemessungen erneut ausführen und den Rechengang der Nebenachse prüfen (#1316, PR #2080).",
     "fr": "Les poteaux et voiles en béton conservent l’élancement déterminant de l’axe secondaire et sa note de calcul même sans vérification biaxiale. La sélection suit l’élancement et l’amplification indépendamment du taux biaxial. Relancer les projets enregistrés et examiner la note de l’axe secondaire (#1316, PR #2080).",
     "tr": "Beton kolonlar ve perdeler, iki eksenli kontrol gerekmese de ikincil eksenin belirleyici narinliğini ve hesap dökümünü korur. Seçim, iki eksenli kullanım oranından bağımsız olarak narinlik ve büyütmeye dayanır. Kayıtlı beton tasarımlarını yeniden çalıştırıp ikincil eksen hesaplarını inceleyin (#1316, PR #2080).",
-    "it": "Pilastri e pareti in calcestruzzo mantengono la snellezza dominante dell’asse secondario e la relativa relazione di calcolo anche quando non serve alcuna verifica biassiale. La scelta segue snellezza e amplificazione indipendentemente dal coefficiente di utilizzo biassiale. Riesegui i progetti salvati di calcestruzzo e rivedi la relazione dell’asse secondario (#1316, PR #2080).",
     "zh": "即使无需进行双向验算，混凝土柱和墙也会保留其控制的次要轴长细比和计算书。选取依据长细比和放大系数独立确定，与双向利用率无关。请重新运行已保存的混凝土设计，并复核次要轴计算书（#1316，PR #2080）。"
   },
   "quantities": [

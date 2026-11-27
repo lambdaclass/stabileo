@@ -11,7 +11,6 @@
     "pt": "Molas não finitas e combinações que se cancelam por completo são recusadas",
     "de": "Nicht endliche Federn und vollständig aufgehobene Kombinationen werden abgelehnt",
     "fr": "Les ressorts de raideur non finie et les combinaisons entièrement annulées sont refusés",
-    "it": "Molle non finite e combinazioni completamente annullate vengono rifiutate",
     "zh": "拒绝非有限弹簧刚度和完全抵消的组合",
     "hu": "A nem véges rugómerevség és a teljesen kioltott kombináció hibát eredményez",
     "tr": "Sonlu olmayan yay rijitliği ve tamamen sıfırlanan birleşimler reddediliyor"
@@ -22,7 +21,6 @@
     "pt": "As análises de cabos e de interação solo–estrutura agora recusam rigidezes de apoio não finitas. Uma combinação é recusada quando seus fatores não nulos se cancelam em todos os casos de carga. Revise a rigidez ou os fatores afetados antes de recalcular.",
     "de": "Seilanalysen und Analysen der Boden-Bauwerk-Interaktion lehnen jetzt nicht endliche Lagersteifigkeiten ab. Eine Kombination wird abgelehnt, wenn sich ihre von null verschiedenen Faktoren für jeden Lastfall zu null aufheben. Prüfen Sie die betroffene Steifigkeit oder die Faktoren vor einer erneuten Berechnung.",
     "fr": "Les analyses de câbles et d’interaction sol–structure refusent désormais les raideurs d’appui non finies. Une combinaison est refusée lorsque ses coefficients non nuls s’annulent pour tous les cas de charge. Vérifiez la raideur ou les coefficients concernés avant de relancer le calcul.",
-    "it": "Le analisi di cavi e di interazione suolo-struttura ora rifiutano rigidezze dei vincoli non finite. Una combinazione viene rifiutata quando i suoi fattori non nulli si annullano a zero per ogni caso di carico. Rivedi la rigidezza o i fattori interessati prima di calcolare di nuovo.",
     "zh": "索分析和土–结构相互作用分析现在拒绝非有限的支座刚度。若每个荷载工况的非零系数均相互抵消为零，则拒绝该组合。请检查受影响的刚度或系数后再求解。",
     "hu": "A kábel- és talaj–szerkezet-kölcsönhatási számítások elutasítják a nem véges támaszmerevséget. A kombináció számítása leáll, ha a nem nulla tényezők minden teheresetnél kioltják egymást. Újraszámítás előtt ellenőrizze az érintett merevséget vagy tényezőket.",
     "tr": "Kablo ve zemin–yapı etkileşimi analizleri artık sonlu olmayan mesnet rijitliğini reddediyor. Sıfır olmayan katsayıları her yük durumu için birbirini götüren birleşimler reddediliyor. Yeniden çözmeden önce ilgili rijitliği veya katsayıları gözden geçirin."

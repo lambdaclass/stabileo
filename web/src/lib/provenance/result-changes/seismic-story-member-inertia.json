@@ -22,7 +22,6 @@
     "de": "Statische Erdbebenträgheitskräfte wirken auf Stäbe und Flächen auf Geschosshöhe",
     "fr": "Les forces d’inertie sismique statique agissent sur les barres et les surfaces des étages",
     "tr": "Statik deprem atalet kuvvetleri kat seviyesindeki eleman ve yüzeylere etkir",
-    "it": "L’inerzia sismica statica resta sulle aste e sui gusci a livello di piano",
     "zh": "等效静力地震惯性力由楼层标高处的构件和壳单元承担",
     "hu": "A statikus szeizmikus tehetetlenségi erők a szint rúd- és felületelemeire hatnak"
   },
@@ -33,7 +32,6 @@
     "de": "Masse auf Geschosshöhe erzeugt verteilte Lasten auf den dortigen Stäben und Flächen. Der 45°-Lastfall wird bei mittlerer oder extremer zufälliger Torsion abgelehnt. Erzeugen Sie betroffene E-Lasten neu und wiederholen Sie Analysen und Nachweise (#2316).",
     "fr": "La masse à la cote d’un étage produit des charges réparties sur ses barres et ses surfaces. Le cas à 45° est refusé avec une torsion accidentelle moyenne ou extrême. Régénérez les charges E concernées et répétez les analyses et les vérifications (#2316).",
     "tr": "Kat kotundaki kütle eleman ve yüzeylerde yayılı yük oluşturur. Orta veya aşırı tesadüfi burulmada 45° yük durumu reddedilir. Etkilenen E yüklerini yeniden oluşturun ve analizleri ve tasarım kontrollerini tekrarlayın (#2316).",
-    "it": "La massa a una quota di piano produce carichi distribuiti sulle sue aste e superfici. Il caso a 45° viene rifiutato con torsione accidentale media o estrema. Rigenera i carichi E interessati e ripeti analisi e verifiche di progetto (#2316).",
     "zh": "楼层标高处的质量在该层构件和面单元上产生分布荷载。考虑中等或极端程度的偶然扭转时，将拒绝生成 45° 方向的荷载工况。请重新生成受影响的 E 荷载并重做分析和设计验算（#2316）。",
     "hu": "A szint magasságában lévő tömeg megoszló terheket hoz létre a rúd- és felületelemeken. Közepes vagy szélsőséges véletlen csavarás esetén a 45°-os tehereset nem hozható létre. Generálja újra az érintett E terheket, és ismételje meg az elemzéseket és ellenőrzéseket (#2316)."
   },

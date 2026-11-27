@@ -1,10 +1,12 @@
+import { RESULT_CHANGES } from '../../provenance/full-registry';
 import hu from '../translations/hu/safety-advisories';
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { findPost } from '..';
-import crossing from '../../provenance/result-changes/snow-crossing-profile.json';
-import panel from '../../provenance/result-changes/snow-panel-geometry.json';
 import type { PublicLocale } from '../../i18n/store.svelte';
+
+const crossing = RESULT_CHANGES.changes.find(change => change.id === 'snow-crossing-profile')!;
+const panel = RESULT_CHANGES.changes.find(change => change.id === 'snow-panel-geometry')!;
 
 const regenerationAction: Record<PublicLocale, string> = {
   en: 'Regenerate all affected generated area loads, then rerun analyses, combinations and design checks.',

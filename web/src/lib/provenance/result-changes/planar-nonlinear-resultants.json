@@ -20,7 +20,6 @@
     "fr": "Préserver les résultantes de charge, les liaisons et la progression de l’arc",
     "hu": "A terhek eredőinek, az elmozdulási kényszereknek és az ív előrehaladásának megőrzése",
     "tr": "Yük bileşkelerini, yer değiştirme bağlarını ve yay boyunca ilerlemeyi koru",
-    "it": "Conserva le risultanti dei carichi, i collegamenti di spostamento e i passi a lunghezza d’arco in avanti",
     "zh": "保持荷载合力、位移约束和弧长步的前进方向"
   },
   "explanation": {
@@ -31,7 +30,6 @@
     "fr": "Les méthodes non linéaires planes somment les charges de chaque cas avant de les multiplier. L’analyse corotationnelle reconstitue les déplacements liés à partir des positions maîtresses courantes. La méthode de longueur d’arc reprend avec un rayon inférieur si le point d’équilibre revient en arrière.",
     "hu": "A síkbeli nemlineáris megoldók szorzás előtt összegzik a terheket terhelési mintánként. A korotációs megoldó az aktuális vezérlőhelyzetekből állítja elő a kapcsolt elmozdulásokat. Az ívhosszmódszer visszafelé mutató egyensúlyi pont esetén kisebb sugárral próbálkozik.",
     "tr": "Düzlemsel doğrusal olmayan çözücüler, yükleri ölçeklemeden önce her yük düzeninde toplar. Eş dönel çözüm bağlı yer değiştirmeleri bağımsız düğümlerin güncel konumlarından yeniden kurar. Yay uzunluğu yöntemi geriye giden denge noktalarında daha küçük bir yarıçap dener.",
-    "it": "I solutori piani non lineari sommano gli schemi di carico prima di scalarli. La co-rotazione ricostruisce gli spostamenti collegati dalle posizioni correnti dei master, e la lunghezza d’arco riprova i punti di equilibrio all’indietro con un raggio minore.",
     "zh": "平面非线性求解器先对各荷载模式求和，再乘以荷载系数。共旋分析根据主自由度的当前位置重建从属位移。弧长法遇到后退的平衡点时会缩小半径重试。"
   },
   "changelog": {

@@ -29,7 +29,7 @@ function repo() {
   unlinkSync(join(root, LEGACY));
   write(`${DIR}/${NUMBERED}`, { schema: 1, changes: [{ id: 'old-29', resultsVersion: 29 }, { id: 'old-1', resultsVersion: 1 }] });
   commit('one file per change');
-  return { root, git, commit, fragment, land };
+  return { root, git, write, commit, fragment, land };
 }
 
 const versions = (r: { changes: { id: string; resultsVersion: number }[] }) =>
@@ -41,6 +41,24 @@ describe('results versions from the order changes reach main', { timeout: 60_000
     const r = readRegistry(root);
     expect(r.currentResultsVersion).toBe(29);
     expect(versions(r)).toEqual({ 'old-29': 29, 'old-1': 1 });
+  });
+
+  it('publishes Italian notices for existing entries without editing their released sources', () => {
+    const { root, git, write, commit, fragment } = repo();
+    const english = { title: { en: 'Title' }, explanation: { en: 'Explanation' } };
+    fragment('existing', english);
+    commit('publish the original notice');
+    const source = git('show', `HEAD:${DIR}/existing.json`);
+    write('web/src/lib/provenance/result-change-translations/it.json', {
+      existing: { title: 'Titolo', explanation: 'Spiegazione' },
+    });
+    commit('translate the existing notice');
+    const localized = { title: { en: 'Title', it: 'Titolo' }, explanation: { en: 'Explanation', it: 'Spiegazione' } };
+    const current = readRegistry(root).changes.find(change => change.id === 'existing');
+    expect(current).toMatchObject(localized);
+    expect(readRegistryAt('HEAD', root)!.changes).toContainEqual(current);
+    expect(readRegistryAt('HEAD~1', root)!.changes.find(change => change.id === 'existing')!.title).toEqual(english.title);
+    expect(git('show', `HEAD:${DIR}/existing.json`)).toBe(source);
   });
 
   it('numbers two changes made in parallel by the order they merge, and they never conflict', () => {

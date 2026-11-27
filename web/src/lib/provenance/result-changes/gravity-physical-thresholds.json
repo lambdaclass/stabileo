@@ -18,7 +18,6 @@
     "de": "Tatsächliche lichte Höhe für automatische Schwerkraftlasten verwenden",
     "fr": "Utiliser la hauteur libre réelle pour les charges gravitaires automatiques",
     "tr": "Otomatik yerçekimi yüklerinde gerçek net yüksekliği kullan",
-    "it": "Usa l’altezza libera fisica per il carico gravitazionale automatico",
     "zh": "按实际净高生成自动重力荷载",
     "hu": "A tényleges szabad magasság használata az automatikus gravitációs terheknél"
   },
@@ -29,7 +28,6 @@
     "de": "Für automatische Schwerkraftlasten werden die örtliche lichte Höhe und die Überdeckung am exakten Mittelpunkt jedes Stabs verwendet. Liegt ein nicht ebenes Feld beiderseits des Überdeckungsgrenzwerts, ist eine ebene Decke oder eine ausdrückliche Lastzuweisung erforderlich. Erzeugen Sie betroffene Schwerkraft-, Dachwind- und Schneelasten neu und wiederholen Sie Analysen und Kombinationen.",
     "fr": "La génération des charges gravitaires utilise la hauteur libre locale et le recouvrement au milieu exact de chaque barre. Un panneau non coplanaire situé de part et d’autre du seuil de recouvrement nécessite un plancher plan ou des charges explicites. Régénérez les charges gravitaires, de vent en toiture et de neige concernées, puis relancez les analyses et les combinaisons.",
     "tr": "Otomatik yerçekimi yükleri, yerel net yüksekliği ve her çubuğun tam orta noktasındaki örtüyü kullanır. Örtü sınırını aşan düzlemsel olmayan bir göz için düzlemsel bir döşeme tanımlayın veya yükleri açıkça atayın. Etkilenen yerçekimi, çatı rüzgârı ve kar yüklerini yeniden üretip analizleri ve birleşimleri tekrarlayın.",
-    "it": "Il carico gravitazionale automatico usa l’altezza libera locale e il punto medio esatto di ogni asta per determinare la copertura. Un campo non complanare che attraversa la soglia di copertura richiede un impalcato piano o carichi espliciti. Rigenera i carichi gravitazionali, di vento in copertura e da neve interessati, poi riesegui le analisi e le combinazioni.",
     "zh": "自动重力荷载根据局部净高和每根杆件精确中点处的覆盖情况分配。如果非共面板区的高度范围跨越覆盖阈值，请定义平面楼板或明确指定荷载。请重新生成受影响的重力、屋面风和雪荷载，并重新运行分析和组合计算。",
     "hu": "Az automatikus gravitációs terhek a helyi szabad magasság és a rúd pontos felezőpontjának fedettsége alapján készülnek. Ha egy nem síkbeli mező magassága átlépi a fedettségi küszöböt, sík födémet vagy közvetlenül megadott terheket kell megadni. Generálja újra az érintett gravitációs, tetőszél- és hóterheket, majd ismételje meg az elemzéseket és a kombinációkat."
   },

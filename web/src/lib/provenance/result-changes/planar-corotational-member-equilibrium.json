@@ -29,7 +29,6 @@
     "fr": "L’effort tranchant plan utilise la corde finale",
     "hu": "A síkbeli rúd nyíróereje a végső húrt használja",
     "tr": "Düzlemsel eleman kesmesi son konumdaki uç noktalarını birleştiren kordu kullanır",
-    "it": "Il taglio piano delle aste usa la corda finale",
     "zh": "平面杆件剪力使用最终弦"
   },
   "explanation": {
@@ -40,7 +39,6 @@
     "fr": "La récupération des barres planes en corotation, longueur d’arc et contrôle en déplacement utilise la corde actuelle pour calculer l’effort tranchant à partir des moments d’extrémité, conformément à la longueur et au résidu d’équilibre. Revérifiez les efforts tranchants des résultats plans non linéaires enregistrés (#1952).",
     "hu": "A síkbeli korotációs, ívhossz- és elmozdulásvezérelt rúdhelyreállítás az aktuális húrral számítja a végnyomatékokból a nyíróerőt, összhangban a közölt hosszal és egyensúlyi maradékkal. Ellenőrizze újra a mentett nemlineáris síkbeli eredmények rúdnyíróerőit (#1952).",
     "tr": "Düzlemsel eş dönel, yay uzunluğu ve yer değiştirme kontrollü analizlerde uç momentlerinden kesme kuvveti hesaplanırken elemanın mevcut uç noktalarını birleştiren kord kullanılır; raporlanan uzunluk ve denge artığıyla tutarlılık sağlanır. Kaydedilmiş doğrusal olmayan düzlemsel sonuçların kesme kuvvetlerini yeniden kontrol edin (#1952).",
-    "it": "Il recupero delle aste nelle analisi piane co-rotazionali, a lunghezza d’arco e a controllo di spostamento usa ora la corda corrente per ricavare il taglio dai momenti di estremità, in modo coerente con la lunghezza riportata e il residuo di equilibrio. Ricontrolla i tagli delle aste nei risultati piani non lineari salvati (#1952).",
     "zh": "平面共旋、弧长和位移控制的杆件恢复，现在使用当前弦由杆端弯矩恢复剪力，与所报告的长度和平衡残差一致。请重新核对已保存的非线性平面结果中的杆件剪力（#1952）。"
   },
   "changelog": {

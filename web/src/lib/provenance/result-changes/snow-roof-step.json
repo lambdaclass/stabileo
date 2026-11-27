@@ -22,7 +22,6 @@
     "de": "Schneeverwehungen an Dachstufen verwenden die aufnehmende Dachebene",
     "fr": "Les accumulations aux décrochements utilisent le plan récepteur",
     "tr": "Çatı kot farkındaki kar birikimi alıcı çatı düzlemini kullanıyor",
-    "it": "L’accumulo a gradino di copertura usa il piano della copertura ricevente",
     "zh": "屋面高差处的堆积使用接收屋面的平面"
   },
   "explanation": {
@@ -32,7 +31,6 @@
     "de": "CIRSOC 104 konnte Verwehungen auf einer geneigten unteren Dachfläche ohne Warnung auslassen. Dachebenen bestimmen jetzt Neigung, örtliche Höhen und die ausgeglichene Schneehöhe der aufnehmenden Fläche. Unbestimmte Flächengeometrie wird abgelehnt. Schneelasten neu erzeugen und betroffene Analysen, Kombinationen und Nachweise neu berechnen (SA-2026-065, #2082). Die Korrektur ist in 0.6.1 enthalten.",
     "fr": "CIRSOC 104 pouvait omettre sans avertissement une accumulation sur une toiture réceptrice inclinée. Les plans déterminent désormais pente, altitudes locales et hauteur de neige équilibrée de la surface réceptrice. Une géométrie indéterminée est refusée. Régénérez les charges et recalculez analyses, combinaisons et vérifications concernées (SA-2026-065, #2082). La correction est incluse dans 0.6.1.",
     "tr": "CIRSOC 104 eğimli alıcı çatıda kar birikimini uyarı vermeden atlayabiliyordu. Çatı düzlemleri artık eğimi, yerel kotları ve alıcı yüzeyin dengeli kar yüksekliğini belirliyor. Belirsiz yüzey geometrisi reddediliyor. Kar yüklerini yeniden üretip etkilenen analizleri, birleşimleri ve tasarım kontrollerini yeniden hesaplayın (SA-2026-065, #2082). Düzeltme 0.6.1 sürümüne dahildir.",
-    "it": "L’accumulo a gradino di copertura di CIRSOC 104 poteva essere omesso silenziosamente su una copertura ricevente inclinata. I piani di copertura ora determinano pendenza, quote locali e l’altezza di neve bilanciata ricevente. La geometria di superficie ambigua viene rifiutata. Rigenera i carichi di neve e riesegui tutte le analisi, combinazioni e verifiche di progetto interessate (SA-2026-065, #2082). La correzione è inclusa nella 0.6.1.",
     "zh": "CIRSOC 104 的屋面高差堆积，在坡屋面作为接收屋面时可能被悄悄遗漏。现在由屋面平面确定坡度、局部标高和接收屋面的平衡雪深。几何含糊的表面会被拒绝。请重新生成雪荷载，并重新运行所有受影响的分析、组合和设计验算（SA-2026-065，#2082）。此修复已包含在 0.6.1 中。"
   },
   "changelog": {

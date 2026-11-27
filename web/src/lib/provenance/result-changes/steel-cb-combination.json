@@ -17,7 +17,6 @@
     "de": "Cb im Stahl-Interaktionsnachweis verwendet das Diagramm der eigenen Kombination",
     "fr": "Le Cb de l’interaction de l’acier utilise le diagramme de sa propre combinaison",
     "tr": "Çelik etkileşim Cb katsayısı kendi kombinasyon diyagramını kullanır",
-    "it": "Il Cb dell’interazione nell’acciaio usa il proprio diagramma di combinazione",
     "zh": "钢结构相互作用的 Cb 使用其自身组合的内力图"
   },
   "explanation": {
@@ -27,7 +26,6 @@
     "de": "CIRSOC-301-Interaktionsnachweise für Normalkraft und Biegung konnten Cb aus dem Momentendiagramm einer anderen Kombination verwenden und die Ausnutzung ohne Warnung unterschätzen (SA-2026-064, PR #2080). Nach dem Upgrade die Stahlnachweise erneut ausführen und Interaktionsausnutzung, maßgebende Kombinationen und Status prüfen.",
     "fr": "Les interactions entre effort normal et flexion de l’acier CIRSOC 301 pouvaient utiliser Cb du diagramme d’une autre combinaison et sous-estimer le taux sans avertissement (SA-2026-064, PR #2080). Après la mise à jour, relancer les vérifications de l’acier et examiner les taux d’interaction, les combinaisons déterminantes et les états.",
     "tr": "CIRSOC 301 çelik eksenel kuvvet ve eğilme etkileşim kontrolleri başka bir kombinasyonun moment diyagramından Cb alarak kullanım oranını uyarı vermeden düşük hesaplayabiliyordu (SA-2026-064, PR #2080). Güncellemeden sonra çelik tasarım kontrollerini yeniden çalıştırın; etkileşim kullanım oranlarını, belirleyici kombinasyonları ve durumları inceleyin.",
-    "it": "Le verifiche di interazione sforzo normale e flessione per l’acciaio CIRSOC 301 potevano usare il Cb dal diagramma dei momenti di un’altra combinazione e sottostimare in silenzio il coefficiente di utilizzo (SA-2026-064, PR #2080). Dopo l’aggiornamento, riesegui le verifiche di progetto dell’acciaio e rivedi il coefficiente di utilizzo di interazione, le combinazioni governanti e gli stati.",
     "zh": "CIRSOC 301 钢结构的轴力与弯矩相互作用验算，可能使用另一个组合的弯矩图得到的 Cb，从而悄悄低估利用率（SA-2026-064，PR #2080）。升级之后，请重新运行钢结构设计验算，并复核相互作用利用率、控制组合和状态。"
   },
   "quantities": [

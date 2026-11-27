@@ -32,7 +32,6 @@
     "fr": "SSI corrige les résidus élastiques stagnants",
     "hu": "Az SSI javítja a rugalmas maradék platóit",
     "tr": "SSI elastik artık duraklamalarını düzeltir",
-    "it": "L’SSI corregge i plateau elastici del residuo",
     "zh": "SSI 修正弹性残差平台"
   },
   "explanation": {
@@ -43,7 +42,6 @@
     "fr": "Les systèmes SSI sans ressorts de sol ou avec tous les ressorts dans leur domaine linéaire initial conservent leur factorisation et corrigent le déplacement avec le résidu physique. Les modèles élastiques auparavant stagnants peuvent converger sans modifier la tolérance d’équilibre. Le sol non linéaire conserve ses résultats précédents même lorsque sa sécante se stabilise. Relancer les analyses SSI concernées (#2011).",
     "hu": "A talaj nélküli, vagy minden talajrugót a kezdeti lineáris tartományban tartó SSI-rendszerek megőrzik a faktorizációt, és a fizikai maradékból korrigálják az elmozdulást. A korábban azonos megoldások ismétlését kimerítő rugalmas modellek az egyensúlyi tűrés módosítása nélkül konvergálhatnak. A beállt nemlineáris talaj korábbi eredményei megmaradnak. Futtassa újra az érintett SSI-vizsgálatokat (#2011).",
     "tr": "Zemin yayı olmayan veya tüm zemin yayları başlangıçtaki doğrusal aralıkta olan SSI sistemleri çarpanlarına ayırmayı korur ve fiziksel artıkla yer değiştirmeyi düzeltir. Önceden duran elastik modeller denge toleransı değişmeden yakınsayabilir. Sekantı sabitlenen doğrusal olmayan zemin önceki sonuçlarını korur. Etkilenen SSI analizlerini yeniden hesaplayın (#2011).",
-    "it": "I sistemi SSI senza terreno o con ogni molla del terreno nel proprio intervallo lineare iniziale conservano la loro fattorizzazione e correggono lo spostamento usando il residuo fisico. I modelli elastici che prima esaurivano risoluzioni identiche possono convergere senza cambiare la tolleranza di equilibrio. Il terreno non lineare assestato mantiene i risultati precedenti. Riesegui le analisi SSI interessate (#2011).",
     "zh": "没有土的 SSI 系统，或所有土弹簧都处于其初始线性范围的 SSI 系统，保留其分解，并用物理残差修正位移。以前用尽相同求解次数的弹性模型，现在可以在不改变平衡容差的情况下收敛。割线刚度已稳定的非线性土模型保持以前的结果。请重新运行受影响的 SSI 分析（#2011）。"
   },
   "changelog": {

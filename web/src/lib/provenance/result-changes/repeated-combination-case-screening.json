@@ -12,7 +12,6 @@
     "de": "Die Kombinationsprüfung berücksichtigt jeden Lastfall einmal",
     "fr": "Le contrôle des combinaisons compte chaque cas de charge une fois",
     "hu": "A kombináció ellenőrzése minden teheresetet egyszer vesz figyelembe",
-    "it": "Lo screening delle combinazioni conta ogni caso di carico una volta",
     "zh": "组合筛查对每个荷载工况只计一次",
     "tr": "Birleşim kontrolü her yük durumunu bir kez hesaba katıyor"
   },
@@ -23,7 +22,6 @@
     "de": "Kommt ein Lastfall mehrfach in einer Kombination vor, verwendet die Prüfung die Summe seiner Faktoren. Berechnen Sie die betroffenen Kombinationen erneut und prüfen Sie die Meldungen zur Theorie zweiter Ordnung und zu Schalen.",
     "fr": "Lorsqu’un cas de charge apparaît plusieurs fois dans une combinaison, le contrôle utilise la somme de ses coefficients. Recalculez les combinaisons concernées et examinez les diagnostics du second ordre et des coques.",
     "hu": "Ha egy tehereset többször szerepel egy kombinációban, az ellenőrzés a tényezőinek összegét használja. Számítsa újra az érintett kombinációkat, és tekintse át a másodrendű és héjszerkezeti diagnosztikát.",
-    "it": "Quando un caso di carico compare più di una volta in una combinazione, lo screening e la sovrapposizione usano la somma dei suoi fattori. Rieseguisci le combinazioni interessate e rivedi le loro risposte, le diagnostiche del secondo ordine e dei gusci.",
     "zh": "当某荷载工况在一个组合中出现多次时，筛查和叠加使用其系数之和。请重新运行受影响的组合，并复核其响应、二阶效应和壳的诊断。",
     "tr": "Bir yük durumu bir birleşimde birden çok kez yer aldığında kontrol, katsayılarının toplamını kullanır. Etkilenen birleşimleri yeniden hesaplayın ve ikinci mertebe ile kabuk tanılarını inceleyin."
   },

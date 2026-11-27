@@ -23,7 +23,6 @@
     "de": "Starre Kopplungen verbinden deckungsgleiche Schalenfugen über versetzte Hauptknoten",
     "fr": "Les liaisons rigides complètes relient les joints des coques via des maîtres décalés",
     "tr": "Tam rijit bağlantılar çakışık kabuk birleşimlerini ötelenmiş ana düğümlerle birleştirir",
-    "it": "I collegamenti rigidi completi uniscono le giunzioni coincidenti dei gusci tramite master sfalsati",
     "zh": "全刚性连接通过偏置主节点连接重合的壳单元接缝"
   },
   "explanation": {
@@ -33,7 +32,6 @@
     "de": "Die feldweise Schwerkraftlasterzeugung sperrt überlappende Schalendecken und belastete Trägerfelder, wenn Fugenknoten innerhalb der Geometrietoleranz über versetzte Hauptknoten voll starr gekoppelt sind. Erzeugen Sie die Schwerkraftlasten neu.",
     "fr": "La génération de charges de gravité par panneaux bloque les planchers de coques recouvrant des panneaux de poutres chargés si les nœuds du joint coïncident à la tolérance géométrique et partagent un mouvement rigide via des maîtres décalés. Régénérez les charges de gravité.",
     "tr": "Panel yerçekimi yükü üretimi, geometri toleransı içindeki birleşim düğümleri ötelenmiş ana düğümlerle tam rijit hareketi paylaştığında, yüklü kiriş paneliyle örtüşen kabuk döşemeyi engeller. Yerçekimi yüklerini yeniden üretin.",
-    "it": "La generazione della gravità dei pannelli si blocca per un impalcato di gusci che si sovrappone a un campo di travi caricato quando i nodi di giunzione entro la tolleranza geometrica condividono il moto rigido completo tramite master sfalsati. Rigenera i carichi gravitazionali.",
     "zh": "当接缝节点在几何容差内重合，且通过偏置主节点共享全部刚体运动时，按板块生成重力荷载会阻止与受荷梁板区重叠的壳板受荷。请重新生成重力荷载。"
   },
   "changelog": {

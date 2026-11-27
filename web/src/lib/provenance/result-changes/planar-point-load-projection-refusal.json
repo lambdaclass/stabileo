@@ -20,7 +20,6 @@
     "fr": "Charges ponctuelles planes sans projection exploitable de la barre",
     "hu": "Síkbeli pontszerű terhek használható rúdvetület nélkül",
     "tr": "Kullanılabilir çubuk izdüşümü olmayan düzlemsel nokta yükleri",
-    "it": "Carichi concentrati piani senza una proiezione utilizzabile sull’asta",
     "zh": "杆件无可用投影时的平面集中荷载"
   },
   "explanation": {
@@ -31,7 +30,6 @@
     "fr": "Le calcul refuse les anciennes charges ponctuelles planes qui ne peuvent pas être appliquées sans projection exploitable de la barre dans le plan de la charge. Remplacez les charges refusées par des charges ponctuelles 3D à orientation explicite avant de relancer le calcul.",
     "hu": "A számítás elutasítja a régi síkbeli pontszerű terheket, amelyek a rúd teher síkjába eső használható vetülete nélkül nem helyezhetők el. Újraszámítás előtt az elutasított terheket váltsa ki egyértelmű irányú 3D pontszerű terhekkel.",
     "tr": "Analiz, çubuğun yük düzleminde kullanılabilir bir izdüşümü olmadan yerleştirilemeyen eski düzlemsel nokta yüklerini reddeder. Analizi yenilemeden önce reddedilen yükleri yönü açıkça belirtilmiş 3B nokta yükleriyle değiştirin.",
-    "it": "L’analisi rifiuta i carichi concentrati piani legacy che non può collocare senza una proiezione utilizzabile dell’asta nel piano di carico. Sostituisci i carichi rifiutati con carichi concentrati 3D orientati esplicitamente prima di rieseguire l’analisi.",
     "zh": "分析会拒绝无法在缺少可用杆件荷载平面投影时施加的旧版平面集中荷载。重新计算前，请将被拒绝的荷载改为方向明确的三维集中荷载。"
   },
   "changelog": {

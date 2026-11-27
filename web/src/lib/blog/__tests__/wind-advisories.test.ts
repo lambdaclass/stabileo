@@ -1,9 +1,11 @@
+import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { findPost } from '..';
-import notice from '../../provenance/result-changes/wind-physical-pressure-field.json';
 import hu from '../translations/hu/safety-advisories';
 import type { PublicLocale } from '../../i18n/store.svelte';
+
+const notice = RESULT_CHANGES.changes.find(change => change.id === 'wind-physical-pressure-field')!;
 
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');
 const entries = [

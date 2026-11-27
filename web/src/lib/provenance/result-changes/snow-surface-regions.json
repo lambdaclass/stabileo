@@ -21,7 +21,6 @@
     "de": "Schneelasten folgen jeder verbundenen Dachfläche",
     "fr": "Les charges de neige suivent chaque surface de toiture connectée",
     "tr": "Kar yükleri bağlı her çatı yüzeyini izler",
-    "it": "I carichi di neve seguono ogni superficie di copertura collegata",
     "zh": "雪荷载遵从每个相连的屋面表面"
   },
   "explanation": {
@@ -31,7 +30,6 @@
     "de": "Ausgewählte Stäbe behalten die vollständige Dachgeometrie. Jede Lasteinzugsfläche verwendet ihre eigene Neigung und Breite für gleichmäßige, ungleichmäßige und teilweise Schneelast. Abrutschquellen umfassen verbundene Dachflächen bis zum First. Umrisse erhalten Aussparungen und Lücken; unbestimmte räumliche Quellen werden abgelehnt. Schneelasten neu erzeugen und betroffene Analysen und Nachweise wiederholen. In 0.6.1 enthalten.",
     "fr": "Les barres sélectionnées conservent la géométrie complète du toit. Chaque zone tributaire utilise sa pente et sa largeur pour la neige équilibrée, déséquilibrée et partielle. Les sources de glissement incluent les facettes connectées jusqu’au faîtage. Les contours préservent les retraits et les séparations ; les sources spatiales indéterminées sont refusées. Régénérez les charges de neige et relancez les analyses et vérifications concernées. Correction incluse dans 0.6.1.",
     "tr": "Seçilen elemanlar çatının tam geometrisini korur. Her yük alanı dengeli, dengesiz ve kısmi kar için kendi eğimini ve genişliğini kullanır. Kayma kaynakları mahyaya kadar bağlı yüzeyleri kapsar. Sınırlar girintileri ve boşlukları korur; belirsiz uzamsal kaynaklar reddedilir. Kar yüklerini yeniden üretip etkilenen analiz ve tasarım kontrollerini çalıştırın. Düzeltme 0.6.1 sürümüne dahildir.",
-    "it": "Le aste selezionate mantengono la geometria completa della copertura. Le regioni d’influenza usano la propria pendenza e larghezza per neve bilanciata, sbilanciata e parziale. Le sorgenti di scivolamento si estendono attraverso le falde collegate a monte fino al colmo. Le impronte delimitate dalle aste conservano rientranze e vuoti; le sorgenti spaziali non risolte vengono rifiutate. Rigenera i carichi di neve generati e riesegui le analisi e le verifiche di progetto interessate. Questa correzione è inclusa nella 0.6.1.",
     "zh": "被选中的杆件保留完整的屋面几何。从属区域对平衡、不平衡和局部雪荷载使用各自的坡度和宽度。滑落荷载源通过相连的上坡坡面延伸到屋脊。以杆件围成的投影范围保留凹口和空隙；未解析的空间荷载源会被拒绝。请重新生成雪荷载，并重新运行受影响的分析和设计验算。此修正已包含在 0.6.1 中。"
   },
   "changelog": {

@@ -23,7 +23,6 @@
     "de": "Die Schwerkraftlasterzeugung sperrt nicht eindeutig bestimmbare Trägerneigungen",
     "fr": "La génération gravitaire refuse les pentes indéterminées des barres porteuses",
     "tr": "Yerçekimi yükü üretimi eğimi belirsiz taşıyıcıları reddeder",
-    "it": "La generazione dei carichi gravitazionali rifiuta pendenze indeterminate degli elementi portanti",
     "zh": "重力荷载生成拒绝无法确定承载资格的杆件坡度"
   },
   "explanation": {
@@ -33,7 +32,6 @@
     "de": "Die Erzeugung wird gesperrt, wenn Koordinatenrundung darüber entscheiden kann, ob ein Stab Schwerkraftlast trägt. Dies betrifft das Beispiel der geodätischen Kuppel. Erzeugen Sie betroffene Lasten neu und geben Sie bei einer Sperre die Trägerlasten explizit an.",
     "fr": "La génération est bloquée si les arrondis des coordonnées peuvent changer le classement d’une barre comme porteuse. Cela inclut l’exemple du dôme géodésique. Régénérez les charges concernées et définissez les charges des barres explicitement en cas de blocage.",
     "tr": "Koordinat yuvarlaması bir elemanın yerçekimi yükü taşıyıp taşımadığını değiştirebiliyorsa üretim engellenir. Jeodezik kubbe örneği de buna dahildir. Etkilenen yükleri yeniden üretin ve üretim engellenirse taşıyıcı yüklerini açıkça tanımlayın.",
-    "it": "La generazione ora si blocca quando l’arrotondamento delle coordinate può cambiare se un’asta porta il carico gravitazionale. Questo comprende l’esempio della cupola geodetica. Rigenera i carichi interessati e definisci esplicitamente i carichi degli elementi portanti se la generazione si blocca.",
     "zh": "当坐标舍入可能改变杆件是否承受重力荷载的判定时，将阻止荷载生成。这包括测地线穹顶示例。请重新生成受影响的荷载，若生成被阻止，请显式定义承载杆件荷载。"
   },
   "changelog": {

@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const DIR = 'web/src/lib/provenance/result-changes';
+export const ITALIAN_TRANSLATIONS = 'web/src/lib/provenance/result-change-translations/it.json';
 export const NUMBERED = 'numbered.json';
 export const LEGACY = 'web/src/lib/provenance/result-changes.json';
 export const ORDER_FILE = 'web/.result-change-order.json';
@@ -25,7 +26,7 @@ const idOf = (path) => path.slice(path.lastIndexOf('/') + 1, -'.json'.length);
  * `landings`: the fragment ids each landing on main added, oldest first. A fragment in none of
  * them has not landed yet and takes the version after every landing.
  */
-export function assemble({ numbered, fragments, landings }) {
+export function assemble({ numbered, fragments, landings, italianTranslations = {} }) {
   const problems = [];
   const released = Math.max(0, ...numbered.changes.map((c) => c.resultsVersion));
   const version = new Map();
@@ -38,6 +39,16 @@ export function assemble({ numbered, fragments, landings }) {
     if ('resultsVersion' in entry) problems.push(`${DIR}/${id}.json: a fragment carries no resultsVersion; main's merge order gives it one`);
     if (entry.id !== id) problems.push(`${DIR}/${id}.json: its id must be "${id}", the file name`);
     changes.push({ ...entry, id, resultsVersion: version.get(id) });
+  }
+  const indexById = new Map(changes.map((change, index) => [change.id, index]));
+  for (const [id, text] of Object.entries(italianTranslations)) {
+    const index = indexById.get(id);
+    const change = changes[index];
+    if (!change || change.title.it !== undefined || change.explanation.it !== undefined) {
+      problems.push(`${ITALIAN_TRANSLATIONS}: unknown or already translated change ${id}`);
+      continue;
+    }
+    changes[index] = { ...change, title: { ...change.title, it: text.title }, explanation: { ...change.explanation, it: text.explanation } };
   }
   if (problems.length) throw new Error(problems.join('\n'));
   changes.sort((a, b) => b.resultsVersion - a.resultsVersion || a.id.localeCompare(b.id));
@@ -130,7 +141,9 @@ function orderFromFile(root, fingerprint) {
 export function readRegistry(root = REPO) {
   const { numbered, fragments, fingerprint } = readWorkingTree(root);
   const landings = insideGit(root) ? landingsAt(gitIn(root), 'HEAD') : orderFromFile(root, fingerprint);
-  return assemble({ numbered, fragments, landings });
+  const path = join(root, ITALIAN_TRANSLATIONS);
+  const italianTranslations = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {};
+  return assemble({ numbered, fragments, landings, italianTranslations });
 }
 
 /**
@@ -160,7 +173,9 @@ export function readRegistryAt(rev, root = REPO) {
   }
   const { unnumbered } = readSourcesAt(rev, root);
   const fragments = new Map(unnumbered.map(({ file, ...entry }) => [idOf(file), entry]));
-  return assemble({ numbered, fragments, landings: landingsAt(git, rev) });
+  const path = git('ls-tree', '--name-only', rev, '--', ITALIAN_TRANSLATIONS).trim();
+  const italianTranslations = path ? JSON.parse(git('show', `${rev}:${path}`)) : {};
+  return assemble({ numbered, fragments, landings: landingsAt(git, rev), italianTranslations });
 }
 
 function frozen(entry) {

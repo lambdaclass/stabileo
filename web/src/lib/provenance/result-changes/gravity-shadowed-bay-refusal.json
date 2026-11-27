@@ -22,7 +22,6 @@
     "de": "Mehrdeutige Schwerkraftlasten in Trägerfeldern unter überdeckten Schalen ablehnen",
     "fr": "Refuser les charges gravitaires ambiguës dans les travées sous des coques recouvertes",
     "tr": "Örtüşen kabukların altındaki açıklıklarda belirsiz yerçekimi yüklerini reddetme",
-    "it": "Rifiuta la gravità ambigua sui campi sotto gusci in ombra",
     "zh": "拒绝向被遮盖壳下方的梁格施加归属不明的重力荷载",
     "hu": "A bizonytalan gravitációs terhek elutasítása a lefedett héjak alatti gerendamezőkben"
   },
@@ -33,7 +32,6 @@
     "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Die Erzeugung wird abgebrochen, wenn ein Trägerfeld eine Fläche erneut beansprucht, die bereits einer überlappenden Schale desselben Geschosses zugewiesen ist.",
     "fr": "Régénérez les charges gravitaires par panneaux. La génération s’arrête si une travée de poutres reprend une surface déjà attribuée à une coque superposée du même niveau.",
     "tr": "Panel yerçekimi yüklerini yeniden üretin. Bir kiriş açıklığı aynı döşemede örtüşen bir kabuğa atanmış alanı yeniden alacaksa yük üretimi durur.",
-    "it": "Rigenera i carichi gravitazionali dei pannelli. La generazione si ferma se un campo di travi rivendicasse un’area già assegnata a un guscio sovrapposto sullo stesso impalcato.",
     "zh": "请重新生成按板格分配的重力荷载。如果梁格会重新分担已分配给同层重叠壳的面积，系统将停止生成荷载。",
     "hu": "Generálja újra a mezőnkénti gravitációs terheket. A generálás leáll, ha egy gerendamező olyan területet venne vissza, amelyet már ugyanazon a szinten egy átfedő héjhoz rendeltek."
   },

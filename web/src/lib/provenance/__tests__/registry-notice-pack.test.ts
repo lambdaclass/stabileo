@@ -1,12 +1,12 @@
 import { expect, it, vi } from 'vitest';
 import { resultChangeMetadataPlugin } from '../../../../scripts/result-change-metadata.mjs';
 import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
-import translated from '../result-changes/plane-moving-concentrated-axial-forces.json';
+import { RESULT_CHANGES } from '../full-registry';
 import type { Localised, ResultChange } from '../registry';
 
-vi.mock('../../../../scripts/result-changes/registry.mjs', () => ({ readRegistry: vi.fn() }));
+vi.mock('../../../../scripts/result-changes/registry.mjs', async (original) => ({ ...await original(), readRegistry: vi.fn() }));
 
-const entry: ResultChange = { ...translated, area: 'analysis', resultsVersion: 1 };
+const entry = RESULT_CHANGES.changes.find(change => change.id === 'plane-moving-concentrated-axial-forces')!;
 
 function packNotice(change: ResultChange) {
   vi.mocked(readRegistry).mockReturnValue({ schema: 1, currentResultsVersion: 1, changes: [change] });
@@ -31,8 +31,7 @@ it('packs a fully translated notice without a research translation', () => {
   expect(packNotice({ ...entry, title, explanation })).toMatch(/^export default "[A-Za-z0-9+/=]+";$/);
 });
 
-it('the shipped result-change notices include Chinese copy', async () => {
-  const { RESULT_CHANGES } = await import('../full-registry');
+it('the shipped result-change notices include Chinese copy', () => {
   for (const id of ['exact-plane-self-weight', 'fixture-replay-and-framed-import', 'global-axes-inputs', 'workbook-support-rotations']) {
     const entry = RESULT_CHANGES.changes.find(change => change.id === id);
     expect(entry?.title.zh?.trim()).toBeTruthy();

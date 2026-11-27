@@ -24,7 +24,6 @@
     "fr": "La galerie publique de dalles utilise des appuis simples durs sur murs",
     "hu": "A nyilvános lemezgaléria merev egyszerű támaszokat használ a falakon",
     "tr": "Herkese açık döşeme galerisi duvarlarda sert basit mesnetler kullanıyor",
-    "it": "La galleria pubblica dei solai usa appoggi semplici rigidi sulle pareti",
     "zh": "公开的楼板示例库对墙采用刚性简支"
   },
   "explanation": {
@@ -35,7 +34,6 @@
     "fr": "La PR #1627 modifie les données de la dalle de démonstration sur murs : les rotations tangentielles du bord sont bloquées en plus du déplacement vertical, et la référence inclut la déformation de cisaillement de Reissner–Mindlin. La flèche et la référence affichée changent ensemble. Cette entrée concerne uniquement slab-on-columns dans la galerie publique avec murs sélectionnés ; les appuis sur poteaux et les projets enregistrés ne sont pas concernés.",
     "hu": "A PR #1627 módosította a falakra támaszkodó lemezbemutató bemeneteit: a függőleges mozgás mellett az él érintőirányú forgásai is kötöttek, a referencia pedig Reissner–Mindlin nyírási alakváltozást is tartalmaz. A lehajlás és a közölt referencia együtt változik. Ez csak a nyilvános slab-on-columns galéria falas változatát érinti; az oszloptámaszok és a mentett projektek változatlanok.",
     "tr": "PR #1627, duvarlarla mesnetlenmiş döşeme örneğinin girdilerini değiştirdi: düşey harekete ek olarak kenara teğet dönmeler tutuluyor ve referans artık Reissner–Mindlin kayma deformasyonunu içeriyor. Sehim ve gösterilen referans birlikte değişiyor. Bu kayıt yalnızca herkese açık slab-on-columns galerisinde duvarlar seçiliyken geçerlidir; kolonlu örnek ve kayıtlı projeler bu örnek girdisi düzeltmesinden etkilenmez.",
-    "it": "La PR #1627 ha cambiato i dati della dimostrazione del solaio appoggiato su pareti: le rotazioni tangenziali al bordo sono vincolate oltre al movimento verticale, e il riferimento ora include la deformazione a taglio di Reissner–Mindlin. La sua freccia e il riferimento mostrato cambiano quindi insieme. Questa voce vale solo per la galleria pubblica del solaio su pilastri con le pareti selezionate; i vincoli dei pilastri e i progetti salvati non sono interessati da questa correzione dei dati della dimostrazione.",
     "zh": "PR #1627 更改了墙支承楼板演示的输入：除竖向运动外，现在也约束边缘切向转动，参考解也计入了 Reissner–Mindlin 剪切变形。因此其挠度和显示的参考值会同时变化。本条目仅适用于选择了墙的公开柱支承楼板示例；柱支座以及已保存的项目不受这一演示输入修正的影响。"
   },
   "changelog": {
