@@ -220,7 +220,6 @@ class ParityWorkflow(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0, result.stdout)
         return result
 
-    @unittest.skip("known wrong result: #2657")
     def test_candidate_defaults_to_merge_base_and_honours_explicit_base(self):
         for base in [self.queue_base, 'origin/main']:
             with self.subTest(base=base):
@@ -245,7 +244,6 @@ class ParityWorkflow(unittest.TestCase):
         self.parity(self.head, base, 'PARITY_COMPARE=.')
         self.parity(self.head, base)
 
-    @unittest.skip("known wrong result: #2657")
     def test_split_jobs_reject_an_undeclared_page_change(self):
         self.assert_page_snapshots(self.undeclared, 'old page')
         result = self.parity(self.undeclared, 'PARITY_COMPARE=.', succeeds=False)

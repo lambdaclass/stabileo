@@ -225,7 +225,7 @@ def compare(reference, candidate, base):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('base', nargs='?', default='origin/main')
+    parser.add_argument('base', nargs='?')
     parser.add_argument('--candidate')
     parser.add_argument('--required', action='store_true')
     mode = parser.add_mutually_exclusive_group()
@@ -266,8 +266,8 @@ def candidate_source(candidate):
 
 def check(args, source):
     head = git(source, 'rev-parse', 'HEAD').decode().strip()
-    if args.candidate is None:
-        base = git(source, 'merge-base', args.base, head).decode().strip()
+    if args.candidate is None or args.base is None:
+        base = git(source, 'merge-base', args.base or 'origin/main', head).decode().strip()
     else:
         base = git(source, 'rev-parse', '--verify', f'{args.base}^{{commit}}').decode().strip()
     paths = changed_paths(source, base)
