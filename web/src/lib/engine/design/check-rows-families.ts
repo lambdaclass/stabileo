@@ -14,6 +14,7 @@ import type { SlabDesignResult } from '../detailing/slab-design';
 import type { WallDesignResult } from '../detailing/wall-design';
 import type { FootingDesignOutcome } from '../detailing/run-footing-design';
 import type { JointResult } from './joint-check';
+import type { SeismicDemandRefusal } from './seismic/demand-scope';
 import type { MemberSeismic, JointSeismic } from './seismic/frame-checks';
 
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
@@ -171,8 +172,13 @@ const substitute = (p: { key: string; title: string; aci: string; formula: strin
     ...(p.location ? { location: p.location } : {}), derivation: [SEISMIC_SUBSTITUTE, `ACI 318-19 ${p.aci}: ${p.result}`, ...(p.extra ?? [])] });
 const u3 = (u: number) => (Number.isFinite(u) ? u.toFixed(3) : '∞');
 
+function seismicRefusalRow(reason: SeismicDemandRefusal, location?: string): CheckRow {
+  return row({ key: reason, title: 'Seismic demand unavailable', clause: '18.1', formula: '', inputs: [], ratio: null, status: 'notVerified', location });
+}
+
 /** The capacity checks of a member of a seismic frame: capacity shear and detailing, as substitutes. */
 export function seismicMemberCheckRows(m: MemberSeismic): CheckRow[] {
+  if (m.refusal) return [seismicRefusalRow(m.refusal)];
   const out: CheckRow[] = [];
   const beam = m.kind === 'beam';
   if (m.shear) {
@@ -193,6 +199,7 @@ export function seismicMemberCheckRows(m: MemberSeismic): CheckRow[] {
 
 /** A joint of a seismic frame: strong column and joint shear, as substitutes. */
 export function seismicJointCheckRows(j: JointSeismic): CheckRow[] {
+  if (j.refusal) return [seismicRefusalRow(j.refusal, j.direction)];
   const sc = j.strongColumn, sh = j.shear;
   return [
     substitute({

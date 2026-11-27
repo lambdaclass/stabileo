@@ -49,6 +49,7 @@ describe('a seismic portal by hand', () => {
 
   it('checks each column-top joint with the beam yielding at λo·fy', () => {
     const j = r.joints.find((x) => x.nodeId === 2 && x.direction === 'X')!;
+    if (j.refusal) throw new Error(j.refusal);
     expect(j.shear.T).toBeCloseTo(494.6, 0);
     const mpr = Math.max(b.beam!.mprNeg[0], b.beam!.mprPos[0]);
     expect(j.shear.vj).toBeCloseTo(494.6 - mpr / 3, 0);

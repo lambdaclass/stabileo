@@ -251,7 +251,7 @@ verificationStore._setSeismicSubstituteProvider((elementId) => {
   if (seismicIndex?.of !== rep) {
     const ids = new Set<number>();
     for (const m of rep.members) if (seismicMemberCheckRows(m).length) ids.add(m.id);
-    for (const j of rep.joints) if (!j.strongColumn.roof) for (const c of j.columns) ids.add(c);
+    for (const j of rep.joints) if (!j.strongColumn?.roof) for (const c of j.columns) ids.add(c);
     seismicIndex = { of: rep, ids };
   }
   return seismicIndex.ids.has(elementId);

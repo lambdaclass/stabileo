@@ -240,7 +240,9 @@ function createDesignRunStore() {
       });
       // A sway storey magnifies its slender columns' moments by δs (§6.6.4.6); a soft storey's
       // members take their amplification in the seismic combinations.
-      applyStoreySway(contexts); applySoftStoreys(contexts);
+      applyStoreySway(contexts);
+      const seismicRefusal = applySoftStoreys(contexts);
+      if (seismicRefusal) return fail(seismicRefusal);
       // A beam the analysis cut into pieces (a slab's mesh nodes) is designed as its span: each
       // piece's context becomes the span's, under the piece's own id (`design-spans.ts`).
       try {

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { CompleteSeismicStations, seismicDemandScope } from '../demand-scope';
 import { amplify, storeyStiffness } from '../soft-storey';
 import { seismicRoles } from '../classify';
 
@@ -21,7 +22,10 @@ describe('soft storeys', () => {
     const st = { t: 0, x: 0, n: -500, vy: 10, vz: 20, my: 30, mz: 40, torsion: 0 };
     const stations = { elementId: 1, length: 3, stationTs: [0], comboResults: [{ comboId: 1, comboName: 'D', stations: [st] }, { comboId: 2, comboName: 'E', stations: [st] }] };
     const demands = { elementId: 1, length: 3, demands: [{ category: 'Mz+' as const, value: 40, absValue: 40, comboId: 2, comboName: 'E', stationT: 0, stationX: 0, forces: st }] };
-    expect(amplify(stations, demands, new Set([2]), { moment: 1.5, shear: 2 })).toBe(true);
+    const scope = seismicDemandScope(new Set([7]), [{ id: 2, name: 'E', factors: [{ caseId: 7, factor: 1 }] }]);
+    const complete = CompleteSeismicStations.read(scope, stations);
+    if (typeof complete === 'string') throw new Error(complete);
+    expect(amplify(complete, demands, { moment: 1.5, shear: 2 })).toBe(true);
     expect(stations.comboResults[0]!.stations[0]!.my).toBe(30);
     expect(stations.comboResults[1]!.stations[0]!.my).toBe(45);
     expect(stations.comboResults[1]!.stations[0]!.vz).toBe(40);
