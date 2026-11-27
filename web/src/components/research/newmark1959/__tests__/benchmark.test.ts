@@ -5,6 +5,10 @@ import { amplitude, benchmark, compute, discretePeriod, evaluate, exact, mass, m
 import { fill, translations } from '../i18n';
 
 
+function checkTemplate(_reference: string, template: string) {
+  expect(template.length).toBeGreaterThan(0);
+}
+
 describe('Newmark SDOF benchmark', () => {
   it('uses the shared production input and exact response', () => {
     expect(request(0.05)).toMatchObject({ method: 'newmark', beta: 0.25, gamma: 0.5, nSteps: 80 });
@@ -71,6 +75,13 @@ describe('Newmark SDOF benchmark', () => {
     expect(live.maxError).toBeCloseTo(r.maxError, 10);
     expect(live.measuredPeriod).toBeCloseTo(r.measuredPeriod, 10);
     live.u.forEach((u, i) => expect(Math.abs(u - r.u[i])).toBeLessThan(1e-10));
+  });
+  it.skip('known wrong result: #2595 — dropping the displayed mass changes the template contract', () => {
+    const source = translations.en.description;
+    expect(source).toContain('{m}');
+    const missingMass = translations.it.description.replace('{m}', '');
+    expect(() => checkTemplate(source, missingMass)).toThrow();
+    checkTemplate(source, translations.it.description);
   });
   it('has complete research translations with every placeholder filled', () => {
     const values = { L: '1', E: '10', A: '0.01', rho: '300000', m: '1', k: '100', F: '1', omega: '10', T: '0.628319', i: '0', n: '80', t: '0', x: '2.5' };

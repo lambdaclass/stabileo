@@ -145,3 +145,13 @@ test('the diagram game page loader is a route boundary: the game and what only i
   for (const file of ['game-loader.js', 'game.js']) assert.ok(!files.has(file), file);
   assert.ok(files.has('shared.js'));
 });
+
+test.skip('known wrong result: #2595 — Italian copy cannot fund unrelated route growth', () => {
+  const route = '/app/basic';
+  const allowances = { [route]: { bytes: 660, italianBytes: 600, reason: 'previous growth and Italian copy' } };
+  const row = (growth, italianGrowth) => [{ route, before: 1000, after: 1000 + growth, growth, italianGrowth }];
+  checkResearchIsolation(row(788, 600), allowances);
+  assert.throws(() => checkResearchIsolation(row(788, 599), allowances), /grew/);
+  assert.throws(() => checkResearchIsolation(row(789, 601), allowances), /grew/);
+  assert.throws(() => checkResearchIsolation(row(188, -1), allowances), /grew/);
+});

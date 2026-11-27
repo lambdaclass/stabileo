@@ -749,3 +749,14 @@ it('sizes the four bending examples at the depth shown for the illustrated bars'
     ['60', '4.76', '2.38'], ['90', '7.43', '2.38'],
   ]);
 });
+
+it.skip.each(['en', 'es', 'pt', 'de', 'fr', 'hu', 'it', 'tr', 'zh'] as const)(
+  'known wrong result: #2595 — %s states the minimum reinforcement assumption at the crossover',
+  locale => {
+    const blocks = findPost('verificacion-flexion-cirsoc-201')!.i18n[locale]!.blocks;
+    const table = blocks.findIndex(block => block.k === 'table' && block.head.includes('As,min [cm²]'));
+    expect(table).toBeGreaterThanOrEqual(0);
+    const note = blocks[table + 1];
+    expect(note.k === 'p' && note.t).toMatch(/§9\.6\.1\.2.*§9\.6\.1\.3.*4\/3/);
+  },
+);

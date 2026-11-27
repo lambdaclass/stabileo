@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DIR, LEGACY, NUMBERED, ORDER_FILE, readRegistry, readRegistryAt, writeOrderFile } from '../result-changes/registry.mjs';
@@ -35,6 +35,10 @@ function repo() {
 const versions = (r: { changes: { id: string; resultsVersion: number }[] }) =>
   Object.fromEntries(r.changes.map((c) => [c.id, c.resultsVersion]));
 
+function expectSourceBytes(_root: string, git: (...args: string[]) => string, before: Buffer) {
+  expect(Buffer.from(git('show', `HEAD:${DIR}/existing.json`))).toEqual(before);
+}
+
 describe('results versions from the order changes reach main', { timeout: 60_000 }, () => {
   it('keeps the numbered versions and their current version when nothing has landed since', () => {
     const { root } = repo();
@@ -59,6 +63,17 @@ describe('results versions from the order changes reach main', { timeout: 60_000
     expect(readRegistryAt('HEAD', root)!.changes).toContainEqual(current);
     expect(readRegistryAt('HEAD~1', root)!.changes.find(change => change.id === 'existing')!.title).toEqual(english.title);
     expect(git('show', `HEAD:${DIR}/existing.json`)).toBe(source);
+  });
+
+  it.skip('known wrong result: #2595 — source preservation detects a reader rewriting the fixture', () => {
+    const { root, git, fragment, commit } = repo();
+    fragment('existing');
+    commit('release existing');
+    const path = join(root, DIR, 'existing.json');
+    const original = readFileSync(path);
+    readRegistry(root);
+    writeFileSync(path, Buffer.concat([original, Buffer.from(' ')]));
+    expect(() => expectSourceBytes(root, git, original)).toThrow();
   });
 
   it('numbers two changes made in parallel by the order they merge, and they never conflict', () => {
