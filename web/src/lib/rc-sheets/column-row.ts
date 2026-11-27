@@ -1,3 +1,4 @@
+import { confinementOf, deriveSheetDevelopment } from '../codes/cirsoc201/sheet-development';
 import { checkSlender, type ConcreteDesignParams } from '../engine/codes/argentina/cirsoc201';
 import { COLUMN_STEEL_RATIO, shearFy } from '../engine/codes/argentina/cirsoc201-basis';
 import { withSection, type Bar } from '../engine/codes/argentina/cirsoc201-section';
@@ -7,7 +8,7 @@ import { minClearSpacingColumn } from '../codes/cirsoc201/spacing';
 import { ACI_BENDS, barArea, roundDown } from './bars';
 import { TIE_TOLERANCE, tiePaths } from './column-tie-path';
 import type { BendRules } from './shape';
-import { compressionLapMm, confinementOf, deriveCompressionDevelopment, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
+import { compressionLapMm, deriveCompressionDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
 import { mixedLap, stackStep, stepCheck, type StackStep } from './column-stack';
 import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
 import { mainCoverCheck } from './beam-row';
@@ -343,7 +344,7 @@ export interface LapLayout { clearCoverMm: number; spacingMm: number; ktrMm: num
 
 /** A class B tension splice (§25.5.2), m: by the general expression with the bars' cover, spacing and ties where they are known, else by Table 25.4.2.3's least favourable row. */
 export const tensionLap = (mat: Materials, dia: number, layout?: LapLayout): number =>
-  deriveLap(deriveDevelopment({
+  deriveLap(deriveSheetDevelopment({
     diameterMm: dia, fy: mat.fy, fc: mat.fc, favourableSpacing: false, edition: EDITION,
     ...(layout ? { confinement: { ...confinementOf(dia, layout.clearCoverMm, layout.spacingMm), ktrMm: layout.ktrMm } } : {}),
   }), { edition: EDITION }).lapM;
@@ -479,7 +480,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
   const ownSplice = columnSplice(c, longest, !!c.seismic || barsInTension(d, columnBars(d, a, c), all), lapLayout);
   const mixed = stack.belowDia !== undefined && stack.belowDia > longest;
   const splice = { ...ownSplice, length: mixedLap(ownSplice.length, longest, stack.belowDia, (dia) => (ownSplice.tension
-    ? deriveDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, edition: EDITION, confinement: { ...confinementOf(dia, lapLayout.clearCoverMm, lapLayout.spacingMm), ktrMm: lapLayout.ktrMm } }).ldM
+    ? deriveSheetDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, edition: EDITION, confinement: { ...confinementOf(dia, lapLayout.clearCoverMm, lapLayout.spacingMm), ktrMm: lapLayout.ktrMm } }).ldM
     : deriveCompressionDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, edition: EDITION }).ldcM)) };
   const step = stackStep(stack.offset);
   const seis = c.seismic && cct ? columnSeismic(d, { ...c, overstrength: c.seismic.overstrength }, a, columnBars(d, a, c), cct, fmt) : null;

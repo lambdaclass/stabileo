@@ -15791,7 +15791,7 @@ const hu: Translations = {
   "memo.rc.notAdopted": "A vasalási táblázatok által javasolt, még el nem fogadott vasak",
   "memo.rc.line": "folytatólagos gerenda",
   "memo.rc.supportTop": "Felső vasak a támaszoknál",
-  "codes.cirsoc201.anchorage.developmentGeneral": "ld = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm Ø{db} esetén, ahol cb = {cb} mm, Ktr = 0 és (cb + Ktr)/db = {term} ≤ 2,5 (25.4.2.4. §).",
+  "codes.cirsoc201.anchorage.developmentGeneral": "ld = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm Ø{db} esetén, ahol cb = {cb} mm, Ktr = {ktr} mm és (cb + Ktr)/db = {term} ≤ 2,5 (25.4.2.4. §).",
   "codes.cirsoc201.anchorage.developmentGeneralMinimum": "Az ld Ø{db} esetén az általános képlettel {computed} mm (cb = {cb} mm, (cb + Ktr)/db = {term}; 25.4.2.4. §), a 25.4.2.1(b) § szerinti {minimum} mm-es minimumra növelve.",
   "centres.title": "Középpontok szintenként",
   "centres.hint": "Tömeg: önsúly és a gravitációs terhek a tömegforrás szerint. Merevség: az alatta lévő szint oszlopai és falai, merev tárcsával (szintenkénti közelítés).",

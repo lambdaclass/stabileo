@@ -21,3 +21,9 @@ The same rule applies to a caller that prepares the beam-bar reader before check
 The standard CIRSOC beam check applies its usual minimum tension reinforcement. Only the enabled beam-sheet design can request its alternative minimum. Earlier integration code also accepted the sheet option on ordinary calls. In the regression fixture the standard required area was 3.2129999999999996 cm². Forwarding the sheet option to the same disabled-build check returned 0.0645846436339127 cm². The published check now returns the same complete result as a call with ordinary options. The published release on main already ignored this option.
 
 The sheet designer still obtains its required compression area for a doubly reinforced beam. The public checking and verification paths expose the standard result fields.
+
+### Ordinary bar development and tension laps
+
+An integration build accepted a sheet confinement field in the ordinary CIRSOC tension-development calculation. Forwarding a sheet layout could shorten the ordinary development and the tension laps derived from it. Review bar lengths and lap references if an integration using those helpers forwarded sheet options to the standard designer. Main's table calculation already ignored that field.
+
+The general equation is available through the enabled reinforcement-sheet designer, whose beam, column and slab calls supply their layouts explicitly. Its calculation note now reports the transverse reinforcement index used. The recorded bar lengths and minimums for an ordinary input or an explicitly requested sheet calculation are unchanged.

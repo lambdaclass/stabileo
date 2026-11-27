@@ -1,4 +1,5 @@
-import { confinementOf, deriveDevelopment, deriveHookedDevelopment, deriveLap, concreteBelowTopBars, developmentSqrtFc, topBarFactor } from '../codes/cirsoc201/anchorage';
+import { confinementOf, deriveSheetDevelopment } from '../codes/cirsoc201/sheet-development';
+import { deriveHookedDevelopment, deriveLap, concreteBelowTopBars, developmentSqrtFc, topBarFactor } from '../codes/cirsoc201/anchorage';
 import { bentBarMandrel, minMandrelDiameter } from '../codes/cirsoc201/bar-geometry';
 import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
 import { evaluateCutoff, type CutoffLegality } from './cutoff';
@@ -84,7 +85,7 @@ const cirsocDevelopment = (c: BeamContext, dia: number, top: boolean, h: number,
   const psiT = top ? topBarFactor(concreteBelowTopBars(h, c.cover, c.stirrupDia, dia)) : 1;
   const clear = c.cover + c.stirrupDia / 1000;
   const confinement = layer ? confinementOf(dia, clear * 1000, (layer.count > 1 ? (layer.width - 2 * clear - dia / 1000) / (layer.count - 1) : layer.width) * 1000) : undefined;
-  return deriveDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, psiT, edition: EDITION, ...(confinement ? { confinement } : {}) });
+  return deriveSheetDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, psiT, edition: EDITION, ...(confinement ? { confinement } : {}) });
 };
 const kernelQuery = (c: BeamContext, q: LineQuery, shear?: Stirrups) => sectionQuery(c, q.demand, q.tension, q.compression, q.sd, q.nc ?? 0, shear, q.sagging);
 

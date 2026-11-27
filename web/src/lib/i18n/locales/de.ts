@@ -16047,7 +16047,7 @@ const de: Translations = {
   'memo.rc.notAdopted': 'Von den Bewehrungstabellen vorgeschlagene Stäbe, noch nicht übernommen',
   'memo.rc.line': 'Durchlaufträger',
   'memo.rc.supportTop': 'Oben an den Auflagern',
-  'codes.cirsoc201.anchorage.developmentGeneral': 'ld = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm für Ø{db}, mit cb = {cb} mm, Ktr = 0 und (cb + Ktr)/db = {term} ≤ 2,5 (§25.4.2.4).',
+  'codes.cirsoc201.anchorage.developmentGeneral': 'ld = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm für Ø{db}, mit cb = {cb} mm, Ktr = {ktr} mm und (cb + Ktr)/db = {term} ≤ 2,5 (§25.4.2.4).',
   'codes.cirsoc201.anchorage.developmentGeneralMinimum': 'ld nach der allgemeinen Gleichung zu {computed} mm für Ø{db} berechnet (cb = {cb} mm, (cb + Ktr)/db = {term}; §25.4.2.4), angehoben auf das Minimum von {minimum} mm nach §25.4.2.1(b).',
   'centres.title': 'Mittelpunkte je Geschoss',
   'centres.hint': 'Masse: Eigengewicht plus die Schwerelasten gemäß Massenquelle. Steifigkeit: die Stützen und Wände des darunterliegenden Geschosses unter einer starren Scheibe (eine Näherung je Geschoss).',

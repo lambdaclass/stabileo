@@ -1,7 +1,8 @@
+import { confinementOf, deriveSheetDevelopment } from '../codes/cirsoc201/sheet-development';
 import { SLAB_FACES, type SlabFace } from '../model/reinforcement-bars';
 import { computeAsFlexure, slabProvisions, stripCapacity, stripStrain } from '../engine/codes/argentina/losas';
 import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-kernel';
-import { concreteBelowTopBars, confinementOf, deriveDevelopment, deriveLap, topBarFactor, type DevelopmentResult } from '../codes/cirsoc201/anchorage';
+import { concreteBelowTopBars, deriveLap, topBarFactor, type DevelopmentResult } from '../codes/cirsoc201/anchorage';
 import { crackControlMaxSpacing } from '../codes/cirsoc201/crack-control';
 import { meshArea, meshLabel, proposeMesh } from './bars';
 import type { Fmt } from './format';
@@ -84,7 +85,7 @@ export interface SlabBarLayout { cover: number; spacing: number }
 /** ld of a slab bar by the general expression of CIRSOC 201 §25.4.2.4, with cb from its cover and spacing and Ktr = 0. */
 export function cirsocSlabDevelopment(mat: Materials, dia: number, top: boolean, h: number, layout: SlabBarLayout): DevelopmentResult {
   const psiT = top ? topBarFactor(concreteBelowTopBars(h, layout.cover, 0, dia)) : 1;
-  return deriveDevelopment({ diameterMm: dia, fy: mat.fy, fc: mat.fc, favourableSpacing: false, confinement: confinementOf(dia, layout.cover * 1000, layout.spacing * 1000), psiT, edition: EDITION });
+  return deriveSheetDevelopment({ diameterMm: dia, fy: mat.fy, fc: mat.fc, favourableSpacing: false, confinement: confinementOf(dia, layout.cover * 1000, layout.spacing * 1000), psiT, edition: EDITION });
 }
 
 export const cirsocSlabLap = (mat: Materials, dia: number, top: boolean, h: number, layout: SlabBarLayout): number =>

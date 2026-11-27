@@ -129,6 +129,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
           if (/^plates\.meshState(?:WillMesh|Missing|AsCame|Ready|Kept)$/.test(key)) return false;
         }
         if (!proRcSheets) {
+          if (/^codes\.cirsoc201\.anchorage\.developmentGeneral(?:Minimum)?$/.test(key)) return false;
           if (/^(?:footing\.ui\.(?:inSheets|openSheets)|memo\.rc\.(?:line|notAdopted|supportTop))$/.test(key)) return false;
           if (key === 'spec.section.placement' || key.startsWith('rcSheets.')) return false;
           if (/^designData\.(alt|crit|criteria|deflectionSupports|flange|opt)\./.test(key)) return false;

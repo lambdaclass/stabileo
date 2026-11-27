@@ -15816,7 +15816,7 @@ const zh: Translations = {
   "memo.rc.notAdopted": "钢筋设计表提出的钢筋，尚未采用",
   "memo.rc.line": "连续梁",
   "memo.rc.supportTop": "支座处顶部",
-  "codes.cirsoc201.anchorage.developmentGeneral": "ld = fy·ψt·ψe·ψs·ψg / (1.1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm（Ø{db}），其中 cb = {cb} mm，Ktr = 0，(cb + Ktr)/db = {term} ≤ 2.5 (§25.4.2.4)。",
+  "codes.cirsoc201.anchorage.developmentGeneral": "ld = fy·ψt·ψe·ψs·ψg / (1.1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm（Ø{db}），其中 cb = {cb} mm，Ktr = {ktr} mm，(cb + Ktr)/db = {term} ≤ 2.5 (§25.4.2.4)。",
   "codes.cirsoc201.anchorage.developmentGeneralMinimum": "按通用公式计算 Ø{db} 的 ld 为 {computed} mm（cb = {cb} mm，(cb + Ktr)/db = {term}；§25.4.2.4），已提高至 §25.4.2.1(b) 规定的最小值 {minimum} mm。",
   "centres.title": "各层中心",
   "centres.hint": "质量：自重加上按质量来源取用的重力荷载。刚度：刚性楼板假定下，下一层的柱和墙（楼层近似）。",

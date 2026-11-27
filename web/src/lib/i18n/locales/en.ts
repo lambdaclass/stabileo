@@ -16241,7 +16241,7 @@ const en: Record<string, string> = {
   'memo.rc.notAdopted': 'Bars proposed by the reinforcement sheets, not adopted yet',
   'memo.rc.line': 'continuous beam',
   'memo.rc.supportTop': 'Top at supports',
-  'codes.cirsoc201.anchorage.developmentGeneral': 'ld = fy·ψt·ψe·ψs·ψg / (1.1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm for Ø{db}, with cb = {cb} mm, Ktr = 0 and (cb + Ktr)/db = {term} ≤ 2.5 (§25.4.2.4).',
+  'codes.cirsoc201.anchorage.developmentGeneral': 'ld = fy·ψt·ψe·ψs·ψg / (1.1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm for Ø{db}, with cb = {cb} mm, Ktr = {ktr} mm and (cb + Ktr)/db = {term} ≤ 2.5 (§25.4.2.4).',
   'codes.cirsoc201.anchorage.developmentGeneralMinimum': 'ld computed as {computed} mm for Ø{db} by the general equation (cb = {cb} mm, (cb + Ktr)/db = {term}; §25.4.2.4), raised to the {minimum} mm minimum of §25.4.2.1(b).',
   'centres.title': 'Centers by level',
   'centres.hint': 'Mass: own weight plus the gravity loads per the mass source. Rigidity: the columns and walls of the story below, under a rigid diaphragm (a story approximation).',

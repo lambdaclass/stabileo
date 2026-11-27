@@ -39,6 +39,7 @@ export const sharedSwitchOnUnitFiles = [
   'src/lib/store/__tests__/recheck-unread-changes.test.ts',
   'src/lib/provenance/__tests__/published-zone-load-regeneration.test.ts',
   'src/lib/provenance/__tests__/generated-occupancy-choice.test.ts',
+  'src/lib/codes/cirsoc201/__tests__/published-development.test.ts',
   'src/lib/store/__tests__/apply-load-plan-defaults.test.ts',
   'src/components/pro/__tests__/combination-rules-template-ids.test.ts',
   'src/components/pro/__tests__/imposed-load-controls-profile.test.ts',

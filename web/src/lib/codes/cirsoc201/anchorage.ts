@@ -74,11 +74,6 @@ export interface DevelopmentInputs {
    */
   favourableSpacing: boolean;
   /**
-   * The bar layout, for the general equation of §25.4.2.4: when given, it is used and
-   * `favourableSpacing` is not read.
-   */
-  confinement?: Confinement;
-  /**
    * ψt, §25.4.2.5 — bar location factor. 1,3 for horizontal top reinforcement placed such
    * that more than 300 mm of fresh concrete is cast below it, 1,0 otherwise.
    */
@@ -89,29 +84,6 @@ export interface DevelopmentInputs {
   lambda?: number;
   edition: RegulationEdition;
 }
-
-/** cb of §25.4.2.4 and the transverse index Ktr, mm. */
-export interface Confinement { cbMm: number; ktrMm?: number }
-
-/** §25.4.2.4: (cb + Ktr)/db is not taken greater than 2,5. */
-export const MAX_CONFINEMENT_TERM = 2.5;
-
-/**
- * cb of §25.4.2.4 for a row of bars at `spacingMm` between centres with `clearCoverMm` to the
- * outside of the bar: the lesser of the cover to the bar's centre and half the spacing. Ktr = 0.
- */
-export const confinementOf = (diameterMm: number, clearCoverMm: number, spacingMm: number): Confinement =>
-  ({ cbMm: Math.min(clearCoverMm + diameterMm / 2, spacingMm / 2) });
-
-/**
- * Whether the first row of Table 25.4.2.3 holds: clear spacing ≥ db and clear cover ≥ db with at
- * least the code's minimum stirrups along ld, or clear spacing ≥ 2·db and clear cover ≥ db.
- */
-export const favourableRow = (o: { diameterMm: number; clearSpacingMm: number; clearCoverMm: number; minimumStirrups: boolean }): boolean =>
-  o.clearCoverMm >= o.diameterMm - 1e-9 && o.clearSpacingMm >= (o.minimumStirrups ? 1 : 2) * o.diameterMm - 1e-9;
-
-/** ψs of Table 25.4.2.5. */
-export const sizeFactor = (diameterMm: number): number => (diameterMm <= TABLE_25_4_2_3_DIAMETER_BREAK_MM ? 0.8 : 1.0);
 
 export interface DevelopmentResult {
   /** Development length ld, in METRES, to match the generators' units. */
@@ -168,54 +140,54 @@ export function gradeFactor(fy: number): number {
  * Returns metres because every consumer in the detailing pipeline works in metres.
  */
 export function deriveDevelopment(input: DevelopmentInputs): DevelopmentResult {
-  const { diameterMm: db, fy, fc, favourableSpacing, edition } = input;
-  const psiT = input.psiT ?? 1.0;
-  const psiE = 1.0;   // §25.4.2.4 commentary: epoxy coating is not permitted.
-  const psiG = input.psiG ?? gradeFactor(fy);
-  const lambda = input.lambda ?? 1.0;
-
+  const { diameterMm: db, favourableSpacing, edition } = input;
   const large = db > TABLE_25_4_2_3_DIAMETER_BREAK_MM;
-  const general = input.confinement;
-  const term = general ? Math.min((general.cbMm + (general.ktrMm ?? 0)) / db, MAX_CONFINEMENT_TERM) : undefined;
-  const psiS = sizeFactor(db);
-  const coefficient = term !== undefined
-    ? (1.1 * term) / psiS
-    : favourableSpacing ? (large ? 1.7 : 2.1) : (large ? 1.1 : 1.4);
+  const coefficient = favourableSpacing
+    ? (large ? 1.7 : 2.1)
+    : (large ? 1.1 : 1.4);
 
-  const computedMm = (fy * psiT * psiE * psiG) / (coefficient * lambda * developmentSqrtFc(fc)) * db;
-  const ldMm = Math.max(computedMm, MIN_DEVELOPMENT_MM);
-
+  const { psiT, psiG, lambda, computedMm, ldMm, refs: commonRefs } = developmentAtCoefficient(input, coefficient);
   const refs = [
-    term !== undefined
-      ? clause('cirsoc-201', edition, '25.4.2.4', 'longitud de anclaje para barras conformadas en tracción, expresión general')
-      : clause('cirsoc-201', edition, 'Tabla 25.4.2.3', 'longitud de anclaje para barras conformadas en tracción'),
-    ...(term !== undefined ? [clause('cirsoc-201', edition, 'Tabla 25.4.2.5', 'factores de modificación')] : []),
-    clause('cirsoc-201', edition, '25.4.2.1', 'longitud de anclaje mínima'),
-    ...capRef(fc, edition),
+    clause('cirsoc-201', edition, 'Tabla 25.4.2.3',
+      'longitud de anclaje para barras conformadas en tracción'),
+    ...commonRefs,
   ];
-  const minimum = ldMm > computedMm;
 
   return {
     ldM: ldMm / 1000,
     computedM: computedMm / 1000,
-    governedByMinimum: minimum,
-    tableRow: term !== undefined ? 'general' : favourableSpacing ? 'favourable' : 'other',
+    governedByMinimum: ldMm > computedMm,
+    tableRow: favourableSpacing ? 'favourable' : 'other',
     tableColumn: large ? 'db>16' : 'db<=16',
     coefficient,
-    ...(term !== undefined ? { confinementTerm: term } : {}),
     refs,
-    derivation: term !== undefined
-      ? msg(minimum ? 'codes.cirsoc201.anchorage.developmentGeneralMinimum' : 'codes.cirsoc201.anchorage.developmentGeneral', {
-        db, psiT, psiS, psiG, lambda, cb: round(general!.cbMm, 1), term: round(term, 2),
-        computed: round(computedMm, 0), minimum: MIN_DEVELOPMENT_MM, ld: round(ldMm, 0),
-      })
-      : msg(minimum ? 'codes.cirsoc201.anchorage.developmentMinimum' : 'codes.cirsoc201.anchorage.development', {
+    derivation: msg(
+      ldMm > computedMm
+        ? 'codes.cirsoc201.anchorage.developmentMinimum'
+        : 'codes.cirsoc201.anchorage.development',
+      {
         db, coefficient, psiT, psiG, lambda,
         computed: round(computedMm, 0), minimum: MIN_DEVELOPMENT_MM,
         ld: round(ldMm, 0),
-        row: favourableSpacing ? 'codes.cirsoc201.anchorage.rowFavourable' : 'codes.cirsoc201.anchorage.rowOther',
-      }),
+        row: favourableSpacing
+          ? 'codes.cirsoc201.anchorage.rowFavourable'
+          : 'codes.cirsoc201.anchorage.rowOther',
+      },
+    ),
   };
+}
+
+export function developmentAtCoefficient(input: DevelopmentInputs, coefficient: number) {
+  const { diameterMm: db, fy, fc, edition } = input;
+  const psiT = input.psiT ?? 1.0;
+  const psiE = 1.0;
+  const psiG = input.psiG ?? gradeFactor(fy);
+  const lambda = input.lambda ?? 1.0;
+  const computedMm = (fy * psiT * psiE * psiG) / (coefficient * lambda * developmentSqrtFc(fc)) * db;
+  const ldMm = Math.max(computedMm, MIN_DEVELOPMENT_MM);
+  return { psiT, psiG, lambda, computedMm, ldMm, refs: [
+    clause('cirsoc-201', edition, '25.4.2.1', 'longitud de anclaje mínima'), ...capRef(fc, edition),
+  ] };
 }
 
 /**

@@ -16048,7 +16048,7 @@ const tr: Translations = {
   'memo.rc.notAdopted': 'Donatı tablolarının önerdiği çubuklar, henüz benimsenmedi',
   'memo.rc.line': 'sürekli kiriş',
   'memo.rc.supportTop': 'Mesnetlerde üst',
-  'codes.cirsoc201.anchorage.developmentGeneral': 'ld = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm, Ø{db} için; cb = {cb} mm, Ktr = 0 ve (cb + Ktr)/db = {term} ≤ 2,5 (§25.4.2.4).',
+  'codes.cirsoc201.anchorage.developmentGeneral': 'ld = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm, Ø{db} için; cb = {cb} mm, Ktr = {ktr} mm ve (cb + Ktr)/db = {term} ≤ 2,5 (§25.4.2.4).',
   'codes.cirsoc201.anchorage.developmentGeneralMinimum': 'ld, Ø{db} için genel bağıntıyla {computed} mm hesaplandı (cb = {cb} mm, (cb + Ktr)/db = {term}; §25.4.2.4), §25.4.2.1(b) uyarınca {minimum} mm alt sınırına yükseltildi.',
   'centres.title': 'Kat merkezleri',
   'centres.hint': 'Kütle: kütle kaynağına göre öz ağırlık ile düşey yükler. Rijitlik: rijit diyafram kabulüyle alttaki katın kolonları ve perdeleri (kat bazında yaklaşık hesap).',

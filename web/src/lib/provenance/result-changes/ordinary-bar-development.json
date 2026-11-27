@@ -1,0 +1,36 @@
+{
+  "id": "ordinary-bar-development",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "any": [
+      "savedBeamDetailing",
+      "savedBarSchedule"
+    ]
+  },
+  "title": {
+    "en": "Ordinary bar development and tension laps",
+    "es": "Anclaje y empalmes en tracción del cálculo habitual",
+    "pt": "Ancoragem e emendas por tração no cálculo usual",
+    "de": "Verankerungs- und Zugstoßlängen in der regulären Bemessung",
+    "fr": "Ancrages et recouvrements en traction du calcul courant",
+    "tr": "Standart hesapta kenetlenme ve çekme bindirmeleri",
+    "zh": "常规设计的锚固长度与受拉搭接长度",
+    "hu": "Lehorgonyzási és húzott toldási hossz a szokásos méretezésben"
+  },
+  "explanation": {
+    "en": "Review development and lap lengths if an integration build forwarded a sheet confinement input to the ordinary designer.",
+    "es": "Revisá las longitudes de anclaje y empalme si una versión de integración pasó el confinamiento de una planilla al cálculo habitual.",
+    "pt": "Verifique os comprimentos de ancoragem e emenda se uma versão de integração passou dados de confinamento da planilha ao cálculo usual.",
+    "de": "Prüfen Sie die Verankerungs- und Stoßlängen, falls eine Integrationsversion Umschnürungsdaten aus dem Bewehrungsblatt an die reguläre Bemessung übergeben hat.",
+    "fr": "Vérifiez les longueurs d’ancrage et de recouvrement si une version d’intégration a transmis le confinement d’une feuille au calcul courant.",
+    "tr": "Bir entegrasyon sürümü donatı föyünün sargı verilerini standart hesaba aktardıysa kenetlenme ve bindirme boylarını doğrulayın.",
+    "zh": "如果集成版本将配筋表中的约束参数传入常规设计，请复核锚固长度和搭接长度。",
+    "hu": "Ellenőrizze a lehorgonyzási és toldási hosszakat, ha egy integrációs verzió a vasalási munkalap körülzárási adatait adta át a szokásos méretezésnek."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-saved-sheet-reinforcement.md",
+    "heading": "Ordinary bar development and tension laps"
+  }
+}

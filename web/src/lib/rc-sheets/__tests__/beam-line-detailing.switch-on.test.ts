@@ -375,10 +375,10 @@ describe('the anchorage of the course and CIRSOC 201-2025 on a line', () => {
   });
 
   it('develops a bar by the general expression of §25.4.2.4 with the cover and spacing of its layer', async () => {
-    const { deriveDevelopment, confinementOf } = await import('../../codes/cirsoc201/anchorage');
+    const { deriveSheetDevelopment, confinementOf } = await import('../../codes/cirsoc201/sheet-development');
     const c = bctx, clear = c.cover + c.stirrupDia / 1000;
     const spacing = (0.3 - 2 * clear - 0.016) / 3;
-    const want = deriveDevelopment({ diameterMm: 16, fy: 420, fc: 30, favourableSpacing: false, psiT: 1, edition: '2025', confinement: confinementOf(16, clear * 1000, spacing * 1000) }).ldM;
+    const want = deriveSheetDevelopment({ diameterMm: 16, fy: 420, fc: 30, favourableSpacing: false, psiT: 1, edition: '2025', confinement: confinementOf(16, clear * 1000, spacing * 1000) }).ldM;
     expect(CIRSOC_LINE.development(c, 16, false, 0.5, { count: 4, width: 0.3 })).toBeCloseTo(want, 12);
     expect(CIRSOC_LINE.development(c, 16, false, 0.5, { count: 4, width: 0.3 })).not.toBeCloseTo(CIRSOC_LINE.development(c, 16, false, 0.5), 6);
   });

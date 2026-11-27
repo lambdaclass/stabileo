@@ -16047,7 +16047,7 @@ const fr: Translations = {
   'memo.rc.notAdopted': 'Barres proposées par les feuilles de ferraillage, pas encore adoptées',
   'memo.rc.line': 'poutre continue',
   'memo.rc.supportTop': 'Supérieur sur appuis',
-  'codes.cirsoc201.anchorage.developmentGeneral': 'ld = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm pour Ø{db}, avec cb = {cb} mm, Ktr = 0 et (cb + Ktr)/db = {term} ≤ 2,5 (§25.4.2.4).',
+  'codes.cirsoc201.anchorage.developmentGeneral': 'ld = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm pour Ø{db}, avec cb = {cb} mm, Ktr = {ktr} mm et (cb + Ktr)/db = {term} ≤ 2,5 (§25.4.2.4).',
   'codes.cirsoc201.anchorage.developmentGeneralMinimum': 'ld calculée à {computed} mm pour Ø{db} par l\'expression générale (cb = {cb} mm, (cb + Ktr)/db = {term} ; §25.4.2.4), portée au minimum de {minimum} mm du §25.4.2.1(b).',
   'centres.title': 'Centres par niveau',
   'centres.hint': 'Masse : poids propre plus les charges gravitaires selon la source de masse. Rigidité : les poteaux et voiles de l\'étage inférieur, avec un diaphragme rigide (approximation par étage).',

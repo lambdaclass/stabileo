@@ -15834,7 +15834,7 @@ const pt: Translations = {
   "wind.pressure.carrierPartitionUnresolved": "Não é possível determinar a partição tributária física do vento para estes membros.",
   "wind.other.minimumSignCase": "Vento {dir}, mínimo de placa sólida {c} (§4.8)",
   "rcSheets.ec2.s.slabMin": "Armadura mínima: As,1 a principal, As,2 a secundária",
-  'codes.cirsoc201.anchorage.developmentGeneral': 'ℓd = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm para Ø{db}, com cb = {cb} mm, Ktr = 0 e (cb + Ktr)/db = {term} ≤ 2,5 (art. 25.4.2.4).',
+  'codes.cirsoc201.anchorage.developmentGeneral': 'ℓd = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm para Ø{db}, com cb = {cb} mm, Ktr = {ktr} mm e (cb + Ktr)/db = {term} ≤ 2,5 (art. 25.4.2.4).',
   'codes.cirsoc201.anchorage.developmentGeneralMinimum': 'ℓd calculado em {computed} mm para Ø{db} pela expressão geral (cb = {cb} mm, (cb + Ktr)/db = {term}; art. 25.4.2.4), elevado ao mínimo de {minimum} mm do art. 25.4.2.1(b).',
   "notices.kind.withheld": "Estes resultados foram retidos: o motor encontrou um caso que não consegue resolver com confiança.",
   "notices.kind.secondOrder": "A compressão é alta o bastante para que efeitos de segunda ordem alterem estes resultados em mais de 10 %. Rode uma análise P-Δ para verificar.",

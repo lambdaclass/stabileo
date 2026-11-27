@@ -16230,7 +16230,7 @@ const es: Record<string, string> = {
   'memo.rc.notAdopted': 'Barras propuestas por el armado por planillas, todavía sin adoptar',
   'memo.rc.line': 'viga continua',
   'memo.rc.supportTop': 'Superior en apoyos',
-  'codes.cirsoc201.anchorage.developmentGeneral': 'ℓd = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm para Ø{db}, con cb = {cb} mm, Ktr = 0 y (cb + Ktr)/db = {term} ≤ 2,5 (art. 25.4.2.4).',
+  'codes.cirsoc201.anchorage.developmentGeneral': 'ℓd = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f′c·(cb + Ktr)/db) · db = {ld} mm para Ø{db}, con cb = {cb} mm, Ktr = {ktr} mm y (cb + Ktr)/db = {term} ≤ 2,5 (art. 25.4.2.4).',
   'codes.cirsoc201.anchorage.developmentGeneralMinimum': 'ℓd calculada en {computed} mm para Ø{db} con la expresión general (cb = {cb} mm, (cb + Ktr)/db = {term}; art. 25.4.2.4), elevada al mínimo de {minimum} mm del art. 25.4.2.1(b).',
   'centres.title': 'Centros por nivel',
   'centres.hint': 'Masa: peso propio más las cargas gravitatorias según el origen de masas. Rigidez: columnas y tabiques del piso de abajo, con diafragma rígido (aproximación de piso).',

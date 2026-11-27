@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { confinementOf, deriveDevelopment, deriveHookedDevelopment, favourableRow, sizeFactor } from '../anchorage';
+import { deriveHookedDevelopment } from '../anchorage';
+import { confinementOf, deriveSheetDevelopment, favourableRow, sizeFactor } from '../sheet-development';
 
 describe('§25.4.3.1 — hooked development length', () => {
   it('the formula term governs for a typical bar: ldh = 0,24·fy/√f\'c·db', () => {
@@ -42,8 +43,8 @@ describe('§25.4.2.4 — general development length', () => {
   const base = { fy: 420, fc: 25, favourableSpacing: false, edition: '2025' as const };
 
   it('Ø20 at f\'c 25: 153 cm by the "other cases" row, 61 cm with (cb + Ktr)/db at its 2,5 cap', () => {
-    expect(deriveDevelopment({ ...base, diameterMm: 20 }).ldM).toBeCloseTo(420 / (1.1 * 5) * 0.02, 9);
-    const g = deriveDevelopment({ ...base, diameterMm: 20, confinement: { cbMm: 80 } });
+    expect(deriveSheetDevelopment({ ...base, diameterMm: 20 }).ldM).toBeCloseTo(420 / (1.1 * 5) * 0.02, 9);
+    const g = deriveSheetDevelopment({ ...base, diameterMm: 20, confinement: { cbMm: 80 } });
     expect(g.confinementTerm).toBe(2.5);
     expect(g.tableRow).toBe('general');
     expect(g.ldM).toBeCloseTo(420 / (1.1 * 5 * 2.5) * 0.02, 9);
@@ -53,16 +54,16 @@ describe('§25.4.2.4 — general development length', () => {
 
   it('takes ψs = 0,8 at Ø16 and below, 1,0 above, and the real cb below the cap', () => {
     expect([12, 16, 20].map(sizeFactor)).toEqual([0.8, 0.8, 1.0]);
-    const r = deriveDevelopment({ ...base, diameterMm: 16, confinement: { cbMm: 24 } });
+    const r = deriveSheetDevelopment({ ...base, diameterMm: 16, confinement: { cbMm: 24 } });
     expect(r.confinementTerm).toBeCloseTo(1.5, 12);
     expect(r.ldM).toBeCloseTo(420 * 0.8 / (1.1 * 5 * 1.5) * 0.016, 9);
-    expect(deriveDevelopment({ ...base, diameterMm: 16, confinement: { cbMm: 24, ktrMm: 16 } }).confinementTerm).toBe(2.5);
+    expect(deriveSheetDevelopment({ ...base, diameterMm: 16, confinement: { cbMm: 24, ktrMm: 16 } }).confinementTerm).toBe(2.5);
   });
 
   it('grades ψg 1,15 for ADN 500 and floors at 300 mm', () => {
-    const a = deriveDevelopment({ ...base, fy: 500, diameterMm: 25, confinement: { cbMm: 40 } });
+    const a = deriveSheetDevelopment({ ...base, fy: 500, diameterMm: 25, confinement: { cbMm: 40 } });
     expect(a.ldM).toBeCloseTo(500 * 1.15 / (1.1 * 5 * 1.6) * 0.025, 9);
-    const small = deriveDevelopment({ ...base, diameterMm: 8, confinement: { cbMm: 40 } });
+    const small = deriveSheetDevelopment({ ...base, diameterMm: 8, confinement: { cbMm: 40 } });
     expect(small.ldM).toBe(0.3);
     expect(small.derivation.key).toBe('codes.cirsoc201.anchorage.developmentGeneralMinimum');
   });
@@ -77,10 +78,10 @@ describe('§25.4.2.4 — general development length', () => {
   });
 });
 
-it.skip('known wrong result: #1928 the sheet development explanation states the transverse index actually used', () => {
+it('known wrong result: #1928 the sheet development explanation states the transverse index actually used', () => {
   const bars = { diameterMm: 20, fy: 420, fc: 25, favourableSpacing: false, edition: '2025' as const };
   for (const ktrMm of [0, 7]) {
-    const r = deriveDevelopment({ ...bars, confinement: { cbMm: 24, ktrMm } });
+    const r = deriveSheetDevelopment({ ...bars, confinement: { cbMm: 24, ktrMm } });
     expect(r.derivation.params?.ktr).toBe(ktrMm);
   }
 });
