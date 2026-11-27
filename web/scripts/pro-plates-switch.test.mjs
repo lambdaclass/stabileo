@@ -180,3 +180,18 @@ test('report and IFC entry modules call reinforcement sheet readers only in the 
     });
   }
 });
+
+test.skip('known wrong result: the saved-placement notice imports the sheet geometry implementation', async () => {
+  const result = await build({
+    root, configFile, mode: 'production', logLevel: 'silent',
+    build: { write: false, lib: { entry: resolve(root, 'src/lib/model/ignored-adoption.ts'), formats: ['es'] } },
+  });
+  const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+  const modules = Object.keys(chunk.modules).map(path => path.replaceAll('\\', '/'));
+  assert.deepEqual(modules.filter(path => path.endsWith('/model/placement.ts') || path.includes('/rc-sheets/')), []);
+  const { inactivePlacementRules } = await import('data:text/javascript;base64,' + Buffer.from(chunk.code).toString('base64'));
+  assert.equal(inactivePlacementRules({ placement: { reference: 'slabTop' } }), true);
+  assert.equal(inactivePlacementRules({ rcSheets: { fixedPoints: { column: 'px' } } }), true);
+  assert.equal(inactivePlacementRules({ placement: { reference: 'unknown' } }), false);
+  assert.equal(inactivePlacementRules({}), false);
+});
