@@ -176,8 +176,8 @@ class ProductionParity(unittest.TestCase):
                 for rev, expected in [(base, 'published'), (head, 'candidate')]:
                     with self.subTest(revision=rev):
                         checkout = repo / rev
-                        parity.snapshot(rev, checkout, set())
-                        parity.build(checkout, {**parity.os.environ, 'GITHUB_SHA': base})
+                        parity.snapshot(repo, rev, checkout, set())
+                        parity.build(repo, checkout, {**parity.os.environ, 'GITHUB_SHA': base})
                         self.assertEqual((checkout / 'web/dist/index.html').read_text(), expected)
 
     def test_reference_materializes_base_only_blobs_from_a_partial_clone(self):
