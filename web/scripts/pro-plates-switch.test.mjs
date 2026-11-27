@@ -298,7 +298,7 @@ test('the saved-placement notice reads metadata without linking sheet geometry',
   assert.equal(inactivePlacementRules({}), false);
 });
 
-test.skip('known wrong result: #1928 every published gallery label belongs to an available example or action', async () => {
+test('known wrong result: #1928 every published gallery label belongs to an available example or action', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
       const config = await resolveConfig({ root, configFile }, 'build', 'production');

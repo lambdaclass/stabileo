@@ -36,7 +36,9 @@
           <span class="pg-meta">
             {ex.stats.nodes} {t('pro.stats.nodes')} · {ex.stats.members} {t('pro.stats.members')}
             {#if ex.stats.shells}· {ex.stats.shells} {t('pro.stats.shells')}{/if}
-            {#if ex.stats.plates}· {ex.stats.plates} {t('pro.stats.plates')}{/if}
+            {#if __PUBLIC_FEATURES__.proPlatesUnified}
+              {#if ex.stats.plates}· {ex.stats.plates} {t('pro.stats.plates')}{/if}
+            {/if}
             {#each ex.tags as tag (tag)}<span class="pg-tag">{t(tag)}</span>{/each}
             {#if isHeavyExample(ex)}<span class="pg-heavy">{t('pro.stats.heavy')}</span>{/if}
           </span>
