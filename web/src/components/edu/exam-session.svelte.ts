@@ -105,8 +105,10 @@ function createAttemptSession(deps: ExamSessionDeps) {
       return;
     }
     if (!lock.engage({ deadlineAt: a.deadline_at, serverNow: a.now })) {
-      phase = 'closed';
-      return;
+      if (!Number.isFinite(Date.parse(a.deadline_at)) || !Number.isFinite(Date.parse(a.now))) {
+        fail(null);
+        return;
+      }
     }
     phase = 'running';
     if (deadlineTimer !== null) clearTimeout(deadlineTimer);
@@ -135,7 +137,7 @@ function createAttemptSession(deps: ExamSessionDeps) {
       answers = storedSubmission(a.answers)?.answers ?? [];
     } catch {
       if (disposed) return;
-      answers = [];
+      note = 'lateSubmit';
       phase = 'unavailable';
       unavailable = 'error';
       return;
@@ -189,7 +191,6 @@ function createAttemptSession(deps: ExamSessionDeps) {
       }
       dirty = true;
       saveState = 'failed';
-      lock.release('error');
       if (saveTimer === null) saveTimer = setTimeout(() => { saveTimer = null; void session.flush(); }, retryMs);
     }
   }
@@ -240,10 +241,10 @@ function createAttemptSession(deps: ExamSessionDeps) {
         dirty = true;
         saveState = 'failed';
         note = 'submitFailed';
-        lock.release('error');
         const untilDeadline = Date.parse(attempt.deadline_at) - lock.serverNow();
         if (untilDeadline <= 0 || auto) {
           const grace = untilDeadline + EXAM_GRACE_MS;
+          if (deadlineTimer !== null) clearTimeout(deadlineTimer);
           if (grace > 0) deadlineTimer = setTimeout(() => void session.submit(true), Math.min(retryMs, grace));
           else await closeFromServer();
         }

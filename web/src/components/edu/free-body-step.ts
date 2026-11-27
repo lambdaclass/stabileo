@@ -152,16 +152,24 @@ export const freeBodyUnit = (dof: EndDof) => (dof === 'M' ? 'kN·m' : 'kN');
  */
 export function studentBalanced(model: ModelSpec, bar: FreeBodyBar, student: Record<BarEnd, EndAction>, truth: BarTruth): boolean {
   const [ox, oy] = model.nodes[bar.nodes[0]!]!;
-  let fx = 0, fy = 0, m = 0, scaleX = 0, scaleY = 0, scaleM = 0;
+  const [ex, ey] = model.nodes[bar.nodes[bar.nodes.length - 1]!]!;
+  const length = Math.hypot(ex - ox, ey - oy);
+  if (!(length > 0)) return false;
+  const ux = (ex - ox) / length, uy = (ey - oy) / length;
+  let axial = 0, shear = 0, moment = 0;
+  let axialScale = 0, shearScale = 0, momentScale = 0;
   for (const end of BAR_ENDS) {
-    const [x, y] = model.nodes[endElement(bar, end).node]!;
-    const dx = student[end].Fx - truth[end].Fx, dy = student[end].Fy - truth[end].Fy;
-    fx += dx; fy += dy;
-    m += truth[end].M - student[end].M + (x - ox) * dy - (y - oy) * dx;
-    scaleX = Math.max(scaleX, Math.abs(truth[end].Fx));
-    scaleY = Math.max(scaleY, Math.abs(truth[end].Fy));
-    scaleM = Math.max(scaleM, Math.abs(truth[end].M), Math.abs((x - ox) * truth[end].Fy), Math.abs((y - oy) * truth[end].Fx));
+    const arm = end === 'i' ? 0 : length;
+    const { Fx, Fy, M } = truth[end];
+    const dx = student[end].Fx - Fx, dy = student[end].Fy - Fy;
+    const transverse = ux * dy - uy * dx;
+    axial += ux * dx + uy * dy;
+    shear += transverse;
+    moment += M - student[end].M + arm * transverse;
+    axialScale = Math.max(axialScale, Math.abs(ux * Fx + uy * Fy));
+    shearScale = Math.max(shearScale, Math.abs(ux * Fy - uy * Fx));
+    momentScale = Math.max(momentScale, Math.abs(M), arm * Math.abs(ux * Fy - uy * Fx));
   }
   const tol = (scale: number) => TOLERANCE * scale + 0.1;
-  return Math.abs(fx) <= tol(scaleX) && Math.abs(fy) <= tol(scaleY) && Math.abs(m) <= tol(scaleM);
+  return Math.abs(axial) <= tol(axialScale) && Math.abs(shear) <= tol(shearScale) && Math.abs(moment) <= tol(momentScale);
 }

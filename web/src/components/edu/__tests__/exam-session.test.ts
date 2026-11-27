@@ -153,7 +153,7 @@ describe('during the attempt', () => {
     expect(api.saveAnswers.mock.calls.at(-1)).toMatchObject({ 1: { answers: answer('new') }, 2: 1 });
   });
 
-  it.skip('known wrong result: #1927 — final answers remain unavailable until read from the server', async () => {
+  it('known wrong result: #1927 — final answers remain unavailable until read from the server', async () => {
     const { s, api } = await running();
     s.update(answer('unsaved'));
     api.submit.mockRejectedValueOnce(new ApiError(409, 'attempt_closed', ''));
@@ -222,7 +222,7 @@ describe('during the attempt', () => {
     expect(api.saveAnswers).toHaveBeenCalledTimes(1);
   });
 
-  it.skip('known wrong result: #1927 — a failed autosave keeps the lock, keeps the answers and is sent again later', async () => {
+  it('known wrong result: #1927 — a failed autosave keeps the lock, keeps the answers and is sent again later', async () => {
     const save = vi.fn().mockRejectedValueOnce(new ApiError(0, 'network_error', '')).mockImplementation(async (_id, answers) => attempt({ answers }));
     const { s } = await running({ saveAnswers: save });
     s.update(answer('3'));
@@ -339,7 +339,7 @@ describe('during the attempt', () => {
     expect(s.phase).toBe('closed');
   });
 
-  it.skip('known wrong result: #1927 — a submit that cannot reach the server stays locked and can be tried again', async () => {
+  it('known wrong result: #1927 — a submit that cannot reach the server stays locked and can be tried again', async () => {
     const submit = vi.fn().mockRejectedValueOnce(new ApiError(0, 'network_error', ''))
       .mockImplementation(async () => attempt({ closed: true, submitted_at: iso(T0) }));
     const { s } = await running({ submit });
@@ -456,7 +456,7 @@ describe('during the attempt', () => {
   });
 });
 
-it.skip('known wrong result: #1927 — an open attempt returned beyond grace submits its saved answers', async () => {
+it('known wrong result: #1927 — an open attempt returned beyond grace submits its saved answers', async () => {
   const { api, d } = deps();
   api.start.mockResolvedValueOnce(attempt({ deadline_at: iso(T0 - EXAM_GRACE_MS - 1) }));
   const session = createExamSession(d);
