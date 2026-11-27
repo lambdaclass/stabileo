@@ -871,6 +871,25 @@ fn an_explicit_full_axial_span_matches_an_omitted_diagonal_endpoint() {
 }
 
 #[test]
+#[ignore = "known wrong result: #1927"]
+fn restrained_truss_spans_redistribute_up_to_the_full_axial_range() {
+    use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
+    let beam = make_input(
+        vec![(1, 0.0, 0.0), (2, 4.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
+        vec![(1, "truss", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed"), (2, 2, "pinned")],
+        vec![SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: 8.0, q_j: -8.0, a: Some(1.5), b: Some(2.5) })],
+    );
+    let np = HashMap::from([(1, 1.0)]);
+    assert_eq!(confirm_2d(&beam, &HashMap::new(), &np, 1.0), Confirmation::Exact);
+    for wrong in [1.0_f64.next_down(), 1.0_f64.next_up()] {
+        assert_ne!(confirm_2d(&beam, &HashMap::new(), &np, wrong), Confirmation::Exact);
+    }
+    let wire = LimitInput { solver: beam, mp: HashMap::new(), np: HashMap::from([("1".into(), 1.0)]) };
+    let result = certified_limit_2d(&wire).unwrap();
+    assert_eq!((result.lambda, result.lambda_upper), (1.0, 1.0));
+}
+
+#[test]
 fn bending_collapse_survives_partial_axial_loads_on_a_diagonal() {
     use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
     for (a, b) in [(None, Some(1.0)), (Some(0.5), None), (Some(0.5), Some(1.0))] {
