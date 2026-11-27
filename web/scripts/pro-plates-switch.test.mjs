@@ -219,6 +219,25 @@ test('report and IFC entry modules call reinforcement sheet readers only in the 
   }
 });
 
+test('the specifications route links the placement drawer only with sheets', { skip: 'known wrong result: #1928' }, async () => {
+  for (const plates of [false, true]) {
+    for (const sheets of [false, true]) {
+      await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
+        const entry = resolve(root, 'src/components/pro/spec/ProSpecificationsTab.svelte');
+        const result = await build({
+          root, configFile, logLevel: 'silent',
+          build: { write: false, lib: { entry, formats: ['es'] }, rollupOptions: { external: (_id, from) => from === entry } },
+        });
+        const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+        const components = Object.keys(chunk.importedBindings);
+        assert.equal(components.some(path => path.endsWith('/SpecPlacement.svelte')), sheets);
+        assert.ok(components.some(path => path.endsWith('/SpecSurfaces.svelte')));
+        assert.ok(components.some(path => path.endsWith('/SpecList.svelte')));
+      });
+    }
+  }
+});
+
 test('the saved-placement notice reads metadata without linking sheet geometry', async () => {
   const result = await build({
     root, configFile: resolve(root, 'vite.config.ts'), mode: 'production', logLevel: 'silent',
