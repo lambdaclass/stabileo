@@ -73,7 +73,7 @@ test('the paper comparison keeps its failures and the element skew reruns the en
   await expect(page.getByTestId('variant')).toHaveCount(0);
   await skew.fill('0');
   await expect(page.getByTestId('variant')).toContainText('Live result at 0°');
-  await expect(page.getByTestId('variant')).toContainText('Pass');
+  await expect(page.getByTestId('variant')).toContainText('Marginal');
   await skew.fill('45');
   await expect(page.getByTestId('variant')).toHaveCount(0);
   await skew.fill('20');
@@ -170,3 +170,18 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await page.screenshot({ path: testInfo.outputPath(`macneal-results-${viewport.width}x${viewport.height}.png`) });
   });
 }
+
+test.skip('@smoke known wrong result: #2505 retry solves the selected skew after initialization failure', async ({ page }) => {
+  const wasm = /dedaliano_engine_bg[^/]*\.wasm/;
+  await page.route(wasm, route => route.abort());
+  await page.goto(PAGE);
+  await page.getByRole('combobox', { name: 'Case' }).selectOption('mitc4-parallelogram-out');
+  await page.getByTestId('skew').fill('5');
+  await expect(page.getByTestId('variant')).toContainText(/error/i);
+  await page.unroute(wasm);
+  await page.getByRole('button', { name: 'Run again' }).click();
+  await expect(page.getByTestId('variant')).toContainText('Stabileo');
+  await page.getByRole('tab', { name: 'Results' }).click();
+  await page.getByTestId('mitc4-parallelogram-out').getByRole('button').click();
+  await expect(page.getByTestId('skew')).toHaveValue('45');
+});

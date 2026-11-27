@@ -74,6 +74,7 @@ test.describe('@smoke CQC first version', () => {
       await expect(page.getByTestId('result-CQC')).toHaveText('17.549732');
     };
     await page.getByTestId('cqc-damping').selectOption('0.2');
+    await expect(page.getByTestId('cqc-displayed-damping')).toHaveText('5%');
     await expect(page.getByRole('button', { name: 'Computing…' })).toBeDisabled();
     await unchanged();
     await page.getByRole('button', { name: 'Stop', exact: true }).click();

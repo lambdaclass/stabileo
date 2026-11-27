@@ -7,7 +7,9 @@ test('@smoke stopping a moment change preserves the displayed replay', async ({ 
   await page.goto('/en/research/stability/ferrari-sigmund-2025/');
   const select = page.getByTestId('ferrari-sign');
   const original = await select.inputValue();
+  const displayed = await select.locator('option:checked').innerText();
   await select.selectOption({ index: 1 });
+  await expect(page.getByTestId('ferrari-source')).toContainText(displayed);
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(select).toHaveValue(original);
   await expect(page.getByTestId('ferrari-source')).toContainText('Precomputed replay');
@@ -18,7 +20,9 @@ test('@smoke stopping a portal update restores its model', async ({ page }) => {
   await page.goto('/en/research/benchmarks/plastic-collapse/');
   const height = page.getByTestId('height');
   const original = await height.inputValue();
+  const description = await page.getByTestId('model').innerText();
   await height.fill('4');
+  await expect(page.getByTestId('model')).toHaveText(description);
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(height).toHaveValue(original);
 });
@@ -28,7 +32,7 @@ test('@smoke mesh links respect the running Mattiasson mesh', async ({ page }) =
   await page.goto('/en/research/benchmarks/mattiasson-elastica/');
   const mesh = page.locator('.benchmark-pane select');
   await expect(mesh).toBeDisabled();
-  await page.locator('.rs-xlink').filter({ hasText: '64' }).click();
+  await expect(page.locator('.rs-xlink').filter({ hasText: '64' })).toBeDisabled();
   await expect(mesh).toHaveValue('16');
 });
 
@@ -41,6 +45,7 @@ test('@smoke an interrupted custom plate has no measured field', async ({ page }
   });
   await page.goto('/en/research/benchmarks/navier-plate/');
   await page.getByTestId('navier-n').selectOption('8');
+  await expect(page.getByTestId('navier-results')).toBeHidden();
   await expect(page.getByTestId('navier-plate-centre')).toHaveText('…');
   await expect(page.locator('.navier .sfv-canvas')).toHaveCount(0);
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
@@ -93,6 +98,7 @@ for (const elements of [20, 80] as const) {
     await page.goto('/en/research/benchmarks/dadeppo-arch-1975/');
     const controls = page.locator('.controls');
     await controls.locator('select').first().selectOption(String(elements));
+    await expect(controls.locator('option[value="400"]')).toContainText(String(maxSteps));
     await controls.locator('button').first().click();
     await expect(page.getByTestId('arch-verdict')).toHaveText('Outside tolerance');
   });
@@ -109,4 +115,24 @@ test('@smoke a shell retry recovers after the WASM download becomes available', 
   await retry.click();
   await expect(retry).toHaveCount(0);
   await expect(page.getByTestId('selected-result')).toContainText(/pass/i);
+});
+
+test.skip('@smoke known wrong result: #2505 discarded plate rows cannot enter the next run', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.Worker = class {
+      onmessage?: (event: {data: unknown}) => void;
+      postMessage() {
+        window.addEventListener('deliver-plate-row', () => this.onmessage?.({ data: {
+          row: { family: 'DKT', n: 4, center_mm: 1, values: [] }, index: 0
+        } }), { once: true });
+      }
+      terminate() {}
+    } as unknown as typeof Worker;
+  });
+  await page.goto('/en/research/benchmarks/navier-plate/');
+  const run = page.getByRole('button', { name: 'Recompute live' });
+  await run.click();
+  await page.getByRole('button', { name: 'Restart' }).click();
+  await page.evaluate(() => window.dispatchEvent(new Event('deliver-plate-row')));
+  await expect(page.getByTestId('navier-results').locator('tbody tr')).toHaveCount(6);
 });
