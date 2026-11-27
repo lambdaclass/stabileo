@@ -62,3 +62,52 @@ for (const offset of [-1e-7, 0, 1e-7]) it(`#2220 quadratic pressure keeps its ph
   for (const p of parts) if (p.a ** 2 + offset >= 0) { expect(p.q).toBeGreaterThanOrEqual(0); expect(p.qJ).toBeGreaterThanOrEqual(0); }
   expect(parts.reduce((sum, p) => sum + p.force, 0)).toBeCloseTo(1 / 3 + offset, 10);
 });
+
+for (const curvature of [-1, 0, 1]) it.skip(`known wrong result: #2529 member cuts retain the pressure integral for curvature ${curvature}`, () => {
+  const model = mesh([[[0, 0, 0], [0, 0, 1]]]);
+  const field = windHeightField({
+    model, axis: 'x', width: 1, from: 0, to: 1,
+    pressure: z => 2 + curvature * (z - 0.5) ** 2,
+  });
+  if (curvature === 0) expect(field.members).toHaveLength(1);
+  for (let i = 0; i <= 64; i++) {
+    const station = i / 64;
+    let shear = 0, moment = 0;
+    for (const { a, b, q, qJ } of field.members) {
+      const end = Math.min(station, b);
+      if (end <= a) continue;
+      const span = end - a, endLoad = q + (qJ - q) * span / (b - a);
+      const force = span * (q + endLoad) / 2;
+      shear += force;
+      moment += (station - end) * force + span ** 2 * (2 * q + endLoad) / 6;
+    }
+    const correction = station ** 3 / 3 - station ** 2 / 2 + station / 4;
+    const firstIntegral = station ** 4 / 12 - station ** 3 / 6 + station ** 2 / 8;
+    expect(shear).toBeCloseTo(2 * station + curvature * correction, 10);
+    expect(moment).toBeCloseTo(station ** 2 + curvature * firstIntegral, 10);
+  }
+});
+
+for (const side of [-1, 1]) it.skip(`known wrong result: #2529 whole-band pressure compression on side ${side} of the midpoint limit`, () => {
+  const curvature = 0.002 * (1 + side * 1e-5);
+  const pressure = (s: number) => 1 + curvature * (s - 0.5) ** 2;
+  const parts = integrateWindPressure(1, [], pressure);
+  if (side < 0) {
+    expect(parts).toHaveLength(2);
+    expect(parts[0]!.qJ).toBeCloseTo(1 - curvature / 20, 12);
+  } else {
+    expect(parts.length).toBeGreaterThan(2);
+    const left = parts.filter(p => p.b <= 0.5);
+    expect(left.reduce((sum, p) => sum + p.force, 0)).toBeCloseTo(0.5 + curvature / 24, 12);
+  }
+});
+
+it.skip('known wrong result: #2529 a storey column emits the compact pressure bands as member loads', () => {
+  const model = mesh([[[0, 0, 2.8], [0, 0, 5.6]]]);
+  const field = windHeightField({
+    model, axis: 'x', width: 1, from: 2.8, to: 5.6, boundaries: [5],
+    pressure: z => 0.62 * (Math.max(5, z) / 365.76) ** (2 / 7),
+  });
+  expect(field.members).toHaveLength(3);
+  expect(field.members.every(p => p.elementId === 1 && p.q > 0 && p.qJ > 0)).toBe(true);
+});
