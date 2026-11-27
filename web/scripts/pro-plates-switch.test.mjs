@@ -530,3 +530,21 @@ test('known wrong result: #1928 editing ordinary project bars has no dependency 
   assert.deepEqual(chunk.imports.filter(id => id.includes('/rc-sheets/')), []);
   assert.ok(chunk.code.includes('design-data-slab-base'));
 });
+
+test.skip('known wrong result: #1928 each published roof label cites the active CIRSOC rule and foreign-only controls follow their generator', async () => {
+  for (const enabled of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const source = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        const catalog = (await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64')))[locale];
+        assert.match(catalog['autoLoad.roof.maintenance'], /4\.8\.1/, locale);
+        assert.match(catalog['autoLoad.roof.occupancy'], /4\.8\.2/, locale);
+        for (const key of ['autoLoad.roof.maintenanceCode', 'autoLoad.roof.occupancyCode', 'autoLoad.roof.occupancyOf', 'autoLoad.fromTableLoCode', 'autoLoad.live.partitionChoice', 'autoLoad.dead.codeHint']) {
+          assert.equal(Object.hasOwn(catalog, key), enabled, locale + ' ' + key);
+        }
+      }
+    });
+  }
+});
