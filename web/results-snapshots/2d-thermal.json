@@ -32,6 +32,7 @@
     "base.resultSummary.reactionResultant.minValue": 2.19906253,
     "base.resultSummary.rotation.maxValue": 0.0002012623094,
     "base.resultSummary.rotation.minValue": -0.0006344219836,
+    "base.resultSummary.secondOrderPhysicalBound": 0.0001244707765,
     "model.elements": 3,
     "model.nodes": 4,
     "model.shells": 0,
