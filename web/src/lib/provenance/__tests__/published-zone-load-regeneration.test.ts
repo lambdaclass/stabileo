@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { assessProject } from '../applicability';
 import type { FeatureSnapshot } from '../model-features';
 
-it.skip('known wrong result: #1928 only saved zone loads generated from unavailable rows need review', () => {
+it('known wrong result: #1928 only saved zone loads generated from unavailable rows need review', () => {
   const applicable = (use: Record<string, unknown>, def: Record<string, unknown>) => {
     const snapshot: FeatureSnapshot = { groups: [
       [1, { kind: 'loadZone', data: { use } }],

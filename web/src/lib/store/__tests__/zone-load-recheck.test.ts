@@ -5,7 +5,7 @@ import { RESULTS_VERSION } from '../../provenance/registry';
 import type { FeatureSnapshot } from '../../provenance/model-features';
 import { createRecheckStore } from '../recheck.svelte';
 
-it.skip.each(['2d', '3d', 'pro'])('known wrong result: #1928 solving again in %s cannot verify an unpublished zone load', async mode => {
+it.each(['2d', '3d', 'pro'])('known wrong result: #1928 solving again in %s cannot verify an unpublished zone load', async mode => {
   const id = 'unpublished-zone-occupancies';
   const snapshot: FeatureSnapshot = { groups: [
     [1, { kind: 'loadZone', data: { use: { occupancy: 'uk-A1', provenance: 'confirmed' } } }],

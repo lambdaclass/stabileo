@@ -4,7 +4,7 @@ import { msg, round } from '../message';
 import { levelLoads } from '../../engine/loads/wind-cases';
 import { snowWeightByLevel, type LevelMass, type LoadPlanInput, type PlanSink, type SeismicPlanDetail } from '../../engine/loads/load-plan';
 import { ADAPTER, codeInput, SEISMIC_DEFAULTS, type Asce7SeismicInput } from './inputs';
-import { STORAGE_OCCUPANCIES } from './live-loads';
+import { storageOccupancies } from './live-loads';
 import {
   IMPORTANCE_SEISMIC, PERIOD_PARAMETERS, REF_SEIS, SYSTEMS, designCategory, distributionExponent, responseCoefficient,
   upperLimitCu, verticalDistribution, type SeismicSystem,
@@ -56,9 +56,9 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
   const base = levels.length ? Math.min(...levels.map((l) => l.elevation)) : 0;
   const elevated = levels.filter((l) => l.elevation > base + 1e-6);
   // §12.7.2(1): 25 % of the floor live load in storage areas, by the occupancy of each part.
-  const share = STORAGE_OCCUPANCIES.has(input.occupancyKey) ? STORAGE_SHARE : 0;
+  const share = storageOccupancies().has(input.occupancyKey) ? STORAGE_SHARE : 0;
   const roofKey = input.roof?.use === 'occupancy' ? input.roof.occupancyKey : undefined;
-  const roofShare = roofKey ? (STORAGE_OCCUPANCIES.has(roofKey) ? STORAGE_SHARE : 0) : share;
+  const roofShare = roofKey ? (storageOccupancies().has(roofKey) ? STORAGE_SHARE : 0) : share;
   const top = Math.max(...elevated.map((l) => l.elevation), base);
   // §12.7.2(2): partitions in the floor loads, or a partition weight typed here, bring at least the minimum.
   const partition = (input.partitionLive ?? 0) > 0 || (ci.partitionKNm2 ?? 0) > 0 ? Math.max(ci.partitionKNm2 ?? 0, PARTITION_MIN_KNM2) : 0;

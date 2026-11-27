@@ -7,7 +7,7 @@ import { applyZoneLoadPlan, createUseZone, zoneLoadPlan } from '../use-zones';
 
 beforeEach(() => modelStore.clear());
 
-it.skip.each(['authored', 'deserialize', 'loadProject', 'loadFile'])('known wrong result: #1928 %s zones use only published occupancy tables', async entry => {
+it.each(['authored', 'deserialize', 'loadProject', 'loadFile'])('known wrong result: #1928 %s zones use only published occupancy tables', async entry => {
   const enhanced = !!__PUBLIC_FEATURES__.proPlatesUnified;
   const foreign = ['ec-A-floor', 'uk-A1', 'accessOffice', 'tr_attic_rooms'];
   const pts = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];

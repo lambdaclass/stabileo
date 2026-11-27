@@ -1,6 +1,6 @@
 import type { AnyLoadCode, CombinationCode, ImposedLoadCode, SeismicCode, SnowCode, WindCode } from '../families/load-codes';
 import { ts500Service, ts500Strength, TR_CATEGORY } from './ts500-combinations';
-import { findTrOccupancy, ts498Reduce, TS498_OCCUPANCIES } from './ts498-loads';
+import { findTrOccupancy, ts498Reduce, ts498Occupancies } from './ts498-loads';
 import { planTs498Wind } from './ts498-wind';
 import { planTs498Snow } from './ts498-snow';
 import { ts498RoofLive } from './ts498-roof';
@@ -21,11 +21,11 @@ export const TS498_LOADS: ImposedLoadCode = {
   adapterId: 'ts498-1997-loads', role: 'loads', family: 'turkey', edition: '1997',
   title: 'TS 498:1997', sections: { dead: 'Madde 1, TS ISO 9194', live: 'Çizelge 7', reduction: 'Madde 13, Çizelge 8', partition: 'Madde 0.2.1' },
   occupancy: (key) => findTrOccupancy(key),
-  occupancies: () => TS498_OCCUPANCIES,
+  occupancies: ts498Occupancies,
   defaultOccupancy: 'tr_residential',
   /** TS 498 Çizelge 7 gives uniform loads only: no concentrated action is left out. */
   generationBlockers: () => ({ messages: [], refs: [] }),
-  roofOccupancies: () => TS498_OCCUPANCIES.filter((o) => o.category === 'roof'),
+  roofOccupancies: () => ts498Occupancies().filter((o) => o.category === 'roof'),
   reduce: (o) => ts498Reduce(o),
   partition: ts498Partition,
   partitionInput: { kind: 'typed' },

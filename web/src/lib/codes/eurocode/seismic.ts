@@ -5,7 +5,7 @@ import { levelLoads } from '../../engine/loads/wind-cases';
 import { snowWeightByLevel, type LevelMass, type LoadPlanInput, type PlanSink, type SeismicPlanDetail } from '../../engine/loads/load-plan';
 import { EN1990, EN1998_1 } from './refs';
 import { SEISMIC_ADAPTER, SEISMIC_DEFAULTS, SNOW_ADAPTER, type EcSeismicInput, type EcSnowInput, type GroundType, type ImportanceClass, type Occupancy, type PeriodSystem } from './inputs';
-import { PSI, SNOW_ALTITUDE_LIMIT_M } from './basis';
+import { psiFactors, SNOW_ALTITUDE_LIMIT_M } from './basis';
 import { categoryOfOccupancy } from './imposed';
 import type { ImposedCategory } from './context';
 
@@ -72,7 +72,7 @@ export function phiFactor(cat: ImposedCategory | undefined, top: boolean, occupa
 export function psiE(occupancyKey: string, top: boolean, occupancy: Occupancy): number {
   const cat = categoryOfOccupancy(occupancyKey);
   if (!cat) return 0;
-  return phiFactor(cat, top, occupancy) * PSI.eurocode.imposed[cat][2];
+  return phiFactor(cat, top, occupancy) * psiFactors().eurocode.imposed[cat][2];
 }
 
 const NOT_EC = new Set(['loadPlan.assumption.liveParticipation', 'loadPlan.derivation.seismicSnow']);
@@ -94,7 +94,7 @@ export function planEcSeismic(input: LoadPlanInput, levels: LevelMass[], sink: P
   if (!dirs.x && !dirs.y) { unsupportedKeys.push(msg('loads.ec.seismic.noDirection')); return none; }
 
   const snowCi = (input.codeInputs?.[SNOW_ADAPTER.eurocode] ?? {}) as EcSnowInput;
-  const psi2S = (snowCi.altitude ?? 0) > SNOW_ALTITUDE_LIMIT_M ? PSI.eurocode.snowHigh[2] : PSI.eurocode.snowLow[2];
+  const psi2S = (snowCi.altitude ?? 0) > SNOW_ALTITUDE_LIMIT_M ? psiFactors().eurocode.snowHigh[2] : psiFactors().eurocode.snowLow[2];
   const balanced = cases.findIndex((c) => c.type === 'S' && c.nameKey === 'loads.ec.snowCase.i');
   const snowByLevel = psi2S > 0 && balanced >= 0 ? snowWeightByLevel(input.model, sink.distributed, sink.nodal, balanced, levels.map((l) => l.elevation)) : levels.map(() => 0);
   const topIndex = levels.reduce((k, l, i) => (l.elevation > levels[k]!.elevation ? i : k), 0);

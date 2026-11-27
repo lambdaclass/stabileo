@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { EC2_RECOMMENDED, EC2_UK } from '../../engine/design/eurocode/ec2-params';
 import { EC2_SET, UK_SET } from '../../rc-sheets/ec2/basis';
-import { EC_CATEGORY, GAMMA, PSI, XI } from '../../codes/eurocode/basis';
+import { actionCategories, gammaFactors, psiFactors, xiFactor } from '../../codes/eurocode/basis';
 import { categoryOfOccupancy, occupancyTable } from '../../codes/eurocode/imposed';
 import { OCCUPANCY_TABLE_2025 } from '../../codes/cirsoc101/live-loads';
-import { OCCUPANCY_TABLE_ASCE7_22, STORAGE_OCCUPANCIES } from '../../codes/asce7/live-loads';
-import { TS498_OCCUPANCIES } from '../../codes/turkey/ts498-loads';
+import { asce7Occupancies, storageOccupancies } from '../../codes/asce7/live-loads';
+import { ts498Occupancies } from '../../codes/turkey/ts498-loads';
 import { FT, LBF_KN, MPH, PSF } from '../../codes/asce7/refs';
 import {
   EC2_SET_EXTRAS, EC_CATEGORY_OF, EC_TABLES, OLD_ASCE, OLD_CIRSOC, OLD_EC2_RECOMMENDED, OLD_EC2_UK, OLD_EC_CATEGORY,
@@ -21,12 +21,12 @@ describe('every value moved to a code profile is the one the code carried', () =
   });
 
   it('EN 1990 and its UK annex: ψ by action, γ, ξ and the action of each symbol', () => {
-    expect(PSI).toStrictEqual(OLD_PSI);
-    expect(GAMMA.eurocode).toStrictEqual({ ...OLD_GAMMA });
-    expect(GAMMA.uk).toStrictEqual({ ...OLD_GAMMA });
-    expect(XI).toStrictEqual(OLD_XI);
-    expect(EC_CATEGORY).toStrictEqual(OLD_EC_CATEGORY);
-    expect(Object.isFrozen(EC_CATEGORY)).toBe(true);
+    expect(psiFactors()).toStrictEqual(OLD_PSI);
+    expect(gammaFactors('eurocode')).toStrictEqual({ ...OLD_GAMMA });
+    expect(gammaFactors('uk')).toStrictEqual({ ...OLD_GAMMA });
+    expect({ eurocode: xiFactor('eurocode'), uk: xiFactor('uk') }).toStrictEqual(OLD_XI);
+    expect(actionCategories()).toStrictEqual(OLD_EC_CATEGORY);
+    expect(Object.isFrozen(actionCategories())).toBe(true);
   });
 
   it('the occupancy tables of the five families, row by row and reference by reference', () => {
@@ -34,10 +34,10 @@ describe('every value moved to a code profile is the one the code carried', () =
     expect(occupancyTable('uk')).toStrictEqual(EC_TABLES.uk);
     for (const [key, cat] of EC_CATEGORY_OF) expect(categoryOfOccupancy(key)).toBe(cat);
     expect(OCCUPANCY_TABLE_2025).toStrictEqual(OLD_CIRSOC);
-    expect(OCCUPANCY_TABLE_ASCE7_22).toStrictEqual(OLD_ASCE);
-    expect([...STORAGE_OCCUPANCIES]).toStrictEqual([...OLD_STORAGE]);
-    expect(TS498_OCCUPANCIES).toStrictEqual(OLD_TS498);
-    for (const t of [occupancyTable('eurocode'), occupancyTable('uk'), OCCUPANCY_TABLE_2025, OCCUPANCY_TABLE_ASCE7_22, TS498_OCCUPANCIES]) {
+    expect(asce7Occupancies()).toStrictEqual(OLD_ASCE);
+    expect([...storageOccupancies()]).toStrictEqual([...OLD_STORAGE]);
+    expect(ts498Occupancies()).toStrictEqual(OLD_TS498);
+    for (const t of [occupancyTable('eurocode'), occupancyTable('uk'), OCCUPANCY_TABLE_2025, asce7Occupancies(), ts498Occupancies()]) {
       expect(Object.isFrozen(t)).toBe(true);
     }
   });

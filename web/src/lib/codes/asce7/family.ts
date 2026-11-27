@@ -1,7 +1,7 @@
 import type { AnyLoadCode, CombinationCode, ImposedLoadCode, SeismicCode, SnowCode, WindCode } from '../families/load-codes';
 import { CIRSOC_CATEGORY } from '../families/cirsoc';
 import { asce7Service, asce7Strength } from './combinations';
-import { findAsce7Occupancy, OCCUPANCY_TABLE_ASCE7_22, reduceAsce7, STORAGE_OCCUPANCIES } from './live-loads';
+import { findAsce7Occupancy, asce7Occupancies, reduceAsce7, storageOccupancies } from './live-loads';
 import { planAsce7Wind } from './wind-plan';
 import { planAsce7Snow } from './snow';
 import { asce7Vertical, planAsce7Seismic, STORAGE_SHARE } from './seismic-plan';
@@ -24,7 +24,7 @@ export const ASCE7_BASIS: CombinationCode = {
 export const ASCE7_LOADS: ImposedLoadCode = {
   ...base, adapterId: ADAPTER.loads, role: 'loads', sections: { dead: '§3.1', live: 'Table 4.3-1', roof: '§4.8', partition: '§4.3.2', reduction: '§4.7', patterns: '§4.3.3' },
   occupancy: (key) => findAsce7Occupancy(key),
-  occupancies: () => OCCUPANCY_TABLE_ASCE7_22,
+  occupancies: asce7Occupancies,
   defaultOccupancy: 'residentialPrivate',
   generationBlockers({ occupancies, roof }) {
     const messages = [...new Map(occupancies.map((o) => [o.key, o])).values()]
@@ -33,7 +33,7 @@ export const ASCE7_LOADS: ImposedLoadCode = {
     if (roof || occupancies.some((o) => o.category === 'roof')) messages.push(msg('loads.asce7.blocked.concentratedRoof'));
     return { messages, refs: messages.length ? [A7('4.4', 'concentrated live loads'), A7('Table 4.3-1', 'concentrated live loads')] : [] };
   },
-  roofOccupancies: () => OCCUPANCY_TABLE_ASCE7_22.filter((o) => o.category === 'roof' && o.key !== 'roofOrdinary' && o.key !== 'awningsFabric'),
+  roofOccupancies: () => asce7Occupancies().filter((o) => o.category === 'roof' && o.key !== 'roofOrdinary' && o.key !== 'awningsFabric'),
   reduce: (o) => reduceAsce7(o),
   partition: asce7Partition,
   partitionInput: { kind: 'minimum', min: ASCE7_PARTITION_MIN },
@@ -54,7 +54,7 @@ export const ASCE7_SNOW: SnowCode = {
 export const ASCE7_SEISMIC: SeismicCode = {
   ...base, adapterId: ADAPTER.seismic, role: 'seismic', sections: { spectrum: '§11.4', static: '§12.8' },
   planFromLevels: (input, levels, sink) => planAsce7Seismic(input, levels, sink),
-  liveInMass: (occupancy) => (STORAGE_OCCUPANCIES.has(occupancy) ? STORAGE_SHARE : 0),
+  liveInMass: (occupancy) => (storageOccupancies().has(occupancy) ? STORAGE_SHARE : 0),
   vertical: (combinations, detail, sink) => asce7Vertical(combinations, detail, sink),
   verticalByCode: true,
   defaults: { zone: 4, site: 'SD', group: 'B' },

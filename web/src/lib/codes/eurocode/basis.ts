@@ -1,39 +1,37 @@
+import { deferred } from '../../code-profiles/deferred';
 import { combinationLabel, type CombinationInputs, type CombinationTerm, type LoadCombinationSpec, type LoadSymbol } from '../cirsoc101/combinations';
 import type { ClauseRef } from '../regulation';
 import { msg, type EngineMessage } from '../message';
 import type { ActionCategory } from '../families/origin';
 import { EN1990, EN1991_1_1, type EcFamily } from './refs';
 import { loadsProfile } from '../../code-profiles/registry';
-import { generatedCombinationsOf, symbolsOf, type GeneratedCombinations } from '../../code-profiles/adapters/combinations';
+import { generatedCombinationsOf, symbolsOf } from '../../code-profiles/adapters/combinations';
 import { roofPartOf, type EcPlanContext, type ImposedCategory } from './context';
 
 export type Psi = readonly [number, number, number];
 
 const PROFILE: Readonly<Record<EcFamily, string>> = { eurocode: 'en-1990-1991', uk: 'en-1990-1991-uk' };
-const DATA: Readonly<Record<EcFamily, GeneratedCombinations>> = {
+const data = deferred(() => ({
   eurocode: generatedCombinationsOf(loadsProfile(PROFILE.eurocode)),
   uk: generatedCombinationsOf(loadsProfile(PROFILE.uk)),
-};
+}));
 
 const IMPOSED_CATEGORIES: readonly ImposedCategory[] = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 function psiOf(family: EcFamily) {
-  const t = DATA[family].psi;
+  const t = data()[family].psi;
   return {
     imposed: Object.fromEntries(IMPOSED_CATEGORIES.map((c) => [c, t[c]!])) as Record<ImposedCategory, Psi>,
     snowLow: t.snowLow!, snowHigh: t.snowHigh!, wind: t.wind!, thermal: t.thermal!,
   };
 }
 
-export const PSI: Readonly<Record<EcFamily, {
-  imposed: Readonly<Record<ImposedCategory, Psi>>; snowLow: Psi; snowHigh: Psi; wind: Psi; thermal: Psi;
-}>> = { eurocode: psiOf('eurocode'), uk: psiOf('uk') };
-
-export const GAMMA: Readonly<Record<EcFamily, GeneratedCombinations['gamma']>> = { eurocode: DATA.eurocode.gamma, uk: DATA.uk.gamma };
-export const XI: Readonly<Record<EcFamily, number>> = { eurocode: DATA.eurocode.xi, uk: DATA.uk.xi };
+export const psiFactors = deferred(() => ({ eurocode: psiOf('eurocode'), uk: psiOf('uk') }));
+export const gammaFactors = (family: EcFamily) => data()[family].gamma;
+export const xiFactor = (family: EcFamily) => data()[family].xi;
 export const SNOW_ALTITUDE_LIMIT_M = 1000;
 
-export const EC_CATEGORY: Readonly<Record<string, ActionCategory>> = Object.freeze(symbolsOf(loadsProfile(PROFILE.eurocode)));
+export const actionCategories = deferred((): Readonly<Record<string, ActionCategory>> => Object.freeze(symbolsOf(loadsProfile(PROFILE.eurocode))));
 
 type Variable = 'L' | 'Lr' | 'S' | 'W' | 'T';
 const VARIABLES: readonly Variable[] = ['L', 'Lr', 'S', 'W', 'T'];
@@ -46,7 +44,7 @@ export interface PsiSet { L: Psi; Lr: Psi; S: Psi; W: Psi; T: Psi }
  * floor category known, the largest of the categories present.
  */
 export function psiSet(family: EcFamily, categories: ReadonlySet<ImposedCategory>, snowAltitudeM?: number, floor?: ImposedCategory): PsiSet {
-  const p = PSI[family];
+  const p = psiFactors()[family];
   const cats = categories.size ? [...categories] : (['A'] as ImposedCategory[]);
   const L = floor && floor !== 'H' ? p.imposed[floor]
     : [0, 1, 2].map((k) => Math.max(...cats.filter((c) => c !== 'H').map((c) => p.imposed[c][k]!), 0)) as unknown as Psi;
@@ -54,7 +52,7 @@ export function psiSet(family: EcFamily, categories: ReadonlySet<ImposedCategory
 }
 
 const compatibleIn = (family: EcFamily) => (s: readonly Variable[]) =>
-  !DATA[family].exclusive.some((pair) => pair.every((v) => s.includes(v as Variable)));
+  !data()[family].exclusive.some((pair) => pair.every((v) => s.includes(v as Variable)));
 
 function subsets<T>(xs: readonly T[]): T[][] {
   return xs.reduce<T[][]>((acc, x) => [...acc, ...acc.map((s) => [...s, x])], [[]]);
@@ -106,7 +104,7 @@ function contextFor(family: EcFamily, ctx?: EcPlanContext) {
   const alphaN = ctx?.alphaN ?? 1;
   const terms = (v: Variable, k: 0 | 1 | 2 | 'lead', gamma = 1): CombinationTerm[] => [
     { symbol: v as LoadSymbol, factor: gamma * (k === 'lead' ? 1 : psi[v][k] / (v === 'L' ? alphaN : 1)) },
-    ...(v === 'L' && roof ? [{ symbol: 'L' as LoadSymbol, group: roof, factor: gamma * (k === 'lead' ? 1 : PSI[family].imposed[roof][k]) }] : []),
+    ...(v === 'L' && roof ? [{ symbol: 'L' as LoadSymbol, group: roof, factor: gamma * (k === 'lead' ? 1 : psiFactors()[family].imposed[roof][k]) }] : []),
   ];
   /** Whether the action enters at ψk at all: any of its parts. */
   const has = (v: Variable, k: 0 | 1 | 2) => terms(v, k).some((t) => t.factor > 0);
@@ -115,9 +113,9 @@ function contextFor(family: EcFamily, ctx?: EcPlanContext) {
 
 export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ctx?: EcPlanContext): { combinations: LoadCombinationSpec[]; refs: ClauseRef[]; notes: EngineMessage[] } {
   const { known, terms, has, roof, alphaN } = contextFor(family, ctx);
-  const xi = XI[family], gamma = GAMMA[family], compatible = compatibleIn(family);
-  const tableRefs = [DATA[family].refs.factors, DATA[family].refs.psi];
-  const notActing = ci.notActing ?? DATA[family].notActing;
+  const xi = xiFactor(family), gamma = gammaFactors(family), compatible = compatibleIn(family);
+  const tableRefs = [data()[family].refs.factors, data()[family].refs.psi];
+  const notActing = ci.notActing ?? data()[family].notActing;
   const vars = presentVariables(ci);
   const b: Builder = { out: [], seen: new Set(), refs: [EN1990('6.4.3.2', 'eq. 6.10a and 6.10b'), ...tableRefs] };
   const withPsi0 = (vs: readonly Variable[]) => vs.filter((v) => has(v, 0));
@@ -155,7 +153,7 @@ export function serviceCombinations(family: EcFamily, ci: CombinationInputs, ctx
   const { terms, has } = contextFor(family, ctx);
   const compatible = compatibleIn(family);
   const vars = presentVariables(ci);
-  const notActing = ci.notActing ?? DATA[family].notActing;
+  const notActing = ci.notActing ?? data()[family].notActing;
   const b: Builder = { out: [], seen: new Set(), refs: [EN1990('6.5.3', 'SLS combinations')] };
   for (const lead of vars) {
     const others = vars.filter((v) => v !== lead && compatible([lead, v]));

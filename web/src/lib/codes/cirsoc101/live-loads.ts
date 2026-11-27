@@ -21,6 +21,7 @@
 
 import { clause, type ClauseRef } from '../regulation';
 import { msg, round, type EngineMessage } from '../message';
+import { unifiedPlates } from '../../features';
 import { loadsProfile } from '../../code-profiles/registry';
 import { occupancyEntries } from '../../code-profiles/adapters/occupancies';
 
@@ -84,7 +85,99 @@ export interface OccupancyEntry {
   refs: ClauseRef[];
 }
 
-export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze(occupancyEntries(loadsProfile('cirsoc-101-2025')));
+const e = (
+  key: string, category: OccupancyCategory,
+  uniformKNm2: number | null, concentratedKN: number | null = null,
+  extra: Partial<OccupancyEntry> = {},
+): OccupancyEntry => ({
+  key, labelKey: `loads.occupancy.${key}`, category, uniformKNm2, concentratedKN,
+  refs: [T41], ...extra,
+});
+
+export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = unifiedPlates()
+  ? Object.freeze(occupancyEntries(loadsProfile('cirsoc-101-2025')))
+  : Object.freeze([
+    e('archivos', 'office', 7.0),
+
+    e('reunion_asientos_fijos', 'assembly', 3.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
+    e('reunion_vestibulos', 'assembly', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
+    e('reunion_asientos_moviles', 'assembly', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
+    e('reunion_plataformas', 'assembly', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
+    e('reunion_escenarios', 'assembly', 7.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
+    e('reunion_proyeccion', 'assembly', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
+    e('reunion_otras', 'assembly', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
+
+    e('azotea_publica', 'roof', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
+    e('azotea_privada', 'roof', 3.0),
+    e('azotea_inaccesible', 'roof', 1.0),
+
+    e('balcon_vivienda', 'residential', 5.0),
+    e('balcon_casa_pequena', 'residential', 3.0),
+    e('balcon_otros', 'residential', null, null,
+      { seeArticle: '4.11' }),
+
+    e('bano_vivienda', 'residential', 2.0),
+    e('bano_otros', 'other', 3.0),
+
+    e('biblioteca_lectura', 'education', 3.0, 4.5),
+    e('biblioteca_deposito', 'education', 7.0, 4.5, { noReduction: true }),
+    e('biblioteca_pasillos_sup', 'circulation', 4.0, 4.5),
+    e('biblioteca_pasillos_pb', 'circulation', 5.0, 4.5),
+
+    e('cielorraso_liviano', 'storage', 1.0),
+    e('cielorraso_ocasional', 'storage', 0.5),
+    e('cielorraso_mantenimiento', 'other', null, 1.0),
+
+    e('cocina_vivienda', 'residential', 2.0),
+    e('cocina_otros', 'other', 4.0),
+
+    e('comercio_minorista_pb', 'commercial', 5.0, 4.5),
+    e('comercio_minorista_sup', 'commercial', 4.0, 4.5),
+    e('comercio_mayorista', 'commercial', 6.0, 4.5, { noReduction: true }),
+
+    e('cuarto_maquinas', 'industrial', 7.5),
+
+    e('cubierta_usual', 'roof', 1.0),
+    e('cubierta_jardin', 'roof', 5.0),
+    e('cubierta_toldos', 'roof', 0.25, null,
+      { seeArticle: 'no reducible', noReduction: true }),
+    e('cubierta_cerramiento', 'roof', 0.25, 1.0,
+      { seeArticle: 'no reducible', noReduction: true }),
+    e('cubierta_otras', 'roof', 1.0),
+
+    e('deposito_liviano', 'storage', 6.0, null, { noReduction: true }),
+    e('deposito_pesado', 'storage', 12.0, null,
+      { seeArticle: '4.13', noReduction: true }),
+
+    e('escalera_privada', 'circulation', 2.0, null, { concentratedRule: 'Tabla 4.1 (j)' }),
+    e('escalera_otros', 'circulation', 5.0, null, { concentratedRule: 'Tabla 4.1 (j, r)' }),
+
+    e('escotillas', 'other', null, 1.0),
+
+    e('escuela_aulas', 'education', 3.0, 4.5),
+    e('escuela_pasillos_sup', 'circulation', 4.0, 4.5),
+    e('escuela_pasillos_pb', 'circulation', 5.0, 4.5),
+
+    e('entrepiso_liviano', 'other', null, 1.0),
+
+    e('garaje_autos', 'parking', 2.0, null, { garageOrPublicAssembly: true, assemblyKind: 'passengerGarage', concentratedRule: '4.10.1', refs: [T41, clause('cirsoc-101', '2025', '4.10.1', 'sobrecargas para cocheras de automóviles')] }),
+    e('garaje_camiones', 'parking', null, null,
+      { garageOrPublicAssembly: true, assemblyKind: 'truckGarage', seeArticle: '4.10.3' }),
+
+    e('hospital_habitaciones', 'health', 2.0, 4.5),
+    e('hospital_quirofanos', 'health', 3.0, 4.5),
+    e('hospital_corredores', 'circulation', 4.0, 4.5),
+
+    e('oficina', 'office', 2.5, 9.0),
+    e('oficina_corredores_sup', 'circulation', 4.0, 9.0),
+    e('oficina_corredores_pb', 'circulation', 5.0, 9.0),
+
+    e('vivienda', 'residential', 2.0),
+    e('vivienda_dormitorio', 'residential', 2.0),
+
+    e('fabrica_liviana', 'industrial', 6.0, 9.0, { seeArticle: '4.12.1', noReduction: true }),
+    e('fabrica_pesada', 'industrial', 12.0, 14.0, { seeArticle: '4.12.1', noReduction: true }),
+  ]);
 
 export function findOccupancy(key: string): OccupancyEntry | undefined {
   return OCCUPANCY_TABLE_2025.find((o) => o.key === key);

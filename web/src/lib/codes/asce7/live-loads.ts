@@ -1,3 +1,4 @@
+import { deferred } from '../../code-profiles/deferred';
 import type { ElementKind, OccupancyEntry } from '../cirsoc101/live-loads';
 import { K_LL } from '../cirsoc101/live-loads';
 import { msg, round, type EngineMessage } from '../message';
@@ -9,13 +10,18 @@ import { occupancyRows } from '../../code-profiles/adapters/occupancies';
 const T43 = A7('Table 4.3-1', 'minimum live loads');
 const T47 = A7('Table 4.7-1', 'live load element factor KLL');
 
-const ROWS = occupancyRows(loadsProfile('asce7-22'));
+const table = deferred(() => {
+  const rows = occupancyRows(loadsProfile('asce7-22'));
+  return {
+    entries: Object.freeze(rows.map(r => r.entry)),
+    storage: new Set(rows.filter(r => r.row.tags?.storage === true).map(r => r.row.key)),
+  };
+});
 
-export const STORAGE_OCCUPANCIES: ReadonlySet<string> = new Set(ROWS.filter((r) => r.row.tags?.storage === true).map((r) => r.row.key));
+export const asce7Occupancies = (): readonly OccupancyEntry[] => table().entries;
+export const storageOccupancies = (): ReadonlySet<string> => table().storage;
 
-export const OCCUPANCY_TABLE_ASCE7_22: readonly OccupancyEntry[] = Object.freeze(ROWS.map((r) => r.entry));
-
-export const findAsce7Occupancy = (key: string) => OCCUPANCY_TABLE_ASCE7_22.find((o) => o.key === key);
+export const findAsce7Occupancy = (key: string) => asce7Occupancies().find((o) => o.key === key);
 
 export const HEAVY_LIMIT_KNM2 = 100 * PSF;
 const THRESHOLD_M2 = 400 * 0.3048 * 0.3048;

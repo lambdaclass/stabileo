@@ -1,5 +1,5 @@
 import type { AnyLoadCode, CombinationCode, ImposedLoadCode, SeismicCode, SnowCode, WindCode } from '../families/load-codes';
-import { EC_CATEGORY, serviceCombinations, strengthCombinations } from './basis';
+import { actionCategories, serviceCombinations, strengthCombinations } from './basis';
 import { categoryOfOccupancy, findEcOccupancy, occupancyTable, reduceImposed } from './imposed';
 import { planContextOf } from './context';
 import { planEcWind } from './wind';
@@ -31,7 +31,7 @@ function modules(f: EcFamily): AnyLoadCode[] {
     sections: { combinations: uk ? '6.4.3.2, NA.A1.2(B)' : '6.4.3.2, A1.2(B)', special: '6.4.3.4, 6.5.3' },
     strength: (ci, input) => strengthCombinations(f, ci, input && planContextOf(f, input)),
     service: (ci, input) => serviceCombinations(f, ci, input && planContextOf(f, input)),
-    categoryOf: (symbol) => EC_CATEGORY[symbol] ?? 'other',
+    categoryOf: (symbol) => actionCategories()[symbol] ?? 'other',
   };
   const loads: ImposedLoadCode = {
     adapterId: ID[f].loads, role: 'loads', family: 'eurocode', edition: EDITION[f].loads, title: TITLES[f].loads,
@@ -80,5 +80,6 @@ export const EN1998_SEISMIC: SeismicCode = {
   defaults: { zone: 4, site: 'SD', group: 'B' },
 };
 
-export const EUROCODE_FAMILY: readonly AnyLoadCode[] = [...modules('eurocode'), EN1998_SEISMIC];
-export const UK_FAMILY: readonly AnyLoadCode[] = modules('uk');
+export function europeanLoadCodes(family: EcFamily): readonly AnyLoadCode[] {
+  return family === 'uk' ? modules(family) : [...modules(family), EN1998_SEISMIC];
+}

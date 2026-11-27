@@ -11,13 +11,17 @@ import { roleUsable } from '../roles';
 import type { AnyLoadCode, CodeFamilyId, CombinationCode, LoadCodes } from './load-codes';
 import type { LoadCombinationSpec } from '../cirsoc101/combinations';
 import { CIRSOC_FAMILY } from './cirsoc';
-import { EUROCODE_FAMILY, UK_FAMILY } from '../eurocode/family';
+import { europeanLoadCodes } from '../eurocode/family';
 import { ASCE7_FAMILY } from '../asce7/family';
 import { TURKEY_FAMILY } from '../turkey/family';
 
 const MODULES = new Map<string, AnyLoadCode>();
-const families = unifiedPlates() ? [CIRSOC_FAMILY, EUROCODE_FAMILY, UK_FAMILY, ASCE7_FAMILY, TURKEY_FAMILY] : [CIRSOC_FAMILY];
-for (const family of families) for (const adapter of family) MODULES.set(adapter.adapterId, adapter);
+for (const m of CIRSOC_FAMILY) MODULES.set(m.adapterId, m);
+if (unifiedPlates()) {
+  for (const family of [europeanLoadCodes('eurocode'), europeanLoadCodes('uk'), ASCE7_FAMILY, TURKEY_FAMILY]) {
+    for (const m of family) MODULES.set(m.adapterId, m);
+  }
+}
 
 /**
  * Add a family's modules (an implementation, or a test's). Returns a function that removes them,

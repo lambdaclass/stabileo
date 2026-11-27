@@ -39,6 +39,8 @@ import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
 import { ignoresAdoptedReinforcement, inactivePlacementRules } from '../model/ignored-adoption';
+import { findOccupancy } from '../codes/cirsoc101/live-loads';
+import type { ZoneUse } from '../model/use-zones';
 import { globalAxes, unifiedPlates } from '../features';
 import { GRAVITY_SELF_WEIGHT, type AnalysisSettings, type SelfWeightLoad } from '../engine/analysis-settings';
 import { planarSelfWeightComponents, resolveSelfWeightScope, selfWeightFor } from '../engine/self-weight';
@@ -74,7 +76,7 @@ export const FEATURE_IDS = [
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
-  'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
+  'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'unpublishedZoneLiveLoads', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'malformedAuthoredLoad',
   'addedAuthoredLoadRefusal', 'legacyPlanarProjectPlane', 'emptyRigidLinkMask',
@@ -267,6 +269,10 @@ export function loadsGeneratedWith(s: FeatureSnapshot): number {
 }
 
 export const UNVERIFIED_SEISMIC_FEATURE = 'unverifiedGeneratedSeismicLoads';
+
+export function requiresCurrentLoadReview(feature: string): feature is 'unverifiedGeneratedSeismicLoads' | 'unpublishedZoneLiveLoads' {
+  return feature === UNVERIFIED_SEISMIC_FEATURE || feature === 'unpublishedZoneLiveLoads';
+}
 
 function isStandardGravityRule(rule: unknown): boolean {
   if (rule === null || typeof rule !== 'object') return false;
@@ -982,6 +988,18 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (widthMode && (memberGravity || generatedSeismic)) f.add('generatedWidthGravity');
   const floorDefs = values(s.groups).filter(g => g?.kind === 'floorLoad');
+  if (!unifiedPlates() && floorDefs.length) {
+    const liveZones = new Set(floorDefs.flatMap(g => {
+      const def = g.data as { fromZone?: number; role?: string } | undefined;
+      return typeof def?.fromZone === 'number' && (def.role === undefined || def.role === 'live') ? [def.fromZone] : [];
+    }));
+    if (Array.isArray(s.groups) && s.groups.some(entry => {
+      if (!entry || !liveZones.has(entry[0]) || entry[1]?.kind !== 'loadZone') return false;
+      const use = (entry[1].data as { use?: ZoneUse } | undefined)?.use;
+      return typeof use?.occupancy === 'string' && !use.none && use.provenance !== 'suggested'
+        && !Number.isFinite(use.manualQ) && !findOccupancy(use.occupancy);
+    })) f.add('unpublishedZoneLiveLoads');
+  }
   if (floorDefs.length) f.add('areaDeadLoads');
   for (const g of floorDefs) {
     const data = g.data as { target?: { by?: string; groupId?: number }; distribution?: string; q?: number; caseId?: number } | undefined;

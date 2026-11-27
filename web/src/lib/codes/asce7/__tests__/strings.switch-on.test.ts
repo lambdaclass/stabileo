@@ -8,7 +8,7 @@ import pt from '../../../i18n/locales/pt';
 import de from '../../../i18n/locales/de';
 import fr from '../../../i18n/locales/fr';
 import tr from '../../../i18n/locales/tr';
-import { OCCUPANCY_TABLE_ASCE7_22 } from '../live-loads';
+import { asce7Occupancies } from '../live-loads';
 import { PERIOD_PARAMETERS, SYSTEMS } from '../seismic';
 
 const LANGS = ['es', 'en', 'pt', 'de', 'fr', 'tr'];
@@ -23,7 +23,7 @@ describe('ASCE 7-22 strings', () => {
     const named = new Set(sources.flatMap((s) => [...s.matchAll(/'(loads\.asce7\.[A-Za-z0-9.]+[A-Za-z0-9])'/g)].map((m) => m[1]!)));
     const keys = [
       ...named,
-      ...OCCUPANCY_TABLE_ASCE7_22.map((o) => o.labelKey),
+      ...asce7Occupancies().map((o) => o.labelKey),
       ...Object.keys(SYSTEMS).map((k) => `loads.asce7.system.${k}`), 'loads.asce7.system.custom',
       ...Object.keys(PERIOD_PARAMETERS).map((k) => `loads.asce7.period.${k}`),
       ...['all', 'cases13', 'case1'].map((k) => `loads.asce7.ui.caseSet.${k}`),

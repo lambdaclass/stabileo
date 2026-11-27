@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { meanPressure, storeyWind, velocityPressure, C_GENERAL } from '../ts498-wind';
 import { groundSnow, slopeFactor } from '../ts498-snow';
-import { findTrOccupancy, ts498Reduce, TS498_OCCUPANCIES } from '../ts498-loads';
+import { findTrOccupancy, ts498Reduce, ts498Occupancies } from '../ts498-loads';
 
 describe('wind, Çizelge 5 and 6', () => {
   it('q by height band', () => {
@@ -63,7 +63,7 @@ describe('live loads, Çizelge 7 and 8', () => {
     expect(findTrOccupancy('tr_classroom')?.uniformKNm2).toBe(3.5);
     expect(findTrOccupancy('tr_stairs_public')?.uniformKNm2).toBe(5.0);
     expect(findTrOccupancy('tr_stand_unfixed')?.uniformKNm2).toBe(7.5);
-    expect(TS498_OCCUPANCIES.every((o) => o.labelKey.startsWith('loads.tr.occ.'))).toBe(true);
+    expect(ts498Occupancies().every((o) => o.labelKey.startsWith('loads.tr.occ.'))).toBe(true);
   });
   it('Çizelge 8 (a) for dwellings and offices, down to β = 0,6 (40 %)', () => {
     const r = (floorsSupported: number, occupancyKey = 'tr_residential') => ts498Reduce({ loKNm2: 2, elementKind: 'interiorColumn', floorsSupported, noReduction: false, occupancyKey }).lKNm2;

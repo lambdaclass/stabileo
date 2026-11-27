@@ -1,3 +1,4 @@
+import { deferred } from '../../code-profiles/deferred';
 import type { ElementKind, OccupancyEntry } from '../cirsoc101/live-loads';
 import { msg, round, type EngineMessage } from '../message';
 import type { ClauseRef } from '../regulation';
@@ -10,11 +11,11 @@ export interface TrOccupancy extends OccupancyEntry {
   use: MassUse;
 }
 
-export const TS498_OCCUPANCIES: readonly TrOccupancy[] = Object.freeze(
+export const ts498Occupancies = deferred((): readonly TrOccupancy[] => Object.freeze(
   occupancyRows(loadsProfile('ts498-1997')).map(({ row, entry }) => ({ ...entry, use: row.tags!.use as MassUse })),
-);
+));
 
-export const findTrOccupancy = (key: string) => TS498_OCCUPANCIES.find((o) => o.key === key);
+export const findTrOccupancy = (key: string) => ts498Occupancies().find((o) => o.key === key);
 
 export const occupancyUse = (key: string): MassUse | undefined => findTrOccupancy(key)?.use;
 

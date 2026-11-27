@@ -1,0 +1,53 @@
+{
+  "id": "unpublished-zone-occupancies",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "loads",
+  "when": {
+    "all": [
+      "unpublishedZoneLiveLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Review floor loads generated from unavailable occupancy tables",
+    "es": "Revisar cargas de zona generadas con tablas de ocupación no disponibles",
+    "pt": "Revisar cargas de zona geradas com tabelas de ocupação indisponíveis",
+    "de": "Flächenlasten aus nicht verfügbaren Nutzungstabellen prüfen",
+    "fr": "Vérifier les charges de zone issues de tables d’occupation indisponibles",
+    "tr": "Kullanılamayan kullanım tablolarından üretilen bölge yüklerini inceleyin",
+    "zh": "复核根据不可用的使用类别表生成的区域荷载",
+    "hu": "A nem elérhető rendeltetési táblák alapján létrehozott zónaterhek ellenőrzése",
+    "ar": "مراجعة أحمال المناطق المولدة من جداول إشغال غير متاحة",
+    "hi": "अनुपलब्ध अधिभोग तालिकाओं से बने क्षेत्र भारों की जाँच करें",
+    "id": "Periksa beban zona yang dibuat dari tabel penggunaan yang tidak tersedia",
+    "it": "Verificare i carichi di zona generati da tabelle di destinazione d’uso non disponibili",
+    "ja": "利用できない用途別荷重表から生成されたゾーン荷重の確認",
+    "ko": "사용할 수 없는 용도별 하중표에서 생성된 구역 하중 검토",
+    "ru": "Проверка нагрузок зон, созданных по недоступным таблицам назначения"
+  },
+  "explanation": {
+    "en": "A saved zone load uses an occupancy row unavailable in this build. Review the row or enter a documented manual intensity, regenerate the zone loads and rerun the analysis.",
+    "es": "Una carga de zona guardada usa una fila de ocupación no disponible. Revisá la fila o ingresá una intensidad manual documentada, regenerá las cargas de zona y volvé a calcular.",
+    "pt": "Uma carga de zona salva usa uma linha de ocupação indisponível. Revise a linha ou informe uma intensidade manual documentada, gere novamente as cargas de zona e refaça a análise.",
+    "de": "Eine gespeicherte Zonenlast verwendet eine nicht verfügbare Tabellenzeile. Prüfen Sie die Nutzung oder geben Sie eine dokumentierte Lastintensität ein. Erzeugen Sie die Zonenlasten neu und wiederholen Sie die Berechnung.",
+    "fr": "Une charge de zone enregistrée utilise une ligne de table indisponible. Vérifiez la catégorie ou saisissez une intensité manuelle documentée, régénérez les charges de zone et relancez le calcul.",
+    "tr": "Kayıtlı bir bölge yükü bu sürümde bulunmayan bir tablo satırını kullanıyor. Satırı inceleyin veya belgelenmiş bir yük şiddeti girin, bölge yüklerini yeniden üretin ve analizi tekrarlayın.",
+    "zh": "保存的区域荷载使用了当前版本中不可用的表格行。请复核使用类别或手动输入有依据的荷载强度，重新生成区域荷载并再次分析。",
+    "hu": "Egy mentett zónateher ebben a verzióban nem elérhető táblázatsoron alapul. Ellenőrizze a rendeltetést vagy adjon meg dokumentált teherintenzitást, majd hozza létre újra a zónaterheket és ismételje meg a számítást.",
+    "ar": "يستخدم حمل منطقة محفوظ صف إشغال غير متاح في هذا الإصدار. راجع الصف أو أدخل شدة حمل يدوية موثقة، ثم أعد توليد أحمال المناطق وأعد التحليل.",
+    "hi": "सहेजा गया क्षेत्र भार ऐसी अधिभोग पंक्ति पर आधारित है जो इस संस्करण में उपलब्ध नहीं है। पंक्ति की जाँच करें या प्रलेखित भार तीव्रता दर्ज करें, फिर क्षेत्र भार दोबारा बनाएँ और विश्लेषण फिर से चलाएँ।",
+    "id": "Beban zona tersimpan memakai baris tabel penggunaan yang tidak tersedia pada versi ini. Periksa baris tersebut atau masukkan intensitas beban manual yang terdokumentasi, lalu buat ulang beban zona dan ulangi analisis.",
+    "it": "Un carico di zona salvato usa una voce non disponibile in questa versione. Verificare la voce o inserire un’intensità manuale documentata, rigenerare i carichi di zona e ripetere l’analisi.",
+    "ja": "保存されたゾーン荷重は、この版で利用できない用途別荷重表の行を参照しています。用途を確認するか、根拠のある荷重強度を手入力してから、ゾーン荷重を再生成し、解析をやり直してください。",
+    "ko": "저장된 구역 하중이 이 버전에서 사용할 수 없는 표의 항목을 참조합니다. 용도를 검토하거나 근거가 있는 하중 강도를 직접 입력한 다음 구역 하중을 다시 생성하고 해석을 다시 실행하세요.",
+    "ru": "Сохранённая нагрузка зоны использует строку таблицы, недоступную в этой версии. Проверьте назначение или вручную задайте обоснованную интенсивность нагрузки, затем заново сформируйте нагрузки зон и повторите расчёт."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-unpublished-zone-occupancies.md",
+    "heading": "Review floor loads generated from unavailable occupancy tables"
+  }
+}

@@ -394,8 +394,8 @@ test('known wrong result: #1928 mesh progress and board actions enter the root m
   }
 });
 
-test.skip('known wrong result: #1928 published CIRSOC tables and load modules exclude draft authorities', async () => {
-  for (const path of ['cirsoc101/live-loads', 'families/index']) {
+test('known wrong result: #1928 published CIRSOC tables and load modules exclude draft authorities', async () => {
+  for (const path of ['cirsoc101/live-loads', 'families/occupancy-tables', 'families/index']) {
     const entry = resolve(root, 'src/lib/codes/' + path + '.ts');
     const result = await build({
       root, logLevel: 'silent',

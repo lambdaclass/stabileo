@@ -1,3 +1,4 @@
+import { deferred } from '../../code-profiles/deferred';
 import type { ElementKind, OccupancyEntry } from '../cirsoc101/live-loads';
 import type { ClauseRef } from '../regulation';
 import { msg, round, type EngineMessage } from '../message';
@@ -15,13 +16,18 @@ function table(family: EcFamily): { entries: readonly OccupancyEntry[]; categori
   return { entries: Object.freeze(entries), categories: rows.map(({ row }) => [row.key, row.group as ImposedCategory]) };
 }
 
-const BUILT = { eurocode: table('eurocode'), uk: table('uk') };
-const TABLES: Record<EcFamily, readonly OccupancyEntry[]> = { eurocode: BUILT.eurocode.entries, uk: BUILT.uk.entries };
-const CATEGORY = new Map<string, ImposedCategory>([...BUILT.eurocode.categories, ...BUILT.uk.categories]);
+const tables = deferred(() => {
+  const european = table('eurocode');
+  const british = table('uk');
+  return {
+    entries: { eurocode: european.entries, uk: british.entries },
+    categories: new Map([...european.categories, ...british.categories]),
+  };
+});
 
-export const occupancyTable = (family: EcFamily): readonly OccupancyEntry[] => TABLES[family];
-export const findEcOccupancy = (family: EcFamily, key: string) => TABLES[family].find((o) => o.key === key);
-export const categoryOfOccupancy = (key: string | undefined): ImposedCategory | undefined => (key ? CATEGORY.get(key) : undefined);
+export const occupancyTable = (family: EcFamily): readonly OccupancyEntry[] => tables().entries[family];
+export const findEcOccupancy = (family: EcFamily, key: string) => occupancyTable(family).find(row => row.key === key);
+export const categoryOfOccupancy = (key: string | undefined): ImposedCategory | undefined => key ? tables().categories.get(key) : undefined;
 
 const COLUMN: ReadonlySet<ElementKind> = new Set(['interiorColumn', 'exteriorColumnNoCantilever', 'edgeColumnWithCantilever', 'cornerColumnWithCantilever']);
 const PSI0_REDUCIBLE = 0.7;

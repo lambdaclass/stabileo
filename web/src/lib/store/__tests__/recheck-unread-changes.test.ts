@@ -1,12 +1,13 @@
 import { expect, it } from 'vitest';
 import { createRecheckStore } from '../recheck.svelte';
 import { stampSolve } from '../../provenance/solve-stamp';
+import type { FeatureSnapshot } from '../../provenance/model-features';
 import { steelTruss } from './recheck-fixtures';
 
-it.skip.each(['2d', '3d', 'pro'])('known wrong result: #1928 an acknowledgement on the same solve stamp cannot hide a newly applicable seismic load warning in %s', async mode => {
+it.each(['2d', '3d', 'pro'])('known wrong result: #1928 an acknowledgement on the same solve stamp cannot hide a newly applicable seismic load warning in %s', async mode => {
   const store = createRecheckStore();
   const solvedWith = { ...stampSolve('linear', null), resultsVersion: 0 };
-  const original = { ...steelTruss(), solvedWith };
+  const original = { ...(steelTruss() as FeatureSnapshot), solvedWith };
   store.openProject(original, mode);
   await store.retry();
   expect(store.noticeOpen).toBe(true);
