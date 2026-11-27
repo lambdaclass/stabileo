@@ -578,7 +578,7 @@ const stepsHu: Translations = {
   "steps.trusses.compat.endsTable": "A rúdvégi erők (N húzásnál pozitív, V a lokális +y mentén, M az óramutató járásával ellentétesen).",
   "steps.trusses.compat.supportTitle": "{n}. támasz",
   "steps.trusses.compat.globalCheck": "Globális egyensúly",
-  "steps.trusses.compat.residual": "A szabad csomópontokban a legnagyobb egyensúlyi hiba {r} (kN vagy kN·m).",
+  "steps.trusses.compat.residual": "A szabad csomópontok legnagyobb egyensúlyi hibái: {force} kN, {moment} kN·m.",
   "steps.trusses.compat.residualOk": "A szabad csomópontok egyensúlyban vannak ✓.",
   "steps.trusses.compat.residualBad": "A szabad csomópontok egyensúlyi hibája nagyobb, mint amit a kerekítés megmagyaráz.",
   "steps.trusses.compat.momentCaption": "Nyomatéki ábra, a húzott oldalra rajzolva.",

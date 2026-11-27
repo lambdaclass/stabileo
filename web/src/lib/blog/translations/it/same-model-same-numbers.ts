@@ -76,7 +76,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Ogni progetto salvato registra la versione dei risultati con cui è stato calcolato. Quando si apre un progetto calcolato prima di una modifica che riguarda le sue funzioni, l’app elenca quelle modifiche, spiegate nella tua lingua, e segna i risultati come non aggiornati finché non viene calcolato di nuovo. Nel dubbio una modifica conta come applicabile: un avviso di troppo costa un minuto, uno di meno può nascondere un numero che si è spostato."
+      "t": "Ogni progetto salvato registra la versione dei risultati con cui è stato calcolato. Quando si apre un progetto calcolato prima di una modifica che riguarda le sue funzioni, l’app elenca quelle modifiche, spiegate nella tua lingua, e segna i risultati come non aggiornati finché non viene calcolato di nuovo. Per due errori memorizzati nel modello il progetto può riaprirsi senza avviso: per SA-2026-035 ricrea il taglio 2D dal modello 3D originale e per SA-2026-039 reimporta le sezioni interessate. Nel dubbio una modifica conta come applicabile: un avviso di troppo costa un minuto, uno di meno può nascondere un numero che si è spostato."
     },
     {
       "k": "h",

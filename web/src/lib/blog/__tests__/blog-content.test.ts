@@ -757,10 +757,11 @@ it.each([
 });
 
 function checkCrossover(note: Block) {
+  expect(note.k === 'p' && note.t).toMatch(/Mu = 31[.,]1 kN·m/);
   expect(note.k === 'p' && note.t).toMatch(/§9\.6\.1\.2.*§9\.6\.1\.3.*4\/3/);
 }
 
-it.skip('known wrong result: #2595 — detects the obsolete reinforcement crossover', () => {
+it('known wrong result: #2595 — detects the obsolete reinforcement crossover', () => {
   expect(() => checkCrossover({ k: 'p', t: 'Mu = 31.5 kN·m. §9.6.1.2, §9.6.1.3, 4/3' })).toThrow();
 });
 

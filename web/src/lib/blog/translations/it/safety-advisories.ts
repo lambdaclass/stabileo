@@ -19,15 +19,15 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-058 — Risolto nella PR #1922, in attesa di rilascio."
+      "t": "SA-2026-058 — Correzione della PR #1922 pubblicata nella 0.6.0."
     },
     {
       "k": "note",
-      "t": "SA-2026-061 — Risolto nella PR #1952, in attesa di rilascio."
+      "t": "SA-2026-061 — Correzione della PR #1952 pubblicata nella 0.6.0."
     },
     {
       "k": "note",
-      "t": "SA-2026-063 — Risolto nella PR #2009, in attesa di rilascio."
+      "t": "SA-2026-063 — Correzione della PR #2009 pubblicata nella 0.6.0."
     },
     {
       "k": "note",
@@ -1491,7 +1491,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Come capire se sei interessato: un vincolo era prima una molla (o aveva costanti elastiche) ed è stato poi cambiato in incastro, cerniera o carrello, oppure un grado di libertà è stato spuntato come vincolato. Nei risultati, controlla lo spostamento o la rotazione del solo grado di libertà passato da elastico a bloccato: deve essere nullo.",
+        "Come capire se sei interessato: un vincolo era prima una molla (o aveva costanti elastiche) ed è stato poi cambiato in incastro, cerniera o carrello, oppure un grado di libertà è stato spuntato come vincolato. Nei risultati, controlla lo spostamento o la rotazione del solo grado di libertà passato da elastico a bloccato: deve coincidere con il valore prescritto, nullo per un vincolo senza cedimento o rotazione imposta.",
         "Cosa fare: ricalcola su stabileo.com i modelli 3D i cui vincoli sono stati modificati da molle a rigidi e confronta i risultati vicino a quei vincoli con quelli che hai già usato.",
         "Stato: corretto su stabileo.com il 20 ottobre 2026. Ogni grado di libertà vincolato è calcolato come vincolato, anche nei progetti salvati prima."
       ]
@@ -1663,7 +1663,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Come capire se sei interessato: hai usato il moltiplicatore di instabilità 3D o il P-Delta 3D per strutture con sezioni aperte a pareti sottili di bassa rigidezza torsionale: croci, angolari singoli o doppi, T, profili a C. Le sezioni a I doppiamente simmetriche, dove governa l’instabilità flessionale, non sono interessate. Nemmeno le verifiche di progetto che calcolano da sole l’instabilità torsionale (CIRSOC 301 E.4, dalla 0.2.0) sono interessate.",
+        "Come capire se sei interessato: hai usato il moltiplicatore di instabilità 3D o il P-Delta 3D per strutture con sezioni aperte a pareti sottili di bassa rigidezza torsionale: croci, angolari singoli o doppi, T, profili a C. Anche per una I doppiamente simmetrica, escludi il ricontrollo solo se hai verificato indipendentemente che governa l’instabilità flessionale. Nemmeno le verifiche di progetto che calcolano da sole l’instabilità torsionale (CIRSOC 301 E.4, dalla 0.2.0) sono interessate.",
         "Cosa fare: ricalcola i modelli interessati su stabileo.com e confronta con i risultati che hai già usato. Il rimedio indicato da questo bollettino prima della correzione non si applica più.",
         "Stato: corretto su stabileo.com il 21 ottobre 2026."
       ]

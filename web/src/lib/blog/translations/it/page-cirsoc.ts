@@ -79,7 +79,7 @@ const body: StandingPage['i18n']['en'] = {
       "items": [
         "Un solo modello: disegni o importi la struttura (DXF, IFC o un modello Excel) e le verifiche usano le stesse sollecitazioni dell’analisi, senza nulla copiato a mano in un altro foglio di calcolo.",
         "I carichi e le combinazioni secondo CIRSOC 101, 102, 103 e 104 si generano dai dati del progetto.",
-        "Ogni asta si conclude con il suo rapporto domanda/capacità e l’articolo che governa, e ogni passaggio si può ispezionare.",
+        "Per le verifiche supportate e completate sono disponibili il rapporto domanda/capacità, l’articolo determinante e i passaggi del calcolo. Un rapporto parziale non stabilisce che l’asta supera la verifica.",
         "Il solutore gira sul tuo computer: il modello non viene inviato a nessun server per essere calcolato. Il codice è aperto (AGPL-3.0).",
         "Lo stesso modello dà gli stessi numeri a parità di impostazioni di analisi e versione del solutore, e ogni relazione registra la versione e i dati che l’hanno prodotta."
       ]

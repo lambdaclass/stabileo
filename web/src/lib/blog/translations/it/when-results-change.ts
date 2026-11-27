@@ -177,7 +177,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Instabilità 2D con carichi assiali lungo le aste (#1324, versione 23). La rigidezza geometrica di ogni asta usava il suo sforzo normale medio. Dove la compressione cresce verso l’estremo che ruota di più, come sotto la gravità su un puntone o con un carico assiale concentrato dentro la luce, il fattore di instabilità risultava troppo alto e nulla avvertiva. Ora ogni asta integra il suo sforzo normale variabile."
+      "t": "Instabilità 2D con carichi assiali lungo le aste (#1324, versione 23). La rigidezza geometrica di ogni asta usava il suo sforzo normale medio. Per le mensole della tabella la compressione crescente verso l’estremo libero o concentrata nella metà libera dava un fattore troppo alto. Sotto il peso proprio la compressione è massima all’incastro e il fattore era troppo basso. Ora ogni asta integra il suo sforzo normale variabile."
     },
     {
       "k": "table",

@@ -610,7 +610,7 @@ const steelTr: Translations = {
   'steel.f62.branch.slender': 'narin başlık (F.6.2(c))',
   'steel.f62.branch.undetermined': 'dal belirlenemedi',
   'steel.f62.missing.flangeGeometry': 'Başlık genişliği ve kalınlığı.',
-  'steel.f62.missing.slendernessLimits': 'Tablo B.4.1b durum 14\'ün λpf ve λrf narinlik sınırları. Bu tablonun sayısal hücreleri dağıtılan markdown içinde yok: yalnızca başlığı, dipnotları ve sembol listesi var.',
+  'steel.f62.missing.slendernessLimits': 'Tablo B.4.1b durum 14 için pozitif Fy girin: λpf = 0,38√(E/Fy), λrf = 1,00√(E/Fy).',
   'steel.f62.lambdaLabel': 'Başlık narinliği λf',
   'steel.f62.fcrLabel': 'Başlık narin çıkarsa Fcr (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — moment gradyanı katsayısı (F.1.1)',

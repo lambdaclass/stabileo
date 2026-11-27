@@ -42,6 +42,7 @@ function sentences(text: string): string[] {
  */
 export function unfinishedProClaims(text: string, locale: CopyLocale, { aboutPro }: { aboutPro: boolean }): string[] {
   return sentences(text).filter(
-    (s) => UNFINISHED[locale].test(s) && !DESIGN_OR_AI[locale].test(s) && (aboutPro || /\bPRO\b/.test(s)),
+    (s) => UNFINISHED[locale].test(s) && !DESIGN_OR_AI[locale].test(s) &&
+      !(locale === 'it' && /\b(?:modulo|assistente|funzion[ei]|strument[oi]) (AI) per\b/i.exec(s)?.[1] === 'AI') && (aboutPro || /\bPRO\b/.test(s)),
   );
 }

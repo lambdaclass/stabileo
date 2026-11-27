@@ -27,7 +27,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "L’articolo 9.6.1.2 richiede un’armatura minima a flessione pari al maggiore tra 0.25·√f'c/fy·bw·d e 1.4/fy·bw·d. Di solito la si tratta come un limite che quasi mai viene raggiunto. Nelle travi degli edifici residenziali viene raggiunto di continuo."
+      "t": "L’articolo 9.6.1.2 richiede un’armatura minima a flessione pari al maggiore tra 0,25·√f'c/fy·bw·d e 1,4/fy·bw·d. Di solito la si tratta come un limite che quasi mai viene raggiunto. Nelle travi degli edifici residenziali viene raggiunto di continuo."
     },
     {
       "k": "table",
@@ -57,40 +57,40 @@ const body: PostBody = {
       "caption": "Le due espressioni del minimo, per fy 420, per mille.",
       "head": [
         "Calcestruzzo",
-        "0.25·√f'c/fy",
-        "1.4/fy",
+        "0,25·√f'c/fy",
+        "1,4/fy",
         "Governa"
       ],
       "rows": [
         [
           "H-20",
-          "2.6620",
-          "3.3333",
-          "1.4/fy"
+          "2,6620",
+          "3,3333",
+          "1,4/fy"
         ],
         [
           "H-25",
-          "2.9762",
-          "3.3333",
-          "1.4/fy"
+          "2,9762",
+          "3,3333",
+          "1,4/fy"
         ],
         [
           "H-30",
-          "3.2603",
-          "3.3333",
-          "1.4/fy"
+          "3,2603",
+          "3,3333",
+          "1,4/fy"
         ],
         [
           "H-35",
-          "3.5215",
-          "3.3333",
+          "3,5215",
+          "3,3333",
           "√f'c"
         ]
       ]
     },
     {
       "k": "p",
-      "t": "Il punto di incrocio è a f'c = 31,36 MPa. In tutto l’intervallo usato nell’edilizia residenziale (H-20, H-25, H-30), l’armatura minima non dipende dal calcestruzzo: viene da 1.4/fy e da nient’altro. Passare da H-20 a H-30 non riduce il minimo nemmeno di un centimetro quadrato."
+      "t": "Il punto di incrocio è a f'c = 31,36 MPa. In tutto l’intervallo usato nell’edilizia residenziale (H-20, H-25, H-30), l’armatura minima non dipende dal calcestruzzo: viene da 1,4/fy e da nient’altro. Passare da H-20 a H-30 non riduce il minimo nemmeno di un centimetro quadrato."
     },
     {
       "k": "h",
@@ -167,7 +167,7 @@ const body: PostBody = {
       "k": "ol",
       "items": [
         "Prima di dimensionare, controlla se il momento sta sopra o sotto il punto di incrocio con il minimo. Sotto, per il criterio adottato in questo esempio, governa il minimo.",
-        "Da H-20 a H-30, il minimo non dipende dal calcestruzzo. Viene da 1.4/fy.",
+        "Da H-20 a H-30, il minimo non dipende dal calcestruzzo. Viene da 1,4/fy.",
         "φ dipende da εt: leggi sempre i due insieme.",
         "L’armatura compressa può servire anche quando, con altezza limitata, il momento richiesto supera la capacità della sezione semplicemente armata alla deformazione ammessa dell’acciaio teso."
       ]

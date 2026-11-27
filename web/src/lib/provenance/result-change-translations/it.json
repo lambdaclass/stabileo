@@ -108,7 +108,7 @@
     "title": "Instabilità 3D: aste il cui sforzo normale varia lungo di esse"
   },
   "buckling-axial-from-elongation": {
-    "explanation": "L’instabilità prende N da EA·δ/L invece che dalla media agli estremi (λ cambiava fino a 3× con carichi assiali concentrati o parziali); la rigidezza geometrica 2D è condensata alle cerniere (un telaio con estremi incernierati dava λ ≈ 5e-6); le forze agli estremi delle aste del P-Delta includono Kg·u e, in 3D, il Kg dei gusci. I moltiplicatori di instabilità dei gusci sono corretti (i gusci curvi erano 200× troppo alti).",
+    "explanation": "L’instabilità prende N da EA·δ/L invece che dalla media agli estremi (λ cambiava fino a 3× con carichi assiali concentrati o parziali); la rigidezza geometrica 2D è condensata alle cerniere (un telaio con estremi incernierati dava λ ≈ 5e-6); le forze agli estremi delle aste del P-Delta includono il contributo di forza Kg·u. In 3D la rigidezza geometrica dei gusci entra nell’assemblaggio globale. I moltiplicatori di instabilità dei gusci sono corretti (i gusci curvi erano 200× troppo alti).",
     "title": "Instabilità e P-Delta: sforzo normale dall’allungamento, cerniere condensate"
   },
   "buckling-certificate-rejects-outside-factor": {
@@ -252,7 +252,7 @@
     "title": "Per le verifiche delle aste servono dati completi nelle stazioni"
   },
   "concurrent-check-demands": {
-    "explanation": "Le verifiche dell’acciaio mantengono la propria trazione massima e la combinazione dominante. I momenti negativi scelgono la lunghezza dell’ala inferiore e gli sforzi normali nelle stazioni sopravvivono ai riepiloghi nulli degli estremi. La certificazione del calcestruzzo include ogni caso concomitante. Riesegui i progetti salvati e rivedi sollecitazioni, coefficienti di utilizzo, certificati ed etichette delle combinazioni (PR #2080).",
+    "explanation": "Le verifiche dell’acciaio mantengono la propria trazione massima e la combinazione dominante. I momenti negativi scelgono la lunghezza non controventata dell’ala inferiore e gli sforzi normali nelle stazioni sopravvivono ai riepiloghi nulli degli estremi. La certificazione del calcestruzzo include ogni caso concomitante. Riesegui i progetti salvati e rivedi sollecitazioni, coefficienti di utilizzo, certificati ed etichette delle combinazioni (PR #2080).",
     "title": "Le verifiche concomitanti mantengono le sollecitazioni dominanti"
   },
   "concurrent-depth-and-load-context": {
@@ -321,7 +321,7 @@
   },
   "corotational-member-load-frame": {
     "explanation": "I solutori corotazionali 2D/3D e di percorso piano ora ruotano le forze e i momenti di incastro perfetto meccanici permanenti dalle coordinate di riferimento prima di combinarli con le azioni elastiche di estremità. Le azioni termiche di autodeformazione restano nel riferimento attuale dell’asta; i rifiuti termici non lineari pubblici non cambiano. Ricontrolla le sollecitazioni delle aste sotto carichi meccanici sulle aste quando la corda o il telaio spaziale ruota (#1952; SA-2026-061).",
-    "title": "I carichi sulle aste seguono il riferimento finale dell’asta"
+    "title": "Le azioni di estremità dei carichi permanenti sono espresse nel riferimento finale dell’asta"
   },
   "curved-frame-shear-centre-refusal": {
     "explanation": "L’analisi corotazionale spaziale ora rifiuta le sezioni di telaio curvo usate con eccentricità del centro di taglio, perché il solutore omette l’accoppiamento flesso-torsionale.",
@@ -624,7 +624,7 @@
     "title": "La massa di livello in modalità larghezza segue gli elementi portanti caricati"
   },
   "ground-motion-coupled-mass": {
-    "explanation": "Il carico del moto relativo ora include M_fr·r_r; fino a circa il 50 % del carico veniva scartato. Le time-history con gradi di libertà senza massa non ricevono più un’accelerazione iniziale spuria.",
+    "explanation": "Il carico del moto relativo ora include il contributo di forza −M_fr·r_r·a_g(t) per accelerazione uniforme del suolo; fino a circa il 50 % del carico veniva scartato. Le time-history con gradi di libertà senza massa non ricevono più un’accelerazione iniziale spuria.",
     "title": "Il moto del suolo include la massa accoppiata ai vincoli"
   },
   "harmonic-dc-equilibration": {
@@ -1328,7 +1328,7 @@
     "title": "Neve su copertura piana nelle combinazioni concomitanti"
   },
   "snow-crossing-profile": {
-    "explanation": "Le aste che attraversavano un colmo di neve ricevevano un’unica pressione uniforme e perdevano il momento fisico del carico. I carichi ora si dividono al colmo fisico. Rigenera tutti i carichi di superficie generati interessati, poi riesegui analisi, combinazioni e verifiche di progetto. Ricalcolare solo i carichi generati memorizzati non li corregge. (#2176; SA-2026-073).",
+    "explanation": "Le aste che attraversavano un colmo di neve ricevevano un’unica pressione uniforme e perdevano il momento fisico del carico. I carichi ora si dividono al colmo fisico anche su un’asta non suddivisa, conservando forza e momento. Rigenera tutti i carichi di superficie generati interessati, poi riesegui analisi, combinazioni e verifiche di progetto. Ricalcolare solo i carichi generati memorizzati non li corregge. (#2176; SA-2026-073).",
     "title": "I carichi di neve conservano il loro momento all’attraversamento del colmo"
   },
   "snow-drift-coverage": {
@@ -1368,7 +1368,7 @@
     "title": "Le intensità d’influenza della neve hanno un limite d’approssimazione esplicito"
   },
   "snow-ridge-mesh": {
-    "explanation": "La suddivisione diseguale dei bordi della copertura poteva spostare un colmo di neve dedotto e cambiare i carichi generati, comprese le coperture con una pendenza inserita. I profili di colmo, pendenza e copertura sagomata ora usano la geometria fisica della copertura. Rigenera i carichi di neve, poi riesegui analisi, combinazioni e verifiche di progetto. Ricalcolare solo i carichi memorizzati non li corregge (#2144; SA-2026-072). I punti più alti del profilo ora usano la tolleranza di quota esistente, così piccole perturbazioni dell’altezza degli angoli conservano il colmo. Ogni segmento d’asta ora riceve la propria pressione del lato del colmo, ripristinando forza e momento quando è diviso al colmo. Le aste che attraversano senza essere divise mantengono il trattamento uniforme precedente (#2176).",
+    "explanation": "La suddivisione diseguale dei bordi della copertura poteva spostare un colmo di neve dedotto e cambiare i carichi generati, comprese le coperture con una pendenza inserita. I profili di colmo, pendenza e copertura sagomata ora usano la geometria fisica della copertura. Rigenera i carichi di neve, poi riesegui analisi, combinazioni e verifiche di progetto. Ricalcolare solo i carichi memorizzati non li corregge (#2144; SA-2026-072). I punti più alti del profilo ora usano la tolleranza di quota esistente, così piccole perturbazioni dell’altezza degli angoli conservano il colmo. Ogni segmento d’asta ora riceve la propria pressione del lato del colmo, ripristinando forza e momento quando è diviso al colmo. Anche per un’asta non suddivisa la pressione generata viene ripartita al colmo fisico, conservando forza e momento (#2176).",
     "title": "I colmi e le pendenze della neve seguono la geometria fisica della copertura"
   },
   "snow-ridge-orientations": {
@@ -1696,8 +1696,8 @@
     "title": "Simmetria del vento triangolare e supporto del momento torcente per fasce"
   },
   "withheld-pdelta-equilibrium-forces": {
-    "explanation": "Riverifica le forze P-Delta salvate. Nei risultati nativi, un residuo fisico fallito conserva le identità dei record di reazioni, forze nelle aste, forze di vincolo e tensioni, contrassegnando le loro grandezze numeriche come non disponibili con diagnostiche specifiche per campo. WASM e le esportazioni certificate rifiutano questi stati. Un residuo superato conserva la risposta a piccoli spostamenti, con un avviso se la verifica del bilancio sulla geometria spostata fallisce (#1952).",
-    "title": "Le reazioni P-Delta richiedono un residuo fisico superato"
+    "explanation": "Riverifica le forze P-Delta salvate. Nei risultati nativi, un residuo fisico fallito conserva le identità dei record di reazioni, forze nelle aste, forze di vincolo e tensioni, contrassegnando le loro grandezze numeriche come non disponibili con diagnostiche specifiche per campo. WASM e le esportazioni certificate rifiutano questi stati. Un residuo fisico entro la tolleranza conserva la risposta a piccoli spostamenti, con un avviso se la verifica del bilancio sulla geometria spostata fallisce (#1952).",
+    "title": "Le reazioni P-Delta richiedono un residuo fisico entro la tolleranza"
   },
   "withheld-staged-equilibrium-forces": {
     "explanation": "Il recupero a fasi verifica l’equilibrio fisico dopo la proiezione dei vincoli. Reazioni, forze nelle aste, forze di vincolo e tensioni non disponibili sono restituite come insiemi vuoti, anche quando una fase eredita la diagnostica. Riverifica le forze a fasi salvate (#1952).",

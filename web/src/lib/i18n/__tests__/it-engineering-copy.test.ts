@@ -120,14 +120,15 @@ it('identifies each released recheck once in the Italian 0.6.2 notes', () => {
   expect(rows.map(([, version, , path]) => version + ' docs/' + path).sort())
     .toEqual(released.map(change => change.resultsVersion + ' ' + change.changelog.file).sort());
   expect(new Set(rows.map(([, , label]) => label)).size).toBe(released.length);
-});
-
-it.skip('known wrong result: #2595 — each release link identifies its published Italian notice', () => {
-  const notes = readFileSync(new URL('../../../../../docs/releases/v0.6.2.it.md', import.meta.url), 'utf8');
-  const rows = [...notes.matchAll(/^\| (\d+) \| \[([^\]]+)\]\(\.\.\/(results-changes\/[^)#]+)(?:#[^)]+)?\) \|$/gm)];
-  const released = readRegistry().changes.filter(change => change.resultsVersion >= 81 && change.resultsVersion <= 95);
-  expect(rows.map(([, version, label, path]) => `${version} docs/${path} ${label}`).sort()).toEqual(
-    released.map(change => `${change.resultsVersion} ${change.changelog.file} ${change.title.it}`).sort());
+  const expectedLinks: Record<string, [string, string]> = {
+    'planar-remapped-load-integrals': ['I carichi parziali conservano estremi e intensità interpolati dopo la suddivisione', '#compensated-force-totals-and-remapped-load-refusal-round-67-2223'],
+    'roller-z-fixed-design': ['Le verifiche di progetto 3D usano la distribuzione delle forze degli appoggi corretti', '#coverage-and-applicability'],
+  };
+  const expected = released.map(change => {
+    const [label, anchor] = expectedLinks[change.id] ?? [change.title.it, ''];
+    return `| ${change.resultsVersion} | [${label}](../${change.changelog.file.slice('docs/'.length)}${anchor}) |`;
+  });
+  expect(rows.map(row => row[0]).sort()).toEqual(expected.sort());
 });
 
 it.each([

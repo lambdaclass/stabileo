@@ -4,7 +4,7 @@ const body: StandingPage['i18n']['en'] = {
   "title": "Quanto è affidabile Stabileo? Come si verificano i suoi risultati",
   "description": "Come Stabileo verifica i risultati: sette altri programmi FE, esempi pubblicati, limiti d’errore dimostrati in Lean e bollettini pubblici.",
   "eyebrow": "Affidabilità",
-  "lead": "I risultati di Stabileo sono verificati in cinque modi indipendenti, tra cui il confronto con altri sette programmi agli elementi finiti e limiti d’errore la cui matematica di fondo è dimostrata in Lean. I difetti che potrebbero aver influito su risultati già in uso vengono pubblicati come bollettini di sicurezza (alcune segnalazioni sono ancora in fase di valutazione, in pubblico), e l’elenco qui sotto dice quali sono risolti e in quale versione. Come qualsiasi programma di analisi, non verifica il tuo modello: carichi, vincoli e idealizzazione sono decisioni dell’ingegnere.",
+  "lead": "Il software è verificato con cinque metodi, tra cui il confronto con altri sette programmi agli elementi finiti. Solo i risultati supportati ricevono un certificato numerico quando la verifica del limite d’errore riesce. La matematica del limite è dimostrata in Lean. I difetti che potrebbero aver influito su risultati già in uso vengono pubblicati come bollettini di sicurezza (alcune segnalazioni sono ancora in fase di valutazione, in pubblico), e l’elenco qui sotto dice quali sono risolti e in quale versione. Come qualsiasi programma di analisi, non verifica il tuo modello: carichi, vincoli e idealizzazione sono decisioni dell’ingegnere.",
   "blocks": [
     {
       "k": "h",
@@ -90,7 +90,7 @@ const body: StandingPage['i18n']['en'] = {
   "faq": [
     {
       "q": "Stabileo è affidabile per un lavoro reale di progettazione strutturale?",
-      "a": "I suoi risultati sono verificati in cinque modi indipendenti, tra cui il confronto con altri sette programmi agli elementi finiti e limiti d’errore dimostrati in Lean, e i difetti che potrebbero aver influito su risultati già in uso vengono pubblicati; quelli ancora in valutazione sono pubblici su GitHub. Non ha ancora avuto una revisione indipendente da parte di un ingegnere abilitato e il progetto normativo è ancora in sviluppo, quindi, come con qualsiasi programma, l’ingegnere rivede il modello e i risultati che governano."
+      "a": "Cinque metodi verificano il software, tra cui i benchmark con altri sette programmi agli elementi finiti. La certificazione numerica riguarda solo i risultati supportati e verificati, con limiti d’errore fondati su dimostrazioni in Lean. I difetti che potrebbero aver influito su risultati già in uso vengono pubblicati; quelli ancora in valutazione sono pubblici su GitHub. Non ha ancora avuto una revisione indipendente da parte di un ingegnere abilitato e il progetto normativo è ancora in sviluppo, quindi, come con qualsiasi programma, l’ingegnere rivede il modello e i risultati che governano."
     },
     {
       "q": "Perché Stabileo pubblica bollettini di sicurezza?",

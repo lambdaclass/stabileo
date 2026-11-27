@@ -73,7 +73,7 @@ const words: Translations = {
   "course.influence.states.pattern": "In una trave continua il carico variabile va dove la linea d’influenza ha il segno cercato: la disposizione tipica è, per il massimo momento in una campata, quella campata e le alternate, e per il momento su un appoggio, le due campate adiacenti e le alternate oltre. È solo uno schema: vicino a un appoggio intermedio la linea d’influenza può cambiare segno dentro una campata, e allora si carica solo la parte di ciascun segno. Suddividi il carico in corrispondenza di ogni passaggio per lo zero oppure usa «Per zone».",
   "course.influence.states.envTitle": "Inviluppi",
   "course.influence.states.envSummary": "Il diagramma dei valori estremi",
-  "course.influence.states.env": "L’inviluppo disegna, in ogni sezione, il valore maggiore e minore che la sollecitazione assume in tutte le combinazioni. Le aste si dimensionano con esso: ogni sezione si verifica per il suo caso peggiore, che può venire da combinazioni diverse.",
+  "course.influence.states.env": "L’inviluppo disegna, in ogni sezione, il valore maggiore e minore che la sollecitazione assume in tutte le combinazioni. Per l’interazione verifica N e M concomitanti di ogni combinazione alla stessa sezione, anche quando nessuno dei due è estremo.",
   "course.influence.states.moving": "Il convoglio può essere assente. Il suo inviluppo va da min(0, minimo del convoglio) a max(0, massimo del convoglio). A entrambi i limiti si aggiunge l’effetto dei carichi fissi.",
   "course.influence.states.enable": "Attiva i casi di carico",
   "course.influence.states.enableNote": "Compaiono la colonna del caso nella tabella dei carichi, le combinazioni e la vista dell’inviluppo.",

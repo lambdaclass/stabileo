@@ -193,8 +193,9 @@
   const firstMaterial = $derived(
     sRows.length > 0 ? modelStore.model.materials.get(modelStore.model.elements.get(sRows[0].elementId)?.materialId ?? -1) : undefined,
   );
+  const sectionConstants = $derived(firstSection ? steelSectionConstants(firstSection as never) : undefined);
   const e4 = $derived.by(() => {
-    const k = firstSection ? steelSectionConstants(firstSection as never) : undefined;
+    const k = sectionConstants;
     return e4Applicability({
       shape: (firstSection as { shape?: string } | undefined)?.shape,
       j: k?.J ?? (firstSection as { j?: number } | undefined)?.j,
@@ -205,6 +206,7 @@
     shape: (firstSection as { shape?: string } | undefined)?.shape,
     b: (firstSection as { b?: number } | undefined)?.b,
     tf: (firstSection as { tf?: number } | undefined)?.tf,
+    minimumSy: sectionConstants?.Sy,
     iMinor: (firstSection as { iz?: number } | undefined)?.iz,
     ...(firstMaterial?.fy ? { fy: firstMaterial.fy } : {}), ...(firstMaterial?.e ? { e: firstMaterial.e } : {}),
   }));

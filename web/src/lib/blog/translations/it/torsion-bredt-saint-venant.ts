@@ -26,7 +26,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "De Saint-Venant viene spesso presentata come “la teoria delle sezioni aperte”, ma è la teoria generale, e le altre due ne sono casi particolari con soluzione in forma chiusa. Su una sezione circolare la sua soluzione coincide esattamente con quella di Cauchy, perché la simmetria circolare fa sì che la sezione non si ingobbi. Su una parete chiusa sottile monocellulare, la sua soluzione è quella di Bredt."
+      "t": "De Saint-Venant viene spesso presentata come “la teoria delle sezioni aperte”, ma è la teoria generale, anche per le sezioni chiuse. Su una sezione circolare la sua soluzione coincide esattamente con quella di Cauchy, perché la simmetria circolare fa sì che la sezione non si ingobbi. Su una parete chiusa sottile monocellulare, Bredt approssima la tensione media nello spessore nel limite di parete sottile. Il picco sulla fibra esterna può essere maggiore."
     },
     {
       "k": "h",

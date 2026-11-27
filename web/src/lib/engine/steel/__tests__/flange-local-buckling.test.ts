@@ -199,7 +199,7 @@ describe('with Fy, the branch is selected by Table B.4.1b case 14', () => {
   });
 });
 
-it.skip.each(['C', 'U'])('known wrong result: #2595 — %s needs a verified minimum weak-axis modulus', shape => {
+it.each(['C', 'U'])('known wrong result: #2595 — %s needs a verified minimum weak-axis modulus', shape => {
   const section = { shape, b: 0.1, tf: 0.01, iMinor: 1e-6 };
   const tipModulus = section.iMinor / (section.b - 0.025);
   for (const fy of [undefined, 235]) {

@@ -2239,7 +2239,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'it' | 'zh', ResearchStrings> 
     limitations: "Limiti",
     noCertification: "La concordanza con un codice di riferimento non è validazione rispetto a esperimenti e nulla di questo è una certificazione ingegneristica.",
     meshLimitation: "Il riferimento raffina una piccola zona attorno alla punta dell’intaglio. Fuori da essa la larghezza dell’elemento supera tre lunghezze caratteristiche e l’altezza ne supera due; la banda orizzontale di fessura è sottorisolta.",
-    damageLimitation: "La discretizzazione di riferimento senza vincoli può superare i limiti del danno integro e rotto. Un danno negativo dà un degrado superiore alla rigidezza integra. L’assemblaggio usa il danno interpolato nei punti di quadratura; i soli estremi nodali non misurano l’errore di rigidezza assemblata. Il solutore conserva questi valori; il campo della riproduzione e la scala dei colori li limitano per la visualizzazione.",
+    damageLimitation: "La discretizzazione di riferimento senza vincoli può superare i limiti del danno integro e rotto. Un danno negativo produce una rigidezza superiore a quella integra. L’assemblaggio usa il danno interpolato nei punti di quadratura; i soli estremi nodali non misurano l’errore di rigidezza assemblata. Il solutore conserva questi valori; il campo della riproduzione e la scala dei colori li limitano per la visualizzazione.",
     iterationLimitation: "Lo schema alternato non è accelerato; in una crescita instabile della fessura può richiedere centinaia di iterazioni in un solo passo.",
     browserLimitation: "Le esecuzioni nel browser sono limitate per dimensione della mesh e intervallo dei parametri.",
     codeReferences: "Codice e riferimenti",

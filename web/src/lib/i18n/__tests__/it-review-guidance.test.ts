@@ -206,9 +206,11 @@ it.each(['de', 'fr'] as const)('known wrong result: #2595 — %s prints the deci
 });
 
 function checkCappedTrace(trace: string, expected: number) {
-  expect(trace.replace('0,9', '0.9')).toContain(`U = min(1 − x̄/L, 0.9) = ${expected}`);
+  const match = /U = min\(1 − x̄\/L, 0[.,]9\) = (\d+(?:[.,]\d+)?)\s+\(D\.3\.2\)$/.exec(trace);
+  expect(match).not.toBeNull();
+  expect(Number(match![1].replace(',', '.'))).toBe(expected);
 }
 
-it.skip('known wrong result: #2595 — detects the uncapped substitution in the governing result', () => {
+it('known wrong result: #2595 — detects the uncapped substitution in the governing result', () => {
   expect(() => checkCappedTrace('U = min(1 − x̄/L, 0.9) = 0.95  (D.3.2)', 0.9)).toThrow();
 });

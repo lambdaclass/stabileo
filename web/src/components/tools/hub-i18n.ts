@@ -354,7 +354,7 @@ export const hubTranslations: Record<string, Record<string, string>> = {
     "tools.fig.mode": "Modo {n}",
     "tools.fig.buckling": "Primo modo di instabilità",
     "tools.figures": "Risultati, aggiornati quando cambi un valore",
-    "tools.peak.max": "|max|",
+    "tools.peak.max": "max |x|",
     "tools.peak.f": "f =",
     "tools.peak.lambda": "λ =",
     "tools.peak.pcr": "Pcr =",

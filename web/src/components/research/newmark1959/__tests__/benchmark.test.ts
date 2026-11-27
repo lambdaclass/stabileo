@@ -10,9 +10,15 @@ function checkTemplate(reference: string, template: string) {
   expect(placeholders(template)).toEqual(placeholders(reference));
 }
 
-it.skip('known wrong result: #2595 — detects swapped mass and density', () => {
+function checkModelDescription(template: string) {
+  const rendered = fill(template, { rho: String(model.density), m: String(mass) });
+  expect(rendered).toContain(`${model.density} kg/m³`);
+  expect(rendered).toContain(`m = ρAL/3 = ${mass} t`);
+}
+
+it('known wrong result: #2595 — detects swapped mass and density', () => {
   const swapped = translations.it.description.replace(/\{(m|rho)\}/g, (_, key) => key === 'm' ? '{rho}' : '{m}');
-  expect(() => checkTemplate(translations.en.description, swapped)).toThrow();
+  expect(() => checkModelDescription(swapped)).toThrow();
 });
 
 describe('Newmark SDOF benchmark', () => {
@@ -103,6 +109,7 @@ describe('Newmark SDOF benchmark', () => {
           expect(fill(template, values)).not.toMatch(/\{\w+\}/);
         });
       }
+      checkModelDescription(translations[locale].description);
       expect(fill(translations[locale].description, values)).toMatch(/k = EA\/L = 100 kN\/m/);
     }
   });

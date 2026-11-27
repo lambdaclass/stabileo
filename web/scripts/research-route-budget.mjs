@@ -51,6 +51,45 @@ export function reviewRouteGrowth(baseline, measured, isolation = process.env.RE
   return rows;
 }
 
+export function comparePartitions(base, candidate, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances()) {
+  if (!base.italian || !base.publicLocales) {
+    throw new Error("Measure the base revision with this meter and --update before comparing the candidate.");
+  }
+  const copyGrowth = Object.fromEntries(routeGrowth(base.italian, candidate.italian).map(row => [row.route, row.growth]));
+  const rows = reviewRouteGrowth(base.routes, candidate.routes, isolation, allowances, copyGrowth);
+  if (isolation === 'false') return rows;
+
+  function maxima(locales) {
+    const chunks = Object.values(locales);
+    return {
+      total: Math.max(0, ...chunks.map(chunk => chunk.total)),
+      other: Math.max(0, ...chunks.map(chunk => chunk.total - chunk.italian)),
+    };
+  }
+  const before = maxima(base.publicLocales);
+  const after = maxima(candidate.publicLocales);
+  for (const [locale, chunk] of Object.entries(candidate.publicLocales)) {
+    const previous = base.publicLocales[locale];
+    const beforeOther = previous ? previous.total - previous.italian : before.other;
+    const publicOtherGrowth = chunk.total - chunk.italian - beforeOther;
+    const marginalCopy = previous ? chunk.italian - previous.italian
+      : Math.min(chunk.italian, Math.max(0, chunk.total - before.total));
+    for (const row of rows) {
+      const restOtherGrowth = row.growth - copyGrowth[row.route] - (after.other - before.other);
+      const italianLimit = allowances[row.route]?.italianBytes ?? 0;
+      const restCopyGrowth = copyGrowth[row.route] - ((after.total - after.other) - (before.total - before.other));
+      if (italianLimit && restCopyGrowth + marginalCopy > italianLimit) {
+        throw new Error(`${row.route}: research isolation: ${locale} Italian copy exceeds ${italianLimit} bytes`);
+      }
+      const limit = RESEARCH_ISOLATION_BYTES + (allowances[row.route]?.bytes ?? 0) - (allowances[row.route]?.italianBytes ?? 0);
+      if (restOtherGrowth + publicOtherGrowth > limit) {
+        throw new Error(`${row.route}: research isolation: ${locale} grew ${restOtherGrowth + publicOtherGrowth} bytes outside Italian copy, ${limit} allowed`);
+      }
+    }
+  }
+  return rows;
+}
+
 export function overCeilings(measured, ceilings) {
   return Object.entries(measured).map(([route, bytes]) => {
     const ceiling = ceilings[route];

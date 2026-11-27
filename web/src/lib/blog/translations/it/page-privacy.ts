@@ -27,7 +27,7 @@ const body: StandingPage['i18n']['en'] = {
         "Consensi: che cosa hai accettato e quando, con l’indirizzo IP e il browser che hai usato.",
         "Progetti nel cloud: quelli che scegli di salvare dal tuo account. Quando crei l’account, il loro uso, in forma anonimizzata, per migliorare Stabileo è attivo, e puoi disattivarlo in qualsiasi momento dal tuo profilo.",
         "Commenti: ciò che ci scrivi dal tuo profilo e, se lo allegi, il modello aperto.",
-        "Uso anonimo: con un account è attivo dal momento in cui lo crei; senza, solo se scegli di condividerlo. Puoi cambiarlo in qualsiasi momento in Impostazioni o nel tuo profilo. Quali strumenti usi, senza dati dei tuoi modelli e senza collegamento al tuo account."
+        "Condivisione dei dati d’uso: con un account è attivo dal momento in cui lo crei; senza, solo se scegli di condividerlo. Puoi cambiarlo in qualsiasi momento in Impostazioni o nel tuo profilo. Gli eventi sugli strumenti sono anonimi. La stessa scelta associa al tuo account la prima analisi, il primo salvataggio, la prima esportazione e i giorni di attività, senza includere i dati dei modelli."
       ]
     },
     {

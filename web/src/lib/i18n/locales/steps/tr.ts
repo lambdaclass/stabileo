@@ -578,7 +578,7 @@ const stepsTr: Translations = {
   'steps.trusses.compat.endsTable': 'Çubuk uç kuvvetleri (N çekmede pozitif, V yerel +y boyunca, M saat yönünün tersine).',
   'steps.trusses.compat.supportTitle': '{n} mesnedi',
   'steps.trusses.compat.globalCheck': 'Genel denge',
-  'steps.trusses.compat.residual': 'Serbest düğümlerdeki en büyük dengelenmemiş kuvvet {r} (kN veya kN·m).',
+  'steps.trusses.compat.residual': 'Serbest düğümlerdeki en büyük dengesizlikler: {force} kN, {moment} kN·m.',
   'steps.trusses.compat.residualOk': 'Serbest düğümler dengede ✓.',
   'steps.trusses.compat.residualBad': 'Serbest düğümlerdeki dengesizlik, yuvarlamayla açıklanabilecek olandan büyük.',
   'steps.trusses.compat.momentCaption': 'Çekme tarafına çizilmiş eğilme momenti diyagramı.',

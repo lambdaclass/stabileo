@@ -626,7 +626,7 @@ const steelPt: Record<string, string> = {
   'steel.f62.branch.slender': 'mesa esbelta (F.6.2(c))',
   'steel.f62.branch.undetermined': 'ramo indeterminado',
   'steel.f62.missing.flangeGeometry': 'Largura e espessura da mesa.',
-  'steel.f62.missing.slendernessLimits': 'Os limites de esbeltez λpf e λrf da Tabela B.4.1b, caso 14. As células numéricas dessa tabela não estão no markdown embarcado: apenas o título, as notas e a simbologia.',
+  'steel.f62.missing.slendernessLimits': 'Informe Fy positivo para obter λpf = 0,38√(E/Fy) e λrf = 1,00√(E/Fy) da Tabela B.4.1b, caso 14.',
   'steel.f62.lambdaLabel': 'Esbeltez da mesa λf',
   'steel.f62.fcrLabel': 'Fcr se a mesa resultar esbelta (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — fator de gradiente de momento (F.1.1)',

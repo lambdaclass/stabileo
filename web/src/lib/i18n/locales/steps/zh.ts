@@ -581,7 +581,7 @@ const stepsZh: Translations = {
   "steps.trusses.compat.endsTable": "杆端力（N 以受拉为正，V 沿局部 +y，M 以逆时针为正）。",
   "steps.trusses.compat.supportTitle": "支座 {n}",
   "steps.trusses.compat.globalCheck": "整体平衡",
-  "steps.trusses.compat.residual": "自由结点上的最大不平衡力为 {r}（kN 或 kN·m）。",
+  "steps.trusses.compat.residual": "自由结点的最大不平衡量: {force} kN, {moment} kN·m.",
   "steps.trusses.compat.residualOk": "自由结点处于平衡 ✓。",
   "steps.trusses.compat.residualBad": "自由结点的不平衡量超出了舍入误差所能解释的范围。",
   "steps.trusses.compat.momentCaption": "弯矩图，绘在受拉一侧。",

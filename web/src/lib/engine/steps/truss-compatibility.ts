@@ -406,7 +406,7 @@ export function buildCompat(ctx: MethodContext): StepDoc {
   let rx = 0, rz = 0;
   for (const r of cm.reactions.values()) { rx += r.rx; rz += r.rz; }
   eb.push({ kind: 'calc', label: tx(`${P}compat.globalCheck`), formula: '\\textstyle\\sum R_x + \\sum P_x = 0, \\qquad \\sum R_z + \\sum P_z = 0', subst: `${par(snap(rx))} + ${par(snap(gx))}, \\qquad ${par(snap(rz))} + ${par(snap(gz))}`, result: `${num(snap(rx + gx))}, \\qquad ${num(snap(rz + gz))}`, check: '= 0\\ \\checkmark' });
-  eb.push({ kind: 'p', text: tx(`${P}compat.residual`, { r: numText(cm.residual, 2) }) });
+  eb.push({ kind: 'p', text: tx(`${P}compat.residual`, { force: numText(cm.forceResidual, 2), moment: numText(cm.momentResidual, 2) }) });
   eb.push({ kind: 'note', tone: cm.residual < 1e-6 * S ? 'ok' : 'warn', text: tx(cm.residual < 1e-6 * S ? `${P}compat.residualOk` : `${P}compat.residualBad`) });
   steps.push({ title: tx(`${P}compat.endsTitle`), blocks: eb });
 
