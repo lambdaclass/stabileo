@@ -59,6 +59,6 @@ describe('example previews', () => {
     }
     const stored = JSON.parse(readFileSync(FILE, 'utf8'));
     expect(stored, 'run UPDATE_EXAMPLE_PREVIEWS=1 npx vitest run --project unit src/lib/examples').toEqual(computed);
-    for (const [id, p] of Object.entries(computed)) expect(p.m.length + p.s.length, `${id} draws something`).toBeGreaterThan(0);
+    for (const [id, p] of Object.entries(computed)) expect(p.c.length + p.b.length + p.d.length + p.s.length, `${id} draws something`).toBeGreaterThan(0);
   }, 120_000);
 });
