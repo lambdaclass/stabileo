@@ -36,25 +36,30 @@ export type PublishedRow = {
   passed: boolean;
 };
 
+const metricKinds = new Map(Object.entries(metrics).flatMap(([kind, names]) => names.map(name => [name, kind] as const)));
+export const metricKind = (row: PublishedRow) => metricKinds.get(row.metric);
+
 export function comparisonShape(row: PublishedRow) {
+  const kind = metricKind(row);
   if (Number.isFinite(row.reference) && Number.isFinite(row.computed) && row.points === undefined && row.samples === undefined
-    && (metrics.absolute.includes(row.metric) || metrics.relative.includes(row.metric))) return 'scalar';
+    && (kind === 'absolute' || kind === 'relative')) return 'scalar';
   if (row.reference === undefined && row.computed === undefined && Number.isInteger(row.points) && row.points! > 0
-    && (metrics.paired.includes(row.metric) || metrics.errorBar.includes(row.metric) || ['absolute difference', 'absolute'].includes(row.metric))) return 'curve';
+    && (kind === 'paired' || kind === 'errorBar' || row.metric === 'absolute difference' || row.metric === 'absolute')) return 'curve';
   return 'unavailable';
 }
 
 export function comparisonDifference(row: PublishedRow): number {
   const shape = comparisonShape(row);
+  const kind = metricKind(row);
   if (shape === 'curve') {
     if (row.samples === undefined) return row.observed;
     if (row.samples.length !== row.points || !row.samples.length) return NaN;
     let largest = 0;
     for (const p of row.samples) {
       if (!Array.isArray(p) || !p.every(Number.isFinite)) return NaN;
-      if (metrics.errorBar.includes(row.metric) && p.length === 4 && p[1] <= p[2]) {
+      if (kind === 'errorBar' && p.length === 4 && p[1] <= p[2]) {
         largest = Math.max(largest, p[1] - p[3], p[3] - p[2]);
-      } else if ((metrics.paired.includes(row.metric) || row.metric === 'absolute difference') && ((row.id !== 'fig7' && p.length === 2) || (row.metric === 'absolute difference in Y, largest' && p.length === 3 && row.orientation_unit === 'rad'))) {
+      } else if ((kind === 'paired' || row.metric === 'absolute difference') && ((row.id !== 'fig7' && p.length === 2) || (row.metric === 'absolute difference in Y, largest' && p.length === 3 && row.orientation_unit === 'rad'))) {
         largest = Math.max(largest, Math.abs(p[p.length - 1] - p[p.length - 2]));
       } else return NaN;
     }
@@ -62,8 +67,8 @@ export function comparisonDifference(row: PublishedRow): number {
   }
   if (shape === 'scalar') {
     const difference = Math.abs(row.computed! - row.reference!);
-    if (metrics.absolute.includes(row.metric)) return difference;
-    if (metrics.relative.includes(row.metric) && row.reference !== 0) return difference / Math.abs(row.reference!);
+    if (kind === 'absolute') return difference;
+    if (kind === 'relative' && row.reference !== 0) return difference / Math.abs(row.reference!);
   }
   return NaN;
 }
