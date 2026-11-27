@@ -6,6 +6,16 @@ beforeEach(() => { modelStore.clear(); historyStore.clear(); uiStore.analysisMod
 afterEach(() => vi.restoreAllMocks());
 
 describe('bulk removal', () => {
+  it.skip('known wrong result: #2365 a snapshot inside a bulk edit has no loads on a removed node', () => {
+    const removed = modelStore.addNode(0, 0, 0);
+    const kept = modelStore.addNode(1, 0, 0);
+    for (const node of [removed, kept]) modelStore.addNodalLoad3D(node, 0, 0, -1, 0, 0, 0);
+    modelStore.bulkMutate(() => {
+      modelStore.removeNode(removed);
+      expect(modelStore.snapshot().loads.map(load => load.data)).toEqual([expect.objectContaining({ nodeId: kept })]);
+    });
+  });
+
   it('keeps shell families and their buffered loads separate even when ids coincide', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(2, 0, 0);
     const c = modelStore.addNode(2, 2, 0), d = modelStore.addNode(0, 2, 0);

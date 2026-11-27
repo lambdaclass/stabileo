@@ -19,6 +19,8 @@ import {
 } from '../physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { serializeProject, deserializeProject } from '../file';
+import { loadCodeExample } from '../../templates/examples';
+import { planPlateMeshes } from '../physical-plates';
 import { plateLoops } from '../../model/physical/plate';
 import { copyTransformed } from '../../model/edit/transformed-copy';
 import { compose, rotation, translation } from '../../model/edit/affine';
@@ -67,6 +69,19 @@ beforeAll(async () => {
 
 describe('a physical plate', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); meshBeforeAnalysis.value = true; });
+
+  for (const [example, name] of [
+    ['pro-steel-building-slabs', 'Losa 0–6 × 3–6 · 1º piso'],
+    ['pro-rc-party-wall', 'Tabique escalera 3 · 1º piso (abajo)'],
+  ] as const) it.skip(`known wrong result: #2365 honors the declared rectangular grid on ${name}`, async () => {
+    await loadCodeExample(example);
+    const plate = physicalPlates().find(p => p.name === name)!;
+    for (const plan of [planPlateMesh(plate.id), ...(await planPlateMeshes([plate.id]))!]) {
+      expect(plan?.refused).toBeUndefined();
+      expect(plan?.mesh?.cells.length).toBeGreaterThan(0);
+      expect(plan?.mesh?.cells.every(cell => cell.length === 4)).toBe(true);
+    }
+  });
 
   it('is made without a mesh and refuses outlines that make no plate', () => {
     const { id, corners, hole } = build();
