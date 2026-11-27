@@ -46,7 +46,7 @@ test('an interrupted custom plate has no measured field', async ({ page }) => {
   await expect(page.getByTestId('navier-source')).toContainText(/stop|interrupt/i);
 });
 
-test.skip('known wrong result: #2505 — the Fairclough paper row sends a live request', async ({ page }) => {
+test('known wrong result: #2505 — the Fairclough paper row sends a live request', async ({ page }) => {
   await page.addInitScript(() => {
     window.Worker = class {
       postMessage() { document.documentElement.dataset.liveLayout = 'requested'; }
@@ -58,10 +58,18 @@ test.skip('known wrong result: #2505 — the Fairclough paper row sends a live r
   await expect(page.locator('html')).toHaveAttribute('data-live-layout', 'requested');
 });
 
-test.skip('known wrong result: #2505 — thin plate warns when the predicted displacement exceeds its thickness', async ({ page }) => {
+test('known wrong result: #2505 — thin plate warns when the predicted displacement exceeds its thickness', async ({ page }) => {
   await page.goto('/en/research/benchmarks/navier-plate/');
   await page.getByTestId('navier-t').selectOption('0.02');
   await expect(page.getByTestId('navier-small-deflection')).toContainText(/thickness/i);
   await page.getByTestId('navier-t').selectOption('0.1');
   await expect(page.getByTestId('navier-small-deflection')).toHaveCount(0);
+});
+
+test.skip('known wrong result: #2505 — a built shell mesh reports initialization failure and offers retry', async ({ page }) => {
+  await page.route(/dedaliano_engine_bg[^/]*\.wasm/, route => route.abort());
+  await page.goto('/en/research/benchmarks/shell-obstacle-course/');
+  await page.getByTestId('try-roof-20').click();
+  await expect(page.getByTestId('selected-result')).toContainText(/fail|error/i);
+  await expect(page.getByTestId('retry-mesh')).toBeEnabled();
 });
