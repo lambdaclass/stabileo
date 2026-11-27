@@ -138,3 +138,10 @@ fn publication_reports_all_required_verdicts() {
     rows[0]["passed"] = json!(false);
     assert!(!reproduced(&rows));
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn one_passing_snap_is_not_a_complete_comparison() {
+    let single = row("snap-back-0.5-0.5", String::new(), String::new(), "N", Some(1.), Some(1.), 0.);
+    assert!(!reproduced(&[single]));
+}

@@ -64,3 +64,26 @@ fn a_steep_continuous_height_is_independent_of_the_first_increment() {
     let coarse = loaded_height(&strip, 0.5 * LENGTH, 2.0, 2.0).unwrap();
     assert!((coarse - fine).abs() < 1e-7, "coarse {coarse}, fine {fine}");
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn snap_back_for_the_long_shallow_cut_is_published() {
+    let curves: Value = serde_json::from_str(include_str!("../reference-results/curves.json")).unwrap();
+    let cycle = curves.as_array().unwrap().iter().find(|c| c["span"] == 0.75 * LENGTH && c["b"] == 0.2).unwrap();
+    let event = cycle["snaps"].as_array().unwrap().iter().find(|e| e["loading"] == false).unwrap();
+    let comparison = comparison();
+    let row = comparison["checks"].as_array().unwrap().iter().find(|r| r["id"] == "snap-back-0.75-0.2").unwrap();
+    assert_eq!(row["computed"], event["load"]);
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn steep_segment_refines_with_distinct_increments() {
+    let strip = Strip { a: 0.5, b: 0.5 };
+    let mut heights = Vec::new();
+    for step in [0.05, 0.025, 0.0125] {
+        heights.push(loaded_height(&strip, 0.75 * LENGTH, 1.3, step).unwrap());
+    }
+    assert!((heights[0] - heights[1]).abs() < 1e-7, "{heights:?}");
+    assert!((heights[1] - heights[2]).abs() < 1e-7, "{heights:?}");
+}

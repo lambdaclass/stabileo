@@ -161,7 +161,12 @@ pub fn loaded_height(strip: &Strip, span: f64, load: f64, step: f64) -> Result<f
 pub fn load_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, jump: f64) -> Result<serde_json::Value, String> {
     let steps = load_steps(max_load, step)?;
     if max_load < 0.0 || !jump.is_finite() || jump <= 0.0 { return Err("invalid load cycle".into()); }
-    let mut s = prepare(strip, span)?;
+    let start = prepare(strip, span)?;
+    trace_cycle(strip, span, max_load, step, steps, jump, start, |s, load| advance(s, strip, span, load))
+}
+
+fn trace_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, steps: usize, jump: f64, mut s: State,
+               solve: impl Fn(&State, f64) -> Result<State, String>) -> Result<serde_json::Value, String> {
     let mut points = vec![[0.0, s.height()]];
     let mut snaps = vec![];
     let mut lost = serde_json::Value::Null;
@@ -169,13 +174,13 @@ pub fn load_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, jump: f64)
         for k in 1..=steps {
             let index = if loading { k } else { steps - k };
             let next = (step * index as f64).min(max_load);
-            let Ok(n) = advance(&s, strip, span, next) else {
+            let Ok(n) = solve(&s, next) else {
                 lost = json!(next);
                 break 'cycle;
             };
             if (n.height() - s.height()).abs() > jump {
                 let previous = points.last().unwrap()[0];
-                if let Ok(returned) = advance(&n, strip, span, previous) {
+                if let Ok(returned) = solve(&n, previous) {
                     if (returned.height() - s.height()).abs() > jump {
                         snaps.push(json!({"load": next, "from": s.height(), "to": n.height(), "loading": loading}));
                     }
@@ -201,6 +206,38 @@ mod tests {
         assert_eq!(load_steps(0.0, 0.1).unwrap(), 0);
         for load in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
             assert!(load_steps(load, 0.1).is_err());
+        }
+    }
+}
+
+#[cfg(test)]
+mod continuation_regressions {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #2505"]
+    fn failed_reverse_solve_keeps_the_direction_and_bracket() {
+        let strip = Strip { a: 0.5, b: 0.5 };
+        let state = |height| State {
+            input: strip.model(PI / 2., Some(LENGTH / 2.), 1., 0.),
+            displacements: vec![Displacement { node_id: ELEMENTS / 2, ux: 0., uz: height, ry: 0. }],
+        };
+        for loading in [false, true] {
+            let calls = std::cell::Cell::new(0);
+            let cycle = trace_cycle(&strip, LENGTH / 2., 1., 1., 1, HEIGHT_INCREMENT, state(0.), |_, _| {
+                let i = calls.get();
+                calls.set(i + 1);
+                match (loading, i) {
+                    (false, 0) => Ok(state(0.)),
+                    (true, 0) | (false, 1) => Ok(state(2. * HEIGHT_INCREMENT)),
+                    _ => Err("no reverse equilibrium".into()),
+                }
+            }).unwrap();
+            let bracket = if loading { [0., 1.] } else { [1., 0.] };
+            assert_eq!(cycle["unresolved_switch"]["bracket"], json!(bracket));
+            assert_eq!(cycle["unresolved_switch"]["loading"], loading);
+            assert_eq!(cycle["lost_at"], bracket[1]);
+            assert_eq!(cycle["snaps"], json!([]));
         }
     }
 }
