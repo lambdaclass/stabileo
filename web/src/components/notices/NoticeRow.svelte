@@ -19,7 +19,7 @@
   <div class="notice-details warning-details" role="region" aria-label={summary} tabindex="0">
     {#each details as line}<p>{line}</p>{/each}
     {@render children?.()}
-    {#if level !== 'blocking'}
+    {#if __PUBLIC_FEATURES__.proPlatesUnified && level !== 'blocking'}
       <button type="button" class="hide" onclick={() => noticePrefs.hide(kind)} data-testid="notice-hide-kind">{t('notices.hideKind')}</button>
     {/if}
   </div>

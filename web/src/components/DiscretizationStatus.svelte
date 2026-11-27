@@ -96,9 +96,11 @@
       <div class="warning" data-testid="discretization-warning">{t(claims.warnUnestimable)}</div>
     {:else if warn && !noticePrefs.isHidden('discretization')}
       <div class="warning" data-testid="discretization-warning">
-        <strong>{t('notices.kind.discretization')}</strong>
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}<strong>{t('notices.kind.discretization')}</strong>{/if}
         {t('discretization.warning').replace('{threshold}', threshold)}
-        <button class="link" onclick={() => noticePrefs.hide('discretization')} data-testid="notice-hide-kind">{t('notices.hideKind')}</button>
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}
+          <button class="link" onclick={() => noticePrefs.hide('discretization')} data-testid="notice-hide-kind">{t('notices.hideKind')}</button>
+        {/if}
       </div>
     {/if}
 

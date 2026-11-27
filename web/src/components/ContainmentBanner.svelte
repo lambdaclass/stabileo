@@ -6,6 +6,7 @@
   import { noticePrefs } from '../lib/store/notice-prefs.svelte';
   import { knownIssueMessage } from '../lib/engine/known-issue-message';
   import { boardNotices, groupKnownIssues, topLevel, visibleNotices, type NoticeKind, type ResultNotice } from '../lib/store/result-notices';
+  import PublishedContainmentNotice from './PublishedContainmentNotice.svelte';
   import NoticeRow from './notices/NoticeRow.svelte';
 
   type Finding = { code: string; severity: string; phase?: string; value?: number; message: string };
@@ -35,27 +36,43 @@
   });
 </script>
 
-{#if notices.length && !containmentDismissal.isDismissed(messages)}
-  <div class="containment-notice lvl-{level}" class:refused class:open role="alert" data-testid="containment-notice" data-level={level}>
-    <div class="cn-line">
-      <span class="cn-dot" aria-hidden="true"></span>
-      <span class="cn-headline" data-testid="containment-headline">{headline}</span>
-      <button class="cn-toggle" aria-expanded={open} onclick={() => (open = !open)} data-testid="containment-toggle">{open ? t('containment.less') : notices.length > 1 ? `${t('containment.more')} (${notices.length})` : t('containment.more')}</button>
-      <button class="cn-close" aria-label={t('toast.dismiss')} title={t(uiStore.analysisMode === 'pro' ? 'containment.dismissHintPro' : 'containment.dismissHintBasic')} onclick={() => containmentDismissal.dismiss(messages)} data-testid="containment-dismiss">×</button>
+{#if !__PUBLIC_FEATURES__.proPlatesUnified}
+  {#if extra.length}
+    <PublishedContainmentNotice {disposition}>
+      {#snippet additions()}
+        {#each extra as notice (notice.kind)}
+          <div>{summaryOf(notice)}</div>
+          {#each notice.details as line}<p>{line}</p>{/each}
+          {@render rowActions?.(notice.kind)}
+        {/each}
+      {/snippet}
+    </PublishedContainmentNotice>
+  {:else}
+    <PublishedContainmentNotice {disposition} />
+  {/if}
+{:else}
+  {#if notices.length && !containmentDismissal.isDismissed(messages)}
+    <div class="containment-notice lvl-{level}" class:refused class:open role="alert" data-testid="containment-notice" data-level={level}>
+      <div class="cn-line">
+        <span class="cn-dot" aria-hidden="true"></span>
+        <span class="cn-headline" data-testid="containment-headline">{headline}</span>
+        <button class="cn-toggle" aria-expanded={open} onclick={() => (open = !open)} data-testid="containment-toggle">{open ? t('containment.less') : notices.length > 1 ? `${t('containment.more')} (${notices.length})` : t('containment.more')}</button>
+        <button class="cn-close" aria-label={t('toast.dismiss')} title={t(uiStore.analysisMode === 'pro' ? 'containment.dismissHintPro' : 'containment.dismissHintBasic')} onclick={() => containmentDismissal.dismiss(messages)} data-testid="containment-dismiss">×</button>
+      </div>
+      <div class="cn-list" hidden={!open}>
+        {#each notices as notice (notice.kind)}
+          {#if rowActions && extra.some((x) => x.kind === notice.kind)}
+            <NoticeRow kind={notice.kind} level={notice.level} summary={summaryOf(notice)} details={notice.details} testid="containment-row">
+              {#snippet actions()}{@render rowActions!(notice.kind)}{/snippet}
+            </NoticeRow>
+          {:else}
+            <NoticeRow kind={notice.kind} level={notice.level} summary={summaryOf(notice)} details={notice.details} testid="containment-row" />
+          {/if}
+        {/each}
+        {#if onDiagnostics}<button class="cn-diag" onclick={onDiagnostics} data-testid="containment-diagnostics">{t('containment.toDiagnostics')}</button>{/if}
+      </div>
     </div>
-    <div class="cn-list" hidden={!open}>
-      {#each notices as notice (notice.kind)}
-        {#if rowActions && extra.some((x) => x.kind === notice.kind)}
-          <NoticeRow kind={notice.kind} level={notice.level} summary={summaryOf(notice)} details={notice.details} testid="containment-row">
-            {#snippet actions()}{@render rowActions!(notice.kind)}{/snippet}
-          </NoticeRow>
-        {:else}
-          <NoticeRow kind={notice.kind} level={notice.level} summary={summaryOf(notice)} details={notice.details} testid="containment-row" />
-        {/if}
-      {/each}
-      {#if onDiagnostics}<button class="cn-diag" onclick={onDiagnostics} data-testid="containment-diagnostics">{t('containment.toDiagnostics')}</button>{/if}
-    </div>
-  </div>
+  {/if}
 {/if}
 {#if children && (preserveModel || !disposition.refused)}{@render children()}{/if}
 

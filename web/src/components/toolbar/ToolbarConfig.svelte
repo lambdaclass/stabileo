@@ -477,7 +477,7 @@
           <span>{t('config.drawPositiveTowardLocalAxes')}</span>
           </HelpTip>
         </label>
-        <NoticeSettings />
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}<NoticeSettings />{/if}
       </div>
     {/if}
 

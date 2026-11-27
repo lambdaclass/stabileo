@@ -3,7 +3,6 @@
   import { selfCheckGroups } from '../../lib/engine/self-checks';
   import { selfCheckWarningText } from '../../lib/i18n/engine-text';
   import { t } from '../../lib/i18n';
-  import { unifiedPlates } from '../../lib/features';
   import { noticePrefs } from '../../lib/store/notice-prefs.svelte';
   import NoticeRow from '../notices/NoticeRow.svelte';
   let { results, labels = [] }: { results: Array<{ structuredDiagnostics?: StructuredDiagnostic[] } | null | undefined>; labels?: string[] } = $props();
@@ -18,9 +17,9 @@
   {/each}
 {/snippet}
 
-{#if count && (!unifiedPlates() || !noticePrefs.isHidden('selfCheck'))}
+{#if count && (!__PUBLIC_FEATURES__.proPlatesUnified || !noticePrefs.isHidden('selfCheck'))}
   <div role="alert" class="self-check-warning" data-testid="self-check-warning">
-    {#if unifiedPlates()}
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
       <NoticeRow kind="selfCheck" level="warning" summary={`${t('notices.kind.selfCheck')} (${count})`}>
         {@render warnings()}
       </NoticeRow>
