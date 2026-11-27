@@ -1,4 +1,7 @@
 const en: Record<string, string> = {
+  'wall.tensionRequiresBarLayout': "Combined tension and bending require the vertical bar layout.",
+  'wall.tensionAtOpenings': "Wall tension at openings requires a net section and the continuous reinforcement through that section.",
+  'wall.tensionShearEdition': "Wall design cannot verify combined tension and shear for edition {edition}.",
   'svc.accountingMismatch': "Analysis refused. Load case {case}, {component}. Entered {entered}, assembled {assembled}.",
   'svc.accountingLineEnd': "Analysis refused. Load case {case}, member {member} end {end}. Redistributed load reached node {actual}. Expected node {expected}.",
   'svc.accountingUnsupported': "Analysis refused. Load case {case} includes {kind} {id}, whose forces and moments cannot be accounted for.",

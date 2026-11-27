@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  'wall.tensionRequiresBarLayout': "인장과 휨의 조합 검토에는 수직 철근 배치가 필요합니다.",
+  'wall.tensionAtOpenings': "벽체 개구부 인장 검토에는 순단면과 그 단면을 관통하는 연속 철근이 필요합니다.",
+  'wall.tensionShearEdition': "{edition} 판으로는 벽체의 인장과 전단 조합을 검토할 수 없습니다.",
   'svc.accountingMismatch': "해석을 거부했습니다. 하중 케이스 {case}, 성분 {component}. 입력값 {entered}, 조립값 {assembled}.",
   'svc.accountingUnsupported': "해석을 거부했습니다. 하중 케이스 {case}의 {kind} {id}에 대한 힘과 모멘트를 집계할 수 없습니다.",
   'svc.accountingArea': "해석을 거부했습니다. 솔버의 판 {plate} 면적 또는 경계가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",

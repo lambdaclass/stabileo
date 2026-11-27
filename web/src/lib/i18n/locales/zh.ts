@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  'wall.tensionRequiresBarLayout': "拉弯组合验算需要竖向钢筋的布置。",
+  'wall.tensionAtOpenings': "带洞口墙的受拉验算需要净截面及贯穿该截面的连续钢筋。",
+  'wall.tensionShearEdition': "无法按 {edition} 版验算墙体的拉剪组合作用。",
   'svc.accountingMismatch': "分析已拒绝。荷载工况 {case}，分量 {component}。输入值 {entered}，组装值 {assembled}。",
   'svc.accountingLineEnd': "分析已拒绝。荷载工况 {case}，构件 {member} 的 {end} 端。重新分配的荷载施加到了节点 {actual}，应施加到节点 {expected}。",
   'svc.accountingUnsupported': "分析已拒绝。无法核算荷载工况 {case} 中 {kind} {id} 的力和力矩。",

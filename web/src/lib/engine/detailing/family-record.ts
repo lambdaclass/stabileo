@@ -575,6 +575,7 @@ export interface WallDesignRecord extends FamilyRecordCommon {
     pu: number;
     /** Approximate moment capacity at the applied axial load, kN·m. */
     phiMn: number;
+    phiPn?: number;
     utilization: number;
   };
   inPlaneShear: {

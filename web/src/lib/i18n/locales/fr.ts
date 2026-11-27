@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  'wall.tensionRequiresBarLayout': "La traction combinée à la flexion exige la disposition des barres verticales.",
+  'wall.tensionAtOpenings': "La traction au droit des ouvertures exige la section nette et les armatures continues qui la traversent.",
+  'wall.tensionShearEdition': "La vérification du voile en traction et cisaillement combinés est indisponible pour l’édition {edition}.",
   'svc.accountingMismatch': "Analyse refusée. Cas de charge {case}, {component}. Valeur saisie {entered}, valeur assemblée {assembled}.",
   'svc.accountingLineEnd': "Analyse refusée. Cas de charge {case}, extrémité {end} de la barre {member}. La charge redistribuée a été appliquée au nœud {actual}. Le nœud attendu est {expected}.",
   'svc.accountingUnsupported': "Analyse refusée. Les forces et les moments de {kind} {id} dans le cas de charge {case} ne peuvent pas être comptabilisés.",

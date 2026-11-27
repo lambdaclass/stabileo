@@ -42,6 +42,7 @@
  * Pure: no store, no runes, no i18n.
  */
 
+import { wallVerticalBars } from '../../rc-sheets/wall-member';
 import {
   buildStraightBarWithHooks, type BarPath, type Point3,
 } from '../../codes/cirsoc201/bar-geometry';
@@ -370,7 +371,7 @@ export function generateWallBars(
   const halfT = geometry.thickness / 2;
   const offsets = curtains === 2
     ? [-(halfT - geometry.cover - dh / 2), halfT - geometry.cover - dh / 2]
-    : [0];
+    : [(dv + dh) / 2];
 
   const ANCHOR = 0.15;
   const openings = geometry.openings ?? [];
@@ -386,17 +387,22 @@ export function generateWallBars(
     return parts;
   };
 
-  for (const [c, off] of offsets.entries()) {
-    // ── Vertical (longitudinal) reinforcement, cut at the openings ──
-    const vOff = off - Math.sign(off || 1) * (dv + dh) / 2;
-    const nV = Math.max(1, Math.floor(length / design.verticalSpacing));
-    for (let i = 0; i < nV; i++) {
-      const s = (i + 0.5) * design.verticalSpacing;
-      const holes = openings.filter((o) => s > o.offset && s < o.offset + o.width).map((o) => [z0 + o.sill, z0 + o.sill + o.height] as [number, number]);
-      cut(z0 - ANCHOR, z0 + geometry.height, holes).forEach(([a, b], k) => push(
-        `${geometry.wallId}-v${c}-${i}${k ? `-${k}` : ''}`, vDia, at(s, vOff, a), at(s, vOff, b), { x: 0, y: 0, z: 1 }, { x: nx, y: ny, z: 0 }));
-    }
+  const layout = r ?? {
+    curtains, vertical: { diameter: vDia, spacing: design.verticalSpacing },
+    horizontal: { diameter: hDia, spacing: design.horizontalSpacing },
+  };
+  for (const bar of wallVerticalBars(length, geometry.thickness, geometry.cover, layout)) {
+    const s = length / 2 + bar.x;
+    const diameter = bar.boundary ? layout.boundary!.diameter : vDia;
+    const holes = openings.filter(o => s > o.offset && s < o.offset + o.width)
+      .map(o => [z0 + o.sill, z0 + o.sill + o.height] as [number, number]);
+    cut(z0 - ANCHOR, z0 + geometry.height, holes).forEach(([a, b], k) => push(
+      `${geometry.wallId}-${bar.mark}${k ? `-${k}` : ''}`, diameter, at(s, bar.y, a), at(s, bar.y, b),
+      { x: 0, y: 0, z: 1 }, { x: nx, y: ny, z: 0 }));
+  }
 
+  for (const [c, off] of offsets.entries()) {
+    const vOff = off - Math.sign(off || 1) * (dv + dh) / 2;
     // ── Horizontal (distributed shear) reinforcement, cut at the openings ──
     const nH = Math.max(1, Math.floor(geometry.height / design.horizontalSpacing));
     for (let j = 0; j < nH; j++) {
@@ -404,17 +410,6 @@ export function generateWallBars(
       const holes = openings.filter((o) => z > z0 + o.sill && z < z0 + o.sill + o.height).map((o) => [o.offset, o.offset + o.width] as [number, number]);
       cut(-ANCHOR, length + ANCHOR, holes).forEach(([a, b], k) => push(
         `${geometry.wallId}-h${c}-${j}${k ? `-${k}` : ''}`, hDia, at(a, off, z), at(b, off, z), { x: ux, y: uy, z: 0 }, { x: 0, y: 0, z: -1 }));
-    }
-
-    // ── Boundary bars at both ends ──
-    if (r?.boundary && r.boundary.count > 0) {
-      const bd = r.boundary.diameter / 1000, pitch = Math.max(0.05, 2 * bd);
-      const per = Math.ceil(r.boundary.count / curtains);
-      const edge = geometry.cover + dh + dv / 2;
-      for (const [e, s0] of [[0, edge], [1, length - edge]] as const) for (let i = 0; i < per; i++) {
-        const s = e === 0 ? s0 + (i + 1) * pitch : s0 - (i + 1) * pitch;
-        push(`${geometry.wallId}-b${e}${c}-${i}`, r.boundary.diameter, at(s, vOff, z0 - ANCHOR), at(s, vOff, z0 + geometry.height), { x: 0, y: 0, z: 1 }, { x: nx, y: ny, z: 0 });
-      }
     }
 
     // ── Bars beside each opening (§11.7.5.1), a development length past its corners ──

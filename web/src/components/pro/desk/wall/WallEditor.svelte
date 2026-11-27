@@ -153,7 +153,7 @@
             <tbody>
               <tr class:bad={!check.thicknessOk}><td>{t('wallEd.cThickness')}</td><td class="num">{(check.minThickness * 100).toFixed(0)} cm</td></tr>
               <tr class:bad={!check.shear.ok}><td>{t('wallEd.cShear')}</td><td class="num">{check.shear.utilization.toFixed(2)}</td></tr>
-              <tr class:bad={!check.axialFlexure.ok}><td>{t('wallEd.cInPlane')}</td><td class="num">{Number.isFinite(check.axialFlexure.utilization) ? check.axialFlexure.utilization.toFixed(2) : '∞'}</td></tr>
+              <tr class:bad={!check.axialFlexure.ok}><td>{t('wallEd.cInPlane')} (Pu = {check.axialFlexure.pu.toLocaleString()} kN)</td><td class="num">{Number.isFinite(check.axialFlexure.utilization) ? check.axialFlexure.utilization.toFixed(2) : '∞'}</td></tr>
               {#each check.checks as c}<tr class:bad={!c.ok} title={c.description}><td>{c.category}</td><td class="num">{Number.isFinite(c.utilization) ? c.utilization.toFixed(2) : '∞'}</td></tr>{/each}
             </tbody>
           </table>

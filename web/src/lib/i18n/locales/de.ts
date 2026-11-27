@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  'wall.tensionRequiresBarLayout': "Für Zug mit Biegung ist die Lage der vertikalen Stäbe erforderlich.",
+  'wall.tensionAtOpenings': "Für Zug an Wandöffnungen werden der Nettoquerschnitt und die durchlaufende Bewehrung benötigt.",
+  'wall.tensionShearEdition': "Der Wandnachweis für Zug mit Querkraft ist für die Ausgabe {edition} nicht verfügbar.",
   'svc.accountingMismatch': "Berechnung abgelehnt. Lastfall {case}, {component}. Eingegeben {entered}, assembliert {assembled}.",
   'svc.accountingLineEnd': "Berechnung abgelehnt. Lastfall {case}, Stab {member}, Ende {end}. Die umgelagerte Last wirkt am Knoten {actual}. Erwartet wurde Knoten {expected}.",
   'svc.accountingUnsupported': "Berechnung abgelehnt. Kräfte und Momente von {kind} {id} im Lastfall {case} können nicht bilanziert werden.",

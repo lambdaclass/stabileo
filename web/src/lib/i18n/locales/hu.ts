@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  'wall.tensionRequiresBarLayout': "Együttes húzás és hajlítás esetén szükséges a függőleges vasalás kiosztása.",
+  'wall.tensionAtOpenings': "Nyílásos fal húzási ellenőrzéséhez szükséges a nettó keresztmetszet és az azon átmenő folytonos vasalás.",
+  'wall.tensionShearEdition': "A fal együttes húzása és nyírása a(z) {edition} kiadás szerint nem ellenőrizhető.",
   'svc.accountingMismatch': "A számítás elutasítva. {case} tehereset, {component}. Megadott érték {entered}, összeállított érték {assembled}.",
   'svc.accountingLineEnd': "A számítás elutasítva. {case} tehereset, a(z) {member} rúd {end} vége. Az átosztott teher a(z) {actual} csomópontra került. A várt csomópont {expected}.",
   'svc.accountingUnsupported': "A számítás elutasítva. A(z) {case} teheresetben a(z) {kind} {id} erői és nyomatékai nem ellenőrizhetők.",

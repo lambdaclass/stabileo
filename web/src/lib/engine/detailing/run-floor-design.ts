@@ -616,7 +616,7 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
       return { u: us.reduce((s, x) => s + x, 0) / us.length, width: Math.max(...us) - Math.min(...us), thickness: g.shell.thickness, sigma: g.stress.sigmaYy, tau: g.stress.tauXy };
     }), centre);
     const resolvedMoment = bottom.length > 1;
-    const demands = supplied ?? { pu: Math.max(0, pu), muInPlane: Math.abs(mu), vuInPlane: Math.abs(vu) };
+    const demands = supplied ?? { pu, muInPlane: Math.abs(mu), vuInPlane: Math.abs(vu) };
     if (!supplied && !resolvedMoment) {
       unsupported.push({
         elementId: first.shell.id,
@@ -656,7 +656,7 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
       geometry: wallGeom,
       barDiameterMm: input.wallBarDiameterMm,
       record: wallRecord({
-        pieces: bottom, geometry: wallGeom, design, demands,
+        pieces: bottom, geometry: wallGeom, design,
         fromMembraneOnly: !supplied && !resolvedMoment, input,
       }),
     };
@@ -1004,7 +1004,6 @@ function wallRecord(args: {
   pieces: readonly WallPiece[];
   geometry: WallGeometry;
   design: WallDesignResult;
-  demands: { pu: number; muInPlane: number; vuInPlane: number };
   fromMembraneOnly: boolean;
   input: RunFloorDesignInput;
 }): FamilyRecordDraft<WallDesignRecord> {
@@ -1015,22 +1014,21 @@ function wallRecord(args: {
     start: { ...geometry.start }, end: { ...geometry.end },
     length, height: geometry.height,
     thickness: geometry.thickness, cover: geometry.cover,
-    // §11.7.2.3: two curtains once the wall passes 250 mm. Read off the thickness that was
-    // designed, not off a flag a caller could set.
-    twoCurtains: geometry.thickness > 0.25,
+    twoCurtains: design.reinforcement.curtains === 2,
   };
   // One row per base piece, each with the wall's resolved demands: the stresses are the
   // evidence, the forces are the wall's.
   const demandSnapshot: WallDesignRecord['demands'] = args.pieces.map(({ shell, stress }) => ({
     elementId: shell.id,
     sigmaXx: stress.sigmaXx, sigmaYy: stress.sigmaYy, tauXy: stress.tauXy,
-    pu: args.demands.pu, muInPlane: args.demands.muInPlane, vuInPlane: args.demands.vuInPlane,
+    pu: design.axialFlexure.pu, muInPlane: design.axialFlexure.mu, vuInPlane: design.shear.vu,
     governingCombination: null,
     fromMembraneOnly: args.fromMembraneOnly,
   }));
   const axialFlexure: WallDesignRecord['axialFlexure'] = {
     status: design.axialFlexure.ok ? 'OK' : 'FAIL',
     pu: design.axialFlexure.pu,
+    ...(design.axialFlexure.phiPn !== undefined ? { phiPn: design.axialFlexure.phiPn } : {}),
     phiMn: design.axialFlexure.phiMn ?? design.axialFlexure.mn,
     utilization: design.axialFlexure.utilization,
   };
@@ -1045,9 +1043,9 @@ function wallRecord(args: {
     webCrushingGoverns: design.shear.atLimit,
   };
   const reinforcement: WallDesignRecord['reinforcement'] = {
-    verticalDiameterMm: args.input.wallBarDiameterMm,
+    verticalDiameterMm: design.reinforcement.vertical.diameter,
     verticalSpacing: design.verticalSpacing,
-    horizontalDiameterMm: args.input.wallBarDiameterMm,
+    horizontalDiameterMm: design.reinforcement.horizontal.diameter,
     horizontalSpacing: design.horizontalSpacing,
     rhoVertical: design.ratios.rhoL,
     rhoHorizontal: design.ratios.rhoT,

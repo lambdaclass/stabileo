@@ -1,5 +1,8 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  'wall.tensionRequiresBarLayout': "तनाव और बंकन की संयुक्त जाँच के लिए ऊर्ध्वाधर सरियों का विन्यास चाहिए।",
+  'wall.tensionAtOpenings': "दीवार के खुलाव पर तनाव की जाँच के लिए शुद्ध अनुप्रस्थ काट और उससे गुजरता सतत प्रबलन चाहिए।",
+  'wall.tensionShearEdition': "संस्करण {edition} के लिए दीवार में संयुक्त तनाव और कतरनी की जाँच उपलब्ध नहीं है।",
   'loadPlan.gravity.offsetShellDeck': "शेल {id} अलग ऊँचाई पर स्थित ओवरलैप करते बीम पैनल (सदस्य {members}) से ऊर्ध्वाधर दिशा में जुड़ा है। शेल, कनेक्शन या पैनल की ज्यामिति ठीक करें, या क्षेत्रीय भार हाथ से केवल एक बार लगाएँ।",
   'loadPlan.gravity.areaResultant': "बनाए गए भार ऊँचाई {z} पर निर्धारित फ़र्श क्षेत्र के अनुरूप नहीं हैं।",
   'loadPlan.gravity.caseResultant': "ऊँचाई {z} पर बनाए गए {action} भार निर्धारित क्षेत्र पर दबाव को संतुलित नहीं करते।",

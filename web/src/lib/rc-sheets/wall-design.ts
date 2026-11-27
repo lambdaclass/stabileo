@@ -32,7 +32,8 @@
 
 import { clause, type ClauseRef, type RegulationEdition } from '../codes/regulation';
 import { sqrtFcCapped } from '../engine/detailing/punching-shear';
-import { shearFy } from '../engine/codes/argentina/cirsoc201-basis';
+import { EngineMessageError, msg } from '../codes/message';
+import { PHI_TENSION, shearFy } from '../engine/codes/argentina/cirsoc201-basis';
 
 /** §21.2 — φ for shear and for compression-controlled sections. */
 export const PHI_WALL_SHEAR = 0.75;
@@ -134,6 +135,16 @@ export function minimumWallThickness(
 
 // ─── In-plane shear ──────────────────────────────────────────────
 
+export function wallConcreteShear(pu: number, acv: number, fc: number, lambda = 1): number {
+  const axialStressMPa = Math.min(0, pu) / (1000 * acv);
+  const alpha = 0.17 * Math.max(0, 1 + axialStressMPa / 3.5);
+  return alpha * lambda * sqrtFcCapped(fc) * acv * 1000;
+}
+
+export function wallTensileCapacity(steelArea: number, fy: number): number {
+  return PHI_TENSION * fy * steelArea * 1000;
+}
+
 export interface WallShearResult {
   /** Gross shear area A_cv, m². */
   acv: number;
@@ -167,6 +178,7 @@ export function checkWallInPlaneShear(opts: {
   /** Horizontal reinforcement ratio actually provided. */
   rhoT: number;
   fy: number;
+  pu: number;
   lambda?: number;
   edition: RegulationEdition;
 }): WallShearResult {
@@ -175,7 +187,10 @@ export function checkWallInPlaneShear(opts: {
   const lambda = opts.lambda ?? 1;
 
   // Vc for a wall, the simple lower-bound form: 0,17 λ √f'c A_cv.
-  const vc = 0.17 * lambda * root * acv * 1000;
+  if (opts.pu < 0 && opts.vu !== 0 && opts.edition !== '2025') {
+    throw new EngineMessageError(msg('wall.tensionShearEdition', { edition: opts.edition }));
+  }
+  const vc = wallConcreteShear(opts.pu, acv, opts.fc, lambda);
   const vs = opts.rhoT * shearFy(opts.fy) * acv * 1000;
   // §11.5.4.2: Vn is capped at 0,66·√f'c·Acv. (0,83 was the CIRSOC 201-2005
   // value, reduced in the 2025 edition because Acv grew from h·d to h·ℓw.)
@@ -201,6 +216,7 @@ export function checkWallInPlaneShear(opts: {
     refs: [
       clause('cirsoc-201', opts.edition, '11.5.4', 'esfuerzo de corte en el plano del tabique'),
       clause('cirsoc-201', opts.edition, '11.5.4.2', 'límite superior de Vn'),
+      ...(opts.pu < 0 && opts.edition === '2025' ? [clause('cirsoc-201', opts.edition, '11.5.4.4', 'corte con tracción axial neta')] : []),
     ],
   };
 }
@@ -210,6 +226,7 @@ export function checkWallInPlaneShear(opts: {
 export interface WallAxialFlexureResult {
   /** Design moment capacity at the applied axial load, kN·m, when read by strain compatibility. */
   phiMn?: number;
+  phiPn?: number;
   /** Factored axial force, kN, compression positive. */
   pu: number;
   /** Factored in-plane moment, kN·m. */
@@ -253,6 +270,16 @@ export function checkWallAxialFlexure(opts: {
   //   Mn ≈ 0,5 Ast fy lw (1 + Pu/(Ast fy)) (1 − c/lw)
   // with c/lw from the standard approximation. Conservative for low axial load.
   const astFy = ast * opts.fy * 1000;
+  if (opts.pu < 0) {
+    if (opts.mu !== 0) throw new EngineMessageError(msg('wall.tensionRequiresBarLayout'));
+    const phiPn = wallTensileCapacity(ast, opts.fy);
+    const utilization = phiPn > 0 ? -opts.pu / phiPn : Infinity;
+    return {
+      pu: opts.pu, mu: 0, mn: 0, pn0, phiPn, utilization, ok: utilization <= 1,
+      memo: `|Pu| = ${-opts.pu} kN, φPnt = ${phiPn.toFixed(1)} kN.`,
+      refs: [clause('cirsoc-201', opts.edition, '22.4.3.1', 'resistencia axial a tracción')],
+    };
+  }
   const omega = astFy > 0 ? opts.pu / astFy : 0;
   const cOverLw = Math.min(0.6, (omega + opts.rhoL * opts.fy / (0.85 * opts.fc))
     / (2 * omega + 0.85));

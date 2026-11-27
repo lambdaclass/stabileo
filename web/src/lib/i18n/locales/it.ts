@@ -1,5 +1,8 @@
 import type { Translations } from '../types';
 const it: Translations = {
+  'wall.tensionRequiresBarLayout': "La verifica a trazione e flessione richiede la disposizione delle barre verticali.",
+  'wall.tensionAtOpenings': "La trazione in corrispondenza delle aperture richiede la sezione netta e le armature continue che la attraversano.",
+  'wall.tensionShearEdition': "La verifica della parete a trazione e taglio combinati non è disponibile per l’edizione {edition}.",
   'svc.accountingMismatch': "Analisi rifiutata. Caso di carico {case}, {component}. Valore inserito {entered}, valore assemblato {assembled}.",
   'svc.accountingUnsupported': "Analisi rifiutata. Non è possibile contabilizzare forze e momenti di {kind} {id} nel caso di carico {case}.",
   'svc.accountingArea': "Analisi rifiutata. La piastra {plate} ha un’area o un contorno diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",

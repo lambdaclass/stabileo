@@ -1,0 +1,37 @@
+{
+  "id": "wall-axial-tension",
+  "date": "2026-11-27",
+  "prs": [
+    2655
+  ],
+  "area": "design",
+  "when": {
+    "all": [
+      "savedWallDesign"
+    ]
+  },
+  "title": {
+    "en": "Wall axial tension",
+    "es": "Tracción axial en tabiques",
+    "pt": "Tração axial em paredes",
+    "de": "Axialzug in Wänden",
+    "fr": "Traction axiale des voiles",
+    "tr": "Perdelerde eksenel çekme",
+    "zh": "混凝土墙轴向受拉",
+    "hu": "Falak tengelyirányú húzása"
+  },
+  "explanation": {
+    "en": "Rerun concrete wall design and regenerate the report. Floor design could record tensile axial force as zero and report the wall as passing.",
+    "es": "Volvé a diseñar los tabiques de hormigón y regenerá el informe. El diseño de piso podía registrar la tracción axial como cero e indicar que el tabique verificaba.",
+    "pt": "Refaça o dimensionamento das paredes de concreto e gere novamente o relatório. O dimensionamento do pavimento podia registrar a tração axial como zero e aprovar a parede.",
+    "de": "Bemessen Sie die Betonwände erneut und erstellen Sie den Bericht neu. Die Geschossbemessung konnte die Zugkraft als null speichern und den Nachweis als erfüllt ausgeben.",
+    "fr": "Recalculez les voiles en béton et régénérez le rapport. Le calcul par étage pouvait enregistrer une traction nulle et déclarer le voile vérifié.",
+    "tr": "Betonarme perdeleri yeniden boyutlandırıp raporu yeniden oluşturun. Kat tasarımı eksenel çekmeyi sıfır kaydedip perdeyi yeterli gösterebiliyordu.",
+    "zh": "请重新设计混凝土墙并重新生成报告。楼层设计可能将轴向拉力记为零，并判定墙体验算通过。",
+    "hu": "Méretezze újra a betonfalakat, és készítse el újra a jelentést. A szintenkénti méretezés a húzóerőt nullaként rögzíthette, és a falat megfelelőnek jelezhette."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wall-axial-tension.md",
+    "heading": "Wall axial tension"
+  }
+}

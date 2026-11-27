@@ -1,5 +1,8 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  'wall.tensionRequiresBarLayout': "A tração combinada com flexão exige a disposição das barras verticais.",
+  'wall.tensionAtOpenings': "A tração em paredes com aberturas exige a seção líquida e a armadura contínua que a atravessa.",
+  'wall.tensionShearEdition': "Não é possível verificar a parede sob tração e cisalhamento combinados na edição {edition}.",
   'svc.accountingMismatch': "Análise recusada. Caso de carga {case}, {component}. Valor introduzido {entered}, valor montado {assembled}.",
   'svc.accountingLineEnd': "Análise recusada. Caso de carga {case}, extremidade {end} da barra {member}. A carga redistribuída chegou ao nó {actual}. Esperava-se o nó {expected}.",
   'svc.accountingUnsupported': "Análise recusada. No caso de carga {case}, não é possível contabilizar as forças e os momentos de {kind} {id}.",

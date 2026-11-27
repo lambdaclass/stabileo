@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  'wall.tensionRequiresBarLayout': "Çekme ve eğilmenin birlikte kontrolü için düşey donatı yerleşimi gereklidir.",
+  'wall.tensionAtOpenings': "Boşluklu perdede çekme kontrolü için net kesit ve bu kesitten geçen sürekli donatı gereklidir.",
+  'wall.tensionShearEdition': "{edition} sürümünde perde için birlikte etkiyen çekme ve kesme doğrulanamıyor.",
   'svc.accountingMismatch': "Analiz reddedildi. Yük durumu {case}, {component}. Girilen {entered}, birleştirilen {assembled}.",
   'svc.accountingLineEnd': "Analiz reddedildi. Yük durumu {case}, {member} numaralı elemanın {end} ucu. Yeniden dağıtılan yük {actual} düğümüne uygulandı. Beklenen düğüm {expected}.",
   'svc.accountingUnsupported': "Analiz reddedildi. {case} yük durumunda {kind} {id} için kuvvet ve moment hesabı yapılamıyor.",

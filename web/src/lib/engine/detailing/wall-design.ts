@@ -1,6 +1,6 @@
 import { clause, type ClauseRef, type RegulationEdition } from '../../codes/regulation';
 import { deriveMaturity, type MaturityRecord } from '../../codes/maturity';
-import { msg } from '../../codes/message';
+import { EngineMessageError, msg } from '../../codes/message';
 import type { WallReinforcement } from '../../design-contract/reinforcement';
 import { proposeWallReinforcement, wallInPlane, wallOpenings, wallOutOfPlane } from '../../rc-sheets/wall-member';
 import {
@@ -73,7 +73,7 @@ export function designWall(input: WallDesignInput): WallDesignResult {
   const refs: ClauseRef[] = [];
   const unsupported: string[] = [];
 
-  const wallShear = { vu: input.vuInPlane, fc: input.fc, acv: input.length * input.thickness, hw: input.height, lw: input.length };
+  const wallShear = { vu: Math.abs(input.vuInPlane), fc: input.fc, acv: input.length * input.thickness, hw: input.height, lw: input.length };
   const ratios = minimumWallRatios(input.barDiameterMm, input.fy, input.edition, { shear: wallShear });
   memo.push(ratios.note);
   refs.push(...ratios.refs);
@@ -100,11 +100,13 @@ export function designWall(input: WallDesignInput): WallDesignResult {
   const curtains = wallCurtains(input.thickness);
   const minVertical = Math.min(sMax, Math.floor((curtains * area / asVertPerM) / 0.025) * 0.025);
   const minHorizontal = Math.min(sMax, Math.floor((curtains * area / asHorPerM) / 0.025) * 0.025);
+  const edition = input.edition === '2005' ? '2005' : '2025';
   const openingCount = input.openingCount ?? input.openings?.length ?? 0;
+  if (input.pu < 0 && openingCount > 0) throw new EngineMessageError(msg('wall.tensionAtOpenings'));
   // The person's bars, or the design's: the distributed minimum, boundary bars where the in-plane
   // moment needs them, and the opening bars.
   const r: WallReinforcement = input.provided ?? proposeWallReinforcement({
-    length: input.length, thickness: input.thickness, cover: input.cover, fc: input.fc, fy: input.fy,
+    length: input.length, thickness: input.thickness, cover: input.cover, fc: input.fc, fy: input.fy, edition,
     pu: input.pu, mu: input.muInPlane, barDiameterMm: input.barDiameterMm,
     verticalSpacing: minVertical, horizontalSpacing: minHorizontal, curtains, openingCount,
   });
@@ -130,7 +132,7 @@ export function designWall(input: WallDesignInput): WallDesignResult {
 
   const shear = checkWallInPlaneShear({
     length: input.length, thickness: input.thickness, fc: input.fc,
-    vu: input.vuInPlane, rhoT: rhoTProvided, fy: input.fy, edition: input.edition,
+    pu: input.pu, vu: Math.abs(input.vuInPlane), rhoT: rhoTProvided, fy: input.fy, edition: input.edition,
   });
   memo.push(shear.memo);
   refs.push(...shear.refs);
@@ -143,18 +145,18 @@ export function designWall(input: WallDesignInput): WallDesignResult {
   }
 
   // In-plane axial force and moment on the wall's own bars, by strain compatibility.
-  const inPlane = wallInPlane({ length: input.length, thickness: input.thickness, cover: input.cover, fc: input.fc, fy: input.fy, pu: input.pu, mu: input.muInPlane, r });
+  const inPlane = wallInPlane({ length: input.length, thickness: input.thickness, cover: input.cover, fc: input.fc, fy: input.fy, edition, pu: input.pu, mu: input.muInPlane, r });
   const ag = input.length * input.thickness;
   const ast = rhoLProvided * ag;
   const axialFlexure: WallAxialFlexureResult = {
     pu: input.pu, mu: input.muInPlane,
     pn0: (0.85 * input.fc * (ag - ast) + input.fy * ast) * 1000,
-    mn: inPlane.phiMn, phiMn: inPlane.phiMn,
+    mn: inPlane.phiMn, phiMn: inPlane.phiMn, ...(inPlane.phiPn !== undefined ? { phiPn: inPlane.phiPn } : {}),
     utilization: inPlane.utilization, ok: inPlane.ok,
     memo: `Flexocompresión en el plano por compatibilidad de deformaciones sobre las barras del tabique: ${inPlane.description}.`,
     refs: [
       clause('cirsoc-201', input.edition, '11.5.2', 'carga axial y flexión en el plano'),
-      clause('cirsoc-201', input.edition, '22.4.2', 'resistencia axial máxima'),
+      clause('cirsoc-201', input.edition, input.pu < 0 ? '22.4.3' : '22.4.2', 'resistencia axial máxima'),
     ],
   };
   memo.push(axialFlexure.memo);
@@ -166,7 +168,7 @@ export function designWall(input: WallDesignInput): WallDesignResult {
   }
 
   // Out of the plane, on a metre strip (11.5.2.2), and around the openings (11.7.5).
-  for (const c of wallOutOfPlane({ length: input.length, thickness: input.thickness, cover: input.cover, fc: input.fc, fy: input.fy, pu: input.pu, muV: input.muOutOfPlane ?? 0, muH: input.muOutOfPlaneHorizontal ?? 0, r })) {
+  for (const c of wallOutOfPlane({ length: input.length, thickness: input.thickness, cover: input.cover, fc: input.fc, fy: input.fy, edition, pu: input.pu, muV: input.muOutOfPlane ?? 0, muH: input.muOutOfPlaneHorizontal ?? 0, r })) {
     checks.push(c);
     if (!c.ok) unsupported.push(`${c.category}: no verifica (${c.description}).`);
   }

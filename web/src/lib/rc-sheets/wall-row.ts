@@ -1,6 +1,6 @@
-import { checkWallInPlaneShear, maxWallSpacing, minimumWallRatios, minimumWallThickness, PHI_WALL_SHEAR } from './wall-design';
+import { checkWallInPlaneShear, wallConcreteShear, maxWallSpacing, minimumWallRatios, minimumWallThickness, PHI_WALL_SHEAR } from './wall-design';
 import { wallInPlane, wallOutOfPlane } from './wall-member';
-import { shearFy, shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
+import { shearFy } from '../engine/codes/argentina/cirsoc201-basis';
 import { compressionLap, tensionLap } from './column-row';
 import { wallSeismic, type WallSeismic } from './wall-seismic';
 import { barArea, roundDown } from './bars';
@@ -100,15 +100,14 @@ function evaluate(d: WallDemand, c: WallContext, a: WallAdopted): Eval {
   const vuMax = Math.max(0, ...d.combos.map((k) => k.vu));
   const rhoL = rhoOf(a.vertical, a.curtains, d.thickness), rhoT = rhoOf(a.horizontal, a.curtains, d.thickness);
   const min = minimumWallRatios(a.vertical.diameter, c.mat.fy, EDITION, { horizontalDiameterMm: a.horizontal.diameter, shear: { vu: vuMax, fc: c.mat.fc, acv, hw: d.height, lw: d.length, rhoTProvided: rhoT } });
-  const vc = PHI_WALL_SHEAR * 0.17 * shearSqrtFc(c.mat.fc) * acv * 1000;
-  const shearSteel = vuMax > vc;
+  const shearSteel = d.combos.some(k => k.vu > PHI_WALL_SHEAR * wallConcreteShear(k.pu, acv, c.mat.fc));
   const s0 = maxWallSpacing(d.thickness, EDITION).spacing;
   const sMaxV = shearSteel ? Math.min(s0, d.length / 3) : s0, sMaxH = shearSteel ? Math.min(s0, d.length / 5) : s0;
   const r = { vertical: a.vertical, horizontal: a.horizontal, curtains: a.curtains, ...(a.boundary && a.boundary.count > 0 ? { boundary: a.boundary } : {}) };
   const base = { length: d.length, thickness: d.thickness, cover: c.cover, fc: c.mat.fc, fy: c.mat.fy };
   const pm = d.combos.map((k) => (c.pier ? 0 : wallInPlane({ ...base, pu: k.pu, mu: k.mu, r }).utilization));
   const out = d.combos.map((k) => Math.max(0, ...wallOutOfPlane({ ...base, pu: k.pu, muV: k.muV, muH: k.muH, r }).map((x) => x.utilization)));
-  const sh = d.combos.map((k) => checkWallInPlaneShear({ length: d.length, thickness: d.thickness, fc: c.mat.fc, vu: k.vu, rhoT, fy: c.mat.fy, edition: EDITION }));
+  const sh = d.combos.map((k) => checkWallInPlaneShear({ length: d.length, thickness: d.thickness, fc: c.mat.fc, pu: k.pu, vu: k.vu, rhoT, fy: c.mat.fy, edition: EDITION }));
   return {
     pm, out, shear: sh.map((x) => x.utilization), rhoL, rhoT, rhoLMin: min.rhoL, rhoTMin: min.rhoT, sMaxV, sMaxH, shearSteel,
     phiVnMin: Math.min(...sh.map((x) => x.phiVn), Infinity),
@@ -120,10 +119,11 @@ const ok1 = (v: number) => v <= 1 + 1e-6;
 export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | undefined, fmt: Fmt): WallRow {
   const acv = d.length * d.thickness;
   const vuMax = Math.max(0, ...d.combos.map((k) => k.vu));
-  const vc = 0.17 * shearSqrtFc(c.mat.fc) * acv * 1000;
+  const concrete = d.combos.map(k => wallConcreteShear(k.pu, acv, c.mat.fc));
+  const shearOverConcrete = d.combos.some((k, i) => k.vu > concrete[i]!);
   // §18.10.2.2 under chapter 18, §11.7.2.3 always.
-  const curtains: 1 | 2 = d.thickness > 0.25 || (c.seismic && (vuMax > vc || d.height / d.length >= 2)) ? 2 : 1;
-  const rhoTShear = Math.max(0, vuMax / PHI_WALL_SHEAR - vc) / (shearFy(c.mat.fy) * 1000 * acv);
+  const curtains: 1 | 2 = d.thickness > 0.25 || (c.seismic && (shearOverConcrete || d.height / d.length >= 2)) ? 2 : 1;
+  const rhoTShear = Math.max(0, ...d.combos.map((k, i) => k.vu / PHI_WALL_SHEAR - concrete[i]!)) / (shearFy(c.mat.fy) * 1000 * acv);
 
   const meshFor = (dia: number, rho: number, sMax: number) => ({ diameter: dia, spacing: roundDown(Math.max(0.075, Math.min(sMax, curtains * barArea(dia) * 1e-4 / Math.max(rho * d.thickness, 1e-9)))) });
   const meshes = c.meshDiameters?.length ? [...c.meshDiameters].sort((p, q) => p - q) : null;
@@ -220,7 +220,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     {
       title: 'rcSheets.g.wallShear',
       steps: [
-        { label: 'rcSheets.s.vc', formula: "Vc = 0.17·√f'c·Acv", value: `${fmt(vc)} kN` },
+        { label: 'rcSheets.s.vc', formula: "Vc = αc·√f'c·Acv", value: `${fmt(concrete[ish] ?? 0)} kN (${d.combos[ish]?.combo ?? ''})` },
         { label: 'rcSheets.s.wallRhoTReq', formula: 'ρt ≥ (Vu/φ − Vc)/(fy·Acv)', value: `${fmt(rhoTShear * 100, 3)} %` },
         { label: 'rcSheets.s.wallMin', formula: 'ρl,min · ρt,min (§11.6)', value: `${fmt(ev.rhoLMin * 100, 3)} · ${fmt(ev.rhoTMin * 100, 3)} %` },
         { label: 'rcSheets.s.wallVn', formula: "φVn = φ·min(Vc + ρt·fy·Acv; 0.66·√f'c·Acv)", value: `${fmt(ev.phiVnMin)} kN`, ok: ev.shear.every(ok1) },

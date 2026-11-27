@@ -79,17 +79,20 @@ export function slabCheckRows(s: SlabDesignResult, edition = '2025'): CheckRow[]
 
 /** A wall: in-plane shear and its ceiling, axial load and flexure, thickness, and the checks out of its plane. */
 export function wallCheckRows(w: WallDesignResult, edition = '2025'): CheckRow[] {
+  const axial = w.axialFlexure;
+  const action = axial.phiPn !== undefined
+    ? { formula: '|Pu| ≤ φPn', demand: Math.abs(axial.pu), capacity: axial.phiPn, unit: 'kN' }
+    : { formula: '|Mu| ≤ φMn(Pu)', demand: Math.abs(axial.mu), capacity: axial.phiMn ?? axial.mn, unit: 'kN·m' };
   const out: CheckRow[] = [
     row({
-      key: 'check.wall.shear', title: 'In-plane shear', clause: firstClause(w.shear.refs, '11.5.4'), edition, formula: 'Vu ≤ φ·Vn ≤ φ·0,83·√f\'c·Acv',
+      key: 'check.wall.shear', title: 'In-plane shear', clause: firstClause(w.shear.refs, '11.5.4'), edition, formula: 'Vu ≤ φ·min(Vc + Vs, Vn,máx)',
       inputs: [inp('Vu', w.shear.vu, 'kN'), inp('φVn', w.shear.phiVn, 'kN'), inp('Acv', w.shear.acv, 'm²'), inp('Vn,máx', w.shear.vnLimit, 'kN')],
       demand: w.shear.vu, capacity: w.shear.phiVn, unit: 'kN', ratio: w.shear.utilization, status: w.shear.ok ? statusOfRatio(w.shear.utilization) : 'fail',
       derivation: [w.shear.memo],
     }),
     row({
-      key: 'check.wall.axialFlexure', title: 'Axial load and flexure', clause: firstClause(w.axialFlexure.refs, '11.5.2'), edition, formula: 'Mu ≤ φ·Mn(Pu)',
+      key: 'check.wall.axialFlexure', title: 'Axial load and flexure', clause: firstClause(w.axialFlexure.refs, '11.5.2'), edition, ...action,
       inputs: [inp('Pu', w.axialFlexure.pu, 'kN'), inp('Mu', w.axialFlexure.mu, 'kN·m'), inp('φMn', w.axialFlexure.phiMn ?? w.axialFlexure.mn, 'kN·m'), inp('Pn0', w.axialFlexure.pn0, 'kN')],
-      demand: w.axialFlexure.mu, capacity: w.axialFlexure.phiMn ?? w.axialFlexure.mn, unit: 'kN·m',
       ratio: w.axialFlexure.utilization, status: w.axialFlexure.ok ? statusOfRatio(w.axialFlexure.utilization) : 'fail', derivation: [w.axialFlexure.memo],
     }),
     row({

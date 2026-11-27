@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const ru: Translations = {
+  'wall.tensionRequiresBarLayout': "Для проверки растяжения с изгибом требуется схема расположения вертикальных стержней.",
+  'wall.tensionAtOpenings': "Для проверки растяжения у проёма нужны сечение нетто и проходящая через него непрерывная арматура.",
+  'wall.tensionShearEdition': "Проверка стены на совместное действие растяжения и сдвига по редакции {edition} недоступна.",
   'svc.accountingMismatch': "Расчёт отклонён. Нагружение {case}, компонент {component}. Задано {entered}, собрано {assembled}.",
   'svc.accountingUnsupported': "Расчёт отклонён. Нельзя учесть силы и моменты {kind} {id} в нагружении {case}.",
   'svc.accountingArea': "Расчёт отклонён. Площадь или контур плиты {plate} в расчётной модели отличаются. Заданная площадь {entered}, собранная площадь {assembled}.",

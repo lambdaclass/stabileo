@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { runFloorDesign, type FloorNode, type FloorShell } from '../run-floor-design';
 import { checkWallAxialFlexure, designWall } from '../wall-design';
 import { readingsOf } from '../../../store/floor-readings';
+import { modelFeatures } from '../../../provenance/model-features';
 import { PHI_TENSION } from '../../codes/argentina/cirsoc201-basis';
 
 const nodes = new Map<number, FloorNode>();
@@ -30,7 +31,7 @@ function floor(pu: number, supplied = false, combined = false) {
   });
 }
 
-describe.skip('known wrong result: #2655 wall axial tension', () => {
+describe('known wrong result: #2655 wall axial tension', () => {
   it.each([-400, -1, 0, 1, 400])('retains %s kN through design, evidence and the report', (pu) => {
     const run = floor(pu);
     const wall = run.walls[0]!;
@@ -72,6 +73,32 @@ describe.skip('known wrong result: #2655 wall axial tension', () => {
       expect(check.ok).toBe(fraction < 1);
       expect(check.utilization).toBeCloseTo(fraction, 5);
     }
+  });
+
+  it('records the tensile resistance of the vertical bars present in the saved assembly', () => {
+    const run = floor(-400);
+    const [assembly] = run.assemblies;
+    const bars = assembly!.bars.filter(bar => /^W30-[vb]/.test(bar.id));
+    const area = bars.reduce((sum, bar) => sum + Math.PI * (bar.diameterMm / 2000) ** 2, 0);
+    const record = assembly!.families!.find(r => r.family === 'wall')!;
+    expect(bars.length).toBeGreaterThan(0);
+    expect(record.axialFlexure.phiPn).toBeCloseTo(PHI_TENSION * run.walls[0]!.input.fy * 1000 * area, 8);
+    expect(modelFeatures({ detailing: JSON.parse(JSON.stringify({ assemblies: run.assemblies })) }).has('savedWallDesign')).toBe(true);
+    expect(modelFeatures({ detailing: { assemblies: [] } }).has('savedWallDesign')).toBe(false);
+  });
+
+  it('requires net section data for tensile walls with openings', () => {
+    const base = floor(0).walls[0]!.input;
+    expect(() => designWall({ ...base, pu: -1, openingCount: 1 })).toThrow('wall.tensionAtOpenings');
+    expect(designWall({ ...base, pu: 0, openingCount: 1 }).axialFlexure.ok).toBe(true);
+    expect(designWall({ ...base, pu: -1, openingCount: 0 }).axialFlexure.ok).toBe(true);
+  });
+
+  it('blocks the unsupported edition only when both tension and shear act', () => {
+    const base = { ...floor(0).walls[0]!.input, edition: '2005' as const };
+    expect(() => designWall({ ...base, pu: -1, vuInPlane: 1 })).toThrow('wall.tensionShearEdition');
+    expect(designWall({ ...base, pu: -1, vuInPlane: 0 }).axialFlexure.ok).toBe(true);
+    expect(designWall({ ...base, pu: 0, vuInPlane: 1 }).shear.ok).toBe(true);
   });
 
   it('requires the bar layout for combined tension in the approximate section check', () => {

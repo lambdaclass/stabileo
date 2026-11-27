@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
+  'wall.tensionRequiresBarLayout': "يتطلب التحقق من الشد مع الانحناء توزيع القضبان الرأسية.",
+  'wall.tensionAtOpenings': "يتطلب الشد عند فتحات الجدار المقطع الصافي والتسليح المستمر عبره.",
+  'wall.tensionShearEdition': "يتعذر التحقق من الشد والقص معاً في الجدار وفق إصدار {edition}.",
   'svc.accountingMismatch': "رُفض التحليل. حالة الحمل {case}، المركبة {component}. المُدخل {entered}، المُجمّع {assembled}.",
   'svc.accountingUnsupported': "رُفض التحليل. لا يمكن حساب قوى وعزوم {kind} {id} في حالة الحمل {case}.",
   'svc.accountingArea': "رُفض التحليل. مساحة اللوح {plate} أو حدوده مختلفة في نموذج الحل. المساحة المحددة {entered}، والمساحة المجمّعة {assembled}.",

@@ -1209,7 +1209,9 @@ function wallDetail(
     )}</p>`);
 
   out.push(`<h4>${L('Resultados', 'Results', 'Resultados')}</h4><table><tbody>`);
-  out.push(kv(L('Axial-flexión Pu / φMn', 'Axial-flexure Pu / φMn', 'Flexo-compressão Pu / φMn'),
+  if (r.axialFlexure.phiPn !== undefined) {
+    out.push(kv('|Pu| / φPn', `${n(Math.abs(r.axialFlexure.pu), 1)} / ${n(r.axialFlexure.phiPn, 1)} kN (${util(r.axialFlexure)})`));
+  } else out.push(kv(L('Axial-flexión Pu / φMn', 'Axial-flexure Pu / φMn', 'Flexo-compressão Pu / φMn'),
     `${n(r.axialFlexure.pu, 1)} kN / ${n(r.axialFlexure.phiMn, 1)} kN·m `
     + `(${util(r.axialFlexure)})`));
   out.push(kv(L('Corte en el plano Vu / φVn', 'In-plane shear Vu / φVn', 'Cortante no plano Vu / φVn'),
