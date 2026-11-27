@@ -726,3 +726,20 @@ test('known wrong result: #1928 bulk plate load application and pending requests
     });
   }
 });
+
+test.skip('known wrong result: #1928 the ordinary foundation generator only imports the geometry policies selected by its build', async () => {
+  for (const [sheets, plates] of [[false, false], [true, false], [false, true], [true, true]]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: sheets, proPlatesUnified: plates }, async configFile => {
+      const entry = resolve(root, 'src/lib/model/foundation/generate.ts');
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external: (id, from) => !!from && !/(^|\/)(sheet-anchors|active-sheet-anchors|wall-foundation|active-wall-foundation)(\.ts)?$/.test(id),
+        },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(x => x.type === 'chunk');
+      const imports = Object.keys(chunk.importedBindings);
+      assert.equal(imports.some(id => id.endsWith('/edges')), sheets);
+      assert.equal(imports.some(id => id.endsWith('/physical-plates')), plates);
+    });
+  }
+});
