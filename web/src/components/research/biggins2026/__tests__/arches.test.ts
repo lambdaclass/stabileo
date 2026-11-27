@@ -73,7 +73,7 @@ it('checks the evidence numbers and keys used in every locale', async () => {
   } finally { setLocale('en'); }
 });
 
-it.skip('known wrong result: #2505 reordering the Euler modes leaves the threshold prose unchanged', () => {
+it('reordering the Euler modes leaves the threshold prose unchanged', () => {
   const before = render(BigginsPage).body.split('id="checks"')[1].split('</p>')[0];
   published.checks.reverse();
   try {

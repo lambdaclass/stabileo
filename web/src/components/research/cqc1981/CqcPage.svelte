@@ -116,6 +116,7 @@
   {#snippet app()}
     <div class="cqc-app" bind:this={host}>
       <p class="source" data-testid="cqc-source" role="status" aria-live="polite">{s[source]}</p>
+      <p>{s.damping} · <span data-testid="cqc-displayed-damping">{new Intl.NumberFormat(cqcLocale(), { style: 'percent' }).format(resultXi)}</span></p>
       <div class="controls">
         <button onclick={run} disabled={busy}>{busy ? s.running : s.run}</button>
         <button onclick={stop}>{s.stop}</button><button onclick={restart}>{s.restart}</button>

@@ -45,17 +45,20 @@
     catch (e) { failure = String(e); }
     finally { busy = false; }
   }
-  $effect(() => {
-    const model = current;
-    const live = varied;
+  async function solveVariant(model: Case | null) {
     const token = ++variantToken;
-    untrack(() => { variant = null; variantBusy = live; });
-    if (!live) return;
-    void runVariant(model).then(next => {
-      if (token !== variantToken) return;
+    variant = null;
+    variantBusy = model !== null;
+    if (!model) return;
+    const next = await runVariant(model);
+    if (token === variantToken) {
       variant = next;
       variantBusy = false;
-    });
+    }
+  }
+  $effect(() => {
+    const model = varied ? current : null;
+    untrack(() => { void solveVariant(model); });
   });
   function setSkew(degrees: number, id?: string) {
     if (id) selected = id;
@@ -63,7 +66,7 @@
   }
   function open() { window.open(editorURL(current, new URL(`${import.meta.env.BASE_URL}app`, location.origin).href, s), '_blank', 'noopener'); }
   async function inspect(id: string) {
-    selected = id;
+    setSkew(PAPER_SKEW, id);
     tab = 'viewer';
     await tick();
     document.getElementById('rs-tab-viewer')?.focus();
@@ -121,13 +124,13 @@
               {#if variantBusy}{s.running}
               {:else if variant?.refused}<a class="mh-link" href={ISSUE}>{s.withheld}</a>
               {:else if variant?.failure}<strong>{s.engineError}</strong> {variant.failure}
-              {:else if variant}{s.reference} {fmt(base.reference)} · Stabileo {fmt(variant.value)} · {s.errorPct} {pct(variant.error)} · {variant.pass ? s.pass : s.fail}{/if}
+              {:else if variant}{s.reference} {fmt(base.reference)} · Stabileo {fmt(variant.value)} · {s.errorPct} {pct(variant.error)} · {variant.marginal ? (variant.pass ? s.marginal : s.marginalFail) : (variant.pass ? s.pass : s.fail)}{/if}
             </p>
           {/if}
         {/if}
         <label class="mh-control">{s.scale}<span class="mh-range"><input type="range" min="0" max="20" step="0.5" bind:value={scale} /><output>{scale}</output></span></label>
         <div class="mh-actions">
-          <button onclick={run} disabled={busy}>{s.run}</button>
+          <button onclick={() => varied ? solveVariant(current) : run()} disabled={busy || variantBusy}>{s.run}</button>
           <button onclick={open}>{s.open}</button>
         </div>
         <p>{s.projection}</p>

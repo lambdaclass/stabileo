@@ -84,8 +84,10 @@
     source = 'live';
     error = null;
     running = true;
-    worker = spawn();
-    worker.onmessage = ({ data }) => {
+    const active = spawn();
+    worker = active;
+    active.onmessage = ({ data }) => {
+      if (worker !== active) return;
       if (data.row) {
         rows = [...rows, data.row];
         playback.setCount(rows.length);
@@ -94,8 +96,8 @@
       if (data.error) { error = data.error; stop(); }
       if (data.done) stop();
     };
-    worker.onerror = () => { error = 'init'; stop(); };
-    worker.postMessage({ run: true });
+    active.onerror = () => { if (worker === active) { error = 'init'; stop(); } };
+    active.postMessage({ run: true });
   }
   function restart() {
     stop();
@@ -263,13 +265,13 @@
           <button onclick={backToPaper}>{s.backToPaper}</button>
         {/if}
       </section>
-      <div class="table-scroll" aria-busy={running}>
+      {#if view === 'paper'}<div class="table-scroll" aria-busy={running}>
         <table data-testid="navier-results">
           <caption>{s.tableCaption}</caption>
           <thead><tr><th scope="col">{s.element}</th><th scope="col">{s.mesh}</th><th scope="col">{s.result}</th><th scope="col">{s.difference}</th></tr></thead>
           <tbody>{#each rows as row, i (`${row.family}${row.n}`)}<tr class:selected={view === 'paper' && i === index}><td>{row.family}</td><td>{row.n}×{row.n}</td><td>{nf(row.center_mm)}</td><td>{signed(difference(row))}</td></tr>{/each}</tbody>
         </table>
-      </div>
+      </div>{/if}
     </div>
   {/snippet}
 </ExperimentShell>

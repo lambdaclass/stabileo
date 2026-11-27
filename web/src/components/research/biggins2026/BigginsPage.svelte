@@ -77,7 +77,7 @@
     <h2>{s.model}</h2><p>{s.theory}</p><p>{s.method}</p>
     <p><ExperimentLink step={postSnapStep(run)}>{s.jump}</ExperimentLink> · <ExperimentLink tab="mode">{s.mode}</ExperimentLink></p>
     <p>{s.width}: <ExperimentLink params={{ width: 0.7 }}>{num(0.7, { dp: 2 })}</ExperimentLink> · <ExperimentLink params={{ width: 0.5 }}>{num(0.5, { dp: 2 })}</ExperimentLink> · <ExperimentLink params={{ width: 0.9 }}>{num(0.9, { dp: 2 })}</ExperimentLink></p>
-    <h2 id="checks">{s.checks}</h2><p>{s.evidence.replace('{threshold}', num(published.checks[0].reference, { dp: 2 }))}</p>
+    <h2 id="checks">{s.checks}</h2><p>{s.evidence.replace('{threshold}', num(published.checks.find(row => row.id === 'threshold-70')!.reference, { dp: 2 }))}</p>
     <dl>
       {#each validation.checks as check}
         <dt>{s.checkLabels[check.metric]}</dt>
@@ -85,7 +85,7 @@
       {/each}
     </dl>
     <p><a href="https://arxiv.org/html/2601.06598v2">{s.paper}</a> · <a href="https://zenodo.org/records/18256271">{s.data}</a></p>
-    <p>{s.referenceCaveat.replace('{software}', num(reference.find(p => p[0] === 0.7)![1], { dp: 4 })).replace('{published}', num(published.checks[0].reference, { dp: 2 }))}</p><p>{s.limits}</p>
+    <p>{s.referenceCaveat.replace('{software}', num(reference.find(p => p[0] === 0.7)![1], { dp: 4 })).replace('{published}', num(published.checks.find(row => row.id === 'threshold-70')!.reference, { dp: 2 }))}</p><p>{s.limits}</p>
   {/snippet}
   {#snippet app()}
     <div lang={publicI18n.locale} class="arches-app" bind:this={host} data-source={source} data-step={playback.shown} data-threshold={run.threshold} data-width={run.width} data-compression={run.compression} data-alpha={frame.alpha} data-force={frame.force}

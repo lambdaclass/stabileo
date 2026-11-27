@@ -3,7 +3,7 @@
   import type { Snippet } from 'svelte';
   import { useExperiment } from './context';
 
-  let { step, params, tab, children }: { step?: number; params?: Record<string, number | string | boolean>; tab?: string; children: Snippet } = $props();
+  let { step, params, tab, disabled = false, children }: { disabled?: boolean; step?: number; params?: Record<string, number | string | boolean>; tab?: string; children: Snippet } = $props();
   const exp = useExperiment();
 
   function go() {
@@ -17,7 +17,7 @@
   }
 </script>
 
-<button type="button" class="rs-xlink" onclick={go}>{@render children()}</button>
+<button type="button" class="rs-xlink" {disabled} onclick={go}>{@render children()}</button>
 
 <style>
   .rs-xlink {
@@ -34,6 +34,7 @@
     text-underline-offset: 3px;
     cursor: pointer;
   }
+  .rs-xlink:disabled { opacity: 0.5; cursor: default; }
   .rs-xlink:hover {
     text-decoration-style: solid;
   }

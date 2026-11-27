@@ -80,7 +80,7 @@
     <p>{text.solverDescription}</p>
     <p>{s.referenceWhy}</p>
     <p>{s.publishedWhy}</p>
-    <p>{s.meshLive} {#each meshes as n, i (n)}{#if i} · {/if}<ExperimentLink params={{ elements: n }}>{s.meshRun.replace('{n}', String(n))}</ExperimentLink>{/each}</p>
+    <p>{s.meshLive} {#each meshes as n, i (n)}{#if i} · {/if}<ExperimentLink disabled={busy} params={{ elements: n }}>{s.meshRun.replace('{n}', String(n))}</ExperimentLink>{/each}</p>
     <h2>{s.moment}</h2>
     <p>{text.momentDescription}</p>
     <p><a href={evidence}>{s.evidence}</a></p>

@@ -26,7 +26,7 @@
   const list = $derived(result ? checks(result, solved) : []);
   const passed = $derived(list.filter(c => c.passed).length);
   const nf = (n: number, dp = 6) => fixed(n, locale, dp);
-  const shown = $derived({ span: nf(params.span, 0), height: nf(params.height, Number.isInteger(params.height) ? 0 : 1), mp: nf(params.mp, 0), horizontal: nf(params.horizontal, 0), vertical: nf(params.vertical, Number.isInteger(params.vertical) ? 0 : 1) });
+  const shown = $derived({ span: nf(solved.span, 0), height: nf(solved.height, Number.isInteger(solved.height) ? 0 : 1), mp: nf(solved.mp, 0), horizontal: nf(solved.horizontal, 0), vertical: nf(solved.vertical, Number.isInteger(solved.vertical) ? 0 : 1) });
   const label = (m: 'beam' | 'sway' | 'combined') => s[m];
   function setParams(next: Partial<Portal>) {
     params = { ...params, ...next };
@@ -99,7 +99,7 @@
     <p>{s.provenance} <a href="https://shop.elsevier.com/books/plastic-theory-of-structures/horne/978-0-08-022737-5">{s.publisher}</a> {s.provenanceEnd}</p>
     <h2 id="checks">{s.checksHeading}</h2>
     <ul class="checks">{#each list as check (check.id)}
-      <li data-testid="check" data-passed={check.passed}><span aria-hidden="true">{check.passed ? '✓' : '✗'}</span> {check.id === 'hinges' && mode === 'beam' ? s.hingesBeam : check.id === 'hinges' && mode === 'sway' ? s.hingesSway : check.id === 'equilibrium' && !isPaper(solved) ? s.equilibriumVariant : fill(s.checks[check.id], { corner: nf(cornerMoment(result?.collapseFactor ?? NaN, solved)) })} <strong>{check.passed ? s.passed : s.failed}</strong></li>
+      <li data-testid="check" data-passed={check.passed}><span aria-hidden="true">{check.passed ? '✓' : '✗'}</span> {check.id === 'hinges' && mode === null ? s.tie : check.id === 'hinges' && mode === 'beam' ? s.hingesBeam : check.id === 'hinges' && mode === 'sway' ? s.hingesSway : check.id === 'equilibrium' && !isPaper(solved) ? s.equilibriumVariant : fill(s.checks[check.id], { corner: nf(cornerMoment(result?.collapseFactor ?? NaN, solved)) })} <strong>{check.passed ? s.passed : s.failed}</strong></li>
     {/each}</ul>
     <h2>{s.scope}</h2>
     <ul>{#each s.limits as limit}<li>{limit}</li>{/each}</ul>
@@ -110,7 +110,7 @@
         deformScale={DEFORM_SCALE} showMesh={false} editorButton={false} height="clamp(15rem, 35dvh, 22rem)"
         oninteract={() => playback.interact()} />
       <p class="small">{fill(s.amplified, { scale: DEFORM_SCALE })} · {s.planeNote}</p>
-      <p data-testid="source" role="status" aria-live="polite">{running ? s.running : s[source]}</p>
+      <p data-testid="source" role="status" aria-live="polite">{running ? s.running : result ? s[source] : s.noResult}</p>
       <div class="params">
         <label>{s.ratio} <output>{nf(ratio, 1)}</output>
           <input type="range" min="0.5" max="5" step="0.5" value={ratio} aria-valuetext={nf(ratio, 1)} data-testid="ratio" oninput={e => setParams({ vertical: Number(e.currentTarget.value) * params.horizontal })} />
@@ -125,7 +125,7 @@
         <button onclick={stop}>{s.stop}</button>
         <button onclick={restart}>{s.restart}</button>
       </div>
-      {#if error}<p role="alert">{s.error}. {s.errorDetail}: <code>{error}</code></p>{/if}
+      {#if error}<p role="alert">{result ? s.error : s.noResult}. {s.errorDetail}: <code>{error}</code></p>{/if}
       {#if result}
         <label>{s.step} {playback.shown + 1}/{result.steps.length}
           <input aria-label={s.step} type="range" min="0" max={result.steps.length - 1} value={playback.shown} oninput={e => playback.seek(Number(e.currentTarget.value))} />

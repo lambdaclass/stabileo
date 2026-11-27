@@ -5,6 +5,7 @@
   import comparison from '../../../../../research/stability/ferrari-sigmund-2025/reference-results/published_comparison.json';
   import validation from '../../../../../research/stability/ferrari-sigmund-2025/VALIDATION.json';
   import { researchLocale } from '../i18n';
+  import { comparisonStrings } from '../shell/comparison-strings';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import ExperimentLink from '../shell/ExperimentLink.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
@@ -95,7 +96,7 @@
   onDestroy(() => { worker?.terminate(); playback.dispose(); });
 </script>
 
-<div class="ferrari-page">
+<div class="ferrari-page" lang={researchLocale()}>
 <ExperimentShell introInArticle paperId="ferrari-2025" name={s.title} lead={s.lead} locale={ferrariLocale()}
   sourcePath="research/stability/ferrari-sigmund-2025"
   checks={{ passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length }}
@@ -104,6 +105,7 @@
   {#snippet article()}
     <h2>{s.scope}</h2><p>{s.scopeText}</p><p data-testid="ferrari-model">{fill(s.model, values)}</p>
     <h2>{s.methodHeading}</h2>
+    <p>{comparisonStrings().paper} · α = {format(paper.numerical.alpha)}, β = {format(paper.numerical.beta)}</p>
     <p>{fill(s.method, { factor: format(study.inextensional_area_m2 / paper.parameters.area_m2), elements: format(fine.elements_per_member) })}</p>
     <div data-testid="ferrari-reference">
     <p data-testid="ferrari-extensible">{fill(s.extensible, { first: short(study.paper_area_not_a_bifurcation[0].alpha), second: short(study.paper_area_not_a_bifurcation[1].alpha) })}</p>
@@ -120,7 +122,7 @@
     <div bind:this={host} class="experiment" data-testid="ferrari-experiment">
       <p class="notice">{s.disclaimer}</p>
       <div class="run">
-        <p data-testid="ferrari-source" aria-live="polite">{sourceLabel}</p>
+        <p data-testid="ferrari-source" aria-live="polite">{sourceLabel} · {signed(displayedMoment)} kN·m{#if running && moment !== displayedMoment} · {s.run} ({signed(moment)} kN·m)…{/if}</p>
         <div class="controls">
           <label>{s.imperfection}
             <select data-testid="ferrari-sign" value={moment} onchange={e => setMoment(Number(e.currentTarget.value))}>

@@ -57,7 +57,7 @@ it.each(['horizontal', 'vertical'] as const)('pure loading checks equilibrium wi
   expect(checks(result, model).find(c => c.id === 'equilibrium')?.passed).toBe(false);
 });
 
-it.skip('known wrong result: #2505 beam midspan cannot yield in the reverse bending sense', async () => {
+it('beam midspan cannot yield in the reverse bending sense', async () => {
   const params = { ...PAPER, vertical: 4 * PAPER.horizontal };
   const result = await run(params);
   const hinges = () => checks(result, params).find(row => row.id === 'hinges')!.passed;

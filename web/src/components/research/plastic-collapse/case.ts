@@ -137,7 +137,11 @@ export function checks(result: Result, p: Portal = PAPER): { id: CheckId; passed
   const mode = possible.length === 1 ? possible[0] : null;
   const lambda = result.collapseFactor;
   const { moments, reactions } = collapseState(result);
-  const hingesMatch = !paper ? result.steps.every(s => (s.hingesFormed ?? []).every(h => Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance)) : result.steps.length === portal.events.length && result.steps.every((s, i) => {
+  const hingesMatch = !paper ? result.steps.every(s => (s.hingesFormed ?? []).every(h => {
+    const node = hingeNode(h);
+    const target = node === 5 || node === 1 || node === 4 ? mp : -mp;
+    return Math.abs(h.momentY - target) <= yieldTolerance * mp;
+  })) : result.steps.length === portal.events.length && result.steps.every((s, i) => {
     const want = portal.events[i];
     const formed = s.hingesFormed ?? [];
     return formed.length === 1 && formed.every(h => h.elementId === want.elementId && h.end === want.end && Math.sign(h.momentY) === want.momentSign && Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance)
