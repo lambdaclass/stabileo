@@ -138,6 +138,56 @@ describe('during the attempt', () => {
     return { s, api };
   }
 
+  it.skip('known wrong result: #1927 — lost acknowledgement recovers the committed revision and saves the latest edit', async () => {
+    const { s, api } = await running();
+    api.saveAnswers.mockRejectedValueOnce(new Error('lost acknowledgement'));
+    s.update(answer('old'));
+    await s.flush();
+    const committed = api.saveAnswers.mock.calls[0]![1];
+    api.saveAnswers.mockRejectedValueOnce(new ApiError(409, 'stale_revision', ''));
+    api.attempt.mockResolvedValueOnce(attempt({ revision: 1, answers: committed }));
+    s.update(answer('new'));
+    await s.flush();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(s.phase).toBe('running');
+    expect(api.saveAnswers.mock.calls.at(-1)).toMatchObject({ 1: { answers: answer('new') }, 2: 1 });
+  });
+
+  it.skip('known wrong result: #1927 — final answers remain unavailable until read from the server', async () => {
+    const { s, api } = await running();
+    s.update(answer('unsaved'));
+    api.submit.mockRejectedValueOnce(new ApiError(409, 'attempt_closed', ''));
+    api.attempt.mockRejectedValueOnce(new Error('offline'));
+    await s.submit();
+    expect(s.phase).toBe('unavailable');
+    expect(s.answers).toEqual([]);
+    api.attempt.mockResolvedValueOnce(attempt({ closed: true, answers: {} }));
+    await s.refresh();
+    expect(s.phase).toBe('closed');
+    expect(s.answers).toEqual([]);
+  });
+
+  it.skip('known wrong result: #1927 — a second exam gets its own editable answer sheet', async () => {
+    const { s, api } = await running();
+    s.update(answer('first'));
+    await s.submit();
+    await s.load('SECOND');
+    api.start.mockResolvedValueOnce(attempt({ id: 'att-2', code: 'SECOND' }));
+    await s.start();
+    s.update(answer('second'));
+    await s.submit();
+    expect(api.submit.mock.calls.at(-1)).toMatchObject({ 0: 'att-2', 1: { answers: { answers: answer('second') } } });
+  });
+
+  it.skip('known wrong result: #1927 — edits at the deadline cannot enter the grace payload', async () => {
+    const { s, api } = await running();
+    s.update(answer('on time'));
+    examLock.syncClock(s.attempt!.deadline_at);
+    s.update(answer('late'));
+    await s.submit();
+    expect(api.submit.mock.calls[0]![1].answers.answers).toEqual(answer('on time'));
+  });
+
   it('does not save answers that did not change', async () => {
     const { s, api } = await running();
     s.update(answer('1'));
