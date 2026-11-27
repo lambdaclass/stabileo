@@ -416,6 +416,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     fr: 'Supprimez du modèle les cas de charge vides dont vous avez confirmé qu’ils sont obsolètes, y compris ceux qui étaient déjà vides dans la version 0.6.4. Régénérez les combinaisons et vérifiez qu’elles excluent les identifiants de ces cas avant de relancer les analyses concernées.',
     hu: 'Távolítsa el a modellből a bizonyítottan elavult üres tehereseteket, azokat is, amelyek már a 0.6.4-es verzióban üresek voltak. Hozza létre újra a kombinációkat, és az érintett számítások megismétlése előtt ellenőrizze, hogy a kombinációk nem tartalmazzák ezeket a tehereset-azonosítókat.',
     tr: 'Artık geçerli olmadığını doğruladığınız boş yük durumlarını, 0.6.4 sürümünde zaten boş olanlar dahil, modelden kaldırın. Birleşimleri yeniden oluşturun ve etkilenen analizleri tekrarlamadan önce bu yük durumu kimliklerinin birleşimlerde yer almadığını doğrulayın.',
+    it: 'Rimuovi dal modello i casi di carico vuoti che hai verificato essere obsoleti, compresi quelli già vuoti nella versione 0.6.4. Rigenera le combinazioni e verifica che escludano gli identificativi di questi casi prima di ripetere le analisi interessate.',
     zh: '从模型中删除经确认已失效的空荷载工况，包括在 0.6.4 版中已经为空的工况。重新生成组合，并在重新进行受影响的分析前，核实新组合不含这些工况的编号。',
   };
 
@@ -456,12 +457,14 @@ describe('the safety-advisories post quotes the advisories', () => {
     ['fr', 'sur toute la longueur de la jonction prévue'],
     ['hu', 'a tervezett csatlakozás teljes hosszában'],
     ['tr', 'amaçlanan birleşimin tamamı boyunca'],
+    ['it', 'lungo tutta la giunzione prevista'],
     ['zh', '沿整个预期连接线'],
   ])('SA-2026-127 %s requires full-length shared mesh connectivity', (locale, wording) => {
     expectAdvisoryWording(locale, 'SA-2026-127', wording);
   });
 
   it.each<[PublicLocale, string]>([
+    ['it', 'aste dei modelli piani (2D), indipendentemente dalla sezione'],
     ['es', 'barras de modelos planos (2D), independientemente de su sección'],
     ['pt', 'barras de modelos planos (2D), independentemente da seção transversal'],
   ])('SA-2026-128 %s identifies 2D models regardless of section', (locale, wording) => {
@@ -476,6 +479,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     fr: 'Lorsque l’essieu et la charge ponctuelle permanente coïncident exactement, ils produisent un seul saut d’effort tranchant dû aux deux charges. L’effort tranchant entre les charges a des limites unilatérales lorsque l’essieu s’approche de la charge permanente ou la dépasse. Vérifiez les deux limites avec l’essieu juste avant et juste après la charge permanente.',
     hu: 'Az egy helyre eső tengelyterhelés és állandó pontteher egyetlen, együttes nyíróerőugrást okoz. A két teher közötti nyíróerőnek egyoldali határértékei vannak, amikor a tengely megközelíti vagy éppen elhagyja a pontterhet. Ellenőrizze mindkét határértéket a pontteher előtt és után közvetlenül elhelyezkedő tengellyel.',
     tr: 'Aks ve kalıcı tekil yük tam olarak aynı konumdayken iki yük birlikte tek bir kesme kuvveti sıçraması oluşturur. Aks tekil yüke yaklaşırken veya onu geçerken iki yük arasındaki kesme kuvvetinin tek taraflı limitleri vardır. Aks tekil yükün hemen önündeyken ve hemen arkasındayken her iki limiti de kontrol edin.',
+    it: 'Quando l’asse e il carico puntuale permanente coincidono esattamente, producono un unico salto di taglio combinato. Il taglio tra i due carichi ha limiti unilaterali quando l’asse si avvicina al carico o lo oltrepassa. Verifica entrambi i limiti con l’asse appena prima e appena dopo il carico.',
     zh: '车轴与永久点荷载的位置完全重合时，两项荷载共同产生一次剪力跳变。车轴接近或刚越过该荷载时，两者之间的剪力分别趋于相应的单侧极限。请检查车轴紧邻该荷载前后两个位置所对应的单侧极限。',
   };
 
