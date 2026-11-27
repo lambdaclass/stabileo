@@ -2,7 +2,7 @@ import type { PostBody } from '../../types';
 
 const body: PostBody = {
   "title": "Stabileo 0.5.0: 23 nieuwe veiligheidsberichten; elk open probleem met foute resultaten waarschuwt of weigert",
-  "excerpt": "Wat er sinds 0.4.0 is veranderd: drieëntwintig fouten die een onjuist of onveilig resultaat konden geven, uitgeschreven als veiligheidsberichten. Daarvan zijn er 21 opgelost, is de torsietoets onvolledig en blijft 2D plastisch bezwijken geweigerd; een waarschuwing of een weigering voor elke fout die nog openstaat; en de stap-voor-stap-cursus in Basic.",
+  "excerpt": "Sinds 0.4.0 zijn 23 fouten gemeld. Daarvan zijn er 21 opgelost, is de torsietoets onvolledig en blijft 2D plastisch bezwijken geweigerd. Open problemen geven een waarschuwing of weigering. Basic bevat nu de stap-voor-stap-cursus.",
   "blocks": [
     {
       "k": "p",

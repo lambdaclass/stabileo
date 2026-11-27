@@ -34,6 +34,22 @@ export async function checkRouteSize({ build = viteBuild, files = fs, process = 
   const chunkLocaleBytes = new Map();
   const localized = {};
   try {
+    function generateBundle(_options, bundle) {
+      for (const output of Object.values(bundle)) {
+        if (output.type === 'chunk' && baselinePath) {
+          chunkLocaleBytes.set(output.fileName, localeBytes(output.code, Object.keys(output.modules)));
+        }
+        if (output.type === 'chunk' && isBlogPostsChunk(Object.keys(output.modules))) blogPostsChunks.add(output.fileName);
+        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/') || id.includes('/components/diagram-game/') || id.includes('/components/games/'))) toolsChunks.add(output.fileName);
+        if (output.type === 'chunk') {
+          const locales = Object.keys(output.modules).filter(id => id.startsWith('\0virtual:public-i18n/'));
+          if (locales.length) publicLocaleChunks.set(output.fileName, locales.map(id => id.split('/').at(-1)).sort().join('+'));
+        }
+        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/') || /\/research\/.*\.json$/.test(id))) {
+          researchChunks.add(output.fileName);
+        }
+      }
+    }
     // A deterministic engine stub makes this gate independent of locally built WASM. It measures
     // web dependency isolation, not the engine binary, which has its own build/validation gates.
     await build({
@@ -51,22 +67,7 @@ export async function checkRouteSize({ build = viteBuild, files = fs, process = 
       }, load(id) {
         if (id === '\0route-size-wasm') return 'export default "data:application/wasm;base64,AGFzbQEAAAA=";';
         if (id === '\0route-size-engine') return 'export function initSync() {} export function solve_3d() { return "{}"; }';
-      }, generateBundle(_options, bundle) {
-        for (const output of Object.values(bundle)) {
-          if (output.type === 'chunk' && baselinePath) {
-            chunkLocaleBytes.set(output.fileName, localeBytes(output.code, Object.keys(output.modules)));
-          }
-          if (output.type === 'chunk' && isBlogPostsChunk(Object.keys(output.modules))) blogPostsChunks.add(output.fileName);
-          if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/') || id.includes('/components/diagram-game/') || id.includes('/components/games/'))) toolsChunks.add(output.fileName);
-          if (output.type === 'chunk') {
-            const locales = Object.keys(output.modules).filter(id => id.startsWith('\0virtual:public-i18n/'));
-            if (locales.length) publicLocaleChunks.set(output.fileName, locales.map(id => id.split('/').at(-1)).sort().join('+'));
-          }
-          if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/') || /\/research\/.*\.json$/.test(id))) {
-            researchChunks.add(output.fileName);
-          }
-        }
-      } }],
+      }, generateBundle }],
       build: { outDir, emptyOutDir: true, manifest: true }, logLevel: 'error',
     });
     const manifest = JSON.parse(readFileSync(join(outDir, '.vite/manifest.json'), 'utf8'));

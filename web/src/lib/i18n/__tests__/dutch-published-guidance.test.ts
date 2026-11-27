@@ -183,7 +183,7 @@ it('known wrong result: #2613 — a channel with missing yield stress cannot cla
   expect(nl['steel.f62.missing.slendernessLimits']).toMatch(/Fy.*14|14.*Fy/);
 });
 
-it.skip.each(['nl', 'it'] as const)('known wrong result: #2613 — the 0.5.0 safety summary fits the %s search description', locale => {
+it.each(['nl', 'it'] as const)('known wrong result: #2613 — the 0.5.0 safety summary fits the %s search description', locale => {
   const excerpt = findPost('stabileo-0-5-0')!.i18n[locale]!.excerpt;
   expect(excerpt.length).toBeGreaterThanOrEqual(90);
   expect(excerpt.length).toBeLessThanOrEqual(300);

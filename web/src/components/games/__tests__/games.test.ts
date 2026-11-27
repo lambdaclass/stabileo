@@ -9,7 +9,8 @@ import { hubStrings } from '../strings';
 import { loadGamesPage } from '../load-page';
 import GamesPage from '../GamesPage.svelte';
 
-const LOCALES: Locale[] = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'];
+const LOCALES: Locale[] = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'];
+LOCALES.push('it', 'nl');
 const width = (s: string) => s.length + (s.match(/[\p{Script=Han}　-〿＀-￯]/gu)?.length ?? 0);
 afterEach(() => setPublicLocale('en'));
 
