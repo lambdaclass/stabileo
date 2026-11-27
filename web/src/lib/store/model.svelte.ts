@@ -50,6 +50,7 @@ import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, Co
 const DEFINED_LOAD_KINDS = new Set<string>(['floorLoad', 'curveLoad']);
 
 export type { ConnectorElement };
+import { restoreFootprintLinks, savedFootprintLinks } from '../model/building/footprint-link-owners';
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
@@ -2229,7 +2230,7 @@ function createModelStore() {
     get designDecisions() { return model.designDecisions; },
     get plates() { return model.plates; },
     get quads() { return model.quads; },
-    get constraints() { return model.constraints; },
+    get constraints() { return _bulkConstraintBuffer ?? model.constraints; },
     get connectors() { return model.connectors; },
     get footings() { return model.footings; },
     get geotechnical() { return model.geotechnical; },
@@ -2318,6 +2319,7 @@ function createModelStore() {
           ? { analysis: JSON.parse(JSON.stringify(snap.analysis)) as ModelSnapshot['analysis'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
+        ...savedFootprintLinks(this.constraints),
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
         nextId: snapId as ModelSnapshot['nextId'],
         // Stamp the corrected local-axis convention on every snapshot/save so
@@ -2426,7 +2428,7 @@ function createModelStore() {
       const copy = plainDeepCopy(modelFields);
       const mode = isAnalysisMode(copy.analysisMode) ? copy.analysisMode : uiStore.analysisMode;
       const plane = requireStoredProjectInput({ ...copy, analysisMode: mode });
-      const constraints = migrateModelConstraints(copy.constraints);
+      const constraints = restoreFootprintLinks(migrateModelConstraints(copy.constraints), copy.footprintLinks);
       if (copy.combinations !== undefined) requireCombinationInput(copy.combinations);
       const s = canonicalizeModelAliases(copy);
       requireStructureInput(s, { allowStoredNullDensity: true, storedSupportKeys: true });
@@ -2861,7 +2863,7 @@ function createModelStore() {
     /** Node ids named by constraints, connectors, footings and point masses. */
     referencedNodeIds(): Set<number> {
       const out = new Set<number>();
-      for (const c of model.constraints) {
+      for (const c of this.constraints) {
         const x = c as unknown as { masterNode?: number; slaveNode?: number; slaveNodes?: number[]; terms?: Array<{ nodeId: number }> };
         for (const n of [x.masterNode, x.slaveNode, ...(x.slaveNodes ?? []), ...(x.terms ?? []).map((t) => t.nodeId)]) if (typeof n === 'number') out.add(n);
       }
@@ -3459,9 +3461,19 @@ function createModelStore() {
       else model.constraints = [...model.constraints, { ...c }];
     },
 
+    replaceConstraint(index: number, constraint: Constraint3D): void {
+      const constraints = this.constraints;
+      if (!constraints[index]) return;
+      if (!_undoBatching) _pushUndo?.();
+      if (_bulkConstraintBuffer) _bulkConstraintBuffer[index] = { ...constraint };
+      else model.constraints = constraints.map((current, i) => i === index ? { ...constraint } : current);
+    },
+
     removeConstraint(index: number): void {
       if (!_undoBatching) _pushUndo?.();
-      model.constraints = model.constraints.filter((_, i) => i !== index);
+      if (_bulkConstraintBuffer) {
+        if (Number.isInteger(index) && index >= 0 && index < _bulkConstraintBuffer.length) _bulkConstraintBuffer.splice(index, 1);
+      } else model.constraints = model.constraints.filter((_, i) => i !== index);
     },
 
     clearConstraints(): void {

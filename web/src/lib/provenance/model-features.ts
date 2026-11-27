@@ -70,7 +70,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
-  'physicalPlateDefinitions', 'physicalPlatePointMasses', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'physicalPlateDefinitions', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
@@ -519,6 +519,35 @@ function hasOpposedGeneratedLines(cases: NonNullable<FeatureSnapshot['loadCases'
   return false;
 }
 
+function addPlateEditFeatures(s: FeatureSnapshot, physicalPlates: ReadonlySet<number>, features: Set<FeatureId>): void {
+  const points = (s.massSource as { points?: unknown } | undefined)?.points;
+  const links = Array.isArray(s.constraints) ? s.constraints.filter(c => c?.type === 'rigidLink') : [];
+  if ((!Array.isArray(points) || !points.length) && !links.length) return;
+  const nodes = new Set<number>();
+  const quadIds = new Set<number>();
+  const plateIds = new Set<number>();
+  for (const entry of Array.isArray(s.groups) ? s.groups : []) {
+    const group = entry?.[1];
+    if (!group) continue;
+    const data = group.data as { kind?: string; meshAtSolve?: { panel?: number[] } } | null;
+    const panel = data?.kind === 'slab' && group.kind === 'physicalMember' ? data.meshAtSolve?.panel : undefined;
+    if (!physicalPlates.has(entry[0]) && !Array.isArray(panel)) continue;
+    for (const id of Array.isArray(panel) ? panel : []) nodes.add(id);
+    for (const id of Array.isArray(group.members?.nodes) ? group.members.nodes : []) nodes.add(id);
+    for (const id of Array.isArray(group.members?.quads) ? group.members.quads : []) quadIds.add(id);
+    for (const id of Array.isArray(group.members?.plates) ? group.members.plates : []) plateIds.add(id);
+  }
+  for (const [rows, ids] of [[s.quads, quadIds], [s.plates, plateIds]] as const) {
+    if (ids.size && Array.isArray(rows)) for (const entry of rows) {
+      if (entry && ids.has(entry[0]) && Array.isArray(entry[1]?.nodes)) {
+        for (const n of entry[1].nodes) nodes.add(n);
+      }
+    }
+  }
+  if (Array.isArray(points) && points.some(point => nodes.has(point?.nodeId))) features.add('physicalPlatePointMasses');
+  if (links.some(link => typeof link.slaveNode === 'number' && nodes.has(link.slaveNode))) features.add('plateMeshRigidLinks');
+}
+
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
@@ -631,13 +660,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (mode !== 'pro' && (quads.length || values(s.plates).length)) f.add('shellsInBasic');
   const physicalPlates = new Set((Array.isArray(s.groups) ? s.groups : []).flatMap(entry =>
     plateSurfaceOf({ data: entry?.[1]?.data as Record<string, unknown> }) ? [entry[0]] : []));
+  addPlateEditFeatures(s, physicalPlates, f);
   if (physicalPlates.size) {
     f.add('physicalPlateDefinitions');
-    const points = (s.massSource as { points?: unknown } | undefined)?.points;
-    if (Array.isArray(points) && points.length) {
-      const nodes = new Set((s.groups ?? []).flatMap(([id, g]) => physicalPlates.has(id) ? g?.members?.nodes ?? [] : []));
-      if (points.some(point => nodes.has(point?.nodeId))) f.add('physicalPlatePointMasses');
-    }
     for (const group of values(s.groups)) {
       if (group?.kind !== 'floorLoad') continue;
       const data = group.data as { distribution?: string; target?: { by?: string; groupId?: number } } | undefined;

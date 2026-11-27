@@ -16,7 +16,8 @@ import { meshQuad } from '../edit/mesh-region';
 import { mergeCollinear } from '../edit/merge-collinear';
 import type { PhysicalData } from '../physical/types';
 import type { SurfaceLoad3D, ThermalLoadQuad3D } from '../../store/model.svelte';
-import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes } from './column-footprints';
+import { plateNodeReferences, retainedPlateNodes } from '../../store/plate-node-references';
+import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, releaseFootprintLinks } from './column-footprints';
 
 type Deferred = ReturnType<typeof physicalGroups>[number] & { physical: PhysicalData & { meshAtSolve: NonNullable<PhysicalData['meshAtSolve']> } };
 const deferred = (): Deferred[] => physicalGroups().filter((g): g is Deferred => g.physical.kind === 'slab' && !!g.physical.meshAtSolve);
@@ -42,7 +43,7 @@ export function meshDeferredSlabs(): { slabs: number; shells: number } {
       const quads = g.members.quads ?? [];
       // One shell per panel is what was placed; anything else was edited by hand and is left as it is.
       if (quads.length !== 1) continue;
-      const r = meshWithFootprints(quads[0]!, meshSizeOf(g));
+      const r = meshWithFootprints(quads[0]!, meshSizeOf(g), g.id);
       if (!r || 'refused' in r) continue;
       out.slabs++; out.shells += r.quadCount;
       modelStore.setGroupData(g.id, { ...g.physical, meshAtSolve: { ...g.physical.meshAtSolve, meshed: true } } as unknown as Record<string, unknown>);
@@ -73,7 +74,7 @@ export function simplifySlabs(ids?: readonly number[]): { slabs: number; removed
       const meshNodes = new Set(quads.flatMap((id) => modelStore.quads.get(id)!.nodes));
       for (const n of panel) meshNodes.delete(n);
       // The column ties the mesh made (`column-footprints.ts`) go with its nodes.
-      untieNodes(meshNodes);
+      releaseFootprintLinks(g.id);
       for (const id of quads) modelStore.removeQuad(id);
       const q = modelStore.addQuad(panel as [number, number, number, number], first.materialId, first.thickness);
       if (first.offset) modelStore.setShellOffset('quad', q, first.offset);
@@ -87,14 +88,9 @@ export function simplifySlabs(ids?: readonly number[]): { slabs: number; removed
       modelStore.setGroupData(g.id, { ...g.physical, meshAtSolve: { ...g.physical.meshAtSolve, meshed: false } } as unknown as Record<string, unknown>);
       // The beams the mesh cut along the panel's edges, whole again where nothing else holds the cut.
       const onEdge = [...modelStore.elements.values()].filter((e) => meshNodes.has(e.nodeI) || meshNodes.has(e.nodeJ)).map((e) => e.id);
-      out.removedNodes += mergeCollinear(onEdge).removedNodes;
+      out.removedNodes += mergeCollinear(onEdge, plateNodeReferences()).removedNodes;
       // The mesh's own nodes inside the panel, now holding nothing.
-      const held = new Set<number>();
-      for (const e of modelStore.elements.values()) { held.add(e.nodeI); held.add(e.nodeJ); }
-      for (const s of modelStore.quads.values()) s.nodes.forEach((n) => held.add(n));
-      for (const p of modelStore.plates.values()) p.nodes.forEach((n) => held.add(n));
-      for (const s of modelStore.supports.values()) held.add(s.nodeId);
-      for (const l of modelStore.loads) if ('nodeId' in l.data) held.add((l.data as { nodeId: number }).nodeId);
+      const held = retainedPlateNodes();
       for (const n of meshNodes) if (modelStore.nodes.has(n) && !held.has(n)) { modelStore.removeNode(n); out.removedNodes++; }
       out.slabs++;
     }
@@ -107,7 +103,7 @@ export function simplifySlabs(ids?: readonly number[]): { slabs: number; removed
  * inside each column's section to the column (`column-footprints.ts`); a shell that is not an
  * axis-aligned rectangle is meshed on the mesher's own grid. One undo step with the caller's.
  */
-export function meshWithFootprints(quadId: number, size: number): ReturnType<typeof meshQuad> {
+export function meshWithFootprints(quadId: number, size: number, owner?: number): ReturnType<typeof meshQuad> {
   const quad = modelStore.quads.get(quadId);
   if (!quad) return null;
   const corners = quad.nodes.map((id) => modelStore.nodes.get(id)!);
@@ -115,7 +111,7 @@ export function meshWithFootprints(quadId: number, size: number): ReturnType<typ
   const columns = columnFootprintsAt(z);
   const grid = footprintGrid(corners, size, columns);
   const r = meshQuad(quadId, { density: { mode: 'targetSize', size }, splitBeams: true, ...(grid ? { mesh: grid, splitAt: outsideFootprints(columns, z) } : {}) });
-  if (r && !('refused' in r) && grid) tieFootprints(new Set(r.quads.flatMap((q) => modelStore.quads.get(q)?.nodes ?? [])), columns);
+  if (r && !('refused' in r) && grid) tieFootprints(new Set(r.quads.flatMap((q) => modelStore.quads.get(q)?.nodes ?? [])), columns, owner);
   return r;
 }
 

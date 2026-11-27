@@ -41,13 +41,13 @@ import { applyMesh, applyPlacedMesh, placeMesh, regionOccupied, validCells, type
 import { weldTolerance } from '../model/weld-tolerance';
 import { mergeCollinear } from '../model/edit/merge-collinear';
 import { addFloorLoadDef, syncDefinedLoads } from './defined-loads';
-import { constraintNodes } from '../engine/steel/unbraced-length';
+import { plateNodeReferences, retainedPlateNodes } from './plate-node-references';
 import { meshBeforeAnalysis } from './mesh-policy.svelte';
 import { endMeshProgress, meshProgress, nextFrame, setMeshProgress } from './mesh-progress.svelte';
 import { historyStore } from './history.svelte';
 export { meshBeforeAnalysis };
 import { expandDefinition, type DefinitionModel, type Expansion, type FloorLoadDef } from '../model/loads/floor-definitions';
-import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes, type ColumnFootprint, type FootprintCells } from '../model/building/column-footprints';
+import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, releaseFootprintLinks, type ColumnFootprint, type FootprintCells } from '../model/building/column-footprints';
 import { designData } from './design-data';
 import { tributaryAreas } from '../engine/foundation-springs';
 import type { ModelGroup, SupportType, SurfaceLoad3D } from './model.svelte';
@@ -649,26 +649,6 @@ export interface PlateMeshPlan {
   footprints?: { columns: ColumnFootprint[]; z: number };
 }
 
-function plateNodeReferences(): Set<number> {
-  const nodes = modelStore.referencedNodeIds();
-  for (const force of modelStore.model.dynamics?.timeHistory?.forces ?? []) nodes.add(force.nodeId);
-  for (const node of modelStore.nodes.values()) if (node.name) nodes.add(node.id);
-  return nodes;
-}
-
-/** Every node something holds; `except` a plate whose own outline and mesh do not count. */
-export const retainedPlateNodes = (except?: number): Set<number> => {
-  const s = plateNodeReferences();
-  for (const e of modelStore.elements.values()) { s.add(e.nodeI); s.add(e.nodeJ); }
-  for (const q of modelStore.quads.values()) q.nodes.forEach((n) => s.add(n));
-  for (const p of modelStore.plates.values()) p.nodes.forEach((n) => s.add(n));
-  for (const sp of modelStore.supports.values()) s.add(sp.nodeId);
-  for (const l of modelStore.loads) if ('nodeId' in l.data) s.add((l.data as { nodeId: number }).nodeId);
-  for (const n of constraintNodes(modelStore.model.constraints)) s.add(n);
-  for (const g of modelStore.model.groups.values()) if (g.id !== except) g.members.nodes?.forEach((n) => s.add(n));
-  return s;
-};
-
 /** Plain uniform area loads on every shell given, case by case, that a plate's own load can take the place of: those loads, and the cases and values it is given. */
 export function uniformLoads(keys: readonly string[], byShell: ReadonlyMap<string, Array<{ id: number; caseId: number; q: number }>>): { gone: number[]; cases: Array<{ caseId: number; q: number; ids: number[] }> } {
   const byCase = new Map<number, Array<{ id: number; key: string; q: number }>>();
@@ -942,7 +922,7 @@ function removePlateMesh(id: number, updateNeighbours = true, preserveNodes?: Re
   let removedNodes = 0, keptNodes = 0;
   const current = updateNeighbours ? physicalPlates().filter((x) => x.id !== id && plateStatus(x.id) === 'current').map((x) => x.id) : [];
   modelStore.batch(() => {
-    untieNodes(owned);
+    releaseFootprintLinks(id);
     const spread = new Set(e.surface.meshed?.supportIds ?? []);
     // A spread support was only given to a node without one, so it is taken back from the user's nodes too, unless edited since.
     // The foundation springs on the mesh's own nodes go with it, or they would hold those nodes in the model.
@@ -1249,7 +1229,7 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
     const r = placement ? applyPlacedMesh(p.mesh, options, placement) : applyMesh(p.input, options, p.mesh);
     if (!r || r.occupied) { report.refused.push({ id: p.id, reason: 'occupied' }); return; }
     const created = [...new Set(r.nodeIds)].filter(n => !before.has(n) || (preserve?.has(n) && oldOwned.has(n)));
-    if (fp) tieFootprints(new Set(r.nodeIds), fp.columns);
+    if (fp) tieFootprints(new Set(r.nodeIds), fp.columns, e.id);
     const g = modelStore.model.groups.get(p.id)!;
     const loops = plateLoops(g);
     const edges = e.surface.edgeSupports ?? [];

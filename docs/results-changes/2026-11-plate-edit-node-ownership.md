@@ -5,3 +5,11 @@ Deleting a physical plate or clearing its mesh previously removed nodes that sti
 Plate cleanup now checks the model's node references before removing any detached node. A shape edit can reclaim its own detached construction points. When a file supplies no evidence that the shape editor created a point, it preserves that point. Explicit deletion of a node remains an edit to its attached model data.
 
 A project saved after a mass was discarded cannot identify that mass from the edited geometry. For projects where a plate was deleted or remeshed, compare the point masses and their locations with a copy from before the edit. Restore any missing assignments and rerun analyses that use the mass source.
+
+## Rigid links retained during plate mesh edits
+
+Clearing a physical plate mesh or simplifying a deferred slab could delete a user-authored rigid link solely because its slave was a mesh node. The simplified slab could also lose attached masses. A later analysis would use the remaining connections and mass assignments.
+
+Footprint meshing now records which meshes created or share each generated rigid link. Removing a mesh releases its own connections. An authored link, or an older saved link without matching ownership evidence, keeps its nodes and degrees of freedom. A shared generated link remains until its last owner releases it. Ownership is stored separately from the analytical constraint in project files.
+
+For a previously simplified or remeshed model, compare the rigid-link endpoints and degrees of freedom with a copy saved before the edit. Restore any missing links and rerun the analysis.

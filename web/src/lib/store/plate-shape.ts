@@ -4,8 +4,9 @@
  * the plate again when it had a mesh, so what is drawn is what is analysed.
  */
 import { modelStore } from './model.svelte';
+import { retainedPlateNodes } from './plate-node-references';
 import {
-  applyPlateMeshes, arcEdgeBetween, planPlateMesh, plateEntry, plateSides, plateStatus, retainedPlateNodes, setPlateLoops, setPlateSideArc,
+  applyPlateMeshes, arcEdgeBetween, planPlateMesh, plateEntry, plateSides, plateStatus, setPlateLoops, setPlateSideArc,
 } from './physical-plates';
 import { plateGeometry, plateLoops, type PlateFrame, type PlateProblem } from '../model/physical/plate';
 import type { Vec3 } from '../model/edit/affine';

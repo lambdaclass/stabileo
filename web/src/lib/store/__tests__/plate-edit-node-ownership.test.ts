@@ -2,6 +2,8 @@ import { afterEach, beforeAll, expect, it } from 'vitest';
 import { modelStore } from '..';
 import { modelFeatures } from '../../provenance/model-features';
 import { meshDeferredSlabs, simplifySlabs } from '../../model/building/deferred-slabs';
+import { tieFootprints } from '../../model/building/column-footprints';
+import { renumber } from '../../model/edit/renumber';
 import { closePlateHole, setPlateSideSagitta } from '../plate-shape';
 import { applyPlateMeshes, applyPlateMeshesAsync, clearPlateMesh, createPlate, deletePlate, plateEntry, plateSides, planPlateMesh, setPlateSideArc } from '../physical-plates';
 
@@ -96,7 +98,7 @@ it('identifies plate edits that can affect the saved mass distribution', () => {
   expect(feature()).toBe(true);
 });
 
-it.skip.each([applyPlateMeshes, applyPlateMeshesAsync])('known wrong result: clearing a physical plate mesh drops a separately authored rigid link (%p)', async apply => {
+it.each([applyPlateMeshes, applyPlateMeshesAsync])('clearing a physical plate mesh drops a separately authored rigid link (%p)', async apply => {
   const { id, outline } = fixture();
   const plan = planPlateMesh(id, { size: 1, element: 'quad', followMembers: false });
   if (!plan?.mesh) throw Error(String(plan?.refused));
@@ -111,7 +113,7 @@ it.skip.each([applyPlateMeshes, applyPlateMeshesAsync])('known wrong result: cle
   expect(modelStore.nodes.has(slaveNode)).toBe(true);
 });
 
-it.skip('known wrong result: simplifying a deferred slab erases an authored link and point mass', () => {
+it('simplifying a deferred slab erases an authored link and point mass', () => {
   modelStore.clear();
   const panel = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x,y]) => modelStore.addNode(x!, y!)) as [number, number, number, number];
   const quad = modelStore.addQuad(panel, 1, 0.15);
@@ -124,9 +126,51 @@ it.skip('known wrong result: simplifying a deferred slab erases an authored link
   const points = [{ nodeId: massNode, m: 3 }];
   modelStore.addConstraint(link);
   modelStore.setMassSource({ kind: 'custom', factors: [], points });
+  expect(modelFeatures(modelStore.snapshot())).toContain('plateMeshRigidLinks');
+  expect(modelFeatures(modelStore.snapshot())).toContain('physicalPlatePointMasses');
   expect(simplifySlabs([id]).slabs).toBe(1);
   expect(modelStore.model.constraints).toContainEqual(link);
   expect(modelStore.nodes.has(slaveNode)).toBe(true);
   expect(modelStore.model.massSource?.points).toEqual(points);
   expect(modelStore.nodes.has(massNode)).toBe(true);
+});
+
+it.each([true, false])('releases a shared footprint tie only after its last owner, and preserves an authored equivalent (%s)', authored => {
+  const { id, outline, hole } = fixture();
+  const other = createPlate({ outline: hole, materialId: 1, thickness: 0.15 });
+  if ('problem' in other) throw Error(other.problem);
+  const masterNode = outline[0]!;
+  const slaveNode = hole[0]!;
+  const link = { type: 'rigidLink' as const, masterNode, slaveNode, dofs: [0, 1, 2, 3, 4, 5] };
+  if (authored) modelStore.addConstraint(link);
+  const surface = [{ node: masterNode, x: 0, y: 0, hx: 3, hy: 2 }];
+  modelStore.bulkMutate(() => {
+    expect(tieFootprints([slaveNode], surface, id)).toBe(authored ? 0 : 1);
+    expect(tieFootprints([slaveNode], surface, other.id)).toBe(0);
+    expect(tieFootprints([slaveNode], surface, other.id)).toBe(0);
+  });
+  const snapshot = JSON.parse(serializeProject()).snapshot;
+  expect(snapshot.constraints).toEqual([link]);
+  expect(snapshot.footprintLinks?.[0]?.owners).toEqual(authored ? undefined : [id, other.id]);
+  const result = renumber({ nodes: true, members: false, order: 'xyz', start: 30 });
+  if ('refused' in result) throw Error(result.refused);
+  reopen();
+  clearPlateMesh(id);
+  expect(modelStore.model.constraints).toHaveLength(1);
+  expect(modelStore.snapshot().footprintLinks?.[0]?.owners).toEqual(authored ? undefined : [other.id]);
+  clearPlateMesh(other.id);
+  expect(modelStore.model.constraints).toHaveLength(authored ? 1 : 0);
+});
+
+it('keeps a constraint when its saved footprint record no longer matches the constraint', () => {
+  const { id, outline, hole } = fixture();
+  const masterNode = outline[0]!;
+  const slaveNode = hole[0]!;
+  tieFootprints([slaveNode], [{ node: masterNode, x: 0, y: 0, hx: 3, hy: 2 }], id);
+  const file = JSON.parse(serializeProject());
+  expect(file.snapshot.footprintLinks).toHaveLength(1);
+  file.snapshot.constraints[0].dofs = [0];
+  expect(deserializeProject(JSON.stringify(file))).toBe(true);
+  clearPlateMesh(id);
+  expect(modelStore.model.constraints).toEqual([{ type: 'rigidLink', masterNode, slaveNode, dofs: [0] }]);
 });

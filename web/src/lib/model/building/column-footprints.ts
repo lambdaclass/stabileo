@@ -22,6 +22,7 @@
  * Pure geometry in `footprintGrid`; the model edits in `tieFootprints` and `untieNodes`, inside
  * the caller's batch (`physical-plates.ts`, when a slab plate is meshed).
  */
+import { footprintOwners, withFootprintOwners } from './footprint-link-owners';
 import { modelStore } from '../../store/model.svelte';
 import { planHalf } from './build-on-grid';
 import type { MeshOutput } from '../edit/mesher';
@@ -120,19 +121,29 @@ export function columnFootprintsAt(z: number): ColumnFootprint[] {
  * rigid body. A node already tied, held by a support, or the column's own node is left alone.
  * Returns how many ties were added.
  */
-export function tieFootprints(slabNodes: Iterable<number>, columns: readonly ColumnFootprint[]): number {
-  const tied = new Set((modelStore.model.constraints ?? []).flatMap((k) => ('slaveNode' in k ? [k.slaveNode as number] : [])));
+export function tieFootprints(slabNodes: Iterable<number>, columns: readonly ColumnFootprint[], owner?: number): number {
+  const tied = new Map(modelStore.constraints.flatMap((k, i) => 'slaveNode' in k ? [[k.slaveNode, i] as const] : []));
   const supported = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
   let made = 0;
   for (const id of slabNodes) {
-    if (tied.has(id) || supported.has(id)) continue;
+    if (supported.has(id)) continue;
     const n = modelStore.nodes.get(id);
     if (!n) continue;
     const c = columns.find((k) => k.node !== id && Math.abs((modelStore.nodes.get(k.node)?.z ?? 0) - (n.z ?? 0)) < EPS
       && Math.abs(n.x - k.x) <= k.hx + EPS && Math.abs(n.y - k.y) <= k.hy + EPS);
     if (!c) continue;
-    modelStore.addConstraint({ type: 'rigidLink', masterNode: c.node, slaveNode: id, dofs: [0, 1, 2, 3, 4, 5] } as never);
-    tied.add(id);
+    const index = tied.get(id);
+    if (index !== undefined) {
+      const link = modelStore.constraints[index];
+      if (link?.type === 'rigidLink' && link.masterNode === c.node && owner !== undefined) {
+        const owners = footprintOwners(link);
+        if (owners.length && !owners.includes(owner)) modelStore.replaceConstraint(index, withFootprintOwners(link, [...owners, owner]));
+      }
+      continue;
+    }
+    tied.set(id, modelStore.constraints.length);
+    const link = { type: 'rigidLink' as const, masterNode: c.node, slaveNode: id, dofs: [0, 1, 2, 3, 4, 5] };
+    modelStore.addConstraint(owner === undefined ? link : withFootprintOwners(link, [owner]));
     made++;
   }
   return made;
@@ -144,13 +155,14 @@ export function outsideFootprints(columns: readonly ColumnFootprint[], z: number
     && (Math.abs(p[0] - c.x) > EPS || Math.abs(p[1] - c.y) > EPS));
 }
 
-/** The rigid ties whose slave is one of the nodes given, removed (before those nodes go). */
-export function untieNodes(nodes: ReadonlySet<number>): number {
-  const list = modelStore.model.constraints ?? [];
-  let removed = 0;
-  for (let i = list.length - 1; i >= 0; i--) {
-    const k = list[i] as { type: string; slaveNode?: number };
-    if (k.type === 'rigidLink' && k.slaveNode !== undefined && nodes.has(k.slaveNode)) { modelStore.removeConstraint(i); removed++; }
+export function releaseFootprintLinks(owner: number): void {
+  for (let i = modelStore.constraints.length - 1; i >= 0; i--) {
+    const link = modelStore.constraints[i];
+    if (link?.type !== 'rigidLink') continue;
+    const owners = footprintOwners(link);
+    if (!owners.includes(owner)) continue;
+    const remaining = owners.filter(id => id !== owner);
+    if (remaining.length) modelStore.replaceConstraint(i, withFootprintOwners(link, remaining));
+    else modelStore.removeConstraint(i);
   }
-  return removed;
 }

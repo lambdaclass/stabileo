@@ -53,6 +53,7 @@ export interface ModelSnapshot {
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseId: number; factor: number }> }>;
   plates?: Array<[number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }]>;
   quads?: Array<[number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }]>;
+  footprintLinks?: import('../model/building/footprint-link-owners').SavedFootprintLink[];
   constraints?: Array<{ type: string; [key: string]: unknown }>;
   /**
    * Named, persisted groups. Absent on every model saved before they existed, and on any

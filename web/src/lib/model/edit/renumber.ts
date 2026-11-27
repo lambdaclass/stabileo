@@ -186,6 +186,9 @@ export function renumber(opts: RenumberOptions): RenumberResult {
   }));
   snap.plates = (snap.plates ?? []).map(([id, p]: [number, any]) => [rp(id), { ...p, id: rp(id), nodes: p.nodes.map(rn) }]);
   snap.quads = (snap.quads ?? []).map(([id, q]: [number, any]) => [rq(id), { ...q, id: rq(id), nodes: q.nodes.map(rn) }]);
+  if (Array.isArray(snap.footprintLinks)) {
+    snap.footprintLinks = snap.footprintLinks.map(link => ({ ...link, masterNode: rn(link.masterNode), slaveNode: rn(link.slaveNode) }));
+  }
   snap.constraints = (snap.constraints ?? []).map((c: any) => ({
     ...c,
     ...(typeof c.masterNode === 'number' ? { masterNode: rn(c.masterNode) } : {}),
