@@ -28,7 +28,8 @@ pub fn root() -> PathBuf {
 
 /// Parse a model file: 3D first (a 2D node has no `y`/`z` pair), then 2D.
 pub fn parse(text: &str) -> Option<Model> {
-    let v: serde_json::Value = serde_json::from_str(text).ok()?;
+    let mut v: serde_json::Value = serde_json::from_str(text).ok()?;
+    crate::common::take_nightly_metadata(&mut v);
     if v.get("nodes").is_none() || v.get("elements").is_none() {
         return None;
     }

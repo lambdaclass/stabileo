@@ -9,7 +9,10 @@ const fixture = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/equ
 const motions = [0, 0.0013, 1.0000000000000003e-15, 1e-16, -1e-16, 9.999999999999999e-16, 1e-15];
 
 function axialModel(dim, free, pcg, dx) {
-  const model = { ...structuredClone(fixture), loads: [], nodes: {}, supports: {}, elements: {} };
+  const source = structuredClone(fixture);
+  const { id, a, iz } = source.sections[1];
+  const properties = dim === 2 ? { materials: source.materials, sections: { 1: { id, a, iz } } } : source;
+  const model = { ...properties, loads: [], nodes: {}, supports: {}, elements: {} };
   const last = free + 2;
   for (let id = 1; id <= last; id++) {
     const restrained = id === 1 || id === last;

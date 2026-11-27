@@ -112,7 +112,7 @@ export function currentWorkbookParts(stations: StationSpec, opts: WorkbookOption
   const model = workbookModel();
   let solved: ProjectWorkbookInput['solved'] = null;
   try {
-    if (!modelOnly || opts.model !== false) solved = buildSolverInput3D(model, false, false, { expandMemberOffsets: false });
+    if (!modelOnly || opts.model !== false) solved = buildSolverInput3D(model, false, false);
   } catch (error) {
     if (!(error instanceof PlateAnalysisError)) throw error;
     if (!modelOnly) throw new ContainmentExportError(error.message);

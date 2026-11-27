@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { nightlySolverFixture } from './nightly-solver-fixture.mjs';
 import { assertPDeltaEquilibriumRefusal } from './pdelta-equilibrium-refusal.mjs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url)));
-const input = read('../../engine/tests/fixtures/candidate-replay.json')['1901-body-0'];
+const input = nightlySolverFixture(read('../../engine/tests/fixtures/candidate-replay.json')['1901-body-0']);
 const embeddings = read('../../engine/tests/fixtures/candidate-1901-embeddings.json');
 const reference = read('../../testing/docs/audits/candidate-1901-reference.json')[1];
 

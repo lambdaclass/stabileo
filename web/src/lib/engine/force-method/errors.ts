@@ -1,6 +1,6 @@
 export type ForceMethodErrorKey =
   | 'hypostatic' | 'noRedundants' | 'unstable' | 'tooHyperstatic'
-  | 'count' | 'clash' | 'partialCut' | 'hingeAll' | 'singular' | 'nothing';
+  | 'count' | 'clash' | 'partialCut' | 'hingeAll' | 'singular' | 'nothing' | 'axialTrussPoint3d';
 
 export interface ForceMethodErrorDetail {
   /** Releases chosen, against GH (`count`). */

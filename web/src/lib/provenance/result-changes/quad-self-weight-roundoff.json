@@ -1,0 +1,44 @@
+{
+  "id": "quad-self-weight-roundoff",
+  "date": "2026-11-26",
+  "prs": [
+    2586
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "shells",
+      "selfWeight"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "reactions",
+    "envelope"
+  ],
+  "title": {
+    "en": "Compute quad self-weight from local edge differences",
+    "es": "Calcular el peso propio de cuadriláteros con diferencias entre bordes locales",
+    "pt": "Calcular o peso próprio de quadriláteros com diferenças entre arestas locais",
+    "de": "Eigengewicht von Viereckelementen aus lokalen Kanten berechnen",
+    "fr": "Calculer le poids propre des quadrilatères à partir des arêtes locales",
+    "hu": "Négyszögelemek önsúlyának számítása helyi élkülönbségekből",
+    "tr": "Dörtgen öz ağırlığını yerel kenar farklarından hesapla",
+    "zh": "使用局部边向量差计算四边形自重"
+  },
+  "explanation": {
+    "en": "Quad self-weight uses local edge differences. Small rounding differences no longer stop valid analysis. Each corner force is checked against a bound derived from its quadrature sum. Roundoff can shift the sample indices around nearly coincident moment extrema.",
+    "es": "El peso propio de los cuadriláteros se calcula con diferencias entre bordes locales. Las pequeñas diferencias de redondeo dejan de impedir cálculos válidos. La fuerza en cada esquina se verifica con un límite derivado de su suma de cuadratura. El redondeo puede desplazar los índices de muestreo cerca de extremos de momento casi coincidentes.",
+    "pt": "O peso próprio dos quadriláteros usa diferenças entre arestas locais. Pequenas diferenças de arredondamento deixam de impedir análises válidas. A força em cada canto é verificada com um limite derivado da sua soma de quadratura. O arredondamento pode deslocar os índices de amostragem perto de extremos de momento quase coincidentes.",
+    "de": "Das Eigengewicht von Viereckelementen wird aus lokalen Kanten berechnet. Kleine Rundungsdifferenzen unterbrechen keine gültige Berechnung mehr. Die Kraft an jeder Ecke wird anhand einer aus ihrer Quadratur abgeleiteten Schranke geprüft. Rundung kann die Abtastindizes in der Nähe nahezu zusammenfallender Momentenextrema verschieben.",
+    "fr": "Le poids propre des quadrilatères est calculé à partir des arêtes locales. Les petits écarts d’arrondi n’interrompent plus un calcul valide. La force à chaque sommet est vérifiée avec une borne dérivée de sa somme de quadrature. Les arrondis peuvent décaler les indices d’échantillonnage près d’extrema de moment presque confondus.",
+    "hu": "A négyszögelemek önsúlya helyi élkülönbségekből számítódik. A kis kerekítési eltérések nem állítják le az érvényes számítást. Minden sarokerő ellenőrzése a kvadratúra összegéből levezetett korláttal történik. A kerekítés eltolhatja a mintavételi indexeket a közel egybeeső nyomatéki szélsőértékeknél.",
+    "tr": "Dörtgen öz ağırlığı yerel kenar farklarından hesaplanır. Küçük yuvarlama farkları artık geçerli analizi durdurmaz. Her köşe kuvveti, kendi kuadratür toplamından türetilen bir sınırla denetlenir. Yuvarlama, neredeyse çakışan moment ekstremumlarının yakınındaki örnekleme indekslerini kaydırabilir.",
+    "zh": "四边形自重由局部边向量差计算。微小的舍入差异不再中止有效分析。每个角节点的力均用从其积分求和推导出的误差限值进行校核。 舍入可能使近乎重合的弯矩极值附近的采样索引发生偏移。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-quad-self-weight-roundoff.md",
+    "heading": "Compute quad self-weight from local edge differences"
+  }
+}

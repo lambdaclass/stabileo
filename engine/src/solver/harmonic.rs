@@ -1,3 +1,4 @@
+use crate::types::unique_table;
 use crate::types::*;
 use crate::linalg::*;
 use serde::{Deserialize, Serialize};
@@ -15,6 +16,7 @@ use super::time_integration::MAX_DENSE_FALLBACK_DOFS;
 #[serde(rename_all = "camelCase")]
 pub struct HarmonicInput {
     pub solver: SolverInput,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     /// Frequencies to evaluate (Hz)
     pub frequencies: Vec<f64>,
@@ -33,6 +35,7 @@ pub struct HarmonicInput {
 pub struct HarmonicInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     pub frequencies: Vec<f64>,
     #[serde(default = "default_damping_ratio")]
@@ -872,6 +875,16 @@ fn solve_harmonic_modal_sparse(
 pub fn solve_complex_system(
     k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, omega: f64,
 ) -> Result<(Vec<f64>, Vec<f64>), String> {
+    super::harmonic_direct::with_dc_equilibration(
+        omega,
+        || (0..n).map(|i| k[i * n + i]).collect(),
+        |roots| solve_complex_scaled(k, m, c, f, n, omega, roots),
+    )
+}
+
+fn solve_complex_scaled(
+    k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, omega: f64, roots: Option<&[f64]>,
+) -> Result<(Vec<f64>, Vec<f64>), String> {
     let omega2 = omega * omega;
     let n2 = 2 * n;
     // The 2n×2n dense block system is 4× the memory of a dense n×n — past the
@@ -914,14 +927,30 @@ pub fn solve_complex_system(
     // RHS: [F, 0]
     rhs[..n].copy_from_slice(&f[..n]);
 
-    for scale in &mut scales { *scale = super::harmonic_direct::column_scale(*scale)?; }
+    if let Some(roots) = roots {
+        scales[..n].copy_from_slice(roots);
+        scales[n..].copy_from_slice(roots);
+    } else {
+        for scale in &mut scales { *scale = super::harmonic_direct::column_scale(*scale)?; }
+    }
     for i in 0..n2 {
-        for j in 0..n2 { a[i * n2 + j] /= scales[j]; }
+        for j in 0..n2 {
+            if roots.is_some() { a[i * n2 + j] /= scales[i]; }
+            a[i * n2 + j] /= scales[j];
+        }
     }
     let matrix_norm = a.chunks(n2.max(1)).map(|row| row.iter().map(|v| v.abs()).sum::<f64>()).fold(0.0_f64, f64::max);
     let pivots = lu_factor(&mut a, n2).ok_or_else(|| "Complex system solve failed".to_string())?;
     super::harmonic_direct::require_nonsingular(matrix_norm, pivots.iter().enumerate().map(|(col, &row)| a[row * n2 + col]))?;
-    let mut result = lu_apply(&a, &pivots, &rhs, n2).ok_or_else(|| "Complex system solve failed".to_string())?;
+    let apply = |rhs: &[f64]| {
+        if roots.is_some() {
+            let scaled: Vec<_> = rhs.iter().zip(&scales).map(|(value, scale)| value / scale).collect();
+            lu_apply(&a, &pivots, &scaled, n2)
+        } else {
+            lu_apply(&a, &pivots, rhs, n2)
+        }
+    };
+    let mut result = apply(&rhs).ok_or_else(|| "Complex system solve failed".to_string())?;
     for (value, scale) in result.iter_mut().zip(&scales) { *value /= scale; }
     for step in 0..=2 {
         #[cfg(test)]
@@ -945,7 +974,7 @@ pub fn solve_complex_system(
             components.require_convergence(&residual, &rhs)?;
             break;
         }
-        let correction = lu_apply(&a, &pivots, &residual, n2).ok_or_else(|| "Complex system refinement failed".to_string())?;
+        let correction = apply(&residual).ok_or_else(|| "Complex system refinement failed".to_string())?;
         for i in 0..n2 { result[i] += correction[i] / scales[i]; }
     }
     if result.iter().any(|v| !v.is_finite()) { return Err("Complex system refinement produced a non-finite response".into()); }

@@ -142,7 +142,7 @@ fn issue_2067_released_rotation_load() {
 
 #[test]
 fn issue_2019_rigid_translation_matches_the_independent_zero_strain_solution() {
-    let input = serde_json::from_value(witness("decoded-2019")).unwrap();
+    let input = crate::common::nightly_solver(witness("decoded-2019")).unwrap();
     let out = dedaliano_engine::certify::certify_linear_3d_full(&input).unwrap();
     verify_2019_rigid_translation(&out);
 }
@@ -198,7 +198,7 @@ fn assert_node_ids(ids: impl Iterator<Item = usize>, expected: &[usize], field: 
 }
 
 fn certified_2019() -> dedaliano_engine::certify::CertifiedResults3D {
-    let input = serde_json::from_value(witness("decoded-2019")).unwrap();
+    let input = crate::common::nightly_solver(witness("decoded-2019")).unwrap();
     dedaliano_engine::certify::certify_linear_3d_full(&input).unwrap()
 }
 
@@ -319,7 +319,7 @@ fn issue_2012_archived_pair_preserves_source_and_scaled_physics() {
         .iter()
         .find(|issue| issue["issue"] == 2012)
         .unwrap();
-    let source: Value = serde_json::from_str(
+    let mut source: Value = serde_json::from_str(
         issue["source"]["body"]
             .as_str()
             .unwrap()
@@ -333,8 +333,13 @@ fn issue_2012_archived_pair_preserves_source_and_scaled_physics() {
     .unwrap();
     assert_eq!(source, witness("2012"));
     assert_eq!(source["elements"]["9"]["materialId"], 2);
-    let input: SolverInput = serde_json::from_value(source).unwrap();
-    let transformed: SolverInput = serde_json::from_value(witness("transformed-2012")).unwrap();
+    for support in source["supports"].as_object_mut().unwrap().values_mut() {
+        support.as_object_mut().unwrap().retain(|field, value| {
+            !(value.is_null() && matches!(field.as_str(), "angle" | "dry" | "dx" | "dz" | "kx" | "ky" | "kz"))
+        });
+    }
+    let input: SolverInput = crate::common::nightly_solver(source).unwrap();
+    let transformed: SolverInput = crate::common::nightly_solver(witness("transformed-2012")).unwrap();
     assert_eq!(
         serde_json::to_value(transformed).unwrap(),
         serde_json::to_value(scale_2d(&input, &Units::froude(0.001, 1000.0))).unwrap()

@@ -8,8 +8,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { generateKinematicReport, type KinematicReport, type ElementConstraintAnalysis } from '../kinematic-report';
+import { generateKinematicReport, generateKinematicReport3D, type KinematicReport, type ElementConstraintAnalysis } from '../kinematic-report';
 import type { SolverInput, SolverLoad } from '../types';
+import type { SolverInput3D } from '../types-3d';
+import { analyzeKinematics } from '../kinematic-2d';
+import { analyzeKinematics3D } from '../kinematic-3d';
 
 // ─── Test Helpers ───────────────────────────────────────────────
 
@@ -645,4 +648,50 @@ describe('Per-element analysis — DOF breakdown', () => {
     expect(bd2.lines.map(l => l.dof)).toEqual(['ux', 'uz']);
     expect(bd2.needed).toBe(2);
   });
+});
+
+it('shows the elastic rank refusal for a tied truss without reporting a mechanism', () => {
+  const plane = makeInput({
+    nodes: [[1, 0, 0], [2, 1, 0]],
+    elements: [[1, 1, 2, 'truss']],
+    supports: [[1, 1, 'rollerX', 0.5], [2, 2, 'rollerX', 0.5]],
+  });
+  plane.sections.set(1, { id: 1, a: 1, iz: 1 });
+  plane.constraints = [{ type: 'linearMPC', terms: [
+    { nodeId: 1, dof: 0, coefficient: -1 },
+    { nodeId: 2, dof: 0, coefficient: 1 },
+  ] }];
+  const space: SolverInput3D = {
+    ...plane,
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 1, y: 0, z: 0 }]]),
+    sections: new Map([[1, { id: 1, a: 1, iy: 1, iz: 1, j: 1 }]]),
+    elements: new Map([[1, {
+      id: 1, nodeI: 1, nodeJ: 2, type: 'truss', materialId: 1, sectionId: 1,
+      releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+      releaseTStart: false, releaseTEnd: false,
+    }]]),
+    supports: new Map([1, 2].map(nodeId => [nodeId, {
+      nodeId, rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true, kx: 0.5,
+    }])),
+    loads: [],
+  };
+  for (const [stiffness, refused] of [[1e8, false], [1e12 / 4, true]] as const) {
+    plane.materials.set(1, { id: 1, e: stiffness / 1000, nu: 0.3 });
+    for (const [result, report] of [
+      [analyzeKinematics(plane), generateKinematicReport(plane)],
+      [analyzeKinematics3D(space), generateKinematicReport3D(space)],
+    ] as const) {
+      expect(result.isSolvable).toBe(!refused);
+      expect(result.mechanismModes).toBe(0);
+      expect(report?.rankChecked).toBe(!refused);
+      expect(report?.isSolvable).toBe(!refused);
+      if (refused) {
+        expect(result.classification).toBe('indeterminate');
+        expect(report?.classification).toBe('indeterminate');
+        expect(report?.elementAnalysis).toEqual([]);
+        expect(report?.rankRefusal).toContain('Rounding prevents resolving the remaining stiffness');
+        expect(report?.rankRefusal).toBe(result.diagnosis);
+      }
+    }
+  }
 });

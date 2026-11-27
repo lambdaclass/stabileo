@@ -1450,9 +1450,9 @@ it('#2331 refuses a real kink and a subdivision beyond the coordinate precision 
   }
 });
 
-it('#2332 refuses rafter inertia when its story assignment is ambiguous', () => {
+it('#2332 refuses a ridge without two independently supported eaves', () => {
   for (const rotated of [false, true]) for (const subdivided of [false, true]) for (const shift of [0, 1_000_000]) {
-    const { plan, sink } = gablePlan(false, rotated, subdivided, shift);
+    const { plan, sink } = gablePlan(false, rotated, subdivided, shift, false, true);
     const reason = [{ key: 'loadPlan.blocked.seismicAmbiguousStory' }];
     expect(plan).toMatchObject({
       outcome: 'BLOCKED', blockedKeys: reason, cases: [], nodal: [], distributed: [], surface: [], combinations: [],
@@ -1468,6 +1468,7 @@ function gablePlan(evidenced: boolean, rotated: boolean, subdivided: boolean, sh
     ? [[left, at(1, 2.5)], [at(1, 2.5), ridge], [right, at(3, 2.5)], [at(3, 2.5), ridge]]
     : [[left, ridge], [right, ridge]];
   const model = supportAtZero(mesh([[at(continuousAtLeftEave ? -4 : 0, 0), left], [at(4, 0), right], ...rafters]));
+  model.supports = new Map([...model.supports!].map(([id, support]) => [id, { ...support, type: 'pinned3d' }]));
   model.sections.set(1, { id: 1, a: 0.5 });
   model.materials.set(1, { id: 1, rho: 4 });
   model.materials.set(2, { id: 2, rho: 0 });
@@ -1486,6 +1487,33 @@ function gablePlan(evidenced: boolean, rotated: boolean, subdivided: boolean, sh
   INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
   return { model, plan, sink };
 }
+
+it('#2332 a supported gable loads the rafter spans without a phantom ridge story', () => {
+  const length = Math.hypot(2, 1);
+  for (const rotated of [false, true]) for (const subdivided of [false, true]) for (const shift of [0, 1_000_000]) {
+    const { model, plan, sink } = gablePlan(false, rotated, subdivided, shift);
+    expect(plan.outcome).toBe('READY');
+    expect(plan.seismicModel!.levels.map(l => l.elevation)).toEqual([0, 2]);
+    expect(plan.factors.baseShear!.value).toBeCloseTo(4 * length, 10);
+    expect(sink.nodal).toEqual([]);
+    expect(sink.distributed).toHaveLength(subdivided ? 4 : 2);
+    let force = 0, overturning = 0;
+    for (const load of sink.distributed) {
+      const el = model.elements.get(load.elementId)!;
+      expect(el.id).toBeGreaterThan(2);
+      const q = rotated ? load.qX! : load.qY!;
+      expect(q).toBeCloseTo(2, 10);
+      expect(rotated ? load.qXJ : load.qYJ).toBeCloseTo(2, 10);
+      expect(load.a).toBe(0);
+      expect(load.b).toBeCloseTo(subdivided ? length / 2 : length, 10);
+      const zI = model.nodes.get(el.nodeI)!.z!, zJ = model.nodes.get(el.nodeJ)!.z!;
+      force += q * load.b!;
+      overturning += q * load.b! * (zI + zJ) / 2;
+    }
+    expect(force).toBeCloseTo(4 * length, 10);
+    expect(overturning).toBeCloseTo(10 * length, 10);
+  }
+});
 
 it('#2332 evidenced rafter mass is loaded on each physical story band', () => {
   const length = Math.sqrt(5);
@@ -1744,5 +1772,103 @@ it('#2332 a longitudinal ridge beam needs independent floor evidence at both end
       expect.soft(plan, mode).toMatchObject({ outcome: 'BLOCKED', blockedKeys, cases: [], nodal: [], distributed: [], surface: [], combinations: [] });
       expect.soft(sink, mode).toMatchObject({ blockedKeys, cases: [], nodal: [], distributed: [], surface: [] });
     }
+  }
+});
+
+
+it.each([0, 1])(
+  'a rotation-only support at gable base %s cannot establish its story',
+  base => {
+    for (const rotated of [false, true]) {
+      const { model } = gablePlan(false, rotated, false, 0);
+      const supports = new Map(model.supports);
+      const id = [...supports.keys()][base]!;
+      for (const nodeId of supports.keys()) {
+        supports.set(nodeId, {
+          type: 'custom3d', nodeId,
+          dofRestraints: { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false },
+        });
+      }
+      const planFor = () => {
+        const options = request({ ...model, supports }, { directions: { x: rotated, y: !rotated } }, { generateCombinations: true });
+        const plan = buildLoadPlan(options);
+        const sink = seismicSink();
+        INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+        return { plan, sink };
+      };
+      expect(planFor().plan.outcome).toBe('READY');
+      supports.set(id, {
+        type: 'custom3d', nodeId: id,
+        dofRestraints: { tx: false, ty: false, tz: false, rx: true, ry: true, rz: true },
+      });
+      const { plan, sink } = planFor();
+      expect(plan.outcome).toBe('BLOCKED');
+      expect(sink.blockedKeys.map(key => key.key)).toContain('loadPlan.blocked.seismicAmbiguousStory');
+      expect(sink.distributed).toEqual([]);
+    }
+  },
+);
+
+it('#2586 continues a supported gable post through subdivision', () => {
+  for (const rotated of [false, true]) for (const subdivision of [0, 1, 2]) {
+    const { model } = gablePlan(false, rotated, false, 0);
+    const post = model.elements.get(1)!;
+    const bottom = model.nodes.get(post.nodeI)!;
+    const top = model.nodes.get(post.nodeJ)!;
+    let previous = bottom.id;
+    for (let cut = 1; cut <= subdivision; cut++) {
+      const id = model.nodes.size + 1;
+      model.nodes.set(id, { ...bottom, id, z: cut * 2 / (subdivision + 1) });
+      const piece = cut === 1 ? post.id : model.elements.size + 1;
+      model.elements.set(piece, { ...post, id: piece, nodeI: previous, nodeJ: id });
+      previous = id;
+    }
+    if (subdivision) {
+      const id = model.elements.size + 1;
+      model.elements.set(id, { ...post, id, nodeI: previous, nodeJ: top.id });
+    }
+    const options = request(model, { directions: { x: rotated, y: !rotated } }, { generateCombinations: true });
+    const plan = buildLoadPlan(options);
+    const sink = seismicSink();
+    INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+    expect.soft(plan.outcome, String(subdivision)).toBe('READY');
+    expect.soft(plan.seismicModel!.levels.map(level => level.elevation)).toEqual([0, 2]);
+    expect.soft(sink.nodal).toEqual([]);
+    expect.soft(sink.distributed).toHaveLength(2);
+    expect.soft(plan.factors.baseShear?.value).toBeCloseTo(4 * Math.sqrt(5), 10);
+    if (subdivision === 0) continue;
+    model.nodes.get(previous)![rotated ? 'x' : 'y'] += 0.01;
+    expect.soft(buildLoadPlan(options)).toMatchObject({
+      outcome: 'BLOCKED', blockedKeys: [{ key: 'loadPlan.blocked.seismicAmbiguousStory' }],
+    });
+  }
+});
+
+it('#2586 recognizes a supported gable with a horizontal eave tie', () => {
+  for (const rotated of [false, true]) {
+    const { model } = gablePlan(false, rotated, false, 0);
+    const [left, right] = [...model.nodes.values()].filter(node => node.z === 2);
+    const column = model.elements.get(1)!;
+    const tie = model.elements.size + 1;
+    model.elements.set(tie, { ...column, id: tie, nodeI: left!.id, nodeJ: right!.id });
+    const options = request(model, { directions: { x: rotated, y: !rotated } }, { generateCombinations: true });
+    const plan = buildLoadPlan(options);
+    const sink = seismicSink();
+    INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+    expect.soft(plan.outcome).toBe('READY');
+    expect.soft(plan.seismicModel!.levels.map(level => level.elevation)).toEqual([0, 2]);
+    expect.soft(sink.nodal).toEqual([]);
+    expect.soft(sink.distributed).toHaveLength(2);
+    expect.soft(plan.factors.baseShear?.value).toBeCloseTo(4 * Math.sqrt(5), 10);
+    const ambiguous = tie + 1;
+    model.elements.set(ambiguous, { ...column, id: ambiguous });
+    expect.soft(buildLoadPlan(options)).toMatchObject({
+      outcome: 'BLOCKED', blockedKeys: [{ key: 'loadPlan.blocked.seismicAmbiguousStory' }],
+    });
+    model.elements.delete(ambiguous);
+    model.elements.delete(column.id);
+    expect.soft(buildLoadPlan(options)).toMatchObject({
+      outcome: 'BLOCKED', blockedKeys: [{ key: 'loadPlan.blocked.seismicAmbiguousStory' }],
+    });
   }
 });

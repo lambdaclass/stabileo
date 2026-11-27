@@ -1,0 +1,40 @@
+{
+  "id": "staged-unconsumed-tables",
+  "date": "2026-11-26",
+  "prs": [
+    2588
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "native:staged-unconsumed-tables"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Tables unsupported by staged construction",
+    "es": "Tablas incompatibles con el análisis por etapas",
+    "pt": "Tabelas incompatíveis com a análise por etapas",
+    "de": "Nicht unterstützte Tabellen bei Bauzustandsanalysen",
+    "fr": "Tables incompatibles avec l’analyse par phases",
+    "hu": "Az építési ütemek elemzésében nem támogatott táblák",
+    "tr": "Aşamalı yapım analizinde desteklenmeyen tablolar",
+    "zh": "施工阶段分析不支持的表"
+  },
+  "explanation": {
+    "en": "Staged analysis refuses populated tables it cannot use, including solid and curved shells.",
+    "es": "El análisis por etapas rechaza las tablas con datos que no puede usar, incluidas las de elementos sólido-cáscara y cáscaras curvas.",
+    "pt": "A análise por etapas recusa tabelas preenchidas que não pode usar, incluindo as de cascas sólidas e curvas.",
+    "de": "Die Bauzustandsanalyse weist befüllte Tabellen zurück, die sie nicht verarbeiten kann, darunter Volumen- und gekrümmte Schalenelemente.",
+    "fr": "L’analyse par phases refuse les tables renseignées qu’elle ne peut pas utiliser, notamment celles des coques volumiques et courbes.",
+    "hu": "Az építési ütemek elemzése elutasítja a kitöltött, nem használható táblákat, így a tömör és görbült héjakét is.",
+    "tr": "Aşamalı analiz, katı kabuklar ve eğrisel kabuklar dahil kullanamadığı dolu tabloları reddeder.",
+    "zh": "施工阶段分析会拒绝含有数据但无法使用的表，包括实体壳和曲面壳表。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-staged-unconsumed-tables.md",
+    "heading": "Tables unsupported by staged construction"
+  }
+}

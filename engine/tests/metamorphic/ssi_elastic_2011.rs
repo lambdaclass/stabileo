@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 fn witness(key: &str) -> SolverInput {
     let all: Value =
         serde_json::from_str(include_str!("../fixtures/nightly-2026-11-13.json")).unwrap();
-    serde_json::from_value(all[key].clone()).unwrap()
+    crate::common::nightly_solver(all[key].clone()).unwrap()
 }
 
 fn models2() -> Vec<SolverInput> {

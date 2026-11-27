@@ -1,0 +1,42 @@
+{
+  "id": "planar-nonlinear-accepted-paths",
+  "date": "2026-11-23",
+  "prs": [2510],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      ["plane2D"],
+      ["analysis:nonlinear"],
+      ["members", "springs", "constraints", "pathAnalysis"]
+    ]
+  },
+  "quantities": [
+    "solve.ok", "displacements", "reactions", "elementForces", "equilibrium", "constraintForces",
+    "structuredDiagnostics", "steps", "finalLoadFactor", "loadFactor", "converged",
+    "totalIterations", "rejectedIterations", "maxDisplacement"
+  ],
+  "title": {
+    "en": "Planar continuation verifies each accepted state",
+    "es": "La continuación plana verifica cada estado aceptado",
+    "pt": "A continuação plana verifica cada estado aceito",
+    "de": "Die ebene Fortsetzung prüft jeden akzeptierten Zustand",
+    "fr": "La continuation plane vérifie chaque état accepté",
+    "hu": "A síkbeli folytatás ellenőrzi az elfogadott állapotokat",
+    "tr": "Düzlemsel devam kabul edilen her durumu doğrular",
+    "zh": "平面延续验证每个已接受的状态"
+  },
+  "explanation": {
+    "en": "Arc-length steps must satisfy equilibrium and the requested radius. A failed trial restores the last accepted point. Path solvers recover forces from the normalized member loads, and co-rotational warm starts apply the exact target loads and support positions.",
+    "es": "Los pasos de longitud de arco deben satisfacer el equilibrio y el radio solicitado. Un intento fallido restaura el último punto aceptado. Se recuperan los esfuerzos con las cargas normalizadas y la continuación corrotacional aplica las cargas y posiciones de apoyo objetivo exactas.",
+    "pt": "Os passos por comprimento de arco devem satisfazer o equilíbrio e o raio solicitado. Uma tentativa malsucedida restaura o último ponto aceito. As forças são recuperadas com as cargas normalizadas, e a continuação corrotacional aplica as cargas e posições de apoio alvo exatas.",
+    "de": "Bogenlängenschritte müssen Gleichgewicht und den vorgegebenen Radius erfüllen. Ein fehlgeschlagener Versuch stellt den letzten akzeptierten Punkt wieder her. Die Schnittkräfte verwenden die normierten Stablasten. Die korotationale Fortsetzung setzt Ziellasten und Auflagerpositionen exakt.",
+    "fr": "Les pas de longueur d’arc doivent respecter l’équilibre et le rayon demandé. Un essai en échec restaure le dernier point accepté. Les efforts sont calculés avec les charges normalisées, et la continuation corotationnelle applique exactement les charges et positions d’appui cibles.",
+    "hu": "Az ívhosszlépéseknek teljesíteniük kell az egyensúlyt és az előírt sugarat. Sikertelen próbálkozáskor az utolsó elfogadott pont áll vissza. Az erők a normalizált rúdterhekből készülnek, a korotációs folytatás pedig pontosan alkalmazza a célterheket és támaszhelyzeteket.",
+    "tr": "Yay uzunluğu adımları dengeyi ve istenen yarıçapı sağlamalıdır. Başarısız denemede son kabul edilen nokta geri yüklenir. Kuvvetler normalleştirilmiş eleman yüklerinden hesaplanır. Eş dönel devam hedef yükleri ve mesnet konumlarını tam olarak uygular.",
+    "zh": "弧长步必须满足平衡和指定半径。试算失败时恢复到最后接受的点。路径求解使用归一化杆件荷载恢复内力，共旋热启动精确施加目标荷载和支座位置。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-production-nonlinear-drivers.md",
+    "heading": "Correct production continuation and curved-frame nonlinear results (2026-11-23)"
+  }
+}

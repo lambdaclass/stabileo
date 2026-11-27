@@ -319,20 +319,18 @@ describe('constraint migration', () => {
     expect(first().dofs).toEqual([0, 2, 4]);
   });
 
-  it('gives an equalDOF the empty list the solver requires, never undefined', () => {
-    // `EqualDOFConstraint.dofs` is a plain `Vec<usize>` with NO serde default, so the field
-    // must be present. Absent and undefined are both rejected; empty is not.
-    restoreWithConstraints([{ type: 'equalDOF', masterNode: 13, slaveNode: 121 }]);
+  it('refuses an equalDOF when its DOF list is missing', () => {
+    expect(() => restoreWithConstraints([{ type: 'equalDOF', masterNode: 13, slaveNode: 121 }]))
+      .toThrow('constraints[0].dofs');
+    restoreWithConstraints([{ type: 'equalDOF', masterNode: 13, slaveNode: 121, dofs: [] }]);
     expect(first().dofs).toEqual([]);
   });
 
-  it('drops a constraint kind the solver does not know instead of shipping it', () => {
-    restoreWithConstraints([
+  it('refuses an unknown constraint without dropping the saved equation', () => {
+    expect(() => restoreWithConstraints([
       { type: 'rigidLink', masterNode: 13, slaveNode: 121 },
       { type: 'somethingElse', masterNode: 13, slaveNode: 121 },
-    ]);
-    expect(modelStore.model.constraints).toHaveLength(1);
-    expect(first().type).toBe('rigidLink');
+    ])).toThrow('constraints[1].type');
   });
 
   it('leaves every migrated constraint structured-cloneable', () => {

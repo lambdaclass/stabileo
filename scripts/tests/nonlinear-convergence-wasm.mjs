@@ -320,7 +320,7 @@ for (const test of cases) {
     engine[`solve_fiber_nonlinear_${dimension}d`](JSON.stringify(fiberInput)),
     engine[`solve_nonlinear_material_${dimension}d`](JSON.stringify({ solver, materialModels: {}, sectionCapacities: {}, maxIter, tolerance: 1e-10, nIncrements: 1 })),
   ].map(JSON.parse);
-  if (test.name === 'rotated resolved axial beside support load' && dimension === 2) {
+  if (dimension === 2 && ['resolved axial beside support load', 'rotated resolved axial beside support load'].includes(test.name)) {
     const expected = test.expectedAxialDisplacement;
     const length = Math.hypot(solver.nodes['2'].x, solver.nodes['2'].z);
     const force = expected * 1000 * solver.materials['1'].e * solver.sections['1'].a / length;
@@ -330,8 +330,20 @@ for (const test of cases) {
     assert.ok(Math.abs(arc.finalLoadFactor / 0.1 - 1) < 1e-10);
     const tip = arc.results.displacements.find(d => d.nodeId === 2);
     checkAxial(tip, solver, expected * 0.1);
-    assert.throws(() => engine.solve_displacement_control(JSON.stringify({ solver, controlNode: 2, controlDof: 0, targetDisplacement: expected, nSteps: 2, maxIter: 100, tolerance: 1e-10 })), /inclined/i);
+    const control = { solver, controlNode: 2, controlDof: 0, targetDisplacement: expected, nSteps: 2, maxIter: 100, tolerance: 1e-10 };
+    assert.throws(() => engine.solve_displacement_control(JSON.stringify(control)), /inclined/i);
     checked += 2;
+    if (test.name === 'resolved axial beside support load') {
+      const cartesian = structuredClone(control);
+      const support = Object.values(cartesian.solver.supports).find(s => s.nodeId === 2);
+      support.type = 'rollerX';
+      delete support.angle;
+      const result = JSON.parse(engine.solve_displacement_control(JSON.stringify(cartesian)));
+      assert.equal(result.converged, true);
+      assert.ok(Math.abs(result.finalLoadFactor - 1) < 1e-10);
+      checkAxial(result.results.displacements.find(d => d.nodeId === 2), solver, expected);
+      checked++;
+    }
   }
   if (test.expectedAxialDisplacement !== undefined) {
     const result = engine[`solve_${dimension}d`](solver);
