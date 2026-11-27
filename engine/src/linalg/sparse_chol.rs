@@ -1485,6 +1485,25 @@ pub fn sparse_negative_inertia(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<
 
 fn unpivoted_ldl(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<(usize, Vec<f64>, Vec<f64>)> {
     if !sym.fits(a) { return None; }
+    #[cfg(feature = "parallel")]
+    if sym.l_nnz >= INERTIA_PARALLEL_FROM {
+        use super::sparse_chol_inertia_parallel::{unpivoted_ldl_parallel, Outcome};
+        match unpivoted_ldl_parallel(sym, a) {
+            Outcome::Factor(negative, d, l) => return Some((negative, d, l)),
+            Outcome::Refused => return None,
+            Outcome::Inconsistent => {}
+        }
+    }
+    unpivoted_ldl_in_order(sym, a)
+}
+
+/// The factor entries from which the count is spread over threads when the `parallel` feature
+/// is on.
+#[cfg(feature = "parallel")]
+pub(super) const INERTIA_PARALLEL_FROM: usize = 200_000;
+
+/// The count one column after another. The caller has checked the pattern of `a`.
+pub(super) fn unpivoted_ldl_in_order(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<(usize, Vec<f64>, Vec<f64>)> {
     let n = a.n;
     const NONE: usize = usize::MAX;
     let mut l = vec![0.0f64; sym.l_nnz];
@@ -1557,7 +1576,7 @@ fn unpivoted_ldl(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<(usize, Vec<f6
 /// given: every entry takes the subtractions one after another in that order. A source is
 /// `(start, factor)`, its column at `values[start..]`, and all of them lie on `rows`.
 #[inline]
-fn subtract_scattered(x: &mut [f64], rows: &[usize], values: &[f64], sources: &[(usize, f64)]) {
+pub(super) fn subtract_scattered(x: &mut [f64], rows: &[usize], values: &[f64], sources: &[(usize, f64)]) {
     let column = |source: &(usize, f64)| (&values[source.0..][..rows.len()], source.1);
     match sources {
         [s0, s1, s2, s3] => {
