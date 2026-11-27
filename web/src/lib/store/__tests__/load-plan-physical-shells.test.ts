@@ -96,6 +96,21 @@ describe.skip('known wrong result: #1928 physical shells in the load generator',
     expect(state()).toBe(before);
   });
 
+  it('refuses an old preview after the thickness of a still-unmeshed plate changes', () => {
+    const { id } = slab('straight');
+    const p = plan();
+    expect(p.outcome).toBe('READY');
+    const g = plateEntry(id)!;
+    modelStore.setGroupData(id, { ...g.group.data, surface: { ...g.surface, thickness: g.surface.thickness * 2 } });
+    const before = state();
+    if (__PUBLIC_FEATURES__.proPlatesUnified) {
+      expect(applyLoadPlan(p, opts)).toEqual({ key: 'autoLoad.previewStale' });
+      expect(state()).toBe(before);
+    } else {
+      expect(p.surface.every(load => load.quadId > 0)).toBe(true);
+    }
+  });
+
   it('keeps the exact analytical shell when the physical plate already has a mesh', () => {
     const { id, top } = slab('straight');
     const q = modelStore.addQuad(top as [number, number, number, number], 1, 0.15);
