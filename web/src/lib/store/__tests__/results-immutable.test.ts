@@ -618,3 +618,36 @@ it.each(['2d', '3d'] as const)('withholds the implicit settlement contributor in
     expect(shown?.displacements[0].ux ?? null).toBe(diagnostics.length ? null : 5);
   }
 });
+
+it.skip.each(['2d', '3d', 'batch', 'fused'] as const)('known wrong result: #2491 — uses the settlement dependency of the assembled %s combination', async entry => {
+  const { SETTLEMENT_CASE_ID } = await import('../../engine/settlement-case');
+  const { initSolver, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D } = await import('../../engine/wasm-solver');
+  await initSolver();
+  modelStore.clear();
+  resultsStore.clear();
+  uiStore.analysisMode = entry === '2d' ? '2d' : '3d';
+  const factors = [{ caseId: 1, factor: 1 }];
+  const id = modelStore.addCombination('D', factors);
+  const displacement = (ux: number) => entry === '2d'
+    ? { ...result(ux), displacements: [{ nodeId: 1, ux, uz: 0, ry: 0 }] }
+    : result(ux);
+  const cases = new Map([[1, displacement(2)], [SETTLEMENT_CASE_ID, displacement(3)]]);
+  const assemble = (f: typeof factors) => {
+    if (entry === '2d') return combineResults(f, cases as never);
+    if (entry === '3d') return combineResults3D(f, cases as never, new Map());
+    if (entry === 'batch') return combineResultsBatch3D([f], cases as never, new Map())[0];
+    return combineResultsEnvelope3D([f], cases as never, new Map()).combinations[0];
+  };
+  const combinations = [0, 1].map(factor => assemble([...factors, { caseId: SETTLEMENT_CASE_ID, factor }]));
+  const published = new Map(cases).set(SETTLEMENT_CASE_ID, result(3, [refusal()]));
+  for (const [factor, combination] of combinations.entries()) {
+    expect(combination?.displacements[0].ux).toBe(2 + factor * 3);
+    const combos = new Map([[id, combination!]]);
+    if (entry === '2d') resultsStore.setCombinationResults(published as never, combos as never, null);
+    else resultsStore.setCombinationResults3D(published as never, combos as never, null);
+    resultsStore.activeComboId = id;
+    resultsStore.activeView = 'combo';
+    const shown = entry === '2d' ? resultsStore.results : resultsStore.results3D;
+    expect(shown?.displacements[0].ux ?? null).toBe(factor === 0 ? 2 : null);
+  }
+});
