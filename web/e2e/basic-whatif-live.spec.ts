@@ -86,9 +86,25 @@ test('@slow releasing a held diagram clears the idle canvas without a replacemen
   await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().held)).toBe(true);
   await expect(page.locator('.viewport2d-wrapper .pending-result')).toBeVisible();
   const canvas = page.locator('.viewport2d-wrapper canvas').first();
-  const heldImage = await canvas.evaluate(c => (c as HTMLCanvasElement).toDataURL());
-  await page.evaluate(() => window.__stabileoActions.releaseScreen());
+  const repainted = await canvas.evaluate(async el => {
+    const surface = el as HTMLCanvasElement;
+    const context = surface.getContext('2d')!;
+    const clear = context.clearRect.bind(context);
+    let lastPaint = performance.now();
+    context.clearRect = (...bounds) => { lastPaint = performance.now(); clear(...bounds); };
+    const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    try {
+      while (performance.now() - lastPaint < 350) await frame();
+      const heldImage = surface.toDataURL();
+      window.__stabileoActions.releaseScreen();
+      await frame();
+      await frame();
+      return surface.toDataURL() !== heldImage;
+    } finally {
+      context.clearRect = clear;
+    }
+  });
+  expect(repainted).toBe(true);
   await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().drawn)).toBe(false);
-  await expect.poll(() => canvas.evaluate((c, snapshot) => (c as HTMLCanvasElement).toDataURL() === snapshot, heldImage)).toBe(false);
   await expect(page.locator('.viewport2d-wrapper .pending-result')).toHaveCount(0);
 });
