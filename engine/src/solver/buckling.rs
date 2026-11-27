@@ -161,7 +161,8 @@ pub(crate) fn critical_factor_reciprocal_2d(input: &SolverInput, loads: &[Solver
     let neg_kg = system.neg_kg_round_off_csc.as_ref().unwrap_or(&system.neg_kg_csc);
     let (spectrum, _) = buckling_eigen(&system.k_ff, neg_kg, system.cs.as_ref(), 1);
     let largest = spectrum?.values.last().copied()?;
-    largest.is_finite().then(|| (largest.max(0.0), continuous_frame_bound(input, &system, compression)))
+    let reciprocal = largest.is_finite().then(|| crate::check::positive_part(largest))?;
+    Some((reciprocal, continuous_frame_bound(input, &system, compression)))
 }
 
 fn continuous_frame_bound(input: &SolverInput, system: &BucklingSystem2D, compression: &HashMap<usize, f64>) -> Option<f64> {

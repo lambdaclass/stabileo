@@ -192,7 +192,7 @@ async function person(context: BrowserContext, backend: Backend, signedIn: Perso
 }
 
 test.describe('@smoke Education — homework and exams with an account', () => {
-  test.skip('known wrong result: #1927 — a blank sketch stays unanswered and a failed grading engine can retry', async ({ browser }) => {
+  test('known wrong result: #1927 — a blank sketch stays unanswered and a failed grading engine can retry', async ({ browser }) => {
     const backend = new Backend();
     const context = await browser.newContext();
     const student = await person(context, backend, STUDENT, []);

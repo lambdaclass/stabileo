@@ -1254,16 +1254,21 @@ fn second_order_component(input: &SolverInput, loads: &[SolverLoad], r: &Analysi
         physical = upper;
         Some(estimate)
     });
+    if global_needed { check_physical_band(&mut found, physical); }
+    (found, ratio, physical.filter(|&upper| upper > ratio))
+}
+
+pub(crate) fn check_physical_band(found: &mut Vec<StructuredDiagnostic>, upper: Option<f64>) {
     let known_band = if found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER")) {
         f64::INFINITY
     } else if found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-NEAR")) {
         SECOND_ORDER_RATIO
     } else { SECOND_ORDER_RATIO / SECOND_ORDER_NEAR_FACTOR };
-    if global_needed && physical.is_none_or(|upper| upper > known_band)
+    if upper.is_none_or(|upper| upper > known_band)
         && !found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-UNBOUNDED")) {
         found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED"));
     }
-    (found, ratio, physical.filter(|&upper| upper > ratio))
+
 }
 
 fn screen_model_2d(input: &SolverInput, n: &std::collections::HashMap<usize, f64>) -> ScreenModel {

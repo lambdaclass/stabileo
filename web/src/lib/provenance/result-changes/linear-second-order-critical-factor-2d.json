@@ -17,7 +17,8 @@
     ]
   },
   "quantities": [
-    "diagnosticCodes"
+    "diagnosticCodes",
+    "resultSummary.secondOrderPhysicalBound"
   ],
   "title": {
     "en": "2D linear analysis bounds its second-order warning by the structure's critical load factor",
@@ -30,7 +31,7 @@
     "zh": "2D 线性分析用结构的临界荷载系数限定二阶效应警告"
   },
   "explanation": {
-    "en": "In a planar linear analysis, 1/λcr is the fraction of the structure’s global proportional buckling load reached by this load case. The screen now uses the buckling solver’s complete mode search. Member warnings retain their element IDs. Compressed truss bars in 2D and 3D keep a separate local buckling check. A bar with both ends supported is screened against its pinned Euler load. If the supports do not establish a local bound, the result retains the unresolved-member warning.",
+    "en": "In a planar linear analysis, 1/λcr is the fraction of the structure’s global proportional buckling load reached by this load case. The finite-element mode search measures global frame response. A separate continuous-member bound checks whether the physical frame could reach a higher warning band. Unresolved bounds remain visible in load combinations. Member warnings retain their element IDs. Compressed truss bars in 2D and 3D keep a separate local buckling check. A bar with both ends supported is screened against its pinned Euler load. If the supports do not establish a local bound, the result retains the unresolved-member warning.",
     "es": "En el análisis lineal plano, 1/λcr es la fracción de la carga global de pandeo proporcional que alcanza el caso de carga. El control emplea la búsqueda completa de modos del análisis de pandeo. Los avisos de barra conservan sus identificadores. En 2D y 3D, las barras de reticulado comprimidas se comprueban por separado frente al pandeo local. Con ambos extremos apoyados se usa la carga de Euler biarticulada. Sin una cota local se mantiene la advertencia.",
     "pt": "Na análise linear plana, 1/λcr é a fração da carga global de flambagem proporcional atingida pelo caso de carga. A verificação usa a busca completa dos modos de flambagem e preserva os identificadores das barras nos avisos. Em 2D e 3D, a flambagem local de cada barra comprimida de treliça é verificada separadamente. Com as duas extremidades apoiadas usa-se a carga de Euler biarticulada. Sem um limite local mantém-se o aviso.",
     "de": "In der ebenen linearen Analyse bezeichnet 1/λcr den erreichten Anteil der globalen Knicklast bei proportionaler Laststeigerung. Die Prüfung verwendet die vollständige Modensuche der Knickanalyse und erhält die Stabnummern in den Meldungen. Für gedrückte Fachwerkstäbe wird lokales Knicken in 2D und 3D separat geprüft. Bei beidseitiger Lagerung gilt die Eulerlast des gelenkig gelagerten Stabs. Fehlt eine lokale Schranke, bleibt die Warnung bestehen.",

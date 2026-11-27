@@ -718,7 +718,6 @@ fn an_isolated_cantilever_cannot_hide_a_portal_in_the_near_band() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1927"]
 fn a_transverse_spring_cannot_turn_a_discrete_eigenvalue_into_a_physical_bound() {
     let mut model = serde_json::to_value(braced_2d(200.0, "spring")).unwrap();
     model["elements"].as_object_mut().unwrap().remove("2");

@@ -74,7 +74,7 @@ describe('#758 — history evidence', () => {
     expect(formation.x).not.toBe(moved.x);
   });
 
-  it.skip('known wrong result: #1927 — a trial movement without a next increment preserves the last accepted hinge', async () => {
+  it('known wrong result: #1927 — a trial movement without a next increment preserves the last accepted hinge', async () => {
     historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
     await modelStore.loadExample('portal-frame');
     const input = modelStore.buildSolverInput(false)!;
@@ -96,7 +96,7 @@ describe('#758 — history evidence', () => {
     try {
       const history = plasticHistory2D(input, { mp: id => moments.get(id)!, np: () => Infinity });
       expect(trialSolves).toBeGreaterThan(0);
-      const hinge = history.hinges.find(h => h.position > 0 && h.position < 1)!;
+      const hinge = history.hinges.find(h => h.position !== undefined && h.position > 0 && h.position < 1)!;
       const formed = history.steps[hinge.step].hingesFormed.find(h => h.elementId === hinge.elementId)!;
       expect(hinge.x).toBe(formed.x);
       expect(hinge.position).toBe(formed.position);

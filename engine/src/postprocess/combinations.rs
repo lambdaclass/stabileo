@@ -485,7 +485,7 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
                 .filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0))
                 .find_map(|(_, r)| crate::boundary::find_non_finite(*r).ok().flatten())?;
             let mut structured_diagnostics = vec![non_finite.diagnostic()];
-            let (_, screen) = combined_screen_2d(&resolved, cases, &[]);
+            let (_, _, screen) = combined_screen_2d(&resolved, cases, &[]);
             crate::known_issues::attach(&mut structured_diagnostics, screen);
             Some(AnalysisResults {
                 displacements: vec![], reactions: vec![], element_forces: vec![], constraint_forces: vec![],
@@ -496,19 +496,20 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
     }
 }
 
-fn combined_screen_2d(resolved: &ResolvedFactors, cases: &[(usize, &AnalysisResults)], carried: &[StructuredDiagnostic]) -> (Option<f64>, Vec<StructuredDiagnostic>) {
+fn combined_screen_2d(resolved: &ResolvedFactors, cases: &[(usize, &AnalysisResults)], carried: &[StructuredDiagnostic]) -> (Option<f64>, Option<f64>, Vec<StructuredDiagnostic>) {
     let ratio = crate::known_issues::combined_ratio(cases.iter().enumerate().map(|(slot, (_, r))| {
         let factor = resolved.terms.iter().find(|&&(_, s)| s == slot).map_or(0.0, |&(factor, _)| factor);
         (factor.abs(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))
     }));
     let extra: f64 = resolved.contributions(cases).map(|(factor, _, r)| {
         let summary = r.result_summary.as_ref();
-        let excess = summary.and_then(|s| s.second_order_physical_bound.zip(s.second_order_ratio)).map_or(0.0, |(bound, ratio)| (bound - ratio).max(0.0));
+        let excess = summary.and_then(|s| s.second_order_physical_bound.zip(s.second_order_ratio)).map_or(0.0, |(bound, ratio)| crate::check::positive_part(bound - ratio));
         factor.abs() * excess
     }).sum();
-    let ratio = ratio.map(|r| r + extra);
-    let diagnostics = crate::known_issues::combined_second_order(carried.iter(), resolved.terms.iter().any(|&(factor, _)| factor < 0.0), ratio);
-    (ratio, diagnostics)
+    let upper = ratio.map(|r| r + extra);
+    let mut diagnostics = crate::known_issues::combined_second_order(carried.iter(), resolved.terms.iter().any(|&(factor, _)| factor < 0.0), ratio);
+    if extra > 0.0 { crate::known_issues::check_physical_band(&mut diagnostics, upper); }
+    (ratio, upper.filter(|_| extra > 0.0), diagnostics)
 }
 
 pub(crate) fn combine_results_refs_checked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Result<Option<AnalysisResults>, String> {
@@ -609,9 +610,9 @@ pub(crate) fn combine_results_refs_checked(factors: &[CombinationFactor], cases:
         second_order.extend(second);
         crate::known_issues::attach(&mut structured_diagnostics, others);
     }
-    let (ratio, screen) = combined_screen_2d(&resolved, cases, &second_order);
+    let (ratio, upper, screen) = combined_screen_2d(&resolved, cases, &second_order);
     crate::known_issues::attach(&mut structured_diagnostics, screen);
-    let mut combined = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
+    let mut combined = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, second_order_physical_bound: upper, ..Default::default() }), solver_run_meta: None };
     check_result_fields("Cannot combine results", std::iter::once((0, EnvelopedFields {
         displacements: &combined.displacements, reactions: &combined.reactions, element_forces: &combined.element_forces,
     })))?;

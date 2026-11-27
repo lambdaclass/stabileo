@@ -777,6 +777,10 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     const { unit, unitN, cand, dMin, stressed } = ev;
     if (!Number.isFinite(dMin)) { // nothing left that can yield
       restoreState(saved);
+      if ([...from].some(([h, initial]) => hingeAt[h]?.t !== initial)) {
+        historyUnavailable = true;
+        unresolved = true;
+      }
       if (steps.length === 0 && !stressed && ![...unit, ...unitN].some((row) => row.some((v) => Math.abs(v) > 1e-12))) unloaded = true;
       break;
     }
