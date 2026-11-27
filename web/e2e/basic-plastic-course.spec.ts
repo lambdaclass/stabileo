@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import { openAdvancedFunction, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 test.describe('@slow plastic collapse, withheld', () => {
-  test('the course unit refuses, says why and links #758', async ({ page }) => {
+  test('the course explains the refusal and the withheld methods produce no verdict', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await page.goto('/app/basic?e2e=1');
@@ -27,8 +27,22 @@ test.describe('@slow plastic collapse, withheld', () => {
     for (const id of ['plasticKinematic', 'plasticStatic']) {
       const row = page.getByTestId(`steps-withheld-${id}`);
       await expect(row).toContainText(/4[.,]6/);
-      await expect(row.locator('a')).toHaveCount(0);
+      await expect(row).toHaveAttribute('role', 'alert');
+      await expect(row.getByRole('link')).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/758');
+      await expect(row.getByRole('link')).toContainText('#758');
       await expect(page.getByTestId(`steps-open-${id}`)).toBeDisabled();
+    }
+    const queries = await Promise.all(['plasticKinematic', 'plasticStatic'].map(async id =>
+      [id, await page.getByTestId(`steps-method-${id}`).locator('.sc-name').innerText()] as const));
+    await page.getByTestId('steps-catalog-back').click();
+    for (const [id, title] of queries) {
+      const search = page.getByTestId('adv-search');
+      await search.fill(title);
+      await expect(page.getByTestId(`adv-step-${id}`)).toBeVisible();
+      await search.press('Enter');
+      await expect(page.getByTestId('steps-doc')).toHaveCount(0);
+      await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
+      await expect(search).toHaveValue(title);
     }
     expect(errors).toEqual([]);
   });

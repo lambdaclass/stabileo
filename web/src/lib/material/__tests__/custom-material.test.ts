@@ -38,9 +38,9 @@ describe('reading the form', () => {
     [{ rho: -78.5 }, 'material.custom.badRho'],
     [{ fy: 0 }, 'material.custom.badFy'],
     [{ fy: -250 }, 'material.custom.badFy'],
-    [{ alpha: '0' }, 'materials.alphaInvalid'],
-    [{ alpha: '-12' }, 'materials.alphaInvalid'],
-    [{ alpha: '101' }, 'materials.alphaInvalid'],
+    [{ alpha: 'NaN' }, 'materials.alphaInvalid'],
+    [{ alpha: '-Infinity' }, 'materials.alphaInvalid'],
+    [{ alpha: '1e999' }, 'materials.alphaInvalid'],
     [{ alpha: 'doce' }, 'materials.alphaInvalid'],
   ] as const)('refuses %o with %s', (over, reasonKey) => {
     expect(readCustomMaterial(form(over))).toEqual({ ok: false, reasonKey });
@@ -48,6 +48,19 @@ describe('reading the form', () => {
 
   it('accepts the bounds that are physical: ρ = 0 and ν just under 0.5', () => {
     expect(readCustomMaterial(form({ rho: 0, nu: '0.499' })).ok).toBe(true);
+  });
+
+  it.each([0, -12, 100, 101])('accepts a finite signed coefficient of %s µm/(m·°C)', (a) => {
+    const r = readCustomMaterial(form({ alpha: String(a) }));
+    expect(r.ok && r.choice.alpha).toBe(a * 1e-6);
+  });
+
+  it.each([12.34567e-6, -12.34567e-6, 0, 1.2345678901234567e-4])('preserves untouched coefficient %s exactly on rename', (alpha) => {
+    const original = { name: 'Old', e: 30000, nu: 0.2, rho: 25, alpha };
+    const draft = customMaterialForm(original);
+    draft.name = 'New';
+    const r = readCustomMaterial(draft, original);
+    expect(r.ok && r.choice.alpha).toBe(alpha);
   });
 
   it('opens a stored material as it was typed, α back in 10⁻⁶/°C', () => {
@@ -114,11 +127,13 @@ describe('saving a hand-entered material', () => {
   it('a catalogue grade put in place of a hand-entered material keeps none of its α or its mark', () => {
     const id = saveCustomMaterial(choice());
     const steel = getMaterialPresets().find((p) => p.gradeId && p.fy !== undefined)!;
+    modelStore.updateMaterial(id, { maxAggregateSizeMm: 42, spacingMarginMm: 5, shotcrete: true });
     expect(saveCatalogueMaterial(steel, id)).toBe(id);
     const m = modelStore.materials.get(id)!;
     expect(m).toMatchObject({ name: steel.name, e: steel.e, nu: steel.nu, rho: steel.rho, fy: steel.fy, gradeId: steel.gradeId });
     expect(m.alpha).toBeUndefined();
     expect(m.userDefined).toBeUndefined();
+    for (const key of ['maxAggregateSizeMm', 'spacingMarginMm', 'shotcrete'] as const) expect(m[key]).toBeUndefined();
     historyStore.undo();
     expect(modelStore.materials.get(id)).toMatchObject({ name: 'Madera dura', alpha: 11e-6, userDefined: true });
     const added = saveCatalogueMaterial(steel);
@@ -155,6 +170,7 @@ describe('saving a hand-entered material', () => {
     modelStore.clear();
     expect(deserializeProject(text)).toBe(true);
     const back = modelStore.materials.get(modelStore.elements.get(element)!.materialId);
-    expect(back).toMatchObject({ name: 'Madera dura', e: 100000, nu: 0.25, rho: 20, fy: 300, alpha: 11e-6 });
+    expect(back).toMatchObject({ name: 'Madera dura', e: 100000, nu: 0.25, rho: 20, fy: 300, alpha: 11e-6, userDefined: true });
+    expect(commercialDefaultFor('IPN', back, 'AR')).toBeNull();
   });
 });

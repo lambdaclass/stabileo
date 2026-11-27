@@ -60,3 +60,19 @@ for (const [file, attribute] of [
     }
   });
 }
+
+test('the compiled Advanced catalogue includes Mohr only in tools builds', async () => {
+  const { build } = await import('esbuild');
+  for (const tools of [false, true]) {
+    const bundle = await build({
+      entryPoints: [new URL('../src/lib/advanced/catalog.ts', import.meta.url).pathname],
+      define: { __PUBLIC_FEATURES__: JSON.stringify({ tools }) },
+      bundle: true, minify: true, write: false, format: 'esm',
+    });
+    const code = bundle.outputFiles[0].text;
+    const { ADV_FUNCTIONS } = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
+    assert.equal(ADV_FUNCTIONS.some(f => f.id === 'mohr'), tools);
+    assert.equal(code.includes('advanced.mohr'), tools);
+    assert.ok(ADV_FUNCTIONS.some(f => f.id === 'buckling'));
+  }
+});

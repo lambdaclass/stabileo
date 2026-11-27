@@ -131,3 +131,23 @@ describe('the picture held for a live re-solve', () => {
     expect(resultsStore.screen.held).toBe(false);
   });
 });
+
+it('drops the full-span picture after a split that retains the member ID', async () => {
+  const r = await solvedPortal();
+  const id = r.elementForces[0].elementId;
+  modelStore.splitMember(id, [0.5], { keepOriginalId: true });
+  expect(resultsStore.screen.held).toBe(false);
+  expect(resultsStore.screen.results).toBeNull();
+});
+
+it('holds the solved section when a new section modulus is requested', async () => {
+  const r = await solvedPortal();
+  const member = modelStore.elements.get(r.elementForces[0].elementId)!;
+  const section = modelStore.sections.get(member.sectionId)!;
+  resultsStore.diagramType = 'colorMap';
+  resultsStore.colorMapKind = 'sigmaMax';
+  const original = section.iy;
+  modelStore.updateSection(section.id, { iy: original * 2 });
+  expect(resultsStore.screen.held).toBe(true);
+  expect(resultsStore.screen.memberProperties(member.id)?.section.iy).toBe(original);
+});

@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore, historyStore, uiStore } from '..';
 import { whatIf } from '../whatif.svelte';
+import { loadLabel } from '../../whatif/load-label';
 import { response2D } from '../../whatif/response';
 
 const P = -12;
@@ -210,4 +211,57 @@ describe('what the canvas shows', () => {
     expect(uiStore.showLoads).toBe(false);
     expect(uiStore.hideLoadsWithDiagram).toBe(true);
   });
+});
+
+for (const workspace of ['2d', '3d'] as const) {
+  it(`applies support destinations together in ${workspace}`, () => {
+    uiStore.analysisMode = workspace;
+    whatIf.open();
+    whatIf.setSupportNode(s3, n2);
+    settle();
+    whatIf.setSupportNode(s1, n3);
+    settle();
+    expect(modelStore.supports.get(s1)?.nodeId).toBe(n3);
+    expect(modelStore.supports.get(s3)?.nodeId).toBe(n2);
+  });
+
+  it(`relocates an untouched point load after shortening its member in ${workspace}`, () => {
+    uiStore.analysisMode = workspace;
+    if (workspace === '2d') modelStore.addPointLoadOnElement(m1, 3, P);
+    else modelStore.addLoadEntry({ type: 'pointOnElement3d', data: { id: 1, elementId: m1, a: 3, py: 0, pz: P } });
+    whatIf.open();
+    whatIf.setNodeShift(n2, 0, -2);
+    settle();
+    expect(modelStore.loads[0].data.a).toBe(2);
+  });
+
+  for (const t of [0.01, 0.5, 0.99]) {
+    it(`keeps disconnected nodes separate at station ${t} in ${workspace}`, () => {
+      uiStore.analysisMode = workspace;
+      const x = t * 4;
+      const nearby = modelStore.addNode(x, 0.005);
+      modelStore.addElement(nearby, modelStore.addNode(x + 4, 0.005));
+      if (workspace === '2d') modelStore.addNodalLoad(n2, 0, P);
+      else modelStore.addNodalLoad3D(n2, 0, 0, P, 0, 0, 0);
+      whatIf.open();
+      whatIf.setLoadAlong(0, m1, t);
+      whatIf.setSupportAlong(s3, m1, t);
+      settle();
+      const cut = modelStore.elements.get(m1)!.nodeJ;
+      expect(cut).not.toBe(nearby);
+      expect(modelStore.nodes.get(cut)).toMatchObject({ x, y: 0 });
+      expect(modelStore.loads[0].data.nodeId).toBe(cut);
+      expect(modelStore.supports.get(s3)?.nodeId).toBe(cut);
+    });
+  }
+}
+
+it('identifies the node and the member load components in the current units', () => {
+  modelStore.addNodalLoad3D(n2, 2, 0, 0, 0, 0, 0);
+  modelStore.addDistributedLoad3D(m1, 3, 4, 5, 6);
+  expect(loadLabel(modelStore.loads[0], 0)).toContain(`(N${n2})`);
+  const distributed = loadLabel(modelStore.loads[1], 1);
+  expect(distributed).toContain(`(B${m1})`);
+  for (const value of [3, 4, 5, 6]) expect(distributed).toContain(String(value));
+  expect(distributed).toContain('/m');
 });

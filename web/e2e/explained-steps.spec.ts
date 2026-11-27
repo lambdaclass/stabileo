@@ -175,7 +175,10 @@ test.describe('explained step by step', () => {
     expect(cards).toEqual(['adv-fn-influenceLine', 'adv-fn-trainLoad', 'adv-fn-loadStates']);
     await expect(page.getByTestId('adv-fn-influenceLine').locator('.ac-thumb svg')).toBeVisible();
     await expect(page.getByTestId('adv-fn-influenceLine')).toContainText(/unit load|carga unitaria/i);
-    await expect(launcher).not.toContainText(/^Envelope$|^Envolvente$/);
+    for (const toggle of await launcher.locator('[data-testid^=adv-group-toggle-][aria-expanded=false]').all()) await toggle.click();
+    const titles = launcher.locator('button[data-testid^=adv-fn-] .ac-title');
+    expect(await titles.count()).toBeGreaterThan(cards.length);
+    await expect(titles.filter({ hasText: /^(Envelope|Envolvente|Envoltória)$/i })).toHaveCount(0);
   });
 
   test('@smoke a function opens from its card and goes back to the list; its step by step opens inside it', async ({ page }) => {

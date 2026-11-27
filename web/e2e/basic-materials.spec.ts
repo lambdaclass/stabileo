@@ -42,6 +42,8 @@ test.describe('@smoke materials typed by hand in Basic', () => {
     await expect(form).toBeVisible();
     await expect(page.locator('.preset-list')).toHaveCount(0);
     await page.getByTestId('mat-form-name').fill('Half stiffness');
+    await page.getByTestId('mat-form-name').dispatchEvent('keydown', { key: 'Escape', isComposing: true });
+    await expect(page.getByTestId('mat-form-name')).toHaveValue('Half stiffness');
     await page.getByTestId('mat-form-e').fill('0');
     await expect(page.getByTestId('mat-form-problem')).toBeVisible();
     await expect(page.getByTestId('mat-form-save')).toBeDisabled();
@@ -89,9 +91,17 @@ for (const [width, height] of [[390, 844], [360, 740]] as const) {
       await openPortal(page);
       await page.getByTestId('rb-cmd-model').tap();
       await page.getByTestId('dt-tab-materials').tap();
-      const rowButtons = await page.locator('[data-testid^=mat-row-] button').evaluateAll((els) =>
-        els.map((e) => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height); }));
-      expect(Math.min(...rowButtons)).toBeGreaterThanOrEqual(44);
+      const rows = await page.locator('[data-testid^=mat-row-]').all();
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        const id = (await row.getAttribute('data-testid'))!.slice('mat-row-'.length);
+        for (const action of ['edit', 'delete']) {
+          const button = row.getByTestId(`mat-${action}-${id}`);
+          await expect(button).toBeVisible();
+          const bounds = (await button.boundingBox())!;
+          expect(Math.min(bounds.width, bounds.height)).toBeGreaterThanOrEqual(44);
+        }
+      }
 
       await page.getByTestId('mat-new').tap();
       const tab = page.getByTestId('mat-invent-tab');

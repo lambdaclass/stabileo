@@ -44,9 +44,20 @@ test.describe('@slow explore', () => {
 
     // A load carried to another node, and a node moved: each re-solves the model in place.
     const nodeSelect = panel.locator('[data-testid^=whatif-load-node-]').first();
-    const other = await nodeSelect.locator('option').evaluateAll((os) => (os as HTMLOptionElement[]).map((o) => o.value));
+    const current = await nodeSelect.inputValue();
+    const other = await nodeSelect.locator('option[value^="n:"]').evaluateAll((os) => (os as HTMLOptionElement[]).map((o) => o.value));
     const before = await page.evaluate(() => window.__stabileo.modelVersion());
-    await nodeSelect.selectOption(other.find((v) => v !== other[0]) ?? other[0]);
+    const target = other.find(v => v !== current)!;
+    expect(target).toBeDefined();
+    const index = Number((await nodeSelect.getAttribute('data-testid'))!.split('-').at(-1));
+    await nodeSelect.selectOption(target);
+    await expect.poll(() => page.evaluate(i => (window.__stabileo.entityData('setting', 'loads') as { data: { nodeId: number } }[])[i].data.nodeId, index)).toBe(Number(target.slice(2)));
+    const fresh = await page.evaluate(() => window.__stabileo.freshMaxMoment());
+    expect(fresh).not.toBeNull();
+    await expect.poll(() => page.evaluate(() => {
+      const f = window.__stabileo.screenFrame();
+      return f.drawn && !f.held && f.diagram === 'moment' ? f.maxMoment : null;
+    })).toBeCloseTo(fresh!, 9);
     await expect.poll(() => page.evaluate(() => window.__stabileo.modelVersion())).toBeGreaterThan(before);
     await page.getByTestId('whatif-tab-nodes').click();
     await panel.locator('[data-testid^=whatif-node-] .wif-item-head').nth(1).click();
@@ -88,9 +99,18 @@ test.describe('@slow explore', () => {
     await expect.poll(diagram).toBe('axial');
     await expect(panel).toBeVisible();
 
+    const ids = await page.evaluate(() => window.__stabileo.elementIds());
+    await page.evaluate(id => window.__stabileoActions.selectElements([id]), ids[0]);
+    await expect(page.getByTestId('whatif-tab-members')).toHaveAttribute('aria-selected', 'true');
+    await page.getByTestId('whatif-tab-loads').click();
+    await page.evaluate(id => window.__stabileoActions.selectElements([id]), ids[1]);
+    await expect(page.getByTestId('whatif-tab-members')).toHaveAttribute('aria-selected', 'true');
     await page.getByTestId('whatif-tab-supports').click();
     for (const s of await panel.locator('[data-testid^=whatif-support-]').all()) await s.selectOption('rollerX');
     await expect(page.getByTestId('whatif-error')).toBeVisible();
+    const moment = page.getByTestId('whatif-resp-moment');
+    await expect(moment.locator('.wif-now')).toHaveText('—');
+    await expect(moment.locator('.wif-pct')).toBeEmpty();
     await page.getByTestId('whatif-reset').click();
     await expect(page.getByTestId('whatif-error')).toHaveCount(0);
 
@@ -112,12 +132,17 @@ test.describe('@slow explore in 3D', () => {
     await openAdvancedFunction(page, 'whatif');
     const panel = page.getByTestId('whatif-panel');
     await expect(panel).toBeVisible();
+    await expect(page.getByTestId('whatif-resp-delta').locator('th')).toContainText(/nodal/i);
+    for (const key of ['moment', 'shear']) await expect(page.getByTestId(`whatif-resp-${key}`).locator('th')).toContainText(/component/i);
     await expect(panel.locator('.wif-res-btn')).toHaveText(['δ', 'N', 'My', 'Vz', 'Mz', 'Vy', 'T']);
     await page.getByTestId('whatif-diagram-momentZ').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.diagramType())).toBe('momentZ');
     await page.getByTestId('whatif-tab-supports').click();
     for (const s of await panel.locator('[data-testid^=whatif-support-]').all()) await s.selectOption('rollerXY');
     await expect(page.getByTestId('whatif-error')).toBeVisible({ timeout: 20_000 });
+    const moment = page.getByTestId('whatif-resp-moment');
+    await expect(moment.locator('.wif-now')).toHaveText('—');
+    await expect(moment.locator('.wif-pct')).toBeEmpty();
     await page.getByTestId('whatif-reset').click();
     await expect(page.getByTestId('whatif-error')).toHaveCount(0, { timeout: 20_000 });
     await page.getByTestId('adv-close').click();

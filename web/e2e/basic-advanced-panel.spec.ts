@@ -4,7 +4,7 @@
  * wider than the screen and every target large enough to tap.
  */
 import { test, expect, type Page } from './fixtures';
-import { ADV_FUNCTIONS, ADV_GROUPS } from '../src/lib/advanced/catalog';
+import { ADV_GROUPS } from '../src/lib/advanced/catalog';
 import { openAdvancedList, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 async function boot(page: Page) {
@@ -54,6 +54,7 @@ for (const [label, viewport] of [['390×844', { width: 390, height: 844 }], ['36
 
       await page.getByTestId('adv-group-toggle-analysis').tap();
       await expect(page.getByTestId('adv-fn-buckling')).toBeVisible();
+      await expect(page.getByTestId('adv-fn-buckling').locator('svg .sup')).toHaveCount(2);
       await tallEnough(page, 'button[data-testid^=adv-fn-]');
       await expectFits(page);
 
@@ -67,6 +68,9 @@ for (const [label, viewport] of [['390×844', { width: 390, height: 844 }], ['36
       await tallEnough(page, '[data-testid^=adv-step-]');
       await expectFits(page);
 
+      await search.dispatchEvent('keydown', { key: 'Enter', isComposing: true });
+      await expect(search).toHaveValue('phi');
+      await expect(page.getByTestId('adv-running')).toHaveCount(0);
       await page.getByTestId('adv-search-clear').tap();
       await page.getByTestId('adv-fn-buckling').tap();
       await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'buckling');
@@ -84,22 +88,29 @@ test.describe('@smoke plane-only functions in a 3D workspace', () => {
     await boot(page);
     await page.getByTestId('rb-cmd-dim').click();
     await openAdvancedList(page);
-    const planeOnly = ADV_FUNCTIONS.filter((f) => f.requires.plane);
-    expect(planeOnly.map((f) => f.id)).toContain('influenceLine');
-
-    await page.getByTestId('adv-search').fill('influence');
-    await expect(page.getByTestId('adv-fn-influenceLine')).toBeDisabled();
-    const steps = page.locator('[data-testid^=adv-step-]');
-    for (let i = await steps.count(); i-- > 0;) {
-      const id = (await steps.nth(i).getAttribute('data-testid'))!.slice('adv-step-'.length);
-      if (planeOnly.some((f) => f.steps.includes(id))) await expect(steps.nth(i)).toBeDisabled();
+    const restricted = [
+      ['analysis', 'kinematic', 'Grübler'], ['analysis', 'plastic', 'Mp'],
+      ['moving', 'influenceLine', 'Müller-Breslau'], ['moving', 'trainLoad', 'Wanderlast'],
+    ] as const;
+    for (const group of ['analysis', 'moving']) await page.getByTestId(`adv-group-toggle-${group}`).click();
+    const search = page.getByTestId('adv-search');
+    for (const [, id, query] of restricted) {
+      const card = page.getByTestId(`adv-fn-${id}`);
+      await expect(card).toBeDisabled();
+      await search.fill(query);
+      await expect(card).toBeDisabled();
+      await search.press('Enter');
+      await expect(page.getByTestId('adv-running')).toHaveCount(0);
+      await expect(search).toHaveValue(query);
+      await search.fill('');
     }
-    await page.getByTestId('adv-search-clear').click();
-
+    await search.fill('influence');
+    await expect(page.getByTestId('adv-step-influenceLine')).toBeDisabled();
+    await search.fill('');
     await openStepsCatalog(page);
     await expandStepsCatalog(page);
-    for (const f of planeOnly) {
-      for (const m of f.steps) await expect(page.getByTestId(`steps-function-${m}`), m).toHaveCount(0);
+    for (const method of ['influenceLine', 'plasticKinematic', 'plasticStatic']) {
+      await expect(page.getByTestId(`steps-function-${method}`)).toHaveCount(0);
     }
   });
 });

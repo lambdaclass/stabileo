@@ -63,3 +63,18 @@ test.describe('@slow explore live', () => {
     expect(last.maxMoment!).toBeGreaterThan(before);
   });
 });
+
+test('@slow the painted and freshly solved simple-span moments include midspan', async ({ page }) => {
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions && window.__stabileo.solverReady());
+  await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
+  await page.evaluate(() => window.__stabileoActions.solve());
+  await page.getByTestId('rb-cmd-momentY').click();
+  const moment = 10 * 6 ** 2 / 8;
+  await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().maxMoment)).toBeCloseTo(moment, 9);
+  expect(await page.evaluate(() => window.__stabileo.freshMaxMoment())).toBeCloseTo(moment, 9);
+  await page.evaluate(() => window.__stabileoActions.holdScreen());
+  await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().held)).toBe(true);
+  await page.evaluate(() => window.__stabileoActions.releaseScreen());
+  await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().drawn)).toBe(false);
+});
