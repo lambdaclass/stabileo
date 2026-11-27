@@ -322,9 +322,48 @@ for (const axis of ['x', 'y'] as const) for (const height of [0, 0.01]) it(`#252
       if (p.torque !== 'resolved') throw new Error('expected resolved carrier torque');
       return { ...p, q: axis === 'x' ? p.cx : p.cy, qJ: axis === 'x' ? p.cxJ : p.cyJ };
     });
-    expect(Math.abs(emittedWork(couple, 0))).toBeCloseTo(1 + area, 12);
+    const sign = (axis === 'x' ? 1 : -1) * (id === 1 ? 1 : -1);
+    expect(emittedWork(couple, 0)).toBeCloseTo(sign * (1 + area), 12);
   }
   const endForces = [...field.loads, ...field.baseLoads];
   const first = endForces.reduce((sum, [id, f]) => sum + (model.nodes.get(id)!.z! - from) * f, 0);
   expect(first).toBeCloseTo(1 / 2 + 1 / 3 + area * (center + center ** 2 + radius ** 2 / 6), 12);
 });
+
+for (const entry of ['integral', 'member'] as const) {
+  for (const jump of [0.5, 3 / 8]) for (const rising of [true, false]) {
+    it.skip(`known wrong result: #2529 — declared step at ${jump} rising=${rising} through ${entry}`, () => {
+      const left = rising ? 1 : 2, right = rising ? 2 : 1;
+      const law = Object.assign((s: number) => (rising ? s < jump : s <= jump) ? left : right, { curvatureBreaks: [jump] });
+      const parts = projectedParts(entry, law);
+      expect(parts).toHaveLength(2);
+      expect(parts[0]!.b).toBe(jump);
+      expect(parts[1]!.a).toBe(jump);
+      for (const [i, p] of parts.entries()) {
+        expect(p.q).toBeCloseTo(i === 0 ? left : right, 12);
+        expect(p.qJ).toBeCloseTo(i === 0 ? left : right, 12);
+      }
+      for (const k of [0, 1, 2, 3]) {
+        const exact = (right + (left - right) * jump ** (k + 1)) / (k + 1);
+        expect(Math.abs(emittedWork(parts, k) - exact)).toBeLessThanOrEqual(1e-14);
+      }
+    });
+  }
+
+  for (const sign of [-1, 0, 1]) for (const a of [1 / 16, 7 / 8]) {
+    it.skipIf(sign !== 0)(`known wrong result: #2529 — confined parabolic pulse at ${a} sign=${sign} through ${entry}`, () => {
+      const width = 1 / 16, b = a + width, center = a + width / 2;
+      const law = Object.assign((s: number) => s > a && s < b ? sign * (s - a) * (b - s) : 0, { curvatureBreaks: [a, b] });
+      const parts = projectedParts(entry, law);
+      const area = sign * width ** 3 / 6, variance = width ** 2 / 20;
+      const moments = [1, center, center ** 2 + variance, center ** 3 + 3 * center * variance];
+      for (const [k, moment] of moments.entries()) {
+        expect(Math.abs(emittedWork(parts, k) - area * moment)).toBeLessThanOrEqual(1e-14);
+      }
+      expect(shearAtCut(parts, a)).toBe(0);
+      expect(Math.abs(shearAtCut(parts, center) - area / 2)).toBeLessThanOrEqual(1e-4 * Math.abs(area));
+      expect(shearAtCut(parts, b)).toBeCloseTo(area, 14);
+      if (sign === 0) expect(parts).toHaveLength(1);
+    });
+  }
+}
