@@ -431,3 +431,20 @@ test('known wrong result: #1928 the level-centre table and its labels belong to 
     });
   }
 });
+
+test.skip('known wrong result: #1928 published mesh previews have their released quality and total captions', async () => {
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const text = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        const module = await import('data:text/javascript;base64,' + Buffer.from(text).toString('base64'));
+        for (const key of ['qualityCell', 'planTotal']) assert.equal(Object.hasOwn(module[locale], 'plates.' + key), !plates, locale + ' ' + key);
+        for (const key of ['qualityGood', 'qualityPoor', 'qualityHint', 'planTotalOnly', 'localLoadsWarnOne', 'keptNodesNoteOne', 'firstSide', 'drawingLabel', 'remeshNoteOne', 'remeshNoteSome', 'remeshNoteAll']) {
+          assert.equal(Object.hasOwn(module[locale], 'plates.' + key), plates, locale + ' ' + key);
+        }
+      }
+    });
+  }
+});
