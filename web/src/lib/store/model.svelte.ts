@@ -2209,6 +2209,7 @@ function createModelStore() {
     get elements() { return model.elements; },
     get supports() { return model.supports; },
     get loads() { return model.loads; },
+    get loadsForEdit(): readonly Load[] { return _bulkLoadBuffer ?? model.loads; },
     get materials() { return model.materials; },
     get sections() { return model.sections; },
     get loadCases() { return model.loadCases; },
