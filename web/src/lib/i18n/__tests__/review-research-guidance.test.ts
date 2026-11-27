@@ -13,7 +13,7 @@ it.each([
   ["onlyEnglish", STRINGS.it.onlyEnglish, "solo in inglese"],
   ["researchLanguages", STRINGS.it.researchLanguages, "variano secondo il benchmark"],
   ["researchLanguages", STRINGS.it.researchLanguages, "Se manca una traduzione"],
-  ["hybridModel", STRINGS.it.hybridModel, "H = max(0, H_prev, ψ)"],
+  ["hybridModel", STRINGS.it.hybridModel, "il massimo tra zero, il valore precedente e l’energia motrice corrente, anche durante lo scarico"],
   ["springsOrderedComparison", STRINGS.it.springsOrderedComparison, "moltiplicato per l’area"],
   ["meshLimitation", STRINGS.nl.meshLimitation, "hoogte groter dan twee karakteristieke lengtes"],
   ["accuracy", articleStrings('nl').accuracy, "|Δλ| ≤ Δs / ‖f_ref‖"],

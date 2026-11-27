@@ -4,7 +4,7 @@ import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 import { publicI18n, setLocale } from '../../../../lib/i18n/store.svelte';
 import ShauerArticle from '../ShauerArticle.svelte';
 
-it.skip.each(PUBLIC_LOCALES)('known wrong result: #2613 — publishes the history update exactly once in the %s article', locale => {
+it.each(PUBLIC_LOCALES)('known wrong result: #2613 — publishes the history update exactly once in the %s article', locale => {
   const original = publicI18n.locale;
   try {
     setLocale(locale);

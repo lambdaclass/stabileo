@@ -2203,7 +2203,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'it' | 'zh' | 'nl', ResearchSt
     atFixed: "dato",
     drivingEnergy: "Energia motrice",
     positiveStrains: "sulle deformazioni principali positive, con σ",
-    hybridModel: "le tensioni principali non danneggiate. Questa divisione ibrida del codice di riferimento degrada l’intera tensione elastica. In stati di deformazione misti una deformazione principale positiva può accoppiarsi a una tensione negativa, dando energia motrice negativa e potenzialmente danno negativo. La modalità storia conserva a ogni passo il massimo storico H = max(0, H_prev, ψ), anche durante lo scarico; non impone limiti al danno nodale.",
+    hybridModel: "le tensioni principali non danneggiate. Questa divisione ibrida del codice di riferimento degrada l’intera tensione elastica. In stati di deformazione misti una deformazione principale positiva può accoppiarsi a una tensione negativa, dando energia motrice negativa e potenzialmente danno negativo. La modalità storia conserva a ogni passo il massimo tra zero, il valore precedente e l’energia motrice corrente, anche durante lo scarico; non impone limiti al danno nodale.",
     alternatingSolution: "Soluzione alternata",
     solvePerStep: "per passo di carico: risolvi",
     currentDamage: "con il d corrente, poi d con il nuovo",
