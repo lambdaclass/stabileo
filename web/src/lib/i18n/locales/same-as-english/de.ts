@@ -612,5 +612,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'xls.tpl.optionalMark',
   'rcSheets.wallFig.horizontal',
   'rcSheets.exportShort',
-  'placement.at',
+  'rcSheets.placement.at',
 ];

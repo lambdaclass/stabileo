@@ -408,6 +408,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'xls.col.supportType',
   'rcSheets.slabFig.plan',
   'rcSheets.exportShort',
-  'placement.at',
+  'rcSheets.placement.at',
   'rcSheets.stair.model',
 ];
