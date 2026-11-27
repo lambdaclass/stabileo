@@ -392,3 +392,20 @@ it('checks the placed section at each right-hand cut and blocks a missing axial 
     .filter(u => u.key === 'detailing.cutoff.unverified');
   expect(refused.map(u => u.params?.x).sort()).toEqual(['4.668', '5.277']);
 });
+
+it.skip('known wrong result: unnumbered — withholds a cutoff proof when a pinned stirrup replaces the checked reinforcement', () => {
+  const initial = runDetailing(scenario()).assemblies;
+  const ties = initial.flatMap(a => a.bars).filter(b => b.role === 'transverse' && b.ownerElementIds.includes(12));
+  const tie = ties.filter(b => b.segments[0]!.start.x <= 5.277)
+    .sort((a, b) => b.segments[0]!.start.x - a.segments[0]!.start.x)[0]!;
+  function withPinned(diameterMm: number) {
+    return runDetailing({ ...scenario(), lockedBars: [{ ...tie, diameterMm, locked: true }] }).assemblies;
+  }
+  const checked = withPinned(tie.diameterMm);
+  expect(checked.flatMap(a => a.unsupported).filter(u => u.key === 'detailing.cutoff.unverified')).toEqual([]);
+  const changed = withPinned(tie.diameterMm / 2);
+  expect(changed.flatMap(a => a.unsupported).filter(u => u.key === 'detailing.cutoff.unverified')
+    .map(u => u.params?.x)).toEqual(['5.277']);
+  expect(changed.flatMap(a => a.provenance.trace)
+    .some(note => note.includes('Corte derecho') && note.includes('9.7.3.5(a)'))).toBe(false);
+});
