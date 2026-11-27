@@ -29,7 +29,7 @@ async function bootBasic(page: Page) {
   await page.addInitScript(() => {
     try {
       if (!sessionStorage.getItem('e2e-storage-cleared')) {
-        localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right');
+        localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right'); localStorage.setItem('stabileo-panel-open', 'closed');
         sessionStorage.setItem('e2e-storage-cleared', '1');
       }
     } catch { /* private mode */ }

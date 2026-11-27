@@ -183,7 +183,7 @@ export default defineConfig({
      * reader turns it on. A spec that clears the storage restores it (`bootPro`, and the few that
      * boot on their own); `design-optional.spec.ts` starts from an empty storage for the default.
      */
-    storageState: { cookies: [], origins: [{ origin: BASE_URL, localStorage: [{ name: 'stabileo-design-in-pro', value: '1' }, { name: 'stabileo-start-card', value: 'off' }, { name: 'stabileo-panel-side', value: 'right' }] }] },
+    storageState: { cookies: [], origins: [{ origin: BASE_URL, localStorage: [{ name: 'stabileo-design-in-pro', value: '1' }, { name: 'stabileo-start-card', value: 'off' }, { name: 'stabileo-panel-side', value: 'right' }, { name: 'stabileo-panel-open', value: 'closed' }] }] },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

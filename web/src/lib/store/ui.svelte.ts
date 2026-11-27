@@ -1,6 +1,7 @@
 // UI state store
 
 import { DEFAULT_OSNAP, OSNAP_MODES, type OsnapMode } from '../model/osnap-modes';
+import { shellLayout } from './shell-layout.svelte';
 import type { NodeStylePref } from '../three/nodes-instanced';
 import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } from '../geometry/coordinate-system';
 import { isUnitSystem, type UnitSystem } from '../utils/units';
@@ -514,7 +515,6 @@ function createUIStore() {
   // Desktop sidebar toggles
   let rightSidebarOpen = $state(false);
   let proPanelVisible = $state(true);
-  let proPanelWidth = $state(540);
 
   // PRO panel active tab (shared so App.svelte can render the nav strip)
   let proActiveTab = $state('nodes');
@@ -1245,8 +1245,8 @@ function createUIStore() {
     set rightSidebarOpen(v: boolean) { rightSidebarOpen = v; },
     get proPanelVisible() { return proPanelVisible; },
     set proPanelVisible(v: boolean) { proPanelVisible = v; },
-    get proPanelWidth() { return proPanelWidth; },
-    set proPanelWidth(v: number) { proPanelWidth = v; },
+    get proPanelWidth() { return Math.max(360, shellLayout.panelWidth); },
+    set proPanelWidth(v: number) { shellLayout.panelWidth = v; },
     get proActiveTab() { return proActiveTab; },
     set proActiveTab(v: string) {
       // Constraints and connectors are edited in Specifications › Links; the old destination

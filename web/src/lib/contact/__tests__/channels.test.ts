@@ -53,8 +53,14 @@ describe('the channel list both menus read from', () => {
     for (const c of contactChannels('hola')) {
       expect(c.icon, c.id).toMatch(/^<svg/);
       expect(c.langs, c.id).toMatch(/^(EN|ES|PT)(\/(EN|ES|PT))*$/);
-      expect(c.href, c.id).toMatch(/^https:\/\//);
+      expect(c.href, c.id).toMatch(/^(https:\/\/|mailto:)/);
     }
+  });
+
+  it('offers the contact address, and says Instagram is kept in English', () => {
+    const channels = contactChannels('hola');
+    expect(channels.find((c) => c.id === 'email')?.href).toBe('mailto:contact@stabileo.com');
+    expect(channels.find((c) => c.id === 'instagram')?.langs).toBe('EN');
   });
 });
 

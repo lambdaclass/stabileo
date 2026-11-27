@@ -36,4 +36,22 @@ describe('shellLayout', () => {
     localStorage.setItem('stabileo-panel-side', 'middle');
     expect((await import('../shell-layout.svelte')).shellLayout.panelSide).toBe('left');
   });
+
+  it('gives every mode one panel width, and keeps a dragged one', async () => {
+    const { shellLayout, DEFAULT_PANEL_WIDTH } = await import('../shell-layout.svelte');
+    expect(shellLayout.panelWidth).toBe(DEFAULT_PANEL_WIDTH);
+    shellLayout.panelWidth = 512.4;
+    shellLayout.rememberWidth();
+    vi.resetModules();
+    expect((await import('../shell-layout.svelte')).shellLayout.panelWidth).toBe(512);
+  });
+
+  it('opens the panel at start until it is closed, and then remembers that', async () => {
+    const { shellLayout } = await import('../shell-layout.svelte');
+    expect(shellLayout.panelOpenAtStart).toBe(true);
+    shellLayout.rememberPanelOpen(false);
+    expect(shellLayout.panelOpenAtStart).toBe(false);
+    shellLayout.rememberPanelOpen(true);
+    expect(shellLayout.panelOpenAtStart).toBe(true);
+  });
 });

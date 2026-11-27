@@ -59,6 +59,29 @@ test.describe('@smoke the title bar and the panel side', () => {
     expect(await read('--st-left-panel-w')).toBe(0);
   });
 
+  test('Basic opens on Model data › Nodes, as wide as PRO\'s panel, and stays closed once closed', async ({ page }) => {
+    await page.addInitScript(() => {
+      try { if (!sessionStorage.getItem('open-seeded')) { sessionStorage.setItem('open-seeded', '1'); localStorage.removeItem('stabileo-panel-open'); localStorage.removeItem('stabileo-panel-width'); } } catch { /* private */ }
+    });
+    await openBasic(page);
+    const panel = page.getByTestId('basic-panel');
+    await expect(panel).toBeVisible();
+    await expect(panel.getByTestId('dt-tab-nodes')).toHaveClass(/active/);
+    const basicWidth = (await panel.boundingBox())!.width;
+
+    await page.getByTestId('ws-pro').click();
+    await expect(page.locator('.pro-sidebar')).toBeVisible();
+    expect((await page.locator('.pro-sidebar').boundingBox())!.width).toBeCloseTo(basicWidth, 0);
+    await expect(page.getByTestId('pro-panel-title')).toHaveText(/nodes/i);
+
+    await page.getByTestId('ws-plane').click();
+    await panel.locator('.bp-close').click();
+    await expect(panel).toHaveCount(0);
+    await page.reload();
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
+    await expect(page.getByTestId('basic-panel')).toHaveCount(0);
+  });
+
   test('File › New project opens a tab', async ({ page }) => {
     await openBasic(page);
     const tabs = page.locator('.tab-bar .tab');

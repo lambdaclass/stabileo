@@ -70,7 +70,7 @@ async function openExercise(page: Page, nth = 0) {
 async function bootEducation(page: Page, url = EDU_URL) {
   await page.addInitScript(() => {
     try {
-      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right');
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right'); localStorage.setItem('stabileo-panel-open', 'closed');
       localStorage.setItem('stabileo-lang', 'en');
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch { /* private mode */ }
@@ -138,7 +138,7 @@ test.describe('@smoke Education — a handed-out exercise', () => {
     expect(code.length, 'a code was produced').toBeGreaterThan(50);
 
     // A different session — the teacher's — reads it.
-    await page.evaluate(() => { localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right'); });
+    await page.evaluate(() => { localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right'); localStorage.setItem('stabileo-panel-open', 'closed'); });
     await page.goto(EDU_URL);
     await expect(page.locator('.edu-panel')).toBeVisible();
     await page.locator('.submit-code').fill(code);

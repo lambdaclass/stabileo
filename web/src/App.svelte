@@ -99,7 +99,9 @@
    * right, so the canvas keeps the window and the drawing does not shift
    * sideways when a panel appears.
    */
-  let basicPanel = $state<string | null>(null);
+  let basicPanel = $state<string | null>(
+    typeof window !== 'undefined' && window.innerWidth >= 768 && shellLayout.panelOpenAtStart ? 'data' : null,
+  );
   /** Which Model-data tab the last Properties command asked for. */
   let basicDataTab = $state<string>('nodes');
 
@@ -112,6 +114,11 @@
    * state covers every path there is.
    */
   $effect(() => { syncModelTabWithResults(basicPanel, basicDataTab); });
+
+  $effect(() => {
+    const open = basicPanel !== null;
+    if (uiStore.appMode === 'basico' && !uiStore.isMobile) untrack(() => shellLayout.rememberPanelOpen(open));
+  });
 
   /*
    * Switching Educational OFF has to leave the reader where it found them.
@@ -773,7 +780,6 @@
     resultsStore.diagramType = 'none';
     historyStore.clear();
     uiStore.proPanelVisible = true;
-    uiStore.proPanelWidth = 540;
     uiStore.rightDrawerOpen = false;
     // Restore target mode's model or start empty
     const saved = modeSnapshots.get(target);
@@ -1540,6 +1546,7 @@
     }
     function onUp() {
       if (rafId) cancelAnimationFrame(rafId);
+      shellLayout.rememberWidth();
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';

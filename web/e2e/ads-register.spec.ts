@@ -33,7 +33,7 @@ async function boot(page: Page, query: string): Promise<Backend> {
     try {
       if (sessionStorage.getItem('booted')) return;
       sessionStorage.setItem('booted', '1');
-      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right');
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right'); localStorage.setItem('stabileo-panel-open', 'closed');
       localStorage.setItem('stabileo-lang', 'es');
       localStorage.setItem('stabileo-lang-manual', '1');
       localStorage.setItem('stabileo-feature-accounts', '1');

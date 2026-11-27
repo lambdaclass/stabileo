@@ -236,6 +236,7 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('nav.nav')).toHaveCount(1);
     await expect(page.locator('nav.site-header')).toBeVisible();
     await expect(page.locator('.landing footer.lp-footer')).toHaveCount(1);
+    await expect(page.locator('.landing footer.lp-footer a[href="mailto:contact@stabileo.com"]')).toContainText('contact@stabileo.com');
   });
 
 
@@ -978,7 +979,7 @@ test.describe('@landing landing page', () => {
     await expect(fab).toHaveAttribute('aria-expanded', 'true');
 
     const links = page.locator('.landing .links-panel a');
-    await expect(links).toHaveCount(5);
+    await expect(links).toHaveCount(6);
 
     const rows = await links.evaluateAll((els) =>
       els.map((e) => ({
@@ -991,7 +992,7 @@ test.describe('@landing landing page', () => {
     );
 
     // WhatsApp first — it is the one that reaches a person rather than a feed.
-    expect(rows.map((r) => r.id)).toEqual(['whatsapp', 'instagram', 'x', 'linkedin', 'discord']);
+    expect(rows.map((r) => r.id)).toEqual(['whatsapp', 'instagram', 'x', 'linkedin', 'discord', 'email']);
     // Digits only. wa.me accepts a `+` or a space without complaining and then
     // opens WhatsApp on an invalid contact, so that failure is silent.
     expect(rows[0].href).toMatch(/^https:\/\/wa\.me\/\d{8,15}\?text=/);
@@ -1114,11 +1115,11 @@ test.describe('@landing the model the deck states', () => {
     await expect(ai.locator('.mode-note')).toHaveText('El panel ya está en el editor, desactivado mientras lo probamos.');
   });
 
-  test('the footer links the five accounts, and opens none of them in place', async ({ page }) => {
+  test('the footer links the accounts and the address, and opens none of them in place', async ({ page }) => {
     await bootLanding(page);
 
     const links = page.locator('.landing .footer-social a');
-    await expect(links).toHaveCount(5);
+    await expect(links).toHaveCount(6);
 
     const hrefs = await links.evaluateAll((els) => els.map((e) => e.getAttribute('href') ?? ''));
     expect([...hrefs].sort()).toEqual([
@@ -1127,6 +1128,7 @@ test.describe('@landing the model the deck states', () => {
       'https://www.instagram.com/stabileoapp/',
       'https://www.linkedin.com/company/stabileo',
       'https://x.com/Stabileoapp',
+      'mailto:contact@stabileo.com',
     ]);
 
     // Labelled by handle, not by platform: a reader scanning a footer knows
