@@ -133,7 +133,7 @@ it('#2364 saves the same notice stamp and features as main with global axes off'
   const stamp = unknownStamp();
   const store = createRecheckStore();
   const support = { id: 1, nodeId: 1, type: 'fixed' as const, drz: Math.PI / 180 };
-  const saved = {
+  const saved: Parameters<typeof store.openProject>[0] = {
     solvedWith: stamp,
     supports: [[1, support]],
     loadCases: [{ id: 1, type: 'D', axisNamed: true }],

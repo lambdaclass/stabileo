@@ -1,1 +1,5 @@
-- The reinforcement workspace now reports bare beams and columns correctly when a floor panel or footing shares their number. The status list distinguishes a footing from a frame member with the same number.
+### Fixed
+
+#### Keep floor reinforcement separate from frame member status
+
+The reinforcement workspace now reports bare beams and columns correctly when a floor panel or footing shares their number. The status list distinguishes a footing from a frame member with the same number.

@@ -226,6 +226,7 @@
     const ids = rebarWorkspace.selection?.elementIds ?? [];
     if (!report || ids.length === 0) return null;
     const picked = selectedBar ?? selectedSolid;
+    if (!picked && (rebarWorkspace.selection?.barId || rebarWorkspace.selection?.solidId)) return null;
     const owner = picked ? statusOwnerOf(picked) : 'frame';
     return findElementStatus(report, ids[0], owner) ?? null;
   });
