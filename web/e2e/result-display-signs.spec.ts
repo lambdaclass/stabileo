@@ -12,6 +12,7 @@ async function openCantilever(page: Page, mode: Mode, force: Vector, couple: Vec
       version: '2.0', name: 'Reaction display cantilever', analysisMode: mode,
       snapshot: {
         solvedWith: stamp,
+        ...(mode === '2d' ? { drawPlane2D: 'xy' } : {}),
         nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 4, y: 0, z: 0 }]],
         elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseI: {}, releaseJ: {} }]],
         materials: [[1, { id: 1, name: 'Test material', e: 200000, nu: 0.3, rho: 0 }]],

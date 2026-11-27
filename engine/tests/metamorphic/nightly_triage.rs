@@ -80,7 +80,7 @@ fn assert_displacement_substitutions_rejected(reference: Resp, cond: Conditionin
 
 #[test]
 fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_2d() {
-    let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
+    let nodal: SolverInput = crate::common::nightly_solver(witness("nodal-1969")).unwrap();
     let reference = linear::solve_2d(&nodal).unwrap();
     assert_displacement_substitutions_rejected(
         disp_2d(&reference),
@@ -91,7 +91,7 @@ fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_2d() {
 #[test]
 fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_3d() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
-    let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
+    let nodal: SolverInput = crate::common::nightly_solver(witness("nodal-1969")).unwrap();
     let nodal = embed_2d(&nodal, Plane::XZ).unwrap();
     let reference = linear::solve_3d(&nodal).unwrap();
     assert_displacement_substitutions_rejected(
@@ -103,7 +103,7 @@ fn issue_1989_nodal_displacement_oracle_rejects_zero_and_empty_3d() {
 #[test]
 fn issue_1989_rank_two_modal_oracle_rejects_empty_and_wrong_eigenvalues() {
     let value = witness("1965");
-    let original: SolverInput = serde_json::from_value(value.clone()).unwrap();
+    let original: SolverInput = crate::common::nightly_solver(value.clone()).unwrap();
     let densities = serde_json::from_value(value["_nightly_dens"].clone()).unwrap();
     let base = certify::modal::certify_modal_2d(&original, &densities, 6).unwrap();
     let reference = modal_eigenvalues(&base.results);
@@ -163,7 +163,11 @@ fn issue_1962_buckling_accepts_record_ids_independent_of_map_keys() {
 #[test]
 fn issue_1963_plastic_accepts_record_ids_independent_of_map_keys() {
     let bytes = raw("1963");
-    let input: PlasticInput3D = serde_json::from_slice(&bytes[2..]).unwrap();
+    let wire = &bytes[2..];
+    let error = serde_json::from_slice::<PlasticInput3D>(wire).unwrap_err();
+    assert!(error.to_string().contains("duplicate key in field `elements`"), "{error}");
+    let last_row_control: Value = serde_json::from_slice(wire).unwrap();
+    let input: PlasticInput3D = serde_json::from_value(last_row_control).unwrap();
     if let Ok(result) = plastic::solve_plastic_3d(&input) {
         finite(&result);
     }
@@ -181,8 +185,8 @@ fn issue_1964_linear_certificate_accepts_record_ids_independent_of_map_keys() {
 #[test]
 fn issue_1965_rotation_preserves_the_two_finite_modes_of_rank_two_mass() {
     let value = witness("1965");
-    let original: SolverInput = serde_json::from_value(value.clone()).unwrap();
-    let rotated: SolverInput = serde_json::from_value(witness("rotated-1965")).unwrap();
+    let original: SolverInput = crate::common::nightly_solver(value.clone()).unwrap();
+    let rotated: SolverInput = crate::common::nightly_solver(witness("rotated-1965")).unwrap();
     let densities = serde_json::from_value(value["_nightly_dens"].clone()).unwrap();
     let base = certify::modal::certify_modal_2d(&original, &densities, 6).unwrap();
     let result = certify::modal::certify_modal_2d(&rotated, &densities, 6).unwrap();
@@ -220,8 +224,8 @@ fn issue_1965_rotation_preserves_the_two_finite_modes_of_rank_two_mass() {
 
 #[test]
 fn issue_1969_transverse_truss_member_loads_reach_the_balance_check() {
-    let input: SolverInput = serde_json::from_value(witness("1969")).unwrap();
-    let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
+    let input: SolverInput = crate::common::nightly_solver(witness("1969")).unwrap();
+    let nodal: SolverInput = crate::common::nightly_solver(witness("nodal-1969")).unwrap();
     let reference = linear::solve_2d(&nodal).unwrap();
     finite(&reference);
     let result = linear::solve_2d(&input).unwrap();
@@ -235,7 +239,7 @@ fn issue_1969_transverse_truss_member_loads_reach_the_balance_check() {
 #[test]
 #[ignore = "known wrong result: #1977; reaction units mismatch with the NL-5/#428 warning"]
 fn issue_1977_material_reactions_preserve_units() {
-    let s = serde_json::from_value(witness("1977")).unwrap();
+    let s = crate::common::nightly_solver(witness("1977")).unwrap();
     let case = crate::case::Case2::new("replay", s);
     let anas: Vec<_> = crate::ana2::rows()
         .into_iter()
@@ -260,7 +264,7 @@ fn issue_1977_material_reactions_preserve_units() {
 
 #[test]
 fn canonical_record_keys_still_return_their_answer() {
-    let input: SolverInput3D = serde_json::from_value(witness("canonical-1962")).unwrap();
+    let input: SolverInput3D = crate::common::nightly_solver(witness("canonical-1962")).unwrap();
     let result = linear::solve_3d(&input).unwrap();
     finite(&result);
     assert_eq!(result.displacements.len(), input.nodes.len());
@@ -268,7 +272,7 @@ fn canonical_record_keys_still_return_their_answer() {
 
 #[test]
 fn issue_1969_equivalent_nodal_actions_return_an_answer() {
-    let input: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
+    let input: SolverInput = crate::common::nightly_solver(witness("nodal-1969")).unwrap();
     let result = linear::solve_2d(&input).unwrap();
     finite(&result);
     assert_eq!(result.displacements.len(), input.nodes.len());
@@ -277,8 +281,8 @@ fn issue_1969_equivalent_nodal_actions_return_an_answer() {
 #[test]
 fn issue_1969_transverse_truss_actions_survive_a_3d_embedding() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
-    let original: SolverInput = serde_json::from_value(witness("1969")).unwrap();
-    let nodal: SolverInput = serde_json::from_value(witness("nodal-1969")).unwrap();
+    let original: SolverInput = crate::common::nightly_solver(witness("1969")).unwrap();
+    let nodal: SolverInput = crate::common::nightly_solver(witness("nodal-1969")).unwrap();
     let original = embed_2d(&original, Plane::XZ).unwrap();
     let nodal = embed_2d(&nodal, Plane::XZ).unwrap();
     let reference = linear::solve_3d(&nodal).unwrap();

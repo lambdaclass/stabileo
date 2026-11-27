@@ -22,11 +22,13 @@ const cases = {
     assert.equal(output.isMechanism, true);
     assert.ok(output.warnings.some(warning => warning.includes('biaxial')));
     const original = readFileSync(new URL('../../engine/tests/fixtures/plastic-1953-nightly.bin', import.meta.url));
-    const originalOutput = JSON.parse(solve_plastic_3d(original.subarray(2).toString('utf8')));
+    const raw = original.subarray(2).toString('utf8');
+    assert.throws(() => solve_plastic_3d(raw), /duplicate key in field `elements`/);
+    const originalInput = JSON.parse(raw);
+    const originalOutput = JSON.parse(solve_plastic_3d(JSON.stringify(originalInput)));
     assert.ok(Number.isFinite(originalOutput.collapseFactor));
     assert.ok(originalOutput.collapseFactor > 0);
     assert.equal(originalOutput.isMechanism, true);
-    const originalInput = JSON.parse(original.subarray(2));
     originalInput.solver.elements = Object.fromEntries(Object.values(originalInput.solver.elements).map(element => [String(element.id), element]));
     const originalReference = JSON.parse(solve_plastic_3d(JSON.stringify(originalInput)));
     assert.equal(originalOutput.collapseFactor, originalReference.collapseFactor);

@@ -372,3 +372,41 @@ it.each([
   expect(input).not.toBeNull();
   expect(solve3D(input!).reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo((6 * 5 - 1) * 2 * (3 + 2), 8);
 });
+
+it('#2429 refuses an oblique CAD wall supported by isolated shared nodes', () => {
+  const outline = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }];
+  const plan: ArchPlan = {
+    ...fixturePlan(), columns: outline.map(at => ({ at, sizeSource: 'default' })), openings: [],
+    beams: [{ a: outline[0]!, b: outline[1]! }],
+    walls: [{ a: outline[0]!, b: outline[2]!, thicknessSource: 'default' }],
+    slabs: [{ outline, isQuad: true, isRectilinear: true }],
+  };
+  for (const meshMode of ['fixedDivisions', 'targetSize'] as const) {
+    const draft = generateRcDraft(plan, assumptions({
+      nFloors: 1, storyHeights: [3], meshMode, meshTargetSize: 2, deadLoad: 1, liveLoad: 0, roofLiveLoad: 0,
+    }), SOURCE);
+    expect(draft.counts.slabQuads).toBe(4);
+    const quads = draft.snapshot.quads!;
+    const slabs = quads.slice(0, 4), walls = quads.slice(4);
+    const slabNodes = new Set(slabs.flatMap(([, q]) => q.nodes));
+    const wallNodes = new Set(walls.flatMap(([, q]) => q.nodes));
+    const edges = (cells: typeof quads) => cells.flatMap(([, { nodes }]) => nodes.map((a, i) => {
+      const b = nodes[(i + 1) % nodes.length]!;
+      return [Math.min(a, b), Math.max(a, b)].join(':');
+    }));
+    expect([...wallNodes].filter(id => slabNodes.has(id)).length).toBeGreaterThanOrEqual(2);
+    const slabEdges = new Set(edges(slabs));
+    expect(edges(walls).some(edge => slabEdges.has(edge))).toBe(false);
+    let refusal: string | undefined;
+    try {
+      const input = buildSolverInput3D(snapshotToModelShape(draft.snapshot) as never);
+      expect(input).not.toBeNull();
+      const result = solve3D(input!);
+      expect(result.reactions.reduce((sum, support) => sum + support.fz, 0)).toBeCloseTo(4 * 4, 8);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      refusal = error.message;
+    }
+    expect.soft(refusal ?? 'returned a result', meshMode).toMatch(/wall.*slab/i);
+  }
+});

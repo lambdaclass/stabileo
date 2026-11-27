@@ -1,3 +1,4 @@
+import { offsetRoof } from '../../engine/loads/__tests__/gravity-offset-roof-fixture';
 import { expect, it } from 'vitest';
 import { assessProject } from '../applicability';
 import { RESULT_CHANGES } from '../full-registry';
@@ -60,4 +61,36 @@ it('requires saved panel mode, shell geometry, generated member gravity and an o
   ]) {
     expect(changes({ ...legacyPanel, analysisMode: 'pro', ...overrides })).not.toContain(change.id);
   }
+});
+
+it('#2512 explicit width gravity does not qualify for panel gravity regeneration', () => {
+  const snapshot: FeatureSnapshot = {
+    ...legacyPanel, analysisMode: 'pro',
+    regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: 'width' } } } } },
+    designData: { loadBasis: { derivation: [{ key: 'loadPlan.gravity.width' }] } },
+  };
+  const features = modelFeatures(snapshot);
+  expect(features.has('generatedWidthGravity')).toBe(true);
+  expect(features.has('generatedPanelGravity')).toBe(false);
+});
+
+it('#2586 requires an actual paired roof attachment with a bounded gap', () => {
+  const id = 'gravity-attached-rafter-gaps';
+  const check = (gap: false | readonly [number, number], paired: boolean, mode: 'width' | 'panels') => {
+    const { model } = offsetRoof(0.02, 0.53, 1, true, gap);
+    const remote = [...model.nodes.values()].at(-1)!;
+    const first = remote.id + 1, second = remote.id + 2;
+    model.nodes.set(first, { ...remote, id: first, x: remote.x + 20 });
+    model.nodes.set(second, { ...remote, id: second, x: remote.x + 20, z: remote.z! + 1 });
+    const constraints = paired ? model.constraints.map(link => ({ ...link })) : [{ type: 'rigidLink', masterNode: first, slaveNode: second }];
+    return changes({
+      ...legacyPanel, analysisMode: 'pro', nodes: [...model.nodes], elements: [...model.elements],
+      quads: [...model.quads], constraints,
+      regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: mode } } } } },
+    }).includes(id);
+  };
+  expect.soft(check([4, 6], true, 'panels')).toBe(true);
+  expect.soft(check([4, 6], false, 'panels')).toBe(false);
+  expect.soft(check(false, true, 'panels')).toBe(false);
+  expect.soft(check([4, 6], true, 'width')).toBe(false);
 });

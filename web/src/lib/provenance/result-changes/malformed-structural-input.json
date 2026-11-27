@@ -1,0 +1,56 @@
+{
+  "id": "malformed-structural-input",
+  "date": "2026-11-25",
+  "prs": [
+    2588
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "malformedAuthoredStructure",
+      "native:analysis-wire-unknown-fields",
+      "native:duplicate-json-connector-keys"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Malformed structural input",
+    "es": "Datos estructurales inválidos",
+    "pt": "Dados estruturais inválidos",
+    "de": "Ungültige Struktureingaben",
+    "fr": "Données structurelles invalides",
+    "hu": "Érvénytelen szerkezeti adatok",
+    "tr": "Geçersiz yapısal veriler",
+    "zh": "无效的结构输入",
+    "ar": "مدخلات إنشائية غير صالحة",
+    "hi": "अमान्य संरचनात्मक इनपुट",
+    "id": "Masukan struktur tidak valid",
+    "it": "Dati strutturali non validi",
+    "ja": "無効な構造入力",
+    "ko": "잘못된 구조 입력",
+    "ru": "Недопустимые данные конструкции"
+  },
+  "explanation": {
+    "en": "Analysis now names malformed structural and solver fields that could previously be dropped or replaced by defaults. Check support fields, fixed-size arrays, connector keys and combination IDs. Multi-case analysis also refuses unknown combination definition fields such as method.",
+    "es": "El análisis indica los campos estructurales y del solver inválidos que antes podían omitirse o reemplazarse por valores predeterminados. Revisá los campos de los apoyos, los arreglos de tamaño fijo, las claves de los conectores y los identificadores de las combinaciones. El análisis de varios casos también rechaza campos desconocidos en la definición de combinaciones, como method.",
+    "pt": "A análise indica os campos estruturais e do solver inválidos que antes podiam ser descartados ou substituídos por valores padrão.",
+    "de": "Die Berechnung benennt ungültige Struktur- und Solverfelder, die zuvor entfallen oder durch Standardwerte ersetzt werden konnten.",
+    "fr": "Le calcul signale les champs de structure et de résolution invalides qui pouvaient auparavant être ignorés ou remplacés par des valeurs par défaut.",
+    "hu": "A számítás megnevezi azokat az érvénytelen szerkezeti és megoldói mezőket, amelyeket korábban elhagyhatott vagy alapértékkel helyettesíthetett.",
+    "tr": "Analiz, önceden atlanabilen veya varsayılan değerlerle değiştirilebilen geçersiz model ve çözücü alanlarını belirtir.",
+    "zh": "分析会指出以前可能被丢弃或由默认值替换的无效结构与求解器字段。",
+    "ar": "يحدد التحليل الحقول الإنشائية وحقول المحلل غير الصالحة التي كان يمكن تجاهلها أو استبدالها بقيم افتراضية.",
+    "hi": "विश्लेषण अब संरचना और सॉल्वर के उन अमान्य फ़ील्डों का नाम बताता है जिन्हें पहले छोड़ा जा सकता था या डिफ़ॉल्ट मान से बदला जा सकता था।",
+    "id": "Analisis menunjukkan kolom struktur dan pemecah yang tidak valid yang sebelumnya dapat diabaikan atau diganti dengan nilai bawaan.",
+    "it": "L’analisi indica i campi strutturali e del solutore non validi che in precedenza potevano essere ignorati o sostituiti con valori predefiniti.",
+    "ja": "解析では、以前は無視されたり既定値で置き換えられたりした無効な構造モデルやソルバーの項目を特定します。",
+    "ko": "이제 해석에서 이전에 무시되거나 기본값으로 대체될 수 있었던 잘못된 구조 및 솔버 필드를 표시합니다.",
+    "ru": "Расчёт указывает недопустимые поля модели и решателя, которые раньше могли игнорироваться или заменяться значениями по умолчанию."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-malformed-structural-input.md",
+    "heading": "Refusal of malformed structural input"
+  }
+}

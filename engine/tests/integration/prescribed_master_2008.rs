@@ -20,13 +20,21 @@ fn cases() -> Vec<Value> {
 }
 
 fn run(case: &Value, path: &str) -> Result<Value, String> {
-    let model = case["model"].clone();
+    let mut model = case["model"].clone();
+    if path == "staged" {
+        model["stages"] = case["stages"].clone();
+        let result = if case["dim"] == 2 {
+            serde_json::to_value(solver::staged::solve_staged_2d(&serde_json::from_value(model).unwrap())?)
+        } else {
+            serde_json::to_value(solver::staged::solve_staged_3d(&serde_json::from_value(model).unwrap())?)
+        };
+        return Ok(result.unwrap());
+    }
     let wrapper = json!({"solver":model,"foundationSprings":[],"materialModels":{},"sectionCapacities":{},"nIncrements":3,"tolerance":1e-10,"maxIter":50,"maxSteps":3,"initialDs":0.001,"minDs":1e-8,"maxDs":0.001});
     let value = if case["dim"] == 2 {
         let input: SolverInput = serde_json::from_value(model.clone()).unwrap();
         match path {
             "linear" => serde_json::to_value(solver::linear::solve_2d(&input)?),
-            "staged" => serde_json::to_value(solver::staged::solve_staged_2d(&serde_json::from_value(model).unwrap())?),
             "winkler" => serde_json::to_value(solver::winkler::solve_winkler_2d(&serde_json::from_value(wrapper).unwrap())?),
             "contact" => serde_json::to_value(solver::contact::solve_contact_2d(&serde_json::from_value(wrapper).unwrap())?),
             "material" => serde_json::to_value(solver::material_nonlinear::solve_nonlinear_material_2d(&serde_json::from_value(wrapper).unwrap())?),
@@ -51,7 +59,6 @@ fn run(case: &Value, path: &str) -> Result<Value, String> {
         let input: SolverInput3D = serde_json::from_value(model.clone()).unwrap();
         match path {
             "linear" => serde_json::to_value(solver::linear::solve_3d(&input)?),
-            "staged" => serde_json::to_value(solver::staged::solve_staged_3d(&serde_json::from_value(model).unwrap())?),
             "winkler" => serde_json::to_value(solver::winkler::solve_winkler_3d(&serde_json::from_value(wrapper).unwrap())?),
             "contact" => serde_json::to_value(solver::contact::solve_contact_3d(&serde_json::from_value(wrapper).unwrap())?),
             "material" => serde_json::to_value(solver::material_nonlinear::solve_nonlinear_material_3d(&serde_json::from_value(wrapper).unwrap())?),

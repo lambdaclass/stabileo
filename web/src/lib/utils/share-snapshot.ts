@@ -1,3 +1,5 @@
+import { canonicalizeModelAliases } from '../model/canonical-aliases';
+import { requireStoredProjectInput } from '../engine/model-input-numbers';
 import type { ModelSnapshot } from '../store/history.svelte';
 import type { Load } from '../store/model.svelte';
 import { migrateFootings } from '../model/footing';
@@ -152,6 +154,7 @@ function entries(value: unknown): value is Entry[] {
  */
 export function prepareSharedSnapshot(value: unknown): ModelSnapshot | null {
   if (!record(value) || !record(value.nextId)) return null;
+  requireStoredProjectInput(value);
   const tupleFamilies = ['nodes', 'materials', 'sections', 'elements', 'supports'] as const;
   for (const key of tupleFamilies) {
     if (!entries(value[key])) return null;
@@ -219,5 +222,5 @@ export function prepareSharedSnapshot(value: unknown): ModelSnapshot | null {
   const ground = migrateGeotechnical(value.geotechnical).geotechnical;
   if (!ensureCounter('footing', [...footings.keys()])) return null;
   if (!ensureCounter('soilProfile', ground.profiles.map(profile => profile.id))) return null;
-  return { ...value, nextId } as unknown as ModelSnapshot;
+  return canonicalizeModelAliases({ ...value, nextId } as unknown as ModelSnapshot);
 }

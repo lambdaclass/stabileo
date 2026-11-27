@@ -394,9 +394,8 @@ pub(super) fn constraints(input: &SolverInput, model: &Model, kin: &mut Kinemati
     for con in &input.constraints {
         match con {
             Constraint::RigidLink(rl) => {
-                let dofs: Vec<usize> = if rl.dofs.is_empty() { (0..dpn.min(3)).collect() } else { rl.dofs.clone() };
                 let (ox, oz) = off(rl.master_node, rl.slave_node)?;
-                for d in dofs {
+                for &d in rl.effective_dofs(dpn) {
                     kin.equation(need(rl.slave_node, d)?, rigid(rl.master_node, d, ox, oz)?);
                 }
             }

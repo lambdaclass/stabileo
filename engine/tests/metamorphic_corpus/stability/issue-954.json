@@ -7,13 +7,11 @@
  "connectors": {},
  "constraints": [
   {
-   "dofs": [],
    "masterNode": 3,
    "slaveNode": 2,
    "type": "rigidLink"
   },
   {
-   "dofs": [],
    "masterNode": 4,
    "slaveNode": 5,
    "type": "rigidLink"
@@ -66,8 +64,7 @@
     "a": 2.5555102674538173,
     "elementId": 3,
     "my": 10.622583873203723,
-    "p": 27.173140534222114,
-    "px": null
+    "p": 27.173140534222114
    },
    "type": "pointOnElement"
   }
@@ -122,14 +119,7 @@
  "solverOptions": null,
  "supports": {
   "1": {
-   "angle": null,
-   "dry": null,
-   "dx": null,
-   "dz": null,
    "id": 1,
-   "kx": null,
-   "ky": null,
-   "kz": null,
    "nodeId": 1,
    "type": "fixed"
   }

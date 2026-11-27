@@ -26,7 +26,7 @@ const ENTRIES: &[&str] = &[
 fn witness(key: &str) -> SolverInput {
     let all: Value =
         serde_json::from_str(include_str!("../fixtures/nightly-2026-11-13.json")).unwrap();
-    serde_json::from_value(all[key].clone()).unwrap()
+    crate::common::nightly_solver(all[key].clone()).unwrap()
 }
 
 fn models(loaded: bool) -> Vec<(SolverInput, Vec<[f64; 2]>)> {
@@ -308,4 +308,94 @@ fn issue_2017_exact_zero_answer() {
 #[test]
 fn issue_2018_exact_zero_answer() {
     exact_zero("2018", "certified linear");
+}
+
+#[test]
+fn material_nonlinear_zero_residual_requires_resolved_constraint_rank() {
+    let mut failures = Vec::new();
+    for (model, expected, refused) in cancellation_boundaries(false) {
+        let planar = Case2::new("2013 material", model.clone());
+        let spatial = Case3::new("2013 material", embed(&model, Plane::XZ));
+        let row2 = crate::ana2::rows().into_iter().find(|a| a.name == "material nonlinear").unwrap();
+        let row3 = crate::ana3::rows().into_iter().find(|a| a.name == "material nonlinear").unwrap();
+        for (dim, result) in [(2, (row2.run)(&planar)), (3, (row3.run)(&spatial))] {
+            match result {
+                Err(e) if refused && e.contains("constraint reduction cancels stiffness contributions") => {}
+                Ok(r) if !refused => verify(&r, &expected.iter().map(|v| {
+                    if dim == 2 { v.to_vec() } else { Plane::XZ.point(v[0], v[1]).to_vec() }
+                }).collect::<Vec<_>>(), dim == 3),
+                Ok(_) => failures.push(format!("{dim}D: returned an answer at the refusal boundary")),
+                Err(e) => failures.push(format!("{dim}D: {e}, expected refusal {refused}")),
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn kinematics_reports_constraint_rounding_despite_zero_rounded_mechanisms() {
+    use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
+
+    for (model, _, refused) in cancellation_boundaries(false) {
+        let spatial = embed(&model, Plane::XZ);
+        for result in [analyze_kinematics_2d(&model), analyze_kinematics_3d(&spatial)] {
+            assert_eq!(result.mechanism_modes, 0, "{}", result.diagnosis);
+            assert_eq!(result.is_solvable, !refused, "{}", result.diagnosis);
+            if refused {
+                assert!(result.diagnosis.contains("constraint reduction cancels stiffness contributions"), "{}", result.diagnosis);
+                assert_eq!(result.classification, "indeterminate");
+            }
+        }
+    }
+}
+
+#[test]
+fn modal_reports_constraint_rounding_before_the_eigensolve() {
+    use dedaliano_engine::{certify, solver::modal};
+    let mut case = crate::corpus::fuzz_case_2d(20754, 20795 - 20754);
+    case.s = crate::common::explicit_rigid_support_control(&case.s);
+    let densities = case.s.materials.keys().map(|id| (id.clone(), 1.0)).collect();
+    let assert_refusal = |error: String| {
+        let value: Value = serde_json::from_str(&error).unwrap_or_else(|_| panic!("{error}"));
+        assert_eq!(value["structuredDiagnostics"][0]["code"], "reduced_stiffness_rank");
+        assert_eq!(value["structuredDiagnostics"][0]["severity"], "error");
+        assert!(value["message"].as_str().unwrap().contains("constraint reduction cancels stiffness contributions"));
+    };
+    assert_refusal(modal::solve_modal_2d(&case.s, &densities, 2).unwrap_err());
+    assert_refusal(certify::modal::certify_modal_2d(&case.s, &densities, 2).unwrap_err());
+
+    let assert_mode = |result: Result<Vec<f64>, String>, refused: bool| {
+        if refused {
+            assert_refusal(result.unwrap_err());
+        } else {
+            let modes = result.unwrap();
+            assert_eq!(modes.len(), 1);
+            assert!(modes[0].is_finite() && modes[0] > 0.0);
+        }
+    };
+    for (model, _, refused) in cancellation_boundaries(false) {
+        let spatial = embed(&model, Plane::XZ);
+        for planar in [crate::case::pad_2d(&model).0, model] {
+            assert_mode(modal::solve_modal_2d(&planar, &densities, 1)
+                .map(|result| result.modes.iter().map(|mode| mode.omega).collect()), refused);
+            assert_mode(certify::modal::certify_modal_2d(&planar, &densities, 1)
+                .map(|result| result.results.modes.iter().map(|mode| mode.omega).collect()), refused);
+        }
+        assert_mode(modal::solve_modal_3d(&spatial, &densities, 1)
+            .map(|result| result.modes.iter().map(|mode| mode.omega).collect()), refused);
+        assert_mode(certify::modal::certify_modal_3d(&spatial, &densities, 1)
+            .map(|result| result.results.modes.iter().map(|mode| mode.omega).collect()), refused);
+    }
+}
+
+#[test]
+fn unresolved_elastic_rank_has_an_indeterminate_kinematic_classification() {
+    use dedaliano_engine::solver::kinematic::{analyze_kinematics_2d, analyze_kinematics_3d};
+    for (model, _, refused) in cancellation_boundaries(false) {
+        let spatial = embed(&model, Plane::XZ);
+        for result in [analyze_kinematics_2d(&model), analyze_kinematics_3d(&spatial)] {
+            assert_eq!(result.classification == "indeterminate", refused, "{result:?}");
+            assert_eq!(result.mechanism_modes, 0);
+        }
+    }
 }

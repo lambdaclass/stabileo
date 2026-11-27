@@ -10,13 +10,16 @@ import { firstModeB2, type SoSettings } from '../engine/second-order/settings';
 import { solveBuckling3D } from '../engine/wasm-solver';
 import { refusedWithCode } from '../engine/containment-error';
 import { secondOrderSettings } from '../store/second-order.svelte';
-import { resultsStore } from '../store';
+import { modelStore, resultsStore } from '../store';
+import type { DrawPlane } from '../geometry/plane-projection';
 import { explainedSteps } from '../store/explained-steps.svelte';
 import { openExplainedMethod } from './step-wizards';
 import { tp } from '../i18n';
 
 /** 2D P-Δ with the panel's settings; a sentence when the chosen method cannot take the model. */
-export function pdeltaBasic2D(input: SolverInput): SoPDeltaResult | string {
+export function pdeltaBasic2D(includeSelfWeight: boolean, plane: DrawPlane): SoPDeltaResult | string | null {
+  const input = modelStore.buildSolverInput(includeSelfWeight, plane);
+  if (!input) return null;
   const got = runPDelta2D(input, secondOrderSettings.snapshot());
   return got.ok ? got.result : tp(got.reason.key, got.reason.params);
 }

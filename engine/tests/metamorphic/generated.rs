@@ -30,7 +30,7 @@ pub(crate) fn model(seed: u64, spatial: bool) -> Value {
             "2": {"id":2,"type":"frame","nodeI":2,"nodeJ":3,"materialId":1,"sectionId":1}
         },
         "materials": {"1":{"id":1,"e":rng.range(180000.0,220000.0),"nu":0.3}},
-        "sections": {"1":{"id":1,"a":a,"iz":iz,"iy":iz*0.63,"j":iz*0.4}},
+        "sections": {"1":{"id":1,"a":a,"iz":iz}},
         "supports": {"1":{"id":1,"nodeId":1,"type":"fixed"}},
         "loads": [
             {"type":"nodal","data":{"nodeId":2,"fx":-0.1,"fz":-0.15,"my":0.03}},
@@ -38,6 +38,8 @@ pub(crate) fn model(seed: u64, spatial: bool) -> Value {
         ]
     });
     if spatial {
+        v["sections"]["1"]["iy"] = json!(iz * 0.63);
+        v["sections"]["1"]["j"] = json!(iz * 0.4);
         for n in v["nodes"].as_object_mut().unwrap().values_mut() {
             n["y"] = json!(0.0);
         }

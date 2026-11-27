@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, expect, it } from 'vitest';
 import { t } from '../../i18n';
-import { initSolver, input2DToWireObject, input3DToWireObject } from '../../engine/wasm-solver';
+import { finiteObjectWire, initSolver, input2DToWireObject, input3DToWireObject } from '../../engine/wasm-solver';
 import { tallyRoles } from '../../engine/generators/member-roles';
 import { solve_2d, solve_3d, solve_pdelta_2d, solve_pdelta_3d, solve_staged_2d } from '../../wasm/dedaliano_engine.js';
 import { applyPlacedMesh } from '../../model/edit/mesh-apply';
@@ -34,14 +34,14 @@ const warpedRefusal = () => t('knownIssue.SH-WARPED-MITC4') + ' (#1057)';
 
 it('#2535 uses node IDs for warp containment in the linear WASM export', () => {
   drawQuad(0.1);
-  const wire = input3DToWireObject(modelStore.buildSolverInput3D()!);
+  const wire = finiteObjectWire(input3DToWireObject(modelStore.buildSolverInput3D()!));
   wire.nodes = Object.fromEntries(Object.values(wire.nodes).map(node => [`corner-${node.id}`, node]));
   expect(() => solve_3d(wire)).toThrow(/SH-WARPED-MITC4/);
 });
 
 it('#2535 uses node IDs for warp containment in the nonlinear WASM export', () => {
   drawQuad(0.1);
-  const wire = input3DToWireObject(modelStore.buildSolverInput3D()!);
+  const wire = finiteObjectWire(input3DToWireObject(modelStore.buildSolverInput3D()!));
   wire.nodes = Object.fromEntries(Object.values(wire.nodes).map(node => [`corner-${node.id}`, node]));
   expect(() => solve_pdelta_3d(JSON.stringify(wire), 20, 1e-4)).toThrow(/SH-WARPED-MITC4/);
 });
@@ -103,7 +103,7 @@ function planeWire() {
   modelStore.addElement(a, b);
   modelStore.addSupport(a, 'fixed');
   modelStore.addNodalLoad(b, 0, -1);
-  return input2DToWireObject(modelStore.buildSolverInput()!);
+  return finiteObjectWire(input2DToWireObject(modelStore.buildSolverInput()!));
 }
 
 function planeWireWithQuad() {

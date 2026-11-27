@@ -1,0 +1,37 @@
+{
+  "id": "axial-joint-mechanisms",
+  "date": "2026-11-25",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      ["trussMembers"],
+      ["analysis:linear", "analysis:pdelta", "analysis:buckling", "analysis:modal", "analysis:spectral", "analysis:nonlinear", "analysis:ssi", "stagedConstruction"]
+    ]
+  },
+  "quantities": ["solve.ok", "isSolvable", "kinematicIsSolvable", "classification", "diagnosis"],
+  "title": {
+    "en": "Free translations at truss joints",
+    "es": "Traslaciones libres en nudos de barras articuladas",
+    "pt": "Translações livres nos nós de treliças",
+    "de": "Freie Verschiebungen an Fachwerkknoten",
+    "fr": "Translations libres aux nœuds de treillis",
+    "hu": "Szabad elmozdulások a rácsos tartó csomópontjain",
+    "tr": "Kafes düğümlerinde serbest ötelenmeler",
+    "zh": "桁架节点的自由平移"
+  },
+  "explanation": {
+    "en": "The solver refuses a model when a joint can translate without straining its attached truss members or violating its restraints. Recheck saved analysis results for affected models.",
+    "es": "El motor rechaza el modelo si un nudo puede desplazarse sin deformar sus barras articuladas ni violar sus restricciones. Volvé a verificar los resultados guardados de los modelos afectados.",
+    "pt": "O solver recusa o modelo se um nó puder se deslocar sem deformar as barras de treliça ligadas a ele nem violar suas restrições. Confira novamente os resultados salvos dos modelos afetados.",
+    "de": "Der Solver lehnt das Modell ab, wenn sich ein Knoten ohne Dehnung der angeschlossenen Fachwerkstäbe und ohne Verletzung der Lagerbedingungen verschieben kann. Prüfen Sie die gespeicherten Ergebnisse betroffener Modelle erneut.",
+    "fr": "Le solveur refuse le modèle si un nœud peut se déplacer sans déformer les barres de treillis connectées ni violer les contraintes. Vérifiez à nouveau les résultats enregistrés des modèles concernés.",
+    "hu": "A megoldó elutasítja a modellt, ha egy csomópont a kapcsolódó rácsrudak alakváltozása és a kényszerek megsértése nélkül elmozdulhat. Ellenőrizze újra az érintett modellek mentett eredményeit.",
+    "tr": "Bir düğüm bağlı kafes çubuklarını deforme etmeden ve kısıtları ihlal etmeden ötelenebiliyorsa çözücü modeli reddeder. Etkilenen modellerin kayıtlı sonuçlarını yeniden kontrol edin.",
+    "zh": "如果节点可以平移而不使相连的桁架杆产生应变，也不违反约束，求解器将拒绝求解。请重新检查受影响模型的已保存分析结果。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-axial-joint-mechanisms.md",
+    "heading": "Refuse axial joint mechanisms (2026-11-25)"
+  }
+}

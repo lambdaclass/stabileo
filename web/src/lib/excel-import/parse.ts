@@ -1,7 +1,7 @@
 import { globalAxes } from '../features';
 import { readLoadData } from './load-data';
 import { GRAVITY_SELF_WEIGHT } from '../engine/analysis-settings';
-import { selfWeightFor } from '../engine/self-weight';
+import { resolveSelfWeightScope, selfWeightFor, selfWeightScopeRefusal } from '../engine/self-weight';
 const modelVector = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'vector', values });
 const modelRotation = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'pseudovector', values });
 import { quantityTransform } from '../axes/quantity-transform';
@@ -172,6 +172,17 @@ function num(v: unknown): number | null {
 
 function str(v: unknown): string {
   return v == null ? '' : String(v).trim();
+}
+
+function readSelfWeightMemberIds(text: string): number[] | { invalidMemberId: string } {
+  const ids: number[] = [];
+  for (const token of text.split(/\s+/)) {
+    if (!/^\d+$/.test(token)) return { invalidMemberId: token };
+    const id = Number(token);
+    if (!Number.isSafeInteger(id)) return { invalidMemberId: token };
+    ids.push(id);
+  }
+  return ids;
 }
 
 const MOMENT_COLUMNS = ['mx', 'my', 'mz'] as const;
@@ -1095,9 +1106,19 @@ export function parseWorkbookSheets(
       const dir = str(row.cells.direction);
       if (!['X', 'Y', 'Z'].includes(dir)) { invalid('direction'); continue; }
       if (!['all', 'members'].includes(scope) || str(row.cells.group) !== '') { invalid('scope'); continue; }
+      const refuseMembers = (message: string) => problems.push({
+        sheet: 'SelfWeight', row: row.n, column: 'members', message, blocking: true,
+      });
       const membersText = str(row.cells.members);
-      const elements = membersText === '' ? [] : membersText.split(/\s+/).map(Number);
-      if (scope === 'members' ? !elements.length || elements.some(id => !memberIds.has(id)) : elements.length > 0) { invalid('members'); continue; }
+      if (scope === 'members' ? membersText === '' : membersText !== '') {
+        refuseMembers(tp('xls.err.selfWeightRule', { field: 'members' }));
+        continue;
+      }
+      const elements = scope === 'members' ? readSelfWeightMemberIds(membersText) : [];
+      if (!Array.isArray(elements)) {
+        refuseMembers(selfWeightScopeRefusal(elements));
+        continue;
+      }
       const userIndex = 'XYZ'.indexOf(dir);
       const mapped = quantityTransform(frame, 'toModel').component(userIndex, factor, 'vector');
       if (source === 'single') {
@@ -1105,7 +1126,13 @@ export function parseWorkbookSheets(
         standaloneGravityRow = row.n;
         continue;
       }
-      selfWeight.push({ caseId, direction: mapped.name, factor: mapped.value, ...(scope === 'members' ? { elements } : {}) });
+      const rule = { caseId, direction: mapped.name, factor: mapped.value, ...(scope === 'members' ? { elements } : {}) };
+      const selected = resolveSelfWeightScope({ elements: memberIds }, rule);
+      if (!('members' in selected)) {
+        refuseMembers(selfWeightScopeRefusal(selected));
+        continue;
+      }
+      selfWeight.push(rule);
     }
     if (standaloneGravityRow !== undefined && selfWeight.length > 0) {
       const cases = model.loadCases.length ? model.loadCases : defaultLoadCases();
@@ -1186,26 +1213,21 @@ export function parseWorkbookSheets(
      */
     const n = (k: string) => num(row.cells[k]) ?? 0;
     const data: Record<string, unknown> = { id: loadId++, caseId };
-    if (wantsNode && declaredAxes) {
-      const force = [n('fx'), n('fy'), n('fz')] as const;
-      const moment = [n('mx'), n('my'), n('mz')] as const;
-      const [fx, fy, fz] = modelVector(frame, force).map(v => v + 0);
-      const [mx, my, mz] = modelRotation(frame, moment).map(v => v + 0);
-      if (type === 'nodal') {
+    if (type === 'nodal') {
+      let fx: number;
+      let fz: number;
+      let my: number;
+      if (declaredAxes) {
         const userName = (axis: 0 | 1 | 2) => userAxisAlong(frame, axis).name.toLowerCase();
         const outside = ['f' + userName(1), 'm' + userName(0), 'm' + userName(2)];
         if (rejectLoadComponents(row, outside, t('xls.err.nodalOutOfPlane'), problems)) continue;
-        const planeMoment = quantityTransform(frame, 'toModel').plane({
+        const force = modelVector(frame, [n('fx'), n('fy'), n('fz')]);
+        fx = force[0] + 0;
+        fz = force[2] + 0;
+        my = quantityTransform(frame, 'toModel').plane({
           kind: 'pseudovector', axis: 'rot', value: n('m' + userName(1)),
-        });
-        Object.assign(data, { nodeId: target, fx, fy, fz, my: planeMoment + 0 });
+        }) + 0;
       } else {
-        Object.assign(data, { nodeId: target, fx, fy, fz, mx, my, mz });
-      }
-    } else if (wantsNode) {
-      Object.assign(data, { nodeId: target, fx: n('fx'), fy: n('fy'), fz: n('fz') });
-      if (type === 'nodal3d') Object.assign(data, { mx: n('mx'), my: n('my'), mz: n('mz') });
-      else {
         /*
          * The 2D wire plane is x–z: vertical is fz, and the loader's 2D arm
          * reads only fz. A reader who thinks in x–y writes their gravity
@@ -1213,11 +1235,20 @@ export function parseWorkbookSheets(
          * (canonicalLoadFz is `fz ?? fy ?? 0`), so the column is honoured
          * here the same way rather than dropped.
          */
-        const fz = num(row.cells.fz);
-        const outside = fz === null ? ['mx', 'my'] : ['mx', 'my', 'fy'];
+        const vertical = num(row.cells.fz);
+        const outside = vertical === null ? ['mx', 'my'] : ['mx', 'my', 'fy'];
         if (rejectLoadComponents(row, outside, t('xls.err.nodalOutOfPlane'), problems)) continue;
-        Object.assign(data, { fz: fz ?? n('fy'), my: n('mz') });
+        fx = n('fx');
+        fz = vertical ?? n('fy');
+        my = n('mz');
       }
+      Object.assign(data, { nodeId: target, fx, fz, my });
+    } else if (wantsNode) {
+      const force = [n('fx'), n('fy'), n('fz')] as const;
+      const moment = [n('mx'), n('my'), n('mz')] as const;
+      const [fx, fy, fz] = declaredAxes ? modelVector(frame, force).map(v => v + 0) : force;
+      const [mx, my, mz] = declaredAxes ? modelRotation(frame, moment).map(v => v + 0) : moment;
+      Object.assign(data, { nodeId: target, fx, fy, fz, mx, my, mz });
     } else {
       data.elementId = target;
       const angle = framedImport ? num(row.cells.angle) : null;

@@ -362,10 +362,9 @@
   function handlePDelta() {
     if (blockedBySlidingJoints()) return;
     try {
-      const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-      if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const t0 = performance.now();
-      const result = pdeltaBasic2D(input);
+      const result = pdeltaBasic2D(uiStore.includeSelfWeight, uiStore.drawPlane2D);
+      if (result === null) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       publishPDelta(result, false, dt);

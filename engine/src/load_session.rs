@@ -19,10 +19,10 @@ pub struct LoadSession2D {
 impl LoadSession2D {
     #[wasm_bindgen(constructor)]
     pub fn new(input: JsValue) -> Result<LoadSession2D, JsValue> {
-        LoadSession2D::from_input(crate::from_js_value(input)?).map_err(|e| JsValue::from_str(&e))
+        LoadSession2D::from_input(crate::from_analysis_js(input)?).map_err(|e| JsValue::from_str(&e))
     }
     pub fn solve(&self, loads: JsValue) -> Result<JsValue, JsValue> {
-        let result = self.solve_loads(&crate::from_js_value::<Vec<SolverLoad>>(loads)?).map_err(|e| JsValue::from_str(&e))?;
+        let result = self.solve_loads(&crate::from_analysis_js::<Vec<SolverLoad>>(loads)?).map_err(|e| JsValue::from_str(&e))?;
         crate::to_js_value(&result)
     }
 }
@@ -60,10 +60,10 @@ pub struct LoadSession3D {
 impl LoadSession3D {
     #[wasm_bindgen(constructor)]
     pub fn new(input: JsValue) -> Result<LoadSession3D, JsValue> {
-        LoadSession3D::from_input(crate::from_js_value::<crate::types::units::ElasticInput3D>(input)?.into_legacy()).map_err(|e| JsValue::from_str(&e))
+        LoadSession3D::from_input(crate::from_analysis_js::<crate::types::units::ElasticInput3D>(input)?.into_legacy()).map_err(|e| JsValue::from_str(&e))
     }
     pub fn solve(&self, loads: JsValue) -> Result<JsValue, JsValue> {
-        let result = self.solve_loads(&crate::from_js_value::<Vec<SolverLoad3D>>(loads)?).map_err(|e| JsValue::from_str(&e))?;
+        let result = self.solve_loads(&crate::from_analysis_js::<Vec<SolverLoad3D>>(loads)?).map_err(|e| JsValue::from_str(&e))?;
         crate::to_js_value(&result)
     }
 }

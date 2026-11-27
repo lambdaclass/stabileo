@@ -24,6 +24,7 @@ export interface ModelSnapshot {
    */
   presentation3D?: import('../geometry/coordinate-system').ViewportPresentation3D;
   analysisMode?: '2d' | '3d' | 'pro' | 'edu';
+  drawPlane2D?: import('../geometry/plane-projection').DrawPlane;
   /** Where the model came from (e.g. CAD-derived draft) and review status. */
   provenance?: ModelProvenance;
   /** Local-axis convention. 'zUpStrongAxis' is the corrected (and only) one;
@@ -48,7 +49,7 @@ export interface ModelSnapshot {
   } & Element3DMetadata]>;
   supports: Array<[number, { id: number; nodeId: number; type: string; angle?: number; isGlobal?: boolean; kx?: number; ky?: number; kz?: number; dx?: number; dz?: number; dry?: number; dy?: number; drz?: number; drx?: number; krx?: number; kry?: number; krz?: number }]>;
   loads: Array<{ type: string; data: Record<string, unknown> }>;
-  loadCases?: Array<{ id: number; type?: string; name: string }>;
+  loadCases?: Array<{ id: number; type?: string; name: string; group?: string }>;
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseId: number; factor: number }> }>;
   plates?: Array<[number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }]>;
   quads?: Array<[number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }]>;
@@ -83,7 +84,7 @@ export interface ModelSnapshot {
   /** The active combination list and named envelopes. Absent: all combinations, none named. */
   resultScopes?: { active?: number[]; envelopes?: Array<{ id: number; name: string; purpose: string; comboIds: number[]; caseIds?: number[] }> };
   /** The project's own combination rules. Absent: none. */
-  combinationRules?: Array<{ id: string; purpose: 'strength' | 'service'; terms: Array<{ symbol: import('../codes/cirsoc101/combinations').LoadSymbol; factor: number }> }>;
+  combinationRules?: import('../engine/loads/combination-rules').CombinationRule[];
   /** The stated mass source. Absent when the project has not stated one. */
   massSource?: {
     kind?: string; presetId?: string; params?: Record<string, string | number | boolean>;
