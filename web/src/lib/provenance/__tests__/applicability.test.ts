@@ -302,6 +302,22 @@ describe('which registered changes concern a model', () => {
     }
   });
 
+  it.each(['member', 'plate', 'quad'] as const)('flags the previous modulus assumption on a heated %s', kind => {
+    const loads = kind === 'member' ? [{ type: 'thermal', data: { elementId: 1, dtGradientY: 10 } }]
+      : [{ type: 'thermalQuad3d', data: { on: kind, quadId: 1, dtGradient: 10 } }];
+    for (const userDefined of [true, false, undefined]) {
+      const snapshot = model({ elements: [member(1, 1, 'frame')], plates: [[1, { id: 1, materialId: 1 }]],
+        quads: [[1, { id: 1, materialId: 1 }]], materials: [[1, { ...STEEL, e: 70000, userDefined }]], loads });
+      expect(ids(snapshot).includes('custom-thermal-family')).toBe(userDefined !== false);
+    }
+  });
+
+  it('excludes a prescribed strain without any temperature change', () => {
+    const snapshot = model({ elements: [member(1, 1, 'frame')], materials: [[1, { ...STEEL, alpha: 0 }]],
+      loads: [{ type: 'thermal', data: { elementId: 1, dtUniform: 0, dtGradient: 0, strain: 0.001 } }] });
+    expect(ids(snapshot)).not.toContain('signed-thermal-expansion');
+  });
+
   it('shows the member thermal change only for models with temperature loads on members (#407)', () => {
     const heated = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'thermal', data: { elementId: 1, dtUniform: 0, dtGradient: 20, caseId: 1 } }] });
     expect(ids(heated)).toContain('frame-thermal-alpha-depth');

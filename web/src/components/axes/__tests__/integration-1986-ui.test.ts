@@ -40,12 +40,12 @@ it('renders both global line load endpoints in the selected vertical direction',
   await modelStore.loadExample('cantilever');
   const member = [...modelStore.elements.keys()][0]!;
   modelStore.addDistributedLoad(member, 3, 7, 0, true);
-  modelStore.addDistributedLoad(member, 3, 7, 0, false);
+  modelStore.addDistributedLoad(member, 4, 8, 0, false);
   axesStore.choice = { up: '-Z', right: '+X', hand: 'right' };
   whatIf.open();
   const html = render(WhatIfLoads).body;
   expect(html).toContain('q=-3.00→-7.00 kN/m');
-  expect(html).toContain('q=3.00→7.00 kN/m');
+  expect(html).toContain('q=4.00→8.00 kN/m');
 });
 
 it('known wrong result: #1986 custom curve directions are printed in user component order', () => {

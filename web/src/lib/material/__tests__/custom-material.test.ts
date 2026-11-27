@@ -121,6 +121,29 @@ describe('saving a hand-entered material', () => {
     expect(modelStore.materials.get(id)?.alpha).toBe(micro * 1e-6);
   });
 
+  it.each(['e', 'rho', 'fy'] as const)('rejects nonfinite %s', field => {
+    for (const v of [Infinity, -Infinity, NaN]) expect(readCustomMaterial(form({ [field]: v })).ok).toBe(false);
+  });
+
+  it('preserves mechanical strengths when only alpha changes', () => {
+    const id = saveCustomMaterial(choice());
+    const timber = { fb: 1, ft: 2, fc: 3, fcPerp: 4, fv: 5, e: 100000, emin: 6, kind: 'sawn' as const };
+    modelStore.updateMaterial(id, { timber, fu: 410 });
+    saveCustomMaterial({ ...choice(), alpha: 0 }, id);
+    expect(modelStore.materials.get(id)).toMatchObject({ alpha: 0, timber, fu: 410 });
+  });
+
+  it('keeps a reopened legacy hand-entered material when assigning an IPN profile', () => {
+    const id = modelStore.addMaterial({ name: 'Measured steel', e: 170000, nu: 0.27, rho: 76, fy: 310 });
+    const { element } = cantilever(id);
+    const original = { ...modelStore.materials.get(id)! };
+    const file = JSON.stringify(buildProjectFile());
+    modelStore.clear();
+    expect(deserializeProject(file)).toBe(true);
+    assignMemberProfile(element, PROFILE_FAMILIES.IPN[0]!, 'AR');
+    expect(modelStore.materials.get(modelStore.elements.get(element)!.materialId)).toEqual(original);
+  });
+
   it('preserves grade and timber properties when only the name changes', () => {
     const preset = getMaterialPresets().find(p => p.category === 'madera' && p.gradeId)!;
     const id = saveCatalogueMaterial(preset);

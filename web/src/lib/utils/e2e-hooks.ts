@@ -534,6 +534,9 @@ export interface StabileoTestActions {
    * that carries combinations is concrete; the code checks read solved combinations only.
    */
   combineCases(name: string): number;
+  setLiveCalc(enabled: boolean): void;
+  setReactionView(enabled: boolean): void;
+  reactionsShown(): boolean;
   holdScreen(): void;
   releaseScreen(): void;
   showWorkspace(mode: '2d' | '3d'): void;
@@ -962,6 +965,9 @@ export function installE2EHooks(): void {
     combineCases: (name: string) =>
       modelStore.addCombination(name, modelStore.model.loadCases.map((c) => ({ caseId: c.id, factor: 1 }))),
     showWorkspace: mode => { uiStore.analysisMode = mode; },
+    setLiveCalc: enabled => { uiStore.liveCalc = enabled; },
+    setReactionView: enabled => { resultsStore.diagramType = 'none'; resultsStore.showReactions = enabled; },
+    reactionsShown: () => resultsStore.showReactions,
     holdScreen: () => resultsStore.clear({ keepScreen: true }),
     releaseScreen: () => resultsStore.releaseScreen(),
     selectElements: (ids: number[]) => {

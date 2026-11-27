@@ -66,6 +66,7 @@ describe('the picture held for a live re-solve', () => {
     await runLiveCalc('2d', uiStore.axisConvention3D);
     expect(resultsStore.screen.held).toBe(false);
     expect(resultsStore.screen.results).toBe(resultsStore.results);
+    expect(resultsStore.results).not.toBeNull();
     expect(resultsStore.results).not.toBe(shown);
     expect(resultsStore.diagramType).toBe('moment');
   });
@@ -90,8 +91,8 @@ describe('the picture held for a live re-solve', () => {
 
   it('is dropped when the re-solve finds a mechanism', async () => {
     await solvedPortal();
-    for (const s of [...modelStore.supports.values()]) modelStore.updateSupport(s.id, { type: 'rollerX' });
-    expect(resultsStore.screen.held).toBe(false);
+    editE(0);
+    expect(resultsStore.screen.held).toBe(true);
     await runLiveCalc('2d', uiStore.axisConvention3D);
     expect(uiStore.liveCalcError).toBeTruthy();
     expect(resultsStore.results).toBeNull();
@@ -199,4 +200,21 @@ it('holds the solved section when a new section modulus is requested', async () 
   modelStore.updateSection(section.id, { iy: original * 2 });
   expect(resultsStore.screen.held).toBe(true);
   expect(resultsStore.screen.model?.sections.get(member.sectionId)?.iy).toBe(original);
+});
+
+it.each(['2d', '3d'] as const)('keeps the applied loads consistent with the pending %s frame', async mode => {
+  uiStore.analysisMode = mode;
+  await modelStore.loadExample(mode === '2d' ? 'portal-frame' : '3d-portal-frame');
+  const load = modelStore.loads[0];
+  const old = JSON.parse(JSON.stringify(modelStore.loads));
+  if (mode === '2d') await solvedPortal();
+  else {
+    const r = modelStore.solve3D();
+    if (!r || typeof r === 'string') throw Error(String(r));
+    resultsStore.setResults3D(r);
+    resultsStore.diagramType = 'momentY';
+  }
+  modelStore.removeLoad(load.data.id);
+  if (mode === '2d') expect(resultsStore.screen.held).toBe(true);
+  if (resultsStore.screen.held) expect(resultsStore.screen.model).toMatchObject({ loads: old });
 });

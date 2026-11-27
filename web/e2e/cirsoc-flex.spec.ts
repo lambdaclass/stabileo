@@ -14,7 +14,7 @@
  */
 
 import { test, expect } from './fixtures';
-import { openAdvancedFunction } from './advanced-panel';
+import { openAdvancedFunction, openAdvancedList } from './advanced-panel';
 
 type Page = import('@playwright/test').Page;
 
@@ -281,7 +281,11 @@ test.describe('@smoke the calculator behaves like the other advanced functions',
        does before pressing it. */
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
-    await openAdvancedFunction(page, 'cirsocFlex');
+    await openAdvancedList(page);
+    const card = page.getByTestId('adv-fn-cirsocFlex');
+    if (!await card.isVisible()) await page.getByTestId('adv-group-toggle-sections').click();
+    await expect(card.locator('.ac-desc')).toContainText(/CIRSOC 201/i);
+    await card.click();
     const help = page.getByTestId('adv-help');
     await expect(help).toBeVisible();
     await help.click();

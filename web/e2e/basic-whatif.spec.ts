@@ -25,6 +25,15 @@ test.describe('@slow explore', () => {
     const panel = page.getByTestId('whatif-panel');
     await expect(panel).toBeVisible();
 
+    await page.evaluate(() => window.__stabileoActions.setReactionView(true));
+    const toggle = panel.getByTestId('whatif-show-results');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await toggle.click();
+    expect(await page.evaluate(() => window.__stabileoActions.reactionsShown())).toBe(false);
+    await toggle.click();
+    expect(await page.evaluate(() => window.__stabileoActions.reactionsShown())).toBe(true);
+    expect(await diagram()).toBe('none');
+    await page.getByTestId('whatif-diagram-moment').click();
     const version = await page.evaluate(() => window.__stabileo.modelVersion());
     await panel.locator('input.wif-range').first().evaluate((el: HTMLInputElement) => {
       el.value = '2';
@@ -137,7 +146,7 @@ test.describe('@slow explore in 3D', () => {
     const panel = page.getByTestId('whatif-panel');
     await expect(panel).toBeVisible();
     await expect(page.getByTestId('whatif-resp-delta').locator('th')).toContainText(/nodal/i);
-    for (const key of ['moment', 'shear']) await expect(page.getByTestId(`whatif-resp-${key}`).locator('th')).toContainText(/component/i);
+    for (const key of ['moment', 'shear']) await expect(page.getByTestId(`whatif-resp-${key}`).locator('th')).toContainText(/resultant/i);
     await expect(panel.locator('.wif-res-btn')).toHaveText(['δ', 'N', 'My', 'Vz', 'Mz', 'Vy', 'T']);
     await page.getByTestId('whatif-diagram-momentZ').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.diagramType())).toBe('momentZ');
@@ -154,4 +163,24 @@ test.describe('@slow explore in 3D', () => {
     await page.getByTestId('adv-close').click();
     await expect(panel).toHaveCount(0);
   });
+});
+
+test('@slow a support station slider cannot select an occupied endpoint', async ({ page }) => {
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions);
+  await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
+  await openAdvancedFunction(page, 'whatif');
+  await page.getByTestId('whatif-tab-supports').click();
+  const place = page.locator('select[data-testid^=whatif-supportnode-]').first();
+  const member = await place.locator('option[value^="m:"]').first().getAttribute('value');
+  await place.selectOption(member!);
+  const slider = page.locator('input[data-testid^=whatif-supportnode-]').first();
+  await slider.focus();
+  const version = await page.evaluate(() => window.__stabileo.modelVersion());
+  await slider.press('End');
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  expect(await page.evaluate(() => window.__stabileo.modelVersion())).toBe(version);
+  await expect(place).toHaveValue(member!);
+  await slider.press('Home');
+  await expect(place).toHaveValue(/^n:/);
 });

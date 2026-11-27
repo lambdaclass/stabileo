@@ -12,6 +12,7 @@ test.describe('@slow plastic collapse, withheld', () => {
 
     const withheld = page.getByTestId('plastic-withheld');
     await expect(withheld).toBeVisible();
+    await expect(withheld).toHaveRole('alert');
     await expect(withheld).toContainText(/4[.,]6/);
     // A note that explains, never a link out to the tracker; it closes.
     await expect(withheld.locator('a')).toHaveCount(0);
@@ -38,7 +39,14 @@ test.describe('@slow plastic collapse, withheld', () => {
     for (const [id, title] of queries) {
       const search = page.getByTestId('adv-search');
       await search.fill(title);
-      await expect(page.getByTestId(`adv-step-${id}`)).toBeVisible();
+      const hit = page.getByTestId(`adv-step-${id}`);
+      await expect(hit).toBeVisible();
+      await expect(hit).toBeDisabled();
+      const box = await hit.boundingBox();
+      if (!box) throw Error('Missing search result');
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await expect(page.getByTestId('steps-doc')).toHaveCount(0);
+      await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
       await search.press('Enter');
       await expect(page.getByTestId('steps-doc')).toHaveCount(0);
       await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);

@@ -20,35 +20,35 @@ import { gradeById } from '../structural-grades';
 
 describe('a section chosen for a member with no catalogued steel', () => {
   it('brings the grade its family is rolled in', () => {
-    const g = commercialDefaultFor('IPN', { }, 'AR');
+    const g = commercialDefaultFor('IPN', { userDefined: false }, 'AR');
     expect(g?.id).toBe('iram-f24');
   });
 
   it('gives the wide-flange series the different steel it is really rolled in', () => {
     // The whole reason this is per-family: W is F-36 here while everything
     // else Acindar rolls is F-24.
-    expect(commercialDefaultFor('W', {}, 'AR')?.id).toBe('iram-f36');
-    expect(commercialDefaultFor('IPN', {}, 'AR')?.id).toBe('iram-f24');
+    expect(commercialDefaultFor('W', { userDefined: false }, 'AR')?.id).toBe('iram-f36');
+    expect(commercialDefaultFor('IPN', { userDefined: false }, 'AR')?.id).toBe('iram-f24');
   });
 
   it('follows the region the user filtered by', () => {
     // One family, three countries, three steels.
-    expect(commercialDefaultFor('W', {}, 'US')?.id).toBe('astm-a992');
-    expect(commercialDefaultFor('W', {}, 'BR')?.id).toBe('astm-a572-50');
-    expect(commercialDefaultFor('W', {}, 'EU')).toBeNull();  // none recorded
+    expect(commercialDefaultFor('W', { userDefined: false }, 'US')?.id).toBe('astm-a992');
+    expect(commercialDefaultFor('W', { userDefined: false }, 'BR')?.id).toBe('astm-a572-50');
+    expect(commercialDefaultFor('W', { userDefined: false }, 'EU')).toBeNull();  // none recorded
   });
 
   it('gives a European frame European steel', () => {
-    expect(commercialDefaultFor('IPE', {}, 'EU')?.id).toBe('en-s355');
-    expect(commercialDefaultFor('HEB', {}, 'EU')?.id).toBe('en-s355');
+    expect(commercialDefaultFor('IPE', { userDefined: false }, 'EU')?.id).toBe('en-s355');
+    expect(commercialDefaultFor('HEB', { userDefined: false }, 'EU')?.id).toBe('en-s355');
   });
 
   it('falls back to the first recorded practice when no code is selected', () => {
     // Not nothing: a profile with no country attached still comes from
     // somewhere, and the table lists local practice first for the families
     // that have it.
-    expect(commercialDefaultFor('IPN', {}, null)?.id).toBe('iram-f24');
-    expect(commercialDefaultFor('IPN', {}, undefined)?.id).toBe('iram-f24');
+    expect(commercialDefaultFor('IPN', { userDefined: false }, null)?.id).toBe('iram-f24');
+    expect(commercialDefaultFor('IPN', { userDefined: false }, undefined)?.id).toBe('iram-f24');
   });
 });
 
@@ -73,20 +73,21 @@ describe('a deliberate choice is never overwritten', () => {
   it('applies to a material with no grade, which is not the same as no material', () => {
     // A material exists, it just did not come from the catalogue: nobody chose
     // a steel, they got whatever the model was created with.
-    expect(commercialDefaultFor('IPN', { }, 'AR')?.id).toBe('iram-f24');
-    expect(commercialDefaultFor('IPN', undefined, 'AR')?.id).toBe('iram-f24');
+    expect(commercialDefaultFor('IPN', { userDefined: false }, 'AR')?.id).toBe('iram-f24');
+    expect(commercialDefaultFor('IPN', undefined, 'AR')).toBeNull();
+    expect(commercialDefaultFor('IPN', {}, 'AR')).toBeNull();
   });
 });
 
 describe('families and grades that have no answer', () => {
   it('says nothing for a family with no recorded practice', () => {
-    expect(commercialDefaultFor('T', {}, 'US')).toBeNull();
-    expect(commercialDefaultFor('CHS', {}, 'EU')).toBeNull();
+    expect(commercialDefaultFor('T', { userDefined: false }, 'US')).toBeNull();
+    expect(commercialDefaultFor('CHS', { userDefined: false }, 'EU')).toBeNull();
   });
 
   it('says nothing for a family it does not know', () => {
-    expect(commercialDefaultFor('ZZZ', {}, 'AR')).toBeNull();
-    expect(commercialDefaultFor(undefined, {}, 'AR')).toBeNull();
+    expect(commercialDefaultFor('ZZZ', { userDefined: false }, 'AR')).toBeNull();
+    expect(commercialDefaultFor(undefined, { userDefined: false }, 'AR')).toBeNull();
   });
 });
 

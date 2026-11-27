@@ -153,3 +153,14 @@ test.describe('@smoke plane-only functions in a 3D workspace', () => {
     }
   });
 });
+
+test('@smoke an empty model cannot start plastic analysis from the method catalogue', async ({ page }) => {
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions);
+  await openStepsCatalog(page);
+  await expandStepsCatalog(page);
+  await page.getByTestId('steps-function-plasticStatic').click();
+  await expect(page.getByTestId('plastic-withheld')).toHaveCount(0);
+  await expect(page.getByTestId('adv-launcher')).toBeVisible();
+  await expect(page.locator('.toast').last()).toContainText(/Draw a structure first/i);
+});

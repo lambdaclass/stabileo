@@ -16,7 +16,7 @@ describe.each(['quad', 'curved', 'plate'] as const)('thermal load on a %s', (kin
   beforeAll(async () => { await initSolver(); uiStore.analysisMode = 'pro'; });
 
   it('reverses the free edge rotation under a through-depth gradient', () => {
-    const rotation = (alpha: number) => {
+    const rotation = (alpha: number, freeCurvature = false) => {
       modelStore.clear();
       const nodes = [[0, 0], [4, 0], [4, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x, y, 0));
       const material = modelStore.addMaterial({ name: 'Gradient specimen', e: 11000, nu: 0.2, rho: 25, alpha });
@@ -29,11 +29,12 @@ describe.each(['quad', 'curved', 'plate'] as const)('thermal load on a %s', (kin
         const id = modelStore.addQuad(nodes as [number, number, number, number], material, 0.2, { curved: kind === 'curved' });
         modelStore.addThermalLoadQuad3D(id, 0, 10);
       }
-      for (const i of [0, 3]) modelStore.addSupport(nodes[i]!, 'fixed3d');
+      for (const i of (freeCurvature ? [0] : [0, 3])) modelStore.addSupport(nodes[i]!, 'fixed3d');
       const result = modelStore.solve3D(false, false, true);
       if (!result || typeof result === 'string') throw new Error(String(result));
       return result.displacements.find(d => d.nodeId === nodes[1])!.ry;
     };
+    if (kind === 'quad') expect(rotation(5e-6, true)).toBeCloseTo(5e-6 * 10 * 4 / 0.2, 12);
     const positive = rotation(5e-6);
     expect(Math.abs(positive)).toBeGreaterThan(0);
     expect(rotation(-5e-6)).toBeCloseTo(-positive, 12);
@@ -44,7 +45,7 @@ describe.each(['quad', 'curved', 'plate'] as const)('thermal load on a %s', (kin
     modelStore.clear();
     const n = [modelStore.addNode(0, 0, 0), modelStore.addNode(4, 0, 0), modelStore.addNode(4, 2, 0), modelStore.addNode(0, 2, 0)];
     const mid = alpha === 'family' ? [...modelStore.materials.keys()][0]!
-      : modelStore.addMaterial({ name: 'Specimen', e: 11000, nu: 0.2, rho: 25, alpha });
+      : modelStore.addMaterial({ name: 'Specimen', userDefined: true, e: 70000, nu: 0.2, rho: 25, alpha });
     const expected = typeof alpha === 'number' ? alpha : ALPHA;
     if (kind === 'plate') {
       for (const triangle of [[0, 1, 2], [0, 2, 3]]) {

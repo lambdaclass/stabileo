@@ -118,3 +118,9 @@ it('#2532 translates the discarded session history warning in every locale dicti
     expect.soft(dict['file.sessionHistoryDiscarded'], code).toContain('{names}');
   }
 });
+
+it('names the Z roller in every support dictionary', () => {
+  for (const [locale, dict] of Object.entries(ALL_DICTS)) {
+    expect(dict['pro.rollerZ'], locale).toBe(dict['pro.rollerY'].replace('Y', 'Z'));
+  }
+});

@@ -12,11 +12,13 @@ async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefin
   uiStore.analysisMode = workspace;
   const length = 4;
   const temperature = gradient ? 0 : 20;
-  const material = modelStore.addMaterial({ name: 'Thermal specimen', e: alpha === undefined ? 11000 : 30000, nu: 0.2, rho: 25, alpha });
+  const material = modelStore.addMaterial({ name: 'Thermal specimen', userDefined: true, e: alpha === undefined ? 70000 : 30000, nu: 0.2, rho: 25, alpha });
   const fixed = modelStore.addNode(0, 0, 0);
   const free = modelStore.addNode(length, 0, 0);
   const member = modelStore.addElement(fixed, free, 'frame');
   modelStore.updateElementMaterial(member, material);
+  const section = modelStore.addSection({ name: 'Test rectangle', a: 0.1, iy: 0.001, iz: 0.001, j: 0.001, h: 0.4, b: 0.25 });
+  modelStore.updateElementSection(member, section);
   modelStore.addSupport(fixed, workspace === '2d' ? 'fixed' : 'fixed3d');
   const load = modelStore.addThermalLoad(member, temperature, gradient);
   if (strain) modelStore.updateLoad(load, { strain });
@@ -56,6 +58,10 @@ for (const workspace of ['2d', '3d'] as const) {
 }
 
 for (const workspace of ['2d', '3d'] as const) {
+  it('reports the assumed coefficient on worker and P-delta solves in ' + workspace, async () => {
+    await checkDisplacement(workspace, undefined, true);
+    await checkDisplacement(workspace, undefined, false, 0, true);
+  });
   for (const alpha of [0, -5e-6, 5e-6]) {
     it(`#2656 P-delta ${workspace} expands with α=${alpha}`, () =>
       checkDisplacement(workspace, alpha, false, 0, true));
@@ -69,7 +75,7 @@ for (const workspace of ['2d', '3d'] as const) {
     it(`reverses thermal rotation in ${workspace}, worker=${worker}, secondOrder=${secondOrder}`, async () => {
       const rotation = (alpha: number) => checkDisplacement(workspace, alpha, worker, 0, secondOrder, 10);
       const positive = await rotation(5e-6);
-      expect(Math.abs(positive)).toBeGreaterThan(0);
+      expect(positive).toBeCloseTo((workspace === '2d' ? 1 : -1) * 5e-6 * 10 * 4 / 0.4, 12);
       expect(await rotation(-5e-6)).toBeCloseTo(-positive, 12);
       expect(await rotation(0)).toBe(0);
     });

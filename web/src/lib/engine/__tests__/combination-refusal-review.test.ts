@@ -76,9 +76,17 @@ it('one refused case withholds every per-case result, since consumers sum over t
 
 it.each([false, true])('empty combination publication has no envelope or selected result (3D=%s)', space => {
   resultsStore.clear();
+  const combos = new Map([[4, clean]]) as never;
+  if (space) resultsStore.setCombinationResults3D(new Map(), combos, { maxAbsResults3D: clean } as never);
+  else resultsStore.setCombinationResults(new Map(), combos, { maxAbsResults: clean } as never);
+  resultsStore.activeView = 'combo';
+  expect(space ? resultsStore.envelope3D : resultsStore.envelope).toBeTruthy();
+  expect(space ? resultsStore.results3D : resultsStore.results).toMatchObject(clean);
   if (space) resultsStore.setCombinationResults3D(new Map(), new Map(), null);
   else resultsStore.setCombinationResults(new Map(), new Map(), null);
   expect(space ? resultsStore.results3D : resultsStore.results).toBeNull();
+  expect(space ? resultsStore.envelope3D : resultsStore.envelope).toBeNull();
+  expect(resultsStore.activeComboId).toBeNull();
   expect(resultsStore.activeView).toBe('single');
 });
 
@@ -93,4 +101,14 @@ it.each([false, true])('selects the published case or combination when it is the
     expect(resultsStore.activeView).toBe(view);
     expect(view === 'single' ? resultsStore.activeCaseId : resultsStore.activeComboId).toBe(view === 'single' ? 3 : 4);
   }
+});
+
+it('selects an individually usable space case when its combination is refused', () => {
+  resultsStore.clear();
+  const rejected = { ...clean, ...JSON.parse(refusal) };
+  resultsStore.setCombinationResults3D(new Map([[5, clean]]) as never, new Map([[4, rejected]]) as never, null);
+  expect(resultsStore.activeCaseId).toBe(5);
+  expect(resultsStore.activeView).toBe('single');
+  expect(resultsStore.results3D).toMatchObject(clean);
+  expect(resultsStore.perCombo3D.size).toBe(0);
 });

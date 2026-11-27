@@ -57,10 +57,13 @@ describe('Explore while a live solve is running', () => {
 
   it('coalesces the moves of one frame into one rebuild', () => {
     whatIf.open();
+    vi.advanceTimersByTime(20);
+    const base = firstLoadValue()!;
     const version = modelStore.modelVersion;
     for (const f of [1.1, 1.2, 1.3, 1.4]) whatIf.setLoadFactor(0, f);
     vi.advanceTimersByTime(20);
     expect(modelStore.modelVersion).toBe(version + 1);
+    expect(firstLoadValue()).toBeCloseTo(base * 1.4, 12);
   });
 
   it('drops what was waiting when it closes', async () => {

@@ -180,6 +180,9 @@ export interface TestHooks {
 export interface TestActions {
   moveNode(id: number, x: number, y: number, z: number): void;
   showWorkspace(mode: '2d' | '3d'): void;
+  setLiveCalc(enabled: boolean): void;
+  setReactionView(enabled: boolean): void;
+  reactionsShown(): boolean;
   holdScreen(): void;
   releaseScreen(): void;
   selectElements(ids: number[]): void;

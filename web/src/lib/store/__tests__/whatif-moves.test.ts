@@ -11,6 +11,7 @@ import { render } from 'svelte/server';
 import WhatIfPanel from '../../../components/WhatIfPanel.svelte';
 import { i18n, setLocale } from '../../i18n';
 import { whatIf } from '../whatif.svelte';
+import { displayUnits } from '../display-units.svelte';
 import { loadLabel } from '../../whatif/load-label';
 import { response2D, response3D } from '../../whatif/response';
 
@@ -284,12 +285,21 @@ for (const workspace of ['2d', '3d'] as const) {
 
   it(`returning placements to their original values clears changed in ${workspace}`, () => {
     uiStore.analysisMode = workspace;
-    modelStore.addPointLoadOnElement(m1, 1, P);
-    modelStore.addNodalLoad(n2, 0, P);
+    if (workspace === '2d') {
+      modelStore.addPointLoadOnElement(m1, 1, P);
+      modelStore.addNodalLoad(n2, 0, P);
+    } else {
+      modelStore.addPointLoadOnElement3D(m1, 1, 0, P);
+      modelStore.addNodalLoad3D(n2, 0, 0, P, 0, 0, 0);
+    }
     whatIf.open();
+    const baseline = { ...modelStore.elements.get(m1)!.releaseI };
     for (const [away, back] of [
-      [() => whatIf.setLoadAt(0, 2), () => whatIf.setLoadAt(0, 1)],
-      [() => whatIf.setLoadNode(1, n3), () => whatIf.setLoadNode(1, n2)],
+      [() => { whatIf.setLoadAt(0, 2); settle(); expect(modelStore.loads[0].data).toMatchObject({ a: 2 }); },
+        () => { whatIf.setLoadAt(0, 1); settle(); expect(modelStore.loads[0].data).toMatchObject({ a: 1 }); }],
+      [() => { whatIf.setLoadNode(1, n3); settle(); expect(modelStore.loads[1].data).toMatchObject({ nodeId: n3 }); },
+        () => { whatIf.setLoadNode(1, n2); settle(); expect(modelStore.loads[1].data).toMatchObject({ nodeId: n2 }); }],
+      [() => whatIf.setRelease(m1, 'i', { ...baseline, my: !baseline.my }), () => whatIf.setRelease(m1, 'i', baseline)],
       [() => whatIf.setSupportAlong(s1, m1, 0.5), () => whatIf.setSupportNode(s1, n1)],
       [() => whatIf.setSupportType(s1, 'fixed'), () => whatIf.setSupportType(s1, 'pinned')],
     ]) {
@@ -390,7 +400,7 @@ it('identifies the node and the member load components in the current units', ()
   }
 });
 
-it('summarizes the orthogonal components of a space cantilever', () => {
+it('summarizes the transverse resultants of a space cantilever', () => {
   modelStore.clear();
   uiStore.analysisMode = '3d';
   const fixed = modelStore.addNode(0, 0, 0);
@@ -401,7 +411,33 @@ it('summarizes the orthogonal components of a space cantilever', () => {
   const result = modelStore.solve3D();
   if (!result || typeof result === 'string') throw new Error(String(result));
   const shown = response3D(result);
-  expect(shown.shear).toBeCloseTo(4, 9);
-  expect(shown.moment).toBeCloseTo(4 * 4, 9);
+  expect(shown.shear).toBeCloseTo(Math.hypot(3, 4), 9);
+  expect(shown.moment).toBeCloseTo(4 * Math.hypot(3, 4), 9);
   expect(shown.reaction).toBeCloseTo(Math.hypot(3, 4), 9);
+  const member = { ...result.elementForces[0], length: 1, myStart: 1 - 0.25 ** 2, mzStart: 1 - 0.75 ** 2,
+    vzStart: 0.5, vyStart: -1.5, qZI: -2, qZJ: -2, qYI: 2, qYJ: 2 };
+  expect(response3D({ ...result, elementForces: [member] }).moment).toBeCloseTo(Math.SQRT2 * (1 - 0.25 ** 2), 12);
+});
+
+it('labels the zero maximum nodal displacement of a loaded single span', async () => {
+  await modelStore.loadExample('simply-supported');
+  whatIf.open();
+  const result = solve();
+  expect(result.elementForces).toHaveLength(1);
+  expect(response2D(result).moment).toBeGreaterThan(0);
+  expect(response2D(result).delta).toBe(0);
+  resultsStore.setResults(result);
+  expect(render(WhatIfPanel).body).toMatch(/nodal/i);
+});
+
+it('shows a nonzero displacement at two fixed display decimals', () => {
+  modelStore.addNodalLoad(n2, 0, -1e-8);
+  whatIf.open();
+  resultsStore.setResults(solve());
+  displayUnits.setDecimals('displacement', 2);
+  try {
+    expect(render(WhatIfPanel).body.match(/data-testid="whatif-resp-delta"[\s\S]*?<td class="wif-now[^>]*>(.*?)<\/td>/)?.[1]).toMatch(/E-/i);
+  } finally {
+    displayUnits.setDecimals('displacement', null);
+  }
 });
