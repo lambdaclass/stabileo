@@ -88,7 +88,7 @@ export const FEATURE_IDS = [
 export type FeatureId = (typeof FEATURE_IDS)[number];
 
 type Entries<T> = Array<[number, T]> | undefined;
-interface Mat { id: number; alpha?: number; rho?: unknown; fy?: number; gradeId?: string; name?: string; e?: number }
+interface Mat { id: number; rho?: unknown; fy?: number; gradeId?: string; name?: string; e?: number }
 interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: number; stagger?: { sMm?: number; gMm?: number } }
 const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.gMm].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 interface Elem {
@@ -122,7 +122,7 @@ interface FeatureSnapshotFields {
   nodeToSurfacePairs?: unknown[];
   upliftSupports?: unknown[];
   nodes?: Entries<{ x: number; y: number; z?: number }>;
-  materials?: Entries<Mat>;
+  materials?: Entries<Mat & { alpha?: number }>;
   elements?: Entries<Elem>;
   sections?: Entries<{ id: number; a?: number; shearAreas?: unknown }>;
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
@@ -172,7 +172,6 @@ export interface FeatureContext {
 interface Offset3 { x?: number; y?: number; z?: number }
 
 const values = <T>(e: Entries<T>): T[] => (Array.isArray(e) ? e.map((x) => x?.[1]).filter((x): x is T => !!x) : []);
-const targetEntries = <E>(entries: Entries<E>) => new Map(Array.isArray(entries) ? entries.filter(entry => entry?.[1]) : []);
 const nonZero = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v !== 0;
 const positive = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
 const SPRING_KEYS = ['kx', 'ky', 'kz', 'krx', 'kry', 'krz'] as const;
@@ -358,6 +357,7 @@ function addSelfWeightFeatures(
   const members = values(snapshot.elements).filter(el => !space || el.type === 'truss');
   const plates = invalidShells(snapshot.plates);
   const quads = invalidShells(snapshot.quads);
+  const targetEntries = <E>(entries: Entries<E>) => new Map(Array.isArray(entries) ? entries.filter(entry => entry?.[1]) : []);
   const targets = {
     elements: targetEntries(snapshot.elements),
     plates: targetEntries(snapshot.plates),
@@ -573,8 +573,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (jd && (Array.isArray(jd) ? jd.length : typeof jd === 'object' && Object.keys(jd as object).length)) f.add('jointDesigns');
 
   const quads = values(s.quads);
-  const quadById = targetEntries(s.quads);
-  const plateById = targetEntries(s.plates);
+  const shellMaterials = (entries: Entries<ShellSnapshot>) => new Map(
+    (Array.isArray(entries) ? entries : []).flatMap(entry => entry?.[1] ? [[entry[0], entry[1].materialId] as const] : []),
+  );
+  const quadMaterials = shellMaterials(s.quads);
+  const plateMaterials = shellMaterials(s.plates);
   const massCarriers = [...elements, ...quads, ...values(s.plates), ...values(s.quad9s), ...values(s.solidShells), ...values(s.curvedShells)];
   let minElasticModulus = Infinity;
   let maxElasticModulus = 0;
@@ -809,7 +812,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (t.startsWith('pointOnElement') || partialDistributed) f.add('pointOrPartialMemberLoads');
     if (t === 'thermal' || t === 'thermalQuad3d') {
       const materialId = t === 'thermal' ? elementById.get(d.elementId as number)?.materialId
-        : (d.on === 'plate' ? plateById : quadById).get(d.quadId as number)?.materialId;
+        : (d.on === 'plate' ? plateMaterials : quadMaterials).get(d.quadId as number);
       const alpha = materialId === undefined ? undefined : materials.get(materialId)?.alpha;
       if (alpha !== undefined && Number.isFinite(alpha) && alpha <= 0) f.add('nonpositiveThermalCoefficient');
     }
