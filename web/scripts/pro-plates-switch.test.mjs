@@ -297,3 +297,21 @@ test('the saved-placement notice reads metadata without linking sheet geometry',
   assert.equal(inactivePlacementRules({ placement: { reference: 'unknown' } }), false);
   assert.equal(inactivePlacementRules({}), false);
 });
+
+test.skip('known wrong result: #1928 every published gallery label belongs to an available example or action', async () => {
+  for (const enabled of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const source = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        const module = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+        const catalog = module[locale];
+        for (const key of ['pro.examples.loading.draw', 'ex.pro-rc-lift-core.look', 'ex.pro-steel-building-slabs.generatedDesc', 'pro.examples.groupRcBuildings', 'pro.stats.plates']) {
+          assert.equal(Object.hasOwn(catalog, key), enabled, locale + ' ' + key);
+        }
+        for (const key of ['ex.pro-steel-building-slabs', 'ex.pro-steel-building-slabs.desc', 'pro.examples.groupBuildings', 'pro.stats.shells']) assert.ok(catalog[key], locale + ' ' + key);
+      }
+    });
+  }
+});
