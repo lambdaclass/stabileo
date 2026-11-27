@@ -606,8 +606,9 @@ test.skip('known wrong result: #1928 the released load dialog has no foreign cod
       const result = await build({ root, configFile, logLevel: 'silent', build: {
         write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
           external(id, from) {
-            if (!from || id.startsWith('\0')) return false;
-            return from === entry ? !id.startsWith('./load-codes/') : !id.startsWith('.');
+            if (!from || id.startsWith('\0') || id.includes('/components/pro/load-codes/')) return false;
+            if (from === entry) return !id.startsWith('./load-codes/');
+            return !id.startsWith('.');
           },
         },
       } });
