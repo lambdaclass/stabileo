@@ -604,7 +604,7 @@ const steelTr: Translations = {
   'steel.f62.classified': 'Tablo B.4.1b durum 14: λpf = 0.38·√(E/Fy), λrf = 1.00·√(E/Fy). Aşağıdaki dal, CIRSOC 301 kontrolünün uyguladığı daldır.',
   'steel.f62.outOfScope': 'F.6, zayıf eksen etrafında eğilen I kesitleri ve U profilleri kapsar. Bu kesit bunlardan biri değil.',
   'steel.f62.geometryUnavailable': 'Başlık genişliği veya kalınlığı eksik, bu yüzden λf narinliği bile oluşturulamıyor.',
-  'steel.f62.classificationUnavailable': 'Geometri mevcut: λf, Sy ve Fcr hesaplanır. Yapılamayan şey dalın seçilmesidir, çünkü λpf ve λrf, kaynak PDF\'te görüntü olarak bulunan Tablo B.4.1b durum 14\'tedir.',
+  'steel.f62.classificationUnavailable': 'Başlık geometrisi λf değerini verir. Tablo B.4.1b durum 14 için dal seçimi pozitif bir Fy akma dayanımı gerektirir.',
   'steel.f62.branch.notApplicableCompact': 'kompakt başlık: yerel burkulma uygulanmaz (F.6.2(a))',
   'steel.f62.branch.nonCompact': 'kompakt olmayan başlık (F.6.2(b))',
   'steel.f62.branch.slender': 'narin başlık (F.6.2(c))',

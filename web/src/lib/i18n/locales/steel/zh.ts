@@ -553,7 +553,7 @@ const steelZh: Translations = {
   "steel.f62.classified": "表 B.4.1b 第 14 种情况：λpf = 0.38·√(E/Fy)，λrf = 1.00·√(E/Fy)。以下分支是 CIRSOC 301 验算所采用的分支。",
   "steel.f62.outOfScope": "F.6 涵盖绕弱轴受弯的工字形截面和槽形截面。此截面不属于它们。",
   "steel.f62.geometryUnavailable": "缺少翼缘宽度或厚度，因此连长细比 λf 都无法算出。",
-  "steel.f62.classificationUnavailable": "几何已齐备：λf、Sy 和 Fcr 已算出。无法做到的是选择分支，因为 λpf 和 λrf 属于表 B.4.1b 第 14 种情况，而它在源 PDF 中是图片。",
+  "steel.f62.classificationUnavailable": "翼缘几何参数可以确定 λf。要按表 B.4.1b 第 14 种情况选取分支，需要正的屈服强度 Fy。",
   "steel.f62.branch.notApplicableCompact": "compact 翼缘：不存在局部屈曲（F.6.2(a)）",
   "steel.f62.branch.nonCompact": "non-compact 翼缘（F.6.2(b)）",
   "steel.f62.branch.slender": "slender 翼缘（F.6.2(c)）",

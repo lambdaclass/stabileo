@@ -126,7 +126,7 @@ it('known wrong result: #2595 — Italian tool names distinguish AI from the pre
   expect(unfinishedProClaims(sentence, 'it', { aboutPro: true })).toEqual([sentence]);
 });
 
-it.skip.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const)(
+it.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const)(
   'known wrong result: #2595 — %s explains the missing-Fy channel report without claiming a modulus',
   locale => {
     const report = f62Report({ shape: 'C', b: 0.1, tf: 0.01, iMinor: 1e-6 });

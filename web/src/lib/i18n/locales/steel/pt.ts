@@ -620,7 +620,7 @@ const steelPt: Record<string, string> = {
   'steel.f62.classified': 'Tabela B.4.1b caso 14: λpf = 0,38·√(E/Fy), λrf = 1,00·√(E/Fy). O ramo indicado é o que a verificação CIRSOC 301 aplica.',
   'steel.f62.outOfScope': 'A F.6 cobre seções I e perfis U fletidos em torno do eixo menor. Esta seção não é uma delas.',
   'steel.f62.geometryUnavailable': 'Falta a largura ou a espessura da mesa, então nem a esbeltez λf pode ser formada.',
-  'steel.f62.classificationUnavailable': 'A geometria está: λf, Sy e Fcr se calculam. O que não se pode é escolher o ramo, porque λpf e λrf são a Tabela B.4.1b caso 14, que é uma imagem no PDF fonte.',
+  'steel.f62.classificationUnavailable': 'A geometria da mesa permite calcular λf. Para selecionar o ramo da Tabela B.4.1b, caso 14, é necessária uma tensão de escoamento Fy positiva.',
   'steel.f62.branch.notApplicableCompact': 'mesa compacta: a flambagem local não se aplica (F.6.2(a))',
   'steel.f62.branch.nonCompact': 'mesa não compacta (F.6.2(b))',
   'steel.f62.branch.slender': 'mesa esbelta (F.6.2(c))',
