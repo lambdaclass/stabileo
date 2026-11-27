@@ -5,7 +5,7 @@ import type { EduExerciseSpec } from '../exercise-spec';
 import { seedFrom } from '../exercise-params';
 import {
   describeVariant, fillText, isParametric, kinematicsOf, lintVariants, normalizeLegajo, reactionDofsFor,
-  shapeAnswer, solveModel, specNodeIds, studentSeed, variantOf,
+  checkResolved, shapeOf, specModelData, shapeAnswer, solveModel, specNodeIds, studentSeed, variantOf,
 } from '../exercise-variant';
 import { readDisplayedReaction } from '../edu-reactions';
 import { toExercise } from '../exercises';
@@ -211,4 +211,37 @@ it('known wrong result: #1927 — a guided support asks for vertical force and m
   expect(variantOf(spec).supports[0]!.dofs).toEqual(['Ry', 'M']);
   const { supportTypeName } = await import('../exercise-variant');
   expect(supportTypeName(spec.model.supports[0]!.type)).toMatch(/guid/i);
+});
+
+it.skip('known wrong result: #1927 — section-specific tip displacement follows the assigned profile', async () => {
+  const { ALL_PROFILES } = await import('../../../lib/data/steel-profiles');
+  const profile = ALL_PROFILES.find(p => p.name === 'IPE 300')!;
+  const model = { nodes: [[0, 0], [6, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'fixed' }], nodalLoads: [{ node: 1, fy: -2 }], profile: profile.name } satisfies import('../exercise-spec').ModelSpec;
+  const result = solveModel(model);
+  if (typeof result === 'string') throw new Error(result);
+  const e = specModelData(model).materials.get(1)!.e * 1000;
+  expect(Math.abs(result.displacements.find(d => d.nodeId === 2)!.uz)).toBeCloseTo(2 * 6 ** 3 / (3 * e * profile.iy * 1e-8), 8);
+});
+
+it.skip('known wrong result: #1927 — a vertical guide grades its reaction couple', () => {
+  const input = { ...beam(), params: undefined, model: { nodes: [[0, 0], [3, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'guidedZ' }, { node: 1, type: 'rollerX' }], nodalLoads: [{ node: 0, fy: -2 }] }, supports: [{ label: 'A', nodeIndex: 0, dofs: 'auto' }] } as EduExerciseSpec;
+  const ex = variantOf(input);
+  expect(ex.supports[0]!.dofs).toEqual(['Rx', 'M']);
+  const result = solveModel(ex.model);
+  if (typeof result === 'string') throw new Error(result);
+  expect(Math.abs(readDisplayedReaction(result, 1, 'M')!)).toBeCloseTo(2 * 3, 9);
+});
+
+it.skip('known wrong result: #1927 — a large constant moment cannot hide a quadratic moment on another member', () => {
+  const model = { nodes: [[0, 0], [1, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'fixed' }] } satisfies import('../exercise-spec').ModelSpec;
+  const large = solveModel({ ...model, nodalLoads: [{ node: 1, mz: 2000 }] });
+  const small = solveModel({ ...model, distributedLoads: [{ element: 0, qI: 0.002 }] });
+  if (typeof large === 'string' || typeof small === 'string') throw new Error('cantilever solve failed');
+  expect(shapeOf('M', [...large.elementForces, ...small.elementForces])).toBe('quadratic');
+});
+
+it.skip('known wrong result: #1927 — validation checks each requested sketch member', () => {
+  const ex = variantOf(beam());
+  expect(checkResolved({ ...ex, diagramSketchQuestions: [{ diagram: 'M', elementIndex: 0 }] })).toEqual([]);
+  expect(checkResolved({ ...ex, diagramSketchQuestions: [{ diagram: 'M', elementIndex: 5 }] })).not.toEqual([]);
 });

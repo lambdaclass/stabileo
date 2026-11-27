@@ -230,7 +230,9 @@ describe('every parametric exercise works for every student', () => {
     for (let seed = 0; seed < 10; seed++) {
       const ex = variantOf(spec, seed);
       const forces = solveSpec(ex).elementForces as ElementForces[];
-      expect(Math.abs(evaluateAnswer(ex.diagramQuestions[0]!.answer, forces)!)).toBeLessThan(1e-6);
+      const moment = evaluateAnswer(ex.diagramQuestions[0]!.answer, forces);
+      expect(Number.isFinite(moment)).toBe(true);
+      expect(Math.abs(moment!)).toBeLessThan(1e-6);
       const { L2, q } = ex.variant!.values;
       expect(Math.abs(evaluateAnswer(ex.diagramQuestions[1]!.answer, forces)!)).toBeCloseTo(q! * L2! / 2, 3);
     }
