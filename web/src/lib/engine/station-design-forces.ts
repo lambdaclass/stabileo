@@ -2187,16 +2187,20 @@ function evaluateProvidedReinforcement(
     const stirrups = stirrupsAt(t);
     return stirrups?.length ? stirrups.flatMap(stir => drawnCages.get(stir)!) : missingDrawnCage;
   };
-  const atTorsion = (t: Tuple, d: number, primaryRhoW: number, primaryDepthLimit?: number) => secondaryCagesAt(t).flatMap(({ cage, face }) => {
+  const atTorsion = (t: Tuple, d: number, primaryRhoW: number, primaryDepthLimit?: number) => {
     if (!section || t.tq === 0) return [];
-    const r = checkTorsion2025({ ...section, d, dSecondary: face, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
-      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition, primarySteelAreaM2: primaryRhoW * section.b * d, primaryDepthLimit });
-    const gap = isDrawnGap(t);
-    const missing = gap || (cage.kind === 'refusal' && cage.missing === true);
-    if (gap && !r.neglect) return [{ r: { ...r, ratio: Infinity, refusal: 'diag.rcShearGap' }, t, missing, cage }];
-    if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, missing, cage }];
-    return r.neglect ? [] : [{ r, t, missing, cage }];
-  });
+    const demand = t.section(axes.flexure);
+    if (rectangular && torsionActivation(section, spacingRule.edition, demand).neglect) return [];
+    return secondaryCagesAt(t).flatMap(({ cage, face }) => {
+      const r = checkTorsion2025({ ...section, d, dSecondary: face, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
+        demand, stirrup: cage, edition: spacingRule.edition, primarySteelAreaM2: primaryRhoW * section.b * d, primaryDepthLimit });
+      const gap = isDrawnGap(t);
+      const missing = gap || (cage.kind === 'refusal' && cage.missing === true);
+      if (gap && !r.neglect) return [{ r: { ...r, ratio: Infinity, refusal: 'diag.rcShearGap' }, t, missing, cage }];
+      if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, missing, cage }];
+      return r.neglect ? [] : [{ r, t, missing, cage }];
+    });
+  };
   type TorsionAtStation = ReturnType<typeof atTorsion>[number];
   const governsTorsion = (candidate: TorsionAtStation, incumbent?: TorsionAtStation) =>
     !incumbent || (candidate.r.refusal && !incumbent.r.refusal) || candidate.r.ratio > incumbent.r.ratio;
@@ -2973,12 +2977,23 @@ function evaluateProvidedReinforcement(
       let count = 0;
       const support = ss === shearSpecs[0];
       const inRegion = (t: Tuple) => supportAt(t.stationT) === support;
+      type ShearAtCage = { depth: number; capacity: ReturnType<typeof computeShearCapacity> };
+      const shearByCage = new Map<StirrupDef, Map<number, ShearAtCage>>();
       const shearAtCage = (t: Tuple, stir: StirrupDef) => {
+        let byForce = shearByCage.get(stir);
+        if (!byForce) {
+          byForce = new Map();
+          shearByCage.set(stir, byForce);
+        }
+        const existing = byForce.get(t.n);
+        if (existing) return existing;
         const depth = bottomLayers.length ? d + (section.stirrupDia - stir.diameter) / 1000 : d;
         const rhoW = depth === d ? ss.rhoW : ss.rhoW * d / depth;
         const capacity = computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, depth, section.fc, section.fy, -t.n,
           { Ag: section.b * section.h, rhoW, h: section.h, edition: spacingRule.edition, unrounded: true });
-        return { depth, capacity };
+        const result = { depth, capacity };
+        byForce.set(t.n, result);
+        return result;
       };
       const shearEvidenceRefusal = (t: Tuple, cages?: readonly StirrupDef[]) => {
         if (!drawnBars) return !forSelection && tensionDepth(t) < d ? 'diag.rcShearDepth' : undefined;
