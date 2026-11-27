@@ -220,16 +220,23 @@ class ParityWorkflow(unittest.TestCase):
                 self.assertEqual(self.output.read_text(), f'sha={expected}\n')
 
     def test_planner_uses_workflow_tooling_with_an_older_candidate(self):
-        for candidate, required in [(self.head, True), (self.base, False)]:
+        self.git('switch', '--quiet', '-c', 'ordinary-edit', self.base)
+        (self.repo / 'web/page').write_text('ordinary edit')
+        ordinary = self.commit('Edit a page without changing a switch')
+        self.git('switch', '--quiet', '--detach', self.target)
+        self.git('merge', '--quiet', '--no-ff', ordinary, '-m', 'Ordinary workflow merge')
+        ordinary_merge = self.git('rev-parse', 'HEAD')
+        for candidate, merge, required in [(self.head, self.merge, True), (ordinary, ordinary_merge, False)]:
             with self.subTest(candidate=candidate):
+                self.git('switch', '--quiet', '--detach', merge)
                 result = self.step('parity', BASE=self.base, CANDIDATE=candidate,
-                                   GITHUB_SHA=self.merge, GITHUB_EVENT_NAME='pull_request')
+                                   GITHUB_SHA=merge, GITHUB_EVENT_NAME='pull_request')
                 self.assertEqual(result.returncode, 0, result.stderr)
                 if required:
                     self.assert_plan([self.target])
                 else:
                     self.assertEqual(self.output.read_text(), 'required=false\n')
-                self.assertEqual(self.git('rev-parse', 'HEAD'), self.merge)
+                self.assertEqual(self.git('rev-parse', 'HEAD'), merge)
 
     def assert_plan(self, bases, sides=('reference', 'candidate')):
         outputs = dict(line.split('=', 1) for line in self.output.read_text().splitlines())
@@ -306,6 +313,89 @@ class ParityWorkflow(unittest.TestCase):
         for side in ['reference', 'candidate']:
             self.parity(merge, *args, f'PARITY_SIDE={side}', 'PARITY_RESEARCH_IN=shared', f'PARITY_OUT={side}.json')
         self.parity(merge, *args, 'PARITY_COMPARE=.')
+
+    @unittest.skip("known wrong result: #2657")
+    def test_clean_merge_can_be_the_only_pair_requiring_parity(self):
+        flags = self.repo / 'web/config/features.json'
+
+        def set_flags(production, test):
+            flags.write_text(json.dumps({'production': {'example': production},
+                                         'development': {'example': False},
+                                         'test': {'example': test}}, indent=2))
+
+        self.git('switch', '--quiet', '--detach', self.target)
+        set_flags(True, True)
+        group_base = self.commit('Enable the feature in production and test')
+        set_flags(True, False)
+        base = self.commit('Turn the test feature off')
+        self.git('switch', '--quiet', '-c', 'test-feature')
+        set_flags(True, True)
+        (self.repo / 'web/caption').write_text('unintended production change')
+        head = self.commit('Turn the test feature on')
+        self.git('switch', '--quiet', '--detach', base)
+        set_flags(False, False)
+        parent = self.commit('Independently turn the production feature off')
+        self.git('merge', '--quiet', '--no-ff', head, '-m', 'Clean workflow merge')
+        merge = self.git('rev-parse', 'HEAD')
+        self.assertEqual(self.parity(merge, f'BASE={parent}', 'PARITY_PLAN=1').stdout, 'true\n')
+        for event, selection_base, selection_head, bases in [
+            ('pull_request', base, head, [parent]),
+            ('merge_group', group_base, merge, [parent, group_base]),
+        ]:
+            with self.subTest(event=event):
+                self.assertEqual(self.parity(selection_head, f'BASE={selection_base}', 'PARITY_PLAN=1').stdout,
+                                 'false\n')
+                plan = self.step('parity', BASE=selection_base, CANDIDATE=selection_head,
+                                 GITHUB_SHA=merge, GITHUB_EVENT_NAME=event)
+                self.assertEqual(plan.returncode, 0, plan.stderr)
+                self.assert_plan(bases)
+        result = self.parity(merge, f'BASE={parent}', succeeds=False)
+        self.assertIn('\n  web/dist/caption\n', result.stderr)
+
+    @unittest.skip("known wrong result: #2657")
+    def test_declared_pr_edit_already_on_target_needs_no_replay(self):
+        self.git('switch', '--quiet', '--detach', self.target)
+        (self.repo / 'web/page').write_text('candidate page\n')
+        parent = self.commit('Independently land the declared page edit')
+        self.git('merge', '--quiet', '--no-ff', self.head, '-m', 'Workflow merge')
+        merge = self.git('rev-parse', 'HEAD')
+        args = [f'BASE={parent}', 'REQUIRE_PARITY=1']
+        for side in ['reference', 'candidate']:
+            self.parity(merge, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_OUT=research-{side}')
+            self.assertEqual((self.repo / f'research-{side}/assets/asset').read_text(), 'candidate page\n')
+            self.parity(merge, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_IN=research-{side}',
+                        f'PARITY_OUT={side}.json')
+            files = json.loads((self.repo / f'{side}.json').read_text())['files']
+            self.assertEqual(files['web/dist/index.html'], sha256(f'candidate page\n{merge}\n'.encode()).hexdigest())
+        for mode in [('PARITY_COMPARE=.',), ()]:
+            result = self.parity(merge, *args, *mode, succeeds=False)
+            self.assertIn('(1 output files):\n  web/dist/caption\n', result.stderr)
+
+    @unittest.skip("known wrong result: #2657")
+    def test_matching_target_edit_and_outstanding_declaration_pass_together(self):
+        self.git('switch', '--quiet', '--detach', self.head)
+        head = self.commit('Declare the caption too', '--allow-empty', '-m', 'Production-Change: web/caption')
+        self.git('switch', '--quiet', '--detach', self.target)
+        (self.repo / 'web/page').write_text('candidate page\n')
+        parent = self.commit('Independently land the declared page edit')
+        self.git('merge', '--quiet', '--no-ff', head, '-m', 'Workflow merge')
+        merge = self.git('rev-parse', 'HEAD')
+        for base in [parent, self.target]:
+            with self.subTest(base=base):
+                self.parity(merge, f'BASE={base}', 'REQUIRE_PARITY=1')
+
+    @unittest.skip("known wrong result: #2657")
+    def test_target_only_edit_cannot_validate_a_pr_declaration(self):
+        self.git('switch', '--quiet', '--detach', self.head)
+        head = self.commit('Declare a path untouched by the PR', '--allow-empty', '-m',
+                           'Production-Change: web/package.json')
+        self.git('switch', '--quiet', '--detach', self.target)
+        self.git('merge', '--quiet', '--no-ff', head, '-m', 'Workflow merge')
+        merge = self.git('rev-parse', 'HEAD')
+        for base in [self.target, self.queue_base]:
+            with self.subTest(base=base):
+                result = self.parity(merge, f'BASE={base}', 'REQUIRE_PARITY=1', succeeds=False)
+                self.assertIn('Production-Change trailers must name actual changed paths', result.stderr)
 
     def test_candidate_defaults_to_merge_base_and_honours_explicit_base(self):
         for base in [self.queue_base, 'origin/main']:
