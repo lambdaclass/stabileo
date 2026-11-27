@@ -21,6 +21,7 @@
  * inside the joints panel. See `docs/handoffs/m1-steel-i18n-audit.md` §1.3.
  */
 
+import japanese from '../src/lib/i18n/locales/ja';
 import { BUILD_OFFERED_LOCALES } from './build-locales';
 import { test, expect, PRO_URL, clickStage, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
@@ -85,13 +86,11 @@ test.describe('a stored locale the app no longer offers', () => {
     const body = await page.getByTestId('conn-experimental-banner').innerText();
     expect(body.trim().length).toBeGreaterThan(20);
 
-    const leak = await page.evaluate(() => {
-      const root = document.querySelector('.conn-tab') ?? document.body;
-      const text = root.textContent ?? '';
-      return ['検定', '支圧', '利用率']
-        .filter((w) => text.includes(w));
-    });
-    expect(leak, `Japanese strings leaked: ${leak.join(', ')}`).toEqual([]);
+    const panel = page.locator('.conn-tab');
+    await expect(panel).toBeVisible();
+    for (const key of ['conn.verify', 'conn.bearing', 'conn.utilization', 'conn.boltCheck', 'conn.weldCheck']) {
+      await expect(panel).not.toContainText(japanese[key]);
+    }
   });
 
   test('renders no raw key on the metallic surfaces after falling back', async ({ page }) => {

@@ -123,7 +123,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Guarda la colonna Mu. Ingrandire la trave da 25×40 a 30×55 fa salire la sollecitazione da 80,8 a 105,6 kN·m. In un telaio iperstatico, la statica fissa la somma del momento di estremità e del momento in mezzeria; la rigidezza cambia solo come viene ripartita quella somma. Una trave più rigida rispetto ai suoi pilastri riceve da questi un vincolo di estremità minore e si comporta più come una trave appoggiata, quindi il suo momento in mezzeria, che qui governa, aumenta."
+      "t": "Guarda la colonna Mu. Ingrandire la trave da 25×40 a 30×55 fa salire la sollecitazione da 80,8 a 105,6 kN·m. Per questa trave simmetricamente caricata la statica fissa la differenza con segno: M_mezzeria − M_estremità = 80,8 − (−54,2) = qL²/8 = 135 kN·m. La rigidezza cambia i singoli momenti. Una trave più rigida rispetto ai suoi pilastri riceve da questi un vincolo di estremità minore e si comporta più come una trave appoggiata, quindi il suo momento in mezzeria, che qui governa, aumenta."
     },
     {
       "k": "quote",
@@ -225,7 +225,7 @@ const body: PostBody = {
       "items": [
         "Equilibrio globale: ΣR = P, indipendentemente da geometria, materiali o vincoli.",
         "Simmetria della matrice di rigidezza: K = Kᵀ per costruzione.",
-        "Definita positività di K per qualsiasi struttura senza meccanismi.",
+        "La matrice di rigidezza elastica lineare, ridotta ai gradi di libertà liberi di una struttura stabile e correttamente vincolata, è definita positiva.",
         "Invarianza per trasformazioni di corpo rigido: traslare o ruotare un modello non cambia le sollecitazioni interne."
       ]
     },

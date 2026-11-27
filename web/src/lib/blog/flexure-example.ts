@@ -48,10 +48,26 @@ export function flexureExampleRows(passes: string, refuses: string, point: '.' |
   return examples.map(v => [String(v.Mu), `2 Ø${v.dia}`, decimal(v.epsilonT * 1000, 2), decimal(v.phi, 3), decimal(v.phiMn, 2), v.epsilonT >= v.epsilonTMin ? passes : refuses]);
 }
 
+const effectiveDepthMm = (diameter: number) => 400 - 25 - 8 - diameter / 2;
+
+export function minimumSteelExampleRows(minimum: string, strength: string, point: '.' | ','): string[][] {
+  const depth = effectiveDepthMm(20);
+  const width = 200;
+  const fy = 420;
+  const fc = 25;
+  const blockStress = 0.85 * fc;
+  const minimumArea = Math.max(0.25 * Math.sqrt(fc), 1.4) / fy * width * depth;
+  return [15, 30, 60, 90].map(moment => {
+    const blockDepth = depth - Math.sqrt(depth ** 2 - 2 * moment * 1e6 / (0.9 * blockStress * width));
+    const requiredArea = blockStress * width * blockDepth / fy;
+    return [String(moment), formatted(requiredArea / 100, 2, point), formatted(minimumArea / 100, 2, point), requiredArea < minimumArea ? minimum : strength];
+  });
+}
+
 export function flexureExampleSteps(reinforcement: string, point: '.' | ',' = ','): string[] {
   const decimal = (value: number, digits: number) => formatted(value, digits, point);
   const bar = examples.find(v => v.dia === 20)!;
-  const depth = 400 - 25 - 8 - bar.dia / 2;
+  const depth = effectiveDepthMm(bar.dia);
   const area = 2 * Math.PI * (bar.dia / 10) ** 2 / 4;
   return [
     `d = 400 − 25 − 8 − ${bar.dia}/2 = ${depth} mm = ${decimal(depth / 10, 1)} cm`,

@@ -66,6 +66,7 @@ export interface F62Report {
   flangeSlenderness: number | null;
   /** The `bf` the clause's convention gives for this shape, metres. Null when unavailable. */
   bfM: number | null;
+  slendernessFormula: string | null;
   /** `Fcr = 138000/(bf/tf)²`, MPa — F.6.3. Meaningful only in branch (c), and labelled as such. */
   fcrMPa: number | null;
   /** `Sy`, m³. Null when the inputs are not there. */
@@ -97,18 +98,17 @@ export interface F62Input {
  *
  * Returns null for a shape the convention does not name, rather than guessing which half applies.
  */
-export function flangeWidthForSlenderness(shape: string | undefined, b: number | undefined): number | null {
-  if (b == null || b <= 0) return null;
+function flangeWidthDivisor(shape: string | undefined): 1 | 2 | null {
   switch (shape) {
-    case 'I': case 'H': return b / 2;
-    case 'U': case 'C': return b;
+    case 'I': case 'H': return 2;
+    case 'U': case 'C': return 1;
     default: return null;
   }
 }
 
-/** F.6 covers doubly-symmetric I sections and channels bent about the minor axis. */
-function inScope(shape: string | undefined): boolean {
-  return shape === 'I' || shape === 'H' || shape === 'U' || shape === 'C';
+export function flangeWidthForSlenderness(shape: string | undefined, b: number | undefined): number | null {
+  const divisor = flangeWidthDivisor(shape);
+  return divisor === null || b == null || b <= 0 ? null : b / divisor;
 }
 
 /**
@@ -120,10 +120,11 @@ function inScope(shape: string | undefined): boolean {
 export function f62Report(input: F62Input): F62Report {
   const { shape, b, tf, iMinor } = input;
   const none = {
-    flangeSlenderness: null, bfM: null, fcrMPa: null, syM3: null,
+    flangeSlenderness: null, slendernessFormula: null, bfM: null, fcrMPa: null, syM3: null,
   };
 
-  if (!inScope(shape)) {
+  const divisor = flangeWidthDivisor(shape);
+  if (divisor === null) {
     return {
       state: 'outOfScope', branch: 'undetermined',
       reasonKey: 'steel.f62.outOfScope', ...none, missingKeys: [],
@@ -140,6 +141,7 @@ export function f62Report(input: F62Input): F62Report {
   }
 
   const lambdaF = bf / tf;
+  const slendernessFormula = divisor === 1 ? 'bf/tf' : 'bf/(2tf)';
   /*
    * F.6.3's constant is 138000 with `bf/tf` dimensionless, giving MPa. Computed and reported even
    * though the branch is unknown, because it is the one number a reader holding the printed table
@@ -154,7 +156,7 @@ export function f62Report(input: F62Input): F62Report {
     const branch: F62Branch = lambdaF <= lp ? 'notApplicableCompact' : lambdaF <= lr ? 'nonCompact' : 'slender';
     return {
       state: 'classified', branch, reasonKey: 'steel.f62.classified',
-      flangeSlenderness: lambdaF, bfM: bf, fcrMPa: fcr, syM3: sy, missingKeys: [],
+      flangeSlenderness: lambdaF, slendernessFormula, bfM: bf, fcrMPa: fcr, syM3: sy, missingKeys: [],
     };
   }
   return {
@@ -162,6 +164,7 @@ export function f62Report(input: F62Input): F62Report {
     branch: 'undetermined',
     reasonKey: 'steel.f62.classificationUnavailable',
     flangeSlenderness: lambdaF,
+    slendernessFormula,
     bfM: bf,
     fcrMPa: fcr,
     syM3: sy,

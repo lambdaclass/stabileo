@@ -1,5 +1,5 @@
 import type { Post } from '../types';
-import { flexureExampleRows, flexureExampleSteps } from '../flexure-example';
+import { minimumSteelExampleRows, flexureExampleRows, flexureExampleSteps } from '../flexure-example';
 
 export const cirsoc201Flexure: Post = {
   "slug": "verificacion-flexion-cirsoc-201",
@@ -50,36 +50,11 @@ export const cirsoc201Flexure: Post = {
             "As,mín [cm²]",
             "Gobierna"
           ],
-          "rows": [
-            [
-              "15",
-              "1.12",
-              "2.39",
-              "el mínimo"
-            ],
-            [
-              "30",
-              "2.28",
-              "2.39",
-              "el mínimo"
-            ],
-            [
-              "60",
-              "4.73",
-              "2.39",
-              "la resistencia"
-            ],
-            [
-              "90",
-              "7.38",
-              "2.39",
-              "la resistencia"
-            ]
-          ]
+          "rows": minimumSteelExampleRows("el mínimo", "la resistencia", ".")
         },
         {
           "k": "p",
-          "t": "El cruce está en Mu = 31,5 kN·m. Por debajo de ese momento, dimensionar por resistencia no sirve de nada: la sección va a llevar 2,39 cm² igual. Vale la pena saber de qué lado del cruce está una viga antes de discutir su armadura."
+          "t": "El cruce está en Mu = 31,1 kN·m. Por debajo de ese momento, dimensionar por resistencia no sirve de nada: la sección va a llevar 2,38 cm² igual. Vale la pena saber de qué lado del cruce está una viga antes de discutir su armadura."
         },
         {
           "k": "h",
@@ -252,36 +227,11 @@ export const cirsoc201Flexure: Post = {
             "As,min [cm²]",
             "Governs"
           ],
-          "rows": [
-            [
-              "15",
-              "1.12",
-              "2.39",
-              "the minimum"
-            ],
-            [
-              "30",
-              "2.28",
-              "2.39",
-              "the minimum"
-            ],
-            [
-              "60",
-              "4.73",
-              "2.39",
-              "strength"
-            ],
-            [
-              "90",
-              "7.38",
-              "2.39",
-              "strength"
-            ]
-          ]
+          "rows": minimumSteelExampleRows("the minimum", "strength", ".")
         },
         {
           "k": "p",
-          "t": "The crossover is at Mu = 31.5 kN·m. Below that moment, sizing for strength achieves nothing: the section carries 2.39 cm² either way. It is worth knowing which side of the crossover a beam is on before discussing its reinforcement."
+          "t": "The crossover is at Mu = 31.1 kN·m. Below that moment, sizing for strength achieves nothing: the section carries 2.38 cm² either way. It is worth knowing which side of the crossover a beam is on before discussing its reinforcement."
         },
         {
           "k": "h",
@@ -454,36 +404,11 @@ export const cirsoc201Flexure: Post = {
             "As,mín [cm²]",
             "Governa"
           ],
-          "rows": [
-            [
-              "15",
-              "1.12",
-              "2.39",
-              "o mínimo"
-            ],
-            [
-              "30",
-              "2.28",
-              "2.39",
-              "o mínimo"
-            ],
-            [
-              "60",
-              "4.73",
-              "2.39",
-              "a resistência"
-            ],
-            [
-              "90",
-              "7.38",
-              "2.39",
-              "a resistência"
-            ]
-          ]
+          "rows": minimumSteelExampleRows("o mínimo", "a resistência", ".")
         },
         {
           "k": "p",
-          "t": "O ponto de cruzamento fica em Mu = 31,5 kN·m. Abaixo desse momento, dimensionar pela resistência não adianta: a seção vai ter 2,39 cm² de qualquer jeito. Vale saber de que lado do cruzamento uma viga está antes de discutir a sua armadura."
+          "t": "O ponto de cruzamento fica em Mu = 31,1 kN·m. Abaixo desse momento, dimensionar pela resistência não adianta: a seção vai ter 2,38 cm² de qualquer jeito. Vale saber de que lado do cruzamento uma viga está antes de discutir a sua armadura."
         },
         {
           "k": "h",

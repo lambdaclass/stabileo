@@ -610,7 +610,7 @@ const steelDe: Translations = {
   'steel.f62.branch.undetermined': 'Zweig unbestimmt',
   'steel.f62.missing.flangeGeometry': 'Flanschbreite und -dicke.',
   'steel.f62.missing.slendernessLimits': 'Die Schlankheitsgrenzen λpf und λrf aus Tabelle B.4.1b, Fall 14. Die Zahlenwerte dieser Tabelle sind nicht im mitgelieferten Markdown enthalten, nur ihr Titel, ihre Fußnoten und die Symbolliste.',
-  'steel.f62.lambdaLabel': 'Flanschschlankheit λf = bf/tf',
+  'steel.f62.lambdaLabel': 'Flanschschlankheit λf',
   'steel.f62.fcrLabel': 'Fcr, falls der Flansch schlank ist (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — Momentenbeiwert (F.1.1)',
   'steel.workflow.clause.cbState': 'Aus der Momentenlinie berechnet, wenn Auswertungsstellen vorhanden sind und der Querschnitt im Geltungsbereich von F.1.1 liegt; andernfalls Cb = 1, was die Norm zulässt. Die Berechnung weist die Aussteifung nicht nach.',

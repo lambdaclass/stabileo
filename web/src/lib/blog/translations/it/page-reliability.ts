@@ -98,7 +98,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "q": "I bollettini pubblicati sono risolti?",
-      "a": "Tutti tranne due. SA-2026-001 – 004 sono stati risolti nella versione 0.2.0, SA-2026-005 – 020 nella 0.3.0, SA-2026-021 – 024 nella 0.4.0 e SA-2026-025 – 047 nella 0.5.0, tranne SA-2026-040 e SA-2026-044. SA-2026-040 è contenuto: la verifica è marcata come incompleta. SA-2026-044 non è risolto: il collasso plastico 2D resta rifiutato finché non si chiude #758."
+      "a": "Tra SA-2026-001 e SA-2026-047, tutti tranne due. Per lo stato degli avvisi successivi consulta la tabella dei bollettini. SA-2026-001 – 004 sono stati risolti nella versione 0.2.0, SA-2026-005 – 020 nella 0.3.0, SA-2026-021 – 024 nella 0.4.0 e SA-2026-025 – 047 nella 0.5.0, tranne SA-2026-040 e SA-2026-044. SA-2026-040 è contenuto: la verifica è marcata come incompleta. SA-2026-044 non è risolto: il collasso plastico 2D resta rifiutato finché non si chiude #758."
     }
   ]
 };

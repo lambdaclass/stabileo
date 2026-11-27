@@ -18,7 +18,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Una versione dei risultati è un numero intero, distinto dalla versione dell’app. Sale di uno ogni volta che arriva sul sito una modifica che fa dare numeri diversi allo stesso modello salvato, o che rifiuta un modello che prima si risolveva. Ogni modifica di questo tipo viene registrata con:"
+      "t": "Una versione dei risultati è un numero intero, distinto dalla versione dell’app. Una nuova versione può riunire più modifiche che cambiano i numeri di un modello salvato o rifiutano un modello prima risolvibile. Dopo la pubblicazione non si possono aggiungere avvisi retroattivamente a quella versione. Ogni modifica di questo tipo viene registrata con:"
     },
     {
       "k": "ul",

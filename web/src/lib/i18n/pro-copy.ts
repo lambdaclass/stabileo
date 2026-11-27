@@ -22,7 +22,7 @@ const DESIGN_OR_AI: Record<CopyLocale, RegExp> = {
   fr: /dimensionnement|ferraillage|armature|\bIA\b/i,
   tr: /tasarım|donatı|yapay zek|\bYZ\b/i,
   hu: /[Mm]éretez|[Vv]asal|[Rr]észletez|[Mm]esterséges intelligenci|\b(MI|AI)\b/,
-  it: /dimensionament|progettazione|progetto (?:secondo norma|normativo)|armatur|\bIA\b|\bAI\b/i,
+  it: /dimensionament|progettazione|progetto (?:secondo norma|normativo)|armatur|intelligenza artificiale|\bIA\b/i,
   zh: /设计|配筋|详图|人工智能|\bAI\b/,
 };
 
@@ -42,6 +42,6 @@ function sentences(text: string): string[] {
  */
 export function unfinishedProClaims(text: string, locale: CopyLocale, { aboutPro }: { aboutPro: boolean }): string[] {
   return sentences(text).filter(
-    (s) => UNFINISHED[locale].test(s) && !DESIGN_OR_AI[locale].test(s) && (aboutPro || /\bPRO\b/.test(s)),
+    (s) => UNFINISHED[locale].test(s) && !DESIGN_OR_AI[locale].test(s) && !(locale === 'it' && /\bAI\b/.test(s)) && (aboutPro || /\bPRO\b/.test(s)),
   );
 }

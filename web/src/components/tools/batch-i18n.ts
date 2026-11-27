@@ -510,7 +510,7 @@ export const batchTranslations: Record<string, Record<string, string>> = {
     "tools.batch.bases": "Basi dei pilastri",
     "tools.batch.zeroReference": "ogni valore di riferimento è zero; massima differenza assoluta",
     "tools.batch.listNote": "Usa il punto come separatore decimale; separa i valori con una virgola e uno spazio, un punto e virgola o spazi.",
-    "tools.batch.decimalComma": "Usa il punto come separatore decimale (6.5, non 6.5) e separa i valori con una virgola e uno spazio, un punto e virgola o spazi.",
+    "tools.batch.decimalComma": "Usa il punto come separatore decimale (6.5, non 6,5) e separa i valori con una virgola e uno spazio, un punto e virgola o spazi.",
     "tools.batch.displacementNote": "|u| = √(ux² + uz²) è il modulo dello spostamento totale, compreso quello orizzontale; non è mai negativo e non indica la direzione.",
     "tools.batch.displacement": "Spostamento massimo |u|"
   },

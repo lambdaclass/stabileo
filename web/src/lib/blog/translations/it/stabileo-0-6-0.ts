@@ -43,7 +43,7 @@ const body: PostBody = {
         [
           "SA-2026-051",
           "Alta",
-          "I carichi mobili 3D perdevano i picchi interni e il peso assiale degli assi. Riesegui gli inviluppi e rivedi il dimensionamento delle aste e le sollecitazioni di progetto."
+          "I carichi mobili 3D perdevano i picchi interni e la componente assiale del peso degli assi. Riesegui gli inviluppi e rivedi il dimensionamento delle aste e le sollecitazioni di progetto."
         ],
         [
           "SA-2026-052",

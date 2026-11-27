@@ -34,11 +34,11 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Prendi un tubo circolare. Cauchy si applica ed è esatta. Si applica anche Bredt: la parete è chiusa e un flusso di taglio la percorre. Ma Bredt assume la tensione costante nello spessore, mentre in Cauchy cresce con il raggio. Quindi Bredt dà la media e Cauchy dà il massimo."
+      "t": "Prendi un tubo circolare. Cauchy si applica ed è esatta. Per una parete chiusa sottile Bredt approssima la tensione media nello spessore. La soluzione esatta di Cauchy cresce con il raggio: la tabella confronta Bredt con il massimo sulla faccia esterna."
     },
     {
       "k": "table",
-      "caption": "Tubo circolare cavo: quanto Bredt sta sotto il valore esatto, per spessore relativo della parete.",
+      "caption": "Tubo circolare cavo: quanto Bredt sta sotto il picco esatto sulla faccia esterna, per spessore relativo della parete.",
       "head": [
         "t / rₘ",
         "Esempio (rₘ = 50 mm)",
@@ -47,28 +47,28 @@ const body: PostBody = {
       ],
       "rows": [
         [
-          "0.05",
+          "0,05",
           "parete di 2,5 mm",
-          "0.976",
-          "2.4 %"
+          "0,976",
+          "2,4 %"
         ],
         [
-          "0.10",
+          "0,10",
           "parete di 5,0 mm",
-          "0.955",
-          "4.5 %"
+          "0,955",
+          "4,5 %"
         ],
         [
-          "0.20",
+          "0,20",
           "parete di 10,0 mm",
-          "0.918",
-          "8.2 %"
+          "0,918",
+          "8,2 %"
         ],
         [
-          "0.50",
-          "parete di 25,0 mm",
-          "0.850",
-          "15.0 %"
+          "0,50",
+          "parete di 25,0 mm (fuori dall’ipotesi di parete sottile)",
+          "0,850",
+          "15,0 %"
         ]
       ]
     },
@@ -78,7 +78,7 @@ const body: PostBody = {
     },
     {
       "k": "quote",
-      "t": "L’errore ha sempre lo stesso segno: Bredt risulta basso."
+      "t": "Nelle quattro righe Bredt sottostima il picco esterno. Per t/rₘ = 0,50 sovrastima invece la media esatta nello spessore del 6,25 %."
     },
     {
       "k": "p",
@@ -117,14 +117,14 @@ const body: PostBody = {
       "rows": [
         [
           "J [mm⁴]",
-          "4,286,875",
-          "15,833",
+          "4 286 875",
+          "15 833",
           "271"
         ],
         [
           "τ [MPa]",
-          "11.08",
-          "315.79",
+          "11,08",
+          "315,79",
           "29"
         ]
       ]

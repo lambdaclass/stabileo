@@ -76,7 +76,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Réseau carré : cisaillement nul",
     "tr": "Kare kafes: kayma sıfır",
     "hu": "Négyzetrács: zérus nyírási modulus",
-    'it': "Reticolo quadrato: taglio nullo",
+    'it': "Reticolo quadrato: modulo di taglio nullo",
     "zh": "正方形点阵：剪切模量为零"
   },
   "square-stiffness": {

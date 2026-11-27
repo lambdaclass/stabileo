@@ -1,5 +1,5 @@
 import type { PostBody } from '../../types';
-import { flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
+import { minimumSteelExampleRows, flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "Biegenachweis nach CIRSOC 201, Schritt für Schritt",
@@ -38,36 +38,11 @@ const body: PostBody = {
         "As,min [cm²]",
         "Maßgebend"
       ],
-      "rows": [
-        [
-          "15",
-          "1,12",
-          "2,39",
-          "Mindestbewehrung"
-        ],
-        [
-          "30",
-          "2,28",
-          "2,39",
-          "Mindestbewehrung"
-        ],
-        [
-          "60",
-          "4,73",
-          "2,39",
-          "Tragfähigkeit"
-        ],
-        [
-          "90",
-          "7,38",
-          "2,39",
-          "Tragfähigkeit"
-        ]
-      ]
+      "rows": minimumSteelExampleRows("Mindestbewehrung", "Tragfähigkeit", ",")
     },
     {
       "k": "p",
-      "t": "Der Umschlagpunkt liegt bei Mu = 31,5 kN·m. Unterhalb dieses Moments bringt eine Bemessung auf Tragfähigkeit nichts: Der Querschnitt erhält so oder so 2,39 cm². Es lohnt sich zu wissen, auf welcher Seite des Umschlagpunkts ein Balken liegt, bevor man über seine Bewehrung diskutiert."
+      "t": "Der Umschlagpunkt liegt bei Mu = 31,1 kN·m. Unterhalb dieses Moments bringt eine Bemessung auf Tragfähigkeit nichts: Der Querschnitt erhält so oder so 2,38 cm². Es lohnt sich zu wissen, auf welcher Seite des Umschlagpunkts ein Balken liegt, bevor man über seine Bewehrung diskutiert."
     },
     {
       "k": "h",

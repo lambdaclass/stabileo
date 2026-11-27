@@ -10,7 +10,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Il corso è stato scritto da Bautista Chesta, ingegnere civile (FIUBA), e arriva in sei unità: la base comune, statica e metodi classici, linee d’influenza, secondo ordine e instabilità, analisi plastica e dinamica. È gratuito, come tutto Base: si apre nel browser, senza nulla da installare e senza account, e i testi sono in spagnolo, inglese, portoghese, tedesco, francese e turco."
+      "t": "Il corso è stato scritto da Bautista Chesta, ingegnere civile (FIUBA), e arriva in sei unità: la base comune, statica e metodi classici, linee d’influenza, secondo ordine e instabilità, analisi plastica e dinamica. È gratuito, come tutto Base: si apre nel browser, senza nulla da installare e senza account, e i testi sono in spagnolo, inglese, portoghese, tedesco, francese, turco, ungherese, italiano e cinese."
     },
     {
       "k": "h",

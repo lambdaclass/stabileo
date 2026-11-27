@@ -1,5 +1,5 @@
 import type { PostBody } from '../../types';
-import { flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
+import { minimumSteelExampleRows, flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "CIRSOC 201'e göre eğilme kontrolü, adım adım",
@@ -38,36 +38,11 @@ const body: PostBody = {
         "As,min [cm²]",
         "Belirleyici"
       ],
-      "rows": [
-        [
-          "15",
-          "1,12",
-          "2,39",
-          "minimum"
-        ],
-        [
-          "30",
-          "2,28",
-          "2,39",
-          "minimum"
-        ],
-        [
-          "60",
-          "4,73",
-          "2,39",
-          "dayanım"
-        ],
-        [
-          "90",
-          "7,38",
-          "2,39",
-          "dayanım"
-        ]
-      ]
+      "rows": minimumSteelExampleRows("minimum", "dayanım", ",")
     },
     {
       "k": "p",
-      "t": "Kesişim noktası Mu = 31,5 kN·m'dedir. Bu momentin altında dayanıma göre boyutlandırma hiçbir şey kazandırmaz: kesit her durumda 2,39 cm² taşır. Bir kirişin donatısını tartışmadan önce kesişim noktasının hangi tarafında olduğunu bilmek gerekir."
+      "t": "Kesişim noktası Mu = 31,1 kN·m'dedir. Bu momentin altında dayanıma göre boyutlandırma hiçbir şey kazandırmaz: kesit her durumda 2,38 cm² taşır. Bir kirişin donatısını tartışmadan önce kesişim noktasının hangi tarafında olduğunu bilmek gerekir."
     },
     {
       "k": "h",

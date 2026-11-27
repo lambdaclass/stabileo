@@ -610,7 +610,7 @@ const steelFr: Translations = {
   'steel.f62.branch.undetermined': 'branche indéterminée',
   'steel.f62.missing.flangeGeometry': 'Largeur et épaisseur de semelle.',
   'steel.f62.missing.slendernessLimits': 'Les limites d\'élancement λpf et λrf du tableau B.4.1b, cas 14. Les cellules numériques de ce tableau ne figurent pas dans le markdown livré : seulement son titre, ses notes et la liste des symboles.',
-  'steel.f62.lambdaLabel': 'Élancement de semelle λf = bf/tf',
+  'steel.f62.lambdaLabel': 'Élancement de semelle λf',
   'steel.f62.fcrLabel': 'Fcr si la semelle s\'avère élancée (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — facteur de gradient de moment (F.1.1)',
   'steel.workflow.clause.cbState': 'Calculé à partir du diagramme de moments lorsqu\'il existe des points d\'évaluation et que la section entre dans le champ de F.1.1 ; sinon Cb = 1, ce que la norme permet. Le calculer ne certifie pas le maintien latéral.',

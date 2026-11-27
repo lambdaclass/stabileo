@@ -764,7 +764,7 @@ const it: Record<Key, string> = {
   autoNextHelp: 'Passa da solo al round successivo dopo ogni risposta. Tocca una carta per fermarti e leggere il perché.',
   score: 'Punteggio',
   best: 'Record',
-  level: 'Level',
+  level: 'Livello',
   lives: 'Vite',
   streak: 'Serie',
   livesLeft: '{n} vite rimaste',

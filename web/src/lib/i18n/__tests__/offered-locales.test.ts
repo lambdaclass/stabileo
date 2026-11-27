@@ -66,9 +66,10 @@ afterEach(() => { vi.unstubAllGlobals(); });
 describe('the languages the app offers', () => {
   beforeEach(() => { vi.resetModules(); });
 
-  it('is English, Español and Português, plus Deutsch, Français, Türkçe, Magyar and 中文 each once it is complete', async () => {
+  it('is English, Español and Português, plus Deutsch, Français, Türkçe, Magyar, Italiano and 中文 each once it is complete', async () => {
     const { store } = await boot(['en']);
     const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'it', 'zh'].filter(isComplete)];
+    expect(store.OFFERED_LOCALES).toContain('it');
     expect([...store.OFFERED_LOCALES].sort()).toEqual(expected.sort());
   });
 

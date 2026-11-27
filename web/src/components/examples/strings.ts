@@ -1218,7 +1218,7 @@ const it: Record<Key, string> = {
   'outrigger.p.columnArea': 'Area del pilastro',
   'outrigger.p.wind': 'Carico di vento sul nucleo',
   'outrigger.benchmark': 'Strumenti: trave a mensola, verificata con le forme chiuse',
-  'tower.about': 'Un tubo circolare in acciaio (E = 210 GPa, 7850 kg/m³) incastrato alla base, in 20 elementi. Le frequenze sono mostrate accanto alle radici dell’equazione delle frequenze della mensola con massa in punta, e il moltiplicatore critico del carico in sommità accanto a π²EI/4H² di Eulero. Il peso proprio non fa parte del carico critico.',
+  'tower.about': 'Un tubo circolare in acciaio (E = 210 GPa, 7850 kg/m³) incastrato alla base, in 20 elementi. Le frequenze sono mostrate accanto alle radici dell’equazione delle frequenze della mensola con massa in punta, e il carico critico in sommità (moltiplicatore per carico di riferimento) accanto alla forza π²EI/(4H²) di Eulero. Il peso proprio non fa parte del carico critico.',
   'tower.p.height': 'Altezza',
   'tower.p.diameter': 'Diametro',
   'tower.p.thickness': 'Spessore della parete',

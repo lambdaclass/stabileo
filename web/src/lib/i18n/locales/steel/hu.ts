@@ -559,7 +559,7 @@ const steelHu: Translations = {
   "steel.f62.branch.undetermined": "az ág meghatározatlan",
   "steel.f62.missing.flangeGeometry": "Övszélesség és övvastagság.",
   "steel.f62.missing.slendernessLimits": "A B.4.1b táblázat 14. esetének λpf és λrf karcsúsági határai. A táblázat számértékei nincsenek a szállított markdownban: csak a felirata, a lábjegyzetei és a jelölésjegyzéke.",
-  "steel.f62.lambdaLabel": "Övkarcsúság λf = bf/tf",
+  "steel.f62.lambdaLabel": "Övkarcsúság λf",
   "steel.f62.fcrLabel": "Fcr, ha az öv karcsúnak bizonyul (F.6.3)",
   "steel.workflow.clause.cb": "Cb — nyomatéki gradiens tényező (F.1.1)",
   "steel.workflow.clause.cbState": "A nyomatéki ábrából számítva, ha vannak metszetek és a keresztmetszet az F.1.1 hatókörén belül van; egyébként Cb = 1, amit a szabvány megenged. A kiszámítása nem tanúsítja a merevítést.",

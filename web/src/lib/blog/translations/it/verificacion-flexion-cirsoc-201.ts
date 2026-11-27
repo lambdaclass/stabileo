@@ -1,5 +1,5 @@
 import type { PostBody } from '../../types';
-import { flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
+import { minimumSteelExampleRows, flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "Verifica a flessione secondo CIRSOC 201, passo dopo passo",
@@ -38,36 +38,11 @@ const body: PostBody = {
         "As,min [cm²]",
         "Governa"
       ],
-      "rows": [
-        [
-          "15",
-          "1.12",
-          "2.39",
-          "il minimo"
-        ],
-        [
-          "30",
-          "2.28",
-          "2.39",
-          "il minimo"
-        ],
-        [
-          "60",
-          "4.73",
-          "2.39",
-          "la resistenza"
-        ],
-        [
-          "90",
-          "7.38",
-          "2.39",
-          "la resistenza"
-        ]
-      ]
+      "rows": minimumSteelExampleRows("il minimo", "la resistenza", ",")
     },
     {
       "k": "p",
-      "t": "Il punto di incrocio è a Mu = 31,5 kN·m. Sotto quel momento, dimensionare per resistenza non serve a nulla: la sezione porta comunque 2,39 cm². Conviene sapere da che parte dell’incrocio si trova una trave prima di discutere della sua armatura."
+      "t": "Il punto di incrocio è a Mu = 31,1 kN·m. Qui si adotta il minimo di §9.6.1.2 in tutte le sezioni. Dove si applica l’eccezione di §9.6.1.3, si può invece fornire in ogni sezione almeno 4/3 dell’armatura richiesta dall’analisi. Conviene sapere da che parte dell’incrocio si trova una trave prima di discutere della sua armatura."
     },
     {
       "k": "h",
@@ -191,10 +166,10 @@ const body: PostBody = {
     {
       "k": "ol",
       "items": [
-        "Prima di dimensionare, controlla se il momento sta sopra o sotto il punto di incrocio con il minimo. Sotto, l’armatura è già decisa.",
+        "Prima di dimensionare, controlla se il momento sta sopra o sotto il punto di incrocio con il minimo. Sotto, per il criterio adottato in questo esempio, governa il minimo.",
         "Da H-20 a H-30, il minimo non dipende dal calcestruzzo. Viene da 1.4/fy.",
         "φ dipende da εt: leggi sempre i due insieme.",
-        "Se compare acciaio compresso, è perché la sezione ha perso duttilità, non perché manchi di capacità."
+        "L’armatura compressa può servire anche quando, con altezza limitata, il momento richiesto supera la capacità della sezione semplicemente armata alla deformazione ammessa dell’acciaio teso."
       ]
     },
     {

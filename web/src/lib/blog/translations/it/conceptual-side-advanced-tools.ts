@@ -118,7 +118,7 @@ const body: PostBody = {
         [
           "3 · Matrice di rigidezza",
           "Gradi di libertà non vincolati",
-          "1"
+          "6"
         ],
         [
           "4 · Suggerimenti",

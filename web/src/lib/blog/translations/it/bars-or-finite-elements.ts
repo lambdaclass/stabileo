@@ -22,11 +22,11 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Per questo la matrice di rigidezza di un’asta prismatica, quella di qualsiasi libro di analisi matriciale, è esatta, e per questo dividere un’asta in più elementi non migliora nulla. Con un carico distribuito vale lo stesso nei nodi, purché i carichi nodali equivalenti siano calcolati in modo consistente."
+      "t": "Per questo la matrice di rigidezza di un’asta prismatica, quella di qualsiasi libro di analisi matriciale, è esatta, e dà la soluzione nodale per l’asta prismatica in questo modello lineare. Con un carico distribuito vale lo stesso nei nodi, purché i carichi nodali equivalenti siano calcolati in modo consistente."
     },
     {
       "k": "table",
-      "caption": "Trave semplicemente appoggiata di 6 m, sezione 20×60, 10 kN/m, E = 30.000 MPa. Freccia in mezzeria con la trave divisa in un numero diverso di elementi di telaio.",
+      "caption": "Trave semplicemente appoggiata di 6 m, sezione 20×60 cm, 10 kN/m, E = 30.000 MPa. Freccia in mezzeria con la trave divisa in un numero diverso di elementi di telaio.",
       "head": [
         "Elementi di telaio nella trave",
         "Freccia in mezzeria [mm]"
@@ -34,23 +34,23 @@ const body: PostBody = {
       "rows": [
         [
           "2",
-          "1.5625"
+          "1,5625"
         ],
         [
           "4",
-          "1.5625"
+          "1,5625"
         ],
         [
           "10",
-          "1.5625"
+          "1,5625"
         ],
         [
           "50",
-          "1.5625"
+          "1,5625"
         ],
         [
           "Forma chiusa 5qL⁴/384EI",
-          "1.5625"
+          "1,5625"
         ]
       ]
     },
@@ -91,38 +91,38 @@ const body: PostBody = {
       "rows": [
         [
           "20",
-          "0.30",
-          "12.500",
-          "12.567",
-          "0.5 %"
+          "0,30",
+          "12,500",
+          "12,567",
+          "0,5 %"
         ],
         [
           "10",
-          "0.60",
-          "1.5625",
-          "1.5961",
-          "2.1 %"
+          "0,60",
+          "1,5625",
+          "1,5961",
+          "2,1 %"
         ],
         [
           "5",
-          "1.20",
-          "0.19531",
-          "0.21206",
-          "7.9 %"
+          "1,20",
+          "0,19531",
+          "0,21206",
+          "7,9 %"
         ],
         [
           "3",
-          "2.00",
-          "0.042188",
-          "0.052145",
-          "19.1 %"
+          "2,00",
+          "0,042188",
+          "0,052145",
+          "19,1 %"
         ],
         [
           "2",
-          "3.00",
-          "0.012500",
-          "0.019017",
-          "34.3 %"
+          "3,00",
+          "0,012500",
+          "0,019017",
+          "34,3 %"
         ]
       ]
     },
@@ -152,19 +152,19 @@ const body: PostBody = {
       "rows": [
         [
           "Elementi di telaio (Eulero-Bernoulli)",
-          "0.0422"
+          "0,0422"
         ],
         [
           "Elementi di telaio più il termine di taglio, a mano",
-          "0.0530"
+          "0,0530"
         ],
         [
           "Gusci MITC4",
-          "0.0521"
+          "0,0521"
         ],
         [
           "Elasticità piana, forma chiusa",
-          "0.0523"
+          "0,0523"
         ]
       ]
     },
@@ -174,7 +174,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "La freccia non è tutto. A quell’altezza la distribuzione delle tensioni normali non è più lineare, quindi nemmeno la formula di Navier si applica. Per questo l’ACI 318, base della CIRSOC 201, tratta come trave alta qualsiasi elemento con luce libera fino a quattro volte la sua altezza e richiede un progetto che tenga conto della distribuzione non lineare delle deformazioni, ad esempio con un modello a puntoni e tiranti."
+      "t": "La freccia non è tutto. A quell’altezza la distribuzione delle tensioni normali non è più lineare, quindi nemmeno la formula di Navier si applica. Per questo l’ACI 318, base della CIRSOC 201, tratta come travi alte gli elementi caricati su una faccia e appoggiati sulla faccia opposta, così da formare puntoni compressi, quando la luce libera non supera 4h oppure un carico concentrato si trova entro 2h dalla faccia di un appoggio e richiede un progetto che tenga conto della distribuzione non lineare delle deformazioni, ad esempio con un modello a puntoni e tiranti."
     },
     {
       "k": "h",
@@ -201,37 +201,37 @@ const body: PostBody = {
       "rows": [
         [
           "4 × 3",
-          "0.75",
-          "0.0281",
-          "0.0627",
+          "0,75",
+          "0,0281",
+          "0,0627",
           "2,23 volte"
         ],
         [
           "3 × 3",
-          "1.00",
-          "0.0667",
-          "0.1129",
+          "1,00",
+          "0,0667",
+          "0,1129",
           "1,69 volte"
         ],
         [
           "2 × 3",
-          "1.50",
-          "0.2250",
-          "0.2943",
+          "1,50",
+          "0,2250",
+          "0,2943",
           "1,31 volte"
         ],
         [
           "3 × 6",
-          "2.00",
-          "0.533",
-          "0.625",
+          "2,00",
+          "0,533",
+          "0,625",
           "1,17 volte"
         ],
         [
           "3 × 9",
-          "3.00",
-          "1.800",
-          "1.937",
+          "3,00",
+          "1,800",
+          "1,937",
           "1,08 volte"
         ]
       ]
@@ -284,7 +284,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Avere elementi trave e gusci nello stesso programma non è una novità. SAP2000, ETABS, Robot e midas combinano entrambi in un unico modello, ed è la base di partenza del software professionale. Ma non sono pensati per spiegare ciò che calcolano. All’altro estremo, strumenti didattici come Ftool e MASTAN2 insegnano molto bene l’analisi dei telai ma non arrivano agli elementi finiti."
+      "t": "Avere elementi trave e gusci nello stesso programma non è una novità. SAP2000, ETABS, Robot e midas combinano entrambi in un unico modello, ed è la base di partenza del software professionale. Ma non sono pensati per spiegare ciò che calcolano. All’altro estremo, strumenti didattici come Ftool e MASTAN2 insegnano molto bene l’analisi dei telai con elementi finiti di asta; qui il confronto richiede anche elementi di piastra o di guscio."
     },
     {
       "k": "p",
@@ -307,7 +307,7 @@ const body: PostBody = {
       "k": "embed",
       "query": "example=deep-beam-shell",
       "mode": "pro",
-      "label": "La stessa trave in modalità PRO, modellata come guscio con 192 elementi MITC4 da 25 cm. In Analizza → Spostamenti, il nodo 113 (mezzeria, a metà altezza) riporta “-5.19e-5” m, cioè 0,0519 mm. La tabella qui sopra usa una mesh più fitta e dà 0,0521 mm."
+      "label": "La stessa trave in modalità PRO, modellata come guscio con 192 elementi MITC4 da 25 cm. In Analizza → Spostamenti, il nodo 113 (mezzeria, a metà altezza) riporta “−5,19e−5” m, cioè −0,0519 mm. La tabella qui sopra usa una mesh più fitta e dà 0,0521 mm."
     },
     {
       "k": "link",
@@ -322,8 +322,8 @@ const body: PostBody = {
       "k": "ol",
       "items": [
         "Per un’asta prismatica, il metodo della rigidezza è il caso particolare esatto degli elementi finiti. Ciò che scegli è il modello.",
-        "Un’asta dritta non richiede mesh. Se dividerla cambia il risultato, c’è qualcos’altro che non va.",
-        "Sotto L/h ≈ 5 il modello a telaio sottostima la freccia di oltre l’8 %, e sotto 3 di oltre il 19 %. Rende sempre la trave più rigida.",
+        "Per questa trave prismatica in analisi statica lineare, con carichi nodali equivalenti consistenti, la suddivisione conserva gli spostamenti nei nodi esistenti. In mezzeria il valore interpolato da un solo elemento può differire dal valore ottenuto inserendovi un nodo.",
+        "Per il carico, la sezione e gli appoggi del confronto, sotto L/h ≈ 5 il modello a telaio sottostima la freccia di oltre l’8 %, e sotto 3 di oltre il 19 %. In questi casi il telaio risulta più rigido.",
         "In una struttura iperstatica quell’errore cambia il modo in cui si ripartiscono i carichi. Controlla le pareti tozze prima delle travi.",
         "Solai a piastra, pareti con aperture e carichi vicini ai vincoli pongono domande a cui un modello a telaio non sa rispondere.",
         "Dove l’asta è snella, i due modelli devono concordare. Se non concordano, controlla la mesh."

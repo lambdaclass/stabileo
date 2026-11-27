@@ -160,7 +160,7 @@
     "title": "La soglia di torsione della CIRSOC 201 include lo sforzo normale concomitante"
   },
   "cirsoc-combinations-and-loads": {
-    "explanation": "Le combinazioni con uno o più carichi di accompagnamento non agenti ora vengono generate (un esempio di pilastro 44 → 62 kN); la combinazione sismica usa f2 = 0.70 S sulle coperture che mantengono la neve e il maggiore dei coefficienti delle due normative; il peso sismico include f2·S; il Cp del vento sulle coperture interpola h/L; la riduzione del sovraccarico usa l’area di influenza propria di ogni asta. Tutti erano dal lato non sicuro. Rigenera combinazioni e carichi per applicarli.",
+    "explanation": "Le combinazioni con uno o più carichi di accompagnamento non agenti ora vengono generate (un esempio di pilastro 44 → 62 kN); la combinazione sismica usa f₂ = 0,70 sulle coperture che mantengono la neve e il maggiore dei coefficienti delle due normative; il peso sismico include f₂·S = 0,70·S sulle coperture indicate; il Cp del vento sulle coperture interpola h/L; la riduzione del sovraccarico usa l’area di influenza propria di ogni asta. Tutti erano dal lato non sicuro. Rigenera combinazioni e carichi per applicarli.",
     "title": "Combinazioni CIRSOC, pesi sismici e pressioni del vento sulle coperture"
   },
   "cirsoc-torsion-cage-verification": {
@@ -172,7 +172,7 @@
     "title": "I pilastri in calcestruzzo armato sono verificati attorno all’asse su cui li inflette ogni momento"
   },
   "cirsoc201-strain-compatibility": {
-    "explanation": "La flessione usa la compatibilità delle deformazioni per l’acciaio teso e compresso (prima fino al 18 % di φMn in eccesso); φ è controllato dalla compressione a εty = fy/Es e controllato dalla trazione a 0,005 (2005) o εty + 0,003 (2025); √f'c ≤ 8,3 MPa a taglio; fyt delle staffe ≤ 420 MPa; verifica di duttilità 9.3.3.1; l’ampiezza della fessura era 6,9× troppo grande. L’edizione predefinita è la 2025, e ogni verifica superata viene ricontrollata dal motore.",
+    "explanation": "La flessione usa la compatibilità delle deformazioni per l’acciaio teso e compresso (prima fino al 18 % di φMn in eccesso); φ è controllato dalla compressione a εty = fy/Es e controllato dalla trazione a 0,005 (2005) o εty + 0,003 (2025); √(f′c / MPa) ≤ 8,3 nel calcolo a taglio; fyt delle staffe ≤ 420 MPa; verifica di duttilità 9.3.3.1; l’ampiezza della fessura era 6,9× troppo grande. L’edizione predefinita è la 2025, e ogni verifica superata viene ricontrollata dal motore.",
     "title": "CIRSOC 201: compatibilità delle deformazioni, limiti di φ, tetti del taglio; edizione predefinita 2025"
   },
   "cirsoc301-biaxial-h11b": {
@@ -280,7 +280,7 @@
     "title": "2D: le rotazioni che solo i connettori trattengono, lasciate libere da essi, vengono rifiutate"
   },
   "connector-arm-mechanism-3d-refused": {
-    "explanation": "I bracci rigidi di un connettore di lunghezza finita con molle a taglio trattengono solo la rotazione media dei suoi estremi attorno ai suoi assi trasversali. Quando nient’altro trattiene le rotazioni dei suoi nodi (li raggiungono solo reticolari, oppure l’asta lì svincola la flessione), le loro rotazioni opposte attorno all’asse trasversale e la loro torsione comune attorno ad esso non costano energia e le rotazioni sono indeterminate. Il solutore rispondeva a tali modelli dopo uno spostamento diagonale della rigidezza o tramite LU, con solo un avviso e con rotazioni che il carico non determinava (#1748). Ora ogni analisi 3D controlla le rotazioni che i connettori accoppiano sulla rigidezza assemblata, inclusi gli svincoli delle aste e i vincoli rotazionali, e rifiuta il modello, nominando i connettori e i nodi. Una rotazione che nulla raggiunge lungo un asse globale è ancora trattenuta da una rigidezza artificiale, come prima. Trattieni le rotazioni di un nodo con un estremo d’asta non svincolato, un guscio o un vincolo rotazionale, e dai al connettore le molle rotazionali di cui l’altro nodo ha bisogno.",
+    "explanation": "I bracci rigidi di un connettore di lunghezza finita con molle a taglio trattengono solo la rotazione media dei suoi estremi attorno ai suoi assi trasversali. Quando nient’altro trattiene le rotazioni dei suoi nodi (li raggiungono solo reticolari, oppure l’asta lì svincola la flessione), le loro rotazioni opposte attorno all’asse trasversale e la loro torsione comune attorno all’asse longitudinale non costano energia e le rotazioni sono indeterminate. Il solutore rispondeva a tali modelli dopo uno spostamento diagonale della rigidezza o tramite LU, con solo un avviso e con rotazioni che il carico non determinava (#1748). Ora ogni analisi 3D controlla le rotazioni che i connettori accoppiano sulla rigidezza assemblata, inclusi gli svincoli delle aste e i vincoli rotazionali, e rifiuta il modello, nominando i connettori e i nodi. Una rotazione che nulla raggiunge lungo un asse globale è ancora trattenuta da una rigidezza artificiale, come prima. Trattieni le rotazioni di un nodo con un estremo d’asta non svincolato, un guscio o un vincolo rotazionale, e dai al connettore le molle rotazionali di cui l’altro nodo ha bisogno.",
     "title": "3D: le rotazioni dei nodi che un connettore accoppia ma lascia libere vengono rifiutate"
   },
   "connector-mechanism-2d-refused": {
@@ -800,12 +800,12 @@
     "title": "Soglia di singolarità più severa; calcoli modali con gradi di libertà senza massa"
   },
   "modal-mechanism-refused": {
-    "explanation": "I modi con ω² uguale o inferiore a 1e-10 rad²/s² (un periodo superiore a una settimana, o uno negativo) venivano saltati senza una parola, quindi una struttura che è un meccanismo, come un’asta con uno svincolo di momento a un estremo e l’altro libero, restituiva gli altri suoi modi come se fossero completi: 3 dei 12 modi richiesti nel #338, con una bassa partecipazione di massa e senza diagnostica, e un’analisi spettrale combinava quell’insieme incompleto (SA-2026-032). L’analisi modale ora rifiuta un modello simile quando il meccanismo muove massa in una direzione, e lo nomina; un modo nullo che non ne muove (un pilastro libero di ruotare attorno al proprio asse) viene elencato con i modi scartati. I modelli senza meccanismo restituiscono gli stessi modi, tranne una struttura stabile abbastanza cedevole da avere un modo sotto 1e-3 Hz, che prima lo perdeva e ora lo mantiene, e una rotazione libera non prende più il posto di un modo richiesto.",
+    "explanation": "I modi con ω² uguale o inferiore a 1e-10 rad²/s² (per 0 < ω² ≤ 10⁻¹⁰ il periodo supera una settimana, per ω² = 0 manca una frequenza oscillatoria e per ω² < 0 non esiste un periodo reale) venivano saltati senza una parola, quindi una struttura che è un meccanismo, come un’asta con uno svincolo di momento a un estremo e l’altro libero, restituiva gli altri suoi modi come se fossero completi: 3 dei 12 modi richiesti nel #338, con una bassa partecipazione di massa e senza diagnostica, e un’analisi spettrale combinava quell’insieme incompleto (SA-2026-032). L’analisi modale ora rifiuta un modello simile quando il meccanismo muove massa in una direzione, e lo nomina; un modo nullo che non ne muove (un pilastro libero di ruotare attorno al proprio asse) viene elencato con i modi scartati. I modelli senza meccanismo restituiscono gli stessi modi, tranne una struttura stabile abbastanza cedevole da avere un modo sotto 1e-3 Hz, che prima lo perdeva e ora lo mantiene, e una rotazione libera non prende più il posto di un modo richiesto.",
     "title": "L’analisi modale rifiuta un meccanismo invece di scartare il suo modo nullo"
   },
   "modal-physical-mass-range": {
     "explanation": "Le rotazioni dei vincoli e la riduzione MPC potevano creare inerzia spuria in una direzione fisicamente priva di massa, facendo trattenere all’analisi modale modi validi. L’assemblaggio modale ora conserva le righe con massa e condensa le coordinate senza massa prima di risolvere. I controlli esistenti di equazione, ortogonalità e certificato restano validi. Riesegui le analisi modali interessate e le risposte dinamiche che ne dipendono.",
-    "title": "L’analisi modale conserva l’intervallo fisico della massa"
+    "title": "L’analisi modale conserva l’immagine della matrice di massa"
   },
   "modal-released-axis": {
     "title": "Spettri modali spaziali con rotazioni di estremità svincolate",
@@ -833,7 +833,7 @@
   },
   "moving-loads-3d": {
     "explanation": "Gli inviluppi dei carichi mobili 3D usavano solo le sollecitazioni di estremità delle aste, perdendo i picchi sotto un asse all’interno della campata. Sulle aste inclinate veniva anche tralasciata la componente assiale della gravità dell’asse, quindi si applicava solo parte del peso. Entrambi gli errori potevano sottostimare la sollecitazione senza alcun avviso (#1782, SA-2026-051). Ora si includono le sezioni interne dei diagrammi e tutte e tre le componenti locali della gravità. Riesegui le analisi 3D dei carichi mobili e rivedi i progetti e i dimensionamenti basati sui loro inviluppi. Questo avviso si applica ai progetti 3D con casi salvati di posizione dei carichi mobili.",
-    "title": "I carichi mobili 3D includono i picchi interni e il peso assiale degli assi"
+    "title": "I carichi mobili 3D includono i picchi interni e la componente assiale del peso degli assi"
   },
   "multiple-supports-one-node": {
     "explanation": "I vincoli semplici sullo stesso nodo ora si uniscono (OR). Molle, cedimenti o dati inclinati su un nodo condiviso vengono rifiutati; prima contavano due volte la reazione o ne sceglievano una in silenzio.",
@@ -1473,7 +1473,7 @@
   },
   "staged-cable-refusal-and-contact-tolerance": {
     "explanation": "Entrambi i solutori per fasi rifiutano ogni cavo con cable_analysis_required. La precedente eccezione 2D è ritirata: l’iterazione convergente di rigidezza di Ernst e le forze di estremità positive non stabiliscono l’equilibrio di un cavo sensibile alla freccia. Le coppie di superfici chiuse ora confrontano la forza assemblata divisa per la rigidezza con la tolleranza di contatto invariata; gli stati sopra il limite restituiscono ancora contact_state_invalid. Ricontrolla i risultati dei cavi e del contatto (#417, #432; PR #1921).",
-    "title": "I cavi per fasi vengono rifiutati e la tensione superficiale usa la tolleranza di contatto"
+    "title": "I cavi per fasi vengono rifiutati e la forza normale di trazione al contatto usa la tolleranza di contatto"
   },
   "staged-cable-tension-parity": {
     "explanation": "Entrambi i solutori a fasi rifiutano ogni cavo con cable_analysis_required, compresi gli ingressi tesi e scarichi. Forze di estremità positive e la convergenza di un’iterazione di rigidezza di Ernst non dimostrano l’equilibrio del cavo quando la freccia conta. La parità sui cavi ora richiede rifiuti strutturati identici; la parità numerica a fasi usa travature esplicite. Usa l’analisi dedicata ai cavi (#417; PR #1921).",
@@ -1668,7 +1668,7 @@
     "title": "Gli estremi delle aste di vento con appoggio restano risolvibili"
   },
   "wind-member-pressure-transfer": {
-    "explanation": "Il vento continuo generato poteva diventare forze di estremità, conservando le risultanti globali ma cambiando taglio, flessione e deformazione delle aste. Rigenera i carichi W e Wa, poi riesegui analisi, combinazioni e verifiche di progetto. Gli edifici aperti richiedono la procedura dichiarata per coperture libere e il blocco, anche quando si fornisce un profilo di pressione. Le partizioni degli elementi portanti irrisolte e i momenti torcenti distribuiti rifiutano esplicitamente. Risolvere di nuovo i carichi salvati non li corregge (#2220).",
+    "explanation": "Il vento continuo generato poteva diventare forze di estremità, conservando le risultanti globali ma cambiando taglio, flessione e deformazione delle aste. Rigenera i carichi W e Wa, poi riesegui analisi, combinazioni e verifiche di progetto. Gli edifici aperti richiedono la procedura dichiarata per coperture libere e il grado di ostruzione sotto la copertura, anche quando si fornisce un profilo di pressione. Le partizioni degli elementi portanti irrisolte e i momenti torcenti distribuiti rifiutano esplicitamente. Risolvere di nuovo i carichi salvati non li corregge (#2220).",
     "title": "La pressione del vento resta un carico sull’asta"
   },
   "wind-physical-apex": {

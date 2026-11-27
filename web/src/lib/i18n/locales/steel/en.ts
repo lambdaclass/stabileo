@@ -614,7 +614,7 @@ const steelEn: Record<string, string> = {
   'steel.f62.branch.undetermined': 'branch undetermined',
   'steel.f62.missing.flangeGeometry': 'Flange width and thickness.',
   'steel.f62.missing.slendernessLimits': 'The λpf and λrf slenderness limits of Table B.4.1b, case 14. That table’s numeric cells are not in the shipped markdown: only its caption, footnotes and symbol list.',
-  'steel.f62.lambdaLabel': 'Flange slenderness λf = bf/tf',
+  'steel.f62.lambdaLabel': 'Flange slenderness λf',
   'steel.f62.fcrLabel': 'Fcr if the flange turns out slender (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — moment gradient factor (F.1.1)',
   'steel.workflow.clause.cbState': 'Computed from the moment diagram when stations exist and the section is within F.1.1’s scope; otherwise Cb = 1, which the code permits. Computing it does not certify the bracing.',

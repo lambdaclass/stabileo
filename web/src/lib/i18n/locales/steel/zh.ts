@@ -559,7 +559,7 @@ const steelZh: Translations = {
   "steel.f62.branch.undetermined": "分支未确定",
   "steel.f62.missing.flangeGeometry": "翼缘宽度和厚度。",
   "steel.f62.missing.slendernessLimits": "表 B.4.1b 第 14 种情况的 λpf 和 λrf 长细比限值。该表的数值单元格不在所附的 markdown 中：只有其标题、脚注和符号列表。",
-  "steel.f62.lambdaLabel": "翼缘长细比 λf = bf/tf",
+  "steel.f62.lambdaLabel": "翼缘长细比 λf",
   "steel.f62.fcrLabel": "若翼缘为 slender 时的 Fcr（F.6.3）",
   "steel.workflow.clause.cb": "Cb：弯矩梯度系数（F.1.1）",
   "steel.workflow.clause.cbState": "当存在截面位置且截面在 F.1.1 适用范围内时，由弯矩图计算；否则取 Cb = 1，规范允许这样做。计算它并不证明支撑合格。",

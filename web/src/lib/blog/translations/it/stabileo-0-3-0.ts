@@ -83,7 +83,7 @@ const body: PostBody = {
       "items": [
         "Un risultato che un difetto ancora aperto potrebbe influenzare porta un avviso che lo nomina, nella tua lingua. Ne resta uno: l’analisi non lineare di materiale è un modello secante sull’intera asta.",
         "Quando un carico di temperatura non indica il coefficiente di dilatazione o l’altezza della sezione, il risultato dice quale valore è stato assunto.",
-        "Ciò che non ha soluzione viene rifiutato: un momento su un nodo che nulla può far ruotare, un carico di guscio su un elemento di un altro tipo, una curva del terreno senza i dati che il suo riferimento richiede."
+        "Ciò che non ha soluzione viene rifiutato: un momento applicato a un grado di libertà rotazionale libero con rigidezza rotazionale nulla, un carico di guscio su un elemento di un altro tipo, una curva del terreno senza i dati che il suo riferimento richiede."
       ]
     },
     {

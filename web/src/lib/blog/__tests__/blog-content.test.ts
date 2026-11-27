@@ -731,3 +731,21 @@ describe('translations added as files', () => {
     expect(() => addTranslations([item()], (p) => p.slug, { './translations/de/no-such-post.ts': { title: 'de' } })).toThrow();
   });
 });
+
+it('counts the unrestrained frame coordinates separately from the mechanism', () => {
+  const post = findPost('conceptual-side-advanced-tools')!;
+  const rows = post.i18n.en.blocks.flatMap(block => block.k === 'table' ? block.rows : []);
+  const result = (label: string) => rows.find(row => row[1] === label)?.[2];
+  expect(result('Mechanism modes detected')).toBe('1');
+  expect(result('Unconstrained degrees of freedom')).toBe(String(3 * 3 - 3));
+});
+
+it('sizes the four bending examples at the depth shown for the illustrated bars', () => {
+  const post = findPost('verificacion-flexion-cirsoc-201')!;
+  const table = post.i18n.en.blocks.find(block => block.k === 'table' && block.head.includes('As,min [cm²]'));
+  if (table?.k !== 'table') throw new Error('Missing minimum-steel table');
+  expect(table.rows.map(row => row.slice(0, 3))).toEqual([
+    ['15', '1.13', '2.38'], ['30', '2.30', '2.38'],
+    ['60', '4.76', '2.38'], ['90', '7.43', '2.38'],
+  ]);
+});

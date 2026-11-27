@@ -722,7 +722,7 @@
           {#if f62.flangeSlenderness != null}
             <!-- The computable half, shown because a reader with the printed table can finish it. -->
             <span class="clauses">
-              {t('steel.f62.lambdaLabel')} = {f62.flangeSlenderness.toFixed(2)}
+              {t('steel.f62.lambdaLabel')} = {f62.slendernessFormula} = {f62.flangeSlenderness.toFixed(2)}
               · {t('steel.f62.fcrLabel')} = {f62.fcrMPa?.toFixed(0)} MPa
             </span>
           {/if}
