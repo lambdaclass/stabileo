@@ -1254,7 +1254,7 @@ it('rechecks saved results for an explicit empty rigid-link mask in Basic and Pr
   }
 });
 
-it.skip.each(['2d', '3d', 'pro'])('known wrong result: #2595 — the F.6 notice requires a steel channel in %s', analysisMode => {
+it.each(['2d', '3d', 'pro'])('known wrong result: #2595 — the F.6 notice requires a steel channel in %s', analysisMode => {
   const id = 'f62-channel-minimum-modulus';
   for (const [shape, affected] of [['U', true], ['C', true], ['I', false], ['H', false]] as const) {
     const section = { id: 1, shape };
