@@ -1813,7 +1813,7 @@
     resultsStore.drawPositiveTowardLocalAxes; // rebuild diagrams immediately on toggle (no re-solve)
     resultsStore.overlayResults3D;
     resultsStore.screen.envelopeActive;
-    resultsStore.screen.fullEnvelope3D;
+    resultsStore.screen.envelope3D;
     uiStore.unitSystem; // value labels are in the chosen units
     displayUnits.decimals; // and with the decimals the reader set
     syncDiagrams3D();
@@ -4625,7 +4625,7 @@
   <!-- Diagram legend -->
   {#if diagramLegend && resultsStore.screen.results3D}
     <div class="diagram-legend">
-      {#if resultsStore.screen.envelopeActive && resultsStore.screen.fullEnvelope3D}
+      {#if resultsStore.screen.envelopeActive && resultsStore.screen.envelope3D}
         <span class="legend-color" style="background: #4169E1;"></span>
         <span class="legend-text">{t('viewport3d.envPlus')}</span>
         <span class="legend-color" style="background: #E15041; margin-left: 8px;"></span>

@@ -8,8 +8,8 @@ export interface ScreenView {
   results3D: AnalysisResults3D | null;
   diagram: DiagramType;
   envelopeActive: boolean;
-  fullEnvelope: FullEnvelope | null;
-  fullEnvelope3D: FullEnvelope3D | null;
+  envelope2D: FullEnvelope | null;
+  envelope3D: FullEnvelope3D | null;
   showReactions: boolean;
 }
 
@@ -41,8 +41,8 @@ export function createScreenHold(live: Readonly<ScreenView>, drawable: (d: Diagr
     get results3D() { const h = shown(); return h ? h.results3D : live.results3D; },
     get diagram() { const h = shown(); return h ? h.diagram : live.diagram; },
     get envelopeActive() { const h = shown(); return h ? h.envelopeActive : live.envelopeActive; },
-    get fullEnvelope() { const h = shown(); return h ? h.fullEnvelope : live.fullEnvelope; },
-    get fullEnvelope3D() { const h = shown(); return h ? h.fullEnvelope3D : live.fullEnvelope3D; },
+    get envelope2D() { const h = shown(); return h ? h.envelope2D : live.envelope2D; },
+    get envelope3D() { const h = shown(); return h ? h.envelope3D : live.envelope3D; },
     get showReactions() { const h = shown(); return h ? h.showReactions : live.showReactions; },
   };
 

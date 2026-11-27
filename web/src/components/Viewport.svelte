@@ -1376,10 +1376,10 @@
         const dkind = dt as DiagramKind;
         // Check if we should render envelope dual curves
         const showEnvelopeDual = (resultsStore.screen.envelopeActive || resultsStore.movingLoadShowEnvelope) && (
-          resultsStore.screen.envelopeActive ? resultsStore.screen.fullEnvelope : resultsStore.movingLoadEnvelope?.fullEnvelope
+          resultsStore.screen.envelopeActive ? resultsStore.screen.envelope2D : resultsStore.movingLoadEnvelope?.fullEnvelope
         );
         if (showEnvelopeDual) {
-          const envSrc = resultsStore.screen.envelopeActive ? resultsStore.screen.fullEnvelope! : resultsStore.movingLoadEnvelope!.fullEnvelope!;
+          const envSrc = resultsStore.screen.envelopeActive ? resultsStore.screen.envelope2D! : resultsStore.movingLoadEnvelope!.fullEnvelope!;
           const envData = dkind === 'moment' ? envSrc.moment
                         : dkind === 'shear'  ? envSrc.shear
                         :                       envSrc.axial;

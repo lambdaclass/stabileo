@@ -403,9 +403,9 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
   const projectedNodes = getProjectedNodes();
 
   // Check if envelope dual curves should be rendered
-  const isEnvelope = resultsStore.screen.envelopeActive && resultsStore.screen.fullEnvelope3D;
+  const isEnvelope = resultsStore.screen.envelopeActive && resultsStore.screen.envelope3D;
   if (isEnvelope) {
-    const envData = resultsStore.screen.fullEnvelope3D!;
+    const envData = resultsStore.screen.envelope3D!;
     const envDiagram = envData[kind as keyof typeof envData] as import('../engine/types-3d').EnvelopeDiagramData3D | undefined;
     if (envDiagram && 'elements' in envDiagram) {
       ctx.diagramGroup = createEnvelopeDiagramGroup3D(

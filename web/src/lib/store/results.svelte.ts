@@ -430,8 +430,8 @@ function createResultsStore() {
     get results3D() { return api.results3D; },
     get diagram() { return diagramType; },
     get envelopeActive() { return api.isEnvelopeActive; },
-    get fullEnvelope() { return api.fullEnvelope; },
-    get fullEnvelope3D() { return api.fullEnvelope3D; },
+    get envelope2D() { return api.fullEnvelope; },
+    get envelope3D() { return api.fullEnvelope3D; },
     get showReactions() { return showReactions; },
   }, (d) => STATIC_DIAGRAMS_2D.includes(d) || STATIC_DIAGRAMS_3D.includes(d));
 
