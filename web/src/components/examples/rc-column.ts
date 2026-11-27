@@ -1,6 +1,6 @@
 import { withSection, type Bar, type Materials, type Outline } from '../../lib/engine/codes/argentina/cirsoc201-section';
 import { ES_MPA, EPSILON_CU } from '../../lib/engine/codes/argentina/cirsoc201-basis';
-import { columnTieSpacing } from '../../lib/codes/cirsoc201/transverse-spacing';
+import { columnTies2025 } from '../../lib/engine/design/adapters/cirsoc201-column-ties';
 import { defineExample, type Readout, type Values, type View } from './define';
 import { Sketch, boundsOf } from './draw';
 
@@ -9,7 +9,7 @@ export const HEIGHT = 3;
 const STEELS = [420, 500] as const;
 const THETA = Math.PI / 2;
 
-type Model = { b: number; h: number; outline: Outline; bars: Bar[]; mat: Materials & { edition: '2025' }; barDia: number; perFace: number; cover: number; pu: number; mu: number };
+type Model = { b: number; h: number; outline: Outline; bars: Bar[]; mat: Materials & { edition: typeof columnTies2025.edition }; barDia: number; perFace: number; cover: number; pu: number; mu: number };
 
 export function barLayer(v: Values): number {
   return v.h / 2 - v.cover - TIE_MM / 1000 - v.barDia / 2000;
@@ -23,7 +23,7 @@ export function build(v: Values): Model {
   for (const side of [1, -1]) for (let k = 0; k < v.perFace; k++) bars.push({ x: -xEdge + 2 * xEdge * k / (v.perFace - 1), y: side * y, area });
   return {
     b: v.b, h: v.h, outline: { kind: 'rect', b: v.b, h: v.h }, bars,
-    mat: { fc: v.fc, fy: STEELS[v.steel], edition: '2025' },
+    mat: { fc: v.fc, fy: STEELS[v.steel], edition: columnTies2025.edition },
     barDia: v.barDia, perFace: v.perFace, cover: v.cover, pu: v.pu, mu: v.mu,
   };
 }
@@ -79,7 +79,7 @@ export function balancedPoint(m: Model): { c: number; pn: number; mn: number } {
 }
 
 export function tieSpacing(m: Model): number {
-  return columnTieSpacing(m.mat.edition, m.barDia, TIE_MM, Math.min(m.b, m.h)).spacing;
+  return columnTies2025.spacing(m.barDia, TIE_MM, Math.min(m.b, m.h)).spacing;
 }
 
 function circle(s: Sketch, x: number, y: number, r: number) {

@@ -177,7 +177,7 @@ describe('an unknown or absent edition fails CLOSED', () => {
   });
 });
 
-it.skip('known wrong result: #2595 — the 2025 adapter supplies the teaching example’s column tie factors and governing limit', () => {
+it('known wrong result: #2595 — the 2025 adapter supplies the teaching example’s column tie factors and governing limit', () => {
   const ties = cirsoc201Adapter2025.columnTies;
   expect(ties).toMatchObject({ edition: '2025', barFactor: 16, tieFactor: 48 });
   const limits = [

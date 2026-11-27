@@ -1,3 +1,4 @@
+import { columnTies2025 } from './cirsoc201-column-ties';
 import { ConcurrentDemand } from '../../concurrent-demand';
 import { completeMemberDemands } from '../../member-demand-gate';
 import { IncompleteConcurrentDemandError, type IncompleteDemandDiagnostic } from '../../complete-demand-set';
@@ -353,7 +354,9 @@ function prepareCirsocEvaluation(ctx: MemberContext, mode: 'verify' | 'rank'): (
   };
 }
 
-export const cirsoc201Adapter2025: DesignCodeAdapter = makeAdapter('2025');
+export const cirsoc201Adapter2025 = Object.assign(makeAdapter(columnTies2025.edition), {
+  columnTies: columnTies2025,
+} as const);
 
 /**
  * CIRSOC 201-2005 — legacy, selectable for projects designed before the 2025 edition
