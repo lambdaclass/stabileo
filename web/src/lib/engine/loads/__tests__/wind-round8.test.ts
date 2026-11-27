@@ -1,3 +1,4 @@
+import { integrateWindPressure } from '../wind-pressure-field';
 import { afterAll, expect, it } from 'vitest';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { windHeightField, windHeightLoads } from '../wind-pressure-field';
@@ -134,4 +135,19 @@ it('zero pressure at a physical apex keeps its zero answer with eccentricity', (
   const loads = windHeightLoads(field, 1, 0, 1).distributed;
   expect(loads.map(p => p.elementId)).toEqual([1, 2]);
   assertWindResultants(windResultants(model, loads), [0, 0, 0, 0, 0, 0]);
+});
+
+
+for (const sign of [-1, 1]) it.skip(`known wrong result: #2220 preserves the pressure resultant at an interior cut for sign ${sign}`, () => {
+  for (const power of [1, 2]) {
+    const parts = integrateWindPressure(1, [], s => sign * (1 + s ** power));
+    for (const x of [0, 0.25, 0.75, 1]) {
+      const applied = parts.reduce((sum, part) => {
+        const width = Math.max(0, Math.min(x, part.b) - part.a);
+        const slope = (part.qJ - part.q) / (part.b - part.a);
+        return sum + width * (part.q + width * slope / 2);
+      }, 0);
+      expect(applied).toBeCloseTo(sign * (x + x ** (power + 1) / (power + 1)), 10);
+    }
+  }
 });
