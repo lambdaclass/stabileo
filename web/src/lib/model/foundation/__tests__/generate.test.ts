@@ -284,3 +284,15 @@ it('stores all current strip reactions for older readers and preserves only auth
   modelStore.restoreFoundationOnly(saved);
   expect(modelStore.footings.get(id)!.supportedNodeIds).toContain(intermediate);
 });
+
+it.skip('known wrong result: #1928 a point footing outside the inward cone cannot attract an ordinary strap', () => {
+  modelStore.clear();
+  const from = modelStore.addNode(0, 0, 0);
+  const outside = modelStore.addNode(0.002, 0.001, 0);
+  const ahead = modelStore.addNode(1, 0, 0);
+  const footing = modelStore.addFooting(from);
+  modelStore.updateFooting(footing, { anchor: [-1, 0] });
+  modelStore.addFooting(outside);
+  modelStore.addFooting(ahead);
+  expect(proposeStraps()).toEqual([{ a: from, b: ahead, kind: 'strap' }]);
+});

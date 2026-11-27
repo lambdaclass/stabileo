@@ -37,3 +37,15 @@ describe('the room a mat\'s bars have to anchor past its outer columns', () => {
     expect(groupRoom(cols, { B: 12, L: 6.3 }, 0.05)).toBeCloseTo(6.3 / 2 - 0.05, 6);
   });
 });
+
+it.skip('known wrong result: #1928 a pier width must be positive before its band can extend strap selection', () => {
+  const p = { id: 1, x: 0, y: 0 };
+  const others = [{ id: 2, x: 0.002, y: 0.001 }, { id: 3, x: 1, y: 0 }];
+  expect(inwardPartner(p, [-1, 0], others)?.id).toBe(3);
+  expect(inwardPartner(p, [-1, 0], others, 0)?.id).toBe(3);
+  expect(inwardPartner(p, [-1, 0], others, 0.001)?.id).toBe(2);
+  const partner = (y: number) => inwardPartner(p, [-1, 0], [{ id: 2, x: 0.002, y }], 0.001)?.id;
+  expect(partner(0.0019)).toBe(2);
+  expect(partner(0.002)).toBe(2);
+  expect(partner(0.0021)).toBeUndefined();
+});
