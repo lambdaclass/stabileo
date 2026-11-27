@@ -246,7 +246,7 @@
     // on the panel it opens, which is two names for one place.
     connections: 'proRibbon.cmdSteelJoints', diagnostics: 'pro.tabDiagnostics',
     otherCodes: 'proRibbon.groupOtherCodes',
-    rcSheets: 'rcSheets.cmd',
+    ...(__PUBLIC_FEATURES__.proRcSheets ? { rcSheets: 'rcSheets.cmd' } : {}),
     // Same rule for the two metallic destinations: the heading repeats the ribbon command
     // (`proRibbon.cmdGenerators` / `proRibbon.cmdSteelProfiles`), not the fallback
     // "Nodes" the map used to produce for both.

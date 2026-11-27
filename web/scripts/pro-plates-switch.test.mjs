@@ -88,7 +88,7 @@ test('both profiles retain the published landing versions through #2472', () => 
   }
 });
 
-test.skip('known wrong result: hidden sheet dictionary — the application publishes sheet commands and reports only when sheets are available', async () => {
+test('the application publishes sheet commands and reports only when sheets are available', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: enabled }, async configFile => {
       const config = await resolveConfig({ root, configFile }, 'build', 'production');

@@ -1259,6 +1259,7 @@ function createUIStore() {
     set proPanelWidth(v: number) { proPanelWidth = v; },
     get proActiveTab() { return proActiveTab; },
     set proActiveTab(v: string) {
+      if (v === 'rcSheets' && !__PUBLIC_FEATURES__.proRcSheets) return;
       // Constraints and connectors are edited in Specifications › Links; the old destination
       // still leads there.
       if (v === 'constraints') { specSection = 'links'; v = 'specifications'; }

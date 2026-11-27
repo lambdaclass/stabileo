@@ -7,7 +7,7 @@ const q = (s: string) => new URLSearchParams(s);
 describe('?proTab opens PRO on one of its views', () => {
   afterEach(() => { uiStore.proActiveTab = 'nodes'; uiStore.designInPro = false; });
 
-  it.skip.each(['link', 'restore'])('known wrong result: hidden sheet tab — selects available reinforcement sheets through %s with design off', entry => {
+  it.each(['link', 'restore'])('selects available reinforcement sheets through %s with design off', entry => {
     uiStore.designInPro = false;
     openProTabFromQuery(q('proTab=elements'));
     expect(uiStore.proActiveTab).toBe('elements');

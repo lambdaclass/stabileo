@@ -4,7 +4,7 @@ import { askDesignForLink } from '../store/design-presence';
 
 /** The panel views `?proTab=<id>` may open; a view added to `ProPanel` and not here makes the link a silent no-op. */
 export const PRO_TAB_LINKS = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
-  'specifications', 'constraints', 'loads', 'advanced', 'results', 'rcSheets', 'design', 'connections', 'diagnostics',
+  'specifications', 'constraints', 'loads', 'advanced', 'results', ...(__PUBLIC_FEATURES__.proRcSheets ? ['rcSheets'] as const : []), 'design', 'connections', 'diagnostics',
   'settings', 'selection', 'steel', 'grid', 'generators', 'transform', 'edit', 'groups', 'code', 'view',
   'otherCodes', 'designData', 'desk'] as const;
 

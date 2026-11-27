@@ -84,7 +84,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
     const pruneEntries = !eager();
-    const { accounts, diagramGame, proPlatesUnified, tools } = features();
+    const { accounts, diagramGame, proPlatesUnified, proRcSheets, tools } = features();
     const lines = readFileSync(file, 'utf8').split('\n').filter((line) => {
       const key = /^\s*(['"])([^'"]+)\1: /.exec(line)?.[2];
       if (!key) return false;
@@ -92,6 +92,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       if (dictionary === 'mesher') return false;
       const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
       if (pruneEntries) {
+        if (!proRcSheets && key.startsWith('rcSheets.') && !key.startsWith('rcSheets.fixed.kind.')) return false;
         if (!ADMIN && key.startsWith('admin.')) return false;
         if (!tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(key)) return false;
         if (!ADMIN && !accounts) {
