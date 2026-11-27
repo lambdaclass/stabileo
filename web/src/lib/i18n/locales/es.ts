@@ -17490,6 +17490,7 @@ const es: Record<string, string> = {
   "designData.crit.footingMatShare": "Platea en lugar de bases",
   "designData.crit.footingMatShare.hint": "Por encima de esta fracción de la planta cubierta por bases, la planilla avisa que conviene una platea.",
   'pro.examples.groupBuildings': "Edificios",
+  'pro.meshGenerator': 'Generador de malla',
   'pro.tagDesign': 'Diseño',
   'xls.err.duplicatePhysicalColumn': 'La columna física {k} aparece más de una vez.',
   'xls.err.duplicateLoadSheet': 'Solo se admite una hoja con el nombre {sheet}.',

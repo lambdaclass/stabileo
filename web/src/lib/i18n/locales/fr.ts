@@ -17339,6 +17339,7 @@ const fr: Translations = {
   "designData.crit.footingMatShare": "Radier au lieu de semelles",
   "designData.crit.footingMatShare.hint": "Au-delà de cette part du plan couverte par des semelles, la feuille signale qu'un radier convient mieux.",
   'pro.examples.groupBuildings': 'Bâtiments',
+  'pro.meshGenerator': 'Générateur de maillage',
   'pro.tagDesign': 'Dimensionnement',
   'xls.err.duplicatePhysicalColumn': 'La colonne de grandeur physique {k} apparaît plusieurs fois.',
   'xls.err.duplicateLoadSheet': 'Une seule feuille nommée {sheet} est autorisée.',

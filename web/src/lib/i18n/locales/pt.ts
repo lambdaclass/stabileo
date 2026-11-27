@@ -17144,6 +17144,7 @@ const pt: Translations = {
   "designData.crit.footingMatShare.hint": "Acima desta fração da planta coberta por sapatas, a planilha avisa que convém um radier.",
   "containment.dismiss": "Fechar o aviso",
   'pro.examples.groupBuildings': "Edifícios",
+  'pro.meshGenerator': 'Gerador de malha',
   'designData.stirrup': 'Estribo suposto',
   'xls.err.duplicatePhysicalColumn': 'A coluna física {k} aparece mais de uma vez.',
   'xls.err.duplicateLoadSheet': 'Só é permitida uma folha com o nome {sheet}.',

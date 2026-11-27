@@ -17339,6 +17339,7 @@ const de: Translations = {
   "designData.crit.footingMatShare": "Bodenplatte statt Einzelfundamente",
   "designData.crit.footingMatShare.hint": "Ab diesem Anteil des Grundrisses unter Fundamenten weist die Tabelle auf eine Bodenplatte hin.",
   'pro.examples.groupBuildings': 'Gebäude',
+  'pro.meshGenerator': 'Netzgenerator',
   'pro.tagDesign': 'Bemessung',
   'xls.err.duplicatePhysicalColumn': 'Die Spalte für die physikalische Größe {k} ist mehrfach vorhanden.',
   'xls.err.duplicateLoadSheet': 'Es ist nur ein Blatt mit dem Namen {sheet} zulässig.',

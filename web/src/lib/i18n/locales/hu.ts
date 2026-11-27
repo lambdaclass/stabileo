@@ -17054,6 +17054,7 @@ const hu: Translations = {
   'xls.err.duplicatePhysicalColumn': 'A(z) {k} fizikai mennyiség oszlopa többször szerepel.',
   'xls.err.duplicateLoadSheet': 'Csak egy {sheet} nevű munkalap engedélyezett.',
   "pro.examples.groupBuildings": "Épületek",
+  "pro.meshGenerator": "Hálógenerátor",
   "pro.tagDesign": "Méretezés",
   "designData.stirrup": "Feltételezett kengyel",
   "pro.examples.groupFirstSteps": "Első lépések",

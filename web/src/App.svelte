@@ -2434,7 +2434,7 @@
   The re-check notice for a project last solved with an older version, and the banner that keeps
   its results marked stale until they are re-run (`lib/store/recheck.svelte.ts`).
 -->
-<RecheckNotice />
+<RecheckNotice hostedOnBoard />
 <WorkspaceSaveNotice />
 <ReproduceDialog />
 {#if __PUBLIC_FEATURES__.tools && mohrPanel.open}

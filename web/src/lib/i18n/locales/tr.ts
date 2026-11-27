@@ -17339,6 +17339,7 @@ const tr: Translations = {
   "designData.crit.footingMatShare": "Tekil temel yerine radye",
   "designData.crit.footingMatShare.hint": "Planın temellerle kaplı payı bunu aşınca tablo radyenin daha uygun olduğunu söyler.",
   'pro.examples.groupBuildings': 'Binalar',
+  'pro.meshGenerator': 'Ağ oluşturucu',
   'pro.tagDesign': 'Tasarım',
   'xls.err.duplicatePhysicalColumn': '{k} fiziksel büyüklük sütunu birden fazla kez yer alıyor.',
   'xls.err.duplicateLoadSheet': '{sheet} adlı yalnızca bir sayfaya izin verilir.',

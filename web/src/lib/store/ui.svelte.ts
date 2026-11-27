@@ -1286,7 +1286,7 @@ function createUIStore() {
     get toasts() { return toasts; },
     /** `sticky`: kept until it is acted on or dismissed, for a question the reader has to answer. */
     toast(message: string, type: 'success' | 'error' | 'info' = 'info', actionId?: string, sticky = false) {
-      const at = toasts.findIndex(t => t.message === message && t.type === type);
+      const at = unifiedPlates() ? toasts.findIndex(t => t.message === message && t.type === type) : -1;
       if (at >= 0) { actionId ??= toasts[at]!.actionId; toasts.splice(at, 1); }
       const id = ++toastCounter;
       toasts.push({ id, message, type, actionId });

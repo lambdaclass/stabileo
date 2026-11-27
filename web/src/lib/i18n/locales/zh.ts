@@ -17076,6 +17076,7 @@ const zh: Translations = {
   "designData.crit.footingMatShare": "以筏板代替基础",
   "designData.crit.footingMatShare.hint": "基础所占平面比例超过此值时，配筋表提示筏板更合适。",
   "pro.examples.groupBuildings": "建筑",
+  "pro.meshGenerator": "网格生成器",
   "pro.tagDesign": "设计",
   "xls.err.duplicatePhysicalColumn": "表示同一物理量的列 {k} 出现了多次。",
   "xls.err.duplicateLoadSheet": "只允许有一张名为 {sheet} 的工作表。",

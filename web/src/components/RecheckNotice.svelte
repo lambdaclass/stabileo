@@ -8,6 +8,7 @@
   import { cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
 
+  let { hostedOnBoard = false }: { hostedOnBoard?: boolean } = $props();
   const details = $derived(!recheckStore.pending);
   const loadFailed = $derived(recheckStore.loadFailed);
   let recoveryFailed = $state(false);
@@ -174,7 +175,7 @@
   </dialog>
 {/if}
 
-{#if bannerText && boardCovered()}
+{#if bannerText && (!hostedOnBoard || boardCovered())}
   <div class="rc-banner" class:rc-banner-advisory={openAdvisories.length > 0} role={openAdvisories.length ? 'alert' : 'status'} data-testid="recheck-stale-banner">
     <span data-testid={openAdvisories.length ? 'recheck-advisory-banner' : undefined}>{bannerText}</span>
     <button class="rc-banner-btn" onclick={() => (reviewing = true)} data-testid="recheck-banner-details">{t('recheck.bannerDetails')}</button>
