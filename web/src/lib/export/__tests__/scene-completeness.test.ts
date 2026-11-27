@@ -21,7 +21,7 @@
  * only a structural loss can breach them.
  */
 
-import { applyVariant, frameBarsInAssembly, ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
+import { applyVariant, detailWorkspaceScene, frameBarsInAssembly, ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { modelStore } from '../../store/model.svelte';
@@ -68,17 +68,7 @@ async function build(load: () => void | Promise<void>): Promise<Built> {
   const r = solved as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
   resultsStore.setCombinationResults3D(r.perCase as never, r.perCombo as never, r.envelope as never);
 
-  const autoGenerate = detailingStore.autoGenerate;
-  detailingStore.setAutoGenerate(false);
-  try {
-    const run = designRunStore.designAll({ maxRunMs: 180_000 });
-    expect(run.ok, run.reasonKey).toBe(true);
-  } finally {
-    detailingStore.setAutoGenerate(autoGenerate);
-  }
-  expect(verificationStore.runSummary?.aborted, 'the integration design ran to completion').toBe(false);
-  expect(detailingStore.generate({ verifierId: 'cirsoc201.provided.v2.2025' }), detailingStore.lastError ?? 'frame detailing').toBeTruthy();
-  detailingStore.generateFloors({ verifierId: 'cirsoc201.provided.v2.2025' });
+  await detailWorkspaceScene();
 
   const doc = detailingStore.buildDocument({ author: 'scene', at: '2026-08-08T00:00:00Z' });
   expect(doc, 'the chain produced a document').toBeTruthy();
