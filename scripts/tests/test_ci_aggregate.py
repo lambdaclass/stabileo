@@ -77,10 +77,16 @@ class CiAggregate(unittest.TestCase):
         self.assertIn('BASE_SHA: ${{ steps.base.outputs.sha }}', changes)
         self.assertIn('BASE: ${{ steps.base.outputs.sha }}', changes)
         self.assertIn('CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}', changes)
+        self.assertIn('parity_snapshots: ${{ steps.parity.outputs.snapshots }}', changes)
+        self.assertIn('parity_research_builds: ${{ steps.parity.outputs.research_builds }}', changes)
         self.assertIn('fetch-depth: 0', changes)
         for job in ['production-parity-research', 'production-parity-build', 'production-parity']:
-            self.assertIn('BASE: ${{ needs.changes.outputs.base }}', jobs[job], job)
-            self.assertIn('CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}', jobs[job], job)
+            base = 'matrix.base' if job == 'production-parity-research' else 'matrix.snapshot.base'
+            self.assertIn('BASE: ${{ ' + base + ' }}', jobs[job], job)
+            if job != 'production-parity-research':
+                self.assertIn('snapshot: ${{ fromJSON(needs.changes.outputs.parity_snapshots) }}', jobs[job], job)
+            self.assertIn('CANDIDATE: ${{ github.sha }}', jobs[job], job)
+            self.assertIn("REQUIRE_PARITY: '1'", jobs[job], job)
             self.assertNotRegex(jobs[job], r'(?m)^          ref:')
             self.assertIn('fetch-depth: 0', jobs[job], job)
 
@@ -99,7 +105,12 @@ class CiAggregate(unittest.TestCase):
         jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow, re.M))
         research = jobs['production-parity-research']
         site = jobs['production-parity-build']
-        self.assertIn('fromJSON(needs.changes.outputs.parity_research_sides)', research)
+        self.assertIn('include: ${{ fromJSON(needs.changes.outputs.parity_research_builds) }}', research)
+        self.assertIn('name: parity-research-${{ matrix.base }}-${{ matrix.side }}', research)
+        self.assertIn('name: parity-research-${{ matrix.snapshot.base }}-', site)
+        self.assertIn('contains(matrix.snapshot.research_sides,', site)
+        self.assertIn('name: production-parity-${{ matrix.snapshot.base }}-${{ matrix.side }}', site)
+        self.assertIn('pattern: production-parity-${{ matrix.snapshot.base }}-*', jobs['production-parity'])
         self.assertIn('PARITY_RESEARCH_OUT=', research)
         self.assertIn('needs: [changes, production-parity-research]', site)
         self.assertIn('PARITY_RESEARCH_IN=', site)
@@ -209,13 +220,26 @@ class ParityWorkflow(unittest.TestCase):
                 self.assertEqual(self.output.read_text(), f'sha={expected}\n')
 
     def test_planner_uses_workflow_tooling_with_an_older_candidate(self):
-        for candidate, expected in [(self.head, 'required=true\nresearch_sides=["reference", "candidate"]\n'),
-                                    (self.base, 'required=false\n')]:
+        for candidate, required in [(self.head, True), (self.base, False)]:
             with self.subTest(candidate=candidate):
-                result = self.step('parity', BASE=self.base, CANDIDATE=candidate)
+                result = self.step('parity', BASE=self.base, CANDIDATE=candidate,
+                                   GITHUB_SHA=self.merge, GITHUB_EVENT_NAME='pull_request')
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(self.output.read_text(), expected)
+                if required:
+                    self.assert_plan([self.target])
+                else:
+                    self.assertEqual(self.output.read_text(), 'required=false\n')
                 self.assertEqual(self.git('rev-parse', 'HEAD'), self.merge)
+
+    def assert_plan(self, bases, sides=('reference', 'candidate')):
+        outputs = dict(line.split('=', 1) for line in self.output.read_text().splitlines())
+        self.assertEqual(set(outputs), {'required', 'snapshots', 'research_builds'})
+        self.assertEqual(outputs['required'], 'true')
+        snapshots = json.loads(outputs['snapshots'])
+        self.assertEqual(snapshots, [{'base': base, 'research_sides': list(sides)} for base in bases])
+        self.assertEqual(json.loads(outputs['research_builds']),
+                         [{'base': base, 'side': side} for base in bases for side in sides])
+        return snapshots
 
     def parity(self, candidate, *args, succeeds=True):
         result = subprocess.run(['make', '--silent', 'check.web.production-parity', 'NIX_RUN=',
@@ -227,41 +251,61 @@ class ParityWorkflow(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0, result.stdout)
         return result
 
-    @unittest.skip("known wrong result: #2657")
     def test_required_workflow_builds_detect_an_asset_published_only_by_the_target(self):
-        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        for event, pr_head, selection_base in [('pull_request', self.head, self.base),
-                                               ('merge_group', '', self.target)]:
-            with self.subTest(event=event):
-                result = self.step('parity', BASE=selection_base, CANDIDATE=pr_head or self.merge,
+        for event, selection_base, bases in [
+            ('pull_request', self.base, [self.target]),
+            ('merge_group', self.target, [self.target]),
+            ('merge_group', self.queue_base, [self.target, self.queue_base]),
+        ]:
+            with self.subTest(event=event, selection_base=selection_base):
+                result = self.step('parity', BASE=selection_base,
+                                   CANDIDATE=self.head if event == 'pull_request' else self.merge,
                                    GITHUB_SHA=self.merge, GITHUB_EVENT_NAME=event)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                outputs = dict(line.split('=', 1) for line in self.output.read_text().splitlines())
-                self.assertEqual(outputs['required'], 'true')
-                self.assertEqual(json.loads(outputs['research_sides']), ['reference', 'candidate'])
-                values = {'needs.changes.outputs.base': selection_base,
-                          'github.event.pull_request.head.sha || github.sha': pr_head or self.merge,
-                          'needs.changes.outputs.parity_base': outputs.get('base'),
-                          'github.sha': self.merge}
+                for snapshot in self.assert_plan(bases):
+                    base = snapshot['base']
+                    args = [f'BASE={base}', 'REQUIRE_PARITY=1']
+                    inventories = self.repo / f'{event}-{selection_base}-{base}'
+                    inventories.mkdir()
+                    for side in snapshot['research_sides']:
+                        asset = inventories / f'research-{side}'
+                        self.parity(self.merge, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_OUT={asset}')
+                        out = inventories / f'{side}.json'
+                        self.parity(self.merge, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_IN={asset}',
+                                    f'PARITY_OUT={out}')
+                        inventory = json.loads(out.read_text())
+                        self.assertEqual((inventory['side'], inventory['base'], inventory['head']),
+                                         (side, base, self.merge))
+                        path = 'web/dist/caption'
+                        if side == 'reference' and base == self.queue_base:
+                            self.assertNotIn(path, inventory['files'])
+                        else:
+                            caption = b'old caption' if side == 'reference' else b'new caption'
+                            self.assertEqual(inventory['files'][path], sha256(caption).hexdigest())
+                    result = self.parity(self.merge, *args, f'PARITY_COMPARE={inventories}', succeeds=False)
+                    self.assertIn('\n  web/dist/caption\n', result.stderr)
 
-                def job_args(job):
-                    body = workflow.split(f'\n  {job}:\n', 1)[1].split('    steps:', 1)[0]
-                    pins = re.findall(r'^      (BASE|CANDIDATE): \$\{\{ (.*?) \}\}$', body, re.M)
-                    self.assertEqual({key for key, _ in pins}, {'BASE', 'CANDIDATE'})
-                    return [f'{key}={values[expr]}' for key, expr in pins]
-
-                for side in ['reference', 'candidate']:
-                    asset = f'{event}-research-{side}'
-                    self.parity('', *job_args('production-parity-research'), f'PARITY_SIDE={side}',
-                                f'PARITY_RESEARCH_OUT={asset}')
-                    self.parity('', *job_args('production-parity-build'), f'PARITY_SIDE={side}',
-                                f'PARITY_RESEARCH_IN={asset}', f'PARITY_OUT={side}.json')
-                result = self.parity('', *job_args('production-parity'), 'PARITY_COMPARE=.', succeeds=False)
-                self.assertIn('\n  web/dist/caption\n', result.stderr)
-                for side, caption in [('reference', b'old caption'), ('candidate', b'new caption')]:
-                    inventory = json.loads((self.repo / f'{side}.json').read_text())
-                    self.assertEqual((inventory['base'], inventory['head']), (self.target, self.merge))
-                    self.assertEqual(inventory['files']['web/dist/caption'], sha256(caption).hexdigest())
+    def test_required_pr_with_the_same_opt_in_on_target_builds_matching_artifacts(self):
+        flags = self.repo / 'web/config/features.json'
+        enabled = '{"production":{"example":false},"test":{"example":true}}'
+        self.git('switch', '--quiet', '-c', 'opt-in', self.base)
+        flags.write_text(enabled)
+        head = self.commit('Opt in to the test feature')
+        self.git('switch', '--quiet', '--detach', self.target)
+        flags.write_text(enabled)
+        parent = self.commit('Independently opt in on the target')
+        self.git('merge', '--quiet', '--no-ff', head, '-m', 'Workflow merge')
+        merge = self.git('rev-parse', 'HEAD')
+        args = [f'BASE={parent}', 'REQUIRE_PARITY=1']
+        self.assertEqual(self.parity(merge, f'BASE={parent}', 'PARITY_PLAN=1').stdout, 'false\n')
+        result = self.step('parity', BASE=self.base, CANDIDATE=head,
+                           GITHUB_SHA=merge, GITHUB_EVENT_NAME='pull_request')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_plan([parent], ['reference'])
+        self.parity(merge, *args, 'PARITY_SIDE=reference', 'PARITY_RESEARCH_OUT=shared')
+        for side in ['reference', 'candidate']:
+            self.parity(merge, *args, f'PARITY_SIDE={side}', 'PARITY_RESEARCH_IN=shared', f'PARITY_OUT={side}.json')
+        self.parity(merge, *args, 'PARITY_COMPARE=.')
 
     def test_candidate_defaults_to_merge_base_and_honours_explicit_base(self):
         for base in [self.queue_base, 'origin/main']:

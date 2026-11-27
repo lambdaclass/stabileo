@@ -33,7 +33,6 @@ class ProductionParity(unittest.TestCase):
         self.assertFalse(parity.profiles_enable_off_switch(on, on))
         self.assertFalse(parity.profiles_enable_off_switch(off, production))
 
-    @unittest.skip("known wrong result: #2657")
     def test_plan_from_before_the_feature_manifest(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:
             repo = Path(directory)
@@ -53,15 +52,25 @@ class ProductionParity(unittest.TestCase):
             page.write_text('new page')
             git('commit', '-qam', 'Ordinary web change')
 
-            def plan(*args):
+            def plan(*args, reference=None):
                 output = io.StringIO()
                 with patch.object(parity, 'ROOT', repo), redirect_stdout(output), patch(
-                        'sys.argv', [str(SCRIPT), base, '--plan', *args]):
+                        'sys.argv', [str(SCRIPT), reference or base, '--plan', *args]):
                     parity.main()
                 return output.getvalue()
 
             flags = repo / parity.FLAGS
             flags.parent.mkdir()
+            overlay = repo / parity.LEGACY_OVERLAY
+            overlay.write_text('{}')
+            git('add', parity.LEGACY_OVERLAY)
+            self.assertEqual(plan(), 'true\n')
+            git('restore', '--staged', parity.LEGACY_OVERLAY)
+            overlay.unlink()
+            git('switch', '-qc', 'legacy-triggers')
+            git('commit', '--allow-empty', '-qm', 'Require a legacy comparison', '-m', 'Production-Parity: required')
+            self.assertEqual(plan('--candidate', 'HEAD'), 'true\n')
+            git('switch', '-q', '-')
             for name, manifest, expected in [
                 ('ordinary web change', None, 'false'),
                 ('legacy account defaults', {'production': {'accounts': False},
@@ -73,10 +82,18 @@ class ProductionParity(unittest.TestCase):
                     flags.write_text(json.dumps(manifest))
                     git('add', parity.FLAGS)
                     git('commit', '-qm', name)
+                if name == 'legacy account defaults':
+                    self.assertEqual(plan('--candidate', base, reference=git('rev-parse', 'HEAD')), 'false\n')
                 for args in [(), ('--candidate', 'HEAD')]:
                     with self.subTest(change=name, args=args):
                         self.assertEqual(plan(*args), expected + '\n')
 
+            flags.write_text('{"production":{"example":false},"test":{"example":"false"}}')
+            with self.assertRaisesRegex(ValueError, 'invalid feature switches'):
+                plan()
+            flags.unlink()
+            with self.assertRaises(FileNotFoundError):
+                plan()
             flags.write_text('{')
             with self.assertRaises(json.JSONDecodeError):
                 plan()
@@ -85,6 +102,14 @@ class ProductionParity(unittest.TestCase):
             flags.write_text('{"production":{},"test":{}}')
             with self.assertRaises(json.JSONDecodeError):
                 plan()
+
+            git('rm', '--cached', parity.FLAGS)
+            flags.unlink()
+            git('commit', '-qm', 'Remove an established manifest')
+            with self.assertRaises(FileNotFoundError):
+                plan('--candidate', 'HEAD', reference='HEAD~2')
+            with self.assertRaises(FileNotFoundError):
+                plan(reference='HEAD')
 
     def test_reference_follows_new_base_and_replays_only_intended_paths(self):
         with tempfile.TemporaryDirectory(dir=parity.ROOT) as directory:

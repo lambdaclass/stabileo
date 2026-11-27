@@ -13,6 +13,11 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 FLAGS = 'web/config/features.json'
 LEGACY_OVERLAY = 'web/config/pro-plates-off.json'
+LEGACY_PROFILES = {
+    'production': {'accounts': False},
+    'development': {'accounts': True},
+    'test': {'accounts': True},
+}
 RESEARCH_WASM = 'web/public/research-wasm'
 RESEARCH_INPUTS = ('research', 'engine', 'web', 'Makefile', 'Cargo.toml', 'Cargo.lock', '.cargo',
                    'flake.nix', 'flake.lock', 'rust-toolchain.toml', 'scripts', '.github/scripts',
@@ -167,9 +172,37 @@ def build(source, checkout, env, research=None):
     return runtime | site
 
 
+def parse_feature_profiles(contents):
+    profiles = json.loads(contents)
+    if not isinstance(profiles, dict) or not isinstance(profiles.get('production'), dict):
+        raise ValueError(f'{FLAGS} must contain a production profile')
+    for mode, profile in profiles.items():
+        if (not isinstance(profile, dict) or profile.keys() != profiles['production'].keys()
+                or any(not isinstance(flag, bool) for flag in profile.values())):
+            raise ValueError(f'{FLAGS}: invalid feature switches in {mode}')
+    return profiles
+
+
+def legacy_feature_profiles(source, revision):
+    if git(source, 'log', '-1', '--format=%H', revision, '--', FLAGS):
+        raise FileNotFoundError(f'{FLAGS} is missing from a revision that already used it: {revision}')
+    return LEGACY_PROFILES
+
+
 def parity_required(source, base, paths):
-    before = json.loads(git(source, 'show', f'{base}:{FLAGS}'))
-    after = json.loads((source / FLAGS).read_text())
+    if git(source, 'ls-tree', base, '--', FLAGS):
+        before = parse_feature_profiles(git(source, 'show', f'{base}:{FLAGS}'))
+    else:
+        before = legacy_feature_profiles(source, base)
+    manifest = source / FLAGS
+    try:
+        contents = manifest.read_bytes()
+    except FileNotFoundError:
+        if manifest.is_symlink():
+            raise
+        after = legacy_feature_profiles(source, 'HEAD')
+    else:
+        after = parse_feature_profiles(contents)
     return ('required' in trailers(source, base, 'Production-Parity') or LEGACY_OVERLAY in paths
             or profiles_enable_off_switch(before, after))
 
