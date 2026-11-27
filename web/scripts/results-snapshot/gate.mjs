@@ -27,7 +27,7 @@ import { compareFrozen, FROZEN_DIR } from './frozen.mjs';
 import { fieldCovered } from './applicability.mjs';
 import { pathToFileURL } from 'node:url';
 import { compareValues, formatCaseReport, parseSnapshot, FORMAT, FORMAT_ADDITIONS } from './compare.mjs';
-import { compareSources, readSourcesAt, DIR } from '../result-changes/registry.mjs';
+import { compareSources, readSourcesAt, readRegistryAt, DIR } from '../result-changes/registry.mjs';
 
 export const SNAPSHOT_DIR = 'web/results-snapshots';
 export const REGISTRY = DIR;
@@ -79,9 +79,20 @@ export function newlyRecorded(path, baseFormat, headFormat, format = FORMAT, for
   return false;
 }
 
-export function decide({ snapshots, baseRegistry, headRegistry, fragments, format = FORMAT, formatAdditions = FORMAT_ADDITIONS, changedFixtures = [], caseExample = {}, caseFeatures = {} }) {
+export function decide({ snapshots, baseRegistry, headRegistry, baseVersions, headVersions, fragments, format = FORMAT, formatAdditions = FORMAT_ADDITIONS, changedFixtures = [], caseExample = {}, caseFeatures = {} }) {
   const changed = [];
   const { problems, added } = compareSources(baseRegistry, headRegistry);
+  if (baseVersions && headVersions) {
+    const released = new Map(baseVersions.changes.map(c => [c.id, c.resultsVersion]));
+    for (const change of headVersions.changes) {
+      if (released.has(change.id)) {
+        const version = released.get(change.id);
+        if (change.resultsVersion !== version) problems.push(`${change.id}: shipped at version ${version}, now numbered ${change.resultsVersion}`);
+      } else if (change.resultsVersion <= baseVersions.currentResultsVersion) {
+        problems.push(`${change.id}: new change numbered ${change.resultsVersion}, already released through ${baseVersions.currentResultsVersion}`);
+      }
+    }
+  }
   const entries = (headRegistry?.unnumbered ?? []).filter((c) => added.includes(c.id));
   if (problems.length) {
     return {
@@ -183,7 +194,14 @@ async function main(argv) {
   for (const s of snapshots.filter(s => s.file.startsWith(`${FROZEN_DIR}/`))) {
     caseFeatures[s.file] = (s.head ?? s.base)?.features;
   }
-  const r = decide({ caseFeatures, snapshots, baseRegistry: readSourcesAt(base, root), headRegistry: readSourcesAt('HEAD', root), fragments, changedFixtures, caseExample: corpusExamples(at('HEAD', CORPUS)) });
+  const baseRegistry = readSourcesAt(base, root);
+  const headRegistry = readSourcesAt('HEAD', root);
+  const r = decide({
+    caseFeatures, snapshots, baseRegistry, headRegistry,
+    baseVersions: readRegistryAt(base, root, baseRegistry),
+    headVersions: readRegistryAt('HEAD', root, headRegistry),
+    fragments, changedFixtures, caseExample: corpusExamples(at('HEAD', CORPUS)),
+  });
   (r.ok ? console.log : console.error)(r.report);
   if (!r.ok) return 1;
   if (!r.equivalence?.length) return 0;

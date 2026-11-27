@@ -18,7 +18,7 @@ const steelTruss = () => ({
 describe('recheckStore', () => {
   beforeEach(() => recheckStore.reset());
 
-  it.skip.each(['2d', '3d', 'pro'])('known wrong result: #2529 reopening a %s project from the wind release finds the subsequent beam detailing correction', async mode => {
+  it.each(['2d', '3d', 'pro'])('known wrong result: #2529 reopening a %s project from the wind release finds the subsequent beam detailing correction', async mode => {
     const released = RESULT_CHANGES.changes.find(c => c.id === 'wind-two-part-moments')!;
     const cutoff = 'beam-cutoff-section-shear';
     recheckStore.noteSolved('linear');

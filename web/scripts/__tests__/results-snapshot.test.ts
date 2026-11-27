@@ -111,7 +111,7 @@ describe('the gate', () => {
     expect(r.ok, r.report).toBe(true);
   });
 
-  it.skip('known wrong result: #2529 a new notice cannot share a version with a released save, even without snapshot changes', () => {
+  it('known wrong result: #2529 a new notice cannot share a version with a released save, even without snapshot changes', () => {
     const baseVersions = { currentResultsVersion: 4, changes: [{ id: 'old', resultsVersion: 4 }] };
     const check = (released: number, added: number) => decide({
       snapshots: [], fragments: [], baseRegistry: registry, headRegistry: registered,

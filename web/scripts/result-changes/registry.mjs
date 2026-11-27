@@ -152,13 +152,13 @@ export function readSourcesAt(rev, root = REPO) {
 }
 
 /** The registry as commit `rev` has it, in either format; null when `rev` has none. */
-export function readRegistryAt(rev, root = REPO) {
+export function readRegistryAt(rev, root = REPO, sources) {
   const git = gitIn(root);
   let numbered;
   try { numbered = JSON.parse(git('show', `${rev}:${DIR}/${NUMBERED}`)); } catch {
     try { return JSON.parse(git('show', `${rev}:${LEGACY}`)); } catch { return null; }
   }
-  const { unnumbered } = readSourcesAt(rev, root);
+  const { unnumbered } = sources ?? readSourcesAt(rev, root);
   const fragments = new Map(unnumbered.map(({ file, ...entry }) => [idOf(file), entry]));
   return assemble({ numbered, fragments, landings: landingsAt(git, rev) });
 }
