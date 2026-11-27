@@ -89,7 +89,7 @@ describe('rc-column bar layout', () => {
 });
 
 describe('outrigger', () => {
-  it.skip('known wrong result: #1927 — the drift sweep solves only the core spans between attachments', () => {
+  it('known wrong result: #1927 — the drift sweep solves only the core spans between attachments', () => {
     const values = { ...defaults(outrigger.params), storeys: 15 };
     let level = 0;
     const points = outriggerSweep(values, { ...engine, solve(input) {
@@ -99,6 +99,8 @@ describe('outrigger', () => {
       expect(spans).toHaveLength(level === values.storeys ? 1 : 2);
       expect(input.loads).toHaveLength(spans.length);
       const result = engine.solve(input);
+      const horizontalReaction = result.reactions.reduce((total, reaction) => total + reaction.rx, 0);
+      expect(Math.abs(horizontalReaction)).toBeCloseTo(values.wind * full.height, 6);
       const atRoof = (r: typeof result) => r.displacements.find(d => d.nodeId === values.storeys + 1)!.ux;
       const expected = atRoof(engine.solve(full));
       expect(atRoof(result) / expected).toBeCloseTo(1, 9);

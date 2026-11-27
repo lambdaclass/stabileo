@@ -59,7 +59,7 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
+  'gallery:slab-on-columns:walls', 'gallery:outrigger', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
   'native:planar-nodal-vector', 'native:analysis-wire-unknown-fields', 'native:wasm-iterable-solver-tables',
   'native:duplicate-json-connector-keys', 'native:staged-unconsumed-tables', 'native:staged-unknown-fields',
   'native:duplicate-json-analysis-table-keys', 'native:wasm-iterable-load-fields', 'native:producer-wire-metadata',
