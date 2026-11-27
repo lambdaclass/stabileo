@@ -54,17 +54,20 @@ try {
   for (const row of rows) {
     const ref = native(row.id);
     assert.equal(ref.id, row.id);
-    if (cases.find(c => c.id === row.id).group === 'hemisphere') {
-      const refused = [row, ref].every(r => r.refused === true && r.knownIssue === 'SH-MITC4-DISTORTION' && r.issue === 798
+    const c = cases.find(c => c.id === row.id);
+    const previous = recorded.find(r => r.id === c.id);
+    const measurements = [row, ref, previous];
+    if (c.group === 'hemisphere') {
+      const refused = measurements.every(r => r.refused === true && r.knownIssue === 'SH-MITC4-DISTORTION' && r.issue === 798
         && /Results withheld:.*known issue #798, SH-MITC4-DISTORTION/.test(r.failure) && r.value === null && r.error === null && r.pass === false && r.displacement == null);
       if (!refused) notRefused++;
       continue;
     }
-    const c = cases.find(c => c.id === row.id);
-    const previous = recorded.find(r => r.id === c.id);
-    for (const measurement of [row, ref, previous]) signedError(measurement, c);
+    for (const measurement of measurements) {
+      assert.ok(!measurement.refused && measurement.failure == null, `${c.id}: expected successful solve`);
+      signedError(measurement, c);
+    }
     assert.ok(Math.abs(previous.value - row.value) <= 1e-9 * Math.abs(row.value), `${c.id}: recorded displacement`);
-    assert.ok(!row.refused && !ref.refused, row.id);
     assert.ok(row.value !== null && Number.isFinite(row.value), `${row.id}: ${row.failure}`);
     assert.equal(row.pass, ref.pass, `${row.id}: WASM/native pass mismatch`);
     assert.ok(Math.abs(row.value - ref.value) <= Math.max(Math.abs(ref.value) * 1e-8, 1e-12), `${row.id}: WASM/native value mismatch`);
@@ -83,7 +86,7 @@ try {
   assert.equal(cylinder32.id, target.id, 'cylinder-32: identity');
   assert.ok(cylinder32.pass === true && !cylinder32.failure && !cylinder32.refused && Number.isFinite(cylinder32.value), 'cylinder-32: expected native solution');
   const cylinderError = signedError(cylinder32, target);
-  const cylinderErrors = [...cases.filter(c => c.group === 'cylinder').map(c => byId(c.id).error), cylinderError];
+  const cylinderErrors = [...[6, 8, 12, 16].map(mesh => byId(`cylinder-${mesh}`).error), cylinderError];
   const convergence = Math.max(...cylinderErrors.slice(1).map((e, i) => e / cylinderErrors[i]));
   const check = (id, metric, kind, observed, tolerance, passed) => ({ id, metric, kind, observed, tolerance, passed });
   const checks = [

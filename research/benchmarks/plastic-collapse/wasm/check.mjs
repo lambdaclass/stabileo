@@ -46,6 +46,9 @@ try {
     const event = portal.events[index];
     for (const measurement of [step, replay.steps[index]]) {
       assert.ok(Number.isFinite(measurement.loadFactor) && Math.abs(measurement.loadFactor - event.loadFactor) <= portal.tolerance, `portal step ${index}: load`);
+      for (const hinge of measurement.hingesFormed) {
+        assert.ok(Number.isFinite(hinge.momentY) && Math.abs(Math.abs(hinge.momentY) / portal.mp - 1) <= portal.yieldTolerance, `portal step ${index}: yield magnitude`);
+      }
       assert.deepEqual(measurement.hingesFormed.map(h => [h.elementId, h.end, Math.sign(h.momentY), h.step]),
         [[event.elementId, event.end, event.momentSign, index]], `portal step ${index}: hinge`);
     }

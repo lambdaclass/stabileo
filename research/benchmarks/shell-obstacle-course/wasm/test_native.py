@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -7,6 +8,7 @@ import unittest
 from pathlib import Path
 
 checker = Path(__file__).with_name('check.mjs')
+native = Path(os.environ.get('SHELL_OBSTACLE_RESULTS', checker.parents[1] / 'results'))
 
 
 class NativeEvidence(unittest.TestCase):
@@ -16,6 +18,7 @@ class NativeEvidence(unittest.TestCase):
         changes = [('cylinder-32', {'value': None}, 'cylinder-32: expected native solution'), ('cylinder-32', {'id': 'cylinder-16'}, 'cylinder-32: identity'),
                    ('cylinder-32', {'value': 0.000018248}, 'cylinder-32: signed displacement'), ('cylinder-32', {'failure': 'failed'}, 'cylinder-32: expected native solution'),
                    ('hemisphere-4', {'displacement': [{'nodeId': 1, 'uz': 1}]}, 'hemisphere-refusals')]
+        changes.append(('roof-16', {'failure': 'failed'}, 'roof-16: expected successful solve'))
         roof = json.loads((native / 'roof-16.json').read_text())
         changes.append(('roof-16', {'value': roof['value'] * (1 + 5e-9)}, 'roof-16: reported error'))
         for case, patch, diagnostic in changes:
@@ -30,5 +33,6 @@ class NativeEvidence(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    native = Path(sys.argv.pop())
+    if len(sys.argv) > 1 and Path(sys.argv[-1]).is_dir():
+        native = Path(sys.argv.pop())
     unittest.main()

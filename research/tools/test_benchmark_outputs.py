@@ -14,7 +14,6 @@ native = None
 
 
 class BenchmarkOutputs(unittest.TestCase):
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_all_shell_sources_have_a_single_solve_outcome(self):
         folder = self.benchmark('benchmarks/shell-obstacle-course')
         recorded = folder / 'results/wasm-results.json'
@@ -30,7 +29,6 @@ class BenchmarkOutputs(unittest.TestCase):
                 recorded.write_text(json.dumps([{**r, **change} if r['id'] == case else r for r in original]))
                 self.reject(folder, diagnostic, native_dir, '--write')
 
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_cylinder_convergence_uses_mesh_order(self):
         folder = self.benchmark('benchmarks/shell-obstacle-course')
         checker = folder / 'wasm/check.mjs'
@@ -43,7 +41,6 @@ class BenchmarkOutputs(unittest.TestCase):
 """))
         self.control(folder, folder / 'results', '--write')
 
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_portal_hinge_must_reach_the_section_capacity(self):
         folder = self.benchmark('benchmarks/plastic-collapse')
         self.control(folder)
@@ -53,23 +50,26 @@ class BenchmarkOutputs(unittest.TestCase):
         p.write_text(json.dumps(data))
         self.reject(folder, 'yield magnitude', '--write')
 
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_macneal_references_are_independent_transcriptions(self):
         folder = self.benchmark('benchmarks/macneal-harder-1985')
         native_file = self.macneal_native()
         self.control(folder, native_file)
         checker = folder / 'wasm/check.mjs'
         source = checker.read_text()
-        for hook, change, diagnostic in [
-            ('const table3', "for (const c of cases.filter(c => c.id.startsWith('mitc4-') && c.id.endsWith('-out'))) c.reference = 0.43209;", 'Table 3 reference'),
-            ('const roofInput', 'roofCase.reference -= 1e-6;', 'Table 5(a) reference'),
-        ]:
-            with self.subTest(diagnostic=diagnostic):
-                self.assertIn(hook, source)
-                checker.write_text(source.replace(hook, change + '\n  ' + hook))
-                self.reject(folder, diagnostic, native_file, '--write')
+        hook = 'const rows = await runCases();'
+        self.assertIn(hook, source)
+        checker.write_text(source.replace(hook, "for (const c of cases.filter(c => c.id.startsWith('mitc4-') && c.id.endsWith('-out'))) c.reference = 0.43209;\n  " + hook))
+        self.reject(folder, 'Table 3 reference', native_file, '--write')
+        checker.write_text(source)
+        (self.base / 'engine').unlink()
+        relative = Path('engine/tests/benchmarks/shell_obstacle_course.json')
+        path = self.base / relative
+        path.parent.mkdir(parents=True)
+        fixture = json.loads((root / relative).read_text())
+        next(c for c in fixture['cases'] if c['id'] == 'roof-16')['reference'] -= 1e-6
+        path.write_text(json.dumps(fixture))
+        self.reject(folder, 'Table 5(a) reference', native_file, '--write')
 
-    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
     def test_navier_reference_and_budget_are_exact(self):
         folder = self.benchmark('benchmarks/navier-plate')
         self.control(folder)

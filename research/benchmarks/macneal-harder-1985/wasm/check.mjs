@@ -12,7 +12,7 @@ const server = await createServer({ root: new URL('../../../../web/', import.met
 try {
   const { cases, runCases, tolerance } = await server.ssrLoadModule('/src/components/research/macneal1985/cases.ts');
   const engine = await server.ssrLoadModule('/src/lib/engine/wasm-solver.ts');
-  const table3 = new Map(['in', 'out'].map(direction => [direction, cases.find(c => c.id === `mitc4-regular-${direction}`).reference]));
+  const table3 = new Map([['in', 0.1081], ['out', 0.4321]]);
   const rows = await runCases();
   for (const c of cases.filter(c => c.id.startsWith('mitc4-'))) {
     assert.equal(c.reference, table3.get(c.id.split('-').at(-1)), `${c.id}: Table 3 reference`);
@@ -48,6 +48,7 @@ try {
   }
 
   const roofCase = JSON.parse(readFileSync(new URL('../../../../engine/tests/benchmarks/shell_obstacle_course.json', import.meta.url), 'utf8')).cases.find(c => c.id === 'roof-16');
+  assert.equal(roofCase.reference, 0.3024, 'roof-16: Table 5(a) reference');
   const roofInput = { ...roofCase.input };
   for (const key of ['nodes', 'materials', 'sections', 'elements', 'supports', 'quads', 'plates', 'connectors', 'curvedShells']) {
     roofInput[key] = new Map(Object.entries(roofCase.input[key] ?? {}).map(([id, value]) => [Number(id), value]));

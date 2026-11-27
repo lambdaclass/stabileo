@@ -126,7 +126,7 @@ try {
     }));
   } else {
     const same = (a, b, path) => {
-      if (typeof a === 'number' && typeof b === 'number') {
+      if (typeof a === 'number' && typeof b === 'number' && /\.(?:computed|observed)$/.test(path)) {
         assert.ok(Math.abs(a - b) <= Math.max(1e-9 * Math.max(Math.abs(a), Math.abs(b)), 1e-15), `${path}: ${a} != ${b}`);
       } else if (a && typeof a === 'object') {
         assert.deepEqual(Object.keys(a), Object.keys(b), path);
