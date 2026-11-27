@@ -218,7 +218,7 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
    * satisfying anything (the IFC and the workbook read this row too). The row is the model's own
    * idealisation, not a code check: it cites no clause and has no limit, only the share measured.
    */
-  const jointRows = new Map<number, CheckRow[]>();
+  const memberCheckRows = new Map<number, CheckRow[]>();
   const jointRow = (reasonKey: string, p: Record<string, number>): CheckRow => ({
     code: 'slab-column-joint', title: tr('check.slabColumnJoint'), titleKey: 'check.slabColumnJoint',
     formula: 'P,directo / P,losa',
@@ -230,11 +230,10 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
   for (const [id, c] of verificationStore.contexts) {
     const v = c.slabColumnJoint;
     if (v?.verdict !== 'pointJoint' || !v.reasonKey) continue;
-    jointRows.set(id, [jointRow(v.reasonKey, v.params ?? {})]);
+    memberCheckRows.set(id, [jointRow(v.reasonKey, v.params ?? {})]);
     const e = m.elements.get(id);
     if (c.elementType === 'beam' && e) for (const n of [c.span?.start ?? e.nodeI, c.span?.end ?? e.nodeJ]) if (!jointAtNode.has(n)) jointAtNode.set(n, { reasonKey: v.reasonKey, params: v.params ?? {} });
   }
-  for (const [id, rows] of jointRows) anchorageRows.set(id, [...(anchorageRows.get(id) ?? []), ...rows]);
   for (const [id] of verificationStore.contexts) {
     const p = verificationStore.providedFor(id);
     if (!p || !p.hasProvided) continue;
@@ -282,7 +281,7 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
       location: o.limiting.map((l) => { const k = `check.rc.${l}`; const t = tr(k); return t === k ? l : t; }).join(', '),
       derivation: o.reasons.map((r) => tr(r.key, r.params)),
     };
-    elements.push({ id: `e${id}`, family: c.elementType, name: elName(id, c.elementType), ...(levelOfElement(id) ? { level: levelOfElement(id)! } : {}), data: [...memberData(id), ...lateralDatum(id)], rows: [row, ...(jointRows.get(id) ?? [])], notes: [] });
+    elements.push({ id: `e${id}`, family: c.elementType, name: elName(id, c.elementType), ...(levelOfElement(id) ? { level: levelOfElement(id)! } : {}), data: [...memberData(id), ...lateralDatum(id)], rows: [row], notes: [] });
   }
   for (const v of verificationStore.steel) {
     const id = (v as { elementId: number }).elementId;
@@ -400,12 +399,18 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
 
   // Deflection, on the member's own entry or on one of its own.
   for (const [id, row] of deflectionCheckRows()) {
-    const el = elements.find((x) => x.id === `e${id}` || x.id === `s${id}`);
-    if (el) el.rows.push(row);
+    const rows = memberCheckRows.get(id);
+    if (rows) rows.push(row);
+    else memberCheckRows.set(id, [row]);
+  }
+  const entriesById = new Map(elements.map(entry => [entry.id, entry]));
+  for (const [id, rows] of memberCheckRows) {
+    const el = entriesById.get(`e${id}`) ?? entriesById.get(`s${id}`);
+    if (el) el.rows.push(...rows);
     else {
       const e = m.elements.get(id);
       const steel = e ? isSteel(e.materialId) : false, kind = e && vertical(e) ? 'column' : 'beam';
-      elements.push({ id: `${steel ? 's' : 'e'}${id}`, family: steel ? 'steel' : kind, name: elName(id, kind), ...(levelOfElement(id) ? { level: levelOfElement(id)! } : {}), data: memberData(id), rows: [row], notes: [] });
+      elements.push({ id: `${steel ? 's' : 'e'}${id}`, family: steel ? 'steel' : kind, name: elName(id, kind), ...(levelOfElement(id) ? { level: levelOfElement(id)! } : {}), data: memberData(id), rows, notes: [] });
     }
   }
 

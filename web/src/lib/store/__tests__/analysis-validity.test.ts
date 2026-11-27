@@ -109,8 +109,7 @@ describe('the indicator: how the slab is joined to the columns, and the share th
   });
 });
 
-it.each([6, null])('known wrong result: #2491 — exports the slab-column verdict before reinforcement design for mesh %s', (mesh, context) => {
-  context.skip(mesh !== null);
+it.each([6, null])('exports the slab-column verdict before reinforcement design for mesh %s', (mesh) => {
   building(mesh);
   expect(designRunStore.computeDemands().ok).toBe(true);
   const ids = [...modelStore.elements.keys()];
