@@ -486,3 +486,22 @@ test('the released document builders do not load the reinforcement sheet impleme
     });
   }
 });
+
+test.skip('known wrong result: #1928 recovery, footing and sheet-report captions follow their controls', async () => {
+  for (const [plates, sheets] of [[false, false], [true, false], [false, true]]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const text = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        const loaded = await import('data:text/javascript;base64,' + Buffer.from(text).toString('base64'));
+        const has = key => Object.hasOwn(loaded[locale], key);
+        assert.equal(has('file.workspaceNoticeClose'), plates);
+        for (const key of ['footing.ui.inSheets', 'footing.ui.openSheets', 'memo.rc.line', 'memo.rc.notAdopted', 'memo.rc.supportTop']) {
+          assert.equal(has(key), sheets, locale + ' ' + key);
+        }
+        assert.ok(has('file.workspaceSaveToFile'));
+      }
+    });
+  }
+});

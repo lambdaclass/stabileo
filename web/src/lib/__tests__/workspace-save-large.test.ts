@@ -650,3 +650,25 @@ describe('the designed and detailed 7-storey building', () => {
     expect(workspaceSaveStatus.failed).toBe(false);
   }, 300_000);
 });
+
+it.skip.each(['2d', '3d', 'pro'] as const)('known wrong result: #1928 the %s published workspace keeps the file rescue action throughout failed saves', async mode => {
+  let full = false;
+  storage = memoryStorage(key => full && key === WORKSPACE_KEY ? quota() : null);
+  vi.stubGlobal('localStorage', storage);
+  tabManager.restoreSession([{ ...smallTab('a', 'A'), analysisMode: mode }], 'a');
+  const notice = () => render(WorkspaceSaveNotice).body;
+  expect(await saveWorkspaceSettled()).toBe(true);
+  expect(notice()).not.toContain('workspace-save-notice');
+  full = true;
+  modelStore.model.name = 'B';
+  expect(saveWorkspaceToLocalStorage()).toBe(false);
+  expect(notice()).toContain('workspace-save-session');
+  expect(notice()).not.toContain('workspace-save-dismiss');
+  workspaceSaveStatus.dismiss?.();
+  expect(await saveWorkspaceSettled()).toBe(false);
+  expect(workspaceSaveStatus.failed).toBe(true);
+  expect(notice()).toContain('workspace-save-session');
+  full = false;
+  expect(await saveWorkspaceSettled()).toBe(true);
+  expect(notice()).not.toContain('workspace-save-notice');
+});
