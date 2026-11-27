@@ -336,7 +336,7 @@ test('known wrong result: #1928 the board controls ship only with the unified no
   }
 });
 
-test.skip('known wrong result: #1928 concrete and design option text follows the controls in each shipped locale', async () => {
+test('known wrong result: #1928 concrete and design option text follows the controls in each shipped locale', async () => {
   for (const [plates, sheets] of [[false, false], [true, false], [false, true], [true, true]]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
       const config = await resolveConfig({ root, configFile }, 'build', 'production');

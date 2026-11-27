@@ -1,85 +1,45 @@
 <script lang="ts">
+  import ConcreteBatchAssignment from './design/ConcreteBatchAssignment.svelte';
   import Hint from './Hint.svelte';
-  /**
-   * The concrete of each kind of element, every kind at once, on every level or one. It changes the
-   * analysis model (the members' material), so it stays available with design off and, once
-   * assigned, asks for the model to be solved again.
-   */
-  import { modelStore, uiStore } from '../../lib/store';
+  import { modelStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { DESIGN_KINDS, type DesignKind } from '../../lib/model/design-data';
   import { assignConcrete } from '../../lib/model/building/assign-concrete';
   import { materialFamilyOf } from '../../lib/engine/steel/material-family';
   import { catalogueGradeFamily } from '../../lib/engine/steel/grade-family';
-  import { runGlobalSolve } from '../../lib/engine/live-calc';
-  import { errorText } from '../../lib/utils/error-text';
 
-  const KINDS = DESIGN_KINDS.filter((k): k is Exclude<DesignKind, 'footing'> => k !== 'footing');
   const concretes = $derived([...modelStore.materials.values()].filter((m) => materialFamilyOf(m, catalogueGradeFamily).family === 'concrete'));
   const levels = $derived(modelStore.grid?.levels ?? []);
-  let level = $state('');
-  let chosen = $state<Record<string, number>>({});
+  let ckind = $state<DesignKind>('column'), cmat = $state(0), clevel = $state('');
+  $effect(() => { if (!__PUBLIC_FEATURES__.proRcSheets && !concretes.some((m) => m.id === cmat) && concretes[0]) cmat = concretes[0].id; });
   let assigned = $state<number | null>(null);
-  let solving = $state(false);
-  const any = $derived(KINDS.some((k) => chosen[k] !== undefined));
-  function assign() {
-    let n = 0;
-    modelStore.bulkMutate(() => { for (const k of KINDS) if (chosen[k] !== undefined) n += assignConcrete(k, chosen[k]!, level || undefined); });
-    assigned = n;
-    chosen = {};
-  }
-  async function solve() {
-    solving = true;
-    try {
-      const outcome = await runGlobalSolve();
-      if (outcome.ok) assigned = null;
-      else uiStore.toast(errorText(outcome.error, String(outcome.error)), 'error');
-    }
-    catch (err) { uiStore.toast(errorText(err, String(err)), 'error'); }
-    finally { solving = false; }
-  }
+  function assign() { if (ckind !== 'footing') assigned = assignConcrete(ckind, cmat, clevel || undefined); }
 </script>
 
 <section class="pk-card" data-testid="design-data-concrete">
   <h5 class="cl-h">{t('designData.concrete')}</h5>
-  <Hint text={t('designData.concreteHint')} />
-  {#if concretes.length === 0}<p class="pk-hint cl-hint">{t('designData.noConcrete')}</p>{:else}
-    <label class="cl-row">{t('building.level')}
-      <select bind:value={level} data-testid="design-data-concrete-level">
-        <option value="">{t('designData.allLevels')}</option>
-        {#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
-      </select>
-    </label>
-    <table class="cl-table">
-      <tbody>
-        {#each KINDS as k (k)}
-          <tr>
-            <td>{t(`designData.kind.${k}`)}</td>
-            <td>
-              <select value={chosen[k] ?? ''} onchange={(e) => { const v = e.currentTarget.value; const { [k]: _, ...rest } = chosen; chosen = v === '' ? rest : { ...rest, [k]: Number(v) }; }} data-testid="design-data-concrete-{k}">
-                <option value="">{t('designData.concreteKeep')}</option>
-                {#each concretes as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
-              </select>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-    <button class="pk-btn" onclick={assign} disabled={!any} data-testid="design-data-assign">{t('designData.assign')}</button>
-    {#if assigned !== null}
-      <div class="cl-done" role="status" data-testid="design-data-assigned">
-        <p class="pk-hint cl-hint">{tp('designData.assigned', { n: assigned })}{#if assigned > 0} {t('designData.assignedSolve')}{/if}</p>
-        {#if assigned > 0}<button class="pk-btn pk-btn-primary" onclick={solve} disabled={solving} data-testid="design-data-assigned-solve">{t('designData.solveAgain')}</button>{/if}
+  <Hint text={t(__PUBLIC_FEATURES__.proRcSheets ? 'rcSheets.designData.concreteHint' : 'designData.concreteHint')} />
+  {#if concretes.length === 0}<p class="pk-hint cl-hint">{t('designData.noConcrete')}</p>
+  {:else}
+    {#if __PUBLIC_FEATURES__.proRcSheets}
+      <ConcreteBatchAssignment {concretes} {levels} />
+    {:else}
+      <div class="cl-row">
+        <select bind:value={ckind} aria-label={t('physical.kindCol')}>{#each DESIGN_KINDS.filter((k) => k !== 'footing') as k}<option value={k}>{t(`designData.kind.${k}`)}</option>{/each}</select>
+        <select bind:value={clevel} aria-label={t('building.level')}>
+          <option value="">{t('designData.allLevels')}</option>
+          {#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+        </select>
+        <select bind:value={cmat} aria-label={t('building.material')}>{#each concretes as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>
+        <button class="pk-btn" onclick={assign} data-testid="design-data-assign">{t('designData.assign')}</button>
       </div>
+      {#if assigned !== null}<p class="pk-hint cl-hint" role="status">{tp('designData.assigned', { n: assigned })}</p>{/if}
     {/if}
   {/if}
 </section>
 
 <style>
   .cl-h { margin: 0 0 4px; font-size: 0.78rem; font-weight: 500; }
-  .cl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 0.7rem; margin: 4px 0; color: var(--st-text-2); }
-  .cl-table { border-collapse: collapse; font-size: 0.7rem; margin: 2px 0 6px; }
-  .cl-table td { padding: 2px 8px 2px 0; }
-  .cl-hint { color: var(--st-text-2); margin: 4px 0; }
-  .cl-done { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .cl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 0.7rem; margin: 4px 0; }
+  .cl-hint { color: var(--st-text-2); }
 </style>

@@ -99,6 +99,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
           if (/^pro\.(examples\.(loading\.|group(Rc|Steel)Buildings$)|tag(Core|Stair)$|stats\.plates$)/.test(key)) return false;
           if (key === 'ex.pro-steel-building-slabs.generatedDesc') return false;
           if (key === 'physical.automaticExplain' || key === 'desk.prep.automaticExistingHint' || key === 'pro.physical.diag.review' || key === 'physical.diag.review' || key === 'physical.pending' || key === 'physical.pendingReview') return false;
+          if (/^designData\.(?:executionControl|slabBars|diametersHint)$/.test(key)) return false;
           if (key.startsWith('solveProgress.')) return false;
           if (key.startsWith('notices.') || /^containment\.(?:restore|dismissHintPro|dismissHintBasic|toDiagnostics|dismiss)$/.test(key)) return false;
           if (key === 'quickEdit.meshPlate' || /^combos\.rules\.(seed|none)Code$/.test(key)) return false;
@@ -108,6 +109,8 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
         if (!proRcSheets) {
           if (key === 'spec.section.placement' || key.startsWith('rcSheets.')) return false;
           if (/^designData\.(alt|crit|criteria|deflectionSupports|flange|opt)\./.test(key)) return false;
+          if (/^designData\.(?:seismic\.|presumedBearing|foundingElevation|deflection(?:Months|Sustained|Creep|Always)|minTieSpacing|maxAggregate)/.test(key)) return false;
+          if (/^designData\.(?:analysis|detailing|seismicSection|alternatives|criteria|foundations|foundingAuto|propertyLinesHint|deflectionSupports|solveAgain|assignedSolve|concreteKeep|slabBaseNone)$/.test(key)) return false;
         }
         if (!ADMIN && key.startsWith('admin.')) return false;
         if (!tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(key)) return false;

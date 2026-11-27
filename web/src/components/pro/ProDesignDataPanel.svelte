@@ -57,7 +57,7 @@
 <div class="pk dd" data-testid="design-data-panel">
   <section class="pk-card">
     <h4 class="pk-heading">{t('designData.title')}</h4>
-    <Hint text={t('designData.explain')} />
+    <Hint text={t(__PUBLIC_FEATURES__.proRcSheets ? 'rcSheets.designData.explain' : 'designData.explain')} />
     <div class="dd-row">
       <button class="pk-btn pk-btn-primary" onclick={() => patchDesignData({ rebarGrade: 'ADN 420', rebarFy: 420, covers: withCirsocCovers({ ...d, rebarGrade: 'ADN 420', rebarFy: 420 }).covers })} data-testid="design-data-cirsoc">{t('designData.cirsocPreset')}</button>
       {#if stated}<button class="pk-btn" onclick={() => setDesignData(null)} data-testid="design-data-reset">{t('designData.reset')}</button>{/if}
@@ -83,7 +83,7 @@
       {/if}
     </div>
     <h5 class="dd-h dd-gap">{t('designData.diameters')}</h5>
-    <Hint text={t('designData.diametersHint')} />
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}<Hint text={t('designData.diametersHint')} />{/if}
     {#each LISTS as l (l.key)}
       <div class="dd-sub">{t(l.label)}</div>
       <div class="dd-chips">
@@ -152,9 +152,8 @@
     </section>
   {/if}
 
-  <details class="pk-card dd-more" data-testid="design-data-slab-base">
-    <summary><span class="dd-h">{t('designData.slabBase')}</span> <span class="dd-sum">{slabBaseSummary}</span></summary>
-    <Hint text={t('designData.slabBaseHint')} />
+  {#snippet slabBaseInputs()}
+    <Hint text={t(__PUBLIC_FEATURES__.proRcSheets ? 'rcSheets.designData.slabBaseHint' : 'designData.slabBaseHint')} />
     {#each SLAB_FACES as k}
       {@const v = d.slabBase?.[k]}
       <div class="dd-row">
@@ -165,7 +164,18 @@
         {/if}
       </div>
     {/each}
-  </details>
+  {/snippet}
+  {#if __PUBLIC_FEATURES__.proRcSheets}
+    <details class="pk-card dd-more" data-testid="design-data-slab-base">
+      <summary><span class="dd-h">{t('rcSheets.designData.slabBase')}</span> <span class="dd-sum">{slabBaseSummary}</span></summary>
+      {@render slabBaseInputs()}
+    </details>
+  {:else}
+    <section class="pk-card" data-testid="design-data-slab-base">
+      <h5 class="dd-h">{t('designData.slabBase')}</h5>
+      {@render slabBaseInputs()}
+    </section>
+  {/if}
 </div>
 
 <style>
