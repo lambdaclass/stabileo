@@ -103,3 +103,19 @@ test('the application publishes sheet commands and reports only when sheets are 
     });
   }
 });
+
+test.skip('known wrong result: unpublished editor dictionaries — load and reinforcement editors publish their own labels independently', async () => {
+  for (const [plates, sheets] of [[false, false], [true, false], [false, true], [true, true]]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      const code = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/en');
+      const { en } = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
+      for (const key of ['loads.asce7.ui.windSite', 'loads.ec.ui.altitude']) assert.equal(Object.hasOwn(en, key), plates, key);
+      for (const key of ['designData.criteria.defaults', 'designData.crit.wallMeshSpacing.hint', 'designData.flange.all', 'designData.opt.none', 'designData.alt.raiseFc', 'designData.deflectionSupports.none']) {
+        assert.equal(Object.hasOwn(en, key), sheets, key);
+      }
+      assert.ok(en['designData.columnEndZones']);
+    });
+  }
+});
