@@ -245,6 +245,7 @@ export async function bootPro(page: Page, appLocale = 'en'): Promise<void> {
       // the default.
       localStorage.setItem('stabileo-design-in-pro', '1');
       localStorage.setItem('stabileo-start-card', 'off');
+      localStorage.setItem('stabileo-panel-side', 'right');
     } catch { /* private mode */ }
   }, { loc: appLocale, bootKey });
 

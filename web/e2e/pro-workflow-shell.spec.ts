@@ -186,10 +186,6 @@ test.describe('@smoke PRO shell — a toast does not land on the panel', () => {
       const read = () => page.evaluate(() =>
         getComputedStyle(document.documentElement).getPropertyValue('--st-right-panel-w').trim());
 
-      await expect.poll(async () => parseFloat(await read()),
-        { message: 'a panel on the left leaves the toasts their corner' }).toBe(0);
-      await page.getByTestId('panel-side').click();
-
       const panelW = (await page.locator('.pro-sidebar').boundingBox())!.width;
       const published = parseFloat(await read());
       expect(published, 'the panel says how wide it is').toBeCloseTo(panelW, 0);

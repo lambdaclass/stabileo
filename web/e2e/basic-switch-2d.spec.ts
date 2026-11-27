@@ -74,9 +74,17 @@ test.describe('switching a 3D model to 2D', () => {
     await expect(droppedLoads).toBeVisible();
     expect(Number(await droppedLoads.getAttribute('data-count'))).toBeGreaterThan(0);
 
-    // Back up: the original returns, not the frame in a 3D viewport.
-    await page.getByTestId('rb-cmd-dim').click();
+    // The frame is a tab of its own; the building never left its tab.
+    const tabs = page.locator('.tab-bar .tab');
+    await expect(tabs).toHaveCount(2);
+    await expect(tabs.nth(1)).toHaveAttribute('data-mode', '2D');
+    await tabs.nth(0).click();
     await expect.poll(() => count(page), { timeout: 30_000 }).toBe(before);
+    await expect(tabs.nth(0)).toHaveAttribute('data-mode', '3D');
+    await expect(page.locator('.simplified-banner')).toHaveCount(0);
+    // And the banner is the frame tab's, still there when it comes back.
+    await tabs.nth(1).click();
+    await expect(page.locator('.simplified-banner')).toContainText('Y = 10');
   });
 
   test('flags a cut that brings nothing to stand on', async ({ page }) => {
@@ -108,7 +116,7 @@ test.describe('switching a 3D model to 2D', () => {
     expect(projected).toBeGreaterThan(0);
     expect(projected).toBeLessThan(before);
 
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.locator('.tab-bar .tab').nth(0).click();
     await expect.poll(() => count(page), { timeout: 30_000 }).toBe(before);
     await page.getByTestId('rb-cmd-dim').click();
     // Back to slice explicitly: the dialog remembers the mode across
@@ -120,14 +128,16 @@ test.describe('switching a 3D model to 2D', () => {
     await expect.poll(() => count(page)).toBeLessThan(projected);
   });
 
-  test('asks twice before erasing the model', async ({ page }) => {
+  test('starts an empty plane tab, and leaves the model in its own', async ({ page }) => {
     const before = await count(page);
     await page.getByTestId('rb-cmd-dim').click();
-    await page.getByTestId('s2d-erase').click();
-    // Still there: the first press only asks.
-    expect(await count(page)).toBe(before);
-    await page.getByTestId('s2d-erase-confirm').click();
+    await page.getByTestId('s2d-new-tab').click();
     await expect.poll(() => count(page)).toBe(0);
+    const tabs = page.locator('.tab-bar .tab');
+    await expect(tabs).toHaveCount(2);
+    await expect(tabs.nth(1)).toHaveAttribute('data-mode', '2D');
+    await tabs.nth(0).click();
+    await expect.poll(() => count(page), { timeout: 30_000 }).toBe(before);
   });
 });
 

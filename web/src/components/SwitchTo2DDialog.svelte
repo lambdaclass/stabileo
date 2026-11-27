@@ -25,8 +25,9 @@
   import { modelStore, uiStore } from '../lib/store';
   import {
     needsPlaneChoice, collapsedByPlane, cutsOn, projectOnto, sliceAt,
-    eraseAndSwitch, switchPlain, type DrawPlane,
+    type DrawPlane,
   } from '../lib/store/switch-2d';
+  import { moveCutToNewTab, openEmptyPlaneTab } from '../lib/store/workspace-switch';
   import { userComponent, along } from '../lib/axes/display';
   import { planeName, relabelAxes } from '../lib/axes/user-names';
   import { PROJECTION_COLLAPSE_ERROR } from '../lib/geometry/plane-projection';
@@ -39,7 +40,6 @@
   let plane = $state<DrawPlane>('xz');
   let mode = $state<Mode>('slice');
   let offsetText = $state('');
-  let confirmErase = $state(false);
   let error = $state<string | null>(null);
 
   /*
@@ -102,17 +102,17 @@
       error = outcome.error === PROJECTION_COLLAPSE_ERROR ? 'slice.allCollapse' : outcome.error;
       return;
     }
+    moveCutToNewTab('2D');
     close();
   }
 
   function close() {
     open = false;
-    confirmErase = false;
     error = null;
   }
 
-  function erase() {
-    eraseAndSwitch();
+  function continueInNewTab() {
+    openEmptyPlaneTab();
     close();
   }
 
@@ -127,6 +127,7 @@
     <div class="s2d" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
       <h3 class="s2d-title">{t('switch2d.title')}</h3>
       <p class="s2d-lede">{t('switch2d.lede')}</p>
+      <p class="s2d-lede s2d-tab-note">{t('switch2d.tabNote')}</p>
 
       <!-- ── 1. the plane ─────────────────────────────────────────── -->
       <section class="s2d-step">
@@ -281,23 +282,9 @@
           {t('toolbar.planeModal.stay3d')}
         </button>
         <div class="s2d-footer-right">
-          <!--
-            Erasing is not one of the two answers above, so it does not sit
-            beside them. It asks again in place rather than opening a second
-            dialog: the question is small and a dialog on a dialog is how a
-            user loses track of what they are confirming.
-          -->
-          {#if confirmErase}
-            <button class="s2d-btn s2d-danger" onclick={erase} data-testid="s2d-erase-confirm">
-              {t('switch2d.eraseSure')}
-            </button>
-            <button class="s2d-btn" onclick={() => (confirmErase = false)}>
-              {t('switch2d.eraseCancel')}
-            </button>
-          {:else}
-            <button class="s2d-btn s2d-quiet" onclick={() => (confirmErase = true)} data-testid="s2d-erase">
-              {t('toolbar.planeModal.eraseAndSwitch')}
-            </button>
+          <button class="s2d-btn s2d-quiet" onclick={continueInNewTab} data-testid="s2d-new-tab">
+            {t('switch2d.newTab')}
+          </button>
             <button
               class="s2d-btn s2d-primary"
               onclick={apply}
@@ -306,7 +293,6 @@
             >
               {t('switch2d.apply')}
             </button>
-          {/if}
         </div>
       </div>
     </div>
@@ -348,6 +334,7 @@
     line-height: 1.5;
     color: var(--st-text-3);
   }
+  .s2d-tab-note { margin-top: -12px; color: var(--st-text-2); }
 
   .s2d-step { margin-bottom: 16px; }
 
@@ -528,9 +515,4 @@
 
   .s2d-quiet { color: var(--st-text-3); }
 
-  .s2d-danger {
-    background: color-mix(in srgb, var(--st-bad, #e06c75) 18%, var(--st-surface-2));
-    border-color: color-mix(in srgb, var(--st-bad, #e06c75) 55%, transparent);
-    color: var(--st-text);
-  }
 </style>

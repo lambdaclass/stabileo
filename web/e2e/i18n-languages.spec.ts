@@ -61,7 +61,7 @@ const reach = (code: 'de' | 'fr' | 'tr' | 'hu' | 'zh') => (BUILD_OFFERED_LOCALES
 async function bootDetecting(page: Page) {
   await page.addInitScript(() => {
     try {
-      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off');
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right');
       // The language is left to the browser; design is turned on as `bootPro` does, since the
       // surface read below is design's.
       localStorage.setItem('stabileo-design-in-pro', '1');
@@ -146,7 +146,7 @@ test.describe('@smoke the language a browser gets', () => {
       // picker with a value matching none of its options, which renders empty.
       await page.addInitScript(() => {
         try {
-          localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off');
+          localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right');
           localStorage.setItem('stabileo-lang', 'it');
           localStorage.setItem('stabileo-lang-manual', '1');
         } catch { /* private mode */ }
@@ -209,7 +209,7 @@ test.describe('changing language keeps the work', () => {
     await page.addInitScript(() => {
       try {
         if (!sessionStorage.getItem('e2e-storage-cleared')) {
-          localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off');
+          localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right');
           // The step it reads is the design desk's, off by default in PRO: turned on, as a reader
           // turns it on, before the language is chosen. The language is what this test follows.
           localStorage.setItem('stabileo-design-in-pro', '1');

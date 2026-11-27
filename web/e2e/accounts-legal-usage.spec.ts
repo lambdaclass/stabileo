@@ -74,7 +74,7 @@ async function boot(
     try {
       if (sessionStorage.getItem('booted')) return;
       sessionStorage.setItem('booted', '1');
-      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off');
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right');
       localStorage.setItem('stabileo-lang', 'es');
       localStorage.setItem('stabileo-lang-manual', '1');
       localStorage.setItem('stabileo-feature-accounts', '1');

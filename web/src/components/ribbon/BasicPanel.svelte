@@ -71,6 +71,7 @@
 
   function publishWidth() {
     document.documentElement.style.setProperty('--st-right-panel-w', `${onLeft ? 0 : width}px`);
+    document.documentElement.style.setProperty('--st-left-panel-w', `${onLeft ? width : 0}px`);
   }
 
   $effect(() => {
@@ -151,6 +152,7 @@
     return () => {
       if (widthPublishFrame) cancelAnimationFrame(widthPublishFrame);
       document.documentElement.style.removeProperty('--st-right-panel-w');
+      document.documentElement.style.removeProperty('--st-left-panel-w');
     };
   });
 

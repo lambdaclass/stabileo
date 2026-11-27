@@ -20,7 +20,7 @@ test.describe('@smoke the title bar and the panel side', () => {
     await expect(header.getByTestId('rb-save')).toBeVisible();
     await expect(header.getByTestId('tb-undo')).toBeVisible();
     await expect(page.getByTestId('ribbon').getByTestId('rb-quick')).toHaveCount(0);
-    await expect(page.getByTestId('workspace-switch').locator('.mode-toggle button')).toHaveCount(2);
+    await expect(page.getByTestId('workspace-switch').locator('.mode-toggle button')).toHaveCount(3);
 
     await page.getByTestId('workspace-switch').locator('.pro-mode-btn').click();
     await expect(page.getByTestId('pro-ribbon')).toBeVisible();
@@ -28,6 +28,9 @@ test.describe('@smoke the title bar and the panel side', () => {
   });
 
   test('the panel opens on the left, moves right and remembers it', async ({ page }) => {
+    await page.addInitScript(() => {
+      try { if (!sessionStorage.getItem('side-seeded')) { sessionStorage.setItem('side-seeded', '1'); localStorage.removeItem('stabileo-panel-side'); } } catch { /* private */ }
+    });
     await openBasic(page);
     await openBasicProjectPanel(page);
     expect((await sides(page, '[data-testid="basic-panel"]')).panelLeftOfModel).toBe(true);
@@ -41,12 +44,19 @@ test.describe('@smoke the title bar and the panel side', () => {
     await expect(page.getByTestId('panel-side')).toHaveAttribute('data-side', 'right');
   });
 
-  test('PRO: the panel follows the same side', async ({ page }) => {
+  test('PRO: the panel follows the same side, and says how wide it is on that side', async ({ page }) => {
+    await page.addInitScript(() => { try { localStorage.setItem('stabileo-panel-side', 'left'); } catch { /* private */ } });
     await page.goto('/app/pro?e2e=1');
     await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
     expect((await sides(page, '.pro-sidebar')).panelLeftOfModel).toBe(true);
+    const width = (await page.locator('.pro-sidebar').boundingBox())!.width;
+    const read = (name: string) => page.evaluate((n) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n)), name);
+    await expect.poll(() => read('--st-left-panel-w')).toBeCloseTo(width, 0);
+    expect(await read('--st-right-panel-w')).toBe(0);
     await page.getByTestId('panel-side').click();
     expect((await sides(page, '.pro-sidebar')).panelRightOfModel).toBe(true);
+    await expect.poll(() => read('--st-right-panel-w')).toBeCloseTo(width, 0);
+    expect(await read('--st-left-panel-w')).toBe(0);
   });
 
   test('File › New project opens a tab', async ({ page }) => {
@@ -86,7 +96,7 @@ test.describe('@smoke examples and tutorials', () => {
     const card = page.getByTestId('start-card');
     await expect(card).toBeVisible();
     await expect(card.locator('[data-testid^="start-example-"]')).toHaveCount(3);
-    await expect.poll(() => card.locator('svg[data-preview] path.xp-member').count()).toBe(3);
+    await expect.poll(() => card.locator('svg[data-preview]:has(path.xp-member)').count()).toBe(3);
     await card.getByTestId('start-example-portal-frame').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBeGreaterThan(0);
     await expect(card).toHaveCount(0);
@@ -158,5 +168,59 @@ test.describe('@smoke reporting a bug', () => {
     expect(await bug.evaluate((n) => n.tagName), 'a link, since there is no form to open').toBe('A');
     await expect(bug).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/new');
     await expect(bug).toHaveAttribute('target', '_blank');
+  });
+});
+
+test.describe('@smoke one tab, three modes', () => {
+  const tabs = (page: Page) => page.locator('.tab-bar .tab');
+  const members = (page: Page) => page.evaluate(() => window.__stabileo.elementIds().length);
+
+  test('a model goes 2D → 3D → Professional and back down unchanged, with no question', async ({ page }) => {
+    await openBasic(page);
+    await expect(page.getByTestId('workspace-switch').locator('button')).toHaveCount(3);
+    await loadModel(page, 'portal-frame');
+    const before = await members(page);
+
+    await page.getByTestId('ws-space').click();
+    await expect(tabs(page).first()).toHaveAttribute('data-mode', '3D');
+    await page.getByTestId('ws-pro').click();
+    await expect(page).toHaveURL(/\/app\/pro/);
+    await expect(tabs(page).first()).toHaveAttribute('data-mode', 'PRO');
+    expect(await members(page)).toBe(before);
+
+    await page.getByTestId('ws-plane').click();
+    await expect(page.getByTestId('pro-to-basic')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/app\/basic/);
+    await expect(tabs(page).first()).toHaveAttribute('data-mode', '2D');
+    expect(await members(page)).toBe(before);
+    await expect(tabs(page)).toHaveCount(1);
+  });
+
+  test('a Professional model with shells goes to Basic as a copy, and the PRO tab stays', async ({ page }) => {
+    await page.goto('/app/pro?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
+    await loadModel(page, 'mat-foundation');
+    const before = await members(page);
+
+    await page.getByTestId('ws-space').click();
+    const dialog = page.getByTestId('pro-to-basic');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByTestId('pro-to-basic-drops')).toContainText(/56/);
+
+    await dialog.getByTestId('pro-to-basic-stay').click();
+    await expect(dialog).toHaveCount(0);
+    await expect(tabs(page)).toHaveCount(1);
+    await expect(tabs(page).first()).toHaveAttribute('data-mode', 'PRO');
+
+    await page.getByTestId('ws-space').click();
+    await page.getByTestId('pro-to-basic-copy').click();
+    await expect(tabs(page)).toHaveCount(2);
+    await expect(tabs(page).nth(1)).toHaveAttribute('data-mode', '3D');
+    await expect(page).toHaveURL(/\/app\/basic/);
+    expect(await members(page)).toBe(before);
+
+    await tabs(page).nth(0).click();
+    await expect(tabs(page).nth(0)).toHaveAttribute('data-mode', 'PRO');
+    await expect(page).toHaveURL(/\/app\/pro/);
   });
 });

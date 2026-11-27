@@ -18,6 +18,7 @@ import { t, isDefaultName } from '../i18n';
 import { hydrateProjectProvenance } from './project-provenance';
 import { seedProStarterLibrary } from '../pro/pro-starter-library';
 import { whatIf } from './whatif.svelte';
+import { resetSwitchBackup } from './switch-2d';
 import { deskUi, type DeskViewState } from './design-desk-ui.svelte';
 import { designDrafts, type DraftsState } from './design-drafts.svelte';
 import { tp } from '../i18n';
@@ -106,6 +107,8 @@ export interface TabState {
   cameraPosition3D: { x: number; y: number; z: number };
   cameraTarget3D: { x: number; y: number; z: number };
   design?: DesignTabState;
+  /** The cut or projection this plane model was taken as, for the banner that says so. */
+  simplified2D?: typeof uiStore.simplified2DStats;
 }
 
 let tabIdCounter = 0;
@@ -134,6 +137,7 @@ function createTabManager() {
       // Explore started from — the one the user built.
       modelSnapshot: whatIf.baseline ?? modelStore.snapshot(),
       analysisMode: uiStore.analysisMode,
+      simplified2D: uiStore.simplified2DMode ? uiStore.simplified2DStats : null,
       viewportPresentation3D: whatIf.baseline?.presentation3D ?? uiStore.viewportPresentation3D,
       // Results visualization
       diagramType: resultsStore.diagramType,
@@ -229,6 +233,10 @@ function createTabManager() {
       /* The flexibility wizard describes one tab's model; it does not follow a switch. */
       fmStepsStore.clear();
       uiStore.resetSession();
+      // The 3D original a cut was taken from belongs to the tab it was cut in, never to the next one.
+      resetSwitchBackup();
+      uiStore.simplified2DMode = !!state.simplified2D;
+      uiStore.simplified2DStats = state.simplified2D ?? null;
 
       // Restore model
       modelStore.restore(storedProjectSnapshot(state.modelSnapshot, state.analysisMode));
@@ -506,6 +514,7 @@ function createTabManager() {
       /* The flexibility wizard describes one tab's model; it does not follow a switch. */
       fmStepsStore.clear();
       uiStore.resetSession();
+      resetSwitchBackup();
       announce();
     },
 
@@ -610,6 +619,34 @@ function createTabManager() {
       const updated = [...tabs];
       updated[idx] = captureCurrentState();
       tabs = updated;
+    },
+
+    /** Open a model in a new tab of its own, in the mode given, keeping this tab as it is. */
+    openCopy(name: string, snapshot: ModelSnapshot, analysisMode: TabState['analysisMode']): void {
+      _tabSwitching = true;
+      const base = captureCurrentState();
+      const updated = [...tabs];
+      const idx = updated.findIndex((tab) => tab.id === activeTabId);
+      if (idx !== -1) updated[idx] = base;
+      const copy: TabState = {
+        ...base,
+        id: generateTabId(),
+        name,
+        modelSnapshot: snapshot,
+        analysisMode,
+        diagramType: 'none',
+        hadResults: false,
+        undoStack: [],
+        redoStack: [],
+        undoKinds: [],
+        redoKinds: [],
+        detailingRef: undefined,
+        design: undefined,
+      };
+      tabs = [...updated, copy];
+      activeTabId = copy.id;
+      restoreState(copy);
+      queueMicrotask(() => { _tabSwitching = false; });
     },
 
     /** Open stored tabs after the current ones, leaving the active tab as it is. */

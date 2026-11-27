@@ -82,6 +82,11 @@
   import ExamplesDialog from './components/library/ExamplesDialog.svelte';
   import TutorialsDialog from './components/library/TutorialsDialog.svelte';
   import { examplesUi } from './lib/store/examples-ui.svelte';
+  import ProToBasicDialog from './components/shell/ProToBasicDialog.svelte';
+  import {
+    currentWorkspace, enterPlane, enterPro, enterSpace, leaveProInPlace, needsBasicCopy, openBasicCopy,
+    type Workspace,
+  } from './lib/store/workspace-switch';
   import { shellLayout } from './lib/store/shell-layout.svelte';
 
   /**
@@ -709,13 +714,56 @@
 
   function startTutorial(id: string) {
     if (uiStore.appMode === 'basico') { startDemo(id); return; }
-    switchAppMode('basico');
+    tabManager.createTab();
+    uiStore.analysisMode = '2d';
+    syncModeRoute();
     setTimeout(() => startDemo(id), 400);
+  }
+
+  /** The address follows the mode of the tab on screen. */
+  function syncModeRoute() {
+    currentAppMode = uiStore.appMode;
+    replaceAppUrl(currentAppMode, modelStore.model.name);
+  }
+
+  /** Which mode the tab is shown in, and what it takes to change it. */
+  const workspace = $derived(currentWorkspace());
+  let downgradeTo = $state<'space' | 'plane' | null>(null);
+
+  function switchWorkspace(target: Workspace) {
+    const from = currentWorkspace();
+    if (from === target) return;
+    if (target === 'pro') {
+      enterPro();
+      uiStore.proPanelVisible = true;
+      uiStore.rightDrawerOpen = false;
+    } else if (from === 'pro') {
+      if (needsBasicCopy()) { downgradeTo = target; return; }
+      leaveProInPlace();
+      if (target === 'plane' && enterPlane() === 'ask') uiStore.switchTo2DPrompt = true;
+    } else if (target === 'space') {
+      enterSpace();
+    } else if (enterPlane() === 'ask') {
+      uiStore.switchTo2DPrompt = true;
+    }
+    syncModeRoute();
+  }
+
+  function copyToBasic() {
+    const target = downgradeTo;
+    downgradeTo = null;
+    openBasicCopy(t('downgrade.copySuffix'));
+    if (target === 'plane' && enterPlane() === 'ask') uiStore.switchTo2DPrompt = true;
+    syncModeRoute();
   }
 
   function switchAppMode(target: AppMode) {
     const prev = currentAppMode;
     if (target === prev) return;
+    if (target !== 'educativo' && prev !== 'educativo') {
+      switchWorkspace(target === 'pro' ? 'pro' : uiStore.is3DWorkspace ? 'space' : 'plane');
+      return;
+    }
     // Save current model into the mode we're leaving
     modeSnapshots.set(prev, modelStore.snapshot());
     // Clear results + UI state
@@ -847,6 +895,19 @@
 
   // In the viewer nothing is edited from the keyboard, and the command search is the editor's.
   const publicActive = $derived(showLanding || showBlog || showExperiment || showPaper);
+
+  /* Switching to a tab in another mode moves the address with it; the mode a page opens in is the route's. */
+  let shownTab: string | null = null;
+  $effect(() => {
+    const id = tabManager.activeTabId;
+    untrack(() => {
+      const switched = shownTab !== null && id !== shownTab;
+      shownTab = id;
+      const mode = uiStore.appMode;
+      if (!switched || publicActive || mode === currentAppMode || mode === 'educativo' || currentAppMode === 'educativo') return;
+      syncModeRoute();
+    });
+  });
   const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode);
   provideEditorActivity(() => editorActive);
   $effect(() => { if (publicActive) return manualPublicScrollRestoration(); document.documentElement.lang = t('file.htmlLang'); });
@@ -1395,10 +1456,13 @@
       /* REMOVED, not zeroed: Basic's panel publishes the same property, and
          writing 0 here would overwrite the width it had just announced. */
       root.style.removeProperty('--st-right-panel-w');
+      root.style.removeProperty('--st-left-panel-w');
       return;
     }
-    const w = uiStore.proPanelVisible && shellLayout.panelSide === 'right' ? uiStore.proPanelWidth : 0;
-    root.style.setProperty('--st-right-panel-w', `${w}px`);
+    const w = uiStore.proPanelVisible ? uiStore.proPanelWidth : 0;
+    const left = shellLayout.panelSide === 'left' && !uiStore.isMobile;
+    root.style.setProperty('--st-right-panel-w', `${left ? 0 : w}px`);
+    root.style.setProperty('--st-left-panel-w', `${left ? w : 0}px`);
   });
 
   /*
@@ -1543,9 +1607,19 @@
       {#if eduStore.isHandout}
         <span class="handout-title" data-testid="edu-handout-title">{eduStore.exercise?.title}</span>
       {:else if uiStore.isMobile}
-        <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
-          <option value="basico">{t('app.modeBasic')}</option>
-          <option value="pro">{t('app.modePro')}</option>
+        <select
+          class="mode-select-mobile"
+          value={uiStore.appMode === 'educativo' ? 'educativo' : workspace}
+          onchange={(e) => {
+            const v = e.currentTarget.value;
+            if (v === 'educativo') switchAppMode('educativo');
+            else switchWorkspace(v as Workspace);
+            e.currentTarget.value = uiStore.appMode === 'educativo' ? 'educativo' : currentWorkspace();
+          }}
+        >
+          <option value="plane">{t('appShell.modePlane')}</option>
+          <option value="space">{t('appShell.modeSpace')}</option>
+          <option value="pro">{t('appShell.modeProfessional')}</option>
           <!--
             Educational is not offered here any more; see the toggle below.
             The option is still RENDERED when that is where you already are,
@@ -1784,7 +1858,7 @@
       <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
     {:else}
       <div class="ribbon-shell">
-        <WorkspaceSwitch mode="basico" onSwitch={switchAppMode} />
+        <WorkspaceSwitch current={workspace} onSwitch={switchWorkspace} />
         <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
       </div>
     {/if}
@@ -1822,7 +1896,7 @@
 
     {#if uiStore.appMode === 'pro' && !uiStore.isMobile && !uiStore.viewerMode}
       <div class="ribbon-shell">
-        <WorkspaceSwitch mode="pro" onSwitch={switchAppMode} />
+        <WorkspaceSwitch current={workspace} onSwitch={switchWorkspace} />
         <ProRibbon
           onSolve={() => { uiStore.proPanelVisible = true; proPanelRef?.solve(); }}
           onReport={() => { uiStore.proPanelVisible = true; proPanelRef?.report(); }}
@@ -2275,6 +2349,9 @@
     {/if}
   {/if}
   {#if __PUBLIC_FEATURES__.accounts && accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
+  {#if downgradeTo}
+    <ProToBasicDialog target={downgradeTo} onCopy={copyToBasic} onStay={() => (downgradeTo = null)} />
+  {/if}
   {#if uiStore.appMode === 'basico' || uiStore.appMode === 'pro'}
     {#if examplesUi.view === 'examples'}<ExamplesDialog mode={uiStore.appMode === 'pro' ? 'pro' : 'basico'} />{/if}
     {#if examplesUi.view === 'tutorials'}<TutorialsDialog onStart={startTutorial} />{/if}

@@ -29,7 +29,7 @@ async function bootBasic(page: Page) {
   await page.addInitScript(() => {
     try {
       if (!sessionStorage.getItem('e2e-storage-cleared')) {
-        localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off');
+        localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right');
         sessionStorage.setItem('e2e-storage-cleared', '1');
       }
     } catch { /* private mode */ }
@@ -114,8 +114,8 @@ test.describe('@smoke Educational inside Basic — the way in', () => {
 
   test('the mode switcher no longer offers it, and its address still opens', async ({ page }) => {
     await bootBasic(page);
-    // Two modes in the toggle, not three: it is not a third place to be.
-    await expect(page.locator('.mode-toggle button')).toHaveCount(2);
+    // Basic 2D, Basic 3D and Professional, and no Educational: it is not a place of its own.
+    await expect(page.locator('.mode-toggle button')).toHaveCount(3);
     await expect(page.locator('.mode-toggle')).not.toHaveText(/educaç|educat/i);
 
     // The destination survives the way in being removed — handed-out links are links.
