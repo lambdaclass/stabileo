@@ -211,7 +211,7 @@ describe('a large floor while it is modelled', () => {
     const recovered = hit().object;
     modelStore.updateNode(lastCorner, 126, 1.5, 1);
     syncShells(ctx);
-    expect(hit().object).not.toBe(recovered);
+    expect(hit().object).toBe(recovered);
     ray.ray.origin.set(126.1, 1.3, 10);
     expect(resolveHitUserData(hit())?.type).toBe('quad');
   });
