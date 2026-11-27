@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as engine from '../../../lib/engine/wasm-solver';
 import { defaults, type Outcome, type Values } from '../define';
 import { rcColumn, build as buildColumn, squashLoad, balancedPoint, beta1, tieSpacing, barsFit, barsTied, clearSpacing } from '../rc-column';
-import { outrigger, build as buildOutrigger, closedForm as outriggerClosedForm, coreInertia, CONCRETE_E } from '../outrigger';
+import { outrigger, build as buildOutrigger, closedForm as outriggerClosedForm, sweep as outriggerSweep, coreInertia, CONCRETE_E } from '../outrigger';
 import { tower, cantileverRoots, closedForm as towerClosedForm, tube, STEEL } from '../tower';
 
 beforeAll(async () => { await engine.initSolver(); });
@@ -89,6 +89,26 @@ describe('rc-column bar layout', () => {
 });
 
 describe('outrigger', () => {
+  it.skip('known wrong result: #1927 — the drift sweep solves only the core spans between attachments', () => {
+    const values = { ...defaults(outrigger.params), storeys: 15 };
+    let level = 0;
+    const points = outriggerSweep(values, { ...engine, solve(input) {
+      level++;
+      const full = buildOutrigger(values, level);
+      const spans = [...input.elements.values()].filter(member => member.sectionId === 1);
+      expect(spans).toHaveLength(level === values.storeys ? 1 : 2);
+      expect(input.loads).toHaveLength(spans.length);
+      const result = engine.solve(input);
+      const atRoof = (r: typeof result) => r.displacements.find(d => d.nodeId === values.storeys + 1)!.ux;
+      const expected = atRoof(engine.solve(full));
+      expect(atRoof(result) / expected).toBeCloseTo(1, 9);
+      expect(atRoof(result) / outriggerClosedForm(values, level).drift).toBeCloseTo(1, 9);
+      return result;
+    } });
+    expect(level).toBe(values.storeys);
+    expect(points.map(([z]) => z)).toEqual(Array.from({ length: values.storeys }, (_, k) => (k + 1) * values.storeyHeight));
+  });
+
   it('top drift without an outrigger is wH⁴/8EI', () => {
     const out = run(outrigger);
     expect(gap(out, 'bareDrift')).toBeLessThan(1e-6);
