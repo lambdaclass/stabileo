@@ -194,14 +194,13 @@ export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boo
       for (const p of g.members.plates ?? []) hostOf.set(`p${p}`, g.id);
     }
     const nameOf = plateNamer();
+    const retained: number[] = [];
     const gone: number[] = [];
     const loadDefs: Array<{ plate: number; caseId: number; q: number }> = [];
     for (const panel of panels) {
       const loops = panelLoops(panel);
       if (!loops) continue;
       const [outer, ...holes] = loops as [number[], ...number[][]];
-      const inLoops = new Set(loops.flat());
-      const owned = opts.keepMesh === false ? [] : [...new Set(panel.flatMap((s) => s.nodes))].filter((n) => !inLoops.has(n));
       const edge = panel.flatMap((s) => s.nodes.map((a, k) => len(sub(pos(s.nodes[(k + 1) % s.nodes.length]!), pos(a)))));
       const mean = Math.max(0.05, Math.round((edge.reduce((a, b) => a + b, 0) / edge.length) / 0.05) * 0.05);
       // A panel of a few shells (one for a whole bay) is no mesh to keep the size of; a real mesh keeps its own.
@@ -212,14 +211,21 @@ export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boo
       const hostSides = (() => { const h = hostOf.get(panel[0]!.key); const g = h !== undefined ? modelStore.model.groups.get(h) : undefined; return g ? (physicalDataOf(g) as { surface?: PlateSurface } | null)?.surface?.edgeSupports : undefined; })();
       const edgeSupports = hostSides ?? [];
       const surface: PlateSurface = { loops: loops.map((l) => l.length), materialId: panel[0]!.materialId, thickness: panel[0]!.thickness, mesh: { ...DEFAULT_PLATE_MESH, size }, edgeSupports, ...(curved ? { curved } : {}), ...(offset ? { offset } : {}) };
-      const members = { nodes: [...outer, ...holes.flat(), ...owned], quads: opts.keepMesh === false ? [] : panel.filter((s) => s.kind === 'quad').map((s) => s.id), plates: opts.keepMesh === false ? [] : panel.filter((s) => s.kind === 'plate').map((s) => s.id) };
-      const geo = plateGeometry({ nodes: modelStore.nodes, elements: modelStore.elements }, { id: 0, members, data: { surface } });
+      const boundary = [...outer, ...holes.flat()];
+      const geo = plateGeometry({ nodes: modelStore.nodes, elements: modelStore.elements }, { id: 0, members: { nodes: boundary }, data: { surface } });
       if (!geo) continue;
       const hostId = hostOf.get(panel[0]!.key);
       const host = hostId !== undefined && panel.every((s) => hostOf.get(s.key) === hostId) ? modelStore.model.groups.get(hostId) : undefined;
       const own = host ? physicalDataOf(host) : null;
       const { meshAtSolve: _m, ...kept } = (own ?? {}) as PhysicalData;
-      const physical = { ...(own ? kept : { kind: plateKindOf(geo), provenance: opts.inferred ? 'inferred' as const : 'declared' as const, ...plateLevels(members.nodes) }), surface };
+      const kind = own?.kind ?? plateKindOf(geo);
+      const keys = panel.map(shell => shell.key);
+      const transferable = opts.keepMesh === false && kind === 'slab' ? uniformLoads(keys, areaLoads) : { gone: [], cases: [] };
+      const keepMesh = opts.keepMesh !== false || shellLoadCount(keys) !== transferable.gone.length;
+      const inLoops = new Set(boundary);
+      const owned = keepMesh ? [...new Set(panel.flatMap(s => s.nodes))].filter(n => !inLoops.has(n)) : [];
+      const members = { nodes: [...boundary, ...owned], quads: keepMesh ? panel.filter(s => s.kind === 'quad').map(s => s.id) : [], plates: keepMesh ? panel.filter(s => s.kind === 'plate').map(s => s.id) : [] };
+      const physical = { ...(own ? kept : { kind, provenance: opts.inferred ? 'inferred' as const : 'declared' as const, ...plateLevels(members.nodes) }), surface };
       let id: number;
       if (host && own && (host.members.quads?.length ?? 0) + (host.members.plates?.length ?? 0) === panel.length) {
         id = host.id;
@@ -232,12 +238,12 @@ export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boo
         }
         id = modelStore.addGroup(nameOf(physical.kind), 'physicalMember', members, { data: physical as unknown as Record<string, unknown> });
       }
-      if (physical.kind === 'slab' && opts.keepMesh === false) {
-        const u = uniformLoads(panel.map((x) => x.key), areaLoads);
-        gone.push(...u.gone);
-        for (const c of u.cases) loadDefs.push({ plate: id, caseId: c.caseId, q: c.q });
+      if (physical.kind === 'slab' && !keepMesh) {
+        gone.push(...transferable.gone);
+        for (const c of transferable.cases) loadDefs.push({ plate: id, caseId: c.caseId, q: c.q });
       }
-      if (opts.keepMesh === false) {
+      if (keepMesh) retained.push(id);
+      else {
         for (const s of panel) {
           for (const l of [...modelStore.loads]) if (l.type === 'surface3d' || l.type === 'thermalQuad3d') {
             const d = l.data as { quadId: number; on?: string; id: number };
@@ -254,7 +260,7 @@ export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boo
       syncDefinedLoads();
     }
     // A plate's signature reads the nodes every plate's mesh owns, so each conversion can put the others out of date: settled once all are in.
-    if (opts.keepMesh !== false) for (const id of out) adoptCurrentMesh(id, { original: opts.size === undefined });
+    for (const id of retained) adoptCurrentMesh(id, { original: opts.size === undefined });
     for (const id of current) if (plateStatus(id) === 'stale') adoptCurrentMesh(id);
   });
   return out;
@@ -289,7 +295,7 @@ export function platesFromMeshAtSolve(): number {
       if (!d?.meshAtSolve) continue;
       const keys = [...(g.members.quads ?? []).map((q) => `q${q}`), ...(g.members.plates ?? []).map((p) => `p${p}`)];
       // A load the plate cannot take over (varying, partial, thermal) keeps the slab's own shells, so it is not lost.
-      const keepMesh = d.meshAtSolve.meshed || shellLoadCount(keys) > uniformLoads(keys, shellAreaLoads()).gone.length;
+      const keepMesh = d.meshAtSolve.meshed;
       if (platesFromShells(keys, { keepMesh, size: d.meshAtSolve.size }).length) n++;
       else { const { meshAtSolve: _m, ...rest } = d; modelStore.setGroupData(g.id, rest as unknown as Record<string, unknown>); }
     }

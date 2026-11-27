@@ -1,3 +1,4 @@
+import { scenarioSurfaceIntentOf } from '../engine/accounting-source';
 import { unifiedPlates } from '../features';
 import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, plateMeshGeometry, type PlateStatus } from '../model/physical/plate-analysis';
 import { plateRemeshMessage, wallSlabRefusal } from '../engine/plate-analysis-refusal';
@@ -667,7 +668,7 @@ export function uniformLoads(keys: readonly string[], byShell: ReadonlyMap<strin
   for (const [caseId, list] of byCase) {
     if (caseId < 0 || list.length !== keys.length || new Set(list.map((x) => x.key)).size !== keys.length) continue;
     const q = list[0]!.q;
-    if (!Number.isFinite(q) || list.some((x) => Math.abs(x.q - q) > 1e-12)) continue;
+    if (!Number.isFinite(q) || list.some((x) => x.q !== q)) continue;
     gone.push(...list.map((x) => x.id));
     cases.push({ caseId, q, ids: list.map((x) => x.id) });
   }
@@ -682,7 +683,7 @@ export function shellAreaLoads(): Map<string, Array<{ id: number; caseId: number
     const d = l.data as SurfaceLoad3D;
     const key = `${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`;
     // A load without a case is in case 1, as everywhere loads are read (`load-ops.ts`).
-    (out.get(key) ?? out.set(key, []).get(key)!).push({ id: d.id, caseId: d.caseId ?? 1, q: plain(d) ? d.q : NaN });
+    (out.get(key) ?? out.set(key, []).get(key)!).push({ id: d.id, caseId: d.caseId ?? 1, q: plain(d) && !scenarioSurfaceIntentOf(l) ? d.q : NaN });
   }
   return out;
 }

@@ -69,7 +69,7 @@ describe('shells already in a model made plates', () => {
     expect(fz(solve())).toBeCloseTo(30, 6);
   });
 
-  it.skip.each(['scenario', 'corner values', 'unequal pressure'] as const)(
+  it.each(['scenario', 'corner values', 'unequal pressure'] as const)(
     'known wrong result: #2479 retains the shell mesh when a %s load cannot become one slab pressure', kind => {
       const { quads } = grid(2, 1);
       const loads = modelStore.model.loads;
