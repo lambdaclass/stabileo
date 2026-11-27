@@ -1,3 +1,7 @@
+#[path = "../../../../tools/evidence_freshness.rs"]
+mod evidence_freshness;
+use evidence_freshness::close;
+
 use cut_strip_feher_2026::{exact, load_cycle, loaded_height, prepare, Strip, CYCLE_LOAD_STEP, HEIGHT_INCREMENT, LENGTH};
 use serde_json::{json, Value};
 
@@ -19,22 +23,6 @@ fn row(id: &str, name: String, source: String, unit: &str, reference: Option<f64
         result["status"] = json!("unresolved");
     }
     result
-}
-
-fn close(a: &Value, b: &Value, path: &str) -> Result<(), String> {
-    match (a, b) {
-        (Value::Number(x), Value::Number(y)) => {
-            if path.ends_with(".reference") || path.ends_with(".tolerance") || x.is_i64() || x.is_u64() || y.is_i64() || y.is_u64() {
-                return if x == y { Ok(()) } else { Err(format!("{path}: {x} (committed {y})")) };
-            }
-            let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
-            if (x - y).abs() <= 1e-12 + 1e-6 * y.abs() { Ok(()) } else { Err(format!("{path}: {x} (committed {y})")) }
-        }
-        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => x.iter().zip(y).enumerate().try_for_each(|(i, (p, q))| close(p, q, &format!("{path}[{i}]"))),
-        (Value::Object(x), Value::Object(y)) if x.len() == y.len() => x.iter().try_for_each(|(k, p)| y.get(k).map_or(Err(format!("{path}.{k} missing")), |q| close(p, q, &format!("{path}.{k}")))),
-        _ if a == b => Ok(()),
-        _ => Err(format!("{path}: {a} (committed {b})")),
-    }
 }
 
 fn observed_switch(cycle: &Value, back: bool) -> Option<f64> {
@@ -127,17 +115,6 @@ fn main() {
 }
 
 #[test]
-fn paper_fields_are_exact_even_within_solver_roundoff() {
-    let row = json!({"reference": 4.2, "computed": 4.2, "tolerance": 0.06, "points": 10});
-    for field in ["reference", "tolerance"] {
-        let mut stored = row.clone();
-        stored[field] = json!(row[field].as_f64().unwrap() * 1.0000005);
-        assert!(close(&row, &stored, "checks[0]").is_err(), "{field}");
-    }
-    assert!(close(&row, &row, "checks[0]").is_ok());
-}
-
-#[test]
 fn empty_digitized_branch_has_no_limit_in_either_direction() {
     for back in [false, true] {
         assert_eq!(paper_extremum(&[], back), None);
@@ -160,17 +137,4 @@ fn publication_reports_all_required_verdicts() {
     assert!(reproduced(&rows));
     rows[0]["passed"] = json!(false);
     assert!(!reproduced(&rows));
-}
-
-#[test]
-#[ignore = "known wrong result: #2505"]
-fn paper_coordinates_and_unrecognized_quantities_are_exact() {
-    let mut accepted = Vec::new();
-    for field in ["reference_delta", "paper_theta", "paper_delta", "new_quantity"] {
-        let fresh = json!({field: 1.36});
-        let stale = json!({field: 1.360001});
-        if close(&fresh, &stale, "row").is_ok() { accepted.push(field); }
-    }
-    assert!(accepted.is_empty(), "stale fields accepted: {accepted:?}");
-    assert!(close(&json!({"computed_delta": 1.36}), &json!({"computed_delta": 1.360001}), "row").is_ok());
 }
