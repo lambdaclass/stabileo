@@ -1,6 +1,10 @@
+from hashlib import sha256
+import json
+import os
 import pathlib
 import re
 import subprocess
+import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -60,12 +64,38 @@ class CiAggregate(unittest.TestCase):
             self.assertNotIn('stop-failed-run.yml', jobs[name])
         self.assertIn('make check.web.production-parity', jobs['production-parity'])
 
+    def test_pr_parity_uses_one_merge_base_from_the_actual_pr_head(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertEqual(workflow.count('github.event.pull_request.base.sha'), 0,
+                         'a long-lived PR can carry a stale event base')
+        jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow.split('\njobs:\n', 1)[1], re.M))
+        changes = jobs['changes']
+        self.assertIn('base: ${{ steps.base.outputs.sha }}', changes)
+        self.assertIn('PR_HEAD: ${{ github.event.pull_request.head.sha }}', changes)
+        self.assertIn('QUEUE_BASE: ${{ github.event.merge_group.base_sha }}', changes)
+        self.assertIn('git merge-base "$PR_HEAD" "refs/remotes/origin/$GITHUB_BASE_REF"', changes)
+        self.assertIn('BASE_SHA: ${{ steps.base.outputs.sha }}', changes)
+        self.assertIn('BASE: ${{ steps.base.outputs.sha }}', changes)
+        self.assertIn('CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}', changes)
+        self.assertIn('parity_snapshots: ${{ steps.parity.outputs.snapshots }}', changes)
+        self.assertIn('parity_research_builds: ${{ steps.parity.outputs.research_builds }}', changes)
+        self.assertIn('fetch-depth: 0', changes)
+        for job in ['production-parity-research', 'production-parity-build', 'production-parity']:
+            base = 'matrix.base' if job == 'production-parity-research' else 'matrix.snapshot.base'
+            self.assertIn('BASE: ${{ ' + base + ' }}', jobs[job], job)
+            if job != 'production-parity-research':
+                self.assertIn('snapshot: ${{ fromJSON(needs.changes.outputs.parity_snapshots) }}', jobs[job], job)
+            self.assertIn('CANDIDATE: ${{ github.sha }}', jobs[job], job)
+            self.assertIn("REQUIRE_PARITY: '1'", jobs[job], job)
+            self.assertNotRegex(jobs[job], r'(?m)^          ref:')
+            self.assertIn('fetch-depth: 0', jobs[job], job)
+
     def test_parity_runs_both_snapshots_off_the_web_build_runner(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow.split('\njobs:\n', 1)[1], re.M))
         self.assertNotIn('check.web.production-parity', jobs['web-build'])
         self.assertIn('side: [reference, candidate]', jobs['production-parity-build'])
-        self.assertIn('needs: [production-parity-build]', jobs['production-parity'])
+        self.assertIn('needs: [changes, production-parity-build]', jobs['production-parity'])
         for job in ['production-parity-build', 'production-parity']:
             for aggregate in ['ci-ok', 'superseded']:
                 self.assertRegex(jobs[aggregate], rf'(?m)^      - {job}$')
@@ -75,7 +105,12 @@ class CiAggregate(unittest.TestCase):
         jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow, re.M))
         research = jobs['production-parity-research']
         site = jobs['production-parity-build']
-        self.assertIn('fromJSON(needs.changes.outputs.parity_research_sides)', research)
+        self.assertIn('include: ${{ fromJSON(needs.changes.outputs.parity_research_builds) }}', research)
+        self.assertIn('name: parity-research-${{ matrix.base }}-${{ matrix.side }}', research)
+        self.assertIn('name: parity-research-${{ matrix.snapshot.base }}-', site)
+        self.assertIn('contains(matrix.snapshot.research_sides,', site)
+        self.assertIn('name: production-parity-${{ matrix.snapshot.base }}-${{ matrix.side }}', site)
+        self.assertIn('pattern: production-parity-${{ matrix.snapshot.base }}-*', jobs['production-parity'])
         self.assertIn('PARITY_RESEARCH_OUT=', research)
         self.assertIn('needs: [changes, production-parity-research]', site)
         self.assertIn('PARITY_RESEARCH_IN=', site)
@@ -106,6 +141,287 @@ class CiAggregate(unittest.TestCase):
     def test_wasm_builder_installs_clang_before_compilation(self):
         stage = (ROOT / 'Dockerfile').read_text().split('AS wasm-builder', 1)[1].split('AS web-builder', 1)[0]
         self.assertRegex(stage.split('wasm-pack build', 1)[0], r'apt-get install[^\n]*\bclang\b')
+
+
+class ParityWorkflow(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory(dir=ROOT)
+        self.addCleanup(directory.cleanup)
+        self.repo = pathlib.Path(directory.name)
+        self.env = {key: value for key, value in os.environ.items()
+                    if key not in ('MAKEFLAGS', 'MFLAGS', 'MAKEOVERRIDES', 'MAKELEVEL')}
+        self.output = self.repo / 'github-output'
+        self.git('init', '--quiet', '-b', 'target')
+        self.git('config', 'user.name', 'Parity workflow fixture')
+        self.git('config', 'user.email', 'parity@example.invalid')
+        web = self.repo / 'web'
+        (web / 'config').mkdir(parents=True)
+        (web / 'config/features.json').write_text('{"production":{},"test":{}}')
+        (web / 'package-lock.json').write_text('{}')
+        build = 'mkdir dist && cat page > dist/index.html && git rev-parse HEAD >> dist/index.html'
+        (web / 'package.json').write_text(json.dumps({'scripts': {'build': build}}))
+        (web / 'page').write_text('old page\n')
+        (self.repo / 'Makefile').write_text(
+            'wasm:\n\tmkdir -p web/src/lib/wasm\n'
+            '\tprintf glue > web/src/lib/wasm/dedaliano_engine.js\n'
+            '\tprintf solver > web/src/lib/wasm/dedaliano_engine_bg.wasm\n'
+            'research.wasm:\n\tmkdir -p web/public/research-wasm\n'
+            '\tcp web/page web/public/research-wasm/asset\n'
+        )
+        (web / 'caption').write_text('old caption')
+        self.base = self.commit('Published source predating the parity checker')
+        self.git('switch', '--quiet', '-c', 'feature')
+        (web / 'page').write_text('candidate page\n')
+        (web / 'caption').write_text('new caption')
+        self.undeclared = self.commit('Change the production page', '-m', 'Production-Parity: required')
+        self.head = self.commit('Declare the intended production change', '--allow-empty', '-m',
+                                'Production-Change: web/page')
+        self.git('switch', '--quiet', 'target')
+        (self.repo / 'Cargo.lock').write_text('target only')
+        self.queue_base = self.commit('Base recorded for the merge group')
+        target_build = build + ' && cp caption dist/caption'
+        (web / 'package.json').write_text(json.dumps({'scripts': {'build': target_build}}))
+        makefile = (ROOT / 'Makefile').read_text()
+        parity_target = re.search(r'^check\.web\.production-parity:\n.*?(?=\n\n)', makefile, re.M | re.S)[0]
+        with (self.repo / 'Makefile').open('a') as fixture:
+            fixture.write(parity_target + '\n')
+        script = pathlib.Path('scripts/check-production-parity.py')
+        (self.repo / script.parent).mkdir()
+        (self.repo / script).write_bytes((ROOT / script).read_bytes())
+        self.target = self.commit('Add the checker after the group base')
+        self.git('update-ref', 'refs/remotes/origin/target', self.target)
+        self.git('update-ref', 'refs/remotes/origin/main', self.target)
+        self.git('merge', '--quiet', '--no-ff', 'feature', '-m', 'Workflow merge')
+        self.merge = self.git('rev-parse', 'HEAD')
+
+    def git(self, *args):
+        return subprocess.check_output(['git', *args], cwd=self.repo, text=True).strip()
+
+    def commit(self, message, *args):
+        self.git('add', '.')
+        self.git('commit', '--quiet', '-m', message, *args)
+        return self.git('rev-parse', 'HEAD')
+
+    def step(self, step_id, **env):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        step = workflow.split(f'        id: {step_id}\n', 1)[1].split('        run: |\n', 1)[1]
+        script = re.match(r'(?:          [^\n]*\n)+', step).group()
+        self.output.write_text('')
+        return subprocess.run(['bash', '-eo', 'pipefail', '-c', script], cwd=self.repo,
+                              env={**self.env, 'GITHUB_OUTPUT': str(self.output), **env},
+                              text=True, capture_output=True)
+
+    def test_resolver_emits_the_common_ancestor_or_recorded_queue_base(self):
+        for event, expected in [('pull_request', self.base), ('merge_group', self.queue_base)]:
+            with self.subTest(event=event):
+                result = self.step('base', GITHUB_EVENT_NAME=event, PR_HEAD=self.head,
+                                   GITHUB_BASE_REF='target', QUEUE_BASE=self.queue_base)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.output.read_text(), f'sha={expected}\n')
+
+    def test_planner_uses_workflow_tooling_with_an_older_candidate(self):
+        self.git('switch', '--quiet', '-c', 'ordinary-edit', self.base)
+        (self.repo / 'web/page').write_text('ordinary edit')
+        ordinary = self.commit('Edit a page without changing a switch')
+        self.git('switch', '--quiet', '--detach', self.target)
+        self.git('merge', '--quiet', '--no-ff', ordinary, '-m', 'Ordinary workflow merge')
+        ordinary_merge = self.git('rev-parse', 'HEAD')
+        for candidate, merge, required in [(self.head, self.merge, True), (ordinary, ordinary_merge, False)]:
+            with self.subTest(candidate=candidate):
+                self.git('switch', '--quiet', '--detach', merge)
+                result = self.step('parity', BASE=self.base, CANDIDATE=candidate,
+                                   GITHUB_SHA=merge, GITHUB_EVENT_NAME='pull_request')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                if required:
+                    self.assert_plan([self.target])
+                else:
+                    self.assertEqual(self.output.read_text(), 'required=false\n')
+                self.assertEqual(self.git('rev-parse', 'HEAD'), merge)
+
+    def assert_plan(self, bases, sides=('reference', 'candidate')):
+        outputs = dict(line.split('=', 1) for line in self.output.read_text().splitlines())
+        self.assertEqual(set(outputs), {'required', 'snapshots', 'research_builds'})
+        self.assertEqual(outputs['required'], 'true')
+        snapshots = json.loads(outputs['snapshots'])
+        self.assertEqual(snapshots, [{'base': base, 'research_sides': list(sides)} for base in bases])
+        self.assertEqual(json.loads(outputs['research_builds']),
+                         [{'base': base, 'side': side} for base in bases for side in sides])
+        return snapshots
+
+    def parity(self, candidate, *args, succeeds=True):
+        result = subprocess.run(['make', '--silent', 'check.web.production-parity', 'NIX_RUN=',
+                                 f'CANDIDATE={candidate}', *args],
+                                cwd=self.repo, env=self.env, text=True, capture_output=True)
+        if succeeds:
+            self.assertEqual(result.returncode, 0, result.stderr)
+        else:
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+        return result
+
+    def test_required_workflow_builds_detect_an_asset_published_only_by_the_target(self):
+        for event, selection_base, bases in [
+            ('pull_request', self.base, [self.target]),
+            ('merge_group', self.target, [self.target]),
+            ('merge_group', self.queue_base, [self.target, self.queue_base]),
+        ]:
+            with self.subTest(event=event, selection_base=selection_base):
+                result = self.step('parity', BASE=selection_base,
+                                   CANDIDATE=self.head if event == 'pull_request' else self.merge,
+                                   GITHUB_SHA=self.merge, GITHUB_EVENT_NAME=event)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                for snapshot in self.assert_plan(bases):
+                    base = snapshot['base']
+                    args = [f'BASE={base}', 'REQUIRE_PARITY=1']
+                    inventories = self.repo / f'{event}-{selection_base}-{base}'
+                    inventories.mkdir()
+                    for side in snapshot['research_sides']:
+                        asset = inventories / f'research-{side}'
+                        self.parity(self.merge, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_OUT={asset}')
+                        out = inventories / f'{side}.json'
+                        self.parity(self.merge, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_IN={asset}',
+                                    f'PARITY_OUT={out}')
+                        inventory = json.loads(out.read_text())
+                        self.assertEqual((inventory['side'], inventory['base'], inventory['head']),
+                                         (side, base, self.merge))
+                        path = 'web/dist/caption'
+                        if side == 'reference' and base == self.queue_base:
+                            self.assertNotIn(path, inventory['files'])
+                        else:
+                            caption = b'old caption' if side == 'reference' else b'new caption'
+                            self.assertEqual(inventory['files'][path], sha256(caption).hexdigest())
+                    result = self.parity(self.merge, *args, f'PARITY_COMPARE={inventories}', succeeds=False)
+                    self.assertIn('\n  web/dist/caption\n', result.stderr)
+
+    def test_required_pr_with_the_same_opt_in_on_target_builds_matching_artifacts(self):
+        flags = self.repo / 'web/config/features.json'
+        enabled = '{"production":{"example":false},"test":{"example":true}}'
+        self.git('switch', '--quiet', '-c', 'opt-in', self.base)
+        flags.write_text(enabled)
+        head = self.commit('Opt in to the test feature')
+        self.git('switch', '--quiet', '--detach', self.target)
+        flags.write_text(enabled)
+        parent = self.commit('Independently opt in on the target')
+        self.git('merge', '--quiet', '--no-ff', head, '-m', 'Workflow merge')
+        merge = self.git('rev-parse', 'HEAD')
+        args = [f'BASE={parent}', 'REQUIRE_PARITY=1']
+        self.assertEqual(self.parity(merge, f'BASE={parent}', 'PARITY_PLAN=1').stdout, 'false\n')
+        result = self.step('parity', BASE=self.base, CANDIDATE=head,
+                           GITHUB_SHA=merge, GITHUB_EVENT_NAME='pull_request')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_plan([parent], ['reference'])
+        self.parity(merge, *args, 'PARITY_SIDE=reference', 'PARITY_RESEARCH_OUT=shared')
+        for side in ['reference', 'candidate']:
+            self.parity(merge, *args, f'PARITY_SIDE={side}', 'PARITY_RESEARCH_IN=shared', f'PARITY_OUT={side}.json')
+        self.parity(merge, *args, 'PARITY_COMPARE=.')
+
+    def test_clean_merge_can_be_the_only_pair_requiring_parity(self):
+        flags = self.repo / 'web/config/features.json'
+
+        def set_flags(production, test):
+            flags.write_text(json.dumps({'production': {'example': production},
+                                         'development': {'example': False},
+                                         'test': {'example': test}}, indent=2))
+
+        self.git('switch', '--quiet', '--detach', self.target)
+        set_flags(True, True)
+        group_base = self.commit('Enable the feature in production and test')
+        set_flags(True, False)
+        base = self.commit('Turn the test feature off')
+        self.git('switch', '--quiet', '-c', 'test-feature')
+        set_flags(True, True)
+        (self.repo / 'web/caption').write_text('unintended production change')
+        head = self.commit('Turn the test feature on')
+        self.git('switch', '--quiet', '--detach', base)
+        set_flags(False, False)
+        parent = self.commit('Independently turn the production feature off')
+        self.git('merge', '--quiet', '--no-ff', head, '-m', 'Clean workflow merge')
+        merge = self.git('rev-parse', 'HEAD')
+        self.assertEqual(self.parity(merge, f'BASE={parent}', 'PARITY_PLAN=1').stdout, 'true\n')
+        for event, selection_base, selection_head, bases in [
+            ('pull_request', base, head, [parent]),
+            ('merge_group', group_base, merge, [parent, group_base]),
+        ]:
+            with self.subTest(event=event):
+                self.assertEqual(self.parity(selection_head, f'BASE={selection_base}', 'PARITY_PLAN=1').stdout,
+                                 'false\n')
+                plan = self.step('parity', BASE=selection_base, CANDIDATE=selection_head,
+                                 GITHUB_SHA=merge, GITHUB_EVENT_NAME=event)
+                self.assertEqual(plan.returncode, 0, plan.stderr)
+                self.assert_plan(bases)
+        result = self.parity(merge, f'BASE={parent}', succeeds=False)
+        self.assertIn('\n  web/dist/caption\n', result.stderr)
+
+    def test_declared_pr_edit_already_on_target_needs_no_replay(self):
+        self.git('switch', '--quiet', '--detach', self.target)
+        (self.repo / 'web/page').write_text('candidate page\n')
+        parent = self.commit('Independently land the declared page edit')
+        self.git('merge', '--quiet', '--no-ff', self.head, '-m', 'Workflow merge')
+        merge = self.git('rev-parse', 'HEAD')
+        args = [f'BASE={parent}', 'REQUIRE_PARITY=1']
+        for side in ['reference', 'candidate']:
+            self.parity(merge, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_OUT=research-{side}')
+            self.assertEqual((self.repo / f'research-{side}/assets/asset').read_text(), 'candidate page\n')
+            self.parity(merge, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_IN=research-{side}',
+                        f'PARITY_OUT={side}.json')
+            files = json.loads((self.repo / f'{side}.json').read_text())['files']
+            self.assertEqual(files['web/dist/index.html'], sha256(f'candidate page\n{merge}\n'.encode()).hexdigest())
+        for mode in [('PARITY_COMPARE=.',), ()]:
+            result = self.parity(merge, *args, *mode, succeeds=False)
+            self.assertIn('(1 output files):\n  web/dist/caption\n', result.stderr)
+
+    def test_matching_target_edit_and_outstanding_declaration_pass_together(self):
+        self.git('switch', '--quiet', '--detach', self.head)
+        head = self.commit('Declare the caption too', '--allow-empty', '-m', 'Production-Change: web/caption')
+        self.git('switch', '--quiet', '--detach', self.target)
+        (self.repo / 'web/page').write_text('candidate page\n')
+        parent = self.commit('Independently land the declared page edit')
+        self.git('merge', '--quiet', '--no-ff', head, '-m', 'Workflow merge')
+        merge = self.git('rev-parse', 'HEAD')
+        for base in [parent, self.target]:
+            with self.subTest(base=base):
+                self.parity(merge, f'BASE={base}', 'REQUIRE_PARITY=1')
+
+    def test_target_only_edit_cannot_validate_a_pr_declaration(self):
+        self.git('switch', '--quiet', '--detach', self.head)
+        head = self.commit('Declare a path untouched by the PR', '--allow-empty', '-m',
+                           'Production-Change: web/package.json')
+        self.git('switch', '--quiet', '--detach', self.target)
+        self.git('merge', '--quiet', '--no-ff', head, '-m', 'Workflow merge')
+        merge = self.git('rev-parse', 'HEAD')
+        for base in [self.target, self.queue_base]:
+            with self.subTest(base=base):
+                result = self.parity(merge, f'BASE={base}', 'REQUIRE_PARITY=1', succeeds=False)
+                self.assertIn('Production-Change trailers must name actual changed paths', result.stderr)
+
+    def test_candidate_defaults_to_merge_base_and_honours_explicit_base(self):
+        for base in [self.queue_base, 'origin/main']:
+            with self.subTest(base=base):
+                result = self.parity(self.head, f'BASE={base}', succeeds=False)
+                self.assertIn('engine inputs differ from the reference:\n  Cargo.lock', result.stderr)
+        self.parity(self.head)
+
+    def assert_page_snapshots(self, head, reference_page, *args):
+        for side, page in [('reference', reference_page), ('candidate', 'candidate page')]:
+            self.parity(head, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_OUT=research-{side}')
+            self.assertEqual((self.repo / f'research-{side}/assets/asset').read_text(), f'{page}\n')
+            self.parity(head, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_IN=research-{side}',
+                        f'PARITY_OUT={side}.json')
+            inventory = json.loads((self.repo / f'{side}.json').read_text())
+            self.assertEqual((inventory['side'], inventory['base'], inventory['head']), (side, self.base, head))
+            expected = sha256(f'{page}\n{head}\n'.encode()).hexdigest()
+            self.assertEqual(inventory['files']['web/dist/index.html'], expected)
+
+    def test_split_jobs_build_and_compare_the_two_source_snapshots(self):
+        base = f'BASE={self.base}'
+        self.assert_page_snapshots(self.head, 'candidate page', base)
+        self.parity(self.head, base, 'PARITY_COMPARE=.')
+        self.parity(self.head, base)
+
+    def test_split_jobs_reject_an_undeclared_page_change(self):
+        self.assert_page_snapshots(self.undeclared, 'old page')
+        result = self.parity(self.undeclared, 'PARITY_COMPARE=.', succeeds=False)
+        self.assertIn('Switch-off production differs', result.stderr)
+        self.assertIn('\n  web/dist/index.html\n', result.stderr)
 
 
 if __name__ == '__main__':
