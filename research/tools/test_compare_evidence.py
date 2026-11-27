@@ -29,6 +29,13 @@ def changed(edit):
 
 
 class CompareEvidenceTests(unittest.TestCase):
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_observations_have_the_same_budget_for_both_json_spellings(self):
+        for zero in (0, 0.0):
+            row = {'observed': zero, 'tolerance': 1e-8}
+            self.assertFalse(module.differences(row, {**row, 'observed': 9e-10}))
+            self.assertTrue(module.differences(row, {**row, 'observed': 2e-9}))
+
     def test_identical_evidence_matches(self):
         self.assertEqual(module.differences(EVIDENCE, copy.deepcopy(EVIDENCE)), [])
 

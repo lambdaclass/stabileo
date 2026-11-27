@@ -16,6 +16,33 @@ row = {'name': 'response', 'source': 'paper', 'metric': 'absolute difference', '
 
 
 class PublishedEvidence(unittest.TestCase):
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_scalar_fields_cannot_replace_a_curve(self):
+        for metric in ('absolute distance outside the error bar, largest', 'absolute difference in Y, largest'):
+            self.assertFalse(catalog.valid_checks([{**row, 'metric': metric, 'computed': 1, 'reference': 1}], published=True))
+
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_haukaas_reference_does_not_certify_naviers_paper(self):
+        paper = next(p for p in json.loads((root / 'papers.json').read_text())['papers'] if p['implementation'] == 'benchmarks/navier-plate')
+        self.assertEqual(paper['status'], 'numerically-validated')
+        self.assertFalse(paper['reproduced_published_results'])
+
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_shape_manifest_preserves_digitization_on_regeneration(self):
+        import shutil
+        with tempfile.TemporaryDirectory(dir=root) as tmp:
+            folder = Path(tmp) / 'reference'
+            study = root / 'stability/feher-sipos-varkonyi-2026'
+            shutil.copytree(study / 'reference-results', folder)
+            manifest = folder / 'MANIFEST.json'
+            before = manifest.read_bytes()
+            with (folder / 'fig9c_digitized.json').open('a') as f:
+                f.write(' ')
+            run = subprocess.run([__import__('sys').executable, study / 'record_manifest.py', manifest], capture_output=True)
+            self.assertNotEqual(run.returncode, 0)
+            self.assertIn(b'fig9c_digitized.json', run.stderr)
+            self.assertEqual(manifest.read_bytes(), before)
+
     def test_an_in_tolerance_scalar_still_reports_its_actual_error(self):
         measurement = {**row, 'reference': 1, 'computed': 1 + 5e-10, 'tolerance': 1e-9}
         self.assertFalse(catalog.valid_checks([measurement], published=True))

@@ -10,6 +10,39 @@ spec.loader.exec_module(model)
 
 
 class PublishedTable(unittest.TestCase):
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_each_tip_is_measured_once(self):
+        d = {'nodeId': 8, 'ux': 1, 'uz': -2}
+        data = {'converged': True, 'loadFactor': 1, 'results': {'displacements': [d]}}
+        case = {'tipNode': 8, 'length': 1}
+        self.assertEqual(model.tip(case, {'result': data}), (-1, 2))
+        data['results']['displacements'].append({**d, 'uz': 0})
+        with self.assertRaisesRegex(ValueError, 'tip'):
+            model.tip(case, {'result': data})
+
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_complete_refinement_study_is_independent_of_the_generator(self):
+        data = model.load(model.CASE)
+        native, mesh = [], []
+        for c in data['cases']:
+            u, v = c['reference'] or (0, 0)
+            tip = {'nodeId': c['tipNode'], 'ux': -u*c['length'], 'uz': -v*c['length']}
+            result = {'loadFactor': 1, 'converged': True, 'results': {'displacements': [tip]}}
+            native.append({'id': c['id'], 'result': result})
+            if c['kind'] == 'force' and c['reference']:
+                mesh.extend({'id': c['id'], 'elements': n, 'tipNode': c['tipNode'], 'result': result} for n in (16, 32, 64))
+        original = model.load
+        with patch.object(model, 'load', side_effect=lambda p: data if p == model.CASE else original(p)):
+            expected = model.evidence(native, mesh)
+            data['meshErrorCeilings'].reverse()
+            self.assertEqual(model.evidence(native, mesh[::-1]), expected)
+            for bad in (mesh[:-1], mesh + mesh[:1]):
+                with self.assertRaisesRegex(ValueError, 'mesh'):
+                    model.evidence(native, bad)
+            data['meshErrorCeilings'] = [c for c in data['meshErrorCeilings'] if c['elements'] != 64]
+            with self.assertRaisesRegex(ValueError, 'mesh'):
+                model.evidence(native, [r for r in mesh if r['elements'] != 64])
+
     def test_replay_rejects_an_extra_or_repeated_case(self):
         stored = model.load(model.HERE / 'RESULTS.json')['cases']
         expected = [r['id'] for r in stored]
