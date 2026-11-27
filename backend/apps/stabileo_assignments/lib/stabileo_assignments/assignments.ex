@@ -11,7 +11,7 @@ defmodule StabileoAssignments.Assignments do
   @code_alphabet ~c"23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
   @sortable [:inserted_at, :updated_at, :title, :opens_at, :closes_at]
   @attempt_sortable [:started_at, :submitted_at]
-  @input ~w(title exercise duration_minutes opens_at closes_at reveal)
+  @input ~w(title exercise duration_minutes opens_at closes_at reveal)a
 
   def limits, do: %{max_assignments: @max_assignments}
 
@@ -137,6 +137,7 @@ defmodule StabileoAssignments.Assignments do
 
   @doc "Deletes, with their attempts, assignments #{@retention_days} days past `closes_at`, or past `inserted_at` without one."
   def purge_expired(%DateTime{} = now) do
+    now = DateTime.truncate(now, :second)
     cutoff = DateTime.add(now, -@retention_days, :day)
 
     {:ok, count} =
@@ -213,7 +214,9 @@ defmodule StabileoAssignments.Assignments do
   end
 
   defp attrs(params) do
-    params |> Map.take(@input) |> Map.new(fn {k, v} -> {String.to_existing_atom(k), v} end)
+    for key <- @input, {:ok, value} <- [Map.fetch(params, Atom.to_string(key))], into: %{} do
+      {key, value}
+    end
   end
 
   defp below_limit(account_id) do

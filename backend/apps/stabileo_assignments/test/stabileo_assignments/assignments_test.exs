@@ -29,15 +29,25 @@ defmodule StabileoAssignments.AssignmentsTest do
     assignment
   end
 
-  @tag :skip
   test "known wrong result: #1927 assignment request keys exist when only the context is loaded" do
-    {:ok, {Assignments, [atoms: atoms]}} = :beam_lib.chunks(:code.which(Assignments), [:atoms])
-    interned = MapSet.new(atoms, fn {_index, atom} -> Atom.to_string(atom) end)
-    assert MapSet.subset?(MapSet.new(~w(duration_minutes reveal)), interned)
+    ebin = Assignments |> :code.which() |> List.to_string() |> Path.dirname()
+
+    probe = """
+    {module, _} = code:ensure_loaded('Elixir.StabileoAssignments.Assignments'),
+    [binary_to_existing_atom(K, utf8) || K <- [<<"duration_minutes">>, <<"reveal">>]],
+    halt(0).
+    """
+
+    assert {_output, 0} =
+             System.cmd("erl", ["+S", "1", "-noinput", "-pa", ebin, "-eval", probe],
+               stderr_to_stdout: true,
+               env: [{"ERL_CRASH_DUMP", "/dev/null"}]
+             )
   end
 
-  @tag :skip
-  test "known wrong result: #1927 scheduled retention deletes an expired assignment", %{owner: owner} do
+  test "known wrong result: #1927 scheduled retention deletes an expired assignment", %{
+    owner: owner
+  } do
     a = create!(owner)
     past = DateTime.utc_now() |> DateTime.add(-366, :day) |> DateTime.truncate(:second)
     Repo.update_all(from(row in Assignment, where: row.id == ^a.id), set: [inserted_at: past])
