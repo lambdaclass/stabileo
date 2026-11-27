@@ -48,6 +48,20 @@ describe('which values a registered change declares it moves', () => {
     expect(declaresMove(change('c', ['reactions']), 'base.reactions[n1].fz')).toBe(true);
     expect(declaresMove(refusals, 'solve.ok')).toBe(true);
   });
+  it.skip.each(['base', 'case[2]', 'combo[1]'])('known wrong result: #718 — %s honors an exact summary quantity only for its declared field', prefix => {
+    const quantity = 'resultSummary.secondOrderPhysicalBound';
+    const entry = { ...change('physical-bound'), quantities: [quantity] };
+    for (const [field, covered] of [[quantity, true], ['resultSummary.secondOrderPhysicalBoundExtra', false],
+      ['equilibrium.secondOrderPhysicalBound', false]] as const) {
+      const path = `${prefix}.${field}`;
+      expect(fieldCovered(entry, path, ['plane2D', 'analysis:linear'])).toBe(covered);
+      const verdict = covered ? 'explained' : 'unexplained';
+      expect(judge('added', {}, { [path]: 1 }, [entry]).kind).toBe(verdict);
+      expect(judge('removed', { [path]: 1 }, {}, [entry]).kind).toBe(verdict);
+      expect(judge('changed', { [path]: 1 }, { [path]: 2 }, [entry]).kind).toBe(verdict);
+      expect(judge('unchanged', { [path]: 1 }, { [path]: 1 }, [entry]).kind).toBe('same');
+    }
+  });
   it('NEGATIVE: nothing else', () => {
     expect(declaresMove(shellStresses, 'base.quadStresses[e9].mx')).toBe(false);
     expect(declaresMove(shellStresses, 'base.elementForces[e1].mStart')).toBe(false);
