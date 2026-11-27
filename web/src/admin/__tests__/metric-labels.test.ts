@@ -46,7 +46,7 @@ describe('audit sentences', () => {
   });
 });
 
-it.skip.each(['it', 'en', 'es'] as const)('known wrong result: #2595 — %s identifies the same free-body view in both metrics', async locale => {
+it.each(['it', 'en', 'es'] as const)('known wrong result: #2595 — %s identifies the same free-body view in both metrics', async locale => {
   setLocale(locale);
   await ensureLocale(locale);
   expect(metricLabel('diagrams', 'despiece')).toBe(metricLabel('advanced', 'despiece'));

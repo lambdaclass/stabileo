@@ -292,7 +292,7 @@
     "title": "Connettori: accoppiamento taglio–momento e gradi di libertà propri del modello"
   },
   "constraint-cut-plane": {
-    "explanation": "Un modello 2D ricavato o proiettato da un piano Y–Z o X–Y prima di questa versione manteneva i suoi vincoli come scritti in 3D, e il solutore 2D li leggeva come se il telaio fosse nel piano X–Z: un tirante di traslazione poteva essere scartato o un tirante fuori dal piano applicato in esso (SA-2026-036). Il file non registra il piano da cui è stato ricavato, quindi i suoi vincoli non si possono correggere all’apertura. Ricavalo di nuovo dal modello 3D, oppure calcola in 3D.",
+    "explanation": "Un modello 2D ricavato o proiettato da un piano Y–Z o X–Y prima di questa versione manteneva i suoi vincoli come scritti in 3D, e il solutore 2D li leggeva come se il telaio fosse nel piano X–Z: un vincolo alla traslazione poteva essere scartato o un vincolo fuori piano applicato nel piano (SA-2026-036). Il file non registra il piano da cui è stato ricavato, quindi i suoi vincoli non si possono correggere all’apertura. Ricavalo di nuovo dal modello 3D, oppure calcola in 3D.",
     "title": "Vincoli di un modello 2D ricavato da un piano Y–Z o X–Y"
   },
   "constraint-rounding": {
@@ -1332,7 +1332,7 @@
     "title": "I carichi di neve conservano il loro momento all’attraversamento del colmo"
   },
   "snow-drift-coverage": {
-    "explanation": "I pannelli inclinati collegati ora condividono le fasce di accumulo e scivolamento e il fetch usando le quote effettive dei loro bordi. Le strisce d’influenza inclinate usano la profondità orizzontale. La copertura parziale o scollegata della gronda con scivolamento ora viene rifiutata senza generare carichi di neve. Rigenera i carichi di neve interessati e riesegui analisi, combinazioni e verifiche di progetto (#2095). Questa correzione è inclusa nella 0.6.1.",
+    "explanation": "I pannelli inclinati collegati ora condividono le fasce di accumulo e scivolamento e la distanza di trasporto sopravento usando le quote effettive dei loro bordi. Le strisce d’influenza inclinate usano la profondità orizzontale. La copertura parziale o scollegata della gronda con scivolamento ora viene rifiutata senza generare carichi di neve. Rigenera i carichi di neve interessati e riesegui analisi, combinazioni e verifiche di progetto (#2095). Questa correzione è inclusa nella 0.6.1.",
     "title": "La copertura degli accumuli di neve segue i bordi continui della copertura"
   },
   "snow-fallback-runs": {
@@ -1376,8 +1376,8 @@
     "title": "I casi di neve coprono ogni orientamento del colmo"
   },
   "snow-roof-connectivity": {
-    "explanation": "I collegamenti tra coperture controllano tutti i confini delle superfici prima di estendere il fetch dell’accumulo o ricevere neve scivolata. Le coperture selezionate determinano il proprio telaio di neve, la larghezza e le direzioni. Rigenera i carichi di neve e riesegui analisi, combinazioni e verifiche di progetto (#2095). Questa correzione è inclusa nella 0.6.1.",
-    "title": "Il fetch della neve segue le coperture continue e la geometria selezionata"
+    "explanation": "I collegamenti tra coperture controllano tutti i confini delle superfici prima di estendere la distanza sopravento che alimenta l’accumulo o ricevere neve scivolata. Le coperture selezionate determinano il proprio telaio di neve, la larghezza e le direzioni. Rigenera i carichi di neve e riesegui analisi, combinazioni e verifiche di progetto (#2095). Questa correzione è inclusa nella 0.6.1.",
+    "title": "La distanza di trasporto della neve dipende dalla continuità delle coperture e dalla geometria selezionata"
   },
   "snow-roof-rotation": {
     "explanation": "Una pura rotazione in pianta riduceva del 30% il carico di neve lineare bilanciato generato nel modello testimone conservato. La larghezza della copertura e le luci del carico parziale ora usano gli assi della copertura; lo stesso piano fornisce pendenza e quota. Rigenera i carichi di neve, poi riesegui analisi, combinazioni e verifiche derivate. Ruotare indietro un vecchio modello non è una riparazione (SA-2026-067, #2093). La correzione è inclusa nella 0.6.1.",

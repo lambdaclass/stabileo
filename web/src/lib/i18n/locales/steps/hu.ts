@@ -580,6 +580,7 @@ const stepsHu: Translations = {
   "steps.trusses.compat.globalCheck": "Globális egyensúly",
   "steps.trusses.compat.residual": "A szabad csomópontok legnagyobb egyensúlyi hibái: {force} kN, {moment} kN·m.",
   "steps.trusses.compat.residualOk": "A szabad csomópontok egyensúlyban vannak ✓.",
+  "steps.trusses.compat.globalUnbalanced": "A terhek és a támaszerők nincsenek egyensúlyban.",
   "steps.trusses.compat.residualBad": "A szabad csomópontok egyensúlyi hibája nagyobb, mint amit a kerekítés megmagyaráz.",
   "steps.trusses.compat.momentCaption": "Nyomatéki ábra, a húzott oldalra rajzolva.",
   "steps.trusses.compat.compareNote": "Mindkét számítás ugyanazt a modellt oldja meg ugyanazokkal a merevségekkel, a tengelyirányú alakváltozást is beleértve, ezért a kerekítéstől eltekintve megegyeznek.",

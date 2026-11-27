@@ -19,7 +19,7 @@ const ADVANCED: Record<string, string> = {
 function candidates(kind: UsageBreakdown, value: string): string[] {
   switch (kind) {
     case 'tools': return [`admin.metrics.v.tool.${value}`];
-    case 'diagrams': return [`admin.metrics.v.diagram.${value}`];
+    case 'diagrams': return value === 'despiece' ? [ADVANCED.despiece] : [`admin.metrics.v.diagram.${value}`];
     case 'advanced': return ADVANCED[value] ? [ADVANCED[value]] : [];
     case 'examples': return [`ex.${value}`];
     case 'step_methods': return [`steps.m.${value}.title`];

@@ -1,0 +1,39 @@
+{
+  "id": "compatibility-lesson-force-balance",
+  "date": "2026-11-27",
+  "prs": [
+    2595
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "lesson:compatibility"
+    ]
+  },
+  "title": {
+    "en": "The compatibility lesson checks global force balance",
+    "it": "La lezione di compatibilità verifica l’equilibrio globale delle forze",
+    "es": "La lección de compatibilidad verifica el equilibrio global de fuerzas",
+    "pt": "A lição de compatibilidade verifica o equilíbrio global de forças",
+    "de": "Die Lektion zur Verträglichkeit prüft das globale Kräftegleichgewicht",
+    "fr": "La leçon de compatibilité vérifie l’équilibre global des forces",
+    "tr": "Uygunluk dersi genel kuvvet dengesini denetler",
+    "hu": "A kompatibilitási lecke ellenőrzi az erők globális egyensúlyát",
+    "zh": "协调法课程检查整体力平衡"
+  },
+  "explanation": {
+    "en": "Rebuild copied worksheets. Small axial point loads now contribute to reactions. A nonzero displayed force sum triggers a warning.",
+    "it": "Rigenera i fogli di calcolo copiati. I piccoli carichi assiali concentrati contribuiscono alle reazioni. Una somma delle forze visualizzata diversa da zero genera un avviso.",
+    "es": "Vuelve a generar las hojas copiadas. Las cargas axiales puntuales pequeñas contribuyen a las reacciones. Una suma de fuerzas distinta de cero en pantalla produce un aviso.",
+    "pt": "Gere novamente as folhas copiadas. As pequenas cargas axiais concentradas contribuem para as reações. Uma soma de forças exibida diferente de zero gera um aviso.",
+    "de": "Erstellen Sie übernommene Arbeitsblätter erneut. Kleine axiale Einzellasten gehen in die Auflagerreaktionen ein. Eine angezeigte Kraftsumme ungleich null löst eine Warnung aus.",
+    "fr": "Régénérez les feuilles de calcul copiées. Les petites charges axiales ponctuelles contribuent aux réactions. Une somme des forces affichée non nulle déclenche un avertissement.",
+    "tr": "Kopyalanan çalışma sayfalarını yeniden oluşturun. Küçük eksenel tekil yükler mesnet tepkilerine katılır. Gösterilen kuvvet toplamı sıfırdan farklıysa uyarı verilir.",
+    "hu": "Készítse el újra a kimásolt munkalapokat. A kis tengelyirányú koncentrált erők beleszámítanak a támaszerőkbe. Ha a kijelzett erőösszeg nem nulla, figyelmeztetés jelenik meg.",
+    "zh": "请重新生成已抄录的计算表。微小轴向集中荷载现已计入支座反力。若显示的力之和不为零，将给出警告。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-column-example-and-compatibility.md",
+    "heading": "Global force balance in the compatibility lesson"
+  }
+}

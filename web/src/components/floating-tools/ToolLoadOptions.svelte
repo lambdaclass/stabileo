@@ -7,7 +7,7 @@
 </script>
 
 <script lang="ts">
-  import { planeLettersShown, userAxisText } from '../../lib/axes/user-names';
+  import { planeLettersShown, relabelComponents, userAxisText } from '../../lib/axes/user-names';
   import { caseNameShown } from '../../lib/axes/case-names';
   import { untrack } from 'svelte';
   import ToolGlyph from './ToolGlyph.svelte';
@@ -144,7 +144,7 @@
   >{uiStore.loadIsGlobal ? TWO_D_NODAL_LOAD_LABELS.vertical : 'Fj'}</button>
   <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'my'}
     onclick={() => uiStore.nodalLoadDir = 'my'}
-    title={t('float.loadMomentZ')}
+    title={relabelComponents(t('float.loadMomentZ'))}
   >{TWO_D_NODAL_LOAD_LABELS.moment}</button>
   <label class="ft-input-group">
     <span>{uiStore.nodalLoadDir === 'my' ? 'M:' : 'F:'}</span>

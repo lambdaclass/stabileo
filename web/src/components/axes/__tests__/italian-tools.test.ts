@@ -21,7 +21,7 @@ afterEach(() => {
   setLocale('en');
 });
 
-it.skip.each(['+Z', '+Y'] as const)('known wrong result: #2595 — Italian planar controls with %s up', up => {
+it.each(['+Z', '+Y'] as const)('known wrong result: #2595 — Italian planar controls with %s up', up => {
   axesStore.choice = { ...DEFAULT_AXES, up };
   uiStore.analysisMode = '2d';
   uiStore.loadType = 'nodal';
@@ -35,7 +35,7 @@ it.skip.each(['+Z', '+Y'] as const)('known wrong result: #2595 — Italian plana
   expect(render(ToolLoadOptions).body).toContain(`title="Momento flettente (M${normal})"`);
 });
 
-it.skip.each(['3d', 'pro'] as const)('known wrong result: #2595 — Italian working planes and global moments in %s', mode => {
+it.each(['3d', 'pro'] as const)('known wrong result: #2595 — Italian working planes and global moments in %s', mode => {
   uiStore.analysisMode = mode;
   uiStore.nodeMode = 'create';
   uiStore.loadType = 'nodal';
@@ -45,7 +45,7 @@ it.skip.each(['3d', 'pro'] as const)('known wrong result: #2595 — Italian work
   expect(render(ToolLoadOptions).body).toContain('title="Momento in X"');
 });
 
-it.skip.each(['+Z', '+Y'] as const)('known wrong result: #2595 — the external stability check identifies missing vertical restraint with %s up', up => {
+it.each(['+Z', '+Y'] as const)('known wrong result: #2595 — the external stability check identifies missing vertical restraint with %s up', up => {
   axesStore.choice = { ...DEFAULT_AXES, up };
   const left = modelStore.addNode(0, 0), right = modelStore.addNode(4, 0);
   modelStore.addElement(left, right, 'frame');

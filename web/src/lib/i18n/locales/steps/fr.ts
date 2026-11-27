@@ -580,6 +580,7 @@ const stepsFr: Translations = {
   'steps.trusses.compat.globalCheck': 'Équilibre global',
   'steps.trusses.compat.residual': 'Déséquilibres maximaux aux nœuds libres: {force} kN, {moment} kN·m.',
   'steps.trusses.compat.residualOk': 'Les nœuds libres sont en équilibre ✓.',
+  'steps.trusses.compat.globalUnbalanced': 'Les forces appliquées et les réactions d’appui ne sont pas en équilibre.',
   'steps.trusses.compat.residualBad': 'Le déséquilibre des nœuds libres dépasse ce que les arrondis expliquent.',
   'steps.trusses.compat.momentCaption': 'Diagramme des moments fléchissants, tracé du côté tendu.',
   'steps.trusses.compat.compareNote': 'Les deux calculs résolvent le même modèle avec les mêmes rigidités, déformation axiale incluse, donc ils concordent aux arrondis près.',

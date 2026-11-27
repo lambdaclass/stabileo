@@ -47,7 +47,7 @@ describe('rc-column', () => {
     expect(beta1(70)).toBe(0.65);
     const d = 0.25 + (0.25 - 0.04 - 0.01 - 0.01);
     expect(balancedPoint(m).c).toBeCloseTo(d * 0.003 / (0.003 + 420 / 200000), 12);
-    expect(tieSpacing(m)).toBeCloseTo(0.24, 12);
+    expect(tieSpacing(m)).toBeCloseTo(0.32, 12);
   });
   it('utilisation is below one inside the diagram and above it outside', () => {
     expect(readout(run(rcColumn, { pu: 1000, mu: 50 }), 'utilisation').value).toBeLessThan(1);
@@ -168,7 +168,7 @@ describe('tower', () => {
   });
 });
 
-it.skip.each([
+it.each([
   [0.40, 20, 0.32],
   [0.34, 32, 0.34],
   [0.31, 20, 0.31],

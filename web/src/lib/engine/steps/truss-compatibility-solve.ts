@@ -32,7 +32,7 @@ import type { PlaneModel, PMember } from './plane-model';
 import { loadsOn, membersAt, nodalLoadAt } from './plane-model';
 import { fixedEnd } from './fem';
 import { rref } from './sway-modes';
-import { EPS, nodeName, pinEnded, solveDense } from './truss-common';
+import { nodeName, pinEnded, solveDense } from './truss-common';
 
 export type DofKind = 'ux' | 'uz' | 'ry';
 export interface Dof { node: number; kind: DofKind }
@@ -117,7 +117,7 @@ function fixedEndActs(pm: PlaneModel, m: PMember, kind: MKind): FixedEndActs {
   Mi += dMi; Mj += dMj; Vi += (dMi + dMj) / m.L; Vj -= (dMi + dMj) / m.L;
   // Axial point loads: a fixed bar takes P·b/L in tension before the load and P·a/L in compression after it.
   let Ni = 0, px = 0;
-  for (const l of loads) if (l.kind === 'point' && Math.abs(l.px) > EPS) { Ni += (l.px * (m.L - l.a)) / m.L; px += l.px; }
+  for (const l of loads) if (l.kind === 'point') { Ni += (l.px * (m.L - l.a)) / m.L; px += l.px; }
   return { Mi, Mj, Vi, Vj, Ni, Nj: Ni - px, loaded: true };
 }
 

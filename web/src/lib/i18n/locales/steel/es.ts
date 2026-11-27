@@ -1319,7 +1319,7 @@ const steelEs: Record<string, string> = {
   'steel.b41.c14': 'Alas de secciones doble Te y canales en flexión alrededor del eje débil',
   'steel.b41.c15': 'Almas de secciones Te',
   'steel.b41.c16': 'Almas de secciones doble Te con doble simetría y de canales',
-  'steel.b41.c17': 'Almas de secciones doble Te con simple simetría (λp con hc/hp; aquí el de doble simetría, del lado seguro)',
+  'steel.b41.c17': 'Almas de secciones doble Te con simple simetría (λp con hc/hp; aquí el de doble simetría)',
   'steel.b41.c18': 'Alas de tubos rectangulares y cuadrados de espesor uniforme',
   'steel.b41.c19': 'Platabandas y placas diafragma entre líneas de bulones o soldaduras',
   'steel.b41.c20': 'Almas de tubos rectangulares y cuadrados',

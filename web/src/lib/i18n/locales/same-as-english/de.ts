@@ -60,7 +60,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'bud.ui.name',
   'building.material',
   'c301.d.aeBase',
-  'c301.d.anHoles',
   'c301.d.rupture',
   'c301.d.yield',
   'c301.e.chsQ',

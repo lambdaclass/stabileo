@@ -1317,7 +1317,7 @@ const steelPt: Record<string, string> = {
   'steel.b41.c14': 'Mesas de perfis I e canais em flexão em torno do eixo de menor inércia',
   'steel.b41.c15': 'Almas de seções tê',
   'steel.b41.c16': 'Almas de perfis I duplamente simétricos e de canais',
-  'steel.b41.c17': 'Almas de perfis I monossimétricos (λp com hc/hp; aqui o duplamente simétrico, a favor da segurança)',
+  'steel.b41.c17': 'Almas de perfis I monossimétricos (λp com hc/hp; aqui o duplamente simétrico)',
   'steel.b41.c18': 'Mesas de tubos retangulares e quadrados de espessura uniforme',
   'steel.b41.c19': 'Chapas de cobertura e diafragmas entre linhas de parafusos ou soldas',
   'steel.b41.c20': 'Almas de tubos retangulares e quadrados',

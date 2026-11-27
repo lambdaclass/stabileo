@@ -483,7 +483,7 @@ it.each(['portal-frame', 'truss'])('known wrong result: #2595 — separate free 
 });
 
 describe.each([false, true])('global force balance with inextensible option %s', inextensible => {
-  it.skip.each([
+  it.each([
     [4, 0, 0.49e-9, true],
     [4, 0, 0.5e-9, false],
     [0, 4, -0.51e-9, false],
@@ -512,11 +512,12 @@ describe.each([false, true])('global force balance with inextensible option %s',
     expect(row.result === '0, \\qquad 0').toBe(balanced);
     expect(row.check?.includes('checkmark') ?? false).toBe(balanced);
     expect(blocks.some(b => b.kind === 'note' && b.tone === 'warn' && b.text.key === 'steps.trusses.compat.globalUnbalanced')).toBe(!balanced);
+    expect(blocks.some(b => b.kind === 'note' && b.text.key === 'steps.trusses.compat.residualOk')).toBe(balanced);
     expect(blocks.some(b => b.kind === 'p' && b.text.key === 'steps.trusses.compat.residual')).toBe(true);
   });
 });
 
-it.skip.each([true, false])('known wrong result: #2595 — balances two small axial point loads, inextensible %s', inextensible => {
+it.each([true, false])('known wrong result: #2595 — balances two small axial point loads, inextensible %s', inextensible => {
   const base = modelStore.addNode(0, 0), tip = modelStore.addNode(4, 0);
   const bar = modelStore.addElement(base, tip, 'frame');
   modelStore.addSupport(base, 'fixed');

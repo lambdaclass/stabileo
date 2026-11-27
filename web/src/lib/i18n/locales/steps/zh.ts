@@ -583,6 +583,7 @@ const stepsZh: Translations = {
   "steps.trusses.compat.globalCheck": "整体平衡",
   "steps.trusses.compat.residual": "自由结点的最大不平衡量: {force} kN, {moment} kN·m.",
   "steps.trusses.compat.residualOk": "自由结点处于平衡 ✓。",
+  "steps.trusses.compat.globalUnbalanced": "外力与支座反力不平衡。",
   "steps.trusses.compat.residualBad": "自由结点的不平衡量超出了舍入误差所能解释的范围。",
   "steps.trusses.compat.momentCaption": "弯矩图，绘在受拉一侧。",
   "steps.trusses.compat.compareNote": "两种计算对同一模型采用相同刚度（含轴向变形）求解，因此除舍入外结果一致。",

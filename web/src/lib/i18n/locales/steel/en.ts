@@ -1313,7 +1313,7 @@ const steelEn: Record<string, string> = {
   'steel.b41.c14': 'Flanges of I-shapes and channels bent about the minor axis',
   'steel.b41.c15': 'Stems of tees',
   'steel.b41.c16': 'Webs of doubly symmetric I-shapes and of channels',
-  'steel.b41.c17': 'Webs of singly symmetric I-shapes (λp with hc/hp; here the doubly symmetric one, on the safe side)',
+  'steel.b41.c17': 'Webs of singly symmetric I-shapes (λp with hc/hp; here the doubly symmetric one)',
   'steel.b41.c18': 'Flanges of rectangular and square tubes of uniform thickness',
   'steel.b41.c19': 'Cover plates and diaphragm plates between lines of bolts or welds',
   'steel.b41.c20': 'Webs of rectangular and square tubes',

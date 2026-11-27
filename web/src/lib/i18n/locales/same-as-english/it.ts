@@ -29,7 +29,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "blog.tag.cirsoc",
   "blog.title",
   "c301.d.aeBase",
-  "c301.d.anHoles",
   "c301.e.e4Fcr",
   "c301.e.e4Geometry",
   "c301.e.e4Tee",
