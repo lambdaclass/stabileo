@@ -28,15 +28,13 @@ test('a paper disagreement retains the solved volume and a failed comparison', (
   const published = JSON.parse(readFileSync(new URL('../reference-results/published_comparison.json', import.meta.url))).checks;
   const row = published.find(r => Number(r.id.slice('table1-v5-'.length)) === weight);
   layout.volume = row.reference + 2 * row.tolerance;
-  assert.equal(validateLayout(layout, weight).volume, layout.volume);
+  assert.throws(() => validateLayout(layout, weight), /volume/);
   const comparison = paperComparison(layout, weight);
   assert.equal(comparison.computed, layout.volume);
   assert.equal(comparison.passed, false);
 });
 
-const knownWrong = { skip: process.env.RUN_KNOWN_WRONG ? false : 'known wrong result: #2505' };
-
-test('omitted weight solves the paper case and invalid explicit weights are refused', knownWrong, () => {
+test('omitted weight solves the paper case and invalid explicit weights are refused', () => {
   assert.equal(recompute(), recompute(1.65));
   for (const weight of [NaN, Infinity, -Infinity, 0, -1, 2.5]) {
     assert.throws(() => recompute(weight), /outside/);
@@ -46,6 +44,9 @@ test('omitted weight solves the paper case and invalid explicit weights are refu
 for (const weight of [1.66, 1.85]) {
   for (const [name, mutate] of Object.entries({
     volume: layout => { layout.volume *= 2; },
+    'active member curve': layout => { layout.curves.pop(); },
+    endpoint: layout => { layout.curves[1] = layout.curves[0]; },
+    'Invalid five-node layout': layout => { layout.curves[0][16][3] = -1; },
     elevation: layout => { layout.curves[0][16][2] += 0.5; },
     plan: layout => { layout.curves[0][16][1] += 0.5; },
     equilibrium: layout => {
@@ -54,7 +55,7 @@ for (const weight of [1.66, 1.85]) {
       layout.curves.shift();
     },
   })) {
-    test(`the ${weight} result rejects altered ${name}`, knownWrong, () => {
+    test(`the ${weight} result rejects altered ${name}`, () => {
       const layout = JSON.parse(recompute(weight));
       assert.equal(validateLayout(layout, weight), layout);
       mutate(layout);

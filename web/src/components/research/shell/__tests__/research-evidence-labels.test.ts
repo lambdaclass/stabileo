@@ -32,7 +32,7 @@ it.each(['de', 'fr', 'tr'] as const)('localizes all three research fields in %s'
   }
 });
 
-it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 localizes the exact circle target', () => {
+it('localizes the exact circle target', () => {
   for (const [locale, label] of Object.entries({
     en: 'exact', es: 'exacto', pt: 'exato', de: 'exakt', fr: 'exact', tr: 'kesin', hu: 'egzakt', zh: '精确',
   })) {

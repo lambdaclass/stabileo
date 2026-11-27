@@ -23,9 +23,14 @@ export function validateLayout(value: unknown, unitWeight = PAPER_UNIT_WEIGHT): 
     || !v.curves.every(c => c.length === 33 && c.every(p => p.length === 4 && p.every(Number.isFinite) && p[3] > 0))
     || !Number.isFinite(v.primal_residual) || v.primal_residual < 0 || v.primal_residual > 1e-8
     || !Number.isFinite(v.dual_residual) || v.dual_residual < 0 || v.dual_residual > 1e-8) throw new Error('Invalid five-node layout');
+  if (!(unitWeight > 0 && unitWeight <= 2.2)) throw new Error('Invalid unit weight');
+  if (!v.nodes.every(([x, y, z], i) => x === result.layout.nodes[i][0] && y === result.layout.nodes[i][1] && (i === 4 || z === 0))
+    || !v.edges.every(([a, b], i) => a === result.layout.edges[i][0] && b === result.layout.edges[i][1])) throw new Error('Invalid five-node ground structure');
+  let fx = 0, fy = 0, fz = 1;
+  let volume = 0;
   const active = v.edges.map(([start, end], i) => ({ start, end, force: v.forces[i] })).filter(edge => edge.force[0] > 1e-5);
   if (active.length !== v.curves.length) throw new Error('Missing active member curve');
-  active.forEach(({ start, end, force: [thrust, qa] }, i) => {
+  active.forEach(({ start, end, force: [thrust, qa, qb] }, i) => {
     const a = v.nodes[start], b = v.nodes[end], curve = v.curves[i];
     if (curve[0][0] !== a[0] || curve[0][1] !== a[1]) throw new Error('Mismatched active member start endpoint');
     for (const [endpoint, node] of [[curve[0], a], [curve[32], b]]) {
@@ -34,11 +39,28 @@ export function validateLayout(value: unknown, unitWeight = PAPER_UNIT_WEIGHT): 
     }
     const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
     const theta = Math.atan(qa / thrust);
+    const endSlope = Math.tan(theta - unitWeight * length);
+    const weight = qa - thrust * endSlope;
+    if (Math.abs(qa + qb - weight) > 1e-8 * Math.max(1, Math.abs(weight))) throw new Error('Inconsistent member self-weight');
+    volume += weight / unitWeight;
+    if (end === 4) {
+      fx += thrust * (b[0] - a[0]) / length;
+      fy += thrust * (b[1] - a[1]) / length;
+      fz += qb;
+    }
     for (const [sample, point] of curve.entries()) {
-      const expected = thrust / Math.cos(theta - unitWeight * length * sample / 32);
+      const t = sample / (curve.length - 1);
+      const cosine = Math.cos(theta - unitWeight * length * t);
+      const expected = thrust / cosine;
+      if (Math.abs(point[0] - (a[0] + t * (b[0] - a[0]))) > 1e-12
+        || Math.abs(point[1] - (a[1] + t * (b[1] - a[1]))) > 1e-12) throw new Error('Inconsistent member plan position');
+      const elevation = a[2] + Math.log(cosine / Math.cos(theta)) / unitWeight;
+      if (!Number.isFinite(elevation) || Math.abs(point[2] - elevation) > 1e-12) throw new Error('Inconsistent member elevation');
       if (!Number.isFinite(expected) || Math.abs(point[3] - expected) > 1e-12) throw new Error('Inconsistent active member area at requested weight');
     }
   });
+  if (Math.max(Math.abs(fx), Math.abs(fy), Math.abs(fz)) > 1e-8) throw new Error('Free node violates equilibrium');
+  if (!Number.isFinite(volume) || Math.abs(volume - v.volume) > 1e-8 * v.volume) throw new Error('Inconsistent catenary volume');
   if (unitWeight !== PAPER_UNIT_WEIGHT) return v;
   function matches(actual: unknown, expected: unknown): boolean {
     if (typeof expected === 'number') return typeof actual === 'number' && Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-8 * Math.max(1, Math.abs(expected));

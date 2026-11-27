@@ -132,8 +132,8 @@ pub fn square_with(pg: f64) -> Result<Layout, String> {
 }
 
 #[wasm_bindgen::prelude::wasm_bindgen]
-pub fn recompute(unit_weight: f64) -> Result<String, wasm_bindgen::JsValue> {
-    square_with(unit_weight)
+pub fn recompute(unit_weight: Option<f64>) -> Result<String, wasm_bindgen::JsValue> {
+    square_with(unit_weight.unwrap_or(PAPER_UNIT_WEIGHT))
         .and_then(|l| serde_json::to_string(&l).map_err(|e| e.to_string()))
         .map_err(|e| wasm_bindgen::JsValue::from_str(&e))
 }

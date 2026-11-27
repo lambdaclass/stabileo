@@ -183,7 +183,7 @@
     <p>{s.limits}</p>
     <h2 id="checks">{s.checksHeading}</h2>
     <p>{s.tableIntro}</p>
-    <p>{s.arcRow}, {s.arcNote}: {scientific(arc.observed)} · ε<sub>exact</sub> = 0. <span aria-label={arc.passed ? comparisonStrings().within : comparisonStrings().outside}>{arc.passed ? '✓' : '✗'}</span></p>
+    <p>{s.arcRow}, {s.arcNote}: {scientific(arc.observed)} · ε<sub>{s.exact}</sub> = 0. <span aria-label={arc.passed ? comparisonStrings().within : comparisonStrings().outside}>{arc.passed ? '✓' : '✗'}</span></p>
     <p>{s.openNote}</p>
     {#if extended}
     <h2 id="why">{s.why.heading}</h2>

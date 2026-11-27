@@ -26,8 +26,11 @@ fn every_paper_row_must_pass_before_publication() {
     let rows: Vec<_> = TABLE_ONE.iter().map(|(weight, _)| json!({"id": format!("table1-v5-{weight:.2}"), "passed": true})).collect();
     let accepted = published_table(rows.clone());
     assert_eq!(accepted["reproduced_published_results"], true);
-    for count in [0, 6, 8] {
-        assert!(std::panic::catch_unwind(|| published_table(vec![rows[0].clone(); count])).is_err());
+    let mut extra = rows.clone();
+    extra.push(rows[0].clone());
+    assert!(std::panic::catch_unwind(|| published_table(extra)).is_err());
+    for count in [0, 6] {
+        assert!(std::panic::catch_unwind(|| published_table(rows[..count].to_vec())).is_err());
     }
     for index in 0..7 {
         let mut rows = rows.clone();

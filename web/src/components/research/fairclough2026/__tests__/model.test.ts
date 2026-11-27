@@ -16,15 +16,6 @@ describe('Fairclough five-node data contract', () => {
   it('rejects a replay labeled with another published weight', () => {
     expect(() => validateLayout(result.layout, 1.85)).toThrow();
   });
-  it('requires one curve for each active edge at untabulated weights', () => {
-    for (const change of ['missing', 'duplicate', 'negative area']) {
-      const other = structuredClone(result.layout);
-      if (change === 'missing') other.curves.pop();
-      if (change === 'duplicate') other.curves[1] = other.curves[0];
-      if (change === 'negative area') other.curves[0][16][3] = -1;
-      expect(() => validateLayout(other, 1.66), change).toThrow();
-    }
-  });
   it('keeps the absolute replay volume budget', () => {
     expect(() => validateLayout({ ...result.layout, volume: result.layout.volume + 2e-8 })).toThrow();
     expect(validateLayout({ ...result.layout, volume: result.layout.volume + 0.5e-8 })).toBeTruthy();
