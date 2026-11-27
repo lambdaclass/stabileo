@@ -26,3 +26,23 @@ it('offers the diameter inputs the design actually reads and the options its pro
     modelStore.clear();
   }
 });
+
+it.skip('known wrong result: #1928 published concrete assignment exposes its family and material selectors and slab base inputs', async () => {
+  const { default: Concrete } = await import('../pro/ProConcreteByLevel.svelte');
+  const { t } = await import('../../lib/i18n');
+  modelStore.clear();
+  try {
+    modelStore.addMaterial({ name: 'H-30', e: 27500, nu: 0.2, rho: 25, fy: 30, fc: 30 } as never);
+    for (const view of [Concrete, ProDesignDataPanel]) {
+      const html = render(view).body;
+      for (const key of ['physical.kindCol', 'building.material', 'building.level']) {
+        expect(html).toContain(`aria-label="${t(key)}"`);
+      }
+      expect(html).toContain('data-testid="design-data-assign"');
+    }
+    const panel = render(ProDesignDataPanel).body;
+    expect(panel).toMatch(/<section[^>]+data-testid="design-data-slab-base"/);
+  } finally {
+    modelStore.clear();
+  }
+});
