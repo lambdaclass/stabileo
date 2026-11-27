@@ -1,6 +1,21 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.unmeshedPlatePressure": "Talaj- vagy folyadéknyomás hat egy még nem hálózott lemezre. Hálózza a lemezt (vagy futtasson egy számítást), majd készítse el újra a terheket.",
+  "loadPlan.blocked.unmeshedPlateThermal": "Hőmérsékleti teher hat egy még nem hálózott lemezre. Hálózza a lemezt (vagy futtasson egy számítást), majd készítse el újra a terheket.",
+  "loads.cirsoc101.reduction.applied": "K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0,25 + 4,57/√{kllAt}) = {raw} kN/m².",
+  "loads.uk.roofLive": "H kategóriájú, csak karbantartás céljából járható tető (NA.7. táblázat), hajlás {deg}°: qk = {qk} kN/m².",
+  "autoLoad.liveRoofCase": "Hasznos, tető ({group} kategória)",
+  "autoLoad.liveRoofCasePattern": "Hasznos, tető ({group} kategória), váltakozó {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Hasznos, tető ({group} kategória), a(z) {axis} = {at} m melletti támaszközök",
+  "loadPlan.derivation.roofLivePart": "A tető használata {roof} kategóriájú, a födémeké {floor} kategóriájú: hasznos terhe a hasznos teher hatásának saját esetekkel rendelkező része, a {roof} kategória ψ értékeivel kombinálva (EN 1990, A1.1. táblázat); a két rész együtt elsődleges vagy kísérő (EN 1991-1-1 §3.3.1(2)P).",
+  "loadPlan.derivation.occupancyCode": "Használati mód: {occupancy}. {lo} kN/m² ({code}).",
+  "loadPlan.derivation.patternsCode": "Hasznos teher a szerkezet egy részén: {symbols} csak részben is terhelve ({loads} teher). Minden elrendezés a teljes teher helyett kerül a kombinációkba, ahol az a hatás az elsődleges; kísérőként egészben szerepel.",
+  "loadPlan.derivation.adjacentSpansCode": "Terhek a támasz mindkét oldalán: {n} elrendezés, a rácsvonal melletti két támaszköz terhelve, azokon túl minden második támaszköz ({x} vonal X mentén és {y} Y mentén).",
+  "loadPlan.derivation.reductionPerMemberCode": "A hasznos teher rúdonként csökkentve, ahogy a szabvány csökkentése mindegyikre adja: {min} és {max} kN/m² között {n} rúdon.",
+  "loadPlan.derivation.roofOccupancyCode": "Tető használata: {occupancy}: {lo} kN/m² hasznos teherként L, a födémekéhez hasonlóan csökkenthető; állandó {dead} kN/m² {n} rúdon.",
+  "loadPlan.derivation.thermalSensesCode": "T mindkét irányban: a megadott ΔT és gradiens, valamint ezek fordítottja, két esetként, a T-t tartalmazó kombinációkban egyenként véve.",
+  "loadPlan.derivation.soilCode": "Talajnyomás (H): p = K (γ z + q), K = {k}, γ = {gamma} kN/m³ és q = {q} kN/m² a +{z} m szint alatt; {total} kN a függőleges héjakon. K, γ és a szint a projekt adatai.",
   "building.slabs.cannotSimplify": "A(z) {names} hálója nem vonható össze egyetlen panelbe a héjtulajdonságok vagy terhek megváltoztatása nélkül. A meglévő háló megmaradt.",
   "regulations.name.en1991_1_3": "Eurocode — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",

@@ -171,7 +171,7 @@
 </script>
 
 {#if pro && selectedKeys.length > 1}
-  <BatchEditBar count={selectedKeys.length} labelKey="batch.shells" testid="shells-batch">
+  <BatchEditBar count={selectedKeys.length} labelKey={__PUBLIC_FEATURES__.proPlatesUnified ? 'plates.unified.batchShells' : 'batch.shells'} testid="shells-batch">
     <label>{t('pro.thMaterial')}
       <select value={sameOf((r) => r.materialId)} onchange={(e) => batchUpdate({ materialId: Number(e.currentTarget.value) })} data-testid="batch-shell-material">
         {#if sameOf((r) => r.materialId) === ''}<option value="" disabled>{t('behaviour.mixed')}</option>{/if}

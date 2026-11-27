@@ -19,7 +19,7 @@
   const summary = $derived([
     cert.status === 'pending' ? t('resultChecks.pending')
       : cert.status === 'done' ? t(notCertified ? 'resultChecks.notCertified' : 'resultChecks.certified') : null,
-    discretizationHigh ? t('resultChecks.discretizationHigh') : null,
+    discretizationHigh ? t(__PUBLIC_FEATURES__.proPlatesUnified ? 'plates.unified.discretizationHigh' : 'resultChecks.discretizationHigh') : null,
   ].filter(Boolean).join(' · '));
 
   const flagged = $derived(notCertified || discretizationHigh);

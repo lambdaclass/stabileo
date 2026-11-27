@@ -1,6 +1,21 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.unmeshedPlatePressure": "Henüz ağı oluşturulmamış bir plağa zemin veya sıvı basıncı etkiyor. Plağın ağını oluşturun (veya bir kez hesaplayın) ve yükleri yeniden üretin.",
+  "loadPlan.blocked.unmeshedPlateThermal": "Henüz ağı oluşturulmamış bir plağa sıcaklık yükü etkiyor. Plağın ağını oluşturun (veya bir kez hesaplayın) ve yükleri yeniden üretin.",
+  'loads.cirsoc101.reduction.applied': 'K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0,25 + 4,57/√{kllAt}) = {raw} kN/m².',
+  "loads.uk.roofLive": "H kategorisi çatı, yalnızca bakım için erişilebilir (Tablo NA.7), eğim {deg}°: qk = {qk} kN/m².",
+  "autoLoad.liveRoofCase": "Hareketli, çatı ({group} kategorisi)",
+  "autoLoad.liveRoofCasePattern": "Hareketli, çatı ({group} kategorisi), düzen {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Hareketli, çatı ({group} kategorisi), {axis} = {at} m yanındaki açıklıklar",
+  "loadPlan.derivation.roofLivePart": "Çatının kullanımı {roof} kategorisinde, katlarınki {floor} kategorisinde: çatının hareketli yükü, kendi yükleme durumlarıyla kullanım etkisinin bir parçasıdır ve {roof} kategorisinin ψ değerleriyle birleştirilir (EN 1990 Tablo A1.1); iki parça birlikte öncü ya da eşlik eden etkidir (EN 1991-1-1 §3.3.1(2)P).",
+  "loadPlan.derivation.occupancyCode": "Kullanım: {occupancy}. {lo} kN/m² ({code}).",
+  "loadPlan.derivation.patternsCode": "Yapının bir kısmında hareketli yük: {symbols} ayrıca yalnızca kısmen de yüklenir ({loads} yük). Her düzen, o etkinin esas etki olduğu kombinasyonlara tam yükün yerine girer; eşlik eden etki olarak tamamı girer.",
+  "loadPlan.derivation.adjacentSpansCode": "Mesnedin iki yanında yükler: {n} düzen; bir aksın yanındaki iki açıklık yüklenir ve onların ötesinde birer atlayarak açıklıklar (X boyunca {x} aks, Y boyunca {y} aks).",
+  "loadPlan.derivation.reductionPerMemberCode": "Hareketli yük her çubukta yönetmeliğin azaltmasına göre azaltıldı: {n} çubukta {min} ile {max} kN/m² arasında.",
+  "loadPlan.derivation.roofOccupancyCode": "Çatı {occupancy} olarak kullanılıyor: hareketli yük L olarak {lo} kN/m², katlarınki gibi azaltılabilir; {n} çubukta ölü yük {dead} kN/m².",
+  "loadPlan.derivation.thermalSensesCode": "T her iki yönde: girilen ΔT ve gradyan ile bunların tersi, T içeren her kombinasyonda birer birer alınan iki durum olarak.",
+  "loadPlan.derivation.soilCode": "Zemin basıncı (H): +{z} m'nin altında K = {k}, γ = {gamma} kN/m³ ve q = {q} kN/m² ile p = K (γ z + q); düşey kabuklarda {total} kN. K, γ ve kot projeye aittir.",
   "building.slabs.cannotSimplify": "{names} ağı, kabuk özellikleri veya yükleri değişmeden tek panele dönüştürülemiyor. Mevcut ağ korundu.",
   "regulations.name.en1991_1_3": "Eurokod — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",

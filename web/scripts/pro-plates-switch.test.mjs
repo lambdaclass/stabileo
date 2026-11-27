@@ -552,7 +552,7 @@ test('known wrong result: #1928 each published roof label cites the active CIRSO
   }
 });
 
-test.skip('known wrong result: #1928 the surface gallery and physical-piece labels follow the unified plate switch', async () => {
+test('known wrong result: #1928 the surface gallery and physical-piece labels follow the unified plate switch', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
       const entry = resolve(root, 'src/components/pro/generators/ProGeneratorsPanel.svelte');
@@ -566,7 +566,7 @@ test.skip('known wrong result: #1928 the surface gallery and physical-piece labe
       const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
       for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
         const source = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
-        const catalog = Function(source.replace('export default ', 'return '))();
+        const catalog = (await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64')))[locale];
         if (locale === 'en') {
           assert.equal(catalog['batch.shells'], 'Group editing: {n} shells');
           assert.equal(catalog['resultChecks.discretizationHigh'], 'high discretization error');

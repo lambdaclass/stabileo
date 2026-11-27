@@ -1,6 +1,21 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.unmeshedPlatePressure": "Une poussée de sol ou de fluide agit sur une plaque qui n'est pas encore maillée. Maillez la plaque (ou lancez un calcul) puis générez à nouveau les charges.",
+  "loadPlan.blocked.unmeshedPlateThermal": "Une charge de température agit sur une plaque qui n'est pas encore maillée. Maillez la plaque (ou lancez un calcul) puis générez à nouveau les charges.",
+  'loads.cirsoc101.reduction.applied': 'K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0,25 + 4,57/√{kllAt}) = {raw} kN/m².',
+  "loads.uk.roofLive": "Toiture de catégorie H, inaccessible sauf pour l'entretien (tableau NA.7), pente {deg}° : qk = {qk} kN/m².",
+  "autoLoad.liveRoofCase": "Exploitation, toiture (catégorie {group})",
+  "autoLoad.liveRoofCasePattern": "Exploitation, toiture (catégorie {group}), alternée {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Exploitation, toiture (catégorie {group}), travées voisines de {axis} = {at} m",
+  "loadPlan.derivation.roofLivePart": "L’usage de la toiture est de catégorie {roof} et celui des planchers de catégorie {floor} : sa charge d’exploitation est une partie de l’action d’exploitation avec ses propres cas, combinée avec les ψ de la catégorie {roof} (EN 1990 tableau A1.1) ; les deux parties sont dominantes ou d’accompagnement ensemble (EN 1991-1-1 §3.3.1(2)P).",
+  "loadPlan.derivation.occupancyCode": "Usage : {occupancy}. {lo} kN/m² ({code}).",
+  "loadPlan.derivation.patternsCode": "Charge d'exploitation sur une partie de la structure : {symbols} chargée aussi en partie seulement ({loads} charges). Chaque disposition entre dans les combinaisons à la place de la charge complète là où cette action est l'action principale ; comme action d'accompagnement, elle entre en totalité.",
+  "loadPlan.derivation.adjacentSpansCode": "Charges de chaque côté d'un appui : {n} dispositions, avec les deux travées voisines d'une ligne de grille chargées et, au-delà, une travée sur deux ({x} lignes selon X et {y} selon Y).",
+  "loadPlan.derivation.reductionPerMemberCode": "Charge d'exploitation réduite barre par barre, selon la réduction de la norme pour chacune : entre {min} et {max} kN/m² sur {n} barres.",
+  "loadPlan.derivation.roofOccupancyCode": "Toiture utilisée comme {occupancy} : {lo} kN/m² comme charge d'exploitation L, réductible comme celle des planchers ; charge permanente de {dead} kN/m² sur {n} barres.",
+  "loadPlan.derivation.thermalSensesCode": "T dans les deux sens : le ΔT et le gradient saisis, et leur inverse, comme deux cas pris un à la fois dans chaque combinaison avec T.",
+  "loadPlan.derivation.soilCode": "Poussée des terres (H) : p = K (γ z + q) avec K = {k}, γ = {gamma} kN/m³ et q = {q} kN/m² sous +{z} m ; {total} kN sur les coques verticales. K, γ et le niveau sont des données du projet.",
   "building.slabs.cannotSimplify": "Le maillage de {names} ne peut pas être remplacé par un seul panneau sans modifier les propriétés des coques ou les charges. Le maillage existant est conservé.",
   "regulations.name.en1991_1_3": "Eurocode — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",

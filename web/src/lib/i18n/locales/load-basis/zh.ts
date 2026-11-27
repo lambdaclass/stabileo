@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.unmeshedPlatePressure": "土压力或流体压力作用在尚未划分网格的板上。请先为该板划分网格（或计算一次），再重新生成荷载。",
+  "loadPlan.blocked.unmeshedPlateThermal": "温度荷载作用在尚未划分网格的板上。请先为该板划分网格（或计算一次），再重新生成荷载。",
+  "loads.uk.roofLive": "H 类屋面，仅供维护人员上人（表 NA.7），坡度 {deg}°：qk = {qk} kN/m²。",
+  "autoLoad.liveRoofCase": "屋面活荷载（{group} 类）",
+  "autoLoad.liveRoofCasePattern": "屋面活荷载（{group} 类），交替布置 {k}",
+  "autoLoad.liveRoofCaseAdjacent": "屋面活荷载（{group} 类），{axis} = {at} m 两侧的跨度",
+  "loadPlan.derivation.roofLivePart": "屋面用途为 {roof} 类，楼面用途为 {floor} 类。屋面活荷载属于使用荷载的一部分，设有独立工况，按 {roof} 类的 ψ 组合（EN 1990 表 A1.1）。两部分同时作为主导作用或同时作为伴随作用（EN 1991-1-1 §3.3.1(2)P）。",
+  "loadPlan.derivation.occupancyCode": "使用类别：{occupancy}。{lo} kN/m²（{code}）。",
+  "loadPlan.derivation.patternsCode": "局部布置活荷载：{symbols} 另设仅在部分结构施加的工况（{loads} 项荷载）。该作用主导时，每种布置替代满布荷载参与组合。该作用伴随时仍按满布荷载组合。",
+  "loadPlan.derivation.adjacentSpansCode": "支座两侧的荷载：共 {n} 种布置，对网格线两侧的相邻跨加载，再向外隔跨加载（X 向 {x} 条线，Y 向 {y} 条线）。",
+  "loadPlan.derivation.reductionPerMemberCode": "按规范逐个构件折减活荷载：{n} 个构件，折减后为 {min} 至 {max} kN/m²。",
+  "loadPlan.derivation.roofOccupancyCode": "屋面用作 {occupancy}：活荷载 L 为 {lo} kN/m²，可按楼面规则折减。恒荷载为 {dead} kN/m²，作用于 {n} 个杆件。",
+  "loadPlan.derivation.thermalSensesCode": "温度作用 T 考虑正反两个方向：按输入的 ΔT 和温度梯度及其反向分别生成工况。每项含 T 的组合一次只取其中一个。",
+  "loadPlan.derivation.soilCode": "土压力（H）：标高 +{z} m 以下采用 p = K (γ z + q)，其中 K = {k}，γ = {gamma} kN/m³，q = {q} kN/m²。在竖向壳单元上合计 {total} kN。K、γ 和标高采用项目值。",
   "building.slabs.cannotSimplify": "若将 {names} 的网格替换为单个板块，壳属性或荷载将发生变化。已保留现有网格。",
   "regulations.name.en1991_1_3": "欧洲规范 EN 1991-1-3（{edition}）",
   "regulations.name.en1990Uk": "BS EN 1990 及英国国家附件（{edition}）",

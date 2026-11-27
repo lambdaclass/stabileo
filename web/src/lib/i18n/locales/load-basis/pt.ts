@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.unmeshedPlatePressure": "Há empuxo de solo ou de fluido sobre uma placa que ainda não tem malha. Gere a malha da placa (ou calcule uma vez) e gere as cargas de novo.",
+  "loadPlan.blocked.unmeshedPlateThermal": "Há uma carga de temperatura sobre uma placa que ainda não tem malha. Gere a malha da placa (ou calcule uma vez) e gere as cargas novamente.",
+  "loads.uk.roofLive": "Cobertura de categoria H, inacessível exceto para manutenção (Tabela NA.7), inclinação {deg}°: qk = {qk} kN/m².",
+  "autoLoad.liveRoofCase": "Sobrecarga, cobertura (categoria {group})",
+  "autoLoad.liveRoofCasePattern": "Sobrecarga, cobertura (categoria {group}), alternada {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Sobrecarga, cobertura (categoria {group}), vãos junto a {axis} = {at} m",
+  "loadPlan.derivation.roofLivePart": "O uso da cobertura é de categoria {roof} e o dos pisos de categoria {floor}: sua sobrecarga é uma parte da ação de uso com casos próprios, combinada com os ψ da categoria {roof} (EN 1990 Tabela A1.1); as duas partes são principais ou acompanhantes juntas (EN 1991-1-1 §3.3.1(2)P).",
+  "loadPlan.derivation.occupancyCode": "Uso: {occupancy}. {lo} kN/m² ({code}).",
+  "loadPlan.derivation.patternsCode": "Sobrecarga em disposições parciais: {symbols} também carregada só em parte da estrutura ({loads} cargas). Cada disposição entra nas combinações no lugar da carga completa onde essa ação é a principal; como acompanhante entra completa.",
+  "loadPlan.derivation.adjacentSpansCode": "Cargas de cada lado de um apoio: {n} disposições, com os dois vãos junto a uma linha da grade carregados e, além deles, um sim e um não ({x} linhas em X e {y} em Y).",
+  "loadPlan.derivation.reductionPerMemberCode": "Sobrecarga reduzida barra a barra, conforme a redução da norma para cada uma: entre {min} e {max} kN/m² em {n} barras.",
+  "loadPlan.derivation.roofOccupancyCode": "Cobertura com destino {occupancy}: {lo} kN/m² como sobrecarga L, redutível como a dos pisos; permanente {dead} kN/m² em {n} barras.",
+  "loadPlan.derivation.thermalSensesCode": "T nos dois sentidos: o ΔT e o gradiente informados, e o seu inverso, como dois casos tomados um de cada vez em cada combinação com T.",
+  "loadPlan.derivation.soilCode": "Empuxo do solo (H): p = K (γ z + q) com K = {k}, γ = {gamma} kN/m³ e q = {q} kN/m² abaixo do nível +{z} m; {total} kN sobre as placas verticais. K, γ e o nível são dados do projeto.",
   "building.slabs.cannotSimplify": "Não é possível substituir a malha de {names} por um único painel sem alterar as propriedades ou cargas das cascas. A malha existente foi mantida.",
   "regulations.name.en1991_1_3": "Eurocódigo — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",

@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.unmeshedPlatePressure": "Hay empuje de suelo o de fluido sobre una placa que todavía no tiene malla. Mallá la placa (o calculá una vez) y volvé a generar las cargas.",
+  "loadPlan.blocked.unmeshedPlateThermal": "Hay una temperatura sobre una placa que todavía no tiene malla. Mallá la placa (o calculá una vez) y volvé a generar las cargas.",
+  "loads.uk.roofLive": "Cubierta de categoría H, inaccesible salvo para mantenimiento (Tabla NA.7), pendiente {deg}°: qk = {qk} kN/m².",
+  "autoLoad.liveRoofCase": "Sobrecarga, cubierta (categoría {group})",
+  "autoLoad.liveRoofCasePattern": "Sobrecarga, cubierta (categoría {group}), alternada {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Sobrecarga, cubierta (categoría {group}), tramos junto a {axis} = {at} m",
+  "loadPlan.derivation.roofLivePart": "El uso de la cubierta es de categoría {roof} y el de los pisos de categoría {floor}: su sobrecarga es una parte de la acción de uso con casos propios, combinada con los ψ de la categoría {roof} (EN 1990 Tabla A1.1); las dos partes son principales o concomitantes juntas (EN 1991-1-1 §3.3.1(2)P).",
+  "loadPlan.derivation.occupancyCode": "Destino: {occupancy}. {lo} kN/m² ({code}).",
+  "loadPlan.derivation.patternsCode": "Sobrecarga en disposiciones parciales: {symbols} también cargada sólo en parte de la estructura ({loads} cargas). Cada disposición entra a las combinaciones en lugar de la carga completa donde esa acción es la principal; como acompañante entra completa.",
+  "loadPlan.derivation.adjacentSpansCode": "Cargas a cada lado de un apoyo: {n} disposiciones, con los dos tramos junto a una línea de la grilla cargados y, más allá, uno sí y uno no ({x} líneas en X y {y} en Y).",
+  "loadPlan.derivation.reductionPerMemberCode": "Sobrecarga reducida barra por barra, según la reducción del reglamento para cada una: entre {min} y {max} kN/m² en {n} barras.",
+  "loadPlan.derivation.roofOccupancyCode": "Cubierta con destino {occupancy}: {lo} kN/m² como sobrecarga L, reducible como la de los pisos; permanente {dead} kN/m² en {n} barras.",
+  "loadPlan.derivation.thermalSensesCode": "T en ambos sentidos: el ΔT y el gradiente indicados, y su inverso, como dos estados tomados de a uno en cada combinación con T.",
+  "loadPlan.derivation.soilCode": "Empuje del suelo (H): p = K (γ z + q) con K = {k}, γ = {gamma} kN/m³ y q = {q} kN/m² bajo el nivel +{z} m; {total} kN sobre las placas verticales. K, γ y el nivel son datos del proyecto.",
   "building.slabs.cannotSimplify": "No se puede reemplazar la malla de {names} por un solo paño sin cambiar sus propiedades o cargas. Se conservó la malla existente.",
   "regulations.name.en1991_1_3": "Eurocódigo — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",

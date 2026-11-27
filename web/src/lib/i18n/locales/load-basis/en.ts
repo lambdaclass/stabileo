@@ -1,6 +1,20 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.unmeshedPlatePressure": "Soil or fluid pressure acts on a plate that has no mesh yet. Mesh the plate (or run an analysis once) and generate the loads again.",
+  "loadPlan.blocked.unmeshedPlateThermal": "A temperature load acts on a plate that has no mesh yet. Mesh the plate (or run an analysis once) and generate the loads again.",
+  "loads.uk.roofLive": "Category H roof, not accessible except for maintenance (Table NA.7), slope {deg}°: qk = {qk} kN/m².",
+  "autoLoad.liveRoofCase": "Live, roof (category {group})",
+  "autoLoad.liveRoofCasePattern": "Live, roof (category {group}), alternate {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Live, roof (category {group}), spans beside {axis} = {at} m",
+  "loadPlan.derivation.roofLivePart": "The roof's occupancy is of category {roof} and the floors' of category {floor}: its live load is a part of the imposed action with cases of its own, combined at category {roof}'s ψ (EN 1990 Table A1.1); both parts lead and accompany together (EN 1991-1-1 §3.3.1(2)P).",
+  "loadPlan.derivation.occupancyCode": "Occupancy: {occupancy}. {lo} kN/m² ({code}).",
+  "loadPlan.derivation.patternsCode": "Live load on part of the structure: {symbols} also loaded only in part ({loads} loads). Each arrangement enters the combinations in place of the full load where that action is the principal one; as a companion it enters whole.",
+  "loadPlan.derivation.adjacentSpansCode": "Loads each side of a support: {n} arrangements, the two spans beside a grid line loaded and, beyond them, every other span ({x} lines along X and {y} along Y).",
+  "loadPlan.derivation.reductionPerMemberCode": "Live load reduced member by member, as the code's reduction gives it for each: between {min} and {max} kN/m² over {n} members.",
+  "loadPlan.derivation.roofOccupancyCode": "Roof used as {occupancy}: {lo} kN/m² as live load L, reducible as the floors' is; dead {dead} kN/m² on {n} members.",
+  "loadPlan.derivation.thermalSensesCode": "T in both senses: the ΔT and gradient typed, and their reverse, as two cases taken one at a time in each combination with T.",
+  "loadPlan.derivation.soilCode": "Soil pressure (H): p = K (γ z + q) with K = {k}, γ = {gamma} kN/m³ and q = {q} kN/m² below +{z} m; {total} kN on the vertical shells. K, γ and the level are the project's.",
   "building.slabs.cannotSimplify": "The mesh of {names} cannot be replaced by one panel without changing its shell properties or loads. The existing mesh has been kept.",
   "regulations.name.en1991_1_3": "Eurocode — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",

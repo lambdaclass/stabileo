@@ -5,6 +5,7 @@ import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
+import { mesherLabels } from './src/lib/i18n/locales/mesher-labels';
 import { loadedPreloads } from './scripts/loaded-preloads';
 import { buildPublicLocales } from './src/lib/i18n/offered-research';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
@@ -94,9 +95,10 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
     const pruneEntries = !eager();
     const { accounts, diagramGame, proPlatesUnified, proRcSheets, tools } = features();
     const entryKey = (line: string) => /^\s*(['"])([^'"]+)\1: /.exec(line)?.[2];
+    const translatedMesherLabels = mesherLabels[loc] ?? {};
     const lines = readFileSync(file, 'utf8').split('\n').filter((line) => {
       const key = entryKey(line);
-      if (!key) return false;
+      if (!key || Object.hasOwn(translatedMesherLabels, key)) return false;
       if (proPlatesUnified && key.startsWith('mesher.')) return dictionary === 'mesher';
       if (dictionary === 'mesher') return false;
       const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
@@ -106,6 +108,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
           if (/^plates\.(?:firstSide|drawingLabel|qualityGood|qualityPoor|qualityHint|planTotalOnly|localLoadsWarnOne|keptNodesNoteOne|remeshNote(?:One|Some|All))$/.test(key)) return false;
           if (/^plates\.(?:state\.|summary\.|(?:meshHeading|filterKind|kindAll|kindSlabs|kindWalls|filterLevel|allLevels|nSelectedOf|selectAll|scopePlates|scopeElements|elementsNote|header)$)/.test(key)) return false;
           if (/^building\.(?:walls\.mesh(?:AtSolve|Now)Hint|slabs\.(?:withMesh|clearMesh|cleared))$/.test(key)) return false;
+          if (/^plates\.(?:openSpec(?:Element|Many)?|fromLevel|onItsElements|areaLoadHintWall)$/.test(key) || key === 'pro.curvedShellAuto' || key === 'surface.summaryFolded') return false;
           if (key.startsWith('diag.reviewSummary')) return false;
           if (/^autoLoad\.(?:occupancy|roof\.(?:occupancyOf|maintenanceCode|occupancyCode)|fromTableLoCode|live\.(?:partitionTitleCode|partitionOnCode|partitionValueCode|partitionChoice|reductionTitleCode)|applyLiveReductionCode|reductionElementCode|patterns(?:Code|NoRef|HintCode)|dead\.codeHint)$/.test(key)) return false;
           if (key === 'file.workspaceNoticeClose') return false;
@@ -143,13 +146,18 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => key.startsWith(prefix)) && (!publicAccountEntry || accounts);
       return publicEntry === (dictionary === 'public');
     });
+    if (dictionary === (proPlatesUnified ? 'mesher' : 'app')) {
+      lines.push(...Object.entries(translatedMesherLabels).map(([key, value]) => JSON.stringify(key) + ': ' + JSON.stringify(value) + ','));
+    }
     if (dictionary === 'app') {
-      const resources = ['load-basis', 'reinforcement-results'].map(group => {
+      const resources = ['load-basis', 'reinforcement-results', 'model-diagnostics'].map(group => {
         const messages = resolve(__dirname, 'src/lib/i18n/locales', group, `${loc}.ts`);
         watch(messages);
-        return readFileSync(messages, 'utf8').split('\n').filter(entryKey).join('\n');
+        return readFileSync(messages, 'utf8').split('\n').filter(entryKey);
       });
-      lines.unshift(...resources.map(messages => `...{\n${messages}\n},`));
+      const resourceKeys = new Set(resources.flat().map(entryKey));
+      const baseLines = lines.filter(line => !resourceKeys.has(entryKey(line)));
+      return `{\n${[...resources.map(messages => `...{\n${messages.join('\n')}\n},`), ...baseLines].join('\n')}\n}`;
     }
     return `{\n${lines.join('\n')}\n}`;
   };

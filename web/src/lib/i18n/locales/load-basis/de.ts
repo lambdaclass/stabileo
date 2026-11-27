@@ -1,6 +1,22 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.blocked.unmeshedPlatePressure": "Erd- oder Flüssigkeitsdruck wirkt auf eine Platte, die noch nicht vernetzt ist. Vernetzen Sie die Platte (oder rechnen Sie einmal) und erzeugen Sie die Lasten erneut.",
+  "loadPlan.blocked.unmeshedPlateThermal": "Eine Temperaturlast wirkt auf eine Platte, die noch nicht vernetzt ist. Vernetzen Sie die Platte (oder rechnen Sie einmal) und erzeugen Sie die Lasten erneut.",
+  'loads.cirsoc101.reduction.applied': 'K_LL·A_t = {kll} × {at} = {kllAt} m². L = {lo} (0,25 + 4,57/√{kllAt}) = {raw} kN/m².',
+  'loadPlan.derivation.adjacentSpans': 'Lasten beiderseits eines Auflagers (Kommentar zu §4.3.3): {n} Anordnungen, die die beiden Felder neben einer Rasterlinie und darüber hinaus jedes zweite Feld belasten ({x} Linien in X und {y} in Y).',
+  "loads.uk.roofLive": "Dach der Kategorie H, nur für Instandhaltung zugänglich (Tabelle NA.7), Neigung {deg}°: qk = {qk} kN/m².",
+  "autoLoad.liveRoofCase": "Nutzlast, Dach (Kategorie {group})",
+  "autoLoad.liveRoofCasePattern": "Nutzlast, Dach (Kategorie {group}), feldweise {k}",
+  "autoLoad.liveRoofCaseAdjacent": "Nutzlast, Dach (Kategorie {group}), Felder neben {axis} = {at} m",
+  "loadPlan.derivation.roofLivePart": "Die Nutzung des Dachs ist Kategorie {roof}, die der Geschosse Kategorie {floor}: seine Nutzlast ist ein Teil der Nutzlasteinwirkung mit eigenen Lastfällen, kombiniert mit den ψ der Kategorie {roof} (EN 1990 Tabelle A1.1); beide Teile sind gemeinsam Leit- oder Begleiteinwirkung (EN 1991-1-1 §3.3.1(2)P).",
+  "loadPlan.derivation.occupancyCode": "Nutzung: {occupancy}. {lo} kN/m² ({code}).",
+  "loadPlan.derivation.patternsCode": "Nutzlast auf einem Teil des Tragwerks: {symbols} auch nur teilweise belastet ({loads} Lasten). Jede Anordnung geht anstelle der Volllast in die Kombinationen ein, in denen diese Einwirkung die Leiteinwirkung ist; als Begleiteinwirkung geht sie vollständig ein.",
+  "loadPlan.derivation.adjacentSpansCode": "Lasten beiderseits eines Auflagers: {n} Anordnungen, die die beiden Felder neben einer Rasterlinie und darüber hinaus jedes zweite Feld belasten ({x} Linien in X und {y} in Y).",
+  "loadPlan.derivation.reductionPerMemberCode": "Nutzlast Stab für Stab abgemindert, wie die Abminderung der Norm sie für jeden ergibt: zwischen {min} und {max} kN/m² auf {n} Stäben.",
+  "loadPlan.derivation.roofOccupancyCode": "Dach genutzt als {occupancy}: {lo} kN/m² als Nutzlast L, abminderbar wie die der Geschosse; ständige Last {dead} kN/m² auf {n} Stäben.",
+  "loadPlan.derivation.thermalSensesCode": "T in beiden Richtungen: das eingegebene ΔT und der Gradient sowie ihre Umkehrung, als zwei Lastfälle, die in jeder Kombination mit T einzeln angesetzt werden.",
+  "loadPlan.derivation.soilCode": "Erddruck (H): p = K (γ z + q) mit K = {k}, γ = {gamma} kN/m³ und q = {q} kN/m² unterhalb +{z} m; {total} kN auf die vertikalen Schalen. K, γ und die Höhe sind Projektangaben.",
   "building.slabs.cannotSimplify": "Das Netz von {names} lässt sich nicht durch ein einzelnes Feld ersetzen, ohne Schaleneigenschaften oder Lasten zu ändern. Das vorhandene Netz bleibt erhalten.",
   "regulations.name.en1991_1_3": "Eurocode — EN 1991-1-3 ({edition})",
   "regulations.name.en1990Uk": "BS EN 1990 + UK NA ({edition})",
