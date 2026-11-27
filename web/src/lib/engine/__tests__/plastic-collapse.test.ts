@@ -224,14 +224,26 @@ describe('a span load: its hinge is one section, at the peak of the moment, and 
   const MPC = 1687.5, MPB = 3125;
   const mpPortal = (id: number) => (id === 2 ? MPB : MPC);
   /** The Basic course's portal: columns 0.3×0.3, beam 0.2×0.5, E = 30 GPa, q = 15 kN/m on the 6 m beam, H at the 4 m left head. */
-  const portalUdl = (H: number) => {
+  const portalUdl = (H: number, solve = plasticHistory2D) => {
     const m = model([[1, 0, 0], [2, 0, 4], [3, 6, 4], [4, 6, 0]], [[1, 1, 2], [2, 2, 3], [3, 4, 3]],
       [[1, 'fixed'], [4, 'fixed']], [P(2, H, 0), q(2, -15)]);
     m.materials = new Map([[1, { id: 1, e: 30_000, nu: 0.2 }]]);
     m.sections = new Map([[1, { id: 1, a: 0.09, iz: 0.000675 }], [2, { id: 2, a: 0.1, iz: 0.002083 }]]);
     m.elements.get(2)!.sectionId = 2;
-    return plasticHistory2D(m, { mp: mpPortal, np: () => Infinity });
+    return solve(m, { mp: mpPortal, np: () => Infinity });
   };
+
+  it('the Basic panel releases the beam and portal collapse factors independently of hinge history', () => {
+    const beam = (support: string) => model([[1, 0, 0], [2, 6, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, support]], [q(1, -10)]);
+    for (const [support, coefficient] of [['fixed', 16], ['rollerX', 6 + 4 * Math.SQRT2]] as const) {
+      const result = plasticCollapse2D(beam(support), { mp: () => MP, np: () => Infinity });
+      expect(result.withheld).toBeFalsy();
+      expect(result.collapseFactor).toBeCloseTo(coefficient * MP / (10 * 36), 6);
+    }
+    const portal = portalUdl(10, plasticCollapse2D);
+    expect(portal.withheld).toBeFalsy();
+    expect(portal.collapseFactor).toBeCloseTo(1925 / 27, 6);
+  });
 
   it('the Basic "Portal Frame" (H = 10 kN): right column head, the beam where its moment first peaks (it then moves to midspan), right base, left column head at 1925/27', () => {
     const r = portalUdl(10);
@@ -255,6 +267,9 @@ describe('a span load: its hinge is one section, at the peak of the moment, and 
     let a = 0, b = 6;
     for (let i = 0; i < 200; i++) { const c = a + (b - a) * 0.382, d = a + (b - a) * 0.618; if (lambda(c) < lambda(d)) b = d; else a = c; }
     const x = (a + b) / 2;
+    const panel = portalUdl(30, plasticCollapse2D);
+    expect(panel.withheld).toBeFalsy();
+    expect(panel.collapseFactor).toBeCloseTo(lambda(x), 6);
     const r = portalUdl(30);
     expect(closed(r)).toBe(0);
     expect(r.hinges.length).toBeLessThanOrEqual(r.degree + 1);

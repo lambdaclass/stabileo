@@ -252,3 +252,13 @@ it.each(['modeShape', 'bucklingMode'] as const)('known wrong result: #1927 — a
   expect(resultsStore.screen.diagram).toBe(dt);
   expect(resultsStore.screen.modeDisplacements).toEqual(modes[0]!.displacements);
 });
+
+it.skip.each(['modeShape', 'bucklingMode'] as const)('known wrong result: #1927 — a plane %s keeps its selected mode while held', async diagram => {
+  const result = await solvedPortal();
+  const modes = [{ displacements: result.displacements }];
+  if (diagram === 'modeShape') resultsStore.setModalResult({ modes } as never);
+  else resultsStore.setBucklingResult({ modes } as never);
+  editE(2);
+  expect(resultsStore.screen.diagram).toBe(diagram);
+  expect(resultsStore.screen.planarMode?.displacements).toEqual(result.displacements);
+});

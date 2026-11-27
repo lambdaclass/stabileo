@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { modelStore, resultsStore, uiStore, historyStore } from '../../store';
 import { centerlineInput } from '../../store/dynamic-input';
 import { plasticCourse } from '../../store/plastic-course.svelte';
-import { runPlasticCollapse } from '../../actions/plastic';
+import * as plasticSolver from '../plastic-collapse';
+import { memberPlasticMoments, PlasticWithheld, runPlasticCollapse } from '../../actions/plastic';
 import { mpOfContext } from '../steps/plastic-common';
 import { certifyJobOf } from '../certify-tags';
 import { plasticModulus, plasticModulusWeak, plasticInput3D } from '../plastic-moments';
@@ -73,4 +74,18 @@ describe('#2658 member plastic capacity', () => {
       expect(r.collapseFactor).toBeCloseTo(mp / (10 * 4), 4);
     },
   );
+});
+
+it.skip('known wrong result: #1927 — missing member strength and a failed solve retain their own diagnostics', () => {
+  cantilevers('2d', 355);
+  const model = modelStore.buildSolverInput(false)!;
+  expect(() => memberPlasticMoments(model, [])).toThrow(/(member|element|barra)/i);
+  const failure = new Error('solver interrupted');
+  const spy = vi.spyOn(plasticSolver, 'plasticCollapse2D').mockImplementation(() => { throw failure; });
+  try {
+    expect(() => runPlasticCollapse()).toThrow(failure);
+    expect(() => runPlasticCollapse()).not.toThrow(PlasticWithheld);
+  } finally {
+    spy.mockRestore();
+  }
 });

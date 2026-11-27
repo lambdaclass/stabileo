@@ -155,3 +155,23 @@ it('known wrong result: #1927 — Basic rejects a saved P-delta handoff before o
     else Reflect.deleteProperty(globalThis, 'sessionStorage');
   }
 });
+
+it.skip('known wrong result: #1927 — a teacher reads localized categorical answers in a submitted file', async () => {
+  const { render } = await import('svelte/server');
+  const { default: Review } = await import('../SubmissionReview.svelte');
+  const input = spec();
+  const submission = examSubmission(input, 2, [
+    { key: 'k', label: 'Class', answer: 'isostatic', outcome: 'pending' },
+    { key: 's:0', label: 'Shape', answer: 'quadratic', outcome: 'pending' },
+  ]);
+  const html = render(Review, { props: { submission, onclose() {} } }).body;
+  expect(html).toContain(tp('edu.isostatic', {}));
+  expect(html).toContain(tp('edu.shape.quadratic', {}));
+  expect(html).not.toMatch(/>isostatic<|>quadratic</);
+});
+
+it.skip('known wrong result: #1927 — every numbered step localizes its position as an argument', () => {
+  for (const key of ['edu.step1Title', 'edu.step2Title', 'edu.step3Title', 'edu.fb.title']) {
+    expect(tp(key, { n: 17 })).toContain('17');
+  }
+});
