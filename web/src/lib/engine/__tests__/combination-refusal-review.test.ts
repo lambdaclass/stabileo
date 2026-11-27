@@ -81,3 +81,16 @@ it.each([false, true])('empty combination publication has no envelope or selecte
   expect(space ? resultsStore.results3D : resultsStore.results).toBeNull();
   expect(resultsStore.activeView).toBe('single');
 });
+
+it.each([false, true])('selects the published case or combination when it is the only result (3D=%s)', space => {
+  for (const view of ['single', 'combo'] as const) {
+    resultsStore.clear();
+    const pc = new Map(view === 'single' ? [[3, clean]] : []);
+    const pco = new Map(view === 'combo' ? [[4, clean]] : []);
+    if (space) resultsStore.setCombinationResults3D(pc as never, pco as never, null);
+    else resultsStore.setCombinationResults(pc as never, pco as never, null);
+    expect(space ? resultsStore.results3D : resultsStore.results).toMatchObject(clean);
+    expect(resultsStore.activeView).toBe(view);
+    expect(view === 'single' ? resultsStore.activeCaseId : resultsStore.activeComboId).toBe(view === 'single' ? 3 : 4);
+  }
+});
