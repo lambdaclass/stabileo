@@ -1,0 +1,1 @@
+- Italian release notes now require independent verification before using affected constrained frame–shell dynamic demands, including when equivalent model descriptions agree.
