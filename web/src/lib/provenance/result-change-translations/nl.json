@@ -1739,6 +1739,10 @@
     "explanation": "Niet-gemergede builds van PR #2220 konden de drukresultante op driehoekige plattegronden stilzwijgend verkeerd plaatsen en representeerbare excentrische belastingen boven een onbelaste, niet-ondersteunde band weigeren. Driehoekige plattegronden vereisen nu symmetrie om de windrichting. Wringingsondersteuning blijft bij elk segment van de staafbelasting; onbelaste niet-ondersteunde segmenten schakelen ondersteunde segmenten niet uit. Genereer W/Wa opnieuw en voer berekeningen, combinaties en ontwerptoetsingen opnieuw uit (#2220).",
     "title": "Symmetrie van driehoekige wind en wringingsondersteuning van banden"
   },
+  "wind-two-part-moments": {
+    "title": "Inwendige staafkrachten na het opnieuw genereren van windbelastingen",
+    "explanation": "Opgegeven druksprongen en gekromde drukpulsen tussen opgegeven knikpunten kunnen nu staafbelastingen opleveren. De windlastgenerator integreert tussen de opgegeven knikpunten in het drukverloop, ook bij een veranderlijke belastingbreedte. Hij controleert de dwarskracht in zones met bekende kromming en gebruikt dezelfde grenzen voor de belastingsmomenten in de arbeidsberekening bij één belasting en bij een paar belastingen. De staafkrachten, oplegreacties en verplaatsingen kunnen veranderen. Genereer W en Wa opnieuw en voer daarna de analyses, combinaties en ontwerptoetsingen opnieuw uit."
+  },
   "withheld-pdelta-equilibrium-forces": {
     "explanation": "Controleer opgeslagen P-Delta-krachten opnieuw. In native resultaten behoudt een mislukt fysiek residu de identiteit van reactie-, staafkracht-, voorwaardekracht- en spanningsrecords, terwijl hun numerieke grootheden als niet beschikbaar worden gemarkeerd met veldspecifieke diagnoses. WASM en gecertificeerde exports weigeren deze toestanden. Een slagend residu behoudt het antwoord voor kleine verplaatsingen, met een waarschuwing als de evenwichtscontrole in verplaatste geometrie faalt (#1952).",
     "title": "P-Delta-reacties vereisen een slagend fysiek residu"

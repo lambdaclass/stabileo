@@ -1695,6 +1695,10 @@
     "explanation": "Le build di PR #2220 non integrate potevano collocare in silenzio la risultante della pressione in modo errato su piante triangolari e rifiutare carichi eccentrici rappresentabili sopra una fascia scarica non sostenuta. Le piante triangolari ora richiedono simmetria rispetto alla direzione del vento. Il supporto del momento torcente resta con ogni segmento di carico sull’asta; i segmenti scarichi non sostenuti non disattivano i segmenti sostenuti. Rigenera W/Wa e riesegui analisi, combinazioni e verifiche di progetto (#2220).",
     "title": "Simmetria del vento triangolare e supporto del momento torcente per fasce"
   },
+  "wind-two-part-moments": {
+    "title": "Sollecitazioni interne delle aste dopo la rigenerazione dei carichi di vento",
+    "explanation": "I salti di pressione dichiarati e gli impulsi a profilo curvo tra i punti di discontinuità dichiarati possono ora generare carichi sulle aste. Il generatore integra tra i punti di discontinuità anche se la larghezza di influenza varia. Verifica il taglio nelle fasce a curvatura nota e applica gli stessi limiti sui momenti del carico nel calcolo del lavoro sia a un carico singolo sia a una coppia di carichi. Le sollecitazioni delle aste, le reazioni e gli spostamenti possono cambiare. Rigenera W e Wa, quindi riesegui analisi, combinazioni e verifiche di progetto."
+  },
   "withheld-pdelta-equilibrium-forces": {
     "explanation": "Riverifica le forze P-Delta salvate. Nei risultati nativi, un residuo fisico fallito conserva le identità dei record di reazioni, forze nelle aste, forze di vincolo e tensioni, contrassegnando le loro grandezze numeriche come non disponibili con diagnostiche specifiche per campo. WASM e le esportazioni certificate rifiutano questi stati. Un residuo fisico entro la tolleranza conserva la risposta a piccoli spostamenti, con un avviso se la verifica del bilancio sulla geometria spostata fallisce (#1952).",
     "title": "Le reazioni P-Delta richiedono un residuo fisico entro la tolleranza"
