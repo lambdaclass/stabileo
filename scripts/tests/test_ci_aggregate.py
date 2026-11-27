@@ -160,8 +160,9 @@ class ParityWorkflow(unittest.TestCase):
         self.base = self.commit('Published source predating the parity checker')
         self.git('switch', '--quiet', '-c', 'feature')
         (web / 'page').write_text('candidate page\n')
-        self.head = self.commit('Change the production page', '-m',
-                                'Production-Parity: required\nProduction-Change: web/page')
+        self.undeclared = self.commit('Change the production page', '-m', 'Production-Parity: required')
+        self.head = self.commit('Declare the intended production change', '--allow-empty', '-m',
+                                'Production-Change: web/page')
         self.git('switch', '--quiet', 'target')
         (self.repo / 'Cargo.lock').write_text('target only')
         self.queue_base = self.commit('Base recorded for the merge group')
@@ -171,6 +172,7 @@ class ParityWorkflow(unittest.TestCase):
             destination.write_bytes((ROOT / name).read_bytes())
         self.target = self.commit('Add the checker after the group base')
         self.git('update-ref', 'refs/remotes/origin/target', self.target)
+        self.git('update-ref', 'refs/remotes/origin/main', self.target)
         self.git('merge', '--quiet', '--no-ff', 'feature', '-m', 'Workflow merge')
         self.merge = self.git('rev-parse', 'HEAD')
 
@@ -208,23 +210,47 @@ class ParityWorkflow(unittest.TestCase):
                 self.assertEqual(self.output.read_text(), expected)
                 self.assertEqual(self.git('rev-parse', 'HEAD'), self.merge)
 
-    def test_split_jobs_build_and_compare_the_two_source_snapshots(self):
-        def parity(*args):
-            result = subprocess.run(['make', '--silent', 'check.web.production-parity', 'NIX_RUN=',
-                                     f'BASE={self.base}', f'CANDIDATE={self.head}', *args],
-                                    cwd=self.repo, env=self.env, text=True, capture_output=True)
+    def parity(self, candidate, *args, succeeds=True):
+        result = subprocess.run(['make', '--silent', 'check.web.production-parity', 'NIX_RUN=',
+                                 f'CANDIDATE={candidate}', *args],
+                                cwd=self.repo, env=self.env, text=True, capture_output=True)
+        if succeeds:
             self.assertEqual(result.returncode, 0, result.stderr)
+        else:
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+        return result
 
-        expected = sha256(f'candidate page\n{self.head}\n'.encode()).hexdigest()
-        for side in ['reference', 'candidate']:
-            parity(f'PARITY_SIDE={side}', f'PARITY_RESEARCH_OUT=research-{side}')
-            self.assertEqual((self.repo / f'research-{side}/assets/asset').read_text(), 'candidate page\n')
-            parity(f'PARITY_SIDE={side}', f'PARITY_RESEARCH_IN=research-{side}', f'PARITY_OUT={side}.json')
+    @unittest.skip("known wrong result: #2657")
+    def test_candidate_defaults_to_merge_base_and_honours_explicit_base(self):
+        for base in [self.queue_base, 'origin/main']:
+            with self.subTest(base=base):
+                result = self.parity(self.head, f'BASE={base}', succeeds=False)
+                self.assertIn('engine inputs differ from the reference:\n  Cargo.lock', result.stderr)
+        self.parity(self.head)
+
+    def assert_page_snapshots(self, head, reference_page, *args):
+        for side, page in [('reference', reference_page), ('candidate', 'candidate page')]:
+            self.parity(head, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_OUT=research-{side}')
+            self.assertEqual((self.repo / f'research-{side}/assets/asset').read_text(), f'{page}\n')
+            self.parity(head, *args, f'PARITY_SIDE={side}', f'PARITY_RESEARCH_IN=research-{side}',
+                        f'PARITY_OUT={side}.json')
             inventory = json.loads((self.repo / f'{side}.json').read_text())
-            self.assertEqual((inventory['side'], inventory['base'], inventory['head']), (side, self.base, self.head))
+            self.assertEqual((inventory['side'], inventory['base'], inventory['head']), (side, self.base, head))
+            expected = sha256(f'{page}\n{head}\n'.encode()).hexdigest()
             self.assertEqual(inventory['files']['web/dist/index.html'], expected)
-        parity('PARITY_COMPARE=.')
-        parity()
+
+    def test_split_jobs_build_and_compare_the_two_source_snapshots(self):
+        base = f'BASE={self.base}'
+        self.assert_page_snapshots(self.head, 'candidate page', base)
+        self.parity(self.head, base, 'PARITY_COMPARE=.')
+        self.parity(self.head, base)
+
+    @unittest.skip("known wrong result: #2657")
+    def test_split_jobs_reject_an_undeclared_page_change(self):
+        self.assert_page_snapshots(self.undeclared, 'old page')
+        result = self.parity(self.undeclared, 'PARITY_COMPARE=.', succeeds=False)
+        self.assertIn('Switch-off production differs', result.stderr)
+        self.assertIn('\n  web/dist/index.html\n', result.stderr)
 
 
 if __name__ == '__main__':
