@@ -126,6 +126,18 @@
       "source": "arXiv:2601.20793v2, Figure 11(a) p. 9, end of the unstable branch, digitized",
       "tolerance": 0.06,
       "unit": "N"
+    },
+    {
+      "computed": 1.35,
+      "id": "snap-back-0.75-0.2",
+      "metric": "absolute difference",
+      "name": "Snap-back load, B = 0.75L, a = 0.5, b = 0.2",
+      "observed": 0.11399999999999988,
+      "passed": false,
+      "reference": 1.464,
+      "source": "arXiv:2601.20793v2, Figure 11(a) p. 9, end of the unstable branch, digitized",
+      "tolerance": 0.06,
+      "unit": "N"
     }
   ],
   "reproduced_published_results": false,

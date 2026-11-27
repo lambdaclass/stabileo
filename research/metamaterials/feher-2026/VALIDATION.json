@@ -3,7 +3,7 @@
     {
       "id": "elastica-0.5-0.2",
       "metric": "B = 0.5L, a = 0.5, b = 0.2, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
-      "observed": 0.000046468525551068955,
+      "observed": 0.00004646852555841197,
       "passed": true,
       "tolerance": 0.001
     },
@@ -17,62 +17,62 @@
     {
       "id": "elastica-0.5-0.8",
       "metric": "B = 0.5L, a = 0.5, b = 0.8, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
-      "observed": 0.00009036426665332036,
+      "observed": 0.00009036426665377831,
       "passed": true,
       "tolerance": 0.001
     },
     {
       "id": "elastica-0.75-0.2",
       "metric": "B = 0.75L, a = 0.5, b = 0.2, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
-      "observed": 0.00009733620532212136,
+      "observed": 0.00009733620531818212,
       "passed": true,
       "tolerance": 0.001
     },
     {
       "id": "elastica-0.75-0.5",
       "metric": "B = 0.75L, a = 0.5, b = 0.5, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
-      "observed": 0.00009397547141108059,
+      "observed": 0.00009397547142351944,
       "passed": true,
       "tolerance": 0.001
     },
     {
       "id": "elastica-0.75-0.8",
       "metric": "B = 0.75L, a = 0.5, b = 0.8, self-weight, no load: midpoint height against the inextensible elastica solved by shooting, relative difference",
-      "observed": 0.0001610192149953393,
+      "observed": 0.00016101921498545756,
       "passed": true,
       "tolerance": 0.001
     },
     {
       "id": "elastica-loaded-0.5-0.5",
       "metric": "B = 0.5L, a = 0.5, b = 0.5, self-weight and 1 N at midspan: midpoint height against the inextensible elastica, relative difference",
-      "observed": 0.00016149950318118173,
+      "observed": 0.00013907216639030435,
       "passed": true,
       "tolerance": 0.001
     }
   ],
   "heights_mm": {
     "0.5-0.2": {
-      "elastica": 125.79950752045916,
-      "stabileo": 125.80535323808868
+      "elastica": 125.79950752045826,
+      "stabileo": 125.80535323808871
     },
     "0.5-0.5": {
       "elastica": 125.73336723952669,
       "stabileo": 125.73966900524844
     },
     "0.5-0.8": {
-      "elastica": 124.13383667892421,
+      "elastica": 124.13383667892415,
       "stabileo": 124.14505394204257
     },
     "0.75-0.2": {
-      "elastica": 86.58696701472925,
-      "stabileo": 86.59539506152882
+      "elastica": 86.58696701472952,
+      "stabileo": 86.59539506152875
     },
     "0.75-0.5": {
-      "elastica": 85.6923781429236,
+      "elastica": 85.69237814292254,
       "stabileo": 85.70043112455592
     },
     "0.75-0.8": {
-      "elastica": 81.98451732936431,
+      "elastica": 81.98451732936512,
       "stabileo": 81.99771841198645
     }
   },

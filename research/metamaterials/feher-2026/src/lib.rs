@@ -133,12 +133,58 @@ fn advance(state: &State, strip: &Strip, span: f64, load: f64) -> Result<State, 
     state.go(model.clone(), 2).or_else(|_| state.go(model, 50))
 }
 
-fn continuous(state: &State, strip: &Strip, span: f64, from: f64, to: f64, depth: usize) -> Result<State, String> {
-    if let Ok(next) = advance(state, strip, span, to) {
-        if (next.height() - state.height()).abs() <= HEIGHT_INCREMENT { return Ok(next); }
+fn equilibrate(mut state: State) -> Result<State, String> {
+    use dedaliano_engine::linalg::cholesky::cholesky_solve;
+    use dedaliano_engine::solver::{corotational::assemble_corotational_public, dof::DofNumbering};
+    let dofs = DofNumbering::build_2d(&state.input);
+    let n = dofs.n_total;
+    let mut u = vec![0.; n];
+    for d in &state.displacements {
+        for (j, x) in [d.ux, d.uz, d.ry].iter().enumerate() {
+            u[dofs.global_dof(d.node_id, j).unwrap()] = *x;
+        }
     }
-    if depth == 0 { return Err("continuity of the initial equilibrium branch could not be established".into()); }
+    let nf = dofs.n_free;
+    let applied = dedaliano_engine::solver::assembly::assemble_load_vector_2d(&state.input, &state.input.loads, &dofs, &[]);
+    for _ in 0..12 {
+        let mut tangent = vec![0.; n * n];
+        let mut internal = vec![0.; n];
+        assemble_corotational_public(&state.input, &dofs, &u, &mut internal, &mut tangent);
+        let residual: Vec<_> = (0..nf).map(|i| applied[i] - internal[i]).collect();
+        let mut free: Vec<_> = tangent.chunks_exact(n).take(nf).flat_map(|row| &row[..nf]).copied().collect();
+        let change = cholesky_solve(&mut free, &residual, nf).ok_or("strip tangent lost stability")?;
+        for (x, dx) in u.iter_mut().zip(&change) { *x += dx; }
+        if change.iter().all(|x| x.abs() < 1e-9) {
+            for d in &mut state.displacements {
+                [d.ux, d.uz, d.ry] = [0, 1, 2].map(|j| u[dofs.global_dof(d.node_id, j).unwrap()]);
+            }
+            return Ok(state);
+        }
+    }
+    Err("strip equilibrium could not be refined".into())
+}
+
+fn retraced_step(state: &State, from: f64, to: f64, solve: impl Fn(&State, f64) -> Result<State, String>) -> Result<State, String> {
     let mid = 0.5 * (from + to);
+    let middle = solve(state, mid)?;
+    let next = solve(&middle, to)?;
+    let returned = solve(&next, from)?;
+    if (next.height() - state.height()).abs() <= HEIGHT_INCREMENT
+        && (returned.height() - state.height()).abs() < 1e-7 {
+        Ok(next)
+    } else {
+        Err(format!("initial equilibrium branch could not be verified at {from}:{to} reverse drift={}", returned.height()-state.height()))
+    }
+}
+
+fn continuous(state: &State, strip: &Strip, span: f64, from: f64, to: f64, depth: usize) -> Result<State, String> {
+    let mid = 0.5 * (from + to);
+    let solve = |s: &State, load| {
+        let model = strip.model(PI / 2., Some(span), 1., load);
+        equilibrate(s.go(model, 2)?)
+    };
+    let attempt = retraced_step(state, from, to, solve);
+    if attempt.is_ok() || depth == 0 { return attempt; }
     let next = continuous(state, strip, span, from, mid, depth - 1)?;
     continuous(&next, strip, span, mid, to, depth - 1)
 }
@@ -146,9 +192,9 @@ fn continuous(state: &State, strip: &Strip, span: f64, from: f64, to: f64, depth
 /// Midpoint height under a midspan load raised from zero in `step` increments on the branch the
 /// strip starts on.
 pub fn loaded_height(strip: &Strip, span: f64, load: f64, step: f64) -> Result<f64, String> {
-    load_steps(load, step)?;
-    let steps = load_steps(load, step.min(CYCLE_LOAD_STEP))?;
-    let mut s = prepare(strip, span)?;
+    let steps = load_steps(load, step)?;
+    let prepared = prepare(strip, span)?;
+    let mut s = equilibrate(prepared)?;
     let mut from = 0.;
     for k in 1..=steps {
         let to = load * (k as f64 / steps as f64);
@@ -159,17 +205,19 @@ pub fn loaded_height(strip: &Strip, span: f64, load: f64, step: f64) -> Result<f
 }
 
 pub fn load_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, jump: f64) -> Result<serde_json::Value, String> {
-    let steps = load_steps(max_load, step)?;
+    load_steps(max_load, step)?;
     if max_load < 0.0 || !jump.is_finite() || jump <= 0.0 { return Err("invalid load cycle".into()); }
     let start = prepare(strip, span)?;
-    trace_cycle(strip, span, max_load, step, steps, jump, start, |s, load| advance(s, strip, span, load))
+    trace_cycle(strip, span, max_load, step, jump, start, |s, load| advance(s, strip, span, load))
 }
 
-fn trace_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, steps: usize, jump: f64, mut s: State,
+fn trace_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, jump: f64, mut s: State,
                solve: impl Fn(&State, f64) -> Result<State, String>) -> Result<serde_json::Value, String> {
+    let steps = load_steps(max_load, step)?;
     let mut points = vec![[0.0, s.height()]];
     let mut snaps = vec![];
     let mut lost = serde_json::Value::Null;
+    let mut unresolved = None;
     'cycle: for loading in [true, false] {
         for k in 1..=steps {
             let index = if loading { k } else { steps - k };
@@ -180,9 +228,15 @@ fn trace_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, steps: usize,
             };
             if (n.height() - s.height()).abs() > jump {
                 let previous = points.last().unwrap()[0];
-                if let Ok(returned) = solve(&n, previous) {
-                    if (returned.height() - s.height()).abs() > jump {
+                match solve(&n, previous) {
+                    Ok(returned) if (returned.height() - s.height()).abs() > jump => {
                         snaps.push(json!({"load": next, "from": s.height(), "to": n.height(), "loading": loading}));
+                    }
+                    Ok(_) => {}
+                    Err(_) => {
+                        unresolved = Some(json!({"bracket": [previous, next], "loading": loading, "from": s.height(), "to": n.height()}));
+                        lost = json!(next);
+                        break 'cycle;
                     }
                 }
             }
@@ -190,7 +244,9 @@ fn trace_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, steps: usize,
             points.push([next, s.height()]);
         }
     }
-    Ok(json!({"a": strip.a, "b": strip.b, "span": span, "points": points, "snaps": snaps, "lost_at": lost}))
+    let mut cycle = json!({"a": strip.a, "b": strip.b, "span": span, "points": points, "snaps": snaps, "lost_at": lost});
+    if let Some(event) = unresolved { cycle["unresolved_switch"] = event; }
+    Ok(cycle)
 }
 
 #[cfg(test)]
@@ -215,7 +271,20 @@ mod continuation_regressions {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2505"]
+    fn a_small_nonretracing_jump_cannot_supply_a_loaded_height() {
+        let strip = Strip { a: 0.5, b: 0.5 };
+        let state = |height| State {
+            input: strip.model(PI / 2., Some(LENGTH / 2.), 1., 0.),
+            displacements: vec![Displacement { node_id: ELEMENTS / 2, ux: 0., uz: height, ry: 0. }],
+        };
+        let upper = state(2.);
+        let jump = retraced_step(&upper, 0., 1., |_, _| Ok(state(1.)));
+        assert!(jump.is_err());
+        let continuous = retraced_step(&upper, 0., 1., |_, load| Ok(state(2. - load)));
+        assert_eq!(continuous.unwrap().height(), 1.);
+    }
+
+    #[test]
     fn failed_reverse_solve_keeps_the_direction_and_bracket() {
         let strip = Strip { a: 0.5, b: 0.5 };
         let state = |height| State {
@@ -224,7 +293,7 @@ mod continuation_regressions {
         };
         for loading in [false, true] {
             let calls = std::cell::Cell::new(0);
-            let cycle = trace_cycle(&strip, LENGTH / 2., 1., 1., 1, HEIGHT_INCREMENT, state(0.), |_, _| {
+            let cycle = trace_cycle(&strip, LENGTH / 2., 1., 1., HEIGHT_INCREMENT, state(0.), |_, _| {
                 let i = calls.get();
                 calls.set(i + 1);
                 match (loading, i) {

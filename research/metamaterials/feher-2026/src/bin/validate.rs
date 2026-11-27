@@ -38,8 +38,20 @@ fn paper_extremum(points: &[Value], back: bool) -> Option<f64> {
     if back { loads.reduce(f64::min) } else { loads.reduce(f64::max) }
 }
 
+const SWITCHES: [(f64, f64, bool); 5] = [(0.5, 0.2, false), (0.5, 0.5, false), (0.5, 0.5, true), (0.75, 0.2, false), (0.75, 0.2, true)];
+
+fn switch_id(span: f64, b: f64, back: bool) -> String {
+    format!("{}-{span}-{b}", if back { "snap-back" } else { "snap-through" })
+}
+
 fn reproduced(rows: &[Value]) -> bool {
-    !rows.is_empty() && rows.iter().all(|row| row["passed"] == true && row["observed"].is_number())
+    let mut expected = Vec::new();
+    for span in [0.5, 0.75] {
+        for b in [0.2, 0.5, 0.8] { expected.push(format!("height-{span}-{b}")); }
+    }
+    expected.extend(SWITCHES.map(|(span, b, back)| switch_id(span, b, back)));
+    rows.len() == expected.len() && expected.iter().all(|id| rows.iter().any(|r| r["id"] == id.as_str()
+        && r["passed"] == true && r["observed"].is_number()))
 }
 
 fn figure(span: f64, b: f64) -> String {
@@ -73,13 +85,13 @@ fn main() {
     let reference = exact::height(&strip, 0.5 * LENGTH, 1.0).unwrap();
     checks.push(check("elastica-loaded-0.5-0.5", "B = 0.5L, a = 0.5, b = 0.5, self-weight and 1 N at midspan: midpoint height against the inextensible elastica, relative difference", ((ours - reference) / reference).abs(), 1e-3));
 
-    for (span, b, back) in [(0.5, 0.2, false), (0.5, 0.5, false), (0.5, 0.5, true), (0.75, 0.2, false)] {
+    for (span, b, back) in SWITCHES {
         let cycle = load_cycle(&Strip { a: CUT, b }, span * LENGTH, 4.0, CYCLE_LOAD_STEP, HEIGHT_INCREMENT).unwrap();
         let computed = observed_switch(&cycle, back);
         let panel = digitized["panels"].as_array().unwrap().iter().find(|p| p["B_over_L"] == json!(span) && p["b"] == json!(b)).unwrap();
         let reference = paper_extremum(panel["unstable_curve"].as_array().unwrap(), back);
         let kind = if back { "Snap-back load" } else { "Snap-through load" };
-        rows.push(row(&format!("{}-{span}-{b}", if back { "snap-back" } else { "snap-through" }), format!("{kind}, B = {span}L, a = {CUT}, b = {b}"),
+        rows.push(row(&switch_id(span, b, back), format!("{kind}, B = {span}L, a = {CUT}, b = {b}"),
             format!("{SOURCE}, {}, end of the unstable branch, digitized", figure(span, b)), "N", reference, computed, LOAD_TOLERANCE));
     }
 
@@ -140,7 +152,6 @@ fn publication_reports_all_required_verdicts() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn one_passing_snap_is_not_a_complete_comparison() {
     let single = row("snap-back-0.5-0.5", String::new(), String::new(), "N", Some(1.), Some(1.), 0.);
     assert!(!reproduced(&[single]));

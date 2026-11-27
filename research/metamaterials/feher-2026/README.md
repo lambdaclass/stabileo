@@ -89,6 +89,7 @@ branch (red) gives its snap-through and snap-back loads.
 | B = 0.5L, b = 0.8 | unloaded height (measured) | No zero-load marker | 124.1 mm | — |
 | B = 0.75L, b = 0.2 | unloaded height (measured) | No zero-load marker | 86.6 mm | — |
 | B = 0.75L, b = 0.2 | snap-through load | 1.64 N | 1.55 N | −5.3 % |
+| B = 0.75L, b = 0.2 | snap-back load | 1.46 N | 1.35 N | −7.8 % |
 | B = 0.75L, b = 0.5 | unloaded height (measured) | No zero-load marker | 85.7 mm | — |
 | B = 0.75L, b = 0.8 | unloaded height (measured) | No zero-load marker | 82.0 mm | — |
 
@@ -129,7 +130,7 @@ and 11, and within 1.6·10⁻⁴ with 1 N at midspan (B = 0.5L, b = 0.5). The to
 budget for 136 straight members with one section each and lumped weight, an O(h²) error with
 h = L/136. Each step now converges to a relative residual of 10⁻¹⁰ (it was 10⁻⁷): as in the
 shape-control crate, the looser value let the current engine accept states that depend on the
-increments.
+increments. The loaded-height query now refines each candidate with the free tangent and the force residual, checks that the free tangent stays positive definite, and reverses the interval to verify the starting branch. Failure to verify a retrace triggers subdivision. An unverified branch yields no height.
 
 **Against the paper** (all a = 0.5, digitized from Figures 10 and 11 of the preprint):
 
@@ -145,6 +146,7 @@ increments.
 | Snap-through load, B = 0.5L, b = 0.5 | 2.221 N | 2.05 N | 0.171 N ✗ | 0.06 N |
 | Snap-back load, B = 0.5L, b = 0.5 | 0.963 N | 0.95 N | 0.013 N | 0.06 N |
 | Snap-through load, B = 0.75L, b = 0.2 | 1.637 N | 1.55 N | 0.087 N ✗ | 0.06 N |
+| Snap-back load, B = 0.75L, b = 0.2 | 1.464 N | 1.35 N | 0.114 N ✗ | 0.06 N |
 
 Tolerances: heights, the paper's stated ±0.5 mm measurement uncertainty plus about one pixel of
 the 400 dpi digitization (0.12–0.2 mm on the height axis); loads, our 0.05 N load step (the

@@ -53,6 +53,11 @@ fn steep_retracing_branches_have_no_recorded_switches() {
         let stored = curves.as_array().unwrap().iter().find(|c| c["span"] == span * LENGTH && c["b"] == b).unwrap();
         assert_eq!(stored["snaps"], serde_json::json!([]));
         let live = cut_strip_feher_2026::load_cycle(&Strip { a: 0.5, b }, span * LENGTH, 4.0, 0.05, 10.0).unwrap();
+        let points = live["points"].as_array().unwrap();
+        assert!(live["lost_at"].is_null());
+        assert_eq!(points.len(), 161);
+        assert_eq!(points[80][0], 4.);
+        assert_eq!(points.last().unwrap()[0], 0.);
         assert_eq!(live["snaps"], stored["snaps"]);
     }
 }
@@ -66,7 +71,6 @@ fn a_steep_continuous_height_is_independent_of_the_first_increment() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn snap_back_for_the_long_shallow_cut_is_published() {
     let curves: Value = serde_json::from_str(include_str!("../reference-results/curves.json")).unwrap();
     let cycle = curves.as_array().unwrap().iter().find(|c| c["span"] == 0.75 * LENGTH && c["b"] == 0.2).unwrap();
@@ -77,7 +81,6 @@ fn snap_back_for_the_long_shallow_cut_is_published() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn steep_segment_refines_with_distinct_increments() {
     let strip = Strip { a: 0.5, b: 0.5 };
     let mut heights = Vec::new();
