@@ -104,3 +104,23 @@ fn shallow_cut_cycle_reaches_the_inverted_branch_and_returns_to_zero_load() {
     assert!(snap["from"].as_f64().unwrap() > 0. && snap["to"].as_f64().unwrap() < 0.);
     assert_eq!(cycle["points"].as_array().unwrap().last().unwrap()[0], 0.);
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn next_steps_report_each_snap_load_against_its_paper_tolerance() {
+    let readme = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md")).unwrap();
+    let next = readme.split_once("## Next\n").unwrap().1.split("\n## ").next().unwrap();
+    let rows: Vec<_> = next.lines().filter(|line| line.starts_with("| Snap-")).collect();
+    let evidence = comparison();
+    let mut expected = Vec::new();
+    for check in evidence["checks"].as_array().unwrap().iter().filter(|c| c["unit"] == "N") {
+        let name = check["name"].as_str().unwrap().replace(", a = 0.5", "");
+        let paper = check["reference"].as_f64().unwrap();
+        let measured = check["computed"].as_f64().unwrap();
+        let difference = (paper - measured).abs();
+        let tolerance = check["tolerance"].as_f64().unwrap();
+        let mark = if difference > tolerance { " ✗" } else { "" };
+        expected.push(format!("| {name} | {paper:.3} N | {measured:.2} N | {difference:.3} N{mark} | {tolerance} N |"));
+    }
+    assert_eq!(rows, expected);
+}
