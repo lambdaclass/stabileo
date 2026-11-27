@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { metricLabel } from '../metric-labels';
 import { auditSentence } from '../audit-text';
-import { setLocale } from '../../lib/i18n';
+import { ensureLocale, setLocale } from '../../lib/i18n';
 import type { AuditEntry } from '../../lib/api/admin';
 
 beforeEach(() => {
@@ -44,4 +44,11 @@ describe('audit sentences', () => {
   it('shows an action it does not know as it was recorded', () => {
     expect(auditSentence(entry('project.purge', { n: 2 }))).toBe('project.purge {"n":2}');
   });
+});
+
+it.skip.each(['it', 'en', 'es'] as const)('known wrong result: #2595 — %s identifies the same free-body view in both metrics', async locale => {
+  setLocale(locale);
+  await ensureLocale(locale);
+  expect(metricLabel('diagrams', 'despiece')).toBe(metricLabel('advanced', 'despiece'));
+  if (locale === 'it') expect(metricLabel('diagrams', 'despiece')).toBe('Vista a corpo libero');
 });
