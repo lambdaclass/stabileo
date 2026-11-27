@@ -109,12 +109,11 @@ const MAJOR = 0x3d4b57;
 /** A GridHelper with one colour throughout: its centre is the patch's, which is not the origin. */
 function gridLines(extent: number, divisions: number, color: number, opacity: number): THREE.GridHelper {
   const g = new THREE.GridHelper(extent, divisions, color, color);
-  if (opacity < 1) {
-    const m = g.material as THREE.LineBasicMaterial;
-    m.transparent = true;
-    m.opacity = opacity;
-    m.depthWrite = false;
-  }
+  const m = g.material as THREE.LineBasicMaterial;
+  m.transparent = true;
+  m.opacity = opacity;
+  /* A background drawing lies in the grid's own plane: a grid line that wrote depth would hide it where the two coincide. */
+  m.depthWrite = false;
   return g;
 }
 
