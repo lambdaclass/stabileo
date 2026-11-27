@@ -5082,6 +5082,7 @@ const de: Translations = {
   'pro.shellCurvatureSelect': 'Wählen Sie ein oder mehrere Vierecke.',
   'pro.shellCurvatureOop': 'Größter Abstand aus der Ebene in der Auswahl: {mm} mm.',
   'pro.curvedShell': 'Gekrümmte Schale',
+  'pro.curvedShellHint': 'Diese vier Knoten liegen {mm} mm außerhalb einer Ebene. Eben berechnet geht die Krümmung verloren – aktivieren Sie „Gekrümmte Schale“, um sie zu erhalten.',
   'pro.shellFourthPh': 'Optional: Drei Ecken ergeben ein Dreieck, vier ein Viereck.',
   'pro.shellNeedNodes': 'Wählen Sie drei oder vier Knoten',
   'pro.errNodesExist': 'Nicht alle dieser Knoten existieren im Modell.',

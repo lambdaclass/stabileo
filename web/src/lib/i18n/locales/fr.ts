@@ -5082,6 +5082,7 @@ const fr: Translations = {
   'pro.shellCurvatureSelect': 'Sélectionnez un ou plusieurs quadrangles.',
   'pro.shellCurvatureOop': 'Plus grande distance hors plan dans la sélection : {mm} mm.',
   'pro.curvedShell': 'Coque courbe',
+  'pro.curvedShellHint': 'Ces quatre nœuds sont à {mm} mm hors plan. Calculée plane, la courbure est perdue ; cochez Coque courbe pour la conserver.',
   'pro.shellFourthPh': 'Facultatif : trois sommets forment un triangle, quatre un quadrangle.',
   'pro.shellNeedNodes': 'Choisissez trois ou quatre nœuds',
   'pro.errNodesExist': 'Ces nœuds n\'existent pas tous dans le modèle.',

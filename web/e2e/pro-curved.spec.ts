@@ -85,7 +85,7 @@ test.describe('@smoke PRO — curved geometry', () => {
       await expect(page.getByTestId('quad-curved-hint')).toHaveCount(0);
     });
   } else {
-    test.skip('known wrong result: a warped quad warns before a flat solve and preserves an explicit curved choice', async ({ pro: page }) => {
+    test('a warped quad warns before a flat solve and preserves an explicit curved choice', async ({ pro: page }) => {
       await page.getByTestId('pr-stage-model').click();
       await page.getByTestId('pr-cmd-nodes').click();
       await page.getByTestId('write-node').click();

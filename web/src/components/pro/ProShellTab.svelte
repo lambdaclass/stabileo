@@ -8,7 +8,7 @@
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
   import type { ShellRecommendation } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
-  import { drawState, addShellOnCorners, CURVED_QUAD_TOL } from '../../lib/store/draw-state.svelte';
+  import { drawState, addShellOnCorners, CURVED_QUAD_TOL, quadOutOfPlane } from '../../lib/store/draw-state.svelte';
   import { createCircularPlate, createPlate, physicalPlates, plateOfShell } from '../../lib/store/physical-plates';
   import { platesFromShells } from '../../lib/store/plates-from-shells';
   import PlatePanel from './plates/PlatePanel.svelte';
@@ -110,21 +110,8 @@
    * nothing says so, and whether four points are coplanar is arithmetic
    * rather than a matter of opinion.
    */
-  const newOutOfPlane = $derived.by(() => {
-    if (newCount !== 4 || !newPts) return null;
-    const [a, b, c, d] = newPts;
-    const u = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
-    const v = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
-    const n = {
-      x: u.y * v.z - u.z * v.y,
-      y: u.z * v.x - u.x * v.z,
-      z: u.x * v.y - u.y * v.x,
-    };
-    const len = Math.hypot(n.x, n.y, n.z);
-    if (len < 1e-12) return null;
-    const w = { x: d.x - a.x, y: d.y - a.y, z: d.z - a.z };
-    return Math.abs((w.x * n.x + w.y * n.y + w.z * n.z) / len);
-  });
+  let newCurved = $state(false);
+  const newOutOfPlane = $derived(quadOutOfPlane(newGiven.map(Number)));
 
   /*
    * Derived, not recomputed by hand on `oninput`.
@@ -196,7 +183,7 @@
     }
     const ids = newGiven.map((v) => Number(v));
     if (ids.length < cornerBoxes) { newError = t('pro.shellNeedNodes'); return; }
-    const r = addShellOnCorners(ids, drawState.plateMaterialId, drawState.plateThickness);
+    const r = addShellOnCorners(ids, drawState.plateMaterialId, drawState.plateThickness, __PUBLIC_FEATURES__.proPlatesUnified ? undefined : newCurved);
     if ('error' in r) { newError = t(r.error); return; }
     // The plate it is made into belongs to the same undo step as the shell.
     let plate: number | undefined;
@@ -204,6 +191,7 @@
     if (plate !== undefined) { uiStore.selectMode = 'shells'; uiStore.selectPlates([plate]); } else uiStore.selectShell(r.key, false);
     /* The recommendation follows the corners, so clearing them clears it. */
     newNodeIds = ['', '', '', ''];
+    newCurved = false;
   }
 
 
@@ -295,8 +283,21 @@
                  onchange={(v) => { if (v > 0) drawState.plateThickness = v; }} testid="shell-thickness" />
         </label>
 
-        {#if unifiedPlates() && newCount === 4 && newOutOfPlane != null && newOutOfPlane > CURVED_QUAD_TOL}
-          <p class="mesh-hint" data-testid="quad-curved-hint">{tp('pro.curvedShellAuto', { mm: (newOutOfPlane * 1000).toFixed(1) })}</p>
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}
+          {#if newCount === 4 && newOutOfPlane != null && newOutOfPlane > CURVED_QUAD_TOL}
+            <p class="mesh-hint" data-testid="quad-curved-hint">{tp('pro.curvedShellAuto', { mm: (newOutOfPlane * 1000).toFixed(1) })}</p>
+          {/if}
+        {:else if newCount === 4}
+          <label class="curved-check">
+            <input type="checkbox" bind:checked={newCurved} data-testid="quad-curved" />
+            <span>{t('pro.curvedShell')}</span>
+          </label>
+          {#if newOutOfPlane != null && newOutOfPlane > 1e-6 && !newCurved}
+            <div class="recommendation warn" data-testid="quad-curved-hint">
+              <span class="rec-icon">⚠</span>
+              <span class="rec-text">{tp('pro.curvedShellHint', { mm: (newOutOfPlane * 1000).toFixed(1) })}</span>
+            </div>
+          {/if}
         {/if}
 
         {#if newRecommendation}
@@ -570,4 +571,6 @@
   .rec-warning::before {
     content: '\26A0 ';
   }
+  .curved-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .curved-check input { cursor: pointer; }
 </style>

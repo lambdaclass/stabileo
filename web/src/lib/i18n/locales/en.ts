@@ -5542,6 +5542,7 @@ const en: Record<string, string> = {
   'pro.shellCurvatureSelect': 'Select one or more quads.',
   'pro.shellCurvatureOop': 'Largest out-of-plane distance in the selection: {mm} mm.',
   'pro.curvedShell': 'Curved shell',
+  'pro.curvedShellHint': 'These four nodes are {mm} mm out of plane. Solved flat, the curvature is lost — tick Curved shell to keep it.',
   'pro.shellFourthPh': 'Optional: three corners make a triangle, four a quad.',
   'pro.shellNeedNodes': 'Pick three or four nodes',
   'pro.errNodesExist': 'Those nodes do not all exist in the model.',

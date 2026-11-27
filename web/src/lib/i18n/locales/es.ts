@@ -5535,6 +5535,7 @@ const es: Record<string, string> = {
   'pro.shellCurvatureSelect': 'Seleccioná una o más placas de cuatro nodos.',
   'pro.shellCurvatureOop': 'Mayor distancia fuera de plano en la selección: {mm} mm.',
   'pro.curvedShell': 'Cáscara (con curvatura)',
+  'pro.curvedShellHint': 'Estos cuatro nodos están {mm} mm fuera de plano. Resuelta plana, la curvatura se pierde — tildá Cáscara para conservarla.',
   'pro.shellFourthPh': 'Opcional: tres esquinas hacen un triángulo, cuatro un quad.',
   'pro.shellNeedNodes': 'Elegí tres o cuatro nodos',
   'pro.errNodesExist': 'Esos nodos no existen todos en el modelo.',

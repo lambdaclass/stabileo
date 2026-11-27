@@ -5091,6 +5091,7 @@ const tr: Translations = {
   'pro.shellCurvatureSelect': 'Bir veya daha fazla dörtgen seçin.',
   'pro.shellCurvatureOop': 'Seçimdeki en büyük düzlem dışı mesafe: {mm} mm.',
   'pro.curvedShell': 'Eğri kabuk',
+  'pro.curvedShellHint': 'Bu dört düğüm düzlemin {mm} mm dışında. Düz çözülürse eğrilik kaybolur; korumak için Eğri kabuk\'u işaretleyin.',
   'pro.shellFourthPh': 'İsteğe bağlı: üç köşe üçgen, dört köşe dörtgen oluşturur.',
   'pro.shellNeedNodes': 'Üç veya dört düğüm seçin',
   'pro.errNodesExist': 'Bu düğümlerin hepsi modelde mevcut değil.',

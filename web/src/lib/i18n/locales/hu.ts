@@ -4817,6 +4817,7 @@ const hu: Translations = {
   "pro.shellCurvatureSelect": "Jelöljön ki egy vagy több négyszögelemet.",
   "pro.shellCurvatureOop": "A kijelölés legnagyobb síkon kívüli távolsága: {mm} mm.",
   "pro.curvedShell": "Görbült héj",
+  "pro.curvedShellHint": "Ez a négy csomópont {mm} mm-rel kívül esik a síkon. Síkként megoldva a görbület elvész – a megtartásához jelölje be a Görbült héj négyzetet.",
   "pro.shellFourthPh": "Nem kötelező: három sarok háromszöget, négy négyszöget ad.",
   "pro.shellNeedNodes": "Válasszon három vagy négy csomópontot",
   "pro.errNodesExist": "Ezek a csomópontok nem mind léteznek a modellben.",

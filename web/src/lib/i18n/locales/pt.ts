@@ -6843,6 +6843,7 @@ const pt: Translations = {
   'pro.shellCurvatureSelect': 'Selecione uma ou mais placas de quatro nós.',
   'pro.shellCurvatureOop': 'Maior distância fora do plano na seleção: {mm} mm.',
   'pro.curvedShell': 'Casca (com curvatura)',
+  'pro.curvedShellHint': 'Estes quatro nós estão {mm} mm fora do plano. Resolvida plana, a curvatura se perde — marque Casca para mantê-la.',
   'pro.shellFourthPh': 'Opcional: três cantos fazem um triângulo, quatro um quad.',
   'pro.shellNeedNodes': 'Escolha três ou quatro nós',
   'pro.errNodesExist': 'Esses nós não existem todos no modelo.',

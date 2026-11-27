@@ -5293,6 +5293,7 @@ const zh: Translations = {
   "pro.shellCurvatureSelect": "请选择一个或多个四边形。",
   "pro.shellCurvatureOop": "所选对象中最大的面外距离：{mm} mm。",
   "pro.curvedShell": "曲面壳",
+  "pro.curvedShellHint": "这四个节点偏离平面 {mm} mm。按平面求解会丢失曲率，请勾选「曲面壳」以保留。",
 
   "pro.shellFourthPh": "可选：三个角点构成三角形，四个构成四边形。",
   "pro.shellNeedNodes": "请选择三个或四个节点",

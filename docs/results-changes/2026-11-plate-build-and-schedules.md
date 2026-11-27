@@ -22,7 +22,7 @@ An unmerged integration build could discard part of a distributed load when that
 
 ## Formulation of drawn quadrilateral shells
 
-In the production profile, a newly drawn quadrilateral retains the flat formulation unless the user explicitly selects curved. A warped flat shell reaches the solver's normal warp check. Unified PRO retains its automatic curved-shell selection. A disabled-profile integration build could mark a drawn shell curved automatically; its saved flag does not record who selected it. Review the formulation of such shells before reanalysis.
+In the production profile, a newly drawn quadrilateral retains the flat formulation unless the user explicitly selects curved. A warped flat shell reaches the solver's normal warp check. Unified PRO retains its automatic curved-shell selection. A disabled-profile integration build could mark a drawn shell curved automatically; its saved flag does not record who selected it. Review the formulation of such shells before reanalysis. The typed-corner form also restores the explicit curved choice and warns when four noncoplanar corners are about to be saved as flat. Checking the option saves the curved formulation on the element. Existing elements retain their saved formulation.
 
 ## Saved UK concrete beam designs
 
