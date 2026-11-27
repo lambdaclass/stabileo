@@ -1,6 +1,5 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { assertNoGameLinks, startWithSwitchesOff } from './bautista-switches.mjs';
 const browser = await chromium.launch({ headless: true });
 const base = process.env.BAUTISTA_URL ?? 'http://127.0.0.1:4001';
 try {
@@ -8,12 +7,13 @@ try {
     const page = await browser.newPage({ viewport: { width, height } });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await startWithSwitchesOff(page);
     await page.goto(`${base}/hu/`);
     await page.locator('h1').waitFor();
-    await assertNoGameLinks(page);
+    for (const section of ['tools', 'research', 'games']) {
+      assert.ok(await page.locator(`a[href="/hu/${section}/"]`).count() > 0, `${name}: ${section} is linked by default`);
+    }
+    assert.equal(await page.locator('a[href$="/examples/"]').count(), 0);
     assert.equal(await page.locator('a[href*="/tools/mohr-"]').count(), 0);
-    for (const section of ['tools', 'research', 'examples']) assert.ok(await page.locator(`a[href$="/${section}/"]`).count() > 0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.screenshot({ path: `.bautista-${name}-landing.png` });
     await page.goto(`${base}/hu/blog/verificacion-flexion-cirsoc-201/`);
@@ -47,7 +47,7 @@ try {
     assert.deepEqual(errors, [], `${name}: uncaught browser errors`);
     await page.close();
   }
-  console.log('phone 390×844 and tablet 768×1024: switches-off landing, Hungarian correction, enabled Mohr and diagram game pass');
+  console.log('phone 390×844 and tablet 768×1024: default landing, Hungarian correction, enabled Mohr and diagram game pass');
 } finally {
   await browser.close();
 }

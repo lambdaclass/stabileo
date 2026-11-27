@@ -93,13 +93,13 @@ it('addresses the player formally in Turkish game controls', () => {
   });
 });
 
-it.skip('known wrong result: #2492 — fits the Chinese diagram game title in a search result', () => {
+it('fits the Chinese diagram game title in a search result', () => {
   const titleWidth = width(`${gameStrings.zh!.title} — Stabileo`);
   expect(titleWidth).toBeGreaterThanOrEqual(25);
   expect(titleWidth).toBeLessThanOrEqual(120);
 });
 
-it.skip('known wrong result: #2492 — describes both diagram types and uses a generic diagram in the Chinese reverse question', () => {
+it('describes both diagram types and uses a generic diagram in the Chinese reverse question', () => {
   const meta = gameStrings.zh!.meta;
   const [forward, reverse] = meta.split('，或');
   expect.soft(forward).toContain('内力图或变形图');

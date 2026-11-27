@@ -325,12 +325,30 @@ test('@smoke the game thumbnail fits all three answer cards inside its viewBox',
   await page.goto('/en/games/');
   const thumbnail = page.getByTestId('game-card-diagram-game').locator('svg.thumb');
   await expect(thumbnail.locator('rect.option')).toHaveCount(3);
-  const { left, right, min, max } = await thumbnail.evaluate(el => {
+  const { view, bounds } = await thumbnail.evaluate(el => {
     const svg = el as SVGSVGElement;
-    const box = svg.getBBox();
-    const view = svg.viewBox.baseVal;
-    return { left: box.x, right: box.x + box.width, min: view.x, max: view.x + view.width };
+    const { x, y, width, height } = svg.viewBox.baseVal;
+    const toViewBox = svg.getScreenCTM()!.inverse();
+    const bounds = [svg, ...svg.querySelectorAll<SVGRectElement>('rect.option')].map((element, i) => {
+      const box = element.getBBox();
+      const style = getComputedStyle(element);
+      const halfStroke = style.stroke === 'none' ? 0 : parseFloat(style.strokeWidth) / 2;
+      const transform = toViewBox.multiply(element.getScreenCTM()!);
+      const xs = [box.x - halfStroke, box.x + box.width + halfStroke];
+      const ys = [box.y - halfStroke, box.y + box.height + halfStroke];
+      const corners = xs.flatMap(x => ys.map(y => new DOMPoint(x, y).matrixTransform(transform)));
+      return {
+        name: i === 0 ? 'thumbnail' : `answer card ${i}`,
+        left: Math.min(...corners.map(p => p.x)), right: Math.max(...corners.map(p => p.x)),
+        top: Math.min(...corners.map(p => p.y)), bottom: Math.max(...corners.map(p => p.y)),
+      };
+    });
+    return { view: { x, y, width, height }, bounds };
   });
-  expect(left).toBeGreaterThanOrEqual(min);
-  expect(right).toBeLessThanOrEqual(max);
+  for (const box of bounds) {
+    expect(box.left, `${box.name} left edge`).toBeGreaterThanOrEqual(view.x);
+    expect(box.right, `${box.name} right edge`).toBeLessThanOrEqual(view.x + view.width);
+    expect(box.top, `${box.name} top edge`).toBeGreaterThanOrEqual(view.y);
+    expect(box.bottom, `${box.name} bottom edge`).toBeLessThanOrEqual(view.y + view.height);
+  }
 });
