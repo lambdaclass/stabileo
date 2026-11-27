@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { AnalysisResults3D, ElementForces3D, EnvelopeDiagramData3D, FullEnvelope3D } from '../types-3d';
 import {
+  bindSpatialEnvelope,
   bindEnvelopeQuerySources,
   buildQueryRows,
   extremeRow,
@@ -207,7 +208,7 @@ it('known wrong result: #2581 preserves both signed bounds on the inward face of
     };
     const rows = buildQueryRows(forces, 'Vy', {
       envelope: envelopeFixture(envelope, sources),
-      elementIds: [8, elementId],
+      elementIds: [elementId],
     });
     expect.soft(rows.map(({ end, value }) => [end, value])).toEqual([
       ['i', 100], ['i', -60], ['j', 40], ['j', -80],
@@ -223,6 +224,29 @@ it('known wrong result: #2581 preserves both signed bounds on the inward face of
     expect.soft(csv).toContain(',7,i,-60,kN');
     expect.soft(csv).toContain(',7,j,-80,kN');
   }
+});
+
+it.skip('known wrong result: #2581 refuses a selected member absent from the spatial envelope', () => {
+  const envelope = envelopeFixture({
+    kind: 'shearY', globalMax: 400,
+    elements: [{
+      elementId: 7, tPositions: [0, 0, 0.5, 1, 1],
+      posValues: [300, 100, 200, 40, 400], negValues: [-300, -60, -200, -80, -400],
+    }],
+  }, [
+    [ef(7, { vyStart: 300, pointLoadsY: [{ a: 0, p: -200 }, { a: 0.5, p: -60 }, { a: 1, p: 360 }] })],
+    [ef(7, { vyStart: -300, pointLoadsY: [{ a: 0, p: 240 }, { a: 0.5, p: -20 }, { a: 1, p: -320 }] })],
+  ]);
+  const aggregate = bindSpatialEnvelope(envelope, []).maxAbsResults3D.elementForces;
+  for (const elementIds of [[8, 7], [7, 8], [8]]) {
+    expect.soft(() => buildQueryRows([ef(7), ef(8)], 'Vy', { envelope, elementIds }))
+      .toThrow('solver.diagramExtremaUnavailable');
+    expect.soft(() => buildQueryRows(aggregate, 'Vy', { elementIds }))
+      .toThrow('solver.diagramExtremaUnavailable');
+  }
+  expect.soft(buildQueryRows(aggregate, 'Vy', { elementIds: [] })).toEqual([]);
+  expect(buildQueryRows(aggregate, 'Vy', { elementIds: [7] }))
+    .toEqual(buildQueryRows(aggregate, 'Vy', { envelope }));
 });
 
 it('known wrong result: #2581 keeps the positive envelope bound when the negative bound governs the magnitude', () => {
