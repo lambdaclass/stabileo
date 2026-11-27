@@ -62,3 +62,17 @@ for (const [file, attribute] of [
     }
   });
 }
+
+test('removes the component import when its only use was in discarded markup', () => {
+  const header = "<script>import Panel from './Panel.svelte';</script>";
+  const branch = '{#if __PUBLIC_FEATURES__.proRcSheets}<Panel />{/if}';
+  assert.equal(prunePublicBuildBranches(header + branch, off).code, '<script></script>');
+  assert.equal(prunePublicBuildBranches(header + branch, on).code, header + '<Panel />');
+  assert.equal(prunePublicBuildBranches(header + branch + '<Panel />', off).code, header + '<Panel />');
+  const scripted = header.replace('</script>', 'const other = Panel;</script>');
+  assert.equal(prunePublicBuildBranches(scripted + branch, off).code, scripted);
+  const combined = header.replace('import Panel from', 'import Panel, { initialize } from');
+  assert.equal(prunePublicBuildBranches(combined + branch, off).code, combined);
+  const sideEffect = "<script>import './Panel.svelte';</script>";
+  assert.equal(prunePublicBuildBranches(sideEffect + branch, off).code, sideEffect);
+});

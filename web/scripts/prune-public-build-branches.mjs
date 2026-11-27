@@ -56,5 +56,17 @@ export function prunePublicBuildBranches(content, features) {
   visit(parse(content, { modern: true }).fragment);
   let code = content;
   for (const [start, end, replacement] of changes.sort((a, b) => b[0] - a[0])) code = code.slice(0, start) + replacement + code.slice(end);
+  if (!changes.length) return { code };
+  const retained = parse(code, { modern: true });
+  const imports = [...retained.instance?.content.body ?? [], ...retained.module?.content.body ?? []]
+    .filter(node => node.type === 'ImportDeclaration' && node.source.value.endsWith('.svelte')
+      && node.specifiers.length === 1 && node.specifiers[0].type === 'ImportDefaultSpecifier');
+  const discarded = changes.map(([start, end]) => content.slice(start, end));
+  for (const declaration of imports.sort((a, b) => b.start - a.start)) {
+    const name = declaration.specifiers[0].local.name;
+    if (!discarded.some(markup => markup.includes(`<${name}`))) continue;
+    const remainder = code.slice(0, declaration.start) + code.slice(declaration.end);
+    if (!remainder.includes(name)) code = remainder;
+  }
   return { code };
 }
