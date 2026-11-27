@@ -73,3 +73,11 @@ it('one refused case withholds every per-case result, since consumers sum over t
   expect(resultsStore.caseDisposition3D([2]).refused).toBe(true);
   expect(resultsStore.caseDisposition3D([1, 2]).messages.join(' ')).toContain('#741');
 });
+
+it.each([false, true])('empty combination publication has no envelope or selected result (3D=%s)', space => {
+  resultsStore.clear();
+  if (space) resultsStore.setCombinationResults3D(new Map(), new Map(), null);
+  else resultsStore.setCombinationResults(new Map(), new Map(), null);
+  expect(space ? resultsStore.results3D : resultsStore.results).toBeNull();
+  expect(resultsStore.activeView).toBe('single');
+});
