@@ -1,3 +1,4 @@
+import { needsOccupancyReview } from '../provenance/occupancy-selection';
 /**
  * Applies a previewed load plan (`engine/loads/load-plan.ts`) to the model, as one undo step.
  *
@@ -271,12 +272,14 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     const saved = { designData: designData(), loads: modelStore.loadsForEdit as never, loadCases: modelStore.loadCases, regulations: modelStore.model.regulations };
     const legacySeismic = new Set(unverifiedSeismicLoads(saved).map(l => l.data?.id));
     const before = loadsGeneratedWith(saved);
+    const oldOccupancyNeedsReview = needsOccupancyReview(saved.designData.loadBasis);
     // The basis of what is about to be written, for the memoria (`LoadBasis`).
     const { windGust: _gust, ...scalars } = p.factors;
     const factors = Object.fromEntries(Object.entries(scalars).filter(([, v]) => v !== undefined)) as Record<string, NonNullable<(typeof scalars)[keyof typeof scalars]>>;
     patchDesignData({ loadBasis: {
       at: new Date().toISOString(), resultsVersion: RESULTS_VERSION, ...(p.generatedBy ? { generatedBy: p.generatedBy } : {}), factors,
       levels: (p.seismicModel?.levels ?? p.levels).map(({ nodeIds: _n, ...l }) => l), ...(p.seismic ? { seismic: p.seismic } : {}),
+      ...(needsOccupancyReview(p) ? { occupancySelection: 'preserved' as const } : {}),
       derivation: p.derivation, assumptions: p.assumptions, refs: p.refs,
     } });
     for (const id of scope.defaults.combinations) modelStore.removeCombination(id);
@@ -293,8 +296,15 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     for (const [id, autoLoadsRetired] of caseRetirement) {
       modelStore.updateLoadCaseFields(id, { autoLoadsRetired });
     }
-    if (modelStore.loadsForEdit.some(l => !legacySeismic.has(l.data.id) && fromLoadPlan((l.data as { generatedBy?: string }).generatedBy))) {
-      patchDesignData({ loadBasis: { ...designData().loadBasis!, resultsVersion: Math.min(before, RESULTS_VERSION) } });
+    const retainedLoads = modelStore.loadsForEdit.filter(l => !legacySeismic.has(l.data.id) && fromLoadPlan((l.data as { generatedBy?: string }).generatedBy));
+    const retainedDefinitions = [...modelStore.model.groups.values()].filter(g => g.kind === 'floorLoad' && fromLoadPlan(g.data?.generatedBy));
+    if (retainedLoads.length || retainedDefinitions.length) {
+      const liveCases = new Set(modelStore.loadCases.filter(c => c.type === 'L' || c.type === 'Lr').map(c => c.id));
+      const keptLive = retainedLoads.some(l => liveCases.has(l.data.caseId ?? 1)) || retainedDefinitions.some(g => liveCases.has(g.data?.caseId as number));
+      patchDesignData({ loadBasis: {
+        ...designData().loadBasis!, resultsVersion: Math.min(before, RESULTS_VERSION),
+        ...(oldOccupancyNeedsReview && keptLive ? { occupancySelection: 'review' } : {}),
+      } });
     }
     const firstNewLoad = modelStore.loadsForEdit.reduce((max, load) => Math.max(max, load.data.id), 0) + 1;
 

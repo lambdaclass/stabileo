@@ -29,6 +29,7 @@
   import ProWindCladding from './ProWindCladding.svelte';
   import ProAutoLoadsCombos from './ProAutoLoadsCombos.svelte';
   import ProAutoLoadsApplying from './ProAutoLoadsApplying.svelte';
+  import OccupancySelect from './OccupancySelect.svelte';
   import ProRoofLoadSection, { roofLrRange } from './ProRoofLoadSection.svelte';
   import ProSeismicMethod from './ProSeismicMethod.svelte';
   import ProWindStructure from './ProWindStructure.svelte';
@@ -118,7 +119,6 @@
   const loadsCode = $derived(loadCodeFor(regulationsStore.binding('loads')?.adapterId) as ImposedLoadCode | undefined);
   const occupancyTable = $derived(loadsCode?.occupancies?.() ?? OCCUPANCY_TABLE_2025);
   const occupancyEntry = $derived(occupancyTable.find(o => o.key === selectedOccupancy));
-  $effect(() => { if (occupancyTable.length && !occupancyTable.some((o) => o.key === selectedOccupancy)) selectedOccupancy = occupancyTable[0]!.key; });
   const occupancyQ = $derived(occupancyEntry?.uniformKNm2 ?? 0);
   /*
    * §4.3.2 — the partition live load ("sobrecarga de repartición"), 0,75 kN/m² of floor at least.
@@ -128,7 +128,7 @@
   let partitionLive = $state(start.partitionLive);
   const partitionAllowance = $derived((loadsCode?.partition ?? partitionLiveAllowance)(occupancyQ, partitionLive.on ? partitionLive.q : 0));
   /** The bound loads code is CIRSOC 101's: its Tabla 3.1 build-up, §4.3.2 minimum and K_LL labels are shown; another code's are not. */
-  const cirsocLoads = $derived(!loadsCode || loadsCode.family === 'cirsoc');
+  const cirsocLoads = $derived(!__PUBLIC_FEATURES__.proPlatesUnified || !loadsCode || loadsCode.family === 'cirsoc');
   const partitionInput = $derived(loadsCode?.partitionInput ?? { kind: 'minimum' as const, min: PARTITION_LIVE_MINIMUM_KNM2 });
   const loadsRef = (k: string) => loadsCode?.sections?.[k] ?? '';
   // §4.7.2 reduction inputs — a real code feature the legacy path did not have at all.
@@ -856,12 +856,9 @@
             </div>
             <div class="al-pane-scroll" data-testid="al-live-section">
               <div class="al-pane-body">
-                <label class="al-field"><span class="al-label">{t('autoLoad.occupancy')}</span>
-                  <select bind:value={selectedOccupancy} data-testid="al-occupancy">
-                    {#each occupancyTable as occ}
-                      <option value={occ.key}>{t(occ.labelKey)}{occ.uniformKNm2 !== null ? ` · ${aq(occ.uniformKNm2)}` : ''}</option>
-                    {/each}
-                  </select>
+                <label class="al-field" for="al-occupancy"><span class="al-label">{t(cirsocLoads ? 'loads.cirsoc101.occupancy' : 'autoLoad.occupancy')}</span>
+                  <OccupancySelect id="al-occupancy" value={selectedOccupancy} rows={occupancyTable}
+                    formatPressure={aq} choose={key => { selectedOccupancy = key; }} />
                 </label>
                 <div class="al-sub" data-testid="al-partition-live">
                   <span class="al-sub-title">{cirsocLoads ? t('autoLoad.live.partitionTitle') : tp('autoLoad.live.partitionTitleCode', { ref: loadsRef('partition') })}</span>
@@ -870,7 +867,7 @@
                     {cirsocLoads ? t('autoLoad.live.partitionOn') : t('autoLoad.live.partitionOnCode')}
                   </label>
                   {#if partitionLive.on}
-                    {#if partitionInput.kind === 'choices'}
+                    {#if __PUBLIC_FEATURES__.proPlatesUnified && partitionInput.kind === 'choices'}
                       <label class="al-field"><span class="al-label">{t('autoLoad.live.partitionValueCode')}</span>
                         <select bind:value={partitionLive.q} data-testid="al-partition-live-choice">
                           {#each partitionInput.values as q, k (q)}<option value={q}>{tp('autoLoad.live.partitionChoice', { wall: partitionInput.walls[k]!, q })}</option>{/each}

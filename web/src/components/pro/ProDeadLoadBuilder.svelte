@@ -41,7 +41,9 @@
     /** What to say in place of the table, under another family. */
     codeHint?: string | null;
   }
-  let { rows = $bindable(), liveLo, liveAllowance = 0, catalogue = true, codeHint = null }: Props = $props();
+  let { rows = $bindable(), liveLo, liveAllowance = 0, catalogue: offeredCatalogue = true, codeHint: alternateHint = null }: Props = $props();
+  const catalogue = $derived(!__PUBLIC_FEATURES__.proPlatesUnified || offeredCatalogue);
+  const codeHint = $derived(__PUBLIC_FEATURES__.proPlatesUnified ? alternateHint : null);
 
   const GROUPS: DeadGroup[] = ['ceiling', 'roof', 'concrete', 'floor', 'partition', 'glazing'];
 

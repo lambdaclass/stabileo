@@ -1,3 +1,4 @@
+import type { OccupancyBasis } from '../provenance/occupancy-selection';
 /**
  * The project's design data: what used to be fixed in the code and is now the project's to
  * state, in one place. The reinforcing steel and its yield strength, the stirrup diameter the
@@ -32,7 +33,7 @@ export const DESIGN_KINDS: readonly DesignKind[] = ['beam', 'column', 'slab', 'w
  */
 export type Exposure = 'interior' | 'exterior' | 'ground';
 
-export interface LoadBasis {
+export interface LoadBasis extends Pick<OccupancyBasis, 'occupancySelection'> {
   /** ISO time the plan was applied. */
   at: string;
   resultsVersion?: number;

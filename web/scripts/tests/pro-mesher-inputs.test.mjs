@@ -242,7 +242,7 @@ test('known wrong result: #1928 the released PRO panel keeps the unmeshed plate 
   await expect(banner.getByRole('button')).toHaveCount(0);
 });
 
-test.skip('known wrong result: #1928 opening the CIRSOC roof pane preserves a stored occupancy until the operator chooses another', async t => {
+test('known wrong result: #1928 opening the CIRSOC roof pane preserves a stored occupancy until the operator chooses another', async t => {
   const server = await createServer({ root, mode: 'production', server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
   t.after(() => server.close());
   await server.listen();
@@ -262,7 +262,7 @@ test.skip('known wrong result: #1928 opening the CIRSOC roof pane preserves a st
   }
 });
 
-test.skip('known wrong result: #1928 a saved floor occupancy outside the active table needs an explicit choice', async t => {
+test('known wrong result: #1928 a saved floor occupancy outside the active table needs an explicit choice', async t => {
   const server = await createServer({ root, mode: 'production', server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
   t.after(() => server.close());
   await server.listen();

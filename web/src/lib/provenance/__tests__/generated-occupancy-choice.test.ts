@@ -3,7 +3,7 @@ import { assessProject } from '../applicability';
 import { stampSolve } from '../solve-stamp';
 import { RESULTS_VERSION } from '../registry';
 
-it.skip('known wrong result: #1928 reopened load bases recognize only the fallback rows for the recorded use', () => {
+it('known wrong result: #1928 reopened load bases recognize only the fallback rows for the recorded use', () => {
   const check = (use: string, row: string, expected: boolean) => {
     const derivation = [{ key: 'loadPlan.derivation.' + use, params: { occupancy: { key: row } } }];
     const snapshot = { designData: { loadBasis: { derivation, resultsVersion: RESULTS_VERSION } } };

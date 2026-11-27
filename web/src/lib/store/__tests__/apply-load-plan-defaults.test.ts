@@ -70,7 +70,7 @@ describe('the example cases and combinations of a new project, when the generato
     expect(loadsGeneratedWith(modelStore.snapshot() as never)).toBe(RESULTS_VERSION);
   });
 
-  it.skip('known wrong result: #1928 a mixed load basis keeps a possible occupancy substitution until the old loads are replaced', () => {
+  it('known wrong result: #1928 a mixed load basis keeps a possible occupancy substitution until the old loads are replaced', () => {
     const apply = (occupancyKey: string, clearExisting: boolean) =>
       applyLoadPlan(buildLoadPlan({ ...planInput(), occupancyKey }), { clearExisting, bothSenses: true, nameOf });
     const affected = () => assessProject(modelStore.snapshot() as never, stampSolve('linear', null), 'pro')

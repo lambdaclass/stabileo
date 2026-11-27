@@ -1,3 +1,4 @@
+import { needsOccupancyReview, type OccupancyBasis } from './occupancy-selection';
 import { classifyEccentricNormalOffset, constraintsInXZ, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
 import { dependsOnXYConstraintAxes, hasAddedAuthoredLoadRefusal, hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStoredProjectInput, requireStructureInput, storedProjectPlane } from '../engine/model-input-numbers';
 import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
@@ -76,7 +77,7 @@ export const FEATURE_IDS = [
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
-  'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'unpublishedZoneLiveLoads', 'magnitudeCombinations',
+  'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'unpublishedZoneLiveLoads', 'possibleOccupancySubstitution', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'malformedAuthoredLoad',
   'addedAuthoredLoadRefusal', 'legacyPlanarProjectPlane', 'emptyRigidLinkMask',
@@ -158,7 +159,7 @@ interface FeatureSnapshotFields {
     placement?: unknown;
     rcSheets?: { adopted?: Record<string, unknown>; fixedPoints?: unknown };
     foreignCodes?: { concrete?: string };
-    loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; covers?: unknown; site?: { phases?: unknown[] };
+    loadBasis?: OccupancyBasis & { resultsVersion?: unknown; seismic?: unknown }; covers?: unknown; site?: { phases?: unknown[] };
     specialFloors?: { systems?: Record<string, { ribbed?: { spacingX?: number; spacingY?: number } } | undefined> };
   };
 }
@@ -270,8 +271,8 @@ export function loadsGeneratedWith(s: FeatureSnapshot): number {
 
 export const UNVERIFIED_SEISMIC_FEATURE = 'unverifiedGeneratedSeismicLoads';
 
-export function requiresCurrentLoadReview(feature: string): feature is 'unverifiedGeneratedSeismicLoads' | 'unpublishedZoneLiveLoads' {
-  return feature === UNVERIFIED_SEISMIC_FEATURE || feature === 'unpublishedZoneLiveLoads';
+export function requiresCurrentLoadReview(feature: string): feature is 'unverifiedGeneratedSeismicLoads' | 'unpublishedZoneLiveLoads' | 'possibleOccupancySubstitution' {
+  return feature === UNVERIFIED_SEISMIC_FEATURE || feature === 'unpublishedZoneLiveLoads' || feature === 'possibleOccupancySubstitution';
 }
 
 function isStandardGravityRule(rule: unknown): boolean {
@@ -785,6 +786,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   const loadBasis = s.designData?.loadBasis;
+  if (needsOccupancyReview(loadBasis)) f.add('possibleOccupancySubstitution');
   const loadNoteKeys = new Set(Array.isArray(loadBasis?.derivation) ? loadBasis.derivation.map(n => n?.key) : []);
   const gravityMode = (roles.loads?.settings?.dialog as { gravityMode?: unknown } | undefined)?.gravityMode;
   let memberGravity = false;

@@ -62,6 +62,6 @@ describe('code clauses as the code words them', () => {
     expect(de['loads.tr.combo.snowAsLive']).not.toContain('kar yükü');
     expect(de['loads.ec.wind.cpe']).toContain('Beiwert für fehlende Korrelation f = {f}');
     expect(de['loadPlan.derivation.adjacentSpans']).toContain('die die beiden Felder');
-    expect(fr['autoLoad.roof.occupancy']).toBe('Avec occupation (terrasse, jardin)');
+    expect(fr['autoLoad.roof.occupancyCode']).toBe('Avec occupation (terrasse, jardin)');
   });
 });
