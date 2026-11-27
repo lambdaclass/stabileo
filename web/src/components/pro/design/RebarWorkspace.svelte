@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { statusOwnerOf } from '../../../lib/engine/detailing/scene-model';
   import { editorActivity } from '../../../lib/utils/editor-activity';
   const editorActive = editorActivity();
   /**
@@ -29,13 +28,13 @@
   import { detailingStore } from '../../../lib/store/detailing.svelte';
   import { detailingAuthor } from '../../../lib/store/detailing-author.svelte';
   import { openRebar3D } from '../../../lib/store/rebar-open';
-  import { rebarWorkspace, SOLID_KINDS } from '../../../lib/store/rebar-workspace.svelte';
+  import { rebarWorkspace, selectedWorkspaceStatus, SOLID_KINDS } from '../../../lib/store/rebar-workspace.svelte';
   import { filterScene, summariseScene, type SceneFilter } from '../../../lib/engine/detailing/scene-model';
   import { projectPhysicalFrame } from '../../../lib/store/physical-frame';
   import { membersFromModel } from '../../../lib/engine/detailing/member-geometry';
   import { cachedSceneModel } from '../../../lib/engine/detailing/scene-cache';
   import {
-    findElementStatus, reportElementStatus, summariseStatusReasons, type DesignOutcomeSummary,
+    reportElementStatus, summariseStatusReasons, type DesignOutcomeSummary,
   } from '../../../lib/engine/detailing/element-status';
   import RebarViewport3D from './RebarViewport3D.svelte';
   import RebarStatusPanel from './RebarStatusPanel.svelte';
@@ -222,14 +221,7 @@
     selectedBar?.elementIds ?? selectedSolid?.elementIds
     ?? rebarWorkspace.selection?.elementIds ?? []);
 
-  const selectedStatus = $derived.by(() => {
-    const ids = rebarWorkspace.selection?.elementIds ?? [];
-    if (!report || ids.length === 0) return null;
-    const picked = selectedBar ?? selectedSolid;
-    if (!picked && (rebarWorkspace.selection?.barId || rebarWorkspace.selection?.solidId)) return null;
-    const owner = picked ? statusOwnerOf(picked) : 'frame';
-    return findElementStatus(report, ids[0], owner) ?? null;
-  });
+  const selectedStatus = $derived(selectedWorkspaceStatus(report, rebarWorkspace.selection, selectedBar ?? selectedSolid));
 
   function fmt(n: number, digits = 2): string {
     return n.toLocaleString(i18n.locale, {

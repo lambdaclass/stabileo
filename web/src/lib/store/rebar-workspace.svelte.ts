@@ -47,9 +47,9 @@
  */
 
 import {
-  SCENE_SOLID_KINDS, type SceneConflictMarker, type SceneFilter, type SceneSolidKind,
+  SCENE_SOLID_KINDS, statusOwnerOf, type SceneConflictMarker, type SceneFilter, type SceneSolidKind,
 } from '../engine/detailing/scene-model';
-import type { ElementStatus } from '../engine/detailing/element-status';
+import { findElementStatus, type ElementStatus, type ElementStatusReport } from '../engine/detailing/element-status';
 import { uiStore } from './ui.svelte';
 
 /** What the user has selected, however they selected it. */
@@ -66,6 +66,17 @@ export interface WorkspaceSelection {
   conflict?: SceneConflictMarker;
   /** The members involved. A bar continuous over a support names both. */
   elementIds: number[];
+}
+
+export function selectedWorkspaceStatus(
+  report: ElementStatusReport | null,
+  selection: WorkspaceSelection | null,
+  picked: Parameters<typeof statusOwnerOf>[0] | null,
+) {
+  const id = selection?.elementIds[0];
+  if (!report || id === undefined) return null;
+  if (!picked && (selection?.barId || selection?.solidId)) return null;
+  return findElementStatus(report, id, picked ? statusOwnerOf(picked) : 'frame') ?? null;
 }
 
 /** A section plane through the model. */

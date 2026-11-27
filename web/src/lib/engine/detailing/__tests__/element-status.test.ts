@@ -15,6 +15,7 @@ import {
 } from '../element-status';
 import type { SceneModel, SceneSolid, SceneBar } from '../scene-model';
 
+import { selectedWorkspaceStatus } from '../../../store/rebar-workspace.svelte';
 import { filterScene, statusOwnerOf } from '../scene-model';
 
 function solid(id: number, over: Partial<SceneSolid> = {}): SceneSolid {
@@ -178,6 +179,12 @@ it.each([true, false])('known wrong result: #1927 — coincident footing and fra
     { ...barFor(5), ownerScope: 'family', family: 'footing' },
   ];
   expect(findElementStatus(report, 5, statusOwnerOf(bars[0]!))).toBeUndefined();
+  const member = { elementIds: [5] };
+  expect(selectedWorkspaceStatus(report, member, null)?.hasSteel).toBe(false);
+  expect(selectedWorkspaceStatus(report, { ...member, solidId: footing.id }, footing)?.hasSteel).toBe(true);
+  expect(selectedWorkspaceStatus(report, { ...member, solidId: footing.id }, null)).toBeNull();
+  expect(selectedWorkspaceStatus(report, { ...member, barId: bars[0]!.barId }, bars[0]!)).toBeNull();
+  expect(selectedWorkspaceStatus(report, { ...member, barId: bars[1]!.barId }, null)).toBeNull();
   const model = scene([frame, footing], bars);
   const bare = filterScene(model, { elementIds: [5], statusFootingIds: [] });
   expect(bare.solids).toEqual([frame]);
