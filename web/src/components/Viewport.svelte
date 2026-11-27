@@ -388,7 +388,7 @@
       getNode: (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; },
       // A hidden member is not drawn: no diagram, no deformed shape, no loads on it.
       getElement: (id: number) => {
-        const elem = viewVisibility.isElementHidden(id) ? undefined : modelStore.elements.get(id);
+        const elem = viewVisibility.isElementHidden(id) ? undefined : (resultsStore.screen.model?.elements ?? modelStore.elements).get(id);
         return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId, type: elem.type } : undefined;
       },
       getMaterial: (id: number) => {
@@ -704,7 +704,7 @@
 
       if (kind === 'stressRatio' || kind === 'vonMises' || kind === 'sigmaMax' || kind === 'tauMax') {
         for (const ef of shown.elementForces) {
-          const elem = modelStore.elements.get(ef.elementId);
+          const elem = (resultsStore.screen.model?.elements ?? modelStore.elements).get(ef.elementId);
           if (!elem) continue;
           const sec = (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId);
           const mat = (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId);
@@ -2564,7 +2564,7 @@
               const ef = resultsStore.getElementForces(nearElem.id);
               if (di && dj && ef && ni && nj) {
                 // Get EI for particular solution
-                const elem = modelStore.elements.get(nearElem.id);
+                const elem = (resultsStore.screen.model?.elements ?? modelStore.elements).get(nearElem.id);
                 let EI: number | undefined;
                 if (elem) {
                   const mat = (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId);
@@ -2619,7 +2619,7 @@
                 } else {
                   // The painter's own value for the stress maps (MPa, or σ/fy for the ratio). This
                   // used to add |N|, |M| and |V| and call it a ratio, in no unit at all.
-                  const elem = modelStore.elements.get(nearElem.id);
+                  const elem = (resultsStore.screen.model?.elements ?? modelStore.elements).get(nearElem.id);
                   const sec = elem ? (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId) : undefined;
                   const mat = elem ? (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId) : undefined;
                   const st = sec && mat ? computeElementStress(ef, sec, mat) : null;

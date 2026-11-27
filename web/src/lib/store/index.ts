@@ -1,7 +1,7 @@
 import { withSavedBeamEvidence } from './beam-line-store';
 import { collapseVariableResults, collapseVariableEnvelope, collapseVariablePDelta, collapseVariableModes, variableExpansionFor } from '../engine/variable-members';
 import { clearMaterialChecks } from './material-check.svelte';
-import { modelStore } from './model.svelte';
+import { modelStore, type Element, type Plate, type Quad } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { resultsStore } from './results.svelte';
 import { certificateStore } from './certificate.svelte';
@@ -184,12 +184,16 @@ uiStore._setReleaseLiveScreen(() => resultsStore.releaseScreen());
 
 resultsStore._setScreenModelCapture(() => {
   const nodes = new Map([...modelStore.nodes].map(([id, n]) => [id, [n.x, n.y, n.z] as const]));
-  const elements = new Map([...modelStore.elements].map(([id, e]) => [id, { member: e, nodeI: e.nodeI, nodeJ: e.nodeJ }]));
-  const plates = new Map(modelStore.plates), quads = new Map(modelStore.quads);
+  const elements = new Map([...modelStore.elements].map(([id, e]) => [id, { ...e }]));
+  const memberGeometry = (e: Element) => JSON.stringify([e.type, e.nodeI, e.nodeJ, e.offset, e.localYx, e.localYy, e.localYz, e.rollAngle]);
+  const shellGeometry = (s: Plate | Quad) => JSON.stringify([s.nodes, s.offset]);
+  const geometry = new Map([...elements].map(([id, e]) => [id, memberGeometry(e)]));
+  const plates = new Map([...modelStore.plates].map(([id, s]) => [id, shellGeometry(s)]));
+  const quads = new Map([...modelStore.quads].map(([id, s]) => [id, shellGeometry(s)]));
   const sections = new Map(modelStore.sections), materials = new Map(modelStore.materials);
   let cached: { version: number; result: unknown; ok: boolean } | undefined;
   return {
-    sections, materials,
+    elements, sections, materials,
     fits(result) {
       const version = modelStore.modelVersion;
       if (cached?.version === version && cached.result === result) return cached.ok;
@@ -199,9 +203,9 @@ resultsStore._setScreenModelCapture(() => {
           const n = modelStore.nodes.get(id);
           return n?.x === x && n.y === y && n.z === z;
         })
-        && [...elements].every(([id, { member, nodeI, nodeJ }]) => member === modelStore.elements.get(id) && member.nodeI === nodeI && member.nodeJ === nodeJ)
-        && [...plates].every(([id, plate]) => plate === modelStore.plates.get(id))
-        && [...quads].every(([id, quad]) => quad === modelStore.quads.get(id))
+        && [...modelStore.elements].every(([id, e]) => geometry.get(id) === memberGeometry(e))
+        && [...modelStore.plates].every(([id, s]) => plates.get(id) === shellGeometry(s))
+        && [...modelStore.quads].every(([id, s]) => quads.get(id) === shellGeometry(s))
         && result.elementForces.every(f => elements.has(f.elementId))
         && result.displacements.every(d => nodes.has(d.nodeId));
       cached = { version, result, ok };

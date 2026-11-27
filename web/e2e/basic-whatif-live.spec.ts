@@ -63,3 +63,30 @@ test.describe('@slow explore live', () => {
     expect(last.maxMoment!).toBeGreaterThan(before);
   });
 });
+
+test('@slow explore live clears a painted interior peak when live calculation is disabled during an edit', async ({ page }) => {
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions);
+  await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
+  await page.evaluate(() => window.__stabileoActions.setLiveCalc(true));
+  await page.evaluate(() => window.__stabileoActions.solve());
+  await page.getByTestId('rb-cmd-momentY').click();
+  const frame = () => page.evaluate(() => window.__stabileo.screenFrame());
+  await expect.poll(async () => (await frame()).maxMoment).toBeCloseTo(10 * 6 ** 2 / 8, 9);
+  expect(await page.evaluate(() => window.__stabileo.freshMaxMoment())).toBeCloseTo(10 * 6 ** 2 / 8, 9);
+  const held = await page.evaluate(async () => {
+    window.__stabileoActions.updateSection(1, { iy: 0.000196 });
+    for (let i = 0; i < 10; i++) {
+      await new Promise(requestAnimationFrame);
+      const painted = window.__stabileo.screenFrame();
+      if (painted.held) {
+        window.__stabileoActions.setLiveCalc(false);
+        return painted;
+      }
+    }
+    return window.__stabileo.screenFrame();
+  });
+  expect(held).toMatchObject({ drawn: true, held: true, diagram: 'moment' });
+  await expect.poll(frame).toMatchObject({ drawn: false, held: false, diagram: 'none', maxMoment: null });
+  expect(await page.evaluate(() => window.__stabileo.hasDrawnResults())).toBe(false);
+});

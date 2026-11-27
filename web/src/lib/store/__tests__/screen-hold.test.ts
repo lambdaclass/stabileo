@@ -2,7 +2,7 @@
  * Between a live-calc edit and its re-solve the viewports keep drawing the last picture, and
  * nothing else can read it: the store itself is cleared as on any edit.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore, resultsStore, uiStore, historyStore, verificationStore } from '..';
 import { whatIf } from '../whatif.svelte';
 import { runLiveCalc } from '../../engine/live-calc';
@@ -209,15 +209,16 @@ it.each(['reconnect', 'move'])('drops a held 3D diagram on a %s with identical I
   expect(resultsStore.screen.results3D).toBeNull();
 });
 
-it.skip('known wrong result: #1927 — restoring identical geometry keeps the solved section on a reassigned member', async () => {
+it('known wrong result: #1927 — restoring identical geometry keeps the solved section on a reassigned member', async () => {
   const { getSectionProps } = await import('../../viewport3d/results-sync');
   const r = await solvedPortal();
   const id = r.elementForces[0].elementId;
   const e = modelStore.elements.get(id)!;
   const original = getSectionProps(id);
-  const oldMaterial = modelStore.materials.get(e.materialId)!;
-  const changed = modelStore.addMaterial({ ...oldMaterial, fy: (oldMaterial.fy ?? 1) * 2 });
-  modelStore.updateElementMaterial(id, changed);
+  whatIf.open();
+  whatIf.setMember(id, 'e', 2);
+  await vi.waitFor(() => expect(modelStore.elements.get(id)!.materialId).not.toBe(e.materialId));
+  expect(resultsStore.results).toBeNull();
   expect(resultsStore.screen.results).toBe(r);
   expect(getSectionProps(id)).toEqual(original);
 });

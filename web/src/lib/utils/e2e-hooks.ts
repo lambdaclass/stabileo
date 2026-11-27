@@ -530,6 +530,7 @@ export interface StabileoTestActions {
    * section that genuinely cannot carry its demand — not a state written into a store.
    */
   updateSection(id: number, data: unknown): void;
+  setLiveCalc(enabled: boolean): void;
   /**
    * One combination adding every load case at 1,0, as the combinations table would.
    *
@@ -952,6 +953,7 @@ export function installE2EHooks(): void {
       rebarWorkspace.selectConflict(conflict);
       return true;
     },
+    setLiveCalc: (enabled: boolean) => { uiStore.liveCalc = enabled; },
     updateSection: (id: number, data: unknown) => {
       modelStore.updateSection(id, data as never);
     },

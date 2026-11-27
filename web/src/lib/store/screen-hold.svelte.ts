@@ -1,4 +1,4 @@
-import type { AnalysisResults, Section, Material } from './model.svelte';
+import type { AnalysisResults, Element, Section, Material } from './model.svelte';
 import type { DiagramType } from './results.svelte';
 import type { FullEnvelope } from '../engine/types';
 import type { AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
@@ -20,6 +20,7 @@ export interface ResultTopology {
 
 export interface ScreenModelSnapshot {
   fits(results: ResultTopology): boolean;
+  elements: Map<number, Element>;
   sections: Map<number, Section>;
   materials: Map<number, Material>;
 }

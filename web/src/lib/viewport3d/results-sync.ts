@@ -289,14 +289,14 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   let eiMap: Map<number, ElementEI> | undefined;
   if (staticDeformed && exact) {
     eiMap = new Map<number, ElementEI>();
-    for (const [id, elem] of modelStore.elements) {
+    for (const [id, elem] of (resultsStore.screen.model?.elements ?? modelStore.elements)) {
       const ei = eiOf((resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId), (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId), modelStore.analysis);
       if (ei) eiMap.set(id, ei);
     }
   }
 
   ctx.deformedGroup = createDeformedLines(
-    visibleElements(),
+    visibleElements(resultsStore.screen.model?.elements),
     getProjectedNodes(),
     displacements,
     staticDeformed && exact && r3d ? r3d.elementForces : [],
@@ -409,7 +409,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     const envDiagram = envData[kind as keyof typeof envData] as import('../engine/types-3d').EnvelopeDiagramData3D | undefined;
     if (envDiagram && 'elements' in envDiagram) {
       ctx.diagramGroup = createEnvelopeDiagramGroup3D(
-        visibleElements(),
+        visibleElements(resultsStore.screen.model?.elements),
         projectedNodes,
         envDiagram,
         kind,
@@ -425,7 +425,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
   } else {
     // Normal single diagram
     ctx.diagramGroup = createDiagramGroup3D(
-      visibleElements(),
+      visibleElements(resultsStore.screen.model?.elements),
       projectedNodes,
       r3d.elementForces,
       kind,
@@ -443,7 +443,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     const overlay3D = resultsStore.overlayResults3D;
     if (overlay3D) {
       ctx.overlayDiagramGroup = createDiagramGroup3D(
-        visibleElements(),
+        visibleElements(resultsStore.screen.model?.elements),
         projectedNodes,
         overlay3D.elementForces,
         kind,
@@ -728,7 +728,7 @@ function resetShellGroup(group: THREE.Group): void {
 
 /** Build section props for an element */
 export function getSectionProps(elemId: number) {
-  const elem = modelStore.elements.get(elemId);
+  const elem = (resultsStore.screen.model?.elements ?? modelStore.elements).get(elemId);
   if (!elem) return null;
   const sec = (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId);
   if (!sec) return null;
