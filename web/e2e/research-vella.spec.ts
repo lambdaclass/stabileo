@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import study from '../../research/mechanics/vella-2024/reference-results/study.json' with { type: 'json' };
+import replay from '../../research/mechanics/vella-2024/reference-results/replay.json' with { type: 'json' };
 
 const PAGE = '/en/research/mechanics/vella-2024/';
 
@@ -86,4 +87,78 @@ test('@smoke reviewed study settings, branch markers and internal checks are ins
     const marker = Number(await page.locator('.snap-app [data-marker]').nth(chart).getAttribute('data-marker'));
     expect(Math.abs(marker - branch[k].mu)).toBeLessThanOrEqual(Math.abs(branch[k].mu - branch[k - 1].mu) + 1e-6);
   }
+});
+
+test('@smoke only the pending snap request can update playback or report a failure', async ({ page }) => {
+  test.fail(true, 'known wrong result: #2320');
+  await page.addInitScript(run => {
+    const requests: { worker: Worker; requestId: number; settings: typeof run.settings }[] = [];
+    const post = Worker.prototype.postMessage;
+    Worker.prototype.postMessage = function (message, ...options) {
+      const settings = message.settings ?? message;
+      if (!('oneEnd' in settings)) return Reflect.apply(post, this, [message, ...options]);
+      requests.push({ worker: this, requestId: message.requestId, settings });
+    };
+    window.addEventListener('snap-test-reply', event => {
+      const { index, error, truncated } = (event as CustomEvent).detail;
+      const { requestId, settings } = requests[index];
+      const result = { ...run, settings, outcome: { ...run.outcome, truncated } };
+      requests[requests.length - 1].worker.dispatchEvent(new MessageEvent('message', {
+        data: error ? { requestId, error } : { requestId, result },
+      }));
+    });
+  }, replay);
+  const reply = (index: number, error = false, truncated = false) => page.evaluate(detail => {
+    window.dispatchEvent(new CustomEvent('snap-test-reply', { detail }));
+  }, { index, error, truncated });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(PAGE);
+  const app = page.locator('.snap-app');
+  await page.getByRole('button', { name: 'Try |µ̇| = 0.3' }).click();
+  await reply(0);
+  await expect(app).toHaveAttribute('data-source', 'live');
+  await app.getByRole('button', { name: 'Recompute live' }).click();
+  await reply(0);
+  await reply(0, true);
+  await expect(app).toHaveAttribute('data-busy', 'true');
+  await expect(app.getByRole('alert')).toHaveCount(0);
+  await reply(1, false, true);
+  await expect(app).toHaveAttribute('data-busy', 'false');
+  await expect(app.getByRole('status')).toContainText('Integration stopped early');
+  await reply(1, true);
+  await expect(app.getByRole('alert')).toHaveCount(0);
+  await app.getByRole('button', { name: 'Recompute live' }).click();
+  await reply(2, true);
+  await expect(app.getByRole('alert')).toBeVisible();
+});
+
+test('@smoke the live snap worker seeks a trace-only crossing and rejects missing completion metadata', async ({ page, context }) => {
+  test.fail(true, 'known wrong result: #2320');
+  const crossing = replay.trace.height.findIndex(height => height > 0);
+  const trace = { ...replay.trace, height: replay.trace.height.map((h, i) => i === crossing ? h : Math.min(h, 0)) };
+  const frames = [replay.frames[0], ...[trace.t[crossing], trace.t.at(-1)!].map(t => ({ ...replay.frames[0], t }))];
+  const sample = { ...replay, frames, trace };
+  await context.route('**/research-wasm/vella-2024/*/snap.js', route => route.fulfill({
+    contentType: 'application/javascript',
+    body: `const run = ${JSON.stringify(sample)};
+      let first = true;
+      export default function init() {}
+      export function simulation_run(settings) {
+        run.settings = JSON.parse(settings);
+        if (first) run.outcome.truncated = true;
+        else delete run.outcome.truncated;
+        first = false;
+        return JSON.stringify(run);
+      }`,
+  }));
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(PAGE);
+  const app = page.locator('.snap-app');
+  await page.getByRole('button', { name: 'Try |µ̇| = 0.3' }).click();
+  await expect(app).toHaveAttribute('data-source', 'live');
+  await expect(app).toHaveAttribute('data-step', '1');
+  await expect(app.getByRole('status')).toContainText('Integration stopped early');
+  await app.getByRole('button', { name: 'Recompute live' }).click();
+  await expect(app.getByRole('alert')).toBeVisible();
+  await expect(app.getByRole('status')).toContainText('Integration stopped early');
 });
