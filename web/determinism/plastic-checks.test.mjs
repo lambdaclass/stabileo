@@ -21,11 +21,13 @@ for (const row of cases) {
   test('accepts the released solver result for ' + row.name, () => {
     assert.deepEqual(problems(cases), []);
   });
-  for (const mutation of ['missing case', 'missing results', 'outside bounds', 'mismatched solver', 'inverted bounds']) {
+  for (const mutation of ['missing case', 'missing results', 'outside bounds', 'below lower', 'uncertified', 'mismatched solver', 'inverted bounds']) {
     test('known wrong result: #758 ' + row.name + ' ' + mutation, () => {
       const copy = structuredClone(row);
       const { results, certificate } = copy.value;
       if (mutation === 'missing results') delete copy.value.results;
+      if (mutation === 'uncertified') certificate.certified = false;
+      if (mutation === 'below lower') results.collapseFactor = certificate.solverCollapseFactor = certificate.lambdaLower / 2;
       if (mutation === 'outside bounds') results.collapseFactor = certificate.solverCollapseFactor = certificate.lambdaUpper * 2;
       if (mutation === 'mismatched solver') certificate.solverCollapseFactor = results.collapseFactor / 2;
       if (mutation === 'inverted bounds') certificate.lambdaLower = certificate.lambdaUpper * 2;

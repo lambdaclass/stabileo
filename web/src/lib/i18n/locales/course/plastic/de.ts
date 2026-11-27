@@ -120,7 +120,7 @@ const words: Translations = {
   'course.plastic.trace.eventAxial': 'Der Stab {member} erreicht als erster Np: n = {n} je Einheit λ, aufsummiertes N = {N}, Np = {np}.',
   'course.plastic.trace.min': 'Es ist das kleinste Δλ aller Querschnitte: Die übrigen erreichen es noch nicht.',
   'course.plastic.trace.update': 'λ = {before} + {dl} = {after}. Schnittgrößen und Verschiebungen werden um das Δλ-fache dieser Lösung erhöht.',
-  'course.plastic.trace.moved': 'Gelenk {i} in Stab {member} wandert von x = {from} nach x = {to}, wo das Moment jetzt sein Maximum hat: Dort ist es Mp an einem glatten Maximum mit Querkraft null oder an einer Einzellast mit Vorzeichenwechsel der Querkraft, und der verlassene Querschnitt behält die plastische Verdrehung, die er schon erfahren hat.',
+  "course.plastic.trace.moved": "Gelenk {i} im Stab {member} wandert von x = {from} nach x = {to} zum Maximum von |M| mit |M| = Mp. Am glatten Maximum verschwindet die Querkraft, an einer Einzellast kann sie das Vorzeichen wechseln. Der frühere Querschnitt behält seine plastische Verdrehung.",
   'course.plastic.trace.hinge': 'Gelenk {i} wird in Stab {member}, x = {x} eingefügt: Dort bleibt das Moment bei Mp und der Querschnitt dreht sich frei.',
   'course.plastic.trace.yield': 'Der Stab {member} fließt (Gelenk {i}): Er behält Np und trägt keine Steifigkeit mehr bei.',
   'course.plastic.trace.collapse': 'Mit diesem Gelenk ist das Tragwerk ein Mechanismus: λc = {lambda}.',
@@ -181,7 +181,7 @@ const words: Translations = {
   'course.plastic.user.showMoments': 'Momente',
   'course.plastic.closed': 'geschlossen',
   'course.plastic.closedTitle': 'Das Gelenk wurde bei λ = {lambda} entlastet und ist wieder starr.',
-  'course.plastic.limitOnly': 'Die schrittweise Berechnung erreicht die Traglast nicht (sie endet bei λ = {history}). Die Traglast aus der Traglastanalyse (statischer und kinematischer Satz) ist λc = {lambda}; die Gelenke der schrittweisen Berechnung sind Näherungen.',
+  "course.plastic.limitOnly": "Der Verlauf endet bei λ = {history}. Die Grenzlastanalyse ergibt den Traglastfaktor λc = {lambda}. Die Gelenklagen im Verlauf sind Näherungen.",
   'course.plastic.unresolved': 'Die Berechnung hielt bei einem Mechanismus an, den sie nicht von einem falschen unterscheiden konnte (Gelenke, die sich entlasten würden): Dieses λ ist der Haltepunkt, keine nachgewiesene Traglast.',
 };
 

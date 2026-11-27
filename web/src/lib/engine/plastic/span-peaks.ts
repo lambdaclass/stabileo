@@ -46,6 +46,7 @@ export function interiorMinimum(
 ): { t: number; value: number } | null {
   const w = t1 - t0;
   if (!(w > 1e-12)) return null;
+  samples = Math.max(2, Math.floor(samples));
   const ts = Array.from({ length: samples + 1 }, (_, i) => t0 + (w * i) / samples);
   const vs = ts.map((t, i) => (i === 0 || i === samples ? Infinity : f(t)));
   let k = -1;

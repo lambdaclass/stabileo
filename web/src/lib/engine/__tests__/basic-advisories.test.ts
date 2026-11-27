@@ -24,12 +24,14 @@ describe('second-order screen on the Basic 2D frames (#1551)', () => {
   it.each(FRAMES)('%s carries no second-order warning', async (name) => {
     await load(name);
     const single = modelStore.solve(false);
+    expect(single).toBeTruthy();
     expect(typeof single).not.toBe('string');
     expect(secondOrder(single as Diagnosed)).toEqual([]);
     const combos = modelStore.solveCombinations(false);
     expect(combos && typeof combos !== 'string').toBe(true);
     if (!combos || typeof combos === 'string') return;
     for (const r of [...combos.perCase.values(), ...combos.perCombo.values(), combos.envelope.maxAbsResults]) {
+      expect(r).toBeTruthy();
       expect(secondOrder(r as Diagnosed)).toEqual([]);
     }
   }, 60_000);

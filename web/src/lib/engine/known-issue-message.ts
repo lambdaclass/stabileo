@@ -45,7 +45,8 @@ export function knownIssueMessage(d: { code: string; phase?: string; value?: num
   if (text === key) return d.message;
   const sentence = d.value !== undefined ? `${text} (#${d.value})` : text;
   if (d.phase === 'NL-DYNAMIC-GAPS' && d.elementIds?.length && d.elementKind) {
-    return `${sentence} [${d.elementKind}: ${d.elementIds.join(', ')}]`;
+    const kind = d.elementKind === 'curved_beam' ? t('knownIssue.curvedBeam') : t('table.frame');
+    return `${sentence} [${kind}: ${d.elementIds.join(', ')}]`;
   }
   return d.phase === 'PL-3D-CERTIFICATE-MISMATCH' ? `${sentence}\n${d.message}` : sentence;
 }

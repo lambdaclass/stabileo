@@ -94,6 +94,7 @@ export interface PlasticStepTrace {
 }
 
 export interface PlasticCollapseResult extends PlasticResult {
+  historyUnavailable?: boolean;
   hinges: PlasticCollapseHinge[];
   /**
    * `rotations[h]`: plastic rotation of hinge h accumulated up to this step, rad, positive when
@@ -619,19 +620,9 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
       stretch!.t0, stretch!.t1, S);
   };
 
-  const startTrack = (ref: HingeRef, h: number) => {
-    const hinge = hinges[h];
-    if (!hinge.track) hinge.track = [{ step: hinge.step, position: ref.t, x: ref.t * ref.mb.L }];
-  };
-  const placeHinge = (ref: HingeRef, h: number, t: number) => {
-    ref.t = t;
-    Object.assign(hinges[h], { position: t, x: t * ref.mb.L, end: t < 0.5 ? 'start' : 'end' });
-  };
-
   /** Span hinge h reaches the end of its stretch, station k: the member is whole there again and the hinge is that station's. */
-  const arrive = (ref: HingeRef, h: number, k: number) => {
+  const arrive = (ref: HingeRef, k: number) => {
     const { mb } = ref;
-    startTrack(ref, h);
     const li = mb.pieces.findIndex((p) => Math.abs(p.t1 - ref.t) < 1e-9);
     const left = mb.pieces[li], right = mb.pieces[li + 1];
     const eLeft = work.elements.get(left.id)!, eRight = work.elements.get(right.id)!;
@@ -648,11 +639,11 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     ref.run = [k];
     mb.hinged[k] = true;
     release(mb, mb.t[k]);
-    placeHinge(ref, h, mb.t[k]);
+    ref.t = mb.t[k];
   };
 
   /** Moves the split of span hinge h to `t`; the loads of the two pieces are cut from the member's own again. */
-  const moveHinge = (ref: HingeRef, h: number, t: number) => {
+  const moveHinge = (ref: HingeRef, t: number) => {
     const { mb } = ref;
     const li = mb.pieces.findIndex((p) => Math.abs(p.t1 - ref.t) < 1e-9);
     const left = mb.pieces[li], right = mb.pieces[li + 1];
@@ -667,9 +658,8 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
       ...memberLoadsOn(work, original, mb.id, mb.L, t * mb.L, right.t1 * mb.L, right.id),
     ];
     mb.pieces.splice(li, 2, { id: left.id, t0: left.t0, t1: t }, { id: right.id, t0: t, t1: right.t1 });
-    startTrack(ref, h);
     ref.stretch!.hinge = t;
-    placeHinge(ref, h, t);
+    ref.t = t;
   };
 
   const evaluate = (efOf: Map<number, ElementForces>, values: ReturnType<typeof stationValues>) => {
@@ -713,6 +703,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     return { unit, unitN, cand, dMin, stressed };
   };
 
+  let historyUnavailable = false;
   let event = 0;
   eventLoop: for (; event < maxEvents; event++) {
     /*
@@ -770,10 +761,15 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
         return peak && Math.abs(peak.t - ref.t) > MOVE_TOL ? [{ ref, h, t: peak.t, k: -1 }] : [];
       });
       if (!moves.length) break;
-      if (it >= MAX_MOVES) throw new Error('Plastic hinge movement did not converge');
+      if (it >= MAX_MOVES) {
+        restoreState(saved);
+        historyUnavailable = true;
+        unresolved = true;
+        break eventLoop;
+      }
       restoreState(saved);
       for (const m of moves) {
-        if (m.k >= 0) { arrive(m.ref, m.h, m.k); arrived.add(m.h); } else moveHinge(m.ref, m.h, m.t);
+        if (m.k >= 0) { arrive(m.ref, m.k); arrived.add(m.h); } else moveHinge(m.ref, m.t);
       }
       r = solve(work);
       efOf = new Map(r.elementForces.map((ef) => [ef.elementId, ef]));
@@ -791,7 +787,12 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     const moved = [...from].flatMap(([h, t0]) => {
       const ref = hingeAt[h];
       if (!ref || Math.abs(ref.t - t0) <= MOVE_TOL) return [];
-      hinges[h].track!.push({ step: steps.length, position: ref.t, x: ref.t * ref.mb.L });
+      const hinge = hinges[h];
+      hinge.track ??= [{ step: hinge.step, position: t0, x: hinge.x }];
+      hinge.position = ref.t;
+      hinge.x = ref.t * ref.mb.L;
+      hinge.end = ref.t < 0.5 ? 'start' : 'end';
+      hinge.track.push({ step: steps.length, position: ref.t, x: ref.t * ref.mb.L });
       return [{ hinge: h, from: t0 * ref.mb.L, to: ref.t * ref.mb.L }];
     });
 
@@ -938,7 +939,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     if (crushed) { isMechanism = true; break; }
   }
 
-  if (!isMechanism && !checkedKinematics(work, 'released').isSolvable) {
+  if (!historyUnavailable && !isMechanism && !checkedKinematics(work, 'released').isSolvable) {
     if (closeUnloading()) unresolved = true;
     else isMechanism = true;
   }
@@ -949,6 +950,7 @@ export function plasticHistory2D(input: SolverInput, opts: PlasticCollapseOption
     steps,
     hinges,
     isMechanism: isMechanism && !unresolved,
+    ...(historyUnavailable ? { historyUnavailable: true } : {}),
     redundancy: Math.max(0, kin0.degree),
     degree: kin0.degree,
     unloaded,
@@ -999,6 +1001,7 @@ export function plasticCollapse2D(input: SolverInput, opts: PlasticCollapseOptio
   }
   return {
     ...history,
+    ...(history.historyUnavailable ? { hinges: [], steps: [] } : {}),
     collapseFactor,
     isMechanism: isMechanism && !unresolved,
     ...(unresolved ? { unresolved: true } : {}),

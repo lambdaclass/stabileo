@@ -135,7 +135,11 @@ function rescaled({ input, mp }: Model, s: number, f: number): Model {
   const out = structuredClone(input);
   for (const nd of out.nodes.values()) { nd.x *= s; nd.z *= s; }
   for (const m of out.materials.values()) m.e *= f / (s * s);
-  for (const sec of out.sections.values()) { sec.a *= s * s; sec.iz *= s ** 4; }
+  for (const sec of out.sections.values()) {
+    sec.a *= s * s;
+    sec.iz *= s ** 4;
+    if (sec.asY !== undefined) sec.asY *= s * s;
+  }
   for (const sp of out.supports.values()) {
     if (sp.kx !== undefined) sp.kx *= f / s;
     if (sp.ky !== undefined) sp.ky *= f / s;

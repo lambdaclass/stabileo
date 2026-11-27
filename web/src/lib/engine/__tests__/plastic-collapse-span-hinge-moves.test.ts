@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import * as peaks from '../plastic/span-peaks';
 import * as wasm from '../wasm-solver';
-import { memberPlasticMoments, PlasticWithheld, runPlasticCollapse } from '../../actions/plastic';
+import { memberPlasticMoments, runPlasticCollapse } from '../../actions/plastic';
 import { initSolver } from '../wasm-solver';
 import { computeDiagramValueAt } from '../diagrams';
 import { hingePlaceAt } from '../plastic/hinge-place';
@@ -85,7 +85,12 @@ describe('#758 — history evidence', () => {
       return { t, value: args[0](t) };
     });
     try {
-      expect(() => runPlasticCollapse()).toThrow(PlasticWithheld);
+      const result = runPlasticCollapse()!.result;
+      expect(result.historyUnavailable).toBe(true);
+      expect(result.withheld).toBeFalsy();
+      expect(result.collapseFactor).toBeCloseTo(1925 / 27, 9);
+      expect(result.hinges).toEqual([]);
+      expect(result.steps).toEqual([]);
       expect(moves).toBeGreaterThan(1);
     } finally { search.mockRestore(); }
   });

@@ -42,7 +42,9 @@
   }
 </script>
 
-{#if r}
+{#if r?.historyUnavailable}
+  <p class="adv-result-info" data-testid="plastic-history-unavailable">{tp('course.plastic.historyUnavailable', { lambda: factor(r.collapseFactor) })}</p>
+{:else if r}
   <div class="adv-result-row">
     <button class="adv-result-btn" class:active={resultsStore.diagramType === 'plasticHinges'} onclick={() => { resultsStore.diagramType = 'plasticHinges'; plasticCourse.view = 'steps'; }}>{t('advanced.plasticLabel')}</button>
     <button class="small-btn" onclick={() => { if (step > 0) goTo(step - 1); }} disabled={step === 0} data-testid="plastic-prev">&#9664;</button>

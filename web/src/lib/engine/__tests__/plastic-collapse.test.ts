@@ -292,7 +292,7 @@ it.each([-1, 1])('known wrong result: #758 — the unloading column reaches its 
   expect(result.hinges.find(h => h.elementId === reversing)!.unloadedAt).toBeCloseTo(first.loadFactor, 12);
 });
 
-it.skip('known wrong result: #1927 — one requested subdivision still resolves the midspan uniform-load hinge', () => {
+it('known wrong result: #1927 — one requested subdivision still resolves the midspan uniform-load hinge', () => {
   const input = model([[1, 0, 0], [2, 6, 0]], [[1, 1, 2]], [[1, 'pinned'], [2, 'rollerX']], [q(1, -10)]);
   for (const solve of [plasticHistory2D, plasticCollapse2D]) {
     const r = solve(input, { mp: () => MP, np: () => Infinity, samples: 1 });

@@ -1,7 +1,6 @@
 # Basic: advisories where they apply, and 2D plastic collapse released (#1551, #370, #758)
 
-Three registered changes. The first two change which warnings a solve carries and move no number;
-the results snapshots differ in their diagnostic codes only. The third releases a result that was
+The first two entries change which warnings a solve carries. The second-order screen also changes its recorded ratio. The third releases a result that was
 withheld.
 
 ## 2D second-order warning bounded by the critical load factor
@@ -25,7 +24,7 @@ A two-node truss element has no internal bending mode. In both dimensions a comp
 restrained in translation at both ends is screened against the pinned Euler load using its own
 length and bending stiffness. Where the supports do not establish this local bound, the linear
 result keeps the unresolved-member warning. Factored combinations propagate that warning.
-These changes affect diagnostic codes and the recorded second-order screening ratio.
+A roller that restrains transverse displacement can establish the same local bound while allowing axial movement. Disconnected frames are screened individually. The finite-element eigenvalue alone can overestimate the physical critical load. For an eligible planar frame, the screen bounds chord motion with the assembled stiffness and bounds the deformation relative to the chord using each member’s bending and shear stiffness. If these bounds cannot exclude a higher warning band, the result carries the unresolved warning. Combinations propagate the physical upper bound separately from the reported screening ratio.
 
 ## Beam dynamics and nonlinear convergence warnings
 
@@ -37,7 +36,7 @@ estimate ω/ω_EB = 1/√(1 + (πr/L)²) applies to the first mode of a uniform,
 straight beam. It does not bound a structural mode or higher modes.
 
 Modal, spectral, time-history and harmonic analyses identify deep frame members and curved
-beam input indices separately under `NL-DYNAMIC-GAPS`. Other beam models receive
+beam input indices separately, using the circular arc length for a curved member, under `NL-DYNAMIC-GAPS`. Other beam models receive
 `NL-DYNAMIC-MODES` because the mode-specific error is unknown. Material nonlinear analyses
 receive `NL-UNCONVERGED-INCREMENT`. Only diagnostic codes and references change.
 
@@ -74,20 +73,19 @@ On the Basic "Portal Frame" (H = 10 kN, q = 15 kN/m): right column head at λ = 
 hinge at x = 2.83 m at λ = 63.810, moving to midspan, right base at 66.450, left column head at
 1925/27 = 71.296, the beam mechanism. On "Spring Support": the span hinge of the first span at
 x = 1.87 m at λ = 5.427, moving to (√2 − 1)·3 m from the pin, then the section over the spring at
-(6 + 4√2)Mp/(qL²) = 12.329. At every step the moment along every member stays within Mp to 1e-6;
+λc = (6 + 4√2)Mp/(qL²). The coefficient is about 11.657. Applying the example’s plastic moment and load gives a collapse factor of 12.329. At every step the moment along every member stays within Mp to 1e-6;
 before this, it passed Mp by 0.45 % and 0.19 % at the second and third steps of the portal and by
 12.8 % at the first step of the spring support.
 
-What moves: Basic 2D plastic collapse gives a collapse factor and hinges again where the
-certificate confirms them (`solve.ok`, `collapseFactor`, `hinges`). The plastic analyses are not in
+Basic 2D plastic collapse releases the factor where the certificate confirms it. Hinge positions and sequence come from the incremental solver history (`solve.ok`, `collapseFactor`, `hinges`). The plastic analyses are not in
 the results corpus, so no snapshot moves for this entry.
 
 For a planar truss under nodal forces, the engine can also confirm axial collapse by joint
 equilibrium. At the reported factor the exact force field must satisfy every axial capacity.
 At least one member must reach its capacity with an axial force that every equilibrium field
-shares. A larger load would exceed that capacity. This preserves the yielded-truss result from
+shares. When redundant paths exist, the check searches their equilibrium null space for a capacity-feasible distribution at that load. A larger load would exceed that capacity. This preserves the yielded-truss result from
 #2608 without relying on the step history to certify its factor.
 
 For an axially yielding truss, equilibrium determines the squared collapse factor exactly even when its square root is irrational. The certificate checks the returned floating-point value against the two adjacent representable numbers enclosing that root. A representable root must still match exactly.
 
-For an axial distributed load the certificate now forms the two equivalent nodal forces in rational arithmetic. It subtracts the start share from the certified field and integrates the original signed intensity along the member. The check includes the ends of each loaded interval, both sides of axial point forces, and any interior zero of the total distributed intensity. This can confirm bending collapse that the previous integral allowance withheld.
+For an axial distributed load the certificate now forms the two equivalent nodal forces in rational arithmetic. It subtracts the start share from the certified field and integrates the original signed intensity along the member. An explicit full-span endpoint at the solver length has the same exact unit fraction as an omitted endpoint, including on diagonals. The check includes the ends of each loaded interval, both sides of axial point forces, and any interior zero of the total distributed intensity. This can confirm bending collapse that the previous integral allowance withheld.

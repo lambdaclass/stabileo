@@ -13,6 +13,7 @@ export interface SolverMaterial {
 }
 
 export interface SolverSection {
+  asY?: number;
   id: number;
   name?: string;
   a: number;   // m²

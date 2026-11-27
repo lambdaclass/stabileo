@@ -9,7 +9,7 @@
  *   collapse.
  */
 import { describe, it, expect } from 'vitest';
-import { plasticHistory2D, loadsOffRemoved } from '../plastic-collapse';
+import { plasticCollapse2D, plasticHistory2D, loadsOffRemoved } from '../plastic-collapse';
 import { buildKinematics, workRow } from '../plastic/kinematics';
 import type { SolverInput, SolverLoad } from '../types';
 
@@ -35,6 +35,9 @@ describe('plastic collapse under loads along members', () => {
     expect(r.collapseFactor).toBeCloseTo(15 / 14, 6);
     expect(r.hinges[0].kind).toBe('axial');
     expect(r.hinges[0].x).toBeCloseTo(2, 6);
+    const released = plasticCollapse2D(m, { mp: () => Infinity, np: () => 1 });
+    if (released.withheld) expect(released.isMechanism).toBe(false);
+    else expect(released.collapseFactor).toBeCloseTo(15 / 14, 6);
   });
 
   for (const type of ['truss', 'frame'] as const) {

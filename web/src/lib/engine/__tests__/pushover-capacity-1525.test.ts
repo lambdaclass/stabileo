@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import { centerlineInput } from '../../store/dynamic-input';
-import { plasticInput3D } from '../plastic-moments';
+import { capacitiesByMember, plasticInput3D } from '../plastic-moments';
 import { plasticForSolve, pushoverNonSteel } from '../advanced-analyses';
 import { initSolver, solvePlastic3D } from '../wasm-solver';
 import { errorText } from '../../utils/error-text';
@@ -18,10 +18,14 @@ describe('the PRO pushover payload on 3D steel examples (#1525)', () => {
       await modelStore.loadExample(name);
       if (pushoverNonSteel(modelStore.elements.values(), modelStore.materials as never).length > 0) { outcome[name] = 'not steel'; continue; }
       const input = centerlineInput({ caseDisplacements: false });
-      const p = plasticForSolve(plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements), input);
-      for (const [, e] of (input as { elements: Map<number, { type: string; sectionId: number }> }).elements) {
+      const properties = plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements);
+      const byMember = capacitiesByMember(properties.moments);
+      const p = plasticForSolve(properties, input);
+      for (const e of p.solver.elements.values()) {
         if (e.type !== 'frame') continue;
         const mp = p.mpOverrides[String(e.sectionId)];
+        const expected = byMember.get(e.id)!;
+        expect(mp).toEqual([expected.mp, expected.mpz]);
         expect(mp, `${name}: section ${e.sectionId}`).toBeDefined();
         expect(mp!.every((m) => Number.isFinite(m) && m > 0), `${name}: section ${e.sectionId} ${mp}`).toBe(true);
       }
