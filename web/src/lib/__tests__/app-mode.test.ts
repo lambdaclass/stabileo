@@ -23,3 +23,15 @@ describe('app modes and their addresses', () => {
     expect(examCodeFromPath('/app/education')).toBeNull();
   });
 });
+
+it.skip('known wrong result: #1927 — an education route identifier cannot enable a live solve', async () => {
+  const { liveCalcFollowsEdits } = await import('../engine/live-calc-state');
+  for (const path of ['/app/education', '/app/exam/K7Q2M9XWPA']) {
+    expect(liveCalcFollowsEdits(true, pathToMode(path) as never)).toBe(false);
+    expect(liveCalcFollowsEdits(true, 'edu')).toBe(false);
+  }
+  for (const mode of ['2d', '3d'] as const) {
+    expect(liveCalcFollowsEdits(true, mode)).toBe(true);
+    expect(liveCalcFollowsEdits(false, mode)).toBe(false);
+  }
+});
