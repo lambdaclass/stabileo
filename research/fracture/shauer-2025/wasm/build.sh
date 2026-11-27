@@ -5,6 +5,7 @@
 # inside the repository, within `nix develop`.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../../.." && pwd)
+source "$root/research/remap-rust-paths.sh"
 here="$root/research/fracture/shauer-2025/wasm"
 out="${1:-$root/web/public/research-wasm/shauer-2025}"
 tmp=$(mktemp -d)

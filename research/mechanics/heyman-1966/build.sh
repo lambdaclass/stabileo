@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+source "$root/research/remap-rust-paths.sh"
 here="$root/research/mechanics/heyman-1966"
 out="$root/web/public/research-wasm/heyman-1966"
 if ! command -v wasm-opt >/dev/null && command -v nix >/dev/null; then

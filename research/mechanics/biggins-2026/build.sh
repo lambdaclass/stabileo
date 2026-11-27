@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+source "$root/research/remap-rust-paths.sh"
 here="$root/research/mechanics/biggins-2026"
 out="$root/web/public/research-wasm/biggins-2026"
 if ! command -v wasm-metadce >/dev/null; then

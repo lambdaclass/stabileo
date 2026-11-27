@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../../.." && pwd)
+source "$root/research/remap-rust-paths.sh"
 here="$root/research/optimization/andreassen-2011/wasm"
 out="${1:-$root/web/public/research-wasm/andreassen-2011}"
 tmp=$(mktemp -d)

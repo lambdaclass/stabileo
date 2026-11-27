@@ -5,6 +5,7 @@
 # anywhere inside the repository, within `nix develop`.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../../.." && pwd)
+source "$root/research/remap-rust-paths.sh"
 here="$root/research/metamaterials/grossman-2026/wasm"
 out="${1:-$root/web/public/research-wasm/grossman-2026}"
 tmp=$(mktemp -d)
