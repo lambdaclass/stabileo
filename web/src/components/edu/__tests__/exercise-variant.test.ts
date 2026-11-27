@@ -156,3 +156,38 @@ describe('lintVariants', () => {
     expect(fillText('{constructor} {toString} {L}', { L: 3 })).toBe('{constructor} {toString} 3');
   });
 });
+
+it.skip('known wrong result: #1927 — the exercise shows the assigned numerical precision', () => {
+  for (const x of [0.0075, 1e-11, 1.2345678901234567]) {
+    expect(Number(fillText('{x}', { x }).replace(',', '.'))).toBe(x);
+  }
+});
+
+it.skip('known wrong result: #1927 — carried values and support overrides must belong to the assignment', () => {
+  const spec = beam();
+  for (const values of [{ L: 9, q: 4 }, { L: 6.5, q: 4 }, { L: 6, q: 3 }, { L: 6, q: 4, extra: 1 }]) {
+    expect(() => variantOf(spec, { values, supports: {} })).toThrow();
+  }
+  for (const supports of [{ 1: 'fixed' }, { 0: 'fixed' }] as const) {
+    expect(() => variantOf(spec, { values: { L: 6, q: 4 }, supports })).toThrow();
+  }
+  expect(variantOf(spec, { values: { L: 8, q: 2 }, supports: { 1: 'pinned' } }).model.nodes[1]).toEqual([8, 0]);
+});
+
+it.skip('known wrong result: #1927 — malformed parameter envelopes yield a readable import failure', async () => {
+  const { fromFile, toFile } = await import('../exercise-capture');
+  const file = JSON.parse(toFile(beam()));
+  for (const params of [{}, { values: [] }, { values: { L: null } }, { values: {}, supportChoices: {} }]) {
+    file.exercise.params = params;
+    expect(fromFile(JSON.stringify(file))).toMatchObject({ ok: false, error: expect.any(String) });
+  }
+});
+
+it.skip('known wrong result: #1927 — the validation limit counts complete support combinations', async () => {
+  const { supportCombos } = await import('../exercise-params');
+  const choices = Array.from({ length: 9 }, (_, support) => ({ support, types: ['rollerX', 'pinned'] as ('rollerX' | 'pinned')[] }));
+  const boundary = supportCombos({ values: {}, supportChoices: choices.slice(0, 8) });
+  expect(boundary).toHaveLength(256);
+  expect(boundary.every(combo => Object.keys(combo).length === 8)).toBe(true);
+  expect(() => supportCombos({ values: {}, supportChoices: choices })).toThrow(/256/);
+});
