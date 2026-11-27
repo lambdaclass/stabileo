@@ -869,3 +869,21 @@ fn an_explicit_full_axial_span_matches_an_omitted_diagonal_endpoint() {
     assert_eq!(confirm(Some(2.0_f64.sqrt())), Confirmation::Exact);
     assert_ne!(confirm(Some(2.0_f64.sqrt().next_up())), Confirmation::Exact);
 }
+
+#[test]
+#[ignore = "known wrong result: #1927"]
+fn the_public_limit_releases_the_governing_tie_with_redundant_paths() {
+    use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, limit_analysis_2d_input, Confirmation, LimitInput};
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 0.0), (3, 2.0, 0.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
+        vec![(1, "truss", 1, 2, 1, 1, false, false), (2, "truss", 2, 3, 1, 1, false, false), (3, "truss", 2, 3, 1, 1, false, false)],
+        vec![(1, 1, "pinned"), (2, 2, "rollerX"), (3, 3, "rollerX")], vec![nodal(3, 1.0, 0.0)],
+    );
+    for capacity in [5.0, 6.0] {
+        let wire = LimitInput { solver: input.clone(), mp: HashMap::new(), np: HashMap::from([("1".into(), 10.0), ("2".into(), capacity), ("3".into(), capacity)]) };
+        let proposal = limit_analysis_2d_input(&wire);
+        let result = certified_limit_2d(&wire).unwrap_or_else(|err| panic!("{err}; proposal {proposal:?}"));
+        assert_eq!(result.confirmation, Confirmation::Exact);
+        assert_eq!(result.lambda, 10.0);
+    }
+}
