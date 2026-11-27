@@ -689,3 +689,22 @@ test('known wrong result: #1928 ordinary meshing, grid construction and examples
     });
   }
 });
+
+test.skip('known wrong result: #1928 released shell controls edit the selection without changing physical plate defaults', async () => {
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      for (const [file, action] of [['spec/SpecSurfaces', 'shell-offset-apply'], ['ProFoundationSprings', 'fs-apply']]) {
+        const entry = resolve(root, 'src/components/pro/' + file + '.svelte');
+        const result = await build({ root, configFile, logLevel: 'silent', build: {
+          write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+            external: (id, from) => !!from && !id.includes('?svelte&type=style')
+              && !/(?:^|\/)(?:active-)?selected-plate-spec(?:\.ts)?$/.test(id),
+          },
+        } });
+        const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
+        assert.ok(chunk.code.includes(action));
+        assert.equal(Object.values(chunk.importedBindings).flat().includes('setPlateShellSpec'), plates, file);
+      }
+    });
+  }
+});
