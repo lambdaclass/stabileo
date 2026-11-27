@@ -15,7 +15,7 @@ const c301En: Record<string, string> = {
   'c301.d.uGiven': '  U = {U} (given)',
   'c301.d.allConnected': '  Every element connected: Ae = An  (D.3(1))',
   'c301.d.plateWeld': '  Plate with longitudinal welds: L = {L} mm, w = {w} mm → U = {U}  (D.3.5)',
-  'c301.d.uShearLag': '  ' + shearLagTrace('.'),
+  'c301.d.uShearLag': `  ${shearLagTrace('.')}`,
   'c301.d.uFloor': '  U ≥ A connected/Ag = {U}  (D.3, open sections)',
   'c301.d.aeBase': '  Ae = {base}·U  ({clause})',
 

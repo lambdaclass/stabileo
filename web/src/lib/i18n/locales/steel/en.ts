@@ -1274,7 +1274,7 @@ const steelEn: Record<string, string> = {
   'steel.tc.calc.connection': 'Connection: {what}',
   'steel.tc.calc.bolted': 'bolted, {lines} line(s) × {n} M{d} bolt(s), {hole} holes, pitch {pitch} mm, connected through: {connected}',
   'steel.tc.calc.welded': 'welded, {weld} welds, L = {L} mm, connected through: {connected}',
-  'steel.tc.calc.u': shearLagTrace('.'),
+  'steel.tc.calc.u': `${shearLagTrace('.')}`,
   'steel.tc.calc.uFloor': 'U ≥ A connected/Ag = {Aconn}/{Ag} = {U}  (D.3, open sections)',
   'steel.tc.calc.weldNoHoles': 'No holes in the welded connection: An = Ag  (B.4.2.2)',
   'steel.tc.calc.plateTable': 'Plate welded along both edges: L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))',

@@ -20,7 +20,7 @@ const c301Es: Record<string, string> = {
   'c301.d.uGiven': '  U = {U} (dado)',
   'c301.d.allConnected': '  Todos los elementos unidos: Ae = An  (D.3(1))',
   'c301.d.plateWeld': '  Chapa con cordones longitudinales: L = {L} mm, w = {w} mm → U = {U}  (D.3.5)',
-  'c301.d.uShearLag': '  ' + shearLagTrace(','),
+  'c301.d.uShearLag': `  ${shearLagTrace(',')}`,
   'c301.d.uFloor': '  U ≥ A unida/Ag = {U}  (D.3, secciones abiertas)',
   'c301.d.aeBase': '  Ae = {base}·U  ({clause})',
 

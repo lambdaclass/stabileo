@@ -1280,7 +1280,7 @@ const steelEs: Record<string, string> = {
   'steel.tc.calc.connection': 'Unión: {what}',
   'steel.tc.calc.bolted': 'abulonada, {lines} fila(s) × {n} bulón(es) M{d}, agujeros {hole}, paso {pitch} mm, unida por: {connected}',
   'steel.tc.calc.welded': 'soldada, cordones: {weld}, L = {L} mm, unida por: {connected}',
-  'steel.tc.calc.u': shearLagTrace(','),
+  'steel.tc.calc.u': `${shearLagTrace(',')}`,
   'steel.tc.calc.uFloor': 'U ≥ A unida/Ag = {Aconn}/{Ag} = {U}  (D.3, secciones abiertas)',
   'steel.tc.calc.weldNoHoles': 'Sin agujeros en la unión soldada: An = Ag  (B.4.2.2)',
   'steel.tc.calc.plateTable': 'Chapa con cordones en ambos bordes: L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))',

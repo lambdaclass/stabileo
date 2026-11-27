@@ -1278,7 +1278,7 @@ const steelPt: Record<string, string> = {
   'steel.tc.calc.connection': 'Ligação: {what}',
   'steel.tc.calc.bolted': 'parafusada, {lines} linha(s) × {n} parafuso(s) M{d}, furos {hole}, passo {pitch} mm, ligada por: {connected}',
   'steel.tc.calc.welded': 'soldada, soldas: {weld}, L = {L} mm, ligada por: {connected}',
-  'steel.tc.calc.u': shearLagTrace(','),
+  'steel.tc.calc.u': `${shearLagTrace(',')}`,
   'steel.tc.calc.uFloor': 'U ≥ A ligada/Ag = {Aconn}/{Ag} = {U}  (D.3, seções abertas)',
   'steel.tc.calc.weldNoHoles': 'Sem furos na ligação soldada: An = Ag  (B.4.2.2)',
   'steel.tc.calc.plateTable': 'Chapa soldada nas duas bordas: L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))',
