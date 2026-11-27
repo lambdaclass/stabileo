@@ -39,6 +39,24 @@ it.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s reports o
   expect(detail).not.toHaveBeenCalled();
 });
 
+it.skip.each(['sync', 'worker'] as const)('known wrong result: #1927 — %s reports only unfinished families as truncated', async entry => {
+  await ready('rc-qa-diagnostic');
+  let now = 0;
+  vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const adapter = designRunStore.currentAdapter()!;
+  const verify = adapter.verify.bind(adapter);
+  vi.spyOn(adapter, 'verify').mockImplementation((ctx, bars) => {
+    if (designRunStore.phase === 'autoDesign' && ctx.elementType === 'beam') now++;
+    return verify(ctx, bars);
+  });
+  const report = entry === 'sync' ? designRunStore.designFamilies(['column', 'beam'], { maxRunMs: 0 })
+    : await designFamiliesWithWorkerYields(['column', 'beam'], { maxRunMs: 0 });
+  expect(report.ok).toBe(false);
+  expect(familyOf(report, 'column').state).toBe('designed');
+  expect(familyOf(report, 'column').errorKey).toBeUndefined();
+  expect(familyOf(report, 'beam').errorParams?.notReached).toBe(verificationStore.runSummary!.notReached);
+});
+
 it.each(['autoDesign', 'designAll'] as const)('known wrong result: #1927 — %s returns a translated interruption', async (command) => {
   await ready('rc-qa-diagnostic');
   expect(designRunStore.computeDemands().ok).toBe(true);

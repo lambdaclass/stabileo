@@ -197,9 +197,12 @@ it.each(['2d', '3d'] as const)('a held stress map uses the solved material until
 
 it.each(['reconnect', 'move'])('drops a held 3D diagram on a %s with identical IDs', edit => {
   const id = solvedCantilever3D();
-  resultsStore.diagramType = 'moment';
+  const solved = resultsStore.results3D;
+  resultsStore.diagramType = 'momentY';
   editE(2);
   expect(resultsStore.screen.held).toBe(true);
+  expect(resultsStore.screen.diagram).toBe('momentY');
+  expect(resultsStore.screen.results3D).toBe(solved);
   const member = modelStore.elements.get(id)!;
   if (edit === 'reconnect') modelStore.updateElement(id, { nodeI: member.nodeJ, nodeJ: member.nodeI });
   else {
@@ -221,4 +224,31 @@ it('known wrong result: #1927 — restoring identical geometry keeps the solved 
   expect(resultsStore.results).toBeNull();
   expect(resultsStore.screen.results).toBe(r);
   expect(getSectionProps(id)).toEqual(original);
+});
+
+it.skip('known wrong result: #1927 — a held spatial diagram retains its comparison forces, coordinates and stiffness settings', () => {
+  const member = solvedCantilever3D();
+  const r = resultsStore.results3D!;
+  resultsStore.diagramType = 'momentZ';
+  resultsStore.setOverlay3D(r, 'reference');
+  const overlay = resultsStore.overlayResults3D;
+  const node = modelStore.elements.get(member)!.nodeJ;
+  const z = modelStore.nodes.get(node)!.z;
+  const shear = modelStore.analysis.shearDeformation;
+  modelStore.setAnalysis({ shearDeformation: 'none' });
+  resultsStore.clear({ keepScreen: true });
+  expect(resultsStore.screen.overlayResults3D).toBe(overlay);
+  expect(resultsStore.screen.model?.nodes.get(node)?.z).toBe(z);
+  expect(resultsStore.screen.model?.analysis.shearDeformation).toBe(shear);
+});
+
+it.skip.each(['modeShape', 'bucklingMode'] as const)('known wrong result: #1927 — a held %s keeps the selected displacement field', dt => {
+  solvedCantilever3D();
+  const r = resultsStore.results3D!;
+  const modes = [{ modeNumber: 1, frequency: 1, loadFactor: 1, displacements: r.displacements }];
+  if (dt === 'modeShape') resultsStore.setModalResult3D({ modes } as never);
+  else resultsStore.setBucklingResult3D({ modes } as never);
+  editE(2);
+  expect(resultsStore.screen.diagram).toBe(dt);
+  expect(resultsStore.screen.modeDisplacements).toEqual(modes[0]!.displacements);
 });
