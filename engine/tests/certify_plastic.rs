@@ -840,7 +840,6 @@ fn issue_2658_shared_section_cantilevers_use_the_loaded_material_2d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1927"]
 fn a_fixed_tie_can_govern_two_redundant_axial_paths() {
     use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
     let input = make_input(
@@ -855,4 +854,19 @@ fn a_fixed_tie_can_govern_two_redundant_axial_paths() {
     }
     let insufficient = HashMap::from([(1, 10.0), (2, 4.0), (3, 5.0)]);
     assert_ne!(confirm_2d(&input, &HashMap::new(), &insufficient, 10.0), Confirmation::Exact);
+}
+
+#[test]
+#[ignore = "known wrong result: #758"]
+fn an_explicit_full_axial_span_matches_an_omitted_diagonal_endpoint() {
+    use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
+    let beam = |end| make_input(
+        vec![(1, 0.0, 0.0), (2, 1.0, 1.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
+        vec![nodal(2, 0.0, -1.0), SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: 1.0, q_j: 1.0, a: None, b: end })],
+    );
+    let confirm = |end| confirm_2d(&beam(end), &HashMap::from([(1, 1.0)]), &HashMap::from([(1, 10.0)]), 1.0);
+    assert_eq!(confirm(None), Confirmation::Exact);
+    assert_eq!(confirm(Some(2.0_f64.sqrt())), Confirmation::Exact);
+    assert_ne!(confirm(Some(2.0_f64.sqrt().next_up())), Confirmation::Exact);
 }

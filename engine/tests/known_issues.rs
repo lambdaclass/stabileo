@@ -3353,3 +3353,19 @@ fn rotary_inertia_warns_about_unbounded_modes_and_identifies_each_member_family_
         assert!(!ids(&for_3d(&mixed, analysis)).contains(&"NL-DYNAMIC-MODES".into()));
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #370"]
+fn a_semicircle_uses_its_arc_for_the_deep_member_screen() {
+    let mut arch = arch3d();
+    for (id, x, z) in [("1", 0.0, 0.0), ("200", 1.0, 1.0), ("5", 2.0, 0.0)] {
+        let node = arch.nodes.get_mut(id).unwrap();
+        (node.x, node.y, node.z) = (x, 0.0, z);
+    }
+    for (radius, expected) in [(0.135_f64, "NL-DYNAMIC-MODES"), (0.15, "NL-DYNAMIC-GAPS")] {
+        for section in arch.sections.values_mut() { section.iy = section.a * radius.powi(2); section.iz = section.iy; }
+        for analysis in [Analysis::Modal, Analysis::TimeHistory, Analysis::Harmonic] {
+            assert_warning(&for_3d(&arch, analysis), expected, 370.0);
+        }
+    }
+}
