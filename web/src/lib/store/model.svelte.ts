@@ -1477,8 +1477,6 @@ function createModelStore() {
   // skip their per-call Map / array reassignment while this flag is true;
   // bulkMutate() reassigns everything once at the end.
   let _bulkMutating = false;
-  /** Inside `bulkMutate`: the shells and nodes removed, their loads and group memberships dropped once at the end. */
-  let _bulkGone: { quads: Set<number>; nodes: Set<number> } | null = null;
   let _replayingFixture = false;
   let _bulkLoadBuffer: Load[] | null = null;
   let _bulkConstraintBuffer: Constraint3D[] | null = null;
@@ -1742,16 +1740,9 @@ function createModelStore() {
     return includeSelfWeight ? [{ caseId: target, ...GRAVITY_SELF_WEIGHT }] : [];
   }
 
-  function dropFromGroups(gone: { quads: ReadonlySet<number>; nodes: ReadonlySet<number> }): void {
-    let touched = false;
-    for (const [gid, g] of model.groups) {
-      const q = g.members.quads, n = g.members.nodes;
-      const qs = q?.some((x) => gone.quads.has(x)), ns = n?.some((x) => gone.nodes.has(x));
-      if (!qs && !ns) continue;
-      model.groups.set(gid, { ...g, members: { ...g.members, ...(qs ? { quads: q!.filter((x) => !gone.quads.has(x)) } : {}), ...(ns ? { nodes: n!.filter((x) => !gone.nodes.has(x)) } : {}) } });
-      touched = true;
-    }
-    if (touched) model.groups = new Map(model.groups);
+  function retainLoads(keep: (load: Load) => boolean): void {
+    model.loads = model.loads.filter(keep);
+    if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keep);
   }
 
   function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
@@ -2186,16 +2177,9 @@ function createModelStore() {
       _bulkMutating = true;
       _bulkLoadBuffer = [...model.loads];
       _bulkConstraintBuffer = [...model.constraints];
-      _bulkGone = { quads: new Set(), nodes: new Set() };
       try {
         fn();
       } finally {
-        const gone = _bulkGone;
-        _bulkGone = null;
-        if (gone && (gone.quads.size || gone.nodes.size)) {
-          _bulkLoadBuffer = _bulkLoadBuffer!.filter((l) => !onShell(l, gone.quads) && !gone.nodes.has(loadNodeId(l) ?? NaN));
-          dropFromGroups(gone);
-        }
         const commitLoads = _bulkLoadBuffer!;
         const commitConstraints = _bulkConstraintBuffer!;
         _bulkLoadBuffer = null;
@@ -3121,7 +3105,7 @@ function createModelStore() {
       if (!_bulkMutating) model.nodes = new Map(model.nodes);
       // Same reasoning as removeElement: node numbers are reused, so a group holding a
       // deleted one would quietly come to mean a different node.
-      if (_bulkGone) _bulkGone.nodes.add(id); else replaceInGroups('nodes', id);
+      replaceInGroups('nodes', id);
       /*
        * Through `removeElement`, not a bare delete. The bare delete left the member's loads,
        * its group membership and a footing's `columnElementId` pointing at an id the next
@@ -3138,8 +3122,7 @@ function createModelStore() {
         }
       }
       if (!_bulkMutating) model.supports = new Map(model.supports);
-      // Every load on the node, an imposed displacement too (`LOAD_TARGET`); inside a bulk mutation, at its end.
-      if (!_bulkGone) model.loads = model.loads.filter((l) => loadNodeId(l) !== id);
+      retainLoads(l => loadNodeId(l) !== id);
       // Cascade to connectors/constraints: a dangling node reference is worse
       // than a missing entity — the engine silently skips it (zero stiffness)
       // while the connectivity preflight keeps crediting it as an edge.
@@ -3318,8 +3301,7 @@ function createModelStore() {
       replaceInSelfWeight(id);
       // Every load on the member, a tendon too (`LOAD_TARGET`).
       const keepLoad = (l: Load) => loadMemberId(l) !== id;
-      model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
+      retainLoads(keepLoad);
       // A footing SURVIVES the loss of its column: its node, its dimensions and its soil
       // are all still there, and its bearing and thickness are still checkable. What it
       // loses is the punching perimeter and the dowel geometry, so the reference is cleared
@@ -3373,8 +3355,7 @@ function createModelStore() {
       // The loads on it go with it, as a quad's do.
       const keepLoad = (l: Load) =>
         !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && l.data.on === 'plate');
-      model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
+      retainLoads(keepLoad);
     },
 
     updatePlate(id: number, data: Partial<{ materialId: number; thickness: number }>): void {
@@ -3405,14 +3386,13 @@ function createModelStore() {
     removeQuad(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.quads.delete(id);
-      if (_bulkGone) { _bulkGone.quads.add(id); return; }
       replaceInGroups('quads', id);
       if (!_bulkMutating) model.quads = new Map(model.quads);
       // Cascade to surface/thermal loads on this quad — otherwise the load
       // dangles (still in the loads table, .ded and URL share) and is silently
       // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).
       const one = new Set([id]);
-      model.loads = model.loads.filter((l) => !onShell(l, one));
+      retainLoads(l => !onShell(l, one));
     },
 
     updateQuad(id: number, data: Partial<{ materialId: number; thickness: number }>): void {

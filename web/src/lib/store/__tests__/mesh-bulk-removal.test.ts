@@ -6,7 +6,7 @@ beforeEach(() => { modelStore.clear(); historyStore.clear(); uiStore.analysisMod
 afterEach(() => vi.restoreAllMocks());
 
 describe('bulk removal', () => {
-  it.skip('known wrong result: #2365 a snapshot inside a bulk edit has no loads on a removed node', () => {
+  it('known wrong result: #2365 a snapshot inside a bulk edit has no loads on a removed node', () => {
     const removed = modelStore.addNode(0, 0, 0);
     const kept = modelStore.addNode(1, 0, 0);
     for (const node of [removed, kept]) modelStore.addNodalLoad3D(node, 0, 0, -1, 0, 0, 0);
