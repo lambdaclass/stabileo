@@ -7,7 +7,7 @@ import { physicalPlates, plateStatus } from './physical-plates';
 import { meshBeforeAnalysis } from './mesh-policy.svelte';
 import type { SolverDiagnostic } from '../engine/types';
 import { modelStore } from './model.svelte';
-import { planRecognition } from './physical-recognition';
+import { pendingPhysicalRecognition } from './physical-recognition';
 import { useZones, zoneLoadPlan } from './use-zones';
 import { zoneHasShells, zoneOverUnmeshedPlate, zoneOverlap, zoneStatus, zoneUnsupported, zoneUseOf } from '../model/use-zones';
 import type { DefinitionModel } from '../model/loads/floor-definitions';
@@ -68,7 +68,7 @@ export function plateDiagnostics(t: (key: string) => string): SolverDiagnostic[]
     const loose = looseNodes(p, connecting);
     if (loose.size) out.push({ source: 'model', objects: [{ kind: 'plate', id: p.id }], severity: 'warning', code: 'PLATE_LOOSE_CORNER', message: t('pro.plates.diag.looseCorner'), details: { plate: p.name, nodes: [...loose].sort((a, b) => a - b).join(', ') } });
   }
-  const review = planRecognition().proposals.filter((x) => x.status !== 'same').length;
+  const review = pendingPhysicalRecognition();
   if (review) out.push({ source: 'model', severity: 'info', code: 'PHYSICAL_REVIEW', message: t('pro.physical.diag.review'), details: { n: review } });
   for (const p of physicalPlates()) {
     const s = plateStatus(p.id);

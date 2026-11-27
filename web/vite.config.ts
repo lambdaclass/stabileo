@@ -98,6 +98,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
           if (/^ex\.pro-rc-(house|four-storey|steel-columns|lift-core|party-wall)(\.|$)/.test(key)) return false;
           if (/^pro\.(examples\.(loading\.|group(Rc|Steel)Buildings$)|tag(Core|Stair)$|stats\.plates$)/.test(key)) return false;
           if (key === 'ex.pro-steel-building-slabs.generatedDesc') return false;
+          if (key === 'physical.automaticExplain' || key === 'desk.prep.automaticExistingHint' || key === 'pro.physical.diag.review' || key === 'physical.diag.review' || key === 'physical.pending' || key === 'physical.pendingReview') return false;
           if (key.startsWith('solveProgress.')) return false;
           if (key === 'quickEdit.meshPlate' || /^combos\.rules\.(seed|none)Code$/.test(key)) return false;
           if (key === 'drawBar.circle' || /^plates\.(circle|shape|shapeProblem|meshShort|unified)\./.test(key)) return false;

@@ -16,13 +16,13 @@
     physicalGroups, declarePhysicalKind, declarePhysicalTypology,
     physicalSection, physicalThickness, setPhysicalSection, setPhysicalThickness,
   } from '../../lib/store/physical';
-  import { planRecognition, type RecognitionOutcome, type RecognitionPlan } from '../../lib/store/physical-recognition';
+  import { pendingPhysicalRecognition, planRecognition, type RecognitionOutcome, type RecognitionPlan } from '../../lib/store/physical-recognition';
   import PhysicalRecognitionReview from './PhysicalRecognitionReview.svelte';
 
   /** The proposal under review, and what the last application did. */
   let review = $state<RecognitionPlan | null>(null);
   let outcome = $state<RecognitionOutcome | null>(null);
-  const pending = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return planRecognition().proposals.filter((p) => p.status !== 'same').length; });
+  const pending = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return pendingPhysicalRecognition(); });
   function open() { outcome = null; review = planRecognition(); }
   function done(o: RecognitionOutcome | null) { review = null; outcome = o; }
 
@@ -60,12 +60,20 @@
 <div class="pk ph" data-testid="physical-panel">
   <section class="pk-card">
     <h4 class="pk-heading">{t('physical.title')}</h4>
-    <Hint text={t('physical.explain')} />
-    {#if list.length > 0}<p class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</p>{/if}
-    {#if pending > 0 && !review}
-      <div class="pk-row ph-pending" data-testid="physical-pending">
-        <span>{tp('physical.pending', { n: pending })}</span>
-        <button class="pk-btn pk-btn-primary" onclick={open} data-testid="physical-review">{t('physical.pendingReview')}</button>
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      <Hint text={t('physical.automaticExplain')} />
+      {#if list.length > 0}<p class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</p>{/if}
+      {#if pending > 0 && !review}
+        <div class="pk-row ph-pending" data-testid="physical-pending">
+          <span>{tp('physical.pending', { n: pending })}</span>
+          <button class="pk-btn pk-btn-primary" onclick={open} data-testid="physical-review">{t('physical.pendingReview')}</button>
+        </div>
+      {/if}
+    {:else}
+      <Hint text={t('physical.explain')} />
+      <div class="pk-row">
+        <button class="pk-btn pk-btn-primary" onclick={open} disabled={review !== null} data-testid="physical-recognize">{t('physical.recognize')}</button>
+        {#if list.length > 0}<span class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</span>{/if}
       </div>
     {/if}
     {#if outcome && outcome.channel !== 'none'}

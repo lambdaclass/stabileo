@@ -17,6 +17,7 @@
  *
  * Declared elements are never touched, as before.
  */
+import { unifiedPlates } from '../features';
 import { modelStore } from './model.svelte';
 import { t as tr } from '../i18n';
 import { GENERATED_KIND } from './generated-structures';
@@ -406,6 +407,11 @@ export function applyRecognition(
     applied: chosen.length, kept, created, removed: removals.length, remapped,
     channel: structural ? 'structural' : 'design', frozen, conflicts, dropped,
   };
+}
+
+export function pendingPhysicalRecognition(): number {
+  if (!unifiedPlates()) return 0;
+  return planRecognition().proposals.filter(proposal => proposal.status !== 'same').length;
 }
 
 /** Recognise and apply everything at once (the command without review). Returns the elements now. */

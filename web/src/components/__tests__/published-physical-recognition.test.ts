@@ -8,7 +8,7 @@ import { t } from '../../lib/i18n';
 
 afterEach(() => { modelStore.clear(); uiStore.analysisMode = '2d'; });
 
-it.skip('known wrong result: #1928 published elements can be recognized by hand on a model with no physical groups', () => {
+it('known wrong result: #1928 published elements can be recognized by hand on a model with no physical groups', () => {
   uiStore.analysisMode = 'pro';
   modelStore.clear();
   modelStore.addElement(modelStore.addNode(0, 0, 0), modelStore.addNode(0, 0, 3), 'frame');

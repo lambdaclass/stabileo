@@ -19,10 +19,13 @@
   import { materialFamilyOf } from '../../../lib/engine/steel/material-family';
   import { catalogueGradeFamily } from '../../../lib/engine/steel/grade-family';
   import { openDeskAt, openModelTool } from '../../../lib/pro/design-navigation';
+  import { unifiedPlates } from '../../../lib/features';
+  import { physicalGroups } from '../../../lib/store/physical';
   import DesignOverview from '../design/DesignOverview.svelte';
 
   let { empty }: { empty: boolean } = $props();
 
+  const pieces = $derived.by(() => { void modelStore.model.groups; return physicalGroups().length; });
   const members = $derived(modelStore.elements.size);
   const solved = $derived(!!resultsStore.results3D || !!resultsStore.results);
   const levels = $derived(sortedLevels(modelStore.grid).length);
@@ -41,6 +44,7 @@
   const existingMissing = $derived([
     ...(members === 0 ? ['desk.prep.miss.members'] : []),
     ...(members > 0 && designable === 0 ? ['desk.prep.miss.material'] : []),
+    ...(!unifiedPlates() && pieces === 0 ? ['desk.prep.miss.pieces'] : []),
     ...(levels === 0 ? ['desk.prep.miss.levels'] : []),
     ...(!solved ? ['desk.prep.miss.solve'] : []),
   ]);
@@ -58,14 +62,19 @@
     <div class="pp-routes">
       <section class="pp-route" data-testid="desk-route-existing">
         <h4>{t('desk.prep.existing')}</h4>
-        <Hint text={t('desk.prep.existingHint')} />
+        <Hint text={t(unifiedPlates() ? 'desk.prep.automaticExistingHint' : 'desk.prep.existingHint')} />
         <h5>{t('desk.prep.missing')}</h5>
         {#if existingMissing.length}
           <ul data-testid="desk-route-existing-missing">{#each existingMissing as k (k)}<li>{t(k)}</li>{/each}</ul>
         {:else}<p class="pp-hint" data-testid="desk-route-existing-ready">{t('desk.prep.readyToDesign')}</p>{/if}
         <div class="pp-actions">
-          <button class="pp-primary" disabled={members === 0} onclick={() => openModelTool('grid')} data-testid="desk-route-levels">{t('desk.prep.levelsFromModel')}</button>
-          <button disabled={members === 0} onclick={() => openModelTool('physical')} data-testid="desk-route-pieces">{t('physical.title')} ↗</button>
+          {#if __PUBLIC_FEATURES__.proPlatesUnified}
+            <button class="pp-primary" disabled={members === 0} onclick={() => openModelTool('grid')} data-testid="desk-route-levels">{t('desk.prep.levelsFromModel')}</button>
+            <button disabled={members === 0} onclick={() => openModelTool('physical')} data-testid="desk-route-pieces">{t('physical.title')} ↗</button>
+          {:else}
+            <button class="pp-primary" disabled={members === 0} onclick={() => openModelTool('physical')} data-testid="desk-route-recognize">{t('desk.prep.recognize')}</button>
+            <button disabled={members === 0} onclick={() => openModelTool('grid')} data-testid="desk-route-levels">{t('desk.prep.levelsFromModel')}</button>
+          {/if}
         </div>
       </section>
       <section class="pp-route" data-testid="desk-route-scratch">

@@ -6329,7 +6329,9 @@ const zh: Translations = {
   "physical.mixed": "混合",
   "physical.thickness": "厚度",
   "physical.title": "构件",
-  "physical.explain": "将杆件和壳单元归为连续梁、多层柱、楼板、墙和支撑。建模时会自动识别这些构件，设计时使用这里的分类。根据几何推断的构件会标出，修正后即视为已明确指定。",
+  "physical.explain": "每组杆件和壳是什么：连续梁、多层柱、楼板、墙、支撑。设计从此处读取类型。根据几何推断出的内容会有标记；修改后即成为已声明。",
+  "physical.automaticExplain": "将杆件和壳单元归为连续梁、多层柱、楼板、墙和支撑。建模时会自动识别这些构件，设计时使用这里的分类。根据几何推断的构件会标出，修正后即视为已明确指定。",
+  "physical.recognize": "识别构件",
 
   "physical.summary": "{n} 个构件，其中 {inferred} 个由几何推断",
   "physical.filter": "按类型筛选",
@@ -13873,7 +13875,10 @@ const zh: Translations = {
   "desk.rail.otherCodes": "其他规范",
   "desk.prep.emptyLead": "该模型中暂无可设计的内容。请选择开始方式；每种方式都会列出缺少的内容。",
   "desk.prep.existing": "准备现有模型",
-  "desk.prep.existingHint": "对于已有的分析模型，系统会自动识别梁、柱、楼板和墙等构件。只需补全设计所需的数据。",
+  "desk.prep.existingHint": "适用于已建好的分析模型：识别其实体构件（梁、柱、楼板、墙），并补全设计所需的数据。",
+  "desk.prep.automaticExistingHint": "对于已有的分析模型，系统会自动识别梁、柱、楼板和墙等构件。只需补全设计所需的数据。",
+  "desk.prep.recognize": "识别实体构件",
+  "desk.prep.miss.pieces": "缺少实体构件：请从分析模型中识别它们。",
   "desk.prep.missing": "缺少的内容",
   "desk.prep.readyToDesign": "无需补充即可开始。请按上方的「设计」。",
 
