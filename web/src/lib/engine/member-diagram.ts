@@ -612,7 +612,7 @@ export function envelopePlotPeakIndices(diagram: ElementEnvelopeDiagram, length:
   return { pos: peakIndex(diagram.posValues), neg: peakIndex(diagram.negValues) };
 }
 
-function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number) {
+function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number, facesMode?: 'diagram') {
   validateEnvelopeDiagramLayout(diagram, length);
   const { tPositions, posValues, negValues } = diagram;
   const faces = new Map<number, { x: number; side: 'left' | 'right' }>();
@@ -624,7 +624,7 @@ function memberEnvelopeBounds(diagram: ElementEnvelopeDiagram, length: number) {
     const face = faces.get(i);
     const pos = posValues[i]!, neg = negValues[i]!;
     if (pos < 0 || neg > 0) throw unavailableDiagramExtrema();
-    if (!isInwardEndpointFace(t, face && face.side === 'right')) return [];
+    if (!(facesMode === 'diagram' && t === 0) && !isInwardEndpointFace(t, face && face.side === 'right')) return [];
     return [{ index: i, t, x: t * length, pos, neg, ...face }];
   });
 }
@@ -635,8 +635,8 @@ export function memberEnvelopeOrdinates(diagram: ElementEnvelopeDiagram, length:
   }));
 }
 
-export function envelopeForceExtrema(diagram: ElementEnvelopeDiagram, length: number) {
-  const stations = memberEnvelopeBounds(diagram, length);
+export function envelopeForceExtrema(diagram: ElementEnvelopeDiagram, length: number, faces?: 'diagram') {
+  const stations = memberEnvelopeBounds(diagram, length, faces);
   const upper = stations.map(({ index: _index, pos, neg, ...station }) => ({ ...station, value: pos }));
   const lower = stations.map(({ index: _index, pos, neg, ...station }) => ({ ...station, value: neg }));
   const max = diagramOrdinateExtrema(upper).max;
