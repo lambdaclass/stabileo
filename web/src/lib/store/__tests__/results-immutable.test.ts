@@ -541,7 +541,7 @@ it('retains the checked base diagram when only the requested named envelope refu
   expect(resultsStore.knownIssues3D.refused).toBe(true);
 });
 
-it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — retires an envelope when its independent contributor subsequently refuses in %s', async mode => {
+it.each(['2d', '3d'] as const)('retires an envelope when its independent contributor subsequently refuses in %s', async mode => {
   const { initSolver, computeEnvelope, computeEnvelope3D } = await import('../../engine/wasm-solver');
   await initSolver();
   resultsStore.clear();

@@ -288,10 +288,10 @@ function createResultsStore() {
     return sources.some(f => knownIssueResultDisposition(cases.get(f.caseId)).refused) ? null : result;
   }
 
-  const envelopeChecks = new WeakMap<object, { cases: object; envelope: object; valid: () => boolean }>();
-  function independentInBundle(envelope: object | null, cases: object, combos: object): boolean {
+  const envelopeChecks = new WeakMap<object, { cases: object; envelope: object; sources: readonly object[]; valid: () => boolean }>();
+  function publishedEnvelopeCheck(envelope: object | null, cases: object, combos: object) {
     const check = envelopeChecks.get(combos);
-    return !!check && check.cases === cases && check.envelope === envelope && check.valid();
+    return check?.cases === cases && check.envelope === envelope ? check : undefined;
   }
 
   function envelopeCheck<T extends object>(envelope: object | null, cases: Map<number, T>, combos: Map<number, T>) {
@@ -300,10 +300,11 @@ function createResultsStore() {
     const used = new Set(sources);
     const caseIds = [...cases].filter(([, value]) => used.has(value)).map(([id]) => id);
     const comboIds = [...combos].filter(([, value]) => used.has(value)).map(([id]) => id);
-    return (publishedCases: Map<number, T>, publishedCombos: Map<number, T>) =>
+    const valid = (publishedCases: Map<number, T>, publishedCombos: Map<number, T>) =>
       sources.every(source => !knownIssueResultDisposition(source).refused) &&
       caseIds.every(id => publishedCases.has(id) && !knownIssueResultDisposition(publishedCases.get(id)).refused) &&
       comboIds.every(id => selectableCombo(publishedCases, publishedCombos, id) !== null);
+    return { sources, valid };
   }
 
   function initialCombination<T extends object>(single: T | null, cases: Map<number, T>, combos: Map<number, T>, envelopeResult: T | undefined, envelopeAvailable: boolean): T | null {
@@ -334,14 +335,19 @@ function createResultsStore() {
   const noResults = () => freezeResult(new Map<number, never>());
   const combosRefused2D = () => anyRefused(perCase, perCombo);
   const combosRefused3D = () => anyRefused(perCase3D, perCombo3D);
-  const comboRefused2D = () => (combosRefused2D() && !independentInBundle(envelope, perCase, perCombo)) || knownIssueResultDisposition(envelope?.maxAbsResults).refused;
-  const comboRefused3D = () => (combosRefused3D() && !independentInBundle(envelope3D, perCase3D, perCombo3D)) || knownIssueResultDisposition(envelope3D?.maxAbsResults3D).refused;
+  const baseCheck2D = () => publishedEnvelopeCheck(envelope, perCase, perCombo);
+  const baseCheck3D = () => publishedEnvelopeCheck(envelope3D, perCase3D, perCombo3D);
+  function envelopeRefused(result: unknown, sourcesValid: boolean | undefined, bundleRefused: () => boolean) {
+    return knownIssueResultDisposition(result).refused || (sourcesValid === undefined ? bundleRefused() : !sourcesValid);
+  }
+  const comboRefused2D = () => envelopeRefused(envelope?.maxAbsResults, baseCheck2D()?.valid(), combosRefused2D);
+  const comboRefused3D = () => envelopeRefused(envelope3D?.maxAbsResults3D, baseCheck3D()?.valid(), combosRefused3D);
   function screenEnvelope3D(): FullEnvelope3D | null {
     const named = liveViewedEnvelope3D();
     if (named) {
-      if (!knownIssueResultDisposition(named.maxAbsResults3D).refused &&
-        (!combosRefused3D() || viewedEnvelope3D?.check?.(perCase3D, perCombo3D))) return named;
-      if (!independentInBundle(envelope3D, perCase3D, perCombo3D)) return null;
+      const valid = viewedEnvelope3D?.check?.valid(perCase3D, perCombo3D);
+      if (!envelopeRefused(named.maxAbsResults3D, valid, combosRefused3D)) return named;
+      if (!baseCheck3D()) return null;
     }
     return comboRefused3D() ? null : envelope3D;
   }
@@ -516,7 +522,8 @@ function createResultsStore() {
     _setOnDiagramShown(fn: () => void) { _onDiagramShown = fn; },
 
     get results() {
-      if (results && !advancedOpen() && activeView !== 'single' && combosRefused2D() && results !== staticResults2D()) return null;
+      if (activeView === 'envelope' && !advancedOpen()) return staticResults2D();
+      if (results && activeView === 'combo' && !advancedOpen() && combosRefused2D() && results !== staticResults2D()) return null;
       return knownIssueResultDisposition(results).refused ? null : results;
     },
     /** True when ANY result of any kind is present. Used by the mutation hook
@@ -1080,7 +1087,7 @@ function createResultsStore() {
       pc = new Map([...pc].map(([k, v]) => [k, drawn(v)]));
       pco = new Map([...pco].map(([k, v]) => [k, drawn(v)]));
       if (env) env = envelopeToDrawnAxes(env, _signOf);
-      if (env && check) envelopeChecks.set(pco, { cases: pc, envelope: env, valid: () => check(pc, pco) });
+      if (env && check) envelopeChecks.set(pco, { cases: pc, envelope: env, sources: check.sources, valid: () => check.valid(pc, pco) });
       else envelopeChecks.delete(pco);
       screen.published([...pc.values(), ...pco.values(), env?.maxAbsResults]);
       perCase = pc;
@@ -1210,7 +1217,8 @@ function createResultsStore() {
     // ─── 3D Results ─────────────────────────────────────────────
 
     get results3D() {
-      if (results3D && !advancedOpen() && activeView !== 'single' && combosRefused3D() && results3D !== staticResults3D()) return null;
+      if (activeView === 'envelope' && !advancedOpen()) return staticResults3D();
+      if (results3D && activeView === 'combo' && !advancedOpen() && combosRefused3D() && results3D !== staticResults3D()) return null;
       return knownIssueResultDisposition(results3D).refused ? null : results3D;
     },
 
@@ -1319,7 +1327,7 @@ function createResultsStore() {
         pco = new Map([...pco].map(([k, r]) => [k, n(r)]));
         if (_normaliseEnvelope3D && env) env = _normaliseEnvelope3D(env);
       }
-      if (env && check) envelopeChecks.set(pco, { cases: pc, envelope: env, valid: () => check(pc, pco) });
+      if (env && check) envelopeChecks.set(pco, { cases: pc, envelope: env, sources: check.sources, valid: () => check.valid(pc, pco) });
       else envelopeChecks.delete(pco);
       screen.published([...pc.values(), ...pco.values(), env?.maxAbsResults3D]);
       for (const r of [...pc.values(), ...pco.values(), env?.maxAbsResults3D, env, pc, pco]) freezeResult(r);
@@ -1442,10 +1450,10 @@ function createResultsStore() {
     },
 
     get knownIssues() {
-      return knownIssueResultDisposition([singleResults, results, [...perCase.values()], [...perCombo.values()], envelope?.maxAbsResults, overlayResults, pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine]);
+      return knownIssueResultDisposition([singleResults, results, [...perCase.values()], [...perCombo.values()], envelope?.maxAbsResults, baseCheck2D()?.sources, overlayResults, pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine]);
     },
     get knownIssues3D() {
-      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, liveViewedEnvelope3D()?.maxAbsResults3D, overlayResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.storedDiagnostics]);
+      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, baseCheck3D()?.sources, liveViewedEnvelope3D()?.maxAbsResults3D, liveViewedEnvelope3D() && viewedEnvelope3D?.check?.sources, overlayResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.storedDiagnostics]);
     },
 
     get maxDisplacement(): number {
