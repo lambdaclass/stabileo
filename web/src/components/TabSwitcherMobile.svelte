@@ -72,6 +72,7 @@
   }
 
   function onInputKeydown(id: string, e: KeyboardEvent) {
+    if (e.isComposing) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       void finishRename(id, (e.currentTarget as HTMLInputElement).value);
@@ -83,6 +84,7 @@
   }
 
   function onWindowKeydown(e: KeyboardEvent) {
+    if (e.isComposing) return;
     if (open && e.key === 'Escape') {
       e.stopPropagation();
       closePanel();

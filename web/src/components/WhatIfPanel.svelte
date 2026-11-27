@@ -12,8 +12,9 @@
   import { whatIf } from '../lib/store/whatif.svelte';
   import { showDiagram } from '../lib/store/view-mode';
   import type { DiagramType } from '../lib/store/results.svelte';
-  import { t } from '../lib/i18n';
-  import { fmtQ, unitQ } from '../lib/store/display-units.svelte';
+  import { onMount } from 'svelte';
+  import { i18n, t } from '../lib/i18n';
+  import { fmtQ, toQ, unitQ } from '../lib/store/display-units.svelte';
   import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../lib/geometry/coordinate-system';
   import { RESPONSE_QUANTITY, percentChange, response2D, response3D, type Response, type ResponseKey } from '../lib/whatif/response';
   import WhatIfLoads from './whatif/WhatIfLoads.svelte';
@@ -68,13 +69,20 @@
     const { results, results3D } = resultsStore.screen;
     return is3D ? (results3D && response3D(results3D)) : (results && response2D(results));
   });
-  $effect(() => { if (live && !whatIf.reference && !whatIf.changed) whatIf.setReference(live); });
+  onMount(() => { void whatIf.startReferenceSolve(); });
+  $effect(() => { if (live) whatIf.captureReference(); });
   const ROWS = $derived<Array<{ k: ResponseKey; key: string }>>([
     { k: 'delta', key: 'whatif.resp.delta' }, { k: 'moment', key: is3D ? 'whatif.resp.momentComponent' : 'whatif.resp.moment' }, { k: 'shear', key: is3D ? 'whatif.resp.shearComponent' : 'whatif.resp.shear' },
     { k: 'axial', key: 'whatif.resp.axial' }, { k: 'reaction', key: 'whatif.resp.reaction' },
   ]);
-  const value = (k: ResponseKey, v: number) => `${fmtQ(v, RESPONSE_QUANTITY[k])} ${unitQ(RESPONSE_QUANTITY[k])}`;
-  const rows = $derived(ROWS.filter((r) => (shown?.[r.k] ?? 0) > 1e-9 || (whatIf.reference?.[r.k] ?? 0) > 1e-9));
+  const scientific = $derived(new Intl.NumberFormat(i18n.locale, { notation: 'scientific', maximumSignificantDigits: 4 }));
+  function value(k: ResponseKey, v: number): string {
+    const quantity = RESPONSE_QUANTITY[k];
+    const formatted = fmtQ(v, quantity);
+    const number = v !== 0 && formatted === '0' ? scientific.format(toQ(v, quantity)) : formatted;
+    return `${number} ${unitQ(quantity)}`;
+  }
+  const percent = $derived(new Intl.NumberFormat(i18n.locale, { style: 'percent', maximumFractionDigits: 1 }));
 
   /* Results off leaves the structure and its loads alone; on again brings back the last diagram. */
   let lastDiagram: DiagramType | null = null;
@@ -99,9 +107,9 @@
     lastPicked = { members, nodes };
   });
   const changedIn = $derived<Record<Tab, boolean>>({
-    loads: whatIf.loadFactors.some((f) => f !== 1) || Object.keys(whatIf.loadAt).length > 0 || Object.keys(whatIf.loadNode).length > 0,
+    loads: whatIf.loadFactors.some((f) => f !== 1) || Object.keys(whatIf.loadAt).length > 0 || Object.keys(whatIf.loadNode).length > 0 || Object.keys(whatIf.loadAlong).length > 0,
     members: whatIf.all.e !== 1 || whatIf.all.a !== 1 || whatIf.all.iy !== 1 || [...modelStore.elements.keys()].some((id) => whatIf.isMemberChanged(id)),
-    supports: Object.keys(whatIf.supportTypes).length > 0 || Object.keys(whatIf.supportNode).length > 0,
+    supports: Object.keys(whatIf.supportTypes).length > 0 || Object.keys(whatIf.supportNode).length > 0 || Object.keys(whatIf.supportAlong).length > 0,
     nodes: Object.values(whatIf.nodeShift).some((d) => d.some((v) => v !== 0)),
   });
   const TABS: Array<{ id: Tab; key: string }> = [
@@ -150,11 +158,11 @@
         <div class="wif-error" role="alert" data-testid="whatif-error">{uiStore.liveCalcError}</div>
       {/if}
 
-      {#if rows.length}
+      {#if shown || whatIf.reference}
         <table class="wif-resp" data-testid="whatif-response">
           <thead><tr><th></th><th>{t('whatif.resp.original')}</th><th>{t('whatif.resp.now')}</th><th></th></tr></thead>
           <tbody>
-            {#each rows as r (r.k)}
+            {#each ROWS as r (r.k)}
               {@const before = whatIf.reference?.[r.k]}
               {@const pct = before === undefined || !shown ? null : percentChange(before, shown[r.k])}
               <tr data-testid="whatif-resp-{r.k}">
@@ -162,7 +170,7 @@
                 <td>{before === undefined ? '—' : value(r.k, before)}</td>
                 <td class="wif-now">{shown ? value(r.k, shown[r.k]) : '—'}</td>
                 <td class="wif-pct" class:up={pct !== null && pct > 0.5} class:down={pct !== null && pct < -0.5}>
-                  {pct === null || Math.abs(pct) <= 0.5 ? '' : `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct) >= 10 ? Math.round(Math.abs(pct)) : Math.abs(pct).toFixed(1)}%`}
+                  {pct === null || Math.abs(pct) <= 0.5 ? '' : `${pct > 0 ? '▲' : '▼'} ${percent.format(Math.abs(pct) / 100)}`}
                 </td>
               </tr>
             {/each}

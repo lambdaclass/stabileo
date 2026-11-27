@@ -29,9 +29,10 @@ export function alphaField(alpha: number | undefined): string {
 
 export function readAlpha(raw: string, stored?: number): number | null | undefined {
   if (!raw.trim()) return undefined;
-  if (stored !== undefined && raw === alphaField(stored)) return stored;
   const value = parseDecimal(raw);
-  return value === null ? null : value * 1e-6;
+  if (value === null) return null;
+  const alpha = stored !== undefined && Number.isFinite(stored) && raw === alphaField(stored) ? stored : value * 1e-6;
+  return Math.abs(alpha) < 1e-3 ? alpha : null;
 }
 
 export function readCustomMaterial(form: CustomMaterialForm, stored?: Pick<Material, 'alpha'>): CustomMaterialRead {
@@ -68,15 +69,15 @@ export function customMaterialForm(m: Pick<Material, 'name' | 'e' | 'nu' | 'rho'
   };
 }
 
-/**
- * Adds the material, or rewrites the one with `id`: one undo step either way. Typed numbers are
- * no catalogue grade, so an edit drops the grade and what came from it (fu, the timber class), as
- * PRO's hand-entered material carries none; it keeps f'c and the concrete's placing data, which
- * the form does not show. A blank fy or α clears the stored one.
- */
 export function saveCustomMaterial(choice: CustomMaterialChoice, id: number | null = null): number {
   const fields = toMaterialFields(choice);
-  if (id === null || !modelStore.materials.has(id)) return modelStore.addMaterial({ ...fields, userDefined: true });
+  const original = id === null ? undefined : modelStore.materials.get(id);
+  if (id === null || !original) return modelStore.addMaterial({ ...fields, userDefined: true });
+  if (original.e === fields.e && original.nu === fields.nu && original.rho === fields.rho
+    && original.fy === fields.fy && original.alpha === fields.alpha) {
+    modelStore.updateMaterial(id, { name: fields.name });
+    return id;
+  }
   modelStore.updateMaterial(id, {
     name: fields.name, e: fields.e, nu: fields.nu, rho: fields.rho, fy: fields.fy, alpha: fields.alpha,
     gradeId: undefined, fu: undefined, timber: undefined, userDefined: true,

@@ -120,7 +120,7 @@ function wordScore(q: string, alternatives: readonly string[], field: { words: s
         }
       }
     }
-    if (alt.length >= 3 && field.compact.includes(alt)) best = Math.max(best, 0.6);
+    if ((alt.length >= 3 || /^\p{Script=Han}{2}$/u.test(alt)) && field.compact.includes(alt)) best = Math.max(best, 0.6);
   }
   if (q.length >= 4 && field.compact.includes(q)) best = Math.max(best, 0.6);
   return best;

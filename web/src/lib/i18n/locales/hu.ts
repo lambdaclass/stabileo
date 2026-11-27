@@ -7497,7 +7497,7 @@ const hu: Translations = {
   "materials.aggregateShort": "d_agg (mm)",
   "materials.alpha": "Hőtágulási együttható",
   "materials.alphaHelp": "Hőtágulási együttható, 10⁻⁶/°C egységben. Üresen: az anyagcsaládé (beton 10, acél 12, alumínium 23), szürkén megjelenítve.",
-  "materials.alphaInvalid": "Adjon meg véges hőtágulási együtthatót 10⁻⁶/°C egységben.",
+  "materials.alphaInvalid": "Adjon meg véges hőtágulási együtthatót 10⁻⁶/°C egységben (−1000 < α < 1000).",
   "materials.aggregateHelp": "Durva adalékanyag legnagyobb névleges mérete. A legkisebb szálköz szabálya használja.",
   "materials.family": "Család",
   "materials.shearModulusNote": "G = E / 2(1+ν), származtatott.",

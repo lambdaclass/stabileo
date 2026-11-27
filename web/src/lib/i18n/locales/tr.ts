@@ -7808,7 +7808,7 @@ const tr: Translations = {
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.alpha': 'Isıl genleşme katsayısı',
   'materials.alphaHelp': 'Isıl genleşme katsayısı, 10⁻⁶/°C cinsinden. Boş: malzeme ailesinin değeri (beton 10, çelik 12, alüminyum 23), gri gösterilir.',
-  'materials.alphaInvalid': '10⁻⁶/°C cinsinden sonlu bir ısıl genleşme katsayısı girin.',
+  'materials.alphaInvalid': '10⁻⁶/°C cinsinden sonlu bir ısıl genleşme katsayısı girin (−1000 < α < 1000).',
   'materials.aggregateHelp': 'En büyük nominal iri agrega boyutu. En küçük donatı aralığı kuralında kullanılır.',
   'materials.family': 'Aile',
   'materials.shearModulusNote': 'G = E / 2(1+ν), türetilmiş.',

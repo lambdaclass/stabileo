@@ -8260,7 +8260,7 @@ const es: Record<string, string> = {
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.alpha': 'Coeficiente de dilatación térmica',
   'materials.alphaHelp': 'Coeficiente de dilatación térmica, en 10⁻⁶/°C. Vacío: el de la familia del material (hormigón 10, acero 12, aluminio 23), que se muestra en gris.',
-  'materials.alphaInvalid': 'Ingresá un coeficiente de dilatación térmica finito en 10⁻⁶/°C.',
+  'materials.alphaInvalid': 'Ingresá un coeficiente de dilatación térmica finito en 10⁻⁶/°C (−1000 < α < 1000).',
   'materials.aggregateHelp': 'Tamaño máximo nominal del agregado grueso. Lo usa la regla de separación mínima entre barras.',
   'materials.family': 'Familia',
   'materials.shearModulusNote': 'G = E / 2(1+ν), derivado.',

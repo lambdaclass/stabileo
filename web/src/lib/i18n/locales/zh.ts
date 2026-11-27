@@ -7965,7 +7965,7 @@ const zh: Translations = {
   "materials.aggregateShort": "d_agg (mm)",
   "materials.alpha": "热膨胀系数",
   "materials.alphaHelp": "热膨胀系数，单位 10⁻⁶/°C。留空：取材料类别的默认值（混凝土 10、钢材 12、铝 23），以灰色显示。",
-  "materials.alphaInvalid": "请输入有限的热膨胀系数，单位为 10⁻⁶/°C。",
+  "materials.alphaInvalid": "请输入有限的热膨胀系数，单位为 10⁻⁶/°C（−1000 < α < 1000）。",
   "materials.aggregateHelp": "粗骨料最大公称粒径。用于钢筋最小间距规则。",
   "materials.family": "类别",
   "materials.shearModulusNote": "G = E / 2(1+ν)，推导得出。",

@@ -7799,7 +7799,7 @@ const de: Translations = {
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.alpha': 'Wärmeausdehnungskoeffizient',
   'materials.alphaHelp': 'Wärmeausdehnungskoeffizient, in 10⁻⁶/°C. Leer: der Wert der Materialfamilie (Beton 10, Stahl 12, Aluminium 23), ausgegraut angezeigt.',
-  'materials.alphaInvalid': 'Geben Sie einen endlichen Wärmeausdehnungskoeffizienten in 10⁻⁶/°C ein.',
+  'materials.alphaInvalid': 'Geben Sie einen endlichen Wärmeausdehnungskoeffizienten in 10⁻⁶/°C ein (−1000 < α < 1000).',
   'materials.aggregateHelp': 'Nennwert des Größtkorns der Gesteinskörnung. Wird von der Regel für den Mindeststababstand verwendet.',
   'materials.family': 'Familie',
   'materials.shearModulusNote': 'G = E / 2(1+ν), abgeleitet.',

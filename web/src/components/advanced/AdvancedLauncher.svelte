@@ -17,6 +17,8 @@
 
   let { onOpen }: { onOpen: (id: string) => void } = $props();
 
+  import { hasCurrentResults } from '../../lib/actions/solve';
+
   type Entry = { kind: 'fn'; fn: AdvFunction } | { kind: 'step'; method: string; owner: AdvFunction };
 
   const offered = (f: AdvFunction) => f.feature !== 'tools' || (__PUBLIC_FEATURES__.tools && tools());
@@ -26,7 +28,7 @@
   const modelState = $derived({
     is3D,
     members: modelStore.elements.size,
-    solved: !!(is3D ? resultsStore.results3D : resultsStore.results),
+    solved: hasCurrentResults(),
   });
 
   const both = (key: string) => [t(key), tAt(key, 'en')];
@@ -90,7 +92,7 @@
   function onKey(ev: KeyboardEvent): void {
     if (ev.isComposing) return;
     if (ev.key === 'Enter') {
-      const first = flat[0];
+      const first = flat.find(entry => !blocked(entry));
       if (first) { ev.preventDefault(); open(first); }
     } else if (ev.key === 'Escape') {
       if (advancedList.query) { ev.preventDefault(); ev.stopPropagation(); advancedList.query = ''; }

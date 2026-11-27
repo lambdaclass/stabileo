@@ -44,6 +44,6 @@ export function response3D(r: AnalysisResults3D): Response {
 /** The change from `before`, in percent; null when there is nothing to compare against. */
 export function percentChange(before: number, now: number): number | null {
   if (!Number.isFinite(before) || !Number.isFinite(now)) return null;
-  if (Math.abs(before) < 1e-12) return Math.abs(now) < 1e-12 ? 0 : null;
+  if (before === 0) return now === 0 ? 0 : null;
   return ((now - before) / Math.abs(before)) * 100;
 }

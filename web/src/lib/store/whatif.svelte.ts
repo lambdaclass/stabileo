@@ -32,7 +32,11 @@ import { uiStore } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
 import type { Release, Section, SupportType } from './model.svelte';
 import { solverProperties } from '../section/state';
-import { liveSolveBusy } from '../engine/live-calc-state';
+import { resultsStore } from './results.svelte';
+import { response2D, response3D } from '../whatif/response';
+import { loadsDrawn2D } from '../viewport/pick-visibility';
+import { currentLoadDrawView, loadsLayerDrawn } from '../viewport3d/load-drawn';
+import { liveCalcFollowsEdits, liveSolveBusy } from '../engine/live-calc-state';
 import { modelCoords, shownCoords } from '../axes/display';
 import { is3DWorkspace } from '../utils/workspace';
 
@@ -63,6 +67,9 @@ let viewAtOpen: { showLoads: boolean; showLoads3D: boolean; hideLoadsWithDiagram
 let nodeShift = $state<Record<number, number[]>>({});
 /** The response before any change, for the panel's comparison. */
 let reference = $state.raw<Record<string, number> | null>(null);
+let appliedChange = false;
+let referenceSolve: ModelSnapshot | null = null;
+let entryLengths = new Map<number, number>();
 let frame: { cancel: () => void } | null = null;
 let pending = false;
 /*
@@ -171,12 +178,17 @@ function memberLength(elementId: number): number {
 }
 
 /* Positions apply after the nodes moved, so a load stays on the member it was on, within its new length. */
+function pointStation(index: number, original: number, member: number, length: number): number {
+  if (loadAt[index] === undefined && entryLengths.get(member) === length) return original;
+  return Math.min(Math.max(loadAt[index] ?? original, 0), length);
+}
+
 function moveLoads(): void {
   const loads = modelStore.model.loads;
   for (const [i, l] of loads.entries()) {
     if (l.type !== 'pointOnElement' && l.type !== 'pointOnElement3d') continue;
     const d = l.data as { elementId: number; a: number };
-    loads[i] = { ...l, data: { ...l.data, a: Math.min(Math.max(loadAt[i] ?? d.a, 0), memberLength(d.elementId)) } } as typeof l;
+    loads[i] = { ...l, data: { ...l.data, a: pointStation(i, d.a, d.elementId, memberLength(d.elementId)) } } as typeof l;
   }
   for (const [key, nodeId] of Object.entries(loadNode)) {
     const i = Number(key), l = loads[i];
@@ -296,13 +308,11 @@ function apply(): void {
   try {
     placeAlong();
   } catch (error) {
-    whatIf.abandon();
-    uiStore.showWhatIf = false;
-    restoreBaseline(snap);
-    recheckStore.restoreStamp(stampAtOpen);
+    void whatIf.close();
     uiStore.toast(error instanceof Error ? error.message : translate('whatif.invalidPlacement'), 'error');
     return;
   }
+  appliedChange = whatIf.changed;
   ownVersion = modelStore.modelVersion;
   // restore() moved the model version, so live calc re-solves what is now here.
   // PRO has no live calc; solve it directly.
@@ -320,11 +330,18 @@ function nextFrame(run: () => void): { cancel: () => void } {
   return { cancel: () => clearTimeout(id) };
 }
 
-// An edit landing mid-solve makes that solve stale and drops it: a drag faster than the solver would publish nothing.
+function captureReference(): void {
+  if (!baseline || reference || appliedChange || ownVersion !== modelStore.modelVersion) return;
+  if (uiStore.is3DWorkspace) {
+    if (resultsStore.results3D) reference = response3D(resultsStore.results3D);
+  } else if (resultsStore.results) reference = response2D(resultsStore.results);
+}
+
 function pump(): void {
   frame = null;
   if (!pending) return;
-  if (liveSolveBusy()) { frame = nextFrame(pump); return; }
+  if (referenceSolve === baseline || liveSolveBusy()) { frame = nextFrame(pump); return; }
+  captureReference();
   pending = false;
   apply();
 }
@@ -341,6 +358,7 @@ function cancelScheduled(): void {
 }
 
 export const whatIf = {
+  pointStation,
   get active() { return baseline !== null; },
   get loadFactors() { return loadFactors; },
   get all() { return all; },
@@ -353,7 +371,21 @@ export const whatIf = {
   get nodeShift() { return nodeShift; },
   get reference() { return reference; },
   /** The response before any change: taken once, on the first results of an unchanged model. */
-  setReference(r: Record<string, number>) { reference = r; },
+  captureReference,
+  async startReferenceSolve(): Promise<void> {
+    captureReference();
+    const session = baseline;
+    if (!session || reference || appliedChange || referenceSolve === session || liveSolveBusy()) return;
+    referenceSolve = session;
+    try {
+      const { runLiveCalc } = await import('../engine/live-calc');
+      if (session !== baseline) return;
+      await runLiveCalc(uiStore.analysisMode, uiStore.axisConvention3D);
+      if (session === baseline) captureReference();
+    } finally {
+      if (referenceSolve === session) referenceSolve = null;
+    }
+  },
   /** Whether anything differs from the model as it was on entry. */
   get changed(): boolean {
     return loadFactors.some((f) => f !== 1) || all.e !== 1 || all.a !== 1 || all.iy !== 1
@@ -381,11 +413,14 @@ export const whatIf = {
     loadAlong = {};
     supportAlong = {};
     reference = null;
+    appliedChange = false;
+    entryLengths = new Map([...modelStore.elements.keys()].map(id => [id, memberLength(id)]));
     viewAtOpen = { showLoads: uiStore.showLoads, showLoads3D: uiStore.showLoads3D, hideLoadsWithDiagram: uiStore.hideLoadsWithDiagram };
     liveWasOn = uiStore.liveCalc;
     uiStore.liveCalc = true;
     uiStore.showWhatIf = true;
     ownVersion = modelStore.modelVersion;
+    captureReference();
     // The first rebuild pays one-time costs; paid here, the first slider move is as quick as the rest.
     schedule();
   },
@@ -408,9 +443,7 @@ export const whatIf = {
     restoreBaseline(snap);
     // What the what-if solves stamped belongs to a model that no longer exists (recheck.svelte.ts).
     recheckStore.restoreStamp(stampAtOpen);
-    if (!was) {
-      // Live calc is off again, so nothing re-solves the restored model on
-      // its own; solve it once, after the edit has cleared the old results.
+    if (!liveCalcFollowsEdits(was, uiStore.analysisMode)) {
       await tick();
       const { runLiveCalc } = await import('../engine/live-calc');
       await runLiveCalc(uiStore.analysisMode, uiStore.axisConvention3D);
@@ -437,13 +470,27 @@ export const whatIf = {
     releases[id] = { ...(releases[id] ?? {}), [end]: r };
     schedule();
   },
-  setSupportType(id: number, type: SupportType) { supportTypes[id] = type; schedule(); },
-  setLoadAt(i: number, a: number) { loadAt[i] = a; schedule(); },
-  setLoadNode(i: number, nodeId: number) { delete loadAlong[i]; loadNode[i] = nodeId; schedule(); },
+  setSupportType(id: number, type: SupportType) {
+    if (baseline?.supports.find(([key]) => key === id)?.[1].type === type) delete supportTypes[id];
+    else supportTypes[id] = type;
+    schedule();
+  },
+  setLoadAt(i: number, a: number) {
+    if (baseline?.loads[i]?.data.a === a) delete loadAt[i];
+    else loadAt[i] = a;
+    schedule();
+  },
+  setLoadNode(i: number, nodeId: number) {
+    delete loadAlong[i];
+    if (baseline?.loads[i]?.data.nodeId === nodeId) delete loadNode[i];
+    else loadNode[i] = nodeId;
+    schedule();
+  },
   setSupportNode(id: number, nodeId: number) {
     if (!modelStore.nodes.has(nodeId) || !supportDestinationFree(id, nodeId)) return;
     delete supportAlong[id];
-    supportNode[id] = nodeId;
+    if (baseline?.supports.find(([key]) => key === id)?.[1].nodeId === nodeId) delete supportNode[id];
+    else supportNode[id] = nodeId;
     schedule();
   },
   get loadAlong() { return loadAlong; },
@@ -464,7 +511,9 @@ export const whatIf = {
 
   /** Whether the canvas draws the loads, with or without a diagram on screen. */
   get loadsShown(): boolean {
-    return (is3DWorkspace(uiStore.analysisMode) ? uiStore.showLoads3D : uiStore.showLoads) && !uiStore.hideLoadsWithDiagram;
+    if (uiStore.is3DWorkspace) return loadsLayerDrawn(currentLoadDrawView());
+    const screen = resultsStore.screen;
+    return loadsDrawn2D(uiStore.showLoads, uiStore.hideLoadsWithDiagram, !!screen.results && screen.diagram !== 'none');
   },
   showLoads(on: boolean) {
     if (is3DWorkspace(uiStore.analysisMode)) uiStore.showLoads3D = on; else uiStore.showLoads = on;

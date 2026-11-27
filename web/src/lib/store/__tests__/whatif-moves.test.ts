@@ -113,7 +113,8 @@ it.each([0, 1e-13])('shows every solved quantity for a tip load of %s', force =>
   resultsStore.setResults(solve());
   const html = render(WhatIfPanel).body;
   for (const key of ['delta', 'moment', 'shear', 'axial', 'reaction']) expect(html).toContain(`data-testid="whatif-resp-${key}"`);
-  expect(html).toMatch(/class="wif-now"[^>]*>0[.0]* kN/);
+  expect(html).toMatch(/class="wif-now[^"]*"[^>]*>0[.0]* kN/);
+  if (force !== 0) expect(html).toMatch(/class="wif-now[^"]*"[^>]*>[1-9][^<]*E-\d+ kN/);
 });
 
 it('formats a response change with the active French percent convention', () => {
@@ -121,9 +122,8 @@ it('formats a response change with the active French percent convention', () => 
   try {
     setLocale('fr');
     modelStore.addNodalLoad(n2, 0, P);
+    resultsStore.setResults(solve());
     whatIf.open();
-    const original = solve();
-    whatIf.setReference(response2D(original));
     whatIf.setLoadFactor(0, 1.015);
     settle();
     resultsStore.setResults(solve());

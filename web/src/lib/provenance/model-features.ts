@@ -71,7 +71,7 @@ export const FEATURE_IDS = [
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
-  'shellThermalLoads',
+  'shellThermalLoads', 'nonpositiveThermalCoefficient',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
@@ -88,7 +88,7 @@ export const FEATURE_IDS = [
 export type FeatureId = (typeof FEATURE_IDS)[number];
 
 type Entries<T> = Array<[number, T]> | undefined;
-interface Mat { id: number; rho?: unknown; fy?: number; gradeId?: string; name?: string; e?: number }
+interface Mat { id: number; alpha?: number; rho?: unknown; fy?: number; gradeId?: string; name?: string; e?: number }
 interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: number; stagger?: { sMm?: number; gMm?: number } }
 const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.gMm].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 interface Elem {
@@ -172,6 +172,7 @@ export interface FeatureContext {
 interface Offset3 { x?: number; y?: number; z?: number }
 
 const values = <T>(e: Entries<T>): T[] => (Array.isArray(e) ? e.map((x) => x?.[1]).filter((x): x is T => !!x) : []);
+const targetEntries = <E>(entries: Entries<E>) => new Map(Array.isArray(entries) ? entries.filter(entry => entry?.[1]) : []);
 const nonZero = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v !== 0;
 const positive = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
 const SPRING_KEYS = ['kx', 'ky', 'kz', 'krx', 'kry', 'krz'] as const;
@@ -357,7 +358,6 @@ function addSelfWeightFeatures(
   const members = values(snapshot.elements).filter(el => !space || el.type === 'truss');
   const plates = invalidShells(snapshot.plates);
   const quads = invalidShells(snapshot.quads);
-  const targetEntries = <E>(entries: Entries<E>) => new Map(Array.isArray(entries) ? entries.filter(entry => entry?.[1]) : []);
   const targets = {
     elements: targetEntries(snapshot.elements),
     plates: targetEntries(snapshot.plates),
@@ -573,6 +573,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (jd && (Array.isArray(jd) ? jd.length : typeof jd === 'object' && Object.keys(jd as object).length)) f.add('jointDesigns');
 
   const quads = values(s.quads);
+  const quadById = targetEntries(s.quads);
+  const plateById = targetEntries(s.plates);
   const massCarriers = [...elements, ...quads, ...values(s.plates), ...values(s.quad9s), ...values(s.solidShells), ...values(s.curvedShells)];
   let minElasticModulus = Infinity;
   let maxElasticModulus = 0;
@@ -805,6 +807,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const partialDistributed = t.startsWith('distributed') && (positive(d.a) || d.b !== undefined);
     if (partialDistributed) f.add('partialDistributedMemberLoads');
     if (t.startsWith('pointOnElement') || partialDistributed) f.add('pointOrPartialMemberLoads');
+    if (t === 'thermal' || t === 'thermalQuad3d') {
+      const materialId = t === 'thermal' ? elementById.get(d.elementId as number)?.materialId
+        : (d.on === 'plate' ? plateById : quadById).get(d.quadId as number)?.materialId;
+      const alpha = materialId === undefined ? undefined : materials.get(materialId)?.alpha;
+      if (alpha !== undefined && Number.isFinite(alpha) && alpha <= 0) f.add('nonpositiveThermalCoefficient');
+    }
     if (t === 'thermal') f.add('memberThermalLoads');
     if (t === 'thermalQuad3d') f.add('shellThermalLoads');
     if (t === 'displacement3d' && SETTLEMENT_KEYS.some((k) => !!d[k])) f.add('caseDisplacements');

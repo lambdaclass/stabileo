@@ -8267,7 +8267,7 @@ const en: Record<string, string> = {
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.alpha': 'Coefficient of thermal expansion',
   'materials.alphaHelp': 'Coefficient of thermal expansion, in 10⁻⁶/°C. Blank: the material family’s (concrete 10, steel 12, aluminum 23), shown grayed.',
-  'materials.alphaInvalid': 'Enter a finite thermal expansion coefficient in 10⁻⁶/°C.',
+  'materials.alphaInvalid': 'Enter a finite thermal expansion coefficient in 10⁻⁶/°C (−1000 < α < 1000).',
   'materials.aggregateHelp': 'Maximum nominal coarse-aggregate size. Used by the minimum bar-spacing rule.',
   'materials.family': 'Family',
   'materials.shearModulusNote': 'G = E / 2(1+ν), derived.',

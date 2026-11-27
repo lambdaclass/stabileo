@@ -2,6 +2,7 @@
   /** Each support: what it restrains, and on which node it stands (any node without a support of its own). */
   import { uiStore, modelStore } from '../../lib/store';
   import { whatIf } from '../../lib/store/whatif.svelte';
+  import { supportTypeOptions } from '../../lib/pro/support-types';
   import { supportNameShown } from '../../lib/axes/user-names';
   import type { SupportType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
@@ -29,6 +30,9 @@
     { v: 'rollerXY', k: 'pro.rollerXY' }, { v: 'rollerXZ', k: 'pro.rollerXZ' }, { v: 'rollerYZ', k: 'pro.rollerYZ' },
   ];
   const options = $derived(is3D ? SUPPORTS_3D : SUPPORTS_2D);
+  function currentLabel(type: SupportType): string {
+    return supportTypeOptions(is3D, t).find(o => o.value === type)?.label ?? supportNameShown(type, type, is3D);
+  }
   function label(o: { v: SupportType; k: string }): string {
     const s = is3D && o.v === 'rollerZ' ? t(o.k).replace(/\bY\b/, 'Z') : t(o.k);
     return supportNameShown(o.v, s, is3D);
@@ -45,7 +49,7 @@
       <span class="wif-label">{t('whatif.supportType')}</span>
       <select class="wif-select" value={type} onchange={(e) => whatIf.setSupportType(s.id, e.currentTarget.value as SupportType)}
         data-testid="whatif-support-{s.id}">
-        {#if !options.some((o) => o.v === type)}<option value={type}>{type}</option>{/if}
+        {#if !options.some((o) => o.v === type)}<option value={type}>{currentLabel(type)}</option>{/if}
         {#each options as o (o.v)}<option value={o.v}>{label(o)}</option>{/each}
       </select>
     </label>

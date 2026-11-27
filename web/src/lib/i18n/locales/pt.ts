@@ -4946,7 +4946,7 @@ const pt: Translations = {
   'materials.aggregate': 'Dimensão máxima nominal do agregado graúdo (mm)',
   'materials.alpha': 'Coeficiente de dilatação térmica',
   'materials.alphaHelp': 'Coeficiente de dilatação térmica, em 10⁻⁶/°C. Vazio: o da família do material (concreto 10, aço 12, alumínio 23), mostrado em cinza.',
-  'materials.alphaInvalid': 'Insira um coeficiente de dilatação térmica finito em 10⁻⁶/°C.',
+  'materials.alphaInvalid': 'Insira um coeficiente de dilatação térmica finito em 10⁻⁶/°C (−1000 < α < 1000).',
   'materials.aggregateHelp': 'Dimensão máxima nominal do agregado graúdo. É usada pela regra de espaçamento mínimo entre barras.',
   'materials.family': 'Família',
   'materials.shearModulusNote': 'G = E / 2(1+ν), derivado.',

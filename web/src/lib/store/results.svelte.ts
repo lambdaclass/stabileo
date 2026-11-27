@@ -276,6 +276,24 @@ function createResultsStore() {
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
   const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(r => knownIssueResultDisposition(r).refused));
+  function initialCombination<T>(single: T | null, cases: Map<number, T>, combos: Map<number, T>, envelopeResult: T | undefined, space: boolean): T | null {
+    activeComboId = combos.keys().next().value ?? null;
+    activeCaseId = null;
+    activeView = 'single';
+    if (single) return single;
+
+    const firstCase = cases.keys().next().value;
+    if (firstCase !== undefined && (!space || (!envelopeResult && activeComboId === null))) {
+      activeCaseId = firstCase;
+      return cases.get(firstCase)!;
+    }
+    if (activeComboId !== null && (space || !envelopeResult)) {
+      activeView = 'combo';
+      return anyRefused(cases, combos) ? null : combos.get(activeComboId)!;
+    }
+    if (envelopeResult) activeView = 'envelope';
+    return envelopeResult ?? null;
+  }
   const noResults = () => freezeResult(new Map<number, never>());
   const combosRefused2D = () => anyRefused(perCase, perCombo);
   const combosRefused3D = () => anyRefused(perCase3D, perCombo3D);
@@ -1018,33 +1036,7 @@ function createResultsStore() {
       perCase = pc;
       perCombo = pco;
       envelope = env;
-      activeCaseId = null; // reset individual case selection
-      /*
-       * Default to "Cargas simples" — all loads at unit factor.
-       *
-       * The fallback used to be the ENVELOPE, which is the wrong thing to land
-       * on: an envelope is a summary of every case at once, so no single
-       * diagram it shows corresponds to a state the structure is ever in. It
-       * is what you check against at the end, not what you open on.
-       *
-       * With no base solve available the first individual CASE is the honest
-       * default — a real load state, and one whose diagram means something.
-       */
-      if (singleResults) {
-        results = singleResults;
-        activeView = 'single';
-      } else {
-        const firstCase = pc.keys().next().value;
-        if (firstCase !== undefined) {
-          results = pc.get(firstCase)!;
-          activeCaseId = firstCase;
-          activeView = 'single';
-        } else {
-          results = env?.maxAbsResults ?? null;
-          activeView = env ? 'envelope' : 'single';
-        }
-      }
-      activeComboId = pco.keys().next().value ?? null;
+      results = initialCombination(singleResults, pc, pco, env?.maxAbsResults, false);
       // Preserve current diagram type if it's a results-based view
       const resultsDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
       if (!resultsDiagrams.includes(diagramType)) {
@@ -1284,24 +1276,7 @@ function createResultsStore() {
       envelope3D = env;
       showReactions = false;
       showConstraintForces = false;
-      activeCaseId = null;
-      activeComboId = pco.keys().next().value ?? null;
-      // Default: show the simple (all loads combined) view so the user sees
-      // the full structural response. They can switch to combo/envelope later.
-      if (singleResults3D) {
-        results3D = singleResults3D;
-        activeView = 'single';
-      } else if (activeComboId !== null && pco.has(activeComboId)) {
-        // TODO: deliberate divergence from the 2D path (setCombinationResults),
-        // which lands on the first individual CASE when no base solve exists —
-        // a combination is a factored mix, not a state the structure is ever
-        // in. Reconcile the two, most likely by porting the 2D fallback here.
-        results3D = pco.get(activeComboId)!;
-        activeView = 'combo';
-      } else {
-        results3D = env?.maxAbsResults3D ?? null;
-        activeView = env ? 'envelope' : 'single';
-      }
+      results3D = initialCombination(singleResults3D, pc, pco, env?.maxAbsResults3D, true);
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap', 'none'];
       if (!valid3DDiagrams.includes(diagramType)) {
         // My: the bending of a beam under gravity (local z is up), as the "3" key and the 2D M.

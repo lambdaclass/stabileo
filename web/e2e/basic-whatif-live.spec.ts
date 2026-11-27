@@ -122,12 +122,12 @@ test('@slow a pending moment diagram never connects its old forces to a moved en
     const canvas = element as HTMLCanvasElement;
     const ctx = canvas.getContext('2d')!;
     const { moveTo, lineTo, stroke } = ctx;
-    let first = NaN, last = NaN;
+    let first = NaN, last = NaN, segments = 0;
     const ends: number[][] = [];
-    ctx.moveTo = (x, y) => { first = x; moveTo.call(ctx, x, y); };
-    ctx.lineTo = (x, y) => { last = x; lineTo.call(ctx, x, y); };
+    ctx.moveTo = (x, y) => { first = x; segments = 0; moveTo.call(ctx, x, y); };
+    ctx.lineTo = (x, y) => { last = x; segments++; lineTo.call(ctx, x, y); };
     ctx.stroke = () => {
-      if (ctx.strokeStyle === '#e5482a') ends.push([first, last]);
+      if (ctx.strokeStyle === '#e5482a' && segments > 1 && ctx.lineWidth === 2) ends.push([first, last]);
       stroke.call(ctx);
     };
     const paint = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));

@@ -213,6 +213,10 @@
   const dtNow = () => (exportFrame ? diagramFor(exportFrame.content) : resultsStore.screen.diagram);
   const resNow = () => (exportFrame ? resultsStore.results : resultsStore.screen.results);
   const displayModel = () => (!exportFrame && resultsStore.screen.model) || modelStore;
+  const resultNode = (id: number) => {
+    const node = displayModel().nodes.get(id);
+    return node && project2DNode(node);
+  };
   const valuesNow = () => (exportFrame ? exportFrame.options.values : resultsStore.showDiagramValues);
   const reactionsNow = () => (exportFrame
     ? exportFrame.content === 'reactions' || exportFrame.content === 'despiece'
@@ -382,7 +386,7 @@
     return {
       ctx: ctx!,
       worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-      getNode: (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; },
+      getNode: resultNode,
       // A hidden member is not drawn: no diagram, no deformed shape, no loads on it.
       getElement: (id: number) => {
         const elem = viewVisibility.isElementHidden(id) ? undefined : displayModel().elements.get(id);
@@ -826,7 +830,7 @@
     const diagramActive = !!(shown && dtNow() !== 'none');
     const loadsVisible = exportFrame
       ? exportFrame.options.loads && (exportFrame.content === 'model' || exportFrame.content === 'reactions')
-      : uiStore.showLoads && !(uiStore.hideLoadsWithDiagram && diagramActive);
+      : loadsDrawn2D(uiStore.showLoads, uiStore.hideLoadsWithDiagram, diagramActive);
 
     // Draw all loads (nodal, distributed, point, thermal) if visible
     if (loadsVisible) {
@@ -1718,10 +1722,10 @@
   /** A value beside a member's midpoint, on a dark box so it reads over any colour. */
   function drawMemberValueLabel(elementId: number, label: string, color: string) {
     if (!ctx || viewVisibility.isElementHidden(elementId)) return;
-    const elem = modelStore.elements.get(elementId);
+    const elem = displayModel().elements.get(elementId);
     if (!elem) return;
-    const ni = getProjectedNode(elem.nodeI);
-    const nj = getProjectedNode(elem.nodeJ);
+    const ni = resultNode(elem.nodeI);
+    const nj = resultNode(elem.nodeJ);
     if (!ni || !nj) return;
     const si = uiStore.worldToScreen(ni.x, ni.y);
     const sj = uiStore.worldToScreen(nj.x, nj.y);
@@ -1757,7 +1761,7 @@
     ctx.textBaseline = 'alphabetic';
     for (const { nodeId, magnitude } of picks) {
       if (viewVisibility.isNodeHidden(nodeId)) continue;
-      const n = modelStore.getNode(nodeId), d = byId.get(nodeId);
+      const n = displayModel().nodes.get(nodeId), d = byId.get(nodeId);
       if (!n || !d) continue;
       const p = project2DNode(n);
       const s = uiStore.worldToScreen(p.x + d.ux * scale, p.y + d.uz * scale);
@@ -1777,8 +1781,9 @@
   }
 
   function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }, colorOverride?: string, nodeBarCount?: Map<number, number>) {
-    const niRaw = modelStore.getNode(elem.nodeI);
-    const njRaw = modelStore.getNode(elem.nodeJ);
+    const geometry = colorOverride ? displayModel() : modelStore;
+    const niRaw = geometry.nodes.get(elem.nodeI);
+    const njRaw = geometry.nodes.get(elem.nodeJ);
     if (!niRaw || !njRaw) return;
     const ni = project2DNode(niRaw);
     const nj = project2DNode(njRaw);
@@ -1909,7 +1914,7 @@
     if (!res) return;
     _drawReactions(ctx!, res.reactions as ReactionData[], (nodeId) => {
       // A reaction is drawn with its support: not at a node the view hides.
-      const node = viewVisibility.isNodeHidden(nodeId) ? undefined : modelStore.getNode(nodeId);
+      const node = viewVisibility.isNodeHidden(nodeId) ? undefined : displayModel().nodes.get(nodeId);
       if (!node) return null;
       const pn = project2DNode(node);
       return uiStore.worldToScreen(pn.x, pn.y);

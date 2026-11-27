@@ -72,6 +72,7 @@
   import { ratiosText, shownDof } from '../../lib/axes/user-names';
   import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
   import { variableRefusal2D, imposedRefusal } from '../../lib/engine/solver-service';
+  import { hasCurrentResults } from '../../lib/actions/solve';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
@@ -190,11 +191,11 @@
       isActive: () => mohrPanel.open,
       close: () => closeMohr() }] : []),
     { key: 'pdelta',
-      isActive: () => !!(is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult),
-      close: () => (is3D ? resultsStore.clearPDelta3D() : resultsStore.clearPDelta()) },
+      isActive: () => (!is3D && selectedSecondOrder === 'pdelta') || !!(is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult),
+      close: () => { selectedSecondOrder = null; if (is3D) resultsStore.clearPDelta3D(); else resultsStore.clearPDelta(); } },
     { key: 'buckling',
-      isActive: () => !!(is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult),
-      close: () => (is3D ? resultsStore.clearBuckling3D() : resultsStore.clearBuckling()) },
+      isActive: () => (!is3D && selectedSecondOrder === 'buckling') || !!(is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult),
+      close: () => { selectedSecondOrder = null; if (is3D) resultsStore.clearBuckling3D(); else resultsStore.clearBuckling(); } },
     { key: 'modal',
       isActive: () => !!(is3D ? resultsStore.modalResult3D : resultsStore.modalResult),
       close: () => (is3D ? resultsStore.clearModal3D() : resultsStore.clearModal()) },
@@ -223,6 +224,7 @@
 
 
 
+  let selectedSecondOrder = $state<'pdelta' | 'buckling' | null>(null);
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
   let section = $state<HTMLElement | null>(null);
   $effect(() => {
@@ -249,7 +251,7 @@
 
   /* The train selector is this component's own state: a switch to 3D, where the entry is disabled, closes it. */
   $effect(() => {
-    if (is3D) untrack(() => { showTrainPanel = false; selectedTrainIndex = ''; });
+    if (is3D) untrack(() => { selectedSecondOrder = null; showTrainPanel = false; selectedTrainIndex = ''; });
   });
 
   /**
@@ -572,17 +574,20 @@
   function openFunction(id: string): void {
     const fn = advFunction(id);
     if (fn?.requires.plane && is3D) { uiStore.toast(t('advanced.only2d'), 'error'); return; }
+    if (fn?.requires.results && !hasCurrentResults()) {
+      uiStore.toast(t('advanced.calculateFirst'), 'error');
+      return;
+    }
     if (fn) advancedList.reveal(fn.group);
     noteOpening();
+    selectedSecondOrder = !is3D && (id === 'buckling' || id === 'pdelta') ? id : null;
     switch (id) {
       case 'kinematic': uiStore.showKinematicPanel = true; return;
       case 'despiece':
-        if (!(is3D ? resultsStore.results3D : resultsStore.results)) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
         resultsStore.holdView();
         resultsStore.diagramType = 'despiece';
         return;
       case 'stress':
-        if (!resultsStore.results && !resultsStore.results3D) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
         uiStore.currentTool = 'select';
         uiStore.selectMode = 'stress';
         return;
@@ -612,7 +617,7 @@
       <AdvFunctionHead fn={activeFn} onBack={() => { if (active) closeEntry(active.key); }} />
       {#if active.key === 'despiece'}<DespieceOptions />{/if}
       {#if (active.key === 'pdelta' || active.key === 'buckling') && !is3D}
-        <SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling)} />
+        <SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling, selectedSecondOrder)} />
       {/if}
       {#if active.key === 'influenceLine'}<InfluencePanel />{/if}
       {#if active.key === 'trainLoad' && !is3D}

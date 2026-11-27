@@ -7799,7 +7799,7 @@ const fr: Translations = {
   'materials.aggregateShort': 'd_agg (mm)',
   'materials.alpha': 'Coefficient de dilatation thermique',
   'materials.alphaHelp': 'Coefficient de dilatation thermique, en 10⁻⁶/°C. Vide : celui de la famille du matériau (béton 10, acier 12, aluminium 23), affiché en grisé.',
-  'materials.alphaInvalid': 'Saisissez un coefficient de dilatation thermique fini en 10⁻⁶/°C.',
+  'materials.alphaInvalid': 'Saisissez un coefficient de dilatation thermique fini en 10⁻⁶/°C (−1000 < α < 1000).',
   'materials.aggregateHelp': 'Dimension nominale maximale des gros granulats. Utilisée par la règle d\'espacement minimal entre barres.',
   'materials.family': 'Famille',
   'materials.shearModulusNote': 'G = E / 2(1+ν), déduit.',

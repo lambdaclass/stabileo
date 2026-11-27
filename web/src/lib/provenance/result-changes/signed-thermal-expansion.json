@@ -7,8 +7,7 @@
   "area": "analysis",
   "when": {
     "any": [
-      "memberThermalLoads",
-      "shellThermalLoads"
+      "nonpositiveThermalCoefficient"
     ]
   },
   "quantities": [
@@ -25,14 +24,14 @@
     "hu": "A megadott nulla és negatív hőtágulási együtthatók használata"
   },
   "explanation": {
-    "en": "Recalculate members and shells with thermal loads. A declared zero produces zero thermal strain. A negative coefficient causes contraction under heating.",
-    "es": "Recalculá las barras y láminas con cargas térmicas. Un cero declarado produce deformación térmica nula. Un coeficiente negativo produce contracción al calentar.",
-    "pt": "Recalcule as barras e cascas com cargas térmicas. Um zero declarado produz deformação térmica nula. Um coeficiente negativo causa contração no aquecimento.",
-    "de": "Stäbe und Schalen mit Temperaturlasten neu berechnen. Ein angegebener Nullwert ergibt keine thermische Dehnung. Ein negativer Koeffizient führt beim Erwärmen zur Verkürzung.",
-    "fr": "Recalculer les barres et coques sous charge thermique. Une valeur nulle déclarée donne une déformation thermique nulle. Un coefficient négatif entraîne une contraction au chauffage.",
-    "tr": "Isıl yük altındaki çubuk ve kabukları yeniden hesaplayın. Bildirilen sıfır değeri ısıl birim şekil değiştirmeyi sıfırlar. Negatif katsayı ısınma sırasında büzülmeye yol açar.",
-    "zh": "请重新计算承受温度荷载的杆件和壳体。指定零值时热应变为零，负系数会使构件在升温时收缩。",
-    "hu": "Számítsa újra a hőterhelésű rudakat és héjakat. A megadott nulla érték nulla hőalakváltozást ad. Negatív együttható esetén a melegítés összehúzódást okoz."
+    "en": "Recalculate thermally loaded members and shells whose material declares a zero or negative expansion coefficient. When heated, their free thermal strain is zero or negative, respectively.",
+    "es": "Recalculá las barras y láminas con carga térmica cuyo material declara un coeficiente de dilatación nulo o negativo. Al calentarse, su deformación térmica libre es nula o negativa, respectivamente.",
+    "pt": "Recalcule as barras e cascas sob carga térmica cujo material declara um coeficiente de dilatação nulo ou negativo. No aquecimento, a deformação térmica livre é nula ou negativa, respectivamente.",
+    "de": "Stäbe und Schalen unter Temperaturlast neu berechnen, wenn ihr Material einen Ausdehnungskoeffizienten von null oder einen negativen Wert angibt. Beim Erwärmen ist die freie thermische Dehnung entsprechend null oder negativ.",
+    "fr": "Recalculer les barres et coques sous charge thermique dont le matériau déclare un coefficient de dilatation nul ou négatif. Au chauffage, leur déformation thermique libre est respectivement nulle ou négative.",
+    "tr": "Malzemesi sıfır veya negatif genleşme katsayısı ile tanımlanmış ısıl yük altındaki çubuk ve kabukları yeniden hesaplayın. Isıtıldıklarında serbest ısıl birim şekil değiştirmeleri sırasıyla sıfır veya negatiftir.",
+    "zh": "若承受温度荷载的杆件或壳体材料指定了零或负的热膨胀系数，请重新计算。升温时，其自由热应变分别为零或负值。",
+    "hu": "Számítsa újra azokat a hőterhelésű rudakat és héjakat, amelyek anyagához nulla vagy negatív hőtágulási együtthatót adott meg. Melegítéskor a szabad hőalakváltozásuk rendre nulla vagy negatív."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-signed-thermal-expansion.md",

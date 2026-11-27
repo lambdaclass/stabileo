@@ -27,7 +27,8 @@
   {@const l = base[i]}
   {@const onMember = l && (l.type === 'pointOnElement' || l.type === 'pointOnElement3d') ? (l.data as { elementId: number; a: number }) : null}
   {@const onNode = l && (l.type === 'nodal' || l.type === 'nodal3d') ? (l.data as { nodeId: number }) : null}
-  {@const moved = i in whatIf.loadAt || i in whatIf.loadNode || i in whatIf.loadAlong || (onMember && onMember.a > memberLength(onMember.elementId))}
+  {@const station = onMember ? whatIf.pointStation(i, onMember.a, onMember.elementId, memberLength(onMember.elementId)) : null}
+  {@const moved = i in whatIf.loadAt || i in whatIf.loadNode || i in whatIf.loadAlong || (onMember && onMember.a !== station)}
   <div class="wif-item" class:changed={factor !== 1 || moved} data-testid="whatif-load-{i}">
     <div class="wif-item-title" title={loadLabel(l, i)}>{loadLabel(l, i)}</div>
     <WifSlider label={t('whatif.factor')} min={0} max={3} step={0.05} value={factor} changed={factor !== 1}
@@ -35,8 +36,8 @@
     {#if onMember}
       {@const span = memberLength(onMember.elementId)}
       {#if span > 0}
-        <WifSlider label={t('whatif.position')} min={0} max={span} step={span / 200} value={Math.min(whatIf.loadAt[i] ?? onMember.a, span)}
-          changed={i in whatIf.loadAt || onMember.a > span} format={length} oninput={(v) => whatIf.setLoadAt(i, v)} testid="whatif-load-at-{i}" />
+        <WifSlider label={t('whatif.position')} min={0} max={span} step={span / 200} value={station ?? onMember.a}
+          changed={station !== onMember.a} format={length} oninput={(v) => whatIf.setLoadAt(i, v)} testid="whatif-load-at-{i}" />
       {/if}
     {:else if onNode}
       <WifPlace nodeId={whatIf.loadNode[i] ?? onNode.nodeId} along={whatIf.loadAlong[i]} nodes={nodeIds}

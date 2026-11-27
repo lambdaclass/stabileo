@@ -364,14 +364,13 @@ fn issue_2656_signed_thermal_strain_in_plane_and_space() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2656"]
 fn issue_2656_free_thermal_gradient_reverses_rotation_on_every_member_solve() {
     let dt = 10.0;
     let length = 5.0;
     let rotations = |alpha: f64| {
         let mut plane = fixed_2d(1, length, STEEL, IPE_A, IPE_I_STRONG, "frame", json!({"dtUniform": 0.0, "dtGradient": dt, "alpha": alpha, "depth": IPE_H}));
         plane.supports.remove("2");
-        let mut space = fixed_3d(STEEL, IPE_A, IPE_I_STRONG, IPE_I_WEAK, "frame", json!({"dtUniform": 0.0, "dtGradientZ": dt, "alpha": alpha, "depthZ": IPE_H}));
+        let mut space = fixed_3d(STEEL, IPE_A, IPE_I_STRONG, IPE_I_WEAK, "frame", json!({"dtUniform": 0.0, "dtGradientY": 0.0, "dtGradientZ": dt, "alpha": alpha, "depthZ": IPE_H}));
         space.supports.remove("2");
         let plane_results = [
             solve_2d(&plane).unwrap(),

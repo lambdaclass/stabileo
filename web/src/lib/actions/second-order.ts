@@ -51,8 +51,9 @@ export function openSecondOrderSteps(methodId: string, s: Pick<SoSettings, 'meth
   if (methodId.endsWith('-kg')) explainedSteps.setOption('chord', s.method === 'string');
 }
 
-export function rerunSecondOrder(runPDelta: () => void, runBuckling: () => void): void {
-  const pd = !!resultsStore.pdeltaResult, bk = !!resultsStore.bucklingResult;
+export function rerunSecondOrder(runPDelta: () => void, runBuckling: () => void, selected: 'pdelta' | 'buckling' | null = null): void {
+  const pd = selected ? selected === 'pdelta' : !!resultsStore.pdeltaResult;
+  const bk = selected ? selected === 'buckling' : !!resultsStore.bucklingResult;
   if (!pd && !bk) return;
   resultsStore.clearAdvanced();
   if (pd) runPDelta();

@@ -1,5 +1,5 @@
 /** How "What if?" names a load of the model: its type and magnitude, and the member or node it is on. */
-import { planeGlobalValue, twoD } from '../axes/display';
+import { planeDistributedLoad, planeGlobalValue, twoD } from '../axes/display';
 import { userVecParts } from '../axes/user-names';
 import { t } from '../i18n';
 import { fmtQ, unitQ } from '../store/display-units.svelte';
@@ -25,8 +25,9 @@ export function loadLabel(l: Load | undefined, i: number): string {
     return parts.length ? `${parts.join(', ')} (N${d.nodeId})` : t('whatif.nodalFallback').replace('{n}', String(i + 1));
   }
   if (l.type === 'distributed') {
-    const d = l.data as { qI: number; qJ: number; elementId: number };
-    return `${d.qI === d.qJ ? `q=${q(d.qI, 'distributedLoad')}` : `q=${fmtQ(d.qI, 'distributedLoad')}→${q(d.qJ, 'distributedLoad')}`} (B${d.elementId})`;
+    const d = l.data;
+    const { qI, qJ } = planeDistributedLoad(d.qI, d.qJ, d.angle ?? 0, !!d.isGlobal);
+    return `${qI === qJ ? `q=${q(qI, 'distributedLoad')}` : `q=${fmtQ(qI, 'distributedLoad')}→${q(qJ, 'distributedLoad')}`} (B${d.elementId})`;
   }
   if (l.type === 'pointOnElement') {
     // A point load on a member may be a force, an axial force, a moment, or any mix.
