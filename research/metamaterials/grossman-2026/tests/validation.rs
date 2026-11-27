@@ -494,3 +494,15 @@ fn record_comparison_covers_every_field_and_near_zero_noise() {
     }
     assert!(!records_match(&original, &[]));
 }
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn published_curve_metadata_is_exact() {
+    let row = serde_json::json!({"points": 259, "tolerance": 1e-9, "observed": 0.0});
+    for (field, value) in [("tolerance", 1.0005e-9), ("points", 259.00000001)] {
+        let mut changed = row.clone();
+        changed[field] = serde_json::json!(value);
+        assert!(!rows_match(&row, &changed));
+    }
+    assert!(rows_match(&row, &row));
+}
