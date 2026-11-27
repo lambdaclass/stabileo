@@ -137,12 +137,12 @@ it('#2529 a storey column emits the compact pressure bands as member loads', () 
   expect(field.members.every(p => p.elementId === 1 && p.q > 0 && p.qJ > 0)).toBe(true);
 });
 
-function pulsedPressure(reflected: boolean, amplitude = 1) {
+function pulsedPressure(reflected: boolean, amplitude = 1, curvature = 0.001) {
   const at = (s: number) => {
     const x = reflected ? 1 - s : s;
     const pulse = [1, -4, 6, -4, 1].reduce((sum, h, i) =>
       sum + h / 12 * Math.max(0, 1 - Math.abs(64 * x - (12 + 2 * i))), 0);
-    return 1 + 0.001 * (x - 0.5) ** 2 + amplitude * pulse;
+    return 1 + curvature * (x - 0.5) ** 2 + amplitude * pulse;
   };
   const curvatureBreaks = Array.from({ length: 11 }, (_, i) => reflected ? 1 - (11 + i) / 64 : (11 + i) / 64);
   return Object.assign(at, { curvatureBreaks });
@@ -204,4 +204,57 @@ it('#2529 the building planner compresses the code pressure for design and servi
     expect(column).toHaveLength(3);
     expect(column[2]!.qXJ!).toBeGreaterThan(column[1]!.qX!);
   }
+});
+
+type PressureLaw = ((s: number) => number) & { curvatureBreaks: number[] };
+
+function projectedParts(entry: 'integral' | 'member', law: PressureLaw) {
+  if (entry === 'integral') return integrateWindPressure(1, [], law);
+  const from = 2, to = from + 1;
+  const pressure = Object.assign((z: number) => law(z - from), { curvatureBreaks: law.curvatureBreaks.map(s => from + s) });
+  return windHeightField({ model: mesh([[[0, 0, from], [0, 0, to]]]), axis: 'x', width: 1, from, to, pressure }).members;
+}
+
+for (const entry of ['integral', 'member'] as const) for (const reflected of [false, true]) {
+  it.skip(`known wrong result: #2529 constant background retains hidden cut force through ${entry}, reflected=${reflected}`, () => {
+    const parts = projectedParts(entry, pulsedPressure(reflected, 1, 0));
+    const cut = reflected ? 1 - 17 / 64 : 17 / 64;
+    const shear = parts.reduce((sum, { a, b, q, qJ }) => {
+      const span = Math.max(0, Math.min(cut, b) - a);
+      return sum + span * (q + (qJ - q) * span / (2 * (b - a)));
+    }, 0);
+    expect(shear).toBeCloseTo(cut + (reflected ? -1 : 1) / 256, 10);
+  });
+
+  it.skip(`known wrong result: #2529 narrow bump contributes its work moments to the accepted pair through ${entry}, reflected=${reflected}`, () => {
+    const center = reflected ? 0.75 : 0.25, radius = 0.001, height = 0.01, curvature = 0.0002;
+    const pressure = Object.assign((s: number) => 1 + curvature * s ** 2 + height * Math.max(0, 1 - Math.abs(s - center) / radius),
+      { curvatureBreaks: [center + radius, center, center - radius, center] });
+    const parts = projectedParts(entry, pressure);
+    const area = height * radius;
+    const bumpMoments = [1, center, center ** 2 + radius ** 2 / 6, center ** 3 + center * radius ** 2 / 2];
+    for (const [k, bump] of bumpMoments.entries()) {
+      const actual = parts.reduce((sum, { a, b, q, qJ }) => {
+        const slope = (qJ - q) / (b - a);
+        return sum + (q - a * slope) * (b ** (k + 1) - a ** (k + 1)) / (k + 1)
+          + slope * (b ** (k + 2) - a ** (k + 2)) / (k + 2);
+      }, 0);
+      expect(actual).toBeCloseTo(1 / (k + 1) + curvature / (k + 3) + area * bump, 12);
+    }
+    expect(parts).toHaveLength(2);
+  });
+}
+
+for (const amplitude of [1 / 512, 1 / 256]) it.skipIf(amplitude === 1 / 256)(`known wrong result: #2529 constant background single-line cut budget at amplitude ${amplitude}`, () => {
+  const parts = integrateWindPressure(1, [], pulsedPressure(false, amplitude, 0));
+  if (amplitude === 1 / 512) expect(parts).toHaveLength(1);
+  else expect(parts.length).toBeGreaterThan(1);
+});
+
+it('#2529 an affine pressure crossing zero stays exact with declared curvature breaks', () => {
+  const law = Object.assign((s: number) => 1 - 2 * s, { curvatureBreaks: [0.5, 0, 1, -1, 2] });
+  const parts = integrateWindPressure(1, [], law);
+  expect(parts).toHaveLength(1);
+  expect(parts[0]!.q).toBeCloseTo(1, 12);
+  expect(parts[0]!.qJ).toBeCloseTo(-1, 12);
 });
