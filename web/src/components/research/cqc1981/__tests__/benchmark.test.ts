@@ -61,8 +61,13 @@ it('dispatches both combinations through production WASM wrappers with the modal
   } finally { vi.restoreAllMocks(); }
 });
 
+const numbers = (v: unknown) => JSON.stringify(v).match(/\d+(?:\.\d+)*/g) ?? [];
+
+it.skip.each([['−20', '+20'], ['10⁻⁸', '10⁸']])('known wrong result: #2613 — distinguishes %s from %s in translated benchmark data', (original, mutation) => {
+  expect(numbers(original)).not.toEqual(numbers(mutation));
+});
+
 it('supplies complete keys with the same numbers in all ten locales', () => {
-  const numbers = (v: unknown) => JSON.stringify(v).match(/\d+(?:\.\d+)*/g) ?? [];
   for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'] as const) {
     expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
     expect(translations[locale].limitations).toHaveLength(3);

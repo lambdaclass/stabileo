@@ -145,3 +145,10 @@ test('the diagram game page loader is a route boundary: the game and what only i
   for (const file of ['game-loader.js', 'game.js']) assert.ok(!files.has(file), file);
   assert.ok(files.has('shared.js'));
 });
+
+test.skip('known wrong result: #2613 — shared app growth cannot spend unshipped Dutch or Italian dictionary bytes', () => {
+  const main = { '/app/basic': 2000 };
+  const sharedLimit = 2446888 + 128;
+  reviewRouteGrowth(main, { '/app/basic': 2000 + sharedLimit }, 'true');
+  assert.throws(() => reviewRouteGrowth(main, { '/app/basic': 2001 + sharedLimit }, 'true'), /research isolation/);
+});
