@@ -49,3 +49,13 @@ describe('roof and cylinder builders', () => {
     expect(cylinder20.error!).toBeLessThan(cylinder16.error!);
   }, 120_000);
 });
+
+it.skip('known wrong result: #2505 — only selectable group and mesh combinations can produce a viewer case', () => {
+  for (const [group, n] of [['hemisphere', 10], ['unknown', 10], ['roof', 1], ['cylinder', 21]] as const) {
+    expect(() => caseFor(group as Parameters<typeof caseFor>[0], n)).toThrow(RangeError);
+  }
+  for (const group of ['roof', 'cylinder'] as const) {
+    for (const n of [2, 20]) expect(caseFor(group, n).id).toBe(`${group}-${n}`);
+  }
+  expect(caseFor('hemisphere' as Parameters<typeof caseFor>[0], 16).built).toBe(false);
+});
