@@ -321,18 +321,6 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
         }
     }
 
-    let mut mp_by_sec: HashMap<usize, [(Q, Q); 2]> = HashMap::new();
-    for (sid, sec) in &input.sections {
-        let sec_id: usize = sid.parse().map_err(|_| format!("section id {sid:?} is not a number"))?;
-        let over = input.mp_overrides.as_ref().and_then(|m| m.get(sid)).copied();
-        let fy = input.materials.get(&sec.material_id.to_string()).and_then(|m| m.fy).unwrap_or(250.0);
-        if let Ok(Some(mp)) = mp_3d(sec, fy, over) {
-            if mp[0].0.is_positive() && mp[1].0.is_positive() {
-                mp_by_sec.insert(sec_id, mp);
-            }
-        }
-    }
-
     let mut elem_list: Vec<&SolverElement3D> = crate::ordered::values(&s.elements).collect();
     elem_list.sort_by_key(|e| e.id);
     let eidx: HashMap<usize, usize> = elem_list.iter().enumerate().map(|(i, e)| (e.id, i)).collect();
@@ -384,7 +372,9 @@ pub fn build_model_3d(input: &PlasticInput3D) -> Result<PlasticModel3, String> {
             frame,
             rel,
             mp: if frame_elem {
-                Some(mp_by_sec.get(&el.section_id).cloned().ok_or_else(|| crate::solver::plastic::no_plastic_capacity_message(el.id, el.section_id))?)
+                Some(input.capacity_data(el).map(|(sec, fy, prescribed)| mp_3d(sec, fy, prescribed)).transpose()?.flatten()
+                    .filter(|mp| mp[0].0.is_positive() && mp[1].0.is_positive())
+                    .ok_or_else(|| crate::solver::plastic::no_plastic_capacity_message(el.id, el.section_id))?)
             } else {
                 None
             },

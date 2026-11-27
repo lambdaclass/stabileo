@@ -664,12 +664,11 @@ fn issue_758_an_inclined_settlement_frame_reports_the_limit_analysis_factor() {
 
 #[test]
 fn issue_758_when_the_limit_analysis_fails_the_certified_lower_bound_is_reported() {
-    use dedaliano_engine::solver::plastic::section_plastic_moments;
+    use dedaliano_engine::solver::plastic::member_plastic_moments;
     use dedaliano_engine::solver::plastic_limit::{confirm_2d, Confirmation};
     let input = plastic_758_fixture("settlement-equiv-roller-off-axis");
     assert_containment(solve_plastic_2d(&input), "PL-2D-INVARIANCE");
-    let by = section_plastic_moments(&input);
-    let mp: HashMap<usize, f64> = input.solver.elements.values().map(|e| (e.id, by[&e.section_id])).collect();
+    let mp = member_plastic_moments(&input);
     let Confirmation::Contradicted { lower, .. } = confirm_2d(&input.solver, &mp, &Default::default(), 399.9960419608519) else { panic!("expected a contradiction") };
     let r = solve_plastic_2d_unrefused(&input).unwrap();
     assert!(!r.is_mechanism, "{:?}", r.warnings);
@@ -825,7 +824,6 @@ fn issue_758_certified_entry_releases_only_what_the_exact_certificate_confirms()
 }
 
 #[test]
-#[ignore = "known wrong result: #2658"]
 fn issue_2658_shared_section_cantilevers_use_the_loaded_material_2d() {
     for idle_grade in [FY, 2.0 * FY] {
         let s = make_input(

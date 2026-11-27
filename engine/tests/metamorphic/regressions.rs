@@ -872,8 +872,8 @@ type Limit758 = fn(&dedaliano_engine::solver::plastic_limit::LimitInput) -> Resu
 
 fn issue_758_limit(c: &Case2, limit: Limit758) -> Result<f64, String> {
     let inp = issue_758_plastic_input(c);
-    let by_section = plastic::section_plastic_moments(&inp);
-    let mp = c.s.elements.values().filter(|e| e.elem_type == "frame").map(|e| (e.id.to_string(), by_section[&e.section_id])).collect();
+    let by_member = plastic::member_plastic_moments(&inp);
+    let mp = c.s.elements.values().filter(|e| e.elem_type == "frame").map(|e| (e.id.to_string(), by_member[&e.id])).collect();
     limit(&dedaliano_engine::solver::plastic_limit::LimitInput { solver: c.s.clone(), mp, np: Default::default() }).map(|l| l.lambda)
 }
 
@@ -956,7 +956,7 @@ fn issue_758_units() { issue_758_invariance("units", |i| limit_analysis_2d_input
 fn issue_758_certified_cases() -> Vec<(Case2, f64)> {
     use crate::common::make_input;
     let udl = |e: usize, q: f64| SolverLoad::Distributed(SolverDistributedLoad { element_id: e, q_i: q, q_j: q, a: None, b: None });
-    let mp_of = |c: &Case2| plastic::section_plastic_moments(&issue_758_plastic_input(c));
+    let mp_of = |c: &Case2| plastic::member_plastic_moments(&issue_758_plastic_input(c));
     let portal = Case2::new("Portal Frame", make_input(
         vec![(1, 0.0, 0.0), (2, 0.0, 4.0), (3, 6.0, 4.0), (4, 6.0, 0.0)],
         vec![(1, 30_000.0, 0.2)],
@@ -966,7 +966,7 @@ fn issue_758_certified_cases() -> Vec<(Case2, f64)> {
         vec![udl(2, -15.0), SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fz: 0.0, my: 0.0 })],
     ));
     let mp = mp_of(&portal);
-    let (mpc, mpb) = (mp[&2], mp[&3]);
+    let (mpc, mpb) = (mp[&1], mp[&2]);
     let beam = 8.0 * (mpc + mpb) / (15.0 * 36.0);
     let sway = 4.0 * mpc / (10.0 * 4.0);
     // Combined: hinges at both column feet, at the right column head and in the beam at x.
@@ -1147,8 +1147,7 @@ fn issue_758_confirmation_rejects_the_earlier_unconservative_factors() {
         }).collect();
         let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(c.p.fy) })).collect();
         let inp = PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None };
-        let by_section = plastic::section_plastic_moments(&inp);
-        let mp: std::collections::HashMap<usize, f64> = c.s.elements.values().map(|e| (e.id, by_section[&e.section_id])).collect();
+        let mp = plastic::member_plastic_moments(&inp);
         (inp, mp)
     };
     let none = std::collections::HashMap::new();
@@ -1182,8 +1181,7 @@ fn issue_758_when_the_limit_analysis_fails_the_exact_certificate_still_checks_th
     }).collect();
     let materials = t.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(t.p.fy) })).collect();
     let inp = PlasticInput { solver: t.s.clone(), sections, materials, max_hinges: None, mp_overrides: None };
-    let by = plastic::section_plastic_moments(&inp);
-    let mp: std::collections::HashMap<usize, f64> = t.s.elements.values().map(|e| (e.id, by[&e.section_id])).collect();
+    let mp = plastic::member_plastic_moments(&inp);
     assert!(plastic::solve_plastic_2d(&inp).is_err_and(|e| e.contains("PL-2D-INVARIANCE")));
     let verdict = dedaliano_engine::solver::plastic_limit::confirm_2d(&t.s, &mp, &Default::default(), 399.9960419608519);
     let dedaliano_engine::solver::plastic_limit::Confirmation::Contradicted { lower, .. } = verdict else { panic!("{verdict:?}") };

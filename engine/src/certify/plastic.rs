@@ -269,14 +269,6 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
     }
 
     let mut nodal = vec![[Q::zero(), Q::zero(), Q::zero()]; nn];
-    let mut mp_by_sec: HashMap<usize, Option<(Q, Q)>> = HashMap::new();
-    for (sid, sec) in &input.sections {
-        let sec_id: usize = sid.parse().map_err(|_| format!("section id {sid:?} is not a number"))?;
-        let over = input.mp_overrides.as_ref().and_then(|m| m.get(sid)).copied();
-        let fy = input.materials.get(&sec.material_id.to_string()).and_then(|m| m.fy).unwrap_or(250.0);
-        mp_by_sec.insert(sec_id, mp_interval(sec, fy, over)?);
-    }
-
     let mut elem_list: Vec<&SolverElement> = crate::ordered::values(&s.elements).collect();
     elem_list.sort_by_key(|e| e.id);
     let eidx: HashMap<usize, usize> = elem_list.iter().enumerate().map(|(i, e)| (e.id, i)).collect();
@@ -306,7 +298,7 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
             l,
             rel_i,
             rel_j,
-            mp: mp_by_sec.get(&el.section_id).cloned().flatten(),
+            mp: input.capacity_data(el).map(|(sec, fy, prescribed)| mp_interval(sec, fy, prescribed)).transpose()?.flatten(),
             loads: Vec::new(),
             pieces: Vec::new(),
         });

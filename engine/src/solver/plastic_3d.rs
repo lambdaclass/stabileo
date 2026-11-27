@@ -763,24 +763,18 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
     }
     let max_hinges = input.max_hinges.unwrap_or(30);
 
-    let mut mp_map: HashMap<usize, (f64, f64)> = HashMap::new();
-    for (sid, sec_data) in &input.sections {
-        let sec_id: usize = sid.parse().unwrap_or(0);
-        if let Some(o) = input.mp_overrides.as_ref().and_then(|m| m.get(sid)) {
-            mp_map.insert(sec_id, (o[0], o[1]));
-        } else {
-            let fy = input.materials.get(&sec_data.material_id.to_string()).and_then(|m| m.fy).unwrap_or(250.0);
-            mp_map.insert(sec_id, compute_plastic_moments_3d(sec_data, fy));
-        }
-    }
-
     // Curved beams become ordinary frame members first, so that hinges can
     // form on them like on any other member.
     let mut current_input = super::super::linear::expand_curved_beams_3d(&input.solver);
     let mut frames: Vec<&SolverElement3D> = current_input.elements.values().filter(|e| e.elem_type == "frame").collect();
     frames.sort_by_key(|e| e.id);
+    let mp_map: HashMap<_, _> = frames.iter().filter_map(|member| {
+        let (section, fy, prescribed) = input.capacity_data(member)?;
+        let mp = prescribed.map(|[y, z]| (y, z)).unwrap_or_else(|| compute_plastic_moments_3d(section, fy));
+        Some((member.id, mp))
+    }).collect();
     let usable = |mp: &(f64, f64)| mp.0.is_finite() && mp.0 > 0.0 && mp.1.is_finite() && mp.1 > 0.0;
-    if let Some(e) = frames.iter().find(|e| !mp_map.get(&e.section_id).is_some_and(usable)) {
+    if let Some(e) = frames.iter().find(|e| !mp_map.get(&e.id).is_some_and(usable)) {
         return Err(super::no_plastic_capacity(e.id, e.section_id));
     }
     let node_xyz: HashMap<usize, [f64; 3]> = crate::ordered::values(&current_input.nodes).map(|n| (n.id, [n.x, n.y, n.z])).collect();
@@ -792,7 +786,7 @@ fn solve_plastic_3d_contained(input: &PlasticInput3D) -> Result<PlasticResult3D,
             let pj = node_xyz[&e.node_j];
             let d = [pj[0] - pi[0], pj[1] - pi[1], pj[2] - pi[2]];
             let mp = if e.elem_type == "frame" {
-                mp_map[&e.section_id]
+                mp_map[&e.id]
             } else {
                 (f64::INFINITY, f64::INFINITY)
             };

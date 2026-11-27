@@ -834,7 +834,6 @@ fn nightly_space_case_two_has_provable_bounds() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2658"]
 fn issue_2658_shared_section_cantilevers_use_the_loaded_material_3d() {
     for idle_grade in [235.0, 355.0] {
         for weak in [false, true] {
