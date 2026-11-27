@@ -30,6 +30,9 @@ export type SnapRun = {
   rateMS: number;
 };
 
+export type SnapRequest = { requestId: number; settings: Settings };
+export type SnapReply = { requestId: number; result: SnapRun } | { requestId: number; error: true };
+
 export const ASYMMETRIC = 2;
 export const RATE_RANGE = [0.005, 0.7] as const;
 export const SEED_RANGE = [1e-4, 1e-2] as const;
@@ -52,10 +55,11 @@ export function decodeRun(value: unknown): SnapRun {
   if (!k || !(['t', 'mu', 'thetaMin', 'thetaMax', 'height'] as const).every(key => numbers(t[key], k))) throw new Error('Invalid trace');
   const o = r.outcome;
   const magnitude = (v: unknown) => finite(v) && v >= 0;
-  if (!o || typeof o.snapped !== 'boolean' || !magnitude(o.thetaBefore) || !magnitude(o.thetaBeforeMuA)) throw new Error('Invalid outcome');
+  const count = (v: number) => Number.isSafeInteger(v) && v >= 0;
+  if (!o || typeof o.snapped !== 'boolean' || typeof o.truncated !== 'boolean' || !count(o.steps) || !count(o.newtonIterations)
+    || !magnitude(o.thetaBefore) || !magnitude(o.thetaBeforeMuA)) throw new Error('Invalid outcome');
   const ratio = (v: number | null, before: number) => before === 0 ? v === null : magnitude(v);
-  const crossed = r.frames.some(f => f.height > 0) || t.height.some(h => h > 0);
-  if (o.snapped !== crossed) throw new Error('Invalid outcome');
+  if (o.snapped !== (snapFrame(r) !== null)) throw new Error('Invalid outcome');
   if (o.snapped) {
     if (!finite(o.tSnap) || !finite(o.muSnap) || !finite(o.tEnd) || o.tEnd < o.tSnap || !magnitude(o.thetaDuring)
       || !ratio(o.amplification, o.thetaBefore) || !ratio(o.amplificationFromMuA, o.thetaBeforeMuA)) throw new Error('Invalid outcome');
@@ -98,12 +102,15 @@ export const logValue = (range: readonly [number, number], steps: number, step: 
   return Number(v.toFixed(digits));
 };
 
-/** Index of the frame shown at the snap: the first with the midpoint above the line of the clamps; null without a snap. */
-export const snapFrame = (run: SnapRun): number | null => {
-  if (!run.outcome.snapped) return null;
-  const k = run.frames.findIndex(f => f.height > 0);
-  return k < 0 ? null : k;
-};
+export function snapFrame({ frames, trace }: Pick<SnapRun, 'frames' | 'trace'>): number | null {
+  const crossingFrame = frames.findIndex(frame => frame.height > 0);
+  if (crossingFrame >= 0) return crossingFrame;
+  const sample = trace.height.findIndex(height => height > 0);
+  if (sample < 0) return null;
+  const time = trace.t[sample];
+  return frames.reduce((nearest, frame, i) =>
+    Math.abs(frame.t - time) < Math.abs(frames[nearest].t - time) ? i : nearest, 0);
+}
 
 /** The trace's largest |θ| per bin for a logarithmic axis: positive magnitudes as computed, and how many bins are exactly zero (not drawable). */
 export function thetaPeaks(trace: Pick<SnapRun['trace'], 't' | 'thetaMin' | 'thetaMax'>) {

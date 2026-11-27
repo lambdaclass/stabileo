@@ -152,6 +152,7 @@ export const de: Strings = {
   backToPaper: 'Zurück zur Einstellung der Wiedergabe',
   run: 'Live neu berechnen', stop: 'Anhalten', restart: 'Neu starten',
   computing: 'Berechnung mit Stabileo… (Statik, dann Dynamik)',
+  truncated: 'Die Integration endete vorzeitig. Die Wiedergabe endet beim letzten berechneten Bild.',
   error: 'Der Rechenkern konnte nicht geladen werden oder nicht abschließen. Das vorherige Ergebnis bleibt.',
   stale: 'Die Einstellungen wurden geändert. Die Einstellungen des angezeigten Ergebnisses stehen oben unter „Berechnet mit“.',
   computedWith: 'Berechnet mit',

@@ -152,6 +152,7 @@ export const pt: Strings = {
   backToPaper: 'Voltar ao ajuste da reprodução',
   run: 'Recalcular ao vivo', stop: 'Parar', restart: 'Reiniciar',
   computing: 'Calculando com o Stabileo… (estática e depois dinâmica)',
+  truncated: 'A integração terminou antes do previsto. A reprodução termina no último quadro calculado.',
   error: 'O cálculo não pôde ser carregado ou concluído. O resultado anterior continua disponível.',
   stale: 'Os ajustes mudaram. Os ajustes do resultado exibido aparecem acima em “Calculado com”.',
   computedWith: 'Calculado com',

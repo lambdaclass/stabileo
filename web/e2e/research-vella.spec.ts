@@ -90,7 +90,6 @@ test('@smoke reviewed study settings, branch markers and internal checks are ins
 });
 
 test('@smoke only the pending snap request can update playback or report a failure', async ({ page }) => {
-  test.fail(true, 'known wrong result: #2320');
   await page.addInitScript(run => {
     const requests: { worker: Worker; requestId: number; settings: typeof run.settings }[] = [];
     const post = Worker.prototype.postMessage;
@@ -133,7 +132,6 @@ test('@smoke only the pending snap request can update playback or report a failu
 });
 
 test('@smoke the live snap worker seeks a trace-only crossing and rejects missing completion metadata', async ({ page, context }) => {
-  test.fail(true, 'known wrong result: #2320');
   const crossing = replay.trace.height.findIndex(height => height > 0);
   const trace = { ...replay.trace, height: replay.trace.height.map((h, i) => i === crossing ? h : Math.min(h, 0)) };
   const frames = [replay.frames[0], ...[trace.t[crossing], trace.t.at(-1)!].map(t => ({ ...replay.frames[0], t }))];

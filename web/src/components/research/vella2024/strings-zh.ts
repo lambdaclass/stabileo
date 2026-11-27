@@ -152,6 +152,7 @@ export const zh: Strings = {
   backToPaper: '回到回放的设置',
   run: '实时重新计算', stop: '停止', restart: '重新开始',
   computing: '正在用 Stabileo 计算……（先静力，后动力）',
+  truncated: '积分提前结束。回放到最后一个已计算的画面为止。',
   error: '求解器无法加载或未能完成。仍显示之前的结果。',
   stale: '设置已更改。上方的“计算条件”列出了当前结果使用的设置。',
   computedWith: '计算条件',

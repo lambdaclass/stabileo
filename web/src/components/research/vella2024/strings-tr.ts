@@ -152,6 +152,7 @@ export const tr: Strings = {
   backToPaper: 'Tekrar oynatımın ayarına dön',
   run: 'Canlı yeniden hesapla', stop: 'Durdur', restart: 'Yeniden başlat',
   computing: 'Stabileo ile hesaplanıyor… (önce statik, sonra dinamik)',
+  truncated: 'İntegrasyon erken durdu. Oynatma, hesaplanan son karede sona erer.',
   error: 'Çözücü yüklenemedi veya tamamlanamadı. Önceki sonuç duruyor.',
   stale: 'Ayarlar değişti. Gösterilen sonucun ayarları yukarıdaki “Hesaplama ayarları” satırında yer alır.',
   computedWith: 'Hesaplama ayarları',

@@ -1,8 +1,9 @@
-import { decodeRun, type Settings } from './protocol';
+import { decodeRun, type SnapRequest, type SnapReply } from './protocol';
 
 let wasm: { simulation_run(settings: string): string } | null = null;
 
-self.onmessage = async (event: MessageEvent<Settings>) => {
+self.onmessage = async (event: MessageEvent<SnapRequest>) => {
+  const { requestId, settings } = event.data;
   try {
     if (!wasm) {
       const base = `${import.meta.env.BASE_URL}research-wasm/vella-2024/`;
@@ -15,8 +16,9 @@ self.onmessage = async (event: MessageEvent<Settings>) => {
       await module.default({ module_or_path: `${bundle}snap_bg.wasm` });
       wasm = module;
     }
-    self.postMessage({ result: decodeRun(JSON.parse(wasm!.simulation_run(JSON.stringify(event.data)))) });
+    const result = decodeRun(JSON.parse(wasm!.simulation_run(JSON.stringify(settings))));
+    self.postMessage({ requestId, result } satisfies SnapReply);
   } catch {
-    self.postMessage({ error: true });
+    self.postMessage({ requestId, error: true } satisfies SnapReply);
   }
 };

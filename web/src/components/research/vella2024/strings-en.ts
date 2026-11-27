@@ -151,6 +151,7 @@ export const en = {
   backToPaper: 'Back to the replay’s setting',
   run: 'Recompute live', stop: 'Stop', restart: 'Restart',
   computing: 'Computing with Stabileo… (statics, then the dynamics)',
+  truncated: 'Integration stopped early. Playback ends at the last computed frame.',
   error: 'The solver could not load or complete. The previous result remains.',
   stale: 'Settings changed. “Computed with” above identifies the settings for this result.',
   computedWith: 'Computed with',

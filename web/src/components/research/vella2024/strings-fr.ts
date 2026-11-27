@@ -152,6 +152,7 @@ export const fr: Strings = {
   backToPaper: 'Revenir au réglage de la relecture',
   run: 'Recalculer en direct', stop: 'Arrêter', restart: 'Recommencer',
   computing: 'Calcul avec Stabileo… (statique, puis dynamique)',
+  truncated: 'L’intégration s’est arrêtée prématurément. La lecture s’arrête à la dernière image calculée.',
   error: 'Le calcul n’a pas pu se charger ou aboutir. Le résultat précédent reste affiché.',
   stale: 'Les réglages ont changé. « Calculé avec » indique ci-dessus les réglages du résultat affiché.',
   computedWith: 'Calculé avec',

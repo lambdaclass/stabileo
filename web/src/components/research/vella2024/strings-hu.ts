@@ -152,6 +152,7 @@ export const hu: Strings = {
   backToPaper: 'Vissza a visszajátszás beállításához',
   run: 'Újraszámolás élőben', stop: 'Leállítás', restart: 'Újraindítás',
   computing: 'Számítás a Stabileóval… (statika, majd dinamika)',
+  truncated: 'Az integrálás idő előtt leállt. A lejátszás az utolsó kiszámított képkockánál ér véget.',
   error: 'A számítás nem töltődött be vagy nem fejeződött be. Az előző eredmény megmarad.',
   stale: 'A beállítások megváltoztak. A megjelenített eredmény beállításai fent, a „Számítva ezzel” sorban láthatók.',
   computedWith: 'Számítva ezzel',

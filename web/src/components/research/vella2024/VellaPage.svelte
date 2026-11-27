@@ -12,7 +12,7 @@
   import { rs } from '../i18n';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { snapStrings } from './strings';
-  import { ALPHA_RANGE, ASYMMETRIC, RATE_RANGE, SEED_RANGE, asymmetry, decodeRun, displacementOf, envelopeCurve, logStep, logValue, parseFigure, restGeometry, sameSettings, snapFrame, thetaPeaks, type Settings, type SnapRun } from './protocol';
+  import { ALPHA_RANGE, ASYMMETRIC, RATE_RANGE, SEED_RANGE, asymmetry, decodeRun, displacementOf, envelopeCurve, logStep, logValue, parseFigure, restGeometry, sameSettings, snapFrame, thetaPeaks, type Settings, type SnapRequest, type SnapReply, type SnapRun } from './protocol';
   import replay from '../../../../../research/mechanics/vella-2024/reference-results/replay.json';
   import study from '../../../../../research/mechanics/vella-2024/reference-results/study.json';
   import published from '../../../../../research/mechanics/vella-2024/reference-results/published.json';
@@ -41,6 +41,7 @@
   let failed = $state(false);
   let narrow = $state(false);
   let host: HTMLDivElement;
+  let latestRequestId = 0;
   let worker: Worker | null = null;
 
   const n = $derived(run.settings.n);
@@ -121,18 +122,19 @@
     busy = true; failed = false;
     if (!worker) worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
     const active = worker;
-    active.onmessage = event => {
-      if (worker !== active) return;
+    const requestId = ++latestRequestId;
+    active.onmessage = (event: MessageEvent<SnapReply>) => {
+      if (!busy || worker !== active || event.data.requestId !== latestRequestId) return;
       busy = false;
       try {
-        if (event.data.error) throw new Error();
+        if ('error' in event.data) throw new Error();
         run = decodeRun(event.data.result);
         source = 'live';
         showFromStart();
       } catch { failed = true; }
     };
     active.onerror = () => { if (worker === active) { failed = true; cancel(); } };
-    active.postMessage($state.snapshot(settings));
+    active.postMessage({ requestId, settings: $state.snapshot(settings) } satisfies SnapRequest);
   }
   function restart() { playback.seek(0); playback.play(); }
   function backToPaper() {
@@ -244,6 +246,7 @@
         bind:active={() => tab, setTab} oninteract={() => playback.interact()} />
       <p class="source">{source === 'replay' ? shared.replaySource : shared.liveSource}</p>
       <p class="caption">{s.computedWith}: |µ̇| = {num(run.settings.rate, { sig: 3 })}, α = {degrees(run.settings.alpha)}, {(run.settings.oneEnd ? s.protocols.one : `${s.protocols.both}, θ₀ = ${num(run.settings.imperfection, { sig: 2 })}`).toLocaleLowerCase(publicI18n.locale)}, {run.settings.n} {s.elements}</p>
+      {#if run.outcome.truncated}<p role="status">{s.truncated}</p>{/if}
       {#if stale}<p class="result-stale" role="status">{s.stale}</p>{/if}
       <div id={`rs-panel-${tab}`} role="tabpanel" aria-labelledby={`rs-tab-${tab}`}>
         <StabileoViewer plane="elevation" editorButton={false} xy={geometry.xy} cells={geometry.cells} cellSize={2} {values} {displacement} deformScale={1}
