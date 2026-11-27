@@ -6,6 +6,8 @@ pub mod sparse;
 pub mod amd;
 pub mod rcm;
 pub mod sparse_chol;
+#[cfg(feature = "parallel")]
+mod sparse_chol_parallel;
 pub mod lanczos;
 pub mod preconditioner;
 pub mod pcg;
