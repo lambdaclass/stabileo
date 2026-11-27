@@ -632,3 +632,25 @@ test('known wrong result: #1928 ordinary column design has no sheet layout depen
   assert.deepEqual(chunk.imports.filter(id => id.includes('/rc-sheets/')), []);
   assert.ok(chunk.exports.includes('endZoneFor'));
 });
+
+test.skip('known wrong result: #1928 the published mesh error legend and warning retain their release presentation', async () => {
+  const entry = resolve(root, 'src/components/DiscretizationStatus.svelte');
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] },
+        rollupOptions: { external: (id, from) => from === entry && !id.includes('?svelte&type=style') },
+      } });
+      const output = (Array.isArray(result) ? result[0] : result).output;
+      const chunk = output.find(item => item.type === 'chunk');
+      const css = output.find(item => item.type === 'asset' && item.fileName.endsWith('.css')).source;
+      assert.ok(chunk.code.includes('discretization-warning'));
+      assert.equal(chunk.code.includes('discretization-legend-max'), plates);
+      assert.equal(chunk.code.includes('notice-hide-kind'), plates);
+      if (!plates) {
+        assert.match(css, /color:\s*var\(--st-warn\)/);
+        assert.ok(!chunk.imports.some(id => id.includes('notice-prefs')));
+      }
+    });
+  }
+});
