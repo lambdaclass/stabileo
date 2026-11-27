@@ -82,7 +82,7 @@ describe('repository examples: no errors but the known-broken, every warning jus
   it.each(Object.keys(CODE_EXAMPLES))('PRO example %s', async (id) => {
     await galleryExample(id).load();
     const outcome = await runGlobalSolve();
-    expect(outcome).toMatchObject({ ok: true, combinationsLeftOut: null });
+    expect(outcome, outcome.ok ? undefined : outcome.error).toMatchObject({ ok: true, combinationsLeftOut: null });
     expectOnly(id, review());
   }, 600_000);
 
