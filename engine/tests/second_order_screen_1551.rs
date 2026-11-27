@@ -674,7 +674,7 @@ fn review_1927_global_buckling_preserves_the_compressed_column_ids() {
 }
 
 #[test]
-fn review_pinned_roller_is_screened_against_the_continuous_column() {
+fn review_1927_pinned_roller_is_screened_against_the_continuous_column() {
     let length = 6.0_f64;
     let inertia = 1e-4;
     let critical = PI.powi(2) * E * 1000.0 * inertia / length.powi(2);
@@ -688,6 +688,7 @@ fn review_pinned_roller_is_screened_against_the_continuous_column() {
         let planar = serde_json::from_value(model.clone()).unwrap();
         let r = solve_2d(&planar).unwrap();
         assert_eq!(second_order(&r.structured_diagnostics), expected);
+        let plane = model.clone();
         assert!((r.result_summary.unwrap().second_order_ratio.unwrap() - p / critical).abs() < 1e-12);
         model["elements"]["1"].as_object_mut().unwrap().remove("hingeStart");
         model["elements"]["1"].as_object_mut().unwrap().remove("hingeEnd");
@@ -697,6 +698,9 @@ fn review_pinned_roller_is_screened_against_the_continuous_column() {
         model["supports"] = json!({"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":false,"rrz":false},
                                    "2":{"nodeId":3,"rx":false,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false}});
         model["loads"] = json!([{"type":"nodal","data":{"nodeId":3,"fx":-p,"fy":0,"fz":0,"mx":0,"my":0,"mz":0}}]);
+        if let Ok(path) = std::env::var("TRUSS_SCREEN_1927_CASES") {
+            std::fs::write(format!("{path}-roller-{p}.json"), json!([plane, model]).to_string()).unwrap();
+        }
         let spatial = solve_3d(&serde_json::from_value(model).unwrap()).unwrap();
         assert_eq!(second_order(&spatial.structured_diagnostics), expected);
     }
@@ -734,4 +738,13 @@ fn a_transverse_spring_cannot_turn_a_discrete_eigenvalue_into_a_physical_bound()
     for result in [loaded, combination] {
         assert_eq!(second_order(&result.structured_diagnostics), unbounded());
     }
+}
+
+#[test]
+#[ignore = "known wrong result: #1927"]
+fn a_unit_combination_preserves_the_near_case_it_repeats() {
+    let case = solve_2d(&cantilever_2d(2, -15.0, E, 1.0)).unwrap();
+    assert_eq!(second_order(&case.structured_diagnostics), near(vec![1, 2]));
+    let combined = combine_results_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &case)]).unwrap();
+    assert_eq!(second_order(&combined.structured_diagnostics), near(vec![1, 2]));
 }

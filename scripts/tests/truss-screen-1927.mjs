@@ -23,3 +23,15 @@ for (const outcome of ['bounded', 'over']) {
     }
   }
 }
+for (const [p, phase] of [[200, null], [270, 'LIN-SECOND-ORDER-NEAR'], [450, 'LIN-SECOND-ORDER']]) {
+  const models = JSON.parse(readFileSync(prefix + '-roller-' + p + '.json', 'utf8'));
+  for (const [index, solver] of models.entries()) {
+    const dim = index + 2;
+    const result = engine[`solve_multi_case_${dim}d`]({
+      solver, loadCases: [{ name: 'A', loads: solver.loads }], combinations: [{ name: 'C', factors: { A: 1 } }],
+    });
+    for (const entry of [result.caseResults[0], result.combinationResults[0]]) {
+      assert.deepEqual(findings(entry.results).map(d => d.phase), phase ? [phase] : []);
+    }
+  }
+}
