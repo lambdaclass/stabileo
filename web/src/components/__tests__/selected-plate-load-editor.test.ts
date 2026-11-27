@@ -41,3 +41,18 @@ it.skip.each(['wall', 'slab'] as const)('known wrong result: #1928 the selected 
     expect.soft(html.includes('data-testid="plate-element-load-1"')).toBe(kind === 'slab' && Boolean(__PUBLIC_FEATURES__.proPlatesUnified));
   }
 });
+
+it.skip('known wrong result: #1928 the selected panel offers level loads only on a matching horizontal slab in the unified view', () => {
+  modelStore.clear();
+  const nodes = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  const plate = createPlate({ outline: nodes, materialId: 1, thickness: 0.15 });
+  if ('problem' in plate) throw Error(plate.problem);
+  uiStore.selectMode = 'shells';
+  uiStore.shellPickScope = 'plate';
+  uiStore.selectPlates([plate.id]);
+  const definition = (z: number) => modelStore.addGroup('Floor', 'floorLoad', {}, { data: { caseId: 1, q: 2, target: { by: 'level', z }, distribution: 'slab' } });
+  const same = definition(0), other = definition(1);
+  const html = render(ProShellTab).body;
+  expect(html.includes('data-testid="plate-level-load-' + same + '"')).toBe(Boolean(__PUBLIC_FEATURES__.proPlatesUnified));
+  expect(html.includes('data-testid="plate-level-load-' + other + '"')).toBe(false);
+});
