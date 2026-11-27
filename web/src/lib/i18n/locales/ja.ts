@@ -3,6 +3,7 @@ import type { Translations } from '../types';
 const ja: Translations = {
   'svc.accountingMismatch': "解析を拒否しました。荷重ケース {case}、成分 {component}。入力値 {entered}、組立値 {assembled}。",
   'svc.accountingUnsupported': "解析を拒否しました。荷重ケース {case} の {kind} {id} の力とモーメントを集計できません。",
+  'svc.accountingSurfaceProjection': "解析を拒否しました。荷重ケース {case} の荷重領域の投影方向がシェル要素 #{id} に平行、またはほぼ平行です。",
   'svc.accountingArea': "解析を拒否しました。ソルバー内のプレート {plate} の面積または境界が異なります。指定面積 {entered}、組立面積 {assembled}。",
   'svc.accountingSweep': "解析を拒否しました。ソルバー内のプレート {plate} の円弧境界の経路が異なります。指定面積 {entered}、組立面積 {assembled}。",
   'svc.accountingShellEdits': "プレート {plate} を再メッシュするとシェルのオフセットまたは曲率の変更が失われるため、実行できません。",
@@ -22,7 +23,7 @@ const ja: Translations = {
   'loadPlan.gravity.memberSlopeLimit': "部材 {id} の勾配は重力荷重を負担する部材の判定限界に近すぎます。荷重を明示的に設定してください。",
   'snow.refused.stepDriftTransfer': "屋根段差部の吹きだまり荷重を支持部材に確実に伝達できません。積雪荷重を明示的に設定してください。",
   'loadPlan.gravity.unresolvedMember': "部材 {id} はシェルに一部だけ覆われており、パネルからの荷重伝達を特定できません。",
-  'loadPlan.gravity.rafterGap': "部材 {members} に沿った位置 {gap} m に屋根デッキの隙間があります。隙間を覆うデッキをモデル化するか、その位置の荷重を明示的に指定してください。",
+  'loadPlan.gravity.rafterGap': "部材 {members} に沿った平面投影上の位置 {gap} m に屋根デッキの隙間があります。隙間を覆うデッキをモデル化するか、その位置の荷重を明示的に指定してください。",
   'loadPlan.gravity.offsetRafter': "部材 {id} は屋根シェルに剛結されていますが、オフセットがあるため重力荷重を自動で割り当てられません。面荷重を手動で一度だけ割り当ててください。",
   'loadPlan.gravity.differentDeck': "梁パネルを覆うシェルは、梁パネルと同じデッキに属する必要があります。",
   'loadPlan.gravity.differentSlopedDeck': "梁パネルを覆う傾斜シェルは、梁パネルと同じデッキに属する必要があります。",

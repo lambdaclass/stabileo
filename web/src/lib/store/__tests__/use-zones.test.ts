@@ -270,6 +270,21 @@ describe('use zones over two floors', () => {
     expect(fz).toBeCloseTo(2.5 * 29, 5);
   });
 
+  it('#2607 solves a clipped zone on an affine quad mesh', () => {
+    const grid = [0, 2, 4].map(y => [0, 2, 4].map(x => modelStore.addNode(x, y, 3)));
+    for (const y of [0, 1]) for (const x of [0, 1]) {
+      modelStore.addQuad([grid[y]![x]!, grid[y]![x + 1]!, grid[y + 1]![x + 1]!, grid[y + 1]![x]!], 1, 0.15);
+    }
+    for (const y of [0, 2]) for (const x of [0, 2]) modelStore.addSupport(grid[y]![x]!, 'fixed3d');
+    const z1 = zone([[0.5, 0.5], [3, 0.5], [3, 3.5], [0.5, 3.5]], 3, 'Office');
+    setZoneUse([z1], { manualQ: 3, provenance: 'manual' });
+    applyZoneLoadPlan(zoneLoadPlan()!);
+    const result = modelStore.solve3D(false, false, true);
+    expect(result, String(result)).toEqual(expect.objectContaining({ reactions: expect.any(Array) }));
+    expect((result as AnalysisResults3D).reactions.reduce((sum, reaction) => sum + reaction.fz, 0))
+      .toBeCloseTo(3 * (3 - 0.5) * (3.5 - 0.5), 5);
+  });
+
   const reviewedTrapezoids = [
     { width: 4, topWidth: 3, height: 2, clippedWidth: 3, shares: [-3, 3, -4, 4] },
     { width: 2, topWidth: 1, height: 1, clippedWidth: 1, shares: [1, -1, 2, -2] },
@@ -420,6 +435,32 @@ describe('use zones over two floors', () => {
       }
     });
 
+  it.each(reviewedTrapezoids)('#2607 refuses equilibrium-preserving corner errors on a whole $width-to-$topWidth quad',
+    ({ width, topWidth, height, shares }) => {
+      const corners = [[0, 0], [width, 0], [topWidth, height], [0, height]] as const;
+      const nodes = corners.map(([x, y]) => modelStore.addNode(x, y, 3));
+      for (const id of nodes) modelStore.addSupport(id, 'pinned3d');
+      modelStore.addSurfaceLoad3D(modelStore.addQuad(nodes as [number, number, number, number], 1, 0.15), 1);
+      const delta = shares.map(share => share / 32);
+      expect(delta.reduce((sum, fz) => sum + fz, 0)).toBe(0);
+      for (const axis of [0, 1] as const) {
+        expect(delta.reduce((sum, fz, i) => sum + fz * corners[i]![axis], 0)).toBe(0);
+      }
+      const original = shellIntegration.shellLoadForces;
+      const corrupt = vi.spyOn(shellIntegration, 'shellLoadForces').mockImplementation((kind, points, spec) => {
+        const result = original(kind, points, spec);
+        result?.forces.forEach((force, i) => { force[2] += delta[i]!; });
+        return result;
+      });
+      try {
+        const result = modelStore.solve3D(false, false, true);
+        expect(corrupt).toHaveBeenCalled();
+        expect(result).toEqual(expect.stringContaining('Fz'));
+      } finally {
+        corrupt.mockRestore();
+      }
+    });
+
   it.each([
     { topWidth: 5.875, reversed: false }, { topWidth: 5.875, reversed: true },
     { topWidth: 6, reversed: false }, { topWidth: 6, reversed: true },
@@ -445,6 +486,16 @@ describe('use zones over two floors', () => {
     expect(result, String(result)).toEqual(expect.objectContaining({ reactions: expect.any(Array) }));
     const { reactions } = result as AnalysisResults3D;
     const q = 2.5, covered = 3 * 4, opening = 1.5 * 1;
+    const shares = (a: number, b: number, span: number) => {
+      const high = (b ** 2 - a ** 2) / (2 * span);
+      return [b - a - high, high] as const;
+    };
+    const loadedX = shares(0, 3, 6), loadedY = shares(0, 4, 5);
+    const openingX = shares(1, 2.5, 6), openingY = shares(1, 2, 5);
+    for (const [i, [x, y]] of ([[0, 0], [1, 0], [1, 1], [0, 1]] as const).entries()) {
+      expect.soft(reactions.find(r => r.nodeId === nodes[i])?.fz)
+        .toBeCloseTo(q * (loadedX[x] * loadedY[y] - openingX[x] * openingY[y]), 10);
+    }
     expect.soft(reactions.reduce((sum, r) => sum + r.fz, 0)).toBeCloseTo(q * (covered - opening), 5);
     expect.soft(reactions.reduce((sum, r) => sum + r.mx + modelStore.nodes.get(r.nodeId)!.y * r.fz, 0))
       .toBeCloseTo(q * (covered * 2 - opening * 1.5), 5);

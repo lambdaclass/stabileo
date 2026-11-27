@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
+import { teAt } from '../../../i18n/engine-text';
 import { buildLoadPlan, roofWeightFor } from '../load-plan';
-import { gravityLayout } from '../plan-gravity';
+import { gravityLayout, hasBoundedRafterGap } from '../plan-gravity';
 import { driftAndSlidingLoads, snowDriftRefusal } from '../snow-drift-loads';
 import { snowLoadCases } from '../snow-loads';
 import { offsetRoof, roofPlan, triangulateRoof } from './gravity-offset-roof-fixture';
@@ -45,6 +46,7 @@ it.each([
       if (finding === 'detached offset shell spanning the gap') appendShell(4, 6, 0.25, 1.75, -0.02);
       const model = split ? triangulateRoof(quads) : quads;
       const reason = { key: 'loadPlan.gravity.rafterGap', params: { members: split ? '1, 2, 3' : '1', gap: '4–6' } };
+      expect.soft(teAt(reason, 'en')).toContain('plan stations 4–6 m');
       const refused = { outcome: 'BLOCKED', blockedKeys: [reason], cases: [], distributed: [], nodal: [], surface: [], levels: [] };
       expect.soft(roofPlan(model)).toMatchObject(refused);
       expect.soft(buildLoadPlan(input(model, {
@@ -91,8 +93,7 @@ it('#2607 refuses a positive opening and accepts meeting deck edges', () => {
   });
 });
 
-const pendingOffsetReview = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
-pendingOffsetReview.each([false, true])('known wrong result: #2607 detached coplanar infill cannot bound a rafter gap (%s)', split => {
+it.each([false, true])('#2607 detached coplanar infill cannot bound a rafter gap (%s)', split => {
   const { model: quads } = offsetRoof(0.02, 0, 1, false, [4, 6]);
   for (const [index, from, to] of [[1, 4, -2], [2, 6, 12]] as const) {
     for (const id of quads.quads.get(index)!.nodes) {
@@ -110,6 +111,7 @@ pendingOffsetReview.each([false, true])('known wrong result: #2607 detached copl
   quads.quads.set(3, { ...quads.quads.get(1)!, id: 3, nodes: infill });
   const model = split ? triangulateRoof(quads) : quads;
   const reason = { key: 'loadPlan.gravity.offsetRafter', params: { id: 1 } };
+  expect(hasBoundedRafterGap(model)).toBe(false);
   expect(roofPlan(model)).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], cases: [], surface: [], distributed: [], nodal: [] });
   expect(() => gravityLayout(model, options)).toThrow(expect.objectContaining(reason));
   expect(() => roofWeightFor(model, options, options.tributaryWidth, 1)).toThrow(expect.objectContaining(reason));

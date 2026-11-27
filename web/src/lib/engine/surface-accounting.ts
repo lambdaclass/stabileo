@@ -1,6 +1,7 @@
 import polygonClipping, { type Ring } from 'polygon-clipping';
-import type { ShellLoadSpec } from './shell-load-integration';
-import { add, cross, dot, LoadScalar, LoadVector, mul, norm, polygonMeasure, roundoff, sub, Sum, unit, zero, type Vector, type Wrench } from './accounting-math';
+import { orient2d } from 'robust-predicates';
+import { MIN_SHELL_REGION_PROJECTION, type ShellLoadSpec } from './shell-load-integration';
+import { add, cross, dot, dyadicInteger, LoadScalar, LoadVector, mul, norm, polygonMeasure, roundoff, sub, Sum, unit, zero, type Vector, type Wrench } from './accounting-math';
 
 function clip(points: Vector[], distance: (p: Vector) => number): Vector[] {
   const result: Vector[] = [];
@@ -11,6 +12,101 @@ function clip(points: Vector[], distance: (p: Vector) => number): Vector[] {
     if ((da < 0 && db > 0) || (da > 0 && db < 0)) result.push(add(a, mul(sub(b, a), da / (da - db))));
   }
   return result;
+}
+
+export class SingularSurfaceProjection extends Error {}
+
+type Point2 = Ring[number];
+
+function edges(ring: Ring): [Point2, Point2][] {
+  return ring.map((point, i) => [point, ring[(i + 1) % ring.length]!]);
+}
+
+function withinBounds(value: number, a: number, b: number): boolean {
+  return value >= Math.min(a, b) && value <= Math.max(a, b);
+}
+
+function sideOf(a: Point2, b: Point2, p: Point2): number {
+  const side = orient2d(...a, ...b, ...p);
+  if (side !== 0 && Number.isFinite(side)) return Math.sign(side);
+  const ax = dyadicInteger(a[0]), ay = dyadicInteger(a[1]);
+  const bx = dyadicInteger(b[0]) - ax, by = dyadicInteger(b[1]) - ay;
+  const px = dyadicInteger(p[0]) - ax, py = dyadicInteger(p[1]) - ay;
+  const exact = by * px - bx * py;
+  return exact < 0n ? -1 : exact > 0n ? 1 : 0;
+}
+
+function ringContains(ring: Ring, p: Point2): boolean {
+  let inside = false;
+  for (const [a, b] of edges(ring)) {
+    const side = sideOf(a, b, p);
+    if (side === 0 && withinBounds(p[0], a[0], b[0]) && withinBounds(p[1], a[1], b[1])) return true;
+    if ((a[1] > p[1]) !== (b[1] > p[1]) && (side < 0) === (b[1] > a[1])) inside = !inside;
+  }
+  return inside;
+}
+
+function edgesMeet([a, b]: [Point2, Point2], [c, d]: [Point2, Point2]): boolean {
+  if ([0, 1].some(axis => Math.max(a[axis]!, b[axis]!) < Math.min(c[axis]!, d[axis]!)
+      || Math.max(c[axis]!, d[axis]!) < Math.min(a[axis]!, b[axis]!))) return false;
+  return sideOf(a, b, c) * sideOf(a, b, d) <= 0 && sideOf(c, d, a) * sideOf(c, d, b) <= 0;
+}
+
+function boundariesMeet(a: Ring, b: Ring): boolean {
+  const sides = edges(a);
+  return edges(b).some(edge => sides.some(side => edgesMeet(side, edge)));
+}
+
+function meetsFootprint(shell: Ring, outer: Ring, holes: Ring[]): boolean {
+  if (!shell.some(p => ringContains(outer, p)) && !outer.some(p => ringContains(shell, p))
+      && !boundariesMeet(shell, outer)) return false;
+  return !holes.some(hole => shell.every(p => ringContains(hole, p)) && !boundariesMeet(shell, hole));
+}
+
+function clipSurfaceRegion(
+  points: Vector[], normal: Vector, spec: ShellLoadSpec & { region: NonNullable<ShellLoadSpec['region']> },
+): Vector[][][] | null {
+  const { region, vary } = spec;
+  const projection = unit(region.normal);
+  const denominator = dot(projection, normal);
+  if (!Number.isFinite(denominator)) return null;
+  const origin = points[0]!;
+  const ex = unit(cross(projection, Math.abs(projection[0]) < Math.abs(projection[1]) ? [1, 0, 0] : [0, 1, 0]));
+  const ey = cross(projection, ex);
+  const planar = (p: Vector): Point2 => {
+    const delta = sub(p, origin);
+    return [dot(delta, ex), dot(delta, ey)];
+  };
+  const outer = region.points.map(planar);
+  const holes = (region.holes ?? []).map(ring => ring.map(planar));
+  const shell = points.map(planar);
+  if ([outer, ...holes].some(ring => ring.length < 3)
+      || [shell, outer, ...holes].some(ring => ring.some(point => !point.every(Number.isFinite)))) return null;
+  if (Math.abs(denominator) < MIN_SHELL_REGION_PROJECTION) {
+    if (vary ? vary.q1 === 0 && vary.q2 === 0 : spec.q === 0) return [];
+    if (spec.frame === 'projected' && dot(unit(spec.dir ?? [0, 0, -1]), normal) === 0) return [];
+    let active = points;
+    if (vary) {
+      const axis = norm(vary.dir) === 0 ? zero() : unit(vary.dir);
+      if (!axis.every(Number.isFinite)) return null;
+      const low = Math.min(vary.c1, vary.c2), high = Math.max(vary.c1, vary.c2);
+      active = clip(clip(active, p => dot(axis, p) - low), p => high - dot(axis, p));
+    }
+    const activeFootprint = active.map(planar);
+    if (activeFootprint.some(p => !p.every(Number.isFinite))) return null;
+    if (meetsFootprint(activeFootprint, outer, holes)) throw new SingularSurfaceProjection();
+    return [];
+  }
+  const lift = ([x, y]: Point2): Vector => {
+    const delta = add(mul(ex, x), mul(ey, y));
+    return sub(delta, mul(projection, dot(delta, normal) / denominator));
+  };
+  try {
+    const footprint = holes.length ? polygonClipping.difference([outer], ...holes.map(hole => [hole])) : [[outer]];
+    return polygonClipping.intersection([shell], footprint).map(polygon => polygon.map(ring => ring.map(lift)));
+  } catch {
+    return null;
+  }
 }
 
 function integratePolygon(out: Wrench, points: Vector[], normal: Vector, force: LoadVector, field: (point: Vector) => LoadScalar): void {
@@ -67,29 +163,18 @@ export function accountSurface(out: Wrench, points: Vector[], spec: ShellLoadSpe
   const field = vary ? (p: Vector) => new LoadScalar(coordinate(p) - vary.c1).divide(vary.c2 - vary.c1)
     .scale(vary.q2 - vary.q1).add(new LoadScalar(vary.q1)) : () => new LoadScalar(spec.q);
   const region = spec.region;
-  if ((region?.holes?.length ?? 0) > 1) return false;
-  const loops = region ? [region.points, ...(region.holes ?? [])] : [points];
-  for (const [index, loop] of loops.entries()) {
-    let polygon = loop;
-    if (region) {
-      const projection = unit(region.normal), den = dot(projection, normal);
-      if (!Number.isFinite(den)) return false;
-      if (den === 0) return true;
-      polygon = loop.map(p => add(p, mul(projection, dot(sub(origin, p), normal) / den)));
-      const orientation = polygon.reduce((sum, p, i) =>
-        sum + dot(cross(sub(p, origin), sub(polygon[(i + 1) % polygon.length]!, origin)), normal), 0);
-      if (orientation < 0) polygon.reverse();
-      for (let i = 0; i < points.length; i++) {
-        const a = points[i]!, edge = sub(points[(i + 1) % points.length]!, a);
-        const inward = cross(normal, edge);
-        polygon = clip(polygon, p => dot(sub(p, a), inward));
+  const polygons = region ? clipSurfaceRegion(points, normal, { ...spec, region }) : [[points]];
+  if (!polygons) return false;
+  for (const polygon of polygons) {
+    for (const [index, ring] of polygon.entries()) {
+      let loop = region ? ring.map(p => add(origin, p)) : ring;
+      const sign = region ? Math.sign(polygonMeasure(ring, zero(), normal).area) * (index === 0 ? 1 : -1) : 1;
+      if (vary) {
+        const lo = Math.min(vary.c1, vary.c2), hi = Math.max(vary.c1, vary.c2);
+        loop = clip(clip(loop, p => coordinate(p) - lo), p => hi - coordinate(p));
       }
+      integratePolygon(out, loop, normal, force.scale(sign), field);
     }
-    if (vary) {
-      const lo = Math.min(vary.c1, vary.c2), hi = Math.max(vary.c1, vary.c2);
-      polygon = clip(clip(polygon, p => coordinate(p) - lo), p => hi - coordinate(p));
-    }
-    integratePolygon(out, polygon, normal, index === 0 ? force : force.scale(-1), field);
   }
   return true;
 }
@@ -209,33 +294,15 @@ export function accountUniformClippedSurface(out: Wrench, points: Vector[], spec
   if (spec.frame && spec.frame !== 'local' && spec.frame !== 'global' && spec.frame !== 'projected') return false;
   const direction: Vector = spec.frame === 'local' ? normal : spec.frame ? unit(spec.dir ?? [0, 0, -1]) : [0, 0, -1];
   const force = LoadVector.from(direction).scale(spec.frame === 'projected' ? Math.abs(dot(direction, normal)) : 1).scale(spec.q);
-  const projection = unit(region.normal);
-  const denominator = dot(projection, normal);
-  if (!Number.isFinite(denominator) || !force.value.every(Number.isFinite)) return false;
-  if (denominator === 0) return true;
-  const ex = unit(u), ey = cross(normal, ex);
-  const planar = (p: Vector): [number, number] => [dot(p, ex), dot(p, ey)];
-  const projectedRing = (ring: Vector[]): Ring => ring.map(p => {
-    const delta = sub(p, origin);
-    return planar(sub(delta, mul(projection, dot(delta, normal) / denominator)));
-  });
-  let clipped: Ring[][];
-  try {
-    const outer = projectedRing(region.points);
-    const holes = (region.holes ?? []).map(ring => [projectedRing(ring)]);
-    const footprint = holes.length ? polygonClipping.difference([outer], ...holes) : [[outer]];
-    clipped = polygonClipping.intersection([points.map(p => planar(sub(p, origin)))], footprint);
-  } catch {
-    return false;
-  }
-
+  if (!force.value.every(Number.isFinite)) return false;
+  const clipped = clipSurfaceRegion(points, normal, { ...spec, region });
+  if (!clipped) return false;
   for (const polygon of clipped) {
     for (const [index, ring] of polygon.entries()) {
-      const { area, first } = polygonMeasure(ring.map(([x, y]) => [x, y, 0]), zero(), [0, 0, 1]);
+      const { area, first } = polygonMeasure(ring, zero(), normal);
       if (!Number.isFinite(area) || !first.every(Number.isFinite)) return false;
       const sign = Math.sign(area) * (index === 0 ? 1 : -1);
-      const firstMoment = add(mul(ex, sign * first[0]), mul(ey, sign * first[1]));
-      out.apply(origin, force.scale(sign * area), force.momentAt(firstMoment));
+      out.apply(origin, force.scale(sign * area), force.momentAt(mul(first, sign)));
     }
   }
   return true;
@@ -244,7 +311,7 @@ export function accountUniformClippedSurface(out: Wrench, points: Vector[], spec
 export function expectedSurfaceNodeForces(points: Vector[], spec: ShellLoadSpec): LoadVector[] | null {
   const geometry = surfaceGeometry(points);
   if (!geometry) return null;
-  const { triangle, origin, u, v, normal, jac, along, across } = geometry;
+  const { triangle, u, v, normal, jac, along, across } = geometry;
 
   const normalized = (direction: Vector) => norm(direction) === 0 ? zero() : unit(direction);
   const direction = spec.frame === 'local' ? normal : normalized(spec.frame ? spec.dir ?? [0, 0, -1] : [0, 0, -1]);
@@ -268,26 +335,16 @@ export function expectedSurfaceNodeForces(points: Vector[], spec: ShellLoadSpec)
   }
 
   if (spec.qNodes) return null;
-  if (nonAffineQuad(geometry)) return null;
   const shell: Ring = triangle ? [[0, 0], [1, 0], [0, 1]] : quadCorners.map(([s, t]) => [s, t]);
   let rings = [[shell]];
   if (spec.region) {
-    const projection = normalized(spec.region.normal);
-    const den = dot(projection, normal);
-    if (den === 0) return points.map(() => LoadVector.from(zero()));
-    if (!Number.isFinite(den)) return null;
-    const toNatural = (point: Vector): [number, number] => {
-      const delta = sub(point, origin);
-      const plane = sub(delta, mul(projection, dot(delta, normal) / den));
-      return [dot(cross(plane, v), normal) / jac, dot(cross(u, plane), normal) / jac];
-    };
-    const region = [spec.region.points, ...(spec.region.holes ?? [])].map(ring => ring.map(toNatural));
-    try {
-      rings = polygonClipping.intersection([shell], region);
-    } catch {
-      return null;
-    }
+    const clipped = clipSurfaceRegion(points, normal, { ...spec, region: spec.region });
+    if (!clipped) return null;
+    if (!clipped.length) return points.map(() => LoadVector.from(zero()));
+    const toNatural = (p: Vector): Point2 => [dot(cross(p, v), normal) / jac, dot(cross(u, p), normal) / jac];
+    rings = clipped.map(polygon => polygon.map(ring => ring.map(toNatural)));
   }
+  if (nonAffineQuad(geometry)) return null;
   const coordinate = ([s, t]: Vector) => coords[0]! + s * dot(axis, u) + t * dot(axis, v);
   return clippedAffineForces(triangle, jac, rings, coordinate, spec).map(integral => integral.force(force));
 }

@@ -2,6 +2,7 @@ import type { Translations } from '../types';
 const it: Translations = {
   'svc.accountingMismatch': "Analisi rifiutata. Caso di carico {case}, {component}. Valore inserito {entered}, valore assemblato {assembled}.",
   'svc.accountingUnsupported': "Analisi rifiutata. Non è possibile contabilizzare forze e momenti di {kind} {id} nel caso di carico {case}.",
+  'svc.accountingSurfaceProjection': "Analisi rifiutata. Nel caso di carico {case}, la direzione di proiezione della regione di carico è parallela o quasi parallela all’elemento di guscio #{id}.",
   'svc.accountingArea': "Analisi rifiutata. La piastra {plate} ha un’area o un contorno diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",
   'svc.accountingSweep': "Analisi rifiutata. Il bordo curvo della piastra {plate} segue un arco diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",
   'svc.accountingShellEdits': "Non è possibile rigenerare la mesh della piastra {plate}, perché si perderebbe un’eccentricità o una modifica di curvatura del guscio.",
@@ -21,7 +22,7 @@ const it: Translations = {
   'loadPlan.gravity.memberSlopeLimit': "L’asta {id} è troppo vicina al limite di pendenza per stabilire se porta i carichi gravitazionali. Definisci esplicitamente i suoi carichi.",
   'snow.refused.stepDriftTransfer': "La generazione dei carichi da neve non può trasferire in modo affidabile l’accumulo sul salto di quota della copertura alle aste portanti. Definisci esplicitamente i carichi da neve.",
   'loadPlan.gravity.unresolvedMember': "L’elemento {id} è coperto solo in parte da un guscio e il trasferimento di carico del pannello è indeterminato.",
-  'loadPlan.gravity.rafterGap': "La copertura presenta un’apertura alle progressive {gap} m lungo le aste {members}. Modellare la copertura sopra l’apertura o assegnare esplicitamente i carichi in quel tratto.",
+  'loadPlan.gravity.rafterGap': "La copertura presenta un’apertura alle progressive in pianta {gap} m lungo le aste {members}. Modellare la copertura sopra l’apertura o assegnare esplicitamente i carichi in quel tratto.",
   'loadPlan.gravity.offsetRafter': "L’asta {id} è collegata rigidamente a un guscio di copertura con un disassamento che impedisce l’assegnazione automatica del carico gravitazionale. Assegnare manualmente il carico superficiale una sola volta.",
   'loadPlan.gravity.differentDeck': "Il guscio di copertura deve appartenere allo stesso impalcato del pannello di travi.",
   'loadPlan.gravity.differentSlopedDeck': "Il guscio inclinato di copertura deve appartenere allo stesso impalcato del pannello di travi.",

@@ -29,6 +29,8 @@
  */
 import { shellLocalAxes } from './shell-results';
 
+export const MIN_SHELL_REGION_PROJECTION = 1e-9;
+
 export type Vec3 = [number, number, number];
 type P2 = [number, number];
 export interface ShellPoint { x: number; y: number; z?: number }
@@ -367,7 +369,7 @@ function loadedPieces(el: Element, spec: Pick<ShellLoadSpec, 'vary' | 'region'>)
   const toPlane = (P: Vec3, normal: Vec3): P2 | null => {
     const nn = unit(normal);
     const den = dot(el.ez, nn);
-    if (Math.abs(den) < 1e-9) return null;
+    if (Math.abs(den) < MIN_SHELL_REGION_PROJECTION) return null;
     const t = dot(el.ez, sub(el.X[0]!, P)) / den;
     const X = sub([P[0] + t * nn[0], P[1] + t * nn[1], P[2] + t * nn[2]], el.X[0]!);
     return [dot(X, el.ex), dot(X, el.ey)];

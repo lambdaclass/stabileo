@@ -30,8 +30,7 @@
  *
  * Pure: no store.
  */
-import { canonicalFootprint, footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, ringArea, samePhysicalDeck, shellEdgeComponents, subtractFootprints, unionFootprints, type PlaneBasis, type ShellPlane } from './gravity-shell-partition';
-import { gravityShellCells, gravityShellKey, gravityShellSurfaceArea, type GravityShellTarget, type GravityShellKey } from './gravity-shell-partition';
+import { canonicalFootprint, footprintArea, footprintBounds, footprintIntersection, planarShell, refuseGravityGeometry, ringArea, samePhysicalDeck, shellEdgeComponents, subtractFootprints, unionFootprints, type PlaneBasis, type ShellPlane, gravityShellCells, gravityShellKey, gravityShellSurfaceArea, type GravityShellTarget, type GravityShellKey } from './gravity-shell-partition';
 import { physicalRoofRuns, samePhysicalPoint, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { orient2d } from 'robust-predicates';
@@ -712,16 +711,16 @@ function verticalShellLinks(model: GravityModel): VerticalShellLink[] {
   return links;
 }
 
-function groundedStations(model: GravityModel, requireAll = false): Set<number> {
+function groundedStations(model: GravityModel, restraint: 'vertical' | 'translations' | 'fixed' = 'vertical'): Set<number> {
   const grounded = new Set<number>();
   for (const [id, support] of model.supports ?? []) {
     if (!support.type) continue;
     try {
       const dofs = supportDofs3D({ ...support, id, type: support.type });
       const vertical = dofs.rz && (support.dofFrame !== 'local' || (dofs.rx && dofs.ry));
-      const fixed = dofs.rx && dofs.ry && dofs.rz && dofs.rrx && dofs.rry && dofs.rrz
-        && !support.uplift && !support.curves && !support.isInclined;
-      if (requireAll ? fixed : vertical) grounded.add(support.nodeId);
+      const translations = dofs.rx && dofs.ry && dofs.rz && !support.uplift && !support.curves && !support.isInclined;
+      const fixed = translations && dofs.rrx && dofs.rry && dofs.rrz;
+      if (restraint === 'vertical' ? vertical : restraint === 'translations' ? translations : fixed) grounded.add(support.nodeId);
     } catch (error) {
       if (!(error instanceof SupportMappingError)) throw error;
     }
@@ -749,7 +748,7 @@ function shellOffsets(
   return offsets;
 }
 
-function boundedRafterGaps([start, end]: Segment, carriers: ShellCarrier[], shellNodes: ReadonlySet<number>, length: number): RunInterval[] {
+function boundedRafterGaps([start, end]: Segment, carriers: ShellCarrier[], shellNodes: ReadonlySet<number>, length: number): RunInterval[] | null {
   const error = 64 * Number.EPSILON * Math.max(length, ...start.map(Math.abs), ...end.map(Math.abs));
   const coplanar = carriers.filter(({ plane }) => plane && samePhysicalDeck([
     [plane([start[0], start[1]]), start[2]], [plane([end[0], end[1]]), end[2]],
@@ -762,7 +761,7 @@ function boundedRafterGaps([start, end]: Segment, carriers: ShellCarrier[], shel
   if (!bounded(gaps)) {
     if (!gaps.length || attached.size === coplanar.length) return [];
     const combined = shellTrace([start, end], coplanar);
-    if (combined.coverage !== 'full' && !bounded(combined.gaps)) return [];
+    return combined.coverage === 'full' || bounded(combined.gaps) ? null : [];
   }
   const intervals: RunInterval[] = [];
   for (const [a, b] of gaps) {
@@ -833,6 +832,7 @@ function rigidShellCoverage(
       const runTrace: Segment = [attachmentPoint(run.a, offset), attachmentPoint(run.b, offset)];
       if (anchored && Math.hypot(offset[0], offset[1]) <= error && Math.abs(runTrace[1][2] - runTrace[0][2]) > TOL) {
         const gaps = boundedRafterGaps(runTrace, carriers, shellNodes, run.length);
+        if (!gaps) refuseGravityGeometry(msg('loadPlan.gravity.offsetRafter', { id: Math.min(...ids) }));
         if (gaps.length) refuseGravityGeometry(msg('loadPlan.gravity.rafterGap', {
           members: [...ids].sort((a, b) => a - b).join(', '),
           gap: gaps.map(([a, b]) => `${round(a * run.length, 6)}–${round(b * run.length, 6)}`).join(', '),
@@ -1019,13 +1019,15 @@ function independentDecks(model: GravityModel) {
   }
   if (supports.size === 0) return () => false;
   const reachable = verticalSupportPaths(model, supports);
-  const fixed = groundedStations(model, true);
+  const fixed = groundedStations(model, 'fixed');
+  const translations = groundedStations(model, 'translations');
   const connection = new NodeComponents();
   const join = ([first, ...others]: number[]) => {
     if (first !== undefined) for (const node of others) connection.join(first, node);
   };
-  for (const { nodeI, nodeJ, type } of model.elements.values()) {
-    if (type !== 'truss' || !fixed.has(nodeI) || !fixed.has(nodeJ)) connection.join(nodeI, nodeJ);
+  for (const { nodeI, nodeJ, type, offset } of model.elements.values()) {
+    const restrained = offset ? fixed : translations;
+    if (type !== 'truss' || !restrained.has(nodeI) || !restrained.has(nodeJ)) connection.join(nodeI, nodeJ);
   }
   for (const { nodeI, nodeJ } of model.connectors?.values() ?? []) connection.join(nodeI, nodeJ);
   for (const { cell } of gravityShellCells(model)) join(cell.nodes);

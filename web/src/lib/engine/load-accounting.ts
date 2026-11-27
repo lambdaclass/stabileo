@@ -14,7 +14,7 @@ import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { planarLoadDirection } from './planar-load-direction';
 import { transverseSign } from './transverse-sign-2d';
 import { add, cross, mul, agreesAtScale, assembledMagnitudes3D, memberLineSources, LoadScalar, LoadVector, norm, positionAt, sub, unit, xyz, zero, Wrench, type Vector } from './accounting-math';
-import { accountSurface, accountUniformClippedSurface, expectedSurfaceNodeForces } from './surface-accounting';
+import { accountSurface, accountUniformClippedSurface, expectedSurfaceNodeForces, SingularSurfaceProjection } from './surface-accounting';
 import type { ShellLoadSpec } from './shell-load-integration';
 import { quadGaussSamples } from './solver-shells';
 import { selfWeightDirection, type SelfWeightSource } from './self-weight';
@@ -35,8 +35,31 @@ function unsupported(model: ModelData, caseId: number, kind: string, id: number)
   throw new SolveAccountingError(tp('svc.accountingUnsupported', { case: caseLabel(model, caseId), kind, id }));
 }
 
+function checkSurfaceProjection<T>(model: ModelData, caseId: number, id: number, check: () => T): T {
+  try {
+    return check();
+  } catch (error) {
+    if (!(error instanceof SingularSurfaceProjection)) throw error;
+    throw new SolveAccountingError(tp('svc.accountingSurfaceProjection', { case: caseLabel(model, caseId), id }));
+  }
+}
+
 function requireSurfaceNodeForces(model: ModelData, caseId: number, id: number, points: Vector[], spec: ShellLoadSpec): LoadVector[] {
-  return expectedSurfaceNodeForces(points, spec) ?? unsupported(model, caseId, 'surface3d', id);
+  return checkSurfaceProjection(model, caseId, id, () => expectedSurfaceNodeForces(points, spec))
+    ?? unsupported(model, caseId, 'surface3d', id);
+}
+
+export function verifyMassSurfaceRegion(
+  model: ModelData, caseId: number, spec: ShellLoadSpec & { quadId: number; on?: 'plate' },
+): void {
+  if (!spec.region) return;
+  const id = spec.quadId;
+  const shell = (spec.on === 'plate' ? model.plates : model.quads)?.get(id);
+  if (!shell) unsupported(model, caseId, 'surface3d', id);
+  const points = shell.nodes.map(nodeId => xyz(model.nodes.get(nodeId) ?? unsupported(model, caseId, 'node', nodeId)));
+  if (!checkSurfaceProjection(model, caseId, id, () => accountSurface(new Wrench(), points, spec))) {
+    unsupported(model, caseId, 'surface3d', id);
+  }
 }
 
 function compareComponent(
@@ -301,7 +324,10 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
         const surface = intent ? new Wrench() : out;
         if (!shell || frame !== 'space') unsupported(model, caseId, load.type, spec.quadId);
         const account = isClippedSlabZone(model, spec) ? accountUniformClippedSurface : accountSurface;
-        if (!account(surface, shell.nodes.map(at), spec)) unsupported(model, caseId, load.type, spec.quadId);
+        const points = shell.nodes.map(at);
+        if (!checkSurfaceProjection(model, caseId, spec.quadId, () => account(surface, points, spec))) {
+          unsupported(model, caseId, load.type, spec.quadId);
+        }
         if (intent) {
           let adjusted = surface;
           for (const factor of [intent.factor - (coveredByDefinition ? 1 : 0), ...(intent.caseFactors ?? [])]) {
