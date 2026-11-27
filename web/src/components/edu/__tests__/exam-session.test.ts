@@ -18,7 +18,7 @@ const EXAM: Exam = {
 
 function attempt(over: Partial<Attempt> = {}): Attempt {
   return {
-    id: 'att-1', code: EXAM.code, title: EXAM.title, seed: 3141592653, started_at: iso(T0), deadline_at: iso(T0 + 3_600_000),
+    revision: 0, id: 'att-1', code: EXAM.code, title: EXAM.title, seed: 3141592653, started_at: iso(T0), deadline_at: iso(T0 + 3_600_000),
     submitted_at: null, answers: {}, client_score: null, closed: false, reveal: 'on_submit', closes_at: null, reveal_allowed: false,
     exercise: exerciseEnvelope(spec()), now: iso(Date.now()), ...over,
   };
@@ -315,7 +315,7 @@ describe('during the attempt', () => {
     expect(examLock.locked).toBe(false);
   });
 
-  it.skip('known wrong result: #1927 — submit freezes the final answers while an autosave is still in flight', async () => {
+  it('known wrong result: #1927 — submit freezes the final answers while an autosave is still in flight', async () => {
     let finish!: (a: Attempt) => void;
     const { s, api } = await running({ saveAnswers: vi.fn(() => new Promise<Attempt>(resolve => { finish = resolve; })) });
     s.update(answer('old'));
@@ -333,7 +333,7 @@ describe('during the attempt', () => {
     expect(s.attempt?.closed).toBe(true);
   });
 
-  it.skip.each(['save', 'start'])('known wrong result: #1927 — disposal during %s cannot reengage the lock', async operation => {
+  it.each(['save', 'start'])('known wrong result: #1927 — disposal during %s cannot reengage the lock', async operation => {
     let finish!: (a: Attempt) => void;
     const pending = vi.fn(() => new Promise<Attempt>(resolve => { finish = resolve; }));
     const { d } = deps(operation === 'start' ? { start: pending } : { saveAnswers: pending });
@@ -354,7 +354,7 @@ describe('during the attempt', () => {
     expect(examLock.releaseReason).toBe('left');
   });
 
-  it.skip('known wrong result: #1927 — a failed manual hand-in crossing the deadline retries the frozen payload', async () => {
+  it('known wrong result: #1927 — a failed manual hand-in crossing the deadline retries the frozen payload', async () => {
     let fail!: (e: Error) => void;
     const submit = vi.fn().mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }))
       .mockResolvedValueOnce(attempt({ closed: true }));
@@ -369,6 +369,30 @@ describe('during the attempt', () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(submit).toHaveBeenCalledTimes(2);
     expect(submit.mock.calls[1]).toEqual(submit.mock.calls[0]);
+  });
+
+  it.each([true, false])('only acknowledges a competing save carrying this session’s own payload (%s)', async own => {
+    let saved!: (a: Attempt) => void;
+    let writing: Record<string, unknown> = {};
+    const { s, api } = await running({ saveAnswers: vi.fn((_id, body) => {
+      writing = body;
+      return new Promise<Attempt>(resolve => { saved = resolve; });
+    }) });
+    s.update(answer('old'));
+    const save = s.flush();
+    await vi.advanceTimersByTimeAsync(0);
+    s.update(answer('final'));
+    api.submit.mockRejectedValueOnce(new ApiError(409, 'stale_revision', ''));
+    const current = attempt({ revision: 1, answers: own ? writing : { ...writing, answers: answer('different device') } });
+    api.attempt.mockResolvedValueOnce(current);
+    await s.submit();
+    expect(api.submit).toHaveBeenCalledTimes(own ? 2 : 1);
+    if (own) {
+      expect(api.submit.mock.calls[1]![1]).toMatchObject({ revision: 1, answers: { answers: answer('final') } });
+      expect(s.phase).toBe('closed');
+    } else expect(s.unavailable).toBe('conflict');
+    saved(current);
+    await save;
   });
 
   it('refresh picks up results that open later', async () => {

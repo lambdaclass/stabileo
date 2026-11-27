@@ -116,22 +116,23 @@
     if (isParametric(spec)) {
       legajoInput = '';
       eduStore.pending = spec;
-      return;
+      return true;
     }
-    startVariant(spec);
+    return startVariant(spec);
   }
 
   function startVariant(spec: EduExerciseSpec, which?: number | Variant, legajo?: string) {
-    let exercise: EduExercise;
     try {
-      exercise = toExercise(variantOf(spec, which), { legajo });
+      const exercise = toExercise(variantOf(spec, which), { legajo });
+      loadExercise(exercise);
+      currentSpec = spec;
+      eduStore.pending = null;
+      openError = '';
+      return true;
     } catch (e) {
-      openError = (e as Error).message;
-      return;
+      openError = e instanceof Error ? e.message : String(e);
+      return false;
     }
-    eduStore.pending = null;
-    currentSpec = spec;
-    loadExercise(exercise);
   }
 
   function startWithLegajo() {
@@ -223,11 +224,10 @@
 
   /** Open a draft the way a student will get it, without saving it first. */
   function previewAsStudent(spec: EduExerciseSpec, variant?: Variant) {
+    if (!(variant ? startVariant(spec, variant) : openSpec(spec))) return;
     previewingSpec = spec;
     editingSpec = spec;
     eduStore.authoring = false;
-    if (variant) startVariant(spec, variant);
-    else openSpec(spec);
   }
 
   /** Poll for the engine, then solve. Bounded, and it gives up in the open
@@ -273,6 +273,7 @@
 
 <div class="edu-panel">
   {#if eduStore.authoring}
+    {#if openError}<p role="alert">{openError}</p>{/if}
     <ExerciseAuthor
       onclose={() => { eduStore.authoring = false; editingSpec = null; }}
       onsaved={handleAuthored}

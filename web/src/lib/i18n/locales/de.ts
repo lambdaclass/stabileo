@@ -12193,6 +12193,8 @@ const de: Translations = {
   'exam.csv.total': 'Fragen',
   'exam.csv.percent': 'Prozent',
   'exam.loading': 'Wird geladen…',
+  "exam.conflictingSave": "Eine andere Sitzung hat neuere Antworten gespeichert. Öffnen Sie den Versuch erneut und prüfen Sie die Antworten vor der Abgabe.",
+  "edu.review.remarkFailed": "Die erneute Bewertung ist fehlgeschlagen. Punktzahl und Urteile stammen aus der App des Lernenden.",
   'exam.refresh': 'Aktualisieren',
   'exam.signinTitle': 'Zum Ablegen bitte anmelden',
   'exam.signinLede': 'Alle Studierenden erhalten eigene Werte, die an ihr Konto gebunden sind. Ihre Lehrkraft sieht Ihren Namen und Ihre E-Mail-Adresse.',

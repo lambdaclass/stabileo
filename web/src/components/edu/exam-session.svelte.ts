@@ -1,18 +1,19 @@
 import { ApiError } from '../../lib/api/client';
 import { examsApi, type Attempt, type Exam } from '../../lib/api/assignments';
-import { examLock } from '../../lib/store/exam-lock.svelte';
+import { canonicalJson } from '../../lib/store/design-fingerprint';
+import { examLock, EXAM_GRACE_MS } from '../../lib/store/exam-lock.svelte';
 import type { EduExerciseSpec } from './exercise-spec';
 import type { SubmittedAnswer } from './exercise-submission';
 import { examSubmission, exerciseFromEnvelope, gradeAttempt, storedSubmission } from './exam-grading';
 
 export type ExamPhase = 'loading' | 'signin' | 'lobby' | 'running' | 'closed' | 'unavailable';
-export type ExamUnavailable = 'disabled' | 'notFound' | 'upcoming' | 'closed' | 'signinOff' | 'badExercise' | 'error';
+export type ExamUnavailable = 'disabled' | 'notFound' | 'upcoming' | 'closed' | 'signinOff' | 'badExercise' | 'conflict' | 'error';
 export type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'failed';
 export type ExamNote = 'autoSubmitted' | 'lateSubmit' | 'submitFailed' | null;
 
 export interface ExamSessionDeps {
   api: Pick<typeof examsApi, 'get' | 'start' | 'attempt' | 'saveAnswers' | 'submit'>;
-  lock: Pick<typeof examLock, 'engage' | 'release' | 'syncClock' | 'remainingMs' | 'locked'>;
+  lock: Pick<typeof examLock, 'engage' | 'release' | 'syncClock' | 'remainingMs' | 'locked' | 'serverNow'>;
   auth: { ready(): Promise<void>; readonly isAuthenticated: boolean; readonly assignmentsEnabled: boolean; readonly userLoginEnabled: boolean };
   score?: (spec: EduExerciseSpec, seed: number, answers: unknown) => number | null;
   debounceMs?: number;
@@ -23,6 +24,7 @@ const defaultScore = (spec: EduExerciseSpec, seed: number, answers: unknown) => 
 
 function unavailableFor(e: unknown): ExamUnavailable | 'signin' {
   if (!(e instanceof ApiError)) return 'error';
+  if (e.code === 'stale_revision') return 'conflict';
   if (e.status === 401) return 'signin';
   if (e.status === 403) return 'disabled';
   if (e.status === 404) return 'notFound';
@@ -55,7 +57,10 @@ export function createExamSession(deps: ExamSessionDeps) {
   let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
   let inFlight: Promise<void> | null = null;
   let submitting: Promise<void> | null = null;
-  let handingIn = false;
+  let disposed = false;
+  let frozen = $state.raw<{ answers: Record<string, unknown>; client_score?: number } | null>(null);
+  let pendingSave: { revision: number; answers: Record<string, unknown> } | null = null;
+  let revision = 0;
 
   function stopTimers(): void {
     if (saveTimer !== null) clearTimeout(saveTimer);
@@ -64,6 +69,7 @@ export function createExamSession(deps: ExamSessionDeps) {
   }
 
   function fail(e: unknown): void {
+    if (disposed) return;
     stopTimers();
     const why = unavailableFor(e);
     lock.release(why === 'disabled' ? 'disabled' : 'error');
@@ -80,6 +86,8 @@ export function createExamSession(deps: ExamSessionDeps) {
   }
 
   function adopt(a: Attempt): void {
+    if (disposed) return;
+    revision = a.revision;
     attempt = a;
     lock.syncClock(a.now);
     const parsed = exerciseFromEnvelope(a.exercise);
@@ -122,25 +130,37 @@ export function createExamSession(deps: ExamSessionDeps) {
     dirty = false;
     try {
       const a = await api.attempt(attempt!.id);
+      if (disposed) return;
       attempt = a;
       answers = storedSubmission(a.answers)?.answers ?? [];
     } catch {
+      if (disposed) return;
       attempt = { ...attempt!, closed: true };
     }
     phase = 'closed';
   }
 
   async function write(): Promise<void> {
-    if (!dirty || handingIn || phase !== 'running' || !attempt || !spec) return;
+    if (!dirty || frozen || phase !== 'running' || !attempt || !spec) return;
     dirty = false;
     saveState = 'saving';
     try {
-      const a = await api.saveAnswers(attempt.id, payload());
-      attempt = { ...a, answers: a.answers };
+      const sent = { revision, answers: JSON.parse(JSON.stringify(payload())) as Record<string, unknown> };
+      pendingSave = sent;
+      const a = await api.saveAnswers(attempt.id, sent.answers, sent.revision);
+      revision = Math.max(revision, a.revision);
+      if (disposed || frozen || phase !== 'running') return;
+      pendingSave = null;
+      attempt = a;
       lock.syncClock(a.now);
       saveState = dirty ? 'pending' : 'saved';
       if (!lock.locked && phase === 'running') lock.engage({ deadlineAt: a.deadline_at, serverNow: a.now });
     } catch (e) {
+      if (disposed || frozen) return;
+      if (e instanceof ApiError && e.code === 'stale_revision') {
+        fail(e);
+        return;
+      }
       if (closedByServer(e)) {
         note = 'lateSubmit';
         await closeFromServer();
@@ -160,16 +180,31 @@ export function createExamSession(deps: ExamSessionDeps) {
   async function submitOnce(auto: boolean): Promise<void> {
     if (phase !== 'running' || !attempt || !spec) return;
     if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
-    await inFlight;
-    if (phase !== 'running' || !attempt || !spec) return;
     busy = true;
-    handingIn = true;
     dirty = false;
-    const body = payload();
-    let clientScore: number | null = null;
-    try { clientScore = score(spec, attempt.seed, body); } catch { clientScore = null; }
+    if (!frozen) {
+      const body = JSON.parse(JSON.stringify(payload())) as Record<string, unknown>;
+      let clientScore: number | null = null;
+      try { clientScore = score(spec, attempt.seed, body); } catch { clientScore = null; }
+      frozen = clientScore === null ? { answers: body } : { answers: body, client_score: clientScore };
+    }
+    const final = frozen;
+    const sentRevision = revision;
+    const competing = pendingSave;
+    const id = attempt.id;
     try {
-      const a = await api.submit(attempt.id, clientScore === null ? { answers: body } : { answers: body, client_score: clientScore });
+      let a: Attempt;
+      try {
+        a = await api.submit(id, { ...final, revision: sentRevision });
+      } catch (e) {
+        if (disposed || !(e instanceof ApiError) || e.code !== 'stale_revision' || competing?.revision !== sentRevision) throw e;
+        const current = await api.attempt(id);
+        if (disposed) return;
+        if (current.revision !== sentRevision + 1 || canonicalJson(current.answers) !== canonicalJson(competing.answers)) throw e;
+        revision = current.revision;
+        a = await api.submit(id, { ...final, revision });
+      }
+      if (disposed) return;
       stopTimers();
       dirty = false;
       lock.release('submitted');
@@ -178,21 +213,27 @@ export function createExamSession(deps: ExamSessionDeps) {
       note = auto ? 'autoSubmitted' : null;
       phase = 'closed';
     } catch (e) {
+      if (disposed) return;
       if (closedByServer(e)) {
         note = 'lateSubmit';
         await closeFromServer();
-      } else if (e instanceof ApiError && e.status === 403) {
+      } else if (e instanceof ApiError && (e.status === 403 || e.code === 'stale_revision')) {
         fail(e);
       } else {
         dirty = true;
         saveState = 'failed';
         note = 'submitFailed';
         lock.release('error');
-        if (auto && phase === 'running') deadlineTimer = setTimeout(() => void session.submit(true), retryMs);
+        const untilDeadline = Date.parse(attempt.deadline_at) - lock.serverNow();
+        if (untilDeadline <= 0 || auto) {
+          const grace = untilDeadline + EXAM_GRACE_MS;
+          if (grace > 0) deadlineTimer = setTimeout(() => void session.submit(true), Math.min(retryMs, grace));
+          else await closeFromServer();
+        }
       }
     } finally {
       busy = false;
-      handingIn = false;
+
     }
   }
 
@@ -206,6 +247,7 @@ export function createExamSession(deps: ExamSessionDeps) {
     get saveState() { return saveState; },
     get note() { return note; },
     get busy() { return busy; },
+    get frozen() { return frozen !== null; },
     get code() { return code; },
 
     async load(next: string): Promise<void> {
@@ -214,6 +256,7 @@ export function createExamSession(deps: ExamSessionDeps) {
       unavailable = null;
       note = null;
       await auth.ready();
+      if (disposed) return;
       if (!auth.isAuthenticated) {
         if (auth.userLoginEnabled) phase = 'signin';
         else { unavailable = 'signinOff'; phase = 'unavailable'; }
@@ -224,7 +267,9 @@ export function createExamSession(deps: ExamSessionDeps) {
         return;
       }
       try {
-        exam = await api.get(code);
+        const opened = await api.get(code);
+        if (disposed) return;
+        exam = opened;
       } catch (e) {
         fail(e);
         return;
@@ -247,7 +292,7 @@ export function createExamSession(deps: ExamSessionDeps) {
     },
 
     update(next: SubmittedAnswer[]): void {
-      if (phase !== 'running') return;
+      if (disposed || frozen || phase !== 'running') return;
       if (JSON.stringify(next) === JSON.stringify(answers)) return;
       answers = next;
       dirty = true;
@@ -259,8 +304,8 @@ export function createExamSession(deps: ExamSessionDeps) {
     /** Saves now whatever is waiting; chained, so two flushes never send out of order. */
     flush(): Promise<void> {
       if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
-      const run = (inFlight ?? Promise.resolve()).then(write);
-      inFlight = run.finally(() => { if (inFlight === run) inFlight = null; });
+      const run = (inFlight ?? Promise.resolve()).then(write).finally(() => { if (inFlight === run) inFlight = null; });
+      inFlight = run;
       return run;
     },
 
@@ -275,6 +320,7 @@ export function createExamSession(deps: ExamSessionDeps) {
       busy = true;
       try {
         const a = await api.attempt(attempt.id);
+        if (disposed) return;
         attempt = a;
         lock.syncClock(a.now);
       } catch {
@@ -285,6 +331,7 @@ export function createExamSession(deps: ExamSessionDeps) {
     },
 
     dispose(): void {
+      disposed = true;
       stopTimers();
       lock.release('left');
     },

@@ -7,12 +7,12 @@
 3. **The lock fails open, and the server never blocks a model.** Locking Stabileo's tools during an attempt happens only in the browser. It lasts at most until `deadline_at`, and it is lifted on submit, at the deadline, on any error reaching the backend, and when the flag is off. Nothing on the server stops a user from opening or editing their own model.
 4. **The server picks the seed.** A 32-bit unsigned seed from `:crypto.strong_rand_bytes/1`, fixed when the attempt starts, so a student cannot choose their variant. There is one attempt per student per assignment and no retake; the owner cannot reset one yet.
 5. **The deadline is set when the attempt starts.** `deadline_at = min(started_at + duration_minutes, closes_at)`. Later edits to `duration_minutes` or `closes_at` do not move existing deadlines. Autosave and submit get 30 seconds of grace after `deadline_at` for the network.
-6. **Past the deadline, the last autosave is the attempt.** A submit after the grace answers 409 `attempt_closed` and leaves the last autosave in place, and the attempt counts as closed from then on.
-7. **Two reveal modes.** `on_submit`: results show once the attempt is closed (submitted, or past its deadline and grace). `after_close`: results show once `closes_at` and the grace have passed, when no attempt can change any more, so `after_close` requires `closes_at`. `reveal_allowed` tells the app when to show the graded explanation; since grading is in the browser, it cannot hide what the student's browser can compute.
+6. **Past the deadline, the last autosave is the attempt.** A submit after the grace answers 409 `attempt_closed` and leaves the last autosave in place, and the server records the deadline as the hand-in time. Teacher reads and the retention job finalize expired attempts without a student request.
+7. **Two reveal modes.** `on_submit`: results show once the attempt is closed (submitted, or past its deadline and grace). `after_close`: results show once the latest of `closes_at` and outstanding attempt deadlines plus grace has passed, when no attempt can change any more, so `after_close` requires `closes_at`. `reveal_allowed` tells the app when to show the graded explanation; since grading is in the browser, it cannot hide what the student's browser can compute.
 8. **Another account's assignment or attempt is a 404, never a 403**, as with projects, so ids do not leak. The only 403 is `assignments_disabled`.
 9. **The owner sees each student's name, email, seed, answers and score.** The exam page shows the owner's name before the student starts, and the app says the owner will see their name and email. The owner may take their own assignment to try it; that attempt is listed with the rest.
 10. **Deleting is a hard delete, cascading the attempts.** This departs from the soft-delete rule on purpose: the rows hold students' answers and personal data, and a soft delete would keep them until the purge.
-11. **Retention: 365 days.** An assignment and its attempts are deleted 365 days after `closes_at`, or after `inserted_at` when there is no `closes_at`, even if it is still in use. `StabileoAssignments.Retention` runs the purge once a day in the release, like the usage-event retention.
+11. **Retention: 365 days.** An assignment and its attempts are deleted 365 days after `closes_at`, or after `inserted_at` when there is no `closes_at`, after all writable attempts have finished or passed their deadline plus grace. `StabileoAssignments.Retention` runs the purge once a day in the release, like the usage-event retention.
 12. **Size limits.** At most 100 assignments per account. Title 1 to 120 characters, `exercise` a JSON object of at most 256 KiB encoded, `answers` a JSON object of at most 64 KiB encoded, `duration_minutes` 1 to 600, `client_score` a number from 0 to 1 (the fraction the browser graded correct).
 13. **Rate limits per account, not per address.** A class behind one university address would share an IP limit. 60 requests a minute per account on the owner routes and 60 on the exam routes, in memory per node (`StabileoUtils.Plugs.RateLimit` with `key: :account`).
 14. **With the flag off, every endpoint answers 403 `assignments_disabled`**, the owner's reads and deletes included, as `cloud_projects_enabled` does. The data is kept, and the retention purge keeps running.
@@ -64,13 +64,13 @@ Prefix `/api/v1`, bearer auth (`StabileoAuth.Plugs.Authenticate`, product tokens
 | `GET` | `/exams/:code` | signed in | 60/min per account | — | `200 {data: <exam>}` | 401, 403, 404 |
 | `POST` | `/exams/:code/start` | signed in | same bucket | — | `200 {data: <attempt>}`, new or existing | 401, 403, 404, 409 `assignment_not_open`, 409 `assignment_closed` |
 | `GET` | `/exams/attempts/:id` | the attempt's student | same bucket | — | `200 {data: <attempt>}` | 401, 403, 404 |
-| `PUT` | `/exams/attempts/:id/answers` | the attempt's student | same bucket | answers 64 KiB | `200 {data: <attempt>}` | 401, 403, 404, 409 `attempt_closed`, 409 `attempt_submitted`, 422 |
-| `POST` | `/exams/attempts/:id/submit` | the attempt's student | same bucket | answers 64 KiB | `200 {data: <attempt>}` | 401, 403, 404, 409 `attempt_closed`, 409 `attempt_submitted`, 422 |
+| `PUT` | `/exams/attempts/:id/answers` | the attempt's student | same bucket | answers 64 KiB | `200 {data: <attempt>}` | 401, 403, 404, 409 `attempt_closed`, 409 `attempt_submitted`, 409 `stale_revision`, 422 |
+| `POST` | `/exams/attempts/:id/submit` | the attempt's student | same bucket | answers 64 KiB | `200 {data: <attempt>}` | 401, 403, 404, 409 `attempt_closed`, 409 `attempt_submitted`, 409 `stale_revision`, 422 |
 
 All 429s are `{"error": "rate_limited"}` with `retry-after`. 403 is always `assignments_disabled`. 404 covers an unknown or malformed id or code, another account's assignment or attempt, and a disabled owner's exam.
 
 - List params, `GET /assignments`: `limit`/`offset`, `sort_by` (`inserted_at` default desc, `updated_at`, `title`, `opens_at`, `closes_at`), `search` (title)
-- List params, `GET /assignments/:id/attempts`: `limit`/`offset`, `sort_by` (`started_at` default asc, `submitted_at`, `client_score`), `search` (student name or email)
+- List params, `GET /assignments/:id/attempts`: `limit`/`offset`, `sort_by` (`started_at` default asc, `submitted_at`), `search` (student name or email)
 - 422 `validation_error` with the field in `details`: `title` blank or long; `exercise` or `answers` not a JSON object or too large; `duration_minutes` outside 1–600; `closes_at` not after `opens_at`; `reveal` unknown, or `after_close` without `closes_at`; `client_score` outside 0–1
 
 ### What each endpoint keeps and shows
@@ -98,7 +98,7 @@ The admin site shows nothing from these tables.
 // <owner attempt>
 { "id": "uuid", "student": { "id": "uuid", "name": "Ada", "email": "ada@example.com" },
   "seed": 3141592653, "started_at": "…", "deadline_at": "…", "submitted_at": "…" | null,
-  "answers": { … }, "client_score": 0.75 | null }
+  "answers": { … } }
 // <exam>: what a student sees before starting
 { "code": "K7Q2M9XWPA", "title": "TP 3: vigas", "owner_name": "Prof. Pérez", "duration_minutes": 90,
   "opens_at": "…", "closes_at": "…" | null, "reveal": "after_close",
@@ -106,13 +106,13 @@ The admin site shows nothing from these tables.
   "now": "…" }
 // <attempt>: the student's own
 { "id": "uuid", "code": "K7Q2M9XWPA", "title": "TP 3: vigas", "seed": 3141592653,
-  "started_at": "…", "deadline_at": "…", "submitted_at": "…" | null, "answers": { … }, "client_score": null,
+  "started_at": "…", "deadline_at": "…", "submitted_at": "…" | null, "revision": 0, "answers": { … }, "client_score": null,
   "closed": false, "reveal": "after_close", "closes_at": "…", "reveal_allowed": false,
   "exercise": { … }, "now": "…" }
 // PUT .../answers
-{ "answers": { … } }
+{ "revision": 0, "answers": { … } }
 // POST .../submit; answers optional (the last autosave stands)
-{ "answers": { … }, "client_score": 0.75 }
+{ "revision": 1, "answers": { … }, "client_score": 0.75 }
 ```
 
 The app stores the exercise as an exercise file's envelope (`{"stabileoExercise": 1, "exercise": {…}}`) and the answers as a submission (`{"stabileoSubmission": 1, "exerciseId", "exerciseTitle", "student": "", "submittedAt", "seed", "answers": [{"key", "label", "answer", "unit"?, "outcome", "sketch"?}]}`), the same shape a downloaded hand-in has, so the owner's browser marks it again with the attempt's `seed`. The server keeps both as opaque objects.
@@ -184,3 +184,5 @@ None: seeds create accounts only.
 | Purge | Rows 365 days past closing (or creation without a close) gone, with their attempts; the rest kept |
 | Account row deleted | Its assignments, their attempts, and its own attempts gone |
 | More than 60 requests a minute from one account | 429 `rate_limited`; another account is unaffected |
+
+Every save and hand-in requires the last acknowledged attempt revision. A successful write advances it by one. The student receives the browser-reported score only after release. The teacher receives the answers and server seed and recomputes the grade for display and export.

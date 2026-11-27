@@ -12729,6 +12729,8 @@ const es: Record<string, string> = {
   'exam.csv.total': 'Preguntas',
   'exam.csv.percent': 'Porcentaje',
   'exam.loading': 'Cargando…',
+  "exam.conflictingSave": "Otra sesión guardó respuestas más recientes. Vuelva a abrir el intento para revisarlas antes de entregar.",
+  "edu.review.remarkFailed": "No se pudo volver a corregir. La nota y los resultados mostrados provienen de la aplicación del estudiante.",
   'exam.refresh': 'Actualizar',
   'exam.signinTitle': 'Para rendir, entrá con tu cuenta',
   'exam.signinLede': 'Cada alumno recibe sus propios datos, atados a su cuenta. Tu docente va a ver tu nombre y tu email.',

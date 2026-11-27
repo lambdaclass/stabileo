@@ -12202,6 +12202,8 @@ const tr: Translations = {
   'exam.csv.total': 'Soru',
   'exam.csv.percent': 'Yüzde',
   'exam.loading': 'Yükleniyor…',
+  "exam.conflictingSave": "Başka bir oturum daha yeni yanıtlar kaydetti. Teslimden önce girişimi yeniden açıp yanıtları inceleyin.",
+  "edu.review.remarkFailed": "Yeniden değerlendirme başarısız oldu. Gösterilen puan ve sonuçlar öğrencinin uygulamasından alınmıştır.",
   'exam.refresh': 'Yenile',
   'exam.signinTitle': 'Girmek için oturum açın',
   'exam.signinLede': 'Her öğrenci hesabına bağlı kendi verilerini alır. Öğretmeniniz adınızı ve e-posta adresinizi görür.',

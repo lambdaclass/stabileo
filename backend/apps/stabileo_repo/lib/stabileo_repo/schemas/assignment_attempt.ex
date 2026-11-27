@@ -13,6 +13,7 @@ defmodule StabileoRepo.Schemas.AssignmentAttempt do
 
   schema "assignment_attempts" do
     field(:seed, :integer)
+    field(:revision, :integer, default: 0)
     field(:started_at, :utc_datetime)
     field(:deadline_at, :utc_datetime)
     field(:answers, :map, default: %{})

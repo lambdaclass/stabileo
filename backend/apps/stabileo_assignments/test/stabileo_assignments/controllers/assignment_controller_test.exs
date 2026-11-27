@@ -6,7 +6,7 @@ defmodule StabileoAssignments.Controllers.AssignmentControllerTest do
   alias StabileoRepo.Schemas.{Assignment, AssignmentAttempt}
 
   @keys ~w(attempt_count closes_at code duration_minutes id inserted_at opens_at reveal submitted_count title updated_at)
-  @attempt_keys ~w(answers client_score deadline_at id seed started_at student submitted_at)
+  @attempt_keys ~w(answers deadline_at id seed started_at student submitted_at)
 
   setup do
     {:ok, _} = Features.set_assignments_enabled(true)
@@ -93,7 +93,11 @@ defmodule StabileoAssignments.Controllers.AssignmentControllerTest do
     {:ok, {attempt, _}} = Exams.start(student, data["code"])
 
     {:ok, _} =
-      Exams.submit(student, attempt.id, %{"answers" => %{"r1" => "12"}, "client_score" => 0.5})
+      Exams.submit(student, attempt.id, %{
+        "revision" => 0,
+        "answers" => %{"r1" => "12"},
+        "client_score" => 0.5
+      })
 
     body = request(:get, "/#{data["id"]}/attempts", %{}, token) |> json_body(200)
     assert [row] = body["data"]
@@ -107,7 +111,7 @@ defmodule StabileoAssignments.Controllers.AssignmentControllerTest do
 
     assert row["seed"] == attempt.seed
     assert row["answers"] == %{"r1" => "12"}
-    assert row["client_score"] == 0.5
+    refute Map.has_key?(row, "client_score")
     assert row["submitted_at"]
     assert body["meta"]["total"] == 1
   end

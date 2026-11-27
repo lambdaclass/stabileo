@@ -10,7 +10,7 @@ defmodule StabileoAssignments.Assignments do
   @retention_days 365
   @code_alphabet ~c"23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
   @sortable [:inserted_at, :updated_at, :title, :opens_at, :closes_at]
-  @attempt_sortable [:started_at, :submitted_at, :client_score]
+  @attempt_sortable [:started_at, :submitted_at]
   @input ~w(title exercise duration_minutes opens_at closes_at reveal)
 
   def limits, do: %{max_assignments: @max_assignments}
@@ -19,14 +19,14 @@ defmodule StabileoAssignments.Assignments do
     if Features.assignments_enabled?(), do: :ok, else: {:error, :assignments_disabled}
   end
 
-  def list(%Account{id: account_id}, params) do
+  def list(%Account{id: account_id}, params, at \\ now()) do
     with :ok <- enabled() do
       query =
         from(a in Assignment, where: a.account_id == ^account_id)
         |> search_title(params["search"])
 
       {rows, meta} = Listing.paginate(query, params, @sortable, :inserted_at, default_dir: :desc)
-      counts = counts(Enum.map(rows, & &1.id))
+      counts = counts(Enum.map(rows, & &1.id), at)
       {:ok, {Enum.map(rows, &{&1, Map.fetch!(counts, &1.id)}), meta}}
     end
   end
@@ -34,7 +34,7 @@ defmodule StabileoAssignments.Assignments do
   def get(%Account{} = account, id) do
     with :ok <- enabled(),
          {:ok, assignment} <- fetch(account, id) do
-      {:ok, with_counts(assignment)}
+      {:ok, {assignment, Map.fetch!(counts([assignment.id], now()), assignment.id)}}
     end
   end
 
@@ -87,7 +87,16 @@ defmodule StabileoAssignments.Assignments do
   @doc "Locks the row, so an attempt cannot start between the check for attempts and the new exercise."
   def update(%Account{} = account, id, params) do
     with :ok <- enabled() do
-      Repo.transaction(fn -> update_locked(account, id, attrs(params)) end)
+      Repo.transaction(fn ->
+        update_locked(
+          account,
+          id,
+          case attrs(params) do
+            %{opens_at: nil} = attrs -> %{attrs | opens_at: now()}
+            attrs -> attrs
+          end
+        )
+      end)
     end
   end
 
@@ -113,6 +122,11 @@ defmodule StabileoAssignments.Assignments do
   def attempts(%Account{} = account, id, params) do
     with :ok <- enabled(),
          {:ok, assignment} <- fetch(account, id) do
+      StabileoAssignments.Exams.finalize_expired(
+        from(t in AssignmentAttempt, where: t.assignment_id == ^assignment.id),
+        now()
+      )
+
       query =
         from(t in AssignmentAttempt,
           join: s in assoc(t, :account),
@@ -129,10 +143,30 @@ defmodule StabileoAssignments.Assignments do
   def purge_expired(%DateTime{} = now) do
     cutoff = DateTime.add(now, -@retention_days, :day)
 
-    {count, _} =
-      Repo.delete_all(
-        from(a in Assignment, where: coalesce(a.closes_at, a.inserted_at) < ^cutoff)
-      )
+    {:ok, count} =
+      Repo.transaction(fn ->
+        ids =
+          Repo.all(
+            from(a in Assignment,
+              where: coalesce(a.closes_at, a.inserted_at) < ^cutoff,
+              order_by: a.id,
+              lock: "FOR UPDATE",
+              select: a.id
+            )
+          )
+
+        StabileoAssignments.Exams.finalize_expired(AssignmentAttempt, now)
+
+        writable =
+          from(t in AssignmentAttempt, where: is_nil(t.submitted_at), select: t.assignment_id)
+
+        {deleted, _} =
+          Repo.delete_all(
+            from(a in Assignment, where: a.id in ^ids and a.id not in subquery(writable))
+          )
+
+        deleted
+      end)
 
     count
   end
@@ -162,7 +196,14 @@ defmodule StabileoAssignments.Assignments do
   defp with_counts(assignment),
     do: {assignment, Map.fetch!(counts([assignment.id]), assignment.id)}
 
-  defp counts(ids) do
+  defp counts(ids, at \\ nil) do
+    if at,
+      do:
+        StabileoAssignments.Exams.finalize_expired(
+          from(t in AssignmentAttempt, where: t.assignment_id in ^ids),
+          at
+        )
+
     found =
       from(t in AssignmentAttempt,
         where: t.assignment_id in ^ids,

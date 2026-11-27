@@ -67,7 +67,7 @@ class Backend {
     const now = Date.now();
     const closed = !!x.submitted_at || now > Date.parse(x.deadline_at as string) + 30_000;
     return {
-      id: x.id, code: a.code, title: a.title, seed: x.seed, started_at: x.started_at, deadline_at: x.deadline_at,
+      id: x.id, revision: x.revision, code: a.code, title: a.title, seed: x.seed, started_at: x.started_at, deadline_at: x.deadline_at,
       submitted_at: x.submitted_at, answers: x.answers, client_score: x.client_score, closed, reveal: a.reveal,
       closes_at: a.closes_at, reveal_allowed: a.reveal === 'on_submit' ? closed : false, exercise: a.exercise, now: new Date(now).toISOString(),
     };
@@ -129,6 +129,8 @@ class Backend {
       const x = this.attempts.get(m[1]!);
       if (!x || x.account_id !== me.id) return json(404, { error: 'not_found', message: 'nope' });
       if (x.submitted_at) return json(409, { error: 'attempt_submitted', message: 'submitted' });
+      if (body.revision !== x.revision) return json(409, { error: 'stale_revision' });
+      x.revision = Number(x.revision) + 1;
       if (body.answers) x.answers = body.answers;
       if (m[2] === 'submit') {
         x.submitted_at = nowIso;
@@ -142,7 +144,7 @@ class Backend {
       if (!a) return json(404, { error: 'not_found', message: 'nope' });
       let x = [...this.attempts.values()].find((y) => y.assignment_id === a.id && y.account_id === me.id);
       if (!x) {
-        x = { id: `att-${this.attempts.size + 1}`, assignment_id: a.id, account_id: me.id, seed: SEED, started_at: nowIso,
+        x = { id: `att-${this.attempts.size + 1}`, revision: 0, assignment_id: a.id, account_id: me.id, seed: SEED, started_at: nowIso,
           deadline_at: new Date(Date.now() + (a.duration_minutes as number) * 60_000).toISOString(), submitted_at: null, answers: {}, client_score: null };
         this.attempts.set(x.id as string, x);
       }
@@ -254,6 +256,10 @@ test.describe('@smoke Education — homework and exams with an account', () => {
     await expect(student.getByTestId('account-button'), 'the lock is lifted once handed in').toBeVisible();
     expect(backend.submits).toHaveLength(1);
     expect(backend.submits[0]!.client_score).toBe(0.75);
+
+    const stored = [...backend.attempts.values()][0]!;
+    stored.client_score = 1;
+    for (const row of (stored.answers as { answers: Row[] }).answers) row.outcome = 'correct';
 
     await teacher.reload();
     await teacher.getByTestId('assignment-attempts').click();

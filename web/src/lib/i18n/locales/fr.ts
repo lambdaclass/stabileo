@@ -12193,6 +12193,8 @@ const fr: Translations = {
   'exam.csv.total': 'Nombre de questions',
   'exam.csv.percent': 'Pourcentage',
   'exam.loading': 'Chargement…',
+  "exam.conflictingSave": "Une autre session a enregistré des réponses plus récentes. Rouvrez la tentative pour les vérifier avant de rendre la copie.",
+  "edu.review.remarkFailed": "La nouvelle correction a échoué. La note et les verdicts affichés proviennent de l’application de l’élève.",
   'exam.refresh': 'Actualiser',
   'exam.signinTitle': 'Connectez-vous pour le passer',
   'exam.signinLede': 'Chaque étudiant reçoit ses propres données, liées à son compte. Votre enseignant verra votre nom et votre e-mail.',

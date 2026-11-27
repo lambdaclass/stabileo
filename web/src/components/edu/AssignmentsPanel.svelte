@@ -18,15 +18,24 @@
   let openAttempts = $state<string | null>(null);
   let copiedId = $state<string | null>(null);
 
+  let generation = 0;
+  let now = $state(Date.now());
+  $effect(() => {
+    const timer = setInterval(() => { now = Date.now(); }, 1000);
+    return () => clearInterval(timer);
+  });
+
   async function load() {
+    const request = ++generation;
     loading = true;
     error = '';
     try {
-      items = (await assignmentsApi.list({ limit: 100 })).data;
+      const result = await assignmentsApi.list({ limit: 100 });
+      if (request === generation) items = result.data;
     } catch (e) {
-      error = errorText(e);
+      if (request === generation) error = errorText(e);
     } finally {
-      loading = false;
+      if (request === generation) loading = false;
     }
   }
 
@@ -39,6 +48,8 @@
     confirmDelete = null;
     try {
       await assignmentsApi.remove(a.id);
+      generation++;
+      loading = false;
       items = items.filter((x) => x.id !== a.id);
       if (openAttempts === a.id) openAttempts = null;
     } catch (e) {
@@ -56,7 +67,7 @@
   }
 
   const statusText = (a: Assignment) => {
-    const s = assignmentStatus(a);
+    const s = assignmentStatus(a, now);
     return s === 'upcoming' ? t('exam.status.upcoming') : s === 'closed' ? t('exam.status.closed') : t('exam.status.open');
   };
 </script>
@@ -72,7 +83,7 @@
     <div class="item" data-testid="assignment-row" data-code={a.code}>
       <div class="head">
         <span class="name">{a.title}</span>
-        <span class="status status-{assignmentStatus(a)}">{statusText(a)}</span>
+        <span class="status status-{assignmentStatus(a, now)}">{statusText(a)}</span>
       </div>
       <p class="meta">
         {tp('exam.minutes', { n: a.duration_minutes })} · {formatWhen(a.opens_at)} → {a.closes_at ? formatWhen(a.closes_at) : t('exam.noClose')}
@@ -99,7 +110,7 @@
 </div>
 
 {#if editing}
-  <AssignDialog editing={editing} onclose={() => (editing = null)} ondone={(next) => { items = items.map((x) => (x.id === next.id ? next : x)); }} />
+  <AssignDialog editing={editing} onclose={() => (editing = null)} ondone={(next) => { generation++; loading = false; items = items.map((x) => (x.id === next.id ? next : x)); }} />
 {/if}
 
 <style>

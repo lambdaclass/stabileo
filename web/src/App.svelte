@@ -436,7 +436,7 @@
   // and the route rules are `lib/public-route.ts`'s, the same ones Root.svelte reads.
   const isAppRoute = isAppPath;
   const isDemoRoute = isDemoPath;
-  const examCode = typeof window !== 'undefined' ? examCodeFromPath(location.pathname) : null;
+  let examCode = $state(typeof window !== 'undefined' ? examCodeFromPath(location.pathname) : null);
   if (examCode) examLock.enterRoom();
 
   /**
@@ -652,6 +652,17 @@
 
   async function syncRouteState() {
     const token = ++publicRevision;
+    const nextExam = examCodeFromPath(location.pathname);
+    if (examCode !== nextExam) {
+      if (examCode) {
+        const { leaveExamExercise } = await import('./components/edu/exercise-session');
+        if (token !== publicRevision) return;
+        leaveExamExercise();
+        examLock.leaveRoom();
+      }
+      examCode = nextExam;
+      if (nextExam) examLock.enterRoom();
+    }
     if (__PUBLIC_FEATURES__.tools) restoreMovedRoute();
     if (location.pathname.startsWith('/hu/')) {
       const { restoreUnpublishedResearchRoute } = await import('./lib/research-fallback');
@@ -2244,7 +2255,7 @@
         {/if}
       {:else if uiStore.appMode === 'educativo'}
         <aside class="sidebar right edu-sidebar">
-          {#if examCode}<ExamPanel code={examCode} />{:else}<EducativePanel />{/if}
+          {#if examCode}{#key examCode}<ExamPanel code={examCode} />{/key}{:else}<EducativePanel />{/if}
         </aside>
       {/if}
       <!--
@@ -2344,7 +2355,7 @@
         -->
         <ProPanel bind:this={proPanelRef} />
       {:else if uiStore.appMode === 'educativo'}
-        {#if examCode}<ExamPanel code={examCode} />{:else}<EducativePanel />{/if}
+        {#if examCode}{#key examCode}<ExamPanel code={examCode} />{/key}{:else}<EducativePanel />{/if}
       {/if}
     </aside>
   {/if}

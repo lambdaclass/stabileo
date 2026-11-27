@@ -14972,6 +14972,8 @@ const hu: Translations = {
   "exam.csv.total": "Kérdések",
   "exam.csv.percent": "Százalék",
   "exam.loading": "Betöltés…",
+  "exam.conflictingSave": "Egy másik munkamenet újabb válaszokat mentett. Nyissa meg újra a próbálkozást, és ellenőrizze őket beadás előtt.",
+  "edu.review.remarkFailed": "Az újraértékelés nem sikerült. A látható pontszámot és minősítéseket a tanuló alkalmazása rögzítette.",
   "exam.refresh": "Frissítés",
   "exam.signinTitle": "Jelentkezzen be a kitöltéshez",
   "exam.signinLede": "Minden hallgató saját adatokat kap, a fiókjához kötve. Az oktatója látni fogja a nevét és az e-mail-címét.",

@@ -328,6 +328,12 @@
 
   let variantLint = $state<VariantLint | null>(null);
   let previewVariants = $state<Array<{ variant: Variant; text: string; problems: string[] }>>([]);
+  $effect(() => {
+    void draft;
+    previewVariants = [];
+    variantLint = null;
+  });
+
 
   function showVariants() {
     if (!draft) return;
@@ -347,7 +353,8 @@
   }
   const hasQuestions = $derived(
     (draft?.supports.length ?? 0) + (draft?.characteristics.length ?? 0) +
-    (draft?.diagramQuestions.length ?? 0) + (draft?.diagramShapeQuestions?.length ?? 0) > 0,
+    (draft?.diagramQuestions.length ?? 0) + (draft?.diagramShapeQuestions?.length ?? 0) +
+    (draft?.diagramSketchQuestions?.length ?? 0) > 0 || !!draft?.kinematicQuestion || (askFreeBody && hasBars),
   );
 
   // ── Preview ────────────────────────────────────────────────

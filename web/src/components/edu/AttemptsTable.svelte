@@ -14,7 +14,8 @@
   interface Props { assignment: Assignment }
   let { assignment }: Props = $props();
 
-  interface Row { attempt: OwnerAttempt; grade: Grade | null; status: 'submitted' | 'closed' | 'open' }
+  type Status = 'submitted' | 'closed' | 'open';
+  interface Row { attempt: OwnerAttempt; grade: Grade | null }
 
   let spec = $state.raw<EduExerciseSpec | null>(null);
   let rows = $state.raw<Row[]>([]);
@@ -22,9 +23,14 @@
   let error = $state('');
   let opened = $state<string | null>(null);
 
-  const statusOf = (a: OwnerAttempt): Row['status'] =>
-    a.submitted_at ? 'submitted' : Date.now() > Date.parse(a.deadline_at) + EXAM_GRACE_MS ? 'closed' : 'open';
-  const statusText = (s: Row['status']) =>
+  let now = $state(Date.now());
+  $effect(() => {
+    const timer = setInterval(() => { now = Date.now(); }, 1000);
+    return () => clearInterval(timer);
+  });
+  const statusOf = (a: OwnerAttempt, at: number): Status =>
+    a.submitted_at ? 'submitted' : at > Date.parse(a.deadline_at) + EXAM_GRACE_MS ? 'closed' : 'open';
+  const statusText = (s: Status) =>
     s === 'submitted' ? t('exam.attempt.submitted') : s === 'closed' ? t('exam.attempt.closed') : t('exam.attempt.open');
 
   async function load() {
@@ -42,7 +48,6 @@
       await initSolver();
       rows = all.map((a) => ({
         attempt: a,
-        status: statusOf(a),
         grade: spec ? gradeAttempt(spec, a.seed, a.answers, a.student.name ?? a.student.email) : null,
       }));
     } catch (e) {
@@ -64,7 +69,7 @@
       email: r.attempt.student.email,
       startedAt: r.attempt.started_at,
       submittedAt: r.attempt.submitted_at,
-      status: statusText(r.status),
+      status: statusText(statusOf(r.attempt, Date.now())),
       correct: r.grade?.correct ?? null,
       total: r.grade?.total ?? null,
     })));
@@ -96,7 +101,7 @@
               <tr data-testid="attempt-row">
                 <td><div>{r.attempt.student.name ?? '—'}</div><div class="email">{r.attempt.student.email}</div></td>
                 <td>{formatWhen(r.attempt.started_at)}</td>
-                <td>{statusText(r.status)}{#if r.attempt.submitted_at}<div class="email">{formatWhen(r.attempt.submitted_at)}</div>{/if}</td>
+                <td>{statusText(statusOf(r.attempt, now))}{#if r.attempt.submitted_at}<div class="email">{formatWhen(r.attempt.submitted_at)}</div>{/if}</td>
                 <td data-testid="attempt-score">{r.grade ? tp('exam.mine.scoreValue', { correct: r.grade.correct, total: r.grade.total }) : '—'}</td>
                 <td>{#if r.grade}<button class="act" onclick={() => (opened = opened === r.attempt.id ? null : r.attempt.id)} data-testid="attempt-detail">{t('exam.mine.detail')}</button>{/if}</td>
               </tr>

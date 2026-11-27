@@ -12382,6 +12382,8 @@ const pt: Translations = {
   'exam.csv.total': 'Perguntas',
   'exam.csv.percent': 'Porcentagem',
   'exam.loading': 'Carregando…',
+  "exam.conflictingSave": "Outra sessão guardou respostas mais recentes. Reabra a tentativa para as rever antes da entrega.",
+  "edu.review.remarkFailed": "Não foi possível corrigir de novo. A nota e os resultados apresentados foram registados pela aplicação do estudante.",
   'exam.refresh': 'Atualizar',
   'exam.signinTitle': 'Para fazer a prova, entre com sua conta',
   'exam.signinLede': 'Cada aluno recebe seus próprios dados, ligados à sua conta. Seu professor vai ver seu nome e seu e-mail.',

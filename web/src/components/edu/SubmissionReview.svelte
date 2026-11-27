@@ -73,6 +73,8 @@
     {#if remark.seedMismatch}<p class="note warn">{t('edu.review.seedMismatch')}</p>{/if}
   {:else if spec === null}
     <p class="note">{t('edu.review.unknownExercise')}</p>
+  {:else}
+    <p class="note warn" role="alert">{t('edu.review.remarkFailed')}</p>
   {/if}
 
   <table class="answers">

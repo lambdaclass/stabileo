@@ -9,6 +9,7 @@ defmodule StabileoUtils.FallbackController do
   import Plug.Conn
 
   @assignment_conflicts %{
+    stale_revision: "A newer version of this attempt was already saved",
     assignment_limit_reached: "You have reached the maximum number of assignments",
     assignment_started: "The exercise cannot change once someone has started",
     assignment_not_open: "This assignment is not open yet",

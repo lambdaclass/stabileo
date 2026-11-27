@@ -14974,6 +14974,8 @@ const zh: Translations = {
   "exam.csv.total": "题数",
   "exam.csv.percent": "百分比",
   "exam.loading": "加载中…",
+  "exam.conflictingSave": "另一个会话已保存更新的答案。请重新打开本次作答，核对后再提交。",
+  "edu.review.remarkFailed": "重新评分失败。当前显示的分数和判定由学生端应用记录。",
   "exam.refresh": "刷新",
   "exam.signinTitle": "登录后作答",
   "exam.signinLede": "每位学生获得与其账户关联的个人数据。老师会看到您的姓名和电子邮件。",

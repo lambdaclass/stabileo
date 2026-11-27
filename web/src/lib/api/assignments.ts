@@ -31,7 +31,7 @@ export interface AssignmentInput {
   title: string;
   exercise: JsonObject;
   duration_minutes: number;
-  opens_at?: string;
+  opens_at?: string | null;
   closes_at?: string | null;
   reveal: Reveal;
 }
@@ -44,7 +44,6 @@ export interface OwnerAttempt {
   deadline_at: string;
   submitted_at: string | null;
   answers: JsonObject;
-  client_score: number | null;
 }
 
 export interface OwnerAttemptList {
@@ -66,6 +65,7 @@ export interface Exam {
 }
 
 export interface Attempt {
+  revision: number;
   id: string;
   code: string;
   title: string;
@@ -149,11 +149,11 @@ export const examsApi = {
     return data('GET', `${EXAMS}/attempts/${encodeURIComponent(id)}`);
   },
 
-  saveAnswers(id: string, answers: JsonObject): Promise<Attempt> {
-    return data('PUT', `${EXAMS}/attempts/${encodeURIComponent(id)}/answers`, { answers });
+  saveAnswers(id: string, answers: JsonObject, revision: number): Promise<Attempt> {
+    return data('PUT', `${EXAMS}/attempts/${encodeURIComponent(id)}/answers`, { answers, revision });
   },
 
-  submit(id: string, submission: { answers?: JsonObject; client_score?: number } = {}): Promise<Attempt> {
+  submit(id: string, submission: { revision: number; answers?: JsonObject; client_score?: number }): Promise<Attempt> {
     return data('POST', `${EXAMS}/attempts/${encodeURIComponent(id)}/submit`, submission);
   },
 };

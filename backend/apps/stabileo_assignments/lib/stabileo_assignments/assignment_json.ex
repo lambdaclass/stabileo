@@ -30,8 +30,7 @@ defmodule StabileoAssignments.AssignmentJSON do
       started_at: attempt.started_at,
       deadline_at: attempt.deadline_at,
       submitted_at: attempt.submitted_at,
-      answers: attempt.answers,
-      client_score: attempt.client_score
+      answers: attempt.answers
     }
   end
 
@@ -51,6 +50,8 @@ defmodule StabileoAssignments.AssignmentJSON do
   end
 
   def attempt({attempt, assignment}, now) do
+    reveal = Exams.reveal_allowed?(assignment, attempt, now)
+
     %{
       id: attempt.id,
       code: assignment.code,
@@ -60,11 +61,12 @@ defmodule StabileoAssignments.AssignmentJSON do
       deadline_at: attempt.deadline_at,
       submitted_at: attempt.submitted_at,
       answers: attempt.answers,
-      client_score: attempt.client_score,
+      revision: attempt.revision,
+      client_score: if(reveal, do: attempt.client_score),
       closed: Exams.closed?(attempt, now),
       reveal: assignment.reveal,
       closes_at: assignment.closes_at,
-      reveal_allowed: Exams.reveal_allowed?(assignment, attempt, now),
+      reveal_allowed: reveal,
       exercise: assignment.exercise,
       now: now
     }

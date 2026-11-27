@@ -55,6 +55,7 @@ defmodule StabileoAssignments.Exams do
         account,
         id,
         now,
+        params["revision"],
         &AssignmentAttempt.answers_changeset(&1, %{answers: answers})
       )
     end
@@ -64,7 +65,14 @@ defmodule StabileoAssignments.Exams do
   def submit(%Account{} = account, id, params, now \\ now()) do
     with :ok <- Assignments.enabled() do
       attrs = Map.take(params, ["answers", "client_score"])
-      locked_write(account, id, now, &AssignmentAttempt.submit_changeset(&1, attrs, now))
+
+      locked_write(
+        account,
+        id,
+        now,
+        params["revision"],
+        &AssignmentAttempt.submit_changeset(&1, attrs, now)
+      )
     end
   end
 
@@ -151,16 +159,37 @@ defmodule StabileoAssignments.Exams do
     seed
   end
 
-  defp locked_write(account, id, now, changeset) do
+  defp locked_write(account, id, now, revision, changeset) do
     Repo.transaction(fn ->
       with {:ok, attempt} <- fetch(account, id, lock: true),
            :ok <- writable(attempt, now),
-           {:ok, saved} <- attempt |> changeset.() |> Repo.update() do
+           :ok <- check_revision(attempt, revision),
+           {:ok, saved} <-
+             attempt
+             |> changeset.()
+             |> Ecto.Changeset.put_change(:revision, revision + 1)
+             |> Repo.update() do
         {saved, attempt.assignment}
       else
         {:error, reason} -> Repo.rollback(reason)
       end
     end)
+  end
+
+  defp check_revision(%{revision: revision}, revision) when is_integer(revision), do: :ok
+  defp check_revision(_, revision) when is_integer(revision), do: {:error, :stale_revision}
+
+  defp check_revision(_, _),
+    do: {:error, {:validation, %{revision: ["must be the last acknowledged revision"]}}}
+
+  def finalize_expired(query, now) do
+    cutoff = DateTime.add(now, -@grace_seconds)
+
+    from(t in query,
+      where: is_nil(t.submitted_at) and t.deadline_at < ^cutoff,
+      update: [set: [submitted_at: t.deadline_at, updated_at: ^now], inc: [revision: 1]]
+    )
+    |> Repo.update_all([])
   end
 
   defp writable(%AssignmentAttempt{submitted_at: %DateTime{}}, _now),

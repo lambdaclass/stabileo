@@ -12740,6 +12740,8 @@ const en: Record<string, string> = {
   'exam.csv.total': 'Questions',
   'exam.csv.percent': 'Percent',
   'exam.loading': 'Loading…',
+  "exam.conflictingSave": "Another session saved newer answers. Reopen this attempt to review them before handing in.",
+  "edu.review.remarkFailed": "Re-marking failed. The score and verdicts shown were recorded by the student’s app.",
   'exam.refresh': 'Refresh',
   'exam.signinTitle': 'Sign in to take it',
   'exam.signinLede': 'Each student gets their own data, tied to their account. Your teacher will see your name and email.',

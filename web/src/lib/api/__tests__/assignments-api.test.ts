@@ -28,7 +28,7 @@ const ATTEMPT: Attempt = {
   seed: 3141592653,
   started_at: '2026-11-12T13:05:00Z',
   deadline_at: '2026-11-12T14:35:00Z',
-  submitted_at: null,
+  revision: 0, submitted_at: null,
   answers: {},
   client_score: null,
   closed: false,
@@ -115,8 +115,8 @@ describe('assignmentsApi', () => {
     const page = { data: [], meta: { total: 0, limit: 100, offset: 0 } };
     fetchMock.mockResolvedValueOnce(json(200, page));
 
-    await expect(assignmentsApi.attempts(ASSIGNMENT.id, { limit: 100, sort_by: 'client_score', sort_dir: 'desc' })).resolves.toEqual(page);
-    expect(calls()[0].url).toBe(`${ASSIGNMENTS}/${ASSIGNMENT.id}/attempts?sort_by=client_score&sort_dir=desc&limit=100`);
+    await expect(assignmentsApi.attempts(ASSIGNMENT.id, { limit: 100, sort_by: 'submitted_at', sort_dir: 'desc' })).resolves.toEqual(page);
+    expect(calls()[0].url).toBe(`${ASSIGNMENTS}/${ASSIGNMENT.id}/attempts?sort_by=submitted_at&sort_dir=desc&limit=100`);
   });
 
   it('throws the backend code and field details', async () => {
@@ -158,24 +158,25 @@ describe('examsApi', () => {
       .mockResolvedValueOnce(json(200, { data: submitted }))
       .mockResolvedValueOnce(json(200, { data: submitted }));
 
-    await expect(examsApi.saveAnswers(ATTEMPT.id, { r1: '12' })).resolves.toMatchObject({ answers: { r1: '12' } });
-    await expect(examsApi.submit(ATTEMPT.id, { client_score: 0.5 })).resolves.toEqual(submitted);
+    await expect(examsApi.saveAnswers(ATTEMPT.id, { r1: '12' }, 0)).resolves.toMatchObject({ answers: { r1: '12' } });
+    await expect(examsApi.submit(ATTEMPT.id, { revision: 1, client_score: 0.5 })).resolves.toEqual(submitted);
     await expect(examsApi.attempt(ATTEMPT.id)).resolves.toEqual(submitted);
 
     expect(calls()).toEqual([
-      { url: `${EXAMS}/attempts/${ATTEMPT.id}/answers`, method: 'PUT', auth: 'Bearer access-1', body: { answers: { r1: '12' } } },
-      { url: `${EXAMS}/attempts/${ATTEMPT.id}/submit`, method: 'POST', auth: 'Bearer access-1', body: { client_score: 0.5 } },
+      { url: `${EXAMS}/attempts/${ATTEMPT.id}/answers`, method: 'PUT', auth: 'Bearer access-1', body: { revision: 0, answers: { r1: '12' } } },
+      { url: `${EXAMS}/attempts/${ATTEMPT.id}/submit`, method: 'POST', auth: 'Bearer access-1', body: { revision: 1, client_score: 0.5 } },
       { url: `${EXAMS}/attempts/${ATTEMPT.id}`, method: 'GET', auth: 'Bearer access-1', body: undefined },
     ]);
   });
 
-  it('a submit with nothing sends an empty object, so the last autosave stands', async () => {
+  it('a submit without answers requires the acknowledged autosave revision', async () => {
     fetchMock.mockResolvedValueOnce(json(200, { data: ATTEMPT }));
-    await examsApi.submit(ATTEMPT.id);
-    expect(calls()[0].body).toEqual({});
+    await examsApi.submit(ATTEMPT.id, { revision: 1 });
+    expect(calls()[0].body).toEqual({ revision: 1 });
   });
 
   it.each([
+    [409, 'stale_revision'],
     [409, 'attempt_closed'],
     [409, 'attempt_submitted'],
     [409, 'assignment_not_open'],
@@ -183,12 +184,12 @@ describe('examsApi', () => {
     [404, 'not_found'],
   ])('a %i %s reaches the caller as an ApiError with that code', async (status, code) => {
     fetchMock.mockResolvedValueOnce(json(status, { error: code, message: code }));
-    await expect(examsApi.submit(ATTEMPT.id, { answers: {} })).rejects.toMatchObject({ status, code });
+    await expect(examsApi.submit(ATTEMPT.id, { revision: 0, answers: {} })).rejects.toMatchObject({ status, code });
   });
 
   it('a network failure is a network_error, so the caller can release the lock', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
-    await expect(examsApi.saveAnswers(ATTEMPT.id, {})).rejects.toMatchObject({ status: 0, code: 'network_error' });
+    await expect(examsApi.saveAnswers(ATTEMPT.id, {}, 0)).rejects.toMatchObject({ status: 0, code: 'network_error' });
   });
 
   it('a 401 tries one refresh, then gives up when the session is over', async () => {

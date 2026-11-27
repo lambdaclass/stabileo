@@ -75,11 +75,14 @@ defmodule StabileoAssignments.ExamsTest do
   end
 
   @tag :regression_1927
-  @tag skip: "known wrong result: #1927"
-  test "known wrong result: #1927 deadlines finalize the saved answers without a student request", %{owner: owner, student: student} do
+  test "known wrong result: #1927 deadlines finalize the saved answers without a student request",
+       %{owner: owner, student: student} do
     a = assignment(owner)
     {:ok, {t, _}} = Exams.start(student, a.code, @opens)
-    {:ok, _} = Exams.save_answers(student, t.id, %{"answers" => %{"v" => 3}, "revision" => 0}, @opens)
+
+    {:ok, _} =
+      Exams.save_answers(student, t.id, %{"answers" => %{"v" => 3}, "revision" => 0}, @opens)
+
     Assignments.purge_expired(DateTime.add(t.deadline_at, 30))
     refute Repo.get!(AssignmentAttempt, t.id).submitted_at
     Assignments.purge_expired(DateTime.add(t.deadline_at, 31))
@@ -90,24 +93,38 @@ defmodule StabileoAssignments.ExamsTest do
   end
 
   @tag :regression_1927
-  @tag skip: "known wrong result: #1927"
-  test "known wrong result: #1927 retention preserves the entire writing window", %{owner: owner, student: student} do
+  test "known wrong result: #1927 retention preserves the entire writing window", %{
+    owner: owner,
+    student: student
+  } do
     a = assignment(owner, %{"closes_at" => nil})
-    Repo.update_all(from(row in StabileoRepo.Schemas.Assignment, where: row.id == ^a.id), set: [inserted_at: DateTime.add(@opens, -365, :day)])
+
+    Repo.update_all(from(row in StabileoRepo.Schemas.Assignment, where: row.id == ^a.id),
+      set: [inserted_at: DateTime.add(@opens, -365, :day)]
+    )
+
     {:ok, {t, _}} = Exams.start(student, a.code, @opens)
     assert Assignments.purge_expired(DateTime.add(t.deadline_at, 30)) == 0
     assert Assignments.purge_expired(DateTime.add(t.deadline_at, 31)) == 1
   end
 
   @tag :regression_1927
-  @tag skip: "known wrong result: #1927"
-  test "known wrong result: #1927 score visibility follows the release window", %{owner: owner, student: student} do
+  test "known wrong result: #1927 score visibility follows the release window", %{
+    owner: owner,
+    student: student
+  } do
     a = assignment(owner, %{"reveal" => "after_close"})
     {:ok, {t, _}} = Exams.start(student, a.code, @opens)
     {:ok, row} = Exams.submit(student, t.id, %{"revision" => 0, "client_score" => 1}, @opens)
     refute StabileoAssignments.AssignmentJSON.attempt(row, @closes).client_score
-    assert StabileoAssignments.AssignmentJSON.attempt(row, DateTime.add(@closes, 31)).client_score == 1
-    refute Map.has_key?(StabileoAssignments.AssignmentJSON.owner_attempt({elem(row, 0), student}), :client_score)
+
+    assert StabileoAssignments.AssignmentJSON.attempt(row, DateTime.add(@closes, 31)).client_score ==
+             1
+
+    refute Map.has_key?(
+             StabileoAssignments.AssignmentJSON.owner_attempt({elem(row, 0), student}),
+             :client_score
+           )
   end
 
   describe "start" do
@@ -189,7 +206,7 @@ defmodule StabileoAssignments.ExamsTest do
                Exams.save_answers(
                  student,
                  attempt.id,
-                 %{"answers" => %{"r1" => "12"}},
+                 %{"revision" => 0, "answers" => %{"r1" => "12"}},
                  DateTime.add(at(90), 30)
                )
 
@@ -200,7 +217,7 @@ defmodule StabileoAssignments.ExamsTest do
                Exams.save_answers(
                  student,
                  attempt.id,
-                 %{"answers" => %{"r1" => "99"}},
+                 %{"revision" => 0, "answers" => %{"r1" => "99"}},
                  DateTime.add(at(90), 31)
                )
 
@@ -212,7 +229,12 @@ defmodule StabileoAssignments.ExamsTest do
                Exams.save_answers(student, attempt.id, %{}, at(1))
 
       assert {:error, changeset} =
-               Exams.save_answers(student, attempt.id, %{"answers" => [1]}, at(1))
+               Exams.save_answers(
+                 student,
+                 attempt.id,
+                 %{"revision" => 0, "answers" => [1]},
+                 at(1)
+               )
 
       assert %{answers: ["is invalid"]} = errors_on(changeset)
     end
@@ -222,7 +244,7 @@ defmodule StabileoAssignments.ExamsTest do
                Exams.save_answers(
                  Factory.insert(:account),
                  attempt.id,
-                 %{"answers" => %{}},
+                 %{"revision" => 0, "answers" => %{}},
                  at(1)
                )
     end
@@ -234,14 +256,24 @@ defmodule StabileoAssignments.ExamsTest do
       {:ok, {attempt, _}} = Exams.start(student, a.code, at(0))
 
       {:ok, _} =
-        Exams.save_answers(student, attempt.id, %{"answers" => %{"r1" => "autosaved"}}, at(1))
+        Exams.save_answers(
+          student,
+          attempt.id,
+          %{"revision" => 0, "answers" => %{"r1" => "autosaved"}},
+          at(1)
+        )
 
       %{attempt: attempt}
     end
 
     test "without answers submits the last autosave", %{student: student, attempt: attempt} do
       assert {:ok, {saved, _}} =
-               Exams.submit(student, attempt.id, %{"client_score" => 0.25}, at(2))
+               Exams.submit(
+                 student,
+                 attempt.id,
+                 %{"revision" => 1, "client_score" => 0.25},
+                 at(2)
+               )
 
       saved = Repo.get!(AssignmentAttempt, saved.id)
       assert saved.answers == %{"r1" => "autosaved"}
@@ -253,13 +285,29 @@ defmodule StabileoAssignments.ExamsTest do
       student: student,
       attempt: attempt
     } do
-      {:ok, _} = Exams.submit(student, attempt.id, %{"answers" => %{"r1" => "final"}}, at(2))
+      {:ok, _} =
+        Exams.submit(
+          student,
+          attempt.id,
+          %{"revision" => 1, "answers" => %{"r1" => "final"}},
+          at(2)
+        )
 
       assert {:error, :attempt_submitted} =
-               Exams.submit(student, attempt.id, %{"answers" => %{"r1" => "again"}}, at(3))
+               Exams.submit(
+                 student,
+                 attempt.id,
+                 %{"revision" => 0, "answers" => %{"r1" => "again"}},
+                 at(3)
+               )
 
       assert {:error, :attempt_submitted} =
-               Exams.save_answers(student, attempt.id, %{"answers" => %{"r1" => "again"}}, at(3))
+               Exams.save_answers(
+                 student,
+                 attempt.id,
+                 %{"revision" => 0, "answers" => %{"r1" => "again"}},
+                 at(3)
+               )
 
       saved = Repo.get!(AssignmentAttempt, attempt.id)
       assert saved.answers == %{"r1" => "final"}
@@ -271,7 +319,12 @@ defmodule StabileoAssignments.ExamsTest do
       attempt: attempt
     } do
       assert {:error, :attempt_closed} =
-               Exams.submit(student, attempt.id, %{"answers" => %{"r1" => "late"}}, at(92))
+               Exams.submit(
+                 student,
+                 attempt.id,
+                 %{"revision" => 0, "answers" => %{"r1" => "late"}},
+                 at(92)
+               )
 
       saved = Repo.get!(AssignmentAttempt, attempt.id)
       assert saved.answers == %{"r1" => "autosaved"}
@@ -280,7 +333,7 @@ defmodule StabileoAssignments.ExamsTest do
 
     test "422 on a score outside 0 to 1", %{student: student, attempt: attempt} do
       assert {:error, changeset} =
-               Exams.submit(student, attempt.id, %{"client_score" => 3}, at(2))
+               Exams.submit(student, attempt.id, %{"revision" => 1, "client_score" => 3}, at(2))
 
       assert %{client_score: [_]} = errors_on(changeset)
       assert Repo.get!(AssignmentAttempt, attempt.id).submitted_at == nil
@@ -304,7 +357,7 @@ defmodule StabileoAssignments.ExamsTest do
       refute Exams.closed?(attempt, DateTime.add(at(90), 30))
       assert Exams.reveal_allowed?(a, attempt, DateTime.add(at(90), 31))
 
-      {:ok, {submitted, _}} = Exams.submit(student, attempt.id, %{}, at(10))
+      {:ok, {submitted, _}} = Exams.submit(student, attempt.id, %{"revision" => 0}, at(10))
       assert Exams.closed?(submitted, at(10))
       assert Exams.reveal_allowed?(a, submitted, at(10))
     end
@@ -315,7 +368,7 @@ defmodule StabileoAssignments.ExamsTest do
     } do
       a = assignment(owner, %{"reveal" => "after_close"})
       {:ok, {attempt, _}} = Exams.start(student, a.code, at(0))
-      {:ok, {submitted, _}} = Exams.submit(student, attempt.id, %{}, at(10))
+      {:ok, {submitted, _}} = Exams.submit(student, attempt.id, %{"revision" => 0}, at(10))
       refute Exams.reveal_allowed?(a, submitted, at(11))
       refute Exams.reveal_allowed?(a, submitted, DateTime.add(@closes, 30))
       assert Exams.reveal_allowed?(a, submitted, DateTime.add(@closes, 31))
@@ -327,7 +380,7 @@ defmodule StabileoAssignments.ExamsTest do
     } do
       a = assignment(owner, %{"reveal" => "after_close"})
       {:ok, {attempt, _}} = Exams.start(student, a.code, at(0))
-      {:ok, {submitted, _}} = Exams.submit(student, attempt.id, %{}, at(10))
+      {:ok, {submitted, _}} = Exams.submit(student, attempt.id, %{"revision" => 0}, at(10))
       late = Factory.insert(:account, name: "Bea")
       {:ok, {running, _}} = Exams.start(late, a.code, at(60))
       assert running.deadline_at == at(150)
@@ -343,7 +396,7 @@ defmodule StabileoAssignments.ExamsTest do
       refute Exams.reveal_allowed?(a, submitted, DateTime.add(at(150), 30))
       assert Exams.reveal_allowed?(a, submitted, DateTime.add(at(150), 31))
 
-      {:ok, _} = Exams.submit(late, running.id, %{}, at(80))
+      {:ok, _} = Exams.submit(late, running.id, %{"revision" => 0}, at(80))
       assert Exams.reveal_allowed?(a, submitted, DateTime.add(moved, 31))
     end
   end

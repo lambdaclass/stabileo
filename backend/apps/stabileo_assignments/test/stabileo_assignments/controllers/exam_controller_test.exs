@@ -8,7 +8,7 @@ defmodule StabileoAssignments.Controllers.ExamControllerTest do
   alias StabileoRepo.Schemas.{Assignment, AssignmentAttempt}
 
   @exam_keys ~w(attempt closes_at code duration_minutes now opens_at owner_name reveal status title)
-  @attempt_keys ~w(answers client_score closed closes_at code deadline_at exercise id now reveal reveal_allowed seed started_at submitted_at title)
+  @attempt_keys ~w(answers client_score closed closes_at code deadline_at exercise id now reveal reveal_allowed revision seed started_at submitted_at title)
 
   setup do
     {:ok, _} = Features.set_assignments_enabled(true)
@@ -96,13 +96,23 @@ defmodule StabileoAssignments.Controllers.ExamControllerTest do
     id = (start(a.code, token) |> json_body(200))["data"]["id"]
 
     saved =
-      exam_request(:put, "/attempts/#{id}/answers", %{"answers" => %{"r1" => "12"}}, token)
+      exam_request(
+        :put,
+        "/attempts/#{id}/answers",
+        %{"revision" => 0, "answers" => %{"r1" => "12"}},
+        token
+      )
       |> json_body(200)
 
     assert saved["data"]["answers"] == %{"r1" => "12"}
 
     submitted =
-      exam_request(:post, "/attempts/#{id}/submit", %{"client_score" => 0.5}, token)
+      exam_request(
+        :post,
+        "/attempts/#{id}/submit",
+        %{"revision" => 1, "client_score" => 0.5},
+        token
+      )
       |> json_body(200)
 
     assert submitted["data"]["submitted_at"]
@@ -114,7 +124,12 @@ defmodule StabileoAssignments.Controllers.ExamControllerTest do
     assert again["error"] == "attempt_submitted"
 
     late =
-      exam_request(:put, "/attempts/#{id}/answers", %{"answers" => %{"r1" => "x"}}, token)
+      exam_request(
+        :put,
+        "/attempts/#{id}/answers",
+        %{"revision" => 0, "answers" => %{"r1" => "x"}},
+        token
+      )
       |> json_body(409)
 
     assert late["error"] == "attempt_submitted"
@@ -127,13 +142,23 @@ defmodule StabileoAssignments.Controllers.ExamControllerTest do
        %{assignment: a, token: token} do
     id = (start(a.code, token) |> json_body(200))["data"]["id"]
 
-    exam_request(:put, "/attempts/#{id}/answers", %{"answers" => %{"r1" => "kept"}}, token)
+    exam_request(
+      :put,
+      "/attempts/#{id}/answers",
+      %{"revision" => 0, "answers" => %{"r1" => "kept"}},
+      token
+    )
     |> json_body(200)
 
     shift(id, :deadline_at, -31)
 
     body =
-      exam_request(:post, "/attempts/#{id}/submit", %{"answers" => %{"r1" => "late"}}, token)
+      exam_request(
+        :post,
+        "/attempts/#{id}/submit",
+        %{"revision" => 0, "answers" => %{"r1" => "late"}},
+        token
+      )
       |> json_body(409)
 
     assert body["error"] == "attempt_closed"
@@ -152,7 +177,12 @@ defmodule StabileoAssignments.Controllers.ExamControllerTest do
     assert missing["details"] == %{"answers" => ["can't be blank"]}
 
     score =
-      exam_request(:post, "/attempts/#{id}/submit", %{"client_score" => 2}, token)
+      exam_request(
+        :post,
+        "/attempts/#{id}/submit",
+        %{"revision" => 0, "client_score" => 2},
+        token
+      )
       |> json_body(422)
 
     assert score["error"] == "validation_error"
@@ -171,7 +201,7 @@ defmodule StabileoAssignments.Controllers.ExamControllerTest do
 
     for {method, path, params} <- [
           {:get, "/attempts/#{id}", %{}},
-          {:put, "/attempts/#{id}/answers", %{"answers" => %{"r1" => "theirs"}}},
+          {:put, "/attempts/#{id}/answers", %{"revision" => 0, "answers" => %{"r1" => "theirs"}}},
           {:post, "/attempts/#{id}/submit", %{}}
         ] do
       assert exam_request(method, path, params, other) |> json_body(404) |> Map.get("error") ==
@@ -194,7 +224,9 @@ defmodule StabileoAssignments.Controllers.ExamControllerTest do
           {:put, "/attempts/#{id}/answers"},
           {:post, "/attempts/#{id}/submit"}
         ] do
-      body = exam_request(method, path, %{"answers" => %{}}, token) |> json_body(403)
+      body =
+        exam_request(method, path, %{"revision" => 0, "answers" => %{}}, token) |> json_body(403)
+
       assert body["error"] == "assignments_disabled"
     end
   end

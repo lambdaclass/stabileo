@@ -59,7 +59,7 @@
     const fields = {
       title: title.trim(),
       duration_minutes: duration,
-      ...(fromLocalInput(opens) ? { opens_at: fromLocalInput(opens)! } : {}),
+      opens_at: fromLocalInput(opens),
       closes_at: fromLocalInput(closes),
       reveal,
     };

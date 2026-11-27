@@ -139,10 +139,10 @@ defmodule StabileoAssignments.AssignmentsTest do
 
       student = Factory.insert(:account)
       {:ok, {attempt, _}} = Exams.start(student, second.code, @now)
-      {:ok, _} = Exams.submit(student, attempt.id, %{"client_score" => 1}, @now)
+      {:ok, _} = Exams.submit(student, attempt.id, %{"revision" => 0, "client_score" => 1}, @now)
       {:ok, _} = Exams.start(Factory.insert(:account), second.code, @now)
 
-      assert {:ok, {rows, meta}} = Assignments.list(owner, %{})
+      assert {:ok, {rows, meta}} = Assignments.list(owner, %{}, @now)
       assert meta.total == 2
 
       assert [
@@ -239,6 +239,15 @@ defmodule StabileoAssignments.AssignmentsTest do
     end
   end
 
+  test "clearing a scheduled opening opens immediately", %{owner: owner} do
+    future = DateTime.add(DateTime.utc_now(), 1, :day)
+    assignment = create!(owner, %{"opens_at" => DateTime.to_iso8601(future), "closes_at" => nil})
+    before = DateTime.utc_now() |> DateTime.truncate(:second)
+    assert {:ok, {updated, _}} = Assignments.update(owner, assignment.id, %{"opens_at" => nil})
+    assert DateTime.compare(updated.opens_at, before) != :lt
+    assert DateTime.compare(updated.opens_at, DateTime.utc_now()) != :gt
+  end
+
   describe "attempts" do
     test "the owner's view: student, seed, answers, score; searchable", %{owner: owner} do
       assignment = create!(owner)
@@ -251,7 +260,7 @@ defmodule StabileoAssignments.AssignmentsTest do
         Exams.submit(
           ada,
           ada_attempt.id,
-          %{"answers" => %{"r1" => "12"}, "client_score" => 0.5},
+          %{"revision" => 0, "answers" => %{"r1" => "12"}, "client_score" => 0.5},
           @now
         )
 

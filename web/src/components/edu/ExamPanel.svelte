@@ -7,6 +7,7 @@
   import { modeToPath } from '../../lib/app-mode';
   import { t, tp } from '../../lib/i18n';
   import { createExamSession } from './exam-session.svelte';
+  import { questionKeys } from './exam-grading';
   import { variantOf } from './exercise-variant';
   import { toExercise, type EduExercise } from './exercises';
   import { leaveExamExercise, showExamExercise } from './exercise-session';
@@ -23,6 +24,9 @@
   let confirmSubmit = $state(false);
   let exercise = $state.raw<EduExercise | null>(null);
   let shownFor = '';
+  let setupFailed = $state(false);
+  let retrySetup = $state(0);
+  let expectedKeys = $state.raw<string[]>([]);
 
   onMount(() => {
     examLock.enterRoom();
@@ -39,15 +43,20 @@
   $effect(() => { examLock.title = session.exam?.title ?? session.attempt?.title ?? ''; });
 
   $effect(() => {
+    void retrySetup;
     const a = session.attempt;
     const spec = session.spec;
     if (!a || !spec || shownFor === a.id) return;
-    shownFor = a.id;
     try {
-      const ex = toExercise(variantOf(spec, a.seed));
+      const variant = variantOf(spec, a.seed);
+      const ex = toExercise(variant);
       showExamExercise(ex);
       exercise = ex;
+      expectedKeys = questionKeys(variant);
+      shownFor = a.id;
+      setupFailed = false;
     } catch {
+      setupFailed = true;
       exercise = null;
     }
   });
@@ -62,7 +71,7 @@
     location.assign(modeToPath('basico'));
   }
 
-  const answered = $derived(session.answers.filter((a) => a.answer.trim() !== '').length);
+  const answered = $derived(expectedKeys.filter(key => session.answers.some(a => a.key === key && (a.answer.trim() || a.sketch))).length);
 
   const unavailableText = $derived.by(() => {
     switch (session.unavailable) {
@@ -71,6 +80,7 @@
       case 'upcoming': return t('exam.unavailable.upcoming');
       case 'closed': return t('exam.unavailable.closed');
       case 'signinOff': return t('exam.unavailable.signinOff');
+      case 'conflict': return t('exam.conflictingSave');
       case 'badExercise': return t('exam.unavailable.badExercise');
       default: return t('exam.unavailable.error');
     }
@@ -129,7 +139,7 @@
     {#if session.note === 'submitFailed'}<p class="warn" role="alert">{t('exam.submitFailed')}</p>{/if}
     {#if confirmSubmit}
       <div class="confirm" role="alertdialog" aria-labelledby="exam-submit-warn">
-        <p id="exam-submit-warn">{tp('exam.submitWarning', { answered, total: session.answers.length })}</p>
+        <p id="exam-submit-warn">{tp('exam.submitWarning', { answered, total: expectedKeys.length })}</p>
         <div class="row">
           <button class="primary" onclick={submitNow} disabled={session.busy} data-testid="exam-submit-confirm">{t('exam.submitNow')}</button>
           <button class="ghost" onclick={() => (confirmSubmit = false)}>{t('exam.keepAnswering')}</button>
@@ -138,8 +148,11 @@
     {/if}
     {#if exercise}
       {#key session.attempt?.id}
-        <EduExerciseView {exercise} exam initialAnswers={session.answers} onanswers={(a) => session.update(a)} />
+        <fieldset disabled={session.frozen} inert={session.frozen}><EduExerciseView {exercise} exam initialAnswers={session.answers} onanswers={(a) => session.update(a)} /></fieldset>
       {/key}
+    {:else if setupFailed}
+      <p role="alert">{t('exam.unavailable.badExercise')}</p>
+      <button class="ghost" onclick={() => retrySetup++}>{t('exam.refresh')}</button>
     {/if}
   {:else if session.phase === 'closed'}
     <ExamResults {session} onleave={leave} />
@@ -147,6 +160,7 @@
 </div>
 
 <style>
+  fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
   .exam { padding: 16px 16px 24px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; }
   h2 { font-size: 1.15rem; margin: 0; color: var(--st-text); }
   p { margin: 0; font-size: 0.85rem; line-height: 1.45; color: var(--st-text-2); }
