@@ -19,7 +19,6 @@ fn issue_2220_generated_pressure_reaches_native_members() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2529"]
 fn issue_2220_cubic_grid_reaches_native_members() {
     let fixtures: Value = serde_json::from_str(include_str!("wind_member_2220.json")).unwrap();
     let cases: Vec<_> = fixtures
@@ -46,7 +45,6 @@ fn issue_2220_tower_mast_reaches_native_members() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2529"]
 fn issue_2220_apex_pressure_reaches_native_members() {
     let fixtures: Value = serde_json::from_str(include_str!("wind_apex_2220.json")).unwrap();
     let cases: Vec<_> = fixtures.as_array().unwrap().iter().collect();

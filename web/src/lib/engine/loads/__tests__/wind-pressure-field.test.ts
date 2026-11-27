@@ -109,3 +109,27 @@ for (const curvature of [-1, 0, 1]) it(`#2529 member cuts retain the pressure in
     expect(moment).toBeCloseTo(station ** 2 + curvature * firstIntegral, 10);
   }
 });
+
+for (const side of [-1, 1]) it(`#2529 whole-band pressure compression on side ${side} of the midpoint limit`, () => {
+  const curvature = 0.002 * (1 + side * 1e-5);
+  const pressure = (s: number) => 1 + curvature * (s - 0.5) ** 2;
+  const parts = integrateWindPressure(1, [], pressure);
+  if (side < 0) {
+    expect(parts).toHaveLength(2);
+    expect(parts[0]!.qJ).toBeCloseTo(1 - curvature / 20, 12);
+  } else {
+    expect(parts.length).toBeGreaterThan(2);
+    const left = parts.filter(p => p.b <= 0.5);
+    expect(left.reduce((sum, p) => sum + p.force, 0)).toBeCloseTo(0.5 + curvature / 24, 12);
+  }
+});
+
+it('#2529 a storey column emits the compact pressure bands as member loads', () => {
+  const model = mesh([[[0, 0, 2.8], [0, 0, 5.6]]]);
+  const field = windHeightField({
+    model, axis: 'x', width: 1, from: 2.8, to: 5.6, boundaries: [5],
+    pressure: z => 0.62 * (Math.max(5, z) / 365.76) ** (2 / 7),
+  });
+  expect(field.members).toHaveLength(3);
+  expect(field.members.every(p => p.elementId === 1 && p.q > 0 && p.qJ > 0)).toBe(true);
+});

@@ -24,14 +24,14 @@
     "hu": "A rudak belső erői a szélterhek újragenerálása után"
   },
   "explanation": {
-    "en": "Two linear loads can now represent a curved wind pressure while preserving its four work moments. Shear and bending moment inside the member can change. Regenerate W and Wa, then rerun analyses, combinations and design checks.",
-    "es": "Dos cargas lineales pueden representar una presión de viento curva conservando sus cuatro momentos de trabajo. Pueden cambiar el corte y el momento flector en el interior de la barra. Regenerá W y Wa y repetí los análisis, las combinaciones y las verificaciones.",
-    "pt": "Duas cargas lineares podem representar uma distribuição curva da pressão do vento, preservando os quatro momentos de trabalho. O esforço cortante e o momento fletor no interior da barra podem mudar. Gere W e Wa novamente e refaça as análises, combinações e verificações.",
-    "de": "Zwei lineare Lasten können einen gekrümmten Winddruckverlauf unter Erhaltung seiner vier Arbeitsmomente abbilden. Querkraft und Biegemoment im Stabinneren können sich ändern. W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise erneut ausführen.",
-    "fr": "Deux charges linéaires peuvent représenter une distribution courbe de pression du vent en conservant ses quatre moments de travail. L’effort tranchant et le moment fléchissant à l’intérieur de la barre peuvent changer. Régénérez W et Wa, puis relancez les analyses, les combinaisons et les vérifications.",
-    "tr": "Eğrisel rüzgâr basıncı dağılımı, dört iş momenti korunarak iki doğrusal yükle temsil edilebilir. Eleman içindeki kesme kuvveti ve eğilme momenti değişebilir. W ve Wa yüklerini yeniden üretip analizleri, birleşimleri ve tasarım kontrollerini tekrarlayın.",
-    "zh": "两段线性荷载可以表示曲线分布的风压，并保留其四个功矩。杆件内部的剪力和弯矩可能发生变化。请重新生成 W 和 Wa，再重新进行分析、荷载组合和设计验算。",
-    "hu": "Két lineárisan változó teher a négy munkamomentum megőrzésével helyettesítheti a görbe szélnyomáseloszlást. A rúd belsejében változhat a nyíróerő és a hajlítónyomaték. Generálja újra a W és Wa terheket, majd ismételje meg a számításokat, a kombinációkat és a méretezési ellenőrzéseket."
+    "en": "A gently varying wind pressure band can be stored as two linear loads that preserve its four work moments. Shear and bending moment inside the member can change. Regenerate W and Wa, then rerun analyses, combinations and design checks.",
+    "es": "Una franja de presión de viento que varía suavemente se puede representar con dos cargas lineales que conservan sus cuatro momentos de trabajo. Pueden cambiar el corte y el momento flector en el interior de la barra. Regenerá W y Wa y repetí los análisis, las combinaciones y las verificaciones.",
+    "pt": "Uma faixa de pressão do vento que varia suavemente pode ser representada por duas cargas lineares que preservam seus quatro momentos de trabalho. O esforço cortante e o momento fletor no interior da barra podem mudar. Gere W e Wa novamente e refaça as análises, combinações e verificações.",
+    "de": "Ein Bereich mit schwach veränderlichem Winddruck kann durch zwei lineare Lasten unter Erhaltung seiner vier Arbeitsmomente dargestellt werden. Querkraft und Biegemoment im Stabinneren können sich ändern. W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise erneut ausführen.",
+    "fr": "Une zone où la pression du vent varie faiblement peut être représentée par deux charges linéaires qui conservent ses quatre moments de travail. L’effort tranchant et le moment fléchissant à l’intérieur de la barre peuvent changer. Régénérez W et Wa, puis relancez les analyses, les combinaisons et les vérifications.",
+    "tr": "Rüzgâr basıncının az değiştiği bir bölge, dört iş momentini koruyan iki doğrusal yükle temsil edilebilir. Eleman içindeki kesme kuvveti ve eğilme momenti değişebilir. W ve Wa yüklerini yeniden üretip analizleri, birleşimleri ve tasarım kontrollerini tekrarlayın.",
+    "zh": "对于风压变化平缓的区段，可用两段线性荷载表示，并保留其四个功矩。杆件内部的剪力和弯矩可能发生变化。请重新生成 W 和 Wa，再重新进行分析、荷载组合和设计验算。",
+    "hu": "A lassan változó szélnyomású szakasz két lineáris teherrel ábrázolható a négy munkamomentum megőrzésével. A rúd belsejében változhat a nyíróerő és a hajlítónyomaték. Generálja újra a W és Wa terheket, majd ismételje meg a számításokat, a kombinációkat és a méretezési ellenőrzéseket."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-wind-two-part-moments.md",
