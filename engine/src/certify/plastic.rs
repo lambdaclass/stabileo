@@ -725,22 +725,29 @@ pub(crate) fn truss_axial_factor_is_exact(model: &PlasticModel, capacities: &Has
     if model.elems.len() != free_translations + eq.null.len() {
         return Ok(false);
     }
+    let mut first_yield: Option<Q> = None;
     let mut fixed_at_yield = false;
     for (index, element) in model.elems.iter().enumerate() {
         let Some(&capacity) = capacities.get(&element.id) else { continue };
         let capacity = q(capacity).filter(|v| v.is_positive()).ok_or("invalid axial yield force")?;
         let force_times_length = |field: &[Q]| &field[3 * index] * &element.dx + &field[3 * index + 1] * &element.dz;
-        let demand = &factor * force_times_length(&eq.xp);
-        let demand_squared = &demand * &demand;
-        let capacity_squared = &capacity * &capacity * &element.l2;
-        if demand_squared > capacity_squared {
-            return Ok(false);
+        let force = force_times_length(&eq.xp);
+        if force.is_zero() { continue; }
+        let squared = &capacity * &capacity * &element.l2 / (&force * &force);
+        if first_yield.as_ref().is_some_and(|current| current < &squared) { continue; }
+        if first_yield.as_ref() != Some(&squared) {
+            fixed_at_yield = false;
         }
-        if demand_squared == capacity_squared && eq.null.iter().all(|field| force_times_length(field).is_zero()) {
-            fixed_at_yield = true;
-        }
+        fixed_at_yield |= eq.null.iter().all(|field| force_times_length(field).is_zero());
+        first_yield = Some(squared);
     }
-    Ok(fixed_at_yield)
+    let Some(squared) = first_yield.filter(|_| fixed_at_yield) else { return Ok(false) };
+    let reported_squared = &factor * &factor;
+    Ok(match reported_squared.cmp(&squared) {
+        std::cmp::Ordering::Equal => true,
+        std::cmp::Ordering::Less => q(lambda.next_up()).is_some_and(|upper| &upper * &upper > squared),
+        std::cmp::Ordering::Greater => q(lambda.next_down()).is_some_and(|lower| &lower * &lower < squared),
+    })
 }
 
 fn equilibrium_equation_count(model: &PlasticModel) -> usize {

@@ -3273,7 +3273,6 @@ fn certified_limit_keeps_the_equilibrium_proven_axial_yield_mechanism_2608() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2608"]
 fn diagonal_truss_certifies_the_enclosed_irrational_axial_factor_2608() {
     use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
     for load in [-1.0, 1.0] {

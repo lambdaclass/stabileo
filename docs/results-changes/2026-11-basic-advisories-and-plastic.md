@@ -92,3 +92,5 @@ equilibrium. At the reported factor the exact force field must satisfy every axi
 At least one member must reach its capacity with an axial force that every equilibrium field
 shares. A larger load would exceed that capacity. This preserves the yielded-truss result from
 #2608 without relying on the step history to certify its factor.
+
+For an axially yielding truss, equilibrium determines the squared collapse factor exactly even when its square root is irrational. The certificate checks the returned floating-point value against the two adjacent representable numbers enclosing that root. A representable root must still match exactly.

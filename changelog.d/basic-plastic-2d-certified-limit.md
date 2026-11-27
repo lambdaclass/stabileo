@@ -4,3 +4,5 @@
 2D plastic collapse was withheld (`PL-2D-INVARIANCE`, SA-2026-044, #758). Basic now shows the collapse factor of the engine's limit analysis, confirmed where the exact plastic certificate's static and kinematic bounds meet at it. Where they do not, the panel still shows where the step-by-step analysis stopped, with a note the reader can close saying the factor is an unconfirmed estimate. The step-by-step history forms at most GH + 1 hinges, never two side by side, and ends at that factor; a hinge under a distributed load moves with the peak of the moment, so no section passes Mp at any step (it passed it by up to 12.8 % in the "Spring Support" example). The kinematic and static step-by-step methods apply again where the factor is released. "Portal Frame": 1925/27 = 71.296. See [the results change](../docs/results-changes/2026-11-basic-advisories-and-plastic.md).
 
 The exact limit check also retains the #2608 planar truss mechanism when joint equilibrium fixes the force in the member that yields.
+
+A diagonal truss can now receive its equilibrium-proven axial collapse factor when the exact value has an irrational square root.
