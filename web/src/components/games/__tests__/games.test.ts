@@ -2,14 +2,18 @@ import { afterEach, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { GAME_IDS, GAME_PATHS, isGameRoute } from '../../../lib/game-routes';
 import { setPublicLocale } from '../../../lib/i18n/store.svelte';
-import { LOCALE_NAMES, type Locale } from '../../../lib/i18n/offered';
+import type { Locale } from '../../../lib/i18n/offered';
+import { LOCALE_NAMES } from '../../../lib/i18n/offered';
 import { gameStrings, tg } from '../../diagram-game/strings';
 import { GAMES } from '../games';
 import { hubStrings } from '../strings';
 import { loadGamesPage } from '../load-page';
 import GamesPage from '../GamesPage.svelte';
 
-const LOCALES = Object.keys(LOCALE_NAMES) as Locale[];
+const LOCALES: Locale[] = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'];
+for (const locale of Object.keys(LOCALE_NAMES) as Locale[]) {
+  if (!LOCALES.includes(locale)) LOCALES.push(locale);
+}
 const width = (s: string) => s.length + (s.match(/[\p{Script=Han}　-〿＀-￯]/gu)?.length ?? 0);
 afterEach(() => setPublicLocale('en'));
 
