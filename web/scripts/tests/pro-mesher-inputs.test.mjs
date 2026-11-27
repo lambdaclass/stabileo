@@ -34,11 +34,7 @@ test('the unified PRO mesher validates all drawn boundaries', async (t) => {
         try {
           await outline.fill(bad);
           await expect(apply).toBeDisabled();
-          if (bad === '1, 2, 3, 2') {
-            await expect(mesher.getByText(/check the outline and data/i)).toBeVisible();
-          } else {
-            await expect(mesher.getByTestId('ms-input-error')).toContainText('Plate outline');
-          }
+          await expect(mesher.getByTestId('ms-input-error')).toContainText('Plate outline');
           assert.equal(await page.evaluate(() => window.mesherFixture.area()), 0);
           await outline.fill('1, 2, 3, 4');
           await apply.click();
@@ -59,11 +55,7 @@ test('the unified PRO mesher validates all drawn boundaries', async (t) => {
           const hole = mesher.locator('.ms-hole input');
           await hole.fill(bad);
           await expect(apply).toBeDisabled();
-          if (bad === '5, 6, 7, 6') {
-            await expect(mesher.getByText(/check the outline and data/i)).toBeVisible();
-          } else {
-            await expect(mesher.getByTestId('ms-input-error')).toContainText('Plate hole 1');
-          }
+          await expect(mesher.getByTestId('ms-input-error')).toContainText('Plate hole 1');
           assert.equal(await page.evaluate(() => window.mesherFixture.area()), 0);
           const triangular = bad === '5, 6, 999';
           await hole.fill(triangular ? '5, 6, 7' : '5, 6, 7, 8');
