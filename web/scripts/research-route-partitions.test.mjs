@@ -50,3 +50,18 @@ test('known wrong result: #2613 — the migration comparison obtains its meter i
   assert.match(script, /git .*archive "\$METER_REV"/);
   assert.equal((script.match(/node "\$meter"/g) ?? []).length, 2);
 });
+
+test.skip('known wrong result: #2613 — landing dictionary introductions pay only for the selected chunk', () => {
+  const before = footprint(0, 0, false);
+  const allowances = { [route]: { bytes: 5, localeLimits: { it: 0, nl: 5 }, introduction: true, publicDictionaryLimits: { nl: 10 } } };
+  function check(copy, outside, shared) {
+    const after = footprint(copy, shared);
+    after.localeSizes.nl += outside;
+    reviewRouteGrowth({ [route]: before.bytes }, { [route]: after.bytes + outside }, 'true', allowances,
+      { [route]: before.localeSizes }, { [route]: after.localeSizes });
+  }
+  check(10, 5, 128);
+  assert.throws(() => check(11, 0, 0), /nl public dictionary/);
+  assert.throws(() => check(9, 6, 0), /nl resource/);
+  assert.throws(() => check(10, 5, 129), /shared/);
+});

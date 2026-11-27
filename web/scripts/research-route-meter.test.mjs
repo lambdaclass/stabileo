@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
-test('The route CLI measures a loaded dictionary and rejects one byte past its isolated limit', t => {
+function routeFixture(t) {
   const cli = fileURLToPath(new URL('./check-research-route-size.mjs', import.meta.url));
   const root = mkdtempSync(join(dirname(cli), '.route-meter-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -30,6 +30,11 @@ test('The route CLI measures a loaded dictionary and rejects one byte past its i
     define: { '__PUBLIC_FEATURES__.research': 'false', '__PUBLIC_FEATURES__.tools': 'false' },
     build: { minify: false, rollupOptions: { input: ['index.html', ...pages] } },
   }));
+  return { write, run, dictionary, baseline, root };
+}
+
+test('The route CLI measures a loaded dictionary and rejects one byte past its isolated limit', t => {
+  const { run, dictionary, baseline } = routeFixture(t);
   dictionary('');
   const update = run('--update');
   assert.equal(update.status, 0, update.stderr);
@@ -49,4 +54,30 @@ test('The route CLI measures a loaded dictionary and rejects one byte past its i
   const over = run();
   assert.equal(over.status, 1, over.stderr);
   assert.match(over.stderr, /nl resource size 1321349 exceeds 1321348/);
+});
+
+test.skip('known wrong result: #2613 — only an individually lazy public dictionary is an alternative', t => {
+  const { root, write, run } = routeFixture(t);
+  const config = readFileSync(join(root, 'vite.config.mjs'), 'utf8').replace('export default ', '');
+  write('vite.config.mjs', `const config = ${config};
+    config.plugins = [{
+      name: 'public-locale-fixture',
+      resolveId(id) { if (id.startsWith('virtual:public-i18n/')) return '\0' + id; },
+      load(id) { if (id.startsWith('\0virtual:public-i18n/')) return 'export default {title:' + JSON.stringify(id.slice(-2)) + '}'; }
+    }];
+    export default config;`.replaceAll('\0', '\\0'));
+  write('src/labels.js', 'export default {}');
+  const imports = "globalThis.app = () => import('./App.js');";
+  const cases = [
+    ["globalThis.nl = () => import('virtual:public-i18n/nl'); globalThis.it = () => import('virtual:public-i18n/it');", true],
+    ["import nl from 'virtual:public-i18n/nl'; globalThis.nl = nl;", false],
+    ["globalThis.pair = () => import('./pair.js');", false],
+  ];
+  write('src/pair.js', "export {default as it} from 'virtual:public-i18n/it'; export {default as nl} from 'virtual:public-i18n/nl';");
+  for (const [entry, exclusive] of cases) {
+    write('src/index.js', imports + entry);
+    const result = run('--update');
+    assert.equal(result.status, exclusive ? 0 : 1, result.stderr || entry);
+    if (!exclusive) assert.match(result.stderr, /dedicated lazy public dictionary/);
+  }
 });
