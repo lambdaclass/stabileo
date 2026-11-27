@@ -123,7 +123,7 @@ interface FeatureSnapshotFields {
   nodes?: Entries<{ x: number; y: number; z?: number }>;
   materials?: Entries<Mat>;
   elements?: Entries<Elem>;
-  sections?: Entries<{ id: number; a?: number; shape?: string; shearAreas?: unknown }>;
+  sections?: Entries<{ id: number; a?: number; shearAreas?: unknown }>;
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
   loads?: FeatureLoad[];
@@ -522,7 +522,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const released = new Set<number>();
   const sections = values(s.sections);
-  const channels = new Set(sections.filter(section => section.shape === 'C' || section.shape === 'U').map(section => section.id));
+  const channels = new Set(sections
+    .filter(section => typeof section === 'object' && 'shape' in section && (section.shape === 'C' || section.shape === 'U'))
+    .map(section => section.id));
   const sheared = new Set(sections.filter((x) => x.shearAreas != null).map((x) => x.id));
   const fiberSections = new Set(Object.entries(s.fiberSections ?? {})
     .filter(([, section]) => (section.materials?.length ?? 0) > 0).map(([id]) => id));
