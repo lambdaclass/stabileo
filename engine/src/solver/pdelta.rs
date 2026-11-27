@@ -19,7 +19,7 @@ use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic};
 fn pdelta_diagnostics(linear: &[StructuredDiagnostic], equilibrium_ok: bool) -> Vec<StructuredDiagnostic> {
     let mut diagnostics = linear
         .iter()
-        .filter(|d| (d.code == DiagnosticCode::KnownIssue && !crate::known_issues::is_second_order(d)) || matches!(d.phase.as_deref(), Some("pre_solve" | "constraints" | "conditioning")))
+        .filter(|d| d.code == DiagnosticCode::ThermalDefaultAssumed || (d.code == DiagnosticCode::KnownIssue && !crate::known_issues::is_second_order(d)) || matches!(d.phase.as_deref(), Some("pre_solve" | "constraints" | "conditioning")))
         .cloned()
         .collect();
     if !equilibrium_ok {

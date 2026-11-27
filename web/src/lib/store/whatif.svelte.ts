@@ -467,7 +467,15 @@ export const whatIf = {
     schedule();
   },
   setRelease(id: number, end: 'i' | 'j', r: Release) {
-    releases[id] = { ...(releases[id] ?? {}), [end]: r };
+    const member = baseline?.elements.find(([key]) => key === id)?.[1];
+    if (!member) return;
+    const original = end === 'i' ? member.releaseI : member.releaseJ;
+    const next = { ...releases[id] };
+    if (r.my === !!original?.my && r.mz === !!original?.mz && r.t === !!original?.t
+      && r.slide === original?.slide && (!r.slide || (r.slideAxis ?? 'global') === (original?.slideAxis ?? 'global'))) delete next[end];
+    else next[end] = r;
+    if (next.i || next.j) releases[id] = next;
+    else delete releases[id];
     schedule();
   },
   setSupportType(id: number, type: SupportType) {

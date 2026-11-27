@@ -35,6 +35,7 @@ import { modelAliasRefusalFeature } from '../model/canonical-aliases';
 import type { ArcSpec } from '../model/curved-member';
 import { plateAnalysisIssue, type PlateAnalysisModel } from '../model/physical/plate-analysis';
 import { plateSurfaceOf } from '../model/physical/plate';
+import { thermalAlphaOf } from '../engine/thermal-alpha';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
@@ -71,7 +72,7 @@ export const FEATURE_IDS = [
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
-  'shellThermalLoads', 'nonpositiveThermalCoefficient',
+  'shellThermalLoads', 'nonpositiveThermalCoefficient', 'assumedThermalFamily',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
@@ -88,7 +89,7 @@ export const FEATURE_IDS = [
 export type FeatureId = (typeof FEATURE_IDS)[number];
 
 type Entries<T> = Array<[number, T]> | undefined;
-interface Mat { id: number; rho?: unknown; fy?: number; gradeId?: string; name?: string; e?: number }
+interface Mat { id: number; userDefined?: boolean; rho?: unknown; fy?: number; gradeId?: string; name?: string; e?: number }
 interface TensionEndSnapshot { kind?: string; connected?: string; webLines?: number; stagger?: { sMm?: number; gMm?: number } }
 const staggerGiven = (st: TensionEndSnapshot['stagger']) => !!st && [st.sMm, st.gMm].every((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
 interface Elem {
@@ -810,10 +811,14 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const partialDistributed = t.startsWith('distributed') && (positive(d.a) || d.b !== undefined);
     if (partialDistributed) f.add('partialDistributedMemberLoads');
     if (t.startsWith('pointOnElement') || partialDistributed) f.add('pointOrPartialMemberLoads');
-    if (t === 'thermal' || t === 'thermalQuad3d') {
+    if ((t === 'thermal' || t === 'thermalQuad3d') && (d.dtUniform || d.dtGradient || d.dtGradientY)) {
       const materialId = t === 'thermal' ? elementById.get(d.elementId as number)?.materialId
         : (d.on === 'plate' ? plateMaterials : quadMaterials).get(d.quadId as number);
-      const alpha = materialId === undefined ? undefined : materials.get(materialId)?.alpha;
+      const material = materialId === undefined ? undefined : materials.get(materialId);
+      const alpha = material?.alpha;
+      if (material && thermalAlphaOf(material) === undefined && thermalAlphaOf({ ...material, userDefined: false }) !== undefined) {
+        f.add('assumedThermalFamily');
+      }
       if (alpha !== undefined && Number.isFinite(alpha) && alpha <= 0) f.add('nonpositiveThermalCoefficient');
     }
     if (t === 'thermal') f.add('memberThermalLoads');

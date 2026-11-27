@@ -72,24 +72,33 @@
   onMount(() => { void whatIf.startReferenceSolve(); });
   $effect(() => { if (live) whatIf.captureReference(); });
   const ROWS = $derived<Array<{ k: ResponseKey; key: string }>>([
-    { k: 'delta', key: 'whatif.resp.delta' }, { k: 'moment', key: is3D ? 'whatif.resp.momentComponent' : 'whatif.resp.moment' }, { k: 'shear', key: is3D ? 'whatif.resp.shearComponent' : 'whatif.resp.shear' },
+    { k: 'delta', key: 'whatif.resp.delta' }, { k: 'moment', key: is3D ? 'whatif.resp.momentResultant' : 'whatif.resp.moment' }, { k: 'shear', key: is3D ? 'whatif.resp.shearResultant' : 'whatif.resp.shear' },
     { k: 'axial', key: 'whatif.resp.axial' }, { k: 'reaction', key: 'whatif.resp.reaction' },
   ]);
   const scientific = $derived(new Intl.NumberFormat(i18n.locale, { notation: 'scientific', maximumSignificantDigits: 4 }));
   function value(k: ResponseKey, v: number): string {
+    if (!Number.isFinite(v)) return t('solver.diagramExtremaUnavailable');
     const quantity = RESPONSE_QUANTITY[k];
     const formatted = fmtQ(v, quantity);
-    const number = v !== 0 && formatted === '0' ? scientific.format(toQ(v, quantity)) : formatted;
+    const number = v !== 0 && Number(formatted) === 0 ? scientific.format(toQ(v, quantity)) : formatted;
     return `${number} ${unitQ(quantity)}`;
   }
   const percent = $derived(new Intl.NumberFormat(i18n.locale, { style: 'percent', maximumFractionDigits: 1 }));
 
   /* Results off leaves the structure and its loads alone; on again brings back the last diagram. */
   let lastDiagram: DiagramType | null = null;
-  const resultsOn = $derived(resultsStore.diagramType !== 'none');
+  let lastReactions = false;
+  const resultsOn = $derived(resultsStore.diagramType !== 'none' || resultsStore.showReactions);
   function toggleResults() {
-    if (resultsOn) { lastDiagram = resultsStore.diagramType; showDiagram('none'); }
-    else showDiagram(lastDiagram ?? (is3D ? 'momentY' : 'moment'));
+    if (resultsOn) {
+      lastDiagram = resultsStore.diagramType;
+      lastReactions = resultsStore.showReactions;
+      showDiagram('none');
+      resultsStore.showReactions = false;
+    } else {
+      showDiagram(lastDiagram ?? (is3D ? 'momentY' : 'moment'));
+      resultsStore.showReactions = lastReactions;
+    }
   }
   /* Loads drawn over the results; on by default while the loads are being edited, until the reader turns them off. */
   let loadsTouched = false;

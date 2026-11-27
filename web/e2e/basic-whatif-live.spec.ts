@@ -124,10 +124,14 @@ test('@slow a pending moment diagram never connects its old forces to a moved en
     const { moveTo, lineTo, stroke } = ctx;
     let first = NaN, last = NaN, segments = 0;
     const ends: number[][] = [];
-    ctx.moveTo = (x, y) => { first = x; segments = 0; moveTo.call(ctx, x, y); };
-    ctx.lineTo = (x, y) => { last = x; segments++; lineTo.call(ctx, x, y); };
+    let path: DOMPoint[] = [], middle: DOMPoint | undefined;
+    ctx.moveTo = (x, y) => { first = x; segments = 0; path = []; moveTo.call(ctx, x, y); };
+    ctx.lineTo = (x, y) => { last = x; segments++; path.push(new DOMPoint(x, y)); lineTo.call(ctx, x, y); };
     ctx.stroke = () => {
-      if (ctx.strokeStyle === '#e5482a' && segments > 1 && ctx.lineWidth === 2) ends.push([first, last]);
+      if (ctx.strokeStyle === '#e5482a' && segments > 1 && ctx.lineWidth === 2) {
+        ends.push([first, last]);
+        middle = ctx.getTransform().transformPoint(path[Math.floor(path.length / 2)]);
+      }
       stroke.call(ctx);
     };
     const paint = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -138,18 +142,21 @@ test('@slow a pending moment diagram never connects its old forces to a moved en
       window.__stabileoActions.holdScreen();
       await paint();
       const original = ends.splice(0);
-      const previousPixels = canvas.toDataURL();
+      if (!middle) throw Error('No painted moment curve');
+      const { x, y } = middle;
+      const patch = () => Array.from(ctx.getImageData(Math.floor(x) - 2, Math.floor(y) - 2, 5, 5).data).join(',');
+      const previousPixels = patch();
       const tip = file.snapshot.nodes.find(([id]: [number]) => id === bar.nodeJ)[1];
       window.__stabileoActions.moveNode(tip.id, tip.x + 1, tip.y, tip.z ?? 0);
       await paint();
-      const movedPixels = canvas.toDataURL();
+      const movedPixels = patch();
       const after = ends.splice(0);
       const frame = window.__stabileo.screenFrame();
       window.__stabileoActions.moveNode(tip.id, tip.x, tip.y, tip.z ?? 0);
       await paint();
       window.__stabileoActions.moveNode(tip.id, tip.x + 1, tip.y, tip.z ?? 0);
       await paint();
-      return { changed: movedPixels !== previousPixels, matchesModel: movedPixels === canvas.toDataURL(), original, expected, after, frame };
+      return { changed: movedPixels !== previousPixels, matchesModel: movedPixels === patch(), original, expected, after, frame };
     } finally {
       Object.assign(ctx, { moveTo, lineTo, stroke });
     }

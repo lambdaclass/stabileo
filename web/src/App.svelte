@@ -1286,8 +1286,8 @@
       }
 
       // Manual solve (runGlobalSolve) remains immediate and cancels any pending debounce.
+      cancelPendingLiveCalc();
       if (solveFollows) {
-        cancelPendingLiveCalc();
         // Explore paces its own edits to the solves (whatif.svelte.ts), so its re-solve starts at once.
         const delay = whatIf.active ? 0 : !is3DWorkspace(_mode) ? 120 : 200;
         liveCalcTimer = setTimeout(() => {

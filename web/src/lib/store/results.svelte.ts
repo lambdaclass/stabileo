@@ -282,14 +282,15 @@ function createResultsStore() {
     activeView = 'single';
     if (single) return single;
 
-    const firstCase = cases.keys().next().value;
-    if (firstCase !== undefined && (!space || (!envelopeResult && activeComboId === null))) {
+    const refused = anyRefused(cases, combos);
+    const firstCase = [...cases].find(([, result]) => !knownIssueResultDisposition(result).refused)?.[0];
+    if (firstCase !== undefined && (!space || refused || (!envelopeResult && activeComboId === null))) {
       activeCaseId = firstCase;
       return cases.get(firstCase)!;
     }
     if (activeComboId !== null && (space || !envelopeResult)) {
       activeView = 'combo';
-      return anyRefused(cases, combos) ? null : combos.get(activeComboId)!;
+      return refused ? null : combos.get(activeComboId)!;
     }
     if (envelopeResult) activeView = 'envelope';
     return envelopeResult ?? null;

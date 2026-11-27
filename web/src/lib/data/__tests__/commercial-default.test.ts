@@ -70,7 +70,7 @@ describe('a deliberate choice is never overwritten', () => {
     expect(commercialDefaultFor('IPN', { userDefined: true }, 'AR')).toBeNull();
   });
 
-  it('applies to a material with no grade, which is not the same as no material', () => {
+  it('requires a known automatic material', () => {
     // A material exists, it just did not come from the catalogue: nobody chose
     // a steel, they got whatever the model was created with.
     expect(commercialDefaultFor('IPN', { userDefined: false }, 'AR')?.id).toBe('iram-f24');

@@ -771,8 +771,9 @@
     }
 
     // Pre-compute bar count per node (for hinge offset logic)
+    const paintedModel = colorMapOverrides.size ? displayModel() : modelStore;
     const nodeBarCount = new Map<number, number>();
-    for (const elem of modelStore.elements.values()) {
+    for (const elem of paintedModel.elements.values()) {
       nodeBarCount.set(elem.nodeI, (nodeBarCount.get(elem.nodeI) ?? 0) + 1);
       nodeBarCount.set(elem.nodeJ, (nodeBarCount.get(elem.nodeJ) ?? 0) + 1);
     }
@@ -781,9 +782,9 @@
     // own separated solid members + ghost remnants; the full member would
     // otherwise show through under the dashed remnant).
     if (dtNow() !== 'despiece') {
-      for (const elem of modelStore.elements.values()) {
+      for (const elem of paintedModel.elements.values()) {
         if (viewVisibility.isElementHidden(elem.id)) continue;
-        drawElement(elem, colorMapOverrides.get(elem.id), nodeBarCount);
+        drawElement(elem, paintedModel, colorMapOverrides.get(elem.id), nodeBarCount);
       }
     }
 
@@ -836,7 +837,7 @@
     if (loadsVisible) {
     // A load is hidden with the node or member it stands on.
     // A reaction figure must carry the same applied loads as its selected result.
-    const figureLoads = exportFrame?.content === 'reactions' ? displayedLoads2D() : modelStore.loads;
+    const figureLoads = exportFrame?.content === 'reactions' ? displayedLoads2D() : displayModel().loads;
     const shownLoads = viewVisibility.active ? figureLoads.filter((l) => !isLoadHidden(l.data as never)) : figureLoads;
 
     // Draw nodal loads (grouped by node for stacked labels)
@@ -1780,8 +1781,7 @@
     _drawNode(ctx!, node, (wx, wy) => uiStore.worldToScreen(wx, wy), !exportFrame && uiStore.selectedNodes.has(node.id), nodeLabelsNow());
   }
 
-  function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }, colorOverride?: string, nodeBarCount?: Map<number, number>) {
-    const geometry = colorOverride ? displayModel() : modelStore;
+  function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }, geometry: ReturnType<typeof displayModel>, colorOverride?: string, nodeBarCount?: Map<number, number>) {
     const niRaw = geometry.nodes.get(elem.nodeI);
     const njRaw = geometry.nodes.get(elem.nodeJ);
     if (!niRaw || !njRaw) return;
@@ -1797,7 +1797,7 @@
       showLengths: exportFrame ? exportFrame.options.lengths : uiStore.showLengths,
       zoom: uiStore.zoom,
       diagramType: dtNow(),
-      worldLength: modelStore.getElementLength(elem.id),
+      worldLength: Math.hypot(njRaw.x - niRaw.x, njRaw.y - niRaw.y, (njRaw.z ?? 0) - (niRaw.z ?? 0)),
       labels: currentFrameLabels,
     };
     _drawElement(ctx!, elem, ni, nj, opts, colorOverride, nodeBarCount);

@@ -2728,6 +2728,7 @@ const id: Translations = {
   'pro.pinned': 'Sendi',
   'pro.rollerX': 'Rol X',
   'pro.rollerY': 'Rol Y',
+  'pro.rollerZ': 'Rol Z',
   'pro.spring': 'Pegas',
   'pro.fixed3d': 'Jepit 3D',
   'pro.pinned3d': 'Sendi 3D',

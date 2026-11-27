@@ -96,7 +96,7 @@
   import InfluencePanel from '../advanced/InfluencePanel.svelte';
   import LoadStatesPanel from '../advanced/LoadStatesPanel.svelte';
   import { mohrPanel, openMohr, closeMohr } from '../../lib/mohr/panel.svelte';
-  import { advFunction } from '../../lib/advanced/catalog';
+  import { advFunction, unavailable, unavailableReasonKey } from '../../lib/advanced/catalog';
   import { advancedList } from '../../lib/advanced/panel-state.svelte';
   import AdvancedLauncher from '../advanced/AdvancedLauncher.svelte';
   import AdvFunctionHead from '../advanced/AdvFunctionHead.svelte';
@@ -573,9 +573,9 @@
   /** Start a function from the list; a step-by-step topic opens the catalog at its group. */
   function openFunction(id: string): void {
     const fn = advFunction(id);
-    if (fn?.requires.plane && is3D) { uiStore.toast(t('advanced.only2d'), 'error'); return; }
-    if (fn?.requires.results && !hasCurrentResults()) {
-      uiStore.toast(t('advanced.calculateFirst'), 'error');
+    const reason = fn && unavailable(fn, { is3D, members: modelStore.elements.size, solved: hasCurrentResults() });
+    if (reason) {
+      uiStore.toast(t(unavailableReasonKey[reason]), 'error');
       return;
     }
     if (fn) advancedList.reveal(fn.group);
@@ -704,7 +704,7 @@
     <BucklingDetails result={buR} />
   {/if}
   {#if plasticWithheld && !is3D && !withheldDismissed}
-    <div class="adv-withheld" role="note" data-testid="plastic-withheld">
+    <div class="adv-withheld" role="alert" data-testid="plastic-withheld">
       <p>{withoutIssueRef(plasticWithheld.message)}</p>
       <button type="button" class="adv-note-close" onclick={() => (withheldDismissed = true)} title={t('ribbon.close')} aria-label={t('ribbon.close')}
         data-testid="plastic-withheld-close">×</button>

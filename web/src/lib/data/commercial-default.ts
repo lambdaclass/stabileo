@@ -60,7 +60,7 @@ export function commercialDefaultFor(
   region?: GradeRegion | null,
 ): StructuralGrade | null {
   // A steel was chosen on purpose. Not ours to change.
-  if (current?.gradeId || current?.userDefined) return null;
+  if (current?.gradeId || current?.userDefined !== false) return null;
   if (!family) return null;
 
   const pairing = region

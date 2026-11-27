@@ -2591,6 +2591,7 @@ const ar: Translations = {
   'pro.pinned': 'مفصلي',
   'pro.rollerX': 'متحرك X',
   'pro.rollerY': 'متحرك Y',
+  'pro.rollerZ': 'متحرك Z',
   'pro.spring': 'نابض',
   'pro.fixed3d': 'مثبت 3D',
   'pro.pinned3d': 'مفصلي 3D',

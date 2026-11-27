@@ -1,0 +1,40 @@
+{
+  "id": "custom-thermal-family",
+  "date": "2026-11-27",
+  "prs": [
+    2491
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "assumedThermalFamily"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Recheck the thermal coefficient of ungraded materials",
+    "es": "Revisar la dilatación térmica de los materiales sin grado",
+    "pt": "Rever a dilatação térmica dos materiais sem classe",
+    "fr": "Vérifier la dilatation des matériaux sans nuance",
+    "de": "Wärmeausdehnung von Werkstoffen ohne Güte prüfen",
+    "hu": "Az osztályba nem sorolt anyagok hőtágulásának ellenőrzése",
+    "tr": "Sınıfı belirtilmemiş malzemelerin ısıl genleşmesini denetleyin",
+    "zh": "复核未指定牌号材料的热膨胀系数"
+  },
+  "explanation": {
+    "en": "An ungraded material with no expansion coefficient could be assigned a family by stiffness alone. Check the coefficient before using the recalculated thermal response.",
+    "es": "La rigidez podía determinar la familia de un material sin grado ni coeficiente de dilatación. Revisá el coeficiente antes de usar la respuesta térmica recalculada.",
+    "pt": "A rigidez podia determinar a família de um material sem classe nem coeficiente de dilatação. Confira o coeficiente antes de usar a resposta térmica recalculada.",
+    "fr": "La rigidité pouvait déterminer la famille d’un matériau sans nuance ni coefficient de dilatation. Vérifiez le coefficient avant d’utiliser la réponse thermique recalculée.",
+    "de": "Bei fehlender Güte und fehlendem Ausdehnungskoeffizienten konnte allein die Steifigkeit die Werkstofffamilie bestimmen. Prüfen Sie den Koeffizienten vor Verwendung der neu berechneten Ergebnisse.",
+    "hu": "Anyagminőség és hőtágulási együttható hiányában korábban a merevség határozhatta meg az anyagcsaládot. Az újraszámított eredmények használata előtt ellenőrizze az együtthatót.",
+    "tr": "Sınıfı ve genleşme katsayısı belirtilmeyen malzemelerin ailesi yalnızca rijitliğe göre belirlenebiliyordu. Yeni ısıl sonuçları kullanmadan önce katsayıyı denetleyin.",
+    "zh": "未指定牌号和热膨胀系数时，以前可能仅凭刚度推断材料类别。使用重新计算的温度响应前，请核对热膨胀系数。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-custom-thermal-family.md",
+    "heading": "Recheck the thermal coefficient of ungraded materials"
+  }
+}

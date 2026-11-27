@@ -319,14 +319,17 @@ fn prepared_solves_refuse_invalid_thermal_properties() {
     let prepared = prepare_static_2d(&unloaded).unwrap();
     for (alpha, depth) in [(Some(f64::NAN), None), (Some(12.0), None), (None, Some(0.0)), (Some(-1e-3), None), (Some(1e-3), None)] {
         let load = SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 10.0, dt_gradient: 5.0, alpha, depth });
-        assert!(prepared.solve_loads(&[load]).is_err(), "2D alpha {alpha:?} depth {depth:?} solved");
+        let error = prepared.solve_loads(&[load]).unwrap_err();
+        assert!(error.contains(if alpha.is_some() { "alpha" } else { "depth" }), "{error}");
     }
     let model = fixed_3d(200_000.0, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 0.0, "dtGradientY": 0.0, "dtGradientZ": 0.0}));
     let unloaded = SolverInput3D { loads: vec![], ..model };
     let prepared = prepare_static_3d(&unloaded).unwrap();
     for (alpha, dy, dz) in [(Some(f64::NAN), None, None), (Some(12.0), None, None), (Some(-1e-3), None, None), (Some(1e-3), None, None), (None, Some(0.0), None), (None, None, Some(-0.3))] {
         let load = SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: 1, dt_uniform: 10.0, dt_gradient_y: 5.0, dt_gradient_z: 5.0, alpha, depth_y: dy, depth_z: dz });
-        assert!(prepared.solve_loads(&[load]).is_err(), "3D alpha {alpha:?} depths {dy:?} {dz:?} solved");
+        let error = prepared.solve_loads(&[load]).unwrap_err();
+        let field = if alpha.is_some() { "alpha" } else if dy.is_some() { "depthY" } else { "depthZ" };
+        assert!(error.contains(field), "{error}");
     }
 }
 
@@ -364,7 +367,6 @@ fn issue_2656_signed_thermal_strain_in_plane_and_space() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2656"]
 fn issue_2656_free_thermal_gradient_reverses_rotation_on_every_member_solve() {
     let dt = 10.0;
     let length = 5.0;
@@ -396,7 +398,6 @@ fn issue_2656_free_thermal_gradient_reverses_rotation_on_every_member_solve() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2491"]
 fn second_order_results_identify_assumed_thermal_properties() {
     for stated in [false, true] {
         let mut thermal = json!({"dtUniform": 1.0, "dtGradient": 2.0, "dtGradientY": 0.0, "dtGradientZ": 2.0});

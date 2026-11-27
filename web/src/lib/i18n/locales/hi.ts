@@ -2690,6 +2690,7 @@ const hi: Translations = {
   'pro.pinned': 'हिंज (स्थिर)',
   'pro.rollerX': 'रोलर X',
   'pro.rollerY': 'रोलर Y',
+  'pro.rollerZ': 'रोलर Z',
   'pro.spring': 'स्प्रिंग',
   'pro.fixed3d': 'स्थिर 3D',
   'pro.pinned3d': 'पिन 3D',

@@ -6,7 +6,7 @@
 import type { AnalysisResults } from '../engine/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { computeElementDiagram } from '../engine/diagrams';
-import { computeGlobalMax3D } from '../engine/diagrams-3d';
+import { computeGlobalMax3D, transverseResultantMax3D } from '../engine/diagrams-3d';
 import type { Quantity } from '../utils/units';
 
 export type ResponseKey = 'delta' | 'moment' | 'shear' | 'axial' | 'reaction';
@@ -34,8 +34,8 @@ export function response3D(r: AnalysisResults3D): Response {
   const ef = r.elementForces;
   return {
     delta: peak(r.displacements.map((d) => Math.hypot(d.ux, d.uy, d.uz))),
-    moment: Math.max(computeGlobalMax3D(ef, 'momentY'), computeGlobalMax3D(ef, 'momentZ')),
-    shear: Math.max(computeGlobalMax3D(ef, 'shearY'), computeGlobalMax3D(ef, 'shearZ')),
+    moment: transverseResultantMax3D(ef, 'moment'),
+    shear: transverseResultantMax3D(ef, 'shear'),
     axial: computeGlobalMax3D(ef, 'axial'),
     reaction: peak(r.reactions.map((x) => Math.hypot(x.fx, x.fy, x.fz))),
   };

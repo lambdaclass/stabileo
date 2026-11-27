@@ -2743,6 +2743,7 @@ const it: Translations = {
   'pro.pinned': 'Cerniera fissa',
   'pro.rollerX': 'Carrello X',
   'pro.rollerY': 'Carrello Y',
+  'pro.rollerZ': 'Carrello Z',
   'pro.spring': 'Molla',
   'pro.fixed3d': 'Incastro 3D',
   'pro.pinned3d': 'Cerniera 3D',

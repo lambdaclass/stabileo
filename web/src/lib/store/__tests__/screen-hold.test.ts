@@ -200,6 +200,9 @@ it('holds the solved section when a new section modulus is requested', async () 
   modelStore.updateSection(section.id, { iy: original * 2 });
   expect(resultsStore.screen.held).toBe(true);
   expect(resultsStore.screen.model?.sections.get(member.sectionId)?.iy).toBe(original);
+  const painted = resultsStore.screen.model?.elements.get(member.id);
+  expect(painted).toMatchObject({ id: member.id, nodeI: member.nodeI, nodeJ: member.nodeJ, releaseI: member.releaseI, releaseJ: member.releaseJ });
+  expect(painted?.releaseI).not.toBe(member.releaseI);
 });
 
 it.each(['2d', '3d'] as const)('keeps the applied loads consistent with the pending %s frame', async mode => {
@@ -215,6 +218,11 @@ it.each(['2d', '3d'] as const)('keeps the applied loads consistent with the pend
     resultsStore.diagramType = 'momentY';
   }
   modelStore.removeLoad(load.data.id);
-  if (mode === '2d') expect(resultsStore.screen.held).toBe(true);
-  if (resultsStore.screen.held) expect(resultsStore.screen.model).toMatchObject({ loads: old });
+  if (mode === '2d') {
+    expect(resultsStore.screen.held).toBe(true);
+    expect(resultsStore.screen.model).toMatchObject({ loads: old });
+  } else {
+    expect(resultsStore.screen.held).toBe(false);
+    expect(resultsStore.screen.results3D).toBeNull();
+  }
 });

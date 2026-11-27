@@ -2729,6 +2729,7 @@ const ko: Translations = {
   'pro.pinned': '핀지점',
   'pro.rollerX': 'X방향 이동단',
   'pro.rollerY': 'Y방향 이동단',
+  'pro.rollerZ': 'Z방향 이동단',
   'pro.spring': '스프링',
   'pro.fixed3d': '고정 3D',
   'pro.pinned3d': '핀 3D',

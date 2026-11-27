@@ -2589,6 +2589,7 @@ const ja: Translations = {
   'pro.pinned': 'ピン',
   'pro.rollerX': 'ローラーX',
   'pro.rollerY': 'ローラーY',
+  'pro.rollerZ': 'ローラーZ',
   'pro.spring': 'バネ',
   'pro.fixed3d': '固定 3D',
   'pro.pinned3d': 'ピン 3D',

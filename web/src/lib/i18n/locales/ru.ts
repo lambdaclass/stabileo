@@ -2734,6 +2734,7 @@ const ru: Translations = {
   'pro.pinned': 'Шарнирная',
   'pro.rollerX': 'Подвижная X',
   'pro.rollerY': 'Подвижная Y',
+  'pro.rollerZ': 'Подвижная Z',
   'pro.spring': 'Пружина',
   'pro.fixed3d': 'Заделка 3D',
   'pro.pinned3d': 'Шарнир 3D',

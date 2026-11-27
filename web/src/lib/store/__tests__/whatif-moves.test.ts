@@ -423,6 +423,10 @@ it('summarizes the transverse resultants of a space cantilever', () => {
     const combined = { ...member, combined: { method, parts: [member, member] } };
     expect(response3D({ ...result, elementForces: [combined] }).moment)
       .toBeCloseTo((method === 'abs' ? 2 : Math.SQRT2) * peak, 12);
+    const nested = { ...member, combined: { method, parts: [member, combined] } };
+    const bounds = response3D({ ...result, elementForces: [nested] });
+    expect(bounds.moment).toBeNaN();
+    expect(bounds.shear).toBeNaN();
   }
 });
 
@@ -434,6 +438,23 @@ it('labels the zero maximum nodal displacement of a loaded single span', async (
   expect(response2D(result).moment).toBeGreaterThan(0);
   expect(response2D(result).delta).toBe(0);
   resultsStore.setResults(result);
+  expect(render(WhatIfPanel).body).toMatch(/nodal/i);
+});
+
+it('labels the zero maximum nodal displacement of a loaded space span', () => {
+  modelStore.clear();
+  uiStore.analysisMode = '3d';
+  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+  const member = modelStore.addElement(a, b);
+  modelStore.addSupport(a, 'custom3d', undefined, { dofRestraints: { tx: true, ty: true, tz: true, rx: true, ry: false, rz: false } });
+  modelStore.addSupport(b, 'custom3d', undefined, { dofRestraints: { tx: false, ty: true, tz: true, rx: false, ry: false, rz: false } });
+  modelStore.addDistributedLoad3D(member, 0, 0, -2, -2);
+  whatIf.open();
+  const result = modelStore.solve3D();
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  resultsStore.setResults3D(result);
+  expect(response3D(result).moment).toBeCloseTo(2 * 4 ** 2 / 8, 10);
+  expect(response3D(result).delta).toBe(0);
   expect(render(WhatIfPanel).body).toMatch(/nodal/i);
 });
 

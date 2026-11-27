@@ -8,8 +8,8 @@
   import { tAt } from '../../lib/i18n/store.svelte';
   import { tools } from '../../lib/features';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
-  import { ADV_FUNCTIONS, ADV_GROUPS, ownerOfMethod, linkedMethods, unavailable, type AdvFunction, type AdvGroupId } from '../../lib/advanced/catalog';
-  import { buildIndex, search, type SearchDoc } from '../../lib/advanced/search';
+  import { ADV_FUNCTIONS, ADV_GROUPS, ownerOfMethod, linkedMethods, unavailable, unavailableReasonKey, type AdvFunction, type AdvGroupId } from '../../lib/advanced/catalog';
+  import { buildIndex, fold, search, type SearchDoc } from '../../lib/advanced/search';
   import { advancedList } from '../../lib/advanced/panel-state.svelte';
   import { openStepMethod } from '../../lib/advanced/open-step';
   import AdvThumb from './AdvThumb.svelte';
@@ -70,14 +70,13 @@
 
   function reasonOf(f: AdvFunction): string | null {
     const why = unavailable(f, modelState);
-    if (why === 'plane') return t('advanced.only2d');
-    if (why === 'model') return t('advCat.req.model');
-    if (why === 'results') return t('advanced.calculateFirst');
-    return null;
+    return why ? t(unavailableReasonKey[why]) : null;
   }
 
   const ownerOf = (e: Entry) => (e.kind === 'fn' ? e.fn : e.owner);
-  const blocked = (e: Entry) => unavailable(ownerOf(e), modelState) === 'plane';
+  const blockedReason = (e: Entry) => unavailable(ownerOf(e), modelState) === 'plane' ? 'advanced.only2d'
+    : e.kind === 'step' && e.owner.id === 'plastic' ? 'knownIssue.PL-2D-INVARIANCE' : null;
+  const blocked = (e: Entry) => blockedReason(e) !== null;
 
   function open(e: Entry): void {
     if (blocked(e)) return;
@@ -92,6 +91,8 @@
   function onKey(ev: KeyboardEvent): void {
     if (ev.isComposing) return;
     if (ev.key === 'Enter') {
+      const exact = flat.find(e => e.kind === 'step' && both(methodTitle(e.method)).some(name => fold(name) === fold(advancedList.query)));
+      if (exact && blockedReason(exact) === 'knownIssue.PL-2D-INVARIANCE') { ev.preventDefault(); return; }
       const first = flat.find(entry => !blocked(entry));
       if (first) { ev.preventDefault(); open(first); }
     } else if (ev.key === 'Escape') {
@@ -152,7 +153,7 @@
             {#if e.kind === 'fn'}
               {@render card(e.fn)}
             {:else}
-              <button type="button" class="ac-step" disabled={blocked(e)} title={blocked(e) ? t('advanced.only2d') : undefined} onclick={() => open(e)} data-testid="adv-step-{e.method}">
+              <button type="button" class="ac-step" disabled={blocked(e)} title={blocked(e) ? t(blockedReason(e)!) : undefined} onclick={() => open(e)} data-testid="adv-step-{e.method}">
                 <span class="ac-step-tag">{t('advCat.search.step')}</span>
                 <span class="ac-step-title"><Prose text={t(methodTitle(e.method))} /></span>
                 <span class="ac-step-owner">{tp('advCat.search.stepOf', { name: t(e.owner.titleKey) })}</span>

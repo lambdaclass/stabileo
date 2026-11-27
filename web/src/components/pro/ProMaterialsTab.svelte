@@ -187,9 +187,10 @@
   }
 
   /** α in 10⁻⁶/°C. Blank goes back to the family's value. */
-  function setAlpha(id: number, raw: string) {
-    const alpha = readAlpha(raw, modelStore.materials.get(id)?.alpha);
+  function setAlpha(id: number, input: HTMLInputElement) {
+    const alpha = readAlpha(input.value, modelStore.materials.get(id)?.alpha);
     if (alpha === null) {
+      input.value = alphaField(modelStore.materials.get(id)?.alpha);
       uiStore.toast(t('materials.alphaInvalid'), 'error');
       return;
     }
@@ -266,7 +267,7 @@
                   aria-label={t('materials.alpha')}
                   value={alphaField(m.alpha)}
                   placeholder={String(+(thermalAlphaForDisplay(m) * 1e6).toFixed(2))}
-                  onchange={(e) => setAlpha(m.id, e.currentTarget.value)}
+                  onchange={(e) => setAlpha(m.id, e.currentTarget)}
                 />
               </td>
               <td class="col-num">

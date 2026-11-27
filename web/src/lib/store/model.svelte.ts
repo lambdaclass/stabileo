@@ -1411,6 +1411,7 @@ function createModelStore() {
   const defaultMaterial: Material = {
     id: 1,
     name: 'Acero A36',
+    userDefined: false,
     e: 200000,
     nu: 0.3,
     rho: 78.5,
@@ -4763,7 +4764,10 @@ function createModelStore() {
           model.materials.set(1, structuredClone(opts.defaults.material));
           model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
         }
-        loadFixture(json, this.fixtureApi() as any, opts);
+        loadFixture(json, this.fixtureApi() as any, {
+          keepCombinations: opts.keepCombinations,
+          exampleMaterial: !fixture || opts.defaults ? { ...defaultMaterial } : undefined,
+        });
 
         // Settle canonical state once the whole model is in place. Sections the
         // fixture added are already resolved (addSection resolves per add, and
@@ -4827,7 +4831,10 @@ function createModelStore() {
       if (!mat) return;
       const m = new Map(model.materials);
       const data = 'replacement' in change ? change.replacement : change;
-      m.set(id, 'replacement' in change ? { ...change.replacement, id } : { ...mat, ...data, id });
+      const updated = 'replacement' in change ? { ...change.replacement, id } : { ...mat, ...data, id };
+      if (!('replacement' in change) && mat.userDefined === false && Object.entries(change)
+        .some(([key, value]) => key !== 'name' && value !== mat[key as keyof Material])) updated.userDefined = true;
+      m.set(id, updated);
       model.materials = m;
       // A composite drawn section stores the parts' ratios to its reference: re-read them, or it
       // keeps the stiffness of the material as it was when the section was drawn.

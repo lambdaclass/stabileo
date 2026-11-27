@@ -1,4 +1,4 @@
-import type { AnalysisResults, Element, Section, Material, Node } from './model.svelte';
+import type { AnalysisResults, Element, Section, Material, Node, Load } from './model.svelte';
 import type { DiagramType } from './results.svelte';
 import type { FullEnvelope } from '../engine/types';
 import type { AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
@@ -16,7 +16,8 @@ export interface ScreenView {
 export interface ScreenModel {
   geometry: string;
   nodes: ReadonlyMap<number, Node>;
-  elements: ReadonlyMap<number, Pick<Element, 'nodeI' | 'nodeJ' | 'type' | 'materialId' | 'sectionId'>>;
+  elements: ReadonlyMap<number, Pick<Element, 'id' | 'type' | 'nodeI' | 'nodeJ' | 'materialId' | 'sectionId' | 'releaseI' | 'releaseJ'>>;
+  loads: Load[];
   sections: ReadonlyMap<number, Section>;
   materials: ReadonlyMap<number, Material>;
 }

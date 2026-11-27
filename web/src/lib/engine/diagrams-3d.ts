@@ -3,7 +3,7 @@
 // using equilibrium equations with distributed and point loads.
 
 import { type UnitSystem, formatDiagramValue } from '../utils/units';
-import { addMagnitudeBounds, checkedCurveValue, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, memberDiagram, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramExtremum, type DiagramStation } from './member-diagram';
+import { componentMagnitude, type MagnitudeMethod, addMagnitudeBounds, checkedCurveValue, diagramCurvePoints, fullSpanFallback, indexDiagramExtrema, memberDiagram, prepareCurveExtrema, prepareMagnitudeExtrema, sortedStations, unavailableDiagramExtrema, type DiagramCurve, type DiagramExtremum, type DiagramStation } from './member-diagram';
 import type { ElementForces3D, EnvelopeDiagramData3D } from './types-3d';
 
 export type Diagram3DKind = 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';
@@ -80,29 +80,33 @@ function joinedCutDistances(curves: Iterable<ReadonlyMap<number, number>>): Map<
   return distances;
 }
 
+function magnitudeCurve(curves: SpatialCurve[], method: MagnitudeMethod, length: number): SpatialCurve {
+  let cutDistances: Map<number, number> | undefined;
+  const distances = () => cutDistances ??= joinedCutDistances([new Map([[0, 0], [1, length]]), ...curves.map(c => c.cutDistances)]);
+  const cuts = () => sortedStations(distances().keys());
+  const polynomialParts = curves.flatMap(c => c.polynomial ? [{ polynomial: c.polynomial }] : []);
+  const exact = polynomialParts.length === curves.length;
+  const combine = (station: DiagramStation) => {
+    distances();
+    const values = curves.map(curve => curve.value(station));
+    return componentMagnitude(values, method);
+  };
+  const magnitudeBound = () => curves.reduce((bound, curve) => addMagnitudeBounds(bound, maxMagnitude(curve)), 0);
+  return {
+    get cuts() { return cuts(); },
+    get cutDistances() { return distances(); },
+    extrema: exact ? prepareMagnitudeExtrema(polynomialParts, method, distances, length)
+      : () => curves.flatMap(curve => curve.extrema().map(({ t }) => ({ t, value: combine({ t }), canTransfer: () => false }))),
+    ...(!exact ? { magnitudeBound } : {}),
+    value: combine,
+  };
+}
+
 function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
   if (ef.combined) {
     const { method, parts } = ef.combined;
     const curves = parts.map(p => spatialCurve(p, kind));
-    let cutDistances: Map<number, number> | undefined;
-    const distances = () => cutDistances ??= joinedCutDistances([new Map([[0, 0], [1, ef.length]]), ...curves.map(c => c.cutDistances)]);
-    const cuts = () => sortedStations(distances().keys());
-    const polynomialParts = curves.flatMap(c => c.polynomial ? [{ polynomial: c.polynomial }] : []);
-    const exact = polynomialParts.length === curves.length;
-    const combine = (station: DiagramStation) => {
-      distances();
-      const values = curves.map(curve => curve.value(station));
-      return method === 'srss' ? Math.hypot(...values) : values.reduce((sum, value) => sum + Math.abs(value), 0);
-    };
-    const magnitudeBound = () => curves.reduce((bound, curve) => addMagnitudeBounds(bound, maxMagnitude(curve)), 0);
-    return {
-      get cuts() { return cuts(); },
-      get cutDistances() { return distances(); },
-      extrema: exact ? prepareMagnitudeExtrema(polynomialParts, method, distances, ef.length)
-        : () => curves.flatMap(curve => curve.extrema().map(({ t }) => ({ t, value: combine({ t }), canTransfer: () => false }))),
-      ...(!exact ? { magnitudeBound } : {}),
-      value: combine,
-    };
+    return magnitudeCurve(curves, method, ef.length);
   }
   if (ef.pieces?.length) {
     const pieces = ef.pieces.map(p => {
@@ -154,6 +158,19 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
     get cutDistances() { return curve.cutDistances; },
     value: curve.value, polynomial: curve.polynomial, extrema: prepareCurveExtrema(curve, ef.length),
   };
+}
+
+export function transverseResultantMax3D(forces: ElementForces3D[], kind: 'moment' | 'shear'): number {
+  let maximum = 0;
+  for (const ef of forces) {
+    const parts = ef.combined?.parts ?? [ef];
+    const curves = parts.flatMap(part => (['Y', 'Z'] as const).map(axis => spatialCurve(part, `${kind}${axis}`)));
+    const method = ef.combined?.method === 'abs' ? 'transverseAbs' : 'srss';
+    const magnitude = magnitudeCurve(curves, method, ef.length);
+    if (magnitude.magnitudeBound) return NaN;
+    maximum = Math.max(maximum, maxMagnitude(magnitude));
+  }
+  return maximum;
 }
 
 export function criticalDiagramStations3D(ef: ElementForces3D, purpose: 'diagram' | 'concrete-design' = 'diagram'): DiagramStation[] {

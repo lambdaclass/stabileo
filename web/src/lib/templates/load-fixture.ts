@@ -112,6 +112,7 @@ export interface FixtureLoader {
 }
 
 interface FixtureLoadOptions {
+  exampleMaterial?: Readonly<Record<string, unknown>>;
   keepCombinations?: boolean;
 }
 
@@ -190,26 +191,10 @@ function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOpt
   const secMap = new Map<number, number>();
   const quadMap = new Map<number, number>();
 
-  // Materials (skip id=1, it's the default — but update it if fixture overrides)
   for (const mat of json.materials) {
-    if (mat.id === 1) {
-      // Update default material in place via addMaterial trick:
-      // Just map 1→1 and let the store keep its default
-      // But we need the fixture's properties. Use addMaterial for id>1.
-      matMap.set(1, 1);
-      // The default material may have different properties; override by adding a new one
-      // and remapping. But most stores don't support updateMaterial via ExampleAPI.
-      // Since loadFixture is called after clear(), the default mat is Acero A36.
-      // If fixture has a different material at id=1, add it as a new one.
-      const defaultE = 200000;
-      if (mat.e !== defaultE || mat.name !== 'Acero A36') {
-        const newId = api.addMaterial(withoutId(mat));
-        matMap.set(1, newId);
-      }
-    } else {
-      const newId = api.addMaterial(withoutId(mat));
-      matMap.set(mat.id, newId);
-    }
+    const seed = opts.exampleMaterial;
+    const useSeed = mat.id === 1 && seed && Object.entries(mat).every(([key, value]) => seed[key] === value);
+    matMap.set(mat.id, useSeed ? 1 : api.addMaterial(withoutId(mat)));
   }
 
   // Sections (skip id=1 default — update if fixture overrides)

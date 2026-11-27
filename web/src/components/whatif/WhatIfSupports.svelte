@@ -26,7 +26,7 @@
   ];
   const SUPPORTS_3D: Array<{ v: SupportType; k: string }> = [
     { v: 'fixed3d', k: 'pro.fixed3d' }, { v: 'pinned3d', k: 'pro.pinned3d' },
-    { v: 'rollerX', k: 'pro.rollerX' }, { v: 'rollerY', k: 'pro.rollerY' }, { v: 'rollerZ', k: 'pro.rollerY' },
+    { v: 'rollerX', k: 'pro.rollerX' }, { v: 'rollerY', k: 'pro.rollerY' }, { v: 'rollerZ', k: 'pro.rollerZ' },
     { v: 'rollerXY', k: 'pro.rollerXY' }, { v: 'rollerXZ', k: 'pro.rollerXZ' }, { v: 'rollerYZ', k: 'pro.rollerYZ' },
   ];
   const options = $derived(is3D ? SUPPORTS_3D : SUPPORTS_2D);
@@ -34,8 +34,7 @@
     return supportTypeOptions(is3D, t).find(o => o.value === type)?.label ?? supportNameShown(type, type, is3D);
   }
   function label(o: { v: SupportType; k: string }): string {
-    const s = is3D && o.v === 'rollerZ' ? t(o.k).replace(/\bY\b/, 'Z') : t(o.k);
-    return supportNameShown(o.v, s, is3D);
+    return supportNameShown(o.v, t(o.k), is3D);
   }
 </script>
 

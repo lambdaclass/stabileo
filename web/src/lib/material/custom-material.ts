@@ -41,10 +41,10 @@ export function readCustomMaterial(form: CustomMaterialForm, stored?: Pick<Mater
   const nu = parseDecimal(form.nu);
   const { e, rho, fy } = form;
   if (e === null || nu === null || rho === null) return { ok: false, reasonKey: 'material.custom.needNumbers' };
-  if (!(e > 0)) return { ok: false, reasonKey: 'material.custom.badE' };
+  if (!Number.isFinite(e) || !(e > 0)) return { ok: false, reasonKey: 'material.custom.badE' };
   if (nu <= -1 || nu >= 0.5) return { ok: false, reasonKey: 'material.custom.badNu' };
-  if (!(rho >= 0)) return { ok: false, reasonKey: 'material.custom.badRho' };
-  if (fy !== null && !(fy > 0)) return { ok: false, reasonKey: 'material.custom.badFy' };
+  if (!Number.isFinite(rho) || !(rho >= 0)) return { ok: false, reasonKey: 'material.custom.badRho' };
+  if (fy !== null && (!Number.isFinite(fy) || !(fy > 0))) return { ok: false, reasonKey: 'material.custom.badFy' };
   const alpha = readAlpha(form.alpha, stored?.alpha);
   if (alpha === null) return { ok: false, reasonKey: 'materials.alphaInvalid' };
   return {
@@ -74,8 +74,8 @@ export function saveCustomMaterial(choice: CustomMaterialChoice, id: number | nu
   const original = id === null ? undefined : modelStore.materials.get(id);
   if (id === null || !original) return modelStore.addMaterial({ ...fields, userDefined: true });
   if (original.e === fields.e && original.nu === fields.nu && original.rho === fields.rho
-    && original.fy === fields.fy && original.alpha === fields.alpha) {
-    modelStore.updateMaterial(id, { name: fields.name });
+    && original.fy === fields.fy) {
+    modelStore.updateMaterial(id, { name: fields.name, ...(original.alpha !== fields.alpha ? { alpha: fields.alpha, userDefined: true } : {}) });
     return id;
   }
   modelStore.updateMaterial(id, {

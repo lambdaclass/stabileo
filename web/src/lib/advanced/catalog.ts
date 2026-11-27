@@ -181,3 +181,9 @@ export function unavailable(f: AdvFunction, state: { is3D: boolean; members: num
   if (f.requires.results && !state.solved) return 'results';
   return null;
 }
+
+export const unavailableReasonKey = {
+  plane: 'advanced.only2d',
+  model: 'advCat.req.model',
+  results: 'advanced.calculateFirst',
+} as const;
