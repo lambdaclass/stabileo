@@ -1,6 +1,10 @@
+from hashlib import sha256
+import json
+import os
 import pathlib
 import re
 import subprocess
+import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -126,6 +130,98 @@ class CiAggregate(unittest.TestCase):
     def test_wasm_builder_installs_clang_before_compilation(self):
         stage = (ROOT / 'Dockerfile').read_text().split('AS wasm-builder', 1)[1].split('AS web-builder', 1)[0]
         self.assertRegex(stage.split('wasm-pack build', 1)[0], r'apt-get install[^\n]*\bclang\b')
+
+
+class ParityWorkflow(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory(dir=ROOT)
+        self.addCleanup(directory.cleanup)
+        self.repo = pathlib.Path(directory.name)
+        self.output = self.repo / 'github-output'
+        self.git('init', '--quiet', '-b', 'target')
+        self.git('config', 'user.name', 'Parity workflow fixture')
+        self.git('config', 'user.email', 'parity@example.invalid')
+        web = self.repo / 'web'
+        (web / 'config').mkdir(parents=True)
+        (web / 'config/features.json').write_text('{"production":{},"test":{}}')
+        (web / 'package-lock.json').write_text('{}')
+        (web / 'package.json').write_text('{"scripts":{"build":"mkdir dist && cat page > dist/index.html && git rev-parse HEAD >> dist/index.html"}}')
+        (web / 'page').write_text('old page\n')
+        (self.repo / 'Makefile').write_text(
+            'wasm:\n\tmkdir -p web/src/lib/wasm\n'
+            '\tprintf glue > web/src/lib/wasm/dedaliano_engine.js\n'
+            '\tprintf solver > web/src/lib/wasm/dedaliano_engine_bg.wasm\n'
+            'research.wasm:\n\tmkdir -p web/public/research-wasm\n'
+            '\tcp web/page web/public/research-wasm/asset\n'
+        )
+        self.base = self.commit('Published source predating the parity checker')
+        self.git('switch', '--quiet', '-c', 'feature')
+        (web / 'page').write_text('candidate page\n')
+        self.head = self.commit('Change the production page', '-m',
+                                'Production-Parity: required\nProduction-Change: web/page')
+        self.git('switch', '--quiet', 'target')
+        for name in ['Makefile', 'scripts/check-production-parity.py']:
+            destination = self.repo / name
+            destination.parent.mkdir(exist_ok=True)
+            destination.write_bytes((ROOT / name).read_bytes())
+        (self.repo / 'Cargo.lock').write_text('target only')
+        self.target = self.commit('Add the checker and move the target lockfile')
+        self.git('update-ref', 'refs/remotes/origin/target', self.target)
+        self.git('merge', '--quiet', '--no-ff', 'feature', '-m', 'Workflow merge')
+        self.merge = self.git('rev-parse', 'HEAD')
+
+    def git(self, *args):
+        return subprocess.check_output(['git', *args], cwd=self.repo, text=True).strip()
+
+    def commit(self, message, *args):
+        self.git('add', '.')
+        self.git('commit', '--quiet', '-m', message, *args)
+        return self.git('rev-parse', 'HEAD')
+
+    def step(self, step_id, **env):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        step = workflow.split(f'        id: {step_id}\n', 1)[1].split('        run: |\n', 1)[1]
+        script = re.match(r'(?:          [^\n]*\n)+', step).group()
+        self.output.write_text('')
+        return subprocess.run(['bash', '-eo', 'pipefail', '-c', script], cwd=self.repo,
+                              env={**os.environ, 'GITHUB_OUTPUT': str(self.output), **env},
+                              text=True, capture_output=True)
+
+    def test_resolver_emits_the_common_ancestor_or_recorded_queue_base(self):
+        for event, expected in [('pull_request', self.base), ('merge_group', self.target)]:
+            with self.subTest(event=event):
+                result = self.step('base', GITHUB_EVENT_NAME=event, PR_HEAD=self.head,
+                                   GITHUB_BASE_REF='target', QUEUE_BASE=self.target)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.output.read_text(), f'sha={expected}\n')
+
+    @unittest.skip('known wrong result: #2657')
+    def test_planner_uses_workflow_tooling_with_an_older_candidate(self):
+        for candidate, expected in [(self.head, 'required=true\nresearch_sides=["reference", "candidate"]\n'),
+                                    (self.base, 'required=false\n')]:
+            with self.subTest(candidate=candidate):
+                result = self.step('parity', BASE=self.base, CANDIDATE=candidate)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.output.read_text(), expected)
+                self.assertEqual(self.git('rev-parse', 'HEAD'), self.merge)
+
+    @unittest.skip('known wrong result: #2657')
+    def test_split_jobs_build_and_compare_the_two_source_snapshots(self):
+        def parity(*args):
+            result = subprocess.run(['make', '--silent', 'check.web.production-parity', 'NIX_RUN=',
+                                     f'BASE={self.base}', f'CANDIDATE={self.head}', *args],
+                                    cwd=self.repo, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+        expected = sha256(f'candidate page\n{self.head}\n'.encode()).hexdigest()
+        for side in ['reference', 'candidate']:
+            parity(f'PARITY_SIDE={side}', f'PARITY_RESEARCH_OUT=research-{side}')
+            self.assertEqual((self.repo / f'research-{side}/assets/asset').read_text(), 'candidate page\n')
+            parity(f'PARITY_SIDE={side}', f'PARITY_RESEARCH_IN=research-{side}', f'PARITY_OUT={side}.json')
+            inventory = json.loads((self.repo / f'{side}.json').read_text())
+            self.assertEqual((inventory['side'], inventory['base'], inventory['head']), (side, self.base, self.head))
+            self.assertEqual(inventory['files']['web/dist/index.html'], expected)
+        parity('PARITY_COMPARE=.')
 
 
 if __name__ == '__main__':
