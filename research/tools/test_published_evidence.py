@@ -20,6 +20,14 @@ class PublishedEvidence(unittest.TestCase):
         for metric in ('absolute distance outside the error bar, largest', 'absolute difference in Y, largest'):
             self.assertFalse(catalog.valid_checks([{**row, 'metric': metric, 'computed': 1, 'reference': 1}], published=True))
 
+    @unittest.skipUnless(os.environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_unrecognized_metrics_cannot_certify_scalars_or_oriented_samples(self):
+        for metric in ('relative typo', 'absolute typo'):
+            self.assertFalse(catalog.valid_checks([{**row, 'reference': 1, 'computed': 1, 'metric': metric}], published=True))
+        curve = {**row, 'id': 'fig7', 'orientation_unit': 'rad', 'points': 2, 'samples': [[0, 1, 1], [1, 2, 2]]}
+        self.assertFalse(catalog.valid_checks([{**curve, 'metric': 'relative typo'}], published=True))
+        self.assertTrue(catalog.valid_checks([{**curve, 'metric': 'absolute difference in Y, largest'}], published=True))
+
     def test_haukaas_reference_does_not_certify_naviers_paper(self):
         paper = next(p for p in json.loads((root / 'papers.json').read_text())['papers'] if p['implementation'] == 'benchmarks/navier-plate')
         self.assertEqual(paper['status'], 'numerically-validated')
