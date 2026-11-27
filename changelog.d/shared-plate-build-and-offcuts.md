@@ -17,3 +17,5 @@ The published locale bundles omit the unified shape dialog's instructions when o
 Selecting the owner of a mesh cell in the published shell table now opens that physical plate even when whole-plate picking is already active.
 
 The published raw shell writer now excludes circular plate construction and the unified mesh-adoption undo step.
+
+The disabled browser bundles omit circular inputs and generator-only options for structural systems, approximate periods, exposure and terrain. Saved calculation messages keep their translations.

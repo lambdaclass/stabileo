@@ -119,26 +119,7 @@ test('load and reinforcement editors publish their own labels independently', as
   }
 });
 
-test('shape dialog translations follow the plate inspector independently of reinforcement sheets', async () => {
-  for (const plates of [false, true]) {
-    for (const sheets of [false, true]) {
-      await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
-        const config = await resolveConfig({ root, configFile }, 'build', 'production');
-        const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
-        for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
-          const code = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
-          const module = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
-          for (const key of ['plates.shape.summary', 'plates.shapeProblem.tooDeep']) {
-            assert.equal(Object.hasOwn(module[locale], key), plates, locale + ' ' + key);
-          }
-          if (!plates) assert.ok(module[locale]['plates.sideThrough'], locale);
-        }
-      });
-    }
-  }
-});
-
-test('generator option and circular plate form labels follow the editors while saved load derivations remain readable', { skip: 'known wrong result: #1928' }, async () => {
+test('generator option and plate form labels follow the editors while saved load derivations remain readable', async () => {
   for (const plates of [false, true]) {
     for (const sheets of [false, true]) {
       await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
@@ -148,9 +129,10 @@ test('generator option and circular plate form labels follow the editors while s
           const code = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
           const module = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
           const entries = module[locale];
-          for (const key of ['loads.asce7.period.other', 'loads.asce7.system.steelSMF', 'loads.ec.exposure.normal', 'loads.ec.period.other', 'loads.ec.terrain.II', 'loads.tr.system.A11', 'drawBar.circle', 'plates.circle.center']) {
+          for (const key of ['loads.asce7.period.other', 'loads.asce7.system.steelSMF', 'loads.ec.exposure.normal', 'loads.ec.period.other', 'loads.ec.terrain.II', 'loads.tr.system.A11', 'drawBar.circle', 'plates.circle.center', 'plates.shape.summary', 'plates.shapeProblem.tooDeep']) {
             assert.equal(Object.hasOwn(entries, key), plates, locale + ' ' + key);
           }
+          if (!plates) assert.ok(entries['plates.sideThrough'], locale);
           assert.ok(entries['plates.outlineNodes'], locale);
           assert.ok(entries['loads.ec.snow.duoAsMono'], locale);
         }

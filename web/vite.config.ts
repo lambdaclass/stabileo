@@ -93,8 +93,10 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
       if (pruneEntries) {
         if (!proPlatesUnified) {
-          if (/^loads\.(asce7|ec)\.ui\./.test(key)) return false;
-          if (/^plates\.(shape|shapeProblem)\./.test(key)) return false;
+          if (/^loads\.asce7\.(period|system|ui)\./.test(key)) return false;
+          if (/^loads\.ec\.(exposure|period|terrain|ui)\./.test(key)) return false;
+          if (key.startsWith('loads.tr.system.')) return false;
+          if (key === 'drawBar.circle' || /^plates\.(circle|shape|shapeProblem)\./.test(key)) return false;
         }
         if (!proRcSheets) {
           if (key.startsWith('rcSheets.')) return false;
