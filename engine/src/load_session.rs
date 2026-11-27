@@ -19,10 +19,10 @@ pub struct LoadSession2D {
 impl LoadSession2D {
     #[wasm_bindgen(constructor)]
     pub fn new(input: JsValue) -> Result<LoadSession2D, JsValue> {
-        LoadSession2D::from_input(crate::from_js_value(input)?).map_err(|e| JsValue::from_str(&e))
+        LoadSession2D::from_input(crate::from_analysis_js(input)?).map_err(|e| JsValue::from_str(&e))
     }
     pub fn solve(&self, loads: JsValue) -> Result<JsValue, JsValue> {
-        let result = self.solve_loads(&crate::from_js_value::<Vec<SolverLoad>>(loads)?).map_err(|e| JsValue::from_str(&e))?;
+        let result = self.solve_loads(&crate::from_analysis_js::<Vec<SolverLoad>>(loads)?).map_err(|e| JsValue::from_str(&e))?;
         crate::to_js_value(&result)
     }
 }
@@ -60,16 +60,25 @@ pub struct LoadSession3D {
 impl LoadSession3D {
     #[wasm_bindgen(constructor)]
     pub fn new(input: JsValue) -> Result<LoadSession3D, JsValue> {
-        LoadSession3D::from_input(crate::from_js_value::<crate::types::units::ElasticInput3D>(input)?.into_legacy()).map_err(|e| JsValue::from_str(&e))
+        LoadSession3D::from_input(crate::from_analysis_js::<crate::types::units::ElasticInput3D>(input)?.into_legacy()).map_err(|e| JsValue::from_str(&e))
     }
     pub fn solve(&self, loads: JsValue) -> Result<JsValue, JsValue> {
-        let result = self.solve_loads(&crate::from_js_value::<Vec<SolverLoad3D>>(loads)?).map_err(|e| JsValue::from_str(&e))?;
+        let result = self.solve_loads(&crate::from_analysis_js::<Vec<SolverLoad3D>>(loads)?).map_err(|e| JsValue::from_str(&e))?;
         crate::to_js_value(&result)
     }
 }
+
+impl TryFrom<SolverInput3D> for LoadSession3D {
+    type Error = String;
+
+    fn try_from(input: SolverInput3D) -> Result<Self, Self::Error> {
+        Self::from_input_with_prepare(input, prepare_static_3d)
+    }
+}
+
 impl LoadSession3D {
     pub fn from_input(input: SolverInput3D) -> Result<LoadSession3D, String> {
-        Self::from_input_with_prepare(input, prepare_static_3d)
+        Self::try_from(input)
     }
     fn from_input_with_prepare(mut input: SolverInput3D, mut prepare: impl FnMut(&SolverInput3D) -> Result<PreparedStatic3D, String>) -> Result<LoadSession3D, String> {
         crate::solver::linear::validate_input_3d(&input)?;

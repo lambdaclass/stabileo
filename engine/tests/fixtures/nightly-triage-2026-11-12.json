@@ -119,26 +119,16 @@
     "solverOptions": null,
     "supports": {
       "1": {
-        "angle": null,
-        "dry": null,
-        "dx": null,
-        "dz": null,
         "id": 1,
-        "kx": null,
-        "ky": null,
-        "kz": null,
         "nodeId": 1,
         "type": "fixed"
       },
       "2": {
         "angle": -2.700382429678493,
-        "dry": null,
         "dx": 0.0034062471230392796,
         "dz": -0.00295148375550589,
         "id": 2,
-        "kx": null,
         "ky": 263.952715071381,
-        "kz": null,
         "nodeId": 4,
         "type": "inclinedRoller"
       }
@@ -345,23 +335,7 @@
         "rrx": true,
         "rry": true,
         "rrz": true,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
-        "dx": null,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       },
       "2": {
@@ -372,23 +346,7 @@
         "rrx": true,
         "rry": false,
         "rrz": true,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
-        "dx": null,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       },
       "3": {
@@ -399,23 +357,7 @@
         "rrx": false,
         "rry": true,
         "rrz": false,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
-        "dx": null,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       }
     },
@@ -429,9 +371,7 @@
           "qYI": -11.354559080228825,
           "qYJ": -20.64342277024309,
           "qZI": -22.04016514530997,
-          "qZJ": 10.806588628321464,
-          "a": null,
-          "b": null
+          "qZJ": 10.806588628321464
         }
       },
       {
@@ -598,23 +538,7 @@
         "rrx": true,
         "rry": true,
         "rrz": true,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
-        "dx": null,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       },
       "2": {
@@ -625,23 +549,7 @@
         "rrx": false,
         "rry": true,
         "rrz": true,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
-        "dx": null,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       },
       "3": {
@@ -652,23 +560,7 @@
         "rrx": false,
         "rry": false,
         "rrz": false,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
-        "dx": null,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       }
     },
@@ -682,9 +574,7 @@
           "qYI": 81.55199673872892,
           "qYJ": -67.50066585760916,
           "qZI": -8.851706472753037,
-          "qZJ": -70.68068628786705,
-          "a": null,
-          "b": null
+          "qZJ": -70.68068628786705
         }
       }
     ],
@@ -854,26 +744,12 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       },
       "2": {
         "id": 2,
         "nodeId": 3,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -882,9 +758,7 @@
         "data": {
           "elementId": 5,
           "qI": -72.4693259975961,
-          "qJ": 91.62021510179099,
-          "a": null,
-          "b": null
+          "qJ": 91.62021510179099
         }
       }
     ],
@@ -936,14 +810,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -952,9 +819,7 @@
         "data": {
           "elementId": 1,
           "a": 0.5198791831088568,
-          "p": -147.6746396013533,
-          "px": null,
-          "my": null
+          "p": -147.6746396013533
         }
       }
     ],
@@ -1016,14 +881,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1032,9 +890,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -1096,14 +952,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1112,9 +961,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -1176,14 +1023,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1192,9 +1032,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -1246,14 +1084,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1262,9 +1093,7 @@
         "data": {
           "elementId": 1,
           "a": 0.5198791831088568,
-          "p": -147.6746396013533,
-          "px": null,
-          "my": null
+          "p": -147.6746396013533
         }
       }
     ],
@@ -1326,14 +1155,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1342,9 +1164,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -1406,14 +1226,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1422,9 +1235,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -1481,14 +1292,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1497,9 +1301,7 @@
         "data": {
           "elementId": 1,
           "a": 0.27750504227215506,
-          "p": -180.18539975459458,
-          "px": null,
-          "my": null
+          "p": -180.18539975459458
         }
       }
     ],
@@ -1551,14 +1353,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1567,9 +1362,7 @@
         "data": {
           "elementId": 1,
           "a": 0.5198791831088568,
-          "p": -147.6746396013533,
-          "px": null,
-          "my": null
+          "p": -147.6746396013533
         }
       }
     ],
@@ -1621,14 +1414,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1637,9 +1423,7 @@
         "data": {
           "elementId": 1,
           "a": 0.5198791831088568,
-          "p": -147.6746396013533,
-          "px": null,
-          "my": null
+          "p": -147.6746396013533
         }
       }
     ],
@@ -1701,14 +1485,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1717,9 +1494,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -1781,14 +1556,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1797,9 +1565,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -1861,14 +1627,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1877,9 +1636,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -1941,14 +1698,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -1957,9 +1707,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -2021,14 +1769,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -2037,9 +1778,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -2101,14 +1840,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -2117,9 +1849,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -2487,23 +2217,8 @@
         "rrx": true,
         "rry": true,
         "rrz": true,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
         "dx": -0.001,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       },
       "1": {
@@ -2514,23 +2229,8 @@
         "rrx": true,
         "rry": true,
         "rrz": true,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
         "dx": -0.001,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       }
     },
@@ -2628,23 +2328,14 @@
         "type": "inclinedRoller",
         "kx": 263.952715071381,
         "ky": 0.0,
-        "kz": null,
         "dx": -0.0010979704678431457,
         "dz": 0.0005185273375668692,
-        "dry": null,
         "angle": -1.1295861028835963
       },
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -2843,26 +2534,12 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       },
       "2": {
         "id": 2,
         "nodeId": 3,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -3165,23 +2842,8 @@
         "rrx": true,
         "rry": true,
         "rrz": true,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
         "dx": -0.001,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       },
       "1": {
@@ -3192,23 +2854,8 @@
         "rrx": true,
         "rry": true,
         "rrz": true,
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "krx": null,
-        "kry": null,
-        "krz": null,
         "dx": -0.001,
-        "dy": null,
-        "dz": null,
-        "drx": null,
-        "dry": null,
-        "drz": null,
         "rw": null,
-        "kw": null,
-        "normalX": null,
-        "normalY": null,
-        "normalZ": null,
         "isInclined": null
       }
     },
@@ -3293,26 +2940,12 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       },
       "2": {
         "id": 2,
         "nodeId": 3,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -3321,9 +2954,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       },
       {
@@ -3331,9 +2962,7 @@
         "data": {
           "elementId": 2,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -3410,26 +3039,12 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       },
       "2": {
         "id": 2,
         "nodeId": 3,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -3438,9 +3053,7 @@
         "data": {
           "elementId": 1,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       },
       {
@@ -3448,9 +3061,7 @@
         "data": {
           "elementId": 2,
           "qI": -53.26086847610756,
-          "qJ": 85.55746920027156,
-          "a": null,
-          "b": null
+          "qJ": 85.55746920027156
         }
       }
     ],
@@ -3502,14 +3113,7 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       }
     },
     "loads": [
@@ -3518,9 +3122,7 @@
         "data": {
           "elementId": 1,
           "a": 100.07685948885717,
-          "p": 147.6746396013533,
-          "px": null,
-          "my": null
+          "p": 147.6746396013533
         }
       }
     ],

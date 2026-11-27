@@ -2,6 +2,8 @@
 // computeStaticDegree is pure counting math (no solver dependency).
 // analyzeKinematics delegates to the WASM engine for the heavy LU rank analysis.
 
+import { localizeEngineText } from '../i18n/engine-text';
+import { refusedWithCode } from './containment-error';
 import { shownDof } from '../axes/user-names';
 import type { SolverInput } from './types';
 import { analyzeKinematics as wasmAnalyzeKinematics, isWasmReady } from './wasm-solver';
@@ -21,7 +23,7 @@ export type Dof2D = 'ux' | 'uz' | 'ry';
 export interface KinematicResult {
   /** Global degree of static indeterminacy (>0 hyperstatic, =0 isostatic, <0 hypostatic) */
   degree: number;
-  classification: 'hyperstatic' | 'isostatic' | 'hypostatic';
+  classification: 'hyperstatic' | 'isostatic' | 'hypostatic' | 'indeterminate';
   /** Number of mechanism modes (dimension of Kff null space) */
   mechanismModes: number;
   /** Nodes participating in mechanism (from rank analysis) */
@@ -43,7 +45,7 @@ export interface KinematicResult {
    * it: `mechanismModes: 0` again means "not checked", and `invalidInput`
    * carries the reason. Unlike `'unavailable'`, waiting will not change it.
    */
-  rankAnalysis: 'available' | 'unavailable' | 'invalid';
+  rankAnalysis: 'available' | 'unavailable' | 'invalid' | 'indeterminate';
   /**
    * The engine's validation message when `rankAnalysis` is `'invalid'` — the
    * same text a solve would have returned (e.g. "Material 1: Poisson ratio
@@ -192,8 +194,12 @@ export function computeStaticDegree(input: SolverInput, slidingConditions = 0): 
 }
 
 /** Classification from a degree and the rank check, by the engine's rule. */
-export function classifyKinematic(degree: number, mechanismModes: number): KinematicResult['classification'] {
-  if (mechanismModes > 0) return 'hypostatic';
+export function classifyKinematic(
+  degree: number, mechanismModes: number, isSolvable = true,
+  engineClassification?: KinematicResult['classification'],
+): KinematicResult['classification'] {
+  if (engineClassification === 'indeterminate') return 'indeterminate';
+  if (!isSolvable || mechanismModes > 0) return 'hypostatic';
   return degree > 0 ? 'hyperstatic' : degree === 0 ? 'isostatic' : 'hypostatic';
 }
 
@@ -270,6 +276,7 @@ export function localizeKinematicDiagnosis(r: {
   rawDiagnosis: string;
 }): string {
   if (r.invalidInput) return t('kin.diagInvalidData');
+  if (refusedWithCode(r.rawDiagnosis, 'reduced_stiffness_rank')) return localizeEngineText(r.rawDiagnosis);
   if (r.mechanismModes === 0) {
     // The engine's "every DOF is restrained" case carries no structured flag of its own.
     if (/^Todos los GDL/.test(r.rawDiagnosis ?? '')) return t('kin.allDofConstrained');
@@ -337,7 +344,7 @@ export function normalizeKinematicResult(raw: {
     // An invalid model was never analysed, so its `mechanismModes: 0` is not
     // a finding. Reported as 'available', the kinematic report read it as
     // "no mechanisms — the structure is stable".
-    rankAnalysis: raw.invalidInput ? 'invalid' : 'available',
+    rankAnalysis: raw.invalidInput ? 'invalid' : raw.classification === 'indeterminate' ? 'indeterminate' : 'available',
     ...(raw.invalidInput ? { invalidInput: raw.invalidInput, invalidInputKind: raw.invalidInputKind } : {}),
     unmappedDofs,
   };
@@ -384,6 +391,6 @@ export function analyzeKinematics(input: SolverInput): KinematicResult {
   return normalizeKinematicResult({
     ...raw,
     degree,
-    classification: classifyKinematic(degree, raw.mechanismModes ?? 0),
+    classification: classifyKinematic(degree, raw.mechanismModes ?? 0, raw.isSolvable, raw.classification),
   });
 }

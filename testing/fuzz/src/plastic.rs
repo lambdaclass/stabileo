@@ -546,7 +546,7 @@ mod tests {
         assert_eq!(work.equilibrium_equations, problem.rows.len());
         assert_eq!(work.force_variables, problem.nv);
         let input: PlasticInput = serde_json::from_str(include_str!(
-            "../../../verify/samples/plastic-2d-portal.input.json"
+            "../../../engine/tests/fixtures/certificates/plastic-2d-portal.input.json"
         ))
         .unwrap();
         let model = cplastic::build_model(&input).unwrap();

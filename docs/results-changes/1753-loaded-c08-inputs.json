@@ -115,14 +115,7 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         }
@@ -161,7 +154,6 @@
       "loads": [
         {
           "data": {
-            "bw": null,
             "fx": 1e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -174,7 +166,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 2e-06,
             "fz": 0.0,
@@ -187,7 +178,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 3e-06,
@@ -260,24 +250,9 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
           "dz": -0.006804683421561557,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": true,
           "rry": true,
           "rrz": true,
@@ -349,8 +324,6 @@
       "loads": [
         {
           "data": {
-            "a": null,
-            "b": null,
             "elementId": 2,
             "qI": -5.237636901397922,
             "qJ": 16.5321451719769
@@ -452,14 +425,8 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
           "dz": -0.0024170009213965796,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         }
@@ -498,8 +465,6 @@
       "loads": [
         {
           "data": {
-            "a": null,
-            "b": null,
             "elementId": 1,
             "qXI": 0.0,
             "qXJ": 0.0,
@@ -512,7 +477,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 1e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -525,7 +489,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 2e-06,
             "fz": 0.0,
@@ -538,7 +501,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 3e-06,
@@ -606,24 +568,8 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": true,
           "rry": true,
           "rrz": true,
@@ -752,14 +698,7 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         }
@@ -816,8 +755,6 @@
       "loads": [
         {
           "data": {
-            "a": null,
-            "b": null,
             "elementId": 3,
             "qXI": 0.0,
             "qXJ": 0.0,
@@ -830,7 +767,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 1e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -843,7 +779,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 2e-06,
             "fz": 0.0,
@@ -856,7 +791,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 3e-06,
@@ -869,7 +803,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 7e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -882,7 +815,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 8e-06,
             "fz": 0.0,
@@ -895,7 +827,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 9e-06,
@@ -969,24 +900,8 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": true,
           "rry": true,
           "rrz": true,
@@ -1150,26 +1065,15 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
           "dz": -0.0037539416439529207,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         },
         "2": {
           "angle": -2.8974361398856474,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 2,
-          "kx": null,
           "ky": 19094.690296412602,
-          "kz": null,
           "nodeId": 2,
           "type": "spring"
         }
@@ -1218,7 +1122,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 1e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -1231,7 +1134,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 2e-06,
             "fz": 0.0,
@@ -1244,7 +1146,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 3e-06,
@@ -1322,24 +1223,8 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": true,
           "rry": true,
           "rrz": true,
@@ -1455,8 +1340,6 @@
       "loads": [
         {
           "data": {
-            "a": null,
-            "b": null,
             "elementId": 2,
             "qXI": 0.0,
             "qXJ": 0.0,
@@ -1500,7 +1383,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 1e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -1513,7 +1395,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 2e-06,
@@ -1526,7 +1407,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 6e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -1539,7 +1419,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 7e-06,
             "fz": 0.0,
@@ -1552,7 +1431,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 8e-06,
@@ -1565,7 +1443,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 1.3e-05,
             "fy": 0.0,
             "fz": 0.0,
@@ -1578,7 +1455,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 1.4e-05,
             "fz": 0.0,
@@ -1591,7 +1467,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 1.4999999999999999e-05,
@@ -1671,24 +1546,8 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": true,
           "rry": true,
           "rrz": true,
@@ -1698,24 +1557,9 @@
           "rz": true
         },
         "2": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
           "kw": 20543.88276949316,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 2,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": false,
           "rry": true,
           "rrz": false,
@@ -1759,7 +1603,6 @@
       "loads": [
         {
           "data": {
-            "bw": null,
             "fx": 1e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -1772,7 +1615,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 2e-06,
             "fz": 0.0,
@@ -1785,7 +1627,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 3e-06,
@@ -1845,24 +1686,8 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": true,
           "rry": true,
           "rrz": true,
@@ -1937,9 +1762,7 @@
           "data": {
             "a": 0.25909503152031255,
             "elementId": 2,
-            "my": null,
-            "p": 428.32230663247776,
-            "px": null
+            "p": 428.32230663247776
           },
           "type": "pointOnElement"
         },
@@ -2033,38 +1856,17 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         },
         "2": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 2,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 2,
           "type": "rollerX"
         },
         "3": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 3,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 4,
           "type": "pinned"
         }
@@ -2381,22 +2183,11 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         },
         "2": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 2,
           "kx": 216.63475564353544,
           "ky": 610.386509927281,
@@ -2439,7 +2230,6 @@
       "loads": [
         {
           "data": {
-            "bw": null,
             "fx": 1e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -2452,7 +2242,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 2e-06,
             "fz": 0.0,
@@ -2465,7 +2254,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 3e-06,
@@ -2525,24 +2313,8 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": true,
           "rry": true,
           "rrz": true,
@@ -2676,7 +2448,6 @@
       "loads": [
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 1e-06,
@@ -2689,7 +2460,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 4e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -2702,7 +2472,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 4.9999999999999996e-06,
             "fz": 0.0,
@@ -2715,7 +2484,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 6e-06,
@@ -2728,7 +2496,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 9.999999999999999e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -2741,7 +2508,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 1.1e-05,
             "fz": 0.0,
@@ -2754,7 +2520,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 1.2e-05,
@@ -2767,7 +2532,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 1.6e-05,
             "fy": 0.0,
             "fz": 0.0,
@@ -2780,7 +2544,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 1.7e-05,
             "fz": 0.0,
@@ -2793,7 +2556,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 1.8e-05,
@@ -2806,7 +2568,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 2.2e-05,
             "fy": 0.0,
             "fz": 0.0,
@@ -2819,7 +2580,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 2.3e-05,
             "fz": 0.0,
@@ -2832,7 +2592,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 2.4e-05,
@@ -2924,24 +2683,8 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": true,
           "rry": true,
           "rrz": true,
@@ -2951,24 +2694,8 @@
           "rz": true
         },
         "2": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 2,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": false,
           "rry": false,
           "rrz": true,
@@ -3012,7 +2739,6 @@
       "loads": [
         {
           "data": {
-            "bw": null,
             "fx": -31.138445173792377,
             "fy": -276.49447432279976,
             "fz": 478.0698450155329,
@@ -3025,7 +2751,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 1e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -3038,7 +2763,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 2e-06,
             "fz": 0.0,
@@ -3051,7 +2775,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 3e-06,
@@ -3111,24 +2834,8 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": true,
           "rry": true,
           "rrz": true,
@@ -3161,8 +2868,6 @@
       "loads": [
         {
           "data": {
-            "a": null,
-            "b": null,
             "elementId": 1,
             "qI": 74.47594459998922,
             "qJ": 46.45576976076046
@@ -3234,14 +2939,7 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         }
@@ -3516,38 +3214,17 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "pinned"
         },
         "2": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 2,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 7,
           "type": "rollerX"
         },
         "3": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 3,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 8,
           "type": "pinned"
         }
@@ -3620,8 +3297,7 @@
             "a": 2.5555102674538173,
             "elementId": 3,
             "my": 10.622583873203723,
-            "p": 27.173140534222114,
-            "px": null
+            "p": 27.173140534222114
           },
           "type": "pointOnElement"
         },
@@ -3748,14 +3424,7 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         }
@@ -3927,14 +3596,7 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         }
@@ -3974,9 +3636,7 @@
           "data": {
             "a": 0.3564529976096825,
             "elementId": 2,
-            "my": null,
-            "p": -22.320912706072193,
-            "px": null
+            "p": -22.320912706072193
           },
           "type": "pointOnElement"
         },
@@ -4039,26 +3699,12 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         },
         "2": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 2,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 2,
           "type": "fixed"
         }
@@ -4439,14 +4085,7 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         }
@@ -4837,14 +4476,7 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "angle": null,
-          "dry": null,
-          "dx": null,
-          "dz": null,
           "id": 1,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
           "type": "fixed"
         }
@@ -4883,8 +4515,6 @@
       "loads": [
         {
           "data": {
-            "a": null,
-            "b": null,
             "elementId": 1,
             "qXI": 0.0,
             "qXJ": 0.0,
@@ -4897,7 +4527,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 1e-06,
             "fy": 0.0,
             "fz": 0.0,
@@ -4910,7 +4539,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 2e-06,
             "fz": 0.0,
@@ -4923,7 +4551,6 @@
         },
         {
           "data": {
-            "bw": null,
             "fx": 0.0,
             "fy": 0.0,
             "fz": 3e-06,
@@ -5001,24 +4628,8 @@
       "solverOptions": null,
       "supports": {
         "1": {
-          "drx": null,
-          "dry": null,
-          "drz": null,
-          "dx": null,
-          "dy": null,
-          "dz": null,
           "isInclined": null,
-          "krx": null,
-          "kry": null,
-          "krz": null,
-          "kw": null,
-          "kx": null,
-          "ky": null,
-          "kz": null,
           "nodeId": 1,
-          "normalX": null,
-          "normalY": null,
-          "normalZ": null,
           "rrx": true,
           "rry": true,
           "rrz": true,

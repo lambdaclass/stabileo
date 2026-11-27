@@ -354,6 +354,169 @@ describe('reading time', () => {
 describe('the safety-advisories post quotes the advisories', () => {
   const post = findPost('safety-advisories');
 
+  const advisoryLocales = [...new Set<PublicLocale>([...REQUIRED, 'hu'])];
+  const advisoryDirectory = new URL('../../../../../docs/advisories/', import.meta.url);
+
+  function advisoryBlocks(locale: PublicLocale): Block[] {
+    const body = post!.i18n[locale] ?? (locale === 'hu' ? huAdvisories : undefined);
+    expect(body, locale).toBeDefined();
+    return body!.blocks;
+  }
+
+  function expectNextReleaseAdvisories(blocks: Block[], locale: PublicLocale): void {
+    const index = readFileSync(new URL('README.md', advisoryDirectory), 'utf8');
+    const advisories = [...index.matchAll(/^\| \[(SA-\d{4}-\d{3})\]\(([^)]+)\) \| .* \| the next release after 0\.6\.4 \|/gm)];
+    expect(advisories.length).toBeGreaterThan(0);
+    const [, firstId] = advisories[0]!;
+    const summary = blocks.find((block) => block.k === 'table')!;
+    const firstRow = summary.rows.findIndex(([id]) => id === firstId);
+    expect(firstRow, locale).toBeGreaterThanOrEqual(0);
+    const nextRelease = summary.rows[firstRow]![3];
+    const rows = summary.rows.slice(firstRow).filter((row) => row[3] === nextRelease);
+    const expected = advisories.flatMap(([, id, filename], i) => {
+      expect(rows[i]?.[0], `${locale}: ${id} summary row`).toBe(id);
+      expect(existsSync(new URL(filename!, advisoryDirectory)), id).toBe(true);
+      return [
+        { k: 'note', t: id + ' — ' + nextRelease + (locale === 'zh' ? '。' : '.') },
+        { k: 'ext', label: id, href: 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/' + filename },
+      ];
+    });
+    expect(rows, locale).toHaveLength(advisories.length);
+    const start = blocks.findIndex((block) => block.k === 'note' && block.t.startsWith(firstId + ' — '));
+    expect(start, locale).toBeGreaterThanOrEqual(0);
+    expect(blocks.slice(start, start + expected.length), locale).toMatchObject(expected);
+  }
+
+  it.each(advisoryLocales)('known wrong result: #2589 — %s lists every advisory awaiting the next release with its own adjacent link', (locale) => {
+    expect(readdirSync(advisoryDirectory)).toContain('SA-2026-122-generated-load-combinations.md');
+    expectNextReleaseAdvisories(advisoryBlocks(locale), locale);
+  });
+
+  const omittedAdvisories = advisoryLocales.flatMap((locale) =>
+    ['SA-2026-121', 'SA-2026-122'].map((id) => ({ locale, id })));
+
+  it.each(omittedAdvisories)('known wrong result: #2589 — $locale rejects omission of $id from both the summary and evidence blocks', ({ locale, id }) => {
+    const blocks = advisoryBlocks(locale);
+    const summary = blocks.find((block) => block.k === 'table')!;
+    expect(summary.rows.some(([rowId]) => rowId === id), id).toBe(true);
+    const withoutAdvisory = blocks
+      .filter((block) => !(block.k === 'note' && block.t.startsWith(id + ' — ')))
+      .filter((block) => !(block.k === 'ext' && block.label === id))
+      .map((block) => block === summary
+        ? { ...summary, rows: summary.rows.filter(([rowId]) => rowId !== id) }
+        : block);
+    expect(() => expectNextReleaseAdvisories(withoutAdvisory, locale)).toThrow(`${locale}: ${id} summary row`);
+  });
+
+  const emptyCaseRecovery: Record<PublicLocale, string> = {
+    en: 'Remove confirmed obsolete empty load cases from the model, including cases already empty in 0.6.4. Regenerate the combinations and verify that they exclude those case IDs before rerunning affected analyses.',
+    es: 'Eliminá del modelo los estados de carga vacíos que hayas confirmado como obsoletos, incluidos los que ya estaban vacíos en la versión 0.6.4. Regenerá las combinaciones y verificá que no incluyan los identificadores de esos estados antes de repetir los análisis afectados.',
+    pt: 'Remova do modelo os casos de carga vazios confirmados como obsoletos, inclusive os que já estavam vazios na versão 0.6.4. Gere novamente as combinações e verifique se elas excluem os identificadores desses casos antes de refazer as análises afetadas.',
+    de: 'Entfernen Sie nachweislich veraltete leere Lastfälle aus dem Modell, auch wenn sie bereits in Version 0.6.4 leer waren. Erzeugen Sie die Kombinationen neu und prüfen Sie, dass sie diese Lastfall-IDs ausschließen, bevor Sie die betroffenen Berechnungen wiederholen.',
+    fr: 'Supprimez du modèle les cas de charge vides dont vous avez confirmé qu’ils sont obsolètes, y compris ceux qui étaient déjà vides dans la version 0.6.4. Régénérez les combinaisons et vérifiez qu’elles excluent les identifiants de ces cas avant de relancer les analyses concernées.',
+    hu: 'Távolítsa el a modellből a bizonyítottan elavult üres tehereseteket, azokat is, amelyek már a 0.6.4-es verzióban üresek voltak. Hozza létre újra a kombinációkat, és az érintett számítások megismétlése előtt ellenőrizze, hogy a kombinációk nem tartalmazzák ezeket a tehereset-azonosítókat.',
+    tr: 'Artık geçerli olmadığını doğruladığınız boş yük durumlarını, 0.6.4 sürümünde zaten boş olanlar dahil, modelden kaldırın. Birleşimleri yeniden oluşturun ve etkilenen analizleri tekrarlamadan önce bu yük durumu kimliklerinin birleşimlerde yer almadığını doğrulayın.',
+    zh: '从模型中删除经确认已失效的空荷载工况，包括在 0.6.4 版中已经为空的工况。重新生成组合，并在重新进行受影响的分析前，核实新组合不含这些工况的编号。',
+  };
+
+  it.each(advisoryLocales)('known wrong result: #2589 — %s summarizes how to exclude obsolete empty cases from regenerated combinations', (locale) => {
+    const release = locale === 'en' ? 'v0.6.4.md' : `v0.6.4.${locale}.md`;
+    const notes = readFileSync(new URL(`../releases/${release}`, advisoryDirectory), 'utf8');
+    const releaseRow = notes.split('\n').find((line) => line.startsWith('| [SA-2026-122]('));
+    const summary = advisoryBlocks(locale).find((block) => block.k === 'table');
+    const blogRow = summary?.rows.find(([id]) => id === 'SA-2026-122');
+    expect.soft(releaseRow, `${locale}: release notes`).toContain(emptyCaseRecovery[locale]);
+    expect.soft(blogRow?.[1], `${locale}: blog`).toContain(emptyCaseRecovery[locale]);
+  });
+
+  it('SA-2026-127 requires connectivity along the full wall–slab junction', () => {
+    const advisory = readFileSync(new URL('SA-2026-127-unmeshed-wall-slab-junctions.md', advisoryDirectory), 'utf8');
+    const fixedIn = advisory.split('## Fixed in\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
+    const index = readFileSync(new URL('README.md', advisoryDirectory), 'utf8');
+    const indexRow = index.split('\n').find((line) => line.startsWith('| [SA-2026-127]('));
+    expect.soft(fixedIn).toContain('shared mesh connectivity along the entire intended junction');
+    expect.soft(indexRow).toContain('without shared mesh connectivity along the entire junction');
+  });
+
+  function expectAdvisoryWording(locale: PublicLocale, advisoryId: string, wording: string): void {
+    const release = locale === 'en' ? 'v0.6.4.md' : `v0.6.4.${locale}.md`;
+    const notes = readFileSync(new URL(`../releases/${release}`, advisoryDirectory), 'utf8');
+    const releaseRow = notes.split('\n').find((line) => line.startsWith(`| [${advisoryId}](`));
+    const summary = advisoryBlocks(locale).find((block) => block.k === 'table');
+    const blogRow = summary?.rows.find(([id]) => id === advisoryId);
+    expect.soft(releaseRow, `${locale}: release notes`).toContain(wording);
+    expect.soft(blogRow?.[1], `${locale}: blog`).toContain(wording);
+  }
+
+  it.each<[PublicLocale, string]>([
+    ['en', 'along the entire intended junction'],
+    ['es', 'a lo largo de toda la unión prevista'],
+    ['pt', 'ao longo de toda a junção prevista'],
+    ['de', 'über die gesamte vorgesehene Anschlusslänge'],
+    ['fr', 'sur toute la longueur de la jonction prévue'],
+    ['hu', 'a tervezett csatlakozás teljes hosszában'],
+    ['tr', 'amaçlanan birleşimin tamamı boyunca'],
+    ['zh', '沿整个预期连接线'],
+  ])('SA-2026-127 %s requires full-length shared mesh connectivity', (locale, wording) => {
+    expectAdvisoryWording(locale, 'SA-2026-127', wording);
+  });
+
+  it.each<[PublicLocale, string]>([
+    ['es', 'barras de modelos planos (2D), independientemente de su sección'],
+    ['pt', 'barras de modelos planos (2D), independentemente da seção transversal'],
+  ])('SA-2026-128 %s identifies 2D models regardless of section', (locale, wording) => {
+    expectAdvisoryWording(locale, 'SA-2026-128', wording);
+  });
+
+  const movingLoadCoincidence: Record<PublicLocale, string> = {
+    en: 'At exact coincidence, the axle and permanent point load produce a single combined shear jump. The shear between them has one-sided limits as the axle approaches or passes the load. Check both limits with the axle just before and just after the load.',
+    es: 'Cuando el eje y la carga puntual permanente coinciden exactamente, producen un único salto combinado de cortante. El cortante entre ambos tiene límites unilaterales al acercarse el eje a la carga o al pasarla. Verificá los dos límites con el eje justo antes y justo después de la carga.',
+    pt: 'Quando o eixo e a carga pontual permanente coincidem exatamente, produzem um único salto combinado de esforço cortante. O cortante entre ambos tem limites laterais quando o eixo se aproxima da carga ou passa por ela. Verifique os dois limites com o eixo imediatamente antes e imediatamente depois da carga.',
+    de: 'Liegen Achse und ständige Einzellast exakt an derselben Stelle, ergibt sich ein einziger Querkraftsprung aus beiden Lasten. Die Querkraft zwischen den Lasten hat einseitige Grenzwerte, wenn sich die Achse der Einzellast nähert oder sie passiert. Prüfen Sie beide Grenzwerte mit der Achse unmittelbar vor und unmittelbar hinter der Einzellast.',
+    fr: 'Lorsque l’essieu et la charge ponctuelle permanente coïncident exactement, ils produisent un seul saut d’effort tranchant dû aux deux charges. L’effort tranchant entre les charges a des limites unilatérales lorsque l’essieu s’approche de la charge permanente ou la dépasse. Vérifiez les deux limites avec l’essieu juste avant et juste après la charge permanente.',
+    hu: 'Az egy helyre eső tengelyterhelés és állandó pontteher egyetlen, együttes nyíróerőugrást okoz. A két teher közötti nyíróerőnek egyoldali határértékei vannak, amikor a tengely megközelíti vagy éppen elhagyja a pontterhet. Ellenőrizze mindkét határértéket a pontteher előtt és után közvetlenül elhelyezkedő tengellyel.',
+    tr: 'Aks ve kalıcı tekil yük tam olarak aynı konumdayken iki yük birlikte tek bir kesme kuvveti sıçraması oluşturur. Aks tekil yüke yaklaşırken veya onu geçerken iki yük arasındaki kesme kuvvetinin tek taraflı limitleri vardır. Aks tekil yükün hemen önündeyken ve hemen arkasındayken her iki limiti de kontrol edin.',
+    zh: '车轴与永久点荷载的位置完全重合时，两项荷载共同产生一次剪力跳变。车轴接近或刚越过该荷载时，两者之间的剪力分别趋于相应的单侧极限。请检查车轴紧邻该荷载前后两个位置所对应的单侧极限。',
+  };
+
+  it.each(advisoryLocales)('SA-2026-129 coincidence and both approach limits appear in %s', (locale) => {
+    expectAdvisoryWording(locale, 'SA-2026-129', movingLoadCoincidence[locale]);
+  });
+
+  it('SA-2026-129 coincidence differs from the two approach limits', () => {
+    const advisory = readFileSync(new URL('SA-2026-129-moving-load-force-jumps.md', advisoryDirectory), 'utf8');
+    const failure = advisory.split('## What was wrong\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
+    const workaround = advisory.split('## Workaround\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
+    expect.soft(failure).toContain('At exact coincidence, the axle and permanent point load produce a single combined shear jump.');
+    expect.soft(failure).toContain('The shear between them has one-sided limits as the axle approaches or passes the load.');
+    expect.soft(failure).not.toContain('the cut between coincident');
+    expect.soft(workaround).toContain('both one-sided shear limits with the axle just before and just after the permanent point load');
+  });
+
+  it('SA-2026-129 coincidence has a combined jump in the linked results record', () => {
+    const record = readFileSync(new URL('../results-changes/2026-11-moving-axle-joints.md', advisoryDirectory), 'utf8');
+    expect.soft(record).toContain('At exact coincidence, the axle and permanent point load produce a single combined shear jump.');
+    expect.soft(record).toContain('the shear between the two loads as the axle approaches or passes the permanent point load');
+    expect.soft(record).not.toContain('the cut between the coincident loads');
+  });
+
+  const generatedCombinationsAdvisory = new URL(
+    '../../../../../docs/advisories/SA-2026-122-generated-load-combinations.md',
+    import.meta.url,
+  );
+
+  it('known wrong result: #2589 — requires rebuilding the results after manually correcting combinations', () => {
+    const advisory = readFileSync(generatedCombinationsAdvisory, 'utf8');
+    const workaround = advisory.split('## Workaround\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
+    expect(workaround).toMatch(/enter them directly in the affected combinations.*Rebuild affected composite cases.*Rerun the affected analyses, rebuild the envelopes.*repeat dependent design checks before using the results/);
+  });
+
+  it('known wrong result: #2589 — excludes already-empty obsolete cases from regenerated combinations', () => {
+    const advisory = readFileSync(generatedCombinationsAdvisory, 'utf8');
+    const recovery = advisory.split('## What to do with results you already have\n')[1]?.split('\n## ')[0]?.replace(/\s+/g, ' ');
+    expect(recovery).toMatch(/already empty.*0\.6\.4.*Remove confirmed obsolete empty cases from the project's load-case list.*Keep intentional empty alternatives.*Reapply affected Auto Loads plans.*regenerate affected combinations.*Verify that the regenerated combinations exclude every obsolete case ID/);
+  });
+
   it.each<[PublicLocale, string, string]>([
     ['en', 'High', 'Draft: local fix awaiting review and release'],
     ['es', 'Alta', 'Borrador: corrección local pendiente de revisión y publicación'],

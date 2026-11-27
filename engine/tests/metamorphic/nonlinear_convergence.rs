@@ -910,6 +910,9 @@ fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
             1e-10,
             "inclined arc-length load factor",
         );
+        let mut expected_case = case;
+        expected_case["expectedAxialDisplacement"] = serde_json::json!(expected * 0.1);
+        check_axial_displacement(&serde_json::to_value(r).unwrap(), &expected_case);
         let r: serde_json::Value = serde_json::from_str(
             &dedaliano_engine::solve_arc_length(&serde_json::to_string(&input).unwrap()).unwrap(),
         )
@@ -921,8 +924,6 @@ fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
             1e-10,
             "exported inclined arc-length load factor",
         );
-        let mut expected_case = case;
-        expected_case["expectedAxialDisplacement"] = serde_json::json!(expected * 0.1);
         check_axial_displacement(&r, &expected_case);
         let control = DisplacementControlInput {
             solver,
@@ -937,6 +938,100 @@ fn issue_761_rotated_resolved_arc_length_and_displacement_control_refusal() {
             .unwrap_err()
             .to_lowercase()
             .contains("inclined"));
+    }
+}
+
+#[test]
+fn issue_761_rotated_split_loads_preserve_the_tangent_resultant() {
+    use dedaliano_engine::solver::arc_length::{self, ArcLengthInput, DisplacementControlInput};
+    use dedaliano_engine::solver::{assembly, corotational};
+
+    for angle in [0.0, -std::f64::consts::FRAC_PI_4, std::f64::consts::FRAC_PI_4] {
+        let mut solver = fixtures().remove(0).s;
+        let length = solver.nodes["2"].x;
+        let [tangent, normal] = assembly::inclined_rotation_matrix_2d(angle);
+        let tip = solver.nodes.get_mut("2").unwrap();
+        tip.x = tangent[0] * length;
+        tip.z = tangent[1] * length;
+        let support = solver.supports.get_mut("2").unwrap();
+        support.support_type = "inclinedRoller".into();
+        support.angle = Some(angle);
+        let expected = 4.0 * length / (1000.0 * solver.materials["1"].e * solver.sections["1"].a);
+        let ds = 4.0_f64.hypot(expected) / 10.0;
+        solver.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2,
+            fx: normal[0] * 2.0_f64.powi(70),
+            fz: normal[1] * 2.0_f64.powi(70),
+            my: 0.0,
+        })];
+        let mut arc = ArcLengthInput {
+            solver,
+            max_steps: 1,
+            max_iter: 100,
+            tolerance: 1e-10,
+            initial_ds: ds,
+            min_ds: ds,
+            max_ds: ds,
+            target_iter: 4,
+        };
+        assert_eq!(arc_length::solve_arc_length(&arc).unwrap_err(), "Zero reference load");
+        arc.solver.loads.push(SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2,
+            fx: tangent[0] * 4.0,
+            fz: tangent[1] * 4.0,
+            my: 0.0,
+        }));
+        let check = |result, expected| {
+            let case = serde_json::json!({
+                "solver": arc.solver,
+                "expectedAxialDisplacement": expected
+            });
+            check_axial_displacement(&result, &case);
+        };
+        let result = arc_length::solve_arc_length_from(&arc, None).unwrap();
+        assert!(result.converged);
+        crate::common::assert_close(result.final_load_factor, 0.1, 1e-10, "arc load factor");
+        check(serde_json::to_value(result).unwrap(), expected / 10.0);
+        for modified_nr in [false, true] {
+            let result = corotational::solve_corotational_2d(
+                &arc.solver, 100, 1e-10, 2, modified_nr,
+            )
+            .unwrap();
+            assert!(result.converged);
+            check(serde_json::to_value(result).unwrap(), expected);
+        }
+        let mut control = DisplacementControlInput {
+            solver: arc.solver.clone(),
+            control_node: 2,
+            control_dof: 0,
+            target_displacement: tangent[0] * expected,
+            n_steps: 2,
+            max_iter: 100,
+            tolerance: 1e-10,
+        };
+        let refusal = arc_length::solve_displacement_control(&control).unwrap_err();
+        assert!(refusal.contains("inclined supports (support 2 (node 2))"));
+        if angle == 0.0 {
+            let support = control.solver.supports.get_mut("2").unwrap();
+            support.support_type = "rollerX".into();
+            support.angle = None;
+            let result = arc_length::solve_displacement_control(&control).unwrap();
+            assert!(result.converged);
+            crate::common::assert_close(
+                result.final_load_factor, 1.0, 1e-10, "displacement-control load factor",
+            );
+            check(serde_json::to_value(result).unwrap(), expected);
+        }
+        #[cfg(feature = "experimental-nonlinear")]
+        {
+            use dedaliano_engine::solver::experimental_nonlinear::{self, IterationMethod};
+            let result = experimental_nonlinear::solve_corotational_2d_by(
+                &arc.solver, None, 100, 1e-10, 2, IterationMethod::Newton,
+            )
+            .unwrap();
+            assert!(result.converged);
+            check(serde_json::to_value(result).unwrap(), expected);
+        }
     }
 }
 
@@ -2306,10 +2401,25 @@ mod r3 {
             }
             if prescribed {
                 let mut pattern = s.clone();
-                pattern.supports.get_mut("1").unwrap().dry = Some(0.001);
-                let r =
-                    arc_length::solve_arc_length_from(&arc(pattern, 1e-20), Some(&start)).unwrap();
+                let support_direction = 0.001;
+                pattern.supports.get_mut("1").unwrap().dry = Some(support_direction);
+                let input = arc(pattern, 1e-20);
+                let r = arc_length::solve_arc_length_from(&input, Some(&start)).unwrap();
                 assert!(r.converged);
+                let step = &r.steps[0];
+                assert_eq!(
+                    step.displacements[1].ux,
+                    initial.results.displacements[1].ux
+                );
+                assert_eq!(
+                    step.displacements[1].ry,
+                    initial.results.displacements[1].ry
+                );
+                close(
+                    step.load_factor * support_direction,
+                    input.initial_ds,
+                    input.tolerance,
+                );
             }
         }
     }

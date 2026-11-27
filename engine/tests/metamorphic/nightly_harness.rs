@@ -4,7 +4,7 @@ use crate::tally::Tally;
 pub fn witness(issue: u32) -> Case2 {
     Case2::new(
         "replay",
-        serde_json::from_str(if issue == 1970 {
+        crate::common::nightly_solver_from_str(if issue == 1970 {
             include_str!("../metamorphic_corpus/nightly/issue-1970.json")
         } else {
             include_str!("../metamorphic_corpus/nightly/issue-1971.json")

@@ -16,7 +16,12 @@ for (const dim of [2, 3]) for (const unit of [1e-3, 1, 1e3]) for (const unrelate
     const analyze = dim === 2 ? analyze_kinematics_2d : analyze_kinematics_3d;
     const out = JSON.parse(analyze(JSON.stringify(input)));
     assert.equal(out.invalidInput, undefined);
-    assert.equal(out.isSolvable, spring > 0);
+    assert.equal(out.kinematicIsSolvable, spring > 0);
+    assert.equal(out.isSolvable, spring === 1);
+    if (spring === 1e-30) {
+      assert.equal(out.classification, 'indeterminate');
+      assert.equal(JSON.parse(out.diagnosis).structuredDiagnostics[0].code, 'reduced_stiffness_rank');
+    }
     assert.equal(out.mechanismModes, spring === 0 ? 1 : 0);
   } catch (e) { failures.push(`${dim}D unit=${unit} unrelated=${unrelated} spring=${spring}: ${e}`); }
 }
@@ -25,7 +30,7 @@ for (const dim of [2, 3]) {
   if (dim === 3) {
     for (const n of Object.values(input.nodes)) n.y = 0;
     input.sections[1] = structuredClone(models[3].sections[1]);
-    input.supports[1] = { ...models[3].supports[4], id: 1, nodeId: 1 };
+    input.supports[1] = { ...models[3].supports[4], nodeId: 1 };
     input.supports[2] = { ...models[3].supports[2], isInclined: true, normalX: 1 };
     for (const load of input.loads) Object.assign(load.data, { fy: 0, mx: 0, mz: 0 });
   }

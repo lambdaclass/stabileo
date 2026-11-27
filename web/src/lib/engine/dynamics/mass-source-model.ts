@@ -12,11 +12,13 @@
  * They are left out.
  */
 
-import { buildSolverLoads3D, type ModelData } from '../solver-service';
+import { buildSolverLoads3D, massSourceWireLoads3D, type ModelData } from '../solver-service';
 import { solvableModel } from '../member-behaviour';
 import type { Load, SurfaceLoad3D } from '../../store/model.svelte';
 import { surfaceDownwardPressure } from '../solver-shells';
 import { withCaseEffects } from '../case-effects';
+import { accountingCaseSources, scenarioSurfaceExpectations } from '../accounting-source';
+import { checkedScenarioSurfacePressures } from '../load-accounting';
 import { massWeightLoads, WEIGHT_CASE } from './mass-weights';
 import type { SolverInput3D } from '../types-3d';
 import {
@@ -32,18 +34,23 @@ export function caseMassLoads(
   model: ModelData,
   factors: ReadonlyArray<ResolvedFactor>,
   leftHand: boolean,
+  input?: SolverInput3D,
 ): CaseMassLoads[] {
   // On the members the analysis input has: a variable member's loads are its pieces' (idempotent).
   model = solvableModel(model);
+  const effects = model[accountingCaseSources];
+  const expected = effects && scenarioSurfaceExpectations(effects);
   const out: CaseMassLoads[] = [];
   for (const f of factors) {
     if (!(f.factor > 0)) continue;
     const own = model.loads.filter((l) => (l.data.caseId ?? 1) === f.caseId);
+    const checked = new Map([...checkedScenarioSurfacePressures(model, f.caseId, own, undefined, expected?.(f.caseId))]
+      .map(({ load, expected }) => [load, expected] as const));
     // A surface load's weight is its downward resultant, whatever its direction or field
     // (`shell-load-integration.ts`), spread over the shell: a suction or a wall pressure weighs nothing.
     const surface = own.filter((l) => l.type === 'surface3d').flatMap((l) => {
       const d = l.data as SurfaceLoad3D;
-      const q = surfaceDownwardPressure(d, model.quads as never, model.nodes as never, model.plates as never);
+      const q = surfaceDownwardPressure({ ...d, ...checked.get(l) }, model.quads as never, model.nodes as never, model.plates as never);
       return q === null ? [] : [{ quadId: d.quadId, q, ...(d.on ? { on: d.on } : {}) }];
     });
     // A nodal load that names its member (a floor's share at a re-entrant corner) weighs on it,
@@ -58,10 +65,20 @@ export function caseMassLoads(
       return id === null || l.type !== 'nodal3d' ? [] : [{ elementId: id, down: -l.data.fz }];
     });
     const rest = own.filter((l) => WEIGHT.has(l.type) && carrierOf(l) === null);
+    if (input) {
+      out.push({
+        caseId: f.caseId,
+        factor: f.factor,
+        loads: massSourceWireLoads3D(model, input, rest, leftHand, f.caseId),
+        surface,
+        ...(carried.length ? { carried } : {}),
+      });
+      continue;
+    }
     out.push({
       caseId: f.caseId,
       factor: f.factor,
-      loads: buildSolverLoads3D(model, rest, [], leftHand),
+      loads: buildSolverLoads3D(model, rest, [], leftHand, { forcesOnly: true }),
       surface,
       ...(carried.length ? { carried } : {}),
     });
@@ -97,7 +114,7 @@ export function withMassSource(
   // own section, so a load and a section are looked up by the ids the input has (`variable-members.ts`).
   model = solvableModel(model);
   // The analysis input is always right-handed; local loads still follow the displayed Y.
-  const cases = caseMassLoads(model, factors, userLeftHand);
+  const cases = caseMassLoads(model, factors, userLeftHand, input);
   const physical = withSectionMass(input, model);
   // A member solved on a section scaled by stiffness modifiers weighs with its own section's A.
   // A drawn section is left to withSectionMass, whose density already turns the solved area

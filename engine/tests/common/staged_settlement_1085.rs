@@ -7,6 +7,7 @@ pub fn input(dim: usize, copies: usize, factor: f64, linked: bool) -> Value {
         "../metamorphic_corpus/nightly/issue-1085.json"
     ))
     .unwrap();
+    crate::common::take_nightly_metadata(&mut source);
     source["supports"]["1"]["dz"] = json!(source["supports"]["1"]["dz"].as_f64().unwrap() * factor);
     if dim == 3 {
         for node in source["nodes"].as_object_mut().unwrap().values_mut() {
@@ -23,8 +24,11 @@ pub fn input(dim: usize, copies: usize, factor: f64, linked: bool) -> Value {
         let iz = source["sections"]["1"]["iz"].clone();
         source["sections"]["1"]["iy"] = iz.clone();
         source["sections"]["1"]["j"] = iz;
+        let support = source["supports"]["1"].as_object_mut().unwrap();
+        support.remove("id");
+        support.remove("type");
         for axis in ["rx", "ry", "rz", "rrx", "rry", "rrz"] {
-            source["supports"]["1"][axis] = json!(true);
+            support.insert(axis.into(), json!(true));
         }
     }
     if !linked {
@@ -50,7 +54,9 @@ pub fn input(dim: usize, copies: usize, factor: f64, linked: bool) -> Value {
         element["nodeJ"] = json!(2 + 3 * copy);
         result["elements"][id.to_string()] = element;
         let mut support = source["supports"]["1"].clone();
-        support["id"] = json!(id);
+        if dim == 2 {
+            support["id"] = json!(id);
+        }
         support["nodeId"] = json!(1 + 3 * copy);
         result["supports"][id.to_string()] = support;
         if linked {

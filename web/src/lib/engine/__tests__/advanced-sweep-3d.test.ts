@@ -55,6 +55,7 @@ import {
   FAMILIES, buildRandom, equilibriumError, errMsg, isClearMessage, allFinite,
   resetModel3D, addPalette, frame, truss, support, DOF, Rng, type ModelCase,
 } from './helpers/random-models-3d';
+import { expectPDeltaEquilibriumRefusal } from './helpers/pdelta-refusal';
 
 const SEEDS_PER_FAMILY = 30;
 const EQ_TOL = 1e-6;
@@ -220,14 +221,14 @@ function runModel(cs: ModelCase, log: SweepLog): void {
   }
 
   // ── P-Δ ──
-  const pd = attempt(() => solvePDelta3D(input));
-  if (!pd.ok) {
-    if (['spring-frame#5', 'spring-frame#16'].includes(tag)) {
-      const refusal = JSON.parse(pd.msg);
-      expect(refusal.structuredDiagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'non_finite_result', severity: 'error', phase: 'results.reactions[0].fx' })]));
-    } else if (!isClearMessage(pd.msg) || res) log.pdelta.push(`${tag}: threw ${pd.msg.slice(0, 100)}`);
-  }
-  else {
+  const tolerance = 1e-4;
+  const pd = attempt(() => solvePDelta3D(input, 20, tolerance));
+  if (['spring-frame#5', 'spring-frame#16'].includes(tag)) {
+    expect(pd.ok, tag).toBe(false);
+    if (!pd.ok) expectPDeltaEquilibriumRefusal(pd.msg, tolerance);
+  } else if (!pd.ok) {
+    if (!isClearMessage(pd.msg) || res) log.pdelta.push(`${tag}: threw ${pd.msg.slice(0, 100)}`);
+  } else {
     const p = pd.value;
     if (p.results.equilibrium?.residualOk && p.results.equilibrium.equilibriumOk === false) {
       expect(p.results.reactions.length).toBeGreaterThan(0);
@@ -1210,4 +1211,26 @@ describe('kinematic 3D', () => {
     expect(rep).not.toBeNull();
     expect(rep!.degree).toBe(k3.degree);
   });
+});
+
+
+it('keeps the authored local components on a skew frame', () => {
+  for (const seed of [1, 2, 3]) {
+    buildRandom('skew-frame', seed);
+    const input = input3D()!;
+    const local = modelStore.loads.filter(load => load.type === 'distributed3d')
+      .filter(load => !load.data.frame || load.data.frame === 'local');
+    expect(local.length, 'local distributed loads for seed ' + seed).toBeGreaterThan(0);
+    for (const { data: d } of local) {
+      expect(input.loads, 'seed ' + seed + ', member ' + d.elementId).toContainEqual({
+        type: 'distributed',
+        data: {
+          elementId: d.elementId,
+          qXI: d.qXI ?? 0, qXJ: d.qXJ ?? 0,
+          qYI: d.qYI, qYJ: d.qYJ, qZI: d.qZI, qZJ: d.qZJ,
+          a: d.a ?? 0, b: expect.any(Number),
+        },
+      });
+    }
+  }
 });

@@ -57,6 +57,38 @@ fn a_rotation_held_by_nothing_about_a_skew_axis_is_eliminated_and_not_certified(
     assert!(certify_linear_3d_full(&held).unwrap().certificate.is_certified());
 }
 
+#[test]
+fn issue_458_supplied_3d_certificates_refuse_the_loaded_skew_axis() {
+    use dedaliano_engine::certify::{
+        certify_load_cases_3d, certify_results_3d, combinations::certify_multi_case_results_3d, Certificate,
+    };
+    use dedaliano_engine::solver::load_cases::{solve_multi_case_3d, CombinationDef, LoadCase3D, MultiCaseInput3D};
+
+    let input = skew_mechanism([-1.3, 2.0, 0.0], true);
+    let allowed = skew_mechanism([2.0, 1.3, 0.0], true);
+    let candidate = solve_3d(&allowed).unwrap();
+    let refusal = solve_3d(&input).unwrap_err();
+    assert!(refusal.starts_with("Nodal moment at node 2 is not supported"), "{refusal}");
+    let expected = Certificate::Uncertified { reason: refusal };
+    let cases = certify_load_cases_3d(&allowed, &[(&allowed.loads, &candidate), (&input.loads, &candidate)]);
+    assert_eq!(cases[0], certify_results_3d(&allowed, &candidate));
+    assert_eq!(cases[1], expected);
+    assert_eq!(certify_results_3d(&input, &candidate), expected);
+    let mut combination = MultiCaseInput3D {
+        solver: allowed.clone(),
+        load_cases: vec![LoadCase3D { name: "A".into(), loads: allowed.loads.clone() }],
+        combinations: vec![CombinationDef { name: "C".into(), factors: [("A".into(), 1.0)].into() }],
+    };
+    let results = solve_multi_case_3d(&combination).unwrap();
+    combination.load_cases[0].loads = input.loads;
+    let certified = certify_multi_case_results_3d(&combination, results);
+    assert_eq!(certified.cases[0].certificate, expected);
+    assert!(!certified.combinations[0].certified);
+    assert!(!certified.envelope.certified);
+    let held = skew_mechanism([-1.3, 2.0, 0.0], false);
+    assert!(certify_results_3d(&held, &solve_3d(&held).unwrap()).is_certified());
+}
+
 /// Bathe and Bolourchi's 45° bend (R = 100, unit square section, E = 10⁷, ν = 0) under an
 /// out-of-plane tip load of 600: tip displacement (−23.5, −13.4, 53.4) (Simo and Vu-Quoc 1986).
 fn bathe_bolourchi(n: usize) -> SolverInput3D {
@@ -137,4 +169,29 @@ fn a_helix_beyond_the_increments_reach_is_reported_unconverged_not_wrong() {
     assert!(!r.converged);
     assert!(r.load_factor < 1.0, "{}", r.load_factor);
     assert!(known(&r.results.structured_diagnostics).contains(&"NL-3".to_string()));
+}
+
+#[test]
+fn issue_458_loaded_skew_rotation_refuses_in_equivalent_spatial_frames() {
+    use dedaliano_engine::metamorphic::transform::{Iso3, transform_3d};
+    use dedaliano_engine::metamorphic::units::{Units, scale_3d};
+
+    for released in [true, false] {
+        let model = skew_mechanism([-1.3, 2.0, 0.0], released);
+        for units in [Units::froude(1.0, 1.0), Units::froude(0.001, 1000.0), Units::froude(25.0, 0.01)] {
+            let scaled = scale_3d(&model, &units);
+            for iso in [Iso3::about_z(0.0), Iso3::from_euler(0.37, -0.41, 0.59).translated([3.0, -4.0, 2.0])] {
+                let transformed = transform_3d(&scaled, &iso).unwrap();
+                if released {
+                    let error = solve_3d(&transformed).unwrap_err();
+                    assert!(error.contains("Nodal moment at node 2 is not supported"), "{error}");
+                    let error = certify_linear_3d_full(&transformed).unwrap_err();
+                    assert!(error.contains("Nodal moment at node 2 is not supported"), "{error}");
+                } else {
+                    solve_3d(&transformed).unwrap();
+                    assert!(certify_linear_3d_full(&transformed).unwrap().certificate.is_certified());
+                }
+            }
+        }
+    }
 }

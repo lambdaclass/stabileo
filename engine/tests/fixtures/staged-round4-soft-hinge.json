@@ -72,15 +72,13 @@
     },
     "supports": {
       "1": {
-        "id": 1,
         "nodeId": 1,
         "rrx": true,
         "rry": true,
         "rrz": true,
         "rx": true,
         "ry": true,
-        "rz": true,
-        "type": "fixed"
+        "rz": true
       }
     }
   },

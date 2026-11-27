@@ -72,14 +72,7 @@
     "1": {
       "id": 1,
       "nodeId": 1,
-      "type": "pinned",
-      "kx": null,
-      "ky": null,
-      "kz": null,
-      "dx": null,
-      "dz": null,
-      "dry": null,
-      "angle": null
+      "type": "pinned"
     }
   },
   "loads": [
@@ -88,9 +81,7 @@
       "data": {
         "elementId": 1,
         "a": 0.4729383839549849,
-        "p": 361.1000084176028,
-        "px": null,
-        "my": null
+        "p": 361.1000084176028
       }
     }
   ],

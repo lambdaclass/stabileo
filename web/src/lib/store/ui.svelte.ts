@@ -4,6 +4,8 @@ import { DEFAULT_OSNAP, OSNAP_MODES, type OsnapMode } from '../model/osnap-modes
 import type { NodeStylePref } from '../three/nodes-instanced';
 import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } from '../geometry/coordinate-system';
 import { isUnitSystem, type UnitSystem } from '../utils/units';
+import type { DrawPlane } from '../geometry/plane-projection';
+import { is3DWorkspace, isAnalysisMode, type AnalysisMode } from '../utils/workspace';
 
 /**
  * `moveNodes` is a pointer mode, not a builder.
@@ -40,13 +42,7 @@ export type TouchDensity = 'compact' | 'comfortable';
  */
 export const EDIT_TOOLS: readonly Tool[] = ['node', 'element', 'support', 'load'];
 
-/** The four modes the app has. */
-export type AnalysisMode = '2d' | '3d' | 'pro' | 'edu';
-export const ANALYSIS_MODES: readonly AnalysisMode[] = ['2d', '3d', 'pro', 'edu'];
-import { is3DWorkspace } from '../utils/workspace';
-export function isAnalysisMode(v: unknown): v is AnalysisMode {
-  return (ANALYSIS_MODES as readonly unknown[]).includes(v);
-}
+export { ANALYSIS_MODES, isAnalysisMode, type AnalysisMode } from '../utils/workspace';
 export type ILQuantity = import('./model.svelte').InfluenceQuantity;
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
 /**
@@ -259,8 +255,8 @@ function createUIStore() {
   let selectedPlates = $state<Set<number>>(new Set());
   /** What a click on a plate's mesh picks: the plate whole, or the one element clicked. */
   let shellPickScope = $state<'plate' | 'element'>('plate');
-  /** Whether a meshed physical plate is drawn with its mesh's edges or as the piece (its outline); null follows whether there are results. Picking does not depend on it. */
-  let platesShowMesh = $state<boolean | null>(null);
+  /** Whether a meshed physical plate is drawn with its mesh's edges, or as the piece (its outline). Picking does not depend on it. */
+  let platesShowMesh = $state(true);
   let plateShells: ((id: number) => string[]) | null = null;
   /** What a click on a member picks in PRO: the whole piece (an arc, a member a mesh cut) or one segment. */
   let memberPickScope = $state<'piece' | 'segment'>('piece');
@@ -548,7 +544,7 @@ function createUIStore() {
   // 'xy' = default 2D convention (X horizontal, Y vertical)
   // 'xz' = X horizontal, Z vertical (e.g. for models built in the XZ plane)
   // 'yz' = Y horizontal, Z vertical
-  let drawPlane2D = $state<'xy' | 'xz' | 'yz'>('xy');
+  let analysisPlane2D = $state<DrawPlane | undefined>('xy');
 
   /**
    * Whether the "what do we carry into 2D" dialog is open.
@@ -974,7 +970,7 @@ function createUIStore() {
       setShells(new Set());
     },
     get platesShowMesh() { return platesShowMesh; },
-    set platesShowMesh(v: boolean | null) { platesShowMesh = v; },
+    set platesShowMesh(v: boolean) { platesShowMesh = v; },
     set shellPickScope(v: 'plate' | 'element') { shellPickScope = v; },
     /** How the store finds a plate's shells; set once by `physical-plates.ts`. */
     setPlateShellResolver(fn: (id: number) => string[]) { plateShells = fn; },
@@ -1321,8 +1317,10 @@ function createUIStore() {
       viewportPresentation3D = is3DWorkspace(analysisMode) && _isModelFlat2D?.() === true ? 'upright2dIn3d' : 'native3d';
     },
     _setModelFlatnessProvider(fn: () => boolean) { _isModelFlat2D = fn; },
-    get drawPlane2D() { return drawPlane2D; },
-    set drawPlane2D(v: 'xy' | 'xz' | 'yz') { drawPlane2D = v; },
+    get drawPlane2D() { return analysisPlane2D ?? 'xy'; },
+    set drawPlane2D(v: DrawPlane) { analysisPlane2D = v; },
+    get analysisPlane2D() { return analysisPlane2D; },
+    set analysisPlane2D(v: DrawPlane | undefined) { analysisPlane2D = v; },
     get switchTo2DPrompt() { return switchTo2DPrompt; },
     set switchTo2DPrompt(v: boolean) { switchTo2DPrompt = v; },
     get simplified2DMode() { return simplified2DMode; },

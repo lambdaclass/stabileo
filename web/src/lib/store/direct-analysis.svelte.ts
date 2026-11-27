@@ -15,6 +15,8 @@ import {
 } from '../engine/direct-analysis';
 import { pdelta3DInWorker } from '../engine/solver-pool';
 import type { AnalysisResults3D } from '../engine/types-3d';
+import { localizeEngineText } from '../i18n/engine-text';
+import { errorText } from '../utils/error-text';
 
 class DirectAnalysisStore {
   result = $state<DirectAnalysisResult | null>(null);
@@ -82,7 +84,7 @@ class DirectAnalysisStore {
       this.version = version;
       this.solvedInputs = inputs;
     } catch (err) {
-      this.error = (err as Error)?.message ?? String(err);
+      this.error = localizeEngineText(errorText(err, String(err)));
       this.result = null;
     } finally {
       this.running = false;
