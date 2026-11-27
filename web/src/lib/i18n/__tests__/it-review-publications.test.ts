@@ -92,3 +92,10 @@ it.each([
   expect(text).toContain('hc/hp');
   expect(text).not.toContain(claim);
 });
+
+it.skip('known wrong result: #2595 — the DXF release example gives both bending moments in kN·m', () => {
+  const paragraph = release('0.4.0').split('**Il DXF PRO')[1].split('\n\n')[0].replace(/\s+/g, ' ');
+  expect(paragraph).toMatch(/momenti (?:flettenti )?di estremità/);
+  expect(paragraph).toContain('320,59 kN·m');
+  expect(paragraph).toMatch(/momento[^.]*49,16 kN·m/);
+});
