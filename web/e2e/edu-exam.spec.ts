@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext, type Page, type Route } from '@playwright/test';
-import { drawVariant, type ExerciseParams } from '../src/components/edu/exercise-params';
+import type { ExerciseParams } from '../src/components/edu/exercise-params';
 
 declare global {
   interface Window {
@@ -188,7 +188,7 @@ async function person(context: BrowserContext, backend: Backend, signedIn: Perso
 test.describe('@smoke Education — homework and exams with an account', () => {
   test('a teacher assigns an exercise, a student takes it with the tools locked, and both see the same grade', async ({ browser }) => {
     const backend = new Backend();
-    const L = drawVariant(PARAMS, SEED).values.L!;
+    const L = 5;
 
     const teacherContext = await browser.newContext();
     const teacher = await person(teacherContext, backend, TEACHER, [SPEC]);
