@@ -122,3 +122,12 @@ it.each([0, 1, 2, 3])('labels %i remaining lives in French', n => {
   setPublicLocale('fr');
   expect(tg('livesLeft', { n })).toBe(`Vies restantes : ${n}`);
 });
+
+it.skip('known wrong result: #2595 — the Italian games hub renders its own heading and diagram game card', () => {
+  setPublicLocale('it');
+  const body = render(GamesPage, { props: { path: '/games' } }).body;
+  expect.soft(body).toMatch(/<h1[^>]*>Giochi<\/h1>/);
+  expect.soft(body).toContain(gameStrings.it!.title);
+  expect.soft(body).toContain('Gioca');
+  expect(body).toContain('href="/it/games/diagram-game/"');
+});
