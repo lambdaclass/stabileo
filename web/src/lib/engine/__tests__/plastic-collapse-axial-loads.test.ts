@@ -51,7 +51,7 @@ describe('plastic collapse under loads along members', () => {
     expect(() => solve(2)).toThrow();
   });
 
-  it.skip('known wrong result: #758 — partial axial load on a diagonal retains certified bending collapse', () => {
+  it('known wrong result: #758 — partial axial load on a diagonal retains certified bending collapse', () => {
     const beam = model(1, [1], 'frame', [[1, 'fixed']], [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1, my: 0 } }]);
     beam.nodes.set(2, { id: 2, x: 1, z: 1 });
     const solve = (b?: number) => plasticLimit2D({ ...beam, loads: [...beam.loads, {

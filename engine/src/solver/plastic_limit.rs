@@ -181,11 +181,11 @@ pub fn confirm_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<us
 
 fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<FactorCheck, String> {
     super::support::validate_supports_2d(input)?;
-    use crate::certify::exact::{q, to_f64_up};
+    use crate::certify::exact::to_f64_up;
     if input.elements.len() > MAX_CERTIFIED_ELEMENTS {
         return Err(format!("more than {MAX_CERTIFIED_ELEMENTS} members: too large for the exact certificate"));
     }
-    use crate::certify::plastic::{build_model, check_static, plastic_candidates};
+    use crate::certify::plastic::{build_model, plastic_candidates};
     let mut solver = mechanical(input);
     solver.loads.retain(|l| !matches!(l, SolverLoad::AxialDistributed(_)));
     for sup in solver.supports.values_mut() {
@@ -229,7 +229,7 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
     let refused = |why: String| format!("the exact certificate does not apply: {why}");
     crate::certify::finite::check_input(&pi).map_err(refused)?;
     let mut model = build_model(&pi).map_err(refused)?;
-    let mut axial_fields = axial::assemble(input, &mut model)?;
+    let axial_fields = axial::assemble(input, &mut model)?;
     if !np.is_empty()
         && input.elements.values().all(|e| e.elem_type == "truss")
         && input.loads.iter().all(|l| matches!(l, SolverLoad::Nodal(p) if p.my == 0.0))
@@ -240,26 +240,28 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
         }
     }
     let c = plastic_candidates(&model, None).map_err(refused)?;
-    let (Some(field), Some(mech)) = (&c.static_field, &c.mechanism_check) else {
-        return Err(refused(c.static_reason.or(c.mechanism_reason).unwrap_or_else(|| "no bound".into())));
+    let (Some(mechanism), Some(mech)) = (&c.mechanism, &c.mechanism_check) else {
+        return Err(refused(c.mechanism_reason.unwrap_or_else(|| "no mechanism bound".into())));
     };
-    let scale = check_static(&model, field).map_err(refused)?.scale;
-    let up = to_f64_up(&mech.lambda_upper).ok_or_else(|| refused("upper bound out of range".into()))?;
-    let lower = q(lambda * (1.0 - 1e-6)).ok_or("non-finite collapse factor")? / &field.lambda;
-    let mut admissible = lower <= scale;
-    let mut axial_scale = f64::INFINITY;
-    for e in model.elems.iter().zip(&field.elems).filter(|(e, _)| np.get(&e.id).is_some_and(|n| n.is_finite())) {
-        let (e, [fx, fz, _]) = e;
-        let npl = q(np[&e.id]).ok_or("non-finite axial capacity")?;
-        let lsq = &e.dx * &e.dx + &e.dz * &e.dz;
-        let n = axial::peak(axial_fields.remove(&e.id).unwrap_or_default(), e, &field.lambda, fx * &e.dx + fz * &e.dz)?;
-        admissible &= &lower * &lower * &n * &n <= &npl * &npl * &lsq;
-        let magnitude = crate::certify::exact::to_f64(&n);
-        if magnitude > 0.0 {
-            axial_scale = axial_scale.min(np[&e.id] * crate::certify::exact::to_f64(&lsq).sqrt() / magnitude);
+    let upper = |v: &crate::certify::exact::Q| to_f64_up(v).ok_or_else(|| refused("upper bound out of range".into()));
+    let mut up = upper(&mech.lambda_upper)?;
+    let (mut lower, mut admissible) = static_bounds(&model, &c, &axial_fields, np, lambda, up)?;
+    for (node, x, z) in axial::resultant_perturbations(&model, &axial_fields) {
+        let centre = model.nodal[node].clone();
+        for sign in [-1, 1] {
+            let factor = crate::certify::exact::qi(sign);
+            model.nodal[node][0] = &centre[0] + &factor * &x;
+            model.nodal[node][1] = &centre[1] + &factor * &z;
+            let vertex = plastic_candidates(&model, None).map_err(refused)?;
+            let check = crate::certify::plastic::check_mechanism(&model, mechanism).map_err(refused)?;
+            let vertex_upper = upper(&check.lambda_upper)?;
+            let (vertex_lower, fits) = static_bounds(&model, &vertex, &axial_fields, np, lambda, vertex_upper)?;
+            lower = lower.min(vertex_lower);
+            up = up.max(vertex_upper);
+            admissible &= fits;
         }
+        model.nodal[node] = centre;
     }
-    let lower = (crate::certify::exact::to_f64(&field.lambda) * crate::certify::exact::to_f64(&scale).min(axial_scale) * (1.0 - 1e-9)).min(up);
     let bounds = format!("the exact certificate bounds the collapse factor by [{lower}, {up}]");
     Ok(FactorCheck::Candidate(if lambda > up * (1.0 + 1e-7) || lambda < lower * (1.0 - 1e-6) {
         Confirmation::Contradicted { reason: format!("{bounds}, not {lambda}"), lower }
@@ -268,6 +270,34 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
     } else {
         Confirmation::Bracketed { reason: format!("{bounds}, too far apart to confirm {lambda}"), lower, upper: up }
     }))
+}
+
+fn static_bounds(
+    model: &crate::certify::plastic::PlasticModel, c: &crate::certify::plastic::PlasticCandidates,
+    axial_fields: &HashMap<usize, axial::AxialField>, np: &HashMap<usize, f64>, lambda: f64, up: f64,
+) -> Result<(f64, bool), String> {
+    use crate::certify::{exact::q, plastic::check_static};
+    let Some(field) = &c.static_field else {
+        return Err(c.static_reason.clone().unwrap_or_else(|| "no static bound".into()));
+    };
+    let scale = check_static(model, field)?.scale;
+
+    let lower = q(lambda * (1.0 - 1e-6)).ok_or("non-finite collapse factor")? / &field.lambda;
+    let mut admissible = lower <= scale;
+    let mut axial_scale = f64::INFINITY;
+    for e in model.elems.iter().zip(&field.elems).filter(|(e, _)| np.get(&e.id).is_some_and(|n| n.is_finite())) {
+        let (e, [fx, fz, _]) = e;
+        let npl = q(np[&e.id]).ok_or("non-finite axial capacity")?;
+        let lsq = &e.dx * &e.dx + &e.dz * &e.dz;
+        let n = axial::peak(axial_fields.get(&e.id).cloned().unwrap_or_default(), e, &field.lambda, fx * &e.dx + fz * &e.dz)?;
+        admissible &= &lower * &lower * &n * &n <= &npl * &npl * &lsq;
+        let magnitude = crate::certify::exact::to_f64(&n);
+        if magnitude > 0.0 {
+            axial_scale = axial_scale.min(np[&e.id] * crate::certify::exact::to_f64(&lsq).sqrt() / magnitude);
+        }
+    }
+    let lower = (crate::certify::exact::to_f64(&field.lambda) * crate::certify::exact::to_f64(&scale).min(axial_scale) * (1.0 - 1e-9)).min(up);
+    Ok((lower, admissible))
 }
 
 fn uniform_stiffness(input: &SolverInput) -> SolverInput {

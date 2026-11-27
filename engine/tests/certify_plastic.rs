@@ -871,21 +871,22 @@ fn an_explicit_full_axial_span_matches_an_omitted_diagonal_endpoint() {
 }
 
 #[test]
-#[ignore = "known wrong result: #758"]
 fn bending_collapse_survives_partial_axial_loads_on_a_diagonal() {
     use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
     for (a, b) in [(None, Some(1.0)), (Some(0.5), None), (Some(0.5), Some(1.0))] {
         for intensity in [-1.0, 1.0] {
-            let beam = make_input(
-                vec![(1, 0.0, 0.0), (2, 1.0, 1.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
-                vec![(1, "frame", 1, 2, 1, 1, false, false)], vec![(1, 1, "fixed")],
-                vec![nodal(2, 0.0, -1.0), SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: intensity, q_j: intensity, a, b })],
-            );
-            assert_eq!(confirm_2d(&beam, &HashMap::from([(1, 1.0)]), &HashMap::from([(1, 10.0)]), 1.0), Confirmation::Exact);
-            let mut wire = LimitInput { solver: beam, mp: HashMap::from([("1".into(), 1.0)]), np: HashMap::from([("1".into(), 10.0)]) };
-            assert_eq!(certified_limit_2d(&wire).unwrap().confirmation, Confirmation::Exact);
-            wire.np.insert("1".into(), 0.01);
-            assert!(certified_limit_2d(&wire).is_err());
+            for (i, j) in [(1, 2), (2, 1)] {
+                let beam = make_input(
+                    vec![(1, 0.0, 0.0), (2, 1.0, 1.0)], vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
+                    vec![(1, "frame", i, j, 1, 1, false, false)], vec![(1, 1, "fixed")],
+                    vec![nodal(2, 0.0, -1.0), SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: intensity, q_j: intensity, a, b })],
+                );
+                assert_eq!(confirm_2d(&beam, &HashMap::from([(1, 1.0)]), &HashMap::from([(1, 10.0)]), 1.0), Confirmation::Exact);
+                let mut wire = LimitInput { solver: beam, mp: HashMap::from([("1".into(), 1.0)]), np: HashMap::from([("1".into(), 10.0)]) };
+                assert_eq!(certified_limit_2d(&wire).unwrap().confirmation, Confirmation::Exact);
+                wire.np.insert("1".into(), 0.01);
+                assert!(certified_limit_2d(&wire).is_err());
+            }
         }
     }
 }
