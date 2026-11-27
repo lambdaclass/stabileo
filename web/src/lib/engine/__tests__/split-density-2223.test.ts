@@ -4,8 +4,8 @@ import { splitAtNodes, splitAllAtNodes, intersectMembers } from '../../model/edi
 import { subdivideForAnalysis } from '../../model/edit/analysis-subdivision';
 import { expandVariableMembers } from '../variable-members';
 import { refineInput } from '../second-order/refine';
-import { buildSolverInput2D, buildSolverInput3D } from '../solver-service';
-import { initSolver, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
+import { buildSolverInput2D, buildSolverInput3D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync } from '../solver-service';
+import { finiteObjectWire, initSolver, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import { toSectionFields } from '../../section/section-choice';
 import { computeSectionProperties } from '../../data/section-shapes';
 import { splitElementLoads } from '../../model/edit/member-split';
@@ -14,6 +14,14 @@ import { generatedMemberBounds, remapSpanInterval } from '../member-span-loads';
 let wasm: any;
 beforeAll(async () => { await initSolver(); wasm = await import('../../wasm/dedaliano_engine.js'); });
 afterEach(() => { modelStore.clear(); historyStore.clear(); });
+
+function setVariableSection(id: number) {
+  const sections = [0.3, 0.5].map(h => {
+    const params = { b: 0.3, h };
+    return modelStore.addSection(toSectionFields({ kind: 'built', name: `density-${h}`, shapeType: 'concrete-rect', params, props: computeSectionProperties('concrete-rect', params)!, rotationDeg: 0 }, 0) as never);
+  });
+  modelStore.updateElement(id, { sectionId: sections[0], variableSection: { sectionJ: sections[1], segments: 20 } });
+}
 
 for (const dim of [2, 3]) for (const kind of dim === 2 ? ['distributed'] : ['distributed', 'distributed3d']) {
   for (const entry of ['direct', 'point', 'subdivide', 'nodes', 'allNodes', 'intersection', 'analysis', 'variable', ...(dim === 2 ? ['refine'] : [])]) {
@@ -45,11 +53,7 @@ for (const dim of [2, 3]) for (const kind of dim === 2 ? ['distributed'] : ['dis
       }
       if (entry === 'analysis') model = subdivideForAnalysis(model, 20).model as typeof model;
       if (entry === 'variable') {
-        const sections = [0.3, 0.5].map(h => {
-          const params = { b: 0.3, h };
-          return modelStore.addSection(toSectionFields({ kind: 'built', name: `density-${h}`, shapeType: 'concrete-rect', params, props: computeSectionProperties('concrete-rect', params)!, rotationDeg: 0 }, 0) as never);
-        });
-        modelStore.updateElement(id, { sectionId: sections[0], variableSection: { sectionJ: sections[1], segments: 20 } });
+        setVariableSection(id);
         model = expandVariableMembers(model) as typeof model;
       }
       const count = entry === 'point' ? 2 : 20;
@@ -57,7 +61,8 @@ for (const dim of [2, 3]) for (const kind of dim === 2 ? ['distributed'] : ['dis
       for (const n of model.nodes.values()) if (!attached.has(n.id)) model.nodes.delete(n.id);
       for (const nodeId of [i, j]) model.supports.set(nodeId, { id: nodeId, nodeId, type: dim === 2 ? 'fixed' : 'fixed3d' } as never);
       const built = dim === 2 ? buildSolverInput2D(model, false)! : buildSolverInput3D(model, false)!;
-      const input = dim === 2 ? input2DToWireObject(entry === 'refine' ? refineInput(built as never, 20).input : built as never) : input3DToWireObject(built as never);
+      const wire = dim === 2 ? input2DToWireObject(entry === 'refine' ? refineInput(built as never, 20).input : built as never) : input3DToWireObject(built as never);
+      const input = finiteObjectWire(wire);
       expect(Object.keys(input.elements)).toHaveLength(count);
       if (['direct', 'subdivide', 'nodes', 'allNodes'].includes(entry)) {
         expect([...model.elements.values()].filter(e => e.nodeI === midpoint || e.nodeJ === midpoint)).toHaveLength(2);
@@ -123,4 +128,32 @@ it('known wrong result: #2223 — member-defined density is distinct from an exp
     expect(() => split(refused)).toThrow(/geometry/);
     expect(() => remapSpanInterval(1, 0, 1, 0, 1, refused)).toThrow(/geometry/);
   }
+});
+
+
+it('known wrong result: #2223 — planar variable loads reach single and factored solves', async () => {
+  const unit = 0.0015, q = 10;
+  const i = modelStore.addNode(0, 0), j = modelStore.addNode(unit, unit);
+  const member = modelStore.addElement(i, j, 'frame');
+  setVariableSection(member);
+  modelStore.addSupport(i, 'fixed');
+  modelStore.addSupport(j, 'fixed');
+  modelStore.model.loads = [{ type: 'distributed', data: { id: 1, elementId: member, qI: -q, qJ: -q } }];
+  const factor = 0.25;
+  const id = modelStore.addCombination('Factored line', [{ caseId: 1, factor }]);
+  const model = expandVariableMembers(modelStore.model);
+  const check = (result: ReturnType<typeof validateAndSolve2D>, scale: number, entry: string) => {
+    expect.soft(result, entry).toMatchObject({ reactions: expect.any(Array) });
+    if (!result || typeof result === 'string') return;
+    const rx = result.reactions.reduce((sum, r) => sum + r.rx, 0);
+    const rz = result.reactions.reduce((sum, r) => sum + r.rz, 0);
+    expect(Math.hypot(rx, rz), entry).toBeCloseTo(scale * q * Math.SQRT2 * unit, 12);
+  };
+  check(validateAndSolve2D(model), 1, 'sync');
+  check(await validateAndSolve2DAsync(model), 1, 'async');
+  const combinations = model.combinations.filter(combo => combo.id === id);
+  const batch = solveCombinations2D(model, model.loadCases, combinations);
+  check(batch && typeof batch === 'object' ? batch.perCombo.get(id) ?? null : batch, factor, 'batch combination');
+  const fallback = solveCombinations2D(model, model.loadCases, [...combinations, { ...combinations[0]!, id: id + 1 }]);
+  check(fallback && typeof fallback === 'object' ? fallback.perCombo.get(id) ?? null : fallback, factor, 'per-case combination');
 });

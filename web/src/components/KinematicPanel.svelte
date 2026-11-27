@@ -75,7 +75,7 @@
      * for the life of the page.
      */
     // Not for a model the engine refused: its data will not change by waiting.
-    if (report && !report.rankChecked && !report.invalidInput && rankRetries < 40) {
+    if (report && !report.rankChecked && !report.invalidInput && !report.rankRefusal && rankRetries < 40) {
       rankRetries++;
       setTimeout(() => {
         if (uiStore.showKinematicPanel) recompute();
@@ -257,7 +257,7 @@
             <div class="kp-formula">{report.formula}</div>
             <div class="kp-formula kp-formula-sub">{report.substitution}</div>
             <div class="kp-badge" class:kp-ok={report.classification === 'hyperstatic'}
-              class:kp-warn={report.classification === 'isostatic'}
+              class:kp-warn={report.classification === 'isostatic' || report.classification === 'indeterminate'}
               class:kp-danger={report.classification === 'hypostatic'}>
               {report.formula.startsWith('GH') ? 'GH' : 'g'} = {report.degree}
             </div>
@@ -285,6 +285,8 @@
               <div class="kp-result kp-danger-bg">
                 {t('kinematic.invalidInput').replace('{n}', report.invalidInput)}
               </div>
+            {:else if report.rankRefusal}
+              <div class="kp-result kp-warn-bg">{report.rankRefusal}</div>
             {:else if !report.rankChecked}
               <!--
                 The check could not run — the WASM engine was not ready. This
@@ -392,6 +394,8 @@
         <div class="kp-footer">
           {#if report.isSolvable}
             <span class="kp-status kp-ok-text">{t('kinematic.stableResult')}</span>
+          {:else if report.rankRefusal}
+            <span class="kp-status kp-warn-text">{report.rankRefusal}</span>
           {:else if report.invalidInput}
             <span class="kp-status kp-danger-text">{t('kinematic.invalidResult')}</span>
           {:else}
@@ -614,6 +618,7 @@
 
   .kp-muted { color: var(--st-text-3); }
   .kp-danger-text { color: var(--st-accent); }
+  .kp-warn-text { color: var(--st-warn); }
   .kp-ok-text { color: var(--st-ok); }
 
   .kp-formula {

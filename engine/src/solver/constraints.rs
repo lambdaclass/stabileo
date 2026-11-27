@@ -55,6 +55,15 @@ pub struct SparseTransform {
 }
 
 impl SparseTransform {
+    pub(super) fn isolated_unit_column(&self, row: usize) -> Option<usize> {
+        let span = self.row_ptr[row]..self.row_ptr[row + 1];
+        if span.len() != 1 || self.vals[span.start] != 1.0 {
+            return None;
+        }
+        let col = self.col_idx[span.start];
+        (self.col_ptr[col + 1] - self.col_ptr[col] == 1).then_some(col)
+    }
+
     pub(crate) fn buckling_transform(&self) -> crate::linalg::lanczos::BucklingTransform<'_> {
         crate::linalg::lanczos::BucklingTransform {
             n_rows: self.n_rows, n_cols: self.n_cols,
@@ -215,6 +224,15 @@ impl SparseTransform {
     /// Cost O(Σ_{(l,l')∈K} deg(l)·deg(l')) — near-linear in nnz(K) for the
     /// near-identity transforms MPCs produce.
     pub fn reduce_sparse(&self, k: &crate::linalg::sparse::CscMatrix) -> crate::linalg::sparse::CscMatrix {
+        self.reduce_sparse_with::<false>(k)
+    }
+
+    pub(super) fn reduce_sparse_upper_bound(&self, k: &CscMatrix) -> CscMatrix {
+        self.reduce_sparse_with::<true>(k)
+    }
+
+    fn reduce_sparse_with<const UPPER_BOUND: bool>(&self, k: &CscMatrix) -> CscMatrix {
+        let multiply = |a, b| if UPPER_BOUND { super::load_work::mul_up(a, b) } else { a * b };
         // Same precondition the dense twin asserts. Without it, a K narrower
         // than C's row count silently drops every row from k.n upward and
         // returns an under-stiff reduced system with no diagnostic; a wider one
@@ -252,11 +270,11 @@ impl SparseTransform {
                 let kv = k.values[pk];
                 for pa in self.row_ptr[l]..self.row_ptr[l + 1] {
                     let (j, ca) = (self.col_idx[pa], self.vals[pa]);
-                    let cak = ca * kv;
+                    let cak = multiply(ca, kv);
                     for pb in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
                         let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
                         if j >= j2 {
-                            trip.push((j2, j, cak * cb));
+                            trip.push((j2, j, multiply(cak, cb)));
                         }
                     }
                 }
@@ -264,11 +282,11 @@ impl SparseTransform {
                     // Transposed orientation (l2, l)
                     for pa in self.row_ptr[l2]..self.row_ptr[l2 + 1] {
                         let (j, ca) = (self.col_idx[pa], self.vals[pa]);
-                        let cak = ca * kv;
+                        let cak = multiply(ca, kv);
                         for pb in self.row_ptr[l]..self.row_ptr[l + 1] {
                             let (j2, cb) = (self.col_idx[pb], self.vals[pb]);
                             if j >= j2 {
-                                trip.push((j2, j, cak * cb));
+                                trip.push((j2, j, multiply(cak, cb)));
                             }
                         }
                     }
@@ -288,7 +306,7 @@ impl SparseTransform {
             let (c, r, mut v) = trip[i];
             i += 1;
             while i < trip.len() && trip[i].0 == c && trip[i].1 == r {
-                v += trip[i].2;
+                v = if UPPER_BOUND { super::load_work::add_up(v, trip[i].2) } else { v + trip[i].2 };
                 i += 1;
             }
             // Same drop every other sparse producer applies — `from_dense_symmetric`,
@@ -298,7 +316,7 @@ impl SparseTransform {
             // denser elimination graph than the model actually has, filling in more
             // than the dense path did and eroding the speedup this reduction exists
             // for. Terms that cancel exactly land here as 0.0.
-            if r >= c && v.abs() > 1e-30 {
+            if r >= c && (v.abs() > 1e-30 || UPPER_BOUND && v != 0.0) {
                 row_idx.push(r);
                 values.push(v);
                 col_ptr[c + 1] += 1;
@@ -404,7 +422,7 @@ pub fn validate_constraint_refs(
                 if !node_ids.contains(&rl.slave_node) {
                     return Err(format!("Constraint {}: RigidLink slave node {} does not exist", i, rl.slave_node));
                 }
-                for &dof in &rl.dofs {
+                for &dof in rl.effective_dofs(max_dofs_per_node) {
                     if dof >= max_dofs_per_node {
                         return Err(format!(
                             "Constraint {}: RigidLink references DOF {} but max is {} (0..{})",
@@ -692,12 +710,7 @@ fn collect_dependent_dofs(
 
     match constraint {
         Constraint::RigidLink(rl) => {
-            let dofs = if rl.dofs.is_empty() {
-                (0..dof_num.dofs_per_node.min(3)).collect::<Vec<_>>()
-            } else {
-                rl.dofs.clone()
-            };
-            for &dof in &dofs {
+            for &dof in rl.effective_dofs(dof_num.dofs_per_node) {
                 if let Some(&slave_global) = dof_num.map.get(&(rl.slave_node, dof)) {
                     let mut masters = Vec::new();
                     if let Some(&m) = dof_num.map.get(&(rl.master_node, dof)) {
@@ -811,6 +824,53 @@ pub fn build_constraint_transform(
     nodes_3d: Option<&HashMap<String, SolverNode3D>>,
     inclined: &[InclinedDofs],
 ) -> Result<ConstraintTransform, String> {
+    build_constraint_transform_with_ties(constraints, dof_num, nodes_2d, nodes_3d, inclined, false)
+}
+
+const PREFERRED_PIVOT_FRACTION: f64 = 0.1;
+
+fn exact_tie_pivot(
+    mpc: &LinearMPCConstraint,
+    current: usize,
+    dof_num: &DofNumbering,
+    references: &[usize],
+) -> usize {
+    let [first, second] = mpc.terms.as_slice() else { return current };
+    let (Some(&a), Some(&b)) = (
+        dof_num.map.get(&(first.node_id, first.dof)),
+        dof_num.map.get(&(second.node_id, second.dof)),
+    ) else { return current };
+    if a == b || a >= dof_num.n_free || b >= dof_num.n_free ||
+        references[a] != 1 || references[b] != 1 {
+        return current;
+    }
+
+    let numerator = mpc.terms[current].coefficient;
+    let denominator = mpc.terms[1 - current].coefficient;
+    if denominator.abs() < PREFERRED_PIVOT_FRACTION * numerator.abs() || denominator == 0.0 {
+        return current;
+    }
+    let exact_quotient = |n: f64, d: f64| {
+        use num_rational::BigRational;
+        BigRational::from_float(n / d).is_some_and(|quotient| {
+            quotient * BigRational::from_float(d).unwrap() == BigRational::from_float(n).unwrap()
+        })
+    };
+    if !exact_quotient(denominator, numerator) && exact_quotient(numerator, denominator) {
+        1 - current
+    } else {
+        current
+    }
+}
+
+fn build_constraint_transform_with_ties(
+    constraints: &[Constraint],
+    dof_num: &DofNumbering,
+    nodes_2d: Option<&HashMap<String, SolverNode>>,
+    nodes_3d: Option<&HashMap<String, SolverNode3D>>,
+    inclined: &[InclinedDofs],
+    preserve_exact_ties: bool,
+) -> Result<ConstraintTransform, String> {
     let n = dof_num.n_total;
 
     // Build O(1) lookup maps: node numeric id -> &Node
@@ -819,6 +879,21 @@ pub fn build_constraint_transform(
     });
     let node_by_id_3d: Option<HashMap<usize, &SolverNode3D>> = nodes_3d.map(|nodes| {
         nodes.values().map(|n| (n.id, n)).collect()
+    });
+
+    let references = preserve_exact_ties.then(|| {
+        let mut references = vec![0; n];
+        for constraint in constraints {
+            for (dependent, masters) in collect_dependent_dofs(
+                constraint, dof_num, node_by_id_2d.as_ref(), node_by_id_3d.as_ref(),
+            ) {
+                references[dependent] += 1;
+                for master in masters {
+                    references[master] += 1;
+                }
+            }
+        }
+        references
     });
 
     // Collect all dependent DOFs and their constraint equations.
@@ -830,20 +905,13 @@ pub fn build_constraint_transform(
     for constraint in constraints {
         match constraint {
             Constraint::RigidLink(rl) => {
-                let dofs = if rl.dofs.is_empty() {
-                    // Default: all translational DOFs
-                    (0..dof_num.dofs_per_node.min(3)).collect::<Vec<_>>()
-                } else {
-                    rl.dofs.clone()
-                };
-
                 // Get offset from master to slave
                 let (dx, dy, dz) = get_node_offset(
                     rl.master_node, rl.slave_node,
                     node_by_id_2d.as_ref(), node_by_id_3d.as_ref(),
                 );
 
-                for &dof in &dofs {
+                for &dof in rl.effective_dofs(dof_num.dofs_per_node) {
                     if let Some(&slave_global) = dof_num.map.get(&(rl.slave_node, dof)) {
                         // Rigid body kinematics:
                         // 2D: u_slave_x = u_master_x - dy * θ_master
@@ -1075,8 +1143,10 @@ pub fn build_constraint_transform(
 
             Constraint::LinearMPC(mpc) => {
                 // General MPC: Σ(coeff_i × u_i) = 0
-                // First term with largest coefficient becomes dependent
-                let Some(dep_idx) = mpc_dependent_term(mpc, dof_num) else { continue; };
+                let Some(mut dep_idx) = mpc_dependent_term(mpc, dof_num) else { continue; };
+                if let Some(references) = &references {
+                    dep_idx = exact_tie_pivot(mpc, dep_idx, dof_num, references);
+                }
 
                 let dep_term = &mpc.terms[dep_idx];
                 if let Some(&dep_global) = dof_num.map.get(&(dep_term.node_id, dep_term.dof)) {
@@ -1394,7 +1464,7 @@ fn equations_in_inclined_frames(
                 .map(|(&d, &c)| (d, c))
         };
         let pivot = match (best(true), best(false)) {
-            (Some(own), Some(any)) if own.1.abs() >= 0.1 * any.1.abs() => Some(own),
+            (Some(own), Some(any)) if own.1.abs() >= PREFERRED_PIVOT_FRACTION * any.1.abs() => Some(own),
             (_, any) => any,
         };
         // No free DOF left: the equation ties prescribed values only (a
@@ -1550,7 +1620,7 @@ fn solve_constrained_2d_dense_validated(
     let nf = dof_num.n_free;
     let nr = n - nf;
 
-    let asm = assembly::without_artificial_stiffness(|| assembly::assemble_2d(&input.solver, &dof_num));
+    let (asm, support_magnitude) = assembly::without_artificial_stiffness(|| assembly::assemble_2d_with_magnitude(&input.solver, &dof_num));
 
     // Build prescribed displacements
     let u_r = linear::prescribed_displacements_2d(&input.solver,dof_num);
@@ -1626,17 +1696,14 @@ fn solve_constrained_2d_dense_validated(
     let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&asm.inclined_transforms_2d);
     let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
-    let stability = fcs.stability(&crate::linalg::sparse::CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, &CscMatrix::from_dense_symmetric(&k_ff, nf), &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default());
+    let stability = super::stability::classify_free_stiffness(&CscMatrix::from_dense_symmetric(&k_ff, nf), &CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep), dof_num, true, Some(&fcs), &super::stability::elastic_kinematics_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default(), &[], support_magnitude.as_ref(), &[]);
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let u_indep = {
-        let mut k_work = k_reduced.clone();
-        stability.pin_dense(&mut k_work, n_free_indep);
-        if !cholesky_decompose(&mut k_work, n_free_indep) { return Err(linear::not_positive_definite()); }
-        let u = back_solve(&k_work, &forward_solve(&k_work, &f_reduced, n_free_indep), n_free_indep);
         let mut k_pinned = k_reduced.clone();
         stability.pin_dense(&mut k_pinned, n_free_indep);
-        linear::conditional_dense_refinement(&stability, &k_pinned, &f_reduced, u,
-            |rhs| back_solve(&k_work, &forward_solve(&k_work, rhs, n_free_indep), n_free_indep))?
+        let factor = super::elastic_cholesky::DenseCholesky::dense(&k_pinned, n_free_indep, &stability)?;
+        let u = factor.solve(&f_reduced);
+        linear::ConditionalRefinement::planar().dense(&stability, &k_pinned, &f_reduced, u, |rhs| factor.solve(rhs))?
     };
     stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
@@ -1844,12 +1911,13 @@ pub(super) fn solve_constrained_2d_sparse(
     let load_rounding = super::load_work::assembly_rounding_2d(&input.solver,&input.solver.loads,dof_num,&stiff.inclined_transforms_2d);
     let load_rounding = fcs.reduce_load_rounding(&f_f,&load_rounding);
     let f_reduced = fcs.reduce_vector(&f_f);
-    let stability = fcs.stability(&k_reduced, dof_num, k_ff, &super::stability::coupling_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default());
+    let stability = super::stability::classify_free_stiffness(k_ff, &k_reduced, dof_num, true, Some(&fcs), &super::stability::elastic_kinematics_2d(&input.solver, dof_num), &super::stability::ReleasedRotations::default(), &[], stiff.support_magnitude.as_ref(), &[]);
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
-    let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
-    let u_indep = sparse_cholesky_solve(&num, &f_reduced);
-    let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
+    let symbolic = std::rc::Rc::new(symbolic_cholesky(&k_pinned));
+    let factor = super::elastic_cholesky::SparseCholesky::sparse(&k_pinned, &symbolic, &stability)?;
+    let u_indep = factor.solve(&f_reduced);
+    let u_indep = linear::ConditionalRefinement::planar().sparse(&stability, &k_pinned, &f_reduced, u_indep, |rhs| factor.solve(rhs))?;
     stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
     let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
@@ -2084,12 +2152,23 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     let f_reduced = fcs.reduce_vector(&f_f);
     let containment_conditioning = crate::known_issues::sparse_conditioning(k_ff)
         .or_else(|| crate::known_issues::sparse_conditioning(&k_reduced));
-    let stability = fcs.stability(&k_reduced, &dof_num, k_ff, &super::stability::coupling_3d(&input.solver, &dof_num), &super::stability::released_rotations_3d(&input.solver, &dof_num));
+    let stability = super::stability::classify_free_stiffness(k_ff, &k_reduced, &dof_num, false, Some(&fcs), &super::stability::elastic_kinematics_3d(&input.solver, &dof_num), &super::stability::released_rotations_3d(&input.solver, &dof_num), &[], sasm.support_magnitude.as_ref(), &[]);
     refuse_unstable(&stability, &f_reduced, &load_rounding)?;
     let k_pinned = stability.pin_sparse(&k_reduced);
-    let num = numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_pinned)), &k_pinned).ok_or_else(linear::not_positive_definite)?;
-    let u_indep = sparse_cholesky_solve(&num, &f_reduced);
-    let u_indep = linear::conditional_sparse_refinement(&stability, &k_pinned, &f_reduced, u_indep, |rhs| sparse_cholesky_solve(&num, rhs))?;
+    let symbolic = std::rc::Rc::new(symbolic_cholesky(&k_pinned));
+    let factor = super::elastic_cholesky::SparseCholesky::sparse(&k_pinned, &symbolic, &stability)?;
+    let u_indep = factor.solve(&f_reduced);
+    let physical = super::conditioning_accuracy::PhysicalFrameSystem {
+        input: &input.solver,
+        dof: &dof_num,
+        inclined: &sasm.inclined_transforms,
+        constraints: Some(&fcs),
+        prescribed: &u_r,
+        applied: &sasm.f,
+    };
+    let u_indep = linear::ConditionalRefinement::spatial(&physical).sparse(
+        &stability, &k_pinned, &f_reduced, u_indep, |rhs| factor.solve(rhs),
+    )?;
     stability.check_pins_with_rounding(&u_indep, &f_reduced, &[], &load_rounding)?;
 
     let u_f = fcs.expand_solution(&u_indep, MasterMotion::Prescribed(&u_r));
@@ -2339,9 +2418,19 @@ impl FreeConstraintSystem {
     /// in; `Err` when a constraint on an inclined-support node cannot be
     /// enforced there.
     pub fn build_2d(input: &SolverInput, dof_num: &DofNumbering) -> Result<Option<Self>, String> {
+        Self::build_planar(input, dof_num, false)
+    }
+
+    pub(super) fn for_displacement_control(input: &SolverInput, dof_num: &DofNumbering) -> Result<Option<Self>, String> {
+        Self::build_planar(input, dof_num, true)
+    }
+
+    fn build_planar(input: &SolverInput, dof_num: &DofNumbering, preserve_exact_ties: bool) -> Result<Option<Self>, String> {
         if input.constraints.is_empty() { return Ok(None); }
         let inclined = inclined_dofs_2d(input, dof_num);
-        let ct = build_constraint_transform(&input.constraints, dof_num, Some(&input.nodes), None, &inclined)?;
+        let ct = build_constraint_transform_with_ties(
+            &input.constraints, dof_num, Some(&input.nodes), None, &inclined, preserve_exact_ties,
+        )?;
         Ok(Some(Self::from_transform(&ct, dof_num.n_free, 2).with_inclined(inclined)))
     }
 
@@ -2428,11 +2517,7 @@ impl FreeConstraintSystem {
         self.dependent[i]
     }
 
-    pub(crate) fn stability(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations) -> super::stability::Stability {
-        self.stability_excluding(k_reduced, dof_num, k_original, coupling, releases, &[])
-    }
-
-    pub(crate) fn stability_excluding(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations, inactive: &[usize]) -> super::stability::Stability {
+    pub(crate) fn stability_excluding(&self, k_reduced: &CscMatrix, dof_num: &DofNumbering, k_original: &CscMatrix, coupling: &[(usize, usize)], releases: &super::stability::ReleasedRotations, inactive: &[usize], support_magnitude: Option<&CscMatrix>) -> super::stability::Stability {
         let tags = super::stability::tags(dof_num, self.dimensions == 2);
         let reduced_tags: Vec<_> = self.independent.iter().map(|&d| tags[d]).collect();
         let c = &self.c_ff;
@@ -2443,12 +2528,25 @@ impl FreeConstraintSystem {
                 .collect()
         }).collect();
         let coupling = super::stability::project_coupling(k_original, &tags, coupling, c, &self.independent);
-        let mut magnitude_c = c.clone();
-        for v in magnitude_c.vals.iter_mut().chain(&mut magnitude_c.csc_vals) { *v = v.abs(); }
-        let mut magnitude_k = k_original.clone();
-        for v in &mut magnitude_k.values { *v = v.abs(); }
-        let rounding = magnitude_c.reduce_sparse(&magnitude_k);
-        super::stability::analyze_excluding(k_reduced, &reduced_tags, &moves, &coupling, Some(&rounding), &releases.project(c), inactive)
+        let rounding = self.reduce_stiffness_magnitude(&super::stability::absolute_stiffness(k_original));
+        let support_magnitude = support_magnitude.map(|magnitude| self.reduce_stiffness_magnitude(magnitude));
+        super::stability::analyze_excluding(k_reduced, &reduced_tags, &moves, &coupling, Some(&rounding), &releases.project(c), inactive, support_magnitude.as_ref())
+    }
+
+    pub(super) fn reduce_stiffness_magnitude(&self, magnitude: &CscMatrix) -> CscMatrix {
+        let mut transform = self.c_ff.clone();
+        for value in transform.vals.iter_mut().chain(&mut transform.csc_vals) {
+            *value = value.abs();
+        }
+        transform.reduce_sparse(magnitude)
+    }
+
+    pub(super) fn reduce_stiffness_roundoff(&self, roundoff: &CscMatrix) -> CscMatrix {
+        let mut transform = self.c_ff.clone();
+        for value in &mut transform.vals {
+            *value = value.abs();
+        }
+        transform.reduce_sparse_upper_bound(roundoff)
     }
 
     pub(crate) fn reduce_load_rounding(&self, values: &[f64], rounding: &[f64]) -> Vec<f64> {
@@ -2521,6 +2619,12 @@ impl FreeConstraintSystem {
         let particular = self.prescribed_free(restrained);
         if particular.iter().any(|&p| p != 0.0) {
             for (f, kp) in rhs.iter_mut().zip(k_ff.sym_mat_vec(&particular)) { *f -= kp; }
+        }
+    }
+
+    pub(super) fn advance_independent(&self, full: &mut [f64], correction: &[f64]) {
+        for &i in &self.independent {
+            full[i] += correction[i];
         }
     }
 
@@ -2670,7 +2774,7 @@ mod tests {
                 };
                 let reduced = cs.reduce_matrix_sparse(&k);
                 assert_eq!(reduced.diagonal(), vec![1.0;3]);
-                let actual = cs.stability(&reduced, &dof, &k, &[], &ReleasedRotations::default());
+                let actual = cs.stability_excluding(&reduced, &dof, &k, &[], &ReleasedRotations::default(), &[], None);
                 assert_eq!(actual.verdict == Verdict::Stable, admitted, "{dimensions}D stiff={stiff} gap={gap}: {actual:?}");
             }
         }

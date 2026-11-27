@@ -24,7 +24,15 @@ for (const dim of [2, 3]) {
           if (c.error) {
             assert.throws(solve, /Nodal moment|free rotation/);
           } else if (kind === 'pdelta' && iterations === 0 && c.model.loads[0].data.fx !== 0) {
-            assert.throws(solve, /non_finite_result/);
+            assert.throws(solve, error => {
+              const diagnostic = JSON.parse(String(error)).structuredDiagnostics[0];
+              assert.equal(diagnostic.code, 'result_quantity_unavailable');
+              assert.equal(diagnostic.severity, 'error');
+              assert.equal(diagnostic.phase, 'equilibrium');
+              assert.equal(diagnostic.threshold, 1e-9);
+              assert.ok(Number.isFinite(diagnostic.value) && diagnostic.value > diagnostic.threshold);
+              return true;
+            });
           } else {
             const output = JSON.parse(solve());
             const results = kind === 'staged' ? [...output.stages.map(s => s.results), output.finalResults] : [output.results];
@@ -40,12 +48,7 @@ for (const dim of [2, 3]) {
               for (const d of diagnostics) {
                 const fields = d.phase === 'stageResults' ? ['reactions', 'elementForces', 'constraintForces', 'plateStresses', 'quadStresses', 'quadNodalStresses'] : [d.phase];
                 for (const field of fields) {
-                  if (kind === 'pdelta') {
-                    for (const row of r[field] ?? []) {
-                      const keys = field === 'reactions' ? (dim === 2 ? ['rx', 'rz', 'my'] : ['fx', 'fy', 'fz', 'mx', 'my', 'mz']) : field === 'elementForces' ? ['nStart', 'nEnd'] : ['force'];
-                      for (const key of keys) assert.equal(row[key], null);
-                    }
-                  } else assert.deepEqual(r[field] ?? [], [], `${kind} ${dim}D ${field}`);
+                  assert.deepEqual(r[field] ?? [], [], `${kind} ${dim}D ${field}`);
                 }
               }
               if (!diagnostics.length) {
@@ -54,7 +57,7 @@ for (const dim of [2, 3]) {
               }
             }
             if (padding === 0 && iterations === 40) assert.deepEqual(output, c.output);
-            if (kind === 'pdelta' && iterations === 0 && c.model.loads[0].data.fx !== 0) assert.equal(output.results.equilibrium.residualOk, false);
+            if (kind === 'pdelta') assert.equal(output.results.equilibrium.residualOk, true);
           }
           checks++;
         }

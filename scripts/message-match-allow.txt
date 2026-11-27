@@ -12,11 +12,11 @@ web/src/lib/listings/listing.ts: if (c.failingOnly && r[statusKey] !== undefined
 
 ## Classifies nightly or metamorphic findings by message text: a wording change files a refusal under another kind. The classifier is to key on codes.
 engine/src/metamorphic/compare.rs: if d.labels[k].starts_with("refusal:") { rep.refusals += 1 } else { rep.values += 1 }
-.github/scripts/nightly-findings.cjs: .replace(/^.*?original solved but transformed model failed:\s*/i, '')
-.github/scripts/nightly-findings.cjs: .replace(/failed to solve case\s+['"][^'"]+['"]:\s*/gi, '');
-.github/scripts/nightly-findings.cjs: const refusal = check === 'metamorphic' && /original solved but transformed model failed:/i.test(raw);
-.github/scripts/nightly-findings.cjs: const input = check === 'metamorphic' && !/^original solved but transformed model failed:/i.test(raw) ? String(raw).replace(/^[^:]+:\s*/, '') : raw;
-.github/scripts/nightly-findings.cjs: Array.isArray(d?.why) ? d.why.filter(message => !/^(?:(?:opensees|reference) kappa=\S+|code_aster solves it \(NPREC=\d+ singularity check passed\))$/.test(message)) :
+.github/scripts/nightly-defects.cjs: .replace(/^.*?original solved but transformed model failed:\s*/i, '')
+.github/scripts/nightly-defects.cjs: .replace(/failed to solve case\s+['"][^'"]+['"]:\s*/gi, '');
+.github/scripts/nightly-defects.cjs: const refusal = check === 'metamorphic' && /original solved but transformed model failed:/i.test(raw);
+.github/scripts/nightly-defects.cjs: const input = check === 'metamorphic' && !/^original solved but transformed model failed:/i.test(raw) ? String(raw).replace(/^[^:]+:\s*/, '') : raw;
+.github/scripts/nightly-defects.cjs: Array.isArray(d?.why) ? d.why.filter(message => !/^(?:(?:opensees|reference) kappa=\S+|code_aster solves it \(NPREC=\d+ singularity check passed\))$/.test(message)) :
 
 ## Picks the reinforcement the design search enlarges, or the clause shown, from an engine check category label: a wording change makes the search or the clause miss; the verdict still comes from the checks.
 web/src/lib/engine/design/candidate-enumerate-beam.ts: if (cat.startsWith('Bottom Span') || cat.startsWith('Min steel')) want.add('span');
@@ -63,8 +63,13 @@ web/src/lib/engine/known-issue-message.ts: const modes = [...d.message.matchAll(
 web/src/lib/engine/live-calc.ts: return lc.includes('mecanismo') || lc.includes('hipostática') || lc.includes('singular') || lc.includes('inestable')
 web/src/lib/engine/live-calc.ts: || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
 web/src/lib/engine/verification-service.ts: if (steps[steps.length - 1]?.startsWith('=== Resultado global')) steps[steps.length - 1] = steelResultLine(overallStatus);
-web/src/lib/i18n/engine-text.ts: for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
+web/src/lib/i18n/engine-text.ts: const axialJoint = AXIAL_JOINT_REASON.exec(original);
+web/src/lib/i18n/engine-text.ts: const frameSwing = FRAME_SWING_REASON.exec(original);
+web/src/lib/i18n/engine-text.ts: const constraintRank = CONSTRAINT_RANK_REASON.exec(original);
+web/src/lib/i18n/engine-text.ts: if ((key === REDUCED_STIFFNESS_RANK && translatedRank) || !out.includes(en)) continue;
 web/src/lib/i18n/engine-text.ts: out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
+web/src/lib/i18n/engine-text.ts: out = out.replace(UNKNOWN_FIELD, (_, prefix: string | undefined, path: string, allowed: string | undefined, empty: string | undefined, line: string | undefined, column: string | undefined) => {
+web/src/lib/i18n/engine-text.ts: out = out.replace(INVALID_FIELD, (_, prefix: string | undefined, path: string, line: string | undefined, column: string | undefined) =>
 web/src/lib/i18n/engine-text.ts: const known = SELF_CHECK_REASONS.find(([pattern]) => pattern.test(reason));
 
 ## Matches an i18n key, a code prefix, an enum value or the JSON payload of a structured refusal carried in a message-named field, or a prefix shared through one constant with its producer: not prose.
@@ -156,14 +161,10 @@ scripts/verification-metrics.py: return analysis == "static" and "linear static"
 .github/scripts/cadence-reports.cjs: if (!['success', 'failure'].includes(j.conclusion)) continue;
 .github/scripts/nightly-findings.cjs: if (!dry) for (const name of new Set(['safety', 'nightly-finding', ...[...findings.values()].map(g => g.cause.kind).filter(k => ['invariance-refusal', 'wrong-result-candidate'].includes(k))])) {
 .github/scripts/nightly-findings.cjs: const labels = ['safety', 'nightly-finding', ...(['invariance-refusal', 'wrong-result-candidate'].includes(cause.kind) ? [cause.kind] : [])];
-.github/scripts/nightly-findings.cjs: const exactIssue = marker => issues.find(i => !i.pull_request && i.body?.includes(marker));
-.github/scripts/nightly-findings.cjs: issues.find(i => !i.pull_request && !claimedIssues.has(i.number) && !i.body?.includes(ADOPTED) && legacyMarkers.some(m => i.body?.includes(m)));
-.github/scripts/nightly-findings.cjs: if (!existing.body.includes(occurrence) && !comments.some(c => c.body?.includes(occurrence))) {
 .github/scripts/verification-alert.cjs: `${HELD}: ${body.replace(/^Green again: /, '').replace(/ Closing\.$/, '')} The failures above may be real findings that ` +
 
 ## Redacts the user's own API key from a provider error before it is shown: nothing is decided from the wording.
 web/src/lib/ai/providers/types.ts: if (apiKey && err.message.includes(apiKey.slice(0, 12))) return new AiProviderError(err.kind, err.status);
-.github/scripts/nightly-findings.cjs: if (!existing.body.includes(marker)) {
 
 ## Parses Rust declarations, attributes and bindings for benchmark assertion coverage; every matched value is Rust source, not an engine message.
 scripts/benchmark-gate.py: if re.search(r'\bfn\s+$', text[:match.start()]):
@@ -184,3 +185,15 @@ web/src/lib/api/error-text.ts: if (message === 'is too large') return t('account
 
 ## The issue tag is declared test metadata shared by web skips and Rust ignores.
 scripts/check-agent-mistakes.mjs: return annotation?.match(issueTag)?.[1];
+
+## Decodes historical nightly artifact categories from libFuzzer filenames, which are the producer's structured tags.
+.github/scripts/nightly-defects.cjs: const artifact = fuzz ? FUZZ_ARTIFACT.exec(String(input).trim()) : null;
+.github/scripts/nightly-defects.cjs: return check === 'fuzz' && code === 'unspecified' && message === 'crash-#';
+scripts/replay-findings.py: if artifact.startswith("slow-unit-") or "slow-unit-" in details:
+scripts/replay-findings.py: artifact.startswith("oom-") and "tmin" not in reduction
+
+## Reads issue report fields and machine markers for the nightly finding lifecycle.
+.github/scripts/nightly-defects.cjs: const titleParts = /^Nightly finding: ([^/]+)\/([^:]+): (.+?)(?: \[[0-9a-f]{12}\])?$/u.exec(title);
+.github/scripts/nightly-defects.cjs: const model = body.match(/^Save as model\.json:\s+```json\n([\s\S]+?)\n```$/m)?.[1];
+.github/scripts/nightly-defects.cjs: const root = body.match(/^Root cause: (.*)$/m)?.[1];
+scripts/replay-findings.py: path = ARTIFACT_PATH_RE.fullmatch(record["path"])

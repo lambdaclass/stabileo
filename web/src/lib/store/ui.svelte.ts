@@ -4,6 +4,8 @@ import { DEFAULT_OSNAP, OSNAP_MODES, type OsnapMode } from '../model/osnap-modes
 import type { NodeStylePref } from '../three/nodes-instanced';
 import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } from '../geometry/coordinate-system';
 import { isUnitSystem, type UnitSystem } from '../utils/units';
+import type { DrawPlane } from '../geometry/plane-projection';
+import { is3DWorkspace, isAnalysisMode, type AnalysisMode } from '../utils/workspace';
 
 /**
  * `moveNodes` is a pointer mode, not a builder.
@@ -40,13 +42,7 @@ export type TouchDensity = 'compact' | 'comfortable';
  */
 export const EDIT_TOOLS: readonly Tool[] = ['node', 'element', 'support', 'load'];
 
-/** The four modes the app has. */
-export type AnalysisMode = '2d' | '3d' | 'pro' | 'edu';
-export const ANALYSIS_MODES: readonly AnalysisMode[] = ['2d', '3d', 'pro', 'edu'];
-import { is3DWorkspace } from '../utils/workspace';
-export function isAnalysisMode(v: unknown): v is AnalysisMode {
-  return (ANALYSIS_MODES as readonly unknown[]).includes(v);
-}
+export { ANALYSIS_MODES, isAnalysisMode, type AnalysisMode } from '../utils/workspace';
 export type ILQuantity = import('./model.svelte').InfluenceQuantity;
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
 /**
@@ -347,8 +343,8 @@ function createUIStore() {
   let showSecondarySelector = $state<boolean>(true);
 
   // 3D rendering mode — per-mode
-  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections' | 'physical'>('wireframe');
-  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections' | 'physical'>('wireframe');
+  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
+  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
 
   // Smooth-orbit LOD: when on, collapse to the batched wireframe during camera
   // motion for ANY model (not just heavy ones). Opt-in so the default "keep full
@@ -371,6 +367,8 @@ function createUIStore() {
    * person sets (`clippingEnabled`). Null outside the plan view.
    */
   let planCutZ = $state<number | null>(null);
+  let planBelow = $state<'hidden' | 'ghost'>('hidden');
+  let planRotation = $state<number>(0);
   /** What a left drag does with the Pan tool in 3D: orbit the model, or slide over the view's plane. */
   let dragMode3D = $state<'orbit' | 'slide'>('orbit');
 
@@ -548,7 +546,7 @@ function createUIStore() {
   // 'xy' = default 2D convention (X horizontal, Y vertical)
   // 'xz' = X horizontal, Z vertical (e.g. for models built in the XZ plane)
   // 'yz' = Y horizontal, Z vertical
-  let drawPlane2D = $state<'xy' | 'xz' | 'yz'>('xy');
+  let analysisPlane2D = $state<DrawPlane | undefined>('xy');
 
   /**
    * Whether the "what do we carry into 2D" dialog is open.
@@ -1073,7 +1071,10 @@ function createUIStore() {
     set showSecondarySelector(v: boolean) { showSecondarySelector = v; },
 
     get renderMode3D() { return analysisMode === 'pro' ? renderMode3D_pro : renderMode3D_basic; },
-    set renderMode3D(v: 'wireframe' | 'solid' | 'sections' | 'physical') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
+    set renderMode3D(v: 'wireframe' | 'solid' | 'sections') {
+      const m = (v as string) === 'physical' ? 'sections' : v;
+      if (analysisMode === 'pro') renderMode3D_pro = m; else renderMode3D_basic = m;
+    },
     get smoothOrbit3D() { return smoothOrbit3D; },
     set smoothOrbit3D(v: boolean) { smoothOrbit3D = v; },
 
@@ -1086,6 +1087,10 @@ function createUIStore() {
     set planView3D(v: boolean) { planView3D = v; },
     get planCutZ() { return planCutZ; },
     set planCutZ(v: number | null) { planCutZ = v; },
+    get planBelow() { return planBelow; },
+    set planBelow(v: 'hidden' | 'ghost') { planBelow = v; },
+    get planRotation() { return planRotation; },
+    set planRotation(v: number) { planRotation = ((Math.round(v / 90) * 90) % 360 + 360) % 360; },
     get dragMode3D() { return dragMode3D; },
     set dragMode3D(v: 'orbit' | 'slide') { dragMode3D = v; },
 
@@ -1321,8 +1326,10 @@ function createUIStore() {
       viewportPresentation3D = is3DWorkspace(analysisMode) && _isModelFlat2D?.() === true ? 'upright2dIn3d' : 'native3d';
     },
     _setModelFlatnessProvider(fn: () => boolean) { _isModelFlat2D = fn; },
-    get drawPlane2D() { return drawPlane2D; },
-    set drawPlane2D(v: 'xy' | 'xz' | 'yz') { drawPlane2D = v; },
+    get drawPlane2D() { return analysisPlane2D ?? 'xy'; },
+    set drawPlane2D(v: DrawPlane) { analysisPlane2D = v; },
+    get analysisPlane2D() { return analysisPlane2D; },
+    set analysisPlane2D(v: DrawPlane | undefined) { analysisPlane2D = v; },
     get switchTo2DPrompt() { return switchTo2DPrompt; },
     set switchTo2DPrompt(v: boolean) { switchTo2DPrompt = v; },
     get simplified2DMode() { return simplified2DMode; },

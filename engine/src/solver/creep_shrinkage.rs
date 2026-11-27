@@ -1,3 +1,4 @@
+use crate::types::unique_table;
 /// Time-dependent structural solver for creep and shrinkage.
 ///
 /// Steps through time intervals, computing creep strains from sustained stress
@@ -56,6 +57,7 @@ pub struct TimeStep {
 pub struct CreepShrinkageInput {
     pub solver: SolverInput,
     /// Concrete creep parameters per material ID
+    #[serde(deserialize_with = "unique_table::creep_params")]
     pub creep_params: HashMap<String, ConcreteCreepParams>,
     /// Time steps to analyze
     pub time_steps: Vec<TimeStep>,
@@ -339,6 +341,7 @@ pub struct TimeStep3D {
 pub struct CreepShrinkageInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::creep_params")]
     pub creep_params: HashMap<String, ConcreteCreepParams>,
     pub time_steps: Vec<TimeStep3D>,
     #[serde(default = "default_chi")]

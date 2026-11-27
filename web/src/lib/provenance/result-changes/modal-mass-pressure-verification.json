@@ -1,0 +1,32 @@
+{
+  "id": "modal-mass-pressure-verification",
+  "date": "2026-11-25",
+  "prs": [2543],
+  "area": "analysis",
+  "when": { "allOf": [["space3D"], ["physicalPlateDefinitions"], ["analysis:modal", "analysis:spectral", "analysis:timeHistory", "analysis:harmonic"]] },
+  "quantities": ["solve.ok", "modal", "spectral", "timeHistory", "harmonic"],
+  "title": {
+    "en": "Check Explore pressures before computing modal mass",
+    "es": "Verificar las presiones de Explorar antes de calcular la masa modal",
+    "pt": "Verificar as pressões do Explorar antes de calcular a massa modal",
+    "de": "Drücke aus Erkunden vor der Berechnung der modalen Masse prüfen",
+    "fr": "Vérifier les pressions d’Explorer avant le calcul de la masse modale",
+    "tr": "Modal kütle hesabından önce Keşfet basınçlarını doğrulama",
+    "zh": "计算模态质量前校核探索模式的压力",
+    "hu": "A Felfedezésben megadott nyomások ellenőrzése a modális tömeg számítása előtt"
+  },
+  "explanation": {
+    "en": "The mass source stops if a shell pressure differs from the Explore request, including in cases used only for mass.",
+    "es": "La fuente de masa se detiene si la presión en una placa difiere de lo solicitado en Explorar, incluso en casos usados solo para la masa.",
+    "pt": "A fonte de massa é interrompida se a pressão em uma placa diferir do solicitado no Explorar, inclusive em casos usados apenas para a massa.",
+    "de": "Die Massenquelle bricht ab, wenn ein Schalendruck von der Vorgabe in Erkunden abweicht, auch in Lastfällen, die allein zur Massenberechnung dienen.",
+    "fr": "Le calcul de la masse s’arrête si une pression sur une coque diffère de la demande dans Explorer, même dans les cas utilisés seulement pour la masse.",
+    "tr": "Yalnızca kütle için kullanılan yük durumları dâhil, kabuk basıncı Keşfet bölümünde istenenden farklıysa kütle hesabı durur.",
+    "zh": "如果壳单元压力与探索模式的设定不符，质量源计算将停止。仅用于计算质量的工况也会接受校核。",
+    "hu": "A tömegforrás számítása leáll, ha egy héjelem nyomása eltér a Felfedezésben megadott értéktől, a kizárólag tömegszámításhoz használt teheresetekben is."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-modal-mass-pressure-verification.md",
+    "heading": "Check Explore pressures before computing modal mass"
+  }
+}

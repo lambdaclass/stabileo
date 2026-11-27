@@ -168,6 +168,7 @@ export interface SolverDistributedLoad3D {
 
 export interface SolverPointLoad3D {
   elementId: number;
+  px?: number;
   a: number;   // distance from node I (m)
   py: number;  // kN in local Y
   pz: number;  // kN in local Z
@@ -263,10 +264,13 @@ export interface RigidLinkConstraint {
   type: 'rigidLink';
   masterNode: number;
   slaveNode: number;
-  /** Integer DOF indices to constrain on the slave (Rust `Vec<usize>`).
-   *  3D: 0=ux, 1=uy, 2=uz, 3=rx, 4=ry, 5=rz. Empty = all translational.
-   *  Do NOT pass DOF name strings; the solver expects indices. */
   dofs?: number[];
+}
+
+const defaultRigidLinkDofs = [0, 1, 2] as const;
+
+export function rigidLinkDofs(constraint: Pick<RigidLinkConstraint, 'dofs'>): readonly number[] {
+  return constraint.dofs?.length ? constraint.dofs : defaultRigidLinkDofs;
 }
 
 export interface DiaphragmConstraint {

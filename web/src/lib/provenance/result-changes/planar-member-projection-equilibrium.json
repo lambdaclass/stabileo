@@ -1,0 +1,55 @@
+{
+  "id": "planar-member-projection-equilibrium",
+  "date": "2026-11-25",
+  "prs": [
+    2567
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "plane2D",
+      "analysis:nonlinear",
+      "memberLoads"
+    ]
+  },
+  "quantities": [
+    "solve.ok",
+    "displacements",
+    "reactions",
+    "elementForces",
+    "constraintForces",
+    "steps",
+    "finalLoadFactor",
+    "loadFactor",
+    "converged",
+    "iterations",
+    "totalIterations",
+    "rejectedIterations",
+    "maxDisplacement",
+    "loadIncrements"
+  ],
+  "title": {
+    "en": "Preserve equilibrium in planar nonlinear member projections",
+    "es": "Conservar el equilibrio al proyectar las acciones de barra en el análisis no lineal plano",
+    "pt": "Preservar o equilíbrio na projeção das ações nas barras em análise não linear plana",
+    "de": "Gleichgewicht bei der Projektion von Stablasten in der ebenen nichtlinearen Analyse erhalten",
+    "fr": "Préserver l’équilibre lors de la projection des actions de barre en analyse non linéaire plane",
+    "hu": "Az egyensúly megőrzése a rúdterhek vetítésekor síkbeli nemlineáris számításban",
+    "tr": "Düzlemsel doğrusal olmayan analizde eleman yüklerini izdüşürürken dengeyi koru",
+    "zh": "保持平面非线性分析中杆件作用投影的平衡"
+  },
+  "explanation": {
+    "en": "Planar nonlinear assembly and recovery project member actions using chord components over a common length. Balancing loads cancel in reactions and perpendicular dead actions contribute zero recovered axial force.",
+    "es": "El análisis no lineal plano proyecta las acciones de barra con las componentes de la cuerda divididas por una longitud común, tanto en el ensamblaje como en la recuperación. Las cargas equilibradas se cancelan en las reacciones y las acciones perpendiculares de dirección fija no aportan esfuerzo axial.",
+    "pt": "A análise não linear plana projeta as ações nas barras com as componentes da corda divididas por um comprimento comum, na montagem e na recuperação. Cargas equilibradas cancelam-se nas reações e ações perpendiculares de direção fixa não contribuem para o esforço axial.",
+    "de": "Die ebene nichtlineare Analyse projiziert Stablasten bei der Assemblierung und Auswertung anhand der Sehnenkomponenten mit einer gemeinsamen Länge. Ausgleichende Lasten heben sich in den Auflagerreaktionen auf, und senkrechte Lasten mit fester Richtung tragen keine Normalkraft bei.",
+    "fr": "L’analyse non linéaire plane projette les actions de barre à partir des composantes de la corde divisées par une longueur commune, à l’assemblage et à la récupération. Les charges équilibrées s’annulent dans les réactions et les actions perpendiculaires de direction fixe ne contribuent pas à l’effort axial.",
+    "hu": "A síkbeli nemlineáris számítás az összeállítás és az erők visszaszámítása során a húr komponenseit közös hosszal osztva vetíti a rúdterheket. Az egymást kiegyenlítő terhek kioltják egymást a reakciókban, és a merőleges, rögzített irányú terhek nem adnak tengelyirányú erőt.",
+    "tr": "Düzlemsel doğrusal olmayan analiz, montajda ve kuvvet hesabında eleman yüklerini ortak bir uzunluğa bölünen eksen bileşenleriyle izdüşürür. Dengeleyici yükler mesnet tepkilerinde birbirini götürür ve dik, sabit yönlü yükler eksenel kuvvete katkıda bulunmaz.",
+    "zh": "平面非线性分析在组装和内力恢复时，用弦线分量除以同一长度来投影杆件作用。相互平衡的荷载在支座反力中抵消，垂直于变形后弦线的固定方向荷载不产生轴力。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-planar-member-projection-equilibrium.md",
+    "heading": "Preserve equilibrium in planar nonlinear member projections (2026-11-25)"
+  }
+}

@@ -123,26 +123,12 @@
       "1": {
         "id": 1,
         "nodeId": 1,
-        "type": "fixed",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "fixed"
       },
       "2": {
         "id": 2,
         "nodeId": 7,
-        "type": "rollerX",
-        "kx": null,
-        "ky": null,
-        "kz": null,
-        "dx": null,
-        "dz": null,
-        "dry": null,
-        "angle": null
+        "type": "rollerX"
       }
     },
     "loads": [

@@ -1,0 +1,34 @@
+{
+  "id": "ambiguous-engine-tables",
+  "date": "2026-11-26",
+  "prs": [2588],
+  "area": "analysis",
+  "when": {
+    "any": ["native:duplicate-json-analysis-table-keys", "native:wasm-iterable-load-fields"]
+  },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Refuse ambiguous analysis tables and malformed iterable loads",
+    "es": "Rechazo de tablas de análisis ambiguas y cargas iterables inválidas",
+    "pt": "Recusa de tabelas de análise ambíguas e cargas iteráveis inválidas",
+    "de": "Mehrdeutige Analysetabellen und fehlerhafte iterierbare Lasten ablehnen",
+    "fr": "Refus des tables d’analyse ambiguës et des charges itérables invalides",
+    "hu": "A kétértelmű elemzési táblák és hibás iterálható terhek elutasítása",
+    "tr": "Belirsiz analiz tablolarını ve geçersiz yinelenebilir yükleri reddet",
+    "zh": "拒绝有歧义的分析表和格式错误的可迭代荷载"
+  },
+  "explanation": {
+    "en": "JSON analysis reports duplicate keys before any table row can be replaced. WASM reports unknown load fields in iterable rows, including Sets.",
+    "es": "El análisis JSON indica las claves duplicadas antes de que se pueda reemplazar una fila. WASM indica los campos de carga desconocidos en las filas de colecciones iterables, incluidos los conjuntos Set.",
+    "pt": "A análise JSON informa chaves duplicadas antes que uma linha da tabela possa ser substituída. O WASM indica campos de carga desconhecidos em linhas de coleções iteráveis, incluindo Set.",
+    "de": "Die JSON-Analyse meldet doppelte Schlüssel, bevor eine Tabellenzeile überschrieben wird. WASM meldet unbekannte Lastfelder auch in Zeilen iterierbarer Sammlungen wie Sets.",
+    "fr": "L’analyse JSON signale les clés en double avant le remplacement d’une ligne. WASM signale les champs de charge inconnus dans les lignes des collections itérables, notamment les ensembles Set.",
+    "hu": "A JSON-elemzés még a táblasor felülírása előtt jelzi az ismétlődő kulcsokat. A WASM az iterálható gyűjtemények, köztük a Set sorainál is jelzi az ismeretlen tehermezőket.",
+    "tr": "JSON analizi, bir tablo satırı değiştirilmeden önce yinelenen anahtarları bildirir. WASM, Set dahil yinelenebilir koleksiyonların satırlarındaki bilinmeyen yük alanlarını bildirir.",
+    "zh": "JSON 分析会在表行被覆盖之前报告重复键。WASM 会报告 Set 等可迭代集合中荷载记录的未知字段。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-ambiguous-engine-tables.md",
+    "heading": "Refuse ambiguous analysis tables and malformed iterable loads"
+  }
+}

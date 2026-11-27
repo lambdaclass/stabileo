@@ -94,6 +94,25 @@ describe('which registered changes concern a model', () => {
     expect(ids(curved)).toContain(entry.id);
   });
 
+  it('covers saved modal and dependent results of pin-ended frames', () => {
+    const entry = RESULT_CHANGES.changes.find(change => change.id === 'modal-massive-translation')!;
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      const frame = model({
+        analysisMode,
+        nodes: [node(1, 0), node(2, 3, 4)],
+        elements: [member(1, 1, 'frame', { releaseI: { rz: true }, releaseJ: { rz: true } })],
+      });
+      const before = (kind: 'modal' | 'spectral' | 'linear') =>
+        ({ ...stampSolve(kind, null), resultsVersion: entry.resultsVersion - 1 });
+      expect(ids(frame, before('modal')), analysisMode).toContain(entry.id);
+      expect(ids(frame, before('spectral')), analysisMode).toContain(entry.id);
+      const seismic = { ...frame, loadCases: [{ id: 2, type: 'E' }] };
+      expect(ids(seismic, before('linear')), analysisMode).toContain(entry.id);
+      expect(ids(frame, before('linear')), analysisMode).not.toContain(entry.id);
+      expect(ids(frame, stampSolve('modal', null)), analysisMode).not.toContain(entry.id);
+    }
+  });
+
   it('#2007: scopes physical mass range changes to modal constraints or support rotations', () => {
     const entry = RESULT_CHANGES.changes.find(c => c.id === 'modal-physical-mass-range')!;
     for (const analysisMode of ['2d', 'pro']) {
@@ -508,6 +527,39 @@ describe('which registered changes concern a model', () => {
     expect(ids(model())).not.toContain(change);
   });
 
+  it('known wrong result: #2100: P-Delta refusal notices require structural stiffness and applicable solve history', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'pdelta-equilibrium-refusal')!;
+    const before = { ...stampSolve('pdelta', null), resultsVersion: entry.resultsVersion - 1 };
+    const current = { ...before, resultsVersion: entry.resultsVersion };
+    for (const analysisMode of ['2d', 'pro']) {
+      const empty = model({ analysisMode });
+      for (const stamp of [null, unknownStamp(), before]) {
+        expect(ids(empty, stamp)).not.toContain(entry.id);
+      }
+      for (const snapshot of [
+        { ...empty, elements: [member(1, 1, 'frame')] },
+        { ...empty, elements: [member(1, 1, 'truss')] },
+        model({ ...empty, supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] }),
+      ]) {
+        expect(ids(snapshot)).toContain(entry.id);
+        expect(ids(snapshot, before)).toContain(entry.id);
+        expect(ids(snapshot, current)).not.toContain(entry.id);
+        for (const analysis of ['linear', 'nonlinear'] as const) {
+          const other = { ...stampSolve(analysis, null), resultsVersion: before.resultsVersion };
+          expect(ids(snapshot, other)).not.toContain(entry.id);
+        }
+      }
+    }
+    for (const snapshot of [
+      model({ quads: [[1, {}]] }),
+      model({ quads: [[1, { curved: true }]] }),
+      model({ connectors: [[1, { kShear: 1 }]] }),
+      model({ constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }] }),
+    ]) {
+      expect(ids(snapshot, before)).toContain(entry.id);
+    }
+  });
+
   it('unknown analysis history without stiffness elements has no linear result to re-check', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
@@ -518,6 +570,20 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('safety-containment-diagnostics');
     expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('fail-closed-ratios');
     expect(ids(model({ loads }), previous)).toEqual([]);
+  });
+
+  it.each(['2d', '3d'] as const)('known wrong result: #2588 — %s does not mistake the support tuple key for missing structural input', analysisMode => {
+    const change = 'malformed-structural-input';
+    const type = analysisMode === '2d' ? 'fixed' : 'fixed3d';
+    const snapshot = model({
+      analysisMode,
+      nodes: [node(1, 0), node(2, 5)],
+      elements: [member(1, 1, 'frame')],
+      supports: [[1, { nodeId: 1, type }]],
+    });
+    expect.soft(ids(snapshot)).not.toContain(change);
+    expect.soft(ids({ ...snapshot, supports: [[1, { nodeId: 1, type, kx: 'invalid' }]] })).toContain(change);
+    expect(ids({ ...snapshot, supports: [[1, { nodeId: 1, type, id: null }]] as never })).toContain(change);
   });
 
   it('tells a truss-only model with a support spring about the orphan-rotation fix, and not one without', () => {
@@ -865,7 +931,7 @@ it('rechecks kinematic motion and dormant stiffness changes in both dimensions',
   for (const analysisMode of ['2d', '3d', 'pro']) {
     for (const snapshot of [
       model({ analysisMode, elements: [member(1, 1, 'frame')] }),
-      model({ analysisMode, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: [] }] }),
+      model({ analysisMode, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2 }] }),
       model({ analysisMode, supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never }),
     ]) {
       expect(ids(snapshot)).toContain(id);
@@ -1174,5 +1240,16 @@ it.each(['production', 'test'] as const)('#2364 uses stable self-weight and sett
     expect(relevant(withRotation)).toEqual(mode === 'test' ? [...axesIds, 'workbook-support-rotations'] : []);
   } finally {
     vi.unstubAllGlobals();
+  }
+});
+
+it('rechecks saved results for an explicit empty rigid-link mask in Basic and Pro', () => {
+  const id = 'empty-rigid-link-mask';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    const link = { type: 'rigidLink', masterNode: 1, slaveNode: 2 };
+    expect(ids(model({ analysisMode, constraints: [{ ...link, dofs: [] }] }))).toContain(id);
+    for (const constraint of [link, { ...link, dofs: [0, 1, 2] }]) {
+      expect(ids(model({ analysisMode, constraints: [constraint] }))).not.toContain(id);
+    }
   }
 });

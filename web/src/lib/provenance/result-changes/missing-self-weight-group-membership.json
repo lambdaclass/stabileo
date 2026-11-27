@@ -1,0 +1,35 @@
+{
+  "id": "missing-self-weight-group-membership",
+  "date": "2026-11-25",
+  "prs": [2540],
+  "area": "analysis",
+  "when": {
+    "all": ["invalidSelfWeightGroup"],
+    "any": ["analysis:linear", "analysis:pdelta", "analysis:buckling", "analysis:plastic", "analysis:nonlinear", "analysis:ssi"]
+  },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Refuse self-weight with a missing group or invalid membership",
+    "es": "Rechazo del peso propio si falta el grupo o su lista de integrantes es inválida",
+    "pt": "Rejeição do peso próprio se o grupo faltar ou tiver uma lista de elementos inválida",
+    "de": "Eigengewicht bei fehlender Gruppe oder ungültiger Mitgliederliste unzulässig",
+    "fr": "Refus du poids propre si le groupe est absent ou sa liste d’éléments est invalide",
+    "hu": "Önsúly elutasítása hiányzó csoport vagy érvénytelen taglista esetén",
+    "tr": "Grup eksikse veya üye listesi geçersizse öz ağırlığın reddedilmesi",
+    "zh": "拒绝使用缺失或成员列表无效的组计算自重"
+  },
+  "explanation": {
+    "en": "A self-weight rule references a missing group or a group with invalid membership. Earlier results could omit the group’s self-weight. Restore the group and its membership or change the self-weight target, then rerun the analysis.",
+    "es": "Una regla de peso propio hace referencia a un grupo ausente o con una lista de integrantes inválida. Los resultados anteriores podían omitir el peso propio del grupo. Restaurá el grupo y sus integrantes o cambiá el destino del peso propio y repetí el análisis.",
+    "pt": "Uma regra de peso próprio referencia um grupo inexistente ou com uma lista de elementos inválida. Os resultados anteriores podiam omitir o peso próprio do grupo. Restaure o grupo e os seus elementos ou altere o alvo do peso próprio e repita a análise.",
+    "de": "Eine Eigengewichtsregel verweist auf eine fehlende Gruppe oder eine Gruppe mit ungültiger Mitgliederliste. Frühere Ergebnisse konnten das Eigengewicht dieser Gruppe auslassen. Stellen Sie die Gruppe und ihre Mitglieder wieder her oder ändern Sie das Ziel des Eigengewichts. Berechnen Sie das Modell danach erneut.",
+    "fr": "Une règle de poids propre référence un groupe absent ou dont la liste d’éléments est invalide. Les résultats antérieurs pouvaient omettre le poids propre du groupe. Rétablissez le groupe et ses éléments ou modifiez la cible du poids propre, puis relancez le calcul.",
+    "hu": "Egy önsúlyszabály hiányzó vagy érvénytelen taglistájú csoportra hivatkozik. A korábbi eredményekből kimaradhatott a csoport önsúlya. Állítsa vissza a csoportot és a taglistáját, vagy módosítsa az önsúly célját, majd futtassa újra a számítást.",
+    "tr": "Bir öz ağırlık kuralı, eksik veya üye listesi geçersiz bir gruba başvuruyor. Önceki sonuçlar grubun öz ağırlığını atlamış olabilir. Grubu ve üye listesini geri yükleyin ya da öz ağırlığın hedefini değiştirip analizi yeniden çalıştırın.",
+    "zh": "一条自重规则引用了缺失或成员列表无效的组。早期结果可能漏算该组的自重。请恢复该组及其成员列表，或更改自重的作用对象，然后重新运行分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-invalid-solver-numbers.md",
+    "heading": "Refuse self-weight with a missing group or invalid membership"
+  }
+}

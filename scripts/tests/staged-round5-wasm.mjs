@@ -20,7 +20,9 @@ function pad(input, count) {
     input.elements[a] = { ...input.elements[1], id: a, nodeI: a, nodeJ: b };
     if ('y' in input.nodes[1]) Object.assign(input.elements[a], { releaseMyEnd: false, releaseMzEnd: false, releaseTEnd: false });
     else input.elements[a].hingeEnd = false;
-    input.supports[a] = { ...input.supports[1], id: a, nodeId: a, type: 'fixed', rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+    input.supports[a] = 'y' in input.nodes[1]
+      ? { nodeId: a, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }
+      : { id: a, nodeId: a, type: 'fixed' };
   }
 }
 for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [false, true]) {
@@ -28,9 +30,14 @@ for (const dim of [2, 3]) for (const pads of [0, 22]) for (const connected of [f
     const input = {
       nodes: { 1: { id: 1, x: 0, y: 0, z: 0 }, 2: { id: 2, x: 4, y: 0, z: 0 } },
       materials: { 1: { id: 1, e: 10000, nu: 0.3 } },
-      sections: { 1: { id: 1, a: 0.01, iy: 0.001, iz: 0.002, j: 0.003 } },
+      sections: { 1: { id: 1, a: 0.01, iz: 0.002, ...(dim === 3 ? { iy: 0.001, j: 0.003 } : {}) } },
       elements: { 1: { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 } },
-      supports: { 1: { id: 1, nodeId: 1, type: 'fixed', rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }, 2: { id: 2, nodeId: 2, type: 'pinned', rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true } },
+      supports: dim === 2
+        ? { 1: { id: 1, nodeId: 1, type: 'fixed' }, 2: { id: 2, nodeId: 2, type: 'pinned' } }
+        : {
+          1: { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true },
+          2: { nodeId: 2, rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true },
+        },
       loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: moment, mz: 0 } }, { type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 0, my: -moment + residual, mz: 0 } }],
     };
     if (dim === 2) {

@@ -127,7 +127,7 @@ pub(crate) fn calls() -> Vec<Value> {
     }
     for case in &mut calls {
         case["requireNodeCoverage"] = json!(true);
-        if case["withheld"] == true { case["wasmError"] = json!("NaN"); }
+        if case["withheld"] == true { case["error"] = json!("physical free-DOF residual"); }
         if case["api"].as_str().unwrap().ends_with("3d") {
             if let Some(expected) = case["expectedDisplacements"].as_array_mut() {
                 for d in expected {
@@ -154,7 +154,13 @@ fn export_native_and_wasm_cases() {
 fn strict_equilibrium_survives_numbering_and_constraints() {
     let calls = calls();
     for c in calls {
-        check_result(&native_result(&c), &c);
+        if c["withheld"] == true {
+            let solver = serde_json::from_value(c["input"].clone()).unwrap();
+            let error = pdelta::solve_pdelta_3d(&solver, 0, 1e-12).unwrap_err();
+            assert_pdelta_physical_refusal(&error, 1e-12);
+        } else {
+            check_result(&native_result(&c), &c);
+        }
     }
 }
 
@@ -178,15 +184,19 @@ fn native_result(c: &Value) -> Value {
     serde_json::from_str(&result).unwrap()
 }
 
+pub(crate) fn assert_pdelta_physical_refusal(error: &str, tolerance: f64) {
+    let refusal: Value = serde_json::from_str(error).unwrap();
+    let diagnostic = &refusal["structuredDiagnostics"][0];
+    assert_eq!(diagnostic["code"], "result_quantity_unavailable");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "equilibrium");
+    assert_eq!(diagnostic["threshold"].as_f64(), Some(tolerance));
+    assert_eq!(refusal["message"], diagnostic["message"]);
+    assert!(diagnostic["value"].as_f64().unwrap() > tolerance);
+}
+
 pub(crate) fn check_result(r: &Value, c: &Value) {
     assert_eq!(r["converged"], c["converged"], "{} convergence", c["api"]);
-    if c["withheld"] == true {
-        assert_eq!(r["results"]["equilibrium"]["residualOk"],false);
-        assert!(r["results"]["structuredDiagnostics"].as_array().unwrap().iter().any(|d|d["code"]=="result_quantity_unavailable"));
-        assert!(r["results"]["reactions"].as_array().unwrap().iter().all(|r|r["fx"].is_null() && r["fy"].is_null() && r["fz"].is_null()));
-        assert!(r["results"]["displacements"].as_array().unwrap().iter().any(|d|d["uz"].as_f64().is_some_and(|v|v != 0.0)));
-        return;
-    }
     crate::nonlinear_convergence::check_expected_displacements(r, c);
     check_capacity(r, c);
 }

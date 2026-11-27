@@ -402,21 +402,34 @@ fn portal_pcr() -> f64 {
     1000.0 * solve_buckling_2d(&input, 1).unwrap().modes[0].load_factor
 }
 
-/// An iteration-limited answer is still certified, with a bound on its
-/// distance to the true fixed point that covers the true error.
 #[test]
 fn certify_pdelta_unconverged_and_perturbed() {
     let input = make_portal_frame(4.0, 6.0, 200_000.0, 0.01, 1e-4, 10.0, -0.8 * portal_pcr());
     let (model, dof) = pd_model_2d(&input);
-    let few = solve_pdelta_2d(&input, 2, 1e-12).unwrap();
-    let u = gather_2d(&dof, &few.results.displacements);
-    let cert = certify_pdelta_results_2d(&input, &few.results);
-    let residual = few.results.equilibrium.as_ref().unwrap().relative_residual;
-    assert!(residual > 1e-12);
-    assert!(!cert.is_certified(), "withheld force records must be refused: {cert:?}");
-    assert!(few.results.reactions.iter().all(|r|r.rx.is_nan() && r.rz.is_nan() && r.my.is_nan()));
-    let mut candidate = few.linear_results.clone();
-    candidate.displacements = few.results.displacements.clone();
+    let tolerance = 1e-12;
+    let refused = solve_pdelta_2d(&input, 2, tolerance).unwrap_err();
+    let residual = assert_pdelta_equilibrium_refusal(&refused, tolerance);
+    assert_eq!(certify_pdelta_2d(&input, 2, tolerance).unwrap_err(), refused);
+
+    let full = solve_pdelta_2d(&input, 50, tolerance).unwrap();
+    let mut candidate = full.linear_results.clone();
+    for (node_id, ux, uz, ry) in [
+        (2, 0.010690654060161862, -0.013288937210191348, -0.0020103406082699164),
+        (3, 0.010675768204945155, -0.013342242917278656, -0.0020059417396607743),
+    ] {
+        let displacement = candidate.displacements.iter_mut().find(|d| d.node_id == node_id).unwrap();
+        *displacement = Displacement { node_id, ux, uz, ry };
+    }
+    let u = gather_2d(&dof, &candidate.displacements);
+    let mut withheld = candidate.clone();
+    assert!(!withheld.reactions.is_empty());
+    for reaction in &mut withheld.reactions {
+        reaction.rx = f64::NAN;
+        reaction.rz = f64::NAN;
+        reaction.my = f64::NAN;
+    }
+    let uncertified = certify_pdelta_results_2d(&input, &withheld);
+    assert!(!uncertified.is_certified(), "withheld force records must be refused: {uncertified:?}");
     let cert = certify_pdelta_results_2d(&input, &candidate);
     let (err, bound) = assert_pd_honest("2 iteration displacement candidate", &cert, &model, &u);
     assert!(err > 1e-9, "2 iterations should not have converged: {err:e}");
@@ -425,7 +438,6 @@ fn certify_pdelta_unconverged_and_perturbed() {
     // Perturb a converged answer: the bound must grow to cover it (small
     // perturbation), or the certificate is refused (one beyond the reach
     // μ/(2β) of the quadratic bound).
-    let full = solve_pdelta_2d(&input, 50, 1e-12).unwrap();
     for (delta, must_certify) in [(1e-7, true), (1e-3, false)] {
         let mut res = full.results.clone();
         for d in res.displacements.iter_mut().filter(|d| d.node_id == 2) {

@@ -308,7 +308,7 @@ mod tests {
                 v["elements"] = json!({"1":e});
                 v["supports"] = json!({"1":{"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":false,"rry":false,"rrz":false},"2":{"nodeId":2,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}});
                 v["loads"] = json!([{"type":"nodal","data":{"nodeId":1,"fx":0.0,"fy":0.0,"fz":0.0,"mx":0.0,"my":1.0,"mz":if unsupported {1.0} else {0.0}}}]);
-                let mut input: SolverInput3D = serde_json::from_value(v.clone()).unwrap();
+                let mut input: SolverInput3D = crate::common::nightly_solver(v.clone()).unwrap();
                 if constrained { input.constraints.push(Constraint::EqualDOF(EqualDOFConstraint {master_node:2,slave_node:1,dofs:vec![3]})); }
                 let r = super::super::linear::refuse_initial_free_rotation_loads_3d(&input);
                 assert_eq!(r.is_err(),unsupported,"{constrained}/{unsupported}: {r:?}");
@@ -323,7 +323,7 @@ mod tests {
         let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/nightly-2026-11-13.json")).unwrap();
         let v = &mut v["2023"];
         v["loads"] = json!([{"type":"nodal","data":{"nodeId":1,"fx":0.3,"fy":0.7,"fz":1.1,"mx":0.0,"my":0.0,"mz":0.0}}]);
-        let input: SolverInput3D = serde_json::from_value(v.clone()).unwrap();
+        let input: SolverInput3D = crate::common::nightly_solver(v.clone()).unwrap();
         let dof = DofNumbering::build_3d(&input);
         let iso = crate::metamorphic::transform::Iso3::from_euler(0.3, -0.7, 1.1);
         let r = iso.r;
@@ -357,7 +357,7 @@ mod tests {
         } else {
             json!([{"type":"distributed","data":{"elementId":1,"qXI":0.0,"qXJ":0.0,"qYI":0.3,"qYJ":0.7,"qZI":1.1,"qZJ":-0.3}}])
         };
-        let input: SolverInput3D = serde_json::from_value(model).unwrap();
+        let input: SolverInput3D = crate::common::nightly_solver(model).unwrap();
         let dof = DofNumbering::build_3d(&input);
         let l = 29.0_f64.sqrt();
         let element = &input.elements["1"];
@@ -489,7 +489,7 @@ mod tests {
                 } else {
                     json!([{"type":"distributed","data":{"elementId":1,"qXI":0.3,"qXJ":0.7,"qYI":0.0,"qYJ":0.0,"qZI":0.0,"qZJ":0.0}}])
                 };
-                let input: SolverInput3D = serde_json::from_value(model).unwrap();
+                let input: SolverInput3D = crate::common::nightly_solver(model).unwrap();
                 let dof = DofNumbering::build_3d(&input);
                 let e = &input.elements["1"];
                 let (ex,ey,ez) = crate::element::compute_local_axes_3d(0.0,0.0,0.0,3.0,4.0,2.0,e.local_yx,e.local_yy,e.local_yz,e.roll_angle,false);

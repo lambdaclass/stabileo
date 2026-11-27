@@ -16,7 +16,7 @@
   // is gone: it implemented the 2005 editions, had no wind pressure coefficients, and
   // built the seismic weight on a literal "* 50 // rough 50m2 per floor".
   import {
-    buildLoadPlan, describePlanDelta, levelsWithPlanArea, roofWeightFor, type LoadPlan, type LoadPlanInput, type PlanDelta,
+    buildLoadPlan, levelsWithPlanArea, roofWeightFor, type LoadPlan, type LoadPlanInput, type PlanDelta,
   } from '../../lib/engine/loads/load-plan';
   import { OCCUPANCY_TABLE_2025, PARTITION_LIVE_MINIMUM_KNM2, partitionLiveAllowance } from '../../lib/codes/cirsoc101/live-loads';
   import { findDeadEntry, deadComponentLoad } from '../../lib/codes/cirsoc101/dead-loads';
@@ -46,7 +46,8 @@
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { loadCodeFor } from '../../lib/codes/families';
   import { defaultBeta, isBuildingKind, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
-  import { applyLoadPlan, loadStateForPlan } from '../../lib/store/apply-load-plan';
+  import { applyLoadPlan, previewLoadPlan } from '../../lib/store/apply-load-plan';
+  import { engineGuarded } from '../../lib/store/engine-action';
   import { ruleToSpec } from '../../lib/engine/loads/combination-rules';
   import { snowPg, snowPreview, type SnowConfig } from '../../lib/engine/loads/snow-config';
   import { roofGeometry } from '../../lib/engine/loads/snow-loads';
@@ -582,19 +583,18 @@
       planGust = p.factors.windGust;
       // The flag has to go in: the same plan produces a different model depending on it, and
       // reporting the plan's own counts as "after" was the defect the audit caught.
-      delta = describePlanDelta(p, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses }, patternsInCompanions, alsoUnmarked });
+      updateDelta(p, clearExisting, bothSenses, patternsInCompanions, alsoUnmarked);
     } finally {
       working = null;
     }
   }
 
-  /**
-   * The model's current load counts, as the delta needs them, for the plan on screen: counted from
-   * the scope apply removes (`loadStateForPlan`, `replaceScope`), so the preview cannot disagree
-   * with what Apply does.
-   */
-  function currentLoadState() {
-    return loadStateForPlan(plan!, (key, params) => tp(key, params));
+  function updateDelta(p: LoadPlan, replaceExisting: boolean, both: boolean, patterns: boolean, removeUnmarked: boolean) {
+    const result = engineGuarded(() => previewLoadPlan(p, (key, params) => tp(key, params), {
+      replaceExisting, bothSenses: { E: both }, patternsInCompanions: patterns, alsoUnmarked: removeUnmarked,
+    }));
+    delta = result.value;
+    applyError = result.error;
   }
 
   /**
@@ -605,7 +605,7 @@
   function onClearExistingChange(next: boolean) {
     clearExisting = next;
     if (plan && plan.outcome === 'READY') {
-      delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: next, bothSenses: { E: bothSenses }, patternsInCompanions, alsoUnmarked });
+      updateDelta(plan, next, bothSenses, patternsInCompanions, alsoUnmarked);
     }
   }
 
@@ -613,7 +613,7 @@
   function onAlsoUnmarkedChange(next: boolean) {
     alsoUnmarked = next;
     if (plan && plan.outcome === 'READY') {
-      delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: bothSenses }, patternsInCompanions, alsoUnmarked: next });
+      updateDelta(plan, clearExisting, bothSenses, patternsInCompanions, next);
     }
   }
 
@@ -625,7 +625,7 @@
     const both = bothSenses, companions = patternsInCompanions;
     untrack(() => {
       if (plan && plan.outcome === 'READY') {
-        delta = describePlanDelta(plan, currentLoadState(), { replaceExisting: clearExisting, bothSenses: { E: both }, patternsInCompanions: companions, alsoUnmarked });
+        updateDelta(plan, clearExisting, both, companions, alsoUnmarked);
       }
     });
   });
@@ -633,8 +633,8 @@
   /** Step 2 — commit the previewed plan and invalidate downstream; said while it runs and until it is drawn. */
   async function handleApply() {
     const p = plan;
-    if (!p || p.outcome !== 'READY') return;
-    if (delta && (delta.replaceExisting !== clearExisting || delta.alsoUnmarked !== alsoUnmarked)) {
+    if (!p || p.outcome !== 'READY' || !delta) return;
+    if (delta.replaceExisting !== clearExisting || delta.alsoUnmarked !== alsoUnmarked) {
       // Cannot happen through the UI, but applying a plan whose preview described a
       // different outcome is the one thing this dialog must never do.
       applyError = t('autoLoad.previewStale');
@@ -644,10 +644,10 @@
     const count = p.distributed.length + p.nodal.length + p.surface.length + p.thermal.length;
     if (!(await stepTo(tp('autoLoad.work.apply', { n: count }), 1, 2))) { working = null; return; }
 
-    const refusal = applyLoadPlan(p, { clearExisting, alsoUnmarked: clearExisting && alsoUnmarked, bothSenses, patternsInCompanions, nameOf: (key, params) => tp(key, params) });
+    const applied = engineGuarded(() => applyLoadPlan(p, { clearExisting, alsoUnmarked: clearExisting && alsoUnmarked, bothSenses, patternsInCompanions, nameOf: (key, params) => tp(key, params) }));
 
-    if (refusal) {
-      applyError = te(refusal);
+    if (applied.error || applied.value) {
+      applyError = applied.error ?? te(applied.value!);
       working = null;
       return;
     }
@@ -1248,9 +1248,9 @@
       {#if !plan}
         <button class="al-btn al-btn-primary" onclick={handlePreview} disabled={!!working} data-testid="al-preview-btn">{t('autoLoad.preview')}</button>
       {:else}
-        <button class="al-btn al-btn-secondary" onclick={() => { plan = null; delta = null; }} disabled={!!working} data-testid="al-back">{t('autoLoad.back')}</button>
+        <button class="al-btn al-btn-secondary" onclick={() => { plan = null; delta = null; applyError = null; }} disabled={!!working} data-testid="al-back">{t('autoLoad.back')}</button>
         <button class="al-btn al-btn-primary" onclick={handleApply}
-                disabled={plan.outcome !== 'READY' || !!working} data-testid="al-apply">{t('autoLoad.apply')}</button>
+                disabled={plan.outcome !== 'READY' || !delta || !!working} data-testid="al-apply">{t('autoLoad.apply')}</button>
       {/if}
     </div>
     {/if}

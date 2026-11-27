@@ -126,6 +126,9 @@ fn check_pressure_cases(cases: Vec<&Value>) {
         };
         let tip = case["tip"].as_u64().unwrap();
         let mut input = case["input"].clone();
+        if case["dimension"] == 2 {
+            crate::common::use_planar_fixture_sections(&mut input);
+        }
         if let Some(loads) = case["memberLoads"].as_array() {
             input["loads"] = loads.iter().map(|p| {
                 let data = if case["dimension"] == 2 {

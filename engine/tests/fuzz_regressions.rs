@@ -197,7 +197,25 @@ fn plastic_3d_certificate_of_one_nightly_input() {
     use dedaliano_engine::types::PlasticInput3D;
     let f = std::path::PathBuf::from(std::env::var_os("FUZZ_PLASTIC_FIXTURE").expect("FUZZ_PLASTIC_FIXTURE names the fixture"));
     let name = f.file_name().unwrap().to_string_lossy().into_owned();
-    let input: PlasticInput3D = serde_json::from_slice(&std::fs::read(&f).unwrap()).unwrap();
+    let raw = std::fs::read(&f).unwrap();
+    let unknown = if name.starts_with("989-") {
+        Some("leftHan`")
+    } else if name.starts_with("990-") {
+        Some("quad9sleftHand")
+    } else {
+        None
+    };
+    let input: PlasticInput3D = if let Some(field) = unknown {
+        let error = serde_json::from_slice::<PlasticInput3D>(&raw).unwrap_err();
+        assert!(error.to_string().contains(&format!("unknown field `{field}`")), "{name}: {error}");
+        let mut control: serde_json::Value = serde_json::from_slice(&raw).unwrap();
+        assert_eq!(control["solver"].as_object_mut().unwrap().remove(field), Some(json!(false)));
+        assert!(control["solver"].get("leftHand").is_none(), "{name}");
+        control["solver"]["leftHand"] = json!(false);
+        serde_json::from_value(control).unwrap()
+    } else {
+        serde_json::from_slice(&raw).unwrap()
+    };
     let results = solve_plastic_3d(&input).unwrap();
     let c = certify_collapse_3d(&input, Some(&results));
     let (lo, hi) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
@@ -686,7 +704,7 @@ fn issue_1761_multi_case_overflow_is_refused() {
     assert!(error.contains("non_finite_result"), "{error}");
 }
 
-fn combination_only_overflow_input(per_case: bool, load: f64) -> serde_json::Value {
+fn combination_only_overflow_input(per_case: bool, load: f64, spatial: bool) -> serde_json::Value {
     let mut input = json!({
         "solver": {
             "nodes": {
@@ -709,6 +727,28 @@ fn combination_only_overflow_input(per_case: bool, load: f64) -> serde_json::Val
         ],
         "combinations": [{ "name": "A+B", "factors": { "A": f64::MAX / 4.0, "B": f64::MAX / 4.0 } }]
     });
+    if spatial {
+        let support = input["solver"]["supports"]["1"].as_object_mut().unwrap();
+        support.remove("id");
+        support.remove("type");
+    } else {
+        let section = input["solver"]["sections"]["1"].as_object_mut().unwrap();
+        section.remove("iy");
+        section.remove("j");
+        for node in input["solver"]["nodes"].as_object_mut().unwrap().values_mut() {
+            node.as_object_mut().unwrap().remove("y");
+        }
+        for case in input["loadCases"].as_array_mut().unwrap() {
+            let data = case["loads"][0]["data"].as_object_mut().unwrap();
+            for field in ["fy", "mx", "mz"] {
+                data.remove(field);
+            }
+        }
+        let support = input["solver"]["supports"]["1"].as_object_mut().unwrap();
+        for field in ["rx", "ry", "rz", "rrx", "rry", "rrz"] {
+            support.remove(field);
+        }
+    }
     if per_case {
         input["solver"]["supports"]["1"]["dx"] = json!(1e-4);
         input["solver"]["constraints"] = json!([{ "type": "equalDOF", "masterNode": 2, "slaveNode": 3, "dofs": [1] }]);
@@ -719,15 +759,7 @@ fn combination_only_overflow_input(per_case: bool, load: f64) -> serde_json::Val
 fn assert_combination_only_overflow_2d(per_case: bool, load: f64) {
     use dedaliano_engine::solver::linear::solve_2d;
     use dedaliano_engine::solver::load_cases::{solve_multi_case_2d, MultiCaseInput};
-    let mut value = combination_only_overflow_input(per_case, load);
-    for node in value["solver"]["nodes"].as_object_mut().unwrap().values_mut() {
-        node.as_object_mut().unwrap().remove("y");
-    }
-    for case in value["loadCases"].as_array_mut().unwrap() {
-        let data = case["loads"][0]["data"].as_object_mut().unwrap();
-        data.remove("fy");
-        data.remove("mz");
-    }
+    let value = combination_only_overflow_input(per_case, load, false);
     let input: MultiCaseInput = serde_json::from_value(value).unwrap();
     for case in &input.load_cases {
         let mut solver = input.solver.clone();
@@ -760,7 +792,7 @@ fn assert_combination_only_overflow_2d(per_case: bool, load: f64) {
 fn assert_combination_only_overflow_3d(per_case: bool, load: f64) {
     use dedaliano_engine::solver::linear::solve_3d;
     use dedaliano_engine::solver::load_cases::{solve_multi_case_3d, MultiCaseInput3D};
-    let input: MultiCaseInput3D = serde_json::from_value(combination_only_overflow_input(per_case, load)).unwrap();
+    let input: MultiCaseInput3D = serde_json::from_value(combination_only_overflow_input(per_case, load, true)).unwrap();
     for case in &input.load_cases {
         let mut solver = input.solver.clone();
         solver.loads = case.loads.clone();
@@ -1156,15 +1188,7 @@ fn buckling_818_coupled_structures_use_compensated_modes() {
 fn issue_2222_overflow_cannot_omit_one_of_several_combinations_2d() {
     use dedaliano_engine::solver::load_cases::{solve_multi_case_2d, MultiCaseInput};
     for per_case in [false, true] {
-        let mut value = combination_only_overflow_input(per_case, 3.0);
-        for node in value["solver"]["nodes"].as_object_mut().unwrap().values_mut() {
-            node.as_object_mut().unwrap().remove("y");
-        }
-        for case in value["loadCases"].as_array_mut().unwrap() {
-            let data = case["loads"][0]["data"].as_object_mut().unwrap();
-            data.remove("fy");
-            data.remove("mz");
-        }
+        let mut value = combination_only_overflow_input(per_case, 3.0, false);
         let mut safe = value["combinations"][0].clone();
         safe["name"] = json!("safe");
         safe["factors"] = json!({"A": 1.0, "B": 1.0});
@@ -1178,4 +1202,100 @@ fn issue_2222_overflow_cannot_omit_one_of_several_combinations_2d() {
         assert_eq!(answer.combination_results.len(), 2);
         dedaliano_engine::boundary::require_finite(&answer).unwrap();
     }
+}
+
+fn assert_issue_2100_refusal(error: &str) {
+    let refusal: serde_json::Value = serde_json::from_str(error).expect(error);
+    let diagnostic = &refusal["structuredDiagnostics"][0];
+    assert_eq!(
+        diagnostic["code"],
+        "result_quantity_unavailable",
+        "{error}"
+    );
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "equilibrium");
+    assert_eq!(diagnostic["threshold"].as_f64(), Some(1e-8));
+    assert!(diagnostic["value"].as_f64().unwrap() > 1e-8);
+    assert_eq!(refusal["message"], diagnostic["message"]);
+    assert!(
+        refusal["message"].as_str().unwrap().contains("physical free-DOF residual"),
+        "{error}"
+    );
+}
+
+#[test]
+fn issue_2100_nightly_native_pdelta_3d_refuses_failed_physical_equilibrium() {
+    use dedaliano_engine::{
+        certify,
+        solver::{linear, pdelta},
+        types::SolverInput3D,
+    };
+
+    let input: SolverInput3D =
+        serde_json::from_str(include_str!("fixtures/issue-2100-pdelta.json")).unwrap();
+    let linear = linear::solve_3d(&input).unwrap();
+    assert_eq!(linear.displacements.len(), input.nodes.len());
+    assert_eq!(linear.reactions.len(), input.supports.len());
+    assert!(certify::finite::non_finite_paths(&linear).is_empty());
+
+    match pdelta::solve_pdelta_3d(&input, 31, 1e-8) {
+        Err(error) => assert_issue_2100_refusal(&error),
+        Ok(result) => panic!(
+            "P-Delta returned Ok, converged={}, equilibrium={:?}, first reaction={:?}",
+            result.converged,
+            result.results.equilibrium,
+            result.results.reactions.first()
+        ),
+    }
+}
+
+#[test]
+fn issue_2100_native_certifier_refuses_the_nightly_model_at_the_solver() {
+    use dedaliano_engine::{certify::pdelta, types::SolverInput3D};
+
+    let input: SolverInput3D =
+        serde_json::from_str(include_str!("fixtures/issue-2100-pdelta.json")).unwrap();
+    assert_issue_2100_refusal(&pdelta::certify_pdelta_3d(&input, 31, 1e-8).unwrap_err());
+}
+
+#[test]
+fn issue_2100_native_pdelta_2d_refuses_unbalanced_iterate() {
+    use dedaliano_engine::{certify, solver::pdelta, types::SolverInput};
+
+    let mut model: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/reaction-recovery-2d.json")).unwrap();
+    let base_input: SolverInput = serde_json::from_value(model.clone()).unwrap();
+    let base = pdelta::solve_pdelta_2d(&base_input, 0, 1e-8).unwrap();
+    let fz = model["loads"][0]["data"]["fz"].as_f64().unwrap();
+    assert_eq!(base.results.reactions.len(), 1);
+    assert!((base.results.reactions[0].rz + fz).abs() < 1e-12);
+    assert!(base.results.equilibrium.unwrap().residual_ok);
+
+    model["loads"][0]["data"]["fx"] = json!(-3.0);
+    let input: SolverInput = serde_json::from_value(model).unwrap();
+    let (solve, certify) = (
+        pdelta::solve_pdelta_2d(&input, 0, 1e-8),
+        certify::pdelta::certify_pdelta_2d(&input, 0, 1e-8),
+    );
+    assert_issue_2100_refusal(&solve.unwrap_err());
+    assert_issue_2100_refusal(&certify.unwrap_err());
+}
+
+#[test]
+fn issue_2100_native_pdelta_3d_refuses_unbalanced_iterate() {
+    use dedaliano_engine::{certify, solver::pdelta, types::SolverInput3D};
+
+    let mut model: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/reaction-recovery-3d.json")).unwrap();
+    let base_input: SolverInput3D = serde_json::from_value(model.clone()).unwrap();
+    let base = pdelta::solve_pdelta_3d(&base_input, 0, 1e-8).unwrap();
+    let fz = model["loads"][0]["data"]["fz"].as_f64().unwrap();
+    assert_eq!(base.results.reactions.len(), 1);
+    assert!((base.results.reactions[0].fz + fz).abs() < 1e-12);
+    assert!(base.results.equilibrium.unwrap().residual_ok);
+
+    model["loads"][0]["data"]["fx"] = json!(-3.0);
+    let input: SolverInput3D = serde_json::from_value(model).unwrap();
+    assert_issue_2100_refusal(&pdelta::solve_pdelta_3d(&input, 0, 1e-8).unwrap_err());
+    assert_issue_2100_refusal(&certify::pdelta::certify_pdelta_3d(&input, 0, 1e-8).unwrap_err());
 }

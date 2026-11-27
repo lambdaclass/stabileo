@@ -142,6 +142,10 @@ it('screens repeated factors once through both 2D combination routes (#2283)', (
       expect(raw.structuredDiagnostics).toStrictEqual(expected.structuredDiagnostics);
       expect(JSON.stringify(admitted)).toBe(JSON.stringify(raw));
     }
+    const reversed = combine([0.5, -1.5]);
+    expect(screenedRatio(reversed)).toBe(ratio);
+    expect(reversed.structuredDiagnostics).toContainEqual(expect.objectContaining({ phase: 'LIN-SECOND-ORDER-UNBOUNDED' }));
+    expect(JSON.stringify(combineResults(splitFactors([0.5, -1.5]), perCase))).toBe(JSON.stringify(reversed));
   }
 });
 

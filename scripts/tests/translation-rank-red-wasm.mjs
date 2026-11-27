@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { nightlySolverFixture } from './nightly-solver-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/cause-c-replay.json', import.meta.url)));
+const densities = fixtures['1095']._nightly_dens;
+const planar = nightlySolverFixture(fixtures['1095']);
 const failures = [];
 let checks = 0;
 function check(label, run) {
@@ -21,9 +24,9 @@ function spatial(solver) {
   return s;
 }
 for (const dim of [2, 3]) for (const held of [false, true]) {
-  const s = dim === 2 ? structuredClone(fixtures['1095']) : spatial(fixtures['1095']);
+  const s = dim === 2 ? structuredClone(planar) : spatial(planar);
   if (held) s.elements[2].type = 'frame';
-  const modal = JSON.stringify({ solver: s, densities: fixtures['1095']._nightly_dens });
+  const modal = JSON.stringify({ solver: s, densities });
   for (const name of ['solve_modal', 'certify_modal']) check(`${dim}D ${name} held=${held}`, () => {
     const run = () => engine[`${name}_${dim}d`](modal, 2);
     if (held) assert.ok(JSON.parse(run()));

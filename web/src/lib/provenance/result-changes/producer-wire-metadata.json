@@ -1,0 +1,34 @@
+{
+  "id": "producer-wire-metadata",
+  "date": "2026-11-26",
+  "prs": [2588],
+  "area": "analysis",
+  "when": {
+    "all": ["native:producer-wire-metadata"]
+  },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Accept Stabileo producer metadata during analysis",
+    "es": "Aceptar los metadatos que genera Stabileo durante el análisis",
+    "pt": "Aceitar os metadados gerados pelo Stabileo durante a análise",
+    "de": "Von Stabileo erzeugte Metadaten bei der Analyse akzeptieren",
+    "fr": "Accepter les métadonnées produites par Stabileo lors de l’analyse",
+    "hu": "A Stabileo által előállított metaadatok elfogadása az elemzésben",
+    "tr": "Analizde Stabileo tarafından üretilen üst verileri kabul et",
+    "zh": "分析时接受 Stabileo 生成的元数据"
+  },
+  "explanation": {
+    "en": "Material, section and support rows from Stabileo may carry designated metadata. The solver reads the same structural properties with or without it.",
+    "es": "Las filas de materiales, secciones y apoyos de Stabileo pueden incluir metadatos definidos. El motor lee las mismas propiedades estructurales con o sin esos metadatos.",
+    "pt": "As linhas de materiais, seções e apoios do Stabileo podem incluir metadados previstos. O motor lê as mesmas propriedades estruturais com ou sem esses metadados.",
+    "de": "Material-, Querschnitts- und Auflagerzeilen aus Stabileo dürfen festgelegte Metadaten enthalten. Der Solver liest mit und ohne diese Metadaten dieselben strukturellen Eigenschaften.",
+    "fr": "Les lignes de matériaux, de sections et d’appuis de Stabileo peuvent inclure certaines métadonnées. Le solveur lit les mêmes propriétés structurelles avec ou sans elles.",
+    "hu": "A Stabileo anyag-, szelvény- és támaszsorai meghatározott metaadatokat tartalmazhatnak. A megoldó ezekkel és ezek nélkül is ugyanazokat a szerkezeti jellemzőket olvassa.",
+    "tr": "Stabileo’nun malzeme, kesit ve mesnet satırları belirli üst veriler içerebilir. Çözücü bu üst veriler olsa da olmasa da aynı yapısal özellikleri okur.",
+    "zh": "Stabileo 的材料、截面和支座记录可以包含指定的元数据。无论是否包含这些元数据，求解器读取的结构属性均相同。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-producer-wire-metadata.md",
+    "heading": "Accept Stabileo producer metadata during analysis"
+  }
+}

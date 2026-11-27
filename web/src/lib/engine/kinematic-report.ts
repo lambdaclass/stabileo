@@ -149,7 +149,7 @@ export interface KinematicReport {
   formula: string;
   substitution: string;
   degree: number;
-  classification: 'hyperstatic' | 'isostatic' | 'hypostatic';
+  classification: 'hyperstatic' | 'isostatic' | 'hypostatic' | 'indeterminate';
   classificationText: string;
 
   // Step 3: Rank verification
@@ -170,6 +170,7 @@ export interface KinematicReport {
    * on one screen.
    */
   rankChecked: boolean;
+  rankRefusal?: string;
   /**
    * The engine's validation message when it refused the model's data, so the
    * rank check did not run and never will until the data is fixed. `null`
@@ -406,7 +407,8 @@ export function generateKinematicReport(
 
   // ── Step 2 (cont.): Classification — now informed by rank analysis ──
 
-  const { classification, classificationText } = classifyReport(degree, hasHiddenMechanism, mechanismModes);
+  const rankRefusal = kinResult.rankAnalysis === 'indeterminate' ? kinResult.diagnosis : undefined;
+  const { classification, classificationText } = classifyReport(degree, hasHiddenMechanism, mechanismModes, rankRefusal);
 
   // Build detailed unconstrained DOF explanations
   const dofNames = getDofNames();
@@ -422,7 +424,7 @@ export function generateKinematicReport(
 
   // ── Step 3b: Per-element analysis ──
 
-  const elementAnalysis = generatePerElementAnalysis(
+  const elementAnalysis = rankRefusal ? [] : generatePerElementAnalysis(
     input, classification, mechanismNodes, unconstrainedDofs,
   );
 
@@ -437,7 +439,7 @@ export function generateKinematicReport(
     hingeDetails, slideDetails, totalC,
     isPureTruss, formula, substitution,
     degree, classification, classificationText,
-    nFreeDofs, rankChecked, invalidInput, hasHiddenMechanism, mechanismModes, mechanismNodes, unconstrainedDofs,
+    nFreeDofs, rankChecked, rankRefusal, invalidInput, hasHiddenMechanism, mechanismModes, mechanismNodes, unconstrainedDofs,
     elementAnalysis,
     suggestions,
     isSolvable: kinResult.isSolvable,
@@ -445,11 +447,14 @@ export function generateKinematicReport(
 }
 
 /** Step 2's verdict: the count, overridden by the rank check when it finds a mechanism the count missed. */
-function classifyReport(degree: number, hasHiddenMechanism: boolean, mechanismModes: number): {
+function classifyReport(
+  degree: number, hasHiddenMechanism: boolean, mechanismModes: number, rankRefusal?: string,
+): {
   classification: KinematicReport['classification'];
   classificationText: string;
 } {
-  let classification: 'hyperstatic' | 'isostatic' | 'hypostatic';
+  if (rankRefusal) return { classification: 'indeterminate', classificationText: rankRefusal };
+  let classification: KinematicReport['classification'];
   let classificationText: string;
   if (degree < 0) {
     classification = 'hypostatic';
@@ -562,7 +567,8 @@ export function generateKinematicReport3D(input: SolverInput3D): KinematicReport
   const invalidInput = kin.invalidInput ?? null;
   const mechanismModes = kin.mechanismModes;
   const hasHiddenMechanism = degree >= 0 && mechanismModes > 0;
-  const { classification, classificationText } = classifyReport(degree, hasHiddenMechanism, mechanismModes);
+  const rankRefusal = kin.rankAnalysis === 'indeterminate' ? kin.diagnosis : undefined;
+  const { classification, classificationText } = classifyReport(degree, hasHiddenMechanism, mechanismModes, rankRefusal);
 
   const dofsPerNode = isPureTruss ? 3 : 6;
   let restrained = 0;
@@ -590,7 +596,7 @@ export function generateKinematicReport3D(input: SolverInput3D): KinematicReport
     hingeDetails, slideDetails: [], totalC,
     isPureTruss, formula, substitution,
     degree, classification, classificationText,
-    nFreeDofs, rankChecked, invalidInput, hasHiddenMechanism, mechanismModes,
+    nFreeDofs, rankChecked, rankRefusal, invalidInput, hasHiddenMechanism, mechanismModes,
     mechanismNodes: kin.mechanismNodes ?? [], unconstrainedDofs,
     elementAnalysis: [],
     suggestions,
@@ -1027,7 +1033,7 @@ function buildDofBreakdown(
 
 function generatePerElementAnalysis(
   input: SolverInput,
-  globalClassification: 'hyperstatic' | 'isostatic' | 'hypostatic',
+  globalClassification: KinematicReport['classification'],
   mechanismNodes: number[],
   unconstrainedDofs: UnconstrainedDofDetail[],
 ): ElementConstraintAnalysis[] {

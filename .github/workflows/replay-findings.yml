@@ -8,6 +8,12 @@ on:
         type: boolean
         default: false
 
+  workflow_call:
+    inputs:
+      record_night:
+        type: boolean
+        default: false
+
 concurrency:
   group: replay-findings-${{ github.ref }}
   cancel-in-progress: false
@@ -27,6 +33,7 @@ jobs:
     permissions:
       contents: read
       issues: read
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -216,7 +223,7 @@ jobs:
           tool: cargo-fuzz
       - name: Build referenced fuzz targets
         run: |
-          targets=$(python3 -B -I -c 'import json,sys; sys.path.insert(0,"scripts"); import importlib; rf=importlib.import_module("replay-findings"); print(" ".join(sorted({s["target"] for i in json.load(open("open-issues.json")) for s in [rf.parse_issue(i)] if s["source"]=="fuzz" and s["replayable"]})))')
+          targets=$(python3 -B -I -c 'import json,sys; sys.path.insert(0,"scripts"); import importlib; rf=importlib.import_module("replay-findings"); print(" ".join(sorted({s["target"] for i in json.load(open("open-issues.json")) for s in rf.parse_reproducers(i) if s["source"]=="fuzz" and s["replayable"]})))')
           for target in $targets; do
             (cd engine && cargo +nightly-2026-10-15 fuzz build --fuzz-dir ../testing/fuzz --target "$FUZZ_TARGET_TRIPLE" "$target")
           done
@@ -234,6 +241,10 @@ jobs:
           retention-days: 90
 
   report:
+    concurrency:
+      group: nightly-finding-issue-writes-${{ github.ref }}
+      cancel-in-progress: false
+      queue: max
     needs: [issues, metamorphic, opensees, codeaster, fuzz]
     if: always() && needs.issues.result == 'success'
     runs-on: ubuntu-24.04
@@ -241,6 +252,7 @@ jobs:
     permissions:
       contents: read
       issues: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -254,7 +266,8 @@ jobs:
       - name: Write replay report and optionally update issues
         env:
           GH_TOKEN: ${{ github.token }}
-          CLOSE_PASSING: ${{ inputs.close_passing }}
+          CLOSE_PASSING: ${{ github.ref == 'refs/heads/main' && inputs.close_passing }}
+          RECORD_NIGHT: ${{ github.event_name == 'schedule' && github.ref == 'refs/heads/main' && inputs.record_night }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           args=(
@@ -271,7 +284,10 @@ jobs:
             --run-url "$RUN_URL"
             --commit "$GITHUB_SHA"
           )
-          if [ "$CLOSE_PASSING" = true ]; then
+          if [ "$RECORD_NIGHT" = true ]; then
+            created_at=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)
+            args+=(--night "${created_at:0:10}")
+          elif [ "$CLOSE_PASSING" = true ]; then
             args+=(--close-passing)
           fi
           python3 -B -I scripts/replay-findings.py "${args[@]}"

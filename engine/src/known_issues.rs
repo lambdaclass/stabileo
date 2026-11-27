@@ -343,18 +343,26 @@ impl MembraneBendingGuard {
     }
 
     pub(crate) fn for_analysis(input: &SolverInput3D, analysis: Analysis) -> Self {
-        let distorted = model_3d(input).into_iter().find(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION"));
-        let ids: std::collections::HashSet<_> = distorted.into_iter().flat_map(|d| d.element_ids).collect();
+        let model_diagnostics = for_3d(input, analysis);
+        let distorted = model_diagnostics.iter().find(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION"));
         let mut elements = Vec::new();
-        for q in input.quads.values().filter(|q| ids.contains(&q.id)) {
-            let coords = q.nodes.map(|id| { let n = &input.nodes[&id.to_string()]; [n.x,n.y,n.z] });
-            let m = &input.materials[&q.material_id.to_string()];
-            elements.push(MembraneElement { id: q.id, nodes: q.nodes, coords,
-                transform: crate::element::quad::quad_transform_3d(&coords).to_vec(),
-                e: m.e * 1000.0, nu: m.nu, thickness: q.thickness });
+        if let Some(distorted) = distorted {
+            let ids: std::collections::HashSet<_> = distorted.element_ids.iter().copied().collect();
+            let nodes = input.nodes_by_id();
+            let materials: std::collections::HashMap<_, _> =
+                crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
+            elements.extend(input.quads.values().filter(|q| ids.contains(&q.id)).filter_map(|q| {
+                let coords = node_positions_3d(&nodes, &q.nodes)?;
+                let m = materials.get(&q.material_id)?;
+                Some(MembraneElement {
+                    id: q.id, nodes: q.nodes, coords,
+                    transform: crate::element::quad::quad_transform_3d(&coords).to_vec(),
+                    e: m.e * 1000.0, nu: m.nu, thickness: q.thickness,
+                })
+            }));
+            elements.sort_by_key(|q| q.id);
         }
-        elements.sort_by_key(|q| q.id);
-        Self { elements, model_diagnostics: for_3d(input, analysis) }
+        Self { elements, model_diagnostics }
     }
 
     pub fn check(&self, loads: &[SolverLoad3D], result: &AnalysisResults3D) -> Result<(), String> {
@@ -417,6 +425,25 @@ pub fn membrane_bending_3d(input: &SolverInput3D, loads: &[SolverLoad3D], result
 
 pub fn model_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
     let mut out = Vec::new();
+    if !input.quads.is_empty() || !input.quad9s.is_empty() {
+        out.extend(flat_shell_diagnostics(input));
+    }
+    if input.connectors.values().any(|c| c.k_shear != c.k_shear_z || c.k_bend_y != c.k_bend_z) {
+        out.push(diagnostic("SP-17"));
+    }
+    let mut joints = std::collections::HashSet::new();
+    for e in input.elements.values().filter(|e| input.sections.get(&e.section_id.to_string()).is_some_and(|s| s.cw.is_some_and(|cw| cw > 0.0))) {
+        if !joints.insert(e.node_i) || !joints.insert(e.node_j) {
+            out.push(diagnostic("FR-5"));
+            break;
+        }
+    }
+    out
+}
+
+fn flat_shell_diagnostics(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
+    let nodes = input.nodes_by_id();
+    let mut out = Vec::new();
     if !input.quads.is_empty() {
         let mut ids: Vec<_> = input.quads.values().map(|q| q.id).collect();
         ids.sort_unstable();
@@ -426,9 +453,8 @@ pub fn model_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
     }
     let mut quads = Vec::new();
     for e in input.quads.values() {
-        let points: Option<Vec<_>> = e.nodes.iter().map(|id| input.nodes.get(&id.to_string()).map(|n| [n.x, n.y, n.z])).collect();
-        let affected = points.is_none_or(|p| {
-            let q = crate::element::quad::quad_quality_metrics(&[p[0], p[1], p[2], p[3]]);
+        let affected = node_positions_3d(&nodes, &e.nodes).is_none_or(|coords| {
+            let q = crate::element::quad::quad_quality_metrics(&coords);
             !q.max_skew.is_finite() || !q.jacobian_ratio.is_finite()
                 || q.max_skew > 10.0 || q.jacobian_ratio < 0.9 || q.warping > 0.01
         });
@@ -442,25 +468,14 @@ pub fn model_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
         d.element_kind = Some(ElementKind::Quad);
         out.push(d);
     }
-    let point = |id: &usize| input.nodes.get(&id.to_string()).map(|n| [n.x, n.y, n.z]);
     out.extend(warped("SH-WARPED-MITC4", ElementKind::Quad, WARPED_MITC4_TWIST, input.quads.values().filter_map(|e| {
-        let p: Vec<_> = e.nodes.iter().map(point).collect::<Option<_>>()?;
-        measured(e.id, crate::element::quad::quad_twist_curvature(&[p[0], p[1], p[2], p[3]]), e.thickness)
+        let coords = node_positions_3d(&nodes, &e.nodes)?;
+        measured(e.id, crate::element::quad::quad_twist_curvature(&coords), e.thickness)
     }), "MITC4 shells on twisted (warped) surfaces can be about 1.5 to 5 % too flexible, and refining the mesh does not reduce the error. Verify the twisted region with curved-shell elements"));
     out.extend(warped("SH-WARPED-MITC9", ElementKind::Quad9, WARPED_MITC9_TWIST, input.quad9s.values().filter_map(|e| {
-        let p: Vec<_> = e.nodes.iter().map(point).collect::<Option<_>>()?;
-        measured(e.id, crate::element::quad9::quad9_twist_curvature(&std::array::from_fn(|i| p[i])), e.thickness)
+        let coords = node_positions_3d(&nodes, &e.nodes)?;
+        measured(e.id, crate::element::quad9::quad9_twist_curvature(&coords), e.thickness)
     }), "MITC9 shells on twisted (warped) surfaces can be about 1.5 to 5 % too flexible, and refining the mesh does not reduce the error. Verify the twisted region with curved-shell elements"));
-    if input.connectors.values().any(|c| c.k_shear != c.k_shear_z || c.k_bend_y != c.k_bend_z) {
-        out.push(diagnostic("SP-17"));
-    }
-    let mut joints = std::collections::HashSet::new();
-    for e in input.elements.values().filter(|e| input.sections.get(&e.section_id.to_string()).is_some_and(|s| s.cw.is_some_and(|cw| cw > 0.0))) {
-        if !joints.insert(e.node_i) || !joints.insert(e.node_j) {
-            out.push(diagnostic("FR-5"));
-            break;
-        }
-    }
     out
 }
 
