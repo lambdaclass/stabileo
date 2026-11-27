@@ -430,7 +430,7 @@ papers:
     inextensible elastica of the same model solved by shooting within 1.6·10⁻⁴ relative in the six
     cases of Figures 10 and 11. Against the paper (reference-results/published_comparison.json) the
     digitised heights lack a marker within the reading uncertainty of zero load. Two computed loading
-    paths display a downward jump; the 0.5L, b = 0.2 path ends without one. No page yet. See
+    paths display a downward jump; the 0.5L, b = 0.2 path ends without one. The shape-control browser page (feher-sipos-varkonyi-2026) covers a different experiment. See
     research/metamaterials/feher-2026/README.md.
   status: numerically-validated
   reproduced_published_results: false
@@ -473,7 +473,7 @@ papers:
     (arXiv:2509.12916v1), lie on our computed actuator path within 0.005, at the points Figure 9(b)
     labels; the symmetric limit loads and curvature of Section 3.2 agree within 2%. The half-span-load
     values and the two Table 1 entries reached after a snap are open; the latter and the equilibrium
-    surface of Figure 9(a) need arc-length with prescribed rotations. The 13 comparisons with the paper,
+    surface of Figure 9(a) need arc-length with prescribed rotations. The 14 comparisons with the paper,
     failures included, are in reference-results/published_comparison.json (8 pass).
   status: numerically-validated
   reproduced_published_results: false

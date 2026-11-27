@@ -206,7 +206,6 @@ for caller, event, route_only, expected in [
 print('ok online audit runs on research PRs without duplicating required jobs')
 
 class EvidenceExportTests(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_native_assertion_steps_detect_missing_tests(self):
         cases = {
             'Plastic collapse native assertions': ['plastic_collapse_benchmark::portal_combined_mechanism'],

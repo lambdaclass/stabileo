@@ -1,5 +1,4 @@
 import json
-import math
 import unittest
 from pathlib import Path
 
@@ -12,9 +11,25 @@ check_entry, valid_checks = catalog.check_entry, catalog.valid_checks
 
 
 def compare_paper_rows(validation, published):
-    paper = {c['id'] for c in validation if c['category'] == 'paper'}
-    expected_ids = (paper - {'fig9'}) | {'fig9-bulk', 'fig9-shear'}
+    paper = {r['id']: r for r in validation if r['category'] == 'paper'}
+    expected_ids = (paper.keys() - {'fig9'}) | {'fig9-bulk', 'fig9-shear'}
     assert 'fig9' in paper and sorted(row['id'] for row in published) == sorted(expected_ids)
+    assert valid_checks(published, published=True)
+    rows = {r['id']: r for r in published}
+    for key, check in paper.items():
+        if key == 'fig9':
+            pair = [rows['fig9-bulk'], rows['fig9-shear']]
+            assert all(r['tolerance'] == check['tolerance'] for r in pair)
+            assert max(r['observed'] for r in pair) == check['observed']
+            assert all(r['passed'] for r in pair) == check['passed']
+        elif key == 'fig5-periodic':
+            row = rows[key]
+            outside = sum(not lo - row['tolerance'] <= value <= hi + row['tolerance']
+                          for _, lo, hi, value in row['samples'])
+            assert row['tolerance'] == 0.003 and check['tolerance'] == 0
+            assert outside == check['observed'] and row['passed'] == check['passed']
+        else:
+            assert all(rows[key][field] == check[field] for field in ['observed', 'tolerance', 'passed']), key
 
 
 def main():
@@ -49,7 +64,6 @@ def main():
 
 
 class PublicationConsistency(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_unchanged_id_does_not_mask_a_different_measurement(self):
         root = Path(__file__).resolve().parents[1] / 'metamaterials/grossman-2026'
         validation = json.loads((root / 'VALIDATION.json').read_text())['checks']

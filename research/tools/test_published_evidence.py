@@ -18,7 +18,6 @@ class PublishedEvidence(unittest.TestCase):
         measurement['observed'] = measurement['computed'] - measurement['reference']
         self.assertTrue(catalog.valid_checks([measurement], published=True))
 
-    @unittest.skip("known wrong result: #2505")
     def test_shape_control_catalog_count_matches_the_paper_comparisons(self):
         papers = json.loads((root / 'papers.json').read_text())['papers']
         entry = next(p for p in papers if p['id'] == 'feher-sipos-varkonyi-2026')
