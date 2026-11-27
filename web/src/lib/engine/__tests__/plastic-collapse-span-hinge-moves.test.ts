@@ -2,9 +2,11 @@
  * A span hinge under a distributed load moves with the peak of the moment, so at no step does any
  * section pass Mp, and the history still ends at the certified collapse factor.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
-import { runPlasticCollapse } from '../../actions/plastic';
+import * as peaks from '../plastic/span-peaks';
+import * as wasm from '../wasm-solver';
+import { PlasticWithheld, runPlasticCollapse } from '../../actions/plastic';
 import { initSolver } from '../wasm-solver';
 import { computeDiagramValueAt } from '../diagrams';
 import { hingePlaceAt } from '../plastic/hinge-place';
@@ -55,5 +57,45 @@ describe('the moment stays within Mp at every step of the hinge history', () => 
     expect(hingePlaceAt(span, span.step).x).toBeGreaterThan(1.8);
     expect(span.x).toBeCloseTo((Math.SQRT2 - 1) * L, 6);
     expect(r.steps.at(-1)!.trace.moved?.map((m) => m.to)).toEqual([expect.closeTo((Math.SQRT2 - 1) * L, 6)]);
+  });
+});
+
+describe.skip('known wrong result: #758 — history evidence', () => {
+  it('keeps the event at its formation coordinate after the portal hinge moves', async () => {
+    const { r } = await collapse('portal-frame');
+    const moved = r.hinges.find(h => h.track?.length)!;
+    const formation = r.steps[moved.step].hingesFormed.find(h => h.elementId === moved.elementId)!;
+    expect(formation.x).toBeCloseTo(moved.track![0].x, 9);
+    expect(formation.position).toBeCloseTo(moved.track![0].position, 9);
+    expect(formation.x).not.toBe(moved.x);
+  });
+
+  it('withholds a history whose hinge location never settles', async () => {
+    historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
+    await modelStore.loadExample('portal-frame');
+    const original = peaks.interiorMinimum;
+    let moves = 0;
+    const search = vi.spyOn(peaks, 'interiorMinimum').mockImplementation((...args) => {
+      const found = original(...args);
+      if (!found || found.value >= 0) return found;
+      const t = ++moves % 2 ? 0.48 : 0.49;
+      return { t, value: args[0](t) };
+    });
+    try {
+      expect(() => runPlasticCollapse()).toThrow(PlasticWithheld);
+      expect(moves).toBeGreaterThan(1);
+    } finally { search.mockRestore(); }
+  });
+
+  it.each([[0.9995, true], [1.0005, true], [1, false]] as const)('qualifies the history when its endpoint differs from the certificate by a factor of %s', async (ratio, approximate) => {
+    const original = wasm.plasticLimit2D;
+    const limit = vi.spyOn(wasm, 'plasticLimit2D').mockImplementation((...args) => {
+      const result = original(...args);
+      return { ...result, lambda: result.lambda / ratio };
+    });
+    try {
+      const { r } = await collapse('portal-frame');
+      expect(Boolean(r.limit)).toBe(approximate);
+    } finally { limit.mockRestore(); }
   });
 });

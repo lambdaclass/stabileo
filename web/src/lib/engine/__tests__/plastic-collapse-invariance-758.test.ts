@@ -12,7 +12,7 @@ import { certifyJobOf } from '../certify-tags';
 import { historyStore, modelStore, uiStore, resultsStore } from '../../store';
 import { plasticCourse } from '../../store/plastic-course.svelte';
 import { dot } from '../plastic/kinematics';
-import { runPlasticCollapse } from '../../actions/plastic';
+import { runPlasticCollapse, PlasticWithheld } from '../../actions/plastic';
 import { plasticCollapse2D } from '../plastic-collapse';
 import type { SolverInput, SolverLoad } from '../types';
 import f20843c from './fixtures/plastic-758/fuzz-rich-2d-20843-1.json';
@@ -284,4 +284,11 @@ describe('a constrained Basic cantilever through the Plastic collapse action', (
     expect(Number.isFinite(run.result.collapseFactor)).toBe(true);
     expect(certifyJobOf(run.result)).toBeNull();
   });
+});
+
+it.skip('known wrong result: #758 — the public action withholds unconfirmed numerical steps', async () => {
+  historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
+  await modelStore.loadExample('cantilever-point');
+  modelStore.addConstraint({ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] });
+  expect(() => runPlasticCollapse()).toThrow(PlasticWithheld);
 });
