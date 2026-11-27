@@ -43,3 +43,21 @@ test('known wrong result: #1928 a coarse-mesh warning opens the published result
     });
   }
 });
+
+test.skip('known wrong result: #1928 certificate text uses the result panel’s typography in each profile', async () => {
+  for (const mode of ['production', 'test']) {
+    await withComponent(mode, solvedShell, async (page, url) => {
+      await page.goto(url);
+      await page.waitForFunction(() => globalThis.solveFailure || globalThis.readChecks?.().certified);
+      const cert = page.getByTestId('certificate-status').first();
+      const same = await cert.evaluate((element, release) => {
+        const expected = document.createElement('span');
+        expected.style.fontSize = release ? '0.66rem' : '12px';
+        expected.style.lineHeight = release ? '1.35' : '1.4';
+        element.parentElement.append(expected);
+        return ['fontSize', 'lineHeight'].every(k => getComputedStyle(expected)[k] === getComputedStyle(element)[k]);
+      }, mode === 'production');
+      assert.equal(same, true, mode);
+    });
+  }
+});

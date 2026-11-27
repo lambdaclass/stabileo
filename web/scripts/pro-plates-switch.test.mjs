@@ -743,3 +743,21 @@ test('known wrong result: #1928 the ordinary foundation generator only imports t
     });
   }
 });
+
+test.skip('known wrong result: #1928 the published known-issue result has no grouping or hide-preference implementation', async () => {
+  const entry = resolve(root, 'src/components/KnownIssueResult.svelte');
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external: (id, from) => !!from && !id.includes('UnifiedKnownIssueNotices') && !id.includes('?svelte&type=style'),
+        },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(x => x.type === 'chunk');
+      const imports = Object.keys(chunk.importedBindings);
+      for (const source of ['notice-prefs.svelte', 'result-notices', 'NoticeRow.svelte']) {
+        assert.equal(imports.some(id => id.split('/').at(-1) === source), plates, source);
+      }
+    });
+  }
+});
