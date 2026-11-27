@@ -1,0 +1,32 @@
+import json
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+checker = Path(__file__).with_name('check.mjs')
+
+
+class NativeEvidence(unittest.TestCase):
+    @unittest.skip("known wrong result: #2505")
+    def test_corrupted_measurements_are_rejected_on_the_real_parity_path(self):
+        changes = [('cylinder-32', {'value': None}), ('cylinder-32', {'id': 'cylinder-16'}),
+                   ('cylinder-32', {'value': 0.000018248}), ('cylinder-32', {'failure': 'failed'}),
+                   ('hemisphere-4', {'displacement': [{'nodeId': 1, 'uz': 1}]})]
+        roof = json.loads((native / 'roof-16.json').read_text())
+        changes.append(('roof-16', {'value': roof['value'] * (1 + 5e-9)}))
+        for case, patch in changes:
+            with self.subTest(case=case, patch=patch), tempfile.TemporaryDirectory() as tmp:
+                copy = Path(tmp, 'native')
+                shutil.copytree(native, copy)
+                path = copy / (case + '.json')
+                path.write_text(json.dumps({**json.loads(path.read_text()), **patch}))
+                result = subprocess.run(['node', checker, copy], capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0, result.stdout[-400:])
+
+
+if __name__ == '__main__':
+    native = Path(sys.argv.pop())
+    unittest.main()
