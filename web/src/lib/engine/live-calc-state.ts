@@ -1,10 +1,10 @@
-import type { AnalysisMode } from '../utils/workspace';
+import { isBasicWorkspace, type AnalysisMode } from '../utils/workspace';
 
 let inFlight = 0;
 
 /** Whether an edit in this mode is followed by a live re-solve (App.svelte schedules it). */
 export function liveCalcFollowsEdits(liveCalc: boolean, mode: AnalysisMode): boolean {
-  return liveCalc && (mode === '2d' || mode === '3d');
+  return liveCalc && isBasicWorkspace(mode);
 }
 
 export function liveSolveBusy(): boolean {
