@@ -771,3 +771,8 @@ it.each(['en', 'es', 'pt', 'de', 'fr', 'hu', 'it', 'tr', 'zh'] as const)(
     expect(note.k === 'p' && note.t).toMatch(/§9\.6\.1\.2.*§9\.6\.1\.3.*4\/3/);
   },
 );
+
+it.skip('known wrong result: #2613 — the thick-wall case has a numeric ratio and a qualified description', () => {
+  const table = findPost('torsion-bredt-saint-venant')!.i18n.nl!.blocks.find(b => b.k === 'table')!;
+  expect(table.rows.at(-1)?.slice(0, 2)).toEqual(['0,50', 'wand van 25,0 mm (dikwandig)']);
+});
