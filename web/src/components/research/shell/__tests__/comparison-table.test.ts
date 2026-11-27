@@ -1,14 +1,15 @@
 import { expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import ComparisonTable from '../ComparisonTable.svelte';
+import type { PublishedRow } from '../context';
 import ConvergencePlot from '../../shell1985/ConvergencePlot.svelte';
 
 const row = { name: 'measurement', source: 'paper', metric: 'absolute', observed: 0, tolerance: 0, passed: true };
-const table = (fields: Record<string, number>) => render(ComparisonTable, { props: { rows: [{ ...row, ...fields }] } }).body;
+const table = (fields: Partial<PublishedRow>) => render(ComparisonTable, { props: { rows: [{ ...row, ...fields }] } }).body;
 
 it('an incomplete pair cannot certify a scalar or a curve', () => {
   for (const fields of [{ reference: 1 }, { computed: 1 }, { reference: 1, points: 2 }, { points: 0 }]) {
-    const body = table(fields as Record<string, number>);
+    const body = table(fields);
     expect(body).not.toContain('✓');
     expect(body).not.toMatch(/curve, [02] points/);
   }
