@@ -101,6 +101,7 @@ it.each(entries)('%s discards Hungarian navigation superseded while the helper l
     publicRevision: 0,
     location,
     loadResearchFallback: vi.fn(() => pending),
+    restoreMovedRoute: vi.fn(() => false),
     routeKind,
   };
   const first = runInNewContext(navigation(file, name), context);

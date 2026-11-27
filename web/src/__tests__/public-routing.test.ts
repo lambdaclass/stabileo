@@ -22,7 +22,8 @@ const routes = [
   ['/paper', 'paper'], ['/research', 'research'],
   ['/research/fracture/shauer-2025', 'research'], ['/tools', 'tools'],
   ['/tools/simply-supported-beam', 'tools'], ['/tools/beam-frame', tools ? 'tools' : 'landing'],
-  ['/diagram-game', diagramGame ? 'game' : 'landing'],
+  ['/games', diagramGame ? 'game' : 'landing'], ['/games/diagram-game', diagramGame ? 'game' : 'landing'],
+  ['/diagram-game', diagramGame ? 'game' : 'landing'], ['/games/unknown', 'landing'],
   ['/examples', tools ? 'tools' : 'examples'], ['/examples/beam-frame', tools ? 'tools' : 'examples'],
   ['/register', accounts ? 'register' : 'landing'], ['/terms', accounts ? 'blog' : 'landing'],
 ] as const;
@@ -51,9 +52,15 @@ describe('merged public routes', () => {
       }
     }
   });
+  it('serves the diagram game under the games hub and sends its old address there', () => {
+    expect(routeKind({ pathname: '/es/diagram-game/', search: '?seed=3', hash: '' })).toEqual(diagramGame ? { kind: 'game', path: '/games/diagram-game' } : { kind: 'landing', path: '/diagram-game' });
+    expect(routeKind({ pathname: '/zh/games/', search: '', hash: '' })).toEqual({ kind: diagramGame ? 'game' : 'landing', path: '/games' });
+    expect(SITE_NAV.find(item => item.id === 'game')).toEqual(diagramGame ? { kind: 'page', id: 'game', to: '/games', key: 'landing.navGame' } : undefined);
+    expect(currentNav('/games')).toBe(diagramGame ? 'game' : null);
+  });
   it('marks the section a page belongs to: the paper under research, the changelog under the blog', () => {
     expect(['/', '/cirsoc', '/reliability', '/sap2000-alternative', '/blogger', '/papers'].map(currentNav)).toEqual([null, null, null, null, null, null]);
-    expect(['/tools', '/tools/truss-2d', '/tools/beam-frame', '/diagram-game', '/research', '/research/benchmarks/navier-plate', '/paper', '/blog', '/blog/safety-advisories', '/changelog'].map(currentNav))
+    expect(['/tools', '/tools/truss-2d', '/tools/beam-frame', '/games/diagram-game', '/research', '/research/benchmarks/navier-plate', '/paper', '/blog', '/blog/safety-advisories', '/changelog'].map(currentNav))
       .toEqual(['tools', 'tools', 'tools', diagramGame ? 'game' : null, 'research', 'research', 'research', 'blog', 'blog', 'blog']);
   });
   it('known wrong result: #2087 — prerenders paper, research, tools, every standing page and every post, each once', async () => {
@@ -61,7 +68,7 @@ describe('merged public routes', () => {
     expect(new Set(paths).size).toBe(paths.length);
     expect(RESEARCH_GALLERY).toBe('/research');
     const standing = STANDING_PAGES.filter(page => accounts || !legalPaths.includes(page.path));
-    for (const path of ['/', '/blog', '/paper', ...publishedTools, ...(diagramGame ? ['/diagram-game'] : []), '/changelog', RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS, ...standing.map(page => page.path), ...POSTS.map(post => `/blog/${post.slug}`)]) {
+    for (const path of ['/', '/blog', '/paper', ...publishedTools, ...(diagramGame ? ['/games', '/games/diagram-game'] : []), '/changelog', RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS, ...standing.map(page => page.path), ...POSTS.map(post => `/blog/${post.slug}`)]) {
       expect(paths, path).toContain(path);
     }
   });
@@ -76,12 +83,13 @@ describe('merged public routes', () => {
   it('builds each page in exactly the languages it is written in', async () => {
     const paths = await publicPaths();
     for (const path of paths) expect(writtenIn(path), path).toContain('en');
-    for (const path of ['/', '/blog', ...publishedTools, ...(diagramGame ? ['/diagram-game'] : []), ...(tools ? [] : EXAMPLE_PATHS)]) {
+    for (const path of ['/', '/blog', ...publishedTools, ...(diagramGame ? ['/games', '/games/diagram-game'] : []), ...(tools ? [] : EXAMPLE_PATHS)]) {
       expect(writtenIn(path), path).toEqual([...PUBLIC_LOCALES]);
     }
     expect(paths.filter(path => path === '/tools' || path.startsWith('/tools/')).sort()).toEqual([...publishedTools].sort());
     expect(paths.filter(path => path === '/examples' || path.startsWith('/examples/'))).toEqual(tools ? [] : EXAMPLE_PATHS);
-    expect(paths.includes('/diagram-game')).toBe(diagramGame);
+    expect(paths.filter(path => path === '/games' || path.startsWith('/games/'))).toEqual(diagramGame ? ['/games', '/games/diagram-game'] : []);
+    expect(paths.includes('/diagram-game')).toBe(false);
     for (const path of legalPaths) expect(paths.includes(path), path).toBe(accounts);
     expect(writtenIn('/paper')).toEqual(PUBLIC_LOCALES.filter((l) => PAPER_LOCALES.includes(l)));
     for (const path of [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS]) expect(writtenIn(path), path).toEqual(PUBLIC_LOCALES.filter((l) => researchLocales(path).includes(l)));
@@ -101,7 +109,7 @@ describe('merged public routes', () => {
     expect(loader).toContain("import('../components/research/load-page')");
     expect(loader).toContain("import('../components/tools/load-page')");
     expect(loader).toContain("import('../components/examples/load-page')");
-    expect(loader).toContain("import('../components/diagram-game/load-page')");
+    expect(loader).toContain("import('../components/games/load-page')");
     expect(loader).toContain("import('../components/paper/PaperPage.svelte')");
     expect(root).toContain("import('./load-app')");
     expect(app).toContain('const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode)');
