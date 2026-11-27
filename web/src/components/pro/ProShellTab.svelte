@@ -1,6 +1,7 @@
 <script lang="ts">
   import { unifiedPlates } from '../../lib/features';
   import { modelStore, uiStore } from '../../lib/store';
+  import { disconnectedShellCount } from '../../lib/store/plate-diagnostics';
   import ProMesher from './ProMesher.svelte';
   import ProSurfaces from './ProSurfaces.svelte';
   import DataTable from '../DataTable.svelte';
@@ -38,6 +39,7 @@
   );
   const plateCount = $derived(plates.length);
   const quadCount = $derived(quads.length);
+  const disconnected = $derived(__PUBLIC_FEATURES__.proPlatesUnified ? 0 : disconnectedShellCount());
 
   /** The panel lists what a click in the model picks: whole plates, or their mesh's elements. */
   function toScope(scope: 'plate' | 'element') {
@@ -228,6 +230,9 @@
   </div>
 
   <div class="pro-shells-scroll">
+    {#if disconnected > 0}
+      <div class="shell-warn">⚠ {tp('pro.shellWarnDisconnected', { n: disconnected })}</div>
+    {/if}
     {#if drawState.writing === 'plate'}
       <WriteCard
         title={capitalized(tp('pro.writeWhat', { what: t('pro.onePlate') }))}
@@ -573,4 +578,9 @@
   }
   .curved-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
   .curved-check input { cursor: pointer; }
+  .shell-warn {
+    margin: 0 8px 8px; padding: 6px 9px; border-radius: 4px;
+    background: rgba(120, 80, 0, 0.25); border: 1px solid var(--st-warn);
+    color: var(--st-warn); font-size: 0.68rem; line-height: 1.35;
+  }
 </style>

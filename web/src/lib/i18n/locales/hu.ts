@@ -4818,6 +4818,7 @@ const hu: Translations = {
   "pro.shellCurvatureOop": "A kijelölés legnagyobb síkon kívüli távolsága: {mm} mm.",
   "pro.curvedShell": "Görbült héj",
   "pro.curvedShellHint": "Ez a négy csomópont {mm} mm-rel kívül esik a síkon. Síkként megoldva a görbület elvész – a megtartásához jelölje be a Görbült héj négyzetet.",
+  "pro.shellWarnDisconnected": "{n} héj egyik sarka semmi máshoz nincs kapcsolva (sem gerendához, sem támaszhoz, sem másik héjhoz). Ott a teher nem adódhat át – adjon hozzá közös csomópontot vagy támaszt, vagy úgy hálózzon, hogy az élek közös csomópontokat használjanak a gerendákkal.",
   "pro.shellFourthPh": "Nem kötelező: három sarok háromszöget, négy négyszöget ad.",
   "pro.shellNeedNodes": "Válasszon három vagy négy csomópontot",
   "pro.errNodesExist": "Ezek a csomópontok nem mind léteznek a modellben.",

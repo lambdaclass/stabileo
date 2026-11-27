@@ -5083,6 +5083,7 @@ const fr: Translations = {
   'pro.shellCurvatureOop': 'Plus grande distance hors plan dans la sélection : {mm} mm.',
   'pro.curvedShell': 'Coque courbe',
   'pro.curvedShellHint': 'Ces quatre nœuds sont à {mm} mm hors plan. Calculée plane, la courbure est perdue ; cochez Coque courbe pour la conserver.',
+  'pro.shellWarnDisconnected': '{n} coque(s) ont un sommet relié à rien d\'autre (ni poutre, ni appui, ni autre coque). La charge ne peut pas s\'y transmettre : ajoutez un nœud partagé ou un appui, ou maillez pour que les bords partagent les nœuds des poutres.',
   'pro.shellFourthPh': 'Facultatif : trois sommets forment un triangle, quatre un quadrangle.',
   'pro.shellNeedNodes': 'Choisissez trois ou quatre nœuds',
   'pro.errNodesExist': 'Ces nœuds n\'existent pas tous dans le modèle.',

@@ -6844,6 +6844,7 @@ const pt: Translations = {
   'pro.shellCurvatureOop': 'Maior distância fora do plano na seleção: {mm} mm.',
   'pro.curvedShell': 'Casca (com curvatura)',
   'pro.curvedShellHint': 'Estes quatro nós estão {mm} mm fora do plano. Resolvida plana, a curvatura se perde — marque Casca para mantê-la.',
+  'pro.shellWarnDisconnected': '{n} laje(s)/parede(s) têm um canto sem conexão com nada (nem viga, nem apoio, nem outra laje). Ali não se transfere carga — adicione um nó compartilhado ou apoio, ou gere malha para que as bordas compartilhem nós com a viga.',
   'pro.shellFourthPh': 'Opcional: três cantos fazem um triângulo, quatro um quad.',
   'pro.shellNeedNodes': 'Escolha três ou quatro nós',
   'pro.errNodesExist': 'Esses nós não existem todos no modelo.',

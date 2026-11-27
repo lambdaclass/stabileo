@@ -5092,6 +5092,7 @@ const tr: Translations = {
   'pro.shellCurvatureOop': 'Seçimdeki en büyük düzlem dışı mesafe: {mm} mm.',
   'pro.curvedShell': 'Eğri kabuk',
   'pro.curvedShellHint': 'Bu dört düğüm düzlemin {mm} mm dışında. Düz çözülürse eğrilik kaybolur; korumak için Eğri kabuk\'u işaretleyin.',
+  'pro.shellWarnDisconnected': '{n} kabuğun başka hiçbir şeye (kiriş, mesnet veya başka kabuk) bağlı olmayan bir köşesi var. Yük orada aktarılamaz; ortak bir düğüm veya mesnet ekleyin ya da ağı kenarlar kiriş düğümlerini paylaşacak şekilde oluşturun.',
   'pro.shellFourthPh': 'İsteğe bağlı: üç köşe üçgen, dört köşe dörtgen oluşturur.',
   'pro.shellNeedNodes': 'Üç veya dört düğüm seçin',
   'pro.errNodesExist': 'Bu düğümlerin hepsi modelde mevcut değil.',

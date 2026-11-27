@@ -5083,6 +5083,7 @@ const de: Translations = {
   'pro.shellCurvatureOop': 'Größter Abstand aus der Ebene in der Auswahl: {mm} mm.',
   'pro.curvedShell': 'Gekrümmte Schale',
   'pro.curvedShellHint': 'Diese vier Knoten liegen {mm} mm außerhalb einer Ebene. Eben berechnet geht die Krümmung verloren – aktivieren Sie „Gekrümmte Schale“, um sie zu erhalten.',
+  'pro.shellWarnDisconnected': '{n} Schale(n) haben eine Ecke, die mit nichts anderem verbunden ist (kein Balken, kein Auflager, keine andere Schale). Dort kann keine Last übertragen werden – fügen Sie einen gemeinsamen Knoten oder ein Auflager hinzu oder vernetzen Sie so, dass die Kanten Balkenknoten teilen.',
   'pro.shellFourthPh': 'Optional: Drei Ecken ergeben ein Dreieck, vier ein Viereck.',
   'pro.shellNeedNodes': 'Wählen Sie drei oder vier Knoten',
   'pro.errNodesExist': 'Nicht alle dieser Knoten existieren im Modell.',

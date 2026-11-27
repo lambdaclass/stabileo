@@ -15,8 +15,7 @@ import { constraintNodes } from '../engine/steel/unbraced-length';
 import { plateLoops } from '../model/physical/plate';
 
 /** Nodes through which a shell takes or gives load: a member's end, a support, a constraint, or a node two shells share. */
-function connectingNodes(): Set<number> {
-  const s = constraintNodes(modelStore.model.constraints);
+function connectingNodes(s: Set<number>): Set<number> {
   for (const el of modelStore.elements.values()) { s.add(el.nodeI); s.add(el.nodeJ); }
   for (const sup of modelStore.supports.values()) s.add(sup.nodeId);
   const count = new Map<number, number>();
@@ -24,6 +23,13 @@ function connectingNodes(): Set<number> {
   for (const q of modelStore.plates.values()) for (const n of q.nodes) count.set(n, (count.get(n) ?? 0) + 1);
   for (const [n, c] of count) if (c >= 2) s.add(n);
   return s;
+}
+
+export function disconnectedShellCount(): number {
+  const connected = connectingNodes(new Set());
+  const hasLooseCorner = (shell: { nodes: readonly number[] }) => shell.nodes.some(node => !connected.has(node));
+  return [...modelStore.plates.values()].filter(hasLooseCorner).length
+    + [...modelStore.quads.values()].filter(hasLooseCorner).length;
 }
 
 const at = (n: number): [number, number, number] | null => { const p = modelStore.nodes.get(n); return p ? [p.x, p.y, p.z ?? 0] : null; };
@@ -57,7 +63,7 @@ function looseNodes(p: ReturnType<typeof physicalPlates>[number], connecting: Re
 
 export function plateDiagnostics(t: (key: string) => string): SolverDiagnostic[] {
   const out: SolverDiagnostic[] = [];
-  const connecting = connectingNodes();
+  const connecting = connectingNodes(constraintNodes(modelStore.model.constraints));
   for (const p of physicalPlates()) {
     const loose = looseNodes(p, connecting);
     if (loose.size) out.push({ source: 'model', objects: [{ kind: 'plate', id: p.id }], severity: 'warning', code: 'PLATE_LOOSE_CORNER', message: t('pro.plates.diag.looseCorner'), details: { plate: p.name, nodes: [...loose].sort((a, b) => a - b).join(', ') } });

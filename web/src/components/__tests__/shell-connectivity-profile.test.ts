@@ -6,7 +6,7 @@ import ProShellTab from '../pro/ProShellTab.svelte';
 
 afterEach(() => { modelStore.clear(); });
 
-it.skip('known wrong result: counts raw shells with unattached corners in the published shell panel', () => {
+it('counts raw shells with unattached corners in the published shell panel', () => {
   modelStore.clear();
   const nodes = [[0, 0], [2, 0], [2, 2], [0, 2], [4, 0]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
   const [a, b, c, d, e] = nodes as [number, number, number, number, number];

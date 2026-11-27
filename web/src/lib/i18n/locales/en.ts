@@ -5543,6 +5543,7 @@ const en: Record<string, string> = {
   'pro.shellCurvatureOop': 'Largest out-of-plane distance in the selection: {mm} mm.',
   'pro.curvedShell': 'Curved shell',
   'pro.curvedShellHint': 'These four nodes are {mm} mm out of plane. Solved flat, the curvature is lost — tick Curved shell to keep it.',
+  'pro.shellWarnDisconnected': '{n} shell(s) have a corner attached to nothing else (no beam, support, or other shell). Load cannot transfer there — add a shared node or support, or mesh so edges share beam nodes.',
   'pro.shellFourthPh': 'Optional: three corners make a triangle, four a quad.',
   'pro.shellNeedNodes': 'Pick three or four nodes',
   'pro.errNodesExist': 'Those nodes do not all exist in the model.',

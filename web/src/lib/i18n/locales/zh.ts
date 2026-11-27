@@ -5294,6 +5294,7 @@ const zh: Translations = {
   "pro.shellCurvatureOop": "所选对象中最大的面外距离：{mm} mm。",
   "pro.curvedShell": "曲面壳",
   "pro.curvedShellHint": "这四个节点偏离平面 {mm} mm。按平面求解会丢失曲率，请勾选「曲面壳」以保留。",
+  "pro.shellWarnDisconnected": "有 {n} 个壳的某个角点未与任何其他构件相连（没有梁、支座或其他壳）。荷载无法在该处传递：请添加共用节点或支座，或划分网格使各边与梁共用节点。",
 
   "pro.shellFourthPh": "可选：三个角点构成三角形，四个构成四边形。",
   "pro.shellNeedNodes": "请选择三个或四个节点",

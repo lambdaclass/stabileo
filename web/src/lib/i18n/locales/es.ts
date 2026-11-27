@@ -5536,6 +5536,7 @@ const es: Record<string, string> = {
   'pro.shellCurvatureOop': 'Mayor distancia fuera de plano en la selección: {mm} mm.',
   'pro.curvedShell': 'Cáscara (con curvatura)',
   'pro.curvedShellHint': 'Estos cuatro nodos están {mm} mm fuera de plano. Resuelta plana, la curvatura se pierde — tildá Cáscara para conservarla.',
+  'pro.shellWarnDisconnected': '{n} losa(s)/muro(s) tienen una esquina sin conexión a nada más (ni viga, ni apoyo, ni otra losa). Ahí no se transfiere carga — agregá un nodo compartido o apoyo, o mallá para que los bordes compartan nodos con la viga.',
   'pro.shellFourthPh': 'Opcional: tres esquinas hacen un triángulo, cuatro un quad.',
   'pro.shellNeedNodes': 'Elegí tres o cuatro nodos',
   'pro.errNodesExist': 'Esos nodos no existen todos en el modelo.',
