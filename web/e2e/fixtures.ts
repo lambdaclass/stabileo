@@ -95,6 +95,9 @@ export interface TestHooks {
   isBaselineStale(): boolean;
   solveCount(): number;
   modelVersion(): number;
+  nodeScreenPos(id: number): { x: number; y: number } | null;
+  diagramMembers(): number;
+  hasDrawnResults(): boolean;
   screenFrame(): { drawn: boolean; held: boolean; diagram: string; maxMoment: number | null };
   freshMaxMoment(): number | null;
   designRunId(): string | null;
@@ -173,6 +176,8 @@ export interface TestHooks {
 
 /** Actions a spec may drive — the same operations the UI controls perform. */
 export interface TestActions {
+  moveNode(id: number, x: number, y: number, z: number): void;
+  showWorkspace(mode: '2d' | '3d'): void;
   holdScreen(): void;
   releaseScreen(): void;
   selectElements(ids: number[]): void;

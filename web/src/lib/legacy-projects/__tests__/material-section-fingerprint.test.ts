@@ -166,6 +166,14 @@ describe('material and section migration fingerprint #1318', () => {
     }
   });
 
+  it('uses the saved section properties independently of its parametric editor history', () => {
+    const built = { shapeType: 'I-custom', params: { h: 2, tw: 1 } };
+    const fingerprint = (s: Section) => resultPropertyFingerprint('section', s);
+    expect(fingerprint({ ...section, built })).toEqual(fingerprint(section));
+    expect(fingerprint({ ...section, built: { ...built, params: { h: 3 } } })).toEqual(fingerprint(section));
+    expect(fingerprint({ ...section, built, iy: section.iy + 1 })).not.toEqual(fingerprint(section));
+  });
+
   it('#1318: every real corpus migration preserves its saved material properties', async () => {
     let projects = 0;
     for (const tag of corpusVersions()) {

@@ -11,7 +11,7 @@ async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefin
   modelStore.clear();
   uiStore.analysisMode = workspace;
   const length = 4;
-  const temperature = 20;
+  const temperature = gradient ? 0 : 20;
   const material = modelStore.addMaterial({ name: 'Thermal specimen', e: alpha === undefined ? 11000 : 30000, nu: 0.2, rho: 25, alpha });
   const fixed = modelStore.addNode(0, 0, 0);
   const free = modelStore.addNode(length, 0, 0);

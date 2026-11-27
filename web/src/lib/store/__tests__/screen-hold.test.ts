@@ -149,6 +149,20 @@ describe('the picture held for a live re-solve', () => {
     expect(resultsStore.screen.held).toBe(false);
   });
 
+  it('drops a space reaction on a restraint edit while keeping the unchanged support control', async () => {
+    await modelStore.loadExample('3d-portal-frame');
+    const r = modelStore.solve3D();
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    resultsStore.setResults3D(r);
+    resultsStore.diagramType = 'momentY';
+    resultsStore.clear({ keepScreen: true });
+    expect(resultsStore.screen.held).toBe(true);
+    const support = [...modelStore.supports.values()][0]!;
+    modelStore.updateSupport(support.id, { type: 'pinned3d' });
+    expect(resultsStore.screen.results3D).toBeNull();
+    expect(resultsStore.screen.held).toBe(false);
+  });
+
   it('drops reactions when a support moves between existing nodes', async () => {
     await solvedPortal();
     const support = [...modelStore.supports.values()][0]!;

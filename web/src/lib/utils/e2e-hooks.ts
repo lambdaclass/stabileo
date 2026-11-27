@@ -534,9 +534,10 @@ export interface StabileoTestActions {
    * that carries combinations is concrete; the code checks read solved combinations only.
    */
   combineCases(name: string): number;
-  /** Select these members, in this order, as clicking them one after another would. */
   holdScreen(): void;
   releaseScreen(): void;
+  showWorkspace(mode: '2d' | '3d'): void;
+  /** Select these members, in this order, as clicking them one after another would. */
   selectElements(ids: number[]): void;
   /** Select these nodes, in this order, as clicking them one after another would. */
   selectNodes(ids: number[]): void;
@@ -960,6 +961,7 @@ export function installE2EHooks(): void {
     },
     combineCases: (name: string) =>
       modelStore.addCombination(name, modelStore.model.loadCases.map((c) => ({ caseId: c.id, factor: 1 }))),
+    showWorkspace: mode => { uiStore.analysisMode = mode; },
     holdScreen: () => resultsStore.clear({ keepScreen: true }),
     releaseScreen: () => resultsStore.releaseScreen(),
     selectElements: (ids: number[]) => {

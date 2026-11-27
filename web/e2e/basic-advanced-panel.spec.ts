@@ -5,7 +5,7 @@
  */
 import { test, expect, type Page } from './fixtures';
 import { ADV_GROUPS } from '../src/lib/advanced/catalog';
-import { openAdvancedList, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
+import { openAdvancedFunction, openAdvancedList, openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 async function boot(page: Page) {
   await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
@@ -82,6 +82,26 @@ for (const [label, viewport] of [['390×844', { width: 390, height: 844 }], ['36
       await expect(page.getByTestId('adv-launcher')).toBeVisible();
       expect(errors).toEqual([]);
     });
+  });
+}
+
+for (const solved of ['2d', '3d'] as const) {
+  test(`@smoke section picking requires results in the active workspace after a ${solved} solve`, async ({ page }) => {
+    await boot(page);
+    await page.evaluate(async mode => {
+      await window.__stabileoActions.loadExample(mode === '2d' ? 'portal-frame' : '3d-portal-frame');
+      await window.__stabileoActions.solve();
+    }, solved);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.hasDrawnResults())).toBe(true);
+    await page.evaluate(mode => window.__stabileoActions.showWorkspace(mode), solved === '2d' ? '3d' : '2d');
+    await expect.poll(() => page.evaluate(() => window.__stabileo.hasDrawnResults())).toBe(false);
+    await openAdvancedFunction(page, 'stress');
+    await expect(page.getByTestId('adv-launcher')).toBeVisible();
+    await expect(page.getByTestId('adv-running')).toHaveCount(0);
+    await page.evaluate(mode => window.__stabileoActions.showWorkspace(mode), solved);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.hasDrawnResults())).toBe(true);
+    await openAdvancedFunction(page, 'stress');
+    await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'stress');
   });
 }
 

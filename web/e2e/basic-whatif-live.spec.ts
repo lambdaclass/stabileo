@@ -108,3 +108,46 @@ test('@slow releasing a held diagram clears the idle canvas without a replacemen
   await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().drawn)).toBe(false);
   await expect(page.locator('.viewport2d-wrapper .pending-result')).toHaveCount(0);
 });
+
+test('@slow a pending moment diagram never connects its old forces to a moved endpoint', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
+  await page.goto('/app/basic?e2e=1');
+  await page.waitForFunction(() => !!window.__stabileoActions && window.__stabileo.solverReady());
+  await page.evaluate(() => window.__stabileoActions.loadExample('simply-supported'));
+  await page.evaluate(() => window.__stabileoActions.solve());
+  await page.getByTestId('rb-cmd-momentY').click();
+  await expect.poll(() => page.evaluate(() => window.__stabileo.screenFrame().drawn)).toBe(true);
+  const canvas = page.locator('.viewport2d-wrapper canvas').first();
+  const observed = await canvas.evaluate(async element => {
+    const canvas = element as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const { moveTo, lineTo, stroke } = ctx;
+    let first = NaN, last = NaN;
+    const ends: number[][] = [];
+    ctx.moveTo = (x, y) => { first = x; moveTo.call(ctx, x, y); };
+    ctx.lineTo = (x, y) => { last = x; lineTo.call(ctx, x, y); };
+    ctx.stroke = () => {
+      if (ctx.strokeStyle === '#e5482a') ends.push([first, last]);
+      stroke.call(ctx);
+    };
+    const paint = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    try {
+      const file = JSON.parse(window.__stabileo.serializeProject());
+      const bar = file.snapshot.elements[0][1];
+      const expected = [bar.nodeI, bar.nodeJ].map(id => window.__stabileo.nodeScreenPos(id)!.x - canvas.getBoundingClientRect().left);
+      window.__stabileoActions.holdScreen();
+      await paint();
+      const original = ends.splice(0);
+      const tip = file.snapshot.nodes.find(([id]: [number]) => id === bar.nodeJ)[1];
+      window.__stabileoActions.moveNode(tip.id, tip.x + 1, tip.y, tip.z ?? 0);
+      await paint();
+      return { original, expected, after: ends, frame: window.__stabileo.screenFrame() };
+    } finally {
+      Object.assign(ctx, { moveTo, lineTo, stroke });
+    }
+  });
+  expect(observed.original.length).toBeGreaterThan(0);
+  for (const endpoints of observed.original) expect(endpoints).toEqual(observed.expected);
+  expect(observed.after).toEqual([]);
+  expect(observed.frame).toMatchObject({ held: false, drawn: false });
+});
