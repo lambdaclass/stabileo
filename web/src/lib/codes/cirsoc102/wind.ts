@@ -89,6 +89,9 @@ const REF_CP = clause('cirsoc-102', '2025', 'Figura 2.4-1', 'coeficientes de pre
 const REF_P = clause('cirsoc-102', '2025', '2.4-1', 'presión de viento de diseño');
 const REF_MIN = clause('cirsoc-102', '2025', '2.1.5', 'cargas de viento de diseño mínimas');
 
+const minimumExposureHeight = 5;
+export const velocityPressureHeightBreaks = (exposure: Exposure) => [minimumExposureHeight, EXPOSURE_CONSTANTS[exposure].zg];
+
 /**
  * §1.13.1 Table 1.13-1 note 1 — velocity-pressure exposure coefficient.
  *
@@ -101,7 +104,7 @@ export function velocityPressureExposureCoefficient(z: number, exposure: Exposur
     return NaN;
   }
   if (z > zg) return 2.41;
-  const zEff = Math.max(z, 5);
+  const zEff = Math.max(z, minimumExposureHeight);
   return 2.41 * Math.pow(zEff / zg, 2 / alpha);
 }
 

@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { integrateWindPressure, windHeightField } from '../wind-pressure-field';
-import { levelsWithPlanArea, type LoadPlanInput, type PlanSink } from '../load-plan';
+import { defaultRegulations } from '../../../codes/roles';
+import { levelsWithPlanArea, type PlanSink } from '../load-plan';
 import { planWind } from '../load-plan-wind';
 import { columns, mesh, remeshWind, variants, windProject } from './wind-integration-fixture';
 
@@ -148,7 +149,7 @@ function pulsedPressure(reflected: boolean, amplitude = 1) {
 }
 
 for (const entry of ['integral', 'member'] as const) for (const reflected of [false, true]) {
-  it.skip(`known wrong result: #2529 cancelled pressure pulses retain their interior shear through ${entry}, reflected=${reflected}`, () => {
+  it(`#2529 cancelled pressure pulses retain their interior shear through ${entry}, reflected=${reflected}`, () => {
     const law = pulsedPressure(reflected);
     const pressure = (s: number) => law(s);
     const cut = reflected ? 1 - 17 / 64 : 17 / 64;
@@ -172,13 +173,13 @@ for (const sign of [-1, 1]) it(`#2529 rejects the single out-of-limit midpoint f
   expect(integrateWindPressure(1, [], pressure).length).toBeGreaterThan(2);
 });
 
-it.skip('known wrong result: #2529 an opaque smooth law falls back without a whole-half error bound', () => {
+it('#2529 an opaque smooth law falls back without a whole-half error bound', () => {
   const pressure = (s: number) => 1 + 0.001 * (s - 0.5) ** 2;
   expect(integrateWindPressure(1, [], pressure).length).toBeGreaterThan(2);
 });
 
 for (const reflected of [false, true]) for (const amplitude of [1 / 1024, 1 / 256]) {
-  it.skipIf(amplitude === 1 / 256)(`known wrong result: #2529 bounds cut-force error over the half with known pulses, amplitude=${amplitude}, reflected=${reflected}`, () => {
+  it(`#2529 bounds cut-force error over the half with known pulses, amplitude=${amplitude}, reflected=${reflected}`, () => {
     const parts = integrateWindPressure(1, [], pulsedPressure(reflected, amplitude));
     if (amplitude === 1 / 1024) expect(parts).toHaveLength(2);
     else expect(parts.length).toBeGreaterThan(2);
@@ -189,8 +190,12 @@ it('#2529 the building planner compresses the code pressure for design and servi
   const model = columns([0, 2.8, 5.6]);
   const levels = levelsWithPlanArea(model).map(l => ({ ...l, selfWeightKN: 0, superimposedKN: 0, liveTotalKN: 0, liveParticipatingKN: 0, weightKN: 0 }));
   const sink: PlanSink = { cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
-  planWind({ model, tributaryWidth: 1, wind: { ...windProject, enabled: true, enclosure: 'enclosed', senses: ['+x'], caseSet: 'case1',
-    service: { enabled: true, v50: 20, mri: 50 } } } as LoadPlanInput, levels, sink);
+  planWind({
+    model, regulations: defaultRegulations(), tributaryWidth: 1, dead: [], occupancyKey: 'vivienda',
+    reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: false,
+    wind: { ...windProject, enabled: true, enclosure: 'enclosed', senses: ['+x'], directions: { x: true, y: false },
+      caseSet: 'case1', service: { enabled: true, v50: 20, mri: 50 } },
+  }, levels, sink);
   expect(sink.blockedKeys).toEqual([]);
   for (const nameKey of ['autoLoad.windCase1', 'autoLoad.windCaseWa']) {
     const caseIndex = sink.cases.findIndex(c => c.nameKey === nameKey);
