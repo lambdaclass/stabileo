@@ -8,7 +8,7 @@
  * run on separate workers.
  */
 import { expect } from 'vitest';
-import { runBetweenWorkerTurns, yieldToEventLoop } from '../../../__tests__/worker-yield';
+import { runWithWorkerYields, yieldToEventLoop } from '../../../__tests__/worker-yield';
 import { applyVariant, type Variant } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 import { modelStore } from '../../store/model.svelte';
 import { resultsStore } from '../../store/results.svelte';
@@ -43,7 +43,7 @@ export function designFamiliesWithWorkerYields(
   families: DesignFamily[],
   options?: Parameters<typeof designRunStore.designFamilies>[1],
 ): Promise<DesignRunReport> {
-  return runBetweenWorkerTurns(() => designRunStore.designFamilies(families, options));
+  return runWithWorkerYields(designRunStore.designFamilyStages(families, options ?? {}));
 }
 
 export function familyOf(report: DesignRunReport, f: DesignFamily) {

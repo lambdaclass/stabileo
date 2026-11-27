@@ -83,6 +83,8 @@ function modelData(): ContextModelData {
   };
 }
 
+type DesignFamilyOptions = { verifierId?: string; edited?: 'keep' | 'overwrite'; maxRunMs?: number };
+
 function createDesignRunStore() {
   let running = $state(false);
   let phase = $state<'idle' | 'demands' | 'codeCheck' | 'autoDesign'>('idle');
@@ -548,10 +550,17 @@ function createDesignRunStore() {
    * the detailing commands bump their own revisions, which is what the staleness machinery
    * already keys off.
    */
-  function designFamilies(
+  function designFamilies(selection: DesignFamilySelection, opts: DesignFamilyOptions = {}): DesignRunReport {
+    const stages = designFamilyStages(selection, opts);
+    let stage = stages.next();
+    while (!stage.done) stage = stages.next();
+    return stage.value;
+  }
+
+  function* designFamilyStages(
     selection: DesignFamilySelection,
-    opts: { verifierId?: string; edited?: 'keep' | 'overwrite'; maxRunMs?: number } = {},
-  ): DesignRunReport {
+    opts: DesignFamilyOptions,
+  ): Generator<void, DesignRunReport, void> {
     // Recorded before returning, so both the caller and the panel read one report.
     const record = <T extends DesignRunReport>(r: T): T => { lastFamilyReport = r; return r; };
     const families: FamilyRunResult[] = [];
@@ -561,7 +570,9 @@ function createDesignRunStore() {
     const frameWanted = needsFramePass(selection);
     if (frameWanted) {
       const d = computeDemands();
+      yield;
       const c = d.ok ? runCodeCheck() : d;
+      yield;
       if (!d.ok || !c.ok) {
         const bad = !d.ok ? d : c;
         for (const f of FRAME_FAMILIES) {
@@ -588,7 +599,9 @@ function createDesignRunStore() {
           // The global command owns detailing, including its verifier. Run its feedback
           // once, before reading the repaired outcomes into the family summaries.
           autoDesign(target, { deferDetailing: true, maxRunMs: opts.maxRunMs, ...(opts.edited ? { edited: opts.edited } : {}) });
+          yield;
           detailingStore.generate({ verifierId: opts.verifierId });
+          yield;
         }
 
         for (const f of FRAME_FAMILIES) {
@@ -846,6 +859,7 @@ function createDesignRunStore() {
     computeDemands,
     runCodeCheck,
     designFamilies,
+    designFamilyStages,
     autoDesign,
     designAll,
     designOne,

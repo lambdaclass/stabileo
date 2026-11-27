@@ -350,7 +350,7 @@ const baseConfig = defineConfig({
         extends: true,
         test: {
           name: 'unit',
-          setupFiles: ['./vitest.setup.ts'],
+          setupFiles: ['./vitest.setup.ts', './vitest.worker-loop.setup.ts'],
           // Everything except the production-build tests, which get their own pass.
           exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS, ...EXCLUDED_SWITCH_ON_UNIT_TESTS],
           ...(process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: switchOnUnitFiles } : {}),

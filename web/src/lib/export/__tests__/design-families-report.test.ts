@@ -87,6 +87,43 @@ describe('the run reports what happened, family by family', () => {
     }
   }, 300_000);
 
+  it('handles a worker reply between frame search and detailing', async () => {
+    await ready('rc-qa-diagnostic');
+    const { port1, port2 } = new MessageChannel();
+    let replyPosted = false;
+    let replyReceived = false;
+    let receivedAtDetailing = false;
+    port1.once('message', () => { replyReceived = true; });
+
+    const adapter = designRunStore.currentAdapter()!;
+    const verify = adapter.verify.bind(adapter);
+    const verifier = vi.spyOn(adapter, 'verify').mockImplementation((context, rebar) => {
+      if (!replyPosted && designRunStore.phase === 'autoDesign') {
+        port2.postMessage('progress reply');
+        replyPosted = true;
+      }
+      return verify(context, rebar);
+    });
+    const generate = detailingStore.generate.bind(detailingStore);
+    const detail = vi.spyOn(detailingStore, 'generate').mockImplementation((options) => {
+      receivedAtDetailing = replyReceived;
+      return generate(options);
+    });
+
+    try {
+      const report = await designFamiliesWithWorkerYields(['column', 'beam']);
+      expect(report.ok).toBe(true);
+      expect(replyPosted).toBe(true);
+      expect(detail).toHaveBeenCalledTimes(1);
+      expect(receivedAtDetailing).toBe(true);
+    } finally {
+      detail.mockRestore();
+      verifier.mockRestore();
+      port1.close();
+      port2.close();
+    }
+  }, 300_000);
+
   it('#2338: concurrent worker scheduling preserves the full design and detailing', async () => {
     const frame: DesignFamily[] = ['column', 'beam'];
     const floors: DesignFamily[] = ['slab'];
