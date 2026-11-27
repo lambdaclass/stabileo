@@ -11,6 +11,7 @@
  * numerics.
  */
 
+import { unifiedPlates } from '../features';
 import { uiStore } from '../store/ui.svelte';
 import { modelStore } from '../store/model.svelte';
 import { t } from '../i18n';
@@ -36,9 +37,8 @@ export function reportSolverDiagnostics(diags?: SolverDiagnostic[]): void {
   }
 }
 
-/** A solve's errors as toasts. Its warnings are counted by the solve card and listed in Diagnostics, so a toast would say them twice. */
-export function reportSolverErrors(diags?: SolverDiagnostic[]): void {
-  reportSolverDiagnostics(diags?.filter((d) => d.severity === 'error'));
+export function reportManualSolveDiagnostics(diags?: SolverDiagnostic[]): void {
+  reportSolverDiagnostics(unifiedPlates() ? diags?.filter(d => d.severity === 'error') : diags);
 }
 
 /** The warnings a 2D solve leaves for Diagnostics, counted for the success toast. */

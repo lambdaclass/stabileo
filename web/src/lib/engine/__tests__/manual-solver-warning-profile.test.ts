@@ -26,7 +26,7 @@ function cantilever(spatial: boolean) {
   }
 }
 
-it.skip.each(['3d', 'pro'] as const)('known wrong result: #1928 a completed %s solve delivers the conditioning warning with the available feedback', async mode => {
+it.each(['3d', 'pro'] as const)('known wrong result: #1928 a completed %s solve delivers the conditioning warning with the available feedback', async mode => {
   uiStore.analysisMode = mode;
   cantilever(true);
   for (const combo of [...modelStore.model.combinations]) modelStore.removeCombination(combo.id);
@@ -42,7 +42,7 @@ it.skip.each(['3d', 'pro'] as const)('known wrong result: #1928 a completed %s s
   }
 });
 
-it.skip('known wrong result: #1928 a completed 2D manual solve delivers a returned warning without displaying informational diagnostics', async () => {
+it('known wrong result: #1928 a completed 2D manual solve delivers a returned warning without displaying informational diagnostics', async () => {
   uiStore.analysisMode = '2d';
   cantilever(false);
   const original = modelStore.solveAsync.bind(modelStore);

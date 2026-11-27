@@ -36,7 +36,7 @@ import { hasNonlinearBehaviour } from './member-behaviour';
 import { allLoadsResult3D } from './shell-combos';
 import { markAllLoads } from './solver-service';
 import { singleSolveFactors } from './case-effects';
-import { reportSolverErrors, reportModelDiagnostics } from './solve-diagnostics';
+import { reportManualSolveDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
 import { solveProgress, type SolvePhase } from '../store/solve-progress.svelte';
@@ -493,7 +493,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean, step: 
       `${t('results.analysis3dSuccess')}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
       'success',
     );
-    reportSolverErrors(r.solverDiagnostics);
+    reportManualSolveDiagnostics(r.solverDiagnostics);
     return { ok: true, combinationsLeftOut: null };
   };
 
@@ -569,7 +569,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean, step: 
       `${t('results.analysis3dSuccess')} (${timeStr}) — ${nBars} ${t('results.bars')}, ${nReac} ${t('results.reactions')} + ${comboResult.perCombo.size} ${t('results.combinations')}`,
       'success',
     );
-    reportSolverErrors(firstCaseResult.solverDiagnostics);
+    reportManualSolveDiagnostics(firstCaseResult.solverDiagnostics);
     return { ok: true, combinationsLeftOut: null };
   };
 
@@ -648,6 +648,6 @@ async function globalSolve2D(isStale: () => boolean): Promise<GlobalSolveOutcome
   );
 
   // Show solver warnings/errors as separate toasts
-  reportSolverErrors(r.solverDiagnostics);
+  reportManualSolveDiagnostics(r.solverDiagnostics);
   return { ok: true, combinationsLeftOut };
 }

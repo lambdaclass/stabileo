@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { reportSolverErrors, solverNoticeCount } from '../solve-diagnostics';
+import { reportManualSolveDiagnostics, solverNoticeCount } from '../solve-diagnostics';
 import { uiStore } from '../../store';
 import type { SolverDiagnostic } from '../types';
 
@@ -10,11 +10,11 @@ afterEach(() => { vi.restoreAllMocks(); });
 describe('solver notices after a solve', () => {
   it('toasts only the errors: warnings are counted by the solve card and listed in Diagnostics', () => {
     const toast = vi.spyOn(uiStore, 'toast').mockImplementation(() => 0 as never);
-    reportSolverErrors([diag('warning', 'ill-conditioned'), diag('error', 'singular'), diag('info', 'sparse')]);
+    reportManualSolveDiagnostics([diag('warning', 'ill-conditioned'), diag('error', 'singular'), diag('info', 'sparse')]);
     expect(toast.mock.calls.map((c) => [c[0], c[1]])).toEqual([['singular', 'error']]);
     toast.mockClear();
-    reportSolverErrors([diag('warning', 'ill-conditioned')]);
-    reportSolverErrors(undefined);
+    reportManualSolveDiagnostics([diag('warning', 'ill-conditioned')]);
+    reportManualSolveDiagnostics(undefined);
     expect(toast).not.toHaveBeenCalled();
   });
 
