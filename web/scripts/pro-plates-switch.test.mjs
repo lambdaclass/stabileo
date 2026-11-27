@@ -519,3 +519,14 @@ test('known wrong result: #1928 the published viewport imports only the availabl
     });
   }
 });
+
+test.skip('known wrong result: #1928 editing ordinary project bars has no dependency on the reinforcement sheets', async () => {
+  const entry = resolve(root, 'src/components/pro/ProDesignDataPanel.svelte');
+  const result = await build({ root, logLevel: 'silent', build: {
+    write: false, lib: { entry, formats: ['es'] },
+    rollupOptions: { external: (id, from) => from === entry && !id.includes('?svelte&type=style') },
+  } });
+  const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
+  assert.deepEqual(chunk.imports.filter(id => id.includes('/rc-sheets/')), []);
+  assert.ok(chunk.code.includes('design-data-slab-base'));
+});

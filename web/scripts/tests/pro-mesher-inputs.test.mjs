@@ -223,3 +223,21 @@ for (const unified of [false, true]) {
     });
   });
 }
+
+test.skip('known wrong result: #1928 the released PRO panel keeps the unmeshed plate refusal after its toast closes', async t => {
+  const server = await createServer({ root, mode: 'production', server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+  t.after(() => server.close());
+  await server.listen();
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.goto(new URL('/scripts/tests/fixtures/pro-solve-panel.html', server.resolvedUrls.local[0]).href);
+  await page.waitForFunction(() => typeof window.runPanelSolve === 'function');
+  await page.evaluate(() => window.runPanelSolve());
+  const toast = await page.waitForFunction(() => window.clearSolveToasts());
+  const message = await toast.jsonValue();
+  assert.match(message, /mesh/i);
+  const banner = page.locator('.pro-solve-error');
+  await expect(banner).toHaveText(message);
+  await expect(banner.getByRole('button')).toHaveCount(0);
+});
