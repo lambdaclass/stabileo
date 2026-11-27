@@ -42,16 +42,21 @@ export function fullSpanFallback(length: number, loads: DistributedAction[] | un
   return loads?.length ? loads : qI || qJ ? [{ a: 0, b: length, qI, qJ }] : [];
 }
 
-export function distributedActionTerms(load: DistributedAction, x: number): [force: number, moment: number] {
+function distributedActionTerm(load: DistributedAction, x: number, component: 0 | 1): number {
   const span = load.b - load.a;
   const distance = x - load.a;
-  if (span <= 0 || distance <= 0) return [0, 0];
+  if (span <= 0 || distance <= 0) return 0;
   const s = Math.min(span, distance);
   const u = s / span;
   const left = load.qI * s;
   const right = load.qJ * s;
   const force = left * (1 - u / 2) + right * (u / 2);
-  return [force, (left * (0.5 - u / 6) + right * (u / 6)) * s + force * (distance - s)];
+  if (component === 0) return force;
+  return (left * (0.5 - u / 6) + right * (u / 6)) * s + force * (distance - s);
+}
+
+export function distributedActionTerms(load: DistributedAction, x: number): [force: number, moment: number] {
+  return [distributedActionTerm(load, x, 0), distributedActionTerm(load, x, 1)];
 }
 
 export function diagramLineValue(start: number, change: number, rate: number, x: number, t: number): number {
@@ -78,7 +83,7 @@ export function memberDiagram(
   const component = order === 'force' ? 0 : 1;
   const physicalValue = (x: number, t: number, right: boolean) => {
     let result = diagramLineValue(start, change, rate, x, t);
-    for (const load of distributed) result += sign * distributedActionTerms(load, x)[component];
+    for (const load of distributed) result += sign * distributedActionTerm(load, x, component);
     for (const point of points) {
       if (point.a < x || (right && point.a === x)) {
         if (point.slope) result += point.slope * (x - point.a);
@@ -88,6 +93,19 @@ export function memberDiagram(
     return result;
   };
 
+  let leftValues: Map<number, number> | undefined;
+  let rightValues: Map<number, number> | undefined;
+  const pointStations = points.length ? new Set(points.map(point => point.a)) : undefined;
+  const cutValue = (x: number, t: number, right: boolean) => {
+    if (!hasActions) return diagramLineValue(start, change, rate, x, t);
+    const values = right && pointStations?.has(x) ? (rightValues ??= new Map()) : (leftValues ??= new Map());
+    const cached = values.get(t);
+    if (cached !== undefined) return cached;
+    const value = physicalValue(x, t, right);
+    values.set(t, value);
+    return value;
+  };
+
   return {
     hasDistributedActions,
     get cuts() { return [...distances().keys()]; },
@@ -95,7 +113,7 @@ export function memberDiagram(
     value({ t, right }) {
       if (!hasActions) return diagramLineValue(start, change, rate, t * length, t);
       const cut = distances().get(t);
-      if (cut !== undefined) return physicalValue(cut, t, right === true);
+      if (cut !== undefined) return cutValue(cut, t, right === true);
       const x = t * length;
       const rounded = distances().get(at(x));
       return physicalValue(x, t, rounded === x ? at(x) < t : right === true);
@@ -109,7 +127,7 @@ export function memberDiagram(
         if (point.slope && point.a <= x0) linear += point.slope * width;
       }
       for (const load of distributed) {
-        if (component === 1) linear += sign * distributedActionTerms(load, x0)[0] * width;
+        if (component === 1) linear += sign * distributedActionTerm(load, x0, 0) * width;
         if (x0 < load.a || x0 >= load.b) continue;
         const span = load.b - load.a;
         const u = (x0 - load.a) / span;
@@ -124,7 +142,8 @@ export function memberDiagram(
           cubic += delta * (width / 6);
         }
       }
-      return [physicalValue(x0, lo, true), linear, quadratic, cubic];
+      const base = distances().get(lo) === x0 ? cutValue(x0, lo, true) : physicalValue(x0, lo, true);
+      return [base, linear, quadratic, cubic];
     },
   };
 }
