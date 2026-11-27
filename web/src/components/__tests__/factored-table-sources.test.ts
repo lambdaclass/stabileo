@@ -68,7 +68,7 @@ function expectWithheld(member: number, reason: string) {
   }
 }
 
-describe.skip.each(['linear', 'pdelta'] as const)('known wrong result: #1928 %s maximum-by-type combination scope', method => {
+describe.each(['linear', 'pdelta'] as const)('known wrong result: #1928 %s maximum-by-type combination scope', method => {
   it('withholds the unfactored solve when no combination is active and the combinations have not been solved', () => {
     const { member } = fixture(method);
     modelStore.setResultScopes({ active: [] });

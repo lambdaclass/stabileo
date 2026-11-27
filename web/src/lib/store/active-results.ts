@@ -107,6 +107,27 @@ export function activeCombinations() {
   return modelStore.model.combinations.filter((c) => ids.has(c.id));
 }
 
+export function stationDemandBasis(singleName = '') {
+  const perCombo = activePerCombo3D();
+  const combinations = activeCombinations();
+  const withheld = designCombinationsWithheld();
+  if (withheld) return { perCombo, combinations, withheld };
+  if (combinations.some(combo => !perCombo.has(combo.id))) {
+    const withheld = perCombo.size ? 'otherCodes.skip.incompleteDemand' : 'design.error.combinationsUnsolved';
+    return { perCombo, combinations, withheld };
+  }
+  if (!perCombo.size && !combinations.length) {
+    const single = activeResultSet3D();
+    if (single) return {
+      perCombo: new Map([[0, single]]),
+      combinations: [{ id: 0, name: singleName, factors: [] }],
+      withheld: null,
+    };
+    if (resultsStore.results3D?.magnitude) return { perCombo, combinations, withheld: 'design.error.noLinearCombination' };
+  }
+  return { perCombo, combinations, withheld: null };
+}
+
 /**
  * The combinations the last published solve left out for having no second-order equilibrium.
  * Meaningful while those results are the ones on screen, which is when the exports read it.

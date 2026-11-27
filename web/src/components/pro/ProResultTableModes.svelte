@@ -22,14 +22,13 @@
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import NoticeRow from '../notices/NoticeRow.svelte';
-  import { activePerCombo3D, activeCombinations } from '../../lib/store/active-results';
+  import { activePerCombo3D, stationDemandBasis } from '../../lib/store/active-results';
     import { exportToExcel } from '../../lib/export/excel';
   import { computeStationDemands } from '../../lib/engine/verification-service';
   import {
     columnsOf, allRows, summaryRows, envelopeRows, maxByType, toCsv, whereOf, MAX_TYPES,
     type TableKind, type Source, type TableOptions,
   } from '../../lib/engine/result-tables';
-  import type { AnalysisResults3D } from '../../lib/engine/types-3d';
   import { fmtQ, unitQ, toQ } from '../../lib/store/display-units.svelte';
 
   let { kind, mode = $bindable('current') }: { kind: TableKind; mode?: TableMode } = $props();
@@ -85,22 +84,15 @@
   const all = $derived(mode === 'all' ? allRows(kind, sources, opts, byEntity ? 'entity' : 'source') : []);
   const summary = $derived(mode === 'summary' ? summaryRows(kind, sources, opts) : []);
   const envelope = $derived(mode === 'envelope' ? envelopeRows(kind, sources, opts) : []);
+  const demandBasis = $derived(mode === 'maxType' ? stationDemandBasis(t('tables.shown')) : null);
   // Station demands are the engine's: its absence or refusal is shown in place of the rows.
   const guardedByType = $derived(engineGuarded(() => {
-    if (mode !== 'maxType' || resultsStore.knownIssues3D.refused) return [];
+    if (!demandBasis || demandBasis.withheld || resultsStore.knownIssues3D.refused) return [];
     const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
-    let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
-    let combos = activeCombinations();
-    if (perCombo.size === 0 && combos.length > 0) return [];
-    if (perCombo.size === 0 && combos.length === 0 && resultsStore.results3D) {
-      // Nothing combined: the result set on screen, named as what it is.
-      perCombo = new Map([[0, resultsStore.results3D]]);
-      combos = [{ id: 0, name: t('tables.shown'), factors: [] }] as never;
-    }
-    return maxByType(computeStationDemands(perCombo, combos, md as never).demands, entities);
+    return maxByType(computeStationDemands(demandBasis.perCombo, demandBasis.combinations, md as never).demands, entities);
   }));
   const byType = $derived(guardedByType.value ?? []);
-  const combosUnsolved = $derived(activeCombinations().length > 0 && activePerCombo3D().size === 0);
+  const canExport = $derived(mode !== 'current' && !resultsStore.knownIssues3D.refused && !demandBasis?.withheld && !guardedByType.error);
 
   function fmt(n: number): string {
     if (!Number.isFinite(n)) return '—';
@@ -146,10 +138,12 @@
   }
   const stem = () => `${kind}-${mode}`;
   function csv() {
+    if (!canExport) return;
     const { header, rows } = table();
     void downloadResultText(toCsv(header, rows), `${stem()}.csv`, 'text/csv;charset=utf-8');
   }
   function xlsx() {
+    if (!canExport) return;
     const { header, rows } = table();
     exportToExcel({ filename: `${stem()}.xlsx`, onlyExtras: true, extraSheets: [{ name: t(`tables.mode.${mode}`).slice(0, 31), rows: [header, ...rows] }] });
   }
@@ -169,7 +163,7 @@
       onclick={() => (mode = m)} data-testid="tm-{kind}-{m}">{t(`tables.mode.${m}`)}</button>
   {/each}
   </div>
-  {#if mode !== 'current'}
+  {#if canExport}
     <button class="pk-btn tm-csv" onclick={csv} data-testid="tm-csv">CSV</button>
     <button class="pk-btn tm-csv" onclick={xlsx} data-testid="tm-xlsx">Excel</button>
   {/if}
@@ -265,8 +259,8 @@
     </table>
     <p class="tm-cap">{withStations ? t('tables.envelopeHintStations') : t('tables.envelopeHint')}</p>
   </div>
-{:else if mode === 'maxType' && combosUnsolved}
-  <p class="tm-cap" role="alert" data-testid="tm-maxtype-unsolved">{t('design.error.combinationsUnsolved')}</p>
+{:else if mode === 'maxType' && demandBasis?.withheld}
+  <p class="tm-cap" role="alert" data-testid="tm-maxtype-unsolved">{t(demandBasis.withheld)}</p>
 {:else if mode === 'maxType' && guardedByType.error}
   <p class="tm-cap" role="alert" data-testid="tm-maxtype-engine">{guardedByType.error}</p>
 {:else if mode === 'maxType'}

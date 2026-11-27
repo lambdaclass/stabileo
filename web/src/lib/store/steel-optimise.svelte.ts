@@ -18,7 +18,7 @@ import { completeResultDemands } from '../engine/result-demand-gate';
 import { isEngineError, isEngineUnavailable, engineFailureText } from '../engine/engine-unavailable';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
-import { activePerCombo3D, activeCombinations, activeResultSet3D, designCombinationsWithheld } from './active-results';
+import { designCombinationsWithheld, stationDemandBasis } from './active-results';
 import { computeStationDemands, steelDemandOf, steelMemberLengths, steelSegmentDiagram } from '../engine/verification-service';
 import { memberLengths } from '../engine/steel/unbraced-length';
 import { memberEndsFor } from '../engine/steel/tension-connection';
@@ -100,26 +100,14 @@ export function catalogueProfileOf(sec: { name: string; profileFamily?: string; 
   return p && (!sec.profileFamily || sec.profileFamily === p.family) ? p : null;
 }
 
-/**
- * Why there are no factored demands for `membersFor` to read while the model defines combinations:
- * withheld (`designCombinationsWithheld`), or none of the active ones solved yet. Null when it can read them.
- */
-export function steelDemandsWithheld(): ReturnType<typeof designCombinationsWithheld> {
-  return designCombinationsWithheld() ?? (activePerCombo3D().size === 0 && activeCombinations().length > 0 ? 'design.error.combinationsUnsolved' : null);
+export function steelDemandsWithheld() {
+  return stationDemandBasis().withheld;
 }
 
 /** The demands, lengths and material of the steel members in `ids`, against the analysis on hand. */
 export function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materialOf: Map<number, { fy?: number; e?: number; fu?: number }> } {
   const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
-  let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
-  let combos = activeCombinations();
-  // The one solve stands in only when it is the design load: never the loads at factor 1 while
-  // combinations are defined (`designCombinationsWithheld`), never an SRSS or ABS magnitude.
-  const single = perCombo.size === 0 && combos.length === 0 ? activeResultSet3D() : null;
-  if (single) {
-    perCombo = new Map([[0, single]]);
-    combos = [{ id: 0, name: '', factors: [] }] as never;
-  }
+  const { perCombo, combinations: combos } = stationDemandBasis();
   const { demands, stations } = computeStationDemands(perCombo, combos, md as never);
   const scopedIds = ids.filter(id => isDesignedMember(modelStore.elements.get(id), modelStore.sections));
   completeResultDemands(resultsStore.results3D ?? { elementForces: [], displacements: [], reactions: [] }, scopedIds, demands, undefined, scopedIds);

@@ -1,0 +1,35 @@
+{
+  "id": "member-force-table-scope",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "combinations"
+    ]
+  },
+  "title": {
+    "en": "Active combinations in member force tables",
+    "es": "Combinaciones activas en tablas de esfuerzos de barras",
+    "pt": "Combinações ativas nas tabelas de esforços de barras",
+    "de": "Aktive Kombinationen in Stabschnittgrößentabellen",
+    "fr": "Combinaisons actives dans les tableaux des efforts des barres",
+    "tr": "Çubuk kuvveti tablolarında etkin birleşimler",
+    "zh": "杆件内力表的活动组合",
+    "hu": "Aktív kombinációk a rúderők táblázataiban"
+  },
+  "explanation": {
+    "en": "Review exported member maxima if the active list was empty, incomplete or selected only magnitudes. Solve the intended signed combinations and export again.",
+    "es": "Revisá los máximos por barra exportados si la lista activa estaba vacía, incompleta o sólo incluía magnitudes. Resolvé las combinaciones con signo previstas y volvé a exportar.",
+    "pt": "Revise os máximos por barra exportados se a lista ativa estava vazia, incompleta ou continha apenas magnitudes. Calcule as combinações com sinal pretendidas e exporte novamente.",
+    "de": "Prüfen Sie exportierte Stabmaxima, wenn die aktive Liste leer oder unvollständig war oder nur Beträge enthielt. Berechnen Sie die vorgesehenen vorzeichenbehafteten Kombinationen und exportieren Sie erneut.",
+    "fr": "Vérifiez les maxima exportés par barre si la liste active était vide, incomplète ou limitée à des valeurs absolues. Recalculez les combinaisons signées prévues et exportez à nouveau.",
+    "tr": "Etkin liste boş veya eksikse ya da yalnızca büyüklükler içeriyorsa dışa aktarılan çubuk maksimumlarını gözden geçirin. Amaçlanan işaretli birleşimleri çözüp yeniden dışa aktarın.",
+    "zh": "如果活动列表为空、不完整或只包含无符号幅值，请复核已导出的杆件最大内力。求解预期的带符号组合后重新导出。",
+    "hu": "Ellenőrizze az exportált rúderőmaximumokat, ha az aktív lista üres vagy hiányos volt, illetve csak abszolút értékeket tartalmazott. Számítsa ki a kívánt előjeles kombinációkat, majd exportálja újra a táblázatot."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-force-table-scope.md",
+    "heading": "Maximum member forces and their exported sources"
+  }
+}
