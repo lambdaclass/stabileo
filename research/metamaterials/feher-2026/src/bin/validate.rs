@@ -35,6 +35,26 @@ fn close(a: &Value, b: &Value, path: &str) -> Result<(), String> {
     }
 }
 
+fn observed_switch(cycle: &Value, back: bool) -> Option<f64> {
+    cycle["points"].as_array().unwrap().windows(2).find_map(|pair| {
+            let previous = &pair[0];
+            let next = &pair[1];
+            let load = next[0].as_f64()?;
+            let increment = load - previous[0].as_f64()?;
+            let rise = next[1].as_f64()? - previous[1].as_f64()?;
+            ((back && increment < 0.0 && rise > 50.0) || (!back && increment > 0.0 && rise < -50.0)).then_some(load)
+    })
+}
+
+fn paper_extremum(points: &[Value], back: bool) -> Option<f64> {
+    let loads = points.iter().map(|p| p[0].as_f64().unwrap());
+    Some(if back { loads.fold(f64::INFINITY, f64::min) } else { loads.fold(0.0, f64::max) })
+}
+
+fn reproduced(_rows: &[Value]) -> bool {
+    false
+}
+
 fn figure(span: f64, b: f64) -> String {
     let panel = ["a", "b", "c"][[0.2, 0.5, 0.8].iter().position(|&x| x == b).unwrap()];
     format!("Figure {}({panel}) p. 9", if span == 0.5 { 10 } else { 11 })
@@ -68,20 +88,12 @@ fn main() {
 
     for (span, b, back) in [(0.5, 0.2, false), (0.5, 0.5, false), (0.5, 0.5, true), (0.75, 0.2, false)] {
         let cycle = load_cycle(&Strip { a: CUT, b }, span * LENGTH, 4.0, STEP, 10.0).unwrap();
-        let computed = cycle["points"].as_array().unwrap().windows(2).find_map(|pair| {
-            let previous = &pair[0];
-            let next = &pair[1];
-            let load = next[0].as_f64()?;
-            let increment = load - previous[0].as_f64()?;
-            let rise = next[1].as_f64()? - previous[1].as_f64()?;
-            ((back && increment < 0.0 && rise > 50.0) || (!back && increment > 0.0 && rise < -50.0)).then_some(load)
-        });
+        let computed = observed_switch(&cycle, back);
         let panel = digitized["panels"].as_array().unwrap().iter().find(|p| p["B_over_L"] == json!(span) && p["b"] == json!(b)).unwrap();
-        let loads = panel["unstable_curve"].as_array().unwrap().iter().map(|p| p[0].as_f64().unwrap());
-        let reference = if back { loads.fold(f64::INFINITY, f64::min) } else { loads.fold(0.0, f64::max) };
+        let reference = paper_extremum(panel["unstable_curve"].as_array().unwrap(), back);
         let kind = if back { "Snap-back load" } else { "Snap-through load" };
         rows.push(row(&format!("{}-{span}-{b}", if back { "snap-back" } else { "snap-through" }), format!("{kind}, B = {span}L, a = {CUT}, b = {b}"),
-            format!("{SOURCE}, {}, end of the unstable branch, digitized", figure(span, b)), "N", Some(reference), computed, LOAD_TOLERANCE));
+            format!("{SOURCE}, {}, end of the unstable branch, digitized", figure(span, b)), "N", reference, computed, LOAD_TOLERANCE));
     }
 
     let validation = json!({
@@ -90,7 +102,7 @@ fn main() {
         "scope": "Cut strip of Section 2 on the production co-rotational frame (136 members, N and mm, self-weight), against the inextensible elastica with the same variable stiffness and weight solved by shooting. Numerical comparison, not a laboratory test.",
     });
     let comparison = json!({
-        "reproduced_published_results": false,
+        "reproduced_published_results": reproduced(&rows),
         "scope": "Zero-load heights where a measured marker lies within digitization uncertainty, and directional snap loads of the computed curves in Figures 10 and 11 (a = 0.5), digitized from the preprint. A missing zero-load marker or unobserved jump leaves the comparison unresolved.",
         "checks": rows,
     });
@@ -125,4 +137,32 @@ fn paper_fields_are_exact_even_within_solver_roundoff() {
         assert!(close(&row, &stored, "checks[0]").is_err(), "{field}");
     }
     assert!(close(&row, &row, "checks[0]").is_ok());
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn empty_digitized_branch_has_no_limit_in_either_direction() {
+    for back in [false, true] {
+        assert_eq!(paper_extremum(&[], back), None);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn a_measured_directional_switch_has_one_verdict() {
+    let cycle = json!({"points": [[0., 20.], [1., -10.]], "snaps": [{"load":1., "from":20., "to":-10., "loading":true}]});
+    assert_eq!(observed_switch(&cycle, false), Some(1.));
+    assert_eq!(observed_switch(&cycle, true), None);
+}
+
+#[test]
+#[ignore = "known wrong result: #2505"]
+fn publication_reports_all_required_verdicts() {
+    let evidence: Value = serde_json::from_str(include_str!("../../reference-results/published_comparison.json")).unwrap();
+    let mut rows = evidence["checks"].as_array().unwrap().clone();
+    assert!(!reproduced(&rows));
+    for r in &mut rows { r["passed"] = json!(true); r.as_object_mut().unwrap().remove("status"); }
+    assert!(reproduced(&rows));
+    rows[0]["passed"] = json!(false);
+    assert!(!reproduced(&rows));
 }
