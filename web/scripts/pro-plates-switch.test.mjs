@@ -335,3 +335,20 @@ test('known wrong result: #1928 the board controls ship only with the unified no
     });
   }
 });
+
+test.skip('known wrong result: #1928 concrete and design option text follows the controls in each shipped locale', async () => {
+  for (const [plates, sheets] of [[false, false], [true, false], [false, true], [true, true]]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const source = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        const module = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+        const catalog = module[locale];
+        for (const key of ['designData.seismic.rules', 'designData.deflectionMonths', 'designData.foundingElevation', 'designData.concreteKeep', 'designData.slabBaseNone']) assert.equal(Object.hasOwn(catalog, key), sheets, locale + ' ' + key);
+        for (const key of ['designData.executionControl', 'designData.slabBars']) assert.equal(Object.hasOwn(catalog, key), plates, locale + ' ' + key);
+        for (const key of ['designData.assign', 'designData.slabBase', 'designData.concreteHint']) assert.ok(catalog[key], locale + ' ' + key);
+      }
+    });
+  }
+});
