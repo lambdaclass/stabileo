@@ -3,7 +3,7 @@ import type { Element, Load, Material, Node, Section, Support } from '../../lib/
 import type { AnalysisResults, ElementForces } from '../../lib/engine/types';
 import { buildSolverInput2D, validateAndSolve2D, type ModelData } from '../../lib/engine/solver-service';
 import { computeStaticDegree } from '../../lib/engine/kinematic-2d';
-import { solvePDelta } from '../../lib/engine/wasm-solver';
+import { solveEduPDelta } from './edu-pdelta';
 import { resolveDefaultSection } from '../../lib/store/canonical-sections';
 import { errorText } from '../../lib/utils/error-text';
 import { i18n, t, tp } from '../../lib/i18n';
@@ -166,8 +166,7 @@ export function solveModel(model: ModelSpec, solverType: 'linear' | 'pdelta' = '
     if (solverType === 'pdelta') {
       const input = buildSolverInput2D(data, false);
       if (!input) return t('results.emptyModelError');
-      const r = solvePDelta(input);
-      return typeof r === 'string' ? r : r.results;
+      return solveEduPDelta(input);
     }
     return validateAndSolve2D(data, false) ?? t('results.emptyModelError');
   } catch (e) {

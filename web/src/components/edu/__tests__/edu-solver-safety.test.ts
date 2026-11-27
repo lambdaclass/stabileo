@@ -203,7 +203,7 @@ describe('a P-Δ exercise on a model the solver refuses', () => {
   });
 });
 
-it.skip.each([{ converged: false, isStable: true }, { converged: true, isStable: false }])('known wrong result: #1927 — withholds unsafe P-Delta iterate %o from students and teacher grading', async flags => {
+it.each([{ converged: false, isStable: true }, { converged: true, isStable: false }])('known wrong result: #1927 — withholds unsafe P-Delta iterate %o from students and teacher grading', async flags => {
   const wasm = await import('../../../lib/engine/wasm-solver');
   const { solveModel } = await import('../exercise-variant');
   const model: import('../exercise-spec').ModelSpec = {

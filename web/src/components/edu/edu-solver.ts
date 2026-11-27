@@ -19,7 +19,7 @@ import { modelStore, resultsStore, uiStore } from '../../lib/store';
 import { t } from '../../lib/i18n';
 import { eduStore } from './edu-store.svelte';
 import { examLock } from '../../lib/store/exam-lock.svelte';
-import { solvePDelta } from '../../lib/engine/wasm-solver';
+import { solveEduPDelta } from './edu-pdelta';
 import { errorText } from '../../lib/utils/error-text';
 import { reportSolverDiagnostics } from '../../lib/engine/solve-diagnostics';
 import { hasInvalid2DDisplacements } from '../../lib/geometry/coordinate-system';
@@ -54,7 +54,7 @@ export function solveForEdu(): void {
         uiStore.toast(t('results.emptyModelError'), 'error');
         return;
       }
-      r = solvePDelta(input).results;
+      r = solveEduPDelta(input);
     } catch (error) {
       uiStore.toast(errorText(error, t('results.emptyModelError')), 'error');
       return;
