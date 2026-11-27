@@ -24,6 +24,8 @@ const nextReleaseAdvisories = [
   'SA-2026-128-sign-reversing-member-loads.md',
   'SA-2026-129-moving-load-force-jumps.md',
   'SA-2026-130-planar-elastic-mechanisms.md',
+  'SA-2026-131-ignored-analysis-input.md',
+  'SA-2026-132-stored-project-drawing-plane.md',
 ];
 
 export function nextReleaseAdvisoryBlocks(status: string, linkText: string): Block[] {
