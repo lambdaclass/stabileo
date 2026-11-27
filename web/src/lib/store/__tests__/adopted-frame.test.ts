@@ -100,7 +100,7 @@ it('shows one project notice before solving and retains even stale adopted bars 
   expect(notice()).not.toContain('role="status"');
 });
 
-it.skip.each([[], ['x'], ['y'], ['x', 'y']].map(axes => ({ axes: axes as ('x' | 'y')[] })))('known wrong result: integrated IFC setting-out — exports sheet setting-out only in its build profile (axes $axes)', ({ axes: directions }) => {
+it.each([[], ['x'], ['y'], ['x', 'y']].map(axes => ({ axes: axes as ('x' | 'y')[] })))('exports sheet setting-out only in its build profile (axes $axes)', ({ axes: directions }) => {
   const project = snapshot();
   project.grid = { axes: directions.map(axis => ({ id: axis, name: axis, axis, at: 0 })), levels: [] };
   modelStore.restore(project);

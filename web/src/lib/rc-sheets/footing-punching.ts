@@ -1,5 +1,5 @@
 import type { PressureField } from '../engine/foundation/pressure-field';
-import { designPunchingReinforcement, gammaV, type Side } from '../engine/detailing/punching-moment';
+import { gammaV, type Side } from '../engine/detailing/punching-moment';
 import { PHI_SHEAR, sqrtFcCapped } from '../engine/detailing/punching-shear';
 import { barArea } from './bars';
 import { alphaOfSides, ceilTo, footingPunching, plainPunchingVc, r3, soilInside, type FootingPlan } from './footing-mechanics';
@@ -169,12 +169,13 @@ export function designCage(cases: readonly PunchingCase[], s: PunchingSite): Pun
   if (!plain || plain.utilization <= 1 + 1e-9) return null;
   const root = sqrtFcCapped(s.fc);
   if (plain.vu > PHI_SHEAR * 0.5 * root + 1e-9 || s.d < 0.15 - 1e-9) return null;
+  const steelStress = Math.max(0, plain.vu / PHI_SHEAR - 0.17 * Math.sqrt(Math.min(s.fc, 70)));
   const top = Math.floor(s.d / 2 / 0.025 + 1e-9) * 0.025;
   for (let sp = top; sp >= 0.1 - 1e-9; sp = r3(sp - 0.025)) {
-    const r = designPunchingReinforcement({ vu: plain.vu, Vu: 0, fc: s.fc, fyt: s.fy, b: s.plan.b, h: s.plan.h, d: s.d, bo: plain.bo, lambdaS: 1, position: plain.position, spacing: sp });
+    const requiredArea = (steelStress * plain.bo * sp / s.fy) * 1e6;
     for (const dia of LEG_DIAMETERS) {
       if (s.d < (16 * dia) / 1000 - 1e-9) continue;
-      const cage: PunchingCage = { dia, spacing: r3(sp), first: r3(sp / 2), lines: 1, legs: Math.max(2, Math.ceil(r.avPerLine / (barArea(dia) * 100) - 1e-9)) };
+      const cage: PunchingCage = { dia, spacing: r3(sp), first: r3(sp / 2), lines: 1, legs: Math.max(2, Math.ceil(requiredArea / (barArea(dia) * 100) - 1e-9)) };
       const first = cageLegs(s.plan, s.d, s.cover, cage)[0] ?? [];
       const total = sidesIn(grow(columnRect(s.plan), cage.first), s.plan.B, s.plan.L, s.cover + LEG_INSET).reduce((t, x) => t + lenOf(x), 0);
       if (!first.length || total / first.length < MIN_GAP - 1e-9) continue;

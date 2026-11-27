@@ -178,7 +178,8 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
   const bodies = ifcPhysicalBodies(projectPhysicalFrame(), designData().exchange?.ifcColumnTop ?? 'slabTop');
   const spanOf = new Map<number, SpanRef>();
   for (const c of verificationStore.contexts.values()) if (c.span) spanOf.set(c.elementId, c.span);
-  const members: IfcExportInput['members'] = [], startOf = new Map<string, number>();
+  const members: IfcExportInput['members'] = [];
+  const startOf = __PUBLIC_FEATURES__.proRcSheets ? new Map<string, number>() : undefined;
   for (const e of m.elements.values()) {
     const sp = spanOf.get(e.id);
     if (sp && sp.representative !== e.id) continue;
@@ -193,7 +194,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       return [p[0] + o.x, p[1] + o.y, p[2] + o.z];
     };
     const a = axisAt(na, sp ? sp.start : e.nodeI), b = axisAt(nb, sp ? sp.end : e.nodeJ);
-    startOf.set(sp ? sp.key : String(e.id), sp ? sp.start : e.nodeI);
+    startOf?.set(sp ? sp.key : String(e.id), sp ? sp.start : e.nodeI);
     const s = m.sections.get(e.sectionId);
     const vertical = Math.hypot(b[0] - a[0], b[1] - a[1]) < TOL, level = Math.abs(b[2] - a[2]) < TOL;
     // Cut at the joints where every piece of it was cut; the joints it owns in its body.
@@ -293,7 +294,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
     ProjectDesignState: pv.state === 'conforms' ? 'every concrete design member satisfies' : `not approved: ${pv.conforming} of ${pv.total} concrete design members satisfy`,
     ...(pv.state === 'held' ? { ProjectHeldBy: projectVerdictLines(pv, (k, p) => IFC_VERDICT[k]?.replace(/\{n\}/g, String(p?.n ?? '')) ?? k).reasons.join('; ') } : {}),
   };
-  columnFixedPoints(members, startOf);
+  if (startOf) columnFixedPoints(members, startOf);
   return { project: { name: projectName, time: new Date().toISOString().slice(0, 19), app: 'Stabileo' }, buildingProps, storeys, members, slabs, walls, footings, bars, parts };
 }
 
@@ -326,7 +327,8 @@ export function exportProjectIfc(tr: Tr, locale: string, projectName: string, pr
     const lines = provenanceLines(provenance);
     input.buildingProps = { ...input.buildingProps, ...Object.fromEntries(lines.map(([k, v], i) => [`Provenance_${String(i + 1).padStart(2, '0')}_${k.replace(/[^\w]+/g, '_')}`, v])) };
   }
-  return withIfcGrid(writeIfc(input), modelStore.grid?.axes ?? [], planExtent());
+  const step = writeIfc(input);
+  return __PUBLIC_FEATURES__.proRcSheets ? withIfcGrid(step, modelStore.grid?.axes ?? [], planExtent()) : step;
 }
 
 /** A member of a curved member: which arc, and which of its analysis segments. */

@@ -63,7 +63,7 @@ describe('punching with moment transfer', () => {
   });
 });
 
-it.skip.each([0.2, 0.04])('known wrong result: integrated punching spacing — keeps automatic punching reinforcement independent of sheet trial spacing at depth %s', d => {
+it.each([0.2, 0.04])('keeps automatic punching reinforcement independent of sheet trial spacing at depth %s', d => {
   const section = { vu: 1.5, Vu: 720, fc: 25, fyt: 420, b: 0.4, h: 0.4, d, bo: 2.4, lambdaS: 1, position: 'interior' as const };
   const automatic = designPunchingReinforcement(section);
   for (const spacing of [automatic.spacing / 2, automatic.spacing * 2]) {
