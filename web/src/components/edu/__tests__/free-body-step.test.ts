@@ -207,3 +207,27 @@ it('known wrong result: #1927 — axial force cannot mask a transverse imbalance
     expect(studentBalanced(model, bar, { ...truth, i: { ...truth.i, ...changed } }, truth)).toBe(false);
   }
 });
+
+it.skip('known wrong result: #1927 — a reversing load has opposite arrows and a nonzero first moment', async () => {
+  const model: ModelSpec = { nodes: [[0, 0], [6, 0]], elements: [[0, 1]], supports: [], distributedLoads: [{ element: 0, qI: 5, qJ: -5 }] };
+  const bar = { nodes: [0, 1], elements: [{ index: 0, forward: true }] };
+  const { render } = await import('svelte/server');
+  const { default: Drawing } = await import('../FreeBodyStep.svelte');
+  const html = render(Drawing, { props: { model, bars: [bar], answers: {}, truth: null, verif: {}, revealed: {}, exam: false, complete: false, canReveal: true } }).body;
+  expect(html).toContain('5 → -5 kN/m');
+  expect(html).toContain('M62,129 L62,105');
+  expect(html).toContain('M298,81 L298,105');
+  const zero = { Fx: 0, Fy: 0, M: 0 };
+  expect(residual(model, bar, { i: zero, j: zero }, () => 0)).toEqual({ fx: 0, fy: 0, m: -30 });
+});
+
+it.skip.each([[3, 0], [-3, 4], [0, 4]])('known wrong result: #1927 — interior couple %s and force %s draw independently', async (mz, fy) => {
+  const model: ModelSpec = { nodes: [[0, 0], [1, 0], [2, 0]], elements: [[0, 1], [1, 2]], supports: [], nodalLoads: [{ node: 1, mz, fy }] };
+  const bar = { nodes: [0, 1, 2], elements: [{ index: 0, forward: true }, { index: 1, forward: true }] };
+  const { render } = await import('svelte/server');
+  const { default: Drawing } = await import('../FreeBodyStep.svelte');
+  const html = render(Drawing, { props: { model, bars: [bar], answers: {}, truth: null, verif: {}, revealed: {}, exam: true, complete: false, canReveal: false } }).body;
+  expect(html.includes(mz + ' kN·m')).toBe(mz !== 0);
+  if (mz) expect(html).toMatch(new RegExp('A15,15 0 1 ' + (mz < 0 ? 1 : 0) + '[^"]+" class="load'));
+  expect(html.includes('4 kN<')).toBe(fy === 4);
+});

@@ -204,3 +204,11 @@ it('known wrong result: #1927 — missing diagram and characteristic values rema
   }), 0));
   for (const q of [...exercise.characteristics, ...exercise.diagramQuestions]) expect(q.getCorrect([])).toBeNull();
 });
+
+it.skip('known wrong result: #1927 — a guided support asks for vertical force and moment', async () => {
+  const spec = beam({ supports: [{ label: 'A', nodeIndex: 0, dofs: 'auto' }] });
+  spec.model.supports[0]!.type = 'guidedX' as typeof spec.model.supports[0]['type'];
+  expect(variantOf(spec).supports[0]!.dofs).toEqual(['Ry', 'M']);
+  const { supportTypeName } = await import('../exercise-variant');
+  expect(supportTypeName(spec.model.supports[0]!.type)).toMatch(/guid/i);
+});
