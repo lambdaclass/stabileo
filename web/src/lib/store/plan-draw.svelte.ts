@@ -10,8 +10,9 @@ import {
   placeBeamOnPlan, placeColumnOnPlan, rectCorners, type Footprint, type P2, type PlanPlaced,
 } from '../model/building/draw-on-plan';
 import { placeSlabOnPlan, slabFraming, type SlabEdge } from '../model/building/slab-on-plan';
+import { placeWallOnPlan } from '../model/building/wall-on-plan';
 
-export type PlanDrawKind = 'column' | 'beam' | 'slab';
+export type PlanDrawKind = 'column' | 'beam' | 'slab' | 'wall';
 export type ColumnMode = 'point' | 'corners' | 'side';
 export type BeamMode = 'rect' | 'axis' | 'faces';
 
@@ -41,6 +42,7 @@ let orthoLock = $state(false);
 const column = $state({ mode: 'corners' as ColumnMode, b: 0.3, h: 0.3, angle: 0, fixedPoint: [0, 0] as [number, number], levelFrom: '', levelTo: '', fixBase: true, typology: 'concrete', sectionId: null as number | null });
 const beam = $state({ mode: 'rect' as BeamMode, width: 0.2, height: 0.5, align: 0 as -1 | 0 | 1, topFlush: true, typology: 'dropped', sectionId: null as number | null });
 const slab = $state({ thickness: 0.15, typology: 'solid' });
+const wall = $state({ typology: 'concrete', meshSize: 1, fixBase: true });
 let modeBefore: 'wireframe' | 'solid' | 'sections' | null = null;
 
 const levels = (): Level[] => [...(modelStore.grid?.levels ?? [])].sort((a, b) => a.z - b.z);
@@ -57,7 +59,7 @@ function constrain(p: P2): P2 {
   return Math.abs(p.x - last.x) >= Math.abs(p.y - last.y) ? { x: p.x, y: last.y } : { x: last.x, y: p.y };
 }
 
-const mode = (): ColumnMode | BeamMode => (kind === 'column' ? column.mode : kind === 'slab' ? 'rect' : beam.mode);
+const mode = (): ColumnMode | BeamMode => (kind === 'column' ? column.mode : kind === 'beam' ? beam.mode : 'rect');
 
 function band(a: P2, b: P2, width: number): P2[] {
   const L = Math.hypot(b.x - a.x, b.y - a.y);
@@ -104,6 +106,18 @@ function commit(pts: P2[]) {
     return;
   }
   const ceiling = beamLevel();
+  if (kind === 'wall') {
+    points = [];
+    const line = beamFromRect(pts[0]!, pts[1]!);
+    const top = storeyAt(levels(), uiStore.nodeCreateZ).ceiling;
+    if (!level || !top) { uiStore.toast(t('planDraw.refused.levels'), 'error'); return; }
+    if (!line) { uiStore.toast(t('planDraw.refused.size'), 'error'); return; }
+    const r = placeWallOnPlan({ a: line.a, b: line.b, thickness: line.width, levels: levels(), levelFrom: level.id, levelTo: top.id,
+      materialId: buildingUi.concreteId, meshSize: wall.meshSize, typology: wall.typology, fixBase: wall.fixBase });
+    if (r.created === 0) uiStore.toast(t(r.refused === 'size' || r.refused === 'levels' ? `planDraw.refused.${r.refused}` : `building.refused.${r.refused ?? 'cannotMesh'}`), 'error');
+    else uiStore.toast(tp('planDraw.placed.wall', { level: level.name, top: top.name, n: r.shells }), 'success');
+    return;
+  }
   if (kind === 'slab') {
     points = [];
     if (!ceiling) { uiStore.toast(t('planDraw.noLevel'), 'error'); return; }
@@ -142,6 +156,7 @@ export const planDraw = {
   column,
   beam,
   slab,
+  wall,
   get levels() { return levels(); },
   /** The level the next click lands on: the storey's floor for a column, its ceiling for a beam. */
   get z(): number { return kind === 'beam' || kind === 'slab' ? beamLevel()?.z ?? uiStore.nodeCreateZ : uiStore.nodeCreateZ; },
@@ -213,6 +228,7 @@ export const planDraw = {
       return pts.length === 2 ? pts : [];
     }
     if (kind === 'slab') return pts.length >= 2 ? rectCorners(pts[0]!, pts[1]!) : [];
+    if (kind === 'wall') { if (pts.length < 2) return []; const l = beamFromRect(pts[0]!, pts[1]!); return l ? band(l.a, l.b, l.width) : rectCorners(pts[0]!, pts[1]!); }
     if (beam.mode === 'rect' && pts.length >= 2) { const l = beamFromRect(pts[0]!, pts[1]!); return l ? band(l.a, l.b, l.width) : rectCorners(pts[0]!, pts[1]!); }
     if (beam.mode === 'axis' && pts.length >= 2) { const a = beamAxis(pts[0]!, pts[1]!, beam.width, beam.align); return band(a.a, a.b, beam.width); }
     if (beam.mode === 'faces') {
@@ -224,7 +240,7 @@ export const planDraw = {
   },
   /** A rectangle's two sides, from the first corner to the pointer, while one is drawn. */
   get size(): string | null {
-    const rect = kind === 'slab' || (kind === 'beam' && beam.mode === 'rect') || (kind === 'column' && column.mode === 'corners');
+    const rect = kind === 'slab' || kind === 'wall' || (kind === 'beam' && beam.mode === 'rect') || (kind === 'column' && column.mode === 'corners');
     const p = points[0];
     return rect && points.length === 1 && p && hover ? `${Math.abs(hover.x - p.x).toFixed(2)} × ${Math.abs(hover.y - p.y).toFixed(2)} m` : null;
   },

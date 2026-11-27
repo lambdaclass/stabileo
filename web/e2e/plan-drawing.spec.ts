@@ -164,4 +164,19 @@ test.describe('@smoke drawing the building on the plan', () => {
     await page.mouse.move(near.x, near.y);
     await expect(page.getByTestId('plan-draw-snap')).toHaveCount(1);
   });
+  test('a wall drawn as a rectangle between two columns reaches them and stands its storey', async ({ pro: page }) => {
+    await levelsOnly(page);
+    await page.getByTestId('building-columns-draw').click();
+    for (const [x, y] of [[0, 0], [6, 0]] as const) { await click(page, x - 0.15, y - 0.15, 0); await click(page, x + 0.15, y + 0.15, 0); }
+    await expect.poll(async () => (await model(page)).elements.length).toBe(2);
+    await page.getByTestId('plan-draw-exit').click();
+    await page.getByTestId('building-tab-walls').click();
+    await page.getByTestId('building-walls-draw').click();
+    await expect(page.getByTestId('plan-draw-bar')).toContainText(/Tabique|Wall/);
+    await click(page, 0.15, -0.1, 0);
+    await click(page, 5.85, 0.1, 0);
+    await expect.poll(async () => (await model(page)).groups?.find(([, g]) => g.data?.kind === 'wall')?.[1].data).toMatchObject({ kind: 'wall', levelFrom: expect.any(String), levelTo: expect.any(String) });
+    const m = await model(page);
+    expect(m.elements.length, 'the columns are cut to share the wall’s mesh').toBeGreaterThan(2);
+  });
 });

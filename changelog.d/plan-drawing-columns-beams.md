@@ -33,3 +33,8 @@ how many are free. Its sides on beams move onto the beams, so its mesh shares th
 The drawing bar has its own snaps menu. In it, the CAD template's snaps (endpoint, midpoint, center,
 quadrant, intersection, perpendicular, nearest) and the model's (columns, beams, nodes, axes,
 drawing grid) are each turned on or off. F3 turns them all off to draw freely, and F8 keeps ortho on.
+
+Walls are drawn on the plan as rectangles too, from «Draw walls on the plan». The short side is the
+thickness, and the wall stands from the storey's level to its ceiling. An end inside a column goes to
+the column's line, and the wall is meshed at once, so the columns and beams in its plane share its
+nodes. On the lowest level its base is held.

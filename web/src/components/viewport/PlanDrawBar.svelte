@@ -70,6 +70,9 @@
       <span class="pd-sep"></span>
       <label class="pd-size">{t('planDraw.from')} <select bind:value={c.levelFrom} data-testid="plan-draw-from"><option value="">{t('planDraw.thisLevel')}</option>{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select></label>
       <label class="pd-size">{t('planDraw.to')} <select bind:value={c.levelTo} data-testid="plan-draw-to"><option value="">{t('planDraw.nextLevel')}</option>{#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select></label>
+    {:else if planDraw.kind === 'wall'}
+      <span class="pd-size" title={t('planDraw.wallHint')} data-testid="plan-draw-wall-span">{t('planDraw.wallHint')}</span>
+      <label class="pd-check"><input type="checkbox" bind:checked={planDraw.wall.fixBase} data-testid="plan-draw-wall-fix" /> {t('building.fixBase')}</label>
     {:else if planDraw.kind === 'slab'}
       <label class="pd-size" title={t('planDraw.slabThicknessHint')}>{t('planDraw.thickness')} <input value={cm(sl.thickness)} onchange={(e) => { const v = toM(e.currentTarget.value); if (v) sl.thickness = v; }} data-testid="plan-draw-thickness" /> cm</label>
       {#if planDraw.beamLevel}<span class="pd-size" title={t('planDraw.onLevelHint')} data-testid="plan-draw-level">{tp('planDraw.onLevel', { level: planDraw.beamLevel.name })}</span>{/if}
