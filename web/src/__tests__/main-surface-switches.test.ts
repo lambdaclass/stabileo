@@ -20,7 +20,7 @@ it('known wrong result: #1950 — switches off preserve main public routes, nav 
   off();
   const prerender = (await publicPaths()).sort();
   expect(prerender).toEqual(main.routes);
-  const candidates = [...main.routes, '/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/tools/tower', '/tools/earthquake-frame', '/tools/rc-column', '/tools/slab-on-columns', '/tools/outrigger', '/diagram-game', '/register', '/terms', '/privacy', '/usage-data'];
+  const candidates = [...main.routes, '/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/tools/tower', '/tools/earthquake-frame', '/tools/rc-column', '/tools/slab-on-columns', '/tools/outrigger', '/diagram-game', '/games', '/games/diagram-game', '/register', '/terms', '/privacy', '/usage-data'];
   const routes = candidates.filter(path => path === '/' || routeKind(new URL(`https://stabileo.test/en${path === '/' ? '' : path}/`)).kind !== 'landing').sort();
   expect(routes).toEqual(main.routes);
   const { SITE_NAV } = await import('../components/site/site-nav');
@@ -52,7 +52,7 @@ it('known wrong result: #1950 — switches on publish added routes and consolida
   vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: true });
   vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, diagramGame: true });
   const paths = await publicPaths();
-  for (const path of ['/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/diagram-game']) {
+  for (const path of ['/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/games', '/games/diagram-game']) {
     expect(paths).toContain(path);
     expect(routeKind(new URL(`https://stabileo.test/en${path}/`)).kind).not.toBe('landing');
   }
@@ -69,14 +69,14 @@ it.each(Array.from({ length: 8 }, (_, mask) => mask))('known wrong result: #1950
   vi.stubGlobal('__PUBLIC_FEATURES__', flags);
   const paths = await publicPaths();
   const models = ['beam-frame', 'slab-on-columns', 'earthquake-frame', 'rc-column', 'outrigger', 'tower'].map(id => `/tools/${id}`);
-  const expected = [...main.routes.filter(path => !flags.tools || !path.startsWith('/examples')), ...(flags.tools ? [...models, '/tools/mohr-2d', '/tools/mohr-3d'] : []), ...(flags.diagramGame ? ['/diagram-game'] : [])].sort();
+  const expected = [...main.routes.filter(path => !flags.tools || !path.startsWith('/examples')), ...(flags.tools ? [...models, '/tools/mohr-2d', '/tools/mohr-3d'] : []), ...(flags.diagramGame ? ['/games', '/games/diagram-game'] : [])].sort();
   expect(paths.sort()).toEqual(expected);
   for (const path of main.research) {
     expect(writtenIn(path).includes('hu'), path).toBe(flags.research && PUBLIC_LOCALES.includes('hu') && path !== '/research/benchmarks/shell-obstacle-course');
     expect(publishedLocales(path, flags)).toEqual(writtenIn(path));
   }
   const { movedPages } = await import('../lib/legacy-routes');
-  expect([...movedPages(flags)].sort()).toEqual(flags.tools ? main.routes.filter(path => path.startsWith('/examples')).sort() : []);
+  expect([...movedPages(flags)].sort()).toEqual([...(flags.diagramGame ? ['/diagram-game'] : []), ...(flags.tools ? main.routes.filter(path => path.startsWith('/examples')) : [])].sort());
 });
 
 it('known wrong result: #1916 — unpublished Hungarian research addresses fall back to English while retaining query and fragment', async () => {

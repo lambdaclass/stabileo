@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { MOVED_PAGES, movedAddress, movedRoute } from '../lib/legacy-routes';
 import { routeKind } from '../lib/public-route';
 import { PUBLIC_LOCALES } from '../lib/i18n/offered';
+import { publishedLocales } from '../lib/i18n/published';
 import { publicPaths } from '../../scripts/public-paths';
 import { redirectPage } from '../../scripts/redirect-page';
 import { TOOLS } from '../components/tools/registry';
@@ -10,10 +11,11 @@ import { TOOLS } from '../components/tools/registry';
 const flags = buildFeatures();
 const ORIGIN = 'https://stabileo.com';
 const FORMER_EXAMPLES = ['beam-frame', 'slab-on-columns', 'earthquake-frame', 'rc-column', 'outrigger', 'tower'];
+const EXAMPLE_PAGES = MOVED_PAGES.filter(path => path.startsWith('/examples'));
 
 describe('the examples moved under the tools', () => {
   it('maps every former example to the tool with the same id, and the index to the tools index', () => {
-    expect(MOVED_PAGES).toEqual(['/examples', ...FORMER_EXAMPLES.map(id => `/examples/${id}`)]);
+    expect(MOVED_PAGES).toEqual(['/examples', ...FORMER_EXAMPLES.map(id => `/examples/${id}`), '/diagram-game']);
     expect(movedRoute('/examples')).toBe(flags.tools ? '/tools' : null);
     expect(movedRoute('/examples/')).toBe(flags.tools ? '/tools' : null);
     for (const id of FORMER_EXAMPLES) expect(movedRoute(`/examples/${id}`)).toBe(flags.tools ? `/tools/${id}` : null);
@@ -22,7 +24,7 @@ describe('the examples moved under the tools', () => {
 
   it('lands each old address on a tool the site publishes, never on one the sitemap lists twice', async () => {
     const paths = await publicPaths();
-    for (const from of MOVED_PAGES) {
+    for (const from of EXAMPLE_PAGES) {
       const to = from.replace(/^\/examples/, '/tools');
       expect(paths.includes(to), to).toBe(flags.tools || to === '/tools');
       expect(paths.includes(from), from).toBe(!flags.tools);
@@ -52,7 +54,7 @@ describe('the examples moved under the tools', () => {
 
   it('writes a redirect page per language and old address that carries the query on', () => {
     for (const locale of PUBLIC_LOCALES) {
-      for (const from of MOVED_PAGES) {
+      for (const from of EXAMPLE_PAGES) {
         if (!flags.tools) {
           expect(() => redirectPage(ORIGIN, locale, from)).toThrow(`redirect-page: ${from} did not move`);
           continue;
@@ -68,5 +70,49 @@ describe('the examples moved under the tools', () => {
       }
     }
     expect(() => redirectPage(ORIGIN, 'en', '/tools/beam-frame')).toThrow();
+  });
+});
+
+describe('the diagram game moved under the games hub', () => {
+  const on = { ...flags, diagramGame: true }, off = { ...flags, diagramGame: false };
+
+  it('maps the old address to the game under /games while the game is published, and nothing else', () => {
+    for (const path of ['/diagram-game', '/diagram-game/']) {
+      expect(movedRoute(path, on)).toBe('/games/diagram-game');
+      expect(movedRoute(path, off)).toBeNull();
+    }
+    for (const path of ['/games', '/games/diagram-game', '/diagram-gamex', '/diagram-game/extra', '/diagram-game/extra/', '/blog/diagram-game']) expect(movedRoute(path, on), path).toBeNull();
+    expect(movedRoute('/examples/tower', { ...on, tools: false })).toBeNull();
+    expect(movedRoute('/diagram-game', { ...on, tools: false })).toBe('/games/diagram-game');
+  });
+
+  it('keeps the language, the trailing slash, the query and the fragment', () => {
+    for (const locale of PUBLIC_LOCALES) {
+      expect(movedAddress({ pathname: `/${locale}/diagram-game/`, search: '?seed=7&e2e=1', hash: '#play' }))
+        .toBe(flags.diagramGame ? `/${locale}/games/diagram-game/?seed=7&e2e=1#play` : null);
+    }
+    expect(movedAddress({ pathname: '/diagram-game', search: '', hash: '' })).toBe(flags.diagramGame ? '/games/diagram-game' : null);
+    expect(movedAddress({ pathname: '/en/diagram-game/extra', search: '', hash: '' })).toBeNull();
+  });
+
+  it('answers in every language at the old address, as it does at the new one', () => {
+    expect(publishedLocales('/diagram-game', on)).toEqual(publishedLocales('/games/diagram-game', on));
+    expect(publishedLocales('/diagram-game', on).length).toBe(PUBLIC_LOCALES.length);
+  });
+
+  it('lists the hub and the game in the sitemap, never the old address', async () => {
+    const paths = await publicPaths();
+    expect(paths.includes('/diagram-game')).toBe(false);
+    for (const path of ['/games', '/games/diagram-game']) expect(paths.includes(path), path).toBe(flags.diagramGame);
+  });
+
+  it('writes a redirect page per language that carries the query on', () => {
+    for (const locale of PUBLIC_LOCALES) {
+      const to = `/${locale}/games/diagram-game/`;
+      const html = redirectPage(ORIGIN, locale, '/diagram-game', on);
+      expect(html).toContain(`<link rel="canonical" href="${ORIGIN}${to}">`);
+      expect(html).toContain(`<script>location.replace(${JSON.stringify(to)} + location.search + location.hash);</script>`);
+      expect(() => redirectPage(ORIGIN, locale, '/diagram-game', off)).toThrow('redirect-page: /diagram-game did not move');
+    }
   });
 });
