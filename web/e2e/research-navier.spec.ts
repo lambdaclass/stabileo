@@ -75,9 +75,15 @@ for (const [width, height] of [[360, 900], [390, 844], [844, 390], [810, 1080]])
     });
     expect(appFirst).toBe(true);
 
-    const first = page.locator('.rs-shell-app button:visible:enabled, .rs-shell-app select:visible:enabled, .rs-shell-app [tabindex="0"]:visible').first();
-    const article = page.locator('.rs-shell-article a[href]:visible, .rs-shell-article button:visible:enabled').first();
-    expect(await first.evaluate((control, link) => Boolean(control.compareDocumentPosition(link as Node) & Node.DOCUMENT_POSITION_FOLLOWING), await article.elementHandle())).toBe(true);
+    const tabbable = ':is(a[href], button, input, select, textarea, summary, [tabindex]):visible:not(:disabled):not([tabindex="-1"])';
+    const appControls = page.locator('.rs-shell-app').locator(tabbable);
+    const articleStart = page.locator('.rs-shell-article').locator(tabbable).first();
+    await page.locator('.rs-shell-head').locator(tabbable).last().focus();
+    await page.keyboard.press('Tab');
+    await expect(appControls.first()).toBeFocused();
+    await appControls.last().focus();
+    await page.keyboard.press('Tab');
+    await expect(articleStart).toBeFocused();
 
     await page.screenshot({ path: testInfo.outputPath('navier.png'), fullPage: true });
   });

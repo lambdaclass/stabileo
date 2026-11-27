@@ -113,9 +113,9 @@
     {
       "computed": 1.1625,
       "id": "qlim-half-optimum-delta",
-      "metric": "relative difference",
+      "metric": "absolute difference",
       "name": "Clamp setting at the largest half-span limit load along Θ = 0.66",
-      "observed": 0.1452205882352941,
+      "observed": 0.1975,
       "passed": false,
       "reference": 1.36,
       "source": "arXiv:2509.12916v1, Sec. 3.2.1 p.19; half the search spacing plus half the last printed decimal",

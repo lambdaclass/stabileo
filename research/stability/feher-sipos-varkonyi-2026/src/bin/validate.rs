@@ -7,10 +7,19 @@ fn check(id: &str, metric: &str, observed: f64, tolerance: f64) -> Value {
     json!({"id": id, "metric": metric, "observed": observed, "tolerance": tolerance, "passed": observed.is_finite() && observed <= tolerance})
 }
 
-fn published(id: &str, name: &str, unit: &str, computed: Option<f64>, reference: f64, tolerance: f64, where_: &str) -> Value {
-    let observed = computed.map(|c| ((c - reference) / reference).abs()).unwrap_or(f64::INFINITY);
+enum Budget {
+    Absolute(f64),
+    Relative(f64),
+}
+
+fn published(id: &str, name: &str, unit: &str, computed: Option<f64>, reference: f64, budget: Budget, where_: &str) -> Value {
+    let (metric, tolerance, scale) = match budget {
+        Budget::Absolute(limit) => ("absolute difference", limit, 1.0),
+        Budget::Relative(limit) => ("relative difference", limit, reference.abs()),
+    };
+    let observed = computed.map(|c| (c - reference).abs() / scale).unwrap_or(f64::INFINITY);
     json!({
-        "id": id, "name": name, "unit": unit, "metric": "relative difference", "computed": computed, "reference": reference,
+        "id": id, "name": name, "unit": unit, "metric": metric, "computed": computed, "reference": reference,
         "observed": if observed.is_finite() { json!(observed) } else { json!(null) },
         "tolerance": tolerance, "passed": observed <= tolerance, "source": format!("{SOURCE}, {where_}")
     })
@@ -137,21 +146,21 @@ fn main() {
     checks.push(check("ends", "shapes 1 and 5 of Figure 9(c) are the start and the end of the path, both at Θ = 1, Δ = 0", if on("1", 1.0, 0.0, false) && on("5", 1.0, 0.0, true) { 0.0 } else { 1.0 }, 0.0));
 
     let qlim = |theta, delta, d| limit_load(96, theta, delta, d, 10.0, 1.0).unwrap().map(|(q, _)| q);
-    published_checks.push(published("qlim-uniform-0.9-0", "Limit load, uniform load, Θ = 0.9, Δ = 0 (printed as ≈ −4.2, downward)", "", qlim(0.9, 0.0, Distribution::Uniform), 4.2, 0.05, "Sec. 3.2.1 p.18"));
-    published_checks.push(published("qlim-uniform-0.9-0.04", "Limit load, uniform load, Θ = 0.9, Δ = 0.04 (printed as ≈ −3.9, downward)", "", qlim(0.9, 0.04, Distribution::Uniform), 3.9, 0.05, "Sec. 3.2.1 p.19"));
-    published_checks.push(published("qlim-half-0.9-0", "Limit load, load on half the span, Θ = 0.9, Δ = 0 (printed as ≈ −2.5, downward)", "", qlim(0.9, 0.0, Distribution::Asymmetric), 2.5, 0.05, "Sec. 3.2.1 p.19"));
+    published_checks.push(published("qlim-uniform-0.9-0", "Limit load, uniform load, Θ = 0.9, Δ = 0 (printed as ≈ −4.2, downward)", "", qlim(0.9, 0.0, Distribution::Uniform), 4.2, Budget::Relative(0.05), "Sec. 3.2.1 p.18"));
+    published_checks.push(published("qlim-uniform-0.9-0.04", "Limit load, uniform load, Θ = 0.9, Δ = 0.04 (printed as ≈ −3.9, downward)", "", qlim(0.9, 0.04, Distribution::Uniform), 3.9, Budget::Relative(0.05), "Sec. 3.2.1 p.19"));
+    published_checks.push(published("qlim-half-0.9-0", "Limit load, load on half the span, Θ = 0.9, Δ = 0 (printed as ≈ −2.5, downward)", "", qlim(0.9, 0.0, Distribution::Asymmetric), 2.5, Budget::Relative(0.05), "Sec. 3.2.1 p.19"));
     let optimum = optimum_limit_load(96, 0.66, (1.0, 1.5), 0.0125, Distribution::Asymmetric);
-    let mut best = published("qlim-half-optimum", "Largest limit load, load on half the span, along Θ = 0.66 (paper ≈ −4.0 at Δ = 1.36)", "", optimum.map(|o| o.0), 4.0, 0.05, "Sec. 3.2.1 p.19");
+    let mut best = published("qlim-half-optimum", "Largest limit load, load on half the span, along Θ = 0.66 (paper ≈ −4.0 at Δ = 1.36)", "", optimum.map(|o| o.0), 4.0, Budget::Relative(0.05), "Sec. 3.2.1 p.19");
     best["computed_delta"] = json!(optimum.map(|o| o.1));
     best["reference_delta"] = json!(1.36);
     published_checks.push(best);
     published_checks.push(published("qlim-half-optimum-delta", "Clamp setting at the largest half-span limit load along Θ = 0.66", "rad",
-        optimum.map(|o| o.1), 1.36, 0.0125 / 2. + 0.01 / 2., "Sec. 3.2.1 p.19; half the search spacing plus half the last printed decimal"));
+        optimum.map(|o| o.1), 1.36, Budget::Absolute(0.0125 / 2. + 0.01 / 2.), "Sec. 3.2.1 p.19; half the search spacing plus half the last printed decimal"));
     let kappa = |theta, delta, d| curvature_at(96, theta, delta, d, 2.5).ok().map(|(k, _)| k);
-    published_checks.push(published("kappa-uniform-0.96-0", "Largest curvature at q = 2.5, uniform load, Θ = 0.96, Δ = 0", "1/L", kappa(0.96, 0.0, Distribution::Uniform), 2.1, 0.05, "Table 1 p.20"));
-    published_checks.push(published("kappa-half-0.96-0", "Largest curvature at q = 2.5, load on half the span, Θ = 0.96, Δ = 0, reached after a snap", "1/L", kappa(0.96, 0.0, Distribution::Asymmetric), 7.6, 0.05, "Table 1 p.20"));
-    published_checks.push(published("kappa-uniform-0.64-1.16", "Largest curvature at q = 2.5, uniform load, Θ = 0.64, Δ = 1.16, reached after a snap", "1/L", kappa(0.64, 1.16, Distribution::Uniform), 11.7, 0.05, "Table 1 p.20"));
-    published_checks.push(published("kappa-half-0.64-1.16", "Largest curvature at q = 2.5, load on half the span, Θ = 0.64, Δ = 1.16", "1/L", kappa(0.64, 1.16, Distribution::Asymmetric), 3.35, 0.05, "Table 1 p.20"));
+    published_checks.push(published("kappa-uniform-0.96-0", "Largest curvature at q = 2.5, uniform load, Θ = 0.96, Δ = 0", "1/L", kappa(0.96, 0.0, Distribution::Uniform), 2.1, Budget::Relative(0.05), "Table 1 p.20"));
+    published_checks.push(published("kappa-half-0.96-0", "Largest curvature at q = 2.5, load on half the span, Θ = 0.96, Δ = 0, reached after a snap", "1/L", kappa(0.96, 0.0, Distribution::Asymmetric), 7.6, Budget::Relative(0.05), "Table 1 p.20"));
+    published_checks.push(published("kappa-uniform-0.64-1.16", "Largest curvature at q = 2.5, uniform load, Θ = 0.64, Δ = 1.16, reached after a snap", "1/L", kappa(0.64, 1.16, Distribution::Uniform), 11.7, Budget::Relative(0.05), "Table 1 p.20"));
+    published_checks.push(published("kappa-half-0.64-1.16", "Largest curvature at q = 2.5, load on half the span, Θ = 0.64, Δ = 1.16", "1/L", kappa(0.64, 1.16, Distribution::Asymmetric), 3.35, Budget::Relative(0.05), "Table 1 p.20"));
 
     let validation = json!({
         "checks": checks,

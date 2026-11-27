@@ -2,6 +2,27 @@ use gridshell_fairclough_2026::{engine, square, square_with};
 use serde_json::{json, Value};
 use std::{fs, path::Path};
 
+fn published_table(table: Vec<Value>) -> Value {
+    let reproduced = table.len() == 7 && table.iter().all(|row| row["passed"] == true);
+    assert!(reproduced, "incomplete or failed published comparisons: {table:?}");
+    json!({"reproduced_published_results": reproduced, "checks": table})
+}
+
+#[test]
+fn every_paper_row_must_pass_before_publication() {
+    let row = json!({"passed": true});
+    let accepted = published_table(vec![row.clone(); 7]);
+    assert_eq!(accepted["reproduced_published_results"], true);
+    for count in [0, 6, 8] {
+        assert!(std::panic::catch_unwind(|| published_table(vec![row.clone(); count])).is_err());
+    }
+    for index in 0..7 {
+        let mut rows = vec![row.clone(); 7];
+        rows[index] = json!({"passed": false});
+        assert!(std::panic::catch_unwind(|| published_table(rows)).is_err());
+    }
+}
+
 #[test]
 fn five_node_reference_and_engine() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -155,9 +176,7 @@ fn five_node_reference_and_engine() {
         })
     })
     .collect();
-    let reproduced = table.len() == 7 && table.iter().all(|row| row["passed"] == true);
-    assert!(reproduced, "incomplete or failed published comparisons: {table:?}");
-    let published = json!({"reproduced_published_results": reproduced, "checks": table});
+    let published = published_table(table);
     fs::create_dir_all(root.join("target/reference-results")).unwrap();
     fs::write(
         root.join("target/VALIDATION.json"),

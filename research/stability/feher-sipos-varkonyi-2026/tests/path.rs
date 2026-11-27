@@ -97,7 +97,6 @@ fn a_steep_upper_branch_at_the_last_load_increment_can_still_start() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn clamp_position_uses_an_absolute_angular_distance() {
     let data: serde_json::Value = serde_json::from_str(include_str!("../reference-results/published_comparison.json")).unwrap();
     let row = data["checks"].as_array().unwrap().iter().find(|r| r["id"] == "qlim-half-optimum-delta").unwrap();

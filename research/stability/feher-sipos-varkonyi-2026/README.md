@@ -32,6 +32,9 @@ B = (sin 1, 0), with rotary actuators at both ends and a dead load q·Q(s) pushi
   Θ = 1, q = 2.5 came out 0.3 % off with 120 members, failing the mesh check, and the
   committed evidence no longer reproduced. At 10⁻¹⁰ the results do not depend on the increments,
   converge with the member length, and reproduce the recorded replay to 5·10⁻⁵.
+  Against the 2026-11-09 evidence in b329c679d, all five Figure 9(c) midpoint heights
+  reproduce at their stored precision and the four Table 1 curvatures agree within 10⁻⁵ relative.
+  The uniform-load bracket at Θ = 0.9, Δ = 0 moved from 4.246875 to 4.2470703125.
   The half-span limit-load bracket changed from 2.3654296875 to 2.365625 (8.3·10⁻⁵ relative).
 - A path starts only from the loaded arch. The load goes on in steps of 0.25 from the unloaded
   strip, and a movement over 0.05 triggers load-step refinement. A converged inversion must recur
