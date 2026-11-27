@@ -621,3 +621,14 @@ test('known wrong result: #1928 the released load dialog has no foreign code edi
     });
   }
 });
+
+test.skip('known wrong result: #1928 ordinary column design has no sheet layout dependency', async () => {
+  const entry = resolve(root, 'src/lib/engine/design/candidate-enumerate-column.ts');
+  const result = await build({ root, logLevel: 'silent', build: {
+    write: false, lib: { entry, formats: ['es'] },
+    rollupOptions: { external: (_id, from) => from === entry },
+  } });
+  const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
+  assert.deepEqual(chunk.imports.filter(id => id.includes('/rc-sheets/')), []);
+  assert.ok(chunk.exports.includes('endZoneFor'));
+});
