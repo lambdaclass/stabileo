@@ -87,3 +87,19 @@ test('both profiles retain the published landing versions through #2472', () => 
     assert.equal(current.get(change.id), change.resultsVersion, change.id);
   }
 });
+
+test.skip('known wrong result: hidden sheet dictionary — the application publishes sheet commands and reports only when sheets are available', async () => {
+  for (const enabled of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: enabled }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+        const code = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+        for (const key of ['rcSheets.cmd', 'rcSheets.plans.fileName']) {
+          assert.equal(code.includes(JSON.stringify(key)) || code.includes(`'${key}'`), enabled, locale + ' ' + key);
+        }
+        assert.match(code, /['"]rcSheets\.fixed\.kind\.c['"]/, locale);
+      }
+    });
+  }
+});
