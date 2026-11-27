@@ -1,0 +1,4 @@
+### BREAKING (results)
+#### 2D linear analysis bounds its second-order warning by the structure's critical load factor (2026-11-10)
+
+A 2D linear solve warned `LIN-SECOND-ORDER-UNBOUNDED`, and held the CIRSOC 301 checks, whenever a compressed member was not clamped or held at both ends by supports, on frames nowhere near buckling (#1551). The 2D screen now bounds such a structure by its lowest elastic critical load factor λcr from the same linear result: `LIN-SECOND-ORDER` when λcr < 13.4, `LIN-SECOND-ORDER-NEAR` when λcr < 21.4, `LIN-SECOND-ORDER-UNBOUNDED` only when λcr cannot be computed. The Basic 2D frames and trusses no longer warn; 3D keeps the member screen. Diagnostic codes change; no number does. The advisory text is also shown once, on the canvas banner, instead of again under the Basic Advanced panel and above the results table. See [the results change](../docs/results-changes/2026-11-basic-advisories-and-plastic.md).

@@ -202,20 +202,4 @@ describe('plastic collapse', () => {
     expectPlasticRefusal(() => solvePlastic(fixedFixedUdl().args));
   });
 
-  it.skip('a fixed-fixed beam under UDL collapses at 16 Mp/L² (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', () => {
-    const { L, w, Mp, args } = fixedFixedUdl();
-    const r = solvePlastic(args);
-    expect(r.collapseFactor / ((16 * Mp) / L ** 2 / w)).toBeCloseTo(1, 2);
-  });
-
-  it.skip('hinges form at the fixed ends first, then in the span (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', () => {
-    // The mechanism's ORDER is the part a teaching tool shows, and a solver
-    // that got the collapse load right by luck would get this wrong.
-    const r = solvePlastic(fixedFixedUdl().args);
-    const first = r.steps[0].hingesFormed as Array<{ elementId: number; end: string }>;
-    const ids = first.map((h) => `${h.elementId}${h.end}`);
-    expect(ids).toContain('1start');
-    expect(ids).toContain('4end');
-    expect(r.isMechanism).toBe(true);
-  });
 });

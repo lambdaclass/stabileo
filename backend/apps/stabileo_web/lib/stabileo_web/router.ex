@@ -17,6 +17,8 @@ defmodule StabileoWeb.Router do
   forward("/api/v1/projects", StabileoProjects.Router)
   forward("/api/v1/insights", StabileoInsights.Router)
   forward("/api/v1/marketing", StabileoMarketing.Router)
+  forward("/api/v1/assignments", StabileoAssignments.Router)
+  forward("/api/v1/exams", StabileoAssignments.ExamRouter)
   forward("/api/v1/admin/projects", StabileoProjects.AdminRouter)
   forward("/api/v1/admin/insights", StabileoInsights.AdminRouter)
   forward("/api/v1/admin/marketing", StabileoMarketing.AdminRouter)

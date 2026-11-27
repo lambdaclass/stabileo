@@ -7,6 +7,7 @@
  */
 
 import type { EduExercise } from './exercises';
+import type { EduExerciseSpec } from './exercise-spec';
 import type { AnalysisResults } from '../../lib/engine/types';
 
 // ─── Types ─────────────────────────────────────────────────────────
@@ -60,6 +61,8 @@ let authoring = $state(false);
 
 let borrowedModel = $state<unknown>(null);
 
+let pendingSpec = $state<EduExerciseSpec | null>(null);
+
 export const eduStore = {
   // ── Exercise lifecycle ────────────────────────────────────────
   get exercise() { return currentExercise; },
@@ -90,7 +93,11 @@ export const eduStore = {
   get session() { return session; },
 
   /** True while the window belongs to a student who was handed this exercise. */
-  get isHandout() { return session === 'handout' && currentExercise !== null; },
+  get isHandout() { return session === 'handout' && (currentExercise !== null || pendingSpec !== null); },
+
+  /** A parametric exercise waiting for the student's legajo before it is built. */
+  get pending() { return pendingSpec; },
+  set pending(v: EduExerciseSpec | null) { pendingSpec = v; },
 
   /** Called when an exercise arrives from a link: this window is a handout. */
   markHandout() { session = 'handout'; },

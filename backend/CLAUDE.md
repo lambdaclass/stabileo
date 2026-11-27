@@ -14,6 +14,7 @@ backend/apps/
 ├── stabileo_projects  # Cloud projects
 ├── stabileo_insights  # Anonymous usage, feedback, admin metrics
 ├── stabileo_marketing # Sign-up sources, account activity, Conversions API (Oban)
+├── stabileo_assignments # Homework and timed exams for Educational mode
 └── stabileo_web       # Endpoint and main router that forwards to domain routers
 ```
 
@@ -43,6 +44,7 @@ Schemas are centralized in `stabileo_repo`. Domain apps contain context modules 
 | Projects | `stabileo_projects` | Cloud projects; admin listing | `/api/v1/projects`, `/api/v1/admin/projects` |
 | Insights | `stabileo_insights` | Usage events, feedback; admin metrics and inbox | `/api/v1/insights`, `/api/v1/admin/insights` |
 | Marketing | `stabileo_marketing` | Tracking ids, sign-up sources, activity, Conversions API, acquisition (`specs/services/marketing.md`) | `/api/v1/marketing`, `/api/v1/admin/marketing` |
+| Assignments | `stabileo_assignments` | Homework and timed exams: owner side and student side | `/api/v1/assignments`, `/api/v1/exams` |
 | Web | `stabileo_web` | Endpoint, health | `/api/v1/health` |
 | Utilities | `stabileo_utils` | Shared plugs and helpers | — |
 

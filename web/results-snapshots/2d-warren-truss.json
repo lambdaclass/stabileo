@@ -4,7 +4,7 @@
   "format": 2,
   "values": {
     "base.allZero": false,
-    "base.diagnosticCodes": "warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:known_issue",
+    "base.diagnosticCodes": "warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk warning:instability_risk",
     "base.displacements[n1]": {"ry":0,"ux":0,"uz":0},
     "base.displacements[n2]": {"ry":0,"ux":0.0002445469849,"uz":-0.00245574402},
     "base.displacements[n3]": {"ry":0,"ux":0.0007947777008,"uz":-0.003433180738},

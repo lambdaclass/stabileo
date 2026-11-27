@@ -18,6 +18,7 @@
 import { modelStore, resultsStore, uiStore } from '../../lib/store';
 import { t } from '../../lib/i18n';
 import { eduStore } from './edu-store.svelte';
+import { examLock } from '../../lib/store/exam-lock.svelte';
 import { solvePDelta } from '../../lib/engine/wasm-solver';
 import { errorText } from '../../lib/utils/error-text';
 import { reportSolverDiagnostics } from '../../lib/engine/solve-diagnostics';
@@ -39,6 +40,8 @@ import { hasInvalid2DDisplacements } from '../../lib/geometry/coordinate-system'
  * window listener any more.
  */
 export function solveForEdu(): void {
+  // The exam room never solves on screen: its answers are marked from the stored spec after it closes.
+  if (examLock.room) return;
   const exercise = eduStore.exercise;
   const usePDelta = exercise?.solverType === 'pdelta';
 

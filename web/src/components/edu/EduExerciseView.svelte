@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { saveFile } from '../../lib/export/save-file';
   import { resultsStore } from '../../lib/store';
   import type { EduExercise, DiagramShape } from './exercises';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import { eduStore } from './edu-store.svelte';
   import { reactionDofLabel, readSupportReaction, type ReactionDof } from './edu-reactions';
   import type { SolveTimings } from '../../lib/engine/types';
@@ -15,12 +16,11 @@
   import {
     emptySketch, gradeSketch, type Sketch, type SketchVerdict,
   } from './diagram-sketch';
-  import { computeDisplacementAt } from '../../lib/engine/diagrams';
-  import { solverBendingForces2D } from '../../lib/engine/transverse-sign-2d';
-  import { diagramValueAsShown } from './exercise-spec';
   import { modelStore } from '../../lib/store';
-  import { effectiveBendingInertia } from '../../lib/engine/solver-service';
-  import { get2DDisplayDisplacementVertical } from '../../lib/geometry/coordinate-system';
+  import { sketchTruth } from './sketch-truth';
+  import { TOLERANCE, withinTolerance } from './exercise-marking';
+  import FreeBodyStep from './FreeBodyStep.svelte';
+  import { freeBodyKeys, freeBodyLabel, freeBodyTruth, freeBodyUnit, parseFreeBodyKey } from './free-body-step';
 
   // Cubic included: a linearly varying load makes the moment cubic, and the
   // answer has to be on the list for the question to be answerable.
@@ -28,27 +28,39 @@
 
   interface Props {
     exercise: EduExercise;
+    /** An exam: no verdicts, hints, reveals or hand-in until it is closed. */
+    exam?: boolean;
+    initialAnswers?: SubmittedAnswer[];
+    onanswers?: (answers: SubmittedAnswer[]) => void;
   }
 
-  let { exercise }: Props = $props();
+  let { exercise, exam = false, initialAnswers = [], onanswers }: Props = $props();
+  const saved = new Map(initialAnswers.filter((a) => a.key).map((a) => [a.key!, a]));
+  const savedText = (key: string) => saved.get(key)?.answer ?? '';
 
   // ─── Student answers ───────────────────────────────────────
   type ReactionAnswer = Record<string, string>;
   let reactionAnswers = $state<ReactionAnswer[]>(
-    exercise.supports.map(s => {
+    exercise.supports.map((s, i) => {
       const ans: ReactionAnswer = {};
-      for (const dof of s.dofs) ans[dof] = '';
+      for (const dof of s.dofs) ans[dof] = savedText(`r:${i}:${dof}`);
       return ans;
     })
   );
-  let charAnswers = $state<string[]>(exercise.characteristics.map(() => ''));
-  let diagramAnswers = $state<string[]>(exercise.diagramQuestions.map(() => ''));
+  let charAnswers = $state<string[]>(exercise.characteristics.map((_, i) => savedText(`c:${i}`)));
+  let diagramAnswers = $state<string[]>(exercise.diagramQuestions.map((_, i) => savedText(`d:${i}`)));
 
   // ─── Kinematic + diagram shape answers ───────────────────────
-  let kinematicAnswer = $state<'isostatic' | 'hyperstatic' | ''>('');
-  let kinematicDegreeAnswer = $state('');
+  const savedKinematic = savedText('k');
+  let kinematicAnswer = $state<'isostatic' | 'hyperstatic' | ''>(
+    savedKinematic === 'isostatic' || savedKinematic === 'hyperstatic' ? savedKinematic : '',
+  );
+  let kinematicDegreeAnswer = $state(savedText('kd'));
   let shapeAnswers = $state<(DiagramShape | '')[]>(
-    (exercise.diagramShapeQuestions ?? []).map(() => '' as (DiagramShape | ''))
+    (exercise.diagramShapeQuestions ?? []).map((_, i) => {
+      const v = savedText(`s:${i}`);
+      return (SHAPE_OPTIONS as string[]).includes(v) ? v as DiagramShape : '';
+    })
   );
 
   // ─── Verification state ────────────────────────────────────
@@ -80,76 +92,23 @@
   let revealedChars = $state<boolean[]>(exercise.characteristics.map(() => false));
   let revealedDiagrams = $state<boolean[]>(exercise.diagramQuestions.map(() => false));
 
-  const TOLERANCE = 0.05;
 
   // ─── Drawn diagrams ────────────────────────────────────────
   //
   // One sketch per question, and the real diagram sampled at the same
   // stations the marker uses. The samples come from the solve, so an exercise
   // never stores a "correct drawing" that could drift from its own structure.
-  const SKETCH_STATIONS = 41;
   const sketchQuestions = $derived(exercise.diagramSketchQuestions ?? []);
-  let sketches = $state<Sketch[]>((exercise.diagramSketchQuestions ?? []).map(() => emptySketch()));
+  let sketches = $state<Sketch[]>((exercise.diagramSketchQuestions ?? []).map((_, i) => saved.get(`sk:${i}`)?.sketch ?? emptySketch()));
   let sketchVerdicts = $state<Array<SketchVerdict | null>>((exercise.diagramSketchQuestions ?? []).map(() => null));
 
   /** Whether the student may reveal an answer. Absent means yes, so every
    *  exercise written before the teacher could choose keeps working. */
-  const canReveal = $derived(exercise.allowReveal !== false);
+  const canReveal = $derived(!exam && exercise.allowReveal !== false);
 
-  /** The three the diagram sampler knows. `D` is the deflected shape and is
-   *  read from the displacement field instead, further down. */
-  const DIAGRAM_KIND: Record<'N' | 'V' | 'M', 'axial' | 'shear' | 'moment'> =
-    { N: 'axial', V: 'shear', M: 'moment' };
-
-  /** The real diagram for a question, sampled along the member. */
   function trueSamplesFor(i: number): number[] | null {
     const q = sketchQuestions[i];
-    const res = eduStore.results;
-    const forces = res?.elementForces;
-    if (!q || !forces?.length) return null;
-    const ef = forces[q.elementIndex ?? 0];
-    if (!ef) return null;
-
-    // Read once into a local: narrowing a property of a reactive object does
-    // not survive the closure below.
-    const which = q.diagram;
-    if (which !== 'D') {
-      // The same funnel every other answer goes through, so the drawing and
-      // the typed value can never disagree about which way is positive.
-      return Array.from({ length: SKETCH_STATIONS }, (_, k) =>
-        diagramValueAsShown(DIAGRAM_KIND[which], k / (SKETCH_STATIONS - 1), ef as never));
-    }
-
-    /*
-     * The deflected shape, sampled the same way — through the same Hermite
-     * interpolation the viewport draws, so the curve a student is marked
-     * against is the curve the app would have drawn them. In mm, because a
-     * deflection in metres is four zeros and a digit.
-     */
-    const elem = modelStore.elements.get(ef.elementId);
-    if (!elem) return null;
-    const ni = modelStore.nodes.get(elem.nodeI);
-    const nj = modelStore.nodes.get(elem.nodeJ);
-    const di = res?.displacements.find(d => d.nodeId === elem.nodeI);
-    const dj = res?.displacements.find(d => d.nodeId === elem.nodeJ);
-    if (!ni || !nj || !di || !dj) return null;
-
-    const mat = modelStore.materials.get(elem.materialId);
-    const sec = modelStore.sections.get(elem.sectionId);
-    const EI = mat && sec ? mat.e * 1000 * effectiveBendingInertia(sec) : undefined;
-
-    const recovery = solverBendingForces2D(ef, nj.x - ni.x, nj.y - ni.y);
-    return Array.from({ length: SKETCH_STATIONS }, (_, k) => {
-      const disp = computeDisplacementAt(
-        k / (SKETCH_STATIONS - 1),
-        ni.x, ni.y, nj.x, nj.y,
-        di.ux, di.uz, di.ry,
-        dj.ux, dj.uz, dj.ry,
-        ef.length, ef.hingeStart, ef.hingeEnd,
-        EI, recovery.qI, recovery.qJ, recovery.pointLoads, recovery.distributedLoads,
-      );
-      return get2DDisplayDisplacementVertical(disp) * 1000;
-    });
+    return q ? sketchTruth(q, eduStore.results, modelStore) : null;
   }
 
   function verifySketches() {
@@ -166,6 +125,16 @@
 
   // Solver insight for educational display
   const timings = $derived<SolveTimings | undefined>(eduStore.results?.timings);
+
+  const freeBody = $derived(exercise.freeBody);
+  const fbKeys = $derived(freeBody ? freeBodyKeys(freeBody.bars) : []);
+  const blankRecord = <T,>(make: (key: string) => T) =>
+    Object.fromEntries((exercise.freeBody ? freeBodyKeys(exercise.freeBody.bars) : []).map((k) => [k, make(k)]));
+  let fbAnswers = $state<Record<string, string>>(blankRecord((k) => savedText(k)));
+  let fbVerif = $state<Record<string, VerifState>>(blankRecord(() => 'pending' as VerifState));
+  let fbRevealed = $state<Record<string, boolean>>(blankRecord(() => false));
+  const fbTruth = $derived(freeBody ? freeBodyTruth(freeBody.model, freeBody.bars, eduStore.results?.elementForces) : null);
+  const freeBodyComplete = $derived(fbKeys.every((k) => fbVerif[k] === 'correct'));
 
   // ─── Step completion ───────────────────────────────────────
   const kinematicComplete = $derived(
@@ -188,35 +157,34 @@
   const step3Complete = $derived(
     charVerif.every(s => s === 'correct')
   );
-  const allCorrect = $derived(step1Complete && step2Complete && step3Complete);
+  const allCorrect = $derived(step1Complete && freeBodyComplete && step2Complete && step3Complete);
 
   // ─── Which step is on screen ───────────────────────────────
-  //
-  // One at a time. The three steps are a sequence — you cannot check a shear
-  // diagram before you know the reactions — and showing them stacked made a
-  // beam exercise a page of thirty inputs that all look equally urgent.
-  let activeStep = $state(1);
+  type StepId = 'reactions' | 'freeBody' | 'diagrams' | 'values' | 'handin';
+  let activeStep = $state<StepId>('reactions');
 
-  const STEPS = $derived([
-    { n: 1, label: t('edu.reactions'), done: step1Complete, prevDone: false },
-    { n: 2, label: t('edu.diagrams'), done: step2Complete, prevDone: step1Complete },
-    { n: 3, label: t('edu.values'), done: step3Complete, prevDone: step2Complete },
-  ]);
+  const STEPS = $derived.by(() => {
+    const list: Array<{ id: StepId; label: string; done: boolean }> = [
+      { id: 'reactions', label: t('edu.reactions'), done: step1Complete },
+      ...(freeBody ? [{ id: 'freeBody' as const, label: t('edu.fb.step'), done: freeBodyComplete }] : []),
+      { id: 'diagrams', label: t('edu.diagrams'), done: step2Complete },
+      { id: 'values', label: t('edu.values'), done: step3Complete },
+      ...(exam ? [] : [{ id: 'handin' as const, label: t('edu.handin.title'), done: false }]),
+    ];
+    return list.map((step, k) => ({ ...step, n: k + 1, prevDone: k > 0 && list[k - 1]!.done }));
+  });
 
-  /*
-   * Finishing a step moves the student on, once.
-   *
-   * Tracked per step rather than off the completion flag alone: a student who
-   * goes back to step 1 after finishing it must not be thrown forward again on
-   * the next keystroke.
-   */
-  let advancedFrom = $state<Set<number>>(new Set());
+  /** A step's heading carries its place in this exercise's sequence, which shifts when the free-body step is there. */
+  const stepTitle = (key: string, id: StepId) => t(key).replace(/\d+/, String(STEPS.find((st) => st.id === id)?.n ?? ''));
+
+  /** Finishing a step moves the student on once, so going back to a finished step does not throw them forward again. */
+  let advancedFrom = $state<Set<StepId>>(new Set());
   $effect(() => {
-    const done = [step1Complete, step2Complete, step3Complete];
-    const i = activeStep - 1;
-    if (!done[i] || advancedFrom.has(activeStep) || activeStep === 3) return;
+    const k = STEPS.findIndex((st) => st.id === activeStep);
+    const step = STEPS[k], next = STEPS[k + 1];
+    if (exam || !step?.done || !next || advancedFrom.has(activeStep)) return;
     advancedFrom = new Set([...advancedFrom, activeStep]);
-    activeStep = activeStep + 1;
+    activeStep = next.id;
   });
 
   // ─── Handing it in ─────────────────────────────────────────
@@ -234,6 +202,7 @@
     exercise.supports.forEach((sup, i) => {
       for (const dof of sup.dofs) {
         out.push({
+          key: `r:${i}:${dof}`,
           label: `${sup.label} — ${reactionDofLabel(dof)}`,
           answer: reactionAnswers[i][dof] ?? '',
           unit: dof === 'M' ? 'kN·m' : 'kN',
@@ -244,13 +213,36 @@
     });
     if (exercise.kinematicQuestion) {
       out.push({
+        key: 'k',
         label: t('edu.kinematicQuestion'),
         answer: kinematicAnswer,
         outcome: kinematicVerif,
       });
+      if (kinematicAnswer === 'hyperstatic') {
+        out.push({
+          key: 'kd',
+          label: t('edu.hyperstaticDegree'),
+          answer: kinematicDegreeAnswer,
+          outcome: kinematicDegreeVerif,
+        });
+      }
+    }
+    if (freeBody) {
+      for (const key of fbKeys) {
+        const k = parseFreeBodyKey(key)!;
+        out.push({
+          key,
+          label: freeBodyLabel(freeBody.bars, key),
+          answer: fbAnswers[key] ?? '',
+          unit: freeBodyUnit(k.dof),
+          outcome: fbVerif[key] ?? 'pending',
+          revealed: fbRevealed[key] ?? false,
+        });
+      }
     }
     (exercise.diagramShapeQuestions ?? []).forEach((q, i) => {
       out.push({
+        key: `s:${i}`,
         label: `${t('edu.shapeQuestion')} — ${q.diagram}`,
         answer: shapeAnswers[i] ?? '',
         outcome: shapeVerif[i],
@@ -258,6 +250,7 @@
     });
     exercise.diagramQuestions.forEach((q, i) => {
       out.push({
+        key: `d:${i}`,
         label: q.question,
         answer: diagramAnswers[i] ?? '',
         unit: q.unit,
@@ -268,6 +261,7 @@
     sketchQuestions.forEach((q, i) => {
       const v = sketchVerdicts[i];
       out.push({
+        key: `sk:${i}`,
         label: `${t('edu.sketch.span')} ${q.diagram}`,
         // The drawing itself, as the ordinates and powers that produced it —
         // a teacher reading the record can see what was drawn, not only
@@ -279,10 +273,12 @@
           .map(pt => `${pt.t.toFixed(2)}:${pt.value.toFixed(2)}`)
           .join(' ') + ' · ' + sketches[i].powers.map(p => t('edu.sketch.power.' + p)).join('/'),
         outcome: v ? (v.curveOk && v.powersOk ? 'correct' : 'incorrect') : 'pending',
+        sketch: $state.snapshot(sketches[i]),
       });
     });
     exercise.characteristics.forEach((c, i) => {
       out.push({
+        key: `c:${i}`,
         label: c.label,
         answer: charAnswers[i] ?? '',
         unit: c.unit,
@@ -301,15 +297,25 @@
       student: studentName.trim(),
       submittedAt: new Date().toISOString(),
       answers: collectAnswers(),
+      ...(exercise.legajo ? { legajo: exercise.legajo } : {}),
+      ...(exercise.seed !== undefined ? { seed: exercise.seed } : {}),
+      ...(exercise.variant ? { variant: exercise.variant } : {}),
     };
   }
+
+  let answersSeen = false;
+  $effect(() => {
+    const answers = collectAnswers();
+    if (!answersSeen) { answersSeen = true; return; }
+    if (onanswers) untrack(() => onanswers(answers));
+  });
 
   const answeredCount = $derived(collectAnswers().filter(a => a.outcome !== 'pending').length);
   const totalCount = $derived(collectAnswers().length);
 
   function downloadSubmission() {
     const sub = buildSubmission();
-    const who = sub.student ? sub.student.replace(/[^\w\-]+/g, '-').toLowerCase() : 'entrega';
+    const who = sub.student || sub.legajo ? (sub.student || sub.legajo!).replace(/[^\w\-]+/g, '-').toLowerCase() : 'entrega';
     saveFile(`${who}-${sub.exerciseId}.stabileo-entrega.json`, () => new Blob([toSubmissionFile(sub)], { type: 'application/json' }));
     handinNote = t('edu.handin.downloaded');
   }
@@ -343,9 +349,7 @@
   }
 
   function checkTolerance(student: number, correct: number): VerifState {
-    const abs = Math.abs(correct);
-    const tol = abs > 0.01 ? abs * TOLERANCE : 0.1;
-    return Math.abs(student - correct) <= tol ? 'correct' : 'incorrect';
+    return withinTolerance(student, correct) ? 'correct' : 'incorrect';
   }
 
   function generateHint(student: number, correct: number, label: string, dof: string): string | null {
@@ -405,8 +409,13 @@
 
   function verifyShapes() {
     const qs = exercise.diagramShapeQuestions;
-    if (!qs) return;
-    shapeVerif = qs.map((q, i) => shapeAnswers[i] === q.correct ? 'correct' : (shapeAnswers[i] ? 'incorrect' : 'pending'));
+    const forces = eduStore.results?.elementForces;
+    if (!qs || !forces) return;
+    shapeVerif = qs.map((q, i) => {
+      const correct = q.getCorrect(forces);
+      if (!shapeAnswers[i] || !correct) return 'pending';
+      return shapeAnswers[i] === correct ? 'correct' : 'incorrect';
+    });
   }
 
   function revealReaction(supIdx: number, dof: string) {
@@ -524,32 +533,20 @@
   a spec and for anyone debugging a verdict that will not appear.
 -->
 <div class="exercise-view" data-solved={eduStore.results ? 'yes' : 'no'}>
-  <!--
-    The stepper is navigation, not decoration.
-    \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-    It always drew three numbered dots and a tick for each finished step, and
-    then the panel showed all three steps stacked in one scroll anyway. So it
-    told the student where they were in something they could already see all
-    of, which is the one thing a progress indicator should not do.
-
-    Now it moves. One step is on screen at a time, the dots switch between
-    them, and a finished step stays reachable \u2014 a student rereading their
-    reactions while answering the diagrams is doing structural analysis, not
-    going backwards.
-  -->
-  <div class="progress-bar" role="tablist">
-    {#each STEPS as s (s.n)}
-      {#if s.n > 1}<div class="progress-line" class:done={s.prevDone}></div>{/if}
+  <div class="progress-bar" class:many={STEPS.length > 4} role="tablist">
+    {#each STEPS as s (s.id)}
+      {#if s.n > 1}<div class="progress-line" class:done={s.prevDone && !exam}></div>{/if}
       <button
         class="progress-step"
-        class:done={s.done}
-        class:current={activeStep === s.n}
+        class:done={s.done && !exam}
+        class:current={activeStep === s.id}
         role="tab"
-        aria-selected={activeStep === s.n}
-        onclick={() => (activeStep = s.n)}
-        data-testid="edu-step-{s.n}"
+        aria-selected={activeStep === s.id}
+        title={s.label}
+        onclick={() => (activeStep = s.id)}
+        data-testid="edu-step-{s.id}"
       >
-        <span class="step-check">{s.done ? '\u2713' : s.n}</span>
+        <span class="step-check">{s.done && !exam ? '\u2713' : s.n}</span>
         <span class="step-label">{s.label}</span>
       </button>
     {/each}
@@ -561,6 +558,12 @@
     <div class="exercise-description">
       <p>{exercise.description}</p>
     </div>
+  {/if}
+
+  {#if exercise.variant && !exam}
+    <p class="variant-who" data-testid="edu-variant-who">
+      {exercise.legajo ? tp('edu.params.yourVariant', { legajo: exercise.legajo }) : t('edu.params.practiceVariant')}
+    </p>
   {/if}
 
   <!-- Section data (given info for strength/advanced exercises) -->
@@ -593,12 +596,13 @@
   {/if}
 
   <!-- Step 1: Reactions -->
-  {#if activeStep === 1}
-  <section class="step-section" class:completed={step1Complete}>
+  {#if activeStep === 'reactions'}
+  <section class="step-section" class:completed={step1Complete && !exam}>
     <h3 class="step-title">
-      {t('edu.step1Title')}
-      {#if step1Complete}<span class="step-done">✓</span>{/if}
+      {stepTitle('edu.step1Title', 'reactions')}
+      {#if step1Complete && !exam}<span class="step-done">✓</span>{/if}
     </h3>
+    <p class="step-info sign-legend">{t('edu.signs')}</p>
 
     {#each exercise.supports as sup, i}
       <div class="support-row">
@@ -661,9 +665,11 @@
       </div>
     {/if}
 
+    {#if !exam}
     <button class="verify-btn" onclick={() => { verifyReactions(); verifyKinematic(); }} disabled={step1Complete}>
       {step1Complete ? '\u2713 ' + t('edu.verified') : t('edu.verifyReactions')}
     </button>
+    {/if}
 
     {#if hints.length > 0}
       <div class="hints">
@@ -675,12 +681,31 @@
   </section>
   {/if}
 
-  <!-- Step 2: Diagram questions -->
-  {#if activeStep === 2}
-  <section class="step-section" class:completed={step2Complete}>
+  {#if activeStep === 'freeBody' && freeBody}
+  <section class="step-section" class:completed={freeBodyComplete && !exam}>
     <h3 class="step-title">
-      {t('edu.step2Title')}
-      {#if step2Complete}<span class="step-done">✓</span>{/if}
+      {stepTitle('edu.fb.title', 'freeBody')}
+      {#if freeBodyComplete && !exam}<span class="step-done">✓</span>{/if}
+    </h3>
+    <FreeBodyStep
+      model={freeBody.model}
+      bars={freeBody.bars}
+      truth={fbTruth}
+      bind:answers={fbAnswers}
+      bind:verif={fbVerif}
+      bind:revealed={fbRevealed}
+      {exam}
+      {canReveal}
+      complete={freeBodyComplete}
+    />
+  </section>
+  {/if}
+
+  {#if activeStep === 'diagrams'}
+  <section class="step-section" class:completed={step2Complete && !exam}>
+    <h3 class="step-title">
+      {stepTitle('edu.step2Title', 'diagrams')}
+      {#if step2Complete && !exam}<span class="step-done">✓</span>{/if}
     </h3>
 
     <!-- Diagram shape questions -->
@@ -701,9 +726,11 @@
           </div>
         {/each}
       </div>
+      {#if !exam}
       <button class="verify-btn verify-btn-small" onclick={verifyShapes} disabled={shapesComplete}>
         {shapesComplete ? '\u2713 ' + t('edu.verified') : t('edu.verifyShapes')}
       </button>
+      {/if}
     {/if}
 
     <!--
@@ -761,9 +788,11 @@
       </div>
     {/each}
     {#if sketchQuestions.length > 0}
+      {#if !exam}
       <button class="verify-btn verify-btn-small" onclick={verifySketches} disabled={sketchesComplete}>
         {sketchesComplete ? '\u2713 ' + t('edu.verified') : t('edu.sketch.verify')}
       </button>
+      {/if}
     {/if}
 
     {#if exercise.diagramQuestions.length > 0}
@@ -795,9 +824,11 @@
         {/each}
       </div>
 
+      {#if !exam}
       <button class="verify-btn" onclick={verifyDiagrams} disabled={step2Complete}>
         {step2Complete ? '\u2713 ' + t('edu.verified') : t('edu.verifyDiagrams')}
       </button>
+      {/if}
 
       {#if diagramHints.length > 0}
         <div class="hints">
@@ -813,11 +844,11 @@
   {/if}
 
   <!-- Step 3: Characteristic values -->
-  {#if activeStep === 3}
-  <section class="step-section" class:completed={step3Complete}>
+  {#if activeStep === 'values'}
+  <section class="step-section" class:completed={step3Complete && !exam}>
     <h3 class="step-title">
-      {t('edu.step3Title')}
-      {#if step3Complete}<span class="step-done">✓</span>{/if}
+      {stepTitle('edu.step3Title', 'values')}
+      {#if step3Complete && !exam}<span class="step-done">✓</span>{/if}
     </h3>
 
     <div class="char-inputs">
@@ -846,9 +877,11 @@
       {/each}
     </div>
 
+    {#if !exam}
     <button class="verify-btn" onclick={verifyCharacteristics} disabled={step3Complete}>
       {step3Complete ? '\u2713 ' + t('edu.verified') : t('edu.verifyValues')}
     </button>
+    {/if}
 
     {#if charHints.length > 0}
       <div class="hints">
@@ -866,17 +899,8 @@
     </div>
   {/if}
 
-  <!--
-    Handing it in.
-    ──────────────
-    Available from the first answer, not only once everything is right: a
-    student who ran out of time hands in what they have, and a teacher marking
-    partial work needs it. The name field is optional because the app has no
-    accounts and pretending otherwise would be a lie about what this is.
-  -->
+  {#if !exam && activeStep === 'handin'}
   <section class="handin" data-testid="edu-handin">
-    <!-- Its own class: handing in is not one of the three steps, and a
-         selector for "the step you are on" must not also match it. -->
     <h3 class="handin-title">{t('edu.handin.title')}</h3>
     <label class="handin-name">
       {t('edu.handin.name')}
@@ -916,6 +940,7 @@
       <textarea class="handin-code" readonly rows="3" value={submissionCode}></textarea>
     {/if}
   </section>
+  {/if}
 </div>
 
 <style>
@@ -923,6 +948,7 @@
     padding: 12px 14px;
     overflow-y: auto;
     flex: 1;
+    container-type: inline-size;
   }
 
   /* ─── The stepper ───────────────────────────────────────────────────
@@ -984,14 +1010,20 @@
   .step-label {
     font-size: 0.65rem;
     color: var(--st-text-3);
+    white-space: nowrap;
     transition: color 0.2s;
+  }
+
+  @container (max-width: 480px) {
+    .progress-bar.many .progress-step:not(.current) .step-label { display: none; }
   }
 
   .progress-step.done .step-label { color: var(--st-ok); }
   .progress-step.current .step-label { color: var(--st-text); font-weight: 600; }
 
   .progress-line {
-    width: 30px;
+    flex: 0 1 30px;
+    min-width: 10px;
     height: 2px;
     background: var(--st-hair);
     margin: 0 6px;
@@ -1014,6 +1046,14 @@
     color: var(--st-text-2);
     margin: 0;
     line-height: 1.5;
+  }
+
+  .variant-who {
+    font-family: var(--st-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    color: var(--st-value);
+    margin: 0 0 12px;
   }
 
   /* ─── Solver insight ─── */
@@ -1447,11 +1487,7 @@
     border-bottom: 1px solid var(--st-hair);
   }
 
-  .handin {
-    margin-top: 22px;
-    padding-top: 14px;
-    border-top: 1px solid var(--st-hair);
-  }
+  .handin { margin-top: 4px; }
 
   .handin-name {
     display: flex;

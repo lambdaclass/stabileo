@@ -120,6 +120,7 @@ const words: Translations = {
   'course.plastic.trace.eventAxial': 'La barre {member} est la première à atteindre Np : n = {n} par unité de λ, N cumulé = {N}, Np = {np}.',
   'course.plastic.trace.min': 'C\'est le plus petit Δλ de toutes les sections : les autres ne l\'atteignent pas encore.',
   'course.plastic.trace.update': 'λ = {before} + {dl} = {after}. Efforts et déplacements se cumulent en ajoutant Δλ fois ceux de cette solution.',
+  'course.plastic.trace.moved': 'La rotule {i} de la barre {member} se déplace de x = {from} à x = {to}, là où le moment est désormais maximal : il y vaut Mp avec un effort tranchant nul, et la section qu’elle quitte garde la rotation plastique déjà acquise.',
   'course.plastic.trace.hinge': 'On place la rotule {i} dans la barre {member}, x = {x} : le moment y reste à Mp et la section tourne librement.',
   'course.plastic.trace.yield': 'La barre {member} se plastifie (rotule {i}) : elle garde Np et n\'apporte plus de rigidité.',
   'course.plastic.trace.collapse': 'Avec cette rotule, la structure est un mécanisme : λc = {lambda}.',
@@ -180,6 +181,7 @@ const words: Translations = {
   'course.plastic.user.showMoments': 'Moments',
   'course.plastic.closed': 'refermée',
   'course.plastic.closedTitle': 'La rotule s’est déchargée à λ = {lambda} et est redevenue rigide.',
+  'course.plastic.limitOnly': 'Le calcul pas à pas n’atteint pas la charge de ruine (il s’arrête à λ = {history}). La charge de ruine de l’analyse limite (théorèmes statique et cinématique) est λc = {lambda} ; les rotules du pas à pas sont approchées.',
   'course.plastic.unresolved': 'Le calcul s’est arrêté sur un mécanisme qu’il n’a pas pu distinguer d’un faux (rotules qui se déchargeraient) : ce λ est l’endroit où il s’est arrêté, pas une charge de ruine vérifiée.',
 };
 
