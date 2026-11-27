@@ -21,7 +21,6 @@
     "de": "Schneeverwehungen folgen durchgehenden Dachkanten",
     "fr": "Les congères suivent les bords continus du toit",
     "tr": "Kar birikmesi sürekli çatı kenarlarını izliyor",
-    "nl": "Dekking van sneeuwophoping volgt doorlopende dakranden",
     "zh": "雪堆积范围沿连续的屋面边缘"
   },
   "explanation": {
@@ -31,7 +30,6 @@
     "de": "Durchgehende geneigte Dachfelder teilen Verwehungs- und Gleitlaststreifen anhand ihrer tatsächlichen Kantenhöhen. Einzugsstreifen verwenden die horizontale Tiefe. Teilweise oder unterbrochene Traufüberdeckung wird ohne Schneelasten abgelehnt. Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2095). In 0.6.1 enthalten.",
     "fr": "Les panneaux inclinés continus partagent bandes et longueurs de congères selon les altitudes réelles du bord. Les bandes tributaires utilisent la profondeur horizontale. Les égouts à couverture partielle ou discontinue sont refusés sans générer de charges de neige. Régénérez les charges et relancez analyses, combinaisons et vérifications (#2095). Correction incluse dans 0.6.1.",
     "tr": "Sürekli eğimli paneller gerçek kenar kotlarına göre birikme ve kayma şeritlerini paylaşır. Yük şeritleri yatay derinliği kullanır. Kısmi veya kesintili saçak kapsamı kar yükü üretilmeden reddedilir. Kar yüklerini yeniden üretip analizleri, birleşimleri ve tasarım kontrollerini çalıştırın (#2095). Düzeltme 0.6.1 sürümüne dahildir.",
-    "nl": "Verbonden hellende vlakken delen nu ophopings- en glijbanden en strijklengte, gebaseerd op hun werkelijke randniveaus. Hellende belaste stroken gebruiken de horizontale diepte. Gedeeltelijke of losgekoppelde dekking van glijdende dakranden wordt nu geweigerd zonder sneeuwbelastingen te genereren. Genereer de betreffende sneeuwbelastingen opnieuw en voer berekeningen, combinaties en ontwerptoetsingen opnieuw uit (#2095). Deze correctie zit in 0.6.1.",
     "zh": "相连的坡屋面板现在共用堆积带和滑落带，并使用其实际边缘标高计算风吹距离。坡屋面的从属条带使用水平深度。部分或不相连的滑落檐口覆盖现在会拒绝求解，不生成雪荷载。请重新生成受影响的雪荷载，并重新运行分析、组合和设计验算（#2095）。此修正已包含在 0.6.1 中。"
   },
   "changelog": {

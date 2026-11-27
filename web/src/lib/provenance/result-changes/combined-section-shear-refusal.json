@@ -25,7 +25,6 @@
     "fr": "Refus du cisaillement combiné de torsion et transversal",
     "hu": "A csavarási és keresztirányú nyírás együttes értékelésének elutasítása",
     "tr": "Burulma ve enine kaymanın birlikte değerlendirilmesi reddediliyor",
-    "nl": "Weigering bij gecombineerde torsie- en dwarskracht in de doorsnede",
     "zh": "拒绝评估扭转与横向剪应力叠加"
   },
   "explanation": {
@@ -36,7 +35,6 @@
     "fr": "Le cisaillement combiné, les contraintes dérivées et le résultat de la vérification sont indisponibles là où coexistent le cisaillement de torsion et le cisaillement transversal.",
     "hu": "Az eredő nyírófeszültség, a belőle származtatott feszültségek és az ellenőrzés eredménye nem érhető el ott, ahol a csavarási és a keresztirányú nyírófeszültség egyaránt nem nulla.",
     "tr": "Burulma ve enine kayma gerilmelerinin ikisinin de sıfırdan farklı olduğu yerlerde birleşik kayma, türetilen gerilmeler ve kontrol sonucu verilemez.",
-    "nl": "Gecombineerde afschuiving, afgeleide spanningen en het oordeel voldoet/voldoet niet zijn niet beschikbaar waar torsie- en dwarskrachtafschuiving beide niet nul zijn.",
     "zh": "在扭转剪应力和横向剪应力均不为零的位置，无法提供合成剪应力、派生应力及验算结论。"
   },
   "changelog": {

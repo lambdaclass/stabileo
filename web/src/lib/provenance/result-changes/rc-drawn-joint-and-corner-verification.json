@@ -13,7 +13,6 @@
     "de": "Verankerung und Lage der Eckstäbe in Stahlbetonbalken",
     "fr": "Ancrage et position des barres d’angle des poutres en béton armé",
     "tr": "Betonarme kirişlerde donatı kenetlenmesi ve köşe yerleşimi",
-    "nl": "Ontwikkeling van getekende betonligger-staven en hoekzittingen",
     "zh": "钢筋混凝土梁详图的钢筋锚固与角部位置"
   },
   "explanation": {
@@ -23,7 +22,6 @@
     "de": "Der Nachweis nach CIRSOC 201 prüft die Verankerung gezeichneter Randstäbe an Enden und Auflagern. Für die Querkraft in Nebenrichtung bei alleiniger Betonwirkung werden Stäbe in beiden Bügelecken verlangt und ihre Lagen für die statische Nutzhöhe verwendet.",
     "fr": "La vérification CIRSOC 201 contrôle l’ancrage des barres de périphérie dessinées aux extrémités et aux appuis. Pour le cisaillement secondaire repris par le béton seul, elle exige des barres dans les deux angles et calcule la hauteur utile à partir de leur position.",
     "tr": "CIRSOC 201 doğrulaması, çizilen çevre donatısının eleman uçları ve mesnetlerdeki kenetlenmesini denetler. Yalnız betonun karşıladığı ikincil kesme kontrolü iki köşe kıvrımında da donatı arar ve faydalı yüksekliği çizilen konumlardan belirler.",
-    "nl": "CIRSOC 201-verificatie toetst de verankering van getekende omtrekstaven aan staafuiteinden en opleggingen. De secundaire dwarskrachttoetsing met alleen beton vereist bezette beugelbochten en gebruikt de getekende staafposities voor de effectieve hoogte.",
     "zh": "CIRSOC 201 验算检查详图中周边钢筋在构件端部和支座处的锚固。仅由混凝土承担的次向剪力验算要求箍筋两处角部均有钢筋，并依据图示钢筋位置确定有效高度。"
   },
   "changelog": {

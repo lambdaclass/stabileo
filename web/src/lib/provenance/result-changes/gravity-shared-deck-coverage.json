@@ -25,7 +25,6 @@
     "de": "Die Schwerkraftlasterzeugung sperrt die doppelte Lastzuweisung auf einer Decke",
     "fr": "La génération des charges de gravité bloque la double affectation sur un plancher",
     "tr": "Yerçekimi yükü üretimi döşemede çift yük atamasını engeller",
-    "nl": "Zwaartekrachtgeneratie blokkeert dubbele aanspraken op een dek",
     "zh": "重力荷载生成会阻止同一楼板面积被重复分配",
     "hu": "A gravitációs terhek előállítása megakadályozza a födémterhek kettős kiosztását"
   },
@@ -36,7 +35,6 @@
     "de": "Erzeugen Sie die Schwerkraftlasten für Projekte mit Schalen im Feldmodus neu. Die Lasterzeugung wird gesperrt, wenn sich horizontale oder geneigte Schalen im Grundriss innerhalb der Höhentoleranz der Decke überlappen, wenn zwei Schalen denselben Teil eines Trägerfelds beanspruchen oder wenn exzentrische Verbindungen eine versetzte Schale vertikal mit einem überlappenden belasteten Trägerfeld koppeln.",
     "fr": "Régénérez les charges de gravité par panneaux dans les projets avec coques. La génération est bloquée si des coques horizontales ou inclinées se chevauchent en plan dans la tolérance d’altitude du plancher, si deux coques occupent la même partie d’un panneau de poutres ou si des liaisons excentrées couplent verticalement une coque décalée à un panneau de poutres chargé qui la recouvre.",
     "tr": "Kabuk içeren projelerde panel yerçekimi yüklerini yeniden üretin. Yatay veya eğimli kabuklar döşeme kot toleransı içinde planda çakışırsa, iki kabuk bir kiriş panelinin aynı bölümünü kaplarsa veya eksantrik bağlantılar ötelenmiş bir kabuğu çakışan yüklü bir kiriş paneline düşey yönde bağlarsa yük üretimi engellenir.",
-    "nl": "Genereer paneelzwaartekrachtbelastingen opnieuw in projecten met schalen. De generatie blokkeert wanneer horizontale of hellende schalen in plattegrond overlappen binnen de dekhoogtetolerantie, wanneer twee schalen hetzelfde deel van een liggervak claimen, of wanneer excentrische verbindingen een verschoven schaal verticaal koppelen aan een overlappend belast liggervak.",
     "zh": "请为含壳单元的项目重新生成板块重力荷载。若水平或倾斜壳单元在楼板标高容差内的平面投影重叠、两个壳单元占用同一梁板区的同一部分，或偏置壳单元通过偏心连接与投影重叠且已受荷的梁板区竖向耦合，则会阻止荷载生成。",
     "hu": "Készítse újra a mezőalapú gravitációs terheket a héjakat tartalmazó projektekben. A terhek előállítása blokkolódik, ha vízszintes vagy ferde héjak alaprajzi vetülete a födémszint tűrésén belül átfedi egymást, ha két héj a gerendamező azonos részét fedi, vagy ha excentrikus kapcsolatok függőlegesen összekötnek egy eltolt héjat egy átfedő, terhelt gerendamezővel."
   },

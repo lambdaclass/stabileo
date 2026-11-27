@@ -1255,6 +1255,18 @@ const body: PostBody = {
           "Vlakke elastische berekening kon zonder waarschuwing alleen nulverplaatsingen teruggeven voor een mechanisme. Controleer buigscharnieren en opleggingen, los onbedoelde mechanismen op en voer getroffen berekeningen en ontwerptoetsingen opnieuw uit.",
           "Hoog",
           "Volgende release na 0.6.4"
+        ],
+        [
+          "SA-2026-131",
+          "De analyse kon constructieve velden, beperkingen, combinatiemethoden, grondbewegingen of belastingen per bouwfase zonder waarschuwing weglaten of verkeerd lezen. Corrigeer de invoer en voer de getroffen analyses, combinaties en ontwerptoetsingen opnieuw uit.",
+          "Hoog",
+          "Volgende release na 0.6.4"
+        ],
+        [
+          "SA-2026-132",
+          "Een heropend Basic-project zonder opgeslagen tekenvlak kon in het verkeerde vlak worden doorgerekend. Bevestig het bedoelde vlak, de belastingrichtingen en de opleggingen en voer de getroffen analyses, combinaties en ontwerptoetsingen opnieuw uit.",
+          "Hoog",
+          "Volgende release na 0.6.4"
         ]
       ]
     },

@@ -12,7 +12,6 @@
     "de": "Drücke aus Erkunden vor der Berechnung der modalen Masse prüfen",
     "fr": "Vérifier les pressions d’Explorer avant le calcul de la masse modale",
     "tr": "Modal kütle hesabından önce Keşfet basınçlarını doğrulama",
-    "nl": "Explore-drukken controleren vóór de berekening van de modale massa",
     "zh": "计算模态质量前校核探索模式的压力",
     "hu": "A Felfedezésben megadott nyomások ellenőrzése a modális tömeg számítása előtt"
   },
@@ -23,7 +22,6 @@
     "de": "Die Massenquelle bricht ab, wenn ein Schalendruck von der Vorgabe in Erkunden abweicht, auch in Lastfällen, die allein zur Massenberechnung dienen.",
     "fr": "Le calcul de la masse s’arrête si une pression sur une coque diffère de la demande dans Explorer, même dans les cas utilisés seulement pour la masse.",
     "tr": "Yalnızca kütle için kullanılan yük durumları dâhil, kabuk basıncı Keşfet bölümünde istenenden farklıysa kütle hesabı durur.",
-    "nl": "De massabron stopt als een schaaldruk afwijkt van de Explore-aanvraag, ook in gevallen die alleen voor massa worden gebruikt.",
     "zh": "如果壳单元压力与探索模式的设定不符，质量源计算将停止。仅用于计算质量的工况也会接受校核。",
     "hu": "A tömegforrás számítása leáll, ha egy héjelem nyomása eltér a Felfedezésben megadott értéktől, a kizárólag tömegszámításhoz használt teheresetekben is."
   },

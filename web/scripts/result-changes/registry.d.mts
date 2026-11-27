@@ -1,7 +1,7 @@
 import type { ResultChange, ResultChangeRegistry } from '../../src/lib/provenance/registry';
 
 export const DIR: string;
-export const ITALIAN_TRANSLATIONS: string;
+export const TRANSLATION_FILES: Readonly<Record<'it' | 'nl', string>>;
 export const NUMBERED: string;
 export const LEGACY: string;
 export const ORDER_FILE: string;
@@ -11,7 +11,7 @@ export function assemble(input: {
   numbered: { schema: number; changes: ResultChange[] };
   fragments: Map<string, Omit<ResultChange, 'resultsVersion'>>;
   landings: string[][];
-  italianTranslations?: Record<string, { title: string; explanation: string }>;
+  translations?: Partial<Record<keyof typeof TRANSLATION_FILES, Record<string, { title: string; explanation: string }>>>;
 }): ResultChangeRegistry;
 export function landingsAt(git: (...args: string[]) => string, rev: string): string[][];
 export function readRegistry(root?: string): ResultChangeRegistry;

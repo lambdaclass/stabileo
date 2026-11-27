@@ -22,7 +22,6 @@
     "de": "Schneelasten behalten bei Grundrissdrehung ihre Größe",
     "fr": "Les charges de neige conservent leur intensité après rotation en plan",
     "tr": "Kar yüklerinin büyüklüğü plandaki dönmeyle değişmiyor",
-    "nl": "Sneeuwbelastingen behouden hun grootte bij rotatie in het grondplan",
     "zh": "平面旋转下雪荷载保持其大小"
   },
   "explanation": {
@@ -32,7 +31,6 @@
     "de": "Eine reine Grundrissdrehung verringerte die erzeugte ausgeglichene Schneelinienlast im gespeicherten Beispiel um 30%. Dachbreite und Teillastfelder verwenden jetzt Dachachsen; dieselbe Ebene liefert Neigung und Höhe. Schneelasten neu erzeugen und Analysen, Kombinationen sowie Nachweise neu berechnen. Zurückdrehen repariert alte Ergebnisse nicht (SA-2026-067, #2093). Die Korrektur ist in 0.6.1 enthalten.",
     "fr": "Une simple rotation en plan réduisait de 30 % la charge linéique de neige équilibrée du cas conservé. La largeur et les travées de charge partielle utilisent désormais les axes de toiture ; le même plan fournit pente et altitude. Régénérez les charges puis recalculez analyses, combinaisons et vérifications. Revenir à l’orientation initiale ne répare pas les résultats (SA-2026-067, #2093). La correction est incluse dans 0.6.1.",
     "tr": "Yalnızca plandaki dönme, saklanan örnekte üretilen dengeli kar çizgisel yükünü %30 azaltıyordu. Çatı genişliği ve kısmi yük açıklıkları artık çatı eksenlerini kullanıyor; aynı düzlem eğim ve kotu sağlıyor. Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri yeniden hesaplayın. Modeli geri döndürmek eski sonuçları düzeltmez (SA-2026-067, #2093). Düzeltme 0.6.1 sürümüne dahildir.",
-    "nl": "Een zuivere rotatie in het grondplan verminderde de gegenereerde evenwichtige sneeuwlijnlast in het bewaarde testgeval met 30%. Dakbreedte en overspanningen van gedeeltelijke belasting gebruiken nu de dakassen; hetzelfde vlak levert helling en niveau. Genereer sneeuwbelastingen opnieuw en voer daarna berekeningen, combinaties en afgeleide toetsingen opnieuw uit. Een oud model terugdraaien is geen herstel (SA-2026-067, #2093). De correctie zit in 0.6.1.",
     "zh": "在保留的见证算例中，纯平面旋转使生成的平衡雪荷载线荷载降低了 30%。屋面宽度和局部荷载跨度现在使用屋面坐标轴；同一平面提供坡度和标高。请重新生成雪荷载，然后重新运行分析、组合和派生验算。把旧模型转回去并不是修复（SA-2026-067，#2093）。此修复已包含在 0.6.1 中。"
   },
   "changelog": {

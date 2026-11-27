@@ -13,7 +13,6 @@
     "de": "Lastmuster nach der Summe der Faktoren je Einwirkung auswählen",
     "fr": "Classer les configurations de charge selon le coefficient total de l’action",
     "tr": "Yük düzenlerini etkinin toplam katsayısına göre sırala",
-    "nl": "Belastingpatronen rangschikken op totale actiefactor",
     "zh": "按作用的总系数对荷载布置排序",
     "hu": "A terhelési minták rangsorolása a hatás összesített tényezője szerint"
   },
@@ -24,7 +23,6 @@
     "de": "Regeln mit wiederholten Termen für dieselbe Einwirkung konnten maßgebende Lastmuster auslassen. Sich aufhebende Terme konnten außerdem Alternativen erzeugen, in denen eine erforderliche Last fehlte. Prüfen Sie die Regeln, erzeugen Sie die betroffenen Kombinationen neu und berechnen Sie Analysen und Einhüllende erneut.",
     "fr": "Les règles comportant des termes répétés pour une même action pouvaient omettre des configurations de charge déterminantes. Des termes qui s’annulent pouvaient aussi produire des variantes sans une charge requise. Vérifiez les règles, régénérez les combinaisons concernées, puis relancez les analyses et le calcul des enveloppes.",
     "tr": "Aynı etki için yinelenen terimler içeren kurallar belirleyici yük düzenlerini atlayabiliyordu. Birbirini götüren terimler de gerekli bir yükü içermeyen seçenekler üretebiliyordu. Kuralları gözden geçirin, etkilenen birleşimleri yeniden oluşturun ve analizleri ve zarfları yeniden hesaplayın.",
-    "nl": "Regels met herhaalde termen voor dezelfde actie konden maatgevende belastingpatronen weglaten. Opgeheven termen konden ook keuzes creëren die een vereiste belasting weglaten. Bekijk de regels, genereer de betreffende combinaties opnieuw en voer de berekeningen en omhullenden opnieuw uit.",
     "zh": "对同一作用含有重复项的规则可能遗漏起控制作用的荷载布置。相互抵消的项也可能生成缺少必需荷载的备选组合。请检查规则，重新生成受影响的组合，并重新运行分析和计算包络。",
     "hu": "Az ugyanahhoz a hatáshoz ismétlődő tagokat tartalmazó szabályok kihagyhatták a mértékadó terhelési mintákat. Az egymást kioltó tagok olyan változatokat is létrehozhattak, amelyekből hiányzott egy kötelező teher. Ellenőrizze a szabályokat, hozza létre újra az érintett kombinációkat, majd számítsa újra az elemzéseket és a burkológörbéket."
   },

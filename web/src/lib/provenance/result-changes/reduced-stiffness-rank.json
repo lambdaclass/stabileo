@@ -19,7 +19,6 @@
     "fr": "Refuser une raideur réduite de rang indéterminé",
     "hu": "A nem meghatározható rangú redukált merevség elutasítása",
     "tr": "Mertebesi belirlenemeyen indirgenmiş rijitliği reddet",
-    "nl": "Weiger een onopgeloste rang van de gereduceerde stijfheid",
     "zh": "拒绝求解秩无法判定的约化刚度矩阵"
   },
   "explanation": {
@@ -30,7 +29,6 @@
     "fr": "Le solveur refuse désormais les modèles dont l’arrondi de la raideur réduite peut masquer un mécanisme. Recalculez les résultats d’analyse et les vérifications cinématiques enregistrés qui dépendaient de cette raideur. Les vérifications non linéaires du rang utilisent la raideur physique avant l’ajout de blocages artificiels de rotation.",
     "hu": "A megoldó elutasítja a modellt, ha a redukált merevség kerekítése elfedhet egy mechanizmust. Számítsa újra az ettől a merevségtől függő mentett elemzési eredményeket és kinematikai ellenőrzéseket. A nemlineáris rangellenőrzések a mesterséges forgási megtámasztások hozzáadása előtti fizikai merevséget használják.",
     "tr": "Çözücü artık indirgenmiş rijitliğin yuvarlanması bir mekanizmayı gizleyebiliyorsa modeli reddeder. Bu rijitliğe bağlı kayıtlı analiz sonuçlarını ve kinematik kontrolleri yeniden hesaplayın. Doğrusal olmayan mertebe kontrolleri, yapay dönme mesnetleri eklenmeden önceki fiziksel rijitliği kullanır.",
-    "nl": "De solver weigert nu modellen waarin afronding van de gereduceerde stijfheid een mechanisme kan verbergen. Voer opgeslagen berekeningsresultaten en kinematische controles die van de onopgeloste stijfheid afhingen opnieuw uit. Niet-lineaire rangcontroles gebruiken de fysieke stijfheid voordat kunstmatige rotatiescharnieren worden toegevoegd.",
     "zh": "如果约化刚度的舍入误差可能掩盖机构，求解器现在会拒绝求解。请重新计算依赖该刚度的已保存分析结果和运动学检查。 非线性秩检查使用添加人工转动约束之前的物理刚度。"
   },
   "changelog": {

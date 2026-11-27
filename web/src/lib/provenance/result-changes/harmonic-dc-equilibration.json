@@ -15,7 +15,6 @@
     "fr": "Raideur harmonique directe à fréquence nulle indépendante des unités",
     "hu": "Egységfüggetlen közvetlen harmonikus merevség zérus frekvencián",
     "tr": "Sıfır frekansta birimden bağımsız doğrudan harmonik rijitlik",
-    "nl": "Eenheidsonafhankelijke directe harmonische stijfheid bij frequentie nul",
     "zh": "零频时与单位无关的直接谐响应刚度"
   },
   "explanation": {
@@ -26,7 +25,6 @@
     "fr": "Le solveur harmonique direct vérifie la raideur à fréquence nulle dans un système équilibré. Relancez les balayages concernés qui incluent la fréquence nulle.",
     "hu": "A közvetlen harmonikus megoldó egyensúlyozott rendszerben vizsgálja a zérus frekvenciájú merevséget. Ismételje meg a zérus frekvenciát tartalmazó érintett vizsgálatokat.",
     "tr": "Doğrudan harmonik çözücü, sıfır frekanstaki rijitliği dengelenmiş bir sistemde denetler. Sıfır frekansı içeren etkilenen taramaları yeniden çalıştırın.",
-    "nl": "De directe harmonische solver controleert de stijfheid bij frequentie nul in een geëquilibreerd stelsel. Voer betrokken sweeps die frequentie nul omvatten opnieuw uit.",
     "zh": "直接谐响应求解器在均衡后的系统中检查零频刚度。请重新运行包含零频的受影响扫频分析。"
   },
   "changelog": {

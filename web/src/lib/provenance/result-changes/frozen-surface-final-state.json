@@ -22,7 +22,6 @@
     "fr": "Remplacé : Les contacts de surface figés vérifient la géométrie finale",
     "hu": "Felváltva: a befagyasztott felületi kontaktok a végső geometriát ellenőrzik",
     "tr": "Geçersiz kılındı: Sabitlenmiş yüzey temasları son geometriyi doğrular",
-    "nl": "Vervangen: bevroren oppervlaktecontacten valideren de uiteindelijke geometrie",
     "zh": "已被取代：冻结的面接触验证最终几何"
   },
   "explanation": {
@@ -33,7 +32,6 @@
     "fr": "Remplacé par la validation de la force assemblée. La règle finale vérifie la force signée du ressort assemblé et l’ouverture finale. Les contacts actifs figés doivent transmettre une compression compatible avec la pénétration dans la tolérance de contact ; les états invalides renvoient contact_state_invalid. La traction de surface assemblée est refusée au lieu d’être ramenée à zéro. Les modifications antérieures des calculs de câbles restent applicables (#432, #417 ; PR #1921).",
     "hu": "Felváltotta az összeállított erőn alapuló ellenőrzés. A végső szabály az összeállított előjeles rugóerőt és a végső nyílást vizsgálja. Az aktív befagyasztott kontaktoknak a kontakttűrésen belül a behatolással összhangban lévő nyomást kell viselniük; az érvénytelen állapotok contact_state_invalid eredményt adnak. A húzott összeállított felületi erőt a program elutasítja ahelyett, hogy nullára vágná. A kábelekkel kapcsolatos korábbi változások érvényben maradnak (#432, #417; #1921-es PR).",
     "tr": "Birleştirilmiş kuvvet doğrulamasıyla geçersiz kılındı. Son kural, birleştirilen yayın işaretli kuvvetini ve son açıklığı denetler. Aktif sabitlenmiş temaslar, temas toleransı içinde penetrasyonla tutarlı basınç taşımalıdır; geçersiz durumlar contact_state_invalid döndürür. Birleştirilmiş yüzey çekmesi sıfıra kırpılmak yerine reddedilir. Önceki kablo iş akışı değişiklikleri geçerlidir (#432, #417; PR #1921).",
-    "nl": "Vervangen door validatie op samengestelde tractie. De uiteindelijke regel controleert de samengestelde veerkracht met teken en de uiteindelijke opening. Actieve bevroren contacten moeten druk dragen die consistent is met de penetratie binnen de contacttolerantie; ongeldige toestanden geven contact_state_invalid. Samengestelde oppervlaktetrek wordt geweigerd in plaats van op nul geklemd. Eerdere wijzigingen in de kabelwerkwijze blijven van kracht (#432, #417; PR #1921).",
     "zh": "已被装配后牵引力验证取代。最终规则检查装配后带符号的弹簧力和最终张开量。处于激活状态的冻结接触必须承受与穿透量一致的压力，且在接触容差范围内；无效状态返回 contact_state_invalid。装配后的面拉力会被拒绝求解，而不是被截断为零。此前对索工作流的变更仍然有效（#432，#417；PR #1921）。"
   },
   "changelog": {

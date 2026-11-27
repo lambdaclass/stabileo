@@ -18,7 +18,6 @@
     "de": "Fehlende physische Schneelastfälle ablehnen",
     "fr": "Refuser la neige sans cas physique correspondant",
     "tr": "Fiziksel karşılığı eksik kar yüklerini reddetme",
-    "nl": "Ontbrekende fysieke sneeuwtegenhangers weigeren",
     "zh": "拒绝缺少对应实际雪荷载的情形",
     "hu": "Hiányzó fizikai hóteherpárok elutasítása"
   },
@@ -29,7 +28,6 @@
     "de": "#2211, #2233. Eine Flachdach-Schneegruppe ohne physischen Schneelastfall konnte in Begleitkombinationen eingehen und in führenden sowie physischen Erdbebenkombinationen fehlen. Die Auswahl physischer Schneelasten verlangt nun Abdeckung jeder Flachdachgruppe. Schneelasten und Kombinationen neu erzeugen, dann Analysen und Nachweise wiederholen.",
     "fr": "#2211, #2233. Un groupe de neige de toiture plate sans neige physique pouvait entrer dans les combinaisons accompagnatrices et être omis des combinaisons principales et sismiques physiques. La sélection de neige physique exige désormais la couverture de chaque groupe de toiture plate. Régénérez les charges et combinaisons de neige, puis relancez analyses et vérifications.",
     "tr": "#2211, #2233. Fiziksel kar karşılığı olmayan bir düz çatı kar grubu eşlikçi birleşimlere girerken esas ve fiziksel deprem birleşimlerinden çıkarılabiliyordu. Fiziksel kar seçimi artık her düz çatı grubunun kapsanmasını gerektirir. Kar yüklerini ve birleşimlerini yeniden üretip analizleri ve kontrolleri tekrarlayın.",
-    "nl": "#2211, #2233. Een groep sneeuw op een plat dak zonder fysieke sneeuw kon in begeleidende combinaties voorkomen terwijl ze in hoofdcombinaties en fysieke seismische combinaties werd weggelaten. De selectie van fysieke sneeuw vereist nu dekking voor elke groep van platte daken. Genereer sneeuwbelastingen en combinaties opnieuw en voer daarna berekeningen en ontwerptoetsingen opnieuw uit.",
     "zh": "#2211，#2233。缺少实际雪荷载的平屋面雪荷载组可能进入伴随组合，却在主组合和实际地震组合中被遗漏。选用实际雪荷载现在要求覆盖每一个平屋面荷载组。请重新生成雪荷载和组合，然后重新运行分析和设计验算。",
     "hu": "#2211, #2233. A fizikai hóteher nélküli lapostető-hócsoport bekerülhetett a kísérő kombinációkba, miközben kimaradt a fő és a fizikai szeizmikus kombinációkból. A fizikai hó kiválasztása most minden lapostető-csoport lefedését megköveteli. Generálja újra a hóterheket és kombinációkat, majd ismételje meg az analíziseket és ellenőrzéseket."
   },

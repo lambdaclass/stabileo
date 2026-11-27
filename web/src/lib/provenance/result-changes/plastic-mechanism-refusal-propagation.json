@@ -26,7 +26,6 @@
     "fr": "Les refus de ressources des mécanismes plastiques sont propagés et les bornes sont lues exactement",
     "hu": "A képlékeny mechanizmusok erőforrás miatti elutasításai továbbjutnak, az intervallumok leolvasása pontos végpontokkal történik",
     "tr": "Plastik mekanizma kaynak retleri iletilir ve aralıklar kesin uç noktalarla okunur",
-    "nl": "Weigeringen wegens middelen bij plastische mechanismen worden doorgegeven en intervalwaarden gebruiken exacte eindpunten",
     "zh": "塑性机构的资源拒绝会传递，区间读数使用精确端点"
   },
   "explanation": {
@@ -37,7 +36,6 @@
     "fr": "Relancez les certificats plastiques. L’élimination exacte conserve les refus de ressources au lieu de les traiter comme des mécanismes absents. L’application signale tout facteur hors de l’intervalle certifié, même pour un faible écart. Les bornes et limites de ressources restent identiques.",
     "hu": "Futtassa újra a képlékeny tanúsítványokat. A pontos mechanizmus-elimináció mostantól megőrzi az erőforrás miatti elutasításokat, ahelyett hogy hiányzó mechanizmusként kezelné őket. Az alkalmazás a tanúsított intervallumon kívül eső minden tényezőt kívül esőként jelöl, a kis eltéréseket is. A tanúsítvány végpontjai és az erőforráskorlátok nem változnak.",
     "tr": "Plastik sertifikaları yeniden çalıştırın. Kesin mekanizma eliminasyonu kaynak retlerini eksik mekanizma olarak değerlendirmek yerine korur. Uygulama küçük sapmalar dahil sertifikalı aralığın dışındaki her faktörü dışarıda olarak gösterir. Aralık uçları ve kaynak sınırları değişmez.",
-    "nl": "Voer plastische certificaten opnieuw uit. Exacte mechanisme-eliminatie behoudt weigeringen wegens middelen nu in plaats van ze als ontbrekende mechanismen te behandelen. De app labelt ook elke factor buiten het gecertificeerde interval als buiten het interval, inclusief kleine afwijkingen. Certificaateindpunten en middelenlimieten zijn ongewijzigd.",
     "zh": "请重新运行塑性证书。精确机构消元现在保留资源拒绝，而不是将其当作缺少机构。应用程序现在也会将认证区间之外的每个系数标记为区间之外，包括很小的偏差。证书端点和资源限值不变。"
   },
   "changelog": {

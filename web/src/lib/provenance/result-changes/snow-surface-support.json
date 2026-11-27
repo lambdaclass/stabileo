@@ -21,7 +21,6 @@
     "de": "Schneelasteinzugsflächen folgen dem Dachinneren",
     "fr": "Les surfaces tributaires de neige suivent l’intérieur du toit",
     "tr": "Kar yükü alanları çatının iç tarafını izliyor",
-    "nl": "Belaste sneeuwgebieden gebruiken binnenste dakoppervlakken",
     "zh": "雪荷载从属范围使用屋面内部表面"
   },
   "explanation": {
@@ -31,7 +30,6 @@
     "de": "Konkave Schneelasteinzugsflächen folgen dem Panelinneren. Geneigte Streifen ohne bestimmte Dachfläche und nur teilweise unterstützte Stäbe werden abgelehnt. Ein punktförmiger Flächenkontakt trägt keine Last bei. Schneelasten neu erzeugen und betroffene Analysen, Kombinationen und Nachweise wiederholen (#2095). In 0.6.1 enthalten.",
     "fr": "Les surfaces tributaires de neige concaves suivent l’intérieur du panneau. Les bandes inclinées sans surface définie et les appuis partiels des barres sont refusés. Un contact ponctuel avec un versant ne contribue aucune charge. Régénérez les charges de neige et relancez analyses, combinaisons et vérifications concernées (#2095). Correction incluse dans 0.6.1.",
     "tr": "İçbükey kar yükü alanları panelin iç tarafını izliyor. Yüzeyi belirlenemeyen eğimli şeritler ve kısmi çubuk desteği reddedilir. Bir yüzeyin yalnızca noktada teması yük katkısı sağlamaz. Kar yüklerini yeniden üretip etkilenen analizleri, birleşimleri ve tasarım kontrollerini çalıştırın (#2095). Düzeltme 0.6.1 sürümüne dahildir.",
-    "nl": "Concave belaste sneeuwgebieden volgen nu de binnenkant van het vlak. Hellende stroken zonder opgelost oppervlak worden geweigerd. Een vlak dat een staaf alleen in een punt raakt, draagt geen belasting bij; onvolledige staafondersteuning wordt geweigerd. Genereer sneeuwbelastingen opnieuw en voer de betreffende berekeningen, combinaties en toetsingen opnieuw uit (#2095). Deze correctie zit in 0.6.1.",
     "zh": "凹形的雪荷载从属范围现在沿屋面板内部。没有解析出表面的坡面条带会被拒绝。只在一点上接触杆件的坡面不产生荷载；杆件支承不完整会被拒绝。请重新生成雪荷载，并重新运行受影响的分析、组合和设计验算（#2095）。此修正已包含在 0.6.1 中。"
   },
   "changelog": {

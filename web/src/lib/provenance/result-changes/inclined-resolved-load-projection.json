@@ -31,7 +31,6 @@
     "fr": "Les appuis inclinés conservent les charges libres résolubles",
     "hu": "A ferde támaszok megőrzik a felbontott szabad terheket",
     "tr": "Eğik mesnetler çözülebilir serbest yükleri korur",
-    "nl": "Hellende opleggingen behouden opgeloste vrije belastingen",
     "zh": "斜支座保留分解后的自由荷载"
   },
   "explanation": {
@@ -42,7 +41,6 @@
     "fr": "Les charges aux appuis inclinés utilisent une projection compensée en analyse linéaire et non linéaire. Une petite charge tangentielle représentable voisine d’une grande charge retenue conserve sa réponse non nulle. La convergence ne supprime plus les résidus libres selon la charge retenue ; les corrections de fibres projettent les forces avant soustraction. Relancer les analyses concernées (#761, PR #1940).",
     "hu": "A ferde támaszokra ható terhek a lineáris és nemlineáris vizsgálatokban kompenzált vetítést használnak. Egy nagy megtámasztott teher melletti kicsi, ábrázolható érintőirányú tehernek meg kell őriznie nem nulla válaszát. A nemlineáris konvergencia többé nem dobja el a szabad maradékot a megtámasztott teher nagysága miatt; a szálerős korrekciók kivonás előtt vetítik az alkalmazott és belső erőket. Futtassa újra az érintett ferde támaszos vizsgálatokat (#761, PR #1940).",
     "tr": "Eğik mesnetlerdeki yükler doğrusal ve doğrusal olmayan analizlerde telafili izdüşüm kullanır. Büyük bir kısıtlı yükün yanındaki küçük, gösterilebilir teğetsel yük sıfır olmayan yanıtını korur. Yakınsama, kısıtlı yük büyüklüğüne göre serbest artıkları silmez; lif düzeltmeleri kuvvetleri çıkarmadan önce izdüşürür. Etkilenen analizleri yeniden çalıştırın (#761, PR #1940).",
-    "nl": "Aangebrachte belastingen op hellende opleggingen gebruiken nu gecompenseerde projectie in lineaire en niet-lineaire berekeningen. Een kleine representeerbare tangentiële belasting naast een grote verhinderde belasting moet haar respons ongelijk aan nul behouden. Niet-lineaire convergentie gooit vrije residuen niet meer weg op basis van de grootte van de verhinderde belasting; vezelcorrecties projecteren aangebrachte en interne krachten voordat ze worden afgetrokken. Voer betrokken berekeningen met hellende opleggingen opnieuw uit (#761, PR #1940).",
     "zh": "斜支座处所加的荷载，现在在线性和非线性分析中使用补偿投影。大的受约束荷载旁边一个可表示的小切向荷载，必须保留其非零响应。非线性收敛不再使用受约束荷载的大小舍弃自由残差；纤维修正先投影所加力和内力，再相减。请重新运行受影响的斜支座分析（#761，PR #1940）。"
   },
   "changelog": {

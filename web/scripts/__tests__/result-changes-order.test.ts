@@ -43,7 +43,7 @@ describe('results versions from the order changes reach main', { timeout: 60_000
     expect(versions(r)).toEqual({ 'old-29': 29, 'old-1': 1 });
   });
 
-  it('publishes Italian notices for existing entries without editing their released sources', () => {
+  it('publishes Italian and Dutch notices for existing entries without editing their released sources', () => {
     const { root, git, write, commit, fragment } = repo();
     const english = { title: { en: 'Title' }, explanation: { en: 'Explanation' } };
     fragment('existing', english);
@@ -52,8 +52,11 @@ describe('results versions from the order changes reach main', { timeout: 60_000
     write('web/src/lib/provenance/result-change-translations/it.json', {
       existing: { title: 'Titolo', explanation: 'Spiegazione' },
     });
+    write('web/src/lib/provenance/result-change-translations/nl.json', {
+      existing: { title: 'Titel', explanation: 'Toelichting' },
+    });
     commit('translate the existing notice');
-    const localized = { title: { en: 'Title', it: 'Titolo' }, explanation: { en: 'Explanation', it: 'Spiegazione' } };
+    const localized = { title: { en: 'Title', it: 'Titolo', nl: 'Titel' }, explanation: { en: 'Explanation', it: 'Spiegazione', nl: 'Toelichting' } };
     const current = readRegistry(root).changes.find(change => change.id === 'existing');
     expect(current).toMatchObject(localized);
     expect(readRegistryAt('HEAD', root)!.changes).toContainEqual(current);

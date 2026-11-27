@@ -21,7 +21,6 @@
     "de": "Feste Bewehrung behält die Prüfung der praktischen Obergrenze bei",
     "fr": "Les armatures fixées conservent le contrôle du maximum pratique",
     "tr": "Sabit donatı pratik üst sınır kontrolünü korur",
-    "nl": "Vaste wapening behoudt de controle op het praktische maximum",
     "zh": "固定配筋保留实用最大配筋验算"
   },
   "explanation": {
@@ -31,7 +30,6 @@
     "de": "Ein gemeinsamer oder fester Bewehrungskorb konnte eine Überschreitung der praktischen Obergrenze durch einen bestandenen Biegenachweis ersetzen. Alle Biegeergebnisse prüfen nun dieselbe Grenze der erforderlichen Bewehrung und zeigen den Grund. Gespeicherte Betonbemessungen erneut ausführen und Fehler prüfen (PR #2080).",
     "fr": "Une cage commune ou fixée pouvait remplacer un échec au maximum pratique par une flexion acceptée. Tous les résultats de flexion appliquent désormais la même limite aux armatures requises et en indiquent la raison. Relancer les calculs de béton enregistrés et examiner les échecs (PR #2080).",
     "tr": "Ortak veya sabit donatı, pratik üst sınır nedeniyle oluşan başarısızlığı başarılı bir eğilme durumuyla değiştirebiliyordu. Tüm eğilme sonuçları artık aynı gerekli donatı sınırını uygular ve nedeni gösterir. Kayıtlı beton eleman tasarımlarını yeniden çalıştırıp başarısızlıkları inceleyin (PR #2080).",
-    "nl": "Een gedeelde of vaste wapeningskooi kon een falen op het praktische maximum vervangen door een geslaagde buigstatus. Alle buigresultaten dwingen nu dezelfde limiet voor het vereiste staal af en tonen de reden. Voer opgeslagen betonstaafontwerpen opnieuw uit en bekijk de afkeuringen (PR #2080).",
     "zh": "共用或固定的钢筋笼曾可能把超过实用最大配筋的不满足项替换为通过的受弯状态。现在所有受弯结果都采用同一所需钢筋限值，并说明原因。请重新运行已保存的混凝土杆件设计，并复核不满足项（PR #2080）。"
   },
   "changelog": {

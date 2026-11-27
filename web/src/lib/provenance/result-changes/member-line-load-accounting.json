@@ -22,7 +22,6 @@
     "fr": "Vérification des charges réparties par barre",
     "hu": "Megoszló terhek ellenőrzése rudanként",
     "tr": "Çubuk bazında yayılı yük denetimi",
-    "nl": "Lijnbelastingadministratie per staaf",
     "zh": "逐构件线荷载校核"
   },
   "explanation": {
@@ -33,7 +32,6 @@
     "fr": "Le calcul s’arrête si la résultante d’une charge répartie ou son moment du premier ordre le long de la barre change lors de la préparation. La vérification détecte aussi la perte d’une charge axiale de résultante nulle. Les charges redistribuées des barres de treillis doivent aussi atteindre les nœuds d’extrémité prévus. Pour les barres planes ou spatiales subdivisées, la vérification utilise les abscisses le long de la barre d’origine.",
     "hu": "A számítás leáll, ha az előkészítés során megváltozik egy rúd megoszló terhének eredője vagy a rúd menti első nyomatéka. Az ellenőrzés a nulla eredőjű tengelyirányú teher elvesztését is felismeri. A rácsrudak átosztott terheinek a kijelölt végcsomópontokra kell kerülniük. A részekre bontott síkbeli és térbeli rudaknál az ellenőrzés az eredeti rúd menti helyeket használja.",
     "tr": "Hazırlık sırasında bir çubuğun yayılı yükünün bileşkesi veya çubuk boyunca birinci momenti değişirse analiz durur. Sonucu sıfır olan eksenel yüklerin kaybolması da tespit edilir. Yeniden dağıtılan kafes çubuk yükleri de doğru uç düğümlerine ulaşmalıdır. Parçalara ayrılan düzlemsel ve üç boyutlu çubuklarda denetim asıl çubuk üzerindeki konumları kullanır.",
-    "nl": "De berekening stopt wanneer de verdeelde kracht van een staaf of zijn eerste moment langs die staaf tijdens de voorbereiding verandert. Dit detecteert ook een verloren axiale belasting waarvan de nettokracht nul is. Herverdeelde vakwerkbelastingen moeten ook hun beoogde eindknopen bereiken. Voor vlakke en ruimtelijke staven die in delen zijn verdeeld, gebruikt de controle de stations van de oorspronkelijke staaf.",
     "zh": "如果准备求解时构件分布力的合力或沿构件的一阶矩发生变化，分析会停止。此校核也能发现合力为零的轴向荷载丢失。重新分配的桁架杆荷载还必须施加到对应的端节点。 对分段的平面或空间构件，校核使用原构件上的位置。"
   },
   "changelog": {

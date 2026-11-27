@@ -22,7 +22,6 @@
     "fr": "Bords courbes et modifications des coques lors du remaillage",
     "hu": "Görbe lemezperemek és héjelem-módosítások újrahálózáskor",
     "tr": "Ağ yenilemede eğri plak kenarları ve kabuk düzenlemeleri",
-    "nl": "Gekromde plaatranden en schaalbewerkingen tijdens opnieuw meshen",
     "zh": "重新划分网格时的曲线板边界和壳单元修改"
   },
   "explanation": {
@@ -33,7 +32,6 @@
     "fr": "Le remaillage suit l’arc spécifié pour la plaque et s’arrête si cet arc est ambigu. Les excentrements et les modifications de courbure des coques ne sont transférés qu’aux éléments qui correspondent exactement. Vérifiez le bord prévu et les propriétés des coques des plaques concernées avant de relancer le calcul.",
     "hu": "Az újrahálózás a lemez megadott ívét követi, és nem egyértelmű ív esetén leáll. A héjelemek eltolása és görbületi módosításai csak pontosan egyező elemekre kerülnek át. Az újraszámítás előtt ellenőrizze az érintett lemezek kívánt peremét és héjelem-tulajdonságait.",
     "tr": "Ağ yenileme plakta belirtilen yayı izler ve yay belirsizse durur. Kabuk ofseti ve eğrilik düzenlemeleri yalnızca bire bir eşleşen elemanlara aktarılır. Yeniden çözmeden önce etkilenen plakların amaçlanan sınırlarını ve kabuk özelliklerini kontrol edin.",
-    "nl": "Opnieuw meshen volgt de opgegeven veegrichting van de plaat en stopt wanneer die richting dubbelzinnig is. Schaaloffsets en krommingsbewerkingen worden alleen bij exacte overeenkomsten overgedragen. Controleer de bedoelde rand en de schaaleigenschappen van de betreffende platen voordat je opnieuw berekent.",
     "zh": "重新划分网格时遵循板指定的圆弧，圆弧有歧义时停止。壳单元的偏置和曲率修改只会转移到完全匹配的单元。再次求解前，请核对受影响板的预期边界和壳单元属性。"
   },
   "changelog": {

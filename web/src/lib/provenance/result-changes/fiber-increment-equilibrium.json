@@ -27,7 +27,6 @@
     "de": "Faserlastschritte erfüllen die abschließenden Gleichgewichtsprüfungen",
     "fr": "Les incréments de fibres satisfont l’équilibre final",
     "hu": "A szálas lépések teljesítik a végső egyensúlyellenőrzést",
-    "nl": "Vezelincrementen voldoen aan de laatste evenwichtscontroles",
     "zh": "纤维模型增量步满足最终平衡检查",
     "tr": "Lif adımları son denge denetimlerini sağlar"
   },
@@ -38,7 +37,6 @@
     "de": "Faseriterationen laufen weiter, bis die geforderte Residualtoleranz und die bestehenden unabhängigen Kraft- und Momentenprüfungen erfüllt sind. Eine grobe Toleranz konnte die Iteration vor der Endprüfung stoppen und einen lösbaren Lauf ablehnen. Akzeptierte Schritte, Reaktionen, Verschiebungen und erreichte Last können sich ändern. Betroffene Analysen erneut rechnen; alle Grenzwerte bleiben unverändert.",
     "fr": "Les itérations de fibres continuent jusqu’au respect de la tolérance résiduelle demandée et des contrôles indépendants existants des forces et moments. Une tolérance large pouvait arrêter l’itération avant la validation finale et refuser un calcul résoluble. Les incréments acceptés, réactions, déplacements et charge atteinte peuvent changer. Relancer les analyses concernées ; les limites restent inchangées.",
     "hu": "A szálas iterációk a kért maradéktűrés és a meglévő független erő- és nyomatékellenőrzés teljesüléséig folytatódnak. A laza tűrés a végső ellenőrzés előtt leállíthatta az iterációt, elutasítva egy megoldható futást. Az elfogadott lépések, reakciók, elmozdulások és az elért teher változhat. Futtassa újra az érintett elemzéseket; a határértékek változatlanok.",
-    "nl": "Vezeliteraties gaan nu door totdat zowel de gevraagde residutolerantie als de bestaande onafhankelijke kracht- en momentcontroles zijn gehaald. Losse gevraagde toleranties konden de iteratie stoppen vóór de laatste validatie en een anders oplosbare berekening weigeren. Geaccepteerde incrementen, reacties, verplaatsingen en gedragen belasting kunnen veranderen. Voer betrokken vezelberekeningen opnieuw uit; alle acceptatiegrenzen zijn ongewijzigd.",
     "zh": "纤维模型迭代现在会持续进行，直到所要求的残差容差以及现有的独立力和弯矩检查均通过。较宽松的容差可能使迭代在最终验证前停止，从而拒绝原本可以求解的运行。已接受的增量步、支座反力、位移和承担的荷载可能会变化。请重新运行受影响的纤维分析；所有验收限值均不变。",
     "tr": "Lif iterasyonları, istenen artık toleransı ile mevcut bağımsız kuvvet ve moment denetimleri sağlanana kadar sürer. Gevşek tolerans, son doğrulamadan önce iterasyonu durdurup çözülebilir bir analizi reddedebiliyordu. Kabul edilen adımlar, tepkiler, yer değiştirmeler ve ulaşılan yük değişebilir. Etkilenen analizleri yeniden çalıştırın; tüm kabul sınırları değişmemiştir."
   },

@@ -30,7 +30,6 @@
     "fr": "Les efforts par phases indisponibles sont retirés",
     "hu": "A nem elérhető fázisos erők visszatartása",
     "tr": "Kullanılamayan aşama kuvvetleri döndürülmez",
-    "nl": "Niet-beschikbare gefaseerde krachten worden achtergehouden",
     "zh": "不可用的分阶段内力暂不提供"
   },
   "explanation": {
@@ -41,7 +40,6 @@
     "fr": "La récupération par phases vérifie l’équilibre physique après projection des contraintes. Réactions, efforts, forces de liaison et contraintes indisponibles sont renvoyés vides, même pour un diagnostic hérité. Revérifiez les efforts par phases enregistrés (#1952).",
     "hu": "A fázisos helyreállítás a kényszervetítés után ellenőrzi a fizikai egyensúlyt. A nem elérhető reakciók, rúderők, kényszererők és feszültségek üres gyűjteményként térnek vissza, az örökölt diagnosztikájú fázisokban is. Ellenőrizze újra a mentett fázisos erőket (#1952).",
     "tr": "Aşama hesabı kısıt izdüşümünden sonra fiziksel dengeyi denetler. Kullanılamayan tepkiler, eleman kuvvetleri, kısıt kuvvetleri ve gerilmeler, tanı önceki aşamadan gelse de boş döndürülür. Kayıtlı aşama kuvvetlerini yeniden denetleyin (#1952).",
-    "nl": "Gefaseerd herstel controleert het fysieke evenwicht na projectie van voorwaarden. Niet-beschikbare reacties, staafkrachten, voorwaardekrachten en spanningen worden als lege verzamelingen teruggegeven, ook wanneer een fase de diagnose erft. Controleer opgeslagen gefaseerde krachten opnieuw (#1952).",
     "zh": "分阶段恢复在约束投影之后检查物理平衡。不可用的反力、杆件内力、约束力和应力以空集合返回，包括某个阶段继承了该诊断的情形。请重新核对已保存的分阶段内力（#1952）。"
   },
   "changelog": {

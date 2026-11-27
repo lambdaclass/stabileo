@@ -22,7 +22,6 @@
     "de": "Automatische Neuvernetzung grober Schalen in vereinheitlichtem PRO zurückgezogen",
     "fr": "Retrait du remaillage automatique des coques à maillage grossier de PRO unifié",
     "tr": "Birleşik PRO kaba kabuk ağlarını otomatik yenileme değişikliği geri çekildi",
-    "nl": "Geünificeerde PRO-automatische hermeshing van grove schalen ingetrokken",
     "zh": "统一版 PRO 自动重新划分粗壳网格的变更已撤回"
   },
   "explanation": {
@@ -32,7 +31,6 @@
     "de": "PR #2509 hat die Plattenintegration des vereinheitlichten PRO (#2365) rückgängig gemacht. Die automatische Neuvernetzung grober, mit dem Modell gelieferter Schalen vor der Berechnung ist nicht mehr aktiv. Prüfen Sie das Netz und wiederholen Sie betroffene Berechnungen aus dem vereinheitlichten PRO.",
     "fr": "La PR #2509 a annulé l’intégration des plaques dans PRO unifié (#2365). Le remaillage automatique avant le calcul des coques à maillage grossier fournies avec le modèle ne s’applique plus. Vérifiez le maillage et relancez les calculs concernés qui ont été effectués avec PRO unifié.",
     "tr": "#2509, birleşik PRO plak entegrasyonunu (#2365) geri aldı. Modelle birlikte gelen kaba kabuk ağlarının analizden önce otomatik yenilenmesi artık geçerli değil. Ağı kontrol edin ve birleşik PRO ile yapılan ve bu değişiklikten etkilenen analizleri yeniden çalıştırın.",
-    "nl": "PR #2509 heeft de geïntegreerde PRO-plaatintegratie (#2365) teruggedraaid. De automatische hermeshing van grove schalen die vóór de berekening met een model worden meegeleverd, is niet meer van kracht. Controleer het net en voer de betreffende berekeningen met geünificeerde PRO opnieuw uit.",
     "zh": "#2509 已回退统一版 PRO 的板功能集成（#2365）。分析前自动重新划分随模型提供的粗壳网格的做法已不再生效。请检查网格，并重新运行曾使用统一版 PRO 执行且受影响的分析。"
   },
   "changelog": {

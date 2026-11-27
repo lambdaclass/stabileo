@@ -27,7 +27,6 @@
     "fr": "Les vérifications cinématiques des ressorts utilisent la rigidité locale",
     "hu": "A kinematikai rugóellenőrzés helyi merevséget használ",
     "tr": "Kinematik yay denetimleri yerel rijitliği kullanır",
-    "nl": "Kinematische veercontroles gebruiken lokale stijfheid",
     "zh": "运动学弹簧检查使用局部刚度"
   },
   "explanation": {
@@ -38,7 +37,6 @@
     "fr": "Dans la PR #1943, une barre rigide sans liaison pouvait créer un faux mécanisme dans un modèle contraint avec ressorts. La normalisation utilise maintenant les seuls degrés liés par les contraintes. Recalculer les modèles concernés ; les données cinématiques et la disponibilité du calcul peuvent changer. Les résultats élastiques ordinaires restent identiques.",
     "hu": "Egy független merev elem a PR #1943 ágán tévesen mechanizmusnak mutathatott egy kényszeres rugómodellt. A rugók normalizálása most csak a kényszerekkel összekapcsolt szabadságfokokat használja. Futtassa újra az érintett rugómodelleket; a mechanizmus adatai és a megoldás elérhetősége változhatnak. A szokásos rugalmas komponensek eredményei változatlanok.",
     "tr": "PR #1943 üzerinde bağlantısız rijit bir eleman, yaylı ve kısıtlı bir modeli yanlışlıkla mekanizma gösterebiliyordu. Normalleştirme artık yalnızca kısıtlarla bağlı serbestlikleri kullanır. Etkilenen yaylı modelleri yeniden çözün; mekanizma bilgileri ve çözüm kullanılabilirliği değişebilir. Olağan elastik bileşen sonuçları değişmez.",
-    "nl": "Een niet-gerelateerde stijve staaf kon een model met beperkingen en veren ten onrechte als mechanisme laten lijken op PR #1943. Veernormalisatie gebruikt nu alleen door beperkingen verbonden vrijheidsgraden. Voer betrokken veermodellen opnieuw uit; mechanismemetadata en beschikbaarheid van de berekening kunnen veranderen. Gewone elastische componentresultaten zijn ongewijzigd.",
     "zh": "在 PR #1943 上，一根不相关的刚性杆件曾可能让受约束的弹簧模型被误判为机构。弹簧归一化现在只使用与约束相连的自由度。请重新运行受影响的弹簧模型；机构元数据和求解可用性可能变化。普通弹性分量的结果不变。"
   },
   "changelog": {

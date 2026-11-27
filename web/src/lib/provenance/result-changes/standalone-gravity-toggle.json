@@ -15,7 +15,6 @@
     "fr": "Activation du poids propre en calcul unique",
     "tr": "Tekil çözümde öz ağırlık anahtarı",
     "hu": "Önsúlykapcsoló az önálló számításban",
-    "nl": "Zelfstandige zwaartekrachtschakelaar",
     "zh": "单次求解的自重开关"
   },
   "explanation": {
@@ -26,7 +25,6 @@
     "fr": "Le réglage de poids propre importé pour un calcul unique respecte désormais la commande de poids propre. Recalculez les résultats obtenus avec la commande désactivée.",
     "tr": "İçe aktarılan tekil çözüm öz ağırlık ayarı artık öz ağırlık anahtarına uyar. Anahtar kapalıyken alınan sonuçları yeniden hesaplayın.",
     "hu": "Az importált önsúlybeállítás az önálló számításban most követi az önsúlykapcsoló állását. Számítsa újra a kikapcsolt állásban kapott eredményeket.",
-    "nl": "Een geïmporteerde zelfstandige zwaartekrachtinstelling eerbiedigt nu de schakelaar voor eigen gewicht. Bereken resultaten die met de schakelaar uit zijn verkregen opnieuw.",
     "zh": "导入的单次求解自重设置现在遵循自重开关。请重新计算关闭自重开关时得到的结果。"
   },
   "changelog": {

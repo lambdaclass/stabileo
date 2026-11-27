@@ -12,7 +12,6 @@
     "de": "Die Basic-Analyse lehnt Modelle mit Schalen ab",
     "fr": "L’analyse Basic refuse les modèles avec coques",
     "tr": "Basic analiz kabuk içeren modelleri reddeder",
-    "nl": "Basic-berekening weigert modellen met schalen",
     "zh": "基本分析会拒绝含壳单元的模型",
     "hu": "A Basic elemzés elutasítja a héjelemeket tartalmazó modelleket"
   },
@@ -23,7 +22,6 @@
     "de": "Die Basic-Analyse konnte die Steifigkeit der Schalen weglassen und ein Ergebnis für den Rahmen liefern. Öffnen Sie das Modell in PRO und berechnen Sie es erneut mit den Schalen. Der Solver wendet die bestehenden Verwindungsgrenzen für MITC4 und MITC9 an.",
     "fr": "L’analyse Basic pouvait omettre la rigidité des coques et produire un résultat pour l’ossature seule. Ouvrez le modèle dans PRO et relancez l’analyse avec ses coques. Le moteur applique les limites de vrillage existantes pour MITC4 et MITC9.",
     "tr": "Basic analiz kabuk rijitliğini atlayıp yalnızca çerçeve sonucunu verebiliyordu. Modeli PRO modunda açın ve kabukları dahil ederek yeniden analiz edin. Çözücü, MITC4 ve MITC9 için mevcut burulma sınırlarını uygular.",
-    "nl": "Basic-berekening kon schaalstijfheid weglaten en een raamwerkresultaat teruggeven. Open het model in PRO en voer het opnieuw uit met de schalen erbij. De rekenkern past de bestaande MITC4- en MITC9-torsielimieten toe.",
     "zh": "基本分析可能会忽略壳单元的刚度，仅返回框架结果。请在 PRO 中打开模型，纳入壳单元后重新分析。求解器会应用 MITC4 和 MITC9 的现有扭曲限值。",
     "hu": "A Basic elemzés kihagyhatta a héjak merevségét, és csak a váz eredményét adhatta vissza. Nyissa meg a modellt PRO módban, és futtassa újra az elemzést a héjakkal együtt. A megoldó az MITC4 és MITC9 meglévő csavarodási határértékeit alkalmazza."
   },

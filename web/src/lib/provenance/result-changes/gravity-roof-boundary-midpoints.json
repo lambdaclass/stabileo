@@ -23,7 +23,6 @@
     "de": "Erzeugte Lasten an gedrehten Dachrändern erhalten",
     "fr": "Conserver les charges générées en rive des toitures pivotées",
     "tr": "Döndürülmüş çatı kenarlarında üretilen yükleri koruma",
-    "nl": "Gegenereerde belastingen op geroteerde dakranden behouden",
     "zh": "保留旋转后屋面边缘的生成荷载",
     "hu": "A generált terhek megőrzése elforgatott tetők peremén"
   },
@@ -34,7 +33,6 @@
     "de": "Erzeugen Sie die automatischen Dachflächen- und Schneelasten in betroffenen Rahmenmodellen neu. Ein Stab auf einer Grundrisskante behält seine Dach- und Schneelasten beim Drehen des Grundrisses.",
     "fr": "Régénérez les charges surfaciques et de neige automatiques des toitures dans les modèles de portiques concernés. Une barre qui coïncide avec un bord de l’emprise conserve ses charges de toiture et de neige lors de la rotation du plan.",
     "tr": "Etkilenen çerçeve modellerinde otomatik çatı alan ve kar yüklerini yeniden üretin. İzdüşümün bir kenarıyla çakışan çubuk, plan döndürüldüğünde çatı ve kar yüklerini korur.",
-    "nl": "Genereer automatische dakoppervlakte- en sneeuwbelastingen op betrokken raamwerkmodellen opnieuw. Een staaf die een voetafdrukrand deelt, behoudt zijn dak- en sneeuwbelastingen wanneer het plan wordt geroteerd.",
     "zh": "请重新生成受影响框架模型的自动屋面面荷载和雪荷载。与投影边缘重合的杆件在平面旋转后保留其屋面荷载和雪荷载。",
     "hu": "Generálja újra az érintett keretmodellek automatikus tetőfelületi terheit és hóterheit. A vetület peremével egybeeső rúd az alaprajz elforgatásakor megőrzi tetőterheit és hóterheit."
   },

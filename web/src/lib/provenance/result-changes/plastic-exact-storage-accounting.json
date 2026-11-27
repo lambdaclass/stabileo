@@ -26,7 +26,6 @@
     "fr": "La certification plastique exacte limite le stockage simultané et la croissance rationnelle",
     "hu": "A pontos képlékeny tanúsítás keretbe foglalja az átfedő tárolást és a racionális számok növekedését",
     "tr": "Kesin plastik sertifikalama eşzamanlı depolamayı ve rasyonel büyümeyi sınırlar",
-    "nl": "Exacte plastische certificering begroot overlappende opslag en rationale groei",
     "zh": "精确塑性认证对重叠存储和有理数增长设定预算"
   },
   "explanation": {
@@ -37,7 +36,6 @@
     "fr": "Les certificats plastiques cumulent désormais le stockage exact et flottant simultané et contrôlent la croissance rationnelle avant l’élimination. Le compteur de pivots ne rejette plus les petits modèles comme le grillage de 24 barres. Les refus nomment la quantité et la limite dépassées. Relancez les certificats refusés ; aucune tolérance numérique ne change.",
     "hu": "A képlékeny tanúsítványok mostantól összeadják az átfedő pontos és lebegőpontos tárolást, és az eliminációs műveletek előtt ellenőrzik a racionális limbek növekedését. A pivotmunka-számláló már nem utasítja el a kis tárolásigényű modelleket, például a 24 rudas rácsot. Az erőforrás miatti elutasítások megnevezik a túllépett mennyiséget és a határt. Futtassa újra a korábban elutasított tanúsítványokat; numerikus tűrés nem változik.",
     "tr": "Plastik sertifikalar artık eşzamanlı kesin ve kayan noktalı depolamayı toplar ve eliminasyon işlemlerinden önce rasyonel büyümeyi denetler. Pivot sayacı 24 çubuklu ızgara gibi küçük modelleri artık reddetmez. Retler aşılan miktarı ve sınırı belirtir. Önceden reddedilen sertifikaları yeniden çalıştırın; sayısal toleranslar değişmez.",
-    "nl": "Plastische certificaten tellen overlappende exacte en drijvende-komma-opslag nu op en controleren de groei van rationale leden vóór eliminatiebewerkingen. De pivotwerkteller wijst modellen met kleine opslag, zoals het raster met 24 staven, niet meer af. Weigeringen wegens middelen noemen de overschreden grootheid en grens. Voer eerder geweigerde certificaten opnieuw uit; er zijn geen numerieke toleranties gewijzigd.",
     "zh": "塑性证书现在对重叠的精确存储和浮点存储求和，并在消元运算之前检查有理数肢的增长。主元工作量计数器不再拒绝小存储模型，例如 24 根杆件的网格。资源拒绝会指明被超出的量和限值。请重新运行以前被拒绝的证书；数值容差不变。"
   },
   "changelog": {

@@ -36,7 +36,6 @@
     "fr": "Préserver l’équilibre lors de la projection des actions de barre en analyse non linéaire plane",
     "hu": "Az egyensúly megőrzése a rúdterhek vetítésekor síkbeli nemlineáris számításban",
     "tr": "Düzlemsel doğrusal olmayan analizde eleman yüklerini izdüşürürken dengeyi koru",
-    "nl": "Evenwicht behouden in vlakke niet-lineaire staafprojecties",
     "zh": "保持平面非线性分析中杆件作用投影的平衡"
   },
   "explanation": {
@@ -47,7 +46,6 @@
     "fr": "L’analyse non linéaire plane projette les actions de barre à partir des composantes de la corde divisées par une longueur commune, à l’assemblage et à la récupération. Les charges équilibrées s’annulent dans les réactions et les actions perpendiculaires de direction fixe ne contribuent pas à l’effort axial.",
     "hu": "A síkbeli nemlineáris számítás az összeállítás és az erők visszaszámítása során a húr komponenseit közös hosszal osztva vetíti a rúdterheket. Az egymást kiegyenlítő terhek kioltják egymást a reakciókban, és a merőleges, rögzített irányú terhek nem adnak tengelyirányú erőt.",
     "tr": "Düzlemsel doğrusal olmayan analiz, montajda ve kuvvet hesabında eleman yüklerini ortak bir uzunluğa bölünen eksen bileşenleriyle izdüşürür. Dengeleyici yükler mesnet tepkilerinde birbirini götürür ve dik, sabit yönlü yükler eksenel kuvvete katkıda bulunmaz.",
-    "nl": "Vlakke niet-lineaire opbouw en herstel projecteren staafacties met koordencomponenten over een gemeenschappelijke lengte. Balancerende belastingen heffen elkaar op in reacties en loodrechte permanente acties leveren nul herstelde normaalkracht.",
     "zh": "平面非线性分析在组装和内力恢复时，用弦线分量除以同一长度来投影杆件作用。相互平衡的荷载在支座反力中抵消，垂直于变形后弦线的固定方向荷载不产生轴力。"
   },
   "changelog": {

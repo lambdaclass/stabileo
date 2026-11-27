@@ -11,7 +11,6 @@
     "de": "Nachweis von Stahlbetonträgern an endgültigen Kreuzungspunkten",
     "fr": "Vérification des poutres en béton aux croisements définitifs",
     "tr": "Betonarme kirişlerin kesinleşen birleşimlerde doğrulanması",
-    "nl": "Betonliggerverificatie tegen gezette kruisende zittingen",
     "zh": "按交叉梁钢筋的最终位置验算钢筋混凝土梁"
   },
   "explanation": {
@@ -21,7 +20,6 @@
     "de": "Die automatische Bemessung prüft die gewählte Bewehrung anhand der endgültigen Stablagen der kreuzenden Träger. Wird eine Bewehrung abgelehnt, werden die übrigen erneut geprüft. Führen Sie die automatische Bemessung erneut aus und prüfen Sie die Ergebnisse.",
     "fr": "Le dimensionnement automatique vérifie les armatures sélectionnées avec les positions définitives des barres des poutres qui se croisent. Si une cage est refusée, les autres sont vérifiées à nouveau. Relancez le dimensionnement automatique et examinez les résultats.",
     "tr": "Otomatik tasarım, seçilen donatı kafesini kesişen kirişlerin donatılarının kesin konumlarına göre kontrol eder. Bir kafes reddedilirse kalan kafesler yeniden doğrulanır. Otomatik tasarımı yeniden çalıştırın ve sonuçları inceleyin.",
-    "nl": "Automatisch ontwerp toetst de gekozen kooi aan de definitieve posities van de staven van kruisende liggers voordat ze wordt gecertificeerd. Een weigering kan een obstakel of een voortzetting verwijderen, dus de run toetst de overblijvende kooien opnieuw. Voer automatisch ontwerp opnieuw uit en bekijk de gerapporteerde bevindingen.",
     "zh": "签发验算证书前，自动设计会按交叉梁钢筋的最终位置检查选定的钢筋笼。撤下无法验算的钢筋笼可能消除障碍或中断钢筋的连续布置，因此程序会重新验算其余钢筋笼。请重新运行自动设计并查看报告。"
   },
   "changelog": {
