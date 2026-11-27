@@ -32,6 +32,62 @@ class BenchmarkOutputs(unittest.TestCase):
         process = subprocess.run(['node', folder / 'wasm/check.mjs', *args], capture_output=True, text=True, cwd=root)
         self.assertNotEqual(process.returncode, 0, process.stdout[-250:])
 
+    def wrap_export(self, folder, export, replacement):
+        checker = folder / 'wasm/check.mjs'
+        source = checker.read_text().replace('import { createServer }', 'import { createServer as viteServer }')
+        wrapper = """
+const createServer = async settings => {
+  const server = await viteServer(settings);
+  const load = server.ssrLoadModule.bind(server);
+  server.ssrLoadModule = async id => {
+    const actual = await load(id);
+    if (typeof actual[EXPORT] !== 'function') return actual;
+    return { ...actual, [EXPORT]: REPLACEMENT };
+  };
+  return server;
+};
+""".replace('EXPORT', json.dumps(export)).replace('REPLACEMENT', replacement)
+        checker.write_text(source.replace('const server = await createServer', wrapper + 'const server = await createServer'))
+
+    @unittest.skip('known wrong result: #2505')
+    def test_every_mesh_reaction_is_included_in_the_plate_verdict(self):
+        folder = self.benchmark('benchmarks/navier-plate')
+        self.wrap_export(folder, 'solve3D', """input => {
+          const result = actual.solve3D(input);
+          if (input.nodes.size === 65 * 65) result.reactions[0].fz += 1;
+          return result;
+        }""")
+        self.reject(folder)
+
+    @unittest.skip('known wrong result: #2505')
+    def test_plate_uses_fresh_coarse_series_in_truncation_and_paper_rows(self):
+        folder = self.benchmark('benchmarks/navier-plate')
+        self.wrap_export(folder, 'navierCenter', '(...args) => actual.navierCenter(...args) + (args.length ? 0 : 5e-13)')
+        result = subprocess.run(['node', folder / 'wasm/check.mjs', '--write'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        validation = lambda directory: json.loads((directory / 'VALIDATION.json').read_text())['checks']
+        original = root / 'research/benchmarks/navier-plate'
+        errors = lambda directory: next(r['observed'] for r in validation(directory) if 'thin-plate series truncation' in r['metric'])
+        self.assertNotEqual(errors(folder), errors(original))
+        published = lambda directory: json.loads((directory / 'reference-results/published_comparison.json').read_text())['checks']
+        series = lambda directory: next(r['computed'] for r in published(directory) if r['id'] == 'series')
+        self.assertGreater(series(folder), series(original))
+
+    @unittest.skip('known wrong result: #2505')
+    def test_portal_requires_live_nodes_and_the_complete_sweep(self):
+        folder = self.benchmark('benchmarks/plastic-collapse')
+        checker = folder / 'wasm/check.mjs'
+        original = checker.read_text()
+        for name, expression in [('run', """async params => {
+              const result = await actual.run(params);
+              result.steps[0].results.displacements.pop();
+              return result;
+            }"""), ('checks', '() => []')]:
+            with self.subTest(name=name):
+                checker.write_text(original)
+                self.wrap_export(folder, name, expression)
+                self.reject(folder)
+
     def test_fairclough_needs_every_weight(self):
         folder = self.benchmark('optimisation/fairclough-2026')
         file = folder / 'reference-results/published_comparison.json'
