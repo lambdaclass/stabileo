@@ -8,12 +8,13 @@ self.onmessage = async ({ data }: MessageEvent<{ split?: Split }>) => {
     let peak: number | null = null;
     for (let step = split; step <= input.maxSteps; step += split) {
       const result = solveArcLength({ ...input, maxSteps: step });
-      self.postMessage({ frame: frameFrom(result, step, input) });
-      if (step + split > input.maxSteps) {
-        const loads = (result.steps as { loadFactor: number }[]).map(s => s.loadFactor);
-        const i = loads.findIndex((l, k) => k > 0 && k < loads.length - 1 && l > loads[k - 1] && l > loads[k + 1]);
-        peak = i < 0 ? null : loads[i];
+      const frame = frameFrom(result, step, input);
+      if (peak === null) {
+        const loads = result.steps.map(s => s.loadFactor);
+        const i = loads.findIndex((load, k) => k > 0 && k + 1 < loads.length && load > loads[k - 1] && load > loads[k + 1]);
+        if (i >= 0) peak = loads[i];
       }
+      self.postMessage({ frame, peak });
     }
     self.postMessage({ done: true, peak });
   } catch (error) { self.postMessage({ error: failureCode(error) }); }

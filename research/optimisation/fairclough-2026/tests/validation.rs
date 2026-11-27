@@ -155,7 +155,9 @@ fn five_node_reference_and_engine() {
         })
     })
     .collect();
-    let published = json!({"reproduced_published_results": true, "checks": table});
+    let reproduced = table.len() == 7 && table.iter().all(|row| row["passed"] == true);
+    assert!(reproduced, "incomplete or failed published comparisons: {table:?}");
+    let published = json!({"reproduced_published_results": reproduced, "checks": table});
     fs::create_dir_all(root.join("target/reference-results")).unwrap();
     fs::write(
         root.join("target/VALIDATION.json"),

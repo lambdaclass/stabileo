@@ -75,7 +75,7 @@ try {
   }
   const withheld = cases.filter(c => c.expectedRefusal);
   checks.push(check(`${withheld.map(c => c.id).join(', ')}: cases not withheld by both native and WASM with known issue #798 (SH-MITC4-DISTORTION)`, withheld.filter(c => !(byId(c.id).refused && native.find(r => r.id === c.id).refused)).length, 0));
-  checks.push(check('every computed case: largest relative difference between WASM and native values', parity, 1e-8));
+  checks.push(check('computed cantilever and frame cases: largest relative difference between WASM and native values', parity, 1e-8));
   checks.push(check(`roof-16 (shared shell obstacle course input): relative error of the WASM midside deflection against Table 5(a) ${roofCase.reference}`, relative(roof, roofCase.reference), tolerance));
 
   const SOURCE = { beam: 'MacNeal & Harder (1985), Table 3, p. 10 (geometry Fig. 4, p. 7)', roof: 'MacNeal & Harder (1985), Table 5(a), p. 11 (normalization value; model Fig. 8, p. 8)' };
@@ -90,7 +90,7 @@ try {
   ];
 
   const validation = {
-    what: 'Production engine (native and WASM) on the MacNeal–Harder straight cantilever, analytical frame adaptations and the Scordelis–Lo roof; written by wasm/check.mjs in the Research workflow.',
+    what: 'Production native and WASM engines on the MacNeal–Harder straight cantilever and analytical frame adaptations, with a separate WASM comparison for the Scordelis–Lo roof; written by wasm/check.mjs in the Research workflow.',
     command: COMMAND,
     checks,
   };
@@ -114,7 +114,9 @@ try {
   } else {
     const same = (a, b, path, scale) => {
       if (typeof a === 'number' && typeof b === 'number') {
-        const allowed = Math.max(1e-9 * Math.abs(b), 1e-15, scale === undefined ? 0 : 0.1 * scale);
+        const allowed = path.endsWith('.computed') ? 1e-9 * Math.abs(a)
+          : path.endsWith('.observed') ? Math.min(1e-9, 0.1 * scale) : 0;
+        assert.ok(Number.isFinite(a) && Number.isFinite(b), path);
         return assert.ok(Math.abs(a - b) <= allowed, `${path}: ${a} vs committed ${b}`);
       }
       if (a && typeof a === 'object') {

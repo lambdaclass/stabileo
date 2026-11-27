@@ -41,10 +41,13 @@ export function mechanisms(p: Portal = PAPER): Record<Mechanism, number> {
   const { mp, horizontal: h, vertical: v, span: l, height } = p;
   return { beam: 8 * mp / (v * l), sway: 4 * mp / (h * height), combined: 6 * mp / (h * height + v * l / 2) };
 }
-/** The mechanism with the lowest bound, or null when two bounds tie within the solver tolerance. */
+function lowestMechanisms(bounds: Record<Mechanism, number>): Mechanism[] {
+  const minimum = Math.min(...Object.values(bounds));
+  return (Object.keys(bounds) as Mechanism[]).filter(key => bounds[key] - minimum <= portal.tolerance);
+}
 export function governing(p: Portal = PAPER): Mechanism | null {
-  const sorted = (Object.entries(mechanisms(p)) as [Mechanism, number][]).sort((a, b) => a[1] - b[1]);
-  return sorted[1][1] - sorted[0][1] > portal.tolerance ? sorted[0][0] : null;
+  const modes = lowestMechanisms(mechanisms(p));
+  return modes.length === 1 ? modes[0] : null;
 }
 export function compare(result: Result, p: Portal = PAPER) {
   if (!Number.isFinite(result.collapseFactor) || !result.steps?.length) throw new Error('Invalid plastic-collapse result');
@@ -106,15 +109,21 @@ export function residual(result: Result, p: Portal = PAPER) {
 }
 
 /** Beam collapse is a partial mechanism: a base may yield before it forms, so its three hinges need only be among those formed. */
-function hingeSetMatches(nodes: number[], mode: Mechanism): boolean {
+function hingeSetMatches(nodes: number[], modes: Mechanism[]): boolean {
   const formed = new Set(nodes);
-  const needed = HINGES[mode].split(',').map(Number);
-  return formed.size === nodes.length && needed.every(n => formed.has(n)) && (mode === 'beam' || formed.size === needed.length);
+  const patterns = modes.map(mode => HINGES[mode].split(',').map(Number));
+  const permitted = new Set(patterns.flat());
+  return formed.size === nodes.length && patterns.some(needed => needed.every(n => formed.has(n)))
+    && (modes.includes('beam') || nodes.every(n => permitted.has(n)));
 }
 
 export const RELATIVE_EQUILIBRIUM = 1e-8;
 export function relativeResidual(r: { fx: number; fz: number; my: number }, lambda: number, p: Portal): number {
-  return Math.max(Math.abs(r.fx) / (lambda * p.horizontal), Math.abs(r.fz) / (lambda * p.vertical), Math.abs(r.my) / (lambda * (p.horizontal * p.height + p.vertical * p.span / 2)));
+  const scaled = (force: number, applied: number) => applied === 0
+    ? Math.abs(force) / portal.equilibriumTolerance * RELATIVE_EQUILIBRIUM
+    : Math.abs(force / applied);
+  return Math.max(scaled(r.fx, lambda * p.horizontal), scaled(r.fz, lambda * p.vertical),
+    scaled(r.my, lambda * (p.horizontal * p.height + p.vertical * p.span / 2)));
 }
 
 export const cornerMoment = (lambda: number, p: Portal = PAPER) => 3 * p.mp - lambda * p.horizontal * p.height;
@@ -123,7 +132,9 @@ export function checks(result: Result, p: Portal = PAPER): { id: CheckId; passed
   const { mp, vertical: v, span: l } = p;
   const { tolerance, yieldTolerance, equilibriumTolerance } = portal;
   const paper = isPaper(p);
-  const mode = governing(p);
+  const bounds = mechanisms(p);
+  const possible = lowestMechanisms(bounds);
+  const mode = possible.length === 1 ? possible[0] : null;
   const lambda = result.collapseFactor;
   const { moments, reactions } = collapseState(result);
   const hingesMatch = !paper ? result.steps.every(s => (s.hingesFormed ?? []).every(h => Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance)) : result.steps.length === portal.events.length && result.steps.every((s, i) => {
@@ -158,9 +169,9 @@ export function checks(result: Result, p: Portal = PAPER): { id: CheckId; passed
   const corner = moments.get(1)?.myEnd ?? NaN;
   const r = reactionsAtSupports ? residual(result, p) : { fx: NaN, fz: NaN, my: NaN };
   const list: { id: CheckId; passed: boolean }[] = [
-    { id: 'collapse', passed: Math.abs(lambda - Math.min(...Object.values(mechanisms(p)))) < tolerance },
+    { id: 'collapse', passed: Math.abs(lambda - Math.min(...Object.values(bounds))) < tolerance },
     { id: 'mechanism', passed: result.isMechanism && !(result.warnings ?? []).length },
-    ...(mode ? [{ id: 'hinges' as const, passed: hingeSetMatches(hingeNodes, mode) && hingesMatch && hingesCarryForces }] : []),
+    { id: 'hinges', passed: hingesMatch && hingesCarryForces && hingeSetMatches(hingeNodes, possible) },
     { id: 'yield', passed: completeEvents && ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) && !yieldedOnTheWay },
     { id: 'equilibrium', passed: reactionsAtSupports && (paper ? [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) : relativeResidual(r, lambda, p) < RELATIVE_EQUILIBRIUM) },
   ];

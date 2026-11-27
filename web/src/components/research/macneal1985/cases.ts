@@ -107,9 +107,9 @@ export function skewedCase(c: Case, degrees: number): Case {
 }
 
 export async function runVariant(c: Case): Promise<Result> {
-  const engine = await import('../../../lib/engine/wasm-solver');
-  await engine.initSolver();
   try {
+    const engine = await import('../../../lib/engine/wasm-solver');
+    await engine.initSolver();
     const result = engine.solve3D(inputFor(c) as SolverInput3D);
     if (knownIssueResultDisposition(result).refused) throw new Error(JSON.stringify({ structuredDiagnostics: result.structuredDiagnostics }));
     return compare(c, result.displacements as unknown as Record<string, number>[]);

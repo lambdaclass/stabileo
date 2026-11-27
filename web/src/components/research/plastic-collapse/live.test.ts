@@ -35,11 +35,11 @@ it.each([[0.5, 3], [1, 3], [4, 3], [2, 2.5], [2, 5]])('collapses at the lowest h
   const mode = governing(p)!;
   expect(Math.abs(result.collapseFactor - mechanisms(p)[mode])).toBeLessThan(portal.tolerance);
   const list = checks(result, p);
-  expect(list.map(c => c.id)).toContain('hinges');
+  expect(list.map(c => c.id)).toEqual(['collapse', 'mechanism', 'hinges', 'yield', 'equilibrium', ...(mode === 'combined' ? ['corner'] : [])]);
   expect(list.filter(c => !c.passed)).toEqual([]);
 });
 
-it.skip.each([0.75, 3])('known wrong result: #2505 tied portal at V/H=%s still checks actual hinge moments', async vertical => {
+it.each([0.75, 3])('tied portal at V/H=%s still checks actual hinge moments', async vertical => {
   const model = { ...PAPER, vertical };
   const result = await run(model);
   const hingeCheck = () => checks(result, model).find(c => c.id === 'hinges')?.passed;
@@ -48,7 +48,7 @@ it.skip.each([0.75, 3])('known wrong result: #2505 tied portal at V/H=%s still c
   expect(hingeCheck()).toBe(false);
 });
 
-it.skip.each(['horizontal', 'vertical'] as const)('known wrong result: #2505 pure loading checks equilibrium with zero %s load', async direction => {
+it.each(['horizontal', 'vertical'] as const)('pure loading checks equilibrium with zero %s load', async direction => {
   const model = { ...PAPER, [direction]: 0 };
   const result = await run(model);
   expect(checks(result, model).find(c => c.id === 'equilibrium')?.passed).toBe(true);

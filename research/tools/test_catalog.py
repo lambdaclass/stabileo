@@ -61,7 +61,7 @@ def main():
     bsd = base64.b64encode(b"BSD 3-Clause License\n\nRedistributions of source code must retain the above copyright notice, ...\nRedistributions in binary form must reproduce the above copyright notice, ...\nNeither the name of the copyright holder nor the names of its\n   contributors ...\n\nThird-party: exprtk, MIT").decode()
     entry = copy.deepcopy(base[0])
     entry["code"] = [dict(entry["code"][0], license="BSD-3-Clause")]
-    for content, expected in [(bsd, []), (base64.b64encode(b"BSD 3-Clause License").decode(), 1)]:
+    for content, expected in [(bsd, 0), (base64.b64encode(b"BSD 3-Clause License").decode(), 1)]:
         catalog.get_json = lambda url: {"license": {"spdx_id": "NOASSERTION"}, "content": content}
         errors = []
         catalog.check_links(entry, errors)

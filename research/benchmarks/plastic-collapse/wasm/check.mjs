@@ -28,14 +28,41 @@ try {
   list.push(check('our example: largest excess of |My|/Mp over 1 at any member end at collapse', Math.max(0, ...[...moments.values()].flatMap(m => [m.myStart, m.myEnd]).map(m => Math.abs(m) / portal.mp - 1)), portal.yieldTolerance));
   list.push(check('our example: largest global equilibrium residual of the summed reactions (ΣFx, ΣFz, ΣMy)', Math.max(Math.abs(r.fx), Math.abs(r.fz), Math.abs(r.my)), portal.equilibriumTolerance));
   list.push(check('our example: |left roof corner moment − (3Mp − λHh)| from statics', Math.abs(moments.get(1).myEnd - cornerMoment(lambda, PAPER)), portal.tolerance));
+  function byModelId(records, key, model) {
+    const ids = Object.values(model).map(item => item.id).sort((a, b) => a - b);
+    assert.deepEqual(records.map(record => record[key]).sort((a, b) => a - b), ids);
+    return new Map(records.map(record => [record[key], record]));
+  }
+  function pageVerdicts(output, parameters) {
+    const verdicts = pageChecks(output, parameters);
+    const ids = ['collapse', 'mechanism', 'hinges', 'yield', 'equilibrium'];
+    if (governing(parameters) === 'combined') ids.push('corner');
+    assert.deepEqual(verdicts.map(c => c.id).sort(), ids.sort());
+    return verdicts;
+  }
+  assert.equal(replay.steps.length, result.steps.length);
   let du = 0;
-  result.steps.forEach((s, i) => s.results.displacements.forEach(d => {
-    const rec = replay.steps[i].results.displacements.find(x => x.nodeId === d.nodeId);
-    du = Math.max(du, Math.abs(d.ux - rec.ux), Math.abs(d.uz - rec.uz));
-  }));
+  result.steps.forEach((step, index) => {
+    const recorded = replay.steps[index].results;
+    for (const [field, key, model, components] of [
+      ['displacements', 'nodeId', portal.input.solver.nodes, ['ux', 'uz']],
+      ['elementForces', 'elementId', portal.input.solver.elements, ['myStart', 'myEnd']],
+    ]) {
+      const actual = byModelId(step.results[field], key, model);
+      const reference = byModelId(recorded[field], key, model);
+      for (const [id, value] of actual) {
+        for (const component of components) {
+          const difference = Math.abs(value[component] - reference.get(id)[component]);
+          assert.ok(Number.isFinite(difference), component);
+          if (field === 'displacements') du = Math.max(du, difference);
+          else assert.ok(difference <= portal.mp * portal.yieldTolerance, component);
+        }
+      }
+    }
+  });
   list.push(check('WASM against the committed native replay: largest nodal ux/uz difference over every hinge event (m)', du, 1e-9));
   list.push(check('WASM against the committed native replay: |λ difference|', Math.abs(lambda - replay.collapseFactor), portal.tolerance));
-  assert.ok(pageChecks(result, PAPER).every(c => c.passed));
+  assert.ok(pageVerdicts(result, PAPER).every(c => c.passed));
 
   const sweep = [
     { ...PAPER, vertical: 0.5 * PAPER.horizontal }, { ...PAPER, vertical: 1 * PAPER.horizontal }, { ...PAPER, vertical: 4 * PAPER.horizontal },
@@ -49,7 +76,7 @@ try {
     const name = `V/H = ${p.vertical / p.horizontal}, h = ${p.height} m (${mode} governs)`;
     list.push(check(`${name}: |λ − lowest hand bound|`, Math.abs(res.collapseFactor - mechanisms(p)[mode]), portal.tolerance));
     list.push(check(`${name}: largest equilibrium residual relative to λH, λV and λ(Hh + VL/2)`, relativeResidual(residual(res, p), res.collapseFactor, p), RELATIVE_EQUILIBRIUM));
-    const failing = pageChecks(res, p).filter(c => !c.passed).map(c => c.id);
+    const failing = pageVerdicts(res, p).filter(c => !c.passed).map(c => c.id);
     list.push(check(`${name}: page checks failing (mechanism, hinge set of the ${mode} mechanism, yield, equilibrium${mode === 'combined' ? ', corner' : ''})`, failing.length, 0));
     hand.push({ case: name, ...p, bounds: mechanisms(p), governing: mode });
   }

@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { refinedInput } from '../case';
 
-it.skip('known wrong result: #2505 publishes the first confirmed native-step peak before a refined solve stops', async () => {
+it('publishes the first confirmed native-step peak before a refined solve stops', async () => {
   const input = refinedInput(2);
   const sent: { frame?: { step: number }; peak?: number; error?: string }[] = [];
   const worker = { postMessage: (m: typeof sent[number]) => sent.push(m), onmessage: undefined as unknown as (e: { data: { split: number } }) => Promise<void> };

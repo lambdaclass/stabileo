@@ -304,7 +304,7 @@ describe('containment explanation is localized', () => {
   });
 });
 
-it.skip('known wrong result: #2505 a variant initialization rejection reaches the page as a failure', async () => {
+it('a variant initialization rejection reaches the page as a failure', async () => {
   const engine = await import('../../../../lib/engine/wasm-solver');
   vi.spyOn(engine, 'initSolver').mockRejectedValueOnce(new Error('unavailable module'));
   const result = await runVariant(cases.find(c => c.id === 'mitc4-parallelogram-out')!);

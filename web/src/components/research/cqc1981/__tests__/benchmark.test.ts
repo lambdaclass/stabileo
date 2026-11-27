@@ -99,12 +99,14 @@ it('evaluates the closed form for every damping ratio offered, matching the shar
   for (const xi of DAMPING) expect(closedForm(xi).SRSS).toBe(at.SRSS);
 });
 
-it('reruns the production spectrum solver for another damping ratio and matches its closed form', async () => {
-  const xi = 0.2;
+it.each(DAMPING)('compares both roofs and base shear to the closed form at damping %s', async xi => {
   const results = await recompute(xi);
   const reference = closedForm(xi);
   expect(Math.abs(difference(impliedRho(results), reference.rho))).toBeLessThan(benchmark.relativeTolerance * 100);
   for (const rule of ['SRSS', 'CQC'] as const) {
+    roof(results[rule]).forEach((u, i) => {
+      expect(Math.abs(difference(u, reference[rule === 'SRSS' ? 'roofSRSS' : 'roofCQC'][i]))).toBeLessThan(benchmark.relativeTolerance * 100);
+    });
     expect(Math.abs(difference(results[rule].baseShear, reference[rule]))).toBeLessThan(benchmark.relativeTolerance * 100);
   }
 });

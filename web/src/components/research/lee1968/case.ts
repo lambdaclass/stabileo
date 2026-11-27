@@ -62,7 +62,7 @@ export function firstPeak(frames: Frame[]) {
   const index = frames.findIndex((f,i) => i > 0 && i < frames.length-1 && f.load > frames[i-1].load && f.load > frames[i+1].load);
   return index < 0 ? null : frames[index];
 }
-const finestStep = (split: number) => data.convergence.cases.filter(c => c.split === split).at(-1)!;
+const finestStep = (split: number) => data.convergence.cases.filter(c => c.split === split).reduce((a, b) => a.stepScale < b.stepScale ? a : b);
 export const convergence = { elements40: finestStep(2), elements80: finestStep(4), stepEffectBound: data.convergence.stepEffectBound };
 export function fill(template: string, values: Record<string, string>) {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? `{${key}}`);

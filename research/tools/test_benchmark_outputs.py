@@ -32,7 +32,6 @@ class BenchmarkOutputs(unittest.TestCase):
         process = subprocess.run(['node', folder / 'wasm/check.mjs', *args], capture_output=True, text=True, cwd=root)
         self.assertNotEqual(process.returncode, 0, process.stdout[-250:])
 
-    @unittest.skip('known wrong result: #2505')
     def test_fairclough_needs_every_weight(self):
         folder = self.benchmark('optimisation/fairclough-2026')
         file = folder / 'reference-results/published_comparison.json'
@@ -42,10 +41,11 @@ class BenchmarkOutputs(unittest.TestCase):
                 file.write_text(json.dumps({'checks': incomplete}))
                 self.reject(folder)
 
-    @unittest.skip('known wrong result: #2505')
     def test_portal_requires_every_recorded_node_and_member(self):
         folder = self.benchmark('benchmarks/plastic-collapse')
         file = folder / 'results/stabileo_results.json'
+        control = subprocess.run(['node', folder / 'wasm/check.mjs'], capture_output=True, text=True)
+        self.assertEqual(control.returncode, 0, control.stderr[-3000:])
         original = file.read_text()
         for field, alter in [('displacements', 'duplicate'), ('elementForces', 'remove'), ('elementForces', 'duplicate'), ('elementForces', 'moment')]:
             with self.subTest(field=field, alter=alter):
@@ -60,7 +60,6 @@ class BenchmarkOutputs(unittest.TestCase):
                 file.write_text(json.dumps(data))
                 self.reject(folder)
 
-    @unittest.skip('known wrong result: #2505')
     def test_macneal_rejects_stale_measurements_even_with_a_matching_digest(self):
         folder = self.benchmark('benchmarks/macneal-harder-1985')
         file = folder / 'reference-results/published_comparison.json'

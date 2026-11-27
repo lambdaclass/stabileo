@@ -9,13 +9,16 @@ const result=JSON.parse(module.recompute(1.65));
 const evidenceRoot = new URL('../', import.meta.url);
 const recorded = JSON.parse(fs.readFileSync(new URL('results/stabileo_results.json', evidenceRoot))).layout;
 const published = JSON.parse(fs.readFileSync(new URL('reference-results/published_comparison.json', evidenceRoot))).checks;
+const weights = ['1.65', '1.68', '1.72', '1.76', '1.80', '1.85', '2.00'];
+assert.deepEqual(published.map(row => row.id).sort(), weights.map(weight => 'table1-v5-' + weight));
 for (const row of published) {
   const weight = Number(row.id.slice('table1-v5-'.length));
   const volume = JSON.parse(module.recompute(weight)).volume;
   assert.ok(Math.abs(volume-row.computed)<=1e-8*row.computed, row.id);
   assert.ok(Math.abs(volume-row.reference)<=row.tolerance, row.id);
 }
-assert.throws(()=>module.recompute(2.5));
+for (const weight of [0, -1, NaN, Infinity, -Infinity, 2.5]) assert.throws(() => module.recompute(weight), /outside/);
+assert.ok(Number.isFinite(JSON.parse(module.recompute(2.2)).volume));
 function close(actual, expected) {
   if (typeof expected === 'number') {
     assert.ok(Number.isFinite(actual));

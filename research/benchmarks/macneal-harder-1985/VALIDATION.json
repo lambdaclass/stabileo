@@ -1,5 +1,5 @@
 {
-  "what": "Production engine (native and WASM) on the MacNeal–Harder straight cantilever, analytical frame adaptations and the Scordelis–Lo roof; written by wasm/check.mjs in the Research workflow.",
+  "what": "Production native and WASM engines on the MacNeal–Harder straight cantilever and analytical frame adaptations, with a separate WASM comparison for the Scordelis–Lo roof; written by wasm/check.mjs in the Research workflow.",
   "command": "node research/benchmarks/macneal-harder-1985/wasm/check.mjs <native results> [--write]",
   "checks": [
     {
@@ -81,7 +81,7 @@
       "passed": true
     },
     {
-      "metric": "every computed case: largest relative difference between WASM and native values",
+      "metric": "computed cantilever and frame cases: largest relative difference between WASM and native values",
       "observed": 0,
       "tolerance": 1e-8,
       "passed": true

@@ -51,7 +51,7 @@
     worker = new Worker(new URL('./solve.worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = ({ data }: MessageEvent<{ frame?: Frame; done?: boolean; error?: Failure; peak?: number | null }>) => {
       if (data.frame) { frames = [...frames, data.frame]; playback.setCount(frames.length); }
-      if (data.done) livePeak = data.peak ?? null;
+      if (data.peak != null) livePeak = data.peak;
       if (data.error) failure = data.error;
       if (data.done || data.error) { stop(); if (reduced) playback.seek(frames.length - 1); }
     };

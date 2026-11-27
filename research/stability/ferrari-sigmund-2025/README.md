@@ -59,7 +59,7 @@ production corotational solver, without any new element or solver:
 
 1. A rotational spring of 10 kN·m/rad and a corner moment 10θ hold the corner at a rotation θ
    while the corner load λ is applied (`solve_corotational_2d`, 16 increments, tolerance 10⁻¹¹).
-   When the spring carries no moment, the state is an equilibrium of the free frame with corner
+   When the restoring spring moment −10θ balances the applied corner moment, the state is an equilibrium of the free frame with corner
    rotation θ: a point of the branch. A bracketed Illinois iteration on λ finds it.
 2. Six points θ = ±h, ±2h, ±3h (h = 0.02 rad) fix λθ to fifth degree. Reading the coefficients
    from λθ = λ₁(−Δ + θ + αθ² + βθ³ + …) keeps a residual imperfection Δ (Eq. 1) out of α.
@@ -86,7 +86,7 @@ Richardson extrapolation. This also identifies the closed form's ξ as the corne
 first order.
 
 **β does not match.** In the corner rotation it is 0.4632; in the modal coordinate the paper
-describes (ξ the Euclidean projection of d − λ₁û onto the buckling mode scaled to unit corner
+describes (ξ the Euclidean projection of d − λû onto the buckling mode scaled to unit corner
 rotation, so that the second-order correction w is orthogonal to the mode) it is 0.3574. Neither
 is 0.1421 or 0.1436. β depends on which second-order coordinate is used, and the paper does not
 pin it down: its stated normalization (Φ⁽³⁾u₀)v₁² = 1 does not fix how ξ relates to a physical

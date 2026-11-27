@@ -19,11 +19,15 @@ fn held(n: usize, area: f64, lambda: f64, theta: f64) -> SolverInput {
 }
 
 fn vector(n: usize, displacements: &[Displacement]) -> Vec<f64> {
-    let mut v = vec![0.; 3 * (2 * n + 1)];
-    for d in displacements {
-        v[3 * (d.node_id - 1)..3 * d.node_id].copy_from_slice(&[d.ux, d.uz, d.ry]);
-    }
-    v
+    assert_eq!(displacements.len(), 2 * n + 1);
+    let mut ordered: Vec<_> = displacements.iter().collect();
+    ordered.sort_unstable_by_key(|d| d.node_id);
+    ordered.into_iter().enumerate().flat_map(|(i, d)| {
+        assert_eq!(d.node_id, i + 1);
+        let values = [d.ux, d.uz, d.ry];
+        assert!(values.iter().all(|x| x.is_finite()));
+        values
+    }).collect()
 }
 
 pub fn state(n: usize, area: f64, lambda: f64, theta: f64) -> Vec<f64> {
@@ -49,10 +53,6 @@ pub fn linear_modes(n: usize, area: f64) -> (Vec<f64>, Vec<f64>) {
     (linear, mode.iter().map(|x| x / scale).collect())
 }
 
-/// The load factor at which the perfect frame stays in equilibrium with its corner turned by
-/// `theta` and no moment applied there: a point of the bifurcated branch. A stiff rotational
-/// spring holds the corner while a bracketed Illinois iteration finds the load that leaves the
-/// spring unloaded.
 pub fn branch_load(n: usize, area: f64, theta: f64, guess: f64) -> f64 {
     let g = |lambda: f64| corner_rotation(n, area, lambda, theta) - theta;
     let step = 0.01 * guess;
@@ -139,7 +139,6 @@ mod displacement_tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2505"]
     fn modal_vectors_require_one_finite_triplet_per_model_node() {
         let node = |id| Displacement { node_id: id, ux: id as f64, uz: 0., ry: 0. };
         for invalid in [vec![node(1), node(3)], vec![node(1), node(1), node(3)],
