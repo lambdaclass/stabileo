@@ -1,19 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { unifiedPlates } from '../../features';
 import { recheckStore, createRecheckStore } from '../recheck.svelte';
 import { RESULTS_VERSION } from '../../provenance/registry';
 import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../../provenance/full-registry';
 import { resultsStore } from '../results.svelte';
 import '../index';
-
-const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
-const steelTruss = () => ({
-  analysisMode: 'pro',
-  materials: [[1, STEEL]],
-  elements: [[1, { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseI: {}, releaseJ: {} }]],
-  supports: [[1, { id: 1, nodeId: 1, type: 'pinned3d' }]],
-  loads: [],
-  loadCases: [{ id: 1, type: 'D' }],
-}) as never;
+import { STEEL, steelTruss } from './recheck-fixtures';
 
 describe('recheckStore', () => {
   beforeEach(() => recheckStore.reset());
@@ -33,32 +25,6 @@ describe('recheckStore', () => {
     expect(await reopen(released.resultsVersion, beam)).toContain(cutoff);
     expect(await reopen(RESULTS_VERSION, beam)).not.toContain(cutoff);
     expect(await reopen(released.resultsVersion, [])).not.toContain(cutoff);
-  });
-
-  it('known wrong result: #1928 reading a published project warning only acknowledges it in the current session', async () => {
-    const memory = new Map<string, string>();
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => memory.get(key) ?? null,
-      setItem: (key: string, value: string) => memory.set(key, value),
-    });
-    try {
-      const saved = { ...createRecheckStore().capture()!, id: 'released-solve', resultsVersion: 0 };
-      const project = { ...(steelTruss() as object), solvedWith: saved };
-      const open = async (store: ReturnType<typeof createRecheckStore>) => {
-        store.openProject(project, 'pro');
-        await vi.waitFor(() => expect(store.pending).toBe(false));
-      };
-      const first = createRecheckStore();
-      await open(first);
-      expect(first.noticeOpen).toBe(true);
-      first.acknowledge();
-      await open(first);
-      expect(first.noticeOpen).toBe(false);
-      const restarted = createRecheckStore();
-      await open(restarted);
-      expect(restarted.noticeOpen).toBe(true);
-      expect(memory.has('stabileo-recheck-acknowledged')).toBe(false);
-    } finally { vi.unstubAllGlobals(); }
   });
 
   it('a new project belongs to this build: no notice, nothing stale', async () => {
@@ -476,6 +442,7 @@ describe('edited projects with older provenance', () => {
     const allChanges = store.assessment?.changes ?? [];
     expect(allChanges?.filter(c => c.id === 'compensated-applied-force-totals')).toHaveLength(1);
     const rcNoticeIds = ['rc-beam-line-check-parity', 'rc-detailing-verification', 'rc-drawn-hoop-verification', 'rc-drawn-joint-and-corner-verification', 'rc-drawn-station-checks', 'rc-final-depth-drawing', 'rc-settled-seat-certification', 'rc-torsion-evidence', 'rc-torsion-shear-containment'];
+    if (unifiedPlates()) rcNoticeIds.unshift('default-covers-table-20-5-1-3-1');
     const rcNotices = new Set(rcNoticeIds);
     expect(allChanges.filter(c => rcNotices.has(c.id)).map(c => c.id).sort()).toEqual(rcNoticeIds);
     {

@@ -29,6 +29,7 @@ export const switchOnUnitFiles = [
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/lib/store/__tests__/recheck.test.ts',
   'src/lib/pro/__tests__/pro-tab-link.test.ts',
   'src/components/__tests__/design-data-profile.test.ts',
   'src/components/__tests__/shell-connectivity-profile.test.ts',
