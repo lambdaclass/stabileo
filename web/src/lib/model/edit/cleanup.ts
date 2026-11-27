@@ -83,6 +83,7 @@ export function planCoincidentNodeMerge(tol = weldTolerance()): NodeMergePlan {
     return plan;
   }
   plan.groups = coincidentNodeGroups(tol);
+  if (!plan.groups.length) return plan;
   for (const g of plan.groups) {
     const target = modelStore.nodes.get(g[0]!)!;
     for (const id of g.slice(1)) plan.to.set(id, g[0]!);
