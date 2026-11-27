@@ -1,3 +1,4 @@
+import { nextReleaseAdvisoryBlocks } from '../../next-release-advisories';
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
@@ -458,146 +459,7 @@ const body: PostBody = {
       "label": "SA-2026-107",
       "t": "Dati interessati e azione per l’utente."
     },
-    {
-      "k": "note",
-      "t": "SA-2026-108 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md",
-      "label": "SA-2026-108",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-109 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md",
-      "label": "SA-2026-109",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-110 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md",
-      "label": "SA-2026-110",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-111 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md",
-      "label": "SA-2026-111",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-112 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md",
-      "label": "SA-2026-112",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-113 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md",
-      "label": "SA-2026-113",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-114 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md",
-      "label": "SA-2026-114",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-115 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md",
-      "label": "SA-2026-115",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-116 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md",
-      "label": "SA-2026-116",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-117 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md",
-      "label": "SA-2026-117",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-118 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md",
-      "label": "SA-2026-118",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-119 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md",
-      "label": "SA-2026-119",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-120 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md",
-      "label": "SA-2026-120",
-      "t": "Dati interessati e azione per l’utente."
-    },
-    {
-      "k": "note",
-      "t": "SA-2026-121 — Prossimo rilascio dopo la 0.6.4."
-    },
-    {
-      "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md",
-      "label": "SA-2026-121",
-      "t": "Dati interessati e azione per l’utente."
-    },
+    ...nextReleaseAdvisoryBlocks('Prossimo rilascio dopo la 0.6.4.', 'Dati interessati e azione per l’utente.'),
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -1338,6 +1200,72 @@ const body: PostBody = {
           "SA-2026-121",
           "L’analisi non lineare piana poteva restituire risultati errati per i carichi sulle aste. Riesegui le analisi interessate, comprese quelle usate per avviare una continuazione, e rivedi spostamenti, reazioni e sollecitazioni di estremità delle aste.",
           "Media",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-122",
+          "Le combinazioni generate potevano omettere alternative obbligatorie o sovraccarichi di copertura inseriti manualmente, usare una base errata per la neve o includere casi di vento obsoleti. Verifica i carichi, i fattori delle regole e i casi inclusi negli inviluppi. Rimuovi dal modello i casi di carico vuoti che hai verificato essere obsoleti, compresi quelli già vuoti nella versione 0.6.4. Rigenera le combinazioni e verifica che escludano gli identificativi di questi casi prima di ripetere le analisi interessate.",
+          "Alta",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-123",
+          "I carichi gravitazionali automatici potevano essere mantenuti sotto impalcati con altezza libera insufficiente o assegnati dove la copertura era indeterminata. Rigenera i carichi gravitazionali, di vento in copertura e di neve interessati, verifica le assegnazioni e ripeti le analisi dipendenti.",
+          "Alta",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-124",
+          "Il peso proprio assegnato a una selezione poteva omettere destinazioni mancanti o attribuire tutto il peso di un’asta selezionata a un solo tratto. Correggi la selezione, verifica il peso applicato e ricalcola le analisi interessate e le risposte del corso di dinamica piana con aste suddivise.",
+          "Alta",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-125",
+          "I rapporti cinematici nativi e WASM potevano contare due volte un vincolo rigido condiviso. Ricontrolla il grado di iperstaticità, la classificazione e la diagnosi, quindi aggiorna i rapporti interessati.",
+          "Media",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-126",
+          "Termini ripetuti potevano escludere disposizioni di carico determinanti o generare un’alternativa senza neve. Rivedi le regole, rigenera le combinazioni e i casi compositi interessati e ripeti analisi, inviluppi e verifiche di progetto.",
+          "Alta",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-127",
+          "Le solette potevano non trasferire carichi alle pareti se la connessione delle mesh era incompleta. Rigenera la mesh di entrambe le superfici con spigoli condivisi lungo tutta la giunzione prevista, verifica il percorso dei carichi e ripeti le analisi spaziali, gli inviluppi e le verifiche di progetto interessati.",
+          "Alta",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-128",
+          "La conversione poteva omettere carichi assiali che cambiano segno sulle aste dei modelli piani (2D), indipendentemente dalla sezione, o sulle aste reticolari spaziali. Verifica i carichi distribuiti e le forze di estremità equivalenti, quindi ripeti le analisi, gli inviluppi e le verifiche di progetto interessati.",
+          "Media",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-129",
+          "Le scansioni dei carichi mobili potevano fornire valori errati di taglio o sforzo normale e le posizioni del veicolo salvate potevano omettere i salti di sforzo normale nelle reticolari spaziali. Quando l’asse e il carico puntuale permanente coincidono esattamente, producono un unico salto di taglio combinato. Il taglio tra i due carichi ha limiti unilaterali quando l’asse si avvicina al carico o lo oltrepassa. Verifica entrambi i limiti con l’asse appena prima e appena dopo il carico. Ripeti le scansioni interessate, rigenera i casi salvati e ripeti le analisi e le verifiche di progetto dipendenti.",
+          "Alta",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-130",
+          "L’analisi elastica piana poteva restituire spostamenti tutti nulli per un meccanismo senza alcun avviso. Controlla gli svincoli flessionali e gli appoggi, elimina eventuali meccanismi involontari e ripeti le analisi e le verifiche di progetto interessate.",
+          "Alta",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-131",
+          "L’analisi poteva omettere o interpretare erroneamente senza avviso campi strutturali, vincoli, metodi di combinazione, moto del terreno o carichi di fase. Correggi i dati e ripeti le analisi, le combinazioni e le verifiche di progetto interessate.",
+          "Alta",
+          "Prossimo rilascio dopo la 0.6.4"
+        ],
+        [
+          "SA-2026-132",
+          "I progetti Basic riaperti senza un piano di disegno salvato potevano essere calcolati nel piano errato. Verifica il piano previsto, le direzioni dei carichi e gli appoggi, quindi ripeti le analisi, le combinazioni e le verifiche di progetto interessate.",
+          "Alta",
           "Prossimo rilascio dopo la 0.6.4"
         ]
       ]
