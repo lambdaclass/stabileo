@@ -35,10 +35,13 @@ function fixture(method: 'linear' | 'pdelta') {
   modelStore.addNodalLoad3D(b, 10, 0, -10, 0, 0, 0, load);
   const combo = modelStore.addCombination('Factored test load', [{ caseId: load, factor: 2 }]);
   modelStore.setAnalysis({ perCombination: method });
+  return { member, combo };
+}
+
+function solveSingle() {
   const single = modelStore.solve3D(false, false, true);
   if (!single || typeof single === 'string') throw new Error(String(single));
   resultsStore.setResults3D(single);
-  return { member, combo };
 }
 
 function publish() {
@@ -53,7 +56,7 @@ function maxima() {
 
 function expectWithheld(member: number, reason: string) {
   const table = maxima();
-  expect(table).not.toContain('class="tm-src"');
+  expect(table).not.toContain('data-testid="tm-maxtype"');
   expect(table).toContain(t(reason));
   expect(table).not.toContain('data-testid="tm-csv"');
   expect(table).not.toContain('data-testid="tm-xlsx"');
@@ -68,30 +71,37 @@ describe.skip.each(['linear', 'pdelta'] as const)('known wrong result: #1928 %s 
   it('withholds the unfactored solve when no combination is active and the combinations have not been solved', () => {
     const { member } = fixture(method);
     modelStore.setResultScopes({ active: [] });
+    solveSingle();
     expectWithheld(member, 'design.error.combinationsUnsolved');
   });
 
   it('withholds the table after clearing the active list over solved results', () => {
     const { member } = fixture(method);
+    solveSingle();
     publish();
+    const solved = resultsStore.perCombo3D;
+    const single = resultsStore.singleResults3D!;
+    const cases = resultsStore.perCase3D;
+    const envelope = resultsStore.envelope3D!;
     modelStore.setResultScopes({ active: [] });
+    resultsStore.setResults3D(single);
+    publishCombinations3D({ perCombo: solved, perCase: cases, envelope });
     expectWithheld(member, 'scopes.noneActive');
   });
 
   it('reports the active combination and permits the signed single solve with no project combinations', () => {
     const { member, combo } = fixture(method);
+    solveSingle();
     publish();
-    expect(maxima()).toContain('class="tm-src">Factored test load');
+    expect(maxima()).toMatch(/<td class="tm-src[^\"]*">Factored test load<\/td>/);
     const props = { steelIds: new Set([member]) };
     expect(render(SteelResultsTable, { props }).body).toContain('data-testid="steel-result-' + member + '"');
     expect(render(TensionRuptureTable, { props }).body).toContain('data-testid="tc-result-' + member + '"');
     modelStore.removeCombination(combo);
     resultsStore.clear3D();
-    const single = modelStore.solve3D(false, false, true);
-    if (!single || typeof single === 'string') throw new Error(String(single));
-    resultsStore.setResults3D(single);
+    solveSingle();
     const html = maxima();
-    expect(html).toContain('class="tm-src">' + t('tables.shown'));
+    expect(html).toContain('>' + t('tables.shown') + '</td>');
     expect(html).toContain('data-testid="tm-csv"');
     expect(html).toContain('data-testid="tm-xlsx"');
   });
