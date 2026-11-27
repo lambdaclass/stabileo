@@ -35,7 +35,7 @@ afterEach(() => {
   modelStore.clear();
 });
 
-it.skip.each([true, false])('keeps the measured poor-cell warning for an original=%s mesh in single and mixed selections (known wrong result: #1928)', (original) => {
+it.each([true, false])('keeps the measured poor-cell warning for an original=%s mesh in single and mixed selections', (original) => {
   modelStore.clear();
   const bad = savedShell('Poor shell', POOR_MAX_ASPECT + 1, 0, original);
   const boundary = savedShell('Boundary shell', POOR_MAX_ASPECT, 3, false);

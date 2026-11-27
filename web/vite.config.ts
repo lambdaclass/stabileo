@@ -101,9 +101,10 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       if (dictionary === 'mesher') return false;
       const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
       if (pruneEntries) {
-        if (proPlatesUnified && /^plates\.(?:qualityCell|planTotal)$/.test(key)) return false;
+        if (proPlatesUnified && /^plates\.(?:qualityCell|planTotal|meshSummary)$/.test(key)) return false;
         if (!proPlatesUnified) {
           if (/^plates\.(?:firstSide|drawingLabel|qualityGood|qualityPoor|qualityHint|planTotalOnly|localLoadsWarnOne|keptNodesNoteOne|remeshNote(?:One|Some|All))$/.test(key)) return false;
+          if (/^plates\.(?:state\.|summary\.|(?:meshHeading|filterKind|kindAll|kindSlabs|kindWalls|filterLevel|allLevels|nSelectedOf|selectAll|scopePlates|scopeElements|elementsNote|header)$)/.test(key)) return false;
           if (key.startsWith('diag.reviewSummary')) return false;
           if (key === 'file.workspaceNoticeClose') return false;
           if (/^loads\.(asce7|ec|tr)\./.test(key)) return false;

@@ -13964,6 +13964,7 @@ const hu: Translations = {
   "plates.kind.wall": "Fal",
   "plates.nSelected": "{n} lemez",
   "plates.mixed": "vegyes",
+  "plates.meshSummary": "{cells} elem, {size} {unit} méretű",
   "plates.poorCells": "{n} gyenge minőségű",
   "plates.mesh": "Hálózás",
   "plates.remesh": "Újrahálózás",

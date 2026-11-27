@@ -440,8 +440,8 @@ test('published mesh previews have their released quality and total captions', a
       for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
         const text = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
         const module = await import('data:text/javascript;base64,' + Buffer.from(text).toString('base64'));
-        for (const key of ['qualityCell', 'planTotal']) assert.equal(Object.hasOwn(module[locale], 'plates.' + key), !plates, locale + ' ' + key);
-        for (const key of ['qualityGood', 'qualityPoor', 'qualityHint', 'planTotalOnly', 'localLoadsWarnOne', 'keptNodesNoteOne', 'firstSide', 'drawingLabel', 'remeshNoteOne', 'remeshNoteSome', 'remeshNoteAll']) {
+        for (const key of ['qualityCell', 'planTotal', 'meshSummary']) assert.equal(Object.hasOwn(module[locale], 'plates.' + key), !plates, locale + ' ' + key);
+        for (const key of ['state.stale', 'summary.warn', 'filterKind', 'scopePlates', 'meshHeading', 'qualityGood', 'qualityPoor', 'qualityHint', 'planTotalOnly', 'localLoadsWarnOne', 'keptNodesNoteOne', 'firstSide', 'drawingLabel', 'remeshNoteOne', 'remeshNoteSome', 'remeshNoteAll']) {
           assert.equal(Object.hasOwn(module[locale], 'plates.' + key), plates, locale + ' ' + key);
         }
       }

@@ -14939,6 +14939,7 @@ const en: Record<string, string> = {
   "plates.kind.wall": "Wall",
   "plates.nSelected": "{n} plates",
   "plates.mixed": "mixed",
+  "plates.meshSummary": "{cells} elements of {size} {unit}",
   "plates.poorCells": "{n} of poor quality",
   "plates.mesh": "Mesh",
   "plates.remesh": "Mesh again",

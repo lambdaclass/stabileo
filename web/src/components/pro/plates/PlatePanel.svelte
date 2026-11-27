@@ -127,6 +127,7 @@
     uiStore.clearSelection();
   }
   const meshSummary = $derived.by(() => {
+    if (!__PUBLIC_FEATURES__.proPlatesUnified || entries.length < 2) return '';
     const by = new Map<string, number>();
     for (const e of entries) { const k = plateMeshState(e, status(e.id)).tone; by.set(k, (by.get(k) ?? 0) + 1); }
     return [...by].map(([k, n]) => tp(`plates.summary.${k}`, { n })).join(' · ');
@@ -163,16 +164,29 @@
     </div>
 
     <div class="pp-mesh" data-testid="plate-mesh-status">
-      <span class="pp-label">{t('plates.meshHeading')}</span>
-      {#if one}
-        {@const st = plateMeshState(one, status(one.id))}
-        <span class="tone-{st.tone}" data-testid="plate-status-{one.id}">{st.text}</span>
-        {#if one.surface.meshed && !one.surface.meshed.original && one.surface.meshed.quality.poor > 0 && status(one.id) === 'current'}<span class="pp-warn">{tp('plates.poorCells', { n: one.surface.meshed.quality.poor })}</span>{/if}
-      {:else}
-        <span data-testid="plate-mesh-summary">{meshSummary}</span>
+      {#if __PUBLIC_FEATURES__.proPlatesUnified}
+        <span class="pp-label">{t('plates.meshHeading')}</span>
+        {#if !one}<span data-testid="plate-mesh-summary">{meshSummary}</span>{/if}
       {/if}
+      {#each entries as e (e.id)}
+        {@const currentStatus = status(e.id)}
+        {@const mesh = currentStatus === 'unmeshed' ? null : e.surface.meshed}
+        {#if !__PUBLIC_FEATURES__.proPlatesUnified || one || mesh?.quality.poor}
+          <div class="pp-mesh-line">
+            {#if !one}<span class="pp-name">{e.name}</span>{/if}
+            {#if !__PUBLIC_FEATURES__.proPlatesUnified}
+              <span class="chip chip-{currentStatus}" data-testid="plate-status-{e.id}">{t(`plates.status.${currentStatus}`)}</span>
+              {#if mesh}<span class="pp-dim">{tp('plates.meshSummary', { cells: mesh.cells, size: fmtQ(e.surface.mesh.size, 'length'), unit: unitQ('length') })}</span>{/if}
+            {:else if one}
+              {@const state = plateMeshState(e, currentStatus)}
+              <span class="tone-{state.tone}" data-testid="plate-status-{e.id}">{state.text}</span>
+            {/if}
+            {#if mesh && mesh.quality.poor > 0}<span class="pp-warn">{tp('plates.poorCells', { n: mesh.quality.poor })}</span>{/if}
+          </div>
+        {/if}
+      {/each}
       <div class="pp-actions">
-        <button class="pp-btn primary" onclick={() => (meshOpen = true)} data-testid="plate-mesh-open">{entries.some((e) => e.surface.meshed && !e.surface.meshed.original) ? t('plates.remesh') : t('plates.mesh')}…</button>
+        <button class="pp-btn primary" onclick={() => (meshOpen = true)} data-testid="plate-mesh-open">{entries.some((e) => e.surface.meshed && (!__PUBLIC_FEATURES__.proPlatesUnified || !e.surface.meshed.original)) ? t('plates.remesh') : t('plates.mesh')}…</button>
         <button class="pp-btn" disabled={!entries.some((e) => e.surface.meshed)} onclick={clearMeshes} data-testid="plate-mesh-clear">{t('plates.clearMesh')}</button>
         <button class="pp-btn" disabled={!entries.some((e) => e.surface.meshed)} onclick={showElements} data-testid="plate-show-elements">{t('plates.showElements')}</button>
       </div>
@@ -284,7 +298,7 @@
   .pp-head { display: flex; flex-direction: column; gap: 2px; }
   .pp-head strong { color: var(--st-text); font-size: 0.8rem; }
   .pp-kind, .pp-dim { color: var(--st-text-3); }
-  .pp-row, .pp-line, .pp-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pp-row, .pp-line, .pp-actions, .pp-mesh-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .pp-row label { display: inline-flex; align-items: center; gap: 4px; }
   .pp-block, .pp-mesh { display: flex; flex-direction: column; gap: 4px; }
   .pp-label { font-weight: 600; color: var(--st-text-2); cursor: pointer; }
@@ -306,4 +320,10 @@
   .pp-btn.primary { background: var(--st-accent); border-color: var(--st-accent); color: #fff; }
   .pp-btn.danger { color: var(--st-danger, #e06c6c); }
   .pp-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; font-size: 0.9rem; }
+  .pp-name { min-width: 36px; color: var(--st-text); }
+  .chip { padding: 1px 6px; border-radius: 9px; font-size: 0.68rem; border: 1px solid var(--st-hair-strong); }
+  .chip-current { color: var(--st-ok, #5cb85c); border-color: currentColor; }
+  .chip-stale { color: var(--st-warn, #d9a441); border-color: currentColor; }
+  .chip-unmeshed { color: var(--st-text-3); }
+  .chip-invalid { color: var(--st-danger, #e06c6c); border-color: currentColor; }
 </style>

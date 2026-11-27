@@ -14396,6 +14396,7 @@ const de: Translations = {
   'plates.kind.wall': 'Wand',
   'plates.nSelected': '{n} Platten',
   'plates.mixed': 'gemischt',
+  'plates.meshSummary': '{cells} Elemente von {size} {unit}',
   'plates.poorCells': '{n} von schlechter Qualität',
   'plates.mesh': 'Vernetzen',
   'plates.remesh': 'Neu vernetzen',

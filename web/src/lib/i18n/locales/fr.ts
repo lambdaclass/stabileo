@@ -14396,6 +14396,7 @@ const fr: Translations = {
   'plates.kind.wall': 'Voile',
   'plates.nSelected': '{n} plaques',
   'plates.mixed': 'divers',
+  'plates.meshSummary': '{cells} éléments de {size} {unit}',
   'plates.poorCells': '{n} de mauvaise qualité',
   'plates.mesh': 'Mailler',
   'plates.remesh': 'Remailler',

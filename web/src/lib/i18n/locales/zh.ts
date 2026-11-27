@@ -14447,6 +14447,7 @@ const zh: Translations = {
   "plates.nSelected": "{n} 块板",
   "plates.mixed": "混合",
 
+  "plates.meshSummary": "{cells} 个单元，尺寸 {size} {unit}",
   "plates.poorCells": "{n} 个质量较差",
   "plates.mesh": "网格",
   "plates.remesh": "重新划分网格",

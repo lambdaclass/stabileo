@@ -14928,6 +14928,7 @@ const es: Record<string, string> = {
   "plates.kind.wall": "Tabique",
   "plates.nSelected": "{n} placas",
   "plates.mixed": "distintos",
+  "plates.meshSummary": "{cells} elementos de {size} {unit}",
   "plates.poorCells": "{n} de calidad baja",
   "plates.mesh": "Mallar",
   "plates.remesh": "Remallar",

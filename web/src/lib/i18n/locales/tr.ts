@@ -14396,6 +14396,7 @@ const tr: Translations = {
   'plates.kind.wall': 'Perde',
   'plates.nSelected': '{n} plak',
   'plates.mixed': 'karışık',
+  'plates.meshSummary': '{size} {unit} boyutunda {cells} eleman',
   'plates.poorCells': '{n} tanesi düşük kaliteli',
   'plates.mesh': 'Ağ oluştur',
   'plates.remesh': 'Ağı yenile',

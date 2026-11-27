@@ -14581,6 +14581,7 @@ const pt: Translations = {
   "plates.kind.wall": "Parede",
   "plates.nSelected": "{n} placas",
   "plates.mixed": "diferentes",
+  "plates.meshSummary": "{cells} elementos de {size} {unit}",
   "plates.poorCells": "{n} de baixa qualidade",
   "plates.mesh": "Malhar",
   "plates.remesh": "Remalhar",
