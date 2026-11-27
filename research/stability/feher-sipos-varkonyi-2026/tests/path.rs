@@ -43,8 +43,7 @@ fn an_arch_that_snaps_while_loaded_is_reported_before_the_path() {
 fn a_start_past_the_limit_load_never_runs_a_path() {
     for elements in [20, 40, 60, 80, 100, 120] {
         let e = run::path_with(1.3, 1.3, 4.0, Distribution::Asymmetric, elements).unwrap_err();
-        let expected = if elements <= 60 { run::PathError::StartSnaps } else { run::PathError::StartUnsolved };
-        assert_eq!(e, expected, "{elements}");
+        assert_eq!(e, run::PathError::StartSnaps, "{elements}");
     }
     assert_eq!(run::PathError::StartUnsolved.code(), "start_unsolved");
 }

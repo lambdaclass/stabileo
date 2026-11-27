@@ -74,7 +74,8 @@ fn load_arch(state: &State, target: Setting) -> Result<State, PathError> {
 }
 
 fn load_arch_with(state: &State, target: Setting, advance: impl Fn(&State, Setting) -> Result<State, String>) -> Result<State, PathError> {
-    let mut inverted_landings = 0;
+    let mut inverted_intervals = Vec::new();
+    let mut corroborated = false;
     for pieces in 1..=32 {
         let mut current = state.clone();
         for i in 1..=pieces {
@@ -84,7 +85,9 @@ fn load_arch_with(state: &State, target: Setting, advance: impl Fn(&State, Setti
             if !landed.stable { break; }
             if landed.y_mid <= 0. || current.jump_to(&next) > SNAP {
                 if landed.y_mid < 0. && current.snapshot().y_mid > 0. {
-                    inverted_landings += 1;
+                    let interval = (current.setting.q, next.setting.q);
+                    corroborated |= inverted_intervals.iter().any(|&(lo, hi)| interval.0 < hi && lo < interval.1);
+                    inverted_intervals.push(interval);
                 }
                 break;
             }
@@ -92,7 +95,7 @@ fn load_arch_with(state: &State, target: Setting, advance: impl Fn(&State, Setti
             if i == pieces { return Ok(current); }
         }
     }
-    Err(if inverted_landings >= 2 { PathError::StartSnaps } else { PathError::StartUnsolved })
+    Err(if corroborated { PathError::StartSnaps } else { PathError::StartUnsolved })
 }
 
 /// The path of Section 3.4 with the far corner of the rectangle at
@@ -191,7 +194,24 @@ fn start_recognizes_repeat_inversion_after_a_failed_full_increment() {
     assert!(inverted.snapshot().stable && inverted.snapshot().y_mid < 0.);
     let result = load_arch_with(&arch, Setting { q: LOAD_STEP, ..start }, |s, to| {
         if to.q - s.setting.q >= LOAD_STEP { return Err("full increment failed".into()); }
-        Ok(inverted.clone())
+        let mut next = inverted.clone();
+        next.setting = to;
+        Ok(next)
     });
     assert_eq!(result.err(), Some(PathError::StartSnaps));
+}
+
+#[test]
+fn start_with_only_one_inversion_is_unresolved() {
+    let start = Setting { theta: 1., delta: 0., q: 0. };
+    let arch = bend(20, start, Distribution::Uniform, 2).unwrap();
+    let mut inverted = arch.clone();
+    for d in &mut inverted.displacements { d.uz = -d.uz; d.ry = -d.ry; }
+    let result = load_arch_with(&arch, Setting { q: LOAD_STEP, ..start }, |_, to| {
+        if to.q != LOAD_STEP { return Err("refinement failed".into()); }
+        let mut next = inverted.clone();
+        next.setting = to;
+        Ok(next)
+    });
+    assert_eq!(result.err(), Some(PathError::StartUnsolved));
 }

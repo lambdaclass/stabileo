@@ -12,5 +12,5 @@ test('a continuous steep upper branch starts, confirmed inversion and nonconverg
   assert.ok(start(2.5, 20).frames?.[0].y_mid > 0);
   assert.ok(start(2, 60).frames?.[0].y_mid > 0);
   assert.equal(start(2.5, 60).code, 'start_snaps');
-  assert.equal(start(4, 80).code, 'start_unsolved');
+  assert.equal(start(4, 80).code, 'start_snaps');
 });
