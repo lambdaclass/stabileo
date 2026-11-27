@@ -41,7 +41,7 @@ function floor() {
 const dz = (id: number) => { const o = modelStore.elements.get(id)!.offset; return o?.i?.z ?? 0; };
 const plateZ = (id: number) => plateEntry(id)!.surface.offset?.z ?? 0;
 
-it.skip('known wrong result: #2365 preparing an unchanged placement preserves the model revision and undo history', () => {
+it('known wrong result: #2365 preparing an unchanged placement preserves the model revision and undo history', () => {
   floor();
   for (const reference of [undefined, 'slabTop'] as const) {
     if (reference) setLevelReference(reference);

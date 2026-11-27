@@ -153,12 +153,11 @@ const covers = (s: ReturnType<typeof levelSlabs>[number], p: P3) => inside(p, s.
 const vecOf = (o: MemberOffset | undefined, end: 'i' | 'j') => (o?.frame === 'global' ? o[end] : undefined) ?? { x: 0, y: 0, z: 0 };
 const same = (p: { x: number; y: number; z: number }, q: { x: number; y: number; z: number }) => Math.abs(p.x - q.x) < 1e-9 && Math.abs(p.y - q.y) < 1e-9 && Math.abs(p.z - q.z) < 1e-9;
 
-function writeOffset(id: number, i: P3, j: P3): boolean {
+function writeOffset(id: number, i: P3, j: P3, setOffset = modelStore.setElementOffset): void {
   const e = modelStore.elements.get(id)!;
-  if (same(vecOf(e.offset, 'i'), i) && same(vecOf(e.offset, 'j'), j)) return false;
+  if (same(vecOf(e.offset, 'i'), i) && same(vecOf(e.offset, 'j'), j)) return;
   const zero = (v: P3) => same(v, { x: 0, y: 0, z: 0 });
-  modelStore.setElementOffset(id, zero(i) && zero(j) ? null : { frame: 'global', ...(zero(i) ? {} : { i }), ...(zero(j) ? {} : { j }) });
-  return true;
+  setOffset(id, zero(i) && zero(j) ? null : { frame: 'global', ...(zero(i) ? {} : { i }), ...(zero(j) ? {} : { j }) });
 }
 
 const turned = (e: { sectionId: number; rollAngle?: number }) => Math.abs(((memberRoll(e as never, modelStore.sections as never) % 180) + 180) % 180 - 90) < 45;
@@ -235,45 +234,45 @@ function edgeWalls(slabs: ReturnType<typeof levelSlabs>): Array<{ id: number; sh
  */
 export function applyPlacement(): number {
   const p = placementData();
-  let moved = 0;
-  modelStore.batch(() => {
-    const slabs = levelSlabs();
-    if (p.reference) for (const s of slabs) {
-      const z = slabDrop(p.reference, s.t), cur = s.offset ?? { x: 0, y: 0, z: 0 };
-      if (Math.abs(cur.z - z) < 1e-9) continue;
-      const next = { frame: 'global' as const, x: cur.x, y: cur.y, z };
-      setPlateOffset(s.id, next.x || next.y || next.z ? next : undefined);
-      moved++;
+  const changes: Array<() => void> = [];
+  const queueOffset = (id: number, offset: MemberOffset | null) => {
+    changes.push(() => modelStore.setElementOffset(id, offset));
+  };
+  const slabs = levelSlabs();
+  if (p.reference) for (const s of slabs) {
+    const z = slabDrop(p.reference, s.t), cur = s.offset ?? { x: 0, y: 0, z: 0 };
+    if (Math.abs(cur.z - z) < 1e-9) continue;
+    const next = { frame: 'global' as const, x: cur.x, y: cur.y, z };
+    changes.push(() => setPlateOffset(s.id, next.x || next.y || next.z ? next : undefined));
+  }
+  if (p.reference || p.edges) for (const e of [...modelStore.elements.values()]) {
+    if (e.type === 'truss' || (e.offset && e.offset.frame !== 'global')) continue;
+    const a = at(e.nodeI), b = at(e.nodeJ), sec = sectionOf(e), h = sec && deep(e, sec);
+    if (!a || !b || !sec || !h || Math.abs(a.z - b.z) > TOL || Math.hypot(b.x - a.x, b.y - a.y) < TOL) continue;
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: a.z };
+    const t = Math.max(0, ...slabs.filter((s) => Math.abs(s.z - a.z) < TOL && covers(s, mid)).map((s) => s.t));
+    const ci = vecOf(e.offset, 'i'), cj = vecOf(e.offset, 'j');
+    const z = p.reference ? Math.round(beamDrop(p.reference, h, t, isSteel(e.materialId)) * 1e9) / 1e9 + 0 : null;
+    const d = p.edges ? edgeShift(e, slabs) : null;
+    const end = (c: P3): P3 => ({ x: d ? d[0] : c.x, y: d ? d[1] : c.y, z: z ?? c.z });
+    writeOffset(e.id, end(ci), end(cj), queueOffset);
+  }
+  if (p.edges) for (const w of edgeWalls(slabs)) {
+    const cur = w.offset ?? { x: 0, y: 0, z: 0 }, [x, y] = w.shift;
+    if ((!x && !y) || (Math.abs(cur.x - x) < 1e-9 && Math.abs(cur.y - y) < 1e-9)) continue;
+    changes.push(() => setPlateOffset(w.id, x || y || cur.z ? { frame: 'global', x, y, z: cur.z } : undefined));
+  }
+  const auto = p.edges ? edgeKinds(slabs) : new Map<string, FixedPointKind>();
+  for (const stack of columnStacks()) {
+    const kind = p.columns?.[stack.key] ?? auto.get(stack.key);
+    if (!kind) continue;
+    for (const id of stack.storeys) {
+      const e = modelStore.elements.get(id)!, s = sectionOf(e);
+      if (!s?.b || !s.h || (e.offset && e.offset.frame !== 'global')) continue;
+      const [x, y] = columnShift(kind, { b: s.b, h: s.h, rotDeg: memberRoll(e, modelStore.sections as never) });
+      writeOffset(id, { ...vecOf(e.offset, 'i'), x, y }, { ...vecOf(e.offset, 'j'), x, y }, queueOffset);
     }
-    if (p.reference || p.edges) for (const e of [...modelStore.elements.values()]) {
-      if (e.type === 'truss' || (e.offset && e.offset.frame !== 'global')) continue;
-      const a = at(e.nodeI), b = at(e.nodeJ), sec = sectionOf(e), h = sec && deep(e, sec);
-      if (!a || !b || !sec || !h || Math.abs(a.z - b.z) > TOL || Math.hypot(b.x - a.x, b.y - a.y) < TOL) continue;
-      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: a.z };
-      const t = Math.max(0, ...slabs.filter((s) => Math.abs(s.z - a.z) < TOL && covers(s, mid)).map((s) => s.t));
-      const ci = vecOf(e.offset, 'i'), cj = vecOf(e.offset, 'j');
-      const z = p.reference ? Math.round(beamDrop(p.reference, h, t, isSteel(e.materialId)) * 1e9) / 1e9 + 0 : null;
-      const d = p.edges ? edgeShift(e, slabs) : null;
-      const end = (c: P3): P3 => ({ x: d ? d[0] : c.x, y: d ? d[1] : c.y, z: z ?? c.z });
-      if (writeOffset(e.id, end(ci), end(cj))) moved++;
-    }
-    if (p.edges) for (const w of edgeWalls(slabs)) {
-      const cur = w.offset ?? { x: 0, y: 0, z: 0 }, [x, y] = w.shift;
-      if ((!x && !y) || (Math.abs(cur.x - x) < 1e-9 && Math.abs(cur.y - y) < 1e-9)) continue;
-      setPlateOffset(w.id, x || y || cur.z ? { frame: 'global', x, y, z: cur.z } : undefined);
-      moved++;
-    }
-    const auto = p.edges ? edgeKinds(slabs) : new Map<string, FixedPointKind>();
-    for (const stack of columnStacks()) {
-      const kind = p.columns?.[stack.key] ?? auto.get(stack.key);
-      if (!kind) continue;
-      for (const id of stack.storeys) {
-        const e = modelStore.elements.get(id)!, s = sectionOf(e);
-        if (!s?.b || !s.h || (e.offset && e.offset.frame !== 'global')) continue;
-        const [x, y] = columnShift(kind, { b: s.b, h: s.h, rotDeg: memberRoll(e, modelStore.sections as never) });
-        if (writeOffset(id, { ...vecOf(e.offset, 'i'), x, y }, { ...vecOf(e.offset, 'j'), x, y })) moved++;
-      }
-    }
-  });
-  return moved;
+  }
+  if (changes.length) modelStore.batch(() => { for (const change of changes) change(); });
+  return changes.length;
 }
