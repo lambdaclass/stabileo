@@ -709,13 +709,12 @@ fn equilibrium_system(model: &PlasticModel) -> Result<Equilibrium, String> {
     Ok(Equilibrium { xp, null: r.null_basis })
 }
 
-pub(crate) fn truss_axial_factor_is_exact(model: &PlasticModel, capacities: &HashMap<usize, f64>, lambda: f64) -> Result<bool, String> {
-    let Some(factor) = q(lambda).filter(|v| v.is_positive()) else { return Ok(false) };
+pub(crate) fn truss_axial_factor(model: &PlasticModel, capacities: &HashMap<usize, f64>) -> Result<Option<(f64, f64)>, String> {
     lp_work(model).initial().check_engine_budget()?;
     let eq = equilibrium_system(model)?;
     let free_translations = model.restrained.iter().flat_map(|r| &r[..2]).filter(|&&held| !held).count();
     if model.elems.len() != free_translations + eq.null.len() {
-        return Ok(false);
+        return Ok(None);
     }
     let mut fixed_limit: Option<Q> = None;
     let mut paths = Vec::new();
@@ -729,32 +728,44 @@ pub(crate) fn truss_axial_factor_is_exact(model: &PlasticModel, capacities: &Has
         if basis.iter().all(Zero::is_zero) {
             if !force.is_zero() {
                 let limit = capacity2 / (&force * &force);
-                fixed_limit = Some(fixed_limit.map_or_else(|| limit.clone(), |v| v.min(limit.clone())));
+                fixed_limit = Some(match fixed_limit { Some(v) => v.min(limit), None => limit });
             }
         } else {
             paths.push((basis, force, capacity2));
         }
     }
-    let Some(squared) = fixed_limit else { return Ok(false) };
+    let Some(squared) = fixed_limit else { return Ok(None) };
     if !paths.iter().all(|(_, force, capacity2)| force * force * &squared <= *capacity2) {
         let mut rows = Vec::new();
         for (basis, force, capacity2) in paths {
             let upper2 = capacity2 / &squared;
-            let bound = &upper2 / super::plastic_3d::sqrt_up(&upper2);
+            let bound = match super::exact::sqrt_exact(&upper2) {
+                Some(bound) => bound,
+                None => q(axial_root_bounds(&upper2)?.0).ok_or("non-finite axial capacity")?,
+            };
             let mut negative: Vec<Q> = basis.iter().map(|v| -v).collect();
             negative.push(&bound + &force);
             let mut positive = basis;
             positive.push(bound - force);
             rows.extend([positive, negative]);
         }
-        if !axial_constraints_feasible(rows, eq.null.len()) { return Ok(false); }
+        if !axial_constraints_feasible(rows, eq.null.len()) { return Ok(None); }
     }
-    let reported_squared = &factor * &factor;
-    Ok(match reported_squared.cmp(&squared) {
-        std::cmp::Ordering::Equal => true,
-        std::cmp::Ordering::Less => q(lambda.next_up()).is_some_and(|upper| &upper * &upper > squared),
-        std::cmp::Ordering::Greater => q(lambda.next_down()).is_some_and(|lower| &lower * &lower < squared),
-    })
+    Ok(Some(axial_root_bounds(&squared)?))
+}
+
+fn axial_root_bounds(squared: &Q) -> Result<(f64, f64), String> {
+    let (mut low, mut high) = (0, f64::MAX.to_bits());
+    while low < high {
+        let middle = low + (high - low).div_ceil(2);
+        let candidate = q(f64::from_bits(middle)).ok_or("non-finite axial factor")?;
+        if &candidate * &candidate <= *squared { low = middle; } else { high = middle - 1; }
+    }
+    let lower = f64::from_bits(low);
+    let exact = q(lower).ok_or("non-finite axial factor")?;
+    let upper = if &exact * &exact == *squared { lower } else { lower.next_up() };
+    if !upper.is_finite() { return Err("axial collapse factor exceeds floating-point range".into()); }
+    Ok((lower, upper))
 }
 
 fn axial_constraints_feasible(mut rows: Vec<Vec<Q>>, variables: usize) -> bool {

@@ -156,15 +156,30 @@ fn unique_key<V>(map: &HashMap<String, V>, id: usize) -> String {
     k
 }
 
+enum FactorCheck {
+    Candidate(Confirmation),
+    Axial { lower: f64, upper: f64 },
+}
+
+impl FactorCheck {
+    fn confirmation(self, proposed: f64) -> Confirmation {
+        match self {
+            Self::Candidate(result) => result,
+            Self::Axial { lower, upper } if lower <= proposed && proposed <= upper => Confirmation::Exact,
+            Self::Axial { lower, upper } => Confirmation::Contradicted { lower, reason: format!("the exact axial collapse factor is enclosed by [{lower}, {upper}]") },
+        }
+    }
+}
+
 /// What the exact plastic certificate (`certify::plastic`, rational arithmetic, its own
 /// equilibrium and mechanism) says of `lambda` as the collapse factor of the model. Its static
 /// field is held to the axial capacities too; its mechanism is bending-only, which bounds the
 /// factor with axial yield from above but leaves the bounds apart when axial yield governs.
 pub fn confirm_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Confirmation {
-    certificate_encloses(input, mp, np, lambda).unwrap_or_else(|reason| Confirmation::OutOfScope { reason })
+    certificate_encloses(input, mp, np, lambda).map(|check| check.confirmation(lambda)).unwrap_or_else(|reason| Confirmation::OutOfScope { reason })
 }
 
-fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<Confirmation, String> {
+fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<FactorCheck, String> {
     super::support::validate_supports_2d(input)?;
     use crate::certify::exact::{q, to_f64_up};
     if input.elements.len() > MAX_CERTIFIED_ELEMENTS {
@@ -219,9 +234,10 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
         && input.elements.values().all(|e| e.elem_type == "truss")
         && input.loads.iter().all(|l| matches!(l, SolverLoad::Nodal(p) if p.my == 0.0))
         && input.supports.values().all(|s| [s.kx, s.ky, s.kz, s.dx, s.dz, s.dry, s.angle].iter().all(|v| v.unwrap_or(0.0) == 0.0))
-        && crate::certify::plastic::truss_axial_factor_is_exact(&model, np, lambda)?
     {
-        return Ok(Confirmation::Exact);
+        if let Some((lower, upper)) = crate::certify::plastic::truss_axial_factor(&model, np)? {
+            return Ok(FactorCheck::Axial { lower, upper });
+        }
     }
     let c = plastic_candidates(&model, None).map_err(refused)?;
     let (Some(field), Some(mech)) = (&c.static_field, &c.mechanism_check) else {
@@ -245,13 +261,13 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
     }
     let lower = (crate::certify::exact::to_f64(&field.lambda) * crate::certify::exact::to_f64(&scale).min(axial_scale) * (1.0 - 1e-9)).min(up);
     let bounds = format!("the exact certificate bounds the collapse factor by [{lower}, {up}]");
-    Ok(if lambda > up * (1.0 + 1e-7) || lambda < lower * (1.0 - 1e-6) {
+    Ok(FactorCheck::Candidate(if lambda > up * (1.0 + 1e-7) || lambda < lower * (1.0 - 1e-6) {
         Confirmation::Contradicted { reason: format!("{bounds}, not {lambda}"), lower }
     } else if admissible && lambda >= up * (1.0 - 1e-6) {
         Confirmation::Exact
     } else {
         Confirmation::Bracketed { reason: format!("{bounds}, too far apart to confirm {lambda}"), lower, upper: up }
-    })
+    }))
 }
 
 fn uniform_stiffness(input: &SolverInput) -> SolverInput {
@@ -646,7 +662,14 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
                 return Err("the loads produce no moment or axial force at any section that can yield".into());
             }
             let lambda = lam / worst;
-            let confirmation = confirm_2d(input, mp, np, lambda);
+            let confirmation = match certificate_encloses(input, mp, np, lambda) {
+                Ok(FactorCheck::Axial { lower, upper }) => {
+                    if lambda < lower || lambda > upper { hinges.clear(); }
+                    return Ok(LimitResult { lambda: lower, lambda_upper: upper, hinges, confirmation: Confirmation::Exact });
+                }
+                Ok(FactorCheck::Candidate(result)) => result,
+                Err(reason) => Confirmation::OutOfScope { reason },
+            };
             return Ok(LimitResult { lambda, lambda_upper: lam, hinges, confirmation });
         }
         samples.extend(added);

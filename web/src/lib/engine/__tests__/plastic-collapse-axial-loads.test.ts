@@ -10,6 +10,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { plasticCollapse2D, plasticHistory2D, loadsOffRemoved } from '../plastic-collapse';
+import { plasticLimit2D } from '../wasm-solver';
 import { buildKinematics, workRow } from '../plastic/kinematics';
 import type { SolverInput, SolverLoad } from '../types';
 
@@ -25,6 +26,31 @@ function model(L: number, elementIds: number[], type: 'truss' | 'frame', support
 }
 
 describe('plastic collapse under loads along members', () => {
+  it('the public WASM factor uses the governing tie when parallel bars share its force', () => {
+    const input = model(1, [1, 2, 3], 'truss', [[1, 'pinned'], [2, 'rollerX'], [3, 'rollerX']], [
+      { type: 'nodal', data: { nodeId: 3, fx: 1, fz: 0, my: 0 } },
+    ]);
+    input.nodes.set(3, { id: 3, x: 2, z: 0 });
+    for (const id of [2, 3]) input.elements.set(id, { ...input.elements.get(id)!, nodeI: 2, nodeJ: 3 });
+    for (const pathCapacity of [5, 6]) {
+      const value = plasticLimit2D(input, new Map(), new Map([[1, 10], [2, pathCapacity], [3, pathCapacity]]));
+      expect(value.confirmation.kind).toBe('exact');
+      expect([value.lambda, value.lambdaUpper]).toEqual([10, 10]);
+    }
+  });
+
+  it('omitting and specifying the far end of a diagonal span give identical certified WASM results', () => {
+    const beam = model(1, [1], 'frame', [[1, 'fixed']], [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1, my: 0 } }]);
+    beam.nodes.set(2, { id: 2, x: 1, z: 1 });
+    const solve = (b?: number) => plasticLimit2D({ ...beam, loads: [...beam.loads, {
+      type: 'axialDistributed', data: { elementId: 1, qI: 1, qJ: 1, b },
+    }] }, new Map([[1, 1]]), new Map([[1, 10]]));
+    const reference = solve();
+    expect(reference.confirmation.kind).toBe('exact');
+    expect(solve(Math.sqrt(2))).toEqual(reference);
+    expect(() => solve(2)).toThrow();
+  });
+
   it('a truss yields where |N| peaks inside it, not at its ends', () => {
     // Fixed at both ends, 4 m, q_x = 10 → −10 kN/m over [1.8, 2.2]: the load's resultant is 0,
     // the ends carry N = 1/15 and midspan N = −14/15. With Np = 1, λc = 15/14 (it was 15).

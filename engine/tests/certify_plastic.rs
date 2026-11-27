@@ -871,7 +871,6 @@ fn an_explicit_full_axial_span_matches_an_omitted_diagonal_endpoint() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1927"]
 fn the_public_limit_releases_the_governing_tie_with_redundant_paths() {
     use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, limit_analysis_2d_input, Confirmation, LimitInput};
     let input = make_input(
