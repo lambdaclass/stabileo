@@ -32,9 +32,9 @@
     params = { ...params, ...next };
     void recompute();
   }
-  function stop() { generation++; running = false; playback.pause(); }
+  function stop() { generation++; running = false; params = { ...solved }; playback.pause(); }
   async function recompute(onLoad = false) {
-    if (!onLoad) stop();
+    if (!onLoad) playback.pause();
     const token = ++generation;
     running = true;
     error = '';

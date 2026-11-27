@@ -70,7 +70,7 @@
 <ExperimentShell compactHeader introInArticle paperId="mattiasson-elastica" name={s.title}
   lead={s.lead}
   sourcePath="engine/tests/benchmarks"
-  actions={{ goToStep: i => playback.seek(i), setParams: p => { if (typeof p.elements === 'number' && meshes.includes(p.elements)) { elements = p.elements; tab = 'results'; playback.interact(); void run(); } }, showTab: t => { tab = t; } }}
+  actions={{ goToStep: i => playback.seek(i), setParams: p => { if (!busy && typeof p.elements === 'number' && meshes.includes(p.elements)) { elements = p.elements; tab = 'results'; playback.interact(); void run(); } }, showTab: t => { tab = t; } }}
   referenceLabel={s.validationLabel}
   checks={{ passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length }}
   comparison={publishedRows.checks} comparisonNames={rowNames}>

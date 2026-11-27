@@ -40,6 +40,7 @@
   function stop() {
     request += 1;
     busy = false;
+    xi = resultXi;
     playback.pause();
   }
   function restart() {
@@ -57,9 +58,9 @@
     playback.play();
   }
   async function run() {
-    stop();
-    const id = request;
     const damping = xi;
+    const id = ++request;
+    playback.pause();
     busy = true;
     error = '';
     try {
@@ -70,7 +71,7 @@
       source = 'live';
       playback.seek(30);
     } catch (e) {
-      if (id === request) error = e instanceof Error ? e.message : String(e);
+      if (id === request) { xi = resultXi; error = e instanceof Error ? e.message : String(e); }
     } finally {
       if (id === request) busy = false;
     }

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test.skip('known wrong result: #2505 stopping a moment change preserves the displayed replay', async ({ page }) => {
+test('stopping a moment change preserves the displayed replay', async ({ page }) => {
   await page.addInitScript(() => { window.Worker = class { postMessage() {} terminate() {} } as unknown as typeof Worker; });
   await page.goto('/en/research/stability/ferrari-sigmund-2025/');
   const select = page.getByTestId('ferrari-sign');
@@ -11,7 +11,7 @@ test.skip('known wrong result: #2505 stopping a moment change preserves the disp
   await expect(page.getByTestId('ferrari-source')).toContainText('Precomputed replay');
 });
 
-test.skip('known wrong result: #2505 stopping a portal update restores its model', async ({ page }) => {
+test('stopping a portal update restores its model', async ({ page }) => {
   await page.route(/dedaliano_engine_bg[^/]*\.wasm/, () => {});
   await page.goto('/en/research/benchmarks/plastic-collapse/');
   const height = page.getByTestId('height');
@@ -21,7 +21,7 @@ test.skip('known wrong result: #2505 stopping a portal update restores its model
   await expect(height).toHaveValue(original);
 });
 
-test.skip('known wrong result: #2505 mesh links respect the running Mattiasson mesh', async ({ page }) => {
+test('mesh links respect the running Mattiasson mesh', async ({ page }) => {
   await page.route(/dedaliano_engine_bg[^/]*\.wasm/, () => {});
   await page.goto('/en/research/benchmarks/mattiasson-elastica/');
   const mesh = page.locator('.benchmark-pane select');
@@ -30,7 +30,7 @@ test.skip('known wrong result: #2505 mesh links respect the running Mattiasson m
   await expect(mesh).toHaveValue('16');
 });
 
-test.skip('known wrong result: #2505 an interrupted custom plate has no measured field', async ({ page }) => {
+test('an interrupted custom plate has no measured field', async ({ page }) => {
   await page.addInitScript(() => {
     window.Worker = class {
       postMessage() {}

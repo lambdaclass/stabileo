@@ -20,6 +20,7 @@
   let lambda = $state(replay.lambda);
   const MOMENTS = [replay.model.loads[0].data.my, -replay.model.loads[0].data.my, -10 * replay.model.loads[0].data.my];
   let moment = $state(MOMENTS[0]);
+  let displayedMoment = $state(MOMENTS[0]);
   let source = $state<'replay' | 'live' | 'cached'>('replay');
   let running = $state(false);
   let failed = $state(false);
@@ -51,21 +52,23 @@
     worker?.terminate();
     worker = null;
     running = false;
+    moment = displayedMoment;
     if (source === 'live') source = 'cached';
   }
   function restart() {
-    stop(); failed = false; moment = MOMENTS[0];
+    stop(); failed = false; moment = displayedMoment = MOMENTS[0];
     frames = replay.frames; lambda = replay.lambda; source = 'replay';
     playback.setCount(frames.length); playback.seek(0); playback.play();
   }
   function run() {
-    stop(); failed = false; running = true; playback.follow = true;
+    const requested = moment;
+    stop(); moment = requested; failed = false; running = true; playback.follow = true;
     const active = new Worker(new URL('./run.worker.ts', import.meta.url), { type: 'module' });
     worker = active;
     active.onmessage = ({ data }: MessageEvent<{ kind: string; lambda?: number; frame?: Frame }>) => {
       if (worker !== active) return;
       if (data.kind === 'buckling' && data.lambda !== undefined) {
-        lambda = data.lambda; frames = [replay.frames[0]]; source = 'live';
+        lambda = data.lambda; displayedMoment = requested; frames = [replay.frames[0]]; source = 'live';
         playback.setCount(1);
       } else if (data.kind === 'frame' && data.frame) {
         frames = [...frames, data.frame]; playback.setCount(frames.length);
@@ -74,7 +77,7 @@
     };
     active.onerror = () => { if (worker === active) { failed = true; stop(); } };
     const model = structuredClone(replay.model);
-    model.loads[0].data.my = moment;
+    model.loads[0].data.my = requested;
     active.postMessage(model);
   }
   function setMoment(value: number) {

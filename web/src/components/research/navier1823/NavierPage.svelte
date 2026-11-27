@@ -37,6 +37,7 @@
   let support = $state<'soft' | 'hard'>(PAPER_PLATE.hard ? 'hard' : 'soft');
   let plateRow = $state<Row | null>(null);
   let plateBusy = $state(false);
+  let plateStopped = $state(false);
   let plateError = $state<WorkerError | null>(null);
   let host: HTMLDivElement;
   let worker: Worker | null = null;
@@ -48,11 +49,11 @@
   const series = $derived(seriesFor(plate));
   const plateGeometry = $derived(geometry(build(plate.family, plate.n, plate.hard, plate.thickness).input, plate.family));
   const shown = $derived(view === 'plate'
-    ? { geometry: plateGeometry, values: plateRow?.values ?? new Array(plateGeometry.xy.length / 2).fill(0), name: `${plate.family} ${plate.n} × ${plate.n}`, top: series?.mm ?? plateRow?.center_mm ?? 1 }
+    ? plateRow && { geometry: plateGeometry, values: plateRow.values, name: `${plate.family} ${plate.n} × ${plate.n}`, top: series?.mm ?? plateRow?.center_mm ?? 1 }
     : selected ? { geometry: mesh(index), values: selected.values, name: `${selected.family} ${selected.n} × ${selected.n}`, top: parameters.reference_mm } : null);
   const phase = $derived(runState(source, running, error !== null, rows.length));
   const status = $derived(view === 'plate'
-    ? (plateBusy ? s.plateRunning : plateError ? s.failed : s.plateLive)
+    ? (plateBusy ? s.plateRunning : plateStopped ? s.cancelled : plateError ? s.failed : s.plateLive)
     : phase === 'partial' ? fill(s.partial, { k: nf(rows.length, 0), n: nf(cases.length, 0) }) : s[phase]);
   const viewerLabel = $derived(shown ? fill(s.viewerLabel, { mesh: shown.name, min: nf(Math.min(...shown.values), 4), max: nf(Math.max(...shown.values), 4) }) : '');
   const mindlin = parameters.mindlin_reference_mm;
@@ -64,6 +65,13 @@
     worker?.terminate();
     worker = null;
     running = false;
+    if (plateWorker) {
+      plateToken++;
+      plateWorker.terminate();
+      plateWorker = null;
+      plateBusy = false;
+      plateStopped = true;
+    }
   }
   function spawn() {
     return new Worker(new URL('./solve.worker.ts', import.meta.url), { type: 'module' });
@@ -115,15 +123,15 @@
     stop();
     view = 'plate';
     plateBusy = true;
+    plateStopped = false;
     plateError = null;
     plateRow = null;
-    plateWorker?.terminate();
     const token = ++plateToken;
     const w = spawn();
     plateWorker = w;
     const done = () => { w.terminate(); if (plateWorker === w) plateWorker = null; };
     w.onmessage = ({ data }) => {
-      if (data.token !== token) return;
+      if (data.token !== token || token !== plateToken || plateWorker !== w) return;
       if (data.plateRow) plateRow = data.plateRow;
       if (data.error) plateError = data.error;
       plateBusy = false;
@@ -145,9 +153,7 @@
     solvePlate();
   }
   function backToPaper() {
-    plateWorker?.terminate();
-    plateWorker = null;
-    plateBusy = false;
+    stop();
     view = 'paper';
   }
   onMount(() => {
