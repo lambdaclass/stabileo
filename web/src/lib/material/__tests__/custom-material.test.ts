@@ -251,7 +251,7 @@ describe('saving a hand-entered material', () => {
   });
 });
 
-it.skip.each(['e', 'nu', 'rho', 'fy'] as const)('known wrong result: #2491 — marks an edited legacy %s as authored through a profile change', field => {
+it.each(['e', 'nu', 'rho', 'fy'] as const)('marks an edited legacy %s as authored through a profile change', field => {
   const material = { name: 'Legacy', e: 100000, nu: 0.25, rho: 20, fy: 300 };
   modelStore.clear();
   const id = modelStore.addMaterial(material);

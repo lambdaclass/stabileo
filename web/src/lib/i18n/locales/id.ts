@@ -2,6 +2,9 @@ import type { Translations } from '../types';
 
 const id: Translations = {
   'materials.workbookAlphaInvalid': "Koefisien pada lembar kerja (1/°C): |α| < 0.001 1/°C",
+  'whatif.elements': "Batang",
+  'whatif.node': "Simpul {n}",
+  'whatif.member': "Batang {n}",
   'whatif.nodeTag': "Simpul {id}",
   'whatif.memberTag': "Batang {id}",
   'whatif.thermalTerm': "{symbol}={value}",

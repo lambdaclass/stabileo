@@ -92,10 +92,10 @@ uiStore.onSessionReset(() => forgetDesignView());
 // An analysis reads the definitions' loads current, even inside the moment a rewrite waits for.
 modelStore._setBeforeAnalysisInput(flushDefinedLoadsSync);
 
-modelStore._setOnMutation(() => {
+modelStore._setOnMutation(discardScreen => {
   // A deleted member leaves every selection, once the edit that deletes it has run.
   queueMicrotask(pruneDeletedMembers);
-  resultsStore.clear({ keepScreen: liveCalcFollowsEdits(uiStore.liveCalc, uiStore.analysisMode) });
+  resultsStore.clear({ keepScreen: !discardScreen && liveCalcFollowsEdits(uiStore.liveCalc, uiStore.analysisMode) });
   verificationStore.invalidateAnalysis();
   // The other materials' checks read the results just cleared.
   clearMaterialChecks();

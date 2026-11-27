@@ -6,7 +6,7 @@
 import type { AnalysisResults } from '../engine/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { computeElementDiagram } from '../engine/diagrams';
-import { computeGlobalMax3D, hasUnsignedForces, transverseResultantMax3D } from '../engine/diagrams-3d';
+import { computeGlobalMax3D, transverseResultantMax3D } from '../engine/diagrams-3d';
 import { get2DDisplayDisplacementVertical } from '../geometry/coordinate-system';
 import type { Quantity } from '../utils/units';
 
@@ -33,11 +33,13 @@ export function response2D(r: AnalysisResults): Response {
 
 export function response3D(r: AnalysisResults3D): Response {
   const ef = r.elementForces;
+  const moment = transverseResultantMax3D(ef, 'moment');
+  const shear = transverseResultantMax3D(ef, 'shear');
   return {
     delta: peak(r.displacements.map((d) => Math.hypot(d.ux, d.uy, d.uz))),
-    ...(r.magnitude || ef.some(hasUnsignedForces) ? { componentEnvelopeBound: true } : {}),
-    moment: transverseResultantMax3D(ef, 'moment'),
-    shear: transverseResultantMax3D(ef, 'shear'),
+    ...(r.magnitude || moment.bounded || shear.bounded ? { componentEnvelopeBound: true } : {}),
+    moment: moment.maximum,
+    shear: shear.maximum,
     axial: computeGlobalMax3D(ef, 'axial'),
     reaction: peak(r.reactions.map((x) => Math.hypot(x.fx, x.fy, x.fz))),
   };

@@ -2932,7 +2932,7 @@ const tr: Translations = {
   'whatif.supports': 'Mesnetler',
   'whatif.node': 'Düğüm {n}',
   'whatif.closedByEdit': 'Keşfet kapatıldı: model panelin dışında düzenlendi.',
-  'whatif.atPlace': 'Konum',
+  'whatif.atPlace': 'Yerleştirme hedefi',
   'whatif.alongMember': 'Boyunca',
   'whatif.show': 'Göster',
   'whatif.showResults': 'Sonuçlar',

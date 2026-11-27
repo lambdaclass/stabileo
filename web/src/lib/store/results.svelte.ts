@@ -347,7 +347,7 @@ function createResultsStore() {
     if (named) {
       const valid = viewedEnvelope3D?.check?.valid(perCase3D, perCombo3D);
       if (!envelopeRefused(named.maxAbsResults3D, valid, combosRefused3D)) return named;
-      if (!baseCheck3D()) return null;
+      return null;
     }
     return comboRefused3D() ? null : envelope3D;
   }
@@ -495,7 +495,7 @@ function createResultsStore() {
   const screen = createScreenHold({
     get results() { return api.results; },
     get results3D() { return api.results3D; },
-    get diagram() { return diagramType; },
+    get diagram(): DiagramType { return api.diagramType; },
     get envelopeActive() { return api.isEnvelopeActive || movingLoadShowEnvelope; },
     get envelope2D() { return api.isEnvelopeActive ? api.fullEnvelope : movingLoadShowEnvelope ? api.movingLoadEnvelope?.fullEnvelope ?? null : null; },
     get envelope3D() { return api.fullEnvelope3D; },
@@ -648,9 +648,11 @@ function createResultsStore() {
     },
     get activeCaseId() { return activeCaseId; },
     set activeCaseId(v: number | null) {
-      activeCaseId = v;
-      if (v !== null && (perCase.size || perCase3D.size)) activeView = 'single';
-      if (activeView === 'single' && (perCase.size || perCase3D.size)) {
+      const cases = uiStore.is3DWorkspace ? perCase3D : perCase;
+      const single = uiStore.is3DWorkspace ? this.singleResults3D : this.singleResults;
+      activeCaseId = v !== null && !cases.has(v) && single ? null : v;
+      if (v !== null && (cases.size || single)) activeView = 'single';
+      if (activeView === 'single' && (cases.size || single)) {
         results = staticResults2D();
         results3D = staticResults3D();
       }
@@ -1304,7 +1306,7 @@ function createResultsStore() {
       return screenEnvelope3D();
     },
     get viewedEnvelopeName(): string | null {
-      return viewedEnvelope3D && viewedEnvelope3D.env === screenEnvelope3D() ? viewedEnvelope3D.name : null;
+      return liveViewedEnvelope3D() ? viewedEnvelope3D!.name : null;
     },
     /** Show a named envelope (built over the current solve) in place of the active one, or go back (`null`). */
     viewEnvelope3D(env: FullEnvelope3D | null, name = '') {

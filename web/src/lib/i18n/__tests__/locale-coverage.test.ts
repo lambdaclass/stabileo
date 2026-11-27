@@ -132,7 +132,7 @@ it('translates Explore, launcher search, mobile tabs and the material form in ev
     'advCat.search.empty', 'advCat.search.emptyHint', 'advCat.search.step', 'advCat.search.stepOf',
     'table.addMaterial', 'tabBar.tabs', 'tabBar.switcher', 'tabBar.renameTab',
     'tabBar.tabName', 'whatif.atPlace', 'whatif.alongMember', 'whatif.show',
-    'whatif.showResults', 'whatif.showLoads', 'whatif.nodes', 'whatif.noLoads',
+    'whatif.node', 'whatif.member', 'whatif.elements', 'whatif.showResults', 'whatif.showLoads', 'whatif.nodes', 'whatif.noLoads',
     'whatif.noSupports', 'whatif.factor', 'whatif.position', 'whatif.atNode',
     'whatif.pickMember', 'whatif.pickNode', 'whatif.manyNodes', 'whatif.supportN',
     'whatif.supportType', 'whatif.paint', 'whatif.paint.axial', 'whatif.paint.moment',
@@ -163,7 +163,7 @@ it.each(['custom-thermal-family', 'signed-thermal-expansion', 'invalid-thermal-c
   }
 });
 
-it.skip('known wrong result: #2491 — names the placement modes, groups and numbered destinations in every language', () => {
+it('names the placement modes, groups and numbered destinations in every language', () => {
   for (const [locale, dict] of Object.entries(ALL_DICTS)) {
     expect.soft(dict['whatif.elements']?.trim(), locale).toBeTruthy();
     for (const key of ['whatif.node', 'whatif.member']) expect.soft(dict[key], locale + key).toContain('{n}');

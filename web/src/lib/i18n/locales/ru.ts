@@ -2,6 +2,9 @@ import type { Translations } from '../types';
 
 const ru: Translations = {
   'materials.workbookAlphaInvalid': "Коэффициент в книге (1/°C): |α| < 0.001 1/°C",
+  'whatif.elements': "Стержни",
+  'whatif.node': "Узел {n}",
+  'whatif.member': "Стержень {n}",
   'whatif.nodeTag': "Узел {id}",
   'whatif.memberTag': "Стержень {id}",
   'whatif.thermalTerm': "{symbol} = {value}",

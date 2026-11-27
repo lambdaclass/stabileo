@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 const it: Translations = {
   'materials.workbookAlphaInvalid': "Coefficiente nel foglio di calcolo (1/°C): |α| < 0.001 1/°C",
+  'whatif.elements': "Aste",
+  'whatif.node': "Nodo {n}",
+  'whatif.member': "Asta {n}",
   'whatif.nodeTag': "Nodo {id}",
   'whatif.memberTag': "Asta {id}",
   'whatif.thermalTerm': "{symbol}={value}",

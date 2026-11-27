@@ -1,13 +1,13 @@
 import { openExplainedMethod, openFlexibilityWizard, openStiffnessWizard } from '../actions/step-wizards';
 import { openSecondOrderSteps } from '../actions/second-order';
 
-import { ownerOfMethod } from './catalog';
+import { ownerOfMethod, unavailableReasonKey } from './catalog';
 import { uiStore } from '../store/ui.svelte';
 
 export function stepBlockedReason(id: string): string | null {
   const owner = ownerOfMethod(id);
   if (owner?.requires.plane && uiStore.is3DWorkspace) return 'advanced.only2d';
-  return owner?.id === 'plastic' ? 'knownIssue.PL-2D-INVARIANCE' : null;
+  return owner?.id === 'plastic' ? unavailableReasonKey.plastic : null;
 }
 
 /** Open a step-by-step method from the Advanced list or from inside a function; going back returns there. */

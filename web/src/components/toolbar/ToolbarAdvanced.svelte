@@ -83,7 +83,7 @@
   import SecondOrderOptions from '../advanced/SecondOrderOptions.svelte';
   import PDeltaSummary from '../advanced/PDeltaSummary.svelte';
   import BucklingDetails from '../advanced/BucklingDetails.svelte';
-  import { pdeltaBasic2D, bucklingBasic2D, withFirstModeB2, rerunSecondOrder } from '../../lib/actions/second-order';
+  import { pdeltaBasic2D, bucklingBasic2D, withFirstModeB2, currentSecondOrder, rerunSecondOrder } from '../../lib/actions/second-order';
   import { solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { bucklingFailureToast } from '../../lib/engine/buckling-failure';
   import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
@@ -192,10 +192,10 @@
       isActive: () => mohrPanel.open,
       close: () => closeMohr() }] : []),
     { key: 'pdelta',
-      isActive: () => (!is3D && selectedSecondOrder === 'pdelta') || !!(is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult),
+      isActive: () => is3D ? !!resultsStore.pdeltaResult3D : planeSecondOrder === 'pdelta',
       close: () => { selectedSecondOrder = null; if (is3D) resultsStore.clearPDelta3D(); else resultsStore.clearPDelta(); } },
     { key: 'buckling',
-      isActive: () => (!is3D && selectedSecondOrder === 'buckling') || !!(is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult),
+      isActive: () => is3D ? !!resultsStore.bucklingResult3D : planeSecondOrder === 'buckling',
       close: () => { selectedSecondOrder = null; if (is3D) resultsStore.clearBuckling3D(); else resultsStore.clearBuckling(); } },
     { key: 'modal',
       isActive: () => !!(is3D ? resultsStore.modalResult3D : resultsStore.modalResult),
@@ -226,6 +226,7 @@
 
 
   let selectedSecondOrder = $state<'pdelta' | 'buckling' | null>(null);
+  const planeSecondOrder = $derived(currentSecondOrder(selectedSecondOrder));
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
   let section = $state<HTMLElement | null>(null);
   $effect(() => {
@@ -575,12 +576,13 @@
   /** Start a function from the list; a step-by-step topic opens the catalog at its group. */
   function openFunction(id: string): void {
     const fn = advFunction(id);
-    const reason = fn && unavailable(fn, { is3D, members: modelStore.elements.size, solved: hasCurrentResults() });
-    if (reason) {
+    if (!fn) return;
+    const reason = unavailable(fn, { is3D, members: modelStore.elements.size, solved: hasCurrentResults() });
+    if (reason && reason !== 'plastic') {
       uiStore.toast(t(unavailableReasonKey[reason]), 'error');
       return;
     }
-    if (fn) advancedList.reveal(fn.group);
+    advancedList.reveal(fn.group);
     noteOpening();
     selectedSecondOrder = !is3D && (id === 'buckling' || id === 'pdelta') ? id : null;
     switch (id) {
@@ -597,7 +599,10 @@
       case 'pdelta':
       case 'buckling': dispatchSecondOrder(id, is3D, { handleBuckling, handleBuckling3D, handlePDelta, handlePDelta3D }); return;
       case 'modal': if (is3D) void handleModal3D(); else handleModal(); return;
-      case 'plastic': handlePlastic(); return;
+      case 'plastic':
+        if (reason === 'plastic') plasticWithheld = new PlasticWithheld(t(unavailableReasonKey[reason]));
+        else handlePlastic();
+        return;
       case 'influenceLine':
         if (blockedBySlidingJoints()) return;
         uiStore.currentTool = 'influenceLine';
@@ -608,7 +613,7 @@
       case 'cirsocFlex': showFlex = true; return;
       case 'steps': openExplainedCatalog(); return;
     }
-    const topic = advFunction(id)?.stepsGroup;
+    const topic = fn.stepsGroup;
     if (topic) openExplainedCatalog(topic);
   }
 </script>
@@ -619,7 +624,10 @@
       <AdvFunctionHead fn={activeFn} onBack={closeEntry.bind(null, active.key)} />
       {#if active.key === 'despiece'}<DespieceOptions />{/if}
       {#if (active.key === 'pdelta' || active.key === 'buckling') && !is3D}
-        <SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling, selectedSecondOrder)} />
+        <SecondOrderOptions onchange={() => {
+          selectedSecondOrder = planeSecondOrder;
+          rerunSecondOrder(handlePDelta, handleBuckling, selectedSecondOrder);
+        }} />
       {/if}
       {#if active.key === 'influenceLine'}<InfluencePanel />{/if}
       {#if active.key === 'trainLoad' && !is3D}

@@ -410,7 +410,7 @@ it('identifies the node and the member load components in the current units', ()
   }
 });
 
-it.skip('known wrong result: #2491 — summarizes the transverse resultants of a space cantilever', () => {
+it('summarizes the transverse resultants of a space cantilever', () => {
   modelStore.clear();
   uiStore.analysisMode = '3d';
   const fixed = modelStore.addNode(0, 0, 0);
@@ -678,7 +678,7 @@ it('drops dependent support moves if a failed cut restores an occupied node', ()
   }
 });
 
-it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — scales the listed section properties for global and individual edits in %s', mode => {
+it.each(['2d', '3d'] as const)('scales the listed section properties for global and individual edits in %s', mode => {
   uiStore.analysisMode = mode;
   const props = { a: 0.12, iy: 0.003, iz: 0.001, j: 0.0002 };
   const section = modelStore.addSection({ name: 'Explicit properties', ...props });
@@ -717,7 +717,8 @@ it.each([undefined, 'plate'] as const)('identifies both temperature terms on she
   expect(label).toContain('ΔTg=' + fmtQ(-4, 'temperatureDelta'));
 });
 
-it.skip('known wrong result: #2491 — scales spatial cantilever bending while preserving its twist', () => {
+it.each(['linear', 'second-order'] as const)('scales spatial cantilever bending while preserving its %s twist', async analysis => {
+  const { solvePDelta3D } = await import('../../engine/wasm-solver');
   modelStore.clear();
   uiStore.analysisMode = '3d';
   const root = modelStore.addNode(0, 0, 0);
@@ -728,7 +729,7 @@ it.skip('known wrong result: #2491 — scales spatial cantilever bending while p
   modelStore.addSupport(root, 'fixed3d');
   modelStore.addNodalLoad3D(tip, 0, 2, 3, 5, 0, 0);
   const response = () => {
-    const result = modelStore.solve3D();
+    const result = analysis === 'linear' ? modelStore.solve3D() : solvePDelta3D(modelStore.buildSolverInput3D()!).results;
     if (!result || typeof result === 'string') throw Error(String(result));
     return result.displacements.find(d => d.nodeId === tip)!;
   };
@@ -743,7 +744,7 @@ it.skip('known wrong result: #2491 — scales spatial cantilever bending while p
   }
 });
 
-it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — lists the live joints of supports before Explore captures its %s baseline', async mode => {
+it.each(['2d', '3d'] as const)('lists the live joints of supports before Explore captures its %s baseline', async mode => {
   uiStore.analysisMode = mode;
   const { default: Supports } = await import('../../../components/whatif/WhatIfSupports.svelte');
   const picker = render(Supports).body.split('data-testid="whatif-supportnode-' + s1 + '"')[1].split('</select>')[0];
@@ -752,7 +753,7 @@ it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — lists the liv
   expect(picker).not.toContain('value="n:' + n3 + '"');
 });
 
-it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — rejects a split resolving to an occupied support joint in %s', mode => {
+it.each(['2d', '3d'] as const)('rejects a split resolving to an occupied support joint in %s', mode => {
   uiStore.analysisMode = mode;
   const at = modelStore.addNode(2, 0);
   modelStore.addSupport(at, 'pinned');

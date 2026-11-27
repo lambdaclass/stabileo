@@ -2,6 +2,9 @@ import type { Translations } from '../types';
 
 const ar: Translations = {
   'materials.workbookAlphaInvalid': "المعامل في ورقة العمل (1/°C): |α| < 0.001 1/°C",
+  'whatif.elements': "العناصر",
+  'whatif.node': "العقدة {n}",
+  'whatif.member': "العنصر {n}",
   'whatif.nodeTag': "العقدة {id}",
   'whatif.memberTag': "العنصر {id}",
   'whatif.thermalTerm': "{symbol} = {value}",

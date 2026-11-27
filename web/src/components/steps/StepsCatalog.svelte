@@ -18,7 +18,7 @@
   import type { Applicability, Txt } from '../../lib/engine/steps/doc';
   import { tx } from '../../lib/engine/steps/doc';
   import { openStiffnessWizard, openFlexibilityWizard } from '../../lib/actions/step-wizards';
-  import { ownerOfMethod } from '../../lib/advanced/catalog';
+  import { offered, ownerOfMethod } from '../../lib/advanced/catalog';
   import { advancedList } from '../../lib/advanced/panel-state.svelte';
 
   const say = (x: Txt) => tp(x.key, x.params);
@@ -35,7 +35,7 @@
   /** The analysis that runs this method on the model, when there is one (not a step-by-step topic). */
   function analysisOf(m: ExplainedMethod) {
     const owner = ownerOfMethod(m.id);
-    return owner && !owner.stepsGroup ? owner : null;
+    return owner && offered(owner) && !owner.stepsGroup ? owner : null;
   }
 
   function openFunction(id: string) {

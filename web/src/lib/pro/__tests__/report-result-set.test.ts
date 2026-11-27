@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { modelStore, resultsStore, uiStore } from '../../store';
+import { modelStore, resultsStore } from '../../store';
 import { runGlobalSolve } from '../../engine/live-calc';
 import { resultSetName } from '../../export/figure';
 import { defaultReportSetKey, resultSet } from '../export-results';
@@ -7,23 +7,7 @@ import { buildProReportData } from '../../engine/pro-report-inputs';
 import type { ReportConfig } from '../../engine/pro-report';
 import { t } from '../../i18n';
 
-/** A portal with a dead and a wind case and two combinations, solved as PRO solves them. */
-async function solvedPortal() {
-  modelStore.clear();
-  uiStore.analysisMode = 'pro';
-  for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
-  for (const c of [...modelStore.model.loadCases].filter((c) => c.id > 1)) modelStore.removeLoadCase(c.id);
-  const w = modelStore.addLoadCase('W', 'W');
-  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3), c = modelStore.addNode(5, 0, 3), d = modelStore.addNode(5, 0, 0);
-  modelStore.addElement(a, b); modelStore.addElement(b, c); modelStore.addElement(c, d);
-  modelStore.addSupport(a, 'fixed3d' as never); modelStore.addSupport(d, 'fixed3d' as never);
-  modelStore.addNodalLoad3D(b, 0, 0, -20, 0, 0, 0, 1);
-  modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0, w);
-  modelStore.addCombination('1.4 D', [{ caseId: 1, factor: 1.4 }]);
-  modelStore.addCombination('1.2 D + 1.6 W', [{ caseId: 1, factor: 1.2 }, { caseId: w, factor: 1.6 }]);
-  const outcome = await runGlobalSolve();
-  if (!outcome.ok) throw new Error(JSON.stringify(outcome));
-}
+import { solvedPortal } from './solved-report-portal';
 
 const config = (resultSetKey?: string): ReportConfig => ({
   companyName: '', companyLogo: null,
@@ -35,7 +19,7 @@ const reactionX = (rs: { reactions: Array<{ nodeId: number; fx: number }> }) => 
 describe('what the report is of', () => {
   beforeEach(solvedPortal);
 
-  it.skip('known wrong result: #2491 — names the sum of every case at factor 1 for what it is', () => {
+  it('names the sum of every case at factor 1 for what it is', () => {
     resultsStore.activeCaseId = null;
     resultsStore.activeView = 'single';
     expect(resultSetName()).toBe(t('tables.shownSum'));

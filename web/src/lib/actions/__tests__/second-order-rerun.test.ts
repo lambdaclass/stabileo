@@ -47,7 +47,7 @@ describe('new second-order settings rerun what is on screen', () => {
   });
 });
 
-it.skip.each(['pdelta', 'buckling'] as const)('known wrong result: #2491 — reruns the restored %s even with a stale previous choice', kind => {
+it.each(['pdelta', 'buckling'] as const)('reruns the restored %s even with a stale previous choice', kind => {
   const input = column('fixed', null, 4, 100, 5);
   const pd = vi.fn(), bk = vi.fn();
   if (kind === 'pdelta') {

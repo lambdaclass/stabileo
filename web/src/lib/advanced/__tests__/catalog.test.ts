@@ -55,7 +55,7 @@ describe('advanced functions catalog', () => {
   it('offers the Mohr circle only in builds with the public tools, whose strings are pruned otherwise', () => {
     expect(ADV_FUNCTIONS.find((f) => f.id === 'mohr')!.feature).toBe('tools');
     expect(ADV_FUNCTIONS.filter((f) => f.feature).map((f) => f.id)).toEqual(['mohr']);
-    expect(launcher).toContain("f.feature !== 'tools' || (__PUBLIC_FEATURES__.tools && tools())");
+    expect(launcher).toContain('ADV_FUNCTIONS.filter(offered)');
   });
 
   it('says why a function cannot run', () => {
@@ -77,7 +77,7 @@ it.each([false, true])('dispatches buckling exclusively to its workspace handler
   for (const handler of [handlers.handlePDelta, handlers.handlePDelta3D]) expect(handler).not.toHaveBeenCalled();
 });
 
-it.skip('known wrong result: #2491 — gives plastic analysis and its methods the same containment reason', async () => {
+it('gives plastic analysis and its methods the same containment reason', async () => {
   const { stepBlockedReason } = await import('../open-step');
   const { unavailableReasonKey } = await import('../catalog');
   const { uiStore } = await import('../../store');
@@ -87,7 +87,7 @@ it.skip('known wrong result: #2491 — gives plastic analysis and its methods th
   for (const id of plastic.steps) expect(reason && unavailableReasonKey[reason]).toBe(stepBlockedReason(id));
 });
 
-it.skip('known wrong result: #2491 — looks up pending functions with the same runtime tools policy as the launcher', async () => {
+it('looks up pending functions with the same runtime tools policy as the launcher', async () => {
   const { advFunction } = await import('../catalog');
   const flags = new Map<string, string>();
   vi.stubGlobal('localStorage', { getItem: (key: string) => flags.get(key) ?? null });

@@ -1,0 +1,52 @@
+{
+  "id": "explore-spatial-inertia",
+  "date": "2026-11-27",
+  "prs": [
+    2491
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers"
+    ]
+  },
+  "title": {
+    "en": "Spatial bending inertia comparisons in Explore",
+    "es": "Comparaciones de inercia a flexión en pórticos espaciales",
+    "pt": "Comparações de inércia à flexão em pórticos espaciais",
+    "de": "Vergleich der Biegeträgheitsmomente räumlicher Rahmen",
+    "fr": "Comparaison des inerties de flexion des portiques spatiaux",
+    "hu": "Térbeli keretek hajlítási tehetetlenségi nyomatékainak összehasonlítása",
+    "tr": "Uzay çerçevelerde eğilme atalet momentlerinin karşılaştırılması",
+    "zh": "空间框架抗弯惯性矩比较",
+    "it": "Confronto delle inerzie flessionali dei telai spaziali",
+    "ar": "مقارنة عزوم العطالة للانحناء في الإطارات الفراغية",
+    "hi": "त्रिविमीय फ्रेमों में बंकन जड़त्व आघूर्ण की तुलना",
+    "id": "Perbandingan momen inersia lentur rangka ruang",
+    "ja": "立体骨組の断面二次モーメントの比較",
+    "ko": "공간 골조의 휨 단면 이차 모멘트 비교",
+    "ru": "Сравнение моментов инерции сечений пространственных рам"
+  },
+  "explanation": {
+    "en": "Repeat spatial frame comparisons made with the Explore inertia control. It scales Iy and Iz and keeps the torsion constant J.",
+    "es": "Repetí las comparaciones de pórticos espaciales hechas con el control de inercia de Explorar. El control escala Iy e Iz y conserva la constante de torsión J.",
+    "pt": "Repita as comparações de pórticos espaciais feitas com o controle de inércia em Explorar. Ele altera Iy e Iz e conserva a constante de torção J.",
+    "de": "Wiederholen Sie die Vergleiche räumlicher Rahmen mit dem Trägheitsregler. Er skaliert Iy und Iz und behält die Torsionskonstante J bei.",
+    "fr": "Répétez les comparaisons de portiques spatiaux réalisées avec le réglage d’inertie dans Explorer. Il modifie Iy et Iz et conserve la constante de torsion J.",
+    "hu": "Ismételje meg a térbeli keretek összehasonlítását a tehetetlenségi nyomaték szabályozójával. A szabályozó az Iy és Iz értékét módosítja, a J csavarási állandót megőrzi.",
+    "tr": "Atalet ayarıyla yaptığınız uzay çerçeve karşılaştırmalarını tekrarlayın. Ayar Iy ve Iz değerlerini ölçeklendirir ve burulma sabiti J değerini korur.",
+    "zh": "请重新进行使用惯性矩调节功能的空间框架比较。此功能按比例调整 Iy 和 Iz，并保持扭转常数 J 不变。",
+    "it": "Ripetere i confronti dei telai spaziali eseguiti con il controllo di inerzia. Il controllo modifica Iy e Iz e conserva la costante torsionale J.",
+    "ar": "أعد مقارنات الإطارات الفراغية التي أجريتها باستخدام أداة ضبط العطالة. تغيّر الأداة Iy وIz مع إبقاء ثابت الالتواء J على قيمته.",
+    "hi": "जड़त्व नियंत्रण से की गई त्रिविमीय फ्रेमों की तुलना दोहराएँ। यह नियंत्रण Iy और Iz को समान अनुपात में बदलता है और मरोड़ स्थिरांक J को बनाए रखता है।",
+    "id": "Ulangi perbandingan rangka ruang yang menggunakan pengaturan inersia. Pengaturan ini mengubah Iy dan Iz secara proporsional dan mempertahankan konstanta torsi J.",
+    "ja": "慣性モーメントの調整機能を使った立体骨組の比較を再実行してください。この機能は Iy と Iz を同じ比率で変更し、ねじり定数 J を保持します。",
+    "ko": "관성 모멘트 조절 기능을 사용한 공간 골조 비교를 다시 실행하세요. 이 기능은 Iy와 Iz를 같은 비율로 변경하고 비틀림 상수 J를 유지합니다.",
+    "ru": "Повторите сравнения пространственных рам, выполненные с помощью регулятора момента инерции. Он масштабирует Iy и Iz и сохраняет постоянную кручения J."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-explore-spatial-inertia.md",
+    "heading": "Spatial bending inertia comparisons in Explore"
+  }
+}

@@ -8,6 +8,8 @@
  * matched as typed (accents, case and Greek letters are folded by the search).
  */
 
+import { tools } from '../features';
+
 export type AdvGroupId = 'analysis' | 'moving' | 'sections' | 'explore' | 'learn';
 
 export const ADV_GROUPS: readonly AdvGroupId[] = ['analysis', 'moving', 'sections', 'explore', 'learn'];
@@ -154,7 +156,12 @@ export const ADV_FUNCTIONS: readonly AdvFunction[] = [
 const BY_ID = new Map(ADV_FUNCTIONS.map((f) => [f.id, f]));
 
 export function advFunction(id: string): AdvFunction | undefined {
-  return BY_ID.get(id);
+  const fn = BY_ID.get(id);
+  return fn && offered(fn) ? fn : undefined;
+}
+
+export function offered(fn: AdvFunction): boolean {
+  return fn.feature !== 'tools' || tools();
 }
 
 export function functionsIn(group: AdvGroupId, offered: (f: AdvFunction) => boolean = () => true): AdvFunction[] {
@@ -172,17 +179,19 @@ export function linkedMethods(): string[] {
   return [...new Set(ADV_FUNCTIONS.flatMap((f) => f.steps))];
 }
 
-export type AdvUnavailable = 'plane' | 'model' | 'results';
+export type AdvUnavailable = 'plane' | 'model' | 'results' | 'plastic';
 
 /** Why a function cannot run on this model, or null. `results` is advisory: opening still says so. */
 export function unavailable(f: AdvFunction, state: { is3D: boolean; members: number; solved: boolean }): AdvUnavailable | null {
   if (f.requires.plane && state.is3D) return 'plane';
   if (f.requires.model && state.members === 0) return 'model';
+  if (f.id === 'plastic') return 'plastic';
   if (f.requires.results && !state.solved) return 'results';
   return null;
 }
 
 export const unavailableReasonKey = {
+  plastic: 'knownIssue.PL-2D-INVARIANCE',
   plane: 'advanced.only2d',
   model: 'advCat.req.model',
   results: 'advanced.calculateFirst',

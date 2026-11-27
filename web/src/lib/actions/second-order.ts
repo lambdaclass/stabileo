@@ -44,6 +44,12 @@ export function withFirstModeB2<R extends { b2Factor: number; isStable: boolean 
   return { ...result, b2Factor: b2, isStable: result.isStable && lambda1 > 1, secondOrder: { lambda1, b2 } };
 }
 
+export function currentSecondOrder(selected: 'pdelta' | 'buckling' | null) {
+  if (resultsStore.pdeltaResult) return 'pdelta';
+  if (resultsStore.bucklingResult) return 'buckling';
+  return selected;
+}
+
 /** Open one of the second-order explained methods over the model on screen, with the panel's assumptions. */
 export function openSecondOrderSteps(methodId: string, s: Pick<SoSettings, 'method' | 'axialRigid'> = secondOrderSettings.snapshot()): void {
   openExplainedMethod(methodId);
@@ -52,10 +58,9 @@ export function openSecondOrderSteps(methodId: string, s: Pick<SoSettings, 'meth
 }
 
 export function rerunSecondOrder(runPDelta: () => void, runBuckling: () => void, selected: 'pdelta' | 'buckling' | null = null): void {
-  const pd = selected ? selected === 'pdelta' : !!resultsStore.pdeltaResult;
-  const bk = selected ? selected === 'buckling' : !!resultsStore.bucklingResult;
-  if (!pd && !bk) return;
+  const kind = currentSecondOrder(selected);
+  if (!kind) return;
   resultsStore.clearAdvanced();
-  if (pd) runPDelta();
-  if (bk) runBuckling();
+  if (kind === 'pdelta') runPDelta();
+  else runBuckling();
 }

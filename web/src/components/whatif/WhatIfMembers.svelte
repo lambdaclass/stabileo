@@ -43,7 +43,7 @@
   }
 
   const factors = $derived<Array<{ k: keyof MemberFactors; label: string }>>([
-    { k: 'e', label: 'E' }, { k: 'a', label: 'A' }, { k: 'iy', label: is3D ? 'Iy, Iz, J' : 'Iy' },
+    { k: 'e', label: 'E' }, { k: 'a', label: 'A' }, { k: 'iy', label: is3D ? 'Iy, Iz' : 'Iy' },
   ]);
   const times = (v: number) => `${v.toFixed(2)}×`;
 </script>

@@ -1468,7 +1468,7 @@ function createModelStore() {
   let _onFoundationChange: (() => void) | null = null;
   let _undoBatching = false;
   // Results invalidation callback — set externally by store/index.ts to clear stale results
-  let _onMutation: (() => void) | null = null;
+  let _onMutation: ((discardScreen?: boolean) => void) | null = null;
   /** Run before an analysis reads the model's loads (`defined-loads.ts`: a pending rewrite). */
   let _beforeAnalysisInput: (() => void) | null = null;
   /** Called when the whole model is replaced (restore, clear): state about the old one goes. */
@@ -1788,7 +1788,7 @@ function createModelStore() {
     _setOnDesignChange(fn: () => void) { _onDesignChange = fn; },
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
-    _setOnMutation(fn: () => void) { _onMutation = fn; },
+    _setOnMutation(fn: (discardScreen?: boolean) => void) { _onMutation = fn; },
     _setBeforeAnalysisInput(fn: () => void) { _beforeAnalysisInput = fn; },
     _setOnReplaced(fn: () => void) { _onReplaced = fn; },
     _setOnNewProject(fn: () => void) { _onNewProject = fn; },
@@ -2109,7 +2109,7 @@ function createModelStore() {
     },
 
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
-    bumpModelVersion() { modelVersion++; _onMutation?.(); },
+    bumpModelVersion(discardScreen = false) { modelVersion++; _onMutation?.(discardScreen); },
 
     /**
      * Run multiple mutations as a single undo step.
@@ -4838,7 +4838,7 @@ function createModelStore() {
       const m = new Map(model.materials);
       const data = 'replacement' in change ? change.replacement : change;
       const updated = 'replacement' in change ? { ...change.replacement, id } : { ...mat, ...data, id };
-      if (!('replacement' in change) && mat.userDefined === false && Object.entries(change)
+      if (!('replacement' in change) && mat.userDefined !== true && Object.entries(change)
         .some(([key, value]) => key !== 'name' && key !== 'alpha' && value !== mat[key as keyof Material])) updated.userDefined = true;
       m.set(id, updated);
       model.materials = m;
@@ -4856,7 +4856,7 @@ function createModelStore() {
         }
         if (touched) model.sections = secs;
       }
-      this.bumpModelVersion();
+      this.bumpModelVersion(updated.alpha !== mat.alpha);
     },
 
     removeMaterial(id: number): boolean {

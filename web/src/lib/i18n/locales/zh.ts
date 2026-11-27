@@ -3211,7 +3211,7 @@ const zh: Translations = {
   "whatif.supports": "支座",
   "whatif.node": "节点 {n}",
   "whatif.closedByEdit": "探索已关闭：模型已在面板之外被编辑。",
-  "whatif.atPlace": "位置",
+  "whatif.atPlace": "放置于",
   "whatif.alongMember": "沿杆件",
   "whatif.show": "显示",
   "whatif.showResults": "结果",

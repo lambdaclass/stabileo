@@ -165,7 +165,7 @@ function scaledSection(sec: Section, fa: number, fi: number): Section {
   const spatialFactor = uiStore.is3DWorkspace ? fi : 1;
   const { iy, iz } = uiStore.is3DWorkspace ? spaceBendingInertias(sec, p) : p;
   const out = { ...sec, a: p.a * fa, iy: iy * fi, iz: iz * spatialFactor };
-  if (p.j != null) out.j = p.j * spatialFactor;
+  if (p.j != null) out.j = p.j;
   delete (out as { canonical?: unknown }).canonical;
   return out;
 }
@@ -272,6 +272,16 @@ function placeAlong(): boolean {
       uiStore.toast(translate('whatif.invalidPlacement'), 'error');
       return false;
     }
+  }
+  const occupied = new Set([...m.supports.values()].filter(s => !destinations.has(s.id)).map(s => s.nodeId));
+  for (const [id, nodeId] of destinations) {
+    if (occupied.has(nodeId)) {
+      delete supportAlong[id];
+      delete supportNode[id];
+      uiStore.toast(translate('whatif.invalidPlacement'), 'error');
+      return false;
+    }
+    occupied.add(nodeId);
   }
   const supports = new Map(m.supports);
   for (const [id, support] of supports) {

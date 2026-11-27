@@ -164,17 +164,18 @@ function spatialCurve(ef: ElementForces3D, kind: Diagram3DKind): SpatialCurve {
   };
 }
 
-export function transverseResultantMax3D(forces: ElementForces3D[], kind: 'moment' | 'shear'): number {
+export function transverseResultantMax3D(forces: ElementForces3D[], kind: 'moment' | 'shear') {
   let maximum = 0;
+  let bounded = false;
   for (const ef of forces) {
     const parts = ef.combined?.parts ?? [ef];
     const curves = parts.flatMap(part => (['Y', 'Z'] as const).map(axis => spatialCurve(part, `${kind}${axis}`)));
     const method = ef.combined?.method === 'abs' ? 'transverseAbs' : 'srss';
     const magnitude = magnitudeCurve(curves, method, ef.length);
-    if (magnitude.magnitudeBound) return NaN;
     maximum = Math.max(maximum, maxMagnitude(magnitude));
+    bounded ||= !!magnitude.magnitudeBound || hasUnsignedForces(ef);
   }
-  return maximum;
+  return { maximum, bounded };
 }
 
 export function criticalDiagramStations3D(ef: ElementForces3D, purpose: 'diagram' | 'concrete-design' = 'diagram'): DiagramStation[] {

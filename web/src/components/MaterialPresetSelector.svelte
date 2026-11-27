@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { MATERIAL_CATEGORIES, searchPresets, categoryFamily, bandSummary, type MaterialPreset } from '../lib/data/material-presets';
   import {
     codesForFamily, codesForMode, defaultCodeFor,
@@ -24,7 +25,7 @@
   let { open, onselect, onclose, oninvent, inventMaterialId = null, initialTab = 'catalogue' }: Props = $props();
 
   let inventing = $state(false);
-  $effect.pre(() => { if (open) inventing = initialTab === 'invent' && !!oninvent; });
+  $effect.pre(() => { if (open) inventing = initialTab === 'invent' && untrack(() => !!oninvent); });
 
   /*
    * The catalogue quotes MPa and kN/m³. In SI they are shown as written (E in

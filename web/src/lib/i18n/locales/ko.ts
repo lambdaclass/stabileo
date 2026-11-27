@@ -2,6 +2,9 @@ import type { Translations } from '../types';
 
 const ko: Translations = {
   'materials.workbookAlphaInvalid': "통합 문서의 계수 (1/°C): |α| < 0.001 1/°C",
+  'whatif.elements': "부재",
+  'whatif.node': "절점 {n}",
+  'whatif.member': "부재 {n}",
   'whatif.nodeTag': "절점 {id}",
   'whatif.memberTag': "부재 {id}",
   'whatif.thermalTerm': "{symbol} = {value}",
@@ -54,7 +57,7 @@ const ko: Translations = {
   'tabBar.switcher': "탭: {name} ({count}개 중 {index}번째)",
   'tabBar.renameTab': "탭 이름 변경",
   'tabBar.tabName': "탭 이름",
-  'whatif.atPlace': "위치",
+  'whatif.atPlace': "배치 대상",
   'whatif.alongMember': "부재를 따라",
   'whatif.show': "표시",
   'whatif.showResults': "결과",

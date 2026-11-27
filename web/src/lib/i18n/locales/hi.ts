@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 const hi: Translations = {
   'materials.workbookAlphaInvalid': "कार्यपुस्तिका में गुणांक (1/°C): |α| < 0.001 1/°C",
+  'whatif.elements': "सदस्य",
+  'whatif.node': "नोड {n}",
+  'whatif.member': "सदस्य {n}",
   'whatif.nodeTag': "नोड {id}",
   'whatif.memberTag': "सदस्य {id}",
   'whatif.thermalTerm': "{symbol} = {value}",

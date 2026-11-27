@@ -2,6 +2,9 @@ import type { Translations } from '../types';
 
 const ja: Translations = {
   'materials.workbookAlphaInvalid': "ワークブックの係数 (1/°C): |α| < 0.001 1/°C",
+  'whatif.elements': "部材",
+  'whatif.node': "節点 {n}",
+  'whatif.member': "部材 {n}",
   'whatif.nodeTag': "節点 {id}",
   'whatif.memberTag': "部材 {id}",
   'whatif.thermalTerm': "{symbol}={value}",
@@ -54,7 +57,7 @@ const ja: Translations = {
   'tabBar.switcher': "タブ：{name}（{count} 件中 {index} 番目）",
   'tabBar.renameTab': "タブ名を変更",
   'tabBar.tabName': "タブ名",
-  'whatif.atPlace': "位置",
+  'whatif.atPlace': "配置先",
   'whatif.alongMember': "部材に沿って",
   'whatif.show': "表示",
   'whatif.showResults': "結果",

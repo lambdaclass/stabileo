@@ -12,7 +12,7 @@
   /* As they were on entry: a moved support is still the same support. */
   const supports = $derived((whatIf.baseline ? whatIf.baseline.supports.map(([, sup]) => ({ ...sup, type: sup.type as SupportType }))
     : [...modelStore.supports.values()]).sort((a, b) => a.id - b.id));
-  const nodeIds = $derived((whatIf.baseline?.nodes ?? []).map(([id]) => id).sort((a, b) => a - b));
+  const nodeIds = $derived((whatIf.baseline ? whatIf.baseline.nodes.map(([id]) => id) : [...modelStore.nodes.keys()]).sort((a, b) => a - b));
   const nodeOf = (s: { id: number; nodeId: number }) => whatIf.supportNode[s.id] ?? s.nodeId;
   /* A node can hold one support: the others' nodes are not offered. */
   const free = (s: { id: number; nodeId: number }) => {

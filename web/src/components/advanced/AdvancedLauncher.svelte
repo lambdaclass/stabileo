@@ -6,9 +6,8 @@
    */
   import { t, tp } from '../../lib/i18n';
   import { tAt } from '../../lib/i18n/store.svelte';
-  import { tools } from '../../lib/features';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
-  import { ADV_FUNCTIONS, ADV_GROUPS, ownerOfMethod, linkedMethods, unavailable, unavailableReasonKey, type AdvFunction, type AdvGroupId } from '../../lib/advanced/catalog';
+  import { ADV_FUNCTIONS, ADV_GROUPS, offered, ownerOfMethod, linkedMethods, unavailable, unavailableReasonKey, type AdvFunction, type AdvGroupId } from '../../lib/advanced/catalog';
   import { buildIndex, fold, search, type SearchDoc } from '../../lib/advanced/search';
   import { advancedList } from '../../lib/advanced/panel-state.svelte';
   import { openStepMethod, stepBlockedReason } from '../../lib/advanced/open-step';
@@ -21,7 +20,6 @@
 
   type Entry = { kind: 'fn'; fn: AdvFunction } | { kind: 'step'; method: string; owner: AdvFunction };
 
-  const offered = (f: AdvFunction) => f.feature !== 'tools' || (__PUBLIC_FEATURES__.tools && tools());
   const functions = $derived(ADV_FUNCTIONS.filter(offered));
 
   const is3D = $derived(uiStore.is3DWorkspace);

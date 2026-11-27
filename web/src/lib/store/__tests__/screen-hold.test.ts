@@ -287,7 +287,7 @@ it.each(['plate', 'quad'] as const)('updates a shell-only %s after a live load e
   }
 });
 
-it.skip.each(['2d', '3d', 'pro'] as const)('known wrong result: #2491 — retires the thermal diagram as soon as alpha is edited in %s', async mode => {
+it.each(['2d', '3d', 'pro'] as const)('retires the thermal diagram as soon as alpha is edited in %s', async mode => {
   uiStore.analysisMode = mode;
   modelStore.clear();
   const length = 4, temperature = 20, alpha = -5e-6;

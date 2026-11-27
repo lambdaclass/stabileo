@@ -504,7 +504,7 @@ it.each(['2d', '3d'] as const)('keeps the simple-load diagram and preselects the
   expect(shown()).toBe(13);
 });
 
-it.skip('known wrong result: #2491 — withholds a refused named envelope until the base is explicitly selected', async () => {
+it('withholds a refused named envelope until the base is explicitly selected', async () => {
   const { initSolver, computeEnvelope3D } = await import('../../engine/wasm-solver');
   await initSolver();
   resultsStore.clear3D();
@@ -524,7 +524,7 @@ it.skip('known wrong result: #2491 — withholds a refused named envelope until 
   }
 });
 
-it.skip('known wrong result: #2491 — restores the checked base diagram after leaving a refused named envelope', async () => {
+it('restores the checked base diagram after leaving a refused named envelope', async () => {
   const { initSolver, computeEnvelope3D } = await import('../../engine/wasm-solver');
   await initSolver();
   resultsStore.clear3D();
@@ -547,7 +547,7 @@ it.skip('known wrong result: #2491 — restores the checked base diagram after l
   expect(resultsStore.knownIssues3D.refused).toBe(false);
 });
 
-it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — retires an envelope when its independent contributor subsequently refuses in %s', async mode => {
+it.each(['2d', '3d'] as const)('retires an envelope when its independent contributor subsequently refuses in %s', async mode => {
   const { initSolver, computeEnvelope, computeEnvelope3D } = await import('../../engine/wasm-solver');
   await initSolver();
   resultsStore.clear();
@@ -580,7 +580,7 @@ it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — retires an en
   }
 });
 
-it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — resolves a missing case to a verified base selection in %s', mode => {
+it.each(['2d', '3d'] as const)('resolves a missing case to a verified base selection in %s', mode => {
   resultsStore.clear();
   uiStore.analysisMode = mode;
   const cases = new Map([[1, result(2)], [2, result(3, [refusal()])]]);

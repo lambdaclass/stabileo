@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures';
 import { createServer } from 'vite';
 
-test.skip('known wrong result: #2491 — @smoke an open material draft survives a replacement save callback', async ({ page }) => {
+test('@smoke an open material draft survives a replacement save callback', async ({ page }) => {
   const server = await createServer({ server: { host: '127.0.0.1', port: 0, hmr: false }, logLevel: 'error' });
   try {
     await server.listen();
