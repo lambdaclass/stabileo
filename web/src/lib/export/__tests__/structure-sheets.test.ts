@@ -190,6 +190,15 @@ describe('the four sheet kinds exist and carry real geometry', () => {
     expect(sheet.notes.some((n) => /NO APTO PARA EMISIÓN CONSTRUCTIVA/.test(n))).toBe(true);
   }, 300_000);
 
+  it.skip('known wrong result: #1927 — the same plan has a detailed column and an unselected column', () => {
+    const columns = scene.solids.filter(s => s.kind === 'column');
+    expect(columns.some(s => s.reinforced)).toBe(true);
+    const bare = columns.find(s => !s.reinforced && statusOf(s.elementIds[0]) === 'NOT_EVALUATED');
+    expect(bare).toBeDefined();
+    const sheet = drawColumnDetail({ scene, title, statusOf, elementId: bare!.elementIds[0] });
+    expect(sheet.notes.join(' ')).toMatch(/Sin armadura|0 longitudinal/);
+  });
+
   it('a column with no steel says so instead of showing an empty box', () => {
     const bare = scene.solids.find((s) => s.kind === 'column' && !s.reinforced);
     if (!bare) return;

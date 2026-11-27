@@ -20,7 +20,7 @@
  * building's own beams, so passing a mesh for sending less than 1 % straight was no evidence of
  * the load path.
  */
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { setImmediate } from 'node:timers';
 import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { historyStore, modelStore, resultsStore } from '..';
@@ -37,8 +37,9 @@ import { readinessBanner } from '../../engine/detailing/document-render';
 import { slabColumnJoints, floorPaths, type JointMember } from '../../engine/design/analysis-validity';
 import { solveCombinations3D, validateAndSolve3D } from '../../engine/solver-service';
 import * as wasmSolver from '../../engine/wasm-solver';
+import { DEFAULT_RUN_MS } from '../../engine/design/candidate-search';
 import qa8 from '../../templates/fixtures/rc-design-qa-8.json';
-import { building, designAndDocumentWithWorkerYields } from './span-fixture';
+import { building, designAndDocument, designAndDocumentWithWorkerYields } from './span-fixture';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
@@ -293,6 +294,23 @@ describe('the span building with each column\'s section tied to the slab (0,2 m)
     expect(x.readiness).toBe(x.readinessWithout);
   }, 300_000);
 });
+
+it.skip.each([designAndDocument, designAndDocumentWithWorkerYields])(
+  'known wrong result: #1927 — %s exposes the frame refusal before reading the document',
+  async build => {
+    building(6, { columnSide: 0.4 });
+    const document = vi.spyOn(detailingStore, 'buildDocument');
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now += DEFAULT_RUN_MS + 1);
+    try {
+      await expect(async () => build()).rejects.toThrow(/design.cmd.truncated/);
+      expect(document).not.toHaveBeenCalled();
+    } finally {
+      clock.mockRestore();
+      document.mockRestore();
+    }
+  },
+);
 
 describe('qa-8: no slab, the indicator does not apply and nothing changes', () => {
   it('not applicable on every member, and the document reads what it read', async () => {
