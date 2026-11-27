@@ -584,3 +584,17 @@ test('known wrong result: #1928 the surface gallery and physical-piece labels fo
     });
   }
 });
+
+test.skip('known wrong result: #1928 published dictionary entries keep their release order', async () => {
+  const config = await resolveConfig({ root }, 'build', 'production');
+  const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
+    const source = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
+    const module = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+    const keys = Object.keys(module[locale]);
+    for (const [first, second] of [['pro.examples.groupBuildings', 'pro.examples.groupFoundations'], ['combos.rules.seed', 'combos.rules.generate']]) {
+      assert.ok(keys.includes(first) && keys.includes(second), locale);
+      assert.ok(keys.indexOf(first) < keys.indexOf(second), locale + ' ' + first);
+    }
+  }
+});
