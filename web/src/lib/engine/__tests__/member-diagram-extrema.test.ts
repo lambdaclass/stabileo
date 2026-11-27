@@ -130,7 +130,7 @@ it('keeps the original signed force sum at cuts, inside a band and in the gaps',
   }
 });
 
-it.skip('known steel gallery timeout — indexes disjoint forces even when unloaded intervals overlap their cuts', () => {
+it('indexes disjoint forces even when unloaded intervals overlap their cuts', () => {
   let intensityReads = 0;
   const loads = Array.from({ length: 64 }, (_, i) => [
     { a: i, b: i + 1, qI: 2, qJ: 2 },
