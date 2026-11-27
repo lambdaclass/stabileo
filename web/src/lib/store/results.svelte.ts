@@ -3,6 +3,7 @@ import { timeHistoryView } from './time-history-view.svelte';
 // Results store
 
 import { SETTLEMENT_CASE_ID } from '../engine/settlement-case';
+import { mayUseSettlementCase, preserveSettlementDependency } from '../engine/combination-sources';
 import { envelopeSources } from '../engine/envelope-sources';
 import { carryCertifyJob } from '../engine/certify-tags';
 import { modelStore, type AnalysisResults, type InfluenceLineResult, type Section, type Material } from './model.svelte';
@@ -278,13 +279,14 @@ function createResultsStore() {
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
   const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(r => knownIssueResultDisposition(r).refused));
-  function selectableCombo<T>(cases: Map<number, T>, combos: Map<number, T>, id: number): T | null {
+  function selectableCombo<T extends object>(cases: Map<number, T>, combos: Map<number, T>, id: number): T | null {
     const result = combos.get(id);
     if (!result || knownIssueResultDisposition(result).refused) return null;
     if (!anyRefused(cases)) return result;
     const definition = modelStore.combinations.find(combo => combo.id === id);
     const sources = definition?.factors.filter(f => f.factor !== 0);
-    if (!sources?.length || knownIssueResultDisposition(cases.get(SETTLEMENT_CASE_ID)).refused) return null;
+    if (!sources?.length) return null;
+    if (mayUseSettlementCase(result) && knownIssueResultDisposition(cases.get(SETTLEMENT_CASE_ID)).refused) return null;
     return sources.some(f => knownIssueResultDisposition(cases.get(f.caseId)).refused) ? null : result;
   }
 
@@ -325,7 +327,7 @@ function createResultsStore() {
     activeView = 'envelope';
     return envelopeResult;
   }
-  function displaySets<T>(cases: Map<number, T>, combos: Map<number, T>) {
+  function displaySets<T extends object>(cases: Map<number, T>, combos: Map<number, T>) {
     if (!anyRefused(cases, combos)) return { cases, combos };
     return {
       cases: new Map([...cases].filter(([, result]) => !knownIssueResultDisposition(result).refused)),
@@ -1087,7 +1089,7 @@ function createResultsStore() {
       const check = envelopeCheck(env, pc, pco);
       _onComboPublish?.(pc, pco, '2d');
       pc = new Map([...pc].map(([k, v]) => [k, drawn(v)]));
-      pco = new Map([...pco].map(([k, v]) => [k, drawn(v)]));
+      pco = new Map([...pco].map(([k, v]) => [k, preserveSettlementDependency(v, drawn(v))]));
       if (env) env = envelopeToDrawnAxes(env, _signOf);
       if (env && check) envelopeChecks.set(pco, { cases: pc, envelope: env, sources: check.sources, valid: () => check.valid(pc, pco) });
       else envelopeChecks.delete(pco);
@@ -1326,7 +1328,7 @@ function createResultsStore() {
       if (_normalise3D) {
         const n = _normalise3D;
         pc = new Map([...pc].map(([k, r]) => [k, n(r)]));
-        pco = new Map([...pco].map(([k, r]) => [k, n(r)]));
+        pco = new Map([...pco].map(([k, r]) => [k, preserveSettlementDependency(r, n(r))]));
         if (_normaliseEnvelope3D && env) env = _normaliseEnvelope3D(env);
       }
       if (env && check) envelopeChecks.set(pco, { cases: pc, envelope: env, sources: check.sources, valid: () => check.valid(pc, pco) });

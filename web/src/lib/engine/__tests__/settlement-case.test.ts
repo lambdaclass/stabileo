@@ -137,7 +137,7 @@ describe('a settlement in the Advanced multi-case solve', () => {
 });
 
 describe.each(['sequential', 'parallel'])('the %s combination publication', route => {
-  it.skip.each(['solveEach', 'pdelta', 'linear'] as const)('known wrong result: #2491 — judges the separate settlement result by its use in %s', async method => {
+  it.each(['solveEach', 'pdelta', 'linear'] as const)('judges the separate settlement result by its use in %s', async method => {
     const { resultsStore } = await import('../../store');
     beam();
     if (method === 'solveEach') {

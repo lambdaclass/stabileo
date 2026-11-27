@@ -619,7 +619,7 @@ it.each(['2d', '3d'] as const)('withholds the implicit settlement contributor in
   }
 });
 
-it.skip.each(['2d', '3d', 'batch', 'fused'] as const)('known wrong result: #2491 — uses the settlement dependency of the assembled %s combination', async entry => {
+it.each(['2d', '3d', 'batch', 'fused'] as const)('uses the settlement dependency of the assembled %s combination', async entry => {
   const { SETTLEMENT_CASE_ID } = await import('../../engine/settlement-case');
   const { initSolver, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D } = await import('../../engine/wasm-solver');
   await initSolver();

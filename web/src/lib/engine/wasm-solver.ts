@@ -1,3 +1,4 @@
+import { recordSettlementDependency, SETTLEMENT_CASE_ID } from './combination-sources';
 import { recordEnvelopeSources } from './envelope-sources';
 import { computeDiagram3D, hasUnsignedForces } from './diagrams-3d';
 import { unavailableDiagramExtrema } from './member-diagram';
@@ -1592,6 +1593,10 @@ function combinationCases<T>(factors: Array<{ caseId: number }>, perCase: Map<nu
 
 type CaseFactor = { caseId: number; factor: number };
 
+function recordCombinedCases<T extends object>(result: T, factors: readonly CaseFactor[]): T {
+  return recordSettlementDependency(result, factors.some(f => f.caseId === SETTLEMENT_CASE_ID && f.factor !== 0));
+}
+
 export function netCombinationFactors(factors: CaseFactor[], allowCancellation?: boolean): CaseFactor[] {
   assertFiniteWire(factors);
   if (factors.length <= 1 || new Set(factors.map(f => f.caseId)).size === factors.length) return factors;
@@ -1619,7 +1624,7 @@ export function combineResults(
   // model data — so re-walking multi-MB result trees per combo was pure cost.
   assertFiniteWire(factors);
   const combined = wasmCombineResults2d({ factors, cases });
-  return combined === null ? null : resultsFromWasm(combined);
+  return combined === null ? null : recordCombinedCases(resultsFromWasm(combined), factors);
 }
 
 /**
@@ -1636,7 +1641,7 @@ export function combineResults3D(
   // Same rationale as combineResults: guard factors (cheap), trust solver output.
   assertFiniteWire(factors);
   const combined = wasmCombineResults3d({ factors, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]) });
-  return combined === null ? null : results3DFromWasm(combined);
+  return combined === null ? null : recordCombinedCases(results3DFromWasm(combined), factors);
 }
 
 export function combineResultsBatch3D(
@@ -1651,7 +1656,7 @@ export function combineResultsBatch3D(
   const results: Array<any | null> = wasmCombineResultsBatch3d({
     combinations, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]),
   });
-  return results.map(result => result == null ? null : results3DFromWasm(result));
+  return results.map((result, index) => result == null ? null : recordCombinedCases(results3DFromWasm(result), combinations[index]!));
 }
 
 export function combineResultsEnvelope3D(
@@ -1666,7 +1671,7 @@ export function combineResultsEnvelope3D(
   const [results, envelope]: [Array<unknown | null>, FullEnvelope3D | null] = wasmCombineResultsEnvelope3d({
     combinations, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]),
   });
-  const combined = results.map(result => result == null ? null : results3DFromWasm(result));
+  const combined = results.map((result, index) => result == null ? null : recordCombinedCases(results3DFromWasm(result), combinations[index]!));
   return { combinations: combined, envelope: recordEnvelopeSources(envelope, combined.filter(result => result !== null)) };
 }
 

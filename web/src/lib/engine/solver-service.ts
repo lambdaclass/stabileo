@@ -15,6 +15,7 @@ import { isContainmentRefusal, refusedWithCode } from './containment-error';
 
 import { PlateAnalysisError, plateAnalysisRefusal } from './plate-analysis-refusal';
 import { withCaseEffects } from './case-effects';
+import { preserveSettlementDependency, recordSettlementDependency } from './combination-sources';
 import { casesToSolve, finishBundle, magnitudeRefusal, spectralRefusal } from './combination-methods';
 import { isMagnitudeCombination } from './result-scopes';
 import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor, isVariableMember } from './variable-members';
@@ -2646,7 +2647,7 @@ function pruneComboBundle3D(
   if (!modelHasMemberOffsets(model.elements.values()) && !modelHasShellOffsets(model.plates, model.quads) && !modelHasJoints3D(model.elements.values())) return bundle;
   const ids = new Set(model.nodes.keys());
   for (const [k, r] of bundle.perCase) bundle.perCase.set(k, pruneHelperNodeResults(r, ids));
-  for (const [k, r] of bundle.perCombo) bundle.perCombo.set(k, pruneHelperNodeResults(r, ids));
+  for (const [k, r] of bundle.perCombo) bundle.perCombo.set(k, preserveSettlementDependency(r, pruneHelperNodeResults(r, ids)));
   if (bundle.envelope?.maxAbsResults3D) {
     bundle.envelope.maxAbsResults3D = pruneHelperNodeResults(bundle.envelope.maxAbsResults3D, ids);
   }
@@ -2697,7 +2698,7 @@ function withDeclaredInactiveBundle<B extends { perCase: Map<number, AnalysisRes
   if (!b || typeof b === 'string') return b;
   // Variable members back to one member each, the envelope with them (`variable-members.ts`).
   const exp = variableExpansionFor(model);
-  const map = (m: Map<number, AnalysisResults3D>) => new Map([...m].map(([k, r]) => [k, withDeclaredInactive(collapseVariableResults(r, exp), model)]));
+  const map = (m: Map<number, AnalysisResults3D>) => new Map([...m].map(([k, r]) => [k, preserveSettlementDependency(r, withDeclaredInactive(collapseVariableResults(r, exp), model))]));
   return { ...b, perCase: map(b.perCase), perCombo: map(b.perCombo), ...(exp && b.envelope ? { envelope: collapseVariableEnvelope(b.envelope, exp) } : {}) };
 }
 
@@ -3121,14 +3122,14 @@ function* nonlinearCombinationSteps(
         const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
         const on = withImposed(baseSettled, model, factorOf);
         if (typeof on === 'string') return on;
-        if (loads.length > 0 || settled || imposedHere) perCombo.set(combo.id, yield* run(on, loads));
+        if (loads.length > 0 || settled || imposedHere) perCombo.set(combo.id, recordSettlementDependency(yield* run(on, loads), false));
         continue;
       }
       const factors = settled ? [...combo.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }] : combo.factors;
       const summed = combineResults3D(factors, perCase, model.plates ?? new Map());
       if (!summed) continue;
       if (hasShells) postProcessShellStresses(summed, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
-      perCombo.set(combo.id, { ...summed, nonlinear: superposedReport(model, factors, perCase, summed) });
+      perCombo.set(combo.id, preserveSettlementDependency(summed, { ...summed, nonlinear: superposedReport(model, factors, perCase, summed) }));
     }
     if (perCombo.size === 0) return t('svc.noLoadsApplied');
     const envelope = computeEnvelope3D([...perCombo.values()]);
@@ -3236,7 +3237,7 @@ function* pdeltaCombinationSteps(
       if (!amp.stable) { unstable.push(combo.id); continue; }
       const results: AnalysisResults3D = { ...r.results, secondOrder: { converged: !!r.converged, iterations: r.iterations ?? 0, stable: amp.stable, b2: amp.b2 } };
       if (hasShells) postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
-      perCombo.set(combo.id, results);
+      perCombo.set(combo.id, recordSettlementDependency(results, false));
     }
   } catch (err: any) {
     return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', localizeEngineText(errorText(err, String(err))));
