@@ -134,7 +134,7 @@ pub fn equivalent_rectangle_depth(a: f64, i: f64) -> f64 {
     if a > 1e-15 { (12.0 * i / a).sqrt() } else { 0.1 }
 }
 
-pub fn check_frame_thermal_inputs(element_id: usize, alpha: Option<f64>, depths: &[(&str, Option<f64>)]) -> Result<(), String> {
+pub(crate) fn check_thermal_coefficient(element_id: usize, alpha: Option<f64>) -> Result<(), String> {
     if let Some(a) = alpha {
         if !a.is_finite() || a.abs() >= 1e-3 {
             return Err(format!(
@@ -142,6 +142,11 @@ pub fn check_frame_thermal_inputs(element_id: usize, alpha: Option<f64>, depths:
             ));
         }
     }
+    Ok(())
+}
+
+pub fn check_frame_thermal_inputs(element_id: usize, alpha: Option<f64>, depths: &[(&str, Option<f64>)]) -> Result<(), String> {
+    check_thermal_coefficient(element_id, alpha)?;
     for (name, d) in depths {
         if let Some(h) = d {
             if !(h.is_finite() && *h > 0.0) {

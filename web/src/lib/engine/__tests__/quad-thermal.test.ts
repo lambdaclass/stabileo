@@ -73,7 +73,7 @@ describe.each(['quad', 'curved', 'plate'] as const)('thermal load on a %s', (kin
   });
 });
 
-it.skip('known wrong result: #2491 — direct and prepared WASM shell loads enforce the coefficient boundary', async () => {
+it('direct and prepared WASM shell loads enforce the coefficient boundary', async () => {
   await initSolver();
   modelStore.clear();
   const nodes = [[0, 0], [4, 0], [4, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x, y, 0));

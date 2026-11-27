@@ -1181,25 +1181,21 @@ fn shell_coefficient_boundary(family: &str) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2491"]
 fn shell_thermal_coefficient_plate() {
     shell_coefficient_boundary("plate");
 }
 
 #[test]
-#[ignore = "known wrong result: #2491"]
 fn shell_thermal_coefficient_quad() {
     shell_coefficient_boundary("quad");
 }
 
 #[test]
-#[ignore = "known wrong result: #2491"]
 fn shell_thermal_coefficient_quad9() {
     shell_coefficient_boundary("quad9");
 }
 
 #[test]
-#[ignore = "known wrong result: #2491"]
 fn shell_thermal_coefficient_curved() {
     shell_coefficient_boundary("curved");
 }
