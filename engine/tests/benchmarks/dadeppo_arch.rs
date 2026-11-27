@@ -191,7 +191,6 @@ fn mesh_step_and_axial_stiffness_study_bounds_the_tolerances() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn live_mesh_readme_distinguishes_arch_opening_from_element_spacing() {
     let readme = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"), "/../research/benchmarks/dadeppo-arch-1975/README.md"

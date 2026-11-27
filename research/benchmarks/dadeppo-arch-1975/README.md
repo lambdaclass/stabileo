@@ -55,7 +55,17 @@ python3 -I research/benchmarks/dadeppo-arch-1975/validate.py generate fresh.json
 
 ## Data and replay
 
-`engine/tests/benchmarks/dadeppo_arch.json` owns the full solver input, the published values and the tolerances; the native test and web worker read that same file. The solver returns complete nodal displacements only at the endpoint, so the replay and live computation rerun prefixes of 20, 40, …, 400 steps. Each frame is a real equilibrium result, never an interpolated shape. The chart plots load factor against step number; it does not mislabel the solver's first-free-DOF scalar as crown displacement. A full live recomputation also reruns the three steps around the peak to place the limit point in the browser. The live run can use 20, 40 or 80 elements, generated in the browser exactly as `arch()` in the engine test generates them (80 elements with twice the arc length, as in the mesh study). Only the 40-element run is checked against the published tolerances; with 20 or 80 elements the page compares the live limit point with the native mesh study (10⁻⁶ relative).
+`engine/tests/benchmarks/dadeppo_arch.json` owns the full solver input, the published values and the tolerances; the native test and web worker read that same file. The solver returns complete nodal displacements only at the endpoint, so the replay and live computation rerun prefixes of 20, 40, …, 400 steps. Each frame is a real equilibrium result, never an interpolated shape. The chart plots load factor against step number; it does not mislabel the solver's first-free-DOF scalar as crown displacement. A full live recomputation also reruns the three steps around the peak to place the limit point in the browser.
+
+The live run and the native mesh study divide the same circular arch into equal angles.
+
+| Elements | Arch opening | Angle per element |
+|---:|---:|---:|
+| 20 | 215° | 10.75° |
+| 40 | 215° | 5.375° |
+| 80 | 215° | 2.6875° |
+
+Refining from 40 to 80 elements halves the arc length per element. For the 80-element run, both solvers double the initial and maximum arc-length continuation steps. The page checks the 40-element run against the published tolerances and the 20- and 80-element runs against their respective native limit points (10⁻⁶ relative).
 
 ## Run
 

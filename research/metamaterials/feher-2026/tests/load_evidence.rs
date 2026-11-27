@@ -106,7 +106,6 @@ fn shallow_cut_cycle_reaches_the_inverted_branch_and_returns_to_zero_load() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn next_steps_report_each_snap_load_against_its_paper_tolerance() {
     let readme = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md")).unwrap();
     let next = readme.split_once("## Next\n").unwrap().1.split("\n## ").next().unwrap();
