@@ -14,7 +14,7 @@ import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
 import {
-  addPlateLoad, applyPlateMeshes, clearPlateMesh, createPlate, deletePlate, meshBeforeAnalysis, physicalPlates, planPlateMesh,
+  addPlateLoad, applyPlateMeshes, applyPlateMeshesAsync, clearPlateMesh, createPlate, deletePlate, meshBeforeAnalysis, physicalPlates, planPlateMesh,
   plateOfShell, plateShellKeys, plateStatus, preparePlatesForAnalysis, setShellProperties,
 } from '../physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
@@ -240,7 +240,7 @@ describe('a physical plate', () => {
     expect(loaded.length).toBe(copy.group.members.quads!.length);
   });
 
-  it('meets the plate beside it node to node, whatever the two sizes, and stays current', () => {
+  async function checkSharedEdge(apply: typeof applyPlateMeshes | typeof applyPlateMeshesAsync) {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
     const n = (x: number, y: number) => modelStore.addNode(x, y, 0);
     const a0 = n(0, 0), a1 = n(4, 0), a2 = n(4, 4), a3 = n(0, 4), b1 = n(7, 0), b2 = n(7, 4);
@@ -251,14 +251,20 @@ describe('a physical plate', () => {
       const of = (id: number) => new Set((modelStore.model.groups.get(id)!.members.quads ?? []).flatMap((q) => on(modelStore.quads.get(q)!)));
       return { a: [...of(A)].sort(), b: [...of(B)].sort() };
     };
-    applyPlateMeshes([planPlateMesh(A, { size: 0.5, element: 'quad', followMembers: true })!, planPlateMesh(B, { size: 0.8, element: 'quad', followMembers: true })!]);
+    expect((await apply([planPlateMesh(A, { size: 0.5, element: 'quad', followMembers: true })!, planPlateMesh(B, { size: 0.8, element: 'quad', followMembers: true })!])).refused).toEqual([]);
+    expect(shared().a.length).toBeGreaterThan(2);
     expect(shared().a).toEqual(shared().b);
     expect([plateStatus(A), plateStatus(B)]).toEqual(['current', 'current']);
     // B meshed again at another size: it still meets A, and A is not disturbed.
-    applyPlateMeshes([planPlateMesh(B, { size: 0.3, element: 'quad', followMembers: true })!]);
+    expect((await apply([planPlateMesh(B, { size: 0.3, element: 'quad', followMembers: true })!])).refused).toEqual([]);
+    expect(shared().a.length).toBeGreaterThan(2);
     expect(shared().a).toEqual(shared().b);
     expect([plateStatus(A), plateStatus(B)]).toEqual(['current', 'current']);
-  });
+  }
+
+  it('meets the plate beside it node to node, whatever the two sizes, and stays current', () => checkSharedEdge(applyPlateMeshes));
+
+  it.skip('known wrong result: #2365 asynchronous remeshing preserves all shared edge nodes', () => checkSharedEdge(applyPlateMeshesAsync));
 
   it('keeps the loads of the members its mesh cuts, on their pieces', async () => {
     const { meshQuad } = await import('../../model/edit/mesh-region');
