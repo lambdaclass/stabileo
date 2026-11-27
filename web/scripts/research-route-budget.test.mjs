@@ -146,3 +146,15 @@ test('the games page loader is a route boundary: the hub, the game and what only
   for (const file of ['game-loader.js', 'games.js', 'game.js']) assert.ok(!files.has(file), file);
   assert.ok(files.has('shared.js'));
 });
+
+test('the app footprint counts a separate lazy import of the games registry and its thumbnail', { skip: 'known wrong result: #2492' }, () => {
+  const registry = 'src/components/games/games.ts';
+  const thumbnail = 'src/components/games/DiagramGameThumb.svelte';
+  const files = routeChunkFiles({
+    ...manifest,
+    'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: [registry] },
+    [registry]: { file: 'registry.js', imports: [thumbnail] },
+    [thumbnail]: { file: 'thumbnail.js', css: ['thumbnail.css'] },
+  }, appRoots);
+  for (const file of ['registry.js', 'thumbnail.js', 'thumbnail.css']) assert.ok(files.has(file), file);
+});

@@ -291,7 +291,7 @@ test('@smoke on a phone the games hub has no sideways scroll and every link is a
   }
 });
 
-test('@smoke winning feedback stays inside the tablet viewport throughout its animation', async ({ page }) => {
+async function winTabletRound(page: Page) {
   await page.setViewportSize({ width: 768, height: 1024 });
   await page.goto('/es/games/diagram-game/?e2e=1&seed=31');
   await page.getByTestId('dg-start').click();
@@ -300,7 +300,18 @@ test('@smoke winning feedback stays inside the tablet viewport throughout its an
   const winner = page.getByTestId(`dg-option-${await correctIndex(page)}`);
   await winner.click();
   await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'true');
+  return winner;
+}
 
+test('@smoke winning feedback respects reduced motion on a tablet', async ({ page }) => {
+  test.fixme(true, 'known wrong result: #2492');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const winner = await winTabletRound(page);
+  expect(await winner.locator('.option-figure').evaluate(el => el.getAnimations().length)).toBe(0);
+});
+
+test('@smoke winning feedback stays inside the tablet viewport throughout its animation', async ({ page }) => {
+  const winner = await winTabletRound(page);
   const figure = winner.locator('.option-figure');
   expect(await figure.evaluate(el => el.getAnimations().some(animation => animation instanceof CSSAnimation))).toBe(true);
 
@@ -369,4 +380,10 @@ test('@smoke the game thumbnail fits all three answer cards inside its viewBox',
     expect(box.top, `${box.name} top edge`).toBeGreaterThanOrEqual(view.y);
     expect(box.bottom, `${box.name} bottom edge`).toBeLessThanOrEqual(view.y + view.height);
   }
+  await test.step.skip('known wrong result: #2492', async () => {
+    const cards = bounds.slice(1);
+    for (const [i, card] of cards.slice(1).entries()) {
+      expect(card.left, `gap before ${card.name}`).toBeGreaterThan(cards[i]!.right);
+    }
+  });
 });
