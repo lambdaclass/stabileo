@@ -66,7 +66,7 @@ afterEach(() => { vi.unstubAllGlobals(); });
 describe('the languages the app offers', () => {
   beforeEach(() => { vi.resetModules(); });
 
-  it('is English, Español and Português, plus Deutsch, Français, Türkçe, Magyar and 中文 each once it is complete', async () => {
+  it('is English, Español and Português, plus Deutsch, Français, Türkçe, Magyar, Italiano, 中文 and Nederlands each once it is complete', async () => {
     const { store } = await boot(['en']);
     const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'].filter(isComplete)];
     expect([...store.OFFERED_LOCALES].sort()).toEqual(expected.sort());

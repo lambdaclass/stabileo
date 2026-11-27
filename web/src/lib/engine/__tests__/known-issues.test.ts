@@ -254,8 +254,8 @@ describe('the result walker finds a refusal wherever a bundle keeps it', () => {
 });
 
 
-it('translates cable and frozen-contact refusals in all six languages', async () => {
-  for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+it('translates cable and frozen-contact refusals in every offered language', async () => {
+  for (const loc of OFFERED_LOCALES) {
     setLocale(loc);
     await ensureLocale(loc);
     for (const [code, key] of [['cable_analysis_required', 'cable'], ['contact_state_invalid', 'contact']] as const) {

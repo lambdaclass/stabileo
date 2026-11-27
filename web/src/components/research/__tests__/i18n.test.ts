@@ -56,7 +56,7 @@ it('preserves topology article numbers and translates every research string', ()
   expect(topoptStrings('de')).not.toBe(english);
 });
 
-it('formats numbers in all six public locales', async () => {
+it('formats numbers in every public locale', async () => {
   const { researchLocale } = await import('../i18n');
   const original = publicI18n.locale;
   try {

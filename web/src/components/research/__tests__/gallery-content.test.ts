@@ -54,7 +54,7 @@ it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed 
 it('omits absent bibliographic fields without dangling separators', () => {
   expect(citation({ crossref: { title: 'Book', authors: [], venue: '', year: 1979 } })).toBe('1979');
 });
-it('translates the gallery scope in all six locales', () => {
+it('translates the gallery scope in every public locale', () => {
   const titles = new Set<string>();
   for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);

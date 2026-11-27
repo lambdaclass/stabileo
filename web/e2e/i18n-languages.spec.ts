@@ -36,17 +36,19 @@ import tr from '../src/lib/i18n/locales/full/tr';
 import hu from '../src/lib/i18n/locales/full/hu';
 import itFull from '../src/lib/i18n/locales/full/it';
 import zh from '../src/lib/i18n/locales/full/zh';
+import nl from '../src/lib/i18n/locales/full/nl';
+import type { Locale } from '../src/lib/i18n/offered';
 import type { Page } from '@playwright/test';
 
-const DICTS: Record<string, Record<string, string>> = {
+const DICTS: Record<Locale, Record<string, string>> = {
   en: en as unknown as Record<string, string>,
   es: es as unknown as Record<string, string>,
   pt: pt as unknown as Record<string, string>,
-  de, fr, tr, hu, it: itFull, zh,
+  de, fr, tr, hu, it: itFull, zh, nl,
 };
 
 /** What a key renders as in a language: a language still being translated shows the English for what it lacks. */
-const rendered = (locale: string, key: string) => DICTS[locale][key] ?? DICTS.en[key];
+const rendered = (locale: Locale, key: string) => DICTS[locale][key] ?? DICTS.en[key];
 
 /** Where a browser in this language lands: the language once it is complete, English until then. */
 const reach = (code: 'de' | 'fr' | 'tr' | 'hu' | 'it' | 'zh' | 'nl') => (BUILD_OFFERED_LOCALES.includes(code) ? code : 'en');
