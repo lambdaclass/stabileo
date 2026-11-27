@@ -106,6 +106,18 @@ defmodule StabileoAssignments.Controllers.ExamControllerTest do
 
     assert saved["data"]["answers"] == %{"r1" => "12"}
 
+    stale =
+      exam_request(
+        :put,
+        "/attempts/#{id}/answers",
+        %{"revision" => 0, "answers" => %{"r1" => "99"}},
+        token
+      )
+      |> json_body(409)
+
+    assert stale["error"] == "stale_revision"
+    assert Repo.get!(AssignmentAttempt, id).answers == %{"r1" => "12"}
+
     submitted =
       exam_request(
         :post,

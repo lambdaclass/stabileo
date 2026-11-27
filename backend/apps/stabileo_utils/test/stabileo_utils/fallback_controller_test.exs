@@ -42,7 +42,7 @@ defmodule StabileoUtils.FallbackControllerTest do
     assert {403, %{"error" => "assignments_disabled"}} = call({:error, :assignments_disabled})
 
     for code <-
-          ~w(assignment_limit_reached assignment_started assignment_not_open assignment_closed attempt_closed attempt_submitted) do
+          ~w(assignment_limit_reached assignment_started assignment_not_open assignment_closed attempt_closed attempt_submitted stale_revision) do
       assert {409, %{"error" => ^code, "message" => message}} =
                call({:error, String.to_existing_atom(code)})
 

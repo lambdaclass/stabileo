@@ -116,6 +116,44 @@ defmodule StabileoAssignments.Controllers.AssignmentControllerTest do
     assert body["meta"]["total"] == 1
   end
 
+  @tag skip: "known wrong result: #1927"
+  test "a false opening is rejected on create and update", %{token: token} do
+    invalid = %{"opens_at" => false}
+
+    assert request(:post, "/", body(invalid), token)
+           |> json_body(422)
+           |> get_in(["details", "opens_at"])
+
+    id = create(token, %{"opens_at" => nil})["id"]
+
+    assert request(:put, "/#{id}", invalid, token)
+           |> json_body(422)
+           |> get_in(["details", "opens_at"])
+  end
+
+  @tag skip: "known wrong result: #1927"
+  test "a title can use the full grapheme limit with joined emoji", %{token: token} do
+    title = String.duplicate("👩‍👩‍👧‍👦", 120)
+    id = create(token, %{"title" => title})["id"]
+    assert Repo.get!(Assignment, id).title == title
+
+    assert request(:put, "/#{id}", %{"title" => title <> "a"}, token)
+           |> json_body(422)
+           |> get_in(["details", "title"])
+  end
+
+  @tag skip: "known wrong result: #1927"
+  test "update and delete count expired hand-ins on their first owner read", %{token: token} do
+    for method <- [:put, :delete] do
+      data = create(token)
+      {:ok, {attempt, _}} = Exams.start(Factory.insert(:account), data["code"])
+      deadline = DateTime.utc_now() |> DateTime.add(-60) |> DateTime.truncate(:second)
+      attempt |> Ecto.Changeset.change(deadline_at: deadline) |> Repo.update!()
+      row = request(method, "/#{data["id"]}", %{"title" => "Revised"}, token) |> json_body(200)
+      assert row["data"]["submitted_count"] == 1
+    end
+  end
+
   test "422 with the failing field", %{token: token} do
     body =
       request(:post, "/", body(%{"title" => " ", "closes_at" => nil}), token) |> json_body(422)
