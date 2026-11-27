@@ -119,3 +119,43 @@ test('load and reinforcement editors publish their own labels independently', as
     });
   }
 });
+
+test('the EC2 member resistance reads placed reinforcement and draft profiles only in their builds', { skip: 'known wrong result: sheet reinforcement replaces published EC2 member steel' }, async () => {
+  for (const [plates, sheets] of [[false, false], [true, false], [false, true], [true, true]]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
+      const entry = resolve(root, 'ec2-column-profile.mjs');
+      const source = "export { sectionResistance, momentAt, ec2ColumnSolve } from '/src/lib/engine/design/eurocode/ec2-column.ts'; export { ec2Material, EC2_RECOMMENDED, EC2_UK } from '/src/lib/engine/design/eurocode/ec2-params.ts';";
+      const result = await build({
+        root, configFile, logLevel: 'silent',
+        plugins: [{
+          name: 'ec2-column-profile',
+          resolveId: id => id === entry ? '\0' + entry : null,
+          load: id => id === '\0' + entry ? source : null,
+        }],
+        build: { write: false, lib: { entry, formats: ['es'] } },
+      });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+      const { sectionResistance, momentAt, ec2ColumnSolve, ec2Material, EC2_RECOMMENDED, EC2_UK } = await import('data:text/javascript;base64,' + Buffer.from(chunk.code).toString('base64'));
+      const section = { b: 0.4, h: 0.4, d2: 0.055, as: 0.002 };
+      const concrete = { ...section, as: 0 };
+      const emptyLayout = { ...section, bars: [] };
+      const params = EC2_RECOMMENDED;
+      const material = ec2Material(30, 500, params);
+      const expected = sheets ? concrete : section;
+      for (const depth of [section.d2, section.h, 1000 * section.h]) {
+        assert.deepEqual(sectionResistance(depth, emptyLayout, material, params.es), sectionResistance(depth, expected, material, params.es));
+      }
+      const limit = sectionResistance(1000 * section.h, concrete, material, params.es).n;
+      for (const axial of [limit - 1, limit, limit + 1]) {
+        assert.equal(momentAt(axial, emptyLayout, material, params.es), momentAt(axial, expected, material, params.es));
+      }
+      const plane = { b: section.b, h: section.h, as: section.as, l0: 2.5, phiEf: 2 };
+      const input = { planes: [plane], cover: 0.035, linkDia: 10, barDia: 20, fck: 30, fyk: 500, params, braced: true, demands: [{ N: 1500, planes: [{ M: 100 }] }], provided: { asTotal: section.as, d2: section.d2 } };
+      const solvePlane = extra => ec2ColumnSolve({ ...input, planes: [{ ...plane, ...extra }] }).governing.planes[0].MRd;
+      assert.equal(solvePlane({ bars: [] }), solvePlane({ as: expected.as }));
+      assert.ok(solvePlane({}) > solvePlane({ as: 0 }));
+      assert.equal(EC2_UK.xuLimitLow !== params.xuLimitLow, plates);
+      assert.equal(Object.entries(chunk.modules).some(([id, mod]) => id.endsWith('/code-profiles/registry.ts') && mod.renderedLength > 0), plates);
+    });
+  }
+});
