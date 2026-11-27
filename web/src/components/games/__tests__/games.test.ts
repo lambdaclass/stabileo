@@ -66,3 +66,26 @@ it('speaks to the player as the rest of the site does: Sie, vous and the Turkish
     for (const game of GAMES) expect(game.copy[locale].description, `${game.id} ${locale}`).not.toMatch(pattern);
   }
 });
+
+it.skip('known wrong result: #2492 — describes both internal forces and deflected shapes on the Chinese diagram game card', () => {
+  const card = GAMES[0]!.copy.zh;
+  expect(card.description).toContain('内力图');
+  expect(card.description).toContain(gameStrings.zh!['kind.D']);
+  expect(card.title).not.toContain('内力图');
+});
+
+it.skip('known wrong result: #2492 — addresses the player formally in Turkish game controls', () => {
+  expect({
+    play: hubStrings.tr.play,
+    start: gameStrings.tr!.start,
+    again: gameStrings.tr!.again,
+    fullscreen: gameStrings.tr!['rotate.full'],
+    quit: gameStrings.tr!.quit,
+  }).toEqual({
+    play: 'Oynayın',
+    start: 'Başlayın',
+    again: 'Yeniden oynayın',
+    fullscreen: 'Tam ekran oynayın',
+    quit: 'Oyundan çıkın',
+  });
+});

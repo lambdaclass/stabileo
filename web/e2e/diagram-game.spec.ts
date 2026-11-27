@@ -306,3 +306,17 @@ test('@smoke winning feedback stays inside the tablet viewport throughout its an
   });
   expect(overflow).toBe(0);
 });
+
+test.fixme('@smoke known wrong result: #2492 — the game thumbnail fits all three answer cards inside its viewBox', async ({ page }) => {
+  await page.goto('/en/games/');
+  const thumbnail = page.getByTestId('game-card-diagram-game').locator('svg.thumb');
+  await expect(thumbnail.locator('rect.option')).toHaveCount(3);
+  const { left, right, min, max } = await thumbnail.evaluate(el => {
+    const svg = el as SVGSVGElement;
+    const box = svg.getBBox();
+    const view = svg.viewBox.baseVal;
+    return { left: box.x, right: box.x + box.width, min: view.x, max: view.x + view.width };
+  });
+  expect(left).toBeGreaterThanOrEqual(min);
+  expect(right).toBeLessThanOrEqual(max);
+});
