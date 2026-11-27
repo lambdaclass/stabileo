@@ -35,3 +35,21 @@ for (const [p, phase] of [[200, null], [270, 'LIN-SECOND-ORDER-NEAR'], [450, 'LI
     }
   }
 }
+const separated = JSON.parse(readFileSync(prefix + '-partial.json', 'utf8'));
+const [beamLoad, trussLoad] = separated.loads;
+const mixed = engine.solve_multi_case_2d({
+  solver: { ...separated, loads: [] },
+  loadCases: [{ name: 'beam', loads: [beamLoad] }, { name: 'truss', loads: [trussLoad] }],
+  combinations: [
+    { name: 'both', factors: { beam: 1, truss: 1 } },
+    { name: 'reversed', factors: { beam: -1 } },
+    { name: 'beam only', factors: { beam: 1 } },
+  ],
+});
+const bound = result => result.resultSummary.secondOrderPhysicalBound;
+assert.ok(bound(mixed.caseResults[0].results) > 0);
+assert.equal(bound(mixed.combinationResults[2].results), bound(mixed.caseResults[0].results));
+for (const result of [engine.solve_2d(separated), ...mixed.combinationResults.slice(0, 2).map(row => row.results)]) {
+  assert.ok(findings(result).some(d => d.phase === 'LIN-SECOND-ORDER-UNBOUNDED'));
+  assert.equal(bound(result), undefined);
+}
