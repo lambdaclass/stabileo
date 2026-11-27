@@ -309,7 +309,6 @@ jobs:
           BASE: ${{ steps.base.outputs.sha }}
           CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          git switch --detach "$CANDIDATE"
           required=$(make --silent check.web.production-parity NIX_RUN= PARITY_PLAN=1)
           case "$required" in true|false) ;; *) exit 1 ;; esac
           echo "required=$required" >> "$GITHUB_OUTPUT"
@@ -1664,11 +1663,11 @@ jobs:
         side: ${{ fromJSON(needs.changes.outputs.parity_research_sides) }}
     env:
       BASE: ${{ needs.changes.outputs.base }}
+      CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
       PARITY_SIDE: ${{ matrix.side }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           clean: true
           persist-credentials: false
           fetch-depth: 0
@@ -1715,11 +1714,11 @@ jobs:
         side: [reference, candidate]
     env:
       BASE: ${{ needs.changes.outputs.base }}
+      CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
       PARITY_SIDE: ${{ matrix.side }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           clean: true
           persist-credentials: false
           fetch-depth: 0
@@ -1762,10 +1761,10 @@ jobs:
     needs: [changes, production-parity-build]
     env:
       BASE: ${{ needs.changes.outputs.base }}
+      CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
           fetch-depth: 0
           filter: blob:none

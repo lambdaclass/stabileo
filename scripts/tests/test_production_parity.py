@@ -55,8 +55,7 @@ class ProductionParity(unittest.TestCase):
             added.write_text('unintended')
             git('add', '.')
             reference = repo / 'reference'
-            with patch.object(parity, 'ROOT', repo):
-                parity.snapshot(base, reference, {carried.name})
+            parity.snapshot(repo, base, reference, {carried.name})
             self.assertEqual((reference / new_main.name).read_text(), 'current main')
             self.assertEqual((reference / carried.name).read_text(), 'intended')
             self.assertFalse((reference / added.name).exists())
@@ -91,14 +90,12 @@ class ProductionParity(unittest.TestCase):
             self.assertIn(f'?{base_recipe}', git(repo, 'rev-list', '--objects', '--missing=print', base).splitlines())
             reference = fixture / 'reference'
             git(repo, 'remote', 'set-url', 'origin', (fixture / 'unavailable').as_uri())
-            with patch.object(parity, 'ROOT', repo):
-                with self.assertRaisesRegex(RuntimeError, 'could not fetch all tracked blobs'):
-                    parity.snapshot(base, reference, {'intended.bin'})
+            with self.assertRaisesRegex(RuntimeError, 'could not fetch all tracked blobs'):
+                parity.snapshot(repo, base, reference, {'intended.bin'})
             self.assertFalse(reference.exists())
 
             git(repo, 'remote', 'set-url', 'origin', upstream.as_uri())
-            with patch.object(parity, 'ROOT', repo):
-                parity.snapshot(base, reference, {'intended.bin'})
+            parity.snapshot(repo, base, reference, {'intended.bin'})
             self.assertEqual(git(reference, 'rev-parse', 'HEAD'), base)
             self.assertEqual((reference / 'Makefile').read_text(), SOLVER_RECIPE)
             self.assertEqual((reference / 'intended.bin').read_bytes(), b'\x00\xfe')
@@ -363,7 +360,7 @@ class ProductionParity(unittest.TestCase):
             with patch.object(parity, 'ROOT', repo):
                 git('commit', '--quiet', '--allow-empty', '-m', 'Move head without changing inputs')
                 head = git('rev-parse', 'HEAD')
-                self.assertEqual(parity.research_sides(base, head), ['reference'])
+                self.assertEqual(parity.research_sides(repo, base, head), ['reference'])
                 key = parity.research_key(repo, base, head)
                 parity.build_research(repo, os.environ)
                 output = repo / parity.RESEARCH_WASM
@@ -377,7 +374,7 @@ class ProductionParity(unittest.TestCase):
                     path.write_text('changed')
                     git('add', str(path.relative_to(repo)))
                     changed = git('write-tree')
-                    self.assertEqual(parity.research_sides(base, changed), ['reference', 'candidate'])
+                    self.assertEqual(parity.research_sides(repo, base, changed), ['reference', 'candidate'])
                     with self.assertRaisesRegex(RuntimeError, 'research artifact.*snapshot'):
                         parity.restore_research(shared, repo / 'wrong', parity.research_key(repo, base, head))
                     self.assertFalse((repo / 'wrong').exists())

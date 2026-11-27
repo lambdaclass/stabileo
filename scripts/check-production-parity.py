@@ -1,4 +1,5 @@
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -21,12 +22,12 @@ ENGINE_INPUTS = ('engine/src', 'engine/build.rs', 'engine/Cargo.toml', 'Cargo.to
                  '.github/scripts/build-research-wasm.sh', 'flake.nix', 'flake.lock')
 
 
-def git(*args):
-    return subprocess.check_output(['git', *args], cwd=ROOT)
+def git(source, *args):
+    return subprocess.check_output(['git', *args], cwd=source)
 
 
-def trailers(base, key):
-    values = git('log', f'--format=%(trailers:key={key},valueonly)', f'{base}..HEAD')
+def trailers(source, base, key):
+    values = git(source, 'log', f'--format=%(trailers:key={key},valueonly)', f'{base}..HEAD')
     return set(values.decode().splitlines()) - {''}
 
 
@@ -36,23 +37,23 @@ def profiles_enable_off_switch(before, after):
                for mode, profile in after.items() if mode != 'production' for key in profile)
 
 
-def changed_paths(base, *paths):
+def changed_paths(source, base, *paths):
     return set(os.fsdecode(path) for path in
-               git('diff', '--name-only', '--no-renames', '-z', base, '--', *paths).split(b'\0') if path)
+               git(source, 'diff', '--name-only', '--no-renames', '-z', base, '--', *paths).split(b'\0') if path)
 
 
-def snapshot(base, target, intended):
-    objects = git('rev-list', '--objects', '--no-object-names', '--missing=print', f'{base}^{{tree}}')
+def snapshot(source, base, target, intended):
+    objects = git(source, 'rev-list', '--objects', '--no-object-names', '--missing=print', f'{base}^{{tree}}')
     missing = [line[1:] for line in objects.splitlines() if line.startswith(b'?')]
     if missing:
         fetched = subprocess.run(['git', 'cat-file', '--batch-check=%(objectname) %(objecttype)'],
-                                 cwd=ROOT, input=b'\n'.join(missing) + b'\n', stdout=subprocess.PIPE)
+                                 cwd=source, input=b'\n'.join(missing) + b'\n', stdout=subprocess.PIPE)
         if fetched.returncode or fetched.stdout.splitlines() != [oid + b' blob' for oid in missing]:
             raise RuntimeError(f'Production parity could not fetch all tracked blobs for {base}')
-    subprocess.run(['git', 'clone', '--quiet', '--shared', '--no-checkout', str(ROOT), str(target)], check=True)
+    subprocess.run(['git', 'clone', '--quiet', '--shared', '--no-checkout', str(source), str(target)], check=True)
     subprocess.run(['git', 'checkout', '--quiet', '--detach', base], cwd=target, check=True)
     if intended:
-        patch = git('diff', '--binary', base, '--', *(f':(literal){p}' for p in sorted(intended)))
+        patch = git(source, 'diff', '--binary', base, '--', *(f':(literal){p}' for p in sorted(intended)))
         subprocess.run(['git', 'apply', '--index', '--binary', '-'], cwd=target, input=patch, check=True)
 
 
@@ -83,8 +84,8 @@ def research_inputs(checkout, tree):
     return hashlib.sha256(entries).hexdigest()
 
 
-def research_sides(base, head):
-    if research_inputs(ROOT, base) == research_inputs(ROOT, head):
+def research_sides(source, base, head):
+    if research_inputs(source, base) == research_inputs(source, head):
         return ['reference']
     return ['reference', 'candidate']
 
@@ -142,7 +143,7 @@ def build_research(checkout, wasm_env):
                    env={**wasm_env, 'RESEARCH_SKIP_VIEWER': '0'}, check=True)
 
 
-def build(checkout, env, research=None):
+def build(source, checkout, env, research=None):
     wasm_env = wasm_environment(checkout, env)
     subprocess.run(['make', 'wasm'], cwd=checkout, env=wasm_env, check=True)
     runtime = {}
@@ -159,34 +160,34 @@ def build(checkout, env, research=None):
         artifact, identity = research
         restore_research(artifact, checkout / RESEARCH_WASM, identity)
     web = checkout / 'web'
-    git_dir = git('rev-parse', '--absolute-git-dir').decode().strip()
+    git_dir = git(source, 'rev-parse', '--absolute-git-dir').decode().strip()
     subprocess.run(['npm', 'run', 'build'], cwd=web,
                    env={**env, 'GIT_DIR': git_dir, 'GIT_WORK_TREE': str(checkout)}, check=True)
     site = {f'web/dist/{name}': checksum for name, checksum in inventory(web / 'dist').items()}
     return runtime | site
 
 
-def parity_required(base, paths):
-    before = json.loads(git('show', f'{base}:{FLAGS}'))
-    after = json.loads((ROOT / FLAGS).read_text())
-    return ('required' in trailers(base, 'Production-Parity') or LEGACY_OVERLAY in paths
+def parity_required(source, base, paths):
+    before = json.loads(git(source, 'show', f'{base}:{FLAGS}'))
+    after = json.loads((source / FLAGS).read_text())
+    return ('required' in trailers(source, base, 'Production-Parity') or LEGACY_OVERLAY in paths
             or profiles_enable_off_switch(before, after))
 
 
-def snapshot_side(side, checkout, head, base, intended):
+def snapshot_side(source, side, checkout, head, base, intended):
     if side == 'reference':
-        snapshot(base, checkout, intended)
+        snapshot(source, base, checkout, intended)
     else:
-        snapshot(head, checkout, changed_paths(head))
+        snapshot(source, head, checkout, changed_paths(source, head))
 
 
-def build_side(side, checkout, head, base, intended, env, research_artifact=None):
+def build_side(source, side, checkout, head, base, intended, env, research_artifact=None):
     started = time.monotonic()
-    snapshot_side(side, checkout, head, base, intended)
+    snapshot_side(source, side, checkout, head, base, intended)
     research = None
     if research_artifact is not None:
         research = (research_artifact, research_key(checkout, base, head))
-    result = build(checkout, env, research)
+    result = build(source, checkout, env, research)
     print(f'Production parity: {side} built and inventoried in {time.monotonic() - started:.1f}s', flush=True)
     return result
 
@@ -225,6 +226,7 @@ def compare(reference, candidate, base):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('base', nargs='?', default='origin/main')
+    parser.add_argument('--candidate')
     parser.add_argument('--required', action='store_true')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--plan', action='store_true')
@@ -243,10 +245,33 @@ def main():
     if args.research_in and not args.inventory:
         parser.error('--research-in requires --inventory')
 
-    head = git('rev-parse', 'HEAD').decode().strip()
-    base = git('merge-base', args.base, head).decode().strip()
-    paths = changed_paths(base)
-    required = parity_required(base, paths) or args.required
+    with candidate_source(args.candidate) as source:
+        check(args, source)
+
+
+@contextmanager
+def candidate_source(candidate):
+    if candidate is None:
+        yield ROOT
+        return
+
+    with tempfile.TemporaryDirectory(prefix='.production-parity-', dir=ROOT) as directory:
+        source = Path(directory) / 'candidate'
+        git(ROOT, 'worktree', 'add', '--quiet', '--detach', str(source), candidate)
+        try:
+            yield source
+        finally:
+            git(ROOT, 'worktree', 'remove', str(source))
+
+
+def check(args, source):
+    head = git(source, 'rev-parse', 'HEAD').decode().strip()
+    if args.candidate is None:
+        base = git(source, 'merge-base', args.base, head).decode().strip()
+    else:
+        base = git(source, 'rev-parse', '--verify', f'{args.base}^{{commit}}').decode().strip()
+    paths = changed_paths(source, base)
+    required = parity_required(source, base, paths) or args.required
     if args.plan:
         print(str(required).lower())
         return
@@ -256,21 +281,21 @@ def main():
         print('Production parity: no switch-only changes declared and no newly enabled off switch.')
         return
     if args.plan_research:
-        print(json.dumps(research_sides(base, head)))
+        print(json.dumps(research_sides(source, base, head)))
         return
     if args.compare:
         compare(read_inventory(args.compare / 'reference.json', 'reference', head, base),
                 read_inventory(args.compare / 'candidate.json', 'candidate', head, base), base)
         return
 
-    intended = trailers(base, 'Production-Change')
+    intended = trailers(source, base, 'Production-Change')
     if intended - paths or any(p.startswith('-') or p == LEGACY_OVERLAY for p in intended):
         raise SystemExit('Production-Change trailers must name actual changed paths outside the legacy overlay.')
-    engine_paths = changed_paths(base, *ENGINE_INPUTS) - intended
-    engine_paths -= changed_paths(base, 'engine/src', 'engine/Cargo.toml')
+    engine_paths = changed_paths(source, base, *ENGINE_INPUTS) - intended
+    engine_paths -= changed_paths(source, base, 'engine/src', 'engine/Cargo.toml')
     if engine_paths:
         raise SystemExit('Switch-off production engine inputs differ from the reference:\n  ' + '\n  '.join(sorted(engine_paths)))
-    timestamp = int(git('show', '-s', '--format=%ct', head))
+    timestamp = int(git(source, 'show', '-s', '--format=%ct', head))
     date = datetime.fromtimestamp(timestamp, timezone.utc).date().isoformat()
     env = {**os.environ, 'GITHUB_SHA': base, 'PRERENDER_GITHUB_STARS': 'none', 'PRERENDER_BUILD_DATE': date}
     for key in ('VITE_E2E', 'VITE_APP_TYPE', 'STABILEO_E2E_PROFILE', 'PRERENDER_ONLY', 'PRERENDER_OUT'):
@@ -280,7 +305,7 @@ def main():
         checkout = directory / 'checkout'
         if args.research_out:
             started = time.monotonic()
-            snapshot_side(args.side, checkout, head, base, intended)
+            snapshot_side(source, args.side, checkout, head, base, intended)
             key = research_key(checkout, base, head)
             prepare_web(checkout)
             build_research(checkout, wasm_environment(checkout, env))
@@ -289,11 +314,11 @@ def main():
                   flush=True)
         elif args.side:
             write_inventory(args.inventory, args.side, head, base,
-                            build_side(args.side, checkout, head, base, intended, env, args.research_in))
+                            build_side(source, args.side, checkout, head, base, intended, env, args.research_in))
         else:
-            reference = build_side('reference', checkout, head, base, intended, env)
+            reference = build_side(source, 'reference', checkout, head, base, intended, env)
             shutil.rmtree(checkout)
-            candidate = build_side('candidate', checkout, head, base, intended, env)
+            candidate = build_side(source, 'candidate', checkout, head, base, intended, env)
             compare(reference, candidate, base)
 
     if args.scratch:
