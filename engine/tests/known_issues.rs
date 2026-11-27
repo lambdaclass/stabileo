@@ -3299,7 +3299,6 @@ fn diagonal_truss_certifies_the_enclosed_irrational_axial_factor_2608() {
 }
 
 #[test]
-#[ignore = "known wrong result: #758"]
 fn bending_limit_checks_the_axial_field_under_span_loads_758() {
     use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
     for sign in [-1, 1] {
@@ -3319,5 +3318,13 @@ fn bending_limit_checks_the_axial_field_under_span_loads_758() {
         input.np.insert("1".into(), 2.0);
         assert_eq!(certified_limit_2d(&input).unwrap().confirmation, Confirmation::Exact);
         assert_ne!(confirm_2d(&input.solver, &HashMap::from([(1, 1.0)]), &HashMap::from([(1, 1.0)]), 1.0), Confirmation::Exact);
+        let SolverLoad::AxialDistributed(span) = &mut input.solver.loads[1] else { unreachable!() };
+        span.a = Some(1.5);
+        span.b = Some(2.5);
+        span.q_i = 4.0 * f64::from(sign);
+        span.q_j = -span.q_i;
+        let transverse = HashMap::from([(1, 1.0)]);
+        assert_eq!(confirm_2d(&input.solver, &transverse, &HashMap::from([(1, 1.0)]), 1.0), Confirmation::Exact);
+        assert_ne!(confirm_2d(&input.solver, &transverse, &HashMap::from([(1, 0.4)]), 1.0), Confirmation::Exact);
     }
 }

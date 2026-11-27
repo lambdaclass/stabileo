@@ -1,3 +1,5 @@
+mod axial;
+
 use crate::types::unique_table;
 use crate::solver::support::support_dofs_2d;
 use crate::postprocess::diagrams::compute_diagram_value_at;
@@ -164,14 +166,13 @@ pub fn confirm_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<us
 
 fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &HashMap<usize, f64>, lambda: f64) -> Result<Confirmation, String> {
     super::support::validate_supports_2d(input)?;
-    use crate::certify::exact::{q, to_f64_up, Q};
+    use crate::certify::exact::{q, to_f64_up};
     if input.elements.len() > MAX_CERTIFIED_ELEMENTS {
         return Err(format!("more than {MAX_CERTIFIED_ELEMENTS} members: too large for the exact certificate"));
     }
-    use crate::certify::plastic::{build_model, check_static, plastic_candidates, ElemLoad};
-    use num_traits::Signed;
+    use crate::certify::plastic::{build_model, check_static, plastic_candidates};
     let mut solver = mechanical(input);
-    let axial_spans = axial_spans_to_nodes(&mut solver)?;
+    solver.loads.retain(|l| !matches!(l, SolverLoad::AxialDistributed(_)));
     for sup in solver.supports.values_mut() {
         let base = support_dofs_2d(sup).map(|d| d.restrained);
         let sprung = support_dofs_2d(sup).map(|d| d.spring).map(|k| k.is_some_and(|k| k > 0.0));
@@ -212,7 +213,8 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
     let pi = PlasticInput { solver, sections, materials, max_hinges: None, mp_overrides: Some(overrides) };
     let refused = |why: String| format!("the exact certificate does not apply: {why}");
     crate::certify::finite::check_input(&pi).map_err(refused)?;
-    let model = build_model(&pi).map_err(refused)?;
+    let mut model = build_model(&pi).map_err(refused)?;
+    let mut axial_fields = axial::assemble(input, &mut model)?;
     if !np.is_empty()
         && input.elements.values().all(|e| e.elem_type == "truss")
         && input.loads.iter().all(|l| matches!(l, SolverLoad::Nodal(p) if p.my == 0.0))
@@ -234,28 +236,11 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
         let (e, [fx, fz, _]) = e;
         let npl = q(np[&e.id]).ok_or("non-finite axial capacity")?;
         let lsq = &e.dx * &e.dx + &e.dz * &e.dz;
-        let mut n = fx * &e.dx + fz * &e.dz;
-        let mut points: Vec<(&Q, &Q)> = e.loads.iter().filter_map(|ld| if let ElemLoad::Point { ta, px, .. } = ld { Some((ta, px)) } else { None }).collect();
-        points.sort_by(|a, b| a.0.cmp(b.0));
-        let mut values = vec![n.clone()];
-        for (_, px) in points {
-            n += &field.lambda * px * e.l.as_ref().ok_or("point load on a member of irrational length")?;
-            values.push(n.clone());
-        }
-        // `n` carries N·L; the axial span loads moved to the nodes can shift N by up to 2∫|q|.
-        if let Some(&total) = axial_spans.get(&e.id) {
-            let spread = q(2.0 * total * (1.0 + 1e-9) * crate::certify::exact::to_f64(&lsq).sqrt() * (1.0 + 1e-9)).ok_or("non-finite axial span load")? * &field.lambda;
-            for v in values.iter_mut() {
-                *v = v.abs() + &spread;
-            }
-        }
-        admissible &= values.iter().all(|v| &lower * &lower * v * v <= &npl * &npl * &lsq);
-        let lsq = crate::certify::exact::to_f64(&lsq);
-        for v in &values {
-            let v = crate::certify::exact::to_f64(v).abs();
-            if v > 0.0 {
-                axial_scale = axial_scale.min(np[&e.id] * lsq.sqrt() / v);
-            }
+        let n = axial::peak(axial_fields.remove(&e.id).unwrap_or_default(), e, &field.lambda, fx * &e.dx + fz * &e.dz)?;
+        admissible &= &lower * &lower * &n * &n <= &npl * &npl * &lsq;
+        let magnitude = crate::certify::exact::to_f64(&n);
+        if magnitude > 0.0 {
+            axial_scale = axial_scale.min(np[&e.id] * crate::certify::exact::to_f64(&lsq).sqrt() / magnitude);
         }
     }
     let lower = (crate::certify::exact::to_f64(&field.lambda) * crate::certify::exact::to_f64(&scale).min(axial_scale) * (1.0 - 1e-9)).min(up);
@@ -267,37 +252,6 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
     } else {
         Confirmation::Bracketed { reason: format!("{bounds}, too far apart to confirm {lambda}"), lower, upper: up }
     })
-}
-
-/// Moves every axial span load to its member's end nodes, which leaves the bending collapse factor
-/// as it was but not the member's axial force: returns per member the ∫|q| that bounds the change.
-fn axial_spans_to_nodes(solver: &mut SolverInput) -> Result<HashMap<usize, f64>, String> {
-    let mut totals: HashMap<usize, f64> = HashMap::new();
-    let mut nodal = Vec::new();
-    for load in &solver.loads {
-        let SolverLoad::AxialDistributed(al) = load else { continue };
-        if al.q_i == 0.0 && al.q_j == 0.0 {
-            continue;
-        }
-        let e = crate::ordered::values(&solver.elements).find(|e| e.id == al.element_id).ok_or("axial span load on unknown element")?;
-        let node = |id: usize| crate::ordered::values(&solver.nodes).find(|n| n.id == id).ok_or("element on unknown node");
-        let (ni, nj) = (node(e.node_i)?, node(e.node_j)?);
-        let (dx, dz) = (nj.x - ni.x, nj.z - ni.z);
-        let len = (dx * dx + dz * dz).sqrt();
-        let (a, b) = (al.a.unwrap_or(0.0), al.b.unwrap_or(len));
-        if !(len > 0.0 && 0.0 <= a && a <= b && b <= len * (1.0 + 1e-12)) {
-            return Err(format!("element {}: axial span load outside the member", e.id));
-        }
-        let [fi, fj] = crate::element::axial_distributed_fef(al.q_i, al.q_j, a, b, len);
-        let (c, s) = (dx / len, dz / len);
-        nodal.push(SolverLoad::Nodal(SolverNodalLoad { node_id: e.node_i, fx: fi * c, fz: fi * s, my: 0.0 }));
-        nodal.push(SolverLoad::Nodal(SolverNodalLoad { node_id: e.node_j, fx: fj * c, fz: fj * s, my: 0.0 }));
-        let abs = if al.q_i * al.q_j >= 0.0 { 0.5 * (al.q_i.abs() + al.q_j.abs()) * (b - a) } else { 0.5 * al.q_i.abs().max(al.q_j.abs()) * (b - a) };
-        *totals.entry(e.id).or_default() += abs;
-    }
-    solver.loads.retain(|l| !matches!(l, SolverLoad::AxialDistributed(_)));
-    solver.loads.extend(nodal);
-    Ok(totals)
 }
 
 fn uniform_stiffness(input: &SolverInput) -> SolverInput {

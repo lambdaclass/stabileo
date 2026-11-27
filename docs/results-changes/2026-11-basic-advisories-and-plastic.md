@@ -94,3 +94,5 @@ shares. A larger load would exceed that capacity. This preserves the yielded-tru
 #2608 without relying on the step history to certify its factor.
 
 For an axially yielding truss, equilibrium determines the squared collapse factor exactly even when its square root is irrational. The certificate checks the returned floating-point value against the two adjacent representable numbers enclosing that root. A representable root must still match exactly.
+
+For an axial distributed load the certificate now forms the two equivalent nodal forces in rational arithmetic. It subtracts the start share from the certified field and integrates the original signed intensity along the member. The check includes the ends of each loaded interval, both sides of axial point forces, and any interior zero of the total distributed intensity. This can confirm bending collapse that the previous integral allowance withheld.

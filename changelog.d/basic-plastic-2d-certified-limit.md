@@ -6,3 +6,5 @@
 The exact limit check also retains the #2608 planar truss mechanism when joint equilibrium fixes the force in the member that yields.
 
 A diagonal truss can now receive its equilibrium-proven axial collapse factor when the exact value has an irrational square root.
+
+The axial span check now reconstructs the force within each loaded interval. A safe fixed-end beam under combined transverse and axial distributed loads can receive its certified bending factor.

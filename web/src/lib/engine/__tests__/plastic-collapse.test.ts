@@ -50,7 +50,7 @@ describe('plastic collapse, step by step', () => {
     expect(r.collapseFactor).toBeCloseTo(MP / 45, 6);
   });
 
-  it.skip('known wrong result: #758 — confirms fixed-end bending with bounded axial span forces', () => {
+  it('#758 — confirms fixed-end bending with bounded axial span forces', () => {
     const input = model([[1, 0, 0], [2, 4, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']],
       [q(1, -1), { type: 'axialDistributed', data: { elementId: 1, qI: 1, qJ: 1 } }]);
     const r = plasticCollapse2D(input, { mp: () => 1, np: () => 4 });
