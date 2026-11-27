@@ -186,12 +186,24 @@ test.describe('@smoke the two controls over a 3D model', () => {
     await page.getByTestId('cam-menu').click();
     const menu = page.getByTestId('cam-menu-pop');
     await expect(menu).toBeVisible();
-    /* Fit, three axis views, projection, clipping, measure, sections. */
+    /* Fit, three axis views, plan view, clipping, measure, the build animation. */
     expect(await menu.locator('.cam-item').count()).toBeGreaterThanOrEqual(8);
 
     await menu.locator('.cam-item').first().click();
     await expect(menu, 'picking a view is done once, so the menu closes')
       .toHaveCount(0);
+  });
+
+  test('the bars are drawn as lines or with their sections, one choice of two', async ({ page }) => {
+    await go3D(page);
+    await page.getByTestId('cam-menu').click();
+    const menu = page.getByTestId('cam-menu-pop');
+    await expect(menu.getByTestId('cam-bars-lines')).toBeVisible();
+    await expect(menu.getByText(/physical geometry|geometr[ií]a f[ií]sica|thick bar|barras gruesas/i)).toHaveCount(0);
+    await menu.getByTestId('cam-bars-sections').click();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.renderMode3D())).toBe('sections');
+    await expect(menu.getByTestId('cam-bars-sections')).toHaveAttribute('aria-checked', 'true');
+    await expect(menu.getByTestId('cam-bars-lines')).toHaveAttribute('aria-checked', 'false');
   });
 
   test('a state stays open, because the next choice is usually next door', async ({ page }) => {
@@ -266,6 +278,30 @@ test.describe('@smoke the two controls over a 3D model', () => {
      */
     expect(plan!.polarDeg, 'looking down').toBeLessThan(5);
     expect(plan!.polarDeg, 'but not from the pole itself').toBeGreaterThan(0.2);
+  });
+
+  test('in the plan view the floor follows the drag and stops with it', async ({ page }) => {
+    await go3D(page);
+    await page.getByTestId('cam-menu').click();
+    await page.getByTestId('nav-plan-view').click();
+    const box = (await page.locator('canvas').first().boundingBox())!;
+    await page.mouse.click(box.x + 30, box.y + box.height - 30);
+    await expect(page.getByTestId('cam-menu-pop')).toHaveCount(0);
+    await page.waitForTimeout(600);
+
+    const start = await page.evaluate(() => window.__stabileo.cameraState());
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 180, box.y + box.height / 2 + 40, { steps: 6 });
+    await page.mouse.up();
+    const released = await page.evaluate(() => window.__stabileo.cameraState());
+    await page.waitForTimeout(600);
+    const later = await page.evaluate(() => window.__stabileo.cameraState());
+
+    expect(Math.hypot(released!.target[0] - start!.target[0], released!.target[1] - start!.target[1]), 'the drag slid the view').toBeGreaterThan(0.1);
+    expect(released!.target[2], 'over the floor, not up or down').toBeCloseTo(start!.target[2], 6);
+    expect(later!.target, 'and it stopped where the pointer stopped').toEqual(released!.target);
+    expect(later!.polarDeg, 'still from above').toBeLessThan(5);
   });
 
   test('orbiting from a plan view rotates about the same axis as anywhere else',

@@ -202,6 +202,39 @@ export class ElementsBatched {
     this.colorDirty = false;
   }
 
+  private readonly floorPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+  private clippedAt: number | null = null;
+  private dimmed = new Set<number>();
+
+  /**
+   * The plan view's level: in 'hidden' the members under `floor` are clipped away, in 'ghost'
+   * they are drawn dim; null draws them all as they are.
+   */
+  setPlanFloor(floor: number | null, mode: 'hidden' | 'ghost'): void {
+    const clip = floor !== null && mode === 'hidden' ? floor : null;
+    if (clip !== this.clippedAt) {
+      this.clippedAt = clip;
+      if (clip === null) this.mat.clippingPlanes = null;
+      else { this.floorPlane.constant = -clip; this.mat.clippingPlanes = [this.floorPlane]; }
+      this.mat.needsUpdate = true;
+    }
+    const want = new Set<number>();
+    if (floor !== null && mode === 'ghost') {
+      for (let idx = 0; idx < this.count; idx++) {
+        const off = idx * 6;
+        if (Math.max(this.positions[off + 2]!, this.positions[off + 5]!) < floor) want.add(this.indexToId[idx]!);
+      }
+    }
+    for (const id of this.dimmed) if (!want.has(id)) { const idx = this.idToIndex.get(id); if (idx !== undefined) this.writeColor(idx, this.getBaseColor(id)); }
+    for (const id of want) if (!this.dimmed.has(id)) {
+      const idx = this.idToIndex.get(id)!;
+      this.writeColor(idx, this._colorTmp.setHex(this.getBaseColor(id)).multiplyScalar(0.35).getHex());
+    }
+    if (want.size || this.dimmed.size) this.colorDirty = true;
+    this.dimmed = want;
+    this.flush();
+  }
+
   dispose(): void {
     this.clear();
     this.geo.dispose();

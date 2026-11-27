@@ -51,8 +51,10 @@ attribute vec3 aColor;
 attribute float aSize;
 uniform float uPixelRatio;
 varying vec3 vColor;
+varying float vWorldZ;
 void main() {
   vColor = aColor;
+  vWorldZ = (modelMatrix * vec4(position, 1.0)).z;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   // A hair towards the camera, so a marker is not buried in the member lines that meet at it.
   gl_Position.z -= 0.0008 * gl_Position.w;
@@ -61,8 +63,11 @@ void main() {
 
 const POINTS_FRAGMENT = `
 uniform float uSphere;
+uniform float uClipBelow;
 varying vec3 vColor;
+varying float vWorldZ;
 void main() {
+  if (vWorldZ < uClipBelow) discard;
   vec2 p = gl_PointCoord * 2.0 - 1.0;
   float r2 = dot(p, p);
   if (r2 > 1.0) discard;
@@ -130,7 +135,7 @@ export class NodesInstanced {
     this.mesh.userData = { type: 'nodeBatch', indexToId: this.indexToId };
 
     this.pointsMat = new THREE.ShaderMaterial({
-      uniforms: { uPixelRatio: { value: 1 }, uSphere: { value: 0 } },
+      uniforms: { uPixelRatio: { value: 1 }, uSphere: { value: 0 }, uClipBelow: { value: -1e30 } },
       vertexShader: POINTS_VERTEX,
       fragmentShader: POINTS_FRAGMENT,
     });
@@ -399,7 +404,22 @@ export class NodesInstanced {
   nodeIdAt(instanceId: number): number | null {
     if (instanceId < 0 || instanceId >= this.count) return null;
     const id = this.indexToId[instanceId];
-    return id === undefined ? null : id;
+    if (id === undefined) return null;
+    if (this.clipBelow !== null && (this.posById.get(id)?.[2] ?? Infinity) < this.clipBelow) return null;
+    return id;
+  }
+
+  private clipBelow: number | null = null;
+  private readonly clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+
+  /** Neither draws nor picks the nodes below `z`; null draws them all. */
+  setClipBelow(z: number | null): void {
+    if (z === this.clipBelow) return;
+    this.clipBelow = z;
+    this.pointsMat.uniforms.uClipBelow!.value = z ?? -1e30;
+    if (z === null) this.mat.clippingPlanes = null;
+    else { this.clipPlane.constant = -z; this.mat.clippingPlanes = [this.clipPlane]; }
+    this.mat.needsUpdate = true;
   }
 
   /** Set current displayed color for an id (hover/selection). */
