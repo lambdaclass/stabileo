@@ -38,3 +38,12 @@ it('names the mesh refinement comparison in Chinese', () => {
 it('states the starting step of the Chinese halving comparison', () => {
   expect(translations.zh.sensitivityText).toContain('在 Δt 低于 0.005 T_osc 时再将 Δt 减半，A 变化 {dt}');
 });
+
+it('says that Eq. (2) divides out the seed magnitude in Hungarian', () => {
+  expect(translations.hu.sensitivityText).toContain('osztással kiejti a csíra nagyságát');
+});
+
+it('labels the snap location separately from the verdict in Hungarian', () => {
+  expect(translations.hu.summary.snapAt).toBe('Átpattanás helye');
+  expect(translations.hu.summary.snapAt).not.toBe(translations.hu.summary.verdict);
+});

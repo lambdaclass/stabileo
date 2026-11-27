@@ -145,3 +145,23 @@ assert.ok(Number.isFinite(earlyFold.outcome.amplification) && Number.isFinite(ea
 }
 
 console.log('production-mode WASM: replay agrees in critical points, outcome, every frame and every plotted trace series; null and missing values and bad settings are refused');
+
+{
+  const zero = structuredClone(replay);
+  Object.assign(zero.outcome, { thetaBefore: 0, thetaBeforeMuA: 0, amplification: null, amplificationFromMuA: null });
+  assert.ok(zero.outcome.snapped);
+  assert.deepEqual(compare(zero, zero), []);
+  for (const [angle, ratio] of [['thetaBefore', 'amplification'], ['thetaBeforeMuA', 'amplificationFromMuA']]) {
+    const finite = structuredClone(zero);
+    finite.outcome[ratio] = 0;
+    assert.deepEqual(compare(finite, zero), [`outcome.${ratio}`]);
+    assert.deepEqual(compare(zero, finite), [`outcome.${ratio}`]);
+    const tiny = structuredClone(zero);
+    tiny.outcome[angle] = Number.EPSILON;
+    assert.deepEqual(compare(tiny, zero), [`outcome.${ratio}`]);
+    assert.deepEqual(compare(zero, tiny), [`outcome.${ratio}`]);
+    tiny.outcome[ratio] = tiny.outcome.thetaDuring / tiny.outcome[angle];
+    assert.deepEqual(compare(tiny, tiny), []);
+    assert.deepEqual(compare(finite, tiny), [`outcome.${ratio}`]);
+  }
+}

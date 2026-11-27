@@ -244,3 +244,17 @@ it('records paper shortening and the physical clamp through startup, coasting an
     expect(mu.at(-1)!).toBeGreaterThan(paperMu.at(-1)!);
   }
 });
+
+it('requires a strictly positive observed midpoint for a snapped verdict', () => {
+  const frames = replay.frames.map(f => ({ ...f, height: Math.min(f.height, 0) }));
+  const trace = { ...replay.trace, height: replay.trace.height.map(h => Math.min(h, 0)) };
+  expect(() => decodeRun({ ...replay, frames, trace })).toThrow('Invalid outcome');
+  expect(decodeRun({ ...noSnap(), frames, trace }).outcome.snapped).toBe(false);
+  for (const source of ['frame', 'trace']) {
+    const trial = structuredClone({ ...replay, frames, trace });
+    if (source === 'frame') trial.frames.at(-1)!.height = Number.EPSILON;
+    else trial.trace.height[trial.trace.height.length - 1] = Number.EPSILON;
+    expect(decodeRun(trial).outcome.snapped).toBe(true);
+    expect(() => decodeRun({ ...trial, outcome: noSnap().outcome })).toThrow('Invalid outcome');
+  }
+});
