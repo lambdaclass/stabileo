@@ -12,6 +12,10 @@ try {
     for (const section of ['tools', 'research', 'games']) {
       assert.ok(await page.locator(`a[href="/hu/${section}/"]`).count() > 0, `${name}: ${section} is linked by default`);
     }
+    const directGameLinks = await page.locator('a[href]').evaluateAll(links =>
+      links.map(link => link.pathname).filter(path => /\/diagram-game\/?$/.test(path)),
+    );
+    assert.deepEqual(directGameLinks, [], `${name}: the landing page contains a direct diagram-game link`);
     assert.equal(await page.locator('a[href$="/examples/"]').count(), 0);
     assert.equal(await page.locator('a[href*="/tools/mohr-"]').count(), 0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

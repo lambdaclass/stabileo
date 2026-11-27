@@ -3,7 +3,7 @@ import { render } from 'svelte/server';
 import { GAME_IDS, GAME_PATHS, isGameRoute } from '../../../lib/game-routes';
 import { setPublicLocale } from '../../../lib/i18n/store.svelte';
 import type { Locale } from '../../../lib/i18n/offered';
-import { gameStrings } from '../../diagram-game/strings';
+import { gameStrings, tg } from '../../diagram-game/strings';
 import { GAMES } from '../games';
 import { hubStrings } from '../strings';
 import { loadGamesPage } from '../load-page';
@@ -99,10 +99,14 @@ it('fits the Chinese diagram game title in a search result', () => {
   expect(titleWidth).toBeLessThanOrEqual(120);
 });
 
-it('describes both diagram types and uses a generic diagram in the Chinese reverse question', () => {
-  const meta = gameStrings.zh!.meta;
-  const [forward, reverse] = meta.split('，或');
+it.each(['meta', 'how.1'] as const)('describes both diagram types and asks for the structure in the Chinese reverse question (%s)', key => {
+  const [forward, reverse] = gameStrings.zh![key].split('，或');
   expect.soft(forward).toContain('内力图或变形图');
-  expect(reverse).toContain('图');
+  expect(reverse).toContain('根据给出的图找出对应的结构');
   expect(reverse).not.toMatch(/内力图|变形图/);
+});
+
+it.skip.each([0, 1, 2, 3])('known wrong result: #2492 labels %i remaining lives in French', n => {
+  setPublicLocale('fr');
+  expect(tg('livesLeft', { n })).toBe(`Vies restantes : ${n}`);
 });

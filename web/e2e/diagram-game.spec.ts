@@ -1,3 +1,4 @@
+import { pickLanguage } from './fixtures';
 import { BUILD_FEATURES, GAME_SKIP_REASON } from './build-features';
 import { test, expect, type Page } from '@playwright/test';
 
@@ -269,6 +270,14 @@ test('@smoke the old game address lands on the game under /games, keeping the la
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: escolha o correto');
 });
 
+test.fixme('@smoke known wrong result: #2492 the unprefixed legacy game link keeps its seed and fragment through language selection', async ({ page }) => {
+  await page.goto('/diagram-game/?seed=9#play');
+  await expect(page.getByTestId('dg-start')).toBeVisible();
+  await pickLanguage(page, 'nav-lang', 'pt');
+  await expect(page).toHaveURL('/pt/games/diagram-game/?seed=9#play');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: escolha o correto');
+});
+
 test('@smoke on a phone the games hub has no sideways scroll and every link is a full-size target', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto('/de/games/?e2e=1');
@@ -296,7 +305,8 @@ test('@smoke winning feedback stays inside the tablet viewport throughout its an
   expect(await figure.evaluate(el => el.getAnimations().some(animation => animation instanceof CSSAnimation))).toBe(true);
 
   const frames = await winner.evaluate(card => {
-    const feedback = getComputedStyle(card).overflowX === 'visible' ? [card, card.querySelector('.option-figure')!] : [card];
+    const figure = card.querySelector('.option-figure')!;
+    const style = getComputedStyle(card);
     const scroller = card.closest('.landing')!;
     const animations = card.getAnimations({ subtree: true }).filter(animation => animation instanceof CSSAnimation);
     const frames = [];
@@ -304,11 +314,17 @@ test('@smoke winning feedback stays inside the tablet viewport throughout its an
       for (const animation of animations) {
         animation.currentTime = Number(animation.effect!.getComputedTiming().activeDuration) * step / 10;
       }
-      const bounds = feedback.map(el => el.getBoundingClientRect());
+      const box = card.getBoundingClientRect();
+      const drawing = figure.getBoundingClientRect();
+      const visibleX = style.overflowX === 'visible';
+      const visibleY = style.overflowY === 'visible';
       frames.push({
-        left: Math.min(...bounds.map(rect => rect.left)),
-        right: Math.max(...bounds.map(rect => rect.right)),
-        viewport: innerWidth,
+        left: visibleX ? Math.min(box.left, drawing.left) : box.left,
+        right: visibleX ? Math.max(box.right, drawing.right) : box.right,
+        top: visibleY ? Math.min(box.top, drawing.top) : box.top,
+        bottom: visibleY ? Math.max(box.bottom, drawing.bottom) : box.bottom,
+        viewportWidth: innerWidth,
+        viewportHeight: innerHeight,
         overflow: Math.max(0, scroller.scrollWidth - scroller.clientWidth, document.documentElement.scrollWidth - innerWidth),
       });
     }
@@ -316,7 +332,9 @@ test('@smoke winning feedback stays inside the tablet viewport throughout its an
   });
   for (const [step, frame] of frames.entries()) {
     expect(frame.left, `left edge at step ${step}`).toBeGreaterThanOrEqual(0);
-    expect(frame.right, `right edge at step ${step}`).toBeLessThanOrEqual(frame.viewport);
+    expect(frame.right, `right edge at step ${step}`).toBeLessThanOrEqual(frame.viewportWidth);
+    expect(frame.top, `top edge at step ${step}`).toBeGreaterThanOrEqual(0);
+    expect(frame.bottom, `bottom edge at step ${step}`).toBeLessThanOrEqual(frame.viewportHeight);
     expect(frame.overflow, `scroll at step ${step}`).toBe(0);
   }
 });
