@@ -89,8 +89,8 @@ describe('RC design baseline — the flagship frame, member by member', () => {
       });
       return createHash('sha256').update(result).digest('hex');
     };
-    expect(digest(false), 'raw secondary shear demand').toBe('f03e7eb0f2ae193ca387a0045305b1a1a1068516c93027e2c7c7899ebe8fb1e9');
-    expect(digest(true), 'main baseline with its secondary shear rounding').toBe('0eed6c25fca6643ed788227fb75211db6f2748fdf99b1f8334a5d2dc5b4686dc');
+    expect(digest(false), 'raw secondary shear demand').toBe('a10546bb373605dad5299073385df5fb135f4d283743d0e0397f06440614dd16');
+    expect(digest(true), 'RC verdict baseline with its secondary shear rounding').toBe('d08232bdc92fac65edcc4e08020d85612b75d9b8c705fa3c5ff5fced6c7c0fdf');
   });
 
   it('#2338 shear-depth containment never reopens an exhausted flagship search', () => {

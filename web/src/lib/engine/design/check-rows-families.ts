@@ -166,42 +166,53 @@ export function jointShearCheckRows(j: JointResult, edition = '2025'): CheckRow[
  * stay as inputs and its result as a line of the derivation, to guide the detailing.
  */
 const SEISMIC_SUBSTITUTE = 'substitute: ACI 318-19 chapter 18; CIRSOC 201-2025 §18.1 requires INPRES-CIRSOC 103 Parte II 2026, not in the repository: not verified';
+const SEISMIC_CLAUSE = '18.1';
+const SEISMIC_SHEAR = { key: 'check.seismic.shear', title: 'Capacity shear' };
+const SEISMIC_DETAILING = { key: 'check.seismic.detailing', title: 'Seismic detailing' };
 const substitute = (p: { key: string; title: string; aci: string; formula: string; inputs: CheckInput[]; result: string; location?: string; extra?: readonly string[] }): CheckRow =>
-  row({ key: p.key, title: p.title, clause: '18.1', formula: p.formula, inputs: p.inputs, ratio: null, status: 'notVerified',
+  row({ key: p.key, title: p.title, clause: SEISMIC_CLAUSE, formula: p.formula, inputs: p.inputs, ratio: null, status: 'notVerified',
     ...(p.location ? { location: p.location } : {}), derivation: [SEISMIC_SUBSTITUTE, `ACI 318-19 ${p.aci}: ${p.result}`, ...(p.extra ?? [])] });
 const u3 = (u: number) => (Number.isFinite(u) ? u.toFixed(3) : '∞');
 
 /** The capacity checks of a member of a seismic frame: capacity shear and detailing, as substitutes. */
 export function seismicMemberCheckRows(m: MemberSeismic): CheckRow[] {
-  const out: CheckRow[] = [];
+  if (m.role === 'secondary') return [];
+  if (m.refusal !== undefined) return [SEISMIC_SHEAR, SEISMIC_DETAILING].map(check => row({
+    ...check, clause: SEISMIC_CLAUSE, formula: m.refusal, inputs: [], ratio: null, status: 'notVerified',
+  }));
   const beam = m.kind === 'beam';
-  if (m.shear) {
-    out.push(substitute({
-      key: 'check.seismic.shear', title: 'Capacity shear', aci: beam ? '§18.6.5' : '§18.7.6', formula: 'Ve ≤ φ·Vn',
+  return [
+    substitute({
+      ...SEISMIC_SHEAR, aci: beam ? '§18.6.5' : '§18.7.6', formula: 'Ve ≤ φ·Vn',
       inputs: [inp('Ve', m.shear.ve, 'kN'), inp('φVn', m.shear.phiVn, 'kN')],
       result: `Ve/φVn = ${u3(m.shear.utilization)}${m.shear.vcZero ? `, Vc = 0 (${beam ? '§18.6.5.2' : '§18.7.6.2'})` : ''}`,
-    }));
-  }
-  if (m.role === 'primary' && (m.shear || m.issues.length)) {
-    out.push(substitute({
-      key: 'check.seismic.detailing', title: 'Seismic detailing', aci: beam ? '§18.6.4' : '§18.7.5', formula: beam ? 'hoops over 2h at s ≤ min(d/4; 6·db; 150 mm)' : 'lo, so and Ash',
+    }),
+    substitute({
+      ...SEISMIC_DETAILING, aci: beam ? '§18.6.4' : '§18.7.5', formula: beam ? 'hoops over 2h at s ≤ min(d/4; 6·db; 150 mm)' : 'lo, so and Ash',
       inputs: [], result: m.issues.length ? `${m.issues.length} rule(s) not met, listed below` : 'every rule met', extra: m.issues,
-    }));
-  }
-  return out;
+    }),
+  ];
 }
 
 /** A joint of a seismic frame: strong column and joint shear, as substitutes. */
 export function seismicJointCheckRows(j: JointSeismic): CheckRow[] {
+  const strongColumnRow = { key: 'check.seismic.strongColumn', title: `Strong column, ${j.direction}`, location: j.direction };
+  const jointShearRow = { key: 'check.seismic.jointShear', title: `Joint shear, ${j.direction}`, location: j.direction };
+  if (j.refusal !== undefined) {
+    const applicable = j.roof ? [jointShearRow] : [strongColumnRow, jointShearRow];
+    return applicable.map(check => row({
+      ...check, clause: SEISMIC_CLAUSE, formula: j.refusal, inputs: [], ratio: null, status: 'notVerified',
+    }));
+  }
   const sc = j.strongColumn, sh = j.shear;
   return [
     substitute({
-      key: 'check.seismic.strongColumn', title: `Strong column, ${j.direction}`, aci: '§18.7.3.2', formula: 'ΣMnc ≥ 1,2·ΣMnb', location: j.direction,
+      ...strongColumnRow, aci: '§18.7.3.2', formula: 'ΣMnc ≥ 1,2·ΣMnb',
       inputs: [inp('ΣMnc', sc.sumColumns, 'kN·m'), inp('ΣMnb', sc.sumBeams, 'kN·m'), inp('1,2·ΣMnb', sc.required, 'kN·m')],
       result: sc.roof ? 'roof level, not required (§18.7.3.1)' : `1,2·ΣMnb/ΣMnc = ${u3(sc.utilization)}`,
     }),
     substitute({
-      key: 'check.seismic.jointShear', title: `Joint shear, ${j.direction}`, aci: '§18.8.4', formula: 'Vj ≤ φ·Vn', location: j.direction,
+      ...jointShearRow, aci: '§18.8.4', formula: 'Vj ≤ φ·Vn',
       inputs: [inp('T', sh.T, 'kN'), inp('Vj', sh.vj, 'kN'), inp('φVn', sh.phiVn, 'kN')],
       result: `Vj/φVn = ${u3(sh.utilization)}`,
     }),

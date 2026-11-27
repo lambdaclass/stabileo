@@ -423,10 +423,16 @@ export function faceRowDiameters(layers: readonly RebarLayer[], pair?: OuterPair
  * @param stirrupDia Stirrup diameter (mm)
  */
 export function layerCentroid(layers: RebarLayer[], cover: number, stirrupDia: number, pair?: OuterPair): number {
+  return seatedLayerCentroid(layers, faceRowDiameters(layers, pair), cover, stirrupDia, CIRSOC201_DESIGN_EDITION, pair);
+}
+
+function seatedLayerCentroid(
+  layers: readonly RebarLayer[], rows: readonly (readonly number[])[],
+  cover: number, stirrupDia: number, edition: RegulationEdition, pair?: OuterPair,
+): number {
   if (layers.length === 0) return cover + (stirrupDia / 1000) + 0.008;
   const stirDia_m = stirrupDia / 1000;
   const seat = (dMm: number) => cover + stirDia_m + dMm / 2000;
-  const rows = faceRowDiameters(layers, pair);
   let pairLeft = pair && pair.diameterMm > 0 ? pair.count : 0;
   let sumAd = 0;
   let sumA = 0;
@@ -437,7 +443,7 @@ export function layerCentroid(layers: RebarLayer[], cover: number, stirrupDia: n
     const asPair = layer.row === 0 ? Math.min(pairLeft, layer.count) : 0;
     pairLeft -= asPair;
     if (asPair > 0) sumAd += perBar * asPair * seat(pair!.diameterMm);
-    const distFromFace = stackedLayerDepth(rows, layer.row, layer.diameter, seat);
+    const distFromFace = stackedLayerDepth(rows, layer.row, layer.diameter, seat, edition);
     sumAd += perBar * (layer.count - asPair) * distFromFace;
     sumA += area;
   }
@@ -1979,21 +1985,12 @@ function evaluateProvidedReinforcement(
     checks.push({ ...rest, ratio: +utilization.toFixed(3), status: utilizationStatus(utilization) });
   };
 
-  /*
-   * Ductility of a flexural member: CIRSOC 201-2025 9.3.3.1 wants a beam with Pu < 0,10·f'c·Ag
-   * tension-controlled (εt ≥ εty + 0,003); 2005 asked for εt ≥ 0,004 (10.3.5). The φ ramp only
-   * lowers the strength of an over-reinforced section, it does not make it acceptable, and this
-   * verifier never asked. The axial force used is the largest compression the member sees.
-   */
-  const allTuplesMaxCompression = () => allTuples.reduce((m, t) => Math.max(m, -t.n), 0);
-  let maxCompressionCache: number | null = null;
   const pushDuctility = (
     label: string, demandCategory: ProvidedRebarCheck['demandCategory'], range: [number, number],
-    cap: { epsilonT: number; epsilonTMin: number }, comboName: string, stationX: number,
+    result: { t: ConcurrentDemand; cap: FlexureCapacity; utilization: number } | undefined,
   ) => {
-    maxCompressionCache ??= allTuplesMaxCompression();
-    if (!section || maxCompressionCache >= 0.10 * section.fc * 1000 * section.b * section.h) return;
-    const utilization = cap.epsilonT > 0 ? cap.epsilonTMin / cap.epsilonT : Number.POSITIVE_INFINITY;
+    if (!result) return;
+    const { t: { comboName, stationX }, cap, utilization } = result;
     pushStrength({
       category: `${label} ductility`, demandCategory,
       demand: +cap.epsilonTMin.toFixed(5), capacity: +cap.epsilonT.toFixed(5), utilization,
@@ -2038,27 +2035,33 @@ function evaluateProvidedReinforcement(
     }
     return orderedCombos = [...byCombo.values()].map(combo => combo.sort((a, b) => a.stationT - b.stationT));
   };
-  const interpolateCuts = (positions: readonly number[]) => {
-    const cuts: Tuple[] = [];
+  const collectCuts = <T>(
+    positions: readonly number[] | ((combo: readonly Tuple[]) => readonly number[]),
+    makeCut: (a: Tuple, b: Tuple, position: number) => T,
+  ): T[] => {
+    const cuts: T[] = [];
     for (const combo of stationCombos()) {
       let hi = 1;
-      for (const t of positions) {
+      for (const t of typeof positions === 'function' ? positions(combo) : positions) {
         while (hi < combo.length && combo[hi]!.stationT < t) hi++;
         const a = combo[hi - 1], b = combo[hi];
-        if (a && b && a.stationT < t && t < b.stationT) cuts.push(a.interpolate(b, t));
+        if (a && b && a.stationT < t && t < b.stationT) cuts.push(makeCut(a, b, t));
       }
     }
     return cuts;
   };
-  const cutsAround = (breaks: number[]) => {
+  const interpolateCuts = (positions: readonly number[]) =>
+    collectCuts(positions, (a, b, t) => a.interpolate(b, t));
+  const cutPositionsAround = (breaks: readonly number[]) => {
     const interior = [...new Set([0, 1, ...breaks].filter(t => t >= 0 && t <= 1))].sort((a, b) => a - b);
-    return interpolateCuts([...new Set(interior.flatMap((t, i) => {
+    return [...new Set(interior.flatMap((t, i) => {
       const from = interior[i - 1];
       if (from === undefined) return [t];
       const step = Math.min((t - from) / 3, Number.EPSILON);
       return [from + step, (from + t) / 2, t - step, t];
-    }))].sort((a, b) => a - b));
+    }))].sort((a, b) => a - b);
   };
+  const cutsAround = (breaks: readonly number[]) => interpolateCuts(cutPositionsAround(breaks));
   const hasTuples = allTuples.length > 0;
   const M = (t: Tuple) => tupleMoment(t, axes.flexure);
 
@@ -2084,6 +2087,8 @@ function evaluateProvidedReinforcement(
     if (flange && sign === 1 && byAxial.has(0)) byAxial.set(0, flexCap(tensArea, d, compArea, dPrime, true));
     let demand: { Mu: number; comboName: string; stationX: number; Nu: number } | null = null;
     let cap: FlexureCapacity | null = null;
+    let ductility: { t: Tuple; cap: FlexureCapacity; utilization: number } | undefined;
+    const axialLimit = 0.10 * section!.fc * 1000 * section!.b * section!.h;
     let util = -1;
     for (const t of acting) {
       const Mu = Math.abs(M(t));
@@ -2095,8 +2100,12 @@ function evaluateProvidedReinforcement(
         demand = { Mu, comboName: t.comboName, stationX: t.stationX, Nu: key };
         cap = c;
       }
+      if (c && (spacingRule.edition === '2005' ? -t.n < axialLimit : -t.n <= axialLimit)) {
+        const utilization = c.epsilonT > 0 ? c.epsilonTMin / c.epsilonT : Number.POSITIVE_INFINITY;
+        if (!ductility || utilization > ductility.utilization) ductility = { t, cap: c, utilization };
+      }
     }
-    return { demand: demand!, cap };
+    return { demand: demand!, cap, ductility };
   };
   const V = (t: Tuple) => tupleShear(t, axes.shear);
   const V2 = (t: Tuple) => tupleShear(t, axes.secondaryShear);
@@ -2108,8 +2117,8 @@ function evaluateProvidedReinforcement(
   const drawnBreaks = drawing?.bars.flatMap(({ from, to }) => [from, to]).filter(t => t > 0 && t < 1) ?? [];
   const stirrupCoverage = drawing?.stirrups.filter(({ from, to }) =>
     Number.isFinite(from) && Number.isFinite(to) && from < to).sort((a, b) => a.from - b.from);
-  const stirrupsAt = (t: Tuple) => stirrupCoverage?.filter(({ from, to }) =>
-    from <= t.stationT + 1e-9 && to >= t.stationT - 1e-9);
+  const stirrupsAtT = (t: number) => stirrupCoverage?.filter(({ from, to }) => from <= t + 1e-9 && to >= t - 1e-9);
+  const stirrupsAt = (t: Tuple) => stirrupsAtT(t.stationT);
   const zoneCuts = stirrupCoverage
     ? interpolateCuts([...new Set(stirrupCoverage.flatMap(({ from, to }) => [from, to]))].sort((a, b) => a - b))
     : [];
@@ -2346,10 +2355,10 @@ function evaluateProvidedReinforcement(
       layerCentroid(bottomLayers, section.cover, section.stirrupDia) + bottomShift;
     // A support's top layers hold the continuous pair, at the larger of the two supports' bars,
     // and a second layer steps from it as the detailing lays it (`layerCentroid`).
-    const topStartCentroid =
-      layerCentroid(topStartLayers, section.cover, section.stirrupDia, topOuterPair(topStartLayers, topEndLayers)) + topShift;
-    const topEndCentroid =
-      layerCentroid(topEndLayers, section.cover, section.stirrupDia, topOuterPair(topEndLayers, topStartLayers)) + topShift;
+    const topStartPair = topOuterPair(topStartLayers, topEndLayers);
+    const topEndPair = topOuterPair(topEndLayers, topStartLayers);
+    const topStartCentroid = layerCentroid(topStartLayers, section.cover, section.stirrupDia, topStartPair) + topShift;
+    const topEndCentroid = layerCentroid(topEndLayers, section.cover, section.stirrupDia, topEndPair) + topShift;
 
     const dBottom = section.h - bottomCentroid;
     const dTopStart = section.h - topStartCentroid;
@@ -2700,8 +2709,7 @@ function evaluateProvidedReinforcement(
         comboName: worstDemand.comboName, stationX: worstDemand.stationX,
         limiting: 'flexure',
       });
-      pushDuctility(rs.label, rs.sign === 1 ? axes.sagCategory : axes.hogCategory, rs.range, cap,
-        worstDemand.comboName, worstDemand.stationX);
+      pushDuctility(rs.label, rs.sign === 1 ? axes.sagCategory : axes.hogCategory, rs.range, gov.ductility);
 
       // ── §9.6.1: the minimum top steel at a support that hogs, on the web. §9.6.1.3 waives it where
       // the bars give a third more than the moment asks; As,req ≈ As·Mu/φMn, which Mn's concavity
@@ -2842,7 +2850,7 @@ function evaluateProvidedReinforcement(
         comboName: worstDemand.comboName, stationX: worstDemand.stationX,
         limiting: 'flexure',
       });
-      pushDuctility(os.label, demandCat, os.range, cap, worstDemand.comboName, worstDemand.stationX);
+      pushDuctility(os.label, demandCat, os.range, gov.ductility);
     }
 
     // ── Skin reinforcement of a deep beam (§9.7.2.3): both side faces, spaced by §24.3.2 ──
@@ -2905,8 +2913,6 @@ function evaluateProvidedReinforcement(
     }
 
     // ─── Shear: support and span regions, on the GOVERNING shear axis ───
-    // ρw of the tension steel in each region, for row (c): the top at the supports (the smaller
-    // end, conservatively), the bottom along the span.
     const rhoOf = (cm2: number) => cm2 / (section.b * d * 1e4);
     const supportSteelArea = Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers));
     const spanSteelArea = layersTotalArea(bottomLayers);
@@ -2915,6 +2921,169 @@ function evaluateProvidedReinforcement(
     const tensionDepth = (t: Tuple) => elementType === 'beam' && M(t) < -0.001
       ? (t.stationT <= tStartEnd ? startDepth : t.stationT >= tEndStart ? endDepth : Math.min(startDepth, endDepth))
       : Infinity;
+    const topStartExtent = startCoverage.reduce((end, { group, to }) =>
+      layersTotalArea(group.layers) > 0 ? Math.min(end, to) : end, 1);
+    const topEndExtent = endCoverage.reduce((start, { group, from }) =>
+      layersTotalArea(group.layers) > 0 ? Math.max(start, from) : start, 0);
+    const variesTopLayout = elementType === 'beam' && (drawnBars !== undefined || topStartExtent < 1 || topEndExtent > 0);
+    const topLayoutAt = (t: number) => {
+      const atStart = t <= tStartEnd, atEnd = t >= tEndStart;
+      return { usesStart: !atEnd || atStart, usesEnd: !atStart || atEnd, support: atStart || atEnd };
+    };
+    const sustainedHoggingLayout = (t: number) => {
+      const { usesStart, usesEnd } = topLayoutAt(t);
+      if (drawnBars) {
+        return (!usesStart || layersAreDrawn('top', topStartLayers, t))
+          && (!usesEnd || layersAreDrawn('top', topEndLayers, t));
+      }
+      return (!usesStart || t <= topStartExtent) && (!usesEnd || t >= topEndExtent);
+    };
+    const drawnTop = drawnBars?.filter(bar => bar.face === 'top');
+    const drawnTopAt = (t: number): RebarLayer[] => {
+      const seats = new Map<string, { row: number; diameter: number }>();
+      for (const { from, to, row, diameter, place } of drawnTop ?? []) {
+        if (t < from || t > to) continue;
+        for (const slot of place.slots) {
+          const key = `${row}:${slot}`;
+          if (diameter < (seats.get(key)?.diameter ?? Infinity)) seats.set(key, { row, diameter });
+        }
+      }
+      const layers = new Map<string, RebarLayer>();
+      for (const { row, diameter } of seats.values()) {
+        const key = `${row}:${diameter}`;
+        const layer = layers.get(key);
+        if (layer) layer.count++;
+        else layers.set(key, { row, diameter, count: 1 });
+      }
+      return [...layers.values()];
+    };
+    const startRows = variesTopLayout && !drawnTop
+      ? faceRowDiameters(topStartGroups.flatMap(({ layers }) => layers), topStartPair) : [];
+    const endRows = variesTopLayout && !drawnTop
+      ? faceRowDiameters(topEndGroups.flatMap(({ layers }) => layers), topEndPair) : [];
+    const drawnTopRows = drawnTop && faceRowDiameters(drawnTop.map(({ row, diameter, place }) =>
+      ({ row, diameter, count: place.slots.length })));
+    const hoggingLayoutAt = (t: number): 'regional' | 'unsupported' | { tensionArea: number } => {
+      if (!variesTopLayout || sustainedHoggingLayout(t)) return 'regional';
+      const { usesStart, usesEnd, support } = topLayoutAt(t);
+      const layouts = drawnTopRows ? [{ layers: drawnTopAt(t), rows: drawnTopRows, pair: undefined }] : [
+        ...(usesStart ? [{ layers: startCoverage.filter(({ to }) => t <= to).flatMap(({ group }) => group.layers),
+          rows: startRows, pair: topStartPair }] : []),
+        ...(usesEnd ? [{ layers: endCoverage.filter(({ from }) => t >= from).flatMap(({ group }) => group.layers),
+          rows: endRows, pair: topEndPair }] : []),
+      ];
+      const stirrups = stirrupsAtT(t) ?? [support ? stirSupport : stirSpan];
+      const largestStirrup = Math.max(section.stirrupDia, ...stirrups.map(stir => stir?.diameter ?? section.stirrupDia));
+      const required = bottomLayers.length ? d : d + (largestStirrup - section.stirrupDia) / 1000;
+      let tensionArea = Infinity;
+      for (const { layers, rows, pair } of layouts) {
+        const area = layersTotalArea(layers);
+        if (!(area > 0)) continue;
+        const deepestRow = Math.max(...layers.map(({ row }) => row));
+        if (rows.slice(0, deepestRow + 1).some(row => !row.length)) return 'unsupported';
+        const inset = seatedLayerCentroid(layers, rows, section.cover, section.stirrupDia, spacingRule.edition, pair);
+        const depth = section.h - (inset + topShift);
+        if (!Number.isFinite(depth) || depth < required || (support && area < supportSteelArea)) return 'unsupported';
+        tensionArea = Math.min(tensionArea, area);
+      }
+      return Number.isFinite(tensionArea) ? { tensionArea } : 'unsupported';
+    };
+    const shearLayoutBreaks = variesTopLayout
+      ? drawnTop?.flatMap(({ from, to }) => [from, to])
+        ?? [...startCoverage.map(({ to }) => to), ...endCoverage.map(({ from }) => from)]
+      : [];
+    const shearLayoutIntervals = (positions: readonly number[]) => {
+      const breaks = [...new Set([0, tStartEnd, tEndStart, 1, ...positions].filter(t => t >= 0 && t <= 1))]
+        .sort((a, b) => a - b);
+      return breaks.slice(1).map((to, i) => {
+        const from = breaks[i]!, mid = (from + to) / 2;
+        return { from, to, mid, support: mid <= tStartEnd || mid >= tEndStart };
+      });
+    };
+    const cageExtents = stirrupCoverage?.flatMap(({ from, to }) => [from, to]) ?? [];
+    const shearDepthIntervals = variesTopLayout
+      ? shearLayoutIntervals([...shearLayoutBreaks, ...(!bottomLayers.length ? cageExtents : [])])
+        .filter(({ mid }) => hoggingLayoutAt(mid) === 'unsupported') : [];
+    const bottomBreaks = (drawnBars?.filter(bar => bar.face === 'bottom')
+      .flatMap(({ from, to }) => [from, to]) ?? bottomCoverage.flatMap(({ from, to }) => [from, to]))
+      .filter(t => t > 0 && t < 1);
+    const shearDemandLimit = 0.001;
+    type ShearCut = { tuple: Tuple; Vu: number };
+    const shearCut = (tuple: Tuple): ShearCut => ({ tuple, Vu: Math.abs(V(tuple)) });
+    const activeHoggingShear = ({ tuple, Vu }: ShearCut) => Vu >= shearDemandLimit && M(tuple) < -shearDemandLimit;
+    const crossesThreshold = (a: number, b: number, limit: number) => (a < limit) !== (b < limit);
+    const thresholdFraction = (a: number, b: number, limit: number) =>
+      crossesThreshold(a, b, limit) ? (limit - a) / (b - a) : undefined;
+    const bracketsTension = (a: Tuple, b: Tuple, face: 'top' | 'bottom') => {
+      const sign = face === 'top' ? 1 : -1;
+      return crossesThreshold(sign * M(a), sign * M(b), -shearDemandLimit);
+    };
+    const bracketShear = (a: Tuple, b: Tuple) => Math.max(Math.abs(V(a)), Math.abs(V(b)));
+    const momentThresholds = (combo: readonly Tuple[]) => {
+      const positions: number[] = [];
+      for (let i = 1; i < combo.length; i++) {
+        const a = combo[i - 1]!, b = combo[i]!;
+        const fraction = thresholdFraction(M(a), M(b), -shearDemandLimit);
+        if (fraction !== undefined) positions.push(a.stationT + fraction * (b.stationT - a.stationT));
+      }
+      return positions;
+    };
+    const retainedSpanCuts = (): ShearCut[] => {
+      if (spacingRule.edition !== '2025' || !shearLayoutBreaks.some(t => t > 0 && t < 1)) return [];
+      const candidates = stirrupCoverage ?? (stirSpan ? [stirSpan] : []);
+      const rowCCages = new Set(candidates.filter(stir =>
+        computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, d, section.fc, section.fy, 0,
+          { Ag: section.b * section.h, h: section.h, edition: spacingRule.edition }).avBelowMin));
+      if (!rowCCages.size) return [];
+      const breaks = [tStartEnd, tEndStart, ...shearLayoutBreaks];
+      return collectCuts(combo => cutPositionsAround([...breaks, ...momentThresholds(combo)]), (a, b, t): ShearCut => {
+        const tuple = a.interpolate(b, t);
+        return bracketsTension(a, b, 'top') ? { tuple, Vu: bracketShear(a, b) } : shearCut(tuple);
+      }).filter(({ tuple, Vu }) =>
+        tuple.stationT > tStartEnd && tuple.stationT < tEndStart && Vu >= shearDemandLimit
+        && (stirrupsAt(tuple) ?? (stirSpan ? [stirSpan] : [])).some(stir => rowCCages.has(stir))
+        && typeof hoggingLayoutAt(tuple.stationT) === 'object');
+    };
+    type ShearOverlap = { a: Tuple; b: Tuple; from: number; to: number };
+    function* shearLayoutOverlaps(intervals: readonly { from: number; to: number }[]): Generator<ShearOverlap> {
+      if (!intervals.length) return;
+      for (const combo of stationCombos()) {
+        let start = 0;
+        for (let i = 1; i < combo.length; i++) {
+          const a = combo[i - 1]!, b = combo[i]!;
+          while (start < intervals.length && intervals[start]!.to <= a.stationT) start++;
+          for (let j = start; j < intervals.length && intervals[j]!.from < b.stationT; j++) {
+            const interval = intervals[j]!;
+            const from = Math.max(a.stationT, interval.from), to = Math.min(b.stationT, interval.to);
+            if (from < to) yield { a, b, from, to };
+          }
+        }
+      }
+    }
+    const transitionCut = ({ a, b, from, to }: ShearOverlap, face: 'top' | 'bottom'): ShearCut | undefined => {
+      if (!bracketsTension(a, b, face)) return undefined;
+      const Vu = bracketShear(a, b);
+      return Vu >= shearDemandLimit ? { tuple: a.interpolate(b, (from + to) / 2), Vu } : undefined;
+    };
+    const topCutoffWitness = (support: boolean): { interpolated?: ShearCut; transition?: ShearCut } => {
+      let transition: ShearCut | undefined;
+      for (const overlap of shearLayoutOverlaps(shearDepthIntervals.filter(interval => interval.support === support))) {
+        const { a, b, from, to } = overlap;
+        transition ??= transitionCut(overlap, 'top');
+        const left = a.interpolate(b, from), right = a.interpolate(b, to);
+        const cuts = [0, 1];
+        for (const fraction of [thresholdFraction(M(left), M(right), -shearDemandLimit),
+          thresholdFraction(V(left), V(right), shearDemandLimit), thresholdFraction(V(left), V(right), -shearDemandLimit)]) {
+          if (fraction !== undefined && fraction > 0 && fraction < 1) cuts.push(fraction);
+        }
+        cuts.sort((u, v) => u - v);
+        for (let k = 1; k < cuts.length; k++) {
+          const cut = shearCut(a.interpolate(b, from + (to - from) * (cuts[k - 1]! + cuts[k]!) / 2));
+          if (activeHoggingShear(cut) && hoggingLayoutAt(cut.tuple.stationT) === 'unsupported') return { interpolated: cut };
+        }
+      }
+      return { transition };
+    };
     const shearSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; rhoW: number; steelArea: number }> = [
       { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoOf(supportSteelArea), steelArea: supportSteelArea },
       { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart], rhoW: rhoOf(spanSteelArea), steelArea: spanSteelArea },
@@ -2973,49 +3142,100 @@ function evaluateProvidedReinforcement(
       let count = 0;
       const support = ss === shearSpecs[0];
       const inRegion = (t: Tuple) => supportAt(t.stationT) === support;
-      const shearAtCage = (t: Tuple, stir: StirrupDef) => {
+      const shearAtCage = (t: Tuple, stir: StirrupDef, tensionArea?: number) => {
         const depth = bottomLayers.length ? d + (section.stirrupDia - stir.diameter) / 1000 : d;
-        const rhoW = depth === d ? ss.rhoW : ss.rhoW * d / depth;
+        const rhoW = tensionArea !== undefined ? tensionArea / (section.b * depth * 1e4)
+          : depth === d ? ss.rhoW : ss.rhoW * d / depth;
         const capacity = computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, depth, section.fc, section.fy, -t.n,
           { Ag: section.b * section.h, rhoW, h: section.h, edition: spacingRule.edition, unrounded: true });
         return { depth, capacity };
       };
-      const shearEvidenceRefusal = (t: Tuple, cages?: readonly StirrupDef[]) => {
-        if (!drawnBars) return !forSelection && tensionDepth(t) < d ? 'diag.rcShearDepth' : undefined;
+      type ShearEvidence =
+        | { reason: 'diag.rcDrawnBarExtent' | 'diag.rcShearCutoff' | 'diag.rcShearDepth' | 'diag.rcShearTensionSteel'; tensionArea?: never }
+        | { reason?: never; tensionArea?: number };
+      const sparseShearCages = (t: Tuple, cages?: readonly StirrupDef[]) =>
+        (cages ?? stirrupsAt(t) ?? (ss.stir ? [ss.stir] : []))
+          .map(stir => ({ stir, ...shearAtCage(t, stir) })).filter(check => check.capacity.avBelowMin);
+      const tensionSteelRefusal = (
+        steel: { area: number; depth: number }, sparse: ReturnType<typeof sparseShearCages>,
+      ): 'diag.rcShearTensionSteel' | 'diag.rcShearDepth' | undefined => {
+        if (!(steel.area >= ss.steelArea)) return 'diag.rcShearTensionSteel';
+        if (sparse.some(({ stir, depth }) => !(steel.depth + (section.stirrupDia - stir.diameter) / 1000 >= depth))) {
+          return 'diag.rcShearDepth';
+        }
+        return undefined;
+      };
+      const bottomCutoffWitness = () => {
+        if (!support || elementType !== 'beam' || spacingRule.edition !== '2025' || !bottomBreaks.length) return undefined;
+        const intervals = shearLayoutIntervals([...bottomBreaks, ...cageExtents]).filter(interval => interval.support);
+        const fullArea = layersTotalArea(bottomLayers);
+        const rows = drawnBars ? [] : faceRowDiameters(bottomLayers);
+        for (const overlap of shearLayoutOverlaps(intervals)) {
+          const cut = transitionCut(overlap, 'bottom');
+          if (!cut) continue;
+          const t = cut.tuple.stationT;
+          const layers = drawnBars ? []
+            : bottomCoverage.filter(({ from, to }) => from <= t && t <= to).flatMap(({ group }) => group.layers);
+          const area = layersTotalArea(layers);
+          if (drawnBars ? layersAreDrawn('bottom', bottomLayers, t) : area >= fullArea) continue;
+          const sparse = sparseShearCages(cut.tuple);
+          if (!sparse.length) continue;
+          const steel = drawnBars ? shearSteelAt('bottom', t) : {
+            area,
+            depth: area > 0
+              ? section.h - (seatedLayerCentroid(layers, rows, section.cover, section.stirrupDia, spacingRule.edition) + bottomShift)
+              : 0,
+          };
+          const reason = tensionSteelRefusal(steel, sparse);
+          if (reason) return { reason, cut };
+        }
+        return undefined;
+      };
+      const shearEvidence = (cut: ShearCut, cages?: readonly StirrupDef[]): ShearEvidence => {
+        const t = cut.tuple;
         const supportTop = t.stationT <= tStartEnd ? topStartLayers : topEndLayers;
         const regionalLayers = support ? supportTop : bottomLayers;
         const regionalFace = support ? 'top' : 'bottom';
-        if (!layersAreDrawn(regionalFace, regionalLayers, t.stationT)) return 'diag.rcDrawnBarExtent';
-        if (forSelection) return undefined;
-        if (elementType === 'beam' && spacingRule.edition === '2025') {
+        if (!layersAreDrawn(regionalFace, regionalLayers, t.stationT)) return { reason: 'diag.rcDrawnBarExtent' };
+        const layout = activeHoggingShear(cut) ? hoggingLayoutAt(t.stationT) : 'regional';
+        if (layout === 'unsupported') return { reason: 'diag.rcShearCutoff' };
+        const tensionArea = !support && typeof layout === 'object' ? layout.tensionArea : undefined;
+        if (forSelection) return { tensionArea };
+        if (drawnBars && elementType === 'beam' && spacingRule.edition === '2025') {
           const moment = M(t);
-          const tensionFace = moment < -0.001 ? 'top' : moment > 0.001 ? 'bottom' : regionalFace;
+          const tensionFace = moment < -shearDemandLimit ? 'top' : moment > shearDemandLimit ? 'bottom' : regionalFace;
           if (tensionFace !== regionalFace) {
-            const stirrups = cages ?? stirrupsAt(t) ?? (ss.stir ? [ss.stir] : []);
-            const sparse = stirrups.map(stir => ({ stir, ...shearAtCage(t, stir) })).filter(check => check.capacity.avBelowMin);
+            const sparse = sparseShearCages(t, cages);
             if (sparse.length) {
-              const steel = shearSteelAt(tensionFace, t.stationT);
-              if (!(steel.area >= ss.steelArea)) return 'diag.rcShearTensionSteel';
-              if (sparse.some(({ stir, depth }) => !(steel.depth + (section.stirrupDia - stir.diameter) / 1000 >= depth))) {
-                return 'diag.rcShearDepth';
-              }
-              return undefined;
+              const reason = tensionSteelRefusal(shearSteelAt(tensionFace, t.stationT), sparse);
+              return reason ? { reason } : { tensionArea };
             }
           }
         }
-        return tensionDepth(t) < d ? 'diag.rcShearDepth' : undefined;
+        if (layout === 'regional' && tensionDepth(t) < d) return { reason: 'diag.rcShearDepth' };
+        return { tensionArea };
       };
       let refusal: { reason: string; Vu: number; t: Tuple; missing?: true } | undefined;
+      const recordRefusal = (reason: NonNullable<ShearEvidence['reason']>, { tuple: t, Vu }: ShearCut) => {
+        if (refusal?.missing || refusal?.reason === 'diag.rcDrawnBarExtent') return;
+        if (!refusal || reason === 'diag.rcDrawnBarExtent'
+          || (reason === 'diag.rcShearCutoff' && refusal.reason !== reason)) {
+          refusal = { reason, Vu, t };
+        }
+      };
       const evidenceCuts = [...drawnBarCuts, ...shearEvidenceCuts].filter(inRegion);
-      for (const t of evidenceCuts) {
-        const Vu = Math.abs(V(t));
-        if (Vu < 0.001) continue;
-        const reason = shearEvidenceRefusal(t);
-        if (reason && !refusal) refusal = { reason, Vu, t };
+      for (const tuple of evidenceCuts) {
+        const cut = shearCut(tuple);
+        if (cut.Vu < shearDemandLimit) continue;
+        const { reason } = shearEvidence(cut);
+        if (reason) recordRefusal(reason, cut);
       }
-      const cuts = new Set([...ss.tuples, ...gapCuts.filter(inRegion), ...zoneCuts.filter(inRegion)]);
-      for (const t of cuts) {
-        const Vu = Math.abs(V(t));
+      const cutoff = topCutoffWitness(support);
+      if (cutoff.interpolated) recordRefusal('diag.rcShearCutoff', cutoff.interpolated);
+      const standardCuts = new Set([...ss.tuples, ...gapCuts.filter(inRegion), ...zoneCuts.filter(inRegion)]);
+      const retainedCuts = support ? [] : retainedSpanCuts();
+      for (const cut of [...Array.from(standardCuts, shearCut), ...retainedCuts]) {
+        const { tuple: t, Vu } = cut;
         if (Vu < 0.001) continue;
         count++;
         const stirrups = stirrupsAt(t) ?? (ss.stir ? [ss.stir] : []);
@@ -3023,9 +3243,9 @@ function evaluateProvidedReinforcement(
           if (!refusal?.missing || Vu > refusal.Vu) refusal = { reason: 'diag.rcShearGap', Vu, t, missing: true };
           continue;
         }
-        const reason = shearEvidenceRefusal(t, stirrups);
+        const { reason, tensionArea } = shearEvidence(cut, stirrups);
         if (reason) {
-          if (!refusal) refusal = { reason, Vu, t };
+          recordRefusal(reason, cut);
           if (reason !== 'diag.rcShearTensionSteel') continue;
         }
         // Solver convention is + = tension; computeShearCapacity expects
@@ -3033,7 +3253,7 @@ function evaluateProvidedReinforcement(
         // compression took the tension branch (Vc reduced to 0 → gross false
         // failures) and tension the enhancement branch (Vc inflated → unsafe).
         for (const stir of stirrups) {
-          const { depth, capacity: cap } = shearAtCage(t, stir);
+          const { depth, capacity: cap } = shearAtCage(t, stir, tensionArea);
           if (!reason) {
             const phiVn = +cap.phiVn.toFixed(2);
             const ratio = phiVn > 1e-6 ? Vu / phiVn : Number.POSITIVE_INFINITY;
@@ -3059,6 +3279,13 @@ function evaluateProvidedReinforcement(
               minShort = { Vu, threshold, AvMin: cap.AvMin ?? 0, Av, stir, comboName: t.comboName, stationX: t.stationX };
             }
           }
+        }
+      }
+      if (!refusal) {
+        if (cutoff.transition) recordRefusal('diag.rcShearCutoff', cutoff.transition);
+        else {
+          const bottomCutoff = bottomCutoffWitness();
+          if (bottomCutoff) recordRefusal(bottomCutoff.reason, bottomCutoff.cut);
         }
       }
       if (held) shallowMinShear.push(held);
@@ -3201,7 +3428,8 @@ function evaluateProvidedReinforcement(
             || (reason === 'diag.rcTorsionPerimeter' && longitudinalRefusal.reason === 'diag.rcTorsionSplice'))) longitudinalRefusal = { t: x.t, reason };
         };
         let evaluated = 0;
-        const torsionCuts = new Set([...cuts, ...longitudinalCuts.filter(inRegion)]);
+        const retainedTorsionCuts = retainedCuts.map(({ tuple }) => tuple).filter(t => Math.abs(V(t)) >= shearDemandLimit);
+        const torsionCuts = new Set([...standardCuts, ...retainedTorsionCuts, ...longitudinalCuts.filter(inRegion)]);
         const canCheckLongitudinal = (x: TorsionAtStation) => !x.r.refusal || x.r.refusal === 'diag.rcTorsionSecondaryFace';
         for (const t of torsionCuts) {
           if (isDrawnGap(t) && torsionActivation(section, spacingRule.edition, t.section(axes.flexure)).neglect) continue;

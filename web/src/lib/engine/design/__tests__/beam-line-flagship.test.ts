@@ -23,6 +23,7 @@ describe('the flagship beam lines, as lines', () => {
     const bottomExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377, 381, 385, 389, 393]);
     const secondaryExtentRefusals = new Set([363, 365, 366, 368, 369, 371, 372, 374, 375, 377]);
     const overallExtentRefusals = new Set([378, 381, 382, 385, 386, 389, 390, 393]);
+    const spanMinimumShortfalls = new Set([363, 366, 369, 372, 375]);
     const spanTensionSteelRefusals = new Set([
       178, 179, 190, 191, 208, 209, 210, 213, 214, 215, 216, 219,
       220, 221, 222, 239, 240, 241, 242, 243, 244, 245, 246, 247,
@@ -98,6 +99,12 @@ describe('the flagship beam lines, as lines', () => {
         }
         const prescribed = original.checks.filter(primaryShear);
         const projected = drawn.checks.filter(primaryShear);
+        expect(projected.filter(row => row.description === 'diag.rcShearCutoff'), `member ${id}`).toEqual([]);
+        if (overallExtentRefusals.has(id)) {
+          expect(projected.find(row => row.category === 'Shear Span (Vz)'), `member ${id}`).toMatchObject({
+            status: 'ok', limiting: 'shear', ratio: 0.388,
+          });
+        }
         const tensionRefusals = projected.filter(row => row.description === 'diag.rcShearTensionSteel');
         expect(tensionRefusals.map(row => row.category), `member ${id}`)
           .toEqual(spanTensionSteelRefusals.has(id) ? ['Shear Span (Vz)'] : []);
@@ -111,10 +118,18 @@ describe('the flagship beam lines, as lines', () => {
           expect(corresponding!.ratio, `member ${id} ${row.category}`).toBeGreaterThanOrEqual(row.ratio);
         }
         const added = projected.filter(c => !prescribed.some(r => r.category === c.category));
-        if (added.length) {
-          expect(added, `member ${id}`).toHaveLength(1);
-          expect(added[0]!.category, `member ${id}`).toContain('Av,min §9.6.3.1');
-          expect(added[0], `member ${id}`).toMatchObject({ status: 'fail', ratio: 1.546, limiting: 'shear' });
+        const extraSpanRow = spanMinimumShortfalls.has(id);
+        if (added.length || extraSpanRow) {
+          expect(added, `member ${id}`).toHaveLength(extraSpanRow ? 2 : 1);
+          if (extraSpanRow) {
+            expect(added.map(row => row.category).sort(), `member ${id}`).toEqual([
+              'Shear Span (Vz) Av,min §9.6.3.1', 'Shear Support (Vz) Av,min §9.6.3.1',
+            ]);
+          }
+          for (const row of added) {
+            expect(row.category, `member ${id}`).toContain('Av,min §9.6.3.1');
+            expect(row, `member ${id}`).toMatchObject({ status: 'fail', ratio: 1.546, limiting: 'shear' });
+          }
           expect(outcomeFromProvided(cirsoc201Adapter, ctx, turned, drawn), `member ${id}`).toBeNull();
           minimumShortfalls.push(id);
         }

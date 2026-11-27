@@ -15,6 +15,7 @@ import type { CheckRow } from '../../../design-contract';
 import es from '../../../i18n/locales/es';
 import en from '../../../i18n/locales/en';
 import pt from '../../../i18n/locales/pt';
+import de from '../../../i18n/locales/de';
 
 const LIMITING = ['flexure', 'shear', 'axialFlexure', 'biaxial', 'torsion', 'barFit', 'barSpacing', 'anchorage', 'minSteel', 'maxSteel', 'tieSpacing', 'congestion', 'cover'] as const;
 const check = (limiting: string, extra = {}) => ({ category: `c-${limiting}`, demandCategory: null, demand: 80, capacity: 100, ratio: 0.8, status: 'ok', unit: 'kN·m', method: 'capacity', tuplesChecked: 1, description: '4 Ø16 → φMn = 100 kN·m', comboName: 'U1', stationX: 2.4, limiting, ...extra });
@@ -43,7 +44,7 @@ function everyRow(): CheckRow[] {
     mat: { x: { Mu: 60, d: 0.42, diameterMm: 12, asGoverning: 8e-4, asProvided: 9e-4, barCount: 8, governingClause: '13.3.3.1' }, y: { Mu: 55, d: 0.41, diameterMm: 12, asGoverning: 7e-4, asProvided: 9e-4, barCount: 8, governingClause: '' } } } as never));
   rows.push(...jointShearCheckRows({ nodeId: 3, columnId: 2, direction: 'X', combo: 'U1', check: { status: 'OK', Vu: 200, phiVn: 500, utilization: 0.4, refs: [] } } as never));
   rows.push(...seismicMemberCheckRows({ id: 1, kind: 'beam', role: 'primary', shear: { ve: 100, phiVn: 150, utilization: 0.67, vcZero: true }, ok: true, issues: [] } as never));
-  rows.push(...seismicMemberCheckRows({ id: 2, kind: 'column', role: 'primary', ok: false, issues: ['seisDes.issue.x'] } as never));
+  rows.push(...seismicMemberCheckRows({ id: 2, kind: 'column', role: 'primary', ok: false, refusal: 'seisDes.issue.missingForces', issues: ['seisDes.issue.missingForces'] }));
   rows.push(...seismicJointCheckRows({ nodeId: 3, direction: 'X', columns: [], beams: [], ok: true,
     strongColumn: { sumColumns: 300, sumBeams: 200, required: 240, utilization: 0.8, ok: true, roof: false }, shear: { T: 500, vj: 400, phiVn: 900, utilization: 0.44, confinement: 'interior' } } as never));
   return rows;
@@ -182,4 +183,70 @@ describe('quantities', () => {
     expect(memberFormwork('beam', 0.2, 0.5, 4)).toBeCloseTo(4.8, 12);
     expect(memberFormwork('column', 0.3, 0.3, 3)).toBeCloseTo(3.6, 12);
   });
+});
+
+
+it('#2355 refused rows govern the report cell and retain their reasons', () => {
+  const [passing] = concreteCheckRows({ elementId: 1, elementType: 'beam', hasProvided: true,
+    overallStatus: 'ok', worstUtilization: 0.42, checkedAxes: [], strengthCheckCount: 1,
+    checks: [check('shear', { ratio: 0.42, status: 'ok' })] } as never);
+  const element = input().elements.find(e => e.family === 'beam')!;
+  const render = (rows: CheckRow[]) => familySummary([{ ...element, rows }], ctx(), 'beam');
+  for (const status of ['notVerified', 'unsupported'] as const) {
+    const refused = { ...passing!, status, ratio: null, formula: 'The tension bars end before the cut' };
+    const another = { ...refused, formula: 'Hoop geometry is unknown' };
+    for (const order of [[passing!, refused, another], [another, refused, passing!]]) {
+      const html = render(order);
+      expect.soft(html).toContain('N.E.');
+      expect.soft(html).toContain(refused.formula);
+      expect.soft(html).toContain(another.formula);
+      expect.soft(html).not.toContain('<span class="s-ok">η = 0.42</span>');
+    }
+  }
+  expect(render([passing!])).toContain('<span class="s-ok">η = 0.42</span>');
+});
+
+
+it.each(['diag.rcShearCutoff', 'diag.rcShearTensionSteel'] as const)(
+  '#2355 / #2373 %s shares the shear column and renders a translated reason', (refusal) => {
+    const element = input().elements.find(e => e.family === 'beam')!;
+    const rows = concreteCheckRows({ elementId: 1, elementType: 'beam', hasProvided: true,
+      overallStatus: 'fail', worstUtilization: Infinity, checkedAxes: ['Vz'], strengthCheckCount: 2,
+      checks: [
+        check('shear', { category: 'Shear Support (Vz)', demandCategory: 'Vz', ratio: 0.42 }),
+        check('unsupportedCheck', { category: 'Shear Span (Vz)', demandCategory: 'Vz', status: 'fail', ratio: Infinity, description: refusal }),
+      ],
+    } as never);
+    for (const locale of [en, es, pt]) {
+      const c = { ...ctx(), tr: (key: string) => (locale as Record<string, string>)[key] ?? key };
+      const summary = familySummary([{ ...element, rows }], c, 'beam');
+      expect(summary).toContain('N.E.');
+      expect(summary).toContain(locale[refusal]);
+      expect(summary).not.toContain('<span class="s-ok">η = 0.42</span>');
+      expect(renderFicha(rows[1]!, c)).toContain(locale[refusal]);
+    }
+  },
+);
+
+it('#2355 a shear refusal without a clause governs the strength summary', () => {
+  const rows = concreteCheckRows({ elementId: 1, elementType: 'beam', hasProvided: true,
+    overallStatus: 'fail', worstUtilization: Infinity, checkedAxes: ['Vz'], strengthCheckCount: 2,
+    checks: [
+      check('shear', { category: 'Shear Support (Vz)', demandCategory: 'Vz', ratio: 0.42 }),
+      check('unsupportedCheck', { category: 'Unverified cut (Vz)', demandCategory: 'Vz', status: 'fail', ratio: Infinity, description: 'diag.rcShearCutoff' }),
+    ],
+  } as never);
+  expect(rows[0]?.clause).toBe('22.5');
+  const element = input().elements.find(e => e.family === 'beam')!;
+  const render = (checks: CheckRow[]) => familySummary([{ ...element, rows: checks }], ctx(), 'beam');
+  for (const order of [rows, [...rows].reverse()]) {
+    const summary = render(order);
+    expect.soft(summary).toContain('N.E.');
+    expect.soft(summary).not.toContain('<span class="s-ok">η = 0.42</span>');
+  }
+  expect(render([rows[0]!])).toContain('<span class="s-ok">η = 0.42</span>');
+});
+
+it('#2355 the German shear refusal says the check remains unverified', () => {
+  expect(de['diag.rcShearCutoff']).toContain('Der Querkraftnachweis konnte nicht geführt werden');
 });
