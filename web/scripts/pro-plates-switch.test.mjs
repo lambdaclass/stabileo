@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build, resolveConfig } from 'vite';
+import { build, createServer, resolveConfig } from 'vite';
 import { readRegistry, readRegistryAt } from './result-changes/registry.mjs';
 import { featuresForMode } from '../config/public-features.mjs';
 import { withProductionFeatures } from './public-features-test-fixture.mjs';
@@ -39,10 +39,25 @@ test('mesher translations are lazy in the unified profile and use the checkout d
         }
       } else {
         assert.equal(mesher, null);
-        for (const locale of locales) {
-          const previous = readFileSync(resolve(root, `src/lib/i18n/locales/${locale}.ts`), 'utf8');
-          const lines = text => text.split('\n').filter(line => /^\s*['"]mesher\./.test(line));
-          assert.deepEqual(lines(load('app-i18n/' + locale)), lines(previous), locale);
+        const sources = await createServer({ root, configFile, logLevel: 'silent', server: { middlewareMode: true, watch: null } });
+        try {
+          for (const locale of locales) {
+            const source = resolve(root, 'src/lib/i18n/locales', locale + '.ts');
+            const previous = readFileSync(source, 'utf8');
+            const lines = text => text.split('\n').filter(line => /^\s*['"]mesher\./.test(line));
+            const literalLines = lines(previous);
+            const literalKeys = new Set(literalLines.map(line => /^\s*['"]([^'"]+)['"]/.exec(line)[1]));
+            const { default: dictionary } = await sources.ssrLoadModule(source);
+            const mesherEntries = Object.entries(dictionary).filter(([key]) => key.startsWith('mesher.'));
+            const spreadLines = mesherEntries.filter(([key]) => !literalKeys.has(key))
+              .map(([key, value]) => JSON.stringify(key) + ': ' + JSON.stringify(value) + ',');
+            const generated = load('app-i18n/' + locale);
+            assert.deepEqual(lines(generated), [...literalLines, ...spreadLines], locale);
+            const { [locale]: emitted } = await import('data:text/javascript;base64,' + Buffer.from(generated).toString('base64'));
+            assert.deepEqual(Object.fromEntries(Object.entries(emitted).filter(([key]) => key.startsWith('mesher.'))), Object.fromEntries(mesherEntries), locale);
+          }
+        } finally {
+          await sources.close();
         }
       }
     });
