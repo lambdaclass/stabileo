@@ -24,7 +24,7 @@ describe('app modes and their addresses', () => {
   });
 });
 
-it.skip('known wrong result: #1927 — an education route identifier cannot enable a live solve', async () => {
+it('known wrong result: #1927 — an education route identifier cannot enable a live solve', async () => {
   const { liveCalcFollowsEdits } = await import('../engine/live-calc-state');
   for (const path of ['/app/education', '/app/exam/K7Q2M9XWPA']) {
     expect(liveCalcFollowsEdits(true, pathToMode(path) as never)).toBe(false);
