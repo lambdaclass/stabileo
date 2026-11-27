@@ -11,6 +11,16 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class CiAggregate(unittest.TestCase):
+    @unittest.skip('known wrong result: outer parity selection leaks into fixture')
+    def test_parity_fixture_uses_its_own_git_history_and_build_mode(self):
+        env = {**os.environ, 'BASE': 'outer-repository-revision', 'PARITY_COMPARE': 'outer-inventories'}
+        result = subprocess.run(
+            [os.sys.executable, '-B', __file__,
+             'ParityWorkflow.test_candidate_defaults_to_merge_base_and_honours_explicit_base'],
+            env=env, text=True, capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_vitest_targets_honour_optional_worker_cap(self):
         for target in ['test.web.unit', 'test.web.unit.production', 'test.web.unit.switch-on', 'test.web.timing']:
             for workers in ['', '1', '2']:
