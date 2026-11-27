@@ -5,7 +5,7 @@
  */
 import {
   applyMinimumWindLoad, computeWindPressures, internalPressureCoefficient, velocityPressure, G_RIGID,
-  SERVICE_WIND_FACTOR, EXPOSURE_CONSTANTS, type WindProject,
+  SERVICE_WIND_FACTOR, velocityPressureHeightBreaks, type WindProject,
 } from '../../codes/cirsoc102/wind';
 import { gustEffectFactor, dynamicSensitivity, meanHourlySpeed, equivalentHeight, type GustResult } from '../../codes/cirsoc102/gust';
 import { gustInputsFor, isLowRise } from './wind-dynamics';
@@ -201,12 +201,15 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
          * itself, so Wa was W.
          */
         const profileScale = service ? (speed / input.wind!.basicSpeed) ** 2 : 1;
-        const density = (z: number) => profile ? profileScale * profileMean(profile, z, z) : (qz(z) * G * cpWw - res.qhNm2 * G * cpLw) / 1000;
+        const exposureBreaks = velocityPressureHeightBreaks(project.exposure);
+        const density = profile
+          ? (z: number) => profileScale * profileMean(profile, z, z)
+          : Object.assign((z: number) => (qz(z) * G * cpWw - res.qhNm2 * G * cpLw) / 1000, { curvatureBreaks: exposureBreaks });
         const net = density(h);
 
         const lowest = Math.min(...levels.map(l => l.elevation));
         const from = lowest > 0 ? Math.max(0, ...modelElevations.filter(z => z < lowest - 1e-6)) : Math.max(0, lowest);
-        const boundaries = [...elevations, 5, EXPOSURE_CONSTANTS[project.exposure].zg, ...(profile?.map(([z]) => z) ?? [])];
+        const boundaries = [...elevations, ...exposureBreaks, ...(profile?.map(([z]) => z) ?? [])];
         const pressure = region && across === 0 ? { loads: new Map<number, number>(), baseLoads: new Map<number, number>(), torque: 'resolved' as const, members: [] } : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, pressure: density, width: across > 0 ? across : input.tributaryWidth });
         const design = service || profile || (region && across === 0) ? pressure : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, pressure: () => 0.75, width: across > 0 ? across : input.tributaryWidth });
         const atNodes = (loads: Map<number, number>, raw: Map<number, number>): WindLevel[] => [...loads].map(([id, force]) => ({ elevation: input.model.nodes.get(id)!.z ?? 0, nodeIds: [id], force, pressureForce: raw.get(id) ?? 0 }));

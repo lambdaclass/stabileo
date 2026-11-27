@@ -18,13 +18,109 @@ export const pressureQuadrature = [[-outer, outerWeight], [-inner, innerWeight],
 
 const pressureFitStations = [0, ...pressureQuadrature.map(([x]) => (1 + x) / 2), 1];
 
-export function integrateWindPressure(length: number, boundaries: readonly number[], pressure: (s: number) => number): WindPressurePart[] {
+type PiecewiseConvexity = { readonly curvatureBreaks?: readonly number[] };
+const relativePressureLimit = 1e-4;
+
+type PressureSample = (s: number, toward?: number) => number;
+
+const coordinateBits = new DataView(new ArrayBuffer(Float64Array.BYTES_PER_ELEMENT));
+
+function interiorNeighbor(edge: number, toward: number): number {
+  let neighbor = Math.sign(toward) * Number.MIN_VALUE;
+  if (edge !== 0) {
+    coordinateBits.setFloat64(0, edge);
+    const increasingMagnitude = (toward > edge) === (edge > 0);
+    const bits = coordinateBits.getBigUint64(0) + (increasingMagnitude ? 1n : -1n);
+    coordinateBits.setBigUint64(0, bits);
+    neighbor = coordinateBits.getFloat64(0);
+  }
+  if (!(Math.min(edge, toward) < neighbor && neighbor < Math.max(edge, toward))) {
+    throw new WindPressureRefusal('wind.pressure.integrationUnresolved');
+  }
+  return neighbor;
+}
+
+function pressureEnvelope(a: number, b: number, value: PressureSample, curvatureBreaks: readonly number[]) {
+  const stations = new Set(pressureFitStations.map(t => t === 1 ? b : a + (b - a) * t));
+  const cuts = [...new Set([...stations, ...curvatureBreaks.filter(s => s > a && s < b)])].sort((l, r) => l - r);
+  const sample = (s: number, toward: number) => ({ s, pressure: value(s, toward) });
+  const chords = cuts.slice(1).map((end, i) => ({
+    left: sample(cuts[i]!, end), right: sample(end, cuts[i]!),
+  }));
+  let chordErrorBound = 0, absolutePressureLowerBound = 0, splitChordLowerBound = 0;
+  for (const { left, right } of chords) {
+    const width = right.s - left.s, center = left.s + width / 2;
+    if (!(left.s < center && center < right.s)) {
+      chordErrorBound = Infinity;
+      continue;
+    }
+    const leftWidth = center - left.s, rightWidth = right.s - center;
+    const chordAtCenter = (rightWidth / width) * left.pressure + (leftWidth / width) * right.pressure;
+    const midPressure = value(center), gap = midPressure - chordAtCenter;
+    const meanChordGapBound = Math.abs(gap) * (width / (2 * Math.min(leftWidth, rightWidth)));
+    const chordMean = left.pressure / 2 + right.pressure / 2;
+    chordErrorBound += width * meanChordGapBound;
+    const lowerBound = Math.abs(chordMean) - meanChordGapBound;
+    if (lowerBound > 0) {
+      absolutePressureLowerBound += width * lowerBound;
+    } else {
+      const splitChordArea = leftWidth * (left.pressure / 2 + midPressure / 2)
+        + rightWidth * (midPressure / 2 + right.pressure / 2);
+      splitChordLowerBound += Math.max(0, Math.sign(gap) * splitChordArea);
+    }
+  }
+  const fits = (part: WindPressurePart, budget: number, checkStations: boolean) => {
+    const error = ({ s, pressure }: ReturnType<typeof sample>) => {
+      const t = (s - part.a) / (part.b - part.a);
+      return Math.abs((1 - t) * part.q + t * part.qJ - pressure);
+    };
+    let bound = chordErrorBound;
+    for (const { left, right } of chords) {
+      const leftError = error(left), rightError = error(right);
+      if (checkStations && ((stations.has(left.s) && leftError > relativePressureLimit * Math.abs(left.pressure))
+        || (stations.has(right.s) && rightError > relativePressureLimit * Math.abs(right.pressure)))) return false;
+      bound += (right.s - left.s) * (leftError / 2 + rightError / 2);
+    }
+    return Number.isFinite(budget) && bound <= budget;
+  };
+  const lowerBound = absolutePressureLowerBound === 0 ? splitChordLowerBound : absolutePressureLowerBound;
+  return { a, b, budget: relativePressureLimit * lowerBound, fits };
+}
+
+function cutForceCertificate(a: number, b: number, value: PressureSample, curvatureBreaks: readonly number[]) {
+  const mid = (a + b) / 2;
+  const halves = [pressureEnvelope(a, mid, value, curvatureBreaks), pressureEnvelope(mid, b, value, curvatureBreaks)];
+  return (parts: WindPressurePart[]) => parts.every(part => halves.every(half => {
+    const lo = Math.max(part.a, half.a), hi = Math.min(part.b, half.b);
+    if (lo >= hi) return true;
+    if (lo === half.a && hi === half.b) return half.fits(part, half.budget, parts.length === 2);
+    const portion = pressureEnvelope(lo, hi, value, curvatureBreaks);
+    const budget = half.budget * ((hi - lo) / (half.b - half.a));
+    return portion.fits(part, budget, parts.length === 2);
+  }));
+}
+
+export function integrateWindPressure(length: number, boundaries: readonly number[], pressure: ((s: number) => number) & PiecewiseConvexity): WindPressurePart[] {
+  return projectPressure(0, length, boundaries, pressure, pressure.curvatureBreaks, true);
+}
+
+function projectPressure(start: number, length: number, boundaries: readonly number[], pressure: (z: number) => number,
+  declaredBreaks: readonly number[] | undefined, fixedGeometry: boolean): WindPressurePart[] {
   if (!(Number.isFinite(length) && length > 0)) throw new WindPressureRefusal('wind.pressure.invalidCarrier');
-  const cuts = [...new Set([0, ...boundaries.filter(s => s > 0 && s < length), length])].sort((a, b) => a - b);
+  const local = (z: number) => z - start;
+  const interiorCuts = (points: readonly number[]) => [...new Set(points.map(local).filter(s => s > 0 && s < length))].sort((a, b) => a - b);
+  const cuts = [0, ...interiorCuts(fixedGeometry ? boundaries : [...boundaries, ...(declaredBreaks ?? [])]), length];
+  const curvatureBreaks = fixedGeometry && declaredBreaks?.every(Number.isFinite) ? interiorCuts(declaredBreaks) : undefined;
+  const faces = new Map([...boundaries, ...(declaredBreaks ?? [])].map(z => [local(z), z]));
   type Moments = [number, number, number, number];
   type Integral = { moments: Moments; min: number; max: number };
-  const value = (s: number) => {
-    const p = pressure(s);
+  const value: PressureSample = (s, toward) => {
+    let z = start + s;
+    if (toward !== undefined) {
+      const edge = faces.get(s);
+      if (edge !== undefined) z = interiorNeighbor(edge, start + toward);
+    }
+    const p = pressure(z);
     if (!Number.isFinite(p)) throw new WindPressureRefusal('wind.pressure.nonFinite');
     return p;
   };
@@ -47,18 +143,30 @@ export function integrateWindPressure(length: number, boundaries: readonly numbe
     moments: left.moments.map((v, k) => v + right.moments[k]!) as Moments,
     min: Math.min(left.min, right.min), max: Math.max(left.max, right.max),
   });
-  const integrate = (a: number, b: number, origin: number, depth: number): Integral => {
+  const integrateSmooth = (a: number, b: number, origin: number, depth: number): Integral => {
     const whole = gauss(a, b, origin), mid = (a + b) / 2;
     const split = combine(gauss(a, mid, origin), gauss(mid, b, origin));
     if (split.moments.every((v, k) => Math.abs(v - whole.moments[k]!) <= 1e-12 * (b - a) / length * Math.max(1, Math.abs(v)))) return split;
     if (depth === 24) throw new WindPressureRefusal('wind.pressure.integrationUnresolved');
-    return combine(integrate(a, mid, origin, depth + 1), integrate(mid, b, origin, depth + 1));
+    return combine(integrateSmooth(a, mid, origin, depth + 1), integrateSmooth(mid, b, origin, depth + 1));
   };
-  const twoParts = (a: number, b: number, integral: Integral): WindPressurePart[] | null => {
+  const integrate = (a: number, b: number): Integral => {
+    const ends = [...(curvatureBreaks?.filter(s => s > a && s < b) ?? []), b];
+    let integral = integrateSmooth(a, ends[0]!, a, 0);
+    for (let i = 1; i < ends.length; i++) {
+      integral = combine(integral, integrateSmooth(ends[i - 1]!, ends[i]!, a, 0));
+    }
+    return integral;
+  };
+  const carriesWork = (integral: Integral, replacement: number[], span: number) =>
+    integral.moments.every((v, k) => Math.abs(v - replacement[k]!) <=
+      1e-14 * span / Math.max(1, length) * Math.max(1, Math.abs(integral.moments[0]) * span ** k));
+  const twoParts = (a: number, b: number, integral: Integral): [WindPressurePart, WindPressurePart] | null => {
     const span = b - a, mid = (a + b) / 2, peak = Math.max(Math.abs(integral.min), Math.abs(integral.max));
     const I = (n: number, c: number, d: number) => (d ** (n + 1) - c ** (n + 1)) / (n + 1);
     const piece = (k: number, c: number, d: number) => [(d * I(k, c, d) - I(k + 1, c, d)) / (d - c), (I(k + 1, c, d) - c * I(k, c, d)) / (d - c)];
-    const matrix = [0, 1, 2, 3].map((k) => [...piece(k, 0, 0.5), ...piece(k, 0.5, 1)]);
+    const split = (mid - a) / span;
+    const matrix = [0, 1, 2, 3].map((k) => [...piece(k, 0, split), ...piece(k, split, 1)]);
     const rows = matrix.map((row, k) => [...row, integral.moments[k]! / span ** (k + 1)]);
     for (let c = 0; c < 4; c++) {
       let p = c;
@@ -71,46 +179,43 @@ export function integrateWindPressure(length: number, boundaries: readonly numbe
       }
     }
     const values = rows.map((r, i) => r[4]! / r[i]!);
-    const nonNegative = integral.min >= 0 && value(a) >= 0 && value(b) >= 0, nonPositive = integral.max <= 0 && value(a) <= 0 && value(b) <= 0;
+    const nonNegative = integral.min >= 0 && value(a, b) >= 0 && value(b, a) >= 0, nonPositive = integral.max <= 0 && value(a, b) <= 0 && value(b, a) <= 0;
     if (values.some((v) => !Number.isFinite(v) || (nonNegative && v < -1e-12 * peak) || (nonPositive && v > 1e-12 * peak))) return null;
     const [u1, v1, u2, v2] = values.map((v) => (nonNegative ? Math.max(0, v) : nonPositive ? Math.min(0, v) : v)) as [number, number, number, number];
-    const fit = matrix.map((row) => row[0]! * u1 + row[1]! * v1 + row[2]! * u2 + row[3]! * v2);
-    if (!integral.moments.every((v, k) => Math.abs(v - fit[k]! * span ** (k + 1)) <= 1e-12 * Math.max(Math.abs(v), peak * span ** (k + 1)))) return null;
+    const fit = matrix.map((row, k) => (row[0]! * u1 + row[1]! * v1 + row[2]! * u2 + row[3]! * v2) * span ** (k + 1));
+    if (!carriesWork(integral, fit, span)) return null;
     const part = (c: number, d: number, q: number, qJ: number): WindPressurePart =>
       ({ a: c, b: d, q, qJ, force: (q + qJ) / 2 * (d - c), first: (d - c) * (q * (2 * c + d) + qJ * (c + 2 * d)) / 6 });
-    const parts = [part(a, mid, u1, v1), part(mid, b, u2, v2)];
-    const relativeLimit = 1e-4;
-    for (const { a, b, q, qJ } of parts) {
-      for (const t of pressureFitStations) {
-        const physical = value(t === 1 ? b : a + (b - a) * t);
-        const fitted = (1 - t) * q + t * qJ;
-        if (Math.abs(fitted - physical) > relativeLimit * Math.abs(physical)) return null;
-      }
-    }
-    return Math.abs(parts[0]!.force - integrate(a, mid, a, 0).moments[0]) <= relativeLimit * peak * span ? parts : null;
+    const parts: [WindPressurePart, WindPressurePart] = [part(a, mid, u1, v1), part(mid, b, u2, v2)];
+    return Math.abs(parts[0].force - integrate(a, mid).moments[0]) <= relativePressureLimit * peak * span ? parts : null;
   };
-  const approximate = (a: number, b: number, depth: number): WindPressurePart[] => {
-    const span = b - a, integral = integrate(a, b, a, 0), [force, first] = integral.moments;
+  const approximate = (a: number, b: number, depth: number, certifiesCuts: ReturnType<typeof cutForceCertificate> | undefined): WindPressurePart[] => {
+    const span = b - a, integral = integrate(a, b), [force, first] = integral.moments;
     const mean = force / span, delta = 6 * (first - span / 2 * force) / span ** 2;
     let q = mean - delta, qJ = mean + delta;
     if (q < 0 || qJ < 0) {
-      if (integral.min >= 0 && value(a) >= 0 && value(b) >= 0) { q = Math.max(0, Math.min(2 * mean, q)); qJ = 2 * mean - q; }
+      if (integral.min >= 0 && value(a, b) >= 0 && value(b, a) >= 0) { q = Math.max(0, Math.min(2 * mean, q)); qJ = 2 * mean - q; }
     }
     if (q > 0 || qJ > 0) {
-      if (integral.max <= 0 && value(a) <= 0 && value(b) <= 0) { q = Math.min(0, Math.max(2 * mean, q)); qJ = 2 * mean - q; }
+      if (integral.max <= 0 && value(a, b) <= 0 && value(b, a) <= 0) { q = Math.min(0, Math.max(2 * mean, q)); qJ = 2 * mean - q; }
     }
     const replacement = integral.moments.map((_v, k) => span ** (k + 1) * (q / (k + 1) + (qJ - q) / (k + 2))) as Moments;
-    const accurate = integral.moments.every((v, k) => Math.abs(v - replacement[k]!) <= 1e-14 * span / Math.max(1, length) * Math.max(1, Math.abs(force) * span ** k));
-    if (accurate) return [{ a, b, q, qJ, force: replacement[0], first: a * replacement[0] + replacement[1] }];
-    if (depth === 0) {
-      const two = twoParts(a, b, integral);
-      if (two) return two;
-    }
-    if (depth === 24) throw new WindPressureRefusal('wind.pressure.integrationUnresolved');
+    const accurate = carriesWork(integral, replacement, span);
     const mid = (a + b) / 2;
-    return [...approximate(a, mid, depth + 1), ...approximate(mid, b, depth + 1)];
+    let parts: [WindPressurePart] | [WindPressurePart, WindPressurePart] | null = null;
+    if (accurate) parts = [{ a, b, q, qJ, force: replacement[0], first: a * replacement[0] + replacement[1] }];
+    else if (depth === 0 && certifiesCuts) parts = twoParts(a, b, integral);
+    if (parts && (!certifiesCuts || certifiesCuts(parts))) return parts;
+    if (depth === 24) throw new WindPressureRefusal('wind.pressure.integrationUnresolved');
+    const breaks = curvatureBreaks?.filter(s => s > a && s < b);
+    const split = breaks?.length ? breaks[Math.floor(breaks.length / 2)]! : mid;
+    return [...approximate(a, split, depth + 1, certifiesCuts), ...approximate(split, b, depth + 1, certifiesCuts)];
   };
-  return cuts.slice(1).flatMap((b, k) => approximate(cuts[k]!, b, 0));
+  return cuts.slice(1).flatMap((b, k) => {
+    const a = cuts[k]!;
+    const certifiesCuts = curvatureBreaks ? cutForceCertificate(a, b, value, curvatureBreaks) : undefined;
+    return approximate(a, b, 0, certifiesCuts);
+  });
 }
 
 export function windPressureCoordinate(value: number, boundaries: readonly number[]): number {
@@ -243,7 +348,7 @@ export function windHeightField(input: {
   axis: 'x' | 'y';
   from: number;
   to: number;
-  pressure: (z: number, width: number, widthKind: 'physical' | 'declared') => number;
+  pressure: ((z: number, width: number, widthKind: 'physical' | 'declared') => number) & PiecewiseConvexity;
   boundaries?: readonly number[];
   width?: number;
   region?: ReadonlySet<number>;
@@ -320,7 +425,7 @@ export function windHeightField(input: {
       const parts = components.map((f, i) => {
         const key = componentKeys[i];
         if (key !== undefined && fixedIntegrals.has(key)) return fixedIntegrals.get(key)!;
-        const parts = integrateWindPressure(hi - lo, [], s => f(lo + s));
+        const parts = projectPressure(lo, hi - lo, input.boundaries ?? [], f, input.pressure.curvatureBreaks, !!fixedGeometry);
         if (key !== undefined) fixedIntegrals.set(key, parts);
         return parts;
       });
