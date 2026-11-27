@@ -6,4 +6,6 @@ A single linear load can match all four work moments of a varying pressure band 
 
 When a fit fails, the generator splits at an interior declared break if one is present. Each refined part receives a share of the original half-band’s absolute cut-force budget in proportion to its length within that half. This lets a smooth pressure that touches zero refine while preserving the half-band limit. The curvature check applies to fixed tributary geometry. On varying geometry the generator still integrates the complete density and torsional components between the declared pressure breaks and checks the fitted work moments.
 
+At a declared jump, each adjacent interval uses the pressure sampled just inside its own endpoint. A step from one constant pressure to another can therefore produce two constant member loads. For a pulse surrounded by zero pressure, the generator uses the chords from the endpoints to the sampled midpoint to establish a lower bound when the original half-band bound is zero. These changes allow generation to complete for fields that previously reached the refinement limit.
+
 Regenerate the wind cases and rerun dependent analyses, combinations and checks. Opening or solving an older project continues to use its stored loads until regeneration.

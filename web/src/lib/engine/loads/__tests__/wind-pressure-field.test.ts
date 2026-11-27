@@ -332,7 +332,7 @@ for (const axis of ['x', 'y'] as const) for (const height of [0, 0.01]) it(`#252
 
 for (const entry of ['integral', 'member'] as const) {
   for (const jump of [0.5, 3 / 8]) for (const rising of [true, false]) {
-    it.skip(`known wrong result: #2529 — declared step at ${jump} rising=${rising} through ${entry}`, () => {
+    it(`#2529 declared step at ${jump} rising=${rising} through ${entry}`, () => {
       const left = rising ? 1 : 2, right = rising ? 2 : 1;
       const law = Object.assign((s: number) => (rising ? s < jump : s <= jump) ? left : right, { curvatureBreaks: [jump] });
       const parts = projectedParts(entry, law);
@@ -350,8 +350,22 @@ for (const entry of ['integral', 'member'] as const) {
     });
   }
 
+  for (const steps of [1, 2]) {
+    it(`#2529 breaks separated by ${steps} representable steps through ${entry}`, () => {
+      const jump = 0.5, spacing = entry === 'integral' ? Number.EPSILON / 2 : 2 * Number.EPSILON;
+      const law = Object.assign(() => 1, { curvatureBreaks: [jump, jump + steps * spacing] });
+      if (steps === 1) {
+        expect(() => projectedParts(entry, law)).toThrow('wind.pressure.integrationUnresolved');
+      } else {
+        const parts = projectedParts(entry, law);
+        expect(parts).toHaveLength(1);
+        expect(emittedWork(parts, 0)).toBeCloseTo(1, 14);
+      }
+    });
+  }
+
   for (const sign of [-1, 0, 1]) for (const a of [1 / 16, 7 / 8]) {
-    it.skipIf(sign !== 0)(`known wrong result: #2529 — confined parabolic pulse at ${a} sign=${sign} through ${entry}`, () => {
+    it(`#2529 confined parabolic pulse at ${a} sign=${sign} through ${entry}`, () => {
       const width = 1 / 16, b = a + width, center = a + width / 2;
       const law = Object.assign((s: number) => s > a && s < b ? sign * (s - a) * (b - s) : 0, { curvatureBreaks: [a, b] });
       const parts = projectedParts(entry, law);
