@@ -23,7 +23,7 @@ import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { meshProgress } from '../mesh-progress.svelte';
 import { meshPlatesInModel } from '../mesh-apply';
 import { solveForDesign } from '../design-resize';
-import { closePlateHole } from '../plate-shape';
+import { closePlateHole, cutPlateCells, plateFigure } from '../plate-shape';
 import { plateLoops } from '../../model/physical/plate';
 
 function fresh() { modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro'; }
@@ -153,12 +153,21 @@ describe('closing a hole', () => {
   it('of a plate with no mesh leaves none of its corners in the model', () => {
     fresh();
     const c = [[0, 0], [6, 0], [6, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
-    const h = [[2, 1.5], [3, 1.5], [3, 2.5], [2, 2.5]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
     for (const n of c) modelStore.addSupport(n, 'pinned3d');
-    const { id } = createPlate({ outline: c, holes: [h], materialId: 1, thickness: 0.15 }) as { id: number };
+    const { id } = createPlate({ outline: c, materialId: 1, thickness: 0.15,
+      mesh: { size: 1, element: 'quad', followMembers: false, pattern: 'square' } }) as { id: number };
+    const figure = plateFigure(id)!;
+    const interior = figure.cells.findIndex(cell => cell.every(i => {
+      const [x, y] = figure.points[i]!;
+      return x >= 2 && x <= 3 && y >= 1 && y <= 2;
+    }));
+    expect(interior).toBeGreaterThanOrEqual(0);
+    expect(cutPlateCells(id, figure, new Set([interior]))).toBeNull();
+    const [h] = plateLoops(plateEntry(id)!.group).holes;
+    expect(h).toHaveLength(4);
     expect(plateStatus(id)).toBe('unmeshed');
     expect(closePlateHole(id, 0)).toBeNull();
-    for (const n of h) expect(modelStore.nodes.has(n)).toBe(false);
+    for (const n of h!) expect(modelStore.nodes.has(n)).toBe(false);
     expect(unused()).toEqual([]);
   });
 });
