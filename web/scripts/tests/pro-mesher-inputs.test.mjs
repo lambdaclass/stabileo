@@ -241,3 +241,23 @@ test('known wrong result: #1928 the released PRO panel keeps the unmeshed plate 
   await expect(banner).toHaveText(message);
   await expect(banner.getByRole('button')).toHaveCount(0);
 });
+
+test.skip('known wrong result: #1928 opening the CIRSOC roof pane preserves a stored occupancy until the operator chooses another', async t => {
+  const server = await createServer({ root, mode: 'production', server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+  t.after(() => server.close());
+  await server.listen();
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  for (const key of ['saved-unknown', 'azotea_privada']) {
+    const url = new URL('/scripts/tests/fixtures/roof-occupancy.html', server.resolvedUrls.local[0]);
+    url.searchParams.set('key', key);
+    await page.goto(url.href);
+    await page.waitForFunction(() => typeof window.readRoofChoice === 'function');
+    assert.equal(await page.evaluate(() => window.readRoofChoice()), key);
+    await expect(page.getByTestId('al-roof-use')).toContainText('§4.8.1');
+    await expect(page.getByTestId('al-roof-use')).toContainText('§4.8.2');
+    await page.getByTestId('al-roof-occupancy').selectOption('azotea_publica');
+    assert.equal(await page.evaluate(() => window.readRoofChoice()), 'azotea_publica');
+  }
+});
