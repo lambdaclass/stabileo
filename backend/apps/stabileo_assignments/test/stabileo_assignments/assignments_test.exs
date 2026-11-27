@@ -29,6 +29,22 @@ defmodule StabileoAssignments.AssignmentsTest do
     assignment
   end
 
+  @tag :skip
+  test "known wrong result: #1927 assignment request keys exist when only the context is loaded" do
+    {:ok, {Assignments, [atoms: atoms]}} = :beam_lib.chunks(:code.which(Assignments), [:atoms])
+    interned = MapSet.new(atoms, fn {_index, atom} -> Atom.to_string(atom) end)
+    assert MapSet.subset?(MapSet.new(~w(duration_minutes reveal)), interned)
+  end
+
+  @tag :skip
+  test "known wrong result: #1927 scheduled retention deletes an expired assignment", %{owner: owner} do
+    a = create!(owner)
+    past = DateTime.utc_now() |> DateTime.add(-366, :day) |> DateTime.truncate(:second)
+    Repo.update_all(from(row in Assignment, where: row.id == ^a.id), set: [inserted_at: past])
+    assert StabileoAssignments.Retention.run() == 1
+    refute Repo.get(Assignment, a.id)
+  end
+
   describe "create" do
     test "owner from the session, a generated code, opens now when not given", %{owner: owner} do
       assert {:ok, {assignment, counts}} =
