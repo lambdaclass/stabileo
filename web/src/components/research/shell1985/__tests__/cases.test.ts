@@ -139,3 +139,14 @@ describe('the page strings', () => {
     expect(strings.es.lead).not.toMatch(/\busted\b/i);
   });
 });
+
+it.skip.each(Object.entries(strings))('known wrong result: #2505 signed shell validation and recorded mesh coverage in %s', (locale, s) => {
+  expect(s.checkRoof).toMatch(/−0[.,]3024/);
+  expect(s.checkCylinder32).toMatch(/−1[.,]8248/);
+  expect(s.summary).toContain('16 × 16');
+  expect(s.verdictText).toContain('1/3');
+  expect(s.validationText).toContain('32 × 32');
+  expect(s.paperText).toContain('5(a)');
+  const withheld = { en: 'withholds', es: 'retiene', pt: 'retém', de: 'zurück', fr: 'retient', tr: 'vermez', hu: 'visszatartja', zh: '暂不提供' };
+  expect(s.verdictText).toContain(withheld[locale as keyof typeof withheld]);
+});
