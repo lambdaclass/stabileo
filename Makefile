@@ -406,7 +406,16 @@ typecheck.web.svelte:
 test.web.unit.production: UNIT_PROFILE = production
 test.web.unit.switch-on: UNIT_PROFILE = test
 
-test.web.unit test.web.unit.production test.web.unit.switch-on:
+ifneq ($(SHARD),)
+test.web.unit:
+	$(MAKE) test.web.unit.production
+	$(MAKE) test.web.unit.switch-on
+else
+test.web.unit: test.web.unit.run
+endif
+
+.PHONY: test.web.unit.run
+test.web.unit.run test.web.unit.production test.web.unit.switch-on:
 	$(NIX_RUN) env STABILEO_UNIT_PROFILE=$(UNIT_PROFILE) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL)) $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
 
 test.web.build: web.build.tested
