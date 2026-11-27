@@ -14,6 +14,78 @@ native = None
 
 
 class BenchmarkOutputs(unittest.TestCase):
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_all_shell_sources_have_a_single_solve_outcome(self):
+        folder = self.benchmark('benchmarks/shell-obstacle-course')
+        recorded = folder / 'results/wasm-results.json'
+        original = json.loads(recorded.read_text())
+        native_dir = folder / 'results'
+        self.control(folder, native_dir, '--write')
+        for case, change, diagnostic in [
+            ('hemisphere-4', {'value': 1, 'pass': True}, 'hemisphere-refusals'),
+            ('roof-16', {'refused': True}, 'roof-16: expected successful solve'),
+            ('cylinder-8', {'failure': 'failed'}, 'cylinder-8: expected successful solve'),
+        ]:
+            with self.subTest(case=case):
+                recorded.write_text(json.dumps([{**r, **change} if r['id'] == case else r for r in original]))
+                self.reject(folder, diagnostic, native_dir, '--write')
+
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_cylinder_convergence_uses_mesh_order(self):
+        folder = self.benchmark('benchmarks/shell-obstacle-course')
+        checker = folder / 'wasm/check.mjs'
+        source = checker.read_text()
+        hook = 'const rows = await runCases();'
+        self.assertIn(hook, source)
+        checker.write_text(source.replace(hook, hook + """
+  const a = cases.findIndex(c => c.id === 'cylinder-6'), b = cases.findIndex(c => c.id === 'cylinder-8');
+  [cases[a], cases[b]] = [cases[b], cases[a]];
+"""))
+        self.control(folder, folder / 'results', '--write')
+
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_portal_hinge_must_reach_the_section_capacity(self):
+        folder = self.benchmark('benchmarks/plastic-collapse')
+        self.control(folder)
+        p = folder / 'results/stabileo_results.json'
+        data = json.loads(p.read_text())
+        data['result']['steps'][0]['hingesFormed'][0]['momentY'] /= 10
+        p.write_text(json.dumps(data))
+        self.reject(folder, 'yield magnitude', '--write')
+
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_macneal_references_are_independent_transcriptions(self):
+        folder = self.benchmark('benchmarks/macneal-harder-1985')
+        native_file = self.macneal_native()
+        self.control(folder, native_file)
+        checker = folder / 'wasm/check.mjs'
+        source = checker.read_text()
+        for hook, change, diagnostic in [
+            ('const table3', "for (const c of cases.filter(c => c.id.startsWith('mitc4-') && c.id.endsWith('-out'))) c.reference = 0.43209;", 'Table 3 reference'),
+            ('const roofInput', 'roofCase.reference -= 1e-6;', 'Table 5(a) reference'),
+        ]:
+            with self.subTest(diagnostic=diagnostic):
+                self.assertIn(hook, source)
+                checker.write_text(source.replace(hook, change + '\n  ' + hook))
+                self.reject(folder, diagnostic, native_file, '--write')
+
+    @unittest.skipUnless(__import__('os').environ.get('RUN_KNOWN_WRONG'), 'known wrong result: #2505')
+    def test_navier_reference_and_budget_are_exact(self):
+        folder = self.benchmark('benchmarks/navier-plate')
+        self.control(folder)
+        path = folder / 'reference-results/published_comparison.json'
+        original = path.read_text()
+        for key in ['reference', 'tolerance']:
+            with self.subTest(key=key):
+                data = json.loads(original)
+                data['checks'][0][key] *= 1 + 1e-10
+                path.write_text(json.dumps(data))
+                manifest = folder / 'reference-results/MANIFEST.json'
+                m = json.loads(manifest.read_text())
+                m['files_sha256'][path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+                manifest.write_text(json.dumps(m))
+                self.reject(folder, 'checks.0.' + key)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(dir=root)
         self.addCleanup(self.tmp.cleanup)
