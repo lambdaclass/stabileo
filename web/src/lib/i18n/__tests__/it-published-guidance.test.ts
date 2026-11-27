@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { allDictFor } from '../locales/all';
 import { unfinishedProClaims } from '../pro-copy';
+import { f62Report } from '../../engine/steel/flange-local-buckling';
 import { findPost } from '../../blog';
 import { findStandingPage } from '../../blog/pages';
 import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
@@ -124,3 +125,17 @@ it('known wrong result: #2595 — Italian tool names distinguish AI from the pre
   const sentence = 'In beta gli strumenti ai quali accedere';
   expect(unfinishedProClaims(sentence, 'it', { aboutPro: true })).toEqual([sentence]);
 });
+
+it.skip.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const)(
+  'known wrong result: #2595 — %s explains the missing-Fy channel report without claiming a modulus',
+  locale => {
+    const report = f62Report({ shape: 'C', b: 0.1, tf: 0.01, iMinor: 1e-6 });
+    expect(report.syM3).toBeNull();
+    const dict = allDictFor(locale);
+    expect(dict[report.reasonKey]).not.toContain('Sy');
+    for (const key of [report.reasonKey, ...report.missingKeys]) {
+      expect(dict[key]).toContain('Fy');
+      expect(dict[key]).toContain('14');
+    }
+  },
+);
