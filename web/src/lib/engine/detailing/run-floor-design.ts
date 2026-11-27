@@ -60,7 +60,7 @@ import type { DetailingAssembly } from './assembly';
 import {
   RESIDUAL_TOL, checkSlabJointPunching, slabJointPosition,
   type AdjoiningShell, type SlabColumnJoint, type SlabPunchingResult,
-} from '../../rc-sheets/slab-punching';
+} from './slab-punching';
 
 // ─── What this adapter reads ─────────────────────────────────────
 
