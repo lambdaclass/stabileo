@@ -393,3 +393,17 @@ test('known wrong result: #1928 mesh progress and board actions enter the root m
     });
   }
 });
+
+test.skip('known wrong result: #1928 published CIRSOC tables and load modules exclude draft authorities', async () => {
+  for (const path of ['cirsoc101/live-loads', 'families/index']) {
+    const entry = resolve(root, 'src/lib/codes/' + path + '.ts');
+    const result = await build({
+      root, logLevel: 'silent',
+      build: { write: false, lib: { entry, formats: ['es'] } },
+    });
+    const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+    const inactive = Object.entries(chunk.modules).filter(([id, mod]) => mod.renderedLength > 0
+      && /\/lib\/(?:code-profiles|codes\/(?:eurocode|asce7|turkey))\//.test(id));
+    assert.deepEqual(inactive.map(([id]) => id), [], path);
+  }
+});
