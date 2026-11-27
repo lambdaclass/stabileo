@@ -515,8 +515,9 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   const project2D = projectFlag();
   const renderMode = uiStore.renderMode3D;
 
+  const modelNodes = modelStore.nodes;
   const getNode = (id: number) => {
-    const n = modelStore.nodes.get(id);
+    const n = modelNodes.get(id);
     return n ? projectNodeToScene(n, project2D) : null;
   };
 
@@ -555,12 +556,21 @@ function syncShellsNow(ctx: SceneSyncContext): void {
       for (const id of plate.group.members.quads ?? []) owner.set('q' + id, plate.id);
       for (const id of plate.group.members.plates ?? []) owner.set('p' + id, plate.id);
     }
-    const add = (key: string, shell: { nodes: readonly number[]; materialId: number }) => {
-      const points = shell.nodes.map(getNode);
+    // Adjacent cells share corners. Keep projections for this sync only.
+    const projected = new Map<number, ReturnType<typeof projectNodeToScene>>();
+    const corner = (id: number) => {
+      const cached = projected.get(id);
+      if (cached) return cached;
+      const p = getNode(id);
+      if (p) projected.set(id, p);
+      return p;
+    };
+    const add = (key: string, shell: Pick<DisplayCell, 'nodes' | 'materialId'>) => {
+      const points = shell.nodes.map(corner);
       if (!points.every(p => p !== null)) return;
       const plane = cellPlane(points);
-      if (!plane) return;
-      const id = [owner.get(key) ?? 'ungrouped', shell.materialId, plane].join('|');
+      if (plane === null) return;
+      const id = `${owner.get(key) ?? 'ungrouped'}|${shell.materialId}|${plane}`;
       const cell = { key, nodes: shell.nodes, points, materialId: shell.materialId };
       const list = buckets.get(id);
       if (list) list.push(cell);
@@ -578,6 +588,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
     if (buckets.size) ctx.explicitShells ??= new ExplicitShellBatches();
   }
   ctx.explicitShells?.sync(ctx.shellsParent, buckets, renderMode === 'wireframe' ? 'wireframe' : 'solid');
+  const allBatched = ctx.explicitShells?.size === plates.size + quads.size;
   const drawn = (key: string) => !ctx.explicitShells?.has(key) && (!merged || uiStore.selectedShells.has(key));
   const physical = renderMode === 'sections' && !project2D ? projectPhysicalFrame() : null;
   const netKey = (key: string) => {
@@ -600,7 +611,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   };
 
   // Plates (triangular DKT)
-  for (const [id, plate] of plates) {
+  for (const [id, plate] of allBatched ? [] : plates) {
     const key = `p${id}`;
     if (!drawn(key)) continue;
     const nodes = plate.nodes.map(nid => getNode(nid));
@@ -628,7 +639,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   }
 
   // Quads (MITC4)
-  for (const [id, quad] of quads) {
+  for (const [id, quad] of allBatched ? [] : quads) {
     const key = `q${id}`;
     if (!drawn(key)) continue;
     const nodes = quad.nodes.map(nid => getNode(nid));

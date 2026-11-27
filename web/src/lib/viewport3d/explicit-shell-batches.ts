@@ -152,7 +152,7 @@ function buildBatch(cells: DisplayCell[], mode: Mode) {
     }
     return true;
   }
-  return { group, tint, updateGeometry };
+  return { group, tint, updateGeometry, cellKeys: previous.keys };
 }
 
 // Keep an exact snapshot: node IDs determine shared edges, and coordinates can
@@ -203,12 +203,13 @@ export class ExplicitShellBatches {
   private hovered?: string;
 
   sync(parent: THREE.Group, buckets: Map<string, DisplayCell[]>, mode: Mode) {
-    this.byCell.clear();
+    let membershipChanged = false;
     for (const [key, batch] of this.batches) {
       if (buckets.has(key)) continue;
       batch.group.removeFromParent();
       disposeObject(batch.group);
       this.batches.delete(key);
+      membershipChanged = true;
     }
     for (const [key, cells] of buckets) {
       let batch = this.batches.get(key);
@@ -220,12 +221,20 @@ export class ExplicitShellBatches {
         batch = { ...buildBatch(cells, mode), mode };
         parent.add(batch.group);
         this.batches.set(key, batch);
+        membershipChanged = true;
         for (const cell of cells) batch.tint(cell.key, this.color(cell.key));
       }
-      for (const cell of cells) this.byCell.set(cell.key, batch);
+    }
+    if (membershipChanged) {
+      this.byCell.clear();
+      for (const batch of this.batches.values()) {
+        for (const key of batch.cellKeys) this.byCell.set(key, batch);
+      }
     }
     if (this.hovered && !this.byCell.has(this.hovered)) this.hovered = undefined;
   }
+
+  get size() { return this.byCell.size; }
 
   has(key: string) { return this.byCell.has(key); }
 

@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import { uiStore } from '../../store/ui.svelte';
-import { viewState } from '../../store/view-state.svelte';
+import { viewState, viewVisibility } from '../../store/view-state.svelte';
 import { resultsStore } from '../../store';
 import { applyShellNodalColors } from '../../three/stress-heatmap';
 import { COLORS } from '../../three/selection-helpers';
@@ -126,6 +126,21 @@ describe('a large floor while it is modelled', () => {
     expect(pick(1.1, 0.1, 10)).toMatchObject({ type: 'plate', id: triangle });
     expect(pick(0.1, 0.6, 10)).toMatchObject({ type: 'quad', id: ids[1] });
     expect(pick(0.1, 0.6, 2)).toMatchObject({ type: 'quad', id: ids[0] });
+    try {
+      viewVisibility.restore({ elements: [], shells: ['q' + ids[1]] });
+      syncShells(ctx);
+      expect(pick(0.1, 0.6, 10)).toMatchObject({ type: 'quad', id: ids[0] });
+      expect(ctx.explicitShells!.has('q' + ids[1])).toBe(false);
+      // Same number visible, different membership.
+      viewVisibility.restore({ elements: [], shells: ['p' + triangle] });
+      syncShells(ctx);
+      expect(pick(0.1, 0.6, 10)).toMatchObject({ type: 'quad', id: ids[1] });
+      expect(ctx.explicitShells!.has('p' + triangle)).toBe(false);
+    } finally {
+      viewVisibility.showAll();
+    }
+    syncShells(ctx);
+    expect(pick(0.1, 0.6, 10)).toMatchObject({ type: 'quad', id: ids[1] });
 
     const triKey = 'p' + triangle, quadKey = 'q' + ids[1];
     const upper = ctx.shellsParent.children.find(g => g.children[0]!.userData.faceKeys.includes(triKey))!;
