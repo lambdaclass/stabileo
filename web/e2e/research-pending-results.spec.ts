@@ -97,3 +97,16 @@ for (const elements of [20, 80] as const) {
     await expect(page.getByTestId('arch-verdict')).toHaveText('Outside tolerance');
   });
 }
+
+test.skip('known wrong result: #2505 — a shell retry recovers after the WASM download becomes available', async ({ page }) => {
+  const binary = /dedaliano_engine_bg[^/]*\.wasm/;
+  await page.route(binary, route => route.abort());
+  await page.goto('/en/research/benchmarks/shell-obstacle-course/');
+  await page.getByTestId('try-roof-20').click();
+  const retry = page.getByTestId('retry-mesh');
+  await expect(retry).toBeVisible();
+  await page.unroute(binary);
+  await retry.click();
+  await expect(retry).toHaveCount(0);
+  await expect(page.getByTestId('selected-result')).toContainText(/pass/i);
+});
