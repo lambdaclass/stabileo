@@ -37,6 +37,7 @@ import { projectNodeToScene } from '../geometry/coordinate-system';
 import { shouldEmbedFlat2DModelIn3D } from '../engine/solver-service';
 import { modelStore, verificationStore, uiStore, historyStore, resultsStore } from '../store';
 import { readCamera } from '../viewport3d/camera-probe';
+import { planCutCensus } from '../viewport3d/plan-cut';
 import { verificationVisual } from '../three/selection-helpers';
 import { detailingStore } from '../store/detailing.svelte';
 import { detailingSheet } from '../store/detailing-sheet.svelte';
@@ -179,6 +180,8 @@ export interface StabileoTestHooks {
    * joint?». This pair can.
    */
   nodeMarkersDrawn(): boolean;
+  /** Objects under the plan view's level that its last pass hid or drew in halftone. */
+  planCutCensus(): { hidden: number; ghost: number };
   /** How the node markers are drawn now: 'points', 'spheres' or 'mesh' (`NodeMarkerStyle`). */
   nodeMarkerStyle(): string | null;
   /** Member diagrams the 3D scene holds right now (0 when none is drawn). */
@@ -706,6 +709,7 @@ export function installE2EHooks(): void {
     verticalReaction3D: () => resultsStore.results3D?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0) ?? null,
     verticalReaction2D: () => resultsStore.results?.reactions.reduce((sum, reaction) => sum + reaction.rz, 0) ?? null,
     cameraState: () => readCamera(),
+    planCutCensus: () => planCutCensus(),
 
     viewportPick: () => ({
       selectMode: String(uiStore.selectMode),

@@ -20,6 +20,7 @@ defmodule StabileoAuth do
       cloud_projects_enabled: Features.cloud_projects_enabled?(),
       save_requires_account: Features.save_requires_account?(),
       assignments_enabled: Features.assignments_enabled?(),
+      editor_requires_account: Features.editor_requires_account?(),
       google_login: StabileoAuth.GoogleOAuth.app_configured?()
     }
   end

@@ -9,6 +9,8 @@
       ? { title: t('account.gateFeedbackTitle'), lede: t('account.gateFeedbackLede') }
       : accountGate.action === 'exam'
         ? { title: t('account.gateExamTitle'), lede: t('account.gateExamLede') }
+      : accountGate.action === 'editor'
+        ? { title: t('account.gateEditorTitle'), lede: t('account.gateEditorLede') }
         : { title: t('account.gateTitle'), lede: t('account.gateLede') },
   );
 

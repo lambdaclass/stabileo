@@ -47,6 +47,25 @@ export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = fa
   return { model, stations, rafter };
 }
 
+export function doubleAttachedRoof(subdivide: boolean, secondGap: readonly [number, number] = [4, 6]) {
+  const { model, rafter } = offsetRoof(0.02, 0, 1, subdivide, [4, 6]);
+  const { model: second } = offsetRoof(0.02, 0, -1, subdivide, secondGap);
+  const start = model.nodes.size;
+  for (const { nodes, ...quad } of second.quads.values()) {
+    for (const nodeId of nodes) {
+      const id = start + nodeId;
+      const node = second.nodes.get(nodeId)!;
+      model.nodes.set(id, { ...node, id, z: node.z! - 0.04 });
+    }
+    const id = model.quads.size + 1;
+    model.quads.set(id, { ...quad, id, nodes: nodes.map(nodeId => start + nodeId) });
+  }
+  second.constraints.forEach((link, index) => model.constraints.push({
+    ...link, masterNode: index === 0 ? rafter[0]! : rafter.at(-1)!, slaveNode: start + link.masterNode,
+  }));
+  return model;
+}
+
 export function roofPlan(model: LoadModelData, mode: 'panels' | 'width' = 'panels') {
   return buildLoadPlan(input(model, { gravity: { mode } }));
 }

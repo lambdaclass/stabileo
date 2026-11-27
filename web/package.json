@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "vite",
     "dev:admin": "VITE_APP_TYPE=admin vite",
-    "build": "vite build && npx tsx scripts/prerender.ts && node scripts/precompress.mjs dist",
+    "build": "vite build && npm run build:finish",
+    "build:finish": "npm run prerender && node scripts/precompress.mjs dist",
     "build:admin": "VITE_APP_TYPE=admin vite build",
     "preview": "vite preview",
     "wasm": "../scripts/wasm-cached.sh",
@@ -66,6 +67,7 @@
     "lz-string": "^1.5.0",
     "openai": "^7.47.0",
     "polygon-clipping": "^0.15.7",
+    "robust-predicates": "^3.0.3",
     "three": "^0.186.1",
     "three-mesh-bvh": "^0.9.17",
     "web-ifc": "^0.0.78",

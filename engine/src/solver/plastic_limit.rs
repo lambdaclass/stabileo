@@ -1,3 +1,4 @@
+use crate::types::unique_table;
 use crate::solver::support::support_dofs_2d;
 use crate::postprocess::diagrams::compute_diagram_value_at;
 use crate::types::*;
@@ -82,10 +83,10 @@ impl Confirmation {
 pub struct LimitInput {
     pub solver: SolverInput,
     /// Plastic moment per element id; every frame needs a finite, positive entry or the input is refused.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::mp")]
     pub mp: HashMap<String, f64>,
     /// Axial yield force per element id, positive; a missing entry never yields axially, an infinite one is refused.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::np")]
     pub np: HashMap<String, f64>,
 }
 
@@ -431,11 +432,17 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
     if let Some(id) = frames.iter().find(|id| !mp.get(id).is_some_and(|m| m.is_finite())) {
         return Err(format!("element {id}: frame has no finite plastic moment"));
     }
-    let mech = mechanical(input);
-    if !super::kinematic::analyze_kinematics_2d(&mech).is_solvable {
-        return Err(super::plastic::INITIAL_MECHANISM.into());
+    super::linear::validate_input_2d(&mechanical(input))?;
+    let stiffness = uniform_stiffness(input);
+    let kinematics = super::kinematic::analyze_kinematics_2d(&stiffness);
+    if !kinematics.is_solvable {
+        return if kinematics.classification == "indeterminate" {
+            Err(kinematics.diagnosis)
+        } else {
+            Err(super::plastic::INITIAL_MECHANISM.into())
+        };
     }
-    let r0 = super::linear::solve_2d(&uniform_stiffness(input))?;
+    let r0 = super::linear::solve_2d(&stiffness)?;
     let ef0: HashMap<usize, &ElementForces> = r0.element_forces.iter().map(|f| (f.element_id, f)).collect();
     let mut elems: Vec<&SolverElement> = crate::ordered::values(&input.elements).collect();
     elems.sort_by_key(|e| e.id);

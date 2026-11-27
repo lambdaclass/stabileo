@@ -1,0 +1,32 @@
+{
+  "id": "transverse-point-load-station",
+  "date": "2026-11-22",
+  "prs": [2470],
+  "area": "analysis",
+  "when": { "all": ["nearEndSpatialPointLoads"] },
+  "quantities": ["solve.ok", "reactions", "displacements", "elementForces"],
+  "title": {
+    "en": "Transverse point loads near member ends",
+    "es": "Cargas transversales puntuales cerca de los extremos de la barra",
+    "pt": "Cargas transversais pontuais perto das extremidades da barra",
+    "de": "Quer gerichtete Einzellasten nahe den Stabenden",
+    "fr": "Charges transversales ponctuelles près des extrémités des barres",
+    "hu": "Keresztirányú pontterhek a rúdvégek közelében",
+    "tr": "Eleman uçlarına yakın enine noktasal yükler",
+    "zh": "构件端部附近的横向集中荷载"
+  },
+  "explanation": {
+    "en": "The spatial solver takes a transverse point load at its entered interior station, preserving its lever arm at a support or connection.",
+    "es": "El análisis espacial aplica la carga transversal puntual en su posición interior indicada y conserva su brazo de palanca respecto de un apoyo o una conexión.",
+    "pt": "A análise espacial aplica a carga transversal pontual na posição interna informada, preservando seu braço de alavanca em relação a um apoio ou uma ligação.",
+    "de": "Die räumliche Berechnung setzt eine Querlast an der eingegebenen Position im Stab an und erhält so ihren Hebelarm gegenüber dem Auflager oder Anschluss.",
+    "fr": "Le calcul spatial applique la charge transversale ponctuelle à sa position intérieure saisie, ce qui conserve son bras de levier par rapport à un appui ou à une liaison.",
+    "hu": "A térbeli számítás a keresztirányú pontterhet a megadott belső helyen veszi figyelembe, megőrizve a támaszhoz vagy kapcsolathoz viszonyított erőkart.",
+    "tr": "Uzaysal çözüm, enine noktasal yükü girilen iç konumunda uygular ve mesnede veya bağlantıya göre moment kolunu korur.",
+    "zh": "空间分析在输入的构件内部位置施加横向集中荷载，保留其相对于支座或连接的力臂。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-transverse-point-load-station.md",
+    "heading": "Transverse point loads near member ends"
+  }
+}

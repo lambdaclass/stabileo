@@ -1,4 +1,4 @@
-import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
+import { factorsWithExactCancellation, factorsWithUnitResidual, issue2297Factors } from './combination-factor-fixture';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { modelStore, uiStore } from '../../store';
 import * as solver from '../wasm-solver';
@@ -17,8 +17,7 @@ beforeEach(() => {
   vi.spyOn(pool, 'isPoolReady').mockReturnValue(true);
   vi.spyOn(pool, 'solveParallel').mockImplementation(async inputs => new Map(inputs.map(({ id, input }) => {
     const wire = structuredClone(input);
-    solver.assertFiniteWire(wire);
-    return [id, finishSolve3D(solve_3d(wire), wire as Parameters<typeof finishSolve3D>[1])];
+    return [id, finishSolve3D(solve_3d(solver.finiteObjectWire(wire)), wire as Parameters<typeof finishSolve3D>[1])];
   })));
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -41,10 +40,20 @@ it('uses the fused operation and then honors active result scopes', async () => 
   compareSolveResults(parallel, modelStore.solveCombinations3D(true, false, true));
 });
 
-it('preserves map replacement order for repeated combination ids', async () => {
-  await modelStore.loadExample('pipe-rack');
-  const first = modelStore.combinations[0], second = modelStore.combinations[1];
-  const combinations = [first, second, { ...first, factors: second.factors }, { ...first, factors: [] }];
+it('preserves combination order and equal results on the shell batch path', async () => {
+  await modelStore.loadExample('rc-qa-diagnostic-shells');
+  const [first, second, third] = modelStore.combinations;
+  const combinations = [{ ...first, factors: second.factors }, second, { ...third, factors: [] }];
+  const worker = vi.mocked(pool.solveParallel);
+  const solve = worker.getMockImplementation()!;
+  worker.mockImplementation(async inputs => {
+    const results = await solve(inputs);
+    for (const result of results.values()) {
+      delete result.plateStresses;
+      delete result.quadStresses;
+    }
+    return results;
+  });
   const fused = vi.spyOn(solver, 'combineResultsEnvelope3D');
   const batch = vi.spyOn(solver, 'combineResultsBatch3D');
   const warnings = vi.spyOn(console, 'warn');
@@ -139,4 +148,8 @@ it('#2292 the named single quad refuses complete case cancellation', async () =>
 
 it('#2292 the named single quad distinguishes exact cancellation from a unit residual', async () => {
   await checkNamedQuadCancellation(factorsWithUnitResidual, factorsWithExactCancellation);
+});
+
+it('#2297 the reported seven factors preserve the unit case response', async () => {
+  await checkNamedQuadCancellation(issue2297Factors, [...issue2297Factors, -1]);
 });

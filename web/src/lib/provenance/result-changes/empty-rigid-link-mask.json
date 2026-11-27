@@ -1,0 +1,39 @@
+{
+  "id": "empty-rigid-link-mask",
+  "date": "2026-11-26",
+  "prs": [
+    2588
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "emptyRigidLinkMask"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Explicit empty rigid-link masks",
+    "es": "Listas vacías de grados de libertad en enlaces rígidos",
+    "pt": "Listas vazias de graus de liberdade em vínculos rígidos",
+    "de": "Leere Freiheitsgradlisten bei starren Kopplungen",
+    "fr": "Listes vides de degrés de liberté dans les liaisons rigides",
+    "tr": "Rijit bağlantılarda boş serbestlik derecesi listeleri",
+    "zh": "刚性连接的空自由度列表"
+  },
+  "explanation": {
+    "en": "An empty degree-of-freedom list selects the historical default restraints. Recalculate any results that were obtained with a build that ignored these links.",
+    "es": "Una lista vacía de grados de libertad selecciona las restricciones históricas predeterminadas. Recalculá los resultados obtenidos con una versión que ignoraba estos enlaces.",
+    "pt": "Uma lista vazia de graus de liberdade seleciona as restrições padrão históricas. Recalcule os resultados obtidos com uma versão que ignorava esses vínculos.",
+    "de": "Eine leere Freiheitsgradliste wählt die bisherigen Standardbindungen. Berechnen Sie Ergebnisse erneut, wenn sie mit einer Version ermittelt wurden, die diese Kopplungen ignorierte.",
+    "fr": "Une liste vide de degrés de liberté sélectionne les liaisons par défaut historiques. Recalculez les résultats obtenus avec une version qui ignorait ces liaisons.",
+    "tr": "Boş bir serbestlik derecesi listesi, geçmişteki varsayılan kısıtları seçer. Bu bağlantıları yok sayan bir sürümden alınan sonuçları yeniden hesaplayın.",
+    "zh": "自由度列表为空时使用历史默认约束。若结果来自忽略此类连接的版本，请重新计算。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-empty-rigid-link-mask.md",
+    "heading": "Explicit empty rigid-link masks"
+  }
+}

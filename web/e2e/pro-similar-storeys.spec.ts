@@ -3,10 +3,11 @@
  * master reaches its similar storeys and no other, and the edit is undone in one step.
  */
 import { test, expect } from './fixtures';
+import type { Release } from '../src/lib/store/model.svelte';
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-const rel = { tx: false, ry: false, rz: false, my: false, mz: false, t: false };
+const rel = { my: false, mz: false, t: false } satisfies Release;
 
 function building() {
   const nodes: Array<[number, object]> = [], elements: Array<[number, object]> = [];

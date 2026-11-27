@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, expect, it } from 'vitest';
 import { modelStore } from '../../store';
 import { buildSolverInput2D, buildSolverInput3D } from '../solver-service';
-import { initSolver, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
+import { finiteObjectWire, initSolver, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import { generatedMemberBounds, remapSpanInterval } from '../member-span-loads';
 import { ALL_DICTS } from '../../i18n/locales/all';
 import { ensureLocale, OFFERED_LOCALES, setLocale, tp } from '../../i18n';
@@ -23,7 +23,8 @@ for (const dim of [2, 3]) for (const loadKind of dim === 2 ? ['distributed'] : [
       const build = () => dim === 2 ? buildSolverInput2D(modelStore.model, false)! : buildSolverInput3D(modelStore.model, false, false);
       if (b > 4 + 2 ** -48) { expect(build).toThrow(/interval/); continue; }
       const built = build();
-      const input = dim === 2 ? input2DToWireObject(built as never) : input3DToWireObject(built as never);
+      const wire = dim === 2 ? input2DToWireObject(built as never) : input3DToWireObject(built as never);
+      const input = finiteObjectWire(wire);
       const base = { ...input, loads: [] };
       const session = new wasm[`LoadSession${dim}D`](base);
       try {

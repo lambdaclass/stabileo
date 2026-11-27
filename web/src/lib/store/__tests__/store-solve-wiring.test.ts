@@ -187,13 +187,17 @@ describe('legacy constraint read-migration on restore()', () => {
     expect((modelStore.model.constraints[1] as any).offsetY).toBe(0.5);
   });
 
-  it('drops unknown constraint kinds instead of shipping them to the solver', () => {
-    const snap = snapshotWithConstraints([
-      { type: 'somethingElse', foo: 1 },
-      { type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] },
-    ]);
+  it('refuses unknown constraint kinds without installing a partial snapshot', () => {
+    const snap = snapshotWithConstraints([{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }]);
     modelStore.restore(snap);
     expect(modelStore.model.constraints.length).toBe(1);
     expect((modelStore.model.constraints[0] as any).type).toBe('equalDOF');
+    const before = modelStore.snapshot();
+    expect(() => modelStore.restore({
+      ...snap,
+      name: 'Invalid constraint snapshot',
+      constraints: [{ type: 'somethingElse', foo: 1 }, ...snap.constraints],
+    })).toThrow('constraints[0].type');
+    expect(modelStore.snapshot()).toEqual(before);
   });
 });

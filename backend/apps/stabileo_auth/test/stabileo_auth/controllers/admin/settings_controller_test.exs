@@ -16,6 +16,7 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
         "cloud_projects_enabled" => false,
         "save_requires_account" => false,
         "assignments_enabled" => false,
+        "editor_requires_account" => false,
         "cloud_projects_limit" => 1,
         "terms_version" => StabileoAuth.Consents.terms_version()
       },
@@ -80,7 +81,8 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
         %{
           "usage_telemetry_enabled" => true,
           "cloud_projects_enabled" => true,
-          "save_requires_account" => true
+          "save_requires_account" => true,
+          "editor_requires_account" => true
         },
         token
       )
@@ -90,7 +92,8 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
              settings(%{
                "usage_telemetry_enabled" => true,
                "cloud_projects_enabled" => true,
-               "save_requires_account" => true
+               "save_requires_account" => true,
+               "editor_requires_account" => true
              })
 
     assert StabileoRepo.Features.usage_telemetry_enabled?()
@@ -98,6 +101,10 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
     assert StabileoRepo.Features.save_requires_account?()
 
     assert request(:get, "/config") |> json_body(200) |> Map.get("save_requires_account") == true
+    assert StabileoRepo.Features.editor_requires_account?()
+
+    assert request(:get, "/config") |> json_body(200) |> Map.get("editor_requires_account") ==
+             true
 
     assert [audit] = Repo.all(StabileoRepo.Schemas.AdminAction)
     assert audit.action == "settings.update"
@@ -105,7 +112,8 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
     assert audit.details == %{
              "usage_telemetry_enabled" => true,
              "cloud_projects_enabled" => true,
-             "save_requires_account" => true
+             "save_requires_account" => true,
+             "editor_requires_account" => true
            }
   end
 

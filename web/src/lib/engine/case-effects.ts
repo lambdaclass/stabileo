@@ -1,3 +1,5 @@
+import { accountingCaseSources, copyAccountingLoad, scenarioSurfaceExpectations, scenarioSurfaceIntentOf, withScenarioSurfaceIntent, withAccountingOrigin, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
+import { loadCaseBatches } from './load-accounting';
 /**
  * The loads each case carries when solved, from what the model states about the case:
  *
@@ -21,66 +23,41 @@ import type { Load, LoadCase } from '../store/model.svelte';
 import type { SelfWeightLoad } from './analysis-settings';
 import { GRAVITY_SELF_WEIGHT } from './analysis-settings';
 import { scaledLoad } from '../model/loads/load-magnitudes';
-import { prepareSolverInput3D, buildSolverLoads3D, type ModelData } from './solver-service';
+import { prepareSolverInput3D, notionalSourceLoads3D, type ModelData } from './solver-service';
 import { nodeGravity, notionalLoads } from './direct-analysis';
 import { isCompositeCase } from './loads/combination-cases';
 import { variableExpansionFor } from './variable-members';
-import { caseReductionRefusal } from './loads/case-reduction';
+import { caseOrder, caseReductionRatio, reductionApplies } from './case-rules';
+export { caseOrder, reductionApplies } from './case-rules';
 import { listed } from './combination-methods';
+import { sumCombinationFactors } from './wasm-solver';
+import { isVehicleAxle, vehiclePositionCaseIds } from './vehicles';
 
-type CaseLike = Pick<LoadCase, 'id' | 'type' | 'includes' | 'notional' | 'reduction'>;
-
-const DIRS: Record<'+X' | '-X' | '+Y' | '-Y', [number, number]> = { '+X': [1, 0], '-X': [-1, 0], '+Y': [0, 1], '-Y': [0, -1] };
-
-/**
- * Whether a case's stated reduction is applied: by the rule the case details offer it by
- * (`caseReductionRefusal`), a floor imposed load (L). Retyping a case keeps what it states, so an
- * L case reduced at 0,6 and retyped Lr held its ratio, and its 50 kN were solved as 30.
- */
-export function reductionApplies(c: Pick<LoadCase, 'type' | 'reduction'>): boolean {
-  return !!c.reduction && c.reduction.ratio !== 1 && caseReductionRefusal(c.type, false) !== 'notImposed';
+function scaleCaseLoad(load: Load, factor: number): Load {
+  const scaled = scaledLoad(load, factor);
+  if (load.type !== 'surface3d' || scaled.type !== 'surface3d') return scaled;
+  const intent = scenarioSurfaceIntentOf(load);
+  return intent ? withScenarioSurfaceIntent(scaled, {
+    ...intent, caseFactors: [...(intent.caseFactors ?? []), factor],
+  }) : scaled;
 }
 
-/** The ratio a case's own loads are solved with. */
-const ratioOf = (c: Pick<LoadCase, 'type' | 'reduction'>) => (reductionApplies(c) ? c.reduction!.ratio : 1);
+type CaseLike = Pick<LoadCase, 'id' | 'type' | 'includes' | 'notional' | 'reduction' | 'alternatives'>;
+
+function keepVehicleAxleIdentity<M extends ModelData>(model: M, cases: readonly CaseLike[]): M {
+  const positionCases = vehiclePositionCaseIds(cases);
+  if (positionCases.size === 0) return model;
+  const loads = model.loads.map((load): Load =>
+    load.type === 'pointOnElement3d' && !load.data.vehicleAxle && isVehicleAxle(load.data, positionCases)
+      ? { ...load, data: { ...load.data, vehicleAxle: true } } : load);
+  return { ...model, loads };
+}
+
+const DIRS: Record<'+X' | '-X' | '+Y' | '-Y', [number, number]> = { '+X': [1, 0], '-X': [-1, 0], '+Y': [0, 1], '-Y': [0, -1] };
 
 /** Whether any case says something that changes the loads it is solved with. */
 export function hasCaseEffects(cases: readonly CaseLike[]): boolean {
   return cases.some((c) => (c.includes?.length ?? 0) > 0 || !!c.notional || reductionApplies(c));
-}
-
-/** The cases in an order where each comes after those it reads; those in a loop are named. */
-export function caseOrder(cases: readonly CaseLike[]): { order: number[]; looped: Set<number> } {
-  const byId = new Map(cases.map((c) => [c.id, c]));
-  const deps = (c: CaseLike) => [...(c.includes ?? []).map((x) => x.caseId), ...(c.notional ? [c.notional.sourceCaseId] : [])].filter((id) => byId.has(id));
-  const state = new Map<number, 0 | 1 | 2>();
-  const order: number[] = [];
-  const looped = new Set<number>();
-  const visit = (id: number, path: number[]) => {
-    const s = state.get(id) ?? 0;
-    if (s === 2) return;
-    if (s === 1) { for (const p of path.slice(path.indexOf(id))) looped.add(p); return; }
-    state.set(id, 1);
-    for (const d of deps(byId.get(id)!)) visit(d, [...path, id]);
-    state.set(id, 2);
-    order.push(id);
-  };
-  for (const c of cases) visit(c.id, []);
-  // The walk names the cases on the path it closes a loop along; a case that comes back to itself
-  // only through one the walk had finished (A → B → C → A, then B → D → C) is in a loop too.
-  const readsItself = (id: number) => {
-    const seen = new Set<number>(), stack = deps(byId.get(id)!);
-    while (stack.length) {
-      const d = stack.pop()!;
-      if (d === id) return true;
-      if (seen.has(d)) continue;
-      seen.add(d);
-      stack.push(...deps(byId.get(d)!));
-    }
-    return false;
-  };
-  for (const c of cases) if (!looped.has(c.id) && readsItself(c.id)) looped.add(c.id);
-  return { order, looped };
 }
 
 /**
@@ -103,31 +80,18 @@ export function withCaseEffects<M extends ModelData>(
   model: M, cases: readonly CaseLike[], opts: { includeSelfWeight: boolean; leftHand: boolean },
   caseIds?: ReadonlySet<number>,
 ): M {
+  model = keepVehicleAxleIdentity(model, cases);
   const scope = caseIds && cases.some(c => !caseIds.has(c.id)) ? caseIds : undefined;
   const hasEffects = hasCaseEffects(cases);
   if (!scope && !hasEffects) return model;
   const byId = new Map(cases.map(c => [c.id, c]));
   const inScope = (id: number) => !scope || scope.has(id) || !byId.has(id);
-  if (!hasEffects) {
-    return { ...model, loads: model.loads.filter(l => inScope(l.data.caseId ?? 1)) };
-  }
   const { order, looped } = caseOrder(cases);
-  const required = scope && new Set(scope);
-  if (required) {
-    const pending = [...required];
-    for (const id of pending) {
-      const c = byId.get(id);
-      if (!c || looped.has(id)) continue;
-      const deps = (c.includes ?? []).filter(inc => inc.factor !== 0).map(inc => inc.caseId);
-      if (c.notional) deps.push(c.notional.sourceCaseId);
-      for (const dep of deps) {
-        if (required.has(dep)) continue;
-        required.add(dep);
-        pending.push(dep);
-      }
-    }
+  const own = loadCaseBatches(model.loads);
+  const sources = caseSources(own, byId, looped, inScope, { generateNotionals: true });
+  if (!hasEffects) {
+    return { ...model, [accountingCaseSources]: sources, loads: model.loads.filter(l => inScope(l.data.caseId ?? 1)) };
   }
-
   // The self-weight rows, written out: the older switch puts gravity on every dead-load case,
   // not on a composite one typed D, which has it through the cases it takes in.
   const stated: SelfWeightLoad[] = model.analysis?.selfWeight
@@ -135,38 +99,40 @@ export function withCaseEffects<M extends ModelData>(
   const rows = new Map<number, SelfWeightLoad[]>();
   for (const r of stated) (rows.get(r.caseId) ?? rows.set(r.caseId, []).get(r.caseId)!).push(r);
 
-  const own = new Map<number, Load[]>();
-  for (const l of model.loads) { const c = l.data.caseId ?? 1; (own.get(c) ?? own.set(c, []).get(c)!).push(l); }
   const loads = new Map<number, Load[]>();
+  const generated = new Map<number, Load[]>();
+  let expectedPressures: ReturnType<typeof scenarioSurfaceExpectations> | undefined;
   let nextId = Math.max(0, ...model.loads.map((l) => l.data.id)) + 1;
   const fresh = (l: Load, caseId: number, k: number): Load => {
-    const s = k === 1 ? l : scaledLoad(l, k);
-    return { ...s, data: { ...s.data, id: nextId++, caseId } } as Load;
+    const s = k === 1 ? l : scaleCaseLoad(l, k);
+    return withAccountingOrigin({ ...s, data: { ...s.data, id: nextId++, caseId } } as Load, l);
   };
 
   for (const id of order) {
-    if (required && !required.has(id)) continue;
+    const rule = sources.cases.get(id);
+    if (!rule) continue;
     const c = byId.get(id)!;
-    const k = ratioOf(c);
+    const { ratio: k, includes } = rule;
     const list = (own.get(id) ?? []).map((l) => (k === 1 ? l : fresh(l, id, k)));
     const swRows = [...(rows.get(id) ?? [])];
     if (c.notional && !looped.has(id)) {
       const src = c.notional.sourceCaseId;
-      const gravity = sourceGravity(model, loads.get(src) ?? own.get(src) ?? [], rows.get(src) ?? [], opts.leftHand);
+      expectedPressures ??= scenarioSurfaceExpectations(sources);
+      const gravity = sourceGravity(model, src, loads.get(src) ?? own.get(src) ?? [], rows.get(src) ?? [],
+        opts.leftHand, expectedPressures(src), { ...sources, generated, targets: new Set([src]) });
       if (gravity) {
         const [ux, uy] = DIRS[c.notional.dir];
-        for (const n of notionalLoads(gravity, c.notional.ratio, ux, uy)) {
-          if (n.type !== 'nodal') continue;
-          list.push({ type: 'nodal3d', data: { id: nextId++, nodeId: n.data.nodeId, fx: n.data.fx, fy: n.data.fy, fz: 0, mx: 0, my: 0, mz: 0, caseId: id } });
-        }
+        const actions: Load[] = notionalLoads(gravity, c.notional.ratio, ux, uy).flatMap(n => n.type === 'nodal' ? [{
+          type: 'nodal3d',
+          data: { id: nextId++, nodeId: n.data.nodeId, fx: n.data.fx, fy: n.data.fy, fz: 0, mx: 0, my: 0, mz: 0, caseId: id },
+        }] : []);
+        generated.set(id, actions.map(copyAccountingLoad));
+        for (const action of actions) list.push(action);
       }
     }
-    if (!looped.has(id)) {
-      for (const inc of c.includes ?? []) {
-        if (!byId.has(inc.caseId) || inc.factor === 0) continue;
-        for (const l of loads.get(inc.caseId) ?? own.get(inc.caseId) ?? []) list.push(fresh(l, id, inc.factor));
-        for (const r of rows.get(inc.caseId) ?? []) swRows.push({ ...r, caseId: id, factor: r.factor * inc.factor });
-      }
+    for (const { caseId, factor } of includes) {
+      for (const l of loads.get(caseId) ?? own.get(caseId) ?? []) list.push(fresh(l, id, factor));
+      for (const r of rows.get(caseId) ?? []) swRows.push({ ...r, caseId: id, factor: r.factor * factor });
     }
     loads.set(id, list);
     rows.set(id, swRows);
@@ -176,6 +142,7 @@ export function withCaseEffects<M extends ModelData>(
   const orphan = model.loads.filter((l) => !byId.has(l.data.caseId ?? 1));
   return {
     ...model,
+    [accountingCaseSources]: { ...sources, generated },
     loads: [...orphan, ...order.filter(inScope).flatMap(id => loads.get(id) ?? [])],
     analysis: { ...(model.analysis ?? {}), selfWeight: [...rows.entries()].filter(([id]) => inScope(id)).flatMap(([, own]) => own) },
   };
@@ -190,13 +157,19 @@ export function withCaseEffects<M extends ModelData>(
  * own ends by the lever rule, as `nodeGravity` shares out a member load, so every notional load is
  * on a node the model has.
  */
-function sourceGravity(model: ModelData, srcLoads: Load[], srcRows: SelfWeightLoad[], leftHand: boolean): Map<number, number> | null {
-  const of = { ...model, loads: srcLoads, analysis: { ...(model.analysis ?? {}), selfWeight: srcRows } } as ModelData;
+function sourceGravity(
+  model: ModelData, caseId: number, srcLoads: Load[], srcRows: SelfWeightLoad[], leftHand: boolean, expectedPressures: readonly ScenarioSurfaceIntent[],
+  sources: AccountingCaseSources,
+): Map<number, number> | null {
+  const of = {
+    ...model, loads: srcLoads, analysis: { ...(model.analysis ?? {}), selfWeight: srcRows },
+    [accountingCaseSources]: sources,
+  };
   const prepared = prepareSolverInput3D(of, leftHand);
   const { model: solvable } = prepared;
   const base = prepared.build([]);
   if (!base) return null;
-  const { gravity } = nodeGravity(base, buildSolverLoads3D(solvable, solvable.loads, solvable.analysis?.selfWeight ?? [], leftHand), leftHand);
+  const { gravity } = nodeGravity(base, notionalSourceLoads3D(solvable, leftHand, caseId, expectedPressures, base), leftHand);
   const exp = variableExpansionFor(of);
   if (!exp) return gravity;
   const at = new Map<number, { parent: number; t: number }>();
@@ -216,6 +189,42 @@ function sourceGravity(model: ModelData, srcLoads: Load[], srcRows: SelfWeightLo
     add(parent.nodeJ, g * where.t);
   }
   return out;
+}
+
+export function includedCases(
+  c: CaseLike,
+  cases: ReadonlySet<number> | ReadonlyMap<number, CaseLike>,
+  accepts: (id: number) => boolean = () => true,
+): NonNullable<LoadCase['includes']> {
+  return sumCombinationFactors((c.includes ?? []).filter(({ caseId }) => cases.has(caseId) && accepts(caseId)))
+    .filter(({ factor }) => factor !== 0);
+}
+
+function caseSources(
+  authored: ReadonlyMap<number, readonly Load[]>,
+  byId: ReadonlyMap<number, CaseLike>,
+  looped: ReadonlySet<number>,
+  inScope: (id: number) => boolean,
+  opts: { include?: (id: number) => boolean; generateNotionals?: boolean },
+): AccountingCaseSources {
+  const targets = new Set([...byId.keys(), ...authored.keys()].filter(inScope));
+  const required = new Set(targets);
+  const cases = new Map<number, { ratio: number; includes: ReturnType<typeof includedCases> }>();
+  for (const id of required) {
+    const c = byId.get(id);
+    if (!c) continue;
+    const active = !looped.has(id);
+    const includes = active ? includedCases(c, byId, opts.include) : [];
+    cases.set(id, { ratio: caseReductionRatio(c), includes });
+    for (const inc of includes) required.add(inc.caseId);
+    if (active && opts.generateNotionals && c.notional) required.add(c.notional.sourceCaseId);
+  }
+  return {
+    authored: new Map([...authored].map(([id, loads]) => [id, loads.map(copyAccountingLoad)])),
+    generated: new Map(),
+    cases,
+    targets,
+  };
 }
 
 type SingleCase = CaseLike & Pick<LoadCase, 'reference' | 'solve' | 'spectral'>;
@@ -238,24 +247,17 @@ type SingleCase = CaseLike & Pick<LoadCase, 'reference' | 'solve' | 'spectral'>;
  * Everything that reads the single solve (its statics check, the load at a joint for the active
  * result set, PRO's "All loads" after a solve with combinations) reads it through here.
  */
-function singleSolveTerms(cases: readonly SingleCase[]): Map<number, Array<{ caseId: number; factor: number }>> {
-  const byId = new Map(cases.map((c) => [c.id, c]));
-  const { looped } = caseOrder(cases);
+function singleSolveTerms(sources: AccountingCaseSources): Map<number, Array<{ caseId: number; factor: number }>> {
   const out = new Map<number, Array<{ caseId: number; factor: number }>>();
-  for (const c of cases) {
-    if (!listed(c)) continue;
+  for (const id of sources.targets) {
+    if (!sources.cases.has(id)) continue;
     const terms: Array<{ caseId: number; factor: number }> = [];
-    const take = (id: number, k: number) => {
-      terms.push({ caseId: id, factor: k });
-      if (looped.has(id)) return;
-      for (const inc of byId.get(id)!.includes ?? []) {
-        const part = byId.get(inc.caseId);
-        if (!part || inc.factor === 0 || listed(part)) continue;
-        take(inc.caseId, k * inc.factor);
-      }
+    const take = (caseId: number, factor: number) => {
+      terms.push({ caseId, factor });
+      for (const inc of sources.cases.get(caseId)!.includes) take(inc.caseId, factor * inc.factor);
     };
-    take(c.id, 1);
-    out.set(c.id, terms);
+    take(id, 1);
+    out.set(id, terms);
   }
   return out;
 }
@@ -269,25 +271,27 @@ function singleSolveTerms(cases: readonly SingleCase[]): Map<number, Array<{ cas
 export function singleSolveModel<M extends ModelData>(model: M, cases: readonly SingleCase[]): M {
   if (cases.every((c) => listed(c) && !reductionApplies(c))) return model;
   const byId = new Map(cases.map((c) => [c.id, c]));
-  const own = new Map<number, Load[]>();
-  for (const l of model.loads) { const c = l.data.caseId ?? 1; (own.get(c) ?? own.set(c, []).get(c)!).push(l); }
+  model = keepVehicleAxleIdentity(model, cases);
+  const own = loadCaseBatches(model.loads);
+  const isListed = (id: number) => !byId.has(id) || listed(byId.get(id)!);
+  const sources = caseSources(own, byId, caseOrder(cases).looped, isListed, { include: id => !isListed(id) });
   const stated = model.analysis?.selfWeight;
   let nextId = Math.max(0, ...model.loads.map((l) => l.data.id)) + 1;
   // Loads, and rows, of a case id the model has no case for are kept as they are.
   const loads: Load[] = model.loads.filter((l) => !byId.has(l.data.caseId ?? 1));
   const rows: SelfWeightLoad[] = (stated ?? []).filter((r) => !byId.has(r.caseId));
-  for (const [as, terms] of singleSolveTerms(cases)) {
+  for (const [as, terms] of singleSolveTerms(sources)) {
     for (const { caseId, factor } of terms) {
-      const k = factor * ratioOf(byId.get(caseId)!);
+      const k = factor * sources.cases.get(caseId)!.ratio;
       for (const l of own.get(caseId) ?? []) {
         if (k === 1 && caseId === as) { loads.push(l); continue; }
-        const s = scaledLoad(l, k);
-        loads.push({ ...s, data: { ...s.data, id: nextId++, caseId: as } } as Load);
+        const s = scaleCaseLoad(l, k);
+        loads.push(withAccountingOrigin({ ...s, data: { ...s.data, id: nextId++, caseId: as } } as Load, l));
       }
       for (const r of stated ?? []) if (r.caseId === caseId) rows.push({ ...r, caseId: as, factor: r.factor * factor });
     }
   }
-  return { ...model, loads, ...(stated ? { analysis: { ...model.analysis, selfWeight: rows } } : {}) };
+  return { ...model, [accountingCaseSources]: { ...sources, single: true }, loads, ...(stated ? { analysis: { ...model.analysis, selfWeight: rows } } : {}) };
 }
 
 /**
@@ -307,19 +311,25 @@ export function singleSolveFactors(cases: readonly SingleCase[], opts: { legacyS
   const byId = new Map(cases.map((c) => [c.id, c]));
   const { looped } = caseOrder(cases);
   if (cases.some((c) => c.notional && !looped.has(c.id) && byId.has(c.notional.sourceCaseId))) return null;
-  const factors = new Map<number, number>();
-  for (const c of cases) if (listed(c)) factors.set(c.id, 1);
+  const terms = cases.filter(listed).map(({ id }) => ({ caseId: id, factor: 1 }));
+  const includes = new Map<number, ReturnType<typeof includedCases>>();
+  const includesOf = (id: number) => {
+    const cached = includes.get(id);
+    if (cached) return cached;
+    const resolved = looped.has(id) ? [] : includedCases(byId.get(id)!, byId);
+    includes.set(id, resolved);
+    return resolved;
+  };
   // What a case's result holds besides what it brings to the single solve, on listed results.
   const lessOf = (id: number, k: number) => {
-    if (looped.has(id)) return;
-    for (const inc of byId.get(id)!.includes ?? []) {
-      const part = byId.get(inc.caseId);
-      if (!part || inc.factor === 0) continue;
-      if (listed(part)) factors.set(part.id, factors.get(part.id)! - k * inc.factor);
+    for (const inc of includesOf(id)) {
+      const part = byId.get(inc.caseId)!;
+      if (listed(part)) terms.push({ caseId: part.id, factor: -k * inc.factor });
       else lessOf(part.id, k * inc.factor);
     }
   };
   for (const c of cases) if (listed(c)) lessOf(c.id, 1);
+  const factors = new Map(sumCombinationFactors(terms).map(({ caseId, factor }) => [caseId, factor]));
   if (opts.legacySelfWeight) {
     // The weight each result holds: a dead-load case's own, and what a composite takes in.
     const weight = new Map<number, number>();
@@ -327,7 +337,7 @@ export function singleSolveFactors(cases: readonly SingleCase[], opts: { legacyS
       if (weight.has(id)) return weight.get(id)!;
       const c = byId.get(id)!;
       let w = c.type === 'D' && !isCompositeCase(c) ? 1 : 0;
-      if (!looped.has(id)) for (const inc of c.includes ?? []) if (byId.has(inc.caseId)) w += inc.factor * weightOf(inc.caseId);
+      for (const inc of includesOf(id)) w += inc.factor * weightOf(inc.caseId);
       weight.set(id, w);
       return w;
     };

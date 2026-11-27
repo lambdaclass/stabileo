@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { nightlySolverFixture } from './nightly-solver-fixture.mjs';
 import { readFileSync } from 'node:fs';
 import { initSync, solve_2d, solve_3d, solve_staged_2d, solve_staged_3d } from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
-const archived = JSON.parse(readFileSync(new URL('../../engine/tests/metamorphic_corpus/nightly/issue-1085.json', import.meta.url)));
+const archived = nightlySolverFixture(JSON.parse(readFileSync(new URL('../../engine/tests/metamorphic_corpus/nightly/issue-1085.json', import.meta.url))));
 
 function model(dim, copies, factor, linked) {
   const source = structuredClone(archived);
@@ -13,6 +14,8 @@ function model(dim, copies, factor, linked) {
     delete source.elements[1].hingeStart;
     delete source.elements[1].hingeEnd;
     Object.assign(source.sections[1], { iy: source.sections[1].iz, j: source.sections[1].iz });
+    delete source.supports[1].id;
+    delete source.supports[1].type;
     for (const axis of ['rx', 'ry', 'rz', 'rrx', 'rry', 'rrz']) source.supports[1][axis] = true;
   }
   if (!linked) {
@@ -27,7 +30,7 @@ function model(dim, copies, factor, linked) {
     }
     const id = copy + 1;
     result.elements[id] = { ...source.elements[1], id, nodeI: 1 + 3 * copy, nodeJ: 2 + 3 * copy };
-    result.supports[id] = { ...source.supports[1], id, nodeId: 1 + 3 * copy };
+    result.supports[id] = { ...source.supports[1], nodeId: 1 + 3 * copy, ...(dim === 2 ? { id } : {}) };
     if (linked) result.constraints.push({ ...source.constraints[0], masterNode: 2 + 3 * copy, slaveNode: 3 + 3 * copy });
   }
   return result;

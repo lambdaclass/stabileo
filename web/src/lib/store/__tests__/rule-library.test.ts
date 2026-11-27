@@ -64,3 +64,19 @@ describe('the rule library across tabs', () => {
     } finally { vi.restoreAllMocks(); }
   });
 });
+
+it('#2535 the library rejects partial rules and preserves a valid snow basis', async () => {
+  const malformed = JSON.stringify({ kind: 'stabileo.combinationRules', rules: [
+    { terms: [{ symbol: 'D', factor: 1 }, { symbol: 'L', factor: '2' }] },
+  ] });
+  const snow: CombinationRule[] = [{ id: 'r1', purpose: 'strength', terms: [
+    { symbol: 'S', factor: 2, group: 'roof', snowBasis: 'flatRoof' },
+  ] }];
+  mem.set(KEY, JSON.stringify([
+    { ...entry('bad', 'Malformed', 1), doc: malformed },
+    { ...entry('good', 'Snow', 1), doc: rulesToTemplate(snow, 'Snow') },
+  ]));
+  const lib = await tab();
+  expect.soft(lib.templates.map(x => x.name)).toEqual(['Snow']);
+  expect(lib.templates.find(x => x.name === 'Snow')?.rules).toEqual(snow);
+});

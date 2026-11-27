@@ -14,11 +14,13 @@ fn input(key: &str) -> Value {
 }
 
 fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) {
-    let value = input(&format!("{issue}-body-0"));
+    let mut value = input(&format!("{issue}-body-0"));
+    let (name, densities) = crate::common::take_nightly_metadata(&mut value);
+    let name = name.as_ref().and_then(Value::as_str).unwrap_or("replay");
     let error = match corpus::parse(&value.to_string()).unwrap() {
         corpus::Model::D2(s) => {
-            let mut c = Case2::new(value["_nightly_name"].as_str().unwrap_or("replay"), s);
-            if let Some(d) = value.get("_nightly_dens") {
+            let mut c = Case2::new(name, s);
+            if let Some(d) = densities.as_ref() {
                 c.dens = serde_json::from_value(d.clone()).unwrap();
             }
             let a = ana2::rows()
@@ -28,8 +30,8 @@ fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) 
             (a.run)(&c).expect_err("the reported input returned a result")
         }
         corpus::Model::D3(s) => {
-            let mut c = Case3::new(value["_nightly_name"].as_str().unwrap_or("replay"), s);
-            if let Some(d) = value.get("_nightly_dens") {
+            let mut c = Case3::new(name, s);
+            if let Some(d) = densities.as_ref() {
                 c.dens = serde_json::from_value(d.clone()).unwrap();
             }
             let a = ana3::rows()
@@ -40,20 +42,35 @@ fn refused(issue: u64, analysis: &str, prefix: &str, diagnostic: Option<Value>) 
         }
     };
     if let Some(expected) = diagnostic {
-        let value: Value = serde_json::from_str(&error).unwrap();
+        let value: Value = serde_json::from_str(&error)
+            .unwrap_or_else(|_| panic!("#{issue}: expected a structured refusal, got {error}"));
         let actual = value["structuredDiagnostics"].as_array().unwrap();
         assert_eq!(actual.len(), 1);
         for (key, expected_value) in expected.as_object().unwrap() {
             assert_eq!(&actual[0][key], expected_value, "#{issue}: {key}");
+        }
+        if !prefix.is_empty() {
+            assert!(value["message"].as_str().unwrap().starts_with(prefix), "#{issue}: {error}");
         }
     } else {
         assert!(error.starts_with(prefix), "#{issue}: {error}");
     }
 }
 
+fn refused_mechanism(issue: u64, analysis: &str, nodes: &[usize]) {
+    let reason = format!("the structure is a mechanism at nodes {nodes:?}: a node can move freely in a direction no member, support or spring stiffens");
+    refused(issue, analysis, &reason, None);
+}
+
+fn rank_refused(issue: u64, analysis: &str, prefix: &str) {
+    refused(issue, analysis, prefix, Some(serde_json::json!({
+        "code": "reduced_stiffness_rank", "severity": "error"
+    })));
+}
+
 #[test]
 fn issue_1912_refuses_unresolved_stiffness() {
-    refused(1912, "linear (WASM typed path)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1912, "linear (WASM typed path)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
@@ -63,12 +80,12 @@ fn issue_1908_refuses_unresolved_stiffness() {
 
 #[test]
 fn issue_1906_refuses_unresolved_stiffness() {
-    refused(1906, "certified linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1906, "certified linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
 fn issue_1905_refuses_unresolved_stiffness() {
-    refused(1905, "linear (load session)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1905, "linear (load session)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
@@ -78,47 +95,47 @@ fn issue_1903_refuses_unrestrained_translation() {
 
 #[test]
 fn issue_1902_refuses_unresolved_stiffness() {
-    refused(1902, "linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+    rank_refused(1902, "linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision");
 }
 
 #[test]
-fn issue_1859_refuses_unrestrained_translation() {
-    refused(1859, "P-Delta", "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens", None);
+fn issue_1859_refuses_proven_mechanism() {
+    refused_mechanism(1859, "P-Delta", &[2, 3, 6]);
 }
 
 #[test]
-fn issue_1858_refuses_unresolved_stiffness() {
-    refused(1858, "certified linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+fn issue_1858_refuses_proven_mechanism() {
+    refused_mechanism(1858, "certified linear", &[2]);
 }
 
 #[test]
-fn issue_1856_refuses_unresolved_stiffness() {
-    refused(1856, "linear (WASM typed path)", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+fn issue_1856_refuses_proven_mechanism() {
+    refused_mechanism(1856, "linear (WASM typed path)", &[2]);
 }
 
 #[test]
-fn issue_1852_refuses_unrestrained_translation() {
-    refused(1852, "linear (WASM typed path)", "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens", None);
+fn issue_1852_refuses_proven_mechanism() {
+    refused_mechanism(1852, "linear (WASM typed path)", &[2, 3, 6]);
 }
 
 #[test]
-fn issue_1851_refuses_unresolved_stiffness() {
-    refused(1851, "P-Delta", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+fn issue_1851_refuses_proven_mechanism() {
+    refused_mechanism(1851, "P-Delta", &[2]);
 }
 
 #[test]
-fn issue_1850_refuses_unrestrained_translation() {
-    refused(1850, "linear", "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens", None);
+fn issue_1850_refuses_proven_mechanism() {
+    refused_mechanism(1850, "linear", &[2, 3, 6]);
 }
 
 #[test]
-fn issue_1847_refuses_unrestrained_translation() {
-    refused(1847, "linear (load session)", "the structure is a mechanism at nodes [2]: a node can move freely in a direction no member, support or spring stiffens", None);
+fn issue_1847_refuses_proven_mechanism() {
+    refused_mechanism(1847, "linear (load session)", &[2, 3, 6]);
 }
 
 #[test]
-fn issue_1842_refuses_unresolved_stiffness() {
-    refused(1842, "linear", "the structure is a mechanism or so close to one that its stability cannot be decided in double precision", None);
+fn issue_1842_refuses_proven_mechanism() {
+    refused_mechanism(1842, "linear", &[2]);
 }
 
 #[test]
@@ -358,15 +375,29 @@ fn displacement_1901(node: usize, actual: [f64; 3], reference: &Value) {
     }
 }
 
+fn assert_1901_equilibrium_refusal(error: &str) {
+    let refusal: Value = serde_json::from_str(error).unwrap();
+    let diagnostics = refusal["structuredDiagnostics"].as_array().unwrap();
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic["code"], "result_quantity_unavailable");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["phase"], "equilibrium");
+    assert_eq!(diagnostic["threshold"].as_f64(), Some(1e-12));
+    let residual = diagnostic["value"].as_f64().unwrap();
+    assert!(residual.is_finite() && residual > 1e-12);
+}
+
 #[test]
 fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
     use dedaliano_engine::{
+        certify::pdelta as certify_pdelta,
         load_session::{LoadSession2D, LoadSession3D},
         metamorphic::planes::{embed_2d, Plane},
         solver::{linear, pdelta},
         types::SolverInput,
     };
-    let solver: SolverInput = serde_json::from_value(input("1901-body-0")).unwrap();
+    let solver: SolverInput = crate::common::nightly_solver(input("1901-body-0")).unwrap();
     let reference = reference_1901();
     let typed = serde_json::from_value(serde_json::to_value(&solver).unwrap()).unwrap();
     for result in [
@@ -388,25 +419,30 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
             displacement_1901(d.node_id, [d.ux, d.uz, d.ry], &reference["linear"]);
         }
     }
-    let nonlinear = pdelta::solve_pdelta_2d(&solver, 100, 1e-12).unwrap();
-    assert!(!nonlinear.converged && !nonlinear.is_stable);
-    assert_eq!(nonlinear.iterations, 100);
+    let refusal = pdelta::solve_pdelta_2d(&solver, 100, 1e-12)
+        .err().expect("solver must refuse");
+    assert_1901_equilibrium_refusal(&refusal);
+    let certified_refusal = certify_pdelta::certify_pdelta_2d(&solver, 100, 1e-12)
+        .err().expect("solver certification must refuse");
+    assert_eq!(certified_refusal, refusal);
     let angle = 37.0_f64.to_radians();
     let rotated = dedaliano_engine::metamorphic::transform::transform_2d(
         &solver,
         &dedaliano_engine::metamorphic::transform::Iso2::rotation(angle),
     )
     .unwrap();
-    let nonlinear = pdelta::solve_pdelta_2d(&rotated, 100, 1e-12).unwrap();
-    assert!(!nonlinear.converged && !nonlinear.is_stable);
-    assert_eq!(nonlinear.iterations, 100);
+    let refusal = pdelta::solve_pdelta_2d(&rotated, 100, 1e-12)
+        .err().expect("rotated must refuse");
+    assert_1901_equilibrium_refusal(&refusal);
+    let certified_refusal = certify_pdelta::certify_pdelta_2d(&rotated, 100, 1e-12)
+        .err().expect("rotated certification must refuse");
+    assert_eq!(certified_refusal, refusal);
     let adapter2 = ana2::rows()
         .into_iter()
         .find(|a| a.name == "P-Delta")
         .unwrap();
-    assert_eq!(
-        (adapter2.run)(&Case2::new("1901 rotated", rotated.clone())).unwrap_err(),
-        "did not converge"
+    assert_1901_equilibrium_refusal(
+        &(adapter2.run)(&Case2::new("1901 rotated", rotated.clone())).unwrap_err(),
     );
     for model in [&solver, &rotated] {
         let mut unloaded = model.clone();
@@ -452,21 +488,22 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
                 );
             }
         }
-        let nonlinear = pdelta::solve_pdelta_3d(&embedded, 100, 1e-12).unwrap();
-        assert!(!nonlinear.converged && !nonlinear.is_stable);
-        assert_eq!(nonlinear.iterations, 100);
+        let refusal = pdelta::solve_pdelta_3d(&embedded, 100, 1e-12)
+            .err().expect("embedded model must refuse");
+        assert_1901_equilibrium_refusal(&refusal);
+        let certified_refusal = certify_pdelta::certify_pdelta_3d(&embedded, 100, 1e-12)
+            .err().expect("embedded certification must refuse");
+        assert_eq!(certified_refusal, refusal);
         let adapter3 = ana3::rows()
             .into_iter()
             .find(|a| a.name == "P-Delta")
             .unwrap();
-        assert_eq!(
-            (adapter3.run)(&Case3::new("1901 embedded", embedded.clone())).unwrap_err(),
-            "did not converge"
+        assert_1901_equilibrium_refusal(
+            &(adapter3.run)(&Case3::new("1901 embedded", embedded.clone())).unwrap_err(),
         );
         let case2 = Case2::new("1901 planar", solver.clone());
-        assert_eq!(
-            (adapter2.planar.unwrap())(&case2, plane, &embedded).unwrap_err(),
-            "did not converge"
+        assert_1901_equilibrium_refusal(
+            &(adapter2.planar.unwrap())(&case2, plane, &embedded).unwrap_err(),
         );
         let mut unloaded = embedded.clone();
         unloaded.loads.clear();
@@ -478,5 +515,10 @@ fn issue_1992_1901_linear_reference_and_pdelta_outcome() {
         }
         (adapter3.run)(&Case3::new("1901 unloaded embedded", unloaded)).unwrap();
     }
-    refused(1901, "P-Delta", "did not converge", None);
+    refused(1901, "P-Delta", "", Some(serde_json::json!({
+        "code": "result_quantity_unavailable",
+        "severity": "error",
+        "phase": "equilibrium",
+        "threshold": 1e-12,
+    })));
 }

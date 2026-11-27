@@ -854,7 +854,7 @@
        */
       stagedResult = res;
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.staged'), error: errorText(e, t('pro.unknownError')) });
+      solveError = tp('adv.failed', { analysis: t('adv.name.staged'), error: localizeEngineText(errorText(e, t('pro.unknownError'))) });
     }
     solving = false;
   }

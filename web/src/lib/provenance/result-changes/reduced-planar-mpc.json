@@ -1,0 +1,55 @@
+{
+  "id": "reduced-planar-mpc",
+  "date": "2026-11-25",
+  "prs": [
+    2588
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "plane2D",
+      "reducedPlanarMpc"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Planar projection of multipoint constraints",
+    "es": "Proyección plana de restricciones multipunto",
+    "pt": "Projeção plana de restrições multiponto",
+    "de": "Ebene Projektion von Mehrpunkt-Zwangsbedingungen",
+    "fr": "Projection plane des contraintes multipoints",
+    "tr": "Çok noktalı kısıtların düzleme izdüşümü",
+    "zh": "多点约束的平面投影",
+    "ar": "الإسقاط المستوي للقيود متعددة النقاط",
+    "hi": "बहुबिंदु बंधनों का समतलीय प्रक्षेपण",
+    "hu": "Többpontos kényszerek síkbeli vetítése",
+    "id": "Proyeksi bidang kendala multititik",
+    "it": "Proiezione piana dei vincoli multipunto",
+    "ja": "多点拘束の平面への投影",
+    "ko": "다점 구속의 평면 투영",
+    "ru": "Проекция многоточечных связей на плоскость"
+  },
+  "explanation": {
+    "en": "Planar analysis combines coefficients for the same node and degree of freedom before projecting multipoint constraints. Equations with cancelled out-of-plane terms now retain their in-plane terms. Equations that still couple both kinds of motion are refused. A single surviving term can use a unit coefficient when its sum would overflow.",
+    "es": "El análisis plano combina los coeficientes del mismo nodo y grado de libertad antes de proyectar las restricciones multipunto. Las ecuaciones cuyos términos fuera del plano se cancelan conservan los términos dentro del plano. Se rechazan las ecuaciones que aún acoplan ambos movimientos. Si queda un solo término y su suma desborda, se puede usar un coeficiente unitario.",
+    "pt": "A análise plana combina os coeficientes do mesmo nó e grau de liberdade antes de projetar as restrições multiponto. As equações cujos termos fora do plano se cancelam mantêm os termos no plano. As equações que ainda acoplam os dois movimentos são recusadas.",
+    "de": "Die ebene Berechnung fasst Koeffizienten desselben Knotens und Freiheitsgrads vor der Projektion zusammen. Fallen die Terme außerhalb der Ebene weg, bleiben die Terme in der Ebene erhalten. Gleichungen, die beide Bewegungen weiterhin koppeln, werden abgelehnt.",
+    "fr": "Le calcul plan regroupe les coefficients associés au même nœud et au même degré de liberté avant la projection. Lorsque les termes hors du plan s’annulent, les termes dans le plan sont conservés. Les équations qui couplent encore les deux mouvements sont refusées.",
+    "tr": "Düzlemsel analiz, izdüşümden önce aynı düğüm ve serbestlik derecesine ait katsayıları toplar. Düzlem dışı terimleri birbirini götüren denklemlerde düzlem içi terimler korunur. İki hareketi hâlâ birbirine bağlayan denklemler reddedilir.",
+    "zh": "平面分析在投影多点约束之前合并同一节点和自由度的系数。面外项相互抵消时，方程会保留面内项。仍耦合面内与面外运动的方程会被拒绝。",
+    "ar": "يجمع التحليل المستوي معاملات العقدة ودرجة الحرية نفسيهما قبل إسقاط القيود متعددة النقاط. تحتفظ المعادلات بحدودها داخل المستوى عندما تتلاشى الحدود خارجه. تُرفض المعادلات التي ما زالت تربط الحركتين.",
+    "hi": "समतलीय विश्लेषण प्रक्षेपण से पहले एक ही नोड और स्वतंत्रता की डिग्री के गुणांकों को जोड़ता है। जिन समीकरणों के समतल से बाहर के पद कट जाते हैं, उनके समतल के भीतर के पद बने रहते हैं। दोनों गतियों को अब भी जोड़ने वाले समीकरण अस्वीकृत होते हैं।",
+    "hu": "A síkbeli számítás a vetítés előtt összevonja az azonos csomóponthoz és szabadságfokhoz tartozó együtthatókat. Ha a síkon kívüli tagok kiesnek, a síkbeli tagok megmaradnak. A kétféle mozgást továbbra is összekapcsoló egyenleteket a számítás elutasítja.",
+    "id": "Analisis bidang menjumlahkan koefisien pada simpul dan derajat kebebasan yang sama sebelum proyeksi. Jika suku luar bidang saling meniadakan, suku dalam bidang dipertahankan. Persamaan yang masih mengaitkan kedua gerakan ditolak.",
+    "it": "Prima della proiezione, l’analisi piana somma i coefficienti dello stesso nodo e grado di libertà. Quando i termini fuori piano si annullano, i termini nel piano vengono conservati. Le equazioni che accoppiano ancora i due moti vengono rifiutate.",
+    "ja": "平面解析では、多点拘束を投影する前に同じ節点と自由度の係数を合算します。面外項が相殺される式では面内項が保持されます。面内と面外の変位を引き続き連成させる式は拒否されます。",
+    "ko": "평면 해석은 다점 구속을 투영하기 전에 같은 절점과 자유도의 계수를 합칩니다. 평면 외 항이 상쇄되면 평면 내 항은 유지됩니다. 두 운동을 계속 결합하는 방정식은 거부됩니다.",
+    "ru": "Перед проецированием плоский расчёт суммирует коэффициенты одной и той же степени свободы одного узла. Если члены вне плоскости взаимно уничтожаются, члены в плоскости сохраняются. Уравнения, которые по-прежнему связывают оба движения, отклоняются."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-malformed-structural-input.md",
+    "heading": "Planar projection of multipoint constraints"
+  }
+}

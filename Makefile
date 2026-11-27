@@ -71,6 +71,8 @@ help:
 	@echo "Testing:"
 	@echo "  make test           - Engine, backend and web tests"
 	@echo "  make test.engine    - Rust engine tests"
+	@echo "  make test.engine.experimental-nonlinear - Feature-enabled nonlinear driver tests (FILTER=...)"
+	@echo "  make test.engine.experimental-nonlinear-wasm - Feature-enabled nonlinear WASM tests (FILTER=...)"
 	@echo "  make test.backend   - Elixir backend tests"
 	@echo "  make test.backend.file FILE=apps/... - One backend test file or dir"
 	@echo "  make test.web       - Web (Vitest) tests"
@@ -194,7 +196,11 @@ test.web.fast:
 
 .PHONY: check.web.production-parity
 check.web.production-parity:
-	$(NIX_RUN) python3 -B scripts/check-production-parity.py $(BASE) $(if $(REQUIRE_PARITY),--required)
+	$(NIX_RUN) python3 -B scripts/check-production-parity.py "$(or $(BASE),origin/main)" $(if $(REQUIRE_PARITY),--required) \
+		$(if $(PARITY_PLAN),--plan) $(if $(PARITY_RESEARCH_PLAN),--plan-research) $(if $(PARITY_SIDE),--side "$(PARITY_SIDE)") \
+		$(if $(PARITY_OUT),--inventory "$(PARITY_OUT)") $(if $(PARITY_RESEARCH_OUT),--research-out "$(PARITY_RESEARCH_OUT)") \
+		$(if $(PARITY_RESEARCH_IN),--research-in "$(PARITY_RESEARCH_IN)") \
+		$(if $(PARITY_SCRATCH),--scratch "$(PARITY_SCRATCH)") $(if $(PARITY_COMPARE),--compare "$(PARITY_COMPARE)")
 
 check.fail-closed:
 	python3 -B -I scripts/check-fail-closed.py
@@ -225,6 +231,18 @@ audit.810.run:
 test.engine.targeted:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture $(if $(IGNORED),--ignored)
 
+.PHONY: test.engine.reduced-rank-wasm
+test.engine.reduced-rank-wasm: wasm
+	$(NIX_RUN) node scripts/tests/reduced-rank-wasm.mjs
+
+.PHONY: test.engine.release-gauges-wasm
+test.engine.release-gauges-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.release-gauges.XXXXXX"); modal=$$(mktemp "$(CURDIR)/.modal-release-gauges.XXXXXX"); plate=$$(mktemp "$(CURDIR)/.plate-release-gauge.XXXXXX"); connector=$$(mktemp "$(CURDIR)/.connector-release-gauge.XXXXXX"); trap '"'"'rm -f -- "$$cases" "$$modal" "$$plate" "$$connector"'"'"' EXIT; MATERIAL_RELEASE_WASM_CASES="$$cases" MODAL_RELEASE_WASM_CASES="$$modal" ATTACHED_RELEASE_WASM_CASES="$$plate" SUPPORTED_RELEASE_WASM_CASES="$$connector" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=release_gauges::; node scripts/tests/release-gauges-wasm.mjs "$$cases" "$$modal" "$$plate" "$$connector"'
+
+.PHONY: test.engine.staged-force-parity-wasm
+test.engine.staged-force-parity-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-force-parity-wasm.mjs
+
 NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
 research.newmark.replay:
 	NEWMARK_REPLAY_OUT=$(NEWMARK_DIR)/results/stabileo_results.json NEWMARK_VALIDATION_OUT=$(NEWMARK_DIR)/VALIDATION.json \
@@ -238,7 +256,15 @@ test.engine:
 
 .PHONY: test.engine.lib
 test.engine.lib:
-	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(if $(RELEASE),--release) $(FILTER)
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib $(if $(RELEASE),--release) $(if $(ENGINE_FEATURES),--features $(ENGINE_FEATURES)) $(FILTER) $(if $(IGNORED),-- --ignored)
+
+.PHONY: test.engine.experimental-nonlinear test.engine.experimental-nonlinear-wasm
+test.engine.experimental-nonlinear:
+	$(MAKE) test.engine.lib ENGINE_FEATURES=experimental-nonlinear FILTER="$(or $(FILTER),experimental_nonlinear)"
+
+test.engine.experimental-nonlinear-wasm: scripts/tests/arc-review-wasm.mjs scripts/tests/planar-exact-member-actions.mjs scripts/tests/fixtures/planar-exact-member-actions.json scripts/tests/fixtures/planar-member-rotation.json scripts/tests/fixtures/planar-chord-equilibrium.json
+	$(NIX_RUN) wasm-pack build engine --target nodejs --out-dir ../target/experimental-nonlinear-wasm --no-opt -- --features experimental-nonlinear
+	$(NIX_RUN) node --test $(if $(FILTER),--test-name-pattern="$(FILTER)") scripts/tests/experimental-nonlinear-wasm.mjs
 
 test.backend: services
 	$(NIX_RUN) bash -c "cd backend && MIX_ENV=test mix ecto.create --quiet && MIX_ENV=test mix ecto.migrate --quiet && mix test"
@@ -389,7 +415,12 @@ test.web.build: web.build.tested
 # The build prerenders the public pages in Chromium, so it needs the browser. The stamp is taken
 # before building, so a tree edited mid-build fails the build tests instead of passing them.
 web.build.tested:
-	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && rm -f dist.source-stamp .dist-shared.source-stamp && npm run build && npx tsx scripts/translation-gate.ts dist && npx vite build --manifest --outDir .dist-shared --emptyOutDir --logLevel error && node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
+	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && \
+		rm -f dist.source-stamp .dist-shared.source-stamp && \
+		npm run build:only -- --manifest --outDir .dist-shared --emptyOutDir && \
+		rm -rf dist && cp -R .dist-shared dist && rm dist/.vite/manifest.json && rmdir dist/.vite && \
+		npm run build:finish && npx tsx scripts/translation-gate.ts dist && \
+		node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
 
 test.web.build.shared: export STABILEO_UNIT_PROFILE = production
 test.web.build.shared:
@@ -988,6 +1019,9 @@ test.engine.reactions-frozen: wasm
 test.audit.evidence:
 	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 
+test.engine.staged-orphan-wasm test.engine.staged-settlement-1085-wasm test.engine.translation-rank-wasm \
+test.engine.modal-mass-range-wasm test.engine.time-history-2009-wasm test.engine.candidate-1901-wasm: scripts/tests/nightly-solver-fixture.mjs
+
 .PHONY: test.engine.staged-orphan-wasm
 test.engine.staged-orphan-wasm: wasm scripts/tests/staged-history-containment.mjs test.engine.staged-physical-r14-wasm test.engine.staged-r20-wasm test.engine.staged-r23-wasm
 	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
@@ -1048,6 +1082,10 @@ test.engine.nonlinear-convergence-wasm: wasm
 	$(NIX_RUN) node scripts/tests/nonlinear-convergence-wasm.mjs $(CURDIR)/.761-wasm-cases.json
 	rm -f $(CURDIR)/.761-wasm-cases.json
 
+.PHONY: test.engine.pdelta-2100-wasm
+test.engine.pdelta-2100-wasm: wasm
+	$(NIX_RUN) node scripts/tests/pdelta-2100-wasm.mjs
+
 .PHONY: test.engine.plastic-nightly-wasm
 test.engine.plastic-nightly-wasm: wasm
 	$(NIX_RUN) timeout 30s node scripts/tests/plastic-nightly-wasm.mjs
@@ -1077,15 +1115,15 @@ test.engine.reactions-r11-wasm: wasm
 
 .PHONY: test.engine.truss-balance-1969-wasm
 
-test.engine.truss-balance-1969-wasm: wasm
+test.engine.truss-balance-1969-wasm: wasm scripts/tests/pdelta-equilibrium-refusal.mjs
 	$(NIX_RUN) node scripts/tests/truss-balance-1969-wasm.mjs
 
 .PHONY: test.engine.candidate-1901-wasm
 
-test.engine.candidate-1901-wasm: wasm
-	CANDIDATE_1901_AUDIT=$(CURDIR)/.1901-audit.json $(NIX_RUN) node scripts/tests/candidate-1901-wasm.mjs
-	$(NIX_RUN) python3 testing/docs/audits/candidate-1901-audit.py $(CURDIR)/.1901-audit.json
-	rm -f $(CURDIR)/.1901-audit.json
+test.engine.candidate-1901-wasm: wasm scripts/tests/pdelta-equilibrium-refusal.mjs
+	$(NIX_RUN) node scripts/tests/candidate-1901-wasm.mjs
+	$(NIX_RUN) bash scripts/tests/candidate-1901-wasm-audit.sh
+
 .PHONY: test.engine.staged-settlement-1085-wasm
 
 test.engine.staged-settlement-1085-wasm: wasm
@@ -1143,6 +1181,35 @@ test.engine.pdelta-rotation-wasm: wasm
 .PHONY: test.engine.staged-springs-r12-wasm
 test.engine.staged-springs-r12-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-springs-r12.mjs
+
+.PHONY: test.engine.modal-null-wasm
+test.engine.modal-null-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-null.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_NULL_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=modal_null::; node scripts/tests/modal-null-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.modal-released-axis-wasm
+
+test.engine.modal-released-axis-wasm: wasm scripts/tests/modal-released-axis-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-released-axis.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; RELEASED_AXIS_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=modal_released_axis::released_axis_wasm_cases; node scripts/tests/modal-released-axis-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.harmonic-dc-wasm
+test.engine.harmonic-dc-wasm: wasm scripts/tests/harmonic-dc-equilibration-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.harmonic-dc.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; HARMONIC_DC_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=harmonic_dc_equilibration::harmonic_dc_wasm_cases; node scripts/tests/harmonic-dc-equilibration-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.conditional-elastic-wasm
+test.engine.conditional-elastic-wasm: wasm scripts/tests/conditional-elastic-equilibration-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.conditional-elastic.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; CONDITIONAL_ELASTIC_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=conditional_elastic_equilibration::conditional_elastic_wasm_cases; node scripts/tests/conditional-elastic-equilibration-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.axial-tip-wasm
+test.engine.axial-tip-wasm: wasm scripts/tests/axial-tip-mechanisms-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.axial-tip.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; AXIAL_TIP_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=axial_tip_mechanisms::axial_tip_wasm_cases; node scripts/tests/axial-tip-mechanisms-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.material-release-wasm
+test.engine.material-release-wasm: wasm scripts/tests/material-released-rotation-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.material-release.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MATERIAL_RELEASE_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=material_released_rotation::material_release_wasm_cases; node scripts/tests/material-released-rotation-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.released-tip-mechanisms-wasm
+test.engine.released-tip-mechanisms-wasm: wasm scripts/tests/released-tip-mechanisms-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.released-tip.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; RELEASED_TIP_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=released_tip_mechanisms::released_tip_wasm_cases; node scripts/tests/released-tip-mechanisms-wasm.mjs "$$cases"'
 
 .PHONY: test.engine.modal-mass-range-wasm
 test.engine.modal-mass-range-wasm: wasm
@@ -1355,3 +1422,11 @@ test.design.completeness-2096:
 
 test.engine.kinematics-2222:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_2222_kinematics_identifies -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.engine.nonlinear-drivers-2510-wasm
+test.engine.nonlinear-drivers-2510-wasm: wasm scripts/tests/arc-review-wasm.mjs scripts/tests/planar-exact-member-actions.mjs scripts/tests/fixtures/planar-exact-member-actions.json scripts/tests/fixtures/planar-member-rotation.json scripts/tests/fixtures/planar-chord-equilibrium.json
+	$(NIX_RUN) node --test scripts/tests/nonlinear-drivers-2510-wasm.mjs
+
+.PHONY: test.engine.prescribed-motion-2227-wasm
+test.engine.prescribed-motion-2227-wasm: wasm
+	$(NIX_RUN) node --test scripts/tests/prescribed-motion-2227-wasm.mjs

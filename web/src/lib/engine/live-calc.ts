@@ -187,6 +187,7 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
   const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro, { isCancelled: isStale });
   if (isStale()) return;
   if (typeof r === 'string') {
+    resultsStore.clear3D();
     uiStore.liveCalcError = r;
     return;
   }
@@ -297,7 +298,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
     const p = preparePlatesForAnalysis();
     if (!p.ok) {
-      const error = p.reason === 'wallSlab' ? p.error : tp({
+      const error = 'error' in p ? p.error : tp({
         needsMesh: 'plates.analysisNeedsMesh',
         invalid: 'plates.analysisInvalid',
         localLoads: 'plates.analysisLocalLoads',

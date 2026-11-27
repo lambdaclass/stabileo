@@ -50,6 +50,26 @@ describe('plastic collapse, step by step', () => {
     expect(r.collapseFactor).toBeCloseTo(MP / 45, 6);
   });
 
+  it('accepts the free truss motion created by axial yield (#2608)', () => {
+    const load = 15;
+    const capacity = 30;
+    const input = model([[1, -3, 0], [2, 3, 0], [3, 0, 0], [4, 0, 4]],
+      [[1, 1, 3, 'truss'], [2, 2, 3, 'truss'], [3, 3, 4, 'truss']],
+      [[1, 'pinned'], [2, 'pinned'], [4, 'pinned']], [P(3, 0, -load)]);
+    const options = { mp: () => Infinity, np: (id: number) => id === 3 ? capacity : Infinity, maxEvents: 1 };
+
+    const result = plasticCollapse2D(input, options);
+    expect(result.isMechanism).toBe(true);
+    expect(result.unresolved).toBeUndefined();
+    expect(result.steps).toHaveLength(1);
+    expect(result.hinges).toHaveLength(1);
+    expect(result.hinges[0]).toMatchObject({ elementId: 3, kind: 'axial' });
+    expect(result.collapseFactor).toBeCloseTo(capacity / load, 6);
+
+    input.elements.delete(3);
+    expect(() => plasticCollapse2D(input, options)).toThrow(/without straining its attached truss members/);
+  });
+
   it('fixed-fixed beam, central load: ends and midspan together (all at PL/8), λc = 8Mp/(PL)', () => {
     const r = run(model([[1, 0, 0], [2, 6, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']], [pOn(1, 3, -10)]));
     expect(r.hinges).toHaveLength(3);

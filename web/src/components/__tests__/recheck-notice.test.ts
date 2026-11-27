@@ -163,3 +163,9 @@ it('known wrong result: #2233 hand-entered snow still offers regeneration after 
   expect(html).toContain('data-testid="recheck-regenerate"');
   expect(html).not.toContain('data-testid="recheck-rerun"');
 });
+
+it('renders the malformed-input notice for a saved null load', async () => {
+  recheckStore.openProject(JSON.parse('{"analysisMode":"2d","loads":[null]}'));
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  expect(render(RecheckNotice).body).toContain('data-change-id="malformed-authored-loads"');
+});

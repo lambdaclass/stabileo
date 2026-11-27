@@ -1,4 +1,5 @@
 import type { EngineMessage } from '../../codes/message';
+import { refusalDiagnostic } from '../containment-error';
 
 const NON_FINITE = /^TH-NONFINITE: .* from step (\d+) \(t = (\S+) s\)/;
 const NON_FINITE_REACTIONS = /^TH-NONFINITE: .*reactions/;
@@ -16,6 +17,11 @@ const MODAL_MECHANISM = /^MODAL-MECHANISM: .*?(\d+) mode\(s\) .* moves node (\d+
 
 /** The engine's refusal of a modal analysis whose zero modes move mass, as a message; null for any other error. */
 export function modalMechanismRefusal(text: string): EngineMessage | null {
+  if (refusalDiagnostic(text, 'modal_stiffness_conditioning')) return { key: 'advanced.modalStiffnessConditioning', params: {} };
+  const witness = refusalDiagnostic(text, 'modal_translation_mechanism');
+  const node = witness?.nodeIds?.[0];
+  const dof = ['ux', 'uy', 'uz'][witness?.dofIndices?.[0] ?? -1];
+  if (typeof node === 'number' && dof) return { key: 'advanced.modalTranslationMechanism', params: { node, dof } };
   const m = MODAL_MECHANISM.exec(text);
   return m ? { key: 'advanced.modalMechanism', params: { count: Number(m[1]), node: Number(m[2]), dof: m[3] } } : null;
 }

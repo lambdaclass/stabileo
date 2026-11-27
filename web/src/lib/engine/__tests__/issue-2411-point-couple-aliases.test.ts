@@ -1,5 +1,5 @@
 import { beforeEach, expect, it } from 'vitest';
-import { t } from '../../i18n';
+import { t, tp } from '../../i18n';
 import { modelFeatures } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
 import { pointOnElementText } from '../calc-report-loads';
@@ -139,19 +139,23 @@ it('#2411 retains the moment jump for equal nonzero aliases and for a zero legac
   expect(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ')).toBeCloseTo(couple, 4);
 });
 
-it('#2411 preserves the legacy moment through load creation and snapshot restore', () => {
+it('#2411 preserves a single legacy moment through snapshot restore and legacy load creation', () => {
   const member = cantilever('space');
+  const legacySnapshot = {
+    ...modelStore.snapshot(),
+    loads: [{ type: 'pointOnElement', data: { id: 1, elementId: member, caseId: 1, a: 1, p: 0, mz: couple } }],
+  };
+  expect.soft(modelFeatures(legacySnapshot).has('legacyPlanarPointCoupleAliases')).toBe(true);
+  modelStore.restore(legacySnapshot);
   const snapshot = modelStore.snapshot();
-  expect.soft(modelFeatures(snapshot).has('legacyPlanarPointCoupleAliases')).toBe(true);
-  modelStore.restore({
-    ...snapshot,
-    loads: snapshot.loads.map(load => ({ ...load, data: { ...load.data, my: 0 } })),
-  });
+  expect.soft(snapshot.loads[0]?.data).toHaveProperty('my', couple);
+  expect.soft(snapshot.loads[0]?.data).not.toHaveProperty('mz');
   expect.soft(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ'), 'restored').toBeCloseTo(couple, 4);
   modelStore.restore(snapshot);
   expect.soft(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ'), 'round trip').toBeCloseTo(couple, 4);
   modelStore.model.loads = [];
   modelStore.addPointLoadOnElement(member, 1, 0, { my: 0, mz: couple });
+  expect.soft(modelStore.snapshot().loads[0]?.data).not.toHaveProperty('mz');
   expect.soft(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ'), 'created').toBeCloseTo(couple, 4);
 });
 
@@ -168,11 +172,21 @@ it('#2411 resolves a masked pure couple at the authored start without a projecti
   expect(typeof result === 'string' ? result : result?.reactions.find(r => r.nodeId === element.nodeI)?.mz).toBe(-couple);
 });
 
-it('#2411 preserves conflicting aliases through snapshot restore', () => {
+it('#2411 refuses conflicting aliases before restoring a snapshot', () => {
   const member = cantilever('space', couple, -couple);
-  modelStore.restore(modelStore.snapshot());
+  const ambiguous = modelStore.snapshot();
   const result = validateAndSolve3D(modelStore.model);
-  expect(typeof result === 'string' ? result : 'solve did not refuse').toBe(conflict(member));
+  expect.soft(typeof result === 'string' ? result : 'solve did not refuse').toBe(conflict(member));
+
+  modelStore.model.loads = [];
+  modelStore.addPointLoadOnElement(member, 1, 0, { my: couple });
+  const saved = modelStore.snapshot();
+  const { loadEpoch, modelVersion } = modelStore;
+  expect(() => modelStore.restore(ambiguous)).toThrow(tp('file.modelAliasConflict', { id: '1', field: 'my', alias: 'mz' }));
+  expect.soft(modelStore.loadEpoch).toBe(loadEpoch);
+  expect.soft(modelStore.modelVersion).toBe(modelVersion);
+  expect.soft(modelStore.snapshot()).toEqual(saved);
+  expect(spaceJump(validateAndSolve3D(modelStore.model), member, 'momentZ')).toBeCloseTo(couple, 4);
 });
 
 for (const plane of ['planar', 'xy', 'xz'] as const) {

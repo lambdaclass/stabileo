@@ -1,0 +1,42 @@
+{
+  "id": "basic-pdelta-projected-loads",
+  "date": "2026-11-25",
+  "prs": [
+    2586
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "plane2D",
+      "projectedSpatialLoads",
+      "analysis:pdelta"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Use the selected plane for Basic P-Delta",
+    "es": "Usar el plano seleccionado en P-Delta Básico",
+    "pt": "Usar o plano selecionado no P-Delta Básico",
+    "de": "Gewählte Ebene für P-Delta im Basismodus verwenden",
+    "fr": "Utiliser le plan sélectionné pour P-Delta en mode Basique",
+    "hu": "A kijelölt sík használata az alap P-Delta számításban",
+    "tr": "Temel P-Delta için seçilen düzlemi kullan",
+    "zh": "基本模式 P-Delta 使用所选平面"
+  },
+  "explanation": {
+    "en": "Basic P-Delta prepares loads in the same selected plane as the linear solve and checks the projected forces against their spatial sources.",
+    "es": "P-Delta Básico prepara las cargas en el mismo plano seleccionado que el cálculo lineal y verifica las fuerzas proyectadas con respecto a sus fuentes espaciales.",
+    "pt": "O P-Delta Básico prepara as cargas no mesmo plano selecionado que o cálculo linear e verifica as forças projetadas em relação às suas fontes espaciais.",
+    "de": "P-Delta im Basismodus bereitet Lasten in derselben gewählten Ebene wie die lineare Berechnung vor und prüft die projizierten Kräfte anhand ihrer räumlichen Quellen.",
+    "fr": "P-Delta en mode Basique prépare les charges dans le même plan sélectionné que le calcul linéaire et vérifie les forces projetées par rapport à leurs sources spatiales.",
+    "hu": "Az alap P-Delta számítás a lineáris számítással azonos kijelölt síkban készíti elő a terheket, és a vetített erőket a térbeli terhekkel veti össze.",
+    "tr": "Temel P-Delta, yükleri doğrusal çözümle aynı seçili düzlemde hazırlar ve izdüşürülen kuvvetleri uzaysal kaynaklarına göre denetler.",
+    "zh": "基本模式 P-Delta 在与线性求解相同的所选平面内准备荷载，并以空间荷载来源校核投影力。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-load-accounting-and-wall-contact.md",
+    "heading": "Use the selected plane for Basic P-Delta"
+  }
+}

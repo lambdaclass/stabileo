@@ -39,6 +39,31 @@ function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
 const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
 
 describe('which registered changes concern a model', () => {
+  it('#2460 and #2461 scope plate remesh notices and their declared result changes', () => {
+    const entry = RESULT_CHANGES.changes.find(change => change.id === 'physical-plate-remesh')!;
+    const surface = { loops: [4], materialId: 1, thickness: 0.2, mesh: { size: 2, element: 'quad', followMembers: false } };
+    const group = { data: { surface }, members: { nodes: [1, 2, 3, 4], quads: [1] } };
+    const quad = { id: 1, nodes: group.members.nodes };
+    const offset = { frame: 'local', x: 0, y: 0, z: 0.1 };
+    const plain = model({ groups: [[1, group]], quads: [[1, quad]] });
+    const arc = model({ ...plain, groups: [[1, { ...group, data: { surface: { ...surface, arcMids: [1] } } }]] });
+    const curved = model({ ...plain, quads: [[1, { ...quad, curved: true }]] });
+    const eccentric = model({ ...plain, quads: [[1, { ...quad, offset }]] });
+    const triangle = model({
+      ...plain, quads: [], plates: [[1, { id: 1, nodes: [1, 2, 3], offset }]],
+      groups: [[1, { ...group, members: { nodes: [1, 2, 3, 4], plates: [1] } }]],
+    });
+    for (const snapshot of [arc, curved, eccentric, triangle]) expect(ids(snapshot)).toContain(entry.id);
+    for (const snapshot of [plain, { ...eccentric, groups: [] }, { ...arc, analysisMode: '2d' }]) {
+      expect(ids(snapshot)).not.toContain(entry.id);
+    }
+    const change = { ...entry, quantities: declaredQuantities[entry.id] };
+    expect(declaresMove(change, 'solve.ok')).toBe(true);
+    expect(declaresMove(change, 'base.reactions[1].fz')).toBe(true);
+    expect(declaresMove(change, 'base.displacements[1].uz')).toBe(true);
+    expect(declaresMove(change, 'base.elementForces[1].nStart')).toBe(false);
+  });
+
   it('known wrong result: #2072: excludes unrelated legacy frames and shells from elastic SSI notices', () => {
     for (const analysisMode of ['2d', 'pro']) {
       for (const snapshot of [
@@ -67,6 +92,25 @@ describe('which registered changes concern a model', () => {
     const before = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 };
     expect(ids(curved, before)).toContain(entry.id);
     expect(ids(curved)).toContain(entry.id);
+  });
+
+  it('covers saved modal and dependent results of pin-ended frames', () => {
+    const entry = RESULT_CHANGES.changes.find(change => change.id === 'modal-massive-translation')!;
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      const frame = model({
+        analysisMode,
+        nodes: [node(1, 0), node(2, 3, 4)],
+        elements: [member(1, 1, 'frame', { releaseI: { rz: true }, releaseJ: { rz: true } })],
+      });
+      const before = (kind: 'modal' | 'spectral' | 'linear') =>
+        ({ ...stampSolve(kind, null), resultsVersion: entry.resultsVersion - 1 });
+      expect(ids(frame, before('modal')), analysisMode).toContain(entry.id);
+      expect(ids(frame, before('spectral')), analysisMode).toContain(entry.id);
+      const seismic = { ...frame, loadCases: [{ id: 2, type: 'E' }] };
+      expect(ids(seismic, before('linear')), analysisMode).toContain(entry.id);
+      expect(ids(frame, before('linear')), analysisMode).not.toContain(entry.id);
+      expect(ids(frame, stampSolve('modal', null)), analysisMode).not.toContain(entry.id);
+    }
   });
 
   it('#2007: scopes physical mass range changes to modal constraints or support rotations', () => {
@@ -483,6 +527,39 @@ describe('which registered changes concern a model', () => {
     expect(ids(model())).not.toContain(change);
   });
 
+  it('known wrong result: #2100: P-Delta refusal notices require structural stiffness and applicable solve history', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'pdelta-equilibrium-refusal')!;
+    const before = { ...stampSolve('pdelta', null), resultsVersion: entry.resultsVersion - 1 };
+    const current = { ...before, resultsVersion: entry.resultsVersion };
+    for (const analysisMode of ['2d', 'pro']) {
+      const empty = model({ analysisMode });
+      for (const stamp of [null, unknownStamp(), before]) {
+        expect(ids(empty, stamp)).not.toContain(entry.id);
+      }
+      for (const snapshot of [
+        { ...empty, elements: [member(1, 1, 'frame')] },
+        { ...empty, elements: [member(1, 1, 'truss')] },
+        model({ ...empty, supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] }),
+      ]) {
+        expect(ids(snapshot)).toContain(entry.id);
+        expect(ids(snapshot, before)).toContain(entry.id);
+        expect(ids(snapshot, current)).not.toContain(entry.id);
+        for (const analysis of ['linear', 'nonlinear'] as const) {
+          const other = { ...stampSolve(analysis, null), resultsVersion: before.resultsVersion };
+          expect(ids(snapshot, other)).not.toContain(entry.id);
+        }
+      }
+    }
+    for (const snapshot of [
+      model({ quads: [[1, {}]] }),
+      model({ quads: [[1, { curved: true }]] }),
+      model({ connectors: [[1, { kShear: 1 }]] }),
+      model({ constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }] }),
+    ]) {
+      expect(ids(snapshot, before)).toContain(entry.id);
+    }
+  });
+
   it('unknown analysis history without stiffness elements has no linear result to re-check', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
@@ -493,6 +570,20 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('safety-containment-diagnostics');
     expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('fail-closed-ratios');
     expect(ids(model({ loads }), previous)).toEqual([]);
+  });
+
+  it.each(['2d', '3d'] as const)('known wrong result: #2588 — %s does not mistake the support tuple key for missing structural input', analysisMode => {
+    const change = 'malformed-structural-input';
+    const type = analysisMode === '2d' ? 'fixed' : 'fixed3d';
+    const snapshot = model({
+      analysisMode,
+      nodes: [node(1, 0), node(2, 5)],
+      elements: [member(1, 1, 'frame')],
+      supports: [[1, { nodeId: 1, type }]],
+    });
+    expect.soft(ids(snapshot)).not.toContain(change);
+    expect.soft(ids({ ...snapshot, supports: [[1, { nodeId: 1, type, kx: 'invalid' }]] })).toContain(change);
+    expect(ids({ ...snapshot, supports: [[1, { nodeId: 1, type, id: null }]] as never })).toContain(change);
   });
 
   it('tells a truss-only model with a support spring about the orphan-rotation fix, and not one without', () => {
@@ -840,7 +931,7 @@ it('rechecks kinematic motion and dormant stiffness changes in both dimensions',
   for (const analysisMode of ['2d', '3d', 'pro']) {
     for (const snapshot of [
       model({ analysisMode, elements: [member(1, 1, 'frame')] }),
-      model({ analysisMode, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: [] }] }),
+      model({ analysisMode, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2 }] }),
       model({ analysisMode, supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never }),
     ]) {
       expect(ids(snapshot)).toContain(id);
@@ -1149,5 +1240,16 @@ it.each(['production', 'test'] as const)('#2364 uses stable self-weight and sett
     expect(relevant(withRotation)).toEqual(mode === 'test' ? [...axesIds, 'workbook-support-rotations'] : []);
   } finally {
     vi.unstubAllGlobals();
+  }
+});
+
+it('rechecks saved results for an explicit empty rigid-link mask in Basic and Pro', () => {
+  const id = 'empty-rigid-link-mask';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    const link = { type: 'rigidLink', masterNode: 1, slaveNode: 2 };
+    expect(ids(model({ analysisMode, constraints: [{ ...link, dofs: [] }] }))).toContain(id);
+    for (const constraint of [link, { ...link, dofs: [0, 1, 2] }]) {
+      expect(ids(model({ analysisMode, constraints: [constraint] }))).not.toContain(id);
+    }
   }
 });

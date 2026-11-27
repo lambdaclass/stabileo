@@ -1,6 +1,10 @@
 import argparse
+import base64
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date, timedelta
+import gzip
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -8,6 +12,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import zipfile
+import zlib
 
 LABEL = "nightly-finding"
 PENDING_STATUS = "original failure; replay pending"
@@ -62,6 +68,7 @@ NON_PASS_METAMORPHIC_KEYS = (
     "not_applicable",
 )
 MAX_U64 = (1 << 64) - 1
+MAX_JS_SAFE_INTEGER = (1 << 53) - 1
 DEFAULT_TRIPLE = "x86_64-unknown-linux-gnu"
 REPLAY_TIMEOUT_SECONDS = 90
 FUZZ_TIMEOUT_SECONDS = 180
@@ -76,13 +83,48 @@ REDUCTION_RE = re.compile(r"^Reduction:\s*(.+)$", re.M)
 MODEL_RE = re.compile(r"Save as model\.json:\s+```json\n([\s\S]*?)\n```")
 DETAILS_RE = re.compile(r"Details:\s+```text\n([\s\S]*?)\n```")
 
+REPRODUCER_PREFIX = "<!-- nightly-reproducer:"
+REPRODUCER_LINE = (
+    r"<!-- nightly-reproducer:(?:v1 (?P<payload>[A-Za-z0-9+/=]+)"
+    r"|(?P<version>v[23]) (?P<run_id>\d+) (?P<attempt>\d+) (?P<digest>[0-9a-f]{64})) -->"
+)
+REPRODUCER_RE = re.compile(rf"^{REPRODUCER_LINE}$", re.M | re.ASCII)
+CURRENT_FINDING_RE = re.compile(r"^(?:<!-- nightly-defect:[0-9a-f]{64} -->|Reproducer path: [^\n]+)$", re.M)
+LEGACY_ADOPTED_RE = re.compile(r"^<!-- nightly-finding-adopted -->$", re.M)
+LEGACY_INVENTORY_RE = re.compile(
+    r"^This run: \*\*(\d+) findings?\*\*, \*\*(\d+) analyses?\*\*, "
+    r"\*\*(\d+) relations?\*\*, \*\*(\d+) models?\*\*\.$",
+    re.M | re.ASCII,
+)
+LEGACY_SUMMARY_RE = re.compile(r"^(?:This run:|One smallest available reproducer)", re.M)
+RUN_RE = re.compile(r"^<!-- nightly-run:([0-9]+):[0-9]+ -->$", re.M)
+REPORTER_COMMENT_RE = re.compile(r"^(?:<!-- nightly-(?:run:|finding:|defect:|reproducer:|sightings:|overflow-complete\b)"
+                                 r"|Reproducer path: )", re.M)
+RUN_LINK_RE = re.compile(r"^\[Run and artifacts\]\(", re.M)
+SIGHTINGS_RE = re.compile(r"^<!-- nightly-sightings:\d+:(\d+):\d+ -->$", re.M)
+OVERFLOW_COMPLETE_RE = re.compile(rf"\n[^\n]*\n<!-- nightly-overflow-complete -->\n{REPRODUCER_LINE}$", re.M)
+REPLAY_STATE_RE = re.compile(r"^<!-- nightly-replay:v1 (\{[^\n]*\}) -->\n?", re.M)
+ARTIFACT_PATH_RE = re.compile(r"nightly-findings/(nightly-findings-[\w.-]+)/([\w./-]+\.finding\.json)", re.ASCII)
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
+SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
+MAX_RECORD_BYTES = 4_000_000
+MAX_ARTIFACT_BYTES = 64_000_000
+
 
 def _match(pattern, text):
     m = pattern.search(text)
     return m.group(1).strip() if m else ""
 
 
-def parse_issue(issue):
+def _unsafe_inline_integer(value):
+    if isinstance(value, dict):
+        return any(_unsafe_inline_integer(child) for child in value.values())
+    if isinstance(value, list):
+        return any(_unsafe_inline_integer(child) for child in value)
+    return (type(value) is int or isinstance(value, float) and value.is_integer()) and abs(value) > MAX_JS_SAFE_INTEGER
+
+
+def parse_issue(issue, record=None):
     number = int(issue["number"])
     body = issue.get("body") or ""
     marker = _match(MARKER_RE, body)
@@ -94,6 +136,14 @@ def parse_issue(issue):
     reduction = _match(REDUCTION_RE, body)
     details = _match(DETAILS_RE, body)
     model_raw = _match(MODEL_RE, body)
+
+    if record is not None:
+        test = record["test"]
+        check = test.split("/", 1)[0]
+        kind = record["kind"]
+        root_cause = record["message"]
+        seed_raw = record["seed"]
+        reduction = record["reduction"]
 
     prefix = test.split("/", 1)[0] if "/" in test else ""
     if check in VALID_SOURCES or check == "properties":
@@ -117,7 +167,10 @@ def parse_issue(issue):
 
     model = None
     model_error = None
-    if model_raw:
+    if record is not None:
+        model = record.get("model")
+        model_error = record.get("error") or f"model unavailable at {record.get('path', 'unknown path')}"
+    elif model_raw:
         try:
             model = json.loads(model_raw)
         except json.JSONDecodeError as ex:
@@ -141,7 +194,7 @@ def parse_issue(issue):
     }
 
     label = test or source or f"issue #{number}"
-    if not marker:
+    if not marker and record is None:
         spec["not_replayable_reason"] = f"{label}: missing nightly-finding marker"
         return spec
 
@@ -173,6 +226,10 @@ def parse_issue(issue):
         spec["not_replayable_reason"] = f"{label}: model.json is not a JSON object"
         return spec
 
+    if record is None and _unsafe_inline_integer(model):
+        spec["not_replayable_reason"] = f"{label}: legacy model contains an unsafe integer; exact artifact required"
+        return spec
+
     if source == "metamorphic":
         parts = test.split("/", 2)
         if len(parts) != 3 or parts[0] != "metamorphic" or not parts[1] or not parts[2]:
@@ -181,6 +238,9 @@ def parse_issue(issue):
         if seed is None:
             reason = seed_error or "missing metamorphic seed in issue body"
             spec["not_replayable_reason"] = f"{label}: {reason}"
+            return spec
+        if record is None and seed > MAX_JS_SAFE_INTEGER:
+            spec["not_replayable_reason"] = f"{label}: legacy seed exceeds JavaScript's safe integer range; exact artifact required"
             return spec
         spec["analysis"] = parts[1]
         spec["invariant"] = parts[2]
@@ -225,6 +285,135 @@ def parse_issue(issue):
     )
     spec["replayable"] = True
     return spec
+
+
+def finding_bodies(issue):
+    return [issue.get("body") or "", *(issue.get("sightings") or [])]
+
+
+def _manifest_location(block, digest):
+    run_id, attempt = block.group("run_id", "attempt")
+    return run_id, f"nightly-replay-manifests-{attempt}", f"{digest}.json", digest
+
+
+def _verified_json(raw, digest, label, **json_options):
+    if len(raw) > MAX_RECORD_BYTES or hashlib.sha256(raw).hexdigest() != digest:
+        raise ValueError(f"{label} size or digest differs")
+    return json.loads(raw, **json_options)
+
+
+def _manifest_batches(block, load):
+    def read(digest):
+        return _verified_json(load(_manifest_location(block, digest)), digest, "nightly replay manifest")
+
+    root = read(block["digest"])
+    if block["version"] == "v2":
+        return [root]
+    chunks = root.get("chunks") if isinstance(root, dict) else None
+    if (not isinstance(chunks, list) or not chunks
+            or not all(isinstance(digest, str) and SHA256_RE.fullmatch(digest) for digest in chunks)
+            or len(chunks) != len(set(chunks))):
+        raise ValueError("invalid nightly replay manifest chunk index")
+    return [read(digest) for digest in chunks]
+
+
+def _decode_reproducer(block, manifests):
+    def load(location):
+        manifest = manifests.get(" ".join(location), {})
+        if "content" not in manifest:
+            raise ValueError(manifest.get("error", "nightly replay manifest unavailable"))
+        return manifest["content"].encode()
+
+    if block["payload"]:
+        with gzip.GzipFile(fileobj=io.BytesIO(base64.b64decode(block["payload"], validate=True))) as compressed:
+            content = compressed.read(MAX_RECORD_BYTES + 1)
+        if len(content) > MAX_RECORD_BYTES:
+            raise ValueError("reproducer block exceeds replay size limit")
+        batches = [json.loads(content)]
+    else:
+        batches = _manifest_batches(block, load)
+
+    keys = ("test", "seed", "kind", "message", "reduction", "path", "runId", "artifactHash")
+    records = []
+    for batch in batches:
+        if not isinstance(batch, list) or not batch:
+            raise ValueError("invalid reproducer records")
+        for entry in batch:
+            if not isinstance(entry, dict) or not all(isinstance(entry.get(key), str) for key in keys):
+                raise ValueError("invalid reproducer record")
+            record = {key: entry[key] for key in keys}
+            if "modelHash" in entry:
+                if not isinstance(entry["modelHash"], str) or not SHA256_RE.fullmatch(entry["modelHash"]):
+                    raise ValueError("invalid nightly reproducer model digest")
+                record["modelHash"] = entry["modelHash"]
+            if "artifact" in entry:
+                try:
+                    record.update(_model_from_artifact(record, entry["artifact"].encode()))
+                except (AttributeError, ValueError, KeyError, RecursionError) as error:
+                    record["error"] = str(error)
+            records.append(record)
+    return records
+
+
+def _artifact_selector(record):
+    return json.dumps([record[key] for key in ("runId", "path", "artifactHash", "test", "seed")] + [record.get("modelHash")])
+
+
+def _input_selector(record, model_hash):
+    return record["test"], record["seed"], model_hash
+
+
+def _body_reproducers(body, manifests):
+    blocks = list(REPRODUCER_RE.finditer(body))
+    for block in blocks:
+        primary = body[block.end():block.end() + 1] == "\n" and bool(RUN_RE.match(body, block.end() + 1))
+        try:
+            yield primary, _decode_reproducer(block, manifests), None
+        except (ValueError, EOFError, OSError, RecursionError, zlib.error) as error:
+            yield primary, [], str(error)
+    if len(blocks) != body.count(REPRODUCER_PREFIX):
+        yield False, [], "invalid or unsupported reproducer block"
+
+
+def parse_reproducers(issue):
+    specs = []
+    resolved = issue.get("resolved_models", {})
+    manifests = issue.get("resolved_manifests", {})
+    for index, body in enumerate(finding_bodies(issue)):
+        sighting = {**issue, "body": body}
+        batches = list(_body_reproducers(body, manifests))
+        primary = [records for is_primary, records, _ in batches if is_primary]
+        current = CURRENT_FINDING_RE.search(body) and not LEGACY_ADOPTED_RE.search(body)
+        legacy_summary = LEGACY_INVENTORY_RE.findall(body)
+        has_legacy_report = not current and (LEGACY_SUMMARY_RE.search(body) or MARKER_RE.search(body))
+        if (index or current or has_legacy_report) and len(RUN_RE.findall(body)) != 1:
+            missing = "missing or malformed nightly sighting run marker"
+        elif len(primary) > 1:
+            missing = "ambiguous primary nightly reproducer inventory"
+        elif current and not primary:
+            missing = "missing primary nightly reproducer inventory"
+        elif has_legacy_report and legacy_summary != [("1", "1", "1", "1")]:
+            missing = "legacy nightly report cannot establish every input; original test/model/seed inventory required"
+        else:
+            missing = None
+
+        if missing or has_legacy_report or (not primary and not any(error for _, _, error in batches)):
+            spec = parse_issue(sighting)
+            if missing:
+                spec.update(replayable=False, not_replayable_reason=missing)
+            specs.append(spec)
+        for _, records, error in batches:
+            if error:
+                specs.append({**parse_issue(sighting), "replayable": False, "not_replayable_reason": error})
+            for record in records:
+                if record.get("model") is None:
+                    record = {**record, **resolved.get(_artifact_selector(record), {})}
+                specs.append(parse_issue(sighting, record))
+    return specs
+
+
+def _replay_fingerprint(specs):
+    return hashlib.sha256(json.dumps(specs, sort_keys=True).encode()).hexdigest()
 
 
 def classify_metamorphic(spec, replay_results):
@@ -288,10 +477,11 @@ def classify_diff(spec, row):
     if row_status in BAD_DIFF_STATUSES:
         return "still-fails", f"{test}: status={row_status} ({serialized})"
 
-    if check_kind == "false_reject":
-        passing = {"ok", "refused"}
-    elif check_kind == "silent_singular":
-        passing = {"ok", "near_singular", "warned_singular", "refused"}
+    if row_status == "refused" and spec.get("kind") in {"wrong-result-candidate", "silent_singular", "silent_unimposed"}:
+        return "not-replayable", f"{test}: main refused the wrong-result reproducer ({serialized})"
+
+    if check_kind == "silent_singular":
+        passing = {"ok", "near_singular", "warned_singular"}
     else:
         passing = {"ok"}
 
@@ -512,8 +702,26 @@ def filter_specs_for_source(specs, source):
     return [s for s in specs if s["source"] == source]
 
 
+def _indexed_reproducers(issue):
+    specs = parse_reproducers(issue)
+    if len(specs) > 1:
+        for index, spec in enumerate(specs):
+            spec["reproducer"] = index
+    return specs
+
+
+def _partial_binding(spec, commit):
+    return {
+        "source": spec["source"],
+        "commit": commit,
+        "input_sha256": hashlib.sha256(json.dumps(spec).encode()).hexdigest(),
+    }
+
+
 def replay_issues(
     issues,
+    *,
+    commit,
     source="all",
     jobs=1,
     metamorphic_bin=None,
@@ -523,12 +731,12 @@ def replay_issues(
     fuzz_triple=DEFAULT_TRIPLE,
     runner=default_runner,
 ):
-    specs = [parse_issue(i) for i in sorted(issues, key=lambda x: int(x["number"]))]
+    specs = [spec for issue in sorted(issues, key=lambda x: int(x["number"])) for spec in _indexed_reproducers(issue)]
     selected = filter_specs_for_source(specs, source)
     cache = {} if jobs == 1 else None
 
     def one(spec):
-        return replay_issue(
+        result = replay_issue(
             spec,
             metamorphic_bin=metamorphic_bin,
             solve_bin=solve_bin,
@@ -538,6 +746,9 @@ def replay_issues(
             runner=runner,
             metamorphic_cache=cache,
         )
+        if "reproducer" in spec:
+            result["reproducer"] = spec["reproducer"]
+        return {**result, **_partial_binding(spec, commit)}
 
     if jobs <= 1 or len(selected) <= 1:
         results = [one(s) for s in selected]
@@ -547,25 +758,41 @@ def replay_issues(
     return sorted(results, key=lambda r: r["issue"])
 
 
-def merge_reports(issues, partial_lists):
-    by_issue = {}
+def merge_reports(issues, partial_lists, commit):
+    reports = {}
     for entries in partial_lists:
         for entry in entries:
-            by_issue[int(entry["issue"])] = {
-                "issue": int(entry["issue"]),
-                "source": entry["source"],
-                "status": entry["status"],
-                "evidence": entry["evidence"],
-            }
+            reports.setdefault((int(entry["issue"]), entry.get("reproducer")), []).append(entry)
     merged = []
     for issue in sorted(issues, key=lambda x: int(x["number"])):
-        num = int(issue["number"])
-        if num in by_issue:
-            merged.append(by_issue[num])
+        specs = _indexed_reproducers(issue)
+        entries = []
+        for spec in specs:
+            matches = reports.get((spec["issue"], spec.get("reproducer")), [])
+            binding = _partial_binding(spec, commit)
+            if (commit and len(matches) == 1 and all(matches[0].get(key) == value for key, value in binding.items())
+                    and (spec["replayable"] or matches[0]["status"] != "passes-now")):
+                entries.append(matches[0])
+            else:
+                problem = "no unique replay result matches the expected input and commit" if matches else "no replay result recorded"
+                reason = spec["not_replayable_reason"] or f"{spec['test'] or spec['source']}: {problem}"
+                entries.append(_report_entry(spec, "not-replayable", reason))
+        if len(entries) == 1:
+            result = entries[0]
         else:
-            spec = parse_issue(issue)
-            reason = spec.get("not_replayable_reason") or f"{spec['test'] or spec['source']}: no replay result recorded"
-            merged.append(_report_entry(spec, "not-replayable", reason))
+            statuses = {entry["status"] for entry in entries}
+            status = "still-fails" if "still-fails" in statuses else (
+                "passes-now" if statuses == {"passes-now"} else "not-replayable"
+            )
+            evidence = "\n".join(f"{entry['status']}: {entry['evidence']}" for entry in entries)
+            result = _report_entry(specs[0], status, evidence)
+        body = issue.get("body") or ""
+        overflow = list(SIGHTINGS_RE.finditer(body))
+        if overflow and not (len(overflow) == 1 and OVERFLOW_COMPLETE_RE.match(body, overflow[0].end())):
+            result = {**result, "evidence": result["evidence"] + "\nAutomatic closure blocked: overflow reproducers are outstanding."}
+            if result["status"] == "passes-now":
+                result["status"] = "not-replayable"
+        merged.append(result)
     return merged
 
 
@@ -594,11 +821,217 @@ def plan_issue_actions(report, close_passing, run_url, commit_sha):
     return actions
 
 
+def advance_nightly_replay(state, night, fingerprint, status):
+    today = date.fromisoformat(night)
+    previous = state.get("night", "")
+    if previous > night:
+        return state, False
+    passes = status == "passes-now"
+    same_reproducers = state.get("fingerprint") == fingerprint
+    previous_streak = state.get("streak", 0)
+    if previous == night and same_reproducers and (previous_streak > 0) == passes:
+        return state, previous_streak >= 3
+    streak = int(passes)
+    if passes and same_reproducers and previous == (today - timedelta(days=1)).isoformat():
+        streak = min(3, previous_streak + 1)
+    return {"night": night, "fingerprint": fingerprint, "streak": streak}, streak == 3
+
+
+def _replay_state(body):
+    raw = _match(REPLAY_STATE_RE, body)
+    try:
+        state = json.loads(raw)
+        if (isinstance(state, dict) and date.fromisoformat(state["night"]).isoformat() == state["night"]
+                and re.fullmatch(r"[0-9a-f]{64}", state["fingerprint"]) and type(state["streak"]) is int
+                and 0 <= state["streak"] <= 3):
+            return state
+    except (KeyError, ValueError, TypeError):
+        pass
+    return {}
+
+
+def _has_sighting(issue, run_id):
+    return any(run_id in RUN_RE.findall(body) or run_id in SIGHTINGS_RE.findall(body)
+               for body in finding_bodies(issue))
+
+
+def plan_nightly_actions(issues, report, night, run_id, run_url, commit):
+    by_issue = {entry["issue"]: entry["status"] for entry in report}
+    actions = []
+    for issue in issues:
+        body = issue.get("body") or ""
+        state = _replay_state(body)
+        status = "still-fails" if _has_sighting(issue, run_id) else by_issue.get(issue["number"], "not-replayable")
+        if status != "passes-now" and not state.get("streak"):
+            continue
+        fingerprint = _replay_fingerprint(parse_reproducers(issue))
+        next_state, close = advance_nightly_replay(state, night, fingerprint, status)
+        if next_state == state and not close:
+            continue
+        marker = f"<!-- nightly-replay:v1 {json.dumps(next_state, separators=(',', ':'))} -->\n"
+        action = {"issue": issue["number"], "body": marker + REPLAY_STATE_RE.sub("", body),
+                  "previous_body": body, "sightings": issue.get("sightings", [])}
+        if close:
+            action["close_marker"] = f"<!-- nightly-replay-closed:{night}:{commit} -->"
+            action["comment"] = (
+                f"{action['close_marker']}\n"
+                f"All stored reproducers passed on main for three consecutive nights through {night} (UTC). "
+                f"Closing after replay on commit `{commit}` ([workflow run]({run_url}))."
+            )
+        actions.append(action)
+    return actions
+
+
 def gh(*args, data=None):
     proc = subprocess.run(["gh", *args], capture_output=True, text=True, input=data)
     if proc.returncode != 0:
         raise RuntimeError(f"gh {' '.join(args)} failed: {proc.stderr.strip()}")
     return proc.stdout
+
+
+def _bot_comments(repo, number, run_gh):
+    endpoint = f"repos/{repo}/issues/{number}/comments?per_page=100"
+    pages = json.loads(run_gh("api", "--paginate", "--slurp", endpoint))
+    return [comment.get("body") or "" for page in pages for comment in page
+            if (comment.get("user") or {}).get("login") == "github-actions[bot]"]
+
+
+def _sightings(comments):
+    return [body for body in comments if REPORTER_COMMENT_RE.search(body)
+            or (TEST_RE.search(body) and SEED_RE.search(body) and RUN_LINK_RE.search(body))]
+
+
+class _InvalidFindingArtifact(ValueError):
+    pass
+
+
+def _resolve_artifact(repo, record, run_gh, archives):
+    path = ARTIFACT_PATH_RE.fullmatch(record["path"])
+    run_id = record["runId"]
+    if not path or not re.fullmatch(r"[0-9]+", run_id) or ".." in path[2].split("/"):
+        raise _InvalidFindingArtifact("invalid nightly run or artifact path")
+    name, member = path.groups()
+    raw = _read_artifact_member(repo, run_id, name, member, run_gh, archives)
+    try:
+        return _model_from_artifact(record, raw)
+    except (ValueError, RecursionError) as error:
+        raise _InvalidFindingArtifact(str(error)) from error
+
+
+def _read_artifact_member(repo, run_id, name, member, run_gh, archives):
+    key = (run_id, name)
+    if key not in archives:
+        reply = json.loads(run_gh("api", f"repos/{repo}/actions/runs/{run_id}/artifacts?name={name}"))
+        artifacts = [item for item in reply["artifacts"] if not item["expired"] and item["name"] == name]
+        if len(artifacts) != 1 or artifacts[0]["size_in_bytes"] > MAX_ARTIFACT_BYTES:
+            raise ValueError("nightly artifact missing, ambiguous, expired or oversized")
+        artifact_id = int(artifacts[0]["id"])
+        data = subprocess.run(["gh", "api", f"repos/{repo}/actions/artifacts/{artifact_id}/zip"],
+                              check=True, capture_output=True, timeout=60).stdout
+        archives[key] = zipfile.ZipFile(io.BytesIO(data))
+        if len(archives) > 4:
+            archives.pop(next(iter(archives))).close()
+    with archives[key].open(member) as entry:
+        return entry.read(MAX_RECORD_BYTES + 1)
+
+
+class _JsonNumber(str):
+    pass
+
+
+def _canonical_model_json(value):
+    if isinstance(value, _JsonNumber):
+        return value
+    if isinstance(value, list):
+        return "[" + ",".join(map(_canonical_model_json, value)) + "]"
+    if isinstance(value, dict):
+        keys = sorted(value, key=lambda key: key.encode("utf-16-be", errors="surrogatepass"))
+        return "{" + ",".join(f"{_canonical_model_json(key)}:{_canonical_model_json(value[key])}" for key in keys) + "}"
+    return SURROGATE_RE.sub(lambda match: f"\\u{ord(match[0]):04x}", json.dumps(value, ensure_ascii=False))
+
+
+def _model_from_artifact(record, raw):
+    finding = _verified_json(raw, record["artifactHash"], "nightly finding file")
+    if not isinstance(finding, dict) or finding.get("test") != record["test"] or str(finding.get("seed")) != record["seed"]:
+        raise ValueError("nightly finding selector differs")
+    if not isinstance(finding.get("model"), dict):
+        raise ValueError("nightly finding model is not a JSON object")
+    exact = json.loads(raw, parse_int=_JsonNumber, parse_float=_JsonNumber)["model"]
+    model_hash = hashlib.sha256(_canonical_model_json(exact).encode()).hexdigest()
+    if record.get("modelHash", model_hash) != model_hash:
+        raise ValueError("nightly finding model digest differs")
+    return {"model": finding["model"], "verified_model_hash": model_hash}
+
+
+ARTIFACT_ERRORS = (ValueError, KeyError, OSError, EOFError, RuntimeError, zipfile.BadZipFile,
+                   zlib.error, subprocess.SubprocessError)
+
+
+def _resolve_issue_reproducers(repo, issue, run_gh, archives, downloaded):
+    manifests = {}
+
+    def load_manifest(location):
+        run_id, name, member, digest = location
+        key = " ".join(location)
+        if key not in manifests:
+            try:
+                raw = _read_artifact_member(repo, run_id, name, member, run_gh, archives)
+                _verified_json(raw, digest, "nightly replay manifest")
+                manifests[key] = {"content": raw.decode()}
+            except ARTIFACT_ERRORS as error:
+                manifests[key] = {"error": f"nightly replay manifest {digest}: {error}"}
+        manifest = manifests[key]
+        if "error" in manifest:
+            raise ValueError(manifest["error"])
+        return manifest["content"].encode()
+
+    bodies = finding_bodies(issue)
+    for body in bodies:
+        for block in REPRODUCER_RE.finditer(body):
+            if block["digest"]:
+                try:
+                    _manifest_batches(block, load_manifest)
+                except ARTIFACT_ERRORS:
+                    continue
+
+    records = {}
+    models = {}
+    exact_inputs = {}
+    exact_files = {}
+    for body in bodies:
+        for _, batch, _ in _body_reproducers(body, manifests):
+            for record in batch:
+                selector = _artifact_selector(record)
+                records[selector] = record
+                if record.get("model") is not None:
+                    result = {key: record[key] for key in ("model", "verified_model_hash")}
+                else:
+                    if selector not in downloaded:
+                        try:
+                            downloaded[selector] = _resolve_artifact(repo, record, run_gh, archives)
+                        except _InvalidFindingArtifact as error:
+                            downloaded[selector] = {"error": f"{record['path']}: {error}", "invalid": True}
+                        except ARTIFACT_ERRORS as error:
+                            downloaded[selector] = {"error": f"{record['path']}: {error}"}
+                    result = downloaded[selector]
+                if "model" in result:
+                    models[selector] = result
+                    exact_inputs[_input_selector(record, result["verified_model_hash"])] = result
+                    exact_files[_input_selector(record, record["artifactHash"])] = result
+                elif result.get("invalid") or record.get("error"):
+                    models.setdefault(selector, result)
+
+    for selector, record in records.items():
+        if selector in models:
+            continue
+        digest = record.get("modelHash")
+        copy = (exact_inputs.get(_input_selector(record, digest)) if digest
+                else exact_files.get(_input_selector(record, record["artifactHash"])))
+        models[selector] = copy if copy is not None else downloaded[selector]
+    if manifests:
+        issue["resolved_manifests"] = manifests
+    if models:
+        issue["resolved_models"] = models
 
 
 def fetch_open_issues(repo, gh_runner=None):
@@ -607,18 +1040,60 @@ def fetch_open_issues(repo, gh_runner=None):
         run_gh("api", "--paginate", "--slurp", f"repos/{repo}/issues?labels={LABEL}&state=open&per_page=100")
     )
     issues = [
-        {"number": i["number"], "title": i.get("title") or "", "body": i.get("body") or ""}
-        for page in pages
-        for i in page
-        if "pull_request" not in i
+        {"number": i["number"], "title": i.get("title") or "", "body": i.get("body") or "",
+         "sightings": _sightings(_bot_comments(repo, i["number"], run_gh))
+         if i.get("comments") else []}
+        for page in pages for i in page if "pull_request" not in i
     ]
+    archives = {}
+    downloaded = {}
+    try:
+        for issue in issues:
+            _resolve_issue_reproducers(repo, issue, run_gh, archives, downloaded)
+    finally:
+        for archive in archives.values():
+            archive.close()
     return sorted(issues, key=lambda i: i["number"])
 
 
-def apply_issue_actions(repo, actions, gh_runner=None):
+def _unchanged_replay_comments(repo, number, body, sightings, run_gh):
+    current = json.loads(run_gh("api", f"repos/{repo}/issues/{number}"))
+    if current["state"] != "open" or (current.get("body") or "") != body:
+        print(f"#{number}: issue changed since replay")
+        return None
+    comments = _bot_comments(repo, number, run_gh) if current.get("comments") else []
+    if _sightings(comments) != sightings:
+        print(f"#{number}: sightings changed since replay")
+        return None
+    return comments
+
+
+def apply_nightly_actions(repo, actions, gh_runner=None):
     run_gh = gh_runner or gh
     for action in actions:
+        number = action["issue"]
+        endpoint = f"repos/{repo}/issues/{number}"
+        comments = _unchanged_replay_comments(repo, number, action["previous_body"], action["sightings"], run_gh)
+        if comments is None:
+            continue
+        patch = {"body": action["body"]}
+        if "comment" in action:
+            if not any(action["close_marker"] in comment for comment in comments):
+                run_gh("api", "--method", "POST", f"{endpoint}/comments",
+                       "--input", "-", data=json.dumps({"body": action["comment"]}))
+            patch.update(state="closed", state_reason="completed")
+        run_gh("api", "--method", "PATCH", endpoint, "--input", "-", data=json.dumps(patch))
+
+
+def apply_issue_actions(repo, actions, issues, gh_runner=None):
+    run_gh = gh_runner or gh
+    snapshots = {issue["number"]: issue for issue in issues}
+    for action in actions:
         if action["action"] == "close":
+            number = action["issue"]
+            issue = snapshots[number]
+            if _unchanged_replay_comments(repo, number, issue.get("body") or "", issue.get("sightings", []), run_gh) is None:
+                continue
             run_gh("issue", "close", str(action["issue"]), "--repo", repo, "--comment", action["body"])
         elif action["action"] == "comment":
             run_gh("issue", "comment", str(action["issue"]), "--repo", repo, "--body-file", "-", data=action["body"])
@@ -648,6 +1123,10 @@ def format_summary(report):
     return "\n".join(lines) + "\n"
 
 
+def _checkout_commit():
+    return subprocess.check_output(["git", "rev-parse", "--verify", "HEAD"], text=True).strip()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -675,6 +1154,8 @@ def main(argv=None):
     p_report.add_argument("--close-passing", action="store_true")
     p_report.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
     p_report.add_argument("--run-url", default="")
+    p_report.add_argument("--night")
+    p_report.add_argument("--run-id", default=os.environ.get("GITHUB_RUN_ID", ""))
     p_report.add_argument("--commit", default=os.environ.get("GITHUB_SHA", ""))
 
     args = parser.parse_args(argv)
@@ -687,6 +1168,7 @@ def main(argv=None):
         issues = json.loads(Path(args.issues).read_text())
         report = replay_issues(
             issues,
+            commit=_checkout_commit(),
             source=args.source,
             jobs=args.jobs,
             metamorphic_bin=args.metamorphic_bin,
@@ -700,16 +1182,21 @@ def main(argv=None):
 
     issues = json.loads(Path(args.issues).read_text())
     partial_lists = [json.loads(Path(p).read_text()) for p in args.partials if Path(p).exists()]
-    report = merge_reports(issues, partial_lists)
+    commit = args.commit or _checkout_commit()
+    report = merge_reports(issues, partial_lists, commit)
     Path(args.output).write_text(json.dumps(report, indent=2) + "\n")
     summary = format_summary(report)
     print(summary, end="")
     if args.summary:
         with open(args.summary, "a") as fh:
             fh.write(summary)
-    actions = plan_issue_actions(report, args.close_passing, args.run_url, args.commit)
-    if actions:
-        apply_issue_actions(args.repo, actions)
+    if args.night:
+        actions = plan_nightly_actions(issues, report, args.night, args.run_id, args.run_url, commit)
+        apply_nightly_actions(args.repo, actions)
+    else:
+        actions = plan_issue_actions(report, args.close_passing, args.run_url, commit)
+        if actions:
+            apply_issue_actions(args.repo, actions, issues)
     return 0
 
 

@@ -13,6 +13,7 @@
     { key: 'cloud_projects_enabled', label: 'admin.settings.cloudProjects', help: 'admin.settings.cloudProjectsHelp', testid: 'admin-settings-projects' },
     { key: 'save_requires_account', label: 'admin.settings.saveRequiresAccount', help: 'admin.settings.saveRequiresAccountHelp', testid: 'admin-settings-save-account' },
     { key: 'assignments_enabled', label: 'admin.settings.assignments', help: 'admin.settings.assignmentsHelp', testid: 'admin-settings-assignments' },
+    { key: 'editor_requires_account', label: 'admin.settings.editorRequiresAccount', help: 'admin.settings.editorRequiresAccountHelp', testid: 'admin-settings-editor-account' },
   ];
 
   let limitDraft = $state<number | null>(null);

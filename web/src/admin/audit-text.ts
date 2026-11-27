@@ -7,6 +7,7 @@ const SETTING_LABEL: Record<string, string> = {
   cloud_projects_enabled: 'admin.settings.cloudProjects',
   save_requires_account: 'admin.settings.saveRequiresAccount',
   assignments_enabled: 'admin.settings.assignments',
+  editor_requires_account: 'admin.settings.editorRequiresAccount',
   cloud_projects_limit: 'admin.settings.projectLimit',
 };
 

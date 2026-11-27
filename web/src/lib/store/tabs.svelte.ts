@@ -10,7 +10,7 @@ import { viewVisibility } from './view-state.svelte';
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
 import { fmStepsStore } from './fmSteps.svelte';
-import { onProjectOpened, noteBasicSelfWeightRuleIfNeeded } from './file';
+import { onProjectOpened, noteBasicSelfWeightRuleIfNeeded, storedProjectSnapshot } from './file';
 import type { DiagramType } from './results.svelte';
 import type { Tool, SelectMode, ElementColorMode } from './ui.svelte';
 import type { ViewportPresentation3D } from '../geometry/coordinate-system';
@@ -231,7 +231,7 @@ function createTabManager() {
       uiStore.resetSession();
 
       // Restore model
-      modelStore.restore(state.modelSnapshot);
+      modelStore.restore(storedProjectSnapshot(state.modelSnapshot, state.analysisMode));
       modelStore.announceNewProject();
       // Each tab is its own project, so its emission list and hand-edit set travel with it.
       // Not done by `restore()`, which is also the undo path — see project-provenance.ts.
@@ -271,7 +271,7 @@ function createTabManager() {
       uiStore.showAxes = state.showAxes;
 
       // Restore per-tab visualization config — 3D
-      uiStore.renderMode3D = state.renderMode3D;
+      uiStore.renderMode3D = state.renderMode3D === 'physical' ? 'sections' : state.renderMode3D;
       uiStore.momentStyle3D = state.momentStyle3D;
       uiStore.cameraMode3D = state.cameraMode3D;
       uiStore.showGrid3D = state.showGrid3D;

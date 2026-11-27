@@ -37,6 +37,7 @@ export interface AuthConfig {
   cloud_projects_enabled?: boolean;
   save_requires_account?: boolean;
   assignments_enabled?: boolean;
+  editor_requires_account?: boolean;
   google_login?: boolean;
 }
 

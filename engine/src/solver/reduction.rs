@@ -1,3 +1,4 @@
+use crate::types::unique_table;
 /// Model reduction / substructuring.
 ///
 /// Implements:
@@ -89,6 +90,7 @@ pub struct CraigBamptonInput {
     #[serde(default = "default_n_modes")]
     pub n_modes: usize,
     /// Material densities per material_id for mass matrix
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: std::collections::HashMap<String, f64>,
 }
 
@@ -101,6 +103,7 @@ pub struct CraigBamptonInput3D {
     pub boundary_nodes: Vec<usize>,
     #[serde(default = "default_n_modes")]
     pub n_modes: usize,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: std::collections::HashMap<String, f64>,
 }
 

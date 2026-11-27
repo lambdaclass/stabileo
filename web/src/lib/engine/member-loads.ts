@@ -24,7 +24,9 @@
  * the member never sees that part, and would otherwise carry its average along its length.
  */
 import type { SolverLoad3D } from './types-3d';
+import { assembledMagnitudes3D, LoadVector, zero, type MemberLineSource } from './accounting-math';
 import type { ModelData } from './solver-service';
+import { mapModelNodeToSolver3D, shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { hasMemberOffset, offsetVecToSolver } from './member-offsets';
 
@@ -61,16 +63,21 @@ export function distributedGlobalEnds(d: DistributedLoad3DLike, axes: MemberAxes
   return { gI: [xI * k[0], d.qYI * k[1], d.qZI * k[2]], gJ: [xJ * k[0], d.qYJ * k[1], d.qZJ * k[2]], a, b };
 }
 
+function trapezoidSpan(a: number, b: number) {
+  const length = b - a;
+  return length > 0 ? { half: length / 2, stationI: a + length / 3, stationJ: a + (2 * length) / 3 } : null;
+}
+
 /**
  * The resultant of a linear load between a and b, and its position from end I: two triangles,
  * each at its third point, so a couple (ends of opposite sign) keeps its moment.
  */
 export function trapezoidPieces(gI: Vec3, gJ: Vec3, a: number, b: number): Array<{ force: Vec3; s: number }> {
-  const len = b - a;
-  if (!(len > 0)) return [];
+  const span = trapezoidSpan(a, b);
+  if (!span) return [];
   return [
-    { force: scale(gI, len / 2), s: a + len / 3 },
-    { force: scale(gJ, len / 2), s: a + (2 * len) / 3 },
+    { force: scale(gI, span.half), s: span.stationI },
+    { force: scale(gJ, span.half), s: span.stationJ },
   ];
 }
 
@@ -100,7 +107,7 @@ function toEnds(force: Vec3, s: number, L: number): { fI: Vec3; fJ: Vec3 } {
  * A force applied at a member end, moved to the end's node: the force, and its couple about the
  * node when an offset puts the member end away from it.
  */
-const nodal = (nodeId: number, f: Vec3, arm?: Vec3): SolverLoad3D => {
+const nodal = (nodeId: number, f: Vec3, arm?: Vec3): Extract<SolverLoad3D, { type: 'nodal' }> => {
   const m: Vec3 = arm ? [arm[1] * f[2] - arm[2] * f[1], arm[2] * f[0] - arm[0] * f[2], arm[0] * f[1] - arm[1] * f[0]] : [0, 0, 0];
   return { type: 'nodal', data: { nodeId, fx: f[0], fy: f[1], fz: f[2], mx: m[0], my: m[1], mz: m[2] } };
 };
@@ -112,37 +119,84 @@ export interface MemberRef {
   points?: readonly [Vec3, Vec3];
 }
 
+export const PLANAR_LINE_COMPONENT_CUTOFF = 1e-10;
+
+export function distributedSolverRow3D(elementId: number, qI: LoadVector, qJ: LoadVector, a?: number, b?: number, source: MemberLineSource = 'external'): SolverLoad3D {
+  const [qXI, qYI, qZI] = qI.value, [qXJ, qYJ, qZJ] = qJ.value;
+  const row: SolverLoad3D = { type: 'distributed', data: { elementId, qXI, qXJ, qYI, qYJ, qZI, qZJ, a, b } };
+  assembledMagnitudes3D.set(row, { qI, qJ, source });
+  return row;
+}
+
 /**
  * A global distributed load resolved onto all three local member axes.
  * `axialOnly` transfers the load to end nodes for members that carry no bending.
  */
 export function globalDistributedToSolver(m: MemberRef, gI: Vec3, gJ: Vec3, a: number, b: number, axialOnly = false): SolverLoad3D[] {
-  const out: SolverLoad3D[] = [];
-  const { ex, ey, ez, L } = m.axes;
-  const yI = dot(gI, ey), yJ = dot(gJ, ey), zI = dot(gI, ez), zJ = dot(gJ, ez);
-  const xI = dot(gI, ex), xJ = dot(gJ, ex);
-  const tiny = (v: number) => Math.abs(v) < 1e-12;
-  const toNodes = (vI: Vec3, vJ: Vec3, axial = false) => {
-    let fI: Vec3 = [0, 0, 0], fJ: Vec3 = [0, 0, 0];
-    for (const p of trapezoidPieces(vI, vJ, a, b)) {
-      const r = toEnds(p.force, p.s, L);
-      fI = add(fI, r.fI); fJ = add(fJ, r.fJ);
-    }
-    // The axial part says which member it came from: the member itself never sees it, and its
-    // end forces are given it back after the solve (`axial-shares.ts`).
-    const tag = (l: SolverLoad3D, end: 'i' | 'j', f: Vec3): SolverLoad3D =>
-      axial && l.type === 'nodal' ? { type: 'nodal', data: { ...l.data, axialOf: { elementId: m.elementId, end, p: dot(f, ex) } } } : l;
-    if (fI.some((v) => !tiny(v))) out.push(tag(nodal(m.nodeI, fI, m.armI), 'i', fI));
-    if (fJ.some((v) => !tiny(v))) out.push(tag(nodal(m.nodeJ, fJ, m.armJ), 'j', fJ));
-  };
-  if (axialOnly) {
-    // The transverse part and the axial part separately: the axial one is tagged.
-    if (![yI, yJ, zI, zJ].every(tiny)) toNodes(add(scale(ey, yI), ez, zI), add(scale(ey, yJ), ez, zJ));
-    if (!(tiny(xI) && tiny(xJ))) toNodes(scale(ex, xI), scale(ex, xJ), true);
-  } else if (![xI, xJ, yI, yJ, zI, zJ].every(tiny)) {
-    out.push({ type: 'distributed', data: { elementId: m.elementId, qXI: xI, qXJ: xJ, qYI: yI, qYJ: yJ, qZI: zI, qZJ: zJ, a, b } });
+  return distributedVectorsToSolver(m, LoadVector.from(gI), LoadVector.from(gJ), a, b, axialOnly, 'external');
+}
+
+export function localDistributedToSolver(m: MemberRef, qI: Vec3, qJ: Vec3, a: number, b: number, axialOnly = false): SolverLoad3D[] {
+  return localDistributedVectorsToSolver(m, LoadVector.from(qI), LoadVector.from(qJ), a, b, axialOnly, 'external');
+}
+
+function distributedVectorsToSolver(
+  m: MemberRef, gI: LoadVector, gJ: LoadVector, a: number, b: number, axialOnly: boolean, source: MemberLineSource,
+): SolverLoad3D[] {
+  const qI = gI.projectOnto(m.axes), qJ = gJ.projectOnto(m.axes);
+  return localDistributedVectorsToSolver(m, qI, qJ, a, b, axialOnly, source);
+}
+
+function localDistributedVectorsToSolver(
+  m: MemberRef, qI: LoadVector, qJ: LoadVector, a: number, b: number, axialOnly: boolean, source: MemberLineSource,
+): SolverLoad3D[] {
+  if (!axialOnly) {
+    return [...qI.value, ...qJ.value].some(v => v !== 0) ? [distributedSolverRow3D(m.elementId, qI, qJ, a, b, source)] : [];
   }
+
+  const span = trapezoidSpan(a, b);
+  if (!span) return [];
+  const out: SolverLoad3D[] = [];
+  appendDistributedEndNodeRows(out, m, qI, qJ, span, source);
   return out;
+}
+
+export function trussComponentBelowCutoff(value: number): boolean {
+  const tiny = (v: number) => Math.abs(v) < 1e-12;
+  return tiny(value);
+}
+
+function appendDistributedEndNodeRows(
+  out: SolverLoad3D[], m: MemberRef, qI: LoadVector, qJ: LoadVector,
+  span: NonNullable<ReturnType<typeof trapezoidSpan>>, source: MemberLineSource,
+): void {
+  const { ex, ey, ez, L } = m.axes;
+  const tiny = trussComponentBelowCutoff;
+  const toNodes = (vI: LoadVector, vJ: LoadVector, axial = false) => {
+    let fI = LoadVector.from(zero()), fJ = LoadVector.from(zero());
+    for (const [q, station] of [[vI, span.stationI], [vJ, span.stationJ]] as const) {
+      const force = q.scale(span.half);
+      const t = Math.min(1, Math.max(0, station / L));
+      fI = fI.add(force.scale(1 - t));
+      fJ = fJ.add(force.scale(t));
+    }
+    for (const [end, nodeId, force, arm] of [
+      ['i', m.nodeI, fI, m.armI], ['j', m.nodeJ, fJ, m.armJ],
+    ] as const) {
+      if (force.value.every(tiny)) continue;
+      const row = nodal(nodeId, force.value, arm);
+      if (axial) row.data.axialOf = { elementId: m.elementId, end, p: dot(force.value, ex) };
+      assembledMagnitudes3D.set(row, {
+        force, couple: arm ? force.momentAt(arm) : LoadVector.from(zero()),
+        memberLine: { member: m.elementId, end, source },
+      });
+      out.push(row);
+    }
+  };
+
+  const transverse = (q: LoadVector) => q.componentAlong(1, ey).add(q.componentAlong(2, ez));
+  if ([qI.value[1], qI.value[2], qJ.value[1], qJ.value[2]].some(v => !tiny(v))) toNodes(transverse(qI), transverse(qJ));
+  if (!(tiny(qI.value[0]) && tiny(qJ.value[0]))) toNodes(qI.componentAlong(0, ex), qJ.componentAlong(0, ex), true);
 }
 
 /** Members that work one way only: axial members to the active-set loop (`member-behaviour.ts`). */
@@ -169,9 +223,15 @@ export function transverseToNodes(loads: SolverLoad3D[], axialOnly: (elementId: 
       const m = axialOnly(l.data.elementId);
       if (!m) { out.push(l); continue; }
       const { ex, ey, ez } = m.axes;
-      const gI = add(add(scale(ey, l.data.qYI), ez, l.data.qZI), ex, l.data.qXI ?? 0);
-      const gJ = add(add(scale(ey, l.data.qYJ), ez, l.data.qZJ), ex, l.data.qXJ ?? 0);
-      out.push(...globalDistributedToSolver(m, gI, gJ, l.data.a ?? 0, l.data.b ?? m.axes.L, true));
+      const magnitudes = assembledMagnitudes3D.get(l);
+      const line = magnitudes && 'qI' in magnitudes ? magnitudes : undefined;
+      const globalEnd = (x: number, y: number, z: number, budget?: LoadVector) => {
+        const local = LoadVector.from([x, y, z], budget?.magnitude, budget?.underflow);
+        return local.componentAlong(1, ey).add(local.componentAlong(2, ez)).add(local.componentAlong(0, ex));
+      };
+      const qI = globalEnd(l.data.qXI ?? 0, l.data.qYI, l.data.qZI, line?.qI);
+      const qJ = globalEnd(l.data.qXJ ?? 0, l.data.qYJ, l.data.qZJ, line?.qJ);
+      out.push(...distributedVectorsToSolver(m, qI, qJ, l.data.a ?? 0, l.data.b ?? m.axes.L, true, line?.source ?? 'external'));
     } else if (l.type === 'pointOnElement') {
       const m = axialOnly(l.data.elementId);
       if (!m) { out.push(l); continue; }
@@ -222,4 +282,26 @@ export function memberFrame3D(
     ni: [A2.x, A2.y, A2.z], nj: [B2.x, B2.y, B2.z], ax,
     armI: [A2.x - A.x, A2.y - A.y, A2.z - A.z], armJ: [B2.x - B.x, B2.y - B.y, B2.z - B.z],
   };
+}
+
+/**
+ * A member's end nodes and local axes as the 3D solve builds them: nodes mapped as for the
+ * input, the member's own local-Y vector, and its roll plus the section's rotation.
+ */
+export function memberRef3D(model: ModelData, elementId: number, project2DToXZ = shouldEmbedFlat2DModelIn3D(model)): MemberRef | null {
+  const elem = model.elements.get(elementId);
+  if (!elem) return null;
+  if (!project2DToXZ) {
+    const f = memberFrame3D(model, elem);
+    return f && f.ax.L > 1e-10
+      ? { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: f.ax.ex, ey: f.ax.ey, ez: f.ax.ez, L: f.ax.L }, points: [f.ni, f.nj], ...(f.armI ? { armI: f.armI, armJ: f.armJ } : {}) }
+      : null;
+  }
+  const ni = model.nodes.get(elem.nodeI), nj = model.nodes.get(elem.nodeJ);
+  if (!ni || !nj) return null;
+  const a = mapModelNodeToSolver3D(ni, project2DToXZ), b = mapModelNodeToSolver3D(nj, project2DToXZ);
+  const rot = model.sections.get(elem.sectionId)?.rotation ?? 0;
+  if (!(Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) > 1e-10)) return null;
+  const axes = computeLocalAxes3D(a, b, undefined, (elem.rollAngle ?? 0) + rot, false);
+  return { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: axes.ex, ey: axes.ey, ez: axes.ez, L: axes.L }, points: [[a.x, a.y, a.z], [b.x, b.y, b.z]] };
 }

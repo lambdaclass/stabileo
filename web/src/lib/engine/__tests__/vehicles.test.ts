@@ -86,7 +86,10 @@ describe('static cases by position', () => {
     const path = buildPath3D(base, ids)!, path2 = buildPath3D(base, ids2)!;
     const train = { name: 'axle', axles: [{ offset: 0, weight: 100 }] };
     const loads = trainModelLoads(train, 4, path, path2, 1);
-    expect(loads.map((l) => (l.data as { pz: number }).pz)).toEqual([-50, -50]);
+    expect(loads).toMatchObject([
+      { type: 'nodal3d', data: { nodeId: path[0]!.to, fz: -50 } },
+      { type: 'nodal3d', data: { nodeId: path2[0]!.to, fz: -50 } },
+    ]);
     const env = await sweepTrains3D({ ...base, loads: [] }, path, [train], { step: 4, path2 });
     expect(env.positions).toBeGreaterThan(0);
   });

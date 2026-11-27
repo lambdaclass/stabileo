@@ -21,10 +21,11 @@
  * Local y is the displayed axis, which the left-handed convention flips (`member-loads.ts`).
  */
 import { tp } from '../i18n';
+import { planarNodalMomentRefusal } from './model-input-numbers';
 import type { SolverLoad3D } from './types-3d';
 import { dot, type MemberAxes, type MemberRef, type Vec3 } from './member-loads';
 import { transverseSign } from './transverse-sign-2d';
-import { planarPointMoment, type PlanarPointMomentFields } from './planar-point-load';
+import { planarNodalMoment, planarPointMoment, type PlanarMomentFields } from './planar-point-load';
 
 export type PointFrame = 'local' | 'global';
 
@@ -40,7 +41,6 @@ export interface PointLoad3DLike {
   frame?: PointFrame;
 }
 
-/** Within a micron of an end, a load is at the end. */
 export const POINT_END_TOL = 1e-6;
 
 const add3 = (a: Vec3, b: Vec3, k = 1): Vec3 => [a[0] + k * b[0], a[1] + k * b[1], a[2] + k * b[2]];
@@ -55,6 +55,14 @@ export function pointGlobal(d: PointLoad3DLike, axes: MemberAxes, leftHand = fal
   const ys = leftHand ? -1 : 1;
   const onAxes = (x: number, y: number, z: number): Vec3 => add3(add3(scale3(axes.ex, x), axes.ey, ys * y), axes.ez, z);
   return { F: onAxes(d.px ?? 0, d.py ?? 0, d.pz ?? 0), M: onAxes(d.mx ?? 0, d.my ?? 0, d.mz ?? 0) };
+}
+
+export function localPointForce(axes: MemberAxes, force: Vec3): Vec3 {
+  return [dot(force, axes.ex), dot(force, axes.ey), dot(force, axes.ez)];
+}
+
+export function memberPointForceRow3D(elementId: number, a: number, [px, py, pz]: Vec3): SolverLoad3D {
+  return { type: 'pointOnElement', data: { elementId, a, px, py, pz } };
 }
 
 /** Whether a load needs the member cut where it sits: an axial force or a moment inside the span. */
@@ -84,12 +92,15 @@ export function pointToSolver(m: MemberRef, d: PointLoad3DLike, leftHand = false
     return { type: 'nodal', data: { nodeId, fx: f[0], fy: f[1], fz: f[2], mx: mm[0] + c[0], my: mm[1] + c[1], mz: mm[2] + c[2] } };
   };
   const none = F.every(tiny) && M.every(tiny);
-  if (d.a <= POINT_END_TOL) return none ? [] : [nodal(m.nodeI, F, M, m.armI)];
-  if (d.a >= L - POINT_END_TOL) return none ? [] : [nodal(m.nodeJ, F, M, m.armJ)];
+  const px = dot(F, ex);
+  const needsNode = !tiny(px) || !M.every(tiny);
+  const endTolerance = needsNode ? POINT_END_TOL : 0;
+  if (d.a <= endTolerance) return none ? [] : [nodal(m.nodeI, F, M, m.armI)];
+  if (d.a >= L - endTolerance) return none ? [] : [nodal(m.nodeJ, F, M, m.armJ)];
   const out: SolverLoad3D[] = [];
-  const py = dot(F, ey), pz = dot(F, ez), px = dot(F, ex);
+  const py = dot(F, ey), pz = dot(F, ez);
   if (!tiny(py) || !tiny(pz)) out.push({ type: 'pointOnElement', data: { elementId: m.elementId, a: d.a, py, pz } });
-  if (tiny(px) && M.every(tiny)) return out;
+  if (!needsNode) return out;
   if (!forcesOnly) throw new PointLoadNeedsCut(m.elementId);
   if (!tiny(px)) {
     const t = d.a / L, fx = scale3(ex, px);
@@ -143,13 +154,21 @@ export interface PlanePointLoadLike {
   isGlobal?: boolean;
 }
 
-export class PlanarPointMomentError extends Error {}
+export class PlanarLoadMomentError extends Error {}
 
-export function requirePlanarPointMoment(d: PlanarPointMomentFields & Pick<PlanePointLoadLike, 'id' | 'elementId' | typeof planarPointOrigin>): number | undefined {
+export function requirePlanarNodalMoment(fields: PlanarMomentFields & { id?: number; nodeId: number }): number {
+  const moment = planarNodalMoment(fields);
+  if (moment === null) {
+    throw new PlanarLoadMomentError(planarNodalMomentRefusal(fields.id, fields.nodeId));
+  }
+  return moment ?? 0;
+}
+
+export function requirePlanarPointMoment(d: PlanarMomentFields & Pick<PlanePointLoadLike, 'id' | 'elementId' | typeof planarPointOrigin>): number | undefined {
   const moment = planarPointMoment(d);
   if (moment === null) {
     const origin = d[planarPointOrigin];
-    throw new PlanarPointMomentError(tp('svc.planarPointLoadMomentAliases', {
+    throw new PlanarLoadMomentError(tp('svc.planarPointLoadMomentAliases', {
       load: origin?.loadId ?? d.id ?? '—', n: origin?.elementId ?? d.elementId,
     }));
   }

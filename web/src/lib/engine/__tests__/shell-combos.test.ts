@@ -1,4 +1,6 @@
-import { getShellCombinationKernel, registerShellCombinationKernel } from '../shell-combination-kernel';
+import { combine_shell_stresses } from '../../wasm/dedaliano_engine.js';
+import { issue2297Factors } from './combination-factor-fixture';
+import { packedShellCombinationKernel, getShellCombinationKernel, registerShellCombinationKernel } from '../shell-combination-kernel';
 /**
  * FIX2 root cause — shell stresses are dropped by the WASM combination solver;
  * they are recombined in JS from per-case results (linear in displacement).
@@ -11,7 +13,7 @@ import { magnitudeCombination, superposed } from '../combination-methods';
 import { combineModes, type ModeCoefficient } from '../spectral-case';
 import { combineShellStressesOracle, enrichComboShellStressesOracle, envelopeShellStressesOracle } from './differential/shell-combos-oracle';
 import { EngineUnavailableError } from '../engine-unavailable';
-import type { AnalysisResults3D, QuadStress } from '../types-3d';
+import type { AnalysisResults3D, PlateStress, QuadStress } from '../types-3d';
 
 const emptyResult = (quadStresses: QuadStress[]): AnalysisResults3D => ({
   displacements: [], reactions: [], elementForces: [], quadStresses, plateStresses: [],
@@ -260,4 +262,135 @@ describe('a MITC4 and a MITC9 both numbered 7 in one result', () => {
     const r = superposed([{ r: apart, f: 1.5 }]);
     expect(r.quadStresses!.map((s) => [s.elementId, s.sigmaXx])).toEqual([[7, 15], [8, 1500]]);
   });
+});
+
+it('#2297 shell combinations preserve both cases through the packed export and shell recombination', () => {
+  const stresses = [q(7, 2), q(7, 4)];
+  const perCase = new Map(stresses.map((stress, i) => [i + 1, emptyResult([stress])]));
+  const caseQuads = new Map(stresses.map((stress, i) => [i + 1, new Map([[7, stress]])]));
+  const raw = packedShellCombinationKernel(combine_shell_stresses);
+  const paths = [
+    (factors: Array<{caseId: number; factor: number}>) => raw({
+      cases: stresses.map((stress, i) => ({ id: i + 1, plateStresses: [], quadStresses: [stress] })),
+      combinations: [{ id: 10, factors }], thicknesses: [],
+      envelopeOrder: [{ id: 10, plateStresses: [], quadStresses: [] }],
+    }).envelope.quads[0]?.extremes.sigmaXx?.max,
+    (factors: Array<{caseId: number; factor: number}>) =>
+      combineShellStresses(factors, new Map(), caseQuads, new Map()).quadStresses[0]?.sigmaXx,
+    (factors: Array<{caseId: number; factor: number}>) => {
+      const perCombo = new Map([[10, emptyResult([])]]);
+      enrichComboShellStresses(perCase, perCombo, undefined, [{ id: 10, factors }], new Map());
+      return perCombo.get(10)?.quadStresses?.[0]?.sigmaXx;
+    },
+  ];
+  for (const path of paths) {
+    const run = (weights: number[]) => path([{ caseId: 2, factor: 1 }, ...weights.map(factor => ({ caseId: 1, factor }))]);
+    expect.soft(run([1])).toBe(6);
+    expect.soft(run([0.5, 0.5])).toBe(6);
+    expect.soft(run(issue2297Factors)).toBe(6);
+    expect.soft(run(issue2297Factors.slice(0, -1))).toBe(4);
+    const max = Number.MAX_VALUE;
+    expect.soft(run([max, max, -max, -max, 1])).toBe(6);
+    expect.soft(() => run([max, max])).toThrow(/non-finite number at net factor/);
+  }
+});
+
+it('#2297 magnitude combinations preserve a repeated case before ABS or SRSS', () => {
+  const perCase = new Map([[1, emptyResult([q(7, 2)])]]);
+  const rotated = [issue2297Factors.at(-1)!, ...issue2297Factors.slice(0, -1)];
+  for (const method of ['abs', 'srss'] as const) {
+    const run = (weights: number[]) => magnitudeCombination(method, weights.map(factor => ({ caseId: 1, factor })), perCase);
+    const control = run([1]);
+    expect(control?.quadStresses?.[0]?.sigmaXx).toBe(2);
+    expect.soft(run([0.5, 0.5])).toStrictEqual(control);
+    expect.soft(run(issue2297Factors.slice(0, -1))).toBeNull();
+    expect.soft(run(rotated)).toStrictEqual(control);
+  }
+});
+
+it.each(['packed WASM export', 'single recombination', 'bundle enrichment'] as const)(
+  '#2297 zero factors leave shell stress and shear intact through %s',
+  (path) => {
+    const large = 2 ** 54;
+    const quads = [q(8, 1), { ...q(8, large), qx: 2, qy: 3 }, { ...q(8, -large), qx: 1, qy: 1 }];
+    const plates: PlateStress[] = quads.map(({ sigmaXx }) => ({
+      ...q(7, sigmaXx), mx: 0, sigma1: Math.max(sigmaXx, 0), sigma2: Math.min(sigmaXx, 0),
+    }));
+    const cases = quads.map((quad, i) => ({ id: i + 1, plateStresses: [plates[i]!], quadStresses: [quad] }));
+    const perCase = new Map(cases.map(c => [c.id, { ...emptyResult(c.quadStresses), plateStresses: c.plateStresses }]));
+    const byPlate = new Map(cases.map(c => [c.id, new Map([[7, c.plateStresses[0]!]])]));
+    const byQuad = new Map(cases.map(c => [c.id, new Map([[8, c.quadStresses[0]!]])]));
+    const run = (terms: Array<[number, number]>) => {
+      const factors = terms.map(([caseId, factor]) => ({ caseId, factor }));
+      const combinations = [{ id: 10, factors }];
+      if (path === 'packed WASM export') {
+        const result = packedShellCombinationKernel(combine_shell_stresses)({
+          cases, combinations, thicknesses: [],
+          envelopeOrder: [{ id: 10, plateStresses: [], quadStresses: [] }],
+        });
+        return {
+          sigmaXx: result.envelope.plates[0]?.extremes.sigmaXx?.max,
+          quadXx: result.envelope.quads[0]?.extremes.sigmaXx?.max,
+          qx: result.envelope.quads[0]?.extremes.qx?.max,
+          qy: result.envelope.quads[0]?.extremes.qy?.max,
+        };
+      }
+      const bundle = { ...emptyResult([]), plateStresses: [] };
+      const result = path === 'single recombination'
+        ? combineShellStresses(factors, byPlate, byQuad, new Map())
+        : bundle;
+      if (path === 'bundle enrichment') {
+        enrichComboShellStresses(perCase, new Map([[10, bundle]]), undefined, combinations, new Map());
+      }
+      const quad = result.quadStresses?.[0];
+      return { sigmaXx: result.plateStresses?.[0]?.sigmaXx, quadXx: quad?.sigmaXx, qx: quad?.qx, qy: quad?.qy };
+    };
+
+    const live: Array<[number, number]> = [[2, 1], [3, 1]];
+    const active: Array<[number, number]> = [...live, [1, 1]];
+    const zeros = { sigmaXx: 0, quadXx: 0, qx: 3, qy: 4 };
+    const residual = { sigmaXx: 1, quadXx: 1, qx: undefined, qy: undefined };
+    expect.soft(run(live)).toEqual(zeros);
+    expect.soft(run(active)).toEqual(residual);
+    for (const zero of [0, -0]) {
+      expect.soft(run([[1, zero], ...active])).toEqual(residual);
+      expect.soft(run([[1, zero], ...live])).toEqual(zeros);
+    }
+    expect.soft(run([[1, 1], ...live, [1, -1]])).toEqual(zeros);
+    expect.soft(run([[1, 1], [1, -1]])).toEqual({
+      sigmaXx: undefined, quadXx: undefined, qx: undefined, qy: undefined,
+    });
+  },
+);
+
+it('#2297 the shell differential oracle agrees on residual and cancelled factors', () => {
+  const cancelling = q(7, 2);
+  const live = { ...q(7, 4), qx: 3, qy: 4 };
+  const quadRows = new Map([[1, new Map([[7, cancelling]])], [2, new Map([[7, live]])]]);
+  const plateRows = new Map([...quadRows].map(([id, rows]) =>
+    [id, new Map([...rows].map(([elementId, row]) => [elementId, { ...row, sigma1: row.sigmaXx, sigma2: 0 }]))]));
+  const perCase = new Map([...quadRows].map(([id, rows]) => [id, {
+    ...emptyResult([...rows.values()]), plateStresses: [...plateRows.get(id)!.values()],
+  }]));
+  const cases = [
+    { weights: [], stress: 4, shear: 3 },
+    { weights: [1], stress: 6, shear: undefined },
+    { weights: issue2297Factors, stress: 6, shear: undefined },
+    { weights: issue2297Factors.slice(0, -1), stress: 4, shear: 3 },
+  ];
+  for (const { weights, stress, shear } of cases) {
+    const factors = [{ caseId: 2, factor: 1 }, ...weights.map(factor => ({ caseId: 1, factor }))];
+    const actual = combineShellStresses(factors, plateRows, quadRows, new Map());
+    const oracle = combineShellStressesOracle(factors, plateRows, quadRows, new Map());
+    expect(actual.plateStresses[0]?.sigmaXx).toBe(stress);
+    expect(actual.quadStresses[0]?.qx).toBe(shear);
+    expect.soft(oracle).toEqual(actual);
+
+    const raw = new Map([[10, emptyResult([])]]);
+    const reference = new Map([[10, emptyResult([])]]);
+    const combinations = [{ id: 10, factors }];
+    enrichComboShellStresses(perCase, raw, undefined, combinations, new Map());
+    enrichComboShellStressesOracle(perCase, reference, undefined, combinations, new Map());
+    expect.soft(reference).toEqual(raw);
+  }
 });

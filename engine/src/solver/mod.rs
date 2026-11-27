@@ -1,6 +1,7 @@
 pub mod dof;
 pub(crate) mod convergence;
 mod equilibrium;
+mod elastic_cholesky;
 pub(crate) mod support;
 pub(crate) mod dynamic_validation;
 pub mod assembly;
@@ -11,6 +12,7 @@ pub mod mass_matrix;
 pub mod buckling;
 pub mod modal;
 mod modal_mass;
+mod stiffness_roundoff;
 pub mod spectral;
 pub mod plastic;
 pub mod plastic_limit;
@@ -35,6 +37,7 @@ pub mod soil_curves;
 pub mod ssi;
 pub mod constraints;
 pub mod arc_length;
+mod path_following;
 pub mod fiber_nonlinear;
 pub mod imperfections;
 pub mod creep_shrinkage;
@@ -42,6 +45,7 @@ pub mod reduction;
 pub mod conditioning;
 pub mod definiteness;
 pub mod stability;
+mod structural_kinematics;
 pub mod sparse_assembly;
 pub(crate) mod sparse_tangent;
 pub mod pre_solve_gates;
@@ -79,4 +83,8 @@ pub(crate) mod reaction_recovery;
 
 mod applied_loads;
 mod member_loads;
+mod planar_loads;
 pub use member_loads::{canonical_interval as canonical_member_load_interval, canonical_interval_values as canonical_member_load_interval_values};
+
+#[cfg(feature = "experimental-nonlinear")]
+pub mod experimental_nonlinear;

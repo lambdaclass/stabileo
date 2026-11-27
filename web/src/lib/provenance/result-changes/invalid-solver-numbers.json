@@ -1,0 +1,52 @@
+{
+  "id": "invalid-solver-numbers",
+  "date": "2026-11-23",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "nullPlanarMomentAliases"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Reject null planar moments",
+    "es": "Rechazo de momentos planos con valor null",
+    "pt": "Rejeição de momentos planos com valor nulo",
+    "de": "Ebene Momente mit dem Wert null werden abgelehnt",
+    "fr": "Rejet des moments plans de valeur null",
+    "hu": "Null értékű síkbeli nyomatékok elutasítása",
+    "tr": "Null değerli düzlemsel momentlerin reddi",
+    "zh": "拒绝值为 null 的平面力矩",
+    "ar": "رفض العزوم المستوية المخزنة بقيمة null",
+    "hi": "null वाले समतलीय आघूर्ण की अस्वीकृति",
+    "id": "Penolakan momen bidang bernilai null",
+    "it": "Rifiuto dei momenti nel piano con valore null",
+    "ja": "値が null の面内モーメントを拒否",
+    "ko": "null 값의 평면 모멘트 거부",
+    "ru": "Отклонение плоских моментов со значением null"
+  },
+  "explanation": {
+    "en": "Analysis could drop a planar moment stored as null. It now refuses that input. Enter the intended finite moment, or omit the field if no moment applies. Then rerun analysis.",
+    "es": "El análisis podía omitir un momento plano guardado como null. Ahora rechaza esa entrada. Ingresá el momento previsto como un número finito u omití el campo si no se aplica ningún momento. Luego volvé a ejecutar el análisis.",
+    "pt": "A análise podia omitir um momento plano guardado como null. Agora rejeita essa entrada. Introduza o momento pretendido como um número finito ou omita o campo se não houver momento. Depois, repita a análise.",
+    "de": "Die Berechnung konnte ein als null gespeichertes ebenes Moment übergehen. Sie lehnt diese Eingabe nun ab. Geben Sie das vorgesehene Moment als endliche Zahl ein oder lassen Sie das Feld weg, wenn kein Moment wirkt. Berechnen Sie das Modell anschließend erneut.",
+    "fr": "Le calcul pouvait ignorer un moment plan enregistré avec la valeur null. Il rejette désormais cette entrée. Saisissez la valeur finie du moment prévu ou omettez le champ si aucun moment ne s’applique. Relancez ensuite le calcul.",
+    "hu": "Az elemzés kihagyhatta a null értékkel mentett síkbeli nyomatékot. Az ilyen bemenetet most elutasítja. Adja meg a szándékolt nyomatékot véges számként, vagy hagyja el a mezőt, ha nincs nyomaték. Ezután futtassa újra az elemzést.",
+    "tr": "Analiz, null olarak kaydedilen düzlemsel bir momenti yok sayabiliyordu. Artık bu girdiyi reddeder. Uygulanacak momenti sonlu bir sayı olarak girin veya moment yoksa alanı boş bırakın. Ardından analizi yeniden çalıştırın.",
+    "zh": "分析可能会忽略存储为 null 的平面力矩。现在会拒绝此类输入。请输入预期的有限力矩值，或者在没有力矩时省略该字段，然后重新运行分析。",
+    "ar": "كان التحليل قد يتجاهل عزمًا مستويًا مخزنًا بقيمة null. الآن يرفض هذا الإدخال. أدخل العزم المطلوب كعدد منتهٍ، أو احذف الحقل إذا لم يكن هناك عزم. ثم أعد تشغيل التحليل.",
+    "hi": "विश्लेषण पहले null के रूप में सहेजे गए समतलीय आघूर्ण को छोड़ सकता था। अब यह उस इनपुट को अस्वीकार करता है। अभीष्ट आघूर्ण को परिमित संख्या के रूप में दर्ज करें, या आघूर्ण न लगने पर फ़ील्ड छोड़ दें। फिर विश्लेषण दोबारा चलाएँ।",
+    "id": "Analisis sebelumnya dapat mengabaikan momen bidang yang disimpan sebagai null. Kini masukan itu ditolak. Masukkan momen yang dimaksud sebagai bilangan berhingga, atau hilangkan kolom jika tidak ada momen. Lalu jalankan kembali analisis.",
+    "it": "L’analisi poteva ignorare un momento nel piano salvato come null. Ora rifiuta questo dato. Inserire il momento previsto come numero finito oppure omettere il campo se non si applica alcun momento. Quindi ripetere l’analisi.",
+    "ja": "従来の解析では、null として保存された面内モーメントが無視されることがありました。現在はこの入力を拒否します。意図したモーメントを有限の数値で入力するか、モーメントが作用しない場合は項目を省略してから、解析を再実行してください。",
+    "ko": "이전 해석에서는 null로 저장된 평면 모멘트가 누락될 수 있었습니다. 이제 이 입력을 거부합니다. 의도한 모멘트를 유한한 수로 입력하거나, 모멘트가 작용하지 않으면 해당 필드를 생략한 뒤 해석을 다시 실행하세요.",
+    "ru": "Расчёт мог пропустить плоский момент, сохранённый со значением null. Теперь такой ввод отклоняется. Укажите требуемый момент конечным числом или опустите поле, если момент не приложен. Затем повторите расчёт."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-invalid-solver-numbers.md",
+    "heading": "Refuse null moment and other invalid solver numbers"
+  }
+}

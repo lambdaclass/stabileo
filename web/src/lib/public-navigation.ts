@@ -32,7 +32,7 @@ export function loadPublicPage(path: string): Promise<Page | null> {
   return pending.get(key)!;
 }
 
-function saveData() {
+export function saveData() {
   return typeof navigator !== 'undefined' && (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
 }
 export function prefetchPublicPage(path: string) {

@@ -1,3 +1,6 @@
+import { accountingCaseSources, accountingSource } from './accounting-source';
+import { projectSelfWeightMembers, selfWeightMemberProjection } from './self-weight';
+import type { Load } from '../store/model.svelte';
 /**
  * What a member or a support does beyond the linear, stored on it and honoured by every solve.
  *
@@ -33,7 +36,8 @@ import { stripStabilisedReactions } from './stabilised-reactions';
 import { finishSolve3D } from './solve-finish';
 import { addConstraintConnectivity } from './constraint-connectivity';
 import { t } from '../i18n';
-import { massDensities } from './dynamics/requests';
+import { G } from './dynamics/requests';
+import { requireMaterialDensity } from '../section/weight';
 import { CONCRETE_FY_CEILING } from '../model/material-family';
 
 export type MemberBehaviour = 'tensionOnly' | 'compressionOnly' | 'inactive' | 'cable';
@@ -71,7 +75,12 @@ export function solvableModel<M extends ModelData>(model: M): M {
   // Variable members become chains of prismatic pieces for the solve (`variable-members.ts`).
   // Ids counted from the model given, so a reader of the results can plan the same expansion from
   // it (`variableExpansionFor`).
-  return expandVariableMembers(pruneModel(model, true), model);
+  const active = pruneModel(model, true);
+  const solved = expandVariableMembers(active, model);
+  return solved === model || solved[accountingSource] ? solved : {
+    ...solved,
+    [accountingSource]: { ...active, nodes: model.nodes },
+  };
 }
 
 function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
@@ -92,18 +101,26 @@ function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
   }
   const keepNode = (id: number) => used.has(id);
   if (inactive.size === 0 && [...model.nodes.keys()].every(keepNode)) return model;
-  const loads = model.loads.filter((l) => {
-    const d = l.data as { elementId?: number; nodeId?: number };
-    if (d.elementId !== undefined && inactive.has(d.elementId)) return false;
-    if (d.nodeId !== undefined && !keepNode(d.nodeId)) return false;
-    return true;
-  });
+  const keepLoad = (load: Load) => {
+    const { elementId, nodeId } = load.data as { elementId?: number; nodeId?: number };
+    return (elementId === undefined || !inactive.has(elementId))
+      && (nodeId === undefined || !heldByAny.has(nodeId) || keepNode(nodeId));
+  };
+  const cases = model[accountingCaseSources];
+  const keepBatches = (batches: ReadonlyMap<number, readonly Load[]>) =>
+    new Map([...batches].map(([id, loads]) => [id, loads.filter(keepLoad)]));
   return {
     ...model,
     elements,
+    ...(inactive.size > 0 ? {
+      [selfWeightMemberProjection]: projectSelfWeightMembers(model, new Map([...inactive].map(id => [id, []]))),
+    } : {}),
     nodes: new Map([...model.nodes].filter(([id]) => keepNode(id))),
     supports: new Map([...model.supports].filter(([, s]) => keepNode(s.nodeId))),
-    loads,
+    loads: model.loads.filter(keepLoad),
+    ...(cases && inactive.size > 0 ? {
+      [accountingCaseSources]: { ...cases, authored: keepBatches(cases.authored), generated: keepBatches(cases.generated) },
+    } : {}),
   };
 }
 
@@ -290,11 +307,13 @@ function* nonlinearSteps(model: ModelData, input: SolverInput3D): Generator<Nonl
   // Their own weight sets their sag and softens them, from the density in kg/m³ (the one
   // conversion the dynamic analyses use too). It is not a load to the engine: the self-weight
   // already in the loads carries it.
-  const kgPerM3 = massDensities(model.materials as Map<number, { rho?: number }>);
   const densities: Record<string, number> = {};
   for (const id of cables) {
     const mid = input.elements.get(id)!.materialId;
-    if ((kgPerM3.get(mid) ?? 0) > 0) densities[String(mid)] = kgPerM3.get(mid)!;
+    const material = model.materials.get(mid);
+    if (material?.rho === undefined) continue;
+    const rho = requireMaterialDensity(mid, material);
+    if (rho > 0) densities[String(mid)] = rho * 1000 / G;
   }
   // The pretensions given (#527); a cable without one is as long as its chord.
   const pretension: Record<string, number> = {};

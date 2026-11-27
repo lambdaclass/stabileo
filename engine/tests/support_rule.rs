@@ -36,7 +36,7 @@ fn refused(result: Result<(), String>) -> Value {
 fn check(model: &str, path: Path, sparse: bool) {
     let value: Value = serde_json::from_str(model).unwrap();
     let densities: HashMap<String, f64> = serde_json::from_value(value["_nightly_dens"].clone()).unwrap();
-    let mut s: SolverInput = serde_json::from_value(value).unwrap();
+    let mut s: SolverInput = crate::common::nightly_solver(value).unwrap();
     if sparse {
         let first = s.nodes.values().map(|n| n.id).max().unwrap() + 1;
         for id in first..first + 40 {
@@ -745,7 +745,8 @@ fn issue_1646_pdelta() {
 #[test]
 fn free_rotation_spring_and_zero_stiffness_on_restraint_keep_plane_parity() {
     use dedaliano_engine::metamorphic::planes::pull_static;
-    let mut s: SolverInput = serde_json::from_str(include_str!("support_rule_models/issue_1637.json")).unwrap();
+    let wire = serde_json::from_str(include_str!("support_rule_models/issue_1637.json")).unwrap();
+    let mut s: SolverInput = crate::common::nightly_solver(wire).unwrap();
     let support = s.supports.get_mut("2").unwrap();
     support.kz = support.kx.take();
     support.kx = Some(0.0);
@@ -783,11 +784,12 @@ fn free_rotation_spring_and_zero_stiffness_on_restraint_keep_plane_parity() {
 
 #[test]
 fn every_3d_restraint_and_warping_conflict_is_named_and_stays_restrained_in_numbering() {
-    let s: SolverInput = serde_json::from_str(include_str!("support_rule_models/issue_1637.json")).unwrap();
+    let wire = serde_json::from_str(include_str!("support_rule_models/issue_1637.json")).unwrap();
+    let s: SolverInput = crate::common::nightly_solver(wire).unwrap();
     let clean = embed_2d(&s, Plane::XZ).unwrap();
     for (i, name) in ["kx", "ky", "kz", "krx", "kry", "krz", "kw"].iter().enumerate() {
         let mut value = serde_json::to_value(&clean).unwrap();
-        value["supports"]["2"]["kx"] = Value::Null;
+        assert!(value["supports"]["2"].as_object_mut().unwrap().remove("kx").is_some());
         value["supports"]["1"][name] = serde_json::json!(1.0);
         value["supports"]["1"]["rw"] = serde_json::json!(true);
         value["sections"]["1"]["cw"] = serde_json::json!(1e-6);
@@ -809,7 +811,7 @@ fn truss_only_support_conflict_is_refused_in_both_dimensions() {
     for e in value["elements"].as_object_mut().unwrap().values_mut() {
         e["type"] = serde_json::json!("truss");
     }
-    let s: SolverInput = serde_json::from_value(value).unwrap();
+    let s: SolverInput = crate::common::nightly_solver(value).unwrap();
     assert_eq!(DofNumbering::build_2d(&s).dofs_per_node, 2);
     let s3 = embed_2d(&s, Plane::XZ).unwrap();
     assert_eq!(DofNumbering::build_3d(&s3).dofs_per_node, 3);
@@ -817,7 +819,8 @@ fn truss_only_support_conflict_is_refused_in_both_dimensions() {
 }
 
 fn inclined_positive_ky(angle: Option<f64>) -> SolverInput {
-    let mut s: SolverInput = serde_json::from_str(include_str!("support_rule_models/issue_1637.json")).unwrap();
+    let wire = serde_json::from_str(include_str!("support_rule_models/issue_1637.json")).unwrap();
+    let mut s: SolverInput = crate::common::nightly_solver(wire).unwrap();
     let support = s.supports.get_mut("2").unwrap();
     support.support_type = "inclinedRoller".into();
     support.ky = support.kx.take();

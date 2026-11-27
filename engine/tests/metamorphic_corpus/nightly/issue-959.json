@@ -16,8 +16,6 @@
  "loads": [
   {
    "data": {
-    "a": null,
-    "b": null,
     "elementId": 1,
     "qI": 15.525240751779549,
     "qJ": 89.7629236362404
@@ -77,14 +75,7 @@
  "solverOptions": null,
  "supports": {
   "1": {
-   "angle": null,
-   "dry": null,
-   "dx": null,
-   "dz": null,
    "id": 1,
-   "kx": null,
-   "ky": null,
-   "kz": null,
    "nodeId": 1,
    "type": "fixed"
   }

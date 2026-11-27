@@ -129,6 +129,22 @@ describe('advanced analyses: 3D payloads the engine accepts', () => {
     expect(res.stages[0].stageName).toBe('Etapa 1');
   });
 
+  it('known wrong result: #2588 — rejects a misspelled staged load-index field', () => {
+    const solver = input3D();
+    const supportNodes = [...new Set([...modelStore.supports.values()].map(s => s.nodeId))];
+    const [stage] = stagedStagesPayload([{
+      name: 'Apply load', elementsAdded: [...modelStore.elements.keys()], elementsRemoved: [],
+      platesAdded: [], platesRemoved: [], quadsAdded: [], quadsRemoved: [], caseIds: [1],
+    }], new Map([[1, [0]]]), supportNodes);
+    const { loadIndices, ...unloaded } = stage;
+    const solve = (row: object) => solveStaged3D({ solver, stages: [row] });
+    const displacements = (row: object): { ux: number; uy: number; uz: number }[] => solve(row).finalResults.displacements;
+
+    expect(displacements(unloaded).every(d => d.ux === 0 && d.uy === 0 && d.uz === 0)).toBe(true);
+    expect(displacements(stage).some(d => d.ux !== 0 || d.uy !== 0 || d.uz !== 0)).toBe(true);
+    expect(() => solve({ ...unloaded, loadsIndices: loadIndices })).toThrow(/unknown field `loadsIndices`/);
+  });
+
   it('creep takes parameters per material and steps keyed on tDays', () => {
     const creepParams: Record<string, unknown> = {};
     for (const [id] of modelStore.materials) {
@@ -205,16 +221,12 @@ describe('advanced analyses: 3D payloads the engine accepts', () => {
       ...r.peakDisplacements.map((d: any) => Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0)),
     );
     const res = solveTimeHistory3D({ ...base, groundAccelX: accel });
-    // The old payload sent the 2D pair { groundAccel, groundDirection },
-    // which hit no field on TimeHistoryInput3D: `has_ground` stayed false
-    // and the run fell back to the static loads as the only excitation. If
-    // the per-axis series is ever dropped again, `res` degenerates to
-    // exactly this — so the two peaks must differ.
-    const dropped = solveTimeHistory3D({ ...base, groundAccel: accel, groundDirection: 'X' });
+    expect(() => solveTimeHistory3D({ ...base, groundAccel: accel, groundDirection: 'X' })).toThrow('groundAccel');
+    const zeroGround = solveTimeHistory3D(base);
     expect(res.nSteps).toBe(50);
     expect(peak(res)).toBeGreaterThan(0);
     expect(
-      Math.abs(peak(res) - peak(dropped)),
+      Math.abs(peak(res) - peak(zeroGround)),
       'a run whose ground motion arrived must not match a zero-ground run',
     ).toBeGreaterThan(1e-6);
   });
@@ -375,3 +387,106 @@ function expectNonFiniteSpring(run: () => unknown, stiffness: number) {
   expect.soft(refusedWithCode(error, 'non_finite_result'), `non-finite kx = ${stiffness}`).toBe(true);
   expect.soft(String(error)).toMatch(/supports\.\d+\.kx/);
 }
+
+it('#2292 P-Delta and harmonic solves refuse non-finite optional springs', () => {
+  uiStore.analysisMode = '2d';
+  modelStore.clear();
+  const start = modelStore.addNode(0, 0);
+  const end = modelStore.addNode(4, 0);
+  modelStore.addElement(start, end, 'frame');
+  modelStore.addSupport(start, 'fixed');
+  modelStore.addNodalLoad(end, 0, -10);
+  const plane = modelStore.buildSolverInput(false)!;
+  const planeSpring = { id: end, nodeId: end, type: 'spring' as const };
+  for (const kx of [undefined, 0, 1, NaN, Infinity, -Infinity]) {
+    plane.supports.set(end, { ...planeSpring, kx });
+    const config = { densities: densities(), frequencies: [1, 2], dampingRatio: 0.05, responseNodeId: end, responseDof: 'y' };
+    const runs = [
+      () => wasmSolver.solvePDelta(plane).results.displacements,
+      () => wasmSolver.solveHarmonic2D({ ...config, solver: plane }).responsePoints,
+      () => wasmSolver.solveHarmonic2D({ ...config, solver: wasmSolver.input2DToWireObject(plane) }).responsePoints,
+    ];
+    for (const run of runs) {
+      if (kx === undefined || Number.isFinite(kx)) expect(run().length).toBeGreaterThan(0);
+      else expectNonFiniteSpring(run, kx);
+    }
+  }
+
+  uiStore.analysisMode = 'pro';
+  const { b } = portal3D();
+  const space = input3D();
+  const spaceSpring = { nodeId: b, rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false };
+  for (const kx of [undefined, 0, 1, NaN, Infinity, -Infinity]) {
+    space.supports.set(b, { ...spaceSpring, kx });
+    const config = { densities: densities(), frequencies: [1, 2], dampingRatio: 0.05, responseNodeId: b, responseDof: 'x' };
+    const runs = [
+      () => wasmSolver.solvePDelta3D(space).results.displacements,
+      () => solveHarmonic3D({ ...config, solver: space }).responsePoints,
+      () => solveHarmonic3D({ ...config, solver: wasmSolver.input3DToWireObject(space) }).responsePoints,
+    ];
+    for (const run of runs) {
+      if (kx === undefined || Number.isFinite(kx)) expect(run().length).toBeGreaterThan(0);
+      else expectNonFiniteSpring(run, kx);
+    }
+  }
+});
+
+it('#2292 JSON-backed iterations refuse non-finite scalar options', () => {
+  uiStore.analysisMode = 'pro';
+  portal3D();
+  const space = input3D();
+  for (const maxIter of [NaN, Infinity, -Infinity]) {
+    for (const run of [
+      () => wasmSolver.solveCable3D(space, maxIter),
+      () => wasmSolver.solvePDelta3D(space, maxIter),
+    ]) {
+      let error: unknown;
+      try { run(); } catch (caught) { error = caught; }
+      expect.soft(refusedWithCode(error, 'non_finite_result')).toBe(true);
+      expect.soft(String(error)).toContain('maxIter');
+    }
+  }
+});
+
+it('#2292 advanced JSON wrappers validate nested options before calling WASM', () => {
+  uiStore.analysisMode = 'pro';
+  portal3D();
+  const three = input3D();
+  uiStore.analysisMode = '2d';
+  modelStore.clear();
+  const start = modelStore.addNode(0, 0);
+  const end = modelStore.addNode(4, 0);
+  modelStore.addElement(start, end, 'frame');
+  modelStore.addSupport(start, 'fixed');
+  modelStore.addNodalLoad(end, 0, -10);
+  const two = modelStore.buildSolverInput(false)!;
+  const plane = [
+    wasmSolver.solveConstrained2D, wasmSolver.solveContact2D, wasmSolver.solveWinkler2D,
+    wasmSolver.solveFiberNonlinear2D, wasmSolver.solveStaged2D, wasmSolver.solveHarmonic2D,
+    wasmSolver.solveCreepShrinkage2D, wasmSolver.solveArcLength, wasmSolver.solveDisplacementControl,
+    wasmSolver.solveWithImperfections2D, wasmSolver.guyanReduce2D, wasmSolver.craigBampton2D,
+  ];
+  const space = [
+    wasmSolver.solveNonlinearMaterial3D, wasmSolver.solveTimeHistory3D, wasmSolver.solvePlastic3D,
+    wasmSolver.solveMovingLoads3D, wasmSolver.solveConstrained3D, wasmSolver.solveContact3D,
+    wasmSolver.solveWinkler3D, wasmSolver.solveFiberNonlinear3D, wasmSolver.solveStaged3D,
+    wasmSolver.solveHarmonic3D, wasmSolver.solveCreepShrinkage3D,
+    wasmSolver.solveWithImperfections3D, wasmSolver.computeInfluenceLine3D,
+  ];
+  for (const [wrappers, solver] of [[plane, two], [space, three]] as const) {
+    for (const run of wrappers) {
+      let error: unknown;
+      try { run({ solver, tolerance: Infinity }); } catch (caught) { error = caught; }
+      expect.soft(refusedWithCode(error, 'non_finite_result'), run.name).toBe(true);
+      expect.soft(String(error), run.name).toContain('input.tolerance');
+    }
+  }
+  let error: unknown;
+  try {
+    wasmSolver.solveTimeHistory2D({ solver: two, densities: new Map(), timeStep: 1, nSteps: 1, dampingXi: NaN });
+  } catch (caught) {
+    error = caught;
+  }
+  expect.soft(refusedWithCode(error, 'non_finite_result')).toBe(true);
+  expect.soft(String(error)).toContain('input.dampingXi');
+});

@@ -60,9 +60,7 @@
       "data": {
         "a": 0.8352978466144616,
         "elementId": 1,
-        "my": null,
-        "p": -21.887769172962557,
-        "px": null
+        "p": -21.887769172962557
       },
       "type": "pointOnElement"
     }
@@ -113,26 +111,13 @@
   "solverOptions": null,
   "supports": {
     "1": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
-      "dz": null,
       "id": 1,
-      "kx": null,
-      "ky": null,
-      "kz": null,
       "nodeId": 1,
       "type": "pinned"
     },
     "2": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
-      "dz": null,
       "id": 2,
-      "kx": null,
       "ky": 4904.008954542282,
-      "kz": null,
       "nodeId": 3,
       "type": "guidedZ"
     }

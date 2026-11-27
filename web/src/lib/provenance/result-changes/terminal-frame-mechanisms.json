@@ -1,0 +1,38 @@
+{
+  "id": "terminal-frame-mechanisms",
+  "date": "2026-11-25",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      ["frameMembers"],
+      ["hinges"],
+      ["analysis:linear", "analysis:pdelta", "analysis:buckling", "analysis:modal", "analysis:spectral", "analysis:nonlinear", "analysis:ssi", "stagedConstruction"]
+    ]
+  },
+  "quantities": ["solve.ok", "isSolvable", "kinematicIsSolvable", "classification", "diagnosis"],
+  "title": {
+    "en": "Released frame swing mechanisms",
+    "es": "Mecanismos de giro en barras articuladas",
+    "pt": "Mecanismos de rotação em barras articuladas",
+    "de": "Schwenkmechanismen an gelenkigen Stäben",
+    "fr": "Mécanismes de pivotement des barres articulées",
+    "hu": "Csuklós rudak elfordulási mechanizmusai",
+    "tr": "Mafsallı çubuk dönme mekanizmaları",
+    "zh": "释放框架杆的转动机构"
+  },
+  "explanation": {
+    "en": "The solver refuses a frame when a terminal joint can swing about a released end without strain or restraint movement. Recheck affected saved results.",
+    "es": "El motor rechaza el modelo si un nudo terminal puede girar alrededor de un extremo liberado sin deformarse ni mover las restricciones. Volvé a verificar los resultados guardados afectados.",
+    "pt": "O solver recusa o modelo se um nó terminal puder girar em torno de uma extremidade liberada sem deformação nem movimento nos apoios. Confira novamente os resultados salvos afetados.",
+    "de": "Der Solver lehnt ein Modell ab, wenn sich ein Stab um sein Gelenkende drehen kann, ohne sich zu verformen oder seine Lager zu bewegen. Prüfen Sie betroffene gespeicherte Ergebnisse erneut.",
+    "fr": "Le solveur refuse le modèle si un nœud terminal peut pivoter autour d’une extrémité articulée sans déformation ni déplacement des appuis. Vérifiez les résultats enregistrés concernés.",
+    "hu": "A megoldó elutasítja a modellt, ha egy végcsomópont a csuklós vég körül alakváltozás és a támaszok elmozdulása nélkül elfordulhat. Ellenőrizze az érintett mentett eredményeket.",
+    "tr": "Uç düğümü, bir mafsal etrafında şekil değiştirmeden veya mesnetleri hareket ettirmeden dönebiliyorsa çözücü modeli reddeder. Etkilenen kayıtlı sonuçları yeniden kontrol edin.",
+    "zh": "如果末端节点可绕释放端转动，且杆件无应变、约束处无位移，求解器会拒绝该模型。请复核受影响的已保存结果。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-terminal-frame-mechanisms.md",
+    "heading": "Released frame swing mechanisms (2026-11-25)"
+  }
+}

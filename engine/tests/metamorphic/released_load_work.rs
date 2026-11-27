@@ -5,9 +5,11 @@ use dedaliano_engine::types::*;
 use serde_json::{json, Value};
 
 fn fixture() -> Value {
-    serde_json::from_str::<Value>(include_str!("../fixtures/nightly-2026-11-13.json")).unwrap()
-        ["2023"]
-        .clone()
+    let archive: Value =
+        serde_json::from_str(include_str!("../fixtures/nightly-2026-11-13.json")).unwrap();
+    let mut solver = archive["2023"].clone();
+    crate::common::take_nightly_metadata(&mut solver);
+    solver
 }
 
 fn member(axis: &str, end: &str, oblique: bool) -> SolverInput3D {
@@ -305,6 +307,9 @@ fn compatible_3d_load_reaches_every_static_entry_point() {
 
 fn member_2d(end: &str) -> SolverInput {
     let mut v = fixture();
+    assert_eq!(v.as_object_mut().unwrap().remove("curvedBeams"), Some(json!([])));
+    assert_eq!(v.as_object_mut().unwrap().remove("leftHand"), Some(Value::Null));
+    crate::common::use_planar_fixture_sections(&mut v);
     v["nodes"] = json!({"1":{"id":1,"x":0.0,"z":0.0},"2":{"id":2,"x":3.0,"z":2.0}});
     v["elements"] = json!({"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeStart":end=="Start","hingeEnd":end=="End"}});
     let free = if end == "Start" { 1 } else { 2 };
@@ -454,10 +459,25 @@ fn native_and_wasm_share_released_load_models() {
 
 #[test]
 fn pdelta_admits_compatible_released_work_to_its_iterations() {
-    for s in transforms(&member("Mz", "Start", true)) {
-        let result = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&s, 100, 1e-12).unwrap();
-        assert_eq!(result.linear_results.displacements.len(), 2);
-        assert_eq!(result.results.element_forces.len(), 1);
+    let tolerance = 1e-12;
+    let cases = transforms(&member("Mz", "Start", true));
+    assert_eq!(cases.len(), 9);
+    for (case, model) in cases.iter().enumerate() {
+        let linear = linear::solve_3d(model).unwrap();
+        assert_eq!(linear.displacements.len(), 2);
+        assert_eq!(linear.element_forces.len(), 1);
+        let result = dedaliano_engine::solver::pdelta::solve_pdelta_3d(model, 100, tolerance);
+        if matches!(case, 6 | 7) {
+            crate::common::assert_pdelta_equilibrium_refusal(&result.unwrap_err(), tolerance);
+        } else {
+            let result = result.unwrap_or_else(|error| panic!("transform {case}: {error}"));
+            assert_eq!(result.linear_results.displacements.len(), 2);
+            assert_eq!(result.results.element_forces.len(), 1);
+            let equilibrium = result.results.equilibrium.unwrap();
+            assert!(equilibrium.residual_ok);
+            assert!(equilibrium.relative_residual.is_finite());
+            assert!(equilibrium.relative_residual <= tolerance);
+        }
     }
 }
 

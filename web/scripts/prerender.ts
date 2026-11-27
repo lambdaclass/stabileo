@@ -43,7 +43,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { captureProblem, newPrerenderPage, prerenderConcurrency, routePool, waitForRenderedApp } from './prerender-pool';
+import { captureProblem, newPrerenderPage, PRERENDER_NAVIGATION_TIMEOUT_MS, prerenderConcurrency, routePool, waitForRenderedApp } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { notFoundPage } from './not-found-page';
 import { buildStarCount, serveStarCount } from './build-stars';
@@ -79,7 +79,7 @@ const LOCALES = buildPublicLocales(buildPublicFeatures().research);
  */
 const DEFAULT_LOCALE = 'en';
 /** Build day, for the sitemap's lastmod. */
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = process.env.PRERENDER_BUILD_DATE ?? new Date().toISOString().slice(0, 10);
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -235,11 +235,31 @@ async function newCapturePage(browser: Browser, stars: number | null) {
   return page;
 }
 
+const liveBenchmarkReady = new Map<string, { selector: string; hasText?: RegExp }>([
+  ['/research/benchmarks/mattiasson-elastica', {
+    selector: '[data-testid="mattiasson-summary"]', hasText: /\d+\/\d+$/,
+  }],
+  ['/research/benchmarks/shell-obstacle-course', {
+    selector: '[data-testid="shell-summary"]', hasText: /: \d+\/\d+$/,
+  }],
+  ['/research/benchmarks/macneal-harder-1985', {
+    selector: '.benchmark-pane :is([data-testid="summary-frame"], p[role="alert"])',
+  }],
+  ['/research/benchmarks/plastic-collapse', {
+    selector: '#portal:has(.controls > button:first-child:enabled) [data-testid="source"]',
+  }],
+]);
+
 async function capture(page: Page, base: string, locale: Locale, path: string) {
   // Visited in the same slashed form the site publishes, so the capture
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
+  const benchmark = liveBenchmarkReady.get(path);
+  if (benchmark) {
+    await page.locator(`#app ${benchmark.selector}`).filter({ hasText: benchmark.hasText })
+      .waitFor({ state: 'attached', timeout: PRERENDER_NAVIGATION_TIMEOUT_MS });
+  }
   const tool = findTool(path);
   if (tool?.kind === 'calculator' || tool?.kind === 'batch') await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
   // Network idle is not rendered: a page whose next chunk is requested only after a long main-thread task looks idle in between.
@@ -259,6 +279,11 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
       link.crossOrigin = '';
       link.href = path;
       document.head.appendChild(link);
+    }
+    for (const canvas of document.querySelectorAll('#app canvas[data-engine]')) {
+      for (const name of canvas.getAttributeNames()) {
+        if (name.startsWith('data-') && name !== 'data-engine') canvas.removeAttribute(name);
+      }
     }
     for (const control of document.querySelectorAll('#app form, #app input, #app select, #app textarea')) control.setAttribute('inert', '');
     return { head: document.head.innerHTML, body: document.querySelector('#app')?.innerHTML ?? '' };

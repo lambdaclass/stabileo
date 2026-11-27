@@ -2,7 +2,7 @@ import { authStore } from './auth.svelte';
 import { accounts } from '../features';
 import { trackUsage } from '../telemetry/usage';
 
-export type GatedAction = 'save' | 'open' | 'import' | 'share' | 'code' | 'export' | 'exercise' | 'feedback' | 'exam';
+export type GatedAction = 'save' | 'open' | 'import' | 'share' | 'code' | 'export' | 'exercise' | 'feedback' | 'exam' | 'editor';
 
 interface Request {
   action: GatedAction;
@@ -82,6 +82,15 @@ export const accountGate = {
     if (!__PUBLIC_FEATURES__.accounts || !required()) return false;
     ask(action, run);
     return true;
+  },
+
+  /**
+   * The editor itself, when it needs an account: asks until there is one, never goes on without
+   * it, and `leave` runs when the reader turns it down.
+   */
+  requireForEditor(leave: () => void): void {
+    if (!__PUBLIC_FEATURES__.accounts || authStore.isAuthenticated || (open && pending?.action === 'editor')) return;
+    ask('editor', () => {}, leave, false);
   },
 
   requireSignIn(action: GatedAction, run: () => unknown): void {

@@ -96,26 +96,15 @@
  "solverOptions": null,
  "supports": {
   "1": {
-   "angle": null,
-   "dry": null,
-   "dx": null,
    "dz": -0.0037539416439529207,
    "id": 1,
-   "kx": null,
-   "ky": null,
-   "kz": null,
    "nodeId": 1,
    "type": "fixed"
   },
   "2": {
    "angle": -2.8974361398856474,
-   "dry": null,
-   "dx": null,
-   "dz": null,
    "id": 2,
-   "kx": null,
    "ky": 19094.690296412602,
-   "kz": null,
    "nodeId": 2,
    "type": "spring"
   }

@@ -10,6 +10,7 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
              "cloud_projects_enabled" => false,
              "save_requires_account" => false,
              "assignments_enabled" => false,
+             "editor_requires_account" => false,
              "google_login" => true
            }
   end

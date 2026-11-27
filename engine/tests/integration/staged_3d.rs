@@ -277,7 +277,7 @@ fn staged_3d_support_activation() {
         supports_removed: vec![],
         prestress_loads: vec![], ..Default::default() });
 
-    let mut reference: SolverInput3D = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+    let mut reference: SolverInput3D = serde_json::from_value(crate::common::staged_model_without_history(serde_json::to_value(&input).unwrap())).unwrap();
     reference.loads.truncate(1);
     let propped = dedaliano_engine::solver::linear::solve_3d(&reference).unwrap();
     reference.supports.remove("3");

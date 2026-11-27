@@ -33,7 +33,7 @@ import { initSolver } from '../engine/wasm-solver';
 import { EngineUnavailableError } from '../engine/engine-unavailable';
 import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
-import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
+import { expandCombinations, modelCombinationCases, presentSymbols } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations } from '../store/generated-combinations';
 import { loadCodeExample, type CodeExampleId } from '../templates/examples';
 import { PRO_EXAMPLE_FIXES, declareSteelGrades } from './pro-example-fixes';
@@ -118,17 +118,18 @@ function stateSelfWeight(rule: ExampleSelfWeight, deadCase: number | undefined):
 }
 
 function regulationCombinations(bothSenses: boolean): void {
-  const cases = modelStore.model.loadCases;
+  const cases = modelCombinationCases(modelStore.model);
   if (!cases.some((c) => (c.type || '').toUpperCase() === 'D')) return;
   // Written by the CIRSOC 101 module, and saying so (`withOrigin`), as the generator's are.
   const specs = generateCombinations({ present: presentSymbols(cases) }).map((c) => withOrigin(c, CIRSOC101_BASIS));
-  for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
-  let n = 0;
   // Wind reversed only where that is exact: an example's roof-suction case is not.
-  addGeneratedCombinations(expandCombinations(specs, cases, {
+  const expanded = expandCombinations(specs, cases, {
     bothSenses: { W: bothSenses, E: bothSenses },
     reversible: (caseId) => windCaseReversible(modelStore.model, caseId),
-  }), () => `U${++n}: `);
+  });
+  for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+  let n = 0;
+  addGeneratedCombinations(expanded, () => `U${++n}: `);
 }
 
 async function loadExample(ex: ProExample): Promise<void> {
