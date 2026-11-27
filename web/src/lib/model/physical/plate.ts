@@ -41,6 +41,8 @@ export interface PlateMeshSpec {
   pattern?: 'free' | 'rect' | 'square';
   /** The rectangles' side along v, m (pattern 'rect'). */
   sizeV?: number;
+  /** Exact grid divisions along u and v; cell sizes are fitted to the outline's bounding box. */
+  divisions?: { u: number; v: number };
   /** The grid's u: the plate's first side, or global X laid in its plane. Absent: the first side. */
   orient?: 'plate' | 'globalX';
 }
@@ -401,7 +403,7 @@ export function plateSignature(geo: PlateGeometry, spec: PlateMeshSpec, features
     : '';
   // A grid adds its shape to the string; a free mesh's string is what it always was.
   const grid = gridOfSpec(spec);
-  const g = grid ? `/grid:${r6(grid.a)}x${r6(grid.b)}:${grid.orient}` : '';
+  const g = grid ? `/grid:${r6(grid.a)}x${r6(grid.b)}:${grid.orient}${spec.divisions ? `/div:${spec.divisions.u}x${spec.divisions.v}` : ''}` : '';
   return `${loops}@${r6(spec.size)}/${spec.element}/${spec.followMembers ? 1 : 0}${g}@${ft}`;
 }
 

@@ -31,6 +31,8 @@ export interface GridMeshInput {
   b: number;
   /** What the strip along the boundary is meshed with. */
   element: 'quad' | 'tri';
+  /** Exact divisions along u and v; when present, they override a and b using the outline's span. */
+  divisions?: { u: number; v: number };
   /** The outline's sides, as the shell mesher takes them (a neighbour's spacing on a side). */
   sides?: SideSpec[];
   fixedPoints?: Vec3[];
@@ -62,19 +64,23 @@ export function frameAlong(frame: GridFrame, dir: Vec3): GridFrame {
 }
 
 export function gridMesh(input: GridMeshInput): GridMeshOutput | null {
-  const { frame: f, a, b } = input;
-  if (!(a > EPS) || !(b > EPS) || input.outer.length < 3) return null;
+  const { frame: f, divisions } = input;
+  if (divisions && (!Number.isSafeInteger(divisions.u) || !Number.isSafeInteger(divisions.v) || divisions.u <= 0 || divisions.v <= 0)) return null;
   const to2 = (p: Vec3): P2 => { const d: Vec3 = [p[0] - f.o[0], p[1] - f.o[1], p[2] - f.o[2]]; return [dot(d, f.u), dot(d, f.v)]; };
   const to3 = (p: P2): Vec3 => [f.o[0] + f.u[0] * p[0] + f.v[0] * p[1], f.o[1] + f.u[1] * p[0] + f.v[1] * p[1], f.o[2] + f.u[2] * p[0] + f.v[2] * p[1]];
   const outer = input.outer.map(to2);
   const holes = input.holes.map((h) => h.map(to2));
   const fixedPts = (input.fixedPoints ?? []).map(to2);
   const fixedSegs = (input.fixedSegments ?? []).map(([p, q]) => [to2(p), to2(q)] as [P2, P2]);
+  const us = outer.map((p) => p[0]), vs = outer.map((p) => p[1]);
+  const a = divisions ? (Math.max(...us) - Math.min(...us)) / divisions.u : input.a;
+  const b = divisions ? (Math.max(...vs) - Math.min(...vs)) / divisions.v : input.b;
+  if (!(a > EPS) || !(b > EPS) || input.outer.length < 3) return null;
 
   // A rectangle along the axes, with nothing in it: fitted divisions, one structured grid.
   const rect = alignedRectangle(outer);
   if (rect && holes.length === 0 && !fixedPts.some((p) => strictlyInside(p, rect)) && !fixedSegs.some((s) => segHitsBox(s, rect, -1e-6))) {
-    const nu = Math.max(1, Math.round((rect.u1 - rect.u0) / a)), nv = Math.max(1, Math.round((rect.v1 - rect.v0) / b));
+    const nu = divisions?.u ?? Math.max(1, Math.round((rect.u1 - rect.u0) / a)), nv = divisions?.v ?? Math.max(1, Math.round((rect.v1 - rect.v0) / b));
     if (nu * nv > MAX_MESH_CELLS) return null;
     // Opposite sides take the same divisions; a side a neighbour's mesh meets keeps its spacing.
     const sides = sideDivisions(outer, rect, nu, nv, input.sides);
