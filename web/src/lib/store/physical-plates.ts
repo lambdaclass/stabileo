@@ -400,9 +400,11 @@ function withMemberArcs(outline: number[], arcMids: number[]): { outline: number
 /** Names for new plates, L for a slab and M for a wall, each the next number no group of the model has. */
 export function plateNamer(): (kind: string) => string {
   const used = new Set([...modelStore.model.groups.values()].map((g) => g.name));
+  const unified = unifiedPlates();
+  const first = unified ? 1 : physicalPlates().length + 1;
   return (kind) => {
-    const prefix = kind === 'wall' ? 'M' : 'L';
-    let n = 1;
+    const prefix = unified ? (kind === 'wall' ? 'M' : 'L') : 'P';
+    let n = first;
     while (used.has(`${prefix}${n}`)) n++;
     used.add(`${prefix}${n}`);
     return `${prefix}${n}`;
@@ -768,7 +770,7 @@ function planPlateMeshNow(id: number, specOverride?: Partial<PlateMeshSpec>, opt
   const input = plateMeshInput(f.geo, spec, f.features);
   const signature = signatureOf(e, f, spec);
   const preview = (mesh: MeshOutput, mixed: boolean, extra?: Pick<PlateMeshPlan, 'grid' | 'aDir' | 'bDir' | 'footprints'>): PlateMeshPlan => {
-    if ((!opts.replaced || !unifiedPlates()) && placePlateEdits(e, mesh) === null) {
+    if (!opts.replaced && placePlateEdits(e, mesh) === null) {
       return { ...base, mesh: null, refused: 'shellEdits', cells: 0, quality: null, signature, input, mixed: false };
     }
     return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed, ...extra };
@@ -1148,8 +1150,6 @@ function conformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMeshRepo
       else drafts.push(p);
     }
     if (report.refused.length) return [];
-
-    if (!unifiedPlates()) return drafts;
 
     const owned = new Set(entries.filter(e => specs.has(e.id)).flatMap(e => plateLoops(e.group).owned));
     const frameNodes = memberChains(plateModel(), owned).flat();

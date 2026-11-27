@@ -264,7 +264,7 @@ describe('a physical plate', () => {
 
   it('meets the plate beside it node to node, whatever the two sizes, and stays current', () => checkSharedEdge(applyPlateMeshes));
 
-  it.skip('known wrong result: #2365 asynchronous remeshing preserves all shared edge nodes', () => checkSharedEdge(applyPlateMeshesAsync));
+  it('known wrong result: #2365 asynchronous remeshing preserves all shared edge nodes', () => checkSharedEdge(applyPlateMeshesAsync));
 
   it('keeps the loads of the members its mesh cuts, on their pieces', async () => {
     const { meshQuad } = await import('../../model/edit/mesh-region');

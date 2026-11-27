@@ -1,0 +1,41 @@
+{
+  "id": "plate-mesh-shared-edges",
+  "date": "2026-11-27",
+  "prs": [
+    1928,
+    2365
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "physicalPlateDefinitions"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-build-and-schedules.md",
+    "heading": "Shared edges of declared plates"
+  },
+  "title": {
+    "en": "Shared edges of declared plates",
+    "es": "Bordes compartidos de placas",
+    "pt": "Bordas compartilhadas de placas",
+    "de": "Gemeinsame Plattenränder",
+    "fr": "Bords communs des plaques",
+    "tr": "Plakların ortak kenarları",
+    "zh": "板的共用边",
+    "hu": "Lemezek közös peremei"
+  },
+  "explanation": {
+    "en": "An integration build could mesh adjoining plates with different nodes on the shared edge. Remesh them and check their connection before solving.",
+    "es": "Una compilación de integración podía mallar placas contiguas con nodos distintos en el borde común. Vuelva a mallarlas y compruebe la conexión antes del análisis.",
+    "pt": "Uma versão de integração podia gerar malhas de placas adjacentes com nós diferentes na borda comum. Gere as malhas novamente e verifique a ligação antes da análise.",
+    "de": "Ein Integrationsbuild konnte benachbarte Platten mit verschiedenen Knoten am gemeinsamen Rand vernetzen. Vernetzen Sie die Platten erneut und prüfen Sie die Verbindung vor der Berechnung.",
+    "fr": "Une version d’intégration pouvait mailler des plaques adjacentes avec des nœuds distincts sur leur bord commun. Refaites le maillage et vérifiez la liaison avant le calcul.",
+    "tr": "Bir entegrasyon sürümü, bitişik plakların ortak kenarında farklı ağ düğümleri oluşturabiliyordu. Ağı yeniden oluşturup analizden önce bağlantıyı kontrol edin.",
+    "zh": "某个集成版本可能在相邻板的共用边上生成不同的节点。请重新划分网格并在求解前检查连接。",
+    "hu": "Egy integrációs változat eltérő csomópontokat hozhatott létre a szomszédos lemezek közös peremén. Hálózza újra a lemezeket és számítás előtt ellenőrizze a kapcsolatot."
+  }
+}

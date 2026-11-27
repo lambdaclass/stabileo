@@ -11,3 +11,7 @@ Previous schedules could understate unused material on the last stock bar of a m
 ## Wind pressure at member cuts
 
 On the unmerged integration branch, two linear loads could match a curved pressure's whole-span work moments while giving a different shear or bending moment at an interior cut. The load generator again subdivides each interval until its linear replacement meets the local moment checks. Regenerate wind loads saved by an affected integration build, then rerun the analysis. Solving the old distributed loads again retains their original pressure approximation.
+
+## Shared edges of declared plates
+
+A disabled-profile integration build could accept two plate meshes with different nodes along their common edge. Both profiles now reconcile and check those nodes before applying a batch. Remesh affected adjoining plates and verify connectivity before solving again.
