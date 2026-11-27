@@ -70,3 +70,25 @@ it('#1928 removes only the contribution of a cleared spring plate at its outline
   expect(k(a[1]!)).toBe(old! / 2);
   expect(k(a[0]!)).toBeUndefined();
 });
+
+it.skip.each(['uplift', 'holdHorizontal'] as const)('known wrong result: #1928 adjacent plates cannot overwrite incompatible %s settings', field => {
+  modelStore.clear();
+  uiStore.analysisMode = 'pro';
+  const left = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  const right = [left[1]!, modelStore.addNode(4, 0, 0), modelStore.addNode(4, 2, 0), left[2]!];
+  const ids = [left, right].map(outline => {
+    const result = createPlate({ outline, materialId: 1, thickness: 0.2 });
+    if ('problem' in result) throw Error(result.problem);
+    return result.id;
+  });
+  const soil = { ks: 20000, uplift: false, holdHorizontal: true };
+  expect(applyPlateMeshes(ids.map(id => planPlateMesh(id, { size: 2, element: 'quad' })!)).plates).toBe(2);
+  expect(setPlateShellSpec(ids, { springs: soil })).toBeUndefined();
+  const state = () => JSON.stringify({ supports: [...modelStore.supports], plates: physicalPlates().map(p => p.surface) });
+  const before = state();
+  expect(setPlateShellSpec([ids[1]!], { springs: { ...soil, [field]: !soil[field] } })).toEqual(expect.stringContaining('subgrade stiffness'));
+  expect(state()).toBe(before);
+  expect(setPlateShellSpec([ids[1]!], { springs: { ...soil, ks: soil.ks * 2 } })).toBeUndefined();
+  const shared = [...modelStore.supports.values()].find(s => s.nodeId === left[1]);
+  expect(shared?.kz).toBe((2 * 2 / 4) * (soil.ks + soil.ks * 2));
+});
