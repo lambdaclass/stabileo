@@ -48,7 +48,7 @@ describe('which values a registered change declares it moves', () => {
     expect(declaresMove(change('c', ['reactions']), 'base.reactions[n1].fz')).toBe(true);
     expect(declaresMove(refusals, 'solve.ok')).toBe(true);
   });
-  it.skip.each(['base', 'case[2]', 'combo[1]'])('known wrong result: #718 — %s honors an exact summary quantity only for its declared field', prefix => {
+  it.each(['base', 'case[2]', 'combo[1]'])('known wrong result: #718 — %s honors an exact summary quantity only for its declared field', prefix => {
     const quantity = 'resultSummary.secondOrderPhysicalBound';
     const entry = { ...change('physical-bound'), quantities: [quantity] };
     for (const [field, covered] of [[quantity, true], ['resultSummary.secondOrderPhysicalBoundExtra', false],
