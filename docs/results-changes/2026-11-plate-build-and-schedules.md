@@ -1,6 +1,6 @@
 # Mesh preparation in unified PRO
 
-The unified PRO option enables automatic adoption of loose shells and mesh-at-solve slabs as physical plates. With meshing enabled, coarse original shells can be meshed before analysis. Batch remeshing fits adjacent plates at shared nodes and can refine grids around openings. Displacements, reactions, member forces and shell stresses can change when the discretization changes. Inspect the prepared mesh and rerun the analysis. The three historical withdrawals are recorded in [the withdrawal note](2026-11-unified-pro-plates-withdrawn.md).
+The unified PRO option enables automatic adoption of loose shells and mesh-at-solve slabs as physical plates. With meshing enabled, coarse original shells can be meshed before analysis. Batch remeshing fits adjacent plates at shared nodes and can refine grids around openings. Displacements, reactions, member forces and shell stresses can change when the discretization changes. When individual cells carry different pressures, corner loads or scenario-specific load records, automatic adoption retains the source mesh and loads. Inspect the prepared mesh and rerun the analysis. The three historical withdrawals are recorded in [the withdrawal note](2026-11-unified-pro-plates-withdrawn.md).
 
 Both build profiles read the current structural solver, validation code and results registry from the checkout.
 
