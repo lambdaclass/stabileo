@@ -137,6 +137,13 @@ it('#2529 a storey column emits the compact pressure bands as member loads', () 
   expect(field.members.every(p => p.elementId === 1 && p.q > 0 && p.qJ > 0)).toBe(true);
 });
 
+function shearAtCut(parts: ReadonlyArray<{ a: number; b: number; q: number; qJ: number }>, cut: number) {
+  return parts.reduce((sum, { a, b, q, qJ }) => {
+    const span = Math.max(0, Math.min(cut, b) - a);
+    return sum + span * (q + (qJ - q) * span / (2 * (b - a)));
+  }, 0);
+}
+
 function pulsedPressure(reflected: boolean, amplitude = 1, curvature = 0.001) {
   const at = (s: number) => {
     const x = reflected ? 1 - s : s;
@@ -156,10 +163,7 @@ for (const entry of ['integral', 'member'] as const) for (const reflected of [fa
     const parts = entry === 'integral' ? integrateWindPressure(1, [], pressure) : windHeightField({
       model: mesh([[[0, 0, 0], [0, 0, 1]]]), axis: 'x', width: 1, from: 0, to: 1, pressure,
     }).members;
-    const actual = parts.reduce((sum, { a, b, q, qJ }) => {
-      const span = Math.max(0, Math.min(cut, b) - a);
-      return sum + span * (q + (qJ - q) * span / (2 * (b - a)));
-    }, 0);
+    const actual = shearAtCut(parts, cut);
     const background = cut + 0.001 * ((cut - 0.5) ** 3 + 0.5 ** 3) / 3;
     expect(actual).toBeCloseTo(background + (reflected ? -1 : 1) / 256, 10);
   });
@@ -216,17 +220,14 @@ function projectedParts(entry: 'integral' | 'member', law: PressureLaw) {
 }
 
 for (const entry of ['integral', 'member'] as const) for (const reflected of [false, true]) {
-  it.skip(`known wrong result: #2529 constant background retains hidden cut force through ${entry}, reflected=${reflected}`, () => {
+  it(`#2529 constant background retains hidden cut force through ${entry}, reflected=${reflected}`, () => {
     const parts = projectedParts(entry, pulsedPressure(reflected, 1, 0));
     const cut = reflected ? 1 - 17 / 64 : 17 / 64;
-    const shear = parts.reduce((sum, { a, b, q, qJ }) => {
-      const span = Math.max(0, Math.min(cut, b) - a);
-      return sum + span * (q + (qJ - q) * span / (2 * (b - a)));
-    }, 0);
+    const shear = shearAtCut(parts, cut);
     expect(shear).toBeCloseTo(cut + (reflected ? -1 : 1) / 256, 10);
   });
 
-  it.skip(`known wrong result: #2529 narrow bump contributes its work moments to the accepted pair through ${entry}, reflected=${reflected}`, () => {
+  it(`#2529 narrow bump contributes its work moments to the accepted pair through ${entry}, reflected=${reflected}`, () => {
     const center = reflected ? 0.75 : 0.25, radius = 0.001, height = 0.01, curvature = 0.0002;
     const pressure = Object.assign((s: number) => 1 + curvature * s ** 2 + height * Math.max(0, 1 - Math.abs(s - center) / radius),
       { curvatureBreaks: [center + radius, center, center - radius, center] });
@@ -245,7 +246,7 @@ for (const entry of ['integral', 'member'] as const) for (const reflected of [fa
   });
 }
 
-for (const amplitude of [1 / 512, 1 / 256]) it.skipIf(amplitude === 1 / 256)(`known wrong result: #2529 constant background single-line cut budget at amplitude ${amplitude}`, () => {
+for (const amplitude of [1 / 512, 1 / 256]) it(`#2529 constant background single-line cut budget at amplitude ${amplitude}`, () => {
   const parts = integrateWindPressure(1, [], pulsedPressure(false, amplitude, 0));
   if (amplitude === 1 / 512) expect(parts).toHaveLength(1);
   else expect(parts.length).toBeGreaterThan(1);

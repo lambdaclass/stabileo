@@ -11,7 +11,9 @@
     ]
   },
   "quantities": [
-    "elementForces"
+    "elementForces",
+    "reactions",
+    "displacements"
   ],
   "title": {
     "en": "Interior member forces under regenerated wind loads",
@@ -24,14 +26,14 @@
     "hu": "A rudak belső erői a szélterhek újragenerálása után"
   },
   "explanation": {
-    "en": "A gently varying wind pressure band can be stored as two linear loads that preserve its four work moments. Shear and bending moment inside the member can change. Regenerate W and Wa, then rerun analyses, combinations and design checks.",
-    "es": "Una franja de presión de viento que varía suavemente se puede representar con dos cargas lineales que conservan sus cuatro momentos de trabajo. Pueden cambiar el corte y el momento flector en el interior de la barra. Regenerá W y Wa y repetí los análisis, las combinaciones y las verificaciones.",
-    "pt": "Uma faixa de pressão do vento que varia suavemente pode ser representada por duas cargas lineares que preservam seus quatro momentos de trabalho. O esforço cortante e o momento fletor no interior da barra podem mudar. Gere W e Wa novamente e refaça as análises, combinações e verificações.",
-    "de": "Ein Bereich mit schwach veränderlichem Winddruck kann durch zwei lineare Lasten unter Erhaltung seiner vier Arbeitsmomente dargestellt werden. Querkraft und Biegemoment im Stabinneren können sich ändern. W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise erneut ausführen.",
-    "fr": "Une zone où la pression du vent varie faiblement peut être représentée par deux charges linéaires qui conservent ses quatre moments de travail. L’effort tranchant et le moment fléchissant à l’intérieur de la barre peuvent changer. Régénérez W et Wa, puis relancez les analyses, les combinaisons et les vérifications.",
-    "tr": "Rüzgâr basıncının az değiştiği bir bölge, dört iş momentini koruyan iki doğrusal yükle temsil edilebilir. Eleman içindeki kesme kuvveti ve eğilme momenti değişebilir. W ve Wa yüklerini yeniden üretip analizleri, birleşimleri ve tasarım kontrollerini tekrarlayın.",
-    "zh": "对于风压变化平缓的区段，可用两段线性荷载表示，并保留其四个功矩。杆件内部的剪力和弯矩可能发生变化。请重新生成 W 和 Wa，再重新进行分析、荷载组合和设计验算。",
-    "hu": "A lassan változó szélnyomású szakasz két lineáris teherrel ábrázolható a négy munkamomentum megőrzésével. A rúd belsejében változhat a nyíróerő és a hajlítónyomaték. Generálja újra a W és Wa terheket, majd ismételje meg a számításokat, a kombinációkat és a méretezési ellenőrzéseket."
+    "en": "Where pressure curvature breaks are known, wind load generation now includes narrow peaks in the total force and checks shear accuracy inside each band. Member forces, reactions and displacements can change. Regenerate W and Wa, then rerun analyses, combinations and design checks.",
+    "es": "Cuando se conocen los cambios de curvatura de la presión, el generador incluye los picos estrechos en la fuerza total y verifica la precisión del corte dentro de cada franja. Pueden cambiar los esfuerzos de las barras, las reacciones y los desplazamientos. Regenerá W y Wa y repetí los análisis, las combinaciones y las verificaciones.",
+    "pt": "Quando as mudanças de curvatura da pressão são conhecidas, o gerador inclui os picos estreitos na força total e verifica a precisão do esforço cortante em cada faixa. Os esforços nas barras, as reações e os deslocamentos podem mudar. Gere W e Wa novamente e refaça as análises, combinações e verificações.",
+    "de": "Bei der Neuerzeugung werden Druckspitzen an angegebenen Krümmungswechseln berücksichtigt und die Querkraftgenauigkeit innerhalb jedes solchen Bereichs geprüft. Stabkräfte, Auflagerreaktionen und Verschiebungen können sich ändern. W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise erneut ausführen.",
+    "fr": "La régénération des charges de vent tient compte des pics de pression aux changements de courbure déclarés et vérifie la précision de l’effort tranchant dans chaque bande concernée. Les efforts dans les barres, les réactions et les déplacements peuvent changer. Régénérez W et Wa, puis relancez les analyses, les combinaisons et les vérifications.",
+    "tr": "Rüzgâr yükleri yeniden üretilirken bildirilen eğrilik değişim noktalarındaki basınç tepeleri hesaba katılır ve ilgili her banttaki kesme kuvvetinin doğruluğu denetlenir. Eleman iç kuvvetleri, mesnet tepkileri ve yer değiştirmeler değişebilir. W ve Wa yüklerini yeniden üretip analizleri, birleşimleri ve tasarım kontrollerini tekrarlayın.",
+    "zh": "重新生成风荷载时，会计入已声明的曲率分段点处的风压峰值，并检查相应区段内部的剪力精度。杆件内力、支座反力和位移可能改变。请重新生成 W 和 Wa，再重新进行分析、荷载组合和设计验算。",
+    "hu": "A szélterhek újragenerálása figyelembe veszi a megadott görbületváltási pontoknál fellépő nyomáscsúcsokat, és ellenőrzi a nyíróerő pontosságát az érintett szakaszokon belül. A rudak belső erői, a támaszerők és az elmozdulások változhatnak. Generálja újra a W és Wa terheket, majd ismételje meg a számításokat, a kombinációkat és a méretezési ellenőrzéseket."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-wind-two-part-moments.md",
