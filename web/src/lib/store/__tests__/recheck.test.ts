@@ -18,6 +18,23 @@ const steelTruss = () => ({
 describe('recheckStore', () => {
   beforeEach(() => recheckStore.reset());
 
+  it.skip.each(['2d', '3d', 'pro'])('known wrong result: #2529 reopening a %s project from the wind release finds the subsequent beam detailing correction', async mode => {
+    const released = RESULT_CHANGES.changes.find(c => c.id === 'wind-two-part-moments')!;
+    const cutoff = 'beam-cutoff-section-shear';
+    recheckStore.noteSolved('linear');
+    const stamp = recheckStore.capture()!;
+    const reopen = async (resultsVersion: number, assemblies: unknown[]) => {
+      recheckStore.reset();
+      recheckStore.openProject({ ...(steelTruss() as object), detailing: { assemblies }, solvedWith: { ...stamp, resultsVersion } } as never, mode);
+      await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+      return recheckStore.assessment?.changes.map(c => c.id) ?? [];
+    };
+    const beam = [{ kind: 'beamLine' }];
+    expect(await reopen(released.resultsVersion, beam)).toContain(cutoff);
+    expect(await reopen(RESULTS_VERSION, beam)).not.toContain(cutoff);
+    expect(await reopen(released.resultsVersion, [])).not.toContain(cutoff);
+  });
+
   it('a new project belongs to this build: no notice, nothing stale', async () => {
     expect(recheckStore.noticeOpen).toBe(false);
     expect(recheckStore.stale).toBe(false);

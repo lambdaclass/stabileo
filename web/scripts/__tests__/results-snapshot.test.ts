@@ -111,6 +111,21 @@ describe('the gate', () => {
     expect(r.ok, r.report).toBe(true);
   });
 
+  it.skip('known wrong result: #2529 a new notice cannot share a version with a released save, even without snapshot changes', () => {
+    const baseVersions = { currentResultsVersion: 4, changes: [{ id: 'old', resultsVersion: 4 }] };
+    const check = (released: number, added: number) => decide({
+      snapshots: [], fragments: [], baseRegistry: registry, headRegistry: registered,
+      baseVersions, headVersions: { currentResultsVersion: Math.max(released, added), changes: [
+        { id: 'old', resultsVersion: released }, { id: 'new', resultsVersion: added },
+      ] },
+    });
+    expect(check(4, 4).ok).toBe(false);
+    expect(check(4, 3).ok).toBe(false);
+    expect(check(3, 5).ok).toBe(false);
+    expect(check(5, 6).ok).toBe(false);
+    expect(check(4, 5).ok).toBe(true);
+  });
+
   it('passes a pull request whose snapshots did not move', () => {
     const same = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1 + 1e-12 }) }];
     expect(decide({ snapshots: same, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(true);
