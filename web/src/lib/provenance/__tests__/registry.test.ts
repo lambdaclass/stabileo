@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { REGISTRY_LOCALES, validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
 import { assessProject } from '../applicability';
+import declaredQuantities from 'virtual:result-change-quantities';
 import { FEATURE_IDS, type FeatureSnapshot } from '../model-features';
 import { unknownStamp, type SolveStamp } from '../solve-stamp';
 import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
@@ -240,7 +241,7 @@ describe.skip('known wrong result: #1928 model edits and report filters do not e
   const notices = (s: FeatureSnapshot, mode = 'pro') => assessProject(s, unknownStamp(), mode).changes.map(change => change.id);
 
   it('does not explain any changed solver quantity for a previously edited model', () => {
-    expect(RESULT_CHANGES.changes.find(change => change.id === 'bulk-load-and-constraint-edits')).not.toHaveProperty('quantities');
+    expect(declaredQuantities['bulk-load-and-constraint-edits']).toBeUndefined();
     expect(notices({ loads: [load], loadCases: cases })).not.toContain('bulk-load-and-constraint-edits');
     expect(notices({ loads: [load], loadCases: [{ ...cases[0]!, id: 2 }] })).toContain('bulk-load-and-constraint-edits');
   });
