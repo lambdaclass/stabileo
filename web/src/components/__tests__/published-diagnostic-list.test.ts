@@ -6,7 +6,7 @@ import { setLocale } from '../../lib/i18n';
 
 afterEach(() => { resultsStore.clear(); resultsStore.clear3D(); modelStore.clear(); uiStore.analysisMode = '2d'; });
 
-it.skip.each(['2d', '3d', 'pro'] as const)('known wrong result: #1928 the %s diagnostic list retains each finding and its object', mode => {
+it.each(['2d', '3d', 'pro'] as const)('the %s diagnostic list retains each finding and its object', mode => {
   modelStore.clear();
   uiStore.analysisMode = mode;
   setLocale('en');
@@ -31,7 +31,7 @@ it.skip.each(['2d', '3d', 'pro'] as const)('known wrong result: #1928 the %s dia
   expect(html()).toContain('Retained solve refusal for node 123');
 });
 
-it.skip.each([false, true])('known wrong result: #1928 a solver refusal retained outside the result notice is visible (spatial %s)', spatial => {
+it.each([false, true])('a solver refusal retained outside the result notice is visible (spatial %s)', spatial => {
   modelStore.clear();
   uiStore.analysisMode = spatial ? 'pro' : '2d';
   resultsStore.addDiagnostics([{ source: 'solver', severity: 'error', code: 'known_issue', message: 'Retained solve refusal for node 123', nodeIds: [123] }], spatial);

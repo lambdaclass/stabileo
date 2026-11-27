@@ -49,8 +49,13 @@
   });
   /** What the list below does not already show: the analysis's own checks and the design. */
   const ownLines = $derived(postAnalysisLines({ ...postInput, diagnostics: [] }, tp as never));
-  const notice = $derived(resultsStore.knownIssues3D);
-  const noticeLines = $derived(notice.messages.map((text): PostAnalysisLine => ({ part: 'analysis', severity: notice.refused ? 'error' : 'warning', text })));
+  const notice = $derived(is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues);
+  const noticeLines = $derived.by(() => {
+    const severity = notice.refused ? 'error' : 'warning';
+    return notice.messages
+      .filter(text => !allDiagnostics.some(d => d.code === 'known_issue' && d.severity === severity && d.message === text))
+      .map((text): PostAnalysisLine => ({ part: 'analysis', severity, text }));
+  });
   const extraAnalysis = $derived([...noticeLines, ...partLines(ownLines, 'analysis')]);
   const designLines = $derived(partLines(ownLines, 'design'));
   const postLines = (): PostAnalysisLine[] => {
@@ -79,13 +84,17 @@
     await downloadReport(format, { title, html: postAnalysisHtml(postLines(), tp as never, title, subtitle), stem: `post-analysis-${name}` });
   }
 
-  const groups = $derived(groupDiagnostics(allDiagnostics));
+  const groups = $derived(__PUBLIC_FEATURES__.proPlatesUnified ? groupDiagnostics(allDiagnostics) : []);
+  const counts = $derived(__PUBLIC_FEATURES__.proPlatesUnified ? groups.map(group => group.first) : allDiagnostics);
+  const modelCount = $derived(allDiagnostics.filter(d => d.source === 'model').length);
+  const solverCount = $derived(allDiagnostics.length - modelCount);
+  const visibleDiagnostics = $derived(severityFilter === 'all' ? allDiagnostics : allDiagnostics.filter(d => d.severity === severityFilter));
   const shownGroups = $derived(severityFilter === 'all' ? groups : groups.filter((g) => g.first.severity === severityFilter));
 
-  const errors = $derived(groups.filter((g) => g.first.severity === 'error'));
-  const warnings = $derived(groups.filter((g) => g.first.severity === 'warning'));
-  const infos = $derived(groups.filter((g) => g.first.severity === 'info'));
-  const hasAny = $derived(groups.length > 0);
+  const errors = $derived(counts.filter((d) => d.severity === 'error'));
+  const warnings = $derived(counts.filter((d) => d.severity === 'warning'));
+  const infos = $derived(counts.filter((d) => d.severity === 'info'));
+  const hasAny = $derived(allDiagnostics.length > 0);
   const toReview = $derived({ model: errors.length + warnings.length, results: notice.messages.length });
 
   function severityIcon(s: SolverDiagnostic['severity']): string {
@@ -155,7 +164,8 @@
       .join(' | ');
   }
 
-  const messageOf = (d: SolverDiagnostic) => withoutIssueRef(t(d.message) !== d.message ? t(d.message) : localizeEngineText(d.message));
+  const issueText = (text: string) => __PUBLIC_FEATURES__.proPlatesUnified ? withoutIssueRef(text) : text;
+  const messageOf = (d: SolverDiagnostic) => issueText(t(d.message) !== d.message ? t(d.message) : localizeEngineText(d.message));
 
   function shellLabel(key: string): string {
     const { kind, id } = shellRef(key);
@@ -166,10 +176,17 @@
 <div class="diag-panel" data-tour="diagnostics-panel">
   <!-- Action bar -->
   <div class="diag-action-bar">
-    <span class="diag-auto-label" data-testid="diag-review-count" data-count={toReview.model + toReview.results}>
-      {tpn('diag.reviewSummary', toReview.model + toReview.results, { model: toReview.model, results: toReview.results })}
-      <small>{t('diag.reviewSummaryHint')}</small>
-    </span>
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      <span class="diag-auto-label" data-testid="diag-review-count" data-count={toReview.model + toReview.results}>
+        {tpn('diag.reviewSummary', toReview.model + toReview.results, { model: toReview.model, results: toReview.results })}
+        <small>{t('diag.reviewSummaryHint')}</small>
+      </span>
+    {:else}
+      <span class="diag-auto-label">
+        {t('diag.modelChecks')}: {modelCount}
+        {#if solverCount > 0}&nbsp;|&nbsp;{t('diag.solverChecks')}: {solverCount}{/if}
+      </span>
+    {/if}
   </div>
 
   <section class="post" data-testid="post-report">
@@ -187,9 +204,9 @@
         <ul class="post-list" data-testid="post-{key}">
           {#each lines as l, i (i)}
             <li>
-              <button class="post-line sev-{l.severity}" disabled={!l.selection} onclick={() => selectLine(l)} title={l.text !== withoutIssueRef(l.text) ? l.text : undefined}>
+              <button class="post-line sev-{l.severity}" disabled={!l.selection} onclick={() => selectLine(l)} title={l.text !== issueText(l.text) ? l.text : undefined}>
                 <span class="post-sev">{t(`post.sev.${l.severity}`)}</span>
-                <span>{withoutIssueRef(l.text)}{#if l.detail}<small>{l.detail}</small>{/if}</span>
+                <span>{issueText(l.text)}{#if l.detail}<small>{l.detail}</small>{/if}</span>
               </button>
             </li>
           {/each}
@@ -319,28 +336,38 @@
       {/if}
     {/snippet}
     <div class="diag-list">
-      {#each shownGroups as g (g.key)}
-        {@const tooltip = codeTooltip(g.first.code)}
-        {#if g.items.length === 1}
-          <button class="diag-item {severityClass(g.first.severity)}" onclick={() => handleClick(g.first)} title={tooltip || undefined} data-tour="diagnostic-item" data-testid="diag-item">
-            {@render headline(g.first, tooltip)}
-            {@render refs(g.first)}
+      {#if __PUBLIC_FEATURES__.proPlatesUnified}
+        {#each shownGroups as g (g.key)}
+          {@const tooltip = codeTooltip(g.first.code)}
+          {#if g.items.length === 1}
+            <button class="diag-item {severityClass(g.first.severity)}" onclick={() => handleClick(g.first)} title={tooltip || undefined} data-tour="diagnostic-item" data-testid="diag-item">
+              {@render headline(g.first, tooltip)}
+              {@render refs(g.first)}
+            </button>
+          {:else}
+            {@const varies = g.items.some((d) => d.message !== g.first.message)}
+            <details class="diag-group" data-testid="diag-group" data-count={g.items.length}>
+              <summary class="diag-item {severityClass(g.first.severity)}" title={tooltip || undefined} data-tour="diagnostic-item">
+                {@render headline(g.first, tooltip, varies)}
+                <span class="diag-count" data-testid="diag-group-count">×{g.items.length}</span>
+              </summary>
+              <div class="diag-group-items">
+                {#each g.items as item, k (k)}
+                  <button class="diag-sub" onclick={() => handleClick(item)} data-testid="diag-group-item">{#if varies}<span class="diag-sub-msg">{messageOf(item)}</span>{/if}{@render refs(item)}</button>
+                {/each}
+              </div>
+            </details>
+          {/if}
+        {/each}
+      {:else}
+        {#each visibleDiagnostics as diag}
+          {@const tooltip = codeTooltip(diag.code)}
+          <button class="diag-item {severityClass(diag.severity)}" onclick={() => handleClick(diag)} title={tooltip || undefined} data-tour="diagnostic-item">
+            {@render headline(diag, tooltip)}
+            {@render refs(diag)}
           </button>
-        {:else}
-          {@const varies = g.items.some((d) => d.message !== g.first.message)}
-          <details class="diag-group" data-testid="diag-group" data-count={g.items.length}>
-            <summary class="diag-item {severityClass(g.first.severity)}" title={tooltip || undefined} data-tour="diagnostic-item">
-              {@render headline(g.first, tooltip, varies)}
-              <span class="diag-count" data-testid="diag-group-count">×{g.items.length}</span>
-            </summary>
-            <div class="diag-group-items">
-              {#each g.items as item, k (k)}
-                <button class="diag-sub" onclick={() => handleClick(item)} data-testid="diag-group-item">{#if varies}<span class="diag-sub-msg">{messageOf(item)}</span>{/if}{@render refs(item)}</button>
-              {/each}
-            </div>
-          </details>
-        {/if}
-      {/each}
+        {/each}
+      {/if}
     </div>
   {/if}
 </div>

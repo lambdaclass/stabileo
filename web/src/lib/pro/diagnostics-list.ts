@@ -61,7 +61,12 @@ export function collectDiagnostics(is3D: boolean): SolverDiagnostic[] {
   const fromGates = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
   void modelStore.modelVersion; void modelStore.model.groups;
   const objects = is3D ? [...plateDiagnostics(t), ...zoneDiagnostics(t)] : [];
-  return [...objects, ...mergeFindings([...modelChecks(), ...sanityChecks(is3D)], general, solver, fromGates)].filter((d) => d.code !== 'known_issue');
+  const notices = __PUBLIC_FEATURES__.proPlatesUnified
+    ? (is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues).messages : [];
+  const gateFindings = fromGates.filter(finding => finding.code !== 'known_issue'
+    || finding.elementIds?.length || finding.nodeIds?.length || finding.shellKeys?.length || finding.objects?.length
+    || !notices.includes(finding.message));
+  return [...objects, ...mergeFindings([...modelChecks(), ...sanityChecks(is3D)], general, solver, gateFindings)];
 }
 
 /** A message with its numbers left out: "DOF 648 (node 121)…" and "DOF 649 (node 121)…" say the same thing. */
