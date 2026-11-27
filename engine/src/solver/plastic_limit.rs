@@ -230,6 +230,10 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
     crate::certify::finite::check_input(&pi).map_err(refused)?;
     let mut model = build_model(&pi).map_err(refused)?;
     let axial_fields = axial::assemble(input, &mut model)?;
+    if axial::restrained_spans(input) {
+        let (lower, upper) = axial::restrained_limit(&model, &axial_fields, np)?;
+        return Ok(FactorCheck::Axial { lower, upper });
+    }
     if !np.is_empty()
         && input.elements.values().all(|e| e.elem_type == "truss")
         && input.loads.iter().all(|l| matches!(l, SolverLoad::Nodal(p) if p.my == 0.0))
@@ -441,6 +445,11 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
         return Err(format!("element {id}: frame has no finite plastic moment"));
     }
     super::linear::validate_input_2d(&mechanical(input))?;
+    if axial::restrained_spans(input) {
+        if let FactorCheck::Axial { lower, upper } = certificate_encloses(input, mp, np, 0.0)? {
+            return Ok(LimitResult { lambda: lower, lambda_upper: upper, hinges: Vec::new(), confirmation: Confirmation::Exact });
+        }
+    }
     let stiffness = uniform_stiffness(input);
     let kinematics = super::kinematic::analyze_kinematics_2d(&stiffness);
     if !kinematics.is_solvable {

@@ -77,7 +77,7 @@ describe('plastic collapse under loads along members', () => {
 
   });
 
-  it.skip('known wrong result: #1927 — both restrained ends allow redistribution beyond first axial yield', () => {
+  it('known wrong result: #1927 — both restrained ends allow redistribution beyond first axial yield', () => {
     for (const sign of [-1, 1]) {
       const m = model(4, [1], 'truss', [[1, 'fixed'], [2, 'fixed']], [
         { type: 'axialDistributed', data: { elementId: 1, qI: sign * 10, qJ: -sign * 10, a: 1.8, b: 2.2 } },
@@ -88,8 +88,15 @@ describe('plastic collapse under loads along members', () => {
       expect(panel.collapseFactor).toBeCloseTo(limit, 12);
       const wire = plasticLimit2D(m, new Map(), new Map([[1, 1]]));
       expect(wire.confirmation.kind).toBe('exact');
-      expect(wire.lambda).toBeLessThanOrEqual(limit);
-      expect(wire.lambdaUpper).toBeGreaterThanOrEqual(limit);
+      const scale = 2 ** 52;
+      const width = BigInt(2.2 * scale) - BigInt(1.8 * scale);
+      const demand = 10n * width;
+      const capacity = 8n * BigInt(scale) ** 2n;
+      const lower = BigInt(wire.lambda * scale);
+      const upper = BigInt(wire.lambdaUpper * scale);
+      expect(lower * demand).toBeLessThanOrEqual(capacity);
+      expect(upper * demand).toBeGreaterThanOrEqual(capacity);
+      expect(upper - lower).toBe(1n);
     }
   });
 

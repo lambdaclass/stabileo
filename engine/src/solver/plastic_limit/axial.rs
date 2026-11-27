@@ -102,29 +102,69 @@ pub(super) fn resultant_perturbations(model: &PlasticModel, fields: &HashMap<usi
     out
 }
 
-pub(super) fn peak(mut field: AxialField, e: &PElem, lambda: &Q, start: Q) -> Result<Q, String> {
+fn extrema(mut field: AxialField, e: &PElem, lambda: &Q, start: Q) -> Result<(Q, Q), String> {
     for load in &e.loads {
         if let ElemLoad::Point { ta, px, .. } = load {
             field.changes.entry(ta.clone()).or_default().point += px * e.l.as_ref().ok_or("point load on a member of irrational length")?;
         }
     }
     let mut n = start - lambda * field.start_share;
-    let mut peak = n.abs();
+    let (mut min, mut max) = (n.clone(), n.clone());
+    let mut record = |value: &Q| {
+        if value < &min { min = value.clone(); }
+        if value > &max { max = value.clone(); }
+    };
     let (mut last, mut intensity, mut slope) = (Q::zero(), Q::zero(), Q::zero());
     for (t, change) in field.changes {
         let width = &t - &last;
         let integral = |d: &Q| lambda * d * (&intensity + &slope * d / qi(2));
         if !slope.is_zero() {
             let root = -&intensity / &slope;
-            if root.is_positive() && root < width { peak = peak.max((&n + integral(&root)).abs()); }
+            if root.is_positive() && root < width { record(&(&n + integral(&root))); }
         }
         n += integral(&width);
-        peak = peak.max(n.abs());
+        record(&n);
         n += lambda * change.point;
-        peak = peak.max(n.abs());
+        record(&n);
         intensity += &slope * width + change.intensity;
         slope += change.slope;
         last = t;
     }
-    Ok(peak + lambda.abs() * field.envelope)
+    Ok((min, max))
+}
+
+pub(super) fn peak(field: AxialField, e: &PElem, lambda: &Q, start: Q) -> Result<Q, String> {
+    let envelope = lambda.abs() * &field.envelope;
+    let (min, max) = extrema(field, e, lambda, start)?;
+    Ok(min.abs().max(max.abs()) + envelope)
+}
+
+pub(super) fn restrained_spans(input: &SolverInput) -> bool {
+    if !input.loads.iter().any(|l| matches!(l, SolverLoad::AxialDistributed(_)))
+        || !input.loads.iter().all(|l| matches!(l, SolverLoad::AxialDistributed(_) | SolverLoad::Nodal(_)))
+        || !input.elements.values().all(|e| e.elem_type == "truss")
+        || !input.supports.values().all(|s| [s.kx, s.ky, s.kz, s.dx, s.dz, s.dry, s.angle].iter().all(|v| v.unwrap_or(0.0) == 0.0))
+    {
+        return false;
+    }
+    let fixed: std::collections::HashSet<_> = input.supports.values().filter(|s| matches!(s.support_type.as_str(), "fixed" | "pinned")).map(|s| s.node_id).collect();
+    input.nodes.values().all(|n| fixed.contains(&n.id))
+        && input.loads.iter().all(|l| !matches!(l, SolverLoad::Nodal(p) if p.my != 0.0))
+}
+
+pub(super) fn restrained_limit(model: &PlasticModel, fields: &HashMap<usize, AxialField>, np: &HashMap<usize, f64>) -> Result<(f64, f64), String> {
+    use crate::certify::exact::{to_f64_down, to_f64_up};
+    let mut limit: Option<Q> = None;
+    for e in &model.elems {
+        let (Some(field), Some(capacity)) = (fields.get(&e.id), np.get(&e.id)) else { continue };
+        let capacity = q(*capacity).filter(|v| v.is_positive()).ok_or("invalid axial yield force")?;
+        let length = e.l.as_ref().ok_or("irrational length in a restrained axial span")?;
+        let (min, max) = extrema(field.clone(), e, &Q::one(), Q::zero())?;
+        if min < max {
+            let factor = qi(2) * capacity * length / (max - min);
+            limit = Some(match limit { Some(v) => v.min(factor), None => factor });
+        }
+    }
+    let limit = limit.ok_or("the restrained bars have no finite axial yield limit under these loads")?;
+    Ok((to_f64_down(&limit).ok_or("axial limit out of range")?, to_f64_up(&limit).ok_or("axial limit out of range")?))
 }

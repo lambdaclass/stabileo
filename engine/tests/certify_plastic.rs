@@ -871,7 +871,6 @@ fn an_explicit_full_axial_span_matches_an_omitted_diagonal_endpoint() {
 }
 
 #[test]
-#[ignore = "known wrong result: #1927"]
 fn restrained_truss_spans_redistribute_up_to_the_full_axial_range() {
     use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
     let beam = make_input(
