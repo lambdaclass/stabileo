@@ -229,7 +229,6 @@ const it: Translations = {
   'admin.metrics.v.diagram.modeShape': "Forme modali",
   'admin.metrics.v.diagram.bucklingMode': "Modi di instabilità",
   'admin.metrics.v.diagram.plasticHinges': "Cerniere plastiche",
-  'admin.metrics.v.diagram.despiece': "Vista a corpo libero",
   'admin.metrics.v.diagram.momentY': "Momento My",
   'admin.metrics.v.diagram.momentZ': "Momento Mz",
   'admin.metrics.v.diagram.shearY': "Taglio Vy",

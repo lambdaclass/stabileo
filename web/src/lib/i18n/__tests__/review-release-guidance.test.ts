@@ -24,7 +24,7 @@ it.each([
   ["0.6.4.it", "| [SA-2026-129]", "ricostruisci gli inviluppi dalle nuove scansioni"],
   ["0.6.4.it", "| [SA-2026-125]", "un grado di libertà impedito condiviso"],
   ["0.6.3.it", "| [SA-2026-106]", "angolo specificato"],
-  ["0.6.4.it", "| SA-2026-106", "angolo previsto"],
+  ["0.6.4.it", "| [SA-2026-106]", "angolo previsto"],
   ["0.6.4.it", "- La ridiscretizzazione segue", "angolo ambiguo"],
 ] as const)('known wrong result: #2613 — release %s at %s states %s', (edition, anchor, expected) => {
   const release = readFileSync(new URL('../../../../../docs/releases/v' + edition + '.md', import.meta.url), 'utf8');

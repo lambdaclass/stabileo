@@ -10,6 +10,7 @@
 
   let { frames, showsReference }: { frames: Frame[]; showsReference: boolean } = $props();
   const strings = $derived(rs());
+  const historyUpdate = 'H = max(0, H_prev, ψ)';
 </script>
 
 <h2>{strings.paperShows}</h2>
@@ -29,7 +30,7 @@
   <li><b>{strings.damageAT2}</b> {strings.atFixed} <b>u</b>: (G<sub>c</sub>/ℓ + 2H) d − G<sub>c</sub> ℓ Δd = 2H.</li>
   <li><b>{strings.drivingEnergy}</b>: H = ψ<sup>+</sup> = ½ Σ σ<sub>i</sub> ε<sub>i</sub> {strings.positiveStrains}<sub>i</sub> {strings.hybridModel}</li>
   <li><b>{strings.alternatingSolution}</b> {strings.solvePerStep} <b>u</b> {strings.currentDamage} <b>u</b>{strings.residualThreshold}<sup>−5</sup>.</li>
-  <li><b>{strings.irreversibility}</b>{strings.noIrreversibility} <ExperimentLink params={{ history: true, run: true }}>{strings.enableHistory}</ExperimentLink> {strings.keepOnUnloading} H = max(0, H_prev, ψ).</li>
+  <li><b>{strings.irreversibility}</b>{strings.noIrreversibility} <ExperimentLink params={{ history: true, run: true }}>{strings.enableHistory}</ExperimentLink> {strings.keepOnUnloading} {historyUpdate}.</li>
 </ul>
 <p>
   {strings.unitsAndPeak}<sub>c</sub> = √(27 E G<sub>c</sub> {strings.lengthStrength.replace('{strength}', num(Math.sqrt(27 * DEFAULTS.e * DEFAULTS.gc / (256 * DEFAULTS.l0)), { dp: 2 }))} <ExperimentLink params={{ l0: 0.015, run: true }}>{strings.tryLength.replace('{length}', num(0.015))}</ExperimentLink> {strings.meshMatters}

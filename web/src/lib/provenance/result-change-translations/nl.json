@@ -243,6 +243,10 @@
     "explanation": "In een model met schalen verloor een belastingsgeval dat naast zijn belastingen een opleggingsverplaatsing oplegde, al zijn plaat- en quadspanningen, en telden de combinaties en omhullenden alleen de schaalspanningen van de andere gevallen op (#1673). Dat geval rapporteert nu zijn schaalspanningen en de combinaties nemen ze mee. Elke combinatie van een model met quads vermeldt nu ook de knoopspanningen van haar quads; geen enkele andere waarde verandert.",
     "title": "Een belastingsgeval met een opgelegde verplaatsing behoudt zijn schaalspanningen"
   },
+  "compatibility-lesson-force-balance": {
+    "explanation": "Maak overgenomen rekenbladen opnieuw. Kleine axiale puntlasten tellen nu mee in de oplegreacties. Als de getoonde krachtensom afwijkt van nul, verschijnt een waarschuwing.",
+    "title": "De compatibiliteitsles controleert het globale krachtenevenwicht"
+  },
   "compensated-applied-force-totals": {
     "explanation": "Samenvattingen van aangebrachte krachten gebruiken nu gecompenseerde Neumaier-sommatie in elke dimensie en elke berekening die onafhankelijk evenwicht rapporteert. Zich opheffende grote knoopkrachten wissen een kleine kracht in een andere knoop niet meer uit en veroorzaken geen vals onevenwicht meer. Reacties en acceptatiegrenzen zijn ongewijzigd. Voer betrokken berekeningen opnieuw uit. Deze melding vereist constructieve stijfheid en ofwel aangebrachte acties (inclusief expliciet eigen gewicht) ofwel een krachtproducerende berekeningsgeschiedenis. Onbekende geschiedenissen blijven gedekt; een onbelast raamwerk met alleen modale analyse krijgt haar niet meer.",
     "title": "Zich opheffende aangebrachte krachten behouden kleine resultanten"
@@ -490,6 +494,10 @@
   "frozen-surface-final-state": {
     "explanation": "Vervangen door validatie op samengestelde tractie. De uiteindelijke regel controleert de samengestelde veerkracht met teken en de uiteindelijke opening. Actieve bevroren contacten moeten druk dragen die consistent is met de penetratie binnen de contacttolerantie; ongeldige toestanden geven contact_state_invalid. Samengestelde oppervlaktetrek wordt geweigerd in plaats van op nul geklemd. Eerdere wijzigingen in de kabelwerkwijze blijven van kracht (#432, #417; PR #1921).",
     "title": "Vervangen: bevroren oppervlaktecontacten valideren de uiteindelijke geometrie"
+  },
+  "gallery-column-tie-spacing": {
+    "explanation": "Controleer de aanzichten en beugelafstanden die u uit het openbare kolomvoorbeeld hebt overgenomen. Voor de grens op basis van de diameter van de langswapening gebruikte het voorbeeld de oudere editie.",
+    "title": "Het kolomvoorbeeld gebruikt de beugelafstand volgens de editie van 2025"
   },
   "gallery-slab-hard-walls": {
     "explanation": "PR #1627 wijzigde de invoer van de demo van de op wanden opgelegde vloer: de verticale verplaatsing en de rotatie om de in het plaatvlak gelegen randnormaal zijn verhinderd. Rotatie om de randraaklijn is vrij, en de referentie bevat nu Reissner–Mindlin-afschuifvervorming. De doorbuiging en de getoonde referentie veranderen daardoor samen. Deze vermelding geldt alleen voor de openbare galerij van de vloer op kolommen met wanden geselecteerd; kolomopleggingen en opgeslagen projecten worden niet beïnvloed door deze correctie van de demo-invoer.",

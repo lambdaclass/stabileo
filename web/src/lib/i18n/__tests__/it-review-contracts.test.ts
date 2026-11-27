@@ -17,11 +17,12 @@ const italian = allDictFor('it');
 const rows = (slug: string) => findPost(slug)!.i18n.it!.blocks.flatMap(block => block.k === 'table' ? block.rows : []);
 
 it('known wrong result: #2595 — Navier reports the benchmark modulus unambiguously', () => {
-  expect(navierStrings('it').method.replaceAll(' ', '')).toContain(`E=${parameters.e}MPa`);
+  const modulus = String(parameters.e).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
+  expect(navierStrings('it').method).toContain(`E = ${modulus} MPa`);
 });
 
 it.each([feher.it, translations.it])('known wrong result: #2595 — Fehér identifies the control that restarts the solve', copy => {
-  expect(copy.runNote).toMatch(/angolo opposto.*calcolo riparte automaticamente/);
+  expect(copy.runNote).toMatch(/vertice opposto del rettangolo.*calcolo riparte automaticamente/);
 });
 
 it('known wrong result: #2595 — the research catalog has an Italian status heading', () => {

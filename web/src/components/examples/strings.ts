@@ -1507,7 +1507,7 @@ const nl: Record<Key, string> = {
   'c.interaction': 'Interactiediagram φPn–φMn',
   'c.demand': 'Belasting (Mu, Pu)',
   'c.driftSweep': 'Topverplaatsing tegen outriggerhoogte',
-  'rc-column.about': 'Een rechthoekige kolom met beugels, met dezelfde staven aan de twee zijden loodrecht op de buigrichting, beugels van 10 mm en de gegeven dekking. Het interactiediagram, de axiale bovengrens en de benuttingsgraad worden door de CIRSOC 201 (2025)-doorsnedekernel van de engine berekend met rekcompatibiliteit. De pletlast en het balanspunt worden naast de handberekening getoond. Bij het balanspunt bereikt het beton zijn uiterste drukrek op het moment dat de trekwapening begint te vloeien. De beugelafstand is de kleinste van 12 staafdiameters, 48 beugeldiameters en de kleinste kolomafmeting.',
+  'rc-column.about': `Een rechthoekige kolom met beugels, met dezelfde staven aan de twee zijden loodrecht op de buigrichting, beugels van 10 mm en de gegeven dekking. Het interactiediagram, de axiale bovengrens en de benuttingsgraad worden door de CIRSOC 201 (2025)-doorsnedekernel van de engine berekend met rekcompatibiliteit. De pletlast en het balanspunt worden naast de handberekening getoond. Bij het balanspunt bereikt het beton zijn uiterste drukrek op het moment dat de trekwapening begint te vloeien. De beugelafstand is de kleinste van ${columnBarFactor} staafdiameters, ${COLUMN_TIE_DIAMETERS} beugeldiameters en de kleinste kolomafmeting.`,
   'rc-column.p.b': 'Breedte b',
   'rc-column.p.h': 'Hoogte h (buigrichting)',
   'rc-column.p.perFace': 'Staven per zijde',

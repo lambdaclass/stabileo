@@ -61,7 +61,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "bud.col.code",
   "building.drawnIs",
   "c301.d.aeBase",
-  "c301.d.anHoles",
   "c301.e.chsQ",
   "c301.e.e4Fcr",
   "c301.e.e4Geometry",

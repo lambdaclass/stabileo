@@ -580,6 +580,7 @@ const stepsNl: Translations = {
   "steps.trusses.compat.shearNote": "V^s zijn de reacties op de staafbelasting met de staaf vrij opgelegd; de tweede term brengt de eindmomenten in evenwicht.",
   "steps.trusses.compat.endsTable": "Staafeindkrachten (N positief op trek, V langs lokaal +y, M tegen de klok in).",
   "steps.trusses.compat.supportTitle": "Oplegging {n}",
+  "steps.trusses.compat.globalUnbalanced": "De aangebrachte krachten en oplegreacties zijn niet in evenwicht.",
   "steps.trusses.compat.globalCheck": "Totaalevenwicht",
   "steps.trusses.compat.residual": "Grootste onbalans in de vrije knopen: {force} kN en {moment} kN·m.",
   "steps.trusses.compat.residualOk": "De vrije knopen zijn in evenwicht ✓.",
