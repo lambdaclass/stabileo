@@ -15,7 +15,7 @@
  * - reactions are global: Rx along +X, Rz up, My counter-clockwise.
  */
 import type { AnalysisResults, SolverInput } from '../types';
-import { computeDiagramValueAt } from '../diagrams';
+import { computeDiagramValueAt, computePlanarSectionValue } from '../diagrams';
 import * as wasm from '../wasm-solver';
 
 export interface Reference {
@@ -29,6 +29,7 @@ export interface Reference {
   axial: Map<number, number>;
   /** Bending moment at t ∈ [0, 1] along the member, tensioning local −y positive. */
   momentAt(member: number, t: number): number;
+  momentAtDistance(member: number, x: number): number;
   /** Classical shear at t. */
   shearAt(member: number, t: number): number;
 }
@@ -48,6 +49,7 @@ export function referenceFrom(results: AnalysisResults): Reference {
   return {
     reactions, displacements, endMoments, endShears, axial,
     momentAt: (member, t) => { const f = byId.get(member); return f ? -computeDiagramValueAt('moment', t, f) : NaN; },
+    momentAtDistance: (member, x) => { const f = byId.get(member); return f ? -computePlanarSectionValue('moment', x, f) : NaN; },
     shearAt: (member, t) => { const f = byId.get(member); return f ? computeDiagramValueAt('shear', t, f) : NaN; },
   };
 }

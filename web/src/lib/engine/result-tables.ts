@@ -1,3 +1,4 @@
+import { criticalMemberForceExtrema3D } from './member-force-extrema';
 /**
  * The result tables read across many combinations at once.
  *
@@ -16,18 +17,19 @@
  *
  * Every view takes the same options (`TableOptions`): which nodes or members (a selection or a
  * group), the resultant columns, and, for members, stations along each member instead of its two
- * ends. The station values are the diagram's (`station-forces.ts`), which at the ends are the end
- * forces themselves.
+ * ends.
  *
  * Pure functions over solved results; the component wires them to the active combinations.
  */
 
-import type { AnalysisResults3D } from './types-3d';
+import type { AnalysisResults3D, ElementForces3D } from './types-3d';
 import type { Quantity } from '../utils/units';
-import { csvCell } from './result-query';
+import { csvCell, expandSignedEnvelopeMembers } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
-import { stationTs, type StationSpec } from './station-forces';
-import { prepareDiagramEvaluator3D } from './diagrams-3d';
+import { criticalForceStations, stationTs, type StationSpec } from './station-forces';
+import { boundSpatialEnvelope, memberEndFace, memberSectionStation, requireConcurrentSectionForces, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
+import { sameCutLocation } from './diagram-cut';
+import { memberEndForces3D, prepareDiagramEvaluator3D, type Diagram3DKind } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 import { makeFrame, type AxesChoice } from '../axes/frame';
 
@@ -60,6 +62,7 @@ export const RESULTANTS: Readonly<Record<TableKind, readonly Column[]>> = Object
 
 export interface TableOptions {
   axes: AxesChoice;
+  signedOnly?: boolean;
   /** Only these nodes (displacements, reactions) or members (forces). Absent: all. */
   entities?: ReadonlySet<number> | null;
   /** Add the resultant columns: |u|; |F| and |M|; V = √(Vy² + Vz²) and M = √(My² + Mz²). */
@@ -87,8 +90,17 @@ function withResultants(kind: TableKind, v: number[]): number[] {
 /** A result set with a name: a combination, or a case when nothing is combined. */
 export interface Source { id: number; name: string; results: AnalysisResults3D }
 
+export function extremaResultSources(sources: readonly Source[], signedOnly = false): readonly Source[] {
+  const signed = sources.filter(source => !source.results.magnitude);
+  return signedOnly || signed.length > 0 ? signed : sources;
+}
+
 /** One row of one result set: a node, or a member end or station (`x`, m from end i). */
-export interface Row { entity: number; end?: 'i' | 'j'; x?: number; values: number[] }
+export interface Row { entity: number; end?: 'i' | 'j'; x?: number; side?: Extreme['side']; values: number[] }
+
+function usesMemberEnds(spec: StationSpec): boolean {
+  return spec !== 'critical' && Math.max(2, Math.floor(spec)) === 2;
+}
 
 /**
  * Each row of one result set, in the order the tables list them, handed to `visit` without
@@ -99,7 +111,7 @@ export interface Row { entity: number; end?: 'i' | 'j'; x?: number; values: numb
  * combinations allocated a quarter of a million rows, each copied once more for its resultants,
  * and the report spent nearly nine tenths of its time there (`scale-budget.test.ts`).
  */
-function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[]) => void): void {
+function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[], side?: Extreme['side']) => void, sharedStations?: ReadonlyMap<number, readonly DiagramStation[]>): void {
   const keep = (id: number) => !opts.entities || opts.entities.has(id);
   const fin = (v: number[]) => (opts.resultant ? withResultants(kind, v) : v);
   const { vec, rot } = resultComponents(makeFrame(opts.axes), r);
@@ -112,37 +124,50 @@ function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visi
     return;
   }
   const spec = opts.stations ?? 2;
-  const ends = spec !== 'critical' && Math.max(2, Math.floor(spec)) === 2;
+  const ends = usesMemberEnds(spec);
   for (const f of r.elementForces) {
     if (!keep(f.elementId)) continue;
+    if (opts.signedOnly && boundSpatialEnvelope(f)) throw unavailableDiagramExtrema();
+    if (opts.resultant && (!r.magnitude || boundSpatialEnvelope(f))) requireConcurrentSectionForces(f);
     if (ends) {
-      visit(f.elementId, 'i', 0, fin([f.nStart, f.vyStart, f.vzStart, f.mxStart, f.myStart, f.mzStart]));
-      visit(f.elementId, 'j', f.length, fin([f.nEnd, f.vyEnd, f.vzEnd, f.mxEnd, f.myEnd, f.mzEnd]));
+      const endForces = forceDiagrams.map(kind => memberEndForces3D(f, kind));
+      visit(f.elementId, 'i', 0, fin(endForces.map(([i]) => i)));
+      visit(f.elementId, 'j', f.length, fin(endForces.map(([, j]) => j)));
       continue;
     }
-    const ts = stationTs(f, spec);
-    if (!ts.length) continue;
+    const stations: readonly DiagramStation[] | undefined = sharedStations ? sharedStations.get(f.elementId)
+      : spec === 'critical' ? criticalForceStations(f) : stationTs(f, spec).map(t => ({ t }));
+    if (!stations) throw unavailableDiagramExtrema();
+    if (!stations.length) continue;
     const axial = prepareDiagramEvaluator3D(f, 'axial');
     const shearY = prepareDiagramEvaluator3D(f, 'shearY');
     const shearZ = prepareDiagramEvaluator3D(f, 'shearZ');
     const torsion = prepareDiagramEvaluator3D(f, 'torsion');
     const momentY = prepareDiagramEvaluator3D(f, 'momentY');
     const momentZ = prepareDiagramEvaluator3D(f, 'momentZ');
-    for (let k = 0; k < ts.length; k++) {
-      const t = ts[k]!;
-      const v = [axial(t), shearY(t), shearZ(t), torsion(t), momentY(t), momentZ(t)];
-      visit(f.elementId, k === 0 ? 'i' : k === ts.length - 1 ? 'j' : undefined, t * f.length, fin(v));
-    }
+    stations.forEach((at, i) => {
+      const station = memberSectionStation(at);
+      const { t, distance, right } = station;
+      const side = stations[i + 1]?.t === t ? 'left' : stations[i - 1]?.t === t && right ? 'right' : undefined;
+      const v = [axial(station), shearY(station), shearZ(station), torsion(station), momentY(station), momentZ(station)];
+      visit(f.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, distance ?? t * f.length, fin(v), side);
+    });
   }
+}
+
+function collectRows(kind: TableKind, r: AnalysisResults3D, opts: TableOptions): Row[] {
+  const out: Row[] = [];
+  eachRow(kind, r, opts, (entity, end, x, values, side) => {
+    out.push(kind === 'forces' ? { entity, ...(end ? { end } : {}), x, ...(side && { side }), values } : { entity, values });
+  });
+  return out;
 }
 
 /** The rows of one result set, in the order the tables list them. */
 export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions): Row[] {
-  const out: Row[] = [];
-  eachRow(kind, r, opts, (entity, end, x, values) => {
-    out.push(kind === 'forces' ? { entity, ...(end ? { end } : {}), x, values } : { entity, values });
-  });
-  return out;
+  const cases = kind === 'forces' && opts.signedOnly && !opts.resultant
+    ? signedForceResults(r, opts.entities) : undefined;
+  return cases ? cases.flatMap(result => collectRows(kind, result, opts)) : collectRows(kind, r, opts);
 }
 
 /**
@@ -151,13 +176,19 @@ export function rowsOf(kind: TableKind, r: AnalysisResults3D, opts: TableOptions
  * under each.
  */
 export function allRows(kind: TableKind, sources: readonly Source[], opts: TableOptions, order: 'source' | 'entity' = 'source'): Array<Row & { source: Source }> {
-  const rows = sources.flatMap((s, si) => rowsOf(kind, s.results, opts).map((row, ri) => ({ ...row, source: s, si, ri })));
+  const cases = kind === 'forces' && !opts.resultant
+    ? signedForceEnvelopeSources(sources, opts.entities) : sources;
+  const rows = cases.flatMap((s, si) => collectRows(kind, s.results, opts).map((row, ri) => ({ ...row, source: s, si, ri })));
   if (order === 'entity') rows.sort((a, b) => a.entity - b.entity || (a.x ?? 0) - (b.x ?? 0) || a.si - b.si || a.ri - b.ri);
   return rows.map(({ si: _s, ri: _r, ...row }) => row);
 }
 
 /** A value, where it is, and under which source. */
-export interface Extreme { value: number; entity: number; end?: 'i' | 'j'; x?: number; source: Source }
+export interface Extreme { value: number; entity: number; end?: 'i' | 'j'; x?: number; side?: 'left' | 'right'; source: Source }
+
+function extremeTieTolerance(value: number, previous: number): number {
+  return 1e-9 * Math.max(Math.abs(value), Math.abs(previous), 1e-12);
+}
 
 /**
  * Whether `v` at `(entity, x)` takes the place of the current extreme `e`: beyond it by more than
@@ -171,53 +202,175 @@ export interface Extreme { value: number; entity: number; end?: 'i' | 'j'; x?: n
  */
 export function beatsExtreme(sign: 1 | -1, v: number, entity: number, x: number | undefined, e: { value: number; entity: number; x?: number } | null): boolean {
   if (!e) return true;
-  const tol = 1e-9 * Math.max(Math.abs(v), Math.abs(e.value), 1e-12);
+  const tol = extremeTieTolerance(v, e.value);
   const d = sign * (v - e.value);
   if (d > tol) return true;
   if (d < -tol) return false;
-  return entity < e.entity || (entity === e.entity && (x ?? 0) < (e.x ?? 0));
+  return earlierLocation(entity, x, e);
 }
+
+function earlierLocation(entity: number, x: number | undefined, current: { entity: number; x?: number }): boolean {
+  return entity < current.entity || (entity === current.entity && (x ?? 0) < (current.x ?? 0));
+}
+
+function beatsCriticalExtreme(sign: 1 | -1, value: number, entity: number, x: number | undefined, current: Extreme | null): boolean {
+  return !current || (value === current.value ? earlierLocation(entity, x, current)
+    : sign === 1 ? value > current.value : value < current.value);
+}
+
+const forceDiagrams: readonly Diagram3DKind[] = ['axial', 'shearY', 'shearZ', 'torsion', 'momentY', 'momentZ'];
+const resultantDiagrams: readonly (readonly [Diagram3DKind, Diagram3DKind])[] = [['shearY', 'shearZ'], ['momentY', 'momentZ']];
 
 /** For each column, the largest and the smallest value over every row of every source. */
 export function summaryRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): Array<{ column: Column; max: Extreme | null; min: Extreme | null }> {
   const cols = columnsOf(kind, opts);
   const max: Array<Extreme | null> = cols.map(() => null);
   const min: Array<Extreme | null> = cols.map(() => null);
-  for (const s of sources) {
-    eachRow(kind, s.results, opts, (entity, end, x, values) => {
-      for (let c = 0; c < values.length; c++) {
-        const v = values[c]!;
-        if (!Number.isFinite(v)) continue;
-        if (beatsExtreme(1, v, entity, x, max[c]!)) max[c] = { value: v, entity, end, x, source: s };
-        if (beatsExtreme(-1, v, entity, x, min[c]!)) min[c] = { value: v, entity, end, x, source: s };
+  const critical = kind === 'forces' && opts.stations === 'critical';
+  const beats = critical ? beatsCriticalExtreme : beatsExtreme;
+  const eligible = extremaResultSources(sources, opts.signedOnly);
+  const cases = kind === 'forces' && (!opts.resultant || critical)
+    ? signedForceEnvelopeSources(eligible, opts.entities) : eligible;
+  for (const source of cases) {
+    const visit = (c: number, value: number, entity: number, end: Extreme['end'], x: number | undefined, side?: Extreme['side']) => {
+      if (!Number.isFinite(value)) return;
+      const newMax = beats(1, value, entity, x, max[c]!);
+      const newMin = beats(-1, value, entity, x, min[c]!);
+      if (!newMax && !newMin) return;
+      const where = { value, entity, end, x, source, ...(side && { side }) };
+      if (newMax) max[c] = where;
+      if (newMin) min[c] = where;
+    };
+    if (critical) {
+      const diagrams = opts.resultant ? [...forceDiagrams, ...resultantDiagrams] : forceDiagrams;
+      const visitMember = (member: ElementForces3D) => {
+        criticalMemberForceExtrema3D(member, diagrams).forEach((range, c) => {
+          for (const { t, value, x, side } of [range.max, range.min]) {
+            visit(c, value, member.elementId, t === 0 ? 'i' : t === 1 ? 'j' : undefined, x, side);
+          }
+        });
+      };
+      for (const member of source.results.elementForces) {
+        if (opts.entities && !opts.entities.has(member.elementId)) continue;
+        visitMember(member);
       }
-    });
+    } else {
+      eachRow(kind, source.results, opts, (entity, end, x, values) => values.forEach((value, c) => visit(c, value, entity, end, x)));
+    }
   }
   return cols.map((column, c) => ({ column, max: max[c]!, min: min[c]! }));
 }
 
 /** One node or member end or station, enveloped: per column the largest and smallest value and their source. */
-export interface EnvelopeRow { entity: number; end?: 'i' | 'j'; x?: number; max: Array<{ value: number; source: Source }>; min: Array<{ value: number; source: Source }> }
+export interface EnvelopeRow { entity: number; end?: 'i' | 'j'; x?: number; side?: Extreme['side']; max: Array<{ value: number; source: Source }>; min: Array<{ value: number; source: Source }> }
+
+function criticalEnvelopeStations(sources: readonly Source[], opts: TableOptions): Map<number, DiagramStation[]> {
+  const members = new Map<number, Map<number, { station: DiagramStation; hasRight: boolean }>>();
+  for (const { results } of sources) {
+    for (const forces of results.elementForces) {
+      const { elementId } = forces;
+      if (opts.entities && !opts.entities.has(elementId)) continue;
+      let cuts = members.get(elementId);
+      if (!cuts) {
+        cuts = new Map();
+        members.set(elementId, cuts);
+      }
+      for (const { right, ...station } of criticalForceStations(forces)) {
+        const previous = cuts.get(station.t);
+        if (!previous) {
+          cuts.set(station.t, { station, hasRight: right === true });
+          continue;
+        }
+        const { distance, location } = station;
+        const existing = previous.station;
+        if (distance !== undefined) {
+          if (existing.distance !== undefined && !sameCutLocation(
+            existing.location ?? { x: existing.distance }, location ?? { x: distance },
+          )) throw unavailableDiagramExtrema();
+          if (existing.distance === undefined) previous.station = station;
+        }
+        previous.hasRight ||= right === true;
+      }
+    }
+  }
+  return new Map([...members].map(([id, cuts]) => [id, [...cuts.values()]
+    .sort((a, b) => a.station.t - b.station.t)
+    .flatMap(({ station, hasRight }) => memberEndFace(station.t) === undefined && hasRight
+      ? [station, { ...station, right: true }]
+      : [memberSectionStation(station)])]));
+}
+
+function requireEnvelopeMemberCoverage(sources: readonly AnalysisResults3D[], entities: TableOptions['entities']): void {
+  let expected: Set<number> | undefined;
+  for (const results of sources) {
+    const present = new Set<number>();
+    for (const { elementId } of results.elementForces) {
+      if (entities && !entities.has(elementId)) continue;
+      if (present.has(elementId) || (expected && !expected.has(elementId))) throw unavailableDiagramExtrema();
+      present.add(elementId);
+    }
+    if (expected && present.size !== expected.size) throw unavailableDiagramExtrema();
+    expected ??= present;
+  }
+}
+
+function signedForceResults(results: AnalysisResults3D, entities: TableOptions['entities']): AnalysisResults3D[] | undefined {
+  const members = entities ? results.elementForces.filter(member => entities.has(member.elementId)) : results.elementForces;
+  const expansion = expandSignedEnvelopeMembers(members);
+  if (!expansion) return undefined;
+  const cases = expansion.map(({ result }) => result);
+  requireEnvelopeMemberCoverage([results, ...cases], entities);
+  return cases;
+}
+
+function signedForceEnvelopeSources(sources: readonly Source[], entities: TableOptions['entities']): readonly Source[] {
+  let named: Set<AnalysisResults3D> | undefined;
+  return sources.flatMap(source => {
+    const cases = signedForceResults(source.results, entities);
+    if (!cases) return [source];
+    const namedResults = named ??= new Set(sources.map(source => source.results));
+    return cases.filter(result => !namedResults.has(result)).map(results => ({ ...source, results }));
+  });
+}
 
 /** For each node or member end (or station), the largest and smallest value of each column over the sources. */
 export function envelopeRows(kind: TableKind, sources: readonly Source[], opts: TableOptions): EnvelopeRow[] {
-  const byKey = new Map<string, EnvelopeRow>();
-  for (const s of sources) {
-    for (const row of rowsOf(kind, s.results, opts)) {
-      const key = `${row.entity}:${row.end ?? ''}:${row.x?.toFixed(6) ?? ''}`;
-      let e = byKey.get(key);
-      if (!e) {
-        e = { entity: row.entity, end: row.end, x: row.x, max: row.values.map((v) => ({ value: v, source: s })), min: row.values.map((v) => ({ value: v, source: s })) };
-        byKey.set(key, e);
-        continue;
+  const eligible = extremaResultSources(sources, opts.signedOnly);
+  const cases = kind === 'forces' && !opts.resultant ? signedForceEnvelopeSources(eligible, opts.entities) : eligible;
+  if (kind === 'forces') requireEnvelopeMemberCoverage(cases.map(source => source.results), opts.entities);
+  const byKey = new Map<number | string, EnvelopeRow>();
+  const critical = opts.stations === 'critical';
+  const spec = opts.stations ?? 2;
+  const atStations = kind === 'forces' && !usesMemberEnds(spec);
+  const sharedStations = kind === 'forces' && critical ? criticalEnvelopeStations(cases, opts) : undefined;
+  for (const source of cases) {
+    eachRow(kind, source.results, opts, (entity, end, x, values, side) => {
+      const key = atStations || end === 'j' ? `${entity}:${end ?? ''}:${(critical ? x : x?.toFixed(6)) ?? ''}:${side ?? ''}` : entity;
+      const row = byKey.get(key);
+      if (!row) {
+        const first: EnvelopeRow = {
+          entity, end, x, ...(side && { side }),
+          max: values.map(value => ({ value, source })),
+          min: values.map(value => ({ value, source })),
+        };
+        byKey.set(key, first);
+        return;
       }
-      row.values.forEach((v, c) => {
-        // A tie within round-off keeps the earlier source: the sources' order is stable, the last digit is not.
-        const tol = (a: number) => 1e-9 * Math.max(Math.abs(v), Math.abs(a), 1e-12);
-        if (v - e!.max[c]!.value > tol(e!.max[c]!.value)) e!.max[c] = { value: v, source: s };
-        if (e!.min[c]!.value - v > tol(e!.min[c]!.value)) e!.min[c] = { value: v, source: s };
-      });
-    }
+      for (let c = 0; c < values.length; c++) {
+        const value = values[c]!;
+        const max = row.max[c]!, min = row.min[c]!;
+        const rise = value - max.value;
+        if (rise > 0 && (critical || rise > extremeTieTolerance(value, max.value))) {
+          max.value = value;
+          max.source = source;
+        }
+        const fall = min.value - value;
+        if (fall > 0 && (critical || fall > extremeTieTolerance(value, min.value))) {
+          min.value = value;
+          min.source = source;
+        }
+      }
+    }, sharedStations);
   }
   return [...byKey.values()];
 }
@@ -253,9 +406,15 @@ export function maxByType(demands: ReadonlyMap<number, ElementDesignDemands>, en
     .sort((a, b) => a.elementId - b.elementId);
 }
 
+export function stationLabel(x: number, side?: Extreme['side']): string {
+  const rounded = x.toFixed(2);
+  const distance = side && Number(rounded) !== x ? String(x) : rounded;
+  return distance + (side === 'right' ? '⁺' : side === 'left' ? '⁻' : '');
+}
+
 /** Where a row is, as the tables write it: a node, a member end (12·i) or a station (12 @ 1,50). */
-export function whereOf(r: { entity: number; end?: 'i' | 'j'; x?: number }, stations = false): string {
-  if (stations && r.x !== undefined) return `${r.entity} @ ${r.x.toFixed(2)}`;
+export function whereOf(r: Pick<Extreme, 'entity' | 'end' | 'x' | 'side'>, stations = false): string {
+  if ((stations || r.side) && r.x !== undefined) return `${r.entity} @ ${stationLabel(r.x, r.side)}`;
   return r.end ? `${r.entity}·${r.end}` : String(r.entity);
 }
 

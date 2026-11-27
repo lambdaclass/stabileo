@@ -25,7 +25,7 @@
     import { exportToExcel } from '../../lib/export/excel';
   import { computeStationDemands } from '../../lib/engine/verification-service';
   import {
-    columnsOf, allRows, summaryRows, envelopeRows, maxByType, toCsv, whereOf, MAX_TYPES,
+    columnsOf, allRows, summaryRows, envelopeRows, maxByType, toCsv, whereOf, stationLabel, MAX_TYPES,
     type TableKind, type Source, type TableOptions,
   } from '../../lib/engine/result-tables';
   import type { AnalysisResults3D } from '../../lib/engine/types-3d';
@@ -77,13 +77,17 @@
     }
     return nodes;
   });
-  const opts = $derived<TableOptions>({ entities, resultant, stations: isNode ? 2 : stations, axes: axesStore.choice });
+  const opts = $derived<TableOptions>({ entities, resultant, stations: isNode ? 2 : stations, axes: axesStore.choice, signedOnly: true });
   const withStations = $derived(!isNode && stations > 2);
   const cols = $derived(columnsOf(kind, opts));
 
-  const all = $derived(mode === 'all' ? allRows(kind, sources, opts, byEntity ? 'entity' : 'source') : []);
-  const summary = $derived(mode === 'summary' ? summaryRows(kind, sources, opts) : []);
-  const envelope = $derived(mode === 'envelope' ? envelopeRows(kind, sources, opts) : []);
+  const guardedAll = $derived(engineGuarded(() => mode === 'all' ? allRows(kind, sources, opts, byEntity ? 'entity' : 'source') : []));
+  const guardedSummary = $derived(engineGuarded(() => mode === 'summary' ? summaryRows(kind, sources, opts) : []));
+  const all = $derived(guardedAll.value ?? []);
+  const summary = $derived(guardedSummary.value ?? []);
+  const guardedEnvelope = $derived(engineGuarded(() => mode === 'envelope' ? envelopeRows(kind, sources, opts) : []));
+  const envelope = $derived(guardedEnvelope.value ?? []);
+  const tableError = $derived(guardedAll.error ?? guardedSummary.error ?? guardedEnvelope.error);
   // Station demands are the engine's: its absence or refusal is shown in place of the rows.
   const guardedByType = $derived(engineGuarded(() => {
     if (mode !== 'maxType' || resultsStore.knownIssues3D.refused) return [];
@@ -119,7 +123,8 @@
     const head = (c: { label: string; qty: import('../../lib/utils/units').Quantity }) => `${c.label} (${unitQ(c.qty)})`;
     const q = (v: number, c: number) => toQ(v, cols[c]!.qty);
     const at = isNode ? [] : withStations ? ['x (m)'] : [t('tables.end')];
-    const atOf = (r: { end?: 'i' | 'j'; x?: number }) => (isNode ? [] : withStations ? [r.x ?? ''] : [r.end ?? '']);
+    const atOf = (r: { end?: 'i' | 'j'; x?: number; side?: 'left' | 'right' }) =>
+      isNode ? [] : withStations ? [r.side && r.x !== undefined ? stationLabel(r.x, r.side) : r.x ?? ''] : [r.end ?? ''];
     if (mode === 'all') {
       return { header: [t('tables.source'), id, ...at, ...cols.map(head)], rows: all.map((r) => [r.source.name, r.entity, ...atOf(r), ...r.values.map(q)]) };
     }
@@ -161,8 +166,8 @@
   {/each}
   </div>
   {#if mode !== 'current'}
-    <button class="pk-btn tm-csv" onclick={csv} data-testid="tm-csv">CSV</button>
-    <button class="pk-btn tm-csv" onclick={xlsx} data-testid="tm-xlsx">Excel</button>
+    <button class="pk-btn tm-csv" onclick={csv} disabled={!!tableError} data-testid="tm-csv">CSV</button>
+    <button class="pk-btn tm-csv" onclick={xlsx} disabled={!!tableError} data-testid="tm-xlsx">Excel</button>
   {/if}
 </div>
 
@@ -206,14 +211,16 @@
   </div>
 {/if}
 
-{#if mode === 'all'}
+{#if tableError}
+  <p class="tm-cap" role="alert">{tableError}</p>
+{:else if mode === 'all'}
   <div class="pro-res-table-wrap">
     <table class="pro-res-table" data-testid="tm-all">
       <thead><tr><th>{t('tables.source')}</th><th>{isNode ? t('pro.nodeLabel') : t('pro.elemLabel')}</th>{#if !isNode}<th>{withStations ? 'x (m)' : 'Ext.'}</th>{/if}{#each cols as c (c.key)}<th>{c.label} ({unitQ(c.qty)})</th>{/each}</tr></thead>
       <tbody>
         {#each all.slice(0, ROW_CAP) as r, i (i)}
           <tr onclick={() => pick(r.entity)} style="cursor:pointer" class:tm-first={byEntity && (i === 0 || all[i - 1]!.entity !== r.entity)}>
-            <td class="tm-src">{r.source.name}</td><td class="col-id">{r.entity}</td>{#if !isNode}<td class="col-end">{withStations ? fmt(r.x ?? 0) : r.end}</td>{/if}
+            <td class="tm-src">{r.source.name}</td><td class="col-id">{r.entity}</td>{#if !isNode}<td class="col-end">{withStations ? (r.side ? stationLabel(r.x ?? 0, r.side) : fmt(r.x ?? 0)) : r.end}</td>{/if}
             {#each r.values as v, c (c)}<td class="col-num">{fmtQ(v, cols[c]!.qty)}</td>{/each}
           </tr>
         {/each}
@@ -243,7 +250,7 @@
       <tbody>
         {#each envelope.slice(0, ROW_CAP) as r, i (i)}
           <tr onclick={() => pick(r.entity)} style="cursor:pointer">
-            <td class="col-id" rowspan="2">{r.entity}</td>{#if !isNode}<td class="col-end" rowspan="2">{withStations ? fmt(r.x ?? 0) : r.end}</td>{/if}
+            <td class="col-id" rowspan="2">{r.entity}</td>{#if !isNode}<td class="col-end" rowspan="2">{withStations ? (r.side ? stationLabel(r.x ?? 0, r.side) : fmt(r.x ?? 0)) : r.end}</td>{/if}
             <td class="tm-mm">{t('tables.max')}</td>
             {#each r.max as m, c (c)}<td class="col-num" title={m.source.name}>{fmtQ(m.value, cols[c]!.qty)}</td>{/each}
           </tr>

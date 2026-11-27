@@ -9,8 +9,10 @@ import { extractGoverningDemands, type ElementStationResult } from '../station-d
 const section = profileToSectionFull(profileByName('IPE 300')!);
 const steel = { fy: 250, fu: 400, e: 200000 };
 const lengths = { L: 4, Lb: 4 };
+const transverseCut = lengths.L - 60 / 20;
 const ef = { elementId: 1, length: 4, nStart: -300, nEnd: 0, myStart: 0, myEnd: 60,
   mzStart: 0, mzEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 20, mxStart: 0, mxEnd: 0,
+  pointLoadsZ: [{ a: transverseCut, p: 20 }],
 } as AnalysisResults3D['elementForces'][number];
 const tuples = [
   { N: 300, MStrong: 0, MWeak: 0, VStrong: 0, VWeak: 0, comboId: 0, comboName: '', t: 0 },
@@ -23,8 +25,13 @@ it('#1316 — the endpoint adapter never rates steel N at one end with M at the 
   const actual = checkDeclaredSteelMember(1, steelDemandOf(ef), section, steel, lengths)!;
   expect(actual.interaction!.ratio).toBe(expected.interaction!.ratio);
   expect(actual.governingCombos!.interaction!.t).toBe(expected.governingCombos!.interaction!.t);
-  expect(steelDemandOf(ef).tuples).toEqual(tuples.map(t => expect.objectContaining(t)));
-  const control = { ...ef, nEnd: ef.nStart, myEnd: ef.myStart, vzEnd: ef.vzStart };
+  const t = transverseCut / lengths.L;
+  const left = { ...tuples[0]!, t, N: tuples[0]!.N * (1 - t) };
+  const right = { ...left, VStrong: tuples[1]!.VStrong };
+  expect(steelDemandOf(ef).tuples).toEqual(
+    [tuples[0], left, right, tuples[1]].map(tuple => expect.objectContaining(tuple)),
+  );
+  const control = { ...ef, nEnd: ef.nStart, myEnd: ef.myStart, vzEnd: ef.vzStart, pointLoadsZ: [] };
   expect(checkDeclaredSteelMember(1, steelDemandOf(control), section, steel, lengths)!.interaction!.ratio)
     .toBe(checkDeclaredSteelMember(1, { ...base, MuStrong: 0, Vu: 0, tuples: [tuples[0]!] }, section, steel, lengths)!.interaction!.ratio);
 });

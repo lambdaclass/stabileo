@@ -16,6 +16,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeDiagramValueAtWasm, computeDiagrams2D, computeEnvelope, extractBeamStations, extractBeamStationsGrouped, movingAxleStation, solve, solveMovingLoads, solvePDelta } from '../wasm-solver';
+import { referenceFrom } from '../steps/reference';
 import type { AnalysisResults, SolverInput } from '../types';
 import {
   computeElementDiagram,
@@ -23,6 +24,7 @@ import {
   computeShearDiagram,
   computeAxialDiagram,
   computeDiagramValueAt,
+  computePlanarSectionValue,
   computeDeformedShape,
 } from '../diagrams';
 
@@ -84,6 +86,22 @@ describe('Diagrams: Simply-Supported Beam, uniform load', () => {
     expect(computeDiagramValueAt('moment', 0, ef)).toBeCloseTo(0, 4);
     expect(computeDiagramValueAt('moment', 0.5, ef)).toBeCloseTo(Mmid, 1);
     expect(computeDiagramValueAt('moment', 1, ef)).toBeCloseTo(0, 1);
+  });
+
+  it('reads the current distributed actions after a force record is edited in place', () => {
+    const load = { a: 0, b: 4, qI: -2, qJ: -2 };
+    const forces = {
+      length: 4, mStart: 0, mEnd: 0, vStart: 4, vEnd: -4, nStart: 0, nEnd: 0,
+      qI: 0, qJ: 0, distributedLoads: [load],
+    };
+    const original = { ...forces, distributedLoads: [{ ...load }] };
+    expect(computeDiagramValueAt('moment', 0.25, forces)).toBe(-3);
+    load.qI = load.qJ = -4;
+    forces.mEnd = 16;
+    forces.vEnd = -12;
+    expect(computeDiagramValueAt('moment', 1, original)).toBe(0);
+    expect(computeDiagramValueAt('moment', 0.25, forces)).toBe(-2);
+    expect(computeDiagramValueAt('moment', 0.25, original)).toBe(-3);
   });
 
   it('computeDiagramValueAt matches shear diagram', () => {
@@ -550,4 +568,39 @@ it('#1782 — the planar WASM moving sweep recovers shear at rounded support fac
   const place = (a: number) => movingAxleStation(0, length, length, false, a, 0, 0, 0);
   expect(place(within)).toBe(length);
   expect(place(outside)).toBe(outside);
+});
+
+it('reads a physical section only within the member', () => {
+  const forces = {
+    length: 4, vStart: 4, vEnd: -4, mStart: 0, mEnd: 0, nStart: 0, nEnd: 0, qI: -2, qJ: -2,
+  };
+  const shearAt = (x: number) => computePlanarSectionValue('shear', x, forces);
+  expect([shearAt(0), shearAt(1), shearAt(4)]).toEqual([4, 2, -4]);
+  for (const x of [-Number.MIN_VALUE, 4 + 4 * Number.EPSILON, NaN]) {
+    expect(() => shearAt(x)).toThrow('solver.diagramExtremaUnavailable');
+  }
+});
+
+it('known wrong result: #2581 physical planar sections use the member side at I and J', () => {
+  const length = 4;
+  const forces = {
+    length, vStart: 10, vEnd: -6, mStart: -1, mEnd: 11, nStart: 20, nEnd: 6, qI: 0, qJ: 0,
+    pointLoads: [
+      { a: 0, p: -8, px: 10, my: 20 },
+      { a: length, p: -8, px: 4, my: -8 },
+    ],
+  };
+  for (const [kind, expected] of [
+    ['shear', [2, 2, 2]],
+    ['axial', [10, 10, 10]],
+    ['moment', [19, 15, 11]],
+  ] as const) {
+    const beforeJ = length - 4 * Number.EPSILON;
+    expect.soft([0, 2, length].map(x => computePlanarSectionValue(kind, x, forces))).toEqual(expected);
+    expect.soft(computePlanarSectionValue(kind, beforeJ, forces)).toBeCloseTo(expected[2], 12);
+  }
+  expect(computeDiagramValueAt('shear', 0, forces)).toBe(10);
+  const f = { ...forces, elementId: 1, distributedLoads: [], hingeStart: false, hingeEnd: false };
+  const reference = referenceFrom({ elementForces: [f], displacements: [], reactions: [] });
+  expect([0, 2, length].map(x => reference.momentAtDistance(f.elementId, x))).toEqual([-19, -15, -11]);
 });

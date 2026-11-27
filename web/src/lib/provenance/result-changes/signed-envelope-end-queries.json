@@ -1,0 +1,32 @@
+{
+  "id": "signed-envelope-end-queries",
+  "date": "2026-11-26",
+  "prs": [2581],
+  "area": "analysis",
+  "when": { "all": ["space3D", "members", "combinations"] },
+  "quantities": ["envelopes"],
+  "title": {
+    "en": "Spatial envelope queries retain both signed end bounds",
+    "es": "Las consultas de envolventes espaciales conservan ambos límites con signo en los extremos",
+    "pt": "As consultas de envolventes espaciais mantêm os dois limites com sinal nas extremidades",
+    "de": "Abfragen räumlicher Einhüllender behalten beide vorzeichenbehafteten Endwerte",
+    "fr": "Les requêtes d’enveloppes spatiales conservent les deux bornes signées aux extrémités",
+    "tr": "Uzaysal zarf sorguları uçlardaki iki işaretli sınırı korur",
+    "zh": "空间包络查询保留杆端的正负限值",
+    "hu": "A térbeli burkológörbék lekérdezése megtartja mindkét előjeles rúdvégi szélsőértéket"
+  },
+  "explanation": {
+    "en": "The query table and CSV use the signed values at the inward face of each member end across the solved cases or combinations in the displayed envelope. Signed minima and maxima are available even when all values have the same sign.",
+    "es": "La tabla de consulta y el CSV usan los valores con signo de la cara interior de cada extremo de barra en los casos o combinaciones resueltos de la envolvente mostrada. El mínimo y el máximo con signo están disponibles aunque todos los valores tengan el mismo signo.",
+    "pt": "A tabela de consulta e o CSV usam os valores com sinal na face interna de cada extremidade da barra, nos casos ou combinações resolvidos da envolvente exibida. O mínimo e o máximo com sinal estão disponíveis mesmo quando todos os valores têm o mesmo sinal.",
+    "de": "Abfragetabelle und CSV verwenden die vorzeichenbehafteten Werte an der Innenseite jedes Stabendes aus den berechneten Lastfällen oder Kombinationen der dargestellten Einhüllenden. Minimum und Maximum sind auch bei einheitlichem Vorzeichen verfügbar.",
+    "fr": "La table de requête et le CSV utilisent les valeurs signées du côté intérieur de chaque extrémité de barre, issues des cas ou combinaisons calculés de l’enveloppe affichée. Les minimums et maximums signés sont disponibles même si toutes les valeurs ont le même signe.",
+    "tr": "Sorgu tablosu ve CSV, görüntülenen zarftaki çözülmüş yük durumları veya birleşimlerinden her eleman ucunun iç tarafındaki işaretli değerleri kullanır. Tüm değerler aynı işarete sahip olsa da işaretli en küçük ve en büyük değerler gösterilir.",
+    "zh": "查询表和 CSV 使用当前包络中各已求解工况或组合在杆端内侧的带符号值。即使所有值同号，仍可查询带符号的最小值和最大值。",
+    "hu": "A lekérdezési táblázat és a CSV a megjelenített burkológörbe megoldott tehereseteinek vagy teherkombinációinak előjeles értékeit használja a rúdvégek belső oldalán. Az előjeles minimum és maximum akkor is elérhető, ha minden érték előjele azonos."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-signed-envelope-end-queries.md",
+    "heading": "Signed bounds in spatial envelope end queries"
+  }
+}

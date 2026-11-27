@@ -1,0 +1,34 @@
+{
+  "id": "governing-member-faces",
+  "date": "2026-11-25",
+  "prs": [2581],
+  "area": "analysis",
+  "when": {
+    "all": ["members", "combinations"]
+  },
+  "quantities": ["envelope"],
+  "title": {
+    "en": "Governing member combinations use inward end faces",
+    "es": "Las combinaciones determinantes usan las caras interiores de los extremos de la barra",
+    "pt": "As combinações determinantes usam as faces internas das extremidades da barra",
+    "de": "Maßgebende Kombinationen verwenden die inneren Schnittflächen an den Stabenden",
+    "fr": "Les combinaisons déterminantes utilisent les faces intérieures aux extrémités des barres",
+    "tr": "Belirleyici eleman birleşimleri uçların iç yüzlerini kullanır",
+    "zh": "杆件控制组合采用杆端内侧截面值",
+    "hu": "A mértékadó rúdkombinációk a rúdvégek belső metszeti értékeit használják"
+  },
+  "explanation": {
+    "en": "Governing combinations and their magnitudes are selected from the same member diagram extrema as the calculation report.",
+    "es": "Las combinaciones determinantes y sus magnitudes se eligen a partir de los mismos extremos del diagrama de la barra que utiliza el informe de cálculo.",
+    "pt": "As combinações determinantes e suas magnitudes são selecionadas a partir dos mesmos extremos do diagrama da barra usados no relatório de cálculo.",
+    "de": "Maßgebende Kombinationen und ihre Beträge werden anhand derselben Extremwerte im Stabdiagramm wie im Berechnungsbericht bestimmt.",
+    "fr": "Les combinaisons déterminantes et leurs amplitudes sont choisies à partir des mêmes extrema du diagramme de la barre que ceux du rapport de calcul.",
+    "tr": "Belirleyici birleşimler ve büyüklükleri, hesap raporunda kullanılan eleman diyagramı uç değerlerinden seçilir.",
+    "zh": "控制组合及其幅值根据与计算报告相同的杆件内力图极值确定。",
+    "hu": "A mértékadó kombinációkat és azok nagyságát a számítási jelentésben is használt rúdábra-szélsőértékek alapján határozzuk meg."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-governing-member-faces.md",
+    "heading": "Governing member combinations use inward end faces"
+  }
+}

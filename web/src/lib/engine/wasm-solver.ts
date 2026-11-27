@@ -1,6 +1,7 @@
 import { computeDiagram3D } from './diagrams-3d';
-import { unavailableDiagramExtrema } from './member-diagram';
-import { collapseVariableEnvelope, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
+import { bindSpatialEnvelope } from './result-query';
+import { bindMemberEnvelopeEnds, requireConcurrentSectionForces, unavailableDiagramExtrema } from './member-diagram';
+import { collapseVariableEnvelopeGeometry, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
 import { registerMemberIntervalKernel } from './member-interval-kernel';
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
 import { element3DToWire, results3DFromWasm, resultsFromWasm, type AnalysisResultsWire, type AnalysisResults3DWire, load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, support3DToWire, supportToWire, type Element3DWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire, type Support3DWire, type SupportWire } from './unit-types';
@@ -86,7 +87,7 @@ let wasmCombineResults2d: ((input: any) => any) | null = null;
 let wasmCombineResults3d: ((input: any) => any) | null = null;
 let wasmCombineResultsBatch3d: ((input: any) => any) | null = null;
 let wasmCombineResultsEnvelope3d: ((input: any) => any) | null = null;
-let wasmComputeEnvelope2d: ((input: any) => any) | null = null;
+let wasmComputeEnvelope2d: ((input: AnalysisResults[]) => FullEnvelope) | null = null;
 let wasmComputeEnvelope3d: ((input: any) => any) | null = null;
 
 // Influence Lines
@@ -1665,15 +1666,19 @@ export function combineResultsEnvelope3D(
   const [results, envelope]: [Array<unknown | null>, FullEnvelope3D | null] = wasmCombineResultsEnvelope3d({
     combinations, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]),
   });
-  return { combinations: results.map(result => result == null ? null : results3DFromWasm(result)), envelope };
+  const combinations3D = results.map(result => result == null ? null : results3DFromWasm(result));
+  return {
+    combinations: combinations3D,
+    envelope: bindSpatialEnvelope(envelope, combinations3D.filter(result => result !== null)),
+  };
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */
-export function computeEnvelope(results: AnalysisResults[]): FullEnvelope | null {
+export function computeEnvelope(results: AnalysisResults[], _inwardAtI?: boolean): FullEnvelope | null {
   if (!wasmReady || !wasmComputeEnvelope2d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
-  return wasmComputeEnvelope2d(results);
+  return bindMemberEnvelopeEnds(wasmComputeEnvelope2d(results));
 }
 
 /** Compute 3D envelope via WASM. JsValue in/out — no JSON round trip. */
@@ -1682,7 +1687,9 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (results.length === 0) return null;
   // Solver output — no guard (see combineResults).
   if (results.some(r => r.magnitude || r.elementForces.some(f => f.combined))) throw unavailableDiagramExtrema();
-  if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) return wasmComputeEnvelope3d(results);
+  if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) {
+    return bindSpatialEnvelope(wasmComputeEnvelope3d(results), results);
+  }
   const expanded = results.map(reexpandVariableResults);
   if (expanded.some(r => r.results.elementForces.some(f => f.pieces?.length))) throw unavailableDiagramExtrema();
   const reference = expanded[0]!;
@@ -1692,7 +1699,7 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (expanded.some(({ results, exp }) => !sameVariableLayout(layout, exp) ||
     results.elementForces.some(ef => lengths.get(ef.elementId) !== ef.length))) throw unavailableDiagramExtrema();
   const raw = wasmComputeEnvelope3d(expanded.map(r => r.results));
-  return raw && collapseVariableEnvelope(raw, layout);
+  return bindSpatialEnvelope(raw && collapseVariableEnvelopeGeometry(raw, layout), results);
 }
 
 // ─── Influence Lines ─────────────────────────────────────────────
@@ -1736,12 +1743,14 @@ export function computeSectionStress2D(input: {
   yFiber?: number | null;
 }) {
   if (!wasmReady || !wasmComputeSectionStress2d) throw new Error('WASM solver not initialized.');
+  requireConcurrentSectionForces(input.elementForces);
   return JSON.parse(wasmComputeSectionStress2d(JSON.stringify(input)));
 }
 
 /** Compute 3D section stress via WASM. Takes pre-resolved geometry. */
 export function computeSectionStress3D(input: any) {
   if (!wasmReady || !wasmComputeSectionStress3d) throw new Error('WASM solver not initialized.');
+  requireConcurrentSectionForces(input.elementForces);
   return JSON.parse(wasmComputeSectionStress3d(JSON.stringify(input)));
 }
 
@@ -2247,7 +2256,9 @@ export function solveMultiCase2D(config: any): any {
   if (config.solver && config.solver.nodes instanceof Map) {
     config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return wasmSolveMultiCase2d(finiteObjectWire(config));
+  const result = wasmSolveMultiCase2d(finiteObjectWire(config));
+  bindMemberEnvelopeEnds(result?.envelope);
+  return result;
 }
 
 /** Solve 3D multi-case analysis via WASM. JsValue in/out — no JSON round trip. */
@@ -2274,6 +2285,8 @@ export function solveMultiCase3D(config: any): any {
       for (const cr of result.combinationResults ?? []) stripStabilisedReactions(cr.results, input);
       if (result.envelope?.maxAbsResults3D) stripStabilisedReactions(result.envelope.maxAbsResults3D, input);
     }
+    const combinations = result?.combinationResults?.map(({ results }: { results: AnalysisResults3D }) => results) ?? [];
+    bindSpatialEnvelope(result?.envelope ?? null, combinations);
     return result;
   } catch (e: any) {
     const panicMsg = captured.length > 0 ? captured.join('\n') : '';

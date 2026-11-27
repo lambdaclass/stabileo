@@ -392,7 +392,10 @@ describe('suggestCriticalSections3D', () => {
   });
 
   it('should include Vy=0 point when shear changes sign', () => {
-    const ef = makeEF({ vyStart: 20, vyEnd: -30 });
+    const start = 20, end = -30;
+    const ef = makeEF({ vyStart: start, vyEnd: end });
+    const q = (end - start) / ef.length;
+    ef.distributedLoadsY = [{ a: 0, b: ef.length, qI: q, qJ: q }];
     const sections = suggestCriticalSections3D(ef);
     const vy0 = sections.find(s => s.reason.includes('Vy=0'));
     expect(vy0).toBeDefined();
@@ -400,7 +403,10 @@ describe('suggestCriticalSections3D', () => {
   });
 
   it('should include Vz=0 point for vertical shear', () => {
-    const ef = makeEF({ vzStart: 20, vzEnd: -30 });
+    const start = 20, end = -30;
+    const ef = makeEF({ vzStart: start, vzEnd: end });
+    const q = (end - start) / ef.length;
+    ef.distributedLoadsZ = [{ a: 0, b: ef.length, qI: q, qJ: q }];
     const sections = suggestCriticalSections3D(ef);
     const vz0 = sections.find(s => s.reason.includes('Vz=0'));
     expect(vz0).toBeDefined();
@@ -841,4 +847,40 @@ describe('PR [12] section-analysis convention', () => {
     expect(a45.depth).toBeGreaterThan(0.5);
     expect(a45.width).toBeGreaterThan(0.5);
   });
+});
+
+it('known wrong result: #2581 a transverse action at I does not create a false zero-shear suggestion', () => {
+  const length = 6;
+  const intensity = 12;
+  const inward = intensity * length / 6;
+  const end = inward - intensity * length / 2;
+  const load = [{ a: 0, b: length, qI: 0, qJ: -intensity }];
+  for (const atI of [inward + 4, 0]) {
+    const points = atI === 0 ? [] : [{ a: 0, p: atI }];
+    const ef = makeEF({
+      length, vyStart: inward - atI, vyEnd: end, vzStart: inward - atI, vzEnd: end,
+      distributedLoadsY: load, distributedLoadsZ: load, pointLoadsY: points, pointLoadsZ: points,
+    });
+    const expected = 1 / Math.sqrt(3);
+    const sections = suggestCriticalSections3D(ef);
+    for (const axis of ['Vy', 'Vz'] as const) {
+      const cuts = sections.filter(section => section.reason.includes(`${axis}=0`));
+      expect.soft(cuts).toHaveLength(1);
+      expect.soft(cuts[0]?.t).toBeCloseTo(expected, 14);
+      if (cuts[0]) expect.soft(interpolateForces3D(ef, cuts[0].t)[axis]).toBeCloseTo(0, 12);
+    }
+    expect.soft(sections.map(section => section.t)).toEqual(expect.arrayContaining([0, 0.5, 1]));
+  }
+});
+
+it('known wrong result: #2581 recovers a cantilever axial point action without smearing either side', () => {
+  const f = makeEF({ length: 6, nStart: 20, nEnd: 0, pointLoadsX: [{ a: 3, p: 20 }] });
+  expect.soft(interpolateForces3D(f, 0.25).N).toBe(20);
+  expect.soft(interpolateForces3D(f, 0.75).N).toBe(0);
+  expect(interpolateForces3D(f, { t: 0.5, distance: 3 }).N).toBe(20);
+  expect(interpolateForces3D(f, { t: 0.5, distance: 3, right: true }).N).toBe(0);
+  expect(interpolateForces3D(f, 0).N).toBe(20);
+  expect(interpolateForces3D(f, 1).N).toBe(0);
+  expect(() => interpolateForces3D(f, -Number.EPSILON)).toThrow('solver.diagramExtremaUnavailable');
+  expect(() => interpolateForces3D(f, 1 + Number.EPSILON)).toThrow('solver.diagramExtremaUnavailable');
 });

@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { solveMovingLoads } from '../moving-loads';
+import { describe, it, expect, vi } from 'vitest';
+import * as wasm from '../wasm-solver';
+import { t } from '../../i18n';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
+import { solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
 import type { SolverInput } from '../types';
 import type { MovingLoadEnvelope } from '../moving-loads';
 
@@ -65,12 +68,12 @@ describe('Moving loads symmetry', () => {
     expect(env.fullEnvelope).toBeDefined();
 
     const mData = env.fullEnvelope!.moment.elements[0];
-    const n = mData.negValues.length;
-    const mid = Math.floor(n / 2);
-
-    // With mirrored reverse pass, envelope must be perfectly symmetric
-    for (let i = 0; i <= mid; i++) {
-      expect(mData.negValues[i]).toBeCloseTo(mData.negValues[n - 1 - i], 1);
+    expect(mData.tPositions.length).toBeGreaterThan(0);
+    expect(mData.tPositions).toHaveLength(mData.negValues.length);
+    for (const [i, station] of mData.tPositions.entries()) {
+      const mirror = mData.tPositions.findIndex(t => Math.abs(t - (1 - station)) <= 4 * Number.EPSILON);
+      expect(mirror).toBeGreaterThanOrEqual(0);
+      expect(mData.negValues[i]).toBeCloseTo(mData.negValues[mirror], 1);
     }
   });
 
@@ -112,4 +115,43 @@ describe('Moving loads symmetry', () => {
     // Moment is negative in our convention (load pushes down)
     expect(Math.abs(mData.negValues[midIdx])).toBeCloseTo(P * L / 4, 0);
   });
+});
+
+it('known wrong result: #2226 sync and async planar sweeps capture an axle between display stations', async () => {
+  const length = 6, weight = 100, step = 2.9;
+  const input = makeSimpleBeam(length);
+  const config = { train: { name: 'P', axles: [{ offset: 0, weight }] }, step };
+  const exact = weight * step * (length - step) / length;
+  for (const result of [solveMovingLoads(input, config), await solveMovingLoadsAsync(input, config)]) {
+    expect(typeof result).not.toBe('string');
+    const env = result as MovingLoadEnvelope;
+    expect.soft(env.fullEnvelope!.moment.globalMax).toBeCloseTo(exact, 10);
+    const { mMaxPos, mMaxNeg } = env.elements.get(1)!;
+    expect.soft(Math.max(Math.abs(mMaxPos), Math.abs(mMaxNeg))).toBeCloseTo(exact, 10);
+    expect.soft(env.fullEnvelope!.moment.elements[0]!.tPositions).toContain(step / length);
+  }
+});
+
+
+it.each([
+  ['sync', solveMovingLoads],
+  ['async', solveMovingLoadsAsync],
+] as const)('known wrong result: #2581 converge a %s planar sweep requires a merged envelope', async (_mode, run) => {
+  const length = 4, weight = 8;
+  const input = makeSimpleBeam(length);
+  const train = { name: 'Axle', axles: [{ offset: 0, weight }] };
+  const config = { train, step: length / 2 };
+  const control = await run(input, config);
+  if (typeof control === 'string') throw new Error(control);
+  expect(control.fullEnvelope?.moment.globalMax).toBeCloseTo(weight * length / 4, 12);
+  const merge = vi.spyOn(wasm, 'computeEnvelope').mockReturnValue(null);
+  try {
+    expect(await run(input, { ...config, train: { ...train, axles: [] } })).toBe(t('train.noPositionSolved'));
+    expect(merge).not.toHaveBeenCalled();
+    expect(await run(input, config)).toBe(t('svc.solverError').replace('{n}', t(DIAGRAM_EXTREMA_UNAVAILABLE)));
+    expect(merge).toHaveBeenCalledOnce();
+    expect(merge.mock.calls[0]![0].length).toBeGreaterThan(0);
+  } finally {
+    merge.mockRestore();
+  }
 });

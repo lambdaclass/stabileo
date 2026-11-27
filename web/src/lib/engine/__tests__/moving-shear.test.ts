@@ -3,6 +3,7 @@ import inclinedFixture from '../../../../../engine/tests/fixtures/moving-shear-2
 import springFixture from '../../../../../engine/tests/fixtures/moving-shear-2104.json';
 import { solveMovingLoads as solveNative2D, solveMovingLoads3D } from '../wasm-solver';
 import * as wasm from '../wasm-solver';
+import { computeDiagramValueAt, memberEndForces2D } from '../diagrams';
 import { computePointwiseEnvelope, solveMovingLoads, solveMovingLoadsAsync } from '../moving-loads';
 import { buildPath3D, sweepMovingLoad3D, sweepTrains3D, trainLoads } from '../moving-loads-3d';
 import { trainModelLoads, vehicleFromJson } from '../vehicles';
@@ -523,6 +524,112 @@ it('#2101 — browser axle-face shear excludes opposing endpoint point loads', a
   }
 });
 
+for (const [mode, run] of [['sync', solveMovingLoads], ['async', solveMovingLoadsAsync]] as const) {
+  for (const withJumpCuts of [true, false]) {
+    it(`#2581 ${mode} moving axle limits reach both inward rows (jump metadata: ${withJumpCuts})`, async () => {
+      const x = 4, z = 3, length = Math.hypot(x, z), weight = 100;
+      const p = 20, px = 30;
+      const { plane } = reviewSpan(x, z, true);
+      const stationaryLoads = [0, length].map(a => ({ type: 'pointOnElement' as const, data: { elementId: 1, a, p, px } }));
+      const config = { train: { name: 'one axle', axles: [{ offset: 0, weight }] }, step: length, pathElementIds: [1] };
+      const prepare = wasm.prepareLoadSession2D;
+      const compute = wasm.computeEnvelope;
+      const prepareWithStationaryLoads = vi.spyOn(wasm, 'prepareLoadSession2D').mockImplementation(input => {
+        const session = prepare(input);
+        return { ...session, solve: loads => session.solve([...loads, ...stationaryLoads]) };
+      });
+      const publishBothFaces = vi.spyOn(wasm, 'computeEnvelope').mockImplementation(results => {
+        const envelope = compute(results)!;
+        for (const kind of ['shear', 'axial'] as const) {
+          const element = envelope[kind].elements[0]!;
+          expect(element.tPositions.filter(t => t === 0 || t === 1)).toEqual([0, 1]);
+          const exteriorI = results.map(result => computeDiagramValueAt(kind, 0, result.elementForces[0]!));
+          const exteriorJ = results.map(result => computeDiagramValueAt(kind, 1, result.elementForces[0]!, true));
+          element.tPositions.unshift(0);
+          element.tPositions.push(1);
+          element.posValues.unshift(Math.max(0, ...exteriorI));
+          element.posValues.push(Math.max(0, ...exteriorJ));
+          element.negValues.unshift(Math.min(0, ...exteriorI));
+          element.negValues.push(Math.min(0, ...exteriorJ));
+          element.jumpCuts = withJumpCuts
+            ? [{ index: 0, distance: 0 }, { index: element.tPositions.length - 2, distance: length }]
+            : undefined;
+        }
+        return envelope;
+      });
+      try {
+        const result = await run(plane, config);
+        if (typeof result === 'string') throw new Error(result);
+        expect(result.positions.map(position => position.refPosition)).toEqual([0, length]);
+        expect(publishBothFaces).toHaveBeenCalledOnce();
+        const full = result.fullEnvelope!;
+        const forces = full.maxAbsResults.elementForces[0]!;
+        const shear = weight * x / length, axial = weight * z / length;
+        for (const [kind, inwardI, inwardJ, exteriorI, exteriorJ] of [
+          ['shear', shear, -shear, -p, p],
+          ['axial', -axial, axial, px, -px],
+        ] as const) {
+          const explanation = 'Both fixed supports carry the exact endpoint loads. ' +
+            'The interior axle approach puts its full local force projection across the cut next to the support.';
+          const [i, j] = memberEndForces2D(forces, kind);
+          expect.soft(i, `${kind} at I. ${explanation}`).toBeCloseTo(inwardI, 9);
+          expect.soft(j, `${kind} at J. ${explanation}`).toBeCloseTo(inwardJ, 9);
+          const element = full[kind].elements[0]!;
+          expect.soft([element.posValues[0], element.negValues[0]]).toEqual([Math.max(0, exteriorI), Math.min(0, exteriorI)]);
+          expect.soft([element.posValues.at(-1), element.negValues.at(-1)]).toEqual([Math.max(0, exteriorJ), Math.min(0, exteriorJ)]);
+        }
+      } finally {
+        publishBothFaces.mockRestore();
+        prepareWithStationaryLoads.mockRestore();
+      }
+    });
+  }
+}
+
+for (const [mode, run] of [['sync', solveMovingLoads], ['async', solveMovingLoadsAsync]] as const) {
+  it.each([
+    { marker: 'explicit', endLoad: 10 },
+    { marker: 'inferred', endLoad: 10 },
+    { marker: 'inferred equalized by the axle', endLoad: -4 },
+  ])(`known wrong result: #2581 ${mode} moving summary uses the inward shear with an $marker cut`, async ({ marker, endLoad }) => {
+    const length = 4, weight = 4;
+    const { plane } = reviewSpan(length, 0, true);
+    const config = { train: { name: 'one axle', axles: [{ offset: 0, weight }] }, step: length, pathElementIds: [1] };
+    const prepare = wasm.prepareLoadSession2D;
+    const compute = wasm.computeEnvelope;
+    const prepareWithEndLoad = vi.spyOn(wasm, 'prepareLoadSession2D').mockImplementation(input => {
+      const session = prepare(input);
+      return { ...session, solve: loads => session.solve([
+        ...loads, { type: 'pointOnElement', data: { elementId: 1, a: 0, p: endLoad } },
+      ]) };
+    });
+    const publishBothFaces = vi.spyOn(wasm, 'computeEnvelope').mockImplementation(results => {
+      const envelope = compute(results)!;
+      const shear = envelope.shear.elements[0]!;
+      const exterior = results.map(result => computeDiagramValueAt('shear', 0, result.elementForces[0]!));
+      shear.tPositions.unshift(0);
+      shear.posValues.unshift(Math.max(0, ...exterior));
+      shear.negValues.unshift(Math.min(0, ...exterior));
+      shear.jumpCuts = marker === 'explicit' ? [{ index: 0, distance: 0 }] : undefined;
+      return envelope;
+    });
+    try {
+      const result = await run(plane, config);
+      if (typeof result === 'string') throw new Error(result);
+      const shear = result.fullEnvelope!.shear.elements[0]!;
+      const explanation = 'The fixed support carries the stationary load at I. Only the axle approach crosses the inward cuts.';
+      expect.soft(result.elements.get(1)?.vMaxNeg, explanation).toBeCloseTo(-weight, 9);
+      expect.soft(result.elements.get(1)?.vMaxPos, explanation).toBeCloseTo(weight, 9);
+      expect.soft(shear.posValues.slice(0, 2)).toEqual([Math.max(0, -endLoad), weight]);
+      expect.soft(shear.negValues.slice(0, 2)).toEqual([Math.min(0, -endLoad), 0]);
+      expect.soft(shear.jumpCuts).toEqual([{ index: 0, distance: 0 }]);
+    } finally {
+      publishBothFaces.mockRestore();
+      prepareWithEndLoad.mockRestore();
+    }
+  });
+}
+
 it('#2101 — planar pointwise shear includes both midspan axle cuts', async () => {
   const length = 8, weight = 40;
   const { plane } = reviewSpan(length, 0, true);
@@ -540,9 +647,9 @@ it('#2101 — planar pointwise shear includes both midspan axle cuts', async () 
       [0.55, 0, -weight / 2],
       [1, 0, -weight],
     ]) {
-      const index = shear.tPositions.indexOf(station);
-      expect.soft(shear.posValues[index], `${run.name} V+ at ${station}`).toBeCloseTo(positive, 9);
-      expect.soft(shear.negValues[index], `${run.name} V- at ${station}`).toBeCloseTo(negative, 9);
+      const cuts = shear.tPositions.flatMap((t, index) => t === station ? [index] : []);
+      expect.soft(Math.max(...cuts.map(index => shear.posValues[index])), `${run.name} V+ at ${station}`).toBeCloseTo(positive, 9);
+      expect.soft(Math.min(...cuts.map(index => shear.negValues[index])), `${run.name} V- at ${station}`).toBeCloseTo(negative, 9);
     }
   }
 });
@@ -583,9 +690,9 @@ it('#2101 — planar pointwise axial includes both midspan axle cuts', async () 
         [0.55, axial / 2, 0],
         [1, axial, 0],
       ]) {
-        const index = envelope.tPositions.indexOf(station);
-        expect.soft(envelope.posValues[index], `${run.name} N+ at ${station}, rise ${z}`).toBeCloseTo(positive, 9);
-        expect.soft(envelope.negValues[index], `${run.name} N- at ${station}, rise ${z}`).toBeCloseTo(negative, 9);
+        const cuts = envelope.tPositions.flatMap((t, index) => t === station ? [index] : []);
+        expect.soft(Math.max(...cuts.map(index => envelope.posValues[index])), `${run.name} N+ at ${station}, rise ${z}`).toBeCloseTo(positive, 9);
+        expect.soft(Math.min(...cuts.map(index => envelope.negValues[index])), `${run.name} N- at ${station}, rise ${z}`).toBeCloseTo(negative, 9);
       }
     }
   }

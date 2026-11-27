@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorText } from '../lib/store/engine-action';
   import { caseNameShown, combinationNameShown } from '../lib/axes/case-names';
   import { modelStore, resultsStore, uiStore, verificationStore } from '../lib/store';
   import {
@@ -145,7 +146,7 @@
       else uiStore.toast(t('calcReport.popupBlocked'), 'info');
     } catch (e) {
       win?.close();
-      uiStore.toast(String((e as Error)?.message ?? e), 'error');
+      uiStore.toast(errorText(e), 'error');
     } finally {
       busy = false;
     }

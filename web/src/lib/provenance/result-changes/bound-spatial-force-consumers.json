@@ -1,0 +1,34 @@
+{
+  "id": "bound-spatial-force-consumers",
+  "date": "2026-11-26",
+  "prs": [2581],
+  "area": "analysis",
+  "when": {
+    "all": ["space3D", "members", "combinations"]
+  },
+  "quantities": ["diagrams", "envelope"],
+  "title": {
+    "en": "Signed envelope queries and Excel force magnitudes",
+    "es": "Consultas de envolventes con signo y magnitudes de esfuerzos en Excel",
+    "pt": "Consultas de envoltórias com sinal e magnitudes de esforços no Excel",
+    "de": "Vorzeichenbehaftete Einhüllendenabfragen und Schnittgrößenbeträge in Excel",
+    "fr": "Requêtes d’enveloppes signées et amplitudes des efforts dans Excel",
+    "tr": "İşaretli zarf sorguları ve Excel’de iç kuvvet büyüklükleri",
+    "zh": "带符号的包络查询与 Excel 内力幅值",
+    "hu": "Előjeles burkolólekérdezések és igénybevételi nagyságok az Excelben"
+  },
+  "explanation": {
+    "en": "Spatial force queries and signed tables use the envelope’s constituent cases. The Excel Summary shows exact SRSS and ABS component peaks or marks them unavailable.",
+    "es": "Las consultas y tablas de esfuerzos espaciales con signo usan los casos de la envolvente. El resumen de Excel muestra los picos exactos de SRSS y ABS por componente o indica que no están disponibles.",
+    "pt": "As consultas e tabelas de esforços espaciais com sinal usam os casos da envoltória. O resumo do Excel mostra os picos exatos de SRSS e ABS por componente ou indica que estão indisponíveis.",
+    "de": "Räumliche Schnittgrößenabfragen und vorzeichenbehaftete Tabellen verwenden die Lastfälle der Einhüllenden. Die Excel-Übersicht zeigt die exakten SRSS- und ABS-Spitzenwerte je Komponente oder kennzeichnet sie als nicht verfügbar.",
+    "fr": "Les requêtes et tableaux d’efforts spatiaux signés utilisent les cas de l’enveloppe. Le récapitulatif Excel affiche les pics exacts de SRSS et d’ABS par composante ou indique leur indisponibilité.",
+    "tr": "Uzaysal iç kuvvet sorguları ve işaretli tablolar zarfı oluşturan yük durumlarını kullanır. Excel özeti her bileşenin kesin SRSS ve ABS tepe değerlerini gösterir veya kullanılamadığını belirtir.",
+    "zh": "空间内力查询和带符号的表格使用构成包络的工况。Excel 摘要显示 SRSS 和 ABS 各分量的精确峰值，或标明不可用。",
+    "hu": "A térbeli igénybevétel-lekérdezések és az előjeles táblázatok a burkolót alkotó tehereseteket használják. Az Excel-összefoglaló megadja a pontos SRSS- és ABS-csúcsértékeket komponensenként, vagy jelzi, hogy nem állnak rendelkezésre."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-bound-spatial-force-consumers.md",
+    "heading": "Signed envelope queries and Excel force magnitudes"
+  }
+}

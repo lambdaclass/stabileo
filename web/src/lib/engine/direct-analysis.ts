@@ -30,6 +30,7 @@
  *
  * Pure of stores: the model and its combinations come in, results go out.
  */
+import { memberCompression } from './member-force-extrema';
 import { pointGlobal } from './member-point-loads';
 import { modelInputRefusal } from './model-input-numbers';
 import { plateAnalysisRefusal } from './plate-analysis-refusal';
@@ -212,16 +213,6 @@ export function tauBOf(pr: number, pns: number): number {
   return r <= 0.5 ? 1 : Math.max(0, 4 * r * (1 - r));
 }
 
-/** Largest axial compression of each frame member in a result, kN (positive). */
-function compression(results: AnalysisResults3D): Map<number, number> {
-  const out = new Map<number, number>();
-  for (const f of results.elementForces ?? []) {
-    const c = Math.max(-(f.nStart ?? 0), -(f.nEnd ?? 0), 0);
-    out.set(f.elementId, c);
-  }
-  return out;
-}
-
 /** The largest horizontal displacement anywhere, for choosing the governing notional direction. */
 function sway(results: AnalysisResults3D): number {
   let m = 0;
@@ -359,9 +350,12 @@ export async function runDirectAnalysis(
         for (let k = 0; k <= 5; k++) {
           if (!r.converged || !amplification(r).stable) break;
           const next = new Map<number, number>();
-          for (const [id, c] of compression(r.results)) {
-            const p = pns.get(id);
-            if (p) { const t = tauBOf(c, p); if (t < 1) next.set(id, t); }
+          for (const force of r.results.elementForces ?? []) {
+            const p = pns.get(force.elementId);
+            if (p) {
+              const t = tauBOf(memberCompression(force), p);
+              if (t < 1) next.set(force.elementId, t);
+            }
           }
           const moved = [...new Set([...next.keys(), ...tau.keys()])].some((id) => Math.abs((next.get(id) ?? 1) - (tau.get(id) ?? 1)) > 0.01);
           if (!moved) { tauConverged = true; break; }

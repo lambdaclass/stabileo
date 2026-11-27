@@ -87,16 +87,20 @@ const stationRows = (sources: readonly WorkbookSource[], stations: StationSpec, 
 };
 
 function stationsSheet(sources: readonly WorkbookSource[], stations: StationSpec, opts: TableOptions): StreamedSheet {
+  const critical = stations === 'critical';
+  const options = { ...opts, stations };
+  const listed = critical ? sources.filter(s => s.kind !== 'magnitude') : sources;
   return {
-    name: 'Stations', header: [...SOURCE, 'member', 'station', 'x [m]', ...head('forces')],
-    count: () => stationRows(sources, stations),
+    name: 'Stations', header: [...SOURCE, 'member', 'station', 'x [m]', ...(critical ? ['cut side'] : []), ...head('forces')],
+    count: () => critical ? listed.reduce((n, s) => n + rowsOf('forces', s.results, options).length, 0)
+      : stationRows(listed, stations),
     *body() {
-      for (const s of sources) {
+      for (const s of listed) {
         let last = -1, k = 0;
-        for (const r of rowsOf('forces', s.results, { ...opts, stations })) {
+        for (const r of rowsOf('forces', s.results, options)) {
           k = r.entity === last ? k + 1 : 1;
           last = r.entity;
-          yield [...src(s), r.entity, k, r.x ?? 0, ...r.values];
+          yield [...src(s), r.entity, k, r.x ?? 0, ...(critical ? [cutSide(r.side)] : []), ...r.values];
         }
       }
     },
@@ -277,35 +281,49 @@ function governing(sources: readonly WorkbookSource[]): WorkbookSource[] {
 }
 const asSource = (s: WorkbookSource): Source & { kind: string } => ({ id: s.id, name: s.name, results: s.results, kind: s.kind });
 
+function cutSide(side?: 'left' | 'right'): string {
+  return side === 'right' ? '+' : side === 'left' ? '−' : '';
+}
+
 function maximaSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['table', 'component', 'unit', 'extreme', 'value', 'entity', 'end', 'x [m]', 'source', 'sourceId', 'sourceName']];
+  const withSide = input.stations === 'critical';
+  if (withSide) rows[0]!.push('cut side');
   const sources = governing(input.sources).map(asSource);
   for (const kind of ['reactions', 'displacements', 'forces'] as const) {
     summaryRows(kind, sources, { ...opts, stations: input.stations }).forEach((r, c) => {
       for (const [extreme, e] of [['max', r.max], ['min', r.min]] as const) {
         if (!e) continue;
         const s = e.source as Source & { kind: string };
-        rows.push([kind, head(kind)[c]!.replace(/ \[.*$/, ''), UNITS[kind][c]!, extreme, e.value, e.entity, e.end ?? '', e.x ?? '', s.kind, s.id, safeText(s.name)]);
+        const row = [kind, head(kind)[c]!.replace(/ \[.*$/, ''), UNITS[kind][c]!, extreme, e.value, e.entity, e.end ?? '', e.x ?? '', s.kind, s.id, safeText(s.name)];
+        if (withSide) row.push(cutSide(e.side));
+        rows.push(row);
       }
     });
   }
-  if (input.shells && hasShells(input)) rows.push(...shellMaximaRows(input));
+  if (input.shells && hasShells(input)) {
+    for (const row of shellMaximaRows(input)) rows.push(withSide ? [...row, ''] : row);
+  }
   return { name: 'Maxima', rows };
 }
 
 function envelopeSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['table', 'entity', 'end', 'x [m]', 'component', 'unit', 'max', 'maxSourceId', 'maxSourceName', 'min', 'minSourceId', 'minSourceName']];
+  const withSide = input.stations === 'critical';
+  if (withSide) rows[0]!.push('cut side');
   const sources = governing(input.sources).map(asSource);
   for (const kind of ['reactions', 'displacements', 'forces'] as const) {
     // At the same stations as Maxima, so the two sheets read the same members the same way.
     for (const e of envelopeRows(kind, sources, { ...opts, stations: input.stations })) {
       head(kind).forEach((h, c) => {
         const mx = e.max[c]!, mn = e.min[c]!;
-        rows.push([kind, e.entity, e.end ?? '', e.x ?? '', h.replace(/ \[.*$/, ''), UNITS[kind][c]!, mx.value, mx.source.id, safeText(mx.source.name), mn.value, mn.source.id, safeText(mn.source.name)]);
+        rows.push([kind, e.entity, e.end ?? '', e.x ?? '', h.replace(/ \[.*$/, ''), UNITS[kind][c]!, mx.value, mx.source.id, safeText(mx.source.name), mn.value, mn.source.id, safeText(mn.source.name), ...(withSide ? [cutSide(e.side)] : [])]);
       });
     }
   }
-  if (input.shells && hasShells(input)) rows.push(...shellEnvelopeRows(governing(input.sources), input.sources));
+  if (input.shells && hasShells(input)) {
+    for (const row of shellEnvelopeRows(governing(input.sources), input.sources)) rows.push(withSide ? [...row, ''] : row);
+  }
   return { name: 'Envelope', rows };
 }
 
@@ -420,15 +438,16 @@ function deferred(name: string, columns: number, build: () => WorkbookSheet, cou
  */
 export function resultSheetParts(input: ResultSheetsInput, want: (name: string) => boolean = () => true): WorkbookPart[] {
   const shells = !!input.shells && hasShells(input);
+  const signed = { ...input, sources: input.sources.filter(s => s.kind !== 'magnitude') };
   const opts = { axes: workbookFrame(input.axes)?.choice ?? DEFAULT_AXES };
   const all: Array<[string, () => WorkbookPart | null]> = [
     ['Reactions', () => nodeSheet('Reactions', 'reactions', input.sources, opts)],
     ['Displacements', () => nodeSheet('Displacements', 'displacements', input.sources, opts)],
     ['EndForces', () => endForcesSheet(input.sources, opts)],
     ['Stations', () => stationsSheet(input.sources, input.stations, opts)],
-    ['Deflections', () => deflectionsSheet(input)],
-    ['Stresses', () => stressesSheet(input)],
-    ['Maxima', () => deferred('Maxima', 11, () => maximaSheet(input, opts), () => 3 * 6 * 2 + (shells ? SHELL_MAXIMA.length * 2 : 0))],
+    ['Deflections', () => deflectionsSheet(signed)],
+    ['Stresses', () => stressesSheet(signed)],
+    ['Maxima', () => deferred('Maxima', input.stations === 'critical' ? 12 : 11, () => maximaSheet(input, opts), () => 3 * 6 * 2 + (shells ? SHELL_MAXIMA.length * 2 : 0))],
     ['Envelope', () => deferred('Envelope', 12, () => envelopeSheet(input, opts), () => {
       const sources = governing(input.sources);
       const g = sources[0];

@@ -1,4 +1,6 @@
 import { expect, it } from 'vitest';
+import { polynomialValue, preparePolynomialSign, roundDiagramSum } from '../diagram-sum';
+import { memberDiagram } from '../member-diagram';
 import { computeElementDiagram } from '../diagrams';
 import { computeDiagram3D, criticalDiagramStations3D, type Diagram3DKind } from '../diagrams-3d';
 import type { ElementForces3D } from '../types-3d';
@@ -115,4 +117,44 @@ it('known wrong result: #2250 preserves an interval-local shear peak in both dim
   expect(criticalDiagramStations3D({
     ...spatial, distributedLoadsZ: [{ a: 0, b: length, qI: 1, qJ: -1 }],
   })).toContainEqual({ t: 0.5 });
+});
+
+it('known wrong result: #2581 reuses the cut interval polynomial across component and resultant extrema', () => {
+  const length = 4;
+  const curve = memberDiagram(length, -2, 0, [{ a: 0, b: length, qI: 2, qJ: 2 }], [
+    { a: 1, jump: 3 },
+  ]);
+  const first = curve.polynomial(0, 0.25);
+  const second = curve.polynomial(0.25, 1);
+  expect.soft(curve.polynomial(0, 0.25, 0, 1)).toBe(first);
+  expect.soft(curve.polynomial(0.25, 1, 1, length)).toBe(second);
+  expect.soft(curve.value({ t: 0.125 })).toBe(-1);
+  expect.soft(curve.value({ t: 0.5 })).toBe(5);
+  expect.soft(curve.polynomial(0.25, 1, 2, length)).not.toEqual(second);
+  expect.soft(curve.polynomial(0, 1)).not.toEqual(first);
+});
+
+it('classifies normalized root probes on both sides of cancellation and outside the fast range', () => {
+  const subnormal = Number.MIN_VALUE;
+  const polynomials = [
+    [[-0.125], [0.75], [-1, -0.5 / 2], [1]],
+    [[subnormal, -0.125], [0.75], [-0.75], [0.5]],
+    [[0, 0, -subnormal, 0, 0], [subnormal], [], []],
+    [[-1], [2], [], []],
+    [[-0.5], [1]],
+    [[-0.5], [], [], [], [1]],
+  ];
+  const nearSignBound = 2 ** -39;
+  const probes = [-1, 0, subnormal, 1, 2,
+    0.5 - nearSignBound - Number.EPSILON, 0.5 - nearSignBound, 0.5 - nearSignBound + Number.EPSILON,
+    0.5 - Number.EPSILON, 0.5, 0.5 + Number.EPSILON,
+    0.5 + nearSignBound - Number.EPSILON, 0.5 + nearSignBound, 0.5 + nearSignBound + Number.EPSILON,
+  ];
+  for (const p of polynomials) {
+    const sign = preparePolynomialSign(p);
+    for (const x of probes) {
+      const expected = Math.sign(roundDiagramSum(polynomialValue(p, x)));
+      expect.soft(sign(x)).toBe(expected);
+    }
+  }
 });

@@ -1,3 +1,7 @@
+import { bindMemberEnvelopeEnds, DIAGRAM_EXTREMA_UNAVAILABLE, unavailableDiagramExtrema } from './member-diagram';
+import { maxMemberForce, spatialForcePeaks } from './member-force-extrema';
+import { memberEndComponents2D } from './diagrams';
+import { memberEndComponents3D } from './diagrams-3d';
 import { resultComponents } from '../axes/result-components';
 /**
  * Basic Structural Calc-Book Report Generator
@@ -223,6 +227,7 @@ function buildReportMetadata(data: CalcReportData): string {
 
   const h: string[] = ['<div class="report-meta"><table>'];
   h.push(`<tr><th>${t('calcReport.reportType')}</th><td>${reportType}<div class="${typeNoteClass}">${typeNote}</div></td></tr>`);
+  if (data.is3D && data.results3D?.magnitude) basisNote = esc(t('figures.magnitudes'));
   h.push(`<tr><th>${t('calcReport.resultBasis')}</th><td>${basisLabel}<div class="meta-note">${basisNote}</div></td></tr>`);
   h.push('</table></div>');
   return h.join('\n');
@@ -406,9 +411,11 @@ function buildReactionsSection(data: CalcReportData, num = '3', figureHtml = '',
       h.push(`<tr><td>${r.nodeId}</td><td class="num">${F(fx)}</td><td class="num">${F(fy)}</td><td class="num">${F(fz)}</td><td class="num">${M(mx)}</td><td class="num">${M(my)}</td><td class="num">${M(mz)}</td></tr>`);
       sumFx += fx; sumFy += fy; sumFz += fz;
     }
-    h.push(`<tr style="font-weight:700;border-top:2px solid #333"><td>ΣF</td><td class="num">${F(sumFx)}</td><td class="num">${F(sumFy)}</td><td class="num">${F(sumFz)}</td><td colspan="3"></td></tr>`);
+    if (!data.results3D.magnitude) {
+      h.push(`<tr style="font-weight:700;border-top:2px solid #333"><td>ΣF</td><td class="num">${F(sumFx)}</td><td class="num">${F(sumFy)}</td><td class="num">${F(sumFz)}</td><td colspan="3"></td></tr>`);
+    }
     h.push('</table>');
-    h.push(buildReactionSumNote(data));
+    if (!data.results3D.magnitude) h.push(buildReactionSumNote(data));
   } else if (data.results2D) {
     const reactions = data.results2D.reactions;
     h.push(`<table><tr><th>${t('table.nodeLabel')}</th><th>${TWO_D_REACTION_LABELS.horizontal} (${uf})</th><th>${TWO_D_REACTION_LABELS.vertical} (${uf})</th><th>${TWO_D_REACTION_LABELS.moment} (${um})</th></tr>`);
@@ -509,46 +516,31 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
 
   if (data.is3D && data.results3D) {
     const forces = data.results3D.elementForces;
-    // Summary
-    let maxN = 0, maxVy = 0, maxVz = 0, maxMy = 0, maxMz = 0, maxMx = 0;
-    for (const ef of forces) {
-      maxN = Math.max(maxN, Math.abs(ef.nStart), Math.abs(ef.nEnd));
-      maxVy = Math.max(maxVy, Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
-      maxVz = Math.max(maxVz, Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-      maxMx = Math.max(maxMx, Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
-      maxMy = Math.max(maxMy, Math.abs(ef.myStart), Math.abs(ef.myEnd));
-      maxMz = Math.max(maxMz, Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-    }
-
-    h.push(`<h2>${num}.1 ${t('calcReport.forceSummary')}</h2>`);
+    const magnitude = data.results3D.magnitude !== undefined;
+    h.push(`<h2>${num}.1 ${t(magnitude ? 'calcReport.magnitudeForceSummary' : 'calcReport.forceSummary')}</h2>`);
     h.push(`<table><tr><th>${t('report.quantity')}</th><th>${t('calcReport.maxAbsValue')}</th><th>${t('report.unit')}</th></tr>`);
-    h.push(`<tr><td>${t('tooltip.diagAxial.title')}</td><td class="num">${F(maxN)}</td><td>${uf}</td></tr>`);
-    h.push(`<tr><td>${t('calcReport.shearY')}</td><td class="num">${F(maxVy)}</td><td>${uf}</td></tr>`);
-    h.push(`<tr><td>${t('calcReport.shearZ')}</td><td class="num">${F(maxVz)}</td><td>${uf}</td></tr>`);
-    h.push(`<tr><td>${t('calcReport.torsionMx')}</td><td class="num">${M(maxMx)}</td><td>${um}</td></tr>`);
-    h.push(`<tr><td>${t('calcReport.momentY')}</td><td class="num">${M(maxMy)}</td><td>${um}</td></tr>`);
-    h.push(`<tr><td>${t('calcReport.momentZ')}</td><td class="num">${M(maxMz)}</td><td>${um}</td></tr>`);
+    for (const { label, quantity, value } of spatialForcePeaks(data.results3D)) {
+      const cell = value === null ? esc(t(DIAGRAM_EXTREMA_UNAVAILABLE)) : U.q(value, quantity);
+      h.push(`<tr><td>${t(label)}</td><td class="num">${cell}</td><td>${U.u(quantity)}</td></tr>`);
+    }
     h.push('</table>');
 
-    // Per-element table
     h.push(`<h2>${num}.2 ${t('calcReport.endForces')}</h2>`);
     const condensed = forces.length > 40;
     h.push(`<table style="font-size:7.5pt"><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th><th>N (${uf})</th><th>Vy (${uf})</th><th>Vz (${uf})</th><th>Mx (${um})</th><th>My (${um})</th><th>Mz (${um})</th></tr>`);
     const showForces = condensed ? forces.slice(0, 30) : forces;
     for (const ef of showForces) {
-      h.push(`<tr><td rowspan="2">${ef.elementId}</td><td>I</td><td class="num">${F(ef.nStart)}</td><td class="num">${F(ef.vyStart)}</td><td class="num">${F(ef.vzStart)}</td><td class="num">${M(ef.mxStart)}</td><td class="num">${M(ef.myStart)}</td><td class="num">${M(ef.mzStart)}</td></tr>`);
-      h.push(`<tr><td>J</td><td class="num">${F(ef.nEnd)}</td><td class="num">${F(ef.vyEnd)}</td><td class="num">${F(ef.vzEnd)}</td><td class="num">${M(ef.mxEnd)}</td><td class="num">${M(ef.myEnd)}</td><td class="num">${M(ef.mzEnd)}</td></tr>`);
+      const [i, j] = memberEndComponents3D(ef);
+      h.push(`<tr><td rowspan="2">${ef.elementId}</td><td>I</td><td class="num">${F(i.n)}</td><td class="num">${F(i.vy)}</td><td class="num">${F(i.vz)}</td><td class="num">${M(i.mx)}</td><td class="num">${M(i.my)}</td><td class="num">${M(i.mz)}</td></tr>`);
+      h.push(`<tr><td>J</td><td class="num">${F(j.n)}</td><td class="num">${F(j.vy)}</td><td class="num">${F(j.vz)}</td><td class="num">${M(j.mx)}</td><td class="num">${M(j.my)}</td><td class="num">${M(j.mz)}</td></tr>`);
     }
     h.push('</table>');
     if (condensed) h.push(`<p class="table-note">${esc(tp('calcReport.showingForces', { n: forces.length }))}</p>`);
   } else if (data.results2D) {
     const forces = data.results2D.elementForces;
-    let maxN = 0, maxV = 0, maxM = 0;
-    for (const ef of forces) {
-      maxN = Math.max(maxN, Math.abs(ef.nStart), Math.abs(ef.nEnd));
-      maxV = Math.max(maxV, Math.abs(ef.vStart), Math.abs(ef.vEnd));
-      maxM = Math.max(maxM, Math.abs(ef.mStart), Math.abs(ef.mEnd));
-    }
+    const maxN = maxMemberForce(forces, 'axial');
+    const maxV = maxMemberForce(forces, 'shear');
+    const maxM = maxMemberForce(forces, 'moment');
 
     h.push(`<h2>${num}.1 ${t('calcReport.forceSummary')}</h2>`);
     h.push(`<table><tr><th>${t('report.quantity')}</th><th>${t('calcReport.maxAbsValue')}</th><th>${t('report.unit')}</th></tr>`);
@@ -560,8 +552,9 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
     h.push(`<h2>${num}.2 ${t('calcReport.endForces')}</h2>`);
     h.push(`<table><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th><th>N (${uf})</th><th>V (${uf})</th><th>M (${um})</th></tr>`);
     for (const ef of forces) {
-      h.push(`<tr><td rowspan="2">${ef.elementId}</td><td>I</td><td class="num">${F(ef.nStart)}</td><td class="num">${F(ef.vStart)}</td><td class="num">${M(ef.mStart)}</td></tr>`);
-      h.push(`<tr><td>J</td><td class="num">${F(ef.nEnd)}</td><td class="num">${F(ef.vEnd)}</td><td class="num">${M(ef.mEnd)}</td></tr>`);
+      const [i, j] = memberEndComponents2D(ef);
+      h.push(`<tr><td rowspan="2">${ef.elementId}</td><td>I</td><td class="num">${F(i.n)}</td><td class="num">${F(i.v)}</td><td class="num">${M(i.m)}</td></tr>`);
+      h.push(`<tr><td>J</td><td class="num">${F(j.n)}</td><td class="num">${F(j.v)}</td><td class="num">${M(j.m)}</td></tr>`);
     }
     h.push('</table>');
   }
@@ -573,8 +566,16 @@ function buildForcesSection(data: CalcReportData, num = '5'): string {
 // ─── Main generator ──────────────────────────────────────────────
 
 export function generateCalcReportHtml(data: CalcReportData): string {
+  bindMemberEnvelopeEnds(data.envelope2D);
+  bindMemberEnvelopeEnds(data.envelope3D);
   const c = data.content;
   const hasResults = !!(data.is3D ? data.results3D : data.results2D);
+  const forceKinds = (['moment', 'shear', 'axial'] as const).filter(k => c?.rows[k].table || c?.rows[k].diagram);
+  const readsForceTable = !c || forceKinds.some(k => c.rows[k].table);
+  if (readsForceTable && data.provenance.kind === 'envelope') {
+    const missing = data.is3D && data.results3D ? !data.envelope3D : data.results2D && !data.envelope2D;
+    if (missing) throw unavailableDiagramExtrema();
+  }
   const figures = new Map((data.figures ?? []).map((f) => [f.content, f]));
   // Figures are numbered as they appear, the model's first when it is drawn.
   const fig = figureCounter();
@@ -604,8 +605,7 @@ export function generateCalcReportHtml(data: CalcReportData): string {
     if (r.displacements.table || r.displacements.diagram) {
       add(t('report.displacements'), 'sec-displacements', (n) => buildDisplacementsSection(data, n, r.displacements.diagram ? fig.html(figures.get('deformed')) : '', r.displacements.table));
     }
-    const forces = (['moment', 'shear', 'axial'] as const).filter((k) => r[k].table || r[k].diagram);
-    if (forces.length) add(t('report.forces'), 'sec-forces', (n) => buildChosenForces(data, n, forces, fig));
+    if (forceKinds.length) add(t('report.forces'), 'sec-forces', (n) => buildChosenForces(data, n, forceKinds, fig));
   }
 
   const sections = parts.map((p, i) => ({ num: String(i + 1), title: p.title, anchor: p.anchor }));
@@ -653,7 +653,11 @@ function buildChosenForces(data: CalcReportData, num: string, kinds: Array<'mome
     const unit = k === 'moment' ? um : uf;
     const fmt = k === 'moment' ? M : F;
     const env = data.provenance.kind === 'envelope';
-    const len = (v: number) => U.q(v, 'length', 2);
+    const len = (v: number, atJump = false) => {
+      const label = U.q(v, 'length', 2);
+      const distance = toDisplay(v, 'length', data.unitSystem ?? 'SI');
+      return atJump && Number(label) !== distance ? String(distance) : label;
+    };
     if (data.is3D && data.results3D) h.push(forceTable3D(k, data.results3D, fmt, unit, len, U.u('length'), env ? data.envelope3D : undefined));
     else if (data.results2D) h.push(forceTable2D(k, data.results2D, fmt, unit, len, U.u('length'), env ? data.envelope2D : undefined));
   });

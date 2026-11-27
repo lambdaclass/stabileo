@@ -1,3 +1,4 @@
+import { envelopePlotPeakIndices } from '../engine/member-diagram';
 // Three.js rendering of 3D force/moment diagrams
 // Creates filled mesh polygons perpendicular to elements, showing diagram values
 // in the local Y or Z direction depending on the diagram kind.
@@ -117,7 +118,7 @@ export function createDiagramGroup3D(
   for (const ef of elementForces) {
     const diagram = computeDiagram3D(ef, kind);
     diagrams.set(ef.elementId, diagram);
-    globalMax = Math.max(globalMax, Math.abs(diagram.maxValue), Math.abs(diagram.minValue));
+    globalMax = Math.max(globalMax, Math.abs(diagram.maxAbsValue));
   }
   if (globalMax < 1e-10) return group;
 
@@ -249,21 +250,9 @@ export function createDiagramGroup3D(
       group.add(new THREE.Line(endLine, closeMat.clone()));
 
       // ── Max/min markers and labels ─────────────────────────────
-      // Find indices of max and min values
-      let maxIdx = 0;
-      let minIdx = 0;
-      let maxVal = -Infinity;
-      let minVal = Infinity;
-      for (let i = 0; i < diagram.points.length; i++) {
-        if (diagram.points[i].value > maxVal) {
-          maxVal = diagram.points[i].value;
-          maxIdx = i;
-        }
-        if (diagram.points[i].value < minVal) {
-          minVal = diagram.points[i].value;
-          minIdx = i;
-        }
-      }
+      const maxVal = diagram.maxValue, minVal = diagram.minValue;
+      const maxIdx = diagram.points.findIndex(p => p.value === maxVal);
+      const minIdx = diagram.points.findIndex(p => p.value === minVal);
 
       const sphereRadius = modelSize * 0.008;
       const spriteScale = modelSize * 0.04;
@@ -387,13 +376,17 @@ export function createEnvelopeDiagramGroup3D(
 
     const { perpVec, sign } = computeDiagramDisplayDirection(axes, perpDir, towardLocalAxes);
 
+    const length = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, (nJ.z ?? 0) - (nI.z ?? 0));
+    const peakIndices = envelopePlotPeakIndices(envElem, length);
     // Draw both positive and negative envelope curves
     for (const curveType of ['pos', 'neg'] as const) {
       const values = curveType === 'pos' ? envElem.posValues : envElem.negValues;
       const colors = curveType === 'pos' ? ENVELOPE_POS_COLOR : ENVELOPE_NEG_COLOR;
 
       // Check if this curve has any significant values
-      const maxAbs = Math.max(...values.map(Math.abs));
+      const extremeIdx = peakIndices[curveType];
+      const extremeVal = values[extremeIdx]!;
+      const maxAbs = Math.abs(extremeVal);
       if (maxAbs < globalMax * 0.001) continue;
 
       const positions: number[] = [];
@@ -464,16 +457,7 @@ export function createEnvelopeDiagramGroup3D(
 
         // Max value markers
         if (showValues) {
-          let extremeIdx = 0;
-          let extremeVal = values[0];
-          for (let i = 1; i < values.length; i++) {
-            if (Math.abs(values[i]) > Math.abs(extremeVal)) {
-              extremeVal = values[i];
-              extremeIdx = i;
-            }
-          }
-
-          if (Math.abs(extremeVal) > globalMax * 0.05) {
+          if (maxAbs > globalMax * 0.05) {
             const sphereRadius = modelSize * 0.008;
             const spriteScale = modelSize * 0.04;
             const sphereGeo = new THREE.SphereGeometry(sphereRadius, 12, 8);

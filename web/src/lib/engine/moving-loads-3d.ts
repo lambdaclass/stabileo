@@ -5,16 +5,6 @@ import type { StructuredDiagnostic } from './types';
  * Moving loads on a 3D model: a train of axles along a path of members, the envelope of every
  * member's forces over all positions.
  *
- * ── Why the app sweeps the positions itself ───────────────────────
- *
- * The engine has a 3D moving-load routine, and it takes each member's envelope from the forces
- * at its two ends. The largest moment under a moving axle is under the axle, inside the member,
- * so on a simply supported span modelled as one member it reports zero for a beam whose real
- * envelope is P·L/4. The 2D path met the same thing and reads its pointwise envelope instead
- * (`moving-loads.ts`). Here each position reuses a prepared 3D factorization and is read at the
- * member's critical stations (`station-forces.ts`), which include every point-load position, so
- * the maximum under each axle is read where it occurs.
- *
  * ── The loads ────────────────────────────────────────────────────
  *
  * Each axle weighs downward (−Z in the solver's frame, which is also the frame a flat model is
@@ -24,8 +14,7 @@ import type { StructuredDiagnostic } from './types';
 import { prepareLoadSession3D, movingSegmentRoundoff } from './wasm-solver';
 import { computeLocalAxes3D } from './local-axes-3d';
 import { localPointForce, memberPointForceRow3D } from './member-point-loads';
-import { evaluateDiagramAt } from './diagrams-3d';
-import { criticalForceStations, extractForcesAtStation } from './station-forces';
+import { evaluateDiagramAt, visitMemberCriticalOrdinates3D, type Diagram3DKind } from './diagrams-3d';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { LoadTrain } from './moving-loads';
 import { buildSolverInput3D, type ModelData } from './solver-service';
@@ -150,6 +139,11 @@ function blank(): Record<EnvelopeComponent, { max: Extreme; min: Extreme }> {
 }
 
 /** Fold one position's results into the envelope, at each member's critical stations. */
+const componentKinds: Record<EnvelopeComponent, Diagram3DKind> = {
+  n: 'axial', vy: 'shearY', vz: 'shearZ', my: 'momentY', mz: 'momentZ', torsion: 'torsion',
+};
+const componentDiagrams = ENVELOPE_COMPONENTS.map(component => componentKinds[component]);
+
 export function foldPosition(
   env: MovingEnvelope3D['elements'], results: AnalysisResults3D, position: number, faces?: FaceLoads, reuse = false,
 ): void {
@@ -163,10 +157,9 @@ export function foldPosition(
     let rec = env.get(ef.elementId);
     if (!rec) { rec = blank(); env.set(ef.elementId, rec); }
     if (!reuse) {
-      for (const t of criticalForceStations(ef)) {
-        const f = extractForcesAtStation(ef, t);
-        for (const c of ENVELOPE_COMPONENTS) include(rec[c], f[c], f.x);
-      }
+      visitMemberCriticalOrdinates3D(ef, componentDiagrams, (column, _t, value, x) => {
+        include(rec[ENVELOPE_COMPONENTS[column]], value, x);
+      });
     }
     if (loads) {
       for (const end of [0, 1] as const) {
@@ -254,25 +247,28 @@ export async function sweepMovingLoad3D(
         const wheelLine = opts.path2 ? half(p.train) : p.train;
         addTrain(sample, base, path, wheelLine, r);
         if (opts.path2) addTrain(sample, base, opts.path2, wheelLine, r);
+        const solve = (loads: SolverLoad3D[]) => {
+          const result = session.solve(loads);
+          const diagnostics = result.structuredDiagnostics ?? [];
+          if (diagnostics.some(d => d.code === 'known_issue' && d.severity === 'error')) {
+            throw new Error(JSON.stringify({ structuredDiagnostics: diagnostics }));
+          }
+          for (const d of diagnostics) {
+            const key = JSON.stringify(d);
+            if (!seen.has(key)) { seen.add(key); structuredDiagnostics.push(d); }
+          }
+          return result;
+        };
+        let exact: AnalysisResults3D | undefined;
         try {
-          const solve = (loads: SolverLoad3D[]) => {
-            const result = session.solve(loads);
-            const diagnostics = result.structuredDiagnostics ?? [];
-            if (diagnostics.some(d => d.code === 'known_issue' && d.severity === 'error')) {
-              throw new Error(JSON.stringify({ structuredDiagnostics: diagnostics }));
-            }
-            for (const d of diagnostics) {
-              const key = JSON.stringify(d);
-              if (!seen.has(key)) { seen.add(key); structuredDiagnostics.push(d); }
-            }
-            return result;
-          };
-          const exact = solve(sample.loads);
-          foldPosition(env, exact, position);
-          sample.foldLimits(exact, solve, (limit, faces, reuse) => foldPosition(env, limit, position, faces, reuse));
+          exact = solve(sample.loads);
         } catch (error) {
           if (isContainmentRefusal(error) || sample.hasJoints) throw error;
           failed++;
+        }
+        if (exact) {
+          foldPosition(env, exact, position);
+          sample.foldLimits(exact, solve, (limit, faces, reuse) => foldPosition(env, limit, position, faces, reuse));
         }
         done++;
         opts.onProgress?.(done, count);

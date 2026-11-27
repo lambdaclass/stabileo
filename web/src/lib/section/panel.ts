@@ -28,7 +28,8 @@ import type { TorsionProvenance } from './state';
 import type { ElementForces } from '../engine/types';
 import { analyzeSectionBending, type BendingResponse } from '../engine/wasm-solver';
 import { computeDiagramValueAt } from '../engine/diagrams';
-import { evaluateDiagramAt } from '../engine/diagrams-3d';
+import { requireConcurrentSectionForces } from '../engine/member-diagram';
+import { evaluateDiagramAt, memberEndSections3D } from '../engine/diagrams-3d';
 import type { ElementForces3D } from '../engine/types-3d';
 import { resolveDrawingGeometry, assertSameGeometry, type DrawingGeometry, type DrawingRefusal } from './drawing';
 
@@ -72,6 +73,7 @@ export function stationForces2D(
   ef: ElementForces,
   t: number,
 ): { n: number; my: number; mz: number; vy: number; vz: number; tx: number } {
+  requireConcurrentSectionForces(ef);
   return {
     n: computeDiagramValueAt('axial', t, ef),
     my: computeDiagramValueAt('moment', t, ef),
@@ -131,6 +133,7 @@ export function stationForces3D(
   },
   t: number,
 ): { n: number; my: number; mz: number; vy: number; vz: number; tx: number } {
+  requireConcurrentSectionForces(ef);
   const lerp = (a: number, b: number) => a + (b - a) * t;
   const opt = (a: number | undefined, b: number | undefined) =>
     a == null || b == null ? 0 : lerp(a, b);
@@ -149,6 +152,10 @@ export function stationForces3D(
       distributedLoadsY: ef.distributedLoadsY ?? [], pointLoadsY: ef.pointLoadsY ?? [],
       distributedLoadsZ: ef.distributedLoadsZ ?? [], pointLoadsZ: ef.pointLoadsZ ?? [],
     } as ElementForces3D;
+    if (t === 0 || t === 1) {
+      const { mx: tx, ...forces } = memberEndSections3D(full)[t];
+      return { ...forces, tx };
+    }
     return {
       n,
       my: evaluateDiagramAt(full, 'momentY', t),

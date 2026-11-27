@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { engineGuarded } from '../lib/store/engine-action';
   import { resultComponents } from '../lib/axes/result-components';
   import { displayUnits, fmtQ, fmtCoord, unitQ, toQ } from '../lib/store/display-units.svelte';
   import { certificateStore, formatBound } from '../lib/store/certificate.svelte';
@@ -28,8 +29,9 @@
   import { placementStore } from '../lib/store/placement.svelte';
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
-  import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
-  import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
+  import { forcePeakScale } from '../lib/engine/member-force-extrema';
+  import { computeDiagramValueAt, computeDisplacementAt, memberEndDisplay2D } from '../lib/engine/diagrams';
+  import { displayMemberMoment, DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { solverBendingForces2D } from '../lib/engine/transverse-sign-2d';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
   import { computeLocalAxes3D } from '../lib/engine/local-axes-3d';
@@ -638,12 +640,19 @@
     const colorMapOverrides = new Map<number, string>();
     // The value behind each member's colour, for its label when values are shown.
     let colorMapValues: { values: Map<number, number>; kind: string } | null = null;
+    let axial: ReadonlyMap<number, number> = new Map();
     if (resultsStore.results && dtNow() === 'axialColor') {
       // Axial color: blue = compression, red = tension, intensity by magnitude
       let globalMaxN = 0;
-      for (const ef of resultsStore.results.elementForces) {
-        const absN = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-        if (absN > globalMaxN) globalMaxN = absN;
+      try {
+        const scale = forcePeakScale(resultsStore.results.elementForces, 'axial', 'signed');
+        axial = scale.values;
+        globalMaxN = scale.max;
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+        if (exportFrame) throw error;
+        drawTooltip(12, 32, [diagramExtremaNotice()]);
+        globalMaxN = 0;
       }
       if (globalMaxN > 1e-10) {
         const axTheme = canvasTheme();
@@ -668,67 +677,62 @@
           const g = (i: number, base: number) => Math.round(rgb[i] * n + base * (1 - n));
           return `rgb(${g(0, 143)},${g(1, 163)},${g(2, 179)})`;
         };
-        for (const ef of resultsStore.results.elementForces) {
-          const avgN = (ef.nStart + ef.nEnd) / 2;
-          const intensity = Math.min(Math.abs(avgN) / globalMaxN, 1.0);
-          if (avgN > 0.001) {
-            colorMapOverrides.set(ef.elementId, mix(tensionRgb, intensity));
-          } else if (avgN < -0.001) {
-            colorMapOverrides.set(ef.elementId, mix(compressionRgb, intensity));
+        for (const [id, n] of axial) {
+          const intensity = Math.min(Math.abs(n) / globalMaxN, 1.0);
+          if (n > 0.001) {
+            colorMapOverrides.set(id, mix(tensionRgb, intensity));
+          } else if (n < -0.001) {
+            colorMapOverrides.set(id, mix(compressionRgb, intensity));
           } else {
-            colorMapOverrides.set(ef.elementId, axTheme.neutralMember);
+            colorMapOverrides.set(id, axTheme.neutralMember);
           }
         }
       }
     } else if (resultsStore.results && dtNow() === 'colorMap') {
       const kind = resultsStore.colorMapKind;
       let globalMax = 0;
-      const elemMaxes = new Map<number, number>();
+      let elemMaxes = new Map<number, number>();
 
-      if (kind === 'stressRatio' || kind === 'vonMises' || kind === 'sigmaMax' || kind === 'tauMax') {
-        for (const ef of resultsStore.results.elementForces) {
-          const elem = modelStore.elements.get(ef.elementId);
-          if (!elem) continue;
-          const sec = modelStore.sections.get(elem.sectionId);
-          const mat = modelStore.materials.get(elem.materialId);
-          /*
-           * `fy` is required by the RATIO alone — it is the denominator. Von
-           * Mises, the normal stress and the shear stress are absolute
-           * quantities that do not know the material's strength exists, and
-           * demanding it for them left every concrete member unpainted while
-           * the number was perfectly computable.
-           */
-          if (!sec || !mat) continue;
-          if (kind === 'stressRatio' && !mat.fy) continue;
-          const stress = computeElementStress(ef, sec, mat);
-          const val = kind === 'stressRatio' ? (stress.ratio ?? 0)
-            : kind === 'vonMises' ? Math.max(stress.vonMisesStart ?? 0, stress.vonMisesEnd ?? 0)
-            : kind === 'sigmaMax' ? Math.max(Math.abs(stress.sigmaStart ?? 0), Math.abs(stress.sigmaEnd ?? 0))
-            : Math.max(Math.abs(stress.tauStart ?? 0), Math.abs(stress.tauEnd ?? 0));
-          elemMaxes.set(ef.elementId, val);
-          if (kind !== 'stressRatio' && val > globalMax) globalMax = val;
-        }
-        if (kind === 'stressRatio') globalMax = 1.0; // fixed scale: 0% → 100%+ of fy
-      } else {
-        for (const ef of resultsStore.results.elementForces) {
-          /*
-           * A 2D frame has one bending axis and one shear, so the 3D names for
-           * them land on the same two quantities. Accepting both spellings
-           * matters because the quantity is chosen in a control shared with 3D:
-           * without this, switching a 2D moment diagram to a colour map fell
-           * through to the axial branch and painted N.
-           */
-          let val: number;
-          if (kind === 'moment' || kind === 'momentY' || kind === 'momentZ') {
-            val = Math.max(Math.abs(ef.mStart), Math.abs(ef.mEnd));
-          } else if (kind === 'shear' || kind === 'shearY' || kind === 'shearZ') {
-            val = Math.max(Math.abs(ef.vStart), Math.abs(ef.vEnd));
-          } else {
-            val = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
+      try {
+        if (kind === 'stressRatio' || kind === 'vonMises' || kind === 'sigmaMax' || kind === 'tauMax') {
+          for (const ef of resultsStore.results.elementForces) {
+            const elem = modelStore.elements.get(ef.elementId);
+            if (!elem) continue;
+            const sec = modelStore.sections.get(elem.sectionId);
+            const mat = modelStore.materials.get(elem.materialId);
+            /*
+             * `fy` is required by the RATIO alone — it is the denominator. Von
+             * Mises, the normal stress and the shear stress are absolute
+             * quantities that do not know the material's strength exists, and
+             * demanding it for them left every concrete member unpainted while
+             * the number was perfectly computable.
+             */
+            if (!sec || !mat) continue;
+            if (kind === 'stressRatio' && !mat.fy) continue;
+            const stress = computeElementStress(ef, sec, mat);
+            const val = kind === 'stressRatio' ? (stress.ratio ?? 0)
+              : kind === 'vonMises' ? Math.max(stress.vonMisesStart ?? 0, stress.vonMisesEnd ?? 0)
+              : kind === 'sigmaMax' ? Math.max(Math.abs(stress.sigmaStart ?? 0), Math.abs(stress.sigmaEnd ?? 0))
+              : Math.max(Math.abs(stress.tauStart ?? 0), Math.abs(stress.tauEnd ?? 0));
+            elemMaxes.set(ef.elementId, val);
+            if (kind !== 'stressRatio' && val > globalMax) globalMax = val;
           }
-          elemMaxes.set(ef.elementId, val);
-          if (val > globalMax) globalMax = val;
+          if (kind === 'stressRatio') globalMax = 1.0; // fixed scale: 0% → 100%+ of fy
+        } else {
+          const component = kind === 'moment' || kind === 'momentY' || kind === 'momentZ' ? 'moment'
+            : kind === 'shear' || kind === 'shearY' || kind === 'shearZ' ? 'shear' : 'axial';
+          const scale = forcePeakScale(resultsStore.results.elementForces, component);
+          globalMax = scale.max;
+          elemMaxes = scale.values;
         }
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+        elemMaxes.clear();
+        globalMax = 0;
+        diagramHover = null;
+        resultsStore.setColourScale(null);
+        if (exportFrame) throw error;
+        drawTooltip(12, 32, [diagramExtremaNotice()]);
       }
 
       /*
@@ -774,14 +778,10 @@
     if (!exportFrame) drawLocalAxes2D();
 
     // Draw axial value labels when axialColor mode is active
-    if (resultsStore.results && dtNow() === 'axialColor') {
-      for (const ef of resultsStore.results.elementForces) {
-        const avgN = (ef.nStart + ef.nEnd) / 2;
-        if (Math.abs(avgN) < 0.001) continue;
-        const sign = avgN > 0 ? '+' : '';
-        // High-contrast text: bright red for tension, bright cyan for compression
-        drawMemberValueLabel(ef.elementId, `${sign}${fixedQuantity(avgN, 'force', 1, uiStore.unitSystem)}`, avgN > 0 ? '#ff6b6b' : '#6bc5ff');
-      }
+    for (const [id, n] of axial) {
+      if (Math.abs(n) < 0.001) continue;
+      const sign = n > 0 ? '+' : '';
+      drawMemberValueLabel(id, `${sign}${fixedQuantity(n, 'force', 1, uiStore.unitSystem)}`, n > 0 ? '#ff6b6b' : '#6bc5ff');
     }
 
     /*
@@ -1602,7 +1602,7 @@
           const qty = diagramHover.qty !== undefined ? diagramHover.qty : (dt === 'moment' ? 'moment' : 'force');
           // Negate moment for display (internal: hogging=+, display: sagging=+)
           const isMomentHover = label === 'M' && (dt === 'moment' || dt === 'colorMap');
-          const displayVal = isMomentHover ? -diagramHover.value : diagramHover.value;
+          const displayVal = isMomentHover ? displayMemberMoment(diagramHover.value) : diagramHover.value;
           const text = qty === null ? (Number.isFinite(displayVal) ? `${(displayVal * 100).toFixed(0)} %` : '—') : `${fmtQ(displayVal, qty)} ${unitQ(qty)}`;
           const certKind = HOVER_DIAGRAM_KIND[label];
           drawTooltip(s.x + 12, s.y - 25, [
@@ -1643,9 +1643,10 @@
           if (resultsStore.results) {
             const f = resultsStore.getElementForces(hoverElem.id);
             if (f) {
-              lines.push(`M: ${fmtQ(f.mStart, 'moment')}/${fmtQ(f.mEnd, 'moment')} ${unitQ('moment')}`);
-              lines.push(`V: ${fmtQ(f.vStart, 'force')}/${fmtQ(f.vEnd, 'force')} ${unitQ('force')}`);
-              lines.push(`N: ${fmtQ(f.nStart, 'force')}/${fmtQ(f.nEnd, 'force')} ${unitQ('force')}`);
+              const [i, j] = memberEndDisplay2D(f);
+              lines.push(`M: ${fmtQ(i.m, 'moment')}/${fmtQ(j.m, 'moment')} ${unitQ('moment')}`);
+              lines.push(`V: ${fmtQ(i.v, 'force')}/${fmtQ(j.v, 'force')} ${unitQ('force')}`);
+              lines.push(`N: ${fmtQ(i.n, 'force')}/${fmtQ(j.n, 'force')} ${unitQ('force')}`);
             }
           }
           drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);
@@ -2594,8 +2595,10 @@
                   const elem = modelStore.elements.get(nearElem.id);
                   const sec = elem ? modelStore.sections.get(elem.sectionId) : undefined;
                   const mat = elem ? modelStore.materials.get(elem.materialId) : undefined;
-                  const st = sec && mat ? computeElementStress(ef, sec, mat) : null;
-                  value = !st ? NaN
+                  const stress = sec && mat ? engineGuarded(() => computeElementStress(ef, sec, mat)) : null;
+                  const st = stress?.value;
+                  value = stress?.error ? null
+                    : !st ? NaN
                     : cmKind === 'stressRatio' ? (st.ratio ?? NaN)
                     : cmKind === 'vonMises' ? Math.max(st.vonMisesStart ?? 0, st.vonMisesEnd ?? 0)
                     : cmKind === 'sigmaMax' ? Math.max(Math.abs(st.sigmaStart ?? 0), Math.abs(st.sigmaEnd ?? 0))

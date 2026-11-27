@@ -2,7 +2,10 @@
 // Creates per-vertex colored geometries that show stress/force variation along each member.
 
 import * as THREE from 'three';
-import { evaluateDiagramAt } from '../engine/diagrams-3d';
+import { prepareDiagramEvaluator3D, sampleMemberComponentMagnitudes3D, sampleMemberResultant3D } from '../engine/diagrams-3d';
+import { memberForceExtrema } from '../engine/member-force-extrema';
+import { boundMemberEnvelopeDiagram, boundSpatialEnvelope, memberEnvelopeOrdinates, memberSectionStation, requireConcurrentSectionForces, unavailableDiagramExtrema } from '../engine/member-diagram';
+import { envelopeSourcesByMember } from '../engine/result-query';
 import { computeSectionStress } from '../engine/section-stress-3d';
 import type { ElementForces3D } from '../engine/types-3d';
 import { heatmapColor } from './selection-helpers';
@@ -45,80 +48,67 @@ interface SectionProps {
   fy: number | null;
 }
 
-/**
- * Compute the heatmap value at a given t ∈ [0,1] along an element.
- * Returns the raw (unsigned) value for normalization.
- */
-function sampleValue(ef: ElementForces3D, variable: HeatmapVariable, t: number, sec: SectionProps): number {
-  switch (variable) {
-    case 'moment': {
-      // Intentional: max of both axes for color intensity, NOT axis assignment.
-      // This is an envelope metric for visualization, not a design check.
-      const my = Math.abs(evaluateDiagramAt(ef, 'momentY', t));
-      const mz = Math.abs(evaluateDiagramAt(ef, 'momentZ', t));
-      return Math.max(my, mz);
-    }
-    case 'shear': {
-      const vy = Math.abs(evaluateDiagramAt(ef, 'shearY', t));
-      const vz = Math.abs(evaluateDiagramAt(ef, 'shearZ', t));
-      return Math.sqrt(vy * vy + vz * vz);
-    }
-    case 'axial':
-      return Math.abs(evaluateDiagramAt(ef, 'axial', t));
-    // One axis at a time: the magnitude of that component, not an envelope of
-    // several. A peak is only useful if you know which axis it is about.
-    case 'momentY':
-    case 'momentZ':
-    case 'shearY':
-    case 'shearZ':
-    case 'torsion':
-      return Math.abs(evaluateDiagramAt(ef, variable, t));
-    /*
-     * The four measures come from one section-stress evaluation, so offering
-     * them costs nothing beyond naming them. Normal and shear separately are
-     * what answer "is this member governed by bending or by shear" — a
-     * question the combined Von Mises deliberately blurs.
-     */
-    case 'stressRatio':
-    case 'vonMises':
-    case 'sigmaMax':
-    case 'tauMax': {
-      const N = evaluateDiagramAt(ef, 'axial', t);
-      const Vy = evaluateDiagramAt(ef, 'shearY', t);
-      const Vz = evaluateDiagramAt(ef, 'shearZ', t);
-      const Mx = evaluateDiagramAt(ef, 'torsion', t);
-      const My = evaluateDiagramAt(ef, 'momentY', t);
-      const Mz = evaluateDiagramAt(ef, 'momentZ', t);
-      /*
-       * A null fy reaches the evaluation as the default only so the ABSOLUTE
-       * stresses still compute — they do not divide by anything. The ratio it
-       * then produces is fictitious, which is why the stressRatio painter
-       * skips a null-fy member upstream instead of sampling it.
-       */
-      const stress = computeSectionStress(N, Vy, Vz, Mx, My, Mz, sec.A, sec.Iz, sec.Iy, sec.h, sec.b, sec.fy ?? 355_000);
-      return variable === 'stressRatio' ? stress.ratio
-        : variable === 'vonMises' ? stress.vonMises
-        : variable === 'sigmaMax' ? stress.sigmaMax
-        : stress.tauMax;
-    }
-  }
+type HeatmapStation = { t: number; value: number };
+
+const heatmapStations = Array.from({ length: HEATMAP_SEGMENTS + 1 }, (_, index) => index / HEATMAP_SEGMENTS);
+
+function resultantSources(ef: ElementForces3D): readonly ElementForces3D[] {
+  const envelope = boundSpatialEnvelope(ef);
+  if (!envelope) return [ef];
+  const members = envelopeSourcesByMember(envelope);
+  if (!members) throw unavailableDiagramExtrema();
+  return members.map(source => {
+    const member = source.get(ef.elementId);
+    if (!member || member.length !== ef.length) throw unavailableDiagramExtrema();
+    return member;
+  });
 }
 
-/**
- * Sample values at all segment positions for an element.
- * Returns array of (HEATMAP_SEGMENTS + 1) values.
- */
-export function sampleElementValues(
-  ef: ElementForces3D,
-  variable: HeatmapVariable,
-  sec: SectionProps,
-): number[] {
-  const values: number[] = [];
-  for (let i = 0; i <= HEATMAP_SEGMENTS; i++) {
-    const t = i / HEATMAP_SEGMENTS;
-    values.push(sampleValue(ef, variable, t, sec));
+export function sampleElementValues(ef: ElementForces3D, variable: HeatmapVariable, sec: SectionProps) {
+  if (variable === 'stressRatio' || variable === 'vonMises' || variable === 'sigmaMax' || variable === 'tauMax') {
+    requireConcurrentSectionForces(ef);
+    const evaluate = (kind: Parameters<typeof prepareDiagramEvaluator3D>[1]) => prepareDiagramEvaluator3D(ef, kind);
+    const n = evaluate('axial'), vy = evaluate('shearY'), vz = evaluate('shearZ');
+    const mx = evaluate('torsion'), my = evaluate('momentY'), mz = evaluate('momentZ');
+    const stations = heatmapStations.map(t => {
+      const at = memberSectionStation({ t });
+      const stress = computeSectionStress(n(at), vy(at), vz(at), mx(at), my(at), mz(at), sec.A, sec.Iz, sec.Iy, sec.h, sec.b, sec.fy ?? 355_000);
+      const value = variable === 'stressRatio' ? stress.ratio : stress[variable];
+      return { t, value };
+    });
+    return { stations, peak: Math.max(...stations.map(p => p.value)) };
   }
-  return values;
+
+  if (variable === 'moment') {
+    return sampleMemberComponentMagnitudes3D(resultantSources(ef), ['momentY', 'momentZ'], heatmapStations);
+  }
+
+  if (variable === 'shear') {
+    const kinds = ['shearY', 'shearZ'] as const;
+    return sampleMemberResultant3D(resultantSources(ef), kinds, heatmapStations);
+  }
+
+  const extrema = memberForceExtrema(ef, variable);
+  if (extrema.kind === 'bounded') throw unavailableDiagramExtrema();
+  const peak = Math.abs(extrema.absolute.value);
+  const envelope = boundMemberEnvelopeDiagram(ef, variable);
+  if (envelope) {
+    const stations = memberEnvelopeOrdinates(envelope, ef.length).map(({ t, value }) => ({ t, value: Math.abs(value) }));
+    return { stations, peak };
+  }
+
+  const points = [extrema.min, extrema.max];
+  const read = prepareDiagramEvaluator3D(ef, variable);
+  const stations = [...new Set([...heatmapStations, ...points.map(p => p.t)])].sort((a, b) => a - b).flatMap(t => {
+    const value = (right: boolean) => {
+      const exact = points.find(p => p.t === t && (p.side === 'right' || !!p.right) === right);
+      return Math.abs(exact?.value ?? read({ t, right }));
+    };
+    if (t === 0 || t === 1) return [{ t, value: value(t === 0) }];
+    const before = value(false), after = value(true);
+    return before === after ? [{ t, value: before }] : [{ t, value: before }, { t, value: after }];
+  });
+  return { stations, peak };
 }
 
 /**
@@ -127,14 +117,14 @@ export function sampleElementValues(
  */
 export function createHeatmapCylinder(
   length: number,
-  values: number[],
+  stations: readonly HeatmapStation[],
   globalMax: number,
 ): THREE.Mesh {
   const geo = new THREE.CylinderGeometry(
     HEATMAP_RADIUS, HEATMAP_RADIUS,
     length,
     RADIAL_SEGMENTS,
-    HEATMAP_SEGMENTS,
+    stations.length - 1,
     true, // open ended — no caps needed
   );
 
@@ -143,17 +133,14 @@ export function createHeatmapCylinder(
   const colors = new Float32Array(vertexCount * 3);
   const tmpColor = new THREE.Color();
 
-  // CylinderGeometry (open) has (heightSegments+1) rings of (radialSegments+1) vertices.
-  // Rings go from bottom (-length/2) to top (+length/2), i.e. ring 0 = bottom = t=0
-  const ringsCount = HEATMAP_SEGMENTS + 1;
   const vertsPerRing = RADIAL_SEGMENTS + 1;
-
-  for (let ring = 0; ring < ringsCount; ring++) {
-    const norm = globalMax > 1e-10 ? values[ring] / globalMax : 0;
+  for (let ring = 0; ring < stations.length; ring++) {
+    const { t, value } = stations[stations.length - 1 - ring]!;
+    const norm = globalMax > 1e-10 ? value / globalMax : 0;
     tmpColor.setHex(heatmapColor(norm));
-
     for (let v = 0; v < vertsPerRing; v++) {
       const idx = ring * vertsPerRing + v;
+      posAttr.setY(idx, (t - 0.5) * length);
       colors[idx * 3] = tmpColor.r;
       colors[idx * 3 + 1] = tmpColor.g;
       colors[idx * 3 + 2] = tmpColor.b;

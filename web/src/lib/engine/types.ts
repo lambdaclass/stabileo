@@ -252,6 +252,7 @@ export interface ElementEnvelopeDiagram {
   posValues: number[];
   /** Valor máximo negativo en cada punto (≤ 0) */
   negValues: number[];
+  jumpCuts?: Array<{ index: number; distance: number }>;
 }
 
 /** Datos de envolvente para un tipo de diagrama */

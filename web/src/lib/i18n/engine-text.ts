@@ -215,6 +215,7 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
   ['interior member diagram extremum has no distinct normalized station', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['member diagram extrema cannot be evaluated at the requested station', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['non-finite member diagram polynomial', DIAGRAM_EXTREMA_UNAVAILABLE],
+  ['non-finite member diagram ordinate', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['non-finite moving load member diagram', DIAGRAM_EXTREMA_UNAVAILABLE],
   ['Repeated load case factors cancel to zero in this combination.', 'svc.engine.cancelledCombination'],
   ['Moving loads: axle position cannot be resolved at a path joint', 'svc.engine.unresolvedMovingAxle'],

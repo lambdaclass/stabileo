@@ -13,6 +13,9 @@
  *
  * Ig is the column's smaller inertia, which gives the smaller Pc and the larger δs.
  */
+import { memberEndForces3D } from '../diagrams-3d';
+import { requireConcurrentSectionForces } from '../member-diagram';
+import { memberCompression } from '../member-force-extrema';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import type { AnalysisResults3D } from '../types-3d';
 
@@ -48,7 +51,7 @@ export function storeyStability(input: {
   psi?: (columnId: number) => { psiA: number; psiB: number };
 }): StoreyStability[] {
   const key = (z: number) => Math.round(z * 1000);
-  const storeys = new Map<string, { zLo: number; zHi: number; cols: Array<{ id: number; lo: number; hi: number; lc: number; ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number]; Ig: number; Ec: number }> }>();
+  const storeys = new Map<string, { zLo: number; zHi: number; cols: Array<{ id: number; lo: number; hi: number; lc: number; lowerEnd: 0 | 1; ey: [number, number, number]; ez: [number, number, number]; Ig: number; Ec: number }> }>();
   for (const id of input.columns) {
     const e = input.elements.get(id);
     const a = e && input.nodes.get(e.nodeI), b = e && input.nodes.get(e.nodeJ);
@@ -60,7 +63,7 @@ export function storeyStability(input: {
     const s = input.sections.get(e.sectionId), m = input.materials.get(e.materialId);
     const k = `${key(lo.z ?? 0)}:${key(hi.z ?? 0)}`;
     const st = storeys.get(k) ?? { zLo: lo.z ?? 0, zHi: hi.z ?? 0, cols: [] };
-    st.cols.push({ id, lo: lo.id, hi: hi.id, lc, ex: ax.ex, ey: ax.ey, ez: ax.ez, Ig: s ? Math.min(s.iz, s.iy ?? s.iz) : 0, Ec: (m?.e ?? 0) * 1000 });
+    st.cols.push({ id, lo: lo.id, hi: hi.id, lc, lowerEnd: lo === a ? 0 : 1, ey: ax.ey, ez: ax.ez, Ig: s ? Math.min(s.iz, s.iy ?? s.iz) : 0, Ec: (m?.e ?? 0) * 1000 });
     storeys.set(k, st);
   }
 
@@ -74,10 +77,13 @@ export function storeyStability(input: {
       for (const c of st.cols) {
         const f = forces.get(c.id);
         if (!f) continue;
-        P += Math.max(0, -Math.min(f.nStart, f.nEnd));
-        // The column's shear as a global vector: Vy along local y, Vz along local z.
-        Vx += f.vyStart * c.ey[0] + f.vzStart * c.ez[0];
-        Vy += f.vyStart * c.ey[1] + f.vzStart * c.ez[1];
+        requireConcurrentSectionForces(f);
+        P += memberCompression(f);
+        const vy = memberEndForces3D(f, 'shearY')[c.lowerEnd];
+        const vz = memberEndForces3D(f, 'shearZ')[c.lowerEnd];
+        const orientation = c.lowerEnd === 0 ? 1 : -1;
+        Vx += orientation * (vy * c.ey[0] + vz * c.ez[0]);
+        Vy += orientation * (vy * c.ey[1] + vz * c.ez[1]);
         const u = disp.get(c.hi), l = disp.get(c.lo);
         if (u && l) { dx += u.ux - l.ux; dy += u.uy - l.uy; n++; }
         lc += c.lc;

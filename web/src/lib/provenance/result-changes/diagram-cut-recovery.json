@@ -1,0 +1,32 @@
+{
+  "id": "diagram-cut-recovery",
+  "date": "2026-11-25",
+  "prs": [2581],
+  "area": "analysis",
+  "when": { "all": ["members"], "any": ["memberLoads", "selfWeight", "movingLoads", "combinations", "magnitudeCombinations"] },
+  "quantities": ["diagrams", "envelope", "movingLoads", "beamStations"],
+  "title": {
+    "en": "Physical cuts and jump sides in member results",
+    "es": "Secciones físicas y lados de salto en resultados de barras",
+    "pt": "Seções físicas e lados de salto nos resultados das barras",
+    "de": "Physische Schnitte und Sprungseiten in Stabergebnissen",
+    "fr": "Sections physiques et côtés des sauts dans les résultats de barres",
+    "tr": "Eleman sonuçlarında fiziksel kesitler ve sıçrama tarafları",
+    "zh": "杆件结果中的物理截面与跳变侧",
+    "hu": "Fizikai metszetek és ugrási oldalak a rúderedményekben"
+  },
+  "explanation": {
+    "en": "Member diagrams retain cancelling line-load contributions and refuse ambiguous cuts. Critical summaries label the side of a jump. Rerun affected analyses and regenerate member-extrema reports.",
+    "es": "Los diagramas conservan las contribuciones de cargas lineales que se cancelan y rechazan secciones ambiguas. Los resúmenes críticos indican el lado del salto. Repita los análisis afectados y vuelva a generar los informes de extremos de barras.",
+    "pt": "Os diagramas preservam as contribuições de cargas lineares que se cancelam e recusam seções ambíguas. Os resumos críticos indicam o lado do salto. Refaça as análises afetadas e gere novamente os relatórios de extremos das barras.",
+    "de": "Stabdiagramme behalten Beiträge sich aufhebender Linienlasten bei und lehnen mehrdeutige Schnitte ab. Extremwertübersichten kennzeichnen die Sprungseite. Wiederholen Sie betroffene Berechnungen und erstellen Sie die Berichte zu Stabextremwerten neu.",
+    "fr": "Les diagrammes conservent les contributions des charges linéaires qui se compensent et refusent les sections ambiguës. Les synthèses d’extrema indiquent le côté du saut. Relancez les analyses concernées et régénérez les rapports d’extrema de barres.",
+    "tr": "Eleman diyagramları birbirini götüren çizgisel yük katkılarını korur ve belirsiz kesitleri reddeder. Kritik özetler sıçramanın tarafını belirtir. Etkilenen analizleri yeniden çalıştırın ve eleman uç değer raporlarını yeniden oluşturun.",
+    "zh": "杆件内力图保留相互抵消的线荷载贡献，并拒绝有歧义的截面。极值汇总标注跳变侧。请重新运行受影响的分析并重新生成杆件极值报告。",
+    "hu": "A rúddiagramok megőrzik az egymást kioltó vonalterhek hozzájárulásait, és elutasítják a kétértelmű metszeteket. A szélsőérték-összesítések jelölik az ugrás oldalát. Futtassa újra az érintett elemzéseket, és készítse el újra a rudak szélsőértékeiről szóló jelentéseket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-diagram-cut-recovery.md",
+    "heading": "Physical cuts and jump sides in member results"
+  }
+}

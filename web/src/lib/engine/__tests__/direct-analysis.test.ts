@@ -343,3 +343,34 @@ it('#2292 direct analysis scales a load once by its net case factor', async () =
     }
   }
 });
+
+it('known wrong result: #2581 direct analysis reduces stiffness when compression peaks between zero ends', async () => {
+  const length = 4;
+  const pns = 150;
+  const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(length, 0, 0);
+  const e = modelStore.addElement(i, j, 'frame');
+  modelStore.addSupport(i, 'fixed3d');
+  modelStore.addSupport(j, 'custom3d', undefined, { dofRestraints: { tx: false, ty: true, tz: true, rx: true, ry: false, rz: false } });
+  const area = 0.0015;
+  const mat = modelStore.addMaterial({ name: 'Steel', e: 200000, nu: 0.3, rho: 78, fy: pns / (1000 * area) });
+  const sec = modelStore.addSection({ name: 'Test section', a: area, iy: 0.001, iz: 0.001, j: 0.001 });
+  modelStore.updateElementSection(e, sec);
+  modelStore.updateElementMaterial(e, mat);
+  const cases = modelStore.model.loadCases;
+  const q = 4 * 100 / length;
+  modelStore.addDistributedLoad3D(e, 0, 0, 0, 0, undefined, undefined, cases[0]!.id, { qXI: q, qXJ: -q });
+  const worker = workerPDelta(async (wire, maxIter, tol) =>
+    finishPDelta3D(JSON.parse(solve_pdelta_3d(JSON.stringify(wire), maxIter, tol)), wire as Parameters<typeof finishPDelta3D>[1]));
+  const combinations = [0.75, 1].map((factor, id) => ({
+    id: id + 1, name: String(factor), factors: [{ caseId: cases[0]!.id, factor }],
+  }));
+  for (const run of [mainThreadPDelta, worker]) {
+    const answer = await runDirectAnalysis(data(), cases, combinations, { includeSelfWeight: false, run });
+    if (typeof answer === 'string') throw new Error(answer);
+    expect.soft(answer.info.get(1)?.tauB.has(e)).toBe(false);
+    expect.soft(answer.info.get(2)?.tauB.get(e) ?? 1).toBeCloseTo(4 * (100 / pns) * (1 - 100 / pns), 10);
+    const result = answer.perCombo.get(2)?.elementForces[0];
+    expect(result?.nStart).toBeCloseTo(0, 10);
+    expect(result?.nEnd).toBeCloseTo(0, 10);
+  }
+});

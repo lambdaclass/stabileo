@@ -145,7 +145,13 @@ describe('moving loads', () => {
   it('shear envelopes to the axle weight at the supports', () => {
     const env = solveMovingLoads(solverBeam(10), { train: single, step: 0.25 }) as MovingLoadEnvelope;
     const e = env.elements.get(1)!;
-    expect(Math.max(Math.abs(e.vMaxPos), Math.abs(e.vMaxNeg))).toBeCloseTo(100, 0);
+    const weight = single.axles[0]!.weight;
+    for (const endpoint of [env.positions[0]!, env.positions[env.positions.length - 1]!]) {
+      expect(Math.max(...endpoint.results.reactions.map(r => Math.abs(r.rz)))).toBeCloseTo(weight, 0);
+      const forces = endpoint.results.elementForces[0]!;
+      expect(Math.max(Math.abs(forces.vStart), Math.abs(forces.vEnd))).toBe(0);
+    }
+    expect(Math.max(Math.abs(e.vMaxPos), Math.abs(e.vMaxNeg))).toBeCloseTo(weight, 0);
   });
 
   it('a heavier train envelopes proportionally', () => {

@@ -10,9 +10,11 @@
 import { t, tp } from '../../i18n';
 import type { KinematicReport } from '../kinematic-report';
 import type { AnalysisResults, FullEnvelope } from '../types';
-import type { AnalysisResults3D, ElementForces3D, FullEnvelope3D } from '../types-3d';
-import { computeDiagramValueAt } from '../diagrams';
-import { evaluateDiagramAt, type Diagram3DKind } from '../diagrams-3d';
+import type { AnalysisResults3D, FullEnvelope3D } from '../types-3d';
+import { memberEndForces2D } from '../diagrams';
+import { memberEndForces3D, type Diagram3DKind } from '../diagrams-3d';
+import { envelopeDiagramEndValues, envelopeForceExtrema, unavailableDiagramExtrema, type DiagramOrdinate } from '../member-diagram';
+import { memberForceExtrema } from '../member-force-extrema';
 import type { FigureContent } from '../../export/view-figure';
 
 /** A result the reader can have as a table, a diagram, or both. */
@@ -159,93 +161,12 @@ export function kinematicsSectionHtml(num: string, k: KinematicReport | null | u
 type Fmt = (v: number) => string;
 
 /** The largest value in magnitude along a member, and where it is (x from end I). */
-export interface Extreme { value: number; x: number }
+export interface Extreme { value: number; x: number; side?: DiagramOrdinate['side'] }
 
-/**
- * The largest value of a diagram along a member: at its ends, at each side of every point where
- * the loading changes (`breaks`), and where the diagram turns between them.
- *
- * Between two breaks a diagram is a polynomial of at most the third degree (a moment under a
- * linear load), so it turns where a cubic through four points inside the stretch does: that is
- * where the shear is zero for a moment, and where the load is zero for a shear. The values are
- * then read from the diagram itself there. Reading 41 even samples instead put the largest
- * moment of a triangular load on a 6 m span at 3.45 (L/√3 = 3.46), and the one of a load and a
- * point load 0.01 short and 3 cm off. The samples stay, for a diagram that is no polynomial (a
- * combination by SRSS).
- */
-export function extremeAlong(at: (x: number) => number, L: number, breaks: readonly number[]): Extreme {
-  const xs: number[] = Array.from({ length: 41 }, (_, i) => (i / 40) * L);
-  const tol = 1e-9 * Math.max(L, 1);
-  const cuts = [0, L, ...breaks.filter((b) => Number.isFinite(b)).map((b) => Math.min(L, Math.max(0, b)))].sort((a, b) => a - b)
-    .filter((b, i, all) => i === 0 || b - all[i - 1]! > tol);
-  const eps = 1e-7 * Math.max(L, 1);
-  for (let i = 0; i + 1 < cuts.length; i++) {
-    const x0 = cuts[i]!, x1 = cuts[i + 1]!, h = x1 - x0;
-    if (h <= 2 * eps) continue;
-    // Each side of a break: a point load steps the shear there.
-    xs.push(x0 + eps, x1 - eps);
-    // p(u) through u = 0..3 at x0 + (u + ½)·h/4, by forward differences; p'(u) = 0 where it turns.
-    const f = [0, 1, 2, 3].map((k) => at(x0 + ((k + 0.5) / 4) * h));
-    const d1 = f[1]! - f[0]!, d2 = f[2]! - 2 * f[1]! + f[0]!, d3 = f[3]! - 3 * f[2]! + 3 * f[1]! - f[0]!;
-    const a1 = d1 - d2 / 2 + d3 / 3, a2 = d2 / 2 - d3 / 2, a3 = d3 / 6;
-    for (const u of quadraticRoots(3 * a3, 2 * a2, a1)) {
-      if (u > -0.5 && u < 3.5) xs.push(x0 + ((u + 0.5) / 4) * h);
-    }
-  }
-  xs.sort((a, b) => a - b);
-  let best: Extreme = { value: at(0), x: 0 };
-  for (const x of xs) {
-    const v = at(x);
-    // Beyond round-off only: the first place along the member keeps a tie.
-    if (Math.abs(v) > Math.abs(best.value) * (1 + 1e-9) + 1e-12) best = { value: v, x };
-  }
-  return best;
-}
+type LengthFmt = (v: number, atJump?: boolean) => string;
 
-/** The real roots of A·u² + B·u + C, as a polynomial that may be of a lower degree. */
-function quadraticRoots(A: number, B: number, C: number): number[] {
-  const scale = Math.max(Math.abs(A), Math.abs(B), Math.abs(C));
-  if (scale === 0) return [];
-  if (Math.abs(A) <= 1e-9 * scale) return Math.abs(B) <= 1e-9 * scale ? [] : [-C / B];
-  const disc = B * B - 4 * A * C;
-  if (disc < 0) return [];
-  const q = -0.5 * (B + Math.sign(B || 1) * Math.sqrt(disc));
-  return q === 0 ? [0] : [q / A, C / q];
-}
-
-/** Where the loading of a 2D member changes: its point loads and the ends of its span loads. */
-function breaks2D(ef: AnalysisResults['elementForces'][number]): number[] {
-  return [...(ef.pointLoads ?? []).map((p) => p.a), ...(ef.distributedLoads ?? []).flatMap((d) => [d.a, d.b])];
-}
-
-/** The same for a 3D member, its variable-section pieces and the cases of an SRSS combination. */
-function breaks3D(ef: ElementForces3D, offset = 0): number[] {
-  const own = [
-    ...(ef.pointLoadsY ?? []), ...(ef.pointLoadsZ ?? []),
-  ].map((p) => p.a + offset);
-  const spans = [...(ef.distributedLoadsY ?? []), ...(ef.distributedLoadsZ ?? []), ...(ef.distributedLoadsX ?? [])]
-    .flatMap((d) => [d.a + offset, d.b + offset]);
-  const pieces = (ef.pieces ?? []).flatMap((p) => [p.x0 + offset, p.x1 + offset, ...breaks3D(p.forces, p.x0 + offset)]);
-  const parts = (ef.combined?.parts ?? []).flatMap((p) => breaks3D(p, offset));
-  return [...own, ...spans, ...pieces, ...parts];
-}
-
-/**
- * The envelope's value at each of its stations: the larger in magnitude of the most positive and
- * the most negative over the combinations.
- */
-function envelopeValues(d: { tPositions: number[]; posValues: number[]; negValues: number[] }): Array<{ t: number; v: number }> {
-  return d.tPositions.map((t, j) => {
-    const p = d.posValues[j] ?? 0, n = d.negValues[j] ?? 0;
-    return { t, v: Math.abs(n) > Math.abs(p) ? n : p };
-  });
-}
-
-/** The largest of an envelope along its member: the first station where it is reached. */
-function envelopeExtreme(vals: Array<{ t: number; v: number }>, L: number): Extreme {
-  let best: Extreme = { value: 0, x: 0 };
-  for (const { t, v } of vals) if (Math.abs(v) > Math.abs(best.value) * (1 + 1e-9) + 1e-12) best = { value: v, x: t * L };
-  return best;
+function cutLabel({ x, side }: Extreme, format: LengthFmt): string {
+  return format(x, side !== undefined) + (side === 'left' ? '⁻' : side === 'right' ? '⁺' : '');
 }
 
 /** Under the table of an envelope: what its values are, and that one row mixes combinations. */
@@ -265,33 +186,34 @@ function envelopeNote(): string {
  * own diagram gives, station by station.
  */
 export function forceTable2D(
-  kind: 'moment' | 'shear' | 'axial', r: AnalysisResults, F: Fmt, unit: string, lenFmt: Fmt, lenUnit: string,
+  kind: 'moment' | 'shear' | 'axial', r: AnalysisResults, F: Fmt, unit: string, lenFmt: LengthFmt, lenUnit: string,
   envelope?: FullEnvelope,
 ): string {
   const sym = kind === 'moment' ? 'M' : kind === 'shear' ? 'V' : 'N';
   const sign = kind === 'moment' ? -1 : 1;
   const h: string[] = [`<table><tr><th>${t('table.elemLabel')}</th><th>${sym}<sub>I</sub> (${unit})</th><th>${sym}<sub>J</sub> (${unit})</th><th>${esc(t('calcReport.maxAbs'))} (${unit})</th><th>x (${lenUnit})</th></tr>`];
-  const env = envelope ? new Map(envelope[kind].elements.map((e) => [e.elementId, e])) : null;
+  const env = envelope ? new Map(envelope[kind].elements.map(e => [e.elementId, e])) : null;
+  const lengths = new Map(envelope?.maxAbsResults.elementForces.map(e => [e.elementId, e.length]));
   for (const ef of r.elementForces) {
-    let vI: number, vJ: number, best: Extreme;
-    if (env) {
-      const e = env.get(ef.elementId);
-      if (!e?.tPositions.length) { h.push(`<tr><td>${ef.elementId}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`); continue; }
-      const vals = envelopeValues(e).map(({ t: u, v }) => ({ t: u, v: sign * v }));
-      vI = vals[0]!.v; vJ = vals[vals.length - 1]!.v; best = envelopeExtreme(vals, ef.length);
-    } else {
-      const at = (x: number) => sign * computeDiagramValueAt(kind, x / ef.length, ef);
-      vI = at(0); vJ = at(ef.length); best = extremeAlong(at, ef.length, breaks2D(ef));
+    const curve = env?.get(ef.elementId);
+    if (env && !curve?.tPositions.length) {
+      h.push(`<tr><td>${ef.elementId}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>`);
+      continue;
     }
-    h.push(`<tr><td>${ef.elementId}</td><td class="num">${F(vI)}</td><td class="num">${F(vJ)}</td><td class="num">${F(best.value)}</td><td class="num">${lenFmt(best.x)}</td></tr>`);
+    const length = lengths.get(ef.elementId) ?? NaN;
+    const extrema = curve ? envelopeForceExtrema(curve, length) : memberForceExtrema(ef, kind);
+    const [vI, vJ] = curve ? envelopeDiagramEndValues(curve, length) : memberEndForces2D(ef, kind);
+    if (extrema.kind === 'bounded') throw unavailableDiagramExtrema();
+    const { absolute } = extrema;
+    const best = { ...absolute, value: sign * absolute.value, side: absolute.t > 0 && absolute.t < 1 ? absolute.side : undefined };
+    h.push(`<tr><td>${ef.elementId}</td><td class="num">${F(sign * vI)}</td><td class="num">${F(sign * vJ)}</td><td class="num">${F(best.value)}</td><td class="num">${cutLabel(best, lenFmt)}</td></tr>`);
   }
   h.push('</table>');
   if (env) h.push(envelopeNote());
   return h.join('\n');
 }
 
-type Ef3 = AnalysisResults3D['elementForces'][number];
-type Col3 = [string, Diagram3DKind, (e: Ef3, end: 'I' | 'J') => number];
+type Col3 = [string, Diagram3DKind];
 
 /**
  * A 3D internal force along each member, its components side by side: the value at each end,
@@ -303,30 +225,36 @@ type Col3 = [string, Diagram3DKind, (e: Ef3, end: 'I' | 'J') => number];
  * from the envelope diagram, for the reason `forceTable2D` gives.
  */
 export function forceTable3D(
-  kind: 'moment' | 'shear' | 'axial', r: AnalysisResults3D, F: Fmt, unit: string, lenFmt: Fmt, lenUnit: string,
+  kind: 'moment' | 'shear' | 'axial', r: AnalysisResults3D, F: Fmt, unit: string, lenFmt: LengthFmt, lenUnit: string,
   envelope?: FullEnvelope3D,
 ): string {
-  const cols: Col3[] =
-    kind === 'moment'
-      ? [['My', 'momentY', (e, s) => (s === 'I' ? e.myStart : e.myEnd)], ['Mz', 'momentZ', (e, s) => (s === 'I' ? e.mzStart : e.mzEnd)], ['Mx', 'torsion', (e, s) => (s === 'I' ? e.mxStart : e.mxEnd)]]
-      : kind === 'shear'
-        ? [['Vy', 'shearY', (e, s) => (s === 'I' ? e.vyStart : e.vyEnd)], ['Vz', 'shearZ', (e, s) => (s === 'I' ? e.vzStart : e.vzEnd)]]
-        : [['N', 'axial', (e, s) => (s === 'I' ? e.nStart : e.nEnd)]];
+  const cols: Col3[] = kind === 'moment' ? [['My', 'momentY'], ['Mz', 'momentZ'], ['Mx', 'torsion']]
+    : kind === 'shear' ? [['Vy', 'shearY'], ['Vz', 'shearZ']] : [['N', 'axial']];
+  const lengths = new Map(envelope?.maxAbsResults3D.elementForces.map(e => [e.elementId, e.length]));
   const envOf = new Map(cols.map(([, k]) => [k, envelope ? new Map(envelope[k].elements.map((e) => [e.elementId, e])) : null]));
   const h: string[] = [`<table><tr><th>${t('table.elemLabel')}</th><th>${t('tables.end')}</th>${cols.map(([c]) => `<th>${c} (${unit})</th>`).join('')}</tr>`];
   for (const ef of r.elementForces) {
-    for (const end of ['I', 'J'] as const) {
-      h.push(`<tr>${end === 'I' ? `<td rowspan="3">${ef.elementId}</td>` : ''}<td>${end}</td>${cols.map(([, , get]) => `<td class="num">${F(get(ef, end))}</td>`).join('')}</tr>`);
-    }
-    const largest = cols.map(([, k]) => {
+    const results = cols.map(([, k]) => {
       const env = envOf.get(k);
-      if (env) {
-        const e = env.get(ef.elementId);
-        return e?.tPositions.length ? envelopeExtreme(envelopeValues(e), ef.length) : null;
-      }
-      return extremeAlong((x) => evaluateDiagramAt(ef, k, x / ef.length), ef.length, breaks3D(ef));
+      const curve = env?.get(ef.elementId);
+      if (env && !curve?.tPositions.length) return null;
+      const length = lengths.get(ef.elementId) ?? NaN;
+      const extrema = curve ? envelopeForceExtrema(curve, length) : memberForceExtrema(ef, k);
+      const [startValue, endValue] = curve ? envelopeDiagramEndValues(curve, length) : memberEndForces3D(ef, k);
+      if (extrema.kind === 'bounded') return { startValue, endValue, best: { value: extrema.bound, x: undefined, side: undefined } };
+      const { absolute } = extrema;
+      const best = { ...absolute, side: absolute.t > 0 && absolute.t < 1 ? absolute.side : undefined };
+      return { startValue, endValue, best };
     });
-    h.push(`<tr><td>${esc(t('calcReport.maxAbs'))}</td>${largest.map((b) => `<td class="num">${b ? `${F(b.value)} (x = ${lenFmt(b.x)} ${lenUnit})` : '—'}</td>`).join('')}</tr>`);
+    for (const [end, key] of [['I', 'startValue'], ['J', 'endValue']] as const) {
+      const cells = results.map(result => `<td class="num">${result ? F(result[key]) : '—'}</td>`).join('');
+      h.push(`<tr>${end === 'I' ? `<td rowspan="3">${ef.elementId}</td>` : ''}<td>${end}</td>${cells}</tr>`);
+    }
+    const largest = results.map(result => result?.best);
+    h.push(`<tr><td>${esc(t('calcReport.maxAbs'))}</td>${largest.map((b) => {
+      const value = !b ? '—' : b.x === undefined ? `${esc(t('figures.diagramMagnitudeBound'))} ${F(b.value)}` : `${F(b.value)} (x = ${cutLabel({ ...b, x: b.x }, lenFmt)} ${lenUnit})`;
+      return `<td class="num">${value}</td>`;
+    }).join('')}</tr>`);
   }
   h.push('</table>');
   if (envelope) h.push(envelopeNote());

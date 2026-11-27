@@ -27,9 +27,9 @@
    */
   import { t } from '../lib/i18n';
   import { engineStatus } from '../lib/store/engine-status.svelte';
-  import { isEngineUnavailable } from '../lib/engine/engine-unavailable';
+  import { engineFailureMessage, isEngineUnavailable } from '../lib/engine/engine-unavailable';
   import { engineGuarded } from '../lib/store/engine-action';
-  import { teAll } from '../lib/i18n/engine-text';
+  import { te, teAll } from '../lib/i18n/engine-text';
   import { solveFlex, type FlexInput, type FlexCase } from '../lib/engine/codes/argentina/cirsoc-flex';
   import { sheetRows, sectionNumber, type Sec } from './flex/sheet-rows';
   import SectionDrawing from './SectionDrawing.svelte';
@@ -385,14 +385,19 @@
     if (!q) return;
 
     const is3D = uiStore.is3DWorkspace;
-    const ef = is3D
-      ? resultsStore.getElementForces3D(q.elementId)
-      : resultsStore.getElementForces(q.elementId);
-    if (!ef) { pickNote = t('flex.pick.noForces'); stopPicking(); return; }
-
-    const f = is3D
-      ? stationForces3D(ef as never, q.t)
-      : stationForces2D(ef as never, q.t);
+    const planar = is3D ? undefined : resultsStore.getElementForces(q.elementId);
+    const spatial = is3D ? resultsStore.getElementForces3D(q.elementId) : undefined;
+    let f;
+    try {
+      f = spatial ? stationForces3D(spatial, q.t) : planar ? stationForces2D(planar, q.t) : undefined;
+    } catch (error) {
+      const refusal = engineFailureMessage(error);
+      if (!refusal) throw error;
+      pickNote = te(refusal);
+      stopPicking();
+      return;
+    }
+    if (!f) { pickNote = t('flex.pick.noForces'); stopPicking(); return; }
 
     /*
      * The sign flip and the per-Case restraint both live in

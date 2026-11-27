@@ -1,0 +1,35 @@
+{
+  "id": "spatial-geometry-and-abs-bounds",
+  "date": "2026-11-26",
+  "prs": [2581],
+  "area": "analysis",
+  "when": {
+    "all": ["space3D", "members"],
+    "any": ["memberLoads", "combinations"]
+  },
+  "quantities": ["diagrams", "envelope"],
+  "title": {
+    "en": "Spatial diagram geometry and nested ABS bounds",
+    "es": "Geometría de diagramas espaciales y cotas de ABS anidadas",
+    "pt": "Geometria de diagramas espaciais e limites de ABS aninhados",
+    "de": "Geometrie räumlicher Stabdiagramme und Schranken verschachtelter ABS-Kombinationen",
+    "fr": "Géométrie des diagrammes spatiaux et bornes des combinaisons ABS imbriquées",
+    "tr": "Uzaysal diyagram geometrisi ve iç içe ABS sınırları",
+    "zh": "空间内力图的几何与嵌套 ABS 组合上界",
+    "hu": "Térbeli rúdábrák geometriája és a beágyazott ABS-kombinációk korlátai"
+  },
+  "explanation": {
+    "en": "Prepared spatial diagrams keep their original member and piece geometry. Nested ABS combinations report a conservative bound for their extrema.",
+    "es": "Los diagramas espaciales preparados conservan la geometría original de la barra y sus tramos. Las combinaciones ABS anidadas informan de una cota conservadora para sus extremos.",
+    "pt": "Os diagramas espaciais preparados preservam a geometria original da barra e dos seus trechos. As combinações ABS aninhadas apresentam um limite conservador para os seus extremos.",
+    "de": "Vorbereitete räumliche Stabdiagramme behalten die ursprüngliche Geometrie des Stabes und seiner Teilstücke. Verschachtelte ABS-Kombinationen geben eine konservative Schranke für ihre Extremwerte an.",
+    "fr": "Les diagrammes spatiaux préparés conservent la géométrie initiale de la barre et de ses tronçons. Les combinaisons ABS imbriquées donnent une borne conservative de leurs extrema.",
+    "tr": "Hazırlanmış uzaysal diyagramlar elemanın ve parçalarının başlangıç geometrisini korur. İç içe ABS birleşimleri uç değerleri için güvenli bir üst sınır bildirir.",
+    "zh": "预计算空间内力图保留杆件及各分段的原始几何。嵌套 ABS 组合报告极值的保守上界。",
+    "hu": "Az előkészített térbeli rúdábrák megőrzik a rúd és szakaszai eredeti geometriáját. A beágyazott ABS-kombinációk konzervatív korlátot adnak a szélsőértékekre."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-spatial-geometry-and-abs-bounds.md",
+    "heading": "Spatial diagram geometry and nested ABS bounds"
+  }
+}

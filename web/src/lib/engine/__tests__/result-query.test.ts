@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import type { ElementForces3D } from '../types-3d';
+import type { AnalysisResults3D, ElementForces3D, EnvelopeDiagramData3D, FullEnvelope3D } from '../types-3d';
 import {
+  bindSpatialEnvelope,
+  bindEnvelopeQuerySources,
   buildQueryRows,
   extremeRow,
   filterByAbsThreshold,
@@ -173,4 +175,103 @@ describe('result-query: flat CSV serialization with metadata', () => {
     // …while negative NUMERIC values are untouched
     expect(csv.split('\n')[1]).toContain(',-5,');
   });
+});
+
+function envelopeFixture(diagram: EnvelopeDiagramData3D, sources: ElementForces3D[][]): FullEnvelope3D {
+  const result = (elementForces: ElementForces3D[]): AnalysisResults3D => ({ elementForces, displacements: [], reactions: [] });
+  return bindEnvelopeQuerySources({
+    axial: { ...diagram, kind: 'axial' },
+    shearY: { ...diagram, kind: 'shearY' },
+    shearZ: { ...diagram, kind: 'shearZ' },
+    momentY: { ...diagram, kind: 'momentY' },
+    momentZ: { ...diagram, kind: 'momentZ' },
+    torsion: { ...diagram, kind: 'torsion' },
+    maxAbsResults3D: result([ef(diagram.elements[0]!.elementId)]),
+  }, sources.map(result));
+}
+
+it('known wrong result: #2581 preserves both signed bounds on the inward face of each end', () => {
+  const elementId = 7;
+  const forces = [ef(elementId), ef(8)];
+  const sources = [
+    [ef(elementId, { vyStart: 300, pointLoadsY: [{ a: 0, p: -200 }, { a: 0.5, p: -60 }, { a: 1, p: 360 }] })],
+    [ef(elementId, { vyStart: -300, pointLoadsY: [{ a: 0, p: 240 }, { a: 0.5, p: -20 }, { a: 1, p: -320 }] })],
+  ];
+  for (const faces of [{}, { jumpCuts: [{ index: 0, distance: 0 }, { index: 3, distance: 1 }] }]) {
+    const envelope: EnvelopeDiagramData3D = {
+      kind: 'shearY', globalMax: 400,
+      elements: [{
+        elementId, tPositions: [0, 0, 0.5, 1, 1],
+        posValues: [300, 100, 200, 40, 400], negValues: [-300, -60, -200, -80, -400],
+        ...faces,
+      }],
+    };
+    const rows = buildQueryRows(forces, 'Vy', {
+      envelope: envelopeFixture(envelope, sources),
+      elementIds: [elementId],
+    });
+    expect.soft(rows.map(({ end, value }) => [end, value])).toEqual([
+      ['i', 100], ['i', -60], ['j', 40], ['j', -80],
+    ]);
+    expect.soft(extremeRow(rows, 'max')).toMatchObject({ end: 'i', value: 100 });
+    expect.soft(extremeRow(rows, 'min')).toMatchObject({ end: 'j', value: -80 });
+    expect.soft(extremeRow(rows, 'absmax')).toMatchObject({ end: 'i', value: 100 });
+
+    const retained = filterByAbsThreshold(rows, 60);
+    expect.soft(retained.map(({ value }) => value)).toEqual([100, -60, -80]);
+    expect.soft(filterByAbsThreshold(rows, 61).map(({ value }) => value)).toEqual([100, -80]);
+    const csv = rowsToCsv(retained, META);
+    expect.soft(csv).toContain(',7,i,-60,kN');
+    expect.soft(csv).toContain(',7,j,-80,kN');
+  }
+});
+
+it('known wrong result: #2581 refuses a selected member absent from the spatial envelope', () => {
+  const envelope = envelopeFixture({
+    kind: 'shearY', globalMax: 400,
+    elements: [{
+      elementId: 7, tPositions: [0, 0, 0.5, 1, 1],
+      posValues: [300, 100, 200, 40, 400], negValues: [-300, -60, -200, -80, -400],
+    }],
+  }, [
+    [ef(7, { vyStart: 300, pointLoadsY: [{ a: 0, p: -200 }, { a: 0.5, p: -60 }, { a: 1, p: 360 }] })],
+    [ef(7, { vyStart: -300, pointLoadsY: [{ a: 0, p: 240 }, { a: 0.5, p: -20 }, { a: 1, p: -320 }] })],
+  ]);
+  const aggregate = bindSpatialEnvelope(envelope, []).maxAbsResults3D.elementForces;
+  for (const elementIds of [[8, 7], [7, 8], [8]]) {
+    expect.soft(() => buildQueryRows([ef(7), ef(8)], 'Vy', { envelope, elementIds }))
+      .toThrow('solver.diagramExtremaUnavailable');
+    expect.soft(() => buildQueryRows(aggregate, 'Vy', { elementIds }))
+      .toThrow('solver.diagramExtremaUnavailable');
+  }
+  expect.soft(buildQueryRows(aggregate, 'Vy', { elementIds: [] })).toEqual([]);
+  expect(buildQueryRows(aggregate, 'Vy', { elementIds: [7] }))
+    .toEqual(buildQueryRows(aggregate, 'Vy', { envelope }));
+});
+
+it('known wrong result: #2581 keeps the positive envelope bound when the negative bound governs the magnitude', () => {
+  const envelope: EnvelopeDiagramData3D = {
+    kind: 'axial', globalMax: 100,
+    elements: [{ elementId: 7, tPositions: [0, 1], posValues: [60, 0], negValues: [-100, -20] }],
+  };
+  const rows = buildQueryRows([ef(7)], 'N', {
+    envelope: envelopeFixture(envelope, [
+      [ef(7, { nStart: 60, nEnd: -20 })],
+      [ef(7, { nStart: -100, nEnd: -20 })],
+    ]),
+  });
+  expect.soft(extremeRow(rows, 'max')).toMatchObject({ end: 'i', value: 60 });
+  expect.soft(extremeRow(rows, 'absmax')).toMatchObject({ end: 'i', value: -100 });
+  expect.soft(rows.filter(({ end }) => end === 'j').map(({ value }) => value)).toEqual([-20]);
+});
+
+it('refuses a spatial end query when its envelope has no source records or a member is missing', () => {
+  const diagram: EnvelopeDiagramData3D = {
+    kind: 'axial', globalMax: 0,
+    elements: [{ elementId: 7, tPositions: [0, 1], posValues: [0, 0], negValues: [0, 0] }],
+  };
+  for (const sources of [[], [[ef(8)]]]) {
+    const envelope = envelopeFixture(diagram, sources);
+    expect(() => buildQueryRows([ef(7)], 'N', { envelope })).toThrow('solver.diagramExtremaUnavailable');
+  }
 });

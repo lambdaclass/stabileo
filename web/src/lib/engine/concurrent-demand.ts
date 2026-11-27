@@ -1,5 +1,6 @@
 import { CompleteDemandSet, demandCoverage, memberDemandScope, IncompleteConcurrentDemandError, DemandInventory, type DemandCoverage, type ScopedDemand } from './complete-demand-set';
 import type { ElementStationResult } from './station-design-forces';
+import { memberEndSections3D } from './diagrams-3d';
 import type { StationForces } from './station-forces';
 import type { AnalysisResults3D } from './types-3d';
 
@@ -192,11 +193,8 @@ export class ConcurrentDemand {
 
   static endpoints(ef: AnalysisResults3D['elementForces'][number]): ConcurrentDemand[] {
     return ConcurrentDemand.fromStations({ elementId: ef.elementId, length: ef.length, stationTs: [0, 1], comboResults: [{
-      comboId: 0, comboName: '', transverseLoading: ConcurrentDemand.loadingOf(ef), stations: ([0, 1] as const).map(t => ({
-        t, x: t * ef.length, n: t ? ef.nEnd : ef.nStart,
-        my: t ? ef.myEnd : ef.myStart, mz: t ? ef.mzEnd : ef.mzStart,
-        vy: t ? ef.vyEnd : ef.vyStart, vz: t ? ef.vzEnd : ef.vzStart,
-        torsion: t ? ef.mxEnd : ef.mxStart,
+      comboId: 0, comboName: '', transverseLoading: ConcurrentDemand.loadingOf(ef), stations: memberEndSections3D(ef).map(({ mx: torsion, ...forces }, t) => ({
+        ...forces, t, x: t * ef.length, torsion,
       })),
     }] });
   }

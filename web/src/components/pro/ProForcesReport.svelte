@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { errorText } from '../../lib/store/engine-action';
   import { accountGate } from '../../lib/store/account-gate.svelte';
   import { saveFile } from '../../lib/export/save-file';
   import { exportMessages } from "../../lib/export/containment";
@@ -110,15 +111,14 @@
     const token = captureProvenanceToken();
 
     const at = new Date().toISOString();
-    const doc = buildForcesReport(cfg, {
-      results,
-      perCombo: activePerCombo3D(),
-      comboNames: new Map(combinations.map((c) => [c.id, c.name])),
-      elementNodes: elementNodes(),
-    }, t);
-
     const stem = `forces-${(modelStore.model.name || 'model').replace(/[^\w.-]+/g, '-')}`;
     try {
+      const doc = buildForcesReport(cfg, {
+        results,
+        perCombo: activePerCombo3D(),
+        comboNames: new Map(combinations.map((c) => [c.id, c.name])),
+        elementNodes: elementNodes(),
+      }, t);
       if (format === 'xlsx') {
         const filename = `${stem}.xlsx`;
         const written = await exportToExcel({
@@ -175,7 +175,7 @@
       }
       lastExport = { filename, at };
     } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e);
+      lastError = errorText(e);
     }
   }
 </script>

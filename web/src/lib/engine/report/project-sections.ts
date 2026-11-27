@@ -7,7 +7,9 @@ const toUser = (f: import('../../axes/frame').AxesFrame, values: import('../../a
  * the figures the user chose. Each reads the same function its on-screen table does, so the
  * document and the panels print one set of numbers.
  */
-import { summaryRows, envelopeRows, columnsOf, whereOf, type Source, type TableKind } from '../result-tables';
+import { ContainmentExportError } from '../containment-error';
+import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../member-diagram';
+import { summaryRows, envelopeRows, extremaResultSources, columnsOf, whereOf, type Source, type TableKind } from '../result-tables';
 import type { StaticsRows } from '../../store/statics-rows';
 import { staticsVerdict } from '../statics-check';
 import type { ProjectInfo } from '../../model/project-info';
@@ -16,6 +18,12 @@ import { DEFAULT_AXES, makeFrame, type AxesChoice } from '../../axes/frame';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const num = (v: number, d = 3) => (Number.isFinite(v) ? (Math.abs(v) < 1e-9 ? '0' : Math.abs(v) >= 1e5 || Math.abs(v) < 1e-3 ? v.toExponential(3) : v.toFixed(d)) : '—');
+
+function envelopeCells(values: readonly { value: number }[]): string {
+  let html = '';
+  for (const { value } of values) html += `<td class="num">${num(value)}</td>`;
+  return html;
+}
 
 type Tr = (k: string) => string;
 
@@ -47,16 +55,28 @@ export function projectCoverHtml(info: ProjectInfo | undefined, tr: Tr): string[
  * Across the result sets: for each table, the extreme of every column with where and under
  * which set, then the envelope of every node or member end. Complete, however many members.
  */
-export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading: string, axes: AxesChoice = DEFAULT_AXES): string[] {
+export function envelopeSectionHtml(
+  resultSets: readonly Source[], tr: Tr, heading: string, axes: AxesChoice = DEFAULT_AXES, signedOnly = false,
+): string[] {
+  const sources = extremaResultSources(resultSets, signedOnly);
   if (sources.length === 0) return [];
   const out: string[] = [`<h2 id="sec-envelope">${esc(heading)}</h2>`];
+  if (sources[0]!.results.magnitude) out.push(`<p class="note">${esc(tr('figures.magnitudes'))}</p>`);
   out.push(`<p class="note">${esc(tr('report.env.basis').replace('{n}', String(sources.length)))}: ${sources.map((s) => esc(s.name)).join(', ')}</p>`);
   const kinds: Array<[TableKind, string]> = [['reactions', tr('report.reactions')], ['forces', tr('report.forces')], ['displacements', tr('report.displacements')]];
   for (const [kind, title] of kinds) {
     const cols = columnsOf(kind, { resultant: true });
-    // The extremes along the members, at 13 stations: at the ends alone a simply supported
-    // beam's largest moment read 0. The envelope table below stays per member end.
-    const summ = summaryRows(kind, sources, { resultant: true, axes, ...(kind === 'forces' ? { stations: 13 } : {}) });
+    let summ: ReturnType<typeof summaryRows>;
+    let env: ReturnType<typeof envelopeRows>;
+    try {
+      env = envelopeRows(kind, sources, { resultant: true, axes });
+      summ = summaryRows(kind, sources, { resultant: true, axes, ...(kind === 'forces' ? { stations: 'critical' } : {}) });
+    } catch (error) {
+      if (error instanceof Error && error.message === DIAGRAM_EXTREMA_UNAVAILABLE) {
+        throw new ContainmentExportError(tr(DIAGRAM_EXTREMA_UNAVAILABLE));
+      }
+      throw error;
+    }
     out.push(`<h3>${esc(title)}: ${esc(tr('report.env.summary'))}</h3>`);
     out.push(`<table data-printed="summary"><thead><tr><th></th><th>${esc(tr('tables.max'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th><th>${esc(tr('tables.min'))}</th><th>${esc(tr('report.env.where'))}</th><th>${esc(tr('tables.source'))}</th></tr></thead><tbody>`);
     for (const s of summ) {
@@ -66,12 +86,12 @@ export function envelopeSectionHtml(sources: readonly Source[], tr: Tr, heading:
         + `</tr>`);
     }
     out.push(`</tbody></table>`);
-    const env = envelopeRows(kind, sources, { resultant: true, axes });
     out.push(`<h3>${esc(title)}: ${esc(tr('report.env.envelope'))} (${env.length})</h3>`);
     out.push(`<table class="env" data-printed="envelope-${kind}"><thead><tr><th>${kind === 'forces' ? esc(tr('report.env.memberEnd')) : esc(tr('report.nodes'))}</th><th></th>${cols.map((c) => `<th>${esc(c.label)} (${esc(c.unit)})</th>`).join('')}</tr></thead><tbody>`);
+    const maxLabel = esc(tr('tables.max')), minLabel = esc(tr('tables.min'));
     for (const r of env) {
-      out.push(`<tr><td rowspan="2">${esc(whereOf(r))}</td><td>${esc(tr('tables.max'))}</td>${r.max.map((m) => `<td class="num">${num(m.value)}</td>`).join('')}</tr>`);
-      out.push(`<tr><td>${esc(tr('tables.min'))}</td>${r.min.map((m) => `<td class="num">${num(m.value)}</td>`).join('')}</tr>`);
+      out.push(`<tr><td rowspan="2">${esc(whereOf(r))}</td><td>${maxLabel}</td>${envelopeCells(r.max)}</tr>`);
+      out.push(`<tr><td>${minLabel}</td>${envelopeCells(r.min)}</tr>`);
     }
     out.push(`</tbody></table>`);
   }

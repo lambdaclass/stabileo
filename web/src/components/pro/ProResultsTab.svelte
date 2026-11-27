@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { unavailableDiagramExtrema } from '../../lib/engine/member-diagram';
+  import { engineGuarded } from '../../lib/store/engine-action';
+  import { memberEndDisplay3D } from '../../lib/engine/diagrams-3d';
   import { resultComponents } from '../../lib/axes/result-components';
   import { axesStore } from '../../lib/axes/axes.svelte';
   import { userDof } from '../../lib/axes/typed-frame';
@@ -220,26 +223,19 @@
     return undefined;
   });
 
-  // Envelope view holds maxAbsResults3D: per field, the SIGNED value of the
-  // combo with the largest magnitude. 'max'/'min' over those rows do NOT give
-  // the true envelope extremes (those live in pos/negValues of the envelope
-  // diagrams) — only 'absmax' is semantically valid, so coerce.
   const isEnvelopeView = $derived(resultsStore.activeView === 'envelope');
-  $effect(() => {
-    if (isEnvelopeView && queryMode !== 'absmax') queryMode = 'absmax';
-  });
-
-  const activeRows = $derived.by(() => {
-    if (!results || !queryComponent) return [];
-    return buildQueryRows(results.elementForces, queryComponent, scopeIds ? { elementIds: scopeIds } : {});
-  });
-  const filteredRows = $derived(filterByAbsThreshold(activeRows, queryThreshold));
-  // DOM cap: scope='all' yields 2 rows per element — a 10k-element model would
-  // mount 20k <tr> in a 180px scroll box. The CSV export still uses the FULL
-  // filteredRows; only rendering is capped.
+  const query = $derived(engineGuarded(() => {
+    if (!queryComponent) return [];
+    const envelope = isEnvelopeView ? resultsStore.fullEnvelope3D : undefined;
+    if (envelope === null) throw unavailableDiagramExtrema();
+    if (!results) return [];
+    const rows = buildQueryRows(results.elementForces, queryComponent, { elementIds: scopeIds, envelope });
+    return filterByAbsThreshold(rows, queryThreshold);
+  }));
+  const filteredRows = $derived(query.value);
   const MAX_RENDER_ROWS = 500;
-  const renderRows = $derived(filteredRows.length > MAX_RENDER_ROWS ? filteredRows.slice(0, MAX_RENDER_ROWS) : filteredRows);
-  const activeExtreme = $derived(extremeRow(filteredRows, queryMode));
+  const renderRows = $derived(filteredRows?.slice(0, MAX_RENDER_ROWS));
+  const activeExtreme = $derived(filteredRows && extremeRow(filteredRows, queryMode));
 
   // Single source descriptor derived from resultsStore.activeView (the source
   // of truth for what results3D holds). Both the on-screen label and the CSV
@@ -263,10 +259,10 @@
 
   /** What the queried component is, for the threshold, the card and the rows in the display units. */
   const queryQty = $derived<'force' | 'moment'>(queryComponent === 'N' || queryComponent === 'Vy' || queryComponent === 'Vz' ? 'force' : 'moment');
-  const exportCount = $derived(filteredRows.length);
+  const exportCount = $derived(filteredRows?.length ?? 0);
 
   // Element ids the current query resolves to (for viewport highlight).
-  const queryElementIds = $derived(filteredRows.map((r) => r.elementId));
+  const queryElementIds = $derived(filteredRows?.map((r) => r.elementId) ?? []);
 
   function sameSet(a: Set<number>, b: Iterable<number>): boolean {
     const bs = b instanceof Set ? b : new Set(b);
@@ -325,7 +321,13 @@
   }));
 
   function exportQueryCsv() {
-    const csv = rowsToCsv(filteredRows, exportMeta);
+    const { value, error } = query;
+    if (error !== null) {
+      uiStore.toast(error, 'error');
+      return;
+    }
+    if (!value.length) return;
+    const csv = rowsToCsv(value, exportMeta);
     void downloadResultText(csv, `stabileo-query-${queryComponent}-${exportMeta.sourceKind}.csv`, 'text/csv;charset=utf-8;');
   }
 
@@ -716,10 +718,8 @@
               <label class="pro-viz-label">{t('pro.queryMode')}</label>
               <select class="pro-viz-sel" bind:value={queryMode}>
                 <option value="absmax">{t('pro.queryModeAbsmax')}</option>
-                <!-- Envelope data is abs-max winners: signed max/min over it is
-                     not the true envelope extreme, so those modes are disabled. -->
-                <option value="max" disabled={isEnvelopeView}>{t('pro.queryModeMax')}</option>
-                <option value="min" disabled={isEnvelopeView}>{t('pro.queryModeMin')}</option>
+                <option value="max">{t('pro.queryModeMax')}</option>
+                <option value="min">{t('pro.queryModeMin')}</option>
               </select>
             </div>
             <div class="pro-viz-row">
@@ -734,12 +734,14 @@
                 <span class="pqc-val">{queryComponent} = {fmtQ(activeExtreme.value, queryQty)} {unitQ(queryQty)}</span>
                 <span class="pqc-meta">{t('pro.elemLabel')} {activeExtreme.elementId} · {t('pro.queryEnd')} {activeExtreme.end} · {activeSourceLabel}</span>
               </div>
+            {:else if query.error !== null}
+              <div id="pro-query-error" class="pro-query-empty" role="status">{query.error}</div>
             {:else}
               <div class="pro-query-empty">{t('pro.queryNoRows')}</div>
             {/if}
 
             <!-- Rows table -->
-            {#if filteredRows.length}
+            {#if filteredRows?.length}
               <div class="pro-query-rowcount">{t('pro.queryRowCount').replace('{n}', String(filteredRows.length))}</div>
               <div class="pro-res-table-wrap pro-query-tablewrap">
                 <table class="pro-res-table">
@@ -747,8 +749,8 @@
                     <th>{t('pro.elemLabel')}</th><th>{t('pro.queryEnd')}</th><th>{t('pro.queryValue')} ({unitQ(queryQty)})</th>
                   </tr></thead>
                   <tbody>
-                    {#each renderRows as r (r.elementId + '-' + r.end)}
-                      <tr onclick={() => selectQueryElement(r.elementId)} style="cursor:pointer" class:pq-extreme={activeExtreme && r.elementId === activeExtreme.elementId && r.end === activeExtreme.end}>
+                    {#each renderRows as r (`${r.elementId}-${r.end}-${r.value}`)}
+                      <tr onclick={() => selectQueryElement(r.elementId)} style="cursor:pointer" class:pq-extreme={r === activeExtreme}>
                         <td class="col-id">{r.elementId}</td>
                         <td class="col-end">{r.end}</td>
                         <td class="col-num">{fmtQ(r.value, queryQty)}</td>
@@ -762,7 +764,8 @@
               {/if}
             {/if}
 
-            <button class="pro-query-export" onclick={exportQueryCsv} disabled={!exportCount}>
+            <button class="pro-query-export" onclick={exportQueryCsv} disabled={!exportCount}
+              aria-describedby={query.error === null ? undefined : 'pro-query-error'}>
               {t('pro.queryExportCsv')}
             </button>
             {#if exportCount}
@@ -779,7 +782,11 @@
       {/if}
 
       {#if resSection === 'memberStress'}
-        <ProMemberStressTable />
+        {#if resultsStore.results3D?.magnitude}
+          <p>{t('figures.magnitudes')}</p>
+        {:else}
+          <ProMemberStressTable />
+        {/if}
       {/if}
       {#if resSection === 'statics'}
         <StaticsCheckPanel />
@@ -835,24 +842,25 @@
             </thead>
             <tbody>
               {#each results.elementForces as ef}
+                {@const [i, j] = memberEndDisplay3D(ef)}
                 <tr onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(ef.elementId, false); }} style="cursor:pointer">
                   <td class="col-id" rowspan="2">{ef.elementId}</td>
                   <td class="col-end">i</td>
-                  <td class="col-num">{fmtQ(ef.nStart, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.vyStart, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.vzStart, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.mxStart, 'moment')}</td>
-                  <td class="col-num">{fmtQ(ef.myStart, 'moment')}</td>
-                  <td class="col-num">{fmtQ(ef.mzStart, 'moment')}</td>
+                  <td class="col-num">{fmtQ(i.n, 'force')}</td>
+                  <td class="col-num">{fmtQ(i.vy, 'force')}</td>
+                  <td class="col-num">{fmtQ(i.vz, 'force')}</td>
+                  <td class="col-num">{fmtQ(i.mx, 'moment')}</td>
+                  <td class="col-num">{fmtQ(i.my, 'moment')}</td>
+                  <td class="col-num">{fmtQ(i.mz, 'moment')}</td>
                 </tr>
                 <tr>
                   <td class="col-end">j</td>
-                  <td class="col-num">{fmtQ(ef.nEnd, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.vyEnd, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.vzEnd, 'force')}</td>
-                  <td class="col-num">{fmtQ(ef.mxEnd, 'moment')}</td>
-                  <td class="col-num">{fmtQ(ef.myEnd, 'moment')}</td>
-                  <td class="col-num">{fmtQ(ef.mzEnd, 'moment')}</td>
+                  <td class="col-num">{fmtQ(j.n, 'force')}</td>
+                  <td class="col-num">{fmtQ(j.vy, 'force')}</td>
+                  <td class="col-num">{fmtQ(j.vz, 'force')}</td>
+                  <td class="col-num">{fmtQ(j.mx, 'moment')}</td>
+                  <td class="col-num">{fmtQ(j.my, 'moment')}</td>
+                  <td class="col-num">{fmtQ(j.mz, 'moment')}</td>
                 </tr>
               {/each}
             </tbody>

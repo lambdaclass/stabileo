@@ -1,5 +1,5 @@
 use crate::types::*;
-use super::diagram_extrema::{distributed_actions, sort_cuts, uniform_cuts, Cut};
+use super::diagram_extrema::{distributed_actions, sort_member_cuts, uniform_cuts, Cut};
 use super::diagrams::{diagram_critical_cuts_2d, try_evaluate_diagram_cut_2d, sorted_point_loads};
 use super::diagrams_3d::{diagram_critical_cuts_3d, try_evaluate_diagram_cut_3d};
 use num_rational::BigRational;
@@ -85,6 +85,15 @@ pub struct ElementEnvelopeDiagram {
     pub t_positions: Vec<f64>,
     pub pos_values: Vec<f64>,
     pub neg_values: Vec<f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub jump_cuts: Vec<EnvelopeJumpCut>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvelopeJumpCut {
+    pub index: usize,
+    pub distance: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -260,6 +269,7 @@ fn check_result_fields<'a, D: Serialize + 'a, R: Serialize + 'a, E: Serialize + 
 fn member_envelope<C>(
     kind: &str,
     element_id: usize,
+    length: f64,
     cases: &[C],
     critical_cuts: impl Fn(&C) -> Result<Vec<Cut>, String>,
     evaluate: impl Fn(&C, Cut) -> Result<f64, String>,
@@ -269,11 +279,12 @@ fn member_envelope<C>(
     for (result, case) in cases.iter().enumerate() {
         stations.extend(critical_cuts(case).map_err(|error| format!("{} in result {result}: {error}", context()))?);
     }
-    sort_cuts(&mut stations).map_err(|error| format!("{}: {error}", context()))?;
+    sort_member_cuts(&mut stations).map_err(|error| format!("{}: {error}", context()))?;
 
     let mut t_positions = Vec::with_capacity(stations.len());
     let mut pos_values = Vec::with_capacity(stations.len());
     let mut neg_values = Vec::with_capacity(stations.len());
+    let mut jump_cuts = Vec::new();
     let mut global_max = 0.0_f64;
     for cuts in stations.chunk_by(|a, b| a.t == b.t && a.right == b.right) {
         let t = cuts[0].t;
@@ -294,12 +305,15 @@ fn member_envelope<C>(
                 }
             }
         }
+        if cuts[0].right && t_positions.last() == Some(&t) {
+            jump_cuts.push(EnvelopeJumpCut { index: t_positions.len() - 1, distance: cuts[0].station_x(length) });
+        }
         t_positions.push(t);
         pos_values.push(max_pos);
         neg_values.push(max_neg);
         global_max = global_max.max(max_pos).max(-max_neg);
     }
-    Ok((ElementEnvelopeDiagram { element_id, t_positions, pos_values, neg_values }, global_max))
+    Ok((ElementEnvelopeDiagram { element_id, t_positions, pos_values, neg_values, jump_cuts }, global_max))
 }
 
 /// Map each id to its slot index. Later duplicates keep the first slot, which
@@ -693,7 +707,9 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
     }
     let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None };
 
-    fn compute_env_diagram(kind: &str, results: &[AlignedResultFields<'_, Displacement, Reaction, ElementForces>]) -> Result<EnvelopeDiagramData, String> {
+    fn compute_env_diagram(
+        kind: &str, results: &[AlignedResultFields<'_, Displacement, Reaction, ElementForces>],
+    ) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
         let mut elements = Vec::new();
         let mut global_max = 0.0f64;
@@ -704,7 +720,7 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
                 (forces, sorted_point_loads(forces))
             }).collect();
             let (element, peak) = member_envelope(
-                kind, ef.element_id, &cases,
+                kind, ef.element_id, ef.length, &cases,
                 |(forces, points)| diagram_critical_cuts_2d(forces, kind, points),
                 |(forces, points), cut| try_evaluate_diagram_cut_2d(kind, cut, forces, points),
             )?;
@@ -1092,7 +1108,7 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
         for (e_idx, ef) in first.element_forces.iter().enumerate() {
             let cases: Vec<_> = results.iter().map(|res| &res.element_forces[e_idx]).collect();
             let (element, peak) = member_envelope(
-                kind, ef.element_id, &cases,
+                kind, ef.element_id, ef.length, &cases,
                 |forces| diagram_critical_cuts_3d(forces, kind),
                 |forces, cut| try_evaluate_diagram_cut_3d(forces, kind, cut),
             )?;

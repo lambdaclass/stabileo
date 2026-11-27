@@ -1,14 +1,16 @@
 // Moving load analysis — envelope of moving load trains across a structure
 
-import type { SolverInput, SolverLoad, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
+import type { SolverInput, SolverLoad, AnalysisResults, ElementForces, FullEnvelope } from './types';
 import { errorText as baseErrorText } from '../utils/error-text';
-import { prepareLoadSession2D, isWasmReady, movingSegmentRoundoff } from './wasm-solver';
+import { computeEnvelope, prepareLoadSession2D, isWasmReady, movingSegmentRoundoff } from './wasm-solver';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
-import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
-import { withoutSettlement } from './settlement-case';
-import { locateAxle, locateAxlePlacement, checkAxlePath, referenceGrid, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 import { localizeEngineText } from '../i18n/engine-text';
+import { withoutSettlement } from './settlement-case';
+import { computeDiagramValueAt } from './diagrams';
+import { envelopeForceExtrema, inwardEnvelopeEndIndices, unavailableDiagramExtrema } from './member-diagram';
+import { envelopeJumpCuts } from './diagram-cut';
+import { locateAxle, locateAxlePlacement, checkAxlePath, referenceGrid, referenceStation, type ReferencePosition, type RouteSegment } from './moving-axle-station';
 import { axleFaceForce, MovingSample, recoverAxleFace, type AxleFace, type FaceLoads } from './moving-sample';
 
 /** A single axle in a load train */
@@ -92,7 +94,7 @@ export interface MovingLoadEnvelope {
   /** All individual results for animation */
   positions: Array<{ refPosition: number; results: AnalysisResults }>;
   /** Pointwise envelope for dual-curve rendering */
-  fullEnvelope?: FullEnvelope;
+  fullEnvelope: FullEnvelope;
   /** Load train used (for axle visualization) */
   train: LoadTrain;
   /** Path segments (for axle position reconstruction) */
@@ -275,7 +277,8 @@ export function loadOnMember(
   const dz = nj.z - ni.z;
   const L = Math.hypot(dx, dz);
   if (L < 1e-12) return [];
-  const t = Math.min(1, Math.max(0, a / L));
+  const station = Math.min(L, Math.max(0, a));
+  const t = station / L;
   const c = dx / L;
   const s = dz / L;
   const Fx = weight * dir.x, Fz = weight * dir.z;
@@ -292,7 +295,7 @@ export function loadOnMember(
   const transverse = Math.abs(p) > 1e-10 ? p : 0;
   const axial = Math.abs(px) > 1e-10 ? px : 0;
   if (transverse === 0 && axial === 0) return [];
-  return [{ type: 'pointOnElement', data: { elementId, a: t * L, p: transverse, ...(axial === 0 ? {} : { px: axial }) } }];
+  return [{ type: 'pointOnElement', data: { elementId, a: station, p: transverse, ...(axial === 0 ? {} : { px: axial }) } }];
 }
 
 /**
@@ -342,27 +345,6 @@ function buildTrainLoads(
 }
 
 type ElementEnvelope = { mMaxPos: number; mMaxNeg: number; vMaxPos: number; vMaxNeg: number; nMaxPos: number; nMaxNeg: number };
-
-/** Fold one position's end forces into the per-element envelope. */
-function accumulate(envelope: Map<number, ElementEnvelope>, results: AnalysisResults): void {
-  for (const ef of results.elementForces) {
-    const env = envelope.get(ef.elementId);
-    if (!env) continue;
-    const mMax = Math.max(ef.mStart, ef.mEnd);
-    const mMin = Math.min(ef.mStart, ef.mEnd);
-    const vMax = Math.max(ef.vStart, ef.vEnd);
-    const vMin = Math.min(ef.vStart, ef.vEnd);
-    const nMax = Math.max(ef.nStart, ef.nEnd);
-    const nMin = Math.min(ef.nStart, ef.nEnd);
-
-    if (mMax > env.mMaxPos) env.mMaxPos = mMax;
-    if (mMin < env.mMaxNeg) env.mMaxNeg = mMin;
-    if (vMax > env.vMaxPos) env.vMaxPos = vMax;
-    if (vMin < env.vMaxNeg) env.vMaxNeg = vMin;
-    if (nMax > env.nMaxPos) env.nMaxPos = nMax;
-    if (nMin < env.nMaxNeg) env.nMaxNeg = nMin;
-  }
-}
 
 /** A thrown value as text: the WASM throws strings, JS throws Errors (`utils/error-text`). */
 export function errorText(e: unknown): string {
@@ -421,7 +403,6 @@ function solvePosition(
   train: LoadTrain,
   refPos: ReferencePosition,
   path: PathSegment[],
-  envelope: Map<number, ElementEnvelope>,
   sweep: PlanarSweepResults,
   session: ReturnType<typeof prepareLoadSession2D>,
 ): string | null {
@@ -434,14 +415,10 @@ function solvePosition(
       }
       return result;
     };
-    const include = (result: AnalysisResults) => {
-      sweep.results.push(result);
-      accumulate(envelope, result);
-    };
     const results = solve(sample.loads);
-    include(results);
+    sweep.results.push(results);
     sample.foldLimits(results, solve, (limit, faces, reuse) => {
-      if (!reuse) include(limit);
+      if (!reuse) sweep.results.push(limit);
       sweep.foldFaces(limit, faces);
     });
     sweep.positions.push({ refPosition: referenceStation(refPos), results });
@@ -485,44 +462,72 @@ function planarPositionPasses(train: LoadTrain, path: PathSegment[], step: numbe
   return [forward, { train: reverse, refs: grid.positions(true) }];
 }
 
-/**
- * Per-element extremes, taken from the POINTWISE envelope rather than from
- * element end values.
- *
- * The envelope built while sweeping compares `ef.mStart` and `ef.mEnd`, which
- * are the moments at the two ENDS of a member. A simply supported span modelled
- * as one element has zero moment at both ends at every load position, so the
- * per-element envelope came out at 1e-14 for a beam whose real envelope peaks
- * at PL/4 — the entire result, missed, because the maximum lives in the span.
- *
- * The pointwise envelope already samples along each member, so the extremes are
- * read from it. Nothing extra is solved.
- *
- * It went unnoticed because the viewport draws the pointwise curves and never
- * reads this map. That makes it a trap rather than a visible bug: the next
- * caller wanting "the worst moment in member 3" would reach for the obvious
- * field and get zero.
- */
 function elementExtremesFromPointwise(
   envelope: MovingLoadEnvelope['elements'],
-  full: FullEnvelope | undefined,
+  full: FullEnvelope,
+  members: ReadonlyMap<number, ElementForces>,
 ): void {
-  if (!full) return;
   const apply = (
-    curves: { elements: Array<{ elementId: number; posValues: number[]; negValues: number[] }> } | undefined,
+    curves: FullEnvelope['moment'],
     pos: 'mMaxPos' | 'vMaxPos' | 'nMaxPos',
     neg: 'mMaxNeg' | 'vMaxNeg' | 'nMaxNeg',
   ) => {
-    for (const e of curves?.elements ?? []) {
+    for (const e of curves.elements) {
       const env = envelope.get(e.elementId);
       if (!env) continue;
-      for (const v of e.posValues) if (v > env[pos]) env[pos] = v;
-      for (const v of e.negValues) if (v < env[neg]) env[neg] = v;
+      const range = envelopeForceExtrema(e, members.get(e.elementId)!.length);
+      env[pos] = Math.max(env[pos], range.max.value);
+      env[neg] = Math.min(env[neg], range.min.value);
     }
   };
   apply(full.moment, 'mMaxPos', 'mMaxNeg');
   apply(full.shear, 'vMaxPos', 'vMaxNeg');
   apply(full.axial, 'nMaxPos', 'nMaxNeg');
+}
+
+function includeAxleFaces(
+  full: FullEnvelope, faces: PlanarSweepResults['faces'], members: ReadonlyMap<number, ElementForces>,
+): void {
+  for (const kind of ['shear', 'axial'] as const) {
+    const diagram = full[kind];
+    for (const element of diagram.elements) {
+      const ranges = faces.get(element.elementId)?.[kind];
+      if (!ranges) continue;
+      const forces = members.get(element.elementId)!;
+      element.jumpCuts ??= envelopeJumpCuts(element, forces.length);
+      const indices = inwardEnvelopeEndIndices(element, forces.length);
+      for (const end of [0, 1] as const) {
+        const index = indices[end];
+        const { min, max } = ranges[end];
+        element.posValues[index] = Math.max(element.posValues[index], max);
+        element.negValues[index] = Math.min(element.negValues[index], min);
+        diagram.globalMax = Math.max(diagram.globalMax, max, -min);
+        const value = max >= -min ? max : min;
+        const key = kind === 'axial' ? (end === 0 ? 'nStart' : 'nEnd') : (end === 0 ? 'vStart' : 'vEnd');
+        if (Math.abs(value) > Math.abs(forces[key])) forces[key] = value;
+      }
+    }
+  }
+}
+
+function movingEnvelope(sweep: PlanarSweepResults, train: LoadTrain, path: PathSegment[]): MovingLoadEnvelope | string {
+  const { positions, results, faces } = sweep;
+  if (positions.length === 0) return t('train.noPositionSolved');
+  try {
+    const fullEnvelope = computePointwiseEnvelope(results);
+    if (!fullEnvelope) throw unavailableDiagramExtrema();
+    const elements = new Map<number, ElementEnvelope>();
+    for (const { elementId } of path) {
+      elements.set(elementId, { mMaxPos: 0, mMaxNeg: 0, vMaxPos: 0, vMaxNeg: 0, nMaxPos: 0, nMaxNeg: 0 });
+    }
+    const members = new Map(fullEnvelope.maxAbsResults.elementForces.map(ef => [ef.elementId, ef]));
+    includeAxleFaces(fullEnvelope, faces, members);
+    elementExtremesFromPointwise(elements, fullEnvelope, members);
+    const structuredDiagnostics = [...new Map(results.flatMap(r => r.structuredDiagnostics ?? []).map(d => [JSON.stringify(d), d])).values()];
+    return { structuredDiagnostics, elements, positions, fullEnvelope, train, path };
+  } catch (e) {
+    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(e)));
+  }
 }
 
 export function solveMovingLoads(
@@ -539,15 +544,6 @@ export function solveMovingLoads(
   try { passes = planarPositionPasses(config.train, path, step); }
   catch (error) { return localizeEngineText(errorText(error)); }
 
-  const envelope = new Map<number, ElementEnvelope>();
-  for (const seg of path) {
-    envelope.set(seg.elementId, {
-      mMaxPos: 0, mMaxNeg: 0,
-      vMaxPos: 0, vMaxNeg: 0,
-      nMaxPos: 0, nMaxNeg: 0,
-    });
-  }
-
   const refused = mechanismRefusal(baseInput);
   if (refused) return refused;
 
@@ -556,18 +552,12 @@ export function solveMovingLoads(
     const sweep = new PlanarSweepResults();
     for (const { train, refs } of passes) {
       for (const refPos of refs) {
-        const err = solvePosition(baseInput, train, refPos, path, envelope, sweep, session);
+        const err = solvePosition(baseInput, train, refPos, path, sweep, session);
         if (err) return err;
       }
     }
 
-    if (sweep.positions.length === 0) return t('train.noPositionSolved');
-
-    const { positions, results: allResults, faces } = sweep;
-    const fullEnvelope = computePointwiseEnvelope(allResults, faces);
-    elementExtremesFromPointwise(envelope, fullEnvelope);
-
-    return { structuredDiagnostics: [...new Map(allResults.flatMap(r => r.structuredDiagnostics ?? []).map(d => [JSON.stringify(d), d])).values()], elements: envelope, positions, fullEnvelope, train: config.train, path };
+    return movingEnvelope(sweep, config.train, path);
   } finally { session.free(); }
 }
 
@@ -599,15 +589,6 @@ export async function solveMovingLoadsAsync(
   try { passes = planarPositionPasses(config.train, path, step); }
   catch (error) { return localizeEngineText(errorText(error)); }
 
-  const envelope = new Map<number, ElementEnvelope>();
-  for (const seg of path) {
-    envelope.set(seg.elementId, {
-      mMaxPos: 0, mMaxNeg: 0,
-      vMaxPos: 0, vMaxNeg: 0,
-      nMaxPos: 0, nMaxNeg: 0,
-    });
-  }
-
   const refused = mechanismRefusal(baseInput);
   if (refused) return refused;
 
@@ -622,7 +603,7 @@ export async function solveMovingLoadsAsync(
       if (signal?.aborted) return t('train.analysisCancelled');
 
       const { train, refPos } = allRefPositions[idx];
-      const err = solvePosition(baseInput, train, refPos, path, envelope, sweep, session);
+      const err = solvePosition(baseInput, train, refPos, path, sweep, session);
       if (err) return err;
 
       onProgress?.({ current: idx + 1, total, refPosition: referenceStation(refPos) });
@@ -630,109 +611,12 @@ export async function solveMovingLoadsAsync(
     }
 
     if (signal?.aborted) return t('train.analysisCancelled');
-    if (sweep.positions.length === 0) return t('train.noPositionSolved');
-
-    const { positions, results: allResults, faces } = sweep;
-    const fullEnvelope = computePointwiseEnvelope(allResults, faces);
-    elementExtremesFromPointwise(envelope, fullEnvelope);
-
-    return { structuredDiagnostics: [...new Map(allResults.flatMap(r => r.structuredDiagnostics ?? []).map(d => [JSON.stringify(d), d])).values()], elements: envelope, positions, fullEnvelope, train: config.train, path };
+    return movingEnvelope(sweep, config.train, path);
   } finally { session.free(); }
 }
 
-/**
- * Compute pointwise FullEnvelope from multiple AnalysisResults.
- * Reusable for both combination envelopes and moving load envelopes.
- */
-export function computePointwiseEnvelope(
-  results: AnalysisResults[], faces?: PlanarSweepResults['faces'],
-): FullEnvelope | undefined {
-  if (results.length === 0) return undefined;
-  const first = results[0];
-  const N_POINTS = 21;
-
-  // maxAbsResults (backward compat)
-  const displacements = first.displacements.map(d => ({ ...d }));
-  const reactions = first.reactions.map(r => ({ ...r }));
-  const elementForces = first.elementForces.map(f => ({ ...f, pointLoads: [...f.pointLoads] }));
-
-  for (let r = 1; r < results.length; r++) {
-    const res = results[r];
-    for (let i = 0; i < res.displacements.length && i < displacements.length; i++) {
-      if (Math.abs(res.displacements[i].ux) > Math.abs(displacements[i].ux)) displacements[i].ux = res.displacements[i].ux;
-      if (Math.abs(res.displacements[i].uz) > Math.abs(displacements[i].uz)) displacements[i].uz = res.displacements[i].uz;
-      if (Math.abs(res.displacements[i].ry) > Math.abs(displacements[i].ry)) displacements[i].ry = res.displacements[i].ry;
-    }
-    for (let i = 0; i < res.reactions.length && i < reactions.length; i++) {
-      if (Math.abs(res.reactions[i].rx) > Math.abs(reactions[i].rx)) reactions[i].rx = res.reactions[i].rx;
-      if (Math.abs(res.reactions[i].rz) > Math.abs(reactions[i].rz)) reactions[i].rz = res.reactions[i].rz;
-      if (Math.abs(res.reactions[i].my) > Math.abs(reactions[i].my)) reactions[i].my = res.reactions[i].my;
-    }
-    for (let i = 0; i < res.elementForces.length && i < elementForces.length; i++) {
-      if (Math.abs(res.elementForces[i].nStart) > Math.abs(elementForces[i].nStart)) elementForces[i].nStart = res.elementForces[i].nStart;
-      if (Math.abs(res.elementForces[i].nEnd) > Math.abs(elementForces[i].nEnd)) elementForces[i].nEnd = res.elementForces[i].nEnd;
-      if (Math.abs(res.elementForces[i].vStart) > Math.abs(elementForces[i].vStart)) elementForces[i].vStart = res.elementForces[i].vStart;
-      if (Math.abs(res.elementForces[i].vEnd) > Math.abs(elementForces[i].vEnd)) elementForces[i].vEnd = res.elementForces[i].vEnd;
-      if (Math.abs(res.elementForces[i].mStart) > Math.abs(elementForces[i].mStart)) elementForces[i].mStart = res.elementForces[i].mStart;
-      if (Math.abs(res.elementForces[i].mEnd) > Math.abs(elementForces[i].mEnd)) elementForces[i].mEnd = res.elementForces[i].mEnd;
-    }
-  }
-
-  const maxAbsResults: AnalysisResults = { displacements, reactions, elementForces };
-
-  function computeEnvDiagram(kind: 'moment' | 'shear' | 'axial'): EnvelopeDiagramData {
-    const elements: ElementEnvelopeDiagram[] = [];
-    let globalMax = 0;
-
-    for (let eIdx = 0; eIdx < first.elementForces.length; eIdx++) {
-      const elemId = first.elementForces[eIdx].elementId;
-      const faceRanges = kind === 'moment' ? undefined : faces?.get(elemId)?.[kind];
-      const tPositions: number[] = [];
-      const posValues: number[] = [];
-      const negValues: number[] = [];
-
-      for (let j = 0; j < N_POINTS; j++) {
-        const t = j / (N_POINTS - 1);
-        tPositions.push(t);
-        let maxPos = 0;
-        let maxNeg = 0;
-
-        const cutSides = kind === 'moment' || t === 1 ? [false] : t === 0 ? [true] : [false, true];
-        for (const res of results) {
-          if (eIdx >= res.elementForces.length) continue;
-          const ef = res.elementForces[eIdx];
-          for (const right of cutSides) {
-            const val = computeDiagramValueAt(kind, t, ef, right);
-            if (val > maxPos) maxPos = val;
-            if (val < maxNeg) maxNeg = val;
-          }
-        }
-
-        const face = j === 0 ? faceRanges?.[0] : j === N_POINTS - 1 ? faceRanges?.[1] : undefined;
-        if (face) {
-          maxPos = Math.max(maxPos, face.max);
-          maxNeg = Math.min(maxNeg, face.min);
-          const value = Math.abs(face.max) >= Math.abs(face.min) ? face.max : face.min;
-          const key = kind === 'axial' ? (j === 0 ? 'nStart' : 'nEnd') : (j === 0 ? 'vStart' : 'vEnd');
-          if (Math.abs(value) > Math.abs(elementForces[eIdx][key])) elementForces[eIdx][key] = value;
-        }
-        posValues.push(maxPos);
-        negValues.push(maxNeg);
-        globalMax = Math.max(globalMax, Math.abs(maxPos), Math.abs(maxNeg));
-      }
-
-      elements.push({ elementId: elemId, tPositions, posValues, negValues });
-    }
-
-    return { kind, elements, globalMax };
-  }
-
-  return {
-    moment: computeEnvDiagram('moment'),
-    shear: computeEnvDiagram('shear'),
-    axial: computeEnvDiagram('axial'),
-    maxAbsResults,
-  };
+export function computePointwiseEnvelope(results: AnalysisResults[]): FullEnvelope | undefined {
+  return results.length ? computeEnvelope(results) ?? undefined : undefined;
 }
 
 // ─── Axle Position Visualization ──────────────────────────────────

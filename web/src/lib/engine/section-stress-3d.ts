@@ -11,10 +11,12 @@
 // Torsion: τ_T (Bredt for closed, Saint-Venant for open sections)
 // Von Mises: σ_vm = √(σ² + 3·(τ_xy² + τ_xz²))
 
+import { evaluateDiagramAt, memberEndSections3D, stationaryBendingStations3D } from './diagrams-3d';
 import type { ElementForces3D } from './types-3d';
 import type { Section } from '../store/model.svelte';
-import { computeSectionStress3D, computeSectionStress3DFromForces, isWasmReady } from './wasm-solver';
+import { computeSectionStress3DFromForces, isWasmReady } from './wasm-solver';
 import { t } from '../i18n';
+import { requireConcurrentSectionForces, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
 import { requireEngine } from './engine-unavailable';
 import {
   resolveSectionGeometryLegacy,
@@ -64,8 +66,9 @@ export function computeElementStress3D(
   h: number = 0, b: number = 0,
   fy: number = 355_000,
 ): { start: SectionStress3D; end: SectionStress3D; max: SectionStress3D } {
-  const start = computeSectionStress(ef.nStart, ef.vyStart, ef.vzStart, ef.mxStart, ef.myStart, ef.mzStart, A, Iz, Iy, h, b, fy);
-  const end = computeSectionStress(ef.nEnd, ef.vyEnd, ef.vzEnd, ef.mxEnd, ef.myEnd, ef.mzEnd, A, Iz, Iy, h, b, fy);
+  const [i, j] = memberEndSections3D(ef);
+  const start = computeSectionStress(i.n, i.vy, i.vz, i.mx, i.my, i.mz, A, Iz, Iy, h, b, fy);
+  const end = computeSectionStress(j.n, j.vy, j.vz, j.mx, j.my, j.mz, A, Iz, Iy, h, b, fy);
   const max = start.vonMises >= end.vonMises ? start : end;
   return { start, end, max };
 }
@@ -285,86 +288,26 @@ export function computePerpNADistribution(
  * Uses element forces + distributed/point loads for accurate interpolation.
  */
 export function interpolateForces3D(
-  ef: ElementForces3D, t: number,
+  ef: ElementForces3D, station: number | DiagramStation,
 ): { N: number; Vy: number; Vz: number; Mx: number; My: number; Mz: number } {
-  const x = t * ef.length;
-
-  // N: linear (no distributed axial loads assumed)
-  const N = ef.nStart + t * (ef.nEnd - ef.nStart);
-
-  // Mx: linear (no distributed torsion loads assumed)
-  const Mx = ef.mxStart + t * (ef.mxEnd - ef.mxStart);
-
-  // Vy: start value + cumulative distributed load in Y (dV/dx = q convention)
-  let Vy = ef.vyStart;
-  for (const dl of ef.distributedLoadsY) {
-    if (x > dl.a + 1e-10) {
-      const xEnd = Math.min(x, dl.b);
-      const s = xEnd - dl.a;
-      const span = dl.b - dl.a;
-      if (span < 1e-12 || s < 1e-12) continue;
-      const dq = (dl.qJ - dl.qI) / span;
-      // ∫_0^s (qI + dq·u) du = qI·s + dq·s²/2
-      Vy += dl.qI * s + dq * s * s / 2;
-    }
+  requireConcurrentSectionForces(ef);
+  const at = typeof station === 'number' ? { t: station } : station;
+  const { distance } = at;
+  const x = distance ?? at.t;
+  const limit = distance === undefined ? 1 : ef.length;
+  if (!Number.isFinite(ef.length) || ef.length <= 0 || !Number.isFinite(x) || x < 0 || x > limit) throw unavailableDiagramExtrema();
+  if (x === 0 || x === limit) {
+    const { n: N, vy: Vy, vz: Vz, mx: Mx, my: My, mz: Mz } = memberEndSections3D(ef)[x === 0 ? 0 : 1];
+    return { N, Vy, Vz, Mx, My, Mz };
   }
-  for (const pl of ef.pointLoadsY) {
-    if (x > pl.a + 1e-10) Vy += pl.p;
-  }
-
-  // Mz: start value - integral of Vy
-  let Mz = ef.mzStart - ef.vyStart * x;
-  for (const dl of ef.distributedLoadsY) {
-    if (x > dl.a + 1e-10) {
-      const xEnd = Math.min(x, dl.b);
-      const s = xEnd - dl.a;
-      const span = dl.b - dl.a;
-      if (span < 1e-12 || s < 1e-12) continue;
-      const dq = (dl.qJ - dl.qI) / span;
-      const d = x - dl.a;
-      Mz -= dl.qI * (d * s - s * s / 2) + dq * (d * s * s / 2 - s * s * s / 3);
-    }
-  }
-  for (const pl of ef.pointLoadsY) {
-    if (x > pl.a + 1e-10) Mz -= pl.p * (x - pl.a);
-  }
-
-  // Vz: start value + cumulative distributed load in Z (dV/dx = q convention)
-  let Vz = ef.vzStart;
-  for (const dl of ef.distributedLoadsZ) {
-    if (x > dl.a + 1e-10) {
-      const xEnd = Math.min(x, dl.b);
-      const s = xEnd - dl.a;
-      const span = dl.b - dl.a;
-      if (span < 1e-12 || s < 1e-12) continue;
-      const dq = (dl.qJ - dl.qI) / span;
-      Vz += dl.qI * s + dq * s * s / 2;
-    }
-  }
-  for (const pl of ef.pointLoadsZ) {
-    if (x > pl.a + 1e-10) Vz += pl.p;
-  }
-
-  // My: positive signs because θy = -dw/dx inverts the relation → dMy/dx = +Vz
-  // This matches the convention in diagrams-3d.ts:
-  //   My(x) = myStart + vzStart·x + Σ distributed + Σ point loads
-  let My = ef.myStart + ef.vzStart * x;
-  for (const dl of ef.distributedLoadsZ) {
-    if (x > dl.a + 1e-10) {
-      const xEnd = Math.min(x, dl.b);
-      const s = xEnd - dl.a;
-      const span = dl.b - dl.a;
-      if (span < 1e-12 || s < 1e-12) continue;
-      const dq = (dl.qJ - dl.qI) / span;
-      const d = x - dl.a;
-      My += dl.qI * (d * s - s * s / 2) + dq * (d * s * s / 2 - s * s * s / 3);
-    }
-  }
-  for (const pl of ef.pointLoadsZ) {
-    if (x > pl.a + 1e-10) My += pl.p * (x - pl.a);
-  }
-
-  return { N, Vy, Vz, Mx, My, Mz };
+  return {
+    N: evaluateDiagramAt(ef, 'axial', at),
+    Vy: evaluateDiagramAt(ef, 'shearY', at),
+    Vz: evaluateDiagramAt(ef, 'shearZ', at),
+    Mx: evaluateDiagramAt(ef, 'torsion', at),
+    My: evaluateDiagramAt(ef, 'momentY', at),
+    Mz: evaluateDiagramAt(ef, 'momentZ', at),
+  };
 }
 
 // ─── Sampling positions ──────────────────────────────────────────────
@@ -451,19 +394,12 @@ export function analyzeSectionStress3D(
   ef: ElementForces3D,
   sec: Section,
   fy: number | undefined,
-  t: number,
+  station: number | DiagramStation,
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  requireEngine(isWasmReady(), 'the section stresses');
-  return adaptWasm3DResult(computeSectionStress3D({
-    elementForces: ef,
-    section: toWasmSection(sec),
-    fy: fy ?? null,
-    t,
-    yFiber: yFiber ?? null,
-    zFiber: zFiber ?? null,
-  }));
+  const { N, Vy, Vz, Mx, My, Mz } = interpolateForces3D(ef, station);
+  return analyzeSectionStressFromForces(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
 
 /**
@@ -504,22 +440,6 @@ export function suggestCriticalSections3D(ef: ElementForces3D): Array<{ t: numbe
   // Midspan
   sections.push({ t: 0.5, reason: t('stress.midspan') });
 
-  // Where Vy = 0 (max Mz)
-  if (Math.abs(ef.vyStart) > 1e-6 && Math.abs(ef.vyEnd) > 1e-6 && ef.vyStart * ef.vyEnd < 0) {
-    const tVy0 = ef.vyStart / (ef.vyStart - ef.vyEnd);
-    if (tVy0 > 0.01 && tVy0 < 0.99) {
-      sections.push({ t: tVy0, reason: 'Vy=0 (Mz max)' });
-    }
-  }
-
-  // Where Vz = 0 (max My)
-  if (Math.abs(ef.vzStart) > 1e-6 && Math.abs(ef.vzEnd) > 1e-6 && ef.vzStart * ef.vzEnd < 0) {
-    const tVz0 = ef.vzStart / (ef.vzStart - ef.vzEnd);
-    if (tVz0 > 0.01 && tVz0 < 0.99) {
-      sections.push({ t: tVz0, reason: 'Vz=0 (My max)' });
-    }
-  }
-
   // Point load positions
   for (const pl of ef.pointLoadsY) {
     const tp = pl.a / ef.length;
@@ -542,5 +462,12 @@ export function suggestCriticalSections3D(ef: ElementForces3D): Array<{ t: numbe
       deduped.push(s);
     }
   }
-  return deduped;
+  const byStation = new Map(deduped.map(({ t, reason }) => [t, reason]));
+  for (const [kind, reason] of [['momentZ', 'Vy=0 (Mz)'], ['momentY', 'Vz=0 (My)']] as const) {
+    for (const station of stationaryBendingStations3D(ef, kind)) {
+      const previous = byStation.get(station);
+      byStation.set(station, previous ? `${previous} / ${reason}` : reason);
+    }
+  }
+  return [...byStation].sort(([a], [b]) => a - b).map(([t, reason]) => ({ t, reason }));
 }

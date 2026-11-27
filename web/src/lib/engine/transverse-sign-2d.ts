@@ -24,6 +24,7 @@
  * the canvas draws positive values toward the drawn z. The solver, and every
  * engine-side consumer of its results, keeps its own convention.
  */
+import { bindMemberEnvelopeEnds } from './member-diagram';
 import type { AnalysisResults, ElementForces, FullEnvelope, EnvelopeDiagramData } from './types';
 
 /**
@@ -73,11 +74,11 @@ function envelopeKind(d: EnvelopeDiagramData | undefined, signOf: SignOf): Envel
 
 export function envelopeToDrawnAxes(env: FullEnvelope, signOf: SignOf): FullEnvelope {
   if (!env) return env;
-  return {
+  return bindMemberEnvelopeEnds({
     ...env,
     moment: envelopeKind(env.moment, signOf)!,
     shear: envelopeKind(env.shear, signOf)!,
     axial: env.axial,
     maxAbsResults: env.maxAbsResults && resultsToDrawnAxes(env.maxAbsResults, signOf),
-  };
+  });
 }

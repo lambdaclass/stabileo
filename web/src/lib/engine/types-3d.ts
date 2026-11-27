@@ -1,7 +1,7 @@
 // 3D Structural Analysis Types
 // Phase 1: Engine Core — types for 3D frame/truss solver (6 DOF/node)
 
-import type { SolverMaterial, SolverDiagnostic, ConstraintForce, DiagnosticSeverity, SolveTimings } from './types';
+import type { SolverMaterial, SolverDiagnostic, ConstraintForce, DiagnosticSeverity, ElementEnvelopeDiagram, SolveTimings } from './types';
 export type { SolverMaterial, SolverDiagnostic, ConstraintForce, DiagnosticSeverity, SolveTimings };
 
 // ─── Geometry ────────────────────────────────────────────────────
@@ -588,12 +588,7 @@ export interface NonlinearReport {
 
 // ─── Envelope types for 3D load combinations ─────────────────
 
-export interface ElementEnvelopeDiagram3D {
-  elementId: number;
-  tPositions: number[];
-  posValues: number[];
-  negValues: number[];
-}
+export type ElementEnvelopeDiagram3D = ElementEnvelopeDiagram;
 
 export interface EnvelopeDiagramData3D {
   kind: 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';

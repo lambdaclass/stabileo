@@ -1,4 +1,4 @@
-use crate::postprocess::diagram_extrema::{CoincidentAxle, MovingForceCuts};
+use crate::postprocess::diagram_extrema::{CoincidentAxle, MovingForceCuts, sum_diagram_terms};
 use crate::postprocess::{diagrams::member_diagram_range_2d, diagrams_3d::member_diagram_range_3d};
 use crate::types::*;
 use crate::solver::linear::{prepare_static_2d, prepare_static_3d, solve_2d, solve_3d};
@@ -615,7 +615,11 @@ pub(crate) fn sampled_axle_station(
     if from_start < 0.0 || to_end < 0.0 {
         return Ok(None);
     }
-    let a = if reversed { length - from_start } else { from_start };
+    let a = if reversed {
+        sum_diagram_terms([length, start, -position])
+    } else {
+        from_start
+    };
     if 0.0 < a && a < length {
         Ok(Some(a))
     } else {
@@ -972,6 +976,22 @@ mod diagram_limit_tests {
     use super::*;
 
     #[test]
+    fn issue_1782_path_endpoint_identity_survives_cumulative_rounding() {
+        let start = 1024.0;
+        let length = 1.0 + 2.0_f64.powi(-45);
+        let end = start + length;
+        let station = |position, reversed| sampled_axle_station(start, end, length, reversed, position, [0.0; 2], 0.0).unwrap();
+        assert_eq!(station(end, false), Some(length));
+        assert_eq!(station(end, true), Some(0.0));
+        assert_eq!(station(start, false), Some(0.0));
+        assert_eq!(station(start + 0.5, false), Some(0.5));
+        let adjacent = end.next_down();
+        assert_eq!(station(adjacent, false), Some(length));
+        let before = end - 2.0 * joint_roundoff(end, length);
+        assert_eq!(station(before, false), Some(before - start));
+    }
+
+    #[test]
     fn moving_range_keeps_end_forces_and_recovered_tip_limits() {
         let mut ef: ElementForces3D = serde_json::from_value(serde_json::json!({
             "elementId": 1, "length": 10.0, "nStart": 0.0, "nEnd": 0.0,
@@ -992,6 +1012,19 @@ mod diagram_limit_tests {
 mod tests {
     use super::*;
     use crate::metamorphic::planes::{embed_2d, Plane};
+
+    #[test]
+    fn issue_1782_reversed_interior_station_preserves_the_subtraction_residual() {
+        let unit = 2.0_f64.powi(-53);
+        let start = 0.25 + 3.0 * unit;
+        let length = 1.5;
+        let end = start + length;
+        let position = 1.75 - 62.0 * unit;
+        assert_eq!(
+            sampled_axle_station(start, end, length, true, position, [0.0; 2], 0.0),
+            Ok(Some(65.0 * unit)),
+        );
+    }
 
     #[test]
     fn simultaneous_entrance_and_exit_stage_only_the_axle_on_the_route() {

@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { checkedCurveValue, curveExtrema, diagramCurvePoints, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, memberDiagram, unavailableDiagramExtrema, type DiagramStation } from './member-diagram';
+import { displayMemberMoment, requireConcurrentSectionForces, checkedCurveValue, checkedSectionValue, curveExtrema, diagramCriticalPoints, diagramCurvePoints, envelopeMemberEndValues, diagramLineValue, distributedActionTerms, fullSpanFallback, indexDiagramExtrema, inwardMemberEndValues, diagramOrdinateExtrema, memberDiagram, memberSectionStation, prepareCurveExtrema, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramStation } from './member-diagram';
 
 export interface DiagramPoint extends DiagramStation {
   /** World coordinates */
@@ -32,7 +32,9 @@ type PlanarForces = {
   distributedLoadsX?: Array<{ qI: number; qJ: number; a: number; b: number }>;
 };
 
-function planarCurve(kind: PlanarKind, ef: PlanarForces) {
+type PlanarCurveArgs = Parameters<typeof memberDiagram>;
+
+function planarCurveArgs(kind: PlanarKind, ef: PlanarForces): PlanarCurveArgs {
   const { length } = ef;
   const points = [...(ef.pointLoads ?? [])].sort((a, b) => a.a - b.a);
   if (kind === 'axial') {
@@ -40,13 +42,70 @@ function planarCurve(kind: PlanarKind, ef: PlanarForces) {
     const axial = points.filter(p => p.px).map(p => ({ a: p.a, jump: -p.px! }));
     const pointTotal = axial.reduce((sum, p) => sum - p.jump, 0);
     const distributedTotal = loads.reduce((sum, load) => sum + distributedActionTerms(load, length)[0], 0);
-    return memberDiagram(length, ef.nStart, ef.nEnd + pointTotal + distributedTotal - ef.nStart, loads, axial, 'force', -1);
+    return [length, ef.nStart, ef.nEnd + pointTotal + distributedTotal - ef.nStart, loads, axial, 'force', -1];
   }
   const loads = fullSpanFallback(length, ef.distributedLoads, ef.qI, ef.qJ);
   return kind === 'moment'
-    ? memberDiagram(length, ef.mStart, 0, loads,
-      points.map(p => ({ a: p.a, jump: p.my ?? 0, slope: -p.p })), 'moment', -1, -ef.vStart)
-    : memberDiagram(length, ef.vStart, 0, loads, points.map(p => ({ a: p.a, jump: p.p })));
+    ? [length, ef.mStart, 0, loads,
+      points.map(p => ({ a: p.a, jump: p.my ?? 0, slope: -p.p })), 'moment', -1, -ef.vStart]
+    : [length, ef.vStart, 0, loads, points.map(p => ({ a: p.a, jump: p.p }))];
+}
+
+function planarCurve(kind: PlanarKind, ef: PlanarForces) {
+  return memberDiagram(...planarCurveArgs(kind, ef));
+}
+
+let lastPlanarQuery: { key: readonly (number | string | undefined)[]; evaluate: (t: number, right: boolean) => number } | undefined;
+
+function planarQuery([length, start, change, loads, points, order, sign, rate]: PlanarCurveArgs) {
+  const key = [length, start, change, order, sign, rate, loads.length,
+    ...loads.flatMap(({ a, b, qI, qJ }) => [a, b, qI, qJ]),
+    ...points.flatMap(({ a, jump, slope }) => [a, jump, slope]),
+  ];
+  const cached = lastPlanarQuery;
+  if (cached?.key.length === key.length && key.every((entry, i) => Object.is(entry, cached.key[i]))) {
+    return cached.evaluate;
+  }
+  const curve = memberDiagram(length, start, change, loads, points, order, sign, rate);
+  const extremaAt = prepareCurveExtrema(curve, length);
+  const evaluate = curve.hasDistributedActions
+    ? (t: number, right: boolean) => checkedCurveValue(curve, { t, right }, indexDiagramExtrema(extremaAt(t)))
+    : (t: number, right: boolean) => curve.value({ t, right });
+  lastPlanarQuery = { key, evaluate };
+  return evaluate;
+}
+
+type PlanarMemberForces = PlanarForces & { elementId: number };
+
+export function memberEndForces2D(ef: PlanarMemberForces, kind: PlanarKind): [number, number] {
+  const envelopeEnds = envelopeMemberEndValues(ef, kind);
+  if (envelopeEnds) return envelopeEnds;
+  const stored: [number, number] = kind === 'axial' ? [ef.nStart, ef.nEnd]
+    : kind === 'shear' ? [ef.vStart, ef.vEnd] : [ef.mStart, ef.mEnd];
+  const jump = kind === 'axial' ? 'px' : kind === 'shear' ? 'p' : 'my';
+  return inwardMemberEndValues(ef.length, stored,
+    x => ef.pointLoads?.some(p => p.a === x && (p[jump] ?? 0) !== 0) ?? false,
+    () => {
+      const evaluate = planarQuery(planarCurveArgs(kind, ef));
+      return ({ t, right }) => evaluate(t, right ?? false);
+    });
+}
+
+export function memberEndSections2D(ef: PlanarMemberForces) {
+  requireConcurrentSectionForces(ef);
+  return memberEndComponents2D(ef);
+}
+
+export function memberEndComponents2D(ef: PlanarMemberForces) {
+  const [ni, nj] = memberEndForces2D(ef, 'axial');
+  const [vi, vj] = memberEndForces2D(ef, 'shear');
+  const [mi, mj] = memberEndForces2D(ef, 'moment');
+  return [{ n: ni, v: vi, m: mi }, { n: nj, v: vj, m: mj }] as const;
+}
+
+export function memberEndDisplay2D(ef: PlanarMemberForces) {
+  const [i, j] = memberEndComponents2D(ef);
+  return [{ ...i, m: displayMemberMoment(i.m) }, { ...j, m: displayMemberMoment(j.m) }] as const;
 }
 
 function buildDiagram(
@@ -56,26 +115,33 @@ function buildDiagram(
   nodeJx: number, nodeJy: number,
 ): ElementDiagram {
   const curve = planarCurve(kind, ef);
-  const points: DiagramPoint[] = [];
-  let maxVal = -Infinity, minVal = Infinity;
-  let maxAbsT = 0, maxAbsValue = 0;
+  const critical = diagramCriticalPoints(curve, curveExtrema(curve, ef.length), 'diagram');
+  const points = diagramCurvePoints(curve, critical).map(point => ({
+    ...point,
+    x: nodeIx + point.t * (nodeJx - nodeIx),
+    y: nodeIy + point.t * (nodeJy - nodeIy),
+  }));
+  return { elementId: 0, points, ...planarExtrema(critical) };
+}
 
-  for (const point of diagramCurvePoints(curve, curveExtrema(curve, ef.length))) {
-    const { t, value } = point;
-    const x = nodeIx + t * (nodeJx - nodeIx);
-    const y = nodeIy + t * (nodeJy - nodeIy);
+function planarExtrema(critical: readonly DiagramOrdinate[]) {
+  const { min, max, abs } = diagramOrdinateExtrema(critical);
+  return { min, max, absolute: abs, maxValue: max.value, minValue: min.value, maxAbsT: abs.t, maxAbsValue: abs.value, maxAbsSide: abs.side };
+}
 
-    points.push({ ...point, x, y });
-
-    if (value > maxVal) maxVal = value;
-    if (value < minVal) minVal = value;
-    if (Math.abs(value) > Math.abs(maxAbsValue)) {
-      maxAbsT = t;
-      maxAbsValue = value;
-    }
-  }
-
-  return { elementId: 0, points, maxValue: maxVal, minValue: minVal, maxAbsT, maxAbsValue };
+export function computePlanarDiagramExtrema(kind: PlanarKind, ef: PlanarForces, faces?: 'diagram') {
+  const curve = planarCurve(kind, ef);
+  const critical = diagramCriticalPoints(curve, curveExtrema(curve, ef.length), faces);
+  const extrema = planarExtrema(critical);
+  return {
+    ...extrema,
+    min: { ...extrema.min, x: curve.cutDistances.get(extrema.min.t) ?? extrema.min.t * ef.length },
+    max: { ...extrema.max, x: curve.cutDistances.get(extrema.max.t) ?? extrema.max.t * ef.length },
+    absolute: { ...extrema.absolute, x: curve.cutDistances.get(extrema.absolute.t) ?? extrema.absolute.t * ef.length },
+    startValue: critical[0]!.value,
+    endValue: critical.at(-1)!.value,
+    maxAbsX: curve.cutDistances.get(extrema.maxAbsT) ?? extrema.maxAbsT * ef.length,
+  };
 }
 
 export function computeElementDiagram(
@@ -144,10 +210,13 @@ export function computeDiagramValueAt(kind: PlanarKind, t: number, ef: PlanarFor
     const moment = kind === 'moment';
     return diagramLineValue(moment ? ef.mStart : ef.vStart, 0, moment ? -ef.vStart : 0, t * length, t);
   }
-  const curve = planarCurve(kind, ef);
-  const station = { t, right };
-  if (!curve.hasDistributedActions) return curve.value(station);
-  return checkedCurveValue(curve, station, indexDiagramExtrema(curveExtrema(curve, length, t)));
+  return planarQuery(planarCurveArgs(kind, ef))(t, right);
+}
+
+export function computePlanarSectionValue(kind: PlanarKind, distance: number, ef: PlanarForces): number {
+  if (!(distance >= 0 && distance <= ef.length)) throw unavailableDiagramExtrema();
+  const station = memberSectionStation({ t: distance / ef.length, distance });
+  return checkedSectionValue(planarCurve(kind, ef), station);
 }
 
 export function prepareDiagramValueAt(kind: PlanarKind, ef: PlanarForces): (t: number) => number {

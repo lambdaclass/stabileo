@@ -1,3 +1,6 @@
+import { maxMemberForce } from '../engine/member-force-extrema';
+import { bindMemberEnvelopeEnds } from '../engine/member-diagram';
+import { memberEndSections2D } from '../engine/diagrams';
 import { uiStore } from './ui.svelte';
 import { timeHistoryView } from './time-history-view.svelte';
 // Results store
@@ -40,6 +43,7 @@ export interface ElementStress {
 
 /** Compute stresses for one element from its internal forces + section/material */
 export function computeElementStress(ef: ElementForces, sec: Section, mat: Material): ElementStress {
+  const [i, j] = memberEndSections2D(ef);
   const A = sec.a;  // m²
   const Iz = sec.iy ?? sec.iz; // m⁴ — 2D uses iy (about Y horizontal = strong axis for IPN)
 
@@ -52,16 +56,16 @@ export function computeElementStress(ef: ElementForces, sec: Section, mat: Mater
   // Normal stress: σ = |N/A| + |M|·y/Iz (extreme fiber, absolute max)
   // Forces are in kN and kN·m, A in m², Iz in m⁴ → σ in kPa → /1000 for MPa
   const sigmaStart = A > 1e-15 && Iz > 1e-15
-    ? (Math.abs(ef.nStart) / A + Math.abs(ef.mStart) * yMax / Iz) / 1000 : 0;
+    ? (Math.abs(i.n) / A + Math.abs(i.m) * yMax / Iz) / 1000 : 0;
   const sigmaEnd = A > 1e-15 && Iz > 1e-15
-    ? (Math.abs(ef.nEnd) / A + Math.abs(ef.mEnd) * yMax / Iz) / 1000 : 0;
+    ? (Math.abs(j.n) / A + Math.abs(j.m) * yMax / Iz) / 1000 : 0;
 
   // Shear stress: τ_max
   // For rectangular: τ_max = 1.5·V/A
   // For general section: τ ≈ V/A (conservative lower bound, actual depends on shape)
   const shearFactor = (sec.b !== undefined && sec.h !== undefined) ? 1.5 : 1.0;
-  const tauStart = A > 1e-15 ? (shearFactor * Math.abs(ef.vStart) / A) / 1000 : 0;
-  const tauEnd = A > 1e-15 ? (shearFactor * Math.abs(ef.vEnd) / A) / 1000 : 0;
+  const tauStart = A > 1e-15 ? (shearFactor * Math.abs(i.v) / A) / 1000 : 0;
+  const tauEnd = A > 1e-15 ? (shearFactor * Math.abs(j.v) / A) / 1000 : 0;
 
   // Von Mises: σ_vm = √(σ² + 3·τ²)
   const vonMisesStart = Math.sqrt(sigmaStart ** 2 + 3 * tauStart ** 2);
@@ -1237,7 +1241,7 @@ function createResultsStore() {
     },
     /** Show a named envelope (built over the current solve) in place of the active one, or go back (`null`). */
     viewEnvelope3D(env: FullEnvelope3D | null, name = '') {
-      viewedEnvelope3D = env && envelope3D ? { env: freezeResult(env), name, over: envelope3D } : null;
+      viewedEnvelope3D = env && envelope3D ? { env: freezeResult(bindMemberEnvelopeEnds(env)), name, over: envelope3D } : null;
       if (activeView === 'envelope') this._update3DView('envelope');
     },
 
@@ -1261,7 +1265,7 @@ function createResultsStore() {
       perCase3D = pc;
       perCombo3D = pco;
       unstableCombinations3D = [...unstable];
-      envelope3D = env;
+      envelope3D = bindMemberEnvelopeEnds(env);
       showReactions = false;
       showConstraintForces = false;
       activeCaseId = null;
@@ -1377,19 +1381,11 @@ function createResultsStore() {
     },
 
     get maxMoment(): number {
-      const r = this.results;
-      if (!r) return 0;
-      return Math.max(...r.elementForces.map(f =>
-        Math.max(Math.abs(f.mStart), Math.abs(f.mEnd))
-      ));
+      return maxMemberForce(this.results?.elementForces ?? [], 'moment');
     },
 
     get maxShear(): number {
-      const r = this.results;
-      if (!r) return 0;
-      return Math.max(...r.elementForces.map(f =>
-        Math.max(Math.abs(f.vStart), Math.abs(f.vEnd))
-      ));
+      return maxMemberForce(this.results?.elementForces ?? [], 'shear');
     },
 
     // Read through `engine-diagnostics.ts`: the engine's own lines come without a source and in English.

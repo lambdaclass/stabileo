@@ -19,11 +19,18 @@ export function pieceCsv(o: {
 }): string {
   const sep = o.sep ?? ',';
   const lines = o.header.map((h) => `# ${h}`);
-  lines.push(['piece', 'result', 'force', 'unit', 's_m', 'element', 'value'].join(sep));
-  for (const k of PIECE_KINDS) {
-    const st = pieceDiagram(o.piece, o.forces, k);
-    if (!st) continue;
-    for (const p of st) lines.push([o.name, o.source, LABEL[k], PIECE_UNIT[k], p.s.toFixed(4), String(p.elementId), p.value.toPrecision(8)].join(sep));
+  const axial = pieceDiagram(o.piece, o.forces, 'axial');
+  const hasCases = axial?.[0]?.envelopeCase !== undefined;
+  const header = ['piece', 'result', 'force', 'unit', 's_m', 'element', 'value'];
+  if (hasCases) header.push('envelopeCase');
+  lines.push(header.join(sep));
+  for (const kind of PIECE_KINDS) {
+    const stations = kind === 'axial' ? axial : pieceDiagram(o.piece, o.forces, kind);
+    for (const p of stations ?? []) {
+      const row = [o.name, o.source, LABEL[kind], PIECE_UNIT[kind], p.s.toFixed(4), String(p.elementId), p.value.toPrecision(8)];
+      if (hasCases) row.push(String(p.envelopeCase ?? ''));
+      lines.push(row.join(sep));
+    }
   }
   return lines.join('\n') + '\n';
 }

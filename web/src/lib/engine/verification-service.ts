@@ -1,6 +1,7 @@
 import { criticalDiagramStations3D, evaluateDiagramAt } from './diagrams-3d';
+import { exactForcePeak, exactMemberForceRange } from './member-force-extrema';
+import { memberEndFace, requireConcurrentSectionForces, type DiagramStation } from './member-diagram';
 import { extractForcesAtStation } from './station-forces';
-import type { DiagramStation } from './member-diagram';
 import { ConcurrentDemand } from './concurrent-demand';
 import { CompleteDemandSet, IncompleteConcurrentDemandError, requireDemandInventories, demandCoverage, memberDemandScope, type DemandCoverage } from './complete-demand-set';
 import { completeResultDemands } from './result-demand-gate';
@@ -221,9 +222,10 @@ function stationsWithExtrema(
   grid: StationForces[],
   purpose: Parameters<typeof criticalDiagramStations3D>[1],
 ): StationForces[] {
+  requireConcurrentSectionForces(ef);
   const at = (cut: DiagramStation) => ({ ...extractForcesAtStation(ef, cut), x: cut.t * ef.length });
   const represented = new Set(grid.map(s => s.t));
-  const cuts = criticalDiagramStations3D(ef, purpose).filter(cut => cut.right || !represented.has(cut.t));
+  const cuts = criticalDiagramStations3D(ef, purpose).filter(cut => !represented.has(cut.t) || (memberEndFace(cut.t) === undefined && cut.right));
   const base = ef.pieces?.length || ef.combined ? grid.map(({ t }) => at({ t })) : grid;
   return [...base, ...cuts.map(at)].sort((a, b) => a.t - b.t);
 }
@@ -605,7 +607,8 @@ export function steelDemandOf(
   sd?: ElementDesignDemands,
   stations?: ElementStationResult,
 ): SteelMemberDemand {
-  let Nc: number, Nt: number, MuStrong: number, MuWeak: number, Vu: number;
+  let Nc: number, Nt: number, MuStrong: number, MuWeak: number;
+  let VuStrong: number, VuWeak: number;
   if (sd) {
     const dems = sd.demands;
     // absValue, not the signed value: `value` is signed (compression n<0, hogging Mz-<0), so a
@@ -615,19 +618,27 @@ export function steelDemandOf(
     Nt = abs('N_tension');
     MuStrong = Math.max(abs('My+'), abs('My-'));
     MuWeak = Math.max(abs('Mz+'), abs('Mz-'));
-    Vu = Math.max(abs('Vy'), abs('Vz'));
+    VuStrong = abs('Vz');
+    VuWeak = abs('Vy');
   } else {
-    // Endpoint fallback. Solver axial force is + tension.
-    Nc = Math.max(0, -ef.nStart, -ef.nEnd);
-    Nt = Math.max(0, ef.nStart, ef.nEnd);
-    MuStrong = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
-    MuWeak = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-    Vu = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
+    requireConcurrentSectionForces(ef);
+    const axial = exactMemberForceRange(ef, 'axial');
+    Nc = Math.max(0, -axial.min.value);
+    Nt = Math.max(0, axial.max.value);
+    MuStrong = exactForcePeak(ef, 'momentY');
+    MuWeak = exactForcePeak(ef, 'momentZ');
+    VuStrong = exactForcePeak(ef, 'shearZ');
+    VuWeak = exactForcePeak(ef, 'shearY');
   }
   const diagram: StationMoment[] = stations ? stationMomentEnvelope(stations) : [];
   // Solver axial is + tension; the checker's is + compression. `my` is the strong axis.
   if (sd && !sd.concurrent?.length && !stations) throw new Error('Concurrent steel demands are required; an envelope cannot be verified');
-  const concurrent = stations ? ConcurrentDemand.fromStations(stations) : sd?.concurrent ?? ConcurrentDemand.endpoints(ef);
+  const concurrent = stations ? ConcurrentDemand.fromStations(stations) : sd?.concurrent ?? ConcurrentDemand.fromStations({
+    elementId: ef.elementId, length: ef.length, stationTs: [0, 1], comboResults: [{
+      comboId: 0, comboName: '', transverseLoading: ConcurrentDemand.loadingOf(ef),
+      stations: stationsWithExtrema(ef, [], 'diagram'),
+    }],
+  });
   const tuples = concurrent.map(d => ({ N: 0 - d.forces.n, MStrong: d.forces.my, MWeak: d.forces.mz,
     VStrong: d.forces.vz, VWeak: d.forces.vy, comboId: d.comboId, comboName: d.comboName, t: d.stationT, concurrent: d }));
   const from = (cats: string[]) => {
@@ -649,11 +660,13 @@ export function steelDemandOf(
   for (const { comboId, diagramForces } of stations?.comboResults ?? []) {
     if (diagramForces) momentReaders.set(comboId, (t, right) => evaluateDiagramAt(diagramForces, 'momentY', t, right));
   }
-  const byAxis = sd
-    ? { VuStrong: sd.demands.find((d) => d.category === 'Vz')?.absValue ?? 0, VuWeak: sd.demands.find((d) => d.category === 'Vy')?.absValue ?? 0,
-      MuStrongPos: sd.demands.find((d) => d.category === 'My+')?.absValue ?? 0, MuStrongNeg: sd.demands.find((d) => d.category === 'My-')?.absValue ?? 0 }
-    : { VuStrong: Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd)), VuWeak: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd)) };
-  return { memberId: ef.elementId, Nc, Nt, MuStrong, MuWeak, Vu, ...byAxis, diagram, diagrams, momentReaders, diagramLength: stations?.length ?? ef.length, concurrent, ...(tuples ? { tuples } : {}), ...(governing ? { governing } : {}) };
+  const bySign = sd && {
+    MuStrongPos: sd.demands.find((d) => d.category === 'My+')?.absValue ?? 0,
+    MuStrongNeg: sd.demands.find((d) => d.category === 'My-')?.absValue ?? 0,
+    MuWeakPos: sd.demands.find((d) => d.category === 'Mz+')?.absValue ?? 0,
+    MuWeakNeg: sd.demands.find((d) => d.category === 'Mz-')?.absValue ?? 0,
+  };
+  return { memberId: ef.elementId, Nc, Nt, MuStrong, MuWeak, Vu: Math.max(VuStrong, VuWeak), VuStrong, VuWeak, ...bySign, diagram, diagrams, momentReaders, diagramLength: stations?.length ?? ef.length, concurrent, ...(tuples ? { tuples } : {}), ...(governing ? { governing } : {}) };
 }
 
 function stationMomentEnvelope(stations: ElementStationResult): StationMoment[] {

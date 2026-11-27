@@ -1,0 +1,113 @@
+import { computePlanarDiagramExtrema } from './diagrams';
+import { computeSpatialDiagramExtrema, visitMemberCriticalOrdinates3D, type Diagram3DKind } from './diagrams-3d';
+import { DIAGRAM_EXTREMA_UNAVAILABLE, boundMemberEnvelopeDiagram, envelopeForceExtrema, includeDiagramOrdinate, unavailableDiagramExtrema, type DiagramOrdinate, type DiagramOrdinateExtrema } from './member-diagram';
+import type { ElementForces } from './types';
+import type { AnalysisResults3D, ElementForces3D } from './types-3d';
+import { engineFailureMessage } from './engine-unavailable';
+
+type Member = ElementForces | ElementForces3D;
+type SpatialComponent = Diagram3DKind | readonly [Diagram3DKind, Diagram3DKind];
+type Component = 'moment' | 'shear' | SpatialComponent;
+type LocatedOrdinate = DiagramOrdinate & { x: number };
+
+export type MemberForceExtrema =
+  | { kind: 'exact' | 'envelope'; min: LocatedOrdinate; max: LocatedOrdinate; absolute: LocatedOrdinate }
+  | { kind: 'bounded'; bound: number };
+
+export function memberForceExtrema(member: Member, component: Component, faces?: 'diagram'): MemberForceExtrema {
+  if (typeof component !== 'string') {
+    if (faces || !('vyStart' in member)) throw unavailableDiagramExtrema();
+    return criticalMemberForceExtrema3D(member, [component])[0]!;
+  }
+  const envelope = boundMemberEnvelopeDiagram(member, component);
+  if (envelope) return envelopeForceExtrema(envelope, member.length, faces);
+  const planar = component === 'moment' || component === 'shear' || component === 'axial';
+  const spatial = 'vyStart' in member;
+  if ((spatial && (component === 'moment' || component === 'shear')) || (!spatial && !planar)) {
+    throw unavailableDiagramExtrema();
+  }
+  const range = spatial
+    ? computeSpatialDiagramExtrema(member, component as Diagram3DKind, faces)
+    : computePlanarDiagramExtrema(component as 'moment' | 'shear' | 'axial', member, faces);
+  if ('extrema' in range && range.extrema === 'bounded') {
+    return { kind: 'bounded', bound: range.maxAbsValue };
+  }
+  const { min, max, absolute } = range;
+  if (!min || !max || !absolute) throw unavailableDiagramExtrema();
+  return { kind: 'exact', min, max, absolute };
+}
+
+export function criticalMemberForceExtrema3D(member: ElementForces3D, components: readonly SpatialComponent[]) {
+  const first = components[0];
+  const firstKind = typeof first === 'string' ? first : first?.[0];
+  if (firstKind && boundMemberEnvelopeDiagram(member, firstKind)) {
+    return components.map(kind => {
+      if (typeof kind !== 'string') throw unavailableDiagramExtrema();
+      return envelopeForceExtrema(boundMemberEnvelopeDiagram(member, kind)!, member.length);
+    });
+  }
+
+  const ranges = components.map<DiagramOrdinateExtrema<LocatedOrdinate> | undefined>(() => undefined);
+  visitMemberCriticalOrdinates3D(member, components, (column, t, value, x, right, side) => {
+    ranges[column] = includeDiagramOrdinate(ranges[column], { t, value, x, ...(right && { right }), ...(side && { side }) });
+  });
+  return ranges.map(range => {
+    if (!range) throw unavailableDiagramExtrema();
+    return { kind: 'exact' as const, min: range.min, max: range.max, absolute: range.abs };
+  });
+}
+
+export function exactMemberForceRange(member: Member, component: Component) {
+  const extrema = memberForceExtrema(member, component);
+  if (extrema.kind === 'bounded') throw unavailableDiagramExtrema();
+  return extrema;
+}
+
+export function exactForcePeak(member: Member, component: Component): number {
+  return Math.abs(exactMemberForceRange(member, component).absolute.value);
+}
+
+export function memberCompression(member: Member): number {
+  return Math.max(0, -exactMemberForceRange(member, 'axial').min.value);
+}
+
+export function forcePeakScale(members: readonly Member[], component: Component, sign?: 'signed') {
+  const values = new Map<number, number>();
+  let max = 0;
+  for (const member of members) {
+    const peak = exactMemberForceRange(member, component).absolute.value;
+    const magnitude = Math.abs(peak);
+    max = Math.max(max, magnitude);
+    values.set(member.elementId, sign === 'signed' ? peak : magnitude);
+  }
+  return { max, values };
+}
+
+export function maxMemberForce(members: readonly Member[], component: Component): number {
+  let max = 0;
+  for (const member of members) max = Math.max(max, exactForcePeak(member, component));
+  return max;
+}
+
+
+const spatialForceComponents = [
+  { kind: 'axial', label: 'tooltip.diagAxial.title', quantity: 'force' },
+  { kind: 'shearY', label: 'calcReport.shearY', quantity: 'force' },
+  { kind: 'shearZ', label: 'calcReport.shearZ', quantity: 'force' },
+  { kind: 'torsion', label: 'calcReport.torsionMx', quantity: 'moment' },
+  { kind: 'momentY', label: 'calcReport.momentY', quantity: 'moment' },
+  { kind: 'momentZ', label: 'calcReport.momentZ', quantity: 'moment' },
+] as const;
+
+export function spatialForcePeaks(result: AnalysisResults3D) {
+  return spatialForceComponents.map(({ kind, label, quantity }) => {
+    let value: number | null;
+    try {
+      value = maxMemberForce(result.elementForces, kind);
+    } catch (error) {
+      if (!result.magnitude || engineFailureMessage(error)?.key !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
+      value = null;
+    }
+    return { label, quantity, value };
+  });
+}

@@ -40,8 +40,8 @@
     type SectionStressResult3D,
     type PerpNAPoint,
   } from '../lib/engine/section-stress-3d';
-  import { computeDiagramValueAt } from '../lib/engine/diagrams';
   import { isEngineUnavailable, engineFailureText } from '../lib/engine/engine-unavailable';
+  import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { fmtForce, isPointInConvexPolygon } from './stress/fmt';
   import { toQ, unitQ } from '../lib/store/display-units.svelte';
   import UnitInput from './UnitInput.svelte';
@@ -214,7 +214,7 @@
    * schema versions disagree rather than letting the two describe different
    * sections.
    */
-  const canonical = $derived.by(() => {
+  const canonical = $derived.by(() => guarded('canonical', () => {
     if (!query) return null;
     const elem = modelStore.elements.get(query.elementId);
     if (!elem) return null;
@@ -234,7 +234,7 @@
     const ef = resultsStore.getElementForces(query.elementId);
     if (!ef) return null;
     return canonicalPanelResult(sec, stationForces2D(ef, query.t));
-  });
+  }));
 
   /** Canonical drawing geometry, or null when the section is refused. */
   const canonicalGeometry = $derived(canonical?.ok ? canonical.geometry : null);
@@ -352,9 +352,7 @@
     if (!ef) return null;
 
     // Get raw 2D forces at position t
-    const M_2d = computeDiagramValueAt('moment', query.t, ef);
-    const V_2d = computeDiagramValueAt('shear', query.t, ef);
-    const N_2d = computeDiagramValueAt('axial', query.t, ef);
+    const { my: M_2d, vz: V_2d, n: N_2d } = stationForces2D(ef, query.t);
 
     // Decompose 2D bending into the section's rotated local axes (PR [12] convention).
     // At α = 0° the 2D bending is the strong-axis / DEPTH bending → My (uses Iy), and the
@@ -663,7 +661,11 @@
     if (ran !== null) return null;
     const err = failures[uses3DPath ? '3D' : '2D'];
     if (err === undefined) return null;
-    return { unavailable: isEngineUnavailable(err), message: engineFailureText(err) };
+    return {
+      unavailable: isEngineUnavailable(err),
+      message: err instanceof Error && err.message === DIAGRAM_EXTREMA_UNAVAILABLE
+        ? t(DIAGRAM_EXTREMA_UNAVAILABLE) : engineFailureText(err),
+    };
   });
   const resolved = $derived(uses3DPath ? analysis3D?.resolved : analysis2D?.resolved);
 
@@ -836,7 +838,7 @@
     activeState?.tau ?? (uses3DPath ? (analysis3D?.tauTotal ?? 0) : (analysis2D?.tauAtY ?? 0)),
   );
 
-  const criticalSections = $derived.by(() => {
+  const criticalSectionResult = $derived.by(() => guarded('critical', () => {
     if (!query) return [];
     if (is3D && resultsStore.results3D) {
       const ef = resultsStore.getElementForces3D(query.elementId);
@@ -849,6 +851,12 @@
       return suggestCriticalSections(ef);
     }
     return [];
+  }));
+  const criticalSectionFailure = $derived.by(() => {
+    if (criticalSectionResult !== null) return null;
+    const error = failures.critical;
+    return error instanceof Error && error.message === DIAGRAM_EXTREMA_UNAVAILABLE
+      ? t(DIAGRAM_EXTREMA_UNAVAILABLE) : engineFailureText(error);
   });
 
   // Global stress scales: max σ and τ across all critical sections of the element (MPa)
@@ -887,9 +895,7 @@
       const alpha = (sec.rotation ?? 0) * Math.PI / 180;
       const cosA = Math.cos(alpha), sinA = Math.sin(alpha);
       for (const cs of crits) {
-        const M = computeDiagramValueAt('moment', cs.t, ef);
-        const V = computeDiagramValueAt('shear', cs.t, ef);
-        const N = computeDiagramValueAt('axial', cs.t, ef);
+        const { my: M, vz: V, n: N } = stationForces2D(ef, cs.t);
         const a = analyzeSectionStressFromForces(N, V*sinA, V*cosA, 0, -M*cosA, M*sinA, sec, mat.fy);
         for (const pt of a.distributionY) {
           if (Math.abs(pt.sigma) > maxSY) maxSY = Math.abs(pt.sigma);
@@ -1379,9 +1385,11 @@
         {t('stress.criticalSections')}
         <span class="ssp-help ssp-help-inline" title={t('stress.criticalSectionsHelp')}>?</span>
       </button>
-      {#if showCritical && criticalSections.length > 0}
+      {#if showCritical && criticalSectionFailure}
+        <p role="alert">{criticalSectionFailure}</p>
+      {:else if showCritical && criticalSectionResult?.length}
         <div class="ssp-critical">
-          {#each criticalSections as cs}
+          {#each criticalSectionResult as cs}
             <button
               class="ssp-critical-chip"
               class:active={Math.abs(cs.t - query.t) < 0.02}

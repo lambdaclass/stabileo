@@ -859,7 +859,8 @@ pub fn compute_envelope_2d(input: JsValue) -> Result<JsValue, JsValue> {
     if results.is_empty() {
         return Ok(JsValue::NULL);
     }
-    let env = postprocess::combinations::compute_envelope(&results).map_err(|e| JsValue::from_str(&e))?;
+    let env = postprocess::combinations::compute_envelope(&results)
+        .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&env)
 }
 

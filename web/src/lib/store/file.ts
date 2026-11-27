@@ -1,3 +1,5 @@
+import { memberEndComponents2D } from '../engine/diagrams';
+import { memberEndComponents3D } from '../engine/diagrams-3d';
 import { ModelInputError, requireStoredProjectInput } from '../engine/model-input-numbers';
 import { resultComponents } from '../axes/result-components';
 import { exportMessages, warningImage, warningCanvas } from '../export/containment';
@@ -793,7 +795,8 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.internalForces')}`);
     lines.push(`${t('file.element')},L (m),Ni (kN),Nj (kN),Vyi (kN),Vyj (kN),Vzi (kN),Vzj (kN),Mxi (kN·m),Mxj (kN·m),Myi (kN·m),Myj (kN·m),Mzi (kN·m),Mzj (kN·m)`);
     for (const f of r3d.elementForces) {
-      lines.push(`${f.elementId},${f.length},${f.nStart},${f.nEnd},${f.vyStart},${f.vyEnd},${f.vzStart},${f.vzEnd},${f.mxStart},${f.mxEnd},${f.myStart},${f.myEnd},${f.mzStart},${f.mzEnd}`);
+      const [i, j] = memberEndComponents3D(f);
+      lines.push([f.elementId, f.length, i.n, j.n, i.vy, j.vy, i.vz, j.vz, i.mx, j.mx, i.my, j.my, i.mz, j.mz].join(','));
     }
   } else if (r2d) {
     // 2D Displacements
@@ -816,7 +819,8 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.internalForces')}`);
     lines.push(`${t('file.element')},N_i (kN),N_j (kN),V_i (kN),V_j (kN),M_i (kN·m),M_j (kN·m),L (m),qI (kN/m),qJ (kN/m)`);
     for (const f of r2d.elementForces) {
-      lines.push(`${f.elementId},${f.nStart},${f.nEnd},${f.vStart},${f.vEnd},${f.mStart},${f.mEnd},${f.length},${f.qI},${f.qJ}`);
+      const [i, j] = memberEndComponents2D(f);
+      lines.push([f.elementId, i.n, j.n, i.v, j.v, i.m, j.m, f.length, f.qI, f.qJ].join(','));
     }
   }
 
