@@ -53,7 +53,7 @@ try {
           italianByFile.set(output.fileName, italianCopyBytes(output.code, Object.keys(output.modules), code => this.parse(code)));
         }
         if (output.type === 'chunk' && isBlogPostsChunk(Object.keys(output.modules))) blogPostsChunks.add(output.fileName);
-        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/') || id.includes('/components/diagram-game/'))) toolsChunks.add(output.fileName);
+        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/') || id.includes('/components/diagram-game/') || id.includes('/components/games/'))) toolsChunks.add(output.fileName);
         if (output.type === 'chunk') {
           const locales = Object.keys(output.modules).filter(id => id.startsWith('\0virtual:public-i18n/'));
           if (locales.length) publicLocaleChunks.set(output.fileName, locales.map(id => id.split('/').at(-1)).sort().join('+'));

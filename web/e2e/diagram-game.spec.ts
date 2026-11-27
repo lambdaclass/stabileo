@@ -1,3 +1,4 @@
+import { pickLanguage } from './fixtures';
 import { BUILD_FEATURES, GAME_SKIP_REASON } from './build-features';
 import { test, expect, type Page } from '@playwright/test';
 
@@ -9,7 +10,7 @@ const correctIndex = (page: Page) => page.evaluate(() => (window as unknown as {
 test('@smoke diagram game: a right answer scores and explains every option; three mistakes end it and the best score survives a reload', async ({ page }) => {
   const fetched: string[] = [];
   page.on('request', (r) => fetched.push(new URL(r.url()).pathname));
-  await page.goto('/en/diagram-game/?e2e=1&seed=12345');
+  await page.goto('/en/games/diagram-game/?e2e=1&seed=12345');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pick the right diagram');
   expect(fetched.some((p) => /\/App-[^/]*\.js$/.test(p))).toBe(false);
   await page.getByTestId('dg-start').click();
@@ -48,7 +49,7 @@ test('@smoke diagram game: a right answer scores and explains every option; thre
 });
 
 test('@smoke diagram game: a round that shows one diagram and asks which of four structures it belongs to', async ({ page }) => {
-  await page.goto('/es/diagram-game/?e2e=1&seed=99');
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=99');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
   await page.evaluate(() => (window as unknown as { __diagramGame: Hook }).__diagramGame.level(3));
@@ -124,7 +125,7 @@ async function fitsOneScreen(page: Page, what: string, minDrawing: number) {
 }
 
 async function playThrough(page: Page, label: string, minDrawing: number) {
-  await page.goto('/es/diagram-game/?e2e=1&seed=31');
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=31');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
   await fitsOneScreen(page, `${label} first round`, minDrawing);
@@ -165,7 +166,7 @@ test.describe('on a phone', () => {
 
   test('@smoke held upright, the start screen suggests turning the phone; held sideways, it does not', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 664 });
-    await page.goto('/es/diagram-game/?e2e=1');
+    await page.goto('/es/games/diagram-game/?e2e=1');
     await expect(page.getByTestId('dg-rotate')).toContainText('Girá el teléfono');
     await page.setViewportSize({ width: 844, height: 340 });
     await expect(page.getByTestId('dg-rotate')).toHaveCount(0);
@@ -173,7 +174,7 @@ test.describe('on a phone', () => {
 });
 
 test('@smoke when the clock runs out a life is lost and the right option is shown', async ({ page }) => {
-  await page.goto('/es/diagram-game/?e2e=1&seed=41');
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=41');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
   const right = (await correctIndex(page))!;
@@ -189,7 +190,7 @@ test('@smoke when the clock runs out a life is lost and the right option is show
 });
 
 test('@smoke auto-next starts off, moves on by itself once ticked, holds while a card is read, and is remembered', async ({ page }) => {
-  await page.goto('/es/diagram-game/?e2e=1&seed=77');
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=77');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
   await page.getByTestId(`dg-option-${(await correctIndex(page))!}`).click();
@@ -217,7 +218,7 @@ test('@smoke auto-next starts off, moves on by itself once ticked, holds while a
 
 test('@smoke the question names the diagram in its own colour, with its symbol, and quitting keeps the best score and goes back to the start', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/es/diagram-game/?e2e=1&seed=5');
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=5');
   await page.getByTestId('dg-start').click();
   await expect(page.getByTestId('dg-options')).toBeVisible();
   const term = page.getByTestId('dg-term');
@@ -236,6 +237,157 @@ test('@slow Educational mode links to the diagram game', async ({ page }) => {
   await page.goto('/app/education?e2e=1');
   await expect(page.locator('.edu-panel')).toBeVisible({ timeout: 45_000 });
   await page.getByTestId('edu-open-game').click();
-  await expect(page).toHaveURL(/\/diagram-game\/?$/);
+  await expect(page).toHaveURL(/\/games\/diagram-game\/?$/);
   await expect(page.getByTestId('dg-start')).toBeVisible();
+});
+
+test('@smoke the games hub lists the diagram game, opens it, and the game leads back to the hub', async ({ page }) => {
+  await page.goto('/es/games/?e2e=1');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Juegos');
+  await expect(page).toHaveTitle('Juegos de análisis estructural para estudiantes — Stabileo');
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://stabileo.com/es/games/');
+  await expect(page.locator('link[rel="alternate"][hreflang="zh"]')).toHaveAttribute('href', 'https://stabileo.com/zh/games/');
+  await expect(page.locator('nav.site-header [aria-current="page"]')).toHaveAttribute('data-nav', 'game');
+  await expect(page.locator('nav.site-header [data-nav="game"]')).toHaveText('Juegos');
+  const card = page.getByTestId('game-card-diagram-game');
+  await expect(card.getByRole('heading', { level: 2 })).toHaveText('Diagramas: elegí el correcto');
+  const hubUrl = page.url();
+  await card.getByRole('link', { name: 'Jugar' }).click();
+  await expect(page).toHaveURL(/\/es\/games\/diagram-game\/$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: elegí el correcto');
+  await expect(page.getByTestId('dg-start')).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(hubUrl);
+  await expect(page.getByTestId('game-card-diagram-game')).toBeVisible();
+  await page.goForward();
+  await page.locator('.dg-intro .crumb a').click();
+  await expect(page).toHaveURL(/\/es\/games\/(\?e2e=1)?$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Juegos');
+});
+
+test('@smoke the old game address lands on the game under /games, keeping the language and the query', async ({ page }) => {
+  await page.goto('/pt/diagram-game/?e2e=1&seed=9');
+  await expect(page).toHaveURL(/\/pt\/games\/diagram-game\/\?e2e=1&seed=9$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: escolha o correto');
+});
+
+test('@smoke the unprefixed legacy game link keeps its seed and fragment through language selection', async ({ page }) => {
+  await page.goto('/diagram-game/?seed=9#play');
+  await expect(page.getByTestId('dg-start')).toBeVisible();
+  await expect(page).toHaveURL('/games/diagram-game/?seed=9#play');
+  await pickLanguage(page, 'nav-lang', 'pt');
+  await expect(page).toHaveURL('/pt/games/diagram-game/?seed=9#play');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: escolha o correto');
+});
+
+test('@smoke on a phone the games hub has no sideways scroll and every link is a full-size target', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto('/de/games/?e2e=1');
+  await expect(page.getByTestId('game-card-diagram-game')).toBeVisible();
+  const overflow = await page.evaluate(() => [document.documentElement, document.querySelector('.landing.games')!].map(el => el.scrollWidth - el.clientWidth));
+  expect(overflow).toEqual([0, 0]);
+  const targets = page.locator('.landing.games main a');
+  expect(await targets.count()).toBeGreaterThanOrEqual(3);
+  for (const box of await targets.evaluateAll(links => links.map(a => { const r = a.getBoundingClientRect(); return { text: a.textContent?.trim() ?? '', width: r.width, height: r.height }; }))) {
+    expect(Math.min(box.width, box.height), box.text).toBeGreaterThanOrEqual(44);
+  }
+});
+
+async function winTabletRound(page: Page) {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto('/es/games/diagram-game/?e2e=1&seed=31');
+  await page.getByTestId('dg-start').click();
+  await expect(page.getByTestId('dg-options')).toBeVisible();
+  await page.addStyleTag({ content: '.option.won, .option.won * { animation-play-state: paused !important; }' });
+  const winner = page.getByTestId(`dg-option-${await correctIndex(page)}`);
+  await winner.click();
+  await expect(page.getByTestId('dg-verdict')).toHaveAttribute('data-correct', 'true');
+  return winner;
+}
+
+test('@smoke winning feedback respects reduced motion on a tablet', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const winner = await winTabletRound(page);
+  expect(await winner.locator('.option-figure').evaluate(el => el.getAnimations().length)).toBe(0);
+  const animations = await winner.evaluate(card => card.getAnimations({ subtree: true })
+    .filter(animation => animation instanceof CSSAnimation)
+    .map(animation => animation.animationName));
+  expect(animations).not.toContainEqual(expect.stringMatching(/(?:^|-)pop$/));
+});
+
+test('@smoke winning feedback stays inside the tablet viewport throughout its animation', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  const winner = await winTabletRound(page);
+  const figure = winner.locator('.option-figure');
+  expect(await figure.evaluate(el => el.getAnimations().some(animation => animation instanceof CSSAnimation))).toBe(true);
+
+  const frames = await winner.evaluate(card => {
+    const figure = card.querySelector('.option-figure')!;
+    const style = getComputedStyle(card);
+    const scroller = card.closest('.landing')!;
+    const animations = card.getAnimations({ subtree: true }).filter(animation => animation instanceof CSSAnimation);
+    const frames = [];
+    for (let step = 0; step <= 10; step++) {
+      for (const animation of animations) {
+        animation.currentTime = Number(animation.effect!.getComputedTiming().activeDuration) * step / 10;
+      }
+      const box = card.getBoundingClientRect();
+      const drawing = figure.getBoundingClientRect();
+      const visibleX = style.overflowX === 'visible';
+      const visibleY = style.overflowY === 'visible';
+      frames.push({
+        left: visibleX ? Math.min(box.left, drawing.left) : box.left,
+        right: visibleX ? Math.max(box.right, drawing.right) : box.right,
+        top: visibleY ? Math.min(box.top, drawing.top) : box.top,
+        bottom: visibleY ? Math.max(box.bottom, drawing.bottom) : box.bottom,
+        viewportWidth: innerWidth,
+        viewportHeight: innerHeight,
+        overflow: Math.max(0, scroller.scrollWidth - scroller.clientWidth, document.documentElement.scrollWidth - innerWidth),
+      });
+    }
+    return frames;
+  });
+  for (const [step, frame] of frames.entries()) {
+    expect(frame.left, `left edge at step ${step}`).toBeGreaterThanOrEqual(0);
+    expect(frame.right, `right edge at step ${step}`).toBeLessThanOrEqual(frame.viewportWidth);
+    expect(frame.top, `top edge at step ${step}`).toBeGreaterThanOrEqual(0);
+    expect(frame.bottom, `bottom edge at step ${step}`).toBeLessThanOrEqual(frame.viewportHeight);
+    expect(frame.overflow, `scroll at step ${step}`).toBe(0);
+  }
+});
+
+test('@smoke the game thumbnail fits all three answer cards inside its viewBox with space between their outlines', async ({ page }) => {
+  await page.goto('/en/games/');
+  const thumbnail = page.getByTestId('game-card-diagram-game').locator('svg.thumb');
+  await expect(thumbnail.locator('rect.option')).toHaveCount(3);
+  const { view, bounds } = await thumbnail.evaluate(el => {
+    const svg = el as SVGSVGElement;
+    const { x, y, width, height } = svg.viewBox.baseVal;
+    const toViewBox = svg.getScreenCTM()!.inverse();
+    const bounds = [svg, ...svg.querySelectorAll<SVGRectElement>('rect.option')].map((element, i) => {
+      const box = element.getBBox();
+      const style = getComputedStyle(element);
+      const halfStroke = style.stroke === 'none' ? 0 : parseFloat(style.strokeWidth) / 2;
+      const transform = toViewBox.multiply(element.getScreenCTM()!);
+      const xs = [box.x - halfStroke, box.x + box.width + halfStroke];
+      const ys = [box.y - halfStroke, box.y + box.height + halfStroke];
+      const corners = xs.flatMap(x => ys.map(y => new DOMPoint(x, y).matrixTransform(transform)));
+      return {
+        name: i === 0 ? 'thumbnail' : `answer card ${i}`,
+        left: Math.min(...corners.map(p => p.x)), right: Math.max(...corners.map(p => p.x)),
+        top: Math.min(...corners.map(p => p.y)), bottom: Math.max(...corners.map(p => p.y)),
+      };
+    });
+    return { view: { x, y, width, height }, bounds };
+  });
+  for (const box of bounds) {
+    expect(box.left, `${box.name} left edge`).toBeGreaterThanOrEqual(view.x);
+    expect(box.right, `${box.name} right edge`).toBeLessThanOrEqual(view.x + view.width);
+    expect(box.top, `${box.name} top edge`).toBeGreaterThanOrEqual(view.y);
+    expect(box.bottom, `${box.name} bottom edge`).toBeLessThanOrEqual(view.y + view.height);
+  }
+  const cards = bounds.slice(1);
+  for (const [i, card] of cards.slice(1).entries()) {
+    expect(card.left, `gap before ${card.name}`).toBeGreaterThan(cards[i]!.right);
+  }
 });

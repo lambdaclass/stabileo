@@ -39,7 +39,7 @@
 
   async function sync(afterActivation = false) {
     const token = ++revision;
-    if (__PUBLIC_FEATURES__.tools) restoreMovedRoute();
+    if (__PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame) restoreMovedRoute();
     if (location.pathname.startsWith('/hu/')) {
       const { restoreUnpublishedResearchRoute } = await import('./lib/research-fallback');
       if (token !== revision) return;

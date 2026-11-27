@@ -1,5 +1,6 @@
 import ts from 'typescript';
 import { EXAMPLE_PATHS } from '../src/lib/public-surface';
+import { GAME_PATHS } from '../src/lib/game-routes';
 import { publicFeatureEnabled } from '../src/lib/features';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
@@ -96,6 +97,6 @@ export async function publicPaths(): Promise<string[]> {
     const day = researchLastReview(path);
     if (day) POST_LASTMOD.set(path, day);
   }
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, ...toolPaths(), ...(flags.tools ? [] : EXAMPLE_PATHS), '/diagram-game'].filter(path => publicFeatureEnabled(path, flags));
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, ...toolPaths(), ...(flags.tools ? [] : EXAMPLE_PATHS), ...GAME_PATHS].filter(path => publicFeatureEnabled(path, flags));
 }
 
