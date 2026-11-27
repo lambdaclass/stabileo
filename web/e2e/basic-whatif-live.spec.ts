@@ -324,3 +324,49 @@ test('@slow inspecting Explore preserves verification and the solved model', asy
   await page.getByTestId('adv-close').click();
   expect(await publication()).toEqual(original);
 });
+
+for (const source of ['combination', 'moving train'] as const) {
+  test('@slow axial paint labels both signs of the selected ' + source + ' envelope', async ({ page }) => {
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions && window.__stabileo.solverReady());
+    await page.evaluate(async source => {
+      await window.__stabileoActions.loadExample('simply-supported');
+      const file = JSON.parse(window.__stabileo.serializeProject());
+      const tip = file.snapshot.nodes[1][1];
+      if (source === 'moving train') {
+        tip.y = 3;
+      } else {
+        file.snapshot.loads = [3, -7].map((fx, i) => ({
+          type: 'nodal', data: { id: i + 1, caseId: i + 1, nodeId: tip.id, fx, fz: 0, my: 0 },
+        }));
+        file.snapshot.combinations = [1, 2].map(id => ({ id, name: 'Case ' + id, factors: [{ caseId: id, factor: 1 }] }));
+      }
+      if (!window.__stabileoActions.loadProject(file)) throw Error('Envelope model reopen failed');
+      await window.__stabileoActions.solve();
+    }, source);
+    if (source === 'moving train') {
+      await openAdvancedFunction(page, 'trainLoad');
+      await page.getByTestId('adv-train-select').selectOption({ index: 1 });
+      await expect(page.locator('.adv-result-btn.small.active')).toBeVisible();
+    } else {
+      await openAdvancedFunction(page, 'loadStates');
+      const enable = page.getByTestId('load-states-enable');
+      if (await enable.isVisible()) await enable.click();
+      const solve = page.getByTestId('load-states-solve');
+      if (await solve.isVisible()) await solve.click();
+      await page.getByTestId('load-states-envelope').click();
+    }
+    const labels = await page.locator('.viewport2d-wrapper canvas').first().evaluateHandle(el => {
+      const ctx = (el as HTMLCanvasElement).getContext('2d')!;
+      const labels = new Set<string>();
+      const draw = ctx.fillText.bind(ctx);
+      ctx.fillText = (label, ...args) => { labels.add(label); draw(label, ...args); };
+      (document.activeElement as HTMLElement)?.blur();
+      return labels;
+    });
+    await page.keyboard.press('8');
+    await expect.poll(() => page.evaluate(() => window.__stabileo.diagramType())).toBe('axialColor');
+    const range = source === 'combination' ? /^-7\.0 kN \/ \+3\.0 kN$/ : /^-\d[.\d]* kN \/ \+\d[.\d]* kN$/;
+    await expect.poll(() => labels.evaluate(set => [...set])).toEqual(expect.arrayContaining([expect.stringMatching(range)]));
+  });
+}
