@@ -1,4 +1,4 @@
-import type { AnalysisResults } from './model.svelte';
+import type { AnalysisResults, Section, Material } from './model.svelte';
 import type { DiagramType } from './results.svelte';
 import type { FullEnvelope } from '../engine/types';
 import type { AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
@@ -18,22 +18,30 @@ export interface ResultTopology {
   elementForces: ReadonlyArray<{ elementId: number }>;
 }
 
+export interface ScreenModelSnapshot {
+  fits(results: ResultTopology): boolean;
+  sections: Map<number, Section>;
+  materials: Map<number, Material>;
+}
+
 type Held = ScreenView & { since: number };
 
 /** A held picture is drawn only on a model that still has every node and member it names. */
 export function createScreenHold(live: Readonly<ScreenView>, drawable: (d: DiagramType) => boolean) {
   let hold = $state.raw<Held | null>(null);
-  let fits: (r: ResultTopology) => boolean = () => true;
+  let capture: (() => ScreenModelSnapshot) | undefined;
+  let published: ScreenModelSnapshot | undefined;
 
   const isLive = () => live.results !== null || live.results3D !== null;
   const shown = (): Held | null => {
     const h = hold;
     if (!h || isLive()) return null;
     const r = h.results ?? h.results3D;
-    return r && fits(r) ? h : null;
+    return r && published?.fits(r) ? h : null;
   };
 
   const view = {
+    get model() { return shown() ? published : undefined; },
     get held() { return shown() !== null; },
     /** When the held picture was taken (performance.now()), 0 with none held. */
     get heldSince() { return shown()?.since ?? 0; },
@@ -51,14 +59,15 @@ export function createScreenHold(live: Readonly<ScreenView>, drawable: (d: Diagr
     /** With nothing published, keeps the picture an earlier clear held. */
     keep(): void {
       if (!isLive()) return;
-      hold = drawable(live.diagram) ? { ...live, since: performance.now() } : null;
+      hold = drawable(live.diagram) || (live.diagram === 'none' && live.showReactions) ? { ...live, since: performance.now() } : null;
     },
     release(): void { hold = null; },
     /** A diagram picked while the re-solve is pending. */
     pick(diagram: DiagramType): void {
       if (!hold) return;
-      hold = drawable(diagram) ? { ...hold, diagram } : null;
+      hold = drawable(diagram) || (diagram === 'none' && hold.showReactions) ? { ...hold, diagram } : null;
     },
-    setTopologyCheck(fn: (r: ResultTopology) => boolean): void { fits = fn; },
+    setModelCapture(fn: () => ScreenModelSnapshot): void { capture = fn; },
+    publish(): void { hold = null; published = capture?.(); },
   };
 }

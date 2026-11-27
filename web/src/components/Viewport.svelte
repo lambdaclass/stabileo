@@ -288,8 +288,9 @@
   $effect(() => { resultsStore.results; resultsStore.diagramType; invalidate(); });
   $effect(() => {
     resultsStore.screen.results; resultsStore.screen.diagram; resultsStore.screen.showReactions;
-    if (!resultsStore.screen.held) return;
+    const held = resultsStore.screen.held;
     invalidate();
+    if (!held) return;
     const dim = setTimeout(invalidate, HELD_DIM_MS + 20);
     return () => clearTimeout(dim);
   });
@@ -391,11 +392,11 @@
         return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId, type: elem.type } : undefined;
       },
       getMaterial: (id: number) => {
-        const mat = modelStore.materials.get(id);
+        const mat = (resultsStore.screen.model?.materials ?? modelStore.materials).get(id);
         return mat ? { e: mat.e } : undefined;
       },
       getSection: (id: number) => {
-        const sec = modelStore.sections.get(id);
+        const sec = (resultsStore.screen.model?.sections ?? modelStore.sections).get(id);
         // 2D bending uses effective inertia (accounts for section rotation via Mohr)
         return sec ? { iz: effectiveBendingInertia(sec) } : undefined;
       },
@@ -579,6 +580,12 @@
   function draw() {
     if (!ctx) return;
     const shown = resNow();
+    const probe = import.meta.env.VITE_E2E === '1' && !exportFrame && new URLSearchParams(location.search).has('e2e');
+    if (probe) {
+      canvas.dataset.paintedDiagram = 'none';
+      delete canvas.dataset.paintedMoment;
+      canvas.dataset.paintedHold = String(resultsStore.screen.held);
+    }
 
     /*
      * Every frame starts from the canvas's own text and compositing defaults.
@@ -699,8 +706,8 @@
         for (const ef of shown.elementForces) {
           const elem = modelStore.elements.get(ef.elementId);
           if (!elem) continue;
-          const sec = modelStore.sections.get(elem.sectionId);
-          const mat = modelStore.materials.get(elem.materialId);
+          const sec = (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId);
+          const mat = (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId);
           /*
            * `fy` is required by the RATIO alone — it is the denominator. Von
            * Mises, the normal stress and the shear stress are absolute
@@ -1374,6 +1381,14 @@
         });
       } else if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
         const dkind = dt as DiagramKind;
+        const painted = probe ? {
+          onDiagramPainted: (d: { maxAbsValue: number }) => {
+            canvas.dataset.paintedDiagram = dkind;
+            if (dkind === 'moment') canvas.dataset.paintedMoment = String(Math.max(
+              Number(canvas.dataset.paintedMoment ?? 0), Math.abs(d.maxAbsValue),
+            ));
+          },
+        } : {};
         // Check if we should render envelope dual curves
         const showEnvelopeDual = (resultsStore.screen.envelopeActive || resultsStore.movingLoadShowEnvelope) && (
           resultsStore.screen.envelopeActive ? resultsStore.screen.fullEnvelope : resultsStore.movingLoadEnvelope?.fullEnvelope
@@ -1413,10 +1428,10 @@
               );
               const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
               drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
-              drawDiagrams(shown, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
+              drawDiagrams(shown, dkind, { ...makeDrawContext(), extremeBound, ...painted }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
             } else {
               // The certified ± beside the max label on screen only; a figure export stays as it was.
-              const dc = exportFrame ? makeDrawContext() : { ...makeDrawContext(), extremeBound };
+              const dc = exportFrame ? makeDrawContext() : { ...makeDrawContext(), extremeBound, ...painted };
               drawDiagrams(shown, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
             }
           } catch (error) {
@@ -2552,8 +2567,8 @@
                 const elem = modelStore.elements.get(nearElem.id);
                 let EI: number | undefined;
                 if (elem) {
-                  const mat = modelStore.materials.get(elem.materialId);
-                  const sec = modelStore.sections.get(elem.sectionId);
+                  const mat = (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId);
+                  const sec = (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId);
                   if (mat && sec) EI = mat.e * 1000 * effectiveBendingInertia(sec); // kN·m²
                 }
                 // A truss member stays straight between its nodes (see draw-deformed.ts).
@@ -2605,8 +2620,8 @@
                   // The painter's own value for the stress maps (MPa, or σ/fy for the ratio). This
                   // used to add |N|, |M| and |V| and call it a ratio, in no unit at all.
                   const elem = modelStore.elements.get(nearElem.id);
-                  const sec = elem ? modelStore.sections.get(elem.sectionId) : undefined;
-                  const mat = elem ? modelStore.materials.get(elem.materialId) : undefined;
+                  const sec = elem ? (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId) : undefined;
+                  const mat = elem ? (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId) : undefined;
                   const st = sec && mat ? computeElementStress(ef, sec, mat) : null;
                   value = !st ? NaN
                     : cmKind === 'stressRatio' ? (st.ratio ?? NaN)

@@ -290,7 +290,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   if (staticDeformed && exact) {
     eiMap = new Map<number, ElementEI>();
     for (const [id, elem] of modelStore.elements) {
-      const ei = eiOf(modelStore.materials.get(elem.materialId), modelStore.sections.get(elem.sectionId), modelStore.analysis);
+      const ei = eiOf((resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId), (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId), modelStore.analysis);
       if (ei) eiMap.set(id, ei);
     }
   }
@@ -303,7 +303,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     scale,
     eiMap,
     sigHand,
-    modelStore.sections,
+    resultsStore.screen.model?.sections ?? modelStore.sections,
   );
   if (modeColor !== null) {
     ctx.deformedGroup.userData.material.color.setHex(modeColor);
@@ -416,7 +416,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
         resultsStore.diagramScale,
         resultsStore.showDiagramValues,
         leftHand,
-        modelStore.sections,
+        resultsStore.screen.model?.sections ?? modelStore.sections,
         resultsStore.drawPositiveTowardLocalAxes,
         uiStore.unitSystem,
       );
@@ -432,7 +432,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
       resultsStore.diagramScale,
       resultsStore.showDiagramValues,
       leftHand,
-      modelStore.sections,
+      resultsStore.screen.model?.sections ?? modelStore.sections,
       resultsStore.drawPositiveTowardLocalAxes,
       uiStore.unitSystem,
     );
@@ -450,7 +450,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
         resultsStore.diagramScale,
         false, // don't show values on overlay to avoid clutter
         leftHand,
-        modelStore.sections,
+        resultsStore.screen.model?.sections ?? modelStore.sections,
         resultsStore.drawPositiveTowardLocalAxes,
       );
       // Tint overlay with orange color
@@ -730,9 +730,9 @@ function resetShellGroup(group: THREE.Group): void {
 export function getSectionProps(elemId: number) {
   const elem = modelStore.elements.get(elemId);
   if (!elem) return null;
-  const sec = modelStore.sections.get(elem.sectionId);
+  const sec = (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId);
   if (!sec) return null;
-  const mat = modelStore.materials.get(elem.materialId);
+  const mat = (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId);
   return {
     A: sec.a,
     Iz: sec.iz,

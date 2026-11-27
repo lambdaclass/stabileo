@@ -537,6 +537,7 @@ function createUIStore() {
 
   // Live calculation
   let liveCalc = $state(hasLocalStorage() && localStorage.getItem('liveCalc') === 'true');
+  let releaseLiveScreen: (() => void) | undefined;
   let liveCalcError = $state<string | null>(null);
 
   // Analysis mode: 2D, 3D, PRO or EDU (educational)
@@ -1298,9 +1299,11 @@ function createUIStore() {
       if (idx >= 0) toasts.splice(idx, 1);
     },
 
+    _setReleaseLiveScreen(fn: () => void) { releaseLiveScreen = fn; },
     get liveCalc() { return liveCalc; },
     set liveCalc(v: boolean) {
       liveCalc = v;
+      if (!v) releaseLiveScreen?.();
       if (hasLocalStorage()) localStorage.setItem('liveCalc', String(v));
     },
     get liveCalcError() { return liveCalcError; },

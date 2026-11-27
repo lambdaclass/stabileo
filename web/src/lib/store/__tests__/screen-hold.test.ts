@@ -132,7 +132,7 @@ describe('the picture held for a live re-solve', () => {
   });
 });
 
-it.skip.each(['reconnect', 'move'])('known wrong result: #1927 — a held diagram cannot follow a %s with identical IDs', async edit => {
+it.each(['reconnect', 'move'])('known wrong result: #1927 — a held diagram cannot follow a %s with identical IDs', async edit => {
   const r = await solvedPortal();
   const e = modelStore.elements.get(r.elementForces[0]!.elementId)!;
   editE(2);
@@ -147,7 +147,7 @@ it.skip.each(['reconnect', 'move'])('known wrong result: #1927 — a held diagra
   expect(resultsStore.screen.results).toBeNull();
 });
 
-it.skip('known wrong result: #1927 — reactions alone remain drawn through a live solve', async () => {
+it('known wrong result: #1927 — reactions alone remain drawn through a live solve', async () => {
   const r = await solvedPortal();
   resultsStore.diagramType = 'none';
   resultsStore.showReactions = true;
@@ -160,4 +160,51 @@ it.skip('known wrong result: #1927 — reactions alone remain drawn through a li
   expect(resultsStore.screen.results).not.toBeNull();
   expect(resultsStore.screen.diagram).toBe('none');
   expect(resultsStore.screen.showReactions).toBe(true);
+});
+
+function solvedCantilever3D(): number {
+  uiStore.analysisMode = '3d';
+  modelStore.clear();
+  const base = modelStore.addNode(0, 0, 0), tip = modelStore.addNode(0, 0, 3);
+  const member = modelStore.addElement(base, tip, 'frame');
+  modelStore.addSupport(base, 'fixed3d');
+  modelStore.addNodalLoad3D(tip, 0, 1, 0, 0, 0, 0);
+  const r = modelStore.solve3D(false, false, false);
+  if (!r || typeof r === 'string') throw new Error(String(r));
+  resultsStore.setResults3D(r);
+  return member;
+}
+
+it.each(['2d', '3d'] as const)('a held stress map uses the solved material until a new %s solve', async mode => {
+  const { getSectionProps } = await import('../../viewport3d/results-sync');
+  let member: number;
+  if (mode === '2d') member = (await solvedPortal()).elementForces[0]!.elementId;
+  else {
+    member = solvedCantilever3D();
+  }
+  resultsStore.diagramType = 'colorMap';
+  const elem = modelStore.elements.get(member)!;
+  const editedFy = 2 * (modelStore.materials.get(elem.materialId)!.fy ?? 1);
+  const previous = getSectionProps(member)!;
+  modelStore.updateMaterial(elem.materialId, { fy: editedFy });
+  expect(resultsStore.screen.held).toBe(true);
+  expect(getSectionProps(member)).toEqual(previous);
+  uiStore.liveCalc = false;
+  expect(resultsStore.screen.held).toBe(false);
+  expect(getSectionProps(member)!.fy).toBe(editedFy * 1000);
+  expect(getSectionProps(member)).not.toEqual(previous);
+});
+
+it.each(['reconnect', 'move'])('drops a held 3D diagram on a %s with identical IDs', edit => {
+  const id = solvedCantilever3D();
+  resultsStore.diagramType = 'moment';
+  editE(2);
+  expect(resultsStore.screen.held).toBe(true);
+  const member = modelStore.elements.get(id)!;
+  if (edit === 'reconnect') modelStore.updateElement(id, { nodeI: member.nodeJ, nodeJ: member.nodeI });
+  else {
+    const node = modelStore.nodes.get(member.nodeJ)!;
+    modelStore.updateNode(node.id, node.x, node.y, node.z + 1);
+  }
+  expect(resultsStore.screen.results3D).toBeNull();
 });

@@ -29,6 +29,8 @@
  */
 
 import { openDeskAt } from '../pro/design-navigation';
+import { computeElementDiagram } from '../engine/diagrams';
+import type { ElementForces } from '../engine/types';
 import { viewportCanvas } from './viewport-canvas';
 import { discretizationStore } from '../store/discretization.svelte';
 import { drawState } from '../store/draw-state.svelte';
@@ -64,8 +66,8 @@ import { currentResultProvenance, provenanceForExport, captureProvenanceToken } 
 import { recheckStore } from '../store/recheck.svelte';
 import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
 
-const maxAbsMoment = (r: { elementForces: ReadonlyArray<{ mStart: number; mEnd: number }> }) =>
-  Math.max(0, ...r.elementForces.map((f) => Math.max(Math.abs(f.mStart), Math.abs(f.mEnd))));
+const maxAbsMoment = (r: { elementForces: readonly ElementForces[] }) =>
+  r.elementForces.reduce((peak, f) => Math.max(peak, Math.abs(computeElementDiagram('moment', f, 0, 0, f.length, 0).maxAbsValue)), 0);
 
 export const E2E_QUERY_FLAG = 'e2e';
 
@@ -699,8 +701,10 @@ export function installE2EHooks(): void {
     /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
     hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
     screenFrame: () => {
-      const r = resultsStore.screen.results, diagram = String(resultsStore.screen.diagram);
-      return { drawn: r !== null && diagram !== 'none', held: resultsStore.screen.held, diagram, maxMoment: r ? maxAbsMoment(r) : null };
+      const paint = viewportCanvas()?.dataset;
+      const diagram = paint?.paintedDiagram ?? 'none';
+      return { drawn: diagram !== 'none', held: paint?.paintedHold === 'true', diagram,
+        maxMoment: paint?.paintedMoment === undefined ? null : Number(paint.paintedMoment) };
     },
     freshMaxMoment: () => {
       const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);

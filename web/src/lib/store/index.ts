@@ -180,13 +180,34 @@ resultsStore._setTransverseSignProvider((elementId) => {
   return transverseSign(pb.x - pa.x, pb.y - pa.y);
 });
 
-let screenFit: { r: unknown; nodes: unknown; elements: unknown; ok: boolean } | null = null;
-resultsStore._setScreenTopology((r) => {
-  const nodes = modelStore.nodes, elements = modelStore.elements;
-  if (screenFit && screenFit.r === r && screenFit.nodes === nodes && screenFit.elements === elements) return screenFit.ok;
-  const ok = r.elementForces.every((f) => elements.has(f.elementId)) && r.displacements.every((d) => nodes.has(d.nodeId));
-  screenFit = { r, nodes, elements, ok };
-  return ok;
+uiStore._setReleaseLiveScreen(() => resultsStore.releaseScreen());
+
+resultsStore._setScreenModelCapture(() => {
+  const nodes = new Map([...modelStore.nodes].map(([id, n]) => [id, [n.x, n.y, n.z] as const]));
+  const elements = new Map([...modelStore.elements].map(([id, e]) => [id, { member: e, nodeI: e.nodeI, nodeJ: e.nodeJ }]));
+  const plates = new Map(modelStore.plates), quads = new Map(modelStore.quads);
+  const sections = new Map(modelStore.sections), materials = new Map(modelStore.materials);
+  let cached: { version: number; result: unknown; ok: boolean } | undefined;
+  return {
+    sections, materials,
+    fits(result) {
+      const version = modelStore.modelVersion;
+      if (cached?.version === version && cached.result === result) return cached.ok;
+      const ok = nodes.size === modelStore.nodes.size && elements.size === modelStore.elements.size
+        && plates.size === modelStore.plates.size && quads.size === modelStore.quads.size
+        && [...nodes].every(([id, [x, y, z]]) => {
+          const n = modelStore.nodes.get(id);
+          return n?.x === x && n.y === y && n.z === z;
+        })
+        && [...elements].every(([id, { member, nodeI, nodeJ }]) => member === modelStore.elements.get(id) && member.nodeI === nodeI && member.nodeJ === nodeJ)
+        && [...plates].every(([id, plate]) => plate === modelStore.plates.get(id))
+        && [...quads].every(([id, quad]) => quad === modelStore.quads.get(id))
+        && result.elementForces.every(f => elements.has(f.elementId))
+        && result.displacements.every(d => nodes.has(d.nodeId));
+      cached = { version, result, ok };
+      return ok;
+    },
+  };
 });
 
 // Members of variable section are published as one member each, from any analysis that solved

@@ -18,7 +18,7 @@ import { t } from '../i18n';
 // reinforcement-only edit triggers none. Covers the worker/parallel solve paths too.
 import { noteStructuralSolve } from '../utils/solve-counter';
 import { resultsToDrawnAxes, envelopeToDrawnAxes, type SignOf } from '../engine/transverse-sign-2d';
-import { createScreenHold, type ResultTopology } from './screen-hold.svelte';
+import { createScreenHold, type ScreenModelSnapshot } from './screen-hold.svelte';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges' | 'despiece'
   // 3D-specific diagram types
@@ -973,7 +973,7 @@ function createResultsStore() {
     },
 
     setResults(r: AnalysisResults, preserveDiagram = false) {
-      screen.release();
+      screen.publish();
       _onStaticPublish?.(r, '2d');
       r = drawn(r);
       results = r;
@@ -1010,7 +1010,7 @@ function createResultsStore() {
     },
 
     setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
-      screen.release();
+      screen.publish();
       _onComboPublish?.(pc, pco, '2d');
       pc = new Map([...pc].map(([k, v]) => [k, drawn(v)]));
       pco = new Map([...pco].map(([k, v]) => [k, drawn(v)]));
@@ -1060,7 +1060,7 @@ function createResultsStore() {
         // With a function open, the view to come back to is the one it replaced, not the function's own.
         const shown = FUNCTION_DIAGRAMS.includes(diagramType) && _held ? _held.diagram : diagramType;
         _viewBeforeClear = {
-          diagram: shown !== 'none' ? shown : _lastDiagramType,
+          diagram: shown !== 'none' || showReactions ? shown : _lastDiagramType,
           view: _held?.activeView ?? activeView, caseId: _held ? _held.activeCaseId : activeCaseId,
           comboId: _held ? _held.activeComboId : activeComboId,
           reactions: _held ? _held.showReactions : showReactions,
@@ -1151,7 +1151,7 @@ function createResultsStore() {
       const valid: DiagramType[] = is3D
         ? ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap']
         : ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
-      if (valid.includes(v.diagram)) { diagramType = v.diagram; _lastDiagramType = v.diagram; }
+      if (valid.includes(v.diagram) || (v.diagram === 'none' && v.reactions)) { diagramType = v.diagram; _lastDiagramType = v.diagram; }
       const cases = is3D ? perCase3D : perCase;
       const combos = is3D ? perCombo3D : perCombo;
       if (v.view === 'envelope' && (is3D ? envelope3D : envelope)) {
@@ -1170,7 +1170,7 @@ function createResultsStore() {
     get results3D() { return knownIssueResultDisposition(results3D).refused ? null : results3D; },
 
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
-      screen.release();
+      screen.publish();
       _onStaticPublish?.(r, '3d');
       if (_normalise3D) r = _normalise3D(r);
       r = freezeResult(r);
@@ -1267,7 +1267,7 @@ function createResultsStore() {
     setGoverning3D(g: Map<number, GoverningPerElement3D>) { governing3D = g; },
 
     setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D, unstable: readonly number[] = []) {
-      screen.release();
+      screen.publish();
       _onComboPublish?.(pc, pco, '3d');
       if (_normalise3D) {
         const n = _normalise3D;
@@ -1449,7 +1449,7 @@ function createResultsStore() {
     get screen() { return screen.view; },
     /** Drop the held picture: the re-solve it waited for failed or will not come. */
     releaseScreen() { screen.release(); },
-    _setScreenTopology(fn: (r: ResultTopology) => boolean) { screen.setTopologyCheck(fn); },
+    _setScreenModelCapture(fn: () => ScreenModelSnapshot) { screen.setModelCapture(fn); },
   };
   return api;
 }
