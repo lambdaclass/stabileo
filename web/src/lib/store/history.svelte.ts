@@ -75,7 +75,7 @@ export interface ModelSnapshot {
   notes?: import('../model/annotations').ViewNote[];
   /** Background drawings laid at levels (`model/underlay.ts`). Absent: none. */
   underlays?: import('../model/underlay').Underlay[];
-  designData?: import('../model/design-data').ProjectDesignData;
+  designData?: import('../model/design-data').StoredDesignData;
   designDecisions?: import('../design-contract/decisions').StoredDecisions;
   /** Structural grid and named levels. Absent: none defined. */
   grid?: import('../model/grid').StructuralGrid;
