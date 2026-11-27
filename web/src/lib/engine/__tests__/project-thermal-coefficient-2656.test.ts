@@ -60,8 +60,12 @@ async function checkDisplacement(workspace: '2d' | '3d', alpha: number | undefin
   expect(modelStore.materials.get(material)?.alpha).toBe(alpha);
   const start = jobs.length;
   if (worker) clearSolveResultCache();
-  const result: AnalysisResults | AnalysisResults3D | string | null = secondOrder
-    ? (workspace === '2d' ? solvePDelta(modelStore.buildSolverInput()!).results : solvePDelta3D(modelStore.buildSolverInput3D()!).results)
+  const nonlinear = secondOrder
+    ? (workspace === '2d' ? solvePDelta(modelStore.buildSolverInput()!) : solvePDelta3D(modelStore.buildSolverInput3D()!))
+    : null;
+  if (nonlinear) expect(nonlinear.converged).toBe(true);
+  const result: AnalysisResults | AnalysisResults3D | string | null = nonlinear
+    ? nonlinear.results
     : workspace === '2d'
     ? (worker ? await modelStore.solveAsync() : modelStore.solve())
     : (worker ? await modelStore.solve3DAsync() : modelStore.solve3D());

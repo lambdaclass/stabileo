@@ -41,9 +41,11 @@ test.describe('@slow second order and buckling in Basic', () => {
     expect(opened).toBe(true);
     await openAdvancedFunction(page, 'pdelta');
     await page.getByTestId('so-options-toggle').click();
+    await expect(page.getByTestId('pdelta-result')).toBeVisible();
     const method = page.getByTestId('so-method');
     await method.selectOption('phi');
     await expect(page.getByTestId('pdelta-result')).toHaveCount(0);
+    await expect(page.getByText('This method does not take temperature loads. Use the consistent geometric matrix, which the engine solves.', { exact: false }).first()).toBeVisible();
     await expect(method).toBeVisible();
     await method.selectOption('consistent');
     await expect(page.getByTestId('pdelta-result')).toBeVisible();
@@ -75,6 +77,10 @@ test.describe('@slow second order and buckling in Basic', () => {
     await page.getByTestId('so-options-toggle').click();
     await page.getByTestId('so-method').selectOption('consistent');
     await expect(page.getByTestId('pdelta-compare')).toHaveCount(0);
+    await page.getByTestId('adv-related-steps').locator('summary').click();
+    await page.getByTestId('adv-related-so-pdelta-phi').click();
+    await page.getByTestId('bp-home').click();
+    await expect(page.getByTestId('adv-launcher')).toBeVisible();
     await openAdvancedFunction(page, 'buckling');
     await expect(page.locator('.adv-result-info').filter({ hasText: /λcr = \d/ })).toBeVisible();
     await expect(page.getByTestId('buckling-how')).toContainText('4');

@@ -22,6 +22,11 @@ test.describe('@slow plastic collapse, withheld', () => {
     }
     await page.getByTestId('plastic-withheld-close').click();
     await expect(withheld).toHaveCount(0);
+    for (const id of ['plastic-verdict', 'plastic-trace', 'plastic-curve', 'plastic-mechanism', 'plastic-user']) {
+      await expect(page.getByTestId(id)).toHaveCount(0);
+    }
+    await page.getByTestId('adv-related-steps').locator('summary').click();
+    for (const id of ['plasticKinematic', 'plasticStatic']) await expect(page.getByTestId('adv-related-' + id)).toBeDisabled();
     await page.getByTestId('adv-close').click();
     await openStepsCatalog(page);
     await expandStepsCatalog(page);

@@ -21,7 +21,7 @@ describe('reading the form', () => {
     });
   });
 
-  it.each([-1001, -1000, 1000, 1001, NaN, Infinity, -Infinity])('rejects out-of-range coefficient %s on entry and reopening', micro => {
+  it.each([-1100, -1001, -1000, 1000, 1001, NaN, Infinity, -Infinity])('rejects out-of-range coefficient %s on entry and reopening', micro => {
     const original = { alpha: micro * 1e-6 };
     for (const stored of [undefined, original]) {
       expect(readCustomMaterial(form({ alpha: String(micro) }), stored)).toEqual({ ok: false, reasonKey: 'materials.alphaInvalid' });
@@ -124,6 +124,21 @@ describe('saving a hand-entered material', () => {
 
   it.each(['e', 'rho', 'fy'] as const)('rejects nonfinite %s', field => {
     for (const v of [Infinity, -Infinity, NaN]) expect(readCustomMaterial(form({ [field]: v })).ok).toBe(false);
+  });
+
+  it('restores the automatic family coefficient after setting and clearing alpha', () => {
+    const automatic = { name: 'Automatic aluminium', e: 70000, nu: 0.3, rho: 27, userDefined: false };
+    const id = modelStore.addMaterial(automatic);
+    for (const alpha of [0, undefined]) saveCustomMaterial({ ...automatic, kind: 'custom', alpha }, id);
+    expect(modelStore.materials.get(id)).toMatchObject({ userDefined: false });
+    expect(modelStore.materials.get(id)?.alpha).toBeUndefined();
+  });
+
+  it('retains independent hand-entered strengths and aggregate size across a density edit', () => {
+    const id = saveCustomMaterial(choice());
+    modelStore.updateMaterial(id, { fc: 32, maxAggregateSizeMm: 17 });
+    saveCustomMaterial({ ...choice(), rho: 26 }, id);
+    expect(modelStore.materials.get(id)).toMatchObject({ fc: 32, maxAggregateSizeMm: 17, rho: 26 });
   });
 
   it('preserves mechanical strengths when only alpha changes', () => {

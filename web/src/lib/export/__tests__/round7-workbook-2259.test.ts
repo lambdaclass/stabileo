@@ -141,7 +141,9 @@ it.each([-0.001, 0.001, 'bad'])('refuses an invalid workbook coefficient %s befo
   const node = modelStore.addNode(7, 11);
   const sheets = { Nodes: [['id', 'x', 'y', 'z'], [1, 0, '', 0]],
     Materials: [['id', 'name', 'E', 'nu', 'alpha [1/°C]'], [1, 'Test', 173219, 0.27, alpha]] };
-  expect(applyWorkbook(sheets).problems).toContainEqual(expect.objectContaining({ sheet: 'Materials', column: 'alpha', blocking: true }));
+  const problems = applyWorkbook(sheets).problems;
+  expect(problems).toContainEqual(expect.objectContaining({ sheet: 'Materials', column: 'alpha', blocking: true }));
+  if (typeof alpha === 'number') expect(problems.find(p => p.column === 'alpha')?.message).toMatch(/0[.,]001.*1\/°C/);
   expect(modelStore.nodes.get(node)?.x).toBe(7);
 });
 
@@ -169,4 +171,13 @@ for (const space of [false, true]) it('reopening a workbook preserves free therm
   for (const r of [linear, nonlinear.results] as Array<typeof linear>) {
     expect(r.displacements.find(d => d.nodeId === end)!.ux).toBeCloseTo(9e-6 * 20 * 4, 12);
   }
+});
+
+it('refuses an unknown grade at its workbook cell before applying the model', () => {
+  modelStore.clear();
+  const node = modelStore.addNode(7, 11);
+  const { problems } = applyWorkbook({ Nodes: [['id','x','y','z'], [1,0,'',0]],
+    Materials: [['id','name','E','nu','gradeId'], [1,'Test',173219,0.27,'unlisted-grade']] });
+  expect(problems).toContainEqual(expect.objectContaining({ sheet: 'Materials', column: 'gradeId', row: 2, blocking: true }));
+  expect(modelStore.nodes.get(node)?.x).toBe(7);
 });

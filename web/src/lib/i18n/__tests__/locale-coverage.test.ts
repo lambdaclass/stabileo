@@ -127,6 +127,7 @@ it('names the Z roller in every support dictionary', () => {
 
 it('translates Explore, launcher search, mobile tabs and the material form in every offered language', () => {
   const keys = [
+    ...enKeys.filter(key => key.startsWith('advCat.')),
     'advCat.search.label', 'advCat.search.placeholder', 'advCat.search.clear', 'advCat.search.results',
     'advCat.search.empty', 'advCat.search.emptyHint', 'advCat.search.step', 'advCat.search.stepOf',
     'table.addMaterial', 'tabBar.tabs', 'tabBar.switcher', 'tabBar.renameTab',
@@ -147,4 +148,8 @@ it('translates Explore, launcher search, mobile tabs and the material form in ev
     for (const key of keys) expect.soft(dict[key]?.trim(), locale + ' ' + key).toBeTruthy();
     expect.soft(dict['materials.alphaHelp'], locale).toMatch(/12.*12/);
   }
+});
+
+it('counts mechanism modes in Chinese without a Latin plural suffix', () => {
+  for (const key of ['kinematic.hiddenMechanism','kinematic.mechanismDetected']) expect(ALL_DICTS.zh[key]).not.toContain('{s}');
 });

@@ -419,3 +419,15 @@ describe('scans per open', () => {
     expect(resultsStore.perCombo3D.size).toBe(3);
   });
 });
+
+it.each(['2d', '3d'] as const)('selects an independent solved combination when another combination is refused in %s', mode => {
+  resultsStore.clear();
+  resultsStore.clear3D();
+  const cases = new Map();
+  const combos = new Map([[1, result(1, [refusal()])], [2, result(2)]]);
+  if (mode === '3d') resultsStore.setCombinationResults3D(cases, combos as never, null);
+  else resultsStore.setCombinationResults(cases, combos as never, null);
+  const shown = mode === '3d' ? resultsStore.results3D : resultsStore.results;
+  expect(shown?.displacements[0].ux).toBe(2);
+  expect(resultsStore.activeComboId).toBe(2);
+});

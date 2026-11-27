@@ -424,6 +424,7 @@ it('summarizes the transverse resultants of a space cantilever', () => {
   expect(response3D({ ...result, elementForces: [member] }).moment).toBeCloseTo(peak, 12);
   const constant = { ...member, vyStart: 0, vzStart: 0, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, myStart: 10, mzStart: 10 };
   const pair = { ...constant, combined: { method: 'abs' as const, parts: [constant, { ...constant, mzStart: -10 }] } };
+  resultsStore.setResults3D(result);
   whatIf.open();
   resultsStore.setResults3D({ ...result, elementForces: [pair] });
   expect(response3D(resultsStore.results3D!).moment).toBeCloseTo(Math.hypot(20, 20), 12);
@@ -434,10 +435,15 @@ it('summarizes the transverse resultants of a space cantilever', () => {
   const html = render(WhatIfPanel).body;
   expect(html).toMatch(/Upper bound on resultant moment/);
   expect(html).toMatch(/Upper bound on resultant shear/);
+  const momentRow = html.split('data-testid="whatif-resp-moment"')[1].split('</tr>')[0];
+  expect(momentRow).toMatch(/resultant moment/i);
+  expect(momentRow).not.toMatch(/[▲▼]/);
   for (const method of ['abs', 'srss'] as const) {
     const combined = { ...member, combined: { method, parts: [member, member] } };
     expect(response3D({ ...result, elementForces: [combined] }).moment)
       .toBeCloseTo((method === 'abs' ? 2 : Math.SQRT2) * peak, 12);
+    const piece = { ...member, pieces: [{ x0: 0, x1: member.length, forces: combined }] };
+    for (const ef of [combined, piece]) expect.soft(response3D({ ...result, elementForces: [ef] }).componentEnvelopeBound, method).toBe(true);
     const nested = { ...member, combined: { method, parts: [member, combined] } };
     const bounds = response3D({ ...result, elementForces: [nested] });
     expect(bounds.moment).toBeNaN();
@@ -494,14 +500,18 @@ it('reads vertical displacement from a legacy plane result', () => {
 it('compares only the selected case or combination to its original response', () => {
   modelStore.addNodalLoad(n2, 0, P);
   const result = solve();
-  resultsStore.setCombinationResults(new Map([[1, result], [2, result]]), new Map([[1, result]]), null);
+  const alternate = { ...result, reactions: [] };
+  const combination = { ...result, displacements: [] };
+  resultsStore.setCombinationResults(new Map([[1, result], [2, alternate]]), new Map([[1, combination]]), null);
   resultsStore.activeCaseId = 1;
   whatIf.open();
   expect(whatIf.reference).toEqual(response2D(result));
-  resultsStore.activeCaseId = 2;
-  expect(whatIf.reference).toBeNull();
   resultsStore.activeComboId = 1;
   resultsStore.activeView = 'combo';
+  expect(resultsStore.results).toEqual(combination);
+  expect(whatIf.reference).toBeNull();
+  resultsStore.activeCaseId = 2;
+  expect(resultsStore.results).toEqual(alternate);
   expect(whatIf.reference).toBeNull();
   resultsStore.activeCaseId = 1;
   expect(whatIf.reference).toEqual(response2D(result));
@@ -525,6 +535,7 @@ it.each(['2d', '3d'] as const)('edits original members across a moving split in 
   if (mode === '2d') modelStore.addNodalLoad(n2, 0, P);
   else modelStore.addNodalLoad3D(n2, 0, 0, P, 0, 0, 0);
   whatIf.open();
+  const originalE = modelStore.materials.get(modelStore.elements.get(m1)!.materialId)!.e;
   whatIf.setMember(m1, 'e', 2);
   whatIf.setRelease(m1, 'j', { my: true, mz: false, t: false });
   for (const station of [0.35, 0.65]) {
@@ -532,10 +543,80 @@ it.each(['2d', '3d'] as const)('edits original members across a moving split in 
     settle();
     const segments = [...modelStore.elements.values()].filter(e => e.id !== m2);
     expect(segments).toHaveLength(2);
+    for (const segment of segments) {
+      expect(modelStore.materials.get(segment.materialId)!.e).toBe(2 * originalE);
+      expect(!!segment.releaseI.my).toBe(false);
+      expect(!!segment.releaseJ.my).toBe(segment.nodeJ === n2);
+    }
     expect(segments[0].materialId).toBe(segments[1].materialId);
     expect(segments.find(e => e.nodeJ === n2)?.releaseJ.my).toBe(true);
     const html = render(WhatIfMembers).body;
     expect(html).toContain('data-testid="whatif-member-' + m1 + '"');
     expect(html).not.toContain('data-testid="whatif-member-' + segments.find(e => e.id !== m1)!.id + '"');
+  }
+});
+
+it('leaves the verified model untouched throughout an unedited session', async () => {
+  const version = modelStore.modelVersion;
+  whatIf.open();
+  settle();
+  expect.soft(modelStore.modelVersion).toBe(version);
+  await whatIf.close();
+  expect(modelStore.modelVersion).toBe(version);
+});
+
+it('uses the projected member length when placing a plane point load', () => {
+  modelStore.updateNode(n2, 3, 0, 4);
+  modelStore.addPointLoadOnElement(m1, 1, P);
+  whatIf.open();
+  whatIf.setLoadAt(0, 5);
+  settle();
+  expect(modelStore.loads[0].data.a).toBe(3);
+});
+
+it('binds a nodal destination to the split station that created it', () => {
+  modelStore.addNodalLoad(n2, 0, P);
+  whatIf.open();
+  whatIf.setSupportAlong(s1, m1, 0.5);
+  settle();
+  const split = modelStore.supports.get(s1)!.nodeId;
+  whatIf.setLoadNode(0, split);
+  settle();
+  expect(modelStore.loads[0].data.nodeId).toBe(modelStore.supports.get(s1)!.nodeId);
+  whatIf.setSupportNode(s3, split);
+  settle();
+  expect(whatIf.active).toBe(true);
+  expect(modelStore.supports.get(s3)!.nodeId).toBe(n3);
+  whatIf.setLoadNode(0, 99999);
+  settle();
+  expect(modelStore.loads[0].data.nodeId).toBe(modelStore.supports.get(s1)!.nodeId);
+});
+
+it('requires the plane and self weight of the original solve', () => {
+  modelStore.addNodalLoad(n2, 0, P);
+  resultsStore.setResults(solve());
+  whatIf.open();
+  const plane = uiStore.drawPlane2D, weight = uiStore.includeSelfWeight;
+  try {
+    uiStore.includeSelfWeight = !weight;
+    expect.soft(whatIf.reference).toBeNull();
+    uiStore.includeSelfWeight = weight;
+    uiStore.drawPlane2D = plane === 'xy' ? 'xz' : 'xy';
+    expect(whatIf.reference).toBeNull();
+  } finally {
+    uiStore.drawPlane2D = plane;
+    uiStore.includeSelfWeight = weight;
+  }
+});
+
+it('reports temperature differences in the selected unit system', () => {
+  const units = uiStore.unitSystem;
+  try {
+    uiStore.unitSystem = 'Imperial';
+    modelStore.addThermalLoad(m1, 10, -5);
+    expect(loadLabel(modelStore.loads[0], 0)).toMatch(/18(?:\.0+)? °F/);
+    expect(loadLabel(modelStore.loads[0], 0)).toMatch(/-9(?:\.0+)? °F/);
+  } finally {
+    uiStore.unitSystem = units;
   }
 });

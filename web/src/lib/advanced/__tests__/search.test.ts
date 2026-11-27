@@ -93,3 +93,13 @@ describe('search', () => {
     expect(ids('   ')).toEqual([]);
   });
 });
+
+it('preserves Hindi vowel signs in exact title matches', () => {
+  const index = buildIndex([doc('force', { title: ['बल'] }), doc('hair', { title: ['बाल'] })]);
+  for (const [query, id] of [['बल', 'force'], ['बाल', 'hair']]) expect(search(index, query)[0]?.doc.id).toBe(id);
+});
+
+it('prefers a title over the same word in an equally ranked description', () => {
+  const index = buildIndex([doc('description', { description: ['pandeo'] }), doc('title', { title: ['pandeo'] })]);
+  expect(search(index, 'pandeo').map(hit => hit.doc.id)).toEqual(['title', 'description']);
+});

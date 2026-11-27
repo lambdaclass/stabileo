@@ -51,6 +51,7 @@ test.describe('@slow explore live', () => {
     expect(samples.length).toBeGreaterThan(30);
     expect(samples.filter((s) => !s.drawn || s.diagram !== 'moment')).toEqual([]);
     expect(samples.some((s) => s.held)).toBe(true);
+    for (const [i, sample] of samples.entries()) expect(sample.maxMoment!).toBeGreaterThanOrEqual(i ? samples[i - 1]!.maxMoment! : before);
     const distinct = new Set(samples.map((s) => s.maxMoment!.toPrecision(9)));
     expect(distinct.size).toBeGreaterThan(5);
 
@@ -249,7 +250,7 @@ test('@slow axial paint shows the opposite forces on a fixed bar under a central
     return texts;
   });
   await page.getByTestId('whatif-paint-axial').click();
-  await expect.poll(() => labels.evaluate(s => [...s].join(' '))).toMatch(/-5\.0.*\+5\.0|\+5\.0.*-5\.0/);
+  await expect.poll(() => labels.evaluate(s => [...s].some(label => /-5\.0.*\+5\.0|\+5\.0.*-5\.0/.test(label)))).toBe(true);
 });
 
 test('@slow a pending Explore result keeps the solved hinge until the edited member is solved', async ({ page }) => {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { featureDefines } from '../config/public-features.mjs';
 import { test } from 'node:test';
-import { parse } from 'svelte/compiler';
+import { compile, parse } from 'svelte/compiler';
 import { prunePublicBuildBranches } from './prune-public-build-branches.mjs';
 
 const off = { accounts: false, research: false, tools: false, diagramGame: false };
@@ -75,5 +75,15 @@ test('the compiled Advanced catalogue includes Mohr only in tools builds', async
     assert.equal(ADV_FUNCTIONS.some(f => f.id === 'mohr'), tools);
     assert.equal(code.includes('advanced.mohr'), tools);
     assert.ok(ADV_FUNCTIONS.some(f => f.id === 'buckling'));
+  }
+});
+
+test('a tools-disabled launcher and toolbar contain no directly rendered Mohr action', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const file of ['advanced/AdvancedLauncher', 'toolbar/ToolbarAdvanced']) {
+    const filename = new URL('../src/components/' + file + '.svelte', import.meta.url).pathname;
+    const source = prunePublicBuildBranches(readFileSync(filename, 'utf8'), off).code;
+    const { js } = compile(source, { filename, generate: 'client', dev: false });
+    assert.doesNotMatch(js.code, /(?:data-testid=["'](?:adv|tool)-mohr|(?:click|onclick)[^\n]*openMohr|>\s*Mohr[^<]*<)/i);
   }
 });

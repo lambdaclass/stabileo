@@ -563,3 +563,11 @@ describe('against real corpus files', () => {
   });
 });
 
+
+it('preserves explicit fixture properties when a proposed default matches only ID, name and E', async () => {
+  const id = 'portal-frame', blob = currentFixtureBlob(id)!;
+  const fixture = await savedFixture(id, blob).fixture() as { materials: Array<{ id: number; name: string; e: number; nu: number; rho: number; fy: number }> };
+  const first = fixture.materials[0];
+  const replay = await savedFixture(id, blob, { ...first, fy: first.fy + 1, rho: first.rho + 1 }).fixture();
+  expect(replay).toEqual(fixture);
+});

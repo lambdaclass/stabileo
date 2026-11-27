@@ -101,8 +101,26 @@ describe('colour maps in wireframe render mode (no element groups)', () => {
     resultsStore.setResults3D({ ...r, elementForces: [mixed, r.elementForces[1]] });
     resultsStore.diagramType = 'axialColor';
     syncColorMap3D(context(eb));
+    expect(eb.getBaseColor(tie)).toBe(0x895a70);
     expect(eb.getBaseColor(tie)).not.toBe(eb.getBaseColor(strut));
     expect([TENSION, COMPRESSION]).not.toContain(eb.getBaseColor(tie));
+  });
+
+  it('paints signed envelope curves for both members', () => {
+    const { tie, strut } = twoBarModel();
+    const eb = new ElementsBatched();
+    eb.upsert(tie, 0, 0, 0, 4, 0, 0);
+    eb.upsert(strut, 4, 0, 0, 4, 3, 0);
+    publishAxial([{ elementId: tie, n: -1 }, { elementId: strut, n: 1 }]);
+    const r = resultsStore.results3D!;
+    const elements = [{ elementId: tie, tPositions: [0, 1], posValues: [3, 4], negValues: [0, 0] },
+      { elementId: strut, tPositions: [0, 1], posValues: [2, 1], negValues: [-7, -3] }];
+    resultsStore.setCombinationResults3D(new Map(), new Map([[1, r]]), { axial: { kind: 'axial', globalMax: 7, elements }, maxAbsResults3D: r } as never);
+    resultsStore.activeView = 'envelope';
+    resultsStore.diagramType = 'axialColor';
+    syncColorMap3D(context(eb));
+    expect(eb.getBaseColor(tie)).toBe(TENSION);
+    expect(eb.getBaseColor(strut)).toBe(0x895a70);
   });
 
   it.each(['abs', 'srss'] as const)('does not color an unsigned %s envelope as tension', method => {

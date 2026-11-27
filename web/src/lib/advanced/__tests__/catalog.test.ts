@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import '../../engine/steps/methods';
 import { allMethods, methodsIn } from '../../engine/steps/registry';
@@ -66,4 +66,13 @@ describe('advanced functions catalog', () => {
     expect(unavailable(despiece, { is3D: false, members: 3, solved: false })).toBe('results');
     expect(unavailable(despiece, { is3D: true, members: 3, solved: true })).toBeNull();
   });
+});
+
+it.each([false, true])('dispatches buckling exclusively to its workspace handler, space=%s', async space => {
+  const { dispatchSecondOrder } = await import('../second-order-dispatch');
+  const handlers = { buckling: [vi.fn(), vi.fn()], pdelta: [vi.fn(), vi.fn()] } as const;
+  dispatchSecondOrder('buckling', space, handlers);
+  expect(handlers.buckling[Number(space)]).toHaveBeenCalledOnce();
+  expect(handlers.buckling[Number(!space)]).not.toHaveBeenCalled();
+  for (const handler of handlers.pdelta) expect(handler).not.toHaveBeenCalled();
 });
