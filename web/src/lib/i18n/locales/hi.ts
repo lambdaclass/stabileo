@@ -755,8 +755,8 @@ const hi: Translations = {
   'ctx.transformSelection': 'चयन रूपांतरित करें',
   'ctx.mirrorX': 'दर्पण ↔ (X अक्ष)',
   'ctx.mirrorY': 'दर्पण ↕ (Y अक्ष)',
-  'ctx.rotate90cw': '90° घुमाएँ ↺',
-  'ctx.rotate90ccw': '90° घुमाएँ ↻',
+  'ctx.rotate90cw': '90° घुमाएँ ↻',
+  'ctx.rotate90ccw': '90° घुमाएँ ↺',
   'ctx.noElements': 'यहाँ कोई तत्व नहीं',
 
   // ─── Inline editors ───

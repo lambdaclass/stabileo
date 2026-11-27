@@ -41,8 +41,8 @@ const body: PostBody = {
         [
           "SA-2026-005",
           "Puntone di una copertura a due falde: sforzo normale alla base (kN)",
-          "-56.67",
-          "-41.67"
+          "-56,67",
+          "-41,67"
         ],
         [
           "SA-2026-007",
@@ -53,19 +53,19 @@ const body: PostBody = {
         [
           "SA-2026-014",
           "Telaio spaziale rinumerato: moltiplicatore di collasso plastico",
-          "176.47",
-          "424.3"
+          "176,47",
+          "424,3"
         ],
         [
           "SA-2026-015",
           "Pennone strallato: tensione nello strallo (kN)",
-          "5.18",
-          "4.34"
+          "5,18",
+          "4,34"
         ],
         [
           "SA-2026-013",
           "Mensola di gusci curvi: momento all’incastro (kN·m/m)",
-          "35.0",
+          "35,0",
           "0"
         ]
       ]

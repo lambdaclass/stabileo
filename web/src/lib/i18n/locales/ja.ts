@@ -764,8 +764,8 @@ const ja: Translations = {
   'ctx.transformSelection': '選択を変換',
   'ctx.mirrorX': '鏡像 ↔（X軸）',
   'ctx.mirrorY': '鏡像 ↕（Y軸）',
-  'ctx.rotate90cw': '90°回転 ↺',
-  'ctx.rotate90ccw': '90°回転 ↻',
+  'ctx.rotate90cw': '90°回転 ↻',
+  'ctx.rotate90ccw': '90°回転 ↺',
   'ctx.noElements': 'ここに要素はありません',
 
   // ─── Inline editors ───

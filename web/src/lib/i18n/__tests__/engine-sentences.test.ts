@@ -1,6 +1,7 @@
 /** The solver writes its errors in English; the app shows them in its own language. */
 import { describe, it, expect, afterAll } from 'vitest';
 import { localizeEngineText } from '../engine-text';
+import { requireMaterialDensity } from '../../section/weight';
 import { errorText } from '../../utils/error-text';
 import { ensureLocale, OFFERED_LOCALES, setLocale, t } from '../index';
 import { axesStore } from '../../axes/axes.svelte';
@@ -202,10 +203,19 @@ it('translates the whole missing-field diagnostic in Spanish', async () => {
     .toBe('Error de análisis: Falta el campo method o su valor no es compatible.');
 });
 
-it.skip('known wrong result: #2595 — an Italian P-Delta refusal explains why no result was supplied', async () => {
+it('known wrong result: #2595 — an Italian P-Delta refusal explains why no result was supplied', async () => {
   await setLocale('it');
   const message = 'P-Delta results were withheld because the physical free-DOF residual did not meet the requested tolerance.';
   const refusal = JSON.stringify({ message, structuredDiagnostics: [{ code: 'result_quantity_unavailable', severity: 'error' }] });
   expect(localizeEngineText(errorText(refusal, 'Unknown error')))
     .toBe('I risultati P-Delta non sono stati forniti perché il residuo fisico dei gradi di libertà liberi non rispettava la tolleranza richiesta.');
+});
+
+it('retains the Italian density and non-finite input refusals', async () => {
+  await ensureLocale('it');
+  await setLocale('it');
+  expect(requireMaterialDensity(7, { rho: 0 })).toBe(0);
+  expect(() => requireMaterialDensity(7, { rho: -1 })).toThrow('Inserisci una densità (rho) finita e non negativa per il materiale 7 (ricevuto -1).');
+  expect(localizeEngineText('Mass density must be finite and nonnegative')).toBe('La densità di massa deve essere finita e non negativa');
+  expect(localizeEngineText('Non-finite number (NaN) at input.E')).toBe('Inserisci un numero finito per input.E (ricevuto NaN).');
 });

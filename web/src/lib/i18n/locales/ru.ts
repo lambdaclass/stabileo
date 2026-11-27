@@ -758,8 +758,8 @@ const ru: Translations = {
   'ctx.transformSelection': 'Преобразовать выделение',
   'ctx.mirrorX': 'Отразить ↔ (ось X)',
   'ctx.mirrorY': 'Отразить ↕ (ось Y)',
-  'ctx.rotate90cw': 'Повернуть 90° ↺',
-  'ctx.rotate90ccw': 'Повернуть 90° ↻',
+  'ctx.rotate90cw': 'Повернуть 90° ↻',
+  'ctx.rotate90ccw': 'Повернуть 90° ↺',
   'ctx.noElements': 'Здесь нет элементов',
 
   // ─── Inline editors ───

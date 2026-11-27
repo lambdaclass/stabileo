@@ -1,0 +1,1 @@
+Italian research, design and recheck guidance identifies the benchmark inputs, coordinate conventions, unavailable results and load factors. Selection rotation arrows follow the direction of the edit. French and German steel reports use consistent decimal separators for flange limits.

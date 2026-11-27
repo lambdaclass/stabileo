@@ -1705,8 +1705,8 @@ const tr: Translations = {
   'ctx.transformSelection': 'Seçimi dönüştür',
   'ctx.mirrorX': 'Ayna ↔ (X ekseni)',
   'ctx.mirrorY': 'Ayna ↕ (Y ekseni)',
-  'ctx.rotate90cw': '90° döndür ↺',
-  'ctx.rotate90ccw': '90° döndür ↻',
+  'ctx.rotate90cw': '90° döndür ↻',
+  'ctx.rotate90ccw': '90° döndür ↺',
   'ctx.noElements': 'Burada çubuk yok',
 
   // ─── Inline editors ───

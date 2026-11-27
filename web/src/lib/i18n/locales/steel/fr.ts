@@ -532,7 +532,6 @@ const steelFr: Translations = {
   'steel.assume.route.bracingData': 'Déclarez la Lb sur la barre (Géométrie et maintiens), ou faites en sorte que le modèle enregistre les maintiens et que le générateur conserve ceux qu\'il place.',
   'steel.assume.route.implementClassification': 'Nécessite d\'implémenter la classification des sections du §B.4.',
   'steel.assume.route.boltGeometry': 'Nécessite la géométrie du groupe de boulons : files, pas et pinces.',
-  'steel.assume.route.implementCap': 'Il faudrait calculer My et appliquer la limite de l\'expression F.2.1.',
   'steel.assume.route.torsionalRestraint': 'Nécessite le maintien en torsion aux extrémités de la barre et les points de maintien en torsion.',
   'steel.assume.route.momentDiagram': 'Nécessite de lire le diagramme des moments de la travée pour calculer Cb.',
   'steel.assume.route.torsionalConstant': 'Nécessite que la section déclare sa constante de torsion.',
@@ -601,7 +600,7 @@ const steelFr: Translations = {
   'steel.e4.notImplemented': 'Flambement par torsion indisponible. Il est déterminant pour les cornières, les tés et les sections cruciformes, précisément les sections dont cette application signale déjà les axes ; cette absence est donc une limitation, pas un rejet.',
 
   // ─── §F.6.2, flange local buckling in minor-axis bending ───
-  'steel.f62.classified': 'Tableau B.4.1b cas 14 : λpf = 0.38·√(E/Fy), λrf = 1.00·√(E/Fy). La branche ci-dessous est celle qu\'applique la vérification CIRSOC 301.',
+  'steel.f62.classified': 'Tableau B.4.1b cas 14 : λpf = 0,38·√(E/Fy), λrf = 1,00·√(E/Fy). La branche ci-dessous est celle qu\'applique la vérification CIRSOC 301.',
   'steel.f62.outOfScope': 'F.6 couvre les sections en I et les profilés en U fléchis autour de l\'axe faible. Cette section n\'en fait pas partie.',
   'steel.f62.geometryUnavailable': 'La largeur ou l\'épaisseur de semelle manque, on ne peut donc même pas former l\'élancement λf.',
   'steel.f62.classificationUnavailable': 'La géométrie de la semelle donne λf. Le choix de la branche du tableau B.4.1b, cas 14, exige une limite d’élasticité Fy positive.',

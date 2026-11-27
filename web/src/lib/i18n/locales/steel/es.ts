@@ -553,7 +553,6 @@ const steelEs: Record<string, string> = {
   'steel.assume.route.bracingData': 'Declarar la Lb en la barra (Geometría y arriostramiento), o que el modelo registre las riostras y el generador conserve las que ya coloca.',
   'steel.assume.route.implementClassification': 'Haría falta implementar la clasificación de sección del §B.4.',
   'steel.assume.route.boltGeometry': 'Haría falta la geometría del grupo de bulones: filas, pasos y gramiles.',
-  'steel.assume.route.implementCap': 'Haría falta calcular My y aplicar el tope de la expresión F.2.1.',
   'steel.assume.route.torsionalRestraint': 'Haría falta la restricción torsional en los extremos y los puntos de arriostramiento a torsión.',
   'steel.assume.route.momentDiagram': 'Haría falta leer el diagrama de momentos del tramo para calcular Cb.',
   'steel.assume.route.torsionalConstant': 'Haría falta que la sección declare su constante torsional.',

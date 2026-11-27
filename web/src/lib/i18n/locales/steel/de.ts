@@ -532,7 +532,6 @@ const steelDe: Translations = {
   'steel.assume.route.bracingData': 'Geben Sie Lb am Stab an (Geometrie und Aussteifung), oder lassen Sie das Modell Halterungen erfassen und den Generator die von ihm gesetzten beibehalten.',
   'steel.assume.route.implementClassification': 'Erfordert die Implementierung der Querschnittsklassifizierung nach §B.4.',
   'steel.assume.route.boltGeometry': 'Erfordert die Geometrie der Schraubengruppe: Reihen, Lochabstände und Anreißmaße.',
-  'steel.assume.route.implementCap': 'Dazu müsste My berechnet und die Begrenzung nach F.2.1 angewendet werden.',
   'steel.assume.route.torsionalRestraint': 'Erfordert die Torsionshalterung an den Stabenden und die Punkte der Torsionsaussteifung.',
   'steel.assume.route.momentDiagram': 'Erfordert das Ablesen der Momentenlinie des Felds zur Berechnung von Cb.',
   'steel.assume.route.torsionalConstant': 'Erfordert, dass der Querschnitt seine Torsionskonstante angibt.',
@@ -601,7 +600,7 @@ const steelDe: Translations = {
   'steel.e4.notImplemented': 'Drillknicken nicht verfügbar. Es ist maßgebend für Winkel, T-Profile und Kreuzquerschnitte, also genau die Querschnitte, vor deren Achsen diese App bereits warnt. Das Fehlen ist daher eine Einschränkung und keine Entwarnung.',
 
   // ─── §F.6.2, flange local buckling in minor-axis bending ───
-  'steel.f62.classified': 'Tabelle B.4.1b Fall 14: λpf = 0.38·√(E/Fy), λrf = 1.00·√(E/Fy). Der unten angegebene Zweig ist derjenige, den der Nachweis nach CIRSOC 301 anwendet.',
+  'steel.f62.classified': 'Tabelle B.4.1b Fall 14: λpf = 0,38·√(E/Fy), λrf = 1,00·√(E/Fy). Der unten angegebene Zweig ist derjenige, den der Nachweis nach CIRSOC 301 anwendet.',
   'steel.f62.outOfScope': 'F.6 behandelt I-Querschnitte und U-Profile mit Biegung um die schwache Achse. Dieser Querschnitt gehört nicht dazu.',
   'steel.f62.geometryUnavailable': 'Flanschbreite oder -dicke fehlt, daher lässt sich nicht einmal die Schlankheit λf bilden.',
   'steel.f62.classificationUnavailable': 'Aus der Flanschgeometrie ergibt sich λf. Für die Einordnung nach Tabelle B.4.1b, Fall 14, ist eine positive Streckgrenze Fy erforderlich.',

@@ -551,7 +551,6 @@ const steelPt: Record<string, string> = {
   'steel.assume.route.bracingData': 'Declarar a Lb na barra (Geometria e travamento), ou que o modelo registre os travamentos e o gerador conserve os que já coloca.',
   'steel.assume.route.implementClassification': 'Seria preciso implementar a classificação de seção do §B.4.',
   'steel.assume.route.boltGeometry': 'Seria necessária a geometria do grupo de parafusos: linhas, passos e gabaritos.',
-  'steel.assume.route.implementCap': 'Seria preciso calcular My e aplicar o limite da expressão F.2.1.',
   'steel.assume.route.torsionalRestraint': 'Seria preciso a restrição torcional nos extremos e os pontos de travamento à torção.',
   'steel.assume.route.momentDiagram': 'Seria preciso ler o diagrama de momentos do vão para calcular Cb.',
   'steel.assume.route.torsionalConstant': 'Seria preciso que a seção declare sua constante de torção.',

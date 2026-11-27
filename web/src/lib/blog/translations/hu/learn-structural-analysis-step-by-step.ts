@@ -164,7 +164,7 @@ const body: PostBody = {
         ],
         [
           "Másodrendű analízis és kihajlás",
-          "2",
+          "4",
           "Másodrendű analízis φ függvényekkel és geometriai mátrixszal; kihajlás módusszámlálással és sajátértékekkel"
         ],
         [

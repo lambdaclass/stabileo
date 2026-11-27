@@ -2047,8 +2047,8 @@ const es: Record<string, string> = {
   'ctx.transformSelection': 'Transformar selección',
   'ctx.mirrorX': 'Espejo ↔ (eje X)',
   'ctx.mirrorY': 'Espejo ↕ (eje Y)',
-  'ctx.rotate90cw': 'Rotar 90° ↺',
-  'ctx.rotate90ccw': 'Rotar 90° ↻',
+  'ctx.rotate90cw': 'Rotar 90° ↻',
+  'ctx.rotate90ccw': 'Rotar 90° ↺',
   'ctx.noElements': 'Sin barras aquí',
 
   // ─── Inline editors ───

@@ -109,7 +109,7 @@ const pdeltaPhysicalResidual: Record<Locale, string> = {
   hu: "A P-Delta-eredmények nem érhetők el, mert a szabad szabadságfokok fizikai maradéka nem teljesítette a kért tűrést.",
   pt: "Os resultados de P-Delta foram retidos porque o resíduo físico nos graus de liberdade livres não atendeu à tolerância solicitada.",
   tr: "Serbestlik derecelerindeki fiziksel artık istenen toleransı karşılamadığı için P-Delta sonuçları verilmedi.",
-  it: "I risultati P-Delta sono stati non mostrati perché il residuo fisico dei gradi di libertà liberi non rispettava la tolleranza richiesta.",
+  it: "I risultati P-Delta non sono stati forniti perché il residuo fisico dei gradi di libertà liberi non rispettava la tolleranza richiesta.",
   zh: "自由自由度的物理残差未达到要求的容差，因此未提供 P-Delta 结果。",
 };
 registerFeatureDictionaries(Object.fromEntries(

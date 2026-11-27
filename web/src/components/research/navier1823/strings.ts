@@ -192,7 +192,7 @@ export const strings = {
     title: 'Piastra di Navier: convergenza della mesh',
     lead: 'Una piastra rettangolare semplicemente appoggiata, pressione uniforme, due elementi di produzione e una doppia serie di Fourier.',
     model: 'Modello e riferimento',
-    method: 'Una piastra di 3 × 5 m, spessa 0.1 m; E = 63.000 MPa, ν = 0.2; pressione verso il basso 10 kN/m². Tutti i bordi impediscono la traslazione verticale; le rotazioni restano libere (appoggio semplice morbido). Tre vincoli nel piano eliminano il moto rigido. La pressione è concentrata come forze nodali di area di influenza: qA/3 per nodo di triangolo, qA/4 per nodo di quadrilatero.',
+    method: 'Una piastra di 3 × 5 m, spessa 0,1 m; E = 63 000 MPa, ν = 0,2; pressione verso il basso 10 kN/m². Tutti i bordi impediscono la traslazione verticale; le rotazioni restano libere (appoggio semplice morbido). Tre vincoli nel piano eliminano il moto rigido. La pressione è concentrata come forze nodali di area di influenza: qA/3 per nodo di triangolo, qA/4 per nodo di quadrilatero.',
     series: 'Al centro, i termini seno dispari si alternano di segno. Sommiamo 100 × 100 termini dispari. D = Et³ / [12(1 − ν²)]. Spostamento positivo qui sotto significa verso il basso.',
     reference: 'Serie della piastra sottile (mm)', published: 'Esempio pubblicato (mm)', result: 'Stabileo (mm)', difference: 'Differenza (%)', mesh: 'Mesh', element: 'Elemento',
     tableCaption: 'Spostamento al centro con appoggio semplice morbido, rispetto alla serie della piastra sottile',

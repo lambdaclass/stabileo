@@ -539,7 +539,6 @@ const steelEn: Record<string, string> = {
   'steel.assume.route.bracingData': 'Declare the Lb on the member (Geometry and bracing), or have the model record braces and the generator keep the ones it places.',
   'steel.assume.route.implementClassification': 'Requires implementing the §B.4 section classification.',
   'steel.assume.route.boltGeometry': 'Requires the bolt group geometry: rows, pitches and gauges.',
-  'steel.assume.route.implementCap': 'It would take computing My and applying the F.2.1 cap.',
   'steel.assume.route.torsionalRestraint': 'Requires the torsional restraint at the member ends and the torsional bracing points.',
   'steel.assume.route.momentDiagram': 'Requires reading the span\'s moment diagram to compute Cb.',
   'steel.assume.route.torsionalConstant': 'Requires the section to declare its torsional constant.',

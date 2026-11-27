@@ -764,8 +764,8 @@ const ko: Translations = {
   'ctx.transformSelection': '선택 변환',
   'ctx.mirrorX': '좌우 대칭 (X축)',
   'ctx.mirrorY': '상하 대칭 (Y축)',
-  'ctx.rotate90cw': '90° 시계 방향 ↺',
-  'ctx.rotate90ccw': '90° 반시계 방향 ↻',
+  'ctx.rotate90cw': '90° 시계 방향 ↻',
+  'ctx.rotate90ccw': '90° 반시계 방향 ↺',
   'ctx.noElements': '여기에 요소 없음',
 
   // ─── Inline editors ───

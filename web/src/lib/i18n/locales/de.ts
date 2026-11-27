@@ -1696,8 +1696,8 @@ const de: Translations = {
   'ctx.transformSelection': 'Auswahl transformieren',
   'ctx.mirrorX': 'Spiegeln ↔ (X-Achse)',
   'ctx.mirrorY': 'Spiegeln ↕ (Y-Achse)',
-  'ctx.rotate90cw': '90° drehen ↺',
-  'ctx.rotate90ccw': '90° drehen ↻',
+  'ctx.rotate90cw': '90° drehen ↻',
+  'ctx.rotate90ccw': '90° drehen ↺',
   'ctx.noElements': 'Hier keine Stäbe',
 
   // ─── Inline editors ───

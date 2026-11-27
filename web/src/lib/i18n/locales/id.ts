@@ -764,8 +764,8 @@ const id: Translations = {
   'ctx.transformSelection': 'Transformasi pilihan',
   'ctx.mirrorX': 'Cermin ↔ (sumbu X)',
   'ctx.mirrorY': 'Cermin ↕ (sumbu Y)',
-  'ctx.rotate90cw': 'Putar 90° ↺',
-  'ctx.rotate90ccw': 'Putar 90° ↻',
+  'ctx.rotate90cw': 'Putar 90° ↻',
+  'ctx.rotate90ccw': 'Putar 90° ↺',
   'ctx.noElements': 'Tidak ada elemen di sini',
 
   // ─── Inline editors ───

@@ -532,7 +532,6 @@ const steelTr: Translations = {
   'steel.assume.route.bracingData': 'Lb\'yi çubukta belirtin (Geometri ve çaprazlama) veya modelin yanal destekleri kaydetmesini ve oluşturucunun yerleştirdiği destekleri korumasını sağlayın.',
   'steel.assume.route.implementClassification': '§B.4 kesit sınıflandırmasının uygulanmasını gerektirir.',
   'steel.assume.route.boltGeometry': 'Bulon grubu geometrisini gerektirir: sıralar, aralıklar ve hat mesafeleri.',
-  'steel.assume.route.implementCap': 'My\'nin hesaplanmasını ve F.2.1 sınırının uygulanmasını gerektirir.',
   'steel.assume.route.torsionalRestraint': 'Çubuk uçlarındaki burulma tutulmasını ve burulmaya karşı destek noktalarını gerektirir.',
   'steel.assume.route.momentDiagram': 'Cb\'yi hesaplamak için açıklığın moment diyagramının okunmasını gerektirir.',
   'steel.assume.route.torsionalConstant': 'Kesitin burulma sabitini belirtmesini gerektirir.',

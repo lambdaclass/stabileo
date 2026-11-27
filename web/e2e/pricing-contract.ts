@@ -202,7 +202,7 @@ export const OBSOLETE_PRICING: Record<Locale, RegExp> = {
   fr: /gratuit(?:e|s)? (?:pendant|durant|tant qu)|tout est gratuit|sans exception|universités publiques|particip\w+ à son développement/i,
   tr: /geliştirme (?:süresince|boyunca|aşamasında)[^.]*ücretsiz|her şey ücretsiz|istisnasız|devlet üniversiteleri|geliştirilmesine katkıda/i,
   hu: /fejleszt\w* (?:alatt|idején|során)[^.]*ingyenes|minden ingyenes|kivétel nélkül|állami egyetemek|fejlesztésében részt/i,
-  it: /gratis (?:durante|finché)|gratuit\w* (?:durante|finché)|tutto (?:è )?gratis|senza eccezioni|università pubbliche|partecip\w+ (?:al|allo) (?:suo )?sviluppo/i,
+  it: /gratis (?:durante|finché)|gratuit\w* (?:durante|finché)|tutto (?:è )?(?:gratis|gratuit\w*)|senza eccezioni|università pubbliche|partecip\w+ (?:al|allo) (?:suo )?sviluppo/i,
   zh: /开发期间[^。]*免费|开发阶段[^。]*免费|一切(?:均)?免费|全部免费|无一例外|公立高校|参与其开发|参与开发/,
 };
 

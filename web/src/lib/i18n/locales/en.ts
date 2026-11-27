@@ -2054,8 +2054,8 @@ const en: Record<string, string> = {
   'ctx.transformSelection': 'Transform selection',
   'ctx.mirrorX': 'Mirror ↔ (X axis)',
   'ctx.mirrorY': 'Mirror ↕ (Y axis)',
-  'ctx.rotate90cw': 'Rotate 90° ↺',
-  'ctx.rotate90ccw': 'Rotate 90° ↻',
+  'ctx.rotate90cw': 'Rotate 90° ↻',
+  'ctx.rotate90ccw': 'Rotate 90° ↺',
   'ctx.noElements': 'No members here',
 
   // ─── Inline editors ───

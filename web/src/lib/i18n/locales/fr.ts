@@ -1696,8 +1696,8 @@ const fr: Translations = {
   'ctx.transformSelection': 'Transformer la sélection',
   'ctx.mirrorX': 'Miroir ↔ (axe X)',
   'ctx.mirrorY': 'Miroir ↕ (axe Y)',
-  'ctx.rotate90cw': 'Rotation 90° ↺',
-  'ctx.rotate90ccw': 'Rotation 90° ↻',
+  'ctx.rotate90cw': 'Rotation 90° ↻',
+  'ctx.rotate90ccw': 'Rotation 90° ↺',
   'ctx.noElements': 'Aucune barre ici',
 
   // ─── Inline editors ───

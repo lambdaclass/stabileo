@@ -1283,7 +1283,7 @@ const body: PostBody = {
       "rows": [
         [
           "SA-2026-024",
-          "Portale 6 × 4 m, 20 kN/m di carico permanente sulla trave, 15 kN di vento, 1,2D + 1.6W, dopo una modifica con il calcolo in tempo reale attivo: reazione verticale del plinto sopravento",
+          "Portale 6 × 4 m, 20 kN/m di carico permanente sulla trave, 15 kN di vento, 1,2D + 1,6W, dopo una modifica con il calcolo in tempo reale attivo: reazione verticale del plinto sopravento",
           "65,61",
           "56,01",
           "kN"
@@ -1422,7 +1422,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Con i carichi H, la CIRSOC 101-2025 richiede di valutare anche le combinazioni in cui i carichi pertinenti sono assenti. Le combinazioni 0.9 D + 1.6 H e 1.2 D + 1.6 H non venivano mai generate, quindi dove il carico permanente contrasta la spinta del terreno (il ribaltamento o lo scorrimento di un muro) l’effetto risultava basso. Ora vengono generate, con o senza vento o sisma nel modello."
+      "t": "Con i carichi H, la CIRSOC 101-2025 richiede di valutare anche le combinazioni in cui i carichi pertinenti sono assenti. Le combinazioni 0,9D + 1,6H e 1,2D + 1,6H non venivano mai generate, quindi dove il carico permanente contrasta la spinta del terreno (il ribaltamento o lo scorrimento di un muro) l’effetto risultava basso. Ora vengono generate, con o senza vento o sisma nel modello."
     },
     {
       "k": "ext",

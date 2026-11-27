@@ -487,7 +487,6 @@ const steelHu: Translations = {
   "steel.assume.route.bracingData": "Adja meg az Lb-t a rúdon (Geometria és merevítés), vagy rögzíttesse a modellel a merevítéseket, és tartsa meg a generátor által elhelyezetteket.",
   "steel.assume.route.implementClassification": "A §B.4 szerinti keresztmetszet-osztályozás megvalósítását igényli.",
   "steel.assume.route.boltGeometry": "A csavarcsoport geometriáját igényli: sorok, osztások és sortávolságok.",
-  "steel.assume.route.implementCap": "Az My kiszámítását és az F.2.1 korlát alkalmazását igényelné.",
   "steel.assume.route.torsionalRestraint": "A rúdvégek csavarás elleni megfogását és a csavarási merevítési pontokat igényli.",
   "steel.assume.route.momentDiagram": "A szakasz nyomatéki ábrájának leolvasását igényli a Cb számításához.",
   "steel.assume.route.torsionalConstant": "Azt igényli, hogy a keresztmetszet megadja a csavarási állandóját.",

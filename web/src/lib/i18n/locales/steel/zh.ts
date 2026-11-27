@@ -487,7 +487,6 @@ const steelZh: Translations = {
   "steel.assume.route.bracingData": "在杆件上声明 Lb（几何与支撑），或让模型记录支撑并保留生成器放置的支撑。",
   "steel.assume.route.implementClassification": "需要实现 §B.4 的截面分类。",
   "steel.assume.route.boltGeometry": "需要螺栓群的几何：行数、栓距和线距。",
-  "steel.assume.route.implementCap": "需要计算 My 并应用 F.2.1 的限值。",
   "steel.assume.route.torsionalRestraint": "需要杆端的抗扭约束和抗扭支撑点。",
   "steel.assume.route.momentDiagram": "需要读取跨内的弯矩图以计算 Cb。",
   "steel.assume.route.torsionalConstant": "需要截面声明其扭转常数。",

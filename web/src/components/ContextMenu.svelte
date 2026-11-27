@@ -60,9 +60,6 @@
       // The edit layer's in-place mirror: member frames, offsets and local loads follow.
       const report = mirrorSelectionInPlace(uiStore.selectedNodes, action === 'mirror-x' ? 'x' : 'y', { leftHand: uiStore.axisConvention3D === 'leftHand' });
       if (!report?.refused) resultsStore.clear();
-    } else if (action === 'rotate-90' || action === 'rotate-neg90') {
-      const report = rotateSelectionInPlace(uiStore.selectedNodes, action === 'rotate-90' ? 90 : -90, { leftHand: uiStore.axisConvention3D === 'leftHand' });
-      if (!report?.refused) resultsStore.clear();
     } else if (action === 'spec-element' && ctx.elementId != null) {
       // Everything the member is told beyond geometry, section and material, in its one editor.
       uiStore.specSection = 'members';
@@ -119,6 +116,12 @@
     uiStore.contextMenu = null;
   }
 
+  function rotateSelection(degrees: number) {
+    uiStore.contextMenu = null;
+    const report = rotateSelectionInPlace(uiStore.selectedNodes, degrees, { leftHand: uiStore.axisConvention3D === 'leftHand' });
+    if (!report?.refused) resultsStore.clear();
+  }
+
   function closeContextMenu() {
     uiStore.contextMenu = null;
   }
@@ -166,8 +169,9 @@
         <span class="ctx-label">{t('ctx.transformSelection')} ({uiStore.selectedNodes.size})</span>
         <button class="ctx-item" onclick={() => handleContextAction('mirror-x')}>{axisTextShown(t('ctx.mirrorX'), uiStore.is3DWorkspace)}</button>
         <button class="ctx-item" onclick={() => handleContextAction('mirror-y')}>{axisTextShown(t('ctx.mirrorY'), uiStore.is3DWorkspace)}</button>
-        <button class="ctx-item" onclick={() => handleContextAction('rotate-90')}>{t('ctx.rotate90cw')}</button>
-        <button class="ctx-item" onclick={() => handleContextAction('rotate-neg90')}>{t('ctx.rotate90ccw')}</button>
+        {#each [90, -90] as degrees}
+          <button class="ctx-item" onclick={() => rotateSelection(degrees)}>{degrees > 0 ? t('ctx.rotate90ccw') : t('ctx.rotate90cw')}</button>
+        {/each}
       {:else}
         <button class="ctx-item" disabled>{t('ctx.noElements')}</button>
       {/if}

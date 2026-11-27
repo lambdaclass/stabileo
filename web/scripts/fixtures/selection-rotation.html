@@ -4,15 +4,17 @@
 <pre id="checks"></pre>
 <script type="module">
   import { mount, tick } from 'svelte';
+  import '/src/lib/i18n/full-dictionaries.ts';
   import ContextMenu from '/src/components/ContextMenu.svelte';
   import { modelStore, uiStore } from '/src/lib/store/index.ts';
-  import { setLocale } from '/src/lib/i18n/index.ts';
+  import { ensureLocale, setLocale } from '/src/lib/i18n/index.ts';
 
   mount(ContextMenu, { target: document.querySelector('#menu') });
   const turns = [];
   for (const locale of ['en', 'zh', 'it']) {
+    await ensureLocale(locale);
     await setLocale(locale);
-    for (const mode of ['basic', 'pro']) {
+    for (const mode of ['2d', '3d', 'pro', 'edu']) {
       uiStore.analysisMode = mode;
       for (const arrow of ['↻', '↺']) {
         modelStore.clear();

@@ -109,7 +109,7 @@ describe('the standing page paths', () => {
   });
 });
 
-it.skip.each(['tutto è gratuito', 'tutto gratuito'])('known wrong result: #2595 — catches obsolete Italian pricing "%s"', text => {
+it.each(['tutto è gratuito', 'tutto gratuito'])('known wrong result: #2595 — catches obsolete Italian pricing "%s"', text => {
   expect(text).toMatch(OBSOLETE_PRICING.it);
   expect(PRICING.it.intro).not.toMatch(OBSOLETE_PRICING.it);
 });

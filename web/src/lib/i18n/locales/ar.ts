@@ -764,8 +764,8 @@ const ar: Translations = {
   'ctx.transformSelection': 'تحويل التحديد',
   'ctx.mirrorX': 'انعكاس ↔ (محور X)',
   'ctx.mirrorY': 'انعكاس ↕ (محور Y)',
-  'ctx.rotate90cw': 'تدوير 90° ↺',
-  'ctx.rotate90ccw': 'تدوير 90° ↻',
+  'ctx.rotate90cw': 'تدوير 90° ↻',
+  'ctx.rotate90ccw': 'تدوير 90° ↺',
   'ctx.noElements': 'لا توجد عناصر هنا',
 
   // ─── Inline editors ───
