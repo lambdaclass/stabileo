@@ -92,7 +92,11 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       if (dictionary === 'mesher') return false;
       const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
       if (pruneEntries) {
-        if (!proRcSheets && key.startsWith('rcSheets.') && !key.startsWith('rcSheets.fixed.kind.')) return false;
+        if (!proPlatesUnified && /^loads\.(asce7|ec)\.ui\./.test(key)) return false;
+        if (!proRcSheets) {
+          if (key.startsWith('rcSheets.') && !key.startsWith('rcSheets.fixed.kind.')) return false;
+          if (/^designData\.(alt|crit|criteria|deflectionSupports|flange|opt)\./.test(key)) return false;
+        }
         if (!ADMIN && key.startsWith('admin.')) return false;
         if (!tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(key)) return false;
         if (!ADMIN && !accounts) {

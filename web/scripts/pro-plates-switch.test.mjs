@@ -104,7 +104,7 @@ test('the application publishes sheet commands and reports only when sheets are 
   }
 });
 
-test.skip('known wrong result: unpublished editor dictionaries — load and reinforcement editors publish their own labels independently', async () => {
+test('load and reinforcement editors publish their own labels independently', async () => {
   for (const [plates, sheets] of [[false, false], [true, false], [false, true], [true, true]]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
       const config = await resolveConfig({ root, configFile }, 'build', 'production');
