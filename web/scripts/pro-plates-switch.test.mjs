@@ -159,7 +159,7 @@ test('the EC2 member resistance reads placed reinforcement and draft profiles on
   }
 });
 
-test('report and IFC entry modules call reinforcement sheet readers only in the sheet build', { skip: 'known wrong result: disabled documents link sheet readers' }, async () => {
+test('report and IFC entry modules call reinforcement sheet readers only in the sheet build', async () => {
   for (const enabled of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: enabled }, async configFile => {
       for (const name of ['memoria-inputs', 'ifc-export']) {

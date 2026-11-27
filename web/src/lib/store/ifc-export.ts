@@ -29,8 +29,6 @@ import { columnShapeOf } from '../engine/design/shaped-column';
 import { samplePath } from '../codes/cirsoc201/bar-geometry';
 import { writeIfc, type IfcExportInput, type ProfileSpec, type V3 } from '../ifc/ifc-writer';
 import { withIfcGrid } from '../ifc/ifc-grid';
-import { fixedShape, stackKey } from '../rc-sheets/fixed-points';
-import { fixedPointKind } from './rc-structure-plan';
 import { verificationStore } from './verification.svelte';
 import type { SpanRef } from '../engine/design/design-spans';
 import { memberOffsetAt } from '../engine/member-offsets';
@@ -40,7 +38,7 @@ import { designData } from './design-data';
 import { provenanceLines } from '../export/provenance-attach';
 import type { ResultProvenance } from '../provenance/result-provenance';
 import { sheetsForDocuments } from './rc-sheets-reinforcement';
-import { sheetRowElements, sheetsIfcBars } from './rc-sheets-ifc';
+import { columnFixedPoints, sheetRowElements, sheetsIfcBars } from './rc-sheets-ifc';
 import { sheetsSchedule } from './rc-sheets-schedule';
 import type { MemoriaElement } from '../report/memoria/types';
 import { rowBars } from '../rc-sheets-readers/memoria';
@@ -118,10 +116,10 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
     const id = Number(/^[esm](\d+)$/.exec(e.id)?.[1]);
     if (Number.isFinite(id)) state.set(id, stateOfMemo(e));
   }
-  const sheets = sheetsForDocuments();
-  const sheetEls = new Map(memo.elements.filter((e) => e.id.startsWith('rc-')).map((e) => [e.id.slice(3), e]));
-  const sheetOf = new Map<number, { row: string; bars: string }>();
-  if (sheets) {
+  const sheets = __PUBLIC_FEATURES__.proRcSheets ? sheetsForDocuments() : null;
+  const sheetEls = sheets ? new Map(memo.elements.filter((e) => e.id.startsWith('rc-')).map((e) => [e.id.slice(3), e])) : undefined;
+  const sheetOf = sheets ? new Map<number, { row: string; bars: string }>() : undefined;
+  if (sheets && sheetEls && sheetOf) {
     const rowsByKey = new Map<string, Parameters<typeof rowBars>[0]>([...sheets.beam, ...sheets.column].map((r) => [r.key, r]));
     for (const [key, ids] of sheetRowElements(sheets)) {
       const e = sheetEls.get(key), r = rowsByKey.get(key);
@@ -132,7 +130,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
   /** A slab's or a wall's rows of the sheets, by the physical element's name. */
   const sheetProps = (kind: 'slab' | 'wall', name: string): Record<string, string | number> => {
     const own = sheets ? (kind === 'slab' ? sheets.slab : sheets.wall).filter((r) => r.name === name) : [];
-    const st = own.map((r) => sheetEls.get(r.key)).filter((e): e is MemoriaElement => !!e).map(stateOfMemo);
+    const st = own.map((r) => sheetEls?.get(r.key)).filter((e): e is MemoriaElement => !!e).map(stateOfMemo);
     if (!st.length) return {};
     return { Reinforcement: own.map((r) => `${r.level ? `${r.level}: ` : ''}${barsText(r)}`).join(' | '), DesignState: st.some((x) => x.fail) ? 'fails' : st.some((x) => x.open) ? 'not fully verified' : 'satisfies' };
   };
@@ -160,7 +158,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       // `Utilization` is the worst LOCAL check; `DesignState` the member's verdict, `HeldBy` what holds it.
       Section: section, ...(s?.u !== null && s?.u !== undefined ? { Utilization: Math.round(s.u * 1000) / 1000, UtilizationScope: 'worst local check of the section' } : {}), DesignState: label,
       ...(s?.heldBy.length ? { HeldBy: s.heldBy.join('; ') } : {}), ...refusal,
-      ...(sheetOf.has(id) ? { ReinforcementSheet: sheetOf.get(id)!.row, Reinforcement: sheetOf.get(id)!.bars } : {}),
+      ...(sheetOf?.has(id) ? { ReinforcementSheet: sheetOf.get(id)!.row, Reinforcement: sheetOf.get(id)!.bars } : {}),
       ...(detailed.has(id) ? { DetailingState: outdated ? 'outdated: the model changed after the detailing' : 'current' } : {}),
       // A beam's role in the lateral system as its design read it (§9.7.3.8.2): an undeclared one
       // was designed as part of it, and the file says so.
@@ -245,7 +243,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
     // A physical plate lying flat: its own outline and holes, curved sides drawn in 5° steps, mesh
     // or not; net of the frame when its mesh gives that body.
     const flatPlate = gr.plate && gr.kind === 'slab' ? plateIfcSlab(gr.plate, gr.keys.map((k) => bodies.slab(k))) : null;
-    if (flatPlate) { slabs.push({ ...flatPlate, id: `slab-${gr.name}`, name: gr.name, props: { ...flatPlate.props, ...sheetProps('slab', gr.name) } }); continue; }
+    if (flatPlate) { slabs.push({ ...flatPlate, id: `slab-${gr.name}`, name: gr.name, ...(sheets ? { props: { ...flatPlate.props, ...sheetProps('slab', gr.name) } } : {}) }); continue; }
     const ss = gr.keys.map((k) => shellBy.get(k)).filter((x): x is NonNullable<typeof x> => !!x);
     if (!ss.length) continue;
     const pts = ss.flatMap((s) => s.nodes.map(P)).filter((p): p is V3 => !!p);
@@ -255,7 +253,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       const net = gr.keys.map((k) => bodies.slab(k));
       slabs.push({
         id: `slab-${gr.name}`, name: gr.name, outline: hull(pts).map((p) => [p[0], p[1], z] as V3), thickness: t, ...(material ? { material } : {}),
-        ...(Object.keys(sheetProps('slab', gr.name)).length ? { props: sheetProps('slab', gr.name) } : {}),
+        ...(sheets && Object.keys(sheetProps('slab', gr.name)).length ? { props: sheetProps('slab', gr.name) } : {}),
         ...(net.every((x) => x) ? { prisms: net.flatMap((x) => x!) } : {}),
       });
     } else {
@@ -263,7 +261,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       let a = pts[0]!, b = pts[0]!, d = -1;
       for (const p of pts) for (const q of pts) { const e = Math.hypot(p[0] - q[0], p[1] - q[1]); if (e > d) { d = e; a = p; b = q; } }
       walls.push({ id: `wall-${gr.name}`, name: gr.name, a: [a[0], a[1], z0], b: [b[0], b[1], z0], height: z1 - z0, thickness: t, ...(material ? { material } : {}),
-        ...(Object.keys(sheetProps('wall', gr.name)).length ? { props: sheetProps('wall', gr.name) } : {}) });
+        ...(sheets && Object.keys(sheetProps('wall', gr.name)).length ? { props: sheetProps('wall', gr.name) } : {}) });
     }
   }
 
@@ -279,7 +277,7 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
       assembly: outdated ? `${a.id} (OUTDATED)` : a.id, length: b.cuttingLength, points: samplePath(b, 0.02).map((p) => [p.x, p.y, p.z] as V3),
     }));
   });
-  const bars = [...detailedBars, ...(sheets ? sheetsIfcBars(sheets) : [])];
+  const bars = __PUBLIC_FEATURES__.proRcSheets && sheets ? detailedBars.concat(sheetsIfcBars(sheets)) : detailedBars;
 
   const parts: IfcExportInput['parts'] = steelJoints().flatMap((j) => (jointDesignStore.designFor(j.nodeId, j.elementIds).typology?.parts ?? []).map((p, k) => ({
     id: `${j.nodeId}:${k}`, kind: p.kind, joint: `N${j.nodeId}`, center: [p.center.x, p.center.y, p.center.z] as V3, u: [p.u.x, p.u.y, p.u.z] as V3, v: [p.v.x, p.v.y, p.v.z] as V3, size: p.size, material: 'F-24',
@@ -296,17 +294,6 @@ export function projectIfcInput(tr: Tr, locale: string, projectName: string): If
   };
   if (startOf) columnFixedPoints(members, startOf);
   return { project: { name: projectName, time: new Date().toISOString().slice(0, 19), app: 'Stabileo' }, buildingProps, storeys, members, slabs, walls, footings, bars, parts };
-}
-
-/** Each column with its stack's fixed point, read at the node it starts from (`startOf`, by member id): how it is set out, and where, on its axis (`rc-sheets/fixed-points.ts`). */
-export function columnFixedPoints(members: IfcExportInput['members'], startOf: ReadonlyMap<string, number>): void {
-  for (const c of members) {
-    if (c.kind !== 'column' || c.profile.kind !== 'rect') continue;
-    const at = startOf.get(c.id), n = at !== undefined ? modelStore.nodes.get(at) : undefined;
-    if (!n) continue;
-    const kind = fixedPointKind(stackKey([n.x, n.y]));
-    c.props = { ...c.props, FixedPoint: fixedShape(kind) === 'centre' ? 'centre' : `${fixedShape(kind)} ${kind}`, FixedPointX: Math.round(n.x * 1000) / 1000, FixedPointY: Math.round(n.y * 1000) / 1000 };
-  }
 }
 
 /** What the building covers in plan, a metre past it, for the axes to cross it. */

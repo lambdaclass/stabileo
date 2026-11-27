@@ -4,6 +4,9 @@
  * each sheet row covers. Slabs and walls are meshes of bars: the file carries their bars as text
  * and their weight, not their geometry.
  */
+import { modelStore } from './model.svelte';
+import { fixedShape, stackKey } from '../rc-sheets/fixed-points';
+import { fixedPointKind } from './rc-structure-plan';
 import { physicalGroups } from './physical';
 import { elementsBetween } from './rc-sheets-reinforcement';
 import { sheetBars3d } from './rc-rebar-3d.svelte';
@@ -33,4 +36,14 @@ export function sheetRowElements(rows: SheetRows): Map<string, number[]> {
   for (const r of rows.beam) if (r.demand.line) out.set(r.key, elementsBetween(groupElements(r.demand.line.group), r.demand.line.startNode, r.demand.line.endNode));
   for (const r of rows.column) if (r.demand.nodes) out.set(r.key, elementsBetween(groupElements(Number(r.key.split(':')[1])), r.demand.nodes.bottom, r.demand.nodes.top));
   return out;
+}
+
+export function columnFixedPoints(members: IfcExportInput['members'], startOf: ReadonlyMap<string, number>): void {
+  for (const c of members) {
+    if (c.kind !== 'column' || c.profile.kind !== 'rect') continue;
+    const at = startOf.get(c.id), n = at !== undefined ? modelStore.nodes.get(at) : undefined;
+    if (!n) continue;
+    const kind = fixedPointKind(stackKey([n.x, n.y]));
+    c.props = { ...c.props, FixedPoint: fixedShape(kind) === 'centre' ? 'centre' : `${fixedShape(kind)} ${kind}`, FixedPointX: Math.round(n.x * 1000) / 1000, FixedPointY: Math.round(n.y * 1000) / 1000 };
+  }
 }

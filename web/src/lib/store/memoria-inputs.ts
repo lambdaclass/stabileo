@@ -287,7 +287,7 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
     };
     elements.push({ id: `e${id}`, family: c.elementType, name: elName(id, c.elementType), ...(levelOfElement(id) ? { level: levelOfElement(id)! } : {}), data: [...memberData(id), ...lateralDatum(id)], rows: [row, ...(jointRows.get(id) ?? [])], notes: [] });
   }
-  const sheets = sheetsForDocuments();
+  const sheets = __PUBLIC_FEATURES__.proRcSheets ? sheetsForDocuments() : null;
   if (sheets) elements.push(...sheetsMemoriaElements(sheets, rowsCode(sheets), tr, n2));
   for (const v of verificationStore.steel) {
     const id = (v as { elementId: number }).elementId;
@@ -495,6 +495,10 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
   const { items, steelMembers, marks, parts } = measure();
   const q = quantitiesBy(items, [...lv.order, '—']);
   const rebar = reinforcementTakeoff(marks);
+  let rebarQuantities = (rebar?.byDiameter ?? []).map((r) => ({ diameter: r.diameterMm, length: r.lengthM, mass: r.massKg }));
+  if (__PUBLIC_FEATURES__.proRcSheets && sheets && !rebarQuantities.length) {
+    rebarQuantities = sheetsSchedule(sheets).byDiameter.map((r) => ({ diameter: r.dia, length: r.length, mass: r.kg }));
+  }
   const st = steelTakeoff({ members: steelMembers });
   const plates = parts.filter((p) => p.kind === 'plate' || p.kind === 'stiffener');
   const connections = [
@@ -541,8 +545,7 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
     quantities: {
       byLevel: q.byLevel,
       byType: q.byType.filter((r) => r.kind !== 'rebar').map(({ kind, concrete, formwork, steel, count }) => ({ kind, concrete, formwork, steel, count })),
-      rebar: rebar?.byDiameter.length ? rebar.byDiameter.map((r) => ({ diameter: r.diameterMm, length: r.lengthM, mass: r.massKg }))
-        : sheets ? sheetsSchedule(sheets).byDiameter.map((r) => ({ diameter: r.dia, length: r.length, mass: r.kg })) : [],
+      rebar: rebarQuantities,
       steel: st.rows.map((r) => ({ profile: r.profile, count: r.members, length: r.length, mass: r.kg })),
       connections,
     },
