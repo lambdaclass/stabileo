@@ -828,6 +828,20 @@ impl MaterialTangent {
         Ok(Self::Dense { free: pinned, reduced })
     }
 
+    fn with_release_gauges(self, n: usize, gauges: &super::stability::Stability) -> Self {
+        if gauges.free.is_empty() {
+            return self;
+        }
+        match self {
+            Self::Dense { mut free, mut reduced } => {
+                let solve = reduced.as_mut().unwrap_or(&mut free);
+                gauges.pin_dense(solve, n);
+                Self::Dense { free, reduced }
+            }
+            Self::Sparse(k) => Self::Sparse(gauges.pin_sparse(&k)),
+        }
+    }
+
     fn solve(self, rhs: Vec<f64>, cache: &mut Option<SparseSymbolicCache>) -> Result<Vec<f64>, String> {
         let n = rhs.len();
         match self {
@@ -1008,26 +1022,16 @@ impl MaterialReleaseGauges {
         if axes.is_empty() {
             return Ok(Self { physical, reduced });
         }
-        let nodes = dof.entries_by_dof();
         let mut gauge_dofs = std::collections::BTreeSet::new();
-        for axis in axes {
-            if axis.iter().all(|&(index, value, rounding)| {
-                (value == 0.0 && rounding == 0.0) || assembly.artificial_dofs.contains(&index)
-            }) {
+        for release in axes {
+            if release.already_pinned(&assembly.artificial_dofs) {
                 continue;
             }
-            let node = nodes[axis[0].0].0.0;
+            let Some(projected) = release.project(constraints) else { continue; };
+            let axis = release.axis;
+            let node = release.node;
             let dofs: Vec<_> = axis.iter().map(|&(index, _, _)| index).collect();
-            let mapped = if let Some(constraints) = constraints {
-                let Some(mapped) = dofs.iter().map(|&index| constraints.c_ff.isolated_unit_column(index))
-                    .collect::<Option<Vec<_>>>()
-                else {
-                    continue;
-                };
-                mapped
-            } else {
-                dofs.clone()
-            };
+            let mapped = projected.into_iter().map(|(index, _, _)| index).collect();
             let scale = dofs.iter().map(|&index| assembly.k[index * (dof.n_total + 1)])
                 .fold(0.0, f64::max);
             let scale = if scale > 0.0 { scale } else { 1.0 };
@@ -1251,28 +1255,12 @@ fn solve_nonlinear_material_3d_inner(
             // the structure it iterated on: a diaphragm-tied pair of columns
             // was solved as two independent columns, and a node tied only by
             // a constraint left the tangent singular.
-            let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
             let rhs_s = match &cs {
                 Some(cs) => cs.reduce_vector(&r_free),
                 None => r_free,
             };
-            let mut delta_u_indep = if sparse_tangent {
-                let MaterialTangent::Sparse(k_s_csc) = tangent else {
-                    return Err("material tangent dispatch disagrees with the sparse solve".into());
-                };
-                let k_s_csc = if gauges.reduced.free.is_empty() { k_s_csc } else { gauges.reduced.pin_sparse(&k_s_csc) };
-                solve_tangent_sparse(&k_s_csc, &rhs_s, &mut sparse_sym_cache)?
-            } else {
-                let MaterialTangent::Dense { free, reduced } = tangent else {
-                    return Err("material tangent dispatch disagrees with the dense solve".into());
-                };
-                let mut k_s = match &cs {
-                    Some(_) => reduced.ok_or("material tangent is missing the constrained stiffness")?,
-                    None => free,
-                };
-                gauges.reduced.pin_dense(&mut k_s, ns);
-                solve_system(k_s, rhs_s, ns)?
-            };
+            let mut delta_u_indep = tangent.with_release_gauges(rhs_s.len(), &gauges.reduced)
+                .solve(rhs_s, &mut sparse_sym_cache)?;
             MaterialReleaseGauges::remove_free_rotation(&gauges.reduced, &mut delta_u_indep);
             let delta_u_f = match &cs {
                 Some(cs) => cs.expand_solution(&delta_u_indep, MasterMotion::Homogeneous),

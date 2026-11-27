@@ -13,6 +13,7 @@ import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, modelCombinationCases, presentSymbols, type CombinationCase } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
 import { ModelInputError, requireLoadCollection, requireLoadInput } from '../engine/model-input-numbers';
+import { fixtureRows, migrateModelConstraints, requireCombinationInput, requireStructureInput } from '../engine/model-input-numbers';
 import { LOAD_TARGET, type Load } from '../store/model.svelte';
 import { remapSupportElement } from '../model/support-types';
 import { selfWeightScope } from '../engine/self-weight';
@@ -125,6 +126,9 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLo
 
 export function prepareFixture(json: JSONModel, opts: FixtureLoadOptions = {}): (api: FixtureLoader) => void {
   requireLoadCollection(json.loads);
+  requireFixtureStructure(json);
+  const constraints = migrateModelConstraints(json.constraints);
+  json = { ...json, constraints: constraints.map(constraint => ({ ...constraint })) };
   const canonical = canonicalizeModelAliases(json);
   validateFixtureReferences(canonical);
   return (api) => {
@@ -142,10 +146,21 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
   return reference;
 }
 
+function requireFixtureStructure(json: JSONModel): void {
+  requireStructureInput({
+    nodes: fixtureRows('nodes', json.nodes), elements: fixtureRows('elements', json.elements),
+    supports: fixtureRows('supports', json.supports), materials: fixtureRows('materials', json.materials),
+    sections: fixtureRows('sections', json.sections), analysis: json.analysis,
+  });
+}
+
 export function validateFixtureReferences(json: JSONModel): void {
   requireLoadCollection(json.loads);
+  requireFixtureStructure(json);
   json = canonicalizeModelAliases(json);
   requireLoadInput(json.loads);
+  requireCombinationInput(json.combinations);
+  migrateModelConstraints(json.constraints);
   const ids = new Set(json.elements.map(e => e.id));
   const targets = {
     node: { field: 'nodeId', ids: new Set(json.nodes.map(node => node.id)) },

@@ -11,7 +11,9 @@ use dedaliano_engine::types::{SolverInput, SolverInput3D};
 fn input(issue: &str) -> serde_json::Value {
     let fixtures: serde_json::Value =
         serde_json::from_str(include_str!("../fixtures/cause-c-replay.json")).unwrap();
-    fixtures.get(issue).unwrap().clone()
+    let mut model = fixtures.get(issue).unwrap().clone();
+    crate::common::take_nightly_metadata(&mut model);
+    model
 }
 
 fn mechanism_2d(issue: &str, analysis: &str, node: usize) {

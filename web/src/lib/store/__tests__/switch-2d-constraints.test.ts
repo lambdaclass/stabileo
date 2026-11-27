@@ -163,7 +163,8 @@ describe('a plane model keeps the meaning of the constraints of a space model st
       modelStore.addElement(b, d, 'frame');
       const free = modelStore.solve3D(false, false, true);
       if (!free || typeof free === 'string') throw new Error(`3D: ${String(free)}`);
-      modelStore.addConstraint(tie(b, d));
+      const constraint = tie(b, d);
+      modelStore.addConstraint(constraint);
       const tied = modelStore.solve3D(false, false, true);
       if (!tied || typeof tied === 'string') throw new Error(`3D: ${String(tied)}`);
       const sway = (r: typeof tied) => inPlane3D(plane, r.displacements.find((x) => x.nodeId === b)!)[0];
@@ -172,8 +173,10 @@ describe('a plane model keeps the meaning of the constraints of a space model st
         expect(take()).toEqual({ ok: false, error: 'slice.constraintsCoupled' });
         expect(uiStore.simplified2DMode).toBe(false);
       }
-      expect(modelStore.solve(false, plane)).toBe(t('svc.constraintsCoupled'));
-      expect(modelStore.buildSolverInput(false, plane)).toBeNull();
+      const field = constraint.type === 'linearMPC' ? 'terms' : 'offsetX';
+      const refusal = `${t('svc.constraintsCoupled')} constraints[0].${field}`;
+      expect(modelStore.solve(false, plane)).toBe(refusal);
+      expect(() => modelStore.buildSolverInput(false, plane)).toThrow(refusal);
     });
   }
 
@@ -484,4 +487,23 @@ describe('a cut bends each member about the axis the space model bends it about 
     modelStore.elements.get(column)!.sectionId = turned(Math.asin(5e-7) * 180 / Math.PI);
     expect(guard()).toEqual([column]);
   });
+});
+
+it('known wrong result: #2588 — saved plane constraints require an unambiguous axis convention', () => {
+  const { b, d } = columnsInXZ();
+  modelStore.addElement(b, d, 'frame');
+  expect(sliceAt('xz', 0).ok).toBe(true);
+  const snapshot = modelStore.snapshot();
+  const mpc = {
+    type: 'linearMPC', terms: [{ nodeId: b, dof: 0, coefficient: 1 }, { nodeId: d, dof: 5, coefficient: -1 }],
+  };
+  const axialTie = { type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [0] };
+  const restore = (drawPlane2D: DrawPlane | undefined, constraint: typeof mpc | typeof axialTie) =>
+    modelStore.restore({ ...snapshot, drawPlane2D, analysisMode: '2d', constraints: [constraint] });
+  expect(() => restore(undefined, axialTie)).not.toThrow();
+  expect(modelStore.solve(false, 'xy')).toMatchObject({ displacements: expect.any(Array) });
+  expect(() => restore('xy', mpc)).not.toThrow();
+  const before = modelStore.snapshot();
+  expect(() => restore(undefined, mpc)).toThrow('constraints[0]');
+  expect(modelStore.snapshot()).toEqual(before);
 });

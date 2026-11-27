@@ -162,7 +162,8 @@ fn the_corotational_natural_rotation_warning_survives_rigid_motion_and_units_426
 }
 
 fn issue_982() -> SolverInput {
-    serde_json::from_str(include_str!("metamorphic_corpus/nightly/issue-982.json")).unwrap()
+    let wire = serde_json::from_str(include_str!("metamorphic_corpus/nightly/issue-982.json")).unwrap();
+    crate::common::nightly_solver(wire).unwrap()
 }
 
 #[test]

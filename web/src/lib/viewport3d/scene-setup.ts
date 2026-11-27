@@ -49,11 +49,12 @@ export function createViewerControls(camera: THREE.Camera, dom: HTMLElement): Or
   return controls;
 }
 
-/** The default mouse and touch mapping: left drag orbits, right drag pans, wheel zooms. */
+/** The default mouse and touch mapping: left drag orbits, right drag pans, wheel zooms. The plan view moves with the pointer, without inertia. */
 export function applyDefaultNavigation(controls: OrbitControls, opts: { leftSlides?: boolean; plan?: boolean } = {}): void {
   const { leftSlides = false, plan = false } = opts;
   controls.enableRotate = !plan;
-  controls.screenSpacePanning = true;
+  controls.enableDamping = !plan;
+  controls.screenSpacePanning = !plan;
   controls.mouseButtons = {
     LEFT: leftSlides ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
     MIDDLE: THREE.MOUSE.DOLLY,

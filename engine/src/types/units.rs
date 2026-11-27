@@ -620,48 +620,54 @@ quotient!(FlexuralRigidity, Length => Moment);
 /// records' names, so serde reports malformed input with the same text; renaming one changes it.
 mod wire {
     use super::*;
-    use crate::types::numeric;
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverMaterial {
-        #[serde(deserialize_with = "numeric::id::required")]
-        pub id: usize,
-        #[serde(deserialize_with = "numeric::e::required")]
-        pub e: ModulusMPa,
-        #[serde(deserialize_with = "numeric::nu::required")]
-        pub nu: Ratio,
+    use crate::types::{numeric, producer_row::producer_row};
+    producer_row! { material
+        #[derive(Debug, Clone, Copy, Serialize)]
+        #[serde(rename_all = "camelCase")]
+        pub struct SolverMaterial {
+            #[serde(deserialize_with = "numeric::id::required")]
+            pub id: usize,
+            #[serde(deserialize_with = "numeric::e::required")]
+            pub e: ModulusMPa,
+            #[serde(deserialize_with = "numeric::nu::required")]
+            pub nu: Ratio,
+        }
     }
 
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverSection {
-        pub id: usize,
-        pub a: Area,
-        pub iz: SecondMoment,
-        #[serde(default)]
-        pub as_y: Option<Area>,
+    producer_row! { section_2d
+        #[derive(Debug, Clone, Copy, Serialize)]
+        #[serde(rename_all = "camelCase")]
+        pub struct SolverSection {
+            pub id: usize,
+            pub a: Area,
+            pub iz: SecondMoment,
+            #[serde(default)]
+            pub as_y: Option<Area>,
+        }
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverSection3D {
-        pub id: usize,
-        #[serde(default)]
-        pub name: Option<String>,
-        pub a: Area,
-        pub iy: SecondMoment,
-        pub iz: SecondMoment,
-        pub j: SecondMoment,
-        #[serde(default)]
-        pub cw: Option<WarpingConstant>,
-        #[serde(default)]
-        pub as_y: Option<Area>,
-        #[serde(default)]
-        pub as_z: Option<Area>,
-        #[serde(default)]
-        pub shear_center_y: Option<Length>,
-        #[serde(default)]
-        pub shear_center_z: Option<Length>,
+    producer_row! { section_3d
+        #[derive(Debug, Clone, Serialize)]
+        #[serde(rename_all = "camelCase")]
+        pub struct SolverSection3D {
+            pub id: usize,
+            #[serde(default)]
+            pub name: Option<String>,
+            pub a: Area,
+            pub iy: SecondMoment,
+            pub iz: SecondMoment,
+            pub j: SecondMoment,
+            #[serde(default)]
+            pub cw: Option<WarpingConstant>,
+            #[serde(default)]
+            pub as_y: Option<Area>,
+            #[serde(default)]
+            pub as_z: Option<Area>,
+            #[serde(default)]
+            pub shear_center_y: Option<Length>,
+            #[serde(default)]
+            pub shear_center_z: Option<Length>,
+        }
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -753,7 +759,7 @@ mod wire {
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
     pub struct SolverDistributedLoad3D {
         #[serde(default, rename = "qXI")]
         #[serde(deserialize_with = "numeric::q_xi::required")]
@@ -844,69 +850,71 @@ mod wire {
         pub qt: LineLoad,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SolverSupport3D {
-        #[serde(deserialize_with = "numeric::node_id::required")]
-        pub node_id: usize,
-        pub rx: bool,
-        pub ry: bool,
-        pub rz: bool,
-        pub rrx: bool,
-        pub rry: bool,
-        pub rrz: bool,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
-        pub kx: Option<TranslationalStiffness>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
-        pub ky: Option<TranslationalStiffness>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
-        pub kz: Option<TranslationalStiffness>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::krx::optional", skip_serializing_if = "Option::is_none")]
-        pub krx: Option<RotationalStiffness>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::kry::optional", skip_serializing_if = "Option::is_none")]
-        pub kry: Option<RotationalStiffness>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::krz::optional", skip_serializing_if = "Option::is_none")]
-        pub krz: Option<RotationalStiffness>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
-        pub dx: Option<Length>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::dy::optional", skip_serializing_if = "Option::is_none")]
-        pub dy: Option<Length>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::dz::optional", skip_serializing_if = "Option::is_none")]
-        pub dz: Option<Length>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::drx::optional", skip_serializing_if = "Option::is_none")]
-        pub drx: Option<Angle>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::dry::optional", skip_serializing_if = "Option::is_none")]
-        pub dry: Option<Angle>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::drz::optional", skip_serializing_if = "Option::is_none")]
-        pub drz: Option<Angle>,
-        #[serde(default)]
-        pub rw: Option<bool>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::kw::optional", skip_serializing_if = "Option::is_none")]
-        pub kw: Option<f64>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::normal_x::optional", skip_serializing_if = "Option::is_none")]
-        pub normal_x: Option<f64>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::normal_y::optional", skip_serializing_if = "Option::is_none")]
-        pub normal_y: Option<f64>,
-        #[serde(default)]
-        #[serde(deserialize_with = "numeric::normal_z::optional", skip_serializing_if = "Option::is_none")]
-        pub normal_z: Option<f64>,
-        #[serde(default)]
-        pub is_inclined: Option<bool>,
+    producer_row! { support_3d
+        #[derive(Debug, Clone, Serialize)]
+        #[serde(rename_all = "camelCase")]
+        pub struct SolverSupport3D {
+            #[serde(deserialize_with = "numeric::node_id::required")]
+            pub node_id: usize,
+            pub rx: bool,
+            pub ry: bool,
+            pub rz: bool,
+            pub rrx: bool,
+            pub rry: bool,
+            pub rrz: bool,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
+            pub kx: Option<TranslationalStiffness>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
+            pub ky: Option<TranslationalStiffness>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
+            pub kz: Option<TranslationalStiffness>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::krx::optional", skip_serializing_if = "Option::is_none")]
+            pub krx: Option<RotationalStiffness>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::kry::optional", skip_serializing_if = "Option::is_none")]
+            pub kry: Option<RotationalStiffness>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::krz::optional", skip_serializing_if = "Option::is_none")]
+            pub krz: Option<RotationalStiffness>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
+            pub dx: Option<Length>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::dy::optional", skip_serializing_if = "Option::is_none")]
+            pub dy: Option<Length>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::dz::optional", skip_serializing_if = "Option::is_none")]
+            pub dz: Option<Length>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::drx::optional", skip_serializing_if = "Option::is_none")]
+            pub drx: Option<Angle>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::dry::optional", skip_serializing_if = "Option::is_none")]
+            pub dry: Option<Angle>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::drz::optional", skip_serializing_if = "Option::is_none")]
+            pub drz: Option<Angle>,
+            #[serde(default)]
+            pub rw: Option<bool>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::kw::optional", skip_serializing_if = "Option::is_none")]
+            pub kw: Option<f64>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::normal_x::optional", skip_serializing_if = "Option::is_none")]
+            pub normal_x: Option<f64>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::normal_y::optional", skip_serializing_if = "Option::is_none")]
+            pub normal_y: Option<f64>,
+            #[serde(default)]
+            #[serde(deserialize_with = "numeric::normal_z::optional", skip_serializing_if = "Option::is_none")]
+            pub normal_z: Option<f64>,
+            #[serde(default)]
+            pub is_inclined: Option<bool>,
+        }
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]

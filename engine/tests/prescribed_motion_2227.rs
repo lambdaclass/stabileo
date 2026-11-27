@@ -17,6 +17,13 @@ const MOTIONS: [f64; 7] = [
 fn axial_model(space: bool, free: usize, pcg: bool, dx: f64) -> Value {
     let mut model: Value =
         serde_json::from_str(include_str!("fixtures/equilibrium-oracle-2109.json")).unwrap();
+    if !space {
+        let section = &model["sections"]["1"];
+        model = json!({
+            "materials": model["materials"],
+            "sections": {"1": {"id": section["id"], "a": section["a"], "iz": section["iz"]}},
+        });
+    }
     model["loads"] = json!([]);
     let last = free + 2;
     model["nodes"] = json!({});

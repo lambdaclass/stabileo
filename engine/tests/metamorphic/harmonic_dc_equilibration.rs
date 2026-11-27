@@ -97,7 +97,10 @@ fn harmonic_dc_wasm_cases() {
         "dimension": 3, "input": harmonic_3d(case)
     })).collect();
     let mut cantilever: dedaliano_engine::types::SolverInput3D =
-        serde_json::from_str(include_str!("../metamorphic_corpus/stability/issue-1090.json")).unwrap();
+        crate::common::nightly_solver_from_str(include_str!(
+            "../metamorphic_corpus/stability/issue-1090.json"
+        ))
+        .unwrap();
     cantilever.elements.get_mut("1").unwrap().release_my_end = false;
     cantilever.supports.get_mut("1").unwrap().dz = None;
     cantilever.loads = serde_json::from_value(json!([{

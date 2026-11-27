@@ -210,6 +210,27 @@ export function setView(
   controls.update();
 }
 
+/**
+ * Straight down on `target`, with screen-up turned `rotationDeg` from +Y. `tip` must stay above
+ * OrbitControls' pole clamp (1e-6 rad), or the clamp moves the camera and loses the rotation.
+ */
+export function placeOverhead(
+  camera: THREE.Camera,
+  controls: OrbitControls,
+  target: { x: number; y: number; z: number },
+  dist: number,
+  rotationDeg: number,
+  tip: number,
+): void {
+  const r = (rotationDeg * Math.PI) / 180;
+  const ux = -Math.sin(r), uy = Math.cos(r);
+  const off = dist * Math.sin(tip);
+  camera.position.set(target.x - ux * off, target.y - uy * off, target.z + dist * Math.cos(tip));
+  setCameraUp(camera);
+  controls.target.set(target.x, target.y, target.z);
+  controls.update();
+}
+
 // ─── handleResize ───────────────────────────────────────────
 
 export function handleResize(

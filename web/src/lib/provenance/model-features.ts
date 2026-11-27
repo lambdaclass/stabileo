@@ -1,6 +1,17 @@
-import { hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber } from '../engine/model-input-numbers';
+import { classifyEccentricNormalOffset, constraintsInXZ, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
+import { dependsOnXYConstraintAxes, hasAddedAuthoredLoadRefusal, hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStoredProjectInput, requireStructureInput, storedProjectPlane } from '../engine/model-input-numbers';
+import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
+import { caseOrder, caseReductionRatio } from '../engine/case-rules';
+import { dyadicInteger } from '../engine/accounting-math';
+import { hasBoundedRafterGap, type GravityModel } from '../engine/loads/plan-gravity';
+import type { Constraint3D } from '../engine/types-3d';
+import { PLANAR_LINE_COMPONENT_CUTOFF, trussComponentBelowCutoff } from '../engine/member-loads';
 import { POINT_END_TOL } from '../engine/member-point-loads';
 import { planarNodalMoment, planarPointMoment, planarPointMomentWithoutProjection, planarPointProjectionTooShort } from '../engine/planar-point-load';
+import { seismicRegenerationGeometry } from '../engine/loads/seismic-mass';
+import type { Support } from '../store/model.svelte';
+import type { MemberOffset } from '../model/element-3d-metadata';
+
 import { resolveCombinationAction, usesLegacyFlatRoofSnow } from '../engine/loads/combination-rules';
 import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
 import { isCompositeCase, symbolOfCase, symbolOfType, symbolsByAlternativeSet } from '../engine/loads/combination-cases';
@@ -29,7 +40,7 @@ import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
 import { globalAxes } from '../features';
 import { GRAVITY_SELF_WEIGHT, type AnalysisSettings, type SelfWeightLoad } from '../engine/analysis-settings';
-import { resolveSelfWeightScope, selfWeightFor } from '../engine/self-weight';
+import { planarSelfWeightComponents, resolveSelfWeightScope, selfWeightFor } from '../engine/self-weight';
 import { isMaterialDensity } from '../section/weight';
 import { isBareCustom3D, isBareRollerZ, isPlaneRoller, isSupportType } from '../model/support-types';
 
@@ -49,19 +60,23 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
-  'native:planar-nodal-vector',
+  'native:planar-nodal-vector', 'native:analysis-wire-unknown-fields', 'native:wasm-iterable-solver-tables',
+  'native:duplicate-json-connector-keys', 'native:staged-unconsumed-tables', 'native:staged-unknown-fields',
+  'native:duplicate-json-analysis-table-keys', 'native:wasm-iterable-load-fields', 'native:producer-wire-metadata',
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
-  'physicalPlateDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
-  'connectors', 'connectorsWithShear', 'pathAnalysis',
-  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
+  'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
+  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'malformedAuthoredLoad',
+  'addedAuthoredLoadRefusal', 'legacyPlanarProjectPlane', 'emptyRigidLinkMask',
+  'malformedAuthoredStructure', 'separatedPlanarEccentricConnection', 'reducedPlanarMpc', 'xyConstraintProjection',
   'ssiHistory', 'recordedHarmonic', 'strongElasticModulusContrast', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'groupedCombinationRules', 'crossSymbolCombinationAlternatives', 'loadPlanInCompositeCase', 'loadPlanCombinationSupplements', 'flatRoofSnowCombinations',
   'occupiedGeneratedLoadCases', 'repeatedUngroupedRuleTerms', 'emptyManualLoadAlternatives', 'retiredAutoLoadsCases',
@@ -101,13 +116,14 @@ type FeatureLoad = { type?: unknown; data?: Record<string, unknown> };
 
 interface FeatureSnapshotFields {
   analysisMode?: string;
+  drawPlane2D?: DrawPlane;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
   upliftSupports?: unknown[];
   nodes?: Entries<{ x: number; y: number; z?: number }>;
   materials?: Entries<Mat>;
   elements?: Entries<Elem>;
-  sections?: Entries<{ id: number; shearAreas?: unknown }>;
+  sections?: Entries<{ id: number; a?: number; shearAreas?: unknown }>;
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
   loads?: FeatureLoad[];
@@ -143,6 +159,7 @@ export interface FeatureSnapshot extends FeatureSnapshotFields {
 export interface FeatureContext {
   storedLoads?: FeatureSnapshot['loads'];
   storedElements?: FeatureSnapshot['elements'];
+  drawPlane2D?: DrawPlane;
   /** The workspace the project opens in (the file's `analysisMode`). */
   analysisMode?: string;
   /** Analyses the project's results came from, as its stamp records them; null: not recorded. */
@@ -246,6 +263,34 @@ function plateAnalysisModel(s: FeatureSnapshot): PlateAnalysisModel {
   };
 }
 
+function geometrySupports(s: FeatureSnapshot): NonNullable<GravityModel['supports']> {
+  return new Map((s.supports ?? []).flatMap(([id, support]) => support ? [[id, {
+    nodeId: support.nodeId, type: isSupportType(support.type) ? support.type : undefined,
+    dofRestraints: support.dofRestraints as Support['dofRestraints'], dofFrame: support.dofFrame === 'local' ? 'local' : undefined,
+    isInclined: support.isInclined, uplift: support.uplift, curves: support.curves as Support['curves'],
+  }]] as const : []));
+}
+
+function roofAttachmentConstraints(snapshot: FeatureSnapshot): Constraint3D[] {
+  const constraints = Array.isArray(snapshot.constraints) ? snapshot.constraints : [];
+  return constraints.flatMap((constraint): Constraint3D[] => {
+    const { type, masterNode, slaveNode } = constraint ?? {};
+    if (typeof masterNode !== 'number' || typeof slaveNode !== 'number') return [];
+    if (type === 'rigidLink') {
+      const { dofs } = constraint;
+      if (dofs !== undefined && !Array.isArray(dofs)) return [];
+      return [{ type, masterNode, slaveNode, dofs }];
+    }
+    if (type === 'eccentricConnection') {
+      const { offsetX, offsetY, offsetZ, releases } = constraint;
+      if ((offsetX !== undefined && typeof offsetX !== 'number') || (offsetY !== undefined && typeof offsetY !== 'number')
+        || (offsetZ !== undefined && typeof offsetZ !== 'number') || (releases !== undefined && !Array.isArray(releases))) return [];
+      return [{ type, masterNode, slaveNode, offsetX, offsetY, offsetZ, releases }];
+    }
+    return [];
+  });
+}
+
 type FactorEvidence = { caseId?: number; factor?: number } | null;
 
 function hasZeroOrOpposingFactors(factors: readonly FactorEvidence[]): boolean {
@@ -306,6 +351,9 @@ function addSelfWeightFeatures(
     const feature = isFiniteInputNumber(material.rho) ? 'negativeShellSelfWeightDensity' : 'invalidShellSelfWeightDensity';
     return [[entry[0], feature] as const];
   });
+  const sections = new Map(values(snapshot.sections).map(section => [section.id, section]));
+  const nodes = new Map(Array.isArray(snapshot.nodes) ? snapshot.nodes : []);
+  const members = values(snapshot.elements).filter(el => !space || el.type === 'truss');
   const plates = invalidShells(snapshot.plates);
   const quads = invalidShells(snapshot.quads);
   const targetEntries = <E>(entries: Entries<E>) => new Map(Array.isArray(entries) ? entries.filter(entry => entry?.[1]) : []);
@@ -316,11 +364,31 @@ function addSelfWeightFeatures(
     groups: targetEntries(snapshot.groups),
   };
   for (const weight of weights) {
+    if (!space && weight.factor === 0 && weight.elements === undefined) continue;
     const scope = resolveSelfWeightScope(targets, weight);
     if (!('members' in scope)) {
       features.add('invalidGroup' in scope ? 'invalidSelfWeightGroup' : 'invalidSelfWeightTarget');
       continue;
     }
+    for (const el of members) {
+      if (scope.members && !scope.members.has(el.id)) continue;
+      const density = materials.get(el.materialId)?.rho;
+      const area = el.sectionId === undefined ? undefined : sections.get(el.sectionId)?.a;
+      if (!isMaterialDensity(density) || area === undefined) continue;
+      const intensity = Math.abs(density * area * weight.factor);
+      const a = nodes.get(el.nodeI), b = nodes.get(el.nodeJ);
+      if (!a || !b) continue;
+      if (space) {
+        const end = intensity * Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) / 2;
+        if ((intensity > 0 && trussComponentBelowCutoff(intensity)) || (end > 0 && trussComponentBelowCutoff(end))) {
+          features.add('smallMemberSelfWeight');
+        }
+      } else if (intensity > 0 && weight.direction !== 'Y'
+        && !planarSelfWeightComponents(weight.direction, intensity, b.x - a.x, b.y - a.y)) {
+        features.add('smallMemberSelfWeight');
+      }
+    }
+
     if (scope.members?.size && weight.factor !== 0) features.add('scopedMemberSelfWeight');
     for (const [id, feature] of plates) {
       if (scope.plates?.has(id) ?? true) features.add(feature);
@@ -331,9 +399,114 @@ function addSelfWeightFeatures(
   }
 }
 
+function structureFeatureRows<T>(rows: Entries<T>, features: Set<FeatureId>): Entries<T> {
+  if (rows === undefined) return undefined;
+  if (!Array.isArray(rows)) {
+    features.add('malformedAuthoredStructure');
+    return [];
+  }
+  return rows.filter(entry => {
+    const valid = Array.isArray(entry) && entry.length === 2 && isFiniteInputNumber(entry[0])
+      && entry[1] !== null && typeof entry[1] === 'object' && !Array.isArray(entry[1]);
+    if (!valid) features.add('malformedAuthoredStructure');
+    return valid;
+  });
+}
+
+function addAuthoredStructureFeatures(s: FeatureSnapshot, features: Set<FeatureId>, stampPlane?: DrawPlane): void {
+  try {
+    const constraints = migrateModelConstraints(s.constraints);
+    if (s.combinations !== undefined) requireCombinationInput(s.combinations);
+    if (features.has('plane2D')) {
+      if (s.elements?.length && s.drawPlane2D === undefined && storedProjectPlane(s, constraints) !== 'xy') {
+        features.add('legacyPlanarProjectPlane');
+      }
+      const plane = stampPlane ?? s.drawPlane2D;
+      for (const plausible of isDrawPlane(plane) ? [plane] : DRAW_PLANES) {
+        const remapped = constraintsInXZ(plausible, constraints);
+        if (plausible === 'xy' && constraints.some(dependsOnXYConstraintAxes)) features.add('xyConstraintProjection');
+        if (remapped.some(c => c.type === 'eccentricConnection' && classifyEccentricNormalOffset(c) === 'separated')) {
+          features.add('separatedPlanarEccentricConnection');
+        }
+        if (remapped.some(hasReducedPlanarMpc)) features.add('reducedPlanarMpc');
+      }
+    }
+    requireStructureInput({
+      nodes: s.nodes ?? [], elements: s.elements ?? [], supports: s.supports ?? [],
+      materials: s.materials ?? [], sections: s.sections ?? [], connectors: s.connectors, analysis: s.analysis,
+    }, { storedSupportKeys: true });
+  } catch (error) {
+    if (!(error instanceof ModelInputError)) throw error;
+    features.add('malformedAuthoredStructure');
+  }
+}
+
+const lineComponents = ['qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ'];
+
+function hasOpposedGeneratedLines(cases: NonNullable<FeatureSnapshot['loadCases']>, loads: FeatureSnapshot['loads']): boolean {
+  const byId = new Map(cases.map(loadCase => [loadCase.id, loadCase]));
+  const signsByCase = new Map<number, Map<string, number>>();
+  for (const { type, data } of Array.isArray(loads) ? loads : []) {
+    if (type !== 'distributed3d' || !data || (!data.generatedBy && data.fromDef === undefined)) continue;
+    const id = typeof data.caseId === 'number' ? data.caseId : 1;
+    const ratio = caseReductionRatio(byId.get(id) ?? {});
+    if (!Number.isFinite(ratio) || ratio === 0) continue;
+    const signs = signsByCase.get(id) ?? new Map<string, number>();
+    signsByCase.set(id, signs);
+    for (const component of lineComponents) {
+      const q = data[component];
+      if (typeof q !== 'number' || !Number.isFinite(q) || q * ratio === 0) continue;
+      const key = `${data.elementId}:${data.frame ?? 'local'}:${component}`;
+      const sign = Math.sign(q) === Math.sign(ratio) ? 1 : -1;
+      const previous = signs.get(key);
+      if (previous === -sign) return true;
+      signs.set(key, sign);
+    }
+  }
+  if (!signsByCase.size) return false;
+  const { order, looped } = caseOrder(cases);
+  for (const id of order) {
+    if (looped.has(id)) continue;
+    const factors = new Map<number, bigint>();
+    const includes = byId.get(id)?.includes;
+    for (const term of Array.isArray(includes) ? includes : []) {
+      if (!term) continue;
+      const { caseId, factor } = term;
+      if (caseId === undefined || !byId.has(caseId) || !Number.isFinite(factor)) continue;
+      factors.set(caseId, (factors.get(caseId) ?? 0n) + dyadicInteger(factor));
+    }
+    const signs = signsByCase.get(id) ?? new Map<string, number>();
+    for (const [source, factor] of factors) {
+      if (factor === 0n) continue;
+      for (const [key, from] of signsByCase.get(source) ?? []) {
+        const sign = factor > 0n ? from : -from;
+        if (signs.get(key) === -sign) return true;
+        signs.set(key, sign);
+      }
+    }
+    if (signs.size) signsByCase.set(id, signs);
+  }
+  return false;
+}
+
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
+  try {
+    requireStoredProjectInput(s);
+  } catch (error) {
+    if (!(error instanceof ModelInputError)) throw error;
+    f.add('invalidStoredProjectInput');
+  }
+  s = {
+    ...s,
+    nodes: structureFeatureRows(s.nodes, f),
+    elements: structureFeatureRows(s.elements, f),
+    supports: structureFeatureRows(s.supports, f),
+    materials: structureFeatureRows(s.materials, f),
+    sections: structureFeatureRows(s.sections, f),
+    connectors: structureFeatureRows(s.connectors, f),
+  };
   const mode = ctx.analysisMode ?? s.analysisMode ?? '2d';
   if (ctx.analysesRun == null || ctx.analysesRun.some(k => k !== 'modal' && k !== 'buckling')) f.add('forceSummaryResults');
   f.add(is3DWorkspace(mode) ? 'space3D' : 'plane2D');
@@ -416,8 +589,18 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   })) f.add('invalidDynamicMaterialDensity');
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
   if (mode !== 'pro' && (quads.length || values(s.plates).length)) f.add('shellsInBasic');
-  if (values(s.groups).some(group => plateSurfaceOf({ data: group?.data as Record<string, unknown> }))) {
+  const physicalPlates = new Set((Array.isArray(s.groups) ? s.groups : []).flatMap(entry =>
+    plateSurfaceOf({ data: entry?.[1]?.data as Record<string, unknown> }) ? [entry[0]] : []));
+  if (physicalPlates.size) {
     f.add('physicalPlateDefinitions');
+    for (const group of values(s.groups)) {
+      if (group?.kind !== 'floorLoad') continue;
+      const data = group.data as { distribution?: string; target?: { by?: string; groupId?: number } } | undefined;
+      if (data?.distribution === 'slab' && data.target?.by === 'group'
+        && typeof data.target.groupId === 'number' && physicalPlates.has(data.target.groupId)) {
+        f.add('wholeSlabLoadDefinitions');
+      }
+    }
   }
   if (f.has('space3D') && (f.has('shells') || s.groups?.length)) {
     const plates = plateAnalysisModel(s);
@@ -458,9 +641,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if ([...supportedNodes.values()].some((n) => n > 1)) f.add('multipleSupportsOnNode');
 
+  const emptyRigidLink = (c: Record<string, unknown>) =>
+    c?.type === 'rigidLink' && Array.isArray(c.dofs) && c.dofs.length === 0;
   const constraints = Array.isArray(s.constraints) ? s.constraints : [];
+  if (constraints.some(emptyRigidLink)) f.add('emptyRigidLinkMask');
   if (constraints.length) f.add('constraints');
-  if (constraints.some((c) => slaveNodes(c).some((n) => supportedNodes.has(n)))) f.add('constraintOnSupportedNode');
+  if (constraints.some((c) => c && slaveNodes(c).some((n) => supportedNodes.has(n)))) f.add('constraintOnSupportedNode');
 
   const connectors = values(s.connectors);
   if (connectors.length) f.add('connectors');
@@ -521,6 +707,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       (rawStoredLoads !== s.loads && hasMalformedAuthoredLoad(rawStoredLoads, basicProjection))) {
     f.add('malformedAuthoredLoad');
   }
+  if (hasAddedAuthoredLoadRefusal(s.loads, basicProjection) ||
+      (rawStoredLoads !== s.loads && hasAddedAuthoredLoadRefusal(rawStoredLoads, basicProjection))) {
+    f.add('addedAuthoredLoadRefusal');
+  }
   const loads = featureLoads(s.loads);
   const storedLoads = rawStoredLoads === s.loads ? loads : featureLoads(rawStoredLoads);
   const refusal = modelAliasRefusalFeature({
@@ -537,11 +727,19 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     f.add('legacyPlanarPointCoupleAliases');
   }
   const planarLoadInputs = storedLoads === loads ? loads : [...storedLoads, ...loads];
+  addAuthoredStructureFeatures(s, f, ctx.drawPlane2D);
   for (const { type, data } of planarLoadInputs) {
     if (type !== 'pointOnElement' && type !== 'nodal') continue;
     if (data?.my === null || data?.mz === null) f.add('nullPlanarMomentAliases');
     if (type === 'pointOnElement' && invalidPlanarPointTorsion(data?.mx)) f.add('invalidPlanarMemberTorsion');
   }
+  const pressureSigns = new Map<string, number>();
+  const notePressureSign = (source: string, q: number) => {
+    const sign = Math.sign(q);
+    if (!sign) return;
+    if (pressureSigns.get(source) === -sign) f.add('opposedShellPressures');
+    pressureSigns.set(source, sign);
+  };
   for (const l of loads) {
     const t = hasLoadType(l) ? l.type : '';
     const d = l.data ?? {};
@@ -579,6 +777,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     }
     if (t.startsWith('distributed')) {
       f.add('distributedMemberLoads');
+      if ((d.generatedBy || d.fromDef !== undefined) &&
+        [d.qI, d.qJ, d.qXI, d.qXJ, d.qYI, d.qYJ, d.qZI, d.qZJ]
+          .some(q => typeof q === 'number' && q !== 0 && Math.abs(q) <= PLANAR_LINE_COMPONENT_CUTOFF)) {
+        f.add('smallGeneratedLineLoads');
+      }
       if ([d.qI, d.qJ, d.qXI, d.qXJ, d.qYI, d.qYJ, d.qZI, d.qZJ]
         .some(q => typeof q === 'number' && q !== 0 && Math.abs(q) < 1e-12)) f.add('tinyDistributedLoads');
     }
@@ -607,6 +810,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (/edge/i.test(t)) f.add('shellEdgeLoads');
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
+    if (t === 'surface3d' && typeof d.q === 'number') {
+      notePressureSign(`cell:${d.caseId ?? 1}:${d.on ?? 'quad'}:${d.quadId}`, d.q);
+    }
     if (fromLoadPlan(d.generatedBy)) {
       f.add('generatedLoads');
       if (typedCompositeCaseIds.has(d.caseId as number)) loadPlanInCompositeCase = true;
@@ -619,25 +825,66 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       }
     }
   }
+  if (hasOpposedGeneratedLines(cases, loads)) f.add('opposedGeneratedLineLoads');
   if (s.designData?.site?.phases?.length) {
     f.add('stagedConstruction');
     f.add('pathAnalysis');
   }
   if (loadBasis) f.add('generatedLoads');
-  if (generatedSeismic) f.add('generatedSeismicLoads');
+  if (generatedSeismic) {
+    f.add('generatedSeismicLoads');
+    if (f.has('space3D') && elements.length) {
+      const geometry = plateAnalysisModel(s);
+      const seismic = seismicRegenerationGeometry({
+        nodes: new Map([...geometry.nodes].map(([id, node]) => [id, { id, ...node }])),
+        elements: new Map(elements.map(element => [element.id, {
+          id: element.id, nodeI: element.nodeI, nodeJ: element.nodeJ, type: element.type,
+          offset: offsetMoves(element.offset?.i) || offsetMoves(element.offset?.j)
+            ? element.offset as MemberOffset
+            : undefined,
+        }])),
+        supports: geometrySupports(s),
+        quads: geometry.quads,
+        plates: geometry.plates,
+        constraints: (s.constraints ?? []).flatMap(constraint => constraint?.type === 'diaphragm'
+          && typeof constraint.masterNode === 'number' && Array.isArray(constraint.slaveNodes)
+          ? [{ type: 'diaphragm', masterNode: constraint.masterNode, slaveNodes: constraint.slaveNodes,
+            plane: typeof constraint.plane === 'string' ? constraint.plane : undefined }]
+          : []),
+      });
+      if (seismic.connectedBraceCrossing) f.add('connectedSeismicBraceCrossing');
+      if (seismic.crossedColumn) f.add('crossedSeismicColumn');
+      if (seismic.supportedGable) f.add('supportedSeismicGable');
+    }
+  }
   if (unverifiedSeismicLoads(s).length > 0) f.add(UNVERIFIED_SEISMIC_FEATURE);
   const hasShellGravity = shellGravity || ['shellLevel', 'slopedShells', 'partlyUnderShells'].some(kind => loadNoteKeys.has(`loadPlan.gravity.${kind}`));
   if (hasShellGravity || (gravityMode === 'panels' && memberGravity && quads.length > 0)) f.add('generatedPanelGravityShells');
   const inferredPanelMode = hasShellGravity || loadNoteKeys.has('loadPlan.gravity.panels') || loadNoteKeys.has('loadPlan.gravity.width');
   if (gravityMode !== 'width' && (hasShellGravity || (memberGravity && (gravityMode === 'panels' || inferredPanelMode)))) f.add('generatedPanelGravity');
   const widthMode = gravityMode === 'width' || (gravityMode !== 'panels' && !inferredPanelMode);
+  if (!widthMode && f.has('generatedPanelGravityShells') && quads.length && elements.length) {
+    const geometry = plateAnalysisModel(s);
+    if (hasBoundedRafterGap({
+      nodes: new Map([...geometry.nodes].map(([id, node]) => [id, { id, ...node }])),
+      elements: new Map(elements.map(element => [element.id, {
+        id: element.id, nodeI: element.nodeI, nodeJ: element.nodeJ, type: element.type === 'truss' ? 'truss' : 'frame',
+      }])),
+      quads: new Map([...geometry.quads ?? []].map(([id, shell]) => [id, { id, nodes: [...shell.nodes] }])),
+      supports: geometrySupports(s), constraints: roofAttachmentConstraints(s),
+    })) f.add('roofShellFrameLinks');
+  }
   if (widthMode && (memberGravity || generatedSeismic)) f.add('generatedWidthGravity');
   const floorDefs = values(s.groups).filter(g => g?.kind === 'floorLoad');
   if (floorDefs.length) f.add('areaDeadLoads');
-  if (floorDefs.some(g => {
-    const data = g.data as { target?: { by?: string }; distribution?: string } | undefined;
-    return data?.target?.by === 'zone' && data.distribution !== 'slab';
-  })) f.add('memberFloorZones');
+  for (const g of floorDefs) {
+    const data = g.data as { target?: { by?: string; groupId?: number }; distribution?: string; q?: number; caseId?: number } | undefined;
+    if (!data) continue;
+    if (data.target?.by === 'zone' && data.distribution !== 'slab') f.add('memberFloorZones');
+    if (data.distribution === 'slab' && data.target?.by === 'group' && typeof data.q === 'number') {
+      notePressureSign(`group:${data.caseId}:${data.target.groupId}`, data.q);
+    }
+  }
   if (values(s.groups).some((g) => g?.kind === 'generated')) f.add('generatedStructures');
 
   const types = new Set(cases.map((c) => c.type));

@@ -2,6 +2,7 @@
 import { shellOfMemberHit } from './shell-members';
 import * as THREE from 'three';
 import { findUserData } from '../three/selection-helpers';
+import { underPlanFloor } from './plan-cut';
 import { planeNormal, type WorkingPlane3D } from '../geometry/coordinate-system';
 
 // ─── 2D segment intersection (Crossing select) ──────────────────
@@ -81,6 +82,11 @@ export function getGroundIntersection(
  * For the batched types we dereference hit.instanceId via indexToId.
  */
 export function resolveHitUserData(hit: THREE.Intersection): { type: string; id: number } | null {
+  const r = resolveHit(hit);
+  return underPlanFloor(r) ? null : r;
+}
+
+function resolveHit(hit: THREE.Intersection): { type: string; id: number } | null {
   const ud = findUserData(hit.object);
   if (ud?.type === 'nodeBatch') {
     if (hit.instanceId === undefined) return null;

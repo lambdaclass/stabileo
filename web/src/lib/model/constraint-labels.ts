@@ -15,6 +15,7 @@
  */
 
 import { userVec } from '../axes/display';
+import { rigidLinkDofs } from '../engine/types-3d';
 import { planeName, shownDof } from '../axes/user-names';
 
 /** 3D DOF order MUST mirror `EccentricConnectionConstraint.releases` in
@@ -53,7 +54,7 @@ export function constraintLabel(c: Record<string, unknown>, t: Translate): strin
     return t('pro.constraintRigid')
       .replace('{master}', s('masterNode'))
       .replace('{slave}', s('slaveNode'))
-      .replace('{dofs}', dofIndicesToNames(c.dofs, t));
+      .replace('{dofs}', dofIndicesToNames(rigidLinkDofs({ dofs: Array.isArray(c.dofs) ? c.dofs : undefined }), t));
   }
   if (c.type === 'diaphragm') {
     return t('pro.constraintDiaph')

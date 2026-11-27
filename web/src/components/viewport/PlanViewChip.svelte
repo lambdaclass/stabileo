@@ -7,18 +7,39 @@
    * The plan's cut is its own (`uiStore.planCutZ`): the cut plane a person sets in the view menu
    * stays as it was (QA of 20-oct: «que esa sea una función independiente»).
    */
+  import { tick } from 'svelte';
   import { modelStore, uiStore } from '../../lib/store';
+  import { buildingUi } from '../../lib/store/building-ui.svelte';
   import { tp, t } from '../../lib/i18n';
 
   const levels = $derived([...(modelStore.grid?.levels ?? [])].sort((a, b) => b.z - a.z));
   const current = $derived(levels.find((l) => Math.abs(l.z - uiStore.nodeCreateZ) < 1e-6));
-  const level = $derived(current ? current.name : `+${uiStore.nodeCreateZ.toFixed(2)} m`);
-  /** The cut's travel: from under the lowest node to over the highest. */
-  const range = $derived.by(() => {
-    let lo = Infinity, hi = -Infinity;
-    for (const n of modelStore.nodes.values()) { const z = n.z ?? 0; if (z < lo) lo = z; if (z > hi) hi = z; }
-    if (!Number.isFinite(lo)) return { lo: 0, hi: 3 };
-    return { lo: Math.floor(lo * 10) / 10, hi: Math.ceil((hi + 0.5) * 10) / 10 };
+  const elevation = (z: number) => `${z < 0 ? '−' : '+'}${Math.abs(z).toFixed(2)} m`;
+  const level = $derived(current ? current.name : elevation(uiStore.nodeCreateZ));
+  async function defineLevels() {
+    buildingUi.tool = 'levels';
+    uiStore.proActiveTab = 'building';
+    await tick();
+    document.querySelector<HTMLInputElement>('[data-testid="grid-heights"]')?.focus();
+  }
+  const cutAbove = $derived((uiStore.planCutZ ?? uiStore.nodeCreateZ) - uiStore.nodeCreateZ);
+  const round = (v: number) => Math.round(v * 100) / 100;
+  function setCut(above: number) {
+    if (Number.isFinite(above)) uiStore.planCutZ = round(uiStore.nodeCreateZ + Math.max(0, above));
+  }
+  function nudge(e: { shiftKey: boolean }, d: 1 | -1) { setCut(round(cutAbove + d * (e.shiftKey ? 0.5 : 0.05))); }
+  let cutEl: HTMLDivElement | undefined = $state();
+  $effect(() => {
+    const el = cutEl;
+    if (!el) return;
+    let acc = 0;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      acc += e.deltaMode === 0 ? e.deltaY : e.deltaY * 40;
+      while (Math.abs(acc) >= 60) { nudge(e, acc < 0 ? 1 : -1); acc -= Math.sign(acc) * 60; }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
   });
   /** The level over and under the one the plan is on. */
   const above = $derived([...levels].reverse().find((l) => l.z > uiStore.nodeCreateZ + 1e-6));
@@ -38,35 +59,63 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="pv" role="status" data-testid="plan-view-chip">
-  <span>{tp('viewport.planChip', { level })}</span>
   {#if levels.length}
+    <select class="pv-level" value={current?.id ?? ''} onchange={(e) => { const l = levels.find((x) => x.id === e.currentTarget.value); if (l) uiStore.setActiveLevel(l.z); }}
+            aria-label={t('viewport.planLevel')} title={`${t('viewport.planLevel')} (PgUp / PgDn)`} data-testid="plan-view-level">
+      {#if !current}<option value="" disabled>{tp('viewport.planChip', { level })}</option>{/if}
+      {#each levels as l (l.id)}<option value={l.id}>{tp('viewport.planChip', { level: `${l.name} (${elevation(l.z)})` })}</option>{/each}
+    </select>
     <button onclick={() => step(1)} disabled={!above} aria-label={t('viewport.planUp')} title={`${t('viewport.planUp')} (PgUp)`} data-testid="plan-view-up">▲</button>
     <button onclick={() => step(-1)} disabled={!below} aria-label={t('viewport.planDown')} title={`${t('viewport.planDown')} (PgDn)`} data-testid="plan-view-down">▼</button>
-    <select value={current?.id ?? ''} onchange={(e) => { const l = levels.find((x) => x.id === e.currentTarget.value); if (l) uiStore.setActiveLevel(l.z); }}
-            aria-label={t('viewport.planLevel')} title={t('viewport.planLevel')} data-testid="plan-view-level">
-      {#if !current}<option value="" disabled>{level}</option>{/if}
-      {#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
-    </select>
+  {:else}
+    <span>{tp('viewport.planChip', { level })}</span>
+    {#if uiStore.analysisMode === 'pro'}
+      <button class="pv-toggle" onclick={defineLevels} title={t('viewport.planDefineLevelsHint')} data-testid="plan-view-define-levels">{t('viewport.planDefineLevels')}</button>
+    {/if}
   {/if}
-  <input type="range" min={range.lo} max={range.hi} step="0.05" value={uiStore.planCutZ ?? uiStore.nodeCreateZ}
-         oninput={(e) => (uiStore.planCutZ = +e.currentTarget.value)}
-         aria-label={t('viewport.planCut')} title={t('viewport.planCut')} data-testid="plan-view-cut" />
-  <span class="pv-z">{tp('viewport.planCutAt', { z: (uiStore.planCutZ ?? uiStore.nodeCreateZ).toFixed(2) })}</span>
+  <span class="pv-sep"></span>
+  <div class="pv-cut" bind:this={cutEl} title={t('viewport.planCutHint')}>
+    <span>{t('viewport.planCutField')}</span>
+    <button onclick={(e) => nudge(e, -1)} aria-label="−" data-testid="plan-view-cut-down">−</button>
+    <input type="text" inputmode="decimal" value={cutAbove.toFixed(2)} aria-label={t('viewport.planCutHint')}
+           onchange={(e) => { const v = e.currentTarget.value.trim(); if (v) setCut(+v.replace(',', '.')); e.currentTarget.value = cutAbove.toFixed(2); }}
+           onkeydown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); nudge(e, e.key === 'ArrowUp' ? 1 : -1); } }}
+           data-testid="plan-view-cut" />
+    <button onclick={(e) => nudge(e, 1)} aria-label="+" data-testid="plan-view-cut-up">+</button>
+    <span class="pv-unit">m</span>
+  </div>
+  <span class="pv-sep"></span>
+  <button class="pv-toggle" class:on={uiStore.planBelow === 'ghost'} aria-pressed={uiStore.planBelow === 'ghost'}
+          onclick={() => (uiStore.planBelow = uiStore.planBelow === 'ghost' ? 'hidden' : 'ghost')}
+          title={t('viewport.planShowBelowHint')} data-testid="plan-view-below">◐ {t('viewport.planShowBelow')}</button>
+  <span class="pv-sep"></span>
+  <button onclick={() => (uiStore.planRotation -= 90)} aria-label={t('viewport.planRotateLeft')} title={t('viewport.planRotateLeft')} data-testid="plan-view-rotate-left">⟲</button>
+  <button onclick={() => (uiStore.planRotation += 90)} aria-label={t('viewport.planRotateRight')} title={t('viewport.planRotateRight')} data-testid="plan-view-rotate-right">⟳</button>
+  <span class="pv-sep"></span>
   <button onclick={() => (uiStore.planView3D = false)} aria-label={t('viewport.planExit')} title={t('viewport.planExit')} data-testid="plan-view-exit">×</button>
 </div>
 
 <style>
   .pv {
     position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 6;
-    display: flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px;
-    font-size: 0.72rem; color: var(--st-text);
+    display: flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px;
+    font-size: 0.72rem; color: var(--st-text); white-space: nowrap;
     background: color-mix(in srgb, var(--st-surface) 92%, transparent);
     border: 1px solid color-mix(in srgb, var(--st-value) 45%, transparent); border-radius: var(--st-radius);
-    max-width: calc(100% - 24px); flex-wrap: wrap;
+    width: max-content; max-width: calc(100% - 24px); flex-wrap: wrap;
   }
+  .pv-sep { width: 1px; align-self: stretch; margin: 3px 2px; background: var(--st-hair-strong); }
+  .pv-level { font-size: 0.72rem; margin-left: -6px; }
   select { font: inherit; font-size: 0.7rem; color: var(--st-text); background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: 4px; padding: 1px 4px; }
-  input[type='range'] { width: 110px; accent-color: var(--st-accent); }
-  .pv-z { color: var(--st-text-2); font-variant-numeric: tabular-nums; }
-  button { border: none; background: none; color: var(--st-text-2); cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 2px 4px; }
-  button:hover { color: var(--st-text); }
+  .pv-cut { display: inline-flex; align-items: center; gap: 2px; color: var(--st-text-2); }
+  .pv-cut > span:first-child { margin-right: 2px; }
+  .pv-cut input {
+    width: 3.6em; font: inherit; font-size: 0.7rem; text-align: right; font-variant-numeric: tabular-nums;
+    color: var(--st-text); background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: 4px; padding: 1px 4px;
+  }
+  .pv-unit { color: var(--st-text-3); }
+  button { border: none; background: none; color: var(--st-text-2); cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 2px 4px; border-radius: 3px; }
+  button:hover { color: var(--st-text); background: var(--st-surface-2); }
+  .pv-toggle { font-size: 0.7rem; padding: 3px 6px; }
+  .pv-toggle.on { color: var(--st-accent); background: var(--st-surface-3); box-shadow: inset 0 0 0 1px var(--st-hair-strong); }
 </style>

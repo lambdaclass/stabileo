@@ -43,6 +43,8 @@ function namedDofs3D(s: Support, project2DToXZ: boolean): Restraints3D | undefin
       return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
     case 'pinned':
       return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: false };
+    case 'guidedX':
+      return { rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true };
     case 'pinned3d':
       return { rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false };
     case 'rollerX':

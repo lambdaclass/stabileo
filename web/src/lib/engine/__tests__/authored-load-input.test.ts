@@ -6,6 +6,7 @@ import {
 } from '../../provenance/model-features';
 import { modelStore, uiStore } from '../../store';
 import { applyGeneratedModel } from '../../store/generator-apply';
+import { deserializeProjectOrThrow, serializeProject } from '../../store/file';
 import type { Load } from '../../store/model.svelte';
 import { createRecheckStore } from '../../store/recheck.svelte';
 import { loadFixture, prepareFixture, type JSONModel } from '../../templates/load-fixture';
@@ -94,6 +95,50 @@ function spaceBuilders() {
     'space prepared input': () => prepareSolverInput3D(model, false).build(model.loads),
     'space loads only': () => buildSolverLoads3D(model, model.loads, false, false),
     'space P-Delta': () => solvePDelta3D(buildSolverInput3D(model)!),
+    'space store builder': () => modelStore.buildSolverInput3D(),
+  };
+}
+
+async function outcome(run: () => unknown) {
+  try {
+    const result = await run();
+    return typeof result === 'string' ? result : typeof result;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+async function refuses(field: string, entries: Record<string, () => unknown>) {
+  for (const [name, run] of Object.entries(entries)) {
+    expect.soft(await outcome(run), name).toContain(field);
+  }
+}
+
+function planeEntries() {
+  const model = modelStore.model;
+  return {
+    'plane builder': () => buildSolverInput2D(model),
+    'plane sync': () => validateAndSolve2D(model),
+    'plane async': () => validateAndSolve2DAsync(model),
+    'plane combinations': () => solveCombinations2D(model, [loadCase], [combo], false),
+    'plane P-Delta': () => solvePDelta(buildSolverInput2D(model)!),
+  };
+}
+
+function spaceEntries() {
+  const model = modelStore.model;
+  return {
+    'space builder': () => buildSolverInput3D(model),
+    'space prepared input': () => prepareSolverInput3D(model, false).build(model.loads),
+    'space loads only': () => buildSolverLoads3D(model, model.loads, false, false),
+    'space sync': () => validateAndSolve3D(model),
+    'space async': () => validateAndSolve3DAsync(model),
+    'space combinations': () => solveCombinations3D(model, [loadCase], [combo]),
+    'space parallel combinations': () => solveCombinations3DParallel(model, [loadCase], [combo]),
+    'space direct analysis': () => runDirectAnalysis(model, [loadCase], [combo], { includeSelfWeight: false }),
+    'space P-Delta': () => solvePDelta3D(buildSolverInput3D(model)!),
+    'space store sync': () => modelStore.solve3D(false, false, true),
+    'space store async': () => modelStore.solve3DAsync(false, false, true),
     'space store builder': () => modelStore.buildSolverInput3D(),
   };
 }
@@ -268,6 +313,160 @@ it.each([
     });
   },
 );
+
+
+it.each([
+  ['fz', undefined],
+  ['fy', NaN],
+] as const)('shows the saved-model notice for a malformed spatial %s', (field, value) => {
+  const { tip } = cantilever();
+  setLoad({ type: 'nodal3d', data: {
+    id: 1, nodeId: tip, fx: 0, fy: 0, fz: -force, mx: 0, my: 0, mz: 0, [field]: value,
+  } });
+  const saved: ReturnType<typeof modelStore.snapshot> = JSON.parse(JSON.stringify(modelStore.snapshot()));
+  expect.soft(assessProject(saved, null, 'basic').changes.map(change => change.id)).toContain('malformed-authored-loads');
+  const current = { ...saved, loads: [] };
+  expect.soft(modelFeatures(current, { storedLoads: saved.loads }).has('malformedAuthoredLoad')).toBe(true);
+});
+
+it.each([
+  ['distributed3d', 'isGlobal', { qYI: 0, qYJ: 0, qZI: -force, qZJ: -force, isGlobal: true }],
+  ['pointOnElement3d', 'isGlobal', { a: 1, py: 0, pz: -force, frame: 'local', isGlobal: false }],
+  ['distributed', 'frame', { qI: -force, qJ: -force, frame: 'global' }],
+  ['distributed', 'on', { qI: -force, qJ: -force, on: 'plate' }],
+])('refuses the %s selector %s from another load schema', async (type, selector, data) => {
+  const { member } = cantilever(false, length);
+  const load = { type, data: { id: 1, elementId: member, caseId: 1, ...data } };
+  setLoad(load);
+  const before = modelStore.snapshot();
+  const fixture: JSONModel = {
+    name: 'Wrong selector', nodes: [], elements: [], supports: [], materials: [], sections: [],
+    loads: [load], plates: [], quads: [], constraints: [], loadCases: [loadCase], combinations: [combo],
+  };
+  await refuses('loads[0].data.' + selector, {
+    ...planeEntries(), ...spaceEntries(),
+    'plane store sync': () => modelStore.solve(false, 'xz'),
+    'plane store async': () => modelStore.solveAsync(false, 'xz'),
+    'plane store combinations': () => modelStore.solveCombinations(false, 'xz'),
+    'plane store builder': () => modelStore.buildSolverInput(false, 'xz'),
+    'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
+    'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
+  });
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+it('shows the saved-model notice for a null load without losing valid load features', () => {
+  cantilever();
+  const saved = { ...modelStore.snapshot(), loads: JSON.parse('[null]') as ReturnType<typeof modelStore.snapshot>['loads'] };
+  expect.soft(assessProject(saved, null, 'basic').changes.map(change => change.id)).toContain('malformed-authored-loads');
+  setLoad({ type: 'distributed', data: { elementId: 1, qI: -force, qJ: -force } });
+  const features = modelFeatures(modelStore.snapshot(), { storedLoads: saved.loads });
+  expect.soft(features.has('malformedAuthoredLoad')).toBe(true);
+  expect(features.has('distributedMemberLoads')).toBe(true);
+});
+
+it('refuses a misspelled load frame on an inclined member', async () => {
+  const rise = length;
+  const { member } = cantilever(true, rise);
+  const load = { type: 'distributed3d', data: {
+    id: 1, elementId: member, qYI: 0, qYJ: 0, qZI: -force, qZJ: -force,
+  } };
+  setLoad({ ...load, data: { ...load.data, frame: 'global' } });
+  expect(validateAndSolve3D(modelStore.model)).toMatchObject({
+    reactions: [{ fx: expect.closeTo(0, 12), fz: expect.closeTo(force * Math.hypot(length, rise), 12) }],
+  });
+  setLoad(load);
+  expect(validateAndSolve3D(modelStore.model)).toMatchObject({
+    reactions: [{ fx: expect.closeTo(-force * rise, 12), fz: expect.closeTo(force * length, 12) }],
+  });
+  const snapshot = modelStore.snapshot();
+  const invalid = { ...load, data: { ...load.data, fram: 'global' } };
+  modelStore.restore({ ...snapshot, loads: [invalid] });
+  const fixture: JSONModel = {
+    name: 'Misspelled frame', nodes: [], elements: [], supports: [], materials: [], sections: [],
+    loads: [invalid], plates: [], quads: [], constraints: [], loadCases: [loadCase], combinations: [combo],
+  };
+  await refuses('loads[0].data.fram', {
+    ...planeEntries(), ...spaceEntries(),
+    'plane store sync': () => modelStore.solve(false, 'xz'),
+    'plane store async': () => modelStore.solveAsync(false, 'xz'),
+    'plane store nonlinear': () => modelStore.buildSolverInput(false, 'xz'),
+    'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
+    'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
+  });
+  expect(assessProject(modelStore.snapshot(), null, 'pro').changes.map(change => change.id)).toContain('authored-load-validation');
+});
+
+it.each([null, {}])('refuses and flags a non-array loads collection (%j)', async (loads) => {
+  cantilever();
+  const snapshot = modelStore.snapshot();
+  const saved = { ...snapshot, loads } as typeof snapshot;
+  expect.soft(assessProject(saved, null, 'basic').changes.map(change => change.id)).toContain('malformed-authored-loads');
+  expect.soft(modelFeatures(snapshot, { storedLoads: saved.loads }).has('malformedAuthoredLoad')).toBe(true);
+  expect.soft(modelFeatures({ ...snapshot, loads: undefined }).has('malformedAuthoredLoad')).toBe(false);
+  const previousLoads = modelStore.model.loads;
+  try {
+    expect.soft(() => modelStore.restore(saved)).toThrow(/Field loads /);
+  } finally {
+    modelStore.model.loads = previousLoads;
+  }
+  const fixture: JSONModel = {
+    name: 'Malformed load collection', nodes: [], elements: [], supports: [], materials: [], sections: [],
+    loads: loads as JSONModel['loads'], plates: [], quads: [], constraints: [], loadCases: [loadCase], combinations: [combo],
+  };
+  modelStore.model.loads = loads as Load[];
+  try {
+    await refuses('Field loads ', {
+      ...planeEntries(), ...spaceEntries(),
+      'plane store sync': () => modelStore.solve(false, 'xz'),
+      'plane store async': () => modelStore.solveAsync(false, 'xz'),
+      'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
+      'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
+    });
+  } finally {
+    modelStore.model.loads = previousLoads;
+  }
+});
+
+it.each([false, true])('finds a malformed row independently of planar torsion (torsion first = %s)', (torsionFirst) => {
+  const { member } = cantilever();
+  const snapshot = modelStore.snapshot();
+  const torsion = { type: 'pointOnElement', data: { id: 1, elementId: member, a: 1, p: -force, mx: force } };
+  const invalid = { ...snapshot, loads: torsionFirst ? [torsion, null] : [null, torsion] } as typeof snapshot;
+  const features = modelFeatures(invalid);
+  expect.soft(features.has('invalidPlanarMemberTorsion')).toBe(true);
+  expect.soft(features.has('malformedAuthoredLoad')).toBe(true);
+  expect(modelFeatures({ ...snapshot, loads: [torsion] }).has('malformedAuthoredLoad')).toBe(false);
+});
+
+it.each([
+  ['my', '5'], ['mz', '5'], ['my', null], ['mz', null],
+] as const)('flags a malformed saved planar %s of %j before resolving moment aliases', async (field, value) => {
+  const { root, tip } = cantilever();
+  const data = { id: 1, nodeId: tip, fx: 0, fz: 0, caseId: 1 };
+  setLoad({ type: 'nodal', data: { ...data, mz: force } });
+  const control = validateAndSolve2D(modelStore.model);
+  expect(control).toMatchObject({ reactions: [{ nodeId: root, my: expect.closeTo(-force, 12) }], displacements: expect.any(Array) });
+  setLoad({ type: 'nodal', data: { ...data, [field]: value } });
+  const saved: ReturnType<typeof modelStore.snapshot> = JSON.parse(JSON.stringify(modelStore.snapshot()));
+  const part = `loads[0].data.${field}`;
+  expect.soft(assessProject(saved, null, 'basic').changes.map(entry => entry.id)).toContain('authored-load-validation');
+  expect.soft(modelFeatures({ ...saved, loads: [] }, { storedLoads: saved.loads })).toContain('addedAuthoredLoadRefusal');
+  expect(deserializeProjectOrThrow(JSON.stringify({ ...JSON.parse(serializeProject()), snapshot: saved }))).toBe(true);
+  expect.soft(modelStore.model.loads[0]).toMatchObject({ type: 'nodal', data: { [field]: value } });
+  const fixture: JSONModel = {
+    name: 'Malformed nodal moment', nodes: [], elements: [], supports: [], materials: [], sections: [],
+    loads: saved.loads, plates: [], quads: [], constraints: [], loadCases: [loadCase], combinations: [combo],
+  };
+  await refuses(part, {
+    'fixture replay': () => loadFixture(fixture, modelStore.fixtureApi() as never),
+    'example apply': () => modelStore.loadExample(fixture.name, async () => fixture),
+    ...planeEntries(), ...spaceEntries(),
+    'plane store sync': () => modelStore.solve(false, 'xz'),
+    'plane store async': () => modelStore.solveAsync(false, 'xz'),
+    'plane store advanced': () => modelStore.buildSolverInput(false, 'xz'),
+  });
+});
 
 const incompleteForce = { type: 'nodal3d', data: { nodeId: 2, fx: 0, fy: 0, mx: 0, my: 0, mz: 0 } };
 const completeForce = { ...incompleteForce, data: { ...incompleteForce.data, fz: -force } };

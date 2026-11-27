@@ -29,41 +29,11 @@ use super::sparse_tangent::{
     SparseSymbolicCache, cached_symbolic,
 };
 
-/// Model parts a staged payload can carry that the staged input has no field
-/// for: serde drops unknown fields, so these used to vanish from the analysis
-/// without a word (a staged model with connectors was solved without them).
-fn refuse_unrepresented(json: &str, keys: &[(&str, &str)]) -> Result<(), String> {
-    let v: serde_json::Value = serde_json::from_str(json).map_err(|e| format!("Parse error: {}", e))?;
-    for (key, what) in keys {
-        let present = match v.get(key) {
-            Some(serde_json::Value::Object(m)) => !m.is_empty(),
-            Some(serde_json::Value::Array(a)) => !a.is_empty(),
-            _ => false,
-        };
-        if present {
-            return Err(format!(
-                "Staged construction analysis does not support {what}; it would solve the model without them. \
-                 Remove them or use an analysis that supports them."
-            ));
-        }
-    }
-    Ok(())
-}
-
-/// Parse a 2D staged payload, refusing the model parts it cannot represent.
 pub fn parse_staged_2d(json: &str) -> Result<StagedInput, String> {
-    refuse_unrepresented(json, &[("connectors", "connector elements")])?;
     serde_json::from_str(json).map_err(|e| format!("Parse error: {}", e))
 }
 
-/// Parse a 3D staged payload, refusing the model parts it cannot represent.
 pub fn parse_staged_3d(json: &str) -> Result<StagedInput3D, String> {
-    refuse_unrepresented(json, &[
-        ("connectors", "connector elements"),
-        ("solidShells", "solid shell elements"),
-        ("curvedShells", "curved shell elements"),
-        ("curvedBeams", "curved beams"),
-    ])?;
     serde_json::from_str(json).map_err(|e| format!("Parse error: {}", e))
 }
 
@@ -264,8 +234,8 @@ fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResult
             &k_physical, asm_trips.as_ref().and_then(|t| t.support_magnitude.as_ref())
                 .or_else(|| asm_dense.as_ref().and_then(|a| a.1.as_ref())),
             &dof_num, cs.as_ref(), true, &connected_nodes_2d(&stage_solver_input),
-            &super::stability::coupling_2d(&stage_solver_input, &dof_num),
-            &super::stability::elastic_releases_2d(&stage_solver_input, &dof_num), &f_f,
+            &super::stability::elastic_kinematics_2d(&stage_solver_input, &dof_num),
+            &super::stability::ReleasedRotations::default(), &f_f,
             &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().0.f, |t| &t.f)[..nf],
             &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
             &mut sparse_sym_cache, &mut conditioning, None,
@@ -378,7 +348,7 @@ fn solve_stage_free(
     constraints: Option<&FreeConstraintSystem>,
     two_d: bool,
     connected: &HashSet<usize>,
-    coupling: &[(usize, usize)],
+    kinematics: &super::stability::ElasticKinematics,
     releases: &super::stability::ReleasedRotations,
     f: &[f64],
     incremental_applied: &[f64],
@@ -399,7 +369,7 @@ fn solve_stage_free(
     let stiff = stiffness_columns(&reduced);
     let inactive = inactive_dofs(&stiff, dof, two_d, constraints, connected, &cumulative_applied);
     for &j in &inactive { f[j] = 0.0; }
-    let (reduced, stability) = super::stability::analyze_free_stiffness_excluding(k, dof, two_d, constraints, coupling, releases, &inactive, support_magnitude);
+    let (reduced, stability) = super::stability::analyze_free_stiffness_excluding(k, dof, two_d, constraints, kinematics, releases, &inactive, support_magnitude);
     if let Some(refusal) = stability.refusal() { return Err(refusal); }
     if let Some(node) = stability.load_on_free_rotation_with_rounding(&cumulative_applied,&cumulative_rounding) {
         return Err(format!("Nodal moment at node {node} is not supported: a free rotation would carry load"));
@@ -1034,8 +1004,8 @@ fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResu
             &k_physical, asm_trips.as_ref().and_then(|t| t.support_magnitude.as_ref())
                 .or(support_magnitude.as_ref()),
             &dof_num, cs.as_ref(), false, &connected_nodes_3d(&stage_input),
-            &super::stability::coupling_3d(&stage_input, &dof_num),
-            &super::stability::elastic_releases_3d(&stage_input, &dof_num), &f_f,
+            &super::stability::elastic_kinematics_3d(&stage_input, &dof_num),
+            &super::stability::released_rotations_3d(&stage_input, &dof_num), &f_f,
             &asm_trips.as_ref().map_or_else(|| &asm_dense.as_ref().unwrap().f, |t| &t.f)[..nf],
             &applied[..nf], &cumulative_rounding, &incremental_rounding, use_sparse,
             &mut sparse_sym_cache, &mut conditioning,

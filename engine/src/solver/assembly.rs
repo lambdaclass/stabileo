@@ -190,7 +190,7 @@ fn constraint_rotation_nodes_2d(input: &SolverInput) -> std::collections::HashSe
         match c {
             Constraint::RigidLink(r) => {
                 tied.insert(r.master_node);
-                if r.dofs.is_empty() || r.dofs.contains(&2) { tied.insert(r.slave_node); }
+                if r.effective_dofs(3).contains(&2) { tied.insert(r.slave_node); }
             }
             Constraint::Diaphragm(d) => { tied.insert(d.master_node); tied.extend(d.slave_nodes.iter().copied()); }
             Constraint::EqualDOF(e) => {
@@ -231,7 +231,7 @@ pub(crate) fn refuse_connector_arm_mechanism_3d(input: &SolverInput3D) -> Result
         match c {
             Constraint::RigidLink(r) => {
                 tied.insert(r.master_node);
-                if r.dofs.iter().any(rotation) { tied.insert(r.slave_node); }
+                if r.effective_dofs(6).iter().any(rotation) { tied.insert(r.slave_node); }
             }
             Constraint::Diaphragm(d) => { tied.insert(d.master_node); tied.extend(d.slave_nodes.iter().copied()); }
             Constraint::LinearMPC(m) => tied.extend(m.terms.iter().filter(|t| rotation(&t.dof)).map(|t| t.node_id)),

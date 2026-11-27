@@ -24,6 +24,7 @@
  *     (linear) solve, not a modal or P-Δ run alone. An advisory about one analysis (harmonic)
  *     stays up until that analysis is run again.
  */
+import type { DrawPlane } from '../geometry/plane-projection';
 import type { RecheckAssessment } from '../provenance/applicability';
 import type { Advisory } from '../provenance/advisories';
 import { analysesContext, freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
@@ -167,8 +168,8 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
     },
 
     /** An analysis of `kind` just published results in this build. */
-    noteSolved(kind: AnalysisKind): void {
-      stamp = stampSolve(kind, stamp);
+    noteSolved(kind: AnalysisKind, drawPlane2D?: DrawPlane): void {
+      stamp = stampSolve(kind, stamp, undefined, drawPlane2D);
     },
 
     /**

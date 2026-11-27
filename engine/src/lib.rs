@@ -37,6 +37,8 @@ mod unrefused_oracles;
 
 use wasm_bindgen::prelude::*;
 
+mod analysis_js;
+
 #[wasm_bindgen(start)]
 pub fn init() {
     #[cfg(feature = "console_error_panic_hook")]
@@ -75,6 +77,10 @@ fn from_js_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, Js
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))
 }
 
+fn from_analysis_js<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, JsValue> {
+    analysis_js::deserialize(value).map_err(|e| JsValue::from_str(&format!("Parse error: {e}")))
+}
+
 /// Model sanity review (`sanity`): the modelling errors a solver cannot see — equilibrium per
 /// case against an independent applied sum, weight per floor area, period against the code's
 /// formula, tributary column loads, material/section/support/spring plausibility, absurd
@@ -111,7 +117,7 @@ pub fn canonical_member_load_interval(i: &[f64], j: &[f64], a: f64, b: f64, valu
 /// Solve 2D linear static analysis. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn solve_2d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: types::units::ElasticInput2D = from_js_value(input)?;
+    let input: types::units::ElasticInput2D = from_analysis_js(input)?;
     let results = solver::linear::solve_2d_typed(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&results.into_typed())
@@ -120,7 +126,7 @@ pub fn solve_2d(input: JsValue) -> Result<JsValue, JsValue> {
 /// Solve 3D linear static analysis. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn solve_3d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
+    let input = from_analysis_js::<types::units::ElasticInput3D>(input)?.into_legacy();
     let results = solver::linear::solve_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&results.into_typed())
@@ -131,7 +137,7 @@ pub fn solve_3d(input: JsValue) -> Result<JsValue, JsValue> {
 /// element and for the model. An estimate, never a bound (`certified` is always false).
 #[wasm_bindgen]
 pub fn estimate_discretization_3d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
+    let input = from_analysis_js::<types::units::ElasticInput3D>(input)?.into_legacy();
     let out = postprocess::discretization::solve_and_estimate_3d(&input).map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&out)
 }
@@ -141,7 +147,7 @@ pub fn estimate_discretization_3d(input: JsValue) -> Result<JsValue, JsValue> {
 /// (testing/docs/DISCRETIZATION.md). `options` may be null for the defaults.
 #[wasm_bindgen]
 pub fn convergence_study_3d(input: JsValue, options: JsValue) -> Result<JsValue, JsValue> {
-    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
+    let input = from_analysis_js::<types::units::ElasticInput3D>(input)?.into_legacy();
     let opts: postprocess::discretization::convergence::ConvergenceOptions =
         if options.is_null() || options.is_undefined() { Default::default() } else { from_js_value(options)? };
     let out = postprocess::discretization::convergence::convergence_study_3d(&input, &opts).map_err(|e| JsValue::from_str(&e))?;
@@ -152,7 +158,7 @@ pub fn convergence_study_3d(input: JsValue, options: JsValue) -> Result<JsValue,
 /// (testing/docs/CERTIFY.md). JsValue in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_linear_2d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: types::SolverInput = from_js_value(input)?;
+    let input: types::SolverInput = from_analysis_js(input)?;
     let out = certify::certify_linear_2d_full(&input).map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&out)
 }
@@ -161,7 +167,7 @@ pub fn certify_linear_2d(input: JsValue) -> Result<JsValue, JsValue> {
 /// (testing/docs/CERTIFY.md). JsValue in → `{ results, certificate }`.
 #[wasm_bindgen]
 pub fn certify_linear_3d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input = from_js_value::<types::units::ElasticInput3D>(input)?.into_legacy();
+    let input = from_analysis_js::<types::units::ElasticInput3D>(input)?.into_legacy();
     let out = certify::certify_linear_3d_full(&input).map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&out)
 }
@@ -989,7 +995,7 @@ pub fn compute_diagram_value_at_3d(json: &str) -> Result<f64, JsValue> {
 /// Solve 2D multi-case load combinations with envelope. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn solve_multi_case_2d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: solver::load_cases::MultiCaseInput = from_js_value(input)?;
+    let input: solver::load_cases::MultiCaseInput = from_analysis_js(input)?;
     let result = solver::load_cases::solve_multi_case_2d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&result)
@@ -998,7 +1004,7 @@ pub fn solve_multi_case_2d(input: JsValue) -> Result<JsValue, JsValue> {
 /// Solve 3D multi-case load combinations with envelope. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn solve_multi_case_3d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: solver::load_cases::MultiCaseInput3D = from_js_value(input)?;
+    let input: solver::load_cases::MultiCaseInput3D = from_analysis_js(input)?;
     let result = solver::load_cases::solve_multi_case_3d(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&result)
@@ -1009,7 +1015,7 @@ pub fn solve_multi_case_3d(input: JsValue) -> Result<JsValue, JsValue> {
 /// envelopes"). JsValue in → `{ results, cases, combinations, envelope }`.
 #[wasm_bindgen]
 pub fn certify_multi_case_2d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: solver::load_cases::MultiCaseInput = from_js_value(input)?;
+    let input: solver::load_cases::MultiCaseInput = from_analysis_js(input)?;
     let out = certify::combinations::certify_multi_case_2d(&input).map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&out)
 }
@@ -1017,7 +1023,7 @@ pub fn certify_multi_case_2d(input: JsValue) -> Result<JsValue, JsValue> {
 /// 3D version of `certify_multi_case_2d`.
 #[wasm_bindgen]
 pub fn certify_multi_case_3d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: solver::load_cases::MultiCaseInput3D = from_js_value(input)?;
+    let input: solver::load_cases::MultiCaseInput3D = from_analysis_js(input)?;
     let out = certify::combinations::certify_multi_case_3d(&input).map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&out)
 }

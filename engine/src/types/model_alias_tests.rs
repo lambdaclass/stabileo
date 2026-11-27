@@ -329,3 +329,109 @@ mod planar_nodal {
         }
     }
 }
+
+#[test]
+fn producer_wire_metadata_is_accepted_by_native_wire_types() {
+    use crate::reproduce::canonical_results_json;
+    use crate::solver::{linear, pdelta};
+
+    fn check<T: DeserializeOwned + Serialize>(
+        model: &Value,
+        table: &str,
+        metadata: &[(&str, Value)],
+        misspelled: &str,
+        solve: impl Fn(T) -> String,
+    ) {
+        let decode = |input: &Value| serde_json::from_str::<T>(&input.to_string());
+        let mut produced = model.clone();
+        for (key, value) in metadata {
+            produced[table]["1"][key] = value.clone();
+        }
+        let expected = decode(model).unwrap();
+        let actual = decode(&produced).unwrap();
+        assert_eq!(serde_json::to_value(&actual).unwrap(), serde_json::to_value(&expected).unwrap());
+        assert_eq!(solve(actual), solve(expected));
+
+        produced[table]["1"][misspelled] = json!(1);
+        let error = decode(&produced).err().unwrap();
+        assert_eq!(error.classify(), serde_json::error::Category::Data);
+    }
+
+    let planar = json!({
+        "nodes": { "1": {"id": 1, "x": 0, "z": 0}, "2": {"id": 2, "x": 2, "z": 0} },
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fz": 1, "my": 0}}],
+        "materials": {"1": {"id": 1, "e": 25000, "nu": 0.2}},
+        "sections": {"1": {"id": 1, "a": 0.18, "iz": 0.00135}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}}
+    });
+    let spatial = json!({
+        "nodes": { "1": {"id": 1, "x": 0, "y": 0, "z": 0}, "2": {"id": 2, "x": 2, "y": 0, "z": 0} },
+        "elements": planar["elements"],
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fy": 0, "fz": 1, "mx": 0, "my": 0, "mz": 0}}],
+        "materials": planar["materials"],
+        "sections": {"1": {"id": 1, "a": 0.18, "iy": 0.0054, "iz": 0.00135, "j": 0.001}},
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}}
+    });
+    let material = [
+        ("name", json!("H25")), ("fc", json!(25)), ("fy", json!(420)),
+        ("fu", json!(400)), ("rho", json!(25)),
+    ];
+    let section = [
+        ("b", json!(0.3)), ("h", json!(0.6)), ("rotation", json!(0)), ("fc", json!(30)),
+        ("fy", json!(420)), ("cover", json!(0.025)), ("stirrupDia", json!(8)),
+        ("shape", json!("I")), ("tw", json!(0.0071)), ("tf", json!(0.0107)),
+        ("t", json!(null)), ("fabrication", json!("rolled")),
+    ];
+    let mut planar_section = section.to_vec();
+    planar_section.extend([
+        ("name", json!("RC")), ("iy", json!(0.0054)), ("j", json!(0.001)),
+        ("asZ", json!(0.01)), ("cw", json!(0)), ("shearCenterY", json!(0)),
+        ("shearCenterZ", json!(0)),
+    ]);
+    let support = [
+        ("id", json!(1)), ("type", json!("fixed")), ("stabilised", json!("created")),
+        ("stabilisedAxes", json!([true, true, true])),
+    ];
+
+    let planar_linear = |input: units::ElasticInput2D| {
+        canonical_results_json(&linear::solve_2d_typed(&input).unwrap()).unwrap()
+    };
+    let planar_nonlinear = |input: SolverInput| {
+        canonical_results_json(&pdelta::solve_pdelta_2d(&input, 20, 1e-9).unwrap().results).unwrap()
+    };
+    let spatial_linear = |input: units::ElasticInput3D| {
+        canonical_results_json(&linear::solve_3d(&input.into_legacy()).unwrap()).unwrap()
+    };
+    let spatial_nonlinear = |input: SolverInput3D| {
+        canonical_results_json(&pdelta::solve_pdelta_3d(&input, 20, 1e-9).unwrap().results).unwrap()
+    };
+    for (table, metadata, typo) in [
+        ("materials", material.as_slice(), "nU"),
+        ("sections", planar_section.as_slice(), "asYY"),
+    ] {
+        check(&planar, table, metadata, typo, planar_linear);
+        check(&planar, table, metadata, typo, planar_nonlinear);
+    }
+    for (table, metadata, typo) in [
+        ("materials", material.as_slice(), "nU"),
+        ("sections", section.as_slice(), "asYY"),
+        ("supports", support.as_slice(), "rrX"),
+    ] {
+        check(&spatial, table, metadata, typo, spatial_linear);
+        check(&spatial, table, metadata, typo, spatial_nonlinear);
+    }
+}
+
+#[test]
+fn producer_wire_metadata_remains_named_and_unique() {
+    let row = r#"[1,25000,0.2]"#;
+    let excess = r#"[1,25000,0.2,"H25"]"#;
+    let duplicate = r#"{"id":1,"e":25000,"nu":0.2,"name":"H25","name":"RC"}"#;
+    assert!(serde_json::from_str::<SolverMaterial>(row).is_ok());
+    assert!(serde_json::from_str::<units::ElasticMaterial>(row).is_ok());
+    for invalid in [excess, duplicate] {
+        assert!(serde_json::from_str::<SolverMaterial>(invalid).is_err());
+        assert!(serde_json::from_str::<units::ElasticMaterial>(invalid).is_err());
+    }
+}

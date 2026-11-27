@@ -1,3 +1,4 @@
+import { invalidPlanarNodalMomentField, ModelInputError, requireAuthoredMemberKeys, requireLoadCollection } from '../engine/model-input-numbers';
 import { shouldProjectModelToXZ, type CoordinateNode, type TypedSupportLike } from '../geometry/coordinate-system';
 import { t, tp } from '../i18n';
 import type { Release } from '../store/model.svelte';
@@ -65,9 +66,13 @@ function mapRecords<T>(
 export const NO_RELEASE: Readonly<Release> = Object.freeze({ my: false, mz: false, t: false });
 
 function member(record: object): Fields {
+  const id = (record as Fields | null)?.id;
+  requireAuthoredMemberKeys(`elements.${String(id ?? '?')}`, record);
   return normalizeRecord(record, 'member', (copy, conflict) => {
     for (const [field, alias] of [['releaseI', 'hingeStart'], ['releaseJ', 'hingeEnd']]) {
-      const release = { ...copy[field] as Fields | undefined };
+      const value = copy[field];
+      if (value !== undefined && (value === null || typeof value !== 'object' || Array.isArray(value))) continue;
+      const release = { ...value as Fields | undefined };
       reconcile(release, 'mz', copy[alias], alias, () => conflict(field + '.mz', alias));
       copy[field] = { ...NO_RELEASE, ...release };
       delete copy[alias];
@@ -95,6 +100,10 @@ function removePlanarNodalPadding(copy: Fields): void {
   }
 }
 
+function jsonMoment(value: unknown): unknown {
+  return value === null || (typeof value === 'number' && !Number.isFinite(value)) ? 'NaN' : value;
+}
+
 export function canonicalizeLoadAliases<T extends LoadRecord>(record: T): T {
   const { type, data } = record;
   if (type !== 'nodal' && type !== 'pointOnElement' && type !== 'distributed') return record;
@@ -106,21 +115,31 @@ export function canonicalizeLoadAliases<T extends LoadRecord>(record: T): T {
       return;
     }
     if (type === 'nodal') removePlanarNodalPadding(copy);
-    reconcile(copy, 'my', copy.mz, 'mz', conflict);
-    delete copy.mz;
-    if (copy.enteredZeroMoment === true) reconcile(copy, 'my', 0, 'enteredZeroMoment', conflict);
+    const invalidMoment = type === 'nodal' && invalidPlanarNodalMomentField(copy);
+    if (invalidMoment) {
+      if (copy.my !== undefined && copy.mz !== undefined && copy.my !== copy.mz) conflict('my', 'mz');
+      if (copy.enteredZeroMoment === true) conflict('my', 'enteredZeroMoment');
+      for (const field of ['my', 'mz']) {
+        if (typeof copy[field] === 'number') copy[field] = jsonMoment(copy[field]);
+      }
+    } else {
+      reconcile(copy, 'my', copy.mz, 'mz', conflict);
+      delete copy.mz;
+      if (copy.enteredZeroMoment === true) reconcile(copy, 'my', 0, 'enteredZeroMoment', conflict);
+      if (copy.my !== undefined) copy.my = jsonMoment(copy.my);
+    }
     delete copy.enteredZeroMoment;
-    if (copy.my === null || (typeof copy.my === 'number' && !Number.isFinite(copy.my))) copy.my = 'NaN';
     if (type === 'nodal') {
       reconcile(copy, 'fz', copy.fy, 'fy', conflict);
       delete copy.fy;
-      if (copy.my === undefined) copy.my = 0;
+      if (!invalidMoment && copy.my === undefined) copy.my = 0;
       if (copy.fz === undefined) copy.fz = 0;
     }
   }) };
 }
 
 export function canonicalizeModelAliases<T extends Input>(model: T, analysisMode = model.analysisMode): T {
+  if (model.loads !== undefined) requireLoadCollection(model.loads);
   const explicitlyPlanar = isAnalysisMode(analysisMode) && analysisMode !== 'edu' && !is3DWorkspace(analysisMode);
   const plane = explicitlyPlanar || shouldProjectModelToXZ({
     nodes: values(model.nodes),
@@ -145,6 +164,7 @@ export function modelAliasRefusalFeature(
     return undefined;
   } catch (error) {
     if (error instanceof ModelAliasConflict) return error.feature;
+    if (error instanceof ModelInputError) return undefined;
     throw error;
   }
 }

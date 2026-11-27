@@ -12,7 +12,7 @@
  * They are left out.
  */
 
-import { buildSolverLoads3D, type ModelData } from '../solver-service';
+import { buildSolverLoads3D, massSourceWireLoads3D, type ModelData } from '../solver-service';
 import { solvableModel } from '../member-behaviour';
 import type { Load, SurfaceLoad3D } from '../../store/model.svelte';
 import { surfaceDownwardPressure } from '../solver-shells';
@@ -34,6 +34,7 @@ export function caseMassLoads(
   model: ModelData,
   factors: ReadonlyArray<ResolvedFactor>,
   leftHand: boolean,
+  input?: SolverInput3D,
 ): CaseMassLoads[] {
   // On the members the analysis input has: a variable member's loads are its pieces' (idempotent).
   model = solvableModel(model);
@@ -64,6 +65,16 @@ export function caseMassLoads(
       return id === null || l.type !== 'nodal3d' ? [] : [{ elementId: id, down: -l.data.fz }];
     });
     const rest = own.filter((l) => WEIGHT.has(l.type) && carrierOf(l) === null);
+    if (input) {
+      out.push({
+        caseId: f.caseId,
+        factor: f.factor,
+        loads: massSourceWireLoads3D(model, input, rest, leftHand, f.caseId),
+        surface,
+        ...(carried.length ? { carried } : {}),
+      });
+      continue;
+    }
     out.push({
       caseId: f.caseId,
       factor: f.factor,
@@ -103,7 +114,7 @@ export function withMassSource(
   // own section, so a load and a section are looked up by the ids the input has (`variable-members.ts`).
   model = solvableModel(model);
   // The analysis input is always right-handed; local loads still follow the displayed Y.
-  const cases = caseMassLoads(model, factors, userLeftHand);
+  const cases = caseMassLoads(model, factors, userLeftHand, input);
   const physical = withSectionMass(input, model);
   // A member solved on a section scaled by stiffness modifiers weighs with its own section's A.
   // A drawn section is left to withSectionMass, whose density already turns the solved area

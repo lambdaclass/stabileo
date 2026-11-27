@@ -1,32 +1,37 @@
-use super::numeric;
+use super::{numeric, producer_row::producer_row, unique_table};
 use serde::{de, Deserialize, Serialize};
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
 // ==================== 2D Input Types ====================
 
 pub type SolverNode = super::model_aliases::PlanarNode<f64>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverMaterial {
-    #[serde(deserialize_with = "numeric::id::required")]
-    pub id: usize,
-    #[serde(deserialize_with = "numeric::e::required")]
-    pub e: f64,  // MPa
-    #[serde(deserialize_with = "numeric::nu::required")]
-    pub nu: f64,
+producer_row! { material
+    #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverMaterial {
+        #[serde(deserialize_with = "numeric::id::required")]
+        pub id: usize,
+        #[serde(deserialize_with = "numeric::e::required")]
+        pub e: f64,  // MPa
+        #[serde(deserialize_with = "numeric::nu::required")]
+        pub nu: f64,
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverSection {
-    pub id: usize,
-    pub a: f64,  // m²
-    pub iz: f64, // m⁴
-    #[serde(default)]
-    /// m², 2D shear area for the in-plane transverse shear (local y), paired with
-    /// `iz`: φ = 12·E·Iz/(G·as_y·L²). Note the 3D `as_y` pairs with `iy` instead.
-    pub as_y: Option<f64>,
+producer_row! { section_2d
+    #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverSection {
+        pub id: usize,
+        pub a: f64,  // m²
+        pub iz: f64, // m⁴
+        #[serde(default)]
+        /// m², 2D shear area for the in-plane transverse shear (local y), paired with
+        /// `iz`: φ = 12·E·Iz/(G·as_y·L²). Note the 3D `as_y` pairs with `iy` instead.
+        pub as_y: Option<f64>,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,7 +187,7 @@ pub enum SolverLoad {
 /// Absent entirely → legacy behavior (direct solvers only, chosen by size).
 /// Unknown strings are ignored with a warning diagnostic and the default applies.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolverOptions {
     /// "auto" (default) | "direct" | "pcg"
     pub method: Option<String>,
@@ -194,12 +199,8 @@ pub struct SolverOptions {
     pub max_iterations: Option<usize>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(
-    rename_all = "camelCase",
-    from = "SolverInputWire2D<M, S, N, L, P>",
-    bound(deserialize = "M: Deserialize<'de>, S: Deserialize<'de>, N: Deserialize<'de>, L: Deserialize<'de>, P: Deserialize<'de>")
-)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L = SolverLoad, P = SolverSupport> {
     pub nodes: HashMap<String, N>,
     pub materials: HashMap<String, M>,
@@ -220,8 +221,102 @@ pub struct SolverInput<M = SolverMaterial, S = SolverSection, N = SolverNode, L 
     pub masses: MassInput,
 }
 
+fn planar_handedness<'de, D: de::Deserializer<'de>>(d: D) -> Result<(), D::Error> {
+    require_planar_handedness(bool::deserialize(d)?)
+}
+
+fn require_planar_handedness<E: de::Error>(left_hand: bool) -> Result<(), E> {
+    if left_hand {
+        return Err(E::custom("unsupported field `leftHand` for 2D analysis"));
+    }
+    Ok(())
+}
+
+const PLANAR_SHELL_REFUSAL: &str = "Shell elements require 3D analysis";
+
+fn empty_shell_collection_2d<'de, D: de::Deserializer<'de>>(d: D) -> Result<(), D::Error> {
+    d.deserialize_any(EmptyTable { diagnostic: PLANAR_SHELL_REFUSAL, field: None })
+}
+
+struct EmptyTable<'a> {
+    diagnostic: &'a str,
+    field: Option<&'a str>,
+}
+
+impl EmptyTable<'_> {
+    fn require_empty<E: de::Error>(self, empty: bool) -> Result<(), E> {
+        if empty {
+            Ok(())
+        } else {
+            Err(E::custom(self.diagnostic))
+        }
+    }
+}
+
+impl<'de> de::DeserializeSeed<'de> for EmptyTable<'_> {
+    type Value = ();
+
+    fn deserialize<D: de::Deserializer<'de>>(self, d: D) -> Result<(), D::Error> {
+        d.deserialize_any(self)
+    }
+}
+
+impl<'de> de::Visitor<'de> for EmptyTable<'_> {
+    type Value = ();
+
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.diagnostic)
+    }
+
+    fn visit_unit<E: de::Error>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_none<E: de::Error>(self) -> Result<(), E> {
+        Ok(())
+    }
+
+    fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
+        let empty = match self.field {
+            Some(field) => unique_table::is_empty(map, field)?,
+            None => map.next_key::<de::IgnoredAny>()?.is_none(),
+        };
+        self.require_empty(empty)
+    }
+
+    fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
+        self.require_empty(seq.next_element::<de::IgnoredAny>()?.is_none())
+    }
+}
+
 #[derive(Deserialize)]
-struct UnsupportedShells2D {
+#[serde(
+    rename_all = "camelCase",
+    deny_unknown_fields,
+    bound(deserialize = "M: Deserialize<'de>, S: Deserialize<'de>, N: Deserialize<'de>, L: Deserialize<'de>, P: Deserialize<'de>")
+)]
+struct SolverInputWire2D<M, S, N, L, P> {
+    #[serde(deserialize_with = "unique_table::nodes")]
+    nodes: HashMap<String, N>,
+    #[serde(deserialize_with = "unique_table::materials")]
+    materials: HashMap<String, M>,
+    #[serde(deserialize_with = "unique_table::sections")]
+    sections: HashMap<String, S>,
+    #[serde(deserialize_with = "unique_table::elements")]
+    elements: HashMap<String, SolverElement>,
+    #[serde(deserialize_with = "unique_table::supports")]
+    supports: HashMap<String, P>,
+    loads: Vec<L>,
+    #[serde(default)]
+    constraints: Vec<Constraint>,
+    #[serde(default, deserialize_with = "unique_table::connectors")]
+    connectors: HashMap<String, ConnectorElement>,
+    #[serde(default)]
+    solver_options: Option<SolverOptions>,
+    #[serde(default)]
+    masses: MassInput,
+    #[serde(default, rename = "leftHand", deserialize_with = "planar_handedness")]
+    _left_hand: (),
     #[serde(default, rename = "plates", deserialize_with = "empty_shell_collection_2d")]
     _plates: (),
     #[serde(default, rename = "quads", deserialize_with = "empty_shell_collection_2d")]
@@ -234,77 +329,39 @@ struct UnsupportedShells2D {
     _solid_shells: (),
 }
 
-fn empty_shell_collection_2d<'de, D: de::Deserializer<'de>>(d: D) -> Result<(), D::Error> {
-    d.deserialize_any(EmptyShellCollection2D)
-}
+struct NamedPlanarModel<T>(PhantomData<T>);
 
-struct EmptyShellCollection2D;
-
-impl EmptyShellCollection2D {
-    fn require_empty<E: de::Error>(empty: bool) -> Result<(), E> {
-        if empty {
-            Ok(())
-        } else {
-            Err(E::custom("Shell elements require 3D analysis"))
-        }
-    }
-}
-
-impl<'de> de::Visitor<'de> for EmptyShellCollection2D {
-    type Value = ();
+impl<'de, T: Deserialize<'de>> de::Visitor<'de> for NamedPlanarModel<T> {
+    type Value = T;
 
     fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("an empty shell map or list")
+        f.write_str("a named 2D solver model as a map")
     }
 
-    fn visit_unit<E: de::Error>(self) -> Result<(), E> {
-        Ok(())
-    }
-
-    fn visit_none<E: de::Error>(self) -> Result<(), E> {
-        Ok(())
-    }
-
-    fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
-        Self::require_empty(map.next_key::<de::IgnoredAny>()?.is_none())
-    }
-
-    fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
-        Self::require_empty(seq.next_element::<de::IgnoredAny>()?.is_none())
+    fn visit_map<A: de::MapAccess<'de>>(self, map: A) -> Result<T, A::Error> {
+        T::deserialize(de::value::MapAccessDeserializer::new(map))
     }
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SolverInputWire2D<M, S, N, L, P> {
-    nodes: HashMap<String, N>,
-    materials: HashMap<String, M>,
-    sections: HashMap<String, S>,
-    elements: HashMap<String, SolverElement>,
-    supports: HashMap<String, P>,
-    loads: Vec<L>,
-    #[serde(default)]
-    constraints: Vec<Constraint>,
-    #[serde(default)]
-    connectors: HashMap<String, ConnectorElement>,
-    #[serde(default)]
-    solver_options: Option<SolverOptions>,
-    #[serde(default)]
-    masses: MassInput,
-    #[serde(flatten)]
-    _unsupported_shells: UnsupportedShells2D,
-}
-
-impl<M, S, N, L, P> From<SolverInputWire2D<M, S, N, L, P>> for SolverInput<M, S, N, L, P> {
-    fn from(wire: SolverInputWire2D<M, S, N, L, P>) -> Self {
+impl<'de, M, S, N, L, P> Deserialize<'de> for SolverInput<M, S, N, L, P>
+where
+    M: Deserialize<'de>,
+    S: Deserialize<'de>,
+    N: Deserialize<'de>,
+    L: Deserialize<'de>,
+    P: Deserialize<'de>,
+{
+    fn deserialize<D: de::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let wire: SolverInputWire2D<M, S, N, L, P> =
+            d.deserialize_any(NamedPlanarModel(PhantomData))?;
         let SolverInputWire2D {
             nodes, materials, sections, elements, supports, loads, constraints, connectors,
-            solver_options, masses, _unsupported_shells: _,
+            solver_options, masses, ..
         } = wire;
-        Self {
+        Ok(Self {
             nodes, materials, sections, elements, supports, loads, constraints, connectors,
             solver_options, masses,
-        }
+        })
     }
 }
 
@@ -366,34 +423,36 @@ pub struct SolverNode3D {
     pub z: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverSection3D {
-    pub id: usize,
-    #[serde(default)]
-    pub name: Option<String>,
-    pub a: f64,
-    pub iy: f64,
-    pub iz: f64,
-    pub j: f64,
-    #[serde(default)]
-    pub cw: Option<f64>,
-    #[serde(default)]
-    /// m², shear area paired with `iy` (bending about local y, so shear along
-    /// local z): φy = 12·E·Iy/(G·as_y·L²). Not the area for a force along y.
-    pub as_y: Option<f64>,
-    #[serde(default)]
-    /// m², shear area paired with `iz` (bending about local z, shear along local y).
-    pub as_z: Option<f64>,
-    /// Shear-centre coordinate along local y, measured from the centroid (m).
-    /// Only the geometric stiffness reads it (flexural-torsional buckling of
-    /// monosymmetric and asymmetric sections, e.g. channels, tees, angles).
-    /// `None` = 0 (doubly symmetric, or point-symmetric like a Z or cruciform).
-    #[serde(default)]
-    pub shear_center_y: Option<f64>,
-    /// Shear-centre coordinate along local z, measured from the centroid (m).
-    #[serde(default)]
-    pub shear_center_z: Option<f64>,
+producer_row! { section_3d
+    #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverSection3D {
+        pub id: usize,
+        #[serde(default)]
+        pub name: Option<String>,
+        pub a: f64,
+        pub iy: f64,
+        pub iz: f64,
+        pub j: f64,
+        #[serde(default)]
+        pub cw: Option<f64>,
+        #[serde(default)]
+        /// m², shear area paired with `iy` (bending about local y, so shear along
+        /// local z): φy = 12·E·Iy/(G·as_y·L²). Not the area for a force along y.
+        pub as_y: Option<f64>,
+        #[serde(default)]
+        /// m², shear area paired with `iz` (bending about local z, shear along local y).
+        pub as_z: Option<f64>,
+        /// Shear-centre coordinate along local y, measured from the centroid (m).
+        /// Only the geometric stiffness reads it (flexural-torsional buckling of
+        /// monosymmetric and asymmetric sections, e.g. channels, tees, angles).
+        /// `None` = 0 (doubly symmetric, or point-symmetric like a Z or cruciform).
+        #[serde(default)]
+        pub shear_center_y: Option<f64>,
+        /// Shear-centre coordinate along local z, measured from the centroid (m).
+        #[serde(default)]
+        pub shear_center_z: Option<f64>,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -434,69 +493,71 @@ pub struct SolverElement3D {
     pub roll_angle: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SolverSupport3D {
-    #[serde(deserialize_with = "numeric::node_id::required")]
-    pub node_id: usize,
-    pub rx: bool,
-    pub ry: bool,
-    pub rz: bool,
-    pub rrx: bool,
-    pub rry: bool,
-    pub rrz: bool,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
-    pub kx: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
-    pub ky: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
-    pub kz: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::krx::optional", skip_serializing_if = "Option::is_none")]
-    pub krx: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::kry::optional", skip_serializing_if = "Option::is_none")]
-    pub kry: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::krz::optional", skip_serializing_if = "Option::is_none")]
-    pub krz: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
-    pub dx: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::dy::optional", skip_serializing_if = "Option::is_none")]
-    pub dy: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::dz::optional", skip_serializing_if = "Option::is_none")]
-    pub dz: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::drx::optional", skip_serializing_if = "Option::is_none")]
-    pub drx: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::dry::optional", skip_serializing_if = "Option::is_none")]
-    pub dry: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::drz::optional", skip_serializing_if = "Option::is_none")]
-    pub drz: Option<f64>,
-    #[serde(default)]
-    pub rw: Option<bool>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::kw::optional", skip_serializing_if = "Option::is_none")]
-    pub kw: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::normal_x::optional", skip_serializing_if = "Option::is_none")]
-    pub normal_x: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::normal_y::optional", skip_serializing_if = "Option::is_none")]
-    pub normal_y: Option<f64>,
-    #[serde(default)]
-    #[serde(deserialize_with = "numeric::normal_z::optional", skip_serializing_if = "Option::is_none")]
-    pub normal_z: Option<f64>,
-    #[serde(default)]
-    pub is_inclined: Option<bool>,
+producer_row! { support_3d
+    #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SolverSupport3D {
+        #[serde(deserialize_with = "numeric::node_id::required")]
+        pub node_id: usize,
+        pub rx: bool,
+        pub ry: bool,
+        pub rz: bool,
+        pub rrx: bool,
+        pub rry: bool,
+        pub rrz: bool,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::kx::optional", skip_serializing_if = "Option::is_none")]
+        pub kx: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::ky::optional", skip_serializing_if = "Option::is_none")]
+        pub ky: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::kz::optional", skip_serializing_if = "Option::is_none")]
+        pub kz: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::krx::optional", skip_serializing_if = "Option::is_none")]
+        pub krx: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::kry::optional", skip_serializing_if = "Option::is_none")]
+        pub kry: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::krz::optional", skip_serializing_if = "Option::is_none")]
+        pub krz: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::dx::optional", skip_serializing_if = "Option::is_none")]
+        pub dx: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::dy::optional", skip_serializing_if = "Option::is_none")]
+        pub dy: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::dz::optional", skip_serializing_if = "Option::is_none")]
+        pub dz: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::drx::optional", skip_serializing_if = "Option::is_none")]
+        pub drx: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::dry::optional", skip_serializing_if = "Option::is_none")]
+        pub dry: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::drz::optional", skip_serializing_if = "Option::is_none")]
+        pub drz: Option<f64>,
+        #[serde(default)]
+        pub rw: Option<bool>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::kw::optional", skip_serializing_if = "Option::is_none")]
+        pub kw: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::normal_x::optional", skip_serializing_if = "Option::is_none")]
+        pub normal_x: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::normal_y::optional", skip_serializing_if = "Option::is_none")]
+        pub normal_y: Option<f64>,
+        #[serde(default)]
+        #[serde(deserialize_with = "numeric::normal_z::optional", skip_serializing_if = "Option::is_none")]
+        pub normal_z: Option<f64>,
+        #[serde(default)]
+        pub is_inclined: Option<bool>,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -522,7 +583,7 @@ pub struct SolverNodalLoad3D {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SolverDistributedLoad3D {
     #[serde(default, rename = "qXI")]
     #[serde(deserialize_with = "numeric::q_xi::required")]
@@ -756,31 +817,36 @@ pub struct SolverPlateThermalLoad {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", bound(deserialize = "M: super::units::TypedWire + Deserialize<'de>, S: super::units::TypedWire + Deserialize<'de>, N: super::units::TypedWire + Deserialize<'de>, L: super::units::TypedWire + Deserialize<'de>, P: super::units::TypedWire + Deserialize<'de>, E: super::units::TypedWire + Deserialize<'de>"))]
+#[serde(rename_all = "camelCase", bound(deserialize = "M: super::units::TypedWire + Deserialize<'de>, S: super::units::TypedWire + Deserialize<'de>, N: super::units::TypedWire + Deserialize<'de>, L: super::units::TypedWire + Deserialize<'de>, P: super::units::TypedWire + Deserialize<'de>, E: super::units::TypedWire + Deserialize<'de>"), deny_unknown_fields)]
 pub struct SolverInput3D<M = SolverMaterial, S = SolverSection3D, N = SolverNode3D, L = SolverLoad3D, P = SolverSupport3D, E = SolverElement3D> {
+    #[serde(deserialize_with = "unique_table::nodes")]
     pub nodes: HashMap<String, N>,
+    #[serde(deserialize_with = "unique_table::materials")]
     pub materials: HashMap<String, M>,
+    #[serde(deserialize_with = "unique_table::sections")]
     pub sections: HashMap<String, S>,
+    #[serde(deserialize_with = "unique_table::elements")]
     pub elements: HashMap<String, E>,
+    #[serde(deserialize_with = "unique_table::supports")]
     pub supports: HashMap<String, P>,
     pub loads: Vec<L>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
     #[serde(default)]
     pub left_hand: Option<bool>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::plates")]
     pub plates: HashMap<String, SolverPlateElement>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::quads")]
     pub quads: HashMap<String, SolverQuadElement>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::quad9s")]
     pub quad9s: HashMap<String, SolverQuad9Element>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::solid_shells")]
     pub solid_shells: HashMap<String, SolverSolidShellElement>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::curved_shells")]
     pub curved_shells: HashMap<String, SolverCurvedShellElement>,
     #[serde(default)]
     pub curved_beams: Vec<CurvedBeamInput>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::connectors")]
     pub connectors: HashMap<String, ConnectorElement>,
     #[serde(default)]
     pub solver_options: Option<SolverOptions>,
@@ -978,6 +1044,7 @@ fn default_num_segments() -> usize { 10 }
 #[serde(rename_all = "camelCase")]
 pub struct ModalInput {
     pub solver: SolverInput,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>, // materialId → density (kg/m³)
 }
 
@@ -987,6 +1054,7 @@ pub struct ModalInput {
 pub struct SpectralInput {
     pub solver: SolverInput,
     pub modes: Vec<SpectralModeInput>,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     pub spectrum: DesignSpectrum,
     pub direction: String, // "X" or "Y"
@@ -1048,6 +1116,7 @@ pub struct SpectralInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
     pub modes: Vec<SpectralModeInput3D>,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     pub spectrum: DesignSpectrum,
     pub direction: String, // "X", "Y", or "Z"
@@ -1096,6 +1165,7 @@ pub struct SpectralModeDisp3D {
 pub struct ModalInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
 }
 
@@ -1105,9 +1175,9 @@ pub struct ModalInput3D {
 #[serde(rename_all = "camelCase")]
 pub struct CableInput<S> {
     pub solver: S,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::pretension")]
     pub pretension: HashMap<String, f64>,
 }
 
@@ -1116,11 +1186,13 @@ pub struct CableInput<S> {
 #[serde(rename_all = "camelCase")]
 pub struct PlasticInput {
     pub solver: SolverInput,
+    #[serde(deserialize_with = "unique_table::sections")]
     pub sections: HashMap<String, PlasticSectionData>,
+    #[serde(deserialize_with = "unique_table::materials")]
     pub materials: HashMap<String, PlasticMaterialData>,
     #[serde(default)]
     pub max_hinges: Option<usize>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::mp_overrides")]
     pub mp_overrides: Option<HashMap<String, f64>>,
 }
 
@@ -1150,12 +1222,14 @@ pub struct PlasticMaterialData {
 pub struct PlasticInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::sections")]
     pub sections: HashMap<String, PlasticSectionData3D>,
+    #[serde(deserialize_with = "unique_table::materials")]
     pub materials: HashMap<String, PlasticMaterialData>,
     #[serde(default)]
     pub max_hinges: Option<usize>,
     /// Override plastic moments: key is section_id, value is [Mp_y, Mp_z]
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::mp_overrides")]
     pub mp_overrides: Option<HashMap<String, [f64; 2]>>,
 }
 
@@ -1225,7 +1299,9 @@ pub struct MovingLoadInput3D {
 #[serde(rename_all = "camelCase")]
 pub struct NonlinearMaterialInput {
     pub solver: SolverInput,
+    #[serde(deserialize_with = "unique_table::material_models")]
     pub material_models: HashMap<String, MaterialModel>,
+    #[serde(deserialize_with = "unique_table::section_capacities")]
     pub section_capacities: HashMap<String, SectionCapacity>,
     #[serde(default = "default_max_iter")]
     pub max_iter: usize,
@@ -1265,7 +1341,9 @@ pub struct SectionCapacity {
 pub struct NonlinearMaterialInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::material_models")]
     pub material_models: HashMap<String, MaterialModel>,
+    #[serde(deserialize_with = "unique_table::section_capacities")]
     pub section_capacities: HashMap<String, SectionCapacity3D>,
     #[serde(default = "default_max_iter")]
     pub max_iter: usize,
@@ -1365,19 +1443,20 @@ pub struct ImperfectionInput {
     #[serde(default)]
     pub notional_loads: Vec<NotionalLoadDef>,
     /// Residual stress patterns per section ID
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::residual_stresses")]
     pub residual_stresses: HashMap<String, ResidualStressPattern>,
     /// Initial displacements from previous analysis (node_id → [ux, uz, ry])
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::initial_displacements")]
     pub initial_displacements: HashMap<String, Vec<f64>>,
 }
 
 // ==================== Time History Analysis ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TimeHistoryInput {
     pub solver: SolverInput,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     pub time_step: f64,
     pub n_steps: usize,
@@ -1404,7 +1483,7 @@ fn default_newmark_beta() -> f64 { 0.25 }
 fn default_newmark_gamma() -> f64 { 0.5 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TimeForceRecord {
     pub time: f64,
     pub loads: Vec<SolverNodalLoad>,
@@ -1413,10 +1492,11 @@ pub struct TimeForceRecord {
 // ==================== 3D Time History ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TimeHistoryInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::densities")]
     pub densities: HashMap<String, f64>,
     pub time_step: f64,
     pub n_steps: usize,
@@ -1445,7 +1525,7 @@ pub struct TimeHistoryInput3D {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TimeForceRecord3D {
     pub time: f64,
     pub loads: Vec<SolverNodalLoad3D>,
@@ -1509,72 +1589,142 @@ impl Default for TendonProfile {
     fn default() -> Self { TendonProfile::Straight }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", from = "StagedInputWire2D")]
-pub struct StagedInput {
-    pub nodes: HashMap<String, SolverNode>,
-    pub materials: HashMap<String, SolverMaterial>,
-    pub sections: HashMap<String, SolverSection>,
-    pub elements: HashMap<String, SolverElement>,
-    pub supports: HashMap<String, SolverSupport>,
-    pub loads: Vec<SolverLoad>,
-    pub stages: Vec<ConstructionStage>,
-    #[serde(default)]
-    pub constraints: Vec<Constraint>,
-}
+struct UnconsumedStagedFields<const SPATIAL: bool>;
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct StagedInputWire2D {
-    #[serde(flatten)]
-    solver: SolverInput,
-    stages: Vec<ConstructionStage>,
-}
-
-impl From<StagedInputWire2D> for StagedInput {
-    fn from(wire: StagedInputWire2D) -> Self {
-        let SolverInput { nodes, materials, sections, elements, supports, loads, constraints, .. } = wire.solver;
-        Self { nodes, materials, sections, elements, supports, loads, constraints, stages: wire.stages }
+impl<'de, const SPATIAL: bool> Deserialize<'de> for UnconsumedStagedFields<SPATIAL> {
+    fn deserialize<D: de::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_map(Self)
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct StagedInput3D {
-    pub nodes: HashMap<String, SolverNode3D>,
-    pub materials: HashMap<String, SolverMaterial>,
-    pub sections: HashMap<String, SolverSection3D>,
-    pub elements: HashMap<String, SolverElement3D>,
-    pub supports: HashMap<String, SolverSupport3D>,
-    pub loads: Vec<SolverLoad3D>,
-    pub stages: Vec<ConstructionStage3D>,
-    #[serde(default)]
-    pub constraints: Vec<Constraint>,
-    /// Model-wide left-handed member axes, as on `SolverInput3D`. Without the
-    /// field serde dropped the app's `leftHand` and a left-handed model was
-    /// staged with right-handed member axes.
-    #[serde(default)]
-    pub left_hand: Option<bool>,
-    /*
-     * Shells. These had no field here at all, and the caller sends them:
-     * `input3DToWireObject` emits `plates` and `quads` for every 3D payload,
-     * so serde — with no `deny_unknown_fields` on this struct — dropped them
-     * without a word. A building staged with floor slabs and shear walls was
-     * analysed as the bare frame, and nothing said so.
-     *
-     * Defaulted so a payload that carries no shells still deserialises, and so
-     * older stored inputs keep working.
-     */
-    #[serde(default)]
-    pub plates: HashMap<String, SolverPlateElement>,
-    #[serde(default)]
-    pub quads: HashMap<String, SolverQuadElement>,
-    #[serde(default)]
-    pub quad9s: HashMap<String, SolverQuad9Element>,
+impl<'de, const SPATIAL: bool> de::Visitor<'de> for UnconsumedStagedFields<SPATIAL> {
+    type Value = Self;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("a staged solver model as a map")
+    }
+
+    fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self, A::Error> {
+        while let Some(field) = map.next_key::<String>()? {
+            let description = match field.as_str() {
+                "leftHand" if !SPATIAL => {
+                    require_planar_handedness(map.next_value()?)?;
+                    continue;
+                }
+                "masses" => {
+                    let refusal = EmptyTable { diagnostic: "unsupported field `masses`", field: None };
+                    let empty = if SPATIAL {
+                        map.next_value::<Option<MassInput3D>>()?.is_none_or(|mass| mass.is_empty())
+                    } else {
+                        map.next_value::<Option<MassInput>>()?.is_none_or(|mass| mass.is_empty())
+                    };
+                    refusal.require_empty(empty)?;
+                    continue;
+                }
+                "plates" | "quads" | "quad9s" | "curvedShells" | "solidShells" if !SPATIAL => {
+                    map.next_value_seed(EmptyTable { diagnostic: PLANAR_SHELL_REFUSAL, field: None })?;
+                    continue;
+                }
+                "connectors" => "Staged construction analysis does not support connector elements",
+                "solidShells" if SPATIAL => "Staged construction analysis does not support solid shell elements",
+                "curvedShells" if SPATIAL => "Staged construction analysis does not support curved shell elements",
+                "curvedBeams" if SPATIAL => "Staged construction analysis does not support curved beams",
+                "quad9s" if SPATIAL => "Nine-node shell elements are not yet supported in staged construction",
+                "solverOptions" => "Staged construction analysis does not support solver options",
+                _ => return Err(de::Error::custom(format_args!("unknown field `{field}`"))),
+            };
+            let message = format!("unsupported field `{field}` ({description})");
+            map.next_value_seed(EmptyTable { diagnostic: &message, field: Some(&field) })?;
+        }
+        Ok(self)
+    }
 }
 
+macro_rules! staged_input {
+    (
+        $(#[$derive:meta])* $name:ident, $spatial:literal;
+        $node:ty, $section:ty, $element:ty, $support:ty, $load:ty, $stage:ty;
+        { $($(#[$attr:meta])* $field:ident: $type:ty,)* }
+        { $($native:ident: $native_type:ty,)* }
+    ) => {
+        $(#[$derive])*
+        #[derive(Debug, Clone, Serialize)]
+        #[serde(rename_all = "camelCase")]
+        pub struct $name {
+            pub nodes: HashMap<String, $node>,
+            pub materials: HashMap<String, SolverMaterial>,
+            pub sections: HashMap<String, $section>,
+            pub elements: HashMap<String, $element>,
+            pub supports: HashMap<String, $support>,
+            pub loads: Vec<$load>,
+            pub stages: Vec<$stage>,
+            pub constraints: Vec<Constraint>,
+            $(pub $field: $type,)*
+            $(pub $native: $native_type,)*
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D: de::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                #[derive(Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct Wire {
+                    #[serde(deserialize_with = "unique_table::nodes")]
+                    nodes: HashMap<String, $node>,
+                    #[serde(deserialize_with = "unique_table::materials")]
+                    materials: HashMap<String, SolverMaterial>,
+                    #[serde(deserialize_with = "unique_table::sections")]
+                    sections: HashMap<String, $section>,
+                    #[serde(deserialize_with = "unique_table::elements")]
+                    elements: HashMap<String, $element>,
+                    #[serde(deserialize_with = "unique_table::supports")]
+                    supports: HashMap<String, $support>,
+                    loads: Vec<$load>,
+                    stages: Vec<$stage>,
+                    #[serde(default)]
+                    constraints: Vec<Constraint>,
+                    $($(#[$attr])* $field: $type,)*
+                    #[serde(flatten)]
+                    _unconsumed: UnconsumedStagedFields<$spatial>,
+                }
+
+                let Wire { nodes, materials, sections, elements, supports, loads, stages, constraints, $($field,)* _unconsumed: _ } =
+                    Wire::deserialize(d)?;
+                Ok(Self {
+                    nodes, materials, sections, elements, supports, loads, stages, constraints,
+                    $($field,)*
+                    $($native: Default::default(),)*
+                })
+            }
+        }
+    };
+}
+
+staged_input!(
+    StagedInput, false;
+    SolverNode, SolverSection, SolverElement, SolverSupport, SolverLoad, ConstructionStage;
+    {}
+    {}
+);
+
+staged_input!(
+    #[derive(Default)]
+    StagedInput3D, true;
+    SolverNode3D, SolverSection3D, SolverElement3D, SolverSupport3D, SolverLoad3D, ConstructionStage3D;
+    {
+        #[serde(default)]
+        left_hand: Option<bool>,
+        #[serde(default, deserialize_with = "unique_table::plates")]
+        plates: HashMap<String, SolverPlateElement>,
+        #[serde(default, deserialize_with = "unique_table::quads")]
+        quads: HashMap<String, SolverQuadElement>,
+    }
+    {
+        quad9s: HashMap<String, SolverQuad9Element>,
+    }
+);
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ConstructionStage3D {
     pub name: String,
     #[serde(default)]
@@ -1668,15 +1818,19 @@ pub enum Constraint {
 pub struct RigidLinkConstraint {
     pub master_node: usize,
     pub slave_node: usize,
-    /// DOFs to constrain on slave: 0=ux, 1=uz, 2=θ (2D); 0..5 (3D).
-    ///
-    /// Empty means different links in the two dimensions (docs/solver/assembly-constraints.md,
-    /// AC-3): in 3D (ux, uy, uz), all translations with the slave's rotation free (a pinned
-    /// arm); in 2D (ux, uz, θ), the rotation tied too (a fixed arm). List the DOFs to say which
-    /// link is meant: 2D [0, 1] is the 3D default, 3D [0..6] the 2D one. The web app lists them
-    /// when it sends a stored link to the 2D solver (`constraint-2d-remap.ts`).
     #[serde(default)]
     pub dofs: Vec<usize>,
+}
+
+impl RigidLinkConstraint {
+    pub fn effective_dofs(&self, dofs_per_node: usize) -> &[usize] {
+        const DEFAULT: [usize; 3] = [0, 1, 2];
+        if self.dofs.is_empty() {
+            &DEFAULT[..dofs_per_node.min(DEFAULT.len())]
+        } else {
+            &self.dofs
+        }
+    }
 }
 
 /// Diaphragm: nodes share in-plane rigid-body motion around a master.
@@ -1701,7 +1855,7 @@ fn default_diaphragm_plane() -> String { "XY".into() }
 
 /// General linear MPC: Σ(coeff_i × u_{node_i, dof_i}) = 0
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LinearMPCConstraint {
     pub terms: Vec<MPCTerm>,
 }
@@ -1728,7 +1882,7 @@ pub struct EqualDOFConstraint {
 /// Provides point-to-point stiffness (and damping) in specified directions.
 /// Useful for bearings, isolators, soil springs, joints, etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ConnectorElement {
     pub id: usize,
     pub node_i: usize,

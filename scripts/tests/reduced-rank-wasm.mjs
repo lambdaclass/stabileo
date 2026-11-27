@@ -37,6 +37,7 @@ function spatial(solver) {
 }
 
 function report(issue, dim, solver) {
+  const witness = issue === 2584 ? 'a translation of this joint leaves all attached trusses unstrained' : 'a frame can swing about a released end';
   const constrained = JSON.stringify({ solver, constraints: solver.constraints });
   const modal = JSON.stringify({
     solver,
@@ -53,16 +54,23 @@ function report(issue, dim, solver) {
       run();
       failures.push(`#${issue} ${dim} ${name} returned a result`);
     } catch (error) {
-      if (dim === '2d' && ['linear', 'constrained', 'P-Delta'].includes(name)) {
-        if (String(error) !== provenSwing) failures.push(`#${issue} ${dim} ${name} returned ${error}`);
+      const text = String(error);
+      const modalFrameSwing = issue !== 2584 && name.includes('modal');
+      if (issue !== 2584 && dim === '2d' && !modalFrameSwing) {
+        if (text !== provenSwing) failures.push(`#${issue} ${dim} ${name} returned ${error}`);
         continue;
       }
       let diagnostic;
       try {
-        diagnostic = JSON.parse(String(error)).structuredDiagnostics?.[0];
+        diagnostic = JSON.parse(text.replace(/^MODAL-MECHANISM: /, '')).structuredDiagnostics?.[0];
       } catch {}
-      if (diagnostic?.code !== 'reduced_stiffness_rank' || diagnostic?.severity !== 'error') {
+      if ((modalFrameSwing && !text.startsWith('MODAL-MECHANISM: '))
+          || diagnostic?.code !== 'reduced_stiffness_rank' || diagnostic?.severity !== 'error'
+          || !diagnostic.message.includes(witness)) {
         failures.push(`#${issue} ${dim} ${name} returned ${error}`);
+      }
+      if (issue === 2584 && !diagnostic?.message.endsWith(' (displacement components: X, Z)')) {
+        failures.push(`#${issue} ${dim} ${name} omitted the proven X and Z components: ${error}`);
       }
     }
   }
@@ -81,6 +89,25 @@ for (const issue of ['2266', '2380']) {
     assertDisplacements(engine.solve_2d(input), '2d', Object.keys(input.nodes).map(Number).sort((a, b) => a - b));
   }
 }
+assert.throws(
+  () => engine.solve_winkler_3d(JSON.stringify({ solver: fixtures['2134'], foundationSprings: [] })),
+  error => String(error).startsWith('the structure is a mechanism at nodes [2]: a node can move freely'),
+);
+const swing = structuredClone(fixtures['2380']);
+Object.assign(swing.nodes['1'], { x: 0, z: 0 });
+Object.assign(swing.nodes['2'], { x: 1, z: 1 });
+swing.constraints.push({ type: 'linearMPC', terms: [
+  { nodeId: 2, dof: 0, coefficient: 1 },
+  { nodeId: 2, dof: 1, coefficient: 1 },
+] });
+assert.throws(() => engine.solve_2d(swing), error => {
+  const diagnostic = JSON.parse(String(error)).structuredDiagnostics[0];
+  return diagnostic.code === 'reduced_stiffness_rank' && diagnostic.severity === 'error'
+    && diagnostic.nodeIds.length === 1 && diagnostic.nodeIds[0] === 2
+    && diagnostic.message.includes('a frame can swing about a released end');
+});
+swing.constraints[0].terms[1].coefficient = -1;
+assertDisplacements(engine.solve_2d(swing), '2d', [1, 2]);
 assert.deepEqual(failures, []);
 
 const truss = {
@@ -98,7 +125,69 @@ const codedRankError = error => {
     return diagnostic.code === 'reduced_stiffness_rank' && diagnostic.severity === 'error';
   } catch { return false; }
 };
+{
+  for (const kind of ['frame', 'truss']) {
+    const planar = structuredClone(truss);
+    Object.assign(planar.nodes[2], { x: 3, z: 4 });
+    Object.assign(planar.elements[1], { type: kind, hingeStart: kind === 'frame' });
+    if (kind === 'truss') planar.elements[2] = { ...planar.elements[1], id: 2 };
+    for (const dim of ['2d', '3d']) {
+      const model = dim === '2d' ? structuredClone(planar) : spatial(planar);
+      delete model.supports[2].ky;
+      for (const restrained of [false, true]) {
+        if (restrained) {
+          if (dim === '2d') model.supports[2].type = 'rollerX';
+          else model.supports[2].rz = true;
+        }
+        const result = JSON.parse(engine[`analyze_kinematics_${dim}`](JSON.stringify(model)));
+        const label = `${dim} ${kind}, restrained=${restrained}: ${JSON.stringify(result)}`;
+        if (result.isSolvable !== restrained || result.kinematicIsSolvable !== restrained) failures.push(label);
+        if (!restrained && (result.classification !== 'hypostatic' || result.mechanismModes < 1
+            || !result.mechanismNodes.includes(2)
+            || ((kind === 'truss' || dim === '3d') && !codedRankError(result.diagnosis)))) {
+          failures.push(label);
+        }
+      }
+    }
+  }
+  assert.deepEqual(failures, []);
+}
+
 const nonlinear = (analysis, dim, model) => JSON.parse(engine[`solve_${analysis}_${dim}`](JSON.stringify(model), 8, 1e-12, 1));
+
+for (const dim of ['2d', '3d']) {
+  const model = dim === '2d' ? structuredClone(swing) : spatial(swing);
+  const isPlanar = dim === '2d';
+  const rotation = isPlanar ? 2 : 4;
+  for (const [translation, transverse] of [[0, -1], [isPlanar ? 1 : 2, 1]]) {
+    const coefficient = isPlanar ? -transverse : transverse;
+    model.constraints = [{ type: 'linearMPC', terms: [
+      { nodeId: 2, dof: translation, coefficient: 1 },
+      { nodeId: 2, dof: rotation, coefficient },
+    ] }];
+    const densities = Object.fromEntries(Object.keys(model.materials).map(id => [id, 1]));
+    for (const [name, run] of [
+      ['linear', () => engine[`solve_${dim}`](model)],
+      ['constrained', () => engine[`solve_constrained_${dim}`](JSON.stringify({ solver: model, constraints: model.constraints }))],
+      ['modal', () => engine[`solve_modal_${dim}`](JSON.stringify({ solver: model, densities }), 1)],
+      ['certified modal', () => engine[`certify_modal_${dim}`](JSON.stringify({ solver: model, densities }), 1)],
+      ['P-Delta', () => engine[`solve_pdelta_${dim}`](JSON.stringify(model), 2, 1e-12)],
+      ['corotational', () => nonlinear('corotational', dim, model)],
+      ['material nonlinear', () => nonlinear('nonlinear_material', dim, {
+        solver: model, materialModels: {}, sectionCapacities: {}, maxIter: 8, tolerance: 1e-12, nIncrements: 1,
+      })],
+    ]) {
+      assert.throws(run, error => {
+        const diagnostic = JSON.parse(String(error).replace(/^MODAL-MECHANISM: /, '')).structuredDiagnostics[0];
+        return diagnostic.code === 'reduced_stiffness_rank' && diagnostic.severity === 'error'
+          && diagnostic.nodeIds.length === 1 && diagnostic.nodeIds[0] === 2
+          && diagnostic.message.includes('a frame can swing about a released end');
+      }, `${dim} ${name}, translation DOF ${translation}`);
+    }
+    model.constraints[0].terms[1].coefficient = -coefficient;
+    assertDisplacements(engine[`solve_${dim}`](model), dim, [1, 2]);
+  }
+}
 
 for (const dim of ['2d', '3d']) {
   const model = dim === '2d' ? structuredClone(truss) : spatial(truss);
@@ -258,6 +347,7 @@ for (const dim of ['2d', '3d']) {
   for (let id = 2; id <= 1025; id++) {
     model.elements[id] = { ...model.elements[1], id, sectionId: 2 };
   }
+  report(2584, dim, model);
   for (const modified of [false, true]) {
     const solve = () => JSON.parse(engine[`solve_corotational_${dim}`](JSON.stringify(model), 8, 1e-12, 1, modified));
     model.constraints = [];
@@ -268,6 +358,8 @@ for (const dim of ['2d', '3d']) {
     assertDisplacements(result.results, dim, [1, 2]);
   }
 }
+
+assert.deepEqual(failures, []);
 
 for (const dim of ['2d', '3d']) {
   const model = dim === '2d' ? structuredClone(truss) : spatial(truss);

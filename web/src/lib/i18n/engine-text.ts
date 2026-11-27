@@ -14,10 +14,11 @@ import { isMessage, type EngineMessage } from '../codes/message';
 import { AMBIGUOUS_ROLLER_Z } from '../engine/support-dofs-3d';
 import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../engine/member-diagram';
 import type { StructuredDiagnostic } from '../engine/types';
-import { asCodedRefusal, CodedRefusal } from '../engine/containment-error';
+import { asCodedRefusal, CodedRefusal, refusalDiagnostic } from '../engine/containment-error';
 import { i18n, registerFeatureDictionaries, tAt } from './store.svelte';
 import type { Locale } from './offered';
 import { axesStore } from '../axes/axes.svelte';
+import { userLetterIn } from '../axes/frame';
 import { axisTokensIn } from '../axes/case-names';
 
 /**
@@ -151,6 +152,54 @@ registerFeatureDictionaries(Object.fromEntries(
   }]),
 ));
 
+const AXIAL_JOINT_MECHANISM = 'svc.engine.axialJointMechanism';
+const AXIAL_JOINT_COMPONENTS = 'svc.engine.axialJointComponents';
+const axialJointMechanism: Record<Locale, string> = {
+  de: 'Am Knoten {node} liegt ein Mechanismus vor. Der Knoten kann sich verschieben, ohne die angeschlossenen Fachwerkstäbe zu dehnen oder die Lagerbedingungen zu verletzen.',
+  en: 'There is a mechanism at joint {node}. The joint can translate without straining its attached truss members or violating the restraints.',
+  es: 'Hay un mecanismo en el nudo {node}. El nudo puede desplazarse sin deformar las barras articuladas conectadas ni violar las restricciones.',
+  fr: 'Le nœud {node} présente un mécanisme. Il peut se déplacer sans déformer les barres de treillis connectées ni violer les contraintes.',
+  hu: 'A(z) {node} csomópontnál mechanizmus van. A csomópont elmozdulhat a kapcsolódó rácsrudak alakváltozása és a kényszerek megsértése nélkül.',
+  pt: 'Há um mecanismo no nó {node}. O nó pode se deslocar sem deformar as barras de treliça ligadas a ele e sem violar as restrições.',
+  tr: '{node} düğümünde bir mekanizma var. Düğüm, bağlı kafes çubuklarını deforme etmeden ve kısıtları ihlal etmeden ötelenebilir.',
+  zh: '节点 {node} 处存在机构。该节点可以平移，而不使相连的桁架杆产生应变，也不违反约束。',
+};
+const axialJointComponents: Record<Locale, string> = {
+  de: 'Mögliche Bewegungskomponenten: {components}.',
+  en: 'Possible motion components: {components}.',
+  es: 'Componentes posibles del movimiento: {components}.',
+  fr: 'Composantes possibles du mouvement : {components}.',
+  hu: 'A mozgás lehetséges összetevői: {components}.',
+  pt: 'Componentes possíveis do movimento: {components}.',
+  tr: 'Olası hareket bileşenleri: {components}.',
+  zh: '可能的运动分量：{components}。',
+};
+registerFeatureDictionaries(Object.fromEntries(
+  Object.entries(axialJointMechanism).map(([locale, message]) => [locale, {
+    [AXIAL_JOINT_MECHANISM]: message,
+    [AXIAL_JOINT_COMPONENTS]: axialJointComponents[locale as Locale],
+  }]),
+));
+
+const AXIAL_JOINT_REASON = /^the structure is a mechanism at nodes \[(\d+)\]: a translation of this joint leaves all attached trusses unstrained and satisfies the restraints(?: \(displacement components: ([XYZ](?:, [XYZ]){0,2})\))?$/;
+
+const FRAME_SWING_MECHANISM = 'svc.engine.frameSwingMechanism';
+const frameSwingMechanism: Record<Locale, string> = {
+  de: 'Am Knoten {node} liegt ein Mechanismus vor. Ein Stab kann sich um ein Gelenkende drehen, ohne sich zu verformen oder seine Lagerbedingungen zu verletzen.',
+  en: 'There is a mechanism at joint {node}. A frame member can rotate about a released end without strain or movement at its restraints.',
+  es: 'Hay un mecanismo en el nudo {node}. Una barra puede girar alrededor de un extremo liberado sin deformarse ni mover sus restricciones.',
+  fr: 'Le nœud {node} présente un mécanisme. Une barre peut pivoter autour d’une extrémité articulée sans se déformer ni déplacer ses appuis.',
+  hu: 'A(z) {node} csomópontnál mechanizmus van. Egy rúd a csuklós vége körül alakváltozás és a megtámasztások elmozdulása nélkül elfordulhat.',
+  pt: 'Há um mecanismo no nó {node}. Uma barra pode girar em torno de uma extremidade liberada sem se deformar nem deslocar seus apoios.',
+  tr: '{node} düğümünde bir mekanizma var. Bir çubuk, şekil değiştirmeden veya mesnetlerini hareket ettirmeden mafsallı ucu etrafında dönebilir.',
+  zh: '节点 {node} 处存在机构。一根框架杆可绕释放端转动，杆件无应变，约束处无位移。',
+};
+registerFeatureDictionaries(Object.fromEntries(
+  Object.entries(frameSwingMechanism).map(([locale, message]) => [locale, { [FRAME_SWING_MECHANISM]: message }]),
+));
+
+const FRAME_SWING_REASON = /^the structure is a mechanism at nodes \[(\d+)\]: a frame can swing about a released end without straining its members or moving its restraints$/;
+
 const CONSTRAINT_RANK_REASON = /^the structure is a mechanism or so close to one that its stability cannot be decided in double precision(?: at nodes (\[[0-9, ]+\]))?: constraint reduction cancels stiffness contributions whose rounding is too large to resolve the remaining stiffness; reduce extreme stiffness contrasts or revise the constraints$/;
 
 /**
@@ -187,6 +236,22 @@ const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
 export function localizeEngineText(message: string): string {
   const rankRefusal = asCodedRefusal(message, 'reduced_stiffness_rank');
   const original = rankRefusal instanceof CodedRefusal ? rankRefusal.message : message;
+  const axialJoint = AXIAL_JOINT_REASON.exec(original);
+  if (axialJoint) {
+    const [, node, axes] = axialJoint;
+    const diagnosis = fill(AXIAL_JOINT_MECHANISM, { node });
+    if (!axes) return diagnosis;
+    const labels = axes.split(', ').map((axis) => tAt(`kin.dof3dU${userLetterIn(axesStore.frame, axis).toLowerCase()}`, i18n.locale));
+    const components = new Intl.ListFormat(i18n.locale).format(labels);
+    return `${diagnosis} ${fill(AXIAL_JOINT_COMPONENTS, { components })}`;
+  }
+  const modalSwing = refusalDiagnostic(message, 'reduced_stiffness_rank');
+  const modalSwingNode = modalSwing?.nodeIds?.[0];
+  if (modalSwing?.phase === 'modal' && typeof modalSwingNode === 'number') {
+    return fill(FRAME_SWING_MECHANISM, { node: String(modalSwingNode) });
+  }
+  const frameSwing = FRAME_SWING_REASON.exec(original);
+  if (frameSwing) return fill(FRAME_SWING_MECHANISM, { node: frameSwing[1] });
   const constraintRank = CONSTRAINT_RANK_REASON.exec(original);
   if (constraintRank) {
     const nodes = constraintRank[1];
@@ -206,6 +271,14 @@ export function localizeEngineText(message: string): string {
   }
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
     fill('svc.engine.nonFiniteNumber', { value, path }));
+  out = out.replace(UNKNOWN_FIELD, (_, prefix: string | undefined, path: string, allowed: string | undefined, empty: string | undefined, line: string | undefined, column: string | undefined) => {
+    const field = fill('svc.engine.unknownInputField', { path });
+    const expected = allowed ? ' ' + fill('svc.engine.allowedInputFields', { fields: allowed.replace(' or ', ', ') })
+      : empty ? ' ' + active('svc.engine.noInputFields') : '';
+    return inputDiagnostic(field + expected, prefix, line, column);
+  });
+  out = out.replace(INVALID_FIELD, (_, prefix: string | undefined, path: string, line: string | undefined, column: string | undefined) =>
+    inputDiagnostic(fill('svc.engine.invalidInputField', { path }), prefix, line, column));
   return out.replace(SELF_CHECK_REFUSAL, (whole, check: string, mode: string | undefined, rest: string) => {
     const name = selfCheckName(check, mode);
     if (!name) return whole;
@@ -215,6 +288,16 @@ export function localizeEngineText(message: string): string {
     if (Number.isFinite(value) && Number.isFinite(limit)) return fill('selfCheck.refused', { check: name, value: scientific(value), threshold: scientific(limit) });
     return fill('selfCheck.refusedInvalid', { check: name, reason: selfCheckReason(rest) });
   });
+}
+
+const UNKNOWN_FIELD = /(Parse error: (?:Error: )?)?unknown field [`']([^`'\n]+)[`'](?:, expected (?:one of )?(`[^`\n]+`(?:(?:, | or )`[^`\n]+`)*)|, (there are no fields))?(?: at line (\d+) column (\d+))?/g;
+
+const INVALID_FIELD = /(Parse error: (?:Error: )?)?(?:missing|unsupported|duplicate key in) field [`']([^`'\n]+)[`'](?: \(Staged construction analysis does not support [^\n)]+\)| \(Nine-node shell elements are not yet supported in staged construction\))?(?: at line (\d+) column (\d+))?/g;
+
+function inputDiagnostic(detail: string, prefix?: string, line?: string, column?: string): string {
+  const message = prefix ? fill('svc.engine.inputParseError', { detail }) : detail;
+  const location = line && column ? ' ' + fill('svc.engine.inputLocation', { line, column }) : '';
+  return message + location;
 }
 
 const SELF_CHECKS = new Set(['static_residual', 'static_balance', 'modal_residual', 'modal_orthogonality', 'modal_mass']);
