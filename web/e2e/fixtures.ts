@@ -97,6 +97,7 @@ export interface TestHooks {
   modelVersion(): number;
   screenFrame(): { drawn: boolean; held: boolean; diagram: string; maxMoment: number | null };
   freshMaxMoment(): number | null;
+  hasDrawnResults(): boolean;
   designRunId(): string | null;
   displayStatus(id: number): string;
   displayRatio(id: number): number | null;
@@ -173,6 +174,8 @@ export interface TestHooks {
 
 /** Actions a spec may drive — the same operations the UI controls perform. */
 export interface TestActions {
+  setLiveCalc(enabled: boolean): void;
+  updateSection(id: number, data: unknown): void;
   seedSelfCheckWarning(count?: number, cases?: number): void;
   loadExample(name: string): Promise<void>;
   tieNodes(masterNode: number, slaveNode: number, dofs: number[]): void;

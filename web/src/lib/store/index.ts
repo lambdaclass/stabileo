@@ -191,12 +191,14 @@ resultsStore._setScreenModelCapture(() => {
   const plates = new Map([...modelStore.plates].map(([id, s]) => [id, shellGeometry(s)]));
   const quads = new Map([...modelStore.quads].map(([id, s]) => [id, shellGeometry(s)]));
   const sections = new Map(modelStore.sections), materials = new Map(modelStore.materials);
-  let cached: { version: number; result: unknown; ok: boolean } | undefined;
+  type GeometryMaps = Pick<typeof modelStore, 'nodes' | 'elements' | 'plates' | 'quads'>;
+  let cached: (GeometryMaps & { version: number; result: unknown; ok: boolean }) | undefined;
   return {
     elements, sections, materials,
     fits(result) {
       const version = modelStore.modelVersion;
-      if (cached?.version === version && cached.result === result) return cached.ok;
+      if (cached?.version === version && cached.result === result && cached.nodes === modelStore.nodes
+          && cached.elements === modelStore.elements && cached.plates === modelStore.plates && cached.quads === modelStore.quads) return cached.ok;
       const ok = nodes.size === modelStore.nodes.size && elements.size === modelStore.elements.size
         && plates.size === modelStore.plates.size && quads.size === modelStore.quads.size
         && [...nodes].every(([id, [x, y, z]]) => {
@@ -208,7 +210,7 @@ resultsStore._setScreenModelCapture(() => {
         && [...modelStore.quads].every(([id, s]) => quads.get(id) === shellGeometry(s))
         && result.elementForces.every(f => elements.has(f.elementId))
         && result.displacements.every(d => nodes.has(d.nodeId));
-      cached = { version, result, ok };
+      cached = { version, result, ok, nodes: modelStore.nodes, elements: modelStore.elements, plates: modelStore.plates, quads: modelStore.quads };
       return ok;
     },
   };

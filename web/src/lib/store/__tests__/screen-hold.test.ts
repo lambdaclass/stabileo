@@ -204,7 +204,7 @@ it.each(['reconnect', 'move'])('drops a held 3D diagram on a %s with identical I
   if (edit === 'reconnect') modelStore.updateElement(id, { nodeI: member.nodeJ, nodeJ: member.nodeI });
   else {
     const node = modelStore.nodes.get(member.nodeJ)!;
-    modelStore.updateNode(node.id, node.x, node.y, node.z + 1);
+    modelStore.updateNode(node.id, node.x, node.y, (node.z ?? 0) + 1);
   }
   expect(resultsStore.screen.results3D).toBeNull();
 });
