@@ -4758,7 +4758,7 @@ function createModelStore() {
       // [] for the example's own rule: the example solved without its self-weight.
       const json = await loader() as JSONModel;
       validateFixtureReferences(json);
-      const seed = options.defaults?.material ?? defaultMaterial;
+      const seed = options.defaults ? { ...options.defaults.material, id: defaultMaterial.id } : defaultMaterial;
       const first = json.materials.find(m => m.id === seed.id && m.name === seed.name && m.e === seed.e);
       const useDefault = first && (options.defaults || !fixture) && Object.entries(first).every(([key, value]) => seed[key as keyof Material] === value);
       const authored = first && !useDefault && typeof first.nu === 'number' && typeof first.rho === 'number'
@@ -4767,7 +4767,7 @@ function createModelStore() {
       this.batch(() => {
         this.clear();
         if (opts.defaults) {
-          model.materials.set(1, structuredClone(opts.defaults.material));
+          model.materials.set(seed.id, structuredClone(seed));
           model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
         }
         if (authored) {
