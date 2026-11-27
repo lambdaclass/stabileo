@@ -190,7 +190,7 @@
         if (l.node !== node) continue;
         const fx = l.fx ?? 0, fy = l.fy ?? 0, mag = Math.hypot(fx, fy);
         if (l.mz) loads.push({
-          ...couple(p, -Math.PI / 2, l.mz < 0), label: `${formatParam(l.mz)} kN·m`, lx: p.x + 22, ly: p.y + 24,
+          ...couple(p, -Math.PI / 2, l.mz < 0), label: `${formatParam(-l.mz)} kN·m`, lx: p.x + 22, ly: p.y + 24,
         });
         if (mag === 0) continue;
         const d = { x: fx / mag, y: -fy / mag };

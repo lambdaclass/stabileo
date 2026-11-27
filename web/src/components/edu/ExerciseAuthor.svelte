@@ -315,7 +315,7 @@
       kinematicQuestion: askKinematic && detected
         ? { classification: detected.classification, degree: detected.degree || undefined }
         : undefined,
-      diagramShapeQuestions: shapeQs.length ? shapeQs : undefined,
+      diagramShapeQuestions: shapeQs.length ? shapeQs.map(q => ({ ...q, correct: isParametric(shaped) ? 'auto' : q.correct })) : undefined,
       diagramSketchQuestions: sketchQs.length ? sketchQs : undefined,
       allowReveal,
       ...(askFreeBody ? {} : { freeBody: false }),

@@ -192,6 +192,16 @@ async function person(context: BrowserContext, backend: Backend, signedIn: Perso
   return context.newPage();
 }
 
+async function downloadGrades(teacher: Page) {
+    const download = teacher.waitForEvent('download');
+    await teacher.getByTestId('attempts-csv').click();
+    return await (await download).createReadStream().then(async (s) => {
+      const chunks: Buffer[] = [];
+      for await (const c of s) chunks.push(c as Buffer);
+      return Buffer.concat(chunks).toString('utf8');
+    });
+}
+
 function sketchAssignment() {
   const backend = new Backend();
   const code = 'K7Q2M9XWPA';
@@ -203,7 +213,7 @@ function sketchAssignment() {
 }
 
 test.describe('@smoke Education — homework and exams with an account', () => {
-  test.skip('known wrong result: #1927 — all teacher pages load and a writable attempt has no score', async ({ browser }) => {
+  test('known wrong result: #1927 — all teacher pages load and a writable attempt has no score', async ({ browser }) => {
     const { backend } = sketchAssignment();
     backend.assignments.set('second', { ...backend.assignments.get('asg'), id: 'second', code: 'SECOND', title: 'Second page' });
     const now = Date.now();
@@ -216,10 +226,11 @@ test.describe('@smoke Education — homework and exams with an account', () => {
     await teacher.getByTestId('assignment-attempts').first().click();
     await expect(teacher.getByTestId('attempt-row')).toBeVisible();
     await expect(teacher.getByTestId('attempt-score')).toHaveText('—');
+    expect(await downloadGrades(teacher)).toMatch(/Bruno Student,bruno@example\.com,[^,]+,,[^,]+,,,(?:\r?\n|$)/);
     await context.close();
   });
 
-  test.skip('known wrong result: #1927 — an invalid nonempty opening date blocks creation', async ({ browser }) => {
+  test('known wrong result: #1927 — an invalid nonempty opening date blocks creation', async ({ browser }) => {
     const context = await browser.newContext();
     const teacher = await person(context, new Backend(), TEACHER, [SPEC]);
     await teacher.goto('/app/education?e2e=1');
@@ -233,11 +244,19 @@ test.describe('@smoke Education — homework and exams with an account', () => {
     await context.close();
   });
 
-  test.skip('known wrong result: #1927 — the undated lobby and same-document exit preserve the handoff', async ({ browser }) => {
+  test('known wrong result: #1927 — the undated lobby and same-document exit preserve the handoff', async ({ browser }) => {
     const { code, backend } = sketchAssignment();
     backend.assignments.get('asg')!.reveal = 'after_close';
     const context = await browser.newContext();
     const student = await person(context, backend, STUDENT, []);
+    await student.clock.install();
+    await student.goto('/app/basic?e2e=1');
+    await student.waitForFunction(() => !!window.__stabileoActions);
+    await student.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    const saved = await student.locator('.tab.active .tab-name').inputValue();
+    expect(saved).toBeTruthy();
+    await student.clock.fastForward(31_000);
+    await student.waitForFunction(name => localStorage.getItem('stabileo-workspace')?.includes(name), saved);
     await student.goto('/app/exam/' + code + '?e2e=1');
     await expect(student.getByTestId('exam-start')).toBeVisible();
     await expect.soft(student.getByTestId('exam-panel')).toContainText('Your results are not available yet.');
@@ -247,16 +266,17 @@ test.describe('@smoke Education — homework and exams with an account', () => {
       history.pushState(null, '', '/app/basic?e2e=1');
       dispatchEvent(new PopStateEvent('popstate'));
     });
-    await expect(student.locator('.tab-bar')).toContainText('Handoff beam');
+    await expect(student.locator('.tab.active .tab-name')).toHaveValue('Handoff beam');
+    await expect(student.locator('.tab:not(.active) .tab-name')).toHaveValue(saved);
     expect(await student.evaluate(() => sessionStorage.getItem('stabileo.exam.steps.v2'))).toBeNull();
     await context.close();
   });
 
-  test.skip('known wrong result: #1927 — preview preserves the teacher canvas and saves automatic variant shapes', async ({ browser }) => {
+  test('known wrong result: #1927 — preview preserves the teacher canvas and saves automatic variant shapes', async ({ browser }) => {
     const context = await browser.newContext();
     const teacher = await person(context, new Backend(), TEACHER, [{ ...SPEC, diagramShapeQuestions: [{ diagram: 'M', correct: 'constant' }] }]);
     await teacher.goto('/app/education?e2e=1');
-    await teacher.locator('.edu-panel .edit-btn').first().click();
+    await teacher.locator('.card-act', { hasText: 'Edit' }).first().click();
     await teacher.waitForFunction(() => !!window.__stabileoActions);
     await teacher.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
     const before = await teacher.evaluate(() => window.__stabileo.nodeIds().map(id => window.__stabileo.nodePosition(id)));
@@ -397,13 +417,7 @@ test.describe('@smoke Education — homework and exams with an account', () => {
     await expect(row.getByTestId('attempt-score')).toHaveText('3 of 4');
     await row.getByTestId('attempt-detail').click();
     await expect(teacher.locator('.review')).toBeVisible();
-    const download = teacher.waitForEvent('download');
-    await teacher.getByTestId('attempts-csv').click();
-    const csv = await (await download).createReadStream().then(async (s) => {
-      const chunks: Buffer[] = [];
-      for await (const c of s) chunks.push(c as Buffer);
-      return Buffer.concat(chunks).toString('utf8');
-    });
+    const csv = await downloadGrades(teacher);
     expect(csv).toMatch(/Bruno Student,bruno@example\.com,[^,]+,[^,]+,Handed in,3,4,75/);
 
     await teacherContext.close();

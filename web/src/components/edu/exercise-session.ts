@@ -65,6 +65,7 @@ export function showExamExercise(ex: EduExercise): void {
 }
 
 export function leaveExamExercise(): void {
+  if (!eduStore.exercise && eduStore.borrowedModel === null) return;
   eduStore.clearExercise();
   resultsStore.clear();
   returnBorrowedModel();

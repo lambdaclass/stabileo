@@ -116,7 +116,7 @@
       <dt>{t('exam.opens')}</dt><dd>{formatWhen(exam.opens_at)}</dd>
       <dt>{t('exam.closes')}</dt><dd>{exam.closes_at ? formatWhen(exam.closes_at) : t('exam.noClose')}</dd>
     </dl>
-    <p class="note">{exam.reveal === 'on_submit' ? t('exam.revealOnSubmit') : tp('exam.revealAfterClose', { when: formatWhen(exam.closes_at) })}</p>
+    <p class="note">{exam.reveal === 'on_submit' ? t('exam.revealOnSubmit') : exam.closes_at ? tp('exam.revealAfterClose', { when: formatWhen(exam.closes_at) }) : t('exam.resultsLaterNoDate')}</p>
     <p class="note" data-testid="exam-privacy">{t('exam.privacy')}</p>
     {#if exam.status === 'upcoming'}
       <p class="warn">{tp('exam.notYetOpen', { when: formatWhen(exam.opens_at) })}</p>

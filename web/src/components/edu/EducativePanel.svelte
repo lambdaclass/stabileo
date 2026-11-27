@@ -13,7 +13,7 @@
   import { isSolverReady } from '../../lib/engine/wasm-solver';
   import { eduStore } from './edu-store.svelte';
   import ExerciseAuthor from './ExerciseAuthor.svelte';
-  import { buildFromSpec, type EduExerciseSpec } from './exercise-spec';
+  import type { EduExerciseSpec } from './exercise-spec';
   import { isParametric, previewText, studentSeed, variantOf } from './exercise-variant';
   import type { Variant } from './exercise-params';
   import { getExerciseSpecs } from './exercise-data';
@@ -114,6 +114,7 @@
   function openSpec(spec: EduExerciseSpec) {
     openError = '';
     if (isParametric(spec)) {
+      prepareExerciseCanvas();
       legajoInput = '';
       eduStore.pending = spec;
       return true;
@@ -168,7 +169,7 @@
   // `solveForEdu()` directly in edu mode, so a solve dispatched before this
   // panel mounts is no longer silently dropped.
 
-  function loadExercise(ex: EduExercise) {
+  function prepareExerciseCanvas() {
     /*
      * Set the reader's own model aside before taking the canvas.
      *
@@ -190,6 +191,11 @@
     modelStore.clear();
     resultsStore.clear();
 
+    eduStore.clearExercise();
+  }
+
+  function loadExercise(ex: EduExercise) {
+    prepareExerciseCanvas();
     // Build the exercise structure via the shared model store.
     // Node ids are recorded in call order: `supports[].nodeIndex` indexes this
     // array, not the model's ids (the store's id counter is shared with
@@ -223,8 +229,11 @@
   }
 
   /** Open a draft the way a student will get it, without saving it first. */
+  let previewCanvas: ReturnType<typeof modelStore.snapshot> | null = null;
   function previewAsStudent(spec: EduExerciseSpec, variant?: Variant) {
+    const original = modelStore.snapshot();
     if (!(variant ? startVariant(spec, variant) : openSpec(spec))) return;
+    previewCanvas = original;
     previewingSpec = spec;
     editingSpec = spec;
     eduStore.authoring = false;
@@ -252,13 +261,12 @@
      * above a hint telling them nothing was drawn yet: both true, and
      * together nonsense.
      */
-    if (previewingSpec) {
-      const spec = previewingSpec;
+    if (previewingSpec && previewCanvas) {
       previewingSpec = null;
       eduStore.authoring = true;
       resultsStore.clear();
-      modelStore.clear();
-      buildFromSpec(spec.authoredFrom?.model ?? variantOf(spec).model, exerciseStoreApi());
+      modelStore.restore(previewCanvas);
+      previewCanvas = null;
       return;
     }
     // Leaving the exercise ends the handout: from here the window is a normal

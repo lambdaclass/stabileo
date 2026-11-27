@@ -12,6 +12,12 @@ import { degreeOfSamples, gradeSketch } from './diagram-sketch';
 import { sketchTruth } from './sketch-truth';
 import { exerciseBars, freeBodyTruth, parseFreeBodyKey } from './free-body-step';
 
+export function answerText(key: string | undefined, answer: string) {
+  if (key === 'k' && ['isostatic', 'hyperstatic'].includes(answer)) return t(`edu.${answer}`);
+  if (key?.startsWith('s:') && ['zero', 'constant', 'linear', 'quadratic', 'cubic'].includes(answer)) return t(`edu.shape.${answer}`);
+  return answer;
+}
+
 export const TOLERANCE = 0.05;
 
 export type Outcome = 'correct' | 'incorrect' | 'pending';
@@ -109,7 +115,7 @@ export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark
       case 'k': {
         const k = ex.kinematicQuestion;
         if (!k) return null;
-        return { outcome: a.answer ? (a.answer === k.classification ? 'correct' : 'incorrect') : 'pending', expected: t(`edu.${k.classification}`) };
+        return { outcome: a.answer ? (a.answer === k.classification ? 'correct' : 'incorrect') : 'pending', expected: answerText(a.key, k.classification) };
       }
       case 'kd': {
         const k = ex.kinematicQuestion;
@@ -121,7 +127,7 @@ export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark
         const q = ex.diagramShapeQuestions?.[n];
         const shape = q ? shapeAnswer(q, forces) : null;
         if (!shape) return null;
-        return { outcome: a.answer ? (a.answer === shape ? 'correct' : 'incorrect') : 'pending', expected: t(`edu.shape.${shape}`) };
+        return { outcome: a.answer ? (a.answer === shape ? 'correct' : 'incorrect') : 'pending', expected: answerText(a.key, shape) };
       }
       case 'sk': {
         const q = ex.diagramSketchQuestions?.[n];
@@ -132,7 +138,7 @@ export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark
       }
       case 'fb': {
         const k = parseFreeBodyKey(a.key!);
-        const v = k ? barTruth?.[k.bar]?.[k.end][k.dof] ?? null : null;
+        const v = k ? barTruth?.[k.bar]?.[k.end]?.[k.dof] ?? null : null;
         return v === null ? null : { outcome: markNumber(a.answer, v, true), expected: fixed(v) };
       }
       default:

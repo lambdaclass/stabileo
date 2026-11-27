@@ -97,7 +97,7 @@ async function bootEducation(page: Page, url = EDU_URL) {
 }
 
 test.describe('@smoke Education — a handed-out exercise', () => {
-  test.skip('known wrong result: #1927 — a pending handout title shows its parameter range', async ({ page }) => {
+  test('known wrong result: #1927 — a pending handout title shows its parameter range', async ({ page }) => {
     const envelope = { ...EXERCISE, exercise: { ...EXERCISE.exercise, title: 'Span {L} m', params: { values: { L: { min: 3, max: 5, step: 1 } } } } };
     await page.goto(EDU_URL + '?e2e=1#edu-ex=' + Buffer.from(JSON.stringify(envelope)).toString('base64'));
     await expect(page.getByTestId('edu-variant-gate')).toBeVisible();

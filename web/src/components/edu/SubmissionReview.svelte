@@ -14,7 +14,7 @@
   import { t, tp } from '../../lib/i18n';
   import { scoreOf, type Submission } from './exercise-submission';
   import type { EduExerciseSpec } from './exercise-spec';
-  import { remarkSubmission, type RemarkedAnswer } from './exercise-marking';
+  import { answerText, remarkSubmission, type RemarkedAnswer } from './exercise-marking';
   import { describeVariant } from './exercise-variant';
 
   interface Props {
@@ -90,7 +90,7 @@
       {#each rows as a, i (i)}
         <tr>
           <td class="q">{a.label}</td>
-          <td class="a">{a.answer || '—'}{#if a.unit && a.answer}<span class="u"> {a.unit}</span>{/if}</td>
+          <td class="a">{answerText(a.key, a.answer) || '—'}{#if a.unit && a.answer}<span class="u"> {a.unit}</span>{/if}</td>
           <td class="o">
             <!-- Glyph AND colour: a marked table read on a projector, or by
                  anyone who does not separate red from green, still works. -->

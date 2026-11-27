@@ -176,7 +176,7 @@
   });
 
   /** A step's heading carries its place in this exercise's sequence, which shifts when the free-body step is there. */
-  const stepTitle = (key: string, id: StepId) => t(key).replace(/\d+/, String(STEPS.find((st) => st.id === id)?.n ?? ''));
+  const stepTitle = (key: string, id: StepId) => tp(key, { n: STEPS.find((st) => st.id === id)?.n ?? '' });
 
   /** Finishing a step moves the student on once, so going back to a finished step does not throw them forward again. */
   let advancedFrom = $state<Set<StepId>>(new Set());

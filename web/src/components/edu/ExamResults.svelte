@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { t, tp } from '../../lib/i18n';
   import type { ExamSession } from './exam-session.svelte';
+  import { answerText } from './exercise-marking';
   import { gradeAttempt } from './exam-grading';
   import { explainAnswer } from './exam-explain';
   import { formatWhen } from './exam-time';
@@ -18,12 +19,6 @@
     try { await initSolver(); engineReady = true; } catch { engineFailed = true; }
   }
   onMount(() => { if (!engineReady) void loadEngine(); });
-  function answerText(key: string | undefined, answer: string) {
-    if (key === 'k' && ['isostatic', 'hyperstatic'].includes(answer)) return t(`edu.${answer}`);
-    if (key?.startsWith('s:') && ['zero', 'constant', 'linear', 'quadratic', 'cubic'].includes(answer)) return t(`edu.shape.${answer}`);
-    return answer;
-  }
-
   const attempt = $derived(session.attempt);
   const grade = $derived(engineReady && attempt?.reveal_allowed && session.spec ? gradeAttempt(session.spec, attempt.seed, attempt.answers) : null);
   const pct = $derived(grade ? Math.round(grade.fraction * 100) : 0);

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { assignmentsApi, type Assignment, type OwnerAttempt } from '../../lib/api/assignments';
+  import { allPages, assignmentsApi, type Assignment, type OwnerAttempt } from '../../lib/api/assignments';
   import { errorText } from '../../lib/api/error-text';
   import { slugifyTabName } from '../../lib/app-mode';
   import { saveFile } from '../../lib/export/save-file';
@@ -33,33 +33,30 @@
   const statusText = (s: Status) =>
     s === 'submitted' ? t('exam.attempt.submitted') : s === 'closed' ? t('exam.attempt.closed') : t('exam.attempt.open');
 
-  async function load() {
+  let generation = 0;
+  async function load(id: string) {
+    const request = ++generation;
     loading = true;
     error = '';
     try {
-      const full = await assignmentsApi.get(assignment.id);
-      spec = exerciseFromEnvelope(full.exercise);
-      const all: OwnerAttempt[] = [];
-      for (let offset = 0; ; offset += 100) {
-        const page = await assignmentsApi.attempts(assignment.id, { limit: 100, offset });
-        all.push(...page.data);
-        if (page.data.length === 0 || all.length >= page.meta.total) break;
-      }
+      const full = await assignmentsApi.get(id);
+      const all = await allPages(params => assignmentsApi.attempts(id, params));
       await initSolver();
+      if (request !== generation) return;
+      spec = exerciseFromEnvelope(full.exercise);
       rows = all.map((a) => ({
         attempt: a,
-        grade: spec ? gradeAttempt(spec, a.seed, a.answers, a.student.name ?? a.student.email) : null,
+        grade: spec && a.submitted_at ? gradeAttempt(spec, a.seed, a.answers, a.student.name ?? a.student.email) : null,
       }));
     } catch (e) {
-      error = errorText(e);
+      if (request === generation) error = errorText(e);
     } finally {
-      loading = false;
+      if (request === generation) loading = false;
     }
   }
 
   $effect(() => {
-    void assignment.id;
-    void load();
+    void load(assignment.id);
   });
 
   function exportCsv() {
@@ -90,7 +87,7 @@
     {:else}
       <div class="tools">
         <button class="act" onclick={exportCsv} data-testid="attempts-csv">{t('exam.mine.exportCsv')}</button>
-        <button class="act" onclick={load}>{t('exam.refresh')}</button>
+        <button class="act" onclick={() => load(assignment.id)}>{t('exam.refresh')}</button>
       </div>
       <p class="note">{t('exam.mine.gradedHere')}</p>
       <div class="scroll">

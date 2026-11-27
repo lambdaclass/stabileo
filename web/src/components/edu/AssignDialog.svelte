@@ -22,6 +22,8 @@
   let opens = $state(toLocalInput(editing?.opens_at));
   let closes = $state(toLocalInput(editing?.closes_at));
   let reveal = $state<Reveal>(editing?.reveal ?? 'on_submit');
+  let invalidOpens = $state(false);
+  let invalidCloses = $state(false);
   let busy = $state(false);
   let error = $state('');
   let created = $state<Assignment | null>(null);
@@ -35,7 +37,8 @@
     if (!Number.isInteger(duration) || duration < 1 || duration > 600) return t('exam.assign.errDuration');
     const o = fromLocalInput(opens);
     const c = fromLocalInput(closes);
-    if (closes && !c) return t('exam.assign.errCloses');
+    if (invalidOpens || (opens && !o)) return t('exam.assign.errInvalid');
+    if (invalidCloses || (closes && !c)) return t('exam.assign.errCloses');
     if (o && c && Date.parse(c) <= Date.parse(o)) return t('exam.assign.errOrder');
     if (!o && c && Date.parse(c) <= Date.now()) return t('exam.assign.errOrder');
     if (reveal === 'after_close' && !c) return t('exam.assign.errRevealNeedsClose');
@@ -105,8 +108,8 @@
       <label>{t('exam.assign.name')}<input type="text" bind:value={title} maxlength="120" data-testid="assign-name" /></label>
       <label>{t('exam.assign.duration')}<input type="number" min="1" max="600" step="1" bind:value={duration} data-testid="assign-duration" /></label>
       <div class="two">
-        <label>{t('exam.assign.opens')}<input type="datetime-local" bind:value={opens} data-testid="assign-opens" /></label>
-        <label>{t('exam.assign.closes')}<input type="datetime-local" bind:value={closes} data-testid="assign-closes" /></label>
+        <label>{t('exam.assign.opens')}<input type="datetime-local" bind:value={opens} oninput={(e) => invalidOpens = e.currentTarget.validity.badInput} data-testid="assign-opens" /></label>
+        <label>{t('exam.assign.closes')}<input type="datetime-local" bind:value={closes} oninput={(e) => invalidCloses = e.currentTarget.validity.badInput} data-testid="assign-closes" /></label>
       </div>
       <p class="hint">{t('exam.assign.windowHint')}</p>
       <fieldset>

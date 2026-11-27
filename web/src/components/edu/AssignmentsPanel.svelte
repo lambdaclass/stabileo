@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { assignmentsApi, type Assignment } from '../../lib/api/assignments';
+  import { allPages, assignmentsApi, type Assignment } from '../../lib/api/assignments';
   import { errorText } from '../../lib/api/error-text';
   import { examPath } from '../../lib/app-mode';
   import { t, tp } from '../../lib/i18n';
@@ -30,8 +30,8 @@
     loading = true;
     error = '';
     try {
-      const result = await assignmentsApi.list({ limit: 100 });
-      if (request === generation) items = result.data;
+      const result = await allPages(assignmentsApi.list);
+      if (request === generation) items = result;
     } catch (e) {
       if (request === generation) error = errorText(e);
     } finally {

@@ -228,7 +228,7 @@ it('known wrong result: #1927 — a reversing load has opposite arrows and a non
   expect(actions.j.M).toBeCloseTo(0, 9);
 });
 
-it.skip.each([[3, 0], [-3, 4], [0, 4]])('known wrong result: #1927 — interior couple %s and force %s draw independently', async (mz, fy) => {
+it.each([[3, 0], [-3, 4], [0, 4]])('known wrong result: #1927 — interior couple %s and force %s draw independently', async (mz, fy) => {
   const model: ModelSpec = { nodes: [[0, 0], [1, 0], [2, 0]], elements: [[0, 1], [1, 2]], supports: [], nodalLoads: [{ node: 1, mz, fy }] };
   const bar = { nodes: [0, 1, 2], elements: [{ index: 0, forward: true }, { index: 1, forward: true }] };
   const { render } = await import('svelte/server');

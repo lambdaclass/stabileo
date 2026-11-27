@@ -401,6 +401,7 @@
   import ExamPanel from './components/edu/ExamPanel.svelte';
   import ExamCountdown from './components/edu/ExamCountdown.svelte';
   import { examLock } from './lib/store/exam-lock.svelte';
+  import { previewText } from './components/edu/exercise-variant';
   import { openHandedOffSteps, takeStepsHandoff } from './components/edu/exam-steps-handoff';
   import { eduStore } from './components/edu/edu-store.svelte';
   import { leaveExercise } from './components/edu/exercise-session';
@@ -653,6 +654,7 @@
   async function syncRouteState() {
     const token = ++publicRevision;
     const nextExam = examCodeFromPath(location.pathname);
+    const leftExam = !!examCode && !nextExam;
     if (examCode !== nextExam) {
       if (examCode) {
         const { leaveExamExercise } = await import('./components/edu/exercise-session');
@@ -697,6 +699,10 @@
       } else {
         uiStore.analysisMode = '2d';
       }
+    }
+    if (!nextExam && shell.kind === 'app') {
+      if (workspaceDeferred) await restoreEditorWorkspace();
+      else if (leftExam) openStepsHandoff();
     }
     await tick();
     if (token === publicRevision && shell.kind !== 'app') resetPublicScroll(hash);
@@ -977,6 +983,50 @@
     if (uiStore.isMobile && !examDrawerShown) { uiStore.rightDrawerOpen = true; examDrawerShown = true; }
   });
 
+  let workspaceDeferred = !!examCode;
+
+  async function restoreEditorWorkspace() {
+    workspaceDeferred = false;
+    const savedWorkspace = loadWorkspaceFromLocalStorage();
+    if (savedWorkspace && savedWorkspace.tabs.length > 0) {
+      const restoreWorkspace = () => {
+        if (examCode) { workspaceDeferred = true; return; }
+        tabManager.restoreSession(savedWorkspace.tabs, savedWorkspace.activeTabId);
+        const requestedTab = findTabBySlug(new URLSearchParams(location.search).get('tab'));
+        if (requestedTab && requestedTab.id !== tabManager.activeTabId) {
+          tabManager.switchTab(requestedTab.id);
+        }
+        currentAppMode = uiStore.appMode;
+        replaceAppUrl(currentAppMode, modelStore.model.name);
+        autosaveData = null;
+      };
+      if (workspaceNeedsDetailing(savedWorkspace)) {
+        await restoreWorkspaceDetailing(savedWorkspace, restoreWorkspace);
+      } else {
+        restoreWorkspace();
+      }
+    }
+
+    // Load autosave data if no workspace was restored.
+    // Banner visibility is derived — it checks mode match, dismiss state,
+    // and whether the user has started editing a different project.
+    //
+    // IndexedDB is asynchronous, so this cannot block the mount the way the
+    // localStorage read did. It resolves into `$state` instead, and the banner —
+    // already derived — appears when it arrives. `loadAutosave` has already told the
+    // user about anything it had to refuse; `autosaveStamp` carries the same fact into
+    // the banner, so "this is not your newest save" is on screen and not only in a toast.
+    if (!savedWorkspace?.tabs.length) {
+      void loadAutosave().then((result) => {
+        if (result.value && snapshotHoldsWork(result.value.snapshot)) {
+          autosaveData = result.value;
+          autosaveStamp = { timestamp: result.timestamp, older: result.rejected.length > 0 };
+        }
+      });
+    }
+    if (!examCode) openStepsHandoff();
+  }
+
   /** A structure handed over from an exam's results opens in a tab of its own, after the reader's tabs are back. */
   function openStepsHandoff() {
     const handoff = takeStepsHandoff();
@@ -1125,47 +1175,7 @@
       }
     }
 
-    // Restore full tab workspace first when available.
-    if (!hashMode && !examCode) {
-      const savedWorkspace = loadWorkspaceFromLocalStorage();
-      if (savedWorkspace && savedWorkspace.tabs.length > 0) {
-        const restoreWorkspace = () => {
-          tabManager.restoreSession(savedWorkspace.tabs, savedWorkspace.activeTabId);
-          const requestedTab = findTabBySlug(new URLSearchParams(location.search).get('tab'));
-          if (requestedTab && requestedTab.id !== tabManager.activeTabId) {
-            tabManager.switchTab(requestedTab.id);
-          }
-          currentAppMode = uiStore.appMode;
-          replaceAppUrl(currentAppMode, modelStore.model.name);
-          autosaveData = null;
-          openStepsHandoff();
-        };
-        if (workspaceNeedsDetailing(savedWorkspace)) {
-          void restoreWorkspaceDetailing(savedWorkspace, restoreWorkspace);
-        } else {
-          restoreWorkspace();
-        }
-      }
-
-      // Load autosave data if no workspace was restored.
-      // Banner visibility is derived — it checks mode match, dismiss state,
-      // and whether the user has started editing a different project.
-      //
-      // IndexedDB is asynchronous, so this cannot block the mount the way the
-      // localStorage read did. It resolves into `$state` instead, and the banner —
-      // already derived — appears when it arrives. `loadAutosave` has already told the
-      // user about anything it had to refuse; `autosaveStamp` carries the same fact into
-      // the banner, so "this is not your newest save" is on screen and not only in a toast.
-      if (!savedWorkspace) {
-        openStepsHandoff();
-        void loadAutosave().then((result) => {
-          if (result.value && snapshotHoldsWork(result.value.snapshot)) {
-            autosaveData = result.value;
-            autosaveStamp = { timestamp: result.timestamp, older: result.rejected.length > 0 };
-          }
-        });
-      }
-    }
+    if (!hashMode && !examCode) void restoreEditorWorkspace();
 
     // Setup autosave every 30s. Never overwrite the (single, mode-shared)
     // autosave with an empty model: the loader ignores empty snapshots anyway, and an
@@ -1567,7 +1577,7 @@
         <span class="handout-title" data-testid="exam-room-title">{examLock.title}</span>
         {#if examLock.locked}<ExamCountdown />{/if}
       {:else if eduStore.isHandout}
-        <span class="handout-title" data-testid="edu-handout-title">{eduStore.exercise?.title ?? eduStore.pending?.title}</span>
+        <span class="handout-title" data-testid="edu-handout-title">{eduStore.exercise?.title ?? (eduStore.pending && previewText(eduStore.pending.title, eduStore.pending.params))}</span>
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
           <option value="basico">{t('app.modeBasic')}</option>

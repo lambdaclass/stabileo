@@ -110,6 +110,16 @@ async function data<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, 
   return (await request<{ data: T }>(method, path, { body, auth: true })).data;
 }
 
+export async function allPages<T>(read: (params: ListParams) => Promise<{ data: T[]; meta: { total: number } }>): Promise<T[]> {
+  const items: T[] = [];
+  for (;;) {
+    const page = await read({ offset: items.length, limit: 100 });
+    items.push(...page.data);
+    if (items.length >= page.meta.total) return items;
+    if (!page.data.length) throw new Error('Incomplete assignment list');
+  }
+}
+
 export const assignmentsApi = {
   list(params: ListParams = {}): Promise<AssignmentList> {
     return request<AssignmentList>('GET', `${ASSIGNMENTS}${listQuery(params)}`, { auth: true });
