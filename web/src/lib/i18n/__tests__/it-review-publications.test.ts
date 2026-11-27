@@ -68,20 +68,22 @@ it.each([
   if (key === 'float.loadMomentX3d') expect(dictionary[key]).toBe(expected);
 });
 
-for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const) {
+for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'] as const) {
+  const test = locale === 'nl' ? it.skip : it;
+  const issue = locale === 'nl' ? 2613 : 2595;
   const dict = allDictFor(locale);
-  it.each([
+  test.each([
     ['c301.d.anHoles', 'n·dh·t'],
     ['c301.e.e4Geometry', '{ro2} × 100 mm²'],
-  ])(`known wrong result: #2595 — ${locale} shows the supplied quantity in %s`, (key, expression) => {
+  ])(`known wrong result: #${issue} — ${locale} shows the supplied quantity in %s`, (key, expression) => {
     expect(dict[key]).toContain(expression);
   });
-  it(`known wrong result: #2595 — ${locale} gives numeric moduli for every web and identifies both flanges in the F.4 calculation`, () => {
+  test(`known wrong result: #${issue} — ${locale} gives numeric moduli for every web and identifies both flanges in the F.4 calculation`, () => {
     const comma = locale === 'zh' ? '，' : ', ';
     expect(dict['c301.f.moduli']).toBe(`  Zx = {Zx} mm³${comma}Sx = {Sx} mm³`);
     expect(dict['c301.f.f4Rpc']).toContain(`Sxt = Sxc = Sx${comma}Myc = Fy·Sxc = {Myc} kN·m`);
   });
-  it(`known wrong result: #2595 — ${locale} reports the governing F.4 state without a general flange exemption`, () => {
+  test(`known wrong result: #${issue} — ${locale} reports the governing F.4 state without a general flange exemption`, () => {
     expect(dict['c301.f.governsF4']).toContain('{name}');
     expect(dict['c301.f.governsF4']).not.toContain('Sxt = Sxc');
   });
