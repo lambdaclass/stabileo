@@ -7,6 +7,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 CASE = ROOT / 'engine/tests/benchmarks/dadeppo_arch.json'
+REPLAY = HERE / 'results/stabileo_results.json'
 QUANTITIES = [
     ('limit-load', 'loadFactor', 'Limit load PR²/EI'),
     ('crown-u', 'uOverR', 'Crown horizontal displacement u/R at the limit point'),
@@ -111,7 +112,7 @@ def evidence(fresh):
         checks.append({'name': f'{name}: tolerance within 1.25 × its 40-element budget', 'metric': 'tolerance / budget − 1',
                        'observed': tolerance[key] / budget - 1, 'tolerance': 0.25,
                        'passed': 0 <= tolerance[key] / budget - 1 <= 0.25})
-    replay = load(HERE / 'results/stabileo_results.json')
+    replay = load(REPLAY)
     drift = max(max_relative(replay['steps'], fresh['steps']), max_relative(replay['frames'], fresh['frames']),
                 max_relative(replay['limitPoint'], fresh['limitPoint']), max_relative(replay['convergence'], fresh['convergence']))
     checks.append({'name': 'The page replay is a fresh native run', 'metric': 'largest difference over every stored value, relative to max(|stored|, |fresh|, 1)',
@@ -124,6 +125,16 @@ def manifest(files):
     old = load(HERE / 'reference-results/MANIFEST.json')
     hashes = {name: hashlib.sha256(text.encode()).hexdigest() for name, text in sorted(files.items())}
     return {**old, 'files_sha256': hashes}
+
+
+def replay_metadata():
+    replay = load(REPLAY)
+    return {
+        'case_sha256': hashlib.sha256(CASE.read_bytes()).hexdigest(),
+        'files_sha256': {REPLAY.name: hashlib.sha256(REPLAY.read_bytes()).hexdigest()},
+        'peak': max(replay['steps'], key=lambda step: step['loadFactor']),
+        'limitPoint': replay['limitPoint'],
+    }
 
 
 def dump(value):
@@ -155,21 +166,26 @@ def main(mode, export):
     validation, comparison = evidence(load(export))
     comparison_text = dump(comparison)
     files = {'limit-load.json': (HERE / 'reference-results/limit-load.json').read_text(), 'published_comparison.json': comparison_text}
+    failed = [c['name'] for c in validation['checks'] + comparison['checks'] if not c['passed']]
+    if failed:
+        raise SystemExit('failed checks: ' + ', '.join(failed))
+    replay_manifest = REPLAY.with_name('MANIFEST.json')
+    recorded = load(replay_manifest)
+    metadata = replay_metadata()
     if mode == 'generate':
+        replay_manifest.write_text(dump({**recorded, **metadata}))
         (HERE / 'VALIDATION.json').write_text(dump(validation))
         (HERE / 'reference-results/published_comparison.json').write_text(comparison_text)
         (HERE / 'reference-results/MANIFEST.json').write_text(dump(manifest(files)))
     else:
+        assert all(recorded.get(key) == value for key, value in metadata.items()), 'replay manifest is stale'
         committed = {name: (HERE / 'reference-results' / name).read_text() for name in files}
         stale = differences(load(HERE / 'VALIDATION.json'), validation)
         assert not stale, 'VALIDATION.json is not what the fresh run gives: ' + '; '.join(stale[:5])
         stale = differences(json.loads(committed['published_comparison.json']), comparison)
         assert not stale, 'published_comparison.json is stale: ' + '; '.join(stale[:5])
         assert load(HERE / 'reference-results/MANIFEST.json') == manifest(committed), 'MANIFEST.json hashes are stale'
-    failed = [c['name'] for c in validation['checks'] + comparison['checks'] if not c['passed']]
     print(json.dumps({'mode': mode, 'checks': len(validation['checks']), 'comparisonRows': len(comparison['checks']), 'failed': failed}))
-    if failed:
-        raise SystemExit(1)
 
 
 if __name__ == '__main__':
