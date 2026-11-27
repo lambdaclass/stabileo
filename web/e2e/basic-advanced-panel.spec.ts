@@ -103,6 +103,7 @@ for (const solved of ['2d', '3d'] as const) {
     }), solved);
     await expect.poll(slots).toEqual({ active: false, other: expect.any(Number) });
     await openAdvancedFunction(page, 'stress');
+    await expect(page.locator('.toast-error').getByText('Solve first', { exact: true })).toBeVisible();
     await expect(page.getByTestId('adv-launcher')).toBeVisible();
     await expect(page.getByTestId('adv-running')).toHaveCount(0);
     expect(await slots()).toEqual({ active: false, other: expect.any(Number) });

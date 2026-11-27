@@ -3,8 +3,7 @@
  * and always ends on the last value set.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { modelStore, historyStore, uiStore } from '..';
-import { resultsStore } from '..';
+import { modelStore, historyStore, resultsStore, uiStore } from '..';
 import { response2D } from '../../whatif/response';
 import { whatIf } from '../whatif.svelte';
 import { liveSolveBusy, trackLiveSolve } from '../../engine/live-calc-state';
