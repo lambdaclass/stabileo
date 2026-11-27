@@ -84,3 +84,28 @@ it('a storey column under a CIRSOC 102 pressure takes a few loads that carry its
     expect(actual).toBeCloseTo(exact(k), 8);
   }
 });
+
+for (const curvature of [-1, 0, 1]) it(`#2529 member cuts retain the pressure integral for curvature ${curvature}`, () => {
+  const model = mesh([[[0, 0, 0], [0, 0, 1]]]);
+  const field = windHeightField({
+    model, axis: 'x', width: 1, from: 0, to: 1,
+    pressure: z => 2 + curvature * (z - 0.5) ** 2,
+  });
+  if (curvature === 0) expect(field.members).toHaveLength(1);
+  for (let i = 0; i <= 64; i++) {
+    const station = i / 64;
+    let shear = 0, moment = 0;
+    for (const { a, b, q, qJ } of field.members) {
+      const end = Math.min(station, b);
+      if (end <= a) continue;
+      const span = end - a, endLoad = q + (qJ - q) * span / (b - a);
+      const force = span * (q + endLoad) / 2;
+      shear += force;
+      moment += (station - end) * force + span ** 2 * (2 * q + endLoad) / 6;
+    }
+    const correction = station ** 3 / 3 - station ** 2 / 2 + station / 4;
+    const firstIntegral = station ** 4 / 12 - station ** 3 / 6 + station ** 2 / 8;
+    expect(shear).toBeCloseTo(2 * station + curvature * correction, 10);
+    expect(moment).toBeCloseTo(station ** 2 + curvature * firstIntegral, 10);
+  }
+});
