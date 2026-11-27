@@ -19,7 +19,7 @@
  * for another reason, is a result change too.
  */
 import { readFileSync } from 'node:fs';
-import { modelFeatures, ANALYSIS_KINDS } from '../provenance/model-features';
+import { modelFeatures, ANALYSIS_KINDS, type FeatureContext } from '../provenance/model-features';
 import { modelStore } from '../store/model.svelte';
 import { historyStore } from '../store/history.svelte';
 import { uiStore } from '../store/ui.svelte';
@@ -32,7 +32,10 @@ import { regulationsStore } from '../store/regulations.svelte';
 import '../store';
 import '../engine/design/adapters/cirsoc201-adapter';
 import '../engine/design/adapters/unsupported-adapter';
-import { deserializeProject } from '../store/file';
+import { deserializeProjectOrThrow } from '../store/file';
+import { ModelAliasConflict } from '../model/canonical-aliases';
+import { getFixture } from '../templates/fixture-index';
+import type { JSONModel } from '../templates/load-fixture';
 import { meshBeforeAnalysis } from '../store/mesh-policy.svelte';
 import { solveNow } from '../actions/solve';
 import { runSteelCheck } from '../store/steel-check';
@@ -45,6 +48,7 @@ import { isBlocked, spectrumPoints, RISK_FACTOR } from '../codes/cirsoc103/spect
 import { findBehaviour, R_ELASTIC } from '../codes/cirsoc103/behaviour';
 import { setLocale } from '../i18n';
 import { errorText } from '../utils/error-text';
+import { is3DWorkspace } from '../utils/workspace';
 import { flatten, FORMAT, DEFAULT_SKIP } from '../../../scripts/results-snapshot/compare.mjs';
 import type { SnapshotCase } from './corpus';
 import { captureSnow } from './snow-capture';
@@ -92,15 +96,21 @@ function reset(c: SnapshotCase): void {
   meshBeforeAnalysis.value = false;
 }
 
-async function open(c: SnapshotCase, fixture?: unknown): Promise<void> {
-  if ('example' in c.source) {
-    await modelStore.loadExample(c.source.example, fixture === undefined ? undefined : async () => structuredClone(fixture));
-  } else if ('ded' in c.source) {
-    const text = fixture === undefined ? readFileSync(new URL(`../../../${c.source.ded}`, import.meta.url), 'utf8') : JSON.stringify(fixture);
-    if (!deserializeProject(text)) throw new Error(`${c.source.ded} does not open`);
-    uiStore.analysisMode = c.workspace;
+async function open(c: SnapshotCase, fixture?: unknown): Promise<ModelAliasConflict | undefined> {
+  try {
+    if ('example' in c.source) {
+      await modelStore.loadExample(c.source.example, fixture === undefined ? undefined : async () => structuredClone(fixture));
+    } else if ('ded' in c.source) {
+      const text = fixture === undefined ? readFileSync(new URL(`../../../${c.source.ded}`, import.meta.url), 'utf8') : JSON.stringify(fixture);
+      if (!deserializeProjectOrThrow(text)) throw new Error(`${c.source.ded} does not open`);
+      uiStore.analysisMode = c.workspace;
+    }
+  } catch (error) {
+    if (error instanceof ModelAliasConflict) return error;
+    throw error;
   }
   if (modelStore.nodes.size === 0) throw new Error(`${c.name}: the project opened empty`);
+  return undefined;
 }
 
 /** A solve's result, as numbers: displacements, reactions, member forces, shells, its diagnostics' codes. */
@@ -283,7 +293,10 @@ export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; f
   containmentFindings.clear();
   setLocale('en');
   reset(c);
-  await open(c, opts.fixture);
+  const refusal = await open(c, opts.fixture);
+  if (refusal) {
+    return { case: c.name, covers: c.covers, format: FORMAT, values: { 'solve.ok': false, 'solve.refusal': refusal.message } };
+  }
   opts.afterOpen?.();
   const values: Values = {};
   values['model.nodes'] = modelStore.nodes.size;
@@ -304,8 +317,18 @@ export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void; f
 export async function openedFeatures(c: SnapshotCase, fixture?: unknown): Promise<string[]> {
   if ('snowRoof' in c.source) return ['snow', 'members', 'frameMembers', 'space3D', 'generatedLoads'];
   reset(c);
-  await open(c, fixture);
-  const features: string[] = [...modelFeatures(modelStore.snapshot(), { analysisMode: c.workspace, analysesRun: ['linear', ...(c.advanced ?? [])], analysesRecorded: ANALYSIS_KINDS })];
+  const context: FeatureContext = {
+    analysisMode: c.workspace, analysesRun: ['linear', ...(c.advanced ?? [])], analysesRecorded: ANALYSIS_KINDS,
+  };
+  if ('example' in c.source) {
+    fixture ??= await getFixture(c.source.example)?.();
+    const source = fixture as JSONModel | undefined;
+    context.storedElements = source?.elements.map(member => [member.id, member]);
+  }
+  const refusal = await open(c, fixture);
+  const features: string[] = refusal
+    ? [is3DWorkspace(c.workspace) ? 'space3D' : 'plane2D', 'analysis:linear', refusal.feature]
+    : [...modelFeatures(modelStore.snapshot(), context)];
   if ('example' in c.source) features.push(`example:${c.source.example}`);
   return features;
 }

@@ -328,6 +328,13 @@ fn collect_items(items: &[Item], file: &str, src: &mut Source) {
                 let (generics, params) = generics_of(&t.generics);
                 src.aliases.insert(t.ident.to_string(), (generics.into_iter().map(|g| g.0).collect(), shape_of(&t.ty, &params)));
             }
+            Item::Macro(m) if m.mac.path.is_ident("producer_row") => {
+                let row = m.mac.parse_body_with(|input: syn::parse::ParseStream| {
+                    let _: syn::Ident = input.parse()?;
+                    input.parse::<syn::ItemStruct>()
+                }).unwrap_or_else(|error| panic!("{file}: invalid producer row: {error}"));
+                collect_items(&[Item::Struct(row)], file, src);
+            }
             Item::Macro(m) if m.mac.path.is_ident("quantity") => {
                 let name = m.mac.tokens.clone().into_iter().next().expect("quantity name").to_string();
                 src.leaves.insert(name);
@@ -787,6 +794,31 @@ fn a_generic_instance_found_only_inside_another_is_still_settled() {
     assert!(schema.has(&Shape::Named("Root".into(), vec![])), "Root holds a diagnostic two generic instances down");
     let sets = key_sets(&schema.types());
     assert!(sets.diagnostic.contains("issue") && sets.record.contains("outer") && sets.record.contains("inner"));
+}
+
+#[test]
+fn serialized_alias_records_are_visible_to_the_result_site_generator() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut schema = Schema::build(root);
+    for name in [
+        "NodalMass",
+        "SolverNodalLoad",
+        "SolverNode",
+        "SolverPointLoadOnElement",
+        "SolverSupport",
+        "SpectralModeDisp",
+        "TypedNodalLoad",
+        "TypedNode",
+        "TypedPointLoad",
+        "TypedSupport",
+    ] {
+        schema.has(&Shape::Named(name.into(), vec![]));
+    }
+    assert!(
+        schema.unknown.is_empty(),
+        "unresolved serialized types: {:?}",
+        schema.unknown
+    );
 }
 
 #[test]

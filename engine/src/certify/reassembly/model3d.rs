@@ -514,9 +514,8 @@ fn constraints(input: &SolverInput3D, model: &Model, kin: &mut Kinematics, dpn: 
     for con in &input.constraints {
         match con {
             Constraint::RigidLink(rl) => {
-                let dofs: Vec<usize> = if rl.dofs.is_empty() { (0..dpn.min(3)).collect() } else { rl.dofs.clone() };
                 let r = off(rl.master_node, rl.slave_node)?;
-                for d in dofs {
+                for &d in rl.effective_dofs(dpn) {
                     kin.equation(need(rl.slave_node, d)?, rigid(rl.master_node, d, &r)?);
                 }
             }

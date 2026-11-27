@@ -66,6 +66,7 @@ export interface CombinationTerm {
    */
   group?: string;
   snowBasis?: 'flatRoof';
+  group?: string;
 }
 
 export interface LoadCombinationSpec {

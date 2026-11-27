@@ -13,7 +13,12 @@
  *   YZ: y→horizontal, z→vertical
  */
 
-export type DrawPlane = 'xy' | 'xz' | 'yz';
+export const DRAW_PLANES = ['xy', 'xz', 'yz'] as const;
+export type DrawPlane = typeof DRAW_PLANES[number];
+
+export function isDrawPlane(value: unknown): value is DrawPlane {
+  return DRAW_PLANES.some(plane => plane === value);
+}
 
 /** Project a 3D point to 2D coordinates in the selected plane. */
 export function to2D(plane: DrawPlane, x: number, y: number, z: number): { x: number; y: number } {

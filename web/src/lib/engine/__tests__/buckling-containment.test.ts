@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { nightlySolverFixture } from '../../../../../scripts/tests/nightly-solver-fixture.mjs';
 
 vi.hoisted(() => vi.resetModules());
 const mocks = vi.hoisted(() => ({ certify: vi.fn(), plain: vi.fn(), linear: vi.fn(), certify2D: vi.fn(), plain2D: vi.fn() }));
@@ -279,7 +280,8 @@ it('a constraint coupling a column to a heavily loaded member refuses compressio
 
 it('the real #959 transverse-load model still refuses round-off compression', async () => {
   const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
-  const json = readFileSync('../engine/tests/metamorphic_corpus/nightly/issue-959.json', 'utf8');
+  const archive = JSON.parse(readFileSync('../engine/tests/metamorphic_corpus/nightly/issue-959.json', 'utf8'));
+  const json = JSON.stringify(nightlySolverFixture(archive));
   expect(() => native.solve_buckling_2d(json, 3)).toThrow(/Buckling not determinable: every axial compression is within round-off/);
   expect(() => native.certify_buckling_2d(json, 3)).toThrow(/Buckling not determinable: every axial compression is within round-off/);
 });

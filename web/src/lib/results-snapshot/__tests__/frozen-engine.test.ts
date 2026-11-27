@@ -19,6 +19,10 @@ const solvers = {
 };
 const update = process.env.RESULTS_FROZEN_UPDATE === '1';
 const reactionKeys = ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const;
+const ssiRankRefusals = new Set([
+  'solve_ssi_2d-c703b27bda5f4eb8.json',
+  'solve_ssi_2d-169f627ba8e7f8cf.json',
+]);
 
 function expectSameReactions(reference: Reaction3D[], current: Reaction3D[]): void {
   expect(current.map(r => r.nodeId)).toEqual(reference.map(r => r.nodeId));
@@ -94,6 +98,41 @@ for (const c of inputs) {
         expect(() => expectSameReactions(reference, reference.map(r => ({ ...r, fy })))).toThrow();
       }
     });
+  }
+  if (c.analysis === 'solve_ssi_2d' && ssiRankRefusals.has(c.model)) {
+    it(`freezes the rank refusal for ${c.model}`, () => {
+      const message = 'the structure is a mechanism or so close to one that its stability cannot be decided in double precision: the reduced stiffness rank cannot be resolved at assembly precision. Check member releases, supports, springs and constraints for a mechanism.';
+      let refusal: unknown;
+      try {
+        engine.solveSSI2D(c.input[0]);
+      } catch (error) {
+        refusal = JSON.parse(String(error));
+      }
+      expect(refusal).toEqual({
+        message,
+        structuredDiagnostics: [{ code: 'reduced_stiffness_rank', severity: 'error', message }],
+      });
+      check(c.model.replace(/\.json$/, ''), ['plane2D', 'members', 'analysis:ssi', 'ssiHistory'], refusal, 'ssi.refusal');
+    });
+    it(`solves ${c.model} with transverse soil restraint`, () => {
+      const input = c.input[0];
+      if (!('soilSprings' in input)) throw new Error('SSI input must contain soil springs');
+      const lateralSpring = {
+        nodeId: input.soilSprings[0].nodeId,
+        direction: 0,
+        tributaryLength: 1,
+        curve: { type: 'custom', points: [[0, 0], [1, 1000]] },
+      };
+      const result = engine.solveSSI2D({ ...input, soilSprings: [...input.soilSprings, lateralSpring] });
+      expect(result.converged).toBe(true);
+      expect(result.springResults).toHaveLength(input.soilSprings.length + 1);
+      expect(result.results.displacements).toHaveLength(Object.keys(input.solver.nodes).length);
+      for (const displacement of result.results.displacements) {
+        expect(Math.abs(displacement.ux)).toBe(0);
+        expect(Math.abs(displacement.ry)).toBe(0);
+      }
+    });
+    continue;
   }
   it(`freezes every serialized field of ${c.model}`, () => {
     const arc = c.analysis === 'solve_arc_length';

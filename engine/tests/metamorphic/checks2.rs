@@ -239,6 +239,24 @@ pub(crate) fn scale_loads_2d(loads: &[SolverLoad], k: f64) -> Vec<SolverLoad> {
         .collect()
 }
 
+pub(crate) fn check_isometry(a: &Ana2, c: &Case2, iso: &Iso2) -> Verdict {
+    let cond = match guarded(|| conditioning::of_2d(&c.s)) {
+        Ok(cond) => with_eigen_2d(cond, c),
+        Err(e) => return Verdict::Refused(format!("no conditioning estimate: {e}")),
+    };
+    match run(a, c) {
+        Ok(base) => isometry(a, c, iso, &base, &cond),
+        Err(e) => Verdict::Refused(e),
+    }
+}
+
+fn isometry(a: &Ana2, c: &Case2, iso: &Iso2, base: &Resp, cond: &Conditioning) -> Verdict {
+    match c.iso(iso) {
+        Ok(tc) => same(a, &tc, base.iso2(iso), cond),
+        Err(e) => Verdict::Unrepresentable(e),
+    }
+}
+
 pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
     let cond = match guarded(|| conditioning::of_2d(&c.s)) {
         Ok(k) => with_eigen_2d(k, c),
@@ -269,16 +287,10 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
                         Verdict::NotApplicable
                     } else {
                         let iso = Iso2::rotation(rng.range(0.1, 6.2)).translated(rng.range(-50.0, 50.0), rng.range(-50.0, 50.0));
-                        let first = match c.iso(&iso) {
-                            Ok(tc) => same(a, &tc, base.iso2(&iso), &cond),
-                            Err(e) => Verdict::Unrepresentable(e),
-                        };
+                        let first = isometry(a, c, &iso, &base, &cond);
                         // A quarter turn keeps rollers rollers.
                         let q = Iso2::rotation(std::f64::consts::FRAC_PI_2 * (1 + rng.below(3)) as f64).translated(rng.range(-50.0, 50.0), rng.range(-50.0, 50.0));
-                        settle(first, || match c.iso(&q) {
-                            Ok(tc) => same(a, &tc, base.iso2(&q), &cond),
-                            Err(e) => Verdict::Unrepresentable(e),
-                        })
+                        settle(first, || isometry(a, c, &q, &base, &cond))
                     }
                 }
                 "mirror" => {
@@ -289,16 +301,10 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
                     } else {
                         Iso2::mirror_line(rng.range(0.0, 3.1)).translated(rng.range(-50.0, 50.0), rng.range(-50.0, 50.0))
                     };
-                    let first = match c.iso(&iso) {
-                        Ok(tc) => same(a, &tc, base.iso2(&iso), &cond),
-                        Err(e) => Verdict::Unrepresentable(e),
-                    };
+                    let first = isometry(a, c, &iso, &base, &cond);
                     let mut q = Iso2::mirror_x();
                     q.t = [rng.range(-50.0, 50.0), rng.range(-5.0, 5.0)];
-                    settle(first, || match c.iso(&q) {
-                        Ok(tc) => same(a, &tc, base.iso2(&q), &cond),
-                        Err(e) => Verdict::Unrepresentable(e),
-                    })
+                    settle(first, || isometry(a, c, &q, &base, &cond))
                 }
                 "relabel" => {
                     let seed = rng.next_u64();

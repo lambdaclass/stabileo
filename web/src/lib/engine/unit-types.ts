@@ -116,7 +116,7 @@ export interface Node3DWire { id: number; x: Length; y: Length; z: Length }
 export interface NodalLoadWire { nodeId: number; fx: Force; fz: Force; my: Moment }
 export interface PointLoadWire { elementId: number; a: Length; p: Force; px?: Force; my?: Moment }
 export interface NodalLoad3DWire { nodeId: number; fx: Force; fy: Force; fz: Force; mx: Moment; my: Moment; mz: Moment; bw?: Bimoment }
-export interface PointLoad3DWire { elementId: number; a: Length; py: Force; pz: Force }
+export interface PointLoad3DWire { elementId: number; a: Length; px?: Force; py: Force; pz: Force }
 export interface DistributedLoadWire { elementId: number; qI: LineLoad; qJ: LineLoad; a?: Length; b?: Length }
 export interface ThermalLoadWire { elementId: number; dtUniform: TemperatureDifference; dtGradient: TemperatureDifference; alpha?: ThermalExpansion; depth?: Length }
 export interface DistributedLoad3DWire {
@@ -206,7 +206,7 @@ export function load3DToWire(load: SolverLoad3D): Load3DWire {
     }
     case 'pointOnElement': {
       const d = load.data;
-      return { ...load, data: { ...d, ...present(d, 'a', d.a, lengthM), ...present(d, 'py', d.py, forceKn), ...present(d, 'pz', d.pz, forceKn) } as Branded<SolverPointLoad3D, PointLoad3DWire> };
+      return { ...load, data: { ...d, ...present(d, 'a', d.a, lengthM), ...present(d, 'px', d.px, forceKn), ...present(d, 'py', d.py, forceKn), ...present(d, 'pz', d.pz, forceKn) } as Branded<SolverPointLoad3D, PointLoad3DWire> };
     }
     case 'distributed': {
       const d = load.data;

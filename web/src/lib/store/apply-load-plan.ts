@@ -6,11 +6,11 @@
  * times.
  */
 import { modelStore } from './index';
-import { expandCombinations } from '../engine/loads/combination-cases';
 import { addGeneratedCombinations, takeBackCompositeCases } from './generated-combinations';
 import type { LoadPlan } from '../engine/loads/load-plan';
-import { expandPlannedCombinations, type CurrentLoadState } from '../engine/loads/load-plan-delta';
-import { findPlannedCase, type Load } from './model.svelte';
+import { eligibleCombinationCase, isCompositeCase, loadCasesWithDirectEffects, type CaseCombination } from '../engine/loads/combination-cases';
+import { describePlanDelta, expandPlannedCombinations, type CurrentLoadState } from '../engine/loads/load-plan-delta';
+import { findPlannedCase, plannedCaseName, type Load, type LoadCase, type LoadCombination } from './model.svelte';
 import { designData, patchDesignData } from './design-data';
 import { fromLoadPlan, loadsGeneratedWith, unverifiedSeismicLoads } from '../provenance/model-features';
 import { RESULTS_VERSION } from '../provenance/registry';
@@ -67,7 +67,7 @@ export interface ReplaceScope {
   defaults: { cases: number[]; combinations: number[] };
 }
 
-type ScopeCase = { id: number; type: string; name: string; alternatives?: string; reduction?: unknown };
+type ScopeCase = Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives' | 'group' | 'includes' | 'snowBasis' | 'generated' | 'autoLoadsRetired'> & { reduction?: unknown };
 type ScopeCombination = { id: number; name?: string; origin?: { code?: string; edited?: boolean }; factors?: ReadonlyArray<{ caseId: number; factor: number }> };
 
 /** A combination a code wrote and nobody has edited since (`CombinationOrigin.edited`). */
@@ -79,16 +79,16 @@ export function replaceScope(
 ): ReplaceScope {
   const types = new Set(p.cases.map((c) => String(c.type)));
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
-  // The cases apply writes into, found as `ensureLoadCase` finds them. Without names, by id alone.
   const targets = new Set<number>();
   for (const pc of p.cases) {
-    const found = nameOf
-      ? findPlannedCase(cases, nameOf(pc.nameKey, pc.nameParams), pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, own: pc.own, reduced: pc.reduced, snowBasis: pc.snowBasis })
-      : cases.find((c) => c.id === pc.existingId);
+    const found = findPlannedCase(cases, nameOf?.(pc.nameKey, pc.nameParams), pc.type, pc);
     if (found) targets.add(found.id);
   }
   // A default case the plan writes into is the plan's target and stays; the rest of the untouched ones go.
-  const untouched = p.combinations.length > 0 ? untouchedDefaults(cases, combinations, loads, (type) => t(DEFAULT_CASE_NAME_KEYS[type])) : { cases: [], combinations: [] };
+  const defaultCandidates = cases.filter(c => c.autoLoadsRetired !== true);
+  const untouched = p.combinations.length > 0
+    ? untouchedDefaults(defaultCandidates, combinations, loads, type => t(DEFAULT_CASE_NAME_KEYS[type]))
+    : { cases: [], combinations: [] };
   const defaults = { cases: untouched.cases.filter((id) => !targets.has(id)), combinations: untouched.combinations };
   const defaultCombo = new Set(defaults.combinations);
   const marked = (l: Load) => !!(l.data as { generatedBy?: string }).generatedBy;
@@ -114,10 +114,40 @@ export function replacedByPlan(
   p: LoadPlan, loads: readonly Load[], cases: readonly ScopeCase[], combinations: readonly ScopeCombination[],
   opts: { alsoUnmarked?: boolean; nameOf?: ApplyLoadPlanOptions['nameOf'] } = {},
 ): { loads: number[]; combinations: number[] } {
-  const s = replaceScope(p, loads, cases, combinations, opts.nameOf);
-  return opts.alsoUnmarked
-    ? { loads: [...s.generated.loads, ...s.unmarked.loads], combinations: [...s.generated.combinations, ...s.unmarked.combinations] }
-    : s.generated;
+  return replacementFromScope(replaceScope(p, loads, cases, combinations, opts.nameOf), opts.alsoUnmarked);
+}
+
+function replacementFromScope(scope: ReplaceScope, alsoUnmarked?: boolean): ReplaceScope['generated'] {
+  return alsoUnmarked
+    ? { loads: [...scope.generated.loads, ...scope.unmarked.loads], combinations: [...scope.generated.combinations, ...scope.unmarked.combinations] }
+    : scope.generated;
+}
+
+function combinationKey({ name, factors, origin }: Pick<LoadCombination, 'name' | 'factors' | 'origin'>): string {
+  return JSON.stringify([
+    name, factors.map(({ caseId, factor }) => [caseId, factor]),
+    origin && [origin.code, origin.family, origin.edition, origin.rule, origin.purpose],
+  ]);
+}
+
+function replacePlanCombinations(expanded: readonly CaseCombination[], ids: readonly number[]): void {
+  const obsolete = new Set(ids);
+  const matching = new Map<string, number[]>();
+  for (const combination of modelStore.combinations) {
+    if (!obsolete.has(combination.id) || !codeWritten(combination) || combination.method || combination.nameTyped) continue;
+    const key = combinationKey(combination);
+    const same = matching.get(key) ?? [];
+    same.push(combination.id);
+    matching.set(key, same);
+  }
+  const fresh: CaseCombination[] = [];
+  for (const combination of expanded) {
+    const reused = matching.get(combinationKey(combination))?.pop();
+    if (reused === undefined) fresh.push(combination);
+    else obsolete.delete(reused);
+  }
+  for (const id of obsolete) modelStore.removeCombination(id);
+  addGeneratedCombinations(fresh);
 }
 
 const DISTRIBUTED_TYPES: readonly string[] = ['distributed', 'distributed3d'];
@@ -130,7 +160,11 @@ const NODAL_TYPES: readonly string[] = ['nodal', 'nodal3d'];
  */
 export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nameOf']): CurrentLoadState {
   const loads = modelStore.loads, cases = modelStore.model.loadCases, combinations = modelStore.model.combinations;
-  const s = replaceScope(p, loads, cases, combinations, nameOf);
+  return describeCurrentLoads(replaceScope(p, loads, cases, combinations, nameOf));
+}
+
+function describeCurrentLoads(s: ReplaceScope): CurrentLoadState {
+  const loads = modelStore.loads, cases = modelStore.model.loadCases, combinations = modelStore.model.combinations;
   const typeOf = new Map(cases.map((c) => [c.id, String(c.type)]));
   const byType = (ids: readonly number[]) => {
     const want = new Set(ids);
@@ -159,11 +193,78 @@ export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nam
   };
 }
 
+function prepareCombinationCases(
+  p: LoadPlan, nameOf: ApplyLoadPlanOptions['nameOf'], scope: ReplaceScope, replaced?: ReplaceScope['generated'],
+) {
+  const removed = new Set(scope.defaults.cases);
+  const retained = modelStore.loadCases.filter(c => !removed.has(c.id));
+  const projected = new Map(retained.map(c => [c.id, c]));
+  let virtualId = retained.reduce((id, c) => Math.min(id, c.id - 1), -1);
+  const bindings = p.cases.map(planned => {
+    const name = nameOf(planned.nameKey, planned.nameParams);
+    const available = [...projected.values()];
+    const found = findPlannedCase(available, name, planned.type, planned);
+    const pc = { ...planned, group: found?.group ?? planned.group };
+    const projectedCase: LoadCase = {
+      ...found,
+      autoLoadsRetired: undefined,
+      id: found?.id ?? virtualId--,
+      name: found?.name ?? plannedCaseName(available, name, pc.type, pc),
+      type: found?.type ?? pc.type,
+      group: pc.group,
+      alternatives: pc.alternatives || found?.alternatives,
+      pattern: pc.pattern || undefined,
+      snowBasis: pc.snowBasis,
+    };
+    projected.set(projectedCase.id, projectedCase);
+    return { pc, name, projectedId: projectedCase.id, targetName: projectedCase.name };
+  });
+  const planIds = new Set(bindings.map(b => b.projectedId));
+  const removedLoads = new Set(replaced?.loads);
+  const replacedCaseIds = new Set(modelStore.loads.filter(l => removedLoads.has(l.data.id)).map(l => l.data.caseId ?? 1));
+  const occupied = loadCasesWithDirectEffects({
+    loadCases: retained,
+    loads: modelStore.loads.filter(l => !removedLoads.has(l.data.id)),
+    analysis: modelStore.model.analysis,
+  });
+  const supplementedTypes = new Set(p.cases.filter(c => c.own || c.type === 'Lr').map(c => c.type.toUpperCase()));
+  const cases = [...planIds].map(id => projected.get(id)!);
+  const retainedCases: LoadCase[] = [];
+  const caseRetirement = new Map<number, true | undefined>();
+  for (const c of retained) {
+    if (isCompositeCase(c)) continue;
+    if (planIds.has(c.id)) {
+      if (c.autoLoadsRetired === true) caseRetirement.set(c.id, undefined);
+      continue;
+    }
+    const empty = !occupied.has(c.id);
+    const retiredNow = empty && replacedCaseIds.has(c.id);
+    if (retiredNow && c.autoLoadsRetired !== true) caseRetirement.set(c.id, true);
+    const candidate = eligibleCombinationCase(retiredNow ? { ...c, autoLoadsRetired: true } : c, !empty);
+    if (!candidate || (empty && candidate.generated)) continue;
+    if (supplementedTypes.has((candidate.type ?? '').toUpperCase())) cases.push(candidate);
+    else retainedCases.push(candidate);
+  }
+  return { bindings, cases, retainedCases, caseRetirement };
+}
+
+export function previewLoadPlan(
+  p: LoadPlan, nameOf: ApplyLoadPlanOptions['nameOf'], options: Parameters<typeof describePlanDelta>[2],
+) {
+  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf);
+  const replaced = options.replaceExisting ? replacementFromScope(scope, options.alsoUnmarked) : undefined;
+  const { cases, retainedCases } = prepareCombinationCases(p, nameOf, scope, replaced);
+  return describePlanDelta(p, describeCurrentLoads(scope), { ...options, retainedCases }, cases);
+}
+
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
   if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return p.blockedKeys[0];
   const expandOptions = { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions };
+  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, opts.nameOf);
+  const replaced = opts.clearExisting ? replacementFromScope(scope, opts.alsoUnmarked) : undefined;
+  const { bindings, cases, retainedCases, caseRetirement } = prepareCombinationCases(p, opts.nameOf, scope, replaced);
+  const expanded = expandPlannedCombinations(p, { ...expandOptions, retainedCases }, cases);
   if (hasModalSeismicDerivation(p.derivation) || (p.cases.some(c => c.type === 'E') && p.seismicGeneration !== 'static')) {
-    expandPlannedCombinations(p, expandOptions);
     return msg(MODAL_SEISMIC_UNAVAILABLE);
   }
   modelStore.batch(() => {
@@ -178,24 +279,19 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
       levels: (p.seismicModel?.levels ?? p.levels).map(({ nodeIds: _n, ...l }) => l), ...(p.seismic ? { seismic: p.seismic } : {}),
       derivation: p.derivation, assumptions: p.assumptions, refs: p.refs,
     } });
-    {
-      const { defaults } = replaceScope(p, modelStore.loads, modelStore.model.loadCases, modelStore.model.combinations, opts.nameOf);
-      for (const id of defaults.combinations) modelStore.removeCombination(id);
-      for (const id of defaults.cases) modelStore.removeLoadCase(id);
-    }
-    if (opts.clearExisting) {
-      const gone = replacedByPlan(p, modelStore.loads, modelStore.model.loadCases, modelStore.model.combinations, { alsoUnmarked: opts.alsoUnmarked, nameOf: opts.nameOf });
-      const ids = new Set(gone.loads);
+    for (const id of scope.defaults.combinations) modelStore.removeCombination(id);
+    for (const id of scope.defaults.cases) modelStore.removeLoadCase(id);
+    if (replaced) {
+      const ids = new Set(replaced.loads);
       modelStore.replaceLoads(modelStore.loads.filter((l) => !ids.has(l.data.id)));
-      for (const id of gone.combinations) modelStore.removeCombination(id);
       const types = new Set(p.cases.map((c) => String(c.type)));
       for (const g of [...modelStore.model.groups.values()]) {
         const def = g.kind === 'floorLoad' ? g.data as unknown as FloorLoadDef & { generatedBy?: string } : null;
         if (def?.generatedBy && types.has(modelStore.model.loadCases.find((c) => c.id === def.caseId)?.type ?? '')) modelStore.removeGroup(g.id);
       }
-      // And the composite cases the generator wrote for them, which nothing takes now: they
-      // stayed, solved and listed (`takeBackCompositeCases`).
-      takeBackCompositeCases();
+    }
+    for (const [id, autoLoadsRetired] of caseRetirement) {
+      modelStore.updateLoadCaseFields(id, { autoLoadsRetired });
     }
     if (modelStore.loads.some(l => !legacySeismic.has(l.data.id) && fromLoadPlan((l.data as { generatedBy?: string }).generatedBy))) {
       patchDesignData({ loadBasis: { ...designData().loadBasis!, resultsVersion: Math.min(before, RESULTS_VERSION) } });
@@ -208,9 +304,13 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     const caseIds: number[] = [];
     const caseIdByType = new Map<string, number[]>();
     const existingCases = new Set(modelStore.loadCases.map(c => c.id));
-    for (const pc of p.cases) {
-      const name = opts.nameOf(pc.nameKey, pc.nameParams);
-      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced, snowBasis: pc.snowBasis });
+    const caseIdByProjectedId = new Map<number, number>();
+    for (const { pc, name, projectedId, targetName } of bindings) {
+      const bound = caseIdByProjectedId.get(projectedId);
+      const id = bound !== undefined || existingCases.has(projectedId)
+        ? modelStore.ensureLoadCase(name, pc.type, { ...pc, existingId: bound ?? projectedId })
+        : modelStore.addLoadCase(targetName, pc.type, pc);
+      caseIdByProjectedId.set(projectedId, id);
       if (!existingCases.has(id)) modelStore.markLoadCaseAxisNamed(id);
       if (pc.snowBasis === 'flatRoof') modelStore.updateLoadCaseFields(id, { solve: false });
       caseIds.push(id);
@@ -263,29 +363,16 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
       modelStore.addGroup(name, 'floorLoad', {}, { data: def as unknown as Record<string, unknown> });
     }
 
-    // The user's own cases of a type the plan generates into a group of its own (the live load
-    // with its patterns, the two senses of ΔT) are not the plan's: they stay outside the group,
-    // and without this every combination of the type left them out. They go in as plain cases,
-    // summed at the type's factor beside whichever alternative of the group a combination takes.
-    // Cases an earlier apply made for the group and this plan no longer uses stay out.
-    const planIds = new Set(caseIds);
-    const ownGroups = new Set(p.cases.filter((c) => c.own && c.alternatives).map((c) => c.alternatives!));
-    for (const type of new Set(p.cases.filter((c) => c.own).map((c) => c.type))) {
-      const list = caseIdByType.get(type)!;
-      for (const lc of modelStore.model.loadCases) {
-        if (lc.type === type && !planIds.has(lc.id) && !(lc.alternatives && ownGroups.has(lc.alternatives))) list.push(lc.id);
-      }
-    }
-
-    // One combination per wind or seismic case, never two directions in one. Wind from −X and
-    // −Y is generated as cases of its own (`wind-cases.ts`); earthquake is reversed by the sign.
-    // The part of its action a planned case holds (a roof's live load of another category, `PlannedCase.group`).
-    const groupOf = new Map(p.cases.flatMap((pc, i) => (pc.group ? [[caseIds[i]!, pc.group] as const] : [])));
-    const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => {
-      const lc = modelStore.model.loadCases.find((c) => c.id === id);
-      return { id, type, name: lc?.name ?? type, ...(lc?.snowBasis ? { snowBasis: lc.snowBasis } : {}), ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc?.pattern ? { pattern: true } : {}), ...(groupOf.has(id) ? { group: groupOf.get(id) } : {}) };
+    const combinations = expanded.map(combination => ({
+      ...combination,
+      factors: combination.factors.map(f => ({ ...f, caseId: caseIdByProjectedId.get(f.caseId) ?? f.caseId })),
     }));
-    addGeneratedCombinations(expandCombinations(p.combinations, planned, expandOptions));
+    if (replaced) {
+      replacePlanCombinations(combinations, replaced.combinations);
+      takeBackCompositeCases();
+    } else {
+      addGeneratedCombinations(combinations);
+    }
 
     // What the generator wrote says so, for the next "replace".
     const by = p.generatedBy ?? 'generator';

@@ -1,0 +1,7 @@
+paths:
+  .github/workflows/nightly.yml:
+    ignore:
+      - '^unexpected key "queue" for "concurrency" section\.'
+  .github/workflows/replay-findings.yml:
+    ignore:
+      - '^unexpected key "queue" for "concurrency" section\.'

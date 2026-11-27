@@ -1,0 +1,34 @@
+{
+  "id": "material-released-rotation",
+  "date": "2026-11-25",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "allOf": [["space3D"], ["hinges"], ["analysis:nonlinear"]]
+  },
+  "quantities": ["solve.ok", "displacements.rx", "displacements.ry", "displacements.rz"],
+  "title": {
+    "en": "Released tip rotations in spatial material analysis",
+    "es": "Giros de extremo liberados en el análisis material espacial",
+    "pt": "Rotações de extremidade liberadas na análise material espacial",
+    "de": "Freigegebene Endverdrehungen in der räumlichen Materialanalyse",
+    "fr": "Rotations d’extrémité libérées en analyse matérielle spatiale",
+    "hu": "Felszabadított végelfordulások térbeli anyagi számításban",
+    "tr": "Uzaysal malzeme analizinde serbest bırakılmış uç dönmeleri",
+    "zh": "空间材料分析中的端部转动释放"
+  },
+  "explanation": {
+    "en": "Spatial material analysis selects a unique representative for an isolated released tip rotation that carries no load work. Re-run affected analyses.",
+    "es": "El análisis material espacial selecciona un representante único para un giro de extremo aislado y liberado en el que ninguna carga realiza trabajo. Repita los análisis afectados.",
+    "pt": "A análise material espacial seleciona um representante único para uma rotação de extremidade isolada e liberada na qual nenhuma carga realiza trabalho. Refaça as análises afetadas.",
+    "de": "Die räumliche Materialanalyse wählt eine eindeutige Darstellung für eine isolierte freigegebene Endverdrehung, an der keine Last Arbeit verrichtet. Wiederholen Sie betroffene Berechnungen.",
+    "fr": "L’analyse matérielle spatiale choisit un représentant unique pour une rotation d’extrémité isolée et libérée sur laquelle aucune charge ne travaille. Relancez les analyses concernées.",
+    "hu": "A térbeli anyagi számítás egyértelmű megoldást választ olyan elszigetelt, felszabadított végelfordulás esetén, amelyen a terhelés nem végez munkát. Futtassa újra az érintett számításokat.",
+    "tr": "Uzaysal malzeme analizi, yükün iş yapmadığı yalıtılmış bir serbest uç dönmesi için tek bir temsilci seçer. Etkilenen analizleri yeniden çalıştırın.",
+    "zh": "对于荷载不做功的孤立端部转动释放方向，空间材料分析选取唯一的代表解。请重新运行受影响的分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-material-released-rotation.md",
+    "heading": "Released tip rotations in spatial material analysis"
+  }
+}

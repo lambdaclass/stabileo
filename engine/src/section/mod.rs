@@ -3,6 +3,7 @@
 //! Computes geometric properties (area, centroid, moments of inertia, section moduli,
 //! plastic moduli, torsion constant) from polygon vertices or compound sections.
 
+use crate::types::unique_table;
 use serde::{Deserialize, Serialize};
 
 pub mod bending;
@@ -39,7 +40,7 @@ pub struct SectionInput {
     pub polygons: Vec<SectionPolygon>,
     /// Modular ratios for compound sections. Maps material_id -> ratio (relative to base material).
     /// Material 0 has ratio 1.0 by default.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "unique_table::modular_ratios")]
     pub modular_ratios: std::collections::HashMap<usize, f64>,
 }
 

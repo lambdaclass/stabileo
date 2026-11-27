@@ -18,15 +18,17 @@ import { t, tp } from '../i18n';
 import { buildSolverInput3D } from '../engine/solver-service';
 import { withoutSettlement } from '../engine/settlement-case';
 import { buildPath3D } from '../engine/moving-loads-3d';
-import { alignSecondLine, passCount, positionPasses, trainModelLoads } from '../engine/vehicles';
+import { alignSecondLine, movingGroup, passCount, positionPasses, trainModelLoads } from '../engine/vehicles';
 import { errorText } from '../utils/error-text';
+import { referenceStation } from '../engine/moving-axle-station';
+import { localizeEngineText } from '../i18n/engine-text';
 import type { LoadTrain } from '../engine/moving-loads';
 
 /** The most cases one run writes: more is a step to widen. */
 export const MAX_POSITION_CASES = 150;
 
 /** The alternatives group of a vehicle's position cases. */
-export const movingGroup = (vehicle: string) => `move:${vehicle}`;
+export { movingGroup };
 
 /**
  * Writes the cases of `trains` (one vehicle's, named `vehicle`) along the path, the second wheel
@@ -38,20 +40,25 @@ export function addPositionCases(
 ): { cases: number; notes: Array<{ key: string; params: Record<string, number> }> } | { error: string } {
   if (trains.length === 0 || trains.every((tr) => tr.axles.every((a) => a.weight === 0))) return { error: t('moving.noAxles') };
   let base: ReturnType<typeof buildSolverInput3D>;
+  let path: ReturnType<typeof buildPath3D>;
+  let raw2: ReturnType<typeof buildPath3D>;
   try {
     base = buildSolverInput3D({ ...modelStore.model, supports: withoutSettlement(modelStore.model.supports) } as never, false, uiStore.axisConvention3D === 'leftHand');
+    if (!base) return { error: t('moving.noModel') };
+    path = buildPath3D(base, pathIds);
+    raw2 = path2Ids.length ? buildPath3D(base, path2Ids) : null;
   } catch (e) {
     // What the builder refuses (a semi-rigid end it cannot model) is said, not thrown past the panel.
-    return { error: errorText(e, 'Error') };
+    return { error: localizeEngineText(errorText(e, 'Error')) };
   }
-  if (!base) return { error: t('moving.noModel') };
-  const path = buildPath3D(base, pathIds);
   if (!path) return { error: t('moving.notAChain') };
-  const raw2 = path2Ids.length ? buildPath3D(base, path2Ids) : null;
   if (path2Ids.length && !raw2) return { error: t('moving.notAChain') };
   const line2 = raw2 ? alignSecondLine(base.nodes, path, raw2, gauge) : null;
   const total = path.reduce((s, p) => s + p.length, 0);
-  const n = trains.reduce((s, tr) => s + passCount(tr, total, step), 0);
+  const endRoundoff = path.at(-1)!.endRoundoff;
+  let n: number;
+  try { n = trains.reduce((s, tr) => s + passCount(tr, total, step, endRoundoff), 0); }
+  catch (error) { return { error: localizeEngineText(errorText(error, 'Error')) }; }
   if (n > MAX_POSITION_CASES) return { error: tp('moving.tooManyPositions', { n, max: MAX_POSITION_CASES, spacings: trains.length }) };
   const group = movingGroup(vehicle);
   // Raw (an i18n key and its values in SI): the panel words them in the display units.
@@ -65,15 +72,26 @@ export function addPositionCases(
     const mine = n + modelStore.model.loadCases.filter((lc) => lc.alternatives === group).length;
     notes.push({ key: 'moving.groupsMultiply', params: { groups: others.size + 1, n: [...others.values()].reduce((p, k) => p * k, mine) } });
   }
-  modelStore.batch(() => {
+  const cases: Array<{ title: string; loads: ReturnType<typeof trainModelLoads> }> = [];
+  try {
     for (const train of trains) {
-      for (const pass of positionPasses(train, total, step)) {
+      for (const pass of positionPasses(train, total, step, endRoundoff)) {
         for (const r of pass.refs) {
-          const id = modelStore.addLoadCase(tp(pass.reversed ? 'moving.positionCaseBack' : 'moving.positionCase', { name: train.name, x: r.toFixed(2) }), 'Tr', { alternatives: group });
-          modelStore.addLoadEntries(trainModelLoads(pass.train, r, path, line2?.path2 ?? null, id));
+          cases.push({
+            title: tp(pass.reversed ? 'moving.positionCaseBack' : 'moving.positionCase', { name: train.name, x: referenceStation(r).toFixed(2) }),
+            loads: trainModelLoads(pass.train, r, path, line2?.path2 ?? null, 0),
+          });
         }
       }
     }
+  } catch (error) {
+    return { error: localizeEngineText(errorText(error, 'Error')) };
+  }
+  modelStore.batch(() => {
+    for (const { title, loads } of cases) {
+      const id = modelStore.addLoadCase(title, 'Tr', { alternatives: group });
+      modelStore.addLoadEntries(loads.map(load => ({ ...load, data: { ...load.data, caseId: id } } as typeof load)));
+    }
   });
-  return { cases: n, notes };
+  return { cases: cases.length, notes };
 }

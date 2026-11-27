@@ -591,28 +591,27 @@ fn nightly_harness_findings_hold() {
     }
 }
 
-/// #1192: a pinned and a rollerX support share node 2. Off the axes the roller
-/// becomes an inclined roller, which the solver will not merge with another
-/// support on the same node, so the image was refused while the original
-/// solved.
 #[test]
-fn shared_node_supports_off_the_axes_are_unrepresentable() {
-    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-1192.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
-    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+fn shared_guided_supports_off_the_axes_are_unrepresentable() {
+    let text = include_str!("../metamorphic_corpus/nightly/issue-1192.json");
+    let crate::corpus::Model::D2(mut s) = crate::corpus::parse(text).unwrap() else { panic!("2D model") };
+    s.nodes.remove("2").unwrap();
+    for support in s.supports.values_mut().filter(|support| support.node_id == 2) {
+        support.support_type = "guidedX".into();
+        support.node_id = 3;
+    }
     linear::solve_2d(&s).unwrap();
     for iso in [Iso2::mirror_line(0.4), Iso2::rotation(0.3)] {
-        assert!(transform_2d(&s, &iso).is_err());
+        let error = transform_2d(&s, &iso).unwrap_err();
+        assert_eq!(error.0, "guided support whose slide direction leaves the axes");
     }
     for iso in [Iso2::mirror_x(), Iso2::rotation(std::f64::consts::FRAC_PI_2)] {
         linear::solve_2d(&transform_2d(&s, &iso).unwrap()).unwrap();
     }
     let mut single = s.clone();
-    single.supports.retain(|_, x| x.support_type != "pinned");
+    single.supports.remove("2");
+    single.supports.get_mut("3").unwrap().support_type = "rollerX".into();
     assert_eq!(transform_2d(&single, &Iso2::rotation(0.3)).unwrap().supports["3"].support_type, "inclinedRoller");
-    let t = crate::tally::Tally::default();
-    let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| a.name == "linear").collect();
-    crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: 2026110204434 }, &crate::case::Case2::new("issue-1192", s), &anas, &["mirror", "rotation"]);
-    assert!(t.failures().is_empty(), "{:?}", t.failures());
 }
 
 /// #959: a cantilever under a purely transverse load has N = 0; its round-off
@@ -642,7 +641,7 @@ fn buckling_without_compression_refuses_in_every_orientation() {
 #[test]
 fn restrained_thermal_compression_buckles_under_a_common_translation() {
     let column = |shift: f64| -> SolverInput {
-        let support = |id: usize| json!({"id": id, "nodeId": id, "type": "fixed", "kx": null, "ky": null, "kz": null, "dx": shift, "dz": shift, "dry": null, "angle": null});
+        let support = |id: usize| json!({"id": id, "nodeId": id, "type": "fixed", "dx": shift, "dz": shift});
         serde_json::from_value(json!({
             "nodes": (1..=5).map(|i| (i.to_string(), json!({"id": i, "x": (i - 1) as f64, "z": 0.0}))).collect::<serde_json::Map<_, _>>(),
             "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
@@ -1101,7 +1100,7 @@ pub(crate) fn gauss_complex(k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize
 fn harmonic_c2_symmetric_frame_matches_direct_solve() {
     use dedaliano_engine::solver::{assembly, dof::DofNumbering, harmonic, mass_matrix};
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-1371.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
-    let c = crate::case::Case3::new("issue-1371", serde_json::from_str(&text).unwrap());
+    let c = crate::case::Case3::new("issue-1371", crate::common::nightly_solver_from_str(&text).unwrap());
     for anti in [false, true] {
         let sym = crate::symmetry::symmetrize_3d(&c.name, &c.s, anti).unwrap();
         let sc = &sym.case;

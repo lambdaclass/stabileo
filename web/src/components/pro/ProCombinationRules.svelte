@@ -16,20 +16,27 @@
   import { downloadText } from '../../lib/store/file';
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
-  import { presentSymbols } from '../../lib/engine/loads/combination-cases';
+  import { modelCombinationCases, presentSymbols } from '../../lib/engine/loads/combination-cases';
   import { loadCodeFor } from '../../lib/codes/families';
   import { regulationsStore } from '../../lib/store/regulations.svelte';
   import {
-    RULE_SYMBOLS, ruleLabel, rulesFromTemplate, rulesToTemplate, specToRule, freshRuleIds, type CombinationRule,
+    RULE_SYMBOLS, ruleLabel, ruleTermSymbol, rulesFromTemplate, rulesToTemplate, specToRule, freshRuleIds, type CombinationRule,
   } from '../../lib/engine/loads/combination-rules';
-  import type { LoadSymbol } from '../../lib/codes/cirsoc101/combinations';
+  import type { CombinationTerm, LoadSymbol } from '../../lib/codes/cirsoc101/combinations';
   import { ruleLibrary, type RuleTemplate } from '../../lib/store/rule-library.svelte';
 
   const rules = $derived(modelStore.combinationRules);
   let fileInput = $state<HTMLInputElement | null>(null);
 
+  const columns = RULE_SYMBOLS.flatMap<Pick<CombinationTerm, 'symbol' | 'snowBasis'>>(symbol =>
+    symbol === 'S' ? [{ symbol }, { symbol, snowBasis: 'flatRoof' }] : [{ symbol }]);
   const nextId = () => freshRuleIds(rules, 1)[0]!;
-  const factorOf = (r: CombinationRule, s: LoadSymbol) => r.terms.find((x) => x.symbol === s)?.factor ?? 0;
+
+  const matchesFactor = (symbol: LoadSymbol, snowBasis: CombinationTerm['snowBasis']) =>
+    (term: CombinationTerm) => term.symbol === symbol && term.group === undefined && term.snowBasis === snowBasis;
+
+  const factorOf = (rule: CombinationRule, symbol: LoadSymbol, snowBasis: CombinationTerm['snowBasis']) =>
+    rule.terms.filter(matchesFactor(symbol, snowBasis)).reduce((sum, term) => sum + term.factor, 0);
 
   function write(next: CombinationRule[]) { modelStore.setCombinationRules(next); }
 
@@ -37,12 +44,23 @@
     write([...rules, { id: nextId(), purpose: 'strength', terms: [{ symbol: 'D', factor: 1.2 }] }]);
   }
 
-  function setFactor(id: string, s: LoadSymbol, raw: string) {
-    const f = raw.trim() === '' ? 0 : Number(raw.replace(',', '.'));
-    if (!Number.isFinite(f)) return;
-    write(rules.map((r) => r.id !== id ? r : {
-      ...r, terms: [...r.terms.filter((x) => x.symbol !== s), ...(f !== 0 ? [{ symbol: s, factor: f }] : [])]
-        .sort((a, b) => RULE_SYMBOLS.indexOf(a.symbol) - RULE_SYMBOLS.indexOf(b.symbol)),
+  function setFactor(id: string, symbol: LoadSymbol, raw: string, snowBasis?: CombinationTerm['snowBasis']) {
+    const factor = raw.trim() === '' ? 0 : Number(raw.replace(',', '.'));
+    if (!Number.isFinite(factor)) return;
+    const matches = matchesFactor(symbol, snowBasis);
+    write(rules.map(rule => {
+      if (rule.id !== id) return rule;
+      const index = rule.terms.findIndex(matches);
+      const terms = rule.terms.filter(term => !matches(term));
+      if (factor !== 0) {
+        const replacement = { ...rule.terms[index], symbol, factor, ...(snowBasis ? { snowBasis } : {}) };
+        if (index >= 0) terms.splice(index, 0, replacement);
+        else {
+          terms.push(replacement);
+          terms.sort((a, b) => RULE_SYMBOLS.indexOf(a.symbol) - RULE_SYMBOLS.indexOf(b.symbol));
+        }
+      }
+      return { ...rule, terms };
     }));
   }
 
@@ -58,7 +76,7 @@
 
   /** Start from the bound basis code (CIRSOC 101 without one), strength and service, for the loads the model has. */
   function seed() {
-    const present = presentSymbols(modelStore.model.loadCases);
+    const present = presentSymbols(modelCombinationCases(modelStore.model));
     const b = basis;
     const specs = runEngineAction(() => (b
       ? [...b.strength({ present }).combinations, ...b.service({ present })]
@@ -108,7 +126,9 @@
     <div class="cr-wrap">
       <table class="cr-table">
         <thead>
-          <tr><th>{t('combos.rules.purpose')}</th>{#each RULE_SYMBOLS as s (s)}<th>{s}</th>{/each}<th></th></tr>
+          <tr><th>{t('combos.rules.purpose')}</th>{#each columns as { symbol, snowBasis } (snowBasis ?? symbol)}
+            <th title={snowBasis ? t('snow.case.flatRoof') : undefined}>{ruleTermSymbol(symbol, snowBasis)}</th>
+          {/each}<th></th></tr>
         </thead>
         <tbody>
           {#each rules as r (r.id)}
@@ -119,14 +139,15 @@
                   <option value="service">{t('combos.rules.service')}</option>
                 </select>
               </td>
-              {#each RULE_SYMBOLS as s (s)}
-                <td><input type="text" class="cr-f" inputmode="decimal" value={factorOf(r, s) || ''}
-                  onchange={(e) => setFactor(r.id, s, e.currentTarget.value)} aria-label={`${s} · ${ruleLabel(r)}`}
-                  data-testid="combo-rule-{r.id}-{s}" /></td>
+              {#each columns as { symbol, snowBasis } (snowBasis ?? symbol)}
+                <td><input type="text" class="cr-f" inputmode="decimal" value={factorOf(r, symbol, snowBasis) || ''}
+                  onchange={(e) => setFactor(r.id, symbol, e.currentTarget.value, snowBasis)}
+                  aria-label={`${snowBasis ? t('snow.case.flatRoof') : symbol} · ${ruleLabel(r)}`}
+                  data-testid={`combo-rule-${r.id}-${symbol}${snowBasis ? `-${snowBasis}` : ''}`} /></td>
               {/each}
               <td><button class="cr-x" onclick={() => remove(r.id)} aria-label={t('combos.rules.remove')}>×</button></td>
             </tr>
-            <tr class="cr-label"><td colspan={RULE_SYMBOLS.length + 2}>{ruleLabel(r)}</td></tr>
+            <tr class="cr-label"><td colspan={columns.length + 2}>{ruleLabel(r)}</td></tr>
           {/each}
         </tbody>
       </table>

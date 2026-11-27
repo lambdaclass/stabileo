@@ -69,7 +69,6 @@ export interface LoadModelData extends GravityModel {
    */
   quads?: Map<number, PlanShell>;
   plates?: Map<number, PlanShell>;
-  supports?: ReadonlyMap<number, { nodeId: number }>;
   materials: Map<number, { id: number; rho: number }>;
   /**
    * `alternatives`: the group a case belongs to, a generated full load among its patterns.
@@ -281,6 +280,7 @@ export function windDirectionsOf(w: { directions: { x: boolean; y: boolean }; bo
 // ─── Plan ────────────────────────────────────────────────────────
 
 export interface PlannedCase {
+  group?: string;
   snowBasis?: 'flatRoof';
   /** Existing case id when one matches, else null → a new case is needed. */
   existingId: number | null;
@@ -574,13 +574,14 @@ export function roofWeightOf(model: LoadModelData, layout: GravityLayout, dead: 
       const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, elevationOf(nJ) - elevationOf(nI));
       kN += sectionWeight(sec, el.materialId) * L * share;
     }
-    for (const sq of layout.shellQuads) {
-      if (!layout.roofQuads.has(sq.quadId)) continue;
-      area += sq.area;
-      const q = model.quads?.get(sq.quadId);
+    const roofShells = layout.shellQuads.filter(shell => layout.roofQuads.has(shell.quadId));
+    for (const shell of roofShells) area += shell.area;
+    const structure = roofShells.map(shell => ({ quadId: shell.quadId, surface: shell.area / shell.cos }));
+    for (const shell of structure) {
+      const q = model.quads?.get(shell.quadId);
       const rho = q?.materialId !== undefined ? model.materials.get(q.materialId)?.rho : undefined;
       if (!q || !(q.thickness! > 0) || rho === undefined || !(rho >= 0)) { known = false; continue; }
-      kN += q.thickness! * rho * (sq.area / sq.cos);
+      kN += q.thickness! * rho * shell.surface;
     }
   } catch { known = false; }
   if (!known) return { weight: 'heavy', structure: null };
@@ -789,7 +790,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const panelMode = input.gravity?.mode === 'panels';
   const layout = gravityLayout(input.model, {
     mode: panelMode ? 'panels' : 'width', slab: input.gravity?.slab, spanAxis: input.gravity?.spanAxis, loadEveryPanel: input.gravity?.loadEveryPanel,
-    tributaryWidth: input.tributaryWidth,
+    tributaryWidth: input.tributaryWidth, uniformPressure: !input.roof && !input.snow?.enabled,
   });
   derivation.push(...layout.notes);
   if (layout.oneSided.length > 0) {

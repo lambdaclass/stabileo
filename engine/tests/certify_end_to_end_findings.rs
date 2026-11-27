@@ -63,9 +63,8 @@ fn input_2d(json: &str) -> SolverInput {
 /// with an artificial spring, and the assembled-level certificate certified
 /// the regularised system while the end-to-end check said the model has no
 /// solution; the engine now refuses the load before the solve.
-#[test]
-fn moment_on_fully_hinged_node_2d() {
-    let input = input_2d(
+fn fully_hinged_node_2d() -> SolverInput {
+    input_2d(
         r#"{
       "nodes": {"1": {"id":1,"x":0,"z":0}, "2": {"id":2,"x":1,"z":0}, "3": {"id":3,"x":2,"z":0}},
       "materials": {"1": {"id":1,"e":200000,"nu":0.3}},
@@ -77,7 +76,12 @@ fn moment_on_fully_hinged_node_2d() {
       "supports": {"1": {"id":1,"nodeId":1,"type":"fixed"}, "2": {"id":2,"nodeId":3,"type":"fixed"}},
       "loads": [{"type":"nodal","data":{"nodeId":2,"fx":0,"fz":-10,"my":5}}]
     }"#,
-    );
+    )
+}
+
+#[test]
+fn moment_on_fully_hinged_node_2d() {
+    let input = fully_hinged_node_2d();
     let e = certify_linear_2d_full(&input).err().expect("refused");
     assert!(e.contains("Nodal moment at node 2 is not supported"), "{e}");
     // Without the moment the same model is certified end to end, the
@@ -384,5 +388,93 @@ fn axial_distributed_loads_agree_end_to_end() {
             assert!(*rel_bound < 1e-6, "{rel_bound}");
         }
         other => panic!("{other:?}"),
+    }
+}
+
+fn assembled_spring_candidate_458(input: &SolverInput) -> AnalysisResults {
+    use dedaliano_engine::solver::{assembly, dof::DofNumbering, linear::solve_2d};
+
+    let mut unloaded = input.clone();
+    unloaded.loads.clear();
+    let mut candidate = solve_2d(&unloaded).unwrap();
+    let dofs = DofNumbering::build_2d(input);
+    let stiffness = assembly::assemble_stiffness_2d(input, &dofs);
+    let mut matrix: Vec<_> = stiffness.k.chunks_exact(dofs.n_total).take(dofs.n_free)
+        .flat_map(|row| row[..dofs.n_free].iter().copied()).collect();
+    let loads = assembly::assemble_load_vector_2d(input, &input.loads, &dofs, &[]);
+    let response = dedaliano_engine::linalg::cholesky_solve(&mut matrix, &loads[..dofs.n_free], dofs.n_free).unwrap();
+    for d in &mut candidate.displacements {
+        let value = |local| dofs.map.get(&(d.node_id, local)).and_then(|&g| response.get(g)).copied().unwrap_or(0.0);
+        (d.ux, d.uz, d.ry) = (value(0), value(1), value(2));
+    }
+    candidate
+}
+
+#[test]
+fn issue_458_supplied_2d_certificates_refuse_a_spring_supported_moment() {
+    use dedaliano_engine::certify::{certify_load_cases_2d, certify_results_2d, Certificate};
+    use dedaliano_engine::solver::linear::solve_2d;
+
+    let input = fully_hinged_node_2d();
+    let candidate = assembled_spring_candidate_458(&input);
+    let refusal = solve_2d(&input).unwrap_err();
+    assert!(refusal.contains("Nodal moment at node 2 is not supported"), "{refusal}");
+
+    let mut allowed = input.clone();
+    let SolverLoad::Nodal(load) = &mut allowed.loads[0] else { panic!("expected a nodal load"); };
+    load.my = 0.0;
+    let allowed_result = solve_2d(&allowed).unwrap();
+    let expected = Certificate::Uncertified { reason: refusal };
+    let cases = certify_load_cases_2d(&allowed, &[(&allowed.loads, &allowed_result), (&input.loads, &candidate)]);
+    assert!(cases[0].is_certified(), "{:?}", cases[0]);
+    assert_eq!(cases[1], expected);
+    assert_eq!(certify_results_2d(&input, &candidate), expected);
+}
+
+#[test]
+fn issue_458_supplied_2d_combination_cannot_certify_a_spring_supported_case() {
+    use dedaliano_engine::certify::{combinations::certify_multi_case_results_2d, Certificate};
+    use dedaliano_engine::solver::load_cases::{solve_multi_case_2d, CombinationDef, LoadCase, MultiCaseInput};
+
+    let model = fully_hinged_node_2d();
+    let candidate = assembled_spring_candidate_458(&model);
+    let mut input = MultiCaseInput {
+        solver: model.clone(),
+        load_cases: vec![LoadCase { name: "A".into(), loads: Vec::new() }],
+        combinations: vec![CombinationDef { name: "C".into(), factors: [("A".into(), 1.0)].into() }],
+    };
+    let mut results = solve_multi_case_2d(&input).unwrap();
+    input.load_cases[0].loads = model.loads;
+    results.case_results[0].results = candidate.clone();
+    results.combination_results[0].results = candidate;
+    let certified = certify_multi_case_results_2d(&input, results);
+    let Certificate::Uncertified { reason } = &certified.cases[0].certificate else {
+        panic!("{:?}", certified.cases[0].certificate);
+    };
+    assert!(reason.contains("Nodal moment at node 2 is not supported"), "{reason}");
+    assert!(!certified.combinations[0].certified);
+    assert!(!certified.envelope.certified);
+}
+
+#[test]
+fn issue_458_loaded_hinged_rotation_refuses_in_equivalent_planar_frames() {
+    use dedaliano_engine::metamorphic::transform::{Iso2, transform_2d};
+    use dedaliano_engine::metamorphic::units::{Units, scale_2d};
+    use dedaliano_engine::solver::linear::solve_2d;
+
+    let model = fully_hinged_node_2d();
+    for units in [Units::froude(1.0, 1.0), Units::froude(0.001, 1000.0), Units::froude(25.0, 0.01)] {
+        let scaled = scale_2d(&model, &units);
+        for iso in [Iso2::rotation(0.0), Iso2::rotation(0.37).translated(3.0, -4.0), Iso2::mirror_line(0.4)] {
+            let transformed = transform_2d(&scaled, &iso).unwrap();
+            let error = solve_2d(&transformed).unwrap_err();
+            assert!(error.contains("Nodal moment at node 2 is not supported"), "{error}");
+            let error = certify_linear_2d_full(&transformed).unwrap_err();
+            assert!(error.contains("Nodal moment at node 2 is not supported"), "{error}");
+            let mut held = transformed;
+            held.elements.get_mut("1").unwrap().hinge_end = false;
+            solve_2d(&held).unwrap();
+            assert!(certify_linear_2d_full(&held).unwrap().certificate.is_certified());
+        }
     }
 }

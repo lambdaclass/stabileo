@@ -10,6 +10,8 @@
  *
  * Pure: no store.
  */
+import { agrees, Sum } from '../accounting-math';
+import { refuseGravityGeometry } from './gravity-shell-partition';
 import { widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { adjacentSpanPatterns, layoutSpans, layoutUnits, type Unit } from './plan-spans';
 import { roofLiveLoad, type RoofWeight } from '../../codes/cirsoc101/roof-live';
@@ -99,6 +101,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     massOfQuad: (id) => (isRoofQuad(id) ? roofMass : floorMass),
   };
 
+  const shellsById = new Map(layout.shellQuads.map(shell => [shell.quadId, shell]));
   const lrOf = new Map<number, number>();
   if (roof?.use === 'maintenance') {
     let first: EngineMessage | null = null;
@@ -124,38 +127,82 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   const put = (caseType: AreaCaseType, qOf: (id: number, roof: boolean) => number, qOfQuad: (id: number) => number, perProjection: boolean,
     arrangement?: { index: number; loads: (u: Unit) => boolean }) => {
     const arr = arrangement !== undefined ? { arrangement: arrangement.index } : {};
+    const totals = new Map<number, { input: Sum; output: Sum; magnitude: Sum }>();
+    const add = (z: number, side: 'input' | 'output', force: number) => {
+      const level = totals.get(z) ?? { input: new Sum(), output: new Sum(), magnitude: new Sum() };
+      level[side].add(force);
+      level.magnitude.add(Math.abs(force));
+      totals.set(z, level);
+    };
+    for (const [panel, areas] of layout.panelAreas.entries()) {
+      if (arrangement && !arrangement.loads({ panel })) continue;
+      const { z, roof: atRoof } = layout.panels[panel]!;
+      for (const [id, area] of areas) add(z, 'input', qOf(id, !!roof && atRoof) * area);
+    }
+    for (const m of layout.widthMembers) {
+      if (arrangement && !arrangement.loads({ member: m.elementId })) continue;
+      const pressure = qOf(m.elementId, isRoof(m.elementId));
+      const measure = perProjection ? m.horizontalLength : m.length;
+      const z = layout.zOf.get(m.elementId) ?? 0;
+      if (!m.spans) add(z, 'input', pressure * (i.tributaryWidth * measure));
+      for (const span of m.spans ?? []) add(z, 'input', pressure * (span.width * (span.t1 - span.t0) * measure));
+    }
+    if (!arrangement) for (const shell of layout.shellQuads) {
+      add(shell.z, 'input', qOfQuad(shell.quadId) * (perProjection ? shell.area : shell.cos > 0 ? shell.surface : NaN));
+    }
+
+    const distributedStart = out.distributed.length, nodalStart = out.nodal.length, surfaceStart = out.surface.length;
+    const levels = new Map<AreaLoad | AreaPoint, number>();
     for (const p of layout.pieces) {
-      if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;
+      if (arrangement && !arrangement.loads({ panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
       if (q === 0 || (p.wI === 0 && p.wJ === 0)) continue;
       out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr, ...(roof && p.roof ? { roof: true as const } : {}) });
+      levels.set(out.distributed.at(-1)!, layout.panels[p.panel]!.z);
       if (arrangement === undefined) out.planned.add(caseType);
     }
     for (const p of layout.points) {
-      if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;
+      if (arrangement && !arrangement.loads({ panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
-      if (Math.abs(q * p.w) <= 1e-3) continue;
+      if (q * p.w === 0) continue;
       out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, carrier: p.elementId, ...arr, ...(roof && p.roof ? { roof: true as const } : {}) });
+      levels.set(out.nodal.at(-1)!, layout.panels[p.panel]!.z);
+      if (arrangement === undefined) out.planned.add(caseType);
     }
     for (const m of layout.widthMembers) {
-      if (arrangement !== undefined && !arrangement.loads({ member: m.elementId })) continue;
-      // Along global Z in both gravity modes. The width mode used to load along local z, per
-      // metre of member: on a sloped member that is the load turned off the vertical, with a
-      // horizontal thrust, and the live loads per sloped metre instead of per metre of plan.
+      if (arrangement && !arrangement.loads({ member: m.elementId })) continue;
+      const pressure = qOf(m.elementId, isRoof(m.elementId));
       for (const s of widthSpans(m, i.tributaryWidth)) {
-        const q = -qOf(m.elementId, isRoof(m.elementId)) * s.width;
+        const q = -pressure * s.width;
         if (q === 0) continue;
         const span = m.spans ? { a: s.t0 * m.length, b: s.t1 * m.length } : {};
         out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr, ...(isRoof(m.elementId) ? { roof: true as const } : {}) });
+        levels.set(out.distributed.at(-1)!, layout.zOf.get(m.elementId) ?? 0);
         if (arrangement === undefined) out.planned.add(caseType);
       }
     }
-    // A slab of shells is a mesh, not panels: its arrangements are not drawn here.
-    if (arrangement !== undefined) return;
-    for (const sq of layout.shellQuads) {
-      // `SurfaceLoad3D` is per m² of shell: a load per plan m² on a sloped one is scaled by cos.
+    if (!arrangement) for (const sq of layout.shellQuads) {
       const q = qOfQuad(sq.quadId) * (perProjection ? sq.cos : 1);
       if (q > 0) { out.surface.push({ quadId: sq.quadId, caseType, q, ...(isRoofQuad(sq.quadId) ? { roof: true as const } : {}) }); out.planned.add(caseType); }
+    }
+
+    for (const load of out.distributed.slice(distributedStart)) {
+      const geometry = layout.memberMeasures.get(load.elementId);
+      const length = geometry?.length ?? NaN;
+      const span = (load.b ?? length) - (load.a ?? 0);
+      const projection = load.frame === 'projected' ? (geometry?.horizontalLength ?? NaN) / length : 1;
+      const mean = load.q / 2 + (load.qJ ?? load.q) / 2;
+      add(levels.get(load)!, 'output', -mean * span * projection);
+    }
+    for (const load of out.nodal.slice(nodalStart)) add(levels.get(load)!, 'output', -load.fz);
+    for (const load of out.surface.slice(surfaceStart)) {
+      const shell = shellsById.get(load.quadId)!;
+      add(shell.z, 'output', load.q * shell.surface);
+    }
+    for (const [z, total] of totals) {
+      if (!agrees(total.output.value, total.input.value, total.magnitude.value)) {
+        refuseGravityGeometry(msg('loadPlan.gravity.caseResultant', { z, action: caseType }));
+      }
     }
   };
 

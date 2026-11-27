@@ -21,6 +21,7 @@
  * Local y is the displayed axis, which the left-handed convention flips (`member-loads.ts`).
  */
 import { tp } from '../i18n';
+import { planarNodalMomentRefusal } from './model-input-numbers';
 import type { SolverLoad3D } from './types-3d';
 import { dot, type MemberAxes, type MemberRef, type Vec3 } from './member-loads';
 import { transverseSign } from './transverse-sign-2d';
@@ -54,6 +55,14 @@ export function pointGlobal(d: PointLoad3DLike, axes: MemberAxes, leftHand = fal
   const ys = leftHand ? -1 : 1;
   const onAxes = (x: number, y: number, z: number): Vec3 => add3(add3(scale3(axes.ex, x), axes.ey, ys * y), axes.ez, z);
   return { F: onAxes(d.px ?? 0, d.py ?? 0, d.pz ?? 0), M: onAxes(d.mx ?? 0, d.my ?? 0, d.mz ?? 0) };
+}
+
+export function localPointForce(axes: MemberAxes, force: Vec3): Vec3 {
+  return [dot(force, axes.ex), dot(force, axes.ey), dot(force, axes.ez)];
+}
+
+export function memberPointForceRow3D(elementId: number, a: number, [px, py, pz]: Vec3): SolverLoad3D {
+  return { type: 'pointOnElement', data: { elementId, a, px, py, pz } };
 }
 
 /** Whether a load needs the member cut where it sits: an axial force or a moment inside the span. */
@@ -150,7 +159,7 @@ export class PlanarLoadMomentError extends Error {}
 export function requirePlanarNodalMoment(fields: PlanarMomentFields & { id?: number; nodeId: number }): number {
   const moment = planarNodalMoment(fields);
   if (moment === null) {
-    throw new PlanarLoadMomentError(tp('svc.planarNodalLoadMomentAliases', { load: fields.id ?? '—', n: fields.nodeId }));
+    throw new PlanarLoadMomentError(planarNodalMomentRefusal(fields.id, fields.nodeId));
   }
   return moment ?? 0;
 }

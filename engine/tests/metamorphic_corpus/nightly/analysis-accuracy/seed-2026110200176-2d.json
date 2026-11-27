@@ -119,8 +119,6 @@
     },
     {
       "data": {
-        "a": null,
-        "b": null,
         "elementId": 4,
         "qI": 3.527659067543894,
         "qJ": 15.196978928932985
@@ -149,9 +147,7 @@
       "data": {
         "a": 5.631182663796894,
         "elementId": 4,
-        "my": null,
-        "p": -26.372649416218998,
-        "px": null
+        "p": -26.372649416218998
       },
       "type": "pointOnElement"
     }
@@ -227,38 +223,19 @@
   "solverOptions": null,
   "supports": {
     "1": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
-      "dz": null,
       "id": 1,
-      "kx": null,
-      "ky": null,
-      "kz": null,
       "nodeId": 1,
       "type": "fixed"
     },
     "2": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
-      "dz": null,
       "id": 2,
-      "kx": null,
-      "ky": null,
       "kz": 4186.751113798896,
       "nodeId": 5,
       "type": "spring"
     },
     "3": {
-      "angle": null,
-      "dry": null,
-      "dx": null,
-      "dz": null,
       "id": 3,
-      "kx": null,
       "ky": 33298.139644956755,
-      "kz": null,
       "nodeId": 7,
       "type": "spring"
     }

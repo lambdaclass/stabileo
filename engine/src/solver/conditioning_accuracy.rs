@@ -132,18 +132,10 @@ pub(super) fn member_balance_2d(input: &SolverInput, loads: &[SolverLoad], dof: 
     checked_balance(stability, &balance, &applied, &u, full.k_full.as_ref().unwrap(), dof, true, fcs)
 }
 
-pub(super) fn member_balance_3d(input: &SolverInput3D, loads: &[SolverLoad3D], dof: &DofNumbering, stability: &Stability, r: &AnalysisResults3D, fcs: Option<&super::constraints::FreeConstraintSystem>) -> Result<(), String> {
-    if !stability.needs_accuracy_check() { return Ok(()); }
-    let mut remainder = input.clone();
-    remainder.elements.clear();
-    remainder.loads = loads.iter().filter(|l| !matches!(l, SolverLoad3D::Distributed(_) | SolverLoad3D::PointOnElement(_) | SolverLoad3D::Thermal(_))).cloned().collect();
-    let asm = assembly::without_artificial_stiffness(|| assembly::assemble_sparse_3d(&remainder, dof, true));
-    let mut u = vec![0.0; dof.n_total];
-    for d in &r.displacements {
-        for (local, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate() {
-            if let Some(i) = dof.global_dof(d.node_id, local) { u[i] = value; }
-        }
-    }
+fn spatial_member_actions(
+    input: &SolverInput3D, loads: &[SolverLoad3D], dof: &DofNumbering,
+    stability: &Stability, forces: &[ElementForces3D],
+) -> Result<Vec<f64>, String> {
     let sections: std::collections::HashMap<_, _> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
     let mut member_loads: std::collections::HashMap<usize, Vec<&SolverLoad3D>> = std::collections::HashMap::new();
     for load in loads {
@@ -157,7 +149,7 @@ pub(super) fn member_balance_3d(input: &SolverInput3D, loads: &[SolverLoad3D], d
     let members = IdIndex::new(input.elements.values(), |e| e.id, stability)?;
     let nodes = IdIndex::new(input.nodes.values(), |n| n.id, stability)?;
     let mut ends = vec![0.0; dof.n_total];
-    for f in &r.element_forces {
+    for f in forces {
         let e = members.get(f.element_id)?;
         let (a, b) = (nodes.get(e.node_i)?, nodes.get(e.node_j)?);
         let (ex, ey, ez) = crate::element::compute_local_axes_3d(a.x, a.y, a.z, b.x, b.y, b.z,
@@ -181,6 +173,84 @@ pub(super) fn member_balance_3d(input: &SolverInput3D, loads: &[SolverLoad3D], d
             if let Some(i) = dof.global_dof(node, 6) { ends[i] += bimoment; }
         }
     }
+    Ok(ends)
+}
+
+pub(super) struct PhysicalFrameSystem<'a> {
+    pub input: &'a SolverInput3D,
+    pub dof: &'a DofNumbering,
+    pub inclined: &'a [assembly::InclinedTransformData],
+    pub constraints: Option<&'a super::constraints::FreeConstraintSystem>,
+    pub prescribed: &'a [f64],
+    pub applied: &'a [f64],
+}
+
+impl PhysicalFrameSystem<'_> {
+    fn represents_stiffness(&self, stability: &Stability) -> bool {
+        let s = self.input;
+        self.dof.dofs_per_node == 6 && stability.free.is_empty()
+            && s.plates.is_empty() && s.quads.is_empty() && s.quad9s.is_empty()
+            && s.curved_shells.is_empty() && s.solid_shells.is_empty()
+            && s.curved_beams.is_empty() && s.connectors.is_empty()
+            && s.elements.values().all(|e| e.elem_type == "frame")
+            && !super::stability::has_member_releases_3d(s)
+            && s.supports.values().all(|support| {
+                super::support::support_dofs_3d(support).iter().all(|d| d.spring.unwrap_or(0.0) == 0.0)
+            })
+    }
+
+    fn residual(&self, stability: &Stability, free: &[f64], inactive: &[usize]) -> Result<Vec<f64>, String> {
+        use super::constraints::MasterMotion;
+        let mut u = self.constraints.map_or_else(
+            || free.to_vec(),
+            |c| c.expand_solution(free, MasterMotion::Prescribed(self.prescribed)),
+        );
+        u.extend_from_slice(self.prescribed);
+        for transform in self.inclined { transform.reverse(&mut u); }
+        let forces = super::linear::compute_internal_forces_3d_with_loads(self.input, &[], self.dof, &u);
+        let mut action = spatial_member_actions(self.input, &[], self.dof, stability, &forces)?;
+        for transform in self.inclined { transform.rotate(&mut action); }
+        action.truncate(self.dof.n_free);
+        for (force, applied) in action.iter_mut().zip(self.applied) { *force = applied - *force; }
+        if let Some(c) = self.constraints { action = c.reduce_vector(&action); }
+        for &dof in inactive { action[dof] = 0.0; }
+        Ok(action)
+    }
+
+    pub(super) fn refine(
+        &self, stability: &Stability, diagonal: &[f64],
+        u: Vec<f64>, solve: impl Fn(&[f64]) -> Vec<f64>, inactive: &[usize],
+    ) -> Result<Vec<f64>, String> {
+        if !stability.needs_accuracy_check() || !self.represents_stiffness(stability) {
+            return Ok(u);
+        }
+        let first = std::cell::Cell::new(true);
+        let (u, resolved) = super::equilibrium::refine_solution(
+            u,
+            |u| Ok(solve(&self.residual(stability, u, inactive)?)),
+            |u, correction| {
+                let check = !first.replace(false);
+                let ratio = super::linear::energy_correction_ratio(u, correction, diagonal);
+                Ok(check && ratio.is_finite() && ratio <= CONDITIONAL_ACCURACY)
+            },
+        )?;
+        if resolved { Ok(u) } else { Err(stability.conditioning_refusal()) }
+    }
+}
+
+pub(super) fn member_balance_3d(input: &SolverInput3D, loads: &[SolverLoad3D], dof: &DofNumbering, stability: &Stability, r: &AnalysisResults3D, fcs: Option<&super::constraints::FreeConstraintSystem>) -> Result<(), String> {
+    if !stability.needs_accuracy_check() { return Ok(()); }
+    let mut remainder = input.clone();
+    remainder.elements.clear();
+    remainder.loads = loads.iter().filter(|l| !matches!(l, SolverLoad3D::Distributed(_) | SolverLoad3D::PointOnElement(_) | SolverLoad3D::Thermal(_))).cloned().collect();
+    let asm = assembly::without_artificial_stiffness(|| assembly::assemble_sparse_3d(&remainder, dof, true));
+    let mut u = vec![0.0; dof.n_total];
+    for d in &r.displacements {
+        for (local, value) in [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz, d.warping.unwrap_or(0.0)].into_iter().enumerate() {
+            if let Some(i) = dof.global_dof(d.node_id, local) { u[i] = value; }
+        }
+    }
+    let mut ends = spatial_member_actions(input, loads, dof, stability, &r.element_forces)?;
     if fcs.is_none() { constraints(&mut ends, dof, &r.constraint_forces, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"]); }
     for it in &asm.inclined_transforms { it.rotate(&mut u); it.rotate(&mut ends); }
     let mut balance = asm.k_full.as_ref().unwrap().sym_mat_vec(&u);
@@ -282,7 +352,11 @@ mod tests {
         v["sections"]["1"]["iy"] = 2e-4.into();
         v["sections"]["1"]["j"] = 1e-5.into();
         for sup in v["supports"].as_object_mut().unwrap().values_mut() {
-            *sup = serde_json::json!({"nodeId":sup["nodeId"],"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true,"dx":sup["dx"]});
+            let dx = sup.as_object_mut().unwrap().remove("dx");
+            *sup = serde_json::json!({"nodeId":sup["nodeId"],"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true});
+            if let Some(dx) = dx {
+                sup["dx"] = dx;
+            }
         }
         serde_json::from_value(v).unwrap()
     }
@@ -564,9 +638,12 @@ mod tests {
     #[test]
     fn nightly_plastic_input_and_minimum_never_panic() {
         let raw = include_bytes!("../../tests/fixtures/plastic-1953-nightly.bin");
-        let original: PlasticInput3D = serde_json::from_slice(&raw[2..]).unwrap();
+        let error = serde_json::from_slice::<PlasticInput3D>(&raw[2..]).err().unwrap();
+        assert!(error.to_string().contains("duplicate key in field `elements`"), "{error}");
+        let last_row_model = serde_json::from_slice::<serde_json::Value>(&raw[2..]).unwrap();
+        let last_row_input: PlasticInput3D = serde_json::from_value(last_row_model).unwrap();
         let minimum: PlasticInput3D = serde_json::from_str(include_str!("../../tests/fixtures/plastic-1953-min.json")).unwrap();
-        for input in [original, minimum] {
+        for input in [last_row_input, minimum] {
             let mut canonical = input.solver.clone();
             canonical.elements = canonical.elements.into_values().map(|e| (e.id.to_string(), e)).collect();
             let expected = super::super::linear::solve_3d(&canonical).unwrap();
@@ -709,8 +786,26 @@ mod tests {
         let expected = super::super::plastic::solve_plastic_2d_unrefused(&canonical).unwrap();
         let actual = super::super::plastic::solve_plastic_2d_unrefused(&rekeyed).unwrap();
         assert_eq!(actual.collapse_factor, expected.collapse_factor);
-        let mut expected = super::super::pdelta::solve_pdelta_2d(&plane, 4, CONDITIONAL_ACCURACY).unwrap();
-        let mut actual = super::super::pdelta::solve_pdelta_2d(&rekeyed_plane, 4, CONDITIONAL_ACCURACY).unwrap();
+        let expected = super::super::pdelta::solve_pdelta_2d(&plane, 4, CONDITIONAL_ACCURACY).err().expect("canonical model must refuse");
+        let actual = super::super::pdelta::solve_pdelta_2d(&rekeyed_plane, 4, CONDITIONAL_ACCURACY).err().expect("rekeyed model must refuse");
+        assert_eq!(actual, expected);
+        let refusal: serde_json::Value = serde_json::from_str(&actual).unwrap();
+        let diagnostic = &refusal["structuredDiagnostics"][0];
+        assert_eq!(diagnostic["code"], "result_quantity_unavailable");
+        assert_eq!(diagnostic["severity"], "error");
+        assert_eq!(diagnostic["phase"], "equilibrium");
+        assert_eq!(diagnostic["threshold"].as_f64(), Some(CONDITIONAL_ACCURACY));
+        let residual = diagnostic["value"].as_f64().unwrap();
+        assert!(residual.is_finite() && residual > CONDITIONAL_ACCURACY);
+
+        let balanced_plane = beam(true);
+        let mut rekeyed = balanced_plane.clone();
+        rekeyed.elements = rekeyed.elements.into_values().map(|e| (format!("member-{}", e.id), e)).collect();
+        let mut expected = super::super::pdelta::solve_pdelta_2d(&balanced_plane, 4, CONDITIONAL_ACCURACY).unwrap();
+        let mut actual = super::super::pdelta::solve_pdelta_2d(&rekeyed, 4, CONDITIONAL_ACCURACY).unwrap();
+        assert!(expected.converged && actual.converged);
+        assert!(crate::certify::finite::non_finite_paths(&actual.results.element_forces).is_empty());
+        assert!(crate::certify::finite::non_finite_paths(&expected.results.element_forces).is_empty());
         actual.results.element_forces.sort_by_key(|f| f.element_id);
         expected.results.element_forces.sort_by_key(|f| f.element_id);
         assert_eq!(serde_json::to_value(&actual.results.element_forces).unwrap(), serde_json::to_value(&expected.results.element_forces).unwrap());

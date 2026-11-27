@@ -21,6 +21,7 @@ describe('metric labels', () => {
     expect(metricLabel('exports', 'report-pdf')).toBe('Informe PDF');
     expect(metricLabel('locales', 'pt')).not.toBe('pt');
     expect(metricLabel('advanced', 'pdelta')).not.toBe('pdelta');
+    expect(metricLabel('gate_actions', 'editor')).toBe('Abrir el editor');
   });
 
   it('falls back to a readable form of an unknown value, and keeps versions as sent', () => {
