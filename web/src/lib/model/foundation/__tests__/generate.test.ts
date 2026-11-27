@@ -199,12 +199,57 @@ it.skip.each(['sync', 'async', 'foundation undo', 'renumber', 'reopen'] as const
 
 it.skip('known wrong result: #1928 renumbering keeps the second carried reaction and the strap endpoint on the same physical points', async () => {
   modelStore.clear();
-  const nodes = [3, 2, 1].map(x => modelStore.addNode(x, 0, 0));
+  const nodes = [2, 3, 1].map(x => modelStore.addNode(x, 0, 0));
   const a = modelStore.addFooting(nodes[0]!);
   const b = modelStore.addFooting(nodes[1]!);
   modelStore.updateFooting(a, { kind: 'combined', supportedNodeIds: [nodes[2]!], straps: [{ toFootingId: b, nodeId: nodes[1]! }] });
   const { renumber } = await import('../../edit/renumber');
   expect(renumber({ nodes: true, members: false, order: 'xyz' })).toHaveProperty('changedNodes');
   const f = modelStore.footings.get(a)!;
-  expect([f.nodeId, ...f.supportedNodeIds!, f.straps![0]!.nodeId!].map(id => modelStore.nodes.get(id)!.x)).toEqual([3, 1, 2]);
+  expect([f.nodeId, ...f.supportedNodeIds!, f.straps![0]!.nodeId!].map(id => modelStore.nodes.get(id)!.x)).toEqual([2, 1, 3]);
+});
+
+it.skip('known wrong result: #1928 strip coverage stops at each authored span endpoint or a different foundation', async () => {
+  modelStore.clear();
+  const { createPlate, planPlateMesh, applyPlateMeshes } = await import('../../../store/physical-plates');
+  const { supportWallBase, wallBaseNodes } = await import('../generate');
+  const outline = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, z]) => modelStore.addNode(x!, 0, z!));
+  const wall = createPlate({ outline, thickness: 0.2, materialId: 1 });
+  if ('problem' in wall) throw Error(wall.problem);
+  expect(applyPlateMeshes([planPlateMesh(wall.id, { size: 1 })!]).refused).toEqual([]);
+  supportWallBase(wall.id);
+  const base = wallBaseNodes(wall.id).sort((a, b) => modelStore.nodes.get(a)!.x - modelStore.nodes.get(b)!.x);
+  expect(base).toHaveLength(5);
+  const id = modelStore.addFooting(base[1]!);
+  modelStore.updateFooting(id, { kind: 'strip', wallGroupId: wall.id, supportedNodeIds: [base[3]!] });
+  const carried = () => new Set([modelStore.footings.get(id)!.nodeId, ...modelStore.footings.get(id)!.supportedNodeIds!]);
+  const ends = new Set([base[1], base[3]]);
+  expect(carried()).toEqual(new Set(base.slice(1, 4)));
+  const saved = modelStore.snapshot();
+  expect(new Set(saved.footings![0]![1].supportedNodeIds)).toEqual(new Set(base.slice(2, 4)));
+  modelStore.clear();
+  modelStore.restore(saved);
+  const pad = modelStore.addFooting(base[2]!);
+  expect(carried()).toEqual(ends);
+  modelStore.removeFooting(pad);
+  expect(carried()).toEqual(new Set(base.slice(1, 4)));
+  modelStore.updateFooting(id, { kind: 'combined' });
+  expect(carried()).toEqual(ends);
+  modelStore.restoreFoundationOnly(saved);
+  const support = [...modelStore.supports.values()].find(s => s.nodeId === base[2])!;
+  modelStore.removeSupport(support.id);
+  expect(carried()).toEqual(ends);
+});
+
+it.skip('known wrong result: #1928 welding a named strap endpoint keeps it on the surviving node', async () => {
+  modelStore.clear();
+  const origin = modelStore.addNode(0, 0, 0);
+  const at = modelStore.addNode(3, 0, 0);
+  const next = modelStore.addNode(3, 0, 0);
+  const id = modelStore.addFooting(origin);
+  const other = modelStore.addFooting(next);
+  modelStore.updateFooting(id, { straps: [{ toFootingId: other, nodeId: at }] });
+  const { mergeNodesInto } = await import('../../edit/cleanup');
+  mergeNodesInto(new Map([[at, next]]));
+  expect(modelStore.footings.get(id)!.straps).toEqual([{ toFootingId: other, nodeId: next }]);
 });
