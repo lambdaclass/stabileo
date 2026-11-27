@@ -6,14 +6,12 @@ import { buildPublicLocales } from './offered-research';
 import { isResearchRoute, researchLocales } from './research-routes';
 import { isGameRoute } from '../game-routes';
 
-declare const __BLOG_TRANSLATIONS__: readonly string[];
+import type { PublicationGroup } from '../../../scripts/blog-translations';
 
-let blogTranslations: ReadonlySet<string> | undefined;
+declare const __BLOG_TRANSLATIONS__: PublicationGroup[];
 
-function translated(entry: string): boolean {
-  if (typeof __BLOG_TRANSLATIONS__ === 'undefined') throw new Error('__BLOG_TRANSLATIONS__ is not defined: every language but en, es and pt would look unwritten');
-  blogTranslations ??= new Set(__BLOG_TRANSLATIONS__);
-  return blogTranslations.has(entry);
+function translationsFor(page: string): readonly string[] {
+  return __BLOG_TRANSLATIONS__.find(group => group.pages.includes(page))?.locales ?? [];
 }
 
 /** PAPER_LOCALES, repeated so /paper and the research pages do not share it as a chunk every route preloads; a test keeps them equal. */
@@ -31,7 +29,8 @@ export function publishedLocales(path: string, flags: PublicFeatures = PUBLIC_PO
   if (route === '/paper') return locales.filter((l) => PAPER_PUBLISHED.includes(l));
   if (route === '/' || route === '/blog' || route === '/examples' || route.startsWith('/examples/') || route === '/tools' || route.startsWith('/tools/') || isGameRoute(route) || route === '/diagram-game') return locales;
   const id = route.startsWith('/blog/') ? route.slice('/blog/'.length) : `page-${route.slice(1)}`;
-  return locales.filter((l) => BASE_LOCALES.some(base => base === l) || translated(`${l}/${id}`));
+  const translated = translationsFor(id);
+  return locales.filter(l => BASE_LOCALES.some(base => base === l) || translated.includes(l));
 }
 
 /** The language a link to `path` opens in for a reader of `locale`: theirs when the page is published in it, else English. */

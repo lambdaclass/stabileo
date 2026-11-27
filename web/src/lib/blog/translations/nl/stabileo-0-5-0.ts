@@ -2,11 +2,11 @@ import type { PostBody } from '../../types';
 
 const body: PostBody = {
   "title": "Stabileo 0.5.0: 23 nieuwe veiligheidsberichten; elk open probleem met foute resultaten waarschuwt of weigert",
-  "excerpt": "Wat er sinds 0.4.0 is veranderd: drieëntwintig fouten die een onjuist of onveilig resultaat konden geven, uitgeschreven als veiligheidsberichten en op één na allemaal opgelost; een waarschuwing of een weigering voor elke fout die nog openstaat; en de stap-voor-stap-cursus in Basic.",
+  "excerpt": "Wat er sinds 0.4.0 is veranderd: drieëntwintig fouten die een onjuist of onveilig resultaat konden geven, uitgeschreven als veiligheidsberichten. Daarvan zijn er 21 opgelost, is de torsietoets onvolledig en blijft 2D plastisch bezwijken geweigerd; een waarschuwing of een weigering voor elke fout die nog openstaat; en de stap-voor-stap-cursus in Basic.",
   "blocks": [
     {
       "k": "p",
-      "t": "Sinds 0.4.0 bleven we Stabileo van meerdere kanten tegelijk controleren: de solver tegen gepubliceerde oplossingen en andere programma’s, de toetsingen tegen uitgewerkte voorbeelden, dezelfde constructie opnieuw genummerd, geschaald en verplaatst, en de bestanden die eerdere releases hebben opgeslagen. Dat leverde nog drieëntwintig fouten op die een onjuist of onveilig resultaat konden geven. Voor elke fout is er een veiligheidsbericht dat zegt wat er mis was, wie het raakt en wat je opnieuw moet controleren. Tweeëntwintig zijn opgelost; 2D plastisch bezwijken (SA-2026-044) blijft geweigerd tot #758 is opgelost."
+      "t": "Sinds 0.4.0 bleven we Stabileo van meerdere kanten tegelijk controleren: de solver tegen gepubliceerde oplossingen en andere programma’s, de toetsingen tegen uitgewerkte voorbeelden, dezelfde constructie opnieuw genummerd, geschaald en verplaatst, en de bestanden die eerdere releases hebben opgeslagen. Dat leverde nog drieëntwintig fouten op die een onjuist of onveilig resultaat konden geven. Voor elke fout is er een veiligheidsbericht dat zegt wat er mis was, wie het raakt en wat je opnieuw moet controleren. Eenentwintig zijn opgelost. De torsietoets is als onvolledig gemarkeerd (SA-2026-040); 2D plastisch bezwijken (SA-2026-044) blijft geweigerd tot #758 is opgelost."
     },
     {
       "k": "note",
@@ -112,7 +112,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "De andere veiligheidsberichten gaan over betonnen elementen met wringing volgens ACI 318 en EN 1992 (SA-2026-040), de randvoorwaarden van een model dat vanuit een Y–Z- of X–Y-vlak naar 2D is gesneden (SA-2026-036), 3D co-roterende analyse met grote rotaties (SA-2026-037), een belasting op t = 0 op een knoop zonder massa in tijdsdomeinanalyse (SA-2026-031), de nul-eigenvorm van een mechanisme in modale analyse (SA-2026-032), de evenwichtscontrole van het rapport na de analyse (SA-2026-034), 2D plastisch bezwijken, dat geweigerd blijft tot #758 is opgelost (SA-2026-044), 3D plastisch bezwijken met een staaf zonder bruikbaar plastisch moment, nu geweigerd (SA-2026-045), harmonische analyse die per belasting koos tussen modale superpositie en de directe oplossing, waardoor de superpositie fout ging (SA-2026-046), rechthoeken en buizen die uit Excel of IFC zijn geïmporteerd met verwisselde Iy en Iz (SA-2026-039) en, voor wie de rekenkern rechtstreeks aanroept, staalafschuiving zonder afschuifoppervlak volgens AISC 360 en EN 1993 (SA-2026-025 en 026)."
+      "t": "De andere veiligheidsberichten gaan over betonnen elementen met wringing volgens ACI 318 en EN 1992 (SA-2026-040), de randvoorwaarden van een model dat vanuit een Y–Z- of X–Y-vlak naar 2D is gesneden (SA-2026-036), 3D co-roterende analyse met grote rotaties (SA-2026-037), een belasting op t = 0 op een massaloze vrijheidsgraad in tijdsdomeinanalyse (SA-2026-031), de nul-eigenvorm van een mechanisme in modale analyse (SA-2026-032), de evenwichtscontrole van het rapport na de analyse (SA-2026-034), 2D plastisch bezwijken, dat geweigerd blijft tot #758 is opgelost (SA-2026-044), 3D plastisch bezwijken met een staaf zonder bruikbaar plastisch moment, nu geweigerd (SA-2026-045), harmonische analyse die per belasting koos tussen modale superpositie en de directe oplossing, waardoor de superpositie fout ging (SA-2026-046), rechthoeken en buizen die uit Excel of IFC zijn geïmporteerd met verwisselde Iy en Iz (SA-2026-039) en, voor wie de rekenkern rechtstreeks aanroept, staalafschuiving zonder afschuifoppervlak volgens AISC 360 en EN 1993 (SA-2026-025 en 026)."
     },
     {
       "k": "h",
@@ -147,7 +147,7 @@ const body: PostBody = {
       "items": [
         "Geweigerd: de 2D-factor voor plastisch bezwijken, die tot 4.6 keer kan veranderen met de nummering, de richting van staven en de eenheden (#758); een knikfactor buiten de grenzen van zijn eigen certificaat (#741); MITC4-schalen op vervormde elementennetten onder aanzienlijke buiging in het vlak (#798); en MITC4- en MITC9-schalen op gedraaide geometrie (#1057).",
         "Gewaarschuwd: onder andere tijdsdomeinanalyse, 3D modale superpositie, bijna singuliere modellen, contact, materieel niet-lineaire analyse en verbindingen met ongelijke stijfheden.",
-        "Behalve wat het weigert, verandert de beperking één getal: de 2D-reactie van een scharnierende oplegging die ook een veer in de vastgehouden richting draagt, bevat nu de kracht van die veer. Elke andere waarde van de 145,515 in het resultatencorpus is identiek."
+        "Behalve wat het weigert, verandert de beperking één getal: de 2D-reactie van een scharnierende oplegging die ook een veer in de vastgehouden richting draagt, bevat nu de kracht van die veer. Elke andere waarde van de 145.515 in het resultatencorpus is identiek."
       ]
     },
     {
@@ -166,7 +166,7 @@ const body: PostBody = {
         "De AI-assistent werkt met je eigen Anthropic- of OpenAI-sleutel, die alleen in je browser wordt bewaard, en /tools heeft live modellen die de rekenkern opnieuw berekent wanneer een schuifregelaar beweegt.",
         "PRO: hoofd- en vergelijkbare verdiepingen, plaatresultaten per eenheidsbreedte met hoofdmomenten en richtingen, het rapport na de analyse, een alleen-lezenweergave met “Dupliceren en bewerken” en een gekoppelde IFC die als 3D-referentie wordt getekend.",
         "Bestanden die zijn opgeslagen door 0.2.0, 0.3.0 en 0.4.0 openen, migreren en geven bij elke wijziging dezelfde resultaten, behalve waar een geregistreerde resultaatwijziging van toepassing is; een bestand dat door een nieuwere versie is opgeslagen, wordt geweigerd met een bericht dat dat zegt.",
-        "Na een eenhedenconversie of hernummering moeten dezelfde fysieke resultaten volgen, gecontroleerd over 17 analysetypen bij elke wijziging en op 8,192 gegenereerde modellen elke nacht.",
+        "Na een eenhedenconversie of hernummering moeten dezelfde fysieke resultaten volgen, gecontroleerd over 17 analysetypen bij elke wijziging en op 8.192 gegenereerde modellen elke nacht.",
         "Ook opgelost: grond-constructie-interactie rapporteert zijn opleggingsreacties, die het vroeger leeg teruggaf (#1675); schalen van twee families met dezelfde nummering worden door de combinaties en omhullenden geweigerd in plaats van dat de ene in plaats van de andere wordt gecombineerd (#1669); en von Mises- en hoofdspanningen van schalen lopen bij extreme ordes van grootte niet meer over of onder, met bitidentieke resultaten in het normale bereik (#1688).",
         "Een project dat is berekend met een versie die een bekende fout met een onjuist resultaat had in een functie die het gebruikt, noemt het veiligheidsbericht totdat het opnieuw wordt berekend (#1657), en projecten leggen elke analyse vast die ze hebben uitgevoerd, zodat een veiligheidsbericht over één analyse blijft staan totdat die analyse opnieuw wordt uitgevoerd (#1663).",
         "Sneller: de automatische opslag elke 30 s slaat een ongewijzigd project over (#1664), een grote 3D-werkruimte heropent met minder afval om op te ruimen (#1668), en gepubliceerde 3D-resultaten worden bevroren zodat de weigeringscontrole voor bekende problemen één keer per resultaat draait (#1689).",

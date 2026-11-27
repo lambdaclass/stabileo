@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { blogTranslations } from '../blog-translations';
 
-it.skip('known wrong result: #2613 — the landing stores a post ID once and preserves partial translation sets', () => {
+it('known wrong result: #2613 — the landing stores a post ID once and preserves partial translation sets', () => {
   const root = mkdtempSync(join(tmpdir(), 'blog-publication-'));
   try {
     for (const lang of ['de', 'nl', 'it']) {

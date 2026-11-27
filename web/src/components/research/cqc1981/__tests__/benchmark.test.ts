@@ -61,7 +61,7 @@ it('dispatches both combinations through production WASM wrappers with the modal
   } finally { vi.restoreAllMocks(); }
 });
 
-const numbers = (v: unknown) => JSON.stringify(v).match(/det\([^)]*\)\s*=\s*0|[+−-]?\d+(?:\.\d+)*(?:[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)?|[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g) ?? [];
+const numbers = (v: unknown) => JSON.stringify(v).match(/ρ = \(V_CQC² − V_SRSS²\) \/ \(2 V₁ V₂\)|det\([^)]*\)\s*=\s*0|[+−-]?\d+(?:\.\d+)*(?:[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)?|[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g) ?? [];
 
 it.each([['−20', '+20'], ['−20', '20'], ['10⁻⁸', '10⁸']])('distinguishes %s from %s in translated benchmark data', (original, mutation) => {
   expect(numbers(original)).not.toEqual(numbers(mutation));
@@ -102,7 +102,7 @@ it('matches the closed form through the real production WASM boundary', async ()
   }
 });
 
-it.skip('known wrong result: #2613 — rejects addition of squared modal base shears in the correlation equation', () => {
+it('known wrong result: #2613 — rejects addition of squared modal base shears in the correlation equation', () => {
   const source = translations.nl.impliedNote;
   expect(numbers(source.replace('V_CQC² − V_SRSS²', 'V_CQC² + V_SRSS²'))).not.toEqual(numbers(source));
 });

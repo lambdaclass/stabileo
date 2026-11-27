@@ -315,7 +315,7 @@ const words: Translations = {
   "course.dynamics.ui.points.hint": "Een puntmassa telt alleen mee voor de dynamische analyse, nooit als belasting. Als je haar wijzigt, worden de eigenvormen opnieuw berekend.",
   "course.dynamics.ui.points.badValue": "De massa moet een getal groter dan of gelijk aan nul zijn.",
   "course.dynamics.ui.points.badNode": "Die knoop zit niet in het model.",
-  "course.dynamics.ui.points.help": "Een puntmassa stelt een geconcentreerd gewicht voor: een tank, een machine, een vloerplaat. De dynamische analyse en de stap-voor-stap-uitleg van deze sectie gebruiken haar.",
+  "course.dynamics.ui.points.help": "Een puntmassa stelt een geconcentreerde massa in ton voor: een tank, een machine, een vloerplaat. De dynamische analyse en de stap-voor-stap-uitleg van deze sectie gebruiken haar.",
   "course.dynamics.ui.sdof.title": "Systeem met één vrijheidsgraad",
   "course.dynamics.ui.sdof.undefined": "niet ingesteld",
   "course.dynamics.ui.sdof.fromModel": "Uit het model",

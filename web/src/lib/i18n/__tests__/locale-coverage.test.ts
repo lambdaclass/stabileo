@@ -37,7 +37,11 @@ function placeholderMismatch(key: string, value: string): string | null {
 function translated(code: string): string[] {
   const dict = ALL_DICTS[code];
   const same = new Set(SAME[code] ?? []);
-  return enKeys.filter((k) => k in dict && (dict[k] !== en[k] || same.has(k) || (k === 'adv.failed' && en[k] === '{analysis}: {error}') || !SAME[code]));
+  return enKeys.filter(key => {
+    if (!(key in dict)) return false;
+    if (key === 'adv.failed' && dict[key] === '{analysis}: {error}') return en[key] === dict[key];
+    return dict[key] !== en[key] || same.has(key) || !SAME[code];
+  });
 }
 
 describe('the languages offered', () => {
@@ -133,7 +137,7 @@ it.each(['it', 'nl'])('#2613 — a changed English failure message needs review 
   }
 });
 
-it.skip.each(['nl', 'it'])('known wrong result: #2613 — an English-only change invalidates the neutral %s template', code => {
+it.each(['nl', 'it'])('known wrong result: #2613 — an English-only change invalidates the neutral %s template', code => {
   const original = en['adv.failed'];
   try {
     en['adv.failed'] = '{analysis} failed: {error}';

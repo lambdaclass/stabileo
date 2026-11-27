@@ -263,30 +263,30 @@ test('known wrong result: #2595 — a static Italian dictionary binding is count
   const copy = '"città"';
   for (const map of ['{en, it}', '{en, it:it}']) {
     const source = `const en={}, it={label:${copy}}; export const a=${map}, b=${map};`;
-    assert.equal(italianCopyBytes(source, ['labels.ts'], parseAst), Buffer.byteLength(copy));
+    assert.equal(localeBytes(source, ['labels.ts']).it, Buffer.byteLength(copy));
   }
 });
 
 test('known wrong result: #2595 — shared bytes inside the largest public chunk retain their own budget', async () => {
-  const { comparePartitions } = await import('./research-route-budget.mjs');
+  const { measureRouteFiles } = await import('./route-locale-bytes.mjs');
   const route = '/en/';
-  const snapshot = (total, copy) => ({
-    routes: { [route]: total }, italian: { [route]: total - 90000 },
-    publicLocales: { en: { total: 90000, italian: 0 }, it: { total, italian: copy } },
-  });
+  const snapshot = (total, copy) => measureRouteFiles([], new Set(['en', 'it']),
+    locale => locale === 'en' ? 90000 : total, new Map([['it', { it: copy, nl: 0 }]]));
   const base = snapshot(100000, 40000);
-  const allowances = { [route]: { bytes: 20000, italianBytes: 20000 } };
-  const check = candidate => comparePartitions(base, candidate, 'true', allowances);
+  const allowances = { [route]: { bytes: 20000, localeLimits: { it: 20000, nl: 0 } } };
+  const check = candidate => reviewRouteGrowth({ [route]: base.bytes }, { [route]: candidate.bytes }, 'true',
+    allowances, { [route]: base.localeSizes }, { [route]: candidate.localeSizes });
   check(snapshot(110000, 50000));
-  assert.throws(() => check(snapshot(100000, 60001)), /Italian copy/);
+  assert.throws(() => check(snapshot(100000, 60001)), /it resource/);
   check(snapshot(100128, 40000));
   assert.throws(() => check(snapshot(100129, 40000)), /research isolation/);
   assert.throws(() => check(snapshot(110000, 40000)), /research isolation/);
 });
 
 test('known wrong result: #2595 — legacy route baselines require measuring the base revision', async () => {
-  const { comparePartitions } = await import('./research-route-budget.mjs');
-  assert.throws(() => comparePartitions({ routes: baseline }, { routes: baseline }), /base revision.*--update/i);
+  const { reviewPartitionedBaseline } = await import('./research-route-budget.mjs');
+  assert.throws(() => reviewPartitionedBaseline({ routes: baseline }, baseline, {}), /base revision.*--update/i);
+});
 
 test('the app footprint counts a separate lazy import of the games registry and its thumbnail', () => {
   const registry = 'src/components/games/games.ts';

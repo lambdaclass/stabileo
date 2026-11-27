@@ -223,10 +223,10 @@ const body: PostBody =  {
     {
       "k": "ul",
       "items": [
-        "Globaal evenwicht: ΣR = P, ongeacht geometrie, materialen of opleggingen.",
+        "Globaal evenwicht: ΣR + ΣF_applied = 0 voor reacties en aangelegde krachten in dezelfde assen, ongeacht geometrie, materialen of opleggingen.",
         "Symmetrie van de stijfheidsmatrix: K = Kᵀ per constructie.",
         "Positieve definietheid van de gereduceerde elastische stijfheidsmatrix van een stabiel, voldoende ondersteund lineair model met positieve staafstijfheden.",
-        "Invariantie onder starrelichaamstransformaties: een model verschuiven of roteren verandert de snedekrachten niet."
+        "Invariantie onder starrelichaamstransformaties: bij een gezamenlijke verschuiving of rotatie van de geometrie, belastingen, oplegrichtingen en lokale assen blijven de lokale snedekrachten gelijk."
       ]
     },
     {

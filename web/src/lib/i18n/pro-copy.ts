@@ -12,7 +12,7 @@ const UNFINISHED: Record<CopyLocale, RegExp> = {
   hu: /fejlesztés alatt|fejlesztési fázis|fejleszt(jük|ik)\b|\bb[eé]t[aá](?:ban\b|verzió|változat|\b)/i,
   it: /sviluppo|\bbeta\b/i,
   zh: /开发中|正在开发|开发阶段|测试版|\b[Bb]eta\b/,
-  nl: /in ontwikkeling|ontwikkelfase|wordt ontwikkeld|\bb[eè]ta(?:versie)?\b/i,
+  nl: /in ontwikkeling|ontwikkelfase|wordt ontwikkeld|\bb[eè]ta(?:versie|fase)?\b/i,
 };
 
 const DESIGN_OR_AI: Record<CopyLocale, RegExp> = {
@@ -27,6 +27,11 @@ const DESIGN_OR_AI: Record<CopyLocale, RegExp> = {
   zh: /设计|配筋|详图|人工智能|\bAI\b/,
   nl: /ontwerp|dimensioneren|dimensionering|wapening|detaillering|kunstmatige intelligentie|\b(AI|KI)\b/i,
 };
+
+function sentenceNamesItalianAI(sentence: string): boolean {
+  if (sentence !== sentence.toUpperCase() || /[’']AI\b/.test(sentence)) return /\bAI\b/.test(sentence);
+  return /\bAI(?=\s+(?:È|IN|PER)(?=\s|[.,;:!?]|$)|[.,;:!?]|$)/.test(sentence);
+}
 
 function sentences(text: string): string[] {
   return text
@@ -45,6 +50,6 @@ function sentences(text: string): string[] {
 export function unfinishedProClaims(text: string, locale: CopyLocale, { aboutPro }: { aboutPro: boolean }): string[] {
   return sentences(text).filter(
     (s) => UNFINISHED[locale].test(s) && !DESIGN_OR_AI[locale].test(s) &&
-      !(locale === 'it' && /\b(?:modulo|assistente|funzion[ei]|strument[oi]) (AI) per\b/i.exec(s)?.[1] === 'AI') && (aboutPro || /\bPRO\b/.test(s)),
+      !(locale === 'it' && sentenceNamesItalianAI(s)) && (aboutPro || /\bPRO\b/.test(s)),
   );
 }

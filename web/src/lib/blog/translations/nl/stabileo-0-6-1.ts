@@ -48,7 +48,7 @@ const body: PostBody =  {
         [
           "SA-2026-068",
           "Hoog",
-          "Torsie kon voldoen met ontoereikende ontworpen beugels (#2141). Bereken betonontwerptoetsingen opnieuw en beoordeel de werkelijke dwarscapaciteit, de beugelafstand en niet-getoetste torsiegevallen. Niet getoetste langswapening is geen voldoende wapeningskorf."
+          "Torsie kon voldoen met ontoereikende ontworpen beugels (#2141). Bereken betonontwerptoetsingen opnieuw en beoordeel de werkelijk aangebrachte dwarswapening, de beugelafstand en de niet-geslaagde en niet-getoetste torsiegevallen. Niet getoetste langswapening is geen voldoende wapeningskorf."
         ]
       ]
     },

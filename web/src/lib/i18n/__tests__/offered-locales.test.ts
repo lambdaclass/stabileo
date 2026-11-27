@@ -70,6 +70,7 @@ describe('the languages the app offers', () => {
     const { store } = await boot(['en']);
     const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'].filter(isComplete)];
     expect(store.OFFERED_LOCALES).toContain('it');
+    expect(store.OFFERED_LOCALES).toContain('nl');
     expect([...store.OFFERED_LOCALES].sort()).toEqual(expected.sort());
   });
 

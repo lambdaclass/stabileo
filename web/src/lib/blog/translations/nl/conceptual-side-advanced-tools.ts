@@ -94,7 +94,7 @@ const body: PostBody =  {
     },
     {
       "k": "p",
-      "t": "De formule voor de graad van onbepaaldheid geeft GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. Nul betekent statisch bepaald, en elk programma dat bij de formule stopt, zal precies dat melden. Maar niets houdt de ligger horizontaal vast: het is een mechanisme en het kan niet worden berekend."
+      "t": "De formule voor de graad van onbepaaldheid geeft GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. De telling geeft nul. Pas na controle van de stabiliteit kan de constructie als statisch bepaald worden ingedeeld. Maar niets houdt de ligger horizontaal vast: het is een mechanisme en het kan niet worden berekend."
     },
     {
       "k": "table",

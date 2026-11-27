@@ -153,14 +153,17 @@ measured = [step for step in route if 'check-research-route-size.mjs' in step.ge
 def check_transition_meter():
     step = next(s for s in route if 'transition' in s.get('name', '').lower())
     assert re.fullmatch(r'[0-9a-f]{40}', step['env']['METER_REV'])
-    assert 'git archive "$METER_REV" web/scripts' in step['run']
-    assert step['run'].count('node "$meter"') == 2
+    assert '.github/scripts/check-initial-locale-budget.sh route-main .' in step['run']
+    script = (root / '.github/scripts/check-initial-locale-budget.sh').read_text()
+    assert 'git -C "$candidate" archive "$METER_REV" web/scripts' in script
+    assert script.count('node "$meter"') == 2
 
 
 def check_meter_dependencies():
-    step = next(s for s in route if 'METER_REV' in s.get('env', {}))
-    assert 'web/package.json web/package-lock.json' in step['run']
-    assert 'npm ci --prefix "$meter_root/web"' in step['run']
+    script = (root / '.github/scripts/check-initial-locale-budget.sh').read_text()
+    assert 'web/package.json web/package-lock.json' in script
+    assert 'node --test "$scratch/web/scripts/research-route-meter.test.mjs"' in script
+    assert 'npm ci --prefix "$scratch/web"' in script
 
 
 check_transition_meter()

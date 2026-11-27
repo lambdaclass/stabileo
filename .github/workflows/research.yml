@@ -136,22 +136,11 @@ jobs:
             export VITE_RESEARCH VITE_TOOLS STABILEO_ROUTE_BUDGET_LEGACY=1
           fi
           nix develop . -c sh -c "cd route-main/web && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json' --update"
-          nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-route-meter.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
-      - name: Compare isolated Italian payloads with the pinned transition meter
+          nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-route-meter.test.mjs scripts/research-route-partitions.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
+      - name: Check measured translation allowances with the pinned transition meter
         env:
-          METER_REV: 30dd216be66c9a5b23193ea2bd7b3e32909ec1a6
+          METER_REV: 219de44e6528c632fdd8629ceba04b9bfdfa0dc2
           RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}
-        run: |
-          if ! jq -e 'has("publicLocales")' "$RUNNER_TEMP/route-main.json" >/dev/null; then
-            meter_root=$(mktemp -d "$RUNNER_TEMP/route-meter.XXXXXX")
-            git archive "$METER_REV" web/scripts web/package.json web/package-lock.json web/src | tar -x -C "$meter_root"
-            .github/scripts/retry-infra.sh nix develop . -c npm ci --prefix "$meter_root/web"
-            meter="$meter_root/web/scripts/check-research-route-size.mjs"
-            (cd route-main/web && nix develop ../.. -c node "$meter" --baseline "$RUNNER_TEMP/route-partition.json" --update)
-            (cd web && nix develop .. -c node "$meter" --baseline "$RUNNER_TEMP/route-partition.json")
-          fi
-      - name: Check measured translation allowances when main still uses pooled allowances
-        if: steps.scope.outputs.research == 'true' && steps.scope.outputs.allowances == 'true'
         run: nix develop . -c bash .github/scripts/check-initial-locale-budget.sh route-main .
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 

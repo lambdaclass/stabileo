@@ -79,9 +79,9 @@ const body: StandingPage['i18n']['en'] =  {
       "items": [
         "Eén model: je tekent of importeert de constructie (DXF, IFC of een Excel-sjabloon) en de toetsingen gebruiken dezelfde krachten als de analyse, zonder iets met de hand over te nemen in een andere spreadsheet.",
         "Belastingen en combinaties volgens CIRSOC 101, 102, 103 en 104 worden gegenereerd uit de projectgegevens.",
-        "Elke staaf eindigt met zijn verhouding vraag/capaciteit en het bepalende artikel, en elke stap kan worden ingezien.",
+        "Alleen voltooide, toepasselijke toetsingen geven de maatgevende verhouding vraag/capaciteit en het bepalende artikel, en elke stap kan worden ingezien.",
         "De solver draait op je computer: het model wordt niet naar een server gestuurd om te worden berekend. De code is open (AGPL-3.0).",
-        "Hetzelfde model geeft altijd dezelfde getallen, en elk rapport legt de versie en de gegevens vast die het hebben voortgebracht."
+        "Dezelfde invoer geeft met dezelfde solverversie dezelfde getallen, en elk rapport legt de versie en de gegevens vast die het hebben voortgebracht."
       ]
     },
     {

@@ -41,11 +41,12 @@ test('The route CLI measures a loaded dictionary and rejects one byte past its i
   assert.equal(legacy.status, 0, legacy.stderr);
   writeFileSync(baseline, JSON.stringify(original));
   const limit = 1321348;
-  dictionary('x'.repeat(limit));
+  const loaded = original.localized['/app/basic'].nl;
+  dictionary('x'.repeat(limit - loaded));
   const boundary = run();
   assert.equal(boundary.status, 0, boundary.stderr);
-  dictionary('x'.repeat(limit + 1));
+  dictionary('x'.repeat(limit - loaded + 1));
   const over = run();
   assert.equal(over.status, 1, over.stderr);
-  assert.match(over.stderr, /nl resource growth 1321349 exceeds 1321348/);
+  assert.match(over.stderr, /nl resource size 1321349 exceeds 1321348/);
 });

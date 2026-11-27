@@ -85,7 +85,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Stabileo is gratis en opensourcesoftware (AGPL-3.0), geleverd zoals ze is, zonder enige vorm van garantie. Voor zover de wet het toestaat is Stabileo SAS niet aansprakelijk voor schade door het gebruik van resultaten zonder passende professionele controle, of voor het verlies van gegevens waarvan je geen back-up hebt gemaakt. Niets hierin beperkt de rechten die de Argentijnse consumentenbeschermingswet 24.240 je verleent, waar die van toepassing is."
+      "t": "De gepubliceerde solver en de Basic-modus zijn gratis opensourcesoftware (AGPL-3.0), geleverd zoals ze zijn, zonder enige vorm van garantie. Voor zover de wet het toestaat is Stabileo SAS niet aansprakelijk voor schade door het gebruik van resultaten zonder passende professionele controle, of voor het verlies van gegevens waarvan je geen back-up hebt gemaakt. Niets hierin beperkt de rechten die de Argentijnse consumentenbeschermingswet 24.240 je verleent, waar die van toepassing is."
     },
     {
       "k": "h",

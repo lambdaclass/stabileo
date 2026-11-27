@@ -25,6 +25,6 @@
   },
   "nl": {
     "openNote": "De rijen met ✗ zijn nog open. Vorm 4 ligt net voorbij de cusp, waar de hoogte snel verandert met de klemhoeken: ons pad bereikt de hoogte uit het artikel bij een Δ die ongeveer 0,08 lager ligt. Met de belasting op de halve overspanning komen onze grensbelastingen 5 tot 7% lager uit, en de bifurcatiekromme waar het artikel zijn optimum vindt, ligt in onze berekeningen ongeveer 0,2 lager in Δ, waardoor ook het punt (0,64, 1,16) uit tabel 1 er precies op ligt. Voor de belasting op de halve overspanning bij (0,96, 0) komt de doorslag terecht in een stabiele toestand met kromming 14,1, niet de 7,6 uit het artikel. De omgekeerde vorm aan het einde van het pad, die overeenkomt met de figuur, heeft een grootste kromming van ongeveer 10,6, boven de drempel van 6 die het artikel voor het pad hanteert. Dit zijn open vragen voor de auteurs.",
-    "runNote": "Verplaats de verre hoek van de rechthoek en bereken opnieuw. Onder de cusp komt de strip terug als boog; voorbij de vouw stopt het pad."
+    "runNote": "Bevestig de wijziging van de verre hoek om de berekening te starten. Onder de cusp komt de strip terug als boog; voorbij de vouw stopt het pad."
   }
 }

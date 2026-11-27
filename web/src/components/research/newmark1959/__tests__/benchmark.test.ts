@@ -96,7 +96,7 @@ describe('Newmark SDOF benchmark', () => {
     checkTemplate(source, translations.it.description);
   });
   it('has complete research translations with every placeholder filled', () => {
-    const values = { L: '1', E: '10', A: '0.01', rho: '300000', m: '1', k: '100', F: '1', omega: '10', T: '0.628319', i: '0', n: '80', t: '0', x: '2.5' };
+    const values = { L: '1', E: '10', A: '0.01', rho: '300000', m: '1', k: '100', F: '7', omega: '10', T: '0.628319', i: '0', n: '80', t: '0', x: '2.5' };
     for (const locale of ['en', 'es', 'pt', 'hu', 'it', 'zh', 'nl'] as const) {
       expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
       expect(Object.values(translations[locale]).every(v => Array.isArray(v) ? v.length === 3 : v.length > 0)).toBe(true);
@@ -110,6 +110,8 @@ describe('Newmark SDOF benchmark', () => {
         });
       }
       checkModelDescription(translations[locale].description);
+      expect(fill(translations[locale].description, values)).toContain('m = ρAL/3 = 1 t');
+      expect(fill(translations[locale].description, values)).toContain('7 kN');
       expect(fill(translations[locale].description, values)).toMatch(/k = EA\/L = 100 kN\/m/);
     }
   });

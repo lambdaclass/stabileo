@@ -690,7 +690,7 @@ const nl: Strings = {
   plane: 'Pad van de actuatoren in het (Θ, Δ)-vlak',
   pathPlot: 'Hoogte van het midden y(1/2) langs het pad',
   stepAxis: 'Stap langs het pad',
-  runNote: 'Elke wijziging wordt live herberekend. Onder de spits komt de strip terug als boog; voorbij de vouw stopt het pad.',
+  runNote: mainCopy.nl.runNote,
   cornerTheta: 'Verre hoek Θ',
   cornerDelta: 'Verre hoek Δ',
   run: 'Live herberekenen', stop: 'Stoppen', restart: 'Opnieuw starten',

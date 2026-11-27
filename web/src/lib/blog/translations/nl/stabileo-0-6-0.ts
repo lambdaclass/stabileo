@@ -43,7 +43,7 @@ const body: PostBody = {
         [
           "SA-2026-051",
           "Hoog",
-          "3D bewegende belastingen misten pieken in het binnenste deel en de component van het eigen gewicht van de as in de lengterichting van de staaf. Bereken omhullenden opnieuw en beoordeel de staafdimensionering en ontwerpbelastingen."
+          "3D bewegende belastingen misten pieken in het binnenste deel en de component van de aslast in de lengterichting van de staaf. Bereken omhullenden opnieuw en beoordeel de staafdimensionering en ontwerpbelastingen."
         ],
         [
           "SA-2026-052",

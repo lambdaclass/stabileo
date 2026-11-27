@@ -25,7 +25,7 @@ export const POST_LASTMOD = new Map<string, string>();
 /** A post's publication day, for its feed entry and its card. */
 export const POST_DATE = new Map<string, string>();
 
-(globalThis as { __BLOG_TRANSLATIONS__?: readonly string[] }).__BLOG_TRANSLATIONS__ ??= blogTranslations(ROOT);
+(globalThis as { __BLOG_TRANSLATIONS__?: ReturnType<typeof blogTranslations> }).__BLOG_TRANSLATIONS__ ??= blogTranslations(ROOT);
 
 /** The languages a public path is written in, which are the only ones it is built, listed and linked in. */
 export function writtenIn(path: string): Locale[] {

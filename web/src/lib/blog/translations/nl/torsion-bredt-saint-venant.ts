@@ -135,7 +135,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Er is nog een term die vaak wordt weggelaten: welving. Wanneer een open doorsnede niet vrij kan welven, omdat ze is ingeklemd of omdat het wringend moment langs de staaf varieert, komt welvingstorsie bovenop de Saint-Venant-torsie. Ook het negeren daarvan leidt tot een onderschatting."
+      "t": "Er is nog een term die vaak wordt weggelaten: welving. Wanneer een open doorsnede niet vrij kan welven, omdat ze is ingeklemd of omdat het wringend moment langs de staaf varieert, komt welvingstorsie bovenop de Saint-Venant-torsie. Een berekening zonder welving mist de normaalspanningen door verhinderde welving en de herverdeling van het wringend moment."
     },
     {
       "k": "h",

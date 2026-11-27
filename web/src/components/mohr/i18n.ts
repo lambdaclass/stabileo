@@ -979,7 +979,7 @@ const nl: Dict = {
   'mohr.title3d': '3D-spanningstoestand',
   'mohr.stressTensor': 'Spanningstensor',
   'mohr.mirror': 'De tensor is symmetrisch, dus de onderste driehoek herhaalt de bovenste.',
-  'mohr.rotation': 'Vlakhoek θ',
+  'mohr.rotation': 'Hoek θ van de vlaknormaal, tegen de klok in vanaf de x-as',
   'mohr.animate': 'Doorlopen',
   'mohr.principal': 'Hoofdspanningen',
   'mohr.rotated': 'Spanningen op het gedraaide element',

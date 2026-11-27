@@ -55,8 +55,8 @@ it.each([
 });
 
 it.each([
-  ["0.6.0", "| [SA-2026-051", "de component van het eigen gewicht van de as in de lengterichting van de staaf"],
-  ["0.6.0", "../results-changes/2026-11-moving-loads-3d.md", "de component van het eigen gewicht van de as in de lengterichting van de staaf"],
+  ["0.6.0", "| [SA-2026-051", "de component van de aslast in de lengterichting van de staaf"],
+  ["0.6.0", "../results-changes/2026-11-moving-loads-3d.md", "de component van de aslast in de lengterichting van de staaf"],
   ["0.6.0", "| [SA-2026-054", "bepaal de getroffen staafkrachten en oplegreacties onafhankelijk"],
   ["0.6.0", "| [SA-2026-063", "de beweging in een voorgeschreven vrijheidsgraad van de masterknoop"],
   ["0.6.0", "../results-changes/2026-11-generated-structure-stability.md", "expliciete oplegvoorwaarden"],
@@ -69,9 +69,9 @@ it.each([
   ["0.6.3", "../results-changes/2026-11-fixture-replay-and-framed-import.md", "import volgens het in het werkboek opgegeven assenstelsel"],
   ["0.6.3", "Vereenvoudigd Chinees ", "relatieve horizontale verplaatsing tussen opeenvolgende verdiepingen"],
   ["0.6.3", "- Er blijven open bevindingen", "oplegreacties in de verhinderde vrijheidsgraden"],
-  ["0.6.3", "- **[SA-2026-056]", "waarvan de berekende respons na hernummeren, rotatie of eenhedenconversie wezenlijk verandert"],
+  ["0.6.3", "- **[SA-2026-056]", "ook als hernummeren, rotatie en eenhedenconversie dezelfde respons geven"],
   ["0.6.4", "- Er blijven open bevindingen", "oplegreacties in de verhinderde vrijheidsgraden"],
-  ["0.6.4", "- **[SA-2026-056]", "waarvan de berekende respons na hernummeren, rotatie of eenhedenconversie wezenlijk verandert"],
+  ["0.6.4", "- **[SA-2026-056]", "ook als hernummeren, rotatie en eenhedenconversie dezelfde respons geven"],
 ])('#2613 — release %s gives the recheck at %s', (version, anchor, expected) => {
   const markdown = readFileSync(new URL(`../../../../../docs/releases/v${version}.nl.md`, import.meta.url), 'utf8');
   const matching = markdown.split('\n').filter(line => line.includes(anchor));

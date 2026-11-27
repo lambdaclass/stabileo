@@ -15,27 +15,27 @@ function compare(before, after, limit) {
     { [route]: before.localeSizes }, { [route]: after.localeSizes });
 }
 
-test.skip('known wrong result: #2613 — first public payload pays for every Dutch byte', () => {
+test('known wrong result: #2613 — first public payload pays for every Dutch byte', () => {
   const base = footprint(0, 0, false);
   compare(base, footprint(10, 0), 10);
   assert.throws(() => compare(base, footprint(11, 0), 10), /nl resource/);
   assert.throws(() => compare(base, footprint(1000, 0), 10), /nl resource/);
 });
 
-test.skip('known wrong result: #2613 — shared growth in a smaller public dictionary has its own limit', () => {
+test('known wrong result: #2613 — shared growth in a smaller public dictionary has its own limit', () => {
   const base = footprint(900, 100);
   compare(base, footprint(900, 228), 1000);
   assert.throws(() => compare(base, footprint(900, 229), 1000), /shared/);
   assert.throws(() => compare(base, footprint(900, 600), 1000), /shared/);
 });
 
-test.skip('known wrong result: #2613 — a binding used by application code cannot earn translation credit', () => {
+test('known wrong result: #2613 — a binding used by application code cannot earn translation credit', () => {
   const dictionary = 'const msg="shared text"; const table={en:"Hello",nl:msg}; publish(table);';
   assert.equal(localeBytes(dictionary, ['shared.ts']).nl, Buffer.byteLength('"shared text"'));
   assert.equal(localeBytes(dictionary + 'log(msg);', ['shared.ts']).nl, 0);
 });
 
-test.skip('known wrong result: #2613 — the shipped Dutch introduction allowance cannot renew', () => {
+test('known wrong result: #2613 — the shipped Dutch introduction allowance cannot renew', () => {
   const limit = 1321348;
   const app = '/app/basic';
   const check = n => reviewRouteGrowth({ [app]: limit }, { [app]: n }, 'true', undefined,
@@ -44,7 +44,7 @@ test.skip('known wrong result: #2613 — the shipped Dutch introduction allowanc
   assert.throws(() => check(limit + 1), /nl resource/);
 });
 
-test.skip('known wrong result: #2613 — the migration comparison obtains its meter independently of candidate files', async () => {
+test('known wrong result: #2613 — the migration comparison obtains its meter independently of candidate files', async () => {
   const { readFileSync } = await import('node:fs');
   const script = readFileSync(new URL('../../.github/scripts/check-initial-locale-budget.sh', import.meta.url), 'utf8');
   assert.match(script, /git .*archive "\$METER_REV"/);

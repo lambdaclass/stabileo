@@ -151,7 +151,7 @@ const labels: Record<string, Record<string, string>> = {
     "hu": "Ritkítás z = 3: G zérus",
     'it': "Diluizione z = 3: G/k < 10⁻⁶",
     "zh": "稀化 z = 3：G 为零",
-    "nl": "Verdunning z = 3: G nul"
+    "nl": "Verdunning z = 3: G/k < 10⁻⁶"
   },
   "dilution-rigid": {
     "es": "Dilución z = 5.4: G/k ≥ 0.1",

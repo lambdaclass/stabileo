@@ -182,7 +182,7 @@ it('uses Italian decimal commas for all three buckling coefficients and their co
   ]);
 });
 
-it.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const)(
+it.each(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'] as const)(
   'known wrong result: #2595 — %s shows both the raw and capped D.3.2 factor',
   locale => {
     const dict = allDictFor(locale);
@@ -215,7 +215,7 @@ it('known wrong result: #2595 — detects the uncapped substitution in the gover
   expect(() => checkCappedTrace('U = min(1 − x̄/L, 0.9) = 0.95  (D.3.2)', 0.9)).toThrow();
 });
 
-it.skip('known wrong result: #2613 — Dutch tension traces show raw and capped values independently', () => {
+it('known wrong result: #2613 — Dutch tension traces show raw and capped values independently', () => {
   for (const key of ['c301.d.uShearLag', 'steel.tc.calc.u']) {
     const trace = allDictFor('nl')[key].replace('{raw}', '0,95').replace('{U}', '0,9').trim();
     checkCappedTrace(trace, 0.9);

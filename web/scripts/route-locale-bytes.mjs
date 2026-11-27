@@ -18,11 +18,16 @@ export function localeBytes(code, moduleIds) {
   if (!dedicated && !/\b(?:it|nl)\b/.test(code)) return bytes;
   const program = parseAst(code);
   const bindings = new Map();
+  const dataReferences = new Set();
+  const exported = new Set();
   for (const statement of program.body) {
     const declaration = statement.declaration ?? statement;
     if (declaration.type !== 'VariableDeclaration' || declaration.kind !== 'const') continue;
     for (const variable of declaration.declarations) {
-      if (variable.id.type === 'Identifier') bindings.set(variable.id.name, variable.init);
+      if (variable.id.type !== 'Identifier') continue;
+      bindings.set(variable.id.name, variable.init);
+      dataReferences.add(variable.id.start);
+      if (statement.type === 'ExportNamedDeclaration') exported.add(variable.id.name);
     }
   }
   const literals = new Map();
@@ -30,6 +35,7 @@ export function localeBytes(code, moduleIds) {
   function attribute(node, locale, resolve) {
     if (!node) return;
     if (node.type === 'Identifier' && resolve) {
+      dataReferences.add(node.start);
       if (!resolved.has(locale)) resolved.set(locale, new Set());
       if (resolved.get(locale).has(node.name)) return;
       resolved.get(locale).add(node.name);
@@ -73,6 +79,24 @@ export function localeBytes(code, moduleIds) {
   } else {
     visit(program, true);
   }
+  const attributed = new Set([...resolved.values()].flatMap(names => [...names]));
+  function checkUse(node) {
+    if (!node?.type) return;
+    if (node.type === 'Identifier' && attributed.has(node.name) && !dataReferences.has(node.start)) {
+      attribute(bindings.get(node.name), 'shared', true);
+    }
+    if (node.type === 'Property' && !node.computed) return checkUse(node.value);
+    if (node.type === 'MemberExpression' && !node.computed) return checkUse(node.object);
+    if (node.type === 'ExportSpecifier') return checkUse(node.local);
+    for (const child of Object.values(node)) {
+      if (Array.isArray(child)) child.forEach(checkUse);
+      else if (child?.type) checkUse(child);
+    }
+  }
+  checkUse(program);
+  if (!dedicated) for (const name of exported) {
+    if (attributed.has(name)) attribute(bindings.get(name), 'shared', true);
+  }
   for (const [node, langs] of literals) {
     if (langs.size !== 1) continue;
     const [lang] = langs;
@@ -94,9 +118,13 @@ export function publicDictionaryFootprint(chunks) {
 
 export function measureRouteFiles(files, publicLocaleChunks, size, chunkLocaleBytes) {
   const rest = [...files].filter(file => !publicLocaleChunks.has(file));
-  const dictionary = publicDictionaryFootprint([...publicLocaleChunks].map(file => ({
-    bytes: size(file), localized: chunkLocaleBytes.get(file) ?? { it: 0, nl: 0 },
-  })));
+  const alternatives = {};
+  for (const [file, locale] of publicLocaleChunks.entries()) {
+    if (Object.hasOwn(alternatives, locale)) throw new Error('Duplicate public dictionary for ' + locale);
+    const localized = chunkLocaleBytes.get(file) ?? { it: 0, nl: 0 };
+    alternatives[locale] = { bytes: size(file), localized };
+  }
+  const dictionary = publicDictionaryFootprint(Object.values(alternatives));
   const localeSizes = { ...dictionary.localized, shared: dictionary.shared };
   let bytes = dictionary.bytes;
   for (const file of rest) {
@@ -110,6 +138,7 @@ export function measureRouteFiles(files, publicLocaleChunks, size, chunkLocaleBy
       localeSizes.shared -= count;
     }
   }
+  localeSizes.alternatives = alternatives;
   localeSizes.publicPayload = dictionary.localized;
   localeSizes.sharedAlternative = dictionary.shared;
   return { bytes, localeSizes };

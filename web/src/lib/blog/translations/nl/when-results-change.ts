@@ -279,7 +279,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-042",
-          "2D-knik overschatte de factor van staven waarvan de druk langs hen toeneemt",
+          "2D-knik overschatte de factor van staven waarin de druk het grootst is waar de knikvorm de grootste dwarshelling heeft",
           "Hoog"
         ]
       ]

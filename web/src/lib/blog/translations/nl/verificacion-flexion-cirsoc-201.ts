@@ -166,7 +166,7 @@ const body: PostBody = {
     {
       "k": "ol",
       "items": [
-        "Controleer vóór het dimensioneren of het moment boven of onder het kruispunt met het minimum ligt. Eronder is de wapening al bepaald.",
+        "Controleer vóór het dimensioneren of het moment boven of onder het kruispunt met het minimum ligt. Eronder bepaalt het minimum de wapening bij toepassing van §9.6.1.2. Bij toepassing van §9.6.1.3 hangt de benodigde wapening af van de berekende staaloppervlakte.",
         "Van H-20 tot H-30 hangt het minimum niet af van het beton. Het komt uit 1.4/fy.",
         "φ hangt af van εt: lees de twee altijd samen.",
         "Drukwapening kan nodig zijn om voldoende ductiliteit te behouden of om bij beperkte liggerhoogte de vereiste momentcapaciteit te bereiken. Controleer de rekken voor de gekozen wapening."

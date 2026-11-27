@@ -770,7 +770,7 @@ it('known wrong result: #2595 — detects the obsolete reinforcement crossover',
   expect(() => checkCrossover({ k: 'p', t: 'Mu = 31.5 kN·m. §9.6.1.2, §9.6.1.3, 4/3' })).toThrow();
 });
 
-it.each(['en', 'es', 'pt', 'de', 'fr', 'hu', 'it', 'tr', 'zh'] as const)(
+it.each(['en', 'es', 'pt', 'de', 'fr', 'hu', 'it', 'tr', 'zh', 'nl'] as const)(
   'known wrong result: #2595 — %s states the minimum reinforcement assumption at the crossover',
   locale => {
     const blocks = findPost('verificacion-flexion-cirsoc-201')!.i18n[locale]!.blocks;

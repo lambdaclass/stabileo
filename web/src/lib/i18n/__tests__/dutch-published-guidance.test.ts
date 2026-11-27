@@ -20,7 +20,7 @@ const registry = readRegistry();
 const nl = allDictFor('nl');
 const changelog = CHANGELOG.flatMap(entry => entry.i18n.nl.items).join('\n');
 
-it.skip.each([
+it.each([
   ["0.4.0", "| Modale analyses, responsspectruma", "dynamische analyse die de fysieke excentriciteiten meeneemt"],
   ["0.6.0", "../advisories/SA-2026-051-moving-loads-3d.md", "de component van de aslast in de lengterichting van de staaf"],
   ["0.6.0", "../results-changes/2026-11-moving-loads-3d.md", "de component van de aslast in de lengterichting van de staaf"],
@@ -40,12 +40,12 @@ it.skip.each([
   ["0.6.4", "../advisories/SA-2026-129-moving-load-force-jumps.md", "Voer eerst de getroffen voertuigsweeps opnieuw uit"],
 ])('known wrong result: #2613 — release %s at %s states %s', (version, anchor, expected) => {
   const release = readFileSync(new URL('../../../../../docs/releases/v' + version + '.nl.md', import.meta.url), 'utf8');
-  const rows = release.split.skip('\n').filter(line => line.includes(anchor));
+  const rows = release.split('\n').filter(line => line.includes(anchor));
   expect(rows).toHaveLength(1);
   expect(rows[0]).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   [mohrTranslations.nl['mohr.rotation'], "Hoek θ van de vlaknormaal, tegen de klok in vanaf de x-as"],
   [checkLabel({ id: 'dilution-floppy', name: '' }, 'nl'), "G/k < 10⁻⁶"],
   [riser.nl.checkLabels["T16 step 3: touchdown (moment at half its plateau) vs reference data [m]"], "helft van het momentplateau"],
@@ -69,7 +69,7 @@ it.skip.each([
   expect(actual).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   ["conceptual-side-advanced-tools", "Pas na controle van de stabiliteit"],
   ["page-cirsoc", "Alleen voltooide, toepasselijke toetsingen"],
   ["page-cirsoc", "Dezelfde invoer geeft met dezelfde solverversie dezelfde getallen"],
@@ -99,7 +99,7 @@ it.skip.each([
   expect(JSON.stringify(page?.i18n.nl)).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   ["course.kinematics.req.mechanism", "Controleer de opleggingen, scharnieren en verbindingen tussen de staven."],
   ["course.kinematics.gic.transRigid", "na aftrek van de opgelegde thermische verlenging"],
   ["course.kinematics.dm.introStates", "geen axiale belasting langs de staaf"],
@@ -137,7 +137,7 @@ it.skip.each([
   ["material.custom.needNumbers", "Poissonverhouding"],
   ["material.custom.badNu", "Poissonverhouding"],
   ["steel.e4.notImplemented", "kan maatgevend zijn"],
-  ["steel.f62.lambdaLabel", "bf/(2·tf) voor I/H en bf/tf voor U/C"],
+  ["steel.f62.lambdaLabel", "b/(2·tf) voor I/H en b/tf voor U/C"],
   ["section.sheet.centroidUnavailable", "puntsymmetrie"],
   ["steel.tc.weldNoHoles", "Controleer de nettodoorsnede afzonderlijk"],
   ["steel.b41.c17", "volgens geval 17"],
@@ -152,7 +152,7 @@ it.skip.each([
   expect(nl[key]).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   ["buckling-axial-from-elongation", "explanation", "Kg·u. De 3D-stijfheidsmatrix bevat ook de geometrische stijfheid van de schalen"],
   ["linear-small-displacement-warning", "explanation", "0,1 (dimensieloos)"],
   ["modal-massless-and-pivot", "title", "Ruimere singulariteitsdrempel"],
@@ -165,20 +165,20 @@ it.skip.each([
   expect(field === 'title' ? notice?.title.nl : notice?.explanation.nl).toContain(expected);
 });
 
-it.skip.each(Array.from({ length: 10 }, (_, index) => 54 + index))('known wrong result: #2613 — status of advisory %i in 0.6.0', number => {
+it.each(Array.from({ length: 10 }, (_, index) => 54 + index))('known wrong result: #2613 — status of advisory %i in 0.6.0', number => {
   const id = 'SA-2026-' + String(number).padStart(3, '0');
   const blocks = findPost('safety-advisories')!.i18n.nl!.blocks;
   const rows = blocks.flatMap(block => block.k === 'table' ? block.rows : []);
   expect(rows.find(row => row[0] === id)?.at(-1)).toBe(number === 56 ? 'Onopgelost — onafhankelijke verificatie vereist' : 'Verholpen in 0.6.0');
 });
 
-it.skip('known wrong result: #2613 — the Dutch channel report notice identifies the governing edge', () => {
+it('known wrong result: #2613 — the Dutch channel report notice identifies the governing edge', () => {
   const notice = registry.changes.find(change => change.id === 'f62-channel-minimum-modulus');
   expect(notice?.explanation.nl).toContain('verst verwijderde flensrand');
   expect(notice?.title.nl).toContain('weerstandsmoment');
 });
 
-it.skip('known wrong result: #2613 — a channel with missing yield stress cannot claim a computed Sy', () => {
+it('known wrong result: #2613 — a channel with missing yield stress cannot claim a computed Sy', () => {
   expect(nl['steel.f62.classificationUnavailable']).not.toContain('Sy');
   expect(nl['steel.f62.missing.slendernessLimits']).toMatch(/Fy.*14|14.*Fy/);
 });

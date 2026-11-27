@@ -8,6 +8,7 @@ import { teAt } from '../../../i18n/engine-text';
 function expectLocalized(key: string, locale: string, rendered: string, params: Record<string, string | number> = {}) {
   const template = allDictFor(locale)[key];
   expect(template, locale).toBeTruthy();
+  if (typeof params.time === 'number') expect(rendered, locale).toContain(new Intl.NumberFormat(locale).format(params.time) + ' s');
   expect(rendered, locale).not.toBe(key);
   if (OFFERED_LOCALES.some(code => code === locale)) {
     const expected = template.replace(/\{(\w+)\}/g, (_, name: string) => {
@@ -45,6 +46,7 @@ describe('timeHistoryRefusal', () => {
       const text = teAt(m, locale);
       expectLocalized(m.key, locale, text, { step: 12, time: 0.024 });
       expect(text, locale).toContain('12');
+      expect(text, locale).toContain(new Intl.NumberFormat(locale).format(0.024) + ' s');
       expect(text, locale).not.toContain('{');
     }
   });
@@ -116,7 +118,7 @@ it.each(['nl', 'it'])('#2613 — the refusal oracle detects English fallback in 
   expect(() => expectLocalized(key, locale, teAt({ key }, 'en'))).toThrow();
 });
 
-it.skip('known wrong result: #2613 — a dropped time and unit invalidate a non-finite time-history refusal', () => {
+it('known wrong result: #2613 — a dropped time and unit invalidate a non-finite time-history refusal', () => {
   const key = 'pro.th.refusal.nonFinite';
   const dict = allDictFor('nl');
   const original = dict[key];

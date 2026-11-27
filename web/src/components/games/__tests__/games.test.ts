@@ -9,7 +9,7 @@ import { hubStrings } from '../strings';
 import { loadGamesPage } from '../load-page';
 import GamesPage from '../GamesPage.svelte';
 
-const LOCALES: Locale[] = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'];
+const LOCALES: Locale[] = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'];
 const width = (s: string) => s.length + (s.match(/[\p{Script=Han}　-〿＀-￯]/gu)?.length ?? 0);
 afterEach(() => setPublicLocale('en'));
 
@@ -123,7 +123,7 @@ it.each([0, 1, 2, 3])('labels %i remaining lives in French', n => {
   expect(tg('livesLeft', { n })).toBe(`Vies restantes : ${n}`);
 });
 
-it.skip.each(['nl', 'it'] as const)('known wrong result: #2613 — renders the games hub and card in %s', locale => {
+it.each(['nl', 'it'] as const)('known wrong result: #2613 — renders the games hub and card in %s', locale => {
   setPublicLocale(locale);
   expect(hubStrings[locale].title).toBe(locale === 'nl' ? 'Spellen' : 'Giochi');
   expect(GAMES[0].copy[locale].title).toBe(gameStrings[locale].title);

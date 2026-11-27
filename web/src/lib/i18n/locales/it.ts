@@ -27,7 +27,7 @@ const it: Translations = {
   'advanced.modalIncomplete': "Analisi modale rifiutata: solo {n} dei {m} modi calcolati hanno frequenza positiva (ω² > 0). Non è stato restituito alcun insieme incompleto di modi. Controlla vincoli, rigidezza e condizionamento delle masse.",
   'advanced.eigenFailure': "Analisi agli autovalori rifiutata: non è stato possibile stabilire convergenza e completezza di Sturm per {n} gradi di libertà liberi. Non è stato restituito alcun insieme incompleto di risultati. Controlla che vincoli e svincoli non creino meccanismi, verifica rigidezza e condizionamento delle masse, oppure richiedi meno modi.",
   'landing.navTools': "Strumenti",
-  'landing.navGame': "Gioco",
+  'landing.navGame': "Giochi",
   'landing.navExamples': "Esempi",
   'scalarViewer.view': "Vista",
   'scalarViewer.viewOptions': "Opzioni di vista",

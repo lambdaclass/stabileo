@@ -2,13 +2,16 @@
 set -euo pipefail
 base=$(realpath "${1:?base checkout}")
 candidate=$(realpath "${2:?candidate checkout}")
-if [[ -f "$base/web/scripts/route-locale-bytes.mjs" ]]; then
+if grep -Fq 'version: 3, routes: measured' "$base/web/scripts/check-research-route-size.mjs"; then
   exit 0
 fi
-scratch=$(mktemp -d "$base/web/.locale-budget.XXXXXX")
+: "${METER_REV:?a reviewed meter revision is required}"
+scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
-for file in check-research-route-size.mjs research-route-budget.mjs route-locale-bytes.mjs; do
-  cp "$candidate/web/scripts/$file" "$scratch/"
+git -C "$candidate" archive "$METER_REV" web/scripts web/package.json web/package-lock.json web/src | tar -x -C "$scratch"
+"$candidate/.github/scripts/retry-infra.sh" npm ci --prefix "$scratch/web"
+node --test "$scratch/web/scripts/research-route-meter.test.mjs"
+for meter in "$scratch/web/scripts/check-research-route-size.mjs" "$candidate/web/scripts/check-research-route-size.mjs"; do
+  (cd "$base/web" && node "$meter" --baseline "$scratch/main.json" --update)
+  (cd "$candidate/web" && node "$meter" --baseline "$scratch/main.json")
 done
-(cd "$base/web" && node "$scratch/check-research-route-size.mjs" --baseline "$scratch/main.json" --update)
-(cd "$candidate/web" && node scripts/check-research-route-size.mjs --baseline "$scratch/main.json")

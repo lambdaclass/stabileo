@@ -112,7 +112,7 @@
     "title": "3D-knik: staven waarvan de normaalkracht langs de staaf varieert"
   },
   "buckling-axial-from-elongation": {
-    "explanation": "Knik neemt N uit EA·δ/L in plaats van het gemiddelde van de uiteinden (λ veranderde tot 3× bij normaalkrachtpuntlasten of gedeeltelijke belastingen); de 2D geometrische stijfheid wordt bij scharnieren gecondenseerd (een raamwerk met scharnierende uiteinden gaf λ ≈ 5e-6); P-Delta-eindkrachten van staven bevatten Kg·u en, in 3D, de Kg van schalen. Knikfactoren van schalen zijn gecorrigeerd (gekromde schalen waren 200× te hoog).",
+    "explanation": "Knik neemt N uit EA·δ/L in plaats van het gemiddelde van de uiteinden (λ veranderde tot 3× bij normaalkrachtpuntlasten of gedeeltelijke belastingen); de 2D geometrische stijfheid wordt bij scharnieren gecondenseerd (een raamwerk met scharnierende uiteinden gaf λ ≈ 5e-6); P-Delta-eindkrachten van staven bevatten Kg·u. De 3D-stijfheidsmatrix bevat ook de geometrische stijfheid van de schalen. Knikfactoren van schalen zijn gecorrigeerd (gekromde schalen waren 200× te hoog).",
     "title": "Knik en P-Delta: normaalkracht uit verlenging, scharnieren gecondenseerd"
   },
   "buckling-certificate-rejects-outside-factor": {
@@ -419,6 +419,10 @@
     "explanation": "Alleen het meegeleverde voorbeeld is veranderd; een opgeslagen model geeft dezelfde getallen als voorheen. De torsieligger wrong 0.45 rad onder zijn wringend moment van 8 kN·m op een open IPN 300, buiten het bereik van lineaire analyse (#1446): hij gebruikt nu een gesloten SHS 140×140×8 (IRAM-IAS-tabel: J 1813.95 cm⁴), het gebruikelijke antwoord op torsie, en wringt 0.011 rad.",
     "title": "Het voorbeeld van de 3D torsieligger gebruikt een gesloten doorsnede en blijft binnen kleine rotaties"
   },
+  "f62-channel-minimum-modulus": {
+    "title": "F.6 rapporteert het kleinste weerstandsmoment om de zwakke as van een kanaalprofiel",
+    "explanation": "Bij gebruik van Sy uit het F.6-rapport voor een kanaalprofiel moet je de afstand van het zwaartepunt tot de verst verwijderde flensrand controleren. Het rapport gebruikte de halve breedte. Zonder geverifieerd weerstandsmoment is Sy nu niet beschikbaar. Dit veld speelde geen rol in de berekende staafcapaciteit."
+  },
   "fail-closed-ratios": {
     "explanation": "Een belasting gedeeld door een capaciteit die nul, negatief, NaN of oneindig was, kon als verhouding 0 uitkomen, wat als geslaagd leest: een CIRSOC 301-grenstoestand waarvan de slankheid of belasting NaN was, een belaste boutgroep zonder bouten of een las zonder keeldikte, een afschuif- of ponscontrole van een fundering zonder bruikbare weerstand, een niet-positieve toelaatbare gronddruk, of een ductiliteitsverhouding volgens CIRSOC 201. Hetzelfde geldt voor elke staal-, hout-, metselwerk- en betoncontrole die een verhouding vormt. Elke zo'n controle wordt nu vermeld als niet geëvalueerd (de staaf of fundering wordt niet als OK gemarkeerd), en elk resultaat met NaN of oneindig wordt achtergehouden met een bericht dat de waarde noemt, behalve een tussenwaarde (zoals een reductiefactor) waarvan de controle al als niet geëvalueerd is vermeld, die als onbekend wordt getoond. Modellen waarvan alle controles bruikbare capaciteiten hadden, geven dezelfde getallen.",
     "title": "Een toetsing die niet kan worden geëvalueerd wordt geweigerd in plaats van te slagen"
@@ -724,7 +728,7 @@
     "title": "Lineaire analyse waarschuwt wanneer druk haar momenten met meer dan 10 % kan versterken, en houdt de staalcontroles tegen"
   },
   "linear-small-displacement-warning": {
-    "explanation": "Lineaire analyse gaat uit van kleine verplaatsingen, maar gaf zonder melding rotaties van vele radialen terug, bijvoorbeeld 75 rad bij een bijna vrije knoop (#1446). Een statische berekening waarschuwt nu (LIN-SMALL-DISPLACEMENT) wanneer een knooprotatie, of de relatieve eindverplaatsing van een raamwerkstaaf over zijn lengte, 0.1 rad overschrijdt, en een belastingcombinatie wanneer haar eigen rotaties dat doen of een staaf van een van haar gevallen dat deed: 0.1 rad is een screeninggrens: daarboven zijn de termen die eerste-ordetheorie weglaat, zoals de koordeverkorting 1 − cos θ ≈ 0.5 %, mogelijk niet meer te verwaarlozen, en moet de verandering van geometrie worden gecontroleerd. Numerieke waarden zijn ongewijzigd. Het voorbeeld van de 3D torsieligger wringt 0.45 rad en toont nu de waarschuwing.",
+    "explanation": "Lineaire analyse gaat uit van kleine verplaatsingen, maar gaf zonder melding rotaties van vele radialen terug, bijvoorbeeld 75 rad bij een bijna vrije knoop (#1446). Een statische berekening waarschuwt nu (LIN-SMALL-DISPLACEMENT) wanneer een knooprotatie groter is dan 0,1 rad of de relatieve eindverplaatsing gedeeld door de staaflengte groter is dan 0,1 (dimensieloos), en een belastingcombinatie wanneer haar eigen rotaties dat doen of een staaf van een van haar gevallen dat deed: 0.1 rad is een screeninggrens: daarboven zijn de termen die eerste-ordetheorie weglaat, zoals de koordeverkorting 1 − cos θ ≈ 0.5 %, mogelijk niet meer te verwaarlozen, en moet de verandering van geometrie worden gecontroleerd. Numerieke waarden zijn ongewijzigd. Het voorbeeld van de 3D torsieligger wringt 0.45 rad en toont nu de waarschuwing.",
     "title": "Lineaire analyse waarschuwt wanneer een rotatie 0.1 rad overschrijdt"
   },
   "linear-span-rotation-warning": {
@@ -821,7 +825,7 @@
   },
   "modal-massless-and-pivot": {
     "explanation": "De drempel voor singuliere pivots is verschoven van 64ε naar 1e-10: mechanismen die vroeger stilzwijgend werden berekend (bijvoorbeeld een losse scharnierende staaf) worden nu gemarkeerd, en een nieuwe waarschuwing meldt een stijfheid die niet positief definiet is. Modale analyses van modellen met scharnierende staven of knopen met alleen vakwerkstaven worden berekend in plaats van te mislukken.",
-    "title": "Strengere singulariteitsdrempel; modale berekeningen met massaloze vrijheidsgraden"
+    "title": "Ruimere singulariteitsdrempel; modale berekeningen met massaloze vrijheidsgraden"
   },
   "modal-mechanism-refused": {
     "explanation": "Eigenvormen met ω² op of onder 1e-10 rad²/s² (bij positieve ω² een periode van meer dan een week, bij nul geen eindige periode en bij negatieve ω² geen reële trillingsperiode) werden zonder een woord overgeslagen, zodat een constructie die een mechanisme is, zoals een staaf met een momentscharnier aan het ene uiteinde en een vrij ander uiteinde, zijn andere eigenvormen teruggaf alsof ze volledig waren: 3 van de 12 gevraagde eigenvormen in #338, met een lage massaparticipatie en zonder diagnose, en een spectrale analyse combineerde die onvolledige set (SA-2026-032). Modale analyse weigert zo'n model nu wanneer het mechanisme massa in een richting verplaatst, en noemt het; een nulmodus die er geen verplaatst (een kolom die vrij om zijn as kan draaien) wordt bij de weggelaten eigenvormen vermeld. Modellen zonder mechanisme geven dezelfde eigenvormen, behalve een stabiele constructie die zacht genoeg is voor een eigenvorm onder 1e-3 Hz, die er vroeger een verloor en hem nu behoudt, en een vrije draaiing neemt niet langer de plaats in van een gevraagde eigenvorm.",
@@ -1152,8 +1156,8 @@
     "title": "Eindhoogteverificatie van vervangende liggertekeningen"
   },
   "rc-flanged-beams-designed-about-depth": {
-    "explanation": "Een rechtopstaande ligger met een erop gestorte vloer werd geweigerd als biaxiaal vanwege het moment in het vlak dat de diafragmawerking van de vloer erin brengt. Hij wordt nu om zijn hoogte ontworpen, en het moment in het vlak is dat van het diafragma, zoals het detail zegt. Een ligger die om zijn as is gedraaid, of een zonder vloer, behoudt de biaxiale controle.",
-    "title": "Betonliggers met een vloer erop worden om hun hoogte ontworpen"
+    "explanation": "Een rechtopstaande ligger met een erop gestorte vloer werd geweigerd als biaxiaal vanwege het moment in het vlak dat de diafragmawerking van de vloer erin brengt. Hij wordt nu getoetst op buiging over de doorsnedehoogte, om de horizontale doorsnedeas, en het moment in het vlak is dat van het diafragma, zoals het detail zegt. Een ligger die om zijn as is gedraaid, of een zonder vloer, behoudt de biaxiale controle.",
+    "title": "Betonliggers met een vloer erop worden getoetst op buiging over de doorsnedehoogte, om de horizontale doorsnedeas"
   },
   "rc-other-codes-torsion-unchecked": {
     "explanation": "De ACI 318- en EN 1992-1-1-controles onder PRO andere normen lazen alleen buiging, dwarskracht en normaalkracht, zodat een gewapend-betonstaaf met grote torsie kon slagen (SA-2026-040). Zo'n staaf wordt nu als torsie niet getoetst gemarkeerd en slaagt niet: voor ACI 318 boven de drempel van 22.7.1.1 φ·0.083·λ·√f'c·Acp²/pcp, voor EN 1992 telkens wanneer hij torsie draagt. Voer die controles opnieuw uit op betonnen staven met torsie.",
@@ -1344,7 +1348,7 @@
     "title": "Randbelastingen op schalen keren van richting om"
   },
   "shell-envelope-per-component": {
-    "explanation": "De omhullende van platen en quads (de omhullendeweergave, haar contouren, het PRO-rapport en de werkmap) bewaarde voor elk element het hele resultaat van de combinatie met de grootste Von Mises. Elke andere component (σxx, σyy, τxy, mx, my, mxy, qx, qy) was die van die combinatie, niet haar eigen extreem: in een funderingsplaat onder zuivere buiging, waar Von Mises in elke combinatie nul is, las mx 77.94 kN·m/m waar een andere combinatie 90.93 geeft (14 % te laag). Elke component toont nu haar eigen grootste grootte, met de grootste en kleinste waarden en de combinatie van elk; hoofdspanningen en benodigd staal zijn de extrema over de combinaties. Vloer- en wandontwerp lezen de combinaties één voor één en zijn ongewijzigd. Controleer elke waarde die uit de schaalomhullende is gelezen opnieuw (SA-2026-027).",
+    "explanation": "De omhullende van platen en quads (de omhullendeweergave, haar contouren, het PRO-rapport en de werkmap) bewaarde voor elk element het hele resultaat van de combinatie met de grootste Von Mises. Elke andere component (σxx, σyy, τxy, mx, my, mxy, qx, qy) was die van die combinatie, niet haar eigen extreem: in een funderingsplaat onder zuivere buiging, waar de von Mises-spanning uit de membraanspanningen in elke combinatie nul is, las mx 77.94 kN·m/m waar een andere combinatie 90.93 geeft (14 % te laag). Elke component toont nu haar eigen grootste grootte, met de grootste en kleinste waarden en de combinatie van elk; hoofdspanningen en benodigd staal zijn de extrema over de combinaties. Vloer- en wandontwerp lezen de combinaties één voor één en zijn ongewijzigd. Controleer elke waarde die uit de schaalomhullende is gelezen opnieuw (SA-2026-027).",
     "title": "De schaalomhullende bevat de eigen extrema van elke component"
   },
   "shell-figures-paint-the-screen-field": {
@@ -1405,7 +1409,7 @@
   },
   "snow-quadratic-intensity": {
     "explanation": "Kwadratische sneeuwintensiteiten gebruiken nu stuksgewijs lineaire belastingen met een vermelde puntsgewijze foutgrens van 0.01 % van de maximale bemonsterde intensiteit van elke volledige fysieke strook, waarbij kracht en beide momenten in het grondplan behouden blijven. De afleiding meldt de grootste absolute grens. Genereer de betreffende sneeuwbelastingen opnieuw en voer berekeningen, combinaties en ontwerptoetsingen opnieuw uit. (#2172; #2176; PR #2197).",
-    "title": "Belaste sneeuwintensiteiten hebben een expliciete benaderingsgrens"
+    "title": "Kwadratische sneeuwintensiteiten hebben een expliciete benaderingsgrens"
   },
   "snow-ridge-mesh": {
     "explanation": "Ongelijke onderverdeling van dakranden kon een afgeleide sneeuwnok verplaatsen en gegenereerde belastingen veranderen, ook bij daken met een ingevoerde helling. Nok-, helling- en profielen van gevormde daken gebruiken nu de fysieke dakgeometrie. Genereer sneeuwbelastingen opnieuw en voer daarna berekeningen, combinaties en ontwerptoetsingen opnieuw uit. Alleen opnieuw berekenen met opgeslagen belastingen corrigeert ze niet (#2144; SA-2026-072). De hoogste profielpunten gebruiken nu de bestaande hoogtetolerantie, zodat kleine verstoringen van de hoekhoogte de nok behouden. Elk staafsegment krijgt zijn eigen druk aan de nokzijde, waardoor kracht en moment worden hersteld wanneer er op de nok wordt gesplitst. Ongesplitste kruisende staven behouden hun eerdere uniforme behandeling (#2176).",

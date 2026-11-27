@@ -15,19 +15,19 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Stand per 12 november 2026: SA-2026-001 tot 004 zijn verholpen in versie 0.2.0 en SA-2026-005 tot 020 in versie 0.3.0, SA-2026-021 tot 024 in versie 0.4.0 en SA-2026-025 tot 047 in versie 0.5.0 (SA-2026-040 ingedamd: de toetsing is als onvolledig gemarkeerd), behalve SA-2026-044: 2D plastisch bezwijken blijft geweigerd tot #758 is gesloten. SA-2026-048 is verholpen na versie 0.5.0 en staat sinds 8 november 2026 op stabileo.com. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 en SA-2026-053 zijn verholpen na versie 0.5.0 en staan sinds 9 november 2026 op stabileo.com. Ze publiceren hoort bij hoe we de resultaten verifiëren en is geen teken dat ze nog openstaan. Een bericht geldt als verholpen wanneer de correctie live staat op stabileo.com, niet wanneer de wijziging bestaat. Zolang een bericht openstaat, gebruik je de bijbehorende tijdelijke oplossing en controleer je het getroffen resultaat met de hand voordat je tekent. SA-2026-054 — Concept: correctie nog niet samengevoegd of uitgerold. SA-2026-055 — Concept: correctie nog niet samengevoegd of uitgerold. SA-2026-056 — Concept: onopgelost; geen correctie samengevoegd of uitgerold. SA-2026-057 — Concept: correctie nog niet samengevoegd of uitgerold. SA-2026-059 — Verholpen in PR #1921, wacht op release. SA-2026-060 — Concept: lokale correctie wacht op review en release. SA-2026-062 — Concept: lokale correctie wacht op review en release."
+      "t": "Stand bij versie 0.6.0: SA-2026-001 tot 004 zijn verholpen in versie 0.2.0 en SA-2026-005 tot 020 in versie 0.3.0, SA-2026-021 tot 024 in versie 0.4.0 en SA-2026-025 tot 047 in versie 0.5.0 (SA-2026-040 ingedamd: de toetsing is als onvolledig gemarkeerd), behalve SA-2026-044: 2D plastisch bezwijken blijft geweigerd tot #758 is gesloten. SA-2026-048 is verholpen na versie 0.5.0 en staat sinds 8 november 2026 op stabileo.com. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 en SA-2026-053 zijn verholpen na versie 0.5.0 en staan sinds 9 november 2026 op stabileo.com. Ze publiceren hoort bij hoe we de resultaten verifiëren en is geen teken dat ze nog openstaan. Een bericht geldt als verholpen wanneer de correctie live staat op stabileo.com, niet wanneer de wijziging bestaat. Zolang een bericht openstaat, gebruik je de bijbehorende tijdelijke oplossing en controleer je het getroffen resultaat met de hand voordat je tekent. SA-2026-054 tot en met 063 zijn verholpen in 0.6.0, behalve SA-2026-056. Verifieer voor alle getroffen gekoppelde raamwerk-schaalmodellen de dynamische respons onafhankelijk, ook wanneer equivalente modelbeschrijvingen overeenkomen."
     },
     {
       "k": "note",
-      "t": "SA-2026-058 — Verholpen in PR #1922, wacht op release."
+      "t": "SA-2026-058 — Verholpen in 0.6.0."
     },
     {
       "k": "note",
-      "t": "SA-2026-061 — Verholpen in PR #1952, wacht op release."
+      "t": "SA-2026-061 — Verholpen in 0.6.0."
     },
     {
       "k": "note",
-      "t": "SA-2026-063 — Verholpen in PR #2009, wacht op release."
+      "t": "SA-2026-063 — Verholpen in 0.6.0."
     },
     {
       "k": "note",
@@ -712,7 +712,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-039",
-          "Excel- en IFC-import: Iy en Iz van rechthoeken en buizen waren verwisseld (een koker van 20 × 40 4 keer te slap, een van 40 × 20 4 keer te stijf)",
+          "Excel- en IFC-import: Iy en Iz van rechthoeken en buizen waren verwisseld (een massieve rechthoek van 20 × 40 4 keer te slap, een van 40 × 20 4 keer te stijf)",
           "Hoog",
           "Verholpen in 0.5.0"
         ],
@@ -766,7 +766,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-048",
-          "CIRSOC 301-staal: Cb miste een tekenwisseling aan de uiteinden van een opgegeven niet-gesteunde lengte korter dan de staaf (een U-profiel in dubbele kromming kreeg Cb = 2.55 in plaats van 1, wat de kipcapaciteit overschatte); 0.2.0 tot 0.5.0, de desktop-alfa's en stabileo.com tot 8 november 2026",
+          "CIRSOC 301-staal: Cb miste een tekenwisseling aan de uiteinden van een opgegeven niet-gesteunde lengte korter dan de staaf (bij elk profiel met Lb korter dan de staaf konden ook eindmomenten in Mmax ontbreken. Een U-profiel in dubbele kromming kreeg Cb = 2.55 in plaats van 1, wat de kipcapaciteit overschatte); 0.2.0 tot 0.5.0, de desktop-alfa's en stabileo.com tot 8 november 2026",
           "Hoog",
           "Verholpen na 0.5.0; op stabileo.com sinds 8 november 2026"
         ],
@@ -804,61 +804,61 @@ const body: PostBody = {
           "SA-2026-054",
           "Lineaire analyse kon stilzwijgend onnauwkeurige resultaten geven door onopgeloste stijfheid of gemiste PCG-belastingcomponenten",
           "Hoog",
-          "Concept: correctie nog niet samengevoegd of uitgerold"
+          "Verholpen in 0.6.0"
         ],
         [
           "SA-2026-055",
           "2D en 3D P-Delta kon de versterking onderschatten en stabiliteit melden als de normaalkracht varieerde onder verdeelde belastingen of puntlasten langs een raamwerkstaaf",
           "Hoog",
-          "Concept: correctie nog niet samengevoegd of uitgerold"
+          "Verholpen in 0.6.0"
         ],
         [
           "SA-2026-056",
           "Beperkte 3D-raamwerk- en schaalmodellen: harmonische resultaten en resultaten van geforceerde tijdsdomeinanalyse veranderen bij gelijkwaardige beschrijvingen; de omvang buiten het behouden model is niet vastgesteld",
           "Hoog",
-          "Concept: onopgelost; geen correctie samengevoegd of uitgerold"
+          "Onopgelost — onafhankelijke verificatie vereist"
         ],
         [
           "SA-2026-057",
           "Weergaven van plastische certificaten konden factoren buiten hun gecertificeerde interval als binnen het interval labelen; exacte mechanisme-extractie liet resourceweigeringen vallen in builds van vóór de correctie van PR #1888",
           "Gemiddeld",
-          "Concept: correctie nog niet samengevoegd of uitgerold"
+          "Verholpen in 0.6.0"
         ],
         [
           "SA-2026-058",
           "Grote 2D/3D harmonische modellen boven 3000 onafhankelijke vrije vrijheidsgraden konden onnauwkeurige responsies van weggelaten vormen behouden buiten q ≤ 1/16 bij frequenties buiten het bereik van de truncatiewaarschuwing (8,079 % complexe doelfout gemeten)",
           "Hoog",
-          "Verholpen in PR #1922, wacht op release"
+          "Verholpen in 0.6.0"
         ],
         [
           "SA-2026-059",
           "Geavanceerde webanalyses konden kabels zonder waarschuwing drukweerstand geven (P-Delta-herhaling: −4.599884347090908 kN); controleer kabelbelastingen uit geavanceerde analyses, directe analyse en onderwijswizards",
           "Hoog",
-          "Verholpen in PR #1921, wacht op release"
+          "Verholpen in 0.6.0"
         ],
         [
           "SA-2026-060",
           "Gefaseerde analyse kon werkelijke rotaties stilzwijgend stijver maken na eenheidswijzigingen of bij vrijgemaakte uiteinden met opleggingsveren; controleer gefaseerde modellen met staafscharnieren opnieuw",
           "Hoog",
-          "Concept: lokale correctie wacht op review en release"
+          "Verholpen in 0.6.0"
         ],
         [
           "SA-2026-061",
           "Booglengte- en verplaatsingsbesturing lieten reacties weg en gebruikten ongeschaalde staafbelastingen; ook weglatingen in resultaten van 2D/3D-constraints, Guyan, gefaseerde analyse en tijdsdomeinanalyse moeten worden beoordeeld. Voer de getroffen resultaten opnieuw uit of controleer ze onafhankelijk; 0.2.0–0.5.0 en daaropvolgende getroffen main-builds.",
           "Hoog",
-          "Verholpen in PR #1952, wacht op release"
+          "Verholpen in 0.6.0"
         ],
         [
           "SA-2026-062",
           "Ruwe 3D plastische analyse kon stilzwijgend nul melden als de initiële elastische toestand mislukte; oudere gecertificeerde builds behielden die factor. Main geeft al een positieve gecertificeerde grens met een waarschuwing; PR #1943 geeft de initiële weigering door",
           "Hoog",
-          "Concept: lokale correctie wacht op review en release"
+          "Verholpen in 0.6.0"
         ],
         [
           "SA-2026-063",
           "Beperkte gefaseerde en niet-lineaire analyses lieten voorgeschreven masterbeweging vallen; kabel en tijdsdomeinanalyse weigeren nu niet-ondersteunde oplegbeweging. Bestaande algemene waarschuwingen voor dynamica blijven los van deze weglating staan",
           "Hoog",
-          "Verholpen in PR #2009, wacht op release"
+          "Verholpen in 0.6.0"
         ],
         [
           "SA-2026-064",
@@ -1491,7 +1491,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Hoe je weet of het jou raakt: een oplegging was eerst een veer (of had veerconstanten) en is daarna omgezet naar ingeklemd, scharnierend of een roloplegging, of er is een vrijheidsgraad als vastgezet aangevinkt. In de resultaten toont die oplegging een verplaatsing of rotatie ongelijk aan nul.",
+        "Hoe je weet of het jou raakt: een oplegging was eerst een veer (of had veerconstanten) en is daarna omgezet naar ingeklemd, scharnierend of een roloplegging, of er is een vrijheidsgraad als vastgezet aangevinkt. Controleer in die bewerkingsgeschiedenis welke vrijheidsgraad verhinderd moest zijn en vergelijk daar de beweging met de voorgeschreven waarde, nul bij een onbeweeglijke oplegging.",
         "Wat je moet doen: bereken de 3D-modellen waarvan de opleggingen van veren naar stijf zijn bewerkt opnieuw op stabileo.com en vergelijk de resultaten bij die opleggingen met de resultaten die je al hebt gebruikt.",
         "Status: verholpen op stabileo.com op 20 oktober 2026. Elke vastgezette vrijheidsgraad wordt als vastgezet berekend, ook in projecten die eerder zijn opgeslagen."
       ]
@@ -1572,7 +1572,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "De rechte segmenten van een boog namen de standaard lokale assen van een rechte staaf, die voor een staaf binnen 2,56° van verticaal de globale X als referentie nemen. In een boog buiten het X–Z-vlak draaide dat de doorsnede van de bijna verticale segmenten bij de aanzetten 90°: Iy en Iz waren daar verwisseld. In een halve cirkel van 40 segmenten in het Y–Z-vlak kwam de doorbuiging in de top 15 % te laag uit. Het raakt gekromde liggers van de rekenkern en bogen die zijn getekend met de boogtool van het tabblad Staven (PRO) wanneer een segment bijna verticaal is; krommen in het grondplan zijn niet getroffen. Eerder opgeslagen bogen krijgen de gecorrigeerde assen wanneer het project wordt geopend."
+      "t": "De rechte segmenten van een boog namen de standaard lokale assen van een rechte staaf, die voor een staaf binnen 2,56° van verticaal de globale X als referentie nemen. In het gedocumenteerde voorbeeld in het Y–Z-vlak draaide dat de doorsnede van de bijna verticale segmenten bij de aanzetten 90°: Iy en Iz waren daar verwisseld. In een halve cirkel van 40 segmenten in het Y–Z-vlak kwam de doorbuiging in de top 15 % te laag uit. Het raakt gekromde liggers van de rekenkern en bogen die zijn getekend met de boogtool van het tabblad Staven (PRO) wanneer een segment bijna verticaal is; krommen in het grondplan zijn niet getroffen. Eerder opgeslagen bogen krijgen de gecorrigeerde assen wanneer het project wordt geopend."
     },
     {
       "k": "ext",

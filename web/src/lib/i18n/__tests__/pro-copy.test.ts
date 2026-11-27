@@ -41,7 +41,7 @@ describe('PRO is presented as available', () => {
   });
 });
 
-it.skip.each([
+it.each([
   ['it', 'L’AI è in beta.', false],
   ['nl', 'De AI-assistent is in bètafase.', false],
   ['nl', 'PRO is in bètafase.', true],
