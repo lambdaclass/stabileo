@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
-import { featuresForMode } from './public-features.mjs';
+import { featuresForMode } from '../config/public-features.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const entry = `
