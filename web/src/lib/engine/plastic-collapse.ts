@@ -100,7 +100,7 @@ export interface PlasticCollapseResult extends PlasticResult {
    * the member turns the way a sagging moment bends it (right side minus left side along the
    * member); 0 for an axial yield and for a hinge formed at this step.
    */
-  steps: Array<PlasticStep & { hingesFormed: PlasticCollapseHinge[]; trace: PlasticStepTrace; rotations: number[] }>;
+  steps: Array<Omit<PlasticStep, 'hingesFormed'> & { hingesFormed: PlasticCollapseHinge[]; trace: PlasticStepTrace; rotations: number[] }>;
   /** Degree of static indeterminacy of the structure as given. */
   degree: number;
   /**

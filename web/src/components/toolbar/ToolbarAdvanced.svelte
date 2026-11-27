@@ -500,7 +500,7 @@
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
     plasticWithheld = null;
-    resultsStore.clearPlastic();
+    if (resultsStore.plasticResult) resultsStore.clearPlastic();
     try {
       const t0 = performance.now();
       /* The step-by-step collapse analysis (lib/engine/plastic-collapse.ts). */
