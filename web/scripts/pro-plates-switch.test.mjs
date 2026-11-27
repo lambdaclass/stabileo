@@ -138,6 +138,25 @@ test('shape dialog translations follow the plate inspector independently of rein
   }
 });
 
+test('the raw shell writer only includes circular creation and mesh adoption for unified plates', { skip: 'known wrong result: #1928' }, async () => {
+  for (const enabled of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: enabled }, async configFile => {
+      const entry = resolve(root, 'src/components/pro/ProShellTab.svelte');
+      const result = await build({
+        root, configFile, logLevel: 'silent',
+        build: { write: false, lib: { entry, formats: ['es'] }, rollupOptions: { external: (_id, from) => from === entry } },
+      });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+      const bindings = Object.values(chunk.importedBindings).flat();
+      assert.ok(bindings.includes('addShellOnCorners'));
+      assert.ok(bindings.includes('createPlate'));
+      assert.equal(bindings.includes('createCircularPlate'), enabled);
+      assert.equal(bindings.includes('platesFromShells'), enabled);
+      assert.equal(chunk.code.includes('plate-circle-center'), enabled);
+    });
+  }
+});
+
 test('the EC2 member resistance reads placed reinforcement and draft profiles only in their builds', async () => {
   for (const [plates, sheets] of [[false, false], [true, false], [false, true], [true, true]]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
