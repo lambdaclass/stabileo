@@ -76,7 +76,13 @@ fn curved_shells_and_warped_mitc9_and_arches_are_flagged_only_when_present() {
     let mut s = base.clone();
     s.curved_shells.insert("7".into(), SolverCurvedShellElement { id: 7, nodes: [1, 2, 3, 4], material_id: 1, thickness: 0.2, normals: None });
     assert!(ids(&for_3d(&s, Analysis::Linear)).is_empty());
-    let d = dedaliano_engine::known_issues::loads_3d(&[SolverLoad3D::CurvedShellThermal(SolverPlateThermalLoad { element_id: 7, dt_uniform: 0.0, dt_gradient: 10.0, alpha: None })]);
+    let gradient = |alpha| dedaliano_engine::known_issues::loads_3d(&[SolverLoad3D::CurvedShellThermal(SolverPlateThermalLoad { element_id: 7, dt_uniform: 0.0, dt_gradient: 10.0, alpha })]);
+    let missing = gradient(None);
+    assert_eq!(missing.len(), 1);
+    let warning = &missing[0];
+    assert_eq!((warning.code, warning.severity, warning.phase.as_deref(), warning.element_kind, warning.element_ids.as_slice()),
+        (DiagnosticCode::ThermalDefaultAssumed, Severity::Warning, Some("alpha"), Some(ElementKind::CurvedShell), &[7][..]));
+    let d = gradient(Some(0.0));
     assert!(d.is_empty(), "{d:?}");
 
     // MITC9: warped geometry is no longer flagged (SH-7 fixed, #411).

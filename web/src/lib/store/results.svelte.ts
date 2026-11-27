@@ -1009,12 +1009,12 @@ function createResultsStore() {
       rebase2D();
     },
 
-    setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
+    setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope | null) {
       _onComboPublish?.(pc, pco, '2d');
       pc = new Map([...pc].map(([k, v]) => [k, drawn(v)]));
       pco = new Map([...pco].map(([k, v]) => [k, drawn(v)]));
-      env = envelopeToDrawnAxes(env, _signOf);
-      screen.published([...pc.values(), ...pco.values(), env.maxAbsResults]);
+      if (env) env = envelopeToDrawnAxes(env, _signOf);
+      screen.published([...pc.values(), ...pco.values(), env?.maxAbsResults]);
       perCase = pc;
       perCombo = pco;
       envelope = env;
@@ -1040,8 +1040,8 @@ function createResultsStore() {
           activeCaseId = firstCase;
           activeView = 'single';
         } else {
-          results = env.maxAbsResults;
-          activeView = 'envelope';
+          results = env?.maxAbsResults ?? null;
+          activeView = env ? 'envelope' : 'single';
         }
       }
       activeComboId = pco.keys().next().value ?? null;
@@ -1266,7 +1266,7 @@ function createResultsStore() {
     setGoverning2D(g: Map<number, GoverningPerElement>) { governing2D = g; },
     setGoverning3D(g: Map<number, GoverningPerElement3D>) { governing3D = g; },
 
-    setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D, unstable: readonly number[] = []) {
+    setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D | null, unstable: readonly number[] = []) {
       _onComboPublish?.(pc, pco, '3d');
       if (_normalise3D) {
         const n = _normalise3D;
@@ -1299,8 +1299,8 @@ function createResultsStore() {
         results3D = pco.get(activeComboId)!;
         activeView = 'combo';
       } else {
-        results3D = env.maxAbsResults3D;
-        activeView = 'envelope';
+        results3D = env?.maxAbsResults3D ?? null;
+        activeView = env ? 'envelope' : 'single';
       }
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap', 'none'];
       if (!valid3DDiagrams.includes(diagramType)) {
