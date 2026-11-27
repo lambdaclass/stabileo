@@ -283,7 +283,8 @@ describe('against real corpus files', () => {
     const opened = await openAndSolve(readCorpusText('v0.2.0/truss.ded'));
     expect(opened.changes.length).toBeGreaterThan(20);
     const then = readResults('v0.2.0/truss.results.json');
-    expect(judge('truss', then, opened.values, opened.changes).kind).toBe('same');
+    const unchanged = judge('truss', then, opened.values, opened.changes);
+    expect(unchanged.kind, unchanged.report + '\n' + opened.values['base.diagnosticCodes']).toBe('same');
     const wrong = { ...then, 'base.elementForces[e1].nStart': (then['base.elementForces[e1].nStart'] as number) * 1.01 };
     expect(opened.changes.map((c) => c.id)).toContain('linear-stability-refusals');
     expect(opened.changes.map((c) => c.id)).toEqual(expect.arrayContaining(['nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium']));

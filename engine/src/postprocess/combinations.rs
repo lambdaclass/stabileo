@@ -416,6 +416,15 @@ impl ResolvedFactors {
         Ok(Self { terms })
     }
 
+    fn second_order_screen(&self, carried: &[StructuredDiagnostic], ratio: Option<f64>) -> Vec<StructuredDiagnostic> {
+        let reversed = self.terms.iter().any(|&(factor, _)| factor < 0.0);
+        let mut findings = crate::known_issues::combined_second_order(carried.iter(), reversed, ratio);
+        if matches!(&self.terms[..], [(factor, _)] if *factor == 1.0) {
+            crate::known_issues::attach(&mut findings, carried.iter().filter(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-NEAR")).cloned().collect());
+        }
+        findings
+    }
+
     fn contributions<'a, T>(&'a self, cases: &'a [(usize, &'a T)]) -> impl Iterator<Item = (f64, usize, &'a T)> + 'a {
         self.terms.iter().map(|&(factor, slot)| {
             let (id, result) = cases[slot];
@@ -507,7 +516,7 @@ fn combined_screen_2d(resolved: &ResolvedFactors, cases: &[(usize, &AnalysisResu
         factor.abs() * excess
     }).sum();
     let upper = ratio.map(|r| r + extra);
-    let mut diagnostics = crate::known_issues::combined_second_order(carried.iter(), resolved.terms.iter().any(|&(factor, _)| factor < 0.0), ratio);
+    let mut diagnostics = resolved.second_order_screen(carried, ratio);
     if extra > 0.0 { crate::known_issues::check_physical_band(&mut diagnostics, upper); }
     (ratio, upper.filter(|_| extra > 0.0), diagnostics)
 }
@@ -996,7 +1005,7 @@ fn combine_resolved_results_3d(
         crate::known_issues::attach(&mut structured_diagnostics, others);
     }
     let ratio = crate::known_issues::combined_ratio(resolved.contributions(cases).map(|(factor, _, r)| (factor, r.result_summary.as_ref(), r.element_forces.iter().any(axial_3d))));
-    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), resolved.terms.iter().any(|&(factor, _)| factor < 0.0), ratio));
+    crate::known_issues::attach(&mut structured_diagnostics, resolved.second_order_screen(&second_order, ratio));
     let terms: Vec<_> = resolved.contributions(cases).collect();
     let shells = combine_shells(&terms, terms.first().map_or((template.0, tr), |&(_, id, r)| (id, r)), plate_thickness)?;
     let mut combined = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: shells.plates, quad_stresses: shells.quads, quad_nodal_stresses: shells.nodal, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };

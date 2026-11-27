@@ -741,7 +741,6 @@ fn a_transverse_spring_cannot_turn_a_discrete_eigenvalue_into_a_physical_bound()
 }
 
 #[test]
-#[ignore = "known wrong result: #1927"]
 fn a_unit_combination_preserves_the_near_case_it_repeats() {
     let case = solve_2d(&cantilever_2d(2, -15.0, E, 1.0)).unwrap();
     assert_eq!(second_order(&case.structured_diagnostics), near(vec![1, 2]));

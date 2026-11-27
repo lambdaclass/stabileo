@@ -1254,8 +1254,9 @@ fn second_order_component(input: &SolverInput, loads: &[SolverLoad], r: &Analysi
         physical = upper;
         Some(estimate)
     });
+    let locally_unresolved = found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-UNBOUNDED"));
     if global_needed { check_physical_band(&mut found, physical); }
-    (found, ratio, physical.filter(|&upper| upper > ratio))
+    (found, ratio, physical.filter(|&upper| !locally_unresolved && upper > ratio))
 }
 
 pub(crate) fn check_physical_band(found: &mut Vec<StructuredDiagnostic>, upper: Option<f64>) {
