@@ -27,6 +27,7 @@ B = (sin 1, 0), with rotary actuators at both ends and a dead load q·Q(s) pushi
 - The actuators then move in steps of 0.02 rad (`solve_corotational_2d_from`).
 - Stability is the positive definiteness of the tangent on the free DOFs; its lowest eigenvalue
   comes from inverse iteration on the engine's dense Cholesky factor.
+- The native replay and paper comparison were regenerated on 2026-11-27. The reference manifest records the compiler, target and file hashes.
 - Each step is converged to a relative residual of 10⁻¹⁰. With the engine as of 2026-11-22 the
   earlier 10⁻⁷ accepted states that depend on how many increments reached them: the arch at
   Θ = 1, q = 2.5 came out 0.3 % off with 120 members, failing the mesh check, and the

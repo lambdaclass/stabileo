@@ -28,6 +28,9 @@ fn published(id: &str, name: &str, unit: &str, computed: Option<f64>, reference:
 fn close(a: &Value, b: &Value, path: &str) -> Result<(), String> {
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => {
+            if path.ends_with(".reference") || path.ends_with(".tolerance") || x.is_i64() || x.is_u64() || y.is_i64() || y.is_u64() {
+                return if x == y { Ok(()) } else { Err(format!("{path}: {x} (committed {y})")) };
+            }
             let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
             if (x - y).abs() <= 1e-12 + 1e-6 * y.abs() { Ok(()) } else { Err(format!("{path}: {x} (committed {y})")) }
         }
@@ -198,7 +201,6 @@ fn main() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn paper_fields_are_exact_even_within_solver_roundoff() {
     let row = json!({"reference": 4.2, "computed": 4.2, "tolerance": 0.06, "points": 10});
     for field in ["reference", "tolerance"] {

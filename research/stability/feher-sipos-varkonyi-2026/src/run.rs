@@ -74,34 +74,27 @@ fn load_arch(state: &State, target: Setting) -> Result<State, PathError> {
 }
 
 fn load_arch_with(state: &State, target: Setting, advance: impl Fn(&State, Setting) -> Result<State, String>) -> Result<State, PathError> {
-    let trial = advance(state, target).map_err(|_| PathError::StartUnsolved)?;
-    if state.jump_to(&trial) <= SNAP {
-        return Ok(trial);
-    }
-    for pieces in 2..=32 {
+    let mut inverted_endpoint = false;
+    let mut stable_inversion = false;
+    for pieces in 1..=32 {
         let mut current = state.clone();
-        let mut continuous = true;
-        let mut completed = true;
         for i in 1..=pieces {
             let q = state.setting.q + (target.q - state.setting.q) * i as f64 / pieces as f64;
-            let Ok(next) = advance(&current, Setting { q, ..target }) else {
-                completed = false;
-                break;
-            };
+            let Ok(next) = advance(&current, Setting { q, ..target }) else { break };
             if current.jump_to(&next) > SNAP {
-                continuous = false;
                 let landed = next.snapshot();
-                if current.snapshot().y_mid > 0. && landed.y_mid < 0. && landed.stable && trial.snapshot().y_mid < 0. {
-                    return Err(PathError::StartSnaps);
+                if pieces == 1 {
+                    inverted_endpoint = landed.y_mid < 0.;
+                } else if inverted_endpoint && current.snapshot().y_mid > 0. && landed.y_mid < 0. && landed.stable {
+                    stable_inversion = true;
                 }
+                break;
             }
             current = next;
-        }
-        if completed && continuous {
-            return Ok(current);
+            if i == pieces { return Ok(current); }
         }
     }
-    Err(PathError::StartUnsolved)
+    Err(if stable_inversion { PathError::StartSnaps } else { PathError::StartUnsolved })
 }
 
 /// The path of Section 3.4 with the far corner of the rectangle at
@@ -168,7 +161,6 @@ pub fn path_with(theta: f64, delta: f64, q: f64, distribution: Distribution, ele
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn start_recovers_when_a_full_increment_fails_but_half_steps_converge() {
     let start = Setting { theta: 1.0, delta: 0.0, q: 0.0 };
     let arch = bend(20, start, Distribution::Uniform, 2).unwrap();

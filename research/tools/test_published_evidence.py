@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import subprocess
+import os
 import tempfile
 import datetime
 from pathlib import Path
@@ -21,7 +22,6 @@ class PublishedEvidence(unittest.TestCase):
         measurement['observed'] = measurement['computed'] - measurement['reference']
         self.assertTrue(catalog.valid_checks([measurement], published=True))
 
-    @unittest.skip("known wrong result: #2505")
     def test_regenerating_shape_evidence_records_the_toolchain_and_run_date(self):
         with tempfile.TemporaryDirectory(dir=root) as scratch:
             folder = Path(scratch)
@@ -33,14 +33,16 @@ class PublishedEvidence(unittest.TestCase):
             runner = folder / 'run'
             runner.write_text('#!/bin/sh\nif [ "$1" != cargo ]; then exec "$@"; fi\n')
             runner.chmod(0o755)
+            compiler = folder / 'rustc'
+            compiler.write_text('#!/bin/sh\nprintf "%s\\n" "rustc fixture" "host: fixture-host"\n')
+            compiler.chmod(0o755)
+            env = {**os.environ, 'PATH': str(folder) + ':' + os.environ['PATH']}
             today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
             subprocess.run(['make', '-s', 'evidence.research.feher', f'FEHER_DIR={folder}', f'NIX_RUN={runner}'],
-                           cwd=root.parent, check=True, capture_output=True)
+                           cwd=root.parent, env=env, check=True, capture_output=True)
             data = json.loads(manifest.read_text())
-            version = subprocess.check_output(['rustc', '--version'], text=True).strip()
-            host = subprocess.check_output(['rustc', '--print', 'host-tuple'], text=True).strip()
-            self.assertIn(version, data['platform'])
-            self.assertIn(host, data['platform'])
+            self.assertIn('rustc fixture', data['platform'])
+            self.assertIn('fixture-host', data['platform'])
             self.assertIn(today, data['platform'])
 
     def test_shape_control_catalog_count_matches_the_paper_comparisons(self):
