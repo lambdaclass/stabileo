@@ -125,25 +125,39 @@ fn load_steps(load: f64, step: f64) -> Result<usize, String> {
     Ok(count as usize)
 }
 
+pub const CYCLE_LOAD_STEP: f64 = 0.05;
+pub const HEIGHT_INCREMENT: f64 = 10.0;
+
+fn advance(state: &State, strip: &Strip, span: f64, load: f64) -> Result<State, String> {
+    let model = strip.model(PI / 2.0, Some(span), 1.0, load);
+    state.go(model.clone(), 2).or_else(|_| state.go(model, 50))
+}
+
+fn continuous(state: &State, strip: &Strip, span: f64, from: f64, to: f64, depth: usize) -> Result<State, String> {
+    if let Ok(next) = advance(state, strip, span, to) {
+        if (next.height() - state.height()).abs() <= HEIGHT_INCREMENT { return Ok(next); }
+    }
+    if depth == 0 { return Err("continuity of the initial equilibrium branch could not be established".into()); }
+    let mid = 0.5 * (from + to);
+    let next = continuous(state, strip, span, from, mid, depth - 1)?;
+    continuous(&next, strip, span, mid, to, depth - 1)
+}
+
 /// Midpoint height under a midspan load raised from zero in `step` increments on the branch the
 /// strip starts on.
 pub fn loaded_height(strip: &Strip, span: f64, load: f64, step: f64) -> Result<f64, String> {
-    let steps = load_steps(load, step)?;
+    load_steps(load, step)?;
+    let steps = load_steps(load, step.min(CYCLE_LOAD_STEP))?;
     let mut s = prepare(strip, span)?;
+    let mut from = 0.;
     for k in 1..=steps {
-        let next = s.go(strip.model(PI / 2.0, Some(span), 1.0, load * (k as f64 / steps as f64)), 2)?;
-        let movement = (next.height() - s.height()).abs();
-        if !movement.is_finite() || movement > 10.0 {
-            return Err("continuity of the initial equilibrium branch could not be established".into());
-        }
-        s = next;
+        let to = load * (k as f64 / steps as f64);
+        s = continuous(&s, strip, span, from, to, 8)?;
+        from = to;
     }
     Ok(s.height())
 }
 
-/// Load-controlled loading to `max_load` and unloading back to zero, as in the
-/// experiments; a step whose midpoint moves more than `jump` mm is a snap, and
-/// a load with no equilibrium found from the previous state ends the cycle.
 pub fn load_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, jump: f64) -> Result<serde_json::Value, String> {
     let steps = load_steps(max_load, step)?;
     if max_load < 0.0 || !jump.is_finite() || jump <= 0.0 { return Err("invalid load cycle".into()); }
@@ -155,13 +169,17 @@ pub fn load_cycle(strip: &Strip, span: f64, max_load: f64, step: f64, jump: f64)
         for k in 1..=steps {
             let index = if loading { k } else { steps - k };
             let next = (step * index as f64).min(max_load);
-            let model = strip.model(PI / 2.0, Some(span), 1.0, next);
-            let Ok(n) = s.go(model.clone(), 2).or_else(|_| s.go(model, 50)) else {
+            let Ok(n) = advance(&s, strip, span, next) else {
                 lost = json!(next);
                 break 'cycle;
             };
             if (n.height() - s.height()).abs() > jump {
-                snaps.push(json!({"load": next, "from": s.height(), "to": n.height()}));
+                let previous = points.last().unwrap()[0];
+                if let Ok(returned) = advance(&n, strip, span, previous) {
+                    if (returned.height() - s.height()).abs() > jump {
+                        snaps.push(json!({"load": next, "from": s.height(), "to": n.height(), "loading": loading}));
+                    }
+                }
             }
             s = n;
             points.push([next, s.height()]);

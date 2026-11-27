@@ -62,3 +62,5 @@ The accessible manuscript (DTU copy, pp. 1–15) gives the optimized images of F
 Tables 1–3, computation times per iteration on a 2010 laptop. It prints no compliance, volume or
 iteration count for these cases, so there is no published value to set next to ours; timings depend
 on the machine and are not compared. The page says so under the paper's published values.
+
+Evidence freshness is checked independently of the engineering tolerances. The largest observed difference between the recorded Darwin iteration diagnostics and the Linux rerun on 2026-11-27 was below 2.1 × 10⁻¹¹. The comparison requires exact iteration counts and exact agreement on zero.

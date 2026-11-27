@@ -2,23 +2,36 @@ use gridshell_fairclough_2026::{engine, square, square_with};
 use serde_json::{json, Value};
 use std::{fs, path::Path};
 
+const TABLE_ONE: [(f64, f64); 7] = [
+    (1.65, 13.8394),
+    (1.68, 15.2528),
+    (1.72, 17.5301),
+    (1.76, 20.4014),
+    (1.80, 24.0981),
+    (1.85, 30.4425),
+    (2.00, 80.7391),
+];
+
 fn published_table(table: Vec<Value>) -> Value {
-    let reproduced = table.len() == 7 && table.iter().all(|row| row["passed"] == true);
+    let reproduced = table.len() == TABLE_ONE.len() && TABLE_ONE.iter().all(|(weight, _)| {
+        let id = format!("table1-v5-{weight:.2}");
+        table.iter().any(|r| r["id"] == id && r["passed"] == true)
+    });
     assert!(reproduced, "incomplete or failed published comparisons: {table:?}");
     json!({"reproduced_published_results": reproduced, "checks": table})
 }
 
 #[test]
 fn every_paper_row_must_pass_before_publication() {
-    let row = json!({"passed": true});
-    let accepted = published_table(vec![row.clone(); 7]);
+    let rows: Vec<_> = TABLE_ONE.iter().map(|(weight, _)| json!({"id": format!("table1-v5-{weight:.2}"), "passed": true})).collect();
+    let accepted = published_table(rows.clone());
     assert_eq!(accepted["reproduced_published_results"], true);
     for count in [0, 6, 8] {
-        assert!(std::panic::catch_unwind(|| published_table(vec![row.clone(); count])).is_err());
+        assert!(std::panic::catch_unwind(|| published_table(vec![rows[0].clone(); count])).is_err());
     }
     for index in 0..7 {
-        let mut rows = vec![row.clone(); 7];
-        rows[index] = json!({"passed": false});
+        let mut rows = rows.clone();
+        rows[index]["passed"] = json!(false);
         assert!(std::panic::catch_unwind(|| published_table(rows)).is_err());
     }
 }
@@ -148,15 +161,7 @@ fn five_node_reference_and_engine() {
     );
     assert!(engine_check["max_displacement"].as_f64().unwrap() > 0.);
     let evidence = json!({"scope":"Table 1: five nodes, rho_g L/sigma=1.65 only", "checks":checks});
-    let table: Vec<Value> = [
-        (1.65, 13.8394),
-        (1.68, 15.2528),
-        (1.72, 17.5301),
-        (1.76, 20.4014),
-        (1.80, 24.0981),
-        (1.85, 30.4425),
-        (2.00, 80.7391),
-    ]
+    let table: Vec<Value> = TABLE_ONE
     .iter()
     .map(|&(pg, printed): &(f64, f64)| {
         let computed = square_with(pg).unwrap().volume;
@@ -289,7 +294,6 @@ fn chord_volume_refines_quadratically() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn a_duplicate_weight_cannot_replace_a_missing_paper_comparison() {
     let reference: Value = serde_json::from_str(include_str!("../reference-results/published_comparison.json")).unwrap();
     let mut rows = reference["checks"].as_array().unwrap().clone();

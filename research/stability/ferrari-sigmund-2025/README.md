@@ -97,9 +97,8 @@ questions below.
 ### Why the paper's numerical α and β are not compared
 
 With the paper's own area (0.01 m²) the column shortens under the corner load, the horizontal
-member's chord rotates, and the corner turns from the first load step. The exact path of that
-model therefore has no bifurcation to expand about; Koiter's linear-prebuckling expansion
-(Eqs. 2–5) treats it as one. Extracting α as above from that model is not stable: at 40 elements
+member's chord rotates, and the corner turns from the first load step. The corner rotation includes prebuckling motion. Establishing whether the exact path
+bifurcates would require a tangent-stability and branch analysis. Extracting α as above from that model is not stable: at 40 elements
 per member it is 0.433 with h = 0.02 and 1.018 with h = 0.01 (recorded in `VALIDATION.json`,
 `study.paper_area_not_a_bifurcation`). Reproducing 0.3820 and 0.1436 would need the asymptotic
 reduction of Eqs. 2–5 with the production energy; `src/energy.rs` already provides its
@@ -146,8 +145,7 @@ Every run must converge. Final sampled load factor: 2.1796142222595205; corner r
 The paper's Figure 2b traces both signs of the imperfection. The page traces −0.001 and
 −0.01 kN·m live, in the browser, with the replay's settings. With −0.001 kN·m the production
 path still turns to the falling side (corner rotation +0.42 rad at λ = 2.22 after 100 steps):
-the column's shortening turns the corner more than that moment does, the same effect that
-keeps the paper's area from having a bifurcation. With −0.01 kN·m it follows the rising branch
+the column's shortening turns the corner more than that moment does, which also affects the coefficient extraction at the paper's area. With −0.01 kN·m it follows the rising branch
 (−0.37 rad at λ = 2.97). This is one more reason the paper's extensible-model α, β and its
 Figure 2b are not compared.
 The test reruns every prefix and compares every saved numeric value within

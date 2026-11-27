@@ -66,6 +66,10 @@ fn read(name: &str) -> Value {
 }
 
 fn publish(directory: &str, out: &Value, comparison: &Value) {
+    for evidence in [out, comparison] {
+        let rows = evidence["checks"].as_array().expect("missing checks");
+        assert!(!rows.is_empty() && rows.iter().all(|row| row["passed"] == true), "failed required checks");
+    }
     std::fs::write(format!("{directory}/VALIDATION.json"), serde_json::to_string_pretty(out).unwrap() + "\n").unwrap();
     std::fs::write(format!("{directory}/reference-results/published_comparison.json"), serde_json::to_string_pretty(comparison).unwrap() + "\n").unwrap();
 }
@@ -189,7 +193,7 @@ fn main() {
         })
         .collect();
     let comparison = json!({
-        "reproduced_published_results": true,
+        "reproduced_published_results": !published.is_empty() && published.iter().all(|row| row["passed"] == true),
         "scope": "Least thickness of circular arches under self-weight, α = 60° to 145°: the Milankovitch and CCR solutions tabulated by Rizzi et al. (2010). Heyman's own closed form in the same table is not compared: it places the resultant, not the line of thrust, tangent to the intrados.",
         "checks": published,
     });
@@ -214,7 +218,6 @@ fn main() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn a_failed_check_preserves_both_evidence_files() {
     let folder = std::path::Path::new(HERE).join("target").join(format!("publication-{}", std::process::id()));
     std::fs::create_dir_all(folder.join("reference-results")).unwrap();

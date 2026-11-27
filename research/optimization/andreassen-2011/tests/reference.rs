@@ -120,11 +120,12 @@ fn authors_iterations() {
 fn fresh_observation(recorded: &serde_json::Value, fresh: &serde_json::Value) -> bool {
     let a = recorded["observed"].as_f64().unwrap();
     let b = fresh["observed"].as_f64().unwrap();
-    (a - b).abs() <= 0.01 * fresh["tolerance"].as_f64().unwrap()
+    if fresh["metric"] == "exact" || a == 0.0 || b == 0.0 { return a == b; }
+    let budget = if fresh["name"].as_str().unwrap().starts_with("ft") { 2.1e-11 } else { 1e-15 };
+    (a - b).abs() <= budget
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn stale_zero_cannot_erase_measured_iteration_errors() {
     let validation: serde_json::Value = serde_json::from_str(include_str!("../VALIDATION.json")).unwrap();
     let row = &validation["checks"][1];

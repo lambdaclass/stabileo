@@ -1,10 +1,9 @@
-use cut_strip_feher_2026::{exact, load_cycle, loaded_height, prepare, Strip, LENGTH};
+use cut_strip_feher_2026::{exact, load_cycle, loaded_height, prepare, Strip, CYCLE_LOAD_STEP, HEIGHT_INCREMENT, LENGTH};
 use serde_json::{json, Value};
 
 const SOURCE: &str = "arXiv:2601.20793v2";
 const HERE: &str = env!("CARGO_MANIFEST_DIR");
 const CUT: f64 = 0.5;
-const STEP: f64 = 0.05;
 const HEIGHT_TOLERANCE: f64 = 0.7;
 const LOAD_TOLERANCE: f64 = 0.06;
 
@@ -25,6 +24,9 @@ fn row(id: &str, name: String, source: String, unit: &str, reference: Option<f64
 fn close(a: &Value, b: &Value, path: &str) -> Result<(), String> {
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => {
+            if path.ends_with(".reference") || path.ends_with(".tolerance") || x.is_i64() || x.is_u64() || y.is_i64() || y.is_u64() {
+                return if x == y { Ok(()) } else { Err(format!("{path}: {x} (committed {y})")) };
+            }
             let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
             if (x - y).abs() <= 1e-12 + 1e-6 * y.abs() { Ok(()) } else { Err(format!("{path}: {x} (committed {y})")) }
         }
@@ -36,23 +38,20 @@ fn close(a: &Value, b: &Value, path: &str) -> Result<(), String> {
 }
 
 fn observed_switch(cycle: &Value, back: bool) -> Option<f64> {
-    cycle["points"].as_array().unwrap().windows(2).find_map(|pair| {
-            let previous = &pair[0];
-            let next = &pair[1];
-            let load = next[0].as_f64()?;
-            let increment = load - previous[0].as_f64()?;
-            let rise = next[1].as_f64()? - previous[1].as_f64()?;
-            ((back && increment < 0.0 && rise > 50.0) || (!back && increment > 0.0 && rise < -50.0)).then_some(load)
+    cycle["snaps"].as_array()?.iter().find_map(|event| {
+        let loading = event["loading"].as_bool()?;
+        let downward = event["to"].as_f64()? < event["from"].as_f64()?;
+        (loading != back && downward == loading).then(|| event["load"].as_f64()).flatten()
     })
 }
 
 fn paper_extremum(points: &[Value], back: bool) -> Option<f64> {
     let loads = points.iter().map(|p| p[0].as_f64().unwrap());
-    Some(if back { loads.fold(f64::INFINITY, f64::min) } else { loads.fold(0.0, f64::max) })
+    if back { loads.reduce(f64::min) } else { loads.reduce(f64::max) }
 }
 
-fn reproduced(_rows: &[Value]) -> bool {
-    false
+fn reproduced(rows: &[Value]) -> bool {
+    !rows.is_empty() && rows.iter().all(|row| row["passed"] == true && row["observed"].is_number())
 }
 
 fn figure(span: f64, b: f64) -> String {
@@ -82,12 +81,12 @@ fn main() {
         }
     }
     let strip = Strip { a: CUT, b: 0.5 };
-    let ours = loaded_height(&strip, 0.5 * LENGTH, 1.0, STEP).unwrap();
+    let ours = loaded_height(&strip, 0.5 * LENGTH, 1.0, CYCLE_LOAD_STEP).unwrap();
     let reference = exact::height(&strip, 0.5 * LENGTH, 1.0).unwrap();
     checks.push(check("elastica-loaded-0.5-0.5", "B = 0.5L, a = 0.5, b = 0.5, self-weight and 1 N at midspan: midpoint height against the inextensible elastica, relative difference", ((ours - reference) / reference).abs(), 1e-3));
 
     for (span, b, back) in [(0.5, 0.2, false), (0.5, 0.5, false), (0.5, 0.5, true), (0.75, 0.2, false)] {
-        let cycle = load_cycle(&Strip { a: CUT, b }, span * LENGTH, 4.0, STEP, 10.0).unwrap();
+        let cycle = load_cycle(&Strip { a: CUT, b }, span * LENGTH, 4.0, CYCLE_LOAD_STEP, HEIGHT_INCREMENT).unwrap();
         let computed = observed_switch(&cycle, back);
         let panel = digitized["panels"].as_array().unwrap().iter().find(|p| p["B_over_L"] == json!(span) && p["b"] == json!(b)).unwrap();
         let reference = paper_extremum(panel["unstable_curve"].as_array().unwrap(), back);
@@ -128,7 +127,6 @@ fn main() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn paper_fields_are_exact_even_within_solver_roundoff() {
     let row = json!({"reference": 4.2, "computed": 4.2, "tolerance": 0.06, "points": 10});
     for field in ["reference", "tolerance"] {
@@ -140,7 +138,6 @@ fn paper_fields_are_exact_even_within_solver_roundoff() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn empty_digitized_branch_has_no_limit_in_either_direction() {
     for back in [false, true] {
         assert_eq!(paper_extremum(&[], back), None);
@@ -148,7 +145,6 @@ fn empty_digitized_branch_has_no_limit_in_either_direction() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn a_measured_directional_switch_has_one_verdict() {
     let cycle = json!({"points": [[0., 20.], [1., -10.]], "snaps": [{"load":1., "from":20., "to":-10., "loading":true}]});
     assert_eq!(observed_switch(&cycle, false), Some(1.));
@@ -156,12 +152,11 @@ fn a_measured_directional_switch_has_one_verdict() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn publication_reports_all_required_verdicts() {
     let evidence: Value = serde_json::from_str(include_str!("../../reference-results/published_comparison.json")).unwrap();
     let mut rows = evidence["checks"].as_array().unwrap().clone();
     assert!(!reproduced(&rows));
-    for r in &mut rows { r["passed"] = json!(true); r.as_object_mut().unwrap().remove("status"); }
+    for r in &mut rows { *r = row(r["id"].as_str().unwrap(), String::new(), String::new(), "mm", Some(1.), Some(1.), 0.); }
     assert!(reproduced(&rows));
     rows[0]["passed"] = json!(false);
     assert!(!reproduced(&rows));

@@ -47,7 +47,6 @@ fn invalid_load_increments_are_rejected_before_solving() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn steep_retracing_branches_have_no_recorded_switches() {
     let curves: Value = serde_json::from_str(include_str!("../reference-results/curves.json")).unwrap();
     for (span, b) in [(0.5, 0.8), (0.75, 0.5)] {
@@ -59,10 +58,9 @@ fn steep_retracing_branches_have_no_recorded_switches() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn a_steep_continuous_height_is_independent_of_the_first_increment() {
     let strip = Strip { a: 0.5, b: 0.8 };
     let fine = loaded_height(&strip, 0.5 * LENGTH, 2.0, 0.05).unwrap();
     let coarse = loaded_height(&strip, 0.5 * LENGTH, 2.0, 2.0).unwrap();
-    assert!((coarse - fine).abs() < 1e-7);
+    assert!((coarse - fine).abs() < 1e-7, "coarse {coarse}, fine {fine}");
 }

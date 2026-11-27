@@ -84,7 +84,8 @@ fn largest_difference(a: &Value, b: &Value) -> f64 {
 }
 
 fn slope_change(delta: f64, alpha: f64) -> f64 {
-    delta.abs() / alpha
+    if alpha == 0.0 || !alpha.is_finite() { return f64::INFINITY; }
+    delta.abs() / alpha.abs()
 }
 
 fn check(name: &str, metric: &str, observed: f64, tolerance: f64) -> Value {
@@ -161,7 +162,6 @@ pub fn evidence(paper: &Value, stored_replay: &Value) -> (Value, Value) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn slope_convergence_checks_require_a_finite_nonzero_magnitude() {
     for slope in [-1.0, 1.0] {
         assert_eq!(slope_change(-2.0, slope), 2.0);

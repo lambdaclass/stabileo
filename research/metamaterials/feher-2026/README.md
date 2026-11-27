@@ -148,7 +148,7 @@ increments.
 
 Tolerances: heights, the paper's stated ±0.5 mm measurement uncertainty plus about one pixel of
 the 400 dpi digitization (0.12–0.2 mm on the height axis); loads, our 0.05 N load step (the
-first converged step with a directional jump locates the jump to within one increment) plus about
+increment brackets an observed numerical switch when reversing the increment reaches a different equilibrium; it does not bound the physical limit load) plus about
 two pixels on the load axis (0.004–0.005 N each). A failed solve leaves the snap load unresolved.
 
 The six lowest-load experimental markers lie at 0.037–0.038 N. None is within the two-pixel

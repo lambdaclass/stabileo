@@ -134,11 +134,12 @@ fn lee_frame_first_peak_converges_in_mesh_and_step() {
 
 
 fn independent_steps(peaks: &[(usize, f64, f64)], split: usize) -> bool {
-    peaks.iter().filter(|p| p.0 == split).count() >= 2
+    let mut scales: Vec<_> = peaks.iter().filter(|p| p.0 == split).map(|p| p.1).collect();
+    scales.sort_by(f64::total_cmp);
+    scales.len() >= 2 && scales.iter().all(|s| s.is_finite() && *s > 0.) && scales.windows(2).all(|w| w[0] != w[1])
 }
 
 #[test]
-#[ignore = "known wrong result: #2505"]
 fn repeated_step_scales_cannot_verify_refinement() {
     assert!(!independent_steps(&[(1, 0.5, 1.), (1, 0.5, 1.)], 1));
     assert!(!independent_steps(&[(1, 0.5, 1.), (1, 1., 1.), (1, 1., 1.)], 1));
