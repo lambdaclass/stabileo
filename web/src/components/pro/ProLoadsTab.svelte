@@ -138,7 +138,9 @@
    * belongs to a case, so the case is chosen before the load exists.
    */
   let loadSection = $state('cases');
-  $effect(() => { if (floorLoadRequest.target) loadSection = 'floor'; });
+  if (__PUBLIC_FEATURES__.proPlatesUnified) {
+    $effect(() => { if (floorLoadRequest.target) loadSection = 'floor'; });
+  }
 
   let autoLoadsFocus = $state<AutoLoadFocus | null>(null);
 </script>

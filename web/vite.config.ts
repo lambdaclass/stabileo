@@ -68,6 +68,9 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (features.proPlatesUnified && importer && id.endsWith('/selected-floor-load') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/selected-floor-load')) {
+          return resolve(__dirname, 'src/lib/store/selected-floor-load-enabled.svelte.ts');
+        }
         if (features.proPlatesUnified && importer && id.endsWith('/selected-plate-spec') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/selected-plate-spec')) {
           return resolve(__dirname, 'src/lib/store/active-selected-plate-spec.ts');
         }

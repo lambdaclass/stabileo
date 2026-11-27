@@ -43,6 +43,10 @@ export function prunePublicBuildBranches(content, features) {
   }
   function visit(node, parent) {
     if (!node || typeof node !== 'object') return;
+    if (node.type === 'ExpressionTag' && parent?.type === 'Attribute') {
+      scriptChoices(node.expression);
+      return;
+    }
     if (node.type === 'IfBlock' && !node.elseif && !node.alternate?.nodes[0]?.elseif) {
       const flags = new Set();
       const condition = value(node.test, flags);
@@ -70,7 +74,6 @@ export function prunePublicBuildBranches(content, features) {
     }
   }
   const component = parse(content, { modern: true });
-  visit(component.fragment);
   function children(node) {
     return Object.values(node).flat().filter(child => child && typeof child.type === 'string');
   }
@@ -113,9 +116,9 @@ export function prunePublicBuildBranches(content, features) {
     for (const child of children(node)) scriptChoices(child);
   }
   const scripts = [component.instance, component.module].filter(Boolean);
-  if (!scripts.some(script => shadowsFeatures(script.content))) {
-    for (const script of scripts) scriptChoices(script.content);
-  }
+  if (scripts.some(script => shadowsFeatures(script.content)) || shadowsFeatures(component.fragment)) return { code: content };
+  visit(component.fragment);
+  for (const script of scripts) scriptChoices(script.content);
   let code = content;
   for (const [start, end, replacement] of changes.sort((a, b) => b[0] - a[0])) code = code.slice(0, start) + replacement + code.slice(end);
   if (!changes.length) return { code };

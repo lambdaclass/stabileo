@@ -710,7 +710,7 @@ test('known wrong result: #1928 released shell controls edit the selection witho
   }
 });
 
-test.skip('known wrong result: #1928 bulk plate load application and pending requests stay out of the published floor form', async () => {
+test('known wrong result: #1928 bulk plate load application and pending requests stay out of the published floor form', async () => {
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       const entry = resolve(root, 'src/components/pro/ProFloorLoadSection.svelte');
