@@ -104,6 +104,13 @@ describe('the end zone the project asks for', () => {
     expect(columnEndZone(0.25, 0.25, 2.4, 0.15)).toEqual({ endLength: 0.45, endSpacing: 0.075 });
   });
 
+  it('keeps the adopted sheet spacing when the project floor would open the end ties', () => {
+    const floor = 0.05;
+    for (const spacing of [floor / 2, floor, floor * 1.5]) {
+      expect(columnEndZone(0.4, 0.4, 3, spacing, floor).endSpacing).toBe(Math.min(floor, spacing));
+    }
+  });
+
   it('never tightens below 50 mm', () => {
     expect(columnEndZone(0.4, 0.4, 3, 0.075).endSpacing).toBe(0.05);
   });

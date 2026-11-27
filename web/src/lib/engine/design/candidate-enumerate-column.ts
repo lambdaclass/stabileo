@@ -22,7 +22,7 @@ import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import type { ProvidedReinforcement, StirrupDef } from '../../store/model.svelte';
 import { computeColumnLayout } from '../station-design-forces';
 import type { MemberContext } from './member-context';
-import { columnEndZone } from '../../rc-sheets/column-ties';
+import { columnEndZoneGeometry, minimumColumnTieSpacing } from './column-end-zone';
 import { grossAreaOf, minClear, shapedBarPositions, type ColumnShape } from './shaped-column';
 import { DESIGN_TARGET_UTILIZATION } from './outcome';
 import { STANDARD_LONG_DIAS, STANDARD_STIRRUP_DIAS, SPACING_GRID, computeCandidateCost } from './objective';
@@ -35,7 +35,7 @@ export const COLUMN_LIMITS = {
   maxPerFace: 6,
   maxLongOptions: 60,
   maxTieOptions: 24,
-  minSpacing: 0.05,
+  minSpacing: minimumColumnTieSpacing,
   maxLegs: 4,
 } as const;
 
@@ -115,7 +115,7 @@ type Knob = 'long' | 'tie';
  */
 export function endZoneFor(ctx: MemberContext, spacing: number): ProvidedReinforcement['tieZones'] {
   if (!ctx.material.columnEndZones) return undefined;
-  return columnEndZone(ctx.section.b, ctx.section.h, ctx.L, spacing);
+  return columnEndZoneGeometry(ctx.section.b, ctx.section.h, ctx.L, spacing, COLUMN_LIMITS.minSpacing);
 }
 
 /** The least dimension a tie spacing reads on a shaped column: D, or the thinnest web. */

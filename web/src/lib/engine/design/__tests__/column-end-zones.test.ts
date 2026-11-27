@@ -40,7 +40,7 @@ describe('column end zones', () => {
   });
 });
 
-describe.skip('known wrong result: #1928 ordinary column end zones use the design spacing floor', () => {
+describe('known wrong result: #1928 ordinary column end zones use the design spacing floor', () => {
   const ctx = { material: { columnEndZones: true }, section: { b: 0.3, h: 0.6 }, L: 3.2 } as never;
   const floor = COLUMN_LIMITS.minSpacing;
 

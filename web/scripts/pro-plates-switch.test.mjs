@@ -622,7 +622,7 @@ test('known wrong result: #1928 the released load dialog has no foreign code edi
   }
 });
 
-test.skip('known wrong result: #1928 ordinary column design has no sheet layout dependency', async () => {
+test('known wrong result: #1928 ordinary column design has no sheet layout dependency', async () => {
   const entry = resolve(root, 'src/lib/engine/design/candidate-enumerate-column.ts');
   const result = await build({ root, logLevel: 'silent', build: {
     write: false, lib: { entry, formats: ['es'] },

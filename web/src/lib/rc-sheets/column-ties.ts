@@ -13,6 +13,7 @@
  * for none, they are drawn as the design places them. Between the ends a spacing never opens
  * beyond what the row's shear check leaves room for.
  */
+import { columnEndZoneGeometry, minimumColumnTieSpacing } from '../engine/design/column-end-zone';
 import { roundDown } from './bars';
 import { layoutDias } from './column-layout';
 import type { ColumnRow } from './column-row';
@@ -40,14 +41,9 @@ export interface ColumnTieLayout {
   notes: TieNote[];
 }
 
-const END_MIN_SPACING = 0.05;
-const END_SPACING_GRID = 0.025;
-
 /** The end zone of a b × h column of clear height `clear` tied at `spacing`, m: what `columnEndZones` asks, wherever it is drawn or designed. */
-export function columnEndZone(b: number, h: number, clear: number, spacing: number, floor = END_MIN_SPACING): { endLength: number; endSpacing: number } {
-  const endLength = +Math.max(Math.max(b, h), clear / 6, 0.45).toFixed(3);
-  const endSpacing = Math.min(spacing, Math.max(floor, Math.floor((spacing / 2) / END_SPACING_GRID + 1e-9) * END_SPACING_GRID));
-  return { endLength, endSpacing: +endSpacing.toFixed(4) };
+export function columnEndZone(b: number, h: number, clear: number, spacing: number, floor = minimumColumnTieSpacing): { endLength: number; endSpacing: number } {
+  return columnEndZoneGeometry(b, h, clear, spacing, floor, spacing);
 }
 
 const family = (code: SheetCode): 'aci' | 'ec2' | 'ts500' => (code === 'en1992-1-1' || code === 'bs-en1992-1-1' ? 'ec2' : code === 'ts500-2000' ? 'ts500' : 'aci');
