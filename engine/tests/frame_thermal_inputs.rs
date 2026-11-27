@@ -353,9 +353,11 @@ fn issue_2656_signed_thermal_strain_in_plane_and_space() {
         plane.supports.remove("2");
         let mut space = fixed_3d(STEEL, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 1.0, "dtGradientY": 0.0, "dtGradientZ": 0.0, "alpha": alpha}));
         space.supports.remove("2");
-        let r = solve_2d(&plane).unwrap();
+        for r in [solve_2d(&plane).unwrap(), solve_pdelta_2d(&plane, 30, 1e-10).unwrap().results] {
         close("plane free expansion", r.displacements.iter().find(|d| d.node_id == 2).unwrap().ux, alpha * 5.0, 1e-12);
-        let r = solve_3d(&space).unwrap();
+        }
+        for r in [solve_3d(&space).unwrap(), solve_pdelta_3d(&space, 30, 1e-10).unwrap().results] {
         close("space free expansion", r.displacements.iter().find(|d| d.node_id == 3).unwrap().ux, alpha * 5.0, 1e-12);
+        }
     }
 }
