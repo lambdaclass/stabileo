@@ -3271,3 +3271,30 @@ fn certified_limit_keeps_the_equilibrium_proven_axial_yield_mechanism_2608() {
         assert!(certified_limit_2d(&input).is_err());
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2608"]
+fn diagonal_truss_certifies_the_enclosed_irrational_axial_factor_2608() {
+    use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
+    for load in [-1.0, 1.0] {
+        let input: LimitInput = serde_json::from_value(serde_json::json!({
+            "solver": {
+                "nodes": {"1":{"id":1,"x":0,"z":0},"2":{"id":2,"x":1,"z":1}},
+                "elements": {"1":{"id":1,"type":"truss","nodeI":1,"nodeJ":2,"sectionId":1,"materialId":1}},
+                "materials":{"1":{"id":1,"e":200000,"nu":0.3}}, "sections":{"1":{"id":1,"a":0.01,"iz":1e-4}},
+                "supports":{"1":{"id":1,"nodeId":1,"type":"pinned"},"2":{"id":2,"nodeId":2,"type":"rollerZ"}},
+                "loads":[{"type":"nodal","data":{"nodeId":2,"fx":0,"fz":load,"my":0}}]
+            },
+            "np":{"1":1}
+        })).unwrap();
+        let result = certified_limit_2d(&input).unwrap();
+        assert_eq!(result.confirmation, Confirmation::Exact, "{result:?}");
+        let upper = std::f64::consts::FRAC_1_SQRT_2;
+        let lower = upper.next_down();
+        assert!((lower..=upper).contains(&result.lambda));
+        let np = HashMap::from([(1, 1.0)]);
+        for outside in [lower.next_down(), upper.next_up()] {
+            assert_ne!(confirm_2d(&input.solver, &HashMap::new(), &np, outside), Confirmation::Exact);
+        }
+    }
+}

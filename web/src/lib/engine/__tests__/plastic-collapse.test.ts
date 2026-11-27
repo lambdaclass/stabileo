@@ -50,6 +50,14 @@ describe('plastic collapse, step by step', () => {
     expect(r.collapseFactor).toBeCloseTo(MP / 45, 6);
   });
 
+  it.skip('known wrong result: #2608 — Basic certifies the diagonal truss at its irrational yield factor', () => {
+    const input = model([[1, 0, 0], [2, 1, 1]], [[1, 1, 2, 'truss']], [[1, 'pinned'], [2, 'rollerZ']], [P(2, 0, -1)]);
+    const r = plasticCollapse2D(input, { mp: () => Infinity, np: () => 1 });
+    expect(r.withheld).toBeFalsy();
+    expect(r.isMechanism).toBe(true);
+    expect(r.collapseFactor).toBeCloseTo(Math.SQRT1_2, 15);
+  });
+
   it('accepts the free truss motion created by axial yield (#2608)', () => {
     const load = 15;
     const capacity = 30;
