@@ -89,3 +89,17 @@ shares. When redundant paths exist, the check searches their equilibrium null sp
 For an axially yielding truss, equilibrium determines the squared collapse factor exactly even when its square root is irrational. The certificate checks the returned floating-point value against the two adjacent representable numbers enclosing that root. A representable root must still match exactly. The public solver reports the lower endpoint of the proven floating-point enclosure and its upper endpoint. If the floating proposal lies outside that enclosure, it omits the proposal’s hinge list.
 
 For an axial distributed load the certificate now forms the two equivalent nodal forces in rational arithmetic. It subtracts the start share from the certified field and integrates the original signed intensity along the member. An explicit full-span endpoint at the solver length has the same exact unit fraction as an omitted endpoint, including on diagonals. The check includes the ends of each loaded interval, both sides of axial point forces, and any interior zero of the total distributed intensity. This can confirm bending collapse that the previous integral allowance withheld.
+
+Partial axial loads on a diagonal with irrational length can now be included when bending governs.
+The certificate bounds the normalized resultant between rational endpoints and checks each extreme
+load with a common bending mechanism. The static check also bounds the axial force inside the loaded
+member. A factor is released only if the existing static and kinematic acceptance checks agree.
+
+For a truss with both translations restrained at every node, an axial span load may yield a section
+before the member reaches its limit. Each restrained member can redistribute a constant axial reaction.
+If the unit-load axial primitive has range ΔN, equilibrium and the two yield inequalities allow
+λ ΔN ≤ 2 Np. Basic returns the smallest finite member limit supported by the exact range calculation.
+The history still reports the load at the first interior yield. On the reversing axial load in
+`plastic-collapse-axial-loads.test.ts`, the history reaches first yield at 15/14 and the restrained
+bar reaches collapse at 2 to the precision of the input stations. The certificate returns directed
+bounds on the exact factor for the binary input.
