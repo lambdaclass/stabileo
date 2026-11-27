@@ -90,3 +90,29 @@ it('#2607 refuses a positive opening and accepts meeting deck edges', () => {
     distributed: [], nodal: [], surface: [],
   });
 });
+
+const pendingOffsetReview = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+pendingOffsetReview.each([false, true])('known wrong result: #2607 detached coplanar infill cannot bound a rafter gap (%s)', split => {
+  const { model: quads } = offsetRoof(0.02, 0, 1, false, [4, 6]);
+  for (const [index, from, to] of [[1, 4, -2], [2, 6, 12]] as const) {
+    for (const id of quads.quads.get(index)!.nodes) {
+      const node = quads.nodes.get(id)!;
+      if (node.x !== from) continue;
+      node.x = to;
+      node.z = 3 + to / 5;
+    }
+  }
+  const infill = [[0, 0], [10, 0], [10, 4], [0, 4]].map(([x, y]) => {
+    const id = quads.nodes.size + 1;
+    quads.nodes.set(id, { id, x: x!, y: y!, z: 3 + x! / 5 });
+    return id;
+  });
+  quads.quads.set(3, { ...quads.quads.get(1)!, id: 3, nodes: infill });
+  const model = split ? triangulateRoof(quads) : quads;
+  const reason = { key: 'loadPlan.gravity.offsetRafter', params: { id: 1 } };
+  expect(roofPlan(model)).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [reason], cases: [], surface: [], distributed: [], nodal: [] });
+  expect(() => gravityLayout(model, options)).toThrow(expect.objectContaining(reason));
+  expect(() => roofWeightFor(model, options, options.tributaryWidth, 1)).toThrow(expect.objectContaining(reason));
+  expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
+  expect(() => snowLoadCases({ model, tributaryWidth: 3, snow: snowConfig })).toThrow(expect.objectContaining(reason));
+});

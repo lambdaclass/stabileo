@@ -818,6 +818,24 @@ it('#2291 a detached sloped shell starting at bay level blocks gravity', () => {
   checkBlockedGravity(model, differentDeck);
 });
 
+const pendingTrussReview = process.env.STABILEO_REPLAY_2607 === '1' ? it : it.skip;
+pendingTrussReview.each([false, true])('known wrong result: #2607 pinned truss ends keep supported decks independent (%s)', loadEveryPanel => {
+  const model = floor(1, 1, 10, 6);
+  const shell = rectangularShell(model, 1, 0, 10, 3 + 1 / 1024, 6 + 1 / 1024);
+  model.supports = new Map([...model.nodes.keys()].map(id => [id, { id, nodeId: id, type: 'pinned3d' }]));
+  const bridge = { ...model.elements.get(1)!, id: 1000, nodeI: 4, nodeJ: shell[2]!, type: 'truss' as const };
+  model.elements.set(bridge.id, bridge);
+  const gravity = { mode: 'panels', loadEveryPanel, tributaryWidth: 3 } as const;
+  const layout = gravityLayout(model, gravity);
+  expect([...layout.areaOf.values()].reduce((sum, area) => sum + area, 0)).toBeCloseTo(60, 9);
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
+  expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+  expect(-totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)).toBeCloseTo(60, 9);
+  expect(surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model)).toBeCloseTo(10 * Math.sqrt(45), 9);
+  expect(() => roofWeightFor(model, gravity, 3, 1)).not.toThrow();
+  expect(() => snowDriftRefusal(model)).not.toThrow();
+});
+
 it('#2291 detached independently supported roof and bay both carry gravity', () => {
   for (const angle of [0, 0.37]) for (const cuts of [[], [0.25, 0.75]]) for (const loadEveryPanel of [false, true]) {
     const model = floor(1, 1, 10, 6);
