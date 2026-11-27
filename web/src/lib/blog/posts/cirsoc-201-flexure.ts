@@ -54,7 +54,7 @@ export const cirsoc201Flexure: Post = {
         },
         {
           "k": "p",
-          "t": "El cruce está en Mu = 31,1 kN·m. Por debajo de ese momento, dimensionar por resistencia no sirve de nada: la sección va a llevar 2,38 cm² igual. Vale la pena saber de qué lado del cruce está una viga antes de discutir su armadura."
+          "t": "El cruce está en Mu = 31,1 kN·m. Este ejemplo aplica §9.6.1.2. Donde se admite la excepción de §9.6.1.3, se puede disponer en cada sección al menos 4/3 de la armadura requerida por el análisis. Vale la pena saber de qué lado del cruce está una viga antes de discutir su armadura."
         },
         {
           "k": "h",
@@ -231,7 +231,7 @@ export const cirsoc201Flexure: Post = {
         },
         {
           "k": "p",
-          "t": "The crossover is at Mu = 31.1 kN·m. Below that moment, sizing for strength achieves nothing: the section carries 2.38 cm² either way. It is worth knowing which side of the crossover a beam is on before discussing its reinforcement."
+          "t": "The crossover is at Mu = 31.1 kN·m. This example uses §9.6.1.2. Where the exception in §9.6.1.3 applies, each section may instead provide at least 4/3 of the reinforcement required by analysis. It is worth knowing which side of the crossover a beam is on before discussing its reinforcement."
         },
         {
           "k": "h",
@@ -408,7 +408,7 @@ export const cirsoc201Flexure: Post = {
         },
         {
           "k": "p",
-          "t": "O ponto de cruzamento fica em Mu = 31,1 kN·m. Abaixo desse momento, dimensionar pela resistência não adianta: a seção vai ter 2,38 cm² de qualquer jeito. Vale saber de que lado do cruzamento uma viga está antes de discutir a sua armadura."
+          "t": "O ponto de cruzamento fica em Mu = 31,1 kN·m. Este exemplo aplica §9.6.1.2. Quando se aplica a exceção de §9.6.1.3, pode-se fornecer em cada seção pelo menos 4/3 da armadura exigida pela análise. Vale saber de que lado do cruzamento uma viga está antes de discutir a sua armadura."
         },
         {
           "k": "h",

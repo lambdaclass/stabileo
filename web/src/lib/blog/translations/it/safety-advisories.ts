@@ -15,7 +15,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Stato al 12 novembre 2026: da SA-2026-001 a 020 sono corretti nella versione 0.3.0, da SA-2026-021 a 024 nella versione 0.4.0 e da SA-2026-025 a 047 nella versione 0.5.0 (SA-2026-040 contenuto: la verifica è segnata come incompleta), tranne SA-2026-044: il collasso plastico 2D resta rifiutato finché #758 non si chiude. SA-2026-048 è stato corretto dopo la versione 0.5.0 ed è su stabileo.com dall’8 novembre 2026. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 e SA-2026-053 sono stati corretti dopo la versione 0.5.0 e sono su stabileo.com dal 9 novembre 2026. Pubblicarli fa parte di come verifichiamo i risultati, non è segno che siano ancora aperti. Un bollettino conta come corretto quando la correzione è online su stabileo.com, non quando la modifica esiste. Finché un bollettino è aperto, usa il suo rimedio e controlla a mano il risultato interessato prima di firmare. SA-2026-054 — Bozza: correzione non ancora integrata né distribuita. SA-2026-055 — Bozza: correzione non ancora integrata né distribuita. SA-2026-056 — Bozza: irrisolto; nessuna correzione integrata né distribuita. SA-2026-057 — Bozza: correzione non ancora integrata né distribuita. SA-2026-059 — Corretto nella PR #1921, in attesa del rilascio. SA-2026-060 — Bozza: correzione locale in attesa di revisione e rilascio. SA-2026-062 — Bozza: correzione locale in attesa di revisione e rilascio."
+      "t": "Stato dopo la versione 0.6.0: da SA-2026-001 a 020 sono corretti nella versione 0.3.0, da SA-2026-021 a 024 nella versione 0.4.0 e da SA-2026-025 a 047 nella versione 0.5.0, con due eccezioni. Per SA-2026-040 la verifica a torsione resta incompleta. Per SA-2026-044 il collasso plastico 2D resta rifiutato finché #758 non si chiude. SA-2026-048 è stato corretto dopo la versione 0.5.0 ed è su stabileo.com dall’8 novembre 2026. SA-2026-049, SA-2026-050, SA-2026-051, SA-2026-052 e SA-2026-053 sono stati corretti dopo la versione 0.5.0 e sono su stabileo.com dal 9 novembre 2026. Pubblicarli fa parte di come verifichiamo i risultati, non è segno che siano ancora aperti. Un bollettino conta come corretto quando la correzione è online su stabileo.com, non quando la modifica esiste. Finché un bollettino è aperto, usa il suo rimedio e controlla a mano il risultato interessato prima di firmare. Da SA-2026-054 a SA-2026-063 le correzioni sono incluse nella 0.6.0, tranne SA-2026-056: verifica in modo indipendente le sollecitazioni dinamiche interessate prima di usarle."
     },
     {
       "k": "note",
@@ -766,7 +766,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-048",
-          "Acciaio CIRSOC 301: Cb non coglieva un cambio di segno agli estremi di una lunghezza non controventata dichiarata più corta dell’asta (un profilo a C a doppia curvatura otteneva Cb = 2,55 invece di 1, sovrastimando la capacità flesso-torsionale); da 0.2.0 a 0.5.0, le alfa desktop e stabileo.com fino all’8 novembre 2026",
+          "Acciaio CIRSOC 301: Cb poteva perdere un cambio di segno o omettere i momenti di estremità da Mmax. Ricontrolla ogni sezione con lunghezza non controventata dichiarata più corta dell’asta, anche senza inversione di segno (un profilo a C a doppia curvatura otteneva Cb = 2,55 invece di 1, sovrastimando la capacità flesso-torsionale); da 0.2.0 a 0.5.0, le alfa desktop e stabileo.com fino all’8 novembre 2026",
           "Alta",
           "Risolto dopo la 0.5.0; su stabileo.com dal 8 novembre 2026"
         ],
@@ -804,61 +804,61 @@ const body: PostBody = {
           "SA-2026-054",
           "L’analisi lineare poteva restituire in silenzio risultati imprecisi per rigidezza non risolta o componenti di carico PCG mancate",
           "Alta",
-          "Bozza: correzione non ancora integrata né rilasciata"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-055",
           "Il P-Delta 2D e 3D poteva sottostimare l’amplificazione e segnalare stabilità quando lo sforzo normale variava sotto carichi distribuiti o concentrati lungo un’asta di telaio",
           "Alta",
-          "Bozza: correzione non ancora integrata né rilasciata"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-056",
           "Modelli 3D di telai e gusci con vincoli interni: i risultati armonici e time-history forzati cambiano con descrizioni equivalenti; l’estensione oltre il modello mantenuto non è stabilita",
           "Alta",
-          "Bozza: non risolto; nessuna correzione integrata né rilasciata"
+          "Irrisolto: verifica indipendente prima dell’uso"
         ],
         [
           "SA-2026-057",
           "Le visualizzazioni dei certificati plastici potevano etichettare come interni fattori fuori dal loro intervallo certificato; l’estrazione esatta dei meccanismi scartava i rifiuti per risorse nelle build precedenti alla correzione della PR #1888",
           "Media",
-          "Bozza: correzione non ancora integrata né rilasciata"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-058",
           "I modelli armonici 2D/3D grandi, oltre 3000 gradi di libertà liberi indipendenti, potevano mantenere risposte inaccurate dei modi omessi fuori da q ≤ 1/16 a frequenze non coperte dall’avviso di troncamento (misurato un errore complesso del bersaglio dell’8,079%)",
           "Alta",
-          "Risolto nella PR #1922, in attesa di rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-059",
           "Le analisi avanzate web potevano dare ai cavi resistenza a compressione senza avviso (replay P-Delta: −4,599884347090908 kN); rivedi le sollecitazioni dei modelli di cavo provenienti da analisi avanzate, analisi diretta e procedure guidate didattiche",
           "Alta",
-          "Risolto nella PR #1921, in attesa di rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-060",
           "L’analisi per fasi poteva irrigidire in silenzio rotazioni reali dopo cambi di unità o negli estremi svincolati con molle di vincolo; ricontrolla i modelli per fasi con svincoli nelle aste",
           "Alta",
-          "Bozza: correzione locale in attesa di revisione e rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-061",
           "L’arc-length e il controllo in spostamento omettevano le reazioni e usavano carichi sulle aste non scalati; vanno riviste anche le omissioni nei risultati 2D/3D con vincoli interni, Guyan, per fasi e time-history. Riesegui i risultati interessati o verificali in modo indipendente; 0.2.0–0.5.0 e le build successive di main interessate.",
           "Alta",
-          "Risolto nella PR #1952, in attesa di rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-062",
           "L’analisi plastica 3D grezza poteva riportare zero in silenzio quando falliva lo stato elastico iniziale; le build certificate più vecchie mantenevano quel fattore. Main restituisce già un limite certificato positivo con un avviso; la PR #1943 propaga il rifiuto iniziale",
           "Alta",
-          "Bozza: correzione locale in attesa di revisione e rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-063",
           "Le analisi per fasi e non lineari con vincoli interni scartavano il moto imposto del master; cavi e time-history ora rifiutano il moto di vincolo non supportato. Gli avvisi dinamici generali esistenti restano distinti da questa omissione",
           "Alta",
-          "Risolto nella PR #2009, in attesa di rilascio"
+          "Risolto nella 0.6.0"
         ],
         [
           "SA-2026-064",
@@ -1422,7 +1422,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Con i carichi H, la CIRSOC 101-2025 chiede gli effetti dei carichi non agenti. Le combinazioni 0.9 D + 1.6 H e 1.2 D + 1.6 H non venivano mai generate, quindi dove il carico permanente contrasta la spinta del terreno (il ribaltamento o lo scorrimento di un muro) l’effetto risultava basso. Ora vengono generate, con o senza vento o sisma nel modello."
+      "t": "Con i carichi H, la CIRSOC 101-2025 richiede di valutare anche le combinazioni in cui i carichi pertinenti sono assenti. Le combinazioni 0.9 D + 1.6 H e 1.2 D + 1.6 H non venivano mai generate, quindi dove il carico permanente contrasta la spinta del terreno (il ribaltamento o lo scorrimento di un muro) l’effetto risultava basso. Ora vengono generate, con o senza vento o sisma nel modello."
     },
     {
       "k": "ext",
@@ -1491,7 +1491,7 @@ const body: PostBody = {
     {
       "k": "ul",
       "items": [
-        "Come capire se sei interessato: un vincolo era prima una molla (o aveva costanti elastiche) ed è stato poi cambiato in incastro, cerniera o carrello, oppure un grado di libertà è stato spuntato come vincolato. Nei risultati, quel vincolo mostra uno spostamento o una rotazione diversi da zero.",
+        "Come capire se sei interessato: un vincolo era prima una molla (o aveva costanti elastiche) ed è stato poi cambiato in incastro, cerniera o carrello, oppure un grado di libertà è stato spuntato come vincolato. Nei risultati, controlla lo spostamento o la rotazione del solo grado di libertà passato da elastico a bloccato: deve essere nullo.",
         "Cosa fare: ricalcola su stabileo.com i modelli 3D i cui vincoli sono stati modificati da molle a rigidi e confronta i risultati vicino a quei vincoli con quelli che hai già usato.",
         "Stato: corretto su stabileo.com il 20 ottobre 2026. Ogni grado di libertà vincolato è calcolato come vincolato, anche nei progetti salvati prima."
       ]

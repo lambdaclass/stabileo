@@ -1,19 +1,19 @@
 {
   "en": {
     "openNote": "The rows marked ✗ are open. Shape 4 sits just past the cusp, where the height changes fast with the clamp angles: our path reaches the paper’s height about 0.08 lower in Δ. With the load on half the span our limit loads come out 5 to 7% lower, and the bifurcation curve where the paper finds its optimum lies about 0.2 lower in Δ in our runs, which also puts the Table 1 point (0.64, 1.16) right on it. For the half-span load at (0.96, 0) the snap lands on a stable state with curvature 14.1, not the paper’s 7.6. The inverted shape at the end of the path, which matches the figure, has a largest curvature of about 10.6, above the threshold of 6 that the paper sets for the path. These are open questions for the authors.",
-    "runNote": "Move the far corner of the rectangle and recompute. Below the cusp the strip comes back as an arch; past the fold the path stops."
+    "runNote": "Confirm a change to the far corner to recalculate automatically. Below the cusp the strip comes back as an arch; past the fold the path stops."
   },
   "es": {
     "openNote": "Las filas con ✗ quedan abiertas. La forma 4 está justo pasando la cúspide, donde la altura cambia rápido con los ángulos de mordaza: nuestro camino alcanza la altura del artículo unos 0,08 más abajo en Δ. Con la carga en media luz nuestras cargas límite dan entre un 5 y un 7 % más bajas, y la curva de bifurcación donde el artículo encuentra su óptimo queda en nuestras corridas unos 0,2 más abajo en Δ, lo que además deja el punto (0,64, 1,16) de la tabla 1 justo sobre ella. Con la carga en media luz en (0,96, 0) el salto cae en un estado estable de curvatura 14,1, no en el 7,6 del artículo. La forma invertida al final del camino, que coincide con la figura, tiene una curvatura máxima de alrededor de 10,6, por encima del umbral de 6 que el artículo fija para el camino. Quedan como preguntas para los autores.",
-    "runNote": "Mové la esquina lejana del rectángulo y recalculá. Por debajo de la cúspide la lámina vuelve como arco; pasado el pliegue el camino se corta."
+    "runNote": "Al confirmar el cambio de la esquina lejana, el cálculo se reinicia automáticamente. Por debajo de la cúspide la lámina vuelve como arco; pasado el pliegue el camino se corta."
   },
   "pt": {
     "openNote": "As linhas com ✗ ficam em aberto. A forma 4 está logo depois da cúspide, onde a altura muda rápido com os ângulos das garras: nosso caminho alcança a altura do artigo cerca de 0,08 mais abaixo em Δ. Com a carga em meio vão nossas cargas limite saem de 5 a 7 % mais baixas, e a curva de bifurcação onde o artigo encontra seu ótimo fica nas nossas execuções cerca de 0,2 mais abaixo em Δ, o que também coloca o ponto (0,64, 1,16) da tabela 1 exatamente sobre ela. Com a carga em meio vão em (0,96, 0) o salto cai em um estado estável de curvatura 14,1, não no 7,6 do artigo. A forma invertida no fim do caminho, que coincide com a figura, tem curvatura máxima de cerca de 10,6, acima do limiar de 6 que o artigo fixa para o caminho. Ficam como perguntas para os autores.",
-    "runNote": "Mova o canto distante do retângulo e recalcule. Abaixo da cúspide a lâmina volta como arco; depois da dobra o caminho para."
+    "runNote": "Ao confirmar a mudança no canto distante, o cálculo recomeça automaticamente. Abaixo da cúspide a lâmina volta como arco; depois da dobra o caminho para."
   },
   "hu": {
     "openNote": "A ✗-gel jelölt sorok nyitottak. A 4. alak éppen a csúcsponton túl helyezkedik el, ahol a magasság gyorsan változik a befogási szögekkel: az általunk számított út az ábrán közölt magasságot körülbelül 0,08-cal kisebb Δ-nál éri el. Fél fesztávon ható teher esetén a határterheink 5–7%-kal kisebbek, és az a bifurkációs görbe, ahol a cikk az optimumot találja, a futtatásainkban körülbelül 0,2-del kisebb Δ-nál helyezkedik el, így az 1. táblázat (0,64; 1,16) pontja is éppen erre esik. A (0,96; 0) pontbeli, fél fesztávon ható tehernél az átpattanás egy 14,1 görbületű stabil állapotba vezet, szemben a cikk 7,6 értékével. Az út végén kialakuló, az ábrával egyező fordított alak legnagyobb görbülete körülbelül 10,6, meghaladva a cikkben az útra előírt 6-os küszöböt. Ezek a szerzők számára nyitott kérdések.",
-    "runNote": "Mozgassa a téglalap távoli sarkát, majd számítsa újra. A csúcspont alatt a csík ívként tér vissza; a redőn túl az út megszakad."
+    "runNote": "A távoli sarok módosításának véglegesítésekor a számítás automatikusan újraindul. A csúcspont alatt a csík ívként tér vissza; a redőn túl az út megszakad."
   },
   "it": {
     "openNote": "Le righe segnate con ✗ sono aperte. La forma 4 si trova appena oltre la cuspide, dove l’altezza cambia rapidamente con gli angoli dei morsetti: il nostro percorso raggiunge l’altezza dell’articolo circa 0.08 più in basso in Δ. Con il carico su metà luce i nostri carichi limite risultano inferiori del 5–7%, e la curva di biforcazione dove l’articolo trova il suo ottimo si trova circa 0.2 più in basso in Δ nelle nostre esecuzioni, il che colloca anche il punto della Tabella 1 (0.64; 1.16) proprio su di essa. Per il carico su metà luce in (0.96; 0) lo scatto approda a uno stato stabile con curvatura 14.1, non 7.6 come nell’articolo. La forma invertita al termine del percorso, che corrisponde alla figura, ha una curvatura massima di circa 10.6, sopra la soglia di 6 che l’articolo fissa per il percorso. Sono questioni aperte per gli autori.",
@@ -21,6 +21,6 @@
   },
   "zh": {
     "openNote": "标有 ✗ 的行仍未解决。形状 4 刚好越过尖点，在该处高度随夹具角度变化很快：我们的路径达到论文高度时，Δ 约低 0.08。荷载作用在半跨时，我们的极限荷载低 5% 至 7%；在我们的运行中，论文找到最优值的分岔曲线在 Δ 上约低 0.2，这也使表 1 的点 (0.64, 1.16) 恰好落在该曲线上。对于 (0.96, 0) 处的半跨荷载，突跳后落在曲率为 14.1 的稳定状态，而不是论文的 7.6。路径末端的反向形状与图相符，其最大曲率约为 10.6，超过论文为该路径设定的阈值 6。这些是留给作者的未决问题。",
-    "runNote": "移动矩形的远端角点并重新计算。在尖点以下，板条会以拱形返回；越过折点后，路径中断。"
+    "runNote": "确认远端角点的更改后会自动重新计算。在尖点以下，板条会以拱形返回；越过折点后，路径中断。"
   }
 }

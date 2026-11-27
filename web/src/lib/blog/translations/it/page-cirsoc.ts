@@ -30,7 +30,7 @@ const body: StandingPage['i18n']['en'] = {
         ],
         [
           "CIRSOC 201-2025 — dettagli costruttivi",
-          "Ancoraggio, controllo della fessurazione, interferro e disposizione delle barre",
+          "Ancoraggio, controllo della fessurazione, copriferro e disposizione delle barre",
           "Disponibile in PRO. Testato"
         ],
         [
@@ -81,7 +81,7 @@ const body: StandingPage['i18n']['en'] = {
         "I carichi e le combinazioni secondo CIRSOC 101, 102, 103 e 104 si generano dai dati del progetto.",
         "Ogni asta si conclude con il suo rapporto domanda/capacità e l’articolo che governa, e ogni passaggio si può ispezionare.",
         "Il solutore gira sul tuo computer: il modello non viene inviato a nessun server per essere calcolato. Il codice è aperto (AGPL-3.0).",
-        "Lo stesso modello dà sempre gli stessi numeri, e ogni relazione registra la versione e i dati che l’hanno prodotta."
+        "Lo stesso modello dà gli stessi numeri a parità di impostazioni di analisi e versione del solutore, e ogni relazione registra la versione e i dati che l’hanno prodotta."
       ]
     },
     {

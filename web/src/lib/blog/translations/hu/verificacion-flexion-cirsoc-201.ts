@@ -1,5 +1,5 @@
 import type { PostBody } from '../../types';
-import { minimumSteelExampleRows, flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
+import { minimumSteelExampleDepthMm, minimumSteelExampleRows, flexureExampleRows, flexureExampleSteps } from '../../flexure-example';
 
 const body: PostBody = {
   "title": "Hajlítási ellenőrzés a CIRSOC 201 szerint, lépésről lépésre",
@@ -42,7 +42,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "A váltópont Mu = 31,1 kN·m-nél van. E nyomaték alatt a teherbírásra méretezés semmit sem ér el: a keresztmetszet így is, úgy is 2,38 cm²-t kap. Érdemes tudni, hogy egy gerenda a váltópont melyik oldalán áll, mielőtt a vasalásáról vitatkozunk. A fenti előzetes méretezési táblázat d = 35,9 cm értéket feltételez; a kiválasztott vasalás tényleges d értékével az ellenőrzést meg kell ismételni."
+      "t": `A váltópont Mu = 31,1 kN·m-nél van. Ez a példa a §9.6.1.2 szerinti minimumot használja. Ha a §9.6.1.3 kivétele alkalmazható, minden keresztmetszetben elegendő a számítás szerint szükséges vasalás legalább 4/3-át biztosítani. Érdemes tudni, hogy egy gerenda a váltópont melyik oldalán áll, mielőtt a vasalásáról vitatkozunk. A fenti előzetes méretezési táblázat d = ${(minimumSteelExampleDepthMm / 10).toLocaleString('hu-HU')} cm értéket feltételez; a kiválasztott vasalás tényleges d értékével az ellenőrzést meg kell ismételni.`
     },
     {
       "k": "h",

@@ -17,8 +17,9 @@ import { allDictFor } from '../locales/all';
 import { unfinishedProClaims } from '../pro-copy';
 
 const italian = allDictFor('it');
+const notices = readRegistry().changes;
 
-it.skip.each([
+it.each([
   ["course.influence.doc.mb.principle", "l’opposto della proiezione"],
   ["course.influence.states.why", "resta presente nelle posizioni assegnate"],
   ["course.influence.states.pattern", "ogni passaggio per lo zero"],
@@ -58,7 +59,7 @@ it.skip.each([
   expect(italian[key]).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   ["mohr.rotation", mohrTranslations.it["mohr.rotation"], "normale al piano"],
   ["tag.nonZeroAtRelease", gameStrings.it["tag.nonZeroAtRelease"], "libero senza coppia"],
   ["tag.inflectionMisplaced", gameStrings.it["tag.inflectionMisplaced"], "momento nullo da solo non basta"],
@@ -74,18 +75,18 @@ it.skip.each([
   expect(actual).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   ["linear-small-displacement-warning", "lunghezza dell’asta supera 0,1,"],
   ["mirrored-moments-2d-in-3d", "invertiva il segno"],
   ["modal-mechanism-refused", "filtro separato dell’app"],
   ["modal-physical-mass-range", "impedendo all’analisi modale"],
   ["shell-envelope-per-component", "Von Mises di membrana"],
 ] as const)('known wrong result: #2595 — published notice %s', (id, expected) => {
-  const notice = readRegistry().changes.find(change => change.id === id);
+  const notice = notices.find(change => change.id === id);
   expect(notice?.explanation.it).toContain(expected);
 });
 
-it.skip.each([
+it.each([
   ["bars-or-finite-elements", "it", "spostamento interpolato tra i nodi"],
   ["bars-or-finite-elements", "it", "travi e il carico qui confrontati"],
   ["conceptual-side-advanced-tools", "it", "matrice ridotta 6×6"],
@@ -119,14 +120,14 @@ it.skip.each([
   expect(JSON.stringify(body)).toContain(expected);
 });
 
-it.skip.each(Array.from({ length: 10 }, (_, i) => 54 + i))('known wrong result: #2595 — release status of advisory %i', number => {
+it.each(Array.from({ length: 10 }, (_, i) => 54 + i))('known wrong result: #2595 — release status of advisory %i', number => {
   const blocks = findPost('safety-advisories')!.i18n.it!.blocks;
   const row = blocks.flatMap(block => block.k === 'table' ? block.rows : []).find(row => row[0] === 'SA-2026-0' + number);
   expect(row?.[3]).toBe(number === 56 ? 'Irrisolto: verifica indipendente prima dell’uso' : 'Risolto nella 0.6.0');
   expect(blocks.find(block => block.k === 'note')?.t).toContain('nella 0.6.0, tranne SA-2026-056');
 });
 
-it.skip.each([
+it.each([
   ['0.4.0', 'Se servono risultati dinamici, usa un’analisi che rappresenti gli offset fisici'],
   ['0.6.3', 'sostituirla con il consueto peso verso il basso applicato all’intero modello'],
 ])('known wrong result: #2595 — release %s recovery action', (version, action) => {
@@ -134,7 +135,7 @@ it.skip.each([
   expect(notes).toContain(action);
 });
 
-it.skip.each([
+it.each([
   ['hu-HU', 'Kész. Bezárhatja ezt az ablakot.'],
   ['it-IT', 'Fatto. Puoi chiudere questa finestra.'],
   ['en-US', 'Done. You can close this window.'],
@@ -148,7 +149,7 @@ it.skip.each([
   expect(message.textContent).toBe(expected);
 });
 
-it.skip.each([
+it.each([
   ['en', 'automatically'], ['es', 'automáticamente'], ['pt', 'automaticamente'],
   ['hu', 'automatikusan'], ['it', 'automaticamente'], ['zh', '自动'],
 ] as const)('known wrong result: #2595 — both Fehér controls reflect a committed change in %s', (locale, automatic) => {
@@ -156,15 +157,27 @@ it.skip.each([
   expect(feher[locale].runNote).toBe(mainCopy[locale].runNote);
 });
 
-it.skip('known wrong result: #2595 — uppercase Italian preposition in a PRO claim', () => {
+it('known wrong result: #2595 — uppercase Italian preposition in a PRO claim', () => {
   const claim = 'PRO È IN BETA ED È RISERVATO AI CLIENTI';
   expect(unfinishedProClaims(claim, 'it', { aboutPro: false })).toEqual([claim]);
-  expect(unfinishedProClaims('IL MODULO AI DI PRO È IN BETA', 'it', { aboutPro: false })).toEqual([]);
+  const aboutClients = 'PRO È IN BETA E INVIA IL MODULO AI CLIENTI';
+  expect(unfinishedProClaims(aboutClients, 'it', { aboutPro: false })).toEqual([aboutClients]);
+  expect(unfinishedProClaims('IN PRO IL MODULO AI È IN BETA', 'it', { aboutPro: false })).toEqual([]);
 });
 
-it.skip.each(['I', 'H', 'C', 'U'])('known wrong result: #2595 — substitute the reported outstand in the %s equation', shape => {
+it.each(['I', 'H', 'C', 'U'])('known wrong result: #2595 — substitute the reported outstand in the %s equation', shape => {
   const tf = 0.01;
   const report = f62Report({ shape, b: 0.2, tf });
   expect(report.slendernessFormula).toBe('bf/tf');
   expect(report.flangeSlenderness).toBe(report.bfM! / tf);
+});
+
+it('uses Italian decimal commas for all three buckling coefficients and their comparisons', () => {
+  const blocks = findPost('when-results-change')!.i18n.it!.blocks;
+  const table = blocks.find(block => block.k === 'table' && block.caption?.includes('SA-2026-042'));
+  expect(table?.k === 'table' && table.rows.map(row => row.slice(1))).toEqual([
+    ['3,477', '4,972 (+43 %)', '3,542 (+1,9 %)'],
+    ['2,961', '4,972 (+68 %)', '3,056 (+3,2 %)'],
+    ['7,837', '4,972 (−37 %)', '7,889 (+0,7 %)'],
+  ]);
 });

@@ -137,6 +137,16 @@ jobs:
           fi
           nix develop . -c sh -c "cd route-main/web && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json' --update"
           nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
+      - name: Compare isolated Italian payloads when main predates per-locale measurement
+        if: steps.scope.outputs.research == 'true'
+        run: |
+          if [ ! -e route-main/web/scripts/italian-route-bytes.mjs ]; then
+            meter=scripts/check-research-route-size.mjs
+            mkdir -p route-main/web/.route-partition
+            cp "web/$meter" web/scripts/{italian-route-bytes,research-route-budget}.mjs route-main/web/.route-partition/
+            (cd route-main/web && nix develop ../.. -c node ".route-partition/${meter##*/}" --baseline "$RUNNER_TEMP/route-partition.json" --update)
+            (cd web && nix develop .. -c node "$meter" --baseline "$RUNNER_TEMP/route-partition.json")
+          fi
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.

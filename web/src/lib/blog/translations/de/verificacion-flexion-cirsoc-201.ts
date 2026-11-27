@@ -42,7 +42,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Der Umschlagpunkt liegt bei Mu = 31,1 kN·m. Unterhalb dieses Moments bringt eine Bemessung auf Tragfähigkeit nichts: Der Querschnitt erhält so oder so 2,38 cm². Es lohnt sich zu wissen, auf welcher Seite des Umschlagpunkts ein Balken liegt, bevor man über seine Bewehrung diskutiert."
+      "t": "Der Umschlagpunkt liegt bei Mu = 31,1 kN·m. Hier gilt §9.6.1.2. Ist die Ausnahme nach §9.6.1.3 anwendbar, darf stattdessen in jedem Querschnitt mindestens das 4/3-Fache der rechnerisch erforderlichen Bewehrung vorgesehen werden. Es lohnt sich zu wissen, auf welcher Seite des Umschlagpunkts ein Balken liegt, bevor man über seine Bewehrung diskutiert."
     },
     {
       "k": "h",

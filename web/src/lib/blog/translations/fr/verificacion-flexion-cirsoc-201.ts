@@ -42,7 +42,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Le croisement se situe à Mu = 31,1 kN·m. En dessous de ce moment, dimensionner à la résistance ne sert à rien : la section porte 2,38 cm² de toute façon. Il vaut la peine de savoir de quel côté du croisement se trouve une poutre avant de discuter de son armature."
+      "t": "Le croisement se situe à Mu = 31,1 kN·m. Cet exemple applique le §9.6.1.2. Lorsque l’exception du §9.6.1.3 est applicable, on peut prévoir dans chaque section au moins 4/3 de l’armature requise par le calcul. Il vaut la peine de savoir de quel côté du croisement se trouve une poutre avant de discuter de son armature."
     },
     {
       "k": "h",

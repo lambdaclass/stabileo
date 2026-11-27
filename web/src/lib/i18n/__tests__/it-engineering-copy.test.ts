@@ -104,7 +104,7 @@ it('known wrong result: #2595 — minimum steel follows the illustrated effectiv
 });
 
 it.each([
-  ['I', 'bf/(2tf)', 10], ['H', 'bf/(2tf)', 10],
+  ['I', 'bf/tf', 10], ['H', 'bf/tf', 10],
   ['C', 'bf/tf', 20], ['U', 'bf/tf', 20],
   ['T', null, null],
 ] as const)('shows the calculated flange slenderness convention for %s', (shape, formula, expected) => {

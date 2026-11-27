@@ -1209,7 +1209,7 @@ const it: Record<Key, string> = {
   'rc-column.o.adn500': 'ADN 500',
   'rc-column.p.pu': 'Sforzo normale di progetto Pu',
   'rc-column.p.mu': 'Momento di progetto Mu',
-  'outrigger.about': 'Un nucleo scatolare quadrato in calcestruzzo (E = 30 GPa, pareti da 0,3 m) è una mensola sotto un carico di vento uniforme. Un outrigger rigido (I = 2 m⁴) lo collega a due pilastri perimetrali, incernierati a terra e all’outrigger, che portano solo sforzo normale. A ogni movimento del cursore il modello viene risolto una volta per il livello scelto e una volta per ogni interpiano, quindi il grafico è la variazione calcolata dal motore stesso. Lo spostamento in sommità e la forza nel pilastro sono mostrati accanto alla soluzione di compatibilità di Smith & Coull per un outrigger, con la flessione dell’outrigger e l’accorciamento dei pilastri inclusi.',
+  'outrigger.about': 'Un nucleo scatolare quadrato in calcestruzzo (E = 30 GPa, pareti da 0,3 m) è una mensola sotto un carico di vento uniforme. Un outrigger a rigidezza flessionale finita (I = 2 m⁴) lo collega a due pilastri perimetrali, incernierati a terra e all’outrigger, che portano solo sforzo normale. A ogni movimento del cursore il modello viene risolto una volta per il livello scelto e una volta per ogni interpiano, quindi il grafico è la variazione calcolata dal motore stesso. Lo spostamento in sommità e la forza nel pilastro sono mostrati accanto alla soluzione di compatibilità di Smith & Coull per un outrigger, con la flessione dell’outrigger e l’accorciamento dei pilastri inclusi.',
   'outrigger.p.storeys': 'Piani',
   'outrigger.p.storeyHeight': 'Altezza di interpiano',
   'outrigger.p.position': 'Altezza dell’outrigger',

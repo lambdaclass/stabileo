@@ -191,21 +191,21 @@ const body: PostBody = {
       "rows": [
         [
           "Mensola, compressione che sale da 0 al vincolo a P all’estremità",
-          "3.477",
-          "4.972 (+43 %)",
-          "3.542 (+1.9 %)"
+          "3,477",
+          "4,972 (+43 %)",
+          "3,542 (+1,9 %)"
         ],
         [
           "Mensola, spinta P all’estremità e un carico assiale opposto P a metà luce: compressione P solo da metà luce all’estremità",
-          "2.961",
-          "4.972 (+68 %)",
-          "3.056 (+3.2 %)"
+          "2,961",
+          "4,972 (+68 %)",
+          "3,056 (+3,2 %)"
         ],
         [
           "Pilastro pesante di Eulero, compressione massima al vincolo",
-          "7.837",
-          "4.972 (−37 %)",
-          "7.889 (+0.7 %)"
+          "7,837",
+          "4,972 (−37 %)",
+          "7,889 (+0,7 %)"
         ]
       ]
     },

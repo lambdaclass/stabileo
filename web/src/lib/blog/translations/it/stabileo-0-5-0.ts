@@ -2,11 +2,11 @@ import type { PostBody } from '../../types';
 
 const body: PostBody = {
   "title": "Stabileo 0.5.0: altri ventitré bollettini, e ogni issue aperta su risultati errati con avviso o rifiuto",
-  "excerpt": "Cosa è cambiato dalla 0.4.0: ventitré difetti che potevano dare un risultato errato o non a favore di sicurezza, descritti come bollettini e tutti tranne uno corretti; un avviso o un rifiuto per ogni difetto ancora aperto; e il corso passo dopo passo in Base.",
+  "excerpt": "Cosa è cambiato dalla 0.4.0: ventitré difetti che potevano dare un risultato errato o non a favore di sicurezza, descritti come bollettini e ventuno corretti, con la verifica a torsione incompleta (SA-2026-040) e il collasso plastico 2D rifiutato (SA-2026-044); un avviso o un rifiuto per ogni difetto ancora aperto; e il corso passo dopo passo in Base.",
   "blocks": [
     {
       "k": "p",
-      "t": "Dalla 0.4.0 abbiamo continuato a controllare Stabileo da più lati insieme: il solutore contro soluzioni pubblicate e altri programmi, le verifiche di progetto contro esempi svolti, la stessa struttura rinumerata, riscalata e spostata, e i file salvati dalle versioni precedenti. Ha portato a trovare altri ventitré difetti che potevano dare un risultato errato o non a favore di sicurezza. Ciascuno ha un bollettino che dice cosa non andava, chi è interessato e cosa ricontrollare. Ventidue sono corretti; il collasso plastico 2D (SA-2026-044) resta rifiutato finché non si corregge #758."
+      "t": "Dalla 0.4.0 abbiamo continuato a controllare Stabileo da più lati insieme: il solutore contro soluzioni pubblicate e altri programmi, le verifiche di progetto contro esempi svolti, la stessa struttura rinumerata, riscalata e spostata, e i file salvati dalle versioni precedenti. Ha portato a trovare altri ventitré difetti che potevano dare un risultato errato o non a favore di sicurezza. Ciascuno ha un bollettino che dice cosa non andava, chi è interessato e cosa ricontrollare. Ventuno sono corretti. Per SA-2026-040 la verifica a torsione resta incompleta e il collasso plastico 2D (SA-2026-044) resta rifiutato finché non si corregge #758."
     },
     {
       "k": "note",
@@ -112,7 +112,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Gli altri bollettini riguardano le aste in calcestruzzo con torsione secondo ACI 318 ed EN 1992 (SA-2026-040), i vincoli di un modello ritagliato in 2D da un piano Y–Z o X–Y (SA-2026-036), l’analisi co-rotazionale 3D con grandi rotazioni (SA-2026-037), un carico a t = 0 su un nodo senza massa nella time history (SA-2026-031), il modo a frequenza zero di un meccanismo nell’analisi modale (SA-2026-032), la verifica di equilibrio della relazione dopo l’analisi (SA-2026-034), il collasso plastico 2D, che resta rifiutato finché non si corregge #758 (SA-2026-044), il collasso plastico 3D con un’asta senza momento plastico utilizzabile, ora rifiutato (SA-2026-045), l’analisi armonica che sceglieva tra sovrapposizione modale e calcolo diretto per ciascun carico, quindi la sovrapposizione si rompeva (SA-2026-046), rettangoli e tubi importati da Excel o IFC con Iy e Iz scambiati (SA-2026-039) e, per chi chiama direttamente il motore, il taglio dell’acciaio senza area a taglio secondo AISC 360 ed EN 1993 (SA-2026-025 e 026)."
+      "t": "Gli altri bollettini riguardano le aste in calcestruzzo con torsione secondo ACI 318 ed EN 1992 (SA-2026-040), i vincoli di un modello ritagliato in 2D da un piano Y–Z o X–Y (SA-2026-036), l’analisi co-rotazionale 3D con grandi rotazioni (SA-2026-037), un carico applicato a t = 0 a un grado di libertà privo di massa nella time history (SA-2026-031), il modo a frequenza zero di un meccanismo nell’analisi modale (SA-2026-032), la verifica di equilibrio della relazione dopo l’analisi (SA-2026-034), il collasso plastico 2D, che resta rifiutato finché non si corregge #758 (SA-2026-044), il collasso plastico 3D con un’asta senza momento plastico utilizzabile, ora rifiutato (SA-2026-045), l’analisi armonica che sceglieva tra sovrapposizione modale e calcolo diretto per ciascun carico, quindi la sovrapposizione si rompeva (SA-2026-046), rettangoli e tubi importati da Excel o IFC con Iy e Iz scambiati (SA-2026-039) e, per chi chiama direttamente il motore, il taglio dell’acciaio senza area a taglio secondo AISC 360 ed EN 1993 (SA-2026-025 e 026)."
     },
     {
       "k": "h",

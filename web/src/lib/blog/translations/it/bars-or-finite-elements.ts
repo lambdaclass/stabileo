@@ -60,7 +60,7 @@ const body: PostBody = {
     },
     {
       "k": "quote",
-      "t": "Creare la mesh di un’asta rettilinea non la rende più accurata: la rende più lenta."
+      "t": "Per questa trave il raffinamento conserva gli spostamenti nei nodi esistenti, ma può migliorare lo spostamento interpolato tra i nodi."
     },
     {
       "k": "note",
@@ -132,7 +132,7 @@ const body: PostBody = {
     },
     {
       "k": "quote",
-      "t": "Il modello a telaio rende sempre la trave più rigida di quanto sia davvero."
+      "t": "Per le travi e il carico qui confrontati, il modello a telaio trascura la deformazione a taglio e sottostima la freccia."
     },
     {
       "k": "h",

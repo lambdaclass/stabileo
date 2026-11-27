@@ -66,7 +66,7 @@ export interface F62Report {
   flangeSlenderness: number | null;
   /** The `bf` the clause's convention gives for this shape, metres. Null when unavailable. */
   bfM: number | null;
-  slendernessFormula: string | null;
+  slendernessFormula: 'bf/tf' | null;
   /** `Fcr = 138000/(bf/tf)²`, MPa — F.6.3. Meaningful only in branch (c), and labelled as such. */
   fcrMPa: number | null;
   /** `Sy`, m³. Null when the inputs are not there. */
@@ -141,7 +141,6 @@ export function f62Report(input: F62Input): F62Report {
   }
 
   const lambdaF = bf / tf;
-  const slendernessFormula = divisor === 1 ? 'bf/tf' : 'bf/(2tf)';
   /*
    * F.6.3's constant is 138000 with `bf/tf` dimensionless, giving MPa. Computed and reported even
    * though the branch is unknown, because it is the one number a reader holding the printed table
@@ -150,28 +149,25 @@ export function f62Report(input: F62Input): F62Report {
   const fcr = 138000 / (lambdaF * lambdaF);
   const sy = iMinor != null && iMinor > 0 && b != null && b > 0 ? iMinor / (b / 2) : null;
 
+  const geometry = {
+    bfM: bf, flangeSlenderness: lambdaF, slendernessFormula: 'bf/tf' as const,
+    fcrMPa: fcr, syM3: sy,
+  };
+
   if (input.fy != null && input.fy > 0) {
     const c = b41Case(14), i = { E: input.e ?? 2e5, Fy: input.fy };
     const lp = c.lambdaP!(i), lr = c.lambdaR(i);
     const branch: F62Branch = lambdaF <= lp ? 'notApplicableCompact' : lambdaF <= lr ? 'nonCompact' : 'slender';
     return {
       state: 'classified', branch, reasonKey: 'steel.f62.classified',
-      flangeSlenderness: lambdaF, slendernessFormula, bfM: bf, fcrMPa: fcr, syM3: sy, missingKeys: [],
+      ...geometry, missingKeys: [],
     };
   }
   return {
     state: 'classificationUnavailable',
     branch: 'undetermined',
     reasonKey: 'steel.f62.classificationUnavailable',
-    flangeSlenderness: lambdaF,
-    slendernessFormula,
-    bfM: bf,
-    fcrMPa: fcr,
-    syM3: sy,
-    /*
-     * Both limits come from the same cell of the same table, and that table is an image. Listed as
-     * one missing datum rather than two, because no partial source closes half of it.
-     */
+    ...geometry,
     missingKeys: ['steel.f62.missing.slendernessLimits'],
   };
 }

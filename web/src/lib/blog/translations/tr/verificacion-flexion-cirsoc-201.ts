@@ -42,7 +42,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Kesişim noktası Mu = 31,1 kN·m'dedir. Bu momentin altında dayanıma göre boyutlandırma hiçbir şey kazandırmaz: kesit her durumda 2,38 cm² taşır. Bir kirişin donatısını tartışmadan önce kesişim noktasının hangi tarafında olduğunu bilmek gerekir."
+      "t": "Kesişim noktası Mu = 31,1 kN·m'dedir. Bu örnekte §9.6.1.2 uygulanır ve bu momentin altında minimum donatı 2,38 cm² olur. §9.6.1.3 istisnası geçerliyse her kesitte analizle gereken donatının en az 4/3’ü sağlanabilir. Bir kirişin donatısını tartışmadan önce kesişim noktasının hangi tarafında olduğunu bilmek gerekir."
     },
     {
       "k": "h",

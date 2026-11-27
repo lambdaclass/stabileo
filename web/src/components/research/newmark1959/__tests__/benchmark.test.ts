@@ -5,8 +5,9 @@ import { amplitude, benchmark, compute, discretePeriod, evaluate, exact, mass, m
 import { fill, translations } from '../i18n';
 
 
-function checkTemplate(_reference: string, template: string) {
-  expect(template.length).toBeGreaterThan(0);
+function checkTemplate(reference: string, template: string) {
+  const placeholders = (text: string) => (text.match(/\{\w+\}/g) ?? []).sort();
+  expect(placeholders(template)).toEqual(placeholders(reference));
 }
 
 describe('Newmark SDOF benchmark', () => {
@@ -76,7 +77,7 @@ describe('Newmark SDOF benchmark', () => {
     expect(live.measuredPeriod).toBeCloseTo(r.measuredPeriod, 10);
     live.u.forEach((u, i) => expect(Math.abs(u - r.u[i])).toBeLessThan(1e-10));
   });
-  it.skip('known wrong result: #2595 — dropping the displayed mass changes the template contract', () => {
+  it('known wrong result: #2595 — dropping the displayed mass changes the template contract', () => {
     const source = translations.en.description;
     expect(source).toContain('{m}');
     const missingMass = translations.it.description.replace('{m}', '');
@@ -88,7 +89,15 @@ describe('Newmark SDOF benchmark', () => {
     for (const locale of ['en', 'es', 'pt', 'hu', 'it', 'zh'] as const) {
       expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
       expect(Object.values(translations[locale]).every(v => Array.isArray(v) ? v.length === 3 : v.length > 0)).toBe(true);
-      for (const v of Object.values(translations[locale]).flat()) expect(fill(v, values)).not.toMatch(/\{\w+\}/);
+      for (const key of Object.keys(translations.en) as (keyof typeof translations.en)[]) {
+        const reference = [translations.en[key]].flat();
+        const localized = [translations[locale][key]].flat();
+        expect(localized).toHaveLength(reference.length);
+        localized.forEach((template, index) => {
+          checkTemplate(reference[index], template);
+          expect(fill(template, values)).not.toMatch(/\{\w+\}/);
+        });
+      }
       expect(fill(translations[locale].description, values)).toMatch(/k = EA\/L = 100 kN\/m/);
     }
   });

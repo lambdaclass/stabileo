@@ -732,25 +732,31 @@ describe('translations added as files', () => {
   });
 });
 
-it('counts the unrestrained frame coordinates separately from the mechanism', () => {
+it.each([
+  ['en', 'Mechanism modes detected', 'Unconstrained degrees of freedom'],
+  ['it', 'Modi di meccanismo rilevati', 'Gradi di libertà non vincolati'],
+] as const)('%s counts the unrestrained frame coordinates separately from the mechanism', (locale, modes, coordinates) => {
   const post = findPost('conceptual-side-advanced-tools')!;
-  const rows = post.i18n.en.blocks.flatMap(block => block.k === 'table' ? block.rows : []);
+  const rows = post.i18n[locale]!.blocks.flatMap(block => block.k === 'table' ? block.rows : []);
   const result = (label: string) => rows.find(row => row[1] === label)?.[2];
-  expect(result('Mechanism modes detected')).toBe('1');
-  expect(result('Unconstrained degrees of freedom')).toBe(String(3 * 3 - 3));
+  expect(result(modes)).toBe('1');
+  expect(result(coordinates)).toBe(String(3 * 3 - 3));
 });
 
-it('sizes the four bending examples at the depth shown for the illustrated bars', () => {
+it.each([
+  ['en', '.', 'the minimum', 'strength'],
+  ['it', ',', 'il minimo', 'la resistenza'],
+] as const)('%s sizes the four bending examples at the depth shown for the illustrated bars', (locale, decimal, minimum, strength) => {
   const post = findPost('verificacion-flexion-cirsoc-201')!;
-  const table = post.i18n.en.blocks.find(block => block.k === 'table' && block.head.includes('As,min [cm²]'));
+  const table = post.i18n[locale]!.blocks.find(block => block.k === 'table' && block.head.includes('As,min [cm²]'));
   if (table?.k !== 'table') throw new Error('Missing minimum-steel table');
-  expect(table.rows.map(row => row.slice(0, 3))).toEqual([
-    ['15', '1.13', '2.38'], ['30', '2.30', '2.38'],
-    ['60', '4.76', '2.38'], ['90', '7.43', '2.38'],
-  ]);
+  expect(table.rows).toEqual([
+    ['15', '1.13', '2.38', minimum], ['30', '2.30', '2.38', minimum],
+    ['60', '4.76', '2.38', strength], ['90', '7.43', '2.38', strength],
+  ].map(row => row.map(cell => cell.replace('.', decimal))));
 });
 
-it.skip.each(['en', 'es', 'pt', 'de', 'fr', 'hu', 'it', 'tr', 'zh'] as const)(
+it.each(['en', 'es', 'pt', 'de', 'fr', 'hu', 'it', 'tr', 'zh'] as const)(
   'known wrong result: #2595 — %s states the minimum reinforcement assumption at the crossover',
   locale => {
     const blocks = findPost('verificacion-flexion-cirsoc-201')!.i18n[locale]!.blocks;

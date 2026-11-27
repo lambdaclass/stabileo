@@ -50,8 +50,10 @@ export function flexureExampleRows(passes: string, refuses: string, point: '.' |
 
 const effectiveDepthMm = (diameter: number) => 400 - 25 - 8 - diameter / 2;
 
+export const minimumSteelExampleDepthMm = effectiveDepthMm(20);
+
 export function minimumSteelExampleRows(minimum: string, strength: string, point: '.' | ','): string[][] {
-  const depth = effectiveDepthMm(20);
+  const depth = minimumSteelExampleDepthMm;
   const width = 200;
   const fy = 420;
   const fc = 25;
