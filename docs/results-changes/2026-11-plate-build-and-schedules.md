@@ -27,3 +27,5 @@ In the production profile, a newly drawn quadrilateral retains the flat formulat
 ## Saved UK concrete beam designs
 
 With unified plates disabled, the UK beam check again inherits the neutral-axis depth limits used by the published design. Unified plates use the limits in the UK National Annex profile. This affects the limiting moment above which a beam needs compression reinforcement. Recalculate UK beam designs when moving between these builds or reopening work designed in an intermediate integration build.
+
+For an explicitly requested rectangular grid, the published and unified planners both use the plate outline, opening edges and shared grid stations. Preview and application use those same stations. The automatic choice of a rectangular grid for a free-pattern plate remains specific to unified PRO.
