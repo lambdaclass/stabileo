@@ -294,8 +294,8 @@
       <p class="edu-subtitle">{t('edu.subtitle')}</p>
 
       {#if diagramGame()}
-      <a class="edu-game-card" href={publicHref('/diagram-game', publicI18n.locale)} data-testid="edu-open-game"
-        onclick={(e) => { e.preventDefault(); goPublic('/diagram-game'); }}>
+      <a class="edu-game-card" href={publicHref('/games/diagram-game', publicI18n.locale)} data-testid="edu-open-game"
+        onclick={(e) => { e.preventDefault(); goPublic('/games/diagram-game'); }}>
         <span class="edu-game-title">{t('edu.game.open')}</span>
         <span class="edu-game-hint">{t('edu.game.hint')}</span>
       </a>

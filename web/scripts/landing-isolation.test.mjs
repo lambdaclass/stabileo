@@ -13,11 +13,11 @@ async function landingBuild(features) {
         name: 'landing-isolation-fixture',
         enforce: 'pre',
         resolveId(id) {
-          if (/components\/(research|tools|examples|diagram-game)\/load-page$/.test(id) || /components\/(blog\/BlogPage|paper\/PaperPage)\.svelte$/.test(id)) return '\0landing-other-page';
+          if (/components\/(research|tools|examples|games)\/load-page$/.test(id) || /components\/(blog\/BlogPage|paper\/PaperPage)\.svelte$/.test(id)) return '\0landing-other-page';
           if (id === './App.svelte') return '\0landing-app';
         },
         load(id) {
-          if (id === '\0landing-other-page') return 'export default {}; export const loadResearchPage = () => null, loadToolsPage = () => null, loadExamplesPage = () => null, loadDiagramGamePage = () => null;';
+          if (id === '\0landing-other-page') return 'export default {}; export const loadResearchPage = () => null, loadToolsPage = () => null, loadExamplesPage = () => null, loadGamesPage = () => null;';
           if (id === '\0landing-app') return `import Landing from ${JSON.stringify(resolve(import.meta.dirname, '../src/components/LandingPage.svelte'))}; export default function App() { return Landing; }`;
         },
       }],
@@ -44,8 +44,13 @@ async function landingBuild(features) {
   return features ? withProductionFeatures(features, run) : run();
 }
 
+let switchesOffBuild;
+function switchesOffLanding() {
+  return switchesOffBuild ??= landingBuild(disabledFeatures);
+}
+
 test('accounts-off landing excludes account modules and retains its shared page chunk', async () => {
-  const { manifest, modules } = await landingBuild(disabledFeatures);
+  const { manifest, modules } = await switchesOffLanding();
   assert.deepEqual(modules.filter(id => /\/lib\/tracking\//.test(id)), []);
   assert.equal(manifest['src/components/register/RegisterPage.svelte'], undefined);
   assert.equal(manifest['src/components/LandingPage.svelte'], undefined);
@@ -66,12 +71,12 @@ test('committed production config includes registration', async () => {
 
 
 test('switches-off landing has no publication or redirect policy in its static closure', async () => {
-  const { modules } = await landingBuild(disabledFeatures);
+  const { modules } = await switchesOffLanding();
   assert.deepEqual(modules.filter(id => /\/lib\/(i18n\/(published|research-routes)|blog\/base-locales|legacy-routes|public-surface)\.ts$/.test(id)), []);
 });
 
 test('switches-off build emits no Hungarian public dictionary', async () => {
-  const { emittedModules, directLazyModules } = await landingBuild(disabledFeatures);
+  const { emittedModules, directLazyModules } = await switchesOffLanding();
   assert.deepEqual(emittedModules.filter(id => id === '\0virtual:public-i18n/hu'), []);
   assert.deepEqual(directLazyModules.filter(id => /\/i18n\/locales\/browser\//.test(id)), []);
 });
