@@ -474,6 +474,10 @@ export function meshWallsForSheets(): number {
     return wall ? planPlateMesh(id, { size: Math.min(wall.surface.mesh.size, WALL_MESH_SIZE) }, { meshedAgain }) : null;
   }).filter((p): p is PlateMeshPlan => !!p && p.localLoads === 0);
   const report = applyPlateMeshes(plans);
+  if (report.analysisBlock) {
+    uiStore.toast(report.analysisBlock, 'error');
+    return 0;
+  }
   if (report.refused.length) uiStore.toast(tp('plates.meshRefusedSome', { n: report.refused.length }), 'error');
   if (!report.plates) return 0;
   const pending = new Set(wallsToMeshForSheets());

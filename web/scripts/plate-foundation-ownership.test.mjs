@@ -31,7 +31,7 @@ window.refine = async asynchronous => {
 mount(Panel, {target: document.body});
 `;
 
-test.skip('known wrong result: #1928 the foundation form preserves total soil stiffness after a whole plate is remeshed', async () => {
+test('known wrong result: #1928 the foundation form preserves total soil stiffness after a whole plate is remeshed', async () => {
   const path = '/spring-ownership.js';
   const server = await createServer({
     root, mode: 'development', logLevel: 'error',

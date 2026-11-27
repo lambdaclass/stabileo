@@ -1,6 +1,8 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "foundation.inconsistentPlateSprings": "Los resortes nodales deben coincidir con el módulo de balasto, el despegue y las restricciones horizontales de cada placa. Revisá las placas y volvé a aplicar la configuración de fundación.",
+  "foundation.mixedSoilSelection": "Un elemento de lámina y una placa completa con resortes comparten un nodo de fundación. Separá sus asignaciones o seleccioná placas completas compatibles.",
   "diag.model.flangeTwice": "Vigas con sección T bajo una losa también modelada: el ala se cuenta dos veces en la rigidez. Conviene modelar el nervio rectangular y la losa como cáscaras; el ala se considera en el armado desde Datos de diseño.",
   "diag.tooltip.MODEL_FLANGE_TWICE": "Sección T y losa modelada: el ala cuenta dos veces",
   'pro.plates.diag.looseCorner': "Placa con nodos que no se conectan a nada más (ni barra, ni apoyo, ni otra placa): ahí no se transfiere carga",

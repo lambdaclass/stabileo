@@ -1,6 +1,8 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "foundation.inconsistentPlateSprings": "Les ressorts nodaux doivent correspondre au module de réaction du sol, au réglage du soulèvement et aux blocages horizontaux de chaque plaque. Vérifiez les plaques et réappliquez les paramètres de fondation.",
+  "foundation.mixedSoilSelection": "Un élément de coque et une plaque entière sur ressorts partagent un nœud de fondation. Séparez leurs affectations ou sélectionnez des plaques entières compatibles.",
   "diag.model.flangeTwice": "Poutres à section en T sous une dalle également modélisée : la table compte deux fois dans la rigidité. Modélisez l’âme rectangulaire et la dalle en coques ; la table est prise dans le dimensionnement depuis les données de calcul.",
   "diag.tooltip.MODEL_FLANGE_TWICE": "Section en T et dalle modélisée : la table compte deux fois",
   'pro.plates.diag.looseCorner': "Plaque avec des nœuds reliés à rien d'autre (ni barre, ni appui, ni autre plaque) : aucune charge n'y est transmise",

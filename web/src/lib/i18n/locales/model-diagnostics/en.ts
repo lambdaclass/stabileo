@@ -1,6 +1,8 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "foundation.inconsistentPlateSprings": "The nodal springs must match each plate’s subgrade stiffness, uplift setting and horizontal restraints. Review the plates and reapply their foundation settings.",
+  "foundation.mixedSoilSelection": "An individual shell and a whole spring plate share a foundation node. Separate their assignments or select compatible whole plates.",
   "diag.model.flangeTwice": "Beams with a T section under a slab that is modeled too: the flange counts twice in their stiffness. Model the web as a rectangle and the slab as shells; the flange is taken in the design from Design data.",
   "diag.tooltip.MODEL_FLANGE_TWICE": "T section and modeled slab: the flange counts twice",
   'pro.plates.diag.looseCorner': "Plate with nodes connected to nothing else (no member, support or other plate): no load is transferred there",

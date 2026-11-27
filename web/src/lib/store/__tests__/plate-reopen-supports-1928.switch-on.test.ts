@@ -71,7 +71,7 @@ it('#1928 removes only the contribution of a cleared spring plate at its outline
   expect(k(a[0]!)).toBeUndefined();
 });
 
-it.skip.each(['uplift', 'holdHorizontal'] as const)('known wrong result: #1928 adjacent plates cannot overwrite incompatible %s settings', field => {
+it.each(['uplift', 'holdHorizontal'] as const)('known wrong result: #1928 adjacent plates cannot overwrite incompatible %s settings', field => {
   modelStore.clear();
   uiStore.analysisMode = 'pro';
   const left = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
@@ -93,7 +93,7 @@ it.skip.each(['uplift', 'holdHorizontal'] as const)('known wrong result: #1928 a
   expect(shared?.kz).toBe((2 * 2 / 4) * (soil.ks + soil.ks * 2));
 });
 
-it.skip('known wrong result: #1928 individual and whole shells require distinct foundation nodes', async () => {
+it('known wrong result: #1928 individual and whole shells require distinct foundation nodes', async () => {
   modelStore.clear();
   uiStore.analysisMode = 'pro';
   const corners = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));

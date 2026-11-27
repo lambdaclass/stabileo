@@ -795,7 +795,7 @@ function springFloor() {
 }
 
 for (const [entry, solve] of directEntries) {
-  it.skip(`known wrong result: #1928 the ${entry} entry rejects a reopened foundation with stale spring stiffness`, async () => {
+  it(`known wrong result: #1928 the ${entry} entry rejects a reopened foundation with stale spring stiffness`, async () => {
     springFloor();
     const first = [...modelStore.supports.values()][0]!;
     modelStore.updateSupport(first.id, { kz: first.kz! * 2 });
@@ -804,7 +804,7 @@ for (const [entry, solve] of directEntries) {
   });
 }
 
-it.skip('known wrong result: #1928 a uniformly loaded spring floor keeps its analytical settlement and reaction', () => {
+it('known wrong result: #1928 a uniformly loaded spring floor keeps its analytical settlement and reaction', () => {
   const soil = springFloor();
   const result = modelStore.solve3D(false, false, true);
   if (!result || typeof result === 'string') throw Error(String(result));

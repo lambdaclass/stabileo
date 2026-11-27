@@ -1,6 +1,8 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "foundation.inconsistentPlateSprings": "Düğüm yayları her plağın yatak katsayısı, kalkma ayarı ve yatay kısıtlarıyla uyumlu olmalıdır. Plakları denetleyip temel ayarlarını yeniden uygulayın.",
+  "foundation.mixedSoilSelection": "Tek bir kabuk elemanı ve yaylarla desteklenen tam bir plak aynı temel düğümünü kullanıyor. Atamaları ayırın veya uyumlu tam plakları seçin.",
   "diag.model.flangeTwice": "Ayrıca modellenmiş bir döşemenin altında T kesitli kirişler: başlık rijitlikte iki kez sayılır. Gövdeyi dikdörtgen, döşemeyi kabuk olarak modelleyin; başlık tasarımda Tasarım verilerinden dikkate alınır.",
   "diag.tooltip.MODEL_FLANGE_TWICE": "T kesit ve modellenmiş döşeme: başlık iki kez sayılır",
   'pro.plates.diag.looseCorner': "Başka hiçbir şeye bağlanmayan düğümleri olan plak (çubuk, mesnet ya da başka plak yok): orada yük aktarılmaz",

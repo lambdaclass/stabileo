@@ -1,6 +1,8 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "foundation.inconsistentPlateSprings": "As molas nodais devem corresponder ao coeficiente de reação do solo, à condição de levantamento e às restrições horizontais de cada placa. Revise as placas e reaplique os parâmetros da fundação.",
+  "foundation.mixedSoilSelection": "Um elemento de casca e uma placa inteira sobre molas compartilham um nó da fundação. Separe as atribuições ou selecione placas inteiras compatíveis.",
   "diag.model.flangeTwice": "Vigas com seção T sob uma laje também modelada: a mesa conta duas vezes na rigidez. Convém modelar a alma retangular e a laje como cascas; a mesa é considerada no dimensionamento em Dados de projeto.",
   "diag.tooltip.MODEL_FLANGE_TWICE": "Seção T e laje modelada: a mesa conta duas vezes",
   'pro.plates.diag.looseCorner': "Placa com nós que não se conectam a nada mais (nem barra, nem apoio, nem outra placa): ali não se transfere carga",

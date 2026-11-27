@@ -49,7 +49,8 @@ export { meshBeforeAnalysis };
 import { expandDefinition, type DefinitionModel, type Expansion, type FloorLoadDef } from '../model/loads/floor-definitions';
 import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, releaseFootprintLinks, type ColumnFootprint, type FootprintCells } from '../model/building/column-footprints';
 import { designData } from './design-data';
-import { tributaryAreas } from '../engine/foundation-springs';
+import { agreesWithPlateSpring, inconsistentPlateSprings, plateSpringRequirements, springSupport } from '../model/physical/plate-springs';
+import { t } from '../i18n';
 import type { ModelGroup, SupportType, SurfaceLoad3D } from './model.svelte';
 
 export type { PlateStatus };
@@ -1040,7 +1041,7 @@ function placePlateEdits(e: PlateEntry, mesh: MeshOutput): MeshPlacement | undef
   return placement;
 }
 
-export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: PlateMeshRefusalReason }>; droppedLocalLoads: number; keptNodes: number }
+export interface PlateMeshReport { analysisBlock?: string; plates: number; cells: number; refused: Array<{ id: number; reason: PlateMeshRefusalReason }>; droppedLocalLoads: number; keptNodes: number }
 
 type ReadyPlateMesh = PlateMeshPlan & { mesh: MeshOutput; input: NonNullable<PlateMeshPlan['input']> };
 const readyPlateMesh = (p: PlateMeshPlan): p is ReadyPlateMesh => !!p.mesh && !!p.input;
@@ -1282,6 +1283,9 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
     const springy = meshed.slice(sprung).filter((id) => plateEntry(id)?.surface.springs);
     sprung = meshed.length;
     if (springy.length) respring(springy);
+    if (finished && meshed.length && inconsistentPlateSprings(modelStore.model)) {
+      report.analysisBlock = t('foundation.inconsistentPlateSprings');
+    }
   };
   const applySlice = (from: number, sliceMs: number) => {
     const end = performance.now() + sliceMs;
@@ -1354,8 +1358,14 @@ export function platesWholeIn(keys: ReadonlySet<string>): number[] {
  * gets it; `null` takes it away. Springs changed or taken away on a plate that had them are put right
  * on its mesh as it is too, a node shared with another spring plate keeping that plate's share.
  */
-export function setPlateShellSpec(ids: readonly number[], patch: { curved?: boolean | null; offset?: PlateSurface['offset'] | null; springs?: PlateSurface['springs'] | null }): void {
+export function setPlateShellSpec(ids: readonly number[], patch: { curved?: boolean | null; offset?: PlateSurface['offset'] | null; springs?: PlateSurface['springs'] | null }, replaceSupports?: ReadonlySet<number>): string | undefined {
   const springNodes = 'springs' in patch ? ids.flatMap(id => plateShellKeys(id).flatMap(shellNodes)) : [];
+  if (patch.springs) {
+    const proposed = new Map(ids.map(id => [id, patch.springs!]));
+    const affected = new Set(springNodes);
+    const { incompatible, invalid } = plateSpringRequirements(modelStore.model, proposed, affected);
+    if (incompatible.size || invalid) return t('foundation.inconsistentPlateSprings');
+  }
   modelStore.batch(() => {
     for (const id of ids) writeSurface(id, (s) => {
       const next = { ...s };
@@ -1366,8 +1376,9 @@ export function setPlateShellSpec(ids: readonly number[], patch: { curved?: bool
       }
       return next;
     });
-    respringAt(springNodes);
+    respringAt(springNodes, replaceSupports);
   });
+  return undefined;
 }
 
 /** The foundation springs of the plates given, from their meshes as they are now: one per node, k summed over every spring plate that node belongs to. */
@@ -1376,37 +1387,21 @@ function respring(ids: readonly number[]): void {
 }
 
 /** The foundation springs at the nodes given, from every spring plate's mesh that holds them. */
-function respringAt(nodes: readonly number[]): void {
-  const springy = physicalPlates().filter((p) => p.surface.springs);
+function respringAt(nodes: readonly number[], replaceSupports?: ReadonlySet<number>): void {
   const affected = new Set(nodes);
   if (!affected.size) return;
-  const kz = new Map<number, number>();
-  const spec = new Map<number, NonNullable<PlateSurface['springs']>>();
-  for (const p of springy) {
-    const shells = plateShellKeys(p.id).map((k) => ({ nodes: shellNodes(k) })).filter((s) => s.nodes.some((n) => affected.has(n)));
-    if (!shells.length) continue;
-    for (const [n, a] of tributaryAreas(modelStore.nodes, shells)) {
-      if (!affected.has(n) || !(a > 0)) continue;
-      kz.set(n, (kz.get(n) ?? 0) + p.surface.springs!.ks * a);
-      if (!spec.has(n)) spec.set(n, p.surface.springs!);
-    }
-  }
+  const required = plateSpringRequirements(modelStore.model, undefined, affected);
   const supports = new Map([...modelStore.supports.values()].map(support => [support.nodeId, support]));
-  for (const n of affected) {
-    const old = supports.get(n);
-    if (old && !old.plateSpring) continue;
-    const k = kz.get(n);
-    const sp = spec.get(n);
-    if (k === undefined || !sp) {
+  for (const node of affected) {
+    const old = supports.get(node);
+    if (old && !old.plateSpring && !replaceSupports?.has(node)) continue;
+    if (required.incompatible.has(node) || required.invalid) continue;
+    const spring = required.nodes.get(node);
+    if (!spring) {
       if (old) modelStore.removeSupport(old.id);
-      continue;
+    } else if (!old?.plateSpring || !agreesWithPlateSpring(old, spring)) {
+      modelStore.addSupportEntry(springSupport(node, spring));
     }
-    if (old && old.kz === k && !!old.uplift === sp.uplift && old.dofRestraints?.tx === sp.holdHorizontal) continue;
-    modelStore.addSupportEntry({
-      nodeId: n, type: 'custom3d', plateSpring: true,
-      dofRestraints: { tx: sp.holdHorizontal, ty: sp.holdHorizontal, tz: false, rx: false, ry: false, rz: false },
-      dofFrame: 'global', kz: k, ...(sp.uplift ? { uplift: true } : {}),
-    });
   }
 }
 
@@ -1448,6 +1443,7 @@ function invalidPreparation(): PlatePreparation | null {
 }
 
 function prepared(meshed: number, cells: number, stale?: string[]): PlatePreparation {
+  if (inconsistentPlateSprings(modelStore.model)) return { ok: false, reason: 'remeshBlocked', error: t('foundation.inconsistentPlateSprings') };
   const error = wallSlabRefusal(modelStore.model);
   if (error) return { ok: false, reason: 'wallSlab', error };
   return stale ? { ok: true, meshed, cells, stale } : { ok: true, meshed, cells };

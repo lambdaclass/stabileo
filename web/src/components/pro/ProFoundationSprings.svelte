@@ -11,7 +11,7 @@
   import QuantityInput from './loads/QuantityInput.svelte';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import { foundationSprings, tributaryAreas } from '../../lib/engine/foundation-springs';
-  import { setSelectedPlateSpec } from '../../lib/store/selected-plate-spec';
+  import { preparePlateSprings } from '../../lib/store/selected-plate-spec';
 
   const profiles = $derived(modelStore.geotechnical?.profiles ?? []);
   let source = $state<string>('typed');
@@ -41,15 +41,21 @@
 
   function apply() {
     if (springs.length === 0) return;
+    const plan = preparePlateSprings?.(uiStore.selectedShells, { ks: ks!, uplift, holdHorizontal });
+    if (plan && 'error' in plan) {
+      done = plan.error;
+      return;
+    }
     modelStore.batch(() => {
       for (const sp of springs) {
+        if (plan?.owned.has(sp.nodeId)) continue;
         modelStore.addSupportEntry({
           nodeId: sp.nodeId, type: 'custom3d',
           dofRestraints: { tx: holdHorizontal, ty: holdHorizontal, tz: false, rx: false, ry: false, rz: false },
           dofFrame: 'global', kz: sp.kz, ...(uplift ? { uplift: true } : {}),
-        } as never);
+        });
       }
-      if (ks) setSelectedPlateSpec?.(uiStore.selectedShells, { springs: { ks, uplift, holdHorizontal } });
+      plan?.save();
     });
     done = tp('foundation.applied', { n: springs.length, area: totalArea.toFixed(2) });
   }

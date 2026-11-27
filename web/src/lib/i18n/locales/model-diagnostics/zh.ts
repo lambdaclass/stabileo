@@ -1,6 +1,8 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "foundation.inconsistentPlateSprings": "各节点弹簧必须符合相应板的地基反力系数、脱离设置及水平约束。请核查各板并重新应用地基设置。",
+  "foundation.mixedSoilSelection": "单个壳单元与整块弹性地基板共用地基节点。请分开指定，或选择设置兼容的整板。",
   "diag.model.flangeTwice": "T 形截面梁上方的板也被建模：翼缘在刚度中被计入两次。建议将腹板建为矩形、板建为壳；翼缘在设计数据中于配筋时考虑。",
   "diag.tooltip.MODEL_FLANGE_TWICE": "T 形截面与已建模的板：翼缘计入两次",
   "pro.plates.diag.looseCorner": "板中有节点未连接到任何杆件、支座或其他板，这些节点无法传递荷载",

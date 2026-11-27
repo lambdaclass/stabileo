@@ -75,7 +75,7 @@ export const FEATURE_IDS = [
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
   'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
-  'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
+  'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'unpublishedZoneLiveLoads', 'possibleOccupancySubstitution', 'magnitudeCombinations',
@@ -110,6 +110,7 @@ interface Elem {
   offset?: { i?: Offset3; j?: Offset3 };
 }
 interface Sup {
+  plateSpring?: boolean;
   nodeId: number; type?: string; uplift?: boolean; angle?: number; isGlobal?: boolean; isInclined?: boolean; dofFrame?: string; dofRestraints?: unknown;
   normalX?: number; normalY?: number; normalZ?: number; curves?: unknown;
   kx?: unknown; ky?: unknown; kz?: unknown; krx?: unknown; kry?: unknown; krz?: unknown;
@@ -698,6 +699,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (group?.kind === 'physicalMember' && slab?.kind === 'slab' && Array.isArray(slab.meshAtSolve?.panel) && slab.meshAtSolve.panel.length === 4) f.add('deferredSlabPanels');
     const surface = plateSurfaceOf({ data: entry?.[1]?.data as Record<string, unknown> });
     if (!surface) continue;
+    if (surface.springs != null) f.add('physicalPlateSprings');
     physicalPlates.add(entry[0]);
     if (surface.loops.length > 1 && Array.isArray(surface.arcMids)) {
       const end = surface.loops.reduce((sum, count) => sum + count, 0);
@@ -748,6 +750,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 
   const supports = values(s.supports);
+  if (supports.some(support => support.plateSpring === true)) f.add('physicalPlateSprings');
   if (supports.some(sp => isSupportType(sp.type) && sp.type.startsWith('roller'))) f.add('rollerSupports');
   if (supports.some(sp => sp.dofRestraints && isSupportType(sp.type) && sp.type !== 'custom3d')) f.add('namedSupportRestraintMasks');
   if (supports.some(isBareCustom3D)) f.add('bareCustom3D');

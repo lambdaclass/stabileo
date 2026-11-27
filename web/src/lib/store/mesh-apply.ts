@@ -18,6 +18,6 @@ export async function meshPlatesInModel(plans: readonly PlateMeshPlan[], ids: re
     endMeshProgress();
   }
   uiStore.selectPlates(ids);
-  uiStore.toast(plateMeshReportMessage(r), r.refused.length ? 'error' : 'success');
+  uiStore.toast(plateMeshReportMessage(r), r.refused.length || r.analysisBlock ? 'error' : 'success');
   return r;
 }

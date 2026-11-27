@@ -10,5 +10,6 @@ export function plateMeshReportMessage(report: PlateMeshReport): string {
     const message = plateRemeshMessage(plateEntry(id)?.name ?? '#' + id, reason);
     if (message) parts.push(message);
   }
+  if (report.analysisBlock) parts.push(report.analysisBlock);
   return parts.join(' ');
 }

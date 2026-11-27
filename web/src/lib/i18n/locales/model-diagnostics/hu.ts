@@ -1,6 +1,8 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "foundation.inconsistentPlateSprings": "A csomóponti rugóknak meg kell felelniük minden lemez ágyazási tényezőjének, felemelkedési beállításának és vízszintes megtámasztásának. Ellenőrizze a lemezeket, és alkalmazza újra az alapozási beállításokat.",
+  "foundation.mixedSoilSelection": "Egy héjelem és egy teljes ágyazott lemez közös alapozási csomópontot használ. Válassza szét a hozzárendeléseket, vagy jelöljön ki összeegyeztethető teljes lemezeket.",
   "diag.model.flangeTwice": "T keresztmetszetű gerendák egy szintén modellezett födém alatt: az öv kétszer számít a merevségbe. A gerincet téglalapként, a födémet héjként érdemes modellezni; az övet a méretezés a Tervezési adatokból veszi figyelembe.",
   "diag.tooltip.MODEL_FLANGE_TWICE": "T keresztmetszet és modellezett födém: az öv kétszer számít",
   "pro.plates.diag.looseCorner": "Lemez olyan csomópontokkal, amelyek semmi máshoz nem kapcsolódnak (sem rúdhoz, sem támaszhoz, sem másik lemezhez): ott nem adódik át teher",

@@ -1,6 +1,8 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "foundation.inconsistentPlateSprings": "Die Knotenfedern müssen der Bettungssteifigkeit, der Abhebeeinstellung und den horizontalen Bindungen jeder Platte entsprechen. Prüfen Sie die Platten und weisen Sie die Bettung erneut zu.",
+  "foundation.mixedSoilSelection": "Ein einzelnes Schalenelement und eine ganze gebettete Platte teilen einen Gründungsknoten. Trennen Sie die Zuweisungen oder wählen Sie kompatible ganze Platten aus.",
   "diag.model.flangeTwice": "Träger mit T-Querschnitt unter einer ebenfalls modellierten Decke: der Gurt zählt in der Steifigkeit doppelt. Den Steg rechteckig und die Decke als Schalen modellieren; den Gurt berücksichtigt die Bemessung über die Bemessungsdaten.",
   "diag.tooltip.MODEL_FLANGE_TWICE": "T-Querschnitt und modellierte Decke: Gurt doppelt",
   'pro.plates.diag.looseCorner': "Platte mit Knoten, die mit nichts anderem verbunden sind (kein Stab, kein Lager, keine andere Platte): Dort wird keine Last übertragen",
