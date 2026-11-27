@@ -282,7 +282,7 @@ test('@smoke on a phone the games hub has no sideways scroll and every link is a
   }
 });
 
-test.fixme('@smoke known wrong result: #2492 — winning feedback stays inside the tablet viewport throughout its animation', async ({ page }) => {
+test('@smoke winning feedback stays inside the tablet viewport throughout its animation', async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
   await page.goto('/es/games/diagram-game/?e2e=1&seed=31');
   await page.getByTestId('dg-start').click();

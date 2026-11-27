@@ -496,7 +496,8 @@
   .option:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--st-hair-strong); }
   .option:focus-visible { outline: 2px solid var(--st-focus); outline-offset: 2px; }
   .option.is-answer { border-color: var(--st-ok); box-shadow: 0 4px 0 var(--st-ok); }
-  .option.won { animation: pop .45s cubic-bezier(.3, 1.6, .5, 1); background: color-mix(in srgb, var(--st-ok) 10%, var(--st-surface-2)); overflow: visible; }
+  .option.won { background: color-mix(in srgb, var(--st-ok) 10%, var(--st-surface-2)); }
+  .option.won .option-figure { animation: pop .45s cubic-bezier(.3, 1.6, .5, 1); }
   .option.is-wrong-pick { border-color: var(--st-danger); box-shadow: 0 4px 0 var(--st-danger); animation: shake .4s; }
   .option.is-faded { opacity: .6; }
   .option.inspected { outline: 2px dashed var(--st-text-3); outline-offset: 2px; }
@@ -582,7 +583,7 @@
   @media (prefers-reduced-motion: reduce) {
     .fill, .option { transition: none; }
     .next.counting::after { animation: none; }
-    .option.won, .option.is-wrong-pick, .points, .toast, .levelup, .rotate .turned { animation: none; }
+    .option.won .option-figure, .option.is-wrong-pick, .points, .toast, .levelup, .rotate .turned { animation: none; }
     .burst, .float-pts { display: none; }
     .levelup { opacity: 1; }
   }
