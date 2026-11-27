@@ -3,7 +3,7 @@ import { defineConfig, searchForWorkspaceRoot, type Plugin, type UserConfig } fr
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
-import { resolve } from 'path';
+import { dirname, resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
 import { mesherLabels } from './src/lib/i18n/locales/mesher-labels';
 import { loadedPreloads } from './scripts/loaded-preloads';
@@ -68,6 +68,9 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (features.proPlatesUnified && importer && id.endsWith('/registry') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/pro/load-codes/registry')) {
+          return resolve(__dirname, 'src/components/pro/load-codes/active-registry.ts');
+        }
         if (features.proRcSheets && (id === './rc-sheet-readers' || id === './rc-sheets-documents') && importer?.startsWith(resolve(__dirname, 'src/lib/store') + '/')) {
           return resolve(__dirname, 'src/lib/store/active-' + id.slice(2) + '.ts');
         }

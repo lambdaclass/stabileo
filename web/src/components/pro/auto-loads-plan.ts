@@ -59,7 +59,7 @@ export function planInputOf(m: AutoLoadsMemory, ctx: PlanContext): LoadPlanInput
   const { special, roofCfg, snowCfg, windDirs } = m;
   return {
     regulations: ctx.roles,
-    codeInputs: ctx.codeInputs ?? {},
+    ...(ctx.codeInputs ? { codeInputs: ctx.codeInputs } : {}),
     model: ctx.model,
     dead,
     occupancyKey: m.selectedOccupancy,

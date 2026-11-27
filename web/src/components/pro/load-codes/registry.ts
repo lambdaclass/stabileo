@@ -3,11 +3,7 @@
  * edits that code's entry of `LoadPlanInput.codeInputs`. A role whose bound adapter has none here
  * shows the CIRSOC fields it always had.
  */
-import { unifiedPlates } from '../../../lib/features';
 import type { Component } from 'svelte';
-import { EUROCODE_INPUTS } from './eurocode';
-import { ASCE7_INPUTS } from './asce7';
-import { TURKEY_INPUTS } from './turkey';
 
 export interface CodeInputProps<T = unknown> {
   value: T | undefined;
@@ -17,5 +13,4 @@ export interface CodeInputProps<T = unknown> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type CodeInputComponent = Component<CodeInputProps<any>>;
 
-export const CODE_INPUTS: Readonly<Record<string, CodeInputComponent>> = unifiedPlates()
-  ? { ...EUROCODE_INPUTS, ...ASCE7_INPUTS, ...TURKEY_INPUTS } : {};
+export const CODE_INPUTS: Readonly<Record<string, CodeInputComponent>> = {};

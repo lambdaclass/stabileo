@@ -599,7 +599,7 @@ test('known wrong result: #1928 published dictionary entries keep their release 
   }
 });
 
-test.skip('known wrong result: #1928 the released load dialog has no foreign code editor implementations', async () => {
+test('known wrong result: #1928 the released load dialog has no foreign code editor implementations', async () => {
   const entry = resolve(root, 'src/components/pro/ProAutoLoadsDialog.svelte');
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {

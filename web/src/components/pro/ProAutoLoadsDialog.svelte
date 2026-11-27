@@ -416,7 +416,7 @@
   function planInput(): LoadPlanInput {
     return planInputOf(memoryNow(), {
       roles: regulationsStore.roles,
-      codeInputs: $state.snapshot(codeInputs),
+      ...(__PUBLIC_FEATURES__.proPlatesUnified ? { codeInputs: $state.snapshot(codeInputs) } : {}),
       model: loadPlanModel(),
       windDynamics: planDynamics(),
       ...(windRegionNodes ? { windRegion: windRegionNodes } : {}),
@@ -438,6 +438,7 @@
    */
   function recordRoleConfiguration() {
     for (const [role, settings] of roleSettingsOf(memoryNow())) regulationsStore.configureRole(role, settings, true);
+    if (!__PUBLIC_FEATURES__.proPlatesUnified) return;
     for (const role of ['wind', 'snow', 'seismic'] as const) {
       const id = codeAdapter(role);
       if (CODE_INPUTS[id] && codeInputs[id] !== undefined) regulationsStore.configureRole(role, { codeInput: $state.snapshot(codeInputs[id]) }, true);
@@ -454,13 +455,15 @@
    * time, and the modal frequencies of a previous preview belong to the model as it was then.
    */
   function restoreFromRoles() {
-    const ci: Record<string, unknown> = {};
-    for (const role of ['wind', 'snow', 'seismic'] as const) {
-      const b = regulationsStore.binding(role);
-      const saved = (b?.settings as { codeInput?: unknown } | undefined)?.codeInput;
-      if (b?.adapterId && saved !== undefined) ci[b.adapterId] = JSON.parse(JSON.stringify(saved));
+    if (__PUBLIC_FEATURES__.proPlatesUnified) {
+      const ci: Record<string, unknown> = {};
+      for (const role of ['wind', 'snow', 'seismic'] as const) {
+        const b = regulationsStore.binding(role);
+        const saved = (b?.settings as { codeInput?: unknown } | undefined)?.codeInput;
+        if (b?.adapterId && CODE_INPUTS[b.adapterId] && saved !== undefined) ci[b.adapterId] = JSON.parse(JSON.stringify(saved));
+      }
+      codeInputs = ci;
     }
-    codeInputs = ci;
     const m = autoLoadsMemory(regulationsStore.roles, { wind: windAvailable, seismic: seismicAvailable });
     genCombos = m.genCombos; comboSet = m.comboSet; comboSource = m.comboSource;
     bothSenses = m.bothSenses; patternsInCompanions = m.patternsInCompanions;
@@ -488,7 +491,7 @@
   async function handlePreview() {
     applyError = null;
     recordRoleConfiguration();
-    const windModes = enableWind && !CODE_INPUTS[codeAdapter('wind')] && windDyn.n1Source === 'modal' && !windLowRise;
+    const windModes = enableWind && (!__PUBLIC_FEATURES__.proPlatesUnified || !CODE_INPUTS[codeAdapter('wind')]) && windDyn.n1Source === 'modal' && !windLowRise;
     const total = 2 + (windModes ? 1 : 0);
     let at = 1;
     working = null;
@@ -604,12 +607,13 @@
 
   // ─── The navigation: each section, and what it comes to ─────────
   // CIRSOC 104's preview: another family's snow is read off its own inputs, in its pane.
-  const snowNow = $derived(snowCfg.enabled && !CODE_INPUTS[codeAdapter('snow')] ? snowPreview(snowCfg, snowRoof) : null);
+  const snowNow = $derived(snowCfg.enabled && (!__PUBLIC_FEATURES__.proPlatesUnified || !CODE_INPUTS[codeAdapter('snow')]) ? snowPreview(snowCfg, snowRoof) : null);
   const lrNow = $derived(roofCfg.enabled && roofCfg.use === 'maintenance' && typeof autoRoofWeight !== 'object' ? roofLrRange(roofCfg, totalDead, snowRoof?.slopeDeg ?? windRoofSlope, autoRoofWeight, loadsCode) : null);
   const specialOn = $derived([special.thermal.on && 'T', special.soil.on && 'H', special.fluid.on && 'F'].filter(Boolean) as string[]);
   const f2 = (v: number) => v.toFixed(2);
   /** Wind and seismic beside their section, from the code's own inputs when it has them; null when it has them and they are still empty. */
   function navOf(role: 'wind' | 'seismic', cirsoc: () => string): string | null {
+    if (!__PUBLIC_FEATURES__.proPlatesUnified) return cirsoc();
     const id = codeAdapter(role);
     // A family with no code bound for the role (UK has no seismic one) has no CIRSOC zone to show either.
     if (!id && family !== 'cirsoc') return null;
@@ -945,7 +949,7 @@
                 {:else if !enableWind}
                   <p class="al-hint">{t('autoLoad.wind.off')}</p>
                 {:else}
-                {#if CODE_INPUTS[codeAdapter('wind')]}{@render codeInput('wind')}{:else}
+                {#if __PUBLIC_FEATURES__.proPlatesUnified && CODE_INPUTS[codeAdapter('wind')]}{@render codeInput('wind')}{:else}
                   <div class="al-sub">
                     <span class="al-sub-title">{t('autoLoad.wind.siteTitle')}</span>
                     <!-- Both editions are named; one without its text is shown and cannot be chosen. -->
@@ -1039,7 +1043,7 @@
                 <div class="al-pane-body"><p class="al-warn">{t('autoLoad.snowNeedsRole')}</p></div>
               {:else if !snowCfg.enabled}
                 <div class="al-pane-body" data-testid="al-snow-section"><p class="al-hint">{t('autoLoad.snow.off')}</p></div>
-              {:else if CODE_INPUTS[codeAdapter('snow')]}
+              {:else if __PUBLIC_FEATURES__.proPlatesUnified && CODE_INPUTS[codeAdapter('snow')]}
                 <div class="al-pane-body" data-testid="al-snow-section">{@render codeInput('snow')}</div>
               {:else}
                 <ProSnowSection bind:config={snowCfg} roof={snowRoof} />
@@ -1062,7 +1066,7 @@
                   {@render bindHere('seismic')}
                 {:else if !enableSeismic}
                   <p class="al-hint">{t('autoLoad.seismic.off')}</p>
-                {:else if CODE_INPUTS[codeAdapter('seismic')]}
+                {:else if __PUBLIC_FEATURES__.proPlatesUnified && CODE_INPUTS[codeAdapter('seismic')]}
                   {@render codeInput('seismic')}
                 {:else}
                   <div class="al-sub">
