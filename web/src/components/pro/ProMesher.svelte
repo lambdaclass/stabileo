@@ -41,8 +41,9 @@
 
   function polygon(text: string): { ids: number[]; loop: Loop2 } | null {
     const tokens = text.trim().split(/\s*[,;]\s*|\s+/);
-    if (tokens.length < 3 || tokens.some(token => !/^\d+$/.test(token))) return null;
+    if (tokens.length < 3 || tokens.some(token => !/^[+-]?\d+$/.test(token))) return null;
     const ids = tokens.map(Number);
+    if (new Set(ids).size !== ids.length || ids.some(id => !Number.isSafeInteger(id))) return null;
     const points: Vec3[] = [];
     for (const id of ids) {
       const node = modelStore.nodes.get(id);
@@ -86,11 +87,16 @@
   const inputError = $derived(!parsed
     ? (outerKind === 'circle' || outlineText.trim() ? t('mesher.invalidOutline') : null)
     : 'hole' in parsed ? tp('mesher.invalidHole', { n: parsed.hole }) : null);
-  const mesh = $derived(input && size > 0 ? generateMesh({ ...input, fixedPoints: modelPoints() }) : null);
+  const proposal = $derived.by(() => {
+    if (!input || !(size > 0)) return null;
+    const mesh = generateMesh({ ...input, fixedPoints: modelPoints() });
+    return mesh && { input, mesh };
+  });
+  const mesh = $derived(proposal?.mesh ?? null);
 
   function apply() {
-    if (!input || !mesh) return;
-    const r = applyMesh(input, { materialId, thickness, splitBeams }, mesh);
+    if (!proposal) return;
+    const r = applyMesh(proposal.input, { materialId, thickness, splitBeams }, proposal.mesh);
     if (!r) return;
     if (r.occupied) { message = t('mesher.occupied'); return; }
     message = tp('mesher.applied', { quads: r.quads.length, plates: r.plates.length, nodes: r.newNodes, split: r.splitCount });

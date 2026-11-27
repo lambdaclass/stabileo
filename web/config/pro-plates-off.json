@@ -1823,13 +1823,40 @@
       ]
     },
     "src/components/pro/ProMesher.svelte": {
-      "source": "b83703252d5a919bbfa9318da25f3c879daaf86146d20afd0a7034e11bbf7b23",
+      "source": "352e708e88a13df766f553630b34b6f8b46ee6ba0301a6366eda9d4ece351786",
       "original": "76a8644cd6d3025313db456960b41ae8770e91ce94b603a1adc461563f623025",
       "changes": [
         [
           0,
           8,
           []
+        ],
+        [
+          43,
+          1,
+          [
+            "    if (tokens.length < 3 || tokens.some(token => !/^\\d+$/.test(token))) return null;"
+          ]
+        ],
+        [
+          45,
+          1,
+          []
+        ],
+        [
+          89,
+          6,
+          [
+            "  const mesh = $derived(input && size > 0 ? generateMesh({ ...input, fixedPoints: modelPoints() }) : null);"
+          ]
+        ],
+        [
+          97,
+          2,
+          [
+            "    if (!input || !mesh) return;",
+            "    const r = applyMesh(input, { materialId, thickness, splitBeams }, mesh);"
+          ]
         ]
       ]
     },
@@ -6317,7 +6344,7 @@
       ]
     },
     "src/lib/i18n/locales/de.ts": {
-      "source": "5d5039b421d144eca19b280cbe27352d1f7889046a84ac413333505adef878d5",
+      "source": "1987fb213aa89bd8628b331a39617e3d0fe85c9a26e9cb96e120c74a41a0936b",
       "original": "0b1cffc73c321c88dd80b93e39f81e925705babc0f2e91df63e10c19111fe052",
       "changes": [
         [
@@ -6714,13 +6741,13 @@
         ],
         [
           16241,
-          1037,
+          1061,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/en.ts": {
-      "source": "d0df21c83ddfdcacd54c4c8afc4a26302368c24fce192f4210f8dc29a8c3e3fa",
+      "source": "cd2fcfcce51cdbc9a74a2116848fb220153e9b3760755e42d217f20150ce8de5",
       "original": "99343e2eeb7cf4140cbbcb69424c37461d3ec4e5c925d64439f6b56ee0e9e6b3",
       "changes": [
         [
@@ -7089,13 +7116,13 @@
         ],
         [
           16403,
-          1037,
+          1061,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/es.ts": {
-      "source": "3b6e91f7a52dc306d83e45a9303b1f59f7e8dc5b061ac39369adb72306b892fc",
+      "source": "d549be529d69f0b7aa76ea925e32cd0d1712bdd02b67e0286baf1a6800488de8",
       "original": "df939d2beed0420d6833617b3561c95098e34704ee1a3b4f15f21dda24fa4e09",
       "changes": [
         [
@@ -7464,13 +7491,13 @@
         ],
         [
           16392,
-          1037,
+          1061,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/fr.ts": {
-      "source": "5b2d8336d7e8c95c9ab31e7cf42d7a8f65f494ede45cbf70b179963aeb766231",
+      "source": "4b69d43b4a6206d7f7abbdc5aea68265376735e215af92e4ad3dcf59561819a2",
       "original": "26693801514fc282fbb8a5a4ad627431cbfce3c6e3f0720639c8cb5cef4e4b20",
       "changes": [
         [
@@ -7867,7 +7894,7 @@
         ],
         [
           16241,
-          1037,
+          1061,
           []
         ]
       ]
@@ -7893,7 +7920,7 @@
       ]
     },
     "src/lib/i18n/locales/hu.ts": {
-      "source": "744e58f4bc59243219b9a957e753872700e14cae873ab67e6f239bb0c5095f49",
+      "source": "cc23384b24f628308be3460f2b9a284400482551a7209b391e7e75ba1b993b1e",
       "original": "050bb2fb50b6d61761b6836086403490f8b3deedc1ac4af88de298aa3fd3966e",
       "changes": [
         [
@@ -8219,7 +8246,7 @@
         ],
         [
           14811,
-          2180,
+          2204,
           [
             "  \"edu.game.hint\": \"Játék: egy szerkezet, három ábra, és csak az egyik helyes.\"",
             ""
@@ -8308,7 +8335,7 @@
       ]
     },
     "src/lib/i18n/locales/pt.ts": {
-      "source": "65823947791e5c5613ddb838592f9808e645de946bbf203a3130f7bad8d44b03",
+      "source": "5696281359a8ab1c821ac5cae6a73504733e656e5c306cd262daa74c5ca829e8",
       "original": "f013a27bd1465964fefdc7d531a470bc4855e8593daa03ed54ed7453509bdd37",
       "changes": [
         [
@@ -8677,7 +8704,7 @@
         ],
         [
           16045,
-          1037,
+          1061,
           []
         ]
       ]
@@ -9005,7 +9032,7 @@
       ]
     },
     "src/lib/i18n/locales/tr.ts": {
-      "source": "2a5ab49f129587db5a8c64e08aecec53a82c3205c78a72fd832a4f710cd5bb8d",
+      "source": "7bcd6806f84303c4eec87409cd1d23a7a1b7601c90517b8ac59d09cb19de4e2e",
       "original": "dfae3be5cd45792b6b2c9720f3433a60bace6b76a70d785cd4f6cc88d7ef096f",
       "changes": [
         [
@@ -9381,13 +9408,13 @@
         ],
         [
           16241,
-          1037,
+          1061,
           []
         ]
       ]
     },
     "src/lib/i18n/locales/zh.ts": {
-      "source": "e0cb5773873640ded8168555b65e42067df7e60cd05d895c3972062ae52b1c62",
+      "source": "0384d3011e786ced83778549c5ea346c342f5127775e461d77d3d6e13b91a63c",
       "original": "187ecdf53aa596a80d7c584c8c8fc84768c7dd6c4d6540750c3a9cdcf2caee26",
       "changes": [
         [
@@ -9702,7 +9729,7 @@
         ],
         [
           14833,
-          2182,
+          2206,
           []
         ]
       ]

@@ -1382,3 +1382,7 @@ test.web.pro-plates-switch:
 .PHONY: test.web.production-mesher
 test.web.production-mesher:
 	nix develop .\#e2e --command node --test web/scripts/tests/pro-mesher-inputs.test.mjs
+
+.PHONY: gen.web.pro-plates-off
+gen.web.pro-plates-off:
+	$(NIX_RUN) python3 web/scripts/gen-pro-plates-off.py "$(BASE)"
