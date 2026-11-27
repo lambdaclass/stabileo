@@ -478,3 +478,48 @@ it.each(['2d', '3d'] as const)('a refused case hides only the displayed combinat
   resultsStore.activeComboId = good;
   expect(displayed()?.displacements[0].ux).toBe(23);
 });
+
+it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — keeps the simple-load diagram and preselects the first usable combination in %s', mode => {
+  modelStore.clear();
+  resultsStore.clear();
+  resultsStore.clear3D();
+  uiStore.analysisMode = mode;
+  const cases = new Map([[1, result(3, [refusal()])], [2, result(5)]]);
+  const bad = modelStore.addCombination('blocked', [{ caseId: 1, factor: 1 }]);
+  const good = modelStore.addCombination('usable', [{ caseId: 2, factor: 1 }]);
+  const combos = new Map([[bad, result(11)], [good, result(13)]]);
+  if (mode === '3d') {
+    resultsStore.setResults3D(result(7) as never);
+    resultsStore.setCombinationResults3D(cases as never, combos as never, null);
+  } else {
+    resultsStore.setResults(result(7) as never);
+    resultsStore.setCombinationResults(cases as never, combos as never, null);
+  }
+  resultsStore.diagramType = 'axial';
+  const shown = () => (mode === '3d' ? resultsStore.results3D : resultsStore.results)?.displacements[0].ux;
+  expect(shown()).toBe(7);
+  expect.soft(resultsStore.diagramType).toBe('axial');
+  resultsStore.activeView = 'combo';
+  expect.soft(resultsStore.activeComboId).toBe(good);
+  expect(shown()).toBe(13);
+});
+
+it.skip('known wrong result: #2491 — selects the checked named envelope or the independently checked base with its matching name', async () => {
+  const { initSolver, computeEnvelope3D } = await import('../../engine/wasm-solver');
+  await initSolver();
+  resultsStore.clear3D();
+  const base = computeEnvelope3D([result(3) as never])!;
+  const good = result(7);
+  const bad = result(11, [refusal()]);
+  const named = computeEnvelope3D([good as never])!;
+  const refused = { ...named, maxAbsResults3D: bad as never };
+  resultsStore.setCombinationResults3D(new Map(), new Map([[1, good], [2, bad]]) as never, base);
+  resultsStore.activeView = 'envelope';
+  for (const [selection, expected, name] of [[named, 7, 'Selected'], [refused, 3, null],
+    [structuredClone(named), 3, null]] as const) {
+    resultsStore.viewEnvelope3D(selection, 'Selected');
+    expect.soft(resultsStore.results3D?.displacements[0].ux).toBe(expected);
+    expect.soft(resultsStore.fullEnvelope3D?.maxAbsResults3D.displacements[0].ux).toBe(expected);
+    expect.soft(resultsStore.viewedEnvelopeName).toBe(name);
+  }
+});

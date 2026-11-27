@@ -142,6 +142,7 @@ it('translates Explore, launcher search, mobile tabs and the material form in ev
     'matEdit.e', 'matEdit.nu', 'matEdit.gamma', 'matEdit.fy',
     'matEdit.alpha', 'matEdit.extra', 'matEdit.fyHelp', 'matEdit.save',
     'matEdit.delete', 'matEdit.invent', 'materials.alphaInvalid',
+    'materials.workbookAlphaInvalid', 'whatif.nodeTag', 'whatif.memberTag', 'whatif.thermalTerm',
     'materials.alphaHelp', 'whatif.paint.axialUnavailable', 'whatif.resp.momentBound', 'whatif.resp.shearBound',
   ];
   for (const [locale, dict] of Object.entries(ALL_DICTS)) {
@@ -152,4 +153,12 @@ it('translates Explore, launcher search, mobile tabs and the material form in ev
 
 it('counts mechanism modes in Chinese without a Latin plural suffix', () => {
   for (const key of ['kinematic.hiddenMechanism','kinematic.mechanismDetected']) expect(ALL_DICTS.zh[key]).not.toContain('{s}');
+});
+
+it.skip.each(['custom-thermal-family', 'signed-thermal-expansion'])('known wrong result: #2491 — explains %s in every dictionary language', id => {
+  const entry = JSON.parse(readFileSync(join(import.meta.dirname, '../../provenance/result-changes', id + '.json'), 'utf8'));
+  for (const locale of Object.keys(ALL_DICTS)) for (const field of ['title', 'explanation']) {
+    expect.soft(entry[field][locale]?.trim(), locale + ' ' + field).toBeTruthy();
+    if (locale !== 'en') expect.soft(entry[field][locale]).not.toBe(entry[field].en);
+  }
 });

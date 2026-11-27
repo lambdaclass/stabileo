@@ -12,7 +12,7 @@ import WhatIfMembers from '../../../components/whatif/WhatIfMembers.svelte';
 import WhatIfPanel from '../../../components/WhatIfPanel.svelte';
 import { i18n, setLocale } from '../../i18n';
 import { whatIf } from '../whatif.svelte';
-import { displayUnits } from '../display-units.svelte';
+import { fmtQ, unitQ, displayUnits } from '../display-units.svelte';
 import { loadLabel } from '../../whatif/load-label';
 import { response2D, response3D } from '../../whatif/response';
 
@@ -668,4 +668,43 @@ it('drops dependent support moves if a failed cut restores an occupied node', ()
   } finally {
     split.mockRestore();
   }
+});
+
+it.skip.each(['2d', '3d'] as const)('known wrong result: #2491 — scales the listed section properties for global and individual edits in %s', mode => {
+  uiStore.analysisMode = mode;
+  const props = { a: 0.12, iy: 0.003, iz: 0.001, j: 0.0002 };
+  const section = modelStore.addSection({ name: 'Explicit properties', ...props });
+  for (const id of [m1, m2]) modelStore.updateElementSection(id, section);
+  whatIf.open();
+  expect.soft(render(WhatIfMembers).body).toContain(mode === '3d' ? 'Iy, Iz, J' : 'Iy');
+  whatIf.setAll('iy', 2);
+  whatIf.setMember(m1, 'iy', 1.5);
+  settle();
+  for (const [id, factor] of [[m1, 3], [m2, 2]]) {
+    const sec = modelStore.sections.get(modelStore.elements.get(id)!.sectionId)!;
+    expect(sec.a).toBe(props.a);
+    expect(sec.iy).toBeCloseTo(props.iy * factor, 14);
+    expect(sec.iz).toBeCloseTo(props.iz * (mode === '3d' ? factor : 1), 14);
+    expect(sec.j).toBeCloseTo(props.j * (mode === '3d' ? factor : 1), 14);
+  }
+});
+
+it.skip('known wrong result: #2491 — names a legacy member moment when the stored primary component is zero', () => {
+  const data = { id: 1, elementId: m1, a: 1, p: 0, my: 0, mz: 6 };
+  const label = (my: number, mz: number) => loadLabel({ type: 'pointOnElement', data: { ...data, my, mz } }, 0);
+  expect(label(0, 6)).toBe(label(6, 0));
+  expect(label(0, 6)).toContain(unitQ('moment'));
+  expect(label(0, 0)).toContain(unitQ('force'));
+});
+
+it.skip('known wrong result: #2491 — names imposed translations and rotations in display units', () => {
+  const label = loadLabel({ type: 'displacement3d', data: { id: 1, nodeId: 7, dx: 0.03, drx: 0.02 } }, 0);
+  expect(label).toContain(fmtQ(0.03, 'displacement') + ' ' + unitQ('displacement'));
+  expect(label).toContain(fmtQ(0.02, 'rotation') + ' ' + unitQ('rotation'));
+});
+
+it.skip.each([undefined, 'plate'] as const)('known wrong result: #2491 — identifies both temperature terms on shell %s', on => {
+  const label = loadLabel({ type: 'thermalQuad3d', data: { id: 1, quadId: 7, on, dtUniform: 10, dtGradient: -4 } }, 0);
+  expect(label).toContain('ΔT=' + fmtQ(10, 'temperatureDelta'));
+  expect(label).toContain('ΔTg=' + fmtQ(-4, 'temperatureDelta'));
 });

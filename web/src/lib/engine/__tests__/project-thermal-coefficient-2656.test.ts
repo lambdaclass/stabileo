@@ -1,3 +1,5 @@
+import { t } from '../../i18n';
+import { thermalAlphaOf } from '../thermal-alpha';
 import { readFileSync } from 'node:fs';
 import { clearSolveResultCache } from '../solver-service';
 import { setWorkerFactoryForTests, type WorkerLike } from '../solver-pool';
@@ -139,3 +141,16 @@ for (const workspace of ['2d', '3d'] as const) for (const edit of ['basic', 'pro
     }
   });
 }
+
+for (const workspace of ['2d', '3d'] as const) {
+  for (const [worker, secondOrder] of [[false, false], [true, false], [false, true]]) {
+    it.skip.each([-0.5, -0.001, 0.001, 0.01])('known wrong result: #2491 — refuses reopened α=%s before ' + workspace + ' solve, worker=' + worker + ', secondOrder=' + secondOrder, async alpha => {
+      await expect(checkDisplacement(workspace, alpha, worker, 0, secondOrder)).rejects.toThrow(t('materials.workbookAlphaInvalid'));
+    });
+    it.each([-0.000999, 0.000999])('solves inside the coefficient limit at %s in ' + workspace + ', worker=' + worker + ', secondOrder=' + secondOrder, alpha =>
+      checkDisplacement(workspace, alpha, worker, 0, secondOrder));
+  }
+}
+it.skip.each([NaN, Infinity, -Infinity])('known wrong result: #2491 — refuses an explicit nonfinite coefficient %s', alpha => {
+  expect(() => thermalAlphaOf({ alpha, gradeId: 'A36' })).toThrow();
+});

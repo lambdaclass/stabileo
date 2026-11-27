@@ -156,6 +156,8 @@ test.describe('explained step by step', () => {
     // And from the catalog, back to the list of advanced functions.
     await page.getByTestId('steps-catalog-back').click();
     await expect(page.getByTestId('adv-fn-steps')).toBeVisible();
+    await expect(panelTitle).toHaveText(/^(Advanced|Avanzado|Avançado)$/);
+    await expect(page.getByTestId('steps-catalog-back')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 

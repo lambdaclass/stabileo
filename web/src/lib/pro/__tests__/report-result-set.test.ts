@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { modelStore, resultsStore, uiStore } from '../../store';
+import { runGlobalSolve } from '../../engine/live-calc';
 import { resultSetName } from '../../export/figure';
 import { defaultReportSetKey, resultSet } from '../export-results';
 import { buildProReportData } from '../../engine/pro-report-inputs';
@@ -38,6 +39,10 @@ describe('what the report is of', () => {
   it('names the sum of every case at factor 1 for what it is', () => {
     resultsStore.activeView = 'single';
     expect(resultSetName()).toBe(t('tables.shownSum'));
+    expect(reactionX(resultsStore.results3D!)).toBeCloseTo(-10, 6);
+    resultsStore.activeCaseId = 1;
+    expect(resultSetName()).toBe(modelStore.loadCases[0]!.name);
+    expect(reactionX(resultsStore.results3D!)).toBeCloseTo(0, 6);
   });
 
   it('defaults to the envelope when there are combinations', () => {
@@ -65,4 +70,27 @@ describe('a chosen result set that is not there', () => {
     expect(buildProReportData({ config: config('combo:9999'), t })).toBeNull();
     expect(buildProReportData({ config: config('case:9999'), t })).toBeNull();
   });
+});
+
+it.skip('known wrong result: #2491 — obtains the simple-load state independently when a contributing wind case refuses', async () => {
+  solvedPortal();
+  const bundle = modelStore.solveCombinations3D(false, false, true);
+  if (!bundle || typeof bundle === 'string') throw Error(String(bundle));
+  const wind = modelStore.loadCases.find(c => c.name === 'W')!;
+  const refused = { ...bundle.perCase.get(wind.id)!, structuredDiagnostics: [
+    { code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'ENGINE' },
+  ] };
+  const cases = new Map(bundle.perCase);
+  cases.set(wind.id, refused as never);
+  const batch = vi.spyOn(modelStore, 'solveCombinations3DParallel').mockResolvedValue({ ...bundle, perCase: cases });
+  const single = vi.spyOn(modelStore, 'solve3DAsync');
+  try {
+    expect((await runGlobalSolve()).ok).toBe(true);
+    expect(batch).toHaveBeenCalled();
+    expect(single).toHaveBeenCalled();
+    expect(reactionX(resultsStore.singleResults3D!)).toBeCloseTo(-10, 6);
+  } finally {
+    batch.mockRestore();
+    single.mockRestore();
+  }
 });

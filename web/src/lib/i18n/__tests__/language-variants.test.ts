@@ -120,6 +120,12 @@ describe('the kinematics plural ending glued to a word', () => {
   const plural = (d: Record<string, string>, key: string) =>
     d[key].replaceAll('{n}', '2').replaceAll('{s}', d['kin.plural_s']);
 
+  it.each(['kinematic.hiddenMechanism', 'kinematic.mechanismDetected'])('inflects both Portuguese words in %s', key => {
+    const dict = pt as Record<string, string>;
+    expect(plural(dict, key)).toContain('Detectados 2 modos de mecanismo');
+    expect(dict[key].replaceAll('{n}', '1').replaceAll('{s}', '')).toContain('Detectado 1 modo de mecanismo');
+  });
+
   it('reads as a plural in Spanish and English', () => {
     expect(plural(es as Record<string, string>, 'kinematic.mechanismDetected')).toBe('✗ Se detectaron 2 modos de mecanismo.');
     expect(plural(en as Record<string, string>, 'kinematic.mechanismDetected')).toBe('✗ Detected 2 mechanism modes.');

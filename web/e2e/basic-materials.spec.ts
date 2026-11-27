@@ -22,6 +22,33 @@ async function displacements(page: Page) {
 }
 
 test.describe('@smoke materials typed by hand in Basic', () => {
+  test('explains each excluded material value and accepts both ends of the usable Poisson range', async ({ page }) => {
+    await openPortal(page);
+    await page.getByTestId('rb-cmd-materials').click();
+    await page.getByTestId('mat-new').click();
+    await page.getByTestId('mat-invent-tab').click();
+    await page.getByTestId('mat-form-extra-summary').click();
+    const save = page.getByTestId('mat-form-save');
+    const problem = page.getByTestId('mat-form-problem');
+    for (const [field, invalid, valid, message] of [
+      ['nu', '-1', '-0.99', 'Poisson’s ratio must lie between −1 and 0.5: outside that range either the bulk or the shear modulus comes out negative.'],
+      ['nu', '0.5', '0.49', 'Poisson’s ratio must lie between −1 and 0.5: outside that range either the bulk or the shear modulus comes out negative.'],
+      ['nu', '3', '0.49', 'Poisson’s ratio must lie between −1 and 0.5: outside that range either the bulk or the shear modulus comes out negative.'],
+      ['rho', '-1', '0', 'The unit weight cannot be negative.'],
+      ['fy', '0', '1', 'fy is optional, but if it is stated it must be greater than zero.'],
+      ['fy', '-1', '', 'fy is optional, but if it is stated it must be greater than zero.'],
+      ['alpha', 'Infinity', '0', 'Enter a finite thermal expansion coefficient in 10⁻⁶/°C (−1000 < α < 1000).'],
+    ]) {
+      const input = page.getByTestId('mat-form-' + field);
+      await input.fill(invalid);
+      await expect(problem).toHaveText(message);
+      await expect(save).toBeDisabled();
+      await input.fill(valid);
+      await expect(problem).toHaveCount(0);
+      await expect(save).toBeEnabled();
+    }
+  });
+
   for (const micro of [-5, 0]) {
     test(`saves and reopens a Basic material with alpha ${micro}`, async ({ page }) => {
       await openPortal(page);
