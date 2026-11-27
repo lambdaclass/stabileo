@@ -12,7 +12,11 @@ import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, modelCombinationCases, presentSymbols, type CombinationCase } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
+import { ModelInputError, requireLoadCollection, requireLoadInput } from '../engine/model-input-numbers';
+import { fixtureRows, migrateModelConstraints, requireCombinationInput, requireStructureInput } from '../engine/model-input-numbers';
+import { LOAD_TARGET, type Load } from '../store/model.svelte';
 import { remapSupportElement } from '../model/support-types';
+import { selfWeightScope } from '../engine/self-weight';
 
 export interface JSONModel {
   name: string;
@@ -117,11 +121,21 @@ interface FixtureLoadOptions {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): void {
+  prepareFixture(json, opts)(api);
+}
+
+export function prepareFixture(json: JSONModel, opts: FixtureLoadOptions = {}): (api: FixtureLoader) => void {
+  requireLoadCollection(json.loads);
+  requireFixtureStructure(json);
+  const constraints = migrateModelConstraints(json.constraints);
+  json = { ...json, constraints: constraints.map(constraint => ({ ...constraint })) };
   const canonical = canonicalizeModelAliases(json);
-  validateFixtureSupportFrames(canonical);
-  const load = () => replayFixture(canonical, api, opts);
-  if (api.replay) api.replay(load);
-  else load();
+  validateFixtureReferences(canonical);
+  return (api) => {
+    const load = () => replayFixture(canonical, api, opts);
+    if (api.replay) api.replay(load);
+    else load();
+  };
 }
 
 function fixtureSupportElement(support: JSONModel['supports'][number], elementId: (id: number) => number | undefined): number | undefined {
@@ -132,9 +146,37 @@ function fixtureSupportElement(support: JSONModel['supports'][number], elementId
   return reference;
 }
 
-export function validateFixtureSupportFrames(json: JSONModel): void {
+function requireFixtureStructure(json: JSONModel): void {
+  requireStructureInput({
+    nodes: fixtureRows('nodes', json.nodes), elements: fixtureRows('elements', json.elements),
+    supports: fixtureRows('supports', json.supports), materials: fixtureRows('materials', json.materials),
+    sections: fixtureRows('sections', json.sections), analysis: json.analysis,
+  });
+}
+
+export function validateFixtureReferences(json: JSONModel): void {
+  requireLoadCollection(json.loads);
+  requireFixtureStructure(json);
+  json = canonicalizeModelAliases(json);
+  requireLoadInput(json.loads);
+  requireCombinationInput(json.combinations);
+  migrateModelConstraints(json.constraints);
   const ids = new Set(json.elements.map(e => e.id));
+  const targets = {
+    node: { field: 'nodeId', ids: new Set(json.nodes.map(node => node.id)) },
+    member: { field: 'elementId', ids },
+    shell: { field: 'quadId', ids: new Set(json.quads.map(quad => quad.id)) },
+    plate: { field: 'quadId', ids: new Set(json.plates.map(plate => plate.id)) },
+  };
+  for (const [index, { type, data }] of json.loads.entries()) {
+    const target = LOAD_TARGET[type as Load['type']];
+    const { field, ids } = targets[target === 'shell' && data.on === 'plate' ? 'plate' : target];
+    if (!ids.has(data[field] as number)) {
+      throw new ModelInputError(tp('svc.engine.invalidInputField', { path: `loads[${index}].data.${field}` }));
+    }
+  }
   for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
+  for (const rule of json.analysis?.selfWeight ?? []) selfWeightScope({ elements: ids }, rule);
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {

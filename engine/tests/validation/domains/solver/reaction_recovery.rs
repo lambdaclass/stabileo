@@ -1394,7 +1394,7 @@ fn issue_1952_stiffness_free_one_free_dof_remains_unavailable() {
         m["loads"][0]["data"]["fz"] = json!(0.0);
         m["stages"] = json!([{"name":"one free DOF","supportsAdded":[0],"loadIndices":[0]}]);
         let outcome = if dim == 2 {
-            let solver: SolverInput = serde_json::from_value(m.clone()).unwrap();
+            let solver: SolverInput = serde_json::from_value(crate::common::staged_model_without_history(m.clone())).unwrap();
             assert_eq!(
                 dedaliano_engine::solver::dof::DofNumbering::build_2d(&solver).n_free,
                 1
@@ -1402,7 +1402,7 @@ fn issue_1952_stiffness_free_one_free_dof_remains_unavailable() {
             staged::solve_staged_2d(&serde_json::from_value(m).unwrap())
                 .map(|r| serde_json::to_value(r.final_results).unwrap())
         } else {
-            let solver: SolverInput3D = serde_json::from_value(m.clone()).unwrap();
+            let solver: SolverInput3D = serde_json::from_value(crate::common::staged_model_without_history(m.clone())).unwrap();
             assert_eq!(
                 dedaliano_engine::solver::dof::DofNumbering::build_3d(&solver).n_free,
                 1
@@ -1742,7 +1742,7 @@ fn r8_released_slave_model(dim: usize, motion: f64) -> Value {
     m["nodes"]["2"] = m["nodes"]["0"].clone();
     m["nodes"]["2"]["id"] = json!(2);
     m["supports"]["2"] = m["supports"]["0"].clone();
-    m["supports"]["2"]["id"] = json!(2);
+    if dim == 2 { m["supports"]["2"]["id"] = json!(2); }
     m["supports"]["2"]["nodeId"] = json!(2);
     m["supports"]["2"]["dry"] = json!(motion);
     m["elements"]["1"][if dim == 2 { "hingeEnd" } else { "releaseMyEnd" }] = json!(true);
@@ -2326,12 +2326,13 @@ fn r14_staged_physical(dim: usize) {
                         .unwrap()
                         .push(json!(id));
                 }
+                let mut static_model = m.clone();
+                static_model.as_object_mut().unwrap().remove("stages");
                 let result = if dim == 2 {
-                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_2d(
-                        &serde_json::from_value(m.clone()).unwrap(),
-                    );
+                    let input = serde_json::from_value(static_model).unwrap();
+                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_2d(&input);
                     let cs = dedaliano_engine::solver::constraints::FreeConstraintSystem::build_2d(
-                        &serde_json::from_value(m.clone()).unwrap(),
+                        &input,
                         &dof,
                     )
                     .unwrap()
@@ -2342,11 +2343,10 @@ fn r14_staged_physical(dim: usize) {
                             .unwrap()
                     )
                 } else {
-                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_3d(
-                        &serde_json::from_value(m.clone()).unwrap(),
-                    );
+                    let input = serde_json::from_value(static_model).unwrap();
+                    let dof = dedaliano_engine::solver::dof::DofNumbering::build_3d(&input);
                     let cs = dedaliano_engine::solver::constraints::FreeConstraintSystem::build_3d(
-                        &serde_json::from_value(m.clone()).unwrap(),
+                        &input,
                         &dof,
                     )
                     .unwrap()
@@ -2470,17 +2470,17 @@ fn r17_public(dim: usize, kind: &str) {
                 m["stages"] = json!([{"name":"no physical stiffness","supportsAdded":[0]},{"name":"member activated","elementsAdded":[1],"loadIndices":[0]}]);
             }
             let outcome = if dim == 2 {
-                let input: SolverInput = serde_json::from_value(m.clone()).unwrap();
                 if kind == "staged" {
                     staged::solve_staged_2d(&serde_json::from_value(m.clone()).unwrap()).map(|r| json!(r))
                 } else {
+                    let input: SolverInput = serde_json::from_value(m.clone()).unwrap();
                     pdelta::solve_pdelta_2d(&input,40,1e-9).map(|r| json!(r))
                 }
             } else {
-                let input: SolverInput3D = serde_json::from_value(m.clone()).unwrap();
                 if kind == "staged" {
                     staged::solve_staged_3d(&serde_json::from_value(m.clone()).unwrap()).map(|r| json!(r))
                 } else {
+                    let input: SolverInput3D = serde_json::from_value(m.clone()).unwrap();
                     pdelta::solve_pdelta_3d(&input,40,1e-9).map(|r| json!(r))
                 }
             };

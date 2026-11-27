@@ -1,4 +1,5 @@
 import type { PostBody } from '../../types';
+import { nextReleaseAdvisoryBlocks } from '../../next-release-advisories';
 
 const body: PostBody = {
   "title": "Avis de sécurité : quels résultats ont changé et que faire",
@@ -114,34 +115,7 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Entrées concernées et mesures à prendre."},
     {"k": "note", "t": "SA-2026-107 — Prochaine version après la 0.6.3 (mesure de protection)."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-108 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-109 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-110 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-111 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-112 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-113 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-114 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md", "label": "SA-2026-114", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-115 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-116 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-117 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md", "label": "SA-2026-117", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-118 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md", "label": "SA-2026-118", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-119 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-120 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Entrées concernées et mesures à prendre."},
-    {"k": "note", "t": "SA-2026-121 — Prochaine version après la 0.6.4."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md", "label": "SA-2026-121", "t": "Entrées concernées et mesures à prendre."},
+    ...nextReleaseAdvisoryBlocks('Prochaine version après la 0.6.4.', 'Entrées concernées et mesures à prendre.'),
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -571,7 +545,18 @@ const body: PostBody = {
         ["SA-2026-118", "Un groupe cible invalide pouvait entraîner l’omission du poids propre de ce groupe. Corrigez le groupe cible, relancez les cas de charge et les combinaisons concernés, puis recalculez leurs enveloppes.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-119", "L’absence de masse volumique d’un matériau pouvait fausser les fréquences propres. Rétablissez la masse volumique, reconstruisez la source de masse et relancez les analyses dynamiques concernées.", "Élevée", "Prochaine version après la 0.6.4"],
         ["SA-2026-120", "La génération automatique pouvait doubler les charges gravitaires, les transférer à des panneaux dont la portée dépassait la limite du calcul automatique ou mal distinguer les zones de plancher et de toiture. Régénérez les plans de charges gravitaires, de neige et de vent concernés, vérifiez les charges et relancez les analyses correspondantes.", "Élevée", "Prochaine version après la 0.6.4"],
-        ["SA-2026-121", "L’analyse non linéaire plane pouvait donner des résultats erronés pour les charges sur les barres. Relancez les analyses concernées, y compris celles qui ont fourni l’état initial d’une continuation, et vérifiez les déplacements, les réactions et les efforts aux extrémités des barres.", "Moyenne", "Prochaine version après la 0.6.4"]
+        ["SA-2026-121", "L’analyse non linéaire plane pouvait donner des résultats erronés pour les charges sur les barres. Relancez les analyses concernées, y compris celles qui ont fourni l’état initial d’une continuation, et vérifiez les déplacements, les réactions et les efforts aux extrémités des barres.", "Moyenne", "Prochaine version après la 0.6.4"],
+        ["SA-2026-122", "Les combinaisons générées pouvaient omettre des variantes requises ou des charges d’exploitation de toiture saisies manuellement, utiliser une base de neige incorrecte ou inclure des cas de vent obsolètes. Vérifiez les charges, les coefficients des règles et les combinaisons de chaque enveloppe. Supprimez du modèle les cas de charge vides dont vous avez confirmé qu’ils sont obsolètes, y compris ceux qui étaient déjà vides dans la version 0.6.4. Régénérez les combinaisons et vérifiez qu’elles excluent les identifiants de ces cas avant de relancer les analyses concernées.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-123", "La génération automatique des charges gravitaires pouvait conserver des charges sous des panneaux dont la hauteur libre était insuffisante ou les affecter lorsque la couverture était indéterminée. Régénérez les charges gravitaires, de vent en toiture et de neige concernées, vérifiez leur affectation et relancez les analyses associées.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-124", "Le poids propre appliqué à une sélection pouvait ignorer les cibles manquantes ou affecter le poids d’une barre sélectionnée à un seul segment. Corrigez la sélection, vérifiez le poids appliqué et refaites les analyses concernées ainsi que les calculs de réponse du cours de dynamique plane avec des barres subdivisées.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-125", "Les rapports cinématiques natifs et WASM pouvaient compter deux fois un blocage rigide commun. Vérifiez de nouveau le degré d’hyperstaticité, la classification et le diagnostic, puis mettez à jour les rapports concernés.", "Moyenne", "Prochaine version après la 0.6.4"],
+        ["SA-2026-126", "Les termes répétés pouvaient omettre des dispositions de charge déterminantes ou produire une variante sans neige. Vérifiez les règles, régénérez les combinaisons et les cas de charge composites concernés, puis refaites les analyses, les enveloppes et les vérifications de dimensionnement.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-127", "Les dalles pouvaient ne transmettre aucune charge aux voiles lorsque la connexion des maillages était incomplète à la jonction. Remaillez les deux surfaces avec des arêtes communes sur toute la longueur de la jonction prévue, vérifiez le cheminement des charges et reprenez les calculs spatiaux, les enveloppes et les vérifications de dimensionnement concernés.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-128", "La conversion pouvait omettre des charges axiales changeant de signe sur des barres planes ou des barres de treillis spatial. Vérifiez les charges réparties et leurs forces équivalentes aux extrémités, puis reprenez les calculs, les enveloppes et les vérifications de dimensionnement concernés.", "Moyenne", "Prochaine version après la 0.6.4"],
+        ["SA-2026-129", "Les enveloppes de charges mobiles pouvaient donner des efforts tranchants ou normaux erronés, et les cas enregistrés de position de véhicule pouvaient omettre des sauts d’effort normal dans les treillis spatiaux. Lorsque l’essieu et la charge ponctuelle permanente coïncident exactement, ils produisent un seul saut d’effort tranchant dû aux deux charges. L’effort tranchant entre les charges a des limites unilatérales lorsque l’essieu s’approche de la charge permanente ou la dépasse. Vérifiez les deux limites avec l’essieu juste avant et juste après la charge permanente. Recalculez les enveloppes concernées, régénérez les cas enregistrés et reprenez les calculs et les vérifications de dimensionnement qui en dépendent.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-130", "L’analyse élastique plane pouvait renvoyer des déplacements tous nuls pour un mécanisme sans émettre d’avertissement. Vérifiez les articulations de flexion et les blocages, corrigez tout mécanisme non prévu et reprenez les calculs et les vérifications de dimensionnement concernés.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-131", "L’analyse pouvait ignorer ou mal interpréter sans avertissement des données structurelles, des contraintes cinématiques, des méthodes de combinaison, des mouvements du sol ou des charges de phase. Corrigez les données d’entrée et reprenez les calculs, les combinaisons et les vérifications de dimensionnement concernés.", "Élevée", "Prochaine version après la 0.6.4"],
+        ["SA-2026-132", "Les projets Basic rouverts sans plan de dessin enregistré pouvaient être calculés dans le mauvais plan. Vérifiez le plan prévu, les directions des charges et les blocages, puis reprenez les calculs, les combinaisons et les vérifications de dimensionnement concernés.", "Élevée", "Prochaine version après la 0.6.4"]
       ]
     },
     {

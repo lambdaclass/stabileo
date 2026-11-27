@@ -8,6 +8,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { initSolver } from '../engine/wasm-solver';
 import { uiStore } from '../store/ui.svelte';
+import { solveNow } from '../actions/solve';
+import { t } from '../i18n';
 import {
   againstExample, judge, openAndSolve, openSession, readCorpusText, readManifest, readResults, unexplainedMessage, type Verdict,
 } from './legacy';
@@ -34,7 +36,15 @@ export function runLegacyVersion(tag: string): void {
       it(`${e.example}: opens and migrates to the model it was saved from${e.results ? ', the results the current code gives that example, and that version\'s results or a registered change' : ''}`, async () => {
         const text = readCorpusText(`${tag}/${e.file}`);
         expect(JSON.parse(text).version, 'the file format the manifest records').toBe(e.fileFormatVersion);
-        const opened = await openAndSolve(text, { solve: !!e.results });
+        const needsPlane = e.example === 'cantilever-point' || e.example === 'point-loads';
+        const opened = await openAndSolve(text, {
+          solve: !!e.results,
+          afterOpen: needsPlane ? async () => {
+            expect(uiStore.analysisPlane2D).toBeUndefined();
+            expect(await solveNow()).toMatchObject({ ok: false, error: t('svc.savedPlaneRequired') });
+            uiStore.drawPlane2D = 'xy';
+          } : undefined,
+        });
         expect({
           nodes: opened.values['model.nodes'], elements: opened.values['model.elements'], shells: opened.values['model.shells'],
         }, 'the model the version saved, member for member').toEqual(e.model);

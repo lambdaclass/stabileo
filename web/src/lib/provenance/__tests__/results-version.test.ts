@@ -105,18 +105,20 @@ describe('results versions', () => {
   it('tells a modal frame about modal completeness up to version 8, self-checks up to 9, the mechanism refusal up to 12, the 3D co-rotational rotations up to 23 and the containment diagnostics up to 29, until it is re-solved', () => {
     const frame: FeatureSnapshot = {
       analysisMode: 'pro',
-      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
     };
     const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
+    const stagedIds = ['kinematic-translation-motion', 'modal-massive-translation'];
+    stagedIds.push('reduced-stiffness-rank');
     const precedingRegistry = {
       ...RESULT_CHANGES,
-      changes: RESULT_CHANGES.changes.filter(c => c.id !== 'kinematic-translation-motion'),
+      changes: RESULT_CHANGES.changes.filter(c => !stagedIds.includes(c.id)),
     };
     const ids = (resultsVersion: number) => {
       const saved = { ...stamp, resultsVersion };
       const preceding = assessProject(frame, saved, 'pro', precedingRegistry).changes.map(c => c.id).sort();
       const combined = assessProject(frame, saved, 'pro').changes.map(c => c.id).sort();
-      const staged = resultsVersion === RESULT_CHANGES.currentResultsVersion ? [] : ['kinematic-translation-motion'];
+      const staged = resultsVersion === RESULT_CHANGES.currentResultsVersion ? [] : stagedIds;
       expect(combined).toEqual([...preceding, ...staged].sort());
       return preceding;
     };
@@ -147,7 +149,7 @@ describe('results versions', () => {
     for (const analysisMode of ['2d', 'pro']) {
       const frame: FeatureSnapshot = {
         analysisMode,
-        elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+        elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
       };
       for (const analysis of ['linear', 'modal'] as const) {
         const stamp = { resultsVersion: before, analyses: [analysis] } as unknown as SolveStamp;

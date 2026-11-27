@@ -1305,7 +1305,7 @@ fn full_results_bounds_only_when_certified() {
     assert_eq!(full.shell_bounds.len(), shell.quads.len());
     assert!(full.shell_bounds.iter().all(|b| b.mx > 0.0 && b.qx.is_some()));
     let bad = fuzz_models::random_3d_model(100_031);
-    let error = certify_linear_3d_full(&bad).unwrap_err();
+    let error = crate::common::rank_refusal_message(&certify_linear_3d_full(&bad).unwrap_err());
     assert!(error.starts_with("the structure is a mechanism") || error.starts_with("the stiffness matrix is not positive"), "{error}");
 }
 

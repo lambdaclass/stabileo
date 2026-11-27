@@ -1,3 +1,5 @@
+import { is3DWorkspace, isAnalysisMode } from '../utils/workspace';
+import { ModelInputError, migrateModelConstraints, modelInputRefusal, requireCombinationInput, requireLoadInput, requireModelInput, requireStoredProjectInput, requireStructureInput, supportWithStoredId } from '../engine/model-input-numbers';
 import { canonicalizeLoadAliases, canonicalizeModelAliases, NO_RELEASE } from '../model/canonical-aliases';
 import { accountingProjection, scenarioSurfaceAdjustment } from '../engine/accounting-source';
 import { globalAxes } from '../features';
@@ -59,9 +61,9 @@ import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
 import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
-import { loadFixture, validateFixtureSupportFrames, type JSONModel } from '../templates/load-fixture';
+import { loadFixture, validateFixtureReferences, type JSONModel } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
-import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
+import { constraintsAcrossDepth, constraintsInXZ, planeConstraintRefusal } from '../engine/constraint-2d-remap';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
 import { t } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
@@ -74,6 +76,9 @@ import type { ModelProvenance } from '../model/provenance';
 export type { MemberOffset, MemberOffsetVec } from '../model/element-3d-metadata';
 import { uiStore } from './ui.svelte';
 import { requirePlanarPointMoment } from '../engine/member-point-loads';
+import { memberFrame3D } from '../engine/member-loads';
+import { hasMemberOffset } from '../engine/member-offsets';
+import { transverseSign } from '../engine/transverse-sign-2d';
 import { planarNodalMoment, type PlanarMomentFields } from '../engine/planar-point-load';
 import { plainDeepCopy } from '../utils/plain-deep-copy';
 // Cycle-safe: switch-2d imports this module, but resetSwitchBackup is a
@@ -654,6 +659,7 @@ export interface PointLoadOnElement3D {
   mx?: number; my?: number; mz?: number;
   /** The axes the components are along: the member's (default) or the global ones (`member-point-loads.ts`). */
   frame?: import('../engine/member-point-loads').PointFrame;
+  vehicleAxle?: true;
   caseId?: number;
 }
 
@@ -1236,61 +1242,47 @@ function createModelStore() {
    */
   let loadEpoch = $state(0);
 
-  /** DOF-name → index map for migrating pre-rename persisted constraints. */
-  const LEGACY_DOF_NAME_TO_INDEX: Record<string, number> = { ux: 0, uy: 1, uz: 2, rx: 3, ry: 4, rz: 5 };
+  function canRemapDistributedLoadInXY(source: ModelData, load: DistributedLoad3D): boolean {
+    if (load.qXI || load.qXJ || load.qZI || load.qZJ) return false;
 
-  /**
-   * Read-migration for constraints persisted before the discriminator/DOF
-   * rename ('equalDof'→'equalDOF', 'linearMpc'→'linearMPC', DOF name strings
-   * → integer indices). Mirrors the hinge→release and iy/iz read-migrations:
-   * the write path emits only the new shape, so old snapshots/share URLs and
-   * autosaves are normalized here, at the single restore chokepoint.
-   * Unknown constraint kinds are dropped rather than shipped to the solver
-   * (Rust serde would reject the whole payload).
-   */
-  function migrateConstraint(raw: any): Constraint3D | null {
-    if (!raw || typeof raw !== 'object' || typeof raw.type !== 'string') return null;
-    const type = raw.type === 'equalDof' ? 'equalDOF'
-      : raw.type === 'linearMpc' ? 'linearMPC'
-      : raw.type;
-    const mapDofs = (dofs: any): number[] | undefined => Array.isArray(dofs)
-      ? dofs
-          .map((d: any) => (typeof d === 'string' ? LEGACY_DOF_NAME_TO_INDEX[d] : d))
-          .filter((d: any) => Number.isInteger(d) && d >= 0 && d <= 5)
-      : undefined;
-    switch (type) {
-      case 'rigidLink': {
-        // `dofs` is OPTIONAL on a rigid link (absent = all translational DOFs), and Rust
-        // spells that `#[serde(default)] dofs: Vec<usize>`. `#[serde(default)]` covers a
-        // MISSING field, not a field that is present and holds a unit value — so writing
-        // `dofs: undefined` here materialised an own property that made serde reject the
-        // whole payload with `invalid type: unit value, expected a sequence`, aborting the
-        // first load case of every restored project. Emit the key only when there is one.
-        const dofs = mapDofs(raw.dofs);
-        const out = { ...raw, type } as any;
-        if (dofs) out.dofs = dofs; else delete out.dofs;
-        return out;
+    const member = source.elements.get(load.elementId);
+    if (!member || hasMemberOffset(member)) return false;
+    const spatial = memberFrame3D(source, member);
+    if (!spatial || spatial.ni[2] !== 0 || spatial.nj[2] !== 0) return false;
+    const dx = spatial.nj[0] - spatial.ni[0];
+    const dy = spatial.nj[1] - spatial.ni[1];
+
+    if (load.frame === 'global' || load.frame === 'projected') return dy === 0;
+    return spatial.ax.ey[2] === 0 && spatial.ax.ez[2] * transverseSign(dx, dy) > 0;
+  }
+
+  function remapPlaneLoads(plane: DrawPlane, source: ModelData): Load[] {
+    requireLoadInput(source.loads);
+    return source.loads.map(l => {
+      if (l.type === 'distributed3d') {
+        const d = l.data;
+        if (plane === 'xy' && !canRemapDistributedLoadInXY(source, d)) return l;
+        const [qI, qJ] = plane === 'xy' ? [d.qYI, d.qYJ] : [d.qZI, d.qZJ];
+        const interval = plane === 'xy' ? { a: d.a, b: d.b } : {};
+        return { type: 'distributed', data: { id: d.id, elementId: d.elementId, qI, qJ, caseId: d.caseId, ...interval } };
       }
-      case 'equalDOF':
-        return { ...raw, type, dofs: mapDofs(raw.dofs) ?? [] };
-      case 'linearMPC': {
-        const terms = (raw.terms ?? []).map((t: any) => ({
-          ...t,
-          dof: typeof t.dof === 'string' ? LEGACY_DOF_NAME_TO_INDEX[t.dof] : t.dof,
-        }));
-        // An unmappable term DOF must drop the whole constraint — silently
-        // rewriting it (e.g. to ux) would change the equation's meaning.
-        if (terms.length === 0 || terms.some((t: any) => !Number.isInteger(t.dof) || t.dof < 0 || t.dof > 5)) {
-          return null;
-        }
-        return { ...raw, type, terms };
+      if (plane === 'xy') return l;
+      if (l.type === 'nodal') {
+        const d = l.data;
+        const f = remapNodalLoad2D(plane, d.fx, canonicalLoadFz(d), 0);
+        const data = { ...d, fx: f.fx, fz: f.fy };
+        const moment = planarNodalMoment(d);
+        if (moment !== null) writePlanarMoment(data, remapMoment2D(plane, 0, 0, moment ?? 0));
+        return { ...l, data };
       }
-      case 'diaphragm':
-      case 'eccentricConnection':
-        return { ...raw, type };
-      default:
-        return null;
-    }
+      if (l.type === 'nodal3d') {
+        const d = l.data;
+        const f = remapNodalLoad2D(plane, d.fx, d.fy, d.fz);
+        const m = remapMoment2D(plane, d.mx, d.my, d.mz);
+        return { type: 'nodal' as const, data: { id: d.id, nodeId: d.nodeId, fx: f.fx, fz: f.fy, my: m, caseId: d.caseId } };
+      }
+      return l;
+    });
   }
 
   /**
@@ -1299,18 +1291,22 @@ function createModelStore() {
    * The returned object is a shallow copy safe for passing to solver functions.
    */
   function remapModelForPlane(plane: DrawPlane, includeSelfWeight = false): ModelData | string {
+    if (uiStore.analysisPlane2D === undefined) throw new ModelInputError(t('svc.savedPlaneRequired'));
     const shellRefusal = shellsRequirePro3D(model);
     if (shellRefusal) return shellRefusal;
+    requireModelInput(model);
     // Only Basic's self-weight rule rides along: which case carries it.
     const sw = basicSelfWeight(includeSelfWeight);
     const analysis = sw ? { selfWeight: sw } : undefined;
     const { nodes, elements, supports, loads, loadCases, materials, sections, connectors } = model;
     const source = { nodes, elements, supports, loads, loadCases, materials, sections, connectors, analysis };
-    const constraints = plane === 'xy' ? model.constraints : constraintsInXZ(plane, model.constraints);
-    if (constraintsCoupledAcrossPlane(constraints).length > 0) return t('svc.constraintsCoupled');
+    const constraints = constraintsInXZ(plane, model.constraints);
+    const constraintRefusal = planeConstraintRefusal(constraints, plane);
+    if (constraintRefusal) throw new ModelInputError(constraintRefusal);
     if (plane !== 'xy' && constraintsAcrossDepth(plane, model.constraints, (id) => model.nodes.get(id)).length > 0) return t('svc.constraintsCoupled');
+    const remappedLoads = remapPlaneLoads(plane, source);
     if (plane === 'xy') {
-      return { ...source, constraints };
+      return { ...source, loads: remappedLoads, constraints };
     }
 
     // Remap nodes into the selected 2D plane
@@ -1348,37 +1344,29 @@ function createModelStore() {
       remappedSupports.set(id, { ...sup, type: type2d });
     }
 
-    // Remap loads: nodal3d → nodal, distributed3d → distributed
-    const remappedLoads = model.loads.map(l => {
-      if (l.type === 'nodal') {
-        const d = l.data;
-        const f = remapNodalLoad2D(plane, d.fx ?? 0, canonicalLoadFz(d), 0);
-        const data = { ...d, fx: f.fx, fz: f.fy };
-        const moment = planarNodalMoment(d);
-        if (moment !== null) writePlanarMoment(data, remapMoment2D(plane, 0, 0, moment ?? 0));
-        return { ...l, data };
-      }
-      if (l.type === 'nodal3d') {
-        const d = l.data as any;
-        const f = remapNodalLoad2D(plane, d.fx ?? 0, d.fy ?? 0, d.fz ?? 0);
-        const m = remapMoment2D(plane, d.mx ?? 0, d.my ?? 0, d.mz ?? 0);
-        return { type: 'nodal' as const, data: { id: d.id, nodeId: d.nodeId, fx: f.fx, fz: f.fy, my: m, caseId: d.caseId } };
-      }
-      if (l.type === 'distributed3d') {
-        // Map 3D distributed loads to 2D: use the component in the selected plane's vertical axis
-        const d = l.data as any;
-        let qI = 0, qJ = 0;
-        if (plane === 'xz') { qI = d.qZI ?? 0; qJ = d.qZJ ?? 0; }
-        else if (plane === 'yz') { qI = d.qZI ?? 0; qJ = d.qZJ ?? 0; }
-        else { qI = d.qYI ?? 0; qJ = d.qYJ ?? 0; }
-        return { type: 'distributed' as const, data: { id: d.id, elementId: d.elementId, qI, qJ, caseId: d.caseId } };
-      }
-      return l;
-    });
-
     // Connectors are pure node-id + stiffness pairs — no geometry to remap.
     return { ...source, nodes: remappedNodes, supports: remappedSupports, loads: remappedLoads,
       constraints, [accountingProjection]: { plane, source } };
+  }
+
+  function mappedSolveModel(plane: DrawPlane, includeSelfWeight: boolean): ModelData | string {
+    try {
+      return remapModelForPlane(plane, includeSelfWeight);
+    } catch (error) {
+      if (error instanceof ModelInputError) return error.message;
+      throw error;
+    }
+  }
+
+  function solveSingle2D<T>(
+    plane: DrawPlane,
+    includeSelfWeight: boolean,
+    solve: (input: ModelData, selfWeight: boolean, onKinematic: (result: KinematicResult | null) => void) => T,
+  ): T | string {
+    lastKinematicResult = null;
+    const mapped = mappedSolveModel(plane, includeSelfWeight);
+    if (typeof mapped === 'string') return mapped;
+    return solve(mapped, includeSelfWeight, result => { lastKinematicResult = result; });
   }
 
   let nextId = $state({
@@ -1707,7 +1695,7 @@ function createModelStore() {
   }
 
   function analysisModel3D(isPro: boolean, includeSelfWeight: boolean): ModelData | string {
-    const refusal = !isPro && shellsRequirePro3D(model);
+    const refusal = (!isPro && shellsRequirePro3D(model)) || modelInputRefusal(model);
     if (refusal) return refusal;
     return {
       nodes: model.nodes, elements: model.elements, supports: model.supports,
@@ -1967,6 +1955,7 @@ function createModelStore() {
      * changed footing.
      */
     restoreFoundationOnly(s: ModelSnapshot): void {
+      requireStoredProjectInput({ footings: s.footings });
       const nextFootings = new Map((s.footings ?? []).map(([id, f]) => [id, { ...f }]));
       const beforeFootings = JSON.stringify([...model.footings.entries()]);
       const afterFootings = JSON.stringify([...nextFootings.entries()]);
@@ -1999,6 +1988,7 @@ function createModelStore() {
      * `_onDesignChange`, because the design read the state being undone.
      */
     restoreDesignOnly(s: ModelSnapshot): void {
+      requireStoredProjectInput({ groups: s.groups });
       const nextGroups = new Map((s.groups ?? []).map(([id, g]) => [id, JSON.parse(JSON.stringify(g)) as ModelGroup]));
       const sameGroups = JSON.stringify([...model.groups.entries()]) === JSON.stringify([...nextGroups.entries()]);
       const nextDesign = s.designData !== undefined ? JSON.parse(JSON.stringify(s.designData)) : undefined;
@@ -2241,6 +2231,7 @@ function createModelStore() {
       const snapId = $state.snapshot(nextId);
       const result: ModelSnapshot = {
         name: snap.name,
+        ...(!uiStore.is3DWorkspace ? { drawPlane2D: uiStore.analysisPlane2D } : {}),
         nodes: Array.from(snap.nodes.entries()) as ModelSnapshot['nodes'],
         materials: Array.from(snap.materials.entries()) as ModelSnapshot['materials'],
         // `canonical` is a DERIVED cache keyed by the section's own dimensions,
@@ -2421,8 +2412,15 @@ function createModelStore() {
       // a record of something that really happened. They are adopted once per project by
       // `hydrateProjectProvenance`, which file-open and tab-activation call.
       const { detailing: savedDetailing, ...modelFields } = rawSnapshot;
-      const s = canonicalizeModelAliases(plainDeepCopy(modelFields));
+      const copy = plainDeepCopy(modelFields);
+      const mode = isAnalysisMode(copy.analysisMode) ? copy.analysisMode : uiStore.analysisMode;
+      const plane = requireStoredProjectInput({ ...copy, analysisMode: mode });
+      const constraints = migrateModelConstraints(copy.constraints);
+      if (copy.combinations !== undefined) requireCombinationInput(copy.combinations);
+      const s = canonicalizeModelAliases(copy);
+      requireStructureInput(s, { allowStoredNullDensity: true, storedSupportKeys: true });
       beforeInstall?.();
+      if (!is3DWorkspace(mode)) uiStore.analysisPlane2D = plane;
       loadEpoch++;
       _onReplaced?.();
       const migratedDetailing = restoreDetailing(savedDetailing);
@@ -2453,7 +2451,7 @@ function createModelStore() {
         const [k, v] = supEntries[i];
         if (!seenNodes.has(v.nodeId)) {
           seenNodes.add(v.nodeId);
-          dedupedEntries.push([k, v]);
+          dedupedEntries.push([k, supportWithStoredId(k, v)]);
         }
       }
       dedupedEntries.reverse();
@@ -2507,14 +2505,8 @@ function createModelStore() {
     model.underlays = s.underlays ? JSON.parse(JSON.stringify(s.underlays)) : undefined;
     model.designData = s.designData ? migrateDesignData(s.designData) : undefined;
     model.designDecisions = s.designDecisions ? migrateStoredDecisions(s.designDecisions) : undefined;
-      model.constraints = (s as any).constraints
-        ? ((s as any).constraints as any[])
-            .map(migrateConstraint)
-            .filter((c): c is Constraint3D => c !== null)
-        : [];
-      model.connectors = (s as any).connectors
-        ? new Map((s as any).connectors.map(([k, v]: [number, ConnectorElement]) => [k, { ...v }] as [number, ConnectorElement]))
-        : new Map();
+      model.constraints = constraints;
+      model.connectors = new Map(s.connectors?.map(([key, connector]) => [key, { ...connector }]));
       nextId.node = s.nextId.node;
       nextId.material = s.nextId.material;
       nextId.section = s.nextId.section;
@@ -3890,6 +3882,7 @@ function createModelStore() {
       _onReplaced?.();
       _onNewProject?.();
       if (!_undoBatching) _pushUndo?.();
+      if (uiStore.analysisPlane2D === undefined) uiStore.drawPlane2D = 'xy';
       model.name = t('tabBar.newStructure');
       model.nodes = new Map();
       model.elements = new Map();
@@ -4195,22 +4188,18 @@ function createModelStore() {
       return analysisFor(isPro, includeSelfWeight);
     },
 
-    solve(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): AnalysisResults | string | null {
-      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
-      if (typeof mapped === 'string') return mapped;
-      return validateAndSolve2D(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
+    solve(includeSelfWeight = false, drawPlane: DrawPlane = uiStore.drawPlane2D): AnalysisResults | string | null {
+      return solveSingle2D(drawPlane, includeSelfWeight, validateAndSolve2D);
     },
 
     /** Async 2D solve via the worker pool (UI stays responsive). Same result
      *  shape and string-error semantics as solve(). */
-    async solveAsync(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): Promise<AnalysisResults | string | null> {
-      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
-      if (typeof mapped === 'string') return mapped;
-      return validateAndSolve2DAsync(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
+    async solveAsync(includeSelfWeight = false, drawPlane: DrawPlane = uiStore.drawPlane2D): Promise<AnalysisResults | string | null> {
+      return solveSingle2D(drawPlane, includeSelfWeight, validateAndSolve2DAsync);
     },
 
     /** Build a SolverInput from the current model state (no validation). Returns null if model is empty. */
-    buildSolverInput(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): SolverInput | null {
+    buildSolverInput(includeSelfWeight = false, drawPlane: DrawPlane = uiStore.drawPlane2D): SolverInput | null {
       const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return null;
       return buildSolverInput2D(mapped, includeSelfWeight);
@@ -4566,8 +4555,8 @@ function createModelStore() {
     },
 
     /** Solve all load cases and combine. Returns per-case + per-combo + envelope results. */
-    solveCombinations(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
-      const mapped = remapModelForPlane(drawPlane, includeSelfWeight);
+    solveCombinations(includeSelfWeight = false, drawPlane: DrawPlane = uiStore.drawPlane2D): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
+      const mapped = mappedSolveModel(drawPlane, includeSelfWeight);
       if (typeof mapped === 'string') return mapped;
       return solveCombinations2D(mapped, model.loadCases, model.combinations, includeSelfWeight);
     },
@@ -4588,6 +4577,7 @@ function createModelStore() {
     buildSolverInput3D(includeSelfWeight = false, leftHand = false, opts: { expandMemberOffsets?: boolean; basic?: boolean; uncut?: boolean; caseDisplacements?: boolean } = {}): SolverInput3D | null {
       // Loads that follow the model (floor-load definitions) brought up to date first, unless this is
       // read inside a reactive computation, which must not write the model.
+      requireModelInput(model);
       if (!$effect.tracking()) _beforeAnalysisInput?.();
       const loads = model.loads.filter((l) => (opts.caseDisplacements || l.type !== 'displacement3d') && !(opts.uncut && l.type === 'pointOnElement3d'));
       return buildSolverInput3DFn(
@@ -4759,8 +4749,8 @@ function createModelStore() {
       // first, the PRO panel's self-weight effect ran during this await, found an empty model
       // without a rule and stated `selfWeight: []` for it, and the check below then took that
       // [] for the example's own rule: the example solved without its self-weight.
-      const json = canonicalizeModelAliases(await loader() as JSONModel);
-      validateFixtureSupportFrames(json);
+      const json = await loader() as JSONModel;
+      validateFixtureReferences(json);
       this.batch(() => {
         this.clear();
         if (opts.defaults) {

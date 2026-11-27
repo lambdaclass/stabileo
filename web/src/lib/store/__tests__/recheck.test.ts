@@ -10,7 +10,7 @@ const steelTruss = () => ({
   analysisMode: 'pro',
   materials: [[1, STEEL]],
   elements: [[1, { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, releaseI: {}, releaseJ: {} }]],
-  supports: [[1, { nodeId: 1, type: 'pinned3d' }]],
+  supports: [[1, { id: 1, nodeId: 1, type: 'pinned3d' }]],
   loads: [],
   loadCases: [{ id: 1, type: 'D' }],
 }) as never;
@@ -310,8 +310,12 @@ describe('edited projects with older provenance', () => {
   const frame = () => ({
     analysisMode: 'pro',
     materials: [[1, STEEL]],
-    elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+    elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
   }) as import('../../provenance/model-features').FeatureSnapshot;
+  const connectorFrame = (): ReturnType<typeof frame> => {
+    const connector = { id: 1, nodeI: 1, nodeJ: 2, kShear: 0 };
+    return { ...frame(), elements: [], connectors: [[1, connector]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } };
+  };
   const oldStamp = () => {
     const { recorded: _recorded, ...stamp } = createRecheckStore().capture()!;
     return { ...stamp, resultsVersion: 4, analyses: ['linear' as const] };
@@ -404,10 +408,11 @@ describe('edited projects with older provenance', () => {
         module.assessProject(args[0], args[1], args[2], precedingRegistry, args[4], args[5]),
     }));
     const combined = createRecheckStore();
+    const concrete = { id: 1, name: 'H30', e: 25000, nu: STEEL.nu, rho: 25, fy: 30 };
     const snapshot: import('../../provenance/model-features').FeatureSnapshot & { solvedWith: unknown } = {
       ...frame(),
-      materials: [[1, { id: 1, name: 'H30', e: 25000, rho: 25, fy: 30 }], [2, { ...STEEL, id: 2 }]],
-      elements: [...frame().elements!, [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 2 }]],
+      materials: [[1, concrete], [2, { ...STEEL, id: 2 }]],
+      elements: [...frame().elements!, [2, { id: 2, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 2, sectionId: 1 }]],
       solvedWith: { ...oldStamp(), resultsVersion: 30 },
     };
     store.openProject(snapshot, 'pro');
@@ -432,9 +437,9 @@ describe('edited projects with older provenance', () => {
     {
       const store = { assessment: { changes: allChanges.filter(c => c.id !== 'compensated-applied-force-totals' && !rcNotices.has(c.id)) } };
     if (includeSSI) {
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['active-combination-completeness', 'cirsoc-axial-torsion-threshold', 'cirsoc-torsion-cage-verification', 'combined-section-shear-refusal', 'complete-concurrent-demands', 'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'design-span-station-coverage', 'fail-closed-ratios', 'fixed-reinforcement-practical-maximum', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-diagram-extrema-design', 'member-recovery-round4', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'provided-torsion-stirrups', 'safety-containment-diagnostics', 'secondary-shear-longitudinal', 'secondary-stirrup-legs', 'section-stress-cut-magnitudes', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'steel-cb-combination', 'steel-diagram-moment-gradient', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'torsion-secondary-shear']);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['active-combination-completeness', 'cirsoc-axial-torsion-threshold', 'cirsoc-torsion-cage-verification', 'combined-section-shear-refusal', 'complete-concurrent-demands', 'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'design-span-station-coverage', 'fail-closed-ratios', 'fixed-reinforcement-practical-maximum', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-diagram-extrema-design', 'member-recovery-round4', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'provided-torsion-stirrups', 'reduced-stiffness-rank', 'safety-containment-diagnostics', 'secondary-shear-longitudinal', 'secondary-stirrup-legs', 'section-stress-cut-magnitudes', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'ssi-support-reactions', 'steel-cb-combination', 'steel-diagram-moment-gradient', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'torsion-secondary-shear']);
     } else {
-    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['active-combination-completeness', 'cirsoc-axial-torsion-threshold', 'cirsoc-torsion-cage-verification', 'combined-section-shear-refusal', 'complete-concurrent-demands', 'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'design-span-station-coverage', 'fail-closed-ratios', 'fixed-reinforcement-practical-maximum', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-diagram-extrema-design', 'member-recovery-round4', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'provided-torsion-stirrups', 'safety-containment-diagnostics', 'secondary-shear-longitudinal', 'secondary-stirrup-legs', 'section-stress-cut-magnitudes', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'steel-cb-combination', 'steel-diagram-moment-gradient', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'torsion-secondary-shear']);
+    expect(store.assessment?.changes.map(c => c.id).sort()).toEqual(['active-combination-completeness', 'cirsoc-axial-torsion-threshold', 'cirsoc-torsion-cage-verification', 'combined-section-shear-refusal', 'complete-concurrent-demands', 'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands', 'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'design-span-station-coverage', 'fail-closed-ratios', 'fixed-reinforcement-practical-maximum', 'flange-spans-and-behaviour', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-diagram-extrema-design', 'member-recovery-round4', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'provided-torsion-stirrups', 'reduced-stiffness-rank', 'safety-containment-diagnostics', 'secondary-shear-longitudinal', 'secondary-stirrup-legs', 'section-stress-cut-magnitudes', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'steel-cb-combination', 'steel-diagram-moment-gradient', 'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'torsion-secondary-shear']);
     }
     }
     expect(store.noticeOpen).toBe(true);
@@ -447,6 +452,7 @@ describe('edited projects with older provenance', () => {
     'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
     'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
     'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
+    'reduced-stiffness-rank',
     ...(registry.changes.some(c => c.id === 'ssi-support-reactions') ? ['ssi-support-reactions'] : []),
   ].map(id => registry.changes.find(c => c.id === id)!)
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
@@ -471,12 +477,12 @@ describe('edited projects with older provenance', () => {
       assessProject: (...args: Parameters<typeof module.assessProject>) =>
         module.assessProject(args[0], args[1], args[2], mergedRegistry, args[4], args[5]),
     }));
-    const snapshot = { ...frame(), elements: [], connectors: [[1, { kShear: 0 }]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
+    const snapshot = connectorFrame();
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     const received = store.assessment?.changes.map(c => c.id);
     const expected = openingNoticeIds(mergedRegistry);
-    const tail = ['compensated-applied-force-totals', 'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
+    const tail = ['compensated-applied-force-totals', 'reduced-stiffness-rank', 'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
       .map(id => mergedRegistry.changes.find(c => c.id === id)!)
       .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
       .map(c => c.id);
@@ -485,9 +491,9 @@ describe('edited projects with older provenance', () => {
         .map(id => mergedRegistry.changes.find(c => c.id === id)!)
         .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
         .map(c => c.id);
-      expect(expected.slice(-11)).toEqual([...combinedTail, 'linear-stability-refusals', 'linear-pin-coupling']);
+      expect(expected.slice(-12)).toEqual([...combinedTail, 'linear-stability-refusals', 'linear-pin-coupling']);
     } else {
-    expect(expected.slice(-10)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
+    expect(expected.slice(-11)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
     }
     expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
   });
@@ -495,7 +501,7 @@ describe('edited projects with older provenance', () => {
 
   it('clears an acknowledged linear notice before adding shells, saving and reopening without a solve', async () => {
     const store = createRecheckStore();
-    const snapshot = { ...frame(), elements: [], connectors: [[1, { kShear: 0 }]], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
+    const snapshot = connectorFrame();
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     expect(store.assessment?.changes.map(c => c.id)).toEqual(openingNoticeIds());

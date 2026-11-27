@@ -1,4 +1,5 @@
 import type { PostBody } from '../../types';
+import { nextReleaseAdvisoryBlocks } from '../../next-release-advisories';
 
 const body: PostBody = {
   "title": "Güvenlik uyarıları: hangi sonuçlar değişti ve ne yapılmalı",
@@ -114,34 +115,7 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-106-complementary-plate-remesh-arc.md", "label": "SA-2026-106", "t": "Etkilenen girdiler ve yapılması gerekenler."},
     {"k": "note", "t": "SA-2026-107 — 0.6.3’ten sonraki ilk sürüm (koruma önlemi)."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-107-plate-remesh-shell-edits.md", "label": "SA-2026-107", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-108 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-108-planar-projection-nodal-forces.md", "label": "SA-2026-108", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-109 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-109-dxf-support-labels.md", "label": "SA-2026-109", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-110 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-110-solver-json-boundary.md", "label": "SA-2026-110", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-111 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-111-gravity-shared-deck-coverage.md", "label": "SA-2026-111", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-112 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-112-basic-3d-shell-omission.md", "label": "SA-2026-112", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-113 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-113-native-supplied-linear-certificates.md", "label": "SA-2026-113", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-114 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-114-saved-combination-load-groups.md", "label": "SA-2026-114", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-115 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-115-gravity-floor-region-ownership.md", "label": "SA-2026-115", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-116 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-116-nonlinear-continuation-and-inclined-loads.md", "label": "SA-2026-116", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-117 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-117-static-shell-self-weight-density.md", "label": "SA-2026-117", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-118 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-118-self-weight-group-targets.md", "label": "SA-2026-118", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-119 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-119-modal-mass-missing-density.md", "label": "SA-2026-119", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-120 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-120-gravity-deck-load-placement.md", "label": "SA-2026-120", "t": "Etkilenen girdiler ve yapılması gerekenler."},
-    {"k": "note", "t": "SA-2026-121 — 0.6.4’ten sonraki ilk sürüm."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-121-planar-nonlinear-member-loads.md", "label": "SA-2026-121", "t": "Etkilenen girdiler ve yapılması gerekenler."},
+    ...nextReleaseAdvisoryBlocks('0.6.4’ten sonraki ilk sürüm.', 'Etkilenen girdiler ve yapılması gerekenler.'),
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -571,7 +545,18 @@ const body: PostBody = {
         ["SA-2026-118", "Geçersiz bir öz ağırlık grubu hedefi grubun ağırlığının atlanmasına yol açabiliyordu. Grup hedefini düzeltin, etkilenen yük durumlarını ve birleşimleri yeniden hesaplayın, ardından zarflarını yeniden oluşturun.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
         ["SA-2026-119", "Girilmeyen malzeme yoğunluğu hatalı doğal frekanslara yol açabiliyordu. Yoğunluğu geri yükleyin, kütle kaynağını yeniden oluşturun ve etkilenen dinamik analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
         ["SA-2026-120", "Otomatik yük oluşturma, yerçekimi yüklerini iki kez uygulayabiliyor, otomatik yöntemin açıklık sınırını aşan panellere aktarabiliyor veya çatı ve döşeme bölgelerini yanlış sınıflandırabiliyordu. Etkilenen yerçekimi, kar ve rüzgâr yükü planlarını yeniden oluşturun, yükleri doğrulayın ve ilgili analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
-        ["SA-2026-121", "Düzlemsel doğrusal olmayan analiz, eleman yükleri için hatalı sonuçlar verebiliyordu. Devam analizinin başlangıç durumunu belirleyenler dahil etkilenen analizleri tekrarlayın ve yer değiştirmeleri, mesnet tepkilerini ve eleman uç kuvvetlerini inceleyin.", "Orta", "0.6.4’ten sonraki ilk sürüm"]
+        ["SA-2026-121", "Düzlemsel doğrusal olmayan analiz, eleman yükleri için hatalı sonuçlar verebiliyordu. Devam analizinin başlangıç durumunu belirleyenler dahil etkilenen analizleri tekrarlayın ve yer değiştirmeleri, mesnet tepkilerini ve eleman uç kuvvetlerini inceleyin.", "Orta", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-122", "Oluşturulan birleşimler zorunlu alternatifleri veya elle girilen çatı hareketli yüklerini atlayabiliyor, yanlış kar yükü esasını kullanabiliyor ya da artık geçerli olmayan rüzgâr durumlarını içerebiliyordu. Yükleri, kural katsayılarını ve her zarfa dahil edilen birleşimleri kontrol edin. Artık geçerli olmadığını doğruladığınız boş yük durumlarını, 0.6.4 sürümünde zaten boş olanlar dahil, modelden kaldırın. Birleşimleri yeniden oluşturun ve etkilenen analizleri tekrarlamadan önce bu yük durumu kimliklerinin birleşimlerde yer almadığını doğrulayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-123", "Otomatik yerçekimi yükü oluşturma, net yüksekliği yetersiz döşeme alanlarının altındaki yükleri koruyabiliyor veya örtünün belirsiz olduğu yerlerde yük atayabiliyordu. Etkilenen yerçekimi, çatı rüzgârı ve kar yüklerini yeniden oluşturun, atamaları doğrulayın ve ilgili analizleri tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-124", "Seçili elemanlara uygulanan öz ağırlık, eksik hedefleri atlayabiliyor veya seçilen bir çubuğun ağırlığını tek bir parçaya uygulayabiliyordu. Seçimi düzeltin, uygulanan ağırlığı doğrulayın ve etkilenen analizlerle birlikte düzlemsel dinamik dersinde bölünmüş çubuklarla yapılan tepki hesaplarını tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-125", "Yerel motorun ve WASM’ın kinematik raporları ortak bir rijit kısıtlamayı iki kez sayabiliyordu. Hiperstatiklik derecesini, sınıflandırmayı ve tanıyı yeniden kontrol edin ve etkilenen raporları güncelleyin.", "Orta", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-126", "Yinelenen terimler belirleyici yük düzenlerini atlayabiliyor veya kar yükü içermeyen bir seçenek oluşturabiliyordu. Kuralları gözden geçirin, etkilenen birleşimleri ve bileşik yük durumlarını yeniden oluşturun ve analizleri, zarfları ve tasarım kontrollerini tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-127", "Ağ bağlantısının eksik olduğu birleşimlerde döşemeler duvarlara hiç yük aktarmayabiliyordu. Her iki yüzeyin ağını, amaçlanan birleşimin tamamı boyunca ortak kenarlar olacak şekilde yeniden oluşturun, yük aktarım yolunu doğrulayın ve etkilenen üç boyutlu analizleri, zarfları ve tasarım kontrollerini tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-128", "Dönüştürme sırasında düzlem çubuklarda veya uzay kafes çubuklarında işaret değiştiren eksenel yayılı yükler atlanabiliyordu. Yayılı yükleri ve eşdeğer uç kuvvetlerini doğrulayın, ardından etkilenen analizleri, zarfları ve tasarım kontrollerini tekrarlayın.", "Orta", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-129", "Hareketli yük zarfları kesme veya eksenel kuvvetleri yanlış verebiliyor, kayıtlı araç konumu yük durumlarında ise uzay kafes çubuklarındaki eksenel kuvvet sıçramaları atlanabiliyordu. Aks ve kalıcı tekil yük tam olarak aynı konumdayken iki yük birlikte tek bir kesme kuvveti sıçraması oluşturur. Aks tekil yüke yaklaşırken veya onu geçerken iki yük arasındaki kesme kuvvetinin tek taraflı limitleri vardır. Aks tekil yükün hemen önündeyken ve hemen arkasındayken her iki limiti de kontrol edin. Etkilenen zarfları yeniden hesaplayın, kayıtlı yük durumlarını yeniden oluşturun ve bunlara bağlı analizleri ve tasarım kontrollerini tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-130", "Düzlemsel elastik analiz, bir mekanizma için uyarı vermeden tüm yer değiştirmeleri sıfır olarak döndürebiliyordu. Eğilme mafsallarını ve kısıtları kontrol edin, istenmeyen mekanizmaları giderin ve etkilenen analizleri ve tasarım kontrollerini tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-131", "Analiz, uyarı vermeden yapısal giriş alanlarını, kısıtları, birleşim yöntemlerini, yer hareketini veya yapım aşaması yüklerini atlayabiliyor ya da yanlış yorumlayabiliyordu. Girdileri düzeltin ve etkilenen analizleri, birleşimleri ve tasarım kontrollerini tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"],
+        ["SA-2026-132", "Çizim düzlemi kaydedilmemiş Basic projeleri yeniden açıldığında yanlış düzlemde çözülebiliyordu. Amaçlanan düzlemi, yük yönlerini ve kısıtları doğrulayın, ardından etkilenen analizleri, birleşimleri ve tasarım kontrollerini tekrarlayın.", "Yüksek", "0.6.4’ten sonraki ilk sürüm"]
       ]
     },
     {

@@ -1,0 +1,54 @@
+{
+  "id": "authored-load-validation",
+  "date": "2026-11-26",
+  "prs": [
+    2588
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "addedAuthoredLoadRefusal"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Additional authored load validation",
+    "es": "Validación adicional de cargas",
+    "pt": "Validação adicional de cargas",
+    "de": "Zusätzliche Prüfung der Lastdaten",
+    "fr": "Validation supplémentaire des charges",
+    "hu": "További teheradat-ellenőrzés",
+    "tr": "Ek yük doğrulaması",
+    "zh": "附加荷载验证",
+    "ar": "تحقق إضافي من الأحمال",
+    "hi": "अतिरिक्त भार सत्यापन",
+    "id": "Validasi beban tambahan",
+    "it": "Validazione aggiuntiva dei carichi",
+    "ja": "追加の荷重検証",
+    "ko": "추가 하중 검증",
+    "ru": "Дополнительная проверка нагрузок"
+  },
+  "explanation": {
+    "en": "Analysis refuses malformed load records and names the field to correct. Review the stated load type, frame, target and components before recalculating.",
+    "es": "El análisis rechaza las cargas con datos inválidos e indica qué campo corregir. Revisá el tipo, el sistema de ejes, el destino y las componentes de la carga antes de recalcular.",
+    "pt": "A análise recusa cargas com dados inválidos e indica qual campo corrigir. Revise o tipo, o sistema de eixos, o destino e as componentes da carga antes de recalcular.",
+    "de": "Die Berechnung lehnt Lasten mit ungültigen Daten ab und nennt das zu korrigierende Feld. Prüfen Sie vor der Neuberechnung Lasttyp, Koordinatensystem, Ziel und Komponenten.",
+    "fr": "Le calcul rejette les charges dont les données sont invalides et indique le champ à corriger. Vérifiez le type, le repère, la cible et les composantes de la charge avant de recalculer.",
+    "hu": "A számítás elutasítja az érvénytelen terheadatokat és megnevezi a javítandó mezőt. Újraszámítás előtt ellenőrizze a teher típusát, koordináta-rendszerét, célját és összetevőit.",
+    "tr": "Analiz, geçersiz yük kayıtlarını reddeder ve düzeltilecek alanı belirtir. Yeniden hesaplamadan önce yük türünü, koordinat sistemini, hedefi ve bileşenleri gözden geçirin.",
+    "zh": "分析会拒绝无效的荷载记录，并指出需要修正的字段。重新计算前，请检查荷载类型、坐标系、目标和分量。",
+    "ar": "يرفض التحليل سجلات الأحمال غير الصالحة ويحدد الحقل المطلوب تصحيحه. راجع نوع الحمل ونظام الإحداثيات والهدف والمكونات قبل إعادة الحساب.",
+    "hi": "विश्लेषण अमान्य भार रिकॉर्ड को अस्वीकार करता है और सुधारने वाला फ़ील्ड बताता है। पुनर्गणना से पहले भार का प्रकार, निर्देशांक तंत्र, लक्ष्य और घटक जाँचें।",
+    "id": "Analisis menolak catatan beban yang tidak valid dan menunjukkan kolom yang perlu diperbaiki. Tinjau jenis beban, sistem koordinat, sasaran, dan komponen sebelum menghitung ulang.",
+    "it": "L’analisi rifiuta i carichi con dati non validi e indica il campo da correggere. Controlla il tipo, il sistema di riferimento, il destinatario e le componenti del carico prima di ricalcolare.",
+    "ja": "解析は無効な荷重データを拒否し、修正が必要なフィールドを示します。再計算する前に荷重の種類、座標系、作用先、成分を確認してください。",
+    "ko": "해석은 잘못된 하중 기록을 거부하고 수정할 필드를 표시합니다. 다시 계산하기 전에 하중 유형, 좌표계, 대상 및 성분을 확인하세요.",
+    "ru": "Расчёт отклоняет нагрузки с недопустимыми данными и указывает поле для исправления. Перед повторным расчётом проверьте тип нагрузки, систему координат, цель и компоненты."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-authored-load-validation.md",
+    "heading": "Authored load validation"
+  }
+}

@@ -231,6 +231,18 @@ audit.810.run:
 test.engine.targeted:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture $(if $(IGNORED),--ignored)
 
+.PHONY: test.engine.reduced-rank-wasm
+test.engine.reduced-rank-wasm: wasm
+	$(NIX_RUN) node scripts/tests/reduced-rank-wasm.mjs
+
+.PHONY: test.engine.release-gauges-wasm
+test.engine.release-gauges-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.release-gauges.XXXXXX"); modal=$$(mktemp "$(CURDIR)/.modal-release-gauges.XXXXXX"); plate=$$(mktemp "$(CURDIR)/.plate-release-gauge.XXXXXX"); connector=$$(mktemp "$(CURDIR)/.connector-release-gauge.XXXXXX"); trap '"'"'rm -f -- "$$cases" "$$modal" "$$plate" "$$connector"'"'"' EXIT; MATERIAL_RELEASE_WASM_CASES="$$cases" MODAL_RELEASE_WASM_CASES="$$modal" ATTACHED_RELEASE_WASM_CASES="$$plate" SUPPORTED_RELEASE_WASM_CASES="$$connector" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=release_gauges::; node scripts/tests/release-gauges-wasm.mjs "$$cases" "$$modal" "$$plate" "$$connector"'
+
+.PHONY: test.engine.staged-force-parity-wasm
+test.engine.staged-force-parity-wasm: wasm
+	$(NIX_RUN) node scripts/tests/staged-force-parity-wasm.mjs
+
 NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
 research.newmark.replay:
 	NEWMARK_REPLAY_OUT=$(NEWMARK_DIR)/results/stabileo_results.json NEWMARK_VALIDATION_OUT=$(NEWMARK_DIR)/VALIDATION.json \
@@ -1007,6 +1019,9 @@ test.engine.reactions-frozen: wasm
 test.audit.evidence:
 	$(NIX_RUN) python3 -B scripts/tests/test_soundness_audit.py
 
+test.engine.staged-orphan-wasm test.engine.staged-settlement-1085-wasm test.engine.translation-rank-wasm \
+test.engine.modal-mass-range-wasm test.engine.time-history-2009-wasm test.engine.candidate-1901-wasm: scripts/tests/nightly-solver-fixture.mjs
+
 .PHONY: test.engine.staged-orphan-wasm
 test.engine.staged-orphan-wasm: wasm scripts/tests/staged-history-containment.mjs test.engine.staged-physical-r14-wasm test.engine.staged-r20-wasm test.engine.staged-r23-wasm
 	$(NIX_RUN) node scripts/tests/staged-final-plastic-wasm.mjs
@@ -1166,6 +1181,35 @@ test.engine.pdelta-rotation-wasm: wasm
 .PHONY: test.engine.staged-springs-r12-wasm
 test.engine.staged-springs-r12-wasm: wasm
 	$(NIX_RUN) node scripts/tests/staged-springs-r12.mjs
+
+.PHONY: test.engine.modal-null-wasm
+test.engine.modal-null-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-null.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MODAL_NULL_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=modal_null::; node scripts/tests/modal-null-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.modal-released-axis-wasm
+
+test.engine.modal-released-axis-wasm: wasm scripts/tests/modal-released-axis-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.modal-released-axis.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; RELEASED_AXIS_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=modal_released_axis::released_axis_wasm_cases; node scripts/tests/modal-released-axis-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.harmonic-dc-wasm
+test.engine.harmonic-dc-wasm: wasm scripts/tests/harmonic-dc-equilibration-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.harmonic-dc.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; HARMONIC_DC_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=harmonic_dc_equilibration::harmonic_dc_wasm_cases; node scripts/tests/harmonic-dc-equilibration-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.conditional-elastic-wasm
+test.engine.conditional-elastic-wasm: wasm scripts/tests/conditional-elastic-equilibration-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.conditional-elastic.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; CONDITIONAL_ELASTIC_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=conditional_elastic_equilibration::conditional_elastic_wasm_cases; node scripts/tests/conditional-elastic-equilibration-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.axial-tip-wasm
+test.engine.axial-tip-wasm: wasm scripts/tests/axial-tip-mechanisms-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.axial-tip.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; AXIAL_TIP_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=axial_tip_mechanisms::axial_tip_wasm_cases; node scripts/tests/axial-tip-mechanisms-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.material-release-wasm
+test.engine.material-release-wasm: wasm scripts/tests/material-released-rotation-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.material-release.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; MATERIAL_RELEASE_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=material_released_rotation::material_release_wasm_cases; node scripts/tests/material-released-rotation-wasm.mjs "$$cases"'
+
+.PHONY: test.engine.released-tip-mechanisms-wasm
+test.engine.released-tip-mechanisms-wasm: wasm scripts/tests/released-tip-mechanisms-wasm.mjs
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp "$(CURDIR)/.released-tip.XXXXXX"); trap '"'"'rm -f -- "$$cases"'"'"' EXIT; RELEASED_TIP_WASM_CASES="$$cases" $(MAKE) test.engine.targeted TEST=metamorphic FILTER=released_tip_mechanisms::released_tip_wasm_cases; node scripts/tests/released-tip-mechanisms-wasm.mjs "$$cases"'
 
 .PHONY: test.engine.modal-mass-range-wasm
 test.engine.modal-mass-range-wasm: wasm

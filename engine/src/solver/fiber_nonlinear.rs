@@ -1,3 +1,4 @@
+use crate::types::unique_table;
 /// Fiber beam-column nonlinear solver.
 ///
 /// Incremental-iterative N-R solver that uses fiber section integration
@@ -23,6 +24,7 @@ use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_s
 pub struct FiberNonlinearInput {
     pub solver: SolverInput,
     /// Fiber section definitions per section ID
+    #[serde(deserialize_with = "unique_table::fiber_sections")]
     pub fiber_sections: HashMap<String, FiberSectionDef>,
     /// Number of Gauss-Lobatto integration points per element (3-7, default 5;
     /// other values are refused)
@@ -163,6 +165,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
         return Err(CONSTRAINTS_REFUSED.to_string());
     }
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
+    super::stability::refuse_axial_tips_2d(&input.solver, &dof_num, cs.as_ref(), std::iter::empty())?;
     let metric = super::convergence::EquilibriumMetric::for_2d(&input.solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
@@ -997,6 +1000,7 @@ pub(super) fn add_springs(
 pub struct FiberNonlinearInput3D {
     #[serde(deserialize_with = "crate::types::units::deserialize_input_3d")]
     pub solver: SolverInput3D,
+    #[serde(deserialize_with = "unique_table::fiber_sections")]
     pub fiber_sections: HashMap<String, FiberSectionDef>,
     #[serde(default = "default_n_ip")]
     pub n_integration_points: usize,
@@ -1077,6 +1081,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
         return Err(CONSTRAINTS_REFUSED.to_string());
     }
     let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
+    super::stability::refuse_axial_tips_3d(&input.solver, &dof_num, cs.as_ref(), std::iter::empty())?;
     let metric = super::convergence::EquilibriumMetric::for_3d(&input.solver, &dof_num, cs.as_ref())?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 

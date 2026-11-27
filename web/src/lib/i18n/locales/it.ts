@@ -14823,6 +14823,15 @@ const it: Translations = {
   'wind.pressure.triangularCentroidUnsupported': "Gli elementi portanti triangolari del vento devono essere simmetrici rispetto alla direzione del vento; altre piante triangolari non sono supportate perché il baricentro della loro pressione proiettata non può essere conservato da questa partizione.",
   'wind.pressure.carrierPartitionUnresolved': "La partizione fisica dell’area di influenza del vento non si può risolvere per questi elementi portanti.",
   'wind.other.minimumSignCase': "Vento {dir}, minimo per insegna piena {c} (§4.8)",
+  "svc.engine.invalidSelfWeightMemberId": "L’ID di asta {id} per il peso proprio deve essere un intero non negativo rappresentabile esattamente. Modifica la destinazione del peso proprio.",
+  "svc.engine.missingSelfWeightTarget": "La destinazione del peso proprio {kind} {id} è assente. Ripristinala o modifica la destinazione del peso proprio.",
+  "svc.engine.unknownInputField": "Campo sconosciuto {path}.",
+  "svc.engine.allowedInputFields": "Campi consentiti: {fields}.",
+  "svc.engine.noInputFields": "Non è consentito alcun campo.",
+  "svc.engine.inputParseError": "Errore di lettura dei dati: {detail}",
+  "svc.engine.inputLocation": "(riga {line}, colonna {column})",
+  "svc.savedPlaneRequired": "Scegli il piano di disegno prima di analizzare questo progetto salvato.",
+  "svc.engine.invalidInputField": "Il campo {path} è mancante o contiene un valore non supportato.",
 };
 
 export default it;

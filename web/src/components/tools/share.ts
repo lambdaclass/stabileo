@@ -6,7 +6,7 @@ const next = (ids: Iterable<number>) => Math.max(0, ...ids) + 1;
 
 export function editorUrl(model: SolverInput, name: string, options?: { massPerLength: number }) {
   const compact = {
-    m: '2d', nm: name, lx: 'zUpStrongAxis', sv: 6,
+    m: '2d', dp: 'xy', nm: name, lx: 'zUpStrongAxis', sv: 6,
     n: [...model.nodes.values()].map(n => [n.id, n.x, n.z]),
     mt: [...model.materials.values()].map(m => [m.id, 'E', m.e, m.nu, options ? options.massPerLength / model.sections.values().next().value!.a * 9.81 / 1000 : 0]),
     sc: [...model.sections.values()].map(s => [s.id, 'I', s.a, s.iz]),

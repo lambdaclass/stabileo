@@ -172,7 +172,7 @@ fn two_stage_cantilever_then_span() {
     let s2_uy = results.stages[1].results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().uz;
     assert!(s2_uy < 0.0, "Stage 2: midspan should still be negative (cumulative)");
-    let reference: SolverInput = serde_json::from_value(serde_json::to_value(&staged_input).unwrap()).unwrap();
+    let reference: SolverInput = serde_json::from_value(crate::common::staged_model_without_history(serde_json::to_value(&staged_input).unwrap())).unwrap();
     let linear = solve_2d(&reference).unwrap();
     let expected = linear.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
     assert!((s2_uy - expected).abs() < 1e-10);

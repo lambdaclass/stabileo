@@ -98,7 +98,31 @@ impl System {
     }
 }
 
-pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64), omega: f64) -> Result<(Vec<f64>, Vec<f64>), String> {
+pub(super) fn with_dc_equilibration(
+    omega: f64,
+    diagonal: impl FnOnce() -> Vec<f64>,
+    mut solve: impl FnMut(Option<&[f64]>) -> Result<(Vec<f64>, Vec<f64>), String>,
+) -> Result<(Vec<f64>, Vec<f64>), String> {
+    if omega != 0.0 {
+        return solve(None);
+    }
+    let scales: Vec<_> = diagonal().into_iter().map(|value| value.abs().sqrt()).collect();
+    if scales.iter().any(|value| !value.is_finite() || *value == 0.0) {
+        return Err("Harmonic direct solve: singular or non-finite zero-frequency stiffness diagonal".into());
+    }
+    let equilibrated = solve(Some(&scales))?;
+    Ok(solve(None).unwrap_or(equilibrated))
+}
+
+pub(super) fn solve(
+    k: &CscMatrix, m: &CscMatrix, f: &[f64], damping: (f64, f64), omega: f64,
+) -> Result<(Vec<f64>, Vec<f64>), String> {
+    with_dc_equilibration(omega, || k.diagonal(), |roots| solve_scaled(k, m, f, damping, omega, roots))
+}
+
+fn solve_scaled(
+    k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64), omega: f64, roots: Option<&[f64]>,
+) -> Result<(Vec<f64>, Vec<f64>), String> {
     let n = k.n;
     if m.n != n || f.len() != n {
         return Err("Harmonic sparse direct dimension mismatch".into());
@@ -136,14 +160,30 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
     for row in &system.rows {
         for (&col, &value) in row { scales[col] = scales[col].max(value.abs()); }
     }
-    for scale in &mut scales { *scale = column_scale(*scale)?; }
-    for row in &mut system.rows {
-        for (&col, value) in row { *value /= scales[col]; }
+    let row_scales = roots.map(|roots| (0..2 * n).map(|i| roots[perm[i / 2]]).collect::<Vec<_>>());
+    if let Some(row_scales) = &row_scales {
+        scales.copy_from_slice(row_scales);
+    } else {
+        for scale in &mut scales { *scale = column_scale(*scale)?; }
+    }
+    for (i, row) in system.rows.iter_mut().enumerate() {
+        for (&col, value) in row {
+            if let Some(row_scales) = &row_scales { *value /= row_scales[i]; }
+            *value /= scales[col];
+        }
     }
     let matrix_norm = system.rows.iter().map(|row| row.values().map(|v| v.abs()).sum::<f64>()).fold(0.0_f64, f64::max);
     let pivots = system.factor()?;
     require_nonsingular(matrix_norm, pivots.iter().enumerate().map(|(col, &row)| system.rows[row][&col]))?;
-    let mut x = system.apply(&pivots, &rhs)?;
+    let apply = |rhs: &[f64]| {
+        if let Some(row_scales) = &row_scales {
+            let scaled: Vec<_> = rhs.iter().zip(row_scales).map(|(value, scale)| value / scale).collect();
+            system.apply(&pivots, &scaled)
+        } else {
+            system.apply(&pivots, rhs)
+        }
+    };
+    let mut x = apply(&rhs)?;
     for (value, scale) in x.iter_mut().zip(&scales) { *value /= scale; }
     for step in 0..=2 {
         #[cfg(test)]
@@ -164,7 +204,7 @@ pub(super) fn solve(k: &CscMatrix, m: &CscMatrix, f: &[f64], (a0, a1): (f64, f64
             components.require_convergence(&residual, &rhs)?;
             break;
         }
-        let correction = system.apply(&pivots, &residual)?;
+        let correction = apply(&residual)?;
         for i in 0..2 * n { x[i] += correction[i] / scales[i]; }
     }
     if x.iter().any(|v| !v.is_finite()) {
@@ -488,6 +528,33 @@ pub(super) mod tests {
                 let denom = real * real + 0.25 * 0.25;
                 let expected = (f[i] * (real / denom), f[i] * (-0.25 / denom));
                 assert!((re[i] - expected.0).hypot(im[i] - expected.1) <= 1e-12 * expected.0.hypot(expected.1), "dof={i}: {re:?} {im:?} vs {expected:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn dc_pivot_boundary_is_invariant_under_congruence() {
+        for (gap, accepted) in [
+            (0.0, false),
+            (0.5 * MIN_RELATIVE_PIVOT, false),
+            (2.0 * MIN_RELATIVE_PIVOT, true),
+        ] {
+            for (x, y) in [(1.0, 1.0), (2.0_f64.powi(30), 2.0_f64.powi(-30))] {
+                let off = (1.0 - gap) * x * y;
+                let k = [x * x, off, off, y * y];
+                let f = [x * x, off];
+                let m = [0.0; 4];
+                let sparse = CscMatrix::from_dense_symmetric_exact(&k, 2);
+                for result in [
+                    solve_complex_system(&k, &m, &m, &f, 2, 0.0),
+                    solve(&sparse, &CscMatrix::from_dense_symmetric_exact(&m, 2), &f, (0.0, 0.0), 0.0),
+                ] {
+                    assert_eq!(result.is_ok(), accepted, "{gap}: {result:?}");
+                    if let Ok((real, imag)) = result {
+                        assert_eq!(real, [1.0, 0.0]);
+                        assert_eq!(imag, [0.0, 0.0]);
+                    }
+                }
             }
         }
     }

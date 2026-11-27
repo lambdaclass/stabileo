@@ -12,7 +12,7 @@ import { input as loadPlanInput } from './gravity-width-mass-fixture';
 import { gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
 import type { LoadModelData } from '../load-plan';
-import { offsetRoof, roofPlan } from './gravity-offset-roof-fixture';
+import { doubleAttachedRoof, offsetRoof, roofPlan } from './gravity-offset-roof-fixture';
 
 const template = JSON.parse(readFileSync(new URL('../../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
 
@@ -136,5 +136,50 @@ it('#2512 exact cover preserves the plane beam reactions on both sides of the en
       expect(result.reactions.find(reaction => reaction.nodeId === 1)?.rz).toBeCloseTo(10 * (edge > 5 ? 2 : 1), 8);
       expect(result.reactions.find(reaction => reaction.nodeId === 3)?.rz).toBeCloseTo(2 * (10 - edge), 8);
     }
+  }
+});
+
+function checkGapResponse(model: ReturnType<typeof offsetRoof>['model'], subdivided: boolean, shellPlanArea: number) {
+  const developed = Math.hypot(10, 2) / 10;
+  const plan = roofPlan(model);
+  expect(plan.outcome).toBe('READY');
+  let id = 0;
+  const loads: Load[] = [
+    ...plan.surface.filter(l => l.caseType === 'D').map(l => ({
+      type: 'surface3d' as const, data: { id: ++id, quadId: l.quadId, q: l.q },
+    })),
+    ...plan.distributed.filter(l => l.caseType === 'D').map(l => ({
+      type: 'distributed3d' as const,
+      data: { id: ++id, elementId: l.elementId, qYI: 0, qYJ: 0, qZI: l.q, qZJ: l.qJ ?? l.q, a: l.a, b: l.b, frame: l.frame },
+    })),
+  ];
+  const slaves = new Set(model.constraints.map(link => link.slaveNode));
+  const supported = [...new Set([...model.quads.values()].flatMap(quad => quad.nodes))]
+    .filter(nodeId => nodeId !== 4 && !slaves.has(nodeId));
+  const supports = new Map(supported.map(nodeId => [nodeId, { nodeId, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]));
+  const input = finiteObjectWire({
+    ...structuredClone(template),
+    nodes: Object.fromEntries(model.nodes), elements: Object.fromEntries(model.elements),
+    quads: Object.fromEntries(model.quads), constraints: model.constraints, supports: Object.fromEntries(supports),
+    loads: buildSolverLoads3D({ ...model, supports, loads } as never, loads, false, false),
+  });
+  const nonlinear = JSON.parse(solve_pdelta_3d(JSON.stringify(input), 100, 1e-10));
+  expect(nonlinear.converged).toBe(true);
+  for (const result of [solve_3d(input), nonlinear.results] as AnalysisResults3D[]) {
+    expect(result.reactions.reduce((sum, reaction) => sum + reaction.fz, 0)).toBeCloseTo((shellPlanArea + 6) * developed, 8);
+    const reference = result.elementForces.find(member => member.elementId === (subdivided ? 2 : 1))!;
+    expect(Math.abs(evaluateDiagramAt(reference, 'momentY', 0.5))).toBeGreaterThan(0);
+  }
+}
+
+it('#2295 linear and P-Delta reactions include the shell loads and the rafter gap once', () => {
+  for (const subdivided of [false, true]) {
+    checkGapResponse(offsetRoof(0.02, 0.53, -1, subdivided, [4, 6]).model, subdivided, 32);
+  }
+});
+
+it('#2295 linear and P-Delta reactions include both attached shell pairs and one gap load', () => {
+  for (const subdivided of [false, true]) {
+    checkGapResponse(doubleAttachedRoof(subdivided), subdivided, 64);
   }
 });

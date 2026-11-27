@@ -187,6 +187,7 @@ for (const dimension of [2, 3]) for (const nonlinear of [false, true]) {
     const { solve, solve3D, solvePDelta, solvePDelta3D } = await import('../../wasm-solver');
     const { computeDiagramValueAt } = await import('../../diagrams');
     const { evaluateDiagramAt } = await import('../../diagrams-3d');
+    const { buildSolverLoads3D } = await import('../../solver-service');
     for (const concentrated of [false, true]) for (const split of [1, 2, 5]) for (const angle of dimension === 2 ? [0] : [0, 0.37]) for (const mirror of [-1, 1]) {
       const n = 2 * split, length = 2, patch = concentrated ? 0.75 : 2, force = concentrated ? 9 : 4, ei = 1000;
       const generated = buildLoadPlan(liveInput({ model: beamModel(n, angle, mirror < 0), occupancyKey: concentrated ? 'oficina' : 'vivienda' }));
@@ -230,7 +231,12 @@ for (const dimension of [2, 3]) for (const nonlinear of [false, true]) {
         for (const ef of result.elementForces) check(ef, t => computeDiagramValueAt('shear', t, ef), t => -computeDiagramValueAt('moment', t, ef));
         expect(result.displacements.find(d => d.nodeId === split)!.uz).toBeCloseTo(deflection, 12);
       } else {
-        const input = model as unknown as import('../../types-3d').SolverInput3D;
+        const authoredLoads = loads.map(({ data }, index) => ({
+          type: 'distributed3d', data: { ...data, id: index + 1, caseId: 1 },
+        })) as import('../../../store/model.svelte').Load[];
+        const solver = model as unknown as import('../../types-3d').SolverInput3D;
+        const authoredModel = { ...model, loads: authoredLoads } as unknown as import('../../solver-service').ModelData;
+        const input = { ...solver, loads: buildSolverLoads3D(authoredModel, authoredLoads, false, false) };
         const advanced = nonlinear ? solvePDelta3D(input, 20, 1e-10) : null;
         if (advanced) { expect(advanced.converged).toBe(true); expect(advanced.isStable).toBe(true); }
         const result: import('../../types-3d').AnalysisResults3D = nonlinear ? advanced.results : solve3D(input);

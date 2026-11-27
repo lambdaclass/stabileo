@@ -9,6 +9,7 @@ function postcriticalColumn(mode: '2d' | '3d') {
     version: '2.0', name: 'Postcritical column', analysisMode: mode,
     snapshot: {
       solvedWith: CURRENT_STAMP,
+      ...(mode === '2d' ? { drawPlane2D: 'xy' } : {}),
       name: 'Postcritical column',
       nodes: Array.from({ length: n + 1 }, (_, i) => [i + 1, {
         id: i + 1, x: 0, y: mode === '2d' ? length * i / n : 0,

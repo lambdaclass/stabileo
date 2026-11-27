@@ -1,5 +1,5 @@
 use crate::types::*;
-use super::diagram_extrema::{distributed_actions, Curve, Cut, PointAction, Response};
+use super::diagram_extrema::{distributed_actions, Curve, Cut, MovingForceCuts, PointAction, Response};
 use serde::{Deserialize, Serialize};
 
 // ==================== Types ====================
@@ -141,7 +141,7 @@ pub(crate) fn try_evaluate_diagram_cut_2d(kind: &str, cut: Cut, ef: &ElementForc
     planar_curve(ef, kind, sorted_pl).checked_value(cut).map_err(str::to_owned)
 }
 
-pub(crate) fn member_diagram_range_2d(ef: &ElementForces, kind: &str) -> Result<(f64, f64), String> {
+pub(crate) fn member_diagram_range_2d(ef: &ElementForces, kind: &str, limits: MovingForceCuts<'_>) -> Result<(f64, f64), String> {
     validate_diagram_loads_2d(ef)?;
     let end = match kind {
         "moment" => ef.m_end,
@@ -149,7 +149,7 @@ pub(crate) fn member_diagram_range_2d(ef: &ElementForces, kind: &str) -> Result<
         "axial" => ef.n_end,
         _ => 0.0,
     };
-    planar_curve(ef, kind, &sorted_point_loads(ef)).interior_range(end).map_err(str::to_owned)
+    planar_curve(ef, kind, &sorted_point_loads(ef)).interior_range(end, limits).map_err(str::to_owned)
 }
 
 // ==================== 2D Diagrams ====================
@@ -642,14 +642,19 @@ mod tests {
         let input = serde_json::json!({
             "nodes": {"1":{"id":1,"x":0,"z":0}, "2":{"id":2,"x":length,"z":0}},
             "materials": {"1":{"id":1,"e":200000,"nu":0.3}},
-            "sections": {"1":{"id":1,"a":0.01,"iy":0.0001,"iz":0.0001,"j":0.0001}},
+            "sections": {"1":{"id":1,"a":0.01,"iz":0.0001}},
             "elements": {"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
-            "supports": {"1":{"id":1,"nodeId":1,"type":"fixed","rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
+            "supports": {"1":{"id":1,"nodeId":1,"type":"fixed"}},
             "loads": [planar]
         });
         let planar = serde_json::from_value(input.clone()).unwrap();
         let mut input = input;
         input["loads"][0] = spatial;
+        input["sections"]["1"]["iy"] = serde_json::json!(0.0001);
+        input["sections"]["1"]["j"] = serde_json::json!(0.0001);
+        input["supports"]["1"] = serde_json::json!({
+            "nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true
+        });
         input["nodes"]["1"]["y"] = 0.into();
         input["nodes"]["2"]["y"] = 0.into();
         (planar, serde_json::from_value(input).unwrap())
