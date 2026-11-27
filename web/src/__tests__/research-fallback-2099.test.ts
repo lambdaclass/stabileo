@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { afterEach, expect, it, vi } from 'vitest';
+import { examCodeFromPath } from '../lib/app-mode';
 import { restoreMovedRoute } from '../lib/legacy-routes';
 import { restoreUnpublishedResearchRoute } from '../lib/research-fallback';
 import main from './fixtures/origin-main-public-surface.json';
@@ -26,6 +27,10 @@ function navigation(file: string, name: string): string {
   }).outputText;
 }
 
+function navigationState(location: URL) {
+  return { location, revision: 0, publicRevision: 0, examCodeFromPath, examCode: examCodeFromPath(location.pathname) };
+}
+
 async function resolve(file: string, name: string, flag: string, path: string, expected: string, lazy = false) {
   const location = new URL(`https://stabileo.test${path}?round=2#checks`);
   const state = { navigation: 'retained' };
@@ -38,9 +43,7 @@ async function resolve(file: string, name: string, flag: string, path: string, e
   const routeKind = vi.fn(() => { throw checkpoint; });
   await expect(runInNewContext(navigation(file, name), {
     __PUBLIC_FEATURES__: { ...__PUBLIC_FEATURES__, research: flag === '1', tools: false },
-    revision: 0,
-    publicRevision: 0,
-    location,
+    ...navigationState(location),
     loadResearchFallback,
     restoreMovedRoute,
     restoreUnpublishedResearchRoute,
@@ -97,9 +100,7 @@ it.each(entries)('%s discards Hungarian navigation superseded while the helper l
   const routeKind = vi.fn(() => { throw checkpoint; });
   const context = {
     __PUBLIC_FEATURES__: { ...__PUBLIC_FEATURES__, research: false, tools: false },
-    revision: 0,
-    publicRevision: 0,
-    location,
+    ...navigationState(location),
     loadResearchFallback: vi.fn(() => pending),
     restoreMovedRoute: vi.fn(() => false),
     routeKind,
