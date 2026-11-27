@@ -9,7 +9,7 @@ import { generateBeamBars, type BeamGenerationInput, type MomentStation } from '
 function envelope(L = 6, mMid = 200, mEnd = 150, v = 180): MomentStation[] {
   return Array.from({ length: 11 }, (_, i) => {
     const s = i / 10;
-    return { x: s * L, mPos: Math.max(0, mMid * 4 * s * (1 - s)), mNeg: Math.max(0, mEnd * (1 - 4 * s * (1 - s))), v: v * Math.abs(1 - 2 * s) };
+    return { x: s * L, axialCompression: 0, mPos: Math.max(0, mMid * 4 * s * (1 - s)), mNeg: Math.max(0, mEnd * (1 - 4 * s * (1 - s))), v: v * Math.abs(1 - 2 * s) };
   });
 }
 

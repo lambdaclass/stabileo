@@ -30,7 +30,7 @@ function saggingOnly(L = 6, mMid = 40, v = 40): MomentStation[] {
   const out: MomentStation[] = [];
   for (let i = 0; i <= 10; i++) {
     const s = i / 10;
-    out.push({ x: s * L, mPos: mMid * 4 * s * (1 - s), mNeg: 0, v: v * Math.abs(1 - 2 * s) });
+    out.push({ x: s * L, axialCompression: 0, mPos: mMid * 4 * s * (1 - s), mNeg: 0, v: v * Math.abs(1 - 2 * s) });
   }
   return out;
 }

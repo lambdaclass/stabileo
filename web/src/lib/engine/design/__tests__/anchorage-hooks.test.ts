@@ -78,8 +78,8 @@ describe('hooks where a straight bar does not anchor', () => {
   it('the detailing bends the hooked bottom bars up into the support', () => {
     const input: BeamGenerationInput = {
       elementId: 9, L: 6, b: 0.2, h: 0.5, d: 0.45, cover: 0.025, stirrupDia: 8, fc: 25, fy: 420, maxAggregateSizeMm: 20, edition: '2025',
-      stations: Array.from({ length: 11 }, (_, i) => ({ x: 0.6 * i, mPos: 100 * 4 * (i / 10) * (1 - i / 10), mNeg: 0, v: 80 * Math.abs(1 - i / 5) })),
-      supportI: 'continuous', supportJ: 'continuous', vn: 200,
+      stations: Array.from({ length: 11 }, (_, i) => ({ x: 0.6 * i, axialCompression: 0, mPos: 100 * 4 * (i / 10) * (1 - i / 10), mNeg: 0, v: 80 * Math.abs(1 - i / 5) })),
+      supportI: 'continuous', supportJ: 'continuous',
       bottom: { count: 3, diameterMm: 20 }, topStart: { count: 2, diameterMm: 12 }, topEnd: { count: 2, diameterMm: 12 },
       lateralSystem: false, ld: (d) => 0.05 * d,
       origin: { x: 0, y: 0, z: 0 }, axis: { x: 1, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 },

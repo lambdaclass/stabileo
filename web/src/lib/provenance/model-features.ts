@@ -68,7 +68,7 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
-  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
+  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
@@ -116,7 +116,7 @@ type ShellSnapshot = { id?: number; materialId?: number; nodes?: number[]; curve
 type FeatureLoad = { type?: unknown; data?: Record<string, unknown> };
 
 interface FeatureSnapshotFields {
-  detailing?: { assemblies?: Array<{ families?: Array<{ family: string }> }>; floorReadings?: { walls?: unknown[] } };
+  detailing?: { assemblies?: Array<{ kind?: string; marks?: unknown[]; families?: Array<{ family: string }> }>; floorReadings?: { walls?: unknown[] } };
   analysisMode?: string;
   drawPlane2D?: DrawPlane;
   gapElements?: unknown[];
@@ -152,6 +152,7 @@ interface FeatureSnapshotFields {
   analysis?: { selfWeight?: unknown[]; standaloneSelfWeight?: string };
   includeSelfWeight?: boolean;
   designData?: {
+    rcSheets?: { adopted?: Record<string, unknown> };
     foreignCodes?: { concrete?: string };
     loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; covers?: unknown; site?: { phases?: unknown[] };
     specialFloors?: { systems?: Record<string, { ribbed?: { spacingX?: number; spacingY?: number } } | undefined> };
@@ -616,6 +617,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const rho = materials.get(carrier.materialId)?.rho;
     return !isFiniteInputNumber(rho) || rho < 0;
   })) f.add('invalidDynamicMaterialDensity');
+  const assemblies = Array.isArray(s.detailing?.assemblies) ? s.detailing.assemblies : [];
+  const sheetRows = Object.keys(s.designData?.rcSheets?.adopted ?? {});
+  if (assemblies.some(a => a?.kind === 'beamLine') || sheetRows.some(key => key.startsWith('beam:') || key.startsWith('line:'))) f.add('savedBeamDetailing');
+  if (assemblies.some(a => Array.isArray(a?.marks) && a.marks.length > 0) || sheetRows.length > 0) f.add('savedBarSchedule');
   if (s.detailing?.floorReadings?.walls?.length || (Array.isArray(s.detailing?.assemblies) &&
     s.detailing.assemblies.some(a => Array.isArray(a?.families) && a.families.some(r => r?.family === 'wall')))) f.add('savedWallDesign');
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');

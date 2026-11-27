@@ -5,7 +5,7 @@
   "area": "design",
   "when": {
     "any": [
-      "concreteMembers"
+      "savedBarSchedule"
     ]
   },
   "title": {

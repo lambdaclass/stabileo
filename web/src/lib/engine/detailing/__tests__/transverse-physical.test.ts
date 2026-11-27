@@ -59,9 +59,9 @@ function generated(fixture: unknown) {
       fc: ctx.material.fc, fy: ctx.material.fy, maxAggregateSizeMm: 19,
       edition: '2025',
       stations: [
-        { x: 0, mPos: 0, mNeg: seed.MuStart, v: seed.VuSupport },
-        { x: L / 2, mPos: seed.MuSpan, mNeg: 0, v: seed.VuSpan },
-        { x: L, mPos: 0, mNeg: seed.MuEnd, v: seed.VuSupport },
+        { x: 0, axialCompression: 0, mPos: 0, mNeg: seed.MuStart, v: seed.VuSupport },
+        { x: L / 2, axialCompression: 0, mPos: seed.MuSpan, mNeg: 0, v: seed.VuSpan },
+        { x: L, axialCompression: 0, mPos: 0, mNeg: seed.MuEnd, v: seed.VuSupport },
       ],
       supportI: 'continuous', supportJ: 'continuous',
       bottom: g(st.bottomSpan!), topStart: g(st.topStart!), topEnd: g(st.topEnd!),
