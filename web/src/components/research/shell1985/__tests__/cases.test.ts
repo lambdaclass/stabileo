@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { strings } from '../i18n';
 import { cases, compare, finest, inputFor, refusalFor, runCases, responseRatio, shown, signedReference, viewerData } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
@@ -121,7 +122,6 @@ describe('shell obstacle course evidence', () => {
 
 describe('the page strings', () => {
   it('state the withheld hemisphere meshes, the #810 correction and the 1/3 headline in every locale', async () => {
-    const { strings } = await import('../i18n');
     const { nativeOnly } = await import('../cases');
     const keys = Object.keys(strings.en).sort();
     for (const [locale, s] of Object.entries(strings)) {
@@ -140,7 +140,7 @@ describe('the page strings', () => {
   });
 });
 
-it.skip.each(Object.entries(strings))('known wrong result: #2505 signed shell validation and recorded mesh coverage in %s', (locale, s) => {
+it.each(Object.entries(strings))('signed shell validation and recorded mesh coverage in %s', (locale, s) => {
   expect(s.checkRoof).toMatch(/−0[.,]3024/);
   expect(s.checkCylinder32).toMatch(/−1[.,]8248/);
   expect(s.summary).toContain('16 × 16');
