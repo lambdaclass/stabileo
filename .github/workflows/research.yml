@@ -318,7 +318,9 @@ jobs:
         run: |
           nix develop -c cargo run --locked --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- "$RUNNER_TEMP/mattiasson-native.json" "$RUNNER_TEMP/mattiasson-mesh.json"
       - name: Mattiasson validation and published comparison are what the fresh run gives
-        run: python3 -I research/benchmarks/mattiasson-elastica/validate.py check "$RUNNER_TEMP/mattiasson-native.json" "$RUNNER_TEMP/mattiasson-mesh.json"
+        run: |
+          python3 -I research/benchmarks/mattiasson-elastica/validate.py check "$RUNNER_TEMP/mattiasson-native.json" "$RUNNER_TEMP/mattiasson-mesh.json"
+          python3 -I research/benchmarks/mattiasson-elastica/test_validate.py "$RUNNER_TEMP/mattiasson-native.json" "$RUNNER_TEMP/mattiasson-mesh.json"
       - name: Mattiasson production WASM parity and measurements
         run: |
           nix develop -c node research/benchmarks/mattiasson-elastica/wasm/check.mjs "$RUNNER_TEMP/mattiasson-native.json"
@@ -326,11 +328,15 @@ jobs:
       - name: Lee frame native path, mesh and step study
         run: LEE_REPLAY_OUTPUT="$RUNNER_TEMP/lee-native.json" nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test solver lee_frame
       - name: Lee frame validation and published comparison are what the fresh run gives
-        run: python3 -I research/benchmarks/lee-frame-1968/validate.py check "$RUNNER_TEMP/lee-native.json"
+        run: |
+          python3 -I research/benchmarks/lee-frame-1968/validate.py check "$RUNNER_TEMP/lee-native.json"
+          python3 -I research/benchmarks/lee-frame-1968/test_validate.py
       - name: DaDeppo arch limit point, crown state and mesh study
         run: DADEPPO_EXPORT="$RUNNER_TEMP/dadeppo-native.json" nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test solver dadeppo_arch
       - name: DaDeppo validation and published comparison are what the fresh run gives
-        run: python3 -I research/benchmarks/dadeppo-arch-1975/validate.py check "$RUNNER_TEMP/dadeppo-native.json"
+        run: |
+          python3 -I research/benchmarks/dadeppo-arch-1975/validate.py check "$RUNNER_TEMP/dadeppo-native.json"
+          python3 -I research/benchmarks/dadeppo-arch-1975/test_validate.py
       - name: Lee frame and DaDeppo arch page mapping through the production WASM
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/lee1968 src/components/research/dadeppo1975'
 

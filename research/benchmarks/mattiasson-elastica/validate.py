@@ -70,6 +70,8 @@ def evidence(native, mesh):
     checks.append({'name': 'RESULTS.json is a fresh native run', 'metric': 'largest absolute difference in u/L, v/L',
                    'observed': drift, 'tolerance': 1e-10, 'passed': drift is not None and drift <= 1e-10})
     table = load(TABLE)
+    if sorted(row['parameter'] for row in table['rows']) != list(range(1, 11)):
+        raise ValueError('Expected ten distinct published load parameters, 1 through 10')
     rows = []
     for entry in table['rows']:
         c = next(c for c in cases if c['kind'] == 'force' and c['parameter'] == entry['parameter'])

@@ -146,14 +146,14 @@ def differences(a, b, path='$', scale=None):
         if a.keys() != b.keys():
             return [f'{path}: keys {sorted(a)} != {sorted(b)}']
         tolerance = a.get('tolerance') if isinstance(a.get('tolerance'), (int, float)) and 'passed' in a else scale
-        return [d for k in a for d in differences(a[k], b[k], f'{path}.{k}', None if k == 'tolerance' else tolerance)]
+        return [d for k in a for d in differences(a[k], b[k], f'{path}.{k}', 0 if k in ('reference', 'tolerance') else tolerance if k == 'observed' else None)]
     if isinstance(a, list) and isinstance(b, list):
         if len(a) != len(b):
             return [f'{path}: {len(a)} items != {len(b)}']
         return [d for i, (x, y) in enumerate(zip(a, b)) for d in differences(x, y, f'{path}[{i}]', scale)]
     if isinstance(a, bool) or isinstance(b, bool) or not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
         return [] if a == b else [f'{path}: {a!r} != {b!r}']
-    allowed = 0.1 * scale if scale else 1e-9 * max(abs(a), abs(b))
+    allowed = 0.1 * scale if scale is not None else 1e-9 * max(abs(a), abs(b))
     return [] if abs(a - b) <= allowed else [f'{path}: {a!r} != {b!r}']
 
 

@@ -15,7 +15,6 @@ class LeeEvidence(unittest.TestCase):
         self.run = lee.load(lee.HERE / 'results/stabileo_results.json')
         self.run['study'] = copy.deepcopy(self.case['convergence']['cases'])
 
-    @unittest.skip("known wrong result: #2505")
     def test_replay_requires_each_step_and_node_once(self):
         for mutation in ['truncate', 'duplicate', 'step']:
             with self.subTest(mutation=mutation):
@@ -30,7 +29,6 @@ class LeeEvidence(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     lee.evidence(run)
 
-    @unittest.skip("known wrong result: #2505")
     def test_finest_step_uses_measurements_and_is_order_independent(self):
         def extrapolated():
             return lee.evidence(self.run)[1]['checks'][1]['computed']
@@ -41,7 +39,6 @@ class LeeEvidence(unittest.TestCase):
         finest['firstPeak'] += self.case['convergence']['absoluteTolerance'] / 2
         self.assertNotEqual(extrapolated(), before)
 
-    @unittest.skip("known wrong result: #2505")
     def test_each_paper_row_is_required_once(self):
         reading = lee.load(lee.READING)
         for rows in [[], reading['rows'][:-1], reading['rows'][:2] + reading['rows'][:1]]:

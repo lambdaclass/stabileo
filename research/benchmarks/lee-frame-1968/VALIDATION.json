@@ -19,35 +19,35 @@
     {
       "name": "20 elements: smaller arc-length steps move the first peak",
       "metric": "largest change (kN)",
-      "observed": 9.818246570425515e-05,
+      "observed": 9.81824657044772e-05,
       "tolerance": 0.0001,
       "passed": true
     },
     {
       "name": "40 elements: smaller arc-length steps move the first peak",
       "metric": "largest change (kN)",
-      "observed": 8.770120668688541e-05,
+      "observed": 8.770120668710746e-05,
       "tolerance": 0.0001,
       "passed": true
     },
     {
       "name": "80 elements: smaller arc-length steps move the first peak",
       "metric": "largest change (kN)",
-      "observed": 1.15128762838701e-05,
+      "observed": 1.1512876284092144e-05,
       "tolerance": 0.0001,
       "passed": true
     },
     {
       "name": "Mesh refinement: ratio of successive changes (4 for second order)",
       "metric": "absolute difference from 4",
-      "observed": 0.022944517077694293,
+      "observed": 0.022944517077462923,
       "tolerance": 1,
       "passed": true
     },
     {
       "name": "The page replay is a fresh native run",
-      "metric": "largest absolute difference in load (kN) and displacement (m)",
-      "observed": 1.3322676295501878e-15,
+      "metric": "largest absolute difference in load (kN), translation (m) and rotation (rad)",
+      "observed": 1.3877787807814457e-15,
       "tolerance": 1e-09,
       "passed": true
     },

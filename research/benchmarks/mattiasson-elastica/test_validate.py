@@ -10,7 +10,6 @@ spec.loader.exec_module(model)
 
 
 class PublishedTable(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_generation_requires_ten_distinct_load_parameters(self):
         original = model.load
         table = original(model.TABLE)

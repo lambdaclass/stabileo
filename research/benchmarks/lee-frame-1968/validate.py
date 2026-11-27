@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -35,27 +36,45 @@ def evidence(fresh):
     checks.append({'name': 'Regression: first sampled peak, 20 elements', 'metric': 'absolute difference (kN)',
                    'observed': drift, 'tolerance': regression['absoluteTolerance'],
                    'passed': peak is not None and drift < regression['absoluteTolerance'] and peak['step'] == regression['firstPeakStep']})
-    study = case['convergence']['cases']
+    study = fresh['study']
+    def settings(rows):
+        return sorted((r['split'], r['stepScale']) for r in rows)
+    if settings(study) != settings(case['convergence']['cases']) or not all(math.isfinite(m['firstPeak']) for m in study):
+        raise ValueError('Incomplete native refinement study')
     finest = {}
     for split in (1, 2, 4):
         values = [c['firstPeak'] for c in study if c['split'] == split]
         spread = max(values) - min(values)
         checks.append({'name': f'{20 * split} elements: smaller arc-length steps move the first peak', 'metric': 'largest change (kN)',
                        'observed': spread, 'tolerance': case['convergence']['stepEffectBound'], 'passed': spread < case['convergence']['stepEffectBound']})
-        finest[split] = values[-1]
+        finest[split] = min((c for c in study if c['split'] == split), key=lambda c: c['stepScale'])['firstPeak']
     p20, p40, p80 = finest[1], finest[2], finest[4]
     ratio = (p20 - p40) / (p40 - p80)
     checks.append({'name': 'Mesh refinement: ratio of successive changes (4 for second order)', 'metric': 'absolute difference from 4',
                    'observed': abs(ratio - 4), 'tolerance': 1, 'passed': abs(ratio - 4) < 1})
     extrapolated = p80 + (p80 - p40) / (ratio - 1)
     stored = load(HERE / 'results/stabileo_results.json')['frames']
-    drift = float('inf')
-    if len(stored) == len(frames):
-        drift = max(max(abs(a['load'] - b['load']), *(abs(x[k] - y[k]) for x, y in zip(a['displacement'], b['displacement']) for k in ('ux', 'uz', 'ry')))
-                    for a, b in zip(stored, frames))
-    checks.append({'name': 'The page replay is a fresh native run', 'metric': 'largest absolute difference in load (kN) and displacement (m)',
+    node_ids = {n['id'] for n in case['input']['solver']['nodes'].values()}
+    if len(stored) != steps or len(frames) != steps:
+        raise ValueError('Incomplete native path')
+    drift = 0
+    for step, (a, b) in enumerate(zip(stored, frames), 1):
+        fields = []
+        for frame in (a, b):
+            ds = frame['displacement']
+            field = {d['nodeId']: d for d in ds}
+            if frame['step'] != step or len(ds) != len(node_ids) or field.keys() != node_ids:
+                raise ValueError(f'Wrong step or displacement node IDs at step {step}')
+            if not math.isfinite(frame['load']) or not all(math.isfinite(d[k]) for d in ds for k in ('ux', 'uz', 'ry')):
+                raise ValueError(f'Nonfinite result at step {step}')
+            fields.append(field)
+        drift = max(drift, abs(a['load'] - b['load']),
+                    *(abs(fields[0][i][k] - fields[1][i][k]) for i in node_ids for k in ('ux', 'uz', 'ry')))
+    checks.append({'name': 'The page replay is a fresh native run', 'metric': 'largest absolute difference in load (kN), translation (m) and rotation (rad)',
                    'observed': drift, 'tolerance': 1e-9, 'passed': drift <= 1e-9})
     reading = load(READING)
+    if sorted(row['id'] for row in reading['rows']) != ['fig10-elements20', 'fig10-extrapolated', 'galvao-extrapolated']:
+        raise ValueError('Expected the three distinct published peak comparisons')
     computed = {'elements20': peak['load'] if peak else None, 'elements80': p80, 'extrapolated': extrapolated}
     labels = {'elements20': 'First peak load, 20 elements', 'elements80': 'First peak load, 80 elements',
               'extrapolated': 'First peak load, extrapolated to zero element length'}
@@ -98,7 +117,10 @@ USAGE = 'usage: validate.py generate|check <fresh export>'
 def main(mode, export):
     if mode not in ('generate', 'check'):
         raise SystemExit(USAGE)
-    validation, comparison = evidence(load(export))
+    validation, comparison = evidence({**load(export), 'study': load(str(export) + '.study.json')})
+    failed = [c['name'] for c in validation['checks'] + comparison['checks'] if not c['passed']]
+    if failed:
+        raise SystemExit('failed checks: ' + ', '.join(failed))
     text = dump(comparison)
     files = {'published-peaks.json': READING.read_text(), 'published_comparison.json': text}
     if mode == 'generate':
@@ -110,10 +132,7 @@ def main(mode, export):
         assert same(load(HERE / 'VALIDATION.json'), validation), 'VALIDATION.json is not what the fresh run gives'
         assert same(json.loads(committed['published_comparison.json']), comparison), 'published_comparison.json is stale'
         assert load(HERE / 'reference-results/MANIFEST.json') == manifest(committed), 'MANIFEST.json hashes are stale'
-    failed = [c['name'] for c in validation['checks'] + comparison['checks'] if not c['passed']]
     print(json.dumps({'mode': mode, 'checks': len(validation['checks']), 'comparisonRows': len(comparison['checks']), 'failed': failed}, ensure_ascii=False))
-    if failed:
-        raise SystemExit(1)
 
 
 if __name__ == '__main__':

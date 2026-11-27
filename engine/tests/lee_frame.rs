@@ -100,7 +100,8 @@ fn lee_frame_first_peak_converges_in_mesh_and_step() {
     let data = benchmark();
     let check = &data["convergence"];
     let tolerance = check["absoluteTolerance"].as_f64().unwrap();
-    let mut peaks: Vec<(usize, f64)> = Vec::new();
+    let mut peaks = Vec::new();
+    let mut study = Vec::new();
     for case in check["cases"].as_array().unwrap() {
         let split = case["split"].as_u64().unwrap() as usize;
         let scale = case["stepScale"].as_f64().unwrap();
@@ -110,19 +111,23 @@ fn lee_frame_first_peak_converges_in_mesh_and_step() {
         let peak = first_peak(&result.steps).expect("first peak reached");
         println!("{} elements, step scale {}: first sampled peak {} kN at step {}", 20 * split, scale, peak.load_factor, peak.step);
         assert!((peak.load_factor - case["firstPeak"].as_f64().unwrap()).abs() < tolerance);
-        peaks.push((split, peak.load_factor));
+        peaks.push((split, scale, peak.load_factor));
+        study.push(json!({"split": split, "stepScale": scale, "firstPeak": peak.load_factor}));
     }
     let step_bound = check["stepEffectBound"].as_f64().unwrap();
     for split in [1, 2, 4] {
-        let same: Vec<f64> = peaks.iter().filter(|p| p.0 == split).map(|p| p.1).collect();
+        let same: Vec<f64> = peaks.iter().filter(|p| p.0 == split).map(|p| p.2).collect();
         assert!(same.len() >= 2);
         let spread = same.iter().cloned().fold(f64::MIN, f64::max) - same.iter().cloned().fold(f64::MAX, f64::min);
         assert!(spread < step_bound, "{} elements: step-size spread {spread}", 20 * split);
     }
-    let finest_step = |split: usize| peaks.iter().filter(|p| p.0 == split).last().unwrap().1;
+    let finest_step = |split: usize| peaks.iter().filter(|p| p.0 == split).min_by(|a, b| a.1.total_cmp(&b.1)).unwrap().2;
     let (p20, p40, p80) = (finest_step(1), finest_step(2), finest_step(4));
     assert!(p20 > p40 && p40 > p80);
     let ratio = (p20 - p40) / (p40 - p80);
     println!("mesh change ratio {ratio}");
     assert!((3.0..5.0).contains(&ratio), "mesh change ratio {ratio}");
+    if let Ok(path) = std::env::var("LEE_REPLAY_OUTPUT") {
+        std::fs::write(format!("{path}.study.json"), serde_json::to_string(&study).unwrap()).unwrap();
+    }
 }

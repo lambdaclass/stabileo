@@ -8,7 +8,6 @@ spec.loader.exec_module(arch)
 
 
 class EvidenceFreshness(unittest.TestCase):
-    @unittest.skip("known wrong result: #2505")
     def test_paper_readings_and_computed_values_have_separate_budgets(self):
         row = arch.load(arch.HERE / 'reference-results/published_comparison.json')['checks'][-1]
         for key, delta in [('reference', 1e-14), ('computed', row['tolerance'] / 100)]:
