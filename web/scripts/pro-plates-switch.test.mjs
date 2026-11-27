@@ -709,3 +709,20 @@ test('known wrong result: #1928 released shell controls edit the selection witho
     });
   }
 });
+
+test.skip('known wrong result: #1928 bulk plate load application and pending requests stay out of the published floor form', async () => {
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const entry = resolve(root, 'src/components/pro/ProFloorLoadSection.svelte');
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external: (id, from) => !!from && !id.includes('?svelte&type=style') && !id.includes('/selected-floor-load'),
+        },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+      for (const label of ['floorLoad.addedPlates', 'floorLoad.pickedPlates']) assert.equal(chunk.code.includes(label), plates, label);
+      assert.equal(Object.values(chunk.importedBindings).flat().includes('previewPlateDefs'), plates);
+      assert.ok(chunk.code.includes('floorLoad.defaultName'));
+    });
+  }
+});
