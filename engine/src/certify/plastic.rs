@@ -741,7 +741,7 @@ pub(crate) fn truss_axial_factor(model: &PlasticModel, capacities: &HashMap<usiz
             let upper2 = capacity2 / &squared;
             let bound = match super::exact::sqrt_exact(&upper2) {
                 Some(bound) => bound,
-                None => q(axial_root_bounds(&upper2)?.0).ok_or("non-finite axial capacity")?,
+                None => q(super::exact::sqrt_f64_bounds(&upper2)?.0).ok_or("non-finite axial capacity")?,
             };
             let mut negative: Vec<Q> = basis.iter().map(|v| -v).collect();
             negative.push(&bound + &force);
@@ -751,21 +751,7 @@ pub(crate) fn truss_axial_factor(model: &PlasticModel, capacities: &HashMap<usiz
         }
         if !axial_constraints_feasible(rows, eq.null.len()) { return Ok(None); }
     }
-    Ok(Some(axial_root_bounds(&squared)?))
-}
-
-fn axial_root_bounds(squared: &Q) -> Result<(f64, f64), String> {
-    let (mut low, mut high) = (0, f64::MAX.to_bits());
-    while low < high {
-        let middle = low + (high - low).div_ceil(2);
-        let candidate = q(f64::from_bits(middle)).ok_or("non-finite axial factor")?;
-        if &candidate * &candidate <= *squared { low = middle; } else { high = middle - 1; }
-    }
-    let lower = f64::from_bits(low);
-    let exact = q(lower).ok_or("non-finite axial factor")?;
-    let upper = if &exact * &exact == *squared { lower } else { lower.next_up() };
-    if !upper.is_finite() { return Err("axial collapse factor exceeds floating-point range".into()); }
-    Ok((lower, upper))
+    Ok(Some(super::exact::sqrt_f64_bounds(&squared)?))
 }
 
 fn axial_constraints_feasible(mut rows: Vec<Vec<Q>>, variables: usize) -> bool {

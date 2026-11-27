@@ -889,7 +889,6 @@ fn restrained_truss_spans_redistribute_up_to_the_full_axial_range() {
 }
 
 #[test]
-#[ignore = "known wrong result: #758"]
 fn two_independent_partial_diagonals_publish_the_checked_interval() {
     use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, Confirmation, LimitInput};
     let mut beam = make_input(

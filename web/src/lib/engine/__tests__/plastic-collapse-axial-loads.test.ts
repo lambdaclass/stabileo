@@ -64,7 +64,7 @@ describe('plastic collapse under loads along members', () => {
     expect(() => solve(2)).toThrow();
   });
 
-  it.skip('known wrong result: #758 — two independent diagonal span loads publish the certified interval', () => {
+  it('known wrong result: #758 — two independent diagonal span loads publish the certified interval', () => {
     const input = model(1, [1, 2], 'frame', [[1, 'fixed']], []);
     for (const id of [1, 2]) {
       input.nodes.set(id + 1, { id: id + 1, x: id === 1 ? 1 : -1, z: 1 });

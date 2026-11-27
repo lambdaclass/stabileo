@@ -103,3 +103,8 @@ The history still reports the load at the first interior yield. On the reversing
 `plastic-collapse-axial-loads.test.ts`, the history reaches first yield at 15/14 and the restrained
 bar reaches collapse at 2 to the precision of the input stations. The certificate returns directed
 bounds on the exact factor for the binary input.
+
+The factor and upper endpoint of a confirmed bending result come from the checked fields, rounded
+outward. The numerical linear program proposes the mechanism and hinge locations. For the two
+diagonal cantilevers with unit horizontal arms in `two_independent_partial_diagonals_publish_the_checked_interval`,
+the released interval is [1, 1]. Previously both reported endpoints were 0.9999999999999991.
