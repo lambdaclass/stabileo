@@ -108,7 +108,7 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await page.getByTestId('th-show').check();
     await page.getByTestId('adv-chip-timehistory').click();
     await expect(page.getByTestId('th-chart')).toHaveCount(0);
-    await expect(page.locator('.containment-notice').filter({ hasText: '#760' })).toBeVisible();
+    await expect(page.locator('.containment-notice').filter({ hasText: '#760' })).toHaveCount(0);
     await page.getByTestId('adv-chip-timehistory').click();
     await expect(page.getByTestId('th-steps')).toHaveValue('100');
     await expect(page.getByTestId('th-scale-y')).toHaveValue('0.5');

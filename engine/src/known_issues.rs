@@ -58,7 +58,6 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "SP-17", issue: 419, mode: Mode::Warn, message: "Anisotropic connector transverse axes are not user-orientable and can change abruptly with direction. Independently verify the spring directions before using these results" },
     Entry { id: "FR-5", issue: 408, mode: Mode::Warn, message: "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently" },
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses, response-spectrum combinations and harmonic responses by modal superposition may be wrong, by large factors; independently verify the modal basis" },
-    Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
     Entry { id: "LIN-SMALL-DISPLACEMENT", issue: 1446, mode: Mode::Warn, message: "A rotation or a member's relative displacement exceeds 0.1 rad, the small-displacement screening limit of linear analysis: at that angle the terms first-order theory drops, such as the chord shortening 1 − cos θ ≈ 0.5 %, may no longer be negligible. Check that the change of geometry is acceptable: a support, spring or release may leave part of the model nearly free; otherwise use a nonlinear analysis" },
     Entry { id: "LIN-SECOND-ORDER", issue: 1551, mode: Mode::Warn, message: "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design" },
     Entry { id: "LIN-SECOND-ORDER-NEAR", issue: 1551, mode: Mode::Warn, message: "Axial compression is near the second-order limit (N/Ncr above 0.047, the limit 0.075 over the largest CIRSOC 301 load factor 1.6): a combination that factors this case up may pass it. Check the combinations with a P-Delta or second-order analysis" },
@@ -180,7 +179,6 @@ fn thermal_defaults(loads: impl Iterator<Item = (usize, bool, bool)>) -> Vec<Str
 pub fn for_analysis(analysis: Analysis) -> Vec<StructuredDiagnostic> {
     match analysis {
         Analysis::MaterialNonlinear => vec![diagnostic("NL-5")],
-        Analysis::TimeHistory => vec![diagnostic("TH-RECIPROCITY")],
         _ => vec![],
     }
 }
@@ -1242,7 +1240,6 @@ mod tests {
             ("NL-5", Analysis::MaterialNonlinear, false),
             ("NL-DYNAMIC-GAPS", Analysis::MaterialNonlinear, false),
             ("PL-2D-INVARIANCE", Analysis::Plastic, false),
-            ("TH-RECIPROCITY", Analysis::TimeHistory, false),
             ("MD-ORTHOGONALITY", Analysis::Modal, true),
             ("BU-ACCURACY", Analysis::Buckling, true),
         ] {
@@ -1374,6 +1371,15 @@ mod tests {
     #[test]
     fn corrected_harmonic_truncation_is_retired_from_registry() {
         assert!(!ENTRIES.iter().any(|entry| entry.issue == 1434));
+    }
+
+    #[test]
+    fn corrected_time_history_reciprocity_is_retired_from_registry() {
+        assert!(!ENTRIES.iter().any(|entry| entry.issue == 760 || entry.id == "TH-RECIPROCITY"));
+        assert!(for_analysis(Analysis::TimeHistory).is_empty());
+        let ledger = include_str!("../../testing/docs/CONTAINMENT.md");
+        let row = ledger.lines().find(|line| line.starts_with("| #760 |")).unwrap();
+        assert_eq!(row.split('|').nth(3).unwrap().trim(), "CORRECTED");
     }
 
     #[test]

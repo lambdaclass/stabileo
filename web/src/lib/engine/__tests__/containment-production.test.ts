@@ -68,7 +68,7 @@ describe('production containment', () => {
 
   it('keeps time-history warnings next to the displayed response independently of the panel', () => {
     timeHistoryView.set({
-      structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'TH-RECIPROCITY', value: 760, message: 'ENGINE' }],
+      structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'NL-DYNAMIC-GAPS', value: 370, message: 'ENGINE' }],
       timeSteps: [0, 0.1], nodeHistories: [], peakDisplacements: [], peakReactions: [], nSteps: 1, method: 'newmark',
     }, modelStore.modelVersion);
     timeHistoryView.setShown(true);
@@ -76,9 +76,9 @@ describe('production containment', () => {
       disposition: resultsStore.knownIssues3D,
       children: createRawSnippet(() => ({ render: () => '<span>Response 123.45</span>' })),
     } }).body;
-    expect(resultsStore.knownIssues3D.messages.join(' ')).toContain('#760');
-    expect(resultsStore.knownIssues.messages.join(' ')).not.toContain('#760');
-    expect(html).toContain('#760');
+    expect(resultsStore.knownIssues3D.messages.join(' ')).toContain('#370');
+    expect(resultsStore.knownIssues.messages.join(' ')).not.toContain('#370');
+    expect(html).toContain('#370');
     expect(html).toContain('role="alert"');
     expect(html).toContain('Response 123.45');
     timeHistoryView.clear();
