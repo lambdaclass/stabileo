@@ -126,6 +126,18 @@ describe('remeshing adjacent plates with boundary members', () => {
     expectConnected(ids);
   });
 
+  it('refreshes a partial batch without marking an untouched stale neighbour current', () => {
+    const { ids } = build();
+    mesh(ids);
+    setPlateMeshSpec([ids[3]!], { size: 1 });
+    const before = modelStore.snapshot();
+    mesh([ids[0]!, ids[1]!], 1);
+    expect(ids.map(plateStatus)).toEqual(['current', 'current', 'current', 'stale']);
+    expectConnected(ids);
+    historyStore.undo();
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+
   it('preserves triangular shared meshes through explicit clearing and batch coarsening', () => {
     const { ids } = build();
     expect(mesh(ids, 0.5, 'tri').cells).toBe(768);
