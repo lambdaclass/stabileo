@@ -10,7 +10,7 @@ const shell = (side: number, plate?: { size: number; typology?: string; ribs?: n
     ...(plate.ribs ? { designData: { specialFloors: { systems: { S7: { ribbed: { spacingX: plate.ribs } } } } } } : {}),
   } : {}),
 }) as unknown as FeatureSnapshot;
-const coarse = (s: FeatureSnapshot) => modelFeatures(s).has('coarseShellsPro');
+const coarse = (s: FeatureSnapshot) => modelFeatures(s).has('unifiedCoarseShellRemesh');
 
 it('marks the shells PRO meshes before the analysis: a side over 1.5 times the default mesh size when no plate holds them', () => {
   expect(coarse(shell(0.8))).toBe(true);

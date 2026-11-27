@@ -65,7 +65,7 @@ const loadMetadataFields = {
 const loadRecordFields = { type: true, data: true } satisfies Record<keyof Load, true>;
 
 const supportFields = {
-  id: 'required', nodeId: 'required', type: 'field', uplift: 'field', curves: 'field',
+  id: 'required', nodeId: 'required', type: 'field', uplift: 'field', plateSpring: 'field', curves: 'field',
   kx: 'optional', ky: 'optional', kz: 'optional', krx: 'optional', kry: 'optional', krz: 'optional',
   dx: 'optional', dy: 'optional', dz: 'optional', drx: 'optional', dry: 'optional', drz: 'optional',
   angle: 'optional', normalX: 'optional', normalY: 'optional', normalZ: 'optional',
@@ -310,7 +310,7 @@ function validateSupport(path: string, value: unknown, storedKey?: number): void
   requireNumericFields(path, row, supportFields);
   requireInputField(`${path}.type (${String(row.type)})`, isSupportType(row.type));
   optionalValue(`${path}.dofFrame`, row.dofFrame, ['global', 'local']);
-  for (const field of ['isGlobal', 'isInclined', 'uplift']) {
+  for (const field of ['isGlobal', 'isInclined', 'uplift', 'plateSpring']) {
     optionalValue(`${path}.${field}`, row[field], [true, false]);
   }
   if (row.dofRestraints !== undefined) {
@@ -614,7 +614,7 @@ const supportPlaneFields = {
   ky: 'transverseSpring', kz: 'local',
   drx: 'neutral', krx: 'neutral', kry: 'neutral', krz: 'neutral',
   normalX: 'neutral', normalY: 'neutral', normalZ: 'neutral',
-  isInclined: 'neutral', uplift: 'neutral',
+  isInclined: 'neutral', uplift: 'neutral', plateSpring: 'spatial',
   dofFrame: 'spatial', dofRestraints: 'spatial', dofLocalElementId: 'spatial', curves: 'spatial',
 } satisfies Record<keyof Support, SupportPlaneField>;
 

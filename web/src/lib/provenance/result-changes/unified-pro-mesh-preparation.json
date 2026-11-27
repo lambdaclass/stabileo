@@ -1,0 +1,40 @@
+{
+  "id": "unified-pro-mesh-preparation",
+  "date": "2026-11-27",
+  "prs": [
+    1928,
+    2365
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "unifiedCoarseShellRemesh",
+      "unifiedPlateSurfaceMesh"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-build-and-schedules.md",
+    "heading": "Mesh preparation in unified PRO"
+  },
+  "title": {
+    "en": "Mesh preparation in unified PRO",
+    "es": "Preparación de mallas en PRO unificado",
+    "pt": "Preparação da malha no PRO unificado",
+    "de": "Netzvorbereitung im vereinheitlichten PRO",
+    "fr": "Préparation du maillage dans PRO unifié",
+    "tr": "Birleşik PRO ağ hazırlığı",
+    "zh": "统一版 PRO 的网格准备"
+  },
+  "explanation": {
+    "en": "With unified PRO enabled, remeshing coarse shells or fitting adjacent plates to shared nodes can change displacements, reactions, member forces and shell stresses. Check the prepared mesh and rerun the analysis.",
+    "es": "Con PRO unificado activo, remallar láminas gruesas o ajustar placas contiguas a nodos compartidos puede cambiar desplazamientos, reacciones, esfuerzos en barras y tensiones en láminas. Revise la malla y repita el análisis.",
+    "pt": "Com o PRO unificado ativo, refazer malhas grossas ou ajustar placas adjacentes a nós comuns pode alterar deslocamentos, reações, esforços nas barras e tensões nas cascas. Confira a malha e repita a análise.",
+    "de": "Bei aktiviertem vereinheitlichtem PRO können die Neuvernetzung grober Schalen und die Anpassung benachbarter Platten an gemeinsame Knoten Verschiebungen, Auflagerkräfte, Stabschnittgrößen und Schalenspannungen ändern. Prüfen Sie das Netz und rechnen Sie erneut.",
+    "fr": "Lorsque PRO unifié est actif, le remaillage des coques grossières ou le raccordement de plaques adjacentes aux nœuds communs peut modifier les déplacements, réactions, efforts dans les barres et contraintes dans les coques. Vérifiez le maillage et relancez le calcul.",
+    "tr": "Birleşik PRO etkinken kaba kabukların yeniden ağlanması veya bitişik plakların ortak düğümlere uydurulması deplasmanları, mesnet tepkilerini, çubuk iç kuvvetlerini ve kabuk gerilmelerini değiştirebilir. Ağı kontrol edip analizi yeniden çalıştırın.",
+    "zh": "启用统一版 PRO 后，重新划分粗壳网格或将相邻板连接到共用节点，可能改变位移、反力、杆件内力和壳应力。请核查网格并重新分析。"
+  }
+}

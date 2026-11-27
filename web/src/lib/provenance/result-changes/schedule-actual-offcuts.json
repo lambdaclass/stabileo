@@ -1,0 +1,37 @@
+{
+  "id": "schedule-actual-offcuts",
+  "date": "2026-11-27",
+  "prs": [
+    2365
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers",
+      "cirsoc201",
+      "aci318"
+    ]
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-build-and-schedules.md",
+    "heading": "Unused stock in bar bending schedules"
+  },
+  "title": {
+    "en": "Unused stock in bar bending schedules",
+    "es": "Sobrantes en la planilla de despiece",
+    "pt": "Sobras na tabela de corte e dobra",
+    "de": "Restlängen in der Biegeliste",
+    "fr": "Chutes dans le bordereau de façonnage",
+    "tr": "Demir büküm cetvelindeki artık boylar",
+    "zh": "钢筋下料表中的余料"
+  },
+  "explanation": {
+    "en": "The schedule counts the pieces actually cut on the final stock bar for each mark. Regenerate the schedule to update the row offcuts and total waste.",
+    "es": "La planilla cuenta las piezas realmente cortadas de la última barra comercial de cada marca. Regenere la planilla para actualizar los sobrantes por marca y el desperdicio total.",
+    "pt": "A tabela conta as peças efetivamente cortadas na última barra comercial de cada marca. Gere novamente a tabela para atualizar as sobras por marca e a perda total.",
+    "de": "Die Liste zählt die tatsächlich aus dem letzten Handelsstab jeder Position geschnittenen Stücke. Erstellen Sie die Liste neu, um die Restlängen je Position und den Gesamtverschnitt zu aktualisieren.",
+    "fr": "Le bordereau compte les pièces effectivement coupées dans la dernière barre commerciale de chaque repère. Régénérez le bordereau pour actualiser les chutes par repère et le total.",
+    "tr": "Cetvel her poz için son ticari çubuktan gerçekten kesilen parçaları sayar. Pozların artık boylarını ve toplam fireyi güncellemek için cetveli yeniden oluşturun.",
+    "zh": "下料表按每个编号最后一根原材实际切出的件数计算余料。请重新生成下料表，更新各行余料及余料总长。"
+  }
+}

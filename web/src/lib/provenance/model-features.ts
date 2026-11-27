@@ -38,7 +38,7 @@ import { plateSurfaceOf } from '../model/physical/plate';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
-import { globalAxes } from '../features';
+import { globalAxes, unifiedPlates } from '../features';
 import { GRAVITY_SELF_WEIGHT, type AnalysisSettings, type SelfWeightLoad } from '../engine/analysis-settings';
 import { planarSelfWeightComponents, resolveSelfWeightScope, selfWeightFor } from '../engine/self-weight';
 import { isMaterialDensity } from '../section/weight';
@@ -68,7 +68,7 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'defaultDesignCovers',
-  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'coarseShellsPro', 'unifiedPlateMeshes',
+  'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
@@ -195,10 +195,11 @@ function plateMeshSizes(s: FeatureSnapshot): Map<string, number> {
   const out = new Map<string, number>();
   const systems = s.designData?.specialFloors?.systems ?? {};
   for (const [id, g] of Array.isArray(s.groups) ? s.groups : []) {
-    const surface = g?.data?.surface;
+    const data = g?.data as Record<string, unknown> | undefined;
+    const surface = plateSurfaceOf({ data });
     const size = surface?.mesh?.size;
-    if (!Array.isArray(surface?.loops) || !surface!.loops.length || !(typeof size === 'number' && size > 0)) continue;
-    const rib = g?.data?.typology === 'waffle' ? systems[`S${id}`]?.ribbed : undefined;
+    if (!(typeof size === 'number' && size > 0)) continue;
+    const rib = data?.typology === 'waffle' ? systems[`S${id}`]?.ribbed : undefined;
     const ribs = [rib?.spacingX, rib?.spacingY ?? rib?.spacingX].filter((v): v is number => typeof v === 'number' && v > 0);
     const own = Math.min(size, ...ribs);
     for (const q of g?.members?.quads ?? []) out.set(`q${q}`, own);
@@ -645,16 +646,16 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
   // PRO meshes before the analysis a plate whose shells came coarser than its mesh size (`coarseAsModelled`); a shell no plate holds yet gets the default size.
-  if (mode === 'pro') {
+  if (unifiedPlates() && mode === 'pro') {
     const at = new Map((Array.isArray(s.nodes) ? s.nodes : []).map((e) => [e?.[0], e?.[1]] as const));
-    if (values(s.groups).some(group => group.data?.surface?.loops?.length)) f.add('unifiedPlateMeshes');
+    if (physicalPlates.size) f.add('unifiedPlateSurfaceMesh');
     const sizeOf = plateMeshSizes(s);
     const long = (key: string, ns: number[] | undefined) => (ns ?? []).some((a, k) => {
       const p = at.get(a), q = at.get(ns![(k + 1) % ns!.length]!);
       return !!p && !!q && Math.hypot((q.x ?? 0) - (p.x ?? 0), (q.y ?? 0) - (p.y ?? 0), (q.z ?? 0) - (p.z ?? 0)) > 1.5 * (sizeOf.get(key) ?? DEFAULT_PLATE_MESH.size);
     });
     const shellsWithKeys = [...shellEntries(s.quads, 'q'), ...shellEntries(s.plates, 'p')];
-    if (shellsWithKeys.some(([key, sh]) => long(key, (sh as { nodes?: number[] } | undefined)?.nodes))) f.add('coarseShellsPro');
+    if (shellsWithKeys.some(([key, sh]) => long(key, (sh as { nodes?: number[] } | undefined)?.nodes))) f.add('unifiedCoarseShellRemesh');
   }
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 

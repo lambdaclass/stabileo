@@ -1431,10 +1431,6 @@ test.web.pro-plates-switch:
 test.web.production-mesher:
 	nix develop .\#e2e --command node --test web/scripts/tests/pro-mesher-inputs.test.mjs
 
-.PHONY: gen.web.pro-plates-off
-gen.web.pro-plates-off:
-	$(NIX_RUN) python3 web/scripts/gen-pro-plates-off.py "$(BASE)"
-
 .PHONY: test.engine.nonlinear-drivers-2510-wasm
 test.engine.nonlinear-drivers-2510-wasm: wasm scripts/tests/arc-review-wasm.mjs scripts/tests/planar-exact-member-actions.mjs scripts/tests/fixtures/planar-exact-member-actions.json scripts/tests/fixtures/planar-member-rotation.json scripts/tests/fixtures/planar-chord-equilibrium.json
 	$(NIX_RUN) node --test scripts/tests/nonlinear-drivers-2510-wasm.mjs

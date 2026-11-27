@@ -83,17 +83,17 @@ export function buildSchedule<R = string, P = string>(
     const perStock = long ? 0 : Math.max(1, Math.floor(stockLength / m.cuttingLength + 1e-9));
     const perMark = Math.max(m.pieces ?? 1, Math.ceil(m.cuttingLength / stockLength - 1e-9));
     const stockBars = long ? m.quantity * perMark : Math.ceil(m.quantity / perStock);
-    const offcut = Math.max(0, stockBars * stockLength - m.quantity * m.cuttingLength);
+    const totalLengthM = m.quantity * m.cuttingLength;
     if (long) spliced.push({ mark: m.mark, length: m.cuttingLength, stock: stockLength });
     rows.push({
       mark: m.mark, diameterMm: m.diameterMm, shape: m.shape, quantity: m.quantity,
       role: m.role, purpose: m.purpose,
       ownerElementIds: m.ownerElementIds, zoneIds: m.zoneIds,
       cuttingLengthM: m.cuttingLength,
-      totalLengthM: m.cuttingLength * m.quantity,
+      totalLengthM,
       massKg: m.massKg,
       stockBars,
-      offcutM: offcut,
+      offcutM: Math.max(0, stockBars * stockLength - totalLengthM),
     });
   }
 

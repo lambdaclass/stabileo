@@ -1,4 +1,3 @@
-import { proPlatesSource } from './scripts/pro-plates-source.mjs';
 import { featureDefines, featuresForMode, unitFeatureProfile, type BuildFeatures } from './config/public-features.mjs';
 import { defineConfig, searchForWorkspaceRoot, type Plugin, type UserConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
@@ -75,7 +74,7 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
   return { plugin, features: () => features, testing: () => testing };
 }
 
-function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean, read: (path: string) => string): Plugin {
+function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): Plugin {
   const id = 'virtual:public-i18n';
   const app = 'virtual:app-i18n';
   const mesher = 'virtual:mesher-i18n';
@@ -86,7 +85,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean, r
     watch(file);
     const pruneEntries = !eager();
     const { accounts, diagramGame, proPlatesUnified, tools } = features();
-    const lines = read(file).split('\n').filter((line) => {
+    const lines = readFileSync(file, 'utf8').split('\n').filter((line) => {
       const key = /^\s*(['"])([^'"]+)\1: /.exec(line)?.[2];
       if (!key) return false;
       if (proPlatesUnified && key.startsWith('mesher.')) return dictionary === 'mesher';
@@ -304,18 +303,15 @@ const preloads = loadedPreloads();
 
 export function createWebConfig(featureConfig?: unknown): UserConfig {
   const switches = publicBuildSwitchesPlugin(featureConfig);
-  const plates = proPlatesSource(() => switches.features().proPlatesUnified);
   return {
     ...baseConfig,
-    worker: { ...baseConfig.worker, plugins: () => [plates.plugin, wasmStubPlugin()] },
     plugins: [
       switches.plugin,
-      plates.plugin,
       researchLocaleBuildPlugin(switches.features),
       preloads.plugin,
       wasmStubPlugin(),
-      publicI18nPlugin(switches.features, switches.testing, plates.read),
-      resultChangeMetadataPlugin(() => switches.features().proPlatesUnified),
+      publicI18nPlugin(switches.features, switches.testing),
+      resultChangeMetadataPlugin(),
       svelte({ preprocess: { markup: ({ content }) => switches.testing() ? { code: content } : prunePublicBuildBranches(content, switches.features()) } }),
       ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [previewAuthConfigPlugin()]),
     ],

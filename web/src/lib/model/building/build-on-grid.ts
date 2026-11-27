@@ -1,3 +1,4 @@
+import { unifiedPlates } from '../../features';
 /**
  * Build a structure on the grid: columns at the intersections, beams along the axes, slabs in the
  * bays, walls between axes. Each element is placed as an engineer thinks of it and becomes both
@@ -167,9 +168,13 @@ export function placeSlabs(g: StructuralGrid, o: {
       if ('refused' in r) { refused = r.refused; continue; }
       if (r.faces.length === 0 && r.skippedExisting > 0) refused = 'occupied';
       for (const f of r.faces) {
-        created++; shells += o.meshAtSolve ? 0 : f.quads.length + f.plates.length;
+        created++;
+        shells += unifiedPlates() && o.meshAtSolve ? 0 : f.quads.length + f.plates.length;
+        const panel = !unifiedPlates() && o.meshAtSolve && f.quads.length === 1 && f.plates.length === 0
+          ? modelStore.quads.get(f.quads[0]!)?.nodes : undefined;
         declare(name(), f, {
           kind: 'slab', provenance: 'declared', levelFrom: l.id, levelTo: l.id,
+          ...(panel ? { meshAtSolve: { size: o.meshSize, meshed: false, panel: [...panel] } } : {}),
           ...(o.typology ? { typology: o.typology } : {}),
         });
         platesFromShells([...f.quads.map((q) => `q${q}`), ...f.plates.map((q) => `p${q}`)], { keepMesh: !o.meshAtSolve, size: o.meshSize });
@@ -296,7 +301,7 @@ export function placeWall(g: StructuralGrid, o: {
         ...(openings.length ? { openings: openings.map((w) => ({ offset: w.offset, width: w.width, sill: w.sill, height: w.height })) } : {}),
       });
       const made = platesFromShells([...r.quads.map((q) => `q${q}`), ...r.plates.map((q) => `p${q}`)], { size: o.meshSize });
-      if (o.meshAtSolve) { for (const id of made) clearPlateMesh(id); shells -= r.quads.length + r.plates.length; }
+      if (made.length && o.meshAtSolve) { for (const id of made) clearPlateMesh(id); shells -= r.quads.length + r.plates.length; }
       const held = k === 0 && lv[0]!.z <= Math.min(...g.levels.map((l) => l.z)) + 1e-9 ? baseSupport([pt(s0, z0), pt(s0 + length, z0)]) : null;
       if (held) for (const id of made) holdPlateSidesAt(id, z0, held);
     }

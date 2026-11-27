@@ -1,3 +1,4 @@
+import { unifiedPlates } from '../features';
 import { errorText } from '../utils/error-text';
 import { knownIssueRefusal } from './known-issues';
 /**
@@ -332,7 +333,7 @@ async function globalSolve(options: { directBase?: boolean }, run: { latest: () 
   const stampBefore = recheckStore.capture();
   if (uiStore.is3DWorkspace) {
     // Basic 3D has no plates: a slab waiting for the analysis is meshed in place (`deferred-slabs.ts`).
-    if (uiStore.analysisMode !== 'pro') {
+    if (!unifiedPlates() || uiStore.analysisMode !== 'pro') {
       // A slab meshed before its columns' sections were represented is meshed again with them
       // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.
       const f = representFootprints();

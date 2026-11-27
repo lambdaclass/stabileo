@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import type { BarPath } from '../../../codes/cirsoc201/bar-geometry';
 import { buildSchedule, scheduleToAoa, type TitleBlock } from '../../../engine/detailing/drawings';
 
 const title: TitleBlock = {
@@ -6,14 +7,14 @@ const title: TitleBlock = {
   reviewState: '', superseded: false, maturity: 'VALIDATED', scale: 1,
 };
 
-it.skip('known wrong result: #2365 counts only pieces actually cut on each purchased stock bar', () => {
+it('counts only pieces actually cut on each purchased stock bar', () => {
   const marks = [
     ['A', 5, 1, 1, 7],
     ['B', 5, 2, 1, 2],
     ['C', 5, 3, 2, 9],
     ['D', 6, 2, 1, 0],
   ] as const;
-  const schedule = buildSchedule(marks.map(([mark, cuttingLength, quantity]) => ({
+  const schedule = buildSchedule<BarPath['role'], BarPath['purpose']>(marks.map(([mark, cuttingLength, quantity]) => ({
     mark, cuttingLength, quantity, diameterMm: 12, shape: 'straight', massKg: 1,
   })), 12);
   const workbook = scheduleToAoa(schedule, title, 'en');

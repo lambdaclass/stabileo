@@ -5,10 +5,6 @@ import { deflateRawSync } from 'node:zlib';
 import { resultChangeLocaleProblems } from './result-changes/locales.mjs';
 import { readRegistry } from './result-changes/registry.mjs';
 
-export function readProfileResultChanges(proPlatesUnified) {
-  return readRegistry(undefined, { proPlatesUnified });
-}
-
 export function packResultChangeNotices(registry) {
   const problems = registry.changes.flatMap(resultChangeLocaleProblems);
   if (problems.length) throw new Error(problems.join('\n'));
@@ -18,7 +14,7 @@ export function packResultChangeNotices(registry) {
 }
 
 /** @returns {import('vite').Plugin} */
-export function resultChangeMetadataPlugin(proPlatesUnified = () => true) {
+export function resultChangeMetadataPlugin() {
   const ids = ['virtual:result-change-metadata', 'virtual:result-change-packed', 'virtual:result-change-quantities'];
   const dir = fileURLToPath(new URL('../src/lib/provenance/result-changes', import.meta.url));
   return {
@@ -27,14 +23,9 @@ export function resultChangeMetadataPlugin(proPlatesUnified = () => true) {
     load(resolved) {
       const id = resolved.slice(1).split('?')[0];
       if (resolved[0] !== '\0' || !ids.includes(id)) return null;
-      const unified = proPlatesUnified();
-      if (unified) {
-        for (const name of readdirSync(dir)) if (name.endsWith('.json')) this.addWatchFile(join(dir, name));
-      } else {
-        this.addWatchFile(fileURLToPath(new URL('../config/pro-plates-off.json', import.meta.url)));
-      }
+      for (const name of readdirSync(dir)) if (name.endsWith('.json')) this.addWatchFile(join(dir, name));
       /** @type {import('../src/lib/provenance/registry').ResultChangeRegistry} */
-      const registry = readProfileResultChanges(unified);
+      const registry = readRegistry();
       if (id === 'virtual:result-change-packed') {
         const { packed } = packResultChangeNotices(registry);
         return `export default ${JSON.stringify(packed)};`;

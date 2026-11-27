@@ -1,3 +1,4 @@
+import { unifiedPlates } from '../features';
 import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, plateMeshGeometry, type PlateStatus } from '../model/physical/plate-analysis';
 import { plateRemeshMessage, wallSlabRefusal } from '../engine/plate-analysis-refusal';
 /**
@@ -139,7 +140,7 @@ function featuresOf(
 /** A plate's mesh settings as meshed: a waffle slab no coarser than its rib spacing, so each rib has its row of elements. */
 function specOf(e: PlateEntry, override?: Partial<PlateMeshSpec>): PlateMeshSpec {
   const spec = { ...e.surface.mesh, ...(override ?? {}) };
-  const rib = e.physical.typology === 'waffle' ? designData().specialFloors?.systems?.[`S${e.id}`]?.ribbed : undefined;
+  const rib = unifiedPlates() && e.physical.typology === 'waffle' ? designData().specialFloors?.systems?.[`S${e.id}`]?.ribbed : undefined;
   return rib ? { ...spec, size: Math.min(spec.size, rib.spacingX, rib.spacingY ?? rib.spacingX) } : spec;
 }
 
@@ -149,6 +150,7 @@ function specOf(e: PlateEntry, override?: Partial<PlateMeshSpec>): PlateMeshSpec
  * anything else, which meshes as it always did.
  */
 function footprintsOf(e: PlateEntry, geo: NonNullable<ReturnType<typeof plateGeometry>>): { corners: Array<{ x: number; y: number; z: number }>; columns: ColumnFootprint[]; z: number } | null {
+  if (!unifiedPlates()) return null;
   if (e.physical.kind !== 'slab' || geo.holes.length || geo.outer.length !== 4 || Math.abs(geo.frame.n[2]) < 1 - 1e-6) return null;
   const corners = geo.outer.map((p) => ({ x: p[0], y: p[1], z: p[2] }));
   const z = corners[0]!.z;
@@ -164,6 +166,7 @@ let tartan: Map<number, AxisLines> | null = null;
 
 /** Every coordinate the plates `ids` force along each global axis their planes contain, laid out at each one's mesh size. A slab's column faces are its floor's own, added by the slab: a column narrower above would otherwise put both faces on every floor. */
 function tartanOf(ids: Iterable<number>, specs: ReadonlyMap<number, PlateMeshSpec>, replaced?: ReadonlyMap<number, number>): Map<number, AxisLines> {
+  if (!unifiedPlates()) return new Map();
   const forced = new Map<number, [number[], number[], number[]]>();
   for (const id of ids) {
     const e = plateEntry(id), spec = specs.get(id);
@@ -344,7 +347,7 @@ let coarseMemo: { version: number; groups: unknown; loads: unknown; map: Map<num
  * with the model is kept, and so are shells carrying loads put on them by hand, which a new mesh would drop.
  */
 export function coarseAsModelled(e: PlateEntry): boolean {
-  if (!e.surface.meshed?.original) return false;
+  if (!unifiedPlates() || !e.surface.meshed?.original) return false;
   if (!coarseMemo || coarseMemo.version !== modelStore.modelVersion || coarseMemo.groups !== modelStore.model.groups || coarseMemo.loads !== modelStore.loads) {
     coarseMemo = { version: modelStore.modelVersion, groups: modelStore.model.groups, loads: modelStore.loads, map: new Map() };
   }
@@ -764,7 +767,7 @@ function planPlateMeshNow(id: number, specOverride?: Partial<PlateMeshSpec>, opt
   const input = plateMeshInput(f.geo, spec, f.features);
   const signature = signatureOf(e, f, spec);
   const preview = (mesh: MeshOutput, mixed: boolean, extra?: Pick<PlateMeshPlan, 'grid' | 'aDir' | 'bDir' | 'footprints'>): PlateMeshPlan => {
-    if (!opts.replaced && placePlateEdits(e, mesh) === null) {
+    if ((!opts.replaced || !unifiedPlates()) && placePlateEdits(e, mesh) === null) {
       return { ...base, mesh: null, refused: 'shellEdits', cells: 0, quality: null, signature, input, mixed: false };
     }
     return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed, ...extra };
@@ -859,6 +862,7 @@ function meshHangsNeighbours(e: PlateEntry, f = featuresOf(e)): boolean {
  * mesher meets better: the grid stands, and that neighbour waits for a mesh of its own.
  */
 function rectGridOf(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: PlateMeshSpec, features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null, shellNeighbours: ReadonlyArray<readonly [Vec3, Vec3]>, along?: { frame: PlateFrameLike; a: number; b: number }): MeshOutput | null {
+  if (!unifiedPlates()) return null;
   const frame = along?.frame ?? geo.frame, lines = tartanLines(spec, frame, along ? { a: along.a, b: along.b } : undefined);
   const g = rectGrid({
     frame, outer: geo.outer, holes: geo.holes, a: along?.a ?? spec.size, b: along?.b ?? spec.size, element: spec.element, maxCells: MAX_MESH_CELLS,
@@ -1143,6 +1147,8 @@ function conformingMeshes(plans: readonly PlateMeshPlan[], report: PlateMeshRepo
       else drafts.push(p);
     }
     if (report.refused.length) return [];
+
+    if (!unifiedPlates()) return drafts;
 
     const owned = new Set(entries.filter(e => specs.has(e.id)).flatMap(e => plateLoops(e.group).owned));
     const frameNodes = memberChains(plateModel(), owned).flat();
@@ -1436,6 +1442,7 @@ function prepared(meshed: number, cells: number, stale?: string[]): PlatePrepara
 
 /** Without meshing: a plate with no mesh, or whose mesh leaves nodes hanging on a neighbour, stops the solve; one whose mesh is only out of date solves on it and is named. */
 function unmeshedOrStale(need: number[], names: (ids: number[]) => string[]): PlatePreparation {
+  if (!unifiedPlates()) return { ok: false, reason: 'needsMesh', plates: names(need) };
   const missing = need.filter((id) => { const e = plateStatus(id) === 'stale' ? plateEntry(id) : undefined; return !e || meshHangsNeighbours(e); });
   if (missing.length) return { ok: false, reason: 'needsMesh', plates: names(missing) };
   return prepared(0, 0, names(need));

@@ -1,3 +1,4 @@
+import { unifiedPlates } from '../features';
 import { ModelInputError, requireStoredProjectInput } from '../engine/model-input-numbers';
 import { resultComponents } from '../axes/result-components';
 import { exportMessages, warningImage, warningCanvas } from '../export/containment';
@@ -51,6 +52,7 @@ import { axesStatement } from '../axes/statement';
  */
 export const DEDAL_FILE_VERSION = '2.0' as const;
 const COMPACT_REFUSALS_FILE_VERSION = '2.1' as const;
+const newestProjectVersion = () => unifiedPlates() ? COMPACT_REFUSALS_FILE_VERSION : DEDAL_FILE_VERSION;
 const KNOWN_VERSIONS = new Set(['1.0', '2.0']);
 /** The session envelope (`DedalSessionFile`): every release so far has written 1.0. */
 export const SESSION_FILE_VERSION = '1.0' as const;
@@ -63,7 +65,7 @@ export const SESSION_FILE_VERSION = '1.0' as const;
  * opens it. Never read partially: fields this build does not know would be dropped in silence,
  * and saving it back would overwrite the newer file with less than it had (#718).
  */
-export function isNewerFileVersion(version: unknown, newest: string = COMPACT_REFUSALS_FILE_VERSION): boolean {
+export function isNewerFileVersion(version: unknown, newest: string = newestProjectVersion()): boolean {
   if (typeof version !== 'string' || !/^\d+(\.\d+)*$/.test(version)) return false;
   const a = version.split('.').map(Number);
   const b = newest.split('.').map(Number);
@@ -274,7 +276,7 @@ export function serializeProject(): string {
   const file = buildProjectFile();
   const detailing = file.snapshot.detailing;
   const refusals = detailing?.designRefusals;
-  const compact = refusals && compactDesignRefusals(refusals);
+  const compact = unifiedPlates() && refusals && compactDesignRefusals(refusals);
   if (!compact) return JSON.stringify(file);
   return JSON.stringify({
     ...file,
@@ -313,7 +315,7 @@ function deserializeProject(text: string): boolean {
 function openProjectData(parsed: unknown): boolean {
   if (!parsed || typeof parsed !== 'object') return false;
   const d = parsed as Record<string, unknown>;
-  const compact = d.version === COMPACT_REFUSALS_FILE_VERSION;
+  const compact = unifiedPlates() && d.version === COMPACT_REFUSALS_FILE_VERSION;
   if (!compact && (typeof d.version !== 'string' || !KNOWN_VERSIONS.has(d.version))) return false;
   const snapshot = d.snapshot as Record<string, unknown> | undefined;
   if (!snapshot) return false;
@@ -681,7 +683,7 @@ export async function loadProject(file: File): Promise<void> {
   let data: unknown;
   try { data = JSON.parse(text); } catch { throw new Error(t('file.invalidFormat')); }
   const version = (data as { version?: unknown } | null)?.version;
-  const newest = isSessionFile(data) ? SESSION_FILE_VERSION : COMPACT_REFUSALS_FILE_VERSION;
+  const newest = isSessionFile(data) ? SESSION_FILE_VERSION : newestProjectVersion();
   if (isNewerFileVersion(version, newest)) throw newerVersionError(String(version), newest);
   if (!openProjectData(data)) throw new Error(t('file.invalidFormat'));
   // Members lying over each other: ask about each, as drawing one would.
@@ -731,7 +733,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     }
     return { type: 'session', count: tabs.length };
   } else if (isNewerFileVersion(version)) {
-    throw newerVersionError(String(version), COMPACT_REFUSALS_FILE_VERSION);
+    throw newerVersionError(String(version), newestProjectVersion());
   } else if (openProjectData(data)) {
     askAboutOverlapsInModel();
     return { type: 'tab', count: 1 };

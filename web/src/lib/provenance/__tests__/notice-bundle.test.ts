@@ -5,19 +5,18 @@ import { setImmediate } from 'node:timers/promises';
 import { readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
-import { packResultChangeNotices, readProfileResultChanges } from '../../../../scripts/result-change-metadata.mjs';
+import { packResultChangeNotices } from '../../../../scripts/result-change-metadata.mjs';
 import { REGISTRY_LOCALES, type ResultChangeRegistry } from '../registry';
-import { featuresForMode } from '../../../../config/public-features.mjs';
+import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
 import { sharedBuild, SHARED_PLAIN_BUILD } from '../../utils/__tests__/shared-build';
 
 const SHARED = sharedBuild(SHARED_PLAIN_BUILD);
-const production = featuresForMode('production');
-const { packed, shipped } = packResultChangeNotices(readProfileResultChanges(production.proPlatesUnified));
+const { packed, shipped } = packResultChangeNotices(readRegistry());
 const RESULT_CHANGES: ResultChangeRegistry = shipped;
 
 it('uses the production notice inventory for the build expectation', () => {
   expect(RESULT_CHANGES.changes.some(change => change.id === 'plates-coarse-as-modelled-meshed'))
-    .toBe(production.proPlatesUnified);
+    .toBe(true);
 });
 
 it('loads translated recheck notices outside the static app route closure', async () => {

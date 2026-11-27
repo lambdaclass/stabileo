@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readProfileResultChanges } from '../result-change-metadata.mjs';
-import { featuresForMode } from '../../config/public-features.mjs';
+import { readRegistry } from '../result-changes/registry.mjs';
 import globalSetup from '../../e2e/global-setup';
 
 describe('playwright results version', () => {
@@ -16,7 +15,6 @@ describe('playwright results version', () => {
     vi.stubEnv('E2E_PREBUILT', '0');
     vi.stubEnv('STABILEO_E2E_PROFILE', profile);
     globalSetup();
-    const unified = featuresForMode(profile).proPlatesUnified;
-    expect(process.env.E2E_RESULTS_VERSION).toBe(String(readProfileResultChanges(unified).currentResultsVersion));
+    expect(process.env.E2E_RESULTS_VERSION).toBe(String(readRegistry().currentResultsVersion));
   });
 });

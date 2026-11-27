@@ -1,5 +1,8 @@
 <script lang="ts">
+  import { unifiedPlates } from '../../lib/features';
   import { modelStore, uiStore } from '../../lib/store';
+  import ProMesher from './ProMesher.svelte';
+  import ProSurfaces from './ProSurfaces.svelte';
   import DataTable from '../DataTable.svelte';
   import { t, tp, capitalized } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
@@ -250,7 +253,7 @@
           <button type="button" class:on={!circle && drawState.plateCorners === 'outline'} aria-pressed={!circle && drawState.plateCorners === 'outline'} onclick={() => cornersAs('outline')} title={t('drawBar.outlineHint')} data-testid="write-corners-outline">{t('drawBar.outline')}</button>
           <button type="button" class:on={!circle && drawState.plateCorners === 3} aria-pressed={!circle && drawState.plateCorners === 3} onclick={() => cornersAs(3)} data-testid="write-corners-3">{t('drawBar.triangle')}</button>
           <button type="button" class:on={!circle && drawState.plateCorners === 4} aria-pressed={!circle && drawState.plateCorners === 4} onclick={() => cornersAs(4)} data-testid="write-corners-4">{t('drawBar.quad')}</button>
-          <button type="button" class:on={circle} aria-pressed={circle} onclick={() => (circle = true)} data-testid="write-corners-circle">{t('drawBar.circle')}</button>
+          {#if unifiedPlates()}<button type="button" class:on={circle} aria-pressed={circle} onclick={() => (circle = true)} data-testid="write-corners-circle">{t('drawBar.circle')}</button>{/if}
         </div>
         {#if circle}
           <label>{t('plates.circle.center')} <input type="text" class="node-input outline-input" placeholder="x; y; z" bind:value={circleCenter} data-testid="plate-circle-center" /></label>
@@ -308,12 +311,22 @@
       </WriteCard>
     {/if}
 
-    <div class="pro-shells-scope" role="radiogroup" aria-label={t('plates.pickScope')} data-testid="plates-scope">
+    {#if unifiedPlates()}
+      <div class="pro-shells-scope" role="radiogroup" aria-label={t('plates.pickScope')} data-testid="plates-scope">
       <button role="radio" aria-checked={uiStore.shellPickScope === 'plate'} class:on={uiStore.shellPickScope === 'plate'} onclick={() => toScope('plate')} data-testid="plates-scope-plate">{tp('plates.scopePlates', { n: physicalCount })}</button>
       <button role="radio" aria-checked={uiStore.shellPickScope === 'element'} class:on={uiStore.shellPickScope === 'element'} onclick={() => toScope('element')} data-testid="plates-scope-element">{tp('plates.scopeElements', { n: quadCount + plateCount })}</button>
-    </div>
+      </div>
+    {:else}
+      <PlateBrowser />
+      <PlatePanel />
+      <details>
+        <summary>{t('pro.meshGenerator')}</summary>
+        <ProMesher />
+        <ProSurfaces />
+      </details>
+    {/if}
 
-    {#if uiStore.shellPickScope === 'plate'}
+    {#if unifiedPlates() && uiStore.shellPickScope === 'plate'}
       <PlateBrowser />
       <PlatePanel />
     {:else}

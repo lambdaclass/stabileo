@@ -1,3 +1,4 @@
+import { unifiedPlates } from '../features';
 /**
  * Shells already in a model made physical plates: an example, an older project, an imported file,
  * elements drawn corner by corner, a slab the solve was to mesh. Each panel of shells (touching,
@@ -177,6 +178,7 @@ export function panelLoops(panel: readonly Shell[]): number[][] | null {
  * member's plate, with its kind, levels and typology; others become new plates. One undo step.
  */
 export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boolean; size?: number; inferred?: boolean } = {}): number[] {
+  if (!unifiedPlates()) return [];
   const out: number[] = [];
   const current = physicalPlates().filter((p) => plateStatus(p.id) === 'current').map((p) => p.id);
   modelStore.batch(() => {
@@ -278,6 +280,7 @@ function shellLoadCount(keys: readonly string[]): number {
  * made the plate it is, waiting for its mesh or with the one the solve gave it. Returns how many.
  */
 export function platesFromMeshAtSolve(): number {
+  if (!unifiedPlates()) return 0;
   let n = 0;
   if (![...modelStore.model.groups.values()].some((g) => (physicalDataOf(g) as { meshAtSolve?: unknown } | null)?.meshAtSolve)) return n;
   modelStore.batch(() => {
@@ -303,7 +306,7 @@ export function platesFromMeshAtSolve(): number {
 export function ensurePlates(): number {
   // Explore restores the model exactly as it was when it closes: nothing is read into it meanwhile.
   // Basic 3D has no plates: there a slab waiting for its mesh stays one, and the solve meshes it (`deferred-slabs.ts`).
-  if (whatIf.active || uiStore.analysisMode !== 'pro') return 0;
+  if (!unifiedPlates() || whatIf.active || uiStore.analysisMode !== 'pro') return 0;
   let n = 0;
   modelStore.withoutUndo(() => { n = platesFromMeshAtSolve(); });
   const loose = looseShells();
@@ -318,6 +321,7 @@ export function ensurePlates(): number {
  * element (`RecognitionConflict`) waits for that person in the Elements panel. Part of no undo step.
  */
 export function ensurePhysicalModel(): number {
+  if (!unifiedPlates()) return 0;
   const n = ensurePlates();
   if (uiStore.analysisMode !== 'pro' || whatIf.active) return n;
   const plan = planRecognition();
