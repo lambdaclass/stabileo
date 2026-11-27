@@ -832,3 +832,29 @@ fn nightly_space_case_two_has_provable_bounds() {
     }
     eprintln!("space: raw {}, bounds [{lower}, {upper}]", raw.collapse_factor);
 }
+
+#[test]
+#[ignore = "known wrong result: #2658"]
+fn issue_2658_shared_section_cantilevers_use_the_loaded_material_3d() {
+    for idle_grade in [235.0, 355.0] {
+        for weak in [false, true] {
+            let (b, h) = (0.25, 0.5);
+            let load = if weak { [0.0, -10.0, 0.0, 0.0, 0.0, 0.0] } else { [0.0, 0.0, -10.0, 0.0, 0.0, 0.0] };
+            let solver = make_3d_input(
+                vec![(1, 0.0, 0.0, 0.0), (2, -4.0, 0.0, 0.0), (3, 4.0, 0.0, 0.0)], vec![(1, E, 0.3), (2, E, 0.3)], vec![(1, A, IY, IZ, J)],
+                vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 1, 3, 2, 1)], vec![(1, FIXED.to_vec())], vec![nodal(3, load)],
+            );
+            let mut input = plastic(solver, MPY, MPZ);
+            input.mp_overrides = None;
+            let sec = input.sections.get_mut("1").unwrap();
+            sec.b = Some(b);
+            sec.h = Some(h);
+            input.materials.insert("1".into(), PlasticMaterialData { fy: Some(idle_grade) });
+            input.materials.insert("2".into(), PlasticMaterialData { fy: Some(235.0) });
+            let expected = 235.0 * 1000.0 * b * h * (if weak { b } else { h }) / (4.0 * 40.0);
+            let out = certify_plastic_3d(&input).unwrap();
+            assert_encloses("mixed grade", &out.certificate, expected, 1e-9);
+            assert_eq!(out.results.hinges[0].element_id, 2);
+        }
+    }
+}

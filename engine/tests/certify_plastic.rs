@@ -823,3 +823,19 @@ fn issue_758_certified_entry_releases_only_what_the_exact_certificate_confirms()
     let r = certified_limit_2d(&LimitInput { solver: linked, mp: mp(&[(1, 1.0), (2, 1.0)]), np: HashMap::new() });
     assert!(r.as_ref().is_err_and(|e| e.contains("PL-2D-INVARIANCE")), "{:?}", r.map(|r| r.lambda));
 }
+
+#[test]
+#[ignore = "known wrong result: #2658"]
+fn issue_2658_shared_section_cantilevers_use_the_loaded_material_2d() {
+    for idle_grade in [FY, 2.0 * FY] {
+        let s = make_input(
+            vec![(1, 0.0, 0.0), (2, -4.0, 0.0), (3, 4.0, 0.0)], vec![(1, E, 0.3), (2, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
+            vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 1, 3, 2, 1, false, false)], vec![(1, 1, "fixed")], vec![nodal(3, 0.0, -10.0)],
+        );
+        let mut input = plastic_rect(s);
+        input.materials.insert("1".into(), PlasticMaterialData { fy: Some(idle_grade) });
+        input.materials.insert("2".into(), PlasticMaterialData { fy: Some(FY) });
+        assert_released(&input, MP / 40.0);
+        assert_containment(solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    }
+}
