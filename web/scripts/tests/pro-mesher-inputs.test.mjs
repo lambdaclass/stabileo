@@ -261,3 +261,18 @@ test.skip('known wrong result: #1928 opening the CIRSOC roof pane preserves a st
     assert.equal(await page.evaluate(() => window.readRoofChoice()), 'azotea_publica');
   }
 });
+
+test.skip('known wrong result: #1928 a saved floor occupancy outside the active table needs an explicit choice', async t => {
+  const server = await createServer({ root, mode: 'production', server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+  t.after(() => server.close());
+  await server.listen();
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.goto(new URL('/scripts/tests/fixtures/floor-occupancy.html', server.resolvedUrls.local[0]).href);
+  await page.getByTestId('al-nav-live').click();
+  const occupancy = page.getByTestId('al-occupancy');
+  assert.deepEqual(await occupancy.evaluate(select => [...select.selectedOptions].filter(o => !o.disabled).map(o => o.value)), []);
+  await occupancy.selectOption('vivienda');
+  await expect(occupancy).toHaveValue('vivienda');
+});
