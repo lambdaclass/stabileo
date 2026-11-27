@@ -1,13 +1,10 @@
+import reinforcementResults from './reinforcement-results/tr';
 import loadBasis from './load-basis/tr';
 import type { Translations } from '../types';
 
 const tr: Translations = {
   ...loadBasis,
-  'project.adoptedReinforcementIgnored': "Bu sürüm projede kayıtlı kabul edilmiş donatıyı dikkate almaz ve tasarım donatısını kullanır.",
-  'wall.tensionRequiresBarLayout': "Çekme ve eğilmenin birlikte kontrolü için düşey donatı yerleşimi gereklidir.",
-  'wall.boundaryBarCount': "Perdenin her iki ucu için sıfır veya daha büyük bir tam sayı olarak uç donatısı adedini girin.",
-  'wall.tensionAtOpenings': "Boşluklu perdede çekme kontrolü için net kesit ve bu kesitten geçen sürekli donatı gereklidir.",
-  'wall.tensionShearEdition': "{edition} sürümünde perde için birlikte etkiyen çekme ve kesme doğrulanamıyor.",
+  ...reinforcementResults,
   'svc.accountingMismatch': "Analiz reddedildi. Yük durumu {case}, {component}. Girilen {entered}, birleştirilen {assembled}.",
   'svc.accountingLineEnd': "Analiz reddedildi. Yük durumu {case}, {member} numaralı elemanın {end} ucu. Yeniden dağıtılan yük {actual} düğümüne uygulandı. Beklenen düğüm {expected}.",
   'svc.accountingUnsupported': "Analiz reddedildi. {case} yük durumunda {kind} {id} için kuvvet ve moment hesabı yapılamıyor.",
@@ -16163,8 +16160,6 @@ const tr: Translations = {
   "rcSheets.v.everyCombo": "Seçilen donatıyla her kombinasyon",
   "rcSheets.v.wallTieFloorBars": "Kenar etriyeleri tasarım verilerinin en küçük aralığından sık değil: daha kalın düşey donatı 6·db veya 8·db'yi ona çıkarır",
   "rcSheets.v.wallTieFloor": "Kenar etriyeleri tasarım verilerinin en küçük aralığından sık değil: buna donatı değil perde kalınlığı veya hx engel",
-  "detailing.cutoff.unverified": "Kiriş {element}, x = {x} m. Yerel kesme dayanımı ve donatı, çubuğun burada sonlandırılabileceğini doğrulamıyor.",
-  "detailing.schedule.spliceNote": "{mark} işaretli donatı ({length} m) {stock} m'lik ticari boydan uzun ve bindirme gerektirir.",
   "rcSheets.v.lineEndAnchor": "Uç kolon içinde kanca",
   "rcSheets.v.lineIntegrity": "Kenar kirişi bütünlüğü: üstte ve altta sürekli çubuklar",
   "rcSheets.v.lineInflectionLd": "Büküm noktalarında pozitif donatı çapı",

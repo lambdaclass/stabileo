@@ -1,13 +1,10 @@
+import reinforcementResults from './reinforcement-results/fr';
 import loadBasis from './load-basis/fr';
 import type { Translations } from '../types';
 
 const fr: Translations = {
   ...loadBasis,
-  'project.adoptedReinforcementIgnored': "Cette version ignore les armatures adoptées enregistrées dans le projet et utilise les armatures de dimensionnement.",
-  'wall.tensionRequiresBarLayout': "La traction combinée à la flexion exige la disposition des barres verticales.",
-  'wall.boundaryBarCount': "Saisissez un nombre entier positif ou nul de barres de rive à chaque extrémité du voile.",
-  'wall.tensionAtOpenings': "La traction au droit des ouvertures exige la section nette et les armatures continues qui la traversent.",
-  'wall.tensionShearEdition': "La vérification du voile en traction et cisaillement combinés est indisponible pour l’édition {edition}.",
+  ...reinforcementResults,
   'svc.accountingMismatch': "Analyse refusée. Cas de charge {case}, {component}. Valeur saisie {entered}, valeur assemblée {assembled}.",
   'svc.accountingLineEnd': "Analyse refusée. Cas de charge {case}, extrémité {end} de la barre {member}. La charge redistribuée a été appliquée au nœud {actual}. Le nœud attendu est {expected}.",
   'svc.accountingUnsupported': "Analyse refusée. Les forces et les moments de {kind} {id} dans le cas de charge {case} ne peuvent pas être comptabilisés.",
@@ -16163,8 +16160,6 @@ const fr: Translations = {
   "rcSheets.v.everyCombo": "Chaque combinaison avec les armatures adoptées",
   "rcSheets.v.wallTieFloorBars": "Cadres de rive pas plus serrés que l'espacement minimal des données de calcul : des barres verticales plus grosses portent 6·db ou 8·db jusqu'à lui",
   "rcSheets.v.wallTieFloor": "Cadres de rive pas plus serrés que l'espacement minimal des données de calcul : l'épaisseur du voile ou hx l'en empêche, pas les barres",
-  "detailing.cutoff.unverified": "Poutre {element}, x = {x} m. La résistance locale au cisaillement et les armatures ne justifient pas un arrêt de barre ici.",
-  "detailing.schedule.spliceNote": "La position {mark} ({length} m) dépasse la barre commerciale de {stock} m et demande un recouvrement.",
   "rcSheets.v.lineEndAnchor": "Crochet dans le poteau d'extrémité",
   "rcSheets.v.lineIntegrity": "Intégrité de la poutre de rive : barres filantes en haut et en bas",
   "rcSheets.v.lineInflectionLd": "Diamètre des barres positives aux points d'inflexion",

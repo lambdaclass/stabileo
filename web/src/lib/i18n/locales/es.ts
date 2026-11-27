@@ -1,11 +1,8 @@
+import reinforcementResults from './reinforcement-results/es';
 import loadBasis from './load-basis/es';
 const es: Record<string, string> = {
   ...loadBasis,
-  'project.adoptedReinforcementIgnored': "Esta versión ignora la armadura adoptada guardada en el proyecto y usa la armadura de diseño.",
-  'wall.tensionRequiresBarLayout': "La tracción combinada con flexión requiere la disposición de las barras verticales.",
-  'wall.boundaryBarCount': "Ingresá una cantidad entera de barras de borde, mayor o igual que cero, en cada extremo del tabique.",
-  'wall.tensionAtOpenings': "La tracción en un tabique con aberturas requiere la sección neta y la armadura continua que la atraviesa.",
-  'wall.tensionShearEdition': "No se puede verificar el tabique a tracción y corte combinados para la edición {edition}.",
+  ...reinforcementResults,
   'svc.accountingMismatch': "Análisis rechazado. Caso de carga {case}, {component}. Valor ingresado {entered}, valor ensamblado {assembled}.",
   'svc.accountingLineEnd': "Análisis rechazado. Caso de carga {case}, extremo {end} de la barra {member}. La carga redistribuida llegó al nodo {actual}. Se esperaba el nodo {expected}.",
   'svc.accountingUnsupported': "Análisis rechazado. En el caso de carga {case} no se pueden contabilizar las fuerzas ni los momentos de {kind} {id}.",
@@ -16314,8 +16311,6 @@ const es: Record<string, string> = {
   "rcSheets.v.everyCombo": "Cada combinación con lo adoptado",
   "rcSheets.v.wallTieFloorBars": "Estribos de borde no más juntos que la separación mínima de los datos de diseño: con barras verticales más gruesas, 6·db o 8·db la alcanza",
   "rcSheets.v.wallTieFloor": "Estribos de borde no más juntos que la separación mínima de los datos de diseño: lo impide el espesor del tabique o hx, no las barras",
-  "detailing.cutoff.unverified": "Viga {element}, x = {x} m. La resistencia local al corte y la armadura no justifican terminar la barra aquí.",
-  "detailing.schedule.spliceNote": "La marca {mark} ({length} m) excede la barra comercial de {stock} m y requiere empalme.",
   "rcSheets.v.lineEndAnchor": "Gancho dentro de la columna extrema",
   "rcSheets.v.lineIntegrity": "Integridad de viga perimetral: armadura corrida arriba y abajo",
   "rcSheets.v.lineInflectionLd": "Diámetro de la armadura positiva en los puntos de inflexión",

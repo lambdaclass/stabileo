@@ -1,12 +1,9 @@
+import reinforcementResults from './reinforcement-results/pt';
 import loadBasis from './load-basis/pt';
 import type { Translations } from '../types';
 const pt: Translations = {
   ...loadBasis,
-  'project.adoptedReinforcementIgnored': "Esta versão ignora a armadura adotada salva no projeto e usa a armadura de dimensionamento.",
-  'wall.tensionRequiresBarLayout': "A tração combinada com flexão exige a disposição das barras verticais.",
-  'wall.boundaryBarCount': "Informe um número inteiro de barras de extremidade, maior ou igual a zero, em cada ponta da parede.",
-  'wall.tensionAtOpenings': "A tração em paredes com aberturas exige a seção líquida e a armadura contínua que a atravessa.",
-  'wall.tensionShearEdition': "Não é possível verificar a parede sob tração e cisalhamento combinados na edição {edition}.",
+  ...reinforcementResults,
   'svc.accountingMismatch': "Análise recusada. Caso de carga {case}, {component}. Valor introduzido {entered}, valor montado {assembled}.",
   'svc.accountingLineEnd': "Análise recusada. Caso de carga {case}, extremidade {end} da barra {member}. A carga redistribuída chegou ao nó {actual}. Esperava-se o nó {expected}.",
   'svc.accountingUnsupported': "Análise recusada. No caso de carga {case}, não é possível contabilizar as forças e os momentos de {kind} {id}.",
@@ -15967,8 +15964,6 @@ const pt: Translations = {
   "rcSheets.v.everyCombo": "Cada combinação com o adotado",
   "rcSheets.v.wallTieFloorBars": "Estribos de borda não mais próximos que o espaçamento mínimo dos dados de projeto: com barras verticais mais grossas, 6·db ou 8·db o alcança",
   "rcSheets.v.wallTieFloor": "Estribos de borda não mais próximos que o espaçamento mínimo dos dados de projeto: impede-o a espessura da parede ou hx, não as barras",
-  "detailing.cutoff.unverified": "Viga {element}, x = {x} m. A resistência local ao cisalhamento e a armadura não justificam terminar a barra aqui.",
-  "detailing.schedule.spliceNote": "A marca {mark} ({length} m) excede a barra comercial de {stock} m e requer emenda.",
   "rcSheets.v.lineEndAnchor": "Gancho dentro do pilar de extremidade",
   "rcSheets.v.lineIntegrity": "Integridade de viga de borda: armadura corrida em cima e embaixo",
   "rcSheets.v.lineInflectionLd": "Diâmetro da armadura positiva nos pontos de inflexão",

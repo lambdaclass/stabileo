@@ -1,13 +1,10 @@
+import reinforcementResults from './reinforcement-results/de';
 import loadBasis from './load-basis/de';
 import type { Translations } from '../types';
 
 const de: Translations = {
   ...loadBasis,
-  'project.adoptedReinforcementIgnored': "Diese Version ignoriert die im Projekt gespeicherte übernommene Bewehrung und verwendet die bemessene Bewehrung.",
-  'wall.tensionRequiresBarLayout': "Für Zug mit Biegung ist die Lage der vertikalen Stäbe erforderlich.",
-  'wall.boundaryBarCount': "Geben Sie für jedes Wandende eine ganze Anzahl Randstäbe ab null ein.",
-  'wall.tensionAtOpenings': "Für Zug an Wandöffnungen werden der Nettoquerschnitt und die durchlaufende Bewehrung benötigt.",
-  'wall.tensionShearEdition': "Der Wandnachweis für Zug mit Querkraft ist für die Ausgabe {edition} nicht verfügbar.",
+  ...reinforcementResults,
   'svc.accountingMismatch': "Berechnung abgelehnt. Lastfall {case}, {component}. Eingegeben {entered}, assembliert {assembled}.",
   'svc.accountingLineEnd': "Berechnung abgelehnt. Lastfall {case}, Stab {member}, Ende {end}. Die umgelagerte Last wirkt am Knoten {actual}. Erwartet wurde Knoten {expected}.",
   'svc.accountingUnsupported': "Berechnung abgelehnt. Kräfte und Momente von {kind} {id} im Lastfall {case} können nicht bilanziert werden.",
@@ -16163,8 +16160,6 @@ const de: Translations = {
   "rcSheets.v.everyCombo": "Jede Kombination mit der gewählten Bewehrung",
   "rcSheets.v.wallTieFloorBars": "Randbügel nicht enger als der kleinste Abstand der Bemessungsdaten: dickere Vertikalstäbe heben 6·db bzw. 8·db darauf an",
   "rcSheets.v.wallTieFloor": "Randbügel nicht enger als der kleinste Abstand der Bemessungsdaten: die Wanddicke oder hx verhindert es, nicht die Stäbe",
-  "detailing.cutoff.unverified": "Träger {element}, x = {x} m. Der örtliche Querkraftwiderstand und die Bewehrung weisen das Stabende hier nicht nach.",
-  "detailing.schedule.spliceNote": "Position {mark} ({length} m) ist länger als der Handelsstab von {stock} m und braucht einen Stoß.",
   "rcSheets.v.lineEndAnchor": "Haken innerhalb der Endstütze",
   "rcSheets.v.lineIntegrity": "Integrität des Randbalkens: durchlaufende Stäbe oben und unten",
   "rcSheets.v.lineInflectionLd": "Durchmesser der Feldbewehrung an den Wendepunkten",

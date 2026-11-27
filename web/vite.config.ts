@@ -126,10 +126,12 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       return publicEntry === (dictionary === 'public');
     });
     if (dictionary === 'app') {
-      const messages = resolve(__dirname, 'src/lib/i18n/locales/load-basis', `${loc}.ts`);
-      watch(messages);
-      const loadBasis = readFileSync(messages, 'utf8').split('\n').filter(entryKey).join('\n');
-      lines.unshift(`...{\n${loadBasis}\n},`);
+      const resources = ['load-basis', 'reinforcement-results'].map(group => {
+        const messages = resolve(__dirname, 'src/lib/i18n/locales', group, `${loc}.ts`);
+        watch(messages);
+        return readFileSync(messages, 'utf8').split('\n').filter(entryKey).join('\n');
+      });
+      lines.unshift(...resources.map(messages => `...{\n${messages}\n},`));
     }
     return `{\n${lines.join('\n')}\n}`;
   };

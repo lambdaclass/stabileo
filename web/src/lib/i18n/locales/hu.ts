@@ -1,13 +1,10 @@
+import reinforcementResults from './reinforcement-results/hu';
 import loadBasis from './load-basis/hu';
 import type { Translations } from '../types';
 
 const hu: Translations = {
   ...loadBasis,
-  'project.adoptedReinforcementIgnored': "Ez a verzió figyelmen kívül hagyja a projektben mentett, elfogadott vasalást, és a méretezett vasalást használja.",
-  'wall.tensionRequiresBarLayout': "Együttes húzás és hajlítás esetén szükséges a függőleges vasalás kiosztása.",
-  'wall.boundaryBarCount': "A fal mindkét végén adja meg a peremvasak számát nemnegatív egész számként.",
-  'wall.tensionAtOpenings': "Nyílásos fal húzási ellenőrzéséhez szükséges a nettó keresztmetszet és az azon átmenő folytonos vasalás.",
-  'wall.tensionShearEdition': "A fal együttes húzása és nyírása a(z) {edition} kiadás szerint nem ellenőrizhető.",
+  ...reinforcementResults,
   'svc.accountingMismatch': "A számítás elutasítva. {case} tehereset, {component}. Megadott érték {entered}, összeállított érték {assembled}.",
   'svc.accountingLineEnd': "A számítás elutasítva. {case} tehereset, a(z) {member} rúd {end} vége. Az átosztott teher a(z) {actual} csomópontra került. A várt csomópont {expected}.",
   'svc.accountingUnsupported': "A számítás elutasítva. A(z) {case} teheresetben a(z) {kind} {id} erői és nyomatékai nem ellenőrizhetők.",
@@ -16173,8 +16170,6 @@ const hu: Translations = {
   "rcSheets.v.everyCombo": "Minden kombináció a választott vasalással",
   "rcSheets.v.wallTieFloorBars": "Szélső kengyelek nem sűrűbben a tervezési adatok legkisebb távolságánál: vastagabb függőleges vasakkal a 6·db vagy 8·db eléri azt",
   "rcSheets.v.wallTieFloor": "Szélső kengyelek nem sűrűbben a tervezési adatok legkisebb távolságánál: a fal vastagsága vagy hx akadályozza, nem a vasak",
-  "detailing.cutoff.unverified": "{element} gerenda, x = {x} m. A helyi nyírási ellenállás és a vasalás alapján a betonacél itt nem végződhet igazoltan.",
-  "detailing.schedule.spliceNote": "A(z) {mark} jelű vas ({length} m) hosszabb a {stock} m-es kereskedelmi szálnál, toldás kell.",
   "rcSheets.v.tieList": "A tervezési adatokban engedélyezett kengyelátmérők",
   "rcSheets.v.longList": "A tervezési adatokban engedélyezett hosszvas-átmérők",
   "rcSheets.ddEdit": "Tervezési adatok szerkesztése",

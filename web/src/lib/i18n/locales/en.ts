@@ -1,11 +1,8 @@
+import reinforcementResults from './reinforcement-results/en';
 import loadBasis from './load-basis/en';
 const en: Record<string, string> = {
   ...loadBasis,
-  'project.adoptedReinforcementIgnored': "This build ignores the adopted reinforcement saved in the project and uses the designed reinforcement.",
-  'wall.tensionRequiresBarLayout': "Combined tension and bending require the vertical bar layout.",
-  'wall.boundaryBarCount': "Enter a whole number of boundary bars, zero or more, at each end of the wall.",
-  'wall.tensionAtOpenings': "Wall tension at openings requires a net section and the continuous reinforcement through that section.",
-  'wall.tensionShearEdition': "Wall design cannot verify combined tension and shear for edition {edition}.",
+  ...reinforcementResults,
   'svc.accountingMismatch': "Analysis refused. Load case {case}, {component}. Entered {entered}, assembled {assembled}.",
   'svc.accountingLineEnd': "Analysis refused. Load case {case}, member {member} end {end}. Redistributed load reached node {actual}. Expected node {expected}.",
   'svc.accountingUnsupported': "Analysis refused. Load case {case} includes {kind} {id}, whose forces and moments cannot be accounted for.",
@@ -16325,8 +16322,6 @@ const en: Record<string, string> = {
   "rcSheets.v.everyCombo": "Every combination with the adopted bars",
   "rcSheets.v.wallTieFloorBars": "Boundary ties no closer than the design data's least spacing: thicker vertical bars lift 6·db or 8·db to it",
   "rcSheets.v.wallTieFloor": "Boundary ties no closer than the design data's least spacing: the wall's thickness or hx keeps them closer, not the bars",
-  "detailing.cutoff.unverified": "Beam {element}, x = {x} m. The local shear resistance and reinforcement do not establish that the bar may end here.",
-  "detailing.schedule.spliceNote": "Mark {mark} ({length} m) is longer than the {stock} m stock bar and needs a splice.",
   "rcSheets.v.lineEndAnchor": "Hook inside the end column",
   "rcSheets.v.lineIntegrity": "Perimeter beam integrity: continuous top and bottom bars",
   "rcSheets.v.lineInflectionLd": "Positive bar diameter at the inflection points",
