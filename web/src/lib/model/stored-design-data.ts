@@ -1,3 +1,5 @@
+import { retainedSheetOptions } from './retained-sheet-options';
+import { readSheetOptions } from './sheet-option-reader';
 import { unifiedPlates } from '../features';
 import { DESIGN_KINDS, migrateDesignData, type StoredDesignData } from './design-data';
 
@@ -18,6 +20,10 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
     const own = e[k] && typeof e[k] === 'object' ? e[k] as Record<string, unknown> : {};
     const kinds = DESIGN_KINDS.filter((kind) => kind in own && full[k][kind] === own[kind]);
     if (kinds.length) out[k] = Object.fromEntries(kinds.map((kind) => [kind, full[k][kind]]));
+  }
+  if (!readSheetOptions) {
+    const options = retainedSheetOptions(e.designOptions, e.rcSheets);
+    if (options) out.designOptions = options;
   }
   return out as StoredDesignData;
 }

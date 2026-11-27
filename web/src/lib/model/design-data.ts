@@ -14,7 +14,7 @@ import { BEAM_BAR_RANGE, COLUMN_BAR_RANGE, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, 
 import { unifiedPlates } from '../features';
 import { AGGREGATE_RANGE, DEFAULT_AGGREGATE_MM, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, type SheetCode } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
-import { migrateDesignOptions } from '../rc-sheets/design-options';
+import { readSheetOptions } from './sheet-option-reader';
 import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
 import { specifiedCoverMm } from '../codes/cirsoc201/cover';
@@ -159,8 +159,8 @@ export interface ProjectDesignData {
  * The design data as the project stores it: only what someone stated. What it leaves out is read
  * from the defaults in force (`migrateDesignData`), so a default that later changes is not frozen.
  */
-export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure'>>
-  & { covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
+export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure' | 'designOptions'>>
+  & { designOptions?: Record<string, unknown>; covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
 
 export { migrateStoredDesignData } from './stored-design-data';
 
@@ -341,7 +341,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     ...((l) => (l ? { propertyLines: l } : {}))(propertyLinesOf(e.propertyLines)),
     ...(typeof e.foundingElevation === 'number' && Number.isFinite(e.foundingElevation) && e.foundingElevation >= FOUNDING_RANGE.min && e.foundingElevation <= FOUNDING_RANGE.max ? { foundingElevation: e.foundingElevation } : {}),
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
-    ...((o) => (o ? { designOptions: o } : {}))(migrateDesignOptions(e.designOptions, e.rcSheets)),
+    ...((o) => (o ? { designOptions: o } : {}))(readSheetOptions?.(e.designOptions, e.rcSheets)),
     ...(e.executionControl === false ? { executionControl: false as const } : {}),
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),

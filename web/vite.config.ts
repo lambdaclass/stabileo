@@ -68,6 +68,9 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (features.proRcSheets && id === './sheet-option-reader' && importer && dirname(importer) === resolve(__dirname, 'src/lib/model')) {
+          return resolve(dirname(importer), 'active-sheet-option-reader.ts');
+        }
         if (importer && ((features.proRcSheets && id === './sheet-anchors') || (features.proPlatesUnified && id === './wall-foundation'))
           && dirname(importer) === resolve(__dirname, 'src/lib/model/foundation')) {
           return resolve(dirname(importer), 'active-' + id.slice(2) + '.ts');

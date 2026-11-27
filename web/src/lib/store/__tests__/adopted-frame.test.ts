@@ -158,7 +158,7 @@ it('keeps placement editing and specification navigation in the build that appli
   uiStore.specSection = 'members';
 });
 
-it.skip.each(['deserializeProject', 'loadProject', 'loadFile'] as const)('known wrong result: #1928 saves inactive sheet options without interpreting them through %s', async opener => {
+it.each(['deserializeProject', 'loadProject', 'loadFile'] as const)('known wrong result: #1928 saves inactive sheet options without interpreting them through %s', async opener => {
   const { deserializeProject, loadFile, loadProject, serializeProject } = await import('../file');
   const { designData, patchDesignData } = await import('../design-data');
   const options = { faces: true, criteria: { savedByLaterSheetEditor: 17 } };

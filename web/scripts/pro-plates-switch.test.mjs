@@ -762,7 +762,7 @@ test('known wrong result: #1928 the published known-issue result has no grouping
   }
 });
 
-test.skip('known wrong result: #1928 the design-data reader imports the sheet option decoder only in a sheets build', async () => {
+test('known wrong result: #1928 the design-data reader imports the sheet option decoder only in a sheets build', async () => {
   const entry = resolve(root, 'src/lib/model/design-data.ts');
   for (const [sheets, plates] of [[false, false], [false, true], [true, false], [true, true]]) {
     await withProductionFeatures({ ...featuresForMode('production'), proRcSheets: sheets, proPlatesUnified: plates }, async configFile => {
