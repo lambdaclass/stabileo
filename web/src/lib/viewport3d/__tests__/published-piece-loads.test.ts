@@ -4,7 +4,7 @@ import { historyStore, modelStore, uiStore } from '../../store';
 import { applyPlateMeshes, createPlate, planPlateMesh } from '../../store/physical-plates';
 import { syncLoads, type SceneSyncContext } from '../scene-sync';
 
-it.skip.each(['3d', 'pro'] as const)('known wrong result: #1928 each published shell load can be picked in %s piece and mesh views', mode => {
+it.each(['3d', 'pro'] as const)('known wrong result: #1928 each published shell load can be picked in %s piece and mesh views', mode => {
   modelStore.clear();
   historyStore.clear();
   uiStore.analysisMode = mode;

@@ -4,7 +4,7 @@ import { modelStore, uiStore } from '../../store';
 import { createPlate } from '../../store/physical-plates';
 import { syncShells, type SceneSyncContext } from '../scene-sync';
 
-it.skip.each(['3d', 'pro'] as const)('known wrong result: #1928 an unmeshed plate follows its outline through upright and native %s presentations', mode => {
+it.each(['3d', 'pro'] as const)('known wrong result: #1928 an unmeshed plate follows its outline through upright and native %s presentations', mode => {
   modelStore.clear();
   uiStore.analysisMode = mode;
   uiStore.renderMode3D = 'solid';

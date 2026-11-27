@@ -4,9 +4,10 @@
 // These functions reconcile the Three.js scene graph with the model store:
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
+import { unifiedPlates } from '../features';
 import { userVecParts } from '../axes/user-names';
 import { meshHidden, meshOnlyNodes, plateMeshNodes, platesAsPieces, syncShellMembers } from './shell-members';
-import { plateLoadLayers, type PieceLoad, type PlateLoadLayer } from './plate-load-layers';
+import { plateLoadLayers, type PieceLoad } from './plate-load-layers';
 import { shellLoadDirection, shellLoadExtent, shellLoadSamples } from '../engine/shell-load-integration';
 import { distributedGlobalEnds } from '../engine/member-loads';
 import { pointGlobal } from '../engine/member-point-loads';
@@ -52,7 +53,7 @@ import {
   shouldProjectModelToXZ,
 } from '../geometry/coordinate-system';
 import { computeLoadDirection } from '../canvas/draw-loads';
-import { currentLoadDrawView, isLoadDrawn, loadsLayerDrawn } from './load-drawn';
+import { currentLoadDrawView, isLoadDrawn, loadsLayerDrawn, type LoadDrawView } from './load-drawn';
 
 /** Stable per-axis release fingerprint for the two ends of an element — 6 bits
  *  (I: my,mz,t then J: my,mz,t) so the element-cache signature rebuilds the mesh
@@ -159,7 +160,7 @@ export function syncNodes(ctx: SceneSyncContext): void {
   // Hidden in the view (store/view-state): not drawn, not picked. The model is untouched.
   const visible = visibleNodes();
   // While the slabs and walls are drawn as members, the nodes only their mesh has are not drawn.
-  const meshOnly = meshHidden() ? meshOnlyNodes() : platesAsPieces() ? plateMeshNodes() : null;
+  const meshOnly = meshHidden() ? meshOnlyNodes() : unifiedPlates() && platesAsPieces() ? plateMeshNodes() : null;
   const storeNodes = meshOnly?.size ? new Map([...visible].filter(([id]) => !meshOnly.has(id))) : visible;
   const project2D = projectFlag();
   const ni = ctx.nodesInstanced;
@@ -624,7 +625,8 @@ function syncShellsNow(ctx: SceneSyncContext): void {
     if (!geo) continue;
     // The outline as drawn, its curved sides sampled: the face is triangulated over these very points.
     const off = pl.surface.offset ? resolveShellOffsetGlobal(pl.surface.offset, geo.outer.map(([x, y, z]) => ({ x, y, z }))) : null;
-    const toScene = (l: Array<[number, number, number]>) => l.map(([x, y, z]) => ({ x: x + (off?.x ?? 0), y: y + (off?.y ?? 0), z: z + (off?.z ?? 0) }));
+    const toScene = (loop: Array<[number, number, number]>) => loop.map(([x, y, z]) =>
+      projectNodeToScene({ x: x + (off?.x ?? 0), y: y + (off?.y ?? 0), z: z + (off?.z ?? 0) }, project2D));
     const outer = toScene(geo.outer), holes = geo.holes.map(toScene);
     const f = geo.frame;
     const uv = (p: [number, number, number]): [number, number] => {
@@ -673,7 +675,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
     seen.add(key);
   }
 
-  syncStairSteps(ctx.shellsParent, renderMode, getNode);
+  if (unifiedPlates()) syncStairSteps(ctx.shellsParent, renderMode, getNode);
 
   // Re-apply selection tint to surviving/rebuilt shell groups.
   applyShellSelection(ctx);
@@ -762,8 +764,8 @@ export function loadsSignature(project2D: boolean): string {
     [...uiStore.selectedLoads].sort((x, y) => x - y).join(','),
     // The labels' units and decimals, and the reader's arrow scale.
     uiStore.unitSystem, JSON.stringify(displayUnits.decimals), uiStore.loadArrowScale,
-    platesAsPieces() ? 1 : 0, modelStore.modelVersion,
   ];
+  if (unifiedPlates()) parts.push(platesAsPieces() ? 1 : 0, modelStore.modelVersion);
   const np = (id: number | undefined): string => {
     const n = id != null ? modelStore.nodes.get(id) : undefined;
     return n ? `${n.x},${n.y},${n.z ?? 0}` : '_';
@@ -796,6 +798,43 @@ export function loadsSignature(project2D: boolean): string {
   // Load zones: their name and their outline where it is.
   for (const g of modelStore.model.groups.values()) if (g.kind === 'loadZone') parts.push('zone', g.name, (g.members.nodes ?? []).map(np).join(';'));
   return parts.join('|');
+}
+
+function groupedPlateLoads(drawView: LoadDrawView, project2D: boolean) {
+  const pieceOf = new Map<string, number>();
+  const shellsOf = new Map<number, number>();
+  const pieceGeometry = new Map<number, NonNullable<ReturnType<typeof plateGeometry>>>();
+  const pieceLoad = (load: (typeof modelStore.loads)[number]): PieceLoad | null => {
+    if (load.type !== 'surface3d') return null;
+    const d = load.data;
+    const kind = d.on === 'plate' ? 'plate' : 'quad';
+    const shell = `${kind === 'plate' ? 'p' : 'q'}${d.quadId}`;
+    const plate = pieceOf.get(shell);
+    if (plate === undefined || (d.frame && d.frame !== 'local') || d.qNodes || d.vary || d.region || !isLoadDrawn(load as never, drawView)) return null;
+    const element = (kind === 'plate' ? modelStore.plates : modelStore.quads).get(d.quadId);
+    if (!element) return null;
+    const points = element.nodes.map(id => modelStore.nodes.get(id));
+    if (points.some(node => !node)) return null;
+    const dir = shellLoadDirection(kind, points.map(node => projectNodeToScene(node!, project2D)), d);
+    if (!dir) return null;
+    return { id: d.id, shell, plate, q: d.q, caseId: d.caseId, dir };
+  };
+  for (const p of physicalPlates()) {
+    const keys = [...(p.group.members.quads ?? []).map((q) => `q${q}`), ...(p.group.members.plates ?? []).map((q) => `p${q}`)];
+    if (keys.length < 2) continue;
+    const geo = plateGeometry(modelStore, p.group);
+    if (!geo) continue;
+    pieceGeometry.set(p.id, geo);
+    for (const k of keys) pieceOf.set(k, p.id);
+    shellsOf.set(p.id, keys.length);
+  }
+  const pieces: PieceLoad[] = [];
+  for (const load of modelStore.loads) {
+    const candidate = pieceLoad(load);
+    if (candidate) pieces.push(candidate);
+  }
+  const layers = plateLoadLayers(pieces, shellsOf).map(layer => ({ ...layer, geometry: pieceGeometry.get(layer.plate)! }));
+  return { layers, loadIds: new Set(layers.flatMap(layer => layer.ids)) };
 }
 
 export function syncLoads(ctx: SceneSyncContext): void {
@@ -875,50 +914,11 @@ export function syncLoads(ctx: SceneSyncContext): void {
     return parseInt(hex.replace('#', ''), 16);
   }
 
-  // A plate drawn as its piece shows a plain area load once, over its outline, not once per mesh element.
-  const pieceOf = new Map<string, number>();
-  const shellsOf = new Map<number, number>();
-  let pieceLayers: PlateLoadLayer[] = [];
-  const pieceGeometry = new Map<number, NonNullable<ReturnType<typeof plateGeometry>>>();
-  const inLayer = new Set<number>();
-  const pieceLoad = (load: (typeof loads)[number]): PieceLoad | null => {
-    if (load.type !== 'surface3d') return null;
-    const d = load.data;
-    const kind = d.on === 'plate' ? 'plate' : 'quad';
-    const shell = `${kind === 'plate' ? 'p' : 'q'}${d.quadId}`;
-    const plate = pieceOf.get(shell);
-    if (plate === undefined || (d.frame && d.frame !== 'local') || d.qNodes || d.vary || d.region || !isLoadDrawn(load as never, drawView)) return null;
-    const element = (kind === 'plate' ? modelStore.plates : modelStore.quads).get(d.quadId);
-    if (!element) return null;
-    const points = element.nodes.map(id => modelStore.nodes.get(id));
-    if (points.some(node => !node)) return null;
-    const dir = shellLoadDirection(kind, points.map(node => projectNodeToScene(node!, project2D)), d);
-    if (!dir) return null;
-    return { id: d.id, shell, plate, q: d.q, caseId: d.caseId, dir };
-  };
-  if (platesAsPieces()) {
-    for (const p of physicalPlates()) {
-      const keys = [...(p.group.members.quads ?? []).map((q) => `q${q}`), ...(p.group.members.plates ?? []).map((q) => `p${q}`)];
-      if (keys.length < 2) continue;
-      const geo = plateGeometry(modelStore, p.group);
-      if (!geo) continue;
-      pieceGeometry.set(p.id, geo);
-      for (const k of keys) pieceOf.set(k, p.id);
-      shellsOf.set(p.id, keys.length);
-    }
-    const pieces: PieceLoad[] = [];
-    for (const load of loads) {
-      const candidate = pieceLoad(load);
-      if (candidate) pieces.push(candidate);
-    }
-    pieceLayers = plateLoadLayers(pieces, shellsOf);
-    for (const l of pieceLayers) for (const id of l.ids) inLayer.add(id);
-  }
-
+  const grouped = unifiedPlates() && platesAsPieces() ? groupedPlateLoads(drawView, project2D) : null;
   for (let i = 0; i < loads.length; i++) {
     const load = loads[i];
     const caseId: number | undefined = load.data.caseId;
-    if (inLayer.has(load.data.id)) continue;
+    if (grouped?.loadIds.has(load.data.id)) continue;
 
     // Not a load case left unticked, nor one on what the view hides.
     if (!isLoadDrawn(load as never, drawView)) continue;
@@ -1198,8 +1198,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // Build the merged renderables (shafts, envelopes, cones, fills, labels) and
   // attach. Flags (renderOrder 3, depthTest/Write off, no frustum culling) are
   // stamped per object inside build() — no traverse needed.
-  for (const e of pieceLayers) {
-    const geo = pieceGeometry.get(e.plate)!;
+  if (grouped) for (const e of grouped.layers) {
+    const geo = e.geometry;
     const scene = (l: Array<[number, number, number]>) => l.map(([x, y, z]) => projectNodeToScene({ x, y, z }, project2D));
     batch.own(e.ids[0]!, selected.size === 0 ? null : e.ids.some((id) => selected.has(id)) ? COLORS.nodeSelected : LOAD_DIMMED);
     batch.addPlateLoad(scene(geo.outer), geo.holes.map(scene), e.q, maxQ, new THREE.Vector3(...e.dir), getCaseColor(e.caseId));

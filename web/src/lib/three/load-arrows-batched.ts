@@ -415,7 +415,7 @@ export class LoadArrowsBatched {
     holes: Array<Array<{ x: number; y: number; z: number }>>,
     q: number, maxQ: number, dir: THREE.Vector3, caseColor?: number,
   ): void {
-    if (Math.abs(q) < 1e-10 || outer.length < 3) return;
+    if (!unifiedPlates() || Math.abs(q) < 1e-10 || outer.length < 3) return;
     const V = (p: { x: number; y: number; z: number }) => new THREE.Vector3(p.x, p.y, p.z);
     const o = V(outer[0]!);
     const n = new THREE.Vector3();
