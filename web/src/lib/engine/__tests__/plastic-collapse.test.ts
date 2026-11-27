@@ -274,7 +274,7 @@ describe('a span load: its hinge is one section, at the peak of the moment, and 
   });
 });
 
-it.skip.each([-1, 1])('known wrong result: #758 — the unloading column reaches its opposite moment first with lateral load %s', force => {
+it.each([-1, 1])('known wrong result: #758 — the unloading column reaches its opposite moment first with lateral load %s', force => {
   const height = 4;
   const m = model([[1, 0, 0], [2, 0, height], [3, 6, height], [4, 6, 0]], [[1, 1, 2], [2, 2, 3], [3, 4, 3]],
     [[1, 'pinned'], [4, 'pinned']], [P(1, 0, -1e11), P(2, force, 0), q(2, -15)]);
