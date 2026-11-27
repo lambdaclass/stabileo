@@ -177,6 +177,45 @@ describe('a large floor while it is modelled', () => {
     expect(pick(0.1, 0.6, 10)).toMatchObject({ type: 'quad', id: ids[1] });
   });
 
+  it('counts cells that can share a batch and recovers it after the scene is cleared', () => {
+    viewState.shellMesh = 'show';
+    let lastCorner = 0, isolated = 0;
+    modelStore.batch(() => {
+      // 63 cells share a plane, one has a raised corner, one is on a different floor.
+      for (let i = 0; i < 65; i++) {
+        const z = i === 64 ? 4 : 1;
+        const x = 2 * i;
+        const d = modelStore.addNode(x, 1, i === 63 ? 2 : z);
+        const id = modelStore.addQuad([modelStore.addNode(x, 0, z), modelStore.addNode(x + 1, 0, z),
+          modelStore.addNode(x + 1, 1, z), d], 1, 0.2);
+        if (i === 63) lastCorner = d;
+        if (i === 64) isolated = id;
+      }
+    });
+    const ctx = makeCtx();
+    syncShells(ctx);
+    expect(ctx.shellGroups.size).toBe(65);
+
+    modelStore.updateNode(lastCorner, 126, 1, 1);
+    syncShells(ctx);
+    expect([...ctx.shellGroups.keys()]).toEqual(['q' + isolated]);
+    const ray = new THREE.Raycaster(new THREE.Vector3(0.2, 0.3, 10), new THREE.Vector3(0, 0, -1));
+    const hit = () => ray.intersectObjects(ctx.shellsParent.children, true)[0]!;
+    const original = hit();
+    const picked = resolveHitUserData(original);
+    original.object.parent!.removeFromParent();
+    syncShells(ctx);
+    expect(hit().object).not.toBe(original.object);
+    expect(resolveHitUserData(hit())).toEqual(picked);
+    // The bucket and cell IDs are unchanged when a corner moves within the floor.
+    const recovered = hit().object;
+    modelStore.updateNode(lastCorner, 126, 1.5, 1);
+    syncShells(ctx);
+    expect(hit().object).not.toBe(recovered);
+    ray.ray.origin.set(126.1, 1.3, 10);
+    expect(resolveHitUserData(hit())?.type).toBe('quad');
+  });
+
   it('keeps warped, concave and degenerate faces on the tessellated path', () => {
     const p = (x: number, y: number, z = 0) => ({ x, y, z });
     expect(cellPlane([p(0, 0), p(2, 0), p(2, 1), p(0, 1, 0.01)])).toBeNull();

@@ -95,7 +95,7 @@ function buildBatch(cells: DisplayCell[], mode: Mode) {
   function paint(attribute: THREE.BufferAttribute, start: number, count: number, hex: number) {
     color.setHex(hex);
     for (let i = start; i < start + count; i++) attribute.setXYZ(i, color.r, color.g, color.b);
-    attribute.addUpdateRange(start * 3, count * 3);
+    attribute.addUpdateRange(start * attribute.itemSize, count * attribute.itemSize);
     attribute.needsUpdate = true;
   }
   function tint(key: string, value?: number) {
@@ -116,21 +116,44 @@ function buildBatch(cells: DisplayCell[], mode: Mode) {
   return { group, tint };
 }
 
-// Include node IDs as well as positions: coincident nodes can have distinct edge ownership.
-function geometrySignature(cells: DisplayCell[], mode: Mode) {
-  let signature: string = mode;
+// Keep an exact snapshot: node IDs determine shared edges, and coordinates can
+// change independently of IDs. Compare numerically so a cache hit allocates no signature.
+function snapshot(cells: DisplayCell[]) {
+  // Each cell stores its corner count followed by (node ID, x, y, z) for each corner.
+  const corners = new Float64Array(cells.reduce((n, cell) => n + 1 + 4 * cell.nodes.length, 0));
+  let offset = 0;
   for (const cell of cells) {
-    signature += '|' + cell.key;
-    for (let i = 0; i < cell.points.length; i++) {
+    corners[offset++] = cell.nodes.length;
+    for (let i = 0; i < cell.nodes.length; i++) {
       const p = cell.points[i]!;
-      signature += ':' + cell.nodes[i] + '@' + p.x + ',' + p.y + ',' + p.z;
+      corners[offset++] = cell.nodes[i]!;
+      corners[offset++] = p.x;
+      corners[offset++] = p.y;
+      corners[offset++] = p.z;
     }
   }
-  return signature;
+  return { keys: cells.map(cell => cell.key), corners };
+}
+
+function sameGeometry(previous: ReturnType<typeof snapshot>, cells: DisplayCell[]) {
+  if (previous.keys.length !== cells.length) return false;
+  const corners = previous.corners;
+  let offset = 0;
+  for (let i = 0; i < cells.length; i++) {
+    const cell = cells[i]!;
+    if (previous.keys[i] !== cell.key || corners[offset++] !== cell.nodes.length) return false;
+    for (let j = 0; j < cell.nodes.length; j++) {
+      const p = cell.points[j]!;
+      if (corners[offset] !== cell.nodes[j] || corners[offset + 1] !== p.x ||
+          corners[offset + 2] !== p.y || corners[offset + 3] !== p.z) return false;
+      offset += 4;
+    }
+  }
+  return true;
 }
 
 export class ExplicitShellBatches {
-  private batches = new Map<string, ReturnType<typeof buildBatch> & { signature: string }>();
+  private batches = new Map<string, ReturnType<typeof buildBatch> & { cells: ReturnType<typeof snapshot>; mode: Mode }>();
   private byCell = new Map<string, ReturnType<typeof buildBatch>>();
   private selected = new Set<string>();
   private hovered?: string;
@@ -139,19 +162,18 @@ export class ExplicitShellBatches {
     this.byCell.clear();
     for (const [key, batch] of this.batches) {
       if (buckets.has(key)) continue;
-      parent.remove(batch.group);
+      batch.group.removeFromParent();
       disposeObject(batch.group);
       this.batches.delete(key);
     }
     for (const [key, cells] of buckets) {
-      const signature = geometrySignature(cells, mode);
       let batch = this.batches.get(key);
-      if (batch?.signature !== signature) {
+      if (!batch || batch.group.parent !== parent || batch.mode !== mode || !sameGeometry(batch.cells, cells)) {
         if (batch) {
-          parent.remove(batch.group);
+          batch.group.removeFromParent();
           disposeObject(batch.group);
         }
-        batch = { ...buildBatch(cells, mode), signature };
+        batch = { ...buildBatch(cells, mode), cells: snapshot(cells), mode };
         parent.add(batch.group);
         this.batches.set(key, batch);
         for (const cell of cells) batch.tint(cell.key, this.color(cell.key));

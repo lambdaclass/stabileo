@@ -502,6 +502,7 @@ export function syncSupports(ctx: SceneSyncContext): void {
 
 /** Set while `syncShells` runs, so the selection it re-applies does not ask for it again. */
 let inShellSync = false;
+const MIN_BATCHED_CELLS = 64;
 
 export function syncShells(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
@@ -546,7 +547,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   // Contours and staged views operate on individually addressable shell meshes.
   const explicit = !merged && !buildTimelapse.active && !resultsStore.results3D && !uiStore.planView3D
     && uiStore.platesShowMesh && (renderMode === 'wireframe' || renderMode === 'solid')
-    && plates.size + quads.size >= 64;
+    && plates.size + quads.size >= MIN_BATCHED_CELLS;
   const buckets = new Map<string, DisplayCell[]>();
   if (explicit) {
     const owner = new Map<string, number>();
@@ -567,7 +568,14 @@ function syncShellsNow(ctx: SceneSyncContext): void {
     };
     for (const [id, plate] of plates) add('p' + id, plate);
     for (const [id, quad] of quads) add('q' + id, quad);
-    ctx.explicitShells ??= new ExplicitShellBatches();
+    // Isolated planes/materials have no draw calls to combine.
+    let eligible = 0;
+    for (const [id, cells] of buckets) {
+      if (cells.length === 1) buckets.delete(id);
+      else eligible += cells.length;
+    }
+    if (eligible < MIN_BATCHED_CELLS) buckets.clear();
+    if (buckets.size) ctx.explicitShells ??= new ExplicitShellBatches();
   }
   ctx.explicitShells?.sync(ctx.shellsParent, buckets, renderMode === 'wireframe' ? 'wireframe' : 'solid');
   const drawn = (key: string) => !ctx.explicitShells?.has(key) && (!merged || uiStore.selectedShells.has(key));
@@ -705,7 +713,7 @@ function syncShellsNow(ctx: SceneSyncContext): void {
   }
 
   // Re-apply selection tint to surviving/rebuilt shell groups.
-  if (explicit) untrack(() => applyShellSelection(ctx));
+  if (buckets.size) untrack(() => applyShellSelection(ctx));
   else applyShellSelection(ctx);
 
   // Remove shell groups whose backing plate/quad no longer exists
