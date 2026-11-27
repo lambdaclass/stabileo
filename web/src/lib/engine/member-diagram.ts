@@ -125,6 +125,7 @@ export function memberDiagram(
   const pointStations = points.length ? new Set(points.map(point => point.a)) : undefined;
   const cutValue = (x: number, t: number, right: boolean) => {
     if (!hasActions) return diagramLineValue(start, change, rate, x, t);
+    if (Object.is(t, -0)) return physicalValue(x, t, right);
     const values = right && pointStations?.has(x) ? (rightValues ??= new Map()) : (leftValues ??= new Map());
     const cached = values.get(t);
     if (cached !== undefined) return cached;
