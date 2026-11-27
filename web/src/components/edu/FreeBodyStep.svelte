@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatParam } from './exercise-variant';
   import { t, tp } from '../../lib/i18n';
   import type { ModelSpec } from './exercise-spec';
   import { readAnswer, withinTolerance } from './exercise-marking';
@@ -93,6 +94,14 @@
   interface Glyph { d: string; head: string; tag: string; tx: number; ty: number; anchor: 'start' | 'middle' | 'end'; state: VerifState | 'empty' }
   interface Block { x: number; y: number; anchor: 'start' | 'end'; lines: Array<{ text: string; state: VerifState | 'empty' }> }
 
+  function couple(p: Pt, base: number, cw: boolean) {
+    const r = 15;
+    const a0 = base - (cw ? 0.75 : -0.75) * Math.PI, a1 = base + (cw ? 0.75 : -0.75) * Math.PI;
+    const s0 = { x: p.x + r * Math.cos(a0), y: p.y + r * Math.sin(a0) }, e = { x: p.x + r * Math.cos(a1), y: p.y + r * Math.sin(a1) };
+    const tangent = cw ? { x: -Math.sin(a1), y: Math.cos(a1) } : { x: Math.sin(a1), y: -Math.cos(a1) };
+    return { d: `M${s0.x},${s0.y} A${r},${r} 0 1 ${cw ? 1 : 0} ${e.x},${e.y}`, head: arrowHead(e, tangent.x, tangent.y, 5) };
+  }
+
   function endGlyphs(b: number, end: BarEnd): { glyphs: Glyph[]; block: Block } {
     const { node } = endElement(bar, end);
     const other = end === 'i' ? bar.nodes[1]! : bar.nodes[bar.nodes.length - 2]!;
@@ -124,13 +133,8 @@
     }
     const key = freeBodyKey(b, end, 'M');
     const v = num(answers[key]);
-    const r = 15, cw = v === null || v >= 0;
-    const base = Math.atan2(out.y, out.x);
-    const a0 = base - (cw ? 0.75 : -0.75) * Math.PI, a1 = base + (cw ? 0.75 : -0.75) * Math.PI;
-    const s0 = { x: p.x + r * Math.cos(a0), y: p.y + r * Math.sin(a0) }, e = { x: p.x + r * Math.cos(a1), y: p.y + r * Math.sin(a1) };
-    const tangent = cw ? { x: -Math.sin(a1), y: Math.cos(a1) } : { x: Math.sin(a1), y: -Math.cos(a1) };
     const mState = stateOf(key, v);
-    glyphs.push({ d: `M${s0.x},${s0.y} A${r},${r} 0 1 ${cw ? 1 : 0} ${e.x},${e.y}`, head: arrowHead(e, tangent.x, tangent.y, 5), state: mState, tag: '', tx: 0, ty: 0, anchor: 'start' });
+    glyphs.push({ ...couple(p, Math.atan2(out.y, out.x), v === null || v >= 0), state: mState, tag: '', tx: 0, ty: 0, anchor: 'start' });
     lines.push({ text: v === null ? 'M ?' : `M = ${fmt(v)}`, state: mState });
     const block: Block = { x: p.x + (blockRight ? 20 : -20), y: blockUp ? p.y - 52 : p.y + 30, anchor: blockRight ? 'start' : 'end', lines };
     return { glyphs, block };
@@ -155,15 +159,15 @@
       for (let k = 0; k <= n; k++) {
         const f = k / n, q = qI + (qJ - qI) * f;
         const onBar = at([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
-        const lenPx = 6 + 18 * (Math.abs(q) / top);
-        const tail = { x: onBar.x + away.x * lenPx, y: onBar.y + away.y * lenPx };
+        const lenPx = 24 * (q / top);
+        const tail = { x: onBar.x - perp.x * lenPx, y: onBar.y + perp.y * lenPx };
         tails.push(tail);
-        if (Math.abs(q) > 1e-9) arrows.push({ d: `M${tail.x},${tail.y} L${onBar.x},${onBar.y}`, head: arrowHead(onBar, -away.x, -away.y, 5) });
+        if (q !== 0) arrows.push({ d: `M${tail.x},${tail.y} L${onBar.x},${onBar.y}`, head: arrowHead(onBar, onBar.x - tail.x, onBar.y - tail.y, Math.min(5, Math.abs(lenPx))) });
       }
       const mid = { x: (tails[0]!.x + tails[n]!.x) / 2, y: (tails[0]!.y + tails[n]!.y) / 2 };
       out.push({
         arrows, line: tails.map((p, k) => `${k ? 'L' : 'M'}${p.x},${p.y}`).join(' '),
-        label: qI === qJ ? `q = ${fmt(Math.abs(qI))} kN/m` : `q = ${fmt(Math.abs(qI))}–${fmt(Math.abs(qJ))} kN/m`,
+        label: qI === qJ ? `q = ${formatParam(qI)} kN/m` : `q = ${formatParam(qI)} → ${formatParam(qJ)} kN/m`,
         lx: mid.x + away.x * 8, ly: mid.y + away.y * 8 + (away.y > 0 ? 9 : 0), span: Math.hypot(pb.x - pa.x, pb.y - pa.y),
       });
     }
@@ -186,7 +190,10 @@
       for (const l of model.nodalLoads ?? []) {
         if (l.node !== node) continue;
         const fx = l.fx ?? 0, fy = l.fy ?? 0, mag = Math.hypot(fx, fy);
-        if (mag < 1e-9) continue;
+        if (l.mz) loads.push({
+          ...couple(p, -Math.PI / 2, l.mz < 0), label: `${formatParam(l.mz)} kN·m`, lx: p.x + 22, ly: p.y + 24,
+        });
+        if (mag === 0) continue;
         const d = { x: fx / mag, y: -fy / mag };
         const tail = { x: p.x - d.x * ARROW, y: p.y - d.y * ARROW };
         loads.push({ d: `M${tail.x},${tail.y} L${p.x},${p.y}`, head: arrowHead(p, d.x, d.y), label: `${fmt(mag)} kN`, lx: tail.x, ly: tail.y - 4 });

@@ -39,6 +39,7 @@ export function studentSeed(exerciseId: string, legajo: string): number {
 export function reactionDofsFor(type: SupportType): ReactionDof[] {
   switch (type) {
     case 'fixed': return ['Rx', 'Ry', 'M'];
+    case 'guidedX': return ['Ry', 'M'];
     case 'rollerX': return ['Ry'];
     case 'rollerY':
     case 'rollerZ': return ['Rx'];

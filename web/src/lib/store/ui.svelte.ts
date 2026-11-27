@@ -69,7 +69,7 @@ import type { ElementColorMode } from '../viewport/element-colour';
 /** The parts of PRO's Specifications, and what each one selects. */
 export type SpecSection = 'members' | 'supports' | 'links' | 'surfaces' | 'analysis' | 'list';
 const SPEC_SELECT = { members: 'elements', supports: 'supports', links: 'nodes', surfaces: 'shells', analysis: 'elements', list: 'elements' } as const;
-export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring';
+export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'guidedX' | 'spring';
 
 // 3D-specific types
 export type NodalLoadDir3D = 'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz';

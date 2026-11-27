@@ -46,8 +46,10 @@ function residual(model: ModelSpec, bar: FreeBodyBar, truth: BarTruth, reaction:
     const [i, j] = model.elements[l.element]!;
     const [xi, yi] = model.nodes[i]!, [xj, yj] = model.nodes[j]!;
     const len = Math.hypot(xj - xi, yj - yi);
-    const q = l.qI, total = q * len;
-    add((xi + xj) / 2, (yi + yj) / 2, (-(yj - yi) / len) * total, ((xj - xi) / len) * total);
+    for (const [fraction, intensity] of [[1 / 3, l.qI], [2 / 3, l.qJ ?? l.qI]] as const) {
+      const total = intensity * len / 2;
+      add(xi + fraction * (xj - xi), yi + fraction * (yj - yi), -(yj - yi) / len * total, (xj - xi) / len * total);
+    }
   }
   return { fx, fy, m };
 }
@@ -208,7 +210,7 @@ it('known wrong result: #1927 — axial force cannot mask a transverse imbalance
   }
 });
 
-it.skip('known wrong result: #1927 — a reversing load has opposite arrows and a nonzero first moment', async () => {
+it('known wrong result: #1927 — a reversing load has opposite arrows and a nonzero first moment', async () => {
   const model: ModelSpec = { nodes: [[0, 0], [6, 0]], elements: [[0, 1]], supports: [], distributedLoads: [{ element: 0, qI: 5, qJ: -5 }] };
   const bar = { nodes: [0, 1], elements: [{ index: 0, forward: true }] };
   const { render } = await import('svelte/server');
@@ -221,7 +223,7 @@ it.skip('known wrong result: #1927 — a reversing load has opposite arrows and 
   expect(residual(model, bar, { i: zero, j: zero }, () => 0)).toEqual({ fx: 0, fy: 0, m: -30 });
 });
 
-it.skip.each([[3, 0], [-3, 4], [0, 4]])('known wrong result: #1927 — interior couple %s and force %s draw independently', async (mz, fy) => {
+it.each([[3, 0], [-3, 4], [0, 4]])('known wrong result: #1927 — interior couple %s and force %s draw independently', async (mz, fy) => {
   const model: ModelSpec = { nodes: [[0, 0], [1, 0], [2, 0]], elements: [[0, 1], [1, 2]], supports: [], nodalLoads: [{ node: 1, mz, fy }] };
   const bar = { nodes: [0, 1, 2], elements: [{ index: 0, forward: true }, { index: 1, forward: true }] };
   const { render } = await import('svelte/server');
