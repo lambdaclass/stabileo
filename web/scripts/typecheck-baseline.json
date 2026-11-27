@@ -1,5 +1,5 @@
 {
-	"total": 238,
+	"total": 234,
 	"entries": [
 		{
 			"file": "src/lib/ai/__tests__/build-model.test.ts",
@@ -143,18 +143,6 @@
 			"file": "src/lib/engine/__tests__/combinations-legacy.ts",
 			"code": "TS2339",
 			"message": "Property 'uy' does not exist on type '{ nodeId: number; ux: number; uz: number; ry: number; }'.",
-			"count": 2
-		},
-		{
-			"file": "src/lib/engine/__tests__/constraint-connectivity.test.ts",
-			"code": "TS2322",
-			"message": "Type 'Map<number, { id: number; name: string; E: number; nu: number; density: number; fy: number; }>' is not assignable to type 'Map<number, Material>'.",
-			"count": 2
-		},
-		{
-			"file": "src/lib/engine/__tests__/constraint-connectivity.test.ts",
-			"code": "TS2322",
-			"message": "Type 'Map<number, { id: number; name: string; shape: \"IPE\"; label: string; A: number; Iz: number; Iy: number; J: number; h: number; b: number; tw: number; tf: number; }>' is not assignable to type 'Map<number, Section>'.",
 			"count": 2
 		},
 		{
