@@ -4,7 +4,7 @@ import type { AnalysisResults3D } from '../../engine/types-3d';
 import { historyStore, modelStore, uiStore } from '..';
 import { plateLoops } from '../../model/physical/plate';
 import {
-  addPlateLoad, applyPlateMeshes, clearPlateMesh, createPlate, meshBeforeAnalysis, planPlateMesh, plateStatus, setPlateMeshSpec,
+  addPlateLoad, applyPlateMeshes, clearPlateMesh, createPlate, meshBeforeAnalysis, planPlateMeshes, planPlateMesh, plateStatus, setPlateMeshSpec,
   preparePlatesForAnalysis,
 } from '../physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
@@ -89,6 +89,22 @@ describe('remeshing adjacent plates with boundary members', () => {
   });
   beforeEach(() => {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro'; meshBeforeAnalysis.value = true;
+  });
+
+  it('rebuilds the preview index after an edit between plates', async () => {
+    const { ids } = build(2, 1);
+    mesh(ids);
+    const before = planPlateMesh(ids[0]!);
+    const previous = planPlateMesh(ids[1]!);
+    const batch = await planPlateMeshes(ids, undefined, { onProgress(done) {
+      if (done === 1) {
+        const a = modelStore.addNode(6, 1, 0), b = modelStore.addNode(12, 2, 0);
+        modelStore.addElement(a, b);
+      }
+    } });
+    const after = planPlateMesh(ids[1]!);
+    expect(after!.input!.fixedSegments).not.toEqual(previous!.input!.fixedSegments);
+    expect(batch).toEqual([before, after]);
   });
 
   it('preserves generated-node provenance through explicit clear, save and remesh', () => {

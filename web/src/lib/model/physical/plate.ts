@@ -303,7 +303,7 @@ export function plateKindOf(geo: Pick<PlateGeometry, 'frame'>): 'slab' | 'wall' 
  * plane inside the plate come back as the point where they cross; nodes of other things on the
  * plate as points.
  */
-export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: ReadonlySet<number>, loopNodes: ReadonlySet<number>, opts: { mine?: ReadonlySet<number>; neighbours?: ReadonlySet<number> } = {}): { points: Vec3[]; meshPoints: Vec3[]; requiredNodes: number[]; segments: Array<[Vec3, Vec3]> } {
+export function memberChains(m: PlateModel, owned: ReadonlySet<number>): Array<[number, number]> {
   // Members by node, to walk through the mesh's own nodes.
   const at = new Map<number, number[]>();
   for (const e of m.elements.values()) {
@@ -333,6 +333,12 @@ export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: Reado
     const a = walk(e.nodeJ, e.nodeI), b = walk(e.nodeI, e.nodeJ);
     chains.push(a < b ? [a, b] : [b, a]);
   }
+  return chains;
+}
+
+export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: ReadonlySet<number>, loopNodes: ReadonlySet<number>, opts: { mine?: ReadonlySet<number>; neighbours?: ReadonlySet<number>; chains?: ReadonlyArray<[number, number]> } = {}): { points: Vec3[]; meshPoints: Vec3[]; requiredNodes: number[]; segments: Array<[Vec3, Vec3]> } {
+  const pos = (id: number) => v3(m.nodes.get(id)!);
+  const chains = opts.chains ?? memberChains(m, owned);
   const points: Vec3[] = [];
   const segments: Array<[Vec3, Vec3]> = [];
   const inPlane = (p: Vec3) => offPlane(geo.frame, p) <= PLANE_TOL;

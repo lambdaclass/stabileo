@@ -2,7 +2,7 @@ import type { Constraint3D, LinearMpcConstraint } from '../../engine/types-3d';
 import { cross, dot, type Vec3 } from '../edit/affine';
 import { pieceOf, type PieceModel } from '../curve-entity';
 import {
-  arcInterior, circleThrough, externalFeatures, frameOfLoop, plateGeometry, plateKindOf, plateLoops,
+  arcInterior, circleThrough, externalFeatures, memberChains, frameOfLoop, plateGeometry, plateKindOf, plateLoops,
   PLANE_TOL, plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateFrame, type PlateMeshSpec,
 } from './plate';
 
@@ -95,25 +95,61 @@ function meshSampler(model: PieceModel, size: number): ArcSampler {
   };
 }
 
-export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, spec: PlateMeshSpec) {
+function meshOwnedNodes(model: PlateAnalysisModel) {
+  const owned = new Set<number>();
+  for (const g of model.groups?.values() ?? []) {
+    if (Array.isArray(g.members?.nodes)) for (const n of plateLoops(g).owned) owned.add(n);
+  }
+  return owned;
+}
+
+/** Valid only for a single model revision. Keep shell traversal order because the
+ * order of the fixed points can change an unstructured triangulation. */
+export function indexPlatePreview(model: PlateAnalysisModel) {
+  const owned = meshOwnedNodes(model);
+  const chains = memberChains(model, owned);
+  type Use = { shell: number; quad: boolean; order: number };
+  const uses = new Map<number, Use[]>();
+  let order = 0;
+  for (const [shells, quad] of [[model.quads, true], [model.plates, false]] as const) {
+    for (const shell of shells?.values() ?? []) {
+      for (const id of shell.nodes) {
+        const use = { shell: shell.id, quad, order: order++ };
+        const list = uses.get(id);
+        if (list) list.push(use);
+        else uses.set(id, [use]);
+      }
+    }
+  }
+  function neighbours(group: PlateGroup) {
+    const quads = new Set(group.members.quads), plates = new Set(group.members.plates);
+    const ordered: Array<{ id: number; order: number }> = [];
+    for (const [id, list] of uses) {
+      const first = list.find(use => !(use.quad ? quads : plates).has(use.shell));
+      if (first) ordered.push({ id, order: first.order });
+    }
+    ordered.sort((a, b) => a.order - b.order);
+    return new Set(ordered.map(n => n.id));
+  }
+  return { owned, chains, neighbours };
+}
+
+export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, spec: PlateMeshSpec, index?: ReturnType<typeof indexPlatePreview>) {
   if (invalidPlateDefinition(model, group)) return { refused: 'invalid' as const };
   const geo = plateGeometry(model, group, meshSampler(model, spec.size));
   if (!geo) return { refused: 'ambiguousSweep' as const };
   const loops = plateLoops(group);
   const mine = new Set(loops.owned);
-  const owned = new Set<number>();
-  for (const g of model.groups?.values() ?? []) {
-    if (Array.isArray(g.members?.nodes)) for (const n of plateLoops(g).owned) owned.add(n);
-  }
-  const neighbours = new Set<number>();
-  for (const [shells, members] of [[model.quads, group.members.quads], [model.plates, group.members.plates]] as const) {
+  const owned = index?.owned ?? meshOwnedNodes(model);
+  const neighbours = index?.neighbours(group) ?? new Set<number>();
+  if (!index) for (const [shells, members] of [[model.quads, group.members.quads], [model.plates, group.members.plates]] as const) {
     const memberIds = new Set(members);
     for (const shell of shells?.values() ?? []) {
       if (!memberIds.has(shell.id)) shell.nodes.forEach(n => neighbours.add(n));
     }
   }
   const loopNodes = new Set([...loops.outer, ...loops.holes.flat()]);
-  return { geo, features: externalFeatures(model, geo, owned, loopNodes, { mine, neighbours }) };
+  return { geo, features: externalFeatures(model, geo, owned, loopNodes, { mine, neighbours, chains: index?.chains }) };
 }
 
 export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
