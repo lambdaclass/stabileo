@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { withScenarioSurfaceIntent } from '../../engine/accounting-source';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
 import { applyPlateMeshes, physicalPlates, planPlateMesh, plateLoadDefs, plateStatus } from '../physical-plates';
@@ -67,6 +68,25 @@ describe('shells already in a model made plates', () => {
     expect(modelStore.model.groups.get(p!)!.members.quads).toHaveLength(24);
     expect(fz(solve())).toBeCloseTo(30, 6);
   });
+
+  it.skip.each(['scenario', 'corner values', 'unequal pressure'] as const)(
+    'known wrong result: #2479 retains the shell mesh when a %s load cannot become one slab pressure', kind => {
+      const { quads } = grid(2, 1);
+      const loads = modelStore.model.loads;
+      const index = loads.findIndex(l => l.type === 'surface3d' && l.data.quadId === quads[1]);
+      const load = loads[index]!;
+      if (load.type !== 'surface3d') throw new Error('missing pressure');
+      if (kind === 'scenario') loads[index] = withScenarioSurfaceIntent(load, { baseline: load.data, factor: 1 });
+      if (kind === 'corner values') load.data.qNodes = [4, 5, 5, 6];
+      if (kind === 'unequal pressure') load.data.q += Number.EPSILON * load.data.q;
+      const before = loads.slice();
+      const [plate] = platesFromShells(looseShells(), { keepMesh: false });
+      expect(plateStatus(plate!)).toBe('current');
+      expect(modelStore.model.groups.get(plate!)!.members.quads).toEqual(quads);
+      expect(modelStore.model.loads).toEqual(before);
+      expect(plateLoadDefs(plate!)).toEqual([]);
+    },
+  );
 
   it('takes a ring of shells as an outline with a hole', () => {
     grid(3, 3, (i, j) => i === 1 && j === 1);
