@@ -273,9 +273,7 @@ test('@smoke the old game address lands on the game under /games, keeping the la
 test('@smoke the unprefixed legacy game link keeps its seed and fragment through language selection', async ({ page }) => {
   await page.goto('/diagram-game/?seed=9#play');
   await expect(page.getByTestId('dg-start')).toBeVisible();
-  await test.step.skip('known wrong result: #2492', async () => {
-    await expect(page).toHaveURL('/games/diagram-game/?seed=9#play');
-  });
+  await expect(page).toHaveURL('/games/diagram-game/?seed=9#play');
   await pickLanguage(page, 'nav-lang', 'pt');
   await expect(page).toHaveURL('/pt/games/diagram-game/?seed=9#play');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diagramas: escolha o correto');
@@ -310,12 +308,10 @@ test('@smoke winning feedback respects reduced motion on a tablet', async ({ pag
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const winner = await winTabletRound(page);
   expect(await winner.locator('.option-figure').evaluate(el => el.getAnimations().length)).toBe(0);
-  await test.step.skip('known wrong result: #2492', async () => {
-    const animations = await winner.evaluate(card => card.getAnimations({ subtree: true })
-      .filter(animation => animation instanceof CSSAnimation)
-      .map(animation => animation.animationName));
-    expect(animations).not.toContainEqual(expect.stringMatching(/(?:^|-)pop$/));
-  });
+  const animations = await winner.evaluate(card => card.getAnimations({ subtree: true })
+    .filter(animation => animation instanceof CSSAnimation)
+    .map(animation => animation.animationName));
+  expect(animations).not.toContainEqual(expect.stringMatching(/(?:^|-)pop$/));
 });
 
 test('@smoke winning feedback stays inside the tablet viewport throughout its animation', async ({ page }) => {
