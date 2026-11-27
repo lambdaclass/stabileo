@@ -50,6 +50,15 @@ describe('plastic collapse, step by step', () => {
     expect(r.collapseFactor).toBeCloseTo(MP / 45, 6);
   });
 
+  it.skip('known wrong result: #758 — confirms fixed-end bending with bounded axial span forces', () => {
+    const input = model([[1, 0, 0], [2, 4, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']],
+      [q(1, -1), { type: 'axialDistributed', data: { elementId: 1, qI: 1, qJ: 1 } }]);
+    const r = plasticCollapse2D(input, { mp: () => 1, np: () => 4 });
+    expect(r.withheld).toBeFalsy();
+    expect(r.isMechanism).toBe(true);
+    expect(r.collapseFactor).toBeCloseTo(1, 12);
+  });
+
   it('#2608 — Basic certifies the diagonal truss at its irrational yield factor', () => {
     const input = model([[1, 0, 0], [2, 1, 1]], [[1, 1, 2, 'truss']], [[1, 'pinned'], [2, 'rollerZ']], [P(2, 0, -1)]);
     const r = plasticCollapse2D(input, { mp: () => Infinity, np: () => 1 });

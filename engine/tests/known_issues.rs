@@ -3297,3 +3297,27 @@ fn diagonal_truss_certifies_the_enclosed_irrational_axial_factor_2608() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #758"]
+fn bending_limit_checks_the_axial_field_under_span_loads_758() {
+    use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
+    for sign in [-1, 1] {
+        let mut input: LimitInput = serde_json::from_value(serde_json::json!({
+            "solver":{
+                "nodes":{"1":{"id":1,"x":0,"z":0},"2":{"id":2,"x":4,"z":0}},
+                "elements":{"1":{"id":1,"nodeI":1,"nodeJ":2,"sectionId":1,"materialId":1,"type":"frame"}},
+                "materials":{"1":{"id":1,"e":200000,"nu":0.3}},"sections":{"1":{"id":1,"a":0.01,"iz":1e-4}},
+                "supports":{"1":{"id":1,"nodeId":1,"type":"fixed"},"2":{"id":2,"nodeId":2,"type":"fixed"}},
+                "loads":[{"type":"distributed","data":{"elementId":1,"qI":-1,"qJ":-1}},
+                         {"type":"axialDistributed","data":{"elementId":1,"qI":sign,"qJ":sign}}]
+            },"mp":{"1":1},"np":{"1":4}
+        })).unwrap();
+        let result = certified_limit_2d(&input).unwrap();
+        assert_eq!(result.confirmation, Confirmation::Exact);
+        assert!((result.lambda - 1.0).abs() <= 1e-12);
+        input.np.insert("1".into(), 2.0);
+        assert_eq!(certified_limit_2d(&input).unwrap().confirmation, Confirmation::Exact);
+        assert_ne!(confirm_2d(&input.solver, &HashMap::from([(1, 1.0)]), &HashMap::from([(1, 1.0)]), 1.0), Confirmation::Exact);
+    }
+}
