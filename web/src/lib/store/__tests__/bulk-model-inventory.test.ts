@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D, validateAndSolve3DAsync } from '../../engine/solver-service';
+import { solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
+import { buildSolverInput2D, buildSolverInput3D, validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D, validateAndSolve3DAsync } from '../../engine/solver-service';
 import { historyStore, modelStore, uiStore } from '..';
 import { deserializeProject, serializeProject } from '../file';
 
@@ -24,6 +25,11 @@ describe.skip('known wrong result: #1928 batched commands and analyses share the
       const temporary = modelStore.addLoadCase('Temporary');
       const retained = add(7, permanent);
       const solve = () => mode === '2d' ? validateAndSolve2D(modelStore.model) : validateAndSolve3D(modelStore.model);
+      const nonlinear = () => mode === '2d'
+        ? solvePDelta(buildSolverInput2D(modelStore.model)!).results.reactions
+        : solvePDelta3D(buildSolverInput3D(modelStore.model)!).results.reactions;
+      const nonlinearControl = nonlinear();
+      expect(nonlinearControl).toHaveLength(1);
       const control = solve();
       if (!control || typeof control === 'string') throw new Error(String(control));
       const unwanted = add(13, temporary);
@@ -35,6 +41,7 @@ describe.skip('known wrong result: #1928 batched commands and analyses share the
         else expect(modelStore.removeLoads([unwanted])).toBe(1);
       }));
       expect.soft(modelStore.loads.map(load => load.data.id)).toEqual([retained]);
+      expect.soft(nonlinear()).toEqual(nonlinearControl);
       const sync = solve();
       const asyncResult = mode === '2d' ? await validateAndSolve2DAsync(modelStore.model) : await validateAndSolve3DAsync(modelStore.model);
       for (const result of [sync, asyncResult]) {
