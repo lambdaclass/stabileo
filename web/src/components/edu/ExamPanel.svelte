@@ -102,6 +102,7 @@
   {:else if session.phase === 'unavailable'}
     <h2>{t('exam.unavailable.title')}</h2>
     <p data-testid="exam-unavailable" data-reason={session.unavailable}>{unavailableText}</p>
+    {#if session.note === 'lateSubmit'}<button onclick={() => session.refresh()} disabled={session.busy}>{t('exam.refresh')}</button>{/if}
     <button class="ghost" onclick={leave}>{t('exam.backToStabileo')}</button>
   {:else if session.phase === 'lobby' && session.exam}
     {@const exam = session.exam}

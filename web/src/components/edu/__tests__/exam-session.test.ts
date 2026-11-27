@@ -138,7 +138,7 @@ describe('during the attempt', () => {
     return { s, api };
   }
 
-  it.skip('known wrong result: #1927 — lost acknowledgement recovers the committed revision and saves the latest edit', async () => {
+  it('known wrong result: #1927 — lost acknowledgement recovers the committed revision and saves the latest edit', async () => {
     const { s, api } = await running();
     api.saveAnswers.mockRejectedValueOnce(new Error('lost acknowledgement'));
     s.update(answer('old'));
@@ -153,7 +153,7 @@ describe('during the attempt', () => {
     expect(api.saveAnswers.mock.calls.at(-1)).toMatchObject({ 1: { answers: answer('new') }, 2: 1 });
   });
 
-  it.skip('known wrong result: #1927 — final answers remain unavailable until read from the server', async () => {
+  it('known wrong result: #1927 — final answers remain unavailable until read from the server', async () => {
     const { s, api } = await running();
     s.update(answer('unsaved'));
     api.submit.mockRejectedValueOnce(new ApiError(409, 'attempt_closed', ''));
@@ -167,7 +167,7 @@ describe('during the attempt', () => {
     expect(s.answers).toEqual([]);
   });
 
-  it.skip('known wrong result: #1927 — a second exam gets its own editable answer sheet', async () => {
+  it('known wrong result: #1927 — a second exam gets its own editable answer sheet', async () => {
     const { s, api } = await running();
     s.update(answer('first'));
     await s.submit();
@@ -179,7 +179,7 @@ describe('during the attempt', () => {
     expect(api.submit.mock.calls.at(-1)).toMatchObject({ 0: 'att-2', 1: { answers: { answers: answer('second') } } });
   });
 
-  it.skip('known wrong result: #1927 — edits at the deadline cannot enter the grace payload', async () => {
+  it('known wrong result: #1927 — edits at the deadline cannot enter the grace payload', async () => {
     const { s, api } = await running();
     s.update(answer('on time'));
     examLock.syncClock(s.attempt!.deadline_at);

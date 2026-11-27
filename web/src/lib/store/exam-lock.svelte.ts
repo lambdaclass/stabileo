@@ -30,6 +30,13 @@ function serverTime(): number {
   return clock() + offsetMs;
 }
 
+function scheduleRelease(deadline: number): void {
+  clearTimer();
+  const left = deadline + EXAM_GRACE_MS - serverTime();
+  if (left <= 0) examLock.release('deadline');
+  else timer = setTimeout(() => examLock.release('deadline'), left);
+}
+
 export const examLock = {
   get room() { return room; },
   get locked() { return locked; },
@@ -57,7 +64,9 @@ export const examLock = {
 
   syncClock(serverNow: string): void {
     const at = Date.parse(serverNow);
-    if (Number.isFinite(at)) offsetMs = at - clock();
+    if (!Number.isFinite(at)) return;
+    offsetMs = at - clock();
+    if (locked && deadlineMs !== null) scheduleRelease(deadlineMs);
   },
 
   /** Milliseconds left before the deadline (not the grace), never negative; null without one. */
@@ -75,16 +84,10 @@ export const examLock = {
       return false;
     }
     deadlineMs = deadline;
-    const left = deadline + EXAM_GRACE_MS - serverTime();
-    if (left <= 0) {
-      examLock.release('deadline');
-      return false;
-    }
-    clearTimer();
     locked = true;
     reason = null;
-    timer = setTimeout(() => examLock.release('deadline'), left);
-    return true;
+    scheduleRelease(deadline);
+    return locked;
   },
 
   release(why: ReleaseReason): void {

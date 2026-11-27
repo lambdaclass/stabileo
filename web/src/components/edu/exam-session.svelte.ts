@@ -35,7 +35,7 @@ function unavailableFor(e: unknown): ExamUnavailable | 'signin' {
 
 const closedByServer = (e: unknown) => e instanceof ApiError && e.status === 409 && (e.code === 'attempt_closed' || e.code === 'attempt_submitted');
 
-export function createExamSession(deps: ExamSessionDeps) {
+function createAttemptSession(deps: ExamSessionDeps) {
   const { api, lock, auth } = deps;
   const score = deps.score ?? defaultScore;
   const debounceMs = deps.debounceMs ?? 1500;
@@ -135,7 +135,10 @@ export function createExamSession(deps: ExamSessionDeps) {
       answers = storedSubmission(a.answers)?.answers ?? [];
     } catch {
       if (disposed) return;
-      attempt = { ...attempt!, closed: true };
+      answers = [];
+      phase = 'unavailable';
+      unavailable = 'error';
+      return;
     }
     phase = 'closed';
   }
@@ -145,15 +148,29 @@ export function createExamSession(deps: ExamSessionDeps) {
     dirty = false;
     saveState = 'saving';
     try {
-      const sent = { revision, answers: JSON.parse(JSON.stringify(payload())) as Record<string, unknown> };
+      const sent = pendingSave ?? { revision, answers: JSON.parse(JSON.stringify(payload())) as Record<string, unknown> };
       pendingSave = sent;
-      const a = await api.saveAnswers(attempt.id, sent.answers, sent.revision);
+      let a: Attempt;
+      try {
+        a = await api.saveAnswers(attempt.id, sent.answers, sent.revision);
+      } catch (e) {
+        if (disposed || !(e instanceof ApiError) || e.code !== 'stale_revision') throw e;
+        a = await api.attempt(attempt.id);
+        if (a.revision !== sent.revision + 1 || canonicalJson(a.answers) !== canonicalJson(sent.answers)) throw e;
+      }
       revision = Math.max(revision, a.revision);
       if (disposed || frozen || phase !== 'running') return;
       pendingSave = null;
       attempt = a;
       lock.syncClock(a.now);
+      if (a.closed) {
+        dirty = false;
+        adopt(a);
+        return;
+      }
+      dirty ||= canonicalJson(answers) !== canonicalJson(sent.answers.answers);
       saveState = dirty ? 'pending' : 'saved';
+      if (dirty && saveTimer === null) saveTimer = setTimeout(() => { saveTimer = null; void session.flush(); }, debounceMs);
       if (!lock.locked && phase === 'running') lock.engage({ deadlineAt: a.deadline_at, serverNow: a.now });
     } catch (e) {
       if (disposed || frozen) return;
@@ -293,6 +310,7 @@ export function createExamSession(deps: ExamSessionDeps) {
 
     update(next: SubmittedAnswer[]): void {
       if (disposed || frozen || phase !== 'running') return;
+      if (attempt && lock.serverNow() >= Date.parse(attempt.deadline_at)) { void session.submit(true); return; }
       if (JSON.stringify(next) === JSON.stringify(answers)) return;
       answers = next;
       dirty = true;
@@ -321,8 +339,7 @@ export function createExamSession(deps: ExamSessionDeps) {
       try {
         const a = await api.attempt(attempt.id);
         if (disposed) return;
-        attempt = a;
-        lock.syncClock(a.now);
+        adopt(a);
       } catch {
         return;
       } finally {
@@ -337,6 +354,36 @@ export function createExamSession(deps: ExamSessionDeps) {
     },
   };
   return session;
+}
+
+export function createExamSession(deps: ExamSessionDeps) {
+  let current = $state.raw(createAttemptSession(deps));
+  let disposed = false;
+  return {
+    get phase() { return current.phase; },
+    get unavailable() { return current.unavailable; },
+    get exam() { return current.exam; },
+    get attempt() { return current.attempt; },
+    get spec() { return current.spec; },
+    get answers() { return current.answers; },
+    get saveState() { return current.saveState; },
+    get note() { return current.note; },
+    get busy() { return current.busy; },
+    get frozen() { return current.frozen; },
+    get code() { return current.code; },
+    async load(code: string) {
+      if (disposed) return;
+      if (current.code) current.dispose();
+      current = createAttemptSession(deps);
+      await current.load(code);
+    },
+    start: () => current.start(),
+    update: (answers: SubmittedAnswer[]) => current.update(answers),
+    flush: () => current.flush(),
+    submit: (auto = false) => current.submit(auto),
+    refresh: () => current.refresh(),
+    dispose() { disposed = true; current.dispose(); },
+  };
 }
 
 export type ExamSession = ReturnType<typeof createExamSession>;

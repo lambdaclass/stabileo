@@ -14,6 +14,7 @@ const masks = {
   fixed: [true, true, true, true, true, true],
   pinned: [true, true, true, true, true, false],
   rollerX: [false, true, true, true, true, false],
+  guidedZ: [true, true, false, true, true, true],
   guidedX: [false, true, true, true, true, true],
   rollerY: [true, false, true, true, true, false],
   rollerZ: 'ambiguous',

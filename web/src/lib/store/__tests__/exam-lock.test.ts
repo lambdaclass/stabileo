@@ -73,7 +73,7 @@ it('known wrong result: #1927 — changing the wall clock during an attempt pres
   } finally { vi.restoreAllMocks(); }
 });
 
-it.skip.each([-5000, 5000])('known wrong result: #1927 — an active lock reschedules after a clock correction of %i ms', shift => {
+it.each([-5000, 5000])('known wrong result: #1927 — an active lock reschedules after a clock correction of %i ms', shift => {
   const duration = 10_000;
   examLock.engage({ deadlineAt: iso(T0 + duration), serverNow: iso(T0) });
   examLock.syncClock(iso(T0 + shift));
