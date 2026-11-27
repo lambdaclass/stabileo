@@ -84,10 +84,11 @@ describe('compiler completion during the baseline check', () => {
     expect(runCompiler('process.exit(2)').code).toBe(0);
   });
 
-  it.skip.each([
+  it.each([
+    ['compiler exception', "throw new Error('internal compiler failure')"],
     ['compiler terminated by a signal', "process.kill(process.pid, 'SIGTERM')"],
     ['project-wide error', "console.log('error TS5083: Cannot read file tsconfig.json'); process.exit(1)"],
-  ])('known wrong result: #2613 — rejects a %s after an allowed diagnostic', (_, termination) => {
+  ])('rejects a %s after an allowed diagnostic', (_, termination) => {
     const { code, out } = runCompiler(termination);
     expect(code).toBe(2);
     expect(out).not.toMatch(/no new type errors/);

@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "rootDir": "../../src/lib/i18n",
+    "outDir": "./declarations",
+    "tsBuildInfoFile": "./dictionaries.tsbuildinfo"
+  },
+  "include": [
+    "../../src/lib/i18n/types.ts",
+    "../../src/lib/i18n/locales/*.ts",
+    "../../src/lib/i18n/locales/course/**/*.ts",
+    "../../src/lib/i18n/locales/steps/**/*.ts"
+  ],
+  "exclude": ["../../src/lib/i18n/locales/all.ts"]
+}

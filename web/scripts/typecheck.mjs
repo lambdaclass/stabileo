@@ -18,8 +18,8 @@
 //
 // CI is untouched by this file.
 
-import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,7 +30,7 @@ const BASELINE = join(webRoot, 'scripts', 'typecheck-baseline.json')
 const refresh = process.argv.includes('--write')
 
 /** `src/x.ts(12,5): error TS2345: Argument of type ...` */
-const ERROR_LINE = /^(.+?)\((\d+),(\d+)\): error (TS\d+): (.*)$/
+const ERROR_LINE = /^(?:(.+?)\((\d+),(\d+)\): )?error (TS\d+): (.*)$/
 
 // Signature deliberately excludes line and column: an unrelated edit that
 // shifts a file must not be reported as a new error, and a moved error is the
@@ -61,18 +61,30 @@ function runTsc() {
 		console.error('typecheck: refusing to report 0 errors without having run tsc.')
 		process.exit(2)
 	}
+	const cacheDir = join(webRoot, '.cache')
+	mkdirSync(cacheDir, { recursive: true })
+	const projectDir = mkdtempSync(join(cacheDir, 'typecheck-'))
+	let result
 	try {
-		execFileSync(process.execPath, [TSC, '-p', 'tsconfig.json', '--noEmit'], {
+		for (const config of ['tsconfig.json', 'dictionaries.json']) {
+			copyFileSync(join(here, 'typecheck-projects', config), join(projectDir, config))
+		}
+		result = spawnSync(process.execPath, [TSC, '--build', projectDir, '--pretty', 'false'], {
 			cwd: webRoot,
 			encoding: 'utf8',
 			stdio: ['ignore', 'pipe', 'pipe'],
 		})
-		return { output: '', crashed: false }
-	} catch (err) {
-		// tsc exits non-zero whenever it reports anything; that is the normal path.
-		if (err.stdout === undefined && err.stderr === undefined) throw err
-		return { output: `${err.stdout ?? ''}${err.stderr ?? ''}`, crashed: true }
+	} finally {
+		rmSync(projectDir, { recursive: true, force: true })
 	}
+	const output = `${result.stdout ?? ''}${result.stderr ?? ''}`
+	if (result.error || ![0, 1, 2].includes(result.status) || (result.status !== 0 && result.stderr)) {
+		console.error('typecheck: compiler failed to complete the project check.')
+		console.error(result.error?.message ?? result.signal ?? `tsc exit ${result.status}`)
+		console.error(output.trim())
+		process.exit(2)
+	}
+	return { output, crashed: result.status !== 0 }
 }
 
 function parse(output) {
@@ -80,6 +92,10 @@ function parse(output) {
 	for (const raw of output.split(/\r?\n/)) {
 		const m = ERROR_LINE.exec(raw)
 		if (!m) continue
+		if (!m[1]) {
+			console.error(`typecheck: ${raw}`)
+			process.exit(2)
+		}
 		errors.push({
 			file: m[1].split('\\').join('/'),
 			line: Number(m[2]),
