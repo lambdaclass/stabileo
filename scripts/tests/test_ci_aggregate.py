@@ -60,6 +60,25 @@ class CiAggregate(unittest.TestCase):
             self.assertNotIn('stop-failed-run.yml', jobs[name])
         self.assertIn('make check.web.production-parity', jobs['production-parity'])
 
+    @unittest.skip('known wrong result: #2505')
+    def test_pr_parity_uses_one_merge_base_from_the_actual_pr_head(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertEqual(workflow.count('github.event.pull_request.base.sha'), 0,
+                         'a long-lived PR can carry a stale event base')
+        jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow.split('\njobs:\n', 1)[1], re.M))
+        changes = jobs['changes']
+        self.assertIn('base: ${{ steps.base.outputs.sha }}', changes)
+        self.assertIn('PR_HEAD: ${{ github.event.pull_request.head.sha }}', changes)
+        self.assertIn('QUEUE_BASE: ${{ github.event.merge_group.base_sha }}', changes)
+        self.assertIn('git merge-base "$PR_HEAD" "refs/remotes/origin/$GITHUB_BASE_REF"', changes)
+        self.assertIn('BASE_SHA: ${{ steps.base.outputs.sha }}', changes)
+        self.assertIn('BASE: ${{ steps.base.outputs.sha }}', changes)
+        for job in ['production-parity-research', 'production-parity-build', 'production-parity']:
+            self.assertIn('BASE: ${{ needs.changes.outputs.base }}', jobs[job], job)
+        for job in ['changes', 'production-parity-research', 'production-parity-build', 'production-parity']:
+            self.assertIn('ref: ${{ github.event.pull_request.head.sha || github.sha }}', jobs[job], job)
+            self.assertIn('fetch-depth: 0', jobs[job], job)
+
     def test_parity_runs_both_snapshots_off_the_web_build_runner(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         jobs = dict(re.findall(r'^  ([\w-]+):\n((?:^(?:    .*|)\n)*)', workflow.split('\njobs:\n', 1)[1], re.M))
