@@ -89,3 +89,9 @@ before this, it passed Mp by 0.45 % and 0.19 % at the second and third steps of 
 What moves: Basic 2D plastic collapse gives a collapse factor and hinges again where the
 certificate confirms them (`solve.ok`, `collapseFactor`, `hinges`). The plastic analyses are not in
 the results corpus, so no snapshot moves for this entry.
+
+For a planar truss under nodal forces, the engine can also confirm axial collapse by joint
+equilibrium. At the reported factor the exact force field must satisfy every axial capacity.
+At least one member must reach its capacity with an axial force that every equilibrium field
+shares. A larger load would exceed that capacity. This preserves the yielded-truss result from
+#2608 without relying on the step history to certify its factor.

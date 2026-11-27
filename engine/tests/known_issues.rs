@@ -3236,7 +3236,6 @@ fn issue_2588_exported_default_rigid_link_3d() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2608"]
 fn certified_limit_keeps_the_equilibrium_proven_axial_yield_mechanism_2608() {
     use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
     use serde_json::json;
@@ -3260,9 +3259,14 @@ fn certified_limit_keeps_the_equilibrium_proven_axial_yield_mechanism_2608() {
         assert_eq!(result.confirmation, Confirmation::Exact);
         assert!((result.lambda - expected).abs() <= f64::EPSILON * expected);
         let np = HashMap::from([(3, capacity)]);
-        for wrong in [expected * 0.5, expected * 2.0] {
+        for wrong in [expected.next_down(), expected.next_up(), expected * 0.5, expected * 2.0] {
             assert_ne!(confirm_2d(&input.solver, &HashMap::new(), &np, wrong), Confirmation::Exact);
         }
+        let mut redundant = input.solver.clone();
+        let mut parallel = redundant.elements["3"].clone();
+        parallel.id = 4;
+        redundant.elements.insert("4".into(), parallel);
+        assert_ne!(confirm_2d(&redundant, &HashMap::new(), &np, expected), Confirmation::Exact);
         input.np.clear();
         assert!(certified_limit_2d(&input).is_err());
     }

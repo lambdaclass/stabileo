@@ -213,6 +213,14 @@ fn certificate_encloses(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Hash
     let refused = |why: String| format!("the exact certificate does not apply: {why}");
     crate::certify::finite::check_input(&pi).map_err(refused)?;
     let model = build_model(&pi).map_err(refused)?;
+    if !np.is_empty()
+        && input.elements.values().all(|e| e.elem_type == "truss")
+        && input.loads.iter().all(|l| matches!(l, SolverLoad::Nodal(p) if p.my == 0.0))
+        && input.supports.values().all(|s| [s.kx, s.ky, s.kz, s.dx, s.dz, s.dry, s.angle].iter().all(|v| v.unwrap_or(0.0) == 0.0))
+        && crate::certify::plastic::truss_axial_factor_is_exact(&model, np, lambda)?
+    {
+        return Ok(Confirmation::Exact);
+    }
     let c = plastic_candidates(&model, None).map_err(refused)?;
     let (Some(field), Some(mech)) = (&c.static_field, &c.mechanism_check) else {
         return Err(refused(c.static_reason.or(c.mechanism_reason).unwrap_or_else(|| "no bound".into())));

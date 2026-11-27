@@ -717,6 +717,32 @@ fn equilibrium_system(model: &PlasticModel) -> Result<Equilibrium, String> {
     Ok(Equilibrium { xp, null: r.null_basis })
 }
 
+pub(crate) fn truss_axial_factor_is_exact(model: &PlasticModel, capacities: &HashMap<usize, f64>, lambda: f64) -> Result<bool, String> {
+    let Some(factor) = q(lambda).filter(|v| v.is_positive()) else { return Ok(false) };
+    lp_work(model).initial().check_engine_budget()?;
+    let eq = equilibrium_system(model)?;
+    let free_translations = model.restrained.iter().flat_map(|r| &r[..2]).filter(|&&held| !held).count();
+    if model.elems.len() != free_translations + eq.null.len() {
+        return Ok(false);
+    }
+    let mut fixed_at_yield = false;
+    for (index, element) in model.elems.iter().enumerate() {
+        let Some(&capacity) = capacities.get(&element.id) else { continue };
+        let capacity = q(capacity).filter(|v| v.is_positive()).ok_or("invalid axial yield force")?;
+        let force_times_length = |field: &[Q]| &field[3 * index] * &element.dx + &field[3 * index + 1] * &element.dz;
+        let demand = &factor * force_times_length(&eq.xp);
+        let demand_squared = &demand * &demand;
+        let capacity_squared = &capacity * &capacity * &element.l2;
+        if demand_squared > capacity_squared {
+            return Ok(false);
+        }
+        if demand_squared == capacity_squared && eq.null.iter().all(|field| force_times_length(field).is_zero()) {
+            fixed_at_yield = true;
+        }
+    }
+    Ok(fixed_at_yield)
+}
+
 fn equilibrium_equation_count(model: &PlasticModel) -> usize {
     model.restrained.iter().flatten().filter(|r| !**r).count().saturating_add(
         model.elems.iter().map(|e| usize::from(e.rel_i) + usize::from(e.rel_j)).fold(0usize, usize::saturating_add),
