@@ -38,13 +38,13 @@
         <tr>
           <th scope="row">{names[r.id ?? r.name] ?? r.name}{#if i === 0 || rows[i - 1].source !== r.source}<span class="src" lang="en">{r.source}</span>{/if}</th>
           {#if shape === 'curve'}
-            <td colspan="2" class="curve">{s.curve.replace('{n}', num(r.points!))}</td>
+            <td colspan="2" class="curve">{s.curve.replace('{n}', num(r.points!))}{#if !r.samples} · {s.recorded}{/if}</td>
           {:else}
             <td>{#if Number.isFinite(r.reference)}{@render value(r.reference!, r.unit ?? '')}{:else}{s.unavailable}{/if}</td>
             <td>{#if Number.isFinite(r.computed)}{@render value(r.computed!, r.unit ?? '')}{:else}{s.unavailable}{/if}</td>
           {/if}
           <td>{#if Number.isFinite(difference)}{@render gap(difference, r)}{:else}{s.unavailable}{/if}</td>
-          <td><span class={passed ? 'ok' : 'bad'} aria-label={passed ? s.within : s.outside}>{passed ? '✓' : '✗'}</span> {@render gap(r.tolerance, r)}</td>
+          <td><span class={passed ? 'ok' : 'bad'} aria-label={passed ? s.within : Number.isFinite(difference) && difference > r.tolerance ? s.outside : s.unavailable}>{passed ? '✓' : '✗'}</span> {@render gap(r.tolerance, r)}</td>
         </tr>
       {/each}
     </tbody>

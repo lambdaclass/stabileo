@@ -49,7 +49,7 @@ it('empty verification has no successful verdict or link', () => {
   expect(html).not.toContain('href="#checks"');
 });
 
-it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 rejects a stale curve maximum and distinguishes inconsistent evidence', () => {
+it('rejects a stale curve maximum and distinguishes inconsistent evidence', () => {
   const fields = { metric: 'absolute difference in Y, largest', points: 2, samples: [[0, 1], [0, 0]], tolerance: 2 };
   expect(table(fields)).toContain('aria-label="Unavailable"');
   expect(table({ ...fields, observed: 1 })).toContain('✓');

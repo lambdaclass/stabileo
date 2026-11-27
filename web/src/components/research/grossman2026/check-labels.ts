@@ -384,11 +384,12 @@ const comparisonLabels: Record<string, Record<string, string>> = {
     zh: 'η = {eta} 时条带的 ν（13 × 52，10 个样本的平均值）',
   },
 };
-export function comparisonNames(rows: { id: string; eta?: number }[], locale: string): Record<string, string> {
+export function comparisonNames(rows: { id: string; eta?: number; samples?: number[][] }[], locale: string): Record<string, string> {
   const nf = (n: number) => new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
   const pick = (key: string) => comparisonLabels[key][locale] ?? comparisonLabels[key].en;
-  const last = Math.max(...rows.filter((r) => r.eta !== undefined).map((r) => r.eta!));
+  const etas = rows.find(r => r.id === 'fig5-periodic')?.samples?.map(p => p[0]) ?? [];
+  const last = etas.length ? nf(Math.max(...etas)) : '…';
   return Object.fromEntries(rows.map((r) => [r.id, r.eta !== undefined
     ? pick('strip').replace('{eta}', nf(r.eta))
-    : (comparisonLabels[r.id] ? pick(r.id).replace('{last}', nf(last)) : r.id)]));
+    : (comparisonLabels[r.id] ? pick(r.id).replace('{last}', last) : r.id)]));
 }

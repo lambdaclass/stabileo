@@ -17,7 +17,7 @@ it('publishes the first confirmed native-step peak before a refined solve stops'
   try {
     await import('../solve.worker');
     await worker.onmessage({ data: { split: 2 } });
-    if (process.env.RUN_KNOWN_WRONG) expect(sent.filter(m => m.frame).map(m => m.frame!.step), 'known wrong result: #2505').toEqual([2, 3, 4]);
+    expect(sent.filter(m => m.frame).map(m => m.frame!.step)).toEqual([2, 3, 4]);
     expect(sent.find(m => m.frame?.step === 4)?.peak).toBe(3);
     expect(sent.at(-1)?.error).toBe('solveError');
   } finally { vi.restoreAllMocks(); vi.unstubAllGlobals(); }

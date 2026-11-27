@@ -26,7 +26,7 @@
     /** Passed / total of the validation checks, when the experiment has them. */
     checks?: { passed: number; total: number } | null;
     /** What the experiment is checked against; defaults from `checks` and the catalogue. */
-    verification?: { reference: Check; published: Check } | null;
+    verification?: { reference: Check; published?: Check } | null;
     publishedLabel?: string;
     referenceLabel?: string | null;
     /** The rows of published_comparison.json, shown as the paper against Stabileo. */

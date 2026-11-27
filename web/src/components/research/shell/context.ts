@@ -27,6 +27,8 @@ export type PublishedRow = {
   reference?: number;
   computed?: number;
   points?: number;
+  samples?: number[][];
+  orientation_unit?: string;
   metric: string;
   observed: number;
   tolerance: number;
@@ -41,7 +43,20 @@ export function comparisonShape(row: PublishedRow) {
 
 export function comparisonDifference(row: PublishedRow): number {
   const shape = comparisonShape(row);
-  if (shape === 'curve') return row.observed;
+  if (shape === 'curve') {
+    if (row.samples === undefined) return row.observed;
+    if (row.samples.length !== row.points || !row.samples.length) return NaN;
+    let largest = 0;
+    for (const p of row.samples) {
+      if (!Array.isArray(p) || !p.every(Number.isFinite)) return NaN;
+      if (row.metric.startsWith('absolute distance outside the error bar') && p.length === 4 && p[1] <= p[2]) {
+        largest = Math.max(largest, p[1] - p[3], p[3] - p[2]);
+      } else if (row.metric.startsWith('absolute difference') && (p.length === 2 || (p.length === 3 && row.orientation_unit === 'rad'))) {
+        largest = Math.max(largest, Math.abs(p[p.length - 1] - p[p.length - 2]));
+      } else return NaN;
+    }
+    return largest;
+  }
   if (shape === 'scalar') {
     const difference = Math.abs(row.computed! - row.reference!);
     const metric = row.metric.toLowerCase();

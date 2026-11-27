@@ -7,7 +7,7 @@ export function describeCase(s: Templates, locale: string, v: Values): Templates
   const ceilings = v.meshErrorCeilings.map(c => c.relativeError);
   const values: Record<string, string> = {
     tolerance: percent(v.tolerance),
-    ceilings: [...ceilings.slice(0, -1).map(x => number(x * 100)), percent(ceilings.at(-1)!)].join('/'),
+    ceilings: ceilings.map(percent).join('/'),
     extension: percent(v.axialExtensionBound),
     momentArea: number(v.momentArea),
     range: `${number(v.first)}…${number(v.last)}`,

@@ -36,12 +36,12 @@
   const fmt = (n: number, digits = 4) => new Intl.NumberFormat(publicI18n.locale, { maximumFractionDigits: digits }).format(n);
   const series = $derived([{ name: 'Stabileo', color: '#60a5fa', points: frames.map(at) }]);
   const readout = $derived(current ? fill(s.readout, { step: String(current.step), load: fmt(current.load), u: fmt(at(current)[0], 3) }) : '');
-  const total = $derived(Math.floor(input.maxSteps / shownSplit));
+  const total = $derived(Math.floor(input.maxSteps / shownSplit) + frames.filter(f => f.step % shownSplit !== 0).length);
   const rowNames = $derived(Object.fromEntries(publishedRows.checks.map(r => [r.id, s[`row_${r.id.replaceAll('-', '_')}` as keyof typeof s] as string])));
   const status = $derived(source === 'stopped' ? `${s.stopped} ${frames.length}/${total}` : `${source === 'replay' ? s.replay : source === 'live' ? s.live : s.cached} · ${frames.length}/${total}`);
   function stop() {
     playback.interact(); worker?.terminate(); worker = null; busy = false;
-    if (source === 'live') source = frames.length === total ? 'cached' : 'stopped';
+    if (source === 'live') source = frames.at(-1)?.step === input.maxSteps ? 'cached' : 'stopped';
   }
   function restart() {
     stop(); failure = null; source = 'replay'; frames = replay.frames; split = 1; shownSplit = 1; livePeak = null;
@@ -79,7 +79,7 @@
 <ExperimentShell compactHeader paperId="lee-frame-1968" name={s.title} lead={s.lead}
   sourcePath="research/benchmarks/lee-frame-1968"
   actions={{ goToStep: i => playback.seek(i), setParams: p => { if (splits.includes(p.split as Split)) { split = p.split as Split; run(); } }, showTab: () => {} }}
-  verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: `https://github.com/lambdaclass/stabileo/blob/${BUILD_COMMIT}/research/benchmarks/lee-frame-1968/VALIDATION.json` }, published: { kind: 'none', why: s.paperWhy } }} referenceLabel={s.validationLabel}
+  verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: `https://github.com/lambdaclass/stabileo/blob/${BUILD_COMMIT}/research/benchmarks/lee-frame-1968/VALIDATION.json` } }} referenceLabel={s.validationLabel}
   comparison={publishedRows.checks} comparisonNames={rowNames}>
   {#snippet article()}
     <h2>{s.model}</h2><p>{s.description}</p><p>{s.method}</p>

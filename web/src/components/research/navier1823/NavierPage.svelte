@@ -10,7 +10,7 @@
   import { Playback } from '../shell/playback.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import type { PublishedRow } from '../shell/context';
-  import { parameters, cases, mesh, geometry, build, difference, convergence, reduction, runState, navierCenter, seriesFor, validPlate, LIMITS, PAPER_PLATE, type Family, type Plate, type Row } from './model';
+  import { parameters, cases, mesh, geometry, build, difference, convergence, reduction, runState, navierCenter, seriesFor, validPlate, LIMITS, THICKNESSES, PAPER_PLATE, type Family, type Plate, type Row } from './model';
   import type { WorkerError } from './solve.worker';
   import replay from '../../../../../research/benchmarks/navier-plate/results/stabileo_results.json';
   import validation from '../../../../../research/benchmarks/navier-plate/VALIDATION.json';
@@ -24,7 +24,6 @@
   const passed = validation.checks.filter(c => c.passed).length;
   const comparison = published.checks as PublishedRow[];
   const DIVISIONS = Array.from({ length: (LIMITS.n.max - LIMITS.n.min) / LIMITS.n.step + 1 }, (_, i) => LIMITS.n.min + i * LIMITS.n.step);
-  const THICKNESSES = [0.02, 0.05, 0.1, 0.2, 0.3, 0.5];
 
   const playback = new Playback(1300, 2200);
   let rows = $state<Row[]>(replay.rows);
@@ -143,6 +142,14 @@
     w.postMessage({ plate: $state.snapshot(plate), token });
   }
   function setParams(p: Record<string, number | string | boolean>) {
+    if ((p.family !== undefined && p.family !== 'MITC4' && p.family !== 'DKT')
+      || (p.support !== undefined && p.support !== 'hard' && p.support !== 'soft')) {
+      stop();
+      view = 'plate';
+      plateRow = null;
+      plateError = 'input';
+      return;
+    }
     const next: Plate = {
       family: p.family === 'DKT' || p.family === 'MITC4' ? p.family as Family : plate.family,
       n: p.n !== undefined ? Number(p.n) : plate.n,

@@ -92,10 +92,10 @@ describe('Mattiasson evidence', () => {
       expect(Object.values(text).join(' ')).not.toMatch(/\{\w+\}/);
       const percentage = (v: number) => new Intl.NumberFormat(locale, { style: 'percent', maximumSignificantDigits: 3 }).format(v);
       const statedPercentages = text.solverDescription.match(/(?:%[\s\u00a0]*[0-9]+(?:[.,][0-9]+)?|[0-9]+(?:[.,][0-9]+)?[\s\u00a0]*%)/g);
-      expect(statedPercentages).toEqual([tolerance, meshErrorCeilings.at(-1)!.relativeError, axialExtensionBound].map(percentage));
-      if (locale === 'en') expect(text.solverDescription.match(/\d+(?:\.\d+)?%/g)).toEqual(['0.1%', '0.0281%', '0.025%']);
-      if (locale === 'en') expect(text.solverDescription).toContain(values);
-      if (locale === 'es') expect(text.solverDescription).toContain('0,0801/0,0384/0,0281');
+      expect(statedPercentages).toEqual([tolerance, ...meshErrorCeilings.map(c => c.relativeError), axialExtensionBound].map(percentage));
+      if (locale === 'en') expect(text.solverDescription.match(/\d+(?:\.\d+)?%/g)).toEqual(['0.1%', '0.0801%', '0.0384%', '0.0281%', '0.025%']);
+      if (locale === 'en') expect(text.solverDescription).toContain('0.0801%/0.0384%/0.0281%');
+      if (locale === 'es') expect(text.solverDescription).toContain(meshErrorCeilings.map(c => percentage(c.relativeError)).join('/'));
     }
   });
   it('round trips the shared input through the editor without changing the solve', async () => {
@@ -139,7 +139,7 @@ it('registers viewer strings for a fresh research visit in every locale', () => 
   }
 });
 
-it.skipIf(!process.env.RUN_KNOWN_WRONG)('known wrong result: #2505 labels each mesh ceiling as a percentage in every locale', () => {
+it('labels each mesh ceiling as a percentage in every locale', () => {
   for (const [locale, dictionary] of Object.entries(strings)) {
     const text = describeCase(dictionary, locale, { tolerance, meshErrorCeilings, axialExtensionBound, momentArea: .01, first: .5, last: 10 });
     const format = new Intl.NumberFormat(locale, { style: 'percent', maximumSignificantDigits: 3 });

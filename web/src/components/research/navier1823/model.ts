@@ -19,9 +19,11 @@ export type Plate = { family: Family; n: number; hard: boolean; thickness: numbe
 export const PAPER_PLATE: Plate = { family: 'MITC4', n: 16, hard: false, thickness: parameters.thickness };
 export const LIMITS = { n: { min: 2, max: 32, step: 2 }, thickness: { min: 0.02, max: 0.5 } };
 
+export const THICKNESSES = [0.02, 0.05, 0.1, 0.2, 0.3, 0.5];
+
 export function validPlate(p: Plate): boolean {
-  return (p.family === 'DKT' || p.family === 'MITC4') && Number.isInteger(p.n) && p.n >= LIMITS.n.min && p.n <= LIMITS.n.max && p.n % 2 === 0
-    && Number.isFinite(p.thickness) && p.thickness >= LIMITS.thickness.min && p.thickness <= LIMITS.thickness.max;
+  return typeof p.hard === 'boolean' && (p.family === 'DKT' || p.family === 'MITC4') && Number.isInteger(p.n) && p.n >= LIMITS.n.min && p.n <= LIMITS.n.max && p.n % 2 === 0
+    && THICKNESSES.includes(p.thickness);
 }
 
 /** The plate builder of engine/tests/benchmarks/navier_plate.rs, operation for operation, so the fixture is reproduced exactly. */

@@ -1,4 +1,4 @@
-import { failureCode, frameFrom, refinedInput, splits, type Split } from './case';
+import { SolveFailure, failureCode, frameFrom, refinedInput, splits, type Split } from './case';
 import { initSolver, solveArcLength } from '../../../lib/engine/wasm-solver';
 self.onmessage = async ({ data }: MessageEvent<{ split?: Split }>) => {
   try {
@@ -12,7 +12,15 @@ self.onmessage = async ({ data }: MessageEvent<{ split?: Split }>) => {
       if (peak === null) {
         const loads: number[] = result.steps.map((s: { loadFactor: number }) => s.loadFactor);
         const i = loads.findIndex((load, k) => k > 0 && k + 1 < loads.length && load > loads[k - 1] && load > loads[k + 1]);
-        if (i >= 0) peak = loads[i];
+        if (i >= 0) {
+          peak = loads[i];
+          const peakStep = i + 1;
+          if (peakStep > step - split && peakStep < step) {
+            const peakFrame = frameFrom(solveArcLength({ ...input, maxSteps: peakStep }), peakStep, input);
+            if (peakFrame.load !== peak) throw new SolveFailure('invalid');
+            self.postMessage({ frame: peakFrame, peak });
+          }
+        }
       }
       self.postMessage({ frame, peak });
     }
