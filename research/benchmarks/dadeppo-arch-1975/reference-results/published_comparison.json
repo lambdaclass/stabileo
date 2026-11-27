@@ -6,9 +6,9 @@
       "source": "DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308",
       "unit": "",
       "reference": 8.97,
-      "computed": 9.01129541241173,
+      "computed": 9.011295412411824,
       "metric": "relative difference",
-      "observed": 0.004603724906547326,
+      "observed": 0.004603724906557822,
       "tolerance": 0.006,
       "passed": true
     },
@@ -18,9 +18,9 @@
       "source": "DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308",
       "unit": "",
       "reference": 0.6116,
-      "computed": 0.61189302613322,
+      "computed": 0.611893026133223,
       "metric": "relative difference",
-      "observed": 0.0004791140176913344,
+      "observed": 0.00047911401769623564,
       "tolerance": 0.0011,
       "passed": true
     },
@@ -30,9 +30,9 @@
       "source": "DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308",
       "unit": "",
       "reference": 1.1372,
-      "computed": 1.1378066999020022,
+      "computed": 1.1378066999020306,
       "metric": "relative difference",
-      "observed": 0.0005335032553660209,
+      "observed": 0.0005335032553910136,
       "tolerance": 0.0007,
       "passed": true
     },
@@ -42,9 +42,9 @@
       "source": "DaDeppo & Schmidt (1975), Table 1, as quoted by R. Schmidt (2000), J. Eng. Mech. 126(12), p. 1308",
       "unit": "",
       "reference": 0.0498,
-      "computed": 0.05134560445613732,
+      "computed": 0.051345604456124745,
       "metric": "relative difference",
-      "observed": 0.03103623405898236,
+      "observed": 0.031036234058729885,
       "tolerance": 0.04,
       "passed": true
     }
