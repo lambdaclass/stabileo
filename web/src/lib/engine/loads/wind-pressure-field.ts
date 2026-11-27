@@ -52,34 +52,6 @@ export function integrateWindPressure(length: number, boundaries: readonly numbe
     if (depth === 24) throw new WindPressureRefusal('wind.pressure.integrationUnresolved');
     return combine(integrate(a, mid, origin, depth + 1), integrate(mid, b, origin, depth + 1));
   };
-  // One linear part has two values and cannot carry a curved field's four work moments; two have four.
-  const twoParts = (a: number, b: number, integral: Integral): WindPressurePart[] | null => {
-    const span = b - a, mid = (a + b) / 2, peak = Math.max(Math.abs(integral.min), Math.abs(integral.max));
-    const I = (n: number, c: number, d: number) => (d ** (n + 1) - c ** (n + 1)) / (n + 1);
-    const piece = (k: number, c: number, d: number) => [(d * I(k, c, d) - I(k + 1, c, d)) / (d - c), (I(k + 1, c, d) - c * I(k, c, d)) / (d - c)];
-    const matrix = [0, 1, 2, 3].map((k) => [...piece(k, 0, 0.5), ...piece(k, 0.5, 1)]);
-    const rows = matrix.map((row, k) => [...row, integral.moments[k]! / span ** (k + 1)]);
-    for (let c = 0; c < 4; c++) {
-      let p = c;
-      for (let r = c + 1; r < 4; r++) if (Math.abs(rows[r]![c]!) > Math.abs(rows[p]![c]!)) p = r;
-      [rows[c], rows[p]] = [rows[p]!, rows[c]!];
-      for (let r = 0; r < 4; r++) {
-        if (r === c) continue;
-        const f = rows[r]![c]! / rows[c]![c]!;
-        for (let j = c; j < 5; j++) rows[r]![j] = rows[r]![j]! - f * rows[c]![j]!;
-      }
-    }
-    const values = rows.map((r, i) => r[4]! / r[i]!);
-    const nonNegative = integral.min >= 0 && value(a) >= 0 && value(b) >= 0, nonPositive = integral.max <= 0 && value(a) <= 0 && value(b) <= 0;
-    if (values.some((v) => !Number.isFinite(v) || (nonNegative && v < -1e-12 * peak) || (nonPositive && v > 1e-12 * peak))) return null;
-    const [u1, v1, u2, v2] = values.map((v) => (nonNegative ? Math.max(0, v) : nonPositive ? Math.min(0, v) : v)) as [number, number, number, number];
-    const fit = matrix.map((row) => row[0]! * u1 + row[1]! * v1 + row[2]! * u2 + row[3]! * v2);
-    if (!integral.moments.every((v, k) => Math.abs(v - fit[k]! * span ** (k + 1)) <= 1e-12 * Math.max(Math.abs(v), peak * span ** (k + 1)))) return null;
-    const part = (c: number, d: number, q: number, qJ: number): WindPressurePart =>
-      ({ a: c, b: d, q, qJ, force: (q + qJ) / 2 * (d - c), first: (d - c) * (q * (2 * c + d) + qJ * (c + 2 * d)) / 6 });
-    const parts = [part(a, mid, u1, v1), part(mid, b, u2, v2)];
-    return Math.abs(parts[0]!.force - integrate(a, mid, a, 0).moments[0]) <= 1e-4 * peak * span ? parts : null;
-  };
   const approximate = (a: number, b: number, depth: number): WindPressurePart[] => {
     const span = b - a, integral = integrate(a, b, a, 0), [force, first] = integral.moments;
     const mean = force / span, delta = 6 * (first - span / 2 * force) / span ** 2;
@@ -93,8 +65,6 @@ export function integrateWindPressure(length: number, boundaries: readonly numbe
     const replacement = integral.moments.map((_v, k) => span ** (k + 1) * (q / (k + 1) + (qJ - q) / (k + 2))) as Moments;
     const accurate = integral.moments.every((v, k) => Math.abs(v - replacement[k]!) <= 1e-14 * span / Math.max(1, length) * Math.max(1, Math.abs(force) * span ** k));
     if (accurate) return [{ a, b, q, qJ, force: replacement[0], first: a * replacement[0] + replacement[1] }];
-    const two = twoParts(a, b, integral);
-    if (two) return two;
     if (depth === 24) throw new WindPressureRefusal('wind.pressure.integrationUnresolved');
     const mid = (a + b) / 2;
     return [...approximate(a, mid, depth + 1), ...approximate(mid, b, depth + 1)];

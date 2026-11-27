@@ -138,7 +138,7 @@ it('zero pressure at a physical apex keeps its zero answer with eccentricity', (
 });
 
 
-for (const sign of [-1, 1]) it.skip(`known wrong result: #2220 preserves the pressure resultant at an interior cut for sign ${sign}`, () => {
+for (const sign of [-1, 1]) it(`known wrong result: #2220 preserves the pressure resultant at an interior cut for sign ${sign}`, () => {
   for (const power of [1, 2]) {
     const parts = integrateWindPressure(1, [], s => sign * (1 + s ** power));
     for (const x of [0, 0.25, 0.75, 1]) {

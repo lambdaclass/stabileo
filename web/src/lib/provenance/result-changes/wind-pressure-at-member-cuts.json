@@ -1,0 +1,41 @@
+{
+  "id": "wind-pressure-at-member-cuts",
+  "date": "2026-11-27",
+  "prs": [
+    2220
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedWindLoads"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Wind pressure at member cuts",
+    "es": "Presión de viento en los cortes de las barras",
+    "pt": "Pressão do vento nos cortes das barras",
+    "de": "Winddruck an Stabschnitten",
+    "fr": "Pression du vent aux sections des barres",
+    "tr": "Çubuk kesitlerinde rüzgâr basıncı",
+    "zh": "杆件截面处的风压",
+    "hu": "Szélnyomás a rúdszelvényekben"
+  },
+  "explanation": {
+    "en": "A curved wind pressure could give incorrect shear or moment inside a member. Regenerate the wind loads and rerun the analysis.",
+    "es": "Una presión de viento curva podía dar un corte o momento incorrecto dentro de una barra. Regenere las cargas de viento y repita el análisis.",
+    "pt": "Uma pressão de vento curva podia produzir cortante ou momento incorreto no interior de uma barra. Gere novamente as cargas de vento e repita a análise.",
+    "de": "Ein gekrümmter Winddruckverlauf konnte im Stab falsche Querkräfte oder Momente ergeben. Erzeugen Sie die Windlasten erneut und wiederholen Sie die Berechnung.",
+    "fr": "Une pression de vent qui varie de façon non linéaire pouvait donner un effort tranchant ou un moment erroné à l’intérieur d’une barre. Régénérez les charges de vent et relancez le calcul.",
+    "tr": "Doğrusal olmayan rüzgâr basıncı, çubuk içinde yanlış kesme kuvveti veya moment verebiliyordu. Rüzgâr yüklerini yeniden oluşturup analizi tekrarlayın.",
+    "zh": "非线性变化的风压可能导致杆件内部的剪力或弯矩有误。请重新生成风荷载并重新分析。",
+    "hu": "A nemlineárisan változó szélnyomás hibás nyíróerőt vagy nyomatékot eredményezhetett a rúd belsejében. Állítsa elő újra a szélterheket, majd ismételje meg a számítást."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-build-and-schedules.md",
+    "heading": "Wind pressure at member cuts"
+  }
+}

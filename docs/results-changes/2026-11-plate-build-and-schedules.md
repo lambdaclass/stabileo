@@ -7,3 +7,7 @@ Both build profiles read the current structural solver, validation code and resu
 ## Unused stock in bar bending schedules
 
 Previous schedules could understate unused material on the last stock bar of a mark. For 12 m stock and a single 5 m piece, the reported 2 m allowed for a second piece that was never cut. The corrected remainder is 7 m. Three such pieces require two stock bars and leave 9 m. Offcuts are added across marks to give the exported total. Regenerate affected schedules before using their waste quantities.
+
+## Wind pressure at member cuts
+
+On the unmerged integration branch, two linear loads could match a curved pressure's whole-span work moments while giving a different shear or bending moment at an interior cut. The load generator again subdivides each interval until its linear replacement meets the local moment checks. Regenerate wind loads saved by an affected integration build, then rerun the analysis. Solving the old distributed loads again retains their original pressure approximation.
