@@ -66,10 +66,33 @@ test('known wrong result: #2505 — thin plate warns when the predicted displace
   await expect(page.getByTestId('navier-small-deflection')).toHaveCount(0);
 });
 
-test.skip('known wrong result: #2505 — a built shell mesh reports initialization failure and offers retry', async ({ page }) => {
+test('known wrong result: #2505 — a built shell mesh reports initialization failure and offers retry', async ({ page }) => {
   await page.route(/dedaliano_engine_bg[^/]*\.wasm/, route => route.abort());
   await page.goto('/en/research/benchmarks/shell-obstacle-course/');
   await page.getByTestId('try-roof-20').click();
   await expect(page.getByTestId('selected-result')).toContainText(/fail|error/i);
   await expect(page.getByTestId('retry-mesh')).toBeEnabled();
 });
+
+for (const elements of [20, 80] as const) {
+  test.skip(`known wrong result: #2505 — matching the ${elements}-element arch peak alone cannot certify the descending branch`, async ({ page }) => {
+    const { archInput, studyValue } = await import('../src/components/research/dadeppo1975/case');
+    const input = archInput(elements);
+    const loadFactor = studyValue(elements, 'loadFactor');
+    const frame = { step: input.maxSteps, loadFactor, displacements: Object.values(input.solver.nodes).map(n => ({ nodeId: n.id, ux: 0, uz: 0, ry: 0 })) };
+    const steps = Array.from({ length: input.maxSteps }, (_, i) => ({ step: i + 1, converged: true, loadFactor: i === input.maxSteps - 1 ? loadFactor * 0.99 : loadFactor }));
+    const crown = { uOverR: studyValue(elements, 'uOverR'), vOverR: studyValue(elements, 'vOverR'), rotation: studyValue(elements, 'rotation') };
+    await page.addInitScript(data => {
+      window.Worker = class {
+        onmessage?: (event: { data: unknown }) => void;
+        postMessage() { this.onmessage?.({ data }); }
+        terminate() {}
+      } as unknown as typeof Worker;
+    }, { frame, steps, limit: { loadFactor, crown }, done: true });
+    await page.goto('/en/research/benchmarks/dadeppo-arch-1975/');
+    const controls = page.locator('.controls');
+    await controls.locator('select').first().selectOption(String(elements));
+    await controls.locator('button').first().click();
+    await expect(page.getByTestId('arch-verdict')).not.toContainText(/descending branch reached/i);
+  });
+}
