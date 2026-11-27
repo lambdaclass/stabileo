@@ -567,6 +567,17 @@ fn committed_samples_must_still_meet_the_paper_tolerance() {
 }
 
 #[test]
+fn error_bar_coordinates_are_exact_while_measured_samples_allow_roundoff() {
+    let row = serde_json::json!({"id": "fig5-periodic", "samples": [[0., 0.1, 0.3, 0.2], [0.1, 0.2, 0.4, 0.3]],
+                                 "points": 2, "tolerance": 0., "observed": 0., "passed": true});
+    for field in 0..4 {
+        let mut changed = row.clone();
+        changed["samples"][0][field] = serde_json::json!(row["samples"][0][field].as_f64().unwrap() + 1e-13);
+        assert_eq!(rows_match(&changed, &row), field == 3);
+    }
+}
+
+#[test]
 fn fig7_preserves_the_published_orientations_in_radians() {
     let published = read_json("reference-results/published_comparison.json");
     let row = published["checks"].as_array().unwrap().iter().find(|r| r["id"] == "fig7").unwrap();
