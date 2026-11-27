@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import { runLegacyPlasticCollapse } from './legacy-plastic-helper';
+import { computeDiagramValueAt } from '../diagrams';
 import { solveLimit } from '../plastic/solve-limit';
 import { initSolver } from '../wasm-solver';
 import { generate, type Family } from './helpers/random-models-2d';
@@ -51,4 +52,25 @@ describe('a hinge under a distributed load sits at the peak of the collapse stat
     expect(r.collapseFactor).toBeLessThanOrEqual(limit.best.lambda * (1 + 1e-5));
     expect(r.collapseFactor).toBeGreaterThan(limit.best.lambda * (1 - 2e-3));
   });
+});
+
+it.skip('known wrong result: #1927 — both simultaneously yielded spans follow their moment peaks', () => {
+  uiStore.analysisMode = '2d';
+  historyStore.clear();
+  generate('mixed', 29);
+  const { result } = runLegacyPlasticCollapse()!;
+  const formation = result.steps[0].hingesFormed;
+  expect(formation.map(h => h.elementId)).toEqual([1, 2]);
+  const final = result.steps.at(-1)!;
+  expect(final.loadFactor).toBeGreaterThan(result.steps[0].loadFactor);
+  const fromPin = 1 / (1 + Math.SQRT2);
+  for (const [i, expected] of [fromPin, 1 - fromPin].entries()) {
+    const hinge = result.hinges.find(h => h.elementId === formation[i].elementId && h.step === 0)!;
+    expect(hinge.position).toBeCloseTo(expected, 9);
+    expect(hinge.unloadedAt).toBeUndefined();
+    const force = final.results.elementForces.find(ef => ef.elementId === hinge.elementId)!;
+    expect(computeDiagramValueAt('shear', hinge.position!, force)).toBeCloseTo(0, 8);
+    expect(computeDiagramValueAt('moment', hinge.position!, force)).toBeCloseTo(hinge.moment, 8);
+    expect(formation[i].position).not.toEqual(hinge.position);
+  }
 });
