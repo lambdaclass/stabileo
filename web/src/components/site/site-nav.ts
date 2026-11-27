@@ -23,7 +23,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export const SITE_NAV = PUBLIC_POLICY_AVAILABLE ? NAV_ITEMS.flatMap(item => {
   if (item.id === 'examples' && tools()) return [];
-  return item.id === 'tools' && (typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().diagramGame : __PUBLIC_FEATURES__.diagramGame) ? [item, { kind: 'page', id: 'game', to: '/diagram-game', key: 'landing.navGame' } as const] : [item];
+  return item.id === 'tools' && (typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().diagramGame : __PUBLIC_FEATURES__.diagramGame) ? [item, { kind: 'page', id: 'game', to: '/games', key: 'landing.navGame' } as const] : [item];
 }).filter(item => item.kind !== 'page' || publicFeatureEnabled(item.to)) : NAV_ITEMS;
 
 export type NavCurrent = NavPage | null;

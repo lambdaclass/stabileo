@@ -134,14 +134,42 @@ test('the course route boundary and what only it reaches leave the app footprint
   assert.ok(files.has('shared.js'));
 });
 
-test('the diagram game page loader is a route boundary: the game and what only it reaches leave the app footprint', () => {
-  const loader = 'src/components/diagram-game/load-page.ts';
+test('the games page loader is a route boundary: the hub, the game and what only they reach leave the app footprint', () => {
+  const loader = 'src/components/games/load-page.ts';
   const withGame = { ...manifest,
     'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: [...manifest['src/App.svelte'].dynamicImports, loader] },
-    [loader]: { file: 'game-loader.js', dynamicImports: ['src/components/diagram-game/DiagramGamePage.svelte'] },
+    [loader]: { file: 'game-loader.js', dynamicImports: ['src/components/games/GamesPage.svelte', 'src/components/diagram-game/DiagramGamePage.svelte'] },
+    'src/components/games/GamesPage.svelte': { file: 'games.js', imports: ['_shared.js'] },
     'src/components/diagram-game/DiagramGamePage.svelte': { file: 'game.js', imports: ['_shared.js'] } };
   assert.ok(isLazyRouteBoundary(loader));
   const files = routeChunkFiles(withGame, appRoots);
-  for (const file of ['game-loader.js', 'game.js']) assert.ok(!files.has(file), file);
+  for (const file of ['game-loader.js', 'games.js', 'game.js']) assert.ok(!files.has(file), file);
   assert.ok(files.has('shared.js'));
+});
+
+test('the app footprint counts a separate lazy import of the games registry and its thumbnail', () => {
+  const registry = 'src/components/games/games.ts';
+  const thumbnail = 'src/components/games/DiagramGameThumb.svelte';
+  const files = routeChunkFiles({
+    ...manifest,
+    'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: [registry] },
+    [registry]: { file: 'registry.js', imports: [thumbnail] },
+    [thumbnail]: { file: 'thumbnail.js', css: ['thumbnail.css'] },
+  }, appRoots);
+  for (const file of ['registry.js', 'thumbnail.js', 'thumbnail.css']) assert.ok(files.has(file), file);
+});
+
+test('the app footprint counts diagram game strings loaded separately from the games page loader', () => {
+  const strings = 'src/components/diagram-game/strings.ts';
+  const loader = 'src/components/games/load-page.ts';
+  const files = routeChunkFiles({
+    ...manifest,
+    'src/App.svelte': { ...manifest['src/App.svelte'], dynamicImports: [loader, strings] },
+    [loader]: { file: 'game-loader.js', dynamicImports: ['src/components/diagram-game/DiagramGamePage.svelte'] },
+    'src/components/diagram-game/DiagramGamePage.svelte': { file: 'game.js', imports: [strings] },
+    [strings]: { file: 'strings.js' },
+  }, appRoots);
+  assert.ok(files.has('strings.js'));
+  assert.ok(!files.has('game-loader.js'));
+  assert.ok(!files.has('game.js'));
 });
