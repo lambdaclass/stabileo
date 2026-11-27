@@ -115,6 +115,9 @@ for (const locale of PUBLIC_LOCALES) {
   });
 }
 
-it('identifies the normalized fifth-degree fit in every method', () => {
-  for (const s of Object.values(translations)) expect(s.method).toContain('λ(θ) = λ₁(1 + αθ + βθ² + …)');
+it('distinguishes the perfect branch from the fitted moment polynomial in every method', () => {
+  for (const s of Object.values(translations)) {
+    expect(s.method).toContain('λ(θ) = λ₁(1 + αθ + βθ² + …)');
+    expect(s.method).toContain('θ·λ(θ) = λ₁(−Δ + θ + αθ² + βθ³ + …)');
+  }
 });

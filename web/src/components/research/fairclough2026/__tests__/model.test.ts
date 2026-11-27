@@ -108,10 +108,10 @@ it('pairs the fixed-weight article volume with its own Table 1 row after reorder
   const published = (await import('../../../../../../research/optimisation/fairclough-2026/reference-results/published_comparison.json')).default;
   const { default: Page } = await import('../FaircloughPage.svelte');
   const rows = published.checks;
-  const before = render(Page).body.match(/<dl[^>]*>(.*?)<\/dl>/s)![1];
+  const before = render(Page).body.split('<dl').find(section => section.includes('data-testid="volume"'))!.split('</dl>')[0];
   rows.reverse();
   try {
-    expect(render(Page).body.match(/<dl[^>]*>(.*?)<\/dl>/s)![1]).toBe(before);
+    expect(render(Page).body.split('<dl').find(section => section.includes('data-testid="volume"'))!.split('</dl>')[0]).toBe(before);
   } finally {
     rows.reverse();
   }
