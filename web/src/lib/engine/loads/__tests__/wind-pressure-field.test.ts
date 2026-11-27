@@ -270,7 +270,7 @@ function emittedWork(parts: ReadonlyArray<{ a: number; b: number; q: number; qJ:
 }
 
 for (const entry of ['integral', 'member'] as const) {
-  it.skip(`known wrong result: #2529 review: split the declared kink at one third through ${entry}`, () => {
+  it(`#2529 review: split the declared kink at one third through ${entry}`, () => {
     const corner = 1 / 3;
     const parts = projectedParts(entry, Object.assign((s: number) => Math.abs(s - corner), { curvatureBreaks: [corner] }));
     expect(parts).toHaveLength(2);
@@ -279,7 +279,7 @@ for (const entry of ['integral', 'member'] as const) {
     expect(shearAtCut(parts, 1)).toBeCloseTo((corner ** 2 + (1 - corner) ** 2) / 2, 14);
   });
 
-  for (const zero of [0, 0.5]) for (const sign of [-1, 1]) it.skip(`known wrong result: #2529 review: smooth pressure touching zero at ${zero} sign=${sign} through ${entry}`, () => {
+  for (const zero of [0, 0.5]) for (const sign of [-1, 1]) it(`#2529 review: smooth pressure touching zero at ${zero} sign=${sign} through ${entry}`, () => {
     const parts = projectedParts(entry, Object.assign((s: number) => sign * (s - zero) ** 2, { curvatureBreaks: [] }));
     expect(parts.every(p => sign * p.q >= 0 && sign * p.qJ >= 0)).toBe(true);
     const primitive = (s: number) => (s - zero) ** 3 / 3;
@@ -295,7 +295,7 @@ for (const entry of ['integral', 'member'] as const) {
     }
   });
 
-  for (const curvature of [6e-13, 2.4e-12]) for (const sign of [-1, 1]) it.skipIf(curvature === 2.4e-12)(`known wrong result: #2529 review: clamped pair work at curvature ${curvature} sign=${sign} through ${entry}`, () => {
+  for (const curvature of [6e-13, 2.4e-12]) for (const sign of [-1, 1]) it(`#2529 review: clamped pair work at curvature ${curvature} sign=${sign} through ${entry}`, () => {
     const parts = projectedParts(entry, Object.assign((s: number) => sign * (s + Math.max(0, s - 0.5) + curvature * s ** 2), { curvatureBreaks: [0.5] }));
     for (const k of [0, 1, 2, 3]) {
       const ramp = (1 - 0.5 ** (k + 2)) / (k + 2) - 0.5 * (1 - 0.5 ** (k + 1)) / (k + 1);
@@ -306,7 +306,7 @@ for (const entry of ['integral', 'member'] as const) {
   });
 }
 
-for (const axis of ['x', 'y'] as const) for (const height of [0, 0.01]) it.skipIf(height !== 0)(`known wrong result: #2529 review: varying tributary width preserves pressure breaks on ${axis} height=${height}`, () => {
+for (const axis of ['x', 'y'] as const) for (const height of [0, 0.01]) it(`#2529 review: varying tributary width preserves pressure breaks on ${axis} height=${height}`, () => {
   const from = 2, center = 0.25, radius = 1 / 1024;
   const cross = (width: number, z: number) => axis === 'x' ? [0, width, z] : [width, 0, z];
   const model = mesh([[cross(0, from), cross(0, from + 1)], [cross(2, from + 1), cross(1, from)]]);
