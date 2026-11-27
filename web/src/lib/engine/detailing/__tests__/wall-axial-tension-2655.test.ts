@@ -14,7 +14,7 @@ const shells: FloorShell[] = Array.from({ length: 4 }, (_, i) => ({
   id: 30 + i, nodes: [100 + i, 101 + i, 201 + i, 200 + i], materialId: 1, thickness: 0.2,
 }));
 
-function floor(pu: number, supplied = false, combined = false) {
+function floor(pu: number, supplied = false, combined = false, boundaryCount?: number) {
   const mu = combined ? 50 : 0;
   const vu = combined ? 80 : 0;
   const stresses = shells.map(({ id }, i) => ({
@@ -27,6 +27,10 @@ function floor(pu: number, supplied = false, combined = false) {
     edition: '2025', verifierId: 'cirsoc201.provided.v2.2025', demandRevision: 5,
     seismicRequired: false, membersVerified: true, regulationIds: ['cirsoc-201'],
     revisions: { analysis: 6, loads: 4, regulation: 2 },
+    ...(boundaryCount === undefined ? {} : { wallReinforcement: () => ({
+      curtains: 2 as const, vertical: { diameter: 12, spacing: 0.25 }, horizontal: { diameter: 12, spacing: 0.25 },
+      boundary: { count: boundaryCount, diameter: 16 },
+    }) }),
     ...(supplied ? { wallDemands: new Map([[30, { pu, muInPlane: mu, vuInPlane: vu }]]) } : {}),
   });
 }
@@ -105,5 +109,28 @@ describe('known wrong result: #2655 wall axial tension', () => {
     const input = { length: 4, thickness: 0.2, fc: 25, fy: 420, rhoL: 0.0015, edition: '2025' as const, pu: -400 };
     expect(checkWallAxialFlexure({ ...input, mu: 0 }).utilization).toBeGreaterThan(0);
     expect(() => checkWallAxialFlexure({ ...input, mu: 50 })).toThrow('wall.tensionRequiresBarLayout');
+  });
+});
+
+describe.skip('known wrong result: #2655 supplied boundary bars between two curtains', () => {
+  it('places exactly the stated number at both ends and credits only those bars for tension', () => {
+    for (const count of [0, 1, 2, 3, 4]) {
+      const run = floor(-400, true, false, count);
+      const wall = run.walls[0]!;
+      const verticals = run.assemblies[0]!.bars.filter(bar => /^W30-[vb]/.test(bar.id));
+      for (const end of [0, 1]) {
+        expect(verticals.filter(bar => bar.id.startsWith(`W30-b${end}`))).toHaveLength(count);
+      }
+      const area = verticals.reduce((sum, bar) => sum + Math.PI * (bar.diameterMm / 2000) ** 2, 0);
+      expect(wall.axialFlexure.phiPn).toBeCloseTo(PHI_TENSION * wall.input.fy * 1000 * area, 8);
+    }
+  });
+
+  it('refuses a supplied boundary count that cannot represent physical bars', () => {
+    const wall = floor(0).walls[0]!;
+    for (const count of [-1, 2.5]) {
+      const provided = { ...wall.reinforcement, boundary: { count, diameter: 16 } };
+      expect(() => designWall({ ...wall.input, pu: -400, provided })).toThrow('wall.boundaryBarCount');
+    }
   });
 });
