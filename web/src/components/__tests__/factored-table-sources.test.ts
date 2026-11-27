@@ -48,6 +48,7 @@ function publish() {
   const bundle = modelStore.solveCombinations3D(false, false, true);
   if (!bundle || typeof bundle === 'string') throw new Error(String(bundle));
   publishCombinations3D(bundle);
+  return bundle;
 }
 
 function maxima() {
@@ -101,6 +102,17 @@ describe.skip.each(['linear', 'pdelta'] as const)('known wrong result: #1928 %s 
     resultsStore.activeView = 'combo';
     expect(resultsStore.results3D?.magnitude?.method).toBe(magnitude);
     expectWithheld(member, 'design.error.noLinearCombination');
+  });
+
+  it('withholds a partial set that omits one active combination', () => {
+    const { member } = fixture(method);
+    const load = modelStore.model.loadCases[0]!.id;
+    const missing = modelStore.addCombination('Missing combination', [{ caseId: load, factor: 3 }]);
+    solveSingle();
+    const bundle = publish();
+    expect(bundle.perCombo.delete(missing)).toBe(true);
+    publishCombinations3D(bundle);
+    expectWithheld(member, 'otherCodes.skip.incompleteDemand');
   });
 
   it('reports the active combination and permits the signed single solve with no project combinations', () => {
