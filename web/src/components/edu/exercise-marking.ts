@@ -1,3 +1,4 @@
+import { exerciseRevision } from './exercise-variant';
 import { assignedAnswers } from './exercise-questions';
 import type { ElementForces } from '../../lib/engine/types';
 import { t } from '../../lib/i18n';
@@ -78,6 +79,7 @@ export function remarkSubmission(spec: EduExerciseSpec, sub: Submission): Remark
   if (isParametric(spec) && which === undefined) return null;
   let ex;
   try { ex = variantOf(spec, which); } catch { return null; }
+  if (sub.exerciseRevision !== undefined && sub.exerciseRevision !== exerciseRevision(ex)) return null;
   const results = solveModel(ex.model, ex.solverType);
   if (typeof results === 'string') return null;
   const forces = results.elementForces as ElementForces[];

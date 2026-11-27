@@ -1,3 +1,4 @@
+import { exactHash } from '../../lib/provenance/exact-hash';
 import type { SupportType } from '../../lib/store/ui.svelte';
 import type { Element, Load, Material, Node, Section, Support } from '../../lib/store/model.svelte';
 import type { AnalysisResults, ElementForces } from '../../lib/engine/types';
@@ -138,6 +139,11 @@ export function variantOf(spec: EduExerciseSpec, which?: number | Variant): Reso
     if (typeof which === 'number') out.seed = which;
   }
   return out;
+}
+
+export function exerciseRevision(ex: ResolvedExerciseSpec): string {
+  const { seed: _seed, ...assigned } = ex;
+  return exactHash(assigned);
 }
 
 const EDU_MATERIAL: Material = { id: 1, name: 'Acero A36', e: 200000, nu: 0.3, rho: 78.5, fy: 250, fu: 400 };

@@ -164,7 +164,7 @@ it('known wrong result: #1927 — a fractional or suffixed degree cannot earn in
   }
 });
 
-it.skip('known wrong result: #1927 — saved homework can be regraded only against its assigned revision', () => {
+it('known wrong result: #1927 — saved homework can be regraded only against its assigned revision', () => {
   const assigned = spec();
   const sub = rightAnswersFor('37');
   const exerciseRevision = toExercise(variantOf(assigned, sub.seed)).revision;

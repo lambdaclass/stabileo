@@ -99,7 +99,10 @@ export function evalExpr(e: Expr, values: Record<string, number>): number {
   const src = e;
   let i = 0;
   const ws = () => { while (i < src.length && src[i] === ' ') i++; };
-  const fail = (what: string): never => { throw new ExprError(`${what} at ${i} in "${src}"`); };
+  const fail = (detail?: string): never => {
+    const where = tp('edu.params.error.expr', { pos: i, expr: src });
+    throw new ExprError(detail ? `${where} — ${detail}` : where);
+  };
 
   function unary(): number {
     ws();
@@ -110,7 +113,7 @@ export function evalExpr(e: Expr, values: Record<string, number>): number {
       i++;
       const v = expr();
       ws();
-      if (src[i] !== ')') fail('missing )');
+      if (src[i] !== ')') fail(')');
       i++;
       return v;
     }
@@ -119,10 +122,10 @@ export function evalExpr(e: Expr, values: Record<string, number>): number {
     const name = /^[A-Za-z_][A-Za-z0-9_]*/.exec(src.slice(i));
     if (name) {
       i += name[0].length;
-      if (!Object.hasOwn(values, name[0])) fail(`unknown parameter ${name[0]}`);
+      if (!Object.hasOwn(values, name[0])) fail(tp('edu.params.error.unknown', { name: name[0] }));
       return values[name[0]]!;
     }
-    return fail('unexpected input');
+    return fail();
   }
   function term(): number {
     let v = unary();
@@ -140,11 +143,11 @@ export function evalExpr(e: Expr, values: Record<string, number>): number {
       if (c === '+') { i++; v += term(); } else if (c === '-') { i++; v -= term(); } else return v;
     }
   }
-  if (src.length > 200) fail('expression too long');
+  if (src.length > 200) fail();
   const v = expr();
   ws();
-  if (i !== src.length) fail('trailing input');
-  if (!Number.isFinite(v)) fail('not a finite number');
+  if (i !== src.length) fail();
+  if (!Number.isFinite(v)) fail();
   return v;
 }
 
@@ -229,16 +232,20 @@ export function lintParams(model: ParametricModelSpec, p: ExerciseParams): strin
   const problems: string[] = [];
   try { supportCombos(p); } catch (error) { problems.push((error as Error).message); }
   for (const [k, r] of Object.entries(p.values)) {
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(k)) problems.push(`parameter name "${k}" is not an identifier`);
-    if (rangeValues(r).length === 0) problems.push(`parameter ${k} has no values (min ${r.min}, max ${r.max}, step ${r.step})`);
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(k)) problems.push(tp('edu.params.error.name', { name: k }));
+    if (rangeValues(r).length === 0) problems.push(tp('edu.params.error.range', { name: k, ...r }));
   }
   for (const { where, expr } of modelExprs(model)) {
-    for (const n of exprNames(expr)) if (!Object.hasOwn(p.values, n)) problems.push(`${where} uses unknown parameter ${n}`);
+    const missing = exprNames(expr).filter(name => !Object.hasOwn(p.values, name));
+    if (missing.length) {
+      for (const name of missing) problems.push(`${where}: ${tp('edu.params.error.unknown', { name })}`);
+      continue;
+    }
     try { evalExpr(expr, defaultVariant(p).values); } catch (e) { problems.push(`${where}: ${(e as Error).message}`); }
   }
   for (const c of p.supportChoices ?? []) {
-    if (!model.supports[c.support]) problems.push(`supportChoices names support ${c.support}, which does not exist`);
-    if (c.types.length === 0) problems.push(`supportChoices for support ${c.support} offers no type`);
+    if (!model.supports[c.support]) problems.push(tp('edu.params.error.missingSupport', { id: c.support }));
+    if (c.types.length === 0) problems.push(tp('edu.params.error.emptySupport', { id: c.support }));
   }
   return problems;
 }

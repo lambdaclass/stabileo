@@ -25,7 +25,7 @@
   }
   let { submission, spec, onclose }: Props = $props();
 
-  const remark = $derived(spec ? remarkSubmission(spec, submission) : null);
+  const remark = $derived(spec && submission.exerciseRevision ? remarkSubmission(spec, submission) : null);
   const rows = $derived<RemarkedAnswer[]>(remark?.answers ?? submission.answers.map((a) => ({ ...a, recorded: a.outcome })));
   const score = $derived(scoreOf({ ...submission, answers: rows }));
   const variantText = $derived(spec && remark?.variant ? describeVariant(spec, remark.variant) : '');

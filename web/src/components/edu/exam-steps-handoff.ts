@@ -5,17 +5,19 @@ import { examLock } from '../../lib/store/exam-lock.svelte';
 import { buildFromSpec, type ModelSpec } from './exercise-spec';
 import { exerciseStoreApi, leaveExamExercise } from './exercise-session';
 
-const KEY = 'stabileo.exam.steps.v1';
+const KEY = 'stabileo.exam.steps.v2';
 
 export interface StepsHandoff {
+  solverType: 'linear';
   title: string;
   model: ModelSpec;
 }
 
 /** Leaves the exam room for Basic, which opens the step-by-step on this structure in a tab of its own. */
-export function handOffSteps(title: string, model: ModelSpec): void {
+export function handOffSteps(title: string, model: ModelSpec, solverType: 'linear' | 'pdelta'): void {
+  if (solverType !== 'linear') return;
   try {
-    sessionStorage.setItem(KEY, JSON.stringify({ title, model } satisfies StepsHandoff));
+    sessionStorage.setItem(KEY, JSON.stringify({ title, model, solverType } satisfies StepsHandoff));
   } catch {
     return;
   }
@@ -36,7 +38,7 @@ export function takeStepsHandoff(): StepsHandoff | null {
   if (!raw) return null;
   try {
     const v = JSON.parse(raw) as StepsHandoff;
-    if (typeof v?.title !== 'string' || !Array.isArray(v.model?.nodes) || !Array.isArray(v.model?.elements)) return null;
+    if (v?.solverType !== 'linear' || typeof v.title !== 'string' || !Array.isArray(v.model?.nodes) || !Array.isArray(v.model?.elements)) return null;
     return v;
   } catch {
     return null;
@@ -45,6 +47,7 @@ export function takeStepsHandoff(): StepsHandoff | null {
 
 /** Opens the handed-off structure in a new Basic tab, beside the reader's own, with the step-by-step catalog. */
 export function openHandedOffSteps(h: StepsHandoff): void {
+  if (h.solverType !== 'linear') return;
   tabManager.createTab();
   uiStore.analysisMode = '2d';
   modelStore.clear();

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setLocale } from '../../../lib/i18n';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   defaultVariant, drawVariant, evalExpr, exprNames, ExprError, lintParams, rangeValues, resolveModel, seedFrom,
   type ExerciseParams, type ParametricModelSpec,
@@ -15,6 +16,8 @@ const params: ExerciseParams = {
   values: { L: { min: 4, max: 8, step: 0.5 }, q: { min: 2, max: 10, step: 1 }, M: { min: 0, max: 0.3, step: 0.1 } },
   supportChoices: [{ support: 0, types: ['pinned', 'fixed'] }],
 };
+
+beforeEach(() => setLocale('en'));
 
 describe('exercise params', () => {
   it('lists a range without float drift', () => {
@@ -115,7 +118,7 @@ it('offset ranges reach authored model dimensions through default and seeded var
   expect([...seen].sort()).toEqual([1.25, 1.75, 2.25]);
 });
 
-it.skip('known wrong result: #1927 — parameter import diagnostics use the selected language', async () => {
+it('known wrong result: #1927 — parameter import diagnostics use the selected language', async () => {
   const { setLocale, ensureLocale } = await import('../../../lib/i18n');
   await ensureLocale('es');
   setLocale('es');

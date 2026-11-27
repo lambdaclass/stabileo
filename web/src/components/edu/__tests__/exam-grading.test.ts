@@ -1,3 +1,4 @@
+import { tp } from '../../../lib/i18n';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { initSolver } from '../../../lib/engine/wasm-solver';
 import { getExerciseSpecs } from '../exercise-data';
@@ -94,6 +95,9 @@ describe("the teacher's browser grades again from the seed and the stored answer
   it('explains how each answer comes out, in words', () => {
     const ex = variantOf(spec(), 5);
     for (const key of questionKeys(ex)) expect(explainAnswer(ex, key).length, key).toBeGreaterThan(10);
+    expect(explainAnswer(ex, 'r:0:Rx')).toBe(tp('exam.explain.reaction', { support: ex.supports[0].label, dof: 'Rx' }));
+    expect(explainAnswer(ex, 'k')).toBe(tp('exam.explain.kinematic', { degree: ex.kinematicQuestion?.degree ?? 0 }));
+    expect(explainAnswer(ex, 'unknown')).toBe('');
   });
 });
 
@@ -121,7 +125,7 @@ it('known wrong result: #1927 — displayed expected reactions round-trip throug
   expect(again.answers.find(a => a.key === row.key)?.outcome).toBe('correct');
 });
 
-it.skip('known wrong result: #1927 — Basic rejects a saved P-delta handoff before opening a model', async () => {
+it('known wrong result: #1927 — Basic rejects a saved P-delta handoff before opening a model', async () => {
   const { takeStepsHandoff } = await import('../exam-steps-handoff');
   const model = variantOf(spec(), 1).model;
   const storage = new Map<string, string>();

@@ -1,4 +1,5 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { setLocale } from '../../../lib/i18n';
+import { beforeEach, beforeAll, describe, expect, it } from 'vitest';
 import { initSolver } from '../../../lib/engine/wasm-solver';
 import { getExerciseSpecs } from '../exercise-data';
 import type { EduExerciseSpec } from '../exercise-spec';
@@ -41,6 +42,8 @@ const beam = (over: Partial<EduExerciseSpec> = {}): EduExerciseSpec => ({
   diagramShapeQuestions: [{ diagram: 'M', correct: 'linear' }],
   ...over,
 });
+
+beforeEach(() => setLocale('en'));
 
 describe('variantOf', () => {
   it('leaves an exercise without params meaning exactly what it meant', () => {

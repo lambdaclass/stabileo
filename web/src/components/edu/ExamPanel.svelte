@@ -71,7 +71,10 @@
     location.assign(modeToPath('basico'));
   }
 
-  const answered = $derived(expectedKeys.filter(key => session.answers.some(a => a.key === key && (a.answer.trim() || a.sketch))).length);
+  const writingKeys = $derived(session.attempt?.exercise.questionsOnly === true
+    ? [...expectedKeys.filter(key => key !== 'kd'), ...(expectedKeys.includes('k') && session.answers.some(a => a.key === 'k' && a.answer === 'hyperstatic') ? ['kd'] : [])]
+    : expectedKeys);
+  const answered = $derived(writingKeys.filter(key => session.answers.some(a => a.key === key && (a.answer.trim() || a.sketch))).length);
 
   const unavailableText = $derived.by(() => {
     switch (session.unavailable) {
@@ -140,7 +143,7 @@
     {#if session.note === 'submitFailed'}<p class="warn" role="alert">{t('exam.submitFailed')}</p>{/if}
     {#if confirmSubmit}
       <div class="confirm" role="alertdialog" aria-labelledby="exam-submit-warn">
-        <p id="exam-submit-warn">{tp('exam.submitWarning', { answered, total: expectedKeys.length })}</p>
+        <p id="exam-submit-warn">{tp('exam.submitWarning', { answered, total: writingKeys.length })}</p>
         <div class="row">
           <button class="primary" onclick={submitNow} disabled={session.busy} data-testid="exam-submit-confirm">{t('exam.submitNow')}</button>
           <button class="ghost" onclick={() => (confirmSubmit = false)}>{t('exam.keepAnswering')}</button>

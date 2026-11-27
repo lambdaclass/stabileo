@@ -97,7 +97,7 @@ function createAttemptSession(deps: ExamSessionDeps) {
       return;
     }
     spec = parsed;
-    if (!dirty) answers = storedSubmission(a.answers)?.answers ?? [];
+    if (!dirty && (!frozen || canonicalJson(a.answers) !== canonicalJson(frozen.answers))) answers = storedSubmission(a.answers)?.answers ?? [];
     if (a.closed) {
       stopTimers();
       lock.release(a.submitted_at ? 'submitted' : 'deadline');
@@ -202,7 +202,7 @@ function createAttemptSession(deps: ExamSessionDeps) {
     if (!frozen) {
       const body = JSON.parse(JSON.stringify(payload())) as Record<string, unknown>;
       let clientScore: number | null = null;
-      try { clientScore = score(spec, attempt.seed, body); } catch { clientScore = null; }
+      try { if (attempt.exercise.questionsOnly !== true) clientScore = score(spec, attempt.seed, body); } catch { clientScore = null; }
       frozen = clientScore === null ? { answers: body } : { answers: body, client_score: clientScore };
     }
     const final = frozen;
@@ -224,8 +224,8 @@ function createAttemptSession(deps: ExamSessionDeps) {
       if (disposed) return;
       stopTimers();
       dirty = false;
-      lock.release('submitted');
-      attempt = a;
+      adopt(a);
+      if (!spec || unavailable === 'badExercise') return;
       saveState = 'saved';
       note = auto ? 'autoSubmitted' : null;
       phase = 'closed';

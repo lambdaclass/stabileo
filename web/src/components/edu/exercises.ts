@@ -56,6 +56,7 @@ export interface SectionDataItem {
 }
 
 export interface EduExercise {
+  revision?: string;
   id: string;
   title: string;
   description: string;
@@ -103,7 +104,7 @@ export interface ExerciseSection {
 import { getExerciseSpecs } from './exercise-data';
 import { buildFromSpec, evaluateAnswer, type AnswerContext, type EduExerciseSpec, type ResolvedExerciseSpec } from './exercise-spec';
 import { stressContext } from './exercise-stress';
-import { shapeAnswer } from './exercise-variant';
+import { exerciseRevision, shapeAnswer } from './exercise-variant';
 
 /** The stress resolver meshes a section, so it is built once, and only cached once the engine could actually build it. */
 export function toExercise(spec: ResolvedExerciseSpec, who: { legajo?: string } = {}): EduExercise {
@@ -116,6 +117,7 @@ export function toExercise(spec: ResolvedExerciseSpec, who: { legajo?: string } 
   };
   const bars = exerciseBars(spec);
   return {
+    revision: exerciseRevision(spec),
     id: spec.id,
     title: spec.title,
     description: spec.description,

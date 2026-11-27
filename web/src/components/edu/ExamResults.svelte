@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { t, tp } from '../../lib/i18n';
   import type { ExamSession } from './exam-session.svelte';
   import { gradeAttempt } from './exam-grading';
@@ -11,7 +12,17 @@
   let { session, onleave }: Props = $props();
 
   let engineReady = $state(isSolverReady());
-  $effect(() => { if (!engineReady) void initSolver().then(() => { engineReady = true; }); });
+  let engineFailed = $state(false);
+  async function loadEngine() {
+    engineFailed = false;
+    try { await initSolver(); engineReady = true; } catch { engineFailed = true; }
+  }
+  onMount(() => { if (!engineReady) void loadEngine(); });
+  function answerText(key: string | undefined, answer: string) {
+    if (key === 'k' && ['isostatic', 'hyperstatic'].includes(answer)) return t(`edu.${answer}`);
+    if (key?.startsWith('s:') && ['zero', 'constant', 'linear', 'quadratic', 'cubic'].includes(answer)) return t(`edu.shape.${answer}`);
+    return answer;
+  }
 
   const attempt = $derived(session.attempt);
   const grade = $derived(engineReady && attempt?.reveal_allowed && session.spec ? gradeAttempt(session.spec, attempt.seed, attempt.answers) : null);
@@ -25,7 +36,7 @@
 
   function stepByStep() {
     if (!grade) return;
-    handOffSteps(grade.resolved.title, grade.resolved.model);
+    handOffSteps(grade.resolved.title, grade.resolved.model, grade.resolved.solverType ?? 'linear');
   }
 </script>
 
@@ -38,6 +49,9 @@
   {#if !attempt?.reveal_allowed}
     <p data-testid="exam-results-later">{attempt?.closes_at ? tp('exam.resultsLater', { when: formatWhen(attempt.closes_at) }) : t('exam.resultsLaterNoDate')}</p>
     <button class="ghost" onclick={() => session.refresh()} disabled={session.busy}>{t('exam.refresh')}</button>
+  {:else if engineFailed}
+    <p role="alert">{t('exam.cannotGrade')}</p>
+    <button onclick={loadEngine}>{t('exam.refresh')}</button>
   {:else if !engineReady}
     <p role="status">{t('exam.loading')}</p>
   {:else if grade}
@@ -49,7 +63,7 @@
         <li class={a.outcome} data-testid="exam-answer" data-key={a.key} data-outcome={a.outcome}>
           <div class="q">{a.label}</div>
           <div class="pair">
-            <span><span class="k">{t('exam.yours')}</span> {a.answer && !a.sketch ? a.answer : a.sketch ? t('exam.yourDrawing') : '—'}{#if a.unit && a.answer && !a.sketch}<span class="u">&nbsp;{a.unit}</span>{/if}</span>
+            <span><span class="k">{t('exam.yours')}</span> {a.answer && !a.sketch ? answerText(a.key, a.answer) : a.sketch ? t('exam.yourDrawing') : '—'}{#if a.unit && a.answer && !a.sketch}<span class="u">&nbsp;{a.unit}</span>{/if}</span>
             <span><span class="k">{t('exam.correct')}</span> {a.expected ?? '—'}{#if a.unit && a.expected}<span class="u">&nbsp;{a.unit}</span>{/if}</span>
             <span class="verdict">{a.outcome === 'correct' ? '✓ ' + t('edu.review.ok') : a.outcome === 'incorrect' ? '✗ ' + t('edu.review.bad') : '— ' + t('exam.notAnswered')}</span>
           </div>
@@ -58,7 +72,7 @@
       {/each}
     </ol>
     <p class="note">{t('exam.gradedHere')}</p>
-    <button class="ghost" onclick={stepByStep} data-testid="exam-steps">{t('exam.stepByStep')}</button>
+    {#if grade.resolved.solverType !== 'pdelta'}<button class="ghost" onclick={stepByStep} data-testid="exam-steps">{t('exam.stepByStep')}</button>{/if}
   {:else}
     <p class="warn">{t('exam.cannotGrade')}</p>
   {/if}

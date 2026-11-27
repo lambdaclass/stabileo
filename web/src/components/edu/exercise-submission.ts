@@ -52,6 +52,7 @@ export interface Submission {
   /** File marker, matching the exercise file's convention. */
   stabileoSubmission: 1;
   exerciseId: string;
+  exerciseRevision?: string;
   exerciseTitle: string;
   /** Whatever the student put in the name field; never required. */
   student: string;
@@ -148,6 +149,7 @@ export function fromSubmissionFile(text: string): SubmissionParse {
     submission: {
       stabileoSubmission: 1,
       exerciseId: o.exerciseId,
+      ...(typeof o.exerciseRevision === 'string' ? { exerciseRevision: o.exerciseRevision } : {}),
       exerciseTitle: o.exerciseTitle,
       student: typeof o.student === 'string' ? o.student : '',
       submittedAt: typeof o.submittedAt === 'string' ? o.submittedAt : '',

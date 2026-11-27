@@ -99,6 +99,7 @@
   // stations the marker uses. The samples come from the solve, so an exercise
   // never stores a "correct drawing" that could drift from its own structure.
   const sketchQuestions = $derived(exercise.diagramSketchQuestions ?? []);
+  let sketchTouched = $state((exercise.diagramSketchQuestions ?? []).map((_, i) => !!saved.get(`sk:${i}`)?.sketch));
   let sketches = $state<Sketch[]>((exercise.diagramSketchQuestions ?? []).map((_, i) => saved.get(`sk:${i}`)?.sketch ?? emptySketch()));
   let sketchVerdicts = $state<Array<SketchVerdict | null>>((exercise.diagramSketchQuestions ?? []).map(() => null));
 
@@ -269,11 +270,11 @@
         // The powers read as words, in the language the student worked in —
         // the record is for a person, and `constant` in the middle of a
         // Portuguese table is neither the student's answer nor the app's.
-        answer: sketches[i].points
+        answer: !sketchTouched[i] ? '' : sketches[i].points
           .map(pt => `${pt.t.toFixed(2)}:${pt.value.toFixed(2)}`)
           .join(' ') + ' · ' + sketches[i].powers.map(p => t('edu.sketch.power.' + p)).join('/'),
-        outcome: v ? (v.curveOk && v.powersOk ? 'correct' : 'incorrect') : 'pending',
-        sketch: $state.snapshot(sketches[i]),
+        outcome: sketchTouched[i] && v ? (v.curveOk && v.powersOk ? 'correct' : 'incorrect') : 'pending',
+        ...(sketchTouched[i] ? { sketch: $state.snapshot(sketches[i]) } : {}),
       });
     });
     exercise.characteristics.forEach((c, i) => {
@@ -293,6 +294,7 @@
     return {
       stabileoSubmission: 1,
       exerciseId: exercise.id,
+      exerciseRevision: exercise.revision,
       exerciseTitle: exercise.title,
       student: studentName.trim(),
       submittedAt: new Date().toISOString(),
@@ -752,6 +754,7 @@
         </p>
         <DiagramSketch
           bind:sketch={sketches[i]}
+          onchange={() => { sketchTouched[i] = true; }}
           unit={sq.diagram === 'M' ? 'kN·m' : sq.diagram === 'D' ? 'mm' : 'kN'}
           positiveDown={sq.diagram === 'M'}
           reference={sketchVerdicts[i] ? trueSamplesFor(i) : null}

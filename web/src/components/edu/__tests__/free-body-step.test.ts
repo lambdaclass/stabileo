@@ -221,6 +221,11 @@ it('known wrong result: #1927 — a reversing load has opposite arrows and a non
   expect(html).toContain('M298,81 L298,105');
   const zero = { Fx: 0, Fy: 0, M: 0 };
   expect(residual(model, bar, { i: zero, j: zero }, () => 0)).toEqual({ fx: 0, fy: 0, m: -30 });
+  const supported: ModelSpec = { ...model, supports: [{ node: 0, type: 'fixed' }] };
+  const actions = freeBodyTruth(supported, [bar], solved(supported))![0];
+  expect(actions.i.Fy).toBeCloseTo(0, 9);
+  expect(actions.i.M).toBeCloseTo(-30, 9);
+  expect(actions.j.M).toBeCloseTo(0, 9);
 });
 
 it.each([[3, 0], [-3, 4], [0, 4]])('known wrong result: #1927 — interior couple %s and force %s draw independently', async (mz, fy) => {
