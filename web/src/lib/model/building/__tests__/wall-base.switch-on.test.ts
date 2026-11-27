@@ -44,3 +44,18 @@ describe('a wall the building tool stands on the foundation', () => {
     expect(plateEntry(low!.id)!.surface.edgeSupports ?? []).toEqual([]);
   });
 });
+
+it.skip.each([false, true])('known wrong result: #1928 matching frame point restraints do not add a wall foundation, deferred mesh %s', async deferred => {
+  const [low] = build(true, deferred);
+  const { serializeProject, deserializeProject } = await import('../../../store/file');
+  expect(deserializeProject(serializeProject())).toBe(true);
+  const { preparePlatesForAnalysisAsync } = await import('../../../store/physical-plates');
+  const preparation = deferred ? await preparePlatesForAnalysisAsync() : preparePlatesForAnalysis();
+  expect(preparation.ok).toBe(true);
+  const base = baseNodes(low!.id);
+  const held = new Set([...modelStore.supports.values()].map(s => s.nodeId));
+  expect(base.length).toBeGreaterThan(2);
+  const xs = base.map(n => modelStore.nodes.get(n)!.x);
+  expect(base.filter(n => held.has(n)).map(n => modelStore.nodes.get(n)!.x).sort((a, b) => a-b)).toEqual([Math.min(...xs), Math.max(...xs)]);
+  expect(plateEntry(low!.id)!.surface.edgeSupports ?? []).toEqual([]);
+});

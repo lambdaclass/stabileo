@@ -117,3 +117,27 @@ it('known wrong result: #1928 only the sheet generator uses a column face beyond
   const nodes = [0, 0.0005, 0.001, 0.002].map(x => modelStore.addNode(x, 9, 0));
   expect([...anchorsFor(nodes, { minX: true }).values()]).toEqual([[-1, 0], [-1, 0], [0, 0], [0, 0]]);
 });
+
+it.skip.each([false, true])('known wrong result: #1928 explicit wall foundation placement respects the available analytical base, meshed %s', async meshed => {
+  modelStore.clear();
+  const { createPlate, plateEntry, planPlateMesh, applyPlateMeshes } = await import('../../../store/physical-plates');
+  const { supportWallBase, wallBaseNodes } = await import('../generate');
+  const outline = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, z]) => modelStore.addNode(x!, 0, z!));
+  const wall = createPlate({ outline, thickness: 0.2, materialId: 1 });
+  if ('problem' in wall) throw Error(wall.problem);
+  if (meshed) expect(applyPlateMeshes([planPlateMesh(wall.id, { size: 1 })!]).refused).toEqual([]);
+  const nodes = wallBaseNodes(wall.id);
+  const active = meshed || __PUBLIC_FEATURES__.proPlatesUnified;
+  expect(nodes.length > 0).toBe(active);
+  if (meshed) expect(nodes.length).toBeGreaterThan(2);
+  if (active) modelStore.addSupport(nodes[0]!, 'pinned3d');
+  expect(supportWallBase(wall.id)).toBe(active ? nodes.length - 1 : 0);
+  expect([...modelStore.supports.values()].map(s => [s.nodeId, s.type])).toEqual(nodes.map((n, i) => [n, i === 0 ? 'pinned3d' : 'fixed3d']));
+  expect(plateEntry(wall.id)!.surface.edgeSupports?.length ?? 0).toBe(__PUBLIC_FEATURES__.proPlatesUnified ? 1 : 0);
+  const strip = stripUnderWall(wall.id, 0.4);
+  if (!active) expect(strip).toBeNull();
+  else {
+    const f = modelStore.model.footings.get(strip!)!;
+    expect(new Set([f.nodeId, ...f.supportedNodeIds!])).toEqual(new Set(nodes));
+  }
+});
