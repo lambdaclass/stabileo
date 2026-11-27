@@ -1,4 +1,4 @@
-import { unifiedPlates } from '../features';
+import { reinforcementSheets, unifiedPlates } from '../features';
 // UI state store
 
 import { DEFAULT_OSNAP, OSNAP_MODES, type OsnapMode } from '../model/osnap-modes';
@@ -1275,6 +1275,7 @@ function createUIStore() {
     },
     get specSection() { return specSection; },
     set specSection(v: SpecSection) {
+      if (v === 'placement' && !reinforcementSheets()) return;
       specSection = v;
       if (proActiveTab === 'specifications') applySelectMode(SPEC_SELECT[v]);
     },

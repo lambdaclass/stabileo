@@ -95,10 +95,9 @@ test('the application publishes sheet commands and reports only when sheets are 
       const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
       for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'hu']) {
         const code = dictionary.load.call({ addWatchFile() {} }, '\0virtual:app-i18n/' + locale);
-        for (const key of ['rcSheets.cmd', 'rcSheets.plans.fileName']) {
+        for (const key of ['rcSheets.cmd', 'rcSheets.plans.fileName', 'rcSheets.fixed.kind.c']) {
           assert.equal(code.includes(JSON.stringify(key)) || code.includes(`'${key}'`), enabled, locale + ' ' + key);
         }
-        assert.match(code, /['"]rcSheets\.fixed\.kind\.c['"]/, locale);
       }
     });
   }

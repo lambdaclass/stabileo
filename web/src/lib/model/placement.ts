@@ -12,7 +12,7 @@
  * A steel beam carries its slab on its top flange in either: its top on the slab's soffit.
  * - `axes`: every member on its own axis, none moved.
  */
-import { FIXED_POINT_KINDS, fixedSigns, type FixedPointKind } from '../rc-sheets/fixed-points';
+import { FIXED_POINT_KINDS, fixedPointsOf, fixedSigns, type FixedPointKind } from '../rc-sheets/fixed-points';
 
 export type LevelReference = 'slabTop' | 'slabAxis' | 'axes';
 export const LEVEL_REFERENCES: readonly LevelReference[] = ['slabTop', 'slabAxis', 'axes'];
@@ -35,6 +35,13 @@ export function placementOf(v: unknown): { placement?: Placement } {
     ? Object.fromEntries(Object.entries(o.columns as Record<string, unknown>).filter((e): e is [string, FixedPointKind] => FIXED_POINT_KINDS.includes(e[1] as FixedPointKind)))
     : {};
   const out: Placement = { ...(reference ? { reference } : {}), ...(Object.keys(columns).length ? { columns } : {}), ...(o.edges === true ? { edges: true } : {}) };
+  return Object.keys(out).length ? { placement: out } : {};
+}
+
+export function placementWithLegacy(placement: unknown, sheetsFixed: unknown): { placement?: Placement } {
+  const own = placementOf(placement).placement, legacy = fixedPointsOf(sheetsFixed).fixedPoints;
+  const columns = own?.columns ?? legacy;
+  const out = { ...own, ...(columns ? { columns } : {}) };
   return Object.keys(out).length ? { placement: out } : {};
 }
 

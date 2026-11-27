@@ -16,7 +16,7 @@ afterEach(() => {
 
 function open(rule: boolean, storedDepth?: number, method: 'linear' | 'pdelta' = 'linear') {
   const project = structuredClone(saved) as unknown as ModelSnapshot;
-  if (rule) project.designData = { ...project.designData, placement: { reference: 'slabTop' } };
+  if (rule) project.designData = { ...project.designData, version: 1, placement: { reference: 'slabTop' } };
   project.analysis = { ...project.analysis, perCombination: method };
   modelStore.clear();
   resultsStore.clear();
@@ -33,7 +33,7 @@ function halfDepth() {
   return modelStore.sections.get(beam.sectionId)!.h! / 2;
 }
 
-it.skip.each([preparePlatesForAnalysis, preparePlatesForAnalysisAsync])('known wrong result: uses the stored geometry when preparing a reopened frame in this build (%#)', async prepare => {
+it.each([preparePlatesForAnalysis, preparePlatesForAnalysisAsync])('uses the stored geometry when preparing a reopened frame in this build (%#)', async prepare => {
   for (const materialized of [false, true]) {
     open(true);
     const depth = halfDepth();
@@ -49,8 +49,8 @@ it.skip.each([preparePlatesForAnalysis, preparePlatesForAnalysisAsync])('known w
   }
 });
 
-it.skip.each([['pro', 'linear'], ['pro', 'pdelta'], ['3d', 'linear'], ['3d', 'pdelta']] as const)(
-  'known wrong result: calculates the reopened %s frame using the geometry selected by its profile (%s)', async (mode, method) => {
+it.each([['pro', 'linear'], ['pro', 'pdelta'], ['3d', 'linear'], ['3d', 'pdelta']] as const)(
+  'calculates the reopened %s frame using the geometry selected by its profile (%s)', async (mode, method) => {
     uiStore.analysisMode = mode;
     async function solve(rule: boolean, offset?: number) {
       open(rule, offset, method);

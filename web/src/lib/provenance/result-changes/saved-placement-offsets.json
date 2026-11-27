@@ -1,0 +1,49 @@
+{
+  "id": "saved-placement-offsets",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "inactivePlacementRules"
+    ]
+  },
+  "title": {
+    "en": "Stored member and plate offsets",
+    "es": "Desplazamientos guardados de barras y placas",
+    "pt": "Excentricidades guardadas de barras e placas",
+    "de": "Gespeicherte Versätze der Stäbe und Platten",
+    "fr": "Décalages enregistrés des barres et des plaques",
+    "hu": "A rudak és lemezek mentett külpontossága",
+    "tr": "Çubuk ve plakların kayıtlı dışmerkezlikleri",
+    "zh": "已保存的杆件和板偏移量",
+    "ar": "الإزاحات المحفوظة للعناصر والبلاطات",
+    "hi": "सदस्यों और प्लेटों के सहेजे गए ऑफ़सेट",
+    "id": "Ofset batang dan pelat yang tersimpan",
+    "it": "Scostamenti salvati di aste e piastre",
+    "ja": "保存された部材と板のオフセット",
+    "ko": "저장된 부재 및 판 오프셋",
+    "ru": "Сохранённые смещения стержней и пластин"
+  },
+  "explanation": {
+    "en": "This build uses the member and plate offsets saved in the model. It keeps the placement rules but does not reapply them before analysis.",
+    "es": "Esta versión usa los desplazamientos de barras y placas guardados en el modelo. Conserva las reglas de colocación sin volver a aplicarlas antes del análisis.",
+    "pt": "Esta versão usa as excentricidades de barras e placas guardadas no modelo. Preserva as regras de posicionamento sem as reaplicar antes da análise.",
+    "de": "Diese Version verwendet die im Modell gespeicherten Versätze der Stäbe und Platten. Die Platzierungsregeln bleiben gespeichert und werden vor der Berechnung nicht erneut angewendet.",
+    "fr": "Cette version utilise les décalages des barres et des plaques enregistrés dans le modèle. Elle conserve les règles de positionnement sans les réappliquer avant le calcul.",
+    "hu": "Ez a verzió a rudak és lemezek modellben mentett külpontosságát használja. Az elhelyezési szabályokat megőrzi, de a számítás előtt nem alkalmazza újra.",
+    "tr": "Bu sürüm modelde kayıtlı çubuk ve plak dışmerkezliklerini kullanır. Yerleşim kurallarını saklar ancak analizden önce yeniden uygulamaz.",
+    "zh": "此版本使用模型中保存的杆件和板的偏移量。布置规则仍会保留，但分析前不会重新应用。",
+    "ar": "يستخدم هذا الإصدار إزاحات العناصر والبلاطات المحفوظة في النموذج. يحتفظ بقواعد التموضع دون إعادة تطبيقها قبل التحليل.",
+    "hi": "यह संस्करण मॉडल में सहेजे गए सदस्यों और प्लेटों के ऑफ़सेट का उपयोग करता है। स्थान निर्धारण के नियम सहेजे रहते हैं, लेकिन विश्लेषण से पहले दोबारा लागू नहीं होते।",
+    "id": "Versi ini menggunakan ofset batang dan pelat yang tersimpan dalam model. Aturan penempatan tetap tersimpan tanpa diterapkan kembali sebelum analisis.",
+    "it": "Questa versione usa gli scostamenti di aste e piastre salvati nel modello. Conserva le regole di posizionamento senza riapplicarle prima del calcolo.",
+    "ja": "このバージョンはモデルに保存された部材と板のオフセットを使用します。配置規則は保持されますが、解析前に再適用されません。",
+    "ko": "이 버전은 모델에 저장된 부재와 판의 오프셋을 사용합니다. 배치 규칙은 보존되지만 해석 전에 다시 적용되지는 않습니다.",
+    "ru": "Эта версия использует смещения стержней и пластин, сохранённые в модели. Правила размещения сохраняются, но не применяются повторно перед расчётом."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-saved-placement-offsets.md",
+    "heading": "Stored geometry when reinforcement sheets are disabled"
+  }
+}

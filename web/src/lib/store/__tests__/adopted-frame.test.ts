@@ -117,7 +117,7 @@ it.each([[], ['x'], ['y'], ['x', 'y']].map(axes => ({ axes: axes as ('x' | 'y')[
   expect.soft(step.includes('=IFCGRID(')).toBe(!!sheets && directions.length === 2);
 });
 
-it.skip('known wrong result: identifies inactive placement rules before calculation, including legacy column points', () => {
+it('identifies inactive placement rules before calculation, including legacy column points', () => {
   for (const [rules, active] of [
     [{ placement: { reference: 'slabTop' } }, true],
     [{ placement: { edges: true } }, true],
@@ -135,10 +135,10 @@ it.skip('known wrong result: identifies inactive placement rules before calculat
   }
 });
 
-it.skip('known wrong result: keeps placement editing and specification navigation in the build that applies the rules', async () => {
+it('keeps placement editing and specification navigation in the build that applies the rules', async () => {
   const { setColumnFixedPoint, setLevelReference, setEdgesFlush } = await import('../placement');
   const project = snapshot();
-  project.designData = { placement: { reference: 'axes' } };
+  project.designData = { version: 1, placement: { reference: 'axes' } };
   modelStore.restore(project);
   uiStore.specSection = 'members';
   uiStore.specSection = 'placement';

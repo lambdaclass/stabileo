@@ -94,7 +94,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       if (pruneEntries) {
         if (!proPlatesUnified && /^loads\.(asce7|ec)\.ui\./.test(key)) return false;
         if (!proRcSheets) {
-          if (key.startsWith('rcSheets.') && !key.startsWith('rcSheets.fixed.kind.')) return false;
+          if (key.startsWith('rcSheets.')) return false;
           if (/^designData\.(alt|crit|criteria|deflectionSupports|flange|opt)\./.test(key)) return false;
         }
         if (!ADMIN && key.startsWith('admin.')) return false;

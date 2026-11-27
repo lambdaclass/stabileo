@@ -1,0 +1,5 @@
+# Stored geometry when reinforcement sheets are disabled
+
+A saved project can contain both member or plate offsets and a rule that recalculates them from section sizes and slab edges. The published build analyzes the saved offsets. Opening the project or running Calculate preserves those offsets and the rule. A notice appears on open if the project contains a level reference, flush-edge rule or column fixed points, including fixed points saved in older sheet projects. In the sheet build the rules still position the model when edited and before an analysis.
+
+In the saved two-span test frame, both beams start on their axes. Adding a slab-top rule alone previously caused Calculate on the integration branch to lower both beam axes by 0.3 m. The published build on main kept the axes where they were stored. The measured vertical displacement of node 5 was −0.00019257188379275572 m with the lower axes and −0.00018941887449479237 m with the stored axes. Explicitly saving the lower offsets gives the lower-axis answer in either build. Review the saved offsets and rerun calculations that previously reapplied a rule in a disabled build.

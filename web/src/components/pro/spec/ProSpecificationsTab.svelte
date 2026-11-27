@@ -23,7 +23,7 @@
    * it is held, how it is solved. The summary is not a part: it lists what the others changed from
    * the default, so it stands apart, at the right.
    */
-  const PARTS: SpecSection[] = ['members', 'links', 'surfaces', 'placement', 'supports', 'analysis'];
+  const PARTS: SpecSection[] = ['members', 'links', 'surfaces', ...(__PUBLIC_FEATURES__.proRcSheets ? ['placement'] as const : []), 'supports', 'analysis'];
   const SECTIONS: SpecSection[] = [...PARTS, 'list'];
   function navKey(e: KeyboardEvent) {
     const k = SECTIONS.indexOf(uiStore.specSection);
@@ -54,7 +54,7 @@
     {:else if uiStore.specSection === 'supports'}<SpecSupports />
     {:else if uiStore.specSection === 'links'}<ProConstraintsTab />
     {:else if uiStore.specSection === 'surfaces'}<SpecSurfaces />
-    {:else if uiStore.specSection === 'placement'}<SpecPlacement />
+    {:else if __PUBLIC_FEATURES__.proRcSheets && uiStore.specSection === 'placement'}<SpecPlacement />
     {:else if uiStore.specSection === 'analysis'}<SpecAnalysis />
     {:else}<SpecList />{/if}
   </div>

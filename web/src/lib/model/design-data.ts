@@ -19,7 +19,7 @@ import { specifiedCoverMm } from '../codes/cirsoc201/cover';
 import { PROPERTY_SIDES, type PropertyLines } from './foundation/edges';
 import { footingSetupOf } from '../rc-sheets/footing-types';
 import { fixedPointsOf } from '../rc-sheets/fixed-points';
-import { placementOf } from './placement';
+import { placementWithLegacy } from './placement';
 
 export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
 export const DESIGN_KINDS: readonly DesignKind[] = ['beam', 'column', 'slab', 'wall', 'footing'];
@@ -402,12 +402,3 @@ export const REBAR_GRADES: ReadonlyArray<{ name: string; fy: number }> = [
 export function concreteFc(m: { fc?: number; fy?: number } | undefined): number | undefined {
   return m?.fc ?? m?.fy;
 }
-
-/** The placement a project states, the column fixed points it kept with the sheets read in where it states none of its own. */
-function placementWithLegacy(placement: unknown, sheetsFixed: unknown): { placement?: import('./placement').Placement } {
-  const own = placementOf(placement).placement, legacy = fixedPointsOf(sheetsFixed).fixedPoints;
-  const columns = own?.columns ?? legacy;
-  const out = { ...own, ...(columns ? { columns } : {}) };
-  return Object.keys(out).length ? { placement: out } : {};
-}
-

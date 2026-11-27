@@ -5,6 +5,7 @@
  * placement owns is written: without `edges` a beam keeps its offset across, and a stack with no
  * fixed point of its own (and none from `edges`) keeps its own.
  */
+import { reinforcementSheets } from '../features';
 import { modelStore } from './model.svelte';
 import { designData, patchDesignData, storedDesignData } from './design-data';
 import { physicalPlates, setPlateOffset } from './physical-plates';
@@ -19,7 +20,11 @@ import type { MemberOffset } from '../model/element-3d-metadata';
 const TOL = 1e-6;
 type P3 = { x: number; y: number; z: number };
 
-export const placementData = (): Placement => { void modelStore.designData; return designData().placement ?? {}; };
+export function placementData(): Placement {
+  if (!reinforcementSheets()) return {};
+  void modelStore.designData;
+  return designData().placement ?? {};
+}
 
 /** The fixed point a column stack stands by: its own, else its outer face or corner where the edges are flush, else the centre. */
 export const columnFixedPoint = (stack: string): FixedPointKind => columnFixedPoints().get(stack) ?? 'c';
@@ -33,6 +38,10 @@ export function columnFixedPoints(): Map<string, FixedPointKind> {
 /** Whether a stack's fixed point is its own or read from the edge. */
 export const columnPointIsOwn = (stack: string): boolean => placementData().columns?.[stack] !== undefined;
 
+function editPlacement(change: () => void): void {
+  if (reinforcementSheets()) modelStore.batch(change);
+}
+
 function savePlacement(next: Placement): void {
   const columns = next.columns && Object.keys(next.columns).length ? next.columns : undefined;
   const p: Placement = { ...(next.reference ? { reference: next.reference } : {}), ...(columns ? { columns } : {}), ...(next.edges ? { edges: true } : {}) };
@@ -44,12 +53,12 @@ function savePlacement(next: Placement): void {
 
 /** State the level reference and move the beams and slabs to it; one undo step. */
 export function setLevelReference(reference: LevelReference): void {
-  modelStore.batch(() => { savePlacement({ ...placementData(), reference }); applyPlacement(); });
+  editPlacement(() => { savePlacement({ ...placementData(), reference }); applyPlacement(); });
 }
 
 /** Flush, or not, the columns and beams on the floor's edge with the slab's edge; one undo step. */
 export function setEdgesFlush(on: boolean): void {
-  modelStore.batch(() => {
+  editPlacement(() => {
     if (!on && placementData().edges) backOnAxes();
     savePlacement({ ...placementData(), edges: on });
     applyPlacement();
@@ -95,7 +104,7 @@ function dropOwnPoints(stacks: readonly string[]): void {
 
 /** State the fixed point of one stack, or of every stack when `stack` is null, and move its storeys to it; `kind` null leaves the stack to its edge again. One undo step. */
 export function setColumnFixedPoint(stack: string | null, kind: FixedPointKind | null): void {
-  modelStore.batch(() => {
+  editPlacement(() => {
     const p = placementData();
     const columns = stack === null
       ? (kind === null ? {} : Object.fromEntries(columnStacks().map((s) => [s.key, kind])))
@@ -234,6 +243,7 @@ function edgeWalls(slabs: ReturnType<typeof levelSlabs>): Array<{ id: number; sh
  */
 export function applyPlacement(): number {
   const p = placementData();
+  if (!p.reference && !p.edges && !p.columns) return 0;
   const changes: Array<() => void> = [];
   const queueOffset = (id: number, offset: MemberOffset | null) => {
     changes.push(() => modelStore.setElementOffset(id, offset));
