@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { checkLabel } from '../../../components/research/grossman2026/check-labels';
+import { evidence } from '../../../components/research/grossman2026/evidence';
 import { exampleStrings } from '../../../components/examples/strings';
 import { findPost } from '../../blog';
 import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
@@ -24,7 +25,8 @@ it.each([
   ['strip-bias', 'effetto di scala'],
   ['fig5-periodic', 'celle periodiche e strisce'],
 ])('known wrong result: #2595 — Grossman check %s names the measured quantity', (id, expected) => {
-  expect(checkLabel({ id, name: id }, 'it')).toContain(expected);
+  const check = evidence.flatMap(group => group.checks).find(check => check.id === id)!;
+  expect(checkLabel(check, 'it')).toContain(expected);
 });
 
 it('known wrong result: #2595 — advisory release ranges agree with the rows on either side', () => {
