@@ -6,6 +6,7 @@
  * the values the code recommends (`EC2_RECOMMENDED`, rows coded `en-1992-1-1`) and those of the UK
  * National Annex to BS EN 1992-1-1 (`EC2_UK`, rows coded `bs-en-1992-1-1`). Units: MPa, m.
  */
+import { unifiedPlates } from '../../../features';
 import { ec2ParamsOf } from '../../../code-profiles/adapters/ec2';
 import { rcProfile } from '../../../code-profiles/registry';
 
@@ -41,7 +42,12 @@ export interface Ec2Params {
 }
 
 export const EC2_RECOMMENDED: Ec2Params = ec2ParamsOf(rcProfile('en-1992-1-1'));
-export const EC2_UK: Ec2Params = ec2ParamsOf(rcProfile('bs-en-1992-1-1'));
+const ukParams = ec2ParamsOf(rcProfile('bs-en-1992-1-1'));
+export const EC2_UK: Ec2Params = unifiedPlates() ? ukParams : {
+  ...ukParams,
+  xuLimitLow: EC2_RECOMMENDED.xuLimitLow,
+  xuLimitHigh: EC2_RECOMMENDED.xuLimitHigh,
+};
 
 export interface Ec2Material {
   fcd: number; fcdShear: number; fctm: number; fcm: number; ecm: number;

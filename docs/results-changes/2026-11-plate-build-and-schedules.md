@@ -23,3 +23,7 @@ An unmerged integration build could discard part of a distributed load when that
 ## Formulation of drawn quadrilateral shells
 
 In the production profile, a newly drawn quadrilateral retains the flat formulation unless the user explicitly selects curved. A warped flat shell reaches the solver's normal warp check. Unified PRO retains its automatic curved-shell selection. A disabled-profile integration build could mark a drawn shell curved automatically; its saved flag does not record who selected it. Review the formulation of such shells before reanalysis.
+
+## Saved UK concrete beam designs
+
+With unified plates disabled, the UK beam check again inherits the neutral-axis depth limits used by the published design. Unified plates use the limits in the UK National Annex profile. This affects the limiting moment above which a beam needs compression reinforcement. Recalculate UK beam designs when moving between these builds or reopening work designed in an intermediate integration build.

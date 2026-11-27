@@ -60,7 +60,7 @@ describe('EC2 beams', () => {
     expect(d.rows[0]!.derivation!.join(' ')).toContain('compression steel');
   });
 
-  it.skip('known wrong result: #2365 keeps the saved UK compression-steel transition for both concrete strength ranges', () => {
+  it('known wrong result: #2365 keeps the saved UK compression-steel transition for both concrete strength ranges', () => {
     for (const fck of [30, 50, 51]) {
       const saved = { ...EC2_RECOMMENDED, code: EC2_UK.code, alphaCC: EC2_UK.alphaCC, alphaCCShear: EC2_UK.alphaCCShear };
       const section = [0.3, 0.55, 0.05, fck, 500] as const;
