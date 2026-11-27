@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
-import { featuresForMode } from '../config/public-features.mjs';
+import { withComponent } from './component-browser-fixture.mjs';
 
-const root = fileURLToPath(new URL('../', import.meta.url));
 const entry = `
 import { mount } from 'svelte';
 import Panel from '/src/components/pro/ProFoundationSprings.svelte';
@@ -31,38 +27,9 @@ window.refine = async asynchronous => {
 mount(Panel, {target: document.body});
 `;
 
-async function withFoundationForm(mode, script, check) {
-  const path = '/foundation-fixture.js';
-  const server = await createServer({
-    root, mode, logLevel: 'error',
-    server: { host: '127.0.0.1', port: 0 },
-    plugins: [{
-      name: 'spring-ownership-fixture',
-      resolveId: id => id === path ? id : null,
-      load: id => id === path ? script : null,
-      configureServer(vite) {
-        vite.middlewares.use('/spring-ownership.html', (_request, response) => {
-          response.setHeader('Content-Type', 'text/html');
-          response.end('<body><script type="module" src="/foundation-fixture.js"></script></body>');
-        });
-      },
-    }],
-  });
-  let browser;
-  try {
-    await server.listen();
-    browser = await chromium.launch();
-    const page = await browser.newPage();
-    await page.addInitScript(features => { globalThis.__PUBLIC_FEATURES__ = features; }, featuresForMode(mode));
-    await check(page, new URL('/spring-ownership.html', server.resolvedUrls.local[0]).href);
-  } finally {
-    await browser?.close();
-    await server.close();
-  }
-}
 
 test('known wrong result: #1928 the foundation form preserves total soil stiffness after a whole plate is remeshed', async () => {
-  await withFoundationForm('development', entry, async (page, url) => {
+  await withComponent('development', entry, async (page, url) => {
     for (const asynchronous of [false, true]) {
       await page.goto(url);
       await page.getByTestId('fs-apply').click();
@@ -103,7 +70,7 @@ mount(Panel, {target: document.body});
 for (const mode of ['production', 'development']) {
   test(`known wrong result: #1928 ${mode} footing and pile-cap placement uses the applicable property lines`, async () => {
     const sheets = featuresForMode(mode).proRcSheets;
-    await withFoundationForm(mode, propertyLineProject, async (page, url) => {
+    await withComponent(mode, propertyLineProject, async (page, url) => {
       for (const kind of ['isolated', 'pileCap']) {
         for (const chooseX of [false, true]) {
           await page.goto(url);
