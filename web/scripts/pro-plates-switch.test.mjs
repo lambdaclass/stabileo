@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, resolveConfig } from 'vite';
-import { readRegistry } from './result-changes/registry.mjs';
+import { readRegistry, readRegistryAt } from './result-changes/registry.mjs';
 import { featuresForMode } from '../config/public-features.mjs';
 import { withProductionFeatures } from './public-features-test-fixture.mjs';
 
@@ -77,5 +77,13 @@ test('both plate profiles build the checked-out solver, mesher, file reader and 
       assert.equal(mesher, readFileSync(resolve(root, 'src/components/pro/ProMesher.svelte'), 'utf8'));
       assert.equal(file, readFileSync(resolve(root, 'src/lib/store/file.ts'), 'utf8'));
     });
+  }
+});
+
+test('both profiles retain the published landing versions through #2472', { skip: 'known wrong result: #2472' }, () => {
+  const published = readRegistryAt('f237e68a5932fd485445162fe5ebeddf9ac167df');
+  const current = new Map(readRegistry().changes.map(change => [change.id, change.resultsVersion]));
+  for (const change of published.changes) {
+    assert.equal(current.get(change.id), change.resultsVersion, change.id);
   }
 });

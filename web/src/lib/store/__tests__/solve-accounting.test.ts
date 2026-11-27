@@ -414,6 +414,17 @@ it('#2460 automatic solve refuses the complementary plate sweep', async () => {
   expect(resultsStore.results3D).toBeNull();
 });
 
+it.skip('known wrong result: #2460 a refused manual solve releases the next live solve', async () => {
+  complementaryMeshMarkedCurrent();
+  await expect(runGlobalSolve({ directBase: true })).resolves.toMatchObject({
+    ok: false, error: expect.stringMatching(/Test floor.*sweep/i),
+  });
+  uiStore.liveCalcError = null;
+  await runLiveCalc('pro', uiStore.axisConvention3D);
+  expect(uiStore.liveCalcError).toMatch(/Test floor.*sweep/i);
+  expect(resultsStore.results3D).toBeNull();
+});
+
 it('#2460 direct solve refuses the complementary plate sweep', () => {
   complementaryMeshMarkedCurrent();
   syncDefinedLoadsForAnalysis();
