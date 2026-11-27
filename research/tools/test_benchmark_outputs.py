@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 root = Path(__file__).resolve().parents[2]
 
@@ -135,6 +136,19 @@ const createServer = async settings => {
                 metadata['files_sha256'][file.name] = hashlib.sha256(file.read_bytes()).hexdigest()
                 manifest.write_text(json.dumps(metadata))
                 self.reject(folder, native)
+
+
+class CleanCheckout(unittest.TestCase):
+    @unittest.skip("known wrong result: #2505")
+    def test_checker_scratch_without_a_native_build(self):
+        with tempfile.TemporaryDirectory(dir=root) as checkout:
+            with patch.dict(BenchmarkOutputs.setUp.__globals__, root=Path(checkout)):
+                case = BenchmarkOutputs()
+                try:
+                    case.setUp()
+                    self.assertTrue(case.base.is_dir())
+                finally:
+                    case.doCleanups()
 
 
 if __name__ == '__main__':
