@@ -25,3 +25,16 @@ it('known wrong result: #1928 reopened load bases recognize only the fallback ro
   check('occupancyCode', 'loads.occupancy.vivienda', false);
   check('dead', 'loads.occupancy.archivos', false);
 });
+
+it('retains a manual case review only for an unreviewed first row or a qualifying TS 498 column reduction', async () => {
+  const { needsManualOccupancyReview } = await import('../occupancy-selection');
+  const saved = { ratio: 0.98, floorsSupported: 4, elementKind: 'interiorColumn', occupancyKey: 'tr_office' };
+  const review = (changes: Partial<typeof saved> & { occupancyReviewed?: boolean } = {}) => needsManualOccupancyReview('ts498-1997-loads', 'L', { ...saved, ...changes });
+  expect(review()).toBe(true);
+  for (const change of [{ floorsSupported: 3 }, { elementKind: 'interiorBeam' }, { occupancyKey: 'tr_shop_small' }, { ratio: 1 }, { occupancyReviewed: true }]) expect(review(change)).toBe(false);
+  for (const [adapter, key] of [['cirsoc101-2025-loads', 'archivos'], ['asce7-22-loads', 'accessOffice'], ['en1991-1-1', 'ec-A-floor'], ['en1991-1-1-uk', 'uk-A1'], ['ts498-1997-loads', 'tr_attic_rooms']]) {
+    expect(needsManualOccupancyReview(adapter!, 'L', { ratio: 1, occupancyKey: key })).toBe(true);
+    expect(needsManualOccupancyReview(adapter!, 'D', { ratio: 1, occupancyKey: key })).toBe(false);
+    expect(needsManualOccupancyReview(adapter!, 'L', { ratio: 1, occupancyKey: key, occupancyReviewed: true })).toBe(false);
+  }
+});

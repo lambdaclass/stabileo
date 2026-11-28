@@ -21,3 +21,24 @@ export function needsOccupancyReview(basis?: OccupancyBasis): boolean {
     }
   });
 }
+
+const firstManualRow: Readonly<Record<string, string>> = {
+  'cirsoc101-2025-loads': 'archivos', 'en1991-1-1': 'ec-A-floor', 'en1991-1-1-uk': 'uk-A1',
+  'asce7-22-loads': 'accessOffice', 'ts498-1997-loads': 'tr_attic_rooms',
+};
+
+export interface ArchivedReduction {
+  ratio: number;
+  occupancyKey?: string;
+  occupancyReviewed?: boolean;
+  floorsSupported?: number;
+  elementKind?: string;
+}
+
+export function needsManualOccupancyReview(adapter: string | null, type: string | undefined, reduction?: ArchivedReduction): boolean {
+  if (type?.toUpperCase() !== 'L' || !reduction?.occupancyKey || reduction.occupancyReviewed) return false;
+  if (reduction.occupancyKey === firstManualRow[adapter ?? 'cirsoc101-2025-loads']) return true;
+  return adapter === 'ts498-1997-loads' && ['tr_office', 'tr_residential'].includes(reduction.occupancyKey)
+    && (reduction.floorsSupported ?? 0) > 3 && reduction.ratio > 0 && reduction.ratio < 1
+    && ['interiorColumn', 'exteriorColumnNoCantilever', 'edgeColumnWithCantilever', 'cornerColumnWithCantilever'].includes(reduction.elementKind ?? '');
+}

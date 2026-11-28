@@ -65,7 +65,7 @@ export function caseReduction(code: ImposedLoadCode, input: CaseReductionInput):
   if (!input.occupancy || lo === null || lo === undefined || !(lo > 0) || !(input.tributaryAreaM2 > 0)) return null;
   const floors = Math.max(1, Math.round(input.floorsSupported));
   const r = code.reduce({
-    loKNm2: lo, tributaryAreaM2: input.tributaryAreaM2, elementKind: input.elementKind, floorsSupported: floors,
+    occupancyKey: input.occupancy.key, loKNm2: lo, tributaryAreaM2: input.tributaryAreaM2, elementKind: input.elementKind, floorsSupported: floors,
     passengerGarage: input.occupancy.assemblyKind === 'passengerGarage',
     publicAssembly: input.occupancy.assemblyKind === 'publicAssembly',
     noReduction: input.occupancy.noReduction === true,

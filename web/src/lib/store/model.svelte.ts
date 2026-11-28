@@ -826,7 +826,7 @@ export interface LoadCase {
    * bound loads code gives for the tributary area, member and storeys stated, and the occupancy
    * of Table 4.1 its Lo and exclusions come from (`engine/loads/case-reduction.ts`).
    */
-  reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number; occupancyKey?: string };
+  reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number; occupancyKey?: string; occupancyReviewed?: true };
   /** A response spectrum as this case's result (`engine/spectral-case.ts`): no loads of its own. */
   spectral?: import('../engine/spectral-case').SpectralCaseDef;
   /** Named by Stabileo with model axis letters ("Viento +X"): shown in the user's (`axes/case-names.ts`) until renamed. */

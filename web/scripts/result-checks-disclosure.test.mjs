@@ -95,7 +95,7 @@ globalThis.expectedReduction = async (key, floorsSupported) => {
 };
 `;
 
-test.skip('known wrong result: #1928 reopening a case cannot apply a replacement occupancy without a selection', async () => {
+test('known wrong result: #1928 reopening a case cannot apply a replacement occupancy without a selection', async () => {
   for (const profile of ['production', 'test']) {
     await withComponent(profile, manualReduction, async (page, url) => {
       await page.goto(url);
@@ -116,7 +116,7 @@ test.skip('known wrong result: #1928 reopening a case cannot apply a replacement
   }
 });
 
-test.skip('known wrong result: #1928 a manual TS 498 case applies the reduction for its recorded occupancy row', async () => {
+test('known wrong result: #1928 a manual TS 498 case applies the reduction for its recorded occupancy row', async () => {
   await withComponent('test', manualReduction, async (page, url) => {
     await page.goto(url);
     await page.waitForFunction(() => typeof globalThis.openReduction === 'function');

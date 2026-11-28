@@ -1,0 +1,38 @@
+{
+  "id": "manual-occupancy-reduction",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "loads",
+  "when": {
+    "all": [
+      "manualOccupancyReduction"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Review the occupancy used for manual live-load reduction",
+    "es": "Revisar el uso de la reducción manual de sobrecarga",
+    "pt": "Rever a ocupação da redução manual de sobrecarga",
+    "de": "Nutzung bei manueller Nutzlastabminderung prüfen",
+    "fr": "Vérifier l’usage de la réduction manuelle des charges d’exploitation",
+    "tr": "Hareketli yükün elle azaltılmasında kullanım türünü kontrol edin",
+    "zh": "复核手动折减活荷载时采用的用途",
+    "hu": "A kézi hasznos tehercsökkentés rendeltetésének ellenőrzése"
+  },
+  "explanation": {
+    "en": "Review the saved occupancy in Case details, apply the intended reduction and solve again. An earlier integration could substitute the first available use or use a different TS 498 reduction row.",
+    "es": "Revisá el uso guardado en los detalles del caso, aplicá la reducción prevista y volvé a calcular. Una integración anterior podía elegir el primer uso disponible u otra fila de reducción de TS 498.",
+    "pt": "Confira a ocupação nos detalhes do caso, aplique a redução pretendida e recalcule. Uma integração anterior podia escolher a primeira ocupação disponível ou outra linha da TS 498.",
+    "de": "Nutzung in den Lastfalldetails prüfen, gewünschte Abminderung anwenden und neu berechnen. Eine frühere Integration konnte die erste verfügbare Nutzung oder eine andere Zeile der TS 498 verwenden.",
+    "fr": "Vérifiez l’usage dans les détails du cas, appliquez la réduction voulue et relancez le calcul. Une intégration antérieure pouvait choisir le premier usage disponible ou une autre ligne de la TS 498.",
+    "tr": "Yük durumu ayrıntılarındaki kullanımı kontrol edin, amaçlanan azaltmayı uygulayın ve yeniden çözün. Önceki entegrasyon ilk kullanım türünü veya TS 498 tablosunda farklı bir satırı seçebiliyordu.",
+    "zh": "请在工况详情中核对已保存的用途，应用预期折减并重新计算。早期集成版本可能选用第一个可用用途或 TS 498 的其他折减行。",
+    "hu": "Ellenőrizze a rendeltetést a tehereset részleteiben, alkalmazza a kívánt csökkentést, és számítsa újra a modellt. Egy korábbi integráció az első elérhető rendeltetést vagy a TS 498 másik sorát választhatta."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-manual-occupancy-reduction.md",
+    "heading": "Review the occupancy used for manual live-load reduction"
+  }
+}

@@ -5,7 +5,7 @@ import { SHELL_OFFSET_EXPANSION_THRESHOLD } from '../engine/shell-offsets';
 import { fromLoadPlan, loadGenerationOwner } from '../model/loads/generation-owner';
 import { cellPressureDefinitions, hasLocalCellProperties, pressureFollowsMesh } from '../model/physical/mesh-cell-fields';
 import { isMagnitudeCombination } from '../engine/result-scopes';
-import { needsOccupancyReview, type OccupancyBasis } from './occupancy-selection';
+import { needsManualOccupancyReview, needsOccupancyReview, type ArchivedReduction, type OccupancyBasis } from './occupancy-selection';
 import { classifyEccentricNormalOffset, constraintsInXZ, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
 import { dependsOnXYConstraintAxes, hasAddedAuthoredLoadRefusal, hasMalformedAuthoredLoad, invalidPlanarPointTorsion, isFiniteInputNumber, ModelInputError, migrateModelConstraints, requireCombinationInput, requireStoredProjectInput, requireStructureInput, storedProjectPlane } from '../engine/model-input-numbers';
 import { DRAW_PLANES, isDrawPlane, type DrawPlane } from '../geometry/plane-projection';
@@ -85,7 +85,7 @@ export const FEATURE_IDS = [
   'shortOffAxisStrap', 'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
-  'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'unpublishedZoneLiveLoads', 'possibleOccupancySubstitution', 'magnitudeCombinations',
+  'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'unpublishedZoneLiveLoads', 'possibleOccupancySubstitution', 'manualOccupancyReduction', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
   'malformedAuthoredLoad',
   'addedAuthoredLoadRefusal', 'legacyPlanarProjectPlane', 'emptyRigidLinkMask',
@@ -145,7 +145,7 @@ interface FeatureSnapshotFields {
   loadCases?: Array<{
     id: number; name?: string; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean;
     group?: string; snowBasis?: 'flatRoof'; generated?: boolean; autoLoadsRetired?: true;
-    includes?: ReadonlyArray<{ caseId?: number; factor: number }>; reduction?: { ratio: number }; notional?: unknown;
+    includes?: ReadonlyArray<{ caseId?: number; factor: number }>; reduction?: ArchivedReduction; notional?: unknown;
   }>;
   combinations?: unknown[];
   resultScopes?: { active?: number[] };
@@ -330,8 +330,8 @@ export function loadsGeneratedWith(s: FeatureSnapshot): number {
 
 export const UNVERIFIED_SEISMIC_FEATURE = 'unverifiedGeneratedSeismicLoads';
 
-export function requiresCurrentLoadReview(feature: string): feature is 'unverifiedGeneratedSeismicLoads' | 'unpublishedZoneLiveLoads' | 'possibleOccupancySubstitution' {
-  return feature === UNVERIFIED_SEISMIC_FEATURE || feature === 'unpublishedZoneLiveLoads' || feature === 'possibleOccupancySubstitution';
+export function requiresCurrentLoadReview(feature: string): feature is 'unverifiedGeneratedSeismicLoads' | 'unpublishedZoneLiveLoads' | 'possibleOccupancySubstitution' | 'manualOccupancyReduction' {
+  return feature === UNVERIFIED_SEISMIC_FEATURE || feature === 'unpublishedZoneLiveLoads' || feature === 'possibleOccupancySubstitution' || feature === 'manualOccupancyReduction';
 }
 
 function isStandardGravityRule(rule: unknown): boolean {
@@ -924,6 +924,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   const loadBasis = s.designData?.loadBasis;
+  if (cases.some(c => needsManualOccupancyReview(loadsCode, c.type, c.reduction))) f.add('manualOccupancyReduction');
   if (needsOccupancyReview(loadBasis)) f.add('possibleOccupancySubstitution');
   const loadNoteKeys = new Set(Array.isArray(loadBasis?.derivation) ? loadBasis.derivation.map(n => n?.key) : []);
   const gravityMode = (roles.loads?.settings?.dialog as { gravityMode?: unknown } | undefined)?.gravityMode;
