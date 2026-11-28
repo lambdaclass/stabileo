@@ -19,6 +19,7 @@
     "fr": "Rotations d’appui dans les classeurs",
     "tr": "Çalışma kitaplarında mesnet dönmeleri",
     "hu": "Támaszelfordulások a munkafüzetekben",
+    "ru": "Повороты опор в книге Excel",
     "zh": "工作簿中的支座转角"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "fr": "Les classeurs exportent les rotations d’appui imposées dans tous les repères. Recalculez les résultats concernés et exportez de nouveau le modèle d’origine si des rotations manquent.",
     "tr": "Çalışma kitapları her koordinat sisteminde verilen mesnet dönmelerini dışa aktarır. Etkilenen sonuçları yeniden hesaplayın ve dönmeler eksikse özgün modeli yeniden dışa aktarın.",
     "hu": "A munkafüzet minden koordináta-rendszerben tartalmazza az előírt támaszelfordulásokat. Számítsa újra az érintett eredményeket, és exportálja újra az eredeti modellt, ha a munkafüzetből hiányoznak az elfordulások.",
+    "ru": "Экспорт в книгу включает заданные повороты опор во всех рамах. Пересчитайте затронутые результаты и заново экспортируйте исходную модель, если в книге повороты отсутствовали.",
     "zh": "工作簿在所有坐标系下均导出支座的指定转角。请重新计算受影响的结果。如果工作簿遗漏了转角，请从原始模型重新导出。"
   },
   "changelog": {

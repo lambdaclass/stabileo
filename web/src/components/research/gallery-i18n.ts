@@ -41,6 +41,12 @@ export const galleryStrings: Record<string, { researchTitle: string; galleryLead
     "reviewOne": "{count} felülvizsgálati kör",
     "reviewMany": "{count} felülvizsgálati kör"
   },
+  'ru': {
+    "researchTitle": "Исследования в строительной механике",
+    "galleryLead": "Классические и новые статьи, эталонные задачи и методы, которые можно запускать и проверять в Stabileo, программе для расчёта конструкций с ИИ. Каждая страница указывает, что воспроизведено и как это проверялось.",
+    "reviewOne": "{count} раунд рецензирования",
+    "reviewMany": "{count} раундов рецензирования"
+  },
   "zh": {
     "researchTitle": "结构工程研究",
     "galleryLead": "经典与近期的论文、基准算例和方法，可在 Stabileo（AI 结构工程软件）中运行并验证。每个页面都会说明复现了哪些内容，以及是如何验证的。",

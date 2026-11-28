@@ -13,6 +13,7 @@
     "fr": "Vérification indépendante des pressions dans Explorer",
     "hu": "Független nyomásellenőrzés a Felfedezésben",
     "tr": "Keşfet bölümünde bağımsız basınç denetimi",
+    "ru": "Независимый учёт давления в Explore",
     "zh": "探索模式下的独立压力校核"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "L’analyse s’arrête si un chargement de pression sur une coque manque ou si la pression sur un élément de coque ou ses forces nodales assemblées diffèrent de la demande dans Explorer au-delà de la marge d’arrondi, même si la force et le moment totaux concordent. Les champs de pression signés corrects satisfont la vérification même si leurs forces équivalentes s’annulent à un nœud.",
     "hu": "A számítás leáll, ha egy héjelem nyomásterhe hiányzik, vagy ha a nyomása vagy az összeállított csomóponti erők a kerekítési tűrést meghaladóan eltérnek a Felfedezésben megadott terheléstől, akkor is, ha az eredő erő és nyomaték egyezik. A helyes előjeles nyomásmezők akkor is átmennek az ellenőrzésen, ha egyenértékű erőik kioltják egymást egy csomópontban.",
     "tr": "Bir kabuk basınç yükü eksikse veya kabuk elemanındaki basınç veya birleştirilmiş düğüm kuvvetleri Keşfet bölümünde istenen değerden yuvarlama payını aşacak kadar farklıysa, toplam kuvvet ve moment aynı olsa bile analiz durur. İşaretli basınç alanları doğruysa eşdeğer kuvvetleri bir düğümde birbirini dengelediğinde de denetimden geçer.",
+    "ru": "Расчёт останавливается, если пакет давлений на оболочки отсутствует или если давление на оболочку либо собранные узловые силы отличаются от запроса Explore сверх округления, даже когда суммарная сила и момент совпадают. Корректные знакопеременные поля давления по-прежнему проходят проверку, если их эквивалентные силы сокращаются в узле.",
     "zh": "即使总力和总力矩一致，只要壳单元压力荷载缺失，或壳单元压力或其组装后的节点力与探索模式中的设定值之差超过舍入误差限值，分析就会停止。正确的有符号压力场即使在某个节点的等效力相互抵消，也能通过校核。"
   },
   "changelog": {

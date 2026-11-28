@@ -32,6 +32,7 @@
     "fr": "Moments résiduels exacts et assemblage des charges transformées",
     "hu": "Pontos maradó nyomatékok és transzformált terhek összeállítása",
     "tr": "Kesin artık momentler ve dönüştürülmüş yük birleştirmesi",
+    "ru": "Точные остаточные моменты и сборка преобразованных нагрузок",
     "zh": "精确的残余弯矩与变换后的荷载装配"
   },
   "explanation": {
@@ -42,6 +43,7 @@
     "fr": "Les vérifications des charges sur les rotations libérées suivent désormais les opérations réelles d’assemblage, y compris les appuis inclinés et une seule charge de barre 2D. Un moment résiduel non nul assemblé exactement est refusé ; l’annulation exacte reste admise dans l’historique des phases. Les vérifications initiales non linéaires utilisent uniquement les lignes libres des contraintes. Les modèles sans libérations conservent le comportement Winkler et contact. Recalculer les modèles concernés ; les avertissements restent applicables (#2074).",
     "hu": "A felszabadított elfordulások terheinek ellenőrzése most a tényleges összeállítási műveleteket követi, beleértve a ferde támaszokat és az egyetlen 2D rúdterhet is. A pontosan összeállított, nem nulla maradó nyomatékot a program elutasítja; a pontos kioltás továbbra is megengedett az építési fázisok történetében. A kezdeti nemlineáris nyomatékellenőrzések csak a kényszertranszformáció szabad szabadságfokokhoz tartozó sorait használják. A rúdvégi felszabadítások nélküli modellek meglévő Winkler- és kontaktusviselkedése megmarad. Futtassa újra az érintett modelleket; a meglévő figyelmeztetések továbbra is érvényesek (#2074).",
     "tr": "Serbest dönmelerdeki yük denetimleri artık eğik mesnetler ve tek bir 2B çubuk yükü dahil gerçek birleştirme işlemlerini izler. Tam olarak birleştirilmiş sıfır olmayan artık moment reddedilir; aşamalı yük geçmişinde tam iptal kabul edilir. Başlangıçtaki doğrusal olmayan moment denetimleri yalnızca serbest kısıt satırlarını kullanır. Uç serbestliği olmayan modeller mevcut Winkler ve temas davranışını korur. Etkilenen modelleri yeniden çözün; mevcut uyarılar geçerlidir (#2074).",
+    "ru": "Проверки освобождённых нагрузок теперь отслеживают фактические операции сборки, включая наклонные опоры и одиночные нагрузки на 2D-стержни. Точно собранный ненулевой остаточный момент отклоняется; точное сокращение остаётся допустимым в поэтапной истории. Начальные нелинейные проверки моментов используют только строки свободных связей. Модели без освобождений стержней сохраняют прежнее поведение для расчётов по Винклеру и контактных расчётов. Повторите расчёт затронутых моделей; существующие предупреждения остаются в силе (#2074).",
     "zh": "对已释放转动自由度上的荷载进行的检查现在跟踪实际的装配运算，包括斜支座和单个 2D 杆件荷载。被精确装配出的非零残余弯矩会被拒绝；精确抵消在分阶段历程中仍然被允许。初始非线性弯矩检查只使用自由约束行。没有杆端释放的模型保留其现有的 Winkler 和接触行为。请重新运行受影响的模型；现有警告仍然适用（#2074）。"
   },
   "changelog": {

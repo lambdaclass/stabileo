@@ -154,6 +154,28 @@ export const LINK_NAMES: Record<string, Record<string, string>> = {
     "newmark-1959": "Newmark-féle időintegrálás: egy szabadságfok",
     "cqc-1981": "SRSS és CQC: modális kombináció"
   },
+  'ru': {
+    "simply-supported-beam": "Калькулятор балки на двух шарнирных опорах",
+    "cantilever-beam": "Калькулятор прогиба консольной балки",
+    "column-buckling": "Калькулятор потери устойчивости колонны по Эйлеру",
+    "continuous-beam": "Калькулятор неразрезной балки",
+    "portal-frame": "Калькулятор портальной рамы",
+    "truss-2d": "Калькулятор 2D-фермы",
+    "influence-line": "Калькулятор линий влияния",
+    "beam-natural-frequency": "Калькулятор собственной частоты балки",
+    "macneal-harder-1985": "Тесты точности конечных элементов MacNeal–Harder",
+    "navier-plate": "Изгиб пластины по Навье: тест на рядах Фурье",
+    "mattiasson-elastica": "Эластика Mattiasson: большой прогиб консоли",
+    "ferrari-sigmund-2025": "Потеря устойчивости рамы Roorda: Ferrari–Sigmund",
+    "biggins-2026": "Прощёлкивание арки за счёт узора кривизны",
+    "lee-frame-1968": "Нелинейный тест рамы Ли (1968)",
+    "plastic-collapse": "Тест на пластическое разрушение портальной рамы",
+    "grossman-2026": "Ауксетические пружинные сети: Grossman–Boudaoud",
+    "pastrana-2026": "Поиск формы вантовой конструкции: метод плотностей усилий",
+    "riks-crisfield": "Прощёлкивание с длиной дуги: Riks–Crisfield",
+    "newmark-1959": "Интегрирование по времени Ньюмарка: тест для системы с одной степенью свободы",
+    "cqc-1981": "SRSS и CQC: тест комбинации форм колебаний"
+  },
   "zh": {
     "simply-supported-beam": "简支梁计算器",
     "cantilever-beam": "悬臂梁挠度计算器",

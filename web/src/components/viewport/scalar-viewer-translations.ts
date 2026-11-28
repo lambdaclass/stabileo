@@ -140,6 +140,26 @@ export const hu = {
   "scalarViewer.keyboard": "Billentyűzet: a nyilak mozgatják a nézetet, a Shift+nyilak 3D-ben forgatnak, a + és a - nagyít, a 0 vagy a Home a nézethez igazít",
 } satisfies ViewerStrings;
 
+export const ru = {
+  "scalarViewer.view": "Вид",
+  "scalarViewer.viewOptions": "Параметры вида",
+  "scalarViewer.close": "Закрыть",
+  "scalarViewer.fit": "Показать всё",
+  "scalarViewer.plan": "2D (план, вращение заблокировано)",
+  "scalarViewer.orbit": "3D (вращение)",
+  "scalarViewer.switchProjection": "Переключение между видом в плане и вращением в 3D",
+  "scalarViewer.viewer": "Просмотрщик Stabileo",
+  "scalarViewer.position": "поз.:",
+  "scalarViewer.zoom": "масштаб:",
+  "scalarViewer.model": "модель:",
+  "scalarViewer.bars": "Узлов: {nodes}, стержней: {cells}",
+  "scalarViewer.elements": "Узлов: {nodes}, элементов: {cells}",
+  "scalarViewer.openEditor": "Открыть в редакторе",
+  "scalarViewer.soon": " (скоро)",
+  "scalarViewer.editorNote": "Открытие экспериментов в редакторе появится в режиме Research",
+  "scalarViewer.keyboard": "Клавиатура: стрелки — сдвиг, Shift+стрелки — вращение в 3D, + и - — масштаб, 0 или Home — вписать вид",
+};
+
 export const zh = {
   "scalarViewer.view": "视图",
   "scalarViewer.viewOptions": "视图选项",

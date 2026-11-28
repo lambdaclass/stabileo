@@ -13,6 +13,7 @@
     "pt": "Fatores nulos não alteram os resultados das combinações de placas",
     "de": "Nullfaktoren lassen Ergebnisse von Schalenkombinationen unverändert",
     "fr": "Les coefficients nuls laissent les résultats des combinaisons de coques inchangés",
+    "ru": "Нулевые коэффициенты сохраняют результаты сочетаний для оболочек",
     "zh": "零系数不影响壳单元组合结果",
     "hu": "A zérus tényezők nem módosítják a héjelemek kombinált eredményeit",
     "tr": "Sıfır katsayılar kabuk birleşimi sonuçlarını değiştirmez"
@@ -23,6 +24,7 @@
     "pt": "Só os casos de carga com fator resultante diferente de zero contribuem para as tensões e o esforço cortante transversal. Recalcule as combinações de placas com fatores nulos ou que se anulam.",
     "de": "Nur Lastfälle mit einem Gesamtfaktor ungleich null tragen zu Schalenspannungen und Querkräften bei. Berechnen Sie Schalenkombinationen mit Nullfaktoren oder sich aufhebenden Faktoren neu.",
     "fr": "Seuls les cas de charge dont le coefficient total est non nul contribuent aux contraintes et au cisaillement transversal. Recalculez les combinaisons de coques comportant des coefficients nuls ou qui s’annulent.",
+    "ru": "Напряжения в оболочках и поперечную силу формируют только загружения с ненулевым суммарным коэффициентом. Повторите расчёт сочетаний для оболочек с нулевыми или сокращающимися коэффициентами.",
     "zh": "只有净系数非零的工况才会计入壳单元应力和横向剪力。请重新计算含有零系数或系数相互抵消的壳单元组合。",
     "hu": "A héjfeszültséget és a keresztirányú nyíróerőt csak a nem nulla eredő tényezőjű teheresetek befolyásolják. Számítsa újra a nulla vagy egymást kioltó tényezőket tartalmazó héjkombinációkat.",
     "tr": "Kabuk gerilmesine ve enine kesme kuvvetine yalnızca net katsayısı sıfırdan farklı yük durumları katkıda bulunur. Sıfır veya birbirini götüren katsayılar içeren kabuk birleşimlerini yeniden hesaplayın."

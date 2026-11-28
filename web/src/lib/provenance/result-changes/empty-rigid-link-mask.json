@@ -21,6 +21,7 @@
     "de": "Leere Freiheitsgradlisten bei starren Kopplungen",
     "fr": "Listes vides de degrés de liberté dans les liaisons rigides",
     "tr": "Rijit bağlantılarda boş serbestlik derecesi listeleri",
+    "ru": "Явные пустые маски жёстких связей",
     "zh": "刚性连接的空自由度列表"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "de": "Eine leere Freiheitsgradliste wählt die bisherigen Standardbindungen. Berechnen Sie Ergebnisse erneut, wenn sie mit einer Version ermittelt wurden, die diese Kopplungen ignorierte.",
     "fr": "Une liste vide de degrés de liberté sélectionne les liaisons par défaut historiques. Recalculez les résultats obtenus avec une version qui ignorait ces liaisons.",
     "tr": "Boş bir serbestlik derecesi listesi, geçmişteki varsayılan kısıtları seçer. Bu bağlantıları yok sayan bir sürümden alınan sonuçları yeniden hesaplayın.",
+    "ru": "Пустой список степеней свободы выбирает исторические закрепления по умолчанию. Пересчитайте все результаты, полученные в сборке, которая игнорировала эти связи.",
     "zh": "自由度列表为空时使用历史默认约束。若结果来自忽略此类连接的版本，请重新计算。"
   },
   "changelog": {

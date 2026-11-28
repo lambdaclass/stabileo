@@ -21,6 +21,7 @@
     "fr": "Les facteurs de flambement utilisent les matrices de rigidité originales",
     "hu": "A kihajlási tényezők az eredeti merevségi mátrixpárból számítódnak",
     "tr": "Burkulma katsayıları özgün rijitlik matrislerini kullanır",
+    "ru": "Коэффициенты устойчивости используют исходный пучок жёсткостей",
     "zh": "屈曲系数采用原始刚度矩阵对"
   },
   "explanation": {
@@ -31,6 +32,7 @@
     "fr": "Les facteurs de flambement 2D et 3D sont recalculés pour chaque mode sur les matrices originales avec des quotients de Rayleigh compensés. Cela corrige les surestimations du solveur réciproque comme #818. Les appels certifiés refusent toujours les facteurs hors des bornes certifiées. Revérifiez les facteurs, efforts critiques et longueurs efficaces enregistrés. Le calcul pédagogique conserve aussi les modes positifs résolus sur de larges plages de facteurs de charge, en vérifiant chaque mode avec sa propre borne d’erreur de valeur propre.",
     "hu": "A 2D és 3D kihajlási tényezőket a program minden rezgésalakból újraszámítja az eredeti mátrixokon, kompenzált Rayleigh-hányadosokkal. Ez javítja a reciprok sajátérték-megoldó túlbecsléseit, például a #818-at. A tanúsított hívások továbbra is elutasítják a tanúsított korlátaikon kívül eső tényezőket. Ellenőrizze újra a mentett kihajlási tényezőket, a kritikus rúderőket és a kihajlási hosszakat. Az oktató kihajlásvizsgálat a terhelési tényező széles tartományában is megtartja a feloldott pozitív rezgésalakokat, és minden rezgésalakot a saját sajátérték-hibakorlátjához mér.",
     "tr": "2B ve 3B burkulma katsayıları her mod için özgün matrislerden telafili Rayleigh oranlarıyla yeniden hesaplanır. Bu, #818 gibi ters özdeğer çözücüsünün fazla tahminlerini düzeltir. Sertifikalı çağrılar, doğrulanmış sınırların dışındaki katsayıları reddetmeye devam eder. Kayıtlı katsayıları, kritik çubuk kuvvetlerini ve etkin uzunlukları yeniden kontrol edin. Öğretim amaçlı burkulma, geniş yük katsayısı aralıklarında çözümlenebilen pozitif modları da korur ve her modu kendi özdeğer hata sınırıyla denetler.",
+    "ru": "Коэффициенты устойчивости в 2D и 3D пересчитываются по каждой форме на исходных матрицах с помощью компенсированных отношений Рэлея. Это исправляет завышения обратного решателя собственных значений, как в #818. Сертифицированные вызовы по-прежнему отказывают для коэффициентов вне их сертифицированных границ. Перепроверьте сохранённые коэффициенты устойчивости, критические усилия в стержнях и расчётные длины. Учебный расчёт на устойчивость также сохраняет разрешённые положительные формы в широких диапазонах коэффициентов нагрузки, проверяя каждую форму по границе погрешности её собственного значения.",
     "zh": "2D 和 3D 屈曲系数现在使用补偿 Rayleigh 商，由原始矩阵对每个振型重新计算。这纠正了特征值求解器出现的倒数型高估，例如 #818。带证书的调用仍会拒绝求解超出其认证界限的系数。请重新检查已保存的屈曲系数、临界杆件内力和计算长度。教学用屈曲分析也会在很宽的荷载系数范围内保留已分辨的正振型，并以各振型自身的特征值误差界限逐一检查。"
   },
   "changelog": {

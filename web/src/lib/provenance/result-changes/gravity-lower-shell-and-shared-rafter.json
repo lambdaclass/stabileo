@@ -22,6 +22,7 @@
     "de": "Explizite Zuordnung der Schwerkraftlasten für tiefer liegende Schalen und versetzte Sparren verlangen",
     "fr": "Exiger une attribution explicite des charges gravitaires pour les coques inférieures et les chevrons décalés",
     "tr": "Alt kotta kalan kabuklar ve kot farkı olan mertekler için yerçekimi yüklerinin açıkça atanmasını iste",
+    "ru": "Требование явного назначения гравитационной нагрузки для нижних оболочек и смещённых стропил",
     "zh": "要求明确指定下方壳单元和有竖向偏移的椽条的重力荷载归属",
     "hu": "Az alsó héjak és az eltolt szarufák gravitációs terheinek kifejezett hozzárendelése szükséges"
   },
@@ -32,6 +33,7 @@
     "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Ist eine tiefer liegende Schale starr mit ihrem Trägerfeld verbunden oder hat ein Sparren einen gemeinsamen Schalenknoten und einen ungeklärten vertikalen Versatz, fordert der Lastplan Sie zur einmaligen manuellen Zuordnung der Flächenlast auf.",
     "fr": "Régénérez les charges gravitaires par travée. Si une coque inférieure est liée rigidement à sa travée de poutres ou si un chevron partage un nœud avec une coque et présente un décalage vertical non résolu, le planificateur vous demande d’attribuer manuellement la charge surfacique une seule fois.",
     "tr": "Panel yerçekimi yüklerini yeniden üretin. Alt kotta kalan bir kabuk kiriş açıklığına rijit olarak bağlıysa veya bir mertek kabukla ortak bir düğümü paylaşıyor ve düşey kot farkından dolayı yükün hangi elemana ait olduğu belirlenemiyorsa, planlayıcı alan yükünü elle bir kez atamanızı ister.",
+    "ru": "Сгенерируйте гравитационные нагрузки панелей заново. Если нижняя оболочка жёстко присоединена к своему пролёту балки или у стропила есть общий узел с оболочкой и неразрешённое вертикальное смещение, планировщик просит вручную один раз назначить нагрузку на площадь.",
     "zh": "请重新生成板区重力荷载。如果下方壳单元与梁跨刚接，或者椽条与壳单元共用节点且存在无法确定荷载归属的竖向偏移，荷载规划器会要求您手动分配一次面荷载。",
     "hu": "Generálja újra a mezők gravitációs terheit. Ha az alsó héj mereven kapcsolódik a gerendamezőhöz, vagy a szarufa közös héjcsomóponttal és tisztázatlan függőleges eltolással rendelkezik, a tervező a felületi teher egyszeri, kézi hozzárendelését kéri."
   },

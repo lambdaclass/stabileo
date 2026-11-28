@@ -19,6 +19,7 @@
     "de": "Die Erdbebenmasse berücksichtigt durch Deckenscheiben definierte Geschosse",
     "fr": "La masse sismique tient compte des étages définis par des diaphragmes",
     "tr": "Sismik kütle, diyaframlarla tanımlanan katları korur",
+    "ru": "Сейсмическая масса сохраняет этажи, заданные дисками перекрытий",
     "zh": "地震质量计算保留由刚性楼板定义的楼层",
     "hu": "A szeizmikus tömeg figyelembe veszi a merev tárcsával meghatározott szinteket"
   },
@@ -29,6 +30,7 @@
     "de": "Eine starre Deckenscheibe definiert auch dann ein Geschoss, wenn die Stützenknoten auf einer Geraden liegen und das Geschoss keine Träger oder Schalenelemente hat. Erzeugen Sie betroffene E-Lastfälle neu, bevor Sie die Analysen und Nachweise wiederholen (#2316).",
     "fr": "Un diaphragme rigide définit un étage même si les nœuds du poteau sont alignés et que le plancher ne comporte ni poutres ni coques. Régénérez les cas E concernés avant de reprendre les analyses et les vérifications (#2316).",
     "tr": "Rijit bir diyafram, kolon düğümleri aynı doğru üzerinde olsa ve katta kiriş veya kabuk bulunmasa bile katı tanımlar. Analizleri ve tasarım kontrollerini tekrarlamadan önce etkilenen E yük durumlarını yeniden oluşturun (#2316).",
+    "ru": "Жёсткий диск перекрытия задаёт этаж, даже если узлы его колонн лежат на одной прямой, а в перекрытии нет балок и оболочек. Заново сформируйте затронутые загружения E, прежде чем повторять расчёты и проверки проектирования (#2316).",
     "zh": "即使柱节点共线且楼层没有梁或壳单元，刚性楼板也能定义楼层。请先重新生成受影响的 E 工况，再重做分析和设计验算（#2316）。",
     "hu": "A merev tárcsa akkor is szintet határoz meg, ha az oszlop csomópontjai egy egyenesbe esnek, és a szinten nincsenek gerendák vagy héjelemek. Az elemzések és ellenőrzések megismétlése előtt generálja újra az érintett E tehereseteket (#2316)."
   },

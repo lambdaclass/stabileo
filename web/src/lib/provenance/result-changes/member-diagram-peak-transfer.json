@@ -30,6 +30,7 @@
     "de": "Spitzenwerte und innere Grenzwerte der Stabdiagramme",
     "fr": "Pics et limites intérieures des diagrammes de barres",
     "tr": "Eleman diyagramı tepe değerleri ve iç sınırları",
+    "ru": "Пики эпюр стержней и пределы внутри стержня",
     "zh": "杆件内力图峰值和内侧极限",
     "hu": "A rúdábrák csúcsértékei és belső határértékei"
   },
@@ -40,6 +41,7 @@
     "de": "Diagramme behalten analytische Spitzenwerte bei. Wanderlasten verwenden die inneren Grenzwerte an den Stabenden. Prüfen Sie die maßgebenden Ergebnisse und beheben Sie Ablehnungen von Stationen oder Segmenten.",
     "fr": "Les diagrammes conservent les pics analytiques. Les charges mobiles utilisent les limites intérieures aux extrémités des barres. Vérifiez les résultats déterminants et résolvez les refus de stations ou de segments.",
     "tr": "Diyagramlar analitik tepe değerlerini korur ve hareketli yükler elemanın iç uç sınırlarını kullanır. Belirleyici sonuçları inceleyin ve istasyon ya da parça retlerini giderin.",
+    "ru": "Эпюры сохраняют аналитические пики, а подвижные нагрузки используют внутренние пределы на концах стержня. Проверьте определяющие результаты и устраните все отказы по сечениям или участкам.",
     "zh": "内力图保留解析峰值，移动荷载采用杆端内侧极限。请检查控制结果，并处理测站或分段被拒绝的情况。",
     "hu": "Az ábrák megőrzik az analitikus csúcsértékeket, a mozgó terhek pedig a rúdvégek belső határértékeit használják. Ellenőrizze a mértékadó eredményeket, és oldja meg a szelvények vagy szakaszok elutasítását."
   },

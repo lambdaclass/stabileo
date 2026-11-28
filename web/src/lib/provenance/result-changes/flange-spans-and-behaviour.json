@@ -18,6 +18,7 @@
     "de": "Bemessung berücksichtigt Stabverhalten und Flanschlängen",
     "fr": "Les efforts de calcul respectent le comportement et les portées des semelles",
     "tr": "Tasarım talepleri davranış ve başlık açıklıklarını izler",
+    "ru": "Расчётные усилия учитывают поведение стержня и длины полок",
     "zh": "设计内力考虑工作性状和翼缘跨度"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "de": "Ausgeschlossene Normalkräfte werden in allen maßgebenden Datensätzen entfernt. Cb verwendet die gewählte Flanschlänge; fehlt das zugehörige Diagramm, entfällt dessen günstiger Einfluss. Betonberichte beschreiben die geprüfte gemeinsame Bewehrung. Gespeicherte Bemessungen erneut ausführen und Ausnutzung, Kombinationen, Zertifikate und Berichte prüfen (PR #2080).",
     "fr": "L’effort normal exclu est retiré de chaque enregistrement déterminant. Cb utilise la portée de la semelle sélectionnée, sans bénéfice du diagramme si cette portée est indisponible. Les rapports béton décrivent l’armature commune évaluée. Relancer les calculs enregistrés et vérifier taux, combinaisons, certificats et rapports (PR #2080).",
     "tr": "Dışlanan eksenel kuvvet tüm belirleyici kayıtlardan kaldırılır. Cb seçilen başlık açıklığını kullanır; bu açıklığın diyagramı yoksa diyagram avantajı verilmez. Beton raporları değerlendirilen ortak donatıyı açıklar. Kayıtlı tasarımları yeniden çalıştırıp oranları, kombinasyonları, sertifikaları ve raporları inceleyin (PR #2080).",
+    "ru": "Исключённая продольная сила маскируется в каждой определяющей записи. Для стальных элементов Cb использует выбранную длину полки и не получает зачёта эпюры, когда эта длина недоступна. Отчёты по общему арматурному каркасу в бетоне описывают фактически проверенное армирование. Повторите сохранённые расчёты и проверьте коэффициенты использования, сочетания, сертификаты и отчёты (PR #2080).",
     "zh": "被排除的轴力会在每条控制记录中被屏蔽。钢材 Cb 采用所选的翼缘跨度，该跨度不可用时不计内力图的折减。混凝土共用钢筋笼的报告描述的是被验算的配筋。请重新运行已保存的设计，并复核利用率、组合、证书和报告（PR #2080）。"
   },
   "quantities": [

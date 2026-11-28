@@ -13,6 +13,7 @@
     "fr": "Flambement et combinaisons refusent les résultats non finis",
     "hu": "A kihajlás és a több teheresetes számítás elutasítja a nem véges eredményeket",
     "tr": "Burkulma ve yük durumu analizleri sonlu olmayan sonuçları reddediyor",
+    "ru": "Расчёты потери устойчивости и по нескольким загружениям отклоняют нефинитные результаты",
     "zh": "屈曲分析和多工况分析拒绝求解非有限结果"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "Le flambement pouvait lire une inertie négative de section de treillis, renvoyer des longueurs efficaces NaN et transformer en zéro le calcul d’élancement ayant échoué. Les combinaisons pouvaient aussi renvoyer des valeurs non finies après un dépassement de capacité d’entrées finies. Le flambement valide désormais chaque propriété de section utilisée et refuse un rayon de giration invalide ; les résultats de flambement et de combinaisons sont retenus si une valeur est non finie. Les résultats valides et finis sont inchangés (SA-2026-050).",
     "hu": "A kihajlásszámítás negatív rácsrúd-keresztmetszeti inerciát olvashatott be, NaN kihajlási hosszakat adhatott vissza, és a sikertelen karcsúságszámítást nullává alakíthatta. A több teheresetes számítás is adhatott nem véges értékeket, ha véges bemenetekből túlcsordulás keletkezett. A kihajlásszámítás most minden felhasznált keresztmetszeti jellemzőt ellenőriz, és elutasítja az érvénytelen inerciasugarat; a kihajlási és több teheresetes eredmények visszatartásra kerülnek, ha bármely érték nem véges. Az érvényes, véges eredmények nem változnak (SA-2026-050).",
     "tr": "Burkulma, kafes kesitinin negatif ataletini okuyabiliyor, etkin boyları NaN döndürebiliyor ve başarısız narinlik hesabını sıfıra dönüştürebiliyordu. Yük durumu analizi de sonlu girdilerin taşmasından sonra sonlu olmayan değerler döndürebiliyordu. Burkulma artık kullandığı her kesit özelliğini doğruluyor ve geçersiz atalet yarıçapını reddediyor; burkulma ve yük durumu sonuçları, herhangi bir değer sonlu değilse tutuluyor. Geçerli ve sonlu sonuçlar değişmiyor (SA-2026-050).",
+    "ru": "Расчёт потери устойчивости мог прочитать отрицательный момент инерции сечения фермы, вернуть NaN вместо расчётных длин и превратить неудавшийся расчёт гибкости в ноль. Расчёт по нескольким загружениям мог также вернуть нефинитные значения после переполнения при конечных исходных данных. Теперь расчёт потери устойчивости проверяет каждую используемую характеристику сечения и отклоняет недопустимый радиус инерции; результаты расчёта потери устойчивости и по нескольким загружениям удерживаются, если какое-либо значение нефинитно. Допустимые конечные результаты не меняются (SA-2026-050).",
     "zh": "屈曲分析可能读到负的桁架截面惯性矩，返回 NaN 计算长度，并把失败的长细比计算变成零。多工况分析在有限输入溢出之后，也可能返回非有限值。屈曲分析现在会验证其使用的每一个截面特性，并拒绝求解无效的回转半径；只要有任何值非有限，屈曲和多工况的结果就不予提供。有效的有限结果不变（SA-2026-050）。"
   },
   "changelog": {

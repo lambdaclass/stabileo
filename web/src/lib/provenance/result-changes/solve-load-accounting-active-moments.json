@@ -13,6 +13,7 @@
     "fr": "Charges actives et vérification des moments par composante",
     "hu": "Aktív terhek és a nyomatékok komponensenkénti ellenőrzése",
     "tr": "Etkin yükler ve bileşen bazında moment denetimi",
+    "ru": "Активные нагрузки и покомпонентные проверки моментов",
     "zh": "有效荷载与逐分量力矩校核"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "La vérification exclut les charges sur les barres inactives et leurs nœuds isolés. L’analyse s’arrête si un écart de moment dépasse la marge d’arrondi de la composante.",
     "hu": "Az ellenőrzés kihagyja az inaktív rudak és az elszigetelt csomópontjaik terheit. A számítás leáll, ha a nyomaték eltérése meghaladja a komponens kerekítési határát.",
     "tr": "Yük denetimi, etkin olmayan elemanlardaki ve bunların yalıtılmış düğümlerindeki yükleri dışarıda bırakır. Moment farkı ilgili bileşenin yuvarlama sınırını aşarsa analiz durur.",
+    "ru": "Проверка нагрузок исключает нагрузки на неактивные стержни и их изолированные узлы. Расчёт останавливается, если несоответствие моментов превышает допуск на округление для данной компоненты.",
     "zh": "荷载校核排除非活动杆件及其孤立节点上的荷载。力矩差异超过该分量的舍入误差限值时，分析将停止。"
   },
   "changelog": {

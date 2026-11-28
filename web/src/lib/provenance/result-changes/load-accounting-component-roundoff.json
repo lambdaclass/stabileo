@@ -13,6 +13,7 @@
     "fr": "Marges d’arrondi par composante de charge",
     "hu": "Teherkomponensenkénti kerekítési tűrések",
     "tr": "Yük bileşenleri için yuvarlama payları",
+    "ru": "Допуски на округление для компонент нагрузки",
     "zh": "荷载分量的舍入误差限值"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "La vérification utilise les valeurs absolues des termes de chaque composante de force ou de moment, même lorsque leur somme est nulle. L’analyse s’arrête si un écart dépasse la marge d’arrondi de cette composante.",
     "hu": "A terhek ellenőrzése az egyes erő- és nyomatékkomponensek tagjainak abszolút értékét használja akkor is, ha az összegük nulla. A számítás leáll, ha az eltérés meghaladja a komponens kerekítési tűrését.",
     "tr": "Yük denetimi, toplam sıfır olsa bile her kuvvet veya moment bileşenine katkı yapan terimlerin büyüklüklerini kullanır. Fark ilgili bileşenin yuvarlama payını aşarsa analiz durur.",
+    "ru": "Проверка нагрузки использует величины членов, вносящих вклад в каждую компоненту силы или момента, даже когда их сумма равна нулю. Расчёт останавливается, если расхождение превышает допуск на округление этой компоненты.",
     "zh": "荷载校核采用各力或力矩分量中各项的绝对值，即使各项之和为零。差异超过该分量的舍入误差限值时，分析将停止。"
   },
   "changelog": {

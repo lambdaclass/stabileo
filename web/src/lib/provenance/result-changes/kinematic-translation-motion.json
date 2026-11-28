@@ -38,6 +38,7 @@
     "fr": "La cinématique distingue mécanismes à bras rigides et refus élastiques",
     "hu": "A kinematikai ellenőrzés megkülönbözteti a merevkaros mechanizmust a rugalmas elutasítástól",
     "tr": "Kinematik denetimler rijit kol mekanizmalarını elastik retlerden ayırır",
+    "ru": "Кинематические проверки отличают механизмы с жёсткими плечами от упругих отказов",
     "zh": "运动学检查区分刚性臂机构与弹性拒绝求解"
   },
   "explanation": {
@@ -48,6 +49,7 @@
     "fr": "Les rotations libres qui déplacent des translations liées apparaissent comme mécanismes. Les refus numériques de l’état élastique initial atteignent le solveur linéaire au lieu du recours plastique aux ressorts souples ; le calcul rigide-plastique peut normaliser la rigidité avant résolution. Les degrés inactifs utilisent la rigidité active pour éviter de fausses alertes. Recalculez les modèles concernés et vérifiez le statut du calcul plastique (#1846, PR #1943). Une rigidité de translation au niveau de l’arrondi des valeurs propres ne peut masquer les mécanismes des barres obliques (#1095, #1103).",
     "hu": "A kényszerezett eltolásokat mozgató szabad forgások megjelennek a mechanizmus adataiban. A kezdeti rugalmas numerikus elutasítások a szabályos megoldóhoz jutnak, nem a képlékeny lágyrugós kerülőútra; a merev-képlékeny vizsgálat előbb normalizálhatja a merevséget. Az inaktív fáziscsuklók az aktív merevséget használják a téves kondicionálási figyelmeztetések elkerülésére. Futtassa újra az érintett kényszeres és fázisos modelleket, és ellenőrizze a képlékeny megoldás állapotát (#1846, PR #1943). A sajátérték kerekítési szintjén levő eltolási merevség nem rejtheti el a ferde rácsmechanizmusokat (#1095, #1103).",
     "tr": "Bağlı ötelemeleri hareket ettiren serbest dönmeler artık mekanizma bilgilerinde yer alır. Başlangıç elastik durumundaki sayısal retler plastik yumuşak yay yoluna değil doğrusal çözücüye ulaşır; rijit-plastik analiz önce rijitliği normalleştirebilir. Etkin olmayan aşama serbestlikleri hatalı uyarıları önlemek için etkin rijitliği kullanır. İlgili modelleri yeniden çözün ve plastik çözüm durumunu inceleyin (#1846, PR #1943). Özdeğer yuvarlama düzeyindeki öteleme rijitliği eğik çubuk mekanizmalarını gizleyemez (#1095, #1103).",
+    "ru": "Свободные повороты, перемещающие стеснённые поступательные степени свободы, теперь отражаются в метаданных механизма. Начальные упругие численные отказы попадают в обычный решатель, а не в запасной вариант с мягкой пластической пружиной; жёсткопластический расчёт может сначала нормализовать жёсткость. Бездействующие шарниры при поэтапном расчёте используют активную жёсткость, чтобы избежать ложных предупреждений об обусловленности. Повторите затронутые стеснённые и поэтапные модели и проверьте статус пластического расчёта (#1846, PR #1943). Поступательная жёсткость на уровне округления собственного значения не может скрыть косые механизмы ферм (#1095, #1103).",
     "zh": "带动受约束平动的自由转动现在会出现在机构元数据中。初始的弹性数值拒绝求解会交给常规求解器，而不是塑性软弹簧回退；刚塑性分析可以先对刚度做归一化。休眠的分阶段铰使用激活刚度，以避免虚假的条件数警告。请重新运行受影响的受约束和分阶段模型，并复核塑性求解状态（#1846，PR #1943）。处于特征值舍入量级的平动刚度无法掩盖斜桁架机构（#1095，#1103）。"
   },
   "changelog": {

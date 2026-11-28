@@ -6,6 +6,7 @@ const LAZY_LOCALES: Record<string, () => Promise<{ default: Translations }>> = {
   fr: () => import('./locales/browser/fr'),
   tr: () => import('./locales/browser/tr'),
   zh: () => import('./locales/browser/zh'),
+  ru: () => import('./locales/browser/ru'),
   ...(__PUBLIC_FEATURES__.research ? { hu: () => import('./locales/browser/hu') } : {}),
 };
 

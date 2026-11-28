@@ -14,6 +14,7 @@
     "de": "Zeichenebenen in älteren ebenen Projekten",
     "fr": "Plans de dessin des anciens projets plans",
     "tr": "Eski düzlemsel projelerde çizim düzlemleri",
+    "ru": "Плоскости черчения в старых плоских проектах",
     "zh": "旧版平面项目的绘图平面"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "de": "Ältere ebene Projekte übernehmen die Zeichenebene aus der gespeicherten Geometrie und den Lasten, wenn sie eindeutig ist. Bei gleichwertigen älteren ebenen Lagerungen bleibt XY die Standardebene. Wählen Sie vor der Berechnung eine Ebene, wenn sie mehrdeutig ist oder die Lagerung von der Ebene abhängt. Berechnen Sie das Modell in der vorgesehenen Ebene erneut. Eine geführte Lagerung in X ohne Richtungsangaben erfordert eine Ebenenwahl, wenn Geometrie und globale Lasten die Ebene nicht eindeutig bestimmen. Ältere Knotenkräfte und Knotenmomente erfordern ebenfalls eine Ebenenwahl, wenn mehrere oder keine Ebenen passen.",
     "fr": "Les anciens projets plans retrouvent leur plan de dessin si la géométrie et les charges enregistrées le déterminent. Les appuis plans anciens équivalents conservent le plan XY par défaut. Sélectionnez le plan avant le calcul s’il est ambigu ou si les appuis en dépendent. Recalculez dans le plan prévu. Un appui guidé selon X sans indication d’orientation nécessite le choix d’un plan si la géométrie et les charges globales ne le déterminent pas. Les anciennes forces et moments nodaux exigent aussi de choisir un plan lorsque plusieurs plans conviennent ou qu’aucun ne convient.",
     "tr": "Eski düzlemsel projelerde çizim düzlemi, açıksa kayıtlı geometri ve yüklerden belirlenir. Eşdeğer eski düzlemsel mesnetlerde varsayılan XY düzlemi korunur. Düzlem belirsizse veya mesnetler düzleme bağlıysa analizden önce düzlemi seçin. Sonuçları amaçlanan düzlemde yeniden hesaplayın. Geometri ve global yükler düzlemi belirlemiyorsa yön bilgisi olmayan X doğrultusunda kılavuzlu mesnet için düzlem seçilmelidir. Eski düğüm kuvvetleri ve momentleri birden fazla düzleme uyduğunda veya hiçbirine uymadığında da bir düzlem seçilmelidir.",
+    "ru": "Старые плоские проекты восстанавливают плоскость черчения по сохранённой геометрии и нагрузкам, когда плоскость очевидна. Эквивалентные прежние плоские опоры сохраняют запасной вариант XY. Если плоскость неоднозначна или опоры зависят от плоскости, перед расчётом нужно выбрать плоскость. Пересчитайте, чтобы проверить результаты в нужной плоскости. Для простой направляющей опоры по X нужна плоскость, если геометрия и глобальные нагрузки оставляют её неоднозначной. Прежние поля узловой силы и момента также требуют выбора плоскости, когда оставляют несколько правдоподобных плоскостей или исключают их все.",
     "zh": "当保存的几何和荷载可以唯一确定绘图平面时，旧版平面项目会恢复该平面。等效的旧版平面支座仍使用默认的 XY 平面。如果平面不明确或支座随平面而异，请在分析前选择平面，并在预期平面内重新计算。如果几何和全局荷载无法确定绘图平面，未指定方向的 X 向导向支座需要选择平面。 当旧版节点力和节点力矩适用于多个平面或不适用于任何平面时，也必须选择绘图平面。"
   },
   "changelog": {

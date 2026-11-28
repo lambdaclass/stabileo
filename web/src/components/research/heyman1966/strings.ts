@@ -7,6 +7,7 @@ import { fr } from './strings-fr';
 import { tr } from './strings-tr';
 import { hu } from './strings-hu';
 import { zh } from './strings-zh';
+import { ru } from './strings-ru';
 
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh, ru };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

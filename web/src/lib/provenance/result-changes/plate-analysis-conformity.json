@@ -13,6 +13,7 @@
     "fr": "Vérification des plaques et des jonctions voile–dalle",
     "tr": "Fiziksel plak ve perde–döşeme ağı denetimi",
     "hu": "Lemezek és fal–födém csatlakozások hálójának ellenőrzése",
+    "ru": "Проверки сетки физических пластин и стыков стена–плита",
     "zh": "物理板与墙板交界网格检查"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "Le calcul s’arrête si une plaque physique est invalide, si son maillage est obsolète ou si la jonction voile–dalle ne dispose ni de nœuds communs ni de contraintes complètes sur le bord. Corrigez ou remaillez la plaque et relancez le calcul. Le bâtiment de sept étages, le DXF d’architecture et les nouvelles ébauches CAD maillées utilisent des nœuds communs.",
     "tr": "Fiziksel plak geçersizse, ağı güncel değilse veya perde–döşeme birleşiminde ortak düğümler veya tam kenar kısıtları yoksa analiz durur. Plağı düzeltin veya yeniden ağ oluşturup çözümü tekrarlayın. Yedi katlı örnek, mimari DXF örneği ve yeni ağ oluşturulan CAD taslakları ortak düğümler kullanıyor.",
     "hu": "A számítás leáll, ha egy lemez érvénytelen, a hálója elavult, vagy a fal–födém csatlakozásnál hiányoznak a közös csomópontok vagy a teljes élkényszerek. Javítsa ki vagy hálózza újra a lemezt, majd számítsa újra a modellt. A hétszintes példa, az építészeti DXF és az újonnan hálózott CAD-vázlatok közös csomópontokat használnak.",
+    "ru": "Расчёт останавливается, когда физическая пластина недопустима, её сетка устарела или в стыке стены и плиты нет общих узлов или полных краевых связей. Исправьте пластину или перестройте сетку и решите снова. Семиэтажный пример, пример DXF только с архитектурой и вновь разбитые на сетку черновики CAD используют общие узлы стен и плит.",
     "zh": "物理板无效、网格已过时，或墙板交界处既无共用节点也无完整边缘约束时，分析会停止。请修正板或重新划分网格，然后再次求解。七层建筑、纯建筑 DXF 示例和新划分网格的 CAD 草稿采用共享节点。"
   },
   "changelog": {

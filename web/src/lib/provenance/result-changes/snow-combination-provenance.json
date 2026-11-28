@@ -20,6 +20,7 @@
     "de": "Schneeherkunft und Paare ohne Gruppe prüfen",
     "fr": "Valider la provenance de la neige et les paires sans groupe",
     "tr": "Kar kökenini ve gruplandırılmamış çiftleri doğrulama",
+    "ru": "Проверка происхождения снеговой нагрузки и неразгруппированных пар",
     "zh": "验证雪荷载来源和未分组的荷载对",
     "hu": "A hóteher eredetének és a csoport nélküli pároknak az ellenőrzése"
   },
@@ -30,6 +31,7 @@
     "de": "Alte Erdbeben-Schneekombinationen bleiben mehrdeutig, wenn E nicht wirkt. Schneekombinationen neu erzeugen, um physischen Schnee und Flachdachschnee zu trennen; danach Analysen und Nachweise wiederholen. Ein einzelnes vollständiges Paar ohne Gruppe wird akzeptiert; mehrdeutige unabhängige Einwirkungen werden weiterhin abgelehnt. (#2211, #2233).",
     "fr": "Les anciennes combinaisons sismiques de neige restent ambiguës lorsque E est absent. Régénérez les combinaisons pour séparer la neige physique de la neige de toiture plate, puis relancez analyses et vérifications. Une paire unique complète sans groupe est acceptée ; les actions indépendantes ambiguës restent refusées. (#2211, #2233).",
     "tr": "E etkisi yokken eski deprem kar birleşimleri belirsiz kalır. Fiziksel karı düz çatı karından ayırmak için kar birleşimlerini yeniden üretin, ardından analizleri ve kontrolleri tekrarlayın. Gruplandırılmamış tek bir tam çift artık kabul edilir; belirsiz bağımsız etkiler reddedilmeye devam eder. (#2211, #2233).",
+    "ru": "Прежняя сейсмическая снеговая нагрузка остаётся неоднозначной, если E не действует. Заново сформируйте снеговые сочетания, чтобы разделить физический снег и снег на плоской кровле, затем повторите расчёты и проверки. Полная одиночная неразгруппированная пара «физический снег и снег на плоской кровле» теперь принимается; неоднозначные независимые воздействия по-прежнему отклоняются. (#2211, #2233).",
     "zh": "当 E 不作用时，旧版地震雪荷载仍不明确。请重新生成雪荷载组合，以区分实际雪荷载与平屋面雪荷载，然后重新运行分析和验算。完整的单一未分组实际/平屋面荷载对现在会被接受；不明确的独立作用仍会被拒绝。（#2211，#2233）。",
     "hu": "A régi földrengési hókombinációk E hiányában is többértelműek. Generálja újra a hókombinációkat a fizikai és a lapos tető hóterhének elkülönítéséhez, majd ismételje meg az analíziseket és ellenőrzéseket. Egyetlen teljes, csoport nélküli pár elfogadható; a többértelmű független hatások továbbra is elutasításra kerülnek. (#2211, #2233)."
   },
