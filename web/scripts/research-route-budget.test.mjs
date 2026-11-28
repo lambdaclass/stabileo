@@ -49,7 +49,7 @@ test('allowances need bytes, a reason and an existing module', () => {
   assert.throws(() => parse([]), /invalid route allowance/);
   assert.throws(() => parse([entry, { ...entry, reason: '' }]), /invalid route allowance/);
 });
-test('the shipped allowances are the #1483 related links on research and tools, the #1619 riser card and #2257 masonry arch card on research, the #447 containment messages on tools, the viewer plane on the two calculators, #818 Rayleigh refinement on the app, #1916 Hungarian and #2256 Chinese on the measured routes', () => {
+test('the shipped allowances are the #1483 related links on research and tools, the #1619 riser card and #2257 masonry arch card on research, the #447 containment messages on tools, the viewer plane on the two calculators, #818 Rayleigh refinement on the app, #1916 Hungarian, #2256 Chinese and #2673 Japanese on the measured routes', () => {
   const routes = routeAllowances(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'), () => true);
   assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/beam-frame/', '/en/tools/continuous-beam/', '/en/tools/mohr-2d/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
   for (const route of ['/en/', '/es/', '/pt/']) {
@@ -63,8 +63,8 @@ test('the shipped allowances are the #1483 related links on research and tools, 
   for (const route of ['/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']) {
     assert.deepEqual(routes[route], { bytes: 113570, reason: "#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators + the shared scalar-field viewer's plan/elevation plane and unlit category colours (calculators keep plan) + #2256 Chinese copy of the free calculators", modules: ['src/components/research/RelatedLinks.svelte', 'src/lib/engine/known-issue-message.ts', 'src/components/tools/batch-i18n.ts', 'src/components/viewport/scalar-field-plane.ts', 'src/components/tools/batch-i18n.ts'] });
   }
-  assert.deepEqual(routes['/en/tools/beam-frame/'], { bytes: 60572, reason: '#2256 Chinese copy of the free calculators', modules: ['src/components/tools/batch-i18n.ts'] });
-  assert.deepEqual(routes['/en/tools/mohr-2d/'], { bytes: 55141, reason: '#2256 Chinese copy of the free calculators and the Mohr tools', modules: ['src/components/mohr/i18n.ts'] });
+  assert.deepEqual(routes['/en/tools/beam-frame/'], { bytes: 138572, reason: '#2256 Chinese copy of the free calculators + #2673 Japanese copy of the free calculators', modules: ['src/components/tools/batch-i18n.ts', 'src/components/tools/batch-i18n.ts'] });
+  assert.deepEqual(routes['/en/tools/mohr-2d/'], { bytes: 126741, reason: '#2256 Chinese copy of the free calculators and the Mohr tools + #2673 Japanese copy of the free calculators and the Mohr tools', modules: ['src/components/mohr/i18n.ts', 'src/components/mohr/i18n.ts'] });
 });
 test('missing and non-finite measurements fail', () => {
   assert.throws(() => routeGrowth({ '/en/': 1000 }, {}), /coverage/);
