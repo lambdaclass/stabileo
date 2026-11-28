@@ -54,6 +54,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'analysisRules.pdelta',
   'app.modePro',
   'appShell.workspace',
+  'config.momentStyle',
   'arch.col.volume',
   'arch.ui.kind',
   'arch.ui.rse',
