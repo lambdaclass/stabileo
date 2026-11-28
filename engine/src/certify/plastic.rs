@@ -269,14 +269,6 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
     }
 
     let mut nodal = vec![[Q::zero(), Q::zero(), Q::zero()]; nn];
-    let mut mp_by_sec: HashMap<usize, Option<(Q, Q)>> = HashMap::new();
-    for (sid, sec) in &input.sections {
-        let sec_id: usize = sid.parse().map_err(|_| format!("section id {sid:?} is not a number"))?;
-        let over = input.mp_overrides.as_ref().and_then(|m| m.get(sid)).copied();
-        let fy = input.materials.get(&sec.material_id.to_string()).and_then(|m| m.fy).unwrap_or(250.0);
-        mp_by_sec.insert(sec_id, mp_interval(sec, fy, over)?);
-    }
-
     let mut elem_list: Vec<&SolverElement> = crate::ordered::values(&s.elements).collect();
     elem_list.sort_by_key(|e| e.id);
     let eidx: HashMap<usize, usize> = elem_list.iter().enumerate().map(|(i, e)| (e.id, i)).collect();
@@ -306,7 +298,7 @@ pub fn build_model(input: &PlasticInput) -> Result<PlasticModel, String> {
             l,
             rel_i,
             rel_j,
-            mp: mp_by_sec.get(&el.section_id).cloned().flatten(),
+            mp: input.capacity_data(el).map(|(sec, fy, prescribed)| mp_interval(sec, fy, prescribed)).transpose()?.flatten(),
             loads: Vec::new(),
             pieces: Vec::new(),
         });
@@ -715,6 +707,80 @@ fn equilibrium_system(model: &PlasticModel) -> Result<Equilibrium, String> {
     let r = rref_solve(&rows, Some(&rhs), 3 * model.elems.len())?;
     let xp = r.particular.ok_or("the loads admit no equilibrium state (the structure cannot carry them)")?;
     Ok(Equilibrium { xp, null: r.null_basis })
+}
+
+pub(crate) fn truss_axial_factor(model: &PlasticModel, capacities: &HashMap<usize, f64>) -> Result<Option<(f64, f64)>, String> {
+    lp_work(model).initial().check_engine_budget()?;
+    let eq = equilibrium_system(model)?;
+    let free_translations = model.restrained.iter().flat_map(|r| &r[..2]).filter(|&&held| !held).count();
+    if model.elems.len() != free_translations + eq.null.len() {
+        return Ok(None);
+    }
+    let mut fixed_limit: Option<Q> = None;
+    let mut paths = Vec::new();
+    for (index, element) in model.elems.iter().enumerate() {
+        let Some(&capacity) = capacities.get(&element.id) else { continue };
+        let capacity = q(capacity).filter(|v| v.is_positive()).ok_or("invalid axial yield force")?;
+        let axial = |field: &[Q]| &field[3 * index] * &element.dx + &field[3 * index + 1] * &element.dz;
+        let force = axial(&eq.xp);
+        let basis: Vec<Q> = eq.null.iter().map(|v| axial(v)).collect();
+        let capacity2 = &capacity * &capacity * &element.l2;
+        if basis.iter().all(Zero::is_zero) {
+            if !force.is_zero() {
+                let limit = capacity2 / (&force * &force);
+                fixed_limit = Some(match fixed_limit { Some(v) => v.min(limit), None => limit });
+            }
+        } else {
+            paths.push((basis, force, capacity2));
+        }
+    }
+    let Some(squared) = fixed_limit else { return Ok(None) };
+    if !paths.iter().all(|(_, force, capacity2)| force * force * &squared <= *capacity2) {
+        let mut rows = Vec::new();
+        for (basis, force, capacity2) in paths {
+            let upper2 = capacity2 / &squared;
+            let bound = match super::exact::sqrt_exact(&upper2) {
+                Some(bound) => bound,
+                None => q(super::exact::sqrt_f64_bounds(&upper2)?.0).ok_or("non-finite axial capacity")?,
+            };
+            let mut negative: Vec<Q> = basis.iter().map(|v| -v).collect();
+            negative.push(&bound + &force);
+            let mut positive = basis;
+            positive.push(bound - force);
+            rows.extend([positive, negative]);
+        }
+        if !axial_constraints_feasible(rows, eq.null.len()) { return Ok(None); }
+    }
+    Ok(Some(super::exact::sqrt_f64_bounds(&squared)?))
+}
+
+fn axial_constraints_feasible(mut rows: Vec<Vec<Q>>, variables: usize) -> bool {
+    use super::plastic_budget::{EXACT_CELL_BYTES, MAX_EXACT_BITS, MAX_EXACT_WORKSPACE_BYTES};
+    for remaining in (1..=variables).rev() {
+        let (mut lower, mut upper, mut next) = (Vec::new(), Vec::new(), Vec::new());
+        for row in rows {
+            let coefficient = &row[0];
+            if coefficient.is_zero() {
+                next.push(row[1..].to_vec());
+            } else {
+                let normalized: Vec<Q> = row[1..].iter().map(|v| v / coefficient.abs()).collect();
+                if coefficient.is_positive() { upper.push(normalized); } else { lower.push(normalized); }
+            }
+        }
+        let count = next.len().saturating_add(lower.len().saturating_mul(upper.len()));
+        if count.saturating_mul(remaining).saturating_mul(EXACT_CELL_BYTES) > MAX_EXACT_WORKSPACE_BYTES / 2 {
+            return false;
+        }
+        for lo in &lower {
+            for hi in &upper {
+                let row: Vec<Q> = lo.iter().zip(hi).map(|(l, u)| l + u).collect();
+                if row.iter().any(|v| v.numer().bits().max(v.denom().bits()) > MAX_EXACT_BITS) { return false; }
+                next.push(row);
+            }
+        }
+        rows = next;
+    }
+    rows.iter().all(|row| !row[0].is_negative())
 }
 
 fn equilibrium_equation_count(model: &PlasticModel) -> usize {
@@ -1777,10 +1843,23 @@ fn collapse_2d(input: &PlasticInput, solver: Option<&PlasticResult>) -> PlasticC
 }
 
 /// Run the incremental plastic solver and certify its collapse load factor.
+/// Released from PL-2D-INVARIANCE (#758) only where its exact bounds meet to 1e-6 at the solver's factor.
 pub fn certify_plastic_2d(input: &PlasticInput) -> Result<CertifiedPlastic2D, String> {
     super::finite::check_input(input)?;
-    crate::known_issues::refuse(&crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic))?;
-    certify_plastic_2d_body(input)
+    let out = certify_plastic_2d_body(input);
+    let mut diagnostics = crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic);
+    if out.as_ref().is_ok_and(collapse_is_certified) {
+        diagnostics.retain(|d| d.phase.as_deref() != Some("PL-2D-INVARIANCE"));
+    }
+    crate::known_issues::refuse(&diagnostics)?;
+    out
+}
+
+fn collapse_is_certified(out: &CertifiedPlastic2D) -> bool {
+    let (r, c) = (&out.results, &out.certificate);
+    let (Some(lo), Some(up)) = (c.lambda_lower, c.lambda_upper) else { return false };
+    let lambda = r.collapse_factor;
+    r.is_mechanism && c.certified && c.solver_deviation.is_some_and(|d| d <= 1e-9) && lambda.is_finite() && lambda > 0.0 && up - lo <= 1e-6 * lambda
 }
 
 /// `certify_plastic_2d` without the #758 refusal; it exists only in the engine's unit-test build.

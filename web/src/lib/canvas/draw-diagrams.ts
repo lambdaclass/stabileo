@@ -16,6 +16,7 @@ interface DrawContext {
   getElement: (id: number) => { nodeI: number; nodeJ: number } | undefined;
   /** The frame's shared label layout, when the caller runs one. */
   labels?: LabelCollector;
+  onDiagramPainted?: (diagram: ElementDiagram) => void;
   /**
    * The certified bound on the exact extreme along a member against its largest value shown
    * (`certificate-read.ts`, `diagramBound2D(…).extreme`), printed as `±` beside that value.
@@ -196,6 +197,7 @@ function drawSingleDiagram(
   ctx.strokeStyle = colors.stroke;
   ctx.lineWidth = 2;
   ctx.stroke();
+  dc.onDiagramPainted?.(diagram);
 
   // Draw value labels at endpoints and max point (only when showAllValues is on)
   if (showAllValues) {

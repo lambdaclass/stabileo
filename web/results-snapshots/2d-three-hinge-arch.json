@@ -4,7 +4,7 @@
   "format": 2,
   "values": {
     "base.allZero": false,
-    "base.diagnosticCodes": "warning:instability_risk warning:known_issue",
+    "base.diagnosticCodes": "warning:instability_risk",
     "base.displacements[n1]": {"ry":-0.00003012232039,"ux":0,"uz":0},
     "base.displacements[n2]": {"ry":-0.00003012232039,"ux":0.00001375327466,"uz":-0.0000921980009},
     "base.displacements[n3]": {"ry":-0.00003012232039,"ux":0.00001938060632,"uz":-0.0001618764702},
@@ -42,6 +42,7 @@
     "base.resultSummary.reactionResultant.minValue": 43.01162634,
     "base.resultSummary.rotation.maxValue": 0.00003012232039,
     "base.resultSummary.rotation.minValue": -0.00003012232039,
+    "base.resultSummary.secondOrderPhysicalBound": 0.009404249989,
     "model.elements": 8,
     "model.nodes": 9,
     "model.shells": 0,

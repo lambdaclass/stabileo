@@ -13,6 +13,7 @@ export interface SolverMaterial {
 }
 
 export interface SolverSection {
+  asY?: number;
   id: number;
   name?: string;
   a: number;   // m²
@@ -30,7 +31,7 @@ export interface SolverElement {
   hingeEnd: boolean;
 }
 
-export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerZ' | 'guidedX' | 'spring' | 'inclinedRoller';
+export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerZ' | 'guidedX' | 'guidedZ' | 'spring' | 'inclinedRoller';
 
 export interface SolverSupport {
   id: number;
@@ -230,7 +231,7 @@ export interface StructuredDiagnostic {
 }
 
 /** Mirrors `ElementKind` in `engine/src/types/output.rs` (serialized snake_case). */
-export type ElementKind = 'frame' | 'plate' | 'quad' | 'quad9' | 'solid_shell' | 'curved_shell';
+export type ElementKind = 'frame' | 'curved_beam' | 'plate' | 'quad' | 'quad9' | 'solid_shell' | 'curved_shell';
 
 export interface AnalysisResults {
   displacements: Displacement[];

@@ -101,3 +101,10 @@ describe('the score a teacher reads first', () => {
     expect(scoreOf(blank)).toEqual({ correct: 0, answered: 0, total: 4, revealed: 0 });
   });
 });
+
+it.each(['sketch', 'variant'])('known wrong result: #1927 — review rejects damaged %s in files and codes', field => {
+  const sub = field === 'variant' ? { ...SUB, variant: { supports: {}, values: [] } }
+    : { ...SUB, answers: [{ ...SUB.answers[0], sketch: {} }] };
+  expect.soft(fromSubmissionFile(JSON.stringify(sub)).ok).toBe(false);
+  expect(fromSubmissionCode(toSubmissionCode(sub as Submission)).ok).toBe(false);
+});

@@ -15,3 +15,7 @@ export function isAnalysisMode(mode: unknown): mode is AnalysisMode {
 export function is3DWorkspace(mode: string): boolean {
   return mode === '3d' || mode === 'pro';
 }
+
+export function isBasicWorkspace(mode: AnalysisMode): boolean {
+  return mode === '2d' || mode === '3d';
+}

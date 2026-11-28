@@ -1,0 +1,270 @@
+import { setLocale } from '../../../lib/i18n';
+import { beforeEach, beforeAll, describe, expect, it } from 'vitest';
+import { initSolver } from '../../../lib/engine/wasm-solver';
+import { getExerciseSpecs } from '../exercise-data';
+import type { EduExerciseSpec } from '../exercise-spec';
+import { seedFrom } from '../exercise-params';
+import {
+  describeVariant, fillText, isParametric, kinematicsOf, lintVariants, normalizeLegajo, reactionDofsFor,
+  checkResolved, shapeOf, specModelData, shapeAnswer, solveModel, specNodeIds, studentSeed, variantOf,
+} from '../exercise-variant';
+import { readDisplayedReaction } from '../edu-reactions';
+import { toExercise } from '../exercises';
+import type { ElementForces } from '../../../lib/engine/types';
+
+beforeAll(async () => {
+  await initSolver();
+});
+
+const beam = (over: Partial<EduExerciseSpec> = {}): EduExerciseSpec => ({
+  id: 'beam',
+  title: 'Beam of {L} m',
+  description: 'q = {q} kN/m on {L} m, {unknown} stays',
+  difficulty: 'easy',
+  category: 'statics',
+  params: {
+    values: { L: { min: 4, max: 8, step: 1, unit: 'm' }, q: { min: 2, max: 10, step: 2, unit: 'kN/m' } },
+    supportChoices: [{ support: 1, types: ['rollerX', 'pinned'] }],
+  },
+  model: {
+    nodes: [[0, 0], ['L', 0]],
+    elements: [[0, 1]],
+    supports: [{ node: 0, type: 'pinned' }, { node: 1, type: 'rollerX' }],
+    distributedLoads: [{ element: 0, qI: '-q' }],
+  },
+  supports: [
+    { label: 'A', nodeIndex: 0, dofs: ['Ry'] },
+    { label: 'B', nodeIndex: 1, dofs: ['Ry'] },
+  ],
+  characteristics: [{ label: 'Mmax', unit: 'kN·m', answer: { kind: 'maxAbs', force: 'moment' } }],
+  diagramQuestions: [],
+  kinematicQuestion: { classification: 'isostatic' },
+  diagramShapeQuestions: [{ diagram: 'M', correct: 'linear' }],
+  ...over,
+});
+
+beforeEach(() => setLocale('en'));
+
+describe('variantOf', () => {
+  it('leaves an exercise without params meaning exactly what it meant', () => {
+    const plain = getExerciseSpecs().find((s) => s.id === 'pdelta-column')!;
+    expect(isParametric(plain)).toBe(false);
+    const r = variantOf(plain, 99);
+    expect(r.model).toEqual(plain.model);
+    expect(r.supports).toEqual(plain.supports);
+    expect(r.characteristics).toEqual(plain.characteristics);
+    expect(r.kinematicQuestion).toEqual(plain.kinematicQuestion);
+    expect(r.variant).toBeUndefined();
+    expect(r.seed).toBeUndefined();
+  });
+
+  it('resolves the structure, the texts and the seed of one student', () => {
+    const r = variantOf(beam(), { values: { L: 6, q: 4 }, supports: { 1: 'pinned' } });
+    expect(r.model.nodes).toEqual([[0, 0], [6, 0]]);
+    expect(r.model.distributedLoads).toEqual([{ element: 0, qI: -4 }]);
+    expect(r.model.supports[1]!.type).toBe('pinned');
+    expect(r.title).toBe('Beam of 6 m');
+    expect(r.description).toBe('q = 4 kN/m on 6 m, {unknown} stays');
+    expect('params' in r).toBe(false);
+    expect(variantOf(beam(), 7).seed).toBe(7);
+    expect(variantOf(beam(), 7)).toEqual(variantOf(beam(), 7));
+  });
+
+  it('asks for the reactions the support of THIS variant has', () => {
+    expect(variantOf(beam(), { values: { L: 6, q: 4 }, supports: { 1: 'pinned' } }).supports[1]!.dofs).toEqual(['Rx', 'Ry']);
+    expect(variantOf(beam(), { values: { L: 6, q: 4 }, supports: { 1: 'rollerX' } }).supports[1]!.dofs).toEqual(['Ry']);
+    expect(variantOf(beam(), { values: { L: 6, q: 4 }, supports: {} }).supports[0]!.dofs).toEqual(['Ry']);
+    const auto = beam({ supports: [{ label: 'A', nodeIndex: 0, dofs: 'auto' }] });
+    expect(variantOf(auto).supports[0]!.dofs).toEqual(['Rx', 'Ry']);
+    expect(reactionDofsFor('fixed')).toEqual(['Rx', 'Ry', 'M']);
+    expect(reactionDofsFor('rollerY')).toEqual(['Rx']);
+  });
+
+  it('classifies the structure of the variant, not the one the author drew', () => {
+    expect(variantOf(beam(), { values: { L: 6, q: 4 }, supports: { 1: 'rollerX' } }).kinematicQuestion)
+      .toEqual({ classification: 'isostatic' });
+    expect(variantOf(beam(), { values: { L: 6, q: 4 }, supports: { 1: 'pinned' } }).kinematicQuestion)
+      .toEqual({ classification: 'hyperstatic', degree: 1 });
+    expect(kinematicsOf({ nodes: [[0, 0], [4, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'rollerX' }] })).toBeNull();
+  });
+
+  it('reads the shape answers off the solve of the variant', () => {
+    const r = variantOf(beam(), { values: { L: 6, q: 4 }, supports: {} });
+    expect(r.diagramShapeQuestions).toEqual([{ diagram: 'M', correct: 'auto' }]);
+    const res = solveModel(r.model);
+    if (typeof res === 'string') throw new Error(res);
+    expect(shapeAnswer(r.diagramShapeQuestions![0]!, res.elementForces as ElementForces[])).toBe('quadratic');
+    const ex = toExercise(r);
+    expect(ex.diagramShapeQuestions![0]!.getCorrect(res.elementForces as ElementForces[])).toBe('quadratic');
+  });
+
+  it('solves a variant to the hand calculation', () => {
+    const spec = beam();
+    spec.params!.values.q!.step = 1;
+    const r = variantOf(spec, { values: { L: 8, q: 5 }, supports: {} });
+    const res = solveModel(r.model);
+    if (typeof res === 'string') throw new Error(res);
+    expect(readDisplayedReaction(res, specNodeIds(r.model)[1]!, 'Ry')).toBeCloseTo(20, 6);
+    expect(toExercise(r).characteristics[0]!.getCorrect(res.elementForces as ElementForces[])).toBeCloseTo(40, 3);
+  });
+});
+
+describe('student identity', () => {
+  it('one legajo is one variant however it is typed', () => {
+    expect(normalizeLegajo(' 104.233 ')).toBe('104233');
+    expect(studentSeed('ex', '104.233')).toBe(studentSeed('ex', '104233'));
+    expect(studentSeed('ex', '104233')).toBe(seedFrom('ex:104233'));
+    expect(studentSeed('ex', '104233')).not.toBe(studentSeed('other', '104233'));
+  });
+
+  it('two legajos of one class get different structures', () => {
+    const spec = getExerciseSpecs().find((s) => s.id === 'overhang-point-load')!;
+    const models = new Set(['1001', '1002', '1003', '1004', '1005'].map((l) => JSON.stringify(variantOf(spec, studentSeed(spec.id, l)).model)));
+    expect(models.size).toBeGreaterThan(3);
+  });
+});
+
+describe('lintVariants', () => {
+  it('catches a support choice that makes a mechanism', () => {
+    const bad = beam({
+      params: { values: { L: { min: 4, max: 6, step: 1 } }, supportChoices: [{ support: 0, types: ['pinned', 'rollerX'] }] },
+      model: { ...beam().model, distributedLoads: [{ element: 0, qI: -5 }] },
+    });
+    const lint = lintVariants(bad, { seeds: 5 });
+    expect(lint.problems.length).toBeGreaterThan(0);
+    expect(lint.problems.join(' ')).toMatch(/Support A: roller/i);
+  });
+
+  it('catches a parameter the model uses but nobody declared', () => {
+    const bad = beam({ model: { ...beam().model, nodes: [[0, 0], ['Lx', 0]] } });
+    expect(lintVariants(bad).problems.join(' ')).toMatch(/unknown parameter Lx/);
+  });
+
+  it('catches an expression in an exercise that declares no parameters', () => {
+    const bad = beam({ params: undefined });
+    expect(lintVariants(bad).problems.join(' ')).toMatch(/nodes\[1\]\.x/);
+  });
+
+  it('passes a sound one and says how many variants it looked at', () => {
+    const lint = lintVariants(beam(), { seeds: 10 });
+    expect(lint.problems).toEqual([]);
+    expect(lint.checked).toBe(12);
+  });
+
+  it('describes a variant the way a teacher reads it', () => {
+    expect(describeVariant(beam(), { values: { L: 6, q: 4 }, supports: { 1: 'pinned' } }))
+      .toBe('L = 6 m · q = 4 kN/m · Support B: Pinned support');
+    expect(fillText('{L} and {L}', { L: 2.5 })).toBe('2.5 and 2.5');
+  });
+
+  it('fills only the parameters it was given, never what every object inherits', () => {
+    expect(fillText('{constructor} {toString} {L}', { L: 3 })).toBe('{constructor} {toString} 3');
+  });
+});
+
+it('known wrong result: #1927 — the exercise shows the assigned numerical precision', () => {
+  for (const x of [0.0075, 1e-11, 1.2345678901234567]) {
+    expect(Number(fillText('{x}', { x }).replace(',', '.'))).toBe(x);
+  }
+});
+
+it('known wrong result: #1927 — carried values and support overrides must belong to the assignment', () => {
+  const spec = beam();
+  const invalidValues: Record<string, number>[] = [{ L: 9, q: 4 }, { L: 6.5, q: 4 }, { L: 6, q: 3 }, { L: 6, q: 4, extra: 1 }];
+  for (const values of invalidValues) {
+    expect(() => variantOf(spec, { values, supports: {} })).toThrow();
+  }
+  const invalidSupports: Record<number, 'fixed'>[] = [{ 1: 'fixed' }, { 0: 'fixed' }];
+  for (const supports of invalidSupports) {
+    expect(() => variantOf(spec, { values: { L: 6, q: 4 }, supports })).toThrow();
+  }
+  expect(variantOf(spec, { values: { L: 8, q: 2 }, supports: { 1: 'pinned' } }).model.nodes[1]).toEqual([8, 0]);
+});
+
+it('known wrong result: #1927 — malformed parameter envelopes yield a readable import failure', async () => {
+  const { fromFile, toFile } = await import('../exercise-capture');
+  const file = JSON.parse(toFile(beam()));
+  for (const params of [{}, { values: [] }, { values: { L: null } }, { values: {}, supportChoices: {} }]) {
+    file.exercise.params = params;
+    expect(fromFile(JSON.stringify(file))).toMatchObject({ ok: false, error: expect.any(String) });
+  }
+});
+
+it('known wrong result: #1927 — the validation limit counts complete support combinations', async () => {
+  const { supportCombos } = await import('../exercise-params');
+  const choices = Array.from({ length: 9 }, (_, support) => ({ support, types: ['rollerX', 'pinned'] as ('rollerX' | 'pinned')[] }));
+  const boundary = supportCombos({ values: {}, supportChoices: choices.slice(0, 8) });
+  expect(boundary).toHaveLength(256);
+  expect(boundary.every(combo => Object.keys(combo).length === 8)).toBe(true);
+  expect(() => supportCombos({ values: {}, supportChoices: choices })).toThrow(/256/);
+});
+
+it('known wrong result: #1927 — missing diagram and characteristic values remain unavailable', () => {
+  const at = { kind: 'at', force: 'moment', element: 0, t: 0 } as const;
+  const exercise = toExercise(variantOf(beam({
+    characteristics: [{ label: 'M', unit: 'kN·m', answer: at }],
+    diagramQuestions: [{ question: 'M', unit: 'kN·m', answer: at }],
+  }), 0));
+  for (const q of [...exercise.characteristics, ...exercise.diagramQuestions]) expect(q.getCorrect([])).toBeNull();
+});
+
+it('known wrong result: #1927 — a guided support asks for vertical force and moment', async () => {
+  const spec = beam({ supports: [{ label: 'A', nodeIndex: 0, dofs: 'auto' }] });
+  spec.model.supports[0]!.type = 'guidedX';
+  expect(variantOf(spec).supports[0]!.dofs).toEqual(['Ry', 'M']);
+  const { supportTypeName } = await import('../exercise-variant');
+  expect(supportTypeName(spec.model.supports[0]!.type)).toMatch(/guid/i);
+});
+
+it('known wrong result: #1927 — section-specific tip displacement follows the assigned profile', async () => {
+  const { ALL_PROFILES } = await import('../../../lib/data/steel-profiles');
+  const { solverProperties } = await import('../../../lib/section/state');
+  const { sectionFromProfile } = await import('../exercise-stress');
+  const profile = ALL_PROFILES.find(p => p.name === 'IPE 300')!;
+  const model = { nodes: [[0, 0], [6, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'fixed' }], nodalLoads: [{ node: 1, fy: -2 }], profile: profile.name } satisfies import('../exercise-spec').ModelSpec;
+  const result = solveModel(model);
+  if (typeof result === 'string') throw new Error(result);
+  const e = specModelData(model).materials.get(1)!.e * 1000;
+  expect(Math.abs(result.displacements.find(d => d.nodeId === 2)!.uz)).toBeCloseTo(2 * 6 ** 3 / (3 * e * solverProperties(sectionFromProfile(profile.name)!).iy), 8);
+});
+
+it('known wrong result: #1927 — a vertical guide grades its reaction couple', () => {
+  const input = { ...beam(), params: undefined, model: { nodes: [[0, 0], [3, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'guidedZ' }, { node: 1, type: 'rollerX' }], nodalLoads: [{ node: 0, fy: -2 }] }, supports: [{ label: 'A', nodeIndex: 0, dofs: 'auto' }] } as EduExerciseSpec;
+  const ex = variantOf(input);
+  expect(ex.supports[0]!.dofs).toEqual(['Rx', 'M']);
+  const result = solveModel(ex.model);
+  if (typeof result === 'string') throw new Error(result);
+  expect(Math.abs(readDisplayedReaction(result, 1, 'M')!)).toBeCloseTo(2 * 3, 9);
+});
+
+it('known wrong result: #1927 — a large constant moment cannot hide a quadratic moment on another member', () => {
+  const model = { nodes: [[0, 0], [1, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'fixed' }] } satisfies import('../exercise-spec').ModelSpec;
+  const large = solveModel({ ...model, nodalLoads: [{ node: 1, mz: 2000 }] });
+  const small = solveModel({ ...model, distributedLoads: [{ element: 0, qI: 0.002 }] });
+  if (typeof large === 'string' || typeof small === 'string') throw new Error('cantilever solve failed');
+  expect(shapeOf('M', [...large.elementForces, ...small.elementForces])).toBe('quadratic');
+});
+
+it('known wrong result: #1927 — validation checks each requested sketch member', () => {
+  const ex = variantOf(beam());
+  expect(checkResolved({ ...ex, diagramSketchQuestions: [{ diagram: 'M', elementIndex: 0 }] })).toEqual([]);
+  expect(checkResolved({ ...ex, diagramSketchQuestions: [{ diagram: 'M', elementIndex: 5 }] })).not.toEqual([]);
+});
+
+it('known wrong result: #1927 — review rejects an imported non-default mechanism', async () => {
+  const { fromFile, toFile } = await import('../exercise-capture');
+  const { fromShareLink, toShareLink } = await import('../exercise-library');
+  const base = beam();
+  const invalid = { ...base, params: { ...base.params!, supportChoices: [{ support: 0, types: ['pinned', 'rollerX'] as ('pinned' | 'rollerX')[] }] } };
+  expect.soft(fromFile(toFile(invalid)).ok).toBe(false);
+  expect(fromShareLink(toShareLink(invalid, ''))?.ok).toBe(false);
+  expect(fromFile(toFile(base)).ok).toBe(true);
+});
+
+it.each(['linear', 'pdelta'] as const)('review verifies the authored nodal force and couple reach the %s solver', mode => {
+  const model = { nodes: [[0, 0], [1, 0]], elements: [[0, 1]], supports: [{ node: 0, type: 'fixed' }],
+    nodalLoads: [{ node: 0, fy: -3, mz: 2 }] } satisfies import('../exercise-spec').ModelSpec;
+  const result = solveModel(model, mode);
+  if (typeof result === 'string') throw new Error(result);
+  expect(result.reactions[0]).toMatchObject({ rz: 3, my: -2 });
+});

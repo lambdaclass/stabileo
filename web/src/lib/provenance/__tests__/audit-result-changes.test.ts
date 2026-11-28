@@ -100,6 +100,13 @@ describe('audited output changes are registered narrowly', () => {
     expect(applicable('arc-length-reference-norm', '2d', ['nonlinear'], { connectors: [[1, {}]] })).toBe(true);
   });
 
+  it('scopes the outrigger drift sweep to its gallery chart', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'gallery-outrigger-drift-sweep')!;
+    expect(declaredQuantities[entry.id]).toEqual(['charts']);
+    expect(conditionHolds(entry.when!, new Set(['gallery:outrigger', 'analysis:linear']))).toBe(true);
+    expect(conditionHolds(entry.when!, new Set(['plane2D', 'analysis:linear']))).toBe(false);
+  });
+
   it('registers the wall gallery context without matching saved shell projects', () => {
     const entry = RESULT_CHANGES.changes.find(c => c.id === 'gallery-slab-hard-walls');
     expect(entry).toBeDefined();

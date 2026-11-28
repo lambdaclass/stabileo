@@ -18,6 +18,8 @@ import { t } from '../i18n';
 // reinforcement-only edit triggers none. Covers the worker/parallel solve paths too.
 import { noteStructuralSolve } from '../utils/solve-counter';
 import { resultsToDrawnAxes, envelopeToDrawnAxes, type SignOf } from '../engine/transverse-sign-2d';
+import { planeLoadView } from './displayed-loads-2d';
+import { createScreenHold, type ScreenModelSnapshot } from './screen-hold.svelte';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges' | 'despiece'
   // 3D-specific diagram types
@@ -142,7 +144,7 @@ function createResultsStore() {
    */
   let _signOf: SignOf = () => 1;
   const drawn = (r: AnalysisResults): AnalysisResults => resultsToDrawnAxes(r, _signOf);
-  let _viewBeforeClear: { diagram: DiagramType; view: ResultsView; caseId: number | null; comboId: number | null } | null = null;
+  let _viewBeforeClear: { diagram: DiagramType; view: ResultsView; caseId: number | null; comboId: number | null; reactions: boolean } | null = null;
   /** What an open advanced function replaced; see `HeldView`. Null when none is open. */
   let _held: HeldView | null = null;
   let deformedScale = $state<number>(1); // Scale factor for deformed shape (applied directly to displacements)
@@ -424,7 +426,30 @@ function createResultsStore() {
   const staticUnder2D = (): void => { results = _held ? _held.results : staticResults2D(); };
   const staticUnder3D = (): void => { results3D = _held ? _held.results3D : staticResults3D(); };
 
-  return {
+  const screen = createScreenHold({
+    get results() { return api.results; },
+    get results3D() { return api.results3D; },
+    get overlayResults3D(): AnalysisResults3D | null { return api.overlayResults3D; },
+    get overlayLabel() { return overlayLabel; },
+    get planeLoadView() { return planeLoadView(api.results); },
+    get planarMode() {
+      const result = diagramType === 'bucklingMode' ? api.bucklingResult : null;
+      const mode = result?.modes[activeBucklingMode] ?? (diagramType === 'modeShape' ? api.modalResult?.modes[activeModeIndex] : null);
+      return mode?.displacements.length ? { displacements: mode.displacements, result } : null;
+    },
+    get modeDisplacements(): Displacement3D[] | null {
+      if (diagramType === 'modeShape') return api.modalResult3D?.modes[activeModeIndex]?.displacements ?? null;
+      if (diagramType === 'bucklingMode') return api.bucklingResult3D?.modes[activeBucklingMode]?.displacements ?? null;
+      return null;
+    },
+    get diagram() { return diagramType; },
+    get envelopeActive() { return api.isEnvelopeActive; },
+    get fullEnvelope() { return api.fullEnvelope; },
+    get fullEnvelope3D() { return api.fullEnvelope3D; },
+    get showReactions() { return showReactions; },
+  }, (d, view) => (d === 'despiece' && !!view.results) || STATIC_DIAGRAMS_2D.includes(d) || STATIC_DIAGRAMS_3D.includes(d));
+
+  const api = {
     /** Wired in store/index.ts. Fired on every fresh-solve results publish
      *  (setResults3D / setCombinationResults3D) so verificationStore can advance
      *  its solve-generation counter — including a plain re-solve with no
@@ -493,6 +518,7 @@ function createResultsStore() {
         if (_viewBeforeClear) _viewBeforeClear = { ..._viewBeforeClear, diagram: v };
         _onDiagramShown?.();
       }
+      screen.pick(v);
     },
     get deformedScale() { return deformedScale; },
     set deformedScale(v: number) { deformedScale = v; },
@@ -795,6 +821,7 @@ function createResultsStore() {
       hold();
       this.clearAdvanced();
       staticUnder2D();
+      screen.publish();
       modalResult = r;
       activeModeIndex = 0;
       diagramType = 'modeShape';
@@ -808,6 +835,7 @@ function createResultsStore() {
       hold();
       this.clearAdvanced();
       staticUnder2D();
+      screen.publish();
       bucklingResult = r;
       activeBucklingMode = 0;
       diagramType = 'bucklingMode';
@@ -874,6 +902,7 @@ function createResultsStore() {
       hold();
       this.clearAdvanced();
       staticUnder3D();
+      screen.publish();
       modalResult3D = r;
       activeModeIndex = 0;
       diagramType = 'modeShape';
@@ -892,6 +921,7 @@ function createResultsStore() {
       hold();
       this.clearAdvanced();
       staticUnder3D();
+      screen.publish();
       bucklingResult3D = r;
       activeBucklingMode = 0;
       diagramType = 'bucklingMode';
@@ -961,11 +991,12 @@ function createResultsStore() {
     },
 
     setResults(r: AnalysisResults, preserveDiagram = false) {
+      screen.publish();
       _onStaticPublish?.(r, '2d');
       r = drawn(r);
       results = r;
       singleResults = r; // Save base solve for "Cargas simples" option
-      deformedScale = 1; // reset to default on fresh solve
+      if (!preserveDiagram) deformedScale = 1;
       // Preserve current diagram type during live-calc re-solves
       const validDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
       if (preserveDiagram) {
@@ -997,6 +1028,7 @@ function createResultsStore() {
     },
 
     setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
+      screen.publish();
       _onComboPublish?.(pc, pco, '2d');
       pc = new Map([...pc].map(([k, v]) => [k, drawn(v)]));
       pco = new Map([...pco].map(([k, v]) => [k, drawn(v)]));
@@ -1040,14 +1072,16 @@ function createResultsStore() {
       rebase2D();
     },
 
-    clear() {
+    clear(opts: { keepScreen?: boolean } = {}) {
+      if (opts.keepScreen) screen.keep(); else screen.release();
       if (results || results3D) {
         // With a function open, the view to come back to is the one it replaced, not the function's own.
         const shown = FUNCTION_DIAGRAMS.includes(diagramType) && _held ? _held.diagram : diagramType;
         _viewBeforeClear = {
-          diagram: shown !== 'none' ? shown : _lastDiagramType,
+          diagram: shown !== 'none' || showReactions ? shown : _lastDiagramType,
           view: _held?.activeView ?? activeView, caseId: _held ? _held.activeCaseId : activeCaseId,
           comboId: _held ? _held.activeComboId : activeComboId,
+          reactions: _held ? _held.showReactions : showReactions,
         };
       }
       // The held view described the results this clear throws away.
@@ -1121,7 +1155,7 @@ function createResultsStore() {
      * taken from the old one's results does not describe the new one — its
      * case or combination ids name something else there.
      */
-    forgetView() { _viewBeforeClear = null; },
+    forgetView() { _viewBeforeClear = null; screen.release(); },
 
     /**
      * After a re-solve: show again what was on screen before the edit cleared
@@ -1135,7 +1169,7 @@ function createResultsStore() {
       const valid: DiagramType[] = is3D
         ? ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap']
         : ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
-      if (valid.includes(v.diagram)) { diagramType = v.diagram; _lastDiagramType = v.diagram; }
+      if (valid.includes(v.diagram) || (v.diagram === 'none' && v.reactions)) { diagramType = v.diagram; _lastDiagramType = v.diagram; }
       const cases = is3D ? perCase3D : perCase;
       const combos = is3D ? perCombo3D : perCombo;
       if (v.view === 'envelope' && (is3D ? envelope3D : envelope)) {
@@ -1146,6 +1180,7 @@ function createResultsStore() {
       } else if (v.caseId !== null && cases.has(v.caseId)) {
         this.activeCaseId = v.caseId;
       }
+      if (v.reactions && (is3D ? results3D : results)) showReactions = true;
     },
 
     // ─── 3D Results ─────────────────────────────────────────────
@@ -1153,6 +1188,7 @@ function createResultsStore() {
     get results3D() { return knownIssueResultDisposition(results3D).refused ? null : results3D; },
 
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
+      screen.publish();
       _onStaticPublish?.(r, '3d');
       if (_normalise3D) r = _normalise3D(r);
       r = freezeResult(r);
@@ -1162,7 +1198,7 @@ function createResultsStore() {
       singleResults3D = r;
       showReactions = false;
       showConstraintForces = false;
-      deformedScale = 1; // reset to default on fresh solve
+      if (!preserveDiagram) deformedScale = 1;
       // Preserve current diagram type during live-calc re-solves
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap'];
       if (preserveDiagram) {
@@ -1193,6 +1229,7 @@ function createResultsStore() {
     },
 
     clear3D() {
+      screen.release();
       _onStaticPublish?.(null, '3d');
       _held = null;
       results3D = null;
@@ -1248,6 +1285,7 @@ function createResultsStore() {
     setGoverning3D(g: Map<number, GoverningPerElement3D>) { governing3D = g; },
 
     setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D, unstable: readonly number[] = []) {
+      screen.publish();
       _onComboPublish?.(pc, pco, '3d');
       if (_normalise3D) {
         const n = _normalise3D;
@@ -1420,7 +1458,18 @@ function createResultsStore() {
         Math.sqrt(d.ux ** 2 + get2DDisplayDisplacementVertical(d) ** 2)
       ));
     },
+
+    /**
+     * What the viewports draw: the published results, or, while a live re-solve is pending after
+     * `clear({ keepScreen: true })`, the picture that clear took down. For drawing only: every
+     * other getter stays cleared, so nothing that reports, exports or grades can read it.
+     */
+    get screen() { return screen.view; },
+    /** Drop the held picture: the re-solve it waited for failed or will not come. */
+    releaseScreen() { screen.release(); },
+    _setScreenModelCapture(fn: () => ScreenModelSnapshot) { screen.setModelCapture(fn); },
   };
+  return api;
 }
 
 export const resultsStore = createResultsStore();

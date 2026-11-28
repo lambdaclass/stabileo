@@ -57,6 +57,7 @@ import {
   SCENE_SOLID_KINDS, barMatchesFilter, barSolidKind, kindByElement, solidMatchesFilter,
   type SceneBar, type SceneConflictMarker, type SceneFilter, type SceneModel, type SceneSolid,
   type SceneSolidKind,
+  statusOwnerOf,
 } from '../engine/detailing/scene-model';
 
 // ─── Palette ─────────────────────────────────────────────────────
@@ -1393,7 +1394,7 @@ export function createRebarScene(
  * invisible. Absent means "no restriction", which is what a caller with no filter means.
  */
 export function elementExtent(
-  scene: SceneModel, elementId: number, filter?: SceneFilter,
+  scene: SceneModel, elementId: number, filter?: SceneFilter, owner?: 'frame' | 'footing',
 ): { min: THREE.Vector3; max: THREE.Vector3 } | null {
   const kindOfElement = filter ? kindByElement(scene.solids) : null;
   let min: THREE.Vector3 | null = null;
@@ -1409,6 +1410,7 @@ export function elementExtent(
   };
 
   for (const s of scene.solids) {
+    if (owner && statusOwnerOf(s) !== owner) continue;
     if (!s.elementIds.includes(elementId)) continue;
     if (filter && !solidMatchesFilter(s, filter)) continue;
     for (const p of s.base) {
@@ -1417,6 +1419,7 @@ export function elementExtent(
     }
   }
   for (const b of scene.bars) {
+    if (owner && statusOwnerOf(b) !== owner) continue;
     if (!b.elementIds.includes(elementId)) continue;
     if (filter && kindOfElement && !barMatchesFilter(b, filter, kindOfElement)) continue;
     for (const p of b.polyline) eat(p);

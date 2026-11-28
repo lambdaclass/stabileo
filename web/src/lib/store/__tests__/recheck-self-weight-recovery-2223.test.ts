@@ -133,12 +133,13 @@ it('#2364 saves the same notice stamp and features as main with global axes off'
   const stamp = unknownStamp();
   const store = createRecheckStore();
   const support = { id: 1, nodeId: 1, type: 'fixed' as const, drz: Math.PI / 180 };
-  store.openProject({
+  const saved: Parameters<typeof store.openProject>[0] = {
     solvedWith: stamp,
     supports: [[1, support]],
     loadCases: [{ id: 1, type: 'D', axisNamed: true }],
     analysis: { selfWeight: [{ caseId: 1, ...GRAVITY_SELF_WEIGHT }] },
-  }, '2d');
+  };
+  store.openProject({ ...saved, elements: [] }, '2d');
 
   expect(store.captureNotice()).toEqual({
     stamp,
@@ -151,4 +152,10 @@ it('#2364 saves the same notice stamp and features as main with global axes off'
   });
   expect(store.stale).toBe(true);
   expect(store.noticeOpen).toBe(true);
+  const knownEmpty = store.captureNotice()!;
+  store.openProject(saved, '2d');
+  const incomplete = store.captureNotice()!;
+  expect(incomplete.stamp).toEqual(knownEmpty.stamp);
+  expect(incomplete.features).toContain('potentialStructuralElements');
+  expect(incomplete.features.filter(feature => feature !== 'potentialStructuralElements')).toEqual(knownEmpty.features);
 });

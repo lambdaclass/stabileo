@@ -59,12 +59,13 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
+  'gallery:outrigger',
   'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
   'native:planar-nodal-vector', 'native:analysis-wire-unknown-fields', 'native:wasm-iterable-solver-tables',
   'native:duplicate-json-connector-keys', 'native:staged-unconsumed-tables', 'native:staged-unknown-fields',
   'native:duplicate-json-analysis-table-keys', 'native:wasm-iterable-load-fields', 'native:producer-wire-metadata',
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
-  'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
+  'plane2D', 'educationWorkspace', 'space3D', 'members', 'potentialStructuralElements', 'sharedSectionMaterials', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
@@ -509,6 +510,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   };
   const mode = ctx.analysisMode ?? s.analysisMode ?? '2d';
   if (ctx.analysesRun == null || ctx.analysesRun.some(k => k !== 'modal' && k !== 'buckling')) f.add('forceSummaryResults');
+  if (mode === 'edu') f.add('educationWorkspace');
   f.add(is3DWorkspace(mode) ? 'space3D' : 'plane2D');
 
   const materials = new Map(values(s.materials).map((m) => [m.id, m]));
@@ -532,7 +534,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (elements.some((e) => e.type === 'gap' || e.type === 'contact' || e.behaviour === 'tensionOnly' || e.behaviour === 'compressionOnly')
     || s.gapElements?.length || s.nodeToSurfacePairs?.length || s.upliftSupports?.length) f.add('contactElements');
   let steel = 0, concrete = 0, steelWithoutConnection = 0, steelDeclaredLb = 0, steelChainEnd = 0;
+  const sectionMaterials = new Map<number, number>();
   for (const e of elements) {
+    if (e.sectionId !== undefined) {
+      if (sectionMaterials.has(e.sectionId) && sectionMaterials.get(e.sectionId) !== e.materialId) f.add('sharedSectionMaterials');
+      sectionMaterials.set(e.sectionId, e.materialId);
+    }
     if (e.type === 'truss' || e.type === 'cable') f.add('trussMembers');
     else if (e.type === 'frame') f.add('frameMembers');
     if (hasRelease(e.releaseI) || hasRelease(e.releaseJ) || e.semiRigid) { f.add('hinges'); if (e.type !== 'truss') released.add(e.id); }
@@ -573,6 +580,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const quads = values(s.quads);
   const massCarriers = [...elements, ...quads, ...values(s.plates), ...values(s.quad9s), ...values(s.solidShells), ...values(s.curvedShells)];
+  if (s.elements === undefined || massCarriers.length) f.add('potentialStructuralElements');
   let minElasticModulus = Infinity;
   let maxElasticModulus = 0;
   for (const carrier of massCarriers) {

@@ -25,6 +25,7 @@
 
   interface Props {
     report: ElementStatusReport;
+    selectedFooting?: string;
     /**
      * Why each member is in the state it is, keyed by member.
      *
@@ -47,7 +48,7 @@
      */
     reasonGroups?: readonly StatusReasonGroup[];
   }
-  const { report, reasons, reasonGroups = [] }: Props = $props();
+  const { report, reasons, reasonGroups = [], selectedFooting }: Props = $props();
 
   /** Groups for one state, in the order `summariseStatusReasons` produced. */
   function groupsFor(s: ElementStatus): readonly StatusReasonGroup[] {
@@ -164,17 +165,17 @@
     <p class="hint">{t('detailing.scene.noneOfState')}</p>
   {:else}
     <ul class="elements" data-testid="rebar-element-list">
-      {#each filtered as e (e.elementId)}
+      {#each filtered as e (e.footing?.id ?? e.elementId)}
         <li>
           <button
             type="button"
             class="element {rowClass(e.status)}"
-            class:selected={selectedIds.has(e.elementId)}
-            data-testid={`rebar-element-${e.elementId}`}
-            onclick={() => rebarWorkspace.selectAndFocus(e.elementId)}
+            class:selected={e.footing ? selectedFooting === e.footing.id : !selectedFooting && selectedIds.has(e.elementId)}
+            data-testid={`rebar-element-${e.footing?.id ?? e.elementId}`}
+            onclick={() => rebarWorkspace.selectAndFocus(e.elementId, e.footing?.id)}
           >
             <span class="dot"></span>
-            <span class="id">{tp('detailing.scene.solid.member', { id: e.elementId })}</span>
+            <span class="id">{e.footing ? tp(e.footing.label.key, e.footing.label.params ?? {}) : tp('detailing.scene.solid.member', { id: e.elementId })}</span>
             {#if e.topSteel === 'hangerProvisional'}
               <span
                 class="hanger-chip"
@@ -184,7 +185,7 @@
             {/if}
             <span class="st">{t(`detailing.scene.status.${e.status}`)}</span>
           </button>
-          {#if reasons?.get(e.elementId) && selectedIds.has(e.elementId)}
+          {#if !e.footing && reasons?.get(e.elementId) && selectedIds.has(e.elementId)}
             <p class="reason">{reasons.get(e.elementId)}</p>
           {/if}
         </li>

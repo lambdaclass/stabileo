@@ -120,6 +120,7 @@ const words: Translations = {
   'course.plastic.trace.eventAxial': 'La barre {member} est la première à atteindre Np : n = {n} par unité de λ, N cumulé = {N}, Np = {np}.',
   'course.plastic.trace.min': 'C\'est le plus petit Δλ de toutes les sections : les autres ne l\'atteignent pas encore.',
   'course.plastic.trace.update': 'λ = {before} + {dl} = {after}. Efforts et déplacements se cumulent en ajoutant Δλ fois ceux de cette solution.',
+  "course.plastic.trace.moved": "La rotule {i} de la barre {member} passe de x = {from} à x = {to}, au maximum de |M| où |M| = Mp. L’effort tranchant est nul à un maximum lisse et peut changer de signe sous une charge ponctuelle. La section précédente conserve sa rotation plastique.",
   'course.plastic.trace.hinge': 'On place la rotule {i} dans la barre {member}, x = {x} : le moment y reste à Mp et la section tourne librement.',
   'course.plastic.trace.yield': 'La barre {member} se plastifie (rotule {i}) : elle garde Np et n\'apporte plus de rigidité.',
   'course.plastic.trace.collapse': 'Avec cette rotule, la structure est un mécanisme : λc = {lambda}.',
@@ -180,6 +181,7 @@ const words: Translations = {
   'course.plastic.user.showMoments': 'Moments',
   'course.plastic.closed': 'refermée',
   'course.plastic.closedTitle': 'La rotule s’est déchargée à λ = {lambda} et est redevenue rigide.',
+  "course.plastic.limitOnly": "Le calcul pas à pas se termine à λ = {history}. L’analyse limite donne le multiplicateur de charge de ruine λc = {lambda}. Les positions des rotules sont approximatives.",
   'course.plastic.unresolved': 'Le calcul s’est arrêté sur un mécanisme qu’il n’a pas pu distinguer d’un faux (rotules qui se déchargeraient) : ce λ est l’endroit où il s’est arrêté, pas une charge de ruine vérifiée.',
 };
 

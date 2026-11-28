@@ -624,10 +624,10 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
 
     let max_hinges = input.max_hinges.unwrap_or(20);
 
-    let mp_map = section_plastic_moments(input);
+    let mp_map = member_plastic_moments(input);
     let mut frames: Vec<&SolverElement> = crate::ordered::values(&solver_input.elements).filter(|e| e.elem_type == "frame").collect();
     frames.sort_by_key(|e| e.id);
-    if let Some(e) = frames.iter().find(|e| !mp_map.contains_key(&e.section_id)) {
+    if let Some(e) = frames.iter().find(|e| !mp_map.contains_key(&e.id)) {
         return Err(format!("element {}: section {} has no plastic section data", e.id, e.section_id));
     }
 
@@ -640,7 +640,7 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
             let (xi, zi) = node_xy[&e.node_i];
             let (xj, zj) = node_xy[&e.node_j];
             let (dx, dz) = (xj - xi, zj - zi);
-            let mp = if e.elem_type == "frame" { mp_map.get(&e.section_id).copied().unwrap_or(f64::INFINITY) } else { f64::INFINITY };
+            let mp = if e.elem_type == "frame" { mp_map[&e.id] } else { f64::INFINITY };
             Member {
                 id: e.id,
                 x0: xi,
@@ -1011,7 +1011,7 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
         ));
     }
 
-    let mp_of: HashMap<usize, f64> = members.iter().map(|m| (m.id, m.mp)).collect();
+    let mp_of: HashMap<usize, f64> = frames.iter().map(|e| (e.id, mp_map[&e.id])).collect();
     let mut collapse_factor = cumulative_factor;
     match super::plastic_limit::limit_analysis_2d(solver_input, &mp_of, &HashMap::new()) {
         Ok(limit) => {
@@ -1053,20 +1053,11 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
     })
 }
 
-/// Plastic moment of each section, keyed by section id: the override when given, else from
-/// the section's shape and its material's fy (250 MPa when none is given).
-pub fn section_plastic_moments(input: &PlasticInput) -> HashMap<usize, f64> {
-    let mut mp_map = HashMap::new();
-    for (sid, sec_data) in &input.sections {
-        let sec_id: usize = sid.parse().unwrap_or(0);
-        if let Some(&mp) = input.mp_overrides.as_ref().and_then(|m| m.get(sid)) {
-            mp_map.insert(sec_id, mp);
-        } else {
-            let fy = input.materials.get(&sec_data.material_id.to_string()).and_then(|m| m.fy).unwrap_or(250.0);
-            mp_map.insert(sec_id, compute_plastic_moment(sec_data, fy));
-        }
-    }
-    mp_map
+pub fn member_plastic_moments(input: &PlasticInput) -> HashMap<usize, f64> {
+    input.solver.elements.values().filter_map(|member| {
+        let (section, fy, prescribed) = input.capacity_data(member)?;
+        Some((member.id, prescribed.unwrap_or_else(|| compute_plastic_moment(section, fy))))
+    }).collect()
 }
 
 /// The analysis stopped because no section can yield any more, and the

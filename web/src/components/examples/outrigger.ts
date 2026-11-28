@@ -18,15 +18,19 @@ export function levelOf(v: Values): number {
 }
 
 export function build(v: Values, level = levelOf(v)): Model {
+  return buildCore(v, level, Array.from({ length: v.storeys + 1 }, (_, k) => k));
+}
+
+function buildCore(v: Values, level: number, coreLevels: readonly number[]): Model {
   const n = v.storeys, h = v.storeyHeight, s = v.arm;
   const nodes: SolverInput['nodes'] = new Map();
   const elements: SolverInput['elements'] = new Map();
-  for (let k = 0; k <= n; k++) nodes.set(k + 1, { id: k + 1, x: 0, z: k * h });
+  for (const k of coreLevels) nodes.set(k + 1, { id: k + 1, x: 0, z: k * h });
   const add = (type: 'frame' | 'truss', i: number, j: number, sectionId: number) => {
     const id = elements.size + 1;
     elements.set(id, { id, type, nodeI: i, nodeJ: j, materialId: 1, sectionId, hingeStart: false, hingeEnd: false });
   };
-  for (let k = 0; k < n; k++) add('frame', k + 1, k + 2, 1);
+  for (let i = 1; i < coreLevels.length; i++) add('frame', coreLevels[i - 1] + 1, coreLevels[i] + 1, 1);
   const loads: SolverInput['loads'] = [...elements.keys()].map(elementId => ({ type: 'distributed' as const, data: { elementId, qI: -v.wind, qJ: -v.wind } }));
   const supports: SolverInput['supports'] = new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]);
   if (level > 0) {
@@ -69,8 +73,9 @@ function topDrift(model: Model, results: AnalysisResults): number {
 
 export function sweep(v: Values, engine: EngineApi): [number, number][] {
   return Array.from({ length: v.storeys }, (_, k) => {
-    const model = build(v, k + 1);
-    return [(k + 1) * v.storeyHeight, topDrift(model, engine.solve(model)) * 1000] as [number, number];
+    const level = k + 1;
+    const model = buildCore(v, level, level === v.storeys ? [0, level] : [0, level, v.storeys]);
+    return [level * v.storeyHeight, topDrift(model, engine.solve(model)) * 1000] as [number, number];
   });
 }
 

@@ -15,9 +15,14 @@
 
 import { t } from '../../lib/i18n';
 import type { EduExerciseSpec } from './exercise-spec';
+import type { ParamRange } from './exercise-params';
 
 /** Rectangular section used by the bending-stress exercise: 200 x 400 mm. */
 const RECT_W = (0.2 * 0.4 * 0.4) / 6; // m³, W = b h²/6
+
+const span = (min: number, max: number): ParamRange => ({ min, max, step: 0.5, label: 'L', unit: 'm' });
+const height = (min: number, max: number): ParamRange => ({ min, max, step: 0.5, label: 'h', unit: 'm' });
+const force = (min: number, max: number): ParamRange => ({ min, max, step: 5, unit: 'kN' });
 
 export function getExerciseSpecs(): EduExerciseSpec[] {
   return [
@@ -25,18 +30,19 @@ export function getExerciseSpecs(): EduExerciseSpec[] {
     {
       id: 'simply-supported-distributed',
       title: t('edu.ex2Title'),
-      description: t('edu.ex2Desc'),
+      description: t('edu.ex2DescP'),
       difficulty: 'easy',
       category: 'statics',
+      params: { values: { L: span(4, 8), q: { min: 2, max: 10, step: 1, label: 'q', unit: 'kN/m' } } },
       model: {
-        nodes: [[0, 0], [8, 0]],
+        nodes: [[0, 0], ['L', 0]],
         elements: [[0, 1]],
         supports: [{ node: 0, type: 'pinned' }, { node: 1, type: 'rollerX' }],
-        distributedLoads: [{ element: 0, qI: -5 }],
+        distributedLoads: [{ element: 0, qI: '-q' }],
       },
       supports: [
-        { label: t('edu.ex2SupportA'), nodeIndex: 0, dofs: ['Rx', 'Ry'] },
-        { label: t('edu.ex2SupportB'), nodeIndex: 1, dofs: ['Ry'] },
+        { label: t('edu.p.supportA'), nodeIndex: 0, dofs: ['Rx', 'Ry'] },
+        { label: t('edu.p.supportB'), nodeIndex: 1, dofs: ['Ry'] },
       ],
       characteristics: [
         // Was hand-written as 5*8²/8 because the old extractor only looked at
@@ -67,18 +73,19 @@ export function getExerciseSpecs(): EduExerciseSpec[] {
     {
       id: 'portal-frame',
       title: t('edu.ex3Title'),
-      description: t('edu.ex3Desc'),
+      description: t('edu.ex3DescP'),
       difficulty: 'medium',
       category: 'statics',
+      params: { values: { L: span(4, 6), h: height(3, 4), H: force(5, 20) } },
       model: {
-        nodes: [[0, 0], [0, 3], [4, 3], [4, 0]],
+        nodes: [[0, 0], [0, 'h'], ['L', 'h'], ['L', 0]],
         elements: [[0, 1], [1, 2], [2, 3]],
         supports: [{ node: 0, type: 'fixed' }, { node: 3, type: 'fixed' }],
-        nodalLoads: [{ node: 1, fx: 8 }],
+        nodalLoads: [{ node: 1, fx: 'H' }],
       },
       supports: [
-        { label: t('edu.ex3SupportA'), nodeIndex: 0, dofs: ['Rx', 'Ry', 'M'] },
-        { label: t('edu.ex3SupportB'), nodeIndex: 3, dofs: ['Rx', 'Ry', 'M'] },
+        { label: t('edu.p.supportA'), nodeIndex: 0, dofs: ['Rx', 'Ry', 'M'] },
+        { label: t('edu.p.supportB'), nodeIndex: 3, dofs: ['Rx', 'Ry', 'M'] },
       ],
       characteristics: [
         { label: t('edu.ex3MmaxCol'), unit: 'kN·m', answer: { kind: 'maxAbs', force: 'moment', elements: [0, 2] } },
@@ -98,16 +105,17 @@ export function getExerciseSpecs(): EduExerciseSpec[] {
     {
       id: 'cantilever-point',
       title: t('edu.ex4Title'),
-      description: t('edu.ex4Desc'),
+      description: t('edu.ex4DescP'),
       difficulty: 'easy',
       category: 'statics',
+      params: { values: { L: span(2, 6), P: force(5, 30) } },
       model: {
-        nodes: [[0, 0], [4, 0]],
+        nodes: [[0, 0], ['L', 0]],
         elements: [[0, 1]],
         supports: [{ node: 0, type: 'fixed' }],
-        nodalLoads: [{ node: 1, fy: -12 }],
+        nodalLoads: [{ node: 1, fy: '-P' }],
       },
-      supports: [{ label: t('edu.ex4SupportA'), nodeIndex: 0, dofs: ['Rx', 'Ry', 'M'] }],
+      supports: [{ label: t('edu.p.fixedA'), nodeIndex: 0, dofs: ['Rx', 'Ry', 'M'] }],
       characteristics: [
         { label: 'Mmax', unit: 'kN·m', answer: { kind: 'maxAbs', force: 'moment' } },
         { label: 'Vmax', unit: 'kN', answer: { kind: 'maxAbs', force: 'shear' } },
@@ -132,20 +140,22 @@ export function getExerciseSpecs(): EduExerciseSpec[] {
     {
       id: 'simple-truss',
       title: t('edu.ex7Title'),
-      description: t('edu.ex7Desc'),
+      description: t('edu.ex7DescP'),
       difficulty: 'medium',
       category: 'statics',
+      params: { values: { b: { min: 3, max: 6, step: 1, label: 'b', unit: 'm' }, h: height(2, 4), P: force(10, 40) } },
       model: {
-        nodes: [[0, 0], [4, 0], [2, 3]],
+        nodes: [[0, 0], ['b', 0], ['b/2', 'h']],
         // Left diagonal, right diagonal, bottom chord — the order the
         // questions refer to.
         elements: [[0, 2], [1, 2], [0, 1]],
+        truss: [0, 1, 2],
         supports: [{ node: 0, type: 'pinned' }, { node: 1, type: 'rollerX' }],
-        nodalLoads: [{ node: 2, fy: -20 }],
+        nodalLoads: [{ node: 2, fy: '-P' }],
       },
       supports: [
-        { label: t('edu.ex7SupportA'), nodeIndex: 0, dofs: ['Rx', 'Ry'] },
-        { label: t('edu.ex7SupportB'), nodeIndex: 1, dofs: ['Ry'] },
+        { label: t('edu.p.supportA'), nodeIndex: 0, dofs: ['Rx', 'Ry'] },
+        { label: t('edu.p.supportB'), nodeIndex: 1, dofs: ['Ry'] },
       ],
       characteristics: [
         { label: t('edu.ex7Nmax'), unit: 'kN', answer: { kind: 'maxAbs', force: 'axial' } },
@@ -165,18 +175,19 @@ export function getExerciseSpecs(): EduExerciseSpec[] {
     {
       id: 'bending-stress-rect',
       title: t('edu.ex9Title'),
-      description: t('edu.ex9Desc'),
+      description: t('edu.ex9DescP'),
       difficulty: 'easy',
       category: 'strength',
+      params: { values: { L: span(3, 6), P: force(10, 30) } },
       model: {
-        nodes: [[0, 0], [2, 0], [4, 0]],
+        nodes: [[0, 0], ['L/2', 0], ['L', 0]],
         elements: [[0, 1], [1, 2]],
         supports: [{ node: 0, type: 'pinned' }, { node: 2, type: 'rollerX' }],
-        nodalLoads: [{ node: 1, fy: -15 }],
+        nodalLoads: [{ node: 1, fy: '-P' }],
       },
       supports: [
-        { label: t('edu.ex9SupportA'), nodeIndex: 0, dofs: ['Rx', 'Ry'] },
-        { label: t('edu.ex9SupportB'), nodeIndex: 2, dofs: ['Ry'] },
+        { label: t('edu.p.supportA'), nodeIndex: 0, dofs: ['Rx', 'Ry'] },
+        { label: t('edu.p.supportB'), nodeIndex: 2, dofs: ['Ry'] },
       ],
       characteristics: [
         // A section property, not a solver output — the student derives it.
@@ -211,18 +222,19 @@ export function getExerciseSpecs(): EduExerciseSpec[] {
     {
       id: 'combined-stress-ipe',
       title: t('edu.ex11Title'),
-      description: t('edu.ex11Desc'),
+      description: t('edu.ex11DescP'),
       difficulty: 'hard',
       category: 'strength',
+      params: { values: { L: span(2, 4), P: { min: 20, max: 60, step: 10, label: 'P', unit: 'kN' } } },
       model: {
-        nodes: [[0, 0], [3, 0]],
+        nodes: [[0, 0], ['L', 0]],
         elements: [[0, 1]],
         supports: [{ node: 0, type: 'fixed' }],
-        nodalLoads: [{ node: 1, fy: -40 }],
+        nodalLoads: [{ node: 1, fy: '-P' }],
         profile: 'IPE 300',
         fy: 235,
       },
-      supports: [{ label: t('edu.ex11SupportA'), nodeIndex: 0, dofs: ['Rx', 'Ry', 'M'] }],
+      supports: [{ label: t('edu.p.fixedA'), nodeIndex: 0, dofs: ['Rx', 'Ry', 'M'] }],
       characteristics: [
         { label: 'Mmax', unit: 'kN·m', answer: { kind: 'maxAbs', force: 'moment' } },
         // At the fixed end's extreme fibre, where bending governs.
@@ -281,6 +293,131 @@ export function getExerciseSpecs(): EduExerciseSpec[] {
         { label: 'L', value: '5 m' },
         { label: t('edu.ex10BoundaryK'), value: 'k = 2 (' + t('edu.ex10Cantilever') + ')' },
         { label: t('edu.sectionFormula'), value: 'Pcr = π²EI / (kL)²' },
+      ],
+    },
+    {
+      id: 'overhang-point-load',
+      title: t('edu.ex12Title'),
+      description: t('edu.ex12Desc'),
+      difficulty: 'medium',
+      category: 'statics',
+      params: {
+        values: {
+          L: { min: 5, max: 8, step: 1, label: 'L', unit: 'm' },
+          a: { min: 1, max: 4, step: 0.5, label: 'a', unit: 'm' },
+          c: { min: 1, max: 2.5, step: 0.5, label: 'c', unit: 'm' },
+          P: force(10, 30),
+          F: force(5, 15),
+        },
+      },
+      model: {
+        nodes: [[0, 0], ['a', 0], ['L', 0], ['L + c', 0]],
+        elements: [[0, 1], [1, 2], [2, 3]],
+        supports: [{ node: 0, type: 'pinned' }, { node: 2, type: 'rollerX' }],
+        nodalLoads: [{ node: 1, fy: '-P' }, { node: 3, fy: '-F' }],
+      },
+      supports: [
+        { label: t('edu.p.supportA'), nodeIndex: 0, dofs: 'auto' },
+        { label: t('edu.p.supportB'), nodeIndex: 2, dofs: 'auto' },
+      ],
+      characteristics: [
+        { label: 'Mmax', unit: 'kN·m', answer: { kind: 'maxAbs', force: 'moment' } },
+        { label: 'Vmax', unit: 'kN', answer: { kind: 'maxAbs', force: 'shear' } },
+      ],
+      diagramQuestions: [
+        { question: t('edu.dq.momentUnderLoad'), unit: 'kN·m', answer: { kind: 'at', force: 'moment', element: 0, t: 1 } },
+        { question: t('edu.dq.momentOverSupportB'), unit: 'kN·m', answer: { kind: 'at', force: 'moment', element: 2, t: 0 } },
+      ],
+      kinematicQuestion: { classification: 'isostatic' },
+      diagramShapeQuestions: [
+        { diagram: 'V', correct: 'auto' },
+        { diagram: 'M', correct: 'auto' },
+      ],
+      diagramSketchQuestions: [{ diagram: 'M', elementIndex: 2 }],
+    },
+
+    {
+      id: 'gerber-beam',
+      title: t('edu.ex13Title'),
+      description: t('edu.ex13Desc'),
+      difficulty: 'hard',
+      category: 'statics',
+      params: {
+        values: {
+          L1: { min: 4, max: 6, step: 1, label: 'L1', unit: 'm' },
+          e: { min: 1, max: 2, step: 0.5, label: 'e', unit: 'm' },
+          L2: { min: 3, max: 5, step: 1, label: 'L2', unit: 'm' },
+          q: { min: 4, max: 12, step: 2, label: 'q', unit: 'kN/m' },
+        },
+      },
+      model: {
+        nodes: [[0, 0], ['L1', 0], ['L1 + e', 0], ['L1 + e + L2', 0]],
+        elements: [[0, 1], [1, 2], [2, 3]],
+        hinges: [{ element: 1, end: 'end' }],
+        supports: [{ node: 0, type: 'pinned' }, { node: 1, type: 'rollerX' }, { node: 3, type: 'rollerX' }],
+        distributedLoads: [{ element: 0, qI: '-q' }, { element: 1, qI: '-q' }, { element: 2, qI: '-q' }],
+      },
+      supports: [
+        { label: t('edu.p.supportA'), nodeIndex: 0, dofs: 'auto' },
+        { label: t('edu.p.supportB'), nodeIndex: 1, dofs: 'auto' },
+        { label: t('edu.p.supportC'), nodeIndex: 3, dofs: 'auto' },
+      ],
+      characteristics: [
+        { label: t('edu.p.mOverB'), unit: 'kN·m', answer: { kind: 'at', force: 'moment', element: 0, t: 1 } },
+        { label: 'Mmax', unit: 'kN·m', answer: { kind: 'maxAbs', force: 'moment' } },
+      ],
+      diagramQuestions: [
+        { question: t('edu.dq.momentAtHinge'), unit: 'kN·m', answer: { kind: 'at', force: 'moment', element: 2, t: 0 } },
+        { question: t('edu.dq.shearAtHinge'), unit: 'kN', answer: { kind: 'at', force: 'shear', element: 2, t: 0 } },
+      ],
+      kinematicQuestion: { classification: 'isostatic' },
+      diagramShapeQuestions: [
+        { diagram: 'V', correct: 'auto' },
+        { diagram: 'M', correct: 'auto' },
+      ],
+      diagramSketchQuestions: [{ diagram: 'M', elementIndex: 2 }],
+    },
+
+    {
+      id: 'frame-varying-supports',
+      title: t('edu.ex14Title'),
+      description: t('edu.ex14Desc'),
+      difficulty: 'medium',
+      category: 'statics',
+      params: {
+        values: {
+          L: { min: 4, max: 6, step: 1, label: 'L', unit: 'm' },
+          h: height(3, 4),
+          H: force(5, 20),
+          q: { min: 5, max: 15, step: 5, label: 'q', unit: 'kN/m' },
+        },
+        supportChoices: [
+          { support: 0, types: ['pinned', 'fixed'] },
+          { support: 1, types: ['rollerX', 'pinned'] },
+        ],
+      },
+      model: {
+        nodes: [[0, 0], [0, 'h'], ['L', 'h'], ['L', 0]],
+        elements: [[0, 1], [1, 2], [2, 3]],
+        supports: [{ node: 0, type: 'pinned' }, { node: 3, type: 'rollerX' }],
+        nodalLoads: [{ node: 1, fx: 'H' }],
+        distributedLoads: [{ element: 1, qI: '-q' }],
+      },
+      supports: [
+        { label: t('edu.p.supportA'), nodeIndex: 0, dofs: 'auto' },
+        { label: t('edu.p.supportB'), nodeIndex: 3, dofs: 'auto' },
+      ],
+      characteristics: [
+        { label: t('edu.ex3MmaxCol'), unit: 'kN·m', answer: { kind: 'maxAbs', force: 'moment', elements: [0, 2] } },
+        { label: t('edu.ex3MmaxBeam'), unit: 'kN·m', answer: { kind: 'maxAbs', force: 'moment', elements: [1] } },
+      ],
+      diagramQuestions: [
+        { question: t('edu.dq.momentAtTopLeft'), unit: 'kN·m', answer: { kind: 'at', force: 'moment', element: 0, t: 1 } },
+      ],
+      kinematicQuestion: { classification: 'isostatic' },
+      diagramShapeQuestions: [
+        { diagram: 'V', correct: 'auto' },
+        { diagram: 'M', correct: 'auto' },
       ],
     },
   ];

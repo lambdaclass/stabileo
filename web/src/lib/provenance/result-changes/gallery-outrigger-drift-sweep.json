@@ -1,0 +1,41 @@
+{
+  "id": "gallery-outrigger-drift-sweep",
+  "date": "2026-11-27",
+  "prs": [
+    1927
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "gallery:outrigger",
+      "analysis:linear"
+    ]
+  },
+  "quantities": [
+    "charts"
+  ],
+  "title": {
+    "en": "Roof drift in the outrigger gallery sweep",
+    "es": "Desplazamiento de la cubierta en el barrido de la galería de outriggers",
+    "pt": "Deslocamento da cobertura na varredura de outriggers",
+    "de": "Dachverschiebung im Auslegerbeispiel",
+    "fr": "Déplacement en toiture dans le balayage des stabilisateurs",
+    "tr": "Payanda örneğinde çatı ötelenmesi",
+    "hu": "Tetőelmozdulás a merevítőkar szintjének vizsgálatában",
+    "zh": "伸臂桁架示例中各层方案的屋顶侧移"
+  },
+  "explanation": {
+    "en": "The chart solves the uniform core between its base, outrigger and roof at each trial level. Roof drifts can differ in floating-point roundoff.",
+    "es": "Para cada nivel, el gráfico resuelve el núcleo uniforme entre la base, el outrigger y la cubierta. Los desplazamientos pueden diferir por redondeo numérico.",
+    "pt": "Em cada nível, o gráfico resolve o núcleo uniforme entre a base, o outrigger e a cobertura. Os deslocamentos podem apresentar diferenças de arredondamento.",
+    "de": "Für jede Auslegerhöhe berechnet das Diagramm den gleichförmigen Kern zwischen Fußpunkt, Ausleger und Dach. Rundungsbedingte Abweichungen der Dachverschiebung sind möglich.",
+    "fr": "Pour chaque niveau, le graphique calcule le noyau uniforme entre la base, le stabilisateur et la toiture. Les déplacements peuvent présenter des écarts d’arrondi.",
+    "tr": "Grafik her deneme katında düzgün çekirdeği taban, payanda ve çatı arasında çözer. Çatı ötelenmesinde yuvarlamadan kaynaklanan farklar olabilir.",
+    "hu": "A grafikon minden vizsgált szinten az alap, a merevítőkar és a tető között számítja az állandó keresztmetszetű mag viselkedését. A tetőelmozdulás kerekítési eltérést mutathat.",
+    "zh": "图表针对每个候选楼层，仅在基础、伸臂连接点和屋顶之间对均匀核心筒建模求解。屋顶侧移可能存在浮点舍入差异。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gallery-outrigger-sweep.md",
+    "heading": "Roof drift in the outrigger gallery sweep"
+  }
+}

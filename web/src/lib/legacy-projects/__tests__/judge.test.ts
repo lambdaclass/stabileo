@@ -48,6 +48,20 @@ describe('which values a registered change declares it moves', () => {
     expect(declaresMove(change('c', ['reactions']), 'base.reactions[n1].fz')).toBe(true);
     expect(declaresMove(refusals, 'solve.ok')).toBe(true);
   });
+  it.each(['base', 'case[2]', 'combo[1]'])('known wrong result: #718 — %s honors an exact summary quantity only for its declared field', prefix => {
+    const quantity = 'resultSummary.secondOrderPhysicalBound';
+    const entry = { ...change('physical-bound'), quantities: [quantity] };
+    for (const [field, covered] of [[quantity, true], ['resultSummary.secondOrderPhysicalBoundExtra', false],
+      ['equilibrium.secondOrderPhysicalBound', false]] as const) {
+      const path = `${prefix}.${field}`;
+      expect(fieldCovered(entry, path, ['plane2D', 'analysis:linear'])).toBe(covered);
+      const verdict = covered ? 'explained' : 'unexplained';
+      expect(judge('added', {}, { [path]: 1 }, [entry]).kind).toBe(verdict);
+      expect(judge('removed', { [path]: 1 }, {}, [entry]).kind).toBe(verdict);
+      expect(judge('changed', { [path]: 1 }, { [path]: 2 }, [entry]).kind).toBe(verdict);
+      expect(judge('unchanged', { [path]: 1 }, { [path]: 1 }, [entry]).kind).toBe('same');
+    }
+  });
   it('NEGATIVE: nothing else', () => {
     expect(declaresMove(shellStresses, 'base.quadStresses[e9].mx')).toBe(false);
     expect(declaresMove(shellStresses, 'base.elementForces[e1].mStart')).toBe(false);
@@ -283,7 +297,8 @@ describe('against real corpus files', () => {
     const opened = await openAndSolve(readCorpusText('v0.2.0/truss.ded'));
     expect(opened.changes.length).toBeGreaterThan(20);
     const then = readResults('v0.2.0/truss.results.json');
-    expect(judge('truss', then, opened.values, opened.changes).kind).toBe('same');
+    const unchanged = judge('truss', then, opened.values, opened.changes);
+    expect(unchanged.kind, unchanged.report + '\n' + opened.values['base.diagnosticCodes']).toBe('same');
     const wrong = { ...then, 'base.elementForces[e1].nStart': (then['base.elementForces[e1].nStart'] as number) * 1.01 };
     expect(opened.changes.map((c) => c.id)).toContain('linear-stability-refusals');
     expect(opened.changes.map((c) => c.id)).toEqual(expect.arrayContaining(['nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium']));
@@ -335,14 +350,14 @@ describe('against real corpus files', () => {
           'harmonic-modal-residual-checked', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
           'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'independent-applied-force-checks', 'compensated-applied-force-totals',
-          ...plateWithdrawals,
+          ...plateWithdrawals, 'dynamics-rotary-inertia-advisory-deep-members',
           'reduced-stiffness-rank',
           ...(includeSSI ? ['ssi-support-reactions'] : []),
         ]));
         if (includeSSI) {
-        if (mainFirst) expect(opened.changes.slice(-16).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling', 'reduced-stiffness-rank', ...plateWithdrawals]));
+        if (mainFirst) expect(opened.changes.slice(-17).map(c => c.id)).toEqual(orderedIds(['dynamics-rotary-inertia-advisory-deep-members', 'compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling', 'reduced-stiffness-rank', ...plateWithdrawals]));
         } else {
-        if (mainFirst) expect(opened.changes.slice(-15).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling', 'reduced-stiffness-rank', ...plateWithdrawals]));
+        if (mainFirst) expect(opened.changes.slice(-16).map(c => c.id)).toEqual(orderedIds(['dynamics-rotary-inertia-advisory-deep-members', 'compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling', 'reduced-stiffness-rank', ...plateWithdrawals]));
         }
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;

@@ -162,8 +162,8 @@
         {
           "code": "known_issue",
           "severity": "warning",
-          "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
-          "phase": "NL-DYNAMIC-GAPS",
+          "message": "Omitting bending rotary inertia can overestimate bending frequencies. The member geometry alone does not bound the error for the modes used. Verify the dynamic response (known issue #370, NL-DYNAMIC-MODES)",
+          "phase": "NL-DYNAMIC-MODES",
           "value": 370
         },
         {
@@ -521,8 +521,8 @@
         {
           "code": "known_issue",
           "severity": "warning",
-          "message": "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response (known issue #370, NL-DYNAMIC-GAPS)",
-          "phase": "NL-DYNAMIC-GAPS",
+          "message": "Omitting bending rotary inertia can overestimate bending frequencies. The member geometry alone does not bound the error for the modes used. Verify the dynamic response (known issue #370, NL-DYNAMIC-MODES)",
+          "phase": "NL-DYNAMIC-MODES",
           "value": 370
         },
         {

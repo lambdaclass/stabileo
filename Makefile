@@ -467,7 +467,11 @@ check.results-snapshot-gate:
 # The WASM must give bit-identical results in Node, Chromium, Firefox and WebKit
 # (testing/docs/TRUSTED_BASE.md). Needs make wasm and make web.deps first.
 test.web.determinism:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs determinism/containment.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
+ifneq ($(strip $(FILE)),)
+	$(NIX_RUN) bash -c "cd web && node --test $(FILE)"
+else
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs determinism/plastic-checks.test.mjs determinism/containment.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
+endif
 
 e2e.web.setup:
 	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium"
@@ -505,7 +509,7 @@ e2e.web.visual:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "visual baselines" $(if $(UPDATE_SNAPSHOTS),--update-snapshots)'
 
 test.ai-backend:
-	$(NIX_RUN) cargo test -p dedaliano-backend
+	$(NIX_RUN) cargo test -p dedaliano-backend $(ARGS)
 
 ## Measure the engine test inventory published in docs/BENCHMARKS.md.
 ## Engine-coupled = every target except `reference`, whose tests recompute
@@ -1430,3 +1434,7 @@ test.engine.nonlinear-drivers-2510-wasm: wasm scripts/tests/arc-review-wasm.mjs 
 .PHONY: test.engine.prescribed-motion-2227-wasm
 test.engine.prescribed-motion-2227-wasm: wasm
 	$(NIX_RUN) node --test scripts/tests/prescribed-motion-2227-wasm.mjs
+
+.PHONY: test.engine.truss-screen-1927-wasm
+test.engine.truss-screen-1927-wasm: wasm
+	$(NIX_RUN) bash -eu -c 'cases=$$(mktemp -d "$(CURDIR)/target/truss-screen-1927.XXXXXX"); trap '\''rm -rf -- "$$cases"'\'' EXIT; TRUSS_SCREEN_1927_CASES="$$cases/truss" $(MAKE) test.engine.targeted TEST=robustness FILTER=review_1927; node scripts/tests/truss-screen-1927.mjs "$$cases/truss"'

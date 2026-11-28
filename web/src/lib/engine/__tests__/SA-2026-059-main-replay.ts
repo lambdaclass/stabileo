@@ -178,8 +178,8 @@ it('additional paths: toolbar modal, horizontal spectra, pushover and saved spec
   const { plasticInput3D } = await import('../plastic-moments');
   const { plasticForSolve } = await import('../advanced-analyses');
   const input = centerlineInput();
-  const plastic = plasticForSolve(plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements), input, id => modelStore.elements.get(id)?.sectionId);
-  record('advanced pushover', wasm.solvePlastic3D({ solver: input, sections: plastic.sections, materials: plastic.materials, mpOverrides: plastic.mpOverrides, maxHinges: 20 }), cable);
+  const plastic = Reflect.apply(plasticForSolve, undefined, [plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements), input, (id: number) => modelStore.elements.get(id)?.sectionId]);
+  record('advanced pushover', wasm.solvePlastic3D({ solver: input, ...plastic, maxHinges: 20 }), cable);
   modelStore.model.dynamics = { spectra: [{ id: 1, name: 'test', ordinate: 'Sa', unit: 'g', interpolation: 'linear', points: [[0, 1], [10, 1]] }] };
   modelStore.model.loadCases = [{ id: 2, name: 'spectrum', type: 'E', spectral: { source: { kind: 'user', spectrumId: 1 }, factors: { x: 0, y: 0, z: 1 }, rule: 'cqc', xi: 0.05, scale: 1 } }] as never;
   const { spectralCaseResults } = await import('../../store/spectral-cases');

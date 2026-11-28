@@ -672,6 +672,8 @@ function reactionColumns2D(s: SolverSupport, rx: number, rz: number, hasFrames: 
   const a = s.angle ?? 0;
   switch (s.type) {
     case 'fixed': return hasFrames ? [force(1, 0), force(0, 1), [0, 0, 1]] : [force(1, 0), force(0, 1)];
+    case 'guidedX': return hasFrames ? [force(0, 1), [0, 0, 1]] : [force(0, 1)];
+    case 'guidedZ': return hasFrames ? [force(1, 0), [0, 0, 1]] : [force(1, 0)];
     case 'pinned': return [force(1, 0), force(0, 1)];
     case 'rollerX': return [force(0, 1)];
     case 'rollerZ': return [force(1, 0)];
@@ -730,16 +732,7 @@ function structuralChecks2D(input: SolverInput): string | null {
   const hasFrames = elements.some(e => e.type === 'frame');
 
   // Count support DOFs for basic stability check
-  let constrainedDOFs = 0;
-  for (const sup of supports) {
-    if (sup.type === 'fixed') constrainedDOFs += hasFrames ? 3 : 2;
-    else if (sup.type === 'pinned') constrainedDOFs += 2;
-    else if (sup.type === 'spring') {
-      if (sup.kx && sup.kx > 0) constrainedDOFs++;
-      if (sup.ky && sup.ky > 0) constrainedDOFs++;
-      if (hasFrames && sup.kz && sup.kz > 0) constrainedDOFs++;
-    } else constrainedDOFs += 1; // roller
-  }
+  const constrainedDOFs = supports.reduce((sum, support) => sum + reactionColumns2D(support, 0, 0, hasFrames).length, 0);
   if (constrainedDOFs < 3) {
     return t('svc.hypostaticDofs').replace('{n}', String(constrainedDOFs));
   }

@@ -97,6 +97,24 @@ export function turn(): Promise<void> {
   return yieldToEventLoop();
 }
 
+export async function detailWorkspaceScene(): Promise<void> {
+  await turn();
+  const autoGenerate = detailingStore.autoGenerate;
+  detailingStore.setAutoGenerate(false);
+  try {
+    const run = designRunStore.designAll({ maxRunMs: 180_000 });
+    expect(run.ok, run.reasonKey).toBe(true);
+  } finally {
+    detailingStore.setAutoGenerate(autoGenerate);
+  }
+  expect(verificationStore.runSummary?.aborted, 'the integration design ran to completion').toBe(false);
+  await turn();
+  expect(detailingStore.generate({ verifierId: 'cirsoc201.provided.v2.2025' }), detailingStore.lastError ?? 'frame detailing').toBeTruthy();
+  await turn();
+  detailingStore.generateFloors({ verifierId: 'cirsoc201.provided.v2.2025' });
+  await turn();
+}
+
 async function compute(example: string, variant?: Variant): Promise<WorkspaceScene> {
   modelStore.clear();
   resultsStore.clear();
@@ -116,17 +134,7 @@ async function compute(example: string, variant?: Variant): Promise<WorkspaceSce
   const r = solved as { perCase: never; perCombo: never; envelope: never };
   resultsStore.setCombinationResults3D(r.perCase, r.perCombo, r.envelope);
 
-  designRunStore.computeDemands();
-  await turn();
-  designRunStore.runCodeCheck();
-  await turn();
-  designRunStore.designAll({ maxRunMs: 180_000 });
-  expect(verificationStore.runSummary?.aborted, 'the integration design ran to completion').toBe(false);
-  await turn();
-  detailingStore.generate({ verifierId: 'cirsoc201.provided.v2.2025' });
-  await turn();
-  detailingStore.generateFloors({ verifierId: 'cirsoc201.provided.v2.2025' });
-  await turn();
+  await detailWorkspaceScene();
 
   const doc = detailingStore.buildDocument({ author: 'bench', at: '2026-08-09T00:00:00Z' });
   expect(doc, 'the chain produced a document').toBeTruthy();

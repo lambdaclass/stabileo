@@ -749,6 +749,9 @@ fn a_frame_without_plastic_capacity_is_refused_1525() {
         ("fy = 0", {
             let mut v = portal_sample();
             v["materials"]["2"] = serde_json::json!({"fy": 0.0});
+            v["solver"]["materials"]["2"] = v["solver"]["materials"]["1"].clone();
+            v["solver"]["materials"]["2"]["id"] = serde_json::json!(2);
+            v["solver"]["elements"]["1"]["materialId"] = serde_json::json!(2);
             column_1_on_section_2(v, Some(serde_json::json!({"a": 0.001, "iy": 8e-6, "iz": 4e-6, "materialId": 2})), None)
         }),
     ];
@@ -831,4 +834,30 @@ fn nightly_space_case_two_has_provable_bounds() {
         assert!(raw.warnings.iter().any(|warning| warning.contains("biaxial")));
     }
     eprintln!("space: raw {}, bounds [{lower}, {upper}]", raw.collapse_factor);
+}
+
+#[test]
+fn issue_2658_shared_section_cantilevers_use_the_loaded_material_3d() {
+    for idle_grade in [235.0, 355.0] {
+        for weak in [false, true] {
+            let (b, h) = (0.25, 0.5);
+            let load = if weak { [0.0, -10.0, 0.0, 0.0, 0.0, 0.0] } else { [0.0, 0.0, -10.0, 0.0, 0.0, 0.0] };
+            let solver = make_3d_input(
+                vec![(1, 0.0, 0.0, 0.0), (2, -4.0, 0.0, 0.0), (3, 4.0, 0.0, 0.0)], vec![(1, E, 0.3), (2, E, 0.3)], vec![(1, A, IY, IZ, J)],
+                vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 1, 3, 2, 1)], vec![(1, FIXED.to_vec())], vec![nodal(3, load)],
+            );
+            let mut input = plastic(solver, MPY, MPZ);
+            input.mp_overrides = None;
+            let sec = input.sections.get_mut("1").unwrap();
+            sec.b = Some(b);
+            sec.h = Some(h);
+            input.materials.insert("1".into(), PlasticMaterialData { fy: Some(idle_grade) });
+            input.materials.insert("2".into(), PlasticMaterialData { fy: Some(235.0) });
+            let expected = 235.0 * 1000.0 * b * h * (if weak { b } else { h }) / (4.0 * 40.0);
+            let out = certify_plastic_3d(&input).unwrap();
+            assert!((solve_plastic_3d(&input).unwrap().collapse_factor - expected).abs() <= 1e-9 * expected);
+            assert_encloses("mixed grade", &out.certificate, expected, 1e-9);
+            assert_eq!(out.results.hinges[0].element_id, 2);
+        }
+    }
 }

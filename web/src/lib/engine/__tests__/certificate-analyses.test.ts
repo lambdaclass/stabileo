@@ -10,7 +10,7 @@ import {
   initSolver, solveModal, solvePDelta, solveSpectral, solveModal3D, solveHarmonic3D, solveTimeHistory3D, hasCertify, callCertify,
 } from '../wasm-solver';
 import { solveCombinations2D, buildSolverInput3D, type ModelData } from '../solver-service';
-import { certifyJobOf, tagCertifyJob } from '../certify-tags';
+import { certifyJobOf, tagCertifyJob, carryCertifyJob } from '../certify-tags';
 import { runCertifyJob } from '../certify-jobs';
 import { modeEnclosureOf, frequencyInterval, modalCutoffHz, plasticReading } from '../certificate-read';
 import { memberContexts, runOtherCode, certifyOtherCode } from '../design/other-codes';
@@ -302,7 +302,7 @@ describe('analyses certified from the job their solve noted', () => {
     expect(spectralModesFrom(m3).length).toBeGreaterThan(0);
   });
 
-  it('plastic: refuses before displaying a result or scheduling native certification', async () => {
+  it('plastic: λc of the Basic panel inside the exact enclosure, its certificate released', async () => {
     const { modelStore, uiStore } = await import('../../store');
     const { runPlasticCollapse } = await import('../../actions/plastic');
     uiStore.analysisMode = '2d';
@@ -318,16 +318,14 @@ describe('analyses certified from the job their solve noted', () => {
     modelStore.addSupport(n1, 'fixed');
     modelStore.addSupport(n3, 'fixed');
     modelStore.addNodalLoad(n2, 0, -100);
-    const { resultsStore } = await import('../../store');
-    resultsStore.clear();
-    const wasm = await import('../wasm-solver');
-    const certify = vi.spyOn(wasm, 'callCertify');
-    const tag = vi.spyOn(await import('../certify-tags'), 'tagCertifyJob');
-    expect(() => runPlasticCollapse()).toThrow(/#758/);
-    expect(resultsStore.plasticResult).toBeNull();
-    expect(resultsStore.hasAnyResults).toBe(false);
-    expect(tag).not.toHaveBeenCalled();
-    expect(certify).not.toHaveBeenCalled();
+    const run = runPlasticCollapse();
+    expect(run?.result.isMechanism).toBe(true);
+    const job = certifyJobOf(run!.result);
+    expect(job?.name).toBe('certify_plastic_2d');
+    const { certificate } = await runCertifyJob(job!) as { certificate: { lambdaLower: number | null; lambdaUpper: number | null; certified: boolean } };
+    expect(certificate.certified).toBe(true);
+    expect(plasticReading(certificate as never, run!.result.collapseFactor).within).toBe(true);
+    expect(certifyJobOf(carryCertifyJob(run!.result, { ...run!.result }))?.name).toBe('certify_plastic_2d');
   });
 
   it('the background certificate of a result: after it is shown, only for the one still shown', async () => {

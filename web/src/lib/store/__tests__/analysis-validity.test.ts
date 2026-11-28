@@ -20,7 +20,7 @@
  * building's own beams, so passing a mesh for sending less than 1 % straight was no evidence of
  * the load path.
  */
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { setImmediate } from 'node:timers';
 import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import { historyStore, modelStore, resultsStore } from '..';
@@ -37,8 +37,10 @@ import { readinessBanner } from '../../engine/detailing/document-render';
 import { slabColumnJoints, floorPaths, type JointMember } from '../../engine/design/analysis-validity';
 import { solveCombinations3D, validateAndSolve3D } from '../../engine/solver-service';
 import * as wasmSolver from '../../engine/wasm-solver';
+import { DEFAULT_RUN_MS } from '../../engine/design/candidate-search';
 import qa8 from '../../templates/fixtures/rc-design-qa-8.json';
-import { building, designAndDocumentWithWorkerYields } from './span-fixture';
+import { detailFrame } from './detail-exterior-frame';
+import { beamOnAxis1AtN1, building, designAndDocument, designAndDocumentWithWorkerYields } from './span-fixture';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
@@ -280,12 +282,27 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
   }, 600_000);
 });
 
+function detailSlabColumnJoint() {
+  const beam = modelStore.elements.get(beamOnAxis1AtN1().elements[0]!)!;
+  const column = [...modelStore.elements.values()].find(member => {
+    const a = modelStore.nodes.get(member.nodeI)!;
+    const b = modelStore.nodes.get(member.nodeJ)!;
+    return a.x === b.x && a.y === b.y && [member.nodeI, member.nodeJ].some(id => id === beam.nodeI || id === beam.nodeJ);
+  });
+  expect(column, 'column at the beam joint').toBeDefined();
+  detailFrame(new Set([beam.id, column!.id]));
+}
+
 describe('the span building with each column\'s section tied to the slab (0,2 m): represented, nothing held for the joint', () => {
   it('no point joint, no notice, no memoria row, no IFC property, no open issue; the document is not held by it', async () => {
     building(0.2, { columnSide: 0.4, footprint: true });
     await yieldToEventLoop();
-    const doc = await designAndDocumentWithWorkerYields();
-    const x = await read(doc);
+    detailSlabColumnJoint();
+    await yieldToEventLoop();
+    const doc = detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' });
+    expect(doc, 'document built').toBeTruthy();
+    expect(doc!.certificates.length).toBeGreaterThan(0);
+    const x = await read(doc!);
     if (PRINT) console.log(`TIED: ${JSON.stringify(x)}`);
     expect(x.verdict).toBe('sectionRepresented');
     expect([x.pointJoints.length, x.desk.d124, x.memoria, x.ifc.joint, x.certificates, x.openIssues]).toEqual([0, 0, 0, 0, 0, 0]);
@@ -293,6 +310,27 @@ describe('the span building with each column\'s section tied to the slab (0,2 m)
     expect(x.readiness).toBe(x.readinessWithout);
   }, 300_000);
 });
+
+it.each([
+  ['synchronous', designAndDocument],
+  ['worker turn', designAndDocumentWithWorkerYields],
+  ['selected slab-column joint', detailSlabColumnJoint],
+] as const)(
+  'known wrong result: #1927 — %s exposes the frame refusal before reading the document',
+  async (_entry, build) => {
+    building(6, { columnSide: 0.4 });
+    const document = vi.spyOn(detailingStore, 'buildDocument');
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now += DEFAULT_RUN_MS + 1);
+    try {
+      await expect(async () => build()).rejects.toThrow(/design.cmd.truncated/);
+      expect(document).not.toHaveBeenCalled();
+    } finally {
+      clock.mockRestore();
+      document.mockRestore();
+    }
+  },
+);
 
 describe('qa-8: no slab, the indicator does not apply and nothing changes', () => {
   it('not applicable on every member, and the document reads what it read', async () => {

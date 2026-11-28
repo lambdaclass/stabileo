@@ -189,7 +189,7 @@ function visible<T>(src: Map<number, T>, category: ViewCategory, isHidden: (id: 
   cache.set(src, { version: hiddenVersion, out });
   return out;
 }
-export const visibleElements = () => visible(modelStore.elements, 'members', (id) => viewVisibility.isElementHidden(id));
+export const visibleElements = (elements = modelStore.elements) => visible(elements, 'members', (id) => viewVisibility.isElementHidden(id));
 export const visibleNodes = () => visible(modelStore.nodes, 'nodes', (id) => viewVisibility.isNodeHidden(id));
 export const visiblePlates = () => visible(modelStore.plates, 'shells', (id) => viewVisibility.isShellHidden(`p${id}`));
 export const visibleQuads = () => visible(modelStore.quads, 'shells', (id) => viewVisibility.isShellHidden(`q${id}`));

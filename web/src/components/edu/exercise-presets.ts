@@ -120,3 +120,17 @@ export function suggestShapes(
   }
   return [{ diagram: 'V', correct: 'constant' }, { diagram: 'M', correct: 'linear' }];
 }
+
+export const SUPPORT_TYPE_KEYS: Record<string, string> = {
+  guidedZ: 'edu.support.guidedZ',
+  guidedX: 'edu.support.guidedX',
+  fixed: 'edu.support.fixed',
+  pinned: 'edu.support.pinned',
+  rollerX: 'edu.support.rollerX',
+  rollerY: 'edu.support.rollerY',
+  rollerZ: 'edu.support.rollerY',
+  spring: 'edu.support.spring',
+};
+
+/** The types a teacher may offer for one support; springs need stiffnesses a variant cannot invent. */
+export const SUPPORT_CHOICE_TYPES = ['fixed', 'pinned', 'rollerX', 'rollerY'] as const;

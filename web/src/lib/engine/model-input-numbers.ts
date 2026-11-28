@@ -625,7 +625,7 @@ function supportAllowsPlaneInference(
   const local = isGlobal === false;
   const untagged = isGlobal === undefined;
   if (!isPlaneSupportType(type)) return false;
-  if (type === 'guidedX' && !geometryAndGlobalLoadsIdentifyPlane) return false;
+  if ((type === 'guidedX' || type === 'guidedZ') && !geometryAndGlobalLoadsIdentifyPlane) return false;
   if ((type === 'rollerY' || type === 'rollerZ') && !local && !(untagged && geometryIdentifiesPlane)) return false;
 
   return Object.entries(support).every(([field, value]) => {

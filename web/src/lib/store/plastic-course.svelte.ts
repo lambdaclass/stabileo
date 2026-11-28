@@ -55,7 +55,7 @@ function createPlasticCourse() {
   return {
     /** Called by the plastic action with what it ran. */
     remember(input: SolverInput, mp: Map<number, number>, result: PlasticCollapseResult) {
-      run = { input, mp, stamp: stampOf(result) };
+      run = result.historyUnavailable ? null : { input, mp, stamp: stampOf(result) };
       view = 'steps'; picking = false; hinges = []; combine = false; axis = null;
     },
     get ready() { return fresh() !== null; },

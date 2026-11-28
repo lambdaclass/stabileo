@@ -1,0 +1,41 @@
+{
+  "id": "education-profile-and-guides",
+  "date": "2026-11-27",
+  "prs": [
+    1927
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "educationWorkspace"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Exercise stiffness and guided supports",
+    "es": "Rigidez y apoyos guiados en ejercicios",
+    "pt": "Rigidez e apoios guiados em exercícios",
+    "de": "Steifigkeit und Führungslager in Aufgaben",
+    "fr": "Rigidité et appuis guidés des exercices",
+    "tr": "Alıştırmalarda rijitlik ve kılavuzlu mesnetler",
+    "hu": "Feladatok merevsége és vezetett támaszai",
+    "zh": "习题刚度与导向支座"
+  },
+  "explanation": {
+    "en": "Exercises use the assigned catalogue section for analysis. Planar stability checks count guided support moments.",
+    "es": "El análisis usa el perfil asignado al ejercicio. La comprobación de estabilidad plana incluye los momentos de los apoyos guiados.",
+    "pt": "A análise usa o perfil atribuído ao exercício. A verificação de estabilidade plana inclui os momentos dos apoios guiados.",
+    "de": "Die Berechnung verwendet das zugewiesene Katalogprofil. Die ebene Stabilitätsprüfung berücksichtigt Momente an Führungslagern.",
+    "fr": "Le calcul utilise le profilé attribué à l’exercice. La vérification de stabilité plane tient compte des moments des appuis guidés.",
+    "tr": "Analizde alıştırmaya atanan katalog kesiti kullanılır. Düzlemsel stabilite denetimi kılavuzlu mesnet momentlerini hesaba katar.",
+    "hu": "A számítás a feladathoz rendelt katalógusszelvényt használja. A síkbeli stabilitásvizsgálat figyelembe veszi a vezetett támaszok nyomatékait.",
+    "zh": "分析采用习题指定的型钢截面。平面稳定性检查计入导向支座的约束力矩。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-education-profile.md",
+    "heading": "Exercise stiffness and guided supports"
+  }
+}

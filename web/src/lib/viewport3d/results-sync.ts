@@ -61,20 +61,21 @@ function projectFlag(): boolean {
 export const DIAGRAM_3D_TYPES: Set<string> = new Set(['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion']);
 
 /** Build a node map projected to scene coordinates (handles 2D→XZ swap for embedded models). */
-let projectedNodesCache: { key: string; map: Map<number, { id: number; x: number; y: number; z?: number }> } | null = null;
+let projectedNodesCache: { source: typeof modelStore.nodes; key: string; map: Map<number, { id: number; x: number; y: number; z?: number }> } | null = null;
 
 function getProjectedNodes(): Map<number, { id: number; x: number; y: number; z?: number }> {
   const project2D = projectFlag();
   // Node coords only change with modelVersion — one rebuild per edit total,
   // not one per animation frame / per results publish.
   const key = `${modelStore.modelVersion}|${project2D}`;
-  if (projectedNodesCache?.key === key) return projectedNodesCache.map;
+  const source = resultsStore.screen.model?.nodes ?? modelStore.nodes;
+  if (projectedNodesCache?.key === key && projectedNodesCache.source === source) return projectedNodesCache.map;
   const projected = new Map<number, { id: number; x: number; y: number; z?: number }>();
-  for (const [id, n] of modelStore.nodes) {
+  for (const [id, n] of source) {
     const p = projectNodeToScene(n, project2D);
     projected.set(id, { id, x: p.x, y: p.y, z: p.z });
   }
-  projectedNodesCache = { key, map: projected };
+  projectedNodesCache = { key, source, map: projected };
   return projected;
 }
 
@@ -143,8 +144,7 @@ const MODE_SPAN = 0.15;
 export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): void {
   if (!ctx.initialized) return;
 
-  const dt = resultsStore.diagramType;
-  const isDeformedLike = dt === 'deformed' || dt === 'modeShape' || dt === 'bucklingMode';
+  const dt = resultsStore.screen.diagram;
   /*
    * A time-history instant takes the deformed view when the user asked to see it, and only for
    * the model it was computed on: a frame keyed by node id over an edited model would move the
@@ -155,8 +155,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
 
   // Restore element opacity when not showing deformed shape
   // A mode shape needs its own analysis, not a static solve.
-  const shapeShown = (dt === 'modeShape' && !!resultsStore.modalResult3D) || (dt === 'bucklingMode' && !!resultsStore.bucklingResult3D);
-  const showingDeformed = (resultsStore.results3D && isDeformedLike) || shapeShown || thFrame;
+  const showingDeformed = (dt === 'deformed' && resultsStore.screen.results3D) || resultsStore.screen.modeDisplacements || thFrame;
   for (const group of ctx.elementGroups.values()) {
     group.traverse((child) => {
       // Skip picking helpers, heatmap overlays and section edge outlines —
@@ -210,40 +209,17 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     scale = peak > 0 ? computeStructureBBox() * 0.15 * scale / peak : 0;
     modeColor = 0x7fd4cc; // --st-value, as mode shapes
   } else if (dt === 'deformed') {
-    const r3d = resultsStore.results3D;
+    const r3d = resultsStore.screen.results3D;
     if (!r3d) { dropDeformed(); return; }
     displacements = r3d.displacements;
     // Scale x1 = true physical deformation (1:1). No auto-amplification.
     // The user increases the scale slider to amplify if needed.
-  } else if (dt === 'modeShape') {
-    const modal = resultsStore.modalResult3D;
-    if (!modal || !modal.modes.length) { dropDeformed(); return; }
-    const mode = modal.modes[resultsStore.activeModeIndex];
+  } else if (dt === 'modeShape' || dt === 'bucklingMode') {
+    const mode = resultsStore.screen.modeDisplacements;
     if (!mode) { dropDeformed(); return; }
-    /*
-     * A mode is a shape with no physical amplitude (the eigenvector is
-     * normalized to max = 1), so its largest motion spans 15 % of the structure
-     * whatever the deformed view's scale, as the 2D view draws it at a fixed
-     * size. This used that scale divided by 100, from when it started at 100;
-     * since it starts at 1 a mode moved 0.15 % of the structure and read as
-     * standing still, and at 1000 it would span 150 %.
-     */
-    const structureSize = computeStructureBBox();
-    const modeScale = structureSize * MODE_SPAN;
-    scale = modeScale * Math.sin(performance.now() / 500);
-    displacements = mode.displacements;
-    modeColor = 0x7fd4cc; // --st-value
-  } else if (dt === 'bucklingMode') {
-    const buckling = resultsStore.bucklingResult3D;
-    if (!buckling || !buckling.modes.length) { dropDeformed(); return; }
-    const mode = buckling.modes[resultsStore.activeBucklingMode];
-    if (!mode) { dropDeformed(); return; }
-    // As a mode shape: 15 % of the structure.
-    const structureSize = computeStructureBBox();
-    const modeScale = structureSize * MODE_SPAN;
-    scale = modeScale * Math.sin(performance.now() / 500);
-    displacements = mode.displacements;
-    modeColor = 0xd9a441; // --st-warn
+    scale = computeStructureBBox() * MODE_SPAN * Math.sin(performance.now() / 500);
+    displacements = mode;
+    modeColor = dt === 'modeShape' ? 0x7fd4cc : 0xd9a441;
   } else {
     // Any other diagram — including 'none' after a model swap.
     dropDeformed();
@@ -256,7 +232,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   // carries preallocated base/displacement buffers and a setScale() that
   // rewrites positions without rebuilding any geometry (previously every
   // animation frame disposed and recreated the whole group per element).
-  const r3d = resultsStore.results3D;
+  const r3d = resultsStore.screen.results3D;
   const sigDisp = displacements;
   // A time-history frame is a shape, like a mode: the static solve's forces do not belong to it.
   const staticDeformed = dt === 'deformed' && !thFrame;
@@ -289,21 +265,21 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   let eiMap: Map<number, ElementEI> | undefined;
   if (staticDeformed && exact) {
     eiMap = new Map<number, ElementEI>();
-    for (const [id, elem] of modelStore.elements) {
-      const ei = eiOf(modelStore.materials.get(elem.materialId), modelStore.sections.get(elem.sectionId), modelStore.analysis);
+    for (const [id, elem] of (resultsStore.screen.model?.elements ?? modelStore.elements)) {
+      const ei = eiOf((resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId), (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId), resultsStore.screen.model?.analysis ?? modelStore.analysis);
       if (ei) eiMap.set(id, ei);
     }
   }
 
   ctx.deformedGroup = createDeformedLines(
-    visibleElements(),
+    visibleElements(resultsStore.screen.model?.elements),
     getProjectedNodes(),
     displacements,
     staticDeformed && exact && r3d ? r3d.elementForces : [],
     scale,
     eiMap,
     sigHand,
-    modelStore.sections,
+    resultsStore.screen.model?.sections ?? modelStore.sections,
   );
   if (modeColor !== null) {
     ctx.deformedGroup.userData.material.color.setHex(modeColor);
@@ -393,8 +369,8 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     ctx.overlayDiagramGroup = null;
   }
 
-  const r3d = resultsStore.results3D;
-  const dt = resultsStore.diagramType;
+  const r3d = resultsStore.screen.results3D;
+  const dt = resultsStore.screen.diagram;
   publishDiagramState(0);
   if (!r3d || !DIAGRAM_3D_TYPES.has(dt)) return;
 
@@ -403,20 +379,20 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
   const projectedNodes = getProjectedNodes();
 
   // Check if envelope dual curves should be rendered
-  const isEnvelope = resultsStore.isEnvelopeActive && resultsStore.fullEnvelope3D;
+  const isEnvelope = resultsStore.screen.envelopeActive && resultsStore.screen.fullEnvelope3D;
   if (isEnvelope) {
-    const envData = resultsStore.fullEnvelope3D!;
+    const envData = resultsStore.screen.fullEnvelope3D!;
     const envDiagram = envData[kind as keyof typeof envData] as import('../engine/types-3d').EnvelopeDiagramData3D | undefined;
     if (envDiagram && 'elements' in envDiagram) {
       ctx.diagramGroup = createEnvelopeDiagramGroup3D(
-        visibleElements(),
+        visibleElements(resultsStore.screen.model?.elements),
         projectedNodes,
         envDiagram,
         kind,
         resultsStore.diagramScale,
         resultsStore.showDiagramValues,
         leftHand,
-        modelStore.sections,
+        resultsStore.screen.model?.sections ?? modelStore.sections,
         resultsStore.drawPositiveTowardLocalAxes,
         uiStore.unitSystem,
       );
@@ -425,14 +401,14 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
   } else {
     // Normal single diagram
     ctx.diagramGroup = createDiagramGroup3D(
-      visibleElements(),
+      visibleElements(resultsStore.screen.model?.elements),
       projectedNodes,
       r3d.elementForces,
       kind,
       resultsStore.diagramScale,
       resultsStore.showDiagramValues,
       leftHand,
-      modelStore.sections,
+      resultsStore.screen.model?.sections ?? modelStore.sections,
       resultsStore.drawPositiveTowardLocalAxes,
       uiStore.unitSystem,
     );
@@ -440,17 +416,17 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     publishDiagramState(ctx.diagramGroup.children.length);
 
     // Overlay diagram (comparison)
-    const overlay3D = resultsStore.overlayResults3D;
+    const overlay3D = resultsStore.screen.overlayResults3D;
     if (overlay3D) {
       ctx.overlayDiagramGroup = createDiagramGroup3D(
-        visibleElements(),
+        visibleElements(resultsStore.screen.model?.elements),
         projectedNodes,
         overlay3D.elementForces,
         kind,
         resultsStore.diagramScale,
         false, // don't show values on overlay to avoid clutter
         leftHand,
-        modelStore.sections,
+        resultsStore.screen.model?.sections ?? modelStore.sections,
         resultsStore.drawPositiveTowardLocalAxes,
       );
       // Tint overlay with orange color
@@ -475,8 +451,8 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
 export function syncColorMap3D(ctx: ResultsSyncContext): void {
   if (!ctx.initialized) return;
 
-  const r3d = resultsStore.results3D;
-  const dt = resultsStore.diagramType;
+  const r3d = resultsStore.screen.results3D;
+  const dt = resultsStore.screen.diagram;
   const wireframe = uiStore.renderMode3D === 'wireframe';
   const eb = ctx.elementsBatched;
 
@@ -629,7 +605,7 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
     ctx.verificationLabelsGroup = null;
   }
 
-  if (resultsStore.diagramType !== 'verification') return;
+  if (resultsStore.screen.diagram !== 'verification') return;
   if (!verificationStore.hasResults && !verificationStore.hasDemandData) return;
 
   const project2D = projectFlag();
@@ -728,11 +704,11 @@ function resetShellGroup(group: THREE.Group): void {
 
 /** Build section props for an element */
 export function getSectionProps(elemId: number) {
-  const elem = modelStore.elements.get(elemId);
+  const elem = (resultsStore.screen.model?.elements ?? modelStore.elements).get(elemId);
   if (!elem) return null;
-  const sec = modelStore.sections.get(elem.sectionId);
+  const sec = (resultsStore.screen.model?.sections ?? modelStore.sections).get(elem.sectionId);
   if (!sec) return null;
-  const mat = modelStore.materials.get(elem.materialId);
+  const mat = (resultsStore.screen.model?.materials ?? modelStore.materials).get(elem.materialId);
   return {
     A: sec.a,
     Iz: sec.iz,
@@ -904,7 +880,7 @@ function applyFrameHeatmap(
  */
 function applyShellContour(
   ctx: ResultsSyncContext,
-  r3d: NonNullable<typeof resultsStore.results3D>,
+  r3d: NonNullable<typeof resultsStore.screen.results3D>,
 ): void {
   const field = currentShellContourField(r3d);
   if (!field) { ctx.shellOverlayGroup = replaceShellOverlay(ctx.resultsParent, ctx.shellOverlayGroup, null); return; }
@@ -978,9 +954,9 @@ export function syncReactions(ctx: ResultsSyncContext): void {
     ctx.reactionGroup = null;
   }
 
-  const r3d = resultsStore.results3D;
+  const r3d = resultsStore.screen.results3D;
   // In despiece the free-body overlay draws each reaction ONCE — don't double them.
-  if (!r3d || !resultsStore.showReactions || resultsStore.diagramType === 'despiece') return;
+  if (!r3d || !resultsStore.screen.showReactions || resultsStore.screen.diagram === 'despiece') return;
 
   const project2D = projectFlag();
 

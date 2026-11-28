@@ -128,6 +128,20 @@ describe('the auth store', () => {
     expect(storage.get('stabileo-refresh-token')).toBe('refresh-1');
   });
 
+  it('a second init while the first is still restoring the session waits for that same restore', async () => {
+    storage.set('stabileo-refresh-token', 'refresh-0');
+    const { authStore } = await load();
+    on('GET /config', () => json(200, { user_login_enabled: true }));
+    on('POST /refresh', () => json(200, session(1)));
+
+    const first = authStore.ready();
+    const second = authStore.init();
+    await second;
+    expect(authStore.status).toBe('authenticated');
+    await first;
+    expect(seen.map((s) => s.route)).toEqual(['GET /config', 'POST /refresh']);
+  });
+
   it('init without a stored token only reads /config', async () => {
     const { authStore } = await load();
     on('GET /config', () => json(200, { user_login_enabled: true }));
@@ -455,11 +469,13 @@ describe('consents and server switches', () => {
 
   it('reads the server switches and the terms version from /config', async () => {
     const { authStore } = await load();
-    on('GET /config', () => json(200, { user_login_enabled: true, terms_version: '2026-10-27', usage_telemetry_enabled: true, cloud_projects_enabled: false }));
+    on('GET /config', () => json(200, { user_login_enabled: true, terms_version: '2026-10-27', usage_telemetry_enabled: true, cloud_projects_enabled: false, assignments_enabled: true }));
     await authStore.init();
+    await authStore.ready();
     expect(authStore.termsVersion).toBe('2026-10-27');
     expect(authStore.usageTelemetryEnabled).toBe(true);
     expect(authStore.cloudProjectsEnabled).toBe(false);
+    expect(authStore.assignmentsEnabled).toBe(true);
   });
 
   it('switches read off when /config is unreachable', async () => {
@@ -468,6 +484,7 @@ describe('consents and server switches', () => {
     await authStore.init();
     expect(authStore.usageTelemetryEnabled).toBe(false);
     expect(authStore.cloudProjectsEnabled).toBe(false);
+    expect(authStore.assignmentsEnabled).toBe(false);
     expect(authStore.saveRequiresAccount).toBe(false);
     expect(authStore.editorRequiresAccount).toBe(false);
     expect(authStore.termsVersion).toBeNull();
@@ -637,4 +654,20 @@ describe('consents and server switches', () => {
       expect(authStore.googleLogin).toBe(true);
     });
   });
+});
+
+it.each(['config', 'refresh'])('known wrong result: #1927 — review retries an unavailable %s on ready', async failed => {
+  storage.set('stabileo-refresh-token', 'refresh-0');
+  const { authStore } = await load();
+  const config = () => json(200, { user_login_enabled: true });
+  const refresh = () => json(200, session(1));
+  const unavailable = () => json(503, {});
+  on('GET /config', failed === 'config' ? unavailable : config, config);
+  on('POST /refresh', failed === 'refresh' ? unavailable : refresh, refresh);
+  await authStore.init();
+  expect(authStore.status).not.toBe('loading');
+  await Promise.all([authStore.ready(), authStore.ready()]);
+  expect(authStore.configKnown).toBe(true);
+  expect(authStore.isAuthenticated).toBe(true);
+  expect(seen.filter(r => r.route === 'GET /config')).toHaveLength(2);
 });

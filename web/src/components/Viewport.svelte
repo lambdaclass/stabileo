@@ -165,8 +165,8 @@
 
   // Clear diagram query/hover when results or diagram type changes
   $effect(() => {
-    resultsStore.diagramType;
-    resultsStore.results;
+    resultsStore.screen.diagram;
+    resultsStore.screen.results;
     diagramQuery = null;
     diagramHover = null;
   });
@@ -190,7 +190,7 @@
 
   /** Get a node projected to the current 2D drawing plane. */
   function getProjectedNode(id: number) {
-    const n = modelStore.getNode(id);
+    const n = modelForFrame().nodes.get(id);
     return n ? project2DNode(n) : undefined;
   }
 
@@ -210,11 +210,17 @@
    * screen shows. Outside an export they read the stores, as before.
    */
   let exportFrame: ExportFrame | null = null;
-  const dtNow = () => (exportFrame ? diagramFor(exportFrame.content) : resultsStore.diagramType);
+  const dtNow = () => (exportFrame ? diagramFor(exportFrame.content) : resultsStore.screen.diagram);
+  const resNow = () => (exportFrame ? resultsStore.results : resultsStore.screen.results);
+  const forcesForFrame = (id: number) => resNow()?.elementForces.find(f => f.elementId === id);
+  const displacementForFrame = (id: number) => resNow()?.displacements.find(d => d.nodeId === id);
+  const screenModel = $derived(resultsStore.screen.model ?? modelStore.model);
+  const modelForFrame = () => exportFrame ? modelStore.model : screenModel;
+  const HELD_DIM_MS = 250;
   const valuesNow = () => (exportFrame ? exportFrame.options.values : resultsStore.showDiagramValues);
   const reactionsNow = () => (exportFrame
     ? exportFrame.content === 'reactions' || exportFrame.content === 'despiece'
-    : resultsStore.showReactions);
+    : resultsStore.screen.showReactions);
   const nodeLabelsNow = () => (exportFrame ? exportFrame.options.numbering : uiStore.showNodeLabels);
   /**
    * The deformed shape in a figure: at the reader's scale when they set one, otherwise drawn so
@@ -263,10 +269,9 @@
     const wasAnimating = animating;
     animating =
       (resultsStore.ilAnimating && !!resultsStore.influenceLine) ||
-      (resultsStore.animateDeformed && resultsStore.diagramType === 'deformed' && !!resultsStore.results) ||
-      (resultsStore.diagramType === 'modeShape' && !!resultsStore.modalResult) ||
-      (resultsStore.diagramType === 'bucklingMode' && !!resultsStore.bucklingResult) ||
-      (resultsStore.diagramType === 'despiece' && !!resultsStore.results && (performance.now() - despieceStart) < DESPIECE_ANIM_MS);
+      (resultsStore.animateDeformed && dtNow() === 'deformed' && !!resNow()) ||
+      !!resultsStore.screen.planarMode ||
+      (dtNow() === 'despiece' && !!resNow() && (performance.now() - despieceStart) < DESPIECE_ANIM_MS);
     // If we just became animating, kick the loop
     if ((animating || uiStore.continuousRendering) && !wasAnimating && rafId === null) {
       rafId = requestAnimationFrame(drawOnce);
@@ -284,9 +289,17 @@
 
   // Results changes
   $effect(() => { resultsStore.results; resultsStore.diagramType; invalidate(); });
+  $effect(() => {
+    resultsStore.screen.results; resultsStore.screen.diagram; resultsStore.screen.showReactions;
+    const held = resultsStore.screen.held;
+    invalidate();
+    if (!held) return;
+    const dim = setTimeout(invalidate, HELD_DIM_MS + 20);
+    return () => clearTimeout(dim);
+  });
   // Despiece: restart the pull-apart animation whenever the view (re)activates.
   $effect(() => {
-    if (resultsStore.diagramType === 'despiece') {
+    if (resultsStore.screen.diagram === 'despiece') {
       despieceStart = performance.now();
       updateAnimating();
       invalidate();
@@ -337,7 +350,7 @@
   $effect(() => { uiStore.showNodeLabels; uiStore.showElementLabels; uiStore.showLengths; invalidate(); });
   $effect(() => { uiStore.elementColorMode; invalidate(); });
   // Each member's group, only while colouring by group.
-  const memberGroups = $derived(uiStore.elementColorMode === 'byGroup' ? firstGroupIndex([...modelStore.model.groups.values()].filter((g) => g.kind !== 'floorLoad')) : null);
+  const memberGroups = $derived(uiStore.elementColorMode === 'byGroup' ? firstGroupIndex([...screenModel.groups.values()].filter((g) => g.kind !== 'floorLoad')) : null);
   $effect(() => { void memberGroups; invalidate(); });
   $effect(() => { uiStore.localAxesMode3D; uiStore.elementSelectionManual; invalidate(); });
   $effect(() => { uiStore.hideLoadsWithDiagram; invalidate(); });
@@ -372,21 +385,22 @@
 
   // Draw context helper for canvas renderers
   function makeDrawContext() {
+    const drawnModel = modelForFrame();
     return {
       ctx: ctx!,
       worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-      getNode: (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; },
+      getNode: (id: number) => { const n = drawnModel.nodes.get(id); return n ? project2DNode(n) : undefined; },
       // A hidden member is not drawn: no diagram, no deformed shape, no loads on it.
       getElement: (id: number) => {
-        const elem = viewVisibility.isElementHidden(id) ? undefined : modelStore.elements.get(id);
+        const elem = viewVisibility.isElementHidden(id) ? undefined : drawnModel.elements.get(id);
         return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId, type: elem.type } : undefined;
       },
       getMaterial: (id: number) => {
-        const mat = modelStore.materials.get(id);
+        const mat = drawnModel.materials.get(id);
         return mat ? { e: mat.e } : undefined;
       },
       getSection: (id: number) => {
-        const sec = modelStore.sections.get(id);
+        const sec = drawnModel.sections.get(id);
         // 2D bending uses effective inertia (accounts for section rotation via Mohr)
         return sec ? { iz: effectiveBendingInertia(sec) } : undefined;
       },
@@ -421,10 +435,11 @@
    * tail and running straight through the node it was applied to.
    */
   function memberScreenSegments(): { x1: number; y1: number; x2: number; y2: number }[] {
+    const drawnModel = modelForFrame();
     const segs: { x1: number; y1: number; x2: number; y2: number }[] = [];
-    for (const el of modelStore.elements.values()) {
-      const a = modelStore.getNode(el.nodeI);
-      const b = modelStore.getNode(el.nodeJ);
+    for (const el of drawnModel.elements.values()) {
+      const a = drawnModel.nodes.get(el.nodeI);
+      const b = drawnModel.nodes.get(el.nodeJ);
       if (!a || !b) continue;
       const pa = project2DNode(a);
       const pb = project2DNode(b);
@@ -433,7 +448,7 @@
       segs.push({ x1: sa.x, y1: sa.y, x2: sb.x, y2: sb.y });
     }
     if (nodeLabelsNow()) {
-      for (const n of modelStore.nodes.values()) {
+      for (const n of drawnModel.nodes.values()) {
         const pn = project2DNode(n);
         const s = uiStore.worldToScreen(pn.x, pn.y);
         segs.push({ x1: s.x, y1: s.y - 12, x2: s.x + 14, y2: s.y + 2 });
@@ -464,7 +479,7 @@
   onMount(() => {
     const unregisterFigures = registerFigure2D({
       render: renderExportFrame,
-      nodes: () => [...modelStore.nodes.values()].filter((n) => !viewVisibility.isNodeHidden(n.id)).map((n) => project2DNode(n)),
+      nodes: () => [...modelStore.model.nodes.values()].filter((n) => !viewVisibility.isNodeHidden(n.id)).map((n) => project2DNode(n)),
     });
     ctx = canvas.getContext('2d')!;
     // Text on the drawing follows the reader's label size (Settings › Model).
@@ -484,7 +499,7 @@
 
     // Listen for zoom-to-fit events (same mechanism as Viewport3D)
     const handleZoomToFitEvent = (retries = 3) => {
-      if (modelStore.nodes.size === 0) return;
+      if (modelStore.model.nodes.size === 0) return;
       /*
        * Wait for the canvas to have its final size before framing against it.
        *
@@ -505,7 +520,7 @@
         requestAnimationFrame(() => handleZoomToFitEvent(retries - 1));
         return;
       }
-      const projected = [...modelStore.nodes.values()].map(n => project2DNode(n));
+      const projected = [...modelStore.model.nodes.values()].map(n => project2DNode(n));
       uiStore.zoomToFit(projected, canvas.width, canvas.height);
       invalidate();
     };
@@ -519,21 +534,21 @@
     const onZoomToSelection = () => {
       const ids = new Set<number>(uiStore.selectedNodes);
       for (const id of uiStore.selectedElements) {
-        const e = modelStore.elements.get(id);
+        const e = modelStore.model.elements.get(id);
         if (e) { ids.add(e.nodeI); ids.add(e.nodeJ); }
       }
       for (const id of uiStore.selectedSupports) {
-        const sup = modelStore.supports.get(id);
+        const sup = modelStore.model.supports.get(id);
         if (sup) ids.add(sup.nodeId);
       }
-      for (const load of modelStore.loads) {
+      for (const load of modelStore.model.loads) {
         if (!uiStore.selectedLoads.has(load.data.id)) continue;
         const d = load.data as { nodeId?: number; elementId?: number };
         if (d.nodeId !== undefined) ids.add(d.nodeId);
-        const e = d.elementId !== undefined ? modelStore.elements.get(d.elementId) : undefined;
+        const e = d.elementId !== undefined ? modelStore.model.elements.get(d.elementId) : undefined;
         if (e) { ids.add(e.nodeI); ids.add(e.nodeJ); }
       }
-      const pts = [...ids].map((id) => modelStore.getNode(id)).filter((n) => !!n).map((n) => project2DNode(n!));
+      const pts = [...ids].map((id) => modelStore.model.nodes.get(id)).filter((n) => !!n).map((n) => project2DNode(n!));
       if (!pts.length) return;
       uiStore.zoomToFit(pts, canvas.width, canvas.height);
       invalidate();
@@ -568,7 +583,15 @@
   let lastFrameTime = 0;
 
   function draw() {
+    const drawnModel = modelForFrame();
     if (!ctx) return;
+    const shown = resNow();
+    const probe = import.meta.env.VITE_E2E === '1' && !exportFrame && new URLSearchParams(location.search).has('e2e');
+    if (probe) {
+      canvas.dataset.paintedDiagram = 'none';
+      delete canvas.dataset.paintedMoment;
+      canvas.dataset.paintedHold = String(resultsStore.screen.held);
+    }
 
     /*
      * Every frame starts from the canvas's own text and compositing defaults.
@@ -604,6 +627,7 @@
 
     // Advance IL animation
     const now = performance.now();
+    const resultOpacity = resultsStore.screen.held && !exportFrame && now - resultsStore.screen.heldSince > HELD_DIM_MS ? 0.45 : 1;
     if (resultsStore.ilAnimating && resultsStore.influenceLine && lastFrameTime > 0) {
       const dt = (now - lastFrameTime) / 1000; // seconds
       const speed = resultsStore.ilAnimSpeed * 0.3; // base: ~3.3s to traverse
@@ -638,10 +662,10 @@
     const colorMapOverrides = new Map<number, string>();
     // The value behind each member's colour, for its label when values are shown.
     let colorMapValues: { values: Map<number, number>; kind: string } | null = null;
-    if (resultsStore.results && dtNow() === 'axialColor') {
+    if (shown && dtNow() === 'axialColor') {
       // Axial color: blue = compression, red = tension, intensity by magnitude
       let globalMaxN = 0;
-      for (const ef of resultsStore.results.elementForces) {
+      for (const ef of shown.elementForces) {
         const absN = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
         if (absN > globalMaxN) globalMaxN = absN;
       }
@@ -668,7 +692,7 @@
           const g = (i: number, base: number) => Math.round(rgb[i] * n + base * (1 - n));
           return `rgb(${g(0, 143)},${g(1, 163)},${g(2, 179)})`;
         };
-        for (const ef of resultsStore.results.elementForces) {
+        for (const ef of shown.elementForces) {
           const avgN = (ef.nStart + ef.nEnd) / 2;
           const intensity = Math.min(Math.abs(avgN) / globalMaxN, 1.0);
           if (avgN > 0.001) {
@@ -680,17 +704,17 @@
           }
         }
       }
-    } else if (resultsStore.results && dtNow() === 'colorMap') {
+    } else if (shown && dtNow() === 'colorMap') {
       const kind = resultsStore.colorMapKind;
       let globalMax = 0;
       const elemMaxes = new Map<number, number>();
 
       if (kind === 'stressRatio' || kind === 'vonMises' || kind === 'sigmaMax' || kind === 'tauMax') {
-        for (const ef of resultsStore.results.elementForces) {
-          const elem = modelStore.elements.get(ef.elementId);
+        for (const ef of shown.elementForces) {
+          const elem = drawnModel.elements.get(ef.elementId);
           if (!elem) continue;
-          const sec = modelStore.sections.get(elem.sectionId);
-          const mat = modelStore.materials.get(elem.materialId);
+          const sec = drawnModel.sections.get(elem.sectionId);
+          const mat = drawnModel.materials.get(elem.materialId);
           /*
            * `fy` is required by the RATIO alone — it is the denominator. Von
            * Mises, the normal stress and the shear stress are absolute
@@ -710,7 +734,7 @@
         }
         if (kind === 'stressRatio') globalMax = 1.0; // fixed scale: 0% → 100%+ of fy
       } else {
-        for (const ef of resultsStore.results.elementForces) {
+        for (const ef of shown.elementForces) {
           /*
            * A 2D frame has one bending axis and one shear, so the 3D names for
            * them land on the same two quantities. Accepting both spellings
@@ -755,7 +779,7 @@
 
     // Pre-compute bar count per node (for hinge offset logic)
     const nodeBarCount = new Map<number, number>();
-    for (const elem of modelStore.elements.values()) {
+    for (const elem of drawnModel.elements.values()) {
       nodeBarCount.set(elem.nodeI, (nodeBarCount.get(elem.nodeI) ?? 0) + 1);
       nodeBarCount.set(elem.nodeJ, (nodeBarCount.get(elem.nodeJ) ?? 0) + 1);
     }
@@ -764,18 +788,24 @@
     // own separated solid members + ghost remnants; the full member would
     // otherwise show through under the dashed remnant).
     if (dtNow() !== 'despiece') {
-      for (const elem of modelStore.elements.values()) {
+      for (const elem of drawnModel.elements.values()) {
         if (viewVisibility.isElementHidden(elem.id)) continue;
-        drawElement(elem, colorMapOverrides.get(elem.id), nodeBarCount);
+        const color = colorMapOverrides.get(elem.id);
+        ctx.globalAlpha = color ? resultOpacity : 1;
+        drawElement(elem, color, nodeBarCount);
       }
     }
+
+    ctx.globalAlpha = 1;
 
     // Member local axes (Basic 2D): one unified "Local axes" setting (localAxesMode3D).
     if (!exportFrame) drawLocalAxes2D();
 
+    ctx.globalAlpha = resultOpacity;
+
     // Draw axial value labels when axialColor mode is active
-    if (resultsStore.results && dtNow() === 'axialColor') {
-      for (const ef of resultsStore.results.elementForces) {
+    if (shown && dtNow() === 'axialColor') {
+      for (const ef of shown.elementForces) {
         const avgN = (ef.nStart + ef.nEnd) / 2;
         if (Math.abs(avgN) < 0.001) continue;
         const sign = avgN > 0 ? '+' : '';
@@ -803,14 +833,16 @@
       }
     }
 
+    ctx.globalAlpha = 1;
+
     // Draw supports, unless the reader turned them off or hid their node
-    if (uiStore.showSupports) for (const sup of modelStore.supports.values()) {
+    if (uiStore.showSupports) for (const sup of drawnModel.supports.values()) {
       if (viewVisibility.isNodeHidden(sup.nodeId)) continue;
       drawSupport(sup);
     }
 
     // Compute effective load visibility
-    const diagramActive = !!(resultsStore.results && dtNow() !== 'none');
+    const diagramActive = !!(shown && dtNow() !== 'none');
     const loadsVisible = exportFrame
       ? exportFrame.options.loads && (exportFrame.content === 'model' || exportFrame.content === 'reactions')
       : uiStore.showLoads && !(uiStore.hideLoadsWithDiagram && diagramActive);
@@ -819,7 +851,7 @@
     if (loadsVisible) {
     // A load is hidden with the node or member it stands on.
     // A reaction figure must carry the same applied loads as its selected result.
-    const figureLoads = exportFrame?.content === 'reactions' ? displayedLoads2D() : modelStore.loads;
+    const figureLoads = exportFrame?.content === 'reactions' ? displayedLoads2D() : drawnModel.loads;
     const shownLoads = viewVisibility.active ? figureLoads.filter((l) => !isLoadHidden(l.data as never)) : figureLoads;
 
     // Draw nodal loads (grouped by node for stacked labels)
@@ -837,7 +869,7 @@
           const caseId = (ld.data as any).caseId ?? 1;
           drawNodalLoad(
             ld,
-            modelStore.getLoadCaseColor(caseId),
+            modelStore.getLoadCaseColor(caseId, drawnModel.loadCases),
             caseLabel(caseId),
             currentFrameLabels!,
           );
@@ -856,7 +888,7 @@
             elementId: d.elementId, qI: d.qI, qJ: d.qJ,
             angle: d.angle, isGlobal: d.isGlobal,
             a: d.a, b: d.b,
-            caseColor: modelStore.getLoadCaseColor(caseId),
+            caseColor: modelStore.getLoadCaseColor(caseId, drawnModel.loadCases),
             caseName: caseLabel(caseId),
           };
         });
@@ -886,7 +918,7 @@
             elementId: d.elementId, a: d.a, p: d.p,
             px: d.px, my: d.my ?? d.mz,
             angle: d.angle, isGlobal: d.isGlobal,
-            caseColor: modelStore.getLoadCaseColor(caseId),
+            caseColor: modelStore.getLoadCaseColor(caseId, drawnModel.loadCases),
             caseName: caseLabel(caseId),
           };
         });
@@ -923,7 +955,7 @@
           pos.refPosition,
           env.train,
           env.path,
-          (id: number) => modelStore.getNode(id),
+          (id: number) => drawnModel.nodes.get(id),
         );
         if (axlePositions.length > 0) {
           drawMovingLoadAxles(axlePositions, makeDrawContext());
@@ -934,18 +966,18 @@
     // Draw selected load highlights
     if (!exportFrame && uiStore.selectedLoads.size > 0) {
       for (const loadId of uiStore.selectedLoads) {
-        const load = modelStore.model.loads.find(l => l.data.id === loadId);
+        const load = drawnModel.loads.find(l => l.data.id === loadId);
         if (!load) continue;
         let hx = 0, hy = 0;
         if (load.type === 'nodal') {
           const d = load.data as { nodeId: number };
-          const node = modelStore.getNode(d.nodeId);
+          const node = drawnModel.nodes.get(d.nodeId);
           if (!node) continue;
           const pn = project2DNode(node);
           hx = pn.x; hy = pn.y;
         } else {
           const d = load.data as { elementId: number; a?: number };
-          const elem = modelStore.elements.get(d.elementId);
+          const elem = drawnModel.elements.get(d.elementId);
           if (!elem) continue;
           const ni = getProjectedNode(elem.nodeI);
           const nj = getProjectedNode(elem.nodeJ);
@@ -976,7 +1008,7 @@
     }
 
     // Draw nodes (projected to current 2D drawing plane)
-    for (const node of modelStore.nodes.values()) {
+    for (const node of drawnModel.nodes.values()) {
       if (viewVisibility.isNodeHidden(node.id)) continue;
       drawNode(project2DNode(node));
     }
@@ -1153,32 +1185,15 @@
      * modes, listed them, and left the structure standing still.
      */
     const mdt = dtNow();
-    if (mdt === 'modeShape' && resultsStore.modalResult) {
-      const mode = resultsStore.modalResult.modes[resultsStore.activeModeIndex];
-      if (mode) {
-        const animScale = 50 / uiStore.zoom * Math.sin(performance.now() / 500);
-        const mdc = {
-          ctx,
-          worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-          nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
-          elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
-        };
-        drawModeShape(mode.displacements, mdc, uiStore.zoom, animScale, '#4ecdc4');
-      }
-    } else if (mdt === 'bucklingMode' && resultsStore.bucklingResult) {
-      const mode = resultsStore.bucklingResult.modes[resultsStore.activeBucklingMode];
-      if (mode) {
-        const animScale = 50 / uiStore.zoom * Math.sin(performance.now() / 500);
-        const mdc = {
-          ctx,
-          worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-          ...modeDrawGeometry(resultsStore.bucklingResult, {
-            nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
-            elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
-          }),
-        };
-        drawModeShape(mode.displacements, mdc, uiStore.zoom, animScale, '#e96941');
-      }
+    const mode = resultsStore.screen.planarMode;
+    if (mode && (mdt === 'modeShape' || mdt === 'bucklingMode')) {
+      const animScale = 50 / uiStore.zoom * Math.sin(performance.now() / 500);
+      const mdc = {
+        ctx,
+        worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
+        ...modeDrawGeometry(mode.result, drawnModel),
+      };
+      drawModeShape(mode.displacements, mdc, uiStore.zoom, animScale, mdt === 'modeShape' ? '#4ecdc4' : '#e96941');
     }
 
     /*
@@ -1186,12 +1201,13 @@
      * was drawn only inside the results below, so on a model not yet calculated a click computed
      * the line, said so, and showed nothing.
      */
-    if (!resultsStore.results && dtNow() === 'influenceLine' && resultsStore.influenceLine) {
+    if (!shown && dtNow() === 'influenceLine' && resultsStore.influenceLine) {
       drawInfluenceLine(resultsStore.influenceLine, makeDrawContext(), uiStore.zoom, resultsStore.ilAnimating ? resultsStore.ilAnimProgress : undefined);
     }
 
     // Draw results
-    if (resultsStore.results) {
+    if (shown) {
+      ctx.globalAlpha = resultOpacity;
       const dt = dtNow();
       setDiagramUnitSystem(uiStore.unitSystem);
 
@@ -1200,7 +1216,7 @@
         const animScale = resultsStore.animateDeformed && !exportFrame
           ? scale * Math.sin(performance.now() / (500 / resultsStore.animSpeed))
           : scale;
-        drawDeformed(resultsStore.results, makeDrawContext(), uiStore.zoom, animScale);
+        drawDeformed(shown, makeDrawContext(), uiStore.zoom, animScale);
         drawDeformedValues(animScale);
       } else if (dt === 'despiece') {
         // Member free-body / "despiece": pull members off their joints (animated)
@@ -1211,14 +1227,14 @@
         const fbNote = despieceNote2D();
         const fbActs = despieceDrawsActions(fbNote);
         const reactions = new Map<number, { rx: number; rz: number; my: number }>();
-        for (const sup of modelStore.supports.values()) {
-          const r = resultsStore.getReaction(sup.nodeId);
+        for (const sup of drawnModel.supports.values()) {
+          const r = shown.reactions.find(r => r.nodeId === sup.nodeId);
           if (r) reactions.set(sup.nodeId, { rx: r.rx, rz: r.rz, my: r.my });
         }
-        const despieceElements = [...modelStore.elements.values()].map(e => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ }));
-        const despieceNode = (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; };
+        const despieceElements = [...drawnModel.elements.values()].map(e => ({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ }));
+        const despieceNode = (id: number) => { const n = drawnModel.nodes.get(id); return n ? project2DNode(n) : undefined; };
         const despieceForces = (id: number) => {
-          const f = resultsStore.getElementForces(id);
+          const f = shown.elementForces.find(f => f.elementId === id);
           return f ? { elementId: f.elementId, nStart: f.nStart, nEnd: f.nEnd, vStart: f.vStart, vEnd: f.vEnd, mStart: f.mStart, mEnd: f.mEnd } : undefined;
         };
         // One free-body drawing for the screen and the figures (`canvas/free-body.ts`): pieces cut
@@ -1301,7 +1317,7 @@
               if (Math.abs(m) > 1e-9) drawMomentSymbol(ctx!, s.x, s.y, m, LOAD, 16 * vSize);
             } else if (load.type === 'distributed' || load.type === 'pointOnElement') {
               const d = load.data as { elementId: number; qI?: number; qJ?: number; a?: number; b?: number; p?: number; px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean };
-              const el = modelStore.elements.get(d.elementId); if (!el) continue;
+              const el = drawnModel.elements.get(d.elementId); if (!el) continue;
               const ni = baseCtx.getNode(el.nodeI), nj = baseCtx.getNode(el.nodeJ); if (!ni || !nj) continue;
               const span = fbSpan(el.id, ni, nj);
               const elemCtx = { ...baseCtx, getNode: (id: number) => id === el.nodeI ? span.aI : id === el.nodeJ ? span.aJ : baseCtx.getNode(id) };
@@ -1363,12 +1379,20 @@
         });
       } else if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
         const dkind = dt as DiagramKind;
+        const painted = probe ? {
+          onDiagramPainted: (d: { maxAbsValue: number }) => {
+            canvas.dataset.paintedDiagram = dkind;
+            if (dkind === 'moment') canvas.dataset.paintedMoment = String(Math.max(
+              Number(canvas.dataset.paintedMoment ?? 0), Math.abs(d.maxAbsValue),
+            ));
+          },
+        } : {};
         // Check if we should render envelope dual curves
-        const showEnvelopeDual = (resultsStore.isEnvelopeActive || resultsStore.movingLoadShowEnvelope) && (
-          resultsStore.isEnvelopeActive ? resultsStore.fullEnvelope : resultsStore.movingLoadEnvelope?.fullEnvelope
+        const showEnvelopeDual = (resultsStore.screen.envelopeActive || resultsStore.movingLoadShowEnvelope) && (
+          resultsStore.screen.envelopeActive ? resultsStore.screen.fullEnvelope : resultsStore.movingLoadEnvelope?.fullEnvelope
         );
         if (showEnvelopeDual) {
-          const envSrc = resultsStore.isEnvelopeActive ? resultsStore.fullEnvelope! : resultsStore.movingLoadEnvelope!.fullEnvelope!;
+          const envSrc = resultsStore.screen.envelopeActive ? resultsStore.screen.fullEnvelope! : resultsStore.movingLoadEnvelope!.fullEnvelope!;
           const envData = dkind === 'moment' ? envSrc.moment
                         : dkind === 'shear'  ? envSrc.shear
                         :                       envSrc.axial;
@@ -1397,16 +1421,16 @@
             if (resultsStore.overlayResults && !exportFrame) {
               // Compute shared globalMax so both diagrams use the same scale
               const sharedMax = Math.max(
-                computeDiagramGlobalMax(resultsStore.results, dkind),
+                computeDiagramGlobalMax(shown, dkind),
                 computeDiagramGlobalMax(resultsStore.overlayResults, dkind),
               );
               const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
               drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
-              drawDiagrams(resultsStore.results, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
+              drawDiagrams(shown, dkind, { ...makeDrawContext(), extremeBound, ...painted }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
             } else {
               // The certified ± beside the max label on screen only; a figure export stays as it was.
-              const dc = exportFrame ? makeDrawContext() : { ...makeDrawContext(), extremeBound };
-              drawDiagrams(resultsStore.results, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
+              const dc = exportFrame ? makeDrawContext() : { ...makeDrawContext(), extremeBound, ...painted };
+              drawDiagrams(shown, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
             }
           } catch (error) {
             if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
@@ -1432,8 +1456,8 @@
         const mdc = {
           ctx,
           worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-          nodes: modelStore.nodes as Map<number, { x: number; y: number }>,
-          elements: modelStore.elements as Map<number, { nodeI: number; nodeJ: number }>,
+          nodes: drawnModel.nodes as Map<number, { x: number; y: number }>,
+          elements: drawnModel.elements as Map<number, { nodeI: number; nodeJ: number }>,
         };
         drawPlasticHinges(resultsStore.plasticResult, resultsStore.plasticStep, mdc, uiStore.zoom);
       }
@@ -1487,6 +1511,7 @@
         ctx.fillStyle = '#ccc';
         ctx.fillText(t('viewport.compression'), lx + 16, ly + 32);
       }
+      ctx.globalAlpha = 1;
     }
 
     // Draw diagram query marker
@@ -1497,7 +1522,7 @@
       return;
     }
 
-    if (diagramQuery && resultsStore.results) {
+    if (diagramQuery && shown) {
       const dt = dtNow();
       if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
         const s = uiStore.worldToScreen(diagramQuery.worldX, diagramQuery.worldY);
@@ -1525,15 +1550,15 @@
     }
 
     // Draw stress query marker (section analysis point)
-    if (resultsStore.stressQuery && resultsStore.results) {
+    if (resultsStore.stressQuery && shown) {
       const sq = resultsStore.stressQuery;
       const s = uiStore.worldToScreen(sq.worldX, sq.worldY);
 
       // Find element direction for perpendicular line
-      const elem = modelStore.elements.get(sq.elementId);
+      const elem = drawnModel.elements.get(sq.elementId);
       if (elem) {
-        const ni = modelStore.getNode(elem.nodeI);
-        const nj = modelStore.getNode(elem.nodeJ);
+        const ni = drawnModel.nodes.get(elem.nodeI);
+        const nj = drawnModel.nodes.get(elem.nodeJ);
         if (ni && nj) {
           const edx = nj.x - ni.x;
           const edy = nj.y - ni.y;
@@ -1564,7 +1589,7 @@
     }
 
     // Draw diagram hover crosshair + tooltip (only if no click query active)
-    if (diagramHover && resultsStore.results && !diagramQuery) {
+    if (diagramHover && shown && !diagramQuery) {
       const dt = dtNow();
       if (dt === 'moment' || dt === 'shear' || dt === 'axial' || dt === 'deformed' || dt === 'colorMap') {
         const s = uiStore.worldToScreen(diagramHover.worldX, diagramHover.worldY);
@@ -1616,32 +1641,32 @@
 
     // Draw hover tooltip (suppress when diagram hover or diagram query is active to avoid overlap)
     if (uiStore.currentTool === 'select' && !boxSelect && draggedNodeId === null && !diagramHover && !diagramQuery) {
-      const hoverNode = findNearestNode(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight));
+      const hoverNode = _findNearestNode(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight), pickable(modelForFrame()).nodes);
       if (hoverNode) {
         const lines: string[] = [t('viewport.nodeTooltip').replace('{id}', String(hoverNode.id))];
         lines.push(`(${fmtCoord(twoD.x(hoverNode.x))}, ${fmtCoord(twoD.z(get2DDisplayedVertical(hoverNode)))}) ${unitQ('length')} [${twoD.horizontal}, ${twoD.vertical}]`);
         // Show displacement if results exist
-        if (resultsStore.results) {
-          const d = resultsStore.getDisplacement(hoverNode.id);
+        if (shown) {
+          const d = displacementForFrame(hoverNode.id);
           if (d) {
             lines.push(`δ: ${displacementText(Math.sqrt(d.ux**2 + get2DDisplayDisplacementVertical(d)**2), 3, uiStore.unitSystem)}`);
           }
-          const r = resultsStore.getReaction(hoverNode.id);
+          const r = resNow()?.reactions.find(r => r.nodeId === hoverNode.id);
           if (r) {
             const rb = forceReactionBound(certificateStore.reactionBound<ReactionBound2D>(false, hoverNode.id));
             const pm = rb === null ? '' : ` ± ${formatBound(toQ(rb, 'force'))}`;
-            lines.push(`R: ${fmtQ(resultComponents(axesStore.frame, resultsStore.results).plane(r.rx, 'x'), 'force')}; ${fmtQ(resultComponents(axesStore.frame, resultsStore.results).plane(r.rz, 'z'), 'force')}${pm} ${unitQ('force')}`);
+            lines.push(`R: ${fmtQ(resultComponents(axesStore.frame, shown).plane(r.rx, 'x'), 'force')}; ${fmtQ(resultComponents(axesStore.frame, shown).plane(r.rz, 'z'), 'force')}${pm} ${unitQ('force')}`);
           }
         }
         drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);
       } else {
-        const hoverElem = findNearestElement(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight));
+        const hoverElem = findNearestElement(uiStore.worldX, uiStore.worldY, pickTol(PICK_PX.tight), modelForFrame());
         if (hoverElem) {
           const lines: string[] = [t('viewport.elemTooltip').replace('{id}', String(hoverElem.id)).replace('{type}', hoverElem.type)];
-          const L = modelStore.getElementLength(hoverElem.id);
+          const L = modelStore.getElementLength(hoverElem.id, modelForFrame());
           lines.push(`L: ${fmtCoord(L)} ${unitQ('length')}`);
-          if (resultsStore.results) {
-            const f = resultsStore.getElementForces(hoverElem.id);
+          if (shown) {
+            const f = forcesForFrame(hoverElem.id);
             if (f) {
               lines.push(`M: ${fmtQ(f.mStart, 'moment')}/${fmtQ(f.mEnd, 'moment')} ${unitQ('moment')}`);
               lines.push(`V: ${fmtQ(f.vStart, 'force')}/${fmtQ(f.vEnd, 'force')} ${unitQ('force')}`);
@@ -1698,7 +1723,7 @@
   /** A value beside a member's midpoint, on a dark box so it reads over any colour. */
   function drawMemberValueLabel(elementId: number, label: string, color: string) {
     if (!ctx || viewVisibility.isElementHidden(elementId)) return;
-    const elem = modelStore.elements.get(elementId);
+    const elem = modelForFrame().elements.get(elementId);
     if (!elem) return;
     const ni = getProjectedNode(elem.nodeI);
     const nj = getProjectedNode(elem.nodeJ);
@@ -1727,7 +1752,7 @@
    * ones that moved most (as the 3D view does), at where they moved to.
    */
   function drawDeformedValues(scale: number) {
-    const res = resultsStore.results;
+    const res = resNow();
     if (!ctx || !res || !(exportFrame ? exportFrame.options.values : resultsStore.showDeformedValues)) return;
     const byId = new Map(res.displacements.map((d) => [d.nodeId, d]));
     const picks = nodesToLabel(res.displacements.map((d) => ({ nodeId: d.nodeId, ux: d.ux, uy: 0, uz: d.uz })));
@@ -1737,7 +1762,7 @@
     ctx.textBaseline = 'alphabetic';
     for (const { nodeId, magnitude } of picks) {
       if (viewVisibility.isNodeHidden(nodeId)) continue;
-      const n = modelStore.getNode(nodeId), d = byId.get(nodeId);
+      const n = modelForFrame().nodes.get(nodeId), d = byId.get(nodeId);
       if (!n || !d) continue;
       const p = project2DNode(n);
       const s = uiStore.worldToScreen(p.x + d.ux * scale, p.y + d.uz * scale);
@@ -1757,8 +1782,8 @@
   }
 
   function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }, colorOverride?: string, nodeBarCount?: Map<number, number>) {
-    const niRaw = modelStore.getNode(elem.nodeI);
-    const njRaw = modelStore.getNode(elem.nodeJ);
+    const niRaw = modelForFrame().nodes.get(elem.nodeI);
+    const njRaw = modelForFrame().nodes.get(elem.nodeJ);
     if (!niRaw || !njRaw) return;
     const ni = project2DNode(niRaw);
     const nj = project2DNode(njRaw);
@@ -1772,7 +1797,7 @@
       showLengths: exportFrame ? exportFrame.options.lengths : uiStore.showLengths,
       zoom: uiStore.zoom,
       diagramType: dtNow(),
-      worldLength: modelStore.getElementLength(elem.id),
+      worldLength: modelStore.getElementLength(elem.id, modelForFrame()),
       labels: currentFrameLabels,
     };
     _drawElement(ctx!, elem, ni, nj, opts, colorOverride, nodeBarCount);
@@ -1792,7 +1817,7 @@
   function drawLocalAxes2D() {
     const mode = uiStore.localAxesMode3D; // unified Basic "Local axes" setting
     if (mode === 'never') return;
-    const showAll = mode === 'always' && modelStore.elements.size <= 1500;
+    const showAll = mode === 'always' && modelForFrame().elements.size <= 1500;
     // "When selected" = manual selection only (result-query/AI highlights excluded),
     // consistent with the 3D triads.
     const selected = showAll || !uiStore.elementSelectionManual ? null : uiStore.selectedElements;
@@ -1801,11 +1826,11 @@
     const leftHand = uiStore.axisConvention3D === 'leftHand';
     const AX = 34; // arrow length in px (legible at normal zoom; zoom-independent)
 
-    for (const elem of modelStore.elements.values()) {
+    for (const elem of modelForFrame().elements.values()) {
       const isSel = selected ? selected.has(elem.id) : false;
       if (!showAll && !isSel) continue;
-      const niRaw = modelStore.getNode(elem.nodeI);
-      const njRaw = modelStore.getNode(elem.nodeJ);
+      const niRaw = modelForFrame().nodes.get(elem.nodeI);
+      const njRaw = modelForFrame().nodes.get(elem.nodeJ);
       if (!niRaw || !njRaw) continue;
       const ni = project2DNode(niRaw);
       const nj = project2DNode(njRaw);
@@ -1864,20 +1889,20 @@
   }
 
   function drawSupport(sup: { id: number; nodeId: number; type: string; dx?: number; dz?: number; dry?: number; dy?: number; drz?: number; angle?: number; isGlobal?: boolean }) {
-    const node = modelStore.getNode(sup.nodeId);
+    const node = modelForFrame().nodes.get(sup.nodeId);
     if (!node) return;
     const pn = project2DNode(node);
     const screen = uiStore.worldToScreen(pn.x, pn.y);
-    _drawSupport(ctx!, sup, screen, !exportFrame && uiStore.selectedSupports.has(sup.id), (nid) => modelStore.getElementAngleAtNode(nid));
+    _drawSupport(ctx!, sup, screen, !exportFrame && uiStore.selectedSupports.has(sup.id), (nid) => modelStore.getElementAngleAtNode(nid, modelForFrame()));
   }
 
   /** A load's case, written before its value: not in Basic with load cases off, where none shows. */
   function caseLabel(caseId: number): string | undefined {
-    return uiStore.showLoadCasePicker ? modelStore.getLoadCaseName(caseId) : undefined;
+    return uiStore.showLoadCasePicker ? modelStore.getLoadCaseName(caseId, modelForFrame().loadCases) : undefined;
   }
 
   function drawNodalLoad(load: { type: string; data: any }, caseColor: string | undefined, caseName: string | undefined, labels: LabelCollector) {
-    const node = modelStore.getNode(load.data.nodeId);
+    const node = modelForFrame().nodes.get(load.data.nodeId);
     if (!node) return;
     const pn = project2DNode(node);
     const screen = uiStore.worldToScreen(pn.x, pn.y);
@@ -1885,10 +1910,11 @@
   }
 
   function drawReactions() {
-    if (!resultsStore.results) return;
-    _drawReactions(ctx!, resultsStore.results.reactions as ReactionData[], (nodeId) => {
+    const res = resNow();
+    if (!res) return;
+    _drawReactions(ctx!, res.reactions as ReactionData[], (nodeId) => {
       // A reaction is drawn with its support: not at a node the view hides.
-      const node = viewVisibility.isNodeHidden(nodeId) ? undefined : modelStore.getNode(nodeId);
+      const node = viewVisibility.isNodeHidden(nodeId) ? undefined : modelForFrame().nodes.get(nodeId);
       if (!node) return null;
       const pn = project2DNode(node);
       return uiStore.worldToScreen(pn.x, pn.y);
@@ -1899,7 +1925,7 @@
     const forces = resultsStore.constraintForces;
     if (!forces || forces.length === 0) return;
     _drawConstraintForces(ctx!, forces as ConstraintForceData[], (nodeId) => {
-      const node = modelStore.getNode(nodeId);
+      const node = modelForFrame().nodes.get(nodeId);
       if (!node) return null;
       const pn = project2DNode(node);
       return uiStore.worldToScreen(pn.x, pn.y);
@@ -2246,12 +2272,12 @@
 
       if (sm === 'stress') {
         // ── Stress mode: click on element → stress query + diagram query ──
-        const dt = resultsStore.diagramType;
-        if (resultsStore.results) {
-          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight));
+        const dt = dtNow();
+        if (resNow()) {
+          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight), modelForFrame());
           if (nearElem) {
-            const ni = modelStore.getNode(nearElem.nodeI);
-            const nj = modelStore.getNode(nearElem.nodeJ);
+            const ni = getProjectedNode(nearElem.nodeI);
+            const nj = getProjectedNode(nearElem.nodeJ);
             if (ni && nj) {
               const edx = nj.x - ni.x;
               const edy = nj.y - ni.y;
@@ -2262,7 +2288,7 @@
               const wy = ni.y + t * edy;
               resultsStore.stressQuery = { elementId: nearElem.id, t, worldX: wx, worldY: wy };
               if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
-                const ef = resultsStore.getElementForces(nearElem.id);
+                const ef = forcesForFrame(nearElem.id);
                 if (ef) {
                   const value = diagramPointValue(dt, t, ef);
                   if (value === null) {
@@ -2368,24 +2394,23 @@
         diagramQuery = null;
 
         // Diagram query still works for reading values (but no stress query)
-        const dt = resultsStore.diagramType;
-        if (resultsStore.results && (dt === 'moment' || dt === 'shear' || dt === 'axial')) {
-          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight));
+        const dt = dtNow();
+        if (resNow() && (dt === 'moment' || dt === 'shear' || dt === 'axial')) {
+          const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.tight), modelForFrame());
           if (nearElem) {
-            const ni = modelStore.getNode(nearElem.nodeI);
-            const nj = modelStore.getNode(nearElem.nodeJ);
+            const ni = getProjectedNode(nearElem.nodeI);
+            const nj = getProjectedNode(nearElem.nodeJ);
             if (ni && nj) {
               const edx = nj.x - ni.x;
               const edy = nj.y - ni.y;
               const lenSq = edx * edx + edy * edy;
               let t = ((world.x - ni.x) * edx + (world.y - ni.y) * edy) / lenSq;
               t = Math.max(0, Math.min(1, t));
-              const ef = resultsStore.getElementForces(nearElem.id);
+              const ef = forcesForFrame(nearElem.id);
               if (ef) {
-                const value = computeDiagramValueAt(dt as 'moment' | 'shear' | 'axial', t, ef);
-                const wx = ni.x + t * edx;
-                const wy = ni.y + t * edy;
-                diagramQuery = { elementId: nearElem.id, t, value, worldX: wx, worldY: wy };
+                const value = diagramPointValue(dt, t, ef);
+                if (value === null) uiStore.toast(diagramExtremaNotice(), 'error');
+                else diagramQuery = { elementId: nearElem.id, t, value, worldX: ni.x + t * edx, worldY: ni.y + t * edy };
               }
             }
           }
@@ -2503,10 +2528,11 @@
     }
 
     // Diagram hover: compute value at mouse projection on nearest element
-    if (resultsStore.results && !isPanning && draggedNodeId === null) {
-      const dt = resultsStore.diagramType;
+    const shown = resNow();
+    if (shown && !isPanning && draggedNodeId === null) {
+      const dt = dtNow();
       if (dt === 'moment' || dt === 'shear' || dt === 'axial' || dt === 'deformed' || dt === 'colorMap') {
-        const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose));
+        const nearElem = findNearestElement(world.x, world.y, pickTol(PICK_PX.loose), modelForFrame());
         if (nearElem) {
           const ni = getProjectedNode(nearElem.nodeI);
           const nj = getProjectedNode(nearElem.nodeJ);
@@ -2520,7 +2546,7 @@
             const wy = ni.y + t * edy;
 
             if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
-              const ef = resultsStore.getElementForces(nearElem.id);
+              const ef = forcesForFrame(nearElem.id);
               if (ef) {
                 const value = diagramPointValue(dt, t, ef);
                 diagramHover = { elementId: nearElem.id, t, value, worldX: wx, worldY: wy };
@@ -2531,16 +2557,16 @@
               // Compute displacement using Hermite cubic interpolation (same as drawDeformed)
               // Linear interpolation gives wrong values when both end nodes have zero displacement
               // (e.g. simply supported beam: uy=0 at both ends, but deflects at midspan)
-              const di = resultsStore.getDisplacement(nearElem.nodeI);
-              const dj = resultsStore.getDisplacement(nearElem.nodeJ);
-              const ef = resultsStore.getElementForces(nearElem.id);
+              const di = displacementForFrame(nearElem.nodeI);
+              const dj = displacementForFrame(nearElem.nodeJ);
+              const ef = forcesForFrame(nearElem.id);
               if (di && dj && ef && ni && nj) {
                 // Get EI for particular solution
-                const elem = modelStore.elements.get(nearElem.id);
+                const elem = modelForFrame().elements.get(nearElem.id);
                 let EI: number | undefined;
                 if (elem) {
-                  const mat = modelStore.materials.get(elem.materialId);
-                  const sec = modelStore.sections.get(elem.sectionId);
+                  const mat = modelForFrame().materials.get(elem.materialId);
+                  const sec = modelForFrame().sections.get(elem.sectionId);
                   if (mat && sec) EI = mat.e * 1000 * effectiveBendingInertia(sec); // kN·m²
                 }
                 // A truss member stays straight between its nodes (see draw-deformed.ts).
@@ -2563,9 +2589,9 @@
                 diagramHover = {
                   elementId: nearElem.id, t, value: totalDisp, worldX: wx, worldY: wy,
                   lines: [
-                    `${TWO_D_DISPLACEMENT_LABELS.horizontal}: ${displacementText(resultComponents(axesStore.frame, resultsStore.results).plane(ux, 'x') / 1000, 3, uiStore.unitSystem)}`,
-                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${displacementText(resultComponents(axesStore.frame, resultsStore.results).plane(uz, 'z') / 1000, 3, uiStore.unitSystem)}`,
-                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${resultComponents(axesStore.frame, resultsStore.results).plane(ry, 'rot').toFixed(4)} rad`,
+                    `${TWO_D_DISPLACEMENT_LABELS.horizontal}: ${displacementText(resultComponents(axesStore.frame, shown).plane(ux, 'x') / 1000, 3, uiStore.unitSystem)}`,
+                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${displacementText(resultComponents(axesStore.frame, shown).plane(uz, 'z') / 1000, 3, uiStore.unitSystem)}`,
+                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${resultComponents(axesStore.frame, shown).plane(ry, 'rot').toFixed(4)} rad`,
                   ],
                 };
               } else {
@@ -2573,7 +2599,7 @@
               }
             } else if (dt === 'colorMap') {
               // Show the colorMap kind's value
-              const ef = resultsStore.getElementForces(nearElem.id);
+              const ef = forcesForFrame(nearElem.id);
               if (ef) {
                 const cmKind = resultsStore.colorMapKind;
                 let value: number | null;
@@ -2591,9 +2617,9 @@
                 } else {
                   // The painter's own value for the stress maps (MPa, or σ/fy for the ratio). This
                   // used to add |N|, |M| and |V| and call it a ratio, in no unit at all.
-                  const elem = modelStore.elements.get(nearElem.id);
-                  const sec = elem ? modelStore.sections.get(elem.sectionId) : undefined;
-                  const mat = elem ? modelStore.materials.get(elem.materialId) : undefined;
+                  const elem = modelForFrame().elements.get(nearElem.id);
+                  const sec = elem ? modelForFrame().sections.get(elem.sectionId) : undefined;
+                  const mat = elem ? modelForFrame().materials.get(elem.materialId) : undefined;
                   const st = sec && mat ? computeElementStress(ef, sec, mat) : null;
                   value = !st ? NaN
                     : cmKind === 'stressRatio' ? (st.ratio ?? NaN)
@@ -3054,9 +3080,9 @@
    * here, so nothing hidden or turned off is clicked, hovered, dragged,
    * loaded, edited or taken by a marquee.
    */
-  function pickable() {
+  function pickable(model: ReturnType<typeof modelForFrame> = modelStore.model) {
     return pickable2D(
-      { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports, loads: modelStore.model.loads },
+      model,
       {
         anyHidden: viewVisibility.active,
         isNodeHidden: (id) => viewVisibility.isNodeHidden(id),
@@ -3112,16 +3138,16 @@
   }
 
   /** Build a projected node map for hit testing / picking in the current 2D plane. */
-  function getProjectedNodes(): Map<number, { id: number; x: number; y: number }> {
+  function getProjectedNodes(nodes = modelStore.nodes): Map<number, { id: number; x: number; y: number }> {
     const map = new Map<number, { id: number; x: number; y: number }>();
-    for (const node of modelStore.nodes.values()) {
+    for (const node of nodes.values()) {
       map.set(node.id, project2DNode(node));
     }
     return map;
   }
 
-  function findNearestElement(x: number, y: number, maxDist: number) {
-    return _findNearestElement(x, y, maxDist, pickable().elements, getProjectedNodes());
+  function findNearestElement(x: number, y: number, maxDist: number, model: ReturnType<typeof modelForFrame> = modelStore.model) {
+    return _findNearestElement(x, y, maxDist, pickable(model).elements, getProjectedNodes(model.nodes));
   }
 
   function findNearestSupport(x: number, y: number, maxDist: number) {

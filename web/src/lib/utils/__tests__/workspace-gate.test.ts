@@ -11,7 +11,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { is3DWorkspace } from '../workspace';
+import { ANALYSIS_MODES, is3DWorkspace } from '../workspace';
+import { liveCalcFollowsEdits } from '../../engine/live-calc-state';
 
 const SRC = join(import.meta.dirname, '../../..');
 
@@ -40,6 +41,11 @@ const WHICH_MODE: Array<{ file: string; snippet: string; why: string }> = [
 describe('the space-workspace check', () => {
   it('is Basic 3D and PRO, nothing else', () => {
     expect(['2d', '3d', 'pro', 'edu'].filter(is3DWorkspace)).toEqual(['3d', 'pro']);
+  });
+
+  it('only reschedules live analysis for edits in the two Basic workspaces', () => {
+    expect(ANALYSIS_MODES.filter(mode => liveCalcFollowsEdits(true, mode))).toEqual(['2d', '3d']);
+    expect(ANALYSIS_MODES.filter(mode => liveCalcFollowsEdits(false, mode))).toEqual([]);
   });
 
   it('catches every spelling of a dimension comparison', () => {

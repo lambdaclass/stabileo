@@ -31,6 +31,21 @@ pub fn qr(n: i64, d: i64) -> Q {
     Q::new(BigInt::from(n), BigInt::from(d))
 }
 
+pub(crate) fn sqrt_f64_bounds(squared: &Q) -> Result<(f64, f64), String> {
+    if squared.is_negative() { return Err("square root of a negative rational".into()); }
+    let (mut low, mut high) = (0, f64::MAX.to_bits());
+    while low < high {
+        let middle = low + (high - low).div_ceil(2);
+        let candidate = q(f64::from_bits(middle)).ok_or("non-finite square root")?;
+        if &candidate * &candidate <= *squared { low = middle; } else { high = middle - 1; }
+    }
+    let lower = f64::from_bits(low);
+    let exact = q(lower).ok_or("non-finite square root")?;
+    let upper = if &exact * &exact == *squared { lower } else { lower.next_up() };
+    if !upper.is_finite() { return Err("square root exceeds floating-point range".into()); }
+    Ok((lower, upper))
+}
+
 /// Exact square root when `x` is the square of a rational, else `None`.
 pub fn sqrt_exact(x: &Q) -> Option<Q> {
     if x.is_negative() {

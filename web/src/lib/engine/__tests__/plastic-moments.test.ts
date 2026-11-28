@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import { plasticModulus, plasticMoments } from '../plastic-moments';
 import { solvePlastic } from '../wasm-solver';
+import { runPlasticCollapse } from '../../actions/plastic';
 import type { Section } from '../../store/model.svelte';
 
 describe('plastic moments', () => {
@@ -24,14 +25,14 @@ describe('plastic moments', () => {
     expectPlasticRefusal(() => solvePlastic({ solver: modelStore.buildSolverInput(false)!, sections, materials, mpOverrides: new Map([[m.sectionId, m.mp]]) }));
   });
 
-  it.skip('the cantilever-point example: first hinge at λ = Mp/(PL) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', async () => {
+  it('the cantilever-point example in the Basic panel: first hinge, and collapse, at λ = Mp/(PL)', async () => {
     historyStore.clear(); uiStore.analysisMode = '2d'; modelStore.clear();
     await modelStore.loadExample('cantilever-point');
     const [m] = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
-    const sections = new Map([...modelStore.sections].map(([id, s]) => [id, { a: s.a, iz: s.iy ?? s.iz, materialId: 1 }]));
-    const materials = new Map([...modelStore.materials].map(([id, x]) => [id, { fy: x.fy }]));
-    const r = solvePlastic({ solver: modelStore.buildSolverInput(false)!, sections, materials, mpOverrides: new Map([[m.sectionId, m.mp]]) });
+    const r = runPlasticCollapse()!.result;
     expect(r.steps[0].loadFactor).toBeCloseTo(m.mp / (15 * 3), 6);
+    expect(r.isMechanism).toBe(true);
+    expect(r.collapseFactor).toBeCloseTo(m.mp / (15 * 3), 9);
     expect(r.steps[0].loadFactor).toBeLessThan(4.5); // 15,625 with the rectangle
   });
 
@@ -59,6 +60,7 @@ describe('plastic moments', () => {
 describe('3-D pushover payload', () => {
   it('a steel cantilever collapses at Mp/(P·L), with the members’ fy and the profile’s own Zp', async () => {
     const { plasticInput3D, plasticMoments3D } = await import('../plastic-moments');
+    const { plasticForSolve } = await import('../advanced-analyses');
     const { solvePlastic3D, initSolver } = await import('../wasm-solver');
     const { buildSolverInput3D } = await import('../solver-service');
     await initSolver();
@@ -73,7 +75,7 @@ describe('3-D pushover payload', () => {
     const [m] = plasticMoments3D(modelStore.sections, modelStore.materials, modelStore.elements);
     expect(m.fy).toBe(355);
     expect(m.source).toBe('geometry');
-    const r = solvePlastic3D({ solver: buildSolverInput3D(modelStore.model as never, false, false), ...p, maxHinges: 5 });
+    const r = solvePlastic3D({ ...plasticForSolve(p, buildSolverInput3D(modelStore.model as never, false, false)!), maxHinges: 5 });
     expect(r.collapseFactor).toBeCloseTo(m.mp / (10 * 4), 4);
     uiStore.analysisMode = '2d';
   });

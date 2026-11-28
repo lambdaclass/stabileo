@@ -398,6 +398,11 @@
   import ProDrawBar from './components/pro/ProDrawBar.svelte';
   import { drawState } from './lib/store/draw-state.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
+  import ExamPanel from './components/edu/ExamPanel.svelte';
+  import ExamCountdown from './components/edu/ExamCountdown.svelte';
+  import { examLock } from './lib/store/exam-lock.svelte';
+  import { previewText } from './components/edu/exercise-variant';
+  import { openHandedOffSteps, takeStepsHandoff } from './components/edu/exam-steps-handoff';
   import { eduStore } from './components/edu/edu-store.svelte';
   import { leaveExercise } from './components/edu/exercise-session';
   import TourOverlay from './components/TourOverlay.svelte';
@@ -408,6 +413,7 @@
   import { whatIf } from './lib/store/whatif.svelte';
   import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
+  import { liveCalcFollowsEdits } from './lib/engine/live-calc-state';
   import SiteHeader from './components/site/SiteHeader.svelte';
   import PublicPending from './components/site/PublicPending.svelte';
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
@@ -416,7 +422,7 @@
   import { skipNextAnalysis } from './lib/tracking/activity.svelte';
   import { routeKind, isAppPath, isDemoPath, isRegisterPath } from './lib/public-route';
   import { restoreMovedRoute } from './lib/legacy-routes';
-  import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
+  import { examCodeFromPath, modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n, ensurePublicLocale } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
   import { splitAllAtNodes } from './lib/model/edit/cut-members';
@@ -431,6 +437,8 @@
   // and the route rules are `lib/public-route.ts`'s, the same ones Root.svelte reads.
   const isAppRoute = isAppPath;
   const isDemoRoute = isDemoPath;
+  let examCode = $state(typeof window !== 'undefined' ? examCodeFromPath(location.pathname) : null);
+  if (examCode) examLock.enterRoom();
 
   /**
    * The URL says which language the page is in, so on arrival the URL wins.
@@ -447,6 +455,7 @@
   adoptLocaleFromPath();
 
   function replaceAppUrl(mode: AppMode, tabName?: string) {
+    if (examCodeFromPath(location.pathname)) return;
     const url = new URL(location.href);
     url.pathname = modeToPath(mode);
     if (tabName) {
@@ -644,6 +653,18 @@
 
   async function syncRouteState() {
     const token = ++publicRevision;
+    const nextExam = examCodeFromPath(location.pathname);
+    const leftExam = !!examCode && !nextExam;
+    if (examCode !== nextExam) {
+      if (examCode) {
+        const { leaveExamExercise } = await import('./components/edu/exercise-session');
+        if (token !== publicRevision) return;
+        leaveExamExercise();
+        examLock.leaveRoom();
+      }
+      examCode = nextExam;
+      if (nextExam) examLock.enterRoom();
+    }
     if (__PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame) restoreMovedRoute();
     if (location.pathname.startsWith('/hu/')) {
       const { restoreUnpublishedResearchRoute } = await import('./lib/research-fallback');
@@ -678,6 +699,10 @@
       } else {
         uiStore.analysisMode = '2d';
       }
+    }
+    if (!nextExam && shell.kind === 'app') {
+      if (workspaceDeferred) await restoreEditorWorkspace();
+      else if (leftExam) openStepsHandoff();
     }
     await tick();
     if (token === publicRevision && shell.kind !== 'app') resetPublicScroll(hash);
@@ -833,7 +858,7 @@
 
   // In the viewer nothing is edited from the keyboard, and the command search is the editor's.
   const publicActive = $derived(showLanding || showBlog || showExperiment || showPaper);
-  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode);
+  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode && !examLock.locked);
   provideEditorActivity(() => editorActive);
   $effect(() => { if (publicActive) return manualPublicScrollRestoration(); document.documentElement.lang = t('file.htmlLang'); });
 
@@ -950,6 +975,65 @@
     const embed = (png: Uint8Array) => pngWithProvenance(png, record);
     if (fig) { downloadDataUrlPNG(fig.dataUrl, embed); return; }
     if (canvas) downloadCanvasPNG(canvas, embed);
+  }
+
+  let examDrawerShown = false;
+  $effect(() => {
+    if (!examLock.room) { examDrawerShown = false; return; }
+    if (uiStore.isMobile && !examDrawerShown) { uiStore.rightDrawerOpen = true; examDrawerShown = true; }
+  });
+
+  let workspaceDeferred = !!examCode;
+
+  async function restoreEditorWorkspace() {
+    workspaceDeferred = false;
+    const savedWorkspace = loadWorkspaceFromLocalStorage();
+    if (savedWorkspace && savedWorkspace.tabs.length > 0) {
+      const restoreWorkspace = () => {
+        if (examCode) { workspaceDeferred = true; return; }
+        tabManager.restoreSession(savedWorkspace.tabs, savedWorkspace.activeTabId);
+        const requestedTab = findTabBySlug(new URLSearchParams(location.search).get('tab'));
+        if (requestedTab && requestedTab.id !== tabManager.activeTabId) {
+          tabManager.switchTab(requestedTab.id);
+        }
+        currentAppMode = uiStore.appMode;
+        replaceAppUrl(currentAppMode, modelStore.model.name);
+        autosaveData = null;
+      };
+      if (workspaceNeedsDetailing(savedWorkspace)) {
+        await restoreWorkspaceDetailing(savedWorkspace, restoreWorkspace);
+      } else {
+        restoreWorkspace();
+      }
+    }
+
+    // Load autosave data if no workspace was restored.
+    // Banner visibility is derived — it checks mode match, dismiss state,
+    // and whether the user has started editing a different project.
+    //
+    // IndexedDB is asynchronous, so this cannot block the mount the way the
+    // localStorage read did. It resolves into `$state` instead, and the banner —
+    // already derived — appears when it arrives. `loadAutosave` has already told the
+    // user about anything it had to refuse; `autosaveStamp` carries the same fact into
+    // the banner, so "this is not your newest save" is on screen and not only in a toast.
+    if (!savedWorkspace?.tabs.length) {
+      void loadAutosave().then((result) => {
+        if (result.value && snapshotHoldsWork(result.value.snapshot)) {
+          autosaveData = result.value;
+          autosaveStamp = { timestamp: result.timestamp, older: result.rejected.length > 0 };
+        }
+      });
+    }
+    if (!examCode) openStepsHandoff();
+  }
+
+  /** A structure handed over from an exam's results opens in a tab of its own, after the reader's tabs are back. */
+  function openStepsHandoff() {
+    const handoff = takeStepsHandoff();
+    if (!handoff) return;
+    openHandedOffSteps(handoff);
+    currentAppMode = 'basico';
+    replaceAppUrl('basico', modelStore.model.name);
   }
 
   /* Opening the editor asks for the account first when the admin site says so; turning it down goes back home. */
@@ -1091,45 +1175,7 @@
       }
     }
 
-    // Restore full tab workspace first when available.
-    if (!hashMode) {
-      const savedWorkspace = loadWorkspaceFromLocalStorage();
-      if (savedWorkspace && savedWorkspace.tabs.length > 0) {
-        const restoreWorkspace = () => {
-          tabManager.restoreSession(savedWorkspace.tabs, savedWorkspace.activeTabId);
-          const requestedTab = findTabBySlug(new URLSearchParams(location.search).get('tab'));
-          if (requestedTab && requestedTab.id !== tabManager.activeTabId) {
-            tabManager.switchTab(requestedTab.id);
-          }
-          currentAppMode = uiStore.appMode;
-          replaceAppUrl(currentAppMode, modelStore.model.name);
-          autosaveData = null;
-        };
-        if (workspaceNeedsDetailing(savedWorkspace)) {
-          void restoreWorkspaceDetailing(savedWorkspace, restoreWorkspace);
-        } else {
-          restoreWorkspace();
-        }
-      }
-
-      // Load autosave data if no workspace was restored.
-      // Banner visibility is derived — it checks mode match, dismiss state,
-      // and whether the user has started editing a different project.
-      //
-      // IndexedDB is asynchronous, so this cannot block the mount the way the
-      // localStorage read did. It resolves into `$state` instead, and the banner —
-      // already derived — appears when it arrives. `loadAutosave` has already told the
-      // user about anything it had to refuse; `autosaveStamp` carries the same fact into
-      // the banner, so "this is not your newest save" is on screen and not only in a toast.
-      if (!savedWorkspace) {
-        void loadAutosave().then((result) => {
-          if (result.value && snapshotHoldsWork(result.value.snapshot)) {
-            autosaveData = result.value;
-            autosaveStamp = { timestamp: result.timestamp, older: result.rejected.length > 0 };
-          }
-        });
-      }
-    }
+    if (!hashMode && !examCode) void restoreEditorWorkspace();
 
     // Setup autosave every 30s. Never overwrite the (single, mode-shared)
     // autosave with an empty model: the loader ignores empty snapshots anyway, and an
@@ -1272,24 +1318,25 @@
 
       const prevDiagram = resultsStore.diagramType;
       uiStore.liveCalcError = null;
+      const solveFollows = liveCalcFollowsEdits(_lc, _mode);
 
-      // Only clear stale results when model or mode actually changed
       if (modelChanged) {
         if (resultsStore.results || resultsStore.results3D) {
-          resultsStore.clear();
+          resultsStore.clear({ keepScreen: solveFollows });
         }
       }
 
-      // If live calc is ON, debounce the auto-solve to avoid firing on every
-      // tiny model mutation while the user is dragging or typing.
       // Manual solve (runGlobalSolve) remains immediate and cancels any pending debounce.
-      if (_lc && _mode !== 'pro' && _mode !== 'edu') {
+      if (solveFollows) {
         cancelPendingLiveCalc();
-        const delay = !is3DWorkspace(_mode) ? 120 : 200;
+        // Explore paces its own edits to the solves (whatif.svelte.ts), so its re-solve starts at once.
+        const delay = whatIf.active ? 0 : !is3DWorkspace(_mode) ? 120 : 200;
         liveCalcTimer = setTimeout(() => {
           liveCalcTimer = null;
           runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
         }, delay);
+      } else {
+        resultsStore.releaseScreen();
       }
     });
 
@@ -1513,7 +1560,7 @@
 <div class="app-container" class:embed-mode={uiStore.embedMode || uiStore.viewerMode} class:viewer-mode={uiStore.viewerMode} class:hidden-behind-landing={publicActive}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
-      <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
+      <button class="logo-home" disabled={examLock.locked} onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
         <span class="logo-icon">△</span>
         <span class="logo-text">Stabileo</span>
       </button>
@@ -1526,8 +1573,11 @@
         said "New Structure" while the panel said "Simply supported beam",
         so the window disagreed with itself about what was open.
       -->
-      {#if eduStore.isHandout}
-        <span class="handout-title" data-testid="edu-handout-title">{eduStore.exercise?.title}</span>
+      {#if examLock.room}
+        <span class="handout-title" data-testid="exam-room-title">{examLock.title}</span>
+        {#if examLock.locked}<ExamCountdown />{/if}
+      {:else if eduStore.isHandout}
+        <span class="handout-title" data-testid="edu-handout-title">{eduStore.exercise?.title ?? (eduStore.pending && previewText(eduStore.pending.title, eduStore.pending.params))}</span>
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
           <option value="basico">{t('app.modeBasic')}</option>
@@ -1565,7 +1615,7 @@
         </div>
       {/if}
     </div>
-    {#if !eduStore.isHandout}
+    {#if !eduStore.isHandout && !examLock.room}
       <span class="separator">|</span>
       <TabBar />
     {/if}
@@ -1587,9 +1637,11 @@
     {/if}
 
     <div class="header-actions">
+      {#if !examLock.locked}
       <button class="btn btn-help" onclick={() => uiStore.showHelp = true} title={t('app.keyboardShortcuts')}>
         ?
       </button>
+      {/if}
       <!--
         Three languages, fully maintained. The other eleven dictionaries still exist and still
         work — `tAt` falls back to English per key — but they are largely English underneath, so
@@ -1614,7 +1666,7 @@
         />
       </div>
 
-      {#if __PUBLIC_FEATURES__.accounts && authStore.showAccountEntry}<AccountButton />{/if}
+      {#if __PUBLIC_FEATURES__.accounts && authStore.showAccountEntry && !examLock.locked}<AccountButton />{/if}
 
       <!--
         Settings sits with the other application-level controls — help and
@@ -1673,7 +1725,7 @@
         stuck", one automatically and one with a person on the other end.
       -->
       {#if uiStore.appMode === 'pro'}<ProSaveStatus /><ProVideosOffer />{/if}
-      <ContactMenu />
+      {#if !examLock.locked}<ContactMenu />{/if}
 
       <!--
         At every width, now.
@@ -2213,7 +2265,7 @@
         {/if}
       {:else if uiStore.appMode === 'educativo'}
         <aside class="sidebar right edu-sidebar">
-          <EducativePanel />
+          {#if examCode}{#key examCode}<ExamPanel code={examCode} />{/key}{:else}<EducativePanel />{/if}
         </aside>
       {/if}
       <!--
@@ -2241,9 +2293,9 @@
   {/if}
 
   {#if !uiStore.embedMode && !publicActive}
-    <WhatsNewNotice />
+    {#if !examLock.room}<WhatsNewNotice />{/if}
     {#if __PUBLIC_FEATURES__.accounts}
-      <ResultsDisclaimer />
+      {#if !examLock.room}<ResultsDisclaimer />{/if}
       <UsageNotice />
       <TermsUpdateDialog />
     {/if}
@@ -2313,7 +2365,7 @@
         -->
         <ProPanel bind:this={proPanelRef} />
       {:else if uiStore.appMode === 'educativo'}
-        <EducativePanel />
+        {#if examCode}{#key examCode}<ExamPanel code={examCode} />{/key}{:else}<EducativePanel />{/if}
       {/if}
     </aside>
   {/if}

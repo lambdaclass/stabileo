@@ -17,13 +17,15 @@ it.each([false, true])('manual solve reports combination refusal and clears old 
   vi.spyOn(modelStore, 'solve').mockReturnValue(clean as never);
   vi.spyOn(modelStore, 'solveCombinations').mockReturnValue(refusal);
   vi.spyOn(modelStore, 'solveCombinations3DParallel').mockResolvedValue(refusal);
-  const prior = { ...clean, displacements: [{ nodeId: 2, ux: 987654, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }] };
+  const displacement = { nodeId: 2, ux: 987654, uz: 0, ry: 0 };
   if (is3D) {
-    resultsStore.setResults3D(clean as never);
-    resultsStore.setCombinationResults3D(new Map([[1, prior]]) as never, new Map([[1, prior]]) as never, null as never);
+    const prior = { ...clean, displacements: [{ ...displacement, uy: 0, rx: 0, rz: 0 }] };
+    resultsStore.setResults3D(clean);
+    resultsStore.setCombinationResults3D(new Map([[1, prior]]), new Map([[1, prior]]), wasm.computeEnvelope3D([prior])!);
   } else {
-    resultsStore.setResults(clean as never);
-    resultsStore.setCombinationResults(new Map([[1, prior]]) as never, new Map([[1, prior]]) as never, null as never);
+    const prior = { ...clean, displacements: [displacement] };
+    resultsStore.setResults(clean);
+    resultsStore.setCombinationResults(new Map([[1, prior]]), new Map([[1, prior]]), wasm.computeEnvelope([prior])!);
   }
   resultsStore.activeComboId = 1; resultsStore.activeView = 'combo';
   expect(is3D ? resultsStore.perCombo3D.size : resultsStore.perCombo.size).toBe(1);
@@ -40,10 +42,10 @@ it.each([false, true])('live solve clears prior combinations on string/throw ref
     uiStore.analysisMode = is3D ? 'pro' : '2d';
     if (is3D) {
       resultsStore.setResults3D(clean as never);
-      resultsStore.setCombinationResults3D(new Map([[1, clean]]) as never, new Map([[1, clean]]) as never, null as never);
+      resultsStore.setCombinationResults3D(new Map([[1, clean]]), new Map([[1, clean]]), wasm.computeEnvelope3D([clean])!);
     } else {
       resultsStore.setResults(clean as never);
-      resultsStore.setCombinationResults(new Map([[1, clean]]) as never, new Map([[1, clean]]) as never, null as never);
+      resultsStore.setCombinationResults(new Map([[1, clean]]), new Map([[1, clean]]), wasm.computeEnvelope([clean])!);
     }
     resultsStore.activeComboId = 1; resultsStore.activeView = 'combo';
     expect(is3D ? resultsStore.perCombo3D.size : resultsStore.perCombo.size).toBe(1);
@@ -67,7 +69,7 @@ it('one refused case withholds every per-case result, since consumers sum over t
   uiStore.analysisMode = 'pro';
   const refused = { ...clean, ...JSON.parse(refusal) };
   resultsStore.setResults3D(clean as never);
-  resultsStore.setCombinationResults3D(new Map([[1, clean], [2, refused]]) as never, new Map() as never, null as never);
+  resultsStore.setCombinationResults3D(new Map([[1, clean], [2, refused]]), new Map(), wasm.computeEnvelope3D([clean])!);
   expect(resultsStore.perCase3D.size).toBe(0);
   expect(resultsStore.caseDisposition3D([1]).refused).toBe(false);
   expect(resultsStore.caseDisposition3D([2]).refused).toBe(true);
