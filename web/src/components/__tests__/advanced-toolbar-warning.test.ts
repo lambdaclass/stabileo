@@ -5,7 +5,7 @@ import ToolbarAdvanced from '../toolbar/ToolbarAdvanced.svelte';
 
 afterEach(() => { resultsStore.clear(); uiStore.analysisMode = '2d'; });
 
-it.skip.each(['2d', '3d', 'pro'] as const)('known wrong result: #1928 the open %s advanced toolbar retains the published result warning', mode => {
+it.each(['2d', '3d', 'pro'] as const)('known wrong result: #1928 the open %s advanced toolbar retains the published result warning', mode => {
   uiStore.analysisMode = mode;
   const diagnostic = { code: 'known_issue', phase: 'NUM-INVARIANCE', severity: 'warning', value: 762, message: 'ENGINE' };
   const publish = (structuredDiagnostics: typeof diagnostic[]) => {

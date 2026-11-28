@@ -29,6 +29,7 @@ export const switchOnUnitFiles = [
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/components/__tests__/advanced-toolbar-warning.test.ts',
   'src/lib/sheets/__tests__/sheet-drawing-profile.test.ts',
   'src/lib/store/__tests__/physical-design-thickness.test.ts',
   'src/components/__tests__/initial-plate-selection.test.ts',
