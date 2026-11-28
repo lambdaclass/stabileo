@@ -280,9 +280,13 @@ export function deriveCompressionDevelopment(input: { diameterMm: number; fy: nu
   };
 }
 
-/** §25.5.5.1: compression lap splice, mm, never under 300 mm, a third longer where f'c is under 21 MPa. */
+export const compressionLapBaseMm = (fy: number, diameterMm: number): number =>
+  Math.max(fy <= 420 ? 0.071 * fy * diameterMm : (0.13 * fy - 24) * diameterMm, MIN_LAP_MM);
+
+export const longerSheetCompressionLap = (fc: number): boolean => fc < 21 - 1e-9;
+
 export const compressionLapMm = (fy: number, diameterMm: number, fc = 21): number =>
-  Math.max(fy <= 420 ? 0.071 * fy * diameterMm : (0.13 * fy - 24) * diameterMm, MIN_LAP_MM) * (fc < 21 - 1e-9 ? 4 / 3 : 1);
+  compressionLapBaseMm(fy, diameterMm) * (longerSheetCompressionLap(fc) ? 4 / 3 : 1);
 
 export interface LapResult {
   /** Lap length, m. */

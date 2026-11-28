@@ -1,0 +1,35 @@
+{
+  "id": "ordinary-detail-compression-lap",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "all": [
+      "ordinaryDetailLap"
+    ]
+  },
+  "title": {
+    "en": "Compression laps in construction details",
+    "es": "Empalmes por compresión en detalles constructivos",
+    "pt": "Emendas por compressão em detalhes construtivos",
+    "de": "Druckstöße in Konstruktionsdetails",
+    "fr": "Recouvrements en compression dans les détails constructifs",
+    "hu": "Nyomott toldások a szerkezeti részleteken",
+    "tr": "Yapım detaylarındaki basınç bindirmeleri",
+    "zh": "构造详图中的受压搭接"
+  },
+  "explanation": {
+    "en": "Review compression lap lengths on T-03 if the detail was generated with an integration build.",
+    "es": "Revise los empalmes por compresión de T-03 si el detalle se generó con una versión de integración.",
+    "pt": "Revise as emendas por compressão em T-03 se o detalhe foi gerado em uma versão de integração.",
+    "de": "Prüfen Sie die Druckstoßlängen auf T-03, wenn das Detail mit einer Integrationsversion erstellt wurde.",
+    "fr": "Vérifiez les longueurs de recouvrement en compression sur T-03 si le détail provient d’une version d’intégration.",
+    "hu": "Ellenőrizze a nyomott toldások hosszát a T-03 lapon, ha a részlet integrációs verzióval készült.",
+    "tr": "Detay bir entegrasyon sürümüyle hazırlandıysa T-03 üzerindeki basınç bindirme boylarını kontrol edin.",
+    "zh": "如详图由集成版本生成，请复核 T-03 上的受压搭接长度。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-ordinary-detail-compression-lap.md",
+    "heading": "Compression lap lengths in the ordinary construction catalogue"
+  }
+}
