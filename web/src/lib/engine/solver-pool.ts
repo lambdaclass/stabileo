@@ -333,7 +333,7 @@ let caseSolved: ((done: number, total: number) => void) | null = null;
 
 /** Told after each load case a parallel solve finishes, with how many are done of how many; null stops it. */
 export function onCaseSolved(listener: ((done: number, total: number) => void) | null): void {
-  caseSolved = listener;
+  if (__PUBLIC_FEATURES__.proPlatesUnified) caseSolved = listener;
 }
 
 export async function solveParallel(
@@ -342,7 +342,7 @@ export async function solveParallel(
   await ensurePool();
 
   const results = new Map<number, any>();
-  const told = caseSolved;
+  const told = __PUBLIC_FEATURES__.proPlatesUnified ? caseSolved : null;
   const settle = (id: number, result: any) => { results.set(id, result); told?.(results.size, cases.length); };
   const queue = [...cases];
 

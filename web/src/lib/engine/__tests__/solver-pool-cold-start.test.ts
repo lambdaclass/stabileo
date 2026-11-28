@@ -133,7 +133,7 @@ describe('warm workers go back to being dispatched together', () => {
   });
 });
 
-it.skip('known wrong result: #1928 an ordinary worker solve does not emit private case-progress events', async () => {
+it('known wrong result: #1928 an ordinary worker solve does not emit private case-progress events', async () => {
   const seen: number[] = [];
   const subscribe = 'onCaseSolved' in pool ? pool.onCaseSolved : undefined;
   subscribe?.(count => seen.push(count));
