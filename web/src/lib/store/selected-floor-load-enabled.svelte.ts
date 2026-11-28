@@ -3,6 +3,7 @@ import type { FloorLoadDef, FloorTarget } from '../model/loads/floor-definitions
 import { plateSurfaceOf } from '../model/physical/plate';
 import { addFloorLoadDef } from './defined-loads';
 import { floorLoadRequest } from './floor-load-request.svelte';
+export { requestFloorLoad } from './floor-load-request.svelte';
 import { modelStore, uiStore } from './index';
 import { pickedPlateDefs, plateEntry, previewPlateDefs } from './physical-plates';
 import type { physicalGroups } from './physical';
@@ -52,4 +53,8 @@ export function selectedFloorLoad(select: (key: string) => void) {
       return tp('floorLoad.addedPlates', { n: defs.length });
     },
   };
+}
+
+export function watchFloorLoadRequest(open: () => void): void {
+  $effect(() => { if (floorLoadRequest.target) open(); });
 }

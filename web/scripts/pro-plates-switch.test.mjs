@@ -1038,7 +1038,7 @@ test('known wrong result: #1928 ordinary machine listings use the shared BVBS wr
 });
 
 for (const source of ['ProLoadsTab', 'plates/PlatePanel']) {
-  test.skip('known wrong result: #1928 only unified plate navigation initializes the floor request in ' + source, async () => {
+  test('known wrong result: #1928 only unified plate navigation initializes the floor request in ' + source, async () => {
     for (const plates of [false, true]) {
       await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
         const entry = resolve(root, 'src/components/pro/' + source + '.svelte');

@@ -18,7 +18,7 @@
   import { plateArea, plateGeometry, plateLoops } from '../../../lib/model/physical/plate';
   import { removeFloorLoadDef } from '../../../lib/store/defined-loads';
   import { declarePhysicalTypology } from '../../../lib/store/physical';
-  import { requestFloorLoad } from '../../../lib/store/floor-load-request.svelte';
+  import { requestFloorLoad } from '../../../lib/store/selected-floor-load';
   import { TYPOLOGIES } from '../../../lib/model/physical';
   import type { FloorLoadDef } from '../../../lib/model/loads/floor-definitions';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
@@ -102,7 +102,7 @@
   const typologies = $derived(one ? TYPOLOGIES[one.physical.kind] ?? [] : []);
   function openInLoads() {
     if (!one) return;
-    requestFloorLoad(`g:${one.id}`);
+    requestFloorLoad?.(`g:${one.id}`);
     uiStore.proActiveTab = 'loads';
   }
   function addLoad() {

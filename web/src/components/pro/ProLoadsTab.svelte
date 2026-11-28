@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { floorLoadRequest } from '../../lib/store/floor-load-request.svelte';
+  import { watchFloorLoadRequest } from '../../lib/store/selected-floor-load';
   import Hint from './Hint.svelte';
   import ProWriteLoadCard from './loads/ProWriteLoadCard.svelte';
   import ProLoadTables from './loads/ProLoadTables.svelte';
@@ -138,9 +138,7 @@
    * belongs to a case, so the case is chosen before the load exists.
    */
   let loadSection = $state('cases');
-  if (__PUBLIC_FEATURES__.proPlatesUnified) {
-    $effect(() => { if (floorLoadRequest.target) loadSection = 'floor'; });
-  }
+  watchFloorLoadRequest?.(() => { loadSection = 'floor'; });
 
   let autoLoadsFocus = $state<AutoLoadFocus | null>(null);
 </script>
