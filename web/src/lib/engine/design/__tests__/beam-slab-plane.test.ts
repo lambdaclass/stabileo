@@ -32,3 +32,24 @@ describe('a beam in the plane of a slab', () => {
     expect(beamsInSlabPlane({ nodes, elements, sections, quads: low }).size).toBe(0);
   });
 });
+
+it.skip.each(['triangle', 'quad'] as const)('known wrong result: #1928 an individual beam uses its accepted plan length at a %s flange', async kind => {
+  const { effectiveFlange } = await import('../../../codes/cirsoc201/effective-flange');
+  const beam = { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1 };
+  const elements = new Map([[beam.id, beam]]);
+  const cell = { nodes: kind === 'quad' ? [1, 2, 3, 4] : [1, 2, 3], thickness: 0.3 };
+  const sides = [{ hf: cell.thickness, clear: 4 - sections.get(1)!.b / 2 }];
+  for (const z of [0, 0.001, -0.001, 0.001001]) {
+    const floor = new Map([...nodes].map(([id, node]) => [id, { ...node, z: id === 2 ? z : 0 }]));
+    const m = { nodes: floor, elements, sections, [kind === 'quad' ? 'quads' : 'plates']: new Map([[1, cell]]) };
+    for (const spanOf of [undefined, () => [], () => [1]]) {
+      const result = beamFlanges({ ...m, spanOf }).get(1);
+      if (Math.abs(z) > 0.001) {
+        expect(result).toBeUndefined();
+      } else {
+        const length = spanOf?.().length ? Math.hypot(4, z) : 4;
+        expect(result).toEqual({ ...effectiveFlange(sections.get(1)!.b, length, sides), datum: 'assumed' });
+      }
+    }
+  }
+});
