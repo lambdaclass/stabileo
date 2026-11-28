@@ -91,6 +91,32 @@ const hu: Strings = {
   paper: 'A cikk egy időléptetéses eljárást ír le a szerkezetdinamikához. Itt annak átlagos gyorsulású változatát próbáljuk ki egy szándékosan kicsi lineáris referenciafeladaton; nem állítjuk, hogy a cikk valamelyik ábráját reprodukáljuk.',
   alt: 'Tengelyirányú elmozdulás időtörténete a termékben használt Newmark-megoldó futtatásából',
 };
+const ko: Strings = {
+  title: 'Newmark 평균 가속도법',
+  metaTitle: 'Newmark (1959) — Stabileo Research',
+  metaDescription: '실무용 Newmark 평균 가속도법을 SDOF 계단 응답의 정해와 비교합니다.',
+  lead: '갑자기 일정한 힘이 작용하는 감쇠 없는 1자유도계입니다. 시간 간격을 늘리면 수치 주기가 길어지는 것을 볼 수 있습니다.',
+  model: '예제',
+  description: '길이 {L} m의 축 방향 골조 부재로, 왼쪽은 고정되고 오른쪽은 축 방향 병진만 자유롭습니다. E = {E} MPa, A = {A} m², 가상 밀도 = {rho} kg/m³. 일관 축 질량으로 m = ρAL/3 = {m} t, k = EA/L = {k} kN/m입니다. {F} kN의 계단 하중이 t = 0부터 작용하며, 초기 변위와 속도는 0입니다. 이는 정확한 SDOF 유한요소 벤치마크이며 연속체 봉의 해가 아닙니다.',
+  method: '실무용 3D 시간이력 해석기는 기존 WASM 래퍼를 통해 β = ¼, γ = ½, 감쇠 없음으로 실행됩니다. 재생은 같은 Rust 해석기의 네이티브 실행입니다. 새로운 적분기는 사용하지 않습니다.',
+  reference: '정확한 참조값', difference: '차이', measured: 'Stabileo T (s)', predicted: '이산 예측 Tₙ (s)',
+  formula: 'u(t) = (F/k)[1 − cos(ωt)], ω = √(k/m) = {omega} rad/s, T = 2π/ω = {T} s. 이산 평균 가속도 해는 θ = 2 atan(ωΔt/2)일 때 uₙ = (F/k)[1 − cos(nθ)]이므로, 그 주기는 Tₙ = πΔt / atan(ωΔt/2)입니다. 아래의 주기는 u = F/k를 위로 연속해서 가로지르는 지점에서 측정한 것이며, 간격이 큰 단계에서는 보간이 측정값에 영향을 줍니다.',
+  comparison: '시간 간격에 따른 주기 신장', elongation: 'T 대비 신장 (%)',
+  errors: '변위 차이', discreteError: '최대 |u − uₙ| (m)', continuousError: '최대 |u − u(t)| (mm)', bound: '위상 지연 한계 (mm)',
+  error: '최대 변위 차이 (mm)',
+  tolerance: '표시된 이력으로 계산한 검증(실시간 재계산을 따라갑니다): 모든 표본이 이산 해 uₙ와 10⁻¹⁰ m 이내로 일치합니다. 측정된 모든 주기가 Tₙ와 0.5% 이내로 일치합니다. 연속 해와의 최대 차이는 N개 단계에 걸친 uₙ로부터 얻는 위상 지연 한계 (F/k)·min(2, N(ωΔt − θ)) 미만입니다. Δt/T = 0.025에서는 네 주기 동안 0.5 mm 미만이기도 합니다. 간격이 큰 단계는 일부러 더 큰 오차를 보여 줍니다.',
+  published: '없음: 이 페이지는 방법을 정확한 닫힌 형태의 해와 대조하며, 논문에 인쇄된 그림이나 표를 재현하지 않습니다.',
+  notYet: '아직 아님', limitations: ['논문에 공표된 그림과 수치 예제.', '감쇠, 조화 하중, 비선형 응답, 다자유도 골조.', '이것은 공학적 인증이 아닙니다.'],
+  replay: '미리 계산된 재생 (동일한 해석기)', live: '브라우저에서 실시간 계산', cached: '캐시된 결과 (이 브라우저에서 계산)',
+  run: '실시간 재계산', stop: '중지', restart: '다시 시작', busy: '계산 중…', step: '시간 간격', sample: '표본',
+  sampleValue: '표본 {i}/{n}, t = {t} s',
+  speed: '재생은 모든 시간 간격에서 실제 시간보다 {x}배 느리게 진행되므로, 주기가 길수록 실제로 더 오래 걸립니다.',
+  displacement: '축 방향 변위', time: '시간 (s)', scaled: '변형 ×10, 왼쪽 절점 고정, 오른쪽 절점 축 방향 안내.',
+  tryCoarse: '가장 큰 시간 간격으로 해 보기', failure: '계산에 실패했습니다. 이전 결과를 유지합니다.',
+  paper: '논문은 구조 동역학의 시간 적분 절차를 기술합니다. 여기서는 일부러 작게 만든 선형 벤치마크에 그 평균 가속도 특수형을 적용하며, 논문의 그림을 재현한다고 주장하지 않습니다.',
+  alt: '실무용 Newmark 실행의 축 방향 변위 이력',
+};
+
 const zh: Strings = {
   title: 'Newmark 平均加速度法',
   metaTitle: 'Newmark (1959) — Stabileo Research',
@@ -116,7 +142,7 @@ const zh: Strings = {
   paper: '论文描述了一种用于结构动力学的时间步进方法。这里我们在一个有意设计得很小的线性基准算例上，运用其平均加速度的特例；我们并不声称复现了论文中的某幅图。',
   alt: '生产环境 Newmark 运行得到的轴向位移时程',
 };
-export const translations = { en, es, pt, hu, zh };
+export const translations = { en, es, pt, hu, ko, zh };
 export const strings = () => translations[researchLocale() as keyof typeof translations] ?? translations.en;
 export const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);

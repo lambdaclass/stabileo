@@ -23,6 +23,7 @@
     "fr": "L’analyse modale préserve l’espace physique de la masse",
     "hu": "A modális vizsgálat megőrzi a fizikai tömegtartományt",
     "tr": "Modal analiz fiziksel kütle uzayını korur",
+    "ko": "고유치 해석은 물리적 질량 범위를 보존합니다",
     "zh": "模态分析保留物理质量子空间"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Les rotations d’appuis et la réduction MPC pouvaient créer une inertie artificielle dans une direction physiquement sans masse et empêcher le retour de modes valides. L’assemblage modal conserve désormais les lignes massiques et condense les coordonnées sans masse avant la résolution. Les contrôles d’équation, d’orthogonalité et de certification restent applicables. Relancer les analyses concernées et les réponses dynamiques dépendantes.",
     "hu": "A támaszforgatások és az MPC-redukció téves tehetetlenséget hozhattak létre fizikailag tömeg nélküli irányokban, így érvényes módusokat tarthatott vissza a számítás. Az összeállítás most megőrzi a tömeggel rendelkező sorokat, és a megoldás előtt kondenzálja a tömeg nélküli koordinátákat. Az egyenlet-, ortogonalitási és tanúsítási ellenőrzések változatlanok. Futtassa újra az érintett modális vizsgálatokat és a kapcsolódó dinamikai válaszokat.",
     "tr": "Mesnet dönüşleri ve MPC indirgemesi, fiziksel olarak kütlesiz bir yönde yapay atalet oluşturarak geçerli modların döndürülmesini engelleyebiliyordu. Modal birleştirme artık kütleli satırları korur ve çözümden önce kütlesiz koordinatları yoğunlaştırır. Denklem, ortogonallik ve sertifika kontrolleri geçerlidir. Etkilenen modal analizleri ve bağlı dinamik tepkileri yeniden hesaplayın.",
+    "ko": "지점 회전과 MPC 축소가 물리적으로 질량이 없는 방향에 가짜 관성을 만들어 고유치 해석이 유효한 모드를 보류하게 할 수 있었습니다. 이제 모드 조립은 질량이 있는 행을 보존하고 해석 전에 질량이 없는 좌표를 축약합니다. 기존 방정식, 직교성, 인증서 검토는 계속 적용됩니다. 영향받는 고유치 해석과 이에 의존하는 동적 응답을 다시 실행하십시오.",
     "zh": "支座转动和 MPC 消元可能在物理上无质量的方向上产生虚假惯性，导致模态分析不提供有效振型。模态装配现在保留有质量的行，并在求解之前凝聚无质量的坐标。现有的方程、正交性和证书检查仍然适用。请重新运行受影响的模态分析及相关的动力响应。"
   },
   "changelog": {

@@ -29,6 +29,7 @@
     "fr": "Les réactions P-Delta exigent un résidu physique satisfaisant le contrôle",
     "hu": "A P-Delta reakciókhoz sikeres fizikai maradékellenőrzés szükséges",
     "tr": "P-Delta tepkileri için fiziksel artık denetimi başarılı olmalıdır",
+    "ko": "P-Delta 반력은 통과한 물리적 잔차를 요구",
     "zh": "P-Delta 反力要求物理残差通过"
   },
   "explanation": {
@@ -39,6 +40,7 @@
     "fr": "Revérifiez les efforts P-Delta enregistrés. Dans les résultats natifs, un résidu physique en échec conserve les identités des enregistrements de réactions, efforts de barres, forces de liaison et contraintes, mais marque leurs grandeurs numériques comme indisponibles avec des diagnostics propres à chaque champ. WASM et les exports certifiés refusent ces états. Si le résidu satisfait le contrôle, la réponse aux petits déplacements reste disponible, avec un avertissement si le contrôle d’équilibre dans la géométrie déplacée échoue (#1952).",
     "hu": "Ellenőrizze újra a mentett P-Delta erőket. Sikertelen fizikai maradékellenőrzésnél a natív eredmény megőrzi a reakció-, rúderő-, kényszererő- és feszültségrekordok azonosítóit, de számaikat nem elérhetőnek jelöli, mezőspecifikus diagnosztikával. A WASM és a tanúsított export elutasítja ezeket az állapotokat. Sikeres maradékellenőrzésnél a kis elmozdulásos válasz megmarad; az elmozdult geometria egyensúlyhibája figyelmeztetést ad (#1952).",
     "tr": "Kayıtlı P-Delta kuvvetlerini yeniden denetleyin. Yerel sonuçlarda fiziksel artık denetimi başarısız olduğunda tepki, eleman kuvveti, kısıt kuvveti ve gerilme kayıtlarının kimlikleri korunur; sayısal büyüklükleri, her alana özgü tanılarla kullanılamaz olarak işaretlenir. WASM ve sertifikalı dışa aktarımlar bu durumları reddeder. Artık denetimi başarılıysa küçük yer değiştirme sonucu korunur; yer değiştirmiş geometrideki denge denetimi başarısızsa uyarı eklenir (#1952).",
+    "ko": "저장된 P-Delta 힘을 다시 확인하십시오. 네이티브 결과에서 물리적 잔차가 실패하면 반력, 부재력, 구속력, 응력 기록의 식별 정보는 보존하되 그 수치 값은 필드별 진단과 함께 사용 불가로 표시합니다. WASM 및 인증된 내보내기는 이러한 상태를 거부합니다. 잔차가 통과하면 미소변위 결과를 유지하며, 변위된 형상의 균형 검토가 실패하면 경고를 표시합니다 (#1952).",
     "zh": "请重新核对已保存的 P-Delta 内力。在原生结果中，物理残差失败时会保留反力、杆件内力、约束力和应力记录的标识，同时将其数值量标记为不可用，并给出针对各字段的诊断。WASM 和经认证的导出会拒绝这些状态。残差通过时保留小位移的结果；若变形几何的平衡检查失败，则附带一条警告（#1952）。"
   },
   "changelog": {

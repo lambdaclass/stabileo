@@ -16,6 +16,7 @@
     "pt": "A análise direta mantém os fatores pequenos de cargas nocionais explícitas",
     "de": "Die direkte Analyse berücksichtigt kleine Faktoren expliziter Ersatzlasten",
     "fr": "L’analyse directe conserve les faibles coefficients des charges notionnelles explicites",
+    "ko": "직접 해석이 작은 명시적 가상하중 계수를 유지합니다",
     "zh": "直接分析保留显式假想荷载的小系数",
     "hu": "A közvetlen analízis figyelembe veszi a megadott helyettesítő terhek kis tényezőit",
     "tr": "Doğrudan analiz, açıkça tanımlanan fiktif yüklerin küçük katsayılarını korur"
@@ -26,6 +27,7 @@
     "pt": "A análise direta considera todos os fatores resultantes não nulos de cargas nocionais explícitas ao decidir como aplicar as próprias cargas nocionais. Execute novamente a análise direta para as combinações afetadas.",
     "de": "Bei der Ermittlung der zusätzlichen Ersatzlasten berücksichtigt die direkte Analyse jeden von null verschiedenen Gesamtfaktor expliziter Ersatzlasten. Führen Sie die direkte Analyse für betroffene Kombinationen erneut aus.",
     "fr": "L’analyse directe tient compte de tout coefficient net non nul des charges notionnelles explicites pour déterminer comment appliquer ses propres charges notionnelles. Relancez l’analyse directe pour les combinaisons concernées.",
+    "ko": "직접 해석이 자체 가상하중을 어떻게 적용할지 결정할 때 0이 아닌 모든 순 명시적 가상하중 계수가 포함됩니다. 영향을 받은 조합에 대해 직접 해석을 다시 실행하십시오.",
     "zh": "直接分析在决定如何施加自动假想荷载时，会计入显式假想荷载的所有非零净系数。请对受影响的组合重新运行直接分析。",
     "hu": "A közvetlen analízis a további helyettesítő terhek meghatározásakor figyelembe veszi a megadott helyettesítő terhek minden nem nulla eredő tényezőjét. Futtassa újra a közvetlen analízist az érintett kombinációkra.",
     "tr": "Doğrudan analiz, kendi fiktif yüklerini nasıl uygulayacağını belirlerken açıkça tanımlanan fiktif yüklerin sıfırdan farklı tüm net katsayılarını hesaba katar. Etkilenen birleşimler için doğrudan analizi yeniden çalıştırın."

@@ -23,6 +23,7 @@
     "de": "Automatische Schwerkraftlasten auf überlappenden Deckenflächen prüfen",
     "fr": "Évaluer les charges gravitaires automatiques sur les emprises de planchers superposées",
     "tr": "Otomatik yerçekimi yüklerini örtüşen döşeme alanlarında değerlendirme",
+    "ko": "겹치는 데크 면적에 걸친 자동 중력 하중을 평가합니다",
     "zh": "按楼板投影重叠范围评估自动重力荷载",
     "hu": "Az automatikus gravitációs terhek ellenőrzése az átfedő födémfelületeken"
   },
@@ -33,6 +34,7 @@
     "de": "Erzeugen Sie die automatischen Schwerkraft- und Dachlasten neu. Die Generierung prüft die lichte Höhe und die Überdeckung auf den überlappenden Flächen in ihrer tatsächlichen Höhenlage. Weisen Sie die Lasten ausdrücklich zu, wenn eine nahe vertikale Kopplung die Lastzuordnung uneindeutig macht oder überdeckte und freie Bereiche unterschiedliche Lasten benötigen.",
     "fr": "Régénérez les charges gravitaires et de toiture automatiques. La génération vérifie la hauteur libre et la couverture des emprises superposées à leurs altitudes réelles. Affectez explicitement les charges si un lien vertical proche rend leur attribution ambiguë ou si les zones couvertes et exposées exigent des actions différentes.",
     "tr": "Otomatik yerçekimi ve çatı yüklerini yeniden üretin. Üretim, örtüşen alanlardaki net yüksekliği ve örtüyü gerçek kotlarda denetler. Yakındaki bir düşey bağlantı yükün hangi elemana ait olduğunu belirsiz kılıyorsa veya örtülü ve açık alanlar farklı etkiler gerektiriyorsa yükleri açıkça atayın.",
+    "ko": "자동 중력 하중과 지붕 하중을 다시 생성하십시오. 생성은 겹치는 면적에 대해 물리적 고도에서 여유 높이와 덮개를 검토합니다. 인접한 수직 연결 때문에 귀속이 모호하거나 지지 부재가 덮인 부분과 노출된 부분에 서로 다른 작용이 필요하면 하중을 명시적으로 지정하십시오.",
     "zh": "请重新生成自动重力荷载和屋面荷载。系统按重叠范围内的实际标高检查净高和覆盖情况。如果相近构件之间的竖向连接使荷载归属不明确，或者覆盖区和暴露区需要不同荷载，请明确分配荷载。",
     "hu": "Generálja újra az automatikus gravitációs és tetőterheket. A generálás az átfedő felületeken a tényleges magasságok alapján ellenőrzi a szabad magasságot és a fedettséget. Rendelje hozzá külön a terheket, ha egy közeli függőleges kapcsolat miatt bizonytalan a teherhordó elem, vagy a fedett és szabad részek eltérő terheket igényelnek."
   },

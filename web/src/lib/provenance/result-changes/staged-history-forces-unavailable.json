@@ -28,6 +28,7 @@
     "fr": "Les efforts par phases sans récupération prise en charge sont retenus",
     "hu": "A fázistörténet erőinek visszatartása nem támogatott helyreállításnál",
     "tr": "Desteklenmeyen aşama geçmişi kuvvetleri sunulmaz",
+    "ko": "복원이 지원되지 않으면 단계별 이력 힘을 보류",
     "zh": "恢复不受支持时，暂不提供分阶段历程内力"
   },
   "explanation": {
@@ -38,6 +39,7 @@
     "fr": "Modifier les barres ou coques actives après chargement ou mouvement retient réactions, efforts et contraintes avec avertissements structurés. Les phases suivantes restent indisponibles. Les déplacements incrémentaux ne certifient pas l’équilibre. Les changements avant chargement et la rigidité inchangée conservent leurs résultats. Revérifiez les résultats par phases (#1952, #1996).",
     "hu": "Az aktív rudak vagy héjak korábbi terhelés vagy mozgás utáni változtatása strukturált figyelmeztetéssel visszatartja a reakciókat, rúd- és kényszererőket, valamint héjfeszültségeket. A későbbi fázisok is nem elérhetők. A megőrzött növekményes elmozdulások nem tanúsított egyensúlyi eredmények. A terheletlen topológiaváltozások és a változatlan merevség válaszai megmaradnak. Ellenőrizze újra a mentett fázisos eredményeket (#1952, #1996).",
     "tr": "Önceki yük veya hareketten sonra etkin eleman ya da kabuk değişince tepkiler, kuvvetler ve gerilmeler yapılandırılmış uyarılarla sunulmaz. Sonraki aşamalar da kullanılamaz. Artımlı yer değiştirmeler dengeyi doğrulamaz. Yüksüz topoloji değişiklikleri ve değişmeyen rijitlik sonuçlarını korur. Kayıtlı aşamalı sonuçları yeniden denetleyin (#1952, #1996).",
+    "ko": "이전 하중이나 운동 후에 활성 부재나 쉘을 바꾸면, 이제 반력, 부재력, 구속력, 쉘 응력을 구조화된 사용 불가 경고와 함께 보류합니다. 이후 단계도 계속 사용할 수 없습니다. 유지된 증분 변위는 인증된 평형 결과가 아닙니다. 하중이 없는 위상 변경과 변하지 않은 강성은 결과를 유지합니다. 저장된 단계별 결과를 다시 확인하십시오 (#1952, #1996).",
     "zh": "在早先的加载或运动之后更改激活的杆件或壳，现在会暂不提供反力、杆件内力和约束力以及壳应力，并给出结构化的不可用警告。之后的阶段保持不可用。保留下来的增量位移不是经认证的平衡结果。未加载的拓扑变化和未改变的刚度保留其结果。请重新核对已保存的分阶段结果（#1952，#1996）。"
   },
   "changelog": {

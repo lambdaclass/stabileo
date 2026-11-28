@@ -39,7 +39,7 @@ const en = {
 };
 export type PlasticStrings = typeof en;
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', PlasticStrings> = {
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'ko', PlasticStrings> = {
   en,
   es: {
     publisher: 'Elsevier',
@@ -263,6 +263,43 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'z
     places: { leftBase: 'Bal oszloptalp', leftCorner: 'Bal felső sarok', midspan: 'Fesztávközép', rightCorner: 'Jobb felső sarok', rightBase: 'Jobb oszloptalp' },
     nodalHeading: 'Csomóponti elmozdulások a(z) {event}. eseménynél · m', node: 'Csomópont',
   },
+  ko: {
+  publisher: 'Elsevier',
+  title: '고전적인 소성 붕괴',
+  metaTitle: '고전적인 소성 붕괴 — Stabileo Research',
+  metaDescription: '문형 골조를 보, 횡변위, 조합 메커니즘의 손계산과 비교합니다.',
+  thumbnailAlt: '실무용 해석기 실행으로 구한 붕괴 시점의 문형 골조 변형 형상',
+  lead: '기초가 고정된 문형 골조 하나, 손으로 계산한 메커니즘 세 개, 실무용 3D 소성 붕괴 해석기.',
+  citation: '”, 다음 문헌의 메커니즘법 계산 예제:',
+  model: '경간 L = {span} m, 높이 h = {height} m, 균일한 Mp = {mp} kN·m. 두 기초는 모두 고정단입니다. 지붕에는 왼쪽 모서리에서 오른쪽으로 λH = λ × {horizontal} kN, 경간 중앙에서 아래로 λV = λ × {vertical} kN이 작용합니다. 보는 하중 위치에서 분할됩니다. 골조는 XZ 평면에 놓이며 면외 하중은 작용하지 않습니다.',
+  method: '강체 부재와 미소 회전각을 가정한 가상일로부터 아래의 세 상계가 얻어집니다. 조합 메커니즘은 왼쪽 지붕 힌지를 상쇄합니다. 내부 일은 6Mpθ, 외부 일은 λ(Hh + VL/2)θ입니다. 이 중 최솟값이 지배합니다. 축 변형은 탄성이며, 축 및 전단 항복, 경화, 기하학적 불안정은 이 손계산의 범위 밖입니다.',
+  provenance: '세 상계는 Horne, Plastic Theory of Structures (1979)의 방법인 가상일 메커니즘법으로 직접 유도한 것이며, 이 책은 배경 자료로 인용합니다. 책의 쪽수나 식 번호는 확인하지 않았습니다. 치수는 우리가 정했으며 책의 그림이나 계산 예제를 재현하지 않았습니다. Crossref는 저자 없이 제목과 연도만 제공하며, 출판사는',
+  provenanceEnd: 'M. R. Horne으로 밝히고 있습니다.',
+  referenceLabel: '손계산과의 비교',
+  publishedNote: '책의 그림이나 표는 사용하지 않았습니다. 예제와 치수는 우리가 정했으므로 손계산이 참조값입니다.',
+  checksHeading: '검증 항목',
+  checks: {
+    collapse: '붕괴 계수가 조합 상계 6Mp / (Hh + VL/2)와 1 × 10⁻⁶ 이내로 같습니다.',
+    mechanism: '해석기가 완전한 메커니즘을 보고하며 경고가 없습니다.',
+    hinges: '힌지는 두 기초, 경간 중앙, 오른쪽 지붕 모서리에 형성되며, 왼쪽 지붕 모서리는 항복하지 않습니다.',
+    yield: '붕괴 시 모든 부재 단부에서 |My| ≤ Mp입니다.',
+    equilibrium: '반력이 작용 하중과 평형을 이룹니다: ΣFx, ΣFz, ΣMy가 1 × 10⁻⁹ 이내.',
+    corner: '정역학에 따라 왼쪽 지붕 모서리가 부담하는 모멘트는 3Mp − λHh = {corner} kN·m이며, 보 방정식 3Mp + M = λVL/2가 성립합니다.',
+  },
+  passed: '통과', failed: '실패',
+  comparison: '손계산과 Stabileo 비교', mechanism: '메커니즘', reference: '손계산 λ', difference: 'Δ (Stabileo − 손계산)',
+  beam: '보', sway: '횡변위', combined: '조합',
+  explanation: '최솟값만이 예측된 붕괴 계수입니다. 나머지 두 상계와의 차이는 예상된 것이며 해석기 오차가 아닙니다. λ의 허용 오차 1 × 10⁻⁶은 정확도 목표가 아니라 회귀 한계입니다. 이 작고 조건이 좋은 문제는 네이티브 실행에서 조합 상계와 1.4 × 10⁻¹¹ 이내로 일치합니다.',
+  scope: '범위', limits: ['설계 검토가 아닙니다.', '하중비 하나와 균일 단면 하나이며, 축력–모멘트 상관, 좌굴, 큰 변위는 다루지 않습니다.', '2D 소성 해석기는 여기서 사용하지 않으며, 이 페이지는 3D 해석기를 실행합니다(이슈 #758 참조).', '뷰어는 변위된 절점을 직선으로 연결하며 힌지 기호는 그리지 않습니다.'],
+  run: '실시간 재계산', stop: '중지', restart: '다시 시작', running: '실시간 계산 중…', replay: '미리 계산된 재생 (동일한 해석기)', live: '실시간 계산',
+  error: '실시간 계산에 실패하여 미리 계산된 재생을 표시합니다', errorDetail: '해석기 메시지',
+  step: '힌지 발생', displacement: '절점 변위',
+  pending: '미리 계산된 실행 결과가 없습니다', warning: '해석기 경고 / 불완전한 메커니즘',
+  amplified: '변위 ×{scale}', planeNote: 'XZ 평면을 평평하게 그립니다. X는 오른쪽, Z는 위쪽입니다.',
+  eventsHeading: '힌지 발생', event: '발생', location: '힌지 위치', moment: 'My · kN·m',
+  places: { leftBase: '왼쪽 기초', leftCorner: '왼쪽 지붕 모서리', midspan: '경간 중앙', rightCorner: '오른쪽 지붕 모서리', rightBase: '오른쪽 기초' },
+  nodalHeading: '발생 {event}에서의 절점 변위 · m', node: '절점',
+},
   zh: {
     publisher: 'Elsevier',
     title: '经典塑性倒塌',

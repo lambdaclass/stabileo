@@ -25,6 +25,7 @@
     "de": "Schneelasterzeugung sperrt Verwehungslasten an Dachversätzen",
     "fr": "La génération de neige refuse le transfert des congères aux décrochements de toiture",
     "tr": "Kar yükü üretimi çatı kot farklarında kar birikimi aktarımını reddeder",
+    "ko": "적설 생성은 지붕 단차의 양의 드리프트 전달을 거부",
     "zh": "雪荷载生成拒绝屋面高差处的正积雪荷载传递"
   },
   "explanation": {
@@ -34,6 +35,7 @@
     "de": "Eine Verwehung am Versatz zwischen Dachfeldern sperrt die Erzeugung, da bei der Übertragung auf Stäbe Kraft und exzentrisches Moment verloren gehen konnten. Erzeugen Sie Schneelasten neu und geben Sie sie bei einer Sperre explizit an.",
     "fr": "Une accumulation positive au décrochement entre panneaux de toiture bloque la génération, car le transfert aux barres pouvait perdre de la force et du moment excentré. Régénérez les charges de neige et définissez-les explicitement en cas de blocage.",
     "tr": "Çatı panelleri arasındaki kot farkında pozitif kar birikimi üretimi engeller. Elemanlara aktarım kuvvet ve eksantrik moment kaybedebiliyordu. Kar yüklerini yeniden üretin ve üretim engellenirse açıkça tanımlayın.",
+    "ko": "지붕 패널 사이 단차의 양의 드리프트는 부재 하중 전달에서 힘과 편심 모멘트를 잃을 수 있으므로 이제 적설 생성을 차단합니다. 적설하중을 다시 생성하고, 생성이 차단되면 직접 정의하십시오.",
     "zh": "屋面板块高差处若出现正积雪荷载，将阻止雪荷载生成，因为向杆件传递时可能损失力和偏心力矩。请重新生成雪荷载，若生成被阻止，请显式定义雪荷载。"
   },
   "changelog": {

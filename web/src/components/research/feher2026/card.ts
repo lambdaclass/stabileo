@@ -15,6 +15,10 @@ export const shapeCard = {
     title: 'Egy hajlított csík vezetése két alak között',
     hook: 'Forgassa el egy aktívan hajlított csík két befogását állandó teher alatt, és vigye át ívből az átfordult alakjába átpattanás nélkül.',
   },
+  ko: {
+    title: '두 모양 사이에서 휜 띠 조종하기',
+    hook: '하중이 일정한 상태에서 능동적으로 휜 띠의 두 고정단을 돌려, 스냅 없이 아치에서 뒤집힌 모양으로 옮깁니다.',
+  },
   zh: {
     title: '引导弯曲板条在两种形状之间转换',
     hook: '在固定荷载下转动主动弯曲板条的两个夹具，使其由拱形转为反向形状，而不发生突跳。',

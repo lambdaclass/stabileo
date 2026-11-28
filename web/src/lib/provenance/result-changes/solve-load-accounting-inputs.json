@@ -13,6 +13,7 @@
     "fr": "Vérification des charges avant projection et développement des cas",
     "hu": "Teherellenőrzés a vetítés és a teheresetek kibontása előtt",
     "tr": "İzdüşüm ve yük durumlarının açılımı öncesinde yük denetimi",
+    "ko": "투영 및 케이스 확장 전의 하중 집계",
     "zh": "投影和荷载工况展开前的荷载校核"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "L’analyse s’arrête si la projection ou le développement modifie la résultante d’un cas. La vérification utilise le repère local de la barre sur sa portée excentrée, y compris dans les modèles obtenus par symétrie.",
     "hu": "A számítás leáll, ha a vetítés vagy a kibontás megváltoztatja egy tehereset eredőjét. Az ellenőrzés az eltolt rúdszakasz helyi koordináta-rendszerét használja, tükrözött modelleken is.",
     "tr": "İzdüşüm veya açılım bir yük durumunun bileşkesini değiştirirse analiz durur. Denetim, aynalanmış modeller dahil olmak üzere eksantrik açıklığın yerel eleman eksenlerini kullanır.",
+    "ko": "투영 또는 케이스 확장이 하중 케이스의 합력을 바꾸면 해석이 중단됩니다. 이 보호 장치는 대칭 모델을 포함하여 오프셋 구간을 따르는 부재 좌표계를 사용합니다.",
     "zh": "投影或工况展开改变荷载工况的合力或合力矩时，分析停止。校核使用偏移后杆段的局部坐标系，镜像模型也适用。"
   },
   "changelog": {

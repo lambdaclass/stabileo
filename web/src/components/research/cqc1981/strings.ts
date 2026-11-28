@@ -31,7 +31,7 @@ const en = {
 
 export type CqcStrings = typeof en;
 
-export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', CqcStrings> = {
+export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'ko', CqcStrings> = {
   en,
   es: {
     srss: 'SRSS', cqc: 'CQC',
@@ -201,6 +201,34 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     step: 'Burkoló megjelenítése', rule: 'Kombináció',
     error: 'Az élő számítás nem sikerült',
   },
+  ko: {
+  srss: 'SRSS', cqc: 'CQC',
+  title: '근접 모드: SRSS 대 CQC',
+  metaTitle: 'SRSS 대 CQC (1981) — Stabileo Research',
+  metaDescription: '근접한 건물 모드를 닫힌 해 기준과 비교합니다.',
+  lead: '실제 모드 및 응답스펙트럼 엔진으로 해석한 작은 3D 전단형 건물 이상화 모델 하나입니다.',
+  citation: '”을 바탕으로 한 방법 도해',
+  model: '예제', description: '고정단 기둥 네 개, 높이 3 m, 평면 4 × 3 m. 각 지붕 절점에는 X 방향으로 5 t이 실려 있습니다. 지붕의 회전과 Y/Z 병진은 구속되어 있고, 횡방향 각 쌍은 동일 X 구속 조건으로 연결됩니다. 두 개의 축 방향 지붕 타이가 남은 두 좌표를 결합합니다. 이것은 방법을 설명하기 위한 우리의 도해이며 논문의 원래 건물이 아닙니다.',
+  method: '닫힌 해 기준', equations: '축약 행렬은 M = diag(10, 10) t와 K = [[1020, −20], [−20, 1230]] kN/m입니다. det(K − ω²M) = 0을 풀고 각 모드를 단위 모달 질량으로 정규화합니다. Sa = 1 m/s²일 때 모달 밑면 전단력은 Γ²Sa입니다. SRSS는 교차항을 버리고, CQC는 ξ = 5%에서 동일 감쇠 상관을 갖는 교차항을 유지합니다.',
+  rhoSource: '이것은 Wilson, Der Kiureghian, Bayo(1981)의 식 (14)(191쪽)의 동일 감쇠 상관계수입니다. 190쪽은 교차항이 부호를 유지하는 이유를 설명합니다. 이 식은 모달 감쇠가 동일하고, 지반 운동이 모달 주기에 비해 오래 지속되며, 스펙트럼이 넓고 매끄럽다고 가정합니다. 아래의 기준값은 이 예제의 닫힌 해이며 논문의 Table I의 데이터가 아닙니다.',
+  explanation: '이 논문은 모드 조합 오차를 줄이기 위해 CQC를 제안하며, 진동수가 충분히 떨어져 있으면 SRSS로 돌아갑니다. 여기서는 밑면 전단력에서 SRSS가 CQC보다 작습니다. 이 차이는 CQC 추정값에 대한 상대값이며, 지진 기록에 대해 측정한 오차가 아닙니다.',
+  referenceLabel: '닫힌 해와의 비교',
+  publishedNote: '논문의 건물과 표는 사용하지 않습니다. 이 페이지는 자체 두 모드 예제를 닫힌 해와 대조합니다.',
+  comparison: '밑면 전단력 · kN', roofHeading: '지붕 X 변위 포락선 · mm', node: '절점',
+  modalHeading: '모달 데이터', quantity: '항목', f1: '진동수 1 · Hz', f2: '진동수 2 · Hz', rho: '모달 상관 ρ',
+  impliedNote: 'Stabileo의 ρ는 자체 결과에서 복원합니다. ρ = (V_CQC² − V_SRSS²) / (2 V₁ V₂)이며, Vᵢ는 모달 밑면 전단력입니다.',
+  reference: '닫힌 해', result: 'Stabileo', delta: '차이 · %',
+  deficit: 'CQC 대비 SRSS · %',
+  checksHeading: '검토',
+  tolerance: '회귀 한계: 상대 차이가 1 × 10⁻⁸ 미만이며, 대상은 두 진동수, X 방향 질량 참여, 두 밑면 전단력, 두 지붕 변위(9개 검토)입니다. 기본 실행의 차이는 최대 6.4 × 10⁻¹⁵입니다. 이 한계는 이 작고 조건이 좋은 두 좌표 문제를 회귀로부터 지키기 위한 것이며 정확도 목표가 아닙니다. 해석기와 닫힌 해의 일치는 물리적 정확도에 대해 아무것도 말해 주지 않습니다.',
+  scope: '범위',
+  limitations: ['비교 대상은 이 두 좌표 예제의 닫힌 해이며, 논문 자체의 건물과 수치 표는 재현하지 않습니다.', '시간이력이 없습니다. 어느 규칙도 지반 운동 기록과 대조하지 않았습니다.', '한 개 층, 비틀림 응답과 매개변수 스윕은 없습니다.'],
+  run: '실시간 재계산', stop: '중지', restart: '다시 시작', running: '계산 중…',
+  replay: '미리 계산된 재생(같은 해석기)', live: '실시간 결과(실제 WASM)',
+  viewer: '지붕 X 변위 · mm', viewNote: 'Stabileo 뷰어의 축측 투영. 변형 ×40. 애니메이션은 포락선의 크기를 조절하는 것이며 시간이력이 아닙니다.',
+  step: '포락선 표시', rule: '조합',
+  error: '실시간 계산에 실패했습니다',
+},
   zh: {
     srss: 'SRSS', cqc: 'CQC',
     title: '密集模态：SRSS 与 CQC',

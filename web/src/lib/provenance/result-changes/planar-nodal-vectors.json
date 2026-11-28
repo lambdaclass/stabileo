@@ -13,6 +13,7 @@
     "fr": "Composantes hors plan dans les charges nodales planes",
     "hu": "Síkon kívüli összetevők a síkbeli csomóponti terhekben",
     "tr": "Düzlemsel düğüm yüklerinde düzlem dışı bileşenler",
+    "ko": "평면 절점 하중의 면외 성분",
     "zh": "平面节点荷载中的面外分量"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "À l’ouverture d’un modèle, un vecteur de charge nodale plane dont une composante hors plan est non nulle ou invalide est refusé. Vérifiez la charge d’origine. Si cette composante est voulue, utilisez une charge nodale spatiale.",
     "hu": "A modell megnyitásakor a program elutasítja az érvénytelen vagy nem nulla, síkon kívüli összetevővel rendelkező síkbeli csomóponti tehervektort. Ellenőrizze az eredeti terhet. Ha az összetevő szándékos, használjon térbeli csomóponti terhet.",
     "tr": "Model açılırken düzlem dışı bileşeni sıfırdan farklı veya geçersiz olan düzlemsel düğüm yükü vektörü reddedilir. Kaynak yükü kontrol edin. Bileşen kasıtlıysa uzamsal düğüm yükü kullanın.",
+    "ko": "이제 모델을 열 때 면외 성분이 0이 아니거나 유효하지 않은 평면 절점 벡터를 거부합니다. 원본 하중을 확인하십시오. 그 성분이 의도한 것이면 공간 절점 하중을 사용하십시오.",
     "zh": "打开模型时，若平面节点荷载向量包含非零或无效的面外分量，系统会拒绝该记录。请核对原始荷载。若该分量是有意设置的，请使用空间节点荷载。"
   },
   "changelog": {

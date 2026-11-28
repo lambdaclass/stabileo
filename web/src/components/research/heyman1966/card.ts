@@ -27,6 +27,10 @@ export const archCard = {
     title: 'Milyen vékony lehet egy kőív?',
     hook: 'Merev ívkövek, húzószilárdság nélkül: keresse meg egy körív legkisebb vastagságát és azt a terhet, amelytől egy gyűrű összeomlik, lineáris programmal és az összes csuklós mechanizmussal.',
   },
+  ko: {
+    title: '석조 아치는 얼마나 얇을 수 있을까?',
+    hook: '인장이 없는 강체 쐐기석: 선형계획법과 모든 힌지 메커니즘으로 원형 아치의 최소 두께와 링이 붕괴하는 하중을 구합니다.',
+  },
   zh: {
     title: '石拱可以有多薄？',
     hook: '刚性拱石，不承受拉力：用线性规划和所有铰机构，求出圆弧拱的最小厚度，以及使拱环倒塌的荷载。',

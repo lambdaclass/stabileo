@@ -70,3 +70,8 @@ it('links Chinese release notes that exist in the repository', () => {
   expect(releaseNotesUrl('zh')).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${RESULTS_CHANGED_IN}.zh.md`);
   expect(existsSync(resolve(repo, `docs/releases/v${RESULTS_CHANGED_IN}.zh.md`))).toBe(true);
 });
+
+it('links Korean release notes that exist in the repository', () => {
+  expect(releaseNotesUrl('ko')).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${RESULTS_CHANGED_IN}.ko.md`);
+  expect(existsSync(resolve(repo, `docs/releases/v${RESULTS_CHANGED_IN}.ko.md`))).toBe(true);
+});

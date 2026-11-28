@@ -6,6 +6,7 @@ export const riserTitle = {
   fr: 'Un riser soulevé du fond marin',
   tr: 'Deniz tabanından kaldırılan bir riser',
   hu: 'Tengerfenékről felemelt riser',
+  ko: '해저에서 들어 올린 라이저',
   zh: '从海床抬起的立管',
 };
 
@@ -17,5 +18,6 @@ export const riserHook = {
   fr: 'Une ligne de 835 m posée sur le fond est tirée par son extrémité libre puis soulevée de 186 m. Observez où elle quitte le sol et comment la flexion y atteint son maximum.',
   tr: 'Deniz tabanında yatan 835 m’lik bir hat serbest ucundan çekilir ve 186 m kaldırılır. Hattın zeminden nerede ayrıldığını ve eğilmenin orada nasıl en büyük değerine ulaştığını izleyin.',
   hu: 'Egy 835 m hosszú vezeték a tengerfenéken fekszik; szabad végénél fogva meghúzzák, majd 186 m-rel megemelik. Figyelje meg, hol válik el a talajtól, és hogyan éri el ott a hajlítás a csúcsát.',
+  ko: '835 m의 선이 해저에 놓여 있다가 자유단이 당겨져 186 m 들어 올려집니다. 선이 지면에서 떨어지는 곳과 그곳에서 휨이 어떻게 최대가 되는지 살펴보세요.',
   zh: '一根 835 m 长的管线平躺在海床上，从其自由端拉动并抬起 186 m。观察它从何处离开地面，以及弯曲在该处如何达到峰值。',
 };

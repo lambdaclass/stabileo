@@ -20,6 +20,7 @@
     "de": "Windexzentrizität nutzt den aktiven Grundriss und die Schildfläche",
     "fr": "L’excentricité du vent utilise la section active et la face du panneau plein",
     "tr": "Rüzgâr eksantrisitesi etkin planı ve dolu levha yüzeyini kullanır",
+    "ko": "풍하중 편심은 활성 평면과 중실 표지판 면을 사용",
     "zh": "风荷载偏心采用当前平面和实体标牌表面",
     "hu": "A szél excentricitása az aktív alaprajzot és a tábla felületét használja"
   },
@@ -30,6 +31,7 @@
     "de": "In nicht zusammengeführten Builds von PR #2220 konnte integrierter exzentrischer Wind zu lokalen Stützentorsionen statt einem Kräftepaar im Grundriss werden. Breitere Stützen unter geschlossenen Schildern konnten die Breite für Beiwert und Exzentrizität vergrößern. W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht. Die Hinweise zu main sind SA-2026-076–078 (#2203–#2205); #2206 ist konservativ und erhält keinen Hinweis.",
     "fr": "Dans les versions non fusionnées de la PR #2220, le vent excentré intégré pouvait devenir des torsions locales de poteaux au lieu d’un couple de forces en plan ; un support plus large sous un panneau plein pouvait augmenter sa largeur de calcul et son excentricité. Régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. Les avis concernant main sont SA-2026-076–078 (#2203–#2205) ; #2206 est conservateur et n’a pas d’avis.",
     "tr": "Birleştirilmemiş PR #2220 sürümlerinde bütünleştirilmiş eksantrik rüzgâr, planda kuvvet çifti yerine kolonlarda yerel burulmaya dönüşebiliyordu. Dolu levhanın altındaki daha geniş mesnet, katsayı genişliğini ve eksantrisiteyi artırabiliyordu. W ve Wa yüklerini yeniden üretin, analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez. Ana dal kusurlarının duyuruları SA-2026-076–078’dir (#2203–#2205); #2206 korunumlu olduğundan duyurusu yoktur.",
+    "ko": "병합되지 않은 PR #2220 빌드에서 적분된 편심 풍하중이 평면 힘 우력 대신 국부 기둥 비틀림이 될 수 있었고, 중실 표지판 아래의 더 넓은 지지대가 계수 폭과 편심을 키울 수 있었습니다. W와 Wa를 다시 생성한 뒤 해석, 조합, 설계 검토를 다시 실행하십시오. 저장된 하중만 다시 해석하는 것으로는 수정되지 않습니다. main 기반의 별도 풍하중 공지는 SA-2026-076–078 (#2203–#2205)이며, #2206은 보수적이므로 공지가 없습니다.",
     "zh": "在尚未合并的 PR #2220 构建中，积分得到的偏心风荷载可能变成柱上的局部扭矩，而不是平面内的力偶；实体标牌下方较宽的支承可能增大其系数宽度和偏心距。请重新生成 W 和 Wa，然后重新运行分析、组合和设计验算。仅重新求解已存储的荷载并不能纠正它们。main 源码中单独的风荷载公告为 SA-2026-076–078（#2203–#2205）；#2206 偏于保守，没有公告。",
     "hu": "A még nem egyesített #2220 PR-ben az excentrikus szél alaprajzi erőpár helyett helyi oszlopcsavarásként jelentkezhetett; a tábla alatti szélesebb támasz növelhette a számítási szélességet és az excentricitást. Állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket. A main hibáinak figyelmeztetései: SA-2026-076–078 (#2203–#2205); a #2206 konzervatív, nincs hozzá figyelmeztetés."
   },

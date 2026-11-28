@@ -223,6 +223,38 @@ const hu: Strings = {
   largest: 'Legnagyobb PR²/EI az úton',
   chartLabel: 'PR²/EI a lépésszám függvényében', chartData: 'A görbe adatai (20 lépésenként)', slider: '{step}. lépés: PR²/EI = {load}',
 };
+const ko: Strings = {
+  title: 'DaDeppo–Schmidt: 한계에 이른 깊은 아치',
+  hook: '215° 아치, 정점 하중, 실제 호장 해석기를 사용하여 발표된 한계 하중과 정점 상태와 대조합니다.',
+  model: '고정–힌지 아치 하나',
+  description: '왼쪽 단이 고정되고 오른쪽 단이 핀인 원형 아치의 정점에 방향이 고정된 아래 방향 집중하중이 작용합니다. 마흔 개의 직선 공동회전 골조 요소가 215° 개구를 근사합니다. 비대칭 지점 때문에 첫 번째 한계점 이전에 정점이 핀 단 쪽으로 횡변위합니다.',
+  units: 'R = 1 m, EI = 1 kN·m², EA = 10⁶ kN을 사용합니다. 기준 하중이 1 kN이므로 해석기의 하중 계수는 PR²/EI와 같습니다. 흔히 인용되는 P = 897은 R = 100, EI = 10⁶을 사용한 값으로, 정규화한 값은 8.97이며 897이 아닙니다.',
+  comparison: '논문과의 비교',
+  referenceText: 'Table 1(1975년 논문)을 공저자 R. Schmidt가 2000년 토론(J. Eng. Mech. 126(12), 1308쪽)에서 인용한 대로 비교합니다. 한계점에서 PR²/EI = 8.97, 정점 u/R = 0.6116, v/R = 1.1372, 회전 0.0498이며, 표시된 자릿수로 반올림되어 있습니다.',
+  signs: 'u는 핀 단 쪽이 양이고 v는 아래 방향이 양입니다. 회전은 Stabileo의 정점 회전 ry와 비교하며, ry는 한계점에서 양입니다.',
+  sourceLink: 'Schmidt가 인용한 값 읽기',
+  method: '실제 Crisfield 호장 해석기는 기존 공동회전 골조로 정점을 지나는 평형을 추적합니다. 한계점은 최대 하중 주변의 세 단계를 지나는 포물선으로 정하고, 그 지점의 정점 상태는 이 세 단계에서 멈춘 실행으로부터 보간합니다. 뷰어는 실제 변위 축척을 사용합니다.',
+  studyHeading: '메쉬 연구와 허용오차',
+  studyText: '같은 아치를 요소 20, 40, 80개로 해석했습니다. 각 허용오차는 1.25배 한 추정 이산화 오차(40개 요소, 관측된 차수로 Richardson 외삽)에 발표된 마지막 자리의 절반을 더한 값입니다. 요소 길이를 영으로 외삽하면 모든 양이 반올림과 80개 요소 오차 추정 범위 안에서 발표값과 일치하므로, 한계 하중의 +0.46%(40개 요소)는 이산화 오차입니다. 호장 증분을 절반으로 줄여도 한계 하중은 (상대값으로) 10⁻⁶ 미만만 변하며, 축강성을 열 배로 하면 10⁻⁴ 미만만 변합니다.',
+  studyCaption: '요소 20, 40, 80개의 한계점 값',
+  extrapolated: '외삽값',
+  inspect: '정점 부근에서 아치 살펴보기(단계 260)',
+  replayNote: '재생 프레임은 같은 해석기를 반복 실행하여 스무 단계마다 멈춘 종점 결과입니다. 실제 API는 종점에서만 전체 절점 변위를 반환하므로, 실시간 워커가 그 실행을 반복합니다. 곡선은 수렴한 모든 단계를 보여 주며, 가로축은 정점 변위가 아니라 단계 번호입니다.',
+  notYet: '이 페이지 밖',
+  limitations: ['발표된 전체 평형 곡선과 두 번째 한계점.', '다른 개구각, 면외 좌굴, 접촉 또는 재료 비선형성.'],
+  noAuthorCode: '비교하지 않음: 저자의 코드를 사용하지 않았습니다.',
+  livePath: '실시간 경로', shortPath: '짧은 경로 · 20단계(정점 이전)', fullPath: '전체 벤치마크 · 400단계',
+  replay: '미리 계산된 재생(같은 해석기)', live: '실시간 계산', cached: '캐시된 브라우저 결과', running: '계산 중…',
+  run: '실시간 재계산', stop: '중지', restart: '다시 시작', step: '단계', displacement: '변위 크기',
+  limit: '한계점에서', quantity: '항목', reference: '발표값', stabileo: 'Stabileo, 요소 40개', difference: '차이', tolerance: '허용오차',
+  pass: '적합', fail: '부적합',
+  verdictPass: '네 값 모두 허용오차 안에 있으며 하강 구간에 도달했습니다', verdictFail: '허용오차 밖', incomplete: '불완전한 경로: {total}단계 중 {n}단계',
+  errorSolve: '해석기가 이 경로를 완료하지 못했습니다.', errorInvalid: '해석기가 불완전한 결과를 반환했습니다.',
+  qLoad: '한계 하중 PR²/EI', qU: '정점 u/R', qV: '정점 v/R', qRot: '정점 회전(rad)',
+  largest: '경로상의 최대 PR²/EI',
+  chartLabel: '단계 번호에 따른 PR²/EI', chartData: '곡선 데이터(20단계마다)', slider: '단계 {step}: PR²/EI = {load}',
+};
+
 const zh: Strings = {
   title: 'DaDeppo–Schmidt：处于极限状态的深拱',
   hook: '一个 215° 的拱，拱顶受荷载，用生产环境的弧长求解器计算，并与已发表的极限荷载和拱顶状态核对。',
@@ -255,5 +287,5 @@ const zh: Strings = {
   chartLabel: 'PR²/EI 随步数的变化', chartData: '曲线数据（每 20 步）', slider: '第 {step} 步：PR²/EI = {load}',
 };
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'ko', Strings> = { en, es, pt, de, fr, tr, hu, ko, zh };
 export const archStrings = (locale: string): Strings => strings[locale as keyof typeof strings] ?? en;

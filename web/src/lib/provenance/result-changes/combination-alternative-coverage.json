@@ -24,6 +24,7 @@
     "de": "Gemeinsame Alternativen abdecken und Dachlasten erhalten",
     "fr": "Couvrir les variantes communes et préserver les charges de toiture",
     "tr": "Ortak alternatifleri kapsa ve çatı yüklerini koru",
+    "ko": "공유 대안을 다루고 지붕 하중 입력을 보존합니다",
     "zh": "涵盖共享备选工况并保留屋面荷载输入",
     "hu": "A közös alternatívák lefedése és a tetőterhek megőrzése"
   },
@@ -34,6 +35,7 @@
     "de": "Erzeugte Kombinationen konnten gemeinsame Alternativen oder beibehaltene Dachnutzlasten auslassen. Bei der Änderung eines Schneefaktors konnte Flachdachschnee durch physischen Schnee ersetzt werden. Prüfen Sie die Regeln, erzeugen Sie die betroffenen Lasten und Kombinationen neu und berechnen Sie Analysen und Einhüllende erneut.",
     "fr": "Les combinaisons générées pouvaient omettre des variantes communes ou des charges d’exploitation de toiture conservées. Modifier un coefficient de neige pouvait remplacer la neige de toiture plate par la neige physique. Vérifiez les règles, régénérez les charges et les combinaisons concernées, puis relancez les analyses et les enveloppes.",
     "tr": "Üretilen birleşimler ortak alternatifleri veya korunan çatı hareketli yüklerini atlayabiliyordu. Kar katsayısını düzenlemek, düz çatı karından fiziksel kar yüküne geçişe neden olabiliyordu. Kuralları gözden geçirin, etkilenen yükleri ve birleşimleri yeniden üretin, analizleri ve zarfları yeniden hesaplayın.",
+    "ko": "생성된 조합이 공유 대안을 건너뛰거나 유지해야 할 지붕 활하중을 빠뜨릴 수 있었습니다. 적설 계수를 편집하면 그 기준이 평지붕에서 실제 적설로 바뀔 수 있었습니다. 규칙을 검토하고, 영향을 받은 하중과 조합을 다시 생성한 뒤 해석과 포락선을 다시 실행하십시오.",
     "zh": "生成的组合可能跳过共享备选工况或遗漏保留的屋面活荷载。编辑雪荷载系数时，选用的工况可能从平屋面雪荷载变为实际雪荷载。请检查规则，重新生成受影响的荷载及组合，并重新运行分析和计算包络。",
     "hu": "A létrehozott kombinációk kihagyhattak közös alternatívákat vagy megőrzött tetőhasznos terheket. A hótényező szerkesztése a lapostető haváról a fizikai hóteherre válthatott. Ellenőrizze a szabályokat, hozza létre újra az érintett terheket és kombinációkat, majd számítsa újra az elemzéseket és a burkológörbéket."
   },

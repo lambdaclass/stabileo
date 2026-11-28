@@ -12,6 +12,7 @@
     "de": "Leere Lastfälle tragen nichts zur nichtlinearen Überlagerung bei",
     "fr": "Les cas vides ont une contribution nulle à la superposition non linéaire",
     "hu": "Az üres teheresetek hozzájárulása nulla a nemlineáris szuperpozícióban",
+    "ko": "빈 케이스는 비선형 중첩에 0으로 기여합니다",
     "zh": "空工况在非线性叠加中贡献为零",
     "tr": "Boş yük durumlarının doğrusal olmayan süperpozisyona katkısı sıfırdır"
   },
@@ -22,6 +23,7 @@
     "de": "Ein leerer Lastfall addiert bei der nichtlinearen Überlagerung keine Reaktion eines vorgespannten Seils unter Nulllast mehr. Berechnen Sie die betroffenen Kombinationen erneut und prüfen Sie die Ergebnisse und Einhüllenden.",
     "fr": "Dans une superposition non linéaire, un cas de charge vide n’ajoute plus la réponse à vide d’un câble prétendu. Recalculez les combinaisons concernées et examinez les réponses et les enveloppes.",
     "hu": "Nemlineáris szuperpozícióban egy üres tehereset már nem adja hozzá az előfeszített kábel terheletlen állapotának válaszát. Számítsa újra az érintett kombinációkat, és ellenőrizze a válaszokat és a burkolókat.",
+    "ko": "비선형 중첩의 빈 하중 케이스는 더 이상 프리텐션 케이블의 무하중 응답을 더하지 않습니다. 영향을 받은 조합을 다시 실행하고 응답과 포락선을 검토하십시오.",
     "zh": "非线性叠加中的空荷载工况不再加入预张拉索的无荷载响应。请重新运行受影响的组合，并复核其响应和包络。",
     "tr": "Doğrusal olmayan süperpozisyonda boş bir yük durumu artık ön gerilmeli kablonun yüksüz tepkisini eklemez. Etkilenen birleşimleri yeniden hesaplayıp tepkileri ve zarfları inceleyin."
   },

@@ -17,6 +17,7 @@ export const RELATED_COPY: Record<string, string[]> = {
   fr: ['Recherche et calculateurs associés', 'Galerie de recherche', 'Calculateurs gratuits', 'Blog d’ingénierie'],
   tr: ['İlgili araştırmalar ve hesaplayıcılar', 'Araştırma galerisi', 'Ücretsiz hesaplayıcılar', 'Mühendislik blogu'],
   hu: ['Kapcsolódó kutatások és kalkulátorok', 'Kutatási galéria', 'Ingyenes kalkulátorok', 'Mérnöki blog'],
+  ko: ['관련 연구와 계산기', '연구 갤러리', '무료 계산기', '엔지니어링 블로그'],
   zh: ['相关研究与计算器', '研究示例库', '免费计算器', '工程博客'],
 };
 export function relatedPaths(path: string) {

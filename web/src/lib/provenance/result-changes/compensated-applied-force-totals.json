@@ -18,6 +18,7 @@
     "de": "Sich aufhebende Lasten erhalten kleine Resultierende",
     "fr": "Les forces opposées conservent les petites résultantes",
     "hu": "A kioltó erők megőrzik a kis eredőket",
+    "ko": "상쇄되는 작용력이 작은 합력을 유지합니다",
     "zh": "相互抵消的外加力保留较小的合力",
     "tr": "Birbirini götüren kuvvetler küçük bileşkeleri korur"
   },
@@ -28,6 +29,7 @@
     "de": "Lastsummen verwenden die kompensierte Neumaier-Summation in jeder Dimension und Analyse mit unabhängiger Gleichgewichtsprüfung. Große sich aufhebende Knotenlasten löschen keine kleine Last an einem anderen Knoten mehr und erzeugen kein falsches Ungleichgewicht. Reaktionen und Grenzwerte bleiben gleich. Betroffene Analysen erneut rechnen. Der Hinweis erfordert strukturelle Steifigkeit und entweder aufgebrachte Lasten einschließlich Eigengewicht oder eine Analysehistorie mit Kräften. Unbekannte Historien bleiben erfasst; ein unbelasteter reiner Modalrahmen erhält ihn nicht mehr.",
     "fr": "Les totaux utilisent la sommation compensée de Neumaier dans chaque dimension et analyse avec équilibre indépendant. Les grandes forces nodales opposées ne suppriment plus une petite force sur un autre nœud et ne causent plus de faux déséquilibre. Réactions et limites inchangées. Relancer les analyses concernées. Cet avis exige une rigidité structurelle et des actions appliquées (dont le poids propre explicite) ou un historique d’analyse avec forces. Les historiques inconnus restent couverts ; un portique uniquement modal sans charges ne reçoit plus cet avis.",
     "hu": "Az erőösszegek Neumaier kompenzált összegzést használnak minden dimenzióban és független egyensúlyt jelentő elemzésben. A nagy kioltó csomóponti erők nem törlik egy másik csomópont kis erejét, így nem okoznak hamis egyensúlyhibát. A reakciók és határértékek változatlanok. Az érintett elemzéseket újra kell futtatni. Az értesítés szerkezeti merevséget és terheket (köztük kifejezett önsúlyt) vagy erőeredményt adó elemzési előzményt igényel. Az ismeretlen előzmények továbbra is érintettek; a terheletlen, csak modális keret már nem kapja meg.",
+    "ko": "작용력 요약은 이제 독립적인 평형을 보고하는 모든 차원과 해석에서 Neumaier 보정 합산을 사용합니다. 큰 절점력이 서로 상쇄되어도 더 이상 다른 절점의 작은 힘을 지우거나 잘못된 불균형을 일으키지 않습니다. 반력과 허용 한계는 변하지 않습니다. 영향을 받은 해석을 다시 실행하십시오. 이 공지는 구조 강성과, 작용 하중(명시적 자중 포함) 또는 힘을 만드는 해석 이력이 모두 필요합니다. 알 수 없는 이력은 계속 대상이며, 하중이 없는 고유치 해석 전용 골조에는 더 이상 표시되지 않습니다.",
     "zh": "在报告独立平衡的每种维度和分析中，外加力汇总现在都使用 Neumaier 补偿求和。相互抵消的较大节点力不再抹去另一节点上的较小力并造成虚假的不平衡。支座反力和验收限值不变。请重新运行受影响的分析。本通知要求有结构刚度，并有外加作用（包括明确的自重）或会产生力的分析历史。未知历史仍在涵盖范围内；未加载的仅模态框架不再收到本通知。",
     "tr": "Kuvvet toplamları, bağımsız denge bildiren her boyutta ve analizde Neumaier telafili toplamasını kullanır. Birbirini götüren büyük düğüm kuvvetleri başka bir düğümdeki küçük kuvveti silerek yanlış dengesizlik oluşturmaz. Tepkiler ve sınırlar değişmez. Etkilenen analizleri yeniden çalıştırın. Bildirim, yapısal rijitliğin yanında uygulanmış yükler (açık öz ağırlık dahil) veya kuvvet üreten analiz geçmişi gerektirir. Bilinmeyen geçmişler kapsamda kalır; yalnız modal analizli yüksüz çerçevede gösterilmez."
   },

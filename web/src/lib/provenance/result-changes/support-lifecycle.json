@@ -14,6 +14,7 @@
     "pt": "Apoios registrados e alterações de tipo mantêm as restrições previstas",
     "de": "Gespeicherte Lager und Typwechsel erhalten die vorgesehenen Bindungen",
     "fr": "Les appuis enregistrés et les changements de type conservent les blocages prévus",
+    "ko": "기록된 지점과 프리셋 편집은 의도한 구속을 유지",
     "zh": "已记录的支座和预设编辑保留其预期约束",
     "tr": "Kayıtlı mesnetler ve tip değişiklikleri amaçlanan kısıtları koruyor"
   },
@@ -23,6 +24,7 @@
     "pt": "Cópias e modelos JSON preservam as restrições registradas. Um apoio móvel 3D ambíguo exige uma escolha explícita. A mudança de tipo substitui as restrições e os eixos anteriores. Revise os apoios e repita análise, combinações e dimensionamento.",
     "de": "Kopien und JSON-Modelle erhalten die gespeicherten Lagerbindungen. Ein mehrdeutiges 3D-Rollenlager erfordert eine ausdrückliche Auswahl. Ein Typwechsel ersetzt die bisherigen Bindungen und Achsen. Prüfen Sie die Lager und wiederholen Sie Analyse, Kombinationen und Bemessung.",
     "fr": "Les copies et modèles JSON préservent les blocages enregistrés. Un appui à rouleaux 3D ambigu exige un choix explicite. Un changement de type remplace les blocages et les axes précédents. Vérifiez les appuis et relancez analyse, combinaisons et dimensionnement.",
+    "ko": "복사본과 JSON 모델은 기록된 지점 구속을 보존합니다. 모호한 3D 롤러는 명시적 선택이 필요합니다. 지점 프리셋을 변경하면 이전 구속과 축이 교체됩니다. 지점을 검토하고 해석, 조합, 설계를 다시 실행하십시오.",
     "zh": "复制件和 JSON 模型保留已记录的支座约束。含义不明确的 3D 滚动支座需要明确选择。更改支座预设会替换此前的约束和轴。请复核支座，并重新运行分析、组合和设计。",
     "tr": "Kopyalar ve JSON modelleri kayıtlı mesnet kısıtlarını korur. Belirsiz bir 3D kayıcı mesnet açık bir seçim gerektirir. Mesnet tipi değiştiğinde önceki kısıtlar ve eksenler değiştirilir. Mesnetleri gözden geçirip analiz, kombinasyon ve tasarımı yeniden çalıştırın."
   },

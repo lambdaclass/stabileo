@@ -15,6 +15,10 @@
     "openNote": "A ✗-gel jelölt sorok nyitottak. A 4. alak éppen a csúcsponton túl helyezkedik el, ahol a magasság gyorsan változik a befogási szögekkel: az általunk számított út az ábrán közölt magasságot körülbelül 0,08-cal kisebb Δ-nál éri el. Fél fesztávon ható teher esetén a határterheink 5–7%-kal kisebbek, és az a bifurkációs görbe, ahol a cikk az optimumot találja, a futtatásainkban körülbelül 0,2-del kisebb Δ-nál helyezkedik el, így az 1. táblázat (0,64; 1,16) pontja is éppen erre esik. A (0,96; 0) pontbeli, fél fesztávon ható tehernél az átpattanás egy 14,1 görbületű stabil állapotba vezet, szemben a cikk 7,6 értékével. Az út végén kialakuló, az ábrával egyező fordított alak legnagyobb görbülete körülbelül 10,6, meghaladva a cikkben az útra előírt 6-os küszöböt. Ezek a szerzők számára nyitott kérdések.",
     "runNote": "Mozgassa a téglalap távoli sarkát, majd számítsa újra. A csúcspont alatt a csík ívként tér vissza; a redőn túl az út megszakad."
   },
+  "ko": {
+    "openNote": "✗로 표시된 행은 미해결입니다. 모양 4는 높이가 고정단 각도에 따라 빠르게 변하는 첨점 바로 너머에 있으며, 우리 경로는 Δ에서 논문의 높이보다 약 0.08 낮은 곳에서 그 높이에 도달합니다. 하중이 경간의 절반에 걸릴 때 우리의 한계 하중은 5에서 7% 낮게 나오고, 논문이 최적점을 찾는 분기 곡선은 우리 실행에서 Δ 기준 약 0.2 낮은 곳에 있으며, 그 때문에 Table 1의 점 (0.64, 1.16)이 정확히 그 곡선 위에 놓입니다. (0.96, 0)에서 경간 절반 하중에 대해, 스냅은 곡률 14.1인 안정 상태로 떨어지며, 논문의 7.6과 다릅니다. 경로 끝의 뒤집힌 모양은 그림과 일치하며, 최대 곡률은 약 10.6으로 논문이 경로에 설정한 임계값 6을 넘습니다. 이는 저자들에게 남기는 미해결 질문입니다.",
+    "runNote": "직사각형의 먼 모서리를 옮기고 다시 계산하세요. 첨점 아래에서는 띠가 아치로 돌아오고, 접힘을 지나면 경로가 멈춥니다."
+  },
   "zh": {
     "openNote": "标有 ✗ 的行仍未解决。形状 4 刚好越过尖点，在该处高度随夹具角度变化很快：我们的路径达到论文高度时，Δ 约低 0.08。荷载作用在半跨时，我们的极限荷载低 5% 至 7%；在我们的运行中，论文找到最优值的分岔曲线在 Δ 上约低 0.2，这也使表 1 的点 (0.64, 1.16) 恰好落在该曲线上。对于 (0.96, 0) 处的半跨荷载，突跳后落在曲率为 14.1 的稳定状态，而不是论文的 7.6。路径末端的反向形状与图相符，其最大曲率约为 10.6，超过论文为该路径设定的阈值 6。这些是留给作者的未决问题。",
     "runNote": "移动矩形的远端角点并重新计算。在尖点以下，板条会以拱形返回；越过折点后，路径中断。"

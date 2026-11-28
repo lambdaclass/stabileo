@@ -55,6 +55,13 @@ export const hubStrings: Record<Locale, Record<Key, string>> = {
     lead: 'Rövid játékok, amelyek a szerkezetek viselkedésére élesítik a szemet. Ingyen futnak a böngészőjében, a Stabileo számítómotorjával.',
     play: 'Játsszon',
   },
+  ko: {
+  title: '게임',
+  metaTitle: '구조 해석을 배우는 학생을 위한 게임',
+  description: '구조 해석을 배우는 학생을 위한 무료 브라우저 게임입니다. 단순보부터 골조와 트러스까지, 시간 제한 속에서 부재력 선도를 읽는 연습을 합니다.',
+  lead: '구조물이 어떻게 거동하는지 보는 눈을 길러 주는 짧은 게임입니다. 브라우저에서 무료로 실행되며 Stabileo와 같은 엔진을 사용합니다.',
+  play: '시작',
+},
   zh: {
     title: '游戏',
     metaTitle: '面向学生的结构分析游戏',

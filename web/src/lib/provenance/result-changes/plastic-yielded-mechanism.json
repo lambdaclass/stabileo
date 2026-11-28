@@ -15,6 +15,7 @@
     "fr": "Reconnaître un mécanisme avéré lors du calcul de ruine plastique plane",
     "hu": "Igazolt mechanizmus felismerése a síkbeli képlékeny összeomlás során",
     "tr": "Düzlemsel plastik göçmede kanıtlanmış mekanizmayı tanı",
+    "ko": "평면 소성 붕괴 중 증명된 메커니즘을 인식합니다",
     "zh": "在平面塑性倒塌分析中识别已证实的机构"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "fr": "L’analyse plastique plane peut évaluer un mécanisme avéré qui se forme après plastification. Un mécanisme présent avant la plastification empêche toujours de lancer l’analyse.",
     "hu": "A síkbeli képlékeny vizsgálat kiértékeli a folyás után kialakuló igazolt mechanizmust. A folyás előtt fennálló mechanizmus továbbra is megakadályozza a vizsgálat indítását.",
     "tr": "Düzlemsel plastik analiz, akma sonrası oluştuğu kanıtlanan bir mekanizmayı değerlendirebilir. Akma öncesinde var olan bir mekanizma analizin başlamasını hâlâ engeller.",
+    "ko": "평면 소성 해석은 항복 후 형성된 증명된 메커니즘을 평가할 수 있습니다. 항복 전에 이미 있는 메커니즘은 여전히 해석 시작을 막습니다.",
     "zh": "平面塑性分析现在可以评估屈服后形成的已证实机构。屈服前就存在的机构仍会阻止分析启动。"
   },
   "changelog": {

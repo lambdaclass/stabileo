@@ -18,6 +18,7 @@
     "de": "Mehrdeutigen oder fehlenden Begleitschnee ablehnen",
     "fr": "Refuser la neige accompagnatrice ambiguë ou absente",
     "tr": "Belirsiz veya eksik eşlikçi kar yükünü reddetme",
+    "ko": "모호하거나 사용할 수 없는 동반 적설의 거부",
     "zh": "拒绝不明确或不可用的伴随雪荷载",
     "hu": "Nem egyértelmű vagy hiányzó kísérő hóteher elutasítása"
   },
@@ -28,6 +29,7 @@
     "de": "SA-2026-082, #2211, #2233. Begleitkombinationen verwendeten ohne Warnung neigungsreduzierten Schnee statt Flachdach-Stablasten. Alte Erdbebenspezifikationen können zudem physischen Schnee und Flachdachschnee vermischen. Schneelasten und Kombinationen neu erzeugen, danach Analysen und Nachweise wiederholen. (#2211).",
     "fr": "SA-2026-082, #2211, #2233. Les combinaisons accompagnatrices utilisaient sans avertissement la neige réduite par la pente au lieu de la charge de barre de toiture plate. Les anciennes spécifications sismiques peuvent aussi confondre neige physique et neige de toiture plate. Régénérez les charges de neige et les combinaisons, puis relancez analyses et vérifications. (#2211).",
     "tr": "SA-2026-082, #2211, #2233. Eşlikçi birleşimler düz çatı eleman yükü yerine eğimle azaltılmış karı uyarısız kullanıyordu. Eski deprem tanımları fiziksel karı düz çatı karıyla da karıştırabilir. Kar yüklerini ve birleşimleri yeniden üretip analizleri ve kontrolleri tekrarlayın. (#2211).",
+    "ko": "SA-2026-082, #2211, #2233. 동반 조합이 평지붕 부재 하중 대신 경사 감소 적설을 알림 없이 사용했습니다. 기존 지진 사양은 물리적 적설과 평지붕 적설을 혼동할 수도 있습니다. 적설하중과 조합을 다시 생성한 뒤 해석과 설계 검토를 다시 실행하십시오. (#2211).",
     "zh": "SA-2026-082，#2211，#2233。伴随组合曾在无提示的情况下使用经坡度折减的雪荷载，而不是平屋面杆件荷载。旧版地震组合设定也可能混淆实际雪荷载与平屋面雪荷载。请重新生成雪荷载和组合，然后重新运行分析和设计验算。（#2211）。",
     "hu": "SA-2026-082, #2211, #2233. A kísérő kombinációk figyelmeztetés nélkül a lejtéssel csökkentett havat használták a lapos tető rúdterhe helyett. A régi földrengési előírások a fizikai havat és a lapos tető havát is összekeverhetik. Generálja újra a hóterheket és a kombinációkat, majd futtassa újra az analíziseket és ellenőrzéseket. (#2211)."
   },

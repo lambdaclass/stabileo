@@ -24,6 +24,7 @@
     "fr": "La galerie publique de dalles utilise des appuis simples durs sur murs",
     "hu": "A nyilvános lemezgaléria merev egyszerű támaszokat használ a falakon",
     "tr": "Herkese açık döşeme galerisi duvarlarda sert basit mesnetler kullanıyor",
+    "ko": "공개 슬래브 갤러리는 벽에 강한 단순 지점을 사용합니다",
     "zh": "公开的楼板示例库对墙采用刚性简支"
   },
   "explanation": {
@@ -34,6 +35,7 @@
     "fr": "La PR #1627 modifie les données de la dalle de démonstration sur murs : les rotations tangentielles du bord sont bloquées en plus du déplacement vertical, et la référence inclut la déformation de cisaillement de Reissner–Mindlin. La flèche et la référence affichée changent ensemble. Cette entrée concerne uniquement slab-on-columns dans la galerie publique avec murs sélectionnés ; les appuis sur poteaux et les projets enregistrés ne sont pas concernés.",
     "hu": "A PR #1627 módosította a falakra támaszkodó lemezbemutató bemeneteit: a függőleges mozgás mellett az él érintőirányú forgásai is kötöttek, a referencia pedig Reissner–Mindlin nyírási alakváltozást is tartalmaz. A lehajlás és a közölt referencia együtt változik. Ez csak a nyilvános slab-on-columns galéria falas változatát érinti; az oszloptámaszok és a mentett projektek változatlanok.",
     "tr": "PR #1627, duvarlarla mesnetlenmiş döşeme örneğinin girdilerini değiştirdi: düşey harekete ek olarak kenara teğet dönmeler tutuluyor ve referans artık Reissner–Mindlin kayma deformasyonunu içeriyor. Sehim ve gösterilen referans birlikte değişiyor. Bu kayıt yalnızca herkese açık slab-on-columns galerisinde duvarlar seçiliyken geçerlidir; kolonlu örnek ve kayıtlı projeler bu örnek girdisi düzeltmesinden etkilenmez.",
+    "ko": "PR #1627은 벽으로 지지되는 슬래브 데모의 입력을 바꾸었습니다. 수직 운동뿐 아니라 가장자리 접선 방향 회전도 구속하며, 기준값에는 이제 Reissner–Mindlin 전단변형이 포함됩니다. 따라서 처짐과 표시되는 기준값이 함께 바뀝니다. 이 항목은 벽을 선택한 공개 기둥 위 슬래브 갤러리에만 적용되며, 기둥 지점과 저장된 프로젝트는 이 데모 입력 수정의 영향을 받지 않습니다.",
     "zh": "PR #1627 更改了墙支承楼板演示的输入：除竖向运动外，现在也约束边缘切向转动，参考解也计入了 Reissner–Mindlin 剪切变形。因此其挠度和显示的参考值会同时变化。本条目仅适用于选择了墙的公开柱支承楼板示例；柱支座以及已保存的项目不受这一演示输入修正的影响。"
   },
   "changelog": {

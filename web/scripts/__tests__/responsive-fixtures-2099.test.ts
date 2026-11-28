@@ -28,7 +28,7 @@ it.each(['browser', 'Node'] as const)('%s locale initialization handles absent, 
       define: flag === undefined ? {} : { __PUBLIC_FEATURES__: JSON.stringify({ ...__PUBLIC_FEATURES__, research }) },
     });
     const offering = runInNewContext(`${built.outputFiles[0].text}\noffering`, runtime === 'Node' ? { process: { env: {} } } : {}) as typeof import('../../src/lib/i18n/offered');
-    const expected = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', ...(research ? ['hu'] : [])].sort();
+    const expected = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'ko', ...(research ? ['hu'] : [])].sort();
     expect([...offering.OFFERED_LOCALES].sort(), `${runtime}: ${flag}`).toEqual(expected);
     expect([...offering.PUBLIC_LOCALES].sort(), `${runtime}: ${flag}`).toEqual(expected);
     expect(offering.isComplete('hu'), `${runtime}: ${flag}`).toBe(research);

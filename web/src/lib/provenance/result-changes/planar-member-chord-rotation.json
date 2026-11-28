@@ -15,6 +15,7 @@
     "fr": "Calculer les efforts de barre à partir de la rotation de la corde",
     "hu": "Rúderők számítása a húr elfordulásából",
     "tr": "Düzlemsel eleman kuvvetlerini eleman ekseninin dönmesinden hesapla",
+    "ko": "평면 부재력을 현 회전각으로부터 복원합니다",
     "zh": "根据弦线转角计算平面杆件内力"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "fr": "En analyse non linéaire plane, la rotation de la barre est calculée à partir des composantes de la corde avant arrondi. Avec un déplacement purement axial, les charges transversales sur la barre ne contribuent pas à l’effort axial calculé.",
     "hu": "A síkbeli nemlineáris számítás kerekítés előtt a húr komponenseiből határozza meg a rúd elfordulását. Tisztán tengelyirányú elmozdulásnál a keresztirányú rúdterhek nem járulnak hozzá a számított normálerőhöz.",
     "tr": "Düzlemsel doğrusal olmayan analizde elemanın dönmesi, yuvarlama öncesinde eleman ekseninin bileşenlerinden hesaplanır. Yalnızca eksenel yer değiştirme olduğunda, enine eleman yükleri hesaplanan eksenel kuvvete katkıda bulunmaz.",
+    "ko": "평면 비선형 복원은 반올림 전에 현 성분으로부터 부재 회전을 계산합니다. 순수 축방향 변위는 횡방향 부재 하중이 복원된 축력에 들어가지 않게 합니다.",
     "zh": "平面非线性分析在舍入前根据弦线分量计算杆件转角。纯轴向位移时，横向杆件荷载不会计入恢复得到的轴力。"
   },
   "changelog": {

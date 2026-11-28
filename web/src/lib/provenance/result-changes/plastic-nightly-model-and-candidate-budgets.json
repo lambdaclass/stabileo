@@ -25,6 +25,7 @@
     "fr": "L’équilibre plastique utilise les identifiants du modèle résolu et le certificat limite chaque candidat",
     "hu": "A képlékeny egyensúly a megoldott modell azonosítóit használja, a tanúsítvány a tényleges jelöltekre szab keretet",
     "tr": "Plastik denge çözülen modelin kimliklerini kullanır; sertifikalar gerçek adaylar için kaynak bütçesi uygular",
+    "ko": "소성 균형이 해석된 모델 ID를 사용하고 인증서는 실제 후보에 예산을 적용합니다",
     "zh": "塑性平衡使用已求解模型的 ID，证书按实际候选项设定预算"
   },
   "explanation": {
@@ -35,6 +36,7 @@
     "fr": "Les vérifications des forces récupérées utilisent les identifiants des barres et nœuds du modèle résolu, indépendamment des clés JSON. Une barre absente entraîne un refus codé. La certification plastique exacte vérifie le stockage initial et chaque candidat LP avec les limites d’octets existantes ; elle conserve les bornes prouvées si un raffinement supplémentaire dépasse le budget. Des portiques aléatoires auparavant refusés peuvent être certifiés. Les tolérances numériques sont inchangées.",
     "hu": "A visszanyert erők pontossági ellenőrzései most a megoldott modellből olvassák ki a rúd- és csomópont-azonosítókat, a JSON-térkép kulcsaitól függetlenül. A hiányzó visszanyert rudak kódolt elutasítást adnak. A pontos képlékeny tanúsítás a kezdeti tárolást és minden tényleges LP-jelöltet a meglévő bájthatárokhoz mér; ha a további finomítás nem fér bele, megtartja a már igazolt korlátokat. A korábban elutasított véletlenszerű keretek most tanúsíthatók. A numerikus tűrések nem változnak.",
     "tr": "Geri hesaplanan kuvvet kontrolleri, JSON anahtarlarından bağımsız olarak çözülen modeldeki çubuk ve düğüm kimliklerini kullanır. Eksik çubuk kodlu ret üretir. Kesin plastik sertifikalama ilk belleği ve her LP adayını mevcut bayt sınırlarıyla denetler; ek iyileştirme sığmazsa kanıtlanmış sınırları korur. Önceden reddedilen rastgele çerçeveler artık sertifikalanabilir. Sayısal toleranslar değişmez.",
+    "ko": "복원된 힘의 정확도 검토는 이제 JSON 맵 키와 무관하게 해석된 모델에서 부재 ID와 절점 ID를 확인합니다. 복원된 부재가 없으면 코드가 붙은 거부를 반환합니다. 정확한 소성 인증은 초기 저장량과 실제 LP 후보 각각을 기존 바이트 한도와 대조하며, 추가 정밀화가 한도에 맞지 않으면 증명된 경계값을 유지합니다. 이전에 거부된 임의 골조도 이제 인증될 수 있습니다. 수치 허용오차는 바뀌지 않습니다.",
     "zh": "恢复力的精度检查现在从已求解的模型中解析杆件和节点 ID，与 JSON 映射的键无关。缺失已恢复杆件时，返回带编码的拒绝。精确塑性认证对初始存储和每个实际的 LP 候选项按现有字节限值检查；如果进一步细化放不下，则保留已证明的界。以前被拒绝的随机框架现在可以获得认证。数值容差不变。"
   },
   "changelog": {

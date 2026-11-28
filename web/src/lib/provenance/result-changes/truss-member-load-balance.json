@@ -19,6 +19,7 @@
     "fr": "Inclure les actions transversales des barres de treillis dans l’équilibre conditionnel",
     "hu": "A feltételes rúdegyensúly tartalmazza a rácsrudak keresztirányú hatásait",
     "tr": "Koşullu eleman dengesine kafes çubuklarının enine etkilerini dahil et",
+    "ko": "조건부 부재 균형에 횡방향 트러스 작용 포함",
     "zh": "在条件平衡中包含桁架杆件的横向作用"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "fr": "L’équilibre conditionnel 2D et 3D inclut désormais les actions transversales des charges sur les barres de treillis avec les efforts axiaux récupérés. Les modèles valides peuvent être résolus lorsque leurs charges nodales équivalentes l’étaient déjà (#1969). Les appels natifs et WASM partagent le transfert. Les limites de précision et les refus pour déséquilibre réel restent inchangés.",
     "hu": "A 2D és 3D feltételes egyensúly a helyreállított tengelyerők mellett figyelembe veszi a rácsrúdterhek keresztirányú véghatásait. Az érvényes rúdterhes modellek ott is megoldhatók, ahol korábban csak az egyenértékű csomóponti terhek adtak megoldást (#1969). A natív és WASM út közös átadási törvényt használ. A pontossági határok és a valódi egyensúlyhiba miatti elutasítások változatlanok.",
     "tr": "2B ve 3B koşullu denge artık geri hesaplanan eksenel kuvvetlerle birlikte kafes çubuğu yüklerinin enine uç etkilerini de içerir. Eşdeğer düğüm yükleri çözülebilen geçerli çubuk yükü modelleri çözülebilir (#1969). Yerel ve WASM yolları aynı aktarımı kullanır. Doğruluk sınırları ve gerçek dengesizlik retleri değişmez.",
+    "ko": "2D와 3D 조건부 균형은 이제 복원된 축력과 함께 횡방향 트러스 부재 하중 단부 작용을 포함합니다. 등가 절점 하중으로는 이미 해석되던 경우, 유효한 부재 하중 모델도 해석될 수 있습니다 (#1969). 네이티브와 WASM 경로는 같은 전달 법칙을 공유합니다. 정확도 한계와 실제 불균형 거부는 변하지 않습니다.",
     "zh": "2D 和 3D 的条件平衡现在除了恢复的轴力之外，还包含桁架杆件荷载的横向杆端作用。在等效节点荷载已能求解之处，有效的杆件荷载模型现在也可以求解（#1969）。原生路径和 WASM 路径共用同一传递规律。精度限值和真正不平衡的拒绝不变。"
   },
   "changelog": {

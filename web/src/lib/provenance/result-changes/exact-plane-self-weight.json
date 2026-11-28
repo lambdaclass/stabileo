@@ -18,6 +18,7 @@
     "fr": "Règles de poids propre en 2D",
     "tr": "Düzlem modellerinde öz ağırlık kuralları",
     "hu": "Síkbeli önsúlyszabályok",
+    "ko": "평면 자중 규칙",
     "zh": "平面模型的自重规则"
   },
   "explanation": {
@@ -28,6 +29,7 @@
     "fr": "Les calculs 2D utilisent le facteur signé, la direction et le périmètre du poids propre de chaque cas.",
     "tr": "Düzlem çözümleri her yük durumunun işaretli öz ağırlık katsayısını, yönünü ve kapsamını kullanır.",
     "hu": "A síkbeli számítás a tehereset előjeles önsúlytényezőjét, irányát és hatókörét használja.",
+    "ko": "평면 해석은 이제 케이스의 부호 있는 자중 계수, 방향, 범위를 사용합니다.",
     "zh": "平面分析现在采用各荷载工况自重的带符号系数、方向和作用范围。"
   },
   "changelog": {

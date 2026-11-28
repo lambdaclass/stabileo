@@ -154,6 +154,23 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A termék ütemterve előre sorolja a terhek és lemezterületek független ellenőrzését, az egzakt igénybevételi függvényeket, a teljes méretezési bizonyítékot és az egységes kanonikus modellt az átalakítások ellenőrzésével. (#2469)',
         ],
       },
+      ko: {
+        title: 'Stabileo 0.6.4: 부재 결과, 판 해석, 콘크리트 검증 수정',
+        items: [
+          '부재 선도와 이동하중 포락선이 측점 사이의 최댓값, 집중 작용의 양쪽 값, 부재 끝단 바로 안쪽의 힘을 복원합니다. 조합 선도는 정확한 극값을 구할 수 없을 때 표시가 붙은 보수적 경계값을 보여줄 수 있습니다. 모호한 측점, 확정되지 않은 지배 최댓값, 불완전한 설계 측점 격자는 해당 결과를 차단합니다. 뒤집힌 콘크리트 경간 구간은 실제 인장면을 유지합니다. 강재 검토는 평형 최댓값과 4분점 모멘트를 사용하며, 필요한 선도 정보가 불완전하면 모멘트 구배 효과를 인정하지 않습니다. 측점이 많은 보고서는 준비된 선도를 재사용합니다. (#2403)',
+          '두 가지 부재 방향 반전 명령 모두 분포하중의 방향, 재하 구간, 양 끝 강도를 유지합니다. 해석은 기존 평면 우력 필드에서 모호하지 않은 0이 아닌 값을 사용하며, 서로 충돌하는 값은 거부합니다. 공간 모델에서는 사용할 수 있는 부재 투영이 없어도 순수 시작단 우력을 작성된 절점에 적용할 수 있습니다. 투영이 여전히 필요한 다른 기존 작용은 해석을 차단할 수 있습니다. (#2456)',
+          '복원된 평면 집중 우력이나 절점 모멘트를 유한한 값으로 편집하면, 0으로 설정하는 경우를 포함하여 저장된 모멘트를 대체합니다. 충돌하거나 유효하지 않은 모멘트는 저장 후 다시 열어도 해석을 차단합니다. 의도한 모멘트를 확인하고 다시 입력한 뒤 해석과 설계를 다시 실행하십시오. (#2467, SA-2026-105)',
+          'PRO는 유효하지 않거나 오래된 판 메쉬가 남아 있거나 벽–슬래브 접합부가 호환되지 않으면 해석을 거부합니다. 메쉬 생성기는 적용 전에 완전하고 유효한 외곽선과 구멍을 요구합니다. 업데이트된 7층 갤러리와 건축 DXF 예제는 호환되는 접합부 메쉬를 가집니다. 새로 메쉬된 CAD 초안은 슬래브와 벽의 측점을 맞춥니다. 모델 전용 통합 문서 내보내기에는 메쉬되지 않은 판을 포함할 수 있습니다. (#2409)',
+          '재메쉬는 판에 지정된 중간점을 지나는 곡선 경계를 따릅니다. 모호한 스윕은 재메쉬와 해석을 차단합니다. 경계를 확인하고, 오래된 메쉬를 다시 만든 뒤 해석과 설계를 다시 실행하십시오. (#2466, SA-2026-106)',
+          '재메쉬는 쉘 오프셋과 곡률 편집을 유일하게 정확히 일치하는 셀에만 옮깁니다. 편집된 쉘을 일치시킬 수 없으면 재메쉬를 중단하고 기존 메쉬를 보존합니다. 쉘 속성을 의도한 모델과 비교하여 확인하고, 이전에 사라진 편집을 복원한 뒤 해석과 설계를 다시 실행하십시오. (#2466, SA-2026-107)',
+          'CIRSOC 201-2025는 비틀림에 대한 최소 횡방향 철근을 양방향으로 검토하며, 철근 배근이 있는 경우 순수 비틀림에는 평가된 콘크리트 한계를 사용합니다. 비틀림 및 전단 검토는 그려진 철근 배근에 둘레 철근, 보조 유효깊이, 접합부를 가로지르는 철근 정착의 근거가 부족하면 거부될 수 있습니다. 전단 검토는 측점 사이를 포함하여 절단 위치에 존재하는 서로 다른 인장 철근을 사용합니다. 7층 예제는 이전에 통과하던 검토에 대해 이제 거부를 표시할 수 있습니다. (#2433)',
+          '3D 배근 작업 공간이 더 빠르게 열리며, 상세 모델에서 저장, 복원, 탭 전환 시 변경되지 않는 배근 형상을 재사용합니다. 실행 취소와 다시 실행은 콘크리트 형상과 일치하는 배근 상세를 복원합니다. (#2438, #2444, #2458)',
+          'Basic은 3D 지점 반력 모멘트를 해석기의 전체 좌표 부호로 표시합니다. 자유물체 표시값은 선택한 축을 사용하며 2D의 절점 쪽 화살표와 일치합니다. Basic과 PRO는 집중력과 우력 성분을 해석기의 평면과 축 기준으로 보고합니다. 영향을 받은 검사를 다시 실행하고 보고서를 다시 생성하십시오. (#2396)',
+          'AI 키 설정에서 제공자 버튼, 키 입력란, 키 관련 동작의 가로세로 최소 크기가 44 CSS 픽셀입니다. (#2440)',
+          '공개된 Mattiasson 엘라스티카, MacNeal–Harder, 쉘 장애물 코스 연구 페이지가 첫 번째 벤치마크 실행의 완료된 결과 또는 보고된 거부를 보여줍니다. (#2445)',
+          '제품 로드맵은 독립적인 하중 및 판 면적 검토, 정확한 부재력 함수, 완전한 설계 근거, 하나의 정본 모델과 변환 전반에 걸친 검토를 우선순위로 둡니다. (#2469)',
+        ],
+      },
       zh: {
         title: 'Stabileo 0.6.4：修正杆件结果、板分析和混凝土验算',
         items: [
@@ -345,6 +362,29 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A Research új kísérlete Heyman munkája alapján vizsgálja a falazott ívek legkisebb vastagságát és összeomlását.',
         ],
       },
+      ko: {
+        title: '콘크리트 검증, 단면 응력, 이동하중',
+        items: [
+          '상세 단면 응력은 비틀림 전단과 횡방향 전단이 함께 존재하는 경우 조합 결과를 제공하지 않습니다. 이제 절단면은 총 전단과 von Mises에 두 횡방향 성분을 모두 포함합니다. 영향을 받은 응력을 다시 계산하고 보고서를 검토하십시오 (SA-2026-092). 공지의 계산 예제는 섬유 좌표를 부재 국부축과 단면 도면 축 모두로 제시합니다.',
+          '평면 이동하중은 집중 축하중 위치에서 축력의 점프를 유지합니다. 영향을 받은 선도, 포락선, 축력 영향선을 다시 계산하십시오 (SA-2026-093).',
+          '2D 및 3D 조합은 반복된 케이스의 순 계수를 유지하며 완전한 상쇄는 거부합니다. 케이블 및 지반–구조물 해석은 유한하지 않은 스프링 강성을 거부합니다. 영향을 받은 조합을 다시 실행하십시오.',
+          '골조와 보가 인증된 안정성 검토를 더 빠르게 통과합니다. 3D 조합 복원이 더 빨라졌고, 판에 쓰이는 반복법 전처리기를 수정했습니다.',
+          '2D 공동회전(co-rotational) 해석은 공유 비선형 구동기를 사용하며 기존 Newton 및 수정 Newton 결과를 유지합니다. (#2394)',
+          '철근콘크리트 검증은 근거가 부족한 전단, 비틀림, 내진 후프 검토를 차단하고 그 이유를 설명합니다. 인증된 설계를 다시 실행하고 지배 절단면과 배근 도면을 검토하십시오 (SA-2026-091).',
+          '정적 지진하중은 실제 질량과 그 작용 높이를 따릅니다. 모드 하중 생성은 차단됩니다. 해당하는 경우 정적 방법으로 영향을 받은 하중을 다시 생성한 뒤 해석과 설계를 다시 실행하십시오 (SA-2026-086 및 SA-2026-087).',
+          '중력하중 생성은 같은 면적에 하중을 두 번 가할 수 있는 겹치는 패널을 차단합니다. 해석과 설계 검토를 다시 실행하기 전에 영향을 받은 하중을 다시 생성하십시오.',
+          '변환은 모호한 롤러 지점의 구속 방향을 바꿀 수 있는 이동이나 복사를 차단합니다. 스냅샷은 기록된 지점 유형을 보존합니다.',
+          '정적 지진하중 생성은 가새 교차부와 지붕 절점에서 바닥 근거를 확인합니다. 용마루 보만으로는 바닥을 성립시킬 수 없습니다. 직선 부재 분할은 평행 이동 후에도 일관되게 식별되며, 좌표 정밀도가 부족하거나 층이 모호하면 생성이 차단됩니다. 양 끝에 바닥 근거가 있는 경우, 높은 위치의 서까래는 참여하는 경간을 따라 분포 관성력을 받습니다. 확정된 바닥은 바닥 절점에서 연속된 경사 구간도 나눕니다. 이로 인해 층별 힘, 밑면 전단력, 서까래의 휨과 처짐이 달라질 수 있습니다. 영향을 받은 정적 지진 케이스를 다시 생성하고 밑면 전단력과 서까래 작용을 검토하십시오. (#2404)',
+          '패널 중력하중 생성은 겹치는 보 경간과 쉘 데크가 모두 하중을 받고 데크 이음부가 이음부 밖의 주절점을 통해 완전히 연결된 경우의 중복 하중 경로를 차단합니다. 자동 하중도 좌표 반올림 오차 때문에 중력하중 전달 요소의 경사 분류가 불확정이면 미리보기 전에 차단합니다. 이 분류는 이전에는 평면 회전이나 부재 분할 후에 바뀔 수 있었습니다. 평지붕과 경사지붕에서는 현장 단차 눈 쌓임을 부재로 전달해야 하거나 그 적용 가능성을 확정할 수 없는 경우 적설하중 생성이 차단됩니다. 이전의 전달은 힘과 편심 모멘트를 잃을 수 있었습니다. 영향을 받은 중력 및 적설하중을 다시 생성하고, 결과를 사용하기 전에 차단 조건을 해결하십시오. (#2406)',
+          'CIRSOC 201 검증은 스터럽 간격에 동시 축력을 사용하고, 정확한 모멘트 영점에서 정착을 검토하며, 국부 스터럽 구간을 검토합니다. 내진 후프 한계는 모든 단부 철근 단을 고려합니다. 비틀림 내력과 검토비는 더 낮게 평가된 한계를 반영합니다. 철근의 그려진 끝이 검토 중인 단면에 못 미치거나 둘레 철근 정착이 검증되지 않은 경우 검증이 차단될 수 있습니다. 콘크리트만의 보조 전단 검토에는 두 상부 스터럽 굽힘부에 모두 안착한 종방향 철근이 필요합니다. 최종 깊이 재검토는 대체 보 도면이 제공되면 이를 사용합니다. 기둥 집계표는 혼합된 철근 지름을 유지하며, 지정된 배근을 재현할 수 없으면 실제 상세를 제공하지 않습니다. 현재 배근 도면을 기준으로 검증을 다시 실행하고 지배 조합과 판정을 검토하십시오. (#2398)',
+          '중국어 간체가 Stabileo의 여덟 번째 언어가 되었으며 앱, 웹사이트, 결과 공지에서 사용할 수 있습니다.',
+          '통합 문서 가져오기는 같은 이름으로 해석되는 시트 이름, 중복된 헤더, 누락된 필수 헤더, 유효하지 않은 단위, 스프레드시트 오류, 충돌하는 구속 플래그, 지원되지 않는 하중 필드가 채워진 경우를 거부합니다. 평면 하중의 경우 모델 평면에 놓인, 선언된 두 통합 문서 축 중 어느 쪽 둘레든 0이 아닌 모멘트 성분을 거부합니다. 거부된 가져오기는 현재 모델을 그대로 둡니다. 완전한 명시적 구속은 해석 전 내보내기를 포함하여 선언된 통합 문서 축으로 보존됩니다. 평면 회전 스프링은 kr [kN·m/rad]로 내보내지며 기존 헤더도 계속 읽을 수 있습니다. 영향을 받은 통합 문서를 다시 가져와 좌표, 하중, 중력, 구속을 확인한 뒤 해석하십시오. (#2395)',
+          '판 메쉬 지우기가 더 빨라졌으며, 슬래브 메쉬를 다시 만들 때도 마찬가지입니다. (#2394)',
+          'Stabileo 0.6.2는 부재 하중, 3D 지점, 보조 스터럽 철근, 생성된 하중에 대한 수정과 함께 배포되었습니다. 릴리스 노트는 다시 계산해야 할 항목과 다시 생성해야 할 하중을 알려줍니다.',
+          '랜딩 페이지의 그림이 포인터 아래에서도 계속 움직입니다. 프로젝트 패널은 계정이 필요한 동작을 설명하며, 등록 페이지는 랜딩 그림을 사용합니다.',
+          '연구에 Heyman의 연구를 바탕으로 한 조적 아치의 최소 두께와 붕괴에 관한 실험이 추가되었습니다.',
+        ],
+      },
       zh: {
         title: '混凝土验算、截面应力与移动荷载',
         items: [
@@ -526,6 +566,26 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A 3D analízis elutasítja az ismeretlen támasztípusokat. A többértelmű görgős és az egyedi támaszoknál meg kell adni a gátolt mozgásokat. A vasbeton gerenda példája a tervezett egyszerű támaszokat használja. Ellenőrizze az érintett támaszok gátolt mozgásait, majd ismételje meg az analíziseket, kombinációkat és méretezési ellenőrzéseket (SA-2026-089).',
           'A 0.6.0 és 0.6.1 verziójegyzetei és cikkei ismertetik, mely projekteket kell újraszámítani és mely terheket újragenerálni. Az itt felsorolt későbbi javítások a 0.6.2-es verzióban jelentek meg. A nyitott auditmegállapítások továbbra is követhetők.',
           'A Research új kísérlete Heyman falazatokról szóló munkája alapján vizsgálja a boltívek legkisebb vastagságát és teher alatti összeomlását.',
+        ],
+      },
+      ko: {
+        title: '수정된 부재 하중, 중력하중, 3D 지점',
+        items: [
+          '부재 마우스 오버 표시값과 변형 형상은 2D와 3D에서 공유 복원을 통해 집중 우력과 부분 분포하중을 포함합니다. 휨강성이 충분하지 않은 하중 복원은 명시적으로 거부합니다. 영향을 받은 해석을 다시 실행하고 내부 처짐과 사용성 검토를 확인하십시오 (SA-2026-070).',
+          '해제된 회전과 호환되는 하중은 회전이나 단위 변환 후에도 답을 유지합니다. 서로 상쇄되는 절점 모멘트는 보존되며, 실제로 지지되지 않는 잔여 모멘트는 여전히 거부됩니다. 영향을 받은 해석을 다시 실행하십시오.',
+          '너무 짧은 경간에 가한 분포하중은 해당 부재와 구간을 알려주는 메시지와 함께 거부됩니다. 힘 평형 검토는 작용 하중을 독립적으로 집계합니다. 거부된 구간을 확인하고 영향을 받은 해석을 다시 실행하십시오.',
+          'ABS 및 SRSS 3D 부재 선도는 작도점 사이의 최댓값과 불연속 양쪽의 값을 포함합니다. 영향을 받은 선도를 다시 계산하고 그 최댓값을 사용한 검토를 확인하십시오.',
+          '콘크리트와 강재의 상관 검토는 같은 조합과 같은 측점의 힘을 함께 사용합니다. 강재 모멘트 구배 계수, 콘크리트 모멘트 확대, 제공된 비틀림 스터럽이 수정되었습니다. 영향을 받은 부재 설계를 다시 실행하고 지배 조합과 배근을 검토하십시오 (SA-2026-064, SA-2026-066, SA-2026-068).',
+          'CIRSOC 201 전단–비틀림 단면 한계는 보, 기둥, 벽에서 동시에 작용하는 두 전단 방향을 모두 포함합니다. 이전에 허용되던 단면이 부적합할 수 있으며, 추가 스터럽으로는 초과된 단면 한계를 보완할 수 없습니다. 영향을 받은 콘크리트 설계를 다시 실행하십시오 (SA-2026-069).',
+          '부재 설계와 인증은 확보된 요구값만 검토하는 대신 누락된 조합, 부재, 선언된 측점을 거부합니다. 간격이 다른 측점 격자도 보 선 포락선에서 모든 조합을 유지합니다. 저장된 콘크리트 및 강재 설계를 다시 실행하고 거부와 인증서를 검토하십시오 (SA-2026-071).',
+          '경사진 수용 지붕의 적설 지붕 단차 눈 쌓임과 지붕 폭은 평면 회전과 관계없이 실제 지붕면을 따릅니다. 연결된 지붕 영역은 눈 쌓임, 미끄러짐, 불균형 패턴을 유지합니다. 해석, 조합, 설계 검토를 다시 실행하기 전에 영향을 받은 적설하중을 다시 생성하십시오 (SA-2026-065, SA-2026-067).',
+          '절점을 추가해도 더 이상 적설 용마루가 이동하거나 세분화된 돔 패널이 바닥으로 바뀌지 않습니다. 용마루를 가로지르는 부재의 하중은 선택된 전달 요소 부분집합을 포함하여 힘과 모멘트를 유지합니다. 지붕 및 바닥 하중을 포함하여 영향을 받은 모든 생성 면하중을 다시 생성한 뒤 해석, 조합, 설계 검토를 다시 실행하십시오. 저장된 하중만 해석하는 것으로는 충분하지 않습니다 (SA-2026-072, SA-2026-073, SA-2026-074).',
+          '쉘이 있는 경간에서 보는 지지할 수 있는 덮이지 않은 띠의 하중을 부담합니다. 덮인 범위가 불분명하면 하중 생성이 중단됩니다. 분담폭 모드에서 층 면적과 지진 질량은 하중을 받는 부재를 따릅니다. 편심 하중을 표현할 수 없는 바닥 구역은 거부됩니다. 해석과 검토를 다시 실행하기 전에 영향을 받은 중력 및 지진하중을 다시 생성하십시오.',
+          '헝가리어 번역에 릴리스 안내와 저장된 프로젝트 공지가 포함됩니다. 확장된 Fehér 연구 제어, 통합된 도구, 새로운 Mohr 진입점, 선도 게임은 계속 선택 사항이며 기본적으로 비활성화되어 있습니다. 계정과 광고 측정도 기본적으로 비활성화되어 있습니다.',
+          '응력 도구는 0이 아닌 작은 주응력과 전단을 유지하며, 공유된 Mohr 링크는 입력한 응력 상태를 보존합니다. 계산기는 답을 현재 입력값에 연결된 상태로 유지합니다. 배근 작업 공간을 열 때 반복되는 형상 작업이 줄었으며, 형상과 해석 결과는 달라지지 않습니다.',
+          '3D 해석은 알 수 없는 지점 유형을 거부합니다. 모호한 롤러와 사용자 정의 지점은 명시적인 구속을 요구합니다. 콘크리트 보 예제는 의도한 단순 지점을 사용합니다. 영향을 받는 지점이 어떤 움직임을 구속하는지 확인한 뒤 해석, 조합, 설계 검토를 다시 실행하십시오 (SA-2026-089).',
+          '0.6.0과 0.6.1의 릴리스 노트와 블로그 글은 어떤 프로젝트를 다시 계산해야 하고 어떤 하중을 다시 생성해야 하는지 설명합니다. 여기에 나열된 이후의 수정은 0.6.2에서 배포되었습니다. 열려 있는 감사 결과는 계속 추적됩니다.',
+          '조적 구조에 관한 Heyman의 연구를 바탕으로 한 새로운 연구 실험이 아치의 최소 두께와 하중에 의한 붕괴 방식을 탐구합니다.',
         ],
       },
       zh: {
@@ -756,6 +816,34 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A német, a francia és a török nyelv ismét elérhető. A Research egy tengerfenékkel érintkező offshore riserrel és egy hajlított szalag alakszabályozásával bővül, az oldalaikon bemutatott összehasonlításokkal és korlátokkal. A munkaterület mentése megőrzi a méretezett épületeket, és jelzi, ha a böngésző nem tud menteni."
         ]
       },
+      ko: {
+        title: '해석 전 안정성 검토, 수정된 이동하중과 P-Delta, 더 명확한 한계',
+        items: [
+          '선형 2D 및 3D 해석은 해석 전에 강성 안정성을 검토합니다. 메커니즘, 음의 강성, 판별하기에는 너무 불확실한 강성은 인공 스프링이나 이동을 적용해 해석하는 대신 이유와 함께 거부됩니다. 영향을 받은 선형 해석과 그 설계 검토를 다시 실행하십시오.',
+          '강하게 구속된 자유도에 놓인 스프링은 2D와 3D 모두에서 거부됩니다. 3D 이동하중은 경간 내부 축하중 아래의 최댓값을 포착하며, 경사 부재의 축력과 단부력도 포함합니다. 영향을 받은 이동하중 포락선을 다시 실행하십시오.',
+          'P-Delta는 2D와 3D에서 각 부재를 따라 변하는 축력을 적분하여, 경간 하중에서 과소평가되던 증폭을 바로잡습니다. 조화 해석은 제한된 모드 절단 없이 진동수를 완전히 해석하며, 밀집 크기 한계를 넘는 모델도 포함합니다. 이 해석들과 파생된 검토를 다시 실행하십시오.',
+          '검토된 3D 소성 붕괴는 인증된 하계를 보고하며 건전하지 않은 인증서를 거부합니다. 소성 해석은 메모리를 할당하기 전에 작업량과 메모리 요구량을 확인합니다. 섬유 하중 제어는 단계 크기에 따라 달라지는 값을 보고하는 대신 하중 한계의 범위를 구합니다.',
+          '접촉 해석은 최종 접촉 조건을 만족하지 못하는 고정된 상태를 거부합니다. 케이블 요소는 이완을 표현할 수 없으므로 전용 케이블 해석 밖에서는 거부됩니다. 이 한계는 네이티브 해석과 브라우저 해석에 모두 적용됩니다.',
+          '쉘 조합은 강제변위 케이스의 응력을 유지하며 사각형 요소 절점 응력을 포함합니다. SSI는 2D와 3D에서 지점 반력을 반환합니다. 좌굴 및 다중 케이스 해석은 유한하지 않은 결과를 거부합니다. 저장된 프로젝트는 잘못된 결과가 알려진 버전의 해석을 식별하여, 영향을 받은 해석을 다시 실행하도록 요청합니다.',
+          '2D 및 3D 좌굴은 축력 반올림 오차 경계를 실제로 연결된 부분 안에서만 유지합니다. 독립된 구조물의 구속이 더 이상 다른 기둥의 해석을 막지 않으며, 연결된 부분 안의 불확실한 압축은 여전히 거부됩니다. 저장된 좌굴 및 P-Delta 해석을 다시 실행하여 B2 계수와 안정성을 갱신하십시오.',
+          '회귀 검사는 이제 이유와 함께 거부되는 보고된 모델 28개를 다룹니다. 근거 검토로 후보 문제 25건을 종결할 수 있었습니다. 오래된 쉘 모델 7개에는 평면 내 자유 강체 회전이 있으며, 네이티브와 브라우저 테스트가 이들의 거부를 확인하고 누락된 구속을 추가한 뒤의 답을 검토합니다.',
+          '단계별 2D 및 3D 해석은 선형 해석의 자유 회전 처리를 공유합니다. 단부 해제와 단위 변경은 더 이상 인공 회전 강성을 추가하지 않으며, 침하는 의도한 움직임을 유지합니다. 영향을 받은 단계별 해석과 파생된 설계 검토를 다시 실행하십시오 (SA-2026-060). 3D 소성 해석의 초기 탄성 거부는 이제 조용한 0 붕괴 계수가 되지 않고 거부로 남습니다 (SA-2026-062).',
+          '소성 평형 검토는 레코드 레이블이 부재 및 절점 ID와 다른 가져온 모델에서 더 이상 충돌하지 않습니다. 소성 인증서는 실제로 필요한 저장 공간을 계산하며, 선택적 정밀화가 한도를 초과하면 마지막 유효한 경계값을 유지합니다. 이전에 거부되던 골조도 같은 한도 안에서 인증될 수 있습니다.',
+          '소성 인증이 답과 자원 한도는 그대로 두고 더 빠르게 실행됩니다. 아웃리거 예제도 검토된 슬라이더 범위를 유지한 채 더 빠르게 해석됩니다.',
+          '비선형 2D 및 3D 해석은 회전, 반사, 단위 변경 후에도 일관되게 물리적 평형을 검토합니다. P-Delta, 강제 침하, 지반 스프링은 수렴 한계를 완화하지 않고도 작은 해석 응답을 유지합니다. 영향을 받은 비선형, P-Delta, 지반–구조물 해석을 다시 실행하십시오.',
+          '좌굴 계수는 2D와 3D에서 원래의 강성행렬로부터 복원되어, 구속되었거나 곡선 부재가 있는 모델의 작은 과대평가와 잘못된 거부를 바로잡습니다. 유효한 교육용 모드는 서로 다른 단위에서도 유지됩니다. 영향을 받은 좌굴 해석을 다시 실행하십시오. 인증서 한계는 변하지 않습니다.',
+          '트러스 부재 하중이 이제 2D와 3D 평형 검토에 들어가므로, 등가 절점하중으로 해석되는 경우 유효한 부재 하중 모델이 더 이상 거부되지 않습니다. 영향을 받은 트러스 해석을 다시 실행하십시오.',
+          '고유치 해석은 구속과 경사 지점을 거쳐도 실제 질량 계수를 보존합니다. 질량이 없는 방향이 있는 모델은 가짜 추가 모드로 인한 거부 없이 유효한 유한 모드를 반환할 수 있습니다. 영향을 받은 고유치 해석과 이에 의존하는 동적 응답을 다시 실행하십시오.',
+          '구속된 주절점의 강제 침하와 회전이 이제 단계별, 윈클러, 접촉, 재료 비선형, 2D 공동회전, 호장 해석에서 종속 절점에 전달됩니다. 케이블 요소 해석과 선형 시간이력해석은 표현할 수 없는 0이 아닌 강제 지점 운동을 거부합니다. 영향을 받은 해석과 파생된 검토를 다시 실행하십시오 (SA-2026-063).',
+          '호장 및 변위 제어는 최종 하중 계수에서의 지점 반력과 부재력을 복원합니다. 비선형 및 단계별 복원은 구속을 통해 전달된 힘을 포함하고, 인공 강성을 제외하며, 최종 물리 상태와 부재 좌표계를 사용합니다. 영향을 받은 해석과 파생된 검토를 다시 실행하십시오 (SA-2026-061).',
+          'P-Delta는 물리적 잔차 실패와 변위된 형상의 모멘트 평형 한계를 구분합니다. 물리적 평형 실패는 힘과 응력을 제공하지 않으며, 후자의 한계는 유효한 미소변위 답을 경고와 함께 유지합니다. 시간이력해석은 사용할 수 없는 총 지점 반력과 최대 지점 반력은 제공하지 않지만 변위 이력과 최댓값은 유지합니다. 저장된 힘을 다시 확인하십시오 (SA-2026-061).',
+          '내력을 지닌 부재를 제거하는 단계별 이력은 2D와 3D에서 거부됩니다. 하중이나 운동 후의 강성 또는 지점 스프링 변경은 진단 메시지와 함께 힘과 응력을 사용할 수 없게 만들 수 있습니다. 정확히 하중이 없는 제거와 구속만 있는 완전히 결정된 단계는 답을 유지하며, 하중을 받는 부재의 힘 재분배는 계속 지원되지 않습니다 (SA-2026-061).',
+          '지반–구조물 상호작용은 변경되지 않은 해석을 다시 시작하지 않고 탄성 평형을 바로잡습니다. 회전되었거나 단위가 조정된 모델에서 지반이 없거나 지반이 초기 선형 범위에 있는 경우, 기존 허용오차와 반복 한도 안에서 수렴할 수 있습니다. 영향을 받은 SSI 해석을 다시 실행하십시오.',
+          '회전되거나 반사된 구속 골조와 트러스는 더 이상 반올림 경계로 인한 잘못된 거부를 받지 않습니다. 선형, 단계별, 크리프, P-Delta 초기 해석은 2D와 3D에서 판별 가능한 물리적 강성을 유지하며, 메커니즘과 정확도 한계는 변하지 않습니다. 영향을 받은 해석을 다시 실행하십시오.',
+          'CIRSOC 301 강재 설계는 엔진에서 모멘트 구배와 단면 성질을 읽습니다. 모멘트 구배 계수는 비지지 구간 양 끝의 부호 변화를 포함하며, 인장 순단면적은 모든 엇갈린 볼트 열을 검토하고, 웨브 또는 두 번째 다리 볼트가 없는 전체 요소 접합은 거부합니다. 영향을 받은 강재 부재를 다시 검토하십시오.',
+          '독일어, 프랑스어, 터키어가 다시 제공됩니다. 연구에 해저 접촉이 있는 해양 라이저와 휜 띠의 형상 제어가 추가되었으며, 비교와 한계는 각 페이지에 표시됩니다. 작업 공간 저장은 설계된 건물을 보존하며 브라우저가 저장할 수 없을 때 알려줍니다.',
+        ],
+      },
       zh: {
         "title": "求解前先检查稳定性，移动荷载与 P-Δ 已更正，限制更清晰",
         "items": [
@@ -874,6 +962,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Visszatért az Alap mód tananyaga statikával, hatásábrákkal, másodrendű analízissel, kihajlással, képlékenységgel és dinamikával. Elérhetők paraméteres példák és egy saját Anthropic- vagy OpenAI-kulccsal működő asszisztens. A Research és a Tools oldalak gyorsabban nyílnak meg telefonon."
         ]
       },
+      ko: {
+        title: '수정된 하중, 설계, 해석, 더 다양한 계산과 학습 방법',
+        items: [
+          '생성된 하중은 부분적으로 덮인 경우와 회전된 데크에서도 바닥 하중을 유지하며 지진 중량에 쉘을 포함합니다. 평형 검토는 합산할 수 없는 하중을 이름으로 알려줍니다. 영향을 받은 하중을 다시 생성하십시오.',
+          '강재 및 콘크리트 검토에서 전단 면적, 과다철근 휨, 직사각형 기둥, 튜브 압축이 수정되었습니다. 검토되지 않은 비틀림이 있는 접합부와 부재는 평가되지 않은 항목을 명시합니다. 각 쉘 포락선 성분은 자체 극값을 유지합니다. 영향을 받은 설계를 다시 실행하십시오.',
+          '2D 좌굴은 부재를 따라 축력을 적분하며, 강체 구속 뒤의 메커니즘은 거부되고, 3D 공동회전 해석은 큰 회전을 합성합니다. 동적 해석은 질량이 없는 절점의 초기 하중을 유지하며 메커니즘을 거부합니다. 유한하지 않은 결과는 이유와 함께 거부됩니다.',
+          '2D 소성 한계 해석이 추가되었지만 #758의 검증이 끝나기 전까지 소성 붕괴는 제공되지 않습니다. 3D 좌굴은 압축과 반올림 오차를 구분하며, 조화 해석은 하중에 따라 바꾸지 않고 모델과 진동수별로 방법을 선택합니다. 선형 해석은 큰 회전과 가능한 2차 효과에 대해 경고합니다.',
+          "MITC4 및 MITC9 쉘은 뒤틀린 형상에서 여전히 지나치게 유연합니다. 90°의 비틀림이 있는 벤치마크에서 변위는 기준값보다 MITC4는 약 30%, MITC9는 최대 2.4배 컸습니다. 오차는 비틀림에 따라 커지며 평평한 요소에는 없습니다. 이 정식화는 아직 수정되지 않았습니다 (#1057). PR #1074는 측정된 한계에서 경고와 거부를 추가했으며, 이 억제 조치가 정식화를 바로잡는 것은 아닙니다.",
+          'PRO 보고서는 선택한 결과 집합을 출력하고 내보낸 표를 검토합니다. 저장된 뷰, 결합된 평면 및 3D 뷰, IFC 참조, 읽기 전용 링크, 더 많은 판 결과가 있습니다. Excel 및 IFC 가져오기는 직사각형 단면의 올바른 관성 축을 유지합니다.',
+          'Basic 강좌가 정역학, 영향선, 2차 해석, 좌굴, 소성, 동역학과 함께 돌아왔습니다. 매개변수 예제와 본인의 Anthropic 또는 OpenAI 키를 사용하는 어시스턴트를 사용할 수 있습니다. 연구 및 도구 페이지가 휴대폰에서 더 빠르게 열립니다.',
+        ],
+      },
       zh: {
         "title": "荷载、设计与分析的更正；更多的计算与学习方式",
         "items": [
@@ -990,6 +1090,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A JAIE 2026 cikk teljes terjedelmében a /paper oldalon, valamint ez a változásnapló."
         ]
       },
+      ko: {
+        title: 'Stabileo 연구, 도구, 독일어·프랑스어·터키어 앱',
+        items: [
+          'X–Y 평면 밖에 있는 쉘의 솔리드 쉘 응력이 이제 올바르며, 앱이 영향을 받은 프로젝트를 다시 실행하도록 안내합니다.',
+          '엔진은 모든 변경마다 불변성 검사로, 매일 밤 무작위 모델로 테스트됩니다. 엔진 오류로 의심되던 세 건은 잘못된 테스트 모델로 밝혀졌으며, 이제 모든 벤치마크에는 독립적인 두 개의 참고 자료, 모델 검사, 수렴 연구가 필요합니다.',
+          '해석할 때 메쉬되는 물리적 객체로서의 판, 하나의 조각으로 다루는 곡선 부재, 여러 레벨에 걸친 DXF 템플릿, 층별 용도 구역과 그 활하중.',
+          '결과물에 따라 선택하는 내보내기(결과, 계산서, 도면, IFC)와, 그림이 포함된 Word 계산서.',
+          'Basic에서 PRO와 같은 복사 및 붙여넣기와 붙여넣을 위치 미리보기, Ctrl+S가 더 이상 3D 뷰를 움직이지 않음, 실행 취소가 더 이상 2D 모델을 3D에서 눕히지 않음, 변형 형상에서의 변위 표시를 요청 시 제공.',
+          '앱과 사이트가 이제 독일어, 프랑스어, 터키어로도 제공됩니다.',
+          'Stabileo 연구: 게재된 논문 17편과 Stabileo 엔진으로 브라우저에서 실행되는 고전 계산역학 벤치마크가 있으며, 각각 무엇과 비교했고 어떻게 검증했는지 밝힙니다.',
+          '도구: 실제 엔진으로 해석하고 결과 옆에 고전 공식을 보여주며 모델을 Stabileo에서 여는 무료 계산기 8개(보, 캔틸레버, 오일러 기둥 등).',
+          'JAIE 2026 논문 전문(/paper)과 이 변경 이력.',
+        ],
+      },
       zh: {
         "title": "Stabileo Research、Tools，以及德语、法语和土耳其语版本的应用",
         "items": [
@@ -1080,6 +1194,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Két új blogbejegyzés, megújult tartalomjegyzék, és egy oldal, amely felsorolja, mit ellenőriz a Stabileo az egyes CIRSOC szabványokból."
         ]
       },
+      ko: {
+        title: '엔진의 설계 검토, 그리고 0.2.0 및 0.3.0 버전',
+        items: [
+          '철근콘크리트(CIRSOC 201)와 강재(CIRSOC 301) 설계기준 검토가 이제 엔진 안에서 실행되며, 공개된 참고 모델에 대한 검증 세트가 있습니다.',
+          '가능한 결과에 대해서는 엔진이 구간 산술로 오차 경계를 계산합니다.',
+          '0.2.0과 0.3.0 버전이 스페인어, 영어, 포르투갈어 노트와 함께 출시되었습니다. 변경이 결과에 영향을 줄 때는 앱이 저장된 프로젝트를 다시 실행하도록 요청합니다.',
+          '랜딩 페이지에 검증 섹션이 추가되었으며, 이제 6.4 MB 대신 152 KB를 불러옵니다.',
+          '새 블로그 글 두 편, 다시 디자인한 목차, Stabileo가 각 CIRSOC 기준에서 무엇을 검토하는지 나열한 페이지.',
+        ],
+      },
       zh: {
         "title": "引擎中的设计验算，以及 0.2.0 和 0.3.0 版本",
         "items": [
@@ -1107,6 +1231,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'La boîte de dialogue de la note de calcul du mode Basique, avec la liste des contenus où l\'on choisit ce qu\'elle inclut',
         tr: 'Temel modundaki hesap raporu iletişim kutusu; neyin dahil edileceğini seçmek için içerik listesiyle',
         hu: 'Az Alap mód számítási jelentésének párbeszédablaka a tartalomlistával, amelyből kiválasztható, mi kerüljön bele',
+        ko: 'Basic 모드 계산서 대화상자와 포함할 항목을 고르는 목차 목록',
         zh: '基础模式的计算书对话框，列出可选择包含哪些内容的目录',
       },
     },
@@ -1188,6 +1313,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mértékegységek a teljes PRO-ban, valamint exportálás Excelbe, CSV-be, PDF-jelentésbe, DXF-be és képekbe, mindegyik egy párbeszédablakkal, amely megmutatja, mi készül."
         ]
       },
+      ko: {
+        title: 'Basic에서 직접 구성하는 보고서, 그리고 PRO의 동적 하중',
+        items: [
+          '킬로미터에서 밀리미터까지 확대, 겹치는 부재 선택, 모델 일부 숨기기, 더 읽기 쉬운 레이블.',
+          '운동학적 해석과 균형 잡힌 자유물체도를 포함하여 담을 내용을 골라 PDF 계산서를 만들며, 그림은 인쇄하기 좋게 내보내집니다.',
+          '구조물이 층별로 올라가는 영상.',
+          '복합 및 참조 하중 케이스, 가상하중, SRSS 및 ABS 조합.',
+          '동적 하중과 이동하중: 프로젝트별 응답스펙트럼과 카탈로그 차량.',
+          'PRO 전반의 단위, 그리고 Excel, CSV, PDF 보고서, DXF, 이미지로의 내보내기. 각각 무엇이 나오는지 보여주는 대화상자가 있습니다.',
+        ],
+      },
       zh: {
         "title": "在基础模式中自行组合的报告，以及 PRO 中的动力荷载",
         "items": [
@@ -1268,6 +1404,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egy teljes épület vasbeton méretezése kevesebb mint feleannyi ideig tart, mint korábban."
         ]
       },
+      ko: {
+        title: 'PRO의 기준 기반 하중',
+        items: [
+          '기준 하중 생성기는 지붕, 눈 쌓임, 패턴 재하를 다루며 CIRSOC 102에 따라 풍하중 돌풍 계수를 계산합니다.',
+          '부재, 절점, 판의 하중을 방향, 변화, 적용 면적과 함께 직접 입력할 수 있습니다.',
+          '표시 단위, 변단면 부재, 단면 편집기 개선.',
+          '건물 전체의 철근콘크리트 설계에 걸리는 시간이 이전의 절반 미만입니다.',
+        ],
+      },
       zh: {
         "title": "PRO 中基于规范的荷载",
         "items": [
@@ -1294,6 +1439,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un bâtiment de plusieurs étages modélisé dans le mode PRO, avec grilles et niveaux',
         tr: 'PRO modunda aks ızgaraları ve katlarla modellenmiş çok katlı bir bina',
         hu: 'Többszintes épület a PRO módban modellezve, raszterrel és szintekkel',
+        ko: 'PRO 모드에서 격자와 레벨로 모델링한 다층 건물',
         zh: '在 PRO 模式中建模的多层建筑，带轴网和标高',
       },
     },
@@ -1396,6 +1542,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Megoldó, amely sokkal gyorsabbá teszi a nagy modelleket, és javítás a lemezelemekben."
         ]
       },
+      ko: {
+        title: '연습문제에서 PRO의 실제 프로젝트까지',
+        items: [
+          '부재는 점에서 점으로 그리며 절점, 중점, 교차점에 스냅되고, 앱은 교차하는 부재를 연결할지 묻습니다.',
+          '15가지 해석 방법을 다루는 설명이 포함된 단계별 풀이.',
+          '동적 해석이 모드 형상을 그립니다.',
+          '격자와 레벨, 모델에 삽입되는 구조 생성기, 복사와 붙여넣기.',
+          '분담면적에 따른 바닥 하중, 판 메쉬 생성, 탄성 지점, 기초.',
+          '결과 표, 처짐 한계, 판 등고선, 프로젝트 Excel 통합 문서, 보고서.',
+          '조립 단면을 그리는 편집기와 검토를 통과하는 가장 가벼운 단면을 찾는 검색.',
+          '결과를 대조해 볼 수 있도록 모델링한 공개 참조 구조물 7개와 24개 예제 갤러리.',
+          '대형 모델을 훨씬 빠르게 해석하는 해석기와 판 요소 수정.',
+        ],
+      },
       zh: {
         "title": "在 PRO 中从练习走向真实项目",
         "items": [
@@ -1427,6 +1587,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les armatures dimensionnées d\'une structure en béton armé, vues en 3D dans le mode PRO',
         tr: 'Betonarme bir yapının boyutlandırılmış donatıları, PRO modunda 3B olarak',
         hu: 'Vasbeton szerkezet méretezett vasalása 3D-ben, a PRO módban',
+        ko: 'PRO 모드에서 3D로 표시한 철근콘크리트 구조물의 설계 배근',
         zh: '在 PRO 模式中以 3D 显示的钢筋混凝土结构设计配筋',
       },
     },
@@ -1529,6 +1690,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A hibásan felépített modellt az alkalmazás most üzenettel elutasítja ahelyett, hogy nullákat adna vissza."
         ]
       },
+      ko: {
+        title: 'PRO의 철근콘크리트 설계',
+        items: [
+          '더 짧아진 랜딩 페이지, 요금 제안, 앱 안에서도 표시되는 문의 패널.',
+          '부재로 모델링할 때와 유한요소로 모델링할 때를 다룬 새 블로그 글과 사용자 가이드.',
+          'CIRSOC Flex 철근콘크리트 계산기가 이제 철근을 제안하며, 원본 스프레드시트와 대조하여 검증했습니다.',
+          '2D와 3D에서 강성법과 유연도법에 의한 단계별 풀이.',
+          '모든 해석에서의 온도하중.',
+          '교육 모드가 Basic 안의 패널이 되었습니다.',
+          '철근콘크리트 설계와 재구성된 PRO 인터페이스.',
+          '모델 평형 검토와 동적 해석: 고유치 해석, 응답스펙트럼, 시간이력해석.',
+          '잘못 만든 모델은 이제 0을 반환하는 대신 메시지와 함께 거부됩니다.',
+        ],
+      },
       zh: {
         "title": "PRO 中的钢筋混凝土设计",
         "items": [
@@ -1560,6 +1735,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Le mode Basique sur un téléphone, avec le diagramme des moments d\'un portique',
         tr: 'Telefonda Temel modu; bir çerçevenin eğilme momenti diyagramıyla',
         hu: 'Az Alap mód telefonon, egy keret hajlítónyomatéki ábrájával',
+        ko: '휴대폰의 Basic 모드와 골조의 휨모멘트도',
         zh: '手机上的基础模式，显示框架的弯矩图',
       },
     },
@@ -1627,6 +1803,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Acélszerkezetek: keresztmetszet- és anyagválasztók, generátorok, acél munkafolyamat és kapcsolatok méretezése."
         ]
       },
+      ko: {
+        title: '휴대폰에서 쓰는 Stabileo',
+        items: [
+          'Basic과 PRO가 같은 배치를 쓰는 휴대폰 인터페이스.',
+          'Excel에서 모델 가져오기, 그리고 공유 링크가 다시 전체 모델을 엽니다.',
+          '아르헨티나 대부분의 토목 기술자가 쓰는 스프레드시트인 CIRSOC Flex에 따른 단면 배근 설계.',
+          '강구조: 단면 및 재료 선택기, 생성기, 강구조 작업 흐름, 접합부 설계.',
+        ],
+      },
       zh: {
         "title": "手机上的 Stabileo",
         "items": [
@@ -1653,6 +1838,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Une halle industrielle métallique générée à partir de paramètres modifiables',
         tr: 'Düzenlenebilir parametrelerle oluşturulmuş çelik bir endüstriyel yapı',
         hu: 'Szerkeszthető paraméterekből felépített acél ipari csarnok',
+        ko: '편집 가능한 매개변수로 만든 강재 공장 건물',
         zh: '由可编辑参数构建的钢结构工业厂房',
       },
     },
@@ -1720,6 +1906,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Három számítási hiba javítva: a kör keresztmetszetű cső nyírása, a csúcs-nyíróerő, és egy építési fázisokra bontott analízis, amely kihagyta a födémeket és a falakat."
         ]
       },
+      ko: {
+        title: '강구조, 그리고 3개 언어로 제공되는 사이트',
+        items: [
+          '편집 가능한 매개변수로 트러스, 격자 기둥, 공장 건물을 만드는 생성기와 카탈로그와 필터가 있는 단면 선택기.',
+          '스페인어, 영어, 포르투갈어로 제공되는 랜딩 페이지와 블로그. 사이트는 검색 엔진에 색인될 수 있게 되었으며, 18개 페이지와 글 4편이 있습니다.',
+          '안내 투어를 대체하는 짧은 튜토리얼 7개.',
+          '계산 오류 3건 수정: 원형 튜브의 전단, 최대 전단, 슬래브와 벽을 빠뜨리던 단계별 해석.',
+        ],
+      },
       zh: {
         "title": "钢结构，以及三种语言的网站",
         "items": [
@@ -1746,6 +1941,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'L\'analyse de section du mode Basique, avec l\'état de contrainte sur le contour réel du profilé',
         tr: 'Temel modunda kesit analizi; profilin gerçek konturu üzerindeki gerilme durumuyla',
         hu: 'Keresztmetszet-vizsgálat az Alap módban, a feszültségi állapottal a keresztmetszet valós kontúrján',
+        ko: '단면의 실제 외곽선 위에 응력 상태를 보여주는 Basic 모드 단면 해석',
         zh: '基础模式的截面分析，应力状态绘制在截面的真实轮廓上',
       },
     },
@@ -1813,6 +2009,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A PRO-t újratervezték, az Alap móddal azonos arculattal."
         ]
       },
+      ko: {
+        title: '단면 해석과 새로운 PRO 인터페이스',
+        items: [
+          '구조물의 아무 점이나 클릭하면 실제 단면 위의 응력 상태를 주응력, Mohr 원, 단면 핵과 함께 보여주며, 하중점을 끌어 편심의 영향을 볼 수 있습니다.',
+          '아르헨티나, 유럽, 미국, 브라질의 재료 및 단면 데이터베이스로, 해당 기준에 맞춰 검토한 700개 이상의 단면이 있습니다.',
+          '더 쉬워진 선택 및 이동 도구와 색상 척도가 있는 응력 지도.',
+          'PRO가 Basic과 같은 시각적 정체성으로 새로 디자인되었습니다.',
+        ],
+      },
       zh: {
         "title": "截面分析，以及全新的 PRO 界面",
         "items": [
@@ -1839,6 +2044,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un exercice du mode Enseignement, avec les diagrammes tracés par l\'étudiant corrigés par rapport au calcul',
         tr: 'Eğitim modunda bir alıştırma; öğrencinin çizdiği diyagramlar hesaba göre değerlendiriliyor',
         hu: 'Feladat az Oktatási módban, a hallgató által rajzolt ábrákkal, amelyeket az alkalmazás az analízis alapján értékel',
+        ko: '학생이 그린 선도를 해석 결과와 대조해 채점하는 교육 모드 연습문제',
         zh: '教学模式中的练习，学生绘制的图形会对照分析结果评分',
       },
     },
@@ -1913,6 +2119,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a méretezési ellenőrzésekben: a biztonság kárára tévedő alapértékek, hiányzó határállapotok és figyelmen kívül hagyott bemenetek."
         ]
       },
+      ko: {
+        title: '새로운 시각적 정체성과 교육 모드',
+        items: [
+          '새 랜딩 페이지의 시각적 정체성을 적용한 Basic 인터페이스 전체.',
+          '모든 단면이 정확한 외곽선으로 정해집니다. 외곽선이 없으면 앱은 빠진 두께를 지어내는 대신 응력 계산을 하지 않습니다.',
+          '교사가 앱 안에서 연습문제를 만들고 학생이 풀며, 학생이 그린 선도는 해석 결과와 대조해 채점됩니다.',
+          '철근콘크리트 푸팅: 배근 설계에서 CAD 파일까지, 철근 상세표는 3D로.',
+          '설계 검토 수정: 비보수적 기본값, 누락된 한계상태, 무시되던 입력값.',
+        ],
+      },
       zh: {
         "title": "全新的视觉标识，以及教学模式",
         "items": [
@@ -1985,6 +2201,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Gyorsabb utófeldolgozás és 3D megjelenítő nagy modelleken."
         ]
       },
+      ko: {
+        title: '새 랜딩 페이지와 2025 CIRSOC 기준',
+        items: [
+          '랜딩 페이지를 다시 만들었습니다. Stabileo가 무엇인지, 오늘 동작하는 것과 개발 중인 것이 무엇인지 설명하며 Basic, 교육, PRO 섹션이 있습니다.',
+          '2025 CIRSOC 기준에 따른 하중과 설계 검토. 각 기준의 판본이 프로젝트에 기록됩니다.',
+          '대형 모델에서 더 빨라진 후처리와 3D 뷰어.',
+        ],
+      },
       zh: {
         "title": "全新的落地页，以及 2025 版 CIRSOC 规范",
         "items": [
@@ -2055,6 +2279,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a kényszerekben és a ferde támaszokban."
         ]
       },
+      ko: {
+        title: '항상 모델과 일치하는 결과',
+        items: [
+          '모델을 편집하면 그로 인해 오래된 결과와 설계 검토가 무효화되므로, 더 이상 적용되지 않는 결과는 표시되지 않습니다.',
+          '더 빠른 해석: 하중 케이스가 분해를 재사용하고, 조합을 묶음으로 해석하며, 해석이 백그라운드에서 실행됩니다.',
+          '구속과 경사 지점 수정.',
+        ],
+      },
       zh: {
         "title": "结果始终与模型一致",
         "items": [
@@ -2111,6 +2343,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A DXF-rajzimportáló előnézettel és diagnosztikával, mértékegység-kezeléssel, több szinttel és gerendafelismeréssel bővült, áttekinthetőbb varázslóval."
         ]
       },
+      ko: {
+        title: 'DXF 도면 가져오기',
+        items: [
+          'DXF 도면 가져오기에 미리보기와 진단, 단위 제어, 다층 및 보 해석이 추가되었으며 마법사가 더 명확해졌습니다.',
+        ],
+      },
       zh: {
         "title": "DXF 图纸导入器",
         "items": [
@@ -2164,6 +2402,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         "items": [
           "Rudak szabadtest-ábrái 2D-ben és 3D-ben, 2D-ben csúszó csuklókkal, 3D-ben hat szabadságfokú kioldásokkal, és az erővektorokkal minden rúdvégen."
         ]
+      },
+      ko: {
+        title: 'Basic의 부재 자유물체도',
+        items: [
+          '2D와 3D 부재의 자유물체도. 2D의 슬라이딩 힌지와 3D의 6자유도 해제, 각 끝단의 힘 벡터가 포함됩니다.',
+        ],
       },
       zh: {
         "title": "基础模式中的杆件隔离体图",
@@ -2233,6 +2477,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egységes tengelyek és keresztmetszetek az Alap mód 2D és 3D nézetében."
         ]
       },
+      ko: {
+        title: 'CAD 도면에서 콘크리트 모델까지',
+        items: [
+          'DXF 도면에서 철근콘크리트 구조 초안까지: 레이어를 분류하는 마법사, 내려받을 수 있는 템플릿, 예제.',
+          '3D 국부축 규약을 인터페이스와 엔진에서 확정했으며 기존 모델은 마이그레이션되었습니다.',
+          'Basic 2D와 3D에서 통일된 축과 단면.',
+        ],
+      },
       zh: {
         "title": "从 CAD 图纸到混凝土模型",
         "items": [
@@ -2258,6 +2510,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les efforts normaux d\'un bâtiment dans le mode PRO, avec les formes réelles des sections dans la vue 3D',
         tr: 'PRO modunda bir binanın normal kuvvetleri; 3B görüntüleyicide gerçek kesit şekilleriyle',
         hu: 'Normálerők egy épületben a PRO módban, valós keresztmetszet-alakokkal a 3D megjelenítőben',
+        ko: 'PRO 모드 건물의 축력과 3D 뷰어의 실제 단면 형상',
         zh: 'PRO 模式中某建筑的轴力，3D 查看器中显示真实的截面形状',
       },
     },
@@ -2331,6 +2584,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Födémek és falak megjelenítéssel, tengelyekkel, főfeszültségekkel és jelentéssel.",
           "Az Alap módot újraírták, világosabb határvonallal közte és a PRO között."
         ]
+      },
+      ko: {
+        title: 'PRO의 전문 작업 흐름',
+        items: [
+          'PRO에서 설계, 하중, 계산서가 통합된 설계 검토와 함께 연동됩니다.',
+          '하중 케이스, 조합, 포락선별 결과.',
+          '실제 단면 형상과 국부축이 있는 3D 뷰어, 보가 기둥면에 접합되는 것을 모델링하는 부재 오프셋.',
+          '표시, 축, 주응력, 보고서가 있는 슬래브와 벽.',
+          'Basic 모드를 다시 작성하여 PRO와의 경계를 더 분명히 했습니다.',
+        ],
       },
       zh: {
         "title": "PRO 中的专业工作流程",
@@ -2426,6 +2689,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a mentésben, a megosztott hivatkozásokban és az exportálásban."
         ]
       },
+      ko: {
+        title: '더 부드러운 3D 뷰어와 더 튼튼한 엔진',
+        items: [
+          '새로 디자인한 랜딩 페이지.',
+          '새 견고성 테스트가 1,000개에 가깝게 추가되었으며, 엔진, 요소, 구속의 정확도 수정과 해석 실행 전 불안정 경고가 포함됩니다.',
+          '3D에서 각 부재 끝단마다 축별로 해제되는 힌지.',
+          '절점이 1,000개가 넘는 모델에서도 3D 뷰어가 부드럽게 움직입니다. 절점을 한 번에 그리고 부재 선택이 더 빨라졌습니다.',
+          '앱 전반에서 Z가 위쪽이 되도록 축을 통일했으며, 응력과 설계 검토에서 My 및 Mz 모멘트를 수정했습니다.',
+          '저장, 공유 링크, 내보내기 수정.',
+        ],
+      },
       zh: {
         "title": "更流畅的 3D 查看器和更稳固的引擎",
         "items": [
@@ -2455,6 +2729,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique spatial avec son diagramme des moments en 3D',
         tr: '3B eğilme momenti diyagramıyla bir uzay çerçeve',
         hu: 'Térbeli keret a hajlítónyomatéki ábrájával 3D-ben',
+        ko: '3D 휨모멘트도가 있는 입체 골조',
         zh: '带 3D 弯矩图的空间框架',
       },
     },
@@ -2564,6 +2839,21 @@ export const CHANGELOG: ChangelogEntry[] = [
           "MI-asszisztens, amely beszélgetés alapján épít és szerkeszt modelleket."
         ]
       },
+      ko: {
+        title: 'Rust로 작성한 엔진, PRO 모드, Stabileo라는 이름',
+        items: [
+          '해석 엔진을 Rust로 다시 작성하여 WebAssembly를 통해 브라우저에서 실행합니다. 기존 엔진을 대체하기 전에 90개 모델로 둘을 비교했습니다.',
+          '교과서 해법과 공개된 참조 사례에 대한 검증 테스트 2,000개 이상.',
+          '기하 및 재료 비선형 해석, 고유치, 스펙트럼, 시간이력 동적 해석, 판과 쉘, 케이블, 단계별 시공, 스프링 위의 기초.',
+          '대형 모델을 빠르게 하는 희소 행렬 해석기: 3D 고유치 해석이 11.8배 빨라졌습니다.',
+          '프로젝트 이름이 Stabileo로 바뀌었으며, 자체 도메인, 랜딩 페이지, 14개 언어의 인터페이스가 생겼습니다.',
+          'PRO 모드: CIRSOC 201에 따른 철근콘크리트 검토, 자동 하중, 진단, 계산서.',
+          '부재별 지배 조합, 자동 검토, 배근 상세와 접합부가 있는 철근콘크리트 작업 흐름, 그리고 절점 1005개의 경기장 같은 대형 예제.',
+          '단계별로 검토되는 안내형 연습문제가 있는 교육 모드.',
+          'Basic 모드에 3D 뷰와 3D 모델을 2D로 바꾸는 기능이 추가되었습니다.',
+          '대화로 모델을 만들고 편집하는 AI 어시스턴트.',
+        ],
+      },
       zh: {
         "title": "Rust 引擎、PRO 模式和 Stabileo 之名",
         "items": [
@@ -2597,6 +2887,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique plan avec son diagramme des moments fléchissants dans le mode Basique',
         tr: 'Temel modunda eğilme momenti diyagramıyla bir düzlem çerçeve',
         hu: 'Síkbeli keret a hajlítónyomatéki ábrájával az Alap módban',
+        ko: 'Basic 모드의 휨모멘트도가 있는 평면 골조',
         zh: '基础模式中带弯矩图的平面框架',
       },
     },
@@ -2685,6 +2976,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mobil felület, a modellt magukban hordozó megosztott hivatkozások, bemutató túra és billentyűparancsok."
         ]
       },
+      ko: {
+        title: '시작: 브라우저 안의 구조 편집기',
+        items: [
+          '2월 10일의 첫 버전: 설치할 필요 없이 2D 부재, 지점, 하중과 반력, 선도, 변형 형상.',
+          '집중하중, 부분 분포하중, 이동하중, 하중 케이스, 조합, 두 곡선을 모두 보여주는 포락선.',
+          '단면 작성기가 있는 강재와 콘크리트 단면, 그리고 Navier, Jourawski, Von Mises에 의한 단면 응력.',
+          '경사 지점, 스프링, 침하, 부재 자중.',
+          '절점당 6자유도를 가진 3D 엔진과 뷰어, 그리고 2D의 P-Delta, 좌굴, 영향선.',
+          '구조물이 왜 메커니즘인지 아닌지를 부재별로 설명하는 교육용 운동학적 해석.',
+          '모바일 인터페이스, 모델을 담는 공유 링크, 안내 투어, 키보드 단축키.',
+        ],
+      },
       zh: {
         "title": "开端：浏览器中的结构编辑器",
         "items": [
@@ -2709,6 +3012,7 @@ export const AREA_LABELS: Record<PublicLocale, Record<ChangelogArea, string>> = 
   fr: { basic: 'Basique', pro: 'PRO', edu: 'Enseignement', app: 'Application', engine: 'Moteur', site: 'Site' },
   tr: { basic: 'Temel', pro: 'PRO', edu: 'Eğitim', app: 'Uygulama', engine: 'Motor', site: 'Site' },
   hu: { basic: 'Alap', pro: 'PRO', edu: 'Oktatás', app: 'Alkalmazás', engine: 'Számítómag', site: 'Weboldal' },
+  ko: { basic: 'Basic', pro: 'PRO', edu: '교육', app: '앱', engine: '엔진', site: '웹사이트' },
   zh: { basic: '基础', pro: 'PRO', edu: '教学', app: '应用', engine: '计算引擎', site: '网站' },
 };
 

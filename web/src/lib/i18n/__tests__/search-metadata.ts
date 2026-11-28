@@ -19,7 +19,7 @@ type Page = { url: string; locale: string; path: string; html: string; head: str
 
 const decode = (s: string) =>
   s.replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-const width = (s: string) => s.length + (s.match(/[\p{Script=Han}\u3000-\u303f\uff00-\uffef]/gu)?.length ?? 0);
+const width = (s: string) => s.length + (s.match(/[\p{Script=Han}\p{Script=Hangul}\u3000-\u303f\uff00-\uffef]/gu)?.length ?? 0);
 const stripTags = (s: string) => decode(s.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
 
 function graphOf(page: Page): Node[] {
@@ -142,6 +142,7 @@ export function searchMetadataSuite(dist: string) {
         tr: ['açık kaynaklı yapı mühendisliği yazılımı'],
         hu: ['nyílt forráskódú szerkezettervező szoftver'],
         zh: ['开源结构工程软件'],
+        ko: ["오픈 소스 구조공학 소프트웨어"],
       };
       const aiInDevelopment: Record<string, string> = {
         en: 'AI assistant in development',
@@ -152,6 +153,7 @@ export function searchMetadataSuite(dist: string) {
         tr: 'geliştirilmekte olan yapay zekâ asistanı',
         hu: 'AI-asszisztens fejlesztés alatt áll',
         zh: 'AI 助手开发中',
+        ko: 'AI 어시스턴트 개발 중',
       };
       const problems = ownPages()
         .filter((p) => p.path === '/' || p.path === '/tools')

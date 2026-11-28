@@ -22,6 +22,7 @@
     "fr": "Anciens champs des couples ponctuels plans",
     "hu": "Síkbeli pontnyomatékok régi mezői",
     "tr": "Düzlemsel noktasal momentlerin eski alanları",
+    "ko": "기존 평면 집중 우력 별칭",
     "zh": "旧版平面集中力偶的别名字段"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "fr": "Un couple ponctuel plan utilise le champ de moment non nul lorsque l’autre est nul. Les valeurs incompatibles ou invalides arrêtent le calcul. Relancez les analyses concernées.",
     "hu": "A síkbeli pontnyomaték a nem nulla mező értékét használja, ha a másik nulla. Az ütköző vagy érvénytelen értékek leállítják a számítást. Futtassa újra az érintett elemzéseket.",
     "tr": "Düzlemsel noktasal moment, alanlardan biri sıfırsa sıfır olmayan değeri kullanır. Çelişkili veya geçersiz değerler çözümü durdurur. Etkilenen analizleri yeniden çalıştırın.",
+    "ko": "평면 집중 우력은 이제 다른 별칭이 0이면 0이 아닌 모멘트 필드를 사용합니다. 서로 충돌하거나 유효하지 않은 값은 해석을 중단시킵니다. 영향받는 해석을 다시 실행하십시오.",
     "zh": "平面集中力偶的一个力矩字段为零时，采用另一个字段的非零值。字段值冲突或无效时停止求解。请重新运行受影响的分析。"
   },
   "changelog": {

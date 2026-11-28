@@ -15,6 +15,7 @@
     "fr": "Chargement des exemples et import dans un repère déclaré",
     "tr": "Örnek yükleme ve tanımlı eksenlerle içe aktarma",
     "hu": "Példák betöltése és import megadott tengelyekkel",
+    "ko": "픽스처 재생과 골조 모델 가져오기",
     "zh": "加载示例与按声明坐标系导入模型"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "fr": "Le chargement des exemples conserve les intervalles des charges partielles et les cas des charges thermiques. L’import dans un repère déclaré conserve les directions des ressorts plans et les coordonnées des fragments spatiaux. Rechargez les modèles sources concernés et recalculez.",
     "tr": "Örnekler yüklenirken kısmi yük aralıkları ve sıcaklık yüklerinin durumları korunur. Tanımlı eksenlerle içe aktarma, düzlem yaylarının yönlerini ve uzaysal parçaların koordinatlarını korur. Etkilenen kaynak modelleri yeniden yükleyip hesaplayın.",
     "hu": "A példák betöltése megőrzi a részleges terhek szakaszait és a hőterhek tehereseteit. A megadott tengelyekkel végzett import megőrzi a síkbeli rugók irányát és a térbeli töredékek koordinátáit. Töltse be újra az érintett forrásmodelleket, és számítsa újra az eredményeket.",
+    "ko": "픽스처를 재생하면 부분 하중 구간과 온도하중 케이스가 보존됩니다. 골조 가져오기는 평면 스프링 방향과 공간 조각 좌표를 보존합니다. 영향을 받는 원본 모델을 다시 불러오고 다시 계산하십시오.",
     "zh": "加载示例时会保留局部分布荷载的作用区段和温度荷载所属的工况。按声明坐标系导入时会保留平面弹簧方向和空间模型片段的坐标。请重新加载受影响的源模型并重新计算。"
   },
   "changelog": {

@@ -13,6 +13,7 @@
     "fr": "L’analyse non linéaire matérielle 3D résout des barres avec et sans gauchissement et des nœuds reliés seulement par des barres articulées",
     "hu": "A 3D anyagi nemlineáris számítás megoldja a vegyes öblösödésű kereteket és a csak rácsrudas csomópontokat",
     "tr": "3B malzeme doğrusal olmayan analizi, çarpılmalı ve çarpılmasız çubukları ve yalnızca kafes çubuklu düğümleri çözüyor",
+    "ko": "3D 재료 비선형 해석이 혼합 뒤틀림 골조와 트러스 전용 절점을 해석합니다",
     "zh": "3D 材料非线性分析可求解混合翘曲框架和仅含桁架杆的节点"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "L’analyse non linéaire matérielle 3D plantait quand une section avait une constante de gauchissement et celle d’une autre barre non (#1578), et refusait comme singulier un modèle avec un degré de liberté qu’aucune barre ne retient, comme la rotation d’un nœud atteint seulement par des barres articulées. Les deux cas sont maintenant résolus, avec les déplacements du solveur linéaire dans le domaine élastique. Les modèles déjà résolus donnent les mêmes nombres.",
     "hu": "A 3D anyagi nemlineáris számítás összeomlott, ha az egyik keresztmetszetnek volt öblösödési állandója, egy másik keretrúd keresztmetszetének pedig nem (#1578), és szingulárisként utasította el azt a modellt, amelyben egy szabadságfokot egyetlen rúd sem tart meg, például egy csak rácsrudakkal elért csomópont elfordulását. Most mindkettő megoldható, és rugalmas tartományban a lineáris megoldó elmozdulásait adja. A korábban megoldott modellek ugyanazokat a számokat adják.",
     "tr": "3B malzeme doğrusal olmayan analizi, bir kesitin çarpılma sabiti varken başka bir çubuğun kesitinde yokken çöküyordu (#1578) ve hiçbir çubuğun tutmadığı bir serbestlik derecesi olan modeli, örneğin yalnızca kafes çubuklarının ulaştığı bir düğümün dönmesini, tekil diye reddediyordu. İkisi de artık çözülüyor ve elastik bölgede doğrusal çözücünün yerdeğiştirmelerini veriyor. Daha önce çözülen modeller aynı sayıları veriyor.",
+    "ko": "3D 재료 비선형 해석은 한 단면에는 뒤틀림 상수가 있고 다른 골조 단면에는 없을 때 충돌했으며(#1578), 트러스로만 연결된 절점의 회전처럼 어떤 부재도 구속하지 않는 자유도가 있는 모델을 특이하다고 거부했습니다. 이제 둘 다 해석되며, 탄성 범위에서는 선형 해석기의 변위를 제공합니다. 이전에 해석되던 모델은 같은 수치를 제공합니다.",
     "zh": "当一个截面有翘曲常数而另一个框架的截面没有时，3D 材料非线性分析曾崩溃（#1578）；对于存在没有任何杆件约束的自由度的模型（例如仅与桁架杆相连的节点的转动），则会以奇异为由拒绝求解。现在两者都可求解，在弹性范围内给出线性求解器的位移。此前可求解的模型数值不变。"
   },
   "changelog": {

@@ -60,6 +60,14 @@ const S: Record<'es' | 'en', PaperStrings> & Partial<Record<PublicLocale, PaperS
     metaTitle: 'Developing a structural calculation agent on top of a verified solver (cikk, angol nyelven) — Stabileo',
     metaDescription: 'A teljes cikk angolul: egy szerkezetszámításra szolgáló MI-ügynök csak akkor megbízható, ha egy verifikált megoldót vezérel, és maga soha nem állít elő számot.',
   },
+  ko: {
+    venue: '제29회 아르헨티나 구조공학 학술대회(JAIE 2026)에서 발표되었습니다.',
+    download: 'PDF 다운로드',
+    original: '스페인어 원문(PDF)',
+    language: '',
+    metaTitle: '검증된 해석기 위에 구조 계산 에이전트 개발하기(논문) — Stabileo',
+    metaDescription: '논문 전문: 구조 계산용 AI 에이전트는 검증된 해석기를 조율하기만 하고 스스로 수치를 만들어 내지 않을 때에만 신뢰할 수 있습니다.',
+  },
   zh: {
     venue: '发表于第 29 届阿根廷结构工程会议（JAIE 2026）。',
     download: '下载 PDF',

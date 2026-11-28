@@ -24,6 +24,7 @@
     "pt": "O exemplo de flexão em concreto armado usa o apoio declarado no dimensionamento",
     "de": "Das Stahlbeton-Biegebeispiel verwendet das angegebene Lager für die Bemessung",
     "fr": "L’exemple de flexion en béton armé utilise l’appui déclaré pour le dimensionnement",
+    "ko": "포함된 RC 휨 예제는 설계에서 명시된 받침을 사용합니다",
     "zh": "内置钢筋混凝土受弯算例在设计中采用其声明的支承",
     "tr": "Betonarme eğilme örneğinin tasarımı belirtilen mesnedi kullanıyor"
   },
@@ -33,6 +34,7 @@
     "pt": "A viga incluída declara um apoio simples explícito. As verificações de dimensionamento usam os esforços resultantes e apresentam as demandas de flexão e as utilizações correspondentes.",
     "de": "Der mitgelieferte Träger gibt ein einfaches Lager explizit an. Die Bemessungsnachweise verwenden die daraus berechneten Schnittgrößen und zeigen die Biegebeanspruchungen und Ausnutzungen.",
     "fr": "La poutre fournie déclare un appui simple explicite. Les vérifications de dimensionnement utilisent les efforts qui en résultent et affichent les sollicitations de flexion et les taux de travail.",
+    "ko": "포함된 보는 명시적인 단순 지지 받침을 사용합니다. 설계 검토는 그 결과로 나오는 부재력을 사용하며 해당하는 휨 요구값과 검토비를 보고합니다.",
     "zh": "内置梁采用明确的简支支承。其设计验算使用由此得到的杆件内力，并报告相应的受弯需求和利用率。",
     "tr": "Hazır kiriş örneği basit mesnedi açıkça tanımlar. Tasarım kontrolleri elde edilen eleman iç kuvvetlerini kullanır ve karşılık gelen eğilme taleplerini ve kullanım oranlarını gösterir."
   },

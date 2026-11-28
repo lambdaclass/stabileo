@@ -20,6 +20,7 @@
     "fr": "Les petits déplacements imposés des appuis entrent dans l’équilibre statique",
     "hu": "A kis előírt támaszmozgások beleszámítanak a statikai egyensúlyba",
     "tr": "Küçük tanımlı mesnet hareketleri statik dengeye dahil edilir",
+    "ko": "작은 강제 지점 이동이 정적 평형에 들어갑니다",
     "zh": "微小的给定支座位移计入静力平衡"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "fr": "Les calculs statiques entièrement bloqués, à matrices creuses ou itératifs intègrent à l’équilibre tout déplacement imposé non nul des appuis (#2227). Relancer les analyses concernées, y compris les analyses P-Delta qui partent de la solution statique.",
     "hu": "A teljesen megfogott, ritka mátrixos és iteratív statikai számítások minden nem nulla előírt támaszmozgást figyelembe vesznek az egyensúlyban (#2227). Futtassa újra az érintett vizsgálatokat, beleértve a statikai megoldásból kiinduló P-Delta-vizsgálatokat.",
     "tr": "Tamamen kısıtlı, seyrek matrisli ve yinelemeli statik çözümler, sıfırdan farklı tüm tanımlı mesnet hareketlerini dengeye katar (#2227). Statik çözümden başlayan P-Delta analizleri dahil, etkilenen analizleri yeniden çalıştırın.",
+    "ko": "완전 구속, 희소, 반복 정적 해석은 0이 아닌 모든 강제 지점 이동을 평형에 사용합니다(#2227). 정적 해에서 시작하는 P-Delta 해석을 포함해 영향받는 해석을 다시 실행하십시오.",
     "zh": "全约束、稀疏和迭代静力求解均在平衡方程中计入所有非零的给定支座位移（#2227）。请重新运行受影响的分析，包括以静力解为初始状态的 P-Delta 分析。"
   },
   "changelog": {

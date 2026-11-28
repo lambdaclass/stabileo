@@ -12,6 +12,7 @@
     "fr": "La vérification de la rotation en travée prend en compte la déformation d’effort tranchant et la courbure thermique à un relâchement",
     "hu": "A támaszközi elfordulás ellenőrzése tartalmazza a nyírási alakváltozást és a felszabadításnál fellépő hőmérsékleti görbületet",
     "tr": "Açıklık içi dönme denetimi kayma şekil değiştirmesini ve serbest bırakmadaki sıcaklık eğriliğini içeriyor",
+    "ko": "경간 회전 검토는 해제 위치의 전단 변형과 온도 곡률을 포함",
     "zh": "跨间转角检查包含剪切变形和释放处的温度曲率"
   },
   "explanation": {
@@ -22,6 +23,7 @@
     "fr": "La vérification LIN-SMALL-DISPLACEMENT dans la travée d’une barre ne lisait que la rotation de la section. Elle manquait la pente que la déformation d’effort tranchant ajoute à l’axe d’une barre déformable à l’effort tranchant : une barre rigide en flexion pouvait faire tourner son axe de 0,13 rad sans avertissement. Elle omettait aussi la courbure d’un gradient thermique à un relâchement de la barre (#1569). Elle juge désormais le plus grand de la rotation de section et de la pente de l’axe, et inclut la courbure thermique de chaque barre, en 2D, en 3D et dans les combinaisons de charges. Les valeurs numériques ne changent pas ; certains résultats reçoivent l’avertissement.",
     "hu": "A rúd támaszközén belüli LIN-SMALL-DISPLACEMENT ellenőrzés csak a keresztmetszet elfordulását olvasta. Kimaradt belőle a nyírási alakváltozást figyelembe vevő rúd tengelyének a nyírási alakváltozásból adódó többlet-hajlásszöge: egy hajlításra merev rúd tengelye figyelmeztetés nélkül 0,13 rad-ot fordulhatott el. A hőmérséklet-gradiens görbülete is kimaradt a rúdvégi felszabadításnál (#1569). Most a keresztmetszeti elfordulás és a tengely hajlásszöge közül a nagyobbat ítéli meg, és minden rúd hőmérsékleti görbületét figyelembe veszi, 2D-ben, 3D-ben és a teherkombinációkban. A számértékek nem változnak; egyes eredmények megkapják a figyelmeztetést.",
     "tr": "Bir çubuğun açıklığı içindeki LIN-SMALL-DISPLACEMENT denetimi yalnızca kesitin dönmesini okuyordu. Kayma şekil değiştirmesine açık bir çubuğun eksenine kaymanın eklediği eğimi görmüyordu: eğilmeye rijit bir çubuk ekseni 0,13 rad döndüğü halde uyarılmayabiliyordu. Ayrıca bir çubuk serbest bırakmasında sıcaklık gradyanının eğriliğini düşürüyordu (#1569). Artık kesit dönmesi ile eksen eğiminden büyük olanı değerlendiriyor ve her çubuğun sıcaklık eğriliğini 2B, 3B ve yük kombinasyonlarında hesaba katıyor. Sayısal değerler değişmez; bazı sonuçlar uyarı alır.",
+    "ko": "부재 경간 내부의 LIN-SMALL-DISPLACEMENT 검토는 단면의 회전만 읽었습니다. 전단 변형 부재의 축이 전단 변형으로 더하는 기울기를 놓쳤으며, 휨에 강체인 부재가 경고 없이 축을 0.13 rad 회전시킬 수 있었습니다. 부재 해제 위치의 온도 기울기에 의한 곡률도 누락했습니다 (#1569). 이제 단면 회전과 축 기울기 중 큰 값으로 판정하고, 2D, 3D, 하중조합에서 각 부재의 온도 곡률을 포함합니다. 수치 값은 변하지 않으며, 일부 결과에 경고가 추가됩니다.",
     "zh": "杆件跨间内的 LIN-SMALL-DISPLACEMENT 检查以前只读取截面转角。它漏掉了可剪切变形的杆件由剪切变形附加给其轴线的斜率：一根抗弯刚性的杆件，其轴线可以转动 0.13 rad 而不给出警告。它还丢掉了杆件释放处温度梯度的曲率（#1569）。现在它按截面转角和轴线斜率中较大者判断，并在 2D、3D 和荷载组合中包含每根杆件的温度曲率。数值不变；部分结果会增加警告。"
   },
   "changelog": {

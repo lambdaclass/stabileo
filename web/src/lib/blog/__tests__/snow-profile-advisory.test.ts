@@ -15,6 +15,7 @@ const regenerationAction: Record<PublicLocale, string> = {
   hu: 'Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket.',
   tr: 'Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın.',
   zh: '请重新生成所有受影响的生成面荷载，然后重新运行分析、组合和设计验算。',
+  ko: '영향받는 생성된 면하중을 모두 다시 생성한 뒤 해석, 조합, 설계 검토를 다시 실행하십시오.',
 };
 
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');
@@ -25,6 +26,7 @@ for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-mo
     ['hu', 'Magas', 'Javítva a 0.6.2 verzióban'],
     ['de', 'Hoch', 'Behoben in 0.6.2'], ['fr', 'Élevée', 'Corrigé dans 0.6.2'], ['tr', 'Yüksek', '0.6.2 sürümünde düzeltildi'],
     ['zh', '高', '已在 0.6.2 中修复'],
+    ['ko', '높음', '0.6.2에서 수정됨'],
   ])(`#${issue} %s has the assigned advisory and regeneration notice`, (locale, severity, status) => {
     const blocks = (locale === 'hu' ? hu : findPost('safety-advisories')!.i18n[locale]!).blocks;
     const table = blocks.find(b => b.k === 'table');
@@ -34,7 +36,7 @@ for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-mo
     expect(rows[0]!.slice(2)).toEqual([severity, status]);
     expect(rows[0]![1]).toContain(`#${issue}`);
     if (issue === 2172) {
-      const unsplit = { en: 'unsplit sloped rafter', es: 'sin subdividir', pt: 'sem subdivisão', de: 'ungeteilter geneigter Sparren', fr: 'non subdivisé', tr: 'bölünmemiş eğimli mertek', hu: 'felosztatlan ferde szarufa', zh: '未拆分的坡屋面斜梁' };
+      const unsplit = { en: 'unsplit sloped rafter', es: 'sin subdividir', pt: 'sem subdivisão', de: 'ungeteilter geneigter Sparren', fr: 'non subdivisé', tr: 'bölünmemiş eğimli mertek', hu: 'felosztatlan ferde szarufa', zh: '未拆分的坡屋面斜梁', ko: '분할되지 않은 경사 서까래' };
       expect(rows[0]![1]).toContain(unsplit[locale]);
       expect(notice.explanation[locale]).toContain(unsplit[locale]);
     }

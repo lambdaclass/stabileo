@@ -140,6 +140,26 @@ export const hu = {
   "scalarViewer.keyboard": "Billentyűzet: a nyilak mozgatják a nézetet, a Shift+nyilak 3D-ben forgatnak, a + és a - nagyít, a 0 vagy a Home a nézethez igazít",
 } satisfies ViewerStrings;
 
+export const ko = {
+  "scalarViewer.view": "보기",
+  "scalarViewer.viewOptions": "보기 옵션",
+  "scalarViewer.close": "닫기",
+  "scalarViewer.fit": "전체 보기로 확대",
+  "scalarViewer.plan": "2D (평면, 궤도 회전 고정)",
+  "scalarViewer.orbit": "3D (궤도 회전)",
+  "scalarViewer.switchProjection": "평면 보기와 3D 궤도 회전 사이를 전환합니다",
+  "scalarViewer.viewer": "Stabileo 뷰어",
+  "scalarViewer.position": "위치:",
+  "scalarViewer.zoom": "확대:",
+  "scalarViewer.model": "모델:",
+  "scalarViewer.bars": "절점 {nodes}개, 부재 {cells}개",
+  "scalarViewer.elements": "절점 {nodes}개, 요소 {cells}개",
+  "scalarViewer.openEditor": "에디터에서 열기",
+  "scalarViewer.soon": " (예정)",
+  "scalarViewer.editorNote": "에디터에서 실험을 여는 기능은 연구 모드와 함께 제공됩니다",
+  "scalarViewer.keyboard": "키보드: 화살표 키는 이동, Shift+화살표는 3D 궤도 회전, + 와 -는 확대/축소, 0 또는 Home은 화면 맞춤",
+};
+
 export const zh = {
   "scalarViewer.view": "视图",
   "scalarViewer.viewOptions": "视图选项",

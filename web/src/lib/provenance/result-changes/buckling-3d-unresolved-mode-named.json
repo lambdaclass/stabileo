@@ -12,6 +12,7 @@
     "fr": "Le flambement 3D signale les modes que l’arrondi des efforts normaux peut modifier",
     "hu": "A 3D kihajlás megnevezi azokat a módusokat, amelyeket a normálerők kerekítési hibája elmozdíthat",
     "tr": "3B burkulma, eksenel kuvvetlerdeki yuvarlama hatasının değiştirebileceği modları belirtiyor",
+    "ko": "3D 좌굴이 축력의 반올림 오차로 움직일 수 있는 모드를 명시합니다",
     "zh": "3D 屈曲分析会指出轴力舍入误差可能改变的振型"
   },
   "explanation": {
@@ -22,6 +23,7 @@
     "fr": "Le flambement 3D n’avait pas d’équivalent de la vérification BU-UNRESOLVED-MODE du 2D (#982). Un modèle avec une compression réelle à côté d’une barre dont l’effort normal n’est qu’une erreur d’arrondi pouvait renvoyer un mode gouverné par cette barre, avec λ ≈ 1e10, sans avertissement indiquant qu’il n’était pas résolu : le modèle de #982 placé en 3D le faisait dans la plupart des orientations. Le flambement 3D signale désormais, comme le 2D, chaque mode dont le travail géométrique peut varier de plus de 1 % avec l’arrondi des efforts normaux, et les barres qui le gouvernent. Les facteurs de charge sont inchangés ; revérifiez tout résultat de flambement 3D qui porte désormais cet avertissement.",
     "hu": "A 3D kihajlásnak nem volt megfelelője a 2D BU-UNRESOLVED-MODE ellenőrzésének (#982). Egy modell, amelyben valódi nyomás mellett egy rúd normálereje csak kerekítési hiba, olyan módust adhatott, amelyet ez a rúd vezérel, λ ≈ 1e10 értékkel, és figyelmeztetés nélkül arról, hogy nem feloldott: a #982 modellje 3D-be helyezve a legtöbb elforgatásban ezt tette. A 3D kihajlás most, a 2D-hez hasonlóan, megnevez minden olyan módust, amelynek geometriai munkáját a normálerők kerekítési hibája 1%-nál jobban megváltoztathatja, és az azt vezérlő rudakat is. A teherszorzók nem változnak; ellenőrizze újra azokat a 3D kihajlási eredményeket, amelyek most ezt a figyelmeztetést hordozzák.",
     "tr": "3B burkulmada 2B'nin BU-UNRESOLVED-MODE denetiminin karşılığı yoktu (#982). Gerçek bir basıncın yanında eksenel kuvveti yalnızca yuvarlama hatası olan bir çubuk bulunan model, bu çubuğun yönettiği λ ≈ 1e10 olan bir mod döndürebiliyor ve çözümlenmediğine dair bir uyarı vermiyordu: 3B'ye yerleştirilen #982 modeli çoğu yönde bunu yapıyordu. 3B burkulma artık 2B'de olduğu gibi, geometrik işi eksenel kuvvetlerdeki yuvarlama hatasıyla %1'den fazla değişebilen her modu ve onu yöneten çubukları belirtiyor. Yük katsayıları değişmedi; artık bu uyarıyı taşıyan her 3B burkulma sonucunu yeniden kontrol edin.",
+    "ko": "3D 좌굴에는 2D의 BU-UNRESOLVED-MODE 검사(#982)에 해당하는 것이 없었습니다. 실제 압축이 있는 부재 옆에 축력이 반올림 오차뿐인 부재가 있으면, 그 부재가 주도하는 모드가 λ ≈ 1e10으로 반환될 수 있었고 판별되지 않았다는 경고도 없었습니다. #982 모델을 3D에 놓으면 대부분의 방향에서 그렇게 되었습니다. 이제 3D 좌굴은 2D처럼 축력의 반올림 오차가 기하학적 일을 1 % 넘게 바꿀 수 있는 모든 모드와 그것을 주도하는 부재를 명시합니다. 하중 계수는 변하지 않으며, 이 경고가 새로 붙은 3D 좌굴 결과는 다시 확인하십시오.",
     "zh": "3D 屈曲分析此前没有 2D 的 BU-UNRESOLVED-MODE 检查对应项（#982）。当模型中某处有真实压力，旁边又有一根轴力仅为舍入误差的杆件时，可能会返回由该杆件驱动的振型，λ ≈ 1e10，且没有任何警告说明其未被分辨：把 #982 的模型放到 3D 中，大多数方向下都会如此。3D 屈曲分析现在会像 2D 一样，指出轴力舍入误差可使其几何功变化超过 1 % 的每一个振型，以及驱动该振型的杆件。荷载系数不变；请重新检查现在带有此警告的任何 3D 屈曲结果。"
   },
   "changelog": {

@@ -45,7 +45,7 @@ describe('the Basic course units return with their review fixes', () => {
   it('writes each returning entry in the eight languages', () => {
     for (const c of RESULT_CHANGES.changes.filter((x) => x.id.endsWith('-returns'))) {
       const e = c as unknown as { title: Record<string, string>; explanation: Record<string, string> };
-      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']) {
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'ko']) {
         expect(e.title[locale]?.trim(), `${c.id} title.${locale}`).toBeTruthy();
         expect(e.explanation[locale]?.trim(), `${c.id} explanation.${locale}`).toBeTruthy();
       }

@@ -13,6 +13,7 @@
     "fr": "Refus en cas d’écart de charges ou de géométrie de plaque",
     "hu": "Elutasítás eltérő terhek vagy lemezgeometria esetén",
     "tr": "Yük ve plak geometrisi uyuşmazlıklarında analiz reddi",
+    "ko": "하중 및 판 형상 불일치에 대한 거부",
     "zh": "荷载和板几何不一致时拒绝求解"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "L’analyse s’arrête si les résultantes des charges statiques ou la géométrie des plaques saisies et assemblées diffèrent. Le remaillage s’arrête s’il efface une modification de coque.",
     "hu": "A számítás leáll, ha a megadott és összeállított statikus terhek eredői vagy a lemez geometriája eltér. Az újrahálózás leáll, ha elveszne egy héjmódosítás.",
     "tr": "Girilen ve birleştirilen statik yük toplamları veya plak geometrisi farklıysa analiz durur. Kabuk düzenlemesi kaybolacaksa yeniden ağ oluşturma durur.",
+    "ko": "입력된 정적 하중 합계와 조립된 정적 하중 합계가 다르거나 판 형상이 서로 맞지 않으면 해석이 중단됩니다. 쉘 편집을 버리게 되는 경우 메쉬 재생성이 중단됩니다.",
     "zh": "输入与组装的静力荷载合力或板几何不一致时停止分析。重新划分网格会丢失壳单元修改时停止操作。"
   },
   "changelog": {

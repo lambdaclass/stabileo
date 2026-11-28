@@ -18,6 +18,7 @@
     "de": "Bemessung verwendet gewählte Bewehrung und bekannte Querlasten",
     "fr": "Le calcul utilise les barres choisies et les charges de la portée",
     "tr": "Tasarım seçilen donatıyı ve açıklık yüklerini kullanır",
+    "ko": "설계는 선택된 철근과 알려진 경간 하중을 사용합니다",
     "zh": "设计采用所选钢筋和已知的跨内荷载情况"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "de": "Gemeinsame Betonbewehrung verwendet die wirksame Höhe der gewählten Stäbe. Bei Querlasten oder unbekannten Lasten entfällt die Endmomentenreduktion. Cb verwendet den Aussteifungsabschnitt des jeweiligen Nachweises; bei unbekannter Lage gilt eins. Gespeicherte Bemessungen erneut ausführen und Ausnutzung, maßgebende Fälle und Zertifikate prüfen (PR #2080; #2088, #2089).",
     "fr": "Les cages communes utilisent la hauteur utile des barres choisies. Les poteaux et voiles avec charge transversale ou inconnue ne bénéficient pas de la réduction par gradient des moments aux extrémités. Cb utilise la portée contreventée de chaque effort ; sa valeur est un si la position est inconnue. Relancer les calculs enregistrés et vérifier taux, cas déterminants et certificats (PR #2080; #2088, #2089).",
     "tr": "Ortak betonarme donatısı seçilen çubukların faydalı yüksekliğini kullanır. Enine yükü olan veya yük bilgisi bilinmeyen kolon ve perdelerde uç momenti azaltımı uygulanmaz. Cb her talebin bulunduğu destek aralığını kullanır; aralık bilinmiyorsa bir alınır. Kayıtlı tasarımları yeniden çalıştırıp oranları, belirleyici durumları ve sertifikaları inceleyin (PR #2080; #2088, #2089).",
+    "ko": "공유된 콘크리트 철근 배근은 선택된 철근의 깊이를 사용합니다. 횡방향 또는 알 수 없는 하중을 받는 콘크리트 기둥과 벽에는 단부 구배 감소가 적용되지 않습니다. 강재 Cb는 각 요구값을 포함하는 가새 구간을 사용하며, 알 수 없는 구간은 1을 받습니다. 저장된 설계를 다시 실행하고 검토비, 지배 케이스, 인증서를 검토하십시오 (PR #2080; #2088, #2089).",
     "zh": "共用的混凝土钢筋笼采用其所选钢筋的截面有效高度。承受横向荷载或荷载情况未知的混凝土柱和墙，不做端部梯度折减。钢材 Cb 采用包含各内力的支撑区间；未知区间取 1。请重新运行已保存的设计，并复核利用率、控制工况和证书（PR #2080；#2088、#2089）。"
   },
   "quantities": [

@@ -14,7 +14,7 @@ for (const research of ['0', '1']) {
     vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: research === '1' });
     vi.resetModules();
     const { registryLocale } = await import('../registry');
-    const base = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', zh: '中文' };
+    const base = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', zh: '中文', ko: '한국어' };
     const translated = { ...base, hu: 'Magyar' };
     expect(registryLocale('hu', base, base)).toBe('en');
     expect(registryLocale('hu', translated, translated)).toBe(research === '1' ? 'hu' : 'en');
@@ -22,7 +22,7 @@ for (const research of ['0', '1']) {
       expect(registryLocale('hu', translated, { ...base, hu })).toBe('en');
       expect(registryLocale('hu', { ...base, hu }, translated)).toBe('en');
     }
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh'] as const) expect(registryLocale(locale, base, base)).toBe(locale);
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'ko'] as const) expect(registryLocale(locale, base, base)).toBe(locale);
     expect(registryLocale('unknown', translated, translated)).toBe('en');
   });
 }
