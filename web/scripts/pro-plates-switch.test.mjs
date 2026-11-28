@@ -991,3 +991,17 @@ test('known wrong result: #1928 the published occupancy reader resolves only the
     });
   }
 });
+
+test.skip('known wrong result: #1928 roof category case creation ships only with the authority that uses it', async () => {
+  for (const unified of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: unified }, async configFile => {
+      const entry = resolve(root, 'src/lib/engine/loads/load-plan.ts');
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] },
+      } });
+      const chunks = (Array.isArray(result) ? result[0] : result).output.filter(chunk => chunk.type === 'chunk');
+      assert.equal(chunks.some(chunk => chunk.code.includes('autoLoad.liveRoofCaseAdjacent')), unified);
+      assert.ok(chunks.some(chunk => chunk.code.includes('loadPlan.derivation.occupancy')));
+    });
+  }
+});
