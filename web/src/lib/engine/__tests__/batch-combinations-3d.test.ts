@@ -23,6 +23,21 @@ function cases(axial = 3): Map<number, AnalysisResults3D> {
   ] })]));
 }
 
+it('displays an independently computed fused envelope when a separate combination refuses', async () => {
+  const { resultsStore } = await import('../../store');
+  const perCase = cases();
+  const fused = combineResultsEnvelope3D([[{ caseId: 1, factor: 1 }]], perCase, new Map());
+  const refused = { ...perCase.get(1)!, structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'ENGINE' }] };
+  resultsStore.clear3D();
+  try {
+    resultsStore.setCombinationResults3D(new Map(), new Map([[2, refused]]) as never, fused.envelope);
+    expect(resultsStore.activeView).toBe('envelope');
+    expect(resultsStore.results3D?.reactions[0].fz).toBeCloseTo(10, 10);
+  } finally {
+    resultsStore.clear3D();
+  }
+});
+
 it('matches individual combinations and their envelope exactly', () => {
   const perCase = cases();
   const combinations = [

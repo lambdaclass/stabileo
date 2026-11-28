@@ -10,14 +10,14 @@
  * differ over whole members, not a few edge pixels.
  */
 import { test, expect, type Page } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 async function boot(page: Page) {
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
 }
 async function runDynamic(page: Page) {
-  if (!(await page.getByTestId('adv-steps').isVisible())) await page.getByTestId('rb-cmd-advanced').click();
-  await page.getByRole('button', { name: /^(Dynamic|Dinámico|Dinâmico)$/ }).first().click();
+  await openAdvancedFunction(page, 'modal');
 }
 /**
  * How many pixels of the model view change between two frames a moment apart:

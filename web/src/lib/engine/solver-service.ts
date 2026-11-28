@@ -8,12 +8,14 @@ export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { MemberLoadIntervalError, validateMemberLoadInterval } from './member-span-loads';
 import { plainDeepCopy } from '../utils/plain-deep-copy';
 import { knownIssueRefusal } from './known-issues';
+import { recordEnvelopeSources } from './envelope-sources';
 import { isContainmentRefusal, refusedWithCode } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
 import { PlateAnalysisError, plateAnalysisRefusal } from './plate-analysis-refusal';
 import { withCaseEffects } from './case-effects';
+import { preserveSettlementDependency, recordSettlementDependency } from './combination-sources';
 import { casesToSolve, finishBundle, magnitudeRefusal, spectralRefusal } from './combination-methods';
 import { isMagnitudeCombination } from './result-scopes';
 import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor, isVariableMember } from './variable-members';
@@ -56,7 +58,7 @@ import { expandShellOffsets, modelHasShellOffsets } from './shell-offsets';
 import { enrichComboShellStresses, envelopeShellStresses } from './shell-combos';
 import { axialShares, combineShares, giveBackAxialShares } from './axial-shares';
 import { addSettlementCase, addSettlementCase2D, hasSettlement, withoutSettlement, SETTLEMENT_CASE_ID } from './settlement-case';
-import { memberAlphaOf, thermalAlphaOf, ENGINE_ALPHA } from './thermal-alpha';
+import { thermalAlphaOf as resolveThermalAlpha, ENGINE_ALPHA } from './thermal-alpha';
 import { isVehicleAxle, vehiclePositionCaseIds } from './vehicles';
 import { localPointForce, memberPointForceRow3D, pointGlobal, pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointWithCoupleToEnds, planarMoment3D, planarPointOrigin, requirePlanarNodalMoment, requirePlanarPointMoment, PlanarLoadMomentError, type PlanePointLoadLike } from './member-point-loads';
 import { ModelInputError, modelInputRefusal, requireCombinationInput, requireLoadInput, requireModelInput } from './model-input-numbers';
@@ -84,9 +86,13 @@ import type {
  * The α a member's thermal load is sent with: its material's (`thermal-alpha.ts`), or undefined
  * when the app does not know it (the engine then keeps 12·10⁻⁶ and says so).
  */
+function thermalAlphaOf(material: Material | undefined): number | undefined {
+  return resolveThermalAlpha(material, () => new ModelInputError(t('materials.workbookAlphaInvalid')));
+}
+
 function thermalAlphaOfElement(model: { elements: Map<number, { materialId: number }>; materials: Map<number, Material> }, elementId: number): number | undefined {
   const e = model.elements.get(elementId);
-  return memberAlphaOf(e ? model.materials.get(e.materialId) : undefined);
+  return thermalAlphaOf(e ? model.materials.get(e.materialId) : undefined);
 }
 
 /**
@@ -423,12 +429,15 @@ function convertSolverLoads2D(
         type: 'thermal' as const,
         data: {
           elementId: d.elementId,
-          dtUniform: d.dtUniform + (d.strain ?? 0) / (alpha ?? ENGINE_ALPHA),
+          dtUniform: d.dtUniform,
           dtGradient: sOf(d.elementId) * d.dtGradient,
           ...(alpha !== undefined ? { alpha } : {}),
           ...(depth !== undefined ? { depth } : {}),
         },
       });
+      if (d.strain) {
+        emit({ type: 'thermal', data: { elementId: d.elementId, dtUniform: d.strain / ENGINE_ALPHA, dtGradient: 0, alpha: ENGINE_ALPHA } });
+      }
     } else if (l.type === 'pointOnElement') {
       const d = l.data as PointLoadOnElement;
       const pointMy = requirePlanarPointMoment(d);
@@ -1005,6 +1014,7 @@ function prepareSolve2D(
   onKinematic?: (k: KinematicResult | null) => void,
   caseIds?: readonly number[],
 ): Solve2DPreparation | string | null {
+  noteStructuralSolve();
   if (model.nodes.size < 2 || model.elements.size < 1) {
     return t('svc.needNodesAndElements');
   }
@@ -1493,6 +1503,7 @@ function solveCombinations2DCore(
 
     console.log(`[solveCombinations2D] WASM multi-case: ${tWasm.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size}`);
 
+    recordEnvelopeSources(mcResult.envelope, mcResult.combinationResults.map((c: { results: AnalysisResults }) => c.results));
     return { perCase, perCombo, envelope: mcResult.envelope };
   } catch (err: any) {
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
@@ -2636,7 +2647,7 @@ function pruneComboBundle3D(
   if (!modelHasMemberOffsets(model.elements.values()) && !modelHasShellOffsets(model.plates, model.quads) && !modelHasJoints3D(model.elements.values())) return bundle;
   const ids = new Set(model.nodes.keys());
   for (const [k, r] of bundle.perCase) bundle.perCase.set(k, pruneHelperNodeResults(r, ids));
-  for (const [k, r] of bundle.perCombo) bundle.perCombo.set(k, pruneHelperNodeResults(r, ids));
+  for (const [k, r] of bundle.perCombo) bundle.perCombo.set(k, preserveSettlementDependency(r, pruneHelperNodeResults(r, ids)));
   if (bundle.envelope?.maxAbsResults3D) {
     bundle.envelope.maxAbsResults3D = pruneHelperNodeResults(bundle.envelope.maxAbsResults3D, ids);
   }
@@ -2687,7 +2698,7 @@ function withDeclaredInactiveBundle<B extends { perCase: Map<number, AnalysisRes
   if (!b || typeof b === 'string') return b;
   // Variable members back to one member each, the envelope with them (`variable-members.ts`).
   const exp = variableExpansionFor(model);
-  const map = (m: Map<number, AnalysisResults3D>) => new Map([...m].map(([k, r]) => [k, withDeclaredInactive(collapseVariableResults(r, exp), model)]));
+  const map = (m: Map<number, AnalysisResults3D>) => new Map([...m].map(([k, r]) => [k, preserveSettlementDependency(r, withDeclaredInactive(collapseVariableResults(r, exp), model))]));
   return { ...b, perCase: map(b.perCase), perCombo: map(b.perCombo), ...(exp && b.envelope ? { envelope: collapseVariableEnvelope(b.envelope, exp) } : {}) };
 }
 
@@ -2940,7 +2951,9 @@ function solveCombinations3DCore(
 
     console.log(`[solveCombinations3D] WASM: ${tWasm.toFixed(0)} ms | Shell enrichment: ${tShell.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size}`);
 
-    return pruneComboBundle3D({ perCase, perCombo, envelope: mcResult.envelope }, model);
+    const bundle = pruneComboBundle3D({ perCase, perCombo, envelope: mcResult.envelope }, model);
+    if (bundle.perCombo.size === mcResult.combinationResults.length) recordEnvelopeSources(bundle.envelope, [...bundle.perCombo.values()]);
+    return bundle;
   } catch (err: any) {
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     // Fallback: if multi-case fails, try the old per-case approach
@@ -3109,14 +3122,14 @@ function* nonlinearCombinationSteps(
         const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
         const on = withImposed(baseSettled, model, factorOf);
         if (typeof on === 'string') return on;
-        if (loads.length > 0 || settled || imposedHere) perCombo.set(combo.id, yield* run(on, loads));
+        if (loads.length > 0 || settled || imposedHere) perCombo.set(combo.id, recordSettlementDependency(yield* run(on, loads), false));
         continue;
       }
       const factors = settled ? [...combo.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }] : combo.factors;
       const summed = combineResults3D(factors, perCase, model.plates ?? new Map());
       if (!summed) continue;
       if (hasShells) postProcessShellStresses(summed, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
-      perCombo.set(combo.id, { ...summed, nonlinear: superposedReport(model, factors, perCase, summed) });
+      perCombo.set(combo.id, preserveSettlementDependency(summed, { ...summed, nonlinear: superposedReport(model, factors, perCase, summed) }));
     }
     if (perCombo.size === 0) return t('svc.noLoadsApplied');
     const envelope = computeEnvelope3D([...perCombo.values()]);
@@ -3224,7 +3237,7 @@ function* pdeltaCombinationSteps(
       if (!amp.stable) { unstable.push(combo.id); continue; }
       const results: AnalysisResults3D = { ...r.results, secondOrder: { converged: !!r.converged, iterations: r.iterations ?? 0, stable: amp.stable, b2: amp.b2 } };
       if (hasShells) postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
-      perCombo.set(combo.id, results);
+      perCombo.set(combo.id, recordSettlementDependency(results, false));
     }
   } catch (err: any) {
     return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', localizeEngineText(errorText(err, String(err))));

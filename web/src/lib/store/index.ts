@@ -35,6 +35,7 @@ import { rebarWorkspace } from './rebar-workspace.svelte';
 import { pruneDeletedMembers } from './selection-prune';
 import { recheckStore } from './recheck.svelte';
 import { noteBaseSolve } from './result-provenance';
+import { liveCalcFollowsEdits } from '../engine/live-calc-state';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -54,6 +55,7 @@ modelStore._setOnReplaced(() => connectionPrompt.clear());
  * Not on every restore: undo, a what-if slider and an applied edit keep them.
  */
 modelStore._setOnNewProject(() => {
+  resultsStore.releaseScreen();
   viewVisibility.showAll();
   uiStore.selfWeightCaseId = null;
   // The last floor and footing runs were the previous project's; its own are in its file.
@@ -90,10 +92,10 @@ uiStore.onSessionReset(() => forgetDesignView());
 // An analysis reads the definitions' loads current, even inside the moment a rewrite waits for.
 modelStore._setBeforeAnalysisInput(flushDefinedLoadsSync);
 
-modelStore._setOnMutation(() => {
+modelStore._setOnMutation(discardScreen => {
   // A deleted member leaves every selection, once the edit that deletes it has run.
   queueMicrotask(pruneDeletedMembers);
-  resultsStore.clear();
+  resultsStore.clear({ keepScreen: !discardScreen && liveCalcFollowsEdits(uiStore.liveCalc, uiStore.analysisMode) });
   verificationStore.invalidateAnalysis();
   // The other materials' checks read the results just cleared.
   clearMaterialChecks();
@@ -177,6 +179,8 @@ resultsStore._setTransverseSignProvider((elementId) => {
   const pa = projectNode(uiStore.drawPlane2D, a), pb = projectNode(uiStore.drawPlane2D, b);
   return transverseSign(pb.x - pa.x, pb.y - pa.y);
 });
+
+resultsStore._setScreenModel(screenModel);
 
 // Members of variable section are published as one member each, from any analysis that solved
 // them as pieces (`engine/variable-members.ts`), the advanced ones included.
@@ -303,3 +307,5 @@ import { transverseSign } from '../engine/transverse-sign-2d';
 import { installViewModeRules } from './view-mode';
 import { captureProjectProvenance } from './project-provenance';
 installViewModeRules();
+
+import { screenModel } from './screen-model.svelte';

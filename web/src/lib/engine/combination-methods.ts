@@ -1,3 +1,4 @@
+import { mayUseSettlementCase, recordSettlementDependency } from './combination-sources';
 import { sumCombinationFactors } from './wasm-solver';
 import { fullSpanFallback } from './member-diagram';
 /**
@@ -418,7 +419,7 @@ export function finishBundle<B extends CombinationBundle>(
         ...(rest ? [{ r: rest, f: 1 }] : []),
         ...c.factors.filter((f) => f.factor !== 0 && spectralSet.has(f.caseId)).map((f) => ({ r: basePerCase.get(f.caseId)!, f: f.factor })),
       ];
-      perCombo.set(c.id, superposed(parts, opts.plates));
+      perCombo.set(c.id, recordSettlementDependency(superposed(parts, opts.plates), rest !== undefined && mayUseSettlementCase(rest)));
     }
   }
   const perCase = hidden.size ? new Map([...basePerCase].filter(([id]) => !hidden.has(id))) : basePerCase;
@@ -427,8 +428,10 @@ export function finishBundle<B extends CombinationBundle>(
     for (const c of magnitude) {
       if (!perCombo.has(c.id) && c.factors.some((f) => f.factor !== 0 && spectralSet.has(f.caseId) && !basePerCase.has(f.caseId))) continue;
       const r = unstable.has(c.id) ? null : magnitudeCombination(c.method as MagnitudeMethod, c.factors, basePerCase);
-      if (r) perCombo.set(c.id, opts.firstOrder ? { ...r, magnitude: { method: r.magnitude!.method, firstOrder: true } } : r);
-      else perCombo.delete(c.id);
+      if (r) {
+        if (opts.firstOrder) r.magnitude = { method: r.magnitude!.method, firstOrder: true };
+        perCombo.set(c.id, recordSettlementDependency(r, basePerCase.has(SETTLEMENT_CASE_ID)));
+      } else perCombo.delete(c.id);
     }
     const linear = combinations.filter((c) => !isMagnitudeCombination(c)).map((c) => c.id).filter((id) => perCombo.has(id));
     // Without a linear combination, the envelope is the listed cases' (`scopeBundle3D` the same).

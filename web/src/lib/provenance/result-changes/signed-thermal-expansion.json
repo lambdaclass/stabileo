@@ -1,0 +1,54 @@
+{
+  "id": "signed-thermal-expansion",
+  "date": "2026-11-27",
+  "prs": [
+    2491
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "nonpositiveThermalCoefficient"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Use declared zero and negative thermal expansion coefficients",
+    "es": "Usar los coeficientes de dilatación térmica nulos y negativos declarados",
+    "pt": "Usar os coeficientes de dilatação térmica nulos e negativos declarados",
+    "de": "Angegebene nullwertige und negative Wärmeausdehnungskoeffizienten verwenden",
+    "fr": "Utiliser les coefficients de dilatation thermique nuls et négatifs déclarés",
+    "tr": "Bildirilen sıfır ve negatif ısıl genleşme katsayılarını kullan",
+    "zh": "使用指定的零值和负值热膨胀系数",
+    "hu": "A megadott nulla és negatív hőtágulási együtthatók használata",
+    "ar": "استخدم معاملات التمدد الحراري الصفرية والسالبة المحددة",
+    "hi": "निर्दिष्ट शून्य और ऋणात्मक तापीय प्रसार गुणांकों का उपयोग करें",
+    "id": "Gunakan koefisien muai termal nol dan negatif yang ditetapkan",
+    "it": "Usare i coefficienti di dilatazione termica nulli e negativi dichiarati",
+    "ja": "明示されたゼロまたは負の熱膨張係数を使用",
+    "ko": "명시된 0 또는 음의 열팽창계수 사용",
+    "ru": "Используйте заданные нулевые и отрицательные коэффициенты теплового расширения"
+  },
+  "explanation": {
+    "en": "Recalculate thermally loaded members and shells whose material declares a zero or negative expansion coefficient. When heated, their free thermal strain is zero or negative, respectively.",
+    "es": "Recalculá las barras y láminas con carga térmica cuyo material declara un coeficiente de dilatación nulo o negativo. Al calentarse, su deformación térmica libre es nula o negativa, respectivamente.",
+    "pt": "Recalcule as barras e cascas sob carga térmica cujo material declara um coeficiente de dilatação nulo ou negativo. No aquecimento, a deformação térmica livre é nula ou negativa, respectivamente.",
+    "de": "Stäbe und Schalen unter Temperaturlast neu berechnen, wenn ihr Material einen Ausdehnungskoeffizienten von null oder einen negativen Wert angibt. Beim Erwärmen ist die freie thermische Dehnung entsprechend null oder negativ.",
+    "fr": "Recalculer les barres et coques sous charge thermique dont le matériau déclare un coefficient de dilatation nul ou négatif. Au chauffage, leur déformation thermique libre est respectivement nulle ou négative.",
+    "tr": "Malzemesi sıfır veya negatif genleşme katsayısı ile tanımlanmış ısıl yük altındaki çubuk ve kabukları yeniden hesaplayın. Isıtıldıklarında serbest ısıl birim şekil değiştirmeleri sırasıyla sıfır veya negatiftir.",
+    "zh": "若承受温度荷载的杆件或壳体材料指定了零或负的热膨胀系数，请重新计算。升温时，其自由热应变分别为零或负值。",
+    "hu": "Számítsa újra azokat a hőterhelésű rudakat és héjakat, amelyek anyagához nulla vagy negatív hőtágulási együtthatót adott meg. Melegítéskor a szabad hőalakváltozásuk rendre nulla vagy negatív.",
+    "ar": "أعد حساب العناصر الخطية والقشرية المعرضة لأحمال حرارية إذا حُدد لمادتها معامل تمدد صفري أو سالب. عند التسخين يكون الانفعال الحراري الحر صفراً أو سالباً على الترتيب.",
+    "hi": "जिन सदस्यों और शेल पर तापीय भार है और जिनकी सामग्री का प्रसार गुणांक शून्य या ऋणात्मक दिया गया है, उनकी दोबारा गणना करें। गर्म होने पर उनकी मुक्त तापीय विकृति क्रमशः शून्य या ऋणात्मक होती है।",
+    "id": "Hitung ulang batang dan elemen cangkang yang menerima beban termal jika koefisien muai materialnya ditetapkan nol atau negatif. Ketika dipanaskan, regangan termal bebasnya masing-masing nol atau negatif.",
+    "it": "Ricalcolare le aste e i gusci soggetti a carichi termici per i quali il materiale dichiara un coefficiente di dilatazione nullo o negativo. Al riscaldamento la deformazione termica libera è rispettivamente nulla o negativa.",
+    "ja": "材料の熱膨張係数にゼロまたは負の値を指定した部材およびシェルについて、温度荷重に対する応答を再計算してください。昇温時の自由熱ひずみはそれぞれゼロまたは負になります。",
+    "ko": "열하중을 받는 부재와 셸의 재료에 열팽창계수가 0 또는 음수로 지정된 경우 다시 계산하세요. 온도가 올라가면 자유 열변형률은 각각 0 또는 음수가 됩니다.",
+    "ru": "Повторите расчёт стержней и оболочек на температурные воздействия, если для их материала задан нулевой или отрицательный коэффициент расширения. При нагреве свободная температурная деформация будет соответственно нулевой или отрицательной."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-signed-thermal-expansion.md",
+    "heading": "Use declared zero and negative thermal expansion coefficients"
+  }
+}

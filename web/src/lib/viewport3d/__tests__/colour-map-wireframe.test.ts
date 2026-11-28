@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { modelStore, resultsStore, uiStore } from '../../store';
 import { ElementsBatched } from '../../three/elements-batched';
 import { syncColorMap3D, type ResultsSyncContext } from '../results-sync';
+import { computeEnvelope3D } from '../../engine/wasm-solver';
 import { axialForceColor } from '../../three/selection-helpers';
 
 /** Two members, no hinges — so wireframe builds no groups for either. */
@@ -90,6 +91,53 @@ describe('colour maps in wireframe render mode (no element groups)', () => {
     expect(eb.getBaseColor(strut), 'strut should be the compression colour').toBe(COMPRESSION);
   });
 
+  it('distinguishes a mixed-sign bar under a midspan axial force from an unloaded member', () => {
+    const { tie, strut } = twoBarModel();
+    const eb = new ElementsBatched();
+    eb.upsert(tie, 0, 0, 0, 4, 0, 0);
+    eb.upsert(strut, 4, 0, 0, 4, 3, 0);
+    publishAxial([{ elementId: tie, n: 5 }, { elementId: strut, n: 0 }]);
+    const r = resultsStore.results3D!;
+    const mixed = { ...r.elementForces[0], length: 4, nEnd: -5, pointLoadsX: [{ a: 2, p: 10 }] };
+    resultsStore.setResults3D({ ...r, elementForces: [mixed, r.elementForces[1]] });
+    resultsStore.diagramType = 'axialColor';
+    syncColorMap3D(context(eb));
+    expect(eb.getBaseColor(tie)).toBe(0x895a70);
+    expect(eb.getBaseColor(tie)).not.toBe(eb.getBaseColor(strut));
+    expect([TENSION, COMPRESSION]).not.toContain(eb.getBaseColor(tie));
+  });
+
+  it('paints signed envelope curves for both members', () => {
+    const { tie, strut } = twoBarModel();
+    const eb = new ElementsBatched();
+    eb.upsert(tie, 0, 0, 0, 4, 0, 0);
+    eb.upsert(strut, 4, 0, 0, 4, 3, 0);
+    publishAxial([{ elementId: tie, n: -1 }, { elementId: strut, n: 1 }]);
+    const r = resultsStore.results3D!;
+    const elements = [{ elementId: tie, tPositions: [0, 1], posValues: [3, 4], negValues: [0, 0] },
+      { elementId: strut, tPositions: [0, 1], posValues: [2, 1], negValues: [-7, -3] }];
+    resultsStore.setCombinationResults3D(new Map(), new Map([[1, r]]), { axial: { kind: 'axial', globalMax: 7, elements }, maxAbsResults3D: r } as never);
+    resultsStore.activeView = 'envelope';
+    resultsStore.diagramType = 'axialColor';
+    syncColorMap3D(context(eb));
+    expect(eb.getBaseColor(tie)).toBe(TENSION);
+    expect(eb.getBaseColor(strut)).toBe(0x895a70);
+  });
+
+  it.each(['abs', 'srss'] as const)('does not color an unsigned %s envelope as tension', method => {
+    const { tie } = twoBarModel();
+    const eb = new ElementsBatched();
+    eb.upsert(tie, 0, 0, 0, 4, 0, 0);
+    publishAxial([{ elementId: tie, n: -5 }]);
+    const r = resultsStore.results3D!;
+    const member = r.elementForces[0]!;
+    resultsStore.setResults3D({ ...r, elementForces: [{ ...member, combined: { method, parts: [member] } }] });
+    resultsStore.diagramType = 'axialColor';
+    syncColorMap3D(context(eb));
+    expect([TENSION, COMPRESSION]).not.toContain(eb.getBaseColor(tie));
+    expect(eb.getBaseColor(tie)).not.toBe(axialForceColor(0));
+  });
+
   it('turning the map off restores the per-type base colour', () => {
     const { tie, strut } = twoBarModel();
     const eb = new ElementsBatched();
@@ -109,4 +157,30 @@ describe('colour maps in wireframe render mode (no element groups)', () => {
     // Both are frames, so both land on the same wireframe grey.
     expect(eb.getBaseColor(tie)).toBe(eb.getBaseColor(strut));
   });
+});
+
+it('paints both signs of the calculated envelope of two opposite axial tip loads', () => {
+  modelStore.clear();
+  resultsStore.clear3D();
+  const root = modelStore.addNode(0, 0, 0);
+  const tip = modelStore.addNode(4, 0, 0);
+  const bar = modelStore.addElement(root, tip);
+  modelStore.addSupport(root, 'fixed3d');
+  const cases = [3, -7].map(force => {
+    const load = modelStore.addNodalLoad3D(tip, force, 0, 0, 0, 0, 0);
+    const result = modelStore.solve3D();
+    if (!result || typeof result === 'string') throw Error(String(result));
+    modelStore.removeLoad(load);
+    return result;
+  });
+  const envelope = computeEnvelope3D(cases)!;
+  expect(Math.max(...envelope.axial.elements[0].posValues)).toBeCloseTo(3, 12);
+  expect(Math.min(...envelope.axial.elements[0].negValues)).toBeCloseTo(-7, 12);
+  resultsStore.setCombinationResults3D(new Map(cases.map((r, i) => [i + 1, r])), new Map(), envelope);
+  resultsStore.activeView = 'envelope';
+  resultsStore.diagramType = 'axialColor';
+  const batched = new ElementsBatched();
+  batched.upsert(bar, 0, 0, 0, 4, 0, 0);
+  syncColorMap3D(context(batched));
+  expect(batched.getBaseColor(bar)).toBe(0x895a70);
 });

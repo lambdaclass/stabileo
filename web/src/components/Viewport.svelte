@@ -28,7 +28,8 @@
   import { placementStore } from '../lib/store/placement.svelte';
   import { drawPlacementGhost } from '../lib/canvas/draw-placement';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
-  import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
+  import { envelopeAxialRanges, signedAxialRange, axialPaintLabel } from '../lib/viewport/axial-paint';
+  import { computeElementDiagram, computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
   import { DIAGRAM_EXTREMA_UNAVAILABLE } from '../lib/engine/member-diagram';
   import { solverBendingForces2D } from '../lib/engine/transverse-sign-2d';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
@@ -210,11 +211,17 @@
    * screen shows. Outside an export they read the stores, as before.
    */
   let exportFrame: ExportFrame | null = null;
-  const dtNow = () => (exportFrame ? diagramFor(exportFrame.content) : resultsStore.diagramType);
+  const dtNow = () => (exportFrame ? diagramFor(exportFrame.content) : resultsStore.screen.diagram);
+  const resNow = () => (exportFrame ? resultsStore.results : resultsStore.screen.results);
+  const displayModel = () => (!exportFrame && resultsStore.screen.model) || modelStore;
+  const resultNode = (id: number) => {
+    const node = displayModel().nodes.get(id);
+    return node && project2DNode(node);
+  };
   const valuesNow = () => (exportFrame ? exportFrame.options.values : resultsStore.showDiagramValues);
   const reactionsNow = () => (exportFrame
     ? exportFrame.content === 'reactions' || exportFrame.content === 'despiece'
-    : resultsStore.showReactions);
+    : resultsStore.screen.showReactions);
   const nodeLabelsNow = () => (exportFrame ? exportFrame.options.numbering : uiStore.showNodeLabels);
   /**
    * The deformed shape in a figure: at the reader's scale when they set one, otherwise drawn so
@@ -263,7 +270,7 @@
     const wasAnimating = animating;
     animating =
       (resultsStore.ilAnimating && !!resultsStore.influenceLine) ||
-      (resultsStore.animateDeformed && resultsStore.diagramType === 'deformed' && !!resultsStore.results) ||
+      (resultsStore.animateDeformed && dtNow() === 'deformed' && !!resNow()) ||
       (resultsStore.diagramType === 'modeShape' && !!resultsStore.modalResult) ||
       (resultsStore.diagramType === 'bucklingMode' && !!resultsStore.bucklingResult) ||
       (resultsStore.diagramType === 'despiece' && !!resultsStore.results && (performance.now() - despieceStart) < DESPIECE_ANIM_MS);
@@ -284,6 +291,11 @@
 
   // Results changes
   $effect(() => { resultsStore.results; resultsStore.diagramType; invalidate(); });
+  $effect(() => {
+    resultsStore.screen.results; resultsStore.screen.diagram; resultsStore.screen.showReactions;
+    resultsStore.screen.held;
+    invalidate();
+  });
   // Despiece: restart the pull-apart animation whenever the view (re)activates.
   $effect(() => {
     if (resultsStore.diagramType === 'despiece') {
@@ -375,18 +387,18 @@
     return {
       ctx: ctx!,
       worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-      getNode: (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; },
+      getNode: resultNode,
       // A hidden member is not drawn: no diagram, no deformed shape, no loads on it.
       getElement: (id: number) => {
-        const elem = viewVisibility.isElementHidden(id) ? undefined : modelStore.elements.get(id);
+        const elem = viewVisibility.isElementHidden(id) ? undefined : displayModel().elements.get(id);
         return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId, type: elem.type } : undefined;
       },
       getMaterial: (id: number) => {
-        const mat = modelStore.materials.get(id);
+        const mat = displayModel().materials.get(id);
         return mat ? { e: mat.e } : undefined;
       },
       getSection: (id: number) => {
-        const sec = modelStore.sections.get(id);
+        const sec = displayModel().sections.get(id);
         // 2D bending uses effective inertia (accounts for section rotation via Mohr)
         return sec ? { iz: effectiveBendingInertia(sec) } : undefined;
       },
@@ -569,6 +581,12 @@
 
   function draw() {
     if (!ctx) return;
+    const shown = resNow();
+    if (import.meta.env.VITE_E2E === '1' && !exportFrame) {
+      canvas.dataset.paintedDiagram = 'none';
+      delete canvas.dataset.paintedPeak;
+      canvas.dataset.paintedHeld = String(resultsStore.screen.held);
+    }
 
     /*
      * Every frame starts from the canvas's own text and compositing defaults.
@@ -638,14 +656,18 @@
     const colorMapOverrides = new Map<number, string>();
     // The value behind each member's colour, for its label when values are shown.
     let colorMapValues: { values: Map<number, number>; kind: string } | null = null;
-    if (resultsStore.results && dtNow() === 'axialColor') {
+    const axialLabels = new Map<number, { text: string; color: string }>();
+    if (shown && dtNow() === 'axialColor') {
       // Axial color: blue = compression, red = tension, intensity by magnitude
-      let globalMaxN = 0;
-      for (const ef of resultsStore.results.elementForces) {
-        const absN = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-        if (absN > globalMaxN) globalMaxN = absN;
-      }
-      if (globalMaxN > 1e-10) {
+      const signed = resultsStore.screen.envelopeActive ? envelopeAxialRanges(resultsStore.screen.envelope2D?.axial) : null;
+      const ranges = shown.elementForces.flatMap(ef => {
+        const range = signed ? signed.get(ef.elementId) : signedAxialRange(() => computeElementDiagram('axial', ef, 0, 0, ef.length, 0));
+        if (range) return [{ id: ef.elementId, ...range }];
+        axialLabels.set(ef.elementId, { text: t('whatif.paint.axialUnavailable'), color: '#e8eef4' });
+        return [];
+      });
+      const globalMaxN = ranges.reduce((m, r) => Math.max(m, r.peak), 0);
+      if (globalMaxN > 0) {
         const axTheme = canvasTheme();
         /*
          * Tension and compression are the palette's, not screen primaries.
@@ -668,29 +690,26 @@
           const g = (i: number, base: number) => Math.round(rgb[i] * n + base * (1 - n));
           return `rgb(${g(0, 143)},${g(1, 163)},${g(2, 179)})`;
         };
-        for (const ef of resultsStore.results.elementForces) {
-          const avgN = (ef.nStart + ef.nEnd) / 2;
-          const intensity = Math.min(Math.abs(avgN) / globalMaxN, 1.0);
-          if (avgN > 0.001) {
-            colorMapOverrides.set(ef.elementId, mix(tensionRgb, intensity));
-          } else if (avgN < -0.001) {
-            colorMapOverrides.set(ef.elementId, mix(compressionRgb, intensity));
-          } else {
-            colorMapOverrides.set(ef.elementId, axTheme.neutralMember);
+        for (const range of ranges) {
+          const { id, tension, mixed, peak } = range;
+          const rgb = mixed ? tensionRgb.map((v, i) => (v + compressionRgb[i]) / 2) : tension > 0 ? tensionRgb : compressionRgb;
+          colorMapOverrides.set(id, peak > 0 ? mix(rgb, peak / globalMaxN) : axTheme.neutralMember);
+          if (peak > 0) {
+            axialLabels.set(id, { text: axialPaintLabel(range, uiStore.unitSystem), color: mixed ? '#e8eef4' : tension > 0 ? '#ff6b6b' : '#6bc5ff' });
           }
         }
       }
-    } else if (resultsStore.results && dtNow() === 'colorMap') {
+    } else if (shown && dtNow() === 'colorMap') {
       const kind = resultsStore.colorMapKind;
       let globalMax = 0;
       const elemMaxes = new Map<number, number>();
 
       if (kind === 'stressRatio' || kind === 'vonMises' || kind === 'sigmaMax' || kind === 'tauMax') {
-        for (const ef of resultsStore.results.elementForces) {
-          const elem = modelStore.elements.get(ef.elementId);
+        for (const ef of shown.elementForces) {
+          const elem = displayModel().elements.get(ef.elementId);
           if (!elem) continue;
-          const sec = modelStore.sections.get(elem.sectionId);
-          const mat = modelStore.materials.get(elem.materialId);
+          const sec = displayModel().sections.get(elem.sectionId);
+          const mat = displayModel().materials.get(elem.materialId);
           /*
            * `fy` is required by the RATIO alone — it is the denominator. Von
            * Mises, the normal stress and the shear stress are absolute
@@ -710,7 +729,7 @@
         }
         if (kind === 'stressRatio') globalMax = 1.0; // fixed scale: 0% → 100%+ of fy
       } else {
-        for (const ef of resultsStore.results.elementForces) {
+        for (const ef of shown.elementForces) {
           /*
            * A 2D frame has one bending axis and one shear, so the 3D names for
            * them land on the same two quantities. Accepting both spellings
@@ -754,8 +773,9 @@
     }
 
     // Pre-compute bar count per node (for hinge offset logic)
+    const paintedModel = displayModel();
     const nodeBarCount = new Map<number, number>();
-    for (const elem of modelStore.elements.values()) {
+    for (const elem of paintedModel.elements.values()) {
       nodeBarCount.set(elem.nodeI, (nodeBarCount.get(elem.nodeI) ?? 0) + 1);
       nodeBarCount.set(elem.nodeJ, (nodeBarCount.get(elem.nodeJ) ?? 0) + 1);
     }
@@ -764,25 +784,16 @@
     // own separated solid members + ghost remnants; the full member would
     // otherwise show through under the dashed remnant).
     if (dtNow() !== 'despiece') {
-      for (const elem of modelStore.elements.values()) {
+      for (const elem of paintedModel.elements.values()) {
         if (viewVisibility.isElementHidden(elem.id)) continue;
-        drawElement(elem, colorMapOverrides.get(elem.id), nodeBarCount);
+        drawElement(elem, paintedModel, colorMapOverrides.get(elem.id), nodeBarCount);
       }
     }
 
     // Member local axes (Basic 2D): one unified "Local axes" setting (localAxesMode3D).
     if (!exportFrame) drawLocalAxes2D();
 
-    // Draw axial value labels when axialColor mode is active
-    if (resultsStore.results && dtNow() === 'axialColor') {
-      for (const ef of resultsStore.results.elementForces) {
-        const avgN = (ef.nStart + ef.nEnd) / 2;
-        if (Math.abs(avgN) < 0.001) continue;
-        const sign = avgN > 0 ? '+' : '';
-        // High-contrast text: bright red for tension, bright cyan for compression
-        drawMemberValueLabel(ef.elementId, `${sign}${fixedQuantity(avgN, 'force', 1, uiStore.unitSystem)}`, avgN > 0 ? '#ff6b6b' : '#6bc5ff');
-      }
-    }
+    for (const [id, label] of axialLabels) drawMemberValueLabel(id, label.text, label.color);
 
     /*
      * A colour map says "more" and "less"; with values shown, each member
@@ -810,16 +821,16 @@
     }
 
     // Compute effective load visibility
-    const diagramActive = !!(resultsStore.results && dtNow() !== 'none');
+    const diagramActive = !!(shown && dtNow() !== 'none');
     const loadsVisible = exportFrame
       ? exportFrame.options.loads && (exportFrame.content === 'model' || exportFrame.content === 'reactions')
-      : uiStore.showLoads && !(uiStore.hideLoadsWithDiagram && diagramActive);
+      : loadsDrawn2D(uiStore.showLoads, uiStore.hideLoadsWithDiagram, diagramActive);
 
     // Draw all loads (nodal, distributed, point, thermal) if visible
     if (loadsVisible) {
     // A load is hidden with the node or member it stands on.
     // A reaction figure must carry the same applied loads as its selected result.
-    const figureLoads = exportFrame?.content === 'reactions' ? displayedLoads2D() : modelStore.loads;
+    const figureLoads = exportFrame?.content === 'reactions' ? displayedLoads2D() : paintedModel.loads;
     const shownLoads = viewVisibility.active ? figureLoads.filter((l) => !isLoadHidden(l.data as never)) : figureLoads;
 
     // Draw nodal loads (grouped by node for stacked labels)
@@ -934,21 +945,21 @@
     // Draw selected load highlights
     if (!exportFrame && uiStore.selectedLoads.size > 0) {
       for (const loadId of uiStore.selectedLoads) {
-        const load = modelStore.model.loads.find(l => l.data.id === loadId);
+        const load = paintedModel.loads.find(l => l.data.id === loadId);
         if (!load) continue;
         let hx = 0, hy = 0;
         if (load.type === 'nodal') {
           const d = load.data as { nodeId: number };
-          const node = modelStore.getNode(d.nodeId);
+          const node = paintedModel.nodes.get(d.nodeId);
           if (!node) continue;
           const pn = project2DNode(node);
           hx = pn.x; hy = pn.y;
         } else {
           const d = load.data as { elementId: number; a?: number };
-          const elem = modelStore.elements.get(d.elementId);
+          const elem = paintedModel.elements.get(d.elementId);
           if (!elem) continue;
-          const ni = getProjectedNode(elem.nodeI);
-          const nj = getProjectedNode(elem.nodeJ);
+          const ni = resultNode(elem.nodeI);
+          const nj = resultNode(elem.nodeJ);
           if (!ni || !nj) continue;
           if (load.type === 'pointOnElement' && d.a != null) {
             const L = Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2);
@@ -976,7 +987,7 @@
     }
 
     // Draw nodes (projected to current 2D drawing plane)
-    for (const node of modelStore.nodes.values()) {
+    for (const node of paintedModel.nodes.values()) {
       if (viewVisibility.isNodeHidden(node.id)) continue;
       drawNode(project2DNode(node));
     }
@@ -1186,12 +1197,13 @@
      * was drawn only inside the results below, so on a model not yet calculated a click computed
      * the line, said so, and showed nothing.
      */
-    if (!resultsStore.results && dtNow() === 'influenceLine' && resultsStore.influenceLine) {
+    if (!shown && dtNow() === 'influenceLine' && resultsStore.influenceLine) {
       drawInfluenceLine(resultsStore.influenceLine, makeDrawContext(), uiStore.zoom, resultsStore.ilAnimating ? resultsStore.ilAnimProgress : undefined);
     }
 
     // Draw results
-    if (resultsStore.results) {
+    if (shown) {
+      ctx.globalAlpha = resultsStore.screen.held && !exportFrame ? 0.45 : 1;
       const dt = dtNow();
       setDiagramUnitSystem(uiStore.unitSystem);
 
@@ -1200,7 +1212,7 @@
         const animScale = resultsStore.animateDeformed && !exportFrame
           ? scale * Math.sin(performance.now() / (500 / resultsStore.animSpeed))
           : scale;
-        drawDeformed(resultsStore.results, makeDrawContext(), uiStore.zoom, animScale);
+        drawDeformed(shown, makeDrawContext(), uiStore.zoom, animScale);
         drawDeformedValues(animScale);
       } else if (dt === 'despiece') {
         // Member free-body / "despiece": pull members off their joints (animated)
@@ -1364,11 +1376,8 @@
       } else if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
         const dkind = dt as DiagramKind;
         // Check if we should render envelope dual curves
-        const showEnvelopeDual = (resultsStore.isEnvelopeActive || resultsStore.movingLoadShowEnvelope) && (
-          resultsStore.isEnvelopeActive ? resultsStore.fullEnvelope : resultsStore.movingLoadEnvelope?.fullEnvelope
-        );
-        if (showEnvelopeDual) {
-          const envSrc = resultsStore.isEnvelopeActive ? resultsStore.fullEnvelope! : resultsStore.movingLoadEnvelope!.fullEnvelope!;
+        const envSrc = resultsStore.screen.envelopeActive && resultsStore.screen.envelope2D;
+        if (envSrc) {
           const envData = dkind === 'moment' ? envSrc.moment
                         : dkind === 'shear'  ? envSrc.shear
                         :                       envSrc.axial;
@@ -1394,19 +1403,24 @@
         } else {
           try {
             // Normal mode: overlay + main diagram
+            let peak: number | null;
             if (resultsStore.overlayResults && !exportFrame) {
               // Compute shared globalMax so both diagrams use the same scale
               const sharedMax = Math.max(
-                computeDiagramGlobalMax(resultsStore.results, dkind),
+                computeDiagramGlobalMax(shown, dkind),
                 computeDiagramGlobalMax(resultsStore.overlayResults, dkind),
               );
               const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
               drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
-              drawDiagrams(resultsStore.results, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
+              peak = drawDiagrams(shown, dkind, { ...makeDrawContext(), extremeBound }, resultsStore.diagramScale, valuesNow(), undefined, sharedMax, resultsStore.drawPositiveTowardLocalAxes);
             } else {
               // The certified ± beside the max label on screen only; a figure export stays as it was.
               const dc = exportFrame ? makeDrawContext() : { ...makeDrawContext(), extremeBound };
-              drawDiagrams(resultsStore.results, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
+              peak = drawDiagrams(shown, dkind, dc, resultsStore.diagramScale, valuesNow(), undefined, undefined, resultsStore.drawPositiveTowardLocalAxes);
+            }
+            if (import.meta.env.VITE_E2E === '1' && !exportFrame && peak !== null) {
+              canvas.dataset.paintedDiagram = dkind;
+              canvas.dataset.paintedPeak = String(peak);
             }
           } catch (error) {
             if (!(error instanceof Error) || error.message !== DIAGRAM_EXTREMA_UNAVAILABLE) throw error;
@@ -1487,6 +1501,7 @@
         ctx.fillStyle = '#ccc';
         ctx.fillText(t('viewport.compression'), lx + 16, ly + 32);
       }
+      ctx.globalAlpha = 1;
     }
 
     // Draw diagram query marker
@@ -1698,10 +1713,10 @@
   /** A value beside a member's midpoint, on a dark box so it reads over any colour. */
   function drawMemberValueLabel(elementId: number, label: string, color: string) {
     if (!ctx || viewVisibility.isElementHidden(elementId)) return;
-    const elem = modelStore.elements.get(elementId);
+    const elem = displayModel().elements.get(elementId);
     if (!elem) return;
-    const ni = getProjectedNode(elem.nodeI);
-    const nj = getProjectedNode(elem.nodeJ);
+    const ni = resultNode(elem.nodeI);
+    const nj = resultNode(elem.nodeJ);
     if (!ni || !nj) return;
     const si = uiStore.worldToScreen(ni.x, ni.y);
     const sj = uiStore.worldToScreen(nj.x, nj.y);
@@ -1727,7 +1742,7 @@
    * ones that moved most (as the 3D view does), at where they moved to.
    */
   function drawDeformedValues(scale: number) {
-    const res = resultsStore.results;
+    const res = resNow();
     if (!ctx || !res || !(exportFrame ? exportFrame.options.values : resultsStore.showDeformedValues)) return;
     const byId = new Map(res.displacements.map((d) => [d.nodeId, d]));
     const picks = nodesToLabel(res.displacements.map((d) => ({ nodeId: d.nodeId, ux: d.ux, uy: 0, uz: d.uz })));
@@ -1737,7 +1752,7 @@
     ctx.textBaseline = 'alphabetic';
     for (const { nodeId, magnitude } of picks) {
       if (viewVisibility.isNodeHidden(nodeId)) continue;
-      const n = modelStore.getNode(nodeId), d = byId.get(nodeId);
+      const n = displayModel().nodes.get(nodeId), d = byId.get(nodeId);
       if (!n || !d) continue;
       const p = project2DNode(n);
       const s = uiStore.worldToScreen(p.x + d.ux * scale, p.y + d.uz * scale);
@@ -1756,9 +1771,9 @@
     _drawNode(ctx!, node, (wx, wy) => uiStore.worldToScreen(wx, wy), !exportFrame && uiStore.selectedNodes.has(node.id), nodeLabelsNow());
   }
 
-  function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }, colorOverride?: string, nodeBarCount?: Map<number, number>) {
-    const niRaw = modelStore.getNode(elem.nodeI);
-    const njRaw = modelStore.getNode(elem.nodeJ);
+  function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; releaseI?: { my: boolean; mz: boolean; t: boolean }; releaseJ?: { my: boolean; mz: boolean; t: boolean } }, geometry: ReturnType<typeof displayModel>, colorOverride?: string, nodeBarCount?: Map<number, number>) {
+    const niRaw = geometry.nodes.get(elem.nodeI);
+    const njRaw = geometry.nodes.get(elem.nodeJ);
     if (!niRaw || !njRaw) return;
     const ni = project2DNode(niRaw);
     const nj = project2DNode(njRaw);
@@ -1772,7 +1787,7 @@
       showLengths: exportFrame ? exportFrame.options.lengths : uiStore.showLengths,
       zoom: uiStore.zoom,
       diagramType: dtNow(),
-      worldLength: modelStore.getElementLength(elem.id),
+      worldLength: Math.hypot(njRaw.x - niRaw.x, njRaw.y - niRaw.y, (njRaw.z ?? 0) - (niRaw.z ?? 0)),
       labels: currentFrameLabels,
     };
     _drawElement(ctx!, elem, ni, nj, opts, colorOverride, nodeBarCount);
@@ -1885,10 +1900,11 @@
   }
 
   function drawReactions() {
-    if (!resultsStore.results) return;
-    _drawReactions(ctx!, resultsStore.results.reactions as ReactionData[], (nodeId) => {
+    const res = resNow();
+    if (!res) return;
+    _drawReactions(ctx!, res.reactions as ReactionData[], (nodeId) => {
       // A reaction is drawn with its support: not at a node the view hides.
-      const node = viewVisibility.isNodeHidden(nodeId) ? undefined : modelStore.getNode(nodeId);
+      const node = viewVisibility.isNodeHidden(nodeId) ? undefined : displayModel().nodes.get(nodeId);
       if (!node) return null;
       const pn = project2DNode(node);
       return uiStore.worldToScreen(pn.x, pn.y);
@@ -3330,6 +3346,7 @@
          with the axes; the canvas shrinks for the sheet, so it rises with it. -->
     <div class="vp-delete"><SelectionClipboardButtons floating /><SelectionDeleteButton floating /></div>
   {/if}
+  {#if resultsStore.screen.held}<span class="pending-result" role="status">{t('pro.calculating')}</span>{/if}
   <canvas
     bind:this={canvas}
     onmousedown={handleMouseDown}
@@ -3369,6 +3386,7 @@
 </div>
 
 <style>
+  .pending-result { position: absolute; top: 0.5rem; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none; background: var(--st-surface); color: var(--st-text); padding: 0.25rem 0.5rem; }
   .viewport2d-wrapper {
     width: 100%;
     height: 100%;

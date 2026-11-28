@@ -37,9 +37,8 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="wizard" data-testid="fm-wizard">
-  <StepsHeader backLabel={fromCatalog ? t('steps.view.back') : t('adv.back')}
-    backTitle={fromCatalog ? t('steps.view.backToCatalog') : t('adv.backToList')} onBack={close}
-    name={t('steps.catalog.title')} backTestid="fm-back" />
+  <StepsHeader name={fmStepsStore.showMatrix && r ? t('fm.matrixTitle') : t('steps.m.fm.title')} {fromCatalog}
+    backTitle={fromCatalog ? t('steps.view.backToCatalog') : t('adv.backToList')} onBack={close} backTestid="fm-back" />
 
   <StepFrame space={r?.is3D ?? false} title={fmStepsStore.showMatrix && r ? t('fm.matrixTitle') : t('steps.m.fm.title')} subtitle={t(r?.is3D ? 'fm.banner3d' : 'fm.banner')}
     step={fmStepsStore.currentStep} {last} onGo={(k) => fmStepsStore.goToStep(k)} showNav={!(fmStepsStore.showMatrix && r)}

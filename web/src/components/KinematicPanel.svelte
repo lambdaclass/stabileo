@@ -19,6 +19,7 @@
   import type { KinematicReport } from '../lib/engine/kinematic-report';
   import { kinematicReportOfModel } from '../lib/engine/kinematic-model';
   import { t } from '../lib/i18n';
+  import { mechanismModeMessage } from '../lib/advanced/mechanism-mode-message';
 
   // Collapsible sections
   let showStep1 = $state(true);
@@ -303,14 +304,14 @@
               </div>
             {:else if report.hasHiddenMechanism}
               <div class="kp-result kp-danger-bg">
-                {t('kinematic.hiddenMechanism').replaceAll('{n}', String(report.mechanismModes)).replaceAll('{s}', report.mechanismModes > 1 ? t('kin.plural_s') : '').replaceAll('{degree}', String(report.degree))}
+                {mechanismModeMessage(report.mechanismModes, report.degree)}
               </div>
               <div class="kp-explanation">
                 {t('kinematic.hiddenMechanismExplanation')}
               </div>
             {:else}
               <div class="kp-result kp-danger-bg">
-                {t('kinematic.mechanismDetected').replaceAll('{n}', String(report.mechanismModes)).replaceAll('{s}', report.mechanismModes > 1 ? t('kin.plural_s') : '')}
+                {mechanismModeMessage(report.mechanismModes)}
               </div>
             {/if}
 

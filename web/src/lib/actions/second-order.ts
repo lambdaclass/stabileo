@@ -13,7 +13,7 @@ import { secondOrderSettings } from '../store/second-order.svelte';
 import { modelStore, resultsStore } from '../store';
 import type { DrawPlane } from '../geometry/plane-projection';
 import { explainedSteps } from '../store/explained-steps.svelte';
-import { openExplainedCatalog } from './step-wizards';
+import { openExplainedMethod } from './step-wizards';
 import { tp } from '../i18n';
 
 /** 2D P-Δ with the panel's settings; a sentence when the chosen method cannot take the model. */
@@ -44,18 +44,23 @@ export function withFirstModeB2<R extends { b2Factor: number; isStable: boolean 
   return { ...result, b2Factor: b2, isStable: result.isStable && lambda1 > 1, secondOrder: { lambda1, b2 } };
 }
 
+export function currentSecondOrder(selected: 'pdelta' | 'buckling' | null) {
+  if (resultsStore.pdeltaResult) return 'pdelta';
+  if (resultsStore.bucklingResult) return 'buckling';
+  return selected;
+}
+
 /** Open one of the second-order explained methods over the model on screen, with the panel's assumptions. */
 export function openSecondOrderSteps(methodId: string, s: Pick<SoSettings, 'method' | 'axialRigid'> = secondOrderSettings.snapshot()): void {
-  openExplainedCatalog();
-  explainedSteps.openMethod(methodId);
+  openExplainedMethod(methodId);
   explainedSteps.setOption('axialRigid', s.axialRigid);
   if (methodId.endsWith('-kg')) explainedSteps.setOption('chord', s.method === 'string');
 }
 
-export function rerunSecondOrder(runPDelta: () => void, runBuckling: () => void): void {
-  const pd = !!resultsStore.pdeltaResult, bk = !!resultsStore.bucklingResult;
-  if (!pd && !bk) return;
+export function rerunSecondOrder(runPDelta: () => void, runBuckling: () => void, selected: 'pdelta' | 'buckling' | null = null): void {
+  const kind = currentSecondOrder(selected);
+  if (!kind) return;
   resultsStore.clearAdvanced();
-  if (pd) runPDelta();
-  if (bk) runBuckling();
+  if (kind === 'pdelta') runPDelta();
+  else runBuckling();
 }

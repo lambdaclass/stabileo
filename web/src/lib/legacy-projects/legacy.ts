@@ -19,6 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { modelStore, type Section } from '../store/model.svelte';
+import type { JSONModel } from '../templates/load-fixture';
 import releaseDefaults from './release-defaults.json';
 import { resultPropertyFingerprint } from '../model/result-properties';
 import { historyStore } from '../store/history.svelte';
@@ -116,7 +117,7 @@ export function currentFixtureBlob(id: string): string | null {
  * against the blob id). An example edited since with no recorded fixture fails: without it
  * nothing tells a fixture edit from a migration that reads the old file as another model.
  */
-export function savedFixture(id: string, blob: string): { fixture: () => Promise<unknown>; edited: boolean } {
+export function savedFixture(id: string, blob: string, release?: string): { fixture: () => Promise<unknown>; edited: boolean } {
   const edited = blob !== currentFixtureBlob(id);
   const f = edited ? new URL(`${id}@${blob}.json`, EDITED_FIXTURE_DIR) : new URL(`${id}.json`, FIXTURE_DIR);
   if (!existsSync(f)) {
@@ -124,7 +125,12 @@ export function savedFixture(id: string, blob: string): { fixture: () => Promise
   }
   const bytes = readFileSync(f);
   if (gitBlob(bytes) !== blob) throw new Error(`legacy-projects/fixtures/${id}@${blob}.json is not that blob (${gitBlob(bytes)}): it was edited.`);
-  const json = JSON.parse(bytes.toString('utf8')) as unknown;
+  const json = JSON.parse(bytes.toString('utf8')) as JSONModel;
+  if (release && readManifest(release).examples.some(entry => entry.example === id && entry.fixtureBlob === blob)) {
+    const seed = defaultsForRelease(release).material;
+    json.materials = json.materials.map(m =>
+      m.id === seed.id && m.name === seed.name && m.e === seed.e ? { ...seed } : m);
+  }
   return { fixture: async () => structuredClone(json), edited };
 }
 
@@ -244,7 +250,7 @@ export async function captureExample(
 }
 
 type ExampleOptions = { solve?: boolean; keepCombinations?: boolean } & (
-  { release?: never; fixture?: () => Promise<unknown> } | { release: string; fixture: () => Promise<unknown> }
+  { release?: never; fixture?: () => Promise<unknown> } | { release: string; fixtureBlob: string }
 );
 
 export async function openExample(
@@ -252,7 +258,8 @@ export async function openExample(
 ): Promise<{ values: Values; fingerprint: Values }> {
   const defaults = opts.release === undefined ? undefined : defaultsForRelease(opts.release);
   reset(workspace);
-  await modelStore.loadExample(id, opts.fixture, {
+  const load = opts.release === undefined ? opts.fixture : savedFixture(id, opts.fixtureBlob, opts.release).fixture;
+  await modelStore.loadExample(id, load, {
     keepCombinations: opts.keepCombinations,
     defaults: defaults ? { material: defaults.material, section: defaults.section as Section } : undefined,
   });
@@ -351,9 +358,8 @@ export async function againstExample(
   name: string, version: string, entry: Pick<ManifestEntry, 'example' | 'workspace' | 'fixtureBlob'>,
   opened: Pick<Opened, 'values' | 'fingerprint'>, solved: boolean,
 ): Promise<{ failure: string | null; verdict: Verdict | null; reference: string }> {
-  const { fixture } = savedFixture(entry.example, entry.fixtureBlob);
   const ref = await openExample(entry.example, entry.workspace, {
-    solve: solved, fixture, release: version, keepCombinations: KEPT_COMBINATIONS.has(version),
+    solve: solved, fixtureBlob: entry.fixtureBlob, release: version, keepCombinations: KEPT_COMBINATIONS.has(version),
   });
   const reference = `${entry.example} as ${version} defined it (${entry.fixtureBlob.slice(0, 9)})`;
   const model = fingerprintDifference(`${name} against ${reference}: the model`, ref.fingerprint, opened.fingerprint);

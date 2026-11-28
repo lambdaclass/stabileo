@@ -134,17 +134,19 @@ pub fn equivalent_rectangle_depth(a: f64, i: f64) -> f64 {
     if a > 1e-15 { (12.0 * i / a).sqrt() } else { 0.1 }
 }
 
-/// Rejects a stated α or depth no member can have: α must be finite, ≥ 0 and below 10⁻³ /°C
-/// (every structural material is below 3·10⁻⁴; a larger value is a unit slip, such as 12 for
-/// 12·10⁻⁶), and a depth finite and positive.
-pub fn check_frame_thermal_inputs(element_id: usize, alpha: Option<f64>, depths: &[(&str, Option<f64>)]) -> Result<(), String> {
+pub(crate) fn check_thermal_coefficient(element_id: usize, alpha: Option<f64>) -> Result<(), String> {
     if let Some(a) = alpha {
-        if !(a.is_finite() && (0.0..1e-3).contains(&a)) {
+        if !a.is_finite() || a.abs() >= 1e-3 {
             return Err(format!(
-                "Thermal load on element {element_id}: alpha = {a} is not a coefficient of thermal expansion in 1/°C (expected 0 <= alpha < 1e-3, e.g. 1.2e-5 for steel)"
+                "Thermal load on element {element_id}: alpha = {a} is not a coefficient of thermal expansion in 1/°C (expected |alpha| < 1e-3, e.g. 1.2e-5 for steel)"
             ));
         }
     }
+    Ok(())
+}
+
+pub fn check_frame_thermal_inputs(element_id: usize, alpha: Option<f64>, depths: &[(&str, Option<f64>)]) -> Result<(), String> {
+    check_thermal_coefficient(element_id, alpha)?;
     for (name, d) in depths {
         if let Some(h) = d {
             if !(h.is_finite() && *h > 0.0) {

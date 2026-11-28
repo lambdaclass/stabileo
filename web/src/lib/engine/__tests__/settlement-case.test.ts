@@ -135,3 +135,38 @@ describe('a settlement in the Advanced multi-case solve', () => {
     expect(uz(out.combinationResults[0].results, mid)).toBeCloseTo(SETTLE, 9);
   });
 });
+
+describe.each(['sequential', 'parallel'])('the %s combination publication', route => {
+  it.each(['solveEach', 'pdelta', 'linear'] as const)('judges the separate settlement result by its use in %s', async method => {
+    const { resultsStore } = await import('../../store');
+    beam();
+    if (method === 'solveEach') {
+      const support = [...modelStore.supports.values()].find(s => s.nodeId === tip)!;
+      modelStore.updateSupport(support.id, { uplift: true });
+      modelStore.adoptAnalysis({ combinationMethod: 'solveEach' });
+    }
+    if (method === 'pdelta') {
+      modelStore.adoptAnalysis({ perCombination: 'pdelta' });
+      const magnitude = modelStore.addCombination('ABS', [{ caseId: dead, factor: 1 }]);
+      modelStore.updateCombination(magnitude, { method: 'abs' });
+    }
+    const b = route === 'parallel'
+      ? await modelStore.solveCombinations3DParallel(false, false, true)
+      : modelStore.solveCombinations3D(false, false, true);
+    if (!b || typeof b === 'string') throw new Error(String(b));
+    const own = b.perCombo.get(combo)!;
+    expect(uz(own, mid)).toBeCloseTo(SETTLE, 9);
+    if (method === 'solveEach') expect(own.nonlinear?.converged).toBe(true);
+    if (method === 'pdelta') expect(own.secondOrder?.converged).toBe(true);
+    const settlement = b.perCase.get(SETTLEMENT_CASE_ID)!;
+    expect(uz(settlement, mid)).toBeCloseTo(SETTLE, 9);
+    const cases = new Map(b.perCase).set(SETTLEMENT_CASE_ID, {
+      ...settlement, structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'ENGINE' }],
+    });
+    resultsStore.setCombinationResults3D(cases, b.perCombo, b.envelope);
+    resultsStore.activeComboId = combo;
+    resultsStore.activeView = 'combo';
+    if (method === 'linear') expect(resultsStore.results3D).toBeNull();
+    else expect(resultsStore.results3D?.displacements.find(d => d.nodeId === mid)?.uz).toBeCloseTo(SETTLE, 9);
+  });
+});

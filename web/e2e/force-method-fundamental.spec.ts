@@ -4,6 +4,7 @@
  * nine steps and agrees with the stiffness method; the axial term switches.
  */
 import { test, expect, type Page } from './fixtures';
+import { openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 const SHOTS = process.env.FM_SHOTS;
 
@@ -12,8 +13,8 @@ async function openFlexibility(page: Page, example: string) {
   await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
   await page.evaluate((n) => (window as never as { __stabileoActions: { loadExample(n: string): Promise<void> } })
     .__stabileoActions.loadExample(n), example);
-  await page.getByTestId('rb-cmd-advanced').click();
-  await page.getByTestId('adv-steps').click();
+  await openStepsCatalog(page);
+  await expandStepsCatalog(page);
   await page.getByTestId('steps-open-fm').click();
   await expect(page.getByTestId('fm-wizard')).toBeVisible();
 }
@@ -108,8 +109,8 @@ test.describe('@slow virtual work: what to compute', () => {
     await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
     await page.evaluate(() => (window as never as { __stabileoActions: { loadExample(n: string): Promise<void> } })
       .__stabileoActions.loadExample('portal-frame'));
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.getByTestId('adv-steps').click();
+    await openStepsCatalog(page);
+    await expandStepsCatalog(page);
     await page.getByTestId('steps-open-virtualWork').click();
     await expect(page.getByTestId('steps-doc')).toBeVisible();
     await page.getByTestId('steps-params').locator('summary').click();

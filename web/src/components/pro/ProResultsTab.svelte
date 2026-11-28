@@ -146,7 +146,6 @@
   /* Shells are load-carrying too, so a plates-only raft has results to show;
      see `hasLoadCarrying3D` for why this is not `elements.size > 0`. */
   const hasModel = $derived(modelStore.nodes.size > 0 && hasLoadCarrying3D(modelStore.model));
-  const hasCombinations = $derived(resultsStore.hasCombinations3D);
 
   // View mode
   // The view, the case and the combination are the results store's; the controls only show and
@@ -188,8 +187,8 @@
     resultsStore.deformedScale = Number((e.target as HTMLInputElement).value);
   }
 
-  const caseKeys = $derived([...resultsStore.perCase3D.keys()]);
-  const comboKeys = $derived([...resultsStore.perCombo3D.keys()]);
+  const caseKeys = $derived([...resultsStore.displaySets3D.cases.keys()]);
+  const comboKeys = $derived([...resultsStore.displaySets3D.combos.keys()]);
 
   // ─── Result query layer ──────────────────────────────────────
   // The query is ALWAYS linked to the active view: its component derives from
@@ -617,11 +616,11 @@
     <ProNonlinearReport />
 
     <!-- View mode selector -->
-    {#if hasCombinations}
+    {#if comboKeys.length || caseKeys.length || resultsStore.fullEnvelope3D}
       <div class="pro-view-selector">
         <button class="pro-view-btn" class:active={viewMode === 'single'} onclick={() => switchView('single')}>{t('pro.viewCase')}</button>
-        <button class="pro-view-btn" class:active={viewMode === 'combo'} onclick={() => switchView('combo')}>{t('pro.viewCombo')}</button>
-        <button class="pro-view-btn" class:active={viewMode === 'envelope'} onclick={() => switchView('envelope')}>{t('pro.viewEnvelope')}</button>
+        <button class="pro-view-btn" class:active={viewMode === 'combo'} disabled={!comboKeys.length} onclick={() => switchView('combo')}>{t('pro.viewCombo')}</button>
+        <button class="pro-view-btn" class:active={viewMode === 'envelope'} disabled={!resultsStore.fullEnvelope3D} onclick={() => switchView('envelope')}>{t('pro.viewEnvelope')}</button>
 
         {#if viewMode === 'single' && caseKeys.length > 0}
           <select class="pro-view-sel" value={resultsStore.activeCaseId ?? ''} onchange={onCaseChange} data-testid="pr-case-select">

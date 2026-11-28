@@ -563,3 +563,21 @@ describe('against real corpus files', () => {
   });
 });
 
+
+it('preserves the explicit strength and unit weight of an unrecorded fixture with the release seed identity', async () => {
+  const { createHash } = await import('node:crypto');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const folder = mkdtempSync(join(import.meta.dirname, '../../templates/fixtures/test-replay-'));
+  const material = { id: 1, name: 'Acero A36', e: 200000, nu: 0.3, rho: 76, fy: 310, alpha: -5e-6 };
+  const bytes = Buffer.from(JSON.stringify({ materials: [material] }));
+  const id = folder.split('/').at(-1) + '/unrecorded';
+  const blob = createHash('sha1').update('blob ' + bytes.length + '\x00').update(bytes).digest('hex');
+  try {
+    writeFileSync(join(folder, 'unrecorded.json'), bytes);
+    const replay = await savedFixture(id, blob, 'v0.2.0').fixture();
+    expect(replay).toEqual({ materials: [material] });
+  } finally {
+    rmSync(folder, { recursive: true });
+  }
+});

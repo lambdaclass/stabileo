@@ -396,7 +396,7 @@
         && activeRepresentation() === 'diagram'}
       <!-- Basic: only with load cases and combinations on, and on a desktop in the options bar
            under the ribbon instead (ToolOptionsBar); a phone has no such bar. -->
-      {#if resultsStore.hasCombinations && (showsPrimary || showsSecondary)
+      {#if resultsStore.hasDisplayChoices && (showsPrimary || showsSecondary)
         && (activeQuantity() !== null || resultsStore.diagramType === 'deformed')
         && (uiStore.appMode !== 'basico' || (uiStore.loadCasesEnabled && uiStore.isMobile))}
         <!-- Open in the panel: no accordions there. -->

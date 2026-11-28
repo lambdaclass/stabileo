@@ -20,7 +20,7 @@ const SEAM = [
   'components/pro/dynamics/TimeHistoryPanel.svelte', 'components/pro/dynamics/GroundMotionRow.svelte', 'components/pro/nonlinear/PushoverView.svelte',
   'components/pro/spec/SpecSurfaces.svelte', 'components/pro/plates/PlateMeshDialog.svelte', 'components/pro/design/FootingMatPanel.svelte',
   'components/pro/design/FootingMatPhysicalPanel.svelte', 'components/pro/design/DesignFilterBar.svelte', 'components/property/MemberOffsetEditor.svelte',
-  'components/WhatIfPanel.svelte', 'lib/model/constraint-labels.ts', 'lib/store/statics-rows.ts', 'lib/pro/support-types.ts',
+  'lib/whatif/load-label.ts', 'components/whatif/WhatIfNodes.svelte', 'lib/model/constraint-labels.ts', 'lib/store/statics-rows.ts', 'lib/pro/support-types.ts',
 ];
 
 describe('PRO screens that name global axes go through the display layer', () => {

@@ -72,8 +72,8 @@ function membersSheet(m: WorkbookModel): WorkbookSheet {
 }
 
 function materialsSheet(m: WorkbookModel): WorkbookSheet {
-  const rows: WorkbookSheet['rows'] = [['id', 'name', 'E [MPa]', 'nu', 'rho [kN/m³]', 'fy [MPa]', 'alpha [1/°C]']];
-  for (const x of [...m.materials.values()].sort((a, c) => a.id - c.id)) rows.push([x.id, safeText(x.name), x.e, x.nu, x.rho, opt(x.fy), opt(x.alpha)]);
+  const rows: WorkbookSheet['rows'] = [['id', 'name', 'E [MPa]', 'nu', 'rho [kN/m³]', 'fy [MPa]', 'alpha [1/°C]', 'gradeId', 'userDefined']];
+  for (const x of [...m.materials.values()].sort((a, c) => a.id - c.id)) rows.push([x.id, safeText(x.name), x.e, x.nu, x.rho, opt(x.fy), opt(x.alpha), safeText(x.gradeId ?? ''), x.userDefined === undefined ? '' : String(x.userDefined)]);
   return { name: 'Materials', rows };
 }
 

@@ -295,11 +295,27 @@ function polynomialRootCandidates(coefficients: readonly number[], lo = 0, hi = 
   return [...new Set(roots)].sort((a, b) => a - b);
 }
 
+export type MagnitudeMethod = 'abs' | 'srss' | 'transverseAbs';
+
+export function componentMagnitude(values: number[], method: MagnitudeMethod): number {
+  if (method === 'srss') return Math.hypot(...values);
+  if (method === 'abs') return values.reduce((sum, v) => sum + Math.abs(v), 0);
+  const sums = [0, 0];
+  values.forEach((v, i) => { sums[i % 2] += Math.abs(v); });
+  return Math.hypot(...sums);
+}
+
+function squaredNormDerivative(polynomials: number[][]): number[] {
+  const squared = Array<number>(7).fill(0);
+  for (const p of polynomials) p.forEach((a, i) => p.forEach((b, j) => { squared[i + j] += a * b; }));
+  return polynomialDerivative(squared);
+}
+
 export function prepareMagnitudeExtrema(
-  parts: readonly Pick<DiagramCurve, 'polynomial'>[], method: 'abs' | 'srss',
+  parts: readonly Pick<DiagramCurve, 'polynomial'>[], method: MagnitudeMethod,
   distances: () => ReadonlyMap<number, number>, length: number,
 ): (at?: number) => DiagramExtremum[] {
-  const combine = (values: number[]) => method === 'srss' ? Math.hypot(...values) : values.reduce((sum, v) => sum + Math.abs(v), 0);
+  const combine = (values: number[]) => componentMagnitude(values, method);
   const cuts = () => [...distances()].sort(([a], [b]) => a - b);
   return prepareIntervalExtrema(cuts, length, combine, (lo, hi, x0, x1) => {
     const polynomials = parts.map(part => part.polynomial(lo, hi, x0, x1));
@@ -309,20 +325,20 @@ export function prepareMagnitudeExtrema(
     const normalized = polynomials.map(p => p.map(c => c / scale));
     const roots: number[] = [];
     if (method === 'srss') {
-      const squared = Array<number>(7).fill(0);
-      for (const p of normalized) p.forEach((a, i) => p.forEach((b, j) => { squared[i + j] += a * b; }));
-      roots.push(...polynomialRootCandidates(polynomialDerivative(squared)));
+      roots.push(...polynomialRootCandidates(squaredNormDerivative(normalized)));
     } else {
       const zeros = [...new Set([0, 1, ...normalized.flatMap(p => polynomialRootCandidates(p))])].sort((a, b) => a - b);
       for (const u of zeros) roots.push(u);
       for (let j = 0; j + 1 < zeros.length; j++) {
         const a = zeros[j]!, b = zeros[j + 1]!;
-        const sum = Array<number>(4).fill(0);
-        for (const p of normalized) {
+        const sums = [Array<number>(4).fill(0), Array<number>(4).fill(0)];
+        for (const [part, p] of normalized.entries()) {
+          const sum = sums[method === 'abs' ? 0 : part % 2];
           const sign = polynomialValue(p, a + (b - a) / 2) < 0 ? -1 : 1;
           p.forEach((c, i) => { sum[i] += sign * c; });
         }
-        for (const u of polynomialRootCandidates(polynomialDerivative(sum), a, b)) roots.push(u);
+        const derivative = method === 'abs' ? polynomialDerivative(sums[0]) : squaredNormDerivative(sums);
+        roots.push(...polynomialRootCandidates(derivative, a, b));
       }
     }
     return { polynomials, roots: roots.filter(u => u !== 0 && u !== 1) };

@@ -14,7 +14,8 @@
   import type { StructuredDiagnostic } from '../../lib/engine/types';
   import CertLine from './CertLine.svelte';
 
-  let { result, mode = null }: { result: { structuredDiagnostics?: StructuredDiagnostic[]; modes: Array<{ frequency: number }> } | null | undefined; mode?: number | null } = $props();
+  /** `checks: false` when the caller shows the result's self-check banner itself, above its controls. */
+  let { result, mode = null, checks = true }: { result: { structuredDiagnostics?: StructuredDiagnostic[]; modes: Array<{ frequency: number }> } | null | undefined; mode?: number | null; checks?: boolean } = $props();
 
   const cert = createBackgroundCertificate<CertificateAnswer<ModalCertificate>>();
   $effect(() => cert.track(result));
@@ -37,7 +38,7 @@
   const current = $derived(mode !== null ? intervals[mode] ?? null : null);
 </script>
 
-<SelfCheckBanner results={[result]} />
+{#if checks}<SelfCheckBanner results={[result]} />{/if}
 
 {#if cert.state.status === 'pending'}
   <CertLine kind="pending" text={t('certificate.pending')} testid="modal-certificate" />

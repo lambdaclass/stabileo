@@ -95,6 +95,13 @@ export interface TestHooks {
   isBaselineStale(): boolean;
   solveCount(): number;
   modelVersion(): number;
+  nodeScreenPos(id: number): { x: number; y: number } | null;
+  diagramMembers(): number;
+  hasDrawnResults(): boolean;
+  verticalReaction2D(): number | null;
+  verticalReaction3D(): number | null;
+  screenFrame(): { drawn: boolean; held: boolean; diagram: string; maxMoment: number | null };
+  freshMaxMoment(): number | null;
   designRunId(): string | null;
   displayStatus(id: number): string;
   displayRatio(id: number): number | null;
@@ -171,11 +178,20 @@ export interface TestHooks {
 
 /** Actions a spec may drive — the same operations the UI controls perform. */
 export interface TestActions {
+  moveNode(id: number, x: number, y: number, z: number): void;
+  showWorkspace(mode: '2d' | '3d'): void;
+  setLiveCalc(enabled: boolean): void;
+  setReactionView(enabled: boolean): void;
+  reactionsShown(): boolean;
+  holdScreen(): void;
+  releaseScreen(): void;
+  selectElements(ids: number[]): void;
   seedSelfCheckWarning(count?: number, cases?: number): void;
   loadExample(name: string): Promise<void>;
   /** Open a project from its `.ded` JSON, as File → Open does. False when refused. */
   loadProject(file: Record<string, unknown>): boolean;
   solve(): Promise<void>;
+  solveOnMainThread(): string | null;
   openDesignTab(): void;
   computeDemands(): unknown;
   codeCheck(): unknown;

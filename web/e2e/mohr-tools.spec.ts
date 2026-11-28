@@ -1,5 +1,6 @@
 import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
 import { test, expect, loadModel, pickLanguage } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON);
 
@@ -414,7 +415,7 @@ test('@smoke the advanced list opens the Mohr function, and the section analysis
   await expect.poll(() => page.evaluate(() => window.__stabileo.hasResults?.() ?? true), { timeout: 30_000 }).toBeTruthy();
   await page.getByRole('button', { name: 'Advanced', exact: true }).click();
 
-  await page.getByTestId('adv-mohr').click();
+  await openAdvancedFunction(page, 'mohr');
   const dialog = page.getByTestId('mohr-dialog');
   await expect(dialog).toBeVisible();
   await expect(page.getByTestId('mohr-from-model')).toHaveCount(0);
@@ -430,13 +431,13 @@ test('@smoke the advanced list opens the Mohr function, and the section analysis
   }
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByTestId('adv-mohr')).toBeFocused();
-  await page.getByTestId('adv-mohr').click();
+  await expect(page.getByTestId('adv-fn-mohr')).toBeFocused();
+  await page.getByTestId('adv-fn-mohr').click();
   await expect(dialog).toBeVisible();
   await page.getByTestId('mohr-close').click();
   await expect(dialog).toHaveCount(0);
 
-  await page.getByRole('button', { name: /^Section analysis$/i }).click();
+  await openAdvancedFunction(page, 'stress');
   const canvas = page.locator('canvas').first();
   const box = (await canvas.boundingBox())!;
   const panel = page.locator('.ssp-panel');

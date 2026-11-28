@@ -64,6 +64,8 @@ import { currentResultProvenance, provenanceForExport, captureProvenanceToken } 
 import { recheckStore } from '../store/recheck.svelte';
 import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
 
+import { response2D } from '../whatif/response';
+
 export const E2E_QUERY_FLAG = 'e2e';
 
 /** Build-time gate. Statically replaced by Vite, so the false branch is eliminated. */
@@ -207,6 +209,10 @@ export interface StabileoTestHooks {
   diagramType(): string;
   /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
   hasDrawnResults(): boolean;
+  /** What the 2D viewport draws this frame: a diagram or not, whether it is the held picture, and its largest |M|. */
+  screenFrame(): { drawn: boolean; held: boolean; diagram: string; maxMoment: number | null };
+  /** The largest |M| of a fresh plane solve of the model as it is now, outside the stores. */
+  freshMaxMoment(): number | null;
   verticalReaction3D(): number | null;
   verticalReaction2D(): number | null;
   /**
@@ -268,6 +274,7 @@ export interface StabileoTestHooks {
   elementEnds(elementId: number): { i: number; j: number } | null;
   /** The 2D static results' axial force N at the start of every member, ordered by member id; null before a solve. */
   memberAxialForces(): { id: number; n: number }[] | null;
+  nodeDisplacement(id: number): { ux: number; uz: number } | null;
   pointLoadsOn(elementId: number): Array<{ p: number; px?: number; my?: number; angle?: number; isGlobal?: boolean }>;
   /** How many nodes and supports the model holds — what a delete must not touch. */
   /** Where the 3D viewport drew a load: the middle of its middle segment, in page coordinates. */
@@ -527,6 +534,12 @@ export interface StabileoTestActions {
    * that carries combinations is concrete; the code checks read solved combinations only.
    */
   combineCases(name: string): number;
+  setLiveCalc(enabled: boolean): void;
+  setReactionView(enabled: boolean): void;
+  reactionsShown(): boolean;
+  holdScreen(): void;
+  releaseScreen(): void;
+  showWorkspace(mode: '2d' | '3d'): void;
   /** Select these members, in this order, as clicking them one after another would. */
   selectElements(ids: number[]): void;
   /** Select these nodes, in this order, as clicking them one after another would. */
@@ -690,6 +703,16 @@ export function installE2EHooks(): void {
     diagramType: () => String(resultsStore.diagramType),
     /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
     hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
+    screenFrame: () => {
+      const canvas = document.querySelector<HTMLCanvasElement>('.viewport2d-wrapper canvas[data-painted-diagram]');
+      const diagram = canvas?.dataset.paintedDiagram ?? 'none';
+      return { drawn: diagram !== 'none', held: canvas?.dataset.paintedHeld === 'true', diagram,
+        maxMoment: diagram === 'moment' ? Number(canvas?.dataset.paintedPeak) : null };
+    },
+    freshMaxMoment: () => {
+      const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
+      return r && typeof r !== 'string' ? response2D(r).moment : null;
+    },
     verticalReaction3D: () => resultsStore.results3D?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0) ?? null,
     verticalReaction2D: () => resultsStore.results?.reactions.reduce((sum, reaction) => sum + reaction.rz, 0) ?? null,
     cameraState: () => readCamera(),
@@ -712,6 +735,10 @@ export function installE2EHooks(): void {
     currentTool: () => String(uiStore.currentTool),
     memberAxialForces: () =>
       resultsStore.results ? resultsStore.results.elementForces.map((f) => ({ id: f.elementId, n: f.nStart })).sort((a, b) => a.id - b.id) : null,
+    nodeDisplacement: (id: number) => {
+      const d = resultsStore.results?.displacements.find((x) => x.nodeId === id);
+      return d ? { ux: d.ux, uz: d.uz } : null;
+    },
     elementEnds: (elementId: number) => {
       const e = modelStore.elements.get(elementId);
       return e ? { i: e.nodeI, j: e.nodeJ } : null;
@@ -937,6 +964,12 @@ export function installE2EHooks(): void {
     },
     combineCases: (name: string) =>
       modelStore.addCombination(name, modelStore.model.loadCases.map((c) => ({ caseId: c.id, factor: 1 }))),
+    showWorkspace: mode => { uiStore.analysisMode = mode; },
+    setLiveCalc: enabled => { uiStore.liveCalc = enabled; },
+    setReactionView: enabled => { resultsStore.diagramType = 'none'; resultsStore.showReactions = enabled; },
+    reactionsShown: () => resultsStore.showReactions,
+    holdScreen: () => resultsStore.clear({ keepScreen: true }),
+    releaseScreen: () => resultsStore.releaseScreen(),
     selectElements: (ids: number[]) => {
       uiStore.selectMode = 'elements';
       ids.forEach((id, i) => uiStore.selectElement(id, i > 0));

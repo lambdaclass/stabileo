@@ -9,6 +9,7 @@
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import type { StepDoc, Txt } from '../engine/steps/doc';
+import { tp } from '../i18n';
 import { tx } from '../engine/steps/doc';
 import type { MethodContext, ExplainedMethod } from '../engine/steps/registry';
 import type { planeModel } from '../engine/steps/plane-model';
@@ -48,6 +49,8 @@ let step = $state(0);
 let returnToCatalog = $state(false);
 /** A document opened from an analysis rather than the catalog: going back closes it, back to that analysis. */
 let fromTool = $state(false);
+/** The catalog group to open and bring into view when the catalog is opened at one. */
+let catalogFocus = $state<string | null>(null);
 
 /** The reader's choices of each method's assumptions, by method id (kept while the session lasts). */
 let options = $state<Record<string, Record<string, boolean>>>({});
@@ -87,12 +90,20 @@ function optionsOf(id: string): Record<string, boolean> {
 
 function build(id: string): void {
   const m = methodById(id);
+  view = 'doc';
   doc = null; error = null;
   if (!m?.build) { error = tx('steps.view.failed'); return; }
   const ctx = methodContext(id);
   if (!ctx) { error = tx('steps.catalog.emptyModel'); return; }
   const ok = m.applies(ctx);
-  if (!ok.ok) { error = ok.reason; return; }
+  if (!ok.ok) {
+    error = ok.reason;
+    if (fromTool && ok.issue) {
+      view = null;
+      uiStore.toast(tp(ok.reason.key, ok.reason.params), 'error');
+    }
+    return;
+  }
   try {
     doc = stepDocIn(m.build(ctx), axesStore.frame);
   } catch (e) {
@@ -118,14 +129,21 @@ export const explainedSteps = {
     return view === 'doc' && (builtAt !== modelStore.modelVersion || builtWithSelfWeight !== uiStore.includeSelfWeight || builtAxes !== axesKey());
   },
 
-  openCatalog(): void { view = 'catalog'; methodId = null; doc = null; error = null; returnToCatalog = false; },
+  openCatalog(focus: string | null = null): void { view = 'catalog'; methodId = null; doc = null; error = null; returnToCatalog = false; catalogFocus = focus; },
+  get catalogFocus() { return catalogFocus; },
+  /** Back to the catalog the reader came from, at the topic it was opened at. */
+  reopenCatalog(): void { this.openCatalog(catalogFocus); },
   get returnToCatalog() { return returnToCatalog; },
   /** A wizard is being opened from the catalog (the catalog itself closes). */
-  leaveForWizard(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = true; },
+  leaveForWizard(toCatalog = true): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = toCatalog; },
   openMethod(id: string, opener: 'catalog' | 'tool' = 'catalog'): void {
-    fromTool = opener === 'tool'; methodId = id; view = 'doc'; doc = null; error = null;
+    fromTool = opener === 'tool'; methodId = id; view = fromTool ? null : 'doc'; doc = null; error = null;
     if (course) { build(id); return; }
-    loadCourse().then(() => { if (methodId === id && view === 'doc') build(id); }, () => { if (methodId === id) error = tx('steps.view.failed'); });
+    loadCourse().then(() => {
+      if (methodId === id) build(id);
+    }, () => {
+      if (methodId === id) { view = 'doc'; error = tx('steps.view.failed'); }
+    });
   },
   refresh(): void { if (methodId) build(methodId); },
   /** The open method's assumptions, as shown over its document. */
@@ -148,7 +166,7 @@ export const explainedSteps = {
     build(methodId);
     this.step = keep;
   },
-  back(): void { if (fromTool) this.close(); else this.openCatalog(); },
+  back(): void { if (fromTool) this.close(); else this.reopenCatalog(); },
   get fromTool() { return fromTool; },
-  close(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = false; fromTool = false; },
+  close(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = false; fromTool = false; catalogFocus = null; },
 };

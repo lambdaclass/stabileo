@@ -227,7 +227,7 @@
   let wizardOnlyWasOpen = false;
   $effect(() => {
     const w = dsmStepsStore.isOpen || fmStepsStore.isOpen;
-    if (!w && wizardOnlyWasOpen && untrack(() => explainedSteps.returnToCatalog)) explainedSteps.openCatalog();
+    if (!w && wizardOnlyWasOpen && untrack(() => explainedSteps.returnToCatalog)) explainedSteps.reopenCatalog();
     wizardOnlyWasOpen = w;
   });
 
@@ -408,6 +408,7 @@
   import { whatIf } from './lib/store/whatif.svelte';
   import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
+  import { liveCalcFollowsEdits } from './lib/engine/live-calc-state';
   import SiteHeader from './components/site/SiteHeader.svelte';
   import PublicPending from './components/site/PublicPending.svelte';
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
@@ -1145,8 +1146,12 @@
     }, 30_000);
 
     // Mobile responsive: track window width
-    uiStore.windowWidth = window.innerWidth;
-    const onResize = () => { uiStore.windowWidth = window.innerWidth; };
+    const onResize = () => {
+      uiStore.windowWidth = window.innerWidth;
+      uiStore.windowHeight = window.innerHeight;
+      uiStore.coarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+    };
+    onResize();
     window.addEventListener('resize', onResize);
 
     // Listen for PNG export event from Toolbar
@@ -1272,24 +1277,26 @@
 
       const prevDiagram = resultsStore.diagramType;
       uiStore.liveCalcError = null;
+      const solveFollows = liveCalcFollowsEdits(_lc, _mode);
 
-      // Only clear stale results when model or mode actually changed
       if (modelChanged) {
         if (resultsStore.results || resultsStore.results3D) {
-          resultsStore.clear();
+          resultsStore.clear({ keepScreen: solveFollows });
         }
       }
 
-      // If live calc is ON, debounce the auto-solve to avoid firing on every
-      // tiny model mutation while the user is dragging or typing.
       // Manual solve (runGlobalSolve) remains immediate and cancels any pending debounce.
-      if (_lc && _mode !== 'pro' && _mode !== 'edu') {
-        cancelPendingLiveCalc();
-        const delay = !is3DWorkspace(_mode) ? 120 : 200;
+      cancelPendingLiveCalc();
+      const currentExploreResult = whatIf.active && !modelChanged && (is3DWorkspace(_mode) ? resultsStore.results3D : resultsStore.results);
+      if (solveFollows && !currentExploreResult) {
+        // Explore paces its own edits to the solves (whatif.svelte.ts), so its re-solve starts at once.
+        const delay = whatIf.active ? 0 : !is3DWorkspace(_mode) ? 120 : 200;
         liveCalcTimer = setTimeout(() => {
           liveCalcTimer = null;
           runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
         }, delay);
+      } else if (!solveFollows) {
+        resultsStore.releaseScreen();
       }
     });
 
@@ -1672,7 +1679,7 @@
         assistant specifically because the two answer the same impulse, "I am
         stuck", one automatically and one with a person on the other end.
       -->
-      {#if uiStore.appMode === 'pro'}<ProSaveStatus /><ProVideosOffer />{/if}
+      {#if uiStore.appMode === 'pro'}{#if !uiStore.compactTabs}<ProSaveStatus />{/if}<ProVideosOffer />{/if}
       <ContactMenu />
 
       <!--
@@ -4317,11 +4324,11 @@
      its title and aria-label. Nothing is hidden that was not also said
      another way.
   */
-  @media (max-width: 460px) {
+  @media (max-width: 640px) {
     .logo-text { display: none; }
   }
 
-  @media (max-width: 410px) {
+  @media (max-width: 540px) {
     .ai-word { display: none; }
     .btn-ai { width: 32px; padding: 0; justify-content: center; border-radius: 50%; }
 
@@ -4330,9 +4337,17 @@
        The separator is a divider between two groups that are already told
        apart by which edge they sit on.
     */
-    .app-header { gap: 0.4rem; padding-left: 0.375rem; padding-right: 0.375rem; }
+    .app-header { gap: 0.25rem; padding-left: 0.25rem; padding-right: 0.25rem; }
     .separator { display: none; }
-    .header-actions { gap: 0.375rem; }
+    .header-actions { gap: 0.25rem; }
+    .logo { gap: 0.125rem; }
+  }
+
+  @media (max-width: 370px) {
+    .app-header { gap: 0.125rem; }
+    .header-actions { gap: 0.125rem; }
+    .logo { gap: 0; }
+    .mode-select-mobile { padding-left: 6px; padding-right: 19px; background-position: right 6px center; }
   }
 
   /*

@@ -21,6 +21,8 @@ import steelEs from '../locales/steel/es';
 import steelPt from '../locales/steel/pt';
 import { stepsEn, stepsEs, stepsPt } from '../locales/steps';
 import { ALL_DICTS } from '../locales/all';
+import { ensureLocale, i18n, setLocale } from '../index';
+import { mechanismModeMessage } from '../../advanced/mechanism-mode-message';
 
 const merged = {
   en: { ...en, ...steelEn, ...stepsEn } as Record<string, string>,
@@ -116,13 +118,24 @@ describe('German, French and Turkish address the reader formally', () => {
   }
 });
 
-describe('the kinematics plural ending glued to a word', () => {
-  const plural = (d: Record<string, string>, key: string) =>
-    d[key].replaceAll('{n}', '2').replaceAll('{s}', d['kin.plural_s']);
-
-  it('reads as a plural in Spanish and English', () => {
-    expect(plural(es as Record<string, string>, 'kinematic.mechanismDetected')).toBe('✗ Se detectaron 2 modos de mecanismo.');
-    expect(plural(en as Record<string, string>, 'kinematic.mechanismDetected')).toBe('✗ Detected 2 mechanism modes.');
+describe('the number of detected mechanism modes', () => {
+  it.each([
+    ['es', '✗ Se detectó 1 modo de mecanismo', '✗ Se detectaron 2 modos de mecanismo', ' a pesar de que GH = 0 ≥ 0.', '.'],
+    ['pt', '✗ Detectado 1 modo de mecanismo', '✗ Detectados 2 modos de mecanismo', ' apesar de GH = 0 ≥ 0.', '.'],
+    ['en', '✗ Detected 1 mechanism mode', '✗ Detected 2 mechanism modes', ' despite GH = 0 ≥ 0.', '.'],
+    ['zh', '✗ 检测到 1 个机构模态', '✗ 检测到 2 个机构模态', '，尽管 GH = 0 ≥ 0。', '。'],
+  ])('renders one and two modes in both %s panel messages', async (locale, one, two, hiddenEnding, ending) => {
+    const previous = i18n.locale;
+    try {
+      await ensureLocale(locale);
+      setLocale(locale);
+      expect.soft(mechanismModeMessage(1)).toBe(one + ending);
+      expect.soft(mechanismModeMessage(1, 0)).toBe(one + hiddenEnding);
+      expect.soft(mechanismModeMessage(2)).toBe(two + ending);
+      expect.soft(mechanismModeMessage(2, 0)).toBe(two + hiddenEnding);
+    } finally {
+      setLocale(previous);
+    }
   });
 });
 

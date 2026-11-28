@@ -9,9 +9,8 @@
   import PairingNote from './PairingNote.svelte';
   import MaterialPresetSelector from '../MaterialPresetSelector.svelte';
   import type { SteelProfile } from '../../lib/data/steel-profiles';
-  import { commercialDefaultFor, materialFromGrade, findMaterialWithGrade } from '../../lib/data/commercial-default';
+  import { assignMemberProfile } from '../../lib/material/assign-member-profile';
   import type { GradeRegion } from '../../lib/data/structural-grades';
-  import { profileToSectionFull } from '../../lib/data/steel-profiles';
   import type { MaterialPreset } from '../../lib/data/material-presets';
   import type { SectionProperties } from '../../lib/data/section-shapes';
 
@@ -29,54 +28,10 @@
 
   function handleSCProfileSelect(profile: SteelProfile, region?: GradeRegion | null) {
     if (sectionChangerTargetElemId === null) return;
-    const elemId = sectionChangerTargetElemId;
-    const full = profileToSectionFull(profile);
-    const secId = modelStore.addSection({
-      name: profile.name,
-      profileFamily: profile.family,
-      a: full.a,
-      iz: full.iz,
-      iy: full.iy,
-      // The tabulated torsion constant travels too — dropping it left a stale
-      // j behind when a profile replaced another in place.
-      j: full.j,
-      b: full.b,
-      h: full.h,
-      shape: full.shape,
-      tw: full.tw,
-      tf: full.tf,
-      t: full.t,
-    });
-    // One undo step: the section change and the material that comes with it
-    // are one action, and reversing it must be one press.
-    modelStore.batch(() => {
-      modelStore.updateElementSection(elemId, secId);
-      applyCommercialGrade(elemId, profile.family, region);
-    });
+    assignMemberProfile(sectionChangerTargetElemId, profile, region);
     resultsStore.clear();
     showSectionChanger = false;
     sectionChangerTargetElemId = null;
-  }
-
-  /**
-   * Give the member the steel its profile is actually rolled in.
-   *
-   * Only when nobody has chosen one on purpose — see `commercial-default.ts`
-   * for why that is the rule. Reuses an existing material carrying the grade if
-   * the model has one, so a frame of twenty IPN members ends up with one F-24
-   * rather than twenty, and never edits a material in place, since materials
-   * are shared and editing one would change every member made of it.
-   */
-  function applyCommercialGrade(elemId: number, family: string | undefined, region?: GradeRegion | null) {
-    const elem = modelStore.elements.get(elemId);
-    if (!elem) return;
-    const current = modelStore.materials.get(elem.materialId);
-    const grade = commercialDefaultFor(family, current, region);
-    if (!grade) return;
-
-    const existing = findMaterialWithGrade(modelStore.materials.values(), grade.id);
-    const matId = existing ? existing.id : modelStore.addMaterial(materialFromGrade(grade));
-    modelStore.updateElementMaterial(elemId, matId);
   }
 
   function handleSCShapeSelect(name: string, props: SectionProperties) {

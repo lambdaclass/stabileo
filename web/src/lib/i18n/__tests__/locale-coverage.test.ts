@@ -118,3 +118,64 @@ it('#2532 translates the discarded session history warning in every locale dicti
     expect.soft(dict['file.sessionHistoryDiscarded'], code).toContain('{names}');
   }
 });
+
+it('names the Z roller in every support dictionary', () => {
+  for (const [locale, dict] of Object.entries(ALL_DICTS)) {
+    expect(dict['pro.rollerZ'], locale).toBe(dict['pro.rollerY'].replace('Y', 'Z'));
+  }
+});
+
+it('translates Explore, launcher search, mobile tabs and the material form in every offered language', () => {
+  const keys = [
+    ...enKeys.filter(key => key.startsWith('advCat.')),
+    'advCat.search.label', 'advCat.search.placeholder', 'advCat.search.clear', 'advCat.search.results',
+    'advCat.search.empty', 'advCat.search.emptyHint', 'advCat.search.step', 'advCat.search.stepOf',
+    'table.addMaterial', 'tabBar.tabs', 'tabBar.switcher', 'tabBar.renameTab',
+    'tabBar.tabName', 'whatif.atPlace', 'whatif.alongMember', 'whatif.show',
+    'whatif.node', 'whatif.member', 'whatif.elements', 'whatif.showResults', 'whatif.showLoads', 'whatif.nodes', 'whatif.noLoads',
+    'whatif.noSupports', 'whatif.factor', 'whatif.position', 'whatif.atNode',
+    'whatif.pickMember', 'whatif.pickNode', 'whatif.manyNodes', 'whatif.supportN',
+    'whatif.supportType', 'whatif.paint', 'whatif.paint.axial', 'whatif.paint.moment',
+    'whatif.paint.ratio', 'whatif.resp.delta', 'whatif.resp.momentResultant', 'whatif.resp.shearResultant',
+    'whatif.invalidPlacement', 'whatif.resp.moment', 'whatif.resp.shear', 'whatif.resp.axial',
+    'whatif.resp.reaction', 'whatif.resp.original', 'whatif.resp.now', 'matEdit.nameLabel',
+    'matEdit.e', 'matEdit.nu', 'matEdit.gamma', 'matEdit.fy',
+    'matEdit.alpha', 'matEdit.extra', 'matEdit.fyHelp', 'matEdit.save',
+    'matEdit.delete', 'matEdit.invent', 'materials.alphaInvalid',
+    'materials.workbookAlphaInvalid', 'whatif.nodeTag', 'whatif.memberTag', 'whatif.thermalTerm',
+    'materials.alphaHelp', 'whatif.paint.axialUnavailable', 'whatif.resp.momentBound', 'whatif.resp.shearBound',
+  ];
+  for (const [locale, dict] of Object.entries(ALL_DICTS)) {
+    for (const key of keys) expect.soft(dict[key]?.trim(), locale + ' ' + key).toBeTruthy();
+    expect.soft(dict['materials.alphaHelp'], locale).toMatch(/12.*12/);
+  }
+});
+
+it('keeps the mode count and hidden-mechanism degree in both forms in every dictionary', () => {
+  for (const [locale, dict] of Object.entries(ALL_DICTS)) {
+    for (const suffix of ['', 'Plural']) {
+      expect(names(dict['kinematic.mechanismDetected' + suffix]).sort(), locale).toEqual(['n']);
+      expect(names(dict['kinematic.hiddenMechanism' + suffix]).sort(), locale).toEqual(['degree', 'n']);
+    }
+  }
+});
+
+it('counts mechanism modes in Chinese without a Latin plural suffix', () => {
+  for (const key of ['kinematic.hiddenMechanism','kinematic.mechanismDetected']) expect(ALL_DICTS.zh[key]).not.toContain('{s}');
+});
+
+it.each(['custom-thermal-family', 'signed-thermal-expansion', 'invalid-thermal-coefficient'])('explains %s in every dictionary language', id => {
+  const entry = JSON.parse(readFileSync(join(import.meta.dirname, '../../provenance/result-changes', id + '.json'), 'utf8'));
+  for (const locale of Object.keys(ALL_DICTS)) for (const field of ['title', 'explanation']) {
+    expect.soft(entry[field][locale]?.trim(), locale + ' ' + field).toBeTruthy();
+    if (locale !== 'en') expect.soft(entry[field][locale]).not.toBe(entry[field].en);
+  }
+});
+
+it('names the placement modes, groups and numbered destinations in every language', () => {
+  for (const [locale, dict] of Object.entries(ALL_DICTS)) {
+    expect.soft(dict['whatif.elements']?.trim(), locale).toBeTruthy();
+    for (const key of ['whatif.node', 'whatif.member']) expect.soft(dict[key], locale + key).toContain('{n}');
+    expect.soft(dict['whatif.atPlace'], locale).not.toBe(dict['whatif.position']);
+  }
+});

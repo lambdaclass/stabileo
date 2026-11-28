@@ -9,11 +9,12 @@
  * the stiffness method.
  */
 import { test, expect, type Page } from './fixtures';
+import { openStepsCatalog, expandStepsCatalog } from './advanced-panel';
 
 /** Open a method from the "Explained step by step" catalog in the Advanced panel. */
 async function openMethod(page: Page, id: 'dsm' | 'fm') {
-  await page.getByTestId('rb-cmd-advanced').click();
-  await page.getByTestId('adv-steps').click();
+  await openStepsCatalog(page);
+  await expandStepsCatalog(page);
   await page.getByTestId(`steps-open-${id}`).click();
 }
 
@@ -28,11 +29,10 @@ test.describe('@slow the flexibility-method walkthrough', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
 
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.getByTestId('adv-steps').click();
-    await expect(page.getByTestId('steps-catalog')).toBeVisible();
+    await openStepsCatalog(page);
+    await expandStepsCatalog(page);
     /* Listed right after the stiffness method, as its own group. */
-    const groups = await page.locator('[data-testid^=steps-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
+    const groups = await page.locator('section[data-testid^=steps-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
     expect(groups.slice(0, 2)).toEqual(['steps-group-stiffness', 'steps-group-flexibility']);
     await page.getByTestId('steps-open-fm').click();
     const wizard = page.getByTestId('fm-wizard');

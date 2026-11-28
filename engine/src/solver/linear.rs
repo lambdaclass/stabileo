@@ -3796,9 +3796,6 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
         if !finite {
             return Err("Load contains non-finite (NaN/Inf) values".to_string());
         }
-        if let SolverLoad3D::Thermal(l) = load {
-            crate::types::check_frame_thermal_inputs(l.element_id, l.alpha, &[("depthY", l.depth_y), ("depthZ", l.depth_z)])?;
-        }
     }
     for e in crate::ordered::values(&input.elements) {
         if [e.local_yx, e.local_yy, e.local_yz, e.roll_angle].into_iter().flatten().any(|v| !v.is_finite()) {
@@ -4052,8 +4049,15 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
 
     // As `validate_loads_2d`: prepared solves check the thermal properties here (#407).
     for load in loads {
-        if let SolverLoad3D::Thermal(l) = load {
-            crate::types::check_frame_thermal_inputs(l.element_id, l.alpha, &[("depthY", l.depth_y), ("depthZ", l.depth_z)])?;
+        match load {
+            SolverLoad3D::Thermal(l) => {
+                crate::types::check_frame_thermal_inputs(l.element_id, l.alpha, &[("depthY", l.depth_y), ("depthZ", l.depth_z)])?;
+            }
+            SolverLoad3D::PlateThermal(l) | SolverLoad3D::QuadThermal(l)
+            | SolverLoad3D::Quad9Thermal(l) | SolverLoad3D::CurvedShellThermal(l) => {
+                crate::types::check_thermal_coefficient(l.element_id, l.alpha)?;
+            }
+            _ => {}
         }
     }
     let element_map: std::collections::HashMap<_, _> = crate::ordered::values(&input.elements).map(|e| (e.id,e)).collect();

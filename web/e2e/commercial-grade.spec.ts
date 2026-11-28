@@ -32,10 +32,18 @@ async function openBasic(page: Page) {
     .toBe(true);
 }
 
-async function loadFrame(page: Page) {
+async function loadFrame(page: Page, automatic = true) {
   await page.evaluate(() =>
     (window as never as { __stabileoActions: { loadExample(n: string): Promise<void> } })
       .__stabileoActions.loadExample('two-story-frame'));
+  const opened = await page.evaluate(automatic => {
+    const file = JSON.parse(window.__stabileo.serializeProject());
+    if (automatic) {
+      for (const [, member] of file.snapshot.elements) member.materialId = 1;
+    }
+    return window.__stabileoActions.loadProject(file);
+  }, automatic);
+  expect(opened).toBe(true);
   await page.waitForTimeout(800);
 }
 
@@ -120,6 +128,20 @@ test.describe('the steel a profile arrives in', () => {
     const after = await materialNames(page);
     expect(after).toContain('F-24');
     expect(after.filter((n) => n === 'F-24')).toHaveLength(1);
+  });
+
+  test('@smoke a shared section keeps the legacy material of every member using it', async ({ page }) => {
+    await openBasic(page);
+    await loadFrame(page, false);
+    const project = () => page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot);
+    const before = await project();
+    const ids = before.elements.map(([, e]) => e.materialId);
+    expect(before.materials.find(([id]) => id === ids[0])[1].userDefined).toBeUndefined();
+    await chooseProfileForSharedSection(page, /CIRSOC/, 5);
+    const after = await project();
+    expect(after.sections).not.toEqual(before.sections);
+    expect(after.elements.map(([, e]) => e.materialId)).toEqual(ids);
+    expect(after.materials).toEqual(before.materials);
   });
 
   test('it is one undo step, not one per member', async ({ page }) => {

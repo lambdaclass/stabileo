@@ -7,6 +7,8 @@
  * store in the engine's shape, so the solve can read them.
  */
 import { describe, it, expect, afterEach, beforeAll } from 'vitest';
+import { assignMemberProfile } from '../../material/assign-member-profile';
+import { PROFILE_FAMILIES } from '../../data/steel-profiles';
 import { applyWorkbook } from '../apply';
 import { modelStore, uiStore } from '../../store';
 import { initSolver } from '../../engine/wasm-solver';
@@ -27,6 +29,19 @@ const before = uiStore.analysisMode;
 afterEach(() => { uiStore.analysisMode = before; });
 
 describe('an Excel import in PRO', () => {
+  it.each(['2d', '3d', 'pro'] as const)('keeps the workbook material with the seed name and modulus in %s', mode => {
+    uiStore.analysisMode = mode;
+    for (const e of [200000, 173219]) {
+      const workbook = portal();
+      workbook.Materials = aoa(['id', 'name', 'E [MPa]', 'nu', 'rho [kN/m³]'], [1, 'Acero A36', e, 0.27, 76]);
+      expect(applyWorkbook(workbook).problems).toEqual([]);
+      const member = [...modelStore.elements.values()][0]!;
+      assignMemberProfile(member.id, PROFILE_FAMILIES.IPN[0]!, 'AR');
+      const assigned = modelStore.elements.get(member.id)!;
+      expect(modelStore.materials.get(assigned.materialId)).toMatchObject({ name: 'Acero A36', e, nu: 0.27, rho: 76 });
+    }
+  });
+
   it('shows a flat workbook standing on X–Z', () => {
     uiStore.analysisMode = 'pro';
     const out = applyWorkbook(portal());

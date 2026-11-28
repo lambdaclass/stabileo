@@ -126,6 +126,8 @@ export interface Material {
    * reads this should warn about its absence.
    */
   gradeId?: string;
+  /** Entered by the user's own numbers: as deliberate as a catalogued grade, so a profile never swaps it. */
+  userDefined?: boolean;
   /** Timber reference design values, MPa: the material is timber and is designed by CIRSOC 601. */
   timber?: import('../engine/design/materials/timber').TimberReference;
   /**
@@ -381,6 +383,10 @@ export function jointHasRelease(j: Joint3D | undefined): boolean {
 
 import type { ProvidedReinforcement } from '../design-contract/reinforcement';
 export type { RebarGroup, RebarLayer, StirrupDef, LongBarGroup, BeamContinuity, BeamRegions, ColumnReinforcement, ProvidedReinforcement } from '../design-contract/reinforcement';
+
+export function isInteriorSplit(t: number): boolean {
+  return t > 1e-9 && t < 1 - 1e-9;
+}
 
 export interface Element extends Element3DMetadata {
   id: number;
@@ -1405,6 +1411,7 @@ function createModelStore() {
   const defaultMaterial: Material = {
     id: 1,
     name: 'Acero A36',
+    userDefined: false,
     e: 200000,
     nu: 0.3,
     rho: 78.5,
@@ -1461,7 +1468,7 @@ function createModelStore() {
   let _onFoundationChange: (() => void) | null = null;
   let _undoBatching = false;
   // Results invalidation callback — set externally by store/index.ts to clear stale results
-  let _onMutation: (() => void) | null = null;
+  let _onMutation: ((discardScreen?: boolean) => void) | null = null;
   /** Run before an analysis reads the model's loads (`defined-loads.ts`: a pending rewrite). */
   let _beforeAnalysisInput: (() => void) | null = null;
   /** Called when the whole model is replaced (restore, clear): state about the old one goes. */
@@ -1511,7 +1518,7 @@ function createModelStore() {
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
     if (!ni || !nj) return null;
-    const raw = [...new Set(ts)].filter((t) => t > 1e-9 && t < 1 - 1e-9).sort((a, b) => a - b);
+    const raw = [...new Set(ts)].filter(isInteriorSplit).sort((a, b) => a - b);
     /*
      * Each cut, with the node it reuses. An existing node is reused within `reuseNodeTol` per
      * axis, but never further than half the way to the neighbouring cut or end: the weld boxes
@@ -1781,7 +1788,7 @@ function createModelStore() {
     _setOnDesignChange(fn: () => void) { _onDesignChange = fn; },
 
     /** Register a callback to be called on every model mutation (used to clear stale results) */
-    _setOnMutation(fn: () => void) { _onMutation = fn; },
+    _setOnMutation(fn: (discardScreen?: boolean) => void) { _onMutation = fn; },
     _setBeforeAnalysisInput(fn: () => void) { _beforeAnalysisInput = fn; },
     _setOnReplaced(fn: () => void) { _onReplaced = fn; },
     _setOnNewProject(fn: () => void) { _onNewProject = fn; },
@@ -2102,7 +2109,7 @@ function createModelStore() {
     },
 
     /** Increment modelVersion to signal model changed (used by historyStore for direct mutations) */
-    bumpModelVersion() { modelVersion++; _onMutation?.(); },
+    bumpModelVersion(discardScreen = false) { modelVersion++; _onMutation?.(discardScreen); },
 
     /**
      * Run multiple mutations as a single undo step.
@@ -2120,10 +2127,10 @@ function createModelStore() {
      * so it reads under the current rules (the self-weight migration). Undoing past them would
      * bring back a model the app then fixes again, pushing a new step and clearing redo.
      */
-    withoutUndo(fn: () => void): void {
-      if (_undoBatching) { fn(); return; }
+    withoutUndo<T>(fn: () => T): T {
+      if (_undoBatching) return fn();
       _undoBatching = true;
-      try { fn(); } finally { _undoBatching = false; }
+      try { return fn(); } finally { _undoBatching = false; }
     },
 
     /**
@@ -4738,7 +4745,7 @@ function createModelStore() {
       };
     },
 
-    async loadExample(name: string, fixture?: () => Promise<unknown>, opts: {
+    async loadExample(name: string, fixture?: () => Promise<unknown>, options: {
       keepCombinations?: boolean;
       defaults?: { material: Material; section: Section };
     } = {}): Promise<void> {
@@ -4751,11 +4758,20 @@ function createModelStore() {
       // [] for the example's own rule: the example solved without its self-weight.
       const json = await loader() as JSONModel;
       validateFixtureReferences(json);
+      const seed = options.defaults ? { ...options.defaults.material, id: defaultMaterial.id } : defaultMaterial;
+      const first = json.materials.find(m => m.id === seed.id && m.name === seed.name && m.e === seed.e);
+      const useDefault = first && (options.defaults || !fixture) && Object.entries(first).every(([key, value]) => seed[key as keyof Material] === value);
+      const authored = first && !useDefault && typeof first.nu === 'number' && typeof first.rho === 'number'
+        ? { ...first, name: seed.name, e: seed.e, nu: first.nu, rho: first.rho } : undefined;
+      const opts = { ...options, firstMaterialInstalled: !!(useDefault || authored) };
       this.batch(() => {
         this.clear();
         if (opts.defaults) {
-          model.materials.set(1, structuredClone(opts.defaults.material));
+          model.materials.set(seed.id, structuredClone(seed));
           model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
+        }
+        if (authored) {
+          model.materials.set(authored.id, authored);
         }
         loadFixture(json, this.fixtureApi() as any, opts);
 
@@ -4815,12 +4831,16 @@ function createModelStore() {
       return id;
     },
 
-    updateMaterial(id: number, data: Partial<Omit<Material, 'id'>>): void {
+    updateMaterial(id: number, change: Partial<Omit<Material, 'id'>> | { replacement: Omit<Material, 'id'> }): void {
       if (!_undoBatching) _pushUndo?.();
       const mat = model.materials.get(id);
       if (!mat) return;
       const m = new Map(model.materials);
-      m.set(id, { ...mat, ...data, id });
+      const data = 'replacement' in change ? change.replacement : change;
+      const updated = 'replacement' in change ? { ...change.replacement, id } : { ...mat, ...data, id };
+      if (!('replacement' in change) && mat.userDefined !== true && Object.entries(change)
+        .some(([key, value]) => key !== 'name' && key !== 'alpha' && value !== mat[key as keyof Material])) updated.userDefined = true;
+      m.set(id, updated);
       model.materials = m;
       // A composite drawn section stores the parts' ratios to its reference: re-read them, or it
       // keeps the stiffness of the material as it was when the section was drawn.
@@ -4836,7 +4856,7 @@ function createModelStore() {
         }
         if (touched) model.sections = secs;
       }
-      this.bumpModelVersion();
+      this.bumpModelVersion(updated.alpha !== mat.alpha);
     },
 
     removeMaterial(id: number): boolean {

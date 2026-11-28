@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { modelStore, resultsStore, uiStore } from '../../store';
+import { modelStore, resultsStore } from '../../store';
 import { currentScopeRef } from '../../store/result-provenance';
-import { initSolver } from '../../engine/wasm-solver';
+import { solvedPortal } from '../../pro/__tests__/solved-report-portal';
+import { initSolver, solvePDelta3D } from '../../engine/wasm-solver';
 import { buildProReportData } from '../../engine/pro-report-inputs';
 import { generateReportHtml, type ReportConfig } from '../../engine/pro-report';
 import { comparePrintedReport, reproduceStatus } from '../reproduce';
@@ -9,24 +10,6 @@ import { printedTables } from '../../engine/report/printed-values';
 import { i18n, setLocale, ensureLocale, t } from '../../i18n';
 
 beforeAll(async () => { await initSolver(); });
-
-function solvedPortal(): void {
-  uiStore.analysisMode = 'pro';
-  modelStore.clear(); resultsStore.clear();
-  for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
-  for (const c of [...modelStore.model.loadCases].filter((c) => c.id > 1)) modelStore.removeLoadCase(c.id);
-  const w = modelStore.addLoadCase('W', 'W');
-  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3), c = modelStore.addNode(5, 0, 3), d = modelStore.addNode(5, 0, 0);
-  modelStore.addElement(a, b); modelStore.addElement(b, c); modelStore.addElement(c, d);
-  modelStore.addSupport(a, 'fixed3d' as never); modelStore.addSupport(d, 'fixed3d' as never);
-  modelStore.addNodalLoad3D(b, 0, 0, -20, 0, 0, 0, 1);
-  modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0, w);
-  modelStore.addCombination('1.4 D', [{ caseId: 1, factor: 1.4 }]);
-  modelStore.addCombination('1.2 D + 1.6 W', [{ caseId: 1, factor: 1.2 }, { caseId: w, factor: 1.6 }]);
-  const r = modelStore.solveCombinations3D(false, false, true);
-  if (!r || typeof r === 'string') throw new Error(String(r));
-  resultsStore.setCombinationResults3D(r.perCase, r.perCombo, r.envelope);
-}
 
 const config = (resultSetKey: string): ReportConfig => ({
   companyName: '', companyLogo: null, resultSetKey,
@@ -122,23 +105,44 @@ describe('checking a report value by value', () => {
     expect(own.differences).toEqual([]);
   });
 
-  it('a report printed from the screen sum is compared while the same view is on screen, never as the single solve', () => {
+  it('prints the actual all-loads reactions and records the arithmetic used for reproduction', async () => {
+    const { currentResultProvenance } = await import('../../store/result-provenance');
     resultsStore.activeView = 'single';
     resultsStore.activeCaseId = null;
+    const data = buildProReportData({ config: config('screen'), t });
+    expect(data?.results.reactions.reduce((sum, r) => sum + r.fx, 0)).toBeCloseTo(-10, 6);
+    expect(currentResultProvenance().baseSolveMethod).toBe('case-superposition');
+    const screen = generateReportHtml(data!);
+    expect(comparePrintedReport(screen, currentScopeRef())).toMatchObject({ differences: [], structural: [] });
+    resultsStore.activeCaseId = 1;
+    expect(comparePrintedReport(screen, { kind: 'single' })).toBeNull();
+    resultsStore.activeCaseId = null;
+    const restored = buildProReportData({ config: config('screen'), t });
+    expect(restored?.results.reactions.reduce((sum, r) => sum + r.fx, 0)).toBeCloseTo(-10, 6);
+    expect(comparePrintedReport(screen, currentScopeRef())).toMatchObject({ differences: [], structural: [] });
+  });
+
+  it('a report of the displayed second-order solution is compared only while that solution is shown', () => {
+    resultsStore.activeView = 'single';
+    resultsStore.activeCaseId = null;
+    const input = modelStore.buildSolverInput3D(false, false)!;
+    const secondOrder = solvePDelta3D(input);
+    expect(secondOrder.converged).toBe(true);
+    resultsStore.setPDeltaResult3D(secondOrder);
     const screen = generateReportHtml(buildProReportData({ config: config('screen'), t })!);
     expect(comparePrintedReport(screen, { kind: 'combo', id: modelStore.combinations[0]!.id })).toBeNull();
     expect(resultsStore.singleResults3D).not.toBe(resultsStore.results3D);
     expect(comparePrintedReport(screen, { kind: 'single' })).toBeNull();
-    const sum = currentScopeRef();
-    expect(sum.kind).toBe('other');
-    const own = comparePrintedReport(screen, sum)!;
+    const scope = currentScopeRef();
+    expect(scope.kind).toBe('other');
+    const own = comparePrintedReport(screen, scope)!;
     expect(own.compared).toBeGreaterThan(10);
     expect(own.differences).toEqual([]);
     expect(own.structural).toEqual([]);
     const reactions = printedTables(screen).find((p) => p.key === 'reactions')!;
     const forged = screen.replace(`<td class="num">${reactions.rows[0]!.cells[2]!}</td>`, '<td class="num">10.10</td>');
     expect(forged).not.toBe(screen);
-    expect(comparePrintedReport(forged, sum)!.differences.length).toBeGreaterThan(0);
+    expect(comparePrintedReport(forged, scope)!.differences.length).toBeGreaterThan(0);
     expect(comparePrintedReport(screen, { kind: 'other', label: 'another view' })).toBeNull();
   });
 

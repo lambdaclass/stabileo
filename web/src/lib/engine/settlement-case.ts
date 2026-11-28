@@ -19,6 +19,7 @@
  * The settlement case is kept in `perCase` under `SETTLEMENT_CASE_ID`, which no load case can
  * have, so a reader can show what the settlement alone does.
  */
+import { SETTLEMENT_CASE_ID } from './combination-sources';
 import { combineResults, combineResults3D, computeEnvelope, computeEnvelope3D } from './wasm-solver';
 import { enrichComboShellStresses, type PlateThickness } from './shell-combos';
 import { postProcessShellStresses } from './solver-shells';
@@ -29,7 +30,7 @@ import type { AnalysisResults, FullEnvelope } from './types';
  * The case id the settlement is published under: one no load case will reach (they count up
  * from 1). Not negative, because the engine's combiner takes case ids as unsigned.
  */
-export const SETTLEMENT_CASE_ID = 2 ** 31 - 1;
+export { SETTLEMENT_CASE_ID } from './combination-sources';
 
 /** A result case's name: its load case's, or the settlement case's. */
 export function resultCaseName(id: number, loadCases: ReadonlyArray<{ id: number; name: string }>, settlementName: string, fallback: string): string {

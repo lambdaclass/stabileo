@@ -288,13 +288,17 @@ fn the_end_to_end_certificate_rejects_a_result_that_ignores_alpha() {
 
 #[test]
 fn implausible_alpha_or_depth_is_rejected() {
-    for bad in [json!({"alpha": 12.0}), json!({"alpha": -1e-5}), json!({"depth": 0.0}), json!({"depth": -0.3})] {
+    for bad in [json!({"alpha": 12.0}), json!({"alpha": -1e-3}), json!({"alpha": -0.0011}), json!({"alpha": 1e-3}), json!({"depth": 0.0}), json!({"depth": -0.3})] {
         let mut t = json!({"dtUniform": 10.0, "dtGradient": 5.0});
         for (k, v) in bad.as_object().unwrap() {
             t[k] = v.clone();
         }
         let e = solve_2d(&fixed_2d(1, 5.0, STEEL, 0.01, 1e-4, "frame", t.clone())).unwrap_err();
         assert!(e.contains("Thermal load on element 1"), "{t}: {e}");
+    }
+    for alpha in [-0.0011, -0.001, 0.001, 0.0011] {
+        let e = solve_3d(&fixed_3d(STEEL, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 1.0, "dtGradientY": 0.0, "dtGradientZ": 0.0, "alpha": alpha}))).unwrap_err();
+        assert!(e.contains("alpha"), "{e}");
     }
     let e = solve_3d(&fixed_3d(STEEL, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 0.0, "dtGradientY": 1.0, "dtGradientZ": 0.0, "depthY": -1.0}))).unwrap_err();
     assert!(e.contains("depthY"), "{e}");
@@ -317,16 +321,19 @@ fn prepared_solves_refuse_invalid_thermal_properties() {
     let model = fixed_2d(2, 4.0, 200_000.0, 0.01, 1e-4, "frame", json!({"dtUniform": 0.0, "dtGradient": 0.0}));
     let unloaded = SolverInput { loads: vec![], ..model };
     let prepared = prepare_static_2d(&unloaded).unwrap();
-    for (alpha, depth) in [(Some(12.0), None), (None, Some(0.0)), (Some(-1e-5), None)] {
+    for (alpha, depth) in [(Some(f64::NAN), None), (Some(12.0), None), (None, Some(0.0)), (Some(-1e-3), None), (Some(-0.0011), None), (Some(1e-3), None)] {
         let load = SolverLoad::Thermal(SolverThermalLoad { element_id: 1, dt_uniform: 10.0, dt_gradient: 5.0, alpha, depth });
-        assert!(prepared.solve_loads(&[load]).is_err(), "2D alpha {alpha:?} depth {depth:?} solved");
+        let error = prepared.solve_loads(&[load]).unwrap_err();
+        assert!(error.contains(if alpha.is_some() { "alpha" } else { "depth" }), "{error}");
     }
     let model = fixed_3d(200_000.0, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 0.0, "dtGradientY": 0.0, "dtGradientZ": 0.0}));
     let unloaded = SolverInput3D { loads: vec![], ..model };
     let prepared = prepare_static_3d(&unloaded).unwrap();
-    for (alpha, dy, dz) in [(Some(12.0), None, None), (None, Some(0.0), None), (None, None, Some(-0.3))] {
+    for (alpha, dy, dz) in [(Some(f64::NAN), None, None), (Some(12.0), None, None), (Some(-1e-3), None, None), (Some(-0.0011), None, None), (Some(1e-3), None, None), (None, Some(0.0), None), (None, None, Some(-0.3))] {
         let load = SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: 1, dt_uniform: 10.0, dt_gradient_y: 5.0, dt_gradient_z: 5.0, alpha, depth_y: dy, depth_z: dz });
-        assert!(prepared.solve_loads(&[load]).is_err(), "3D alpha {alpha:?} depths {dy:?} {dz:?} solved");
+        let error = prepared.solve_loads(&[load]).unwrap_err();
+        let field = if alpha.is_some() { "alpha" } else if dy.is_some() { "depthY" } else { "depthZ" };
+        assert!(error.contains(field), "{error}");
     }
 }
 
@@ -343,4 +350,80 @@ fn a_positive_y_gradient_heats_the_minus_y_face_and_a_positive_z_gradient_the_pl
     assert!(uy > 0.0 && uz.abs() < 1e-12 * uy, "the hot −y face lengthens and the tip moves to +y: {uy}, {uz}");
     let (uy, uz) = tip(json!({"dtUniform": 0.0, "dtGradientY": 0.0, "dtGradientZ": 10.0, "alpha": 12e-6, "depthY": 0.3, "depthZ": 0.3}));
     assert!(uz < 0.0 && uy.abs() < 1e-12 * uz.abs(), "the hot +z face lengthens and the tip moves to −z: {uy}, {uz}");
+}
+
+#[test]
+fn issue_2656_signed_thermal_strain_in_plane_and_space() {
+    for alpha in [-0.000999, -5e-6, 0.0, 5e-6, 0.000999] {
+        let mut plane = fixed_2d(1, 5.0, STEEL, 0.01, 1e-4, "frame", json!({"dtUniform": 1.0, "dtGradient": 0.0, "alpha": alpha}));
+        plane.supports.remove("2");
+        let mut space = fixed_3d(STEEL, 0.01, 1e-4, 1e-4, "frame", json!({"dtUniform": 1.0, "dtGradientY": 0.0, "dtGradientZ": 0.0, "alpha": alpha}));
+        space.supports.remove("2");
+        let prepared_plane = prepare_static_2d(&plane).unwrap().solve_loads(&plane.loads).unwrap();
+        for r in [solve_2d(&plane).unwrap(), prepared_plane, solve_pdelta_2d(&plane, 30, 1e-10).unwrap().results] {
+            close("plane free expansion", r.displacements.iter().find(|d| d.node_id == 2).unwrap().ux, alpha * 5.0, 1e-12);
+        }
+        let prepared_space = dedaliano_engine::solver::linear::prepare_static_3d(&space).unwrap().solve_loads(&space.loads).unwrap();
+        for r in [solve_3d(&space).unwrap(), prepared_space, solve_pdelta_3d(&space, 30, 1e-10).unwrap().results] {
+            close("space free expansion", r.displacements.iter().find(|d| d.node_id == 3).unwrap().ux, alpha * 5.0, 1e-12);
+        }
+    }
+}
+
+#[test]
+fn issue_2656_free_thermal_gradient_reverses_rotation_on_every_member_solve() {
+    let dt = 10.0;
+    let length = 5.0;
+    let rotations = |alpha: f64| {
+        let mut plane = fixed_2d(1, length, STEEL, IPE_A, IPE_I_STRONG, "frame", json!({"dtUniform": 0.0, "dtGradient": dt, "alpha": alpha, "depth": IPE_H}));
+        plane.supports.remove("2");
+        let mut space = fixed_3d(STEEL, IPE_A, IPE_I_STRONG, IPE_I_WEAK, "frame", json!({"dtUniform": 0.0, "dtGradientY": 0.0, "dtGradientZ": dt, "alpha": alpha, "depthZ": IPE_H}));
+        space.supports.remove("2");
+        let plane_results = [
+            solve_2d(&plane).unwrap(),
+            prepare_static_2d(&plane).unwrap().solve_loads(&plane.loads).unwrap(),
+            solve_pdelta_2d(&plane, 30, 1e-10).unwrap().results,
+        ];
+        let space_results = [
+            solve_3d(&space).unwrap(),
+            dedaliano_engine::solver::linear::prepare_static_3d(&space).unwrap().solve_loads(&space.loads).unwrap(),
+            solve_pdelta_3d(&space, 30, 1e-10).unwrap().results,
+        ];
+        let plane_tip = plane_results.map(|r| r.displacements.iter().find(|n| n.node_id == 2).unwrap().ry);
+        let space_tip = space_results.map(|r| r.displacements.iter().find(|n| n.node_id == 3).unwrap().ry);
+        [plane_tip, space_tip].concat()
+    };
+    let alpha = 5e-6;
+    for ((positive, negative), zero) in rotations(alpha).into_iter().zip(rotations(-alpha)).zip(rotations(0.0)) {
+        close("free rotation", positive, alpha * dt * length / IPE_H, 1e-12);
+        close("opposite free rotation", negative, -positive, 1e-12);
+        assert_eq!(zero, 0.0);
+    }
+}
+
+#[test]
+fn second_order_results_identify_assumed_thermal_properties() {
+    for (alpha, depth) in [(true, true), (false, false), (true, false), (false, true)] {
+        let mut thermal = json!({"dtUniform": 1.0, "dtGradient": 2.0, "dtGradientY": 0.0, "dtGradientZ": 2.0});
+        if alpha {
+            thermal["alpha"] = json!(ALPHA_ALU);
+        }
+        if depth {
+            thermal["depth"] = json!(IPE_H);
+            thermal["depthZ"] = json!(IPE_H);
+        }
+        let mut plane = fixed_2d(1, 5.0, ALU, IPE_A, IPE_I_STRONG, "frame", thermal.clone());
+        let mut space = fixed_3d(ALU, IPE_A, IPE_I_STRONG, IPE_I_WEAK, "frame", thermal);
+        plane.supports.remove("2");
+        space.supports.remove("2");
+        let plane = solve_pdelta_2d(&plane, 30, 1e-10).unwrap();
+        let space = solve_pdelta_3d(&space, 30, 1e-10).unwrap();
+        assert!(plane.converged && space.converged);
+        let expected: Vec<_> = [("alpha", alpha), ("depth", depth)].into_iter().filter_map(|(field, stated)| (!stated).then_some(Some(field))).collect();
+        for diagnostics in [&plane.results.structured_diagnostics, &space.results.structured_diagnostics] {
+            let mut actual: Vec<_> = diagnostics.iter().filter(|d| d.code == DiagnosticCode::ThermalDefaultAssumed).map(|d| d.phase.as_deref()).collect();
+            actual.sort_unstable();
+            assert_eq!(actual, expected, "{diagnostics:?}");
+        }
+    }
 }

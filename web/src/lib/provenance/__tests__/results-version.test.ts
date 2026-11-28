@@ -1,8 +1,8 @@
 import { RESULT_CHANGES, RESULT_CHANGES as CURRENT_RESULT_CHANGES } from '../full-registry';
-import { describe, it, expect } from 'vitest';
+import { assert, describe, it, expect } from 'vitest';
 import { assessProject, assessProject as assessWithRegistry } from '../applicability';
 import { ANALYSIS_KINDS, type FeatureSnapshot } from '../model-features';
-import type { SolveStamp } from '../solve-stamp';
+import { unknownStamp, type SolveStamp } from '../solve-stamp';
 
 /**
  * The entries of each results version on main, as it shipped. Every merge to main is deployed
@@ -107,20 +107,27 @@ describe('results versions', () => {
       analysisMode: 'pro',
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
     };
-    const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
+    const stamp: SolveStamp = { ...unknownStamp(), analyses: ['modal'] };
     const stagedIds = ['kinematic-translation-motion', 'modal-massive-translation'];
     stagedIds.push('reduced-stiffness-rank');
     const precedingRegistry = {
       ...RESULT_CHANGES,
       changes: RESULT_CHANGES.changes.filter(c => !stagedIds.includes(c.id)),
     };
+    const exploreId = 'explore-spatial-inertia';
+    const explore = precedingRegistry.changes.find(change => change.id === exploreId);
+    assert.isDefined(explore, exploreId);
+    const historicalRegistry = { ...precedingRegistry, changes: precedingRegistry.changes.filter(change => change.id !== exploreId) };
     const ids = (resultsVersion: number) => {
       const saved = { ...stamp, resultsVersion };
       const preceding = assessProject(frame, saved, 'pro', precedingRegistry).changes.map(c => c.id).sort();
       const combined = assessProject(frame, saved, 'pro').changes.map(c => c.id).sort();
       const staged = resultsVersion === RESULT_CHANGES.currentResultsVersion ? [] : stagedIds;
       expect(combined).toEqual([...preceding, ...staged].sort());
-      return preceding;
+      const historical = assessProject(frame, saved, 'pro', historicalRegistry).changes.map(c => c.id).sort();
+      const exploreNotices = resultsVersion < explore.resultsVersion ? [exploreId] : [];
+      expect(preceding).toEqual([...historical, ...exploreNotices].sort());
+      return historical;
     };
     if (includeSSI) {
     for (const version of [4, 5, 6, 7, 8]) {
@@ -139,8 +146,26 @@ describe('results versions', () => {
     expect(ids(13)).toEqual(['combined-section-shear-refusal', 'corotational-3d-rotations', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'invalid-dynamic-material-density', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'section-stress-cut-magnitudes', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
     expect(ids(26)).toEqual(['combined-section-shear-refusal', 'harmonic-modal-or-direct-per-frequency', 'harmonic-modal-residual-checked', 'harmonic-omitted-modes', 'invalid-dynamic-material-density', 'linear-pin-coupling', 'linear-second-order-warning', 'linear-small-displacement-warning', 'linear-span-rotation-warning', 'linear-stability-refusals', 'material-nonlinear-3d-orphan-dofs', 'member-recovery-round4', 'modal-basis-entrywise-rounding', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-reference-and-initial-shaft-stiffness', 'nonlinear-supported-and-soil-equilibrium', 'plastic-3d-member-without-capacity-refused', 'safety-containment-diagnostics', 'section-stress-cut-magnitudes', 'soft-rotation-not-orphan', 'span-check-shear-thermal', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates']);
     }
+    expect(ids(23)).toEqual(ids(13));
+    expect(ids(24)).toEqual(ids(26));
     expect(ids(RESULT_CHANGES.currentResultsVersion)).toEqual([]);
   });
+  });
+
+  it.each([
+    ['3d', 'frame', true], ['pro', 'frame', true], ['2d', 'frame', false], ['3d', 'truss', false],
+  ] as const)('scopes the Explore inertia notice at its release boundary for a %s %s', (mode, type, applies) => {
+    const id = 'explore-spatial-inertia';
+    const entry = RESULT_CHANGES.changes.find(change => change.id === id);
+    assert.isDefined(entry, id);
+    const snapshot: FeatureSnapshot = {
+      analysisMode: mode,
+      elements: [[1, { id: 1, type, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
+    };
+    const notices = (resultsVersion: number) => assessProject(snapshot, { ...unknownStamp(), resultsVersion, analyses: ['modal'] }, mode, RESULT_CHANGES)
+      .changes.map(change => change.id).filter(notice => notice === id);
+    expect(notices(entry.resultsVersion - 1)).toEqual(applies ? [id] : []);
+    expect(notices(entry.resultsVersion)).toEqual([]);
   });
 
   it('#761 distinguishes unknown nonlinear history from complete linear and modal histories', () => {

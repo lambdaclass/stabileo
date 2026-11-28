@@ -1128,3 +1128,74 @@ fn shell_time_history_initial_acceleration_is_rotation_invariant() {
     }
 }
 
+
+fn shell_coefficient_boundary(family: &str) {
+    use dedaliano_engine::solver::{linear::prepare_static_3d, pdelta::solve_pdelta_3d};
+
+    let pts = [[0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [2.0, 1.5, 0.0], [0.0, 1.5, 0.0],
+        [1.0, 0.0, 0.0], [2.0, 0.75, 0.0], [1.0, 1.5, 0.0], [0.0, 0.75, 0.0], [1.0, 0.75, 0.0]];
+    let count = match family { "plate" => 3, "quad9" => 9, _ => 4 };
+    let mut s = with_nodes(0.3, &pts[..count]);
+    let variant: fn(SolverPlateThermalLoad) -> SolverLoad3D = match family {
+        "plate" => {
+            s.plates.insert("1".into(), SolverPlateElement { id: 1, nodes: [1, 2, 3], material_id: 1, thickness: 0.2 });
+            SolverLoad3D::PlateThermal
+        }
+        "quad" => {
+            s.quads.insert("1".into(), SolverQuadElement { id: 1, nodes: [1, 2, 3, 4], material_id: 1, thickness: 0.2 });
+            SolverLoad3D::QuadThermal
+        }
+        "quad9" => {
+            s.quad9s.insert("1".into(), SolverQuad9Element { id: 1, nodes: [1, 2, 3, 4, 5, 6, 7, 8, 9], material_id: 1, thickness: 0.2 });
+            SolverLoad3D::Quad9Thermal
+        }
+        "curved" => {
+            s.curved_shells.insert("1".into(), SolverCurvedShellElement { id: 1, nodes: [1, 2, 3, 4], material_id: 1, thickness: 0.2, normals: None });
+            SolverLoad3D::CurvedShellThermal
+        }
+        _ => unreachable!(),
+    };
+    fix(&mut s, 1);
+    let prepared = prepare_static_3d(&s).unwrap();
+    let mut load = thermal(1, 20.0, 0.0);
+    for alpha in [Some(-0.000999), Some(0.0), Some(0.000999)] {
+        load.alpha = alpha;
+        s.loads = vec![variant(load.clone())];
+        for result in [solve_3d(&s).unwrap(), prepared.solve_loads(&s.loads).unwrap()] {
+            let ux = result.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
+            assert!((ux - alpha.unwrap() * load.dt_uniform * pts[1][0]).abs() < 1e-9, "{family} {alpha:?}: {ux}");
+        }
+    }
+    for alpha in [-0.5, -0.001, 0.001, 0.01, f64::NAN, f64::INFINITY] {
+        load.alpha = Some(alpha);
+        s.loads = vec![variant(load.clone())];
+        let mut errors = vec![solve_3d(&s).err(), prepared.solve_loads(&s.loads).err()];
+        if family == "quad" {
+            errors.push(solve_pdelta_3d(&s, 30, 1e-10).err());
+        }
+        for error in errors {
+            assert!(error.as_deref().is_some_and(|e| e.contains("element 1") && e.contains("|alpha| < 1e-3")),
+                "{family} {alpha}: {error:?}");
+        }
+    }
+}
+
+#[test]
+fn shell_thermal_coefficient_plate() {
+    shell_coefficient_boundary("plate");
+}
+
+#[test]
+fn shell_thermal_coefficient_quad() {
+    shell_coefficient_boundary("quad");
+}
+
+#[test]
+fn shell_thermal_coefficient_quad9() {
+    shell_coefficient_boundary("quad9");
+}
+
+#[test]
+fn shell_thermal_coefficient_curved() {
+    shell_coefficient_boundary("curved");
+}

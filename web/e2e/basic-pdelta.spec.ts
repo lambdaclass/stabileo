@@ -1,4 +1,5 @@
 import { test, expect, openBasicProjectPanel, CURRENT_STAMP } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 // A cantilever above Euler's critical load can converge on an indefinite
 // stiffness matrix. Convergence must not turn that into a stable result.
@@ -46,8 +47,7 @@ test.describe('@engine @smoke P-Delta stability', () => {
         name: 'postcritical.ded', mimeType: 'application/json',
         buffer: Buffer.from(JSON.stringify(postcriticalColumn(mode))),
       });
-      await page.getByTestId('rb-cmd-advanced').click();
-      await page.locator('button.adv-btn', { hasText: 'P-Δ' }).click();
+      await openAdvancedFunction(page, 'pdelta');
       await expect(page.getByTestId('pdelta-result')).toContainText('B₂ = ∞');
       await expect(page.getByTestId('pdelta-result')).toContainText('unstable');
       await expect(page.getByText(/^Unstable structure \(P-Δ\)\. It is not drawn as a result/)).toBeVisible();
@@ -59,8 +59,7 @@ test.describe('@engine @smoke P-Delta stability', () => {
 
   test('runs P-Delta with prescribed support settlements', async ({ page }) => {
     await page.evaluate(() => window.__stabileoActions.loadExample('settlement'));
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.locator('button.adv-btn', { hasText: 'P-Δ' }).click();
+    await openAdvancedFunction(page, 'pdelta');
     await expect(page.getByTestId('pdelta-result')).toContainText('B₂ = 1.000');
     await expect(page.getByTestId('pdelta-result')).not.toContainText('unstable');
     await expect(page.getByText(/P-Δ converged in/)).toBeVisible();

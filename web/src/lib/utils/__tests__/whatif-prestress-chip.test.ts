@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const src = readFileSync(fileURLToPath(new URL('../../../components/WhatIfPanel.svelte', import.meta.url)), 'utf8');
+const src = readFileSync(fileURLToPath(new URL('../../whatif/load-label.ts', import.meta.url)), 'utf8');
 
 describe('the what-if prestress chip', () => {
   it('formats the tendon force as a force, with its unit', () => {

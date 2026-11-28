@@ -15,6 +15,7 @@ export const RESULT_PROPERTY_POLICY = {
     fc: true,
     alpha: true,
     gradeId: true,
+    userDefined: true,
     timber: true,
     maxAggregateSizeMm: true,
     spacingMarginMm: true,

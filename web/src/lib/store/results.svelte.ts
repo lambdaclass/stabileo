@@ -2,8 +2,11 @@ import { uiStore } from './ui.svelte';
 import { timeHistoryView } from './time-history-view.svelte';
 // Results store
 
+import { SETTLEMENT_CASE_ID } from '../engine/settlement-case';
+import { mayUseSettlementCase, preserveSettlementDependency } from '../engine/combination-sources';
+import { envelopeSources } from '../engine/envelope-sources';
 import { carryCertifyJob } from '../engine/certify-tags';
-import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
+import { modelStore, type AnalysisResults, type InfluenceLineResult, type Section, type Material } from './model.svelte';
 import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
 import { freezeResult, knownIssueResultDisposition } from '../engine/known-issues';
 import { modelFindings } from '../engine/model-findings';
@@ -18,6 +21,7 @@ import { t } from '../i18n';
 // reinforcement-only edit triggers none. Covers the worker/parallel solve paths too.
 import { noteStructuralSolve } from '../utils/solve-counter';
 import { resultsToDrawnAxes, envelopeToDrawnAxes, type SignOf } from '../engine/transverse-sign-2d';
+import { createScreenHold, type ScreenModel } from './screen-hold.svelte';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges' | 'despiece'
   // 3D-specific diagram types
@@ -142,7 +146,7 @@ function createResultsStore() {
    */
   let _signOf: SignOf = () => 1;
   const drawn = (r: AnalysisResults): AnalysisResults => resultsToDrawnAxes(r, _signOf);
-  let _viewBeforeClear: { diagram: DiagramType; view: ResultsView; caseId: number | null; comboId: number | null } | null = null;
+  let _viewBeforeClear: { diagram: DiagramType; view: ResultsView; caseId: number | null; comboId: number | null; reactions: boolean } | null = null;
   /** What an open advanced function replaced; see `HeldView`. Null when none is open. */
   let _held: HeldView | null = null;
   let deformedScale = $state<number>(1); // Scale factor for deformed shape (applied directly to displacements)
@@ -275,16 +279,84 @@ function createResultsStore() {
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
   const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(r => knownIssueResultDisposition(r).refused));
+  function selectableCombo<T extends object>(cases: Map<number, T>, combos: Map<number, T>, id: number): T | null {
+    const result = combos.get(id);
+    if (!result || knownIssueResultDisposition(result).refused) return null;
+    if (!anyRefused(cases)) return result;
+    const definition = modelStore.combinations.find(combo => combo.id === id);
+    const sources = definition?.factors.filter(f => f.factor !== 0);
+    if (!sources?.length) return null;
+    if (mayUseSettlementCase(result) && knownIssueResultDisposition(cases.get(SETTLEMENT_CASE_ID)).refused) return null;
+    return sources.some(f => knownIssueResultDisposition(cases.get(f.caseId)).refused) ? null : result;
+  }
+
+  const envelopeChecks = new WeakMap<object, { cases: object; envelope: object; sources: readonly object[]; valid: () => boolean }>();
+  function publishedEnvelopeCheck(envelope: object | null, cases: object, combos: object) {
+    const check = envelopeChecks.get(combos);
+    return check?.cases === cases && check.envelope === envelope ? check : undefined;
+  }
+
+  function envelopeCheck<T extends object>(envelope: object | null, cases: Map<number, T>, combos: Map<number, T>) {
+    const sources = envelopeSources(envelope);
+    if (!sources?.length) return;
+    const used = new Set(sources);
+    const caseIds = [...cases].filter(([, value]) => used.has(value)).map(([id]) => id);
+    const comboIds = [...combos].filter(([, value]) => used.has(value)).map(([id]) => id);
+    const valid = (publishedCases: Map<number, T>, publishedCombos: Map<number, T>) =>
+      sources.every(source => !knownIssueResultDisposition(source).refused) &&
+      caseIds.every(id => publishedCases.has(id) && !knownIssueResultDisposition(publishedCases.get(id)).refused) &&
+      comboIds.every(id => selectableCombo(publishedCases, publishedCombos, id) !== null);
+    return { sources, valid };
+  }
+
+  function initialCombination<T extends object>(single: T | null, cases: Map<number, T>, combos: Map<number, T>, envelopeResult: T | undefined, envelopeAvailable: boolean): T | null {
+    activeComboId = [...combos.keys()].find(id => selectableCombo(cases, combos, id) !== null) ?? null;
+    activeCaseId = null;
+    activeView = 'single';
+    if (single && !knownIssueResultDisposition(single).refused) return single;
+    for (const [id, result] of cases) {
+      if (knownIssueResultDisposition(result).refused) continue;
+      activeCaseId = id;
+      return result;
+    }
+    if (activeComboId !== null) {
+      activeView = 'combo';
+      return combos.get(activeComboId)!;
+    }
+    if (!envelopeResult || !envelopeAvailable) return null;
+    activeView = 'envelope';
+    return envelopeResult;
+  }
+  function displaySets<T extends object>(cases: Map<number, T>, combos: Map<number, T>) {
+    if (!anyRefused(cases, combos)) return { cases, combos };
+    return {
+      cases: new Map([...cases].filter(([, result]) => !knownIssueResultDisposition(result).refused)),
+      combos: new Map([...combos].filter(([id]) => selectableCombo(cases, combos, id))),
+    };
+  }
   const noResults = () => freezeResult(new Map<number, never>());
   const combosRefused2D = () => anyRefused(perCase, perCombo);
   const combosRefused3D = () => anyRefused(perCase3D, perCombo3D);
-  const comboRefused2D = () => combosRefused2D() || knownIssueResultDisposition(envelope?.maxAbsResults).refused;
-  const comboRefused3D = () => combosRefused3D() || knownIssueResultDisposition(envelope3D?.maxAbsResults3D).refused;
-  const viewedRefused3D = () => knownIssueResultDisposition(liveViewedEnvelope3D()?.maxAbsResults3D).refused;
+  const baseCheck2D = () => publishedEnvelopeCheck(envelope, perCase, perCombo);
+  const baseCheck3D = () => publishedEnvelopeCheck(envelope3D, perCase3D, perCombo3D);
+  function envelopeRefused(result: unknown, sourcesValid: boolean | undefined, bundleRefused: () => boolean) {
+    return knownIssueResultDisposition(result).refused || (sourcesValid === undefined ? bundleRefused() : !sourcesValid);
+  }
+  const comboRefused2D = () => envelopeRefused(envelope?.maxAbsResults, baseCheck2D()?.valid(), combosRefused2D);
+  const comboRefused3D = () => envelopeRefused(envelope3D?.maxAbsResults3D, baseCheck3D()?.valid(), combosRefused3D);
+  function screenEnvelope3D(): FullEnvelope3D | null {
+    const named = liveViewedEnvelope3D();
+    if (named) {
+      const valid = viewedEnvelope3D?.check?.valid(perCase3D, perCombo3D);
+      if (!envelopeRefused(named.maxAbsResults3D, valid, combosRefused3D)) return named;
+      return null;
+    }
+    return comboRefused3D() ? null : envelope3D;
+  }
   const liveViewedEnvelope3D = () => viewedEnvelope3D && envelope3D && viewedEnvelope3D.over === envelope3D ? viewedEnvelope3D.env : null;
   /** A named envelope on screen in place of the active one, valid only over the solve it was
    *  built from (`over`): any republish or clear makes it lapse without being reset. */
-  let viewedEnvelope3D = $state.raw<{ env: FullEnvelope3D; name: string; over: FullEnvelope3D } | null>(null);
+  let viewedEnvelope3D = $state.raw<{ env: FullEnvelope3D; name: string; over: FullEnvelope3D; check: ReturnType<typeof envelopeCheck<AnalysisResults3D>> } | null>(null);
 
   // Governing-case provenance (which combo governs each element per force component)
   let governing2D = $state<Map<number, GoverningPerElement>>(new Map());
@@ -353,16 +425,14 @@ function createResultsStore() {
 
   /** The static results the current view selects, from what the store holds. */
   const staticResults2D = (): AnalysisResults | null => {
-    if (activeView === 'envelope' && envelope) return comboRefused2D() ? null : envelope.maxAbsResults;
-    if (activeView === 'combo' && activeComboId !== null && perCombo.has(activeComboId)) return combosRefused2D() ? null : perCombo.get(activeComboId)!;
-    if (activeCaseId !== null && perCase.has(activeCaseId)) return perCase.get(activeCaseId)!;
-    return singleResults;
+    if (activeView === 'envelope') return comboRefused2D() ? null : envelope?.maxAbsResults ?? null;
+    if (activeView === 'combo') return activeComboId === null ? null : selectableCombo(perCase, perCombo, activeComboId);
+    return activeCaseId === null ? singleResults : perCase.get(activeCaseId) ?? null;
   };
   const staticResults3D = (): AnalysisResults3D | null => {
-    if (activeView === 'envelope' && envelope3D) return comboRefused3D() ? null : envelope3D.maxAbsResults3D;
-    if (activeView === 'combo' && activeComboId !== null && perCombo3D.has(activeComboId)) return combosRefused3D() ? null : perCombo3D.get(activeComboId)!;
-    if (activeCaseId !== null && perCase3D.has(activeCaseId)) return perCase3D.get(activeCaseId)!;
-    return singleResults3D;
+    if (activeView === 'envelope') return screenEnvelope3D()?.maxAbsResults3D ?? null;
+    if (activeView === 'combo') return activeComboId === null ? null : selectableCombo(perCase3D, perCombo3D, activeComboId);
+    return activeCaseId === null ? singleResults3D : perCase3D.get(activeCaseId) ?? null;
   };
 
   /** Whether `d` has something to draw in the given dimension, with the store as it is. */
@@ -424,7 +494,17 @@ function createResultsStore() {
   const staticUnder2D = (): void => { results = _held ? _held.results : staticResults2D(); };
   const staticUnder3D = (): void => { results3D = _held ? _held.results3D : staticResults3D(); };
 
-  return {
+  const screen = createScreenHold({
+    get results() { return api.results; },
+    get results3D() { return api.results3D; },
+    get diagram(): DiagramType { return api.diagramType; },
+    get envelopeActive() { return api.isEnvelopeActive || movingLoadShowEnvelope; },
+    get envelope2D() { return api.isEnvelopeActive ? api.fullEnvelope : movingLoadShowEnvelope ? api.movingLoadEnvelope?.fullEnvelope ?? null : null; },
+    get envelope3D() { return api.fullEnvelope3D; },
+    get showReactions() { return showReactions; },
+  }, (d) => STATIC_DIAGRAMS_2D.includes(d) || STATIC_DIAGRAMS_3D.includes(d));
+
+  const api = {
     /** Wired in store/index.ts. Fired on every fresh-solve results publish
      *  (setResults3D / setCombinationResults3D) so verificationStore can advance
      *  its solve-generation counter — including a plain re-solve with no
@@ -443,7 +523,11 @@ function createResultsStore() {
      *  editing/reading exclusion, not just the ones that call showDiagram(). */
     _setOnDiagramShown(fn: () => void) { _onDiagramShown = fn; },
 
-    get results() { return knownIssueResultDisposition(results).refused ? null : results; },
+    get results() {
+      if (activeView === 'envelope' && !advancedOpen()) return staticResults2D();
+      if (results && activeView === 'combo' && !advancedOpen() && combosRefused2D() && results !== staticResults2D()) return null;
+      return knownIssueResultDisposition(results).refused ? null : results;
+    },
     /** True when ANY result of any kind is present. Used by the mutation hook
      *  to decide whether an edit must clear stale results. Covers 2D + 3D base,
      *  per-case/per-combo/envelope, every advanced result (2D + 3D), and the
@@ -475,7 +559,20 @@ function createResultsStore() {
         movingLoadRunning
       );
     },
-    get diagramType() { return (uiStore.is3DWorkspace ? this.knownIssues3D.refused : this.knownIssues.refused) ? 'none' as const : diagramType; },
+    get diagramType() {
+      const space = uiStore.is3DWorkspace;
+      const refused = space ? this.knownIssues3D.refused : this.knownIssues.refused;
+      if (!refused) return diagramType;
+      return this.independentSelection ? diagramType : 'none' as const;
+    },
+    get independentSelection(): boolean {
+      const space = uiStore.is3DWorkspace;
+      if (advancedOpen()) return false;
+      const namedSelection = space && activeView === 'envelope' && liveViewedEnvelope3D() !== null;
+      if (!namedSelection && !(space ? combosRefused3D() : combosRefused2D())) return false;
+      const result = space ? this.results3D : this.results;
+      return !!result && result === (space ? staticResults3D() : staticResults2D());
+    },
     /**
      * Putting a diagram on screen is a MODE change, so it carries the rule
      * with it — like `uiStore.currentTool`, the dependency is inverted through
@@ -493,6 +590,7 @@ function createResultsStore() {
         if (_viewBeforeClear) _viewBeforeClear = { ..._viewBeforeClear, diagram: v };
         _onDiagramShown?.();
       }
+      screen.pick(v);
     },
     get deformedScale() { return deformedScale; },
     set deformedScale(v: number) { deformedScale = v; },
@@ -526,49 +624,39 @@ function createResultsStore() {
     set animSpeed(v: number) { animSpeed = Math.max(0.25, Math.min(3, v)); },
 
     // Combination state
+    get hasDisplayChoices(): boolean {
+      const sets = uiStore.is3DWorkspace ? this.displaySets3D : this.displaySets2D;
+      return !!(sets.cases.size || sets.combos.size || (uiStore.is3DWorkspace ? this.fullEnvelope3D : this.fullEnvelope));
+    },
+    get displaySets2D() { return displaySets(perCase, perCombo); },
+    get displaySets3D() { return displaySets(perCase3D, perCombo3D); },
     get perCase(): Map<number, AnalysisResults> { return anyRefused(perCase) ? noResults() : perCase; },
     get perCombo(): Map<number, AnalysisResults> { return combosRefused2D() ? noResults() : perCombo; },
     get envelope() { return comboRefused2D() ? null : envelope; },
+    get hasMultipleSolvedCases() { return (uiStore.is3DWorkspace ? perCase3D : perCase).size > 1; },
     get activeView() { return activeView; },
     set activeView(v: ResultsView) {
       activeView = v;
-      // Update displayed 2D results based on view
-      if (v === 'envelope' && envelope) {
-        results = comboRefused2D() ? null : envelope.maxAbsResults;
-      } else if (v === 'combo' && activeComboId !== null) {
-        results = combosRefused2D() ? null : perCombo.get(activeComboId) ?? null;
-      } else if (v === 'single') {
-        if (activeCaseId !== null && perCase.size > 0) {
-          results = perCase.get(activeCaseId) ?? singleResults;
-        } else if (singleResults) {
-          results = singleResults;
-        }
-      }
-      // Also update 3D results if 3D combos exist
-      if (perCombo3D.size > 0) {
-        this._update3DView(v);
-      }
+      results = staticResults2D();
+      results3D = staticResults3D();
     },
     get activeComboId() { return activeComboId; },
     set activeComboId(v: number | null) {
       activeComboId = v;
-      if (activeView === 'combo' && v !== null) {
-        results = combosRefused2D() ? null : perCombo.get(v) ?? null;
-        if (perCombo3D.size > 0) {
-          results3D = combosRefused3D() ? null : perCombo3D.get(v) ?? null;
-        }
+      if (activeView === 'combo') {
+        results = staticResults2D();
+        results3D = staticResults3D();
       }
     },
     get activeCaseId() { return activeCaseId; },
     set activeCaseId(v: number | null) {
-      activeCaseId = v;
-      if (v !== null && perCase.size > 0) {
-        activeView = 'single';
-        results = perCase.get(v) ?? null;
-      }
-      if (v !== null && perCase3D.size > 0) {
-        activeView = 'single';
-        results3D = perCase3D.get(v) ?? singleResults3D;
+      const cases = uiStore.is3DWorkspace ? perCase3D : perCase;
+      const single = uiStore.is3DWorkspace ? this.singleResults3D : this.singleResults;
+      activeCaseId = v !== null && !cases.has(v) && single ? null : v;
+      if (v !== null && (cases.size || single)) activeView = 'single';
+      if (activeView === 'single' && (cases.size || single)) {
+        results = staticResults2D();
+        results3D = staticResults3D();
       }
     },
     get singleResults() { return knownIssueResultDisposition(singleResults).refused ? null : singleResults; },
@@ -963,9 +1051,10 @@ function createResultsStore() {
     setResults(r: AnalysisResults, preserveDiagram = false) {
       _onStaticPublish?.(r, '2d');
       r = drawn(r);
+      screen.published([r]);
       results = r;
       singleResults = r; // Save base solve for "Cargas simples" option
-      deformedScale = 1; // reset to default on fresh solve
+      if (!preserveDiagram) deformedScale = 1;
       // Preserve current diagram type during live-calc re-solves
       const validDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
       if (preserveDiagram) {
@@ -996,41 +1085,19 @@ function createResultsStore() {
       rebase2D();
     },
 
-    setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
+    setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope | null) {
+      const check = envelopeCheck(env, pc, pco);
       _onComboPublish?.(pc, pco, '2d');
       pc = new Map([...pc].map(([k, v]) => [k, drawn(v)]));
-      pco = new Map([...pco].map(([k, v]) => [k, drawn(v)]));
-      env = envelopeToDrawnAxes(env, _signOf);
+      pco = new Map([...pco].map(([k, v]) => [k, preserveSettlementDependency(v, drawn(v))]));
+      if (env) env = envelopeToDrawnAxes(env, _signOf);
+      if (env && check) envelopeChecks.set(pco, { cases: pc, envelope: env, sources: check.sources, valid: () => check.valid(pc, pco) });
+      else envelopeChecks.delete(pco);
+      screen.published([...pc.values(), ...pco.values(), env?.maxAbsResults]);
       perCase = pc;
       perCombo = pco;
       envelope = env;
-      activeCaseId = null; // reset individual case selection
-      /*
-       * Default to "Cargas simples" — all loads at unit factor.
-       *
-       * The fallback used to be the ENVELOPE, which is the wrong thing to land
-       * on: an envelope is a summary of every case at once, so no single
-       * diagram it shows corresponds to a state the structure is ever in. It
-       * is what you check against at the end, not what you open on.
-       *
-       * With no base solve available the first individual CASE is the honest
-       * default — a real load state, and one whose diagram means something.
-       */
-      if (singleResults) {
-        results = singleResults;
-        activeView = 'single';
-      } else {
-        const firstCase = pc.keys().next().value;
-        if (firstCase !== undefined) {
-          results = pc.get(firstCase)!;
-          activeCaseId = firstCase;
-          activeView = 'single';
-        } else {
-          results = env.maxAbsResults;
-          activeView = 'envelope';
-        }
-      }
-      activeComboId = pco.keys().next().value ?? null;
+      results = initialCombination(singleResults, pc, pco, env?.maxAbsResults, !comboRefused2D());
       // Preserve current diagram type if it's a results-based view
       const resultsDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
       if (!resultsDiagrams.includes(diagramType)) {
@@ -1040,7 +1107,8 @@ function createResultsStore() {
       rebase2D();
     },
 
-    clear() {
+    clear(opts: { keepScreen?: boolean } = {}) {
+      if (opts.keepScreen) screen.keep(); else screen.release();
       if (results || results3D) {
         // With a function open, the view to come back to is the one it replaced, not the function's own.
         const shown = FUNCTION_DIAGRAMS.includes(diagramType) && _held ? _held.diagram : diagramType;
@@ -1048,6 +1116,7 @@ function createResultsStore() {
           diagram: shown !== 'none' ? shown : _lastDiagramType,
           view: _held?.activeView ?? activeView, caseId: _held ? _held.activeCaseId : activeCaseId,
           comboId: _held ? _held.activeComboId : activeComboId,
+          reactions: _held ? _held.showReactions : showReactions,
         };
       }
       // The held view described the results this clear throws away.
@@ -1121,7 +1190,7 @@ function createResultsStore() {
      * taken from the old one's results does not describe the new one — its
      * case or combination ids name something else there.
      */
-    forgetView() { _viewBeforeClear = null; },
+    forgetView() { _viewBeforeClear = null; screen.release(); },
 
     /**
      * After a re-solve: show again what was on screen before the edit cleared
@@ -1146,23 +1215,29 @@ function createResultsStore() {
       } else if (v.caseId !== null && cases.has(v.caseId)) {
         this.activeCaseId = v.caseId;
       }
+      if (v.reactions && (is3D ? results3D : results)) showReactions = true;
     },
 
     // ─── 3D Results ─────────────────────────────────────────────
 
-    get results3D() { return knownIssueResultDisposition(results3D).refused ? null : results3D; },
+    get results3D() {
+      if (activeView === 'envelope' && !advancedOpen()) return staticResults3D();
+      if (results3D && activeView === 'combo' && !advancedOpen() && combosRefused3D() && results3D !== staticResults3D()) return null;
+      return knownIssueResultDisposition(results3D).refused ? null : results3D;
+    },
 
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
       _onStaticPublish?.(r, '3d');
       if (_normalise3D) r = _normalise3D(r);
       r = freezeResult(r);
+      screen.published([r]);
       noteStructuralSolve();
       _onResultsPublish?.();
       results3D = r;
       singleResults3D = r;
       showReactions = false;
       showConstraintForces = false;
-      deformedScale = 1; // reset to default on fresh solve
+      if (!preserveDiagram) deformedScale = 1;
       // Preserve current diagram type during live-calc re-solves
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap'];
       if (preserveDiagram) {
@@ -1193,6 +1268,7 @@ function createResultsStore() {
     },
 
     clear3D() {
+      screen.release();
       _onStaticPublish?.(null, '3d');
       _held = null;
       results3D = null;
@@ -1229,16 +1305,15 @@ function createResultsStore() {
     /** The envelope on SCREEN: a named one when shown, else the active one. Design reads
      *  `envelope3D`, which is always the active list's. */
     get fullEnvelope3D() {
-      if (comboRefused3D() || viewedRefused3D()) return null;
-      return viewedEnvelope3D && envelope3D && viewedEnvelope3D.over === envelope3D ? viewedEnvelope3D.env : envelope3D;
+      return screenEnvelope3D();
     },
     get viewedEnvelopeName(): string | null {
-      return viewedEnvelope3D && envelope3D && viewedEnvelope3D.over === envelope3D ? viewedEnvelope3D.name : null;
+      return liveViewedEnvelope3D() ? viewedEnvelope3D!.name : null;
     },
     /** Show a named envelope (built over the current solve) in place of the active one, or go back (`null`). */
     viewEnvelope3D(env: FullEnvelope3D | null, name = '') {
-      viewedEnvelope3D = env && envelope3D ? { env: freezeResult(env), name, over: envelope3D } : null;
-      if (activeView === 'envelope') this._update3DView('envelope');
+      viewedEnvelope3D = env && envelope3D ? { env: freezeResult(env), name, over: envelope3D, check: envelopeCheck(env, perCase3D, perCombo3D) } : null;
+      if (activeView === 'envelope') results3D = staticResults3D();
     },
 
     // Governing-case provenance
@@ -1247,14 +1322,18 @@ function createResultsStore() {
     setGoverning2D(g: Map<number, GoverningPerElement>) { governing2D = g; },
     setGoverning3D(g: Map<number, GoverningPerElement3D>) { governing3D = g; },
 
-    setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D, unstable: readonly number[] = []) {
+    setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D | null, unstable: readonly number[] = []) {
+      const check = envelopeCheck(env, pc, pco);
       _onComboPublish?.(pc, pco, '3d');
       if (_normalise3D) {
         const n = _normalise3D;
         pc = new Map([...pc].map(([k, r]) => [k, n(r)]));
-        pco = new Map([...pco].map(([k, r]) => [k, n(r)]));
+        pco = new Map([...pco].map(([k, r]) => [k, preserveSettlementDependency(r, n(r))]));
         if (_normaliseEnvelope3D && env) env = _normaliseEnvelope3D(env);
       }
+      if (env && check) envelopeChecks.set(pco, { cases: pc, envelope: env, sources: check.sources, valid: () => check.valid(pc, pco) });
+      else envelopeChecks.delete(pco);
+      screen.published([...pc.values(), ...pco.values(), env?.maxAbsResults3D]);
       for (const r of [...pc.values(), ...pco.values(), env?.maxAbsResults3D, env, pc, pco]) freezeResult(r);
       noteStructuralSolve();
       _onResultsPublish?.();
@@ -1264,24 +1343,7 @@ function createResultsStore() {
       envelope3D = env;
       showReactions = false;
       showConstraintForces = false;
-      activeCaseId = null;
-      activeComboId = pco.keys().next().value ?? null;
-      // Default: show the simple (all loads combined) view so the user sees
-      // the full structural response. They can switch to combo/envelope later.
-      if (singleResults3D) {
-        results3D = singleResults3D;
-        activeView = 'single';
-      } else if (activeComboId !== null && pco.has(activeComboId)) {
-        // TODO: deliberate divergence from the 2D path (setCombinationResults),
-        // which lands on the first individual CASE when no base solve exists —
-        // a combination is a factored mix, not a state the structure is ever
-        // in. Reconcile the two, most likely by porting the 2D fallback here.
-        results3D = pco.get(activeComboId)!;
-        activeView = 'combo';
-      } else {
-        results3D = env.maxAbsResults3D;
-        activeView = 'envelope';
-      }
+      results3D = initialCombination(singleResults3D, pc, pco, env?.maxAbsResults3D, !comboRefused3D());
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap', 'none'];
       if (!valid3DDiagrams.includes(diagramType)) {
         // My: the bending of a beam under gravity (local z is up), as the "3" key and the 2D M.
@@ -1289,21 +1351,6 @@ function createResultsStore() {
       }
       combinationsDirty = false;
       rebase3D();
-    },
-
-    /** Switch 3D results based on activeView change (called from activeView setter) */
-    _update3DView(v: ResultsView) {
-      if (v === 'envelope' && envelope3D) {
-        results3D = comboRefused3D() || viewedRefused3D() ? null : (this.fullEnvelope3D ?? envelope3D).maxAbsResults3D;
-      } else if (v === 'combo' && activeComboId !== null && perCombo3D.size > 0) {
-        results3D = combosRefused3D() ? null : perCombo3D.get(activeComboId) ?? null;
-      } else if (v === 'single') {
-        if (activeCaseId !== null && perCase3D.size > 0) {
-          results3D = perCase3D.get(activeCaseId) ?? singleResults3D;
-        } else if (singleResults3D) {
-          results3D = singleResults3D;
-        }
-      }
     },
 
     getDisplacement3D(nodeId: number): Displacement3D | undefined {
@@ -1407,10 +1454,10 @@ function createResultsStore() {
     },
 
     get knownIssues() {
-      return knownIssueResultDisposition([singleResults, results, [...perCase.values()], [...perCombo.values()], envelope?.maxAbsResults, overlayResults, pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine]);
+      return knownIssueResultDisposition([singleResults, results, [...perCase.values()], [...perCombo.values()], envelope?.maxAbsResults, baseCheck2D()?.sources, overlayResults, pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine]);
     },
     get knownIssues3D() {
-      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, liveViewedEnvelope3D()?.maxAbsResults3D, overlayResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.storedDiagnostics]);
+      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, baseCheck3D()?.sources, liveViewedEnvelope3D()?.maxAbsResults3D, liveViewedEnvelope3D() && viewedEnvelope3D?.check?.sources, overlayResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.storedDiagnostics]);
     },
 
     get maxDisplacement(): number {
@@ -1420,7 +1467,18 @@ function createResultsStore() {
         Math.sqrt(d.ux ** 2 + get2DDisplayDisplacementVertical(d) ** 2)
       ));
     },
+
+    /**
+     * What the viewports draw: the published results, or, while a live re-solve is pending after
+     * `clear({ keepScreen: true })`, the picture that clear took down. For drawing only: every
+     * other getter stays cleared, so nothing that reports, exports or grades can read it.
+     */
+    get screen() { return screen.view; },
+    /** Drop the held picture: the re-solve it waited for failed or will not come. */
+    releaseScreen() { screen.release(); },
+    _setScreenModel(reader: () => ScreenModel) { screen.setModelReader(reader); },
   };
+  return api;
 }
 
 export const resultsStore = createResultsStore();

@@ -63,13 +63,15 @@
   const containment = $derived(uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues);
 
   /** Individual load cases, in the order the solver produced them. */
-  const caseKeys = $derived([...resultsStore.perCase.keys()]);
+  const sets = $derived(uiStore.is3DWorkspace ? resultsStore.displaySets3D : resultsStore.displaySets2D);
+  const caseKeys = $derived([...sets.cases.keys()]);
+  const hasEnvelope = $derived(uiStore.is3DWorkspace ? resultsStore.fullEnvelope3D !== null : resultsStore.fullEnvelope !== null);
 </script>
 
 {#each containment.messages as message}
   <div role="alert" class="containment-banner">{message}</div>
 {/each}
-{#if !containment.refused}
+{#if !containment.refused || resultsStore.independentSelection}
 <!--
   Which load state the table describes.
   
@@ -83,7 +85,7 @@
   it is the same control the diagram selector uses for the same question.
 -->
 <!-- Basic with load cases off has no case, combination or envelope to choose. -->
-{#if (resultsStore.hasCombinations || caseKeys.length > 0) && uiStore.showLoadCasePicker}
+{#if resultsStore.hasDisplayChoices && uiStore.showLoadCasePicker}
   <div class="results-case-bar">
     <!--
       No visible label. Every option in the list names itself — "Simple loads",
@@ -95,7 +97,7 @@
       id="results-case"
       aria-label={t('results.primary')}
       value={resultsStore.activeView === 'envelope' ? 'envelope'
-           : resultsStore.activeCaseId !== null ? `case_${resultsStore.activeCaseId}`
+           : resultsStore.activeView === 'single' && resultsStore.activeCaseId !== null ? `case_${resultsStore.activeCaseId}`
            : resultsStore.activeView === 'combo' ? `combo_${resultsStore.activeComboId ?? ''}`
            : 'single'}
       onchange={(e) => {
@@ -114,10 +116,10 @@
       {#each caseKeys as id}
         <option value={`case_${id}`}>{resultCaseName(id, modelStore.model.loadCases, t('svc.settlementCase'), `${t('results.caseFallback')} `)}</option>
       {/each}
-      {#each modelStore.combinations as combo}
+      {#each modelStore.combinations.filter(c => sets.combos.has(c.id)) as combo}
         <option value={`combo_${combo.id}`}>{combo.name}</option>
       {/each}
-      {#if resultsStore.hasCombinations}
+      {#if hasEnvelope}
         <option value="envelope">{t('resultsTable.envelope')}</option>
       {/if}
     </select>

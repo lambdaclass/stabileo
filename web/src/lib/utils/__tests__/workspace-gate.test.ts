@@ -34,6 +34,7 @@ const WHICH_MODE: Array<{ file: string; snippet: string; why: string }> = [
   { file: 'components/Toolbar.svelte', snippet: "class:active={uiStore.analysisMode === '3d'}", why: 'the Basic 3D mode button' },
   { file: 'components/AiDrawer.svelte', snippet: "snapshotMode === '2d' && is3DMode", why: "restores a snapshot's own mode; one without a mode leaves it alone" },
   { file: 'lib/ai/capabilities/registry.ts', snippet: "export const isSpaceProtocol = (mode: unknown): boolean => mode === '3d';", why: "the AI protocol's own analysisMode, which is only ever '2d' or '3d' (PRO models are sent as '3d'), not the workspace" },
+  { file: 'lib/engine/live-calc-state.ts', snippet: "return liveCalc && (mode === '2d' || mode === '3d');", why: 'live calculation runs in the two Basic modes only, not in PRO or Educational' },
   { file: 'lib/engine/solver-service.ts', snippet: "if (!input || input.dim !== '3d') return null;", why: "the certifiable solver input's own dimension tag (the all-loads input exists only for 3D solves), not the workspace" },
 ];
 

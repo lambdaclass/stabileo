@@ -404,7 +404,9 @@ async function openList(ctx: Ctx): Promise<boolean> {
     await loadNamed(ctx, ctx.model);
     await press(ctx, page.getByTestId('rb-cmd-advanced'));
   }
-  await expect(page.getByTestId('adv-group-structure'), 'the list of advanced functions is showing').toBeVisible();
+  await expect(page.getByTestId('adv-launcher'), 'the list of advanced functions is showing').toBeVisible();
+  const closed = page.locator('[data-testid^=adv-group-toggle-][aria-expanded=false]');
+  for (let n = await closed.count(); n > 0; n--) await press(ctx, closed.first());
   return !!stuck;
 }
 
@@ -431,7 +433,7 @@ interface Fn {
   shows?: (page: Page) => Locator;
 }
 
-const entry = (label: RegExp) => (page: Page) => page.locator('.advanced-grid .adv-btn').filter({ hasText: label }).first();
+const entry = (id: string) => (page: Page) => page.getByTestId(`adv-fn-${id}`);
 
 /** The screen position of the middle of the longest member. */
 async function memberMiddle(page: Page): Promise<{ x: number; y: number } | null> {
@@ -460,10 +462,10 @@ async function clickOnModel(ctx: Ctx, p: { x: number; y: number }): Promise<void
 }
 
 const FUNCTIONS: Fn[] = [
-  { key: 'kinematic', find: (p) => p.getByTestId('adv-kinematic'), only2d: true, shows: (p) => p.locator('.kp-panel') },
-  { key: 'despiece', find: entry(/^Free-body view/), draws: true },
+  { key: 'kinematic', find: entry('kinematic'), only2d: true, shows: (p) => p.locator('.kp-panel') },
+  { key: 'despiece', find: entry('despiece'), draws: true },
   {
-    key: 'stress', find: (p) => p.getByTestId('adv-stress'),
+    key: 'stress', find: entry('stress'),
     follow: async (ctx) => {
       const m = await memberMiddle(ctx.page);
       if (!m) return 'no member on screen';
@@ -473,12 +475,12 @@ const FUNCTIONS: Fn[] = [
       return (await panelText(ctx.page)) === before ? 'clicking a member showed nothing' : null;
     },
   },
-  { key: 'pdelta', find: entry(/^P-Δ/), shows: (p) => p.getByTestId('pdelta-result') },
-  { key: 'buckling', find: entry(/^Pcr/), draws: true, shows: (p) => p.locator('.adv-result-info').filter({ hasText: /λ_cr = \d/ }) },
-  { key: 'modal', find: entry(/^Dynamic$/), draws: true, shows: (p) => p.locator('.adv-result-info').filter({ hasText: /f = [\d.]+ Hz/ }) },
-  { key: 'plastic', find: entry(/^Plastic collapse/), only2d: true },
+  { key: 'pdelta', find: entry('pdelta'), shows: (p) => p.getByTestId('pdelta-result') },
+  { key: 'buckling', find: entry('buckling'), draws: true, shows: (p) => p.locator('.adv-result-info').filter({ hasText: /λcr = \d/ }) },
+  { key: 'modal', find: entry('modal'), draws: true, shows: (p) => p.locator('.adv-result-info').filter({ hasText: /f = [\d.]+ Hz/ }) },
+  { key: 'plastic', find: entry('plastic'), only2d: true },
   {
-    key: 'influenceLine', find: entry(/^Influence line/), only2d: true,
+    key: 'influenceLine', find: entry('influenceLine'), only2d: true,
     follow: async (ctx) => {
       const m = await memberMiddle(ctx.page);
       if (!m) return 'no member on screen';
@@ -496,7 +498,7 @@ const FUNCTIONS: Fn[] = [
     },
   },
   {
-    key: 'trainLoad', find: entry(/^Moving load/), only2d: true,
+    key: 'trainLoad', find: entry('trainLoad'), only2d: true,
     follow: async (ctx) => {
       const sel = ctx.page.locator('.adv-select').first();
       if (!(await sel.isVisible())) return 'no train selector';
@@ -515,7 +517,7 @@ const FUNCTIONS: Fn[] = [
     },
   },
   {
-    key: 'whatif', keepsResults: true, find: entry(/^Explore/), shows: (p) => p.getByTestId('whatif-panel'),
+    key: 'whatif', keepsResults: true, find: entry('whatif'), shows: (p) => p.getByTestId('whatif-panel'),
     follow: async (ctx) => {
       const r = ctx.page.locator('.wif-range').first();
       if (!(await r.isVisible())) return null;
@@ -525,8 +527,8 @@ const FUNCTIONS: Fn[] = [
       return null;
     },
   },
-  { key: 'steps', find: (p) => p.getByTestId('adv-steps'), shows: (p) => p.getByTestId('steps-catalog') },
-  { key: 'cirsocFlex', find: (p) => p.getByTestId('adv-flex'), shows: (p) => p.getByTestId('flex-panel') },
+  { key: 'steps', find: entry('steps'), shows: (p) => p.getByTestId('steps-catalog') },
+  { key: 'cirsocFlex', find: entry('cirsocFlex'), shows: (p) => p.getByTestId('flex-panel') },
 ];
 
 /* ──────────────────────────── known defects ──────────────────────────── */
@@ -1046,11 +1048,15 @@ export function pinnedDefects(): void {
       const before = await shot(page);
       await runFn(ctx, 'plastic');
       await expect(page.getByTestId('plastic-withheld')).toContainText(/4[.,]6/);
-      await expect(page.getByTestId('plastic-withheld').locator('a')).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/758');
+      await expect(page.getByTestId('plastic-withheld').locator('a')).toHaveCount(0);
       await expect(page.getByTestId('plastic-verdict')).toHaveCount(0);
-      await expect(page.getByTestId('adv-running')).toHaveCount(0);
+      // The refusal is the function's answer, under its own header, and "← Back" leaves it.
+      await expect(page.getByTestId('adv-running')).toHaveAttribute('data-adv', 'plastic');
       const d = await diff(page, before, await shot(page));
       expect(d.changed).toBeLessThan(Math.max(400, d.total * 0.002));
+      await page.getByTestId('adv-close').click();
+      await expect(page.getByTestId('adv-running')).toHaveCount(0);
+      await expect(page.getByTestId('plastic-withheld')).toHaveCount(0);
     });
 
     test('D5 free-body view: "← Back" drops the diagram the user was looking at', async ({ page }) => {
@@ -1079,7 +1085,7 @@ export function pinnedDefects(): void {
       await loadNamed(ctx, 'portal-frame');
       await openList(ctx);
       const before = await shot(page);
-      await page.getByTestId('adv-steps').click();
+      await page.getByTestId('adv-fn-steps').click();
       await expect(page.getByTestId('steps-catalog')).toBeVisible();
       await page.getByTestId('steps-catalog-back').click();
       const d = await diff(page, before, await shot(page));

@@ -200,14 +200,29 @@ pub fn loads_2d(loads: &[SolverLoad]) -> Vec<StructuredDiagnostic> {
 
 /// The warnings a 3D load set carries: as [`loads_2d`], a depth per gradient.
 pub fn loads_3d(loads: &[SolverLoad3D]) -> Vec<StructuredDiagnostic> {
-    thermal_defaults(loads.iter().filter_map(|l| match l {
+    let mut diagnostics = thermal_defaults(loads.iter().filter_map(|l| match l {
         SolverLoad3D::Thermal(t) => Some((
             t.element_id,
             t.alpha.is_none() && (t.dt_uniform != 0.0 || t.dt_gradient_y != 0.0 || t.dt_gradient_z != 0.0),
             (t.depth_y.is_none() && t.dt_gradient_y != 0.0) || (t.depth_z.is_none() && t.dt_gradient_z != 0.0),
         )),
         _ => None,
-    }))
+    }));
+    for load in loads {
+        let (thermal, kind) = match load {
+            SolverLoad3D::PlateThermal(t) => (t, ElementKind::Plate),
+            SolverLoad3D::QuadThermal(t) => (t, ElementKind::Quad),
+            SolverLoad3D::Quad9Thermal(t) => (t, ElementKind::Quad9),
+            SolverLoad3D::CurvedShellThermal(t) => (t, ElementKind::CurvedShell),
+            _ => continue,
+        };
+        if thermal.alpha.is_none() && (thermal.dt_uniform != 0.0 || thermal.dt_gradient != 0.0) {
+            let mut warning = assumed("alpha", THERMAL_ALPHA, vec![thermal.element_id]);
+            warning.element_kind = Some(kind);
+            diagnostics.push(warning);
+        }
+    }
+    diagnostics
 }
 
 pub fn sparse_conditioning(k: &crate::linalg::sparse::CscMatrix) -> Option<StructuredDiagnostic> {

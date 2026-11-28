@@ -144,6 +144,12 @@ it('refuses variable member envelopes whose shared piece IDs represent different
     expect.soft(() => computeEnvelope3D(layouts)).toThrow(/extrema/i);
   }
   const first = split(4, 0), second = split(4, 40);
+  for (const method of ['abs', 'srss'] as const) {
+    const unsigned = split(4, 40);
+    const piece = unsigned.elementForces[0]!.pieces![0]!;
+    piece.forces = { ...piece.forces, combined: { method, parts: [piece.forces] } };
+    expect(() => computeEnvelope3D([first, unsigned])).toThrow(/extrema/i);
+  }
   const incompatibleLength = split(4, 40);
   incompatibleLength.elementForces[0]!.pieces![0]!.forces.length = 6;
   expect.soft(() => computeEnvelope3D([first, incompatibleLength])).toThrow(/extrema/i);

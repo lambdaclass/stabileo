@@ -20,10 +20,10 @@ it.each([false, true])('manual solve reports combination refusal and clears old 
   const prior = { ...clean, displacements: [{ nodeId: 2, ux: 987654, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }] };
   if (is3D) {
     resultsStore.setResults3D(clean as never);
-    resultsStore.setCombinationResults3D(new Map([[1, prior]]) as never, new Map([[1, prior]]) as never, null as never);
+    resultsStore.setCombinationResults3D(new Map([[1, prior]]) as never, new Map([[1, prior]]) as never, null);
   } else {
     resultsStore.setResults(clean as never);
-    resultsStore.setCombinationResults(new Map([[1, prior]]) as never, new Map([[1, prior]]) as never, null as never);
+    resultsStore.setCombinationResults(new Map([[1, prior]]) as never, new Map([[1, prior]]) as never, null);
   }
   resultsStore.activeComboId = 1; resultsStore.activeView = 'combo';
   expect(is3D ? resultsStore.perCombo3D.size : resultsStore.perCombo.size).toBe(1);
@@ -40,10 +40,10 @@ it.each([false, true])('live solve clears prior combinations on string/throw ref
     uiStore.analysisMode = is3D ? 'pro' : '2d';
     if (is3D) {
       resultsStore.setResults3D(clean as never);
-      resultsStore.setCombinationResults3D(new Map([[1, clean]]) as never, new Map([[1, clean]]) as never, null as never);
+      resultsStore.setCombinationResults3D(new Map([[1, clean]]) as never, new Map([[1, clean]]) as never, null);
     } else {
       resultsStore.setResults(clean as never);
-      resultsStore.setCombinationResults(new Map([[1, clean]]) as never, new Map([[1, clean]]) as never, null as never);
+      resultsStore.setCombinationResults(new Map([[1, clean]]) as never, new Map([[1, clean]]) as never, null);
     }
     resultsStore.activeComboId = 1; resultsStore.activeView = 'combo';
     expect(is3D ? resultsStore.perCombo3D.size : resultsStore.perCombo.size).toBe(1);
@@ -67,9 +67,48 @@ it('one refused case withholds every per-case result, since consumers sum over t
   uiStore.analysisMode = 'pro';
   const refused = { ...clean, ...JSON.parse(refusal) };
   resultsStore.setResults3D(clean as never);
-  resultsStore.setCombinationResults3D(new Map([[1, clean], [2, refused]]) as never, new Map() as never, null as never);
+  resultsStore.setCombinationResults3D(new Map([[1, clean], [2, refused]]) as never, new Map() as never, null);
   expect(resultsStore.perCase3D.size).toBe(0);
   expect(resultsStore.caseDisposition3D([1]).refused).toBe(false);
   expect(resultsStore.caseDisposition3D([2]).refused).toBe(true);
   expect(resultsStore.caseDisposition3D([1, 2]).messages.join(' ')).toContain('#741');
+});
+
+it.each([false, true])('empty combination publication has no envelope or selected result (3D=%s)', space => {
+  resultsStore.clear();
+  const combos = new Map([[4, clean]]) as never;
+  if (space) resultsStore.setCombinationResults3D(new Map(), combos, { maxAbsResults3D: clean } as never);
+  else resultsStore.setCombinationResults(new Map(), combos, { maxAbsResults: clean } as never);
+  resultsStore.activeView = 'combo';
+  expect(space ? resultsStore.envelope3D : resultsStore.envelope).toBeTruthy();
+  expect(space ? resultsStore.results3D : resultsStore.results).toMatchObject(clean);
+  if (space) resultsStore.setCombinationResults3D(new Map(), new Map(), null);
+  else resultsStore.setCombinationResults(new Map(), new Map(), null);
+  expect(space ? resultsStore.results3D : resultsStore.results).toBeNull();
+  expect(space ? resultsStore.envelope3D : resultsStore.envelope).toBeNull();
+  expect(resultsStore.activeComboId).toBeNull();
+  expect(resultsStore.activeView).toBe('single');
+});
+
+it.each([false, true])('selects the published case or combination when it is the only result (3D=%s)', space => {
+  for (const view of ['single', 'combo'] as const) {
+    resultsStore.clear();
+    const pc = new Map(view === 'single' ? [[3, clean]] : []);
+    const pco = new Map(view === 'combo' ? [[4, clean]] : []);
+    if (space) resultsStore.setCombinationResults3D(pc as never, pco as never, null);
+    else resultsStore.setCombinationResults(pc as never, pco as never, null);
+    expect(space ? resultsStore.results3D : resultsStore.results).toMatchObject(clean);
+    expect(resultsStore.activeView).toBe(view);
+    expect(view === 'single' ? resultsStore.activeCaseId : resultsStore.activeComboId).toBe(view === 'single' ? 3 : 4);
+  }
+});
+
+it('selects an individually usable space case when its combination is refused', () => {
+  resultsStore.clear();
+  const rejected = { ...clean, ...JSON.parse(refusal) };
+  resultsStore.setCombinationResults3D(new Map([[5, clean]]) as never, new Map([[4, rejected]]) as never, null);
+  expect(resultsStore.activeCaseId).toBe(5);
+  expect(resultsStore.activeView).toBe('single');
+  expect(resultsStore.results3D).toMatchObject(clean);
+  expect(resultsStore.perCombo3D.size).toBe(0);
 });

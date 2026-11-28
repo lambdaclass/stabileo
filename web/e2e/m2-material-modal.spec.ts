@@ -398,3 +398,13 @@ test.describe('the generators are unaffected', () => {
     await expect(page.getByTestId('material-division-catalogue')).toHaveCount(0);
   });
 });
+
+test('@smoke rejecting a thermal coefficient restores the saved value', async ({ page }) => {
+  await openMaterialsTab(page);
+  const alpha = page.getByTestId('mat-alpha-1');
+  await alpha.fill('-5');
+  await alpha.press('Tab');
+  await alpha.fill('1000');
+  await alpha.press('Tab');
+  await expect(alpha).toHaveValue('-5');
+});

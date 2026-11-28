@@ -8,13 +8,6 @@
  * a load without them is still solved that way, with a warning (`thermal_default_assumed`).
  * Steel's α is about 12·10⁻⁶; concrete's is 10·10⁻⁶ (CIRSOC 201's value), aluminium's twice
  * steel's, timber's along the grain about a third.
- *
- * A material states its α (`Material.alpha`); otherwise its family's value is used. The family
- * is the declared grade's, or else read from E, in bands no two families share: concrete
- * 15–50 GPa, aluminium 60–80 GPa, steel 180–220 GPa. Not from fy, which cannot tell timber
- * from concrete or aluminium from steel. Anything else — timber and masonry among them, whose
- * moduli overlap — has no α the app knows (`memberAlphaOf` is undefined): the load goes without
- * one, the engine keeps its default and says so, until the material states one.
  */
 import type { StructuralMaterialFamily } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
@@ -32,13 +25,17 @@ export const FAMILY_ALPHA: Readonly<Record<StructuralMaterialFamily, number>> = 
   unknown: ENGINE_ALPHA,
 };
 
-export interface AlphaReadableMaterial { e?: number; gradeId?: string; alpha?: number }
+export function isValidThermalAlpha(alpha: number): boolean {
+  return Number.isFinite(alpha) && Math.abs(alpha) < 1e-3;
+}
 
-/** The family α is read for, from the declared grade or from E. */
+export interface AlphaReadableMaterial { e?: number; gradeId?: string; userDefined?: boolean; alpha?: number }
+
 export function thermalFamilyOf(material: AlphaReadableMaterial | undefined | null): StructuralMaterialFamily {
   if (!material) return 'unknown';
   const declared = material.gradeId ? catalogueGradeFamily(material.gradeId) : undefined;
   if (declared) return declared;
+  if (material.userDefined !== false) return 'unknown';
   const e = material.e ?? 0;   // MPa
   if (e >= 15_000 && e <= 50_000) return 'concrete';
   if (e >= 60_000 && e <= 80_000) return 'aluminium';
@@ -47,17 +44,19 @@ export function thermalFamilyOf(material: AlphaReadableMaterial | undefined | nu
 }
 
 /** The α a material is solved with, 1/°C. */
-export function thermalAlphaOf(material: AlphaReadableMaterial | undefined | null): number {
-  if (material && material.alpha !== undefined && material.alpha > 0) return material.alpha;
-  return FAMILY_ALPHA[thermalFamilyOf(material)];
+export function thermalAlphaForDisplay(material: AlphaReadableMaterial | undefined | null): number {
+  return material?.alpha ?? FAMILY_ALPHA[thermalFamilyOf(material)];
 }
 
 /**
  * The α a member's thermal load is sent with: the material's own, or its family's when the
  * family is known; undefined when neither is (the engine then keeps its default and warns).
  */
-export function memberAlphaOf(material: AlphaReadableMaterial | undefined | null): number | undefined {
-  if (material && material.alpha !== undefined && material.alpha > 0) return material.alpha;
+export function thermalAlphaOf(material: AlphaReadableMaterial | undefined | null, invalid = () => new RangeError('materials.workbookAlphaInvalid')): number | undefined {
+  if (material?.alpha !== undefined) {
+    if (!isValidThermalAlpha(material.alpha)) throw invalid();
+    return material.alpha;
+  }
   const family = thermalFamilyOf(material);
   return family === 'unknown' ? undefined : FAMILY_ALPHA[family];
 }

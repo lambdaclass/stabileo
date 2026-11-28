@@ -1,5 +1,5 @@
 import { errorText } from '../utils/error-text';
-import { knownIssueRefusal } from './known-issues';
+import { knownIssueRefusal, knownIssueResultDisposition } from './known-issues';
 /**
  * live-calc.ts — Extracted live-calculation logic from App.svelte.
  *
@@ -32,11 +32,12 @@ import { initSolver, isWasmReady, combineResults3D } from './wasm-solver';
 import { computeGoverning2D, computeGoverning3D } from './governing-case';
 import { hasNonlinearBehaviour } from './member-behaviour';
 import { allLoadsResult3D } from './shell-combos';
-import { markAllLoads } from './solver-service';
+import { hasLoadCarrying3D, markAllLoads } from './solver-service';
 import { singleSolveFactors } from './case-effects';
 import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
+import { trackLiveSolve } from './live-calc-state';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -111,9 +112,14 @@ export function lastSolveFailure(): string | null {
  * @param axisConvention3D  Current 3D axis convention string
  * @param prevDiagram  Diagram type the user was viewing before clear() — restored after solve
  */
-export async function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): Promise<void> {
+export function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): Promise<void> {
+  return trackLiveSolve(() => liveCalc(analysisMode, axisConvention3D, prevDiagram));
+}
+
+async function liveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): Promise<void> {
   // Skip if model is incomplete (e.g., mid-example-load after clear but before fixture applied)
-  if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
+  const hasElements = is3DWorkspace(analysisMode) ? hasLoadCarrying3D(modelStore.model) : modelStore.elements.size > 0;
+  if (modelStore.nodes.size < 2 || !hasElements) { resultsStore.releaseScreen(); return; }
   // Floor loads kept as definitions, current before the guard is taken: the edit that started this
   // solve may not have been rewritten yet (`store/defined-loads.ts`).
   if (is3DWorkspace(analysisMode)) {
@@ -135,6 +141,7 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
     }
     if (isStale()) return;
     const is3DMode = is3DWorkspace(analysisMode);
+    if (!(is3DMode ? resultsStore.results3D : resultsStore.results)) resultsStore.releaseScreen();
     // What was on screen before the edit cleared it: diagram, case, combination.
     // Only onto results: a solve that published none (WASM not ready, an error,
     // NaN displacements) leaves the view waiting for the next one.
@@ -350,6 +357,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   }
   if (!isStale()) {
     lastFailure = outcome.ok ? null : { input, error: outcome.error };
+    if (!outcome.ok) resultsStore.releaseScreen();
     resultsStore.restoreView(uiStore.is3DWorkspace);
   }
   if (!isStale() && (!outcome.ok || outcome.combinationsLeftOut !== null)) recheckStore.restoreStamp(stampBefore);
@@ -461,7 +469,9 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     const caseIds = [...comboResult.perCase.keys()];
     const factors = caseIds.map((caseId) => ({ caseId, factor: listedFactors?.get(caseId) ?? 1 })).filter((f) => f.factor !== 0);
     let firstCaseResult;
-    if (listedFactors === null || factors.length === 0) {
+    const direct = listedFactors === null || factors.length === 0 ||
+      factors.some(({ caseId }) => knownIssueResultDisposition(comboResult.perCase.get(caseId)).refused);
+    if (direct) {
       const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro, { isCancelled: isStale });
       if (isStale() || modelStore.modelVersion !== solveEpoch) return stale;
       if (typeof single === 'string') return single;
@@ -487,7 +497,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     // direct single solve's (store/result-provenance.ts), so reports carry engine hashes and the
     // CLI reproduce has an input to run.
     noteBaseSolveInput(modelStore.singleSolveInput3D(uiStore.includeSelfWeight, leftHand, isPro),
-      listedFactors === null || factors.length === 0 ? 'direct' : 'case-superposition');
+      direct ? 'direct' : 'case-superposition');
     publishCombinations3D(comboResult);
 
     const elapsed = performance.now() - t0;

@@ -462,6 +462,7 @@ export const SUPPORT_RESTRAINT_COLUMNS = [
 export function importColumns(name: string, framed: boolean): readonly ImportColumn[] {
   if (Object.hasOwn(extraSheets, name)) return extraSheets[name]!;
   const columns = sheetSpec(name, framed)!.columns;
+  if (name === 'Materials') return [...columns, { key: 'alpha', unit: '1/°C', strictNumber: true, strictUnit: true }, { key: 'gradeId', bareHeader: true }, { key: 'userDefined', bareHeader: true }];
   return name === 'Supports'
     ? [...columns, PLANE_SPRING_ROTATION, ...SUPPORT_RESTRAINT_COLUMNS.map(key => ({ key, bareHeader: true as const }))]
     : columns;

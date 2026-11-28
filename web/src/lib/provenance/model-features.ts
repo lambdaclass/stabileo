@@ -35,6 +35,7 @@ import { modelAliasRefusalFeature } from '../model/canonical-aliases';
 import type { ArcSpec } from '../model/curved-member';
 import { plateAnalysisIssue, type PlateAnalysisModel } from '../model/physical/plate-analysis';
 import { plateSurfaceOf } from '../model/physical/plate';
+import { isValidThermalAlpha, thermalAlphaOf } from '../engine/thermal-alpha';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
@@ -71,6 +72,7 @@ export const FEATURE_IDS = [
   'physicalPlateDefinitions', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
+  'shellThermalLoads', 'invalidThermalCoefficient', 'nonpositiveThermalCoefficient', 'assumedThermalFamily',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
   'generatedWidthGravity', 'generatedPanelGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'spatialDistributedLoadOrientation', 'unplaceablePlanarPointLoads', 'planarStartCoupleWithoutProjection', 'legacyPlanarPointCoupleAliases', 'invalidPlanarNodalMomentAliases', 'nullPlanarMomentAliases', 'invalidPlanarMemberTorsion', 'invalidDynamicMaterialDensity', 'negativeShellSelfWeightDensity', 'invalidShellSelfWeightDensity', 'invalidSelfWeightGroup', 'invalidSelfWeightTarget', 'scopedMemberSelfWeight', 'selfWeight', 'nonstandardPlanarSelfWeight', 'standaloneGravityToggleOff', 'nodalForces', 'forceSummaryResults',
@@ -121,7 +123,7 @@ interface FeatureSnapshotFields {
   nodeToSurfacePairs?: unknown[];
   upliftSupports?: unknown[];
   nodes?: Entries<{ x: number; y: number; z?: number }>;
-  materials?: Entries<Mat>;
+  materials?: Entries<Mat & { alpha?: number; userDefined?: boolean }>;
   elements?: Entries<Elem>;
   sections?: Entries<{ id: number; a?: number; shearAreas?: unknown }>;
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
@@ -572,6 +574,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (jd && (Array.isArray(jd) ? jd.length : typeof jd === 'object' && Object.keys(jd as object).length)) f.add('jointDesigns');
 
   const quads = values(s.quads);
+  const shellMaterials = (entries: Entries<ShellSnapshot>) => new Map(
+    (Array.isArray(entries) ? entries : []).flatMap(entry => entry?.[1] ? [[entry[0], entry[1].materialId] as const] : []),
+  );
+  const quadMaterials = shellMaterials(s.quads);
+  const plateMaterials = shellMaterials(s.plates);
   const massCarriers = [...elements, ...quads, ...values(s.plates), ...values(s.quad9s), ...values(s.solidShells), ...values(s.curvedShells)];
   let minElasticModulus = Infinity;
   let maxElasticModulus = 0;
@@ -804,7 +811,21 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const partialDistributed = t.startsWith('distributed') && (positive(d.a) || d.b !== undefined);
     if (partialDistributed) f.add('partialDistributedMemberLoads');
     if (t.startsWith('pointOnElement') || partialDistributed) f.add('pointOrPartialMemberLoads');
+    if ((t === 'thermal' || t === 'thermalQuad3d') && (d.dtUniform || d.dtGradient || d.dtGradientY)) {
+      const materialId = t === 'thermal' ? elementById.get(d.elementId as number)?.materialId
+        : (d.on === 'plate' ? plateMaterials : quadMaterials).get(d.quadId as number);
+      const material = materialId === undefined ? undefined : materials.get(materialId);
+      const alpha = material?.alpha;
+      if (material && alpha === undefined && thermalAlphaOf(material) === undefined && thermalAlphaOf({ ...material, userDefined: false }) !== undefined) {
+        f.add('assumedThermalFamily');
+      }
+      if (alpha !== undefined) {
+        if (!isValidThermalAlpha(alpha)) f.add('invalidThermalCoefficient');
+        else if (alpha <= 0) f.add('nonpositiveThermalCoefficient');
+      }
+    }
     if (t === 'thermal') f.add('memberThermalLoads');
+    if (t === 'thermalQuad3d') f.add('shellThermalLoads');
     if (t === 'displacement3d' && SETTLEMENT_KEYS.some((k) => !!d[k])) f.add('caseDisplacements');
     if (t === 'thermal' && released.has(d.elementId as number)) f.add('thermalAtRelease');
     if (/edge/i.test(t)) f.add('shellEdgeLoads');

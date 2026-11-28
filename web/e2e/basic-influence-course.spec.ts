@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { openAdvancedFunction } from './advanced-panel';
 
 const SHOTS = process.env.IL_SHOTS;
 
@@ -21,8 +22,7 @@ test.describe('@slow influence lines and envelopes in Basic', () => {
   test('a section at x = 0 on a support, its rotation line, the loaded line and the envelopes', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.getByTestId('rb-cmd-advanced').click();
-    await page.locator('button.adv-btn', { hasText: /^Influence line$/ }).click();
+    await openAdvancedFunction(page, 'influenceLine');
     await expect(page.getByTestId('il-panel')).toBeVisible();
 
     await page.getByTestId('il-q-M').click();
@@ -65,8 +65,7 @@ test.describe('@slow influence lines and envelopes in Basic', () => {
     await page.getByTestId('steps-back').click();
     await expect(page.getByTestId('il-panel')).toBeVisible();
 
-    await page.getByTestId('adv-close').click();
-    await page.getByTestId('adv-load-states').click();
+    await openAdvancedFunction(page, 'loadStates');
     await expect(page.getByTestId('load-states-panel')).toBeVisible();
     const enable = page.getByTestId('load-states-enable');
     if (await enable.isVisible()) await enable.click();

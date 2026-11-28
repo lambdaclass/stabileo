@@ -476,7 +476,7 @@ test.describe('blog', () => {
     // The report is docked in the Advanced tab; if the deep link fails to open
     // it, nothing below this line can pass.
     // 'Avanzado' in the DOM; the ribbon uppercases it in CSS.
-    await expect(app.getByTestId('bp-title')).toHaveText('Avanzado', { timeout: 60_000 });
+    await expect(app.getByTestId('bp-title')).toHaveText(/^Avanzado/, { timeout: 60_000 });
 
     const body = app.locator('body');
     await expect(body).toContainText('GH = 3×2 + 3 − 3×3 − 0 = 0');

@@ -9,7 +9,7 @@ import {
 
 const material: Required<Material> = {
   id: 1, name: 'test material', e: 101, nu: 0.21, rho: 12, fy: 31, fu: 47, fc: 23,
-  alpha: 0.001, gradeId: 'test-grade', maxAggregateSizeMm: 11, spacingMarginMm: 2,
+  alpha: 0.001, gradeId: 'test-grade', userDefined: true, maxAggregateSizeMm: 11, spacingMarginMm: 2,
   shotcrete: false,
   timber: { fb: 1, ft: 2, fc: 3, fcPerp: 4, fv: 5, e: 6, emin: 7, kind: 'sawn', cf: { b: 1, t: 2, c: 3 } },
 };
@@ -42,7 +42,8 @@ function mutations(value: unknown, path: string[] = []): Array<{ path: string[];
 
 function missedMutations(kind: 'material' | 'section'): string[] {
   const source = kind === 'material' ? material : section;
-  const fields = Object.fromEntries(Object.entries(source).filter(([k]) => k !== 'id' && (kind !== 'material' || k !== 'name')));
+  const excluded = kind === 'material' ? ['id', 'name'] : ['id'];
+  const fields = Object.fromEntries(Object.entries(source).filter(([key]) => !excluded.includes(key)));
   const missed: string[] = [];
   for (const workspace of ['2d', '3d', 'pro'] as const) {
     reset(workspace);
@@ -163,6 +164,14 @@ describe('material and section migration fingerprint #1318', () => {
       expect(fingerprint({ ...source, futureStrength: 2 })).not.toEqual(fingerprint({ ...source, futureStrength: 1 }));
       expect(fingerprint(Object.fromEntries(Object.entries(source).reverse()))).toEqual(reference);
     }
+  });
+
+  it('uses the saved section properties independently of its parametric editor history', () => {
+    const built = { shapeType: 'I-custom', params: { h: 2, tw: 1 } };
+    const fingerprint = (s: Section) => resultPropertyFingerprint('section', s);
+    expect(fingerprint({ ...section, built })).toEqual(fingerprint(section));
+    expect(fingerprint({ ...section, built: { ...built, params: { h: 3 } } })).toEqual(fingerprint(section));
+    expect(fingerprint({ ...section, built, iy: section.iy + 1 })).not.toEqual(fingerprint(section));
   });
 
   it('#1318: every real corpus migration preserves its saved material properties', async () => {

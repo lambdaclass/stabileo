@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { MATERIAL_CATEGORIES, searchPresets, categoryFamily, bandSummary, type MaterialPreset } from '../lib/data/material-presets';
   import {
     codesForFamily, codesForMode, defaultCodeFor,
@@ -8,14 +9,23 @@
   import { uiStore } from '../lib/store';
   import { t } from '../lib/i18n';
   import { fmtQ, unitQ } from '../lib/store/display-units.svelte';
+  import MaterialForm from './tables/MaterialForm.svelte';
 
   interface Props {
     open: boolean;
     onselect: (preset: MaterialPreset) => void;
     onclose: () => void;
+    /** Offers the hand-entry tab; called with the material the form saved. */
+    oninvent?: (materialId: number) => void;
+    /** The material the hand-entry tab edits; null or absent makes a new one. */
+    inventMaterialId?: number | null;
+    initialTab?: 'catalogue' | 'invent';
   }
 
-  let { open, onselect, onclose }: Props = $props();
+  let { open, onselect, onclose, oninvent, inventMaterialId = null, initialTab = 'catalogue' }: Props = $props();
+
+  let inventing = $state(false);
+  $effect.pre(() => { if (open) inventing = initialTab === 'invent' && untrack(() => !!oninvent); });
 
   /*
    * The catalogue quotes MPa and kN/m³. In SI they are shown as written (E in
@@ -122,11 +132,30 @@
         {#each MATERIAL_CATEGORIES as cat}
           <button
             class="tab-btn"
-            class:active={activeCategory === cat.id}
-            onclick={() => pickCategory(cat.id)}
+            class:active={!inventing && activeCategory === cat.id}
+            onclick={() => { inventing = false; pickCategory(cat.id); }}
           >{t(cat.label)}</button>
         {/each}
+        {#if oninvent}
+          <button
+            class="tab-btn invent"
+            class:active={inventing}
+            data-testid="mat-invent-tab"
+            onclick={() => { inventing = true; }}
+          >{t('matEdit.invent')}</button>
+        {/if}
       </div>
+
+      {#if inventing && oninvent}
+        <div class="preset-invent">
+          {#key inventMaterialId}
+            <MaterialForm
+              materialId={inventMaterialId}
+              onDone={(id) => { if (id !== null) oninvent(id); else onclose(); }}
+            />
+          {/key}
+        </div>
+      {:else}
 
       <!-- Design code. Present only for the graded metals: concrete and timber
            have no code attached here, and an inert control would only suggest
@@ -214,6 +243,7 @@
           <p class="no-results">{t('search.noResults')}</p>
         {/if}
       </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -246,7 +276,7 @@
        edge once concrete and timber arrived. Sized to its content within a
        bound instead, so adding a category widens the dialog rather than
        hiding it. */
-    width: min(560px, 100%);
+    width: min(680px, 100%);
     max-height: min(78vh, 720px);
     display: flex;
     flex-direction: column;
@@ -304,6 +334,17 @@
   }
   .tab-btn:hover { color: var(--st-text); background: var(--st-surface-2); }
   .tab-btn.active { color: var(--st-text); border-bottom-color: var(--st-accent); }
+  .tab-btn.invent {
+    margin-left: auto;
+    border-left: 1px solid var(--st-border);
+    border-radius: 0 var(--st-radius) 0 0;
+    color: var(--st-value);
+    font-weight: 600;
+  }
+  .preset-invent { overflow-y: auto; min-height: 0; }
+  @media (pointer: coarse), (max-width: 767px) {
+    .tab-btn { min-height: 44px; }
+  }
 
   .preset-code {
     display: flex;

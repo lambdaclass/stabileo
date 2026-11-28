@@ -10,7 +10,8 @@ import * as THREE from 'three';
 import { canvasUnitSystem } from '../canvas/canvas-units';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
 import { modelStore, uiStore, resultsStore } from '../store';
-import { tp } from '../i18n';
+import { t, tp } from '../i18n';
+import type { ElementForces3D } from '../engine/types-3d';
 import { forEachElementVisual } from './scene-sync';
 export { forEachElementVisual };
 import { colourScaleSource } from '../store/result-view';
@@ -26,7 +27,8 @@ import { verificationStore } from '../store/verification.svelte';
 import { discretizationStore } from '../store/discretization.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import { dofQuantity } from '../utils/units';
-import type { Diagram3DKind } from '../engine/diagrams-3d';
+import { envelopeAxialRanges, signedAxialRange, axialPaintLabel } from '../viewport/axial-paint';
+import { hasUnsignedForces, computeDiagram3D, type Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { timeHistoryView } from '../store/time-history-view.svelte';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellNodalColors, displaceShellFace, type HeatmapVariable } from '../three/stress-heatmap';
@@ -143,7 +145,7 @@ const MODE_SPAN = 0.15;
 export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): void {
   if (!ctx.initialized) return;
 
-  const dt = resultsStore.diagramType;
+  const dt = resultsStore.screen.diagram;
   const isDeformedLike = dt === 'deformed' || dt === 'modeShape' || dt === 'bucklingMode';
   /*
    * A time-history instant takes the deformed view when the user asked to see it, and only for
@@ -156,7 +158,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   // Restore element opacity when not showing deformed shape
   // A mode shape needs its own analysis, not a static solve.
   const shapeShown = (dt === 'modeShape' && !!resultsStore.modalResult3D) || (dt === 'bucklingMode' && !!resultsStore.bucklingResult3D);
-  const showingDeformed = (resultsStore.results3D && isDeformedLike) || shapeShown || thFrame;
+  const showingDeformed = (resultsStore.screen.results3D && isDeformedLike) || shapeShown || thFrame;
   for (const group of ctx.elementGroups.values()) {
     group.traverse((child) => {
       // Skip picking helpers, heatmap overlays and section edge outlines —
@@ -210,7 +212,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     scale = peak > 0 ? computeStructureBBox() * 0.15 * scale / peak : 0;
     modeColor = 0x7fd4cc; // --st-value, as mode shapes
   } else if (dt === 'deformed') {
-    const r3d = resultsStore.results3D;
+    const r3d = resultsStore.screen.results3D;
     if (!r3d) { dropDeformed(); return; }
     displacements = r3d.displacements;
     // Scale x1 = true physical deformation (1:1). No auto-amplification.
@@ -256,7 +258,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   // carries preallocated base/displacement buffers and a setScale() that
   // rewrites positions without rebuilding any geometry (previously every
   // animation frame disposed and recreated the whole group per element).
-  const r3d = resultsStore.results3D;
+  const r3d = resultsStore.screen.results3D;
   const sigDisp = displacements;
   // A time-history frame is a shape, like a mode: the static solve's forces do not belong to it.
   const staticDeformed = dt === 'deformed' && !thFrame;
@@ -393,8 +395,8 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     ctx.overlayDiagramGroup = null;
   }
 
-  const r3d = resultsStore.results3D;
-  const dt = resultsStore.diagramType;
+  const r3d = resultsStore.screen.results3D;
+  const dt = resultsStore.screen.diagram;
   publishDiagramState(0);
   if (!r3d || !DIAGRAM_3D_TYPES.has(dt)) return;
 
@@ -403,9 +405,9 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
   const projectedNodes = getProjectedNodes();
 
   // Check if envelope dual curves should be rendered
-  const isEnvelope = resultsStore.isEnvelopeActive && resultsStore.fullEnvelope3D;
+  const isEnvelope = resultsStore.screen.envelopeActive && resultsStore.screen.envelope3D;
   if (isEnvelope) {
-    const envData = resultsStore.fullEnvelope3D!;
+    const envData = resultsStore.screen.envelope3D!;
     const envDiagram = envData[kind as keyof typeof envData] as import('../engine/types-3d').EnvelopeDiagramData3D | undefined;
     if (envDiagram && 'elements' in envDiagram) {
       ctx.diagramGroup = createEnvelopeDiagramGroup3D(
@@ -472,11 +474,19 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
 // ─── Color map (axialColor / colorMap) ──────────────────────
 
 
+function axialRangeReader() {
+  const envelope = resultsStore.screen.envelopeActive ? envelopeAxialRanges(resultsStore.screen.envelope3D?.axial) : null;
+  return (member: ElementForces3D) => {
+    if (resultsStore.screen.results3D?.magnitude || hasUnsignedForces(member)) return null;
+    return envelope ? envelope.get(member.elementId) : signedAxialRange(() => computeDiagram3D(member, 'axial'));
+  };
+}
+
 export function syncColorMap3D(ctx: ResultsSyncContext): void {
   if (!ctx.initialized) return;
 
-  const r3d = resultsStore.results3D;
-  const dt = resultsStore.diagramType;
+  const r3d = resultsStore.screen.results3D;
+  const dt = resultsStore.screen.diagram;
   const wireframe = uiStore.renderMode3D === 'wireframe';
   const eb = ctx.elementsBatched;
 
@@ -527,13 +537,14 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   }
 
   if (dt === 'axialColor') {
+    const axialRange3D = axialRangeReader();
     clearHeatmapMeshes(ctx);
     forEachElementVisual(ctx, (id, group) => {
       if (group) showOriginalMeshes(group, true);
       const ef = forcesMap.get(id);
-      if (!ef) return;
-      const nAvg = (ef.nStart + ef.nEnd) / 2;
-      const c = axialForceColor(nAvg);
+      const range = ef && axialRange3D(ef);
+      const c = !range ? (modelStore.elements.get(id)?.type === 'truss' ? COLORS.truss : wireframe ? COLORS.frameWire : COLORS.frame)
+        : range.mixed ? 0x895a70 : axialForceColor(Math.sign(range.tension || range.compression || 0));
       if (group) setGroupColor(group, c);
       // The batched wireframe primary is where a plain member's colour lives:
       // without this, axial colours are silently invisible in wireframe.
@@ -629,8 +640,16 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
     ctx.verificationLabelsGroup = null;
   }
 
-  if (resultsStore.diagramType !== 'verification') return;
-  if (!verificationStore.hasResults && !verificationStore.hasDemandData) return;
+  const axial = resultsStore.screen.diagram === 'axialColor' && resultsStore.screen.results3D;
+  if (!axial && (resultsStore.screen.diagram !== 'verification' || (!verificationStore.hasResults && !verificationStore.hasDemandData))) return;
+  const mixedLabels = new Map<number, { text: string; color: string }>();
+  const axialRange3D = axialRangeReader();
+  if (axial) for (const ef of axial.elementForces) {
+    const range = axialRange3D(ef);
+    if (!range || range.mixed) mixedLabels.set(ef.elementId, {
+      text: range ? axialPaintLabel(range, uiStore.unitSystem) : t('whatif.paint.axialUnavailable'), color: '#e8eef4',
+    });
+  }
 
   const project2D = projectFlag();
 
@@ -640,8 +659,8 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
   // Same partial-registry trap as the colour maps: in wireframe the labels
   // would appear only on the handful of members that happen to have a group.
   forEachElementVisual(ctx, (id) => {
-    const v = verificationStore.memberVerdict(id);
-    const label = verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) }).label;
+    const v = axial ? null : verificationStore.memberVerdict(id);
+    const label = v ? verificationVisual({ status: v.status, local: v.local, ratio: verificationStore.getDisplayRatio(id) }).label : mixedLabels.get(id);
     if (!label) return;
 
     const elem = modelStore.elements.get(id);
@@ -904,7 +923,7 @@ function applyFrameHeatmap(
  */
 function applyShellContour(
   ctx: ResultsSyncContext,
-  r3d: NonNullable<typeof resultsStore.results3D>,
+  r3d: NonNullable<typeof resultsStore.screen.results3D>,
 ): void {
   const field = currentShellContourField(r3d);
   if (!field) { ctx.shellOverlayGroup = replaceShellOverlay(ctx.resultsParent, ctx.shellOverlayGroup, null); return; }
@@ -978,9 +997,9 @@ export function syncReactions(ctx: ResultsSyncContext): void {
     ctx.reactionGroup = null;
   }
 
-  const r3d = resultsStore.results3D;
+  const r3d = resultsStore.screen.results3D;
   // In despiece the free-body overlay draws each reaction ONCE — don't double them.
-  if (!r3d || !resultsStore.showReactions || resultsStore.diagramType === 'despiece') return;
+  if (!r3d || !resultsStore.screen.showReactions || resultsStore.screen.diagram === 'despiece') return;
 
   const project2D = projectFlag();
 
