@@ -1006,7 +1006,7 @@ test('known wrong result: #1928 roof category case creation ships only with the 
   }
 });
 
-test.skip('known wrong result: #1928 published containment does not initialize grouped notice preferences', async () => {
+test('known wrong result: #1928 published containment does not initialize grouped notice preferences', async () => {
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       const entry = resolve(root, '.containment-probe.mjs');

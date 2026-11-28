@@ -73,6 +73,9 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (features.proPlatesUnified && importer && id.endsWith('/ContainmentBanner.svelte') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/ContainmentBanner.svelte')) {
+          return resolve(__dirname, 'src/components/UnifiedContainmentBanner.svelte');
+        }
         if (features.proPlatesUnified && importer && id.endsWith('/SelfCheckBanner.svelte') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/advanced/SelfCheckBanner.svelte')) {
           return resolve(__dirname, 'src/components/advanced/UnifiedSelfCheckBanner.svelte');
         }
