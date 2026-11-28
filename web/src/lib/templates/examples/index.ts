@@ -11,14 +11,8 @@ import { uiStore } from '../../store/ui.svelte';
 import { codeToModel } from '../../model/code/format';
 import { mergeCode } from '../../model/code/apply';
 
-export const GENERATED_BUILDING_FILES = {
-  'pro-rc-house': () => import('./pro-rc-house.stabileo.txt?raw'),
-  'pro-rc-four-storey': () => import('./pro-rc-four-storey.stabileo.txt?raw'),
-  'pro-rc-steel-columns': () => import('./pro-rc-steel-columns.stabileo.txt?raw'),
-  'pro-rc-lift-core': () => import('./pro-rc-lift-core.stabileo.txt?raw'),
-  'pro-rc-party-wall': () => import('./pro-rc-party-wall.stabileo.txt?raw'),
-  'pro-steel-building-slabs': () => import('./pro-steel-building-slabs-generated.stabileo.txt?raw'),
-} as const;
+import { GENERATED_BUILDING_FILES } from './building-files';
+export { GENERATED_BUILDING_FILES };
 
 export const PUBLISHED_CODE_FILES = {
   'pro-plane-frame-seismic': () => import('./pro-plane-frame-seismic.stabileo.txt?raw'),
@@ -34,12 +28,18 @@ export const CODE_EXAMPLES = { ...PUBLISHED_CODE_FILES, ...GENERATED_BUILDING_FI
 
 export type CodeExampleId = keyof typeof CODE_EXAMPLES;
 
+function offeredCodeFile(id: CodeExampleId) {
+  const file = CODE_EXAMPLES[id];
+  if (!file) throw new RangeError(id);
+  return file;
+}
+
 export async function codeExampleText(id: CodeExampleId): Promise<string> {
-  return (await CODE_EXAMPLES[id]()).default;
+  return (await offeredCodeFile(id)()).default;
 }
 
 /** Replace the open model with a model-code example, as one undo step. */
-export async function loadCodeExample(id: CodeExampleId, codeFile = CODE_EXAMPLES[id]): Promise<void> {
+export async function loadCodeExample(id: CodeExampleId, codeFile = offeredCodeFile(id)): Promise<void> {
   return loadCodeFile(id, codeFile);
 }
 

@@ -32,6 +32,7 @@ export const sharedSwitchOnUnitFiles = [
   'src/lib/sheets/details/__tests__/compression-lap-profile.test.ts',
   'src/lib/store/__tests__/design-deferred-mesh.test.ts',
   'src/lib/store/__tests__/loaded-shell-refusal.test.ts',
+  'src/lib/templates/examples/__tests__/offered-code-example.test.ts',
   'src/lib/viewport3d/__tests__/label-budget.test.ts',
   'src/lib/store/__tests__/bvbs-listing-mandrel.test.ts',
   'src/components/__tests__/advanced-toolbar-warning.test.ts',

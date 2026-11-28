@@ -7,7 +7,7 @@ import { modelStore } from '../../../store';
 
 afterEach(() => modelStore.clear());
 
-it.skip('known wrong result: #1928 the direct text and model readers open the steel building offered by this profile', async () => {
+it('known wrong result: #1928 the direct text and model readers open the steel building offered by this profile', async () => {
   const text = __PUBLIC_FEATURES__.proPlatesUnified ? generated : published;
   expect(generated).not.toBe(published);
   expect(await codeExampleText('pro-steel-building-slabs')).toBe(text);
@@ -15,6 +15,6 @@ it.skip('known wrong result: #1928 the direct text and model readers open the st
   const expected = codeToModel(text).snapshot!;
   expect([...modelStore.nodes.keys()]).toEqual(expected.nodes.map(([id]) => id));
   expect([...modelStore.elements.keys()]).toEqual(expected.elements.map(([id]) => id));
-  expect('pro-rc-house' in CODE_EXAMPLES).toBe(__PUBLIC_FEATURES__.proPlatesUnified);
+  expect('pro-rc-house' in CODE_EXAMPLES).toBe(__PUBLIC_FEATURES__.proPlatesUnified === true);
   expect('pro-plane-frame-seismic' in CODE_EXAMPLES).toBe(true);
 });

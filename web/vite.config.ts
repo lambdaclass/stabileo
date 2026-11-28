@@ -73,6 +73,9 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (features.proPlatesUnified && importer && id === './building-files' && dirname(importer) === resolve(__dirname, 'src/lib/templates/examples')) {
+          return resolve(dirname(importer), 'unified-building-files.ts');
+        }
         if (features.proPlatesUnified && importer && id.endsWith('/AnalysisMeshControl.svelte') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/pro/plates/AnalysisMeshControl.svelte')) {
           return resolve(__dirname, 'src/components/pro/plates/UnifiedAnalysisMeshControl.svelte');
         }

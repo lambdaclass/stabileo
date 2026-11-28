@@ -43,10 +43,9 @@ import { addGeneratedCombinations } from '../store/generated-combinations';
 import { loadCodeFile, GENERATED_BUILDING_FILES, PUBLISHED_CODE_FILES } from '../templates/examples';
 import { PRO_EXAMPLE_FIXES, declareSteelGrades } from './pro-example-fixes';
 import { localiseExampleNames } from './example-names';
-import { generateSavedLoads } from '../store/saved-loads';
 import { sheetPlacement } from '../store/sheet-placement';
 import { designData } from '../store/design-data';
-import { withExampleProgress } from '../store/example-load-progress';
+import { generateExampleLoads, withExampleProgress } from '../store/example-load-progress';
 
 export type ExampleGroup =
   | 'firstSteps' | 'buildings' | 'rcBuildings' | 'steelBuildings' | 'cad' | 'industrial' | 'towers' | 'longspan' | 'foundations' | 'showcase';
@@ -162,8 +161,8 @@ async function loadExampleModel(ex: ProExample, beforeLoads?: () => Promise<void
   try { await initSolver(); } catch { throw new EngineUnavailableError("the example's combinations"); }
   if (ex.source === 'code') await loadCodeFile(ex.id, ex.codeFile ?? PUBLISHED_CODE_FILES[ex.id as keyof typeof PUBLISHED_CODE_FILES]);
   else await modelStore.loadExample(ex.id);
-  const generated = unifiedPlates() && ex.loads === 'generator';
-  if (generated) await beforeLoads?.();
+  const generate = ex.loads === 'generator' ? generateExampleLoads : undefined;
+  if (generate) await beforeLoads?.();
   modelStore.batch(() => {
     PRO_EXAMPLE_FIXES[ex.id]?.();
     if (sheetPlacement && designData().placement) sheetPlacement.applyPlacement();
@@ -171,8 +170,8 @@ async function loadExampleModel(ex: ProExample, beforeLoads?: () => Promise<void
     // After the fixes and grades, which read the names as written; before the combinations,
     // which are named from the cases.
     localiseExampleNames(ex.nameKey);
-    if (generated) {
-      const refused = generateSavedLoads();
+    if (generate) {
+      const refused = generate();
       if (refused) throw new Error(`${ex.id}: the load generator refused: ${refused.map((m) => m.key).join(', ')}`);
     }
     // A model written as code states its own self-weight rule; a fixture gets the example's.
@@ -181,7 +180,7 @@ async function loadExampleModel(ex: ProExample, beforeLoads?: () => Promise<void
     dropEmptyCases(ex.selfWeight === 'none' ? undefined : dead);
     if (!stated) stateSelfWeight(ex.selfWeight, dead);
     if (ex.combinations !== 'own') regulationCombinations(ex.combinations === 'regulation');
-    if (generated) showGravityCases();
+    if (generate) showGravityCases();
   });
 }
 
@@ -205,7 +204,7 @@ export const exampleEntry = (e: Entry): ProExample => {
 
 const entry = exampleEntry;
 
-export const unifiedBuildingExamples = (): readonly ProExample[] => [
+export const unifiedBuildingExamples = (): readonly ProExample[] => !GENERATED_BUILDING_FILES ? [] : [
   // ── Reinforced concrete buildings ── their loads, wind included, from the load generator; the
   // earthquake is for the reader to add there, with the site's zone and soil.
   entry({ id: 'pro-rc-house', source: 'code', codeFile: GENERATED_BUILDING_FILES['pro-rc-house'], group: 'rcBuildings', tags: ['pro.tagRC', 'pro.tagShells'], stats: { nodes: 27, members: 42, plates: 8 }, selfWeight: 'all', combinations: 'own', loads: 'generator' }),

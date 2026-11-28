@@ -1,3 +1,4 @@
+export { generateSavedLoads as generateExampleLoads } from './saved-loads';
 import type { LoadExampleModel } from './example-load-progress';
 import { exampleProgress } from './example-progress.svelte';
 import { nextFrame } from './mesh-progress.svelte';
