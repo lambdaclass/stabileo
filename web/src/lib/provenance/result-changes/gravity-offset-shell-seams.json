@@ -23,6 +23,7 @@
     "de": "Starre Kopplungen verbinden deckungsgleiche Schalenfugen über versetzte Hauptknoten",
     "fr": "Les liaisons rigides complètes relient les joints des coques via des maîtres décalés",
     "tr": "Tam rijit bağlantılar çakışık kabuk birleşimlerini ötelenmiş ana düğümlerle birleştirir",
+    "ko": "완전 강체 링크가 오프셋 주절점을 통해 일치하는 쉘 이음매를 연결합니다",
     "zh": "全刚性连接通过偏置主节点连接重合的壳单元接缝"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "de": "Die feldweise Schwerkraftlasterzeugung sperrt überlappende Schalendecken und belastete Trägerfelder, wenn Fugenknoten innerhalb der Geometrietoleranz über versetzte Hauptknoten voll starr gekoppelt sind. Erzeugen Sie die Schwerkraftlasten neu.",
     "fr": "La génération de charges de gravité par panneaux bloque les planchers de coques recouvrant des panneaux de poutres chargés si les nœuds du joint coïncident à la tolérance géométrique et partagent un mouvement rigide via des maîtres décalés. Régénérez les charges de gravité.",
     "tr": "Panel yerçekimi yükü üretimi, geometri toleransı içindeki birleşim düğümleri ötelenmiş ana düğümlerle tam rijit hareketi paylaştığında, yüklü kiriş paneliyle örtüşen kabuk döşemeyi engeller. Yerçekimi yüklerini yeniden üretin.",
+    "ko": "기하 허용오차 이내의 이음매 절점이 오프셋 주절점을 통해 완전한 강체 운동을 공유하면, 하중을 받는 보 베이와 겹치는 쉘 데크에 대한 패널 중력 하중 생성이 차단됩니다. 중력 하중을 다시 생성하십시오.",
     "zh": "当接缝节点在几何容差内重合，且通过偏置主节点共享全部刚体运动时，按板块生成重力荷载会阻止与受荷梁板区重叠的壳板受荷。请重新生成重力荷载。"
   },
   "changelog": {

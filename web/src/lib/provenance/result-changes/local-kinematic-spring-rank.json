@@ -27,6 +27,7 @@
     "fr": "Les vérifications cinématiques des ressorts utilisent la rigidité locale",
     "hu": "A kinematikai rugóellenőrzés helyi merevséget használ",
     "tr": "Kinematik yay denetimleri yerel rijitliği kullanır",
+    "ko": "기하학적 스프링 검토는 국부 강성을 사용합니다",
     "zh": "运动学弹簧检查使用局部刚度"
   },
   "explanation": {
@@ -37,6 +38,7 @@
     "fr": "Dans la PR #1943, une barre rigide sans liaison pouvait créer un faux mécanisme dans un modèle contraint avec ressorts. La normalisation utilise maintenant les seuls degrés liés par les contraintes. Recalculer les modèles concernés ; les données cinématiques et la disponibilité du calcul peuvent changer. Les résultats élastiques ordinaires restent identiques.",
     "hu": "Egy független merev elem a PR #1943 ágán tévesen mechanizmusnak mutathatott egy kényszeres rugómodellt. A rugók normalizálása most csak a kényszerekkel összekapcsolt szabadságfokokat használja. Futtassa újra az érintett rugómodelleket; a mechanizmus adatai és a megoldás elérhetősége változhatnak. A szokásos rugalmas komponensek eredményei változatlanok.",
     "tr": "PR #1943 üzerinde bağlantısız rijit bir eleman, yaylı ve kısıtlı bir modeli yanlışlıkla mekanizma gösterebiliyordu. Normalleştirme artık yalnızca kısıtlarla bağlı serbestlikleri kullanır. Etkilenen yaylı modelleri yeniden çözün; mekanizma bilgileri ve çözüm kullanılabilirliği değişebilir. Olağan elastik bileşen sonuçları değişmez.",
+    "ko": "관련 없는 강한 부재 때문에 구속된 스프링 모델이 PR #1943에서 메커니즘으로 잘못 보일 수 있었습니다. 이제 스프링 정규화는 구속으로 연결된 자유도만 사용합니다. 영향받는 스프링 모델을 다시 실행하십시오. 메커니즘 메타데이터와 해석 가능 여부가 바뀔 수 있습니다. 일반 탄성 성분 결과는 바뀌지 않습니다.",
     "zh": "在 PR #1943 上，一根不相关的刚性杆件曾可能让受约束的弹簧模型被误判为机构。弹簧归一化现在只使用与约束相连的自由度。请重新运行受影响的弹簧模型；机构元数据和求解可用性可能变化。普通弹性分量的结果不变。"
   },
   "changelog": {

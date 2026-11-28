@@ -68,7 +68,7 @@ describe('the languages the app offers', () => {
 
   it('is English, Español and Português, plus Deutsch, Français, Türkçe, Magyar and 中文 each once it is complete', async () => {
     const { store } = await boot(['en']);
-    const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'zh'].filter(isComplete)];
+    const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'zh', 'ko'].filter(isComplete)];
     expect([...store.OFFERED_LOCALES].sort()).toEqual(expected.sort());
   });
 
@@ -76,7 +76,7 @@ describe('the languages the app offers', () => {
     async () => {
       const { store } = await boot(['en']);
       const { LOCALE_NAMES } = await import('../offered');
-      expect(LOCALE_NAMES).toEqual({ en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '中文' });
+      expect(LOCALE_NAMES).toEqual({ en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '中文', ko: '한국어' });
       for (const code of [...store.OFFERED_LOCALES, ...store.PUBLIC_LOCALES]) expect(store.tAt(`lang.${code}`, 'en')).toBe(LOCALE_NAMES[code]);
     });
 
@@ -111,7 +111,7 @@ describe('detecting the browser language', () => {
     ['fr', reach('fr')], ['fr-FR', reach('fr')], ['fr-CA', reach('fr')], ['fr-BE', reach('fr')],
     ['tr', reach('tr')], ['tr-TR', reach('tr')],
     ['hu', reach('hu')], ['hu-HU', reach('hu')],
-    ['zh', reach('zh')], ['zh-CN', reach('zh')], ['zh-TW', reach('zh')], ['zh-Hans', reach('zh')], ['zh-Hant', reach('zh')], ['zh-Hant-HK', reach('zh')],
+    ['zh', reach('zh')], ['ko-KR', reach('ko')], ['ko', reach('ko')], ['zh-CN', reach('zh')], ['zh-TW', reach('zh')], ['zh-Hans', reach('zh')], ['zh-Hant', reach('zh')], ['zh-Hant-HK', reach('zh')],
   ] as const) {
     it(`a browser set to ${lang} opens in ${expected}`, async () => {
       const { store } = await boot([lang]);
@@ -119,7 +119,7 @@ describe('detecting the browser language', () => {
     });
   }
 
-  for (const lang of ['it', 'ja', 'ru', 'ar', 'ko', 'hi', 'id']) {
+  for (const lang of ['it', 'ja', 'ru', 'ar', 'hi', 'id']) {
     it(`a browser set to ${lang} opens in English rather than a half-translated ${lang}`,
       async () => {
         // The dictionary exists, but it is not offered: mostly English underneath.

@@ -25,6 +25,7 @@
     "fr": "L'analyse modale refuse un mécanisme qui glisse sur des appuis inclinés",
     "hu": "A modális analízis elutasítja a ferde támaszokon elcsúszó mechanizmust",
     "tr": "Modal analiz eğik mesnetler üzerinde kayan bir mekanizmayı reddediyor",
+    "ko": "고유치 해석은 경사 지점을 따라 미끄러지는 메커니즘을 거부합니다",
     "zh": "模态分析拒绝求解沿斜支座滑动的机构"
   },
   "explanation": {
@@ -35,6 +36,7 @@
     "fr": "La vérification qui refuse un mécanisme lisait la masse déplacée par son mode à fréquence nulle dans les axes globaux, mais sur un appui incliné le solveur travaille dans les axes propres de l'appui ; un mécanisme qui ne glisse que le long de rouleaux inclinés ou d'appuis 3D inclinés était donc considéré comme sans masse : son mode nul était écarté, les autres modes étaient rendus comme complets, et une analyse spectrale combinait cet ensemble incomplet (#1315). L'analyse modale lit désormais cette masse dans les axes de l'appui et refuse un tel modèle en nommant le mécanisme. Les modèles sans mécanisme rendent les mêmes modes.",
     "hu": "A mechanizmust elutasító ellenőrzés a zérus módus által mozgatott tömeget globális tengelyekben olvasta, de ferde támasznál a megoldó a támasz saját tengelyeiben dolgozik, így az a mechanizmus, amely csak ferde görgős támaszokon vagy ferde 3D támaszokon csúszik el, tömeget nem mozgatónak számított: a zérus módusa kimaradt, a többi módus teljesként tért vissza, és a spektrumanalízis ezt a hiányos halmazt kombinálta (#1315). A modális analízis most a támasz tengelyeiben olvassa ezt a tömeget, és elutasítja az ilyen modellt, megnevezve a mechanizmust. A mechanizmus nélküli modellek ugyanazokat a módusokat adják.",
     "tr": "Bir mekanizmayı reddeden kontrol, sıfır frekanslı modunun hareket ettirdiği kütleyi global eksenlerde okuyordu; oysa eğik bir mesnette çözücü mesnedin kendi eksenlerinde çalışır. Bu yüzden yalnızca eğik kayıcı mesnetler ya da eğik 3B mesnetler boyunca kayan bir mekanizma kütle hareket ettirmiyor sayılıyordu: sıfır modu atılıyor, diğer modlar eksiksizmiş gibi dönüyor ve spektral analiz bu eksik kümeyi birleştiriyordu (#1315). Modal analiz artık bu kütleyi mesnedin eksenlerinde okuyor ve böyle bir modeli mekanizmayı adlandırarak reddediyor. Mekanizması olmayan modeller aynı modları döndürür.",
+    "ko": "메커니즘을 거부하는 검토는 영 모드가 움직이는 질량을 전체 좌표축에서 읽었지만, 경사 지점에서는 해석기가 지점 자체의 축에서 작업하므로 경사 롤러나 경사 3D 지점을 따라서만 미끄러지는 메커니즘은 질량을 움직이지 않는 것으로 간주되었습니다. 그 영 모드는 버려지고 나머지 모드가 완전한 것처럼 반환되었으며, 스펙트럼 해석은 그 불완전한 집합을 조합했습니다(#1315). 이제 고유치 해석은 그 질량을 지점의 축에서 읽고, 그런 모델은 메커니즘을 명시하여 거부합니다. 메커니즘이 없는 모델은 같은 모드를 반환합니다.",
     "zh": "拒绝求解机构的检查，曾按全局轴读取其零模态所移动的质量，但在斜支座处求解器使用支座自身的坐标轴，因此仅沿斜滚动支座或斜 3D 支座滑动的机构被认为没有移动任何质量：其零模态被舍去，其他振型却被当作完整返回，谱分析还合并了这个不完整的集合（#1315）。模态分析现在按支座的坐标轴读取该质量，并拒绝求解这类模型，指出该机构。没有机构的模型返回的振型不变。"
   },
   "changelog": {

@@ -32,6 +32,7 @@
     "fr": "SSI corrige les résidus élastiques stagnants",
     "hu": "Az SSI javítja a rugalmas maradék platóit",
     "tr": "SSI elastik artık duraklamalarını düzeltir",
+    "ko": "SSI는 탄성 잔차 정체를 보정",
     "zh": "SSI 修正弹性残差平台"
   },
   "explanation": {
@@ -42,6 +43,7 @@
     "fr": "Les systèmes SSI sans ressorts de sol ou avec tous les ressorts dans leur domaine linéaire initial conservent leur factorisation et corrigent le déplacement avec le résidu physique. Les modèles élastiques auparavant stagnants peuvent converger sans modifier la tolérance d’équilibre. Le sol non linéaire conserve ses résultats précédents même lorsque sa sécante se stabilise. Relancer les analyses SSI concernées (#2011).",
     "hu": "A talaj nélküli, vagy minden talajrugót a kezdeti lineáris tartományban tartó SSI-rendszerek megőrzik a faktorizációt, és a fizikai maradékból korrigálják az elmozdulást. A korábban azonos megoldások ismétlését kimerítő rugalmas modellek az egyensúlyi tűrés módosítása nélkül konvergálhatnak. A beállt nemlineáris talaj korábbi eredményei megmaradnak. Futtassa újra az érintett SSI-vizsgálatokat (#2011).",
     "tr": "Zemin yayı olmayan veya tüm zemin yayları başlangıçtaki doğrusal aralıkta olan SSI sistemleri çarpanlarına ayırmayı korur ve fiziksel artıkla yer değiştirmeyi düzeltir. Önceden duran elastik modeller denge toleransı değişmeden yakınsayabilir. Sekantı sabitlenen doğrusal olmayan zemin önceki sonuçlarını korur. Etkilenen SSI analizlerini yeniden hesaplayın (#2011).",
+    "ko": "흙이 없거나 모든 흙 스프링이 초기 선형 범위에 있는 SSI 시스템은 인수분해를 유지하고 물리적 잔차를 사용해 변위를 보정합니다. 이전에 동일한 해석 횟수를 소진하던 탄성 모델은 평형 허용오차를 바꾸지 않고도 수렴할 수 있습니다. 정착된 비선형 흙은 이전 결과를 유지합니다. 영향받는 SSI 해석을 다시 실행하십시오 (#2011).",
     "zh": "没有土的 SSI 系统，或所有土弹簧都处于其初始线性范围的 SSI 系统，保留其分解，并用物理残差修正位移。以前用尽相同求解次数的弹性模型，现在可以在不改变平衡容差的情况下收敛。割线刚度已稳定的非线性土模型保持以前的结果。请重新运行受影响的 SSI 分析（#2011）。"
   },
   "changelog": {

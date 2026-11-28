@@ -23,6 +23,7 @@
     "fr": "Moments annulés par phases dans les sous-espaces de rotation libre",
     "hu": "Kioltott fázisnyomatékok a szabad forgási alterekben",
     "tr": "Serbest dönme alt uzaylarında iptal edilen aşamalı momentler",
+    "ko": "자유 회전 부분공간에서 상쇄된 단계별 모멘트",
     "zh": "自由转动子空间中被抵消的分阶段弯矩"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "L’annulation des moments par phases traite les rotations libres obliques après retrait de barres, préserve les incréments avec appui et refuse les moments restants sans appui. Recalculer les historiques concernés (PR #1943).",
     "hu": "A fázisnyomatékok kioltásának vizsgálata elemeltávolítás után kezeli a ferde szabad forgásokat, megőrzi a megtámasztott növekményeket, és elutasítja a fennmaradó, megtámasztatlan nyomatékokat. Futtassa újra az érintett fázistörténeteket (PR #1943).",
     "tr": "Aşamalı moment iptali eleman kaldırıldıktan sonraki eğik serbest dönmeleri işler, desteklenen artımları korur ve kalan desteksiz momentleri reddeder. Etkilenen aşama geçmişlerini yeniden çözün (PR #1943).",
+    "ko": "단계별 모멘트 상쇄는 이제 부재 제거 후의 경사 자유 회전을 처리하고, 지지되는 증분을 보존하며, 남은 지지되지 않는 모멘트를 거부합니다. 영향받는 단계별 이력을 다시 실행하십시오 (PR #1943).",
     "zh": "分阶段弯矩抵消现在可以处理杆件移除之后的斜向自由转动，保留有支撑的增量，并拒绝剩余的无支撑弯矩。请重新运行受影响的分阶段历程（PR #1943）。"
   },
   "changelog": {

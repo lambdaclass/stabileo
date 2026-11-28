@@ -23,6 +23,7 @@
     "fr": "Modification des moments plans restaurés",
     "hu": "Visszaállított síkbeli nyomatékok szerkesztése",
     "tr": "Geri yüklenen düzlemsel momentlerin düzenlenmesi",
+    "ko": "복원된 평면 모멘트의 편집",
     "zh": "编辑恢复的平面力矩"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "La modification d’un couple ponctuel plan restauré remplace le moment enregistré, y compris par zéro. Des valeurs incompatibles de moment nodal arrêtent le calcul. Vérifiez les moments prévus dans les projets concernés et relancez le calcul. Une saisie vide ou invalide conserve la charge d’origine. Un moment enregistré invalide bloque toujours le calcul après la réouverture du projet.",
     "hu": "A visszaállított síkbeli pontnyomaték szerkesztése felülírja a tárolt nyomatékot, akkor is, ha az új érték nulla. Az ellentmondó csomóponti nyomatékértékek leállítják a számítást. Ellenőrizze a kívánt nyomatékokat az érintett projektekben, és futtassa újra a számítást. Az üres vagy érvénytelen bevitel megőrzi az eredeti terhet. Az érvénytelen mentett nyomaték a projekt újranyitása után is megakadályozza a számítást.",
     "tr": "Geri yüklenen düzlemsel noktasal moment düzenlendiğinde, girilen değer sıfır olsa bile kayıtlı moment değiştirilir. Çelişkili düğüm momenti değerleri çözümü durdurur. Etkilenen projelerde amaçlanan momentleri doğrulayın ve analizi yeniden çalıştırın. Boş veya geçersiz girişlerde özgün yük korunur. Geçersiz bir kayıtlı moment, proje yeniden açıldıktan sonra da analizi engeller.",
+    "ko": "복원된 평면 집중 우력을 편집하면 이제 0으로의 편집을 포함하여 저장된 모멘트가 교체됩니다. 상충하는 절점 모멘트 값은 해석을 중단시킵니다. 영향받는 프로젝트에서 의도한 모멘트를 확인하고 해석을 다시 실행하십시오. 비어 있거나 잘못된 편집은 원래 하중을 유지합니다. 잘못 저장된 모멘트는 다시 열어도 계속 해석을 차단합니다.",
     "zh": "编辑恢复的平面集中力偶时，输入的值（包括零）会替换已保存的力矩。节点力矩值冲突时会停止求解。请核对受影响项目中的预期力矩并重新运行分析。清空输入或输入无效值时，原荷载保持不变。重新打开项目后，保存的无效力矩仍会阻止分析。"
   },
   "changelog": {

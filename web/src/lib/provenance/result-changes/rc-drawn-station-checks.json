@@ -13,6 +13,7 @@
     "de": "Tragfähigkeit von Stahlbetonbalken an Bügelwechseln und Stabenden",
     "fr": "Résistance des poutres en béton aux transitions de cadres et aux arrêts de barres",
     "tr": "Etriye geçişlerinde ve donatı bitişlerinde betonarme kiriş dayanımı",
+    "ko": "작도된 철근 케이지 전환부와 철근 절단 위치의 RC 보 강도",
     "zh": "在图示箍筋布置变化处和纵筋截断处验算钢筋混凝土梁承载力"
   },
   "explanation": {
@@ -22,6 +23,7 @@
     "de": "Der CIRSOC-Nachweis verwendet die eingezeichneten Bügel in jedem Querschnitt, prüft beide Seiten von Bügelwechseln und prüft Torsion an interpolierten Stabenden. Für die Torsionslängsbewehrung gilt der Mindestdurchmesser nach Normausgabe und Bügelabstand. Prüfen Sie die betroffenen Balken erneut.",
     "fr": "La vérification CIRSOC utilise les cadres dessinés à chaque section, contrôle les deux côtés des transitions et vérifie la torsion aux arrêts de barres interpolés. Les barres longitudinales de torsion doivent respecter le diamètre minimal selon l’édition et l’espacement des cadres. Vérifiez à nouveau les poutres concernées.",
     "tr": "CIRSOC kiriş kontrolleri her kesitte çizilen etriyeleri kullanır, etriye geçişlerinin iki tarafını da denetler ve enterpolasyonla belirlenen donatı bitişlerinde burulmayı kontrol eder. Boyuna burulma donatısı, yönetmelik sürümüne ve etriye aralığına göre gereken en küçük çapı sağlamalıdır. Etkilenen kirişleri yeniden doğrulayın.",
+    "ko": "CIRSOC 보 검토는 각 단면에 작도된 스터럽을 사용하고, 케이지 전환부의 양쪽을 모두 포함하며, 보간된 철근 절단 위치에서 비틀림을 검토합니다. 종방향 비틀림 철근은 해당 판본과 후프 간격에 대한 최소 지름을 만족해야 합니다. 영향받는 보의 검증을 다시 실행하십시오.",
     "zh": "CIRSOC 梁验算采用各截面图示的箍筋，在箍筋布置变化处验算两侧，并在通过插值确定的纵筋截断位置验算扭转。纵向抗扭钢筋必须满足相应规范版本和箍筋间距所要求的最小直径。请重新验算受影响的梁。"
   },
   "changelog": {

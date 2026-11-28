@@ -5,5 +5,6 @@ import stepsFr from '../i18n/locales/steps/fr';
 import stepsTr from '../i18n/locales/steps/tr';
 import stepsHu from '../i18n/locales/steps/hu';
 import stepsZh from '../i18n/locales/steps/zh';
+import stepsKo from '../i18n/locales/steps/ko';
 
-registerFeatureDictionaries({ es: stepsEs, en: stepsEn, pt: stepsPt, de: stepsDe, fr: stepsFr, tr: stepsTr, hu: stepsHu, zh: stepsZh });
+registerFeatureDictionaries({ es: stepsEs, en: stepsEn, pt: stepsPt, de: stepsDe, fr: stepsFr, tr: stepsTr, hu: stepsHu, zh: stepsZh, ko: stepsKo });

@@ -16,6 +16,7 @@
     "de": "Nachweis der Bewehrungsdetails von Stahlbetonbalken und -stützen",
     "fr": "Vérification des détails de ferraillage des poutres et poteaux en béton",
     "tr": "Betonarme kiriş ve kolon donatı detaylarının doğrulanması",
+    "ko": "RC 보와 기둥 상세 검증",
     "zh": "钢筋混凝土梁柱详图验算"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "de": "Der Nachweis nach CIRSOC 201 berücksichtigt die gleichzeitige Normalkraft beim Bügelabstand und prüft die Verankerung an exakten Momentennullstellen. Gezeichnete Stäbe ohne Nachweis werden nicht angerechnet. Der ermittelte Torsionsgrenzwert gilt, und nicht reproduzierbare Stützenbewehrungen werden nicht ausgegeben.",
     "fr": "La vérification CIRSOC 201 tient compte de l’effort normal concomitant pour l’espacement des cadres et contrôle l’ancrage aux points où le moment est exactement nul. Elle bloque la prise en compte de barres dessinées sans justification et applique la limite de torsion évaluée. Le détail des cages de poteaux impossibles à reproduire est bloqué.",
     "tr": "CIRSOC 201 doğrulaması, etriye aralığı için eşzamanlı eksenel kuvveti kullanır ve momentin tam sıfır olduğu noktalarda kenetlenmeyi denetler. Kanıtı olmayan çizilmiş donatı hesaba katılmaz ve değerlendirilen burulma sınırı uygulanır. Üretilemeyen kolon donatı düzenleri detaylandırılmaz.",
+    "ko": "CIRSOC 201 검증은 이제 스터럽 간격에 동시 축력을 사용하고, 모멘트가 정확히 0이 되는 위치에서 정착을 검토합니다. 지원되지 않는 작도 철근의 반영은 차단하며, 평가된 비틀림 한계를 사용합니다. 물리적 상세는 재현할 수 없는 기둥 철근 케이지를 보류합니다.",
     "zh": "CIRSOC 201 验算现在按同时作用的轴力确定箍筋间距，并检查弯矩恰为零处的锚固。验算禁止在证据不足时计入图示钢筋，并采用计算得到的受扭限值。无法按指定布置生成的柱钢筋笼将不出详图。"
   },
   "changelog": {

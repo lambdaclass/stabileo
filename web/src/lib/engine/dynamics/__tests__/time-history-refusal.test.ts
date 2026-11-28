@@ -68,7 +68,7 @@ describe('modalMechanismRefusal', () => {
     });
     const message = modalMechanismRefusal(text);
     expect(message).toEqual({ key: 'advanced.modalTranslationMechanism', params: { node: 7, dof: 'ux' } });
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'hu', 'tr', 'zh']) {
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'hu', 'tr', 'zh', 'ko']) {
       const translated = teAt(message!, locale);
       expect(translated, locale).toContain('7');
       expect(translated, locale).toContain('ux');

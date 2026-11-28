@@ -26,6 +26,7 @@
     "fr": "La certification plastique exacte limite le stockage simultané et la croissance rationnelle",
     "hu": "A pontos képlékeny tanúsítás keretbe foglalja az átfedő tárolást és a racionális számok növekedését",
     "tr": "Kesin plastik sertifikalama eşzamanlı depolamayı ve rasyonel büyümeyi sınırlar",
+    "ko": "정확한 소성 인증이 중첩된 저장량과 유리수 증가를 예산에 반영합니다",
     "zh": "精确塑性认证对重叠存储和有理数增长设定预算"
   },
   "explanation": {
@@ -36,6 +37,7 @@
     "fr": "Les certificats plastiques cumulent désormais le stockage exact et flottant simultané et contrôlent la croissance rationnelle avant l’élimination. Le compteur de pivots ne rejette plus les petits modèles comme le grillage de 24 barres. Les refus nomment la quantité et la limite dépassées. Relancez les certificats refusés ; aucune tolérance numérique ne change.",
     "hu": "A képlékeny tanúsítványok mostantól összeadják az átfedő pontos és lebegőpontos tárolást, és az eliminációs műveletek előtt ellenőrzik a racionális limbek növekedését. A pivotmunka-számláló már nem utasítja el a kis tárolásigényű modelleket, például a 24 rudas rácsot. Az erőforrás miatti elutasítások megnevezik a túllépett mennyiséget és a határt. Futtassa újra a korábban elutasított tanúsítványokat; numerikus tűrés nem változik.",
     "tr": "Plastik sertifikalar artık eşzamanlı kesin ve kayan noktalı depolamayı toplar ve eliminasyon işlemlerinden önce rasyonel büyümeyi denetler. Pivot sayacı 24 çubuklu ızgara gibi küçük modelleri artık reddetmez. Retler aşılan miktarı ve sınırı belirtir. Önceden reddedilen sertifikaları yeniden çalıştırın; sayısal toleranslar değişmez.",
+    "ko": "소성 인증서는 이제 중첩된 정확 저장량과 부동소수점 저장량을 합산하고, 소거 연산 전에 유리수 림브 증가를 검사합니다. 피벗 작업 카운터는 더는 24개 부재 격자와 같은 소규모 저장 모델을 거부하지 않습니다. 자원 거부는 초과한 양과 한도를 명시합니다. 이전에 거부된 인증서를 다시 실행하십시오. 수치 허용오차는 바뀌지 않습니다.",
     "zh": "塑性证书现在对重叠的精确存储和浮点存储求和，并在消元运算之前检查有理数肢的增长。主元工作量计数器不再拒绝小存储模型，例如 24 根杆件的网格。资源拒绝会指明被超出的量和限值。请重新运行以前被拒绝的证书；数值容差不变。"
   },
   "changelog": {

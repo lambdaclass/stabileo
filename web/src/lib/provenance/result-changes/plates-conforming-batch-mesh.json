@@ -19,6 +19,7 @@
     "de": "Die Neuvernetzung von Platten verwendet gemeinsame Knoten für Decken und Wände",
     "fr": "Le remaillage des plaques partage les nœuds de jonction entre dalles et voiles",
     "tr": "Plakların yeniden ağlanması döşeme ve duvar birleşimlerinde ortak düğümler kullanır",
+    "ko": "판 메쉬 재생성이 슬래브와 벽 사이의 접합 절점을 공유합니다",
     "zh": "板重新划分网格时，楼板和墙在连接处共用节点"
   },
   "explanation": {
@@ -28,6 +29,7 @@
     "de": "Bei der Neuvernetzung von Decken oder Wänden legt das vereinheitlichte PRO die gemeinsamen Randknoten fest, bevor es die Schalen ersetzt. Das siebengeschossige Beispiel kann die Netzvorbereitung abschließen. Verschiebungen, Auflagerreaktionen, Stabkräfte und Schalenspannungen können sich ändern.",
     "fr": "Lors du remaillage des dalles ou des voiles, le mode PRO unifié fixe les nœuds des bords communs avant de remplacer les coques. L’exemple de sept étages peut terminer la préparation du maillage. Le remaillage peut modifier les déplacements, les réactions, les efforts dans les barres et les contraintes dans les coques.",
     "tr": "Birleşik PRO, döşemeleri veya duvarları yeniden ağlarken kabukları değiştirmeden önce ortak kenar düğümlerini belirler. Yedi katlı örneğin ağ hazırlığı tamamlanabilir. Yeni ağ deplasmanları, mesnet tepkilerini, çubuk iç kuvvetlerini ve kabuk gerilmelerini değiştirebilir.",
+    "ko": "통합 PRO가 슬래브나 벽의 메쉬를 다시 만들 때 쉘을 교체하기 전에 공유 가장자리 절점을 확정합니다. 7층 예제가 메쉬 준비를 완료할 수 있으며, 메쉬를 다시 만들면 변위, 반력, 부재력, 쉘 응력이 바뀔 수 있습니다.",
     "zh": "统一版 PRO 为楼板或墙重新划分网格时，会在替换壳单元之前确定共用边上的节点。七层建筑示例可以完成网格准备。重新划分网格可能改变位移、反力、杆件内力和壳单元应力。"
   },
   "changelog": {

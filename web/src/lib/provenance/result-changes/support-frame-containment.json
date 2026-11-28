@@ -16,6 +16,7 @@
     "de": "Änderungen an Rollenlagern, die ein eindeutiges Bezugssystem erfordern",
     "fr": "Modifications d’appuis à rouleaux nécessitant des axes explicites",
     "tr": "Mesnet eksenlerinin açıkça tanımlanmasını gerektiren kayıcı mesnet düzenlemeleri",
+    "ko": "명시적 지점 좌표계가 필요한 롤러 편집",
     "zh": "必须明确滚动支座坐标系的编辑操作",
     "hu": "Egyértelmű támasztengelyeket igénylő görgőstámasz-módosítások"
   },
@@ -26,6 +27,7 @@
     "de": "Beim Kopieren eines ebenen Rollenlagers im lokalen Bezugssystem müssen seine Bezugsstäbe einbezogen werden. Die Transformation wird abgelehnt, wenn die resultierende Geometrie die lokalen Achsen eines ebenen Rollenlagers ändern würde. Das gilt auch für eine starre Drehung ohne Knotenverbindungen. Ein 3D-Rollenlager ohne angeschlossene Stäbe kann vor der Transformation ausdrückliche Bindungen erfordern. Gespeicherte Modellstände erhalten den Lagertyp. Prüfen Sie die Achsen zuvor kopierter oder bearbeiteter Lager vor einer erneuten Berechnung.",
     "fr": "La copie d’un appui à rouleaux plan en axes locaux exige ses barres de référence. La transformation est refusée si la géométrie finale modifie les axes locaux d’un appui à rouleaux plan, y compris lors d’une rotation rigide sans fusion de nœuds. Un appui 3D sans barre peut exiger des blocages explicites avant une transformation. Les instantanés conservent le type enregistré. Vérifiez les axes des appuis précédemment copiés ou modifiés avant de relancer le calcul.",
     "tr": "Yerel eksenli düzlem kayıcı mesnetlerin kopyalanması için referans çubukları gerekir. Son geometri düzlemdeki bir kayıcı mesnedin yerel eksenlerini değiştirecekse dönüşüm reddedilir. Bu kural, düğümler birleştirilmeden yapılan rijit dönmeler için de geçerlidir. Çubuğa bağlı olmayan bir 3B kayıcı mesnet, dönüşümden önce açıkça tanımlanmış kısıtlar gerektirebilir. Kayıtlar mesnet tipini korur. Analizi yenilemeden önce daha önce kopyalanan veya düzenlenen mesnetlerin eksenlerini gözden geçirin.",
+    "ko": "국부 평면 롤러가 있는 복사본은 그 참조 부재를 요구합니다. 최종 형상이 국부 평면 롤러의 방향을 바꾸게 되는 변환은 용접 없이 강체 회전하는 경우를 포함해 거부됩니다. 부재가 없는 3D 롤러는 변환 전에 명시적 구속이 필요할 수 있습니다. 스냅샷은 기록된 롤러 유형을 보존합니다. 해석을 다시 실행하기 전에 이전에 복사하거나 편집한 롤러의 축을 검토하십시오.",
     "zh": "复制带有平面局部滚动支座的模型时，必须包含其参考构件。如果变换后的几何会改变平面局部滚动支座的方向，则拒绝该变换，包括未合并节点的刚体旋转。未连接任何构件的三维滚动支座可能需要先明确指定约束，才能变换。快照保留记录的滚动支座类型。请在重新分析前复核此前复制或编辑过的滚动支座的坐标轴。",
     "hu": "A helyi tengelyű síkbeli görgős támasz másolásához a vonatkoztatási rudak is szükségesek. Az átalakítás nem végezhető el, ha a végső geometria megváltoztatná a síkbeli görgős támasz helyi tengelyeit. Ez a csomópontok egyesítése nélküli merev forgatásra is érvényes. A rúdhoz nem kapcsolódó 3D görgős támasz megkötéseit az átalakítás előtt esetenként külön meg kell adni. A pillanatkép megőrzi a támasz típusát. Újraszámítás előtt ellenőrizze a korábban másolt vagy módosított támaszok tengelyeit."
   },

@@ -39,6 +39,7 @@
     "fr": "Refus plastiques initiaux et rotations sans charge par phases",
     "hu": "Kezdeti képlékeny elutasítások és terheletlen fázisforgások",
     "tr": "Başlangıç plastik retleri ve yüksüz aşamalı dönmeler",
+    "ko": "초기 소성 거부와 하중이 제거된 단계별 회전",
     "zh": "初始塑性的拒绝求解与无荷载分阶段转动"
   },
   "explanation": {
@@ -49,6 +50,7 @@
     "fr": "Les états plastiques 3D initiaux transmettent les refus élastiques au lieu de déclarer un effondrement par le calcul des rotules. Le retrait de barres par phases accepte les rotations à charge cumulée et rigidité physique exactement nulles ; les charges non nulles restent refusées. Recalculer les historiques concernés (PR #1943).",
     "hu": "A kezdeti 3D képlékeny állapotok továbbadják a szabályos rugalmas elutasításokat, a csuklós kerülőút által jelzett összeomlás helyett. A fázisos elemeltávolítás elfogadja a pontosan nulla összegzett terhű és nulla fizikai merevségű forgásokat, miközben a nem nulla terhek elutasítása megmarad. Futtassa újra az érintett képlékeny és fázisos történeteket (PR #1943).",
     "tr": "Başlangıç 3D plastik durumları mafsal hesabıyla göçme bildirmek yerine elastik retleri iletir. Aşamalı eleman kaldırma, birikmiş yükü ve fiziksel rijitliği tam sıfır olan dönmeleri kabul eder; sıfır olmayan yükler reddedilmeye devam eder. Etkilenen geçmişleri yeniden çözün (PR #1943).",
+    "ko": "초기 3D 소성 상태는 이제 힌지 대체 경로로 붕괴를 보고하는 대신 일반 탄성 거부를 전파합니다. 단계별 부재 제거는 누적 하중이 정확히 0이고 물리적 강성이 0인 회전을 허용하며, 0이 아닌 하중에 대한 거부는 유지합니다. 영향받는 소성 및 단계별 이력을 다시 실행하십시오(PR #1943).",
     "zh": "初始 3D 塑性状态现在会传递常规的弹性拒绝求解，而不是通过铰回退报告倒塌。分阶段移除杆件时，接受累积荷载恰为零且物理刚度为零的转动，同时保留荷载非零时的拒绝求解。请重新运行受影响的塑性和分阶段历程（PR #1943）。"
   },
   "changelog": {

@@ -31,6 +31,7 @@
     "fr": "Les bases modales utilisent l’échelle d’arrondi de chaque entrée de Gram de masse",
     "hu": "A modális bázisok minden tömeg-Gram-elem saját kerekítési skáláját használják",
     "tr": "Modal bazlar kütle Gram matrisinin her girdisinin yuvarlama ölçeğini kullanıyor",
+    "ko": "모드 기저는 질량 Gram 성분마다의 반올림 스케일을 사용합니다",
     "zh": "振型基底采用各质量 Gram 元素的舍入尺度"
   },
   "explanation": {
@@ -41,6 +42,7 @@
     "fr": "Le contrôle de la base modale pouvait refuser une base exactement orthogonale parce qu’une autre coordonnée avait une masse élevée. La marge d’arrondi est désormais calculée à partir des produits absolus de masse de chaque entrée de Gram dans les coordonnées du calcul. Les bases valides refusées pour cette raison peuvent rendre des modes ; les bases imprécises et l’incertitude arithmétique non résolue restent refusées aux limites existantes. Les calculs des fréquences, formes et participations sont inchangés. Cette correction concerne la PR #1890 et n’est pas encore publiée ni déployée.",
     "hu": "A modális bázis ellenőrzése elutasíthatott egy pontosan ortogonális bázist, mert egy nem érintett koordinátához nagy tömeg tartozott. Mostantól a kerekítési tűréshatárt minden Gram-elem abszolút tömegszorzataiból számítja, a megoldás tényleges koordinátáiban. Az ezért korábban elutasított érvényes bázisok most visszaadhatnak rezgésalakokat; a pontatlan bázisokat és a feloldatlan számítási bizonytalanságot a meglévő határoknál továbbra is elutasítja. A frekvenciák, a rezgésalakok és a részvételi számítások nem változnak. Ez a javítás a #1890-es PR-hez tartozik, és még nincs kiadva, sem élesítve.",
     "tr": "Modal baz kontrolü, başka bir koordinatın kütlesi büyük olduğu için tam ortogonal bir bazı reddedebiliyordu. Yuvarlama payı artık gerçek çözüm koordinatlarında her Gram girdisinin mutlak kütle çarpımlarından hesaplanıyor. Bu nedenle daha önce reddedilen geçerli bazlar mod döndürebilir; hatalı bazlar ve çözülemeyen aritmetik belirsizlik mevcut sınırlarda reddedilmeye devam eder. Frekans, mod şekli ve katılım hesapları değişmedi. Bu düzeltme PR #1890 ile ilgilidir ve henüz yayımlanmadı veya dağıtılmadı.",
+    "ko": "모드 기저 검토는 관련 없는 좌표의 질량이 크다는 이유로 정확히 직교하는 기저를 거부할 수 있었습니다. 이제 실제 해석 좌표에서 각 Gram 성분의 절대 질량 곱으로 반올림 허용치를 계산합니다. 이 이유로 이전에 거부되던 유효한 기저는 모드를 반환할 수 있으며, 부정확한 기저와 해결되지 않은 연산 불확실성은 기존 한계에서 계속 거부됩니다. 진동수, 형상, 참여 계산은 바뀌지 않습니다. 이 수정은 PR #1890에 관한 것이며 아직 릴리스나 배포되지 않았습니다.",
     "zh": "振型基底检查曾可能因某个不相关坐标有较大的质量，而拒绝求解一个精确正交的基底。现在它在实际求解坐标中，按每个 Gram 元素的质量乘积绝对值计算舍入允许量。此前因此被拒绝求解的有效基底现在可以返回振型；不准确的基底以及未被分辨的算术不确定度仍按现有限值拒绝求解。频率、振型和参与系数的计算不变。此修正涉及 PR #1890，尚未发布或部署。"
   },
   "changelog": {

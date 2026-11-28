@@ -34,6 +34,7 @@
     "de": "Ebene plastische Lasten folgen den geometrischen Stabenden",
     "fr": "Les charges plastiques planes suivent les extrémités géométriques",
     "hu": "A síkbeli képlékeny terhek a geometriai rúdvégeket követik",
+    "ko": "평면 소성 하중이 부재 끝점의 기하를 따릅니다",
     "zh": "平面塑性荷载跟随杆件的几何端点",
     "tr": "Düzlemsel plastik yükler geometrik çubuk uçlarını izler"
   },
@@ -44,6 +45,7 @@
     "de": "Ebene plastische Analysen erneut rechnen. Verteilte Lasten an Gelenkschnitten verwenden die tatsächliche Teilstabgeometrie. Ungültige oder nicht verfügbare Kinematikprüfungen führen zu Fehlern. Mechanismen, Lastfaktoren und Verläufe können sich ändern; Grenzwerte bleiben unverändert.",
     "fr": "Relancer les analyses plastiques planes. Les charges réparties divisées aux rotules utilisent la géométrie réelle des tronçons. Les contrôles cinématiques invalides ou indisponibles produisent des erreurs. Mécanismes, facteurs et historiques peuvent changer ; les limites restent identiques.",
     "hu": "Futtassa újra a síkbeli képlékeny elemzéseket. A csuklóknál osztott megoszló terhek a tényleges részrúd-geometriát használják. Az érvénytelen vagy elérhetetlen kinematikai ellenőrzések hibát adnak. A mechanizmusok, tényezők és előzmények változhatnak; a határértékek változatlanok.",
+    "ko": "평면 소성 해석을 다시 실행하십시오. 힌지 분할 위치의 분포하중은 이제 실제 하위 부재의 기하를 사용합니다. 유효하지 않거나 사용할 수 없는 운동학적 검토는 붕괴 후보를 만들지 않고 오류를 발생시킵니다. 메커니즘, 붕괴 계수, 이력이 바뀔 수 있으며, 허용 한계는 바뀌지 않았습니다.",
     "zh": "请重新运行平面塑性分析。塑性铰分割处的分布荷载现在使用实际的子杆件几何。无效或不可用的运动学检查会报错，而不是产生倒塌候选机构。机构、倒塌系数和加载历程可能会变化；验收限值均未改变。",
     "tr": "Düzlemsel plastik analizleri yeniden çalıştırın. Mafsallarda bölünen yayılı yükler gerçek parça geometrisini kullanır. Geçersiz veya kullanılamayan kinematik denetimleri hata üretir. Mekanizmalar, yük çarpanları ve geçmişler değişebilir; kabul sınırları değişmemiştir."
   },

@@ -20,6 +20,7 @@
     "fr": "Les enveloppes axiales des charges mobiles incluent les limites des charges réparties",
     "hu": "A mozgó teher normálerő-burkolói tartalmazzák a megoszló teher határait",
     "tr": "Hareketli yük eksenel zarfları yayılı yük sınırlarını içeriyor",
+    "ko": "이동하중 축력 포락선이 분포하중 경계를 포함합니다",
     "zh": "移动荷载轴力包络包含分布荷载的边界"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "fr": "Les enveloppes de charges mobiles 2D et 3D pouvaient omettre un pic axial au début ou à la fin d’une charge répartie et donner zéro malgré un effort intérieur (#1782, SA-2026-052). Toutes les limites et les racines de changement de signe existantes sont désormais évaluées. Recalculez les enveloppes concernées et vérifiez les dimensionnements fondés sur leurs extrêmes axiaux. Cet avis utilise les cas de positions de charges mobiles enregistrés ; les balayages transitoires ne laissent aucune marque enregistrée.",
     "hu": "A 2D és 3D mozgóteher-burkolók elmulaszthattak egy normálerő-csúcsot egy megoszló teherszakasz elején vagy végén, és nullát adtak még belső erővel rendelkező, ellentétes teherszakaszok esetén is (#1782, SA-2026-052). Most minden normálerő-teherszakasz határát és a meglévő előjelváltási gyököket is kiértékeli. Futtassa újra az érintett burkolókat, és vizsgálja felül a normálerő-szélsőértékeikre alapozott méretezéseket és keresztmetszet-felvételeket. A mentett mozgóteher-pozíció teheresetek azonosítják az ehhez az értesítéshez tartozó projekteket; az átmeneti végigfuttatások nem hagynak mentett jelölést.",
     "tr": "2B ve 3B hareketli yük zarfları yayılı yük başlangıcında veya sonunda eksenel kuvvet zirvesini kaçırıp iç kuvvet varken sıfır bildirebiliyordu (#1782, SA-2026-052). Artık tüm yük sınırları ve mevcut işaret değişimi kökleri değerlendiriliyor. Etkilenen zarfları yeniden hesaplayın ve eksenel uç değerlere dayanan tasarım ve boyutlandırmaları inceleyin. Bildirim kayıtlı hareketli yük konumu durumlarını kullanır; geçici taramalar kayıtlı işaret bırakmaz.",
+    "ko": "2D 및 3D 이동하중 포락선은 분포하중 구간의 시작 또는 끝에서 축력 정점을 놓칠 수 있었고, 내부 힘이 있는 반대 구간에서도 0을 반환했습니다(#1782, SA-2026-052). 이제 모든 축 구간 경계와 기존 부호 근을 평가합니다. 영향받는 포락선을 다시 실행하고 그 축력 극값에 기반한 설계와 산정을 검토하십시오. 저장된 이동하중 위치 케이스가 이 공지가 해당하는 프로젝트를 식별하며, 과도 스윕은 저장된 표시를 남기지 않습니다.",
     "zh": "2D 和 3D 移动荷载包络可能漏掉分布荷载段起点或终点处的轴力峰值，即使是内部有内力的相反荷载段，也返回零（#1782，SA-2026-052）。现在会计算每一个轴向荷载段边界以及现有的符号根。请重新运行受影响的包络，并复核基于其轴力极值的设计和选型。已保存的移动荷载位置工况可识别出适用本通知的项目；瞬态扫描不会留下已保存的标记。"
   },
   "changelog": {

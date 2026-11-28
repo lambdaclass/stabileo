@@ -19,12 +19,12 @@ export default defineConfig(({ mode }) => ({
         // The shared store also imports the lazy browser dictionaries. Their
         // app modules must resolve to this viewer's scoped dictionary as well.
         const ids = ['virtual:public-i18n', 'virtual:app-i18n',
-          ...['de', 'fr', 'tr', 'hu', 'zh'].map(locale => `virtual:app-i18n/${locale}`)];
+          ...['de', 'fr', 'tr', 'hu', 'zh', 'ko'].map(locale => `virtual:app-i18n/${locale}`)];
         return ids.includes(id) ? '\0scalar-viewer-i18n' : null;
       },
       load(id) {
         if (id !== '\0scalar-viewer-i18n') return null;
-        return ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'loaders']
+        return ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'ko', 'loaders']
           .map(name => `export const ${name} = {};`).join('\n');
       },
     },

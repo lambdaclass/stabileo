@@ -23,6 +23,7 @@
     "de": "Automatische Schwerkraftlasten auf unabhängigen Decks und tiefer liegenden Dächern erhalten",
     "fr": "Conserver les charges de gravité automatiques sur les plateformes indépendantes et les toitures inférieures",
     "tr": "Bağımsız platformlarda ve alçak çatılarda otomatik yerçekimi yüklerini koruma",
+    "ko": "독립 데크와 낮은 지붕의 자동 중력 하중을 보존합니다",
     "zh": "保留独立平台和较低屋面的自动重力荷载",
     "hu": "Az automatikus gravitációs terhek megőrzése független födémeken és alacsonyabb tetőkön"
   },
@@ -33,6 +34,7 @@
     "de": "Erzeugen Sie die Schwerkraftlasten im Feldmodus neu. Unabhängige Decks mit einer gemeinsamen vertikalen Lagerbindung behalten ihre Lasten. Nur die dem Trägerfeld zugewiesene Fläche zählt als Überdeckung. Die Erzeugung wird gesperrt, wenn die Lastübertragung die Last der zugewiesenen Fläche nicht erhält.",
     "fr": "Régénérez les charges de gravité par panneaux. Les plateformes indépendantes partageant une retenue verticale conservent leurs charges. Seule la région attribuée à une travée contribue à la couverture au-dessus. La génération est bloquée si le transfert ne conserve pas la charge de la surface attribuée.",
     "tr": "Panel yerçekimi yüklerini yeniden üretin. Tek bir düşey mesnet kısıtını paylaşan bağımsız platformlar yüklerini korur. Yalnızca kiriş paneline atanan bölge alttaki yüzeyleri örter. Atanan alanın yükünü koruyan bir aktarım yoksa üretim durdurulur.",
+    "ko": "패널 중력 하중을 다시 생성하십시오. 하나의 수직 구속을 공유하는 독립 데크는 하중을 유지합니다. 보 베이에 지정된 영역만 상부 덮개에 기여합니다. 지정된 베이 면적에 하중을 보존하며 전달하는 경로가 없으면 생성이 차단됩니다.",
     "zh": "请重新生成板块重力荷载。共用一个竖向约束的独立平台各自保留其荷载。梁板区仅以其分配区域计入上方遮盖。若分配面积的荷载传递无法守恒，则停止生成。",
     "hu": "Generálja újra a mezőnkénti gravitációs terheket. A közös függőleges megtámasztású, független födémek megtartják terheiket. Csak a gerendamezőhöz rendelt terület számít bele a felülről való takarásba. Ha a teherátadás nem őrzi meg a hozzárendelt terület terhét, a generálás leáll."
   },

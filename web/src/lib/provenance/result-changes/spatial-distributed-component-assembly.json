@@ -22,6 +22,7 @@
     "fr": "Conservation des charges réparties dans les axes de la barre",
     "hu": "A megoszló terhek megőrzése a rúd tengelyei mentén",
     "tr": "Yayılı yüklerin eleman eksenlerinde korunması",
+    "ko": "부재축 방향의 분포하중 유지",
     "zh": "保留杆件轴系中的分布荷载"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "fr": "Le calcul spatial conserve les composantes locales saisies des charges réparties et projette une seule fois les charges globales. Cela évite les composantes parasites qui pouvaient interrompre le calcul des barres obliques.",
     "hu": "A térbeli számítás megőrzi a megoszló terhek megadott helyi komponenseit, és egyszer vetíti a globális terheket. Így elkerülhetők a ferde rudak számítását megszakító mesterséges komponensek.",
     "tr": "Üç boyutlu analiz, girilen yerel yayılı yük bileşenlerini korur ve global yükleri bir kez izdüşürür. Böylece eğik elemanların analizini durdurabilen yapay bileşenler önlenir.",
+    "ko": "공간 해석은 입력된 국부 분포하중 성분을 유지하고 전체 좌표계 하중은 한 번만 투영합니다. 이로써 비스듬한 부재에서 해석을 중단시킬 수 있던 가짜 성분을 방지합니다.",
     "zh": "空间分析保留输入的局部分布荷载分量，并仅对全局荷载投影一次，从而避免斜杆上的虚假分量导致分析中止。"
   },
   "changelog": {

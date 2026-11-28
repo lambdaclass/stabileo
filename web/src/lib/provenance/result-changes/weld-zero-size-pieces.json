@@ -17,6 +17,7 @@
     "de": "Nahtstücke mit Größe null liefern weder Widerstand noch Spannungspunkte",
     "fr": "Les segments de soudure de taille nulle ne fournissent ni résistance ni points de contrainte",
     "hu": "A nulla méretű varratszakaszok nem adnak ellenállást vagy feszültségi pontokat",
+    "ko": "크기가 0인 용접 조각은 저항이나 응력점을 제공하지 않음",
     "zh": "零尺寸焊缝段不提供承载力，也不作为应力点",
     "tr": "Sıfır boyutlu kaynak parçaları dayanım veya gerilme noktası sağlamaz"
   },
@@ -27,6 +28,7 @@
     "de": "Nahtstücke mit Größe null konnten gültige Gruppen als mehrdeutige Verzweigungen ablehnen und exzentrische Spannungen an nicht tragenden Endpunkten erhöhen. Native und WASM-Prüfungen verwenden für Verbindung und Spannung nur physische Nähte mit positiver Größe und Länge, behalten aber alle geometrischen Längen in der Gesamtlänge. Eine nicht endliche Gesamtlänge bleibt ungeprüft. Gespeicherte Nahtgruppen mit Nullstücken erneut prüfen.",
     "fr": "Les segments de taille nulle pouvaient refuser des groupes valides comme branchements ambigus et augmenter la contrainte excentrée aux extrémités non résistantes. Les vérifications natives et WASM utilisent désormais uniquement des cordons physiques de taille et longueur positives pour la connectivité et les contraintes, tout en conservant toutes les longueurs géométriques dans le total. Une longueur totale non finie reste non évaluée. Recalculer les groupes enregistrés contenant des segments de taille nulle.",
     "hu": "A nulla méretű szakaszok érvényes varratcsoportokat utasíthattak el bizonytalan elágazásként, és növelhették a külpontos feszültséget a nem teherhordó végpontokon. A natív és WASM-ellenőrzések most csak pozitív méretű és hosszú fizikai varratokat használnak a kapcsolódáshoz és feszültséghez, de minden geometriai hosszt megtartanak az összhosszban. A nem véges összhossz nem értékelhető. A nulla méretű szakaszokat tartalmazó mentett varratcsoportokat újra kell számítani.",
+    "ko": "크기가 0인 조각 때문에 유효한 용접군이 모호한 분기로 거부되고 저항하지 않는 끝점에서 편심 응력이 부풀려질 수 있었습니다. 이제 네이티브와 WASM 검토는 연결성과 응력에 크기와 길이가 모두 양수인 물리적 구간만 사용하며, 보고되는 총 길이에는 모든 기하학적 길이를 유지합니다. 유한하지 않은 총 길이는 명시적으로 평가되지 않음으로 처리됩니다. 크기가 0인 조각이 있는 저장된 용접군 검토를 다시 실행하십시오.",
     "zh": "零尺寸焊缝段可能使有效的焊缝组被当作分支不明确而拒绝，并在不承载的端点处放大偏心应力。原生和 WASM 验算现在只用尺寸和长度均为正的实体焊缝段来判断连通性和计算应力，同时在报告的总长中保留全部几何长度。总长为非有限值时明确标为不予评估。请重新运行含零尺寸焊缝段的已保存焊缝组验算。",
     "tr": "Sıfır boyutlu parçalar geçerli kaynak gruplarını belirsiz dallanma nedeniyle reddedebiliyor ve yük taşımayan uçlarda eksantrik gerilmeyi artırabiliyordu. Yerel ve WASM denetimleri artık bağlantı ve gerilme için yalnızca pozitif boyutlu ve uzunluklu fiziksel dikişleri kullanırken tüm geometrik uzunlukları toplamda korur. Sonlu olmayan toplam uzunluk değerlendirilmez. Sıfır boyutlu parçalar içeren kayıtlı kaynak gruplarını yeniden hesaplayın."
   },

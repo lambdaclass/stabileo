@@ -18,6 +18,7 @@
     "de": "Bemessung berücksichtigt Stabverhalten und Flanschlängen",
     "fr": "Les efforts de calcul respectent le comportement et les portées des semelles",
     "tr": "Tasarım talepleri davranış ve başlık açıklıklarını izler",
+    "ko": "설계 요구량이 거동과 플랜지 구간을 반영합니다",
     "zh": "设计内力考虑工作性状和翼缘跨度"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "de": "Ausgeschlossene Normalkräfte werden in allen maßgebenden Datensätzen entfernt. Cb verwendet die gewählte Flanschlänge; fehlt das zugehörige Diagramm, entfällt dessen günstiger Einfluss. Betonberichte beschreiben die geprüfte gemeinsame Bewehrung. Gespeicherte Bemessungen erneut ausführen und Ausnutzung, Kombinationen, Zertifikate und Berichte prüfen (PR #2080).",
     "fr": "L’effort normal exclu est retiré de chaque enregistrement déterminant. Cb utilise la portée de la semelle sélectionnée, sans bénéfice du diagramme si cette portée est indisponible. Les rapports béton décrivent l’armature commune évaluée. Relancer les calculs enregistrés et vérifier taux, combinaisons, certificats et rapports (PR #2080).",
     "tr": "Dışlanan eksenel kuvvet tüm belirleyici kayıtlardan kaldırılır. Cb seçilen başlık açıklığını kullanır; bu açıklığın diyagramı yoksa diyagram avantajı verilmez. Beton raporları değerlendirilen ortak donatıyı açıklar. Kayıtlı tasarımları yeniden çalıştırıp oranları, kombinasyonları, sertifikaları ve raporları inceleyin (PR #2080).",
+    "ko": "제외된 축력은 지배 기록 전체에서 마스킹됩니다. 강재 Cb는 선택한 플랜지 구간을 사용하며, 그 구간을 알 수 없으면 선도에 따른 효과를 인정하지 않습니다. 콘크리트 공유 배근 보고서는 실제로 평가한 철근 배근을 설명합니다. 저장된 설계를 다시 실행하고 이용률, 조합, 인증서, 보고서를 검토하십시오(PR #2080).",
     "zh": "被排除的轴力会在每条控制记录中被屏蔽。钢材 Cb 采用所选的翼缘跨度，该跨度不可用时不计内力图的折减。混凝土共用钢筋笼的报告描述的是被验算的配筋。请重新运行已保存的设计，并复核利用率、组合、证书和报告（PR #2080）。"
   },
   "quantities": [

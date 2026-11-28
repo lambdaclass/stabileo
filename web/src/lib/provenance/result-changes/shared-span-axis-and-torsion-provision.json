@@ -21,6 +21,7 @@
     "de": "Gemeinsame Balken behalten ihre Achsen; Torsionsbewehrung muss angegeben werden",
     "fr": "Les poutres conservent leurs axes ; les armatures de torsion doivent être déclarées",
     "tr": "Ortak kirişler eksenlerini korur; burulma donatısı belirtilmelidir",
+    "ko": "공유 보는 축을 유지하며, 비틀림 제공량은 명시되어야 함",
     "zh": "共用的梁保留其轴，必须说明扭转配筋"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "de": "Die Wiederverwendung berücksichtigt die vollständige Schnittgrößenkombination und die gewählte Achse. Erforderliche Torsionslängsbewehrung gilt nicht als vorhanden. Ohne Angabe bleiben Nachweis und Zertifikat offen. Gespeicherte Betonbemessungen erneut ausführen und Schnittgrößen, Bewehrung und Warnungen prüfen (PR #2080).",
     "fr": "La réutilisation inclut les efforts complets et l’axe choisi. Les armatures longitudinales requises en torsion ne sont pas considérées comme fournies : sans déclaration, le contrôle reste incomplet et le membre et son certificat sont retenus. Relancer les calculs et examiner efforts, armatures et avertissements (PR #2080).",
     "tr": "Yeniden kullanım tüm kesit taleplerini ve seçilen ekseni içerir. Gerekli boyuna burulma donatısı mevcut sayılmaz: miktar belirtilmezse kontrol tamamlanmaz, eleman ve sertifika bekletilir. Kayıtlı betonarme tasarımlarını yeniden çalıştırıp talepleri, donatıyı ve uyarıları inceleyin (PR #2080).",
+    "ko": "공유 경간 재사용은 전체 단면 부담 요소와 선택한 축을 포함합니다. 필요한 종방향 비틀림 철근은 제공된 것으로 간주되지 않습니다. 누락된 제공량은 명시적으로 검토되지 않음으로 처리되어 부재와 인증서를 보류합니다. 저장된 콘크리트 설계를 다시 실행하고 부담 요소, 철근, 경고를 검토하십시오 (PR #2080).",
     "zh": "复用共用跨度时包含完整的截面内力需求和所选的轴。所需的纵向抗扭钢筋不被视为已提供：缺失的配筋明确标为未检查，并使杆件验算保持未完成，暂不出具证书。请重新运行已保存的混凝土设计，并复核内力需求、配筋和警告（PR #2080）。"
   },
   "changelog": {

@@ -43,6 +43,13 @@ export const adConsentTranslations: Record<string, Record<string, string>> = {
     'adConsent.decline': 'Reddet',
     'adConsent.privacy': 'Gizlilik',
   },
+  ko: {
+    'adConsent.label': '광고 쿠키',
+    'adConsent.text': '동의하시면 Meta와 Google 쿠키를 사용하여 어떤 광고가 사람들을 Stabileo로 이끄는지 파악합니다.',
+    'adConsent.accept': '동의',
+    'adConsent.decline': '거부',
+    'adConsent.privacy': '개인정보',
+  },
   zh: {
     'adConsent.label': '广告 Cookie',
     'adConsent.text': '经您许可，我们使用 Meta 和 Google 的 Cookie，了解哪些广告为 Stabileo 带来了访客。',

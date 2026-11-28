@@ -15,6 +15,7 @@
     "fr": "Rotations d’extrémité libérées en analyse matérielle spatiale",
     "hu": "Felszabadított végelfordulások térbeli anyagi számításban",
     "tr": "Uzaysal malzeme analizinde serbest bırakılmış uç dönmeleri",
+    "ko": "공간 재료 해석에서 해제된 선단 회전",
     "zh": "空间材料分析中的端部转动释放"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "fr": "L’analyse matérielle spatiale choisit un représentant unique pour une rotation d’extrémité isolée et libérée sur laquelle aucune charge ne travaille. Relancez les analyses concernées.",
     "hu": "A térbeli anyagi számítás egyértelmű megoldást választ olyan elszigetelt, felszabadított végelfordulás esetén, amelyen a terhelés nem végez munkát. Futtassa újra az érintett számításokat.",
     "tr": "Uzaysal malzeme analizi, yükün iş yapmadığı yalıtılmış bir serbest uç dönmesi için tek bir temsilci seçer. Etkilenen analizleri yeniden çalıştırın.",
+    "ko": "공간 재료 해석은 하중 일을 전달하지 않는 고립된 해제 선단 회전에 대해 고유한 대표값을 선택합니다. 영향받는 해석을 다시 실행하십시오.",
     "zh": "对于荷载不做功的孤立端部转动释放方向，空间材料分析选取唯一的代表解。请重新运行受影响的分析。"
   },
   "changelog": {

@@ -581,7 +581,7 @@ test.describe('blog', () => {
       .locator('link[rel="alternate"][hreflang]')
       .evaluateAll((els) => els.map((e) => `${e.getAttribute('hreflang')} ${e.getAttribute('href')}`).sort());
     // The languages the post is written in: the three it is published in, and any whose translation file exists.
-    const written = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'zh'].filter((l) =>
+    const written = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'zh', 'ko'].filter((l) =>
       existsSync(fileURLToPath(new URL(`../src/lib/blog/translations/${l}/${SLUG}.ts`, import.meta.url))))];
     expect(alts).toEqual([
       ...[...BUILD_PUBLIC_LOCALES].sort().filter((l) => written.includes(l)).map((l) => `${l} https://stabileo.com/${l}/blog/${SLUG}/`),

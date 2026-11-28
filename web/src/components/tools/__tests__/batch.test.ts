@@ -45,7 +45,7 @@ it('covers every key and every tool SEO title and description in every offered l
  const keys=Object.keys(batchTranslations.en).sort();
  for(const locale of PUBLIC_LOCALES) {
   expect(Object.keys(batchTranslations[locale]).sort()).toEqual(keys);
-  for(const id of BATCH_IDS) for(const suffix of ['', '.subtitle']) expect(batchTranslations[locale][`tools.${id}${suffix}`].length).toBeGreaterThan(locale === 'zh' ? 1 : 5); // Chinese titles are a few characters
+  for(const id of BATCH_IDS) for(const suffix of ['', '.subtitle']) expect(batchTranslations[locale][`tools.${id}${suffix}`].length).toBeGreaterThan((locale === 'zh' || locale === 'ko') ? 1 : 5); // Chinese titles are a few characters
  }
  for(const id of BATCH_IDS) expect(toolPaths()).toContain(`/tools/${id}`);
 });

@@ -23,6 +23,7 @@
     "fr": "Relâchements d’extrémité concordants au chargement des modèles",
     "hu": "Egyező rúdvég-felengedések a modellek betöltésekor",
     "tr": "Model yüklemede aynı uç serbestliğini belirten alanlar",
+    "ko": "픽스처 재생에서 일치하는 부재 해제",
     "zh": "载入算例时一致的杆端释放字段"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Lorsque le modèle source déclare le même relâchement d’extrémité dans les deux champs, celui-ci est appliqué une fois. Auparavant, le chargement pouvait laisser l’extrémité rigide. Rechargez le modèle source et recalculez les résultats concernés.",
     "hu": "Ha a forrásmodell ugyanazt a rúdvég-felengedést mindkét mezőben megadja, a program egyszer alkalmazza. Korábban a betöltés után a rúdvég merev maradhatott. Töltse be újra a forrásmodellt, és számítsa újra az érintett eredményeket.",
     "tr": "Kaynak model aynı uç serbestliğini iki alanda da belirtiyorsa serbestlik bir kez uygulanır. Önceki yükleme ucu rijit bırakabiliyordu. Kaynak modeli yeniden yükleyin ve etkilenen sonuçları yeniden hesaplayın.",
+    "ko": "같은 단부 해제를 두 필드로 모두 선언한 원본 픽스처는 이제 해제를 한 번만 적용합니다. 이전의 재생에서는 해당 단부가 강접으로 남을 수 있었습니다. 원본 픽스처를 다시 불러오고 영향을 받는 결과를 다시 계산하십시오.",
     "zh": "如果源算例的两个字段声明了同一杆端释放，现在只应用一次。旧版载入时可能将该杆端保留为刚接。请重新载入原始算例并重新计算受影响的结果。"
   },
   "changelog": {

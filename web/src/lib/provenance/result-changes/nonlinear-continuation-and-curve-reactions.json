@@ -33,6 +33,7 @@
     "fr": "La continuation non linéaire et les réactions du sol préservent l’équilibre",
     "hu": "A nemlineáris folytatás és talajreakciók megőrzik az egyensúlyt",
     "tr": "Doğrusal olmayan devam ve zemin tepkileri dengeyi korur",
+    "ko": "비선형 연속법과 지반 반력이 평형을 보존합니다",
     "zh": "非线性延续与土反力保持平衡"
   },
   "explanation": {
@@ -43,6 +44,7 @@
     "fr": "Relancer les analyses non linéaires et SSI concernées. La continuation vérifie les appuis actifs, les barres tournées conservent les petites rotations de corde et SSI vérifie les réactions du sol affichées. Les origines invalides et déplacements dupliqués des courbes personnalisées sont refusés (#761, PR #1940).",
     "hu": "Futtassa újra az érintett nemlineáris és SSI vizsgálatokat. A folytatás ellenőrzi az aktív támaszhelyzeteket, a forgatott rudak megőrzik a kis húrforgásokat, az SSI pedig csak a közölt talajreakciókkal egyensúlyban levő állapotot fogadja el. A hibás egyedi görbekezdetek és ismételt elmozduláspontok elutasítást kapnak (#761, PR #1940).",
     "tr": "Etkilenen doğrusal olmayan ve SSI analizlerini yeniden çalıştırın. Devam analizi etkin mesnet konumlarını, SSI ise bildirilen zemin tepkilerini denetler; döndürülmüş çubuklar küçük kiriş dönüşlerini korur. Geçersiz özel eğri başlangıçları ve yinelenen yer değiştirmeler reddedilir (#761, PR #1940).",
+    "ko": "영향받는 비선형 및 SSI 해석을 다시 실행하십시오. 연속법은 활성 지점 위치를 검토하고, 회전된 부재는 작은 현 회전을 유지하며, SSI는 보고된 지반 반력과 함께 평형을 이루는 경우만 받아들입니다. 유효하지 않은 사용자 정의 곡선 원점이나 중복된 변위 점은 거부됩니다(#761, PR #1940).",
     "zh": "请重新运行受影响的非线性和 SSI 分析。延续计算会检查有效的支座位置，旋转后的杆件保留较小的弦转角，SSI 仅接受与所报告的土反力相平衡的状态。无效的自定义曲线原点或重复的位移点会被拒绝求解（#761，PR #1940）。"
   },
   "changelog": {

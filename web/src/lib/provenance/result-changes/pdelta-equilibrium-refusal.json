@@ -30,6 +30,7 @@
     "fr": "P-Delta refuse les résultats qui échouent au contrôle d’équilibre physique",
     "hu": "A P-Delta elutasítja a fizikai egyensúlyi ellenőrzésen megbukó eredményeket",
     "tr": "P-Delta fiziksel denge denetimini geçemeyen sonuçları reddeder",
+    "ko": "P-Delta는 물리적 평형 검토에 실패한 결과를 거부합니다",
     "zh": "P-Delta 拒绝未通过物理平衡检查的结果"
   },
   "explanation": {
@@ -40,6 +41,7 @@
     "fr": "Les solveurs P-Delta natifs 2D et 3D refusent le résultat si le résidu physique aux degrés de liberté libres ne satisfait pas la tolérance demandée. WASM signale la même cause de refus. Les résultats conformes gardent leurs valeurs (#2100).",
     "hu": "A natív 2D és 3D P-Delta megoldó elutasítja az eredményt, ha a szabad szabadságfokok fizikai maradéka nem teljesíti a kért tűrést. A WASM ugyanezt az okot jelzi. Az ellenőrzésen átment eredmények értékei megmaradnak (#2100).",
     "tr": "Yerel 2B ve 3B P-Delta çözücüleri, serbestlik derecelerindeki fiziksel artık istenen toleransı karşılamadığında sonucu reddeder. WASM aynı ret nedenini bildirir. Denetimi geçen sonuçların değerleri korunur (#2100).",
+    "ko": "네이티브 2D 및 3D P-Delta는 이제 물리적 자유 자유도 잔차가 요청한 허용오차를 만족하지 못하면 결과를 거부합니다. WASM도 이제 같은 거부 사유를 보고합니다. 통과한 결과는 이전 값을 유지합니다(#2100).",
     "zh": "当自由自由度的物理残差未达到要求的容差时，原生 2D 和 3D P-Delta 求解器会拒绝提供结果。WASM 会报告相同的拒绝原因。通过检查的结果保留原有数值（#2100）。"
   },
   "changelog": {

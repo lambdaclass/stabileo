@@ -13,6 +13,7 @@
     "fr": "Directions exactes des charges de barre planes",
     "hu": "Síkbeli rúdterhek pontos iránya",
     "tr": "Düzlemsel eleman yüklerinde kesin yönler",
+    "ko": "평면 부재 하중의 정확한 방향",
     "zh": "平面杆件荷载的精确方向"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "L’analyse 2D utilise des directions exactes pour les charges ponctuelles et réparties de barre saisies par multiples de 90 degrés. La limite géométrique de l’intervalle reste applicable.",
     "hu": "A 2D számítás pontos irányt használ a 90 fok többszöröseinél megadott koncentrált és megoszló rúdterhekhez. Az intervallum geometriai határértéke továbbra is érvényes.",
     "tr": "2B analiz, 90 derecenin katlarında girilen tekil ve yayılı eleman yükleri için kesin yönleri kullanır. Geometrik aralık sınırı geçerliliğini korur.",
+    "ko": "2D 해석은 90도의 배수로 입력한 집중 및 분포 부재 하중에 정확한 방향을 사용합니다. 구간 기하 한계는 여전히 적용됩니다.",
     "zh": "二维分析对按 90 度倍数输入的杆件集中荷载和分布荷载采用精确方向。荷载区间的几何限制仍然适用。"
   },
   "changelog": {

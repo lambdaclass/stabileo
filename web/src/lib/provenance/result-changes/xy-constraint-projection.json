@@ -22,6 +22,7 @@
     "de": "Projektion von Zwangsbedingungen in XY",
     "fr": "Projection des liaisons dans le plan XY",
     "tr": "XY düzleminde kısıtların izdüşümü",
+    "ko": "XY 평면의 구속 투영",
     "zh": "XY 平面中的约束投影"
   },
   "explanation": {
@@ -31,6 +32,7 @@
     "de": "Die Basic-Berechnung behält Zwangsbedingungen für Bewegungen in XY bei. Ein Z-Versatz steht senkrecht auf XY. Die Berechnung lehnt exzentrische Anschlüsse ab, wenn der Versatz Bewegungen innerhalb und außerhalb der Ebene koppelt. Beim Wiederherstellen älterer ebener Projekte werden auch die gespeicherten Achsen starrer Kopplungen mit den Standardverschiebungen geprüft.",
     "fr": "L’analyse Basic conserve les liaisons qui agissent sur les mouvements dans XY. Un décalage en Z est normal à XY. Le calcul refuse une liaison excentrée si ce décalage couple les mouvements dans le plan et hors du plan. Lors de la restauration d’anciens projets plans, les axes enregistrés des liaisons rigides utilisant les translations par défaut sont également vérifiés.",
     "tr": "Temel analiz XY düzlemindeki hareket kısıtlarını korur. Z yönündeki ofset XY düzlemine diktir. Ofset düzlem içi ve düzlem dışı hareketleri birbirine bağlarsa analiz eksantrik bağlantıyı reddeder. Eski düzlemsel projeler geri yüklenirken varsayılan ötelemeleri kullanan rijit bağlantıların kayıtlı eksenleri de denetlenir.",
+    "ko": "기본 해석은 XY 평면 내 운동에 대한 구속을 보존합니다. Z 오프셋은 XY에 수직입니다. 그 오프셋이 면내 운동과 면외 운동을 연성시키면 해석은 편심 연결을 거부합니다. 이전 평면 프로젝트를 복구할 때는 기본 병진을 사용하는 강체 링크의 저장된 축도 검토합니다.",
     "zh": "基础分析保留 XY 平面内的运动约束。Z 方向偏移垂直于 XY 平面。如果该偏移耦合面内和面外运动，求解器会拒绝该偏心连接。恢复旧版平面项目时，也会检查使用默认平移自由度的刚性连接所保存的轴向。"
   },
   "changelog": {

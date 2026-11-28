@@ -154,6 +154,28 @@ export const LINK_NAMES: Record<string, Record<string, string>> = {
     "newmark-1959": "Newmark-féle időintegrálás: egy szabadságfok",
     "cqc-1981": "SRSS és CQC: modális kombináció"
   },
+  'ko': {
+    "simply-supported-beam": "단순보 계산기",
+    "cantilever-beam": "캔틸레버 보 처짐 계산기",
+    "column-buckling": "Euler 기둥 좌굴 계산기",
+    "continuous-beam": "연속보 계산기",
+    "portal-frame": "문형 골조 계산기",
+    "truss-2d": "2D 트러스 계산기",
+    "influence-line": "영향선 계산기",
+    "beam-natural-frequency": "보 고유진동수 계산기",
+    "macneal-harder-1985": "MacNeal–Harder 유한요소 벤치마크",
+    "navier-plate": "Navier 판 휨: 푸리에 급수 벤치마크",
+    "mattiasson-elastica": "Mattiasson 엘라스티카: 캔틸레버의 큰 처짐",
+    "ferrari-sigmund-2025": "Roorda 골조 좌굴: Ferrari–Sigmund",
+    "biggins-2026": "곡률 패터닝에 의한 아치 스냅스루",
+    "lee-frame-1968": "Lee 골조 비선형 벤치마크 (1968)",
+    "plastic-collapse": "문형 골조 소성 붕괴 벤치마크",
+    "grossman-2026": "오제틱 스프링 네트워크: Grossman–Boudaoud",
+    "pastrana-2026": "케이블 형상 찾기: 힘 밀도법",
+    "riks-crisfield": "Riks–Crisfield 호장 스냅스루",
+    "newmark-1959": "Newmark 시간 적분: SDOF 벤치마크",
+    "cqc-1981": "SRSS 대 CQC: 모드 조합 벤치마크"
+  },
   "zh": {
     "simply-supported-beam": "简支梁计算器",
     "cantilever-beam": "悬臂梁挠度计算器",

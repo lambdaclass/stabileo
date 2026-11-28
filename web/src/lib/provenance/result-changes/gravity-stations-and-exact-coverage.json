@@ -23,6 +23,7 @@
     "de": "Übertragung der Schwerkraft an Deckanschlüssen und genaue Dachüberdeckung",
     "fr": "Préserver les transferts gravitaires aux liaisons de planchers et la couverture exacte des toitures",
     "tr": "Döşeme bağlantılarında yerçekimi aktarımını ve kesin çatı örtüsünü koruma",
+    "ko": "데크 측점과 정확한 지붕 덮개를 통한 중력 하중 전달을 보존합니다",
     "zh": "保留平台连接处的重力荷载传递和准确的屋面覆盖",
     "hu": "A gravitációs teherátadás megőrzése a födémkapcsolatoknál és a tetőfedés pontos meghatározása"
   },
@@ -33,6 +34,7 @@
     "de": "Erzeugen Sie die automatischen Schwerkraftlasten neu. Unabhängige Decks behalten ihre Lasten auch bei gemeinsamen festen Lagern. Unterteilte exzentrische Verbindungen erhalten die Deckanschlüsse. Die Überdeckung folgt dem tatsächlichen Grundriss, und jeder erzeugte Lastfall muss die eingeleitete Kraft erhalten.",
     "fr": "Régénérez les charges de gravité automatiques. Les planchers indépendants conservent leurs charges aux appuis fixes communs. La subdivision des liaisons excentrées préserve les attaches des planchers. La couverture suit la projection réelle et chaque cas généré doit conserver l’effort tributaire d’entrée.",
     "tr": "Otomatik yerçekimi yüklerini yeniden üretin. Bağımsız döşemeler ortak sabit mesnetlerde yüklerini korur. Bölünmüş eksantrik bağlantılar döşeme bağlantılarını korur. Üst örtü gerçek izdüşümü izler ve üretilen her yük durumu girdi kuvvetini korumalıdır.",
+    "ko": "자동 중력 하중을 다시 생성하십시오. 독립 데크는 공유된 고정 구속에서 하중을 유지합니다. 분할된 편심 링크는 데크 부착을 보존합니다. 상부 덮개는 실제 바닥 면적을 따르며, 생성된 각 하중 케이스는 입력된 분담 하중을 보존해야 합니다.",
     "zh": "请重新生成自动重力荷载。共用固定支座的独立平台各自保留荷载。分段偏心连接保留平台连接关系。上方覆盖以实际投影范围为准，每个生成的荷载工况均须保持输入的分担力守恒。",
     "hu": "Generálja újra az automatikus gravitációs terheket. A független födémek közös rögzített támaszokon is megtartják terheiket. A szakaszokra bontott excentrikus kapcsolatok megőrzik a födémcsatlakozásokat. A fedés a tényleges vetületet követi, és minden létrehozott teheresetnek meg kell őriznie a bemeneti eredő erőt."
   },

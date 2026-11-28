@@ -219,6 +219,40 @@ const hu: Strings = {
     "Euler f1 relative error": "Második Euler-teher"
   }
 };
+const ko: Strings = {
+  resultParameters: "계산된 매개변수",
+  alpha: "선호 곡률 α = Lκ₀",
+  force: "축력 f = NL²/EI (양: 압축, 음: 인장)",
+  coordinates: "양단 고정. 좌표는 x/L과 w/L이며, α는 선호 곡률에 경간 L을 곱한 값입니다.",
+  referenceCaveat: "저자들의 기본 최적화기와 직사각형 단면 구적법은 작은 불규칙성을 만들며, 70%에 대한 그 출력은 {software}이고 논문은 {published}를 보고합니다.",
+
+  title: '곡률 패턴으로 아치를 스냅시키기',
+  lead: '곡선 구간의 폭을 바꾸고, 얕은 아치가 반대쪽으로 넘어가는 임계점을 옮겨 보세요.',
+  model: 'Euler 좌굴에서 평형 점프까지',
+  theory: '평평하게 고정된 아치는 단부 단축을 형상에 저장합니다. 선호 곡률 패턴은 그 좌굴 모드와 결합합니다. 식 (2)와 (3)(arXiv v2 3–4쪽)은 얕은 각의 평형과 압축 스펙트럼을 제시합니다. 이 실험은 중앙에 놓인 직사각형 패턴으로 한정합니다.',
+  method: '실제 Stabileo 2D 골조 좌굴 해석기는 16개 모드를 64개 요소로 계산합니다. 연구 계층이 곡률을 이 모드들에 투영하고 논문의 압축 구속 조건을 풉니다. 같은 Rust 코드가 여기서 WASM으로 실행되어 재생 데이터를 생성합니다.',
+  limits: '이는 얕고 늘어나지 않는 평형 모델입니다. 점프는 평형들을 연결할 뿐이며, 스냅 동역학을 시뮬레이션하거나 실험실 측정을 재현하지 않습니다. 실제 엔진의 호장 해석은 강제변위와 온도하중을 거부하므로, 곡률이 구동하는 이 경로에는 사용하지 않습니다. 중앙에 놓인 패턴과 작은 단부 단축만 다룹니다.',
+  evidence: '자극된 폭이 70%일 때 논문은 α/√ε = {threshold}를 제시합니다(arXiv v2 3쪽, 식 2 다음). 겹쳐 그린 곡선은 Zenodo 기록 18256271의 저자들의 얕은 각 소프트웨어(CC-BY-4.0)로 다시 생성했습니다. 이는 수치 기준이며 실험적 검증이 아닙니다.',
+  checks: '검증과 출처',
+  checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Zenodo 곡선: 최대 상대 오차', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": '메쉬와 모드 세분화', "Euler f0 relative error": '첫 번째 Euler 하중', "Euler f1 relative error": '두 번째 Euler 하중'} as Record<string, string>,
+  publishedValue: '폭 70%에서 발표된 임계값',
+  width: '자극된 폭 γ',
+  compression: '단부 단축 ε',
+  threshold: '스냅 임계값 α',
+  normalized: '정규화된 임계값 α/√ε',
+  mode: '첫 번째 역대칭 좌굴 모드',
+  arch: '아치 평형',
+  jump: '평형 순서. 점프에는 물리적 지속 시간이 없습니다',
+  run: '실시간 재계산', stop: '중지', restart: '다시 시작',
+  error: '해석기를 불러오지 못했거나 계산을 완료하지 못했습니다. 이전 결과는 그대로 사용할 수 있습니다.',
+  computing: 'Stabileo로 계산 중…',
+  paper: '논문과 보충 방정식',
+  data: 'Zenodo 데이터와 소프트웨어',
+  ours: 'Stabileo 모드 + 얕은 아치 방정식',
+  reference: '저자들의 Zenodo 소프트웨어',
+  parameterNotice: '재계산이 끝날 때까지 표시된 결과는 계산된 매개변수를 그대로 유지합니다.',
+};
+
 const zh: Strings = {
   "title": "曲率分布诱发拱的突跳屈曲",
   "lead": "改变曲线段的宽度，移动浅拱换向的阈值。",
@@ -258,5 +292,5 @@ const zh: Strings = {
     "Euler f1 relative error": "第二 Euler 荷载"
   }
 };
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, ko, zh };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

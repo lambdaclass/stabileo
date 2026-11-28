@@ -23,6 +23,7 @@
     "fr": "Les appuis figés acceptent la compression ; AL de surface repousse",
     "hu": "A befagyasztott támaszkontaktok nyomást engednek; a felületi AL széttolja a felületeket",
     "tr": "Sabitlenmiş temas basınca izin verir; yüzey AL ayırır",
+    "ko": "고정된 베어링은 압축을 허용하고, 면 AL은 면을 밀어냅니다",
     "zh": "冻结支承允许受压；面 AL 使两个面相互推开"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Les contacts actifs figés acceptent désormais la pénétration de pénalité en compression. Les contacts ouverts ne doivent ni pénétrer ni transmettre de force ; les contacts fermés en traction et séparés conservant une compression restent refusés. Les multiplicateurs de Lagrange augmentés de surface repoussent désormais les surfaces, avec le même signe pour la validation et l’assemblage. Revérifiez les résultats avec AL de surface. Les tolérances invalides renvoient un refus structuré traduit. Correction de la revue de PR #1921 pour #432.",
     "hu": "A befagyasztott aktív kontaktok mostantól megengedik a nyomásból eredő büntetőtagos behatolást. A nyitott kontaktok nem hatolhatnak be és nem vihetnek át erőt; a húzott zárt kontaktokat és a nyomást megtartó szétvált kontaktokat továbbra is elutasítja. A felületi kiterjesztett Lagrange-szorzók most taszítják a felületeket, és az ellenőrzés és az összeállítás ugyanazt az előjeles erőt használja. Ellenőrizze újra a felületi AL-t használó kontakteredményeket. Az érvénytelen tűrések lefordított, strukturált elutasítást adnak. Ez a #1921-es PR #432-re vonatkozó felülvizsgálati megállapításait javítja.",
     "tr": "Sabitlenmiş aktif temaslar artık basınçtan doğan ceza nüfuzuna izin verir. Açık temaslar nüfuz etmemeli veya kuvvet taşımamalıdır; çekmedeki kapalı temaslar ve basıncı koruyan ayrılmış temaslar reddedilmeye devam eder. Yüzey artırılmış Lagrange çarpanları artık yüzeyleri ayırır; doğrulama ve montaj aynı kuvvet işaretini kullanır. Yüzey AL temas sonuçlarını yeniden kontrol edin. Geçersiz toleranslar çevrilmiş yapılandırılmış ret döndürür. PR #1921 incelemesindeki #432 bulgularını düzeltir.",
+    "ko": "고정된 활성 접촉은 이제 압축 페널티 관입을 허용합니다. 열린 접촉은 관입하거나 힘을 전달해서는 안 됩니다. 인장 상태의 닫힌 접촉과 압축이 남아 있는 분리된 접촉은 여전히 거부됩니다. 면 증강 라그랑지 승수는 이제 면을 서로 밀어내며, 검증과 조립에 동일한 부호 있는 힘을 사용합니다. 면 AL을 사용한 접촉 결과를 다시 검토하십시오. 유효하지 않은 허용오차는 번역된 구조화 거부 메시지를 반환합니다. 이는 #432에 대한 PR #1921 검토 결과를 바로잡은 것입니다.",
     "zh": "处于激活状态的冻结接触现在允许受压罚函数穿透。断开的接触不得穿透，也不得承受力；受拉的闭合接触以及仍保留压力的分离接触仍会被拒绝求解。面增广 Lagrange 乘子现在使两个面相互排斥，验证和装配使用同一个带符号的力。请重新检查使用面 AL 的接触结果。无效的容差会返回已翻译的结构化拒绝信息。这纠正了针对 #432 的 PR #1921 审查发现的问题。"
   },
   "changelog": {

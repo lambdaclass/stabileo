@@ -15,6 +15,7 @@
     "fr": "Mécanismes élastiques aux extrémités libres des barres",
     "hu": "Rugalmas mechanizmusok a rudak szabad végein",
     "tr": "Tutulmamış çubuk uçlarındaki elastik mekanizmalar",
+    "ko": "구속되지 않은 부재 끝단의 탄성 메커니즘",
     "zh": "杆件自由端的弹性机构"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "fr": "L’analyse élastique rejette le modèle si l’extrémité libre d’une barre peut pivoter sans déformation autour d’une articulation de flexion à l’extrémité raccordée. Relancez les analyses concernées.",
     "hu": "A rugalmas számítás elutasítja a modellt, ha egy rúd szabad vége alakváltozás nélkül elfordulhat a csatlakozó végen lévő hajlítási csukló körül. Futtassa újra az érintett számításokat.",
     "tr": "Elastik analiz, bir çubuğun tutulmamış ucu bağlı uçtaki eğilme mafsalı etrafında şekil değiştirmeden dönebildiğinde modeli reddeder. Etkilenen analizleri yeniden çalıştırın.",
+    "ko": "부착된 단부의 휨 해제를 중심으로 구속되지 않은 부재 끝단이 변형 없이 회전할 수 있으면 탄성 해석은 거부됩니다. 영향받는 해석을 다시 실행하십시오.",
     "zh": "如果杆件自由端可绕连接端的弯曲铰转动而不产生应变，弹性分析将拒绝求解。请重新运行受影响的分析。"
   },
   "changelog": {

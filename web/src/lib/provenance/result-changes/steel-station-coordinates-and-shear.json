@@ -17,6 +17,7 @@
     "de": "Stahlstationen verwenden physische Längen und behalten Querkräfte",
     "fr": "Les stations acier utilisent les longueurs physiques et conservent le cisaillement",
     "tr": "Çelik istasyonları fiziksel uzunlukları ve kesme taleplerini korur",
+    "ko": "강재 측점은 물리적 길이를 사용하고 전단 부담 요소를 유지",
     "zh": "钢结构截面位置使用实际长度并保留剪力需求"
   },
   "explanation": {
@@ -26,6 +27,7 @@
     "de": "Alte Stahltupel ordnen Aussteifungsabschnitte in Metern zu; bei unbekannter Elementlänge entfällt der berechnete Cb-Vorteil. Die gemeldete Querkraft folgt dem Nachweis der starken Achse; die schwache Achse wird separat geprüft. Stahlbemessungen erneut ausführen und Tragfähigkeiten, Ausnutzung und Querkräfte prüfen (PR #2080).",
     "fr": "Les anciens tuples acier situent les intervalles entre maintiens en mètres ; une longueur inconnue ne reçoit aucun bénéfice calculé de Cb. Le cisaillement annoncé suit le contrôle de l’axe fort, l’axe faible étant vérifié séparément. Relancer les calculs acier et examiner capacités, taux et efforts tranchants (PR #2080).",
     "tr": "Eski çelik kayıtları çapraz aralıklarını metre cinsinden belirler; eleman uzunluğu bilinmiyorsa hesaplanmış Cb avantajı verilmez. Bildirilen kesme talebi güçlü eksen kontrolünü izler; zayıf eksen ayrıca kontrol edilir. Çelik tasarımlarını yeniden çalıştırıp kapasiteleri, kullanım oranlarını ve kesme taleplerini inceleyin (PR #2080).",
+    "ko": "기존 강재 튜플은 이제 가새 구간을 미터 단위로 찾으며, 알 수 없는 요소 길이에는 계산된 Cb를 인정하지 않습니다. 보고되는 전단 부담 요소는 선택한 강축 검토를 따르고, 약축 전단은 별도로 검토합니다. 저장된 강재 설계를 다시 실행하고 내력, 이용률, 전단 부담 요소를 검토하십시오 (PR #2080).",
     "zh": "旧版的钢结构元组现在以米为单位确定支撑区间；未知的单元长度不获得计算的 Cb 增益。报告的剪力需求遵循其所选的强轴验算，弱轴剪力另行验算。请重新运行已保存的钢结构设计，并复核承载力、利用率和剪力需求（PR #2080）。"
   },
   "quantities": [

@@ -245,6 +245,22 @@ const labels: Record<string, Record<string, string>> = {
     "force": "Erő a töréssel együtt",
     "mirror": "Csomóponti károsodás, referencia vagy tükörkép"
   },
+  'ko': {
+    "mesh": "메쉬 지문",
+    "steps": "하중 단계 수",
+    "iterations": "모든 단계의 반복 횟수",
+    "damage": "모든 단계의 최대 손상",
+    "stress": "모든 단계의 중앙 응력",
+    "damageField": "절점 손상",
+    "displacementField": "절점 변위",
+    "analytic": "중앙 응력 / 1D AT2 해, 최대 d < 0.25",
+    "peakStep": "최대 힘 단계",
+    "peak": "최대 힘",
+    "preForce": "최대점까지의 힘",
+    "preDamage": "최대점까지의 최대 손상",
+    "force": "파단을 포함한 힘",
+    "mirror": "절점 손상, 참조 또는 대칭 반사"
+  },
   "zh": {
     "mesh": "网格指纹",
     "steps": "荷载步数",
@@ -314,6 +330,14 @@ const metrics: Record<string, Record<string, string>> = {
   "hu": {
     "exact": "Pontos",
     "relative difference": "Relatív eltérés",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "max |Δd|",
+    "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
+  'ko': {
+    "exact": "정확",
+    "relative difference": "상대 차이",
     "absolute difference / AT2 peak stress": "|Δσ| / σc",
     "max absolute difference": "max |Δd|",
     "max absolute difference / max |u|": "max |Δu| / max |u|",

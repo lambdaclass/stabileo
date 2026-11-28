@@ -28,6 +28,7 @@
     "fr": "L’analyse plastique 3D vérifiée renvoie la borne inférieure certifiée",
     "hu": "Az ellenőrzött 3D képlékeny analízis a tanúsított alsó korlátot adja vissza",
     "tr": "Doğrulanan 3D plastik analiz sertifikalı alt sınırı döndürüyor",
+    "ko": "검토된 3D 소성 해석이 인증된 하한을 반환합니다",
     "zh": "经检验的 3D 塑性分析返回经认证的下限"
   },
   "explanation": {
@@ -38,6 +39,7 @@
     "fr": "L’API combinée certify_plastic_3d indique désormais la borne inférieure certifiée comme collapseFactor dès qu’un intervalle valide, fini et ordonné existe, que le facteur brut soit en dessous, à l’intérieur ou au-dessus. Le facteur brut reste dans solverCollapseFactor ; les écarts dans les deux sens produisent un avertissement indiquant le facteur brut et l’intervalle. L’API refuse le résultat en l’absence de certificat valide. Les étapes incrémentales et les rotules conservent leurs valeurs brutes.",
     "hu": "Az egyesített certify_plastic_3d API mostantól a tanúsított alsó korlátot adja meg collapseFactor értékként, valahányszor létezik érvényes, véges és rendezett intervallum, függetlenül attól, hogy a nyers tényező alatta, benne vagy fölötte van. A nyers tényező a solverCollapseFactor mezőben marad; az eltérések mindkét irányban figyelmeztetést adnak, amely közli a nyers tényezőt és az intervallumot. Érvényes tanúsítvány hiányában az API elutasítja az eredményt. A növekményes lépések és a csuklók megtartják nyers értékeiket.",
     "tr": "Birleşik certify_plastic_3d API artık geçerli, sonlu ve sıralı bir aralık bulunduğunda, ham katsayı aralığın altında, içinde veya üstünde olsa da sertifikalı alt sınırı collapseFactor olarak bildirir. Ham katsayı solverCollapseFactor içinde korunur; her iki yöndeki sapmalar ham katsayıyı ve aralığı bildiren bir uyarı üretir. Geçerli bir sertifika yoksa API sonucu reddeder. Artımlı adımlar ve mafsallar ham değerlerini korur.",
+    "ko": "결합된 certify_plastic_3d API는 이제 건전한 유한 순서 구간이 있으면 원시 계수가 그 아래, 안, 위 어디에 있든 인증된 하한을 collapseFactor로 보고합니다. 원시 계수는 solverCollapseFactor에 남으며, 어느 방향이든 불일치하면 원시 계수와 구간을 알리는 경고가 생성됩니다. 사용할 수 있는 건전한 인증서가 없으면 API는 거부합니다. 증분 단계와 힌지는 원시 값을 유지합니다.",
     "zh": "联合的 certify_plastic_3d API 现在只要存在有效的、有限的有序区间，就将经认证的下限报告为 collapseFactor，无论原始系数低于、处于或高于该区间。原始系数仍保留在 solverCollapseFactor 中；任一方向的不一致都会产生一条警告，报告原始系数和区间。当没有可靠的证书时，该 API 拒绝求解。增量步和铰保留其原始值。"
   },
   "changelog": {

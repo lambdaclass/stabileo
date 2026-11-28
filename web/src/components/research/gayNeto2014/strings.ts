@@ -283,6 +283,46 @@ const hu: Strings = {
   wholeLine: 'a teljes vezeték',
 };
 
+const ko: Strings = {
+  title: riserTitle.ko,
+  lead: riserHook.ko,
+  model: '모델',
+  theory: '기하학적으로 정확한 로드입니다. 각 단면이 자유롭게 움직이고 회전하며, 에너지는 단면 자체 좌표계에서 측정한 신장, 전단, 휨, 비틀림에 의존합니다. 가우스점 두 개를 쓰는 삼절점 요소를 사용합니다. 해저는 강체 평면이며 각 절점에서 벌칙 스프링과 Coulomb 마찰로 반발합니다.',
+  method: '기준 코드의 입력 파일을 읽고 같은 세 정적 단계를 풉니다. 접촉이 있는 자중, 1 MN의 수평 인장, 그리고 자유단의 186 m 들어 올림입니다. 해석기는 이 페이지를 위해 WASM으로 컴파일된 새 Rust 크레이트입니다. 접선은 요소 에너지를 두 번 미분하여 얻으므로 Newton 반복이 이차로 수렴합니다.',
+  comparison: '3단계 끝에서 134개 요소 모두의 휨모멘트와 전단력을 기준 코드 튜토리얼 가이드에 저장된 값과 비교합니다. 접지점과 늘어진 형상도 탄성 현수선과 대조합니다. 길이 1 m의 캔틸레버(튜토리얼 1)는 보 자체를 검토합니다.',
+  limits: '정적 해석만 다룹니다. 해류, 파랑 또는 항력 하중, 선 사이의 접촉은 없습니다. 기준 코드와의 일치는 수치적인 것이며 실험이나 설계 검토가 아닙니다.',
+  checks: '검증과 출처',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': '캔틸레버: 끝단 X, Z (m)',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': '캔틸레버, 요소 5개: 끝단 X, Z (m)',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': '캔틸레버, 요소 40개: 끝단 X, Z (m)',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': '라이저: 최대 휨모멘트 (N·m)',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': '라이저: 최대 전단력 (N)',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': '라이저: 접지점 (선을 따른 m)',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': '라이저: 접지점 (선을 따른 m)',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': '라이저: 늘어진 형상 (m)',
+  } as Record<string, string>,
+  riser: '라이저', forces: '부재력', cantilever: '캔틸레버',
+  pull: '수평 인장', lift: '자유단의 들어 올림', friction: '해저 마찰 μ',
+  run: '실시간 재계산', stop: '중지', restart: '다시 시작',
+  computing: 'Stabileo로 계산 중… (몇 초)',
+  caseLabel: '케이스',
+  error: '해석기를 불러오지 못했거나 계산을 완료하지 못했습니다. 이전 결과는 그대로 사용할 수 있습니다.',
+  ours: 'Stabileo', reference: '기준 코드, 3단계 끝', figure: '기준 코드, Figure 1-6',
+  moment: '휨모멘트 M(e1)', shear: '전단력 V(e2)', length: '선을 따른 위치 (m)', time: '하중 계수',
+  tipX: '끝단 X (m)', tipZ: '끝단 Z (m)',
+  steps: ['해저에서의 자중', '수평 인장', '자유단의 들어 올림'],
+  fairlead: '자유단', touchdown: '접지점 (선을 따라)', anchor: '앵커의 장력',
+  defaults: '기준값은 튜토리얼 자체의 매개변수(1 MN, 186 m, μ = 0.2)에 대한 것입니다.',
+  coordinates: '실제 축척, x는 해저를 따르고 z는 위쪽, 단위는 미터. 색상: 휨모멘트.',
+  cantileverNote: '1 m 캔틸레버의 끝단에 가로로 1000 N 힘이 작용하며, 열 단계로 나누어 가합니다.',
+  inputs: '입력 파일', code: 'Reference code (BSD-3-Clause)',
+  tableIntro: '논문의 그림은 비교하지 않았습니다. 전문을 볼 수 없었기 때문입니다. 기준은 저자의 코드인 GIRAFFE와 함께 발표된 결과, 캔틸레버에 대한 독립적인 정확해, 라이저에 대한 해석적 현수선입니다. 차이는 비교한 모든 것 중 최댓값입니다. 그림에 대한 캔틸레버의 열 증분, 모멘트와 전단에 대한 라이저의 134개 요소, 그리고 선의 늘어진 부분 전체입니다.',
+  table: { quantity: '항목', reference: '기준', ours: 'Stabileo', difference: '최대 차이', tolerance: '허용오차' },
+  sources: { figure: 'GIRAFFE, 가이드의 Figure 1-6', exact: '정확한 로드 해, 독립적', giraffe: 'GIRAFFE, 튜토리얼 16 결과', catenary: '해석적 탄성 현수선' } as Record<string, string>,
+  wholeLine: '선 전체',
+};
+
 const zh: Strings = {
   title: riserTitle.zh,
   lead: riserHook.zh,
@@ -323,5 +363,5 @@ const zh: Strings = {
   wholeLine: '整条管线',
 };
 
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, ko, zh };
 export const riserStrings = (): Strings => translations[publicI18n.locale] ?? en;

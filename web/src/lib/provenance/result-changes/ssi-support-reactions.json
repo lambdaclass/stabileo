@@ -30,6 +30,7 @@
     "fr": "SSI fournit les réactions d’appui et inclut le sol dans les efforts de contrainte",
     "hu": "Az SSI támaszreakciókat ad, és a kényszererőkbe bevonja a talajrugókat",
     "tr": "SSI mesnet tepkilerini döndürüyor ve zemin yaylarını kısıt kuvvetlerine katıyor",
+    "ko": "SSI는 지점 반력을 반환하며 구속력에 흙 스프링을 포함",
     "zh": "SSI 返回支座反力，约束力包含土弹簧"
   },
   "explanation": {
@@ -40,6 +41,7 @@
     "fr": "La PR #1675 remplace les listes vides de réactions SSI par les réactions de l’équilibre assemblé en 2D et 3D. Les efforts de contrainte incluent désormais les ressorts du sol et transmettent les forces aux nœuds maîtres bloqués. Les déplacements et efforts de barre sont inchangés. Des réactions nouvellement disponibles constituent un changement de résultats.",
     "hu": "A PR #1675 a 2D és 3D SSI üres támaszreakció-listáit az összeállított egyensúlyból származó reakciókkal váltotta fel. A kényszererők tartalmazzák a talajrugókat, és átadják az erőket a megtámasztott mestercsomópontoknak. Az elmozdulások és rúderők változatlanok. Az újonnan elérhető reakciók akkor is eredményváltozást jelentenek, ha korábban nem volt számérték.",
     "tr": "PR #1675, 2B ve 3B SSI çözümlerindeki boş mesnet tepkisi listelerini birleştirilmiş denge sisteminden hesaplanan tepkilerle değiştirdi. Kısıt kuvvetleri artık zemin yaylarını içeriyor ve kuvvetleri tutulu ana düğümlere aktarıyor. Yer değiştirmeler ve çubuk kuvvetleri değişmedi. Önceden sayı bulunmasa da yeni tepkiler bir sonuç değişikliğidir.",
+    "ko": "PR #1675는 2D와 3D에서 비어 있던 SSI 지점 반력 목록을 조립된 평형에서 얻은 반력으로 교체했습니다. 이제 구속력은 흙 스프링을 포함하고 구속된 주절점에 힘을 전달합니다. 변위와 부재력은 변하지 않습니다. 새로 제공되는 반력은 이전 값이 없었더라도 결과 변경입니다.",
     "zh": "PR #1675 以由装配后的平衡得到的反力，取代了 2D 和 3D 中空的 SSI 支座反力列表。约束力现在包含土弹簧，并把力传递给受约束的主节点。位移和杆件内力不变。新出现的反力属于结果变更，即使以前没有任何旧数值。"
   },
   "changelog": {

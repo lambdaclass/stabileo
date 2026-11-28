@@ -417,6 +417,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     hu: 'Távolítsa el a modellből a bizonyítottan elavult üres tehereseteket, azokat is, amelyek már a 0.6.4-es verzióban üresek voltak. Hozza létre újra a kombinációkat, és az érintett számítások megismétlése előtt ellenőrizze, hogy a kombinációk nem tartalmazzák ezeket a tehereset-azonosítókat.',
     tr: 'Artık geçerli olmadığını doğruladığınız boş yük durumlarını, 0.6.4 sürümünde zaten boş olanlar dahil, modelden kaldırın. Birleşimleri yeniden oluşturun ve etkilenen analizleri tekrarlamadan önce bu yük durumu kimliklerinin birleşimlerde yer almadığını doğrulayın.',
     zh: '从模型中删除经确认已失效的空荷载工况，包括在 0.6.4 版中已经为空的工况。重新生成组合，并在重新进行受影响的分析前，核实新组合不含这些工况的编号。',
+    ko: "이미 0.6.4에서 비어 있는 케이스를 포함하여, 확인된 폐기된 빈 하중 케이스를 모델에서 제거하십시오. 조합을 다시 생성하고 그 케이스 ID가 제외되었는지 확인한 다음 영향받은 해석을 다시 실행하십시오.",
   };
 
   it.each(advisoryLocales)('known wrong result: #2589 — %s summarizes how to exclude obsolete empty cases from regenerated combinations', (locale) => {
@@ -477,6 +478,7 @@ describe('the safety-advisories post quotes the advisories', () => {
     hu: 'Az egy helyre eső tengelyterhelés és állandó pontteher egyetlen, együttes nyíróerőugrást okoz. A két teher közötti nyíróerőnek egyoldali határértékei vannak, amikor a tengely megközelíti vagy éppen elhagyja a pontterhet. Ellenőrizze mindkét határértéket a pontteher előtt és után közvetlenül elhelyezkedő tengellyel.',
     tr: 'Aks ve kalıcı tekil yük tam olarak aynı konumdayken iki yük birlikte tek bir kesme kuvveti sıçraması oluşturur. Aks tekil yüke yaklaşırken veya onu geçerken iki yük arasındaki kesme kuvvetinin tek taraflı limitleri vardır. Aks tekil yükün hemen önündeyken ve hemen arkasındayken her iki limiti de kontrol edin.',
     zh: '车轴与永久点荷载的位置完全重合时，两项荷载共同产生一次剪力跳变。车轴接近或刚越过该荷载时，两者之间的剪力分别趋于相应的单侧极限。请检查车轴紧邻该荷载前后两个位置所对应的单侧极限。',
+    ko: "정확히 일치하는 위치에서는 차축과 영구 집중하중이 하나로 합쳐진 전단력 도약을 만듭니다. 그 사이의 전단력은 차축이 하중에 다가가거나 지나갈 때 단측 극한을 가집니다. 차축이 하중 바로 앞과 바로 뒤에 있는 두 경우의 극한을 모두 확인하십시오.",
   };
 
   it.each(advisoryLocales)('SA-2026-129 coincidence and both approach limits appear in %s', (locale) => {
@@ -594,6 +596,7 @@ describe('the safety-advisories post quotes the advisories', () => {
       tr: '0.6.2 sürümünde düzeltildi',
       hu: 'Javítva a 0.6.2 verzióban',
       zh: '已在 0.6.2 中修复',
+      ko: '0.6.2에서 수정됨',
     };
     const fixedIds = fixed.map(({ id }) => id).sort();
     const november20 = readdirSync(directory).filter(file => /^SA-2026-09[1-5]-/.test(file));

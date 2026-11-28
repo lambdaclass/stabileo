@@ -19,6 +19,7 @@
     "fr": "Les appuis inclinés 3D comptent les blocages dans un repère commun",
     "hu": "A 3D ferde támaszok a megtámasztásokat közös koordináta-rendszerben számolják",
     "tr": "Eğik 3D mesnetler kısıtları ortak koordinat sisteminde sayar",
+    "ko": "3D 경사 지점은 공통 좌표계에서 구속을 셉니다",
     "zh": "3D 斜支座在共同坐标系中计数约束"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "fr": "Le comptage cinématique 3D mélangeait le blocage normal de l’appui et les ressorts en axes globaux. Une normale Z et un ressort X comptaient comme une direction indépendante au lieu de deux ; des directions confondues pouvaient compter deux fois. Le degré, la classification et le diagnostic peuvent changer. Le calcul utilise désormais le rang commun de la normale et des directions des ressorts positifs. Cette correction concerne la branche de la PR #1780 sans modifier l’assemblage de rigidité ni les résultats statiques numériques. Relancez le contrôle cinématique des modèles concernés de cette branche. L’avis vise tous les projets avec appuis inclinés et ressorts ; beaucoup ne sont pas concernés.",
     "hu": "A 3D kinematikai számlálás a támasz koordináta-rendszerében értelmezett normális irányú megtámasztást globális tengelyű rugóval kombinálta. Egy globális Z irányú normális és egy globális X irányú rugó két helyett egy független iránynak számított; az egybeeső irányok kétszer is számíthattak. A fok, az osztályozás és a diagnózis változhat. A számlálás most a normális és a pozitív globális rugóirányok együttes rangját használja. Ez kijavítja a #1780 PR támaszszabály-ágát, és nem változtatja meg a merevségi mátrix összeállítását vagy a statikai számeredményeket. Futtassa újra a kinematikai ellenőrzést az érintett ágon készült modelleken. A ferde támaszokat és rugókat tartalmazó projektek tág körben kapnak jelzést; sok közülük nem érintett.",
     "tr": "3D kinematik sayım, mesnedin normal kısıtını global eksenlerdeki yaylarla karıştırıyordu. Z normali ile X yayı iki bağımsız yön yerine bir sayılıyor, çakışan yönler ise iki kez sayılabiliyordu. Derece, sınıflandırma ve tanı değişebilir. Artık normal ile pozitif yay yönlerinin ortak rankı hesaplanıyor. Bu düzeltme PR #1780 dalını ilgilendirir; rijitlik montajı ve sayısal statik sonuçlar değişmez. Etkilenen dal modellerinin kinematik kontrolünü yeniden çalıştırın. Bildirim eğik mesnet ve yay içeren tüm projeleri kapsar; çoğu etkilenmez.",
+    "ko": "3D 기하학적 차수 계산은 지점 좌표계의 법선 구속과 전체 좌표축의 스프링을 함께 계산했습니다. 전체 Z 방향의 법선과 전체 X 방향 스프링은 독립 방향 두 개가 아니라 한 개로 계산되었고, 일치하는 방향이 두 번 계산될 수도 있었습니다. 차수, 분류, 진단이 바뀔 수 있습니다. 이제 법선과 양의 전체 스프링 방향의 랭크를 함께 사용해 셉니다. 이는 PR #1780의 지점 규칙 분기를 바로잡은 것이며, 강성 조립이나 정적 수치 결과는 바뀌지 않습니다. 영향받는 분기 모델에서 기하학적 검토를 다시 실행하십시오. 경사 지점과 스프링이 있는 프로젝트는 넓게 표시되며, 상당수는 영향을 받지 않습니다.",
     "zh": "3D 运动学计数曾把支座坐标系中的法向约束与全局轴中的弹簧合并计算。沿全局 Z 的法向和全局 X 弹簧被算作一个独立方向，而不是两个；重合的方向也可能被计算两次。次数、分类和诊断都可能变化。现在的计数使用法向和正的全局弹簧方向合在一起的秩。这纠正了 PR #1780 中的支座规则分支，不改变刚度装配或静力数值结果。请对受影响的分支模型重新运行运动学检查。含斜支座和弹簧的项目会被广泛标记；许多并不受影响。"
   },
   "changelog": {
