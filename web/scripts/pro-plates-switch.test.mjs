@@ -1053,3 +1053,29 @@ for (const source of ['ProLoadsTab', 'plates/PlatePanel']) {
     }
   });
 }
+
+for (const [label, source, selected, endpoint] of [
+  ['grid recognition', 'lib/model/building/build-on-grid.ts', '/plates-from-shells', '/plates-from-shells'],
+  ['gallery progress', 'lib/data/pro-examples.ts', '/example-progress.svelte', '/example-progress.svelte'],
+  ['mesh ribbon', 'components/pro/ProRibbon.svelte', '/AnalysisMeshControl.svelte', '/mesh-progress.svelte'],
+]) {
+  test.skip('known wrong result: #1928 the disabled build omits ' + label, async () => {
+    for (const active of [false, true]) {
+      await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: active }, async configFile => {
+        const entry = resolve(root, 'src/' + source);
+        const output = await build({ root, configFile, logLevel: 'silent', build: {
+          write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+            external: (id, from) => !!from && !id.includes('?svelte&type=style') && (label !== 'mesh ribbon' || !id.endsWith(selected)),
+          },
+        } });
+        const files = (Array.isArray(output) ? output[0] : output).output;
+        const chunk = files.find(item => item.type === 'chunk');
+        assert.equal(chunk.imports.some(id => id.endsWith(endpoint)), active, label);
+        if (label === 'mesh ribbon') {
+          const css = files.filter(item => item.type === 'asset' && item.fileName.endsWith('.css')).map(file => file.source).join('');
+          assert.equal(css.includes('.amc.unified'), active);
+        }
+      });
+    }
+  });
+}
