@@ -96,7 +96,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { frameBarsInAssembly, workspaceScene, ROLLED_BEAMS, type Variant } from './helpers/workspace-scene';
+import { frameBarsInAssembly, workspaceScene, RELEASED_CORE, ROLLED_BEAMS, type Variant } from './helpers/workspace-scene';
 import { modelStore } from '../../../store/model.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import { memberKindOf } from '../../design/member-grouping';
@@ -226,14 +226,14 @@ async function audit(variant?: Variant): Promise<Audit> {
   return { rows, byCategory, scene, doc };
 }
 
-describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, () => {
+describe('beam reinforcement audit — pro-edificio-7p as released, its core on one support', { timeout: 30_000 }, () => {
   let rows: BeamRow[];
   let byCategory: Map<Category, BeamRow[]>;
   let scene: SceneModel;
   let doc: DocumentModel;
 
   beforeAll(async () => {
-    ({ rows, byCategory, scene, doc } = await audit());
+    ({ rows, byCategory, scene, doc } = await audit(RELEASED_CORE));
   }, 900_000);
 
   const of = (c: Category): BeamRow[] => byCategory.get(c) ?? [];
@@ -261,7 +261,37 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
     expect(of('workflow-error')).toEqual([]);
   });
 
+  itReachesTheScene(() => ({ rows, byCategory, scene, doc }));
+});
+
+describe('beam reinforcement audit — pro-edificio-7p with its core founded', { timeout: 30_000 }, () => {
+  let founded: Audit;
+
+  beforeAll(async () => {
+    founded = await audit();
+  }, 900_000);
+
+  const of = (c: Category): BeamRow[] => founded.byCategory.get(c) ?? [];
+
+  it('verifies or honestly refuses every beam', () => {
+    expect(founded.rows.length).toBe(168);
+    expect(of('reinforced').length + of('refused').length).toBe(founded.rows.length);
+    expect(of('provisional-biaxial')).toEqual([]);
+    expect(of('provisional-without-steel')).toEqual([]);
+    expect(of('verified-geometry-lost')).toEqual([]);
+    expect(of('verified-not-detailed')).toEqual([]);
+    expect(of('detailed-but-filtered')).toEqual([]);
+    expect(of('workflow-error')).toEqual([]);
+    expect(of('reinforced').length).toBeGreaterThan(0);
+  });
+
+  itReachesTheScene(() => founded);
+});
+
+function itReachesTheScene(get: () => Audit): void {
   it('gives every beam concrete AND steel, rather than an empty member', () => {
+    const { rows, scene } = get();
+    const of = (c: Category): BeamRow[] => get().byCategory.get(c) ?? [];
     // "Do not hide elements to disguise a limitation" was already satisfied — the concrete was
     // always drawn. What was missing is the steel, and its absence was indistinguishable from
     // reinforcement that went missing between the design and the screen.
@@ -279,6 +309,7 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
   });
 
   it('reaches the 3-D projection intact for every beam that has steel', () => {
+    const { doc, scene } = get();
     // The check that would catch a lost projection: document steel and scene steel agree on
     // WHICH members carry bars, for beams and columns alike.
     const inDoc = new Set<number>();
@@ -288,7 +319,7 @@ describe('beam reinforcement audit — pro-edificio-7p', { timeout: 30_000 }, ()
     const missingFrom3D = [...inDoc].filter((id) => !inScene.has(id)).sort((a, b) => a - b);
     expect(missingFrom3D, 'every member with steel in the document has steel in the scene').toEqual([]);
   });
-});
+}
 
 // The provisional path, on beams that bend about both axes for a real reason: see `ROLLED_BEAMS`.
 describe('beam reinforcement audit — pro-edificio-7p, five beams turned 20° about their axis', { timeout: 30_000 }, () => {

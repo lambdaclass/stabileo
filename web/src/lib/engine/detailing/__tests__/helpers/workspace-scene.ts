@@ -52,17 +52,28 @@ export interface WorkspaceScene {
  * ratio fell from 0.11–0.24 to 0.010–0.028. A beam turned about its axis under gravity bends
  * about both of its own axes for a reason that is real: M·cos θ and M·sin θ.
  */
-export interface Variant { rollBeams: { ids: readonly number[]; degrees: number } }
+export interface Variant {
+  rollBeams?: { ids: readonly number[]; degrees: number };
+  unheldNodes?: readonly number[];
+}
 
 /** The five beams the flagship building's biaxial tests turn, and by how much. */
-export const ROLLED_BEAMS: Variant = { rollBeams: { ids: [88, 151, 153, 157, 164], degrees: 20 } };
+export const ROLLED_BEAMS = { rollBeams: { ids: [88, 151, 153, 157, 164], degrees: 20 } } satisfies Variant;
+
+/** The flagship building as released before `example-core-foundation`, its core held at node 1 alone. */
+export const RELEASED_CORE: Variant = { unheldNodes: [118, 119, 120] };
 
 /** Apply a variant to the loaded model, before it is solved. */
 export function applyVariant(variant: Variant): void {
-  for (const id of variant.rollBeams.ids) {
+  for (const nodeId of variant.unheldNodes ?? []) {
+    const held = [...modelStore.supports.values()].filter((s) => s.nodeId === nodeId);
+    expect(held.length, `node ${nodeId} is held in the loaded example`).toBe(1);
+    modelStore.removeSupport(held[0].id);
+  }
+  for (const id of variant.rollBeams?.ids ?? []) {
     const e = modelStore.elements.get(id);
     expect(e, `element ${id} exists in the loaded example`).toBeTruthy();
-    modelStore.updateElement(id, { rollAngle: ((e!.rollAngle ?? 0) + variant.rollBeams.degrees) % 360 });
+    modelStore.updateElement(id, { rollAngle: ((e!.rollAngle ?? 0) + variant.rollBeams!.degrees) % 360 });
   }
 }
 
