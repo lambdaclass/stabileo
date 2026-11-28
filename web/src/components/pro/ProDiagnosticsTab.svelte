@@ -14,8 +14,7 @@
   import { verdictApproves, verdictReasons } from '../../lib/store/member-verdict';
   import { toCsv } from '../../lib/engine/result-tables';
   import { tp, tpn } from '../../lib/i18n';
-  import { containmentDismissal } from '../../lib/store/containment-dismissal.svelte';
-  import { noticePrefs } from '../../lib/store/notice-prefs.svelte';
+  import RestoreNoticeControls from './RestoreNoticeControls.svelte';
 
   // Opening Diagnostics is itself an interaction: the user has come to look, so the chip is
   // allowed to speak from here on even if nothing else has happened yet.
@@ -214,11 +213,8 @@
       {/if}
     {/snippet}
     {@render part('analysis', extraAnalysis)}
-    {#if __PUBLIC_FEATURES__.proPlatesUnified && !notice.refused && containmentDismissal.any}
-      <button class="pk-btn" onclick={() => containmentDismissal.restore()} data-testid="containment-restore">{t('containment.restore')}</button>
-    {/if}
-    {#if __PUBLIC_FEATURES__.proPlatesUnified && noticePrefs.hidden.length}
-      <button class="pk-btn" onclick={() => noticePrefs.showAll()} data-testid="notices-restore-hidden">{t('notices.restoreHidden')}</button>
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      <RestoreNoticeControls refused={notice.refused} />
     {/if}
     {@render part('design', designLines)}
   </section>
@@ -311,11 +307,11 @@
       {/if}
     </div>
 
-    {#snippet headline(diag: SolverDiagnostic, tooltip: string, masked = false)}
+    {#snippet headline(diag: SolverDiagnostic, tooltip: string, text = messageOf(diag))}
       <span class="diag-icon {severityClass(diag.severity)}">{severityIcon(diag.severity)}</span>
       <span class="diag-source">{sourceLabel(diag.source)}</span>
       <div class="diag-content">
-        <span class="diag-msg">{masked ? numbersMasked(messageOf(diag)) : messageOf(diag)}</span>
+        <span class="diag-msg">{text}</span>
         {#if tooltip}
           <span class="diag-tooltip-text">{tooltip}</span>
         {/if}
@@ -348,7 +344,7 @@
             {@const varies = g.items.some((d) => d.message !== g.first.message)}
             <details class="diag-group" data-testid="diag-group" data-count={g.items.length}>
               <summary class="diag-item {severityClass(g.first.severity)}" title={tooltip || undefined} data-tour="diagnostic-item">
-                {@render headline(g.first, tooltip, varies)}
+                {@render headline(g.first, tooltip, varies ? numbersMasked(messageOf(g.first)) : messageOf(g.first))}
                 <span class="diag-count" data-testid="diag-group-count">×{g.items.length}</span>
               </summary>
               <div class="diag-group-items">
