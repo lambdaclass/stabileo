@@ -36,7 +36,7 @@ export const CAPTION_MM = CAPTION;
  * block too, rows 8 mm apart and side by side with only their own margins between.
  */
 export function composeSheets(drawings: readonly DrawingInput[], format: SheetFormat, geometryOf: (f: SheetFormat) => FormatGeometry = formatGeometry, dense = false): ComposedSheet[] {
-  if (dense) return composeDense(drawings, format, geometryOf);
+  if (__PUBLIC_FEATURES__.proRcSheets && dense) return composeDense(drawings, format, geometryOf);
   const sheets: ComposedSheet[] = [];
   let cur: ComposedSheet | null = null, x = 0, top = 0, rowH = 0;
   let group: string | undefined;

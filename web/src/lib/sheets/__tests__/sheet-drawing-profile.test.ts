@@ -8,7 +8,7 @@ import type { Primitive } from '../primitives';
 
 const sheets = !!__PUBLIC_FEATURES__.proRcSheets;
 
-it.skip('known wrong result: #1928 ordinary drawings retain their row placement when dense packing is requested', () => {
+it('known wrong result: #1928 ordinary drawings retain their row placement when dense packing is requested', () => {
   const drawings: DrawingInput[] = ['a', 'b', 'c'].map(key => ({
     key, title: key, width: 100, height: 60, origin: { x: 0, y: 0 }, scale: 1, paper: true, primitives: [],
   }));
@@ -18,7 +18,7 @@ it.skip('known wrong result: #1928 ordinary drawings retain their row placement 
   expect(JSON.stringify(dense) === JSON.stringify(ordinary)).toBe(!sheets);
 });
 
-it.skip.each(['ST-COTA', 'ST-ARM-EST-Ø16'])('known wrong result: #1928 imported drawing layer %s follows its active export catalogue', name => {
+it.each(['ST-COTA', 'ST-ARM-EST-Ø16'])('known wrong result: #1928 imported drawing layer %s follows its active export catalogue', name => {
   const geometry: Primitive[] = [{ kind: 'line', layer: name, a: { x: 0, y: 0 }, b: { x: 10, y: 10 } }];
   const own = layerDef(name);
   const ordinary = { ...layerDef('imported-layer'), name };
