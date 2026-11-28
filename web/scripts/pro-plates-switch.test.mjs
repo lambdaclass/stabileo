@@ -1005,3 +1005,24 @@ test('known wrong result: #1928 roof category case creation ships only with the 
     });
   }
 });
+
+test.skip('known wrong result: #1928 published containment does not initialize grouped notice preferences', async () => {
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const entry = resolve(root, '.containment-probe.mjs');
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] },
+        rollupOptions: { external: (id, from) => !!from && !id.endsWith('ContainmentBanner.svelte') && !id.endsWith('PublishedContainmentNotice.svelte') },
+      }, plugins: [{
+        name: 'containment-component-probe',
+        resolveId: id => id === entry ? entry : null,
+        load: id => id === entry ? "export { default } from './src/components/ContainmentBanner.svelte'" : null,
+      }] });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
+      for (const module of ['notice-prefs.svelte', 'containment-dismissal.svelte', 'result-notices']) {
+        assert.equal(chunk.imports.some(id => id.endsWith(module)), plates, module);
+      }
+      assert.ok(chunk.code.includes('containment-notice'));
+    });
+  }
+});
