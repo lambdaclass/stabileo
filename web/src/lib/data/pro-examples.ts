@@ -46,8 +46,7 @@ import { localiseExampleNames } from './example-names';
 import { generateSavedLoads } from '../store/saved-loads';
 import { sheetPlacement } from '../store/sheet-placement';
 import { designData } from '../store/design-data';
-import { exampleProgress } from '../store/example-progress.svelte';
-import { nextFrame } from '../store/mesh-progress.svelte';
+import { withExampleProgress } from '../store/example-load-progress';
 
 export type ExampleGroup =
   | 'firstSteps' | 'buildings' | 'rcBuildings' | 'steelBuildings' | 'cad' | 'industrial' | 'towers' | 'longspan' | 'foundations' | 'showcase';
@@ -157,14 +156,14 @@ function regulationCombinations(bothSenses: boolean): void {
   addGeneratedCombinations(expanded, () => `U${++n}: `);
 }
 
-async function loadExampleModel(ex: ProExample): Promise<void> {
+async function loadExampleModel(ex: ProExample, beforeLoads?: () => Promise<void>): Promise<void> {
   // The regulation's combinations come from the engine: an example opened while it is still
   // loading waits for it rather than fail.
   try { await initSolver(); } catch { throw new EngineUnavailableError("the example's combinations"); }
   if (ex.source === 'code') await loadCodeFile(ex.id, ex.codeFile ?? PUBLISHED_CODE_FILES[ex.id as keyof typeof PUBLISHED_CODE_FILES]);
   else await modelStore.loadExample(ex.id);
   const generated = unifiedPlates() && ex.loads === 'generator';
-  if (generated) { exampleProgress.step('loads'); await nextFrame(); }
+  if (generated) await beforeLoads?.();
   modelStore.batch(() => {
     PRO_EXAMPLE_FIXES[ex.id]?.();
     if (sheetPlacement && designData().placement) sheetPlacement.applyPlacement();
@@ -186,17 +185,8 @@ async function loadExampleModel(ex: ProExample): Promise<void> {
   });
 }
 
-async function loadExample(ex: ProExample): Promise<void> {
-  if (!unifiedPlates()) return loadExampleModel(ex);
-  exampleProgress.begin(ex.nameKey);
-  try {
-    await nextFrame();
-    await loadExampleModel(ex);
-    exampleProgress.step('draw');
-    await nextFrame();
-  } finally {
-    exampleProgress.end();
-  }
+function loadExample(ex: ProExample): Promise<void> {
+  return withExampleProgress(ex.nameKey, beforeLoads => loadExampleModel(ex, beforeLoads));
 }
 
 type Entry = Omit<ProExample, 'nameKey' | 'descKey' | 'purposeKey' | 'lookKey' | 'groupKey' | 'load' | 'loads'> & { loads?: ExampleLoads };

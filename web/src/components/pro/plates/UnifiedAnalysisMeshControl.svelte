@@ -1,0 +1,55 @@
+<script lang="ts">
+  import { modelStore } from '../../../lib/store';
+  import { t, tp } from '../../../lib/i18n';
+  import { coarseAsModelled, meshBeforeAnalysis, physicalPlates, platesNeedingMesh } from '../../../lib/store/physical-plates';
+  import PlateMeshDialog from './PlateMeshDialog.svelte';
+  import MeshProgressBar from './MeshProgressBar.svelte';
+  import { meshProgress } from '../../../lib/store/mesh-progress.svelte';
+
+  const info = $derived.by(() => {
+    void modelStore.modelVersion; void modelStore.model.groups;
+    const on = meshBeforeAnalysis.value;
+    const all = physicalPlates();
+    const pending = platesNeedingMesh({ coarse: on });
+    const asCame = !on ? all.filter((p) => coarseAsModelled(p)).length : 0;
+    return { on, total: all.length, pending, asCame, kept: all.length - pending.length - asCame, ids: all.map((p) => p.id) };
+  });
+  const stateText = $derived(
+    info.pending.length
+      ? (info.on ? (info.kept ? tp('plates.meshShort.willMeshKept', { n: info.pending.length, kept: info.kept }) : tp('plates.meshShort.willMesh', { n: info.pending.length })) : tp('plates.meshShort.missing', { n: info.pending.length }))
+      : info.asCame ? tp('plates.meshShort.asCame', { n: info.asCame }) : tp('plates.meshShort.ready', { n: info.total }),
+  );
+  const stateLong = $derived(
+    (info.pending.length
+      ? tp(info.on ? 'plates.meshStateWillMesh' : 'plates.meshStateMissing', { n: info.pending.length, total: info.total })
+      : info.asCame ? tp('plates.meshStateAsCame', { n: info.asCame, total: info.total }) : tp('plates.meshStateReady', { n: info.total }))
+    + (info.on && info.pending.length && info.kept ? ` · ${tp('plates.meshStateKept', { n: info.kept })}` : ''),
+  );
+  let open = $state(false);
+</script>
+
+{#if info.total > 0}
+  <div class="amc unified" data-testid="analysis-mesh-control">
+    {#if meshProgress.now}
+      <MeshProgressBar phase={meshProgress.now.phase} done={meshProgress.now.done} total={meshProgress.now.total} />
+    {:else}
+      <span class="amc-state" class:warn={info.pending.length > 0 && !info.on} title={stateLong} data-testid="analysis-mesh-state" data-pending={info.pending.length} data-kept={info.kept}>{stateText}</span>
+    {/if}
+    <label class="amc-check" title={t('plates.unified.meshBeforeAnalysisHint')}>
+      <input type="checkbox" checked={meshBeforeAnalysis.value} onchange={(e) => (meshBeforeAnalysis.value = e.currentTarget.checked)} data-testid="analysis-mesh-auto" />
+      {t('plates.meshBeforeAnalysis')}
+    </label>
+    <button class="amc-btn" onclick={() => (open = true)} data-testid="analysis-mesh-settings">{t('plates.meshSettings')}</button>
+  </div>
+  {#if open}<PlateMeshDialog ids={info.pending.length ? info.pending : info.ids} onclose={() => (open = false)} />{/if}
+{/if}
+
+<style>
+  .amc { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 0 6px; font-size: 0.66rem; color: var(--st-text-3); max-width: 150px; }
+  .amc.unified { max-width: 170px; }
+  .amc-state { color: var(--st-text-2); }
+  .amc.unified .amc-state { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .amc-state.warn { color: var(--st-warn, #d9a441); }
+  .amc-check { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+  .amc-btn { align-self: flex-start; padding: 0 6px; background: none; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); color: var(--st-text-2); font: inherit; cursor: pointer; }
+</style>

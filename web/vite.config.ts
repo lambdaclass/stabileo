@@ -73,6 +73,12 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (features.proPlatesUnified && importer && id.endsWith('/AnalysisMeshControl.svelte') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/pro/plates/AnalysisMeshControl.svelte')) {
+          return resolve(__dirname, 'src/components/pro/plates/UnifiedAnalysisMeshControl.svelte');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/example-load-progress') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/example-load-progress')) {
+          return resolve(__dirname, 'src/lib/store/unified-example-load-progress.ts');
+        }
         if (features.proPlatesUnified && importer && id.endsWith('/ContainmentBanner.svelte') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/ContainmentBanner.svelte')) {
           return resolve(__dirname, 'src/components/UnifiedContainmentBanner.svelte');
         }
