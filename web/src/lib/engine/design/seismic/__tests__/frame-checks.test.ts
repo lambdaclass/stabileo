@@ -135,3 +135,12 @@ it.each(['below', 'boundary', 'above', 'strong', 'unrecorded'] as const)('known 
     expect(checked.issues).toContain('seisDes.issue.confinementUnassessed');
   }
 });
+
+
+it.skip.each(['primary', 'secondary'] as const)('known wrong result: #2216 a %s column without a section records its assessment status', role => {
+  const member = { ...column(1, 1, 2), role, section: undefined };
+  const checked = seismicFrameChecks({ nodes, members: [member], settings: defaultSeismicDesign() }).members[0]!;
+  expect(checked.ok).toBe(role === 'secondary');
+  expect(checked.issues).toEqual(role === 'secondary' ? [] : ['seisDes.issue.reinforcementUnassessed']);
+  expect(checked.confinement).toBeUndefined();
+});
