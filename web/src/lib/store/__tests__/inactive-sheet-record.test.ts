@@ -23,7 +23,7 @@ it.skip.each(['project', 'loadProject', 'loadFile', 'autosave', 'tab'] as const)
     modelStore.restore(accepted.tabs[0]!.modelSnapshot);
   }
   patchDesignData({ rebarGrade: 'changed grade' });
-  const normalized = { version: 1, adopted: {}, schedule: { scope: 'level' } };
+  const normalized = { version: 1, adopted: {}, foundationSystem: null, schedule: { scope: 'level' } };
   expect(designData().rcSheets).toEqual(sheets ? normalized : undefined);
   const saved = JSON.parse(serializeProject()).snapshot.designData;
   expect(saved.rcSheets).toEqual(sheets ? normalized : sheet);
