@@ -973,7 +973,7 @@ test('known wrong result: #1928 a validated released profile compiles absent pla
   }
 });
 
-test.skip('known wrong result: #1928 the published occupancy reader resolves only the released authority', async () => {
+test('known wrong result: #1928 the published occupancy reader resolves only the released authority', async () => {
   for (const unified of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: unified }, async configFile => {
       const entry = resolve(root, 'src/lib/model/use-zones.ts');

@@ -95,6 +95,9 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
         if (features.proPlatesUnified && importer && id.endsWith('/wall-foundation') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/model/foundation/wall-foundation')) {
           return resolve(__dirname, 'src/lib/model/foundation/active-wall-foundation.ts');
         }
+        if (features.proPlatesUnified && importer && id.endsWith('/occupancy-tables') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/codes/families/occupancy-tables')) {
+          return resolve(__dirname, 'src/lib/codes/families/active-occupancy-tables.ts');
+        }
         if (features.proPlatesUnified && importer && id.endsWith('/selected-floor-load') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/selected-floor-load')) {
           return resolve(__dirname, 'src/lib/store/selected-floor-load-enabled.svelte.ts');
         }
