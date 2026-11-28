@@ -59,21 +59,17 @@ async function armSectionAnalysis(page: Page) {
   await page.getByRole('button', { name: /^Section analysis$/i }).click();
 }
 
-/**
- * Click the model to place the query — the gesture, not a hook.
- *
- * Where the beam lands on the canvas depends on the viewport and the auto-fit,
- * so a single hard-coded point is a flake waiting to happen. This sweeps a few
- * plausible spots along the span, which is what a user does anyway when the
- * first click misses the member.
- */
+/** Click the member to place the query: the gesture, aimed where the member is drawn. */
 async function queryAtMidspan(page: Page) {
-  const canvas = page.locator('canvas').first();
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('no canvas');
   const panel = page.locator('.ssp-panel');
-  for (const [fx, fy] of [[0.45, 0.5], [0.4, 0.45], [0.5, 0.55], [0.35, 0.5], [0.55, 0.5], [0.45, 0.4]]) {
-    await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
+  const ends = await page.evaluate(() => {
+    const ids = window.__stabileo.nodeIds();
+    return [window.__stabileo.nodeScreenPos(ids[0]!), window.__stabileo.nodeScreenPos(ids[ids.length - 1]!)];
+  });
+  const [a, b] = ends;
+  if (!a || !b) throw new Error('the member is not on screen');
+  for (const f of [0.45, 0.5, 0.4, 0.55, 0.35]) {
+    await page.mouse.click(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f);
     try {
       await expect(panel).toBeVisible({ timeout: 3000 });
       return;

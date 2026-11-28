@@ -36,7 +36,7 @@ test('@smoke the header offers a way to reach us, and still fits a phone', async
 
   await page.getByTestId('contact-open').click();
   const rows = page.locator('[data-testid="contact-menu"] li');
-  await expect(rows).toHaveCount(5);
+  await expect(rows).toHaveCount(6);
   // Every row says which languages that account answers in — the whole point
   // of listing them rather than linking one.
   for (const text of await rows.allTextContents()) {
