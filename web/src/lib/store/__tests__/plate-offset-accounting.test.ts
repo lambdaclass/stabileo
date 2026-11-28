@@ -34,3 +34,14 @@ it.skip.each(['quad', 'tri'] as const)('known wrong result: #2461 %s accounting 
   modelStore.setShellOffset(element === 'quad' ? 'quad' : 'plate', id, undefined);
   expect(shellNodes(modelStore.buildSolverInput3D())).toEqual(original);
 });
+
+it.skip.each(['quad', 'tri'] as const)('known wrong result: #2461 %s refuses a measurable offset that the current expander omits', element => {
+  const id = plate(element);
+  const kind = element === 'quad' ? 'quad' : 'plate';
+  for (const z of [5e-10, 1e-9, -1e-9]) {
+    modelStore.setShellOffset(kind, id, { frame: 'global', x: 0, y: 0, z });
+    expect(() => modelStore.buildSolverInput3D()).toThrow(SolveAccountingError);
+  }
+  modelStore.setShellOffset(kind, id, { frame: 'global', x: 0, y: 0, z: 2e-9 });
+  expect(modelStore.buildSolverInput3D()).not.toBeNull();
+});
