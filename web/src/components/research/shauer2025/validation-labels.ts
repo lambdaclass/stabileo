@@ -245,6 +245,22 @@ const labels: Record<string, Record<string, string>> = {
     "force": "Erő a töréssel együtt",
     "mirror": "Csomóponti károsodás, referencia vagy tükörkép"
   },
+  'id': {
+    "mesh": "Sidik jari mesh",
+    "steps": "Jumlah langkah beban",
+    "iterations": "Iterasi pada setiap langkah",
+    "damage": "Kerusakan maksimum pada setiap langkah",
+    "stress": "Tegangan di tengah pada setiap langkah",
+    "damageField": "Kerusakan titik simpul",
+    "displacementField": "Perpindahan titik simpul",
+    "analytic": "Tegangan di tengah / solusi 1D AT2, d maks < 0.25",
+    "peakStep": "Langkah gaya puncak",
+    "peak": "Gaya puncak",
+    "preForce": "Gaya hingga puncak",
+    "preDamage": "Kerusakan maksimum hingga puncak",
+    "force": "Gaya termasuk patah",
+    "mirror": "Kerusakan titik simpul, referensi atau cermin"
+  },
   "zh": {
     "mesh": "网格指纹",
     "steps": "荷载步数",
@@ -317,6 +333,14 @@ const metrics: Record<string, Record<string, string>> = {
     "absolute difference / AT2 peak stress": "|Δσ| / σc",
     "max absolute difference": "max |Δd|",
     "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
+  'id': {
+    "exact": "Eksak",
+    "relative difference": "Selisih relatif",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "maks |Δd|",
+    "max absolute difference / max |u|": "maks |Δu| / maks |u|",
     "absolute difference, kN": "|ΔF| (kN)"
   },
   "zh": {

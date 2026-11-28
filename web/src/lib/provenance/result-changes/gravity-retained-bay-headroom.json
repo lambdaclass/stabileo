@@ -31,6 +31,7 @@
     "de": "Felder bei der automatischen Schwerkraftlast nach lichter Höhe kürzen",
     "fr": "Découper les travées chargées selon la hauteur libre réelle",
     "tr": "Otomatik yerçekimi yükü alanlarını gerçek net yüksekliğe göre kırp",
+    "id": "Potong bentang gravitasi otomatis berdasarkan ruang bebas fisik",
     "zh": "按实际净高剪裁自动重力荷载板区",
     "hu": "A gravitációs terhekkel terhelt mezők vágása a tényleges szabad magasság alapján"
   },
@@ -41,6 +42,7 @@
     "de": "Die automatische Flächenlastgenerierung kürzt das untere Feld dort, wo ein beibehaltenes oberes Feld zu wenig lichte Höhe lässt. Das gilt auch für Ecken zwischen den Prüfpunkten. Erzeugen Sie betroffene Schwerkraft- und Dachschneelasten neu und wiederholen Sie Analysen und Kombinationen.",
     "fr": "La génération automatique des charges gravitaires par panneaux découpe la travée inférieure là où une travée supérieure conservée laisse une hauteur libre insuffisante, y compris dans les angles entre les points de contrôle. Régénérez les charges gravitaires par panneaux et les charges de neige en toiture concernées, puis relancez les analyses et les combinaisons.",
     "tr": "Otomatik panel yerçekimi yükü üretimi, korunan bir üst döşeme gözünün yetersiz net yükseklik bıraktığı alt alanı, kontrol noktaları arasındaki köşeler dahil, kırpar. Etkilenen panel yerçekimi ve çatı kar yüklerini yeniden üretip analizleri ve birleşimleri tekrarlayın.",
+    "id": "Gravitasi panel otomatis memotong bentang bawah di mana pun bentang atas yang dipertahankan memberi ruang bebas yang tidak cukup, termasuk sudut di antara probe. Buat ulang gravitasi panel dan beban salju atap yang terpengaruh, lalu jalankan ulang analisis dan kombinasi.",
     "zh": "自动板区重力荷载生成会剪裁上方保留板区下净高不足的下方板区，包括采样点之间的角部。请重新生成受影响的板区重力荷载和屋面雪荷载，并重新运行分析和组合计算。",
     "hu": "Az automatikus mezőnkénti gravitációs tehergenerálás levágja az alsó mező azon részeit, ahol egy megtartott felső mező alatt elégtelen a szabad magasság, beleértve a mintavételi pontok közötti sarkokat. Generálja újra az érintett mezőnkénti gravitációs és tetőhóterheket, majd ismételje meg az elemzéseket és a kombinációkat."
   },

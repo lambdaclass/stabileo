@@ -16,6 +16,7 @@
     "fr": "Refus du poids propre si le groupe est absent ou sa liste d’éléments est invalide",
     "hu": "Önsúly elutasítása hiányzó csoport vagy érvénytelen taglista esetén",
     "tr": "Grup eksikse veya üye listesi geçersizse öz ağırlığın reddedilmesi",
+    "id": "Tolak berat sendiri dengan grup yang hilang atau keanggotaan yang tidak valid",
     "zh": "拒绝使用缺失或成员列表无效的组计算自重"
   },
   "explanation": {
@@ -26,6 +27,7 @@
     "fr": "Une règle de poids propre référence un groupe absent ou dont la liste d’éléments est invalide. Les résultats antérieurs pouvaient omettre le poids propre du groupe. Rétablissez le groupe et ses éléments ou modifiez la cible du poids propre, puis relancez le calcul.",
     "hu": "Egy önsúlyszabály hiányzó vagy érvénytelen taglistájú csoportra hivatkozik. A korábbi eredményekből kimaradhatott a csoport önsúlya. Állítsa vissza a csoportot és a taglistáját, vagy módosítsa az önsúly célját, majd futtassa újra a számítást.",
     "tr": "Bir öz ağırlık kuralı, eksik veya üye listesi geçersiz bir gruba başvuruyor. Önceki sonuçlar grubun öz ağırlığını atlamış olabilir. Grubu ve üye listesini geri yükleyin ya da öz ağırlığın hedefini değiştirip analizi yeniden çalıştırın.",
+    "id": "Aturan berat sendiri merujuk grup yang hilang atau grup dengan keanggotaan yang tidak valid. Hasil sebelumnya dapat mengabaikan berat sendiri grup tersebut. Pulihkan grup beserta keanggotaannya atau ubah target berat sendiri, lalu jalankan ulang analisis.",
     "zh": "一条自重规则引用了缺失或成员列表无效的组。早期结果可能漏算该组的自重。请恢复该组及其成员列表，或更改自重的作用对象，然后重新运行分析。"
   },
   "changelog": {

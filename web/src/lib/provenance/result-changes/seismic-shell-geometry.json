@@ -15,6 +15,7 @@
     "de": "Statische Erdbebenlasten erfordern endliche Schalenkoordinaten",
     "fr": "La génération sismique statique exige des coordonnées finies aux sommets des coques",
     "tr": "Statik deprem yükü üretimi sonlu kabuk köşe koordinatları gerektirir",
+    "id": "Pembuatan beban seismik statis memerlukan sudut cangkang yang terbatas",
     "zh": "等效静力地震荷载要求壳单元角点坐标为有限值",
     "hu": "A statikus szeizmikus terhekhez véges héjcsomóponti koordináták szükségesek"
   },
@@ -25,6 +26,7 @@
     "de": "Fehlende Eckknoten oder nicht endliche Eckkoordinaten von Schalen und Platten verhindern die Erzeugung statischer Erdbebenlasten. Korrigieren Sie die betroffene Geometrie, erzeugen Sie die E-Lasten neu und wiederholen Sie Analysen und Nachweise (#2316).",
     "fr": "La génération sismique statique est bloquée si des sommets de coque ou de plaque sont manquants ou si leurs coordonnées ne sont pas finies. Corrigez la géométrie concernée, régénérez les charges E et répétez les analyses et les vérifications (#2316).",
     "tr": "Kabuk veya plak köşeleri eksikse ya da koordinatları sonlu değilse statik deprem yükü üretimi durur. Etkilenen geometriyi düzeltin, E yüklerini yeniden oluşturun ve analizleri ve tasarım kontrollerini tekrarlayın (#2316).",
+    "id": "Pembuatan beban seismik statis berhenti bila sudut cangkang atau pelat hilang atau tidak terbatas. Perbaiki geometri yang terpengaruh, buat ulang beban E, dan ulangi analisis serta pemeriksaan desain (#2316).",
     "zh": "壳单元或板单元的角点缺失或坐标为非有限值时，将停止生成等效静力地震荷载。请修正受影响的几何、重新生成 E 荷载，并重做分析和设计验算（#2316）。",
     "hu": "Hiányzó héj- vagy lemezcsomópont, illetve nem véges csomóponti koordináta esetén a statikus szeizmikus terhek előállítása leáll. Javítsa az érintett geometriát, hozza létre újra az E terheket, és ismételje meg az elemzéseket és ellenőrzéseket (#2316)."
   },

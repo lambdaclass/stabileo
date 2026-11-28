@@ -22,6 +22,7 @@
     "fr": "Vérifier la force à chaque sommet des éléments de dalle",
     "hu": "A födémelemek minden sarkán ellenőrzi az erőt",
     "tr": "Döşeme elemanlarının her köşesindeki kuvveti denetle",
+    "id": "Verifikasi gaya pada setiap sudut sel pelat utuh",
     "zh": "校核整板荷载在每个板单元角节点的力"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "fr": "Le calcul s’arrête si la force à un sommet d’un élément de dalle s’écarte de la charge définie au-delà de la limite d’arrondi, même si la résultante et le moment concordent.",
     "hu": "A számítás leáll, ha egy födémelem sarkán az erő a kerekítési határnál jobban eltér a terhelés meghatározásából kapott értéktől, akkor is, ha az eredő és a nyomaték egyezik.",
     "tr": "Bileşke kuvvet ve moment uyuşsa bile, bir döşeme elemanının köşesindeki kuvvet yük tanımından yuvarlama sınırını aşacak kadar farklıysa analiz durur.",
+    "id": "Analisis berhenti bila sudut mana pun dari sel pelat utuh menerima gaya yang berbeda dari definisi beban melebihi batas pembulatan, meskipun resultan dan momennya sesuai.",
     "zh": "若整板荷载在任一板单元角节点的力与荷载定义的计算值之差超出舍入误差界限，即使合力和力矩一致，分析也会停止。"
   },
   "changelog": {

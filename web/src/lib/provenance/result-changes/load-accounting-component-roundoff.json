@@ -13,6 +13,7 @@
     "fr": "Marges d’arrondi par composante de charge",
     "hu": "Teherkomponensenkénti kerekítési tűrések",
     "tr": "Yük bileşenleri için yuvarlama payları",
+    "id": "Toleransi pembulatan untuk komponen beban",
     "zh": "荷载分量的舍入误差限值"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "La vérification utilise les valeurs absolues des termes de chaque composante de force ou de moment, même lorsque leur somme est nulle. L’analyse s’arrête si un écart dépasse la marge d’arrondi de cette composante.",
     "hu": "A terhek ellenőrzése az egyes erő- és nyomatékkomponensek tagjainak abszolút értékét használja akkor is, ha az összegük nulla. A számítás leáll, ha az eltérés meghaladja a komponens kerekítési tűrését.",
     "tr": "Yük denetimi, toplam sıfır olsa bile her kuvvet veya moment bileşenine katkı yapan terimlerin büyüklüklerini kullanır. Fark ilgili bileşenin yuvarlama payını aşarsa analiz durur.",
+    "id": "Pemeriksaan beban memakai besaran suku-suku yang berkontribusi pada setiap komponen gaya atau momen, bahkan ketika jumlahnya nol. Analisis berhenti jika selisih melampaui toleransi pembulatan komponen tersebut.",
     "zh": "荷载校核采用各力或力矩分量中各项的绝对值，即使各项之和为零。差异超过该分量的舍入误差限值时，分析将停止。"
   },
   "changelog": {

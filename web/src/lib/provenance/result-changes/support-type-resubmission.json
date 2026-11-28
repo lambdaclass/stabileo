@@ -13,6 +13,7 @@
     "pt": "Manter o tipo de apoio preserva sua direção de restrição",
     "de": "Ein unveränderter Lagertyp behält seine Bindungsrichtung bei",
     "fr": "Un type d’appui inchangé conserve sa direction de blocage",
+    "id": "Tipe tumpuan yang tidak berubah mempertahankan arah tumpu",
     "zh": "未更改的支座类型保留支承方向",
     "tr": "Mesnet tipi değişmediğinde kısıtlama yönü korunur"
   },
@@ -22,6 +23,7 @@
     "pt": "Reenviar o mesmo tipo de apoio durante uma edição ou um teste em Explorar podia alterar suas restrições. Confira as direções de restrição e repita as análises afetadas.",
     "de": "Bei einer Bearbeitung oder einem Versuch in Erkunden konnte die erneute Auswahl desselben Lagertyps seine Bindungen ändern. Prüfen Sie die Bindungsrichtungen und wiederholen Sie die betroffenen Berechnungen.",
     "fr": "La nouvelle sélection du même type d’appui lors d’une modification ou d’un essai dans Explorer pouvait modifier ses blocages. Vérifiez les directions de blocage et relancez les analyses concernées.",
+    "id": "Mengirim ulang tipe tumpuan saat pengeditan atau uji coba Jelajahi dapat mengubah kekangannya. Periksa arah tumpu dan jalankan ulang analisis yang terpengaruh.",
     "zh": "在编辑或 Explore 试算中重新提交支座类型，可能会改变其约束。请检查支承方向，并重新运行受影响的分析。",
     "tr": "Düzenleme veya Keşfet denemesi sırasında aynı mesnet tipinin yeniden seçilmesi kısıtlamaları değiştirebiliyordu. Mesnetlerin kısıtlama yönlerini kontrol edin ve etkilenen analizleri yeniden çalıştırın."
   },

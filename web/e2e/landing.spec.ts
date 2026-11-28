@@ -9,9 +9,10 @@ import fullFr from '../src/lib/i18n/locales/full/fr';
 import fullTr from '../src/lib/i18n/locales/full/tr';
 import fullHu from '../src/lib/i18n/locales/full/hu';
 import fullZh from '../src/lib/i18n/locales/full/zh';
+import fullId from '../src/lib/i18n/locales/full/id';
 
-const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '中文' };
-const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR', hu: 'hu_HU', zh: 'zh_CN' };
+const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '中文', id: 'Bahasa Indonesia' };
+const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR', hu: 'hu_HU', zh: 'zh_CN', id: 'id_ID' };
 /** The Open Graph alternates a public page in `locale` declares: every other public language. */
 const ogAlternates = (locale: Locale) => BUILD_PUBLIC_LOCALES.filter((l) => l !== locale).map((l) => OG[l]);
 
@@ -1169,12 +1170,12 @@ test.describe('@landing every language gets the whole deck', () => {
     es: 'Cómo pensamos sostener un proyecto abierto',
     en: 'How we plan to sustain an open project',
     pt: 'Como pensamos sustentar um projeto aberto',
-    de: fullDe['landing.pricingH'], fr: fullFr['landing.pricingH'], tr: fullTr['landing.pricingH'], hu: fullHu['landing.pricingH'], zh: fullZh['landing.pricingH'],
+    de: fullDe['landing.pricingH'], fr: fullFr['landing.pricingH'], tr: fullTr['landing.pricingH'], hu: fullHu['landing.pricingH'], zh: fullZh['landing.pricingH'], id: fullId['landing.pricingH'],
   };
 
   const FREE: Record<Locale, string> = {
     es: 'Gratis', en: 'Free', pt: 'Grátis',
-    de: fullDe['landing.priceFree'], fr: fullFr['landing.priceFree'], tr: fullTr['landing.priceFree'], hu: fullHu['landing.priceFree'], zh: fullZh['landing.priceFree'],
+    de: fullDe['landing.priceFree'], fr: fullFr['landing.priceFree'], tr: fullTr['landing.priceFree'], hu: fullHu['landing.priceFree'], zh: fullZh['landing.priceFree'], id: fullId['landing.priceFree'],
   };
 
   for (const locale of BUILD_PUBLIC_LOCALES) {

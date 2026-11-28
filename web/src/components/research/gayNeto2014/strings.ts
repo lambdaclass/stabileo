@@ -283,6 +283,46 @@ const hu: Strings = {
   wholeLine: 'a teljes vezeték',
 };
 
+const id: Strings = {
+  title: riserTitle.id,
+  lead: riserHook.id,
+  model: 'Modelnya',
+  theory: 'Batang eksak secara geometri: setiap penampang bergerak dan berputar bebas, dan energi bergantung pada regangan, geser, lentur, dan puntir yang diukur dalam kerangka penampang itu sendiri. Elemen tiga titik simpul dengan dua titik Gauss. Dasar laut adalah bidang kaku yang mendorong balik dengan pegas penalti pada setiap titik simpul, dengan gesekan Coulomb.',
+  method: 'Kami membaca berkas masukan kode acuan sendiri dan menyelesaikan tiga langkah statik yang sama: berat sendiri dengan kontak, tarikan horizontal 1 MN, lalu pengangkatan 186 m pada ujung bebas. Solver-nya adalah crate Rust baru, dikompilasi ke WASM untuk halaman ini. Tangennya berasal dari penurunan energi elemen dua kali, sehingga Newton konvergen secara kuadratik.',
+  comparison: 'Pada akhir langkah 3 kami membandingkan momen lentur dan gaya geser dari semua 134 elemen dengan nilai yang tersimpan dalam panduan tutorial kode acuan. Titik sentuh dan bentuk menggantung juga diperiksa terhadap katenari elastis. Kantilever 1 m (tutorial 1) memeriksa balok saja.',
+  limits: 'Hanya statika: tanpa arus laut, tanpa beban gelombang atau seret, tanpa kontak antarlintasan. Kesesuaian dengan kode acuan bersifat numerik; ini bukan eksperimen dan bukan pemeriksaan desain.',
+  checks: 'Validasi dan sumber',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': 'Kantilever: ujung X, Z di ujung (m)',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': 'Kantilever, 5 elemen: ujung X, Z (m)',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': 'Kantilever, 40 elemen: ujung X, Z (m)',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': 'Riser: momen lentur puncak (N·m)',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': 'Riser: gaya geser puncak (N)',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': 'Riser: titik sentuh (m sepanjang lintasan)',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': 'Riser: titik sentuh (m sepanjang lintasan)',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': 'Riser: bentuk menggantung (m)',
+  } as Record<string, string>,
+  riser: 'Riser', forces: 'Gaya dalam', cantilever: 'Kantilever',
+  pull: 'Tarikan horizontal', lift: 'Pengangkatan ujung bebas', friction: 'Gesekan dasar laut μ',
+  run: 'Hitung ulang langsung', stop: 'Berhenti', restart: 'Mulai ulang',
+  computing: 'Menghitung dengan Stabileo… (beberapa detik)',
+  caseLabel: 'Kasus',
+  error: 'Solver tidak dapat dimuat atau menyelesaikan perhitungan. Hasil sebelumnya tetap tersedia.',
+  ours: 'Stabileo', reference: 'Kode acuan, akhir langkah 3', figure: 'Kode acuan, Gambar 1-6',
+  moment: 'Momen lentur M(e1)', shear: 'Gaya geser V(e2)', length: 'Posisi sepanjang lintasan (m)', time: 'Faktor beban',
+  tipX: 'Ujung X (m)', tipZ: 'Ujung Z (m)',
+  steps: ['Berat sendiri pada dasar laut', 'Tarikan horizontal', 'Pengangkatan ujung bebas'],
+  fairlead: 'Ujung bebas', touchdown: 'Titik sentuh (sepanjang lintasan)', anchor: 'Tarikan pada jangkar',
+  defaults: 'Nilai acuan adalah untuk parameter tutorial itu sendiri (1 MN, 186 m, μ = 0.2).',
+  coordinates: 'Skala sebenarnya, x sepanjang dasar laut dan z ke atas, dalam meter. Warna: momen lentur.',
+  cantileverNote: 'Kantilever 1 m dengan gaya 1000 N melintang di ujungnya, dalam sepuluh inkremen.',
+  inputs: 'Berkas masukan', code: 'Reference code (BSD-3-Clause)',
+  tableIntro: 'Kami tidak membandingkan gambar artikel: kami tidak memiliki akses ke teks lengkapnya. Acuannya adalah hasil yang diterbitkan bersama GIRAFFE, kode penulis, solusi eksak independen untuk kantilever, dan katenari analitik untuk riser. Selisihnya adalah yang terbesar dari semua yang dibandingkan: sepuluh inkremen kantilever terhadap gambar, 134 elemen riser untuk momen dan geser, dan seluruh bagian lintasan yang menggantung.',
+  table: { quantity: 'Besaran', reference: 'Acuan', ours: 'Stabileo', difference: 'Selisih maks.', tolerance: 'Toleransi' },
+  sources: { figure: 'GIRAFFE, Gambar 1-6 panduannya', exact: 'Solusi batang eksak, independen', giraffe: 'GIRAFFE, hasil tutorial 16', catenary: 'Katenari elastis analitik' } as Record<string, string>,
+  wholeLine: 'seluruh lintasan',
+};
+
 const zh: Strings = {
   title: riserTitle.zh,
   lead: riserHook.zh,
@@ -323,5 +363,5 @@ const zh: Strings = {
   wholeLine: '整条管线',
 };
 
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, id, zh };
 export const riserStrings = (): Strings => translations[publicI18n.locale] ?? en;

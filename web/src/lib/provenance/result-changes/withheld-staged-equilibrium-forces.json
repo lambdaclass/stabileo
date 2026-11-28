@@ -30,6 +30,7 @@
     "fr": "Les efforts par phases indisponibles sont retirés",
     "hu": "A nem elérhető fázisos erők visszatartása",
     "tr": "Kullanılamayan aşama kuvvetleri döndürülmez",
+    "id": "Gaya bertahap yang tidak tersedia ditahan",
     "zh": "不可用的分阶段内力暂不提供"
   },
   "explanation": {
@@ -40,6 +41,7 @@
     "fr": "La récupération par phases vérifie l’équilibre physique après projection des contraintes. Réactions, efforts, forces de liaison et contraintes indisponibles sont renvoyés vides, même pour un diagnostic hérité. Revérifiez les efforts par phases enregistrés (#1952).",
     "hu": "A fázisos helyreállítás a kényszervetítés után ellenőrzi a fizikai egyensúlyt. A nem elérhető reakciók, rúderők, kényszererők és feszültségek üres gyűjteményként térnek vissza, az örökölt diagnosztikájú fázisokban is. Ellenőrizze újra a mentett fázisos erőket (#1952).",
     "tr": "Aşama hesabı kısıt izdüşümünden sonra fiziksel dengeyi denetler. Kullanılamayan tepkiler, eleman kuvvetleri, kısıt kuvvetleri ve gerilmeler, tanı önceki aşamadan gelse de boş döndürülür. Kayıtlı aşama kuvvetlerini yeniden denetleyin (#1952).",
+    "id": "Pemulihan bertahap memeriksa kesetimbangan fisik setelah proyeksi kekangan. Reaksi, gaya batang, gaya kekangan, dan tegangan yang tidak tersedia dikembalikan sebagai koleksi kosong, termasuk bila suatu tahap mewarisi diagnostiknya. Periksa kembali gaya bertahap tersimpan (#1952).",
     "zh": "分阶段恢复在约束投影之后检查物理平衡。不可用的反力、杆件内力、约束力和应力以空集合返回，包括某个阶段继承了该诊断的情形。请重新核对已保存的分阶段内力（#1952）。"
   },
   "changelog": {

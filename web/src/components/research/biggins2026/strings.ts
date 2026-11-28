@@ -219,6 +219,40 @@ const hu: Strings = {
     "Euler f1 relative error": "Második Euler-teher"
   }
 };
+const id: Strings = {
+  resultParameters: "Parameter terhitung",
+  alpha: "Kelengkungan yang diinginkan α = Lκ₀",
+  force: "Gaya aksial f = NL²/EI (positif: tekan; negatif: tarik)",
+  coordinates: "Dijepit di kedua ujung. Koordinatnya adalah x/L dan w/L; α adalah kelengkungan yang diinginkan dikalikan bentang L.",
+  referenceCaveat: "Pengoptimal bawaan para penulis dan kuadratur profil persegi panjang menghasilkan sedikit ketidakteraturan; keluaran 70% mereka adalah {software}, sedangkan makalah melaporkan {published}.",
+
+  title: 'Lengkung yang melentik tiba-tiba melalui pola kelengkungan',
+  lead: 'Ubah lebar segmen melengkung dan geser ambang tempat lengkung landai berpindah sisi.',
+  model: 'Dari tekuk Euler ke lompatan keseimbangan',
+  theory: 'Lengkung datar terjepit menyimpan pemendekan ujung dalam bentuknya. Pola kelengkungan yang diinginkan berpasangan dengan ragam tekuknya. Persamaan (2) dan (3), arXiv v2 halaman 3–4, memberikan keseimbangan sudut landai dan spektrum tekan. Kami membatasi eksperimen ini pada pola persegi panjang yang berada di tengah.',
+  method: 'Solver tekuk portal 2D Stabileo versi produksi menghitung 16 ragam pada 64 elemen. Lapisan riset memproyeksikan kelengkungan ke ragam-ragam ini dan menyelesaikan kendala tekan makalah. Kode Rust yang sama berjalan di sini sebagai WASM dan menghasilkan pemutaran ulang.',
+  limits: 'Ini adalah model keseimbangan landai yang tak dapat memanjang. Lompatan menghubungkan keseimbangan; ia tidak mensimulasikan dinamika lentik tiba-tiba maupun mereproduksi pengukuran laboratorium. Panjang busur pada mesin produksi menolak perpindahan yang ditetapkan dan beban termal, sehingga tidak digunakan untuk lintasan yang digerakkan kelengkungan ini. Hanya pola di tengah dan pemendekan ujung kecil yang tercakup.',
+  evidence: 'Pada lebar terstimulasi 70%, makalah memberikan α/√ε = {threshold} (arXiv v2 halaman 3, mengikuti Pers. 2). Overlay dibuat ulang dari perangkat lunak sudut landai para penulis di rekaman Zenodo 18256271, berlisensi CC-BY-4.0. Ini adalah acuan numerik, bukan validasi eksperimental.',
+  checks: 'Validasi dan sumber',
+  checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Kurva Zenodo: galat relatif maksimum', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": 'Penghalusan mesh dan ragam', "Euler f0 relative error": 'Beban Euler pertama', "Euler f1 relative error": 'Beban Euler kedua'} as Record<string, string>,
+  publishedValue: 'Ambang terbitan pada lebar 70%',
+  width: 'Lebar terstimulasi γ',
+  compression: 'Pemendekan ujung ε',
+  threshold: 'Ambang lentik tiba-tiba α',
+  normalized: 'Ambang ternormalisasi α/√ε',
+  mode: 'Ragam tekuk antisimetris pertama',
+  arch: 'Keseimbangan lengkung',
+  jump: 'Urutan keseimbangan; lompatan tidak memiliki durasi fisik',
+  run: 'Hitung ulang langsung', stop: 'Berhenti', restart: 'Mulai ulang',
+  error: 'Solver tidak dapat dimuat atau menyelesaikan perhitungan. Hasil sebelumnya tetap tersedia.',
+  computing: 'Menghitung dengan Stabileo…',
+  paper: 'Makalah dan persamaan tambahan',
+  data: 'Data dan perangkat lunak Zenodo',
+  ours: 'Ragam Stabileo + persamaan lengkung landai',
+  reference: 'Perangkat lunak Zenodo para penulis',
+  parameterNotice: 'Hasil yang ditampilkan mempertahankan parameter terhitungnya sampai perhitungan ulang selesai.',
+};
+
 const zh: Strings = {
   "title": "曲率分布诱发拱的突跳屈曲",
   "lead": "改变曲线段的宽度，移动浅拱换向的阈值。",
@@ -258,5 +292,5 @@ const zh: Strings = {
     "Euler f1 relative error": "第二 Euler 荷载"
   }
 };
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, id, zh };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

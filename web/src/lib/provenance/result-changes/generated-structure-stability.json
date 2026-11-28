@@ -29,6 +29,7 @@
     "fr": "Les structures planes générées reçoivent des maintiens explicites et les halls sont contreventés par défaut",
     "hu": "A generált síkbeli szerkezetek kifejezett megtámasztásokat kapnak, a csarnokok alapértelmezésben merevítést",
     "tr": "Üretilen düzlem yapılara açık mesnetler ekleniyor ve hangarlar varsayılan olarak çaprazlanıyor",
+    "id": "Struktur planar hasil pembangkitan mendapat kekangan eksplisit dan gudang memakai bresing secara bawaan",
     "zh": "生成的平面结构增加了明确的约束，厂房默认采用支撑"
   },
   "explanation": {
@@ -39,6 +40,7 @@
     "fr": "Les treillis, poutres, poutres réticulées, toitures Howe et sheds indépendants reçoivent des maintiens latéraux aux nœuds et des appuis à fourche. Les poteaux réticulés indépendants ont des bases encastrées par défaut. Les halls reçoivent des contreventements de façade, de toiture et entre fermes, sans hériter des appuis plans. Les anciens modèles ont des modes nuls physiques et restent refusés même sans charge les excitant. Les modèles enregistrés restent inchangés : régénérez, vérifiez les appuis et contreventements, puis recalculez.",
     "hu": "Az önálló síkbeli rácsos tartók, hengerelt gerendák, rácsos főtartók, Howe-féle tetők és fűrészfogas szerkezetek mostantól kifejezett oldalirányú mezőmegtámasztást és villás támaszokat kapnak. Az önálló rácsos oszlopok alapértelmezésben befogott lábúak. A csarnokok alapértelmezésben fal-, tető- és függőleges rácsos merevítést kapnak; önálló síkbeli támaszok helyett fizikai merevítést használnak. A korábbi bemeneteknek fizikai zérusmódjai voltak, és akkor is elutasítottak maradnak, ha a terhek nem gerjesztik őket. A mentett modellek nem változnak: generálja újra őket, ellenőrizze a támaszokat és a merevítést, és számítson újra.",
     "tr": "Bağımsız düzlem kafesler, kirişler, kafes kirişler, Howe ve testere dişi çatılar yanal panel mesnetleri ve çatal mesnetler alıyor. Bağımsız kafes kolonların tabanları varsayılan olarak ankastre. Hangarlar duvar, çatı ve kafesler arası düşey çaprazlarla üretiliyor; düzlem mesnetlerini devralmıyor. Önceki girdilerin fiziksel sıfır modları var ve yükler bunları uyarmasa da reddediliyor. Kayıtlı modeller değişmiyor: yeniden üretin, mesnet ve çaprazları inceleyin ve yeniden çözün.",
+    "id": "Rangka batang planar mandiri, balok canai, gelagar rangka, atap Howe, dan struktur gigi gergaji kini memiliki kekangan panel lateral eksplisit dan tumpuan garpu. Kolom kisi mandiri secara bawaan berdasar jepit. Gudang secara bawaan memakai bresing dinding, atap, dan rangka batang vertikal; gudang memakai bresing fisik, bukan tumpuan planar mandiri. Masukan sebelumnya memiliki mode nol fisik dan tetap ditolak walaupun beban tidak mengeksitasinya. Model yang tersimpan tidak berubah: buat ulang, tinjau tumpuan dan bresing, lalu hitung kembali.",
     "zh": "独立的平面桁架、轧制梁、格构梁、Howe 屋架和锯齿形结构现在具有明确的侧向节间约束和叉形支承。独立的格构柱默认为固定柱脚。厂房默认采用墙面、屋面和竖向桁架支撑；它们使用实际的支撑，而不是独立的平面支座。此前的输入存在物理零模态，即使荷载没有激发它们，也仍会被拒绝求解。已保存的模型不变：请重新生成，复核支座和支撑，再重新求解。"
   },
   "changelog": {

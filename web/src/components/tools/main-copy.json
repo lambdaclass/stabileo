@@ -29,6 +29,11 @@
     "tools.lead": "Kirişler, kolonlar, çerçeveler, kafes sistemler, tesir çizgileri ve doğal frekanslar; üretimdeki Stabileo motoruyla çözülür ve klasik formüllerle karşılaştırılır.",
     "tools.indexAssumptions": "Doğrusal elastik, küçük yer değiştirmeler, prizmatik Euler–Bernoulli elemanları; kafes çubukları yalnız eksenel kuvvet taşır. SI birimleri. Öz ağırlık hariçtir. Her araç kendi varsayımlarını, işaret kuralını ve klasik referansını belirtir. Yönetmelik tasarım kontrolü değildir."
   },
+  "id": {
+    "tools.index": "Kalkulator rekayasa gratis",
+    "tools.lead": "Balok, kolom, portal, rangka batang, garis pengaruh, dan frekuensi alami, diselesaikan dengan mesin produksi Stabileo dan dibandingkan dengan rumus klasik.",
+    "tools.indexAssumptions": "Elastis linier, perpindahan kecil, batang Euler–Bernoulli prismatik; batang rangka batang hanya memikul gaya aksial. Satuan SI. Berat sendiri tidak diperhitungkan. Setiap alat menyatakan asumsi, konvensi tanda, dan referensi klasiknya sendiri. Bukan pemeriksaan desain menurut peraturan."
+  },
   "zh": {
     "tools.index": "免费工程计算器",
     "tools.lead": "梁、柱、框架、桁架、影响线和自振频率，由 Stabileo 生产版计算引擎求解，并与经典公式对比。",

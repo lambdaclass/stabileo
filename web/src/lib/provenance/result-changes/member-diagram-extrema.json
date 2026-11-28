@@ -31,6 +31,7 @@
     "de": "Extremwerte der Stabdiagramme",
     "fr": "Extrema des diagrammes de barres",
     "tr": "Eleman diyagramı uç değerleri",
+    "id": "Nilai ekstrem diagram batang",
     "zh": "杆件内力图极值",
     "hu": "A rúdábrák szélsőértékei"
   },
@@ -41,6 +42,7 @@
     "de": "Stabdiagramme und Einhüllende enthalten Lastgrenzen, beide Seiten von Sprüngen und innere Extremwerte, auch bei ABS- und SRSS-Kombinationen. Berechnungen erneut ausführen und maßgebende Werte prüfen.",
     "fr": "Les diagrammes et les enveloppes incluent les limites de charge, les deux côtés des sauts et les extrema intérieurs, y compris dans les combinaisons ABS et SRSS. Relancez les analyses et vérifiez les valeurs déterminantes.",
     "tr": "Diyagramlar ve zarflar yük sınırlarını, sıçramaların iki yanını ve iç uç değerleri, ABS ve SRSS birleşimleri dahil, içerir. Analizleri yineleyin ve belirleyici değerleri inceleyin.",
+    "id": "Diagram dan selubung batang menyertakan batas beban, lompatan satu sisi, dan nilai ekstrem interior, termasuk kombinasi ABS dan SRSS. Jalankan ulang analisis dan tinjau nilai diagram penentu.",
     "zh": "杆件内力图及包络计入荷载边界、跳跃两侧和区间内极值，也适用于 ABS 和 SRSS 组合。请重新分析并检查控制值。",
     "hu": "A rúdábrák és burkolók tartalmazzák a teherhatárokat, az ugrások mindkét oldalát és a belső szélsőértékeket, az ABS és SRSS kombinációkban is. Futtassa újra az elemzést, és ellenőrizze a mértékadó értékeket."
   },

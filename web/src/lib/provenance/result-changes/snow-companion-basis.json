@@ -18,6 +18,7 @@
     "de": "Flachdachschnee in Begleitkombinationen",
     "fr": "Neige de toiture plate dans les combinaisons accompagnatrices",
     "tr": "Eşlikçi birleşimlerde düz çatı kar yükü",
+    "id": "Salju atap datar dalam kombinasi pendamping",
     "zh": "伴随组合中的平屋面雪荷载",
     "hu": "Lapos tető hóterhe a kísérő kombinációkban"
   },
@@ -28,6 +29,7 @@
     "de": "Begleitkombinationen wählen eine eigene pf-Stablast statt der durch Dachneigung reduzierten Schneelast. Physischer Schnee bleibt in Haupt- und Erdbebenkombinationen sowie in der Masse. Schneelasten und Kombinationen neu erzeugen, danach Analysen und Nachweise wiederholen. (#2211).",
     "fr": "Les combinaisons accompagnatrices sélectionnent une charge de barre pf distincte au lieu de la neige réduite par la pente. La neige physique reste dans les combinaisons principales et sismiques et dans la masse. Régénérez les charges de neige et les combinaisons, puis relancez analyses et vérifications. (#2211).",
     "tr": "Eşlikçi birleşimler eğimle azaltılmış çatı karı yerine ayrı pf eleman yükünü seçer. Fiziksel kar ana ve deprem birleşimlerinde ve kütlede korunur. Kar yüklerini ve birleşimleri yeniden üretip analizleri ve kontrolleri tekrarlayın. (#2211).",
+    "id": "Kombinasi pendamping kini memilih pembebanan batang pf terpisah alih-alih salju atap tereduksi kemiringan. Salju fisik tetap berada dalam kombinasi utama dan seismik serta massa. Buat ulang beban dan kombinasi salju, lalu jalankan ulang analisis dan pemeriksaan. (#2211).",
     "zh": "伴随组合现在选用单独的 pf 杆件荷载，而不是经坡度折减的屋面雪荷载。实际雪荷载保留在主组合、地震组合和质量中。请重新生成雪荷载和组合，然后重新运行分析和验算。（#2211）。",
     "hu": "A kísérő kombinációk a lejtéssel csökkentett tetőhó helyett külön pf rúdterhet választanak. A fizikai hóteher megmarad a fő- és földrengési kombinációkban, valamint a tömegben. Generálja újra a hóterheket és a kombinációkat, majd futtassa újra az analíziseket és ellenőrzéseket. (#2211)."
   },

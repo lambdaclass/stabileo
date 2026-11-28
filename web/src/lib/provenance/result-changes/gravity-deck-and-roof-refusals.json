@@ -24,6 +24,7 @@
     "de": "Mehrdeutige automatische Schwerkraft- und Dachlasten ablehnen",
     "fr": "Refuser les charges automatiques ambiguës de gravité et de toiture",
     "tr": "Belirsiz otomatik yerçekimi ve çatı yüklerini reddetme",
+    "id": "Tolak gravitasi otomatis dan beban atap yang ambigu",
     "zh": "拒绝归属不明的自动重力荷载和屋面荷载",
     "hu": "A bizonytalan automatikus gravitációs terhek és tetőterhek elutasítása"
   },
@@ -34,6 +35,7 @@
     "de": "Erzeugen Sie die automatischen Lasten neu. Bei unklarer Zuordnung überlappender Trägerfelder zu einer Schale wird die Erzeugung abgebrochen. Liegt der exakte Stabmittelpunkt auf einem kollinearen Dachrand, gilt der Stab als überdeckt.",
     "fr": "Régénérez les charges automatiques. La génération s’arrête si l’attribution de travées superposées à une coque est ambiguë. Une barre est couverte lorsque son milieu exact se trouve sur une rive de toiture colinéaire.",
     "tr": "Otomatik yükleri yeniden üretin. Örtüşen kiriş açıklıklarının kabuğa atanması belirsizse üretim durur. Kesin orta noktası doğrudaş çatı kenarı üzerinde olan eleman örtülü sayılır.",
+    "id": "Buat ulang beban otomatis. Pembangkitan berhenti jika kepemilikan cangkang atas bentang yang saling tumpang tindih ambigu. Batang dengan titik tengah tepatnya pada tepi atap kolinear dianggap tercakup.",
     "zh": "请重新生成自动荷载。如果重叠梁格的壳单元归属不明确，系统将停止生成。构件的精确中点位于与其共线的屋面边缘时，视为受到遮盖。",
     "hu": "Generálja újra az automatikus terheket. A generálás leáll, ha az átfedő gerendamezők héjhoz rendelése bizonytalan. A rúd fedett, ha pontos felezőpontja a vele egy egyenesbe eső tetőszélen van."
   },

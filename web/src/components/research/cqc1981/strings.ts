@@ -31,7 +31,7 @@ const en = {
 
 export type CqcStrings = typeof en;
 
-export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', CqcStrings> = {
+export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'id', CqcStrings> = {
   en,
   es: {
     srss: 'SRSS', cqc: 'CQC',
@@ -201,6 +201,34 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     step: 'Burkoló megjelenítése', rule: 'Kombináció',
     error: 'Az élő számítás nem sikerült',
   },
+  id: {
+  srss: 'SRSS', cqc: 'CQC',
+  title: 'Ragam berjarak dekat: SRSS vs CQC',
+  metaTitle: 'SRSS vs CQC (1981) — Stabileo Research',
+  metaDescription: 'Ragam gedung berjarak dekat dibandingkan dengan acuan bentuk tertutup.',
+  lead: 'Satu idealisasi gedung geser 3D kecil, dihitung oleh mesin modal dan spektrum respons versi produksi.',
+  citation: '”, ilustrasi metode berdasarkan',
+  model: 'Contohnya', description: 'Empat kolom jepit di dasar, tinggi 3 m pada denah 4 × 3 m. Setiap titik simpul atap memikul 5 t dalam X. Rotasi atap dan translasi Y/Z dikekang; kendala sama-X menghubungkan setiap pasangan melintang. Dua pengikat atap aksial memasangkan dua koordinat yang tersisa. Ini adalah ilustrasi kami atas metode tersebut, bukan gedung asli dalam makalah.',
+  method: 'Acuan bentuk tertutup', equations: 'Matriks tereduksi adalah M = diag(10, 10) t dan K = [[1020, −20], [−20, 1230]] kN/m. Selesaikan det(K − ω²M) = 0; normalkan setiap ragam ke massa modal satuan. Untuk Sa = 1 m/s², geser dasar modal adalah Γ²Sa. SRSS membuang suku silang; CQC mempertahankan korelasi redaman-sama-nya pada ξ = 5%.',
+  rhoSource: 'Ini adalah koefisien korelasi redaman-sama dari Wilson, Der Kiureghian dan Bayo (1981), Pers. (14), hal. 191; hal. 190 menjelaskan mengapa suku silang mempertahankan tandanya. Ini mengandaikan redaman modal yang sama, gerakan tanah yang berlangsung lama dibandingkan periode modal, dan spektrum yang lebar dan mulus. Nilai acuan di bawah adalah hasil bentuk tertutup untuk contoh ini, bukan data dari Tabel I makalah.',
+  explanation: 'Makalah mengusulkan CQC untuk mengurangi galat kombinasi ragam dan kembali ke SRSS untuk frekuensi yang terpisah dengan baik. Di sini SRSS lebih rendah daripada CQC untuk geser dasar. Perbedaan ini relatif terhadap taksiran CQC, bukan galat terukur terhadap rekaman gempa.',
+  referenceLabel: 'Terhadap bentuk tertutup',
+  publishedNote: 'Gedung dan tabel makalah tidak digunakan: halaman ini memeriksa contoh dua ragamnya sendiri terhadap bentuk tertutup.',
+  comparison: 'Geser dasar · kN', roofHeading: 'Selubung perpindahan X atap · mm', node: 'Titik simpul',
+  modalHeading: 'Data modal', quantity: 'Besaran', f1: 'Frekuensi 1 · Hz', f2: 'Frekuensi 2 · Hz', rho: 'Korelasi modal ρ',
+  impliedNote: 'ρ Stabileo dipulihkan dari hasilnya sendiri: ρ = (V_CQC² − V_SRSS²) / (2 V₁ V₂), dengan Vᵢ adalah geser dasar modalnya.',
+  reference: 'Bentuk tertutup', result: 'Stabileo', delta: 'Selisih · %',
+  deficit: 'SRSS relatif terhadap CQC · %',
+  checksHeading: 'Pemeriksaan',
+  tolerance: 'Batas regresi: selisih relatif di bawah 1 × 10⁻⁸ untuk kedua frekuensi, partisipasi massa X, kedua geser dasar, dan kedua perpindahan atap (9 pemeriksaan). Eksekusi native berbeda paling besar 6.4 × 10⁻¹⁵. Batas ini menjaga masalah dua koordinat yang kecil dan berkondisi baik ini dari regresi; ini bukan target akurasi, dan kesesuaian antara solver dan bentuk tertutup tidak mengatakan apa pun tentang akurasi fisik.',
+  scope: 'Cakupan',
+  limitations: ['Perbandingan dilakukan dengan bentuk tertutup contoh dua koordinat ini; gedung dan tabel numerik makalah itu sendiri tidak direproduksi.', 'Tanpa riwayat waktu: tidak ada aturan yang diukur terhadap rekaman gerakan tanah.', 'Satu tingkat, tanpa respons torsi dan tanpa penyapuan parameter.'],
+  run: 'Hitung ulang langsung', stop: 'Berhenti', restart: 'Mulai ulang', running: 'Menghitung…',
+  replay: 'Pemutaran ulang prahitung (solver yang sama)', live: 'Hasil langsung (WASM produksi)',
+  viewer: 'Perpindahan X atap · mm', viewNote: 'Proyeksi aksonometri di penampil Stabileo. Deformasi ×40; animasi menskalakan selubung, bukan riwayat waktu.',
+  step: 'Tampilan selubung', rule: 'Kombinasi',
+  error: 'Perhitungan langsung gagal',
+},
   zh: {
     srss: 'SRSS', cqc: 'CQC',
     title: '密集模态：SRSS 与 CQC',
