@@ -18,7 +18,7 @@ const SEAM = [
   'components/pro/building/UnderlayRow.svelte', 'components/pro/building/UnderlayConvertDialog.svelte', 'components/pro/building/BuildingTools.svelte',
   'components/pro/building/BuildingRange.svelte', 'components/pro/building/BuildingBeams.svelte', 'components/pro/generators/GeneratorOutput.svelte',
   'components/pro/dynamics/TimeHistoryPanel.svelte', 'components/pro/dynamics/GroundMotionRow.svelte', 'components/pro/nonlinear/PushoverView.svelte',
-  'components/pro/spec/SpecSurfaces.svelte', 'components/pro/plates/PlateMeshDialog.svelte', 'components/pro/design/FootingMatPanel.svelte',
+  'components/pro/spec/SpecSurfaces.svelte', 'components/pro/plates/PlateMeshSettings.svelte', 'components/pro/design/FootingMatPanel.svelte',
   'components/pro/design/FootingMatPhysicalPanel.svelte', 'components/pro/design/DesignFilterBar.svelte', 'components/property/MemberOffsetEditor.svelte',
   'components/WhatIfPanel.svelte', 'lib/model/constraint-labels.ts', 'lib/store/statics-rows.ts', 'lib/pro/support-types.ts',
 ];
@@ -29,6 +29,15 @@ describe('PRO screens that name global axes go through the display layer', () =>
       expect(read(f)).toMatch(/axes\/(display|axes\.svelte|typed-frame)'/);
     });
   }
+
+  it('both plate mesh dialogs render the frame-aware orientation setting', () => {
+    const dir = 'components/pro/plates/';
+    for (const dialog of ['PublishedPlateMeshDialog', 'UnifiedPlateMeshDialog']) {
+      expect(read(dir + 'PlateMeshDialog.svelte')).toContain('<' + dialog + ' {ids} {onclose}');
+      expect(read(dir + dialog + '.svelte')).toContain('<PlateMeshSettings settings={preview.settings}');
+    }
+    expect(read(dir + 'PlateMeshSettings.svelte')).toContain("planNamesIn(t('plates.orientX'))");
+  });
 
   it('none of them prints a fixed global axis or a raw global component', () => {
     const forbidden = [
