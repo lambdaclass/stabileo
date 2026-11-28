@@ -841,3 +841,25 @@ test.skip('known wrong result: #1928 the automatic load dialog only reads nation
     });
   }
 });
+
+test.skip('known wrong result: #1928 national load controls and their styling ship only with the family chooser', async () => {
+  const entry = resolve(root, 'src/components/pro/ProAutoLoadsDialog.svelte');
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external: (id, from) => !!from && !id.includes('?svelte&type=style') && !/family-chooser|LoadFamilyChooser/.test(id),
+        },
+      } });
+      const output = (Array.isArray(result) ? result[0] : result).output;
+      const js = output.filter(item => item.type === 'chunk').map(item => item.code).join('');
+      const css = output.filter(item => item.type === 'asset' && item.fileName.endsWith('.css')).map(item => item.source).join('');
+      assert.ok(js.includes('autoLoad.fromTableLo'));
+      assert.ok(css.includes('.al-header'));
+      for (const key of ['autoLoad.fromTableLoCode', 'autoLoad.live.partitionTitleCode', 'autoLoad.dead.codeHint']) {
+        assert.equal(js.includes(key), plates, key);
+      }
+      assert.equal(css.includes('.al-family'), plates);
+    });
+  }
+});
