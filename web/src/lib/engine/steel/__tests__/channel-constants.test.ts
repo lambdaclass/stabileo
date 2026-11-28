@@ -7,6 +7,7 @@
  * I_weak 148 cm⁴.
  */
 import { describe, it, expect } from 'vitest';
+import { f62Report } from '../flange-local-buckling';
 import { steelSectionConstants } from '../section-constants';
 import { checkSteelFlexure, type SteelDesignParams } from '../../codes/argentina/cirsoc301';
 
@@ -25,6 +26,7 @@ describe('UPN constants', () => {
   it('measures the weak-axis modulus to the flange tip', () => {
     // x̄ = (2·75·11.5·37.5 + 177·8.5·4.25)/3229.5 = 22.0 mm; Sy = 1.48e6/(75 − 22.0) = 27 925 mm³.
     expect(k.Sy! * 1e9).toBeCloseTo(27925, -2);
+    expect(f62Report({ ...UPN200, iMinor: UPN200.iz, minimumSy: k.Sy }).syM3).toBe(k.Sy);
     expect(k.Sy! * 1e9).toBeLessThan(1.48e6 / 37.5 * 0.75);
   });
 

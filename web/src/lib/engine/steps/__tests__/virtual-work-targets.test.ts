@@ -9,7 +9,7 @@ import { modelStore } from '../../../store/model.svelte';
 import * as wasm from '../../wasm-solver';
 import { planeModel } from '../plane-model';
 import { solveReference } from '../reference';
-import { pickTarget, unitLoadInput } from '../unit-target';
+import { pickTarget, targetNote, unitLoadInput } from '../unit-target';
 import { methods } from '../methods/deformation';
 import type { MethodContext } from '../registry';
 import type { Block, CompareRow, StepDoc } from '../doc';
@@ -69,6 +69,20 @@ function agrees(doc: StepDoc, unit: 'mm' | 'rad'): number {
 }
 
 describe('virtual work: what to compute', () => {
+  it.each([-1, 1])('signs the vertical target along its downward unit force for load %s', (fz) => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+    modelStore.addElement(a, b);
+    modelStore.addSupport(a, 'fixed');
+    modelStore.addNodalLoad(b, 0, fz, 0);
+    const params = { quantity: 'disp', node: String(b), dir: 'z' };
+    const target = pickTarget(ctxOf(params));
+    expect(target.loads).toEqual([{ node: b, fx: 0, fz: -1, my: 0 }]);
+    expect(targetNote(target).key).toBe('steps.deformation.dir.z');
+    for (const method of ['virtualWork', 'castigliano']) {
+      expect(Math.sign(agrees(build(method, params), 'mm'))).toBe(-fz);
+    }
+  });
+
   it('rotations at every node of the portal frame, by a unit couple', async () => {
     await modelStore.loadExample('portal-frame');
     for (const id of planeModel(modelStore.buildSolverInput(false)!).nodeOrder) {

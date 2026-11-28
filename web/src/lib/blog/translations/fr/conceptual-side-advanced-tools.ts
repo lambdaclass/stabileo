@@ -118,7 +118,7 @@ const body: PostBody = {
         [
           "3 · Matrice de rigidité",
           "Degrés de liberté non bloqués",
-          "1"
+          "6"
         ],
         [
           "4 · Suggestions",

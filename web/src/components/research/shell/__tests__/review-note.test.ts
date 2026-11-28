@@ -21,7 +21,7 @@ const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Versi
 it('shows no first-version or review-round note in any paper header, while the catalogue keeps the records', () => {
   expect(reviewCount('mattiasson-elastica')).toBe(3);
   expect(reviewCount('newmark-1959')).toBe(2);
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']) {
+  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh']) {
     setLocale(locale);
     for (const e of EXPERIMENTS) {
       const body = header(e.paperId);

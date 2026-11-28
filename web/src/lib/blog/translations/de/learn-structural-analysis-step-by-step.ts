@@ -55,7 +55,7 @@ const body: PostBody = {
         ['Fachwerke', '3', 'Knotenpunktverfahren; Ritterschnitt; Kompatibilitätsmatrix'],
         ['Verformungen und Energie', '5', 'Zweifache Integration; Momentenflächen; Arbeitssatz; Castigliano; Schnittgrößen nach dem Schnittprinzip'],
         ['Einflusslinien', '1', 'Einflusslinie'],
-        ['Theorie II. Ordnung und Knicken', '2', 'II. Ordnung mit φ-Funktionen und mit geometrischer Matrix; Knicken durch Modenzählung und über Eigenwerte'],
+        ['Theorie II. Ordnung und Knicken', '4', 'II. Ordnung mit φ-Funktionen und mit geometrischer Matrix; Knicken durch Modenzählung und über Eigenwerte'],
         ['Traglastverfahren', '2', 'Kinematisches Verfahren; statisches Verfahren (zurückgehalten bis #758)'],
         ['Baudynamik', '3', 'Ein Freiheitsgrad; mehrere Freiheitsgrade durch modale Zerlegung; verteilte Masse'],
       ],

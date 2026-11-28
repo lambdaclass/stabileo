@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 /** The CIRSOC 301 calculation the engine emits (`cirsoc301_check.rs`), in English. See c301-es.ts. */
 const c301En: Record<string, string> = {
   'c301.text': '{text}',
@@ -10,11 +11,11 @@ const c301En: Record<string, string> = {
   'c301.d.rupture': '  Ae = {Ae} mm²; Pn = Fu·Ae = {Fu}·{Ae} = {Pn} kN; φPn = 0.75·Pn = {phiPn} kN  (D.2.2)',
   'c301.d.governs': '  Governs: {which}, φPn = {phiPn} kN',
   'c301.d.anGiven': '  An = {An} mm² (given)',
-  'c301.d.anHoles': '  An = Ag − n·(d + 2 mm)·t + Σs²t/4g = {Ag} − {count}·{dh}·{t} + {stagger} = {An} mm²  (B.4.2.2)',
+  'c301.d.anHoles': '  An = Ag − n·dh·t + Σs²t/4g = {Ag} − {count}·{dh}·{t} + {stagger} = {An} mm²  (dh = nominal hole width + 2 mm, J.3.3 / B.4.2.2)',
   'c301.d.uGiven': '  U = {U} (given)',
   'c301.d.allConnected': '  Every element connected: Ae = An  (D.3(1))',
   'c301.d.plateWeld': '  Plate with longitudinal welds: L = {L} mm, w = {w} mm → U = {U}  (D.3.5)',
-  'c301.d.uShearLag': '  U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0.9 → {U}  (D.3.2)',
+  'c301.d.uShearLag': `  ${shearLagTrace('.')}`,
   'c301.d.uFloor': '  U ≥ A connected/Ag = {U}  (D.3, open sections)',
   'c301.d.aeBase': '  Ae = {base}·U  ({clause})',
 
@@ -32,7 +33,7 @@ const c301En: Record<string, string> = {
   'c301.e.fcrElastic': '  λc·√Q = {lam} > 1.5 → Fcr = 0.877/λc²·Fy = {Fcr} MPa  ({clause})',
   'c301.e.e4NotApplicable': '  §E.4: no J/Cw; does not apply to a doubly symmetric section with kz·Lz ≤ ky·L',
   'c301.e.e4Torsional': '  §E.4 torsional buckling: Fe = [π²·E·Cw/(kz·Lz)² + G·J]/(Ix + Iy) = {Fe} MPa  (E.4.4)',
-  'c301.e.e4Geometry': '  §E.4: e0 = {e0} mm, ro² = {ro2} cm², H = {H}  (E.4.10, E.4.11)',
+  'c301.e.e4Geometry': '  §E.4: e0 = {e0} mm, ro² = {ro2} × 100 mm², H = {H}  (E.4.10, E.4.11)',
   'c301.e.e4Tee': '  §E.4(a): Fcry = {Fcry} MPa, Fcrz = G·J/(Ag·ro²) = {Fcrz} MPa → Fcr = {Fcr} MPa  (E.4.2, E.4.3)',
   'c301.e.e4Ftb': '  §E.4(b.2) flexural-torsional: Fe (symmetry axis) = {Fes}, Fez = {Fez} → Fe = {Fe} MPa  (E.4.5, E.4.9)',
   'c301.e.e4Fcr': '  Fcr (E.4) = {Fcr} MPa  (E.3.2a/E.3.3a, E.7.2a/E.7.3a)',
@@ -65,9 +66,9 @@ const c301En: Record<string, string> = {
   'c301.f.lr': '  FL = Fy − Fr = {FL} MPa; Lr = {Lr} mm ({eq}); Mr = FL·Sx = {Mr} kN·m (F.2.7)',
   'c301.f.ltbInelastic': '  Lp < Lb ≤ Lr → inelastic lateral-torsional buckling: Mn = Cb·[Mp − (Mp − Mr)·(Lb − Lp)/(Lr − Lp)] ≤ Mp = {Mn} kN·m  (F.2.2)',
   'c301.f.ltbElastic': '  Lb > Lr → elastic lateral-torsional buckling: Mn = Mcr ≤ Mp = {Mn} kN·m  ({eq}, F.2.3)',
-  'c301.f.f4Rpc': '  §F.4: Myc = Fy·Sxc = {Myc} kN·m; Rpc = {Rpc} (F.4.9b); Rpc·Myc = {RM} kN·m  (F.4.1)',
+  'c301.f.f4Rpc': '  §F.4: Sxt = Sxc = Sx, Myc = Fy·Sxc = {Myc} kN·m; Rpc = {Rpc} (F.4.9b); Rpc·Myc = {RM} kN·m  (F.4.1)',
   'c301.f.f4Lengths': '  rt = {rt} mm ({eq}); Lp = {Lp} mm (F.4.7); Lr = {Lr} mm (F.4.8); Lb = {Lb} mm',
-  'c301.f.governsF4': '  §F.4: {name} governs, Mn = {Mn} kN·m  (F.4.4: Sxt = Sxc, tension flange yield not critical)',
+  'c301.f.governsF4': '  §F.4: {name} governs, Mn = {Mn} kN·m',
   'c301.f.f5': '  §F.5: aw = {aw}; rt = {rt} mm; Lp = {Lp} mm (F.5.5a); Lr = {Lr} mm (F.5.5b); Lb = {Lb} mm',
   'c301.f.f5Fcr': '  Fcr (lateral-torsional) = {FcrLtb} MPa; Fcr (flange) = {FcrFlb} MPa; Rpg = {Rpg} (F.5.6)',
   'c301.f.limitState': '  {name}: Mn = {Mn} kN·m',

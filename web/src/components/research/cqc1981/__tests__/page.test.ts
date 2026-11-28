@@ -4,6 +4,7 @@ import CqcPage from '../CqcPage.svelte';
 import { publicI18n, setLocale } from '../../../../lib/i18n/store.svelte';
 import { translations } from '../strings';
 import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
+import validation from '../../../../../../research/benchmarks/cqc-1981/VALIDATION.json';
 
 const original = publicI18n.locale;
 afterEach(() => setLocale(original));
@@ -49,4 +50,22 @@ it('renders the page, shell and metadata language in all eight locales', () => {
     expect(text(body)).toContain(translations[locale].referenceLabel);
     expect(text(body)).toContain(translations[locale].citation.trim());
   }
+});
+
+it.each(PUBLIC_LOCALES)('known wrong result: #2595 — the %s Checks paragraph identifies the validated roof nodes and rounded native maximum', locale => {
+  setLocale(locale);
+  const { body } = render(CqcPage);
+  const paragraph = body.match(/<h2 id="checks"[^>]*>[^<]+<\/h2>\s*<p[^>]*>([^<]+)<\/p>/)?.[1] ?? '';
+  const roofNodes = [...new Set(validation.checks.flatMap(check => check.name.match(/roof (\d+) X displacement/)?.[1] ?? []))];
+  for (const node of roofNodes) {
+    expect(paragraph).toMatch(new RegExp(`(?<![\\d.])${node}(?![\\d.])`));
+  }
+  for (const rule of ['SRSS', 'CQC']) expect(paragraph).toContain(rule);
+
+  const displayed = [...paragraph.matchAll(/(\d+(?:\.\d+)?) × 10([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g)].map(([, mantissa, exponent]) =>
+    Number(`${mantissa}e${exponent.normalize('NFKC').replace('−', '-')}`));
+  const maximum = Math.max(...validation.checks.map(check => check.observed));
+  expect(displayed).toEqual([validation.checks[0].tolerance, Number(maximum.toPrecision(2))]);
+  expect(validation.checks.every(check => check.tolerance === displayed[0])).toBe(true);
+  expect(paragraph).toMatch(/≈ \d+(?:\.\d+)? × 10/);
 });

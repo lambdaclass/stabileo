@@ -1,9 +1,11 @@
+import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { findPost } from '..';
 import huBody from '../translations/hu/safety-advisories';
-import notice from '../../provenance/result-changes/snow-ridge-mesh.json';
 import type { PublicLocale } from '../../i18n/store.svelte';
+
+const notice = RESULT_CHANGES.changes.find(change => change.id === 'snow-ridge-mesh')!;
 
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');
 const advisory = document('advisories/SA-2026-072-snow-ridge-subdivision.md');
@@ -30,7 +32,7 @@ function checkAdvisory(locale: PublicLocale, severity: string, status: string) {
   expect(rows[0]![1]).toContain('#2144');
   expect(blocks.some(b => b.k === 'note' && b.t === `SA-2026-072 — ${status}.`)).toBe(true);
   expect(blocks.some(b => b.k === 'ext' && b.label === 'SA-2026-072' && b.href.endsWith('/docs/advisories/SA-2026-072-snow-ridge-subdivision.md'))).toBe(true);
-  expect(notice.title[locale].trim()).not.toBe('');
+  expect(notice.title[locale]?.trim()).toBeTruthy();
   expect(notice.explanation[locale]).toContain('SA-2026-072');
 }
 

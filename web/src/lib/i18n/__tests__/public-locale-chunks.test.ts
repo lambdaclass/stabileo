@@ -5,7 +5,7 @@ type Store = typeof import('../store.svelte');
 async function storeWith(load: () => Promise<{ default: Record<string, string> }>): Promise<Store> {
   vi.resetModules();
   vi.doMock('virtual:public-i18n', () => ({
-    en: { 'landing.probe': 'English' }, es: {}, pt: {}, de: {}, fr: {}, tr: {}, hu: {}, zh: {},
+    en: { 'landing.probe': 'English' }, es: {}, pt: {}, de: {}, fr: {}, tr: {}, hu: {}, it: {}, zh: {},
     loaders: { es: load },
   }));
   return import('../store.svelte');

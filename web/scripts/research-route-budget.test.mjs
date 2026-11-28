@@ -1,3 +1,5 @@
+import { parseAst } from 'rollup/parseAst';
+import { italianCopyBytes } from './italian-route-bytes.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -49,22 +51,22 @@ test('allowances need bytes, a reason and an existing module', () => {
   assert.throws(() => parse([]), /invalid route allowance/);
   assert.throws(() => parse([entry, { ...entry, reason: '' }]), /invalid route allowance/);
 });
-test('the shipped allowances are the #1483 related links on research and tools, the #1619 riser card and #2257 masonry arch card on research, the #447 containment messages on tools, the viewer plane on the two calculators, #818 Rayleigh refinement on the app, #1916 Hungarian and #2256 Chinese on the measured routes', () => {
+test('the shipped allowances are the #1483 related links on research and tools, the #1619 riser card and #2257 masonry arch card on research, the #447 containment messages on tools, the viewer plane on the two calculators, #818 Rayleigh refinement on the app, #1916 Hungarian, #2256 Chinese and #2595 Italian on the measured routes', () => {
   const routes = routeAllowances(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'), () => true);
   assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/beam-frame/', '/en/tools/continuous-beam/', '/en/tools/mohr-2d/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
   for (const route of ['/en/', '/es/', '/pt/']) {
-    assert.deepEqual(routes[route], { bytes: 1203, reason: "#1916 Hungarian, the seventh offered language: its name and lazy loader + #2256 Chinese, the eighth offered language: its name and lazy loader", modules: ['src/lib/i18n/offered.ts', 'src/lib/i18n/offered.ts'] });
+    assert.deepEqual(routes[route], {"bytes":2024,"italianBytes":821,"reason":"#1916 Hungarian, the seventh offered language: its name and lazy loader + #2256 Chinese, the eighth offered language: its name and lazy loader + #2595 Italian, the ninth offered language: its name and lazy loader","modules":["src/lib/i18n/offered.ts","src/lib/i18n/offered.ts","src/lib/i18n/offered.ts"]});
   }
   for (const route of ['/app/basic', '/app/education', '/app/pro']) {
-    assert.deepEqual(routes[route], { bytes: 2446888, reason: "#818 original-pencil Rayleigh refinement + #1916 Hungarian, the seventh offered language: its lazily loaded app dictionary + #2256 Chinese, the eighth offered language: its lazily loaded app dictionaries", modules: ['src/lib/engine/second-order/dense.ts', 'src/lib/i18n/locales/hu.ts', 'src/lib/i18n/locales/zh.ts'] });
+    assert.deepEqual(routes[route], {"bytes":3784248,"italianBytes":1337360,"reason":"#818 original-pencil Rayleigh refinement + #1916 Hungarian, the seventh offered language: its lazily loaded app dictionary + #2256 Chinese, the eighth offered language: its lazily loaded app dictionaries + #2595 Italian, the ninth offered language: its lazily loaded app dictionaries","modules":["src/lib/engine/second-order/dense.ts","src/lib/i18n/locales/hu.ts","src/lib/i18n/locales/zh.ts","src/lib/i18n/locales/it.ts"]});
   }
-  assert.deepEqual(routes['/en/research/'], { bytes: 182785, reason: "#1483 related links styled as theme chips + #1619 riser gallery card and catalogue entry, with its own lead in seven languages + #2257 masonry arch gallery card and catalogue entry + #1916 Hungarian copy of the research gallery and catalogue + #2256 Chinese copy of the research gallery and catalogue", modules: ['src/components/research/RelatedLinks.svelte', 'src/components/research/gayNeto2014/card.ts', 'src/components/research/heyman1966/card.ts', 'src/components/research/gallery-i18n.ts', 'src/components/research/gallery-i18n.ts'] });
-  assert.deepEqual(routes['/en/tools/'], { bytes: 111009, reason: "#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators + #2256 Chinese copy of the free calculators", modules: ['src/components/research/RelatedLinks.svelte', 'src/lib/engine/known-issue-message.ts', 'src/components/tools/batch-i18n.ts', 'src/components/tools/batch-i18n.ts'] });
+  assert.deepEqual(routes['/en/research/'], {"bytes":273462,"italianBytes":90677,"reason":"#1483 related links styled as theme chips + #1619 riser gallery card and catalogue entry, with its own lead in seven languages + #2257 masonry arch gallery card and catalogue entry + #1916 Hungarian copy of the research gallery and catalogue + #2256 Chinese copy of the research gallery and catalogue + #2595 Italian copy of the research gallery and catalogue","modules":["src/components/research/RelatedLinks.svelte","src/components/research/gayNeto2014/card.ts","src/components/research/heyman1966/card.ts","src/components/research/gallery-i18n.ts","src/components/research/gallery-i18n.ts","src/components/research/gallery-i18n.ts"]});
+  assert.deepEqual(routes['/en/tools/'], {"bytes":170142,"italianBytes":59133,"reason":"#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators + #2256 Chinese copy of the free calculators + #2595 Italian copy of the free calculators","modules":["src/components/research/RelatedLinks.svelte","src/lib/engine/known-issue-message.ts","src/components/tools/batch-i18n.ts","src/components/tools/batch-i18n.ts","src/components/tools/batch-i18n.ts"]});
   for (const route of ['/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/']) {
-    assert.deepEqual(routes[route], { bytes: 113570, reason: "#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators + the shared scalar-field viewer's plan/elevation plane and unlit category colours (calculators keep plan) + #2256 Chinese copy of the free calculators", modules: ['src/components/research/RelatedLinks.svelte', 'src/lib/engine/known-issue-message.ts', 'src/components/tools/batch-i18n.ts', 'src/components/viewport/scalar-field-plane.ts', 'src/components/tools/batch-i18n.ts'] });
+    assert.deepEqual(routes[route], {"bytes":172766,"italianBytes":59196,"reason":"#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators + the shared scalar-field viewer's plan/elevation plane and unlit category colours (calculators keep plan) + #2256 Chinese copy of the free calculators + #2595 Italian copy of the free calculators","modules":["src/components/research/RelatedLinks.svelte","src/lib/engine/known-issue-message.ts","src/components/tools/batch-i18n.ts","src/components/viewport/scalar-field-plane.ts","src/components/tools/batch-i18n.ts","src/components/tools/batch-i18n.ts"]});
   }
-  assert.deepEqual(routes['/en/tools/beam-frame/'], { bytes: 60572, reason: '#2256 Chinese copy of the free calculators', modules: ['src/components/tools/batch-i18n.ts'] });
-  assert.deepEqual(routes['/en/tools/mohr-2d/'], { bytes: 55141, reason: '#2256 Chinese copy of the free calculators and the Mohr tools', modules: ['src/components/mohr/i18n.ts'] });
+  assert.deepEqual(routes['/en/tools/beam-frame/'], {"bytes":132524,"italianBytes":71952,"reason":"#2256 Chinese copy of the free calculators + #2595 Italian copy of the free calculators","modules":["src/components/tools/batch-i18n.ts","src/components/tools/batch-i18n.ts"]});
+  assert.deepEqual(routes['/en/tools/mohr-2d/'], {"bytes":120510,"italianBytes":65369,"reason":"#2256 Chinese copy of the free calculators and the Mohr tools + #2595 Italian copy of the free calculators and the Mohr tools","modules":["src/components/mohr/i18n.ts","src/components/mohr/i18n.ts"]});
 });
 test('missing and non-finite measurements fail', () => {
   assert.throws(() => routeGrowth({ '/en/': 1000 }, {}), /coverage/);
@@ -145,6 +147,57 @@ test('the games page loader is a route boundary: the hub, the game and what only
   const files = routeChunkFiles(withGame, appRoots);
   for (const file of ['game-loader.js', 'games.js', 'game.js']) assert.ok(!files.has(file), file);
   assert.ok(files.has('shared.js'));
+});
+
+test('known wrong result: #2595 — Italian copy cannot fund unrelated route growth', () => {
+  const route = '/app/basic';
+  const allowances = { [route]: { bytes: 660, italianBytes: 600, reason: 'previous growth and Italian copy' } };
+  const row = (growth, italianGrowth) => [{ route, before: 1000, after: 1000 + growth, growth, italianGrowth }];
+  checkResearchIsolation(row(788, 600), allowances);
+  assert.throws(() => checkResearchIsolation(row(788, 599), allowances), /grew/);
+  assert.throws(() => checkResearchIsolation(row(601, 601), allowances), /grew/);
+  assert.throws(() => checkResearchIsolation(row(789, 601), allowances), /grew/);
+  assert.throws(() => checkResearchIsolation(row(188, -1), allowances), /grew/);
+});
+
+test('credits only literal Italian copy in the emitted chunk', () => {
+  const data = '"è"';
+  const mixed = `export const labels = {en:{text:"shared"},it:{text:${data},run:()=>"logic"}};`;
+  assert.equal(italianCopyBytes(mixed, ['labels.ts'], parseAst), Buffer.byteLength(data));
+  assert.equal(italianCopyBytes('export const obj = {it:"unrelated"}', ['other.ts'], parseAst), 0);
+  const dedicated = `export default {title:${data},values:[${data}]};`;
+  assert.equal(italianCopyBytes(dedicated, ['/app/src/lib/i18n/locales/steel/it.ts'], parseAst), 2 * Buffer.byteLength(data));
+  assert.equal(italianCopyBytes(dedicated, ['/app/src/lib/i18n/locales/steel/it.ts', 'other.ts'], parseAst), 0);
+});
+
+test('known wrong result: #2595 — a static Italian dictionary binding is counted once', () => {
+  const copy = '"città"';
+  for (const map of ['{en, it}', '{en, it:it}']) {
+    const source = `const en={}, it={label:${copy}}; export const a=${map}, b=${map};`;
+    assert.equal(italianCopyBytes(source, ['labels.ts'], parseAst), Buffer.byteLength(copy));
+  }
+});
+
+test('known wrong result: #2595 — shared bytes inside the largest public chunk retain their own budget', async () => {
+  const { comparePartitions } = await import('./research-route-budget.mjs');
+  const route = '/en/';
+  const snapshot = (total, copy) => ({
+    routes: { [route]: total }, italian: { [route]: total - 90000 },
+    publicLocales: { en: { total: 90000, italian: 0 }, it: { total, italian: copy } },
+  });
+  const base = snapshot(100000, 40000);
+  const allowances = { [route]: { bytes: 20000, italianBytes: 20000 } };
+  const check = candidate => comparePartitions(base, candidate, 'true', allowances);
+  check(snapshot(110000, 50000));
+  assert.throws(() => check(snapshot(100000, 60001)), /Italian copy/);
+  check(snapshot(100128, 40000));
+  assert.throws(() => check(snapshot(100129, 40000)), /research isolation/);
+  assert.throws(() => check(snapshot(110000, 40000)), /research isolation/);
+});
+
+test('known wrong result: #2595 — legacy route baselines require measuring the base revision', async () => {
+  const { comparePartitions } = await import('./research-route-budget.mjs');
+  assert.throws(() => comparePartitions({ routes: baseline }, { routes: baseline }), /base revision.*--update/i);
 });
 
 test('the app footprint counts a separate lazy import of the games registry and its thumbnail', () => {

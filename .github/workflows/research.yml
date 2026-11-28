@@ -104,7 +104,7 @@ jobs:
           else
             echo research=false >> "$GITHUB_OUTPUT"
           fi
-          if printf '%s\n' "$CHANGED" | grep -Fqx 'web/scripts/research-route-allowances.json'; then
+          if grep -Fqx 'web/scripts/research-route-allowances.json' <<< "$CHANGED"; then
             echo allowances=true >> "$GITHUB_OUTPUT"
           fi
       - if: runner.environment == 'github-hosted'
@@ -137,6 +137,19 @@ jobs:
           fi
           nix develop . -c sh -c "cd route-main/web && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json' --update"
           nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
+      - name: Compare isolated Italian payloads with the pinned transition meter
+        env:
+          METER_REV: 30dd216be66c9a5b23193ea2bd7b3e32909ec1a6
+          RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}
+        run: |
+          if ! jq -e 'has("publicLocales")' "$RUNNER_TEMP/route-main.json" >/dev/null; then
+            meter_root=$(mktemp -d "$RUNNER_TEMP/route-meter.XXXXXX")
+            git archive "$METER_REV" web/scripts web/package.json web/package-lock.json web/src | tar -x -C "$meter_root"
+            .github/scripts/retry-infra.sh nix develop . -c npm ci --prefix "$meter_root/web"
+            meter="$meter_root/web/scripts/check-research-route-size.mjs"
+            (cd route-main/web && nix develop ../.. -c node "$meter" --baseline "$RUNNER_TEMP/route-partition.json" --update)
+            (cd web && nix develop .. -c node "$meter" --baseline "$RUNNER_TEMP/route-partition.json")
+          fi
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.

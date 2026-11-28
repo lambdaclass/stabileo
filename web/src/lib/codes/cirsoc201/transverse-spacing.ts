@@ -508,6 +508,9 @@ export function checkTransverseSpacing(
   };
 }
 
+export const columnTieBarFactor = (edition: RegulationEdition): number => edition === '2005' ? 12 : 16;
+export const COLUMN_TIE_DIAMETERS = 48;
+
 /**
  * Column ties, centre to centre: the least of a number of longitudinal bar diameters (16 in the
  * 2025 edition, art. 25.7.2.1(b); 12 in the 2005 one, art. 7.10.5.2), 48 tie diameters and the
@@ -517,10 +520,10 @@ export function checkTransverseSpacing(
 export function columnTieSpacing(
   edition: RegulationEdition, longDiameterMm: number, tieDiameterMm: number, leastDimension: number,
 ): { spacing: number; barFactor: number; governedBy: 'longBar' | 'tie' | 'leastDimension'; ref: ClauseRef } {
-  const barFactor = edition === '2005' ? 12 : 16;
+  const barFactor = columnTieBarFactor(edition);
   const cands: Array<[number, 'longBar' | 'tie' | 'leastDimension']> = [
     [barFactor * longDiameterMm / 1000, 'longBar'],
-    [48 * tieDiameterMm / 1000, 'tie'],
+    [COLUMN_TIE_DIAMETERS * tieDiameterMm / 1000, 'tie'],
     [leastDimension, 'leastDimension'],
   ];
   cands.sort((x, y) => x[0] - y[0]);

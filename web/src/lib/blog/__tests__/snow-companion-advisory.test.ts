@@ -1,9 +1,11 @@
+import { RESULT_CHANGES } from '../../provenance/full-registry';
 import hu from '../translations/hu/safety-advisories';
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { findPost } from '..';
-import notice from '../../provenance/result-changes/snow-combination-validation.json';
 import type { PublicLocale } from '../../i18n/store.svelte';
+
+const notice = RESULT_CHANGES.changes.find(change => change.id === 'snow-combination-validation')!;
 
 const name = 'SA-2026-082-snow-companion-basis.md';
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');

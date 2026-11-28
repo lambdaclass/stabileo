@@ -1,10 +1,12 @@
+import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { findPost } from '..';
 import hu from '../translations/hu/safety-advisories';
-import notice from '../../provenance/result-changes/concentrated-live-actions.json';
 import { buildPublicLocales } from '../../i18n/offered-research';
 import type { PublicLocale } from '../../i18n/store.svelte';
+
+const notice = RESULT_CHANGES.changes.find(change => change.id === 'concentrated-live-actions')!;
 
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');
 const advisoryId = 'SA-2026-083';
@@ -17,6 +19,7 @@ const locales: [PublicLocale, string, string][] = [
   ['fr', 'Élevée', 'Corrigé dans 0.6.2'],
   ['tr', 'Yüksek', '0.6.2 sürümünde düzeltildi'],
   ['hu', 'Magas', 'Javítva a 0.6.2 verzióban'],
+  ['it', 'Alta', 'Risolto nella 0.6.2'],
   ['zh', '高', '已在 0.6.2 中修复'],
 ];
 

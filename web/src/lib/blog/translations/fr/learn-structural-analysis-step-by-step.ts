@@ -55,7 +55,7 @@ const body: PostBody = {
         ['Treillis', '3', 'Nœuds ; coupes (Ritter) ; matrice de compatibilité'],
         ['Déformations et énergie', '5', 'Double intégration ; aires des moments ; travaux virtuels ; Castigliano ; efforts internes par coupures'],
         ['Lignes d’influence', '1', 'Ligne d’influence'],
-        ['Second ordre et flambement', '2', 'Second ordre avec fonctions φ et avec matrice géométrique ; flambement par comptage des modes et par valeurs propres'],
+        ['Second ordre et flambement', '4', 'Second ordre avec fonctions φ et avec matrice géométrique ; flambement par comptage des modes et par valeurs propres'],
         ['Calcul plastique', '2', 'Méthode cinématique ; méthode statique (retenues jusqu’à #758)'],
         ['Dynamique des structures', '3', 'Un degré de liberté ; plusieurs degrés par décomposition modale ; masse répartie'],
       ],

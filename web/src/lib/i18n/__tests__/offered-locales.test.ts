@@ -66,9 +66,10 @@ afterEach(() => { vi.unstubAllGlobals(); });
 describe('the languages the app offers', () => {
   beforeEach(() => { vi.resetModules(); });
 
-  it('is English, Español and Português, plus Deutsch, Français, Türkçe, Magyar and 中文 each once it is complete', async () => {
+  it('is English, Español and Português, plus Deutsch, Français, Türkçe, Magyar, Italiano and 中文 each once it is complete', async () => {
     const { store } = await boot(['en']);
-    const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'zh'].filter(isComplete)];
+    const expected = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu', 'it', 'zh'].filter(isComplete)];
+    expect(store.OFFERED_LOCALES).toContain('it');
     expect([...store.OFFERED_LOCALES].sort()).toEqual(expected.sort());
   });
 
@@ -76,7 +77,7 @@ describe('the languages the app offers', () => {
     async () => {
       const { store } = await boot(['en']);
       const { LOCALE_NAMES } = await import('../offered');
-      expect(LOCALE_NAMES).toEqual({ en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '中文' });
+      expect(LOCALE_NAMES).toEqual({ en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', it: 'Italiano', zh: '中文' });
       for (const code of [...store.OFFERED_LOCALES, ...store.PUBLIC_LOCALES]) expect(store.tAt(`lang.${code}`, 'en')).toBe(LOCALE_NAMES[code]);
     });
 
@@ -111,6 +112,7 @@ describe('detecting the browser language', () => {
     ['fr', reach('fr')], ['fr-FR', reach('fr')], ['fr-CA', reach('fr')], ['fr-BE', reach('fr')],
     ['tr', reach('tr')], ['tr-TR', reach('tr')],
     ['hu', reach('hu')], ['hu-HU', reach('hu')],
+    ['it', reach('it')], ['it-IT', reach('it')], ['it-CH', reach('it')],
     ['zh', reach('zh')], ['zh-CN', reach('zh')], ['zh-TW', reach('zh')], ['zh-Hans', reach('zh')], ['zh-Hant', reach('zh')], ['zh-Hant-HK', reach('zh')],
   ] as const) {
     it(`a browser set to ${lang} opens in ${expected}`, async () => {
@@ -119,7 +121,7 @@ describe('detecting the browser language', () => {
     });
   }
 
-  for (const lang of ['it', 'ja', 'ru', 'ar', 'ko', 'hi', 'id']) {
+  for (const lang of ['ja', 'ru', 'ar', 'ko', 'hi', 'id']) {
     it(`a browser set to ${lang} opens in English rather than a half-translated ${lang}`,
       async () => {
         // The dictionary exists, but it is not offered: mostly English underneath.
@@ -130,9 +132,9 @@ describe('detecting the browser language', () => {
 
   it('takes the first OFFERED language from the preference list, not the first language',
     async () => {
-      // A browser configured "Italian, then Portuguese" prefers Italian, which the app does not
+      // A browser configured "Japanese, then Portuguese" prefers Japanese, which the app does not
       // offer. Portuguese is the best honest match, and it is in the list.
-      const { store } = await boot(['it', 'pt-BR', 'en']);
+      const { store } = await boot(['ja', 'pt-BR', 'en']);
       expect(store.i18n.locale).toBe('pt');
     });
 
@@ -185,12 +187,12 @@ describe('the choice a user makes', () => {
 
   it('is refused when the code is not offered, rather than blanking the picker', async () => {
     // The picker's value is bound to `i18n.locale`; a `<select>` whose value matches none of its
-    // options renders empty. Accepting 'it' here would show nothing, in a language nobody chose.
+    // options renders empty. Accepting 'ja' here would show nothing, in a language nobody chose.
     const { store, storage } = await boot(['en']);
-    store.setLocale('it');
+    store.setLocale('ja');
     expect(store.i18n.locale).toBe('en');
     // Storage still holds what DETECTION wrote at boot, and the refused call left no trace:
-    // no 'it', and no manual flag claiming a choice the user was not allowed to make.
+    // no 'ja', and no manual flag claiming a choice the user was not allowed to make.
     expect(storage._dump()['stabileo-lang']).toBe('en');
     expect(storage._dump()['stabileo-lang-manual']).toBeUndefined();
   });
@@ -205,10 +207,10 @@ describe('the choice a user makes', () => {
   }
 
   it('a stored language that is no longer offered falls through to detection', async () => {
-    // Someone who picked Italian when the picker listed fourteen. Honouring it would resurrect
+    // Someone who picked Japanese when the picker listed fourteen. Honouring it would resurrect
     // a half-translated UI, and the picker would have no option to show for it.
     const { store } = await boot(['pt-BR'], {
-      'stabileo-lang': 'it', 'stabileo-lang-manual': '1',
+      'stabileo-lang': 'ja', 'stabileo-lang-manual': '1',
     });
     expect(store.i18n.locale).toBe('pt');
   });

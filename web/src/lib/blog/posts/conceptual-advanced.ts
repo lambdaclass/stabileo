@@ -99,7 +99,7 @@ export const conceptualAdvanced: Post = {
           rows: [
             ['2 · Grado de hiperestaticidad', 'GH = 3·m + r − 3·n − c', '0'],
             ['3 · Matriz de rigidez', 'Modos de mecanismo detectados', '1'],
-            ['3 · Matriz de rigidez', 'Grados de libertad sin restringir', '1'],
+            ['3 · Matriz de rigidez', 'Grados de libertad sin restringir', '6'],
             ['4 · Sugerencias', 'Veredicto en pantalla', 'No se puede resolver'],
           ],
         },
@@ -165,7 +165,7 @@ export const conceptualAdvanced: Post = {
           rows: [
             ['2 · Static indeterminacy', 'GH = 3·m + r − 3·n − c', '0'],
             ['3 · Stiffness matrix', 'Mechanism modes detected', '1'],
-            ['3 · Stiffness matrix', 'Unconstrained degrees of freedom', '1'],
+            ['3 · Stiffness matrix', 'Unconstrained degrees of freedom', '6'],
             ['4 · Suggestions', 'Verdict on screen', 'Cannot be solved'],
           ],
         },
@@ -231,7 +231,7 @@ export const conceptualAdvanced: Post = {
           rows: [
             ['2 · Grau de indeterminação', 'GH = 3·m + r − 3·n − c', '0'],
             ['3 · Matriz de rigidez', 'Modos de mecanismo detectados', '1'],
-            ['3 · Matriz de rigidez', 'Graus de liberdade sem restrição', '1'],
+            ['3 · Matriz de rigidez', 'Graus de liberdade sem restrição', '6'],
             ['4 · Sugestões', 'Veredito na tela', 'Não pode ser resolvida'],
           ],
         },

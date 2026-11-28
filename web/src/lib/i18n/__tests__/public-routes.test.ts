@@ -106,9 +106,9 @@ describe('preferredPublicLocale', () => {
   });
 
   it('falls back to English for a browser it does not speak', () => {
-    // The x-default rule: Italian and Japanese browsers get English, not a
+    // The x-default rule: Korean and Japanese browsers get English, not a
     // half-translated page and not a 404.
-    expect(preferredPublicLocale(['it-IT', 'ja'])).toBe('en');
+    expect(preferredPublicLocale(['ko-KR', 'ja'])).toBe('en');
     expect(preferredPublicLocale([])).toBe('en');
   });
 });

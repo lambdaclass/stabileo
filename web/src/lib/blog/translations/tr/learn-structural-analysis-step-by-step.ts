@@ -55,7 +55,7 @@ const body: PostBody = {
         ['Kafes kirişler', '3', 'Düğüm noktaları; kesim (Ritter); uygunluk matrisi'],
         ['Şekil değiştirmeler ve enerji', '5', 'Çift integrasyon; moment alanı; virtüel iş; Castigliano; kesim yöntemiyle iç kuvvetler'],
         ['Tesir çizgileri', '1', 'Tesir çizgisi'],
-        ['İkinci mertebe ve burkulma', '2', 'φ fonksiyonlarıyla ve geometrik matrisle ikinci mertebe; mod sayımıyla ve özdeğerlerle burkulma'],
+        ['İkinci mertebe ve burkulma', '4', 'φ fonksiyonlarıyla ve geometrik matrisle ikinci mertebe; mod sayımıyla ve özdeğerlerle burkulma'],
         ['Plastik hesap', '2', 'Kinematik yöntem; statik yöntem (#758’e kadar alıkonuyor)'],
         ['Yapı dinamiği', '3', 'Tek serbestlik derecesi; modal ayrıştırmayla çok serbestlik derecesi; yayılı kütle'],
       ],

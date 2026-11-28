@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 import c301Pt from './c301-pt';
 /**
  * Contrapartida em português de `steel/es.ts`. As mesmas chaves, na mesma ordem — um teste
@@ -550,7 +551,6 @@ const steelPt: Record<string, string> = {
   'steel.assume.route.bracingData': 'Declarar a Lb na barra (Geometria e travamento), ou que o modelo registre os travamentos e o gerador conserve os que já coloca.',
   'steel.assume.route.implementClassification': 'Seria preciso implementar a classificação de seção do §B.4.',
   'steel.assume.route.boltGeometry': 'Seria necessária a geometria do grupo de parafusos: linhas, passos e gabaritos.',
-  'steel.assume.route.implementCap': 'Seria preciso calcular My e aplicar o limite da expressão F.2.1.',
   'steel.assume.route.torsionalRestraint': 'Seria preciso a restrição torcional nos extremos e os pontos de travamento à torção.',
   'steel.assume.route.momentDiagram': 'Seria preciso ler o diagrama de momentos do vão para calcular Cb.',
   'steel.assume.route.torsionalConstant': 'Seria preciso que a seção declare sua constante de torção.',
@@ -619,14 +619,14 @@ const steelPt: Record<string, string> = {
   'steel.f62.classified': 'Tabela B.4.1b caso 14: λpf = 0,38·√(E/Fy), λrf = 1,00·√(E/Fy). O ramo indicado é o que a verificação CIRSOC 301 aplica.',
   'steel.f62.outOfScope': 'A F.6 cobre seções I e perfis U fletidos em torno do eixo menor. Esta seção não é uma delas.',
   'steel.f62.geometryUnavailable': 'Falta a largura ou a espessura da mesa, então nem a esbeltez λf pode ser formada.',
-  'steel.f62.classificationUnavailable': 'A geometria está: λf, Sy e Fcr se calculam. O que não se pode é escolher o ramo, porque λpf e λrf são a Tabela B.4.1b caso 14, que é uma imagem no PDF fonte.',
+  'steel.f62.classificationUnavailable': 'A geometria da mesa permite calcular λf. Para selecionar o ramo da Tabela B.4.1b, caso 14, é necessária uma tensão de escoamento Fy positiva.',
   'steel.f62.branch.notApplicableCompact': 'mesa compacta: a flambagem local não se aplica (F.6.2(a))',
   'steel.f62.branch.nonCompact': 'mesa não compacta (F.6.2(b))',
   'steel.f62.branch.slender': 'mesa esbelta (F.6.2(c))',
   'steel.f62.branch.undetermined': 'ramo indeterminado',
   'steel.f62.missing.flangeGeometry': 'Largura e espessura da mesa.',
-  'steel.f62.missing.slendernessLimits': 'Os limites de esbeltez λpf e λrf da Tabela B.4.1b, caso 14. As células numéricas dessa tabela não estão no markdown embarcado: apenas o título, as notas e a simbologia.',
-  'steel.f62.lambdaLabel': 'Esbeltez da mesa λf = bf/tf',
+  'steel.f62.missing.slendernessLimits': 'Informe Fy positivo para obter λpf = 0,38√(E/Fy) e λrf = 1,00√(E/Fy) da Tabela B.4.1b, caso 14.',
+  'steel.f62.lambdaLabel': 'Esbeltez da mesa λf',
   'steel.f62.fcrLabel': 'Fcr se a mesa resultar esbelta (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — fator de gradiente de momento (F.1.1)',
   'steel.workflow.clause.cbState': 'Calculado do diagrama de momentos quando há estações e a seção está no escopo da F.1.1; caso contrário Cb = 1, que a norma permite. Calculá-lo não certifica o travamento.',
@@ -1277,7 +1277,7 @@ const steelPt: Record<string, string> = {
   'steel.tc.calc.connection': 'Ligação: {what}',
   'steel.tc.calc.bolted': 'parafusada, {lines} linha(s) × {n} parafuso(s) M{d}, furos {hole}, passo {pitch} mm, ligada por: {connected}',
   'steel.tc.calc.welded': 'soldada, soldas: {weld}, L = {L} mm, ligada por: {connected}',
-  'steel.tc.calc.u': 'U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0,9 → {U}  (D.3.2)',
+  'steel.tc.calc.u': `${shearLagTrace(',')}`,
   'steel.tc.calc.uFloor': 'U ≥ A ligada/Ag = {Aconn}/{Ag} = {U}  (D.3, seções abertas)',
   'steel.tc.calc.weldNoHoles': 'Sem furos na ligação soldada: An = Ag  (B.4.2.2)',
   'steel.tc.calc.plateTable': 'Chapa soldada nas duas bordas: L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))',
@@ -1317,7 +1317,7 @@ const steelPt: Record<string, string> = {
   'steel.b41.c14': 'Mesas de perfis I e canais em flexão em torno do eixo de menor inércia',
   'steel.b41.c15': 'Almas de seções tê',
   'steel.b41.c16': 'Almas de perfis I duplamente simétricos e de canais',
-  'steel.b41.c17': 'Almas de perfis I monossimétricos (λp com hc/hp; aqui o duplamente simétrico, a favor da segurança)',
+  'steel.b41.c17': 'Almas de perfis I monossimétricos (λp com hc/hp; aqui o duplamente simétrico)',
   'steel.b41.c18': 'Mesas de tubos retangulares e quadrados de espessura uniforme',
   'steel.b41.c19': 'Chapas de cobertura e diafragmas entre linhas de parafusos ou soldas',
   'steel.b41.c20': 'Almas de tubos retangulares e quadrados',

@@ -219,6 +219,40 @@ const hu: Strings = {
     "Euler f1 relative error": "Második Euler-teher"
   }
 };
+const it: Strings = {
+  resultParameters: "Parametri calcolati",
+  alpha: "Curvatura preferita α = Lκ₀",
+  force: "Sforzo normale f = NL²/EI (positivo: compressione; negativo: trazione)",
+  coordinates: "Incastrato a entrambe le estremità. Le coordinate sono x/L e w/L; α è la curvatura preferita moltiplicata per la luce L.",
+  referenceCaveat: "L’ottimizzatore predefinito degli autori e la quadratura del profilo rettangolare producono piccole irregolarità; il loro risultato al 70% è {software}, mentre l’articolo riporta {published}.",
+
+  title: 'Archi a scatto con disegno della curvatura',
+  lead: 'Cambia la larghezza di un tratto curvo e sposta la soglia a cui un arco ribassato passa da un lato all’altro.',
+  model: 'Dall’instabilità di Eulero a un salto di equilibrio',
+  theory: 'Un arco piatto incastrato immagazzina l’accorciamento delle estremità nella sua forma. Un disegno di curvatura preferita si accoppia ai suoi modi di instabilità. Le equazioni (2) e (3), pagine 3–4 di arXiv v2, danno l’equilibrio ad angolo ridotto e lo spettro di compressione. Limitiamo questo esperimento a un disegno rettangolare centrato.',
+  method: 'Il solutore di instabilità per telai 2D di produzione di Stabileo calcola 16 modi su 64 elementi. Uno strato di ricerca proietta la curvatura su questi modi e risolve il vincolo di compressione dell’articolo. Lo stesso codice Rust gira qui come WASM e genera la riproduzione.',
+  limits: 'Questo è un modello di equilibrio ribassato e inestensibile. Il salto collega stati di equilibrio; non simula la dinamica dello scatto né riproduce misure di laboratorio. L’arc-length nel motore di produzione rifiuta spostamenti imposti e carichi termici, quindi non viene usato per questo percorso guidato dalla curvatura. Sono coperti solo disegni centrati e piccoli accorciamenti delle estremità.',
+  evidence: 'A una larghezza stimolata del 70%, l’articolo dà α/√ε = {threshold} (arXiv v2 pagina 3, dopo l’Eq. 2). La sovrapposizione è rigenerata dal software ad angolo ridotto degli autori nel record Zenodo 18256271, con licenza CC-BY-4.0. È un riferimento numerico, non una validazione sperimentale.',
+  checks: 'Validazione e fonti',
+  checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Curva Zenodo: errore relativo massimo', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": 'Raffinamento della mesh e dei modi', "Euler f0 relative error": 'Primo carico di Eulero', "Euler f1 relative error": 'Secondo carico di Eulero'} as Record<string, string>,
+  publishedValue: 'Soglia pubblicata a larghezza 70%',
+  width: 'Larghezza stimolata γ',
+  compression: 'Accorciamento delle estremità ε',
+  threshold: 'Soglia di scatto α',
+  normalized: 'Soglia normalizzata α/√ε',
+  mode: 'Primo modo di instabilità antisimmetrico',
+  arch: 'Equilibrio dell’arco',
+  jump: 'Sequenza di equilibrio; il salto non ha durata fisica',
+  run: 'Ricalcola dal vivo', stop: 'Ferma', restart: 'Riavvia',
+  error: 'Il solutore non ha potuto caricarsi o completare. Il risultato precedente resta disponibile.',
+  computing: 'Calcolo con Stabileo…',
+  paper: 'Articolo ed equazioni supplementari',
+  data: 'Dati e software Zenodo',
+  ours: 'Modi di Stabileo + equazioni dell’arco ribassato',
+  reference: 'Software Zenodo degli autori',
+  parameterNotice: 'I risultati mostrati mantengono i parametri calcolati finché il ricalcolo non termina.',
+};
+
 const zh: Strings = {
   "title": "曲率分布诱发拱的突跳屈曲",
   "lead": "改变曲线段的宽度，移动浅拱换向的阈值。",
@@ -258,5 +292,5 @@ const zh: Strings = {
     "Euler f1 relative error": "第二 Euler 荷载"
   }
 };
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, it, zh };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

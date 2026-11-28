@@ -1,0 +1,35 @@
+<!doctype html>
+<html><body>
+<div id="menu"></div>
+<pre id="checks"></pre>
+<script type="module">
+  import { mount, tick } from 'svelte';
+  import '/src/lib/i18n/full-dictionaries.ts';
+  import ContextMenu from '/src/components/ContextMenu.svelte';
+  import { modelStore, uiStore } from '/src/lib/store/index.ts';
+  import { ensureLocale, setLocale } from '/src/lib/i18n/index.ts';
+
+  mount(ContextMenu, { target: document.querySelector('#menu') });
+  const turns = [];
+  for (const locale of ['en', 'zh', 'it']) {
+    await ensureLocale(locale);
+    await setLocale(locale);
+    for (const mode of ['2d', '3d', 'pro', 'edu']) {
+      uiStore.analysisMode = mode;
+      for (const arrow of ['↻', '↺']) {
+        modelStore.clear();
+        const left = modelStore.addNode(-1, 0, 0);
+        const right = modelStore.addNode(1, 0, 0);
+        uiStore.setSelection(new Set([left, right]), new Set());
+        uiStore.contextMenu = { x: 0, y: 0 };
+        await tick();
+        const button = [...document.querySelectorAll('.ctx-item')].find(item => item.textContent.includes(arrow));
+        button.click();
+        const { y, z } = modelStore.nodes.get(right);
+        turns.push({ locale, mode, arrow, y, z });
+      }
+    }
+  }
+  document.querySelector('#checks').textContent = JSON.stringify(turns);
+</script>
+</body></html>

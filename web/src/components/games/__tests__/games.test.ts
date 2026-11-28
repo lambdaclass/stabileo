@@ -3,6 +3,7 @@ import { render } from 'svelte/server';
 import { GAME_IDS, GAME_PATHS, isGameRoute } from '../../../lib/game-routes';
 import { setPublicLocale } from '../../../lib/i18n/store.svelte';
 import type { Locale } from '../../../lib/i18n/offered';
+import { LOCALE_NAMES } from '../../../lib/i18n/offered';
 import { gameStrings, tg } from '../../diagram-game/strings';
 import { GAMES } from '../games';
 import { hubStrings } from '../strings';
@@ -10,6 +11,9 @@ import { loadGamesPage } from '../load-page';
 import GamesPage from '../GamesPage.svelte';
 
 const LOCALES: Locale[] = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'];
+for (const locale of Object.keys(LOCALE_NAMES) as Locale[]) {
+  if (!LOCALES.includes(locale)) LOCALES.push(locale);
+}
 const width = (s: string) => s.length + (s.match(/[\p{Script=Han}　-〿＀-￯]/gu)?.length ?? 0);
 afterEach(() => setPublicLocale('en'));
 
@@ -121,4 +125,13 @@ it.each(['meta', 'how.1'] as const)('describes both diagram types and asks for t
 it.each([0, 1, 2, 3])('labels %i remaining lives in French', n => {
   setPublicLocale('fr');
   expect(tg('livesLeft', { n })).toBe(`Vies restantes : ${n}`);
+});
+
+it('known wrong result: #2595 — the Italian games hub renders its own heading and diagram game card', () => {
+  setPublicLocale('it');
+  const body = render(GamesPage, { props: { path: '/games' } }).body;
+  expect.soft(body).toMatch(/<h1[^>]*>Giochi<\/h1>/);
+  expect.soft(body).toContain(gameStrings.it!.title);
+  expect.soft(body).toContain('Gioca');
+  expect(body).toContain('href="/it/games/diagram-game/"');
 });

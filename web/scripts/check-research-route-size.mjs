@@ -8,11 +8,12 @@
  * its page chunk; per-page details (load-detail) are excluded, so every paper's code stays out.
  * Every route counts the largest per-language public dictionary chunk, which it loads lazily: a reader loads one.
  */
+import { italianCopyBytes } from './italian-route-bytes.mjs';
 import { build } from 'vite';
 import { readFileSync, writeFileSync, appendFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { growthTable, isBlogPostsChunk, isLazyRouteBoundary, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth } from './research-route-budget.mjs';
+import { comparePartitions, growthTable, isBlogPostsChunk, isLazyRouteBoundary, overCeilings, routeChunkFiles } from './research-route-budget.mjs';
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined);
 const baselinePath = arg('--baseline');
@@ -26,7 +27,8 @@ const featureSwitches = {};
 const researchChunks = new Set();
 const toolsChunks = new Set();
 const blogPostsChunks = new Set();
-const publicLocaleChunks = new Set();
+const publicLocaleChunks = new Map();
+const italianByFile = new Map();
 try {
   // A deterministic engine stub makes this gate independent of locally built WASM. It measures
   // web dependency isolation, not the engine binary, which has its own build/validation gates.
@@ -47,9 +49,15 @@ try {
       if (id === '\0route-size-engine') return 'export function initSync() {} export function solve_3d() { return "{}"; }';
     }, generateBundle(_options, bundle) {
       for (const output of Object.values(bundle)) {
+        if (output.type === 'chunk' && baselinePath) {
+          italianByFile.set(output.fileName, italianCopyBytes(output.code, Object.keys(output.modules), code => this.parse(code)));
+        }
         if (output.type === 'chunk' && isBlogPostsChunk(Object.keys(output.modules))) blogPostsChunks.add(output.fileName);
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/') || id.includes('/components/diagram-game/') || id.includes('/components/games/'))) toolsChunks.add(output.fileName);
-        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.startsWith('\0virtual:public-i18n/'))) publicLocaleChunks.add(output.fileName);
+        if (output.type === 'chunk') {
+          const locales = Object.keys(output.modules).filter(id => id.startsWith('\0virtual:public-i18n/'));
+          if (locales.length) publicLocaleChunks.set(output.fileName, locales.map(id => id.split('/').at(-1)).sort().join('+'));
+        }
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/') || /\/research\/.*\.json$/.test(id))) {
           researchChunks.add(output.fileName);
         }
@@ -92,10 +100,17 @@ try {
     }
     const size = (file) => statSync(join(outDir, file)).size;
     const rest = [...files].filter((file) => !publicLocaleChunks.has(file));
-    return rest.reduce((total, file) => total + size(file), 0) + Math.max(0, ...[...publicLocaleChunks].map(size));
+    const italianBytes = file => italianByFile.get(file) ?? 0;
+    const publicFiles = [...publicLocaleChunks.keys()];
+    const largest = Math.max(0, ...publicFiles.map(size));
+    const largestWithoutItalian = Math.max(0, ...publicFiles.map(file => size(file) - italianBytes(file)));
+    return {
+      total: rest.reduce((sum, file) => sum + size(file), largest),
+      italian: rest.reduce((sum, file) => sum + italianBytes(file), largest - largestWithoutItalian),
+    };
   }
   const landing = footprint(false), app = footprint(true);
-  const measured = { '/en/': landing, '/es/': landing, '/pt/': landing,
+  const footprints = { '/en/': landing, '/es/': landing, '/pt/': landing,
     '/app/basic': app, '/app/education': app, '/app/pro': app };
   const featureRoutes = {
     research: { '/en/research/': { published: null, expanded: null } },
@@ -112,9 +127,14 @@ try {
     for (const [route, details] of Object.entries(routes)) {
       const detail = expanded ? details.expanded : details.published;
       if (detail === undefined) console.log(`${route}: skipped (${feature}=false)`);
-      else measured[route] = footprint(false, feature, detail);
+      else footprints[route] = footprint(false, feature, detail);
     }
   }
+  const measured = Object.fromEntries(Object.entries(footprints).map(([route, value]) => [route, value.total]));
+  const italian = Object.fromEntries(Object.entries(footprints).map(([route, value]) => [route, value.italian]));
+  const publicLocales = Object.fromEntries([...publicLocaleChunks].map(([file, locale]) =>
+    [locale, { total: statSync(join(outDir, file)).size, italian: italianByFile.get(file) ?? 0 }]));
+  const snapshot = { routes: measured, italian, publicLocales };
   for (const [route, bytes] of Object.entries(measured)) console.log(`${route}: ${bytes} bytes`);
   if (ceilingPath) {
     const over = overCeilings(measured, JSON.parse(readFileSync(ceilingPath, 'utf8')).routes);
@@ -127,15 +147,15 @@ try {
     for (const r of over) console.log(`${r.route} is over its ceiling: ${r.bytes} > ${r.ceiling} bytes`);
     if (over.length) process.exitCode = 1;
   } else if (process.argv.includes('--update')) {
-    writeFileSync(baselinePath, JSON.stringify({ routes: measured }, null, 2) + '\n');
+    writeFileSync(baselinePath, JSON.stringify(snapshot, null, 2) + '\n');
     console.log(`Updated ${baselinePath}.`);
   } else {
-    const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')).routes;
-    const table = growthTable(routeGrowth(baseline, measured));
+    const base = JSON.parse(readFileSync(baselinePath, 'utf8'));
+    const rows = comparePartitions(base, snapshot);
+    const table = growthTable(rows);
     console.log(table);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Route size against main\n\n${table}\n`);
-    for (const r of routeGrowth(baseline, measured)) if (r.growth > 0) console.log(`::notice title=Route size::${r.route} grew by ${r.growth} bytes against main`);
-    reviewRouteGrowth(baseline, measured);
+    for (const r of rows) if (r.growth > 0) console.log(`::notice title=Route size::${r.route} grew by ${r.growth} bytes against main`);
   }
 } finally {
   rmSync(outDir, { recursive: true, force: true });

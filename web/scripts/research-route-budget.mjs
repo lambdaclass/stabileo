@@ -20,7 +20,8 @@ export function routeAllowances(text, exists) {
       }
     }
     if (!list.length) throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
-    return [route, { bytes: list.reduce((n, a) => n + a.bytes, 0), reason: list.map((a) => a.reason).join(' + '), modules: list.map((a) => a.module) }];
+    const italianBytes = list.filter(a => a.locale === 'it').reduce((sum, a) => sum + a.bytes, 0);
+    return [route, { ...(italianBytes ? { italianBytes } : {}), bytes: list.reduce((n, a) => n + a.bytes, 0), reason: list.map((a) => a.reason).join(' + '), modules: list.map((a) => a.module) }];
   }));
 }
 
@@ -30,16 +31,62 @@ function shippedAllowances() {
 }
 
 export function checkResearchIsolation(rows, allowances = {}) {
-  const limit = (route) => RESEARCH_ISOLATION_BYTES + (allowances[route]?.bytes ?? 0);
-  const grown = rows.filter((r) => r.growth > limit(r.route));
-  if (grown.length) {
-    throw new Error(grown.map((r) => `${r.route} grew: ${r.before} -> ${r.after} bytes (${limit(r.route)} byte tolerance${allowances[r.route] ? `, with ${allowances[r.route].bytes} allowed for ${allowances[r.route].reason}` : ''}, research isolation: the change touches research code shipped to the browser)`).join('\n'));
+  const problems = [];
+  for (const row of rows) {
+    const allowance = allowances[row.route];
+    const totalLimit = RESEARCH_ISOLATION_BYTES + (allowance?.bytes ?? 0);
+    const italianLimit = allowance?.italianBytes ?? 0;
+    if (italianLimit && !Number.isFinite(row.italianGrowth)) throw new Error(`${row.route} missing Italian byte measurement`);
+    const otherGrowth = row.growth - (row.italianGrowth ?? 0);
+    if (row.growth > totalLimit || (italianLimit && (row.italianGrowth > italianLimit || otherGrowth > totalLimit - italianLimit))) {
+      problems.push(`${row.route} grew: ${row.before} -> ${row.after} bytes (${totalLimit} byte tolerance${allowance ? `, with ${allowance.bytes} allowed for ${allowance.reason}` : ''}, research isolation: ${otherGrowth} bytes outside Italian copy, ${totalLimit - italianLimit} allowed; Italian growth ${row.italianGrowth ?? 0}, ${italianLimit} allowed)`);
+    }
   }
+  if (problems.length) throw new Error(problems.join('\n'));
 }
 
-export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances()) {
+export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances(), italianGrowth = {}) {
   const rows = routeGrowth(baseline, measured);
-  if (isolation !== 'false') checkResearchIsolation(rows, allowances);
+  if (isolation !== 'false') checkResearchIsolation(rows.map(row => ({ ...row, italianGrowth: italianGrowth[row.route] })), allowances);
+  return rows;
+}
+
+export function comparePartitions(base, candidate, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances()) {
+  if (!base.italian || !base.publicLocales) {
+    throw new Error("Measure the base revision with this meter and --update before comparing the candidate.");
+  }
+  const copyGrowth = Object.fromEntries(routeGrowth(base.italian, candidate.italian).map(row => [row.route, row.growth]));
+  const rows = reviewRouteGrowth(base.routes, candidate.routes, isolation, allowances, copyGrowth);
+  if (isolation === 'false') return rows;
+
+  function maxima(locales) {
+    const chunks = Object.values(locales);
+    return {
+      total: Math.max(0, ...chunks.map(chunk => chunk.total)),
+      other: Math.max(0, ...chunks.map(chunk => chunk.total - chunk.italian)),
+    };
+  }
+  const before = maxima(base.publicLocales);
+  const after = maxima(candidate.publicLocales);
+  for (const [locale, chunk] of Object.entries(candidate.publicLocales)) {
+    const previous = base.publicLocales[locale];
+    const beforeOther = previous ? previous.total - previous.italian : before.other;
+    const publicOtherGrowth = chunk.total - chunk.italian - beforeOther;
+    const marginalCopy = previous ? chunk.italian - previous.italian
+      : Math.min(chunk.italian, Math.max(0, chunk.total - before.total));
+    for (const row of rows) {
+      const restOtherGrowth = row.growth - copyGrowth[row.route] - (after.other - before.other);
+      const italianLimit = allowances[row.route]?.italianBytes ?? 0;
+      const restCopyGrowth = copyGrowth[row.route] - ((after.total - after.other) - (before.total - before.other));
+      if (italianLimit && restCopyGrowth + marginalCopy > italianLimit) {
+        throw new Error(`${row.route}: research isolation: ${locale} Italian copy exceeds ${italianLimit} bytes`);
+      }
+      const limit = RESEARCH_ISOLATION_BYTES + (allowances[row.route]?.bytes ?? 0) - (allowances[row.route]?.italianBytes ?? 0);
+      if (restOtherGrowth + publicOtherGrowth > limit) {
+        throw new Error(`${row.route}: research isolation: ${locale} grew ${restOtherGrowth + publicOtherGrowth} bytes outside Italian copy, ${limit} allowed`);
+      }
+    }
+  }
   return rows;
 }
 

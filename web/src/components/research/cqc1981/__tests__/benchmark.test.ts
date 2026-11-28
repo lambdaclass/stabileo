@@ -61,10 +61,26 @@ it('dispatches both combinations through production WASM wrappers with the modal
   } finally { vi.restoreAllMocks(); }
 });
 
-it('supplies complete keys with the same numbers in all eight locales', () => {
-  const numbers = (v: unknown) => JSON.stringify(v).match(/\d+(?:\.\d+)*/g) ?? [];
-  for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const) {
+const numbers = (v: unknown) => JSON.stringify(v).match(/[+−-]?\d+(?:\.\d+)*(?:[⁺⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)?/g) ?? [];
+
+it.each([['−20', '20'], ['10⁻⁸', '10⁸']])('known wrong result: #2595 — numeric tokens distinguish %s from %s', (a, b) => {
+  expect(numbers(a)).not.toEqual(numbers(b));
+});
+
+function checkEquations(equations: string) {
+  expect(equations).toContain('det(K − ω²M) = 0');
+  expect(equations).toContain('Sa = 1 m/s²');
+  expect(numbers(equations).sort()).toEqual(numbers(translations.en.equations).sort());
+}
+
+it.each([['K − ω²M', 'K + ω²M'], ['m/s²', 'm/s']])('known wrong result: #2595 — rejects %s replaced by %s', (from, to) => {
+  expect(() => checkEquations(translations.it.equations.replace(from, to))).toThrow();
+});
+
+it('supplies complete keys with the same numbers in all public locales', () => {
+  for (const locale of ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh'] as const) {
     expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
+    checkEquations(translations[locale].equations);
     expect(translations[locale].limitations).toHaveLength(3);
     expect(translations[locale].title).not.toEqual(translations.en.title);
     expect(translations[locale].lead).not.toEqual(translations.en.lead);

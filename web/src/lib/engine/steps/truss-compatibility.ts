@@ -405,9 +405,14 @@ export function buildCompat(ctx: MethodContext): StepDoc {
   }
   let rx = 0, rz = 0;
   for (const r of cm.reactions.values()) { rx += r.rx; rz += r.rz; }
-  eb.push({ kind: 'calc', label: tx(`${P}compat.globalCheck`), formula: '\\textstyle\\sum R_x + \\sum P_x = 0, \\qquad \\sum R_z + \\sum P_z = 0', subst: `${par(snap(rx))} + ${par(snap(gx))}, \\qquad ${par(snap(rz))} + ${par(snap(gz))}`, result: `${num(snap(rx + gx))}, \\qquad ${num(snap(rz + gz))}`, check: '= 0\\ \\checkmark' });
-  eb.push({ kind: 'p', text: tx(`${P}compat.residual`, { r: numText(cm.residual, 2) }) });
-  eb.push({ kind: 'note', tone: cm.residual < 1e-6 * S ? 'ok' : 'warn', text: tx(cm.residual < 1e-6 * S ? `${P}compat.residualOk` : `${P}compat.residualBad`) });
+  const totalX = snap(rx + gx), totalZ = snap(rz + gz);
+  const globallyBalanced = totalX === 0 && totalZ === 0;
+  eb.push({ kind: 'calc', label: tx(`${P}compat.globalCheck`), formula: '\\textstyle\\sum R_x + \\sum P_x = 0, \\qquad \\sum R_z + \\sum P_z = 0', subst: `${par(snap(rx))} + ${par(snap(gx))}, \\qquad ${par(snap(rz))} + ${par(snap(gz))}`, result: `${num(totalX)}, \\qquad ${num(totalZ)}`, check: globallyBalanced ? '= 0\\ \\checkmark' : undefined });
+  eb.push({ kind: 'p', text: tx(`${P}compat.residual`, { force: numText(cm.forceResidual, 2), moment: numText(cm.momentResidual, 2) }) });
+  const balanced = cm.forceResidual < 1e-6 * S && cm.momentResidual < 1e-6 * S;
+  if (!balanced) eb.push({ kind: 'note', tone: 'warn', text: tx(`${P}compat.residualBad`) });
+  if (!globallyBalanced) eb.push({ kind: 'note', tone: 'warn', text: tx(`${P}compat.globalUnbalanced`) });
+  if (balanced && globallyBalanced) eb.push({ kind: 'note', tone: 'ok', text: tx(`${P}compat.residualOk`) });
   steps.push({ title: tx(`${P}compat.endsTitle`), blocks: eb });
 
   // 10. Diagrams.
