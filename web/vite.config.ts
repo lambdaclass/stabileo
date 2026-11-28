@@ -56,7 +56,12 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
       const profile = testing ? unitFeatureProfile()
         : command === 'build' && process.env.VITE_E2E === '1' ? process.env.STABILEO_E2E_PROFILE || mode
         : mode;
-      features = featuresForMode(profile, featureConfig);
+      const declared = featuresForMode(profile, featureConfig);
+      features = {
+        ...declared,
+        proPlatesUnified: declared.proPlatesUnified ?? false,
+        proRcSheets: declared.proRcSheets ?? false,
+      };
       const define = featureDefines(features, command === 'build');
       if (testing) return { environments: { client: { define } } };
       if (command === 'build' && mode === 'production' && process.env.STABILEO_ROUTE_BUDGET_LEGACY === '1') {

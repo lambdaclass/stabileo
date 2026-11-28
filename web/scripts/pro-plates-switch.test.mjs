@@ -950,7 +950,7 @@ test('either reinforcement consumer reads the stored mesh bar lists; only the un
   }
 });
 
-test.skip('known wrong result: #1928 a validated released profile compiles absent plate and sheet selectors as disabled', async () => {
+test('known wrong result: #1928 a validated released profile compiles absent plate and sheet selectors as disabled', async () => {
   const revision = '4ec9619b4c5e742bf282dd33e0809b3f0e813d1f';
   const directory = mkdtempSync(resolve(root, 'scripts/.released-profile-'));
   const configFile = resolve(root, basename(directory) + '.mts');
