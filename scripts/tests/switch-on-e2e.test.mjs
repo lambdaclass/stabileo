@@ -12,7 +12,7 @@ const playwright = 'node_modules/@playwright/test/cli.js';
 const expectedSpecsFile = 'config/switch-on-e2e-specs.json';
 
 function fixture(t, specs, { config = '', sameProfiles = false, expectedSpecs = [] } = {}) {
-  const cwd = mkdtempSync(resolve(web, '.switch-on-collector-'));
+  const cwd = mkdtempSync(fileURLToPath(new URL('.switch-on-collector-', import.meta.url)));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   for (const subdir of ['config', 'scripts', 'e2e']) mkdirSync(resolve(cwd, subdir));
   for (const path of [collector, 'config/public-features.mjs']) {
