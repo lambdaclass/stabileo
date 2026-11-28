@@ -9,7 +9,7 @@ import { MAIN_TOOL_IDS, EXAMPLE_PATHS } from '../public-surface';
 import { mohrPanel, openMohr, openMohrFromFibre } from '../mohr/panel.svelte';
 
 const mainPaths = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS, '/paper', '/tools', ...MAIN_TOOL_IDS.map(id => `/tools/${id}`), ...EXAMPLE_PATHS];
-const newPaths = ['/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/tools/slab-on-columns', '/tools/earthquake-frame', '/tools/rc-column', '/tools/outrigger', '/tools/tower', '/diagram-game'];
+const newPaths = ['/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/tools/slab-on-columns', '/tools/earthquake-frame', '/tools/rc-column', '/tools/outrigger', '/tools/tower', '/diagram-game', '/games', '/games/diagram-game'];
 afterEach(() => { vi.unstubAllGlobals(); });
 it('disabled integration features stay off without withdrawing anything main publishes', async () => {
   vi.stubGlobal('__PUBLIC_FEATURES__', { accounts: false, research: false, tools: false, diagramGame: false });

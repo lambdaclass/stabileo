@@ -3418,9 +3418,10 @@
   .viewport-controls.view-dock {
     top: auto;
     bottom: 14px;
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
+    width: max-content;
+    margin: 0 auto;
     flex-direction: row;
     align-items: center;
     gap: 2px;

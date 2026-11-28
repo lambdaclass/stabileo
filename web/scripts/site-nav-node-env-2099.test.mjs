@@ -10,7 +10,7 @@ import { disabledFeatures } from './public-features-test-fixture.mjs';
 const root = resolve(import.meta.dirname, '..');
 
 for (const [features, expected] of [
-  [undefined, ['basic', 'tools', 'research', 'pricing', 'blog']],
+  [undefined, ['basic', 'tools', 'game', 'research', 'pricing', 'blog']],
   [disabledFeatures, ['basic', 'examples', 'tools', 'research', 'pricing', 'blog']],
   [Object.fromEntries(Object.keys(disabledFeatures).map(key => [key, true])), ['basic', 'tools', 'game', 'research', 'pricing', 'blog']],
 ]) {

@@ -63,9 +63,10 @@
   .camera-controls.view-dock {
     top: auto;
     bottom: 14px;
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
+    width: max-content;
+    margin: 0 auto;
     flex-direction: row;
     align-items: center;
     gap: 2px;
@@ -89,25 +90,9 @@
     right: auto;
     left: 50%;
     transform: translateX(-50%);
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 8px;
-    min-width: 420px;
     max-height: calc(100cqh - 76px);
     overflow-y: auto;
   }
-
-  .cam-col { display: contents; }
-
-  .camera-controls.view-dock .cam-col {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 1px;
-    min-width: 0;
-  }
-
-  .camera-controls.view-dock .cam-col + .cam-col > .cam-sep:first-child { display: none; }
 
   .view-dock-rule {
     width: 1px;
@@ -155,7 +140,7 @@
     top: 0;
     right: calc(100% + 6px);
     z-index: 21;
-    min-width: 190px;
+    min-width: 210px;
     padding: 4px;
     display: flex;
     flex-direction: column;
@@ -198,6 +183,14 @@
   .cam-two small { font-size: 0.64rem; color: var(--st-text-3); white-space: normal; max-width: 15rem; line-height: 1.25; }
 
   .cam-item.on { color: var(--st-accent); }
+  .cam-tick { margin-left: auto; padding-left: 0.6rem; color: var(--st-accent); font-size: 0.7rem; }
+  .cam-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+  .cam-chip { flex-direction: column; justify-content: center; gap: 2px; min-height: 40px; padding: 4px 2px; text-align: center; font-size: 0.66rem; }
+  .cam-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin: 1px 4px 4px; padding: 2px; gap: 2px; border-radius: 4px; background: var(--st-surface-2); }
+  .cam-seg button { min-height: 24px; border: none; border-radius: 3px; background: none; color: var(--st-text-2); font-size: 0.7rem; cursor: pointer; }
+  .cam-seg button:hover { color: var(--st-text); }
+  .cam-seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .cam-seg button.on { background: var(--st-surface-3); color: var(--st-accent); box-shadow: inset 0 0 0 1px var(--st-hair-strong); }
 
   .cam-glyph {
     width: 16px;
