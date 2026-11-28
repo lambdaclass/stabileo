@@ -809,3 +809,19 @@ test('known wrong result: #1928 the published deferred-column footprint grid exc
     });
   }
 });
+
+test.skip('known wrong result: #1928 the published load writer excludes unmeshed plate definitions', async () => {
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const entry = resolve(root, 'src/lib/store/apply-load-plan.ts');
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, minify: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external: (id, from) => !!from && !id.includes('physical-load-provider'),
+        },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+      assert.match(chunk.code, /addSurfaceLoad3D/);
+      assert.equal(/addGroup\(name, ["']floorLoad/.test(chunk.code), plates);
+    });
+  }
+});
