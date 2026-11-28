@@ -64,3 +64,12 @@ describe('sway storeys', () => {
     expect(s.deltaS).toBe(Number.POSITIVE_INFINITY);
   });
 });
+
+it.skip.each([0.006, 0.012, 0.06])('known wrong result: #1928 the ordinary stability query at drift %s reads joint restraints only for the capacity method', drift => {
+  let reads = 0;
+  const psi = () => { reads++; return { psiA: 1, psiB: 1 }; };
+  const [storey] = storeyStability({ nodes, elements, sections, materials, columns: [10, 11], perCombo: results(drift), psi });
+  expect(storey).toBeDefined();
+  expect(reads).toBe(storey!.method === 'Pc' || storey!.method === 'unstable' ? 2 : 0);
+  expect(storey).not.toHaveProperty('byCombo');
+});
