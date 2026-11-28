@@ -35,7 +35,7 @@ it.skip('known wrong result: #1928 the released IFC feet command assigns point s
   expect(plan).not.toBeNull();
   expect(applyPlateMeshes([plan!])).toMatchObject({ plates: 1 });
   modelStore.addSupport(corners[0]!, 'pinned3d');
-  const base = new Set([...modelStore.nodes.values()].filter(n => n.z === 0).map(n => n.id));
+  const base = new Set([...modelStore.nodes.values()].filter(n => (n.z ?? 0) === 0).map(n => n.id));
   expect(fixBases()).toBe(base.size - 1);
   const held = new Map([...modelStore.supports.values()].map(s => [s.nodeId, s.type]));
   expect(new Set(held.keys())).toEqual(base);
