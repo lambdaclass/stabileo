@@ -75,8 +75,7 @@ describe('a seismic portal by hand', () => {
   });
 });
 
-const issue2216 = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
-issue2216('known wrong result: #2216 missing primary reinforcement cannot pass a seismic member check', () => {
+it('known wrong result: #2216 missing primary reinforcement cannot pass a seismic member check', () => {
   const primaryColumn = column(1, 1, 2);
   const missingReinforcement = [
     { ...beam, r: undefined },
@@ -137,7 +136,7 @@ it.each(['below', 'boundary', 'above', 'strong', 'unrecorded'] as const)('known 
 });
 
 
-it.skip.each(['primary', 'secondary'] as const)('known wrong result: #2216 a %s column without a section records its assessment status', role => {
+it.each(['primary', 'secondary'] as const)('known wrong result: #2216 a %s column without a section records its assessment status', role => {
   const member = { ...column(1, 1, 2), role, section: undefined };
   const checked = seismicFrameChecks({ nodes, members: [member], settings: defaultSeismicDesign() }).members[0]!;
   expect(checked.ok).toBe(role === 'secondary');

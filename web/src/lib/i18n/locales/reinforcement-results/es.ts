@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "seisDes.issue.reinforcementUnassessed": "No se puede verificar el miembro primario sin su sección y armadura. Revise el detallado sísmico.",
   "seisDes.issue.confinementUnassessed": "Confinamiento sin verificar. Compruebe los esfuerzos axiales registrados y la disposición de las ataduras antes de detallar la columna.",
   "detailing.cutoff.unverified": "Viga {element}, x = {x} m. La resistencia local al corte y la armadura no justifican terminar la barra aquí.",
   "detailing.schedule.spliceNote": "La marca {mark} ({length} m) excede la barra comercial de {stock} m y requiere empalme.",

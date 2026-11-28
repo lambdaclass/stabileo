@@ -193,9 +193,18 @@ describe('the geometry suggests, it never declares', () => {
       if (evidence === 'incomplete') stations.comboResults = stations.comboResults.filter(c => c !== first);
       else first.stations[0]!.vz = Number.NaN;
     }
-    const result = runSeismicChecks().members.find(m => m.id === member.id)!;
+    const report = runSeismicChecks();
+    const result = report.members.find(m => m.id === member.id)!;
     if (evidence === 'complete') {
       expect(result.confinement).toBeDefined();
+      const unreinforced = report.members.filter(m => m.role === 'primary' && !modelStore.elements.get(m.id)?.reinforcement);
+      expect(new Set(unreinforced.map(m => m.kind))).toEqual(new Set(['beam', 'column']));
+      for (const m of unreinforced) {
+        expect(m.ok).toBe(false);
+        expect(m.issues).toContain('seisDes.issue.reinforcementUnassessed');
+      }
+      applySeismicDetailing();
+      for (const m of unreinforced) expect(modelStore.elements.get(m.id)!.reinforcement).toBeUndefined();
     } else {
       expect(result.confinement).toBeUndefined();
       expect(result.issues).toContain('seisDes.issue.confinementUnassessed');

@@ -93,6 +93,14 @@ export function columnLeastMn(sec: ColumnSection, fc: number, fy: number, axial:
   return Math.min(columnMnAt(sec, fc, fy, axial.min, 'least'), columnMnAt(sec, fc, fy, axial.max, 'least'));
 }
 
+function unassessedMember(m: FrameMember): MemberSeismic {
+  const needsReinforcement = m.role === 'primary';
+  return {
+    id: m.id, kind: m.kind, role: m.role, ...(m.assumed ? { assumed: true } : {}),
+    ok: !needsReinforcement, issues: needsReinforcement ? ['seisDes.issue.reinforcementUnassessed'] : [],
+  };
+}
+
 export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: readonly FrameMember[]; settings: SeismicDesignSettings }): SeismicReport {
   const { settings: s } = i;
   const members: MemberSeismic[] = [];
@@ -103,7 +111,7 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
   const beamOut = new Map<number, { mprNeg: [number, number]; mprPos: [number, number]; mnNeg: [number, number]; mnPos: [number, number]; top: [number, number]; bottom: number }>();
   for (const m of i.members) {
     if (m.kind !== 'beam') continue;
-    if (m.role !== 'primary' || !m.r) { members.push({ id: m.id, kind: 'beam', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: true, issues: [] }); continue; }
+    if (m.role !== 'primary' || !m.r) { members.push(unassessedMember(m)); continue; }
     const st = beamSteel(m.r), { d, dPrime } = beamDepths(m, st.minDia);
     const hoopDef = m.r.regions?.stirrupsSupport ?? m.r.stirrups ?? { diameter: m.stirrupDia, legs: 2, spacing: 0.2 };
     const drawing = m.r[drawnBeamReinforcement];
@@ -200,7 +208,7 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
   // ── Columns ──
   for (const m of i.members) {
     if (m.kind !== 'column') continue;
-    if (m.role !== 'primary' || !m.r || !m.section) { members.push({ id: m.id, kind: 'column', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: true, issues: [] }); continue; }
+    if (m.role !== 'primary' || !m.r || !m.section) { members.push(unassessedMember(m)); continue; }
     if (!colMn.has(m.id) || !m.axial) {
       members.push({ id: m.id, kind: 'column', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: false, issues: ['seisDes.issue.confinementUnassessed'] });
       continue;

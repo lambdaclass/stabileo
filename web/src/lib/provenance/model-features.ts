@@ -81,7 +81,7 @@ export const FEATURE_IDS = [
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
-  'concreteMembers', 'reinforcedSpatialFrame', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
+  'concreteMembers', 'seismicFrameAssessment', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
   'ordinaryDetailLap', 'largeBvbsMark', 'physicalDesignThickness', 'unreviewedLoadRoleStamp', 'individualNearLevelFlange', 'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateSubthresholdOffsets', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'shortOffAxisStrap', 'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
@@ -171,6 +171,7 @@ interface FeatureSnapshotFields {
   designData?: {
     propertyLines?: Record<string, unknown>;
     placement?: unknown;
+    seismic?: unknown;
     rcSheets?: { adopted?: Record<string, unknown>; fixedPoints?: unknown };
     foreignCodes?: { concrete?: string };
     loadBasis?: OccupancyBasis & { resultsVersion?: unknown; seismic?: unknown }; covers?: unknown; site?: { phases?: unknown[] };
@@ -698,6 +699,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (ctx.analysesRun == null || ctx.analysesRun.some(k => k !== 'modal' && k !== 'buckling')) f.add('forceSummaryResults');
   f.add(is3DWorkspace(mode) ? 'space3D' : 'plane2D');
 
+  const factorLists = (Array.isArray(s.combinations) ? s.combinations : []).flatMap(combination => {
+    const factors = (combination as { factors?: unknown } | null)?.factors;
+    return Array.isArray(factors) ? [factors as FactorEvidence[]] : [];
+  });
+  const earthquakeCases = new Set((s.loadCases ?? []).filter(c => c?.type === 'E').map(c => c.id));
+  const seismicFrameSetup = s.designData?.seismic != null || factorLists.some(factors =>
+    factors.some(t => typeof t?.caseId === 'number' && earthquakeCases.has(t.caseId) && typeof t.factor === 'number' && t.factor !== 0));
   const materials = new Map(values(s.materials).map((m) => [m.id, m]));
   const elements = values(s.elements);
   const familyOf = (id: number) => materialFamilyOf(materials.get(id) as never, catalogueGradeFamily).family;
@@ -746,7 +754,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       if ([e.tensionConnection?.i, e.tensionConnection?.j].some((c) => c?.kind === 'bolted' && (staggerGiven(c.stagger) || (c.connected === 'all' && c.webLines === 0)))) steelChainEnd++;
     } else if (fam === 'concrete' || e.reinforcement) {
       concrete++;
-      if (f.has('space3D') && e.type !== 'truss' && e.type !== 'cable' && e.reinforcement) f.add('reinforcedSpatialFrame');
+      if (f.has('space3D') && e.type !== 'truss' && e.type !== 'cable' && (e.reinforcement || seismicFrameSetup)) f.add('seismicFrameAssessment');
     }
   }
   if (steel) {
@@ -1247,10 +1255,6 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       return method === 'abs' || method === 'srss';
     })) f.add('magnitudeCombinations');
     if (s.analysis?.combinationMethod === 'superpose') f.add('superposedCombinations');
-    const factorLists = (Array.isArray(s.combinations) ? s.combinations : []).flatMap(combination => {
-      const factors = (combination as { factors?: unknown } | null)?.factors;
-      return Array.isArray(factors) ? [factors as FactorEvidence[]] : [];
-    });
     if (factorLists.some(factors => {
       const ids = factors.map(term => term?.caseId).filter(id => typeof id === 'number');
       return new Set(ids).size < ids.length;

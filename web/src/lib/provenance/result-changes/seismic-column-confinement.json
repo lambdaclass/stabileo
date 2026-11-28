@@ -5,28 +5,28 @@
   "area": "design",
   "when": {
     "all": [
-      "reinforcedSpatialFrame"
+      "seismicFrameAssessment"
     ]
   },
   "title": {
-    "en": "Seismic column confinement",
-    "es": "Confinamiento sísmico de columnas",
-    "pt": "Confinamento sísmico de pilares",
-    "de": "Umschnürung von Stützen bei Erdbeben",
-    "fr": "Confinement sismique des poteaux",
-    "tr": "Kolonlarda sismik sargı",
-    "hu": "Oszlopok földrengési körülzárása",
-    "zh": "柱抗震约束验算"
+    "en": "Seismic frame reinforcement and column confinement",
+    "es": "Armadura sísmica de pórticos y confinamiento de columnas",
+    "pt": "Armadura sísmica de pórticos e confinamento de pilares",
+    "de": "Erdbebenbewehrung von Rahmen und Stützenumschnürung",
+    "fr": "Armatures sismiques des portiques et confinement des poteaux",
+    "tr": "Çerçeve deprem donatısı ve kolon sargısı",
+    "hu": "Keretek földrengési vasalása és az oszlopok körülzárása",
+    "zh": "框架抗震配筋与柱约束"
   },
   "explanation": {
-    "en": "Check the recorded axial forces and tie layout before detailing this column.",
-    "es": "Compruebe los esfuerzos axiales registrados y la disposición de las ataduras antes de detallar la columna.",
-    "pt": "Verifique os esforços axiais registrados e a disposição dos estribos antes de detalhar o pilar.",
-    "de": "Prüfen Sie die erfassten Normalkräfte und die Bügelanordnung vor der Bewehrungsplanung der Stütze.",
-    "fr": "Vérifiez les efforts axiaux enregistrés et la disposition des cadres avant de détailler le poteau.",
-    "tr": "Kolonu detaylandırmadan önce kayıtlı eksenel kuvvetleri ve etriye düzenini kontrol edin.",
-    "hu": "Az oszlop vasalásának részletezése előtt ellenőrizze a rögzített normálerőket és a kengyelek elrendezését.",
-    "zh": "绘制柱配筋详图前，请核实记录的轴力和箍筋布置。"
+    "en": "Check the recorded axial forces and tie layout before detailing this column. The primary member cannot be checked without its section and reinforcement. Review the seismic detailing.",
+    "es": "Compruebe los esfuerzos axiales registrados y la disposición de las ataduras antes de detallar la columna. No se puede verificar el miembro primario sin su sección y armadura. Revise el detallado sísmico.",
+    "pt": "Verifique os esforços axiais registrados e a disposição dos estribos antes de detalhar o pilar. Não é possível verificar o elemento primário sem sua seção e armadura. Revise o detalhamento sísmico.",
+    "de": "Prüfen Sie die erfassten Normalkräfte und die Bügelanordnung vor der Bewehrungsplanung der Stütze. Das primäre Bauteil kann ohne Querschnitt und Bewehrung nicht geprüft werden. Prüfen Sie die Erdbebendetails.",
+    "fr": "Vérifiez les efforts axiaux enregistrés et la disposition des cadres avant de détailler le poteau. Le contrôle de l’élément primaire exige sa section et ses armatures. Vérifiez les dispositions parasismiques.",
+    "tr": "Kolonu detaylandırmadan önce kayıtlı eksenel kuvvetleri ve etriye düzenini kontrol edin. Birincil eleman, kesit ve donatı bilgileri olmadan doğrulanamaz. Deprem detaylandırmasını gözden geçirin.",
+    "hu": "Az oszlop vasalásának részletezése előtt ellenőrizze a rögzített normálerőket és a kengyelek elrendezését. Az elsődleges elem ellenőrzéséhez szükséges a szelvény és a vasalás. Ellenőrizze a földrengési részleteket.",
+    "zh": "绘制柱配筋详图前，请核实记录的轴力和箍筋布置。缺少截面和配筋信息，无法验算主要构件。请复核抗震构造。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-seismic-column-confinement.md",

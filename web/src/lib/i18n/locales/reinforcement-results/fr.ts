@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "seisDes.issue.reinforcementUnassessed": "Le contrôle de l’élément primaire exige sa section et ses armatures. Vérifiez les dispositions parasismiques.",
   "seisDes.issue.confinementUnassessed": "Confinement non vérifié. Vérifiez les efforts axiaux enregistrés et la disposition des cadres avant de détailler le poteau.",
   "detailing.cutoff.unverified": "Poutre {element}, x = {x} m. La résistance locale au cisaillement et les armatures ne justifient pas un arrêt de barre ici.",
   "detailing.schedule.spliceNote": "La position {mark} ({length} m) dépasse la barre commerciale de {stock} m et demande un recouvrement.",
