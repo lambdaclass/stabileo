@@ -751,7 +751,7 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
                     let (mi, t, sign) = (hinges[hi].member, hinges[hi].t, hinges[hi].sign);
                     set_hinge(&mut current_input, &members[mi], t, false);
                     if super::kinematic::analyze_kinematics_2d(&current_input).is_solvable {
-                        if let Ok(r) = super::linear::solve_2d(&current_input) {
+                        if let Ok(r) = super::linear::plastic_increment_2d(&current_input) {
                             let by_id: HashMap<usize, &ElementForces> = r.element_forces.iter().map(|ef| (ef.element_id, ef)).collect();
                             let mu = members[mi].diagram(members[mi].unit_vals(&by_id), 1.0, &current_input).at(t);
                             if mu * sign < -unit_moment_scale(&r) * 1e-9 {
@@ -777,7 +777,7 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
                 }
                 continue;
             }
-            let r = match super::linear::solve_2d(&current_input) {
+            let r = match super::linear::plastic_increment_2d(&current_input) {
                 Ok(r) => r,
                 Err(_) => break None,
             };
@@ -979,7 +979,7 @@ pub(crate) fn solve_plastic_2d_body(input: &PlasticInput) -> Result<PlasticResul
     }
 
     let mut is_mechanism = !super::kinematic::analyze_kinematics_2d(&current_input).is_solvable
-        || super::linear::solve_2d(&current_input).is_err();
+        || super::linear::plastic_increment_2d(&current_input).is_err();
 
     if reversal_unresolved {
         warnings.push(
@@ -1117,7 +1117,7 @@ pub(crate) fn load_moment_scale_2d(input: &SolverInput) -> f64 {
     f * l
 }
 
-fn unit_moment_scale(r: &AnalysisResults) -> f64 {
+fn unit_moment_scale(r: &super::linear::PlasticIncrement2D) -> f64 {
     r.element_forces.iter().fold(0.0f64, |a, ef| a.max(ef.m_start.abs()).max(ef.m_end.abs()))
 }
 
@@ -1128,7 +1128,7 @@ fn node_has_couple(input: &SolverInput, n: usize) -> bool {
 /// One step's increment (unit solution × `factor`) on the model as given:
 /// member forces of whole members, displacements of the original nodes.
 fn merged_results(
-    results: &AnalysisResults,
+    results: &super::linear::PlasticIncrement2D,
     members: &[Member],
     unit_vals: &[[f64; 6]],
     factor: f64,

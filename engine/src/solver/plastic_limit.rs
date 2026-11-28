@@ -412,7 +412,7 @@ fn self_stresses(input: &SolverInput, members: &[usize]) -> Result<Vec<(HashMap<
     let mut out = Vec::with_capacity(cases.len());
     for (loads, reference) in cases {
         let forces = match &prepared {
-            Some(frame) => frame.solve_member_forces(&loads)?,
+            Some(frame) => frame.plastic_increment(&loads)?.element_forces,
             None => super::linear::solve_2d(&SolverInput { loads, ..s.clone() })?.element_forces,
         };
         let ef: HashMap<usize, &ElementForces> = forces.iter().map(|f| (f.element_id, f)).collect();
@@ -470,7 +470,7 @@ pub fn limit_analysis_2d(input: &SolverInput, mp: &HashMap<usize, f64>, np: &Has
             Err(super::plastic::INITIAL_MECHANISM.into())
         };
     }
-    let r0 = super::linear::solve_2d(&stiffness)?;
+    let r0 = super::linear::plastic_increment_2d(&stiffness)?;
     let ef0: HashMap<usize, &ElementForces> = r0.element_forces.iter().map(|f| (f.element_id, f)).collect();
     let mut elems: Vec<&SolverElement> = crate::ordered::values(&input.elements).collect();
     elems.sort_by_key(|e| e.id);

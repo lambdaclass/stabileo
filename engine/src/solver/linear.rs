@@ -419,6 +419,31 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     Ok(r)
 }
 
+pub(super) struct PlasticIncrement2D {
+    pub element_forces: Vec<ElementForces>,
+    pub displacements: Vec<Displacement>,
+    pub reactions: Vec<Reaction>,
+    pub constraint_forces: Vec<ConstraintForce>,
+}
+
+impl From<AnalysisResults> for PlasticIncrement2D {
+    fn from(result: AnalysisResults) -> Self {
+        Self {
+            element_forces: result.element_forces,
+            displacements: result.displacements,
+            reactions: result.reactions,
+            constraint_forces: result.constraint_forces,
+        }
+    }
+}
+
+pub(super) fn plastic_increment_2d(input: &SolverInput) -> Result<PlasticIncrement2D, String> {
+    if !input.constraints.is_empty() {
+        return solve_2d(input).map(Into::into);
+    }
+    prepare_static_2d(input)?.plastic_increment(&input.loads)
+}
+
 /// Typed direct API. Frame properties stay typed from serde to stiffness/recovery.
 pub fn solve_2d_typed(input: &ElasticInput2D) -> Result<AnalysisResults, String> {
     let legacy = input.legacy_view();
@@ -833,8 +858,8 @@ impl PreparedStatic2D<'_> {
         })
     }
 
-    pub(super) fn solve_member_forces(&self, loads: &[SolverLoad]) -> Result<Vec<ElementForces>, String> {
-        Ok(self.solve_checked_loads(loads, |_| {})?.element_forces)
+    pub(super) fn plastic_increment(&self, loads: &[SolverLoad]) -> Result<PlasticIncrement2D, String> {
+        self.solve_checked_loads(loads, |_| {}).map(Into::into)
     }
 
     fn solve_checked_loads(&self, loads: &[SolverLoad], report: impl FnOnce(&mut AnalysisResults)) -> Result<AnalysisResults, String> {

@@ -185,11 +185,10 @@ fn issue_1927_plastic_self_stresses_share_one_prepared_frame() {
     assert_eq!(limit.confirmation, Confirmation::Exact);
     assert!((limit.lambda - 6.0 * MP / 7.0).abs() <= MP * 1e-12);
     let counts = (PLANE_PREPARATIONS.with(|n| n.get()), PLANE_SECOND_ORDER_REPORTS.with(|n| n.get()));
-    assert_eq!(counts, (2, 1));
+    assert_eq!(counts, (2, 0));
 }
 
 #[test]
-#[ignore = "known wrong result: #1927"]
 fn issue_1927_hinge_trials_only_report_second_order_for_a_public_linear_result() {
     use crate::solver::linear::{solve_2d, PLANE_SECOND_ORDER_REPORTS};
 
