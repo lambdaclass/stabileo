@@ -18,6 +18,7 @@
     "fr": "Règles de poids propre en 2D",
     "tr": "Düzlem modellerinde öz ağırlık kuralları",
     "hu": "Síkbeli önsúlyszabályok",
+    "vi": "Quy tắc trọng lượng bản thân phẳng",
     "zh": "平面模型的自重规则"
   },
   "explanation": {
@@ -28,6 +29,7 @@
     "fr": "Les calculs 2D utilisent le facteur signé, la direction et le périmètre du poids propre de chaque cas.",
     "tr": "Düzlem çözümleri her yük durumunun işaretli öz ağırlık katsayısını, yönünü ve kapsamını kullanır.",
     "hu": "A síkbeli számítás a tehereset előjeles önsúlytényezőjét, irányát és hatókörét használja.",
+    "vi": "Các phép giải phẳng nay dùng hệ số trọng lượng bản thân có dấu, hướng và phạm vi của trường hợp.",
     "zh": "平面分析现在采用各荷载工况自重的带符号系数、方向和作用范围。"
   },
   "changelog": {

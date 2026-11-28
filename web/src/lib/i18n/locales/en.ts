@@ -4430,6 +4430,7 @@ const en: Record<string, string> = {
   'lang.hu': 'Magyar',
   'lang.hi': '\u0939\u093F\u0928\u094D\u0926\u0940',
   'lang.zh': '中文',
+  'lang.vi': 'Tiếng Việt',
   'lang.ja': '日本語',
   'lang.ko': '한국어',
   'lang.ru': 'Русский',

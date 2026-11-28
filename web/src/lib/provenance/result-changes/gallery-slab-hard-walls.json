@@ -24,6 +24,7 @@
     "fr": "La galerie publique de dalles utilise des appuis simples durs sur murs",
     "hu": "A nyilvános lemezgaléria merev egyszerű támaszokat használ a falakon",
     "tr": "Herkese açık döşeme galerisi duvarlarda sert basit mesnetler kullanıyor",
+    "vi": "Thư viện sàn công khai dùng gối tựa đơn cứng trên tường",
     "zh": "公开的楼板示例库对墙采用刚性简支"
   },
   "explanation": {
@@ -34,6 +35,7 @@
     "fr": "La PR #1627 modifie les données de la dalle de démonstration sur murs : les rotations tangentielles du bord sont bloquées en plus du déplacement vertical, et la référence inclut la déformation de cisaillement de Reissner–Mindlin. La flèche et la référence affichée changent ensemble. Cette entrée concerne uniquement slab-on-columns dans la galerie publique avec murs sélectionnés ; les appuis sur poteaux et les projets enregistrés ne sont pas concernés.",
     "hu": "A PR #1627 módosította a falakra támaszkodó lemezbemutató bemeneteit: a függőleges mozgás mellett az él érintőirányú forgásai is kötöttek, a referencia pedig Reissner–Mindlin nyírási alakváltozást is tartalmaz. A lehajlás és a közölt referencia együtt változik. Ez csak a nyilvános slab-on-columns galéria falas változatát érinti; az oszloptámaszok és a mentett projektek változatlanok.",
     "tr": "PR #1627, duvarlarla mesnetlenmiş döşeme örneğinin girdilerini değiştirdi: düşey harekete ek olarak kenara teğet dönmeler tutuluyor ve referans artık Reissner–Mindlin kayma deformasyonunu içeriyor. Sehim ve gösterilen referans birlikte değişiyor. Bu kayıt yalnızca herkese açık slab-on-columns galerisinde duvarlar seçiliyken geçerlidir; kolonlu örnek ve kayıtlı projeler bu örnek girdisi düzeltmesinden etkilenmez.",
+    "vi": "PR #1627 đã thay đổi dữ liệu đầu vào của ví dụ sàn tựa trên tường: các góc xoay tiếp tuyến với cạnh cũng bị ngăn, cùng với chuyển động theo phương đứng, và phần tham chiếu nay bao gồm biến dạng cắt Reissner–Mindlin. Do đó, độ võng của nó và phần tham chiếu hiển thị thay đổi cùng nhau. Mục này chỉ áp dụng cho thư viện sàn trên cột công khai khi chọn tường; các gối cột và các dự án đã lưu không bị ảnh hưởng bởi việc hiệu chỉnh dữ liệu ví dụ này.",
     "zh": "PR #1627 更改了墙支承楼板演示的输入：除竖向运动外，现在也约束边缘切向转动，参考解也计入了 Reissner–Mindlin 剪切变形。因此其挠度和显示的参考值会同时变化。本条目仅适用于选择了墙的公开柱支承楼板示例；柱支座以及已保存的项目不受这一演示输入修正的影响。"
   },
   "changelog": {

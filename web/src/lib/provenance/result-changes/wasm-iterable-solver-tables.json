@@ -14,6 +14,7 @@
     "de": "Iterierbare Tabellen für den WASM-Solver",
     "fr": "Tables itérables du solveur WASM",
     "tr": "Yinelenebilir WASM çözücü tabloları",
+    "vi": "Các bảng bộ giải WASM có thể lặp",
     "zh": "可迭代的 WASM 求解器表"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "de": "Die WASM-Objektanalyse übernimmt Solver-Einträge aus iterierbaren Schlüssel-Wert-Paaren, auch Verbindungselemente in einem Set. Ungültige Tabellenformen, fehlerhafte Paare und doppelte Schlüssel werden abgelehnt.",
     "fr": "L’analyse avec des objets WASM conserve les entrées du solveur fournies sous forme de paires clé-valeur itérables, y compris les connecteurs dans un Set. Les tables invalides, les paires mal formées et les clés en double sont refusées.",
     "tr": "WASM nesne analizi, Set içindeki bağlantı elemanları dahil, yinelenebilir anahtar-değer çiftleri olarak verilen çözücü girdilerini korur. Geçersiz tablo biçimleri, hatalı çiftler ve yinelenen anahtarlar reddedilir.",
+    "vi": "Phân tích đối tượng WASM giữ nguyên các mục của bộ giải được cung cấp dưới dạng cặp khóa-giá trị có thể lặp, kể cả các bộ nối trong một Set. Nó từ chối các dạng bảng không hợp lệ, các cặp sai định dạng và các khóa trùng lặp.",
     "zh": "WASM 对象分析会保留以可迭代键值对提供的求解器条目，包括 Set 中的连接件。无效的表结构、格式错误的键值对和重复键都会被拒绝。"
   },
   "changelog": {

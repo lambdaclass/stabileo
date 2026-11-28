@@ -109,6 +109,7 @@ const pdeltaPhysicalResidual: Record<Locale, string> = {
   hu: "A P-Delta-eredmények nem érhetők el, mert a szabad szabadságfokok fizikai maradéka nem teljesítette a kért tűrést.",
   pt: "Os resultados de P-Delta foram retidos porque o resíduo físico nos graus de liberdade livres não atendeu à tolerância solicitada.",
   tr: "Serbestlik derecelerindeki fiziksel artık istenen toleransı karşılamadığı için P-Delta sonuçları verilmedi.",
+  vi: "Kết quả P-Delta bị giữ lại vì phần dư vật lý của các bậc tự do tự do không đạt dung sai yêu cầu.",
   zh: "自由自由度的物理残差未达到要求的容差，因此未提供 P-Delta 结果。",
 };
 registerFeatureDictionaries(Object.fromEntries(
@@ -124,6 +125,7 @@ const reducedStiffnessRank: Record<Locale, string> = {
   hu: 'A redukált merevségi mátrix rangja az összeállítás pontosságával nem határozható meg. Mechanizmus kereséséhez ellenőrizze a rúdvégi feloldásokat, a támaszokat, a rugókat és a kényszereket.',
   pt: 'Não é possível determinar o posto da rigidez reduzida com a precisão da montagem. Verifique as liberações, os apoios, as molas e as restrições para identificar um mecanismo.',
   tr: 'İndirgenmiş rijitlik matrisinin mertebesi montaj hassasiyetiyle belirlenemiyor. Bir mekanizma olup olmadığını görmek için eleman mafsallarını, mesnetleri, yayları ve kısıtları kontrol edin.',
+  vi: 'Hạng độ cứng đã rút gọn không thể xác định ở độ chính xác lắp ghép. Hãy kiểm tra giải phóng đầu thanh, gối tựa, lò xo và liên kết xem có cơ cấu hay không.',
   zh: '在组装精度下无法判定约化刚度矩阵的秩。请检查杆端释放、支座、弹簧和约束是否形成机构。',
 };
 registerFeatureDictionaries(Object.fromEntries(
@@ -140,6 +142,7 @@ const constraintStiffnessRank: Record<Locale, [string, string]> = {
   hu: ['A kényszerek redukciója kioltja a merevségi hozzájárulásokat{where}. A kerekítés miatt a fennmaradó merevség nem határozható meg. Csökkentse a szélsőséges merevségkülönbségeket, vagy módosítsa a kényszereket.', ' a(z) {nodes} csomópontokban'],
   pt: ['A redução das restrições cancela contribuições de rigidez{where}. O arredondamento impede determinar a rigidez restante. Reduza os contrastes extremos de rigidez ou revise as restrições.', ' nos nós {nodes}'],
   tr: ['Kısıtların indirgenmesi{where} rijitlik katkılarını birbirini götürecek şekilde birleştiriyor. Yuvarlama kalan rijitliğin belirlenmesini engelliyor. Aşırı rijitlik farklarını azaltın veya kısıtları gözden geçirin.', ' {nodes} düğümlerinde'],
+  vi: ['Việc khử liên kết triệt tiêu các đóng góp độ cứng{where}. Sai số làm tròn ngăn việc xác định độ cứng còn lại. Hãy giảm các chênh lệch độ cứng cực đoan hoặc sửa lại các liên kết.', ' tại các nút {nodes}'],
   zh: ['约束消元使刚度贡献{where}相互抵消。舍入误差导致剩余刚度无法判定。请减小过大的刚度差异或调整约束。', '在节点 {nodes} 处'],
 };
 registerFeatureDictionaries(Object.fromEntries(
@@ -159,6 +162,7 @@ const axialJointMechanism: Record<Locale, string> = {
   hu: 'A(z) {node} csomópontnál mechanizmus van. A csomópont elmozdulhat a kapcsolódó rácsrudak alakváltozása és a kényszerek megsértése nélkül.',
   pt: 'Há um mecanismo no nó {node}. O nó pode se deslocar sem deformar as barras de treliça ligadas a ele e sem violar as restrições.',
   tr: '{node} düğümünde bir mekanizma var. Düğüm, bağlı kafes çubuklarını deforme etmeden ve kısıtları ihlal etmeden ötelenebilir.',
+  vi: 'Có một cơ cấu tại nút {node}. Nút có thể tịnh tiến mà không làm biến dạng các thanh giàn nối vào nó hoặc vi phạm các liên kết ngăn.',
   zh: '节点 {node} 处存在机构。该节点可以平移，而不使相连的桁架杆产生应变，也不违反约束。',
 };
 const axialJointComponents: Record<Locale, string> = {
@@ -169,6 +173,7 @@ const axialJointComponents: Record<Locale, string> = {
   hu: 'A mozgás lehetséges összetevői: {components}.',
   pt: 'Componentes possíveis do movimento: {components}.',
   tr: 'Olası hareket bileşenleri: {components}.',
+  vi: 'Các thành phần chuyển động có thể xảy ra: {components}.',
   zh: '可能的运动分量：{components}。',
 };
 registerFeatureDictionaries(Object.fromEntries(
@@ -189,6 +194,7 @@ const frameSwingMechanism: Record<Locale, string> = {
   hu: 'A(z) {node} csomópontnál mechanizmus van. Egy rúd a csuklós vége körül alakváltozás és a megtámasztások elmozdulása nélkül elfordulhat.',
   pt: 'Há um mecanismo no nó {node}. Uma barra pode girar em torno de uma extremidade liberada sem se deformar nem deslocar seus apoios.',
   tr: '{node} düğümünde bir mekanizma var. Bir çubuk, şekil değiştirmeden veya mesnetlerini hareket ettirmeden mafsallı ucu etrafında dönebilir.',
+  vi: 'Có một cơ cấu tại nút {node}. Một thanh khung có thể xoay quanh đầu được giải phóng mà không biến dạng hoặc chuyển động tại các liên kết ngăn của nó.',
   zh: '节点 {node} 处存在机构。一根框架杆可绕释放端转动，杆件无应变，约束处无位移。',
 };
 registerFeatureDictionaries(Object.fromEntries(

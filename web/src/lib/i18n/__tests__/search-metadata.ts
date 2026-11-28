@@ -142,6 +142,7 @@ export function searchMetadataSuite(dist: string) {
         tr: ['açık kaynaklı yapı mühendisliği yazılımı'],
         hu: ['nyílt forráskódú szerkezettervező szoftver'],
         zh: ['开源结构工程软件'],
+        vi: ["phần mềm kỹ thuật kết cấu mã nguồn mở"],
       };
       const aiInDevelopment: Record<string, string> = {
         en: 'AI assistant in development',
@@ -152,6 +153,7 @@ export function searchMetadataSuite(dist: string) {
         tr: 'geliştirilmekte olan yapay zekâ asistanı',
         hu: 'AI-asszisztens fejlesztés alatt áll',
         zh: 'AI 助手开发中',
+        vi: 'Trợ lý AI đang phát triển',
       };
       const problems = ownPages()
         .filter((p) => p.path === '/' || p.path === '/tools')

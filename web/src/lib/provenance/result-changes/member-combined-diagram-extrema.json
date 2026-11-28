@@ -22,6 +22,7 @@
     "de": "Extrema kombinierter Stabdiagramme",
     "fr": "Extrema des diagrammes combinés",
     "tr": "Birleşik eleman diyagramı uç değerleri",
+    "vi": "Cực trị biểu đồ thanh của tổ hợp",
     "zh": "杆件组合内力图的极值",
     "hu": "Kombinált rúddiagramok szélsőértékei"
   },
@@ -32,6 +33,7 @@
     "de": "ABS- und SRSS-Stabdiagramme enthalten die Extrema der kombinierten Funktion zwischen Lastgrenzen. Kombinationen, Diagramme und abhängige Nachweise erneut ausführen (#2273).",
     "fr": "Les diagrammes ABS et SRSS incluent les extrema de la fonction combinée entre les limites de charge. Relancez combinaisons, diagrammes et vérifications associées (#2273).",
     "tr": "ABS ve SRSS eleman diyagramları yük sınırları arasındaki birleşik fonksiyonun uç değerlerini içerir. Birleşimleri, diyagramları ve bağlı kontrolleri yineleyin (#2273).",
+    "vi": "Các biểu đồ thanh ABS và SRSS bao gồm các cực trị của hàm tổ hợp giữa các biên tải. Hãy chạy lại các tổ hợp, biểu đồ và các kiểm tra phụ thuộc (#2273).",
     "zh": "ABS 和 SRSS 杆件内力图包含荷载分界点之间组合函数的极值。请重新运行组合、内力图和相关验算（#2273）。",
     "hu": "Az ABS és SRSS rúddiagramok tartalmazzák a kombinált függvény teherhatárok közötti szélsőértékeit. Ismételje meg a kombinációkat, diagramokat és kapcsolódó ellenőrzéseket (#2273)."
   },

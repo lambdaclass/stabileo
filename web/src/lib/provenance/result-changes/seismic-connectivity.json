@@ -22,6 +22,7 @@
     "de": "Statische Erdbebenlasten erfordern ein einzelnes gelagertes Tragwerk",
     "fr": "Les charges sismiques statiques exigent une seule structure avec appui",
     "tr": "Statik deprem yükleri tek bir mesnetli yapı gerektirir",
+    "vi": "Tải trọng động đất tĩnh yêu cầu một kết cấu duy nhất có gối tựa",
     "zh": "等效静力地震荷载要求单一相连且有支承的结构",
     "hu": "A statikus szeizmikus terhekhez egyetlen megtámasztott szerkezet szükséges"
   },
@@ -32,6 +33,7 @@
     "de": "Seismische Masse, Grundrissbreite und Bezugslager müssen zu einem durch Stäbe, Schalen, Platten oder starre Deckenscheiben verbundenen Tragwerk gehören. Erzeugen Sie betroffene E-Lasten neu (#2316).",
     "fr": "La masse sismique, la largeur en plan et les appuis de référence doivent appartenir à une même structure reliée par des barres, des coques, des plaques ou des diaphragmes rigides. Régénérez les charges E concernées (#2316).",
     "tr": "Sismik kütle, plandaki genişlik ve referans mesnetleri, çubuklar, kabuklar, plaklar veya rijit döşeme diyaframlarıyla bağlanan tek bir yapıya ait olmalıdır. Etkilenen E yüklerini yeniden oluşturun (#2316).",
+    "vi": "Khối lượng động đất, bề rộng mặt bằng và các gối tựa mốc chuẩn phải thuộc về một kết cấu được nối bằng các thanh, vỏ, tấm hoặc vách cứng sàn. Hãy tạo lại các tải trọng E bị ảnh hưởng (#2316).",
     "zh": "贡献地震质量或平面宽度的构件及用于定义基准标高的支座，必须属于同一结构，并通过杆件、壳单元、板单元或刚性楼板相连。请重新生成受影响的 E 荷载（#2316）。",
     "hu": "A szeizmikus tömegnek, az alaprajzi szélességnek és a viszonyítási támaszoknak ugyanahhoz a rudakkal, héjakkal, lemezekkel vagy merev födémtárcsákkal összekötött szerkezethez kell tartozniuk. Generálja újra az érintett E terheket (#2316)."
   },

@@ -23,6 +23,7 @@
     "fr": "La continuation plane vérifie chaque état accepté",
     "hu": "A síkbeli folytatás ellenőrzi az elfogadott állapotokat",
     "tr": "Düzlemsel devam kabul edilen her durumu doğrular",
+    "vi": "Phép tiếp diễn phẳng xác minh từng trạng thái được chấp nhận",
     "zh": "平面延续验证每个已接受的状态"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Les pas de longueur d’arc doivent respecter l’équilibre et le rayon demandé. Un essai en échec restaure le dernier point accepté. Les efforts sont calculés avec les charges normalisées, et la continuation corotationnelle applique exactement les charges et positions d’appui cibles.",
     "hu": "Az ívhosszlépéseknek teljesíteniük kell az egyensúlyt és az előírt sugarat. Sikertelen próbálkozáskor az utolsó elfogadott pont áll vissza. Az erők a normalizált rúdterhekből készülnek, a korotációs folytatás pedig pontosan alkalmazza a célterheket és támaszhelyzeteket.",
     "tr": "Yay uzunluğu adımları dengeyi ve istenen yarıçapı sağlamalıdır. Başarısız denemede son kabul edilen nokta geri yüklenir. Kuvvetler normalleştirilmiş eleman yüklerinden hesaplanır. Eş dönel devam hedef yükleri ve mesnet konumlarını tam olarak uygular.",
+    "vi": "Các bước chiều dài cung phải thỏa mãn cân bằng và bán kính được yêu cầu. Một lần thử thất bại khôi phục điểm được chấp nhận cuối cùng. Các bộ giải đường đi khôi phục lực từ tải thanh đã chuẩn hóa, và các khởi động ấm đồng xoay áp dụng đúng tải đích và vị trí gối tựa.",
     "zh": "弧长步必须满足平衡和指定半径。试算失败时恢复到最后接受的点。路径求解使用归一化杆件荷载恢复内力，共旋热启动精确施加目标荷载和支座位置。"
   },
   "changelog": {

@@ -21,6 +21,7 @@
     "de": "Torsion prüft jede ausgegebene Bügelbewehrung",
     "fr": "La torsion vérifie tous les étriers fournis",
     "tr": "Burulma verilen tüm etriyeleri kontrol eder",
+    "vi": "Xoắn kiểm tra mọi lồng cốt đai được trả về",
     "zh": "扭转验算每个返回的箍筋笼"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "de": "Die Betonprüfung prüft Torsionstragfähigkeit und Abstand festgelegter oder bemessener Bügel auch ohne festgelegte Längsbewehrung. Unzureichende Bügel führen zum Versagen. Die Bemessungshöhe gehört zu den erforderlichen Bewehrungswerten; providedDepth erfasst die tatsächlich geprüften Stäbe. Gespeicherte Bemessungen erneut ausführen und Bügel sowie Torsionsfehler prüfen (SA-2026-068, #2141; PR #2080).",
     "fr": "La vérification béton contrôle la capacité en torsion et l’espacement des étriers imposés ou dimensionnés même sans armature longitudinale imposée. Les étriers insuffisants échouent. La hauteur utile de dimensionnement accompagne les armatures requises ; providedDepth indique les barres réellement vérifiées. Relancer les calculs et examiner les étriers et les échecs en torsion (SA-2026-068, #2141; PR #2080).",
     "tr": "Beton doğrulaması, boyuna burulma donatısı sabitlenmese bile sabit veya tasarlanan etriyelerin burulma kapasitesini ve aralığını kontrol eder. Yetersiz etriyeler başarısız olur. Boyutlandırma derinliği gerekli donatı değerleriyle kalır; providedDepth kontrol edilen çubukları kaydeder. Kayıtlı tasarımları yeniden çalıştırıp etriyeleri ve burulma hatalarını inceleyin (SA-2026-068, #2141; PR #2080).",
+    "vi": "Kiểm tra bê tông nay kiểm tra khả năng chịu xoắn và bước của các cốt đai cố định hoặc được thiết kế ngay cả khi không có phân bổ xoắn dọc cố định. Các lồng không đủ thì không đạt. Chiều cao chọn kích thước chịu uốn vẫn đi cùng các đại lượng thép cần thiết; providedDepth ghi lại các thanh thực tế được kiểm tra. Hãy chạy lại các thiết kế bê tông đã lưu và xem lại các cốt đai và các lỗi xoắn (SA-2026-068, #2141; PR #2080).",
     "zh": "混凝土验证现在会验算固定或设计的箍筋的抗扭承载力和间距，即使没有固定的纵向抗扭分配也是如此。不足的箍筋笼判为不通过。受弯配筋计算所用的有效高度仍与所需钢筋量对应；providedDepth 记录实际验算的钢筋。请重新运行已保存的混凝土设计，并复核箍筋和扭转的不通过情况（SA-2026-068，#2141；PR #2080）。"
   },
   "changelog": {

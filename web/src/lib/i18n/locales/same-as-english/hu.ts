@@ -205,6 +205,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "lang.it",
   "lang.ja",
   "lang.ko",
+  "lang.vi",
   "lang.pt",
   "lang.ru",
   "lang.tr",

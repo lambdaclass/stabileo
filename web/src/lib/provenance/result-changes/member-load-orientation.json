@@ -17,6 +17,7 @@
     "fr": "Charges réparties sur les barres 3D inversées",
     "hu": "Megfordított térbeli rudak megoszló terhei",
     "tr": "Ters çevrilen 3B çubuklarda yayılı yükler",
+    "vi": "Tải phân bố trên các thanh 3D bị đảo chiều",
     "zh": "反向三维杆件的分布荷载"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "fr": "L’inversion d’une barre conserve la direction physique et le profil de ses charges réparties. Vérifiez les charges sur les barres déjà inversées avant de relancer le calcul.",
     "hu": "A rúd végpontjainak felcserélése megőrzi a megoszló terhek fizikai irányát és eloszlását. Újraszámítás előtt ellenőrizze a korábban megfordított rudak terheit.",
     "tr": "Bir çubuğun ters çevrilmesi yayılı yüklerinin fiziksel yönünü ve dağılımını korur. Analizi yenilemeden önce daha önce ters çevrilmiş çubukların yüklerini inceleyin.",
+    "vi": "Việc đảo chiều một thanh giữ nguyên hướng vật lý và dạng phân bố của các tải phân bố trên nó. Hãy rà soát các tải trên các thanh đã đảo chiều trước đây trước khi chạy lại phân tích.",
     "zh": "反向杆件时，其分布荷载的实际方向和分布保持不变。重新计算前，请检查曾反向的杆件荷载。"
   },
   "changelog": {

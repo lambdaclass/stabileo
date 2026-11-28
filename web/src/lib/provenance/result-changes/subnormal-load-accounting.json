@@ -13,6 +13,7 @@
     "fr": "Sous-dépassement dans la vérification des charges appliquées",
     "hu": "Alulcsordulás az alkalmazott terhek ellenőrzésében",
     "tr": "Uygulanan yüklerin denetiminde alt taşma",
+    "vi": "Underflow trong đối chiếu tải trọng đặt vào",
     "zh": "施加荷载校核中的浮点下溢"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "La vérification des charges tient compte du sous-dépassement en virgule flottante dans chaque composante. L’assemblage du portique spatial conserve les charges réparties non nulles sous l’ancien seuil.",
     "hu": "A terhek ellenőrzése komponensenként figyelembe veszi a lebegőpontos alulcsordulást. A térbeli keret összeállítása a korábbi küszöb alatti nem nulla megoszló terheket is megtartja.",
     "tr": "Yük denetimi, her bileşendeki kayan nokta alt taşmasını hesaba katar. Uzay çerçeve montajı, önceki eşiğin altındaki sıfırdan farklı yayılı yükleri korur.",
+    "vi": "Phép kiểm tra tải trọng có tính đến underflow dấu phẩy động ở từng thành phần. Việc ghép nối khung không gian giữ các tải trọng phân bố khác không dưới ngưỡng cắt trước đây của nó.",
     "zh": "荷载校核考虑每个分量的浮点下溢。空间框架组装保留低于原阈值的非零分布荷载。"
   },
   "changelog": {

@@ -30,6 +30,7 @@
     "fr": "Le calcul par phases vérifie la rigidité physique et la précision",
     "hu": "Az építési fázisok fizikai merevséget és megoldási pontosságot ellenőriznek",
     "tr": "Aşamalı analiz fiziksel rijitliği ve çözüm doğruluğunu denetler",
+    "vi": "Thi công theo giai đoạn kiểm tra độ cứng vật lý và độ chính xác của lời giải",
     "zh": "分阶段施工检查物理刚度和求解精度"
   },
   "explanation": {
@@ -40,6 +41,7 @@
     "fr": "Le calcul par phases refuse désormais les charges réduites non nulles aux degrés libres inactifs, préserve les contraintes partielles et les degrés inactifs non chargés, et vérifie la précision et les valeurs finies avec les routines linéaires. La rigidité artificielle ou l’absence de raffinement pouvait modifier déplacements, réactions et efforts même sans libérations. Recalculez les séquences de construction et vérifiez les sollicitations (#1846, PR #1943).",
     "hu": "A fázisos vizsgálat elutasítja a szabad inaktív szabadságfokok nem nulla redukált terheit, megőrzi a részleges kényszereket és a terheletlen inaktív szabadságfokokat, továbbá a szabályos lineáris eljárással ellenőrzi a megoldás pontosságát és végességét. A korábbi mesterséges merevség vagy elmaradt finomítás végkioldások nélkül is módosíthatta az elmozdulásokat, reakciókat és rúdhatásokat. Futtassa újra a fázistörténeteket, és ellenőrizze a származtatott igénybevételeket (#1846, PR #1943).",
     "tr": "Aşamalı analiz artık etkin olmayan serbestliklerdeki sıfır olmayan indirgenmiş yükleri reddeder, kısmi kısıtları ve yüksüz etkin olmayan serbestlikleri korur, doğruluğu ve sonlu değerleri doğrusal çözüm yordamlarıyla denetler. Yapay rijitlik veya eksik iyileştirme, uç serbestliği olmadan da öteleme, tepki ve eleman kuvvetlerini değiştirebiliyordu. Yapım aşamalarını yeniden çözün ve türetilen talepleri inceleyin (#1846, PR #1943).",
+    "vi": "Phân tích theo giai đoạn nay từ chối các tải trọng rút gọn khác không trên các bậc tự do không hoạt động và tự do, giữ nguyên các liên kết một phần và các bậc tự do không hoạt động không chịu tải, đồng thời kiểm tra độ chính xác và tính hữu hạn của lời giải qua các thủ tục tuyến tính thông thường. Độ cứng nhân tạo hoặc việc bỏ sót hiệu chỉnh lặp trước đây có thể làm thay đổi chuyển vị, phản lực và nội lực thanh ngay cả khi không có giải phóng đầu thanh. Hãy chạy lại các lịch sử thi công theo giai đoạn và rà soát các nội lực suy ra (#1846, PR #1943).",
     "zh": "分阶段分析现在会拒绝自由的未激活自由度上的非零缩减荷载，保留部分约束和未加载的未激活自由度，并通过常规线性程序检查求解精度和有限性。以前的人为刚度或遗漏的精化，即使没有杆端释放，也可能改变位移、反力和杆件内力。请重新运行分阶段施工历程，并复核派生的内力需求（#1846，PR #1943）。"
   },
   "changelog": {

@@ -245,6 +245,22 @@ const labels: Record<string, Record<string, string>> = {
     "force": "Erő a töréssel együtt",
     "mirror": "Csomóponti károsodás, referencia vagy tükörkép"
   },
+  'vi': {
+    "mesh": "Dấu vân tay lưới",
+    "steps": "Số bước tải",
+    "iterations": "Số lần lặp ở mỗi bước",
+    "damage": "Hư hại lớn nhất ở mỗi bước",
+    "stress": "Ứng suất tại tâm ở mỗi bước",
+    "damageField": "Hư hại tại nút",
+    "displacementField": "Chuyển vị tại nút",
+    "analytic": "Ứng suất tại tâm / nghiệm 1D AT2, d lớn nhất < 0.25",
+    "peakStep": "Bước có lực đỉnh",
+    "peak": "Lực đỉnh",
+    "preForce": "Lực cho đến đỉnh",
+    "preDamage": "Hư hại lớn nhất cho đến đỉnh",
+    "force": "Lực kể cả giai đoạn đứt gãy",
+    "mirror": "Hư hại tại nút, tham chiếu hoặc đối xứng"
+  },
   "zh": {
     "mesh": "网格指纹",
     "steps": "荷载步数",
@@ -314,6 +330,14 @@ const metrics: Record<string, Record<string, string>> = {
   "hu": {
     "exact": "Pontos",
     "relative difference": "Relatív eltérés",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "max |Δd|",
+    "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
+  'vi': {
+    "exact": "Chính xác",
+    "relative difference": "Sai khác tương đối",
     "absolute difference / AT2 peak stress": "|Δσ| / σc",
     "max absolute difference": "max |Δd|",
     "max absolute difference / max |u|": "max |Δu| / max |u|",

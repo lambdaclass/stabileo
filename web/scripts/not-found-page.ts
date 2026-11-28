@@ -18,6 +18,7 @@ const LANGUAGE: Record<Locale, string> = {
   fr: 'Français',
   tr: 'Türkçe',
   hu: 'Magyar',
+  vi: 'Tiếng Việt',
   zh: '中文',
 };
 
@@ -84,6 +85,15 @@ const COPY: Record<Locale, Copy> = {
     tools: 'Eszközök',
     blog: 'Blog',
     app: 'Az alkalmazás megnyitása',
+  },
+  vi: {
+    title: 'Không tìm thấy trang',
+    lead: 'Không có trang nào ở địa chỉ này. Trang có thể đã được chuyển đi, hoặc liên kết bị gõ sai.',
+    home: 'Trang chủ',
+    research: 'Nghiên cứu',
+    tools: 'Công cụ',
+    blog: 'Blog',
+    app: 'Mở ứng dụng',
   },
   zh: {
     title: '页面未找到',

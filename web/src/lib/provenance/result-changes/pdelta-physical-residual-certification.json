@@ -30,6 +30,7 @@
     "fr": "P-Delta vérifie le résidu libre physique",
     "hu": "A P-Delta ellenőrzi a fizikai szabad maradékot",
     "tr": "P-Delta fiziksel serbest artığı denetler",
+    "vi": "P-Delta kiểm tra phần dư tự do vật lý",
     "zh": "P-Delta 检查物理自由残差"
   },
   "explanation": {
@@ -40,6 +41,7 @@
     "fr": "Les diagnostics P-Delta utilisent les mêmes forces physiques que les réactions, sans rigidité artificielle. Des moments opposés perdus ne peuvent pas se compenser dans le bilan global et certifier un résidu libre physique non nul. Revérifiez les diagnostics P-Delta enregistrés (#1952).",
     "hu": "A P-Delta egyensúlyi diagnosztikája a reakciókkal azonos fizikai erőket használja, mesterséges merevség nélkül. Az ellentétes elveszett nyomatékok nem olthatják ki egymást a globális egyensúlyban, tanúsítva egy nem nulla fizikai szabad maradékot. Ellenőrizze újra a mentett P-Delta egyensúlyi diagnosztikát (#1952).",
     "tr": "P-Delta denge tanıları tepkilerle aynı fiziksel kuvvetleri kullanır, yapay rijitliği dışlar. Kaybolan zıt momentler global dengede birbirini götürerek sıfır olmayan fiziksel serbest artığı doğrulayamaz. Kayıtlı P-Delta tanılarını yeniden denetleyin (#1952).",
+    "vi": "Chẩn đoán cân bằng của P-Delta nay dùng cùng các lực vật lý như phản lực, loại trừ độ cứng nhân tạo. Các mô men bị mất ngược nhau không thể triệt tiêu trong cân bằng tổng thể và chứng nhận một phần dư tự do vật lý khác không. Hãy kiểm tra lại các chẩn đoán cân bằng P-Delta đã lưu (#1952).",
     "zh": "P-Delta 平衡诊断现在使用与反力相同的物理力，不含人为刚度。相反的损失力矩在整体平衡中不能相互抵消，从而掩盖非零的物理自由残差。请重新核对已保存的 P-Delta 平衡诊断（#1952）。"
   },
   "changelog": {

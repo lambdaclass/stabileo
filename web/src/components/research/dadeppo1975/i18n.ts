@@ -223,6 +223,38 @@ const hu: Strings = {
   largest: 'Legnagyobb PR²/EI az úton',
   chartLabel: 'PR²/EI a lépésszám függvényében', chartData: 'A görbe adatai (20 lépésenként)', slider: '{step}. lépés: PR²/EI = {load}',
 };
+const vi: Strings = {
+  title: 'DaDeppo–Schmidt: một vòm sâu tại giới hạn của nó',
+  hook: 'Một vòm 215°, một tải trọng tại đỉnh và bộ giải chiều dài cung bản sản xuất, được kiểm tra với tải giới hạn và trạng thái đỉnh đã công bố.',
+  model: 'Một vòm ngàm–khớp',
+  description: 'Một vòm tròn ngàm ở đầu trái và gối cố định ở đầu phải chịu một tải trọng tập trung hướng xuống có hướng cố định tại đỉnh. Bốn mươi phần tử khung thẳng đồng quay xấp xỉ độ mở 215°. Các gối bất đối xứng cho phép đỉnh vòm lệch về phía đầu gối cố định trước điểm giới hạn đầu tiên.',
+  units: 'Chúng tôi dùng R = 1 m, EI = 1 kN·m² và EA = 10⁶ kN. Tải tham chiếu là 1 kN, nên hệ số tải của bộ giải bằng PR²/EI. Giá trị P = 897 thường được trích dẫn dùng R = 100 và EI = 10⁶: giá trị chuẩn hóa của nó là 8.97, không phải 897.',
+  comparison: 'So sánh với bài báo',
+  referenceText: 'Chúng tôi so sánh với Bảng 1 của bài báo năm 1975 như được đồng tác giả R. Schmidt trích dẫn trong một thảo luận năm 2000 (J. Eng. Mech. 126(12), tr. 1308): tại điểm giới hạn PR²/EI = 8.97, đỉnh u/R = 0.6116, v/R = 1.1372 và góc xoay 0.0498, làm tròn đến các chữ số đã hiển thị.',
+  signs: 'u dương hướng về đầu gối cố định và v hướng xuống; góc xoay được so với góc xoay đỉnh ry của Stabileo, dương tại điểm giới hạn.',
+  sourceLink: 'Đọc các giá trị Schmidt đã trích dẫn',
+  method: 'Bộ giải chiều dài cung Crisfield bản sản xuất lần theo đường cân bằng qua đỉnh với các khung đồng quay hiện có. Điểm giới hạn được xác định bằng một parabol qua ba bước quanh tải lớn nhất; trạng thái đỉnh tại đó được nội suy từ các lần chạy dừng ở ba bước đó. Trình xem dùng tỷ lệ chuyển vị thực.',
+  studyHeading: 'Khảo sát lưới và dung sai',
+  studyText: 'Cùng một vòm được giải với 20, 40 và 80 phần tử. Mỗi dung sai bằng 1.25 lần sai số rời rạc hóa ước lượng của 40 phần tử (ngoại suy Richardson với bậc quan sát được) cộng nửa đơn vị ở chữ số cuối đã công bố. Ngoại suy về chiều dài phần tử bằng không, mọi đại lượng đều khớp với giá trị đã công bố trong phạm vi làm tròn và ước lượng sai số của 80 phần tử, nên +0.46% ở tải giới hạn với 40 phần tử là sai số rời rạc hóa. Giảm một nửa bước chiều dài cung làm tải giới hạn thay đổi dưới 10⁻⁶ (tương đối); tăng độ cứng dọc trục mười lần làm nó thay đổi dưới 10⁻⁴.',
+  studyCaption: 'Giá trị tại điểm giới hạn với 20, 40 và 80 phần tử',
+  extrapolated: 'Ngoại suy',
+  inspect: 'Khảo sát vòm gần đỉnh của nó (bước 260)',
+  replayNote: 'Các khung phát lại là kết quả điểm cuối của các lần chạy lặp lại cùng bộ giải, dừng sau mỗi hai mươi bước. Worker trực tiếp lặp lại các lần chạy đó vì API bản sản xuất chỉ trả về đầy đủ chuyển vị nút tại điểm cuối. Đường cong thể hiện mọi bước đã hội tụ; trục hoành của nó là số bước, không phải chuyển vị đỉnh.',
+  notYet: 'Ngoài trang này',
+  limitations: ['Toàn bộ đường cân bằng đã công bố và điểm giới hạn thứ hai.', 'Các góc mở khác, mất ổn định ngoài mặt phẳng, tiếp xúc hoặc phi tuyến vật liệu.'],
+  noAuthorCode: 'Không so sánh: không dùng mã của tác giả.',
+  livePath: 'Đường chạy trực tiếp', shortPath: 'Đường ngắn · 20 bước (trước đỉnh)', fullPath: 'Bài toán chuẩn đầy đủ · 400 bước',
+  replay: 'Phát lại đã tính trước (cùng bộ giải)', live: 'Tính toán trực tiếp', cached: 'Kết quả đã lưu trong trình duyệt', running: 'Đang tính…',
+  run: 'Tính lại trực tiếp', stop: 'Dừng', restart: 'Chạy lại', step: 'Bước', displacement: 'Độ lớn chuyển vị',
+  limit: 'Tại điểm giới hạn', quantity: 'Đại lượng', reference: 'Đã công bố', stabileo: 'Stabileo, 40 phần tử', difference: 'Chênh lệch', tolerance: 'Dung sai',
+  pass: 'Đạt', fail: 'Không đạt',
+  verdictPass: 'Cả bốn đều trong dung sai; đã đạt nhánh giảm', verdictFail: 'Ngoài dung sai', incomplete: 'Đường chạy chưa đầy đủ: {n} trên {total} bước',
+  errorSolve: 'Bộ giải không hoàn tất đường chạy này.', errorInvalid: 'Bộ giải trả về một kết quả chưa đầy đủ.',
+  qLoad: 'Tải giới hạn PR²/EI', qU: 'Đỉnh u/R', qV: 'Đỉnh v/R', qRot: 'Góc xoay đỉnh (rad)',
+  largest: 'PR²/EI lớn nhất trên đường chạy',
+  chartLabel: 'PR²/EI theo số bước', chartData: 'Dữ liệu đường cong (sau mỗi 20 bước)', slider: 'Bước {step}: PR²/EI = {load}',
+};
+
 const zh: Strings = {
   title: 'DaDeppo–Schmidt：处于极限状态的深拱',
   hook: '一个 215° 的拱，拱顶受荷载，用生产环境的弧长求解器计算，并与已发表的极限荷载和拱顶状态核对。',
@@ -255,5 +287,5 @@ const zh: Strings = {
   chartLabel: 'PR²/EI 随步数的变化', chartData: '曲线数据（每 20 步）', slider: '第 {step} 步：PR²/EI = {load}',
 };
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'vi', Strings> = { en, es, pt, de, fr, tr, hu, vi, zh };
 export const archStrings = (locale: string): Strings => strings[locale as keyof typeof strings] ?? en;

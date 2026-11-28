@@ -152,10 +152,14 @@ export function wordCount(body: PostBody, linkTitle?: (slug: string) => string |
   }
   const text = parts.join(' ');
   const han = text.match(/\p{Script=Han}/gu)?.length ?? 0;
-  return text.replace(/\p{Script=Han}+/gu, ' ').split(/\s+/).filter(Boolean).length + Math.round(han / HAN_PER_WORD);
+  const words = text.replace(/\p{Script=Han}+/gu, ' ').split(/\s+/).filter(Boolean).length;
+  return (VIETNAMESE.test(text) ? Math.round(words / VI_SYLLABLES_PER_WORD) : words) + Math.round(han / HAN_PER_WORD);
 }
 
 const HAN_PER_WORD = 2;
+/** Vietnamese writes every syllable apart; an English word takes about one and a half of them. */
+const VI_SYLLABLES_PER_WORD = 1.5;
+const VIETNAMESE = /[ăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/i;
 
 /** Reading time in whole minutes, never zero. 200 wpm, the usual estimate. */
 export function readingMinutes(body: PostBody, linkTitle?: (slug: string) => string | undefined): number {

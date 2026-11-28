@@ -91,6 +91,32 @@ const hu: Strings = {
   paper: 'A cikk egy időléptetéses eljárást ír le a szerkezetdinamikához. Itt annak átlagos gyorsulású változatát próbáljuk ki egy szándékosan kicsi lineáris referenciafeladaton; nem állítjuk, hogy a cikk valamelyik ábráját reprodukáljuk.',
   alt: 'Tengelyirányú elmozdulás időtörténete a termékben használt Newmark-megoldó futtatásából',
 };
+const vi: Strings = {
+  title: 'Gia tốc trung bình Newmark',
+  metaTitle: 'Newmark (1959) — Stabileo Research',
+  metaDescription: 'Gia tốc trung bình Newmark dùng trong sản xuất so với đáp ứng bước chính xác của hệ một bậc tự do (SDOF).',
+  lead: 'Một bậc tự do không cản chịu lực không đổi đặt đột ngột. Hãy tăng bước thời gian để thấy chu kỳ số tăng lên.',
+  model: 'Ví dụ',
+  description: 'Một thanh khung chịu dọc trục dài {L} m, ngàm ở bên trái, chỉ tự do chuyển vị dọc trục ở bên phải. E = {E} MPa, A = {A} m², khối lượng riêng giả định = {rho} kg/m³. Khối lượng dọc trục nhất quán cho m = ρAL/3 = {m} t và k = EA/L = {k} kN/m. Một lực bậc thang {F} kN tác dụng từ t = 0; chuyển vị và vận tốc ban đầu bằng không. Đây là bài toán chuẩn phần tử hữu hạn SDOF chính xác, không phải nghiệm thanh liên tục.',
+  method: 'Bộ giải lịch sử thời gian 3D dùng trong sản xuất chạy qua lớp bao WASM hiện có, với β = ¼, γ = ½ và không có cản. Bản phát lại là một lần chạy gốc (native) của cùng bộ giải Rust. Không dùng bộ tích phân mới nào.',
+  reference: 'Tham chiếu chính xác', difference: 'Sai khác', measured: 'T của Stabileo (s)', predicted: 'Dự đoán rời rạc Tₙ (s)',
+  formula: 'u(t) = (F/k)[1 − cos(ωt)], ω = √(k/m) = {omega} rad/s, T = 2π/ω = {T} s. Nghiệm gia tốc trung bình rời rạc là uₙ = (F/k)[1 − cos(nθ)] với θ = 2 atan(ωΔt/2), nên chu kỳ của nó là Tₙ = πΔt / atan(ωΔt/2). Các chu kỳ bên dưới được đo từ những lần cắt lên liên tiếp của u = F/k; phép nội suy ảnh hưởng đến các phép đo ở bước thô.',
+  comparison: 'Độ dãn dài chu kỳ theo bước thời gian', elongation: 'Độ dãn dài theo T (%)',
+  errors: 'Sai khác chuyển vị', discreteError: '|u − uₙ| lớn nhất (m)', continuousError: '|u − u(t)| lớn nhất (mm)', bound: 'Cận độ trễ pha (mm)',
+  error: 'Sai khác chuyển vị lớn nhất (mm)',
+  tolerance: 'Các phép kiểm tra, tính từ các lịch sử đang hiển thị (chúng thay đổi theo lần tính lại trực tiếp): mọi mẫu đều khớp với nghiệm rời rạc uₙ trong phạm vi 10⁻¹⁰ m; mọi chu kỳ đo được đều khớp với Tₙ trong phạm vi 0.5%; sai khác lớn nhất so với nghiệm liên tục luôn dưới cận độ trễ pha (F/k)·min(2, N(ωΔt − θ)) suy ra từ uₙ qua N bước; tại Δt/T = 0.025 nó cũng dưới 0.5 mm trong bốn chu kỳ. Các bước thô hơn cố ý cho thấy sai số lớn hơn.',
+  published: 'Không có: trang này kiểm tra phương pháp với các nghiệm dạng đóng chính xác; nó không tái lập hình hay bảng nào in trong bài báo.',
+  notYet: 'Chưa có', limitations: ['Các hình và ví dụ số đã công bố trong bài báo.', 'Cản, tải trọng điều hòa, đáp ứng phi tuyến và khung nhiều bậc tự do.', 'Đây không phải là chứng nhận kỹ thuật.'],
+  replay: 'Bản phát lại tính trước (cùng bộ giải)', live: 'Tính toán trực tiếp trong trình duyệt của bạn', cached: 'Kết quả đã lưu đệm (tính trong trình duyệt này)',
+  run: 'Tính lại trực tiếp', stop: 'Dừng', restart: 'Chạy lại từ đầu', busy: 'Đang tính…', step: 'Bước thời gian', sample: 'Mẫu',
+  sampleValue: 'Mẫu {i} trên {n}, t = {t} s',
+  speed: 'Phát lại chạy chậm hơn thời gian thực {x} lần ở mọi bước thời gian, nên chu kỳ dài hơn thì thực sự mất nhiều thời gian hơn.',
+  displacement: 'Chuyển vị dọc trục', time: 'Thời gian (s)', scaled: 'Biến dạng ×10; nút trái ngàm, nút phải được dẫn hướng theo phương dọc trục.',
+  tryCoarse: 'Thử bước thời gian thô nhất', failure: 'Tính toán thất bại; giữ lại kết quả trước đó.',
+  paper: 'Bài báo mô tả một quy trình bước thời gian cho động lực học kết cấu. Ở đây chúng tôi thử phiên bản đặc biệt gia tốc trung bình của nó trên một bài toán chuẩn tuyến tính cố ý để nhỏ; chúng tôi không tuyên bố tái lập một hình nào của bài báo.',
+  alt: 'Lịch sử chuyển vị dọc trục từ lần chạy Newmark dùng trong sản xuất của chúng tôi',
+};
+
 const zh: Strings = {
   title: 'Newmark 平均加速度法',
   metaTitle: 'Newmark (1959) — Stabileo Research',
@@ -116,7 +142,7 @@ const zh: Strings = {
   paper: '论文描述了一种用于结构动力学的时间步进方法。这里我们在一个有意设计得很小的线性基准算例上，运用其平均加速度的特例；我们并不声称复现了论文中的某幅图。',
   alt: '生产环境 Newmark 运行得到的轴向位移时程',
 };
-export const translations = { en, es, pt, hu, zh };
+export const translations = { en, es, pt, hu, vi, zh };
 export const strings = () => translations[researchLocale() as keyof typeof translations] ?? translations.en;
 export const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);

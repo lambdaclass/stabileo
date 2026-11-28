@@ -31,7 +31,7 @@ const en = {
 
 export type CqcStrings = typeof en;
 
-export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', CqcStrings> = {
+export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'vi', CqcStrings> = {
   en,
   es: {
     srss: 'SRSS', cqc: 'CQC',
@@ -201,6 +201,34 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     step: 'Burkoló megjelenítése', rule: 'Kombináció',
     error: 'Az élő számítás nem sikerült',
   },
+  vi: {
+  srss: 'SRSS', cqc: 'CQC',
+  title: 'Các dạng gần nhau: SRSS so với CQC',
+  metaTitle: 'SRSS so với CQC (1981) — Stabileo Research',
+  metaDescription: 'Các dạng dao động gần nhau của công trình so với một tham chiếu giải tích.',
+  lead: 'Một lý tưởng hóa khung cắt 3D nhỏ, được giải bằng bộ giải dao động riêng và phổ phản ứng bản sản xuất.',
+  citation: '”, minh họa phương pháp dựa trên',
+  model: 'Ví dụ', description: 'Bốn cột ngàm chân, cao 3 m trên mặt bằng 4 × 3 m. Mỗi nút mái mang 5 t theo X. Góc xoay mái và chuyển vị tịnh tiến theo Y/Z bị ngăn; các ràng buộc bằng nhau theo X nối từng cặp ngang. Hai thanh giằng dọc trục ở mái ghép hai tọa độ còn lại. Đây là minh họa của chúng tôi về phương pháp, không phải công trình gốc của bài báo.',
+  method: 'Tham chiếu giải tích', equations: 'Các ma trận rút gọn là M = diag(10, 10) t và K = [[1020, −20], [−20, 1230]] kN/m. Giải det(K − ω²M) = 0; chuẩn hóa mỗi dạng về khối lượng dạng đơn vị. Với Sa = 1 m/s², các lực cắt đáy theo dạng là Γ²Sa. SRSS bỏ qua các số hạng chéo; CQC giữ lại tương quan cản bằng nhau của chúng tại ξ = 5%.',
+  rhoSource: 'Đây là hệ số tương quan cản bằng nhau của Wilson, Der Kiureghian và Bayo (1981), Pt. (14), tr. 191; tr. 190 giải thích vì sao các số hạng chéo giữ nguyên dấu. Nó giả định cản dạng bằng nhau, chuyển động nền kéo dài so với các chu kỳ dạng và một phổ rộng, trơn. Các giá trị tham chiếu bên dưới là kết quả giải tích cho ví dụ này, không phải dữ liệu từ Bảng I của bài báo.',
+  explanation: 'Bài báo đề xuất CQC để giảm sai số tổ hợp các dạng và quay về SRSS khi các tần số tách biệt tốt. Ở đây SRSS thấp hơn CQC đối với lực cắt đáy. Chênh lệch này là so với ước lượng CQC, không phải sai số đo được so với một bản ghi động đất.',
+  referenceLabel: 'So với nghiệm giải tích',
+  publishedNote: 'Công trình và các bảng của bài báo không được dùng: trang này kiểm tra ví dụ hai dạng của riêng nó với nghiệm giải tích.',
+  comparison: 'Lực cắt đáy · kN', roofHeading: 'Đường bao chuyển vị X của mái · mm', node: 'Nút',
+  modalHeading: 'Dữ liệu dạng dao động', quantity: 'Đại lượng', f1: 'Tần số 1 · Hz', f2: 'Tần số 2 · Hz', rho: 'Tương quan dạng ρ',
+  impliedNote: 'ρ của Stabileo được suy ra từ chính kết quả của nó: ρ = (V_CQC² − V_SRSS²) / (2 V₁ V₂), trong đó Vᵢ là các lực cắt đáy theo dạng của nó.',
+  reference: 'Nghiệm giải tích', result: 'Stabileo', delta: 'Chênh lệch · %',
+  deficit: 'SRSS so với CQC · %',
+  checksHeading: 'Kiểm tra',
+  tolerance: 'Ngưỡng hồi quy: chênh lệch tương đối dưới 1 × 10⁻⁸ cho cả hai tần số, hệ số tham gia khối lượng theo X, cả hai lực cắt đáy và cả hai chuyển vị mái (9 kiểm tra). Lần chạy gốc lệch nhiều nhất 6.4 × 10⁻¹⁵. Ngưỡng này bảo vệ bài toán hai tọa độ nhỏ, điều kiện tốt này trước các hồi quy; nó không phải mục tiêu về độ chính xác, và sự trùng khớp giữa bộ giải và nghiệm giải tích không nói lên điều gì về độ chính xác vật lý.',
+  scope: 'Phạm vi',
+  limitations: ['So sánh được thực hiện với nghiệm giải tích của ví dụ hai tọa độ này; công trình và các bảng số của chính bài báo không được tái hiện.', 'Không có phân tích lịch sử thời gian: không quy tắc nào được đo so với một bản ghi chuyển động nền.', 'Một tầng, không có phản ứng xoắn và không quét tham số.'],
+  run: 'Tính lại trực tiếp', stop: 'Dừng', restart: 'Chạy lại', running: 'Đang tính…',
+  replay: 'Phát lại đã tính trước (cùng bộ giải)', live: 'Kết quả trực tiếp (WASM bản sản xuất)',
+  viewer: 'Chuyển vị X của mái · mm', viewNote: 'Phép chiếu trục đo trong trình xem của Stabileo. Biến dạng ×40; hoạt ảnh co giãn đường bao, không phải lịch sử thời gian.',
+  step: 'Hiển thị đường bao', rule: 'Tổ hợp',
+  error: 'Tính toán trực tiếp thất bại',
+},
   zh: {
     srss: 'SRSS', cqc: 'CQC',
     title: '密集模态：SRSS 与 CQC',

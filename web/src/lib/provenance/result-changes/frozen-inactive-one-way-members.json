@@ -19,6 +19,7 @@
     "fr": "Les barres unilatérales inactives figées doivent respecter les conditions d’activation",
     "hu": "A befagyasztott inaktív, egy irányban dolgozó rudaknak teljesíteniük kell az aktiválási feltételeket",
     "tr": "Durumu sabitlenmiş etkin olmayan tek yönlü elemanlar etkinleşme koşullarını sağlamalıdır",
+    "vi": "Các thanh một phương không hoạt động bị đóng băng phải thỏa điều kiện kích hoạt",
     "zh": "冻结的非激活单向杆件必须满足激活条件"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "fr": "Les deux solveurs de contact vérifient les barres inactives figées avec l’effort axial d’essai à pleine rigidité sur la géométrie finale. Si une réactivation est requise au-delà de la tolérance de contact multipliée par la rigidité axiale, ils renvoient contact_state_invalid sans résultats. Les contrôles de signe et la tolérance restent inchangés. Les états inactifs valides et les modèles autorisant assez de changements d’état restent acceptés (#1932, suite de #1921).",
     "hu": "Mindkét kontaktmegoldó a végső geometrián, teljes merevséggel számított próba-normálerővel ellenőrzi a befagyasztott inaktív rudakat. A csak húzott vagy csak nyomott rudak, amelyeket a kontakttűrés és a tengelyirányú merevség szorzatánál nagyobb mértékben újra kellene aktiválni, eredmény nélkül contact_state_invalid választ adnak. A visszanyert erő előjelének ellenőrzése és a skálázott tűrés nem változik. Az érvényes inaktív állapotok és az elegendő átváltási kerettel rendelkező modellek továbbra is megoldódnak (#1932, a #1921 folytatása).",
     "tr": "Her iki temas çözücüsü, durumu sabitlenmiş etkin olmayan elemanları son geometride tam rijitlikli deneme eksenel kuvvetiyle denetler. Temas toleransı ile eksenel rijitliğin çarpımını aşan yeniden etkinleşme gereksinimi, sonuçlar olmadan contact_state_invalid döndürür. Kuvvet işareti denetimleri ve ölçekli tolerans değişmez. Geçerli etkin olmayan durumlar ve yeterli durum değişimi sınırı olan modeller çözülmeye devam eder (#1932, #1921 devamı).",
+    "vi": "Cả hai bộ giải tiếp xúc đều kiểm tra các thanh không hoạt động bị đóng băng bằng lực dọc thử với độ cứng đầy đủ trên hình học cuối cùng. Các thanh chỉ chịu kéo hoặc chỉ chịu nén cần kích hoạt lại vượt quá dung sai tiếp xúc nhân độ cứng dọc trục sẽ trả về contact_state_invalid mà không có kết quả. Các kiểm tra dấu của lực phục hồi và dung sai đã nhân tỷ lệ không đổi. Các trạng thái không hoạt động hợp lệ và các mô hình có đủ ngân sách đổi trạng thái vẫn được giải (#1932, tiếp theo #1921).",
     "zh": "两个接触求解器都会在最终几何上，用全刚度试算轴力检查冻结的非激活杆件。仅受拉或仅受压的杆件，若需要重新激活的程度超过接触容差乘以轴向刚度，则返回 contact_state_invalid，不给出结果。已恢复的力符号检查和按比例缩放的容差不变。有效的非激活状态以及翻转次数预算充足的模型仍可求解（#1932，#1921 的后续）。"
   },
   "changelog": {

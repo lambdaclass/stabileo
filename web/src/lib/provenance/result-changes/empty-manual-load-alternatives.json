@@ -15,6 +15,7 @@
     "de": "Leere manuelle Lastalternativen erhalten",
     "fr": "Conserver les variantes de charge manuelles vides",
     "tr": "Boş elle tanımlanmış yük alternatiflerini koru",
+    "vi": "Giữ nguyên các phương án tải thủ công rỗng",
     "zh": "保留手动定义的空荷载备选工况",
     "hu": "Az üres kézi teheralternatívák megőrzése"
   },
@@ -25,6 +26,7 @@
     "de": "In einer Prüffassung konnten automatische Lasten einen absichtlich leeren manuellen Lastfall aus den Kombinationen auslassen. Wenn Sie diese Fassung verwendet haben, erzeugen Sie die Kombinationen neu und berechnen Sie Analysen und Einhüllende erneut.",
     "fr": "Dans une version de révision, les charges automatiques pouvaient omettre des combinaisons un cas manuel volontairement vide. Si vous avez utilisé cette version, régénérez les combinaisons et recalculez les analyses et les enveloppes.",
     "tr": "Bir inceleme sürümünde Otomatik Yükler, bilerek boş bırakılan elle tanımlanmış bir yük durumunu birleşimlerden çıkarabiliyordu. Bu sürümü kullandıysanız birleşimleri yeniden oluşturun ve analizleri ve zarfları yeniden hesaplayın.",
+    "vi": "Tải tự động trong một bản dựng rà soát có thể bỏ một trường hợp tải thủ công cố ý để rỗng khỏi các tổ hợp. Nếu bạn đã dùng bản dựng đó, hãy tạo lại các tổ hợp và chạy lại các phân tích và biểu đồ bao.",
     "zh": "审查版本的自动荷载功能可能会在组合中遗漏有意留空的手动荷载工况。如果使用过该版本，请重新生成组合并重新计算分析和包络。",
     "hu": "Egy felülvizsgálati verzióban az automatikus terhelés kihagyhatott a kombinációkból egy szándékosan üres kézi teheresetet. Ha ezt a verziót használta, hozza létre újra a kombinációkat, majd számítsa újra az elemzéseket és a burkológörbéket."
   },

@@ -20,6 +20,7 @@
     "fr": "Les enveloppes axiales des charges mobiles incluent les limites des charges réparties",
     "hu": "A mozgó teher normálerő-burkolói tartalmazzák a megoszló teher határait",
     "tr": "Hareketli yük eksenel zarfları yayılı yük sınırlarını içeriyor",
+    "vi": "Biểu đồ bao lực dọc của tải di động gồm các biên tải phân bố",
     "zh": "移动荷载轴力包络包含分布荷载的边界"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "fr": "Les enveloppes de charges mobiles 2D et 3D pouvaient omettre un pic axial au début ou à la fin d’une charge répartie et donner zéro malgré un effort intérieur (#1782, SA-2026-052). Toutes les limites et les racines de changement de signe existantes sont désormais évaluées. Recalculez les enveloppes concernées et vérifiez les dimensionnements fondés sur leurs extrêmes axiaux. Cet avis utilise les cas de positions de charges mobiles enregistrés ; les balayages transitoires ne laissent aucune marque enregistrée.",
     "hu": "A 2D és 3D mozgóteher-burkolók elmulaszthattak egy normálerő-csúcsot egy megoszló teherszakasz elején vagy végén, és nullát adtak még belső erővel rendelkező, ellentétes teherszakaszok esetén is (#1782, SA-2026-052). Most minden normálerő-teherszakasz határát és a meglévő előjelváltási gyököket is kiértékeli. Futtassa újra az érintett burkolókat, és vizsgálja felül a normálerő-szélsőértékeikre alapozott méretezéseket és keresztmetszet-felvételeket. A mentett mozgóteher-pozíció teheresetek azonosítják az ehhez az értesítéshez tartozó projekteket; az átmeneti végigfuttatások nem hagynak mentett jelölést.",
     "tr": "2B ve 3B hareketli yük zarfları yayılı yük başlangıcında veya sonunda eksenel kuvvet zirvesini kaçırıp iç kuvvet varken sıfır bildirebiliyordu (#1782, SA-2026-052). Artık tüm yük sınırları ve mevcut işaret değişimi kökleri değerlendiriliyor. Etkilenen zarfları yeniden hesaplayın ve eksenel uç değerlere dayanan tasarım ve boyutlandırmaları inceleyin. Bildirim kayıtlı hareketli yük konumu durumlarını kullanır; geçici taramalar kayıtlı işaret bırakmaz.",
+    "vi": "Các biểu đồ bao tải di động 2D và 3D có thể bỏ sót đỉnh lực dọc tại điểm đầu hoặc điểm cuối của một đoạn tải phân bố, trả về không ngay cả với các đoạn đối nhau có lực bên trong (#1782, SA-2026-052). Mọi biên đoạn dọc trục và các nghiệm đổi dấu hiện có nay đều được đánh giá. Hãy chạy lại các biểu đồ bao bị ảnh hưởng và rà soát các thiết kế và chọn kích thước dựa trên các cực trị lực dọc của chúng. Các trường hợp vị trí tải di động đã lưu xác định các dự án cho thông báo này; các lượt quét tức thời không để lại dấu đánh dấu đã lưu.",
     "zh": "2D 和 3D 移动荷载包络可能漏掉分布荷载段起点或终点处的轴力峰值，即使是内部有内力的相反荷载段，也返回零（#1782，SA-2026-052）。现在会计算每一个轴向荷载段边界以及现有的符号根。请重新运行受影响的包络，并复核基于其轴力极值的设计和选型。已保存的移动荷载位置工况可识别出适用本通知的项目；瞬态扫描不会留下已保存的标记。"
   },
   "changelog": {

@@ -4213,6 +4213,7 @@ const zh: Translations = {
   "lang.hu": "Magyar",
   "lang.hi": "हिन्दी",
   "lang.zh": "中文",
+  "lang.vi": "Tiếng Việt",
   "lang.ja": "日本語",
   "lang.ko": "한국어",
   "lang.ru": "Русский",

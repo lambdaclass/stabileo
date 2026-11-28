@@ -25,6 +25,7 @@
     "fr": "Transfert de l’inertie d’un toit à deux versants appuyé aux deux égouts",
     "hu": "A két eresznél alátámasztott nyeregtető tehetetlenségi terheinek átadása",
     "tr": "Her iki saçaktan desteklenen beşik çatıda atalet aktarımı",
+    "vi": "Chuyển quán tính lên đầu hồi có gối tựa ở cả hai mép mái",
     "zh": "沿双檐支承的双坡屋面传递惯性力"
   },
   "explanation": {
@@ -35,6 +36,7 @@
     "fr": "Un toit à deux versants appuyé aux deux égouts est rattaché à leur étage. L’inertie statique agit le long des chevrons. Régénérez les charges sismiques concernées.",
     "hu": "A két eresznél alátámasztott nyeregtető az eresz szintjéhez tartozik. A statikus tehetetlenségi erő a szarufák mentén hat. Generálja újra az érintett szeizmikus terheket.",
     "tr": "Her iki saçaktan desteklenen beşik çatı saçak katına bağlanır ve statik atalet mertekler boyunca uygulanır. Etkilenen deprem yüklerini yeniden oluşturun.",
+    "vi": "Một đầu hồi có gối tựa ở cả hai mép mái dùng tầng mép mái và đặt quán tính tĩnh dọc theo các kèo. Hãy tạo lại các tải trọng động đất bị ảnh hưởng.",
     "zh": "双檐支承的双坡屋面采用檐口层，并沿椽条施加静力惯性荷载。请重新生成受影响的地震荷载。"
   },
   "changelog": {

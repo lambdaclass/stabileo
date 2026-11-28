@@ -17,6 +17,7 @@
     "de": "Nahtstücke mit Größe null liefern weder Widerstand noch Spannungspunkte",
     "fr": "Les segments de soudure de taille nulle ne fournissent ni résistance ni points de contrainte",
     "hu": "A nulla méretű varratszakaszok nem adnak ellenállást vagy feszültségi pontokat",
+    "vi": "Các đoạn hàn kích thước bằng không không cung cấp sức kháng hay điểm ứng suất",
     "zh": "零尺寸焊缝段不提供承载力，也不作为应力点",
     "tr": "Sıfır boyutlu kaynak parçaları dayanım veya gerilme noktası sağlamaz"
   },
@@ -27,6 +28,7 @@
     "de": "Nahtstücke mit Größe null konnten gültige Gruppen als mehrdeutige Verzweigungen ablehnen und exzentrische Spannungen an nicht tragenden Endpunkten erhöhen. Native und WASM-Prüfungen verwenden für Verbindung und Spannung nur physische Nähte mit positiver Größe und Länge, behalten aber alle geometrischen Längen in der Gesamtlänge. Eine nicht endliche Gesamtlänge bleibt ungeprüft. Gespeicherte Nahtgruppen mit Nullstücken erneut prüfen.",
     "fr": "Les segments de taille nulle pouvaient refuser des groupes valides comme branchements ambigus et augmenter la contrainte excentrée aux extrémités non résistantes. Les vérifications natives et WASM utilisent désormais uniquement des cordons physiques de taille et longueur positives pour la connectivité et les contraintes, tout en conservant toutes les longueurs géométriques dans le total. Une longueur totale non finie reste non évaluée. Recalculer les groupes enregistrés contenant des segments de taille nulle.",
     "hu": "A nulla méretű szakaszok érvényes varratcsoportokat utasíthattak el bizonytalan elágazásként, és növelhették a külpontos feszültséget a nem teherhordó végpontokon. A natív és WASM-ellenőrzések most csak pozitív méretű és hosszú fizikai varratokat használnak a kapcsolódáshoz és feszültséghez, de minden geometriai hosszt megtartanak az összhosszban. A nem véges összhossz nem értékelhető. A nulla méretű szakaszokat tartalmazó mentett varratcsoportokat újra kell számítani.",
+    "vi": "Các đoạn kích thước bằng không có thể từ chối nhầm các nhóm đường hàn hợp lệ vì coi là các nhánh mơ hồ và làm tăng ứng suất lệch tâm tại các đầu mút không chịu lực. Các phép kiểm tra native và WASM nay chỉ dùng các đoạn vật lý có kích thước dương và chiều dài dương cho tính liên kết và ứng suất, đồng thời vẫn giữ mọi chiều dài hình học trong tổng được báo cáo. Tổng chiều dài không hữu hạn được ghi rõ là chưa đánh giá. Hãy chạy lại các phép kiểm tra nhóm đường hàn đã lưu có chứa các đoạn kích thước bằng không.",
     "zh": "零尺寸焊缝段可能使有效的焊缝组被当作分支不明确而拒绝，并在不承载的端点处放大偏心应力。原生和 WASM 验算现在只用尺寸和长度均为正的实体焊缝段来判断连通性和计算应力，同时在报告的总长中保留全部几何长度。总长为非有限值时明确标为不予评估。请重新运行含零尺寸焊缝段的已保存焊缝组验算。",
     "tr": "Sıfır boyutlu parçalar geçerli kaynak gruplarını belirsiz dallanma nedeniyle reddedebiliyor ve yük taşımayan uçlarda eksantrik gerilmeyi artırabiliyordu. Yerel ve WASM denetimleri artık bağlantı ve gerilme için yalnızca pozitif boyutlu ve uzunluklu fiziksel dikişleri kullanırken tüm geometrik uzunlukları toplamda korur. Sonlu olmayan toplam uzunluk değerlendirilmez. Sıfır boyutlu parçalar içeren kayıtlı kaynak gruplarını yeniden hesaplayın."
   },

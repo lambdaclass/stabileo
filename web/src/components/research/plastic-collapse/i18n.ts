@@ -39,7 +39,7 @@ const en = {
 };
 export type PlasticStrings = typeof en;
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', PlasticStrings> = {
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'vi', PlasticStrings> = {
   en,
   es: {
     publisher: 'Elsevier',
@@ -263,6 +263,43 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'z
     places: { leftBase: 'Bal oszloptalp', leftCorner: 'Bal felső sarok', midspan: 'Fesztávközép', rightCorner: 'Jobb felső sarok', rightBase: 'Jobb oszloptalp' },
     nodalHeading: 'Csomóponti elmozdulások a(z) {event}. eseménynél · m', node: 'Csomópont',
   },
+  vi: {
+  publisher: 'Elsevier',
+  title: 'Phá hoại dẻo kinh điển',
+  metaTitle: 'Phá hoại dẻo kinh điển — Stabileo Research',
+  metaDescription: 'Một khung cổng được so sánh với các tính toán tay cho cơ cấu dầm, cơ cấu chuyển vị ngang và cơ cấu kết hợp.',
+  thumbnailAlt: 'Khung cổng biến dạng khi phá hoại, từ lần chạy bộ giải sản xuất',
+  lead: 'Một khung cổng ngàm chân, ba cơ cấu tính tay và bộ giải phá hoại dẻo 3D dùng trong sản xuất.',
+  citation: '”, ví dụ có lời giải của phương pháp cơ cấu trong',
+  model: 'Nhịp L = {span} m, chiều cao h = {height} m, Mp đồng đều = {mp} kN·m. Cả hai chân đều ngàm. Mái chịu λH = λ × {horizontal} kN hướng sang phải tại góc trái và λV = λ × {vertical} kN hướng xuống tại giữa nhịp. Dầm được chia tại vị trí đặt tải. Khung nằm trong mặt phẳng XZ; không đặt tải ngoài mặt phẳng.',
+  method: 'Công ảo với các thanh cứng và góc xoay nhỏ cho ba cận trên dưới đây. Cơ cấu kết hợp triệt tiêu khớp mái bên trái: công nội lực là 6Mpθ, công ngoại lực là λ(Hh + VL/2)θ. Giá trị nhỏ nhất quyết định. Biến dạng dọc trục là đàn hồi; chảy dẻo do lực dọc và lực cắt, hóa bền và mất ổn định hình học nằm ngoài phép tính tay này.',
+  provenance: 'Ba cận này là các suy diễn tay của chính chúng tôi bằng phương pháp cơ cấu công ảo, phương pháp của Horne, Plastic Theory of Structures (1979), mà chúng tôi trích dẫn làm tài liệu nền: chúng tôi chưa kiểm tra số trang hay số phương trình nào trong sách. Các kích thước là của chúng tôi; không tái hiện hình hay ví dụ có lời giải nào của sách. Crossref cho biết tựa đề và năm nhưng không có tác giả; nhà xuất bản',
+  provenanceEnd: 'xác định là M. R. Horne.',
+  referenceLabel: 'So với tính tay',
+  publishedNote: 'Không dùng hình hay bảng nào của sách: ví dụ và các kích thước của nó là của chúng tôi, nên tính tay là tham chiếu.',
+  checksHeading: 'Các phép kiểm tra',
+  checks: {
+    collapse: 'Hệ số phá hoại bằng cận kết hợp 6Mp / (Hh + VL/2) trong phạm vi 1 × 10⁻⁶.',
+    mechanism: 'Bộ giải báo cáo một cơ cấu hoàn chỉnh và không có cảnh báo.',
+    hinges: 'Khớp hình thành ở cả hai chân, ở giữa nhịp và ở góc mái bên phải; góc mái bên trái không bao giờ chảy dẻo.',
+    yield: 'Khi phá hoại |My| ≤ Mp ở mọi đầu thanh.',
+    equilibrium: 'Các phản lực cân bằng với tải trọng tác dụng: ΣFx, ΣFz và ΣMy trong phạm vi 1 × 10⁻⁹.',
+    corner: 'Theo tĩnh học, góc mái bên trái chịu 3Mp − λHh = {corner} kN·m, và phương trình dầm 3Mp + M = λVL/2 được thỏa mãn.',
+  },
+  passed: 'đạt', failed: 'không đạt',
+  comparison: 'Tính tay so với Stabileo', mechanism: 'Cơ cấu', reference: 'λ tính tay', difference: 'Δ (Stabileo − tính tay)',
+  beam: 'Dầm', sway: 'Chuyển vị ngang', combined: 'Kết hợp',
+  explanation: 'Chỉ giá trị nhỏ nhất là hệ số phá hoại dự đoán. Sai khác so với hai cận trên còn lại là điều được kỳ vọng, không phải lỗi của bộ giải. Dung sai 1 × 10⁻⁶ của λ là cận hồi quy, không phải mục tiêu độ chính xác: bài toán nhỏ, điều kiện tốt này khớp với cận kết hợp đến 1.4 × 10⁻¹¹ trong lần chạy gốc (native).',
+  scope: 'Phạm vi', limits: ['Không phải kiểm tra thiết kế.', 'Một tỷ số tải và một tiết diện đồng nhất; không có tương tác lực dọc - mô men, mất ổn định hay chuyển vị lớn.', 'Bộ giải dẻo 2D không được dùng ở đây; trang này chạy bộ giải 3D (xem vấn đề #758).', 'Trình xem nối các nút đã chuyển vị bằng các đường thẳng và không vẽ ký hiệu khớp.'],
+  run: 'Tính lại trực tiếp', stop: 'Dừng', restart: 'Chạy lại từ đầu', running: 'Đang tính trực tiếp…', replay: 'Bản phát lại tính trước (cùng bộ giải)', live: 'Tính toán trực tiếp',
+  error: 'Tính toán trực tiếp thất bại; đang hiển thị bản phát lại tính trước', errorDetail: 'Thông báo của bộ giải',
+  step: 'Sự kiện khớp', displacement: 'Chuyển vị nút',
+  pending: 'Không có lần chạy tính trước', warning: 'Cảnh báo của bộ giải / cơ cấu chưa hoàn chỉnh',
+  amplified: 'Chuyển vị ×{scale}', planeNote: 'Mặt phẳng XZ được vẽ phẳng: X sang phải, Z hướng lên.',
+  eventsHeading: 'Các sự kiện khớp', event: 'Sự kiện', location: 'Khớp tại', moment: 'My · kN·m',
+  places: { leftBase: 'Chân trái', leftCorner: 'Góc mái bên trái', midspan: 'Giữa nhịp', rightCorner: 'Góc mái bên phải', rightBase: 'Chân phải' },
+  nodalHeading: 'Chuyển vị nút tại sự kiện {event} · m', node: 'Nút',
+},
   zh: {
     publisher: 'Elsevier',
     title: '经典塑性倒塌',

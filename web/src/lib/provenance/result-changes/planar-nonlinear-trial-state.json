@@ -23,6 +23,7 @@
     "fr": "Les états d’essai et de récupération non linéaires plans concordent",
     "hu": "A síkbeli nemlineáris próba és az eredményszámítás állapota egyezik",
     "tr": "Düzlemsel doğrusal olmayan deneme ve sonuç durumları uyuşur",
+    "vi": "Trạng thái thử và khôi phục phi tuyến phẳng thống nhất",
     "zh": "平面非线性试算状态与结果恢复状态一致"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Les essais par longueur d’arc respectent les liaisons de déplacement et peuvent être repris avec un rayon plus petit si la tangente est singulière. Le calcul corotationnel plan utilise les mêmes charges pour la résolution et la récupération des efforts aux incréments partiels.",
     "hu": "Az ívhosszpróbák betartják az elmozdulási kényszereket, és szinguláris tangens esetén kisebb sugárral megismételhetők. A síkbeli korotációs számítás részleges lépéseknél ugyanazokat a terheket használja a megoldáshoz és az erők számításához.",
     "tr": "Yay uzunluğu denemeleri yer değiştirme bağlarını sağlar ve teğet tekil olduğunda daha küçük bir yarıçapla tekrarlanabilir. Düzlemsel eş dönel analiz, kısmi artımlarda çözüm ve kuvvet hesabı için aynı yükleri kullanır.",
+    "vi": "Các lần thử chiều dài cung áp dụng ràng buộc chuyển vị và có thể thử lại với bán kính nhỏ hơn sau khi gặp tiếp tuyến suy biến. Đồng xoay phẳng dùng cùng các tải đặt vào cho phép giải và cho việc khôi phục lực ở các gia số từng phần.",
     "zh": "弧长试算满足位移约束，并可在切线刚度奇异时缩小半径重试。平面共旋分析在部分荷载增量下采用相同的荷载求解和恢复内力。"
   },
   "changelog": {

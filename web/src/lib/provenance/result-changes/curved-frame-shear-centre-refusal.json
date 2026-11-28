@@ -13,6 +13,7 @@
     "fr": "L’analyse corotationnelle des barres courbes vérifie le centre de cisaillement",
     "hu": "Az íves rudak korotációs elemzése ellenőrzi a nyírási középpontot",
     "tr": "Eğri çubukların eş dönel analizi kayma merkezi kaçıklığını denetler",
+    "vi": "Phân tích đồng xoay khung cong kiểm tra độ lệch tâm uốn",
     "zh": "曲梁共旋分析检查剪切中心偏移"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "L’analyse corotationnelle spatiale refuse les sections utilisées par des barres courbes dont le centre de cisaillement est excentré, car le solveur omet le couplage flexion-torsion.",
     "hu": "A térbeli korotációs elemzés elutasítja az eltolt nyírási középpontú íves rúdszelvényeket, mert a megoldó nem veszi figyelembe a hajlítás és csavarás csatolását.",
     "tr": "Uzaysal eş dönel analiz, eğilme-burulma bağlaşımını içermediği için kayma merkezi kaçık eğri çubuk kesitlerini reddeder.",
+    "vi": "Phân tích đồng xoay không gian nay từ chối các tiết diện khung cong đã dùng có độ lệch tâm uốn vì bộ giải bỏ qua ghép nối uốn-xoắn.",
     "zh": "空间共旋分析拒绝使用剪切中心偏移截面的曲梁，因为求解器省略了弯扭耦合。"
   },
   "changelog": {

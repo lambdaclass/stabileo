@@ -283,6 +283,46 @@ const hu: Strings = {
   wholeLine: 'a teljes vezeték',
 };
 
+const vi: Strings = {
+  title: riserTitle.vi,
+  lead: riserHook.vi,
+  model: 'Mô hình',
+  theory: 'Một thanh chính xác về hình học: mỗi tiết diện chuyển động và xoay tự do, và năng lượng phụ thuộc vào độ giãn, độ trượt, độ uốn và độ xoắn đo trong hệ tọa độ riêng của tiết diện. Các phần tử ba nút với hai điểm Gauss. Đáy biển là một mặt phẳng cứng đẩy ngược lại bằng một lò xo phạt tại mỗi nút, có ma sát Coulomb.',
+  method: 'Chúng tôi đọc các tệp đầu vào của chính mã tham chiếu và giải cùng ba bước tĩnh: trọng lượng bản thân có tiếp xúc, một lực kéo ngang 1 MN, rồi nhấc đầu tự do 186 m. Bộ giải là một crate Rust mới, được biên dịch sang WASM cho trang này. Ma trận tiếp tuyến của nó có được từ việc đạo hàm hai lần năng lượng phần tử, nên Newton hội tụ bậc hai.',
+  comparison: 'Cuối bước 3, chúng tôi so sánh mô men uốn và lực cắt của cả 134 phần tử với các giá trị được lưu trong hướng dẫn thực hành của mã tham chiếu. Điểm chạm đáy và hình dạng treo cũng được kiểm tra với dây xích đàn hồi. Một công xôn 1 m (hướng dẫn 1) kiểm tra riêng phần dầm.',
+  limits: 'Chỉ tĩnh học: không có dòng hải lưu, không có tải sóng hay lực cản, không có tiếp xúc giữa các đường ống. Sự trùng khớp với mã tham chiếu mang tính số; đó không phải một thí nghiệm và không phải một kiểm tra thiết kế.',
+  checks: 'Kiểm chứng và nguồn',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': 'Công xôn: X, Z tại đầu mút (m)',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': 'Công xôn, 5 phần tử: X, Z tại đầu mút (m)',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': 'Công xôn, 40 phần tử: X, Z tại đầu mút (m)',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': 'Ống đứng: mô men uốn cực đại (N·m)',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': 'Ống đứng: lực cắt cực đại (N)',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': 'Ống đứng: điểm chạm đáy (m dọc theo đường ống)',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': 'Ống đứng: điểm chạm đáy (m dọc theo đường ống)',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': 'Ống đứng: hình dạng treo (m)',
+  } as Record<string, string>,
+  riser: 'Ống đứng', forces: 'Nội lực', cantilever: 'Công xôn',
+  pull: 'Lực kéo ngang', lift: 'Nhấc đầu tự do', friction: 'Ma sát đáy biển μ',
+  run: 'Tính lại trực tiếp', stop: 'Dừng', restart: 'Chạy lại',
+  computing: 'Đang tính với Stabileo… (vài giây)',
+  caseLabel: 'Trường hợp',
+  error: 'Bộ giải không tải được hoặc không hoàn tất. Kết quả trước đó vẫn còn.',
+  ours: 'Stabileo', reference: 'Mã tham chiếu, cuối bước 3', figure: 'Mã tham chiếu, Hình 1-6',
+  moment: 'Mô men uốn M(e1)', shear: 'Lực cắt V(e2)', length: 'Vị trí dọc theo đường ống (m)', time: 'Hệ số tải trọng',
+  tipX: 'X đầu mút (m)', tipZ: 'Z đầu mút (m)',
+  steps: ['Trọng lượng bản thân trên đáy biển', 'Lực kéo ngang', 'Nhấc đầu tự do'],
+  fairlead: 'Đầu tự do', touchdown: 'Điểm chạm đáy (dọc theo đường ống)', anchor: 'Lực căng tại neo',
+  defaults: 'Các giá trị tham chiếu ứng với các tham số riêng của hướng dẫn (1 MN, 186 m, μ = 0.2).',
+  coordinates: 'Tỷ lệ thực, x dọc theo đáy biển và z hướng lên, tính bằng mét. Màu: mô men uốn.',
+  cantileverNote: 'Một công xôn 1 m với lực 1000 N ngang qua đầu mút, trong mười gia số.',
+  inputs: 'Tệp đầu vào', code: 'Reference code (BSD-3-Clause)',
+  tableIntro: 'Chúng tôi không so sánh các hình của bài báo: chúng tôi không có toàn văn. Các tham chiếu là các kết quả được công bố cùng GIRAFFE, mã của tác giả, một nghiệm chính xác độc lập cho công xôn và dây xích giải tích cho ống đứng. Chênh lệch là giá trị lớn nhất trên mọi thứ được so sánh: mười gia số công xôn so với hình vẽ, 134 phần tử của ống đứng về mô men và lực cắt, và toàn bộ phần treo của đường ống.',
+  table: { quantity: 'Đại lượng', reference: 'Tham chiếu', ours: 'Stabileo', difference: 'Chênh lệch lớn nhất', tolerance: 'Dung sai' },
+  sources: { figure: 'GIRAFFE, Hình 1-6 trong hướng dẫn của nó', exact: 'Nghiệm thanh chính xác, độc lập', giraffe: 'GIRAFFE, kết quả hướng dẫn 16', catenary: 'Dây xích đàn hồi giải tích' } as Record<string, string>,
+  wholeLine: 'toàn bộ đường ống',
+};
+
 const zh: Strings = {
   title: riserTitle.zh,
   lead: riserHook.zh,
@@ -323,5 +363,5 @@ const zh: Strings = {
   wholeLine: '整条管线',
 };
 
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, vi, zh };
 export const riserStrings = (): Strings => translations[publicI18n.locale] ?? en;

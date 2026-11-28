@@ -33,6 +33,7 @@
     "fr": "La convergence des appuis et des sols vérifie l’équilibre libre",
     "hu": "A nemlineáris támasz- és talajkonvergencia a szabad egyensúlyt ellenőrzi",
     "tr": "Doğrusal olmayan mesnet ve zemin yakınsaması serbest dengeyi denetler",
+    "vi": "Các kiểm tra hội tụ phi tuyến gối tựa và nền đất kiểm tra cân bằng tự do",
     "zh": "非线性分析中支座与土的收敛检查针对自由平衡"
   },
   "explanation": {
@@ -43,6 +44,7 @@
     "fr": "Les réactions bloquées ne peuvent masquer les résidus libres. Les contrôles des déplacements imposés, ressorts coïncidents, charges de trajectoire contraintes, gauchissement, capacités positives et courbes de sol sont corrigés. SSI vérifie aussi l’équilibre avec la raideur actualisée. Relancer les analyses non linéaires, P-Delta et SSI concernées (#761 ; PR #1940).",
     "hu": "A megtámasztott reakciók nem fedhetik el a szabad maradékot. Az előírt mozgás, egybeeső rugók, kényszeres útterhek, vetemedés, pozitív anyagi kapacitások és nemlineáris talajgörbék következetes konvergenciaellenőrzést használnak. Az SSI a frissített talajmerevséggel is ellenőrzi az erőegyensúlyt. Futtassa újra az érintett nemlineáris, P-Delta és SSI vizsgálatokat; a konvergencia, viselt teher és eredmények változhatnak (#761; PR #1940).",
     "tr": "Kısıtlı tepkiler serbest artıkları gizleyemez. Verilen hareketler, çakışan yaylar, kısıtlı yol yükleri, çarpılma, pozitif kapasiteler ve zemin eğrileri için denetimler düzeltildi. SSI güncellenmiş zemin rijitliğiyle kuvvet dengesini de denetler. Etkilenen doğrusal olmayan, P-Delta ve SSI analizlerini yeniden çalıştırın (#761; PR #1940).",
+    "vi": "Các phản lực của bậc bị ngăn không thể che các phần dư tự do. Chuyển động cưỡng bức, các lò xo trùng nhau, các tải đường đi bị ràng buộc, vênh, các khả năng chịu lực vật liệu dương và các đường cong nền đất phi tuyến nay dùng các kiểm tra hội tụ nhất quán. SSI cũng kiểm tra cân bằng lực với độ cứng nền đất đã cập nhật. Hãy chạy lại các phân tích phi tuyến, P-Delta và SSI bị ảnh hưởng; sự hội tụ, tải mang được và các kết quả có thể thay đổi (#761; PR #1940).",
     "zh": "受约束的反力不能掩盖自由残差。强制运动、重合弹簧、受约束的路径荷载、翘曲、正的材料承载力以及非线性土曲线，现在采用一致的收敛检查。SSI 还会用更新后的土刚度检查力的平衡。请重新运行受影响的非线性、P-Delta 和 SSI 分析；收敛性、承担的荷载和结果可能变化（#761；PR #1940）。"
   },
   "changelog": {
