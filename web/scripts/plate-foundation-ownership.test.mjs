@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { featuresForMode } from '../config/public-features.mjs';
 import { withComponent } from './component-browser-fixture.mjs';
 
 const entry = `
