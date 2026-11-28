@@ -71,14 +71,8 @@ def production_changes(source, base, head, paths):
         if git(source, 'rev-list', '--max-count=1', base, '--not', target):
             continue
         incoming = trailers(source, target, 'Production-Change', pr)
-        if incoming:
-            fork = git(source, 'merge-base', target, pr).decode().strip()
-            incoming_paths = changed_paths(source, f'{fork}..{pr}')
-            absent = incoming - incoming_paths
-            if absent:
-                production_changes(source, fork, pr, incoming_paths)
-                if absent & changed_paths(source, f'{target}..{merge}'):
-                    raise SystemExit(invalid)
+        if incoming and incoming - changed_paths(source, f'{target}...{pr}'):
+            raise SystemExit(invalid)
         remaining -= incoming
     if remaining - paths:
         raise SystemExit(invalid)

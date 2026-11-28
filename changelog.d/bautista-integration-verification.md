@@ -2,7 +2,7 @@
 
 #### Verify integrated building models and production builds
 
-The rectangular slab and wall checks now open the specific generated buildings in both test profiles. Production parity checks recognize a declared change that has already landed upstream when testing the merged pull request.
+The rectangular slab and wall checks now open the specific generated buildings in both test profiles. Both research builds verify that the pull request actually changes every path it declares for production parity.
 
 Wind generation keeps intermediate floor cuts on tapered carriers and accepts a floor at the apex. Applying model text also replaces the ownership of generated footprint links. [Wind levels](../docs/results-changes/2026-11-wind-at-landings.md) and [plate constraints](../docs/results-changes/2026-11-plate-edit-node-ownership.md).
 

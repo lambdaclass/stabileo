@@ -405,7 +405,6 @@ class ParityWorkflow(unittest.TestCase):
         repaired = self.commit('Keep the target caption')
         self.parity(repaired, f'BASE={target}', 'REQUIRE_PARITY=1')
 
-    @unittest.skip("known wrong result: #2670")
     def test_hosted_merge_requires_each_declared_path_to_change_on_the_incoming_branch(self):
         self.git('switch', '--quiet', '--detach', self.target)
         (self.repo / 'web/page').write_text('candidate page\n')
@@ -420,7 +419,7 @@ class ParityWorkflow(unittest.TestCase):
         for side in ['reference', 'candidate']:
             with self.subTest(side=side, changed=False):
                 result = self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1', f'PARITY_SIDE={side}',
-                                     f'PARITY_RESEARCH_OUT=research-{side}', succeeds=False)
+                                     f'PARITY_RESEARCH_OUT=stale-research-{side}', succeeds=False)
                 self.assertIn('Production-Change trailers must name actual changed paths', result.stderr)
         self.git('switch', '--quiet', '--detach', integrated)
         (self.repo / 'web/page').write_text('corrected page\n')
