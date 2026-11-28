@@ -122,6 +122,9 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
         if (features.proRcSheets && importer && id.endsWith('/sheet-placement') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/sheet-placement')) {
           return resolve(__dirname, 'src/lib/store/active-sheet-placement.ts');
         }
+        if (features.proPlatesUnified && importer && id.endsWith('/bound-basis') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/pro/load-codes/bound-basis')) {
+          return resolve(__dirname, 'src/components/pro/load-codes/active-bound-basis.ts');
+        }
         if (features.proPlatesUnified && importer && id.endsWith('/registry') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/pro/load-codes/registry')) {
           return resolve(__dirname, 'src/components/pro/load-codes/active-registry.ts');
         }

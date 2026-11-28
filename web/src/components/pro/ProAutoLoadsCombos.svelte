@@ -1,6 +1,6 @@
 <script lang="ts">
   import Hint from './Hint.svelte';
-  import { basisTitle } from './load-codes/registry';
+  import { boundBasis } from './load-codes/bound-basis';
   /**
    * The regulation dialog's Combinations tab: whether applying makes combinations, and from
    * what. Either the bound basis code (strength, service or both) or the project's own rules, which
@@ -32,7 +32,7 @@
       <div class="ac-source" role="radiogroup" aria-label={t('autoLoad.comboSource')}>
         <label class="al-check">
           <input type="radio" name="al-combo-source" value="regulation" bind:group={source} data-testid="al-combo-source-regulation" />
-          {basisTitle?.() || t('autoLoad.comboSource.regulation')}
+          {boundBasis?.()?.title || t('autoLoad.comboSource.regulation')}
         </label>
         {#if source === 'regulation'}
           <div class="al-row ac-sub" role="radiogroup" aria-label={t('autoLoad.comboSet')} data-testid="al-combo-set">

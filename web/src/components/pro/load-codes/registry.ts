@@ -16,7 +16,6 @@ export type CodeInputComponent = Component<CodeInputProps<any>>;
 export const CODE_INPUTS: Readonly<Record<string, CodeInputComponent>> = {};
 
 export const LoadFamilyChooser: typeof import('./LoadFamilyChooser.svelte').default | undefined = undefined;
-export const basisTitle: (() => string | undefined) | undefined = undefined;
 
 interface LoadFamilyEditor {
   familyOf: typeof import('../../../lib/codes/families/stacks').loadFamilyOfRegulations;
