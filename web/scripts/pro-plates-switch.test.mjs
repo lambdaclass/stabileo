@@ -898,3 +898,33 @@ test('known wrong result: #1928 the published manual solve prepares plates throu
     });
   }
 });
+
+for (const component of ['advanced/ModalCertificate', 'ResultSelfChecks', 'pro/ProDiagnosticsTab']) {
+  test.skip('known wrong result: #1928 published warning presentation and notice controls in ' + component, async () => {
+    const entry = resolve(root, 'src/components/' + component + '.svelte');
+    for (const plates of [false, true]) {
+      await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+        const result = await build({ root, configFile, logLevel: 'silent', build: {
+          write: false, lib: { entry, formats: ['es'] },
+          rollupOptions: { external: (id, from) => !!from && !id.endsWith('SelfCheckBanner.svelte') && !id.includes('?svelte&type=style') },
+        } });
+        const output = (Array.isArray(result) ? result[0] : result).output;
+        const chunk = output.find(item => item.type === 'chunk');
+        if (component === 'pro/ProDiagnosticsTab') {
+          assert.ok(chunk.code.includes('diag-hide-warning'));
+          for (const label of ['containment-restore', 'notices-restore-hidden']) assert.equal(chunk.code.includes(label), plates, label);
+          for (const source of ['containment-dismissal.svelte', 'notice-prefs.svelte']) assert.equal(chunk.imports.some(id => id.endsWith(source)), plates, source);
+        } else {
+          assert.ok(chunk.code.includes('self-check-warning'));
+          assert.equal(chunk.imports.some(id => id.endsWith('notice-prefs.svelte')), plates);
+          if (!plates) {
+            const css = output.find(item => item.type === 'asset' && item.fileName.endsWith('.css')).source;
+            assert.match(css, /border:\s*2px solid var\(--st-warn\)/);
+            assert.match(css, /min-height:\s*44px/);
+            assert.ok(chunk.code.includes('tabindex'));
+          }
+        }
+      });
+    }
+  });
+}
