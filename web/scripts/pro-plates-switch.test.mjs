@@ -972,3 +972,22 @@ test('known wrong result: #1928 a validated released profile compiles absent pla
     rmSync(directory, { recursive: true });
   }
 });
+
+test.skip('known wrong result: #1928 the published occupancy reader resolves only the released authority', async () => {
+  for (const unified of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: unified }, async configFile => {
+      const entry = resolve(root, 'src/lib/model/use-zones.ts');
+      const authorities = new Set();
+      await build({ root, configFile, logLevel: 'silent', build: { write: false, lib: { entry, formats: ['es'] } },
+        plugins: [{
+          name: 'record-occupancy-authorities',
+          moduleParsed(module) {
+            const family = module.id.match(/\/codes\/(asce7|turkey|eurocode)\//)?.[1];
+            if (family) authorities.add(family);
+          },
+        }],
+      });
+      assert.deepEqual([...authorities].sort(), unified ? ['asce7', 'eurocode', 'turkey'] : []);
+    });
+  }
+});
