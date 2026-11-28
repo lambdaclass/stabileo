@@ -4487,6 +4487,7 @@ const tr: Translations = {
   'video.error.unsupported': 'Bu tarayıcı görüntü alanını kaydedemiyor.',
   'video.error.empty': 'Kayıt boş çıktı.',
   'video.error.recorder': 'Tarayıcı kaydı durdurdu.',
+  'templates.title': 'Ofis şablonları',
   'templates.name': 'Şablon adı',
   'templates.save': 'Projeyi şablon olarak kaydet',
   'templates.export': 'Dışa aktar',

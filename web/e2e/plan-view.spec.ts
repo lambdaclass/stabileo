@@ -7,7 +7,7 @@ async function enterPlan(page: import('@playwright/test').Page) {
   await page.getByTestId('cam-menu').click();
   await page.getByTestId('nav-plan-view').click();
   await expect(page.getByTestId('plan-view-chip')).toBeVisible();
-  await page.locator('.cam-backdrop').click({ position: { x: 120, y: 300 } });
+  await page.locator('.cam-backdrop').click({ position: { x: 420, y: 460 } });
   await expect(page.getByTestId('cam-menu-pop')).toHaveCount(0);
 }
 
@@ -22,7 +22,7 @@ test.describe('@smoke the plan view', () => {
     const plan = (await page.evaluate(() => window.__stabileo.cameraState()))!;
     expect(plan.polarDeg).toBeLessThan(0.001);
 
-    await page.locator('.cam-backdrop').click({ position: { x: 120, y: 300 } });
+    await page.locator('.cam-backdrop').click({ position: { x: 420, y: 460 } });
     await page.getByTestId('plan-view-rotate-right').click();
     const turned = (await page.evaluate(() => window.__stabileo.cameraState()))!;
     expect(turned.polarDeg).toBeLessThan(0.001);
@@ -75,7 +75,7 @@ test.describe('@smoke the plan view', () => {
     await page.getByTestId('grid-generate-levels').click();
     await page.getByTestId('cam-menu').click();
     await page.getByTestId('nav-plan-view').click();
-    await page.locator('.cam-backdrop').click({ position: { x: 120, y: 300 } });
+    await page.locator('.cam-backdrop').click({ position: { x: 420, y: 460 } });
     await expect.poll(async () => (await census(page)).hidden).toBe(0);
     await page.getByTestId('plan-view-up').click();
     await expect(page.getByTestId('plan-view-below')).toHaveAttribute('aria-pressed', 'false');

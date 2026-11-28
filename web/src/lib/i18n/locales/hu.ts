@@ -4228,6 +4228,7 @@ const hu: Translations = {
   "video.error.unsupported": "Ez a böngésző nem tudja rögzíteni a nézetet.",
   "video.error.empty": "A felvétel üres lett.",
   "video.error.recorder": "A böngésző leállította a felvételt.",
+  "templates.title": "Irodai sablonok",
   "templates.name": "Sablon neve",
   "templates.save": "A projekt mentése sablonként",
   "templates.export": "Exportálás",

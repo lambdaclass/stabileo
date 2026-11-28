@@ -4478,6 +4478,7 @@ const fr: Translations = {
   'video.error.unsupported': 'Ce navigateur ne peut pas enregistrer la vue.',
   'video.error.empty': 'L\'enregistrement est vide.',
   'video.error.recorder': 'Le navigateur a interrompu l\'enregistrement.',
+  'templates.title': 'Modèles du bureau',
   'templates.name': 'Nom du gabarit',
   'templates.save': 'Enregistrer le projet comme gabarit',
   'templates.export': 'Exporter',

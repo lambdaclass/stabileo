@@ -4478,6 +4478,7 @@ const de: Translations = {
   'video.error.unsupported': 'Dieser Browser kann die Ansicht nicht aufnehmen.',
   'video.error.empty': 'Die Aufnahme ist leer.',
   'video.error.recorder': 'Der Browser hat die Aufnahme abgebrochen.',
+  'templates.title': 'Büro-Vorlagen',
   'templates.name': 'Name der Vorlage',
   'templates.save': 'Projekt als Vorlage speichern',
   'templates.export': 'Exportieren',

@@ -88,8 +88,7 @@
     top: auto;
     bottom: calc(100% + 10px);
     right: auto;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
     max-height: calc(100cqh - 76px);
     overflow-y: auto;
   }

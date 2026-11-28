@@ -3,7 +3,7 @@ export type PanelSide = 'left' | 'right';
 const KEY = 'stabileo-panel-side';
 const WIDTH_KEY = 'stabileo-panel-width';
 const OPEN_KEY = 'stabileo-panel-open';
-export const DEFAULT_PANEL_WIDTH = 440;
+export const DEFAULT_PANEL_WIDTH = 520;
 
 function read(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }
