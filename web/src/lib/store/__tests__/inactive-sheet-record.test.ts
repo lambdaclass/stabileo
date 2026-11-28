@@ -4,13 +4,13 @@ import { applyTemplate, templateFromProject } from '../office-templates';
 import { designData, patchDesignData } from '../design-data';
 import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject, loadFile, loadProject, serializeProject } from '../file';
 
-it.each(['project', 'loadProject', 'loadFile', 'autosave', 'tab', 'office template'] as const)('known wrong result: #1928 an inactive sheet record survives %s and an unrelated design edit', async opener => {
+const openers = ['project', 'loadProject', 'loadFile', 'autosave', 'tab', 'office template'] as const;
+
+async function openDesignData(opener: (typeof openers)[number], inputs: Record<string, unknown>) {
   modelStore.clear();
   modelStore.addNode(0, 0);
-  const sheets = __PUBLIC_FEATURES__.proRcSheets;
   const file = buildProjectFile();
-  const sheet = { version: 1, adopted: {}, foundationSystem: null, schedule: { scope: 'level', markPrefix: 'C' }, columnSchedule: { revision: 'R2' } };
-  const project = { ...file, snapshot: { ...file.snapshot, designData: { version: 1, rcSheets: sheet } } };
+  const project = { ...file, snapshot: { ...file.snapshot, designData: { version: 1 as const, ...inputs } } };
   const text = JSON.stringify(project);
   if (opener === 'project') expect(deserializeProject(text)).toBe(true);
   else if (opener === 'loadProject' || opener === 'loadFile') await (opener === 'loadProject' ? loadProject : loadFile)(new File([text], 'sheets.ded'));
@@ -25,10 +25,36 @@ it.each(['project', 'loadProject', 'loadFile', 'autosave', 'tab', 'office templa
     expect(accepted.dropped).toEqual([]);
     modelStore.restore(accepted.tabs[0]!.modelSnapshot);
   }
+}
+
+it.each(openers)('known wrong result: #1928 an inactive sheet record survives %s and an unrelated design edit', async opener => {
+  const sheets = __PUBLIC_FEATURES__.proRcSheets;
+  const sheet = { version: 1, adopted: {}, foundationSystem: null, schedule: { scope: 'level', markPrefix: 'C' }, columnSchedule: { revision: 'R2' } };
+  await openDesignData(opener, { rcSheets: sheet });
   patchDesignData({ rebarGrade: 'changed grade' });
   const normalized = { version: 1, adopted: {}, foundationSystem: null, schedule: { scope: 'level' } };
   expect(designData().rcSheets).toEqual(sheets ? normalized : undefined);
   const saved = JSON.parse(serializeProject()).snapshot.designData;
   expect(saved.rcSheets).toEqual(sheets ? normalized : sheet);
   expect(saved.rebarGrade).toBe('changed grade');
+});
+
+it.skip.each(openers)('known wrong result: #1928 inactive sheet assumptions survive %s without being interpreted', async opener => {
+  const pile = { length: 9, soilReference: 'BH-2' };
+  const inputs = { presumedPile: pile, foundingElevation: -2, presumedBearingKPa: 200, minTieSpacingMm: 110, maxAggregateMm: 20 };
+  await openDesignData(opener, inputs);
+  patchDesignData({ rebarGrade: 'reviewed grade' });
+  const live = designData();
+  const saved = JSON.parse(serializeProject()).snapshot.designData;
+  if (__PUBLIC_FEATURES__.proRcSheets) {
+    expect(live.presumedPile).toMatchObject({ length: pile.length });
+    expect(live.presumedPile).not.toHaveProperty('soilReference');
+    for (const [key, value] of Object.entries(inputs).filter(([key]) => key !== 'presumedPile')) expect(live).toHaveProperty(key, value);
+    expect(saved.presumedPile).toEqual(live.presumedPile);
+  } else {
+    for (const key of Object.keys(inputs)) expect.soft(live).not.toHaveProperty(key);
+    expect(saved).toMatchObject(inputs);
+    expect(saved.presumedPile).toEqual(pile);
+  }
+  expect(saved.rebarGrade).toBe('reviewed grade');
 });
