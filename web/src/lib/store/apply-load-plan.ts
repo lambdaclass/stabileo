@@ -12,14 +12,15 @@ import { addGeneratedCombinations, takeBackCompositeCases } from './generated-co
 import type { LoadPlan } from '../engine/loads/load-plan';
 import { eligibleCombinationCase, isCompositeCase, loadCasesWithDirectEffects, type CaseCombination } from '../engine/loads/combination-cases';
 import { describePlanDelta, expandPlannedCombinations, type CurrentLoadState } from '../engine/loads/load-plan-delta';
-import { findPlannedCase, plannedCaseName, type Load, type LoadCase, type LoadCombination } from './model.svelte';
+import { findPlannedCase, plannedCaseName, type Load, type LoadCase, type LoadCombination, type ModelGroup } from './model.svelte';
 import { designData, patchDesignData } from './design-data';
-import { fromLoadPlan, loadsGeneratedWith, unverifiedSeismicLoads } from '../provenance/model-features';
+import { fromLoadPlan, loadGenerationOwner } from '../model/loads/generation-owner';
+import { loadsGeneratedWith, unverifiedSeismicLoads } from '../provenance/model-features';
 import { RESULTS_VERSION } from '../provenance/registry';
 import { untouchedDefaults, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import { t } from '../i18n';
 import { msg } from '../codes/message';
-import type { FloorLoadDef } from '../model/loads/floor-definitions';
+import { physicalLoadProvider } from './physical-load-provider';
 import { hasModalSeismicDerivation, MODAL_SEISMIC_UNAVAILABLE } from '../engine/loads/seismic-generation';
 
 export interface ApplyLoadPlanOptions {
@@ -51,6 +52,8 @@ export interface ApplyLoadPlanOptions {
  * they go only when the user asks (`alsoUnmarked`).
  */
 export interface ReplaceScope {
+  definitions?: number[];
+  independentLoads?: number;
   /** What "replace" takes: the generator's loads in the regenerated actions, and the combinations a code wrote. */
   generated: { loads: number[]; combinations: number[] };
   /** What carries no generator mark in the cases the plan writes into: kept unless asked. */
@@ -77,7 +80,7 @@ export const codeWritten = (c: { origin?: { code?: string; edited?: boolean } })
 
 export function replaceScope(
   p: LoadPlan, loads: readonly Load[], cases: readonly ScopeCase[], combinations: readonly ScopeCombination[],
-  nameOf?: ApplyLoadPlanOptions['nameOf'],
+  nameOf?: ApplyLoadPlanOptions['nameOf'], groups: Iterable<ModelGroup> = [],
 ): ReplaceScope {
   const types = new Set(p.cases.map((c) => String(c.type)));
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
@@ -93,20 +96,39 @@ export function replaceScope(
     : { cases: [], combinations: [] };
   const defaults = { cases: untouched.cases.filter((id) => !targets.has(id)), combinations: untouched.combinations };
   const defaultCombo = new Set(defaults.combinations);
-  const marked = (l: Load) => !!(l.data as { generatedBy?: string }).generatedBy;
-  const defined = (l: Load) => (l.data as { fromDef?: number }).fromDef !== undefined;
+  const definitions = new Set<number>();
+  for (const g of groups) {
+    if (g.kind !== 'floorLoad' || !fromLoadPlan(g.data?.generatedBy)) continue;
+    const caseId = g.data?.caseId;
+    if (typeof caseId === 'number' && types.has(caseType.get(caseId) ?? '')) definitions.add(g.id);
+  }
+  const source = (l: Load) => l.data as { fromDef?: number; generatedBy?: string };
   const caseOf = (l: Load) => l.data.caseId ?? 1;
+  const relevant = loads.filter(l => types.has(caseType.get(caseOf(l)) ?? ''));
+  const generated: number[] = [], defined: number[] = [], unmarked: number[] = [];
+  let independentLoads = 0;
+  for (const l of relevant) {
+    const { fromDef, generatedBy } = source(l);
+    if (fromDef !== undefined) {
+      (definitions.has(fromDef) ? generated : defined).push(l.data.id);
+      continue;
+    }
+    switch (loadGenerationOwner(generatedBy)) {
+      case 'plan': generated.push(l.data.id); break;
+      case 'independent': independentLoads++; break;
+      case 'unmarked': if (targets.has(caseOf(l))) unmarked.push(l.data.id); break;
+    }
+  }
   return {
-    generated: {
-      loads: loads.filter((l) => marked(l) && types.has(caseType.get(caseOf(l)) ?? '')).map((l) => l.data.id),
-      combinations: combinations.filter(codeWritten).map((c) => c.id),
-    },
+    ...(definitions.size ? { definitions: [...definitions] } : {}),
+    ...(independentLoads ? { independentLoads } : {}),
+    generated: { loads: generated, combinations: combinations.filter(codeWritten).map(c => c.id) },
     unmarked: {
-      loads: loads.filter((l) => !marked(l) && !defined(l) && targets.has(caseOf(l))).map((l) => l.data.id),
+      loads: unmarked,
       combinations: combinations.filter((c) => !codeWritten(c) && !defaultCombo.has(c.id) && (c.factors ?? []).some((f) => f.factor !== 0 && targets.has(f.caseId))).map((c) => c.id),
     },
     targets: [...targets],
-    defined: { loads: loads.filter((l) => defined(l) && types.has(caseType.get(caseOf(l)) ?? '')).map((l) => l.data.id) },
+    defined: { loads: defined },
     defaults,
   };
 }
@@ -114,9 +136,9 @@ export function replaceScope(
 /** What "replace" removes: the generated, and the unmarked too when asked. */
 export function replacedByPlan(
   p: LoadPlan, loads: readonly Load[], cases: readonly ScopeCase[], combinations: readonly ScopeCombination[],
-  opts: { alsoUnmarked?: boolean; nameOf?: ApplyLoadPlanOptions['nameOf'] } = {},
+  opts: { alsoUnmarked?: boolean; nameOf?: ApplyLoadPlanOptions['nameOf']; groups?: Iterable<ModelGroup> } = {},
 ): { loads: number[]; combinations: number[] } {
-  return replacementFromScope(replaceScope(p, loads, cases, combinations, opts.nameOf), opts.alsoUnmarked);
+  return replacementFromScope(replaceScope(p, loads, cases, combinations, opts.nameOf, opts.groups), opts.alsoUnmarked);
 }
 
 function replacementFromScope(scope: ReplaceScope, alsoUnmarked?: boolean): ReplaceScope['generated'] {
@@ -162,7 +184,7 @@ const NODAL_TYPES: readonly string[] = ['nodal', 'nodal3d'];
  */
 export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nameOf']): CurrentLoadState {
   const loads = modelStore.loads, cases = modelStore.model.loadCases, combinations = modelStore.model.combinations;
-  return describeCurrentLoads(replaceScope(p, loads, cases, combinations, nameOf));
+  return describeCurrentLoads(replaceScope(p, loads, cases, combinations, nameOf, modelStore.model.groups.values()));
 }
 
 function describeCurrentLoads(s: ReplaceScope): CurrentLoadState {
@@ -188,6 +210,8 @@ function describeCurrentLoads(s: ReplaceScope): CurrentLoadState {
     generated: { byType: byType(s.generated.loads), combinations: s.generated.combinations.length },
     unmarked: { byType: byType(s.unmarked.loads), combinations: s.unmarked.combinations.length },
     defined: { byType: byType(s.defined.loads) },
+    ...(s.definitions?.length ? { generatedDefinitions: s.definitions.length } : {}),
+    ...(s.independentLoads ? { independentLoads: s.independentLoads } : {}),
     defaults: {
       cases: cases.filter((c) => s.defaults.cases.includes(c.id)).map((c) => ({ name: c.name, type: String(c.type) })),
       combinations: s.defaults.combinations.length,
@@ -253,7 +277,7 @@ function prepareCombinationCases(
 export function previewLoadPlan(
   p: LoadPlan, nameOf: ApplyLoadPlanOptions['nameOf'], options: Parameters<typeof describePlanDelta>[2],
 ) {
-  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf);
+  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf, modelStore.model.groups.values());
   const replaced = options.replaceExisting ? replacementFromScope(scope, options.alsoUnmarked) : undefined;
   const { cases, retainedCases } = prepareCombinationCases(p, nameOf, scope, replaced);
   return describePlanDelta(p, describeCurrentLoads(scope), { ...options, retainedCases }, cases);
@@ -264,7 +288,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
   const refusal = physicalPlanRefusal(p);
   if (refusal) return refusal;
   const expandOptions = { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions };
-  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, opts.nameOf);
+  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, opts.nameOf, modelStore.model.groups.values());
   const replaced = opts.clearExisting ? replacementFromScope(scope, opts.alsoUnmarked) : undefined;
   const { bindings, cases, retainedCases, caseRetirement } = prepareCombinationCases(p, opts.nameOf, scope, replaced);
   const expanded = expandPlannedCombinations(p, { ...expandOptions, retainedCases }, cases);
@@ -290,11 +314,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     if (replaced) {
       const ids = new Set(replaced.loads);
       modelStore.replaceLoads(modelStore.loads.filter((l) => !ids.has(l.data.id)));
-      const types = new Set(p.cases.map((c) => String(c.type)));
-      for (const g of [...modelStore.model.groups.values()]) {
-        const def = g.kind === 'floorLoad' ? g.data as unknown as FloorLoadDef & { generatedBy?: string } : null;
-        if (def?.generatedBy && types.has(modelStore.model.loadCases.find((c) => c.id === def.caseId)?.type ?? '')) modelStore.removeGroup(g.id);
-      }
+      for (const id of scope.definitions ?? []) modelStore.removeGroup(id);
     }
     for (const [id, autoLoadsRetired] of caseRetirement) {
       modelStore.updateLoadCaseFields(id, { autoLoadsRetired });
@@ -334,7 +354,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     const caseOf = (type: string, index?: number) => (index !== undefined ? caseIds[index] : caseIdByType.get(type)?.[0]);
 
     const carrierOf = new Map<number, number>();
-    const onPlates = new Map<string, { groupId: number; caseId: number; q: number; dir?: [number, number, number] }>();
+    const pressures = physicalLoadProvider?.pressures(p.generatedBy ?? 'generator');
     if (p.distributed.length || p.nodal.length) modelStore.ensureSpaceCoordinates();
     modelStore.bulkMutate(() => {
       for (const d of p.distributed) {
@@ -364,20 +384,11 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
       for (const s of p.surface) {
         const id = caseOf(s.caseType, s.caseIndex);
         if (id === undefined) continue;
-        if (s.quadId < 0) {
-          const dir = s.frame === 'global' ? s.dir : undefined;
-          const key = `${-s.quadId}:${id}:${dir ?? ''}`, d = onPlates.get(key);
-          onPlates.set(key, { groupId: -s.quadId, caseId: id, q: (d?.q ?? 0) + s.q, ...(dir ? { dir } : {}) });
-          continue;
-        }
+        if (pressures?.collect(s, id)) continue;
         modelStore.addSurfaceLoad3D(s.quadId, s.q, id, { ...(s.frame ? { frame: s.frame, dir: s.dir, vary: s.vary } : {}), ...(s.on ? { on: s.on } : {}) });
       }
     });
-    for (const d of onPlates.values()) {
-      const def: FloorLoadDef & { generatedBy: string } = { caseId: d.caseId, q: d.q, target: { by: 'group', groupId: d.groupId }, distribution: 'slab', ...(d.dir ? { dir: d.dir } : {}), generatedBy: p.generatedBy ?? 'generator' };
-      const name = `${modelStore.model.groups.get(d.groupId)?.name ?? `#${d.groupId}`} · ${modelStore.model.loadCases.find((c) => c.id === d.caseId)?.name ?? d.caseId}`;
-      modelStore.addGroup(name, 'floorLoad', {}, { data: def as unknown as Record<string, unknown> });
-    }
+    pressures?.write();
 
     const combinations = expanded.map(combination => ({
       ...combination,

@@ -68,6 +68,9 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (features.proPlatesUnified && id === './physical-load-provider' && importer && dirname(importer) === resolve(__dirname, 'src/lib/store')) {
+          return resolve(dirname(importer), 'unified-physical-load-provider.ts');
+        }
         if (features.proPlatesUnified && importer && id.endsWith('/physical-footprint-grid') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/model/building/physical-footprint-grid')) {
           return resolve(__dirname, 'src/lib/model/building/unified-footprint-grid.ts');
         }

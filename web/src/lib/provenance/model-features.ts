@@ -1,3 +1,4 @@
+import { fromLoadPlan, loadGenerationOwner } from '../model/loads/generation-owner';
 import { cellPressureDefinitions, hasLocalCellProperties, pressureFollowsMesh } from '../model/physical/mesh-cell-fields';
 import { isMagnitudeCombination } from '../engine/result-scopes';
 import { needsOccupancyReview, type OccupancyBasis } from './occupancy-selection';
@@ -76,7 +77,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
-  'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'deferredSlabPanels', 'physicalPlateDefinitions', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'shortOffAxisStrap', 'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
@@ -242,7 +243,7 @@ function slaveNodes(c: Record<string, unknown>): number[] {
   return out;
 }
 
-export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && !!by && !/^(stair|arch):/.test(by);
+export { fromLoadPlan } from '../model/loads/generation-owner';
 
 function hasLoadType(load: FeatureLoad): load is FeatureLoad & { type: string } {
   return typeof load.type === 'string';
@@ -894,6 +895,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     f.add('addedAuthoredLoadRefusal');
   }
   const loads = featureLoads(s.loads);
+  if (loads.some(l => loadGenerationOwner(l.data?.generatedBy) === 'independent') ||
+    values(s.groups).some(g => g?.kind === 'floorLoad' && loadGenerationOwner((g.data as { generatedBy?: unknown } | undefined)?.generatedBy) === 'independent')) f.add('independentlyGeneratedLoads');
   const storedLoads = rawStoredLoads === s.loads ? loads : featureLoads(rawStoredLoads);
   if (orphanedBatchAssignment(s, storedLoads, constraints)) f.add('orphanedBatchAssignment');
   if (mode === 'pro' && restrictedMemberForceTable(s)) f.add('restrictedMemberForceTable');

@@ -810,7 +810,7 @@ test('known wrong result: #1928 the published deferred-column footprint grid exc
   }
 });
 
-test.skip('known wrong result: #1928 the published load writer excludes unmeshed plate definitions', async () => {
+test('known wrong result: #1928 the published load writer excludes unmeshed plate definitions', async () => {
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       const entry = resolve(root, 'src/lib/store/apply-load-plan.ts');

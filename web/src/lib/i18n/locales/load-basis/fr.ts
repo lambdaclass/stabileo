@@ -1,6 +1,8 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.warning.replacedDefinitions": "Le plan remplacera {n} définitions de charges de plancher qu’il a générées.",
+  "loadPlan.warning.independentLoadsKept": "Le plan conserve {n} charges créées par d’autres outils dans les cas concernés.",
   "plates.meshFieldsKept": "Le maillage de {names} a été conservé. Le supprimer ou le remplacer ferait perdre une charge ou modifierait le matériau, l’épaisseur, l’excentrement ou la courbure d’une maille.",
   "loadPlan.blocked.meshPhysicalPlate": "Maillez la plaque physique nº {id} et générez de nouveau les charges. Le plan nécessite ses éléments analytiques.",
   "loadPlan.blocked.unmeshedPlatePressure": "Une poussée de sol ou de fluide agit sur une plaque qui n'est pas encore maillée. Maillez la plaque (ou lancez un calcul) puis générez à nouveau les charges.",

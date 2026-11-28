@@ -1,0 +1,35 @@
+{
+  "id": "independent-load-producers",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "loads",
+  "when": {
+    "any": [
+      "independentlyGeneratedLoads"
+    ]
+  },
+  "title": {
+    "en": "Keep stair and architectural loads when replacing generated loads",
+    "es": "Conservar cargas de escaleras y arquitectura al reemplazar cargas generadas",
+    "de": "Treppen- und Architekturlasten beim Ersetzen generierter Lasten erhalten",
+    "fr": "Conserver les charges d’escalier et d’architecture lors du remplacement des charges générées",
+    "pt": "Preservar cargas de escadas e arquitetura ao substituir cargas geradas",
+    "hu": "A lépcső- és építészeti terhek megtartása a generált terhek cseréjekor",
+    "tr": "Üretilen yükleri değiştirirken merdiven ve mimari yükleri koruma",
+    "zh": "替换生成的荷载时保留楼梯及建筑荷载"
+  },
+  "explanation": {
+    "en": "After regenerating automatic loads, compare the stair reactions, wall weights and room pressures with the model before replacement. Restore any missing loads and rerun the analysis.",
+    "es": "Después de regenerar las cargas automáticas, compará las reacciones de escaleras, los pesos de muros y las cargas de ambientes con el modelo previo. Restituí las cargas faltantes y recalculá.",
+    "de": "Nach der automatischen Lasterzeugung Treppenreaktionen, Wandgewichte und Raumflächenlasten mit dem vorherigen Modell vergleichen. Fehlende Lasten wiederherstellen und erneut berechnen.",
+    "fr": "Après régénération des charges automatiques, comparez les réactions d’escalier, poids des murs et charges de pièces au modèle précédent. Rétablissez les charges manquantes avant de relancer le calcul.",
+    "pt": "Após regenerar as cargas automáticas, compare as reações das escadas, os pesos das paredes e as cargas dos ambientes com o modelo anterior. Restaure as cargas ausentes e recalcule.",
+    "hu": "Az automatikus újragenerálás után hasonlítsa össze a lépcsőreakciókat, falsúlyokat és helyiségterheket a korábbi modellel. Állítsa vissza a hiányzó terheket és futtassa újra a számítást.",
+    "tr": "Otomatik yükleri yeniden ürettikten sonra merdiven tepkilerini, duvar ağırlıklarını ve oda yüklerini önceki modelle karşılaştırın. Eksik yükleri geri yükleyip analizi yineleyin.",
+    "zh": "重新生成自动荷载后，请与替换前的模型核对楼梯反力、墙体自重及房间面荷载。恢复缺失的荷载后重新分析。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-independent-load-producers.md",
+    "heading": "Keep stair and architectural loads when replacing generated loads"
+  }
+}

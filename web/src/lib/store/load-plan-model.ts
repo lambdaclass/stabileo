@@ -1,10 +1,7 @@
 import { modelStore } from './model.svelte';
-import { unifiedPlates } from '../features';
+import { physicalLoadProvider } from './physical-load-provider';
 import { msg, type EngineMessage } from '../codes/message';
-import { isConvex } from '../engine/loads/floor-tributary';
 import type { LoadModelData, LoadPlan } from '../engine/loads/load-plan';
-import { PHYSICAL_GROUP_KIND } from '../model/physical/types';
-import { plateGeometry, plateLoops, plateProblem, plateSurfaceOf } from '../model/physical/plate';
 
 export function loadPlanModel(): LoadModelData {
   const model = modelStore.model;
@@ -19,28 +16,7 @@ export function loadPlanModel(): LoadModelData {
     supports: modelStore.supports,
     constraints: model.constraints,
   };
-  if (!unifiedPlates()) return analytical;
-  const shells = new Map<number, { id: number; nodes: number[]; thickness: number; materialId: number }>();
-  const sources = [];
-  for (const group of model.groups.values()) {
-    const surface = group.kind === PHYSICAL_GROUP_KIND && plateSurfaceOf(group);
-    if (!surface || group.members.quads?.length || group.members.plates?.length) continue;
-    const { outer, holes } = plateLoops(group);
-    const offset = surface.offset;
-    if (holes.length || surface.arcMids?.length || surface.curved || (offset && (offset.x !== 0 || offset.y !== 0 || offset.z !== 0))
-      || plateProblem(model, outer, [])) return { ...analytical, plateRequiringMesh: group.id };
-    const geo = plateGeometry(model, group)!;
-    const { u, v, o } = geo.frame;
-    const points = geo.outer.map(([x, y, z]): [number, number] => [
-      (x - o[0]) * u[0] + (y - o[1]) * u[1] + (z - o[2]) * u[2],
-      (x - o[0]) * v[0] + (y - o[1]) * v[1] + (z - o[2]) * v[2],
-    ]);
-    if (!isConvex(points) && !isConvex(points.reverse())) return { ...analytical, plateRequiringMesh: group.id };
-    const shell = { id: -group.id, nodes: outer, thickness: surface.thickness, materialId: surface.materialId };
-    shells.set(shell.id, shell);
-    sources.push([shell, geo.outer, model.materials.get(shell.materialId)?.rho]);
-  }
-  return shells.size ? { ...analytical, quads: new Map([...model.quads, ...shells]), physicalPlateSource: JSON.stringify(sources) } : analytical;
+  return physicalLoadProvider?.project(analytical) ?? analytical;
 }
 
 export function physicalPlanRefusal(plan: LoadPlan): EngineMessage | undefined {

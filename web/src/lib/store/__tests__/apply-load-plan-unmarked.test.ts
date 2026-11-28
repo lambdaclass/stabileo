@@ -229,7 +229,7 @@ it('#2316 applying wind preserves the legacy E notice independently from the win
     .toEqual(['seismic-modal-generation-unavailable']);
 });
 
-it.skip.each([false, true])('known wrong result: #1928 replacing planned loads keeps stair and architectural loads with alsoUnmarked=%s', async alsoUnmarked => {
+it.each([false, true])('known wrong result: #1928 replacing planned loads keeps stair and architectural loads with alsoUnmarked=%s', async alsoUnmarked => {
   const { serializeProject, deserializeProject } = await import('../file');
   const { uiStore } = await import('../ui.svelte');
   frame();
@@ -239,6 +239,9 @@ it.skip.each([false, true])('known wrong result: #1928 replacing planned loads k
   applyLoadPlan(p, opts);
   const example = modelStore.loads.find(l => l.type === 'distributed3d' && l.data.generatedBy)!;
   expect(example).toBeDefined();
+  const { modelFeatures } = await import('../../provenance/model-features');
+  const requiresReview = (load: Load) => modelFeatures({ loads: [{ type: load.type, data: { generatedBy: load.data.generatedBy } }] }).has('independentlyGeneratedLoads');
+  expect(requiresReview(example)).toBe(false);
   const owners = ['stair:st1', 'arch:walls', 'arch:rooms'];
   const independentlyGenerated = owners.map(owner => {
     const load = { ...example, data: { ...example.data, generatedBy: owner } } as Load;
@@ -252,6 +255,7 @@ it.skip.each([false, true])('known wrong result: #1928 replacing planned loads k
   expect(deserializeProject(text)).toBe(true);
   const original = modelStore.loads.filter(l => independentlyGenerated.includes(l.data.id));
   expect(original).toHaveLength(owners.length);
+  for (const load of original) expect(requiresReview(load)).toBe(true);
   const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf);
   expect(scope.generated.loads).toContain(example.data.id);
   expect.soft(scope.generated.loads.filter(id => independentlyGenerated.includes(id))).toEqual([]);
@@ -262,7 +266,7 @@ it.skip.each([false, true])('known wrong result: #1928 replacing planned loads k
   expect(modelStore.loads.some(l => l.data.id === example.data.id)).toBe(false);
 });
 
-it.skip('known wrong result: #1928 the preview identifies owned floor definitions before replacing them', async () => {
+it('known wrong result: #1928 the preview identifies owned floor definitions before replacing them', async () => {
   const { previewLoadPlan } = await import('../apply-load-plan');
   frame();
   const p = buildLoadPlan(planInput());
@@ -272,7 +276,7 @@ it.skip('known wrong result: #1928 the preview identifies owned floor definition
   const def = { caseId, q: 1, distribution: 'slab', target: { by: 'own' } };
   const own = modelStore.addGroup('Planner pressure', 'floorLoad', {}, { data: { ...def, generatedBy: p.generatedBy } });
   const other = modelStore.addGroup('Independent pressure', 'floorLoad', {}, { data: { ...def, generatedBy: 'arch:rooms' } });
-  const preview = (replaceExisting: boolean) => previewLoadPlan(p, nameOf, { replaceExisting, bothSenses: true }).warnings;
+  const preview = (replaceExisting: boolean) => previewLoadPlan(p, nameOf, { replaceExisting, bothSenses: { E: true } }).warnings;
   const key = 'loadPlan.warning.replacedDefinitions';
   expect.soft(preview(true).filter(w => w.key === key)).toMatchObject([{ params: { n: 1 } }]);
   expect(preview(false).some(w => w.key === key)).toBe(false);

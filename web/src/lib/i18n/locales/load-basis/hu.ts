@@ -1,6 +1,8 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "loadPlan.warning.replacedDefinitions": "A terv az általa létrehozott födémteher-definíciók közül ennyit cserél le: {n}.",
+  "loadPlan.warning.independentLoadsKept": "Az érintett teheresetekben megmaradó, más eszközök által létrehozott terhek száma: {n}.",
   "plates.meshFieldsKept": "A(z) {names} hálója megmaradt. Törlése vagy cseréje egy teher elvesztésével, illetve egy cella anyagának, vastagságának, külpontosságának vagy görbületének megváltozásával járna.",
   "loadPlan.blocked.meshPhysicalPlate": "Hálózza be a(z) #{id} fizikai lemezt, majd generálja újra a terheket. A tehertervhez a lemez számítási elemei szükségesek.",
   "loadPlan.blocked.unmeshedPlatePressure": "Talaj- vagy folyadéknyomás hat egy még nem hálózott lemezre. Hálózza a lemezt (vagy futtasson egy számítást), majd készítse el újra a terheket.",

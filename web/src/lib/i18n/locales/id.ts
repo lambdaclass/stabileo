@@ -12,6 +12,8 @@ const id: Translations = {
   'svc.accountingSweep': "Analisis ditolak. Busur tepi pelat {plate} berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
   'svc.accountingShellEdits': "Pelat {plate} tidak dapat dibuatkan mesh ulang karena offset atau perubahan kelengkungan cangkang akan hilang.",
   "plates.remeshAmbiguousSweep": "Busur pada tepi lengkung {name} ambigu. Periksa titik antara dan batang lengkung di antara titik ujung sebelum membuat ulang mesh.",
+  "loadPlan.warning.replacedDefinitions": "Rencana akan mengganti {n} definisi beban lantai yang dibuatnya.",
+  "loadPlan.warning.independentLoadsKept": "Rencana mempertahankan {n} beban dari alat lain pada kasus beban terkait.",
   "plates.meshFieldsKept": "Jaring {names} dipertahankan. Menghapus atau menggantinya akan menghilangkan beban atau mengubah material, tebal, eksentrisitas, atau kelengkungan sel.",
   "plates.remeshShellEdits": "Mesh {name} tidak dapat diganti karena perubahan ofset atau kelengkungan elemen cangkang tidak dapat dipindahkan secara persis.",
   'loadPlan.gravity.coveragePrecision': "Koordinat cakupan cangkang melampaui ketelitian interval batang yang didukung.",

@@ -1,3 +1,4 @@
+import { independentLoadMark } from '../model/loads/generation-owner';
 /**
  * Stairs and post-tensioned slabs, as the design reads them.
  *
@@ -68,7 +69,7 @@ export function stairChecks(): StairCheck[] {
 export function applyStairReactions(id: string, supports: { foot?: StairSupport; head?: StairSupport }): number {
   const chk = stairChecks().find((s) => s.entry.id === id);
   if (!chk) return 0;
-  const tag = `stair:${id}`;
+  const tag = independentLoadMark('stair', id);
   const caseOf = (types: string[]) => modelStore.model.loadCases.find((c) => types.includes(c.type))?.id;
   const dead = caseOf(['D', '']) ?? 1, live = caseOf(['L']);
   let written = 0;
