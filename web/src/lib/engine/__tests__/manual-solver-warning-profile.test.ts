@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { initSolver } from '../wasm-solver';
+import { solveNow } from '../../actions/solve';
 import { runGlobalSolve } from '../live-calc';
 import { modelStore, resultsStore, uiStore } from '../../store';
 import { t } from '../../i18n';
@@ -57,4 +58,21 @@ it('known wrong result: #1928 a completed 2D manual solve delivers a returned wa
   expect((await runGlobalSolve()).ok).toBe(true);
   expect(uiStore.toasts.some(item => item.message === 'Reported planar warning')).toBe(!__PUBLIC_FEATURES__.proPlatesUnified);
   expect(uiStore.toasts.some(item => item.message === 'Reported planar solver path')).toBe(false);
+});
+
+it.skip('known wrong result: #1928 the ordinary 2D toolbar displays the returned warning text', async () => {
+  uiStore.analysisMode = '2d';
+  cantilever(false);
+  const original = modelStore.solve.bind(modelStore);
+  vi.spyOn(modelStore, 'solve').mockImplementation((...args) => {
+    const r = original(...args);
+    if (!r || typeof r === 'string') return r;
+    return { ...r, solverDiagnostics: [
+      { source: 'solver', severity: 'warning', code: 'WARN', message: 'Planar conditioning warning' },
+      { source: 'solver', severity: 'info', code: 'INFO', message: 'Planar solver path' },
+    ] };
+  });
+  expect(await solveNow()).toMatchObject({ ok: true });
+  expect(uiStore.toasts.some(item => item.type === 'info' && item.message.includes('Planar conditioning warning'))).toBe(!__PUBLIC_FEATURES__.proPlatesUnified);
+  expect(uiStore.toasts.some(item => item.message.includes('Planar solver path'))).toBe(false);
 });
