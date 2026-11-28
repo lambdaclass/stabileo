@@ -260,6 +260,11 @@ export function codeToModel(text: string): ParseResult {
       return p.value;
     };
 
+    if (MODEL_CODE_SETTINGS.some(field => field === kw!.text)) {
+      const value = json(pos[0], kw!.text);
+      if (value !== undefined) s[kw!.text] = value;
+      return;
+    }
     switch (kw!.text) {
       case HEADER: {
         sawHeader = true;
@@ -376,11 +381,6 @@ export function codeToModel(text: string): ParseResult {
         return;
       }
       default:
-        if (MODEL_CODE_SETTINGS.some(field => field === kw!.text)) {
-          const value = json(pos[0], kw!.text);
-          if (value !== undefined) s[kw!.text] = value;
-          return;
-        }
         err(`unknown line "${kw!.text}"`);
     }
   });
