@@ -12,6 +12,8 @@
   <div role="alert" class="self-check-warning" data-testid="self-check-warning">
     <details>
       <summary>⚠ {t('diag.warnings')}: {count} · {t('resultChecks.title')}</summary>
+      <!-- Keyboard users must be able to focus and scroll the bounded details. -->
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <div class="warning-details" role="region" aria-label={t('resultChecks.title')} tabindex="0">
         {#each groups as group}
           {#if group.label}<strong>{group.label}</strong>{/if}

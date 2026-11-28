@@ -290,7 +290,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   manualSolves++;
   const run = ++latestRun;
   const latest = () => run === latestRun;
-  const showProgress = unifiedPlates();
+  const showProgress = __PUBLIC_FEATURES__.proPlatesUnified;
   const step: ProgressStep = (phase, done = 0, total = 0) => {
     if (showProgress && latest()) solveProgress.step(phase, done, total);
   };

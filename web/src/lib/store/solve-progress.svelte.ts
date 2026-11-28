@@ -20,22 +20,28 @@ export interface SolveProgress {
   warnings: number;
 }
 
-let now = $state.raw<SolveProgress | null>(null);
+class ReactiveProgress {
+  now = $state.raw<SolveProgress | null>(null);
+}
+
+const progress = __PUBLIC_FEATURES__.proPlatesUnified ? new ReactiveProgress() : { now: null as SolveProgress | null };
 
 export const solveProgress = {
-  get now() { return now; },
+  get now() { return progress.now; },
   begin(at = performance.now()): void {
-    now = { phase: 'prepare', done: 0, total: 0, startedAt: at, warnings: 0 };
+    progress.now = { phase: 'prepare', done: 0, total: 0, startedAt: at, warnings: 0 };
   },
   step(phase: Exclude<SolvePhase, 'done' | 'failed'>, done = 0, total = 0, at = performance.now()): void {
+    const now = progress.now;
     if (!now || now.phase === 'done' || now.phase === 'failed') return;
-    now = { ...now, phase, done, total, ...(phase === 'cases' && now.phase !== 'cases' ? { casesAt: at } : {}), ...(phase === 'cases' && done !== now.done ? { doneAt: at } : {}) };
+    progress.now = { ...now, phase, done, total, ...(phase === 'cases' && now.phase !== 'cases' ? { casesAt: at } : {}), ...(phase === 'cases' && done !== now.done ? { doneAt: at } : {}) };
   },
   finish(outcome: { ok: true; warnings: number } | { ok: false; error: string; warnings: number }, at = performance.now()): void {
+    const now = progress.now;
     if (!now) return;
-    now = { ...now, phase: outcome.ok ? 'done' : 'failed', endedAt: at, warnings: outcome.warnings, ...(outcome.ok ? {} : { error: outcome.error }) };
+    progress.now = { ...now, phase: outcome.ok ? 'done' : 'failed', endedAt: at, warnings: outcome.warnings, ...(outcome.ok ? {} : { error: outcome.error }) };
   },
-  dismiss(): void { now = null; },
+  dismiss(): void { progress.now = null; },
 };
 
 /** Seconds left on the load cases at the pace of those done, counted down from the last to finish; null before there is a pace. */
