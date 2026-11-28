@@ -388,7 +388,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.mode": "Первая форма потери устойчивости",
   "tools.structure": "Конструкция и деформированная схема",
   "tools.deformedNote": "Деформация увеличена для наглядности.",
-  "tools.referenceBooks": "Timoshenko & Gere, Theory of Elastic Stability, 2nd ed. (1961), глава 2; Young & Budynas, Roark’s Formulas for Stress and Strain, 7th ed. (2002), таблица 8.1 (консоль: случаи 1a и 2a; балка на двух опорах: случаи 1e и 2e).",
+  "tools.referenceBooks": "Timoshenko & Gere, Theory of Elastic Stability, 2-е изд. (1961), глава 2; Young & Budynas, Roark’s Formulas for Stress and Strain, 7-е изд. (2002), таблица 8.1 (консоль: случаи 1a и 2a; балка на двух опорах: случаи 1e и 2e).",
   "tools.index": (__PUBLIC_FEATURES__.tools ? "Бесплатные инструменты для расчёта конструкций" : "Бесплатные инженерные калькуляторы"),
   "tools.lead": (__PUBLIC_FEATURES__.tools ? "Калькуляторы и модели в реальном времени для балок, рам, ферм, колонн, плит и башен. Измените значение, и производственное ядро Stabileo заново решает модель в вашем браузере; каждая эпюра обновляется сразу, рядом с классическим решением там, где оно существует." : "Балки, колонны, рамы, фермы, линии влияния и собственные частоты, рассчитанные производственным ядром Stabileo и сопоставленные с классическими формулами."),
   "tools.simply-supported-beam": "Балка на двух шарнирных опорах",
