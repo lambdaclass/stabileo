@@ -992,7 +992,7 @@ test('known wrong result: #1928 the published occupancy reader resolves only the
   }
 });
 
-test.skip('known wrong result: #1928 roof category case creation ships only with the authority that uses it', async () => {
+test('known wrong result: #1928 roof category case creation ships only with the authority that uses it', async () => {
   for (const unified of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: unified }, async configFile => {
       const entry = resolve(root, 'src/lib/engine/loads/load-plan.ts');

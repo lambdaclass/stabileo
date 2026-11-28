@@ -870,7 +870,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     }
   }
   const area = planAreaLoads({
-    layout, tributaryWidth: input.tributaryWidth, ...(codes.loads.roofLive ? { roofLive: (r) => codes.loads.roofLive!(r) } : {}),
+    layout, tributaryWidth: input.tributaryWidth, markRoofLoads: !!codes.loads.groupRoofLoads, ...(codes.loads.roofLive ? { roofLive: (r) => codes.loads.roofLive!(r) } : {}),
     floor: { dead: deadTotal, lo: floorLo, liveOf }, roof: roofLoads, patterns: input.patterns, model: input.model,
   });
   derivation.push(...area.derivation);
@@ -992,52 +992,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const nodal: PlannedNodal[] = area.nodal.map(({ arrangement, ...n }) =>
     ({ ...n, fx: 0, fy: 0, ...(arrangement !== undefined ? { caseIndex: arrangementCase[arrangement]! } : {}) }));
 
-  /*
-   * ── A roof's live load as a part of its own ──
-   *
-   * Where the code combines the imposed loads by their category of use (EN 1990 Table A1.1 ψ per
-   * category), a roof whose occupancy is of another category than the floors' is that action's
-   * second part: its live load goes to cases of its own, one beside each live case (the full load
-   * and each arrangement), with the code's group, and the combinations take each part at its own
-   * factor (`CombinationTerm.group`). The two stay one action (EN 1991-1-1 §3.3.1(2)P): they lead
-   * together and accompany together.
-   */
-  const floorGroup = codes.loads.imposedGroup?.(input.occupancyKey);
-  const roofGroup = roofOccupancy ? codes.loads.imposedGroup?.(roofOccupancy.key) : undefined;
-  if (roofGroup && roofGroup !== floorGroup) {
-    const twin = new Map<number, number>();
-    cases.forEach((c, i) => {
-      if (c.type !== 'L' || c.group) return;
-      const index = cases.length;
-      cases.push({
-        existingId: null, type: 'L', own: true, group: roofGroup,
-        nameKey: c.pattern ? (c.nameKey.endsWith('Adjacent') ? 'autoLoad.liveRoofCaseAdjacent' : 'autoLoad.liveRoofCasePattern') : 'autoLoad.liveRoofCase',
-        nameParams: { ...(c.nameParams ?? {}), group: roofGroup },
-        ...(c.alternatives ? { alternatives: `${c.alternatives}:${roofGroup}` } : {}),
-        ...(c.pattern ? { pattern: true } : {}), ...(c.reduced ? { reduced: true } : {}),
-      });
-      twin.set(i, index);
-    });
-    const fullL = cases.findIndex((c) => c.type === 'L' && !c.group && !c.pattern);
-    const move = (x: { caseType: string; caseIndex?: number; roof?: true }) => {
-      if (x.caseType !== 'L' || !x.roof) return;
-      const to = twin.get(x.caseIndex ?? fullL);
-      if (to !== undefined) x.caseIndex = to;
-    };
-    for (const d of distributed) move(d as never);
-    for (const n of nodal) move(n as never);
-    for (const sf of surface) move(sf as never);
-    // A twin with nothing moved into it is no part of the plan.
-    const used = new Set([...distributed, ...nodal, ...surface].map((x) => (x as { caseIndex?: number }).caseIndex));
-    for (const [, k] of twin) if (!used.has(k)) cases[k]!.existingId = -1;
-    for (let k = cases.length - 1; k >= 0; k--) {
-      if (cases[k]!.existingId !== -1) continue;
-      cases.splice(k, 1);
-      for (const list of [distributed, nodal, surface] as Array<Array<{ caseIndex?: number }>>) for (const x of list) if (x.caseIndex !== undefined && x.caseIndex > k) x.caseIndex--;
-    }
-    if (cases.some((c) => c.group === roofGroup)) derivation.push(msg('loadPlan.derivation.roofLivePart', { floor: floorGroup ?? '—', roof: roofGroup }));
-  }
-  for (const list of [distributed, nodal, surface] as Array<Array<{ roof?: true }>>) for (const x of list) delete x.roof;
+  codes.loads.groupRoofLoads?.(input.occupancyKey, roofOccupancy?.key, { cases, distributed, nodal, surface, derivation });
 
   const sink: PlanSink = { cases, nodal, distributed, derivation, refs, assumptions, unsupportedKeys, blockedKeys };
   const { windQh, windGust } = codes.wind && input.wind?.enabled ? codes.wind.plan(input, windLevels, sink) : { windQh: undefined, windGust: undefined };

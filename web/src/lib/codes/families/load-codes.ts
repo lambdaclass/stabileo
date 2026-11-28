@@ -53,6 +53,8 @@ export interface CombinationCode extends CodeModule {
   categoryOf(symbol: LoadSymbol | string): ActionCategory;
 }
 
+type RoofLoadItem = { caseType: string; caseIndex?: number; roof?: true };
+
 export interface ImposedLoadCode extends CodeModule {
   role: 'loads';
   occupancy(key: string): OccupancyEntry | undefined;
@@ -75,7 +77,11 @@ export interface ImposedLoadCode extends CodeModule {
    * their own factors (EN 1990 ψ by category of use): a roof of another part than the floors' gets
    * cases of its own (`load-plan.ts`). Absent: the imposed load is one action at one set of factors.
    */
-  imposedGroup?(occupancyKey: string): string | undefined;
+  groupRoofLoads?(floorKey: string, roofKey: string | undefined, plan: Pick<PlanSink, 'cases' | 'derivation'> & {
+    distributed: RoofLoadItem[];
+    nodal: RoofLoadItem[];
+    surface: RoofLoadItem[];
+  }): void;
   /** The partition allowance, by the code's own rule (`partitions.ts`). Absent: CIRSOC 101 §4.3.2. */
   partition?(loKNm2: number, requestedKNm2: number): import('../cirsoc101/live-loads').PartitionLiveAllowance;
   /** What the dialog offers for the allowance. Absent: CIRSOC 101's minimum of 0,75 kN/m². */

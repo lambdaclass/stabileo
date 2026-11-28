@@ -6,6 +6,7 @@ import { planEcWind } from './wind';
 import { planEcSnow } from './snow';
 import { ecVertical, planEcSeismic, psiE } from './seismic';
 import type { EcFamily } from './refs';
+import { groupRoofLoads } from './roof-live-cases';
 import { ecRoofLive } from './roof-live';
 import { EC_PARTITIONS, ecPartition } from '../families/partitions';
 import { msg, round } from '../message';
@@ -51,7 +52,7 @@ function modules(f: EcFamily): AnyLoadCode[] {
     },
     roofOccupancies: () => occupancyTable(f).filter((o) => o.category !== 'roof' && o.category !== 'storage'),
     reduce: (o) => reduceImposed(f, o),
-    imposedGroup: (key) => categoryOfOccupancy(key),
+    groupRoofLoads,
     partition: ecPartition,
     partitionInput: { kind: 'choices', ...EC_PARTITIONS },
     roofLive: ecRoofLive(f),
