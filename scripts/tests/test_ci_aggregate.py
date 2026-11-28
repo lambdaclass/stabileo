@@ -405,6 +405,25 @@ class ParityWorkflow(unittest.TestCase):
         repaired = self.commit('Keep the target caption')
         self.parity(repaired, f'BASE={target}', 'REQUIRE_PARITY=1')
 
+    @unittest.skip('known wrong result: #2670')
+    def test_hosted_merge_checks_declarations_absorbed_inside_the_incoming_branch(self):
+        self.git('switch', '--quiet', '--detach', self.target)
+        (self.repo / 'web/page').write_text('candidate page\n')
+        target = self.commit('Land the same page upstream')
+        self.git('switch', '--quiet', '--detach', self.head)
+        self.git('merge', '--quiet', '--no-ff', target, '-m', 'Integrate upstream')
+        integrated = self.commit('Declare the outstanding caption', '--allow-empty', '-m',
+                                 'Production-Change: web/caption')
+        self.git('switch', '--quiet', '--detach', target)
+        self.git('merge', '--quiet', '--no-ff', integrated, '-m', 'Hosted PR merge')
+        merge = self.git('rev-parse', 'HEAD')
+        for side in ['reference', 'candidate']:
+            with self.subTest(side=side):
+                self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1', f'PARITY_SIDE={side}',
+                            f'PARITY_RESEARCH_OUT=research-{side}')
+                self.assertEqual((self.repo / f'research-{side}/assets/asset').read_text(), 'candidate page\n')
+        self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1')
+
     def test_target_merge_does_not_validate_a_declaration_for_a_target_only_edit(self):
         self.git('switch', '--quiet', '--detach', self.head)
         self.commit('Declare a file changed only on target', '--allow-empty', '-m',
