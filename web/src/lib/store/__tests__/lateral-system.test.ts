@@ -168,25 +168,33 @@ describe('the geometry suggests, it never declares', () => {
     return { beam, tip };
   }
 
-  it.skip.each([false, true])('known wrong result: #1928 frame detailing requires a recorded seismic combination (present=%s)', seismic => {
+  it.each(['gravity', 'complete', 'incomplete', 'nonfinite'] as const)('known wrong result: #1928 frame detailing requires a recorded seismic combination (%s)', evidence => {
     cantilever();
     for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
     const member = [...modelStore.elements.values()].find(e => modelStore.nodes.get(e.nodeI)!.z !== modelStore.nodes.get(e.nodeJ)!.z)!;
     const bars = { column: { cornerDia: 20, faceDia: 20, nBottom: 1, nTop: 1, nLeft: 1, nRight: 1 }, stirrups: { diameter: 10, legs: 4, spacing: 0.15 } };
     modelStore.reinforcementTransaction(api => api.setReinforcement(member.id, bars));
     modelStore.addCombination('D', [{ caseId: 1, factor: 1 }]);
-    if (seismic) {
+    if (evidence !== 'gravity') {
       const e = modelStore.addLoadCase('E test', 'E');
       modelStore.addNodalLoad3D(member.nodeJ, 1, 0, 0, 0, 0, 0, e);
       modelStore.addCombination('D+E', [{ caseId: 1, factor: 1 }, { caseId: e, factor: 1 }]);
+      modelStore.addCombination('D-E', [{ caseId: 1, factor: 1 }, { caseId: e, factor: -1 }]);
     }
     const solved = modelStore.solveCombinations3D(true, false, true);
     if (!solved || typeof solved === 'string') throw new Error(String(solved));
     resultsStore.setCombinationResults3D(solved.perCase, solved.perCombo, solved.envelope);
     expect(designRunStore.computeDemands().ok).toBe(true);
-    expect(seismicComboIds().size).toBe(seismic ? 1 : 0);
+    const combos = seismicComboIds();
+    expect(combos.size).toBe(evidence === 'gravity' ? 0 : 2);
+    if (evidence === 'incomplete' || evidence === 'nonfinite') {
+      const stations = verificationStore.contextFor(member.id)!.stations!;
+      const first = stations.comboResults.find(c => combos.has(c.comboId))!;
+      if (evidence === 'incomplete') stations.comboResults = stations.comboResults.filter(c => c !== first);
+      else first.stations[0]!.vz = Number.NaN;
+    }
     const result = runSeismicChecks().members.find(m => m.id === member.id)!;
-    if (seismic) {
+    if (evidence === 'complete') {
       expect(result.confinement).toBeDefined();
     } else {
       expect(result.confinement).toBeUndefined();

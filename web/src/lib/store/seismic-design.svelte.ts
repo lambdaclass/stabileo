@@ -166,6 +166,22 @@ export function applySoftStoreys(contexts: ReadonlyMap<number, MemberContext>): 
   return n;
 }
 
+function columnSeismicForces(stations: MemberContext['stations'], combos: ReadonlySet<number>): Pick<FrameMember, 'axial' | 'vu'> {
+  const observed = new Set<number>();
+  let min = Infinity, max = -Infinity, vu = 0;
+  for (const c of stations?.comboResults ?? []) {
+    if (!combos.has(c.comboId) || !c.stations.length) continue;
+    observed.add(c.comboId);
+    for (const station of c.stations) {
+      min = Math.min(min, -station.n);
+      max = Math.max(max, -station.n);
+      vu = Math.max(vu, Math.hypot(station.vy, station.vz));
+    }
+  }
+  if (observed.size !== combos.size || !Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(vu)) return {};
+  return { axial: { min, max }, vu };
+}
+
 /** The frame as the checks read it, from the design contexts and the bars in the model. */
 function frameInput(): FrameMember[] {
   const { roles } = seismicRoleReadings(), combos = seismicComboIds();
@@ -214,13 +230,8 @@ function frameInput(): FrameMember[] {
       const slab = sides.length * Math.min(8 * hf, ln / 8) * perM;
       out.push({ ...base, criticalSections: ctx.criticalSections, drawnStirrups: drawnStirrups.get(e.id)?.stirrups, faceHalf: [ctx.criticalSections?.start.halfDepth ?? 0, ctx.criticalSections?.end.halfDepth ?? 0], vg: [Math.abs(vg[0]), Math.abs(vg[1])], slabTop: [slab, slab] });
     } else {
-      const ps: number[] = [], vs: number[] = [];
-      for (const c of ctx.stations?.comboResults ?? []) {
-        if (combos.size && !combos.has(c.comboId)) continue;
-        for (const s of c.stations) { ps.push(-s.n); vs.push(Math.hypot(s.vy, s.vz)); }
-      }
       const sec = columnSectionOf(ctx, r);
-      out.push({ ...base, b: ctx.section.b, h: ctx.section.h, ...(sec ? { section: sec } : {}), ...(ps.length ? { axial: { min: Math.min(...ps), max: Math.max(...ps) } } : {}), vu: vs.length ? Math.max(...vs) : 0 });
+      out.push({ ...base, b: ctx.section.b, h: ctx.section.h, ...(sec ? { section: sec } : {}), ...columnSeismicForces(ctx.stations, combos) });
     }
   }
   return out;
