@@ -143,3 +143,18 @@ test('known wrong result: #1928 a disabled form attribute has the same reactive 
   const scoped = '{#each options as __PUBLIC_FEATURES__}' + source + '{/each}';
   assert.equal(prunePublicBuildBranches(scoped, { proPlatesUnified: false }).code, scoped);
 });
+
+test.skip('known wrong result: #1928 literal class choices compile as static class attributes', () => {
+  const source = '<button class={__PUBLIC_FEATURES__.proRcSheets ? "pk-btn primary" : "pro-btn"}></button>';
+  assert.equal(prunePublicBuildBranches(source, off).code, '<button class="pro-btn"></button>');
+  assert.equal(prunePublicBuildBranches(source, on).code, '<button class="pk-btn primary"></button>');
+  for (const content of ['<button class={runtime ? "a" : "b"}></button>', '<button class="prefix {runtime}"></button>']) {
+    assert.equal(prunePublicBuildBranches(content, off).code, content);
+  }
+});
+
+test.skip('known wrong result: #1928 inactive solve progress has no compiled effect dependencies', () => {
+  const contents = '<script>function run() { if (__PUBLIC_FEATURES__.proPlatesUnified) { untrack(progress); } done(); }</script>';
+  assert.doesNotMatch(prunePublicBuildBranches(contents, { ...off, proPlatesUnified: false }).code, /untrack/);
+  assert.match(prunePublicBuildBranches(contents, { ...on, proPlatesUnified: true }).code, /untrack\(progress\)/);
+});

@@ -27,3 +27,14 @@ it.each(['ST-COTA', 'ST-ARM-EST-Ø16'])('known wrong result: #1928 imported draw
   expect(sheetToSvg(100, 100, geometry) === sheetToSvg(100, 100, geometry, () => ordinary)).toBe(!sheets);
   expect(layerDef('SHEET-FRAME').name).toBe('SHEET-FRAME');
 });
+
+it.skip('known wrong result: #1928 ordinary sheet exports never read the dense packing option', async () => {
+  const { buildSheetSet } = await import('../sheet-set');
+  let reads = 0;
+  const settings = { format: 'A3' as const, prefix: 'E-', start: 1 };
+  const project = { office: '', project: '', client: '', designer: '' };
+  const ordinary = { drawings: [], settings, project, label: (key: string) => key };
+  const result = buildSheetSet({ ...ordinary, get dense() { reads++; return false; } });
+  expect(result).toEqual(buildSheetSet(ordinary));
+  expect(reads).toBe(sheets ? 1 : 0);
+});

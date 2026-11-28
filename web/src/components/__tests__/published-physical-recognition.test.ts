@@ -21,3 +21,12 @@ it('known wrong result: #1928 published elements can be recognized by hand on a 
   expect(prepare()).not.toContain(t('desk.prep.miss.pieces'));
   expect(render(ProPhysicalPanel).body).toContain('data-testid="physical-table"');
 });
+
+it.skip('known wrong result: #1928 published preparation lists levels before physical recognition', () => {
+  uiStore.analysisMode = 'pro';
+  modelStore.clear();
+  const list = render(DeskPrepare, { props: { empty: true } }).body.split('data-testid="desk-route-existing-missing"')[1]!.split('</ul>')[0]!;
+  const levels = list.indexOf(t('desk.prep.miss.levels'));
+  expect(levels).toBeGreaterThanOrEqual(0);
+  expect(list.indexOf(t('desk.prep.miss.pieces'))).toBeGreaterThan(levels);
+});
