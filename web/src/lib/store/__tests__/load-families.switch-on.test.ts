@@ -62,3 +62,15 @@ it('offers every implemented family in the load dialog', async () => {
   expect(select).toBeDefined();
   for (const family of LOAD_FAMILY_CHOICES) expect(select).toContain(`value="${family}"`);
 });
+
+it.skip('known wrong result: #1928 changing a design after a family selection keeps every pending load role under review', () => {
+  regulationsStore.cancelPending();
+  modelStore.clear();
+  expect(regulationsStore.requestStack(FAMILY_STACKS.us).kind).toBe('needsLoadReview');
+  const before = [...regulationsStore.pending];
+  expect(before).toContain('wind');
+  expect(regulationsStore.requestChange('concrete', 'aci-aisc').kind).toBe('needsLoadReview');
+  expect(regulationsStore.pending).toEqual(expect.arrayContaining(before));
+  expect(regulationsStore.pendingNeedsLoadRegeneration).toBe(true);
+  regulationsStore.cancelPending();
+});
