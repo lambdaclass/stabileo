@@ -1036,3 +1036,20 @@ test('known wrong result: #1928 ordinary machine listings use the shared BVBS wr
   assert.ok(chunk.code.includes('BF2D@Hj'));
   assert.deepEqual(Object.keys(chunk.modules).filter(id => id.includes('/rc-sheets/')), []);
 });
+
+for (const source of ['ProLoadsTab', 'plates/PlatePanel']) {
+  test.skip('known wrong result: #1928 only unified plate navigation initializes the floor request in ' + source, async () => {
+    for (const plates of [false, true]) {
+      await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+        const entry = resolve(root, 'src/components/pro/' + source + '.svelte');
+        const output = await build({ root, configFile, logLevel: 'silent', build: {
+          write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+            external: (id, from) => !!from && !id.includes('/selected-floor-load') && !id.includes('?svelte&type=style'),
+          },
+        } });
+        const chunk = (Array.isArray(output) ? output[0] : output).output.find(item => item.type === 'chunk');
+        assert.equal(chunk.imports.some(id => id.endsWith('/floor-load-request.svelte')), plates);
+      });
+    }
+  });
+}
