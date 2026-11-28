@@ -13580,6 +13580,7 @@ const de: Translations = {
   'seisDes.issue.confinedLength': 'umschnürter Bereich kürzer als lo',
   'seisDes.issue.confinedSpacing': 'Bügelabstand über so',
   'seisDes.issue.ash': 'Ash zu klein',
+  "seisDes.issue.confinementUnassessed": "Umschnürung ungeprüft. Prüfen Sie die erfassten Normalkräfte und die Bügelanordnung vor der Bewehrungsplanung der Stütze.",
   'fdnEd.none': 'Das Modell hat keine Gründungen. Platzieren Sie sie unter Modell › Gründungen.',
   'fdnEd.list': 'Gründungen',
   'fdnEd.locked': 'Gesperrt',

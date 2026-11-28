@@ -51,12 +51,12 @@ describe('capacity design', () => {
   });
 
   it('confines a column over lo at so with Ash in both directions', () => {
-    const r = columnConfinement({ b: 0.5, h: 0.5, cover: 0.04, lu: 2.6, fc: 25, fyt: 420, longMinDiaMm: 20, tieDiaMm: 10, legsB: 4, legsH: 4, hx: 0.2, provided: { length: 0.5, spacing: 0.1 } });
+    const r = columnConfinement({ b: 0.5, h: 0.5, cover: 0.04, lu: 2.6, fc: 25, fyt: 420, longMinDiaMm: 20, tieDiaMm: 10, legsB: 4, legsH: 4, hx: 0.2, provided: { length: 0.5, spacing: 0.1 } }, 0)!;
     expect(r.lo).toBeCloseTo(0.5, 9);
     expect(r.so).toBeCloseTo(0.12, 9);
     expect(r.ashRequired.acrossB).toBeCloseTo(3.129, 2);
     expect(r.ashOk).toBe(true);
-    expect(columnConfinement({ b: 0.5, h: 0.5, cover: 0.04, lu: 2.6, fc: 25, fyt: 420, longMinDiaMm: 20, tieDiaMm: 10, legsB: 3, legsH: 3, hx: 0.2, provided: { length: 0.5, spacing: 0.1 } }).ashOk).toBe(false);
+    expect(columnConfinement({ b: 0.5, h: 0.5, cover: 0.04, lu: 2.6, fc: 25, fyt: 420, longMinDiaMm: 20, tieDiaMm: 10, legsB: 3, legsH: 3, hx: 0.2, provided: { length: 0.5, spacing: 0.1 } }, 0)!.ashOk).toBe(false);
   });
 
   it('checks a joint with the beams yielding at λo·fy', () => {

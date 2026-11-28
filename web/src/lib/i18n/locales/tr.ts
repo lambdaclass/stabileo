@@ -13590,6 +13590,7 @@ const tr: Translations = {
   'seisDes.issue.confinedLength': 'sarılma bölgesi lo\'dan kısa',
   'seisDes.issue.confinedSpacing': 'etriye aralığı so\'dan büyük',
   'seisDes.issue.ash': 'Ash yetersiz',
+  "seisDes.issue.confinementUnassessed": "Sargı doğrulanmadı. Kolonu detaylandırmadan önce kayıtlı eksenel kuvvetleri ve etriye düzenini kontrol edin.",
   'fdnEd.none': 'Modelde temel yok. Bunları Model › Temeller\'den yerleştirin.',
   'fdnEd.list': 'Temeller',
   'fdnEd.locked': 'Kilitli',

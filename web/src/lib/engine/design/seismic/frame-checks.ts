@@ -155,14 +155,15 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
   const colMn = new Map<number, { least: number; most: number }>();
   for (const m of i.members) {
     if (m.kind !== 'column' || !m.section) continue;
-    const ax = m.axial ?? { min: 0, max: 0 };
+    const ax = m.axial;
+    if (!ax || !Number.isFinite(ax.min) || !Number.isFinite(ax.max) || ax.min > ax.max) continue;
     colMn.set(m.id, { least: columnLeastMn(m.section, m.fc, m.fy, ax), most: Math.max(columnMnAt(m.section, m.fc, s.overstrength * m.fy, ax.min, 'most'), columnMnAt(m.section, m.fc, s.overstrength * m.fy, ax.max, 'most')) });
   }
   const joints: JointSeismic[] = [];
   const fromBeamsAt = new Map<string, number>();
   for (const [node, beams] of beamsAt) {
     const cols = (colsAt.get(node) ?? []).filter((c) => byId.get(c)!.role === 'primary');
-    if (cols.length === 0) continue;
+    if (cols.length === 0 || cols.some(id => !colMn.has(id))) continue;
     const p = i.nodes.get(node)!;
     for (const dir of ['X', 'Y'] as const) {
       const along = beams.filter((b) => {
@@ -200,6 +201,10 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
   for (const m of i.members) {
     if (m.kind !== 'column') continue;
     if (m.role !== 'primary' || !m.r || !m.section) { members.push({ id: m.id, kind: 'column', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: true, issues: [] }); continue; }
+    if (!colMn.has(m.id) || !m.axial) {
+      members.push({ id: m.id, kind: 'column', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: false, issues: ['seisDes.issue.confinementUnassessed'] });
+      continue;
+    }
     const [lo, hi] = z(m.nodeI) <= z(m.nodeJ) ? [m.nodeI, m.nodeJ] : [m.nodeJ, m.nodeI];
     const beamH = Math.max(0, ...(beamsAt.get(hi) ?? []).map((b) => byId.get(b)!.h));
     const lu = Math.max(0.3, m.L - beamH);
@@ -209,7 +214,7 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
     const fb: [number, number] | undefined = fromBeamsAt.has(`${m.id}:${hi}`) || fromBeamsAt.has(`${m.id}:${lo}`)
       ? [fromBeamsAt.get(`${m.id}:${hi}`) ?? mpr, fromBeamsAt.get(`${m.id}:${lo}`) ?? mpr] : undefined;
     const d = Math.max(m.b, m.h) - m.cover - (ties.diameter + 16) / 1000;
-    const sh = columnCapacityShear({ b: Math.min(m.b, m.h), h: Math.max(m.b, m.h), d, fc: m.fc, fyt: m.fy, mpr: [mpr, mpr], ...(fb ? { fromBeams: fb } : {}), lu, vu: m.vu ?? 0, pu: m.axial?.min ?? 0, ties: { diameter: ties.diameter, legs: ties.legs, spacing: Math.min(ties.spacing, zones.endSpacing) } });
+    const sh = columnCapacityShear({ b: Math.min(m.b, m.h), h: Math.max(m.b, m.h), d, fc: m.fc, fyt: m.fy, mpr: [mpr, mpr], ...(fb ? { fromBeams: fb } : {}), lu, vu: m.vu ?? 0, pu: m.axial.min, ties: { diameter: ties.diameter, legs: ties.legs, spacing: Math.min(ties.spacing, zones.endSpacing) } });
     const col = resolveColumnReinf(m.r.column, m.r.longitudinal);
     const perFace = m.r.column ? Math.max(m.r.column.nBottom, m.r.column.nTop, m.r.column.nLeft, m.r.column.nRight) : 1;
     const hx = (Math.max(m.b, m.h) - 2 * m.cover) / (perFace + 1);
@@ -217,10 +222,11 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
       b: m.b, h: m.h, cover: m.cover, lu, fc: m.fc, fyt: m.fy, longMinDiaMm: Math.min(col?.cornerDia ?? 16, m.r.column?.faceDia ?? 99),
       tieDiaMm: ties.diameter, legsB: ties.legs, legsH: ties.legs, hx,
       provided: m.r.tieZones ? { length: zones.endLength, spacing: zones.endSpacing } : { length: lu / 2, spacing: ties.spacing },
-    });
+    }, m.axial.max);
     const issues = [
+      ...(!conf ? ['seisDes.issue.confinementUnassessed'] : []),
       ...(sh.utilization > 1 + 1e-9 ? ['seisDes.issue.columnShear'] : []),
-      ...(!conf.lengthOk ? ['seisDes.issue.confinedLength'] : []), ...(!conf.spacingOk ? ['seisDes.issue.confinedSpacing'] : []), ...(!conf.ashOk ? ['seisDes.issue.ash'] : []),
+      ...(conf && !conf.lengthOk ? ['seisDes.issue.confinedLength'] : []), ...(conf && !conf.spacingOk ? ['seisDes.issue.confinedSpacing'] : []), ...(conf && !conf.ashOk ? ['seisDes.issue.ash'] : []),
     ];
     members.push({ id: m.id, kind: 'column', role: 'primary', ...(m.assumed ? { assumed: true } : {}), shear: { ve: sh.ve, phiVn: sh.phiVn, utilization: sh.utilization, vcZero: sh.vcZero }, confinement: conf, ok: issues.length === 0, issues });
   }

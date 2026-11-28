@@ -1,4 +1,4 @@
-import { beamCapacityShear, columnCapacityShear, columnConfinement, hoopSpacingFor, nominalMomentAt } from '../engine/design/seismic/capacity';
+import { beamCapacityShear, columnCapacityShear, detailedColumnConfinement, hoopSpacingFor, nominalMomentAt } from '../engine/design/seismic/capacity';
 import { faceLayout, groupsArea } from './bars';
 import { shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
 import type { Fmt } from './format';
@@ -96,7 +96,7 @@ export function columnConfinementOf(
 ) {
   const longMin = Math.min(...layoutDias(a));
   const pu = Math.max(0, ...d.cases.map((k) => k.pu));
-  return columnConfinement({ b: d.b, h: d.h, cover: c.cover, lu: d.lu, fc: c.mat.fc, fyt: c.mat.fy, longMinDiaMm: longMin, tieDiaMm: a.tieDia, legsB: 2 + ct.x, legsH: 2 + ct.y, hx: ct.hx, provided: { length: Math.max(d.b, d.h, d.lu / 6, 0.45), spacing: a.tieSpacing }, pu, nl: ct.held });
+  return detailedColumnConfinement({ b: d.b, h: d.h, cover: c.cover, lu: d.lu, fc: c.mat.fc, fyt: c.mat.fy, longMinDiaMm: longMin, tieDiaMm: a.tieDia, legsB: 2 + ct.x, legsH: 2 + ct.y, hx: ct.hx, provided: { length: Math.max(d.b, d.h, d.lu / 6, 0.45), spacing: a.tieSpacing }, pu, nl: ct.held });
 }
 
 export function columnSeismic(

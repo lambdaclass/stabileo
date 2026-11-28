@@ -81,7 +81,7 @@ export const FEATURE_IDS = [
   GLOBAL_AXES_EVIDENCE, 'conflictingModelAliases', 'outOfPlaneNodalComponents', 'duplicateFixtureEndRelease',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'unrestrainedAxialTip', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
-  'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
+  'concreteMembers', 'reinforcedSpatialFrame', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
   'ordinaryDetailLap', 'largeBvbsMark', 'physicalDesignThickness', 'unreviewedLoadRoleStamp', 'individualNearLevelFlange', 'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateSubthresholdOffsets', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'shortOffAxisStrap', 'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
@@ -746,6 +746,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       if ([e.tensionConnection?.i, e.tensionConnection?.j].some((c) => c?.kind === 'bolted' && (staggerGiven(c.stagger) || (c.connected === 'all' && c.webLines === 0)))) steelChainEnd++;
     } else if (fam === 'concrete' || e.reinforcement) {
       concrete++;
+      if (f.has('space3D') && e.type !== 'truss' && e.type !== 'cable' && e.reinforcement) f.add('reinforcedSpatialFrame');
     }
   }
   if (steel) {

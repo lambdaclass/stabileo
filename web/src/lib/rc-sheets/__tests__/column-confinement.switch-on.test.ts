@@ -3,7 +3,7 @@ import { columnRow, confinedFaceBars, confinedTies, type ColumnCase, type Column
 import { columnTieLayout, confinedTieCount } from '../column-ties';
 import { columnSection } from '../drawing';
 import { scheduleElements } from '../schedule/pieces';
-import { columnConfinement } from '../../engine/design/seismic/capacity';
+import { detailedColumnConfinement } from '../../engine/design/seismic/capacity';
 import { makeFmt } from '../format';
 
 const f = makeFmt('.');
@@ -24,7 +24,7 @@ describe('chapter 18 confinement of a column', () => {
     expect(failing(r)).toEqual([]);
     expect(r.adopted.confined).toBeDefined();
     const ct = confinedTies(r, r.adopted, r);
-    const conf = columnConfinement({ b: 0.35, h: 0.35, cover: 0.03, lu: 2.2, fc: 30, fyt: 420, longMinDiaMm: 12, tieDiaMm: r.adopted.tieDia, legsB: 2 + ct.x, legsH: 2 + ct.y, hx: ct.hx, provided: { length: 0.45, spacing: r.adopted.tieSpacing } });
+    const conf = detailedColumnConfinement({ b: 0.35, h: 0.35, cover: 0.03, lu: 2.2, fc: 30, fyt: 420, longMinDiaMm: 12, tieDiaMm: r.adopted.tieDia, legsB: 2 + ct.x, legsH: 2 + ct.y, hx: ct.hx, pu: Math.max(...upper.cases.map(k => k.pu)), nl: ct.held, provided: { length: 0.45, spacing: r.adopted.tieSpacing } });
     expect(conf.ashOk).toBe(true);
     expect(r.checks.crossties.confined).toEqual({ x: ct.x, y: ct.y });
     expect(r.verifications.find((v) => v.label === 'rcSheets.v.crossties')!.capacity).toContain('lo:');
@@ -77,10 +77,10 @@ describe('chapter 18 confinement of a column', () => {
 
   it('reads expression (c) of Table 18.7.5.4 only above 0.3·Ag·f\'c', () => {
     const base = { b: 0.5, h: 0.5, cover: 0.04, lu: 2.6, fc: 30, fyt: 420, longMinDiaMm: 20, tieDiaMm: 10, legsB: 4, legsH: 4, hx: 0.15, provided: { length: 0.5, spacing: 0.1 }, nl: 12 };
-    const below = columnConfinement({ ...base, pu: 0.29 * 0.25 * 30 * 1000 });
-    const above = columnConfinement({ ...base, pu: 0.5 * 0.25 * 30 * 1000 });
+    const below = detailedColumnConfinement({ ...base, pu: 0.29 * 0.25 * 30 * 1000 });
+    const above = detailedColumnConfinement({ ...base, pu: 0.5 * 0.25 * 30 * 1000 });
     expect(below.high).toBe(false);
-    expect(columnConfinement(base).ashRequired.acrossB).toBeCloseTo(below.ashRequired.acrossB, 9);
+    expect(detailedColumnConfinement({ ...base, pu: 0 }).ashRequired.acrossB).toBeCloseTo(below.ashRequired.acrossB, 9);
     const kn = 12 / 10, c = 0.2 * 1 * kn * (0.5 * 0.25 * 30) / (420 * 0.42 * 0.42) * 0.1 * 0.42 * 1e4;
     expect(above.high).toBe(true);
     expect(above.hxMax).toBe(0.2);

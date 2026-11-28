@@ -14126,6 +14126,7 @@ const en: Record<string, string> = {
   'seisDes.issue.confinedLength': 'confined zone shorter than lo',
   'seisDes.issue.confinedSpacing': 'tie spacing over so',
   'seisDes.issue.ash': 'Ash too small',
+  "seisDes.issue.confinementUnassessed": "Confinement unverified. Check the recorded axial forces and tie layout before detailing this column.",
   'fdnEd.none': 'The model has no foundations. Place them from Model › Foundations.',
   'fdnEd.list': 'Foundations',
   'fdnEd.locked': 'Locked',

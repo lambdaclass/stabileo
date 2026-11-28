@@ -14115,6 +14115,7 @@ const es: Record<string, string> = {
   'seisDes.issue.confinedLength': 'zona confinada menor a lo',
   'seisDes.issue.confinedSpacing': 'separación de estribos mayor a so',
   'seisDes.issue.ash': 'Ash insuficiente',
+  "seisDes.issue.confinementUnassessed": "Confinamiento sin verificar. Compruebe los esfuerzos axiales registrados y la disposición de las ataduras antes de detallar la columna.",
   'fdnEd.none': 'El modelo no tiene fundaciones. Ubicalas desde Modelo › Fundaciones.',
   'fdnEd.list': 'Fundaciones',
   'fdnEd.locked': 'Con bloqueos',

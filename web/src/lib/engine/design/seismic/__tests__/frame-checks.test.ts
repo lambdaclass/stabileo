@@ -119,7 +119,7 @@ it('#2217 every regional layer or group participates in the smallest-bar limit',
   expect(beamSteel({ regions: { ...layers, topEndGroups: [{ layers: [large, small] }] } }).minDia).toBe(10);
 });
 
-it.skip.each(['below', 'boundary', 'above', 'strong', 'unrecorded'] as const)('known wrong result: #1928 seismic column confinement retains only assessed results for %s', state => {
+it.each(['below', 'boundary', 'above', 'strong', 'unrecorded'] as const)('known wrong result: #1928 seismic column confinement retains only assessed results for %s', state => {
   const primary = column(1, 1, 2);
   const bound = 0.3 * primary.b * primary.h * primary.fc * 1000;
   if (state === 'strong') primary.fc = 71;
