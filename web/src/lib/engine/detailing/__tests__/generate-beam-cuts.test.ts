@@ -9,13 +9,13 @@ import { generateBeamBars, type BeamGenerationInput, type MomentStation } from '
 function envelope(L = 6, mMid = 200, mEnd = 150, v = 180): MomentStation[] {
   return Array.from({ length: 11 }, (_, i) => {
     const s = i / 10;
-    return { x: s * L, mPos: Math.max(0, mMid * 4 * s * (1 - s)), mNeg: Math.max(0, mEnd * (1 - 4 * s * (1 - s))), v: v * Math.abs(1 - 2 * s) };
+    return { x: s * L, axialCompression: 0, mPos: Math.max(0, mMid * 4 * s * (1 - s)), mNeg: Math.max(0, mEnd * (1 - 4 * s * (1 - s))), v: v * Math.abs(1 - 2 * s) };
   });
 }
 
 const input = (over: Partial<BeamGenerationInput> = {}): BeamGenerationInput => ({
   elementId: 7, L: 6, b: 0.3, h: 0.6, d: 0.55, cover: 0.025, stirrupDia: 8, fc: 25, fy: 420, maxAggregateSizeMm: 20, edition: '2025',
-  stations: envelope(), supportI: 'continuous', supportJ: 'continuous', vn: 400,
+  stations: envelope(), supportI: 'continuous', supportJ: 'continuous',
   bottom: { count: 6, diameterMm: 20 }, topStart: { count: 4, diameterMm: 16 }, topEnd: { count: 4, diameterMm: 16 },
   lateralSystem: false, ld: (d) => 0.04 * d,
   origin: { x: 0, y: 0, z: 0 }, axis: { x: 1, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 },

@@ -188,10 +188,10 @@ check.quick:
 	BASE=$(BASE) scripts/check-quick.sh
 
 check.fast: web/node_modules/@playwright/test/cli.js
-	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts check.web.production-parity
+	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts check.web.production-parity test.web.pro-plates-switch
 
 test.web.fast:
-	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
+	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/split-dictionaries.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
 	$(MAKE) test.web.unit.production UNIT_AREA= SHARD= FILE=src/lib/blog/__tests__/blog-content.test.ts FILTER='lists every advisory'
 
 .PHONY: check.web.production-parity
@@ -406,7 +406,16 @@ typecheck.web.svelte:
 test.web.unit.production: UNIT_PROFILE = production
 test.web.unit.switch-on: UNIT_PROFILE = test
 
-test.web.unit test.web.unit.production test.web.unit.switch-on:
+ifneq ($(SHARD),)
+test.web.unit:
+	$(MAKE) test.web.unit.production
+	$(MAKE) test.web.unit.switch-on
+else
+test.web.unit: test.web.unit.run
+endif
+
+.PHONY: test.web.unit.run
+test.web.unit.run test.web.unit.production test.web.unit.switch-on:
 	$(NIX_RUN) env STABILEO_UNIT_PROFILE=$(UNIT_PROFILE) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL)) $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
 
 test.web.build: web.build.tested
@@ -611,7 +620,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.switch-on-e2e test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions test.agent-mistakes
+test.ci-scripts: test.research-wasm-paths test.switch-on-e2e test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions test.agent-mistakes
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
@@ -697,6 +706,10 @@ web.run: wasm research.wasm
 	$(NIX_RUN) bash -c "cd web && npm install && VITE_API_URL=http://localhost:$(BACKEND_PORT) npm run dev -- --port $(WEB_PORT)"
 
 # The Stabileo Research page's own WASM (web/public/research-wasm/), fetched only on /research pages.
+.PHONY: test.research-wasm-paths
+test.research-wasm-paths:
+	$(NIX_RUN) bash scripts/test-research-wasm-paths.sh
+
 research.wasm: web.deps
 	$(NIX_RUN) research/fracture/shauer-2025/wasm/build.sh
 	$(NIX_RUN) research/optimization/andreassen-2011/wasm/build.sh
@@ -1422,6 +1435,14 @@ test.design.completeness-2096:
 
 test.engine.kinematics-2222:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_2222_kinematics_identifies -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.web.pro-plates-switch
+test.web.pro-plates-switch:
+	$(NIX_RUN) bash -c 'cd web && node --test scripts/pro-plates-switch.test.mjs scripts/plate-foundation-ownership.test.mjs scripts/result-checks-disclosure.test.mjs scripts/plate-mesh-clear.test.mjs'
+
+.PHONY: test.web.production-mesher
+test.web.production-mesher:
+	nix develop .\#e2e --command node --test --test-concurrency=1 web/scripts/tests/pro-mesher-inputs.test.mjs web/scripts/tests/plate-mesh-preview.test.mjs
 
 .PHONY: test.engine.nonlinear-drivers-2510-wasm
 test.engine.nonlinear-drivers-2510-wasm: wasm scripts/tests/arc-review-wasm.mjs scripts/tests/planar-exact-member-actions.mjs scripts/tests/fixtures/planar-exact-member-actions.json scripts/tests/fixtures/planar-member-rotation.json scripts/tests/fixtures/planar-chord-equilibrium.json

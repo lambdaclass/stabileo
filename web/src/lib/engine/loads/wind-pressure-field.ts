@@ -350,13 +350,14 @@ export function windHeightField(input: {
   to: number;
   pressure: ((z: number, width: number, widthKind: 'physical' | 'declared') => number) & PiecewiseConvexity;
   boundaries?: readonly number[];
+  levels?: readonly number[];
   width?: number;
   region?: ReadonlySet<number>;
 }): WindHeightResult {
   const { model, axis, from, to } = input;
   const members = heightMembers(model, from, to, input.region);
   if (!members.length && to > from) throw new WindPressureRefusal('wind.pressure.noHeightCarriers');
-  const cuts = [...new Set([from, to, ...members.flatMap(m => [Z(m.a), Z(m.b)]), ...(input.boundaries ?? [])])].filter(z => z >= from && z <= to).sort((a, b) => a - b);
+  const cuts = [...new Set([from, to, ...members.flatMap(m => [Z(m.a), Z(m.b)]), ...(input.boundaries ?? []), ...(input.levels ?? [])])].filter(z => z >= from && z <= to).sort((a, b) => a - b);
   const loads = new Map<number, number>(), baseLoads = new Map<number, number>();
   const memberLoads: WindHeightMember[] = [];
   const add = (id: number, f: number) => { const map = Z(model.nodes.get(id)!) <= from ? baseLoads : loads; map.set(id, (map.get(id) ?? 0) + f); };

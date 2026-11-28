@@ -14,7 +14,7 @@
   import { t, tp } from '../../../lib/i18n';
   import { engineGuarded } from '../../../lib/store/engine-action';
   import { modelStore, resultsStore, uiStore } from '../../../lib/store';
-  import { membersFor } from '../../../lib/store/steel-optimise.svelte';
+  import { membersFor, steelDemandsWithheld } from '../../../lib/store/steel-optimise.svelte';
   import { checkSteelMember } from '../../../lib/engine/verification-service';
   import { memberNetArea, type TensionSectionInput } from '../../../lib/engine/steel/tension-connection';
   import { te } from '../../../lib/i18n/engine-text';
@@ -23,6 +23,7 @@
   let { steelIds }: { steelIds: ReadonlySet<number> } = $props();
 
   const hasDemands = $derived(resultsStore.results3D !== null);
+  const withheld = $derived(hasDemands ? steelDemandsWithheld() : null);
 
   interface Row {
     id: number;
@@ -40,7 +41,7 @@
   // The checks are the engine's: its absence or refusal is shown in place of the rows.
   const guardedRows = $derived(engineGuarded((): Row[] => {
     void modelStore.modelVersion;
-    if (!resultsStore.results3D) return [];
+    if (!resultsStore.results3D || withheld) return [];
     const { members, materialOf } = membersFor([...steelIds]);
     const out: Row[] = [];
     for (const m of members) {
@@ -108,6 +109,8 @@
     <p class="line warn" role="alert" data-testid="tc-results-engine">{rowsError}</p>
   {:else if !hasDemands}
     <p class="line" data-testid="tc-results-solve">{t('steel.tc.results.solveFirst')}</p>
+  {:else if withheld}
+    <p class="line warn" role="alert" data-testid="tc-results-withheld">{t(withheld)}</p>
   {:else if rows.length === 0}
     <p class="line" data-testid="tc-results-none">{t('steel.tc.results.none')}</p>
   {:else}

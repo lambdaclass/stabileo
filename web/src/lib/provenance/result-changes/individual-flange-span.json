@@ -1,0 +1,35 @@
+{
+  "id": "individual-flange-span",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "any": [
+      "individualNearLevelFlange"
+    ]
+  },
+  "title": {
+    "en": "Individual beam flange width",
+    "es": "Ancho del ala de una viga individual",
+    "pt": "Largura da mesa de uma viga individual",
+    "de": "Flanschbreite eines einzelnen Trägers",
+    "fr": "Largeur de table d’une poutre individuelle",
+    "tr": "Tekil kirişin tabla genişliği",
+    "hu": "Egyedi gerenda övszélessége",
+    "zh": "单根梁的翼缘宽度"
+  },
+  "explanation": {
+    "en": "Rerun concrete design for near-level individual beams sharing both ends with a slab. Their effective flange width uses the projected span.",
+    "es": "Repita el diseño de hormigón de las vigas individuales casi horizontales cuyos extremos pertenecen a una losa. El ancho efectivo del ala usa la luz proyectada.",
+    "pt": "Refaça o dimensionamento das vigas individuais de concreto quase horizontais com ambas as extremidades na laje. A largura efetiva da mesa usa o vão projetado.",
+    "de": "Einzelne nahezu waagerechte Betonträger mit beiden Enden in einer Platte erneut bemessen. Die mitwirkende Breite verwendet die projizierte Spannweite.",
+    "fr": "Relancez le dimensionnement des poutres individuelles en béton presque horizontales dont les deux extrémités appartiennent à une dalle. La largeur participante utilise la portée projetée.",
+    "tr": "Her iki ucu döşemede olan yataya yakın tekil betonarme kirişleri yeniden boyutlandırın. Etkin tabla genişliği yatay izdüşüm açıklığını kullanır.",
+    "hu": "Méretezze újra azokat a közel vízszintes egyedi vasbeton gerendákat, amelyek mindkét vége a lemezhez tartozik. Az együtt dolgozó szélességet a vetületi fesztáv határozza meg.",
+    "zh": "请重新设计两端均与楼板相连的近水平单根混凝土梁。其有效翼缘宽度采用投影跨度。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-individual-flange-span.md",
+    "heading": "Effective flange width of an individual near-level beam"
+  }
+}

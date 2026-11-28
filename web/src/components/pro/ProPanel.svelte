@@ -41,6 +41,7 @@
   import { runEngineActionAsync } from '../../lib/store/engine-action';
   import { t } from '../../lib/i18n';
   import { leaveSelfWeightRule, selfWeightRuleEffect } from '../../lib/store/self-weight-migration';
+  import RecognizePhysicalModel from './plates/RecognizePhysicalModel.svelte';
   import SelectionPanel from '../SelectionPanel.svelte';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ProTransformPanel from './ProTransformPanel.svelte';
@@ -76,6 +77,7 @@
   import { resetProjectProvenance } from '../../lib/store/project-provenance';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
+  import ProRcSheetsTab from './rc-sheets/ProRcSheetsTab.svelte';
   /*
    * The metallic tab renders the WORKFLOW, and the workflow renders `SteelPanel` as its last
    * stage — so the inventory is still there, one disclosure in, rather than replaced or duplicated.
@@ -90,7 +92,7 @@
   import ProPhoneNav from './ProPhoneNav.svelte';
   import ProPhoneGrid from './ProPhoneGrid.svelte';
 
-  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'specifications' | 'supports' | 'loads' | 'advanced' | 'results' | 'design' | 'desk' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'physical' | 'building' | 'foundations' | 'designData' | 'code' | 'view' | 'otherCodes';
+  type ProTab = 'selection' | 'project' | 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'specifications' | 'supports' | 'loads' | 'advanced' | 'results' | 'design' | 'desk' | 'steel' | 'generators' | 'connections' | 'diagnostics' | 'settings' | 'grid' | 'transform' | 'edit' | 'groups' | 'physical' | 'building' | 'foundations' | 'designData' | 'code' | 'view' | 'otherCodes' | 'rcSheets';
 
 
   // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
@@ -147,8 +149,11 @@
     solving = true;
     try {
       const outcome = await runGlobalSolve();
-      // A solve stopped before it ran (plates that need a mesh) says why, not "no results".
-      if (!outcome.ok) { solveError = outcome.error; solving = false; return; }
+      if (!outcome.ok) {
+        if (!__PUBLIC_FEATURES__.proPlatesUnified) solveError = outcome.error;
+        solving = false;
+        return;
+      }
       if (!resultsStore.results3D) {
         solveError = t('pro.noResults');
         solving = false;
@@ -211,18 +216,6 @@
     setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 600);
   }
 
-  /* ── The phone's command grid ──────────────────────────────────────────
-  /*
-   * The phone shell, built ONCE and handed to both halves.
-   *
-   * The pills render outside `.pro-content` and the grid inside it, so they cannot be one
-   * element — and the pills decide what the grid shows, so the state cannot live in either.
-   * `lib/pro/phone-shell.svelte.ts` holds it, and explains why neither component builds the
-   * stage context for itself: the copy that already shipped threw on mount.
-   *
-   * `handleSolve` is passed rather than `runGlobalSolve` because the pre-solve gate is this
-   * panel's own refusal and stays here.
-   */
   const shell = createPhoneShell({
     hasModel: () => hasModel,
     solving: () => solving,
@@ -244,6 +237,7 @@
     // on the panel it opens, which is two names for one place.
     connections: 'proRibbon.cmdSteelJoints', diagnostics: 'pro.tabDiagnostics',
     otherCodes: 'proRibbon.groupOtherCodes',
+    ...(__PUBLIC_FEATURES__.proRcSheets ? { rcSheets: 'rcSheets.cmd' } : {}),
     // Same rule for the two metallic destinations: the heading repeats the ribbon command
     // (`proRibbon.cmdGenerators` / `proRibbon.cmdSteelProfiles`), not the fallback
     // "Nodes" the map used to produce for both.
@@ -261,13 +255,22 @@
   };
 </script>
 
+{#if __PUBLIC_FEATURES__.proPlatesUnified}<RecognizePhysicalModel />{/if}
+
 <div class="pro-panel" data-testid="pro-panel" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile}>
   {#if uiStore.isMobile}
     <ProPhoneNav {shell} />
   {/if}
 
   {#if solveError}
-    <div class="pro-solve-error">{solveError}</div>
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      <div class="pro-solve-error dismissible" data-testid="pro-solve-error">
+        <span>{solveError}</span>
+        <button type="button" class="pro-solve-error-x" aria-label={t('toast.dismiss')} onclick={() => (solveError = null)} data-testid="pro-solve-error-close">×</button>
+      </div>
+    {:else}
+      <div class="pro-solve-error">{solveError}</div>
+    {/if}
   {/if}
 
   <!--
@@ -391,6 +394,9 @@
     {:else if activeTab === 'diagnostics'}
           <ProDiagnosticsTab />
         {/if}
+        {#if __PUBLIC_FEATURES__.proRcSheets}
+          {#if activeTab === 'rcSheets'}<ProRcSheetsTab />{/if}
+        {/if}
       </svelte:boundary>
     {/if}
   </div>
@@ -455,13 +461,9 @@
      note, because the next person to read the build warnings will trust it.
   */
 
-  .pro-solve-error {
-    padding: 4px 10px;
-    font-size: 0.7rem;
-    color: var(--st-danger);
-    background: rgba(229, 72, 42, 0.1);
-    border-bottom: 1px solid var(--st-surface-3);
-  }
+  .pro-solve-error-x { flex: none; margin-left: auto; min-width: 26px; min-height: 26px; padding: 0; border: none; background: transparent; color: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
+  .pro-solve-error.dismissible { display: flex; align-items: flex-start; gap: 8px; }
+  .pro-solve-error { padding: 4px 10px; font-size: 0.7rem; color: var(--st-danger); background: rgba(229, 72, 42, 0.1); border-bottom: 1px solid var(--st-surface-3); }
 
   /* ─── Content area ─── */
   .pro-content {

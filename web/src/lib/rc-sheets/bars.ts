@@ -1,0 +1,203 @@
+import { rebarGroupArea } from '../engine/station-design-forces';
+import { chooseBars } from '../engine/codes/argentina/cirsoc201-bars';
+import { barsPerRow, layerClearBetween, minClearSpacingInLayer } from '../codes/cirsoc201/spacing';
+import { minMandrelDiameter, standardHook } from '../codes/cirsoc201/bar-geometry';
+import type { BendRules } from './shape';
+import { decimalFor } from './format';
+import { i18n } from '../i18n';
+import { DEFAULT_AGGREGATE_MM, SLAB_BAR_RANGE, allowedTie, inRange, nextTie, tieDiametersOf, tieFloorOf, type BarGroup, type MeshBars, type Stirrups, type TransverseList } from './types';
+
+export const barArea = (dia: number): number => rebarGroupArea({ count: 1, diameter: dia });
+
+export const groupsArea = (groups: readonly BarGroup[]): number => groups.reduce((s, g) => s + g.count * barArea(g.dia), 0);
+
+export const groupsLabel = (groups: readonly BarGroup[]): string =>
+  groups.filter((g) => g.count > 0).map((g) => `${g.count} Ø${g.dia}`).join(' + ') || '—';
+
+/** A spacing in centimetres as it was checked: 12.5 stays 12.5, never 13, which would place less steel. */
+const cm = (spacing: number): string => String(Math.round(spacing * 1000) / 10).replace('.', decimalFor(i18n.locale));
+
+export const stirrupsLabel = (s: Stirrups): string => `${s.legs > 2 ? `${s.legs}r ` : ''}Ø${s.dia} c/${cm(s.spacing)}`;
+
+export const meshLabel = (m: MeshBars): string => `Ø${m.dia} c/${cm(m.spacing)}`;
+
+export const meshArea = (m: MeshBars): number => (m.spacing > 0 ? barArea(m.dia) / m.spacing : 0);
+
+let beamAggregate = DEFAULT_AGGREGATE_MM;
+
+/** The project's largest aggregate the beams' clear spacing reads, mm (`maxAggregateMm`): set by the sheets as they read the design data, the default until then. */
+export const setBeamAggregate = (mm: number): void => { beamAggregate = mm; };
+
+/** The least clear spacing between a beam's bars in a row, m: max(25 mm; db; 4/3·dagg), §25.2.1. */
+export const minClearSpacing = (dia: number): number => minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: beamAggregate }).minClear;
+
+/** How many bars of `dia` (mm) fit in one row across `inner` (m) at the code's least clear spacing. */
+const rowCapacity = (inner: number, dia: number) => {
+  const gap = minClearSpacing(dia);
+  return Math.max(2, Math.floor((inner + gap) / (dia / 1000 + gap) + 1e-9));
+};
+
+/**
+ * Each bar of a face, row by row from the face in: across from the left side and in from the face, m.
+ * The first group's two bars hold the corners; the rest fill the first row symmetrically, the largest
+ * first, as many as the least clear spacing lets in: equal bars mirrored in pairs, then the odd ones
+ * mirrored by size with the largest left over in the middle. Only what does not fit goes to the next
+ * row, so the steel sits as far from the neutral axis as it can.
+ */
+export function faceBars(groups: readonly BarGroup[], b: number, cover: number, stirrupDia: number): Array<{ x: number; depth: number; dia: number; row: number }> {
+  const used = groups.filter((g) => g.count > 0);
+  if (!used.length) return [];
+  const inner = b - 2 * cover - 2 * stirrupDia / 1000;
+  const corner = used[0]!;
+  const pool: number[] = [];
+  if (corner.count === 1) pool.push(corner.dia);
+  else for (let k = 2; k < corner.count; k++) pool.push(corner.dia);
+  for (const g of used.slice(1)) for (let k = 0; k < g.count; k++) pool.push(g.dia);
+  pool.sort((p, q) => q - p);
+  const rows: number[][] = [];
+  let first = true;
+  while (first || pool.length) {
+    const edgeDias = first && corner.count >= 2 ? [corner.dia, corner.dia] : [];
+    const big = Math.max(...edgeDias, ...pool.slice(0, 1), 0);
+    const slots = rowCapacity(inner, big) - edgeDias.length;
+    const counts = new Map<number, number>();
+    for (const d of pool) counts.set(d, (counts.get(d) ?? 0) + 1);
+    const pairs: Array<[number, number]> = [];
+    for (const d of [...counts.keys()].sort((p, q) => q - p)) {
+      while ((counts.get(d) ?? 0) >= 2 && 2 * pairs.length + 2 <= slots) { pairs.push([d, d]); counts.set(d, counts.get(d)! - 2); }
+    }
+    const singles = [...counts.entries()].flatMap(([d, n]) => Array<number>(n).fill(d)).sort((p, q) => q - p);
+    const taken = singles.slice(0, Math.max(0, Math.min(singles.length, slots - 2 * pairs.length)));
+    const centre = taken.length % 2 === 1 ? [taken.shift()!] : [];
+    for (let i = 0; i + 1 < taken.length; i += 2) pairs.push([taken[i]!, taken[i + 1]!]);
+    const inside = [...pairs.flat(), ...centre];
+    const ordered = [...edgeDias.slice(0, 1), ...pairs.map((p) => p[0]), ...centre, ...[...pairs].reverse().map((p) => p[1]), ...edgeDias.slice(1)];
+    if (!ordered.length) break;
+    rows.push(ordered);
+    for (const d of inside) pool.splice(pool.indexOf(d), 1);
+    first = false;
+  }
+  const out: Array<{ x: number; depth: number; dia: number; row: number }> = [];
+  let y = cover + stirrupDia / 1000;
+  rows.forEach((row, r) => {
+    const rowDia = Math.max(...row);
+    if (r > 0) { const prev = Math.max(...rows[r - 1]!); y += prev / 1000 + layerClearBetween('2025', prev, rowDia); }
+    const edge = cover + stirrupDia / 1000 + rowDia / 2000;
+    row.forEach((dia, k) => out.push({ x: row.length > 1 ? edge + (k * (b - 2 * edge)) / (row.length - 1) : b / 2, depth: y + rowDia / 2000, dia, row: r }));
+  });
+  return out;
+}
+
+export function faceLayout(groups: readonly BarGroup[], b: number, cover: number, stirrupDia: number): {
+  centroidFromFace: number; fits: boolean; clear: number[];
+} {
+  const bars = faceBars(groups, b, cover, stirrupDia);
+  const area = bars.reduce((s, x) => s + barArea(x.dia), 0);
+  const moment = bars.reduce((s, x) => s + barArea(x.dia) * x.depth, 0);
+  const clear: number[] = [];
+  let fits = true;
+  for (const r of [...new Set(bars.map((x) => x.row))]) {
+    const row = bars.filter((x) => x.row === r).sort((p, q) => p.x - q.x);
+    for (let k = 1; k < row.length; k++) {
+      const gap = row[k]!.x - row[k - 1]!.x - (row[k]!.dia + row[k - 1]!.dia) / 2000;
+      clear.push(gap);
+      if (gap < minClearSpacing(Math.max(row[k]!.dia, row[k - 1]!.dia)) - 1e-4) fits = false;
+    }
+    if (row.length === 1) clear.push(b - 2 * cover - 2 * stirrupDia / 1000 - row[0]!.dia / 1000);
+  }
+  return { centroidFromFace: area > 0 ? moment / area : cover + stirrupDia / 1000 + 0.008, fits, clear };
+}
+
+/**
+ * A face's bars for `AsCm2`: the arrangement `chooseBars` picks, in the nearest allowed diameter;
+ * where that does not lay out within the width in at most two layers, among single diameters and
+ * two consecutive ones (FIUBA §8.1) one layer before two, then the lightest, then the thinner bars
+ * (§8.1: more bars of a smaller diameter). Where nothing lays out, the pick as it is.
+ */
+export function proposeBeamFace(AsCm2: number, b: number, h: number, cover: number, stirrupDia: number, diameters: readonly number[]): BarGroup[] {
+  const allowed = diameters.filter((d) => d >= 10 && d <= 25).sort((p, q) => p - q);
+  const pick = chooseBars(Math.max(AsCm2, 0), { widthM: b, coverM: cover + stirrupDia / 1000 + 0.008, minCount: 2, maxLayers: 2, heightM: h });
+  const dia = allowed.includes(pick.diameter) ? pick.diameter : nearest(allowed, pick.diameter);
+  const n = Math.max(2, Math.ceil(AsCm2 / barArea(dia)));
+  const perLayer = Math.max(2, barsPerRow(b - 2 * cover - 2 * stirrupDia / 1000, dia, minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: beamAggregate }), Infinity));
+  const first: BarGroup[] = n <= perLayer ? [{ count: n, dia }] : [{ count: perLayer, dia }, { count: Math.max(2, n - perLayer), dia }];
+  if (!allowed.length) return first;
+  const layered = (g: BarGroup[]) => {
+    const bars = faceBars(g, b, cover, stirrupDia);
+    const rows = [...new Set(bars.map((x) => x.row))].map((r) => bars.filter((x) => x.row === r).length);
+    return { fits: faceLayout(g, b, cover, stirrupDia).fits && rows.length <= 2, rows };
+  };
+  const single = allowed.map((d) => [{ count: Math.max(2, Math.ceil(AsCm2 / barArea(d) - 1e-9)), dia: d }]);
+  const mixed = allowed.slice(1).flatMap((big, i) => {
+    const small = allowed[i]!;
+    return Array.from({ length: 6 }, (_, k) => k + 2).map((nb) => [{ count: nb, dia: big }, { count: Math.ceil((AsCm2 - nb * barArea(big)) / barArea(small) - 1e-9), dia: small }])
+      .filter((g) => g[1]!.count > 0);
+  });
+  const bars = (g: BarGroup[]) => g.reduce((a, x) => a + x.count, 0);
+  if (layered(first).fits) return first;
+  const fit = [...single, ...mixed].map((g) => ({ g, l: layered(g), a: groupsArea(g) })).filter((x) => x.l.fits);
+  if (!fit.length) return first;
+  const top = (g: BarGroup[]) => Math.max(...g.map((x) => x.dia));
+  const best = fit.sort((p, q) => p.l.rows.length - q.l.rows.length || p.a - q.a || top(p.g) - top(q.g) || bars(p.g) - bars(q.g))[0]!;
+  return best.g.length === 1 && best.l.rows.length === 2 ? [{ count: best.l.rows[0]!, dia: best.g[0]!.dia }, { count: best.l.rows[1]!, dia: best.g[0]!.dia }] : best.g;
+}
+
+/** A face of the same area in at least `count` bars of one layer, the thickest that fit; none where no diameter does. */
+export function beamFaceWithBars(AsCm2: number, count: number, b: number, cover: number, stirrupDia: number, diameters: readonly number[]): BarGroup[] | null {
+  for (const dia of diameters.filter((d) => d >= 10 && d <= 25).sort((p, q) => q - p)) {
+    const n = Math.max(count, Math.ceil(AsCm2 / barArea(dia) - 1e-9));
+    const perLayer = barsPerRow(b - 2 * cover - 2 * stirrupDia / 1000, dia, minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: 0 }), Infinity);
+    if (n <= perLayer) return [{ count: n, dia }];
+  }
+  return null;
+}
+
+const nearest = (list: readonly number[], d: number): number =>
+  list.length ? list.reduce((a, x) => (Math.abs(x - d) < Math.abs(a - d) ? x : a)) : d;
+
+export const roundDown = (s: number, step = 0.025): number => Math.max(step, Math.floor(s / step + 1e-9) * step);
+
+/**
+ * Stirrups for `perLeg` cm²/m a leg: the project's default stirrup, or the next allowed one, as wide
+ * as `sMax` and the steel let them; 10 cm or more when a diameter allows it, never closer than the
+ * project's floor (`TransverseList`). Where none holds at the floor, the thickest at it.
+ */
+export function proposeStirrups(perLeg: number, legs: number, sMax: number, c: TransverseList & { stirrupDia: number }): Stirrups {
+  const list = tieDiametersOf(c), floor = tieFloorOf(c);
+  const prefer = allowedTie(c, c.stirrupDia) ?? list[list.length - 1]!;
+  const order = [prefer, ...list.filter((x) => x > prefer)];
+  const at = (dia: number) => roundDown(Math.min(sMax, perLeg > 0 ? barArea(dia) / perLeg : sMax));
+  for (const least of [Math.max(0.1, floor), floor]) {
+    for (const dia of order) if (at(dia) >= least - 1e-9) return { dia, legs, spacing: at(dia) };
+  }
+  const dia = order[order.length - 1]!;
+  return { dia, legs, spacing: Math.max(floor, at(dia)) };
+}
+
+/** One step more of stirrup steel within the project's lists: closer down to the floor, then the next allowed diameter at `reset`; null when neither is left. */
+export function moreStirrup(st: Stirrups, c: TransverseList, reset: number): Stirrups | null {
+  const floor = tieFloorOf(c);
+  if (st.spacing > floor + 1e-9) return { ...st, spacing: Math.max(floor, roundDown(st.spacing - 0.025)) };
+  const next = nextTie(c, st.dia);
+  return next ? { ...st, dia: next, spacing: Math.max(floor, reset) } : null;
+}
+
+export function proposeMesh(AsCm2: number, sMax: number, diameters: readonly number[]): MeshBars {
+  const ds = diameters.filter((d) => inRange(d, SLAB_BAR_RANGE));
+  for (const floor of [0.1, 0.075]) {
+    for (const dia of ds.length ? ds : [8, 10, 12]) {
+      const s = roundDown(Math.min(sMax, barArea(dia) / Math.max(AsCm2, 1e-9)));
+      if (s >= floor - 1e-9) return { dia, spacing: s };
+    }
+  }
+  const dia = ds[ds.length - 1] ?? 12;
+  return { dia, spacing: roundDown(Math.max(0.05, Math.min(sMax, barArea(dia) / Math.max(AsCm2, 1e-9)))) };
+}
+
+/** CIRSOC 201-2025 and ACI 318-19: Tables 25.3.1 (bars) and 25.3.2 (stirrups and ties); cross ties hooked 135° and 90° (§25.7.1.6). */
+export const ACI_BENDS: BendRules = {
+  mandrel: (dia, use) => minMandrelDiameter(dia, use).value,
+  extension: (dia, angle, use) => standardHook(dia, angle, use).extension,
+  crossTieHooks: [135, 90],
+  clause: '§25.3.1, §25.3.2',
+};

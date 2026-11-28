@@ -184,6 +184,9 @@ web/src/lib/api/error-text.ts: if (message === 'is too large') return t('account
 
 ## The issue tag is declared test metadata shared by web skips and Rust ignores.
 scripts/check-agent-mistakes.mjs: return annotation?.match(issueTag)?.[1];
+web/src/lib/i18n/engine-text.ts: out = out.replace(CONFLICTING_CONSTRAINTS, (_whole, dof: string, node: string, n: string) => fill('svc.engine.conflictingConstraints', { dof, node, n }));
+web/src/lib/sheets/layers.ts: const arm = /^ST-ARM-(.+)-Ø(\d+)$/.exec(name);
+web/src/lib/sheets/layers.ts: const arm = /^ST-ARM-(.+)-Ø(\d+)$/.exec(name);
 
 ## Decodes historical nightly artifact categories from libFuzzer filenames, which are the producer's structured tags.
 .github/scripts/nightly-defects.cjs: const artifact = fuzz ? FUZZ_ARTIFACT.exec(String(input).trim()) : null;

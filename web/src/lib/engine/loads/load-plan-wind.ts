@@ -210,8 +210,8 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
         const lowest = Math.min(...levels.map(l => l.elevation));
         const from = lowest > 0 ? Math.max(0, ...modelElevations.filter(z => z < lowest - 1e-6)) : Math.max(0, lowest);
         const boundaries = [...exposureBreaks, ...(profile?.map(([z]) => z) ?? [])];
-        const pressure = region && across === 0 ? { loads: new Map<number, number>(), baseLoads: new Map<number, number>(), torque: 'resolved' as const, members: [] } : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, pressure: density, width: across > 0 ? across : input.tributaryWidth });
-        const design = service || profile || (region && across === 0) ? pressure : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, pressure: () => 0.75, width: across > 0 ? across : input.tributaryWidth });
+        const pressure = region && across === 0 ? { loads: new Map<number, number>(), baseLoads: new Map<number, number>(), torque: 'resolved' as const, members: [] } : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, levels: elevations, pressure: density, width: across > 0 ? across : input.tributaryWidth });
+        const design = service || profile || (region && across === 0) ? pressure : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, levels: elevations, pressure: () => 0.75, width: across > 0 ? across : input.tributaryWidth });
         const atNodes = (loads: Map<number, number>, raw: Map<number, number>): WindLevel[] => [...loads].map(([id, force]) => ({ elevation: input.model.nodes.get(id)!.z ?? 0, nodeIds: [id], force, pressureForce: raw.get(id) ?? 0 }));
         const windLevels = atNodes(pressure.loads, pressure.loads);
         const baseLoads = atNodes(pressure.baseLoads, pressure.baseLoads);

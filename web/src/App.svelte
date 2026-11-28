@@ -11,6 +11,8 @@
   import './lib/i18n/full-dictionaries';
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
+  import ProgressToasts from './components/ProgressToasts.svelte';
+  import type { Snippet } from 'svelte';
   import { is3DWorkspace } from './lib/utils/workspace';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
@@ -20,6 +22,8 @@
   import { authStore } from './lib/store/auth.svelte';
   import { accounts } from './lib/features';
   import { hasLoadCarrying3D } from './lib/engine/solver-service';
+  import AdoptedReinforcementNotice from './components/AdoptedReinforcementNotice.svelte';
+  import ModelNoticeBoard from './components/notices/ModelNoticeBoard.svelte';
   import ContainmentBanner from './components/ContainmentBanner.svelte';
   import Viewport from './components/Viewport.svelte';
   import Viewport3D from './components/Viewport3D.svelte';
@@ -355,8 +359,9 @@
   import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
   import DesignDesk from './components/pro/desk/DesignDesk.svelte';
   import { deskUi, deskLayout } from './lib/store/design-desk-ui.svelte';
-  import { isDesignTab, syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
-  import { askDesignForLink, enableDesignForLink, announceDesignOn } from './lib/store/design-presence';
+  import { syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
+  import { enableDesignForLink, announceDesignOn } from './lib/store/design-presence';
+  import { openProTabFromQuery } from './lib/pro/pro-tab-link';
   import { rebarWorkspace } from './lib/store/rebar-workspace.svelte';
   /** Design docks beside the viewer on a desktop PRO screen; elsewhere it is a full-screen sheet. */
   const deskDocked = $derived(uiStore.appMode === 'pro' && !uiStore.isMobile);
@@ -532,17 +537,6 @@
   }
 
   /**
-   * `?proTab=<id>` opens PRO on one of its tabs.
-   *
-   * The companion of `?inspect` for the other half of the application. A post
-   * about CIRSOC verification has to land the reader on the verification, and
-   * that lives in PRO's `design` tab rather than in Basic's section panel.
-   *
-   * NOT named `tab`: that parameter already carries the project tab's slug
-   * (see `replaceAppUrl`), and quietly overloading it would make a shared
-   * link rename someone's project.
-   */
-  /**
    * `?kin=1` opens the kinematic analysis panel.
    *
    * The third of the deep links a post can use, beside `?inspect` and
@@ -565,21 +559,6 @@
      * the example loader resolves, both are in place.
      */
     if (uiStore.appMode === 'basico' && !uiStore.isMobile) openBasicPanel('advanced', { toggle: false });
-  }
-
-  function openProTabFromUrl(params: URLSearchParams) {
-    const tab = params.get('proTab');
-    if (!tab) return;
-    // Mirrors the `ProTab` union in components/pro/ProPanel.svelte — a tab added
-    // there but not here makes `?proTab=` silently no-op for it.
-    const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
-      'specifications', 'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
-      'settings', 'selection', 'steel', 'grid', 'generators', 'transform', 'edit', 'groups', 'code', 'view',
-      'otherCodes', 'designData', 'desk'];
-    if (!VALID.includes(tab)) return;
-    // A link to a place of design while design is off asks the reader; it turns nothing on.
-    if (isDesignTab(tab) && !uiStore.designInPro) { askDesignForLink(tab); return; }
-    uiStore.proActiveTab = tab;
   }
 
   /** `?mohr=plane|space&…` opens the Mohr circle function with the state the public tool encoded. */
@@ -1055,7 +1034,7 @@
           };
           tryFit(0);
           openInspectFromUrl(queryParams);
-          openProTabFromUrl(queryParams);
+          openProTabFromQuery(queryParams);
           openKinematicFromUrl(queryParams);
         }).catch((err) => {
           /*
@@ -1471,6 +1450,7 @@
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   }
+
 </script>
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
@@ -1771,6 +1751,8 @@
     <ToolOptionsBar />
   {/if}
 
+  <AdoptedReinforcementNotice />
+
   {#if !uiStore.is3DWorkspace && uiStore.analysisPlane2D === undefined}
     <div class="saved-plane-choice" role="group" aria-label={t('svc.savedPlaneRequired')}>
       <span>{t('svc.savedPlaneRequired')}</span>
@@ -2013,13 +1995,18 @@
 
     <div class="main-area" bind:this={mainAreaEl}>
       <main class="viewport-container">
-        <ContainmentBanner preserveModel disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues}>
-        {#if !uiStore.is3DWorkspace}
-          <Viewport />
+        {#snippet viewport()}
+          {#if !uiStore.is3DWorkspace}
+            <Viewport />
+          {:else}
+            <Viewport3D />
+          {/if}
+        {/snippet}
+        {#if __PUBLIC_FEATURES__.proPlatesUnified}
+          <ModelNoticeBoard children={viewport} />
         {:else}
-          <Viewport3D />
+          <ContainmentBanner preserveModel disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues} children={viewport} />
         {/if}
-        </ContainmentBanner>
         {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
         {#if uiStore.appMode === 'pro'}{#if !uiStore.viewerMode}<StoreyScopeBar />{/if}<ProLinkedLayer />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
@@ -2137,8 +2124,10 @@
           <KeyboardShortcuts enabled={editorActive} />
         {/if}
       </main>
-      {#if !deskUi.open && !rebarWorkspace.open}
-        <OutdatedNotice audit={[...modelAuditFeatures(modelStore.model), ...(verificationStore.concrete.length ? ['rc-design' as const] : [])]} />
+      {#if !__PUBLIC_FEATURES__.proPlatesUnified}
+        {#if !deskUi.open && !rebarWorkspace.open}
+          <OutdatedNotice audit={[...modelAuditFeatures(modelStore.model), ...(verificationStore.concrete.length ? ['rc-design' as const] : [])]} />
+        {/if}
       {/if}
     </div>
 
@@ -2370,8 +2359,9 @@
 <RebarWorkspace />
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if uiStore.toasts.length > 0}
+{#snippet toastContainer(progress?: Snippet)}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
+    {@render progress?.()}
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
@@ -2400,6 +2390,11 @@
       </div>
     {/each}
   </div>
+{/snippet}
+{#if __PUBLIC_FEATURES__.proPlatesUnified || __PUBLIC_FEATURES__.proRcSheets}
+  <ProgressToasts hasToasts={uiStore.toasts.length > 0} container={toastContainer} />
+{:else}
+  {#if uiStore.toasts.length > 0}{@render toastContainer()}{/if}
 {/if}
 
 {#if uiStore.liveCalcError}
@@ -2429,7 +2424,11 @@
   The re-check notice for a project last solved with an older version, and the banner that keeps
   its results marked stale until they are re-run (`lib/store/recheck.svelte.ts`).
 -->
-<RecheckNotice />
+{#if __PUBLIC_FEATURES__.proPlatesUnified}
+  <RecheckNotice hostedOnBoard />
+{:else}
+  <RecheckNotice />
+{/if}
 <WorkspaceSaveNotice />
 <ReproduceDialog />
 {#if __PUBLIC_FEATURES__.tools && mohrPanel.open}

@@ -315,7 +315,7 @@ describe('§11.6.1 minimum wall reinforcement', () => {
 
 describe('wall in-plane shear', () => {
   const base = {
-    length: 4, thickness: 0.20, fc: 25, rhoT: 0.0025, fy: 420, edition: '2025' as const,
+    length: 4, thickness: 0.20, fc: 25, pu: 0, rhoT: 0.0025, fy: 420, edition: '2025' as const,
   };
 
   it('passes a lightly loaded wall', () => {

@@ -45,7 +45,7 @@
  * search enumerates a far larger envelope when nothing fits at all.
  */
 
-import { test, expect, designAll, loadModel, openDocumentsStage, designPlace } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, designPlace, setLateralBeams } from './fixtures';
 import type { Page } from '@playwright/test';
 
 type Hooks = {
@@ -62,7 +62,7 @@ const REFUSAL = 'SECTION_INADEQUATE';
 /** The beams declared not part of the lateral-force-resisting system, through the design data. */
 async function beamsNotLateral(page: Page) {
   await designPlace(page, 'designData');
-  await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
+  await setLateralBeams(page, 'gravity');
 }
 
 async function withRefusedMembers(page: Page) {

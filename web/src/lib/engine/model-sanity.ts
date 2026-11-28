@@ -22,7 +22,7 @@
  * Pure apart from the WASM call: the stores are read by the caller.
  */
 import { PlateAnalysisError } from './plate-analysis-refusal';
-import { buildSolverInput3D, shouldEmbedFlat2DModelIn3D, type ModelData } from './solver-service';
+import { reviewedStructure3D, shouldEmbedFlat2DModelIn3D, type ModelData } from './solver-service';
 import { withCaseEffects, singleSolveModel } from './case-effects';
 import { appliedResultant } from './statics-check';
 import { catalogueGradeFamily } from './steel/grade-family';
@@ -104,7 +104,7 @@ export function buildSanityInput(ctx: SanityContext): { input: unknown; shellKey
   const { model } = ctx;
   let si;
   try {
-    si = buildSolverInput3D(model, false, ctx.leftHand);
+    si = reviewedStructure3D(model, ctx.leftHand);
   } catch (error) {
     if (error instanceof PlateAnalysisError) return null;
     throw error;
@@ -143,11 +143,11 @@ export function buildSanityInput(ctx: SanityContext): { input: unknown; shellKey
     displacements: r.displacements.map((d) => ({ nodeId: d.nodeId, v: [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz] })),
     memberAxial: r.elementForces.map((f) => ({ id: f.elementId, nStart: f.nStart, nEnd: f.nEnd })),
   } : { solved: false };
-  const summed = (m: ModelData, id: number | null) => {
+  const summed = (m: ModelData, id: number | null, capturePoints: boolean) => {
     const loadPoints: Array<{ p: number[]; f: number[] }> = [];
     const a = appliedResultant(m, id, {
       includeSelfWeight: ctx.includeSelfWeight, caseTypes, leftHand: ctx.leftHand,
-      onForce: (F, p) => { loadPoints.push({ p: [...p], f: [...F] }); },
+      onForce: capturePoints ? (f, p) => { loadPoints.push({ p, f }); } : undefined,
     });
     return { applied: v6(a.applied), uncovered: a.uncovered, selfWeight: a.selfWeightIncluded, loadPoints };
   };
@@ -155,16 +155,17 @@ export function buildSanityInput(ctx: SanityContext): { input: unknown; shellKey
   const cases: unknown[] = [];
   if (ctx.perCase.size === 0 && ctx.single) {
     // A single solve of every load: one case, of no particular kind.
-    const s = summed(singleSolveModel(base, model.loadCases as never), null);
+    const s = summed(singleSolveModel(base, model.loadCases as never), null, false);
     cases.push({ id: 0, name: '', kind: 'other', ...s, momentsClose: !momentsOpen, ...resultsOf(ctx.single) });
   } else {
     for (const c of model.loadCases) {
       const r = ctx.perCase.get(c.id);
-      const s = summed(effects, c.id);
+      const kind = (c.category && KIND_OF_CATEGORY[c.category]) ?? KIND[c.type] ?? 'other';
+      const s = summed(effects, c.id, !!r && !c.spectral && !r.magnitude && ['dead', 'live', 'roof_live'].includes(kind));
       const notCheckable = c.spectral ? 'spectral' : r?.magnitude ? 'magnitude' : undefined;
       cases.push({
         id: c.id, name: c.name,
-        kind: (c.category && KIND_OF_CATEGORY[c.category]) ?? KIND[c.type] ?? 'other',
+        kind,
         ...s,
         momentsClose: !momentsOpen && !r?.secondOrder,
         ...(notCheckable ? { notCheckable } : {}),

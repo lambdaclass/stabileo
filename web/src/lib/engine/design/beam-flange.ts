@@ -35,16 +35,32 @@ export interface FlangeModel {
 /** A flange, and whether the model placed the slab at the beam's top or that was assumed. */
 export type PlacedFlange = Flange & { datum: 'insertion' | 'assumed' };
 
+export const FLANGE_LEVEL_TOLERANCE = 1e-3;
+type FlangeGeometry = { bw: number; planLength: number; sides: FlangeSide[]; datum: PlacedFlange['datum'] };
+
 export function beamFlanges(m: FlangeModel): Map<number, PlacedFlange> {
   const out = new Map<number, PlacedFlange>();
+  const P = (id: number) => m.nodes.get(id)!;
+  const len = (id: number) => { const e = m.elements.get(id)!; const a = P(e.nodeI), b = P(e.nodeJ); return Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)); };
+  for (const [id, { bw, planLength, sides, datum }] of beamFlangeSides(m)) {
+    const span = m.spanOf?.(id);
+    const ln = span && span.length ? span.reduce((s, x) => s + len(x), 0) : planLength;
+    const f = effectiveFlange(bw, ln, sides);
+    if (f && f.bf > bw + 1e-6) out.set(id, { ...f, datum });
+  }
+  return out;
+}
+
+/** Each horizontal beam's flange sides (slab thickness and clear distance to the next web), before §6.3.2.1's span term. */
+export function beamFlangeSides(m: FlangeModel): Map<number, FlangeGeometry> {
+  const out = new Map<number, FlangeGeometry>();
   const byNode = new Map<number, number[]>();
   for (const q of m.quads.values()) for (const n of q.nodes) (byNode.get(n) ?? byNode.set(n, []).get(n)!).push(q.id);
   const P = (id: number) => m.nodes.get(id)!;
-  const len = (id: number) => { const e = m.elements.get(id)!; const a = P(e.nodeI), b = P(e.nodeJ); return Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)); };
   for (const e of m.elements.values()) {
     const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
     const bw = m.sections.get(e.sectionId)?.b;
-    if (!a || !b || !bw || Math.abs((a.z ?? 0) - (b.z ?? 0)) > 1e-3) continue;
+    if (!a || !b || !bw || Math.abs((a.z ?? 0) - (b.z ?? 0)) > FLANGE_LEVEL_TOLERANCE) continue;
     const L = Math.hypot(b.x - a.x, b.y - a.y);
     if (L < 1e-6) continue;
     const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
@@ -96,10 +112,7 @@ export function beamFlanges(m: FlangeModel): Map<number, PlacedFlange> {
       if (!prev || q.thickness < prev.hf) sides.set(side, { hf: q.thickness, clear });
     }
     if (sides.size === 0) continue;
-    const span = m.spanOf?.(e.id);
-    const ln = span && span.length ? span.reduce((s, id) => s + len(id), 0) : L;
-    const f = effectiveFlange(bw, ln, [...sides.values()]);
-    if (f && f.bf > bw + 1e-6) out.set(e.id, { ...f, datum });
+    out.set(e.id, { bw, planLength: L, sides: [...sides.values()], datum });
   }
   return out;
 }
@@ -163,6 +176,43 @@ export function beamsInSlabPlane(m: FlangeModel): Set<number> {
       out.add(e.id);
       break;
     }
+  }
+  return out;
+}
+
+/** A slab beside a beam: on which side of its run (+1 to its left, from its node I towards J), its thickness and its top against the beam's top (negative below it, 0 flush), m; `placed` where the model's offsets put it rather than it being taken flush. */
+export interface SlabBeside { side: 1 | -1; hf: number; top: number; placed?: true }
+
+/**
+ * The slabs along each horizontal beam, for its drawing: every horizontal shell sharing its two end
+ * nodes, the thinnest on each side, at the level the insertions put it (a slab and a beam both on the
+ * node line are taken cast with the beam's top, as `beamFlangeSides` takes them).
+ */
+export function beamSlabsBeside(m: FlangeModel): Map<number, SlabBeside[]> {
+  const out = new Map<number, SlabBeside[]>();
+  const byNode = new Map<number, number[]>();
+  for (const q of m.quads.values()) for (const n of q.nodes) (byNode.get(n) ?? byNode.set(n, []).get(n)!).push(q.id);
+  for (const e of m.elements.values()) {
+    const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ), h = m.sections.get(e.sectionId)?.h;
+    if (!a || !b || !h || Math.abs((a.z ?? 0) - (b.z ?? 0)) > 1e-3) continue;
+    const L = Math.hypot(b.x - a.x, b.y - a.y);
+    if (L < 1e-6) continue;
+    const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
+    const line = memberReferenceLine(e, a, b, m.sections);
+    const beamTop = Math.max(line.i.z, line.j.z) + h / 2;
+    const sides = new Map<1 | -1, SlabBeside>();
+    for (const qid of (byNode.get(e.nodeI) ?? []).filter((q) => (byNode.get(e.nodeJ) ?? []).includes(q))) {
+      const q = m.quads.get(qid)!, pts = q.nodes.map((id) => m.nodes.get(id)!);
+      if (pts.some((p) => Math.abs((p.z ?? 0) - (a.z ?? 0)) > 1e-3)) continue;
+      const placed = hasShellOffset(q) || hasMemberOffset(e);
+      const so = hasShellOffset(q) ? resolveShellOffsetGlobal(q.offset!, pts.map((p) => ({ x: p.x, y: p.y, z: p.z ?? 0 }))) : { x: 0, y: 0, z: 0 };
+      const top = placed && so ? (a.z ?? 0) + so.z + q.thickness / 2 - beamTop : 0;
+      const cx = pts.reduce((t, p) => t + p.x, 0) / pts.length - a.x, cy = pts.reduce((t, p) => t + p.y, 0) / pts.length - a.y;
+      const side = ux * cy - uy * cx > 0 ? 1 : -1;
+      const prev = sides.get(side);
+      if (!prev || q.thickness < prev.hf) sides.set(side, { side, hf: q.thickness, top: Math.round(top * 1e6) / 1e6, ...(placed ? { placed: true as const } : {}) });
+    }
+    if (sides.size) out.set(e.id, [...sides.values()].sort((x, y) => y.side - x.side));
   }
   return out;
 }

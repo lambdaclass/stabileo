@@ -4,6 +4,7 @@ import os
 import pathlib
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -11,6 +12,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class CiAggregate(unittest.TestCase):
+    def test_parity_fixture_uses_its_own_git_history_and_build_mode(self):
+        env = {**os.environ, 'BASE': 'outer-repository-revision', 'PARITY_COMPARE': 'outer-inventories'}
+        result = subprocess.run(
+            [sys.executable, '-B', __file__,
+             'ParityWorkflow.test_candidate_defaults_to_merge_base_and_honours_explicit_base'],
+            env=env, text=True, capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_vitest_targets_honour_optional_worker_cap(self):
         for target in ['test.web.unit', 'test.web.unit.production', 'test.web.unit.switch-on', 'test.web.timing']:
             for workers in ['', '1', '2']:
@@ -149,7 +159,8 @@ class ParityWorkflow(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.repo = pathlib.Path(directory.name)
         self.env = {key: value for key, value in os.environ.items()
-                    if key not in ('MAKEFLAGS', 'MFLAGS', 'MAKEOVERRIDES', 'MAKELEVEL')}
+                    if key not in ('MAKEFLAGS', 'MFLAGS', 'MAKEOVERRIDES', 'MAKELEVEL',
+                                   'BASE', 'CANDIDATE', 'REQUIRE_PARITY') and not key.startswith('PARITY_')}
         self.output = self.repo / 'github-output'
         self.git('init', '--quiet', '-b', 'target')
         self.git('config', 'user.name', 'Parity workflow fixture')
@@ -158,7 +169,7 @@ class ParityWorkflow(unittest.TestCase):
         (web / 'config').mkdir(parents=True)
         (web / 'config/features.json').write_text('{"production":{},"test":{}}')
         (web / 'package-lock.json').write_text('{}')
-        build = 'mkdir dist && cat page > dist/index.html && git rev-parse HEAD >> dist/index.html'
+        build = 'mkdir dist && cat page > dist/index.html && echo "${GITHUB_SHA:-$(git rev-parse HEAD)}" >> dist/index.html'
         (web / 'package.json').write_text(json.dumps({'scripts': {'build': build}}))
         (web / 'page').write_text('old page\n')
         (self.repo / 'Makefile').write_text(
@@ -380,6 +391,65 @@ class ParityWorkflow(unittest.TestCase):
         for base in [parent, self.target]:
             with self.subTest(base=base):
                 self.parity(merge, f'BASE={base}', 'REQUIRE_PARITY=1')
+
+    def test_integration_merging_target_retires_only_changes_already_on_both_sides(self):
+        self.git('switch', '--quiet', '--detach', self.target)
+        (self.repo / 'web/page').write_text('candidate page\n')
+        target = self.commit('Target lands the same page')
+        self.git('switch', '--quiet', '--detach', self.head)
+        self.git('merge', '--quiet', '--no-ff', target, '-m', 'Integrate the new target')
+        merge = self.git('rev-parse', 'HEAD')
+        result = self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1', succeeds=False)
+        self.assertIn('\n  web/dist/caption\n', result.stderr)
+        self.git('restore', f'--source={target}', '--', 'web/caption')
+        repaired = self.commit('Keep the target caption')
+        self.parity(repaired, f'BASE={target}', 'REQUIRE_PARITY=1')
+
+    def test_hosted_merge_requires_each_declared_path_to_change_on_the_incoming_branch(self):
+        self.git('switch', '--quiet', '--detach', self.target)
+        (self.repo / 'web/page').write_text('candidate page\n')
+        target = self.commit('Land the same page upstream')
+        self.git('switch', '--quiet', '--detach', self.head)
+        self.git('merge', '--quiet', '--no-ff', target, '-m', 'Integrate upstream')
+        integrated = self.commit('Declare the outstanding caption', '--allow-empty', '-m',
+                                 'Production-Change: web/caption')
+        self.git('switch', '--quiet', '--detach', target)
+        self.git('merge', '--quiet', '--no-ff', integrated, '-m', 'Hosted PR merge')
+        merge = self.git('rev-parse', 'HEAD')
+        for side in ['reference', 'candidate']:
+            with self.subTest(side=side, changed=False):
+                result = self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1', f'PARITY_SIDE={side}',
+                                     f'PARITY_RESEARCH_OUT=stale-research-{side}', succeeds=False)
+                self.assertIn('Production-Change trailers must name actual changed paths', result.stderr)
+        self.git('switch', '--quiet', '--detach', integrated)
+        (self.repo / 'web/page').write_text('corrected page\n')
+        repaired = self.commit('Correct the changed page', '-m', 'Production-Change: web/page')
+        self.git('switch', '--quiet', '--detach', target)
+        self.git('merge', '--quiet', '--no-ff', repaired, '-m', 'Merge the repaired PR')
+        merge = self.git('rev-parse', 'HEAD')
+        for side in ['reference', 'candidate']:
+            with self.subTest(side=side, changed=True):
+                self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1', f'PARITY_SIDE={side}',
+                            f'PARITY_RESEARCH_OUT=research-{side}')
+                self.assertEqual((self.repo / f'research-{side}/assets/asset').read_text(), 'corrected page\n')
+        self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1')
+
+        self.git('switch', '--quiet', '--detach', target)
+        self.git('merge', '--quiet', '--no-ff', '--no-commit', integrated)
+        (self.repo / 'web/page').write_text('merge-only change')
+        self.git('add', 'web/page')
+        self.git('commit', '--quiet', '-m', 'Change the absorbed file in the outer merge')
+        result = self.parity(self.git('rev-parse', 'HEAD'), f'BASE={target}', 'REQUIRE_PARITY=1', succeeds=False)
+        self.assertIn('Production-Change trailers must name actual changed paths', result.stderr)
+
+    def test_target_merge_does_not_validate_a_declaration_for_a_target_only_edit(self):
+        self.git('switch', '--quiet', '--detach', self.head)
+        self.commit('Declare a file changed only on target', '--allow-empty', '-m',
+                    'Production-Change: web/package.json')
+        self.git('merge', '--quiet', '--no-ff', self.target, '-m', 'Integrate the target')
+        merge = self.git('rev-parse', 'HEAD')
+        result = self.parity(merge, f'BASE={self.target}', 'REQUIRE_PARITY=1', succeeds=False)
+        self.assertIn('Production-Change trailers must name actual changed paths', result.stderr)
 
     def test_target_only_edit_cannot_validate_a_pr_declaration(self):
         self.git('switch', '--quiet', '--detach', self.head)

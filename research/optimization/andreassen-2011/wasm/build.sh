@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../../.." && pwd)
+source "$root/research/remap-rust-paths.sh"
 here="$root/research/optimization/andreassen-2011/wasm"
 out="${1:-$root/web/public/research-wasm/andreassen-2011}"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-(cd "$here" && wasm-pack build --no-opt --release --target web --no-typescript --out-dir "$tmp/pkg" --locked)
+research_workspace "$here" "$tmp/cargo"
+(cd "$wasm_crate" && wasm-pack build --no-opt --release --target web --no-typescript --out-dir "$tmp/pkg" --locked)
 python3 "$here/trim_exports.py" "$tmp/pkg/topopt_andreassen_2011_wasm_bg.wasm" "$tmp/graph.json"
 features="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue"
 optimise() {

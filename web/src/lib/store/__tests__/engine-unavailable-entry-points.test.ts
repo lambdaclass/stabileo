@@ -127,7 +127,17 @@ describe('each entry point, with the engine down', () => {
     const tab = read('components/pro/ProLoadsTab.svelte');
     expect(tab).toMatch(/runEngineAction\(\(\) => buildCandidates\(template\)\)/);
     expect(tab.match(/candidateCombos = buildCandidates\(/g)).toBeNull();
-    expect(read('components/pro/ProCombinationRules.svelte')).toMatch(/runEngineAction\(\(\) => \[\.\.\.generateCombinations/);
+    // The seed runs the bound basis code's combinations, CIRSOC 101's among them, inside it.
+    const seed = read('components/pro/ProCombinationRules.svelte').split('function seed()')[1]!;
+    expect(seed).toContain(`const specs = runEngineAction(() => {
+      if (__PUBLIC_FEATURES__.proPlatesUnified) {
+        const basis = boundBasis?.();
+        if (basis) return [...basis.strength({ present }).combinations, ...basis.service({ present })];
+      }
+      return [...generateCombinations({ present }), ...generateServiceCombinations({ present })];
+    });
+    if (!specs) return;
+    const ids = freshRuleIds`);
   });
 
   it('opening a PRO example while the engine failed to load: a toast, nothing half-loaded', async () => {

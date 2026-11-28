@@ -1,0 +1,246 @@
+<script lang="ts">
+  /**
+   * The choices the design takes before it starts, in the design data: the analysis assumptions
+   * (moments at the faces, the slab as a flange, torsion), the lateral system and chapter 18 with
+   * the seismic data, the detailing (bent-up bars in beams and slabs, denser column ends, the
+   * closest stirrup spacing), the deflections with their limits, and what a member with no
+   * reinforcement for its section and concrete is offered instead.
+   * Each says the clause it applies under the code the sheets design to, and why it does not apply
+   * where it does not.
+   */
+  import { sheetAssumptionDefaults } from '../../../lib/model/sheet-design-assumptions';
+  import Hint from '../Hint.svelte';
+  import { t, tp, i18n } from '../../../lib/i18n';
+  import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
+  import { modelStore } from '../../../lib/store';
+  import { designData, patchDesignData } from '../../../lib/store/design-data';
+  import { rcSheetsData, seismicAdvice, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { acceptedClassesAfter, DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
+  import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
+  import { MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE, FOUNDING_RANGE } from '../../../lib/model/design-data';
+  import { AGGREGATE_RANGE } from '../../../lib/rc-sheets/types';
+  import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
+  import { concreteClasses, DEFAULT_FC_MAX } from '../../../lib/rc-sheets/concrete-classes';
+  import type { TorsionMode } from '../../../lib/rc-sheets/types';
+  import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
+  import PropertyLinesPicker from './PropertyLinesPicker.svelte';
+  import ProDeflectionLimits from '../ProDeflectionLimits.svelte';
+  import BeamsLateralSelect from './BeamsLateralSelect.svelte';
+  import StabileoCriteria from './StabileoCriteria.svelte';
+  import FlangeBeamsPicker from './FlangeBeamsPicker.svelte';
+  import { PROPERTY_SIDES } from '../../../lib/model/foundation/edges';
+
+  const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
+  const d = $derived.by(() => { void modelStore.designData; return { ...sheetAssumptionDefaults, ...designData() }; });
+  const o = $derived.by(() => { void modelStore.designData; return rcSheetsData(); });
+  const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
+  const rule = (k: DesignOptionKey) => ((r) => ({ ...r, clause: localizeCriterion(r.clause, t) }))(optionRule(k, code));
+  const on = (k: DesignOptionFlag | 'endZones') => (k === 'endZones' ? d.columnEndZones === true : o[k] === true);
+  const set = (k: DesignOptionFlag | 'endZones', v: boolean) => (k === 'endZones' ? setColumnEndZones(v) : setRcOption(k, v));
+  const live = (k: DesignOptionFlag | 'endZones') => on(k) && !rule(k).off;
+  const summary = (keys: Array<DesignOptionFlag | 'endZones'>, extra: string[] = []) => {
+    const named = [...extra, ...keys.filter(live).map((k) => t(`designData.opt.short.${k}`))];
+    return named.length ? named.join(' · ') : t('designData.opt.none');
+  };
+  const defl = $derived(d.designOptions?.deflection ?? {});
+  const deflSummary = $derived([t(`designData.deflectionSupports.${defl.supports ?? DEFAULT_SUPPORTS}`), ...(defl.always ? [t('designData.deflectionAlways')] : [])].join(' · '));
+  const setFraction = (raw: string, key: 'sustained' | 'creep', max: number, input: HTMLInputElement) => {
+    if (raw.trim() === '') { setDeflectionSettings({ [key]: undefined }); return; }
+    const v = Number(raw.replace(',', '.'));
+    if (Number.isFinite(v) && v >= 0 && v <= max) setDeflectionSettings({ [key]: v }); else input.value = defl[key] !== undefined ? String(defl[key]) : '';
+  };
+  const ANALYSIS: DesignOptionFlag[] = ['faces', 'flange'];
+  const DETAILING: Array<DesignOptionFlag | 'endZones'> = ['bentBars', 'slabBentBars', 'endZones'];
+  const advice = $derived(seismicAdvice());
+  const SEISMIC_RULES = ['capacity', 'hoops', 'confinement', 'joints', 'laps', 'walls'] as const;
+  const alt = $derived(d.designOptions?.alternatives ?? {});
+  const classes = $derived(concreteClasses(code));
+  const fcMax = $derived(alt.fcMax ?? DEFAULT_FC_MAX);
+  const accepted = (fc: number) => !alt.fcClasses?.length || alt.fcClasses.some((x) => Math.abs(x - fc) < 0.05);
+  function toggleClass(fc: number, input: HTMLInputElement) {
+    const next = acceptedClassesAfter(classes.map((k) => k.fc), alt.fcClasses, fc, input.checked);
+    if (next.refused) { input.checked = true; return; }
+    setAlternativeOptions({ fcClasses: next.fcClasses });
+  }
+</script>
+
+{#snippet option(k: DesignOptionFlag | 'endZones')}
+  {@const r = rule(k)}
+  <div class="do-opt" class:off={!!r.off}>
+    <label class="do-chk"><input type="checkbox" checked={on(k)} disabled={!!r.off} onchange={(e) => set(k, e.currentTarget.checked)} data-testid="dd-opt-{k}" /> <span>{t(`rcSheets.opt.${k}`)}</span></label>
+    <span class="do-cl" data-testid="dd-opt-{k}-clause">{r.clause}</span>
+    {#if r.off}<span class="do-off" data-testid="dd-opt-{k}-off">{t(r.off)}</span>{/if}
+  </div>
+{/snippet}
+
+<details class="pk-card do" data-testid="design-options-analysis">
+  <summary><span class="do-h">{t('designData.analysis')}</span> <span class="do-sum" data-testid="design-options-analysis-summary">{summary(ANALYSIS)}</span></summary>
+  {@render option('faces')}
+  {@render option('flange')}
+  <p class="do-explain" data-testid="dd-flange-explain">{t('designData.flange.hint')}</p>
+  {#if on('flange')}<FlangeBeamsPicker />{/if}
+  <div class="do-opt">
+    <label class="do-inline">{t('rcSheets.torsion')}
+      <select value={o.torsion} onchange={(e) => setTorsionMode(e.currentTarget.value as TorsionMode)} data-testid="dd-opt-torsion">
+        <option value="equilibrium">{t('rcSheets.torsion.equilibrium')}</option>
+        <option value="compatibility">{t('rcSheets.torsion.compatibility')}</option>
+      </select>
+    </label>
+    <span class="do-cl">{rule('torsion').clause}</span>
+  </div>
+</details>
+
+<details class="pk-card do" data-testid="design-options-seismic">
+  <summary><span class="do-h">{t('designData.seismicSection')}</span> <span class="do-sum" data-testid="design-options-seismic-summary">{summary(['seismic'], advice === 'recommend' ? [t('designData.seismic.recommended')] : [])}</span></summary>
+  <div class="do-opt" data-testid="design-data-lateral">
+    <span class="do-inline do-label">{t('lateral.title')}</span>
+    <label class="do-inline">{t('lateral.beams')}
+      <BeamsLateralSelect value={d.lateralSystem?.beams ?? ''} />
+    </label>
+    <Hint text={t('lateral.projectHint')} />
+  </div>
+  {#if advice}<p class="do-advice" class:warn={advice === 'recommend'} data-testid="dd-seismic-advice" data-advice={advice}>{t(`rcSheets.seismicAdvice.${advice}`)}</p>{/if}
+  {@render option('seismic')}
+  {#if live('seismic')}
+    <div class="do-sub" data-testid="dd-seismic-rules">
+      <span class="do-inline">{t('designData.seismic.rules')}</span>
+      <ul class="do-rules">{#each SEISMIC_RULES as k (k)}<li>{t(`designData.seismic.rule.${k}`)}</li>{/each}</ul>
+    </div>
+    <div class="do-sub" data-testid="rc-seismic-data">
+      <SeismicEditor />
+    </div>
+  {/if}
+</details>
+
+<details class="pk-card do" data-testid="design-options-detailing">
+  <summary><span class="do-h">{t('designData.detailing')}</span> <span class="do-sum" data-testid="design-options-detailing-summary">{summary(DETAILING, [`s ≥ ${fmt(d.minTieSpacingMm / 10, Number.isInteger(d.minTieSpacingMm / 10) ? 0 : 1)} cm`, `dagg ${fmt(d.maxAggregateMm, 0)} mm`])}</span></summary>
+  {@render option('bentBars')}
+  {@render option('slabBentBars')}
+  {@render option('endZones')}
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.minTieSpacing')}
+      <input type="number" min={MIN_TIE_SPACING_RANGE.min} max={MIN_TIE_SPACING_RANGE.max} step="5" value={d.minTieSpacingMm} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= MIN_TIE_SPACING_RANGE.min && v <= MIN_TIE_SPACING_RANGE.max) patchDesignData({ minTieSpacingMm: v }); else e.currentTarget.value = String(d.minTieSpacingMm); }} data-testid="design-data-min-tie-spacing" /> mm
+    </label>
+    <span class="do-cl">{rule('minTieSpacing').clause}</span>
+    <Hint text={t('designData.minTieSpacingHint')} />
+  </div>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.maxAggregate')}
+      <input type="number" min={AGGREGATE_RANGE.min} max={AGGREGATE_RANGE.max} step="1" value={d.maxAggregateMm} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= AGGREGATE_RANGE.min && v <= AGGREGATE_RANGE.max) patchDesignData({ maxAggregateMm: v }); else e.currentTarget.value = String(d.maxAggregateMm); }} data-testid="design-data-max-aggregate" /> mm
+    </label>
+    <span class="do-cl">{rule('aggregate').clause}</span>
+    {#if rule('aggregate').off}<span class="do-off" data-testid="design-data-max-aggregate-off">{t(rule('aggregate').off!)}</span>{/if}
+    <Hint text={t('designData.maxAggregateHint')} />
+  </div>
+</details>
+
+<details class="pk-card do" data-testid="design-options-deflection">
+  <summary><span class="do-h">{t('designData.deflection')}</span> <span class="do-sum" data-testid="design-options-deflection-summary">{deflSummary}</span></summary>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.deflectionSupports')}
+      <select value={defl.supports ?? DEFAULT_SUPPORTS} onchange={(e) => setDeflectionSettings({ supports: e.currentTarget.value as DeflectionSupport })} data-testid="dd-defl-supports">
+        {#each DEFLECTION_SUPPORTS as s (s)}<option value={s}>{t(`designData.deflectionSupports.${s}`)}</option>{/each}
+      </select>
+    </label>
+    <span class="do-cl">{rule('deflection').clause}</span>
+  </div>
+  <div class="do-opt" class:off={!!rule('months').off}>
+    <label class="do-inline">{t('designData.deflectionMonths')}
+      <select value={String(defl.months ?? DEFAULT_MONTHS)} disabled={!!rule('months').off} onchange={(e) => setDeflectionSettings({ months: Number(e.currentTarget.value) as LoadMonths })} data-testid="dd-defl-months">
+        {#each LOAD_MONTHS as m (m)}<option value={String(m)}>{m} {t('designData.deflectionMonthsUnit')}</option>{/each}
+      </select>
+    </label>
+    <span class="do-cl">{rule('months').clause}</span>
+    {#if rule('months').off}<span class="do-off">{t(rule('months').off!)}</span>{/if}
+  </div>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.deflectionSustained')}
+      <input type="text" inputmode="decimal" placeholder="—" value={defl.sustained !== undefined ? fmt(defl.sustained, 2) : ''} onchange={(e) => setFraction(e.currentTarget.value, 'sustained', 1, e.currentTarget)} data-testid="dd-defl-sustained" />
+    </label>
+    <Hint text={t('designData.deflectionSustainedHint')} />
+  </div>
+  <div class="do-opt" class:off={!!rule('creep').off}>
+    <label class="do-inline">{t('designData.deflectionCreep')}
+      <input type="text" inputmode="decimal" placeholder={fmt(DEFAULT_CREEP, 1)} disabled={!!rule('creep').off} value={defl.creep !== undefined ? fmt(defl.creep, 2) : ''} onchange={(e) => setFraction(e.currentTarget.value, 'creep', 6, e.currentTarget)} data-testid="dd-defl-creep" />
+    </label>
+    <span class="do-cl">{rule('creep').clause}</span>
+    {#if rule('creep').off}<span class="do-off">{t(rule('creep').off!)}</span>{/if}
+  </div>
+  <div class="do-opt">
+    <label class="do-chk"><input type="checkbox" checked={defl.always === true} onchange={(e) => setDeflectionSettings({ always: e.currentTarget.checked ? true : undefined })} data-testid="dd-defl-always" /> <span>{t('designData.deflectionAlways')}</span></label>
+  </div>
+  <div class="do-sub" data-testid="design-data-deflection-limits">
+    <ProDeflectionLimits />
+  </div>
+</details>
+
+<details class="pk-card do" data-testid="design-options-foundations">
+  <summary><span class="do-h">{t('designData.foundations')}</span> <span class="do-sum" data-testid="design-options-foundations-summary">{tp('designData.presumedBearingSummary', { v: fmt(d.presumedBearingKPa, 0) })}{#if __PUBLIC_FEATURES__.proRcSheets && d.propertyLines} · {t('fdn.propertyLines')} {PROPERTY_SIDES.filter((k) => d.propertyLines?.[k]).map((k) => ({ minX: '−X', maxX: '+X', minY: '−Y', maxY: '+Y' })[k]).join(' ')}{/if}</span></summary>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.presumedBearing')}
+      <input type="number" min={PRESUMED_BEARING_RANGE.min} max={PRESUMED_BEARING_RANGE.max} step="10" value={d.presumedBearingKPa} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= PRESUMED_BEARING_RANGE.min && v <= PRESUMED_BEARING_RANGE.max) patchDesignData({ presumedBearingKPa: v }); else e.currentTarget.value = String(d.presumedBearingKPa); }} data-testid="design-data-presumed-bearing" /> {'kPa'}
+    </label>
+    <Hint text={t('designData.presumedBearingHint')} />
+  </div>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.foundingElevation')}
+      <input type="number" min={FOUNDING_RANGE.min} max={FOUNDING_RANGE.max} step="0.05" value={d.foundingElevation ?? ''} placeholder={t('designData.foundingAuto')} onchange={(e) => { const raw = e.currentTarget.value.trim(); const v = Number(raw); if (raw === '') patchDesignData({ foundingElevation: undefined }); else if (Number.isFinite(v) && v >= FOUNDING_RANGE.min && v <= FOUNDING_RANGE.max) patchDesignData({ foundingElevation: v }); else e.currentTarget.value = d.foundingElevation === undefined ? '' : String(d.foundingElevation); }} data-testid="design-data-founding" /> {'m'}
+    </label>
+    <Hint text={t('designData.foundingElevationHint')} />
+  </div>
+  <div class="do-opt">
+    {#if __PUBLIC_FEATURES__.proRcSheets}
+    <span class="do-inline">{t('fdn.propertyLines')} <PropertyLinesPicker testid="design-data-property-line" /></span>
+    <Hint text={t('designData.propertyLinesHint')} />
+    {/if}
+  </div>
+</details>
+
+<details class="pk-card do" data-testid="design-options-alternatives">
+  <summary><span class="do-h">{t('designData.alternatives')}</span> <span class="do-sum" data-testid="design-options-alternatives-summary">{alt.raiseFc === false ? t('designData.alt.sectionOnly') : `f'c ≤ ${fmt(fcMax, 0)} MPa`}</span></summary>
+  <div class="do-opt">
+    <label class="do-chk"><input type="checkbox" checked={alt.raiseFc !== false} onchange={(e) => setAlternativeOptions({ raiseFc: e.currentTarget.checked ? null : false })} data-testid="dd-alt-raise-fc" /> <span>{t('designData.alt.raiseFc')}</span></label>
+    <span class="do-cl">{rule('alternatives').clause}</span>
+  </div>
+  {#if alt.raiseFc !== false}
+    <div class="do-opt">
+      <label class="do-inline">{t('designData.alt.fcMax')}
+        <select value={String(fcMax)} onchange={(e) => setAlternativeOptions({ fcMax: Number(e.currentTarget.value) === DEFAULT_FC_MAX ? null : Number(e.currentTarget.value) })} data-testid="dd-alt-fc-max">
+          {#each [...new Set([...classes.map((k) => k.fc), fcMax])].sort((p, q) => p - q) as fc (fc)}<option value={String(fc)}>{fmt(fc, Number.isInteger(fc) ? 0 : 1)} MPa</option>{/each}
+        </select>
+      </label>
+    </div>
+    <div class="do-opt">
+      <span class="do-inline">{t('designData.alt.classes')}</span>
+      <div class="do-classes">
+        {#each classes as k (k.fc)}
+          <label class="do-cls"><input type="checkbox" checked={accepted(k.fc)} onchange={(e) => toggleClass(k.fc, e.currentTarget)} data-testid="dd-alt-class" data-fc={k.fc} /> {k.name}</label>
+        {/each}
+      </div>
+    </div>
+  {/if}
+  <Hint text={t('designData.alt.hint')} />
+</details>
+
+<StabileoCriteria />
+
+<style>
+  .do > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+  .do-h { font-size: 0.78rem; font-weight: 500; }
+  .do-sum { font-size: 0.68rem; color: var(--st-text-2); }
+  .do-opt { display: flex; flex-direction: column; gap: 1px; margin: 6px 0 2px; }
+  .do-chk { display: flex; align-items: flex-start; gap: 6px; font-size: 0.72rem; color: var(--st-text-2); line-height: 1.35; }
+  .do-inline { display: flex; align-items: center; gap: 4px; font-size: 0.72rem; color: var(--st-text-2); }
+  .do-inline input { width: 4.5rem; font-size: 0.72rem; }
+  .do-cl { font-size: 0.64rem; font-family: var(--st-mono); color: var(--st-text-2); padding-left: 20px; }
+  .do-off { font-size: 0.66rem; color: var(--st-warn); padding-left: 20px; }
+  .do-opt.off .do-chk { opacity: 0.6; }
+  .do-sub { margin-top: 6px; }
+  .do-classes { display: flex; flex-wrap: wrap; gap: 2px 10px; padding-left: 20px; }
+  .do-cls { display: inline-flex; align-items: center; gap: 3px; font-size: 0.68rem; color: var(--st-text-2); }
+  .do-advice { margin: 6px 0 2px; font-size: 0.7rem; line-height: 1.4; color: var(--st-text-2); }
+  .do-advice.warn { color: var(--st-warn); }
+  .do-label { font-weight: 600; color: var(--st-text); }
+  .do-rules { margin: 2px 0 0; padding-left: 2.2em; font-size: 0.68rem; line-height: 1.45; color: var(--st-text-2); }
+  .do-explain { margin: -2px 0 4px 22px; font-size: 0.68rem; color: var(--st-text-3); line-height: 1.35; }
+</style>

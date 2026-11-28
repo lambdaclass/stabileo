@@ -5,6 +5,7 @@
  * generator, keeping their ids, and leaves every one a person declared, in one undo step.
  * Declaring a kind or a typology makes the element declared, so a later recognition leaves it alone.
  */
+import { unifiedPlates } from '../features';
 import { setPlateProperties } from './physical-plates';
 import { modelStore } from './model.svelte';
 import { applyRecognition, planRecognition } from './physical-recognition';
@@ -79,10 +80,14 @@ export function physicalSection(g: { members: { elements?: number[] } }): number
 }
 
 /** The thickness all of an element's shells share, or null. */
-export function physicalThickness(g: { members: { quads?: number[]; plates?: number[] } }): number | null {
+export function physicalThickness(g: { id?: number; members: { quads?: number[]; plates?: number[] }; data?: unknown }): number | null {
+  const live = g.id !== undefined ? modelStore.model.groups.get(g.id) ?? g : g;
   const ts = new Set([
-    ...(g.members.quads ?? []).map((id) => modelStore.quads.get(id)?.thickness),
-    ...(g.members.plates ?? []).map((id) => modelStore.plates.get(id)?.thickness),
+    ...(live.members.quads ?? []).map((id) => modelStore.quads.get(id)?.thickness),
+    ...(live.members.plates ?? []).map((id) => modelStore.plates.get(id)?.thickness),
   ]);
+  if (unifiedPlates() && ts.size === 0) {
+    return (live.data as { surface?: { thickness?: number } } | undefined)?.surface?.thickness ?? null;
+  }
   return ts.size === 1 ? [...ts][0] ?? null : null;
 }

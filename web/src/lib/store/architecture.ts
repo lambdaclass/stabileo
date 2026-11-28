@@ -1,3 +1,4 @@
+import { independentLoadMark } from '../model/loads/generation-owner';
 /**
  * The architecture of the project as the structure reads it.
  *
@@ -115,7 +116,7 @@ function replaceTagged(tag: string, add: () => void): void {
 export function applyWallLoads(): number {
   const a = architecture(), dead = firstCase(['D', '']) ?? 1;
   let n = 0;
-  replaceTagged('arch:walls', () => {
+  replaceTagged(independentLoadMark('arch', 'walls'), () => {
     const quads = [...modelStore.quads.values()] as Quad[];
     for (const w of a.walls) {
       const c = a.constructions.find((x) => x.id === w.constructionId);
@@ -163,7 +164,7 @@ export function applyRoomLoads(): number {
   const live = firstCase(['L']);
   if (live === undefined) return 0;
   let n = 0;
-  replaceTagged('arch:rooms', () => {
+  replaceTagged(independentLoadMark('arch', 'rooms'), () => {
     for (const r of architecture().rooms) {
       const q = r.use ? ROOM_CATEGORY_LOADS[r.use] : undefined;
       if (!q) continue;

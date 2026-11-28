@@ -1,7 +1,8 @@
 import { afterEach, beforeAll, beforeEach, expect, it } from 'vitest';
 import { PLATE_EDGE_TOL } from '../../model/physical/plate-analysis';
 import { modelStore, resultsStore, uiStore } from '../../store';
-import { addPlateLoad, createPlate, meshBeforeAnalysis, plateStatus, preparePlatesForAnalysis } from '../../store/physical-plates';
+import { deserializeProject, serializeProject } from '../../store/file';
+import { applyPlateMeshes, planPlateMesh, setPlateShellSpec, addPlateLoad, createPlate, meshBeforeAnalysis, plateStatus, preparePlatesForAnalysis } from '../../store/physical-plates';
 import { runDirectAnalysis } from '../direct-analysis';
 import { runGlobalSolve } from '../live-calc';
 import type { AnalysisResults3D } from '../types-3d';
@@ -780,4 +781,33 @@ it('#2580 refuses a wall edge that shares slab corners across an unmeshed diagon
   }
   expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: refusal });
   expect(resultsStore.results3D).toBeNull();
+});
+
+function springFloor() {
+  const outline = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+  const plate = createPlate({ outline, materialId: 1, thickness: 0.2 });
+  if ('problem' in plate) throw Error(plate.problem);
+  const soil = { ks: 20000, holdHorizontal: true, uplift: false };
+  setPlateShellSpec([plate.id], { springs: soil });
+  expect(applyPlateMeshes([planPlateMesh(plate.id, { size: 2, element: 'quad' })!]).plates).toBe(1);
+  for (const shell of modelStore.quads.keys()) modelStore.addSurfaceLoad3D(shell, 1, 1);
+  return soil;
+}
+
+for (const [entry, solve] of directEntries) {
+  it(`known wrong result: #1928 the ${entry} entry rejects a reopened foundation with stale spring stiffness`, async () => {
+    springFloor();
+    const first = [...modelStore.supports.values()][0]!;
+    modelStore.updateSupport(first.id, { kz: first.kz! * 2 });
+    expect(deserializeProject(serializeProject())).toBe(true);
+    expect(await solve()).toEqual(entry === 'reproducible input' ? null : expect.stringContaining('subgrade stiffness'));
+  });
+}
+
+it('known wrong result: #1928 a uniformly loaded spring floor keeps its analytical settlement and reaction', () => {
+  const soil = springFloor();
+  const result = modelStore.solve3D(false, false, true);
+  if (!result || typeof result === 'string') throw Error(String(result));
+  for (const point of result.displacements) expect(point.uz).toBeCloseTo(-1 / soil.ks, 10);
+  expect(result.reactions.reduce((sum, row) => sum + row.fz, 0)).toBeCloseTo(2 * 2, 8);
 });

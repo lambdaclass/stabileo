@@ -1,4 +1,5 @@
 // Color constants and helpers for 3D viewport selection/hover/highlight
+import { unifiedPlates } from '../features';
 import * as THREE from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { colourRampHex } from './colour-ramp';
@@ -249,7 +250,7 @@ function labelTexture(text: string, color: string, fontSize: number, strip = fal
     const gone = textTextureCache.get(oldest);
     if (gone) {
       // Its materials go with it: kept, they held the disposed texture and were never freed.
-      for (const sizing of ['s', 'w']) {
+      for (const sizing of ['s|', 'w|', 's|d', 'w|d']) {
         const k = `${gone.uuid}|${sizing}`;
         labelMaterials.get(k)?.dispose();
         labelMaterials.delete(k);
@@ -281,16 +282,18 @@ export function createTextSpriteCached(
    * what a label is for, and what every CAD does with one.
    */
   screenSized = false,
+  /** Hidden where the model stands in front of it, as the thing it labels is. */
+  occluded = false,
 ): THREE.Sprite {
   const texture = labelTexture(text, color, fontSize, screenSized);
   // One material per label texture, shared and kept: a view that rebuilds its labels on every
   // edit (the load arrows) would otherwise free the last label material, which makes WebGL drop
   // the label program and compile it again on the next frame.
-  const key = `${texture.uuid}|${screenSized ? 's' : 'w'}`;
+  const key = `${texture.uuid}|${screenSized ? 's' : 'w'}|${occluded ? 'd' : ''}`;
   let mat = labelMaterials.get(key);
   if (!mat) {
     mat = withLabelScale(new THREE.SpriteMaterial({
-      map: texture, depthTest: false, transparent: true, sizeAttenuation: !screenSized,
+      map: texture, depthTest: occluded, depthWrite: !unifiedPlates(), transparent: true, sizeAttenuation: !screenSized,
     }), screenSized ? [((texture.userData.aspect as number) || 1) * STRIP_OF_SIZE, STRIP_OF_SIZE] : ((texture.userData.shape as [number, number] | undefined) ?? [1, 1]));
     mat.userData.shared = true;
     labelMaterials.set(key, mat);

@@ -75,8 +75,7 @@ describe('a seismic portal by hand', () => {
   });
 });
 
-const issue2216 = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
-issue2216('known wrong result: #2216 missing primary reinforcement cannot pass a seismic member check', () => {
+it('known wrong result: #2216 missing primary reinforcement cannot pass a seismic member check', () => {
   const primaryColumn = column(1, 1, 2);
   const missingReinforcement = [
     { ...beam, r: undefined },
@@ -117,4 +116,30 @@ it('#2217 every regional layer or group participates in the smallest-bar limit',
     expect(beamSteel({ top: mirror, bottom: mirror, regions: withSmall }).minDia).toBe(10);
   }
   expect(beamSteel({ regions: { ...layers, topEndGroups: [{ layers: [large, small] }] } }).minDia).toBe(10);
+});
+
+it.each(['below', 'boundary', 'above', 'strong', 'unrecorded'] as const)('known wrong result: #1928 seismic column confinement retains only assessed results for %s', state => {
+  const primary = column(1, 1, 2);
+  const bound = 0.3 * primary.b * primary.h * primary.fc * 1000;
+  if (state === 'strong') primary.fc = 71;
+  primary.axial = state === 'unrecorded' ? undefined : { min: 0, max: bound + (state === 'above' ? 1 : state === 'below' ? -1 : 0) };
+  const report = seismicFrameChecks({ nodes, members: [primary, column(2, 3, 4), beam], settings: defaultSeismicDesign() });
+  const checked = report.members.find(member => member.id === primary.id)!;
+  if (state === 'below' || state === 'boundary') {
+    expect(checked.confinement?.ashOk).toBe(true);
+    expect(checked.issues).not.toContain('seisDes.issue.confinementUnassessed');
+  } else {
+    expect(checked.confinement).toBeUndefined();
+    expect(checked.ok).toBe(false);
+    expect(checked.issues).toContain('seisDes.issue.confinementUnassessed');
+  }
+});
+
+
+it.each(['primary', 'secondary'] as const)('known wrong result: #2216 a %s column without a section records its assessment status', role => {
+  const member = { ...column(1, 1, 2), role, section: undefined };
+  const checked = seismicFrameChecks({ nodes, members: [member], settings: defaultSeismicDesign() }).members[0]!;
+  expect(checked.ok).toBe(role === 'secondary');
+  expect(checked.issues).toEqual(role === 'secondary' ? [] : ['seisDes.issue.reinforcementUnassessed']);
+  expect(checked.confinement).toBeUndefined();
 });

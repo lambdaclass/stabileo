@@ -10,7 +10,8 @@ export function toneObject(root: THREE.Object3D | null | undefined, state: Categ
   if (state === 'hidden') return;
   const half = state === 'halftone';
   root.traverse((o) => {
-    if (o.userData?.pickingHelper) return;
+    // A shell batch copies its sources' toned look; toning it as well tones them twice.
+    if (o.userData?.pickingHelper || o.userData?.shellBatch) return;
     const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
     if (!m) return;
     for (const mat of Array.isArray(m) ? m : [m]) tone(mat, half);

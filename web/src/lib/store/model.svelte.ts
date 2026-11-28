@@ -1,13 +1,17 @@
+import { authoredWallStrip, remapFootingNodes, snapshotWallStrip, type StoredFooting } from '../model/foundation/footing-nodes';
+import { resolveWallStrips } from '../model/foundation/wall-strip';
+import { batchedList } from './batched-list.svelte';
 import { is3DWorkspace, isAnalysisMode } from '../utils/workspace';
 import { ModelInputError, migrateModelConstraints, modelInputRefusal, requireCombinationInput, requireLoadInput, requireModelInput, requireStoredProjectInput, requireStructureInput, supportWithStoredId } from '../engine/model-input-numbers';
 import { canonicalizeLoadAliases, canonicalizeModelAliases, NO_RELEASE } from '../model/canonical-aliases';
 import { accountingProjection, scenarioSurfaceAdjustment } from '../engine/accounting-source';
+import { defaultDesignData } from '../model/design-data';
+import { migrateStoredDesignData } from '../model/stored-design-data';
 import { globalAxes } from '../features';
 import type { SupportType } from '../model/support-types';
 import { caseNameShown, combinationNameShown } from '../axes/case-names';
 import { te } from '../i18n/engine-text';
 import type { NonlinearSolveOptions } from '../engine/solver-pool';
-import { migrateDesignData } from '../model/design-data';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
 import {
@@ -50,6 +54,7 @@ import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, Co
 const DEFINED_LOAD_KINDS = new Set<string>(['floorLoad', 'curveLoad']);
 
 export type { ConnectorElement };
+import { restoreFootprintLinks, savedFootprintLinks } from '../model/building/footprint-link-owners';
 import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
@@ -89,6 +94,7 @@ import { reverseElementInModel } from './reverse-element';
 import { resetSwitchBackup } from './switch-2d';
 
 export interface Node {
+  plateShapeOwner?: number;
   id: number;
   x: number;
   y: number;
@@ -516,6 +522,7 @@ export type ReleaseAxis = 'my' | 'mz' | 't';
 export type { SupportType } from '../model/support-types';
 
 export interface Support {
+  plateSpring?: true;
   id: number;
   nodeId: number;
   type: SupportType;
@@ -760,6 +767,9 @@ export const LOAD_TARGET: Record<Load['type'], 'node' | 'member' | 'shell'> = {
 /** The node a load stands on; undefined for one on a member or a shell. */
 export const loadNodeId = (l: Load): number | undefined =>
   LOAD_TARGET[l.type] === 'node' ? (l.data as { nodeId: number }).nodeId : undefined;
+/** Whether a load stands on one of these shells by itself, not on whatever it was put `on`. */
+const onShell = (l: Load, shells: { has(id: number): boolean }): boolean =>
+  LOAD_TARGET[l.type] === 'shell' && shells.has((l.data as { quadId: number }).quadId) && !(l.data as { on?: unknown }).on;
 /** The member a load stands on; undefined for one on a node or a shell. */
 export const loadMemberId = (l: Load): number | undefined =>
   LOAD_TARGET[l.type] === 'member' ? (l.data as { elementId: number }).elementId : undefined;
@@ -816,7 +826,7 @@ export interface LoadCase {
    * bound loads code gives for the tributary area, member and storeys stated, and the occupancy
    * of Table 4.1 its Lo and exclusions come from (`engine/loads/case-reduction.ts`).
    */
-  reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number; occupancyKey?: string };
+  reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number; occupancyKey?: string; occupancyReviewed?: true };
   /** A response spectrum as this case's result (`engine/spectral-case.ts`): no loads of its own. */
   spectral?: import('../engine/spectral-case').SpectralCaseDef;
   /** Named by Stabileo with model axis letters ("Viento +X"): shown in the user's (`axes/case-names.ts`) until renamed. */
@@ -977,7 +987,7 @@ export interface StructureModel {
   /** Background drawings laid at levels (`model/underlay.ts`). Absent: none. */
   underlays?: import('../model/underlay').Underlay[];
   /** The project's design data (`model/design-data.ts`). Absent: the defaults. */
-  designData?: import('../model/design-data').ProjectDesignData;
+  designData?: import('../model/design-data').StoredDesignData;
   /** Locks, last proposals and saved copies of the bars (`design-contract/decisions.ts`). */
   designDecisions?: import('../design-contract/decisions').StoredDecisions;
   constraints: Constraint3D[];
@@ -1202,6 +1212,9 @@ function createModelStore() {
   }
 
   let detailing = $state.raw<DetailingStore | undefined>(emptyPublishedDetailing);
+  const loadList = batchedList<Load>();
+  const constraintList = batchedList<Constraint3D>();
+  let authoredFootings = $state.raw(new Map<number, Footing>());
   let model = $state<StructureModel>({
     name: t('tabBar.newStructure'),
     nodes: new Map(),
@@ -1209,7 +1222,8 @@ function createModelStore() {
     sections: new Map(),
     elements: new Map(),
     supports: new Map(),
-    loads: [],
+    get loads() { return loadList.value; },
+    set loads(value) { loadList.value = value; },
     loadCases: defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type])),
     combinations: defaultCombinations(),
     plates: new Map(),
@@ -1217,9 +1231,10 @@ function createModelStore() {
     // A new project has no groups. Absent and empty mean the same here, unlike
     // `geotechnical`, because a group is something a user states and never a default.
     groups: new Map(),
-    constraints: [],
+    get constraints() { return constraintList.value; },
+    set constraints(value) { constraintList.value = value; },
     connectors: new Map(),
-    footings: new Map(),
+    get footings(): Map<number, Footing> { return resolvedFootings; },
     // A new project has no strata, not one invented stratum. See migrateGeotechnical.
     geotechnical: emptyGeotechnical(),
     // Unlike the strata, the mat convention DOES get a starting value, and it is a preference
@@ -1232,6 +1247,8 @@ function createModelStore() {
     get detailing() { return detailing; },
     set detailing(value) { detailing = ownDetailing(value); },
   });
+
+  const resolvedFootings: Map<number, Footing> = $derived.by(() => resolveWallStrips(model, authoredFootings));
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
   let modelVersion = $state(0);
@@ -1474,8 +1491,6 @@ function createModelStore() {
   // bulkMutate() reassigns everything once at the end.
   let _bulkMutating = false;
   let _replayingFixture = false;
-  let _bulkLoadBuffer: Load[] | null = null;
-  let _bulkConstraintBuffer: Constraint3D[] | null = null;
 
   /**
    * Replace or remove one entity id in every group that holds it.
@@ -1612,13 +1627,13 @@ function createModelStore() {
       }
       model.supports = new Map(model.supports);
       let footingsTouched = false;
-      const fm = new Map(model.footings);
+      const fm = new Map(authoredFootings);
       for (const [fid, f] of fm) {
         if (f.columnElementId !== elementId) continue;
         fm.set(fid, { ...f, columnElementId: segmentAt(f.nodeId), revision: f.revision + 1 });
         footingsTouched = true;
       }
-      if (footingsTouched) model.footings = fm;
+      if (footingsTouched) authoredFootings = fm;
 
       model.nodes = new Map(model.nodes);
       model.elements = new Map(model.elements);
@@ -1734,6 +1749,23 @@ function createModelStore() {
       : (cases.find((c) => c.type === 'D') ?? cases[0])?.id;
     if (target === undefined) return undefined;
     return includeSelfWeight ? [{ caseId: target, ...GRAVITY_SELF_WEIGHT }] : [];
+  }
+
+  function insertLoadEntries(loads: readonly Load[]): number[] {
+    if (!loads.length) return [];
+    const firstId = nextId.load;
+    const entries = loads.map((load, index) => {
+      const canonical = canonicalizeLoadAliases({ type: load.type, data: { ...load.data, id: firstId + index } } as Load);
+      return { type: canonical.type, data: JSON.parse(JSON.stringify(canonical.data)) } as Load;
+    });
+    if (!_undoBatching) _pushUndo?.();
+    loadList.append(entries);
+    nextId.load += entries.length;
+    return entries.map(entry => entry.data.id);
+  }
+
+  function retainLoads(keep: (load: Load) => boolean): void {
+    model.loads = model.loads.filter(keep);
   }
 
   function replaceInGroups(family: keyof GroupMembers, entityId: number, replacements: number[] = []): void {
@@ -1956,8 +1988,8 @@ function createModelStore() {
      */
     restoreFoundationOnly(s: ModelSnapshot): void {
       requireStoredProjectInput({ footings: s.footings });
-      const nextFootings = new Map((s.footings ?? []).map(([id, f]) => [id, { ...f }]));
-      const beforeFootings = JSON.stringify([...model.footings.entries()]);
+      const nextFootings = new Map((s.footings ?? []).map(([id, f]) => [id, { ...authoredWallStrip(f) }]));
+      const beforeFootings = JSON.stringify([...authoredFootings.entries()]);
       const afterFootings = JSON.stringify([...nextFootings.entries()]);
       const beforeGround = JSON.stringify(model.geotechnical ?? null);
       const afterGround = JSON.stringify(s.geotechnical ?? null);
@@ -1971,7 +2003,7 @@ function createModelStore() {
       if (beforeFootings === afterFootings && beforeGround === afterGround
         && beforePrefs === afterPrefs) return;
 
-      model.footings = nextFootings;
+      authoredFootings = nextFootings;
       model.geotechnical = s.geotechnical
         ? (JSON.parse(JSON.stringify(s.geotechnical)) as typeof model.geotechnical)
         : undefined;
@@ -2166,15 +2198,11 @@ function createModelStore() {
       const ownUndoBatch = !_undoBatching;
       if (ownUndoBatch) _undoBatching = true;
       _bulkMutating = true;
-      _bulkLoadBuffer = [...model.loads];
-      _bulkConstraintBuffer = [...model.constraints];
+      loadList.begin();
+      constraintList.begin();
       try {
         fn();
       } finally {
-        const commitLoads = _bulkLoadBuffer!;
-        const commitConstraints = _bulkConstraintBuffer!;
-        _bulkLoadBuffer = null;
-        _bulkConstraintBuffer = null;
         _bulkMutating = false;
         if (ownUndoBatch) _undoBatching = false;
         // Single reactive commit — one bump, one scene sync pass
@@ -2185,8 +2213,8 @@ function createModelStore() {
         model.sections = new Map(model.sections);
         model.plates = new Map(model.plates);
         model.quads = new Map(model.quads);
-        model.loads = commitLoads;
-        model.constraints = commitConstraints;
+        loadList.publish();
+        constraintList.publish();
         modelVersion++;
         _onMutation?.();
       }
@@ -2227,8 +2255,9 @@ function createModelStore() {
     snapshot(): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
-      const snap = $state.snapshot({ ...model, detailing: undefined }) as unknown as ReturnType<typeof $state.snapshot<typeof model>>;
-      const snapId = $state.snapshot(nextId);
+      const snap = $state.snapshot({ ...model, footings: authoredFootings, detailing: undefined }) as unknown as ReturnType<typeof $state.snapshot<typeof model>>;
+      const snapId = { ...nextId };
+      const currentFootings = model.footings;
       const result: ModelSnapshot = {
         name: snap.name,
         ...(!uiStore.is3DWorkspace ? { drawPlane2D: uiStore.analysisPlane2D } : {}),
@@ -2307,6 +2336,7 @@ function createModelStore() {
           ? { analysis: JSON.parse(JSON.stringify(snap.analysis)) as ModelSnapshot['analysis'] }
           : {}),
         constraints: snap.constraints as ModelSnapshot['constraints'],
+        ...savedFootprintLinks(this.constraints),
         connectors: Array.from(snap.connectors.entries()) as ModelSnapshot['connectors'],
         nextId: snapId as ModelSnapshot['nextId'],
         // Stamp the corrected local-axis convention on every snapshot/save so
@@ -2348,11 +2378,10 @@ function createModelStore() {
         // nested object: a shallow `{ ...v }` would share it between the snapshot and the
         // live model, so editing a pedestal would silently rewrite the undo entry.
         footings: Array.from(snap.footings.entries()).map(
-          ([k, v]): [number, Footing] => [
+          ([k, v]): [number, StoredFooting] => [
             k,
             {
-              ...v, ...(v.pedestal ? { pedestal: { ...v.pedestal } } : {}),
-              ...(v.supportedNodeIds ? { supportedNodeIds: [...v.supportedNodeIds] } : {}),
+              ...snapshotWallStrip(v, currentFootings.get(k)!), ...(v.pedestal ? { pedestal: { ...v.pedestal } } : {}),
               ...(v.anchor ? { anchor: [...v.anchor] as [number, number] } : {}),
               ...(v.piles ? { piles: { ...v.piles } } : {}),
             },
@@ -2415,7 +2444,7 @@ function createModelStore() {
       const copy = plainDeepCopy(modelFields);
       const mode = isAnalysisMode(copy.analysisMode) ? copy.analysisMode : uiStore.analysisMode;
       const plane = requireStoredProjectInput({ ...copy, analysisMode: mode });
-      const constraints = migrateModelConstraints(copy.constraints);
+      const constraints = restoreFootprintLinks(migrateModelConstraints(copy.constraints), copy.footprintLinks);
       if (copy.combinations !== undefined) requireCombinationInput(copy.combinations);
       const s = canonicalizeModelAliases(copy);
       requireStructureInput(s, { allowStoredNullDensity: true, storedSupportKeys: true });
@@ -2503,7 +2532,7 @@ function createModelStore() {
     model.projectInfo = s.projectInfo ? JSON.parse(JSON.stringify(s.projectInfo)) : undefined;
     model.notes = s.notes ? JSON.parse(JSON.stringify(s.notes)) : undefined;
     model.underlays = s.underlays ? JSON.parse(JSON.stringify(s.underlays)) : undefined;
-    model.designData = s.designData ? migrateDesignData(s.designData) : undefined;
+    model.designData = migrateStoredDesignData(s.designData);
     model.designDecisions = s.designDecisions ? migrateStoredDecisions(s.designDecisions) : undefined;
       model.constraints = constraints;
       model.connectors = new Map(s.connectors?.map(([key, connector]) => [key, { ...connector }]));
@@ -2591,7 +2620,7 @@ function createModelStore() {
       // stored node reference is not a number rather than repairing it — a footing
       // attached to nothing has no reaction, and inventing a node moves someone's
       // foundation. An absent geotechnical set becomes EMPTY, never a seeded stratum.
-      model.footings = migrateFootings(s.footings, { cover: DEFAULT_COVER }).footings;
+      authoredFootings = migrateFootings(s.footings, { cover: DEFAULT_COVER }).footings;
       model.geotechnical = migrateGeotechnical(s.geotechnical).geotechnical;
       // An absent field is a project saved before mat preferences existed, and it loads at the
       // 16/16/AUTO values the invisible constant was already applying to it. `undefined` is
@@ -2600,7 +2629,7 @@ function createModelStore() {
       model.footingMatPreferences =
         migrateFootingMatPreferences(s.footingMatPreferences).preferences;
       nextId.footing = s.nextId.footing
-        ?? (Math.max(0, ...model.footings.keys()) + 1);
+        ?? (Math.max(0, ...authoredFootings.keys()) + 1);
       nextId.soilProfile = s.nextId.soilProfile
         ?? (Math.max(0, ...(model.geotechnical?.profiles ?? []).map((p) => p.id)) + 1);
       // Older files have no spectrum counter, and a saved one is never behind what is in use.
@@ -2632,11 +2661,12 @@ function createModelStore() {
       return changed;
     },
 
-    addNode(x: number, y: number, z?: number): number {
+    addNode(x: number, y: number, z?: number, plateShapeOwner?: number): number {
       if (!_undoBatching) _pushUndo?.();
       this.ensureSpaceCoordinates();
       const id = nextId.node++;
       const node: Node = { id, x, y };
+      if (plateShapeOwner !== undefined) node.plateShapeOwner = plateShapeOwner;
       if (z !== undefined && z !== 0) node.z = z;
       model.nodes.set(id, node);
       if (!_bulkMutating) model.nodes = new Map(model.nodes);
@@ -2835,10 +2865,14 @@ function createModelStore() {
       if (model.connectors.size > 0) {
         model.connectors = new Map([...model.connectors].map(([id, c]) => [id, { ...c, nodeI: r(c.nodeI), nodeJ: r(c.nodeJ) }]));
       }
-      if ([...model.footings.values()].some((f) => to.has(f.nodeId) || f.supportedNodeIds?.some((n) => to.has(n)))) {
-        model.footings = new Map([...model.footings].map(([id, f]) => [id, to.has(f.nodeId) || f.supportedNodeIds?.some((n) => to.has(n))
-          ? { ...f, nodeId: r(f.nodeId), ...(f.supportedNodeIds ? { supportedNodeIds: f.supportedNodeIds.map(r) } : {}), revision: f.revision + 1 } : f]));
+      let remapped = authoredFootings;
+      for (const [id, f] of authoredFootings) {
+        const next = remapFootingNodes(f, to);
+        if (next === f) continue;
+        if (remapped === authoredFootings) remapped = new Map(authoredFootings);
+        remapped.set(id, { ...next, revision: f.revision + 1 });
       }
+      authoredFootings = remapped;
       // A point mass follows its node; two merged onto one node both stay (their masses add).
       const points = model.massSource?.points;
       if (points?.some((p) => to.has(p.nodeId))) {
@@ -2849,12 +2883,12 @@ function createModelStore() {
     /** Node ids named by constraints, connectors, footings and point masses. */
     referencedNodeIds(): Set<number> {
       const out = new Set<number>();
-      for (const c of model.constraints) {
+      for (const c of this.constraints) {
         const x = c as unknown as { masterNode?: number; slaveNode?: number; slaveNodes?: number[]; terms?: Array<{ nodeId: number }> };
         for (const n of [x.masterNode, x.slaveNode, ...(x.slaveNodes ?? []), ...(x.terms ?? []).map((t) => t.nodeId)]) if (typeof n === 'number') out.add(n);
       }
       for (const c of model.connectors.values()) { out.add(c.nodeI); out.add(c.nodeJ); }
-      for (const f of model.footings.values()) { out.add(f.nodeId); for (const n of f.supportedNodeIds ?? []) out.add(n); }
+      for (const f of authoredFootings.values()) { out.add(f.nodeId); for (const n of f.supportedNodeIds ?? []) out.add(n); for (const strap of f.straps ?? []) if (strap.nodeId !== undefined) out.add(strap.nodeId); }
       for (const p of model.massSource?.points ?? []) out.add(p.nodeId);
       return out;
     },
@@ -2882,20 +2916,18 @@ function createModelStore() {
       const canonical = loads.map(l => canonicalizeLoadAliases({ type: l.type, data: { ...l.data } } as Load));
       if (!_undoBatching) _pushUndo?.();
       model.loads = canonical;
-      if (_bulkLoadBuffer) _bulkLoadBuffer = [...model.loads];
     },
 
     /** Add a load of any type, whole, under a new id. For the edit layer; see `addSupportEntry`. */
     addLoadEntry(load: Load): number {
-      const id = nextId.load;
-      const canonical = canonicalizeLoadAliases({ type: load.type, data: { ...load.data, id } } as Load);
-      const entry = { type: canonical.type, data: JSON.parse(JSON.stringify(canonical.data)) } as Load;
-      if (!_undoBatching) _pushUndo?.();
-      nextId.load++;
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
-      return id;
+      return insertLoadEntries([load])[0]!;
     },
+
+    /**
+     * Many loads at once, each under a new id, in one write of the list. One at a time, every
+     * write copied the whole list: a building's thousands of slab loads took a minute.
+     */
+    addLoadEntries: insertLoadEntries,
 
     /** Add a quad or a plate with every field it carries. For the edit layer. */
     addShellEntry(kind: 'quad' | 'plate', fields: Omit<Quad, 'id'> | Omit<Plate, 'id'>): number {
@@ -2961,8 +2993,7 @@ function createModelStore() {
       const data: NodalLoad = { id, nodeId, fx, fz, my };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'nodal' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -2976,8 +3007,7 @@ function createModelStore() {
       if (a !== undefined && a > 0) data.a = a;
       if (b !== undefined) data.b = b;
       const entry = { type: 'distributed' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -2992,8 +3022,7 @@ function createModelStore() {
       if (opts?.isGlobal) data.isGlobal = true;
       if (opts?.caseId !== undefined) data.caseId = opts.caseId;
       const entry = { type: 'pointOnElement' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3003,8 +3032,7 @@ function createModelStore() {
       const data: ThermalLoad = { id, elementId, dtUniform, dtGradient };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'thermal' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3018,8 +3046,7 @@ function createModelStore() {
       const data: NodalLoad3D = { id, nodeId, fx, fy, fz, mx, my, mz };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'nodal3d' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3037,8 +3064,7 @@ function createModelStore() {
       if (b !== undefined) data.b = b;
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'distributed3d' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3050,8 +3076,7 @@ function createModelStore() {
       const data: PointLoadOnElement3D = { id, elementId, a, py, pz };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'pointOnElement3d' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3061,8 +3086,7 @@ function createModelStore() {
       const data: SurfaceLoad3D = { id, quadId, q, ...(extra ?? {}) };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'surface3d' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3072,8 +3096,7 @@ function createModelStore() {
       const data: ThermalLoadQuad3D = { id, quadId, dtUniform, dtGradient };
       if (caseId !== undefined) data.caseId = caseId;
       const entry = { type: 'thermalQuad3d' as const, data };
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
-      else model.loads = [...model.loads, entry];
+      loadList.append([entry]);
       return id;
     },
 
@@ -3100,10 +3123,7 @@ function createModelStore() {
         }
       }
       if (!_bulkMutating) model.supports = new Map(model.supports);
-      // Every load on the node, an imposed displacement too (`LOAD_TARGET`).
-      const keepLoad = (l: Load) => loadNodeId(l) !== id;
-      model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
+      retainLoads(l => loadNodeId(l) !== id);
       // Cascade to connectors/constraints: a dangling node reference is worse
       // than a missing entity — the engine silently skips it (zero stiffness)
       // while the connectivity preflight keeps crediting it as an edge.
@@ -3120,15 +3140,15 @@ function createModelStore() {
       // keeping it would leave a dimensioned foundation in the schedule and on the plan
       // under a column that is gone.
       let footingsChanged = false;
-      for (const [fid, f] of model.footings) {
-        if (f.nodeId === id) { model.footings.delete(fid); footingsChanged = true; continue; }
+      for (const [fid, f] of authoredFootings) {
+        if (f.nodeId === id) { authoredFootings.delete(fid); footingsChanged = true; continue; }
         // A combined or strip footing loses the node it also carried, and carries the rest.
         if (f.supportedNodeIds?.includes(id)) {
-          model.footings.set(fid, { ...f, supportedNodeIds: f.supportedNodeIds.filter((n) => n !== id), revision: f.revision + 1 });
+          authoredFootings.set(fid, { ...f, supportedNodeIds: f.supportedNodeIds.filter((n) => n !== id), revision: f.revision + 1 });
           footingsChanged = true;
         }
       }
-      if (footingsChanged) model.footings = new Map(model.footings);
+      if (footingsChanged) authoredFootings = new Map(authoredFootings);
       // A point mass goes with its node, as a nodal load does: left, it named a number the next
       // node drawn would take.
       const pts = model.massSource?.points;
@@ -3150,9 +3170,6 @@ function createModelStore() {
         })
         .filter((c): c is Constraint3D => c !== null);
       model.constraints = pruneConstraints(model.constraints);
-      // Inside bulkMutate the commit phase overwrites model.constraints with
-      // the buffer — prune the buffer too or dangling constraints resurrect.
-      if (_bulkConstraintBuffer) _bulkConstraintBuffer = pruneConstraints(_bulkConstraintBuffer);
     },
 
     // ── Named groups ────────────────────────────────────────────────
@@ -3249,7 +3266,6 @@ function createModelStore() {
       // solve with nothing to say where they came from.
       const keepLoad = (l: Load) => (l.data as { fromDef?: number }).fromDef !== id;
       if (!model.loads.every(keepLoad)) model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
       model.groups.delete(id);
       model.groups = new Map(model.groups);
       return 'removed';
@@ -3283,22 +3299,21 @@ function createModelStore() {
       replaceInSelfWeight(id);
       // Every load on the member, a tendon too (`LOAD_TARGET`).
       const keepLoad = (l: Load) => loadMemberId(l) !== id;
-      model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
+      retainLoads(keepLoad);
       // A footing SURVIVES the loss of its column: its node, its dimensions and its soil
       // are all still there, and its bearing and thickness are still checkable. What it
       // loses is the punching perimeter and the dowel geometry, so the reference is cleared
       // and the footing reports those as unsupported rather than holding a dangling id that
       // would later resolve to whatever element reuses the number.
       let columnCleared = false;
-      const fm = new Map(model.footings);
+      const fm = new Map(authoredFootings);
       for (const [fid, f] of fm) {
         if (f.columnElementId !== id) continue;
         const { columnElementId: _dropped, ...rest } = f;
         fm.set(fid, { ...rest, revision: f.revision + 1 });
         columnCleared = true;
       }
-      if (columnCleared) model.footings = fm;
+      if (columnCleared) authoredFootings = fm;
     },
 
     /**
@@ -3338,8 +3353,7 @@ function createModelStore() {
       // The loads on it go with it, as a quad's do.
       const keepLoad = (l: Load) =>
         !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && l.data.on === 'plate');
-      model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
+      retainLoads(keepLoad);
     },
 
     updatePlate(id: number, data: Partial<{ materialId: number; thickness: number }>): void {
@@ -3375,10 +3389,8 @@ function createModelStore() {
       // Cascade to surface/thermal loads on this quad — otherwise the load
       // dangles (still in the loads table, .ded and URL share) and is silently
       // dropped at solve time (convertSurfaceLoad: `if (!quad) return out`).
-      const keepLoad = (l: Load) =>
-        !((l.type === 'surface3d' || l.type === 'thermalQuad3d') && l.data.quadId === id && !l.data.on);
-      model.loads = model.loads.filter(keepLoad);
-      if (_bulkLoadBuffer) _bulkLoadBuffer = _bulkLoadBuffer.filter(keepLoad);
+      const one = new Set([id]);
+      retainLoads(l => !onShell(l, one));
     },
 
     updateQuad(id: number, data: Partial<{ materialId: number; thickness: number }>): void {
@@ -3438,13 +3450,22 @@ function createModelStore() {
 
     addConstraint(c: Constraint3D): void {
       if (!_undoBatching) _pushUndo?.();
-      if (_bulkConstraintBuffer) _bulkConstraintBuffer.push({ ...c });
-      else model.constraints = [...model.constraints, { ...c }];
+      constraintList.append([{ ...c }]);
+    },
+
+    replaceConstraint(index: number, constraint: Constraint3D): void {
+      const constraints = this.constraints;
+      if (!constraints[index]) return;
+      if (!_undoBatching) _pushUndo?.();
+      if (_bulkMutating) model.constraints[index] = { ...constraint };
+      else model.constraints = constraints.map((current, i) => i === index ? { ...constraint } : current);
     },
 
     removeConstraint(index: number): void {
       if (!_undoBatching) _pushUndo?.();
-      model.constraints = model.constraints.filter((_, i) => i !== index);
+      if (_bulkMutating) {
+        if (Number.isInteger(index) && index >= 0 && index < model.constraints.length) model.constraints.splice(index, 1);
+      } else model.constraints = model.constraints.filter((_, i) => i !== index);
     },
 
     clearConstraints(): void {
@@ -3521,40 +3542,40 @@ function createModelStore() {
       const id = nextId.footing++;
       const f = newFooting(id, nodeId, name ?? `Z${id}`, {
         // The project's footing cover, from its design data.
-        cover: model.designData?.covers.footing ?? DEFAULT_COVER,
+        cover: model.designData?.covers?.footing ?? defaultDesignData().covers.footing,
         // The underside sits at the supported node unless the engineer moves it. The node
         // is where the column lands, so this is the only non-arbitrary starting point.
         foundingElevation: model.nodes.get(nodeId)?.z ?? 0,
         soilProfileId: model.geotechnical?.defaultProfileId ?? null,
       });
-      const m = new Map(model.footings);
+      const m = new Map(authoredFootings);
       m.set(id, f);
-      model.footings = m;
+      authoredFootings = m;
       _onFoundationChange?.();
       return id;
     },
 
     updateFooting(id: number, data: Partial<Omit<Footing, 'id' | 'revision'>>): void {
       if (!_undoBatching) _pushUndoFoundation?.();
-      const cur = model.footings.get(id);
+      const cur = authoredFootings.get(id);
       if (!cur) return;
-      const m = new Map(model.footings);
+      const m = new Map(authoredFootings);
       m.set(id, { ...cur, ...data, id, revision: cur.revision + 1 });
-      model.footings = m;
+      authoredFootings = m;
       _onFoundationChange?.();
     },
 
     removeFooting(id: number): void {
       if (!_undoBatching) _pushUndoFoundation?.();
-      const m = new Map(model.footings);
+      const m = new Map(authoredFootings);
       m.delete(id);
-      model.footings = m;
+      authoredFootings = m;
       _onFoundationChange?.();
     },
 
     clearFootings(): void {
       if (!_undoBatching) _pushUndoFoundation?.();
-      model.footings = new Map();
+      authoredFootings = new Map();
       _onFoundationChange?.();
     },
 
@@ -3658,13 +3679,13 @@ function createModelStore() {
           : geo.defaultProfileId,
       };
       let orphaned = false;
-      const m = new Map(model.footings);
+      const m = new Map(authoredFootings);
       for (const [fid, f] of m) {
         if (f.soilProfileId !== id) continue;
         m.set(fid, { ...f, soilProfileId: null, revision: f.revision + 1 });
         orphaned = true;
       }
-      if (orphaned) model.footings = m;
+      if (orphaned) authoredFootings = m;
       _onFoundationChange?.();
     },
 
@@ -3688,6 +3709,16 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       model.loads = model.loads.filter(l => l.data.id !== loadId);
       return true;
+    },
+
+    /** Remove several loads in one pass, under the same rule as `removeLoad`. How many went. */
+    removeLoads(loadIds: Iterable<number>): number {
+      const ids = new Set(loadIds);
+      const gone = model.loads.filter(l => ids.has(l.data.id) && !isDefinedLoadData(l)).length;
+      if (!gone) return 0;
+      if (!_undoBatching) _pushUndo?.();
+      model.loads = model.loads.filter(l => !ids.has(l.data.id) || isDefinedLoadData(l));
+      return gone;
     },
 
     removeSupport(id: number): void {
@@ -3908,7 +3939,7 @@ function createModelStore() {
       model.designDecisions = undefined;
       model.constraints = [];
       model.connectors = new Map();
-      model.footings = new Map();
+      authoredFootings = new Map();
       // A new project has no strata. Carrying the previous project's soil over would be
       // founding this building on someone else's borehole.
       model.geotechnical = emptyGeotechnical();
@@ -4312,9 +4343,9 @@ function createModelStore() {
      * State the project's design data, or withdraw it (null: the defaults). Undoable on the views
      * channel: the solve survives it; the design it changes is retired by `store/design-data.ts`.
      */
-    setDesignData(d: import('../model/design-data').ProjectDesignData | null): void {
+    setDesignData(d: import('../model/design-data').StoredDesignData | null): void {
       if (!_undoBatching) _pushUndoView?.();
-      model.designData = d ? JSON.parse(JSON.stringify(d)) : undefined;
+      model.designData = migrateStoredDesignData(d ? JSON.parse(JSON.stringify(d)) : undefined);
     },
 
     /** State the background drawings. Undoable; they touch no result. */

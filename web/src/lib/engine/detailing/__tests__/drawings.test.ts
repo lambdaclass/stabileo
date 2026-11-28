@@ -360,14 +360,16 @@ describe('bar bending schedule', () => {
 
   it('computes offcut where the cut does not divide the stock', () => {
     const s = buildSchedule(assignMarks([straight('a', -0.25, 5, 20)]));
-    // One 5 m bar: 2 per stock, 2 m waste on the single stock bar used.
     expect(s.rows[0].stockBars).toBe(1);
-    expect(s.rows[0].offcutM).toBeCloseTo(2, 6);
+    expect(s.rows[0].offcutM).toBeCloseTo(7, 6);
   });
 
   it('flags a mark longer than the stock length as needing a splice', () => {
     const s = buildSchedule(assignMarks([straight('a', -0.25, 14, 20)]));
-    expect(s.notes.join(' ')).toMatch(/excede la barra comercial/);
+    const workbook = scheduleToAoa(s, buildTitleBlock({ sheetNumber: '1', title: 'Barras', assembly: assembly(), clauses }));
+    expect(workbook.flat().join(' ')).toMatch(/excede la barra comercial/);
+    expect(s.rows[0]).toMatchObject({ quantity: 1, totalLengthM: 14, stockBars: 2, offcutM: 10 });
+    expect(s.totals).toMatchObject({ quantity: 1, totalLengthM: 14, stockBars: 2, wasteM: 10 });
   });
 
   it('totals across all marks', () => {

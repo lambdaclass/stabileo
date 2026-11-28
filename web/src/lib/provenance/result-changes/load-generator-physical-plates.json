@@ -1,0 +1,36 @@
+{
+  "id": "load-generator-physical-plates",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedLoads",
+      "physicalPlateDefinitions"
+    ]
+  },
+  "title": {
+    "en": "Physical plates as load surfaces",
+    "es": "Placas físicas como superficies de carga",
+    "pt": "Placas físicas como superfícies de carga",
+    "de": "Physische Platten als Lastflächen",
+    "fr": "Plaques physiques comme surfaces chargées",
+    "tr": "Yük yüzeyi olarak fiziksel plaklar",
+    "zh": "作为荷载面的物理板",
+    "hu": "Fizikai lemezek mint teherfelületek"
+  },
+  "explanation": {
+    "en": "Check the targets of generated area loads if physical plates were unmeshed. Mesh plates with openings or curved sides and generate the loads again.",
+    "es": "Revisá los destinos de las cargas superficiales generadas si había placas físicas sin malla. Mallá las placas con huecos o lados curvos y volvé a generar las cargas.",
+    "pt": "Verifique os destinos das cargas de área geradas se havia placas físicas sem malha. Gere a malha das placas com aberturas ou bordas curvas e gere as cargas novamente.",
+    "de": "Prüfen Sie die Zuordnung erzeugter Flächenlasten bei unvernetzten physischen Platten. Vernetzen Sie Platten mit Öffnungen oder gekrümmten Kanten und erzeugen Sie die Lasten erneut.",
+    "fr": "Vérifiez les cibles des charges surfaciques générées en présence de plaques physiques non maillées. Maillez les plaques avec ouvertures ou bords courbes et générez à nouveau les charges.",
+    "tr": "Ağı oluşturulmamış fiziksel plaklar varsa üretilen alan yüklerinin hedeflerini denetleyin. Boşluklu veya eğri kenarlı plakların ağını oluşturup yükleri yeniden üretin.",
+    "zh": "如果生成荷载时有未划分网格的物理板，请检查面荷载的施加对象。请为带孔洞或曲边的板划分网格并重新生成荷载。",
+    "hu": "Ha a tehergeneráláskor hálózatlan fizikai lemezek voltak a modellben, ellenőrizze a felületi terhek célpontját. Hálózza be a nyílásos vagy ívelt szélű lemezeket, majd generálja újra a terheket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-load-generator-physical-plates.md",
+    "heading": "Physical plates as load surfaces"
+  }
+}

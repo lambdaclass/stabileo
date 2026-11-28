@@ -22,3 +22,24 @@ describe('a building file brought in by one call', () => {
     expect([...modelStore.supports.values()].some((s) => s.type === 'fixed3d')).toBe(true);
   });
 });
+
+it('known wrong result: #1928 the released IFC feet command assigns point supports on an existing wall', async () => {
+  const { createPlate, plateEntry, planPlateMesh, applyPlateMeshes } = await import('../../store/physical-plates');
+  const { fixBases } = await import('../ifc-physical');
+  modelStore.clear();
+  historyStore.clear();
+  const corners = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, z]) => modelStore.addNode(x!, 0, z!));
+  const made = createPlate({ outline: corners, materialId: 1, thickness: 0.2 });
+  if (!('id' in made)) throw new Error(JSON.stringify(made));
+  const plan = planPlateMesh(made.id);
+  expect(plan).not.toBeNull();
+  expect(applyPlateMeshes([plan!])).toMatchObject({ plates: 1 });
+  modelStore.addSupport(corners[0]!, 'pinned3d');
+  const base = new Set([...modelStore.nodes.values()].filter(n => (n.z ?? 0) === 0).map(n => n.id));
+  expect(fixBases()).toBe(base.size - 1);
+  const held = new Map([...modelStore.supports.values()].map(s => [s.nodeId, s.type]));
+  expect(new Set(held.keys())).toEqual(base);
+  expect(held.get(corners[0]!)).toBe('pinned3d');
+  expect(plateEntry(made.id)!.surface).not.toHaveProperty('edgeSupports');
+  expect(fixBases()).toBe(0);
+});

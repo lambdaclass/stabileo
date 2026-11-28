@@ -1,8 +1,9 @@
 <script lang="ts">
   import Hint from './Hint.svelte';
+  import { boundBasis } from './load-codes/bound-basis';
   /**
    * The regulation dialog's Combinations tab: whether applying makes combinations, and from
-   * what. Either CIRSOC 101-2025 (strength, service or both) or the project's own rules, which
+   * what. Either the bound basis code (strength, service or both) or the project's own rules, which
    * are edited here too (`ProCombinationRules`). Both are expanded over the cases the plan
    * makes, one wind or seismic case at a time (`combination-cases.ts`).
    */
@@ -31,7 +32,7 @@
       <div class="ac-source" role="radiogroup" aria-label={t('autoLoad.comboSource')}>
         <label class="al-check">
           <input type="radio" name="al-combo-source" value="regulation" bind:group={source} data-testid="al-combo-source-regulation" />
-          {t('autoLoad.comboSource.regulation')}
+          {boundBasis?.()?.title || t('autoLoad.comboSource.regulation')}
         </label>
         {#if source === 'regulation'}
           <div class="al-row ac-sub" role="radiogroup" aria-label={t('autoLoad.comboSet')} data-testid="al-combo-set">

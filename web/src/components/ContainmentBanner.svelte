@@ -1,7 +1,8 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  import type { ComponentProps } from 'svelte';
+  import type UnifiedContainmentBanner from './UnifiedContainmentBanner.svelte';
   import { t } from '../lib/i18n';
-  let { disposition, children, preserveModel = false }: { preserveModel?: boolean; disposition: { refused: boolean; messages: string[] }; children?: Snippet } = $props();
+  let { disposition, children, preserveModel = false }: ComponentProps<typeof UnifiedContainmentBanner> = $props();
   let open = $state(false);
 </script>
 

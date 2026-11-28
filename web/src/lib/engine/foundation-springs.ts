@@ -24,8 +24,8 @@ function polyArea(pts: P[]): number {
 
 /** The area each node takes of the given shells, m². */
 export function tributaryAreas(
-  nodes: Map<number, P>,
-  shells: Array<{ nodes: number[] }>,
+  nodes: ReadonlyMap<number, P>,
+  shells: ReadonlyArray<{ nodes: readonly number[] }>,
 ): Map<number, number> {
   const out = new Map<number, number>();
   for (const s of shells) {

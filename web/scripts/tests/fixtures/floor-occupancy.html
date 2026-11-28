@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>Floor occupancy</title></head>
+  <body>
+    <main></main>
+    <script type="module">
+      import { mount } from 'svelte';
+      import Dialog from '../../../src/components/pro/ProAutoLoadsDialog.svelte';
+      import { modelStore, uiStore } from '../../../src/lib/store';
+      import { regulationsStore } from '../../../src/lib/store/regulations.svelte';
+      import { setLocale } from '../../../src/lib/i18n';
+      import '../../../src/lib/i18n/full-dictionaries';
+
+      setLocale('en');
+      modelStore.clear();
+      uiStore.analysisMode = 'pro';
+      regulationsStore.configureRole('loads', { occupancyKey: 'saved-unknown' }, true);
+      mount(Dialog, { target: document.querySelector('main'), props: { open: true, onclose() {} } });
+    </script>
+  </body>
+</html>

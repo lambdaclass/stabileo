@@ -15,6 +15,7 @@
   import { storedDecisions } from '../../../../lib/store/design-decisions';
   import { physicalGroups, setPhysicalThickness } from '../../../../lib/store/physical';
   import { applyEarthPressure } from '../../../../lib/store/earth-pressure';
+  import { engineGuarded } from '../../../../lib/store/engine-action';
   import { designWall } from '../../../../lib/engine/detailing/wall-design';
   import type { WallReinforcement } from '../../../../lib/design-contract/reinforcement';
 
@@ -31,24 +32,26 @@
 
   let draft = $state<WallReinforcement | null>(null);
   $effect(() => { void sel; untrack(() => { draft = wall ? JSON.parse(JSON.stringify(storedDecisions().walls?.[wall.wallId] ?? wall.reinforcement)) : null; }); });
-  const check = $derived(wall && draft ? designWall({ ...wall.input, provided: draft }) : null);
+  const preview = $derived.by(() => {
+    const input = wall?.input, provided = draft;
+    return input && provided ? engineGuarded(() => designWall({ ...input, provided })) : null;
+  });
+  const check = $derived(preview?.value);
   const saved = $derived.by(() => { void modelStore.designDecisions; return !!(sel && storedDecisions().walls?.[sel]); });
   let note = $state<string | null>(null);
 
   function save() {
-    if (!wall || !draft) return;
+    if (!wall || !draft || !check) return;
     const d = storedDecisions();
     modelStore.reinforcementTransaction((api) => api.setDecisions({ ...d, walls: { ...(d.walls ?? {}), [wall.wallId]: JSON.parse(JSON.stringify(draft)) } }));
-    detailingStore.generateFloors({ families: ['wall'] });
-    note = t('wallEd.saved');
+    note = detailingStore.generateFloors({ families: ['wall'] }) ? t('wallEd.saved') : null;
   }
   function revert() {
     if (!wall) return;
     const d = storedDecisions();
     const rest = { ...(d.walls ?? {}) }; delete rest[wall.wallId];
     modelStore.reinforcementTransaction((api) => api.setDecisions({ ...d, walls: rest }));
-    detailingStore.generateFloors({ families: ['wall'] });
-    note = t('wallEd.reverted');
+    note = detailingStore.generateFloors({ families: ['wall'] }) ? t('wallEd.reverted') : null;
   }
   const groupsOf = (ids: number[]) => physicalGroups().filter((x) => x.physical.kind === 'wall' && (x.members.quads ?? []).some((q) => ids.includes(q))).map((x) => x.id);
   let thick = $state(0.2);
@@ -80,6 +83,7 @@
 
 <div class="we" data-testid="wall-editor">
   <aside class="we-list">
+    {#if detailingStore.lastError}<p role="alert">{detailingStore.lastError}</p>{/if}
     {#if walls.length === 0}
       <p class="we-hint">{t('wallEd.none')}</p>
       <button class="we-btn" onclick={() => detailingStore.generateFloors({ families: ['wall'] })} data-testid="wall-design-run">{t('wallEd.designWalls')}</button>
@@ -131,7 +135,7 @@
             {#if draft.openings}<label>Ø<input type="number" min="10" max="25" bind:value={draft.openings.diameter} /></label>{/if}
           </div>
           <div class="we-row">
-            <button class="we-btn we-primary" onclick={save} data-testid="wall-save">{t('wallEd.save')}</button>
+            <button class="we-btn we-primary" onclick={save} disabled={!check} data-testid="wall-save">{t('wallEd.save')}</button>
             {#if saved}<button class="we-btn" onclick={revert}>{t('wallEd.revert')}</button>{/if}
           </div>
           <div class="we-row">
@@ -148,12 +152,13 @@
           </div>
           <button class="we-btn" onclick={applySoil} data-testid="wall-soil">{t('wallEd.applySoil')}</button>
         </div>
+        {#if preview?.error}<p role="alert">{preview.error}</p>{/if}
         {#if check}
           <table class="we-checks" data-testid="wall-checks">
             <tbody>
               <tr class:bad={!check.thicknessOk}><td>{t('wallEd.cThickness')}</td><td class="num">{(check.minThickness * 100).toFixed(0)} cm</td></tr>
               <tr class:bad={!check.shear.ok}><td>{t('wallEd.cShear')}</td><td class="num">{check.shear.utilization.toFixed(2)}</td></tr>
-              <tr class:bad={!check.axialFlexure.ok}><td>{t('wallEd.cInPlane')}</td><td class="num">{Number.isFinite(check.axialFlexure.utilization) ? check.axialFlexure.utilization.toFixed(2) : '∞'}</td></tr>
+              <tr class:bad={!check.axialFlexure.ok}><td>{t('wallEd.cInPlane')} (Pu = {check.axialFlexure.pu.toLocaleString()} kN)</td><td class="num">{Number.isFinite(check.axialFlexure.utilization) ? check.axialFlexure.utilization.toFixed(2) : '∞'}</td></tr>
               {#each check.checks as c}<tr class:bad={!c.ok} title={c.description}><td>{c.category}</td><td class="num">{Number.isFinite(c.utilization) ? c.utilization.toFixed(2) : '∞'}</td></tr>{/each}
             </tbody>
           </table>

@@ -6,6 +6,10 @@
  * both at once. Every other way in (a new rule, CIRSOC 101's set, a template file) already took
  * its ids from `freshRuleIds`; the component is read here because the numbering lived in it.
  */
+import { render } from 'svelte/server';
+import { t } from '../../../lib/i18n';
+import { modelStore } from '../../../lib/store';
+import ProCombinationRules from '../ProCombinationRules.svelte';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -26,4 +30,15 @@ describe('rules from a library template', () => {
     const [id] = freshRuleIds(rules, 1);
     expect(rules.some((r) => r.id === id)).toBe(false);
   });
+});
+
+it('known wrong result: #1928 the published combination starter names the same source as main', () => {
+  modelStore.clear();
+  const html = render(ProCombinationRules).body;
+  const button = html.match(/data-testid="combo-rule-seed"[^>]*>([^<]*)</)?.[1];
+  const empty = html.match(/data-testid="combo-rules-none"[^>]*>([^<]*)</)?.[1];
+  const published = !__PUBLIC_FEATURES__.proPlatesUnified;
+  expect(button === t('combos.rules.seed')).toBe(published);
+  expect(empty === t('combos.rules.none')).toBe(published);
+  expect(button).toContain('CIRSOC');
 });

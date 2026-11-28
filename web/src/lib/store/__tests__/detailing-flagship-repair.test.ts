@@ -24,12 +24,14 @@ import { samplePath, type BarPath } from '../../codes/cirsoc201/bar-geometry';
 import { memoriaInput } from '../memoria-inputs';
 import { projectIfcInput } from '../ifc-export';
 import { designSheets } from '../design-exchange';
+import { stateSuiteCovers } from './suite-covers';
 
 beforeAll(async () => { await initSolver(); });
 
 describe('the flagship: the repair ladder bounded by the section', () => {
   beforeAll(async () => {
     await modelStore.loadExample('rc-design-frame');
+    stateSuiteCovers();
     uiStore.analysisMode = 'pro';
     const combo: any = solveCombinations3D(modelStore.model as never, modelStore.model.loadCases, modelStore.model.combinations, true, false);
     resultsStore.setResults3D(validateAndSolve3D(modelStore.model as never, true, false) as never);

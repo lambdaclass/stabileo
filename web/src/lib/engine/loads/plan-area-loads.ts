@@ -36,9 +36,12 @@ export interface RoofLoads {
 
 export interface AreaLoadsInput {
   layout: GravityLayout;
+  /** The loads code's roof Lr for maintenance. Absent: CIRSOC 101 §4.8.1. */
+  roofLive?: typeof roofLiveLoad;
   tributaryWidth: number;
   floor: { dead: number; lo: number; liveOf: (elementId: number) => number };
   roof?: RoofLoads;
+  markRoofLoads?: boolean;
   /**
    * Partial loading (CIRSOC 101 §4.3.3, and Tabla 4.1 note n for a reduced Lr): L and Lr also as
    * two checkerboard arrangements, the panels and spans of one colour each (`checkerboard`), and
@@ -62,12 +65,14 @@ export interface AreaLoad {
   frame?: 'global' | 'projected';
   /** The arrangement this load belongs to, by `AreaLoadsResult.arrangements`; absent: the full load. */
   arrangement?: number;
+  /** From a roof's area, where the roof has loads of its own: its live load may be another action's part. */
+  roof?: true;
 }
-export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number }
+export interface AreaSurface { quadId: number; caseType: AreaCaseType; q: number; roof?: true }
 
 /** A panel's share past a side's end, at its node: kN along Z (negative down). */
 /** A panel's share at a re-entrant corner: at the node, `carrier` the side's member it belongs to. */
-export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; carrier: number; arrangement?: number }
+export interface AreaPoint { nodeId: number; caseType: AreaCaseType; fz: number; carrier: number; arrangement?: number; roof?: true }
 
 export interface AreaLoadsResult {
   distributed: AreaLoad[];
@@ -102,14 +107,15 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   if (roof?.use === 'maintenance') {
     let first: EngineMessage | null = null;
     for (const id of layout.roof) {
-      const r = roofLiveLoad({ weight: roof.weight, atM2: layout.roofAreaOf.get(id) ?? 0, slopePercent: roof.slopePercent });
+      const r = (i.roofLive ?? roofLiveLoad)({ weight: roof.weight, atM2: layout.roofAreaOf.get(id) ?? 0, slopePercent: roof.slopePercent });
       lrOf.set(id, r.lr);
       first ??= r.reason;
       if (out.refs.length === 0) out.refs.push(...r.refs);
     }
     if (lrOf.size > 0) {
       const ls = [...lrOf.values()];
-      out.derivation.push(msg('loadPlan.derivation.roofLive', {
+      if (i.roofLive) out.derivation.push(first!);
+      else out.derivation.push(msg('loadPlan.derivation.roofLive', {
         weight: msg(`loads.cirsoc101.roofWeight.${roof.weight}`), n: ls.length, min: round(Math.min(...ls), 3), max: round(Math.max(...ls), 3), slope: round(roof.slopePercent, 1),
       }));
     }
@@ -152,7 +158,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       if (arrangement && !arrangement.loads({ panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
       if (q === 0 || (p.wI === 0 && p.wJ === 0)) continue;
-      out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr });
+      out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr, ...(i.markRoofLoads !== false && roof && p.roof ? { roof: true as const } : {}) });
       levels.set(out.distributed.at(-1)!, layout.panels[p.panel]!.z);
       if (arrangement === undefined) out.planned.add(caseType);
     }
@@ -160,7 +166,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       if (arrangement && !arrangement.loads({ panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
       if (q * p.w === 0) continue;
-      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, carrier: p.elementId, ...arr });
+      out.nodal.push({ nodeId: p.nodeId, caseType, fz: -q * p.w, carrier: p.elementId, ...arr, ...(i.markRoofLoads !== false && roof && p.roof ? { roof: true as const } : {}) });
       levels.set(out.nodal.at(-1)!, layout.panels[p.panel]!.z);
       if (arrangement === undefined) out.planned.add(caseType);
     }
@@ -171,14 +177,14 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
         const q = -pressure * s.width;
         if (q === 0) continue;
         const span = m.spans ? { a: s.t0 * m.length, b: s.t1 * m.length } : {};
-        out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr });
+        out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr, ...(i.markRoofLoads !== false && isRoof(m.elementId) ? { roof: true as const } : {}) });
         levels.set(out.distributed.at(-1)!, layout.zOf.get(m.elementId) ?? 0);
         if (arrangement === undefined) out.planned.add(caseType);
       }
     }
     if (!arrangement) for (const sq of layout.shellQuads) {
       const q = qOfQuad(sq.quadId) * (perProjection ? sq.cos : 1);
-      if (q > 0) { out.surface.push({ quadId: sq.quadId, caseType, q }); out.planned.add(caseType); }
+      if (q > 0) { out.surface.push({ quadId: sq.quadId, caseType, q, ...(i.markRoofLoads !== false && isRoofQuad(sq.quadId) ? { roof: true as const } : {}) }); out.planned.add(caseType); }
     }
 
     for (const load of out.distributed.slice(distributedStart)) {
@@ -208,7 +214,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
   const lrQ = (id: number, atRoof: boolean) => (atRoof ? lrOf.get(id) ?? 0 : 0);
   if (roof?.use === 'maintenance') {
     // A slab of shells is not a member with a tributary area: R1 = 1 there, the largest Lr.
-    const shellLr = roofLiveLoad({ weight: roof.weight, atM2: 0, slopePercent: roof.slopePercent }).lr;
+    const shellLr = (i.roofLive ?? roofLiveLoad)({ weight: roof.weight, atM2: 0, slopePercent: roof.slopePercent }).lr;
     put('Lr', lrQ, (id) => (isRoofQuad(id) ? shellLr : 0), true);
   }
   const mode = i.patterns === true ? 'checkerboard' : i.patterns === false || i.patterns === undefined ? 'none' : i.patterns;

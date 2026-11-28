@@ -5,7 +5,7 @@
  */
 import { modelStore } from './model.svelte';
 import { verificationStore } from './verification.svelte';
-import { defaultDesignData, migrateDesignData, type DesignKind, type ProjectDesignData } from '../model/design-data';
+import { defaultDesignData, migrateDesignData, type DesignKind, type ProjectDesignData, type StoredDesignData } from '../model/design-data';
 import { bump, emptyRevisions } from '../codes/revisions';
 
 /** The design data in force: the project's, or the defaults where it states none. */
@@ -13,14 +13,17 @@ export function designData(): ProjectDesignData {
   return modelStore.designData ? migrateDesignData(modelStore.designData) : defaultDesignData();
 }
 
-export function setDesignData(next: ProjectDesignData | null): void {
+/** What the project itself states, without the defaults. */
+export const storedDesignData = (): StoredDesignData => modelStore.designData ?? { version: 1 };
+
+export function setDesignData(next: StoredDesignData | null): void {
   modelStore.setDesignData(next);
   modelStore.model.revisions = bump(modelStore.model.revisions ?? emptyRevisions(), 'materialSpec');
   verificationStore.invalidateForCodeChange();
 }
 
-export function patchDesignData(patch: Partial<ProjectDesignData>): void {
-  setDesignData({ ...designData(), ...patch });
+export function patchDesignData(patch: Partial<StoredDesignData>): void {
+  setDesignData({ ...storedDesignData(), ...patch });
 }
 
 /**
@@ -28,8 +31,8 @@ export function patchDesignData(patch: Partial<ProjectDesignData>): void {
  * stairs, the post-tensioning, the fire settings, the particular elements). Undone like any other
  * change, but the design the rest of the project holds stays: no cover, steel or code moved.
  */
-export function patchOwnDesignData(patch: Partial<Pick<ProjectDesignData, 'specialFloors' | 'stairs' | 'postTension' | 'fire' | 'specialElements' | 'foreignCodes' | 'budget' | 'federation' | 'architecture' | 'site' | 'frameToleranceMm'>>): void {
-  modelStore.setDesignData({ ...designData(), ...patch });
+export function patchOwnDesignData(patch: Partial<Pick<ProjectDesignData, 'specialFloors' | 'stairs' | 'postTension' | 'fire' | 'specialElements' | 'foreignCodes' | 'budget' | 'federation' | 'architecture' | 'site' | 'frameToleranceMm' | 'rcSheets'>>): void {
+  modelStore.setDesignData({ ...storedDesignData(), ...patch });
 }
 
 /** The cover of a kind of element, m. */
@@ -68,7 +71,7 @@ export function otherCodesDesignData(): { cover: { beam: number; column: number 
  * design they fed, as any cover change does, so each is checked again with its own.
  */
 export function setMemberCovers(ids: readonly number[], cover: number | null): void {
-  const d = designData();
+  const d = storedDesignData();
   const by = { ...(d.coverByElement ?? {}) };
   for (const id of ids) { if (cover === null) delete by[String(id)]; else by[String(id)] = cover; }
   const { coverByElement: _old, ...rest } = d;

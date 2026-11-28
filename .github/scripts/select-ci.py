@@ -45,24 +45,32 @@ def _resolve(base, spec):
     return None
 
 
-def _reaches_slow(path, seen):
-    if path in seen:
-        return False
-    seen.add(path)
-    source = path.read_text(errors='replace')
-    if SLOW_TAG.search(source):
-        return True
-    for spec in IMPORT.findall(source):
-        target = _resolve(path, spec)
-        if target is not None and target.suffix in ('.ts', '.mjs', '.js') and _reaches_slow(target, seen):
-            return True
-    return False
-
-
 def discover_slow_specs(e2e_dir):
-    return tuple(p.name for p in sorted(e2e_dir.glob('*.spec.ts'))
-                 if p.name != 'rc-design-visual.spec.ts' and not p.name.endswith('.timing.spec.ts')
-                 and _reaches_slow(p.resolve(), set()))
+    specs = [p for p in sorted(e2e_dir.glob('*.spec.ts'))
+             if p.name != 'rc-design-visual.spec.ts' and not p.name.endswith('.timing.spec.ts')]
+    importers, tagged, pending = {}, [], [p.resolve() for p in specs]
+    for path in pending:
+        importers.setdefault(path, [])
+    while pending:
+        path = pending.pop()
+        source = path.read_text(errors='replace')
+        if SLOW_TAG.search(source):
+            tagged.append(path)
+        for spec in IMPORT.findall(source):
+            target = _resolve(path, spec)
+            if target is None or target.suffix not in ('.ts', '.mjs', '.js'):
+                continue
+            if target not in importers:
+                importers[target] = []
+                pending.append(target)
+            importers[target].append(path)
+    slow = set(tagged)
+    while tagged:
+        for importer in importers[tagged.pop()]:
+            if importer not in slow:
+                slow.add(importer)
+                tagged.append(importer)
+    return tuple(p.name for p in specs if p.resolve() in slow)
 
 
 ALL_SLOW_SPECS = discover_slow_specs(REPO_ROOT / 'web/e2e')

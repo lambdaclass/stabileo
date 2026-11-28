@@ -40,7 +40,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { frameBarsInAssembly, workspaceScene } from './helpers/workspace-scene';
+import { expectEveryFrameMemberAccounted, frameBarsInAssembly, RELEASED_CORE, workspaceScene } from './helpers/workspace-scene';
 import { modelStore } from '../../../store/model.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import { renderDrawings } from '../document-render';
@@ -71,13 +71,13 @@ interface Row {
   hasSolid: boolean;
 }
 
-describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 }, () => {
+describe('DIAGNOSTIC: beams with no reinforcement anywhere, on the released core', { timeout: 900_000 }, () => {
   let scene: SceneModel;
   let doc: DocumentModel;
   let rows: Row[];
 
   beforeAll(async () => {
-    const w = await workspaceScene('pro-edificio-7p');
+    const w = await workspaceScene('pro-edificio-7p', RELEASED_CORE);
     scene = { ...w.scene, bars: w.scene.bars.filter(bar => bar.ownerScope === 'frame') };
     doc = w.doc;
 
@@ -465,4 +465,10 @@ describe('DIAGNOSTIC: beams with no reinforcement anywhere', { timeout: 900_000 
       }
     }
   });
+});
+
+describe('DIAGNOSTIC: beams with no reinforcement anywhere, with the core founded', () => {
+  it('leaves no frame member with a cage and no main steel, and loses none on the way', async () => {
+    expectEveryFrameMemberAccounted(await workspaceScene('pro-edificio-7p'));
+  }, 900_000);
 });

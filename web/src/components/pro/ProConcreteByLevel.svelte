@@ -1,9 +1,6 @@
 <script lang="ts">
+  import ConcreteBatchAssignment from './design/ConcreteBatchAssignment.svelte';
   import Hint from './Hint.svelte';
-  /**
-   * The concrete of each kind of element, by level. It changes the analysis model (the members'
-   * material), so it stays available with design off; the design data panel shows it too.
-   */
   import { modelStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { DESIGN_KINDS, type DesignKind } from '../../lib/model/design-data';
@@ -14,25 +11,30 @@
   const concretes = $derived([...modelStore.materials.values()].filter((m) => materialFamilyOf(m, catalogueGradeFamily).family === 'concrete'));
   const levels = $derived(modelStore.grid?.levels ?? []);
   let ckind = $state<DesignKind>('column'), cmat = $state(0), clevel = $state('');
-  $effect(() => { if (!concretes.some((m) => m.id === cmat) && concretes[0]) cmat = concretes[0].id; });
+  $effect(() => { if (!__PUBLIC_FEATURES__.proRcSheets && !concretes.some((m) => m.id === cmat) && concretes[0]) cmat = concretes[0].id; });
   let assigned = $state<number | null>(null);
   function assign() { if (ckind !== 'footing') assigned = assignConcrete(ckind, cmat, clevel || undefined); }
 </script>
 
 <section class="pk-card" data-testid="design-data-concrete">
   <h5 class="cl-h">{t('designData.concrete')}</h5>
-  <Hint text={t('designData.concreteHint')} />
-  {#if concretes.length === 0}<p class="pk-hint cl-hint">{t('designData.noConcrete')}</p>{:else}
-    <div class="cl-row">
-      <select bind:value={ckind} aria-label={t('physical.kindCol')}>{#each DESIGN_KINDS.filter((k) => k !== 'footing') as k}<option value={k}>{t(`designData.kind.${k}`)}</option>{/each}</select>
-      <select bind:value={clevel} aria-label={t('building.level')}>
-        <option value="">{t('designData.allLevels')}</option>
-        {#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
-      </select>
-      <select bind:value={cmat} aria-label={t('building.material')}>{#each concretes as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>
-      <button class="pk-btn" onclick={assign} data-testid="design-data-assign">{t('designData.assign')}</button>
-    </div>
-    {#if assigned !== null}<p class="pk-hint cl-hint" role="status">{tp('designData.assigned', { n: assigned })}</p>{/if}
+  <Hint text={t(__PUBLIC_FEATURES__.proRcSheets ? 'rcSheets.designData.concreteHint' : 'designData.concreteHint')} />
+  {#if concretes.length === 0}<p class="pk-hint cl-hint">{t('designData.noConcrete')}</p>
+  {:else}
+    {#if __PUBLIC_FEATURES__.proRcSheets}
+      <ConcreteBatchAssignment {concretes} {levels} />
+    {:else}
+      <div class="cl-row">
+        <select bind:value={ckind} aria-label={t('physical.kindCol')}>{#each DESIGN_KINDS.filter((k) => k !== 'footing') as k}<option value={k}>{t(`designData.kind.${k}`)}</option>{/each}</select>
+        <select bind:value={clevel} aria-label={t('building.level')}>
+          <option value="">{t('designData.allLevels')}</option>
+          {#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+        </select>
+        <select bind:value={cmat} aria-label={t('building.material')}>{#each concretes as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>
+        <button class="pk-btn" onclick={assign} data-testid="design-data-assign">{t('designData.assign')}</button>
+      </div>
+      {#if assigned !== null}<p class="pk-hint cl-hint" role="status">{tp('designData.assigned', { n: assigned })}</p>{/if}
+    {/if}
   {/if}
 </section>
 

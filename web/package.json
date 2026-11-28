@@ -27,7 +27,7 @@
     "test:e2e:flaky": "playwright test --grep @flaky --retries=2",
     "test:e2e:install": "playwright install --with-deps chromium",
     "test:e2e:update-snapshots": "playwright test --update-snapshots",
-    "typecheck": "node scripts/typecheck.mjs",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=8192 node scripts/typecheck.mjs",
     "typecheck:baseline": "node scripts/typecheck.mjs --write",
     "test:units:types": "tsc -p tsconfig.units.json",
     "test:unit": "vitest run --project unit",

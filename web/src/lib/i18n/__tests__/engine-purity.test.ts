@@ -16,7 +16,7 @@
  *                    itself, which is what `t()` does when a translation is missing.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { SOURCE_ROOT as SRC, profileSourceFiles, readProfileSource } from './profile-sources';
 import { join, relative } from 'node:path';
 import { tAt } from '../store.svelte';
 import { allShippedLocales as shippedLocales, allDictFor as dictFor, completeLocales } from '../locales/all';
@@ -25,27 +25,10 @@ import { DEAD_TABLE_2025 } from '../../codes/cirsoc101/dead-loads';
 import { BEHAVIOUR_TABLE_2018 } from '../../codes/cirsoc103/behaviour';
 import { REGULATION_ROLES, optionsForRole } from '../../codes/roles';
 
-const SRC = new URL('../../..', import.meta.url).pathname;
-
 /** Directories that must stay free of i18n imports and of prose. */
 const PURE_DIRS = ['lib/codes', 'lib/engine/loads'];
 
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
-      // Test files may hold prose: asserting on rendered text is the point of them.
-      if (name === '__tests__') continue;
-      out.push(...walk(full));
-    } else if (name.endsWith('.ts')) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-const pureFiles = PURE_DIRS.flatMap((d) => walk(join(SRC, d)));
+const pureFiles = profileSourceFiles(PURE_DIRS, /\.ts$/);
 
 /**
  * Strip everything that is legitimately not a translatable string.
@@ -82,7 +65,7 @@ describe('engine purity — pure modules never reach the i18n store', () => {
   it('never imports from lib/i18n', () => {
     const offenders: string[] = [];
     for (const file of pureFiles) {
-      const src = readFileSync(file, 'utf8');
+      const src = readProfileSource(file);
       if (/from\s+'[^']*i18n[^']*'/.test(src)) offenders.push(relative(SRC, file));
     }
     expect(offenders, 'pure modules must return { key, params }, not translated text')
@@ -94,7 +77,7 @@ describe('engine purity — pure modules never reach the i18n store', () => {
     // sentence territory. Accents are the other tell: an engine has no business typing "ó".
     const offenders: Array<{ file: string; text: string }> = [];
     for (const file of pureFiles) {
-      const src = strippedSource(readFileSync(file, 'utf8'));
+      const src = strippedSource(readProfileSource(file));
       for (const m of src.matchAll(/'((?:[^'\\\n]|\\.){45,})'/g)) {
         const text = m[1];
         if (/[áéíóúñÁÉÍÓÚÑ¿¡]/.test(text) || /\s\w+\s\w+\s\w+\s/.test(text)) {
@@ -113,7 +96,7 @@ describe('engine purity — pure modules never reach the i18n store', () => {
 function engineKeys(): string[] {
   const keys = new Set<string>();
   for (const file of pureFiles) {
-    const src = readFileSync(file, 'utf8');
+    const src = readProfileSource(file);
     for (const m of src.matchAll(/msg\(\s*'([\w.]+)'/g)) keys.add(m[1]);
     // Keys carried as plain fields: labelKey, noteKey, explanationKey, nameKey.
     for (const m of src.matchAll(/(?:labelKey|noteKey|nameKey|explanationKey):\s*'([\w.]+)'/g)) {
@@ -196,7 +179,7 @@ describe('locale parity for engine keys', () => {
     // translation is dead text nobody notices.
     const dups: string[] = [];
     for (const locale of shippedLocales()) {
-      const src = readFileSync(join(SRC, `lib/i18n/locales/${locale}.ts`), 'utf8');
+      const src = readProfileSource(join(SRC, `lib/i18n/locales/${locale}.ts`));
       const seen = new Set<string>();
       for (const m of src.matchAll(/^\s*'([\w.]+)':/gm)) {
         if (seen.has(m[1])) dups.push(`${locale}: ${m[1]}`);

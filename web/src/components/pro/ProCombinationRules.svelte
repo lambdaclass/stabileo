@@ -17,6 +17,7 @@
   import { generateCombinations } from '../../lib/codes/cirsoc101/combinations';
   import { generateServiceCombinations } from '../../lib/codes/cirsoc101/service-combinations';
   import { modelCombinationCases, presentSymbols } from '../../lib/engine/loads/combination-cases';
+  import { boundBasis } from './load-codes/bound-basis';
   import {
     RULE_SYMBOLS, ruleLabel, ruleTermSymbol, rulesFromTemplate, rulesToTemplate, specToRule, freshRuleIds, type CombinationRule,
   } from '../../lib/engine/loads/combination-rules';
@@ -68,10 +69,16 @@
 
   function remove(id: string) { write(rules.filter((r) => r.id !== id)); }
 
-  /** Start from CIRSOC 101, strength and service, for the loads the model has. */
+  /** Start from the bound basis code (CIRSOC 101 without one), strength and service, for the loads the model has. */
   function seed() {
     const present = presentSymbols(modelCombinationCases(modelStore.model));
-    const specs = runEngineAction(() => [...generateCombinations({ present }), ...generateServiceCombinations({ present })]);
+    const specs = runEngineAction(() => {
+      if (__PUBLIC_FEATURES__.proPlatesUnified) {
+        const basis = boundBasis?.();
+        if (basis) return [...basis.strength({ present }).combinations, ...basis.service({ present })];
+      }
+      return [...generateCombinations({ present }), ...generateServiceCombinations({ present })];
+    });
     if (!specs) return;
     const ids = freshRuleIds(rules, specs.length);
     write([...rules, ...specs.map((s, i) => specToRule(s, ids[i]!))]);
@@ -112,7 +119,7 @@
 
 <div class="cr" data-testid="combo-rules">
   <Hint text={t('combos.rules.hint')} />
-  {#if rules.length === 0}<p class="al-hint" data-testid="combo-rules-none">{t('combos.rules.none')}</p>{/if}
+  {#if rules.length === 0}<p class="al-hint" data-testid="combo-rules-none">{__PUBLIC_FEATURES__.proPlatesUnified ? tp('combos.rules.noneCode', { code: boundBasis?.()?.title ?? 'CIRSOC 101-2025' }) : t('combos.rules.none')}</p>{/if}
   {#if rules.length > 0}
     <div class="cr-wrap">
       <table class="cr-table">
@@ -146,7 +153,7 @@
   {/if}
   <div class="cr-row">
     <button class="al-btn-sm" onclick={add} data-testid="combo-rule-add">{t('combos.rules.add')}</button>
-    <button class="al-btn-sm" onclick={seed} data-testid="combo-rule-seed">{t('combos.rules.seed')}</button>
+    <button class="al-btn-sm" onclick={seed} data-testid="combo-rule-seed">{__PUBLIC_FEATURES__.proPlatesUnified ? tp('combos.rules.seedCode', { code: boundBasis?.()?.title ?? 'CIRSOC 101-2025' }) : t('combos.rules.seed')}</button>
     <button class="al-btn-sm" disabled={rules.length === 0} onclick={exportTemplate} data-testid="combo-rule-export">{t('combos.rules.export')}</button>
     <button class="al-btn-sm" onclick={() => fileInput?.click()} data-testid="combo-rule-import">{t('combos.rules.import')}</button>
     <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={importTemplate} data-testid="combo-rule-file" />

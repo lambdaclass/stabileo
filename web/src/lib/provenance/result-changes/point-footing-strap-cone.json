@@ -1,0 +1,35 @@
+{
+  "id": "point-footing-strap-cone",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "any": [
+      "shortOffAxisStrap"
+    ]
+  },
+  "title": {
+    "en": "Review short off-axis foundation straps",
+    "es": "Revisá las vigas centradoras cortas fuera de eje",
+    "de": "Kurze schräg verlaufende Kopplungsbalken prüfen",
+    "fr": "Vérifier les courtes longrines de redressement désaxées",
+    "pt": "Reveja vigas de equilíbrio curtas fora do eixo",
+    "tr": "Eksen dışındaki kısa denge kirişlerini denetleyin",
+    "zh": "复核偏轴的短基础拉梁",
+    "hu": "Rövid, tengelytől eltérő alapgerendák ellenőrzése"
+  },
+  "explanation": {
+    "en": "Review the selected partner of a short foundation strap. Earlier integrated builds could propose a point outside the ordinary inward direction. Correct the beam and its connection before rerunning the checks.",
+    "es": "Verificá la base elegida para una viga centradora corta. La versión integrada podía proponer una base fuera de la dirección interior prevista. Corregí la viga y su conexión antes de volver a verificar.",
+    "de": "Prüfen Sie das gewählte Gegenfundament eines kurzen Kopplungsbalkens. Eine frühere integrierte Version konnte einen Punkt außerhalb der vorgesehenen Richtung vorschlagen. Korrigieren Sie Balken und Anschluss vor der erneuten Prüfung.",
+    "fr": "Vérifiez la semelle choisie pour une courte longrine de redressement. Une version intégrée pouvait proposer un point hors de la direction intérieure prévue. Corrigez la longrine et sa liaison avant de relancer les vérifications.",
+    "pt": "Confira a sapata escolhida para uma viga de equilíbrio curta. Versões integradas podiam propor um ponto fora da direção prevista para o interior. Corrija a viga e sua ligação antes de repetir as verificações.",
+    "tr": "Kısa denge kirişi için seçilen karşı temeli denetleyin. Önceki birleşik sürüm içe doğru beklenen yönün dışında bir nokta önerebiliyordu. Denetimleri yinelemeden önce kirişi ve bağlantısını düzeltin.",
+    "zh": "请核对短基础拉梁另一端连接的基础。先前的集成版本可能推荐偏离预期向内方向的节点。请修正梁及其连接后重新验算。",
+    "hu": "Ellenőrizze a rövid összekötő gerendához választott másik alaptestet. A korábbi integrált változat az előírt befelé mutató irányon kívüli pontot is javasolhatott. Az újraellenőrzés előtt javítsa a gerendát és a kapcsolatát."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-point-footing-strap-cone.md",
+    "heading": "Review short off-axis foundation straps"
+  }
+}

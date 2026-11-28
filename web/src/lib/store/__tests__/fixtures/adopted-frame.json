@@ -1,0 +1,712 @@
+{
+  "name": "New structure",
+  "nodes": [
+    [
+      1,
+      {
+        "id": 1,
+        "x": 0,
+        "y": 0
+      }
+    ],
+    [
+      2,
+      {
+        "id": 2,
+        "x": 6,
+        "y": 0
+      }
+    ],
+    [
+      3,
+      {
+        "id": 3,
+        "x": 12,
+        "y": 0
+      }
+    ],
+    [
+      4,
+      {
+        "id": 4,
+        "x": 0,
+        "y": 0,
+        "z": 3
+      }
+    ],
+    [
+      5,
+      {
+        "id": 5,
+        "x": 6,
+        "y": 0,
+        "z": 3
+      }
+    ],
+    [
+      6,
+      {
+        "id": 6,
+        "x": 12,
+        "y": 0,
+        "z": 3
+      }
+    ]
+  ],
+  "materials": [
+    [
+      1,
+      {
+        "id": 1,
+        "name": "Acero A36",
+        "e": 200000,
+        "nu": 0.3,
+        "rho": 78.5,
+        "fy": 250,
+        "fu": 400
+      }
+    ],
+    [
+      2,
+      {
+        "id": 2,
+        "name": "H-30",
+        "e": 27000,
+        "nu": 0.2,
+        "rho": 25,
+        "fy": 30,
+        "fc": 30
+      }
+    ]
+  ],
+  "sections": [
+    [
+      1,
+      {
+        "id": 1,
+        "name": "IPN 300",
+        "a": 0.0069,
+        "iy": 9.8e-05,
+        "iz": 4.51e-06,
+        "j": 4.666e-07,
+        "b": 0.125,
+        "h": 0.3,
+        "shape": "I",
+        "tw": 0.0108,
+        "tf": 0.0162
+      }
+    ],
+    [
+      2,
+      {
+        "id": 2,
+        "name": "40×40",
+        "a": 0.16,
+        "iy": 0.002133333333333334,
+        "iz": 0.002133333333333334,
+        "j": 0.0035993600000000007,
+        "b": 0.4,
+        "h": 0.4,
+        "shape": "rect"
+      }
+    ],
+    [
+      3,
+      {
+        "id": 3,
+        "name": "30×60",
+        "a": 0.18,
+        "iy": 0.0053999999999999986,
+        "iz": 0.0013499999999999996,
+        "j": 0.0037,
+        "b": 0.3,
+        "h": 0.6,
+        "shape": "rect"
+      }
+    ]
+  ],
+  "elements": [
+    [
+      1,
+      {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 1,
+        "nodeJ": 4,
+        "materialId": 2,
+        "sectionId": 2,
+        "releaseI": {
+          "my": false,
+          "mz": false,
+          "t": false
+        },
+        "releaseJ": {
+          "my": false,
+          "mz": false,
+          "t": false
+        }
+      }
+    ],
+    [
+      2,
+      {
+        "id": 2,
+        "type": "frame",
+        "nodeI": 2,
+        "nodeJ": 5,
+        "materialId": 2,
+        "sectionId": 2,
+        "releaseI": {
+          "my": false,
+          "mz": false,
+          "t": false
+        },
+        "releaseJ": {
+          "my": false,
+          "mz": false,
+          "t": false
+        }
+      }
+    ],
+    [
+      3,
+      {
+        "id": 3,
+        "type": "frame",
+        "nodeI": 3,
+        "nodeJ": 6,
+        "materialId": 2,
+        "sectionId": 2,
+        "releaseI": {
+          "my": false,
+          "mz": false,
+          "t": false
+        },
+        "releaseJ": {
+          "my": false,
+          "mz": false,
+          "t": false
+        }
+      }
+    ],
+    [
+      4,
+      {
+        "id": 4,
+        "type": "frame",
+        "nodeI": 4,
+        "nodeJ": 5,
+        "materialId": 2,
+        "sectionId": 3,
+        "releaseI": {
+          "my": false,
+          "mz": false,
+          "t": false
+        },
+        "releaseJ": {
+          "my": false,
+          "mz": false,
+          "t": false
+        }
+      }
+    ],
+    [
+      5,
+      {
+        "id": 5,
+        "type": "frame",
+        "nodeI": 5,
+        "nodeJ": 6,
+        "materialId": 2,
+        "sectionId": 3,
+        "releaseI": {
+          "my": false,
+          "mz": false,
+          "t": false
+        },
+        "releaseJ": {
+          "my": false,
+          "mz": false,
+          "t": false
+        }
+      }
+    ]
+  ],
+  "supports": [
+    [
+      1,
+      {
+        "id": 1,
+        "nodeId": 1,
+        "type": "fixed3d"
+      }
+    ],
+    [
+      2,
+      {
+        "id": 2,
+        "nodeId": 2,
+        "type": "fixed3d"
+      }
+    ],
+    [
+      3,
+      {
+        "id": 3,
+        "nodeId": 3,
+        "type": "fixed3d"
+      }
+    ]
+  ],
+  "loads": [
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 1,
+        "elementId": 4,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -30,
+        "qZJ": -30,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 2,
+        "elementId": 4,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -10,
+        "qZJ": -10,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 3,
+        "elementId": 5,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -30,
+        "qZJ": -30,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "distributed3d",
+      "data": {
+        "id": 4,
+        "elementId": 5,
+        "qYI": 0,
+        "qYJ": 0,
+        "qZI": -10,
+        "qZJ": -10,
+        "caseId": 2
+      }
+    }
+  ],
+  "loadCases": [
+    {
+      "id": 1,
+      "type": "D",
+      "name": "Dead load"
+    },
+    {
+      "id": 2,
+      "type": "L",
+      "name": "Live load"
+    },
+    {
+      "id": 3,
+      "type": "W",
+      "name": "Wind"
+    },
+    {
+      "id": 4,
+      "type": "E",
+      "name": "Earthquake"
+    }
+  ],
+  "combinations": [
+    {
+      "id": 5,
+      "name": "1.2D + 1.6L",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 2,
+          "factor": 1.6
+        }
+      ]
+    }
+  ],
+  "plates": [],
+  "quads": [],
+  "groups": [
+    [
+      1,
+      {
+        "id": 1,
+        "name": "V1",
+        "kind": "physicalMember",
+        "origin": "derived",
+        "members": {
+          "elements": [
+            4,
+            5
+          ]
+        },
+        "data": {
+          "kind": "beam",
+          "provenance": "inferred",
+          "levelFrom": "z:3.000",
+          "levelTo": "z:3.000"
+        }
+      }
+    ],
+    [
+      2,
+      {
+        "id": 2,
+        "name": "C1",
+        "kind": "physicalMember",
+        "origin": "derived",
+        "members": {
+          "elements": [
+            1
+          ]
+        },
+        "data": {
+          "kind": "column",
+          "provenance": "inferred",
+          "levelFrom": "z:0.000",
+          "levelTo": "z:3.000"
+        }
+      }
+    ],
+    [
+      3,
+      {
+        "id": 3,
+        "name": "C2",
+        "kind": "physicalMember",
+        "origin": "derived",
+        "members": {
+          "elements": [
+            2
+          ]
+        },
+        "data": {
+          "kind": "column",
+          "provenance": "inferred",
+          "levelFrom": "z:0.000",
+          "levelTo": "z:3.000"
+        }
+      }
+    ],
+    [
+      4,
+      {
+        "id": 4,
+        "name": "C3",
+        "kind": "physicalMember",
+        "origin": "derived",
+        "members": {
+          "elements": [
+            3
+          ]
+        },
+        "data": {
+          "kind": "column",
+          "provenance": "inferred",
+          "levelFrom": "z:0.000",
+          "levelTo": "z:3.000"
+        }
+      }
+    ]
+  ],
+  "designData": {
+    "version": 1,
+    "rcSheets": {
+      "version": 1,
+      "adoptedCode": "cirsoc201-2025",
+      "adoptedLogic": 27,
+      "adoptedBasis": "{\"fy\":420,\"stirrup\":8,\"covers\":{\"beam\":0.025,\"column\":0.025,\"slab\":0.025,\"wall\":0.025,\"footing\":0.025},\"control\":true,\"long\":[10,12,16,20,25,32],\"ties\":[6,8,10,12],\"slab\":[8,10,12,16],\"floor\":75,\"aggregate\":19,\"wall\":[8,10,12,16],\"byElement\":null,\"slabBase\":null,\"options\":{\"torsion\":\"equilibrium\"},\"ends\":false,\"lateral\":null,\"deflection\":null}",
+      "adoptedFoundationBasis": "{\"bearing\":150,\"lines\":null}",
+      "adopted": {
+        "beam:1:0": {
+          "bottom": [
+            {
+              "dia": 16,
+              "count": 3
+            }
+          ],
+          "top": [
+            {
+              "dia": 10,
+              "count": 2
+            }
+          ],
+          "stirrups": {
+            "dia": 10,
+            "legs": 2,
+            "spacing": 0.15
+          },
+          "at": {
+            "start": {
+              "top": [
+                {
+                  "dia": 10,
+                  "count": 2
+                },
+                {
+                  "dia": 16,
+                  "count": 3
+                }
+              ],
+              "bottom": [
+                {
+                  "dia": 16,
+                  "count": 3
+                }
+              ]
+            },
+            "span": {
+              "top": [
+                {
+                  "dia": 10,
+                  "count": 2
+                }
+              ],
+              "bottom": [
+                {
+                  "dia": 16,
+                  "count": 3
+                }
+              ]
+            },
+            "end": {
+              "top": [
+                {
+                  "dia": 10,
+                  "count": 2
+                },
+                {
+                  "dia": 16,
+                  "count": 5
+                }
+              ],
+              "bottom": [
+                {
+                  "dia": 16,
+                  "count": 3
+                }
+              ]
+            }
+          }
+        },
+        "beam:1:1": {
+          "bottom": [
+            {
+              "dia": 16,
+              "count": 3
+            }
+          ],
+          "top": [
+            {
+              "dia": 10,
+              "count": 2
+            }
+          ],
+          "stirrups": {
+            "dia": 10,
+            "legs": 2,
+            "spacing": 0.15
+          },
+          "at": {
+            "start": {
+              "top": [
+                {
+                  "dia": 10,
+                  "count": 2
+                },
+                {
+                  "dia": 16,
+                  "count": 5
+                }
+              ],
+              "bottom": [
+                {
+                  "dia": 16,
+                  "count": 3
+                }
+              ]
+            },
+            "span": {
+              "top": [
+                {
+                  "dia": 10,
+                  "count": 2
+                }
+              ],
+              "bottom": [
+                {
+                  "dia": 16,
+                  "count": 3
+                }
+              ]
+            },
+            "end": {
+              "top": [
+                {
+                  "dia": 10,
+                  "count": 2
+                },
+                {
+                  "dia": 16,
+                  "count": 3
+                }
+              ],
+              "bottom": [
+                {
+                  "dia": 16,
+                  "count": 3
+                }
+              ]
+            }
+          }
+        },
+        "column:2:0": {
+          "corner": 16,
+          "nx": 1,
+          "dx": 16,
+          "ny": 1,
+          "dy": 16,
+          "tieDia": 6,
+          "tieSpacing": 0.25
+        },
+        "column:3:0": {
+          "corner": 16,
+          "nx": 1,
+          "dx": 16,
+          "ny": 1,
+          "dy": 16,
+          "tieDia": 6,
+          "tieSpacing": 0.25
+        },
+        "column:4:0": {
+          "corner": 16,
+          "nx": 1,
+          "dx": 16,
+          "ny": 1,
+          "dy": 16,
+          "tieDia": 6,
+          "tieSpacing": 0.25
+        }
+      }
+    },
+    "covers": {
+      "beam": 0.025,
+      "column": 0.025,
+      "slab": 0.025,
+      "wall": 0.025,
+      "footing": 0.025
+    }
+  },
+  "deflectionLimits": {
+    "rules": [
+      {
+        "id": 1,
+        "scope": {
+          "kind": "memberKind",
+          "value": "beam"
+        },
+        "n": 250,
+        "direction": "resultant"
+      }
+    ]
+  },
+  "constraints": [],
+  "connectors": [],
+  "nextId": {
+    "node": 7,
+    "material": 3,
+    "section": 4,
+    "element": 6,
+    "support": 4,
+    "load": 5,
+    "loadCase": 5,
+    "combination": 6,
+    "plate": 1,
+    "quad": 1,
+    "group": 5,
+    "connector": 1,
+    "footing": 1,
+    "soilProfile": 1,
+    "spectrum": 1
+  },
+  "localAxisConvention": "zUpStrongAxis",
+  "codeSettings": {
+    "version": 1,
+    "jurisdiction": {
+      "name": "",
+      "basis": "unstated"
+    },
+    "concreteEdition": "2025",
+    "loadEdition": "2025",
+    "windEdition": "2025",
+    "concrete": {
+      "maxAggregateSizeMm": null,
+      "shotcrete": false
+    }
+  },
+  "detailing": {
+    "version": 2,
+    "assemblies": []
+  },
+  "exports": [],
+  "manualEdits": [],
+  "solvedWith": {
+    "id": "mwz0ku16-flc0jn",
+    "resultsVersion": 146,
+    "resultsSchemaVersion": 1,
+    "appVersion": "0.6.2",
+    "engineVersion": "0.6.2",
+    "commit": "5e71cf4ab8ef",
+    "wasmHash": "113b0c4b02798939243e08ce1ba01f3d534a9cd212999d1db85ebc1338388a98",
+    "solvedAt": "2026-11-27T13:25:33.066Z",
+    "analyses": [
+      "linear"
+    ],
+    "recorded": [
+      "buckling",
+      "harmonic",
+      "linear",
+      "modal",
+      "nonlinear",
+      "pdelta",
+      "plastic",
+      "spectral",
+      "ssi",
+      "timeHistory"
+    ]
+  },
+  "footings": [],
+  "geotechnical": {
+    "version": 1,
+    "profiles": [],
+    "defaultProfileId": null
+  },
+  "footingMatPreferences": {
+    "bottomMatDiameterXmm": 16,
+    "bottomMatDiameterYmm": 16,
+    "bottomMatSpacingPolicy": "AUTO_CODE_COMPLIANT",
+    "bottomMatLayerOrder": "AUTO"
+  }
+}

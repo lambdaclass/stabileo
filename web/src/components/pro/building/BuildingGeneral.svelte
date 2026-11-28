@@ -1,11 +1,4 @@
 <script lang="ts">
-  /**
-   * The building's general data, stated once before any element is placed: the concrete it is
-   * built in, the reinforcing steel, the structural steel for steel typologies, and the codes in
-   * force. Every tool below places with these. Covers, exposure and the diameters the design may
-   * use are the project's design data, opened here in place (`ProDesignDataPanel`, the same panel
-   * the design desk shows).
-   */
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { te } from '../../../lib/i18n/engine-text';
@@ -51,8 +44,7 @@
         {#each concretes as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
       </select>
     </label>
-    <!-- The reinforcement's grade is design's: offered with it (`uiStore.designInPro`). -->
-    {#if uiStore.designInPro}
+    {#if uiStore.buildingDesignInputsAvailable}
       <label>{t('building.general.rebar')}
         <select value={d.rebarGrade} onchange={(e) => grade(e.currentTarget.value)} data-testid="building-rebar-grade">
           {#each REBAR_GRADES as g (g.name)}<option value={g.name}>{g.name}</option>{/each}
@@ -80,7 +72,7 @@
     </div>
   {/if}
   {#if applied !== null}<p class="pk-hint" role="status">{tp('building.general.applied', { n: applied })}</p>{/if}
-  {#if uiStore.designInPro}
+  {#if uiStore.buildingDesignInputsAvailable}
     <details class="bg-more" data-testid="building-general-more">
       <summary>{t('building.general.more')} <span class="pk-hint">· {tp('building.general.moreSummary', { c: Math.round(d.covers.beam * 1000), e: t(`designData.exp.${d.exposure.beam}`) })}</span></summary>
       <ProDesignDataPanel />

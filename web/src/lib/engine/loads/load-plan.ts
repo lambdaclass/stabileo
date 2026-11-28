@@ -58,6 +58,7 @@ import type { DrawnSection } from '../../section/drawn';
 type PlanShell = { id: number; nodes: number[]; thickness?: number; materialId?: number; curved?: boolean; offset?: import('../../model/element-3d-metadata').ShellOffset };
 
 export interface LoadModelData extends GravityModel {
+  physicalPlateSource?: string;
   elements: Map<number, {
     id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss';
     offset?: import('../../model/element-3d-metadata').MemberOffset;
@@ -116,6 +117,11 @@ export interface SeismicCodeInputs {
 
 export interface LoadPlanInput {
   regulations: ProjectRegulations;
+  /**
+   * What a code other than CIRSOC asks for, by the adapter id of its module (its wind speed and
+   * terrain, its spectrum, its snow load…): each module reads and types its own entry.
+   */
+  codeInputs?: Readonly<Record<string, unknown>>;
   model: LoadModelData;
   /** Superimposed dead components, kPa. */
   dead: DeadComponent[];
@@ -275,6 +281,11 @@ export function windDirectionsOf(w: { directions: { x: boolean; y: boolean }; bo
 // ─── Plan ────────────────────────────────────────────────────────
 
 export interface PlannedCase {
+  /**
+   * The part of its action this case holds, where the code combines the parts at their own
+   * factors (`CombinationTerm.group`): the live load of a roof whose category of use is not the
+   * floors' (EN 1990 ψ by category). Absent: the action whole.
+   */
   group?: string;
   snowBasis?: 'flatRoof';
   /** Existing case id when one matches, else null → a new case is needed. */
@@ -365,6 +376,8 @@ export interface PlanSink {
    * "cubiertas que no permitan la evacuación de la nieve" of INPRES-CIRSOC 103 Tabla 3.3.
    */
   snowRetains?: boolean;
+  /** Set by a snow module whose seismic weight reads the flat-roof load: its case, pf unrounded, and pf over the load each planned item carries. */
+  snowFlat?: { caseIndex: number; pf: number; ratio: WeakMap<object, number> };
 }
 
 export type SeismicPlanSink = PlanSink & { surface: PlannedSurface[]; levelRefusals: EngineMessage[] };
@@ -376,6 +389,12 @@ export interface LevelMass {
   selfWeightKN: number;
   superimposedKN: number;
   liveTotalKN: number;
+  /**
+   * The part of `liveTotalKN` from a roof with an occupancy of its own (§4.8.2 and the like): a
+   * code that weighs the live load by occupancy weighs it with the roof's (EN 1998-1 ψE per
+   * category, TBDY Tablo 4.3, ASCE 7 §12.7.2).
+   */
+  liveRoofKN?: number;
   liveParticipatingKN: number;
   weightKN: number;
 }
@@ -409,6 +428,7 @@ export interface SeismicPlanDetail {
 }
 
 export interface LoadPlan {
+  physicalPlateSource?: string;
   seismicGeneration?: 'static';
   outcome: PlanOutcome;
   cases: PlannedCase[];
@@ -680,7 +700,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
 
   // ── Dead ──
   const deadTotal = input.dead.reduce((s, d) => s + d.q, 0);
-  refs.push(R101('3.1.1', 'definición de cargas permanentes'));
+  if (codes.basis.family === 'cirsoc') refs.push(R101('3.1.1', 'definición de cargas permanentes'));
 
   // ── Live: Table 4.1 then §4.7.2 ──
   const occ: OccupancyEntry | undefined = codes.loads.occupancy(input.occupancyKey);
@@ -714,7 +734,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
 
   let liveDesign = lo;
   if (input.applyLiveReduction) {
-    const red = codes.loads.reduce({
+    const red = codes.loads.reduce({ occupancyKey: input.occupancyKey,
       loKNm2: lo, tributaryAreaM2, elementKind: input.reductionElementKind,
       floorsSupported: input.floorsSupported,
       // Structured, not sniffed from the label: `garaje_camiones` is a garage but not a
@@ -736,7 +756,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * the reduction, member by member; the roofs take their own loads, not this one.
    */
   const partitionAsked = input.partitionLive ?? 0;
-  const partition = partitionLiveAllowance(lo, partitionAsked);
+  // The code's own partition allowance (`ImposedLoadCode.partition`); CIRSOC 101 §4.3.2 where it has none.
+  const partition = (codes.loads.partition ?? partitionLiveAllowance)(lo, partitionAsked);
   if (partitionAsked > 0) {
     derivation.push(partition.message);
     refs.push(...partition.refs);
@@ -792,7 +813,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, widthSpans(m, input.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength]));
   const reducedFor = (entry: OccupancyEntry, loKNm2: number, _uniform: number, areas: Map<number, number>) => (elementId: number): number => {
     if (!input.applyLiveReduction) return loKNm2;
-    return codes.loads.reduce({
+    return codes.loads.reduce({ occupancyKey: entry.key,
       loKNm2, tributaryAreaM2: (panelMode ? areas.get(elementId) : widthArea.get(elementId)) ?? 0, elementKind: input.reductionElementKind,
       floorsSupported: input.floorsSupported,
       passengerGarage: entry.assemblyKind === 'passengerGarage', publicAssembly: entry.assemblyKind === 'publicAssembly',
@@ -814,7 +835,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   let roofOccupancy: OccupancyEntry | undefined;
   if (input.roof) {
     const r = input.roof;
-    if (r.weight) roofWeight = r.weight;
+    const ownRoofLive = !!codes.loads.roofLive;
+    if (r.weight || ownRoofLive) roofWeight = r.weight ?? 'heavy';
     else {
       const w = roofWeightOf(input.model, layout, r.dead);
       roofWeight = w.weight;
@@ -834,9 +856,9 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       }
       const rlo = roofOcc.uniformKNm2;
       roofOccupancy = roofOcc;
-      refs.push(...roofOcc.refs, clause('cirsoc-101', '2025', '4.8.2', 'cubiertas para propósitos especiales'));
+      refs.push(...roofOcc.refs, ...(ownRoofLive ? [] : [clause('cirsoc-101', '2025', '4.8.2', 'cubiertas para propósitos especiales')]));
       const uniform = input.applyLiveReduction
-        ? codes.loads.reduce({ loKNm2: rlo, tributaryAreaM2, elementKind: input.reductionElementKind, floorsSupported: 1,
+        ? codes.loads.reduce({ occupancyKey: roofOcc.key, loKNm2: rlo, tributaryAreaM2, elementKind: input.reductionElementKind, floorsSupported: 1,
             passengerGarage: roofOcc.assemblyKind === 'passengerGarage', publicAssembly: roofOcc.assemblyKind === 'publicAssembly',
             noReduction: roofOcc.noReduction === true }).lKNm2
         : rlo;
@@ -848,7 +870,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     }
   }
   const area = planAreaLoads({
-    layout, tributaryWidth: input.tributaryWidth,
+    layout, tributaryWidth: input.tributaryWidth, markRoofLoads: !!codes.loads.groupRoofLoads, ...(codes.loads.roofLive ? { roofLive: (r) => codes.loads.roofLive!(r) } : {}),
     floor: { dead: deadTotal, lo: floorLo, liveOf }, roof: roofLoads, patterns: input.patterns, model: input.model,
   });
   derivation.push(...area.derivation);
@@ -912,6 +934,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * the table rather than assumed. A typed value still wins over both, and the 0,25
    * fallback is what it always was: an assumption, and reported as one.
    */
+  const inpres = codes.seismic?.adapterId === 'inpres103-2018';
   const codeF1 = input.seismic?.code
     ? codes.seismic?.liveInMass(input.seismic.code.occupancy)
     : undefined;
@@ -919,11 +942,11 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     && input.seismic?.liveParticipation !== undefined
     ? fromProject(input.seismic.liveParticipation)
     : codeF1 !== undefined
-      ? fromCode(codeF1, [clause('inpres-cirsoc-103-i', '2018', 'Tabla 3.3',
-          'factor de simultaneidad para sobrecargas')])
+      ? fromCode(codeF1, inpres ? [clause('inpres-cirsoc-103-i', '2018', 'Tabla 3.3',
+          'factor de simultaneidad para sobrecargas')] : [])
       : assumed(DEFAULT_LIVE_PARTICIPATION, msg('loadPlan.assumption.liveParticipation', { fraction: DEFAULT_LIVE_PARTICIPATION }),
-          [clause('inpres-cirsoc-103-i', '2018', '3.6', 'acciones gravitatorias para la acción sísmica')]);
-  if (participation.origin === 'assumed' && input.seismic?.enabled) {
+          inpres ? [clause('inpres-cirsoc-103-i', '2018', '3.6', 'acciones gravitatorias para la acción sísmica')] : []);
+  if (participation.origin === 'assumed' && input.seismic?.enabled && inpres) {
     assumptions.push(participation.assumption!);
   }
 
@@ -932,14 +955,17 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     levelsRaw.forEach((lv, k) => { if (Math.abs(lv.elevation - z) < Math.abs(levelsRaw[best]!.elevation - z)) best = k; });
     return best;
   };
-  const byArea = levelsRaw.map(() => ({ area: 0, dead: 0, live: 0 }));
+  const byArea = levelsRaw.map(() => ({ area: 0, dead: 0, live: 0, liveRoof: 0 }));
+  /** A roof's live load is of its own occupancy only when it has one: else the roof is weighed as a floor. */
+  const roofOwnLive = roofLoads?.use === 'occupancy';
   const slopeOf = new Map(layout.widthMembers.map(m => [m.elementId, m.length / m.horizontalLength]));
-  for (const [areas, pressures] of [[layout.areaOf, area.floorMass], [layout.roofAreaOf, area.roofMass]] as const) {
+  for (const [areas, pressures, atRoof] of [[layout.areaOf, area.floorMass, false], [layout.roofAreaOf, area.roofMass, true]] as const) {
     for (const [id, carried] of areas) {
       const level = byArea[levelIndexOf(layout.zOf.get(id) ?? 0)]!;
       level.area += carried;
       level.dead += carried * (slopeOf.get(id) ?? 1) * pressures.dead;
       level.live += carried * pressures.live;
+      if (atRoof && roofOwnLive) level.liveRoof += carried * pressures.live;
     }
   }
   for (const shell of layout.shellQuads) {
@@ -948,14 +974,15 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     level.area += shell.area;
     level.dead += shell.area / shell.cos * pressures.dead;
     level.live += shell.area * pressures.live;
+    if (roofOwnLive && layout.roofQuads.has(shell.quadId)) level.liveRoof += shell.area * pressures.live;
   }
   const windLevels: LevelMass[] = levelsRaw.map((lv, i) => {
-    const { area, dead: superimposed, live: liveTotal } = byArea[i]!;
+    const { area, dead: superimposed, live: liveTotal, liveRoof } = byArea[i]!;
     const liveP = liveTotal * DEFAULT_LIVE_PARTICIPATION;
     return {
       elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: area,
       selfWeightKN: sw.weights[i], superimposedKN: superimposed,
-      liveTotalKN: liveTotal, liveParticipatingKN: liveP,
+      liveTotalKN: liveTotal, ...(liveRoof > 0 ? { liveRoofKN: liveRoof } : {}), liveParticipatingKN: liveP,
       weightKN: sw.weights[i] + superimposed + liveP,
     };
   });
@@ -964,6 +991,9 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   // ── Wind (load-plan-wind.ts) ──
   const nodal: PlannedNodal[] = area.nodal.map(({ arrangement, ...n }) =>
     ({ ...n, fx: 0, fy: 0, ...(arrangement !== undefined ? { caseIndex: arrangementCase[arrangement]! } : {}) }));
+
+  codes.loads.groupRoofLoads?.(input.occupancyKey, roofOccupancy?.key, { cases, distributed, nodal, surface, derivation });
+
   const sink: PlanSink = { cases, nodal, distributed, derivation, refs, assumptions, unsupportedKeys, blockedKeys };
   const { windQh, windGust } = codes.wind && input.wind?.enabled ? codes.wind.plan(input, windLevels, sink) : { windQh: undefined, windGust: undefined };
 
@@ -981,7 +1011,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    */
   let seismicF2: number | undefined;
   let snowMass: Parameters<typeof buildSeismicModel>[5];
-  if (snowPlanned && input.seismic?.enabled) {
+  if (snowPlanned && input.seismic?.enabled && inpres) {
     const retains = input.seismic.snowRetaining ?? sink.snowRetains ?? true;
     seismicF2 = retains ? SIMULTANEITY_F2.retaining : SIMULTANEITY_F2.other;
     const balanced = cases.findIndex((c) => c.type === 'S' && (c.nameKey === 'snow.case.balanced' || c.nameKey === 'snow.case.balancedShaped'));
@@ -1004,18 +1034,24 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * shear onto the topmost mass. Nothing in a typed coefficient says what T is, so that
    * branch is unreachable without the spectrum.
    */
-  const seismicModel = codes.seismic && input.seismic?.enabled
+  const seismicCode = input.seismic?.enabled ? codes.seismic : undefined;
+  const seismicModel = seismicCode && 'plan' in seismicCode
     ? buildSeismicModel(input.model, layout, area, input.tributaryWidth, participation.value, snowMass)
     : undefined;
-  const seismicLevels = seismicModel?.levels;
-  if (snowMass && seismicLevels) {
-    const snow = seismicLevels.reduce((s, l) => s + l.snowWeightKN, 0);
+  const seismicLevels = seismicModel?.levels ?? (seismicCode && 'planFromLevels' in seismicCode
+    ? windLevels.map(level => ({ ...level }))
+    : undefined);
+  if (snowMass && seismicModel) {
+    const snow = seismicModel.levels.reduce((s, l) => s + l.snowWeightKN, 0);
     derivation.push(msg('loadPlan.derivation.seismicSnow', { f2: snowMass.factor, snow: round(snow, 1), added: round(snowMass.factor * snow, 1) }));
   }
   const levelRefusals: EngineMessage[] = [];
-  const { seismicWeight, baseShear, seismicDetail } = codes.seismic && seismicModel
-    ? codes.seismic.plan(input, seismicModel, { ...sink, surface, levelRefusals })
-    : { seismicWeight: undefined, baseShear: undefined, seismicDetail: undefined };
+  const seismicSink = { ...sink, surface, levelRefusals };
+  const { seismicWeight, baseShear, seismicDetail } = seismicCode && seismicModel && 'plan' in seismicCode
+    ? seismicCode.plan(input, seismicModel, seismicSink)
+    : seismicCode && seismicLevels && 'planFromLevels' in seismicCode
+      ? seismicCode.planFromLevels(input, seismicLevels, seismicSink)
+      : { seismicWeight: undefined, baseShear: undefined, seismicDetail: undefined };
 
   /*
    * Blocked conditions found while generating, not only while gating.
@@ -1061,7 +1097,9 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     cases.push({ existingId: earlier[1]?.id ?? null, type: 'T', nameKey: 'autoLoad.thermalCaseReversed', alternatives: THERMAL_SENSES, own: true });
     for (const th of special.thermal) thermal.push({ ...th, caseIndex: heat }, { ...th, dtUniform: -th.dtUniform || 0, dtGradient: -th.dtGradient || 0, caseIndex: heat + 1 });
     derivation.push(msg('loadPlan.derivation.thermalSenses'));
-    refs.push(codes.thermal?.combinationRef ?? clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T'));
+    // The thermal role's clause; a family with no thermal code cites none of another family's.
+    const thermalRef = codes.thermal?.combinationRef ?? (codes.basis.family === 'cirsoc' ? clause('cirsoc-101', '2025', '2.3.4', 'cargas de coacción T') : undefined);
+    if (thermalRef) refs.push(thermalRef);
   }
   if (special.soil.length) {
     const index = cases.length;
@@ -1100,22 +1138,41 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     if (input.projectCombinations) {
       combinations = [...input.projectCombinations];
     } else if (set !== 'service') {
-      const strength = codes.basis.strength(ci);
+      const strength = codes.basis.strength(ci, input);
       combinations = strength.combinations;
       derivation.push(...strength.notes);
       refs.push(...strength.refs);
     }
-    if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...codes.basis.service(ci)];
-    // The seismic code's vertical component, when it asks for one (INPRES-CIRSOC 103 §3.5.2).
-    if (input.seismic?.enabled && input.seismic.vertical && codes.seismic?.vertical) combinations = codes.seismic.vertical(combinations, seismicDetail, sink);
+    if (set !== 'ultimate' && !input.projectCombinations) combinations = [...combinations, ...codes.basis.service(ci, input)];
+    // The seismic code's vertical component: by the project's toggle (INPRES-CIRSOC 103 §3.5.2), or by the code's own rule.
+    if (input.seismic?.enabled && codes.seismic?.vertical && (codes.seismic.verticalByCode || input.seismic.vertical)) combinations = codes.seismic.vertical(combinations, seismicDetail, sink);
     // Each combination says which code, edition and rule wrote it, and what for.
     combinations = combinations.map((c) => withOrigin(c, codes.basis, !!input.projectCombinations));
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 
+  /*
+   * The generator's own steps are said in CIRSOC 101's clauses (Table 4.1, §4.3.3, §4.7, §4.8.2,
+   * §2.3.4). Under another family the same steps are said without them: that family's own modules
+   * cite their clauses, and a CIRSOC clause there would be another code's.
+   */
+  if (codes.loads.family !== 'cirsoc') {
+    const code = [codes.loads.title, codes.loads.sections?.live ?? ''].filter(Boolean).join(' ');
+    for (const list of [derivation, assumptions, unsupportedKeys]) {
+      for (let i = 0; i < list.length; i++) {
+        const m = list[i]!;
+        if (NEUTRAL_KEYS.has(m.key)) list[i] = { ...m, key: `${m.key}Code`, params: { ...(m.params ?? {}), ...(m.key === 'loadPlan.derivation.occupancy' ? { code } : {}) } };
+      }
+    }
+  }
+
   const limits = codes.loads.generationBlockers({ occupancies: [occ, ...(roofOccupancy ? [roofOccupancy] : [])], roof: input.roof !== undefined });
   blockedKeys.push(...limits.messages, ...levelRefusals);
+  // A negative shell is a plate not meshed yet (`store/saved-loads.ts`): only a plain area load becomes its definition.
+  if (surface.some((s) => s.quadId < 0 && s.vary)) blockedKeys.push(msg('loadPlan.blocked.unmeshedPlatePressure'));
+  if (thermal.some((t) => t.quadId !== undefined && t.quadId < 0)) blockedKeys.push(msg('loadPlan.blocked.unmeshedPlateThermal'));
   refs.push(...limits.refs);
+  assumptions.push(...(limits.notes ?? []));
 
   // Each case with the action category of its type, as the basis code reads it.
   for (const c of cases) if (!c.category) c.category = codes.basis.categoryOf(String(c.type));
@@ -1129,16 +1186,24 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       ...(partitionAsked > 0 ? { partitionLive: fromProject(partitionQ, 'kN/m²') } : {}),
       windQh, ...(windGust ? { windGust } : {}), seismicWeight, baseShear,
     },
-    levels: windLevels,
+    levels: seismicCode && 'planFromLevels' in seismicCode ? seismicLevels! : windLevels,
     ...(seismicModel ? { seismicModel } : {}),
     ...(roofWeight ? { roofWeight } : {}),
     seismic: seismicDetail,
     ...(cases.some(c => c.type === 'E') ? { seismicGeneration: 'static' as const } : {}),
+    ...(input.model.physicalPlateSource ? { physicalPlateSource: input.model.physicalPlateSource } : {}),
     generatedBy: codes.basis.adapterId,
     assumptions: dedupeMessages(assumptions),
     unsupportedKeys, refs, derivation, blockedKeys,
   };
 }
+
+/** The generator's steps said in CIRSOC 101's clauses, each with a neutral `…Code` twin for the other families. */
+const NEUTRAL_KEYS: ReadonlySet<string> = new Set([
+  'loadPlan.derivation.occupancy', 'loadPlan.derivation.patterns', 'loadPlan.derivation.adjacentSpans',
+  'loadPlan.derivation.reductionPerMember', 'loadPlan.derivation.roofOccupancy', 'loadPlan.derivation.thermalSenses',
+  'loadPlan.derivation.soil',
+]);
 
 export { describePlanDelta, type CaseAction, type CaseDisposition, type PlanDelta, type CurrentLoadState } from './load-plan-delta';
 
@@ -1148,7 +1213,7 @@ export { describePlanDelta, type CaseAction, type CaseDisposition, type PlanDelt
  */
 export function snowWeightByLevel(
   model: LoadModelData, distributed: readonly PlannedDistributed[], nodal: readonly PlannedNodal[],
-  caseIndex: number, elevations: readonly number[],
+  caseIndex: number, elevations: readonly number[], scale: (item: object) => number = () => 1,
 ): number[] {
   const out = elevations.map(() => 0);
   if (caseIndex < 0 || elevations.length === 0) return out;
@@ -1169,12 +1234,12 @@ export function snowWeightByLevel(
     const q = Math.abs((d.q + (d.qJ ?? d.q)) / 2);
     // Per metre of member along local z or global Z: its vertical resultant is q over the span's
     // horizontal projection; per metre of projection, the same.
-    out[nearest(((a.z ?? 0) + (b.z ?? 0)) / 2)]! += q * span * (Lh / L);
+    out[nearest(((a.z ?? 0) + (b.z ?? 0)) / 2)]! += q * span * (Lh / L) * scale(d);
   }
   for (const n of nodal) {
     if (n.caseType !== 'S' || n.caseIndex !== caseIndex) continue;
     const node = model.nodes.get(n.nodeId);
-    if (node) out[nearest(node.z ?? 0)]! += Math.abs(n.fz);
+    if (node) out[nearest(node.z ?? 0)]! += Math.abs(n.fz) * scale(n);
   }
   return out;
 }

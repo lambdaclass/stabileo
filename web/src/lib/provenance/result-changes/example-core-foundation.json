@@ -1,0 +1,36 @@
+{
+  "id": "example-core-foundation",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "example:pro-edificio-7p",
+      "sevenStoreyCoreMissingSupport"
+    ]
+  },
+  "title": {
+    "en": "Seven-storey core foundation",
+    "es": "Fundación del núcleo de siete pisos",
+    "pt": "Fundação do núcleo de sete pavimentos",
+    "de": "Gründung des siebengeschossigen Kerns",
+    "fr": "Fondation du noyau de sept étages",
+    "tr": "Yedi katlı çekirdeğin temeli",
+    "hu": "A hétszintes épületmag alapozása",
+    "zh": "七层建筑核心筒基础"
+  },
+  "explanation": {
+    "en": "Review the core base supports in saved copies of the seven-storey example and rerun the analysis and concrete design. New copies fix all four core corners at the foundation.",
+    "es": "Revise los apoyos en la base del núcleo de las copias guardadas del ejemplo de siete pisos y repita el análisis y el diseño de hormigón. Las copias nuevas empotran las cuatro esquinas.",
+    "pt": "Revise os apoios do núcleo nas cópias salvas do exemplo de sete pavimentos e refaça a análise e o dimensionamento do concreto. Novas cópias engastam os quatro cantos na fundação.",
+    "de": "Prüfen Sie die Kernfußlager gespeicherter Kopien des siebengeschossigen Beispiels und wiederholen Sie Analyse und Betonbemessung. Neue Kopien spannen alle vier Kernecken ein.",
+    "fr": "Vérifiez les appuis du noyau dans les copies enregistrées de l’exemple à sept étages et relancez le calcul et le dimensionnement du béton. Les quatre coins sont encastrés dans les nouvelles copies.",
+    "tr": "Yedi katlı örneğin kayıtlı kopyalarında çekirdeğin taban mesnetlerini inceleyip analizi ve betonarme tasarımı tekrarlayın. Yeni kopyalarda dört köşe de temelde ankastredir.",
+    "hu": "Ellenőrizze a hétszintes példa mentett másolataiban a mag alsó támaszait, majd ismételje meg a számítást és a vasbeton méretezést. Az új példányok mind a négy sarkot befogják.",
+    "zh": "请核查已保存七层建筑示例中的核心筒底部支座，并重新进行分析和混凝土设计。新示例将四个角点均固定在基础上。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-example-core-foundation.md",
+    "heading": "Seven-storey example core foundation"
+  }
+}

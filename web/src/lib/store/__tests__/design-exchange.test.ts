@@ -69,7 +69,11 @@ describe('a solved frame', () => {
   it('as IFC input: columns, a beam, a footing, and the design state of each as properties', () => {
     const { col1, beam } = frame();
     const node = modelStore.elements.get(col1)!.nodeI;
-    modelStore.model.footings = new Map([[1, { id: 1, nodeId: node, kind: 'isolated', B: 1.5, L: 1.5, thickness: 0.5, rotationDeg: 0, eccentricityB: 0, eccentricityL: 0, cover: 0.05, foundingElevation: -1.5 } as never]]);
+    const footing = modelStore.addFooting(node);
+    modelStore.updateFooting(footing, {
+      kind: 'isolated', B: 1.5, L: 1.5, thickness: 0.5, rotationDeg: 0,
+      eccentricityB: 0, eccentricityL: 0, cover: 0.05, foundingElevation: -1.5,
+    });
     const i = projectIfcInput(tr, 'en', 'Test');
     expect(i.members.filter((m) => m.kind === 'column')).toHaveLength(2);
     expect(i.members.find((m) => m.id === String(beam))!.kind).toBe('beam');

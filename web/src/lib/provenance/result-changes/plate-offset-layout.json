@@ -1,0 +1,35 @@
+{
+  "id": "plate-offset-layout",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "physicalPlateSubthresholdOffsets"
+    ]
+  },
+  "title": {
+    "en": "Check the requested shell offset",
+    "es": "Comprobar la excentricidad solicitada de la lámina",
+    "pt": "Verificar a excentricidade especificada da casca",
+    "de": "Vorgegebenen Schalenversatz prüfen",
+    "fr": "Vérifier le décalage demandé de la coque",
+    "tr": "İstenen kabuk eksantrisitesini denetle",
+    "hu": "Az előírt héjeltolás ellenőrzése",
+    "zh": "检查指定的壳单元偏移"
+  },
+  "explanation": {
+    "en": "Review small physical plate cell offsets and rerun the analysis. A measurable missing shift now blocks the solve.",
+    "es": "Revise las pequeñas excentricidades de las celdas de la placa física y repita el cálculo. Si falta un desplazamiento medible, se detiene el análisis.",
+    "pt": "Confira as pequenas excentricidades das células da placa física e repita a análise. A ausência de um deslocamento mensurável bloqueia o cálculo.",
+    "de": "Kleine Versätze der Zellen physischer Platten prüfen und die Analyse erneut ausführen. Ein fehlender messbarer Versatz blockiert die Berechnung.",
+    "fr": "Vérifiez les petits décalages des mailles de la plaque physique et relancez l’analyse. Un décalage mesurable manquant bloque le calcul.",
+    "tr": "Fiziksel plak hücrelerinin küçük eksantrisitelerini inceleyip analizi yeniden çalıştırın. Ölçülebilir bir öteleme eksikse çözüm durdurulur.",
+    "hu": "Ellenőrizze a fizikai lemez celláinak kis eltolásait, majd futtassa újra a számítást. A mérhető eltolás hiánya leállítja a számítást.",
+    "zh": "请检查物理板单元的微小偏移并重新分析。如果缺少可测量的偏移，计算将停止。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-offset-layout.md",
+    "heading": "Check shell offsets against the requested analysis geometry"
+  }
+}

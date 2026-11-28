@@ -56,10 +56,16 @@ import type { LineBarPiece, LineStirrupPiece } from './line-bars';
 import type { DrawnBarPlacement } from '../../design-contract/reinforcement';
 import { DEFAULT_TOLERANCES } from './collision';
 import { clause, formatClause, type ClauseRef, type RegulationEdition } from '../../codes/regulation';
+import { cutoffPosition, cutoffStations, evaluateCutoff, type Cutoff } from '../../rc-sheets/cutoff';
+
+import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
+import { rebarSpec } from '../codes/argentina/cirsoc201-rebar';
+import { shearFy } from '../codes/argentina/cirsoc201-basis';
 
 // ─── Inputs ──────────────────────────────────────────────────────
 
 export interface MomentStation {
+  axialCompression?: number;
   /** Position along the member, m from the i end. */
   x: number;
   /** Envelope sagging (positive) moment, kN·m. */
@@ -104,8 +110,6 @@ export interface BeamGenerationInput {
   layerDrop?: number;
   supportI: SupportKind;
   supportJ: SupportKind;
-  /** Nominal shear strength at each station, kN — for the §9.7.3.5 tests. */
-  vn: number;
   /** Chosen bottom reinforcement (from the coordinator). */
   bottom: { count: number; diameterMm: number };
   /** Chosen top reinforcement at each support. */
@@ -319,21 +323,6 @@ export function bentUpPermitted(policy: BentUpPolicy, edition: RegulationEdition
 
 // ─── Cut-off computation ─────────────────────────────────────────
 
-export type CutoffLegality = 'notInTension' | 'lowShear' | 'doubleArea' | 'extraStirrups' | 'illegal';
-
-export interface Cutoff {
-  /** Position where the steel is theoretically no longer needed, m. */
-  theoretical: number;
-  /** Position after the §9.7.3.3 extension, m — where the bar actually stops. */
-  actual: number;
-  /** Which §9.7.3.5 provision legalises terminating here. */
-  legality: CutoffLegality;
-  /** Set when `legality === 'extraStirrups'`: the required extra stirrup zone. */
-  extraStirrups?: { length: number; maxSpacing: number; minAvOverS: number };
-  refs: ClauseRef[];
-  note: string;
-}
-
 /** Linear interpolation of the envelope at an arbitrary x. */
 function momentAt(stations: readonly MomentStation[], x: number, which: 'mPos' | 'mNeg'): number {
   if (stations.length === 0) return 0;
@@ -349,13 +338,6 @@ function momentAt(stations: readonly MomentStation[], x: number, which: 'mPos' |
     }
   }
   return last[which];
-}
-
-function shearAt(stations: readonly MomentStation[], x: number): number {
-  if (stations.length === 0) return 0;
-  let best = stations[0];
-  for (const s of stations) if (Math.abs(s.x - x) < Math.abs(best.x - x)) best = s;
-  return best.v;
 }
 
 /**
@@ -376,76 +358,6 @@ export function theoreticalCutoff(
     if (momentAt(stations, x, which) <= target) return x;
   }
   return null;
-}
-
-/**
- * Apply §9.7.3.3 (extend by max(d, 12·d_b)) and test §9.7.3.5.
- *
- * When no provision of §9.7.3.5 is satisfied the cut-off is declared `illegal` and the
- * caller runs the bar through instead. Moving the cut-off to somewhere convenient would
- * be inventing a design.
- */
-export function evaluateCutoff(opts: {
-  theoretical: number;
-  d: number;
-  diameterMm: number;
-  stations: readonly MomentStation[];
-  vn: number;
-  b: number;
-  fy: number;
-  /** True when the continuing bars provide at least twice the area required here. */
-  continuingDoubleArea: boolean;
-  /** True when the cut-off point lies in a flexural tension zone. */
-  inTensionZone: boolean;
-  edition: RegulationEdition;
-  towardEnd: boolean;
-}): Cutoff {
-  const ext = Math.max(opts.d, 12 * opts.diameterMm / 1000);
-  const actual = opts.towardEnd ? opts.theoretical + ext : opts.theoretical - ext;
-  const c = (id: string, label?: string) => clause('cirsoc-201', opts.edition, id, label);
-  const baseRefs = [c('9.7.3.3', 'prolongación más allá del punto de corte')];
-
-  if (!opts.inTensionZone) {
-    return {
-      theoretical: opts.theoretical, actual, legality: 'notInTension', refs: baseRefs,
-      note: `Prolongación max(d, 12db) = ${(ext * 1000).toFixed(0)} mm. El punto de corte ` +
-            'no está en zona traccionada, por lo que 9.7.3.5 no restringe la terminación.',
-    };
-  }
-
-  const vu = shearAt(opts.stations, actual);
-  const refs = [...baseRefs, c('9.7.3.5', 'terminación en zona de tracción')];
-
-  if (vu <= (2 / 3) * opts.vn) {
-    return {
-      theoretical: opts.theoretical, actual, legality: 'lowShear', refs,
-      note: `9.7.3.5(a): Vu = ${vu.toFixed(1)} kN ≤ (2/3)Vn = ${((2 / 3) * opts.vn).toFixed(1)} kN.`,
-    };
-  }
-  if (opts.diameterMm <= 32 && opts.continuingDoubleArea && vu <= 0.75 * opts.vn) {
-    return {
-      theoretical: opts.theoretical, actual, legality: 'doubleArea', refs,
-      note: `9.7.3.5(b): Ø${opts.diameterMm} ≤ 32 mm, la armadura que continúa duplica el ` +
-            `área requerida y Vu = ${vu.toFixed(1)} kN ≤ (3/4)Vn = ${(0.75 * opts.vn).toFixed(1)} kN.`,
-    };
-  }
-
-  // (c) — extra stirrups over (3/4)d, Av >= 0.41 bw s / fyt, s <= d/(8 βb).
-  // βb is the ratio of the area cut off to the total; with the conservative βb = 1 the
-  // spacing limit is d/8, which is the tightest the clause can demand.
-  const zone = 0.75 * opts.d;
-  const maxSpacing = opts.d / 8;
-  const minAvOverS = 0.41 * opts.b / opts.fy;
-  return {
-    theoretical: opts.theoretical, actual, legality: 'extraStirrups',
-    extraStirrups: { length: zone, maxSpacing, minAvOverS },
-    refs,
-    note:
-      `9.7.3.5(c): Vu = ${vu.toFixed(1)} kN excede los límites de (a) y (b), de modo que ` +
-      `se exigen estribos adicionales sobre ${(zone * 1000).toFixed(0)} mm con ` +
-      `s ≤ ${(maxSpacing * 1000).toFixed(0)} mm y Av/s ≥ ${minAvOverS.toFixed(5)} m²/m ` +
-      '(βb adoptado = 1, el caso más exigente).',
-  };
 }
 
 // ─── Stirrup zones ───────────────────────────────────────────────
@@ -681,6 +593,8 @@ export function transverseAxis(axis: Point3, up: Point3): Point3 {
 export interface GeneratedBeam {
   bars: BarPath[];
   cutoffs: Cutoff[];
+  cutoffTrace: string[];
+  checkPlacedCuts: (bars: readonly BarPath[], sourcesByBar?: ReadonlyMap<string, ReadonlySet<string>>) => { cuts: Cutoff[]; trace: string[] };
   stirrupZones: StirrupZone[];
   /**
    * PHYSICAL transverse reinforcement — every closed stirrup and crosstie as a real bar.
@@ -749,6 +663,12 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   const trace: string[] = [];
   const unsupported: string[] = [];
   const cutoffs: Cutoff[] = [];
+  const terminations: Array<{ theoretical: number; actual: number; diameterMm: number; towardEnd: boolean; label: string }> = [];
+  const termination = (theoretical: number, diameterMm: number, towardEnd: boolean, label: string, placedAt?: number) => {
+    const actual = placedAt ?? cutoffPosition(theoretical, input.d, diameterMm, towardEnd);
+    terminations.push({ theoretical, actual, diameterMm, towardEnd, label });
+    return actual;
+  };
   const bars: BarPath[] = [];
   const refs: ClauseRef[] = [];
   const c = (id: string, label?: string) => clause('cirsoc-201', input.edition, id, label);
@@ -1190,20 +1110,24 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     const xLeft = theoreticalCutoff(input.stations, 'mPos', peakPos, retained, midpoint, 0);
     const xRight = theoreticalCutoff(input.stations, 'mPos', peakPos, retained, midpoint, input.L);
 
+    const calculated = xLeft === null || xRight === null ? null : {
+      theoreticalLeft: xLeft, theoreticalRight: xRight,
+      left: cutoffPosition(xLeft, input.d, input.bottom.diameterMm, false),
+      right: cutoffPosition(xRight, input.d, input.bottom.diameterMm, true),
+    };
+
     if (edited) {
       // The person's cut points. Checked against where §9.7.3.3 would let the bars stop.
       const from = Math.max(0, input.cuts!.bottomFrom!), to = Math.min(input.L, input.cuts!.bottomTo!);
-      if (xLeft !== null && xRight !== null) {
-        const req = (theoretical: number, towardEnd: boolean) => evaluateCutoff({
-          theoretical, d: input.d, diameterMm: input.bottom.diameterMm, stations: input.stations, vn: input.vn, b: input.b, fy: input.fy,
-          continuingDoubleArea: retained >= 0.5, inTensionZone: true, edition: input.edition, towardEnd,
-        }).actual;
-        const l = req(xLeft, false), r = req(xRight, true);
+      if (calculated) {
+        const { left: l, right: r } = calculated;
         if (from > l + 1e-3 || to < r - 1e-3) {
           unsupported.push(`Corte editado de ${curtailable}Ø${input.bottom.diameterMm} inferiores en x = ${from.toFixed(2)}–${to.toFixed(2)} m, ` +
             `más corto que el que admite 9.7.3.3 (${Math.max(0, l).toFixed(2)}–${Math.min(input.L, r).toFixed(2)} m).`);
         }
       }
+      termination(xLeft ?? from, input.bottom.diameterMm, false, 'Corte izquierdo', from);
+      termination(xRight ?? to, input.bottom.diameterMm, true, 'Corte derecho', to);
       trace.push(`Corte editado de la armadura inferior en x = ${from.toFixed(3)} y ${to.toFixed(3)} m.`);
       for (let i = 0; i < curtailable; i++) {
         const o = botSlots[continuing + i] ?? { layer: 0, x: 0, y: 0, z: 0 };
@@ -1218,13 +1142,14 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
           ownerElementIds: [input.elementId], edition: input.edition,
         }));
       }
-    } else if (xLeft === null || xRight === null) {
+    } else if (!calculated || calculated.left <= (input.supportFaceI ?? 0)
+      || input.L - calculated.right <= (input.supportFaceJ ?? 0)) {
       // NOT an unsupported condition. Running the bottom bars continuous is the correct
       // and conservative outcome when the envelope never drops far enough to curtail —
       // §9.7.3.8 requires continuity into the supports regardless. Reporting it as
       // unsupported held every ordinary beam at COORDINATED and made CONSTRUCTIBLE, and
       // therefore the whole review-and-issue workflow, unreachable in practice.
-      trace.push('Sin punto de corte teórico: la armadura inferior se corre completa.');
+      trace.push('Sin dos cortes dentro de la luz libre: la armadura inferior se corre completa.');
       for (let i = 0; i < curtailable; i++) {
         const o = botSlots[continuing + i] ?? { layer: 0, x: 0, y: 0, z: 0 };
         barLayers[`e${input.elementId}-bot-run-${i}`] = o.layer;
@@ -1235,25 +1160,8 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
         }));
       }
     } else {
-      const cutL = evaluateCutoff({
-        theoretical: xLeft, d: input.d, diameterMm: input.bottom.diameterMm,
-        stations: input.stations, vn: input.vn, b: input.b, fy: input.fy,
-        continuingDoubleArea: retained >= 0.5, inTensionZone: true,
-        edition: input.edition, towardEnd: false,
-      });
-      const cutR = evaluateCutoff({
-        theoretical: xRight, d: input.d, diameterMm: input.bottom.diameterMm,
-        stations: input.stations, vn: input.vn, b: input.b, fy: input.fy,
-        continuingDoubleArea: retained >= 0.5, inTensionZone: true,
-        edition: input.edition, towardEnd: true,
-      });
-      cutoffs.push(cutL, cutR);
-      refs.push(...cutL.refs, ...cutR.refs);
-      trace.push(`Corte izquierdo en x = ${cutL.actual.toFixed(3)} m. ${cutL.note}`);
-      trace.push(`Corte derecho en x = ${cutR.actual.toFixed(3)} m. ${cutR.note}`);
-
-      const from = Math.max(0, cutL.actual);
-      const to = Math.min(input.L, cutR.actual);
+      const from = termination(calculated.theoreticalLeft, input.bottom.diameterMm, false, 'Corte izquierdo', calculated.left);
+      const to = termination(calculated.theoreticalRight, input.bottom.diameterMm, true, 'Corte derecho', calculated.right);
       for (let i = 0; i < curtailable; i++) {
         const o = botSlots[continuing + i] ?? { layer: 0, x: 0, y: 0, z: 0 };
         barLayers[`e${input.elementId}-bot-cut-${i}`] = o.layer;
@@ -1379,24 +1287,16 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
       input.stations, 'mNeg', Math.max(t.peak, 1e-9), 0.0,
       atStart ? 0 : input.L, atStart ? input.L / 2 : input.L / 2);
     const theoretical = xCut ?? (atStart ? nominal : input.L - nominal);
-    const cut = evaluateCutoff({
-      theoretical, d: input.d, diameterMm: t.group.diameterMm,
-      stations: input.stations, vn: input.vn, b: input.b, fy: input.fy,
-      continuingDoubleArea: false, inTensionZone: true,
-      edition: input.edition, towardEnd: atStart,
-    });
-    cutoffs.push(cut);
-    refs.push(...cut.refs, c('9.7.3.4', 'longitud embebida de la armadura continua'));
+    const calculated = cutoffPosition(theoretical, input.d, t.group.diameterMm, atStart);
     const editedCut = atStart ? input.cuts?.topI : input.cuts?.topJ;
-    const actual = editedCut ?? cut.actual;
+    const actual = termination(theoretical, t.group.diameterMm, atStart, `Armadura superior ${t.side}: corte`, editedCut);
+    refs.push(c('9.7.3.4', 'longitud embebida de la armadura continua'));
     if (editedCut !== undefined) {
-      trace.push(`Armadura superior ${t.side}: corte editado en x = ${editedCut.toFixed(3)} m (el cálculo lo ponía en ${cut.actual.toFixed(3)} m).`);
-      if (atStart ? editedCut < cut.actual - 1e-3 : editedCut > cut.actual + 1e-3) {
+      trace.push(`Armadura superior ${t.side}: corte editado en x = ${editedCut.toFixed(3)} m (el cálculo lo ponía en ${calculated.toFixed(3)} m).`);
+      if (atStart ? editedCut < calculated - 1e-3 : editedCut > calculated + 1e-3) {
         unsupported.push(`Corte editado de la armadura superior ${t.side} en x = ${editedCut.toFixed(2)} m, ` +
-          `más corto que el que admite 9.7.3 (${cut.actual.toFixed(2)} m).`);
+          `más corto que el que admite 9.7.3 (${calculated.toFixed(2)} m).`);
       }
-    } else {
-      trace.push(`Armadura superior ${t.side}: corte en x = ${cut.actual.toFixed(3)} m. ${cut.note}`);
     }
 
     const zTopBar = cage.halfUp - inset(t.group.diameterMm) - drop;
@@ -1614,21 +1514,6 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
       `(luz libre ${clear.toFixed(3)} m de ${input.L.toFixed(3)} m entre ejes). ` +
       'El nudo no lleva armadura transversal generada.');
   }
-  // §9.7.3.5(c) zones from any cut-off that needed them. §9.7.3.5(c)'s own `d/(8·βb)` limit
-  // is ADDITIONAL to Table 9.7.6.2.2, not a replacement for it: whichever is tighter governs
-  // the spacing, and the table still decides the leg count.
-  for (const cut of cutoffs) {
-    if (!cut.extraStirrups) continue;
-    const from = Math.max(faceI, cut.actual - cut.extraStirrups.length);
-    const to = Math.min(faceJ, cut.actual + cut.extraStirrups.length);
-    if (!(to > from)) continue;
-    const zone = zoneFor(from, to, 'cutoff', cut.refs, designed?.span);
-    raw.push({ ...zone, spacing: Math.min(zone.spacing, cut.extraStirrups.maxSpacing) });
-  }
-  const stirrupZones = mergeStirrupZones(raw, input.L);
-  trace.push(`${stirrupZones.length} zona(s) de estribos tras fusionar solapes ` +
-    '(en cada solape gobierna la separación menor).');
-
   // ── Materialise the transverse cage ──
   //
   // The zones above are instructions. These are bars. Stations come from the zone geometry and
@@ -1659,7 +1544,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   // a topJ bar does not exist at the i end; a station-blind check credits a bend with gripping
   // a bar that is not there.
   const dot = (a: Point3, b: Point3): number => a.x * b.x + a.y * b.y + a.z * b.z;
-  interface StationedBarRef extends LongitudinalBarRef { from: number; to: number }
+  interface StationedBarRef extends LongitudinalBarRef { from: number; to: number; face?: string }
   // The stirrups close on the bars as the line's rank lays them: a mat lowered under a crossing
   // line's (`layerDrop`) or a bottom raised over one (`layerRaise`) takes the stirrup's bends with
   // it, the cage shorter by both and its centre moved by half their difference. Full height, the
@@ -1667,47 +1552,104 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   const cageShift = (raise - drop) / 2;
   const cageH = input.h - raise - drop;
   const cageOrigin = { x: input.origin.x + input.up.x * cageShift, y: input.origin.y + input.up.y * cageShift, z: input.origin.z + input.up.z * cageShift };
-  const cageBars: StationedBarRef[] = [];
-  for (const bar of bars) {
-    if (bar.role !== 'longitudinal') continue;
-    // The MAIN RUN, not segment 0: a bar with a leading hook starts at the hook tip, which is
-    // offset from the bar's own line by the hook extension and would place it in the wrong
-    // section position entirely.
-    let run: BarSegment | null = null;
-    for (const sg of bar.segments) {
-      if (sg.kind !== 'straight') continue;
-      if (run === null || sg.length > run.length) run = sg;
+  function projectCage(paths: readonly BarPath[]): StationedBarRef[] {
+    const cageBars: StationedBarRef[] = [];
+    for (const bar of paths) {
+      if (bar.role !== 'longitudinal') continue;
+      // The MAIN RUN, not segment 0: a bar with a leading hook starts at the hook tip, which is
+      // offset from the bar's own line by the hook extension and would place it in the wrong
+      // section position entirely.
+      let run: BarSegment | null = null;
+      for (const sg of bar.segments) {
+        if (sg.kind !== 'straight') continue;
+        if (run === null || sg.length > run.length) run = sg;
+      }
+      if (run === null) continue;
+      const mid = {
+        x: (run.start.x + run.end.x) / 2,
+        y: (run.start.y + run.end.y) / 2,
+        z: (run.start.z + run.end.z) / 2,
+      };
+      const rel = {
+        x: mid.x - input.origin.x, y: mid.y - input.origin.y, z: mid.z - input.origin.z,
+      };
+      const relStart = {
+        x: run.start.x - input.origin.x, y: run.start.y - input.origin.y,
+        z: run.start.z - input.origin.z,
+      };
+      const relEnd = {
+        x: run.end.x - input.origin.x, y: run.end.y - input.origin.y,
+        z: run.end.z - input.origin.z,
+      };
+      const tA = dot(relStart, input.axis);
+      const tB = dot(relEnd, input.axis);
+      const region = bar.layerId?.split(':')[1];
+      cageBars.push({
+        id: bar.id,
+        face: region?.startsWith('top') ? 'top' : region,
+        across: dot(rel, acrossAxis),
+        up: dot(rel, input.up) - cageShift,
+        diameterMm: bar.diameterMm,
+        from: Math.min(tA, tB),
+        to: Math.max(tA, tB),
+      });
     }
-    if (run === null) continue;
-    const mid = {
-      x: (run.start.x + run.end.x) / 2,
-      y: (run.start.y + run.end.y) / 2,
-      z: (run.start.z + run.end.z) / 2,
-    };
-    const rel = {
-      x: mid.x - input.origin.x, y: mid.y - input.origin.y, z: mid.z - input.origin.z,
-    };
-    const relStart = {
-      x: run.start.x - input.origin.x, y: run.start.y - input.origin.y,
-      z: run.start.z - input.origin.z,
-    };
-    const relEnd = {
-      x: run.end.x - input.origin.x, y: run.end.y - input.origin.y,
-      z: run.end.z - input.origin.z,
-    };
-    const tA = dot(relStart, input.axis);
-    const tB = dot(relEnd, input.axis);
-    cageBars.push({
-      id: bar.id,
-      across: dot(rel, acrossAxis),
-      up: dot(rel, input.up) - cageShift,
-      diameterMm: bar.diameterMm,
-      from: Math.min(tA, tB),
-      to: Math.max(tA, tB),
-    });
+    return cageBars;
   }
+  const cageBars = projectCage(bars);
+  const resistanceAt = (x: number, layout: StirrupZone[], reservedAreaPerMetre = 0, longitudinal = cageBars): number => {
+    const samples = cutoffStations(input.stations, x);
+    const axial = Math.min(...samples.map(st => st.axialCompression ?? NaN));
+    const zones = layout.filter(z => z.from <= x && x <= z.to);
+    if (!zones.length || !Number.isFinite(axial)) return NaN;
+    const active = longitudinal.filter(bar => bar.from < x && x < bar.to);
+    let resistance = Infinity;
+    for (const face of ['bottom', 'top'] as const) {
+      const steel = active.filter(bar => bar.face === face);
+      const area = steel.reduce((sum, bar) => sum + rebarSpec(bar.diameterMm).area * 1e-4, 0);
+      const depth = Math.min(...steel.map(bar => input.h / 2 + (face === 'top' ? 1 : -1) * (bar.up + cageShift)));
+      if (!(area > 0 && depth > 0 && depth <= input.h)) return NaN;
+      for (const zone of zones) {
+        const av = zone.legs * rebarSpec(zone.diameterMm).area * 1e-4 - reservedAreaPerMetre * zone.spacing;
+        if (!(av >= 0)) return NaN;
+        const section = evaluateBeamSection({
+          edition: input.edition, b: input.b, h: input.h, d: depth, As: area, Ag: input.b * input.h,
+          fc: input.fc * 1e6, fy: input.fy * 1e6, NuCompression: axial * 1000, Av: av, s: zone.spacing,
+        });
+        if (!section?.shearValid) return NaN;
+        resistance = Math.min(resistance, section.phiVn / 1000);
+      }
+    }
+    return resistance;
+  };
+  const designZones = mergeStirrupZones(raw, input.L);
+  for (const end of terminations) {
+    const cut = evaluateCutoff({
+      theoretical: end.theoretical, placedAt: end.actual, d: input.d, diameterMm: end.diameterMm,
+      stations: input.stations, vn: resistanceAt(end.actual, designZones), b: input.b, fy: shearFy(input.fy),
+      continuingDoubleArea: false, inTensionZone: true, edition: input.edition, towardEnd: end.towardEnd,
+    });
+    cutoffs.push(cut);
+    refs.push(...cut.refs);
+  }
+  // §9.7.3.5(c) zones from any cut-off that needed them. §9.7.3.5(c)'s own `d/(8·βb)` limit
+  // is ADDITIONAL to Table 9.7.6.2.2, not a replacement for it: whichever is tighter governs
+  // the spacing, and the table still decides the leg count.
+  for (const cut of cutoffs) {
+    if (!cut.extraStirrups) continue;
+    const from = Math.max(faceI, cut.actual - cut.extraStirrups.length);
+    const to = Math.min(faceJ, cut.actual + cut.extraStirrups.length);
+    if (!(to > from)) continue;
+    const zone = zoneFor(from, to, 'cutoff', cut.refs, designed?.span);
+    raw.push({ ...zone, spacing: Math.min(zone.spacing, cut.extraStirrups.maxSpacing) });
+  }
+  const stirrupZones = mergeStirrupZones(raw, input.L);
+  trace.push(`${stirrupZones.length} zona(s) de estribos tras fusionar solapes ` +
+    '(en cada solape gobierna la separación menor).');
+
   const cageId = `e${input.elementId}:cage`;
 
+  const requiredSets: { station: number; count: number; paths: BarPath[] }[] = [];
   for (let zi = 0; zi < stirrupZones.length; zi++) {
     const z = stirrupZones[zi];
     const next = stirrupZones[zi + 1];
@@ -1718,6 +1660,8 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     const zoneId = `e${input.elementId}:${z.reason}:${zi}`;
     for (let si = 0; si < stations.length; si++) {
       const station = stations[si];
+      const required = { station, count: 1 + Math.max(0, z.legs - 2), paths: [] as BarPath[] };
+      requiredSets.push(required);
       if (input.webOpenings?.some((o) => station > o.from - 0.01 && station < o.to + 0.01)) continue;
       // Only the bars that EXIST at this station. A bend cannot grip a curtailed bar past its
       // cut-off, and the tolerance is the same fabrication tolerance the containment check
@@ -1742,6 +1686,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
         unsupported.push(...set.unsupported.map((r) => formatClause(r)));
         continue;
       }
+      required.paths = set.pieces.map(piece => piece.path);
       transverse.push(...set.pieces);
     }
     // NOT checked here: §25.7.2.3(b)'s "no unbraced bar beyond 15·d_be or 150 mm" rule.
@@ -1809,8 +1754,50 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   trace.push(`${transverse.length} pieza(s) transversales fabricadas ` +
     `(${transverse.filter((p) => p.shape === 'crosstie').length} ganchos suplementarios).`);
 
+  function checkPlacedCuts(paths: readonly BarPath[], sourcesByBar?: ReadonlyMap<string, ReadonlySet<string>>) {
+    if (!cutoffs.length) return { cuts: [], trace: [] };
+    const byId = new Map(paths.map(path => [path.id, path]));
+    const longitudinal = projectCage(paths);
+    const cuts = cutoffs.map((plan, i): Cutoff => {
+      const end = terminations[i]!;
+      const extra = plan.extraStirrups;
+      const x = plan.actual;
+      const left = x - (extra?.length ?? 0);
+      const right = x + (extra?.length ?? 0);
+      const firstInside = requiredSets.findIndex(set => set.station > left);
+      const before = firstInside < 0 ? requiredSets.length - 1 : firstInside - 1;
+      const after = requiredSets.findIndex(set => set.station >= right);
+      const sets = requiredSets.slice(Math.max(0, before), after < 0 ? undefined : after + 1);
+      const complete = sets.length > 0 && requiredSets[0]!.station <= x && requiredSets.at(-1)!.station >= x
+        && sets.every(set => set.paths.length === set.count && set.paths.every(piece => {
+          const placed = byId.get(piece.id);
+          return placed?.role === 'transverse' && placed.diameterMm === piece.diameterMm
+            && (placed.segments === piece.segments || JSON.stringify(placed.segments) === JSON.stringify(piece.segments));
+        }));
+      const endsInPlace = cageBars.filter(bar => Math.abs(bar.from - x) < 1e-9 || Math.abs(bar.to - x) < 1e-9)
+        .every(bar => longitudinal.some(actual => (actual.id === bar.id || sourcesByBar?.get(actual.id)?.has(bar.id))
+          && actual.diameterMm === bar.diameterMm
+          && (bar.from === actual.from || Math.abs(bar.from - x) >= 1e-9)
+          && (bar.to === actual.to || Math.abs(bar.to - x) >= 1e-9)));
+      const capacity = complete && endsInPlace ? resistanceAt(x, stirrupZones, 0, longitudinal) : NaN;
+      const checked = evaluateCutoff({
+        theoretical: end.theoretical, placedAt: x, d: input.d, diameterMm: end.diameterMm,
+        stations: input.stations, vn: capacity, b: input.b, fy: shearFy(input.fy),
+        continuingDoubleArea: false, inTensionZone: true, edition: input.edition, towardEnd: end.towardEnd,
+      });
+      if (checked.legality !== 'extraStirrups') return checked;
+      const demand = Math.max(...cutoffStations(input.stations, x).map(s => Math.abs(s.v)));
+      if (extra && stirrupZones.filter(zone => zone.from <= x && x <= zone.to).every(zone => zone.spacing <= extra.maxSpacing)
+        && demand <= resistanceAt(x, stirrupZones, extra.minAvOverS, longitudinal)) return checked;
+      return { ...checked, legality: 'illegal', note: '§9.7.3.5 — Vu / φVn: —' };
+    });
+    return { cuts, trace: cuts.map((cut, i) => `${terminations[i]!.label} en x = ${cut.actual.toFixed(3)} m. ${cut.note}`) };
+  }
+  const placed = checkPlacedCuts([...bars, ...transverse.map(piece => piece.path)]);
+  trace.push(...placed.trace);
+
   return {
-    bars, cutoffs, stirrupZones, transverse,
+    bars, cutoffs: placed.cuts, cutoffTrace: placed.trace, checkPlacedCuts, stirrupZones, transverse,
     transverseFindings: { bendsWithoutBar: looseBends.length },
     bentUp, trace, refs, unsupported, barLayers, drawnLaps,
   };

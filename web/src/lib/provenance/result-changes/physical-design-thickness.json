@@ -1,0 +1,35 @@
+{
+  "id": "physical-design-thickness",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "all": [
+      "physicalDesignThickness"
+    ]
+  },
+  "title": {
+    "en": "Check physical plate design thickness",
+    "es": "Revisar el espesor de cálculo de la placa",
+    "pt": "Rever a espessura de cálculo da placa",
+    "de": "Bemessungsdicke der Platte prüfen",
+    "fr": "Vérifier l’épaisseur de calcul de la plaque",
+    "hu": "A lemez méretezési vastagságának ellenőrzése",
+    "tr": "Plak tasarım kalınlığını kontrol edin",
+    "zh": "复核板的设计厚度"
+  },
+  "explanation": {
+    "en": "Compare the physical plate thickness with its mesh cells before using a uniform-section check.",
+    "es": "Compare el espesor de la placa con el de sus celdas antes de verificar una sección uniforme.",
+    "pt": "Compare a espessura da placa com a das células antes de verificar uma seção uniforme.",
+    "de": "Vergleichen Sie die Plattendicke mit den Zelldicken, bevor Sie einen einheitlichen Querschnitt nachweisen.",
+    "fr": "Comparez l’épaisseur de la plaque à celle des mailles avant de vérifier une section uniforme.",
+    "hu": "Állandó keresztmetszet ellenőrzése előtt hasonlítsa össze a lemez és a hálóelemek vastagságát.",
+    "tr": "Sabit kesit kontrolünden önce plak kalınlığını ağ hücrelerinin kalınlıklarıyla karşılaştırın.",
+    "zh": "按等截面验算前，请将板厚与各网格单元的厚度逐一核对。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-physical-design-thickness.md",
+    "heading": "Design thickness of physical plates"
+  }
+}

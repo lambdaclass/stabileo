@@ -1,0 +1,1187 @@
+import mergedPathChange from '../result-changes/merged-path-convergence-state.json';
+import mergedValueAudit from '../../../../../docs/results-changes/1952-main-merge-values.json';
+import physicalRecoveryChange from '../result-changes/physical-reaction-force-boundary.json';
+import memberEquilibriumChange from '../result-changes/planar-corotational-member-equilibrium.json';
+import frozenArchA from '../../../../results-frozen/solve_arc_length-0015ab84c3baa36f.json';
+import frozenArchB from '../../../../results-frozen/solve_arc_length-022317310499426d.json';
+import reactionRecoveryChange from '../result-changes/arc-length-reactions.json';
+import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
+import { RESULT_CHANGES } from '../full-registry';
+import declaredQuantities from 'virtual:result-change-quantities';
+import { describe, it, expect, vi } from 'vitest';
+import { featuresForMode } from '../../../../config/public-features.mjs';
+import { GRAVITY_SELF_WEIGHT } from '../../engine/analysis-settings';
+import { assessProject, conditionHolds } from '../applicability';
+import { modelFeatures, type FeatureSnapshot } from '../model-features';
+import { RESULTS_VERSION, type ResultChangeRegistry } from '../registry';
+import bucklingChange from '../result-changes/buckling-original-pencil.json';
+import { declaresMove } from '../../legacy-projects/legacy';
+import { analysesContext, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../solve-stamp';
+
+const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
+const CONCRETE = { id: 2, name: 'H-25', e: 30000, nu: 0.2, rho: 25, fy: 25 };
+const node = (id: number, x: number, z = 0) => [id, { id, x, y: 0, z }] as [number, { id: number; x: number; y: number; z: number }];
+const member = (id: number, materialId: number, type: 'frame' | 'truss', extra: Record<string, unknown> = {}) =>
+  [id, { id, type, nodeI: 1, nodeJ: 2, materialId, sectionId: 1, releaseI: {}, releaseJ: {}, ...extra }] as [number, never];
+
+function model(over: Partial<FeatureSnapshot> = {}): FeatureSnapshot {
+  return {
+    analysisMode: 'pro',
+    materials: [[1, STEEL], [2, CONCRETE]] as never,
+    elements: [],
+    supports: [[1, { nodeId: 1, type: 'fixed3d' }]] as never,
+    loads: [],
+    loadCases: [{ id: 1, type: 'D' }],
+    ...over,
+  };
+}
+
+const ids = (s: FeatureSnapshot, stamp: SolveStamp | null = null) => assessProject(s, stamp, s.analysisMode).changes.map((c) => c.id);
+
+describe('which registered changes concern a model', () => {
+  it('#2460 and #2461 scope plate remesh notices and their declared result changes', () => {
+    const entry = RESULT_CHANGES.changes.find(change => change.id === 'physical-plate-remesh')!;
+    const surface = { loops: [4], materialId: 1, thickness: 0.2, mesh: { size: 2, element: 'quad', followMembers: false } };
+    const group = { data: { surface }, members: { nodes: [1, 2, 3, 4], quads: [1] } };
+    const quad = { id: 1, nodes: group.members.nodes };
+    const offset = { frame: 'local', x: 0, y: 0, z: 0.1 };
+    const plain = model({ groups: [[1, group]], quads: [[1, quad]] });
+    const arc = model({ ...plain, groups: [[1, { ...group, data: { surface: { ...surface, arcMids: [1] } } }]] });
+    const curved = model({ ...plain, quads: [[1, { ...quad, curved: true }]] });
+    const eccentric = model({ ...plain, quads: [[1, { ...quad, offset }]] });
+    const triangle = model({
+      ...plain, quads: [], plates: [[1, { id: 1, nodes: [1, 2, 3], offset }]],
+      groups: [[1, { ...group, members: { nodes: [1, 2, 3, 4], plates: [1] } }]],
+    });
+    for (const snapshot of [arc, curved, eccentric, triangle]) expect(ids(snapshot)).toContain(entry.id);
+    for (const snapshot of [plain, { ...eccentric, groups: [] }, { ...arc, analysisMode: '2d' }]) {
+      expect(ids(snapshot)).not.toContain(entry.id);
+    }
+    const change = { ...entry, quantities: declaredQuantities[entry.id] };
+    expect(declaresMove(change, 'solve.ok')).toBe(true);
+    expect(declaresMove(change, 'base.reactions[1].fz')).toBe(true);
+    expect(declaresMove(change, 'base.displacements[1].uz')).toBe(true);
+    expect(declaresMove(change, 'base.elementForces[1].nStart')).toBe(false);
+  });
+
+  it('known wrong result: #2072: excludes unrelated legacy frames and shells from elastic SSI notices', () => {
+    for (const analysisMode of ['2d', 'pro']) {
+      for (const snapshot of [
+        model({ analysisMode, elements: [member(1, 1, 'frame')] }),
+        model({ analysisMode, quads: [[1, { id: 1 }]] }),
+      ]) {
+        expect(ids(snapshot)).not.toContain('ssi-elastic-refinement');
+        const linear = { ...stampSolve('linear', null), resultsVersion: 30 };
+        expect(ids(snapshot, linear)).not.toContain('ssi-elastic-refinement');
+        const { recorded: _recorded, ...legacy } = linear;
+        expect(ids(snapshot, legacy)).not.toContain('ssi-elastic-refinement');
+      }
+    }
+  });
+
+  it('#2072: retains elastic SSI notices for explicit SSI and stored linear support curves', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'ssi-elastic-refinement')!;
+    for (const analysisMode of ['2d', 'pro']) {
+      const snapshot = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+      const before = { ...stampSolve('ssi', null), resultsVersion: entry.resultsVersion - 1 };
+      expect(ids(snapshot, before)).toContain(entry.id);
+      expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
+      expect(ids(snapshot, stampSolve('ssi', null))).not.toContain(entry.id);
+    }
+    const curved = model({ supports: [[1, { nodeId: 1, type: 'spring3d', curves: { x: [[0, 0], [1, 1]] } }]] });
+    const before = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 };
+    expect(ids(curved, before)).toContain(entry.id);
+    expect(ids(curved)).toContain(entry.id);
+  });
+
+  it('#2007: scopes physical mass range changes to modal constraints or support rotations', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'modal-physical-mass-range')!;
+    for (const analysisMode of ['2d', 'pro']) {
+      const ordinary = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+      const constrained = model({ ...ordinary, constraints: [{ type: 'linearMPC', terms: [
+        { nodeId: 1, dof: 0, coefficient: 1 }, { nodeId: 2, dof: 0, coefficient: -0.3 }, { nodeId: 2, dof: 1, coefficient: -0.7 },
+      ] }] });
+      const rotated = model({ ...ordinary, supports: [[1, { nodeId: 1, type: 'inclinedRoller', angle: 30, isInclined: true }]] });
+      for (const snapshot of [ordinary, constrained, rotated]) {
+        for (const analysesRun of [['modal'], ['spectral'], ['linear']]) {
+          const features = modelFeatures(snapshot, { analysesRun });
+          expect(conditionHolds(entry.when ?? {}, features)).toBe(snapshot !== ordinary && analysesRun[0] !== 'linear');
+        }
+      }
+      expect(ids(ordinary)).not.toContain(entry.id);
+      for (const snapshot of [constrained, rotated]) {
+        expect(ids(snapshot)).toContain(entry.id);
+        expect(ids(snapshot, stampSolve('modal', null))).not.toContain(entry.id);
+      }
+    }
+  });
+
+  it('also rechecks unreleased members and constraint-only snapshots for staged solve checks', () => {
+    const designData = { site: { phases: [{ id: 'first' }] } };
+    const ordinary = model({ designData, elements: [member(1, 1, 'frame')] });
+    const constrained = model({ designData, constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }] });
+    for (const snapshot of [ordinary, constrained]) {
+      expect(modelFeatures(snapshot)).not.toContain('hinges');
+      expect(ids(snapshot)).toContain('staged-free-stiffness');
+      expect(ids(snapshot, stampSolve('linear', null))).not.toContain('staged-free-stiffness');
+    }
+  });
+
+  it('rechecks staged spring and mixed member models without requiring end releases', () => {
+    const designData = { site: { phases: [{ id: 'first' }] } };
+    const ordinary = model({ designData, elements: [member(1, 1, 'frame')] });
+    const spring = model({ designData, elements: [member(1, 1, 'frame')], supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never });
+    const mixed = model({ designData, elements: [member(1, 1, 'frame'), member(2, 1, 'truss')] });
+    for (const snapshot of [spring, mixed]) {
+      expect(modelFeatures(snapshot)).not.toContain('hinges');
+      expect(ids(snapshot)).toContain('staged-orphan-rotations');
+    }
+    expect(ids(ordinary)).not.toContain('staged-orphan-rotations');
+    expect(ids(spring, stampSolve('linear', null))).not.toContain('staged-orphan-rotations');
+  });
+
+  it('scopes generator stability guidance to recorded generated structures', () => {
+    const ordinary = model({ elements: [member(1, 1, 'frame')] });
+    const generated = { ...ordinary, groups: [[1, { kind: 'generated' }]] } as FeatureSnapshot;
+    expect(modelFeatures(generated)).toContain('generatedStructures');
+    expect(ids(generated)).toContain('generated-structure-stability');
+    expect(ids(ordinary)).not.toContain('generated-structure-stability');
+    expect(ids({ ...ordinary, groups: [[1, { kind: 'floorLoad' }]] })).not.toContain('generated-structure-stability');
+    expect(ids({ ...generated, elements: [] })).not.toContain('generated-structure-stability');
+    expect(ids({ ...generated, analysisMode: '2d' })).not.toContain('generated-structure-stability');
+    const current = stampSolve('linear', null);
+    expect(ids(generated, current)).not.toContain('generated-structure-stability');
+  });
+
+  it('shows one complete harmonic correction notice for PR #1922', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!;
+    const snapshot = model({ elements: [member(1, 1, 'frame')] });
+    const before = entry.resultsVersion - 1;
+    for (const stamp of [null, { ...stampSolve('harmonic', null), resultsVersion: before }]) {
+      const notices = assessProject(snapshot, stamp).changes.filter((change) => change.prs.includes(1922));
+      expect(notices.map((change) => change.id)).toEqual(['harmonic-omitted-modes']);
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+        expect(notices[0].explanation[locale]).toContain('#1434');
+        expect(notices[0].explanation[locale]).toContain('PR #1922');
+      }
+    }
+    const linear = { ...stampSolve('linear', null), resultsVersion: before };
+    expect(assessProject(snapshot, linear).changes.filter((change) => change.prs.includes(1922))).toEqual([]);
+  });
+
+  it('scopes the omitted harmonic mode correction to harmonic structural models, including spring-only models', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes');
+    expect(entry).toBeDefined();
+    for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+      expect(conditionHolds(entry!.when ?? {}, new Set([structure, 'analysis:harmonic']))).toBe(true);
+      expect(conditionHolds(entry!.when ?? {}, new Set([structure, 'analysis:linear']))).toBe(false);
+    }
+    expect(conditionHolds(entry!.when ?? {}, new Set(['analysis:harmonic']))).toBe(false);
+  });
+
+  it('keeps the omitted harmonic notice for legacy unknown analyses and excludes a recorded linear-only solve', () => {
+    const snapshot = model({ elements: [member(1, 1, 'frame')] });
+    const harmonic = stampSolve('harmonic', null);
+    const linear = stampSolve('linear', null);
+    const before = RESULT_CHANGES.changes.find((change) => change.id === 'harmonic-omitted-modes')!.resultsVersion - 1;
+    expect(ids(snapshot, { ...harmonic, resultsVersion: before })).toContain('harmonic-omitted-modes');
+    expect(ids(snapshot, { ...linear, resultsVersion: before })).not.toContain('harmonic-omitted-modes');
+    const { recorded: _recorded, ...legacy } = linear;
+    expect(ids(snapshot, { ...legacy, resultsVersion: before })).toContain('harmonic-omitted-modes');
+  });
+
+  it('scopes exact plastic resource refusals to frame projects after plastic analysis', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-exact-resource-budget-refused');
+    expect(entry).toBeDefined();
+    for (const dimension of ['space3D', 'plane2D']) {
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'frameMembers', 'analysis:plastic']))).toBe(true);
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'frameMembers', 'analysis:modal']))).toBe(false);
+      expect(conditionHolds(entry!.when ?? {}, new Set([dimension, 'trussMembers', 'analysis:plastic']))).toBe(false);
+    }
+  });
+
+  it('scopes the checked 3D certified lower bound to space frames after plastic analysis', () => {
+    const entry = RESULT_CHANGES.changes.find((change) => change.id === 'plastic-3d-certified-lower-bound');
+    expect(entry).toBeDefined();
+    const features = ['space3D', 'frameMembers', 'analysis:plastic'];
+    expect(conditionHolds(entry!.when ?? {}, new Set(features))).toBe(true);
+    for (const omitted of features) {
+      expect(conditionHolds(entry!.when ?? {}, new Set(features.filter((feature) => feature !== omitted)))).toBe(false);
+    }
+  });
+
+  it('shows the CIRSOC 301 tension note only for steel members without connection data under CIRSOC 301', () => {
+    const steelTruss = model({ elements: [member(1, 1, 'truss')] });
+    expect(ids(steelTruss)).toContain('cirsoc301-tension-needs-connection');
+
+    const concreteOnly = model({ elements: [member(1, 2, 'frame')] });
+    expect(ids(concreteOnly)).not.toContain('cirsoc301-tension-needs-connection');
+    expect(ids(concreteOnly)).not.toContain('cirsoc301-ltb-top-flange');
+    expect(ids(concreteOnly)).toContain('cirsoc201-strain-compatibility');
+
+    const connected = model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: { kind: 'welded' }, j: { kind: 'welded' } } })] });
+    expect(ids(connected)).not.toContain('cirsoc301-tension-needs-connection');
+    expect(ids(connected)).toContain('cirsoc301-ltb-top-flange');
+
+    const ec3 = model({
+      elements: [member(1, 1, 'truss')],
+      regulations: { roles: { steel: { adapterId: 'eurocode3' } } },
+    });
+    expect(ids(ec3)).not.toContain('cirsoc301-tension-needs-connection');
+    expect(ids(ec3)).not.toContain('cirsoc301-biaxial-h11b');
+    expect(ids(ec3)).toContain('ec3-aisc-ltb-and-slender');
+  });
+
+  it('shows the Cb segment-ends change only for CIRSOC 301 steel with a declared unbraced length', () => {
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain('cb-segment-ends');
+    expect(ids(model({ elements: [member(1, 1, 'frame', { unbracedLength: 2 })] }))).toContain('cb-segment-ends');
+    expect(ids(model({ elements: [member(1, 1, 'frame', { bracing: { top: [1.5] } })] }))).toContain('cb-segment-ends');
+    expect(ids(model({ elements: [member(1, 2, 'frame', { unbracedLength: 2 })] }))).not.toContain('cb-segment-ends');
+    expect(ids(model({
+      elements: [member(1, 1, 'frame', { unbracedLength: 2 })],
+      regulations: { roles: { steel: { adapterId: 'eurocode3' } } },
+    }))).not.toContain('cb-segment-ends');
+  });
+
+  it('shows the net-area chain change only for CIRSOC 301 steel with a staggered or web-less "all" bolted end', () => {
+    const bolted = (extra: Record<string, unknown>) => ({ kind: 'bolted', connected: 'legH', holeKind: 'standard', ...extra });
+    const id = 'net-area-chains-and-web-lines';
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({}) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { j: bolted({ stagger: { sMm: 40, gMm: 60 } }) } })] }))).toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ connected: 'all', webLines: 0 }) } })] }))).toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ connected: 'all', webLines: 1 }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: { sMm: 40 } }) } })] }))).not.toContain(id);
+    expect(ids(model({ elements: [member(1, 2, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })] }))).not.toContain(id);
+    expect(ids(model({
+      elements: [member(1, 1, 'truss', { tensionConnection: { i: bolted({ stagger: {} }) } })],
+      regulations: { roles: { steel: { adapterId: 'eurocode3' } } },
+    }))).not.toContain(id);
+  });
+
+  it('shows the arc local-axes change only for models with members drawn as an arc (#418)', () => {
+    const spec = { start: { x: -5, y: 0, z: 0 }, through: { x: 0, y: 0, z: 5 }, end: { x: 5, y: 0, z: 0 }, segments: 8 };
+    const arch = model({ elements: [member(1, 1, 'frame', { arc: { id: 1, spec } })] });
+    expect(modelFeatures(arch).has('arcMembers')).toBe(true);
+    expect(ids(arch)).toContain('arc-member-local-axes');
+    const straight = model({ elements: [member(1, 1, 'frame')] });
+    expect(modelFeatures(straight).has('arcMembers')).toBe(false);
+    expect(ids(straight)).not.toContain('arc-member-local-axes');
+  });
+
+  it('shows the member thermal change only for models with temperature loads on members (#407)', () => {
+    const heated = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'thermal', data: { elementId: 1, dtUniform: 0, dtGradient: 20, caseId: 1 } }] });
+    expect(ids(heated)).toContain('frame-thermal-alpha-depth');
+    const shellOnly = model({ quads: [[1, {}]] as never, loads: [{ type: 'thermalQuad3d', data: { quadId: 1, caseId: 1 } }] });
+    expect(ids(shellOnly)).not.toContain('frame-thermal-alpha-depth');
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain('frame-thermal-alpha-depth');
+  });
+
+  it('shows the unfactored-design change only for models with footings or joint designs and combinations (W2-01)', () => {
+    const combos = { combinations: [{ id: 1, name: '1.2D', factors: [{ caseId: 1, factor: 1.2 }] }] } as Partial<FeatureSnapshot>;
+    const frame = { elements: [member(1, 2, 'frame')] };
+    expect(ids(model({ ...frame, ...combos, footings: [[1, { nodeId: 1 }]] as never }))).toContain('design-on-unfactored-results');
+    expect(ids(model({ ...frame, ...combos, jointDesigns: { 1: { nodeId: 1 } } }))).toContain('design-on-unfactored-results');
+    expect(ids(model({ ...frame, footings: [[1, { nodeId: 1 }]] as never }))).not.toContain('design-on-unfactored-results');
+    expect(ids(model({ ...frame, ...combos }))).not.toContain('design-on-unfactored-results');
+  });
+
+  it('tells concrete projects that never stored their covers about the Table 20.5.1.3.1 defaults, and no project that stored its own', () => {
+    const frame = { elements: [member(1, 2, 'frame')] };
+    expect(ids(model(frame))).toContain('default-covers-table-20-5-1-3-1');
+    expect(ids(model({ footings: [[1, { nodeId: 1 }]] as never }))).toContain('default-covers-table-20-5-1-3-1');
+    expect(ids(model({ ...frame, designData: { covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 } } }))).not.toContain('default-covers-table-20-5-1-3-1');
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain('default-covers-table-20-5-1-3-1');
+    expect(modelFeatures(model({ ...frame, designData: { loadBasis: {} } })).has('defaultDesignCovers')).toBe(true);
+  });
+
+  it('names the ACI change for an ACI-bound concrete model and not the CIRSOC 201 one', () => {
+    const aci = model({ elements: [member(1, 2, 'frame')], regulations: { roles: { concrete: { adapterId: 'aci-aisc' } } } });
+    expect(ids(aci)).toContain('aci318-strain-and-axial');
+    expect(ids(aci)).not.toContain('cirsoc201-strain-compatibility');
+  });
+
+  it('shows the constraint change only when a constraint slave is supported', () => {
+    const base = { elements: [member(1, 2, 'frame')], nodes: [node(1, 0), node(2, 5)] };
+    const onSupported = model({ ...base, constraints: [{ type: 'rigidLink', masterNode: 2, slaveNode: 1 }] });
+    const free = model({ ...base, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2 }] });
+    expect(ids(onSupported)).toContain('constraints-on-supported-slaves');
+    expect(ids(free)).not.toContain('constraints-on-supported-slaves');
+  });
+
+  it('shows the dead-load default only for models with floor (area) dead loads', () => {
+    const withFloor = model({ loads: [{ type: 'surface3d', data: { quadId: 1, q: -2.32, caseId: 1 } }], quads: [[1, {}]] as never });
+    expect(ids(withFloor)).toContain('dead-load-default-2.52');
+    expect(ids(model({ elements: [member(1, 2, 'frame')] }))).not.toContain('dead-load-default-2.52');
+  });
+
+  it('lists nothing for a project solved with the current version, and every applicable change for an unknown one', () => {
+    const steel = model({ elements: [member(1, 1, 'truss')] });
+    const current = stampSolve('linear', null);
+    expect(current.resultsVersion).toBe(RESULTS_VERSION);
+    expect(assessProject(steel, current).changes).toEqual([]);
+    expect(assessProject(steel, current).older).toBe(false);
+    const unknown = assessProject(steel, unknownStamp());
+    expect(unknown.older).toBe(true);
+    expect(unknown.solvedVersion).toBe(0);
+    expect(unknown.changes.length).toBeGreaterThan(3);
+    // No stamp at all reads the same as the explicit unknown stamp.
+    expect(assessProject(steel, null).changes.map((c) => c.id)).toEqual(unknown.changes.map((c) => c.id));
+  });
+
+  it('flags a project solved with a newer version than this build', () => {
+    const newer = { ...stampSolve('linear', null), resultsVersion: RESULTS_VERSION + 1 };
+    const a = assessProject(model(), newer);
+    expect(a.newer).toBe(true);
+    expect(a.changes).toEqual([]);
+  });
+
+  it('tells projects with concrete members about the EN 1992-1-1 flexure fix, whatever their bound code', () => {
+    const change = 'ec2-flexure-strain-compatibility';
+    for (const concrete of [undefined, 'cirsoc201', 'aci-aisc', 'eurocode2']) {
+      const beam = model({
+        elements: [member(1, 2, 'frame')],
+        ...(concrete ? { regulations: { roles: { concrete: { adapterId: concrete } } } } : {}),
+      });
+      expect(ids(beam, { resultsVersion: 5, analyses: ['linear'] } as SolveStamp)).toContain(change);
+      expect(ids(beam, { resultsVersion: 7, analyses: ['linear'] } as SolveStamp)).toContain(change);
+      expect(ids(beam, { resultsVersion: 8, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    }
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain(change);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
+  it('tells models with generated loads about SA-2026-033, and no other model', () => {
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    const generated = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }] });
+    const v19 = { resultsVersion: 19, analyses: ['linear'] } as SolveStamp;
+    expect(ids(generated, v19)).toContain('generated-area-loads-headroom');
+    expect(ids(frame, v19)).not.toContain('generated-area-loads-headroom');
+    const v20 = { resultsVersion: 20, analyses: ['linear'] } as SolveStamp;
+    const basis = (resultsVersion?: number) => ({ designData: { loadBasis: resultsVersion === undefined ? {} : { resultsVersion } } });
+    expect(ids({ ...generated, ...basis(19) }, v20)).toContain('generated-area-loads-headroom');
+    expect(ids({ ...generated, ...basis() }, v20)).toContain('generated-area-loads-headroom');
+    expect(ids({ ...generated, ...basis(20) }, v20)).not.toContain('generated-area-loads-headroom');
+    expect(ids({ ...frame, ...basis(19) }, v20)).toContain('generated-area-loads-headroom');
+    expect(ids({ ...frame, ...basis(20) }, v20)).not.toContain('generated-area-loads-headroom');
+    expect(ids(generated, v20)).toContain('generated-area-loads-headroom');
+    const stair = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'stair:1' } }] });
+    expect(ids(stair, v19)).not.toContain('generated-area-loads-headroom');
+    expect(ids(stair, v20)).not.toContain('generated-area-loads-headroom');
+    const plane = { ...generated, analysisMode: '2d', ...basis() };
+    expect(ids(plane, { resultsVersion: 14, analyses: ['linear'] } as SolveStamp)).toContain('basic-influence-line-moment-sign-withdrawn');
+    expect(ids(plane, v20)).toContain('generated-area-loads-headroom');
+    expect(ids(plane, v20)).not.toContain('basic-influence-line-moment-sign-withdrawn');
+    expect(ids(plane, v20)).toContain('safety-containment-diagnostics');
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom') as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
+  it('tells shell models solved before #1255 that their shell figures now paint the screen\'s field', () => {
+    const fig = 'shell-figures-paint-the-screen-field';
+    const shell = model({ quads: [[1, { id: 1, nodes: [1, 2, 3, 4], materialId: 2, thickness: 0.2 }]] as never });
+    expect(ids(shell, { resultsVersion: 20, analyses: ['linear'] } as SolveStamp)).toContain(fig);
+    expect(ids(shell, { resultsVersion: 21, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }), { resultsVersion: 20, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === fig) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
+  it('tells prior buckling runs about certificate refusals in both dimensions and on shells', () => {
+    const change = 'buckling-certificate-rejects-outside-factor';
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      const frame = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+      expect(ids(frame, { resultsVersion: 5, analyses: ['buckling'] } as SolveStamp)).toContain(change);
+      expect(ids(frame, { resultsVersion: 5, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+      expect(ids(frame, { resultsVersion: 6, analyses: ['buckling'] } as SolveStamp)).not.toContain(change);
+      expect(ids(frame)).toContain(change);
+    }
+    expect(ids(model({ quads: [[1, {}]] as never }))).toContain(change);
+  });
+
+  it('tells only 3D frames about the 3D co-rotational fix, never a plane model (#426)', () => {
+    const change = 'corotational-3d-rotations';
+    for (const analysisMode of ['3d', 'pro']) {
+      const frame = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+      expect(modelFeatures(frame).has('space3D')).toBe(true);
+      expect(ids(frame)).toContain(change);
+    }
+    const plane = model({ analysisMode: '2d', elements: [member(1, 1, 'frame')] });
+    expect(modelFeatures(plane).has('space3D')).toBe(false);
+    expect(ids(plane)).not.toContain(change);
+    expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'truss')] }))).not.toContain(change);
+  });
+
+  it('tells 3D frames solved before version 39 about the 3D plastic refusal of a member without capacity, never a plane model or a truss (#1525)', () => {
+    const change = 'plastic-3d-member-without-capacity-refused';
+    const v38 = { resultsVersion: 38, analyses: ['linear'] } as SolveStamp;
+    expect(ids(model({ analysisMode: 'pro', elements: [member(1, 1, 'frame')] }), v38)).toContain(change);
+    expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'frame')] }), v38)).toContain(change);
+    expect(ids(model({ analysisMode: 'pro', elements: [member(1, 1, 'frame')] }), { resultsVersion: 39, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ analysisMode: '2d', elements: [member(1, 1, 'frame')] }), v38)).not.toContain(change);
+    expect(ids(model({ analysisMode: 'pro', elements: [member(1, 1, 'truss')] }), v38)).not.toContain(change);
+  });
+
+  it('tells CIRSOC 301 steel models solved before the Q ≤ 0 refusal about it', () => {
+    const change = 'cirsoc301-q-nonpositive-refused';
+    const steel = model({ elements: [member(1, 1, 'frame')] });
+    expect(ids(steel, { resultsVersion: 11, analyses: ['linear'] } as SolveStamp)).toContain(change);
+    expect(ids(steel, { resultsVersion: 12, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ elements: [member(1, 2, 'frame')] }))).not.toContain(change);
+    const ec3 = model({ elements: [member(1, 1, 'frame')], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } });
+    expect(ids(ec3)).not.toContain(change);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
+  it('tells models with a time history or modal analysis about the dynamics fixes of SA-2026-031 and SA-2026-032', () => {
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    const linearOnly = { resultsVersion: 12, analyses: ['linear'] } as SolveStamp;
+    expect(ids(frame, linearOnly)).not.toContain('time-history-massless-start');
+    const forced = model({ elements: [member(1, 1, 'frame')], dynamics: { timeHistory: { forces: [{ nodeId: 2, dir: 'x', kind: 'step', amplitude: 1 }] } } });
+    expect(ids(forced, linearOnly)).toContain('time-history-massless-start');
+    expect(ids(model({ elements: [member(1, 1, 'frame')], dynamics: { timeHistory: { forces: [] } } }), linearOnly)).toContain('time-history-massless-start');
+    expect(ids(forced, { resultsVersion: 13, analyses: ['linear'] } as SolveStamp)).not.toContain('time-history-massless-start');
+    expect(ids(frame, linearOnly)).not.toContain('modal-mechanism-refused');
+    expect(ids(frame, { resultsVersion: 12, analyses: ['modal'] } as SolveStamp)).toContain('modal-mechanism-refused');
+    expect(ids(frame, { resultsVersion: 13, analyses: ['modal'] } as SolveStamp)).not.toContain('modal-mechanism-refused');
+    for (const change of ['time-history-massless-start', 'modal-mechanism-refused']) {
+      const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
+        expect(entry.title[locale]?.trim(), `${change} title.${locale}`).toBeTruthy();
+        expect(entry.explanation[locale]?.trim(), `${change} explanation.${locale}`).toBeTruthy();
+      }
+    }
+  });
+
+  it('scopes compensated load projection to inclined structural supports', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'inclined-resolved-load-projection')!;
+    for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+      expect(conditionHolds(entry.when ?? {}, new Set([structure, 'inclinedSupports']))).toBe(true);
+      expect(conditionHolds(entry.when ?? {}, new Set([structure]))).toBe(false);
+    }
+    expect(conditionHolds(entry.when ?? {}, new Set(['inclinedSupports']))).toBe(false);
+  });
+
+  it('scopes compensated equilibrium to P-Delta and SSI with structural stiffness', () => {
+    const change = 'nonlinear-equilibrium-arithmetic';
+    const entry = RESULT_CHANGES.changes.find(c => c.id === change)!;
+    for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+      for (const analysis of ['analysis:pdelta', 'analysis:ssi']) {
+        expect(conditionHolds(entry.when ?? {}, new Set([structure, analysis]))).toBe(true);
+        expect(conditionHolds(entry.when ?? {}, new Set([analysis]))).toBe(false);
+      }
+      for (const analysis of ['analysis:linear', 'analysis:modal', 'analysis:nonlinear']) {
+        expect(conditionHolds(entry.when ?? {}, new Set([structure, analysis]))).toBe(false);
+      }
+    }
+  });
+
+  it('scopes supported and soil equilibrium to structural nonlinear or SSI histories', () => {
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'nonlinear-supported-and-soil-equilibrium')!;
+    for (const structure of ['members', 'connectors', 'springs']) {
+      for (const analysis of ['analysis:pdelta', 'analysis:nonlinear', 'analysis:ssi']) {
+        expect(conditionHolds(entry.when ?? {}, new Set([structure, analysis]))).toBe(true);
+        expect(conditionHolds(entry.when ?? {}, new Set([analysis]))).toBe(false);
+      }
+      expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:linear']))).toBe(false);
+    }
+  });
+
+  it('scopes nonlinear physical convergence to structural nonlinear analyses', () => {
+    const change = 'nonlinear-physical-convergence';
+    const entry = RESULT_CHANGES.changes.find(c => c.id === change)!;
+    const before = entry.resultsVersion - 1;
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    for (const kind of ['pdelta', 'nonlinear'] as const) {
+      const stamp = { ...stampSolve(kind, null), resultsVersion: before };
+      expect(ids(frame, stamp)).toContain(change);
+      expect(ids(model(), stamp)).not.toContain(change);
+      expect(ids(frame, { ...stamp, resultsVersion: entry.resultsVersion })).not.toContain(change);
+    }
+    expect(ids(frame, { ...stampSolve('linear', null), resultsVersion: before })).not.toContain(change);
+    expect(ids(frame)).toContain(change);
+    expect(ids(model())).not.toContain(change);
+  });
+
+  it('unknown analysis history without stiffness elements has no linear result to re-check', () => {
+    expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
+  });
+
+  it('concerns a 3D steel truss solved before the containment diagnostics, and not the same supports and nodal load without members one version old (the re-check e2e relies on it)', () => {
+    const previous = { resultsVersion: RESULTS_VERSION - 1, analyses: ['linear'] } as SolveStamp;
+    const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 3, fz: -20 } }];
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('safety-containment-diagnostics');
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), { resultsVersion: 30, analyses: ['linear'] } as SolveStamp)).toContain('fail-closed-ratios');
+    expect(ids(model({ loads }), previous)).toEqual([]);
+  });
+
+  it('tells a truss-only model with a support spring about the orphan-rotation fix, and not one without', () => {
+    const v32 = { resultsVersion: 32, analyses: ['linear'] } as SolveStamp;
+    const springs = [[1, { nodeId: 1, type: 'fixed3d' }], [2, { nodeId: 2, type: 'spring3d', krz: 1e-13 }]] as never;
+    expect(ids(model({ elements: [member(1, 1, 'truss')], supports: springs }), v32)).toContain('soft-rotation-not-orphan');
+    expect(ids(model({ elements: [member(1, 1, 'truss')] }), v32)).not.toContain('soft-rotation-not-orphan');
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }), v32)).toContain('soft-rotation-not-orphan');
+  });
+
+  it('tells every model that can rotate past 0.1 rad about the small-displacement warning (#1446), and not one with supports and loads only', () => {
+    const change = 'linear-small-displacement-warning';
+    const v35 = { resultsVersion: 35, analyses: ['linear'] } as SolveStamp;
+    const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 1, my: 5 } }];
+    expect(ids(model({ loads, elements: [member(1, 1, 'frame')] }), v35)).toContain(change);
+    expect(ids(model({ loads, elements: [member(1, 1, 'truss')] }), v35)).toContain(change);
+    const spring = model({ loads, supports: [[1, { nodeId: 1, type: 'spring3d', kry: 1e-6 }]] as never });
+    expect(modelFeatures(spring).has('springs')).toBe(true);
+    expect(ids(spring, v35)).toContain(change);
+    expect(ids(model({ loads, elements: [member(1, 1, 'frame')] }), { resultsVersion: 36, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ loads }), v35)).not.toContain(change);
+  });
+
+  it('never tells a saved model about a change of bundled examples only, whatever it was solved with', () => {
+    const change = 'example-torsion-beam-closed-section';
+    expect(RESULT_CHANGES.changes.find((c) => c.id === change)?.scope).toBe('examples');
+    const loads = [{ type: 'nodal3d', data: { caseId: 1, nodeId: 2, fz: -20, mx: 8 } }];
+    const torsionBeam = model({ analysisMode: '3d', loads, elements: [member(1, 1, 'frame')] });
+    for (const stamp of [null, { resultsVersion: 1, analyses: ['linear'] } as SolveStamp, { resultsVersion: RESULTS_VERSION - 1, analyses: ['linear'] } as SolveStamp]) {
+      expect(ids(torsionBeam, stamp)).not.toContain(change);
+    }
+    const everything = { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.map((c) => (c.id === change ? { ...c, scope: undefined, when: {} } : c)) } as ResultChangeRegistry;
+    expect(assessProject(torsionBeam, null, '3d', everything).changes.map((c) => c.id)).toContain(change);
+  });
+
+  it('limits the combination screening notice to repeated cases within a combination', () => {
+    const change = 'repeated-combination-case-screening';
+    const single = { caseId: 1, factor: 1 };
+    const half = { caseId: 1, factor: 0.5 };
+    for (const analysisMode of ['2d', '3d']) {
+      expect(ids(model({ analysisMode, combinations: [{ factors: [half, half] }] }))).toContain(change);
+      expect(ids(model({ analysisMode, combinations: [{ factors: [single] }, { factors: [single] }] }))).not.toContain(change);
+      expect(ids(model({ analysisMode, combinations: [{ factors: [half, { ...half, caseId: 2 }] }] }))).not.toContain(change);
+    }
+  });
+
+  it('scopes the empty nonlinear case notice to models with superposition combinations', () => {
+    const change = 'empty-nonlinear-combination-cases';
+    const combinations = [{ factors: [{ caseId: 1, factor: 1 }] }];
+    expect(ids(model({ combinations, analysis: { combinationMethod: 'superpose' } }))).toContain(change);
+    expect(ids(model({ combinations, analysis: { combinationMethod: 'solveEach' } }))).not.toContain(change);
+    expect(ids(model({ combinations }))).not.toContain(change);
+    expect(ids(model({ analysis: { combinationMethod: 'superpose' } }))).not.toContain(change);
+  });
+
+  it('tells plane frames with combinations and member loads about the true-peak governing value and envelope', () => {
+    const change = 'governing-envelope-true-peak';
+    const combos = { combinations: [{ id: 1, name: '1.2D', factors: [{ caseId: 1, factor: 1.2 }] }] } as Partial<FeatureSnapshot>;
+    const loaded = model({ analysisMode: '2d', elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1 } }] as never, ...combos });
+    const v25 = { resultsVersion: 25, analyses: ['linear'] } as SolveStamp;
+    expect(ids(loaded, v25)).toContain(change);
+    expect(ids(loaded, { resultsVersion: 26, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ analysisMode: '2d', elements: [member(1, 1, 'frame')], ...combos }), v25)).not.toContain(change);
+    expect(ids(model({ analysisMode: '3d', elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1 } }] as never, ...combos }), v25)).not.toContain(change);
+  });
+});
+
+describe('versions and recorded analyses (a later registry)', () => {
+  // The version after this build's, holding two made-up changes.
+  const next = RESULTS_VERSION + 1;
+  const later: ResultChangeRegistry = {
+    ...RESULT_CHANGES,
+    currentResultsVersion: next,
+    changes: [
+      ...RESULT_CHANGES.changes,
+      { ...RESULT_CHANGES.changes[0], scope: undefined, examples: undefined, id: 'next-modal', resultsVersion: next, when: { all: ['members', 'analysis:modal'] } },
+      { ...RESULT_CHANGES.changes[0], scope: undefined, examples: undefined, id: 'next-all', resultsVersion: next, when: {} },
+    ],
+  };
+  const steel = model({ elements: [member(1, 1, 'truss')] });
+  const solvedHere = (analyses: SolveStamp['analyses']) => ({ ...stampSolve('linear', null), analyses });
+
+  it('lists only changes after the version the project was solved with', () => {
+    const got = assessProject(steel, solvedHere(['linear', 'modal']), 'pro', later).changes.map((c) => c.id);
+    expect(got).toEqual(['next-all', 'next-modal'].sort());
+  });
+
+  it('gates on the analyses the stamp recorded, and counts every analysis as run when it records none', () => {
+    expect(assessProject(steel, solvedHere(['linear']), 'pro', later).changes.map((c) => c.id)).toEqual(['next-all']);
+    expect(assessProject(steel, null, 'pro', later).changes.map((c) => c.id)).toContain('next-modal');
+  });
+
+  it('counts the analyses a stamp written before #1658 cannot see as run', () => {
+    const f = modelFeatures(steel, { analysesRun: ['linear'] });
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi']) expect(f.has(`analysis:${k}` as never), k).toBe(true);
+    expect(f.has('analysis:modal')).toBe(false);
+  });
+
+  it('counts an analysis a stamp records as run only when it ran', () => {
+    const stamp = solvedHere(['linear']);
+    const f = modelFeatures(steel, { analysesRun: stamp.analyses, analysesRecorded: stamp.recorded });
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi', 'modal']) expect(f.has(`analysis:${k}` as never), k).toBe(false);
+    const harmonic = stampSolve('harmonic', stamp);
+    expect(harmonic.analyses).toEqual(['harmonic', 'linear']);
+    expect(modelFeatures(steel, { analysesRun: harmonic.analyses, analysesRecorded: harmonic.recorded }).has('analysis:harmonic')).toBe(true);
+  });
+
+  it('a solve in another build never makes an analysis that ran under the previous stamp read as not run', () => {
+    const before = { ...stampSolve('harmonic', solvedHere(['linear'])), resultsVersion: 1, commit: 'old' };
+    expect(before.analyses).toEqual(['harmonic', 'linear']);
+    const solved = stampSolve('linear', before);
+    expect(solved.analyses).toEqual(['linear']);
+    expect(solved.recorded).not.toContain('harmonic');
+    expect(modelFeatures(steel, analysesContext(solved)).has('analysis:harmonic')).toBe(true);
+    expect(modelFeatures(steel, analysesContext(solved)).has('analysis:nonlinear')).toBe(false);
+    const fromUnknown = stampSolve('linear', unknownStamp());
+    expect(fromUnknown.recorded).toEqual(['linear']);
+  });
+
+  it('a solve on top of a stamp written before #1658 keeps the analyses it did not record counted as run', () => {
+    const { recorded: _all, ...legacy } = { ...solvedHere(['linear', 'harmonic']), resultsVersion: 1, commit: 'old' };
+    const solved = stampSolve('linear', legacy);
+    expect(solved.analyses).toEqual(['linear']);
+    expect(solved.recorded).not.toContain('harmonic');
+    const reread = readStamp(JSON.parse(JSON.stringify(solved)))!;
+    expect(reread.recorded).toEqual(solved.recorded);
+    const f = modelFeatures(steel, analysesContext(reread));
+    for (const k of ['timeHistory', 'nonlinear', 'harmonic', 'ssi']) expect(f.has(`analysis:${k}` as never), k).toBe(true);
+    const ran = stampSolve('harmonic', reread);
+    expect(ran.recorded).toContain('harmonic');
+    expect(modelFeatures(steel, analysesContext(ran)).has('analysis:nonlinear')).toBe(true);
+  });
+});
+
+describe('conditionHolds', () => {
+  it('needs every group, and any feature within a group', () => {
+    const f = new Set(['a', 'c']);
+    expect(conditionHolds({ any: ['a', 'b'] }, f)).toBe(true);
+    expect(conditionHolds({ all: ['a', 'b'] }, f)).toBe(false);
+    expect(conditionHolds({ allOf: [['a'], ['b', 'c']] }, f)).toBe(true);
+    expect(conditionHolds({}, f)).toBe(true);
+  });
+});
+
+it('shows moving-load changes for saved vehicle position cases and excludes ordinary frames', () => {
+  const frame = model({ elements: [member(1, 1, 'frame')] });
+  const moving = { ...frame, loadCases: [{ id: 1, type: 'Tr', alternatives: 'move:vehicle' }] };
+  expect(modelFeatures(frame).has('movingLoads')).toBe(false);
+  expect(modelFeatures(moving).has('movingLoads')).toBe(true);
+  expect(ids(frame)).not.toContain('moving-loads-3d');
+  expect(ids(frame)).not.toContain('moving-load-endpoint-forces');
+  expect(ids(moving)).toContain('moving-loads-3d');
+  for (const analysisMode of ['2d', 'pro']) {
+    expect(ids({ ...moving, analysisMode })).toContain('moving-load-endpoint-forces');
+  }
+  expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-load-endpoint-forces');
+  expect(ids(moving)).not.toContain('moving-axial-patch-boundaries');
+  for (const analysisMode of ['2d', 'pro']) {
+    expect(ids({ ...moving, analysisMode, loads: [{ type: 'distributed', data: { a: 1.10, b: 1.15 } }] })).toContain('moving-axial-patch-boundaries');
+  }
+  expect(ids({ ...moving, analysisMode: '2d' })).not.toContain('moving-loads-3d');
+  expect(ids({ ...frame, loadCases: [{ id: 1, type: 'Tr' }] })).not.toContain('moving-loads-3d');
+  expect(ids({ ...frame, loadCases: [{ id: 1, alternatives: 'other:group' }] })).not.toContain('moving-loads-3d');
+});
+
+it('scopes contact and cable validity to affected models', () => {
+  const id = 'contact-and-cable-validity';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const elements of [[], [member(1, 1, 'frame')], [member(1, 1, 'truss')]]) {
+      expect(ids(model({ analysisMode, elements }))).not.toContain(id);
+    }
+    for (const behaviour of ['cable', 'tensionOnly', 'compressionOnly']) {
+      expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss', { behaviour })] }))).toContain(id);
+    }
+    for (const type of ['cable', 'gap', 'contact']) {
+      expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss', { type })] }))).toContain(id);
+    }
+    expect(ids(model({ analysisMode, supports: [[1, { nodeId: 1, uplift: true }]] }))).toContain(id);
+    expect(ids(model({ analysisMode, gapElements: [{ id: 1 }] }))).toContain(id);
+    expect(ids(model({ analysisMode, nodeToSurfacePairs: [{ slaveNode: 1 }] }))).toContain(id);
+    expect(ids(model({ analysisMode, upliftSupports: [1] }))).toContain(id);
+  }
+});
+
+it('classifies native cables as axial members and contacts without frame claims (#1921)', () => {
+  for (const type of ['cable', 'gap', 'contact']) {
+    const features = modelFeatures(model({ elements: [member(1, 1, 'truss', { type })] }));
+    expect(features.has('frameMembers'), type).toBe(false);
+    expect(features.has('trussMembers'), type).toBe(type === 'cable');
+  }
+});
+
+it('scopes frozen member validation to one-way behaviour even without gaps (#1921)', () => {
+  const id = 'frozen-one-way-members';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const behaviour of ['tensionOnly', 'compressionOnly']) {
+      expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss', { behaviour })] }))).toContain(id);
+    }
+    expect(ids(model({ analysisMode, elements: [member(1, 1, 'truss')] }))).not.toContain(id);
+    expect(ids(model({ analysisMode, elements: [member(1, 1, 'frame')] }))).not.toContain(id);
+  }
+});
+
+
+describe('reaction recovery saved-model scope (#1949)', () => {
+  const change = 'arc-length-reactions';
+  const entry = RESULT_CHANGES.changes.find((c) => c.id === change)!;
+  const before = (analysis: 'linear' | 'pdelta' | 'nonlinear' | 'timeHistory') => ({
+    ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1,
+  });
+
+  it('excludes unchanged linear and unconstrained nonlinear results in every workspace', () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      const structures: Partial<FeatureSnapshot>[] = [
+        { elements: [member(1, 1, 'frame')] },
+        { elements: [member(1, 1, 'truss')] },
+        { quads: [[1, {}]] },
+        { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] },
+        { connectors: [[1, { kShear: 1 }]] },
+      ];
+      for (const structure of structures) {
+        const snapshot = model({ ...structure, analysisMode });
+        for (const analysis of ['linear', 'nonlinear'] as const) {
+          expect(ids(snapshot, before(analysis)), `${analysisMode} ${analysis} ${JSON.stringify(structure)}`).not.toContain(change);
+        }
+      }
+      const constrained = model({ analysisMode, constraints: [{ type: 'equalDof', masterNode: 1, slaveNode: 2 }] });
+      expect(ids(constrained, before('linear'))).not.toContain(change);
+    }
+  });
+
+  it('requires recoverable structure even when analyses are unknown or a time history is configured', () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      for (const dynamics of [undefined, { timeHistory: { forces: [] } }]) {
+        const snapshot = model({ analysisMode, dynamics, supports: [], loadCases: [] });
+        for (const stamp of [null, before('linear'), before('pdelta'), before('timeHistory')]) {
+          expect(ids(snapshot, stamp)).not.toContain(change);
+        }
+      }
+    }
+  });
+
+  const entries = RESULT_CHANGES.changes.filter((c) => c.prs.includes(1952));
+  const notices = (snapshot: FeatureSnapshot, stamp: SolveStamp | null = null) =>
+    assessProject(snapshot, stamp, snapshot.analysisMode).changes.filter((c) => c.prs.includes(1952));
+  const covered = (path: string, features: string[]) => entries.some((c) =>
+    fieldCovered({ ...c, quantities: declaredQuantities[c.id]?.filter((q): q is string => typeof q === 'string') }, path, features));
+
+  it('known wrong result: #1952: PR entries cover P-Delta equilibrium fields without covering unrelated static output', () => {
+    for (const dimension of ['plane2D', 'space3D']) {
+      for (const structure of [['members', 'frameMembers'], ['members', 'trussMembers'], ['shells'], ['springs'], ['constraints']]) {
+        const features = [...structure, dimension, 'analysis:linear', 'analysis:pdelta'];
+        expect(covered('pdelta.results.equilibrium.equilibriumOk', features), features.join(' ')).toBe(true);
+        for (const path of ['base.reactions[n1].rz', 'base.elementForces[e1].mStart', 'base.displacements[n1].uz', 'solve.ok', 'pdelta.results.displacements[n1].uz']) {
+          expect(covered(path, features), `${features.join(' ')} ${path}`).toBe(false);
+        }
+      }
+    }
+  });
+
+  it.each(['2d', '3d', 'pro'])('known wrong result: #1952: PR notices cover affected saved %s results', (analysisMode) => {
+    for (const structure of [
+      { elements: [member(1, 1, 'frame')] },
+      { elements: [member(1, 1, 'truss')] },
+      { quads: [[1, {}]] as never },
+      { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] as never },
+    ]) {
+      const snapshot = model({ ...structure, analysisMode });
+      expect(notices(snapshot, before('pdelta'))).not.toEqual([]);
+      expect(notices(snapshot, stampSolve('pdelta', null))).toEqual([]);
+      expect(notices(snapshot, before('linear'))).toEqual([]);
+      const dynamic = { ...snapshot, dynamics: { timeHistory: { forces: [] } } };
+      for (const stamp of [before('timeHistory'), before('linear'), null]) {
+        expect(notices(dynamic, stamp)).not.toEqual([]);
+      }
+      for (const analysis of ['timeHistory', 'linear'] as const) {
+        expect(notices(dynamic, stampSolve(analysis, null))).toEqual([]);
+      }
+    }
+    const constrained = model({ analysisMode, constraints: [{ type: 'equalDof', masterNode: 1, slaveNode: 2 }] });
+    expect(notices(constrained, before('nonlinear'))).not.toEqual([]);
+    expect(notices(constrained)).not.toEqual([]);
+    expect(notices(constrained, stampSolve('nonlinear', null))).toEqual([]);
+    expect(notices(constrained, before('linear'))).toEqual([]);
+    for (const stamp of [null, before('linear'), before('pdelta'), before('timeHistory')]) {
+      const empty = model({ analysisMode, dynamics: { timeHistory: { forces: [] } }, supports: [], loadCases: [] });
+      expect(notices(empty, stamp)).toEqual([]);
+    }
+  });
+
+  it.each(['2d', '3d', 'pro'])('known wrong result: #1952: configured and recorded %s time histories get a PR notice', (analysisMode) => {
+    for (const structure of [
+      { elements: [member(1, 1, 'frame')] },
+      { elements: [member(1, 1, 'truss')] },
+      { quads: [[1, {}]] as never },
+      { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] as never },
+      { constraints: [{ type: 'equalDof', masterNode: 1, slaveNode: 2 }] },
+    ]) {
+      const snapshot = model({ ...structure, analysisMode });
+      expect(notices(snapshot, before('timeHistory'))).not.toEqual([]);
+      expect(notices(snapshot, before('linear'))).toEqual([]);
+      const dynamic = { ...snapshot, dynamics: { timeHistory: { forces: [] } } };
+      for (const stamp of [before('timeHistory'), before('linear'), null]) {
+        expect(notices(dynamic, stamp)).not.toEqual([]);
+      }
+    }
+  });
+
+  it('PR entries notify both frozen path contexts and retain their field boundaries', () => {
+    for (const fixture of [frozenArchA, frozenArchB]) {
+      const features = new Set(fixture.features);
+      const snapshot = model({ analysisMode: '2d', elements: [member(1, 1, 'frame')] });
+      const assess = (stamp: SolveStamp) => assessProject(snapshot, stamp, '2d', RESULT_CHANGES, features).changes.filter((c) => c.prs.includes(1952));
+      expect(assess(before('nonlinear'))).not.toEqual([]);
+      expect(assess(stampSolve('nonlinear', null))).toEqual([]);
+      for (const path of Object.keys(fixture.values).filter((p) => p.includes('.reactions['))) {
+        expect(covered(path, fixture.features), path).toBe(true);
+      }
+      for (const path of ['base.reactions[n1].rz', 'base.elementForces[e1].mStart', 'base.displacements[n1].uz', 'solve.ok', 'pdelta.results.displacements[n1].uz']) {
+        expect(covered(path, [...fixture.features, 'analysis:linear', 'analysis:pdelta']), path).toBe(false);
+      }
+    }
+  });
+});
+
+describe('path reaction recovery registry regressions (#1952)', () => {
+  for (const [name, fixture] of [['0015ab84c3baa36f', frozenArchA], ['022317310499426d', frozenArchB]] as const) {
+    it(`covers the actual frozen path result ${name}`, () => {
+      expect(conditionHolds(reactionRecoveryChange.when, new Set([...fixture.features, 'pathAnalysis']))).toBe(true);
+      expect(fixture.features).toContain('pathAnalysis');
+      expect(conditionHolds(reactionRecoveryChange.when, new Set(fixture.features))).toBe(true);
+      for (const path of Object.keys(fixture.values).filter(p => p.includes('.reactions['))) {
+        expect(fieldCovered(reactionRecoveryChange, path, fixture.features), path).toBe(true);
+      }
+      expect(fieldCovered(reactionRecoveryChange, 'nonlinear.results.elementForces[0].mStart', fixture.features)).toBe(true);
+      expect(fieldCovered(reactionRecoveryChange, 'nonlinear.results.displacements[0].ux', fixture.features)).toBe(false);
+      expect(fieldCovered(reactionRecoveryChange, 'base.reactions[n1].rz', [...fixture.features, 'analysis:linear'])).toBe(false);
+      expect(conditionHolds(reactionRecoveryChange.when, new Set(fixture.features.filter((f: string) => f !== 'pathAnalysis')))).toBe(false);
+    });
+  }
+});
+
+it('rechecks kinematic motion and dormant stiffness changes in both dimensions', () => {
+  const id = 'kinematic-translation-motion';
+  for (const analysisMode of ['2d', '3d', 'pro']) {
+    for (const snapshot of [
+      model({ analysisMode, elements: [member(1, 1, 'frame')] }),
+      model({ analysisMode, constraints: [{ type: 'rigidLink', masterNode: 1, slaveNode: 2, dofs: [] }] }),
+      model({ analysisMode, supports: [[1, { nodeId: 1, type: 'spring', kx: 1 }]] as never }),
+    ]) {
+      expect(ids(snapshot)).toContain(id);
+      expect(ids(snapshot, stampSolve('linear', null))).not.toContain(id);
+    }
+    expect(ids(model({ analysisMode }))).not.toContain(id);
+  }
+});
+
+describe('round 3 nonlinear stale-result coverage', () => {
+  it('#761 — covers shell and point nonlinear histories', () => {
+    for (const id of ['nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium']) {
+      const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+      for (const feature of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
+        for (const analysis of (id === 'nonlinear-physical-convergence' ? ['analysis:pdelta', 'analysis:nonlinear'] : ['analysis:pdelta', 'analysis:nonlinear', 'analysis:ssi'])) {
+          expect(conditionHolds(entry.when ?? {}, new Set([feature, analysis])), `${id} ${feature} ${analysis}`).toBe(true);
+        }
+      }
+    }
+  });
+  it('#761 — assesses saved shell and point results with complete histories', () => {
+    const shapes = [
+      { plates: [[1, {}]] }, { quads: [[1, { curved: true }]] }, { solidShells: [[1, {}]] },
+      { connectors: [[1, { kShear: 1 }]] }, { supports: [[1, { nodeId: 1, type: 'spring3d', kx: 1 }]] },
+    ] as Partial<FeatureSnapshot>[];
+    for (const shape of shapes) {
+      for (const kind of ['pdelta', 'nonlinear', 'ssi'] as const) {
+        const snapshot = model(shape);
+        const entry = RESULT_CHANGES.changes.find(c => c.id === 'nonlinear-supported-and-soil-equilibrium')!;
+        const stamp = { ...stampSolve(kind, null), resultsVersion: entry.resultsVersion - 1 };
+        expect(ids(snapshot, stamp)).toContain(entry.id);
+        expect(ids(snapshot, { ...stamp, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
+      }
+    }
+  });
+  it('#761 — infers SSI from 3D support curves despite linear stamps', () => {
+    const snapshot = model({ supports: [[1, { nodeId: 1, type: 'spring3d', curves: { x: [[0, 0], [1, 1]] } }]] as never });
+    const entry = RESULT_CHANGES.changes.find(c => c.id === 'nonlinear-supported-and-soil-equilibrium')!;
+    const stamp = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 };
+    expect(ids(snapshot, stamp)).toContain(entry.id);
+    expect(ids({ ...snapshot, analysisMode: '2d' }, stamp)).not.toContain(entry.id);
+    expect(ids({ ...snapshot, supports: [] }, stamp)).not.toContain(entry.id);
+    expect(ids(snapshot, { ...stamp, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
+  });
+});
+
+it('#761 round 4 flags saved linear displacement3d results', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'prescribed-and-inclined-equilibrium')!;
+  const snapshot = model({ elements: [member(1, 1, 'frame')], loads: [{ id: 1, type: 'displacement3d', data: { nodeId: 1, dx: 5e-16 } }] as never });
+  const stamp = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 };
+  expect(modelFeatures(snapshot)).toContain('caseDisplacements');
+  expect(ids(snapshot, stamp)).toContain(entry.id);
+  expect(ids({ ...snapshot, loads: [] }, stamp)).not.toContain(entry.id);
+  expect(ids(snapshot, stampSolve('linear', null))).not.toContain(entry.id);
+});
+
+it('#761 scopes the collinear chord correction to nonlinear 2D frames', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'collinear-axial-chord-rotation')!;
+  expect(entry.scope).toBeUndefined();
+  expect(entry.when).toBeDefined();
+  expect(conditionHolds(entry.when!, new Set(['plane2D', 'frameMembers', 'analysis:nonlinear']))).toBe(true);
+  for (const features of [
+    ['plane2D', 'frameMembers', 'analysis:linear'],
+    ['space3D', 'frameMembers', 'analysis:nonlinear'],
+    ['plane2D', 'connectors', 'analysis:nonlinear'],
+    ['plane2D', 'trussMembers', 'analysis:nonlinear'],
+  ]) expect(conditionHolds(entry.when!, new Set(features))).toBe(false);
+});
+
+it('known wrong result: #818: original-pencil notice covers unknown and partial histories', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'buckling-original-pencil')!;
+  for (const structure of ['members', 'shells', 'curvedShells', 'connectors']) {
+    expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:buckling']))).toBe(true);
+    expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:linear']))).toBe(false);
+    expect(conditionHolds(entry.when ?? {}, new Set([structure, 'analysis:modal']))).toBe(false);
+  }
+  expect(conditionHolds(entry.when ?? {}, new Set(['analysis:buckling']))).toBe(false);
+  for (const over of [{ elements: [member(1, 1, 'frame')] }, { elements: [member(1, 1, 'truss')] }, { quads: [[1, {}]] }, { quads: [[1, { curved: {} }]] }, { connectors: [[1, {}]] }]) {
+    const snapshot = model(over as never);
+    const before = { ...stampSolve('buckling', null), resultsVersion: entry.resultsVersion - 1 };
+    expect(ids(snapshot, before)).toContain(entry.id);
+    expect(ids(snapshot, unknownStamp())).toContain(entry.id);
+    expect(ids(snapshot, { ...before, analyses: [], recorded: [] })).toContain(entry.id);
+    const afterLinear = stampSolve('linear', { ...before, commit: 'another-build' });
+    expect(afterLinear.recorded).not.toContain('buckling');
+    expect(ids(snapshot, { ...afterLinear, resultsVersion: before.resultsVersion })).toContain(entry.id);
+    expect(ids(snapshot, { ...before, analyses: ['linear'] })).not.toContain(entry.id);
+    expect(ids(snapshot, { ...before, analyses: ['modal'] })).not.toContain(entry.id);
+    expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
+  }
+});
+
+it('known wrong result: #818: a buckling notice cannot excuse linear result changes', () => {
+  for (const path of ['solve.ok', 'base.elementForces[e1].nStart', 'base.displacements[n1].ux', 'base.reactions[n1].rz']) {
+    expect(declaresMove({ quantities: undefined, ...bucklingChange }, path), path).toBe(false);
+  }
+});
+
+it('#2074: plain unreleased frames and unloaded connectors need no released-load notice', () => {
+  for (const analysisMode of ['2d', 'pro']) {
+    for (const snapshot of [
+      model({ analysisMode, elements: [member(1, 1, 'frame')] }),
+      model({ analysisMode, connectors: [[1, { kShear: 0, kShearZ: 0 }]] }),
+      model({ analysisMode, quads: [[1, { id: 1 }]] }),
+      model({ analysisMode, elements: [member(1, 1, 'frame'), member(2, 1, 'truss')], loads: [{ type: 'distributed3d', data: { elementId: 1, qYI: 1, qYJ: 1 } }] }),
+    ]) {
+      for (const id of ['released-load-work', 'transformed-load-assembly', 'truss-load-direction-rounding']) expect(ids(snapshot)).not.toContain(id);
+    }
+  }
+});
+
+it('#2074: retains released-load notices for every affected assembly feature', () => {
+  for (const analysisMode of ['2d', 'pro']) {
+    const frame = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+    for (const snapshot of [
+      model({ ...frame, elements: [member(1, 1, 'frame', { releaseI: { mz: true } })] }),
+      model({ ...frame, elements: [member(1, 1, 'truss')], loads: [{ type: 'distributed', data: { elementId: 1, qI: 1, qJ: 1 } }] }),
+      ...['mx', 'my', 'mz'].map((key) => model({ ...frame, loads: [{ type: 'nodal3d', data: { nodeId: 1, [key]: 1 } }] })),
+      model({ analysisMode, quads: [[1, { id: 1 }]], loads: [{ type: 'nodal3d', data: { nodeId: 1, mz: 1 } }] }),
+      model({ ...frame, supports: [[1, { nodeId: 1, type: 'inclinedRoller', angle: 30, isInclined: true }]] }),
+      model({ analysisMode, connectors: [[1, { kShear: 0, kShearZ: 0 }]], loads: [{ type: 'nodal3d', data: { nodeId: 1, mx: 1 } }] }),
+    ]) {
+      for (const id of ['released-load-work', 'transformed-load-assembly']) {
+        const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+        const before = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - 1 };
+        expect(ids(snapshot, before)).toContain(id);
+        expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(id);
+      }
+    }
+    for (const value of [0, -0]) {
+      const snapshot = model({ ...frame, loads: [{ type: 'nodal3d', data: { nodeId: 1, fx: 1, mx: value, my: value, mz: value } }] });
+      expect(modelFeatures(snapshot)).not.toContain('nodalMoments');
+      for (const id of ['released-load-work', 'transformed-load-assembly']) expect(ids(snapshot)).not.toContain(id);
+    }
+  }
+});
+
+describe('planar corotational member equilibrium scope (#1952)', () => {
+  const id = 'planar-corotational-member-equilibrium';
+  const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+  it('covers planar nonlinear members and excludes linear and spatial controls', () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      for (const analysis of ['linear', 'nonlinear'] as const) {
+        const stamp = { ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1 };
+        const snapshot = model({ analysisMode, elements: [member(1, 1, 'frame')] });
+        expect(ids(snapshot, stamp).includes(id)).toBe(analysisMode === '2d' && analysis === 'nonlinear');
+      }
+    }
+  });
+  it('covers both frozen arches and only the changed nonlinear force family', () => {
+    for (const fixture of [frozenArchA, frozenArchB]) {
+      expect(fieldCovered(memberEquilibriumChange, 'nonlinear.results.elementForces[e1].vStart', fixture.features)).toBe(true);
+      for (const path of ['base.elementForces[e1].vStart', 'nonlinear.results.reactions[n1].rz', 'nonlinear.results.displacements[n1].uz', 'solve.ok']) {
+        expect(fieldCovered(memberEquilibriumChange, path, fixture.features), path).toBe(false);
+      }
+    }
+  });
+});
+
+
+describe('physical reaction recovery boundary', () => {
+  it('covers constrained nonlinear reactions in both dimensions', () => {
+    for (const dimension of ['plane2D','space3D']) {
+      const features = [dimension,'members','constraints','analysis:nonlinear'];
+      for (const path of ['nonlinear.results.reactions[n1].my','nonlinear.results.constraintForces[n1].force']) {
+        expect(fieldCovered(physicalRecoveryChange,path,features)).toBe(true);
+        expect(fieldCovered(physicalRecoveryChange,path,features.filter(f => f !== 'constraints'))).toBe(false);
+      }
+      for (const path of ['base.reactions[n1].my','nonlinear.results.elementForces[e1].mStart','nonlinear.results.displacements[n1].ry','solve.ok']) {
+        expect(fieldCovered(physicalRecoveryChange,path,[...features,'analysis:linear'])).toBe(false);
+      }
+    }
+  });
+});
+
+it('known wrong result: #1952: merged path registry covers every changed frozen value without authorizing static output', () => {
+  const entries = [mergedPathChange, reactionRecoveryChange];
+  for (const artifact of mergedValueAudit.artifacts.filter(a => a.file.startsWith('web/results-frozen/'))) {
+    const fixture = artifact.file.includes('0015ab84c3baa36f') ? frozenArchA : frozenArchB;
+    expect(artifact.changes.length).toBeGreaterThan(0);
+    for (const { path } of artifact.changes) {
+      const field = path.replace(/^\$\./, '');
+      expect(entries.some(entry => fieldCovered(entry, field, fixture.features)), field).toBe(true);
+    }
+  }
+  for (const path of ['base.displacements[n1].uz', 'base.reactions[n1].rz', 'pdelta.results.displacements[n1].uz', 'nonlinear.results.reactions[0].rz']) {
+    expect(fieldCovered(mergedPathChange, path, ['members', 'pathAnalysis', 'analysis:linear', 'analysis:pdelta', 'analysis:nonlinear']), path).toBe(false);
+  }
+  expect(fieldCovered(mergedPathChange, 'nonlinear.steps[0].controlDisplacement', ['members', 'analysis:nonlinear'])).toBe(false);
+});
+
+
+describe('staged history path applicability (#1952)', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'staged-history-forces-unavailable')!;
+
+  it('known wrong result: #1952: ordinary frames and shells never acquire staged path notices', () => {
+    for (const analysisMode of ['2d', '3d', 'pro']) {
+      for (const structure of [{ elements: [member(1, 1, 'frame')] }, { quads: [[1, {}]] as never }]) {
+        const snapshot = model({ ...structure, analysisMode });
+        for (const analysis of ['linear', 'nonlinear', 'pdelta'] as const) {
+          const stamp = { ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1 };
+          const { recorded: _recorded, ...legacy } = stamp;
+          for (const provenance of [null, stamp, legacy]) {
+            expect(ids(snapshot, provenance), `${analysisMode} ${analysis}`).not.toContain(entry.id);
+          }
+        }
+      }
+    }
+  });
+
+  it('retains explicit path coverage in both dimensions at the version boundary', () => {
+    for (const dimension of ['plane2D', 'space3D']) {
+      for (const structure of ['members', 'shells']) {
+        const features = new Set([dimension, structure, 'pathAnalysis', 'analysis:linear', 'analysis:nonlinear']);
+        expect(conditionHolds(entry.when ?? {}, features)).toBe(true);
+        const snapshot = model();
+        const stamp = { ...stampSolve('nonlinear', null), resultsVersion: entry.resultsVersion - 1 };
+        expect(assessProject(snapshot, stamp, undefined, RESULT_CHANGES, features).changes.map(c => c.id)).toContain(entry.id);
+        expect(assessProject(snapshot, { ...stamp, resultsVersion: entry.resultsVersion }, undefined, RESULT_CHANGES, features).changes.map(c => c.id)).not.toContain(entry.id);
+        expect(conditionHolds(entry.when ?? {}, new Set([dimension, 'pathAnalysis']))).toBe(false);
+      }
+    }
+  });
+});
+
+it('scopes staged spring history changes to springs with explicit path context', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'staged-support-spring-history')!;
+  for (const dimension of ['plane2D', 'space3D']) {
+    for (const analysis of ['analysis:linear', 'analysis:nonlinear', 'analysis:pdelta']) {
+      for (const path of [false, true]) {
+        for (const springs of [false, true]) {
+          const features = new Set([dimension, 'members', analysis, ...(path ? ['pathAnalysis'] : []), ...(springs ? ['springs'] : [])]);
+          expect(conditionHolds(entry.when ?? {}, features)).toBe(path && springs);
+          for (const current of [false, true]) {
+            const stamp = { ...stampSolve('linear', null), resultsVersion: entry.resultsVersion - (current ? 0 : 1) };
+            expect(assessProject(model(), stamp, undefined, RESULT_CHANGES, features).changes.some(c => c.id === entry.id)).toBe(path && springs && !current);
+          }
+        }
+      }
+    }
+  }
+});
+
+it('#2074: truss direction notice requires member loads and respects its version boundary', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'truss-load-direction-rounding')!;
+  for (const analysisMode of ['2d','pro']) for (const type of ['truss','cable']) {
+    const snapshot = model({analysisMode, elements: [member(1,1,'truss',{type})], loads: [{type:'thermal',data:{elementId:1,dtUniform:1}}]});
+    const before = {...stampSolve('linear',null),resultsVersion:entry.resultsVersion-1};
+    expect(ids(snapshot,before)).toContain(entry.id);
+    expect(ids(snapshot,{...before,resultsVersion:entry.resultsVersion})).not.toContain(entry.id);
+    expect(ids({...snapshot,loads:[]},before)).not.toContain(entry.id);
+  }
+});
+
+it('#2074: axial distributed loads on trusses retain result notices', () => {
+  for (const analysisMode of ['2d', 'pro']) for (const type of ['frame', 'truss', 'cable']) {
+    const element = { id: 1, materialId: 1, nodeI: 1, nodeJ: 2, type };
+    const snapshot = model({ analysisMode, elements: [[1, element]], loads: [{ type: 'axialDistributed', data: { elementId: 1, qI: 1, qJ: 1 } }] });
+    expect(modelFeatures(snapshot).has('trussMemberLoads')).toBe(type !== 'frame');
+    for (const id of ['released-load-work', 'transformed-load-assembly', 'truss-load-direction-rounding']) {
+      const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
+      for (const analysis of ['linear', 'nonlinear'] as const) {
+        const before = { ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1 };
+        expect(ids(snapshot, before).includes(id)).toBe(type !== 'frame');
+        expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(id);
+        expect(ids(model({ ...snapshot, loads: [{ type: 'axialDistributed', data: { elementId: 2, qI: 1, qJ: 1 } }] }), before)).not.toContain(id);
+      }
+    }
+  }
+});
+
+it('#2074: release basis notice covers spatial releases and excludes planar and unreleased frames', () => {
+  const entry = RESULT_CHANGES.changes.find(c => c.id === 'released-basis-pivoting')!;
+  for (const analysisMode of ['2d', 'pro']) for (const released of [false, true]) {
+    const snapshot = model({ analysisMode, elements: [member(1, 1, 'frame', { releaseI: released ? { mz: true } : {} })] });
+    for (const analysis of ['linear', 'nonlinear'] as const) {
+      const before = { ...stampSolve(analysis, null), resultsVersion: entry.resultsVersion - 1 };
+      expect(ids(snapshot, before).includes(entry.id)).toBe(analysisMode === 'pro' && released);
+      expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
+    }
+  }
+});
+
+it.each(['production', 'test'] as const)('#2364 uses stable self-weight and settlement evidence in the %s build', mode => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(mode));
+  try {
+    const base = model({ analysisMode: '2d', supports: [[1, { nodeId: 1, type: 'fixed', drz: 0 }]] });
+    const changeIds = ['exact-plane-self-weight', 'workbook-support-rotations', 'global-axes-inputs'];
+    const relevant = (snapshot: FeatureSnapshot) => ids(snapshot).filter(id => changeIds.includes(id));
+
+    const marked = { ...base, loadCases: [{ id: 1, type: 'D', axisNamed: true }] };
+    const withToggle = { ...marked, includeSelfWeight: true };
+    const withRule = { ...marked, analysis: { selfWeight: [{ caseId: 1, ...GRAVITY_SELF_WEIGHT }] } };
+    const withRotation: FeatureSnapshot = {
+      ...marked, supports: [[1, { nodeId: 1, type: 'fixed', drz: Math.PI / 180 }]],
+    };
+    const axesIds = mode === 'test' ? ['global-axes-inputs'] : [];
+    expect(relevant(base)).toEqual([]);
+    expect(modelFeatures(withToggle)).toContain('selfWeight');
+    expect(modelFeatures(withRule)).toContain('selfWeight');
+    expect(modelFeatures(withRotation)).toContain('settlements');
+    expect(modelFeatures(marked)).not.toContain('settlements');
+    expect(relevant(marked)).toEqual(axesIds);
+    expect(relevant(withToggle)).toEqual(axesIds);
+    expect(relevant(withRule)).toEqual(axesIds);
+    expect(relevant(withRotation)).toEqual(mode === 'test' ? [...axesIds, 'workbook-support-rotations'] : []);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

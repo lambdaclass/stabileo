@@ -1,0 +1,49 @@
+{
+  "id": "saved-sheet-reinforcement-profile",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "any": [
+      "ignoredAdoptedReinforcement"
+    ]
+  },
+  "title": {
+    "en": "Reinforcement used by this build",
+    "es": "Armadura que usa esta versión",
+    "pt": "Armadura usada nesta versão",
+    "de": "Bewehrung in dieser Version",
+    "fr": "Armatures utilisées dans cette version",
+    "hu": "A verzió által használt vasalás",
+    "tr": "Bu sürümün kullandığı donatı",
+    "zh": "此版本使用的配筋",
+    "ar": "التسليح المستخدم في هذا الإصدار",
+    "hi": "इस संस्करण में प्रयुक्त प्रबलन",
+    "id": "Tulangan yang digunakan versi ini",
+    "it": "Armatura usata in questa versione",
+    "ja": "このバージョンで使用する配筋",
+    "ko": "이 버전에서 사용하는 배근",
+    "ru": "Армирование в этой версии"
+  },
+  "explanation": {
+    "en": "Recheck deflection, the calculation report and the IFC export using the designed reinforcement.",
+    "es": "Revisá las flechas, la memoria de cálculo y la exportación IFC con la armadura de diseño.",
+    "pt": "Confira as flechas, o memorial de cálculo e a exportação IFC com a armadura de dimensionamento.",
+    "de": "Prüfen Sie Durchbiegung, Berechnungsbericht und IFC-Export mit der bemessenen Bewehrung.",
+    "fr": "Vérifiez les flèches, la note de calcul et l’export IFC avec les armatures de dimensionnement.",
+    "hu": "Ellenőrizze a lehajlást, a számítási jelentést és az IFC-exportot a méretezett vasalással.",
+    "tr": "Sehimi, hesap raporunu ve IFC çıktısını tasarım donatısıyla yeniden kontrol edin.",
+    "zh": "请按设计配筋复核挠度、计算书及 IFC 导出结果。",
+    "ar": "راجِع الترخيم وتقرير الحساب وملف IFC المُصدّر باستخدام تسليح التصميم.",
+    "hi": "डिज़ाइन किए गए प्रबलन के आधार पर विक्षेपण, गणना रिपोर्ट और IFC निर्यात की फिर से जाँच करें।",
+    "id": "Periksa kembali lendutan, laporan perhitungan, dan ekspor IFC dengan tulangan hasil desain.",
+    "it": "Verificare le frecce, la relazione di calcolo e l’esportazione IFC con l’armatura di progetto.",
+    "ja": "設計配筋でたわみ、計算書、IFC 出力を再確認してください。",
+    "ko": "설계 배근을 기준으로 처짐, 계산서 및 IFC 내보내기 결과를 다시 확인하세요.",
+    "ru": "Перепроверьте прогиб, расчётный отчёт и экспорт IFC с расчётным армированием."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-saved-sheet-reinforcement.md",
+    "heading": "Saved reinforcement in builds with reinforcement sheets disabled"
+  }
+}

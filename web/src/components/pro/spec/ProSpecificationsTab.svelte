@@ -14,6 +14,7 @@
   import SpecSupports from './SpecSupports.svelte';
   import SpecSurfaces from './SpecSurfaces.svelte';
   import SpecAnalysis from './SpecAnalysis.svelte';
+  import SpecPlacement from './SpecPlacement.svelte';
   import SpecList from './SpecList.svelte';
   import ProConstraintsTab from '../ProConstraintsTab.svelte';
 
@@ -22,7 +23,7 @@
    * it is held, how it is solved. The summary is not a part: it lists what the others changed from
    * the default, so it stands apart, at the right.
    */
-  const PARTS: SpecSection[] = ['members', 'links', 'surfaces', 'supports', 'analysis'];
+  const PARTS: SpecSection[] = ['members', 'links', 'surfaces', ...(__PUBLIC_FEATURES__.proRcSheets ? ['placement'] as const : []), 'supports', 'analysis'];
   const SECTIONS: SpecSection[] = [...PARTS, 'list'];
   function navKey(e: KeyboardEvent) {
     const k = SECTIONS.indexOf(uiStore.specSection);
@@ -54,7 +55,13 @@
     {:else if uiStore.specSection === 'links'}<ProConstraintsTab />
     {:else if uiStore.specSection === 'surfaces'}<SpecSurfaces />
     {:else if uiStore.specSection === 'analysis'}<SpecAnalysis />
-    {:else}<SpecList />{/if}
+    {:else}
+      {#if __PUBLIC_FEATURES__.proRcSheets && uiStore.specSection === 'placement'}
+        <SpecPlacement />
+      {:else}
+        <SpecList />
+      {/if}
+    {/if}
   </div>
 </div>
 

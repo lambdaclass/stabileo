@@ -49,7 +49,7 @@ import { jointDesignStore } from '../store/joint-design.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { isSolverReady } from '../engine/wasm-solver';
 import { getStructuralSolveCount } from './solve-counter';
-import { runGlobalSolve } from '../engine/live-calc';
+import { runGlobalSolve, type GlobalSolveOutcome } from '../engine/live-calc';
 import { tourStore } from '../store/tour.svelte';
 import {
   liveRebarSceneCensus, liveRebarSceneConflictAt, rebarSceneBuilds, type RebarSceneCensus,
@@ -63,6 +63,9 @@ import { loadFixture } from '../templates/load-fixture';
 import { currentResultProvenance, provenanceForExport, captureProvenanceToken } from '../store/result-provenance';
 import { recheckStore } from '../store/recheck.svelte';
 import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
+import { physicalGroups } from '../store/physical';
+import { plateLoops } from '../model/physical/plate';
+import { meshBeforeAnalysis } from '../store/mesh-policy.svelte';
 
 export const E2E_QUERY_FLAG = 'e2e';
 
@@ -194,7 +197,9 @@ export interface StabileoTestHooks {
    */
   selectionByKind(): { nodes: number[]; elements: number[]; supports: number[]; loads: number[] };
   /** The physical plates: each one's mesh state and the shells it holds (`store/physical-plates.ts`). */
-  plates(): Array<{ id: number; name: string; status: string; shells: number; loads: number }>;
+  plates(): Array<{ id: number; name: string; status: string; shells: number; loads: number; holes: number; curvedSides: number; minAngle: number | null }>;
+  /** The physical members: kind, whether declared or read off the model, and the bars they hold. */
+  physicalMembers(): Array<{ id: number; kind: string; provenance: string; elements: number[] }>;
   /** The plates selected whole, and the shells selected. */
   plateSelection(): { plates: number[]; shells: string[]; scope: string };
   /** How many local-axis triads the 3-D viewport draws now. */
@@ -482,10 +487,12 @@ export interface StabileoTestActions {
    * both axes for a real reason (see `ROLLED_BEAMS` in `e2e/fixtures.ts`).
    */
   turnElements(ids: number[], degrees: number): void;
+  /** Remove every support at these nodes in one undo step; returns how many were removed. */
+  releaseNodes(nodeIds: number[]): number;
   /** Reset the selection between gestures — the position, not the subject. */
   clearSelection(): void;
   /** Runs the same global solve the toolbar button triggers. */
-  solve(): Promise<void>;
+  solve(): Promise<GlobalSolveOutcome>;
   /**
    * Solve the base case on the MAIN THREAD (`modelStore.solve3D`/`solve`) and publish it as a
    * solve does; returns the published results' provenance hash. With `solve()` (the worker pool
@@ -547,6 +554,8 @@ export interface StabileoTestActions {
   autosaveNow(): Promise<unknown>;
   /** The same clear the restore banner's Descartar button performs. */
   autosaveDiscard(): Promise<void>;
+  /** "Mesh before analysis" (`store/mesh-policy.svelte.ts`), as its checkbox sets it. */
+  setMeshBeforeAnalysis(on: boolean): void;
 }
 
 function rebarSummary(elementId: number): string {
@@ -783,7 +792,10 @@ export function installE2EHooks(): void {
       id: p.id, name: p.name, status: plateStatus(p.id),
       shells: (p.group.members.quads?.length ?? 0) + (p.group.members.plates?.length ?? 0),
       loads: plateLoadDefs(p.id).length,
+      holes: plateLoops(p.group).holes.length, curvedSides: (p.surface.arcMids ?? []).length,
+      minAngle: p.surface.meshed && !p.surface.meshed.original ? p.surface.meshed.quality.minAngle : null,
     })),
+    physicalMembers: () => physicalGroups().map((g) => ({ id: g.id, kind: g.physical.kind, provenance: g.physical.provenance, elements: [...(g.members.elements ?? [])] })),
     worldScreenPos: (x: number, y: number, z: number) => projectWorld(x, y, z),
     localAxesTriads: () => (window as unknown as { __localAxesTriads?: number }).__localAxesTriads ?? 0,
     plateSelection: () => ({ plates: [...uiStore.selectedPlates].sort((a, b) => a - b), shells: [...uiStore.selectedShells].sort(), scope: uiStore.shellPickScope }),
@@ -974,9 +986,14 @@ export function installE2EHooks(): void {
         }
       });
     },
+    releaseNodes: (nodeIds: number[]) => {
+      const held = [...modelStore.supports.values()].filter((s) => nodeIds.includes(s.nodeId));
+      modelStore.batch(() => { for (const s of held) modelStore.removeSupport(s.id); });
+      return held.length;
+    },
     /** Reset the selection between gestures — the position, not the subject. */
     clearSelection: () => { uiStore.clearSelection(); },
-    solve: async () => { await runGlobalSolve(); },
+    solve: () => runGlobalSolve(),
     solveOnMainThread: () => {
       const isPro = uiStore.analysisMode === 'pro';
       if (uiStore.is3DWorkspace) {
@@ -999,6 +1016,7 @@ export function installE2EHooks(): void {
     cancel: () => designRunStore.cancel(),
     autosaveNow: () => requestAutosave('manual'),
     autosaveDiscard: () => clearAutosave(),
+    setMeshBeforeAnalysis: (on: boolean) => { meshBeforeAnalysis.value = on; },
   };
   // Frozen so a spec (or anything else) cannot substitute a hook implementation.
   (window as unknown as { __stabileo?: StabileoTestHooks }).__stabileo = Object.freeze(hooks);

@@ -1,0 +1,35 @@
+{
+  "id": "plate-foundation-springs",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "physicalPlateSprings"
+    ]
+  },
+  "title": {
+    "en": "Review foundation springs after remeshing",
+    "es": "Revisá los resortes de fundación después de remallar",
+    "pt": "Revise as molas de fundação após refazer a malha",
+    "de": "Bettungsfedern nach Neuvernetzung prüfen",
+    "fr": "Vérifier les ressorts de fondation après remaillage",
+    "tr": "Ağ yenilendikten sonra temel yaylarını denetleyin",
+    "zh": "重新划分网格后检查地基弹簧",
+    "hu": "Az alapozási rugók ellenőrzése újrahálózás után"
+  },
+  "explanation": {
+    "en": "Earlier unified plate models could retain the old corner springs after remeshing. Review each plate’s soil settings, reapply the intended assignment and rerun the analysis.",
+    "es": "Los modelos anteriores de placas unificadas podían conservar los resortes de esquina de la malla previa. Revisá el suelo de cada placa, volvé a aplicar la asignación prevista y repetí el análisis.",
+    "pt": "Modelos anteriores de placas unificadas podiam manter as molas de canto da malha antiga. Revise os parâmetros do solo de cada placa, reaplique a atribuição pretendida e refaça a análise.",
+    "de": "Frühere Modelle mit vereinheitlichten Platten konnten nach der Neuvernetzung die alten Eckfedern behalten. Prüfen Sie die Bettung jeder Platte, weisen Sie sie erneut zu und wiederholen Sie die Berechnung.",
+    "fr": "Les anciens modèles de plaques unifiées pouvaient conserver les ressorts des angles du maillage précédent. Vérifiez les paramètres du sol de chaque plaque, réappliquez l’affectation prévue et relancez le calcul.",
+    "tr": "Önceki birleşik plak modellerinde ağ yenilendiğinde eski köşe yayları kalabiliyordu. Her plağın zemin ayarlarını denetleyin, amaçlanan atamayı yeniden uygulayın ve analizi tekrarlayın.",
+    "zh": "较早的统一板模型在重新划分网格后可能保留旧网格的角点弹簧。请检查各板的地基设置，重新应用预期设置并重新分析。",
+    "hu": "A korábbi egységes lemezmodellekben újrahálózás után megmaradhattak a régi sarokrugók. Ellenőrizze az egyes lemezek talajadatait, ismét alkalmazza a tervezett beállításokat, majd futtassa újra a számítást."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-foundation-springs.md",
+    "heading": "Review foundation springs after remeshing"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "id": "wind-at-landings",
+  "date": "2026-11-27",
+  "prs": [
+    2222,
+    2670
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedWindLoads",
+      "windMemberAcrossLevel"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Generated wind at intermediate levels",
+    "es": "Viento generado en niveles intermedios",
+    "pt": "Vento gerado em níveis intermediários",
+    "de": "Erzeugte Windlasten an Zwischenebenen",
+    "fr": "Vent généré aux niveaux intermédiaires",
+    "tr": "Ara katlarda üretilen rüzgâr yükleri",
+    "zh": "中间标高处的生成风荷载",
+    "hu": "Generált szélteher a közbenső szinteken"
+  },
+  "explanation": {
+    "en": "A wind-loaded column crossing a landing could prevent meshing. Regenerate the wind loads and rerun the analysis.",
+    "es": "Una columna con carga de viento que atravesaba un descanso podía impedir el mallado. Volvé a generar las cargas de viento y repetí el análisis.",
+    "pt": "Um pilar com carga de vento que atravessava um patamar podia impedir a geração da malha. Gere novamente as cargas de vento e repita a análise.",
+    "de": "Eine windbelastete Stütze über ein Zwischenpodest hinweg konnte die Vernetzung verhindern. Erzeugen Sie die Windlasten erneut und wiederholen Sie die Berechnung.",
+    "fr": "Un poteau chargé par le vent traversant un palier pouvait empêcher le maillage. Régénérez les charges de vent et relancez le calcul.",
+    "tr": "Bir sahanlıktan geçen rüzgâr yüklü kolon ağ oluşturulmasını engelleyebiliyordu. Rüzgâr yüklerini yeniden oluşturup analizi tekrarlayın.",
+    "zh": "穿过楼梯平台的受风柱可能导致网格划分失败。请重新生成风荷载并再次分析。",
+    "hu": "A lépcsőpihenőn áthaladó, széllel terhelt oszlop megakadályozhatta a hálózást. Generálja újra a szélterheket, és ismételje meg a számítást."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wind-at-landings.md",
+    "heading": "Generated wind at intermediate levels"
+  }
+}

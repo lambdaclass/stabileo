@@ -1,0 +1,102 @@
+stabileo-model 1
+# A two-storey concrete house, two bays each way: 20 × 20 columns, 20 × 40 beams on every axis
+# and 12 cm solid slabs, a plate a bay. Loads and combinations from the load generator.
+name "Vivienda de H.A. de dos plantas"
+mode pro
+axes zUpStrongAxis
+
+node 1 0 0 0
+node 2 0 0 2.8
+node 3 0 0 5.6
+node 4 0 4.5 0
+node 5 0 4.5 2.8
+node 6 0 4.5 5.6
+node 7 0 9 0
+node 8 0 9 2.8
+node 9 0 9 5.6
+node 10 4 0 0
+node 11 4 0 2.8
+node 12 4 0 5.6
+node 13 4 4.5 0
+node 14 4 4.5 2.8
+node 15 4 4.5 5.6
+node 16 4 9 0
+node 17 4 9 2.8
+node 18 4 9 5.6
+node 19 8 0 0
+node 20 8 0 2.8
+node 21 8 0 5.6
+node 22 8 4.5 0
+node 23 8 4.5 2.8
+node 24 8 4.5 5.6
+node 25 8 9 0
+node 26 8 9 2.8
+node 27 8 9 5.6
+
+material 1 name="Hormigón H-25" e=23500 nu=0.2 rho=25 alpha=0.00001 fy=25
+section 1 name="Col 20×20" shape="rect" b=0.2 h=0.2 a=0.04 iy=0.0001333333333 iz=0.0001333333333 j=0.0002253333333
+section 2 name="Viga 20×40" shape="rect" b=0.2 h=0.4 a=0.08 iy=0.001066666667 iz=0.0002666666667 j=0.0007324166667
+member 1 frame 1 2 materialId=1 sectionId=1
+member 2 frame 2 3 materialId=1 sectionId=1
+member 3 frame 4 5 materialId=1 sectionId=1
+member 4 frame 5 6 materialId=1 sectionId=1
+member 5 frame 7 8 materialId=1 sectionId=1
+member 6 frame 8 9 materialId=1 sectionId=1
+member 7 frame 10 11 materialId=1 sectionId=1
+member 8 frame 11 12 materialId=1 sectionId=1
+member 9 frame 13 14 materialId=1 sectionId=1
+member 10 frame 14 15 materialId=1 sectionId=1
+member 11 frame 16 17 materialId=1 sectionId=1
+member 12 frame 17 18 materialId=1 sectionId=1
+member 13 frame 19 20 materialId=1 sectionId=1
+member 14 frame 20 21 materialId=1 sectionId=1
+member 15 frame 22 23 materialId=1 sectionId=1
+member 16 frame 23 24 materialId=1 sectionId=1
+member 17 frame 25 26 materialId=1 sectionId=1
+member 18 frame 26 27 materialId=1 sectionId=1
+member 19 frame 2 11 materialId=1 sectionId=2
+member 20 frame 11 20 materialId=1 sectionId=2
+member 21 frame 5 14 materialId=1 sectionId=2
+member 22 frame 14 23 materialId=1 sectionId=2
+member 23 frame 8 17 materialId=1 sectionId=2
+member 24 frame 17 26 materialId=1 sectionId=2
+member 25 frame 2 5 materialId=1 sectionId=2
+member 26 frame 5 8 materialId=1 sectionId=2
+member 27 frame 11 14 materialId=1 sectionId=2
+member 28 frame 14 17 materialId=1 sectionId=2
+member 29 frame 20 23 materialId=1 sectionId=2
+member 30 frame 23 26 materialId=1 sectionId=2
+member 31 frame 3 12 materialId=1 sectionId=2
+member 32 frame 12 21 materialId=1 sectionId=2
+member 33 frame 6 15 materialId=1 sectionId=2
+member 34 frame 15 24 materialId=1 sectionId=2
+member 35 frame 9 18 materialId=1 sectionId=2
+member 36 frame 18 27 materialId=1 sectionId=2
+member 37 frame 3 6 materialId=1 sectionId=2
+member 38 frame 6 9 materialId=1 sectionId=2
+member 39 frame 12 15 materialId=1 sectionId=2
+member 40 frame 15 18 materialId=1 sectionId=2
+member 41 frame 21 24 materialId=1 sectionId=2
+member 42 frame 24 27 materialId=1 sectionId=2
+
+grid {"axes":[{"id":"ax-x1","name":"1","axis":"x","at":0},{"id":"ax-x2","name":"2","axis":"x","at":4},{"id":"ax-x3","name":"3","axis":"x","at":8},{"id":"ax-y1","name":"A","axis":"y","at":0},{"id":"ax-y2","name":"B","axis":"y","at":4.5},{"id":"ax-y3","name":"C","axis":"y","at":9}],"levels":[{"id":"lv-0","name":"PB","z":0},{"id":"lv-1","name":"Planta alta","z":2.8},{"id":"lv-2","name":"Azotea","z":5.6}]}
+support 1 1 fixed3d
+support 2 4 fixed3d
+support 3 7 fixed3d
+support 4 10 fixed3d
+support 5 13 fixed3d
+support 6 16 fixed3d
+support 7 19 fixed3d
+support 8 22 fixed3d
+support 9 25 fixed3d
+group 1 physicalMember "Losa 1A–2B · Planta alta" members={"nodes":[2,11,14,5]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 2 physicalMember "Losa 2A–3B · Planta alta" members={"nodes":[11,20,23,14]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 3 physicalMember "Losa 1B–2C · Planta alta" members={"nodes":[5,14,17,8]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 4 physicalMember "Losa 2B–3C · Planta alta" members={"nodes":[14,23,26,17]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 5 physicalMember "Losa 1A–2B · Azotea" members={"nodes":[3,12,15,6]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 6 physicalMember "Losa 2A–3B · Azotea" members={"nodes":[12,21,24,15]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 7 physicalMember "Losa 1B–2C · Azotea" members={"nodes":[6,15,18,9]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+group 8 physicalMember "Losa 2B–3C · Azotea" members={"nodes":[15,24,27,18]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1},"edgeSupports":[]}}
+designData {"version":1,"placement":{"reference":"slabTop","edges":true}}
+regulations {"version":2,"roles":{"basis":{"role":"basis","adapterId":"cirsoc101-2025-basis","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"generateCombinations":true,"dialog":{"comboSet":"ultimate","comboSource":"regulation","bothSenses":true,"patternsInCompanions":false}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"loads":{"role":"loads","adapterId":"cirsoc101-2025-loads","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"occupancyKey":"vivienda","dead":[{"labelKey":"loads.dead.contrapiso_cemento","q":1.44},{"labelKey":"loads.dead.piso_baldosa_ceramica","q":0.28},{"labelKey":"loads.dead.cielo_acustico","q":0.05}],"tributaryWidth":3,"applyLiveReduction":true,"reductionElementKind":"interiorBeam","floorsSupported":1,"dialog":{"deadRows":[{"entryKey":"contrapiso_cemento","thickness":0.08,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"piso_baldosa_ceramica","thickness":0,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"cielo_acustico","thickness":0,"onBattens":false,"q":0,"isPartition":false}],"partitionLive":{"on":true,"q":0.75},"gravityMode":"panels","gravitySlab":"twoWay","gravitySpan":"x","gravityLoadEveryPanel":false,"roofCfg":{"enabled":false,"use":"maintenance","dead":null,"weight":null,"occupancyKey":"azotea_privada","slopeDeg":null},"livePatterns":"all","special":{"thermal":{"on":false,"dt":20,"grad":0},"soil":{"on":false,"gradeZ":0,"gamma":17.3,"k":0.5,"surcharge":0,"permanent":true,"sideOn":false,"sideX":0,"sideY":0},"fluid":{"on":false,"levelZ":3,"gamma":10,"insideOn":false,"insideX":0,"insideY":0}}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"wind":{"role":"wind","adapterId":"cirsoc102-2025","nameKey":"regulations.name.cirsoc102","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"basicSpeed":45,"exposure":"B","enclosure":"enclosed","siteAltitudeM":0,"kzt":1,"kztSurveyed":false,"roofSlopeDeg":0,"dynamics":{"n1Source":"modal","beta":0.02,"rigidG":"default"},"dialog":{"windDirs":["+x","-x","+y","-y"],"windCaseSet":"all","windService":{"enabled":false,"v50":0,"mri":10},"windStructure":{"kind":"building","roof":"pitched","blocked":false,"towerSection":"square","round":false,"solidity":0.2,"diagonal":true,"members":"flat","clearance":2,"chimney":"roundRough","width":0,"diameter":0,"areaX":0,"areaY":0}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"snow":{"role":"snow","adapterId":"cirsoc104-2005","nameKey":"regulations.name.cirsoc104","edition":"2005","maturity":"IMPLEMENTED_PROVISIONAL","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"applied","appliedAtRevision":0,"refs":[]},"seismic":{"role":"seismic","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"thermal":{"role":"thermal","adapterId":"cirsoc101-2025-thermal","nameKey":"regulations.name.cirsoc101Thermal","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"concrete":{"role":"concrete","adapterId":"cirsoc","nameKey":"regulations.name.cirsoc201","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"steel":{"role":"steel","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"masonry":{"role":"masonry","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"timber":{"role":"timber","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]}}}
+

@@ -1,12 +1,20 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  'project.adoptedReinforcementIgnored': "Versi ini mengabaikan tulangan pilihan yang tersimpan dalam proyek dan menggunakan tulangan hasil desain.",
+  'wall.tensionRequiresBarLayout': "Tarik dan lentur gabungan memerlukan tata letak tulangan vertikal.",
+  'wall.boundaryBarCount': "Masukkan jumlah batang tulangan tepi pada setiap ujung dinding sebagai bilangan bulat nol atau lebih.",
+  'wall.tensionAtOpenings': "Tarik pada bukaan dinding memerlukan penampang neto dan tulangan menerus yang melintasinya.",
+  'wall.tensionShearEdition': "Tarik dan geser gabungan pada dinding tidak dapat diperiksa untuk edisi {edition}.",
   'svc.accountingMismatch': "Analisis ditolak. Kasus beban {case}, {component}. Nilai masukan {entered}, nilai rakitan {assembled}.",
   'svc.accountingUnsupported': "Analisis ditolak. Gaya dan momen {kind} {id} pada kasus beban {case} tidak dapat diperhitungkan.",
   'svc.accountingArea': "Analisis ditolak. Pelat {plate} memiliki luas atau batas yang berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
   'svc.accountingSweep': "Analisis ditolak. Busur tepi pelat {plate} berbeda pada model penyelesaian. Luas yang ditetapkan {entered}, luas rakitan {assembled}.",
   'svc.accountingShellEdits': "Pelat {plate} tidak dapat dibuatkan mesh ulang karena offset atau perubahan kelengkungan cangkang akan hilang.",
   "plates.remeshAmbiguousSweep": "Busur pada tepi lengkung {name} ambigu. Periksa titik antara dan batang lengkung di antara titik ujung sebelum membuat ulang mesh.",
+  "loadPlan.warning.replacedDefinitions": "Rencana akan mengganti {n} definisi beban lantai yang dibuatnya.",
+  "loadPlan.warning.independentLoadsKept": "Rencana mempertahankan {n} beban dari alat lain pada kasus beban terkait.",
+  "plates.meshFieldsKept": "Jaring {names} dipertahankan. Menghapus atau menggantinya akan menghilangkan beban atau mengubah material, tebal, eksentrisitas, atau kelengkungan sel.",
   "plates.remeshShellEdits": "Mesh {name} tidak dapat diganti karena perubahan ofset atau kelengkungan elemen cangkang tidak dapat dipindahkan secara persis.",
   'loadPlan.gravity.coveragePrecision': "Koordinat cakupan cangkang melampaui ketelitian interval batang yang didukung.",
   'loadPlan.gravity.roundedRoofBoundary': "Pembulatan titik tengah batang {id} mengubah apakah batang tersebut tertutup tepi atap. Perbaiki geometri batang atau atap, atau tetapkan beban secara manual.",
@@ -2798,10 +2806,8 @@ const id: Translations = {
   'pro.unknown': 'Tidak diketahui',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} pelat, {quads} quad',
   'pro.plateTriDKT': 'Pelat segitiga (DKT)',
   'pro.quadMITC4': 'Quad MITC4',
-  'pro.meshGenerator': 'Generator mesh',
   'pro.meshHint': 'Definisikan 4 titik sudut (berlawanan arah jarum jam) dan subdivisi NxM. Titik simpul dan quad antara dibuat otomatis.',
   'pro.corners': 'Sudut',
   'pro.subdivisions': 'Subdivisi',

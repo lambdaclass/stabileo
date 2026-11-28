@@ -28,7 +28,7 @@
 
 import { canonicalizeModelAliases, ModelAliasConflict } from '../canonical-aliases';
 import type { ModelSnapshot } from '../../store/history.svelte';
-import { COVERED_FIELDS, DERIVED_SUBFIELDS } from './coverage';
+import { COVERED_FIELDS, DERIVED_SUBFIELDS, MODEL_CODE_SETTINGS } from './coverage';
 import { globalAxes } from '../../features';
 import { DEFAULT_AXES, validChoice, type AxesChoice } from '../../axes/frame';
 import { FRAME_NOTE, frameLine, transformSnapshot } from './frame';
@@ -132,7 +132,7 @@ export function modelToCode(snap: ModelSnapshot, axes?: AxesChoice): string {
     section('Footings');
     for (const [id, f] of entries('footings')) out.push(`footing ${id}${rest(f, ['id'])}`);
   }
-  const settings = ['massSource', 'resultScopes', 'combinationRules', 'views', 'grid', 'dynamics', 'deflectionLimits', 'analysis', 'projectInfo', 'notes', 'underlays', 'designData', 'designDecisions', 'geotechnical', 'footingMatPreferences', 'codeSettings', 'regulations'].filter((k) => s[k] !== undefined);
+  const settings = MODEL_CODE_SETTINGS.filter((k) => s[k] !== undefined);
   if (settings.length) {
     section('Project settings');
     for (const k of settings) out.push(`${k} ${lit(s[k])}`);
@@ -260,6 +260,11 @@ export function codeToModel(text: string): ParseResult {
       return p.value;
     };
 
+    if (MODEL_CODE_SETTINGS.some(field => field === kw!.text)) {
+      const value = json(pos[0], kw!.text);
+      if (value !== undefined) s[kw!.text] = value;
+      return;
+    }
     switch (kw!.text) {
       case HEADER: {
         sawHeader = true;
@@ -373,11 +378,6 @@ export function codeToModel(text: string): ParseResult {
         const name = str(pos[2], 'the group name');
         if (id === null || kind === null || name === null) return;
         s.groups.push([id, { id, name, kind, ...fields }]);
-        return;
-      }
-      case 'massSource': case 'resultScopes': case 'combinationRules': case 'views': case 'grid': case 'dynamics': case 'deflectionLimits': case 'analysis': case 'projectInfo': case 'notes': case 'underlays': case 'designData': case 'designDecisions': case 'geotechnical': case 'footingMatPreferences': case 'codeSettings': case 'regulations': {
-        const v = json(pos[0], kw!.text);
-        if (v !== undefined) s[kw!.text] = v;
         return;
       }
       default:

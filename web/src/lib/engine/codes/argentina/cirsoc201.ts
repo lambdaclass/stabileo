@@ -20,6 +20,7 @@ import { cirsoc201Engine, Cirsoc201EngineUnavailable } from './cirsoc201-engine'
 import { computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity } from '../../station-design-forces';
 import { checkTorsion2025, torsionTransverseMinimums, providedTorsionStirrups, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, torsionShearReserve, torsionActivation, type CageResolution, type SecondaryLongitudinalLayout, type SecondaryShearFace, type SecondaryShearResolution, type StirrupDeclaration, type TorsionSectionEvidence } from '../../../codes/cirsoc201/torsion';
 
+import { reinforcementSheets } from '../../../features';
 import { REBAR_DB, rebarSpec } from './cirsoc201-rebar';
 
 export { REBAR_DB, type RebarSpec } from './cirsoc201-rebar';
@@ -370,6 +371,20 @@ function enforcePracticalFlexureLimit(result: FlexureResult): FlexureResult {
 export function checkFlexure(
   params: ConcreteDesignParams, Mu: number, Nu: number = 0, opts: FlexureOptions = {},
 ): FlexureResult {
+  return designFlexure(params, Mu, Nu, opts, false);
+}
+
+type SheetFlexureResult = FlexureResult & { AsCompReq?: number };
+
+export function checkSheetFlexure(
+  params: ConcreteDesignParams, Mu: number, Nu: number, flange?: FlexureOptions['flange'],
+): SheetFlexureResult {
+  return designFlexure(params, Mu, Nu, { edition: '2025', flange }, reinforcementSheets());
+}
+
+function designFlexure(
+  params: ConcreteDesignParams, Mu: number, Nu: number, opts: FlexureOptions, sheet: boolean,
+): SheetFlexureResult {
   const { fc, fy, cover, b, h, stirrupDia } = params;
   const edition = opts.edition ?? '2025';
   const steps: string[] = [];
@@ -397,13 +412,14 @@ export function checkFlexure(
   let check!: NonNullable<ReturnType<typeof evaluateBeamSection>>;
   let providedDepth = 0;
   let first: { d: number; design: EngineFlexureDesign } | undefined;
+  const minimumFor = (min: number, As: number) => (sheet ? Math.min(min, (4 / 3) * As) : min);
   for (let pass = 0; pass < 5; pass++) {
     d = effectiveDepth(h, cover, stirrupDia, barDia);
     design = engineFlexureDesign(edition, fc, fy, b, h, d, dPrimeAssumed, MuAbs, Nu, flange);
     AsMin = minFlexuralSteelCm2(fc, fy, b, d);
     // No steel within the engine's search (tension steel up to 10 % of Ag) works: report that
     // bound, which is above every feasible requirement, so the answer never falls as Mu rises.
-    AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);
+    AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, minimumFor(AsMin, design.As));
     first ??= { d, design };
     rebar = selectRebar(AsDesign);
     rebarComp = design.kind === 'doubly' ? selectRebar(Math.max(design.AsComp, AsMin * 0.5)) : undefined;
@@ -446,7 +462,7 @@ export function checkFlexure(
         if (q) check = q;
       }
     }
-    const passes = rebar.area >= minFlexuralSteelCm2(fc, fy, b, dReal) && check.flexureValid && check.phiMn / 1e3 >= MuAbs && !(ductilityApplies && check.epsilonT < check.epsilonTMin);
+    const passes = rebar.area >= minimumFor(minFlexuralSteelCm2(fc, fy, b, dReal), design.As) && check.flexureValid && check.phiMn / 1e3 >= MuAbs && !(ductilityApplies && check.epsilonT < check.epsilonTMin);
     if (passes || design.kind === 'impossible' || rebar.dia === barDia) break;
     barDia = rebar.dia;
   }
@@ -458,7 +474,7 @@ export function checkFlexure(
   const barsDesign = design;
   ({ d, design } = first!);
   AsMin = minFlexuralSteelCm2(fc, fy, b, effectiveDepth(h, cover, stirrupDia, rebar.dia));
-  AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);
+  AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, minimumFor(AsMin, design.As));
   // "Needs compression steel" also when no singly-reinforced steel works at all (a footing reports it).
   const isDoubly = barsDesign.kind !== 'singly' || rebarComp !== undefined;
   { emissions.push(() => steps.push(`d (dimensionamiento) = ${(d * 100).toFixed(1)} cm, d' = ${(dPrimeAssumed * 100).toFixed(1)} cm`)); }
@@ -493,7 +509,7 @@ export function checkFlexure(
     status = 'fail';
     { emissions.push(() => steps.push(`⚠ εt = ${(epsilonTProv * 1000).toFixed(2)} ‰ < εt,mín = ${(check.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`)); }
   }
-  if (rebar.area < AsMin || design.kind === 'impossible' || barsDesign.kind === 'impossible') status = 'fail';
+  if (rebar.area < minimumFor(AsMin, design.As) || design.kind === 'impossible' || barsDesign.kind === 'impossible') status = 'fail';
 
   const etc = tensionControlledStrain(fy, edition);
   return enforcePracticalFlexureLimit(withDeferredVerificationSteps({
@@ -512,6 +528,7 @@ export function checkFlexure(
     steps,
     isDoublyReinforced: isDoubly,
     AsComp: rebarComp?.area,
+    ...(sheet && design.kind === 'doubly' ? { AsCompReq: design.AsComp } : {}),
     barsComp: rebarComp?.label,
     barCountComp: rebarComp?.count,
     barDiaComp: rebarComp?.dia,
@@ -530,8 +547,9 @@ type ShearProvision = ({ legs: number } | { secondaryFace: SecondaryShearFace })
 
 export function checkShear(
   params: ConcreteDesignParams, Vu: number, Nu: number = 0, opts: ShearOptions = {},
+  provided?: { legs: number; spacing: number },
 ): ShearResult {
-  return evaluateShear(params, Vu, Nu, opts);
+  return evaluateShear(params, Vu, Nu, opts, provided);
 }
 
 function evaluateShear(

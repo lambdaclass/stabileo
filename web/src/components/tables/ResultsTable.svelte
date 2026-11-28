@@ -6,6 +6,8 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { knownIssueMessage } from '../../lib/engine/known-issue-message';
+  import { withoutIssueRef } from '../../lib/pro/diagnostic-text';
+  import NoticeRow from '../notices/NoticeRow.svelte';
   import { shellRef } from '../../lib/engine/model-findings';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import {
@@ -57,6 +59,10 @@
     for (const d of solverDiags) {
       items.push({ source: d.source, type: d.code, message: d.message, severity: d.severity });
     }
+    const known = is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues;
+    for (const message of known.messages) {
+      if (!items.some((i) => i.message === message)) items.push({ source: 'engine', type: 'known_issue', message, severity: known.refused ? 'error' : 'warning' });
+    }
     return items;
   })());
 
@@ -66,9 +72,17 @@
   const caseKeys = $derived([...resultsStore.perCase.keys()]);
 </script>
 
-{#each containment.messages as message}
-  <div role="alert" class="containment-banner">{message}</div>
-{/each}
+{#if __PUBLIC_FEATURES__.proPlatesUnified}
+  {#if containment.refused}
+    <div role="alert" class="withheld-banner" data-testid="results-withheld">
+      <NoticeRow kind="withheld" level="blocking" summary={t('notices.kind.withheld')} details={containment.messages} open />
+    </div>
+  {/if}
+{:else}
+  {#each containment.messages as message}
+    <div role="alert" class="containment-banner">{message}</div>
+  {/each}
+{/if}
 {#if !containment.refused}
 <!--
   Which load state the table describes.
@@ -268,7 +282,11 @@
           <tr>
             <td class="id-cell">{d.source}</td>
             <td>{d.type}</td>
-            <td>{d.message}</td>
+            {#if __PUBLIC_FEATURES__.proPlatesUnified}
+              <td title={withoutIssueRef(d.message) !== d.message ? d.message : undefined} data-testid="results-diag-message">{withoutIssueRef(d.message)}</td>
+            {:else}
+              <td>{d.message}</td>
+            {/if}
             <td class={d.severity === 'warning' ? 'severity-warn' : d.severity === 'error' ? 'severity-err' : ''}>{d.severity}</td>
           </tr>
         {/each}
@@ -281,6 +299,7 @@
 
 <style>
   .containment-banner { padding: 12px; border: 2px solid currentColor; margin-bottom: 8px; }
+  .withheld-banner { margin-bottom: 8px; }
   .results-case-bar {
     display: flex;
     align-items: center;

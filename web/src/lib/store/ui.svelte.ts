@@ -1,3 +1,4 @@
+import { reinforcementSheets, unifiedPlates } from '../features';
 // UI state store
 
 import { DEFAULT_OSNAP, OSNAP_MODES, type OsnapMode } from '../model/osnap-modes';
@@ -67,8 +68,8 @@ export type { ElementColorMode } from '../viewport/element-colour';
 import type { ElementColorMode } from '../viewport/element-colour';
 
 /** The parts of PRO's Specifications, and what each one selects. */
-export type SpecSection = 'members' | 'supports' | 'links' | 'surfaces' | 'analysis' | 'list';
-const SPEC_SELECT = { members: 'elements', supports: 'supports', links: 'nodes', surfaces: 'shells', analysis: 'elements', list: 'elements' } as const;
+export type SpecSection = 'members' | 'supports' | 'links' | 'surfaces' | 'placement' | 'analysis' | 'list';
+const SPEC_SELECT = { members: 'elements', supports: 'supports', links: 'nodes', surfaces: 'shells', placement: 'elements', analysis: 'elements', list: 'elements' } as const;
 export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring';
 
 // 3D-specific types
@@ -255,8 +256,8 @@ function createUIStore() {
   let selectedPlates = $state<Set<number>>(new Set());
   /** What a click on a plate's mesh picks: the plate whole, or the one element clicked. */
   let shellPickScope = $state<'plate' | 'element'>('plate');
-  /** Whether a meshed physical plate is drawn with its mesh's edges, or as the piece (its outline). Picking does not depend on it. */
-  let platesShowMesh = $state(true);
+  /** Whether a meshed physical plate is drawn with its mesh's edges or as the piece (its outline); null follows whether there are results. Picking does not depend on it. */
+  let platesShowMesh = $state<boolean | null>(null);
   let plateShells: ((id: number) => string[]) | null = null;
   /** What a click on a member picks in PRO: the whole piece (an arc, a member a mesh cut) or one segment. */
   let memberPickScope = $state<'piece' | 'segment'>('piece');
@@ -774,6 +775,7 @@ function createUIStore() {
       try { localStorage.setItem('stabileo-inline-help', v ? '1' : '0'); } catch { /* private mode */ }
     },
 
+    get buildingDesignInputsAvailable() { return reinforcementSheets() || designInPro; },
     get designInPro() { return designInPro; },
     set designInPro(v: boolean) {
       designInPro = v;
@@ -971,8 +973,8 @@ function createUIStore() {
       selectedElements = new Set(ids);
       setShells(new Set());
     },
-    get platesShowMesh() { return platesShowMesh; },
-    set platesShowMesh(v: boolean) { platesShowMesh = v; },
+    get platesShowMesh() { return unifiedPlates() ? platesShowMesh : platesShowMesh ?? true; },
+    set platesShowMesh(v: boolean | null) { platesShowMesh = v; },
     set shellPickScope(v: 'plate' | 'element') { shellPickScope = v; },
     /** How the store finds a plate's shells; set once by `physical-plates.ts`. */
     setPlateShellResolver(fn: (id: number) => string[]) { plateShells = fn; },
@@ -1258,6 +1260,7 @@ function createUIStore() {
     set proPanelWidth(v: number) { proPanelWidth = v; },
     get proActiveTab() { return proActiveTab; },
     set proActiveTab(v: string) {
+      if (v === 'rcSheets' && !__PUBLIC_FEATURES__.proRcSheets) return;
       // Constraints and connectors are edited in Specifications › Links; the old destination
       // still leads there.
       if (v === 'constraints') { specSection = 'links'; v = 'specifications'; }
@@ -1273,6 +1276,7 @@ function createUIStore() {
     },
     get specSection() { return specSection; },
     set specSection(v: SpecSection) {
+      if (v === 'placement' && !reinforcementSheets()) return;
       specSection = v;
       if (proActiveTab === 'specifications') applySelectMode(SPEC_SELECT[v]);
     },
@@ -1285,6 +1289,8 @@ function createUIStore() {
     get toasts() { return toasts; },
     /** `sticky`: kept until it is acted on or dismissed, for a question the reader has to answer. */
     toast(message: string, type: 'success' | 'error' | 'info' = 'info', actionId?: string, sticky = false) {
+      const at = unifiedPlates() ? toasts.findIndex(t => t.message === message && t.type === type) : -1;
+      if (at >= 0) { actionId ??= toasts[at]!.actionId; toasts.splice(at, 1); }
       const id = ++toastCounter;
       toasts.push({ id, message, type, actionId });
       if (sticky) return;
@@ -1292,6 +1298,10 @@ function createUIStore() {
         const idx = toasts.findIndex(t => t.id === id);
         if (idx >= 0) toasts.splice(idx, 1);
       }, actionId ? 8000 : 4000);
+    },
+    /** Takes back the toasts that say only this: what a card that stays says in their place. */
+    dismissToastsSaying(message: string) {
+      for (let i = toasts.length - 1; i >= 0; i--) if (toasts[i]!.message === message && !toasts[i]!.actionId) toasts.splice(i, 1);
     },
     dismissToast(id: number) {
       const idx = toasts.findIndex(t => t.id === id);

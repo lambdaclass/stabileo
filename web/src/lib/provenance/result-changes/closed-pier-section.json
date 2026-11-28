@@ -1,0 +1,35 @@
+{
+  "id": "closed-pier-section",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "all": [
+      "savedWallDesign"
+    ]
+  },
+  "title": {
+    "en": "Closed pier openings",
+    "es": "Aberturas en núcleos cerrados",
+    "pt": "Aberturas em núcleos fechados",
+    "de": "Öffnungen in geschlossenen Kernen",
+    "fr": "Ouvertures des noyaux fermés",
+    "tr": "Kapalı çekirdek boşlukları",
+    "zh": "闭合核心筒孔洞",
+    "hu": "Zárt magok nyílásai"
+  },
+  "explanation": {
+    "en": "If a closed wall pier was checked as a polygon, recalculate its resistance with the interior openings.",
+    "es": "Si se verificó un núcleo cerrado como polígono, recalculá su resistencia con las aberturas interiores.",
+    "pt": "Se um núcleo fechado foi verificado como polígono, recalcule sua resistência com as aberturas internas.",
+    "de": "Wenn ein geschlossener Wandkern als Polygon geprüft wurde, berechnen Sie seinen Widerstand mit den inneren Öffnungen neu.",
+    "fr": "Si un noyau fermé a été vérifié comme un polygone, recalculez sa résistance avec les ouvertures intérieures.",
+    "tr": "Kapalı perde çekirdeği çokgen olarak kontrol edildiyse iç boşlukları hesaba katarak dayanımını yeniden hesaplayın.",
+    "zh": "若曾将闭合剪力墙核心筒作为多边形验算，请计入内部孔洞重新计算承载力。",
+    "hu": "Ha a zárt falmagot sokszögként ellenőrizték, számítsa újra az ellenállását a belső nyílásokkal."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-closed-pier-section.md",
+    "heading": "Closed pier openings in polygon sections"
+  }
+}

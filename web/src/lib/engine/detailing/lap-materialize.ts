@@ -145,6 +145,7 @@ export interface MaterialisationResult {
   barsByMember: Map<number, BarPath[]>;
   laps: LapInterval[];
   fused: FusedBar[];
+  sourcesByBar: ReadonlyMap<string, ReadonlySet<string>>;
   /** Transitions that produced no geometry, and why. Never silently dropped. */
   unmaterialised: Array<{ jointId: string; reason: EngineMessage }>;
 }
@@ -428,6 +429,7 @@ export function materialiseLaps(input: MaterialisationInput): MaterialisationRes
 
   const laps: LapInterval[] = [];
   const fused: FusedBar[] = [];
+  const sourcesByBar = new Map<string, ReadonlySet<string>>();
   const unmaterialised: MaterialisationResult['unmaterialised'] = [];
 
   for (const t of input.transitions) {
@@ -465,6 +467,13 @@ export function materialiseLaps(input: MaterialisationInput): MaterialisationRes
         if (sameBar && Math.abs(b.across - a.across) <= SAME_POSITION_M && Math.abs(b.level - a.level) <= SAME_LEVEL_M) {
           // Same line: one bar, not two lapped ones.
           const merged = fuse(a, b);
+          const sources = new Set([
+            ...(sourcesByBar.get(a.bar.id) ?? [a.bar.id]),
+            ...(sourcesByBar.get(b.bar.id) ?? [b.bar.id]),
+          ]);
+          sourcesByBar.delete(a.bar.id);
+          sourcesByBar.delete(b.bar.id);
+          sourcesByBar.set(merged.id, sources);
           // The through bar goes on with the OUTGOING member, whose next joint is the line's next
           // transition: kept with the incoming one, it was out of sight of that transition and its
           // far end stopped in the next column, a bar fused across one support and cut at the
@@ -560,7 +569,7 @@ export function materialiseLaps(input: MaterialisationInput): MaterialisationRes
     }
   }
 
-  return { barsByMember, laps, fused, unmaterialised };
+  return { barsByMember, laps, fused, sourcesByBar, unmaterialised };
 }
 
 /**

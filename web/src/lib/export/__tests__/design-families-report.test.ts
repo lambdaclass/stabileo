@@ -12,7 +12,7 @@ import { detailingStore } from '../../store/detailing.svelte';
 import { verificationStore } from '../../store/verification.svelte';
 import { DESIGN_FAMILIES, totalsOf, type DesignFamily } from '../../engine/design/design-families';
 import { ready, familyOf, designFamiliesWithWorkerYields } from './design-families-fixture';
-import { ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
+import { RELEASED_CORE, ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 
 function designOutput() {
   const summary = verificationStore.runSummary;
@@ -138,8 +138,8 @@ describe('the run reports what happened, family by family', () => {
     }
   }, 300_000);
 
-  it('counts processed, designed, refused and not-modelled members', async () => {
-    await ready('pro-edificio-7p', ROLLED_BEAMS);
+  it('counts processed, designed, refused and not-modelled members on the released core', async () => {
+    await ready('pro-edificio-7p', { ...ROLLED_BEAMS, ...RELEASED_CORE });
     const report = await designFamiliesWithWorkerYields(['column', 'beam', 'slab', 'wall'], { maxRunMs: 180_000 });
     expect(verificationStore.runSummary?.aborted).toBe(false);
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+source "$root/research/remap-rust-paths.sh"
 here="$root/research/mechanics/biggins-2026"
 out="$root/web/public/research-wasm/biggins-2026"
 if ! command -v wasm-metadce >/dev/null; then
@@ -8,7 +9,8 @@ if ! command -v wasm-metadce >/dev/null; then
 fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-(cd "$here" && wasm-pack build --release --target web --no-typescript --out-dir "$tmp/pkg" --locked)
+research_workspace "$here" "$tmp/cargo"
+(cd "$wasm_crate" && wasm-pack build --release --target web --no-typescript --out-dir "$tmp/pkg" --locked)
 python3 -I "$root/research/fracture/shauer-2025/wasm/trim_exports.py" "$tmp/pkg/arches_biggins_2026_bg.wasm" "$tmp/graph.json"
 flags=(--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue)
 mkdir -p "$out"

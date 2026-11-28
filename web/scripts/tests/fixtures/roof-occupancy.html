@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>Roof occupancy</title></head>
+  <body>
+    <main></main>
+    <script type="module">
+      import { mount, tick } from 'svelte';
+      import Roof from '../../../src/components/pro/ProRoofLoadSection.svelte';
+      import { defaultRoofConfig } from '../../../src/components/pro/auto-loads-sections';
+      import { setLocale } from '../../../src/lib/i18n';
+      import '../../../src/lib/i18n/full-dictionaries';
+
+      setLocale('en');
+      const config = { ...defaultRoofConfig(), use: 'occupancy', occupancyKey: new URL(location.href).searchParams.get('key') };
+      mount(Roof, { target: document.querySelector('main'), props: { config, floorDead: 1, modelSlopeDeg: 0 } });
+      await tick();
+      window.readRoofChoice = () => config.occupancyKey;
+    </script>
+  </body>
+</html>

@@ -20,13 +20,13 @@ import type { SolverInput3D } from './types-3d';
 import type { Plate, Quad } from '../store/model.svelte';
 import type { ShellOffset } from '../model/element-3d-metadata';
 
-const EPS = 1e-9;
+export const SHELL_OFFSET_EXPANSION_THRESHOLD = 1e-9;
 const RIGID_RELEASES = [false, false, false, false, false, false];
 
 /** True if a shell carries a non-zero offset. */
 export function hasShellOffset(s: { offset?: ShellOffset }): boolean {
   const o = s.offset;
-  return !!o && (Math.abs(o.x) > EPS || Math.abs(o.y) > EPS || Math.abs(o.z) > EPS);
+  return !!o && (Math.abs(o.x) > SHELL_OFFSET_EXPANSION_THRESHOLD || Math.abs(o.y) > SHELL_OFFSET_EXPANSION_THRESHOLD || Math.abs(o.z) > SHELL_OFFSET_EXPANSION_THRESHOLD);
 }
 
 /** Any plate/quad carries an offset. */

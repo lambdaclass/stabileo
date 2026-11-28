@@ -22,7 +22,7 @@ import {
   polygonAreaCentroid, clipHalfPlane, compressedZone,
 } from '../../../__tests__/differential/oracle/section-polygon';
 import {
-  sectionPoint, interactionCurve, grossArea, outlineRings,
+  sectionPoint, interactionCurve, grossArea, outlineRings, prepareSection, withSection, sectionSquashLoad,
   type Bar, type Outline,
 } from '../cirsoc201-section';
 import { circularSegment } from '../../../__tests__/differential/oracle/cirsoc201-circular';
@@ -145,6 +145,30 @@ describe('a rectangular column, as a whole section', () => {
       outline, bars, { ...mat, deductDisplacedConcrete: false }, Math.PI / 2, 10,
     );
     expect(notDeducted.Pn).toBeCloseTo(Po + 0.85 * 25000 * Ast, 1);
+  });
+
+  it.each([false, true])('uses every concrete polygon ring in section resistance with opening=%s', (opening) => {
+    const rect: Outline = { ...outline, ...(opening ? { hole: { b: 0.10, h: 0.10 } } : {}) };
+    const rings = outlineRings(rect);
+    const polygon = { kind: 'polygon' as const, ...rings };
+    expect(grossArea(polygon)).toBe(grossArea(rect));
+    expect(outlineRings(polygon)).toEqual(rings);
+    expect(sectionSquashLoad(polygon, bars, mat)).toBe(sectionSquashLoad(rect, bars, mat));
+    const theta = Math.PI / 2;
+    const depth = outline.h / 2;
+    expect(sectionPoint(polygon, bars, mat, theta, depth)).toEqual(sectionPoint(rect, bars, mat, theta, depth));
+    expect(interactionCurve(polygon, bars, mat, theta)).toEqual(interactionCurve(rect, bars, mat, theta));
+    const expected = withSection(rect, bars, mat, section => ({
+      info: section.info(),
+      biaxial: section.biaxial(0, 1, 1),
+    }));
+    const section = prepareSection(polygon, bars, mat);
+    try {
+      expect(section.info()).toEqual(expected.info);
+      expect(section.biaxial(0, 1, 1)).toEqual(expected.biaxial);
+    } finally {
+      section.free();
+    }
   });
 
   it('is symmetric: bending about x and about y give the same curve', () => {

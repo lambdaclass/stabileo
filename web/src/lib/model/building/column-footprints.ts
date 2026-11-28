@@ -20,8 +20,9 @@
  * mesher's own grid, and the indicator still says what it says.
  *
  * Pure geometry in `footprintGrid`; the model edits in `tieFootprints` and `untieNodes`, inside
- * the caller's batch (`deferred-slabs.ts` `meshWithFootprints`).
+ * the caller's batch (`physical-plates.ts`, when a slab plate is meshed).
  */
+import { footprintOwners, withFootprintOwners } from './footprint-link-owners';
 import { modelStore } from '../../store/model.svelte';
 import { planHalf } from './build-on-grid';
 import type { MeshOutput } from '../edit/mesher';
@@ -50,11 +51,25 @@ export function sideStations(a: number, b: number, size: number, forced: readonl
   return all.filter((s, i) => i === 0 || s - all[i - 1]! > 1e-4);
 }
 
+/** The cells of a footprint grid: their sides along X and Y, and quadrilaterals or each one split in two triangles. */
+export interface FootprintCells { ax: number; ay: number; element?: 'quad' | 'tri' }
+
 /**
  * The grid of an axis-aligned rectangular panel at elevation `z`, with lines on the faces of the
- * columns given; null when the corners are not such a rectangle. Cells keep the panel's winding.
+ * columns given and at the `forced` coordinates; null when the corners are not such a rectangle.
+ * Cells keep the panel's winding.
  */
-export function footprintGrid(corners: ReadonlyArray<{ x: number; y: number; z?: number }>, size: number, columns: readonly ColumnFootprint[]): MeshOutput | null {
+export function footprintGrid(corners: readonly FootprintCorner[], size: number, columns: readonly ColumnFootprint[]): MeshOutput | null {
+  return buildFootprintGrid(corners, columns, (a, b, faces) => sideStations(a, b, size, faces));
+}
+
+export type FootprintCorner = { x: number; y: number; z?: number };
+
+export function buildFootprintGrid(
+  corners: readonly FootprintCorner[], columns: readonly ColumnFootprint[],
+  stations: (a: number, b: number, faces: number[], axis: 'x' | 'y') => number[],
+  triangles?: (cells: number[][], corners: number[], i: number, j: number) => void,
+): MeshOutput | null {
   if (corners.length !== 4) return null;
   const z = corners[0]!.z ?? 0;
   if (corners.some((c) => Math.abs((c.z ?? 0) - z) > EPS)) return null;
@@ -64,8 +79,8 @@ export function footprintGrid(corners: ReadonlyArray<{ x: number; y: number; z?:
   const [x0, x1] = xs0 as [number, number], [y0, y1] = ys0 as [number, number];
   const inside = (c: ColumnFootprint) => c.x > x0 - c.hx - EPS && c.x < x1 + c.hx + EPS && c.y > y0 - c.hy - EPS && c.y < y1 + c.hy + EPS;
   const near = columns.filter(inside);
-  const xs = sideStations(x0, x1, size, near.flatMap((c) => [c.x - c.hx, c.x + c.hx]));
-  const ys = sideStations(y0, y1, size, near.flatMap((c) => [c.y - c.hy, c.y + c.hy]));
+  const xs = stations(x0, x1, near.flatMap(c => [c.x - c.hx, c.x + c.hx]), 'x');
+  const ys = stations(y0, y1, near.flatMap(c => [c.y - c.hy, c.y + c.hy]), 'y');
   // The panel's winding: positive signed area turns +X to +Y.
   let area = 0;
   for (let i = 0; i < 4; i++) { const p = corners[i]!, q = corners[(i + 1) % 4]!; area += p.x * q.y - q.x * p.y; }
@@ -75,15 +90,17 @@ export function footprintGrid(corners: ReadonlyArray<{ x: number; y: number; z?:
   const cells: number[][] = [];
   for (let j = 0; j + 1 < ys.length; j++) {
     for (let i = 0; i + 1 < xs.length; i++) {
-      const c = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
-      cells.push(area > 0 ? c : [c[0]!, c[3]!, c[2]!, c[1]!]);
+      const q = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
+      const c = area > 0 ? q : [q[0]!, q[3]!, q[2]!, q[1]!];
+      if (triangles) triangles(cells, c, i, j);
+      else cells.push(c);
     }
   }
   const boundary = new Set<number>();
   for (let j = 0; j < ys.length; j++) for (let i = 0; i < xs.length; i++) {
     if (i === 0 || j === 0 || i === xs.length - 1 || j === ys.length - 1) boundary.add(at(i, j));
   }
-  return { points, cells, structured: true, boundary, plane: { o: [x0, y0, z], u: [1, 0, 0], v: [0, 1, 0] } };
+  return { points, cells, structured: !triangles, boundary, plane: { o: [x0, y0, z], u: [1, 0, 0], v: [0, 1, 0] } };
 }
 
 /** The columns that reach the floor at elevation `z`: every vertical bar with a node there, by its plan section. */
@@ -111,19 +128,29 @@ export function columnFootprintsAt(z: number): ColumnFootprint[] {
  * rigid body. A node already tied, held by a support, or the column's own node is left alone.
  * Returns how many ties were added.
  */
-export function tieFootprints(slabNodes: Iterable<number>, columns: readonly ColumnFootprint[]): number {
-  const tied = new Set((modelStore.model.constraints ?? []).flatMap((k) => ('slaveNode' in k ? [k.slaveNode as number] : [])));
+export function tieFootprints(slabNodes: Iterable<number>, columns: readonly ColumnFootprint[], owner?: number): number {
+  const tied = new Map(modelStore.constraints.flatMap((k, i) => 'slaveNode' in k ? [[k.slaveNode, i] as const] : []));
   const supported = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
   let made = 0;
   for (const id of slabNodes) {
-    if (tied.has(id) || supported.has(id)) continue;
+    if (supported.has(id)) continue;
     const n = modelStore.nodes.get(id);
     if (!n) continue;
     const c = columns.find((k) => k.node !== id && Math.abs((modelStore.nodes.get(k.node)?.z ?? 0) - (n.z ?? 0)) < EPS
       && Math.abs(n.x - k.x) <= k.hx + EPS && Math.abs(n.y - k.y) <= k.hy + EPS);
     if (!c) continue;
-    modelStore.addConstraint({ type: 'rigidLink', masterNode: c.node, slaveNode: id, dofs: [0, 1, 2, 3, 4, 5] } as never);
-    tied.add(id);
+    const index = tied.get(id);
+    if (index !== undefined) {
+      const link = modelStore.constraints[index];
+      if (link?.type === 'rigidLink' && link.masterNode === c.node && owner !== undefined) {
+        const owners = footprintOwners(link);
+        if (owners.length && !owners.includes(owner)) modelStore.replaceConstraint(index, withFootprintOwners(link, [...owners, owner]));
+      }
+      continue;
+    }
+    tied.set(id, modelStore.constraints.length);
+    const link = { type: 'rigidLink' as const, masterNode: c.node, slaveNode: id, dofs: [0, 1, 2, 3, 4, 5] };
+    modelStore.addConstraint(owner === undefined ? link : withFootprintOwners(link, [owner]));
     made++;
   }
   return made;
@@ -135,13 +162,14 @@ export function outsideFootprints(columns: readonly ColumnFootprint[], z: number
     && (Math.abs(p[0] - c.x) > EPS || Math.abs(p[1] - c.y) > EPS));
 }
 
-/** The rigid ties whose slave is one of the nodes given, removed (before those nodes go). */
-export function untieNodes(nodes: ReadonlySet<number>): number {
-  const list = modelStore.model.constraints ?? [];
-  let removed = 0;
-  for (let i = list.length - 1; i >= 0; i--) {
-    const k = list[i] as { type: string; slaveNode?: number };
-    if (k.type === 'rigidLink' && k.slaveNode !== undefined && nodes.has(k.slaveNode)) { modelStore.removeConstraint(i); removed++; }
+export function releaseFootprintLinks(owner: number): void {
+  for (let i = modelStore.constraints.length - 1; i >= 0; i--) {
+    const link = modelStore.constraints[i];
+    if (link?.type !== 'rigidLink') continue;
+    const owners = footprintOwners(link);
+    if (!owners.includes(owner)) continue;
+    const remaining = owners.filter(id => id !== owner);
+    if (remaining.length) modelStore.replaceConstraint(i, withFootprintOwners(link, remaining));
+    else modelStore.removeConstraint(i);
   }
-  return removed;
 }

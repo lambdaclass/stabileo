@@ -5,7 +5,7 @@
  * rc-design-visual.spec.ts and are non-blocking on this first landing.
  */
 
-import { test, expect, loadModel, solveModel, computeDemands, designPlace, sizeAll } from './fixtures';
+import { test, expect, loadModel, solveModel, computeDemands, designPlace, sizeAll, stateSuiteCovers, setLateralBeams } from './fixtures';
 
 const QA = 'rc-design-qa-8';
 const FLAGSHIP = 'rc-design-frame';
@@ -13,6 +13,7 @@ const FLAGSHIP = 'rc-design-frame';
 async function setupDesigned(page: import('@playwright/test').Page) {
   const ids = await loadModel(page, QA);
   await solveModel(page);
+  await stateSuiteCovers(page);
   await computeDemands(page);
   await page.evaluate(() => window.__stabileoActions.designAll());
   await expect.poll(() => page.evaluate(() => window.__stabileo.runCounts()?.verified ?? 0)).toBeGreaterThan(0);
@@ -231,6 +232,7 @@ test.describe('@smoke RC design workflow', () => {
   test('B10 — every generated design VERIFIES under the selected code', async ({ pro: page }) => {
     const ids = await loadModel(page, QA);
     await solveModel(page);
+    await stateSuiteCovers(page);
 
     /*
      * Since 292b87f68 a beam that declares no role in the lateral-force-resisting system is
@@ -249,7 +251,7 @@ test.describe('@smoke RC design workflow', () => {
     expect(undeclared, 'undeclared, every beam anchors with the concurrent compression').toEqual([]);
 
     await designPlace(page, 'designData');
-    await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
+    await setLateralBeams(page, 'gravity');
     const runBefore = await page.evaluate(() => window.__stabileo.designRunId());
     await page.evaluate(() => window.__stabileoActions.designAll());
     await expect.poll(() => page.evaluate(() => window.__stabileo.designRunId())).not.toBe(runBefore);

@@ -6,8 +6,8 @@
  * the Deflections table all read this: the service deflection relative to the chord
  * (`store/service-deflection.ts`) against the span limit, with the long-term multiplier of the
  * member's material — none for steel, which does not creep; for a reinforced concrete beam the
- * cracked section's Ie and ξ/(1 + 50ρ′) (`store/cracked-deflection.ts`), λΔ = 2 on the gross
- * section for one with no bars.
+ * cracked section's Ie and ξ/(1 + 50ρ′) with the bars the reinforcement sheets adopted
+ * (`store/cracked-deflection.ts`), λΔ = 2 on the gross section for one with no bars.
  */
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
@@ -16,6 +16,7 @@ import type { AnalysisResults3D } from '../engine/types-3d';
 import { serviceSets, serviceDeflections, type MemberDeflection, type DeflectionBasis } from './service-deflection';
 import { checkDeflection, type DeflectionResult } from '../engine/codes/argentina/serviceability';
 import { crackedBasis, type CrackedBasis } from './cracked-deflection';
+import { sheetBeamBars, type SheetBeamBarsReader } from './rc-sheet-readers';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { memberKindOf } from '../engine/design/member-grouping';
 import { ruleFor, readDeflection, DEFAULT_BEAM_RULE, type DeflectionRule, type RuleContext } from '../engine/deflection-limits';
@@ -83,6 +84,7 @@ export function deflectionChecks(ids?: Iterable<number>): ServiceabilityRun {
   const ruled = new Map<number, DeflectionRule>();
   for (const id of candidates) { const r = ruleFor(id, limits, ctx); if (r) ruled.set(id, r); }
   const loads = loadSets();
+  const bars = __PUBLIC_FEATURES__.proRcSheets ? sheetBeamBars() : undefined;
   const rows = new Map<number, MemberServiceability>();
   for (const [id, d] of serviceDeflections(ruled.keys(), svc.sets)) {
     const rule = ruled.get(id);
@@ -94,7 +96,7 @@ export function deflectionChecks(ids?: Iterable<number>): ServiceabilityRun {
     // The length the limit is taken over: the span, or twice it for a cantilever.
     const over = (d.cantilever ? 2 : 1) * d.L;
     if (family === 'concrete') {
-      const row = concreteRow(id, d, rule, over, svc, loads);
+      const row = concreteRow(id, d, rule, over, svc, loads, bars);
       rows.set(id, { elementId: id, family, deflection: d, rule, measured, ...row });
       continue;
     }
@@ -127,19 +129,19 @@ function loadSets(): LoadSets | null {
  * of the live load applied after attachment; the project states no sustained share of the live
  * load, so all of it is taken as sustained, on the safe side: λΔ·δ(all) + [δ(all) − δ(D)].
  */
-function concreteRow(id: number, d: MemberDeflection, rule: DeflectionRule, over: number, svc: ReturnType<typeof serviceSets>, loads: LoadSets | null):
+function concreteRow(id: number, d: MemberDeflection, rule: DeflectionRule, over: number, svc: ReturnType<typeof serviceSets>, loads: LoadSets | null, bars: SheetBeamBarsReader | undefined):
   { reading: DeflectionReading; check: DeflectionResult; cracked?: CrackedBasis } {
   const reading = tableReadingOf(rule.n);
   const at = (results: AnalysisResults3D) => {
     const dd = serviceDeflections([id], [{ id: 0, name: '', results }]).get(id);
     if (!dd) return null;
-    const cr = crackedBasis(dd.span, new Map(results.elementForces.map((f) => [f.elementId, f])));
+    const cr = crackedBasis(dd.span, new Map(results.elementForces.map((f) => [f.elementId, f])), bars);
     return { delta: readDeflection(dd, rule.direction) * (cr?.scale ?? 1), cr };
   };
   const total = (why: string) => {
     // (1 + λΔ)·δ under the service set that governs, as before: not a Tabla 24.2.2 reading.
     const set = svc.sets.find((x) => x.name === d.setName);
-    const cracked = set ? crackedBasis(d.span, new Map(set.results.elementForces.map((f) => [f.elementId, f]))) : null;
+    const cracked = set ? crackedBasis(d.span, new Map(set.results.elementForces.map((f) => [f.elementId, f])), bars) : null;
     const m = readDeflection(d, rule.direction);
     const check = cracked ? checkDeflection(d.L, m * cracked.scale, rule.n, cracked.lambda, over) : checkDeflection(d.L, m, rule.n, LONG_TERM_FACTOR.concrete, over);
     check.steps.unshift(why);

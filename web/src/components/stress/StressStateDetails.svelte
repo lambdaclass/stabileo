@@ -26,7 +26,7 @@
     {#await notices}
       {t('stress.combinedShearRefused')}
     {:then loaded}
-      {loaded?.combinedSectionShearExplanation(i18n.locale) ?? t('stress.combinedShearRefused')}
+      {loaded?.noticeExplanation('combined-section-shear-refusal', i18n.locale) ?? t('stress.combinedShearRefused')}
     {:catch}
       {t('stress.combinedShearRefused')}
     {/await}

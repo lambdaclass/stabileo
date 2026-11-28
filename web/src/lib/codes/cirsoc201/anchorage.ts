@@ -24,13 +24,13 @@
  * ψe = 1 always: §25.4.2.4's commentary states epoxy coating is not permitted under this
  * regulation, so there is no coated case to model.
  *
- * ── What is NOT implemented ────────────────────────────────────────
+ * §25.4.2.4 — the general equation (25.4.2.4a), where the caller knows the bar layout:
  *
- * The general equation (25.4.2.4a) with an explicit (cb + Ktr)/db. It needs the real bar
- * layout, which the caller does not have at the point ld is first needed. The simplified
- * table is the conservative choice of the two for the "other cases" row and is what §25.4.2.1
- * permits, so using it is a documented decision rather than a gap. `deriveDevelopment`
- * records which row was taken.
+ *   ld = fy·ψt·ψe·ψs·ψg / (1,1·λ·√f'c·(cb + Ktr)/db) · db,   (cb + Ktr)/db ≤ 2,5
+ *
+ * cb the lesser of the cover to the bar's centre and half the centre-to-centre spacing; Ktr = 0
+ * is allowed «aún si hay armadura transversal presente», and is what `confinementOf` takes.
+ * ψs (Table 25.4.2.5) is 0,8 for db ≤ 16 mm and 1,0 above.
  *
  * Pure: no store, no runes, no i18n.
  */
@@ -78,7 +78,7 @@ export interface DevelopmentInputs {
    * that more than 300 mm of fresh concrete is cast below it, 1,0 otherwise.
    */
   psiT?: number;
-  /** ψg, §25.4.2.5 — grade factor. 1,0 for fy ≤ 420, 1,15 for 550, 1,3 for 690. */
+  /** ψg, Table 25.4.2.5 — grade factor. 1,0 for fy = 220 or 420 MPa, 1,15 for 500. */
   psiG?: number;
   /** λ, §25.4.2.5 — lightweight concrete factor. 1,0 for normal weight. */
   lambda?: number;
@@ -92,11 +92,13 @@ export interface DevelopmentResult {
   computedM: number;
   /** True when §25.4.2.1(b) governed. */
   governedByMinimum: boolean;
-  /** Which cell of Table 25.4.2.3 was used. */
-  tableRow: 'favourable' | 'other';
+  /** Which cell of Table 25.4.2.3 was used, or the general equation of §25.4.2.4. */
+  tableRow: 'favourable' | 'other' | 'general';
   tableColumn: 'db<=16' | 'db>16';
-  /** The denominator coefficient actually applied (2,1 / 1,7 / 1,4 / 1,1). */
+  /** The denominator coefficient actually applied (2,1 / 1,7 / 1,4 / 1,1; 1,1·(cb + Ktr)/db/ψs for the general equation). */
   coefficient: number;
+  /** (cb + Ktr)/db as taken, after the 2,5 cap, when the general equation was used. */
+  confinementTerm?: number;
   refs: ClauseRef[];
   derivation: EngineMessage;
 }
@@ -125,7 +127,7 @@ export function concreteBelowTopBars(h: number, cover: number, stirrupDiaMm: num
   return h - cover - (stirrupDiaMm + barDiaMm) / 1000;
 }
 
-/** ψg from §25.4.2.5, by specified grade. */
+/** ψg from Table 25.4.2.5, by specified grade: the table lists 220, 420 and 500 MPa; above 550 the 1,3 is ACI 318's. */
 export function gradeFactor(fy: number): number {
   if (fy <= 420) return 1.0;
   if (fy <= 550) return 1.15;
@@ -138,26 +140,17 @@ export function gradeFactor(fy: number): number {
  * Returns metres because every consumer in the detailing pipeline works in metres.
  */
 export function deriveDevelopment(input: DevelopmentInputs): DevelopmentResult {
-  const { diameterMm: db, fy, fc, favourableSpacing, edition } = input;
-  const psiT = input.psiT ?? 1.0;
-  const psiE = 1.0;   // §25.4.2.4 commentary: epoxy coating is not permitted.
-  const psiG = input.psiG ?? gradeFactor(fy);
-  const lambda = input.lambda ?? 1.0;
-
+  const { diameterMm: db, favourableSpacing, edition } = input;
   const large = db > TABLE_25_4_2_3_DIAMETER_BREAK_MM;
   const coefficient = favourableSpacing
     ? (large ? 1.7 : 2.1)
     : (large ? 1.1 : 1.4);
 
-  // Table 25.4.2.3 is written in mm with f'c in MPa; the result is a multiple of db.
-  const computedMm = (fy * psiT * psiE * psiG) / (coefficient * lambda * developmentSqrtFc(fc)) * db;
-  const ldMm = Math.max(computedMm, MIN_DEVELOPMENT_MM);
-
+  const { psiT, psiG, lambda, computedMm, ldMm, refs: commonRefs } = developmentAtCoefficient(input, coefficient);
   const refs = [
     clause('cirsoc-201', edition, 'Tabla 25.4.2.3',
       'longitud de anclaje para barras conformadas en tracción'),
-    clause('cirsoc-201', edition, '25.4.2.1', 'longitud de anclaje mínima'),
-    ...capRef(fc, edition),
+    ...commonRefs,
   ];
 
   return {
@@ -182,6 +175,19 @@ export function deriveDevelopment(input: DevelopmentInputs): DevelopmentResult {
       },
     ),
   };
+}
+
+export function developmentAtCoefficient(input: DevelopmentInputs, coefficient: number) {
+  const { diameterMm: db, fy, fc, edition } = input;
+  const psiT = input.psiT ?? 1.0;
+  const psiE = 1.0;
+  const psiG = input.psiG ?? gradeFactor(fy);
+  const lambda = input.lambda ?? 1.0;
+  const computedMm = (fy * psiT * psiE * psiG) / (coefficient * lambda * developmentSqrtFc(fc)) * db;
+  const ldMm = Math.max(computedMm, MIN_DEVELOPMENT_MM);
+  return { psiT, psiG, lambda, computedMm, ldMm, refs: [
+    clause('cirsoc-201', edition, '25.4.2.1', 'longitud de anclaje mínima'), ...capRef(fc, edition),
+  ] };
 }
 
 /**
@@ -273,6 +279,14 @@ export function deriveCompressionDevelopment(input: { diameterMm: number; fy: nu
     ],
   };
 }
+
+export const compressionLapBaseMm = (fy: number, diameterMm: number): number =>
+  Math.max(fy <= 420 ? 0.071 * fy * diameterMm : (0.13 * fy - 24) * diameterMm, MIN_LAP_MM);
+
+export const longerSheetCompressionLap = (fc: number): boolean => fc < 21 - 1e-9;
+
+export const compressionLapMm = (fy: number, diameterMm: number, fc = 21): number =>
+  compressionLapBaseMm(fy, diameterMm) * (longerSheetCompressionLap(fc) ? 4 / 3 : 1);
 
 export interface LapResult {
   /** Lap length, m. */

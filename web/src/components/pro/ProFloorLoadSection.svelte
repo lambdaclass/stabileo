@@ -20,11 +20,13 @@
   import { addFloorLoadDef, removeFloorLoadDef, expandDefinitions } from '../../lib/store/defined-loads';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import { physicalGroups } from '../../lib/store/physical';
+  import { acceptsFloorPlate, selectedFloorLoad } from '../../lib/store/selected-floor-load';
 
   const floorGroups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'floor' && (g.members.elements?.length ?? 0) > 0));
   const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
-  /** The slabs placed or recognised (`model/physical`): a load on one goes onto its shells. */
-  const slabs = $derived(physicalGroups().filter((g) => g.physical.kind === 'slab' && (g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0));
+  /** The slabs and walls placed or recognised (`model/physical`): a load on one goes onto its shells, normal to a wall. */
+  const slabs = $derived(physicalGroups().filter(__PUBLIC_FEATURES__.proPlatesUnified ? acceptsFloorPlate! :
+    (g) => g.physical.kind === 'slab' && (g.members.quads?.length ?? 0) + (g.members.plates?.length ?? 0) > 0));
   /** The levels to offer: the grid's, or else every elevation that has horizontal beams. */
   const levels = $derived.by(() => {
     const named = sortedLevels(modelStore.grid);
@@ -38,6 +40,7 @@
   });
 
   let targetKey = $state('');
+  const selection = __PUBLIC_FEATURES__.proPlatesUnified ? selectedFloorLoad!(key => { targetKey = key; }) : null;
   let q = $state(2);
   let caseId = $state<number | null>(null);
   let distribution = $state<FloorLoadDef['distribution']>('twoWay');
@@ -51,7 +54,8 @@
   const targets = $derived<Array<{ key: string; label: string }>>([
     ...levels.map((l) => ({ key: `z:${l.z}`, label: l.name })),
     ...floorGroups.map((g) => ({ key: `g:${g.id}`, label: g.name })),
-    ...slabs.map((g) => ({ key: `g:${g.id}`, label: `${t('physical.kind.slab')} · ${g.name}` })),
+    ...(__PUBLIC_FEATURES__.proPlatesUnified ? selection!.targets : []),
+    ...slabs.map((g) => ({ key: `g:${g.id}`, label: `${t(__PUBLIC_FEATURES__.proPlatesUnified ? `physical.kind.${g.physical.kind}` : 'physical.kind.slab')} · ${g.name}` })),
     ...zones.map((g) => ({ key: `zone:${g.id}`, label: `${t('loadZone.zone')} · ${g.name}` })),
     { key: 'sel', label: t('floorLoad.selection') },
     { key: 'range', label: t('floorLoad.range') },
@@ -59,7 +63,7 @@
   // A slab is loaded on its own shells.
   let lastTarget = '';
   $effect(() => {
-    if (targetKey !== lastTarget && slabs.some((g) => `g:${g.id}` === targetKey)) distribution = 'slab';
+    if (targetKey !== lastTarget && ((selection && targetKey === 'plates') || slabs.some((g) => `g:${g.id}` === targetKey))) distribution = 'slab';
     lastTarget = targetKey;
   });
   $effect(() => {
@@ -87,6 +91,7 @@
   const target = $derived.by((): FloorTarget | null => {
     if (targetKey.startsWith('z:')) return { by: 'level', z: Number(targetKey.slice(2)) };
     if (targetKey.startsWith('g:')) return { by: 'group', groupId: Number(targetKey.slice(2)) };
+    if (selection && targetKey === 'plates') return selection.target();
     if (targetKey.startsWith('zone:')) return { by: 'zone', zoneId: Number(targetKey.slice(5)) };
     if (targetKey === 'range') return rangeOf(range);
     return { by: 'own' };
@@ -100,12 +105,17 @@
     caseId, q, target, distribution, ...(distribution === 'oneWay' ? { spanAxis } : {}), ...(perPlanArea ? { perPlanArea } : {}),
   });
   const preview = $derived(def && q !== 0
-    ? expandDefinition(modelStore.model as unknown as DefinitionModel, def, own, -1, { leftHand: uiStore.axisConvention3D === 'leftHand' })
+    ? selection && targetKey === 'plates' ? selection.preview(def, uiStore.axisConvention3D === 'leftHand')
+      : expandDefinition(modelStore.model as unknown as DefinitionModel, def, own, -1, { leftHand: uiStore.axisConvention3D === 'leftHand' })
     : null);
   const result = $derived(preview?.result ?? null);
-
   function add() {
-    if (!def || !preview || preview.loads.length === 0) return;
+    if (!def || !preview || (preview.loads.length === 0 && !(selection && selection.allowsEmpty(def, targetKey)))) return;
+    if (selection && targetKey === 'plates') {
+      applied = selection.apply(def, name);
+      name = '';
+      return;
+    }
     const label = name.trim() || tp('floorLoad.defaultName', { n: [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad').length + 1 });
     addFloorLoadDef(label, def, own);
     applied = tp('floorLoad.added', { name: label, n: preview.loads.length });
@@ -215,7 +225,7 @@
     <p class="fl-hint">{t(preview.problem === 'noZone' ? 'floorLoad.noZone' : 'floorLoad.none')}</p>
   {/if}
 
-  <button class="pk-btn pk-btn-primary" disabled={!preview || preview.loads.length === 0} onclick={add} data-testid="fl-apply">{t('floorLoad.add')}</button>
+  <button class="pk-btn pk-btn-primary" disabled={!preview || (__PUBLIC_FEATURES__.proPlatesUnified ? preview.loads.length === 0 && !(def && selection!.allowsEmpty(def, targetKey)) : preview.loads.length === 0)} onclick={add} data-testid="fl-apply">{t('floorLoad.add')}</button>
   {#if applied}<p class="fl-hint" data-testid="fl-applied">{applied}</p>{/if}
 
   {#if defs.length}

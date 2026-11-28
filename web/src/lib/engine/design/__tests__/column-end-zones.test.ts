@@ -4,7 +4,7 @@
  * ends.
  */
 import { describe, it, expect } from 'vitest';
-import { endZoneFor } from '../candidate-enumerate-column';
+import { COLUMN_LIMITS, endZoneFor } from '../candidate-enumerate-column';
 import { extractGoverningDemands, verifyProvidedReinforcement } from '../../station-design-forces';
 
 describe('column end zones', () => {
@@ -37,5 +37,18 @@ describe('column end zones', () => {
       expect(vy(zoned).capacity).toBeCloseTo(mid, 1);
       expect(vy(zoned).stationX).toBeCloseTo(1.5, 9);
     }
+  });
+});
+
+describe('known wrong result: #1928 ordinary column end zones use the design spacing floor', () => {
+  const ctx = { material: { columnEndZones: true }, section: { b: 0.3, h: 0.6 }, L: 3.2 } as never;
+  const floor = COLUMN_LIMITS.minSpacing;
+
+  it.each([floor / 2, floor, floor * 1.5, floor * 2])('keeps the project floor at a middle spacing of %s', spacing => {
+    expect(endZoneFor(ctx, spacing)).toEqual({ endLength: 0.6, endSpacing: floor });
+  });
+
+  it('still proposes a wider end spacing when the ordinary grid allows it', () => {
+    expect(endZoneFor(ctx, floor * 4)).toEqual({ endLength: 0.6, endSpacing: floor * 2 });
   });
 });

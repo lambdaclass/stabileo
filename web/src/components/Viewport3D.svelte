@@ -4,6 +4,7 @@
   import { is3DWorkspace } from '../lib/utils/workspace';
   import { displayUnits, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
+  import PlateSelectionCard from './pro/plates/PlateSelectionCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
   import { focusNodeIds } from '../lib/model/select-like';
@@ -29,6 +30,7 @@
   import { discretizationStore } from '../lib/store/discretization.svelte';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
   import { sceneHost } from '../lib/viewport3d/scene-host.svelte';
+  import { hideAllBut, showAgain } from '../lib/viewport3d/scene-solo';
   import SplitView3D from './viewport/SplitView3D.svelte';
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
@@ -77,6 +79,7 @@
   import { jointDesignStore } from '../lib/store/joint-design.svelte';
   import { detectJoints } from '../lib/engine/connection-design';
   import { ElementsBatched } from '../lib/three/elements-batched';
+  import { ShellBatch } from '../lib/three/shell-batch';
   import { ElementsPicking } from '../lib/three/elements-picking';
   import { fatLineResolution } from '../lib/three/create-element-mesh';
   import { resolveHitUserData, shellSelectionKey } from '../lib/viewport3d/picking';
@@ -166,6 +169,8 @@
   let loadsParent: THREE.Group;
   let resultsParent: THREE.Group;
   let shellsParent: THREE.Group;
+  let shellBatch: ShellBatch | null = null;
+  let memberBatches: ShellBatch[] = [];
   let localAxesParent: THREE.Group;
 
   // ─── Clipping plane ─────────────────────────────────────────
@@ -633,6 +638,10 @@
     resultsParent.name = 'results';
     shellsParent = new THREE.Group();
     shellsParent.name = 'shells';
+    if (__PUBLIC_FEATURES__.proPlatesUnified) {
+      shellBatch = new ShellBatch(shellsParent);
+      memberBatches = [new ShellBatch(elementsParent), new ShellBatch(supportsParent)];
+    }
     localAxesParent = new THREE.Group();
     localAxesParent.name = 'localAxes';
     // The batched wireframe LineSegments2 lives directly under `scene`, not
@@ -987,11 +996,17 @@
       const _perfT0 = perfHud.on ? performance.now() : 0;
       nodesInstanced.setPixelRatio(renderer.getPixelRatio());
       if (toneDirty) { toneDirty = false; applyCategoryTones(); }
-      renderer.render(scene, camera);
-      splitView?.render();
-      drawFreeBody3D();
-      if (timelapseInfo && timelapseFrame) composeTimelapse(timelapseInfo);
-      else renderInset();
+      const soloHidden = __PUBLIC_FEATURES__.proRcSheets && sceneHost.solo ? hideAllBut(scene) : null;
+      if (__PUBLIC_FEATURES__.proPlatesUnified && !isOrbiting && dampingFrames === 0) for (const b of [shellBatch, ...memberBatches]) b?.sync(buildTimelapse.active || !!soloHidden);
+      try {
+        renderer.render(scene, camera);
+        if (!soloHidden) splitView?.render();
+        drawFreeBody3D();
+        if (timelapseInfo && timelapseFrame) composeTimelapse(timelapseInfo);
+        else renderInset();
+      } finally {
+        if (soloHidden) showAgain(soloHidden);
+      }
       drawAxisGizmo();
       if (perfHud.on) {
         // GPU side: draw calls + triangles (renderer.info auto-resets per render,
@@ -1052,11 +1067,9 @@
     // Slight aliasing during drag is acceptable — users perceive smoothness more
     // than pixel fidelity while rotating.
     const idlePixelRatio = window.devicePixelRatio;
-    // Level-of-detail during orbit. Typical models keep full detail while the
-    // camera moves; heavy models (per the isHeavyModel policy in lod.ts, which
-    // weighs shells and the sections render mode) fall back to hiding the
-    // decorative parents + per-element solids and forcing the single batched
-    // LineSegments2 draw call on as the stand-in.
+    // Level-of-detail during orbit: only with the opt-in smooth orbit. Shells, members and
+    // supports are drawn in batches (`three/shell-batch.ts`), so a model keeps its full detail
+    // while the camera moves.
     function setLowDetail(on: boolean): void {
       const dt = resultsStore.diagramType;
       // Despiece manages element visibility itself (the original members are hidden
@@ -1069,14 +1082,14 @@
         && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification');
       // Opt-in "smooth orbit" forces the heavy-model low-detail path for any
       // model during camera motion (collapse to the single batched wireframe).
-      const heavyModel = uiStore.smoothOrbit3D || isHeavyModel(
+      const heavyModel = uiStore.smoothOrbit3D || (!__PUBLIC_FEATURES__.proPlatesUnified && isHeavyModel(
         {
           elements: modelStore.elements.size,
           shells: modelStore.plates.size + modelStore.quads.size,
           supports: modelStore.supports.size,
         },
         uiStore.renderMode3D,
-      );
+      ));
       applyLowDetail(on, {
         nodesParent, supportsParent, loadsParent, resultsParent, shellsParent,
         localAxesParent,
@@ -1408,7 +1421,7 @@
     if (!fbCanvas || !container) return;
     const g = fbCanvas.getContext('2d');
     if (!g) return;
-    const on = resultsStore.diagramType === 'despiece' && !!resultsStore.results3D && !buildTimelapse.active;
+    const on = resultsStore.diagramType === 'despiece' && !!resultsStore.results3D && !buildTimelapse.active && (!__PUBLIC_FEATURES__.proRcSheets || !sceneHost.solo);
     if (!on) {
       if (fbDrawn) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, fbCanvas.width, fbCanvas.height); fbDrawn = false; }
       return;
@@ -1515,10 +1528,17 @@
     invalidate();
   });
 
+  $effect(() => { if (__PUBLIC_FEATURES__.proRcSheets && sceneHost.solo) untrack(() => { handleMouseLeave(); uiStore.clearSelection(); }); });
+
   // Meshed plates as pieces or with their mesh: only the drawing changes.
   $effect(() => {
     void uiStore.platesShowMesh;
-    syncShells();
+    if (__PUBLIC_FEATURES__.proPlatesUnified) {
+      void resultsStore.results3D;
+      untrack(() => { syncShells(); syncNodes(); syncLoads(); syncLabels3D(); });
+    } else {
+      syncShells();
+    }
     invalidate();
   });
 
@@ -4374,14 +4394,15 @@
   class:split-main={splitOn}
   bind:this={container}
   style="cursor: {cursorStyle};"
-  onmousedown={handleMouseDown}
+  onmousedown={__PUBLIC_FEATURES__.proRcSheets ? (e) => { if (!sceneHost.solo) handleMouseDown(e); } : handleMouseDown}
   onpointerdowncapture={onRightDown}
   onpointerupcapture={onRightUp}
-  onmouseup={handleMouseUp}
-  ondblclick={handleDoubleClick3D}
-  onmousemove={handleMouseMove}
+  onmouseup={__PUBLIC_FEATURES__.proRcSheets ? (e) => { if (!sceneHost.solo) handleMouseUp(e); } : handleMouseUp}
+  ondblclick={__PUBLIC_FEATURES__.proRcSheets ? (e) => { if (!sceneHost.solo) handleDoubleClick3D(e); } : handleDoubleClick3D}
+  onmousemove={__PUBLIC_FEATURES__.proRcSheets ? (e) => { if (!sceneHost.solo) handleMouseMove(e); } : handleMouseMove}
   onmouseleave={handleMouseLeave}
-  oncontextmenu={handleContextMenu3D}
+  oncontextmenu={__PUBLIC_FEATURES__.proRcSheets ? (e) => { if (sceneHost.solo) e.preventDefault(); else handleContextMenu3D(e); } : handleContextMenu3D}
+  data-scene-solo={(__PUBLIC_FEATURES__.proRcSheets && sceneHost.solo) || undefined}
 >
   {#if uiStore.planView3D}<PlanViewChip />{/if}
 
@@ -4707,6 +4728,7 @@
   <!-- Shell contour legend (visible only while a shell contour map is active) -->
   <ShellContourLegend />
   <QuickInfoCard />
+  {#if __PUBLIC_FEATURES__.proPlatesUnified}<PlateSelectionCard />{/if}
 </div>
 {#if splitOn && scene}
   <SplitView3D bind:this={splitView} {scene} parents={() => ({ elements: elementsParent, nodes: nodesParent })} />

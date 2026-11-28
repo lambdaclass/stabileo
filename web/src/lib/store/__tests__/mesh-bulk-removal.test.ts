@@ -6,6 +6,16 @@ beforeEach(() => { modelStore.clear(); historyStore.clear(); uiStore.analysisMod
 afterEach(() => vi.restoreAllMocks());
 
 describe('bulk removal', () => {
+  it('known wrong result: #2365 a snapshot inside a bulk edit has no loads on a removed node', () => {
+    const removed = modelStore.addNode(0, 0, 0);
+    const kept = modelStore.addNode(1, 0, 0);
+    for (const node of [removed, kept]) modelStore.addNodalLoad3D(node, 0, 0, -1, 0, 0, 0);
+    modelStore.bulkMutate(() => {
+      modelStore.removeNode(removed);
+      expect(modelStore.snapshot().loads.map(load => load.data)).toEqual([expect.objectContaining({ nodeId: kept })]);
+    });
+  });
+
   it('keeps shell families and their buffered loads separate even when ids coincide', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(2, 0, 0);
     const c = modelStore.addNode(2, 2, 0), d = modelStore.addNode(0, 2, 0);
@@ -20,11 +30,16 @@ describe('bulk removal', () => {
     const quads = modelStore.quads, plates = modelStore.plates;
     modelStore.bulkMutate(() => {
       modelStore.addThermalLoadQuad3D(q, 10);
-      modelStore.addLoadEntry({ type: 'thermalQuad3d', data: { id: 0, quadId: p, on: 'plate', dtUniform: 20, dtGradient: 0 } });
+      const triangularThermal = modelStore.addLoadEntry({ type: 'thermalQuad3d', data: { id: 0, quadId: p, on: 'plate', dtUniform: 20, dtGradient: 0 } });
       modelStore.removeQuad(q);
       expect(modelStore.quads).toBe(quads);
-      expect(modelStore.loads).toHaveLength(1);
-      expect(modelStore.loads[0]!.data).toMatchObject({ quadId: p, on: 'plate' });
+      const surfaceLoads = modelStore.loads.filter(load => load.type === 'surface3d');
+      expect(surfaceLoads).toHaveLength(1);
+      expect(surfaceLoads[0]!.data).toMatchObject({ quadId: p, on: 'plate', q: 7 });
+      expect(modelStore.loads).toEqual([
+        surfaceLoads[0],
+        { type: 'thermalQuad3d', data: { id: triangularThermal, quadId: p, on: 'plate', dtUniform: 20, dtGradient: 0 } },
+      ]);
       modelStore.bulkMutate(() => modelStore.removePlate(p));
       expect(modelStore.plates).toBe(plates);
     });

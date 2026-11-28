@@ -1,3 +1,4 @@
+import { unifiedPlates } from '../../features';
 /**
  * Build a structure on the grid: columns at the intersections, beams along the axes, slabs in the
  * bays, walls between axes. Each element is placed as an engineer thinks of it and becomes both
@@ -7,6 +8,7 @@
  * already joins the same two nodes, so building twice over the same place does not double it.
  * Columns and beams share the layout of the grid's own frame (`frameBetweenAxes`).
  */
+import { sheetPlacement } from '../../store/sheet-placement';
 import { modelStore } from '../../store/model.svelte';
 import { fillHoles } from '../edit/construct';
 import { applyMesh } from '../edit/mesh-apply';
@@ -19,6 +21,8 @@ import { IDENTITY } from '../edit/affine';
 import { PHYSICAL_GROUP_KIND } from '../physical/types';
 import { computeLocalAxes3D, memberRoll } from '../../engine/local-axes-3d';
 import { declare, nextName } from './declare';
+import { platesFromShells } from '../../store/plates-from-shells';
+import { clearPlateMesh } from '../../store/physical-plates';
 
 export interface PlaceResult { created: number; elements: number; shells: number; refused?: string }
 
@@ -60,7 +64,7 @@ export function placeFrame(g: StructuralGrid, spec: FrameBetweenAxes, o: {
    * the range stay on their axes. Instead of `beamAlign` on the edges.
    */
   beamPerimeterFlush?: boolean;
-  /** The beams' top face on the level (the slab's top), their axis half a depth below it. */
+  /** The beams' top face on the level (the slab's top), their axis half a depth below it: the project's level reference is then the slabs' top (`store/placement.ts`), the slabs hanging below it too. */
   beamTopFlush?: boolean;
 } = {}): FramePlaced {
   const out: FramePlaced = { created: 0, elements: 0, shells: 0, nodes: 0, welded: 0, duplicates: 0, bars: [] };
@@ -118,6 +122,7 @@ export function placeFrame(g: StructuralGrid, spec: FrameBetweenAxes, o: {
       }
       if (shift.x || shift.y || shift.z) modelStore.updateElement(b.id, { offset: { frame: 'global', i: shift, j: shift } });
     }
+    if (o.beamTopFlush) sheetPlacement?.setLevelReference('slabTop');
     const colName = nextName('C'), beamName = nextName('V');
     for (const run of runs.values()) {
       const typology = run.kind === 'column' ? o.columnTypology : o.beamTypology;
@@ -139,14 +144,14 @@ export function placeFrame(g: StructuralGrid, spec: FrameBetweenAxes, o: {
 /**
  * Slabs in the panels the beams close at each level: a grid bay, an L, any outline the beams
  * bound, found as the floor loads find them. A ring of beams inside a panel (a stair well) stays
- * open. Each panel is meshed at the size given, cutting its beams at the mesh's edge nodes so slab
- * and beams share them, and becomes one slab; asked to wait (`meshAtSolve`), a panel is one shell
- * until the first solve meshes it. A joist slab is modelled as a one-way slab of the
- * thickness given; the joists' design reads its typology. Panels already holding shells are left.
+ * open. Each panel becomes one slab, a physical plate (`physical-plates.ts`) with the mesh size
+ * given: meshed now, or waiting for the analysis to mesh it (`meshAtSolve`), which keeps the model
+ * light while it is edited. A joist slab is modelled as a one-way slab of the thickness given; the
+ * joists' design reads its typology. Panels already holding shells are left.
  */
 export function placeSlabs(g: StructuralGrid, o: {
   levels: string[]; thickness: number; materialId: number; meshSize: number; typology?: string;
-  /** One shell per panel now, meshed at `meshSize` by the first solve (`deferred-slabs.ts`). */
+  /** The plates wait for the analysis to mesh them, rather than being meshed now. */
   meshAtSolve?: boolean;
 }): PlaceResult {
   const name = nextName('L');
@@ -162,16 +167,19 @@ export function placeSlabs(g: StructuralGrid, o: {
       if ('refused' in r) { refused = r.refused; continue; }
       if (r.faces.length === 0 && r.skippedExisting > 0) refused = 'occupied';
       for (const f of r.faces) {
-        created++; shells += f.quads.length + f.plates.length;
-        // A panel that came out as one quad waits for its mesh; any other shape is meshed as filled.
-        const panel = o.meshAtSolve && f.quads.length === 1 && f.plates.length === 0 ? modelStore.quads.get(f.quads[0]!)?.nodes : undefined;
+        created++;
+        shells += unifiedPlates() && o.meshAtSolve ? 0 : f.quads.length + f.plates.length;
+        const panel = !unifiedPlates() && o.meshAtSolve && f.quads.length === 1 && f.plates.length === 0
+          ? modelStore.quads.get(f.quads[0]!)?.nodes : undefined;
         declare(name(), f, {
           kind: 'slab', provenance: 'declared', levelFrom: l.id, levelTo: l.id,
-          ...(o.typology ? { typology: o.typology } : {}),
           ...(panel ? { meshAtSolve: { size: o.meshSize, meshed: false, panel: [...panel] } } : {}),
+          ...(o.typology ? { typology: o.typology } : {}),
         });
+        if (__PUBLIC_FEATURES__.proPlatesUnified) platesFromShells([...f.quads.map((q) => `q${q}`), ...f.plates.map((q) => `p${q}`)], { keepMesh: !o.meshAtSolve, size: o.meshSize });
       }
     }
+    if (sheetPlacement?.placementData().reference) sheetPlacement.applyPlacement();
   });
   return { created, elements: 0, shells, ...(refused && created === 0 ? { refused } : {}) };
 }
@@ -240,6 +248,8 @@ function meshPanel(corners: Vec3[], holes: Vec3[][], o: { size: number; material
 export function placeWall(g: StructuralGrid, o: {
   axis: string; from: string; to: string; levelFrom: string; levelTo: string;
   thickness: number; materialId: number; meshSize: number; typology?: string; openings?: WallOpening[];
+  /** The plates wait for the analysis to mesh them, as slabs do, rather than keeping the mesh made to place them. */
+  meshAtSolve?: boolean;
 }): PlaceResult {
   const a = g.axes.find((x) => x.id === o.axis);
   const p = g.axes.find((x) => x.id === o.from), q = g.axes.find((x) => x.id === o.to);
@@ -279,6 +289,11 @@ export function placeWall(g: StructuralGrid, o: {
         ...(o.typology ? { typology: o.typology } : {}),
         ...(openings.length ? { openings: openings.map((w) => ({ offset: w.offset, width: w.width, sill: w.sill, height: w.height })) } : {}),
       });
+      if (__PUBLIC_FEATURES__.proPlatesUnified) {
+        const made = platesFromShells([...r.quads.map((q) => `q${q}`), ...r.plates.map((q) => `p${q}`)], { size: o.meshSize });
+        if (made.length && o.meshAtSolve && !clearPlateMesh(made).refused) shells -= r.quads.length + r.plates.length;
+      }
+
     }
   });
   return { created, elements: 0, shells, ...(refused ? { refused } : {}) };

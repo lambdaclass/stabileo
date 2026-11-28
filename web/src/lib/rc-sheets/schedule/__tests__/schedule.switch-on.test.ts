@@ -1,0 +1,289 @@
+import { describe, it, expect } from 'vitest';
+import { closedHoop, crankedBar, developedLength, hookedStraight, shapeWeight, type BarShape } from '../../shape';
+import { columnRow, type ColumnDemand } from '../../column-row';
+import { columnTieLayout } from '../../column-ties';
+import { slabRow } from '../../slab-row';
+import { wallRow, type WallDemand } from '../../wall-row';
+import { beamRow, type BeamDemand, type SectionEnv } from '../../beam-row';
+import { beamLine } from '../../beam-line';
+import { makeFmt } from '../../format';
+import { rulesFor } from '../../codes';
+import { assignMarks, scheduleOf, bendingSchedule, letterMark } from '../schedule';
+import { MAX_CRANK, columnStorey, crankOffsets, scheduleElements, stirrupsOver, wallGrid, type ScheduleElement } from '../pieces';
+import { layerPositions } from '../../view-helpers';
+import { wallDetail, wallLevels } from '../../wall-detail';
+import { scheduleCsv, scheduleSheet, shapeText } from '../exports';
+import { rcSheetsWorkbook } from '../../workbook';
+
+const f = makeFmt('.');
+const bar = (len: number, dia = 16): BarShape => hookedStraight(0, len, 0, dia, 0.096, [false, false], 1, 0);
+const hooked = (len: number, start: boolean): BarShape => hookedStraight(0, len, 0, 16, 0.096, [start, !start], 1, 0.192);
+const el = (key: string, pieces: ScheduleElement['pieces'], o: Partial<ScheduleElement> = {}): ScheduleElement => ({ key, name: key, family: 'column', pieces, ...o });
+
+describe('schedule marks', () => {
+  it('the same shape, diameter and length is one mark in an element, whichever end comes first; another length is another', () => {
+    const [e] = assignMarks([el('C1', [{ kind: 'column', count: 2, shape: hooked(3, true) }, { kind: 'column', count: 3, shape: hooked(3, false) }, { kind: 'column', count: 4, shape: hooked(3.2, true) }])], 'element');
+    expect(e!.marks.map((m) => [m.mark, m.count])).toEqual([['A', 5], ['B', 4]]);
+  });
+
+  it('a line keeps its elevation letters, equal bars under the first, and its stirrups take the next free letters', () => {
+    const [e] = assignMarks([el('V1', [
+      { kind: 'continuous', count: 2, shape: bar(9), elevation: 'A' },
+      { kind: 'support', count: 2, shape: bar(2.4), elevation: 'B' },
+      { kind: 'support', count: 2, shape: bar(2.4), elevation: 'C' },
+      { kind: 'stirrup', count: 30, shape: closedHoop(0.24, 0.54, 8, 0.032, 0.075) },
+    ], { family: 'beam' })], 'element');
+    expect(e!.marks.map((m) => [m.mark, m.count, m.elevation.join()])).toEqual([['A', 2, 'A'], ['B', 4, 'B,C'], ['D', 30, '']]);
+  });
+
+  it('over a level or the project marks are numbered, one number for one piece wherever it is', () => {
+    const els = [el('C1', [{ kind: 'column', count: 4, shape: bar(3) }], { level: 'N1' }), el('C2', [{ kind: 'column', count: 4, shape: bar(3.5) }, { kind: 'column', count: 4, shape: bar(3) }], { level: 'N2' })];
+    expect(assignMarks(els, 'project').map((e) => e.marks.map((m) => m.mark))).toEqual([['1'], ['2', '1']]);
+    expect(assignMarks(els, 'level').map((e) => e.marks.map((m) => m.mark))).toEqual([['1'], ['1', '2']]);
+  });
+
+  it('letters run on past Z as the elevations write them', () => {
+    expect([letterMark(0), letterMark(25), letterMark(26), letterMark(27)]).toEqual(['A', 'Z', 'A1', 'B1']);
+  });
+});
+
+describe('schedule rows and totals', () => {
+  const els = [
+    el('C1', [{ kind: 'column', count: 4, shape: bar(5) }, { kind: 'hoop', count: 20, shape: closedHoop(0.24, 0.24, 8, 0.032, 0.075) }], { level: 'N1' }),
+    el('C2', [{ kind: 'column', count: 4, shape: bar(5) }, { kind: 'hoop', count: 20, shape: closedHoop(0.24, 0.24, 8, 0.032, 0.075) }], { level: 'N1' }),
+    el('L1', [{ kind: 'slabBottom', count: 10, shape: bar(13, 10) }], { family: 'slab', level: 'N1' }),
+  ];
+
+  it('equal elements are one row group: per element, how many, and the total', () => {
+    const s = scheduleOf(els, { code: 'cirsoc201-2025' });
+    const col = s.rows.filter((r) => r.family === 'column');
+    expect(col.map((r) => [r.element, r.mark, r.perElement, r.equal, r.total])).toEqual([['C1 = C2', 'A', 4, 2, 8], ['C1 = C2', 'B', 20, 2, 40]]);
+    expect(col[0]!.unitLength).toBeCloseTo(5, 9);
+    expect(col[0]!.totalLength).toBeCloseTo(40, 9);
+    expect(col[0]!.kg).toBeCloseTo(shapeWeight(bar(5), 8), 9);
+  });
+
+  it('sums by diameter with the waste added, by family, and counts the stock bars each mark is cut from', () => {
+    const s = scheduleOf(els, { code: 'cirsoc201-2025', waste: 0.15 });
+    const kg16 = shapeWeight(bar(5), 8), kg8 = shapeWeight(closedHoop(0.24, 0.24, 8, 0.032, 0.075), 40), kg10 = shapeWeight(bar(13, 10), 10);
+    expect(s.byDiameter.map((d) => d.dia)).toEqual([8, 10, 16]);
+    const d16 = s.byDiameter.find((d) => d.dia === 16)!;
+    expect(d16.kg).toBeCloseTo(kg16, 9);
+    expect(d16.withWaste).toBeCloseTo(kg16 * 1.15, 9);
+    // Eight 5 m bars: two from each 12 m bar.
+    expect(d16.stockBars).toBe(4);
+    // A 13 m bar is cut from two stock bars, and is said to be spliced.
+    expect(s.byDiameter.find((d) => d.dia === 10)!.stockBars).toBe(20);
+    expect(s.rows.find((r) => r.dia === 10)!.long).toBe(true);
+    expect(s.byFamily.map((x) => x.family)).toEqual(['column', 'slab']);
+    expect(s.byFamily[0]!.kg).toBeCloseTo(kg16 + kg8, 9);
+    expect(s.total.kg).toBeCloseTo(kg16 + kg8 + kg10, 9);
+    expect(s.total.withWaste).toBeCloseTo((kg16 + kg8 + kg10) * 1.15, 9);
+    expect(scheduleOf(els, { code: 'cirsoc201-2025' }).waste).toBe(0.1);
+    const all = scheduleOf([...els, el('P1', [{ kind: 'punchingLeg', count: 8, shape: bar(0.6, 8) }], { family: 'punching' }), el('E1', [{ kind: 'stairMain', count: 9, shape: bar(4, 12) }], { family: 'stair' })], { code: 'cirsoc201-2025' });
+    expect(all.byFamily.map((x) => x.family)).toEqual(['column', 'slab', 'punching', 'stair']);
+    expect(all.byFamily.reduce((t, x) => t + x.kg, 0)).toBeCloseTo(all.total.kg, 9);
+  });
+
+  it('a mark longer than a stock bar is cut from as many stock bars as its length needs', () => {
+    const s = scheduleOf([el('V1', [{ kind: 'continuous', count: 3, shape: bar(18.5) }], { family: 'beam' })], { code: 'cirsoc201-2025' });
+    expect(s.byDiameter[0]!.stockBars).toBe(6);
+    const lapped = scheduleOf([el('V1', [{ kind: 'continuous', count: 3, shape: { ...bar(11.6), laps: { count: 1, length: 0.8 } } }], { family: 'beam' })], { code: 'cirsoc201-2025' });
+    expect(lapped.rows[0]!.unitLength).toBeCloseTo(12.4, 9);
+    expect(lapped.rows[0]!.kg).toBeCloseTo(shapeWeight(bar(12.4), 3), 9);
+    expect(lapped.byDiameter[0]!.stockBars).toBe(6);
+  });
+
+  it('TS 500 bends to the ACI rule and says so; the other codes cite their own clauses', () => {
+    expect(scheduleOf(els, { code: 'ts500-2000' }).confirm).toBe('rcSheets.bbs.confirmTs500');
+    expect(scheduleOf(els, { code: 'aci318-19' }).confirm).toBeUndefined();
+    expect(scheduleOf(els, { code: 'en1992-1-1' }).clause).toBe('8.3, 8.4.1, 8.5');
+  });
+
+  it('writes a CSV and a workbook sheet with the table, the diameters with waste and the families', () => {
+    const s = scheduleOf(els, { code: 'cirsoc201-2025' });
+    const csv = scheduleCsv(s, (k) => k).split('\n');
+    expect(csv[0]).toContain('rcSheets.bbs.mark');
+    expect(csv.filter((l) => l.startsWith('C1 = C2'))).toHaveLength(2);
+    expect(csv.some((l) => l.includes('kg + 10 %'))).toBe(true);
+    const sheet = scheduleSheet(s, (k) => k, 'CIRSOC 201-2025');
+    expect(sheet.name).toBe('rcSheets.bbs.title');
+    expect(sheet.rows[2]).toContain('a=500');
+    expect(shapeText(closedHoop(0.24, 0.24, 8, 0.032, 0.075)).split(' ')).toHaveLength(6);
+  });
+});
+
+describe('pieces of each family', () => {
+  const ctx = { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [12, 16, 20, 25] };
+  const demand = (k: number, b: number): ColumnDemand => ({ key: `column:1:${k}`, name: 'C1', level: `N${k}`, b, h: b, length: 3, lu: 2.7, psiTop: 1.5, psiBot: 1.5, cases: [{ combo: 'U', pu: 900, mxTop: 40, mxBot: -20, myTop: 10, myBot: -5, vx: 20, vy: 8 }] });
+  const stack = (upper: number) => {
+    const low = columnRow(demand(0, 0.4), ctx, undefined, f);
+    const high = columnRow(demand(1, upper), ctx, undefined, f, { fromBelow: true, offset: (0.4 - upper) / 2 });
+    return { low, high, els: scheduleElements({ line: [], column: [low, high], slab: [], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 }) };
+  };
+  const R = rulesFor('cirsoc201-2025').bends;
+
+  it('a column storey laps its bars into the storey above, cranked in one bar\'s diameter at 1:6 to stand beside its bars, and the top storey hooks them into the slab', () => {
+    const { low, high, els } = stack(0.4);
+    const longLow = els[0]!.pieces.filter((p) => p.kind === 'cranked');
+    expect(els[0]!.pieces.some((p) => p.kind === 'column')).toBe(false);
+    expect(longLow.reduce((s, p) => s + p.count, 0)).toBe(4 + 2 * low.adopted.nx + 2 * low.adopted.ny);
+    for (const p of longLow) {
+      const e = p.shape.dia / 1000;
+      expect(p.shape.pts).toEqual([[0, 0], [expect.closeTo(3 - 6 * e, 9), 0], [3, expect.closeTo(e, 9)], [expect.closeTo(3 + high.lap!.length, 9), expect.closeTo(e, 9)]]);
+    }
+    const top = els[1]!.pieces.find((p) => p.kind === 'column')!;
+    expect(top.shape.pts).toHaveLength(3);
+    expect(top.shape.pts[2]![1] - top.shape.pts[1]![1]).toBeCloseTo((top.shape.mandrel + top.shape.dia / 1000) / 2 + R.extension(top.shape.dia, 90, 'longitudinal'), 9);
+  });
+
+  it('its hoops are as many as the elevation places, each with its 135° hooks, and its cross ties beside them', () => {
+    const { low, els } = stack(0.4);
+    const hoop = els[0]!.pieces.find((p) => p.kind === 'hoop')!;
+    expect(hoop.count).toBe(columnTieLayout(low, 'cirsoc201-2025').ties.length);
+    const w = 0.4 - 2 * 0.03 - low.adopted.tieDia / 1000;
+    expect(developedLength(hoop.shape)).toBeCloseTo(developedLength(closedHoop(w, w, low.adopted.tieDia, R.mandrel(low.adopted.tieDia, 'transverse'), R.extension(low.adopted.tieDia, 135, 'transverse'))), 9);
+    const ties = els[0]!.pieces.filter((p) => p.kind === 'crossTie').reduce((s, p) => s + p.count, 0);
+    expect(ties).toBe(hoop.count * (low.checks.crossties.x + low.checks.crossties.y));
+  });
+
+  it('a column with rows inside its faces counts those bars among its longitudinal pieces and their crossties beside the hoops', () => {
+    const inner = { corner: 20, nx: 3, dx: 20, ny: 3, dy: 20, tieDia: 8, tieSpacing: 0.15, inner: { nx: 1, ny: 1, dia: 20, rows: 2 } };
+    const row = columnRow(demand(0, 0.6), ctx, inner, f);
+    const [e] = scheduleElements({ line: [], column: [row], slab: [], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const long = e!.pieces.filter((p) => p.kind === 'column').reduce((s, p) => s + p.count, 0);
+    expect(long).toBe(4 + 2 * 3 + 2 * 3 + 2 * 2 * (1 + 1));
+    const hoops = e!.pieces.find((p) => p.kind === 'hoop')!.count;
+    const ties = e!.pieces.filter((p) => p.kind === 'crossTie').reduce((s, p) => s + p.count, 0);
+    expect(row.checks.crossties.inner).toEqual({ x: 2, y: 2 });
+    expect(ties).toBe(hoops * (row.checks.crossties.x + row.checks.crossties.y + 4));
+  });
+
+  it('bars crank in where the faces above step in by less than 75 mm, each by how far it moves and one bar\'s diameter more; from there they hook and dowels are lapped in', () => {
+    const cranked = stack(0.3);
+    const pieces = cranked.els[0]!.pieces.filter((p) => p.kind === 'cranked');
+    const groups = crankOffsets(cranked.low, columnStorey([cranked.low, cranked.high], cranked.low));
+    const corner = cranked.low.adopted.corner;
+    expect(groups.find((g) => g.count === 4 && g.dia === corner)!.e).toBeCloseTo(Math.hypot(0.05, 0.05) + corner / 1000, 3);
+    expect(pieces.reduce((s, p) => s + p.count, 0)).toBe(groups.reduce((s, g) => s + g.count, 0));
+    for (const g of groups) {
+      const want = crankedBar(3, g.e, cranked.high.lap!.length, g.dia, pieces[0]!.shape.mandrel);
+      const c = pieces.find((p) => p.count === g.count && p.shape.dia === g.dia && Math.abs(developedLength(p.shape) - developedLength(want)) < 1e-9)!;
+      c.shape.pts.forEach((p, i) => { expect(p[0]).toBeCloseTo(want.pts[i]![0], 9); expect(p[1]).toBeCloseTo(want.pts[i]![1], 9); });
+    }
+    expect(cranked.els[1]!.pieces.some((p) => p.kind === 'dowel')).toBe(false);
+    const stepped = stack(0.2);
+    expect((0.4 - 0.2) / 2).toBeGreaterThan(MAX_CRANK);
+    expect(stepped.els[0]!.pieces.some((p) => p.kind === 'cranked')).toBe(false);
+    const dowel = stepped.els[1]!.pieces.find((p) => p.kind === 'dowel')!;
+    expect(developedLength(dowel.shape)).toBeCloseTo(2 * stepped.high.lap!.length, 9);
+  });
+
+  it('a slab: each layer\'s bars across its panel, the top ones with legs down to the bottom cover', () => {
+    const m = (bx: number, by: number, tx: number, ty: number) => ({ bottomX: { value: bx }, bottomY: { value: by }, topX: { value: tx }, topY: { value: ty } });
+    const r = slabRow({ key: 'slab:1', name: 'L1', lx: 5, ly: 4, h: 0.15, m: m(8, 8, 10, 10) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
+    const [e] = scheduleElements({ line: [], column: [], slab: [r], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const bx = e!.pieces.find((p) => p.kind === 'slabBottom')!;
+    expect(bx.count).toBe(layerPositions(4, r.adopted.bottomX.spacing, 0.02 + r.adopted.bottomX.dia / 2000).n);
+    expect(developedLength(bx.shape)).toBeCloseTo(5 - 0.04, 9);
+    const tx = e!.pieces.find((p) => p.kind === 'slabTop')!;
+    expect(tx.shape.pts[0]).toEqual([0, expect.closeTo(-(0.15 - 0.04), 9)]);
+  });
+
+  it('a level with a slab plan schedules its packages, which cross panels, instead of the panels\' layers', () => {
+    const m = (v: number) => ({ bottomX: { value: v }, bottomY: { value: v }, topX: { value: v }, topY: { value: v } });
+    const r = slabRow({ key: 'slab:1', name: 'L1', level: 'N1', lx: 5, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
+    const other = slabRow({ key: 'slab:2', name: 'L2', level: 'N2', lx: 5, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
+    const crossing = hookedStraight(0, 9.4, 0.12, 10, 0.06, [true, true], -1, 0.11);
+    const plan = { level: 'N1', panels: [{ key: 'slab:1' }], packages: [{ mark: '7', layer: 'top', count: 23, shape: crossing }] } as never;
+    const els = scheduleElements({ line: [], column: [], slab: [r, other], wall: [], slabPlan: [plan] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    expect(els.map((e) => e.key)).toEqual(['slabplan:N1', 'slab:2']);
+    expect(els[0]!.pieces).toEqual([{ kind: 'slabTop', count: 23, shape: crossing, elevation: '7' }]);
+  });
+
+  it('slabs with no level are scheduled once, by the plan of the unnamed level', () => {
+    const m = (v: number) => ({ bottomX: { value: v }, bottomY: { value: v }, topX: { value: v }, topY: { value: v } });
+    const r = slabRow({ key: 'slab:1', name: 'L1', lx: 5, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
+    const crossing = hookedStraight(0, 9.4, 0.12, 10, 0.06, [true, true], -1, 0.11);
+    const plan = { level: '', panels: [{ key: r.key }], packages: [{ mark: '1', layer: 'top', count: 23, shape: crossing }] } as never;
+    const els = scheduleElements({ line: [], column: [], slab: [r], wall: [], slabPlan: [plan] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    expect(els.map((e) => e.key)).toEqual(['slabplan:']);
+  });
+
+  it('the columns\' inner row is held by a cross tie through each pair of facing bars, counted with the hoops', () => {
+    const { low } = stack(0.4);
+    const a = { ...low.adopted, inner: { nx: 2, ny: 1, dia: 16 } };
+    const r = { ...low, adopted: a };
+    const [e] = scheduleElements({ line: [], column: [r], slab: [], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const hoops = e!.pieces.find((p) => p.kind === 'hoop')!.count;
+    const ties = e!.pieces.filter((p) => p.kind === 'crossTie').reduce((s, p) => s + p.count, 0);
+    expect(ties).toBe(hoops * (low.checks.crossties.x + low.checks.crossties.y + 3));
+    const row = columnRow(demand(0, 0.4), ctx, a, f);
+    expect(row.checks.crossties.inner).toEqual({ x: 2, y: 1 });
+    expect(row.verifications.find((v) => v.label === 'rcSheets.v.crossties')!.capacity).toContain('2 (b, 2) · 1 (h, 2)');
+  });
+
+  it('a wall: verticals and boundary bars, horizontals, edge U-bars of the lap, by the storey', () => {
+    const wall: WallDemand = { key: 'wall:1:0', name: 'M1', length: 4, height: 3, thickness: 0.2, combos: [{ combo: 'U', pu: 1200, mu: 5000, vu: 450, muV: 4, muH: 2 }] };
+    const r = wallRow(wall, { mat: { fc: 30, fy: 420 }, cover: 0.025, barDia: 12, diameters: [10, 12, 16, 20, 25] }, undefined, f);
+    const [e] = scheduleElements({ line: [], column: [], slab: [], wall: [r] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const kinds = new Set(e!.pieces.map((p) => p.kind));
+    expect(kinds.has('vertical')).toBe(true);
+    if (r.adopted.curtains === 2) {
+      const u = e!.pieces.find((p) => p.kind === 'ubar')!;
+      expect(u.count).toBe(2 * wallLevels(3, r.adopted.horizontal.spacing).length);
+      expect(u.shape.pts[0]![0]).toBeCloseTo(r.hLap, 9);
+    }
+    expect(r.vLaps!.map((x) => x.dia)).toContain(r.adopted.vertical.diameter);
+  });
+
+  it('counts the bars its drawings draw: a panel layer as its layers drawing spaces it, a wall\'s horizontals, U-bars, hoops and cross ties from half a spacing up the storey', () => {
+    const m = (v: number) => ({ bottomX: { value: v }, bottomY: { value: v }, topX: { value: v }, topY: { value: v } });
+    const slab = slabRow({ key: 'slab:1', name: 'L1', lx: 4, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
+    const a = { ...slab, adopted: { ...slab.adopted, bottomX: { dia: 10, spacing: 0.2 } } };
+    const [s] = scheduleElements({ line: [], column: [], slab: [a], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    expect(s!.pieces.find((p) => p.kind === 'slabBottom' && p.shape.dia === 10)!.count).toBe(20);
+    const wall: WallDemand = { key: 'wall:1:0', name: 'M1', length: 3, height: 3, thickness: 0.25, combos: [{ combo: 'U', pu: 1200, mu: 5000, vu: 450, muV: 4, muH: 2 }] };
+    const r = wallRow(wall, { mat: { fc: 30, fy: 420 }, cover: 0.025, barDia: 12, diameters: [10, 12, 16, 20, 25] }, undefined, f);
+    const two = { ...r, adopted: { ...r.adopted, curtains: 2 as const, vertical: { diameter: 12, spacing: 0.15 }, horizontal: { diameter: 10, spacing: 0.2 } } };
+    for (const code of ['cirsoc201-2025', 'en1992-1-1'] as const) {
+      const det = wallDetail(two, code), grid = wallGrid(two, det);
+      const [e] = scheduleElements({ line: [], column: [], slab: [], wall: [two] }, { code, slabCover: 0.02 });
+      expect(grid.horizontals).toHaveLength(15);
+      expect(e!.pieces.find((p) => p.kind === 'horizontal')!.count, code).toBe(2 * 15);
+      expect(e!.pieces.find((p) => p.kind === 'ubar')!.count, code).toBe(2 * 15);
+      const ties = e!.pieces.find((p) => p.kind === 'wallTie');
+      expect(ties?.count ?? 0, code).toBe(det.crossTies ? wallLevels(3, det.crossTies.along).length * wallLevels(3, det.crossTies.up).length : 0);
+    }
+  });
+
+  it('a vertical longer than a stock bar is cut into equal lapped pieces, the top one hooked into the slab', async () => {
+    const wall: WallDemand = { key: 'wall:1:0', name: 'M1', length: 4, height: 13, thickness: 0.2, combos: [{ combo: 'U', pu: 1200, mu: 5000, vu: 450, muV: 4, muH: 2 }] };
+    const r = wallRow(wall, { mat: { fc: 30, fy: 420 }, cover: 0.025, barDia: 12, diameters: [10, 12, 16, 20, 25] }, undefined, f);
+    const [e] = scheduleElements({ line: [], column: [], slab: [], wall: [r] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const verticals = e!.pieces.filter((p) => p.kind === 'vertical' || p.kind === 'boundary');
+    expect(verticals.length).toBeGreaterThan(1);
+    expect(verticals.every((p) => developedLength(p.shape) <= 12 + 1e-9)).toBe(true);
+    expect(verticals.some((p) => p.shape.pts.length === 3)).toBe(true);
+    const { stockPieces } = await import('../pieces');
+    const pcs = stockPieces(13.6, 0.6, 16, R, false);
+    expect(pcs).toEqual([{ shape: expect.anything(), count: 2 }]);
+    expect(developedLength(pcs[0]!.shape) * 2 - 0.6).toBeCloseTo(13.6, 9);
+  });
+
+  it('a beam line: its bars as laid out, and each zone\'s stirrups as the elevation places them', () => {
+    const env = (x: number, pos: number, neg: number): SectionEnv => ({ x, pos: { value: pos, source: { combo: 'U', x } }, neg: { value: neg, source: { combo: 'U', x } }, nPos: 0, nNeg: 0 });
+    const d: BeamDemand = { key: 'beam:1:0', name: 'V1', length: 6, b: 0.3, h: 0.6, start: env(0, 0, 0), span: env(3, 200, 0), end: env(6, 0, 0), negAny: { value: 0 }, nNegAny: 0, vu: { value: 150 }, nAtV: 0, tu: { value: 0 }, combos: [], line: { group: 1, index: 0, spans: 1, startNode: 1, endNode: 2, lineName: 'V' } };
+    const bctx = { mat: { fc: 30, fy: 420 }, cover: 0.025, stirrupDia: 8, diameters: [10, 12, 16, 20, 25], torsion: 'equilibrium' as const };
+    const line = beamLine([beamRow(d, bctx, undefined, f)], bctx, undefined, f);
+    const [e] = scheduleElements({ line: [line], column: [], slab: [], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    expect(e!.pieces.filter((p) => p.elevation).map((p) => p.elevation)).toEqual(line.bars.map((b) => b.mark));
+    const stirrups = e!.pieces.filter((p) => p.kind === 'stirrup').reduce((s, p) => s + p.count, 0);
+    expect(stirrups).toBe(line.zones.reduce((s, z) => s + stirrupsOver(z.from, z.to, z.stirrups.spacing), 0));
+    expect(stirrupsOver(0, 1, 0.2)).toBe(5);
+    const s = bendingSchedule({ line: [line], column: [], slab: [], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    expect(s.rows.every((r) => r.element === line.name)).toBe(true);
+    const sheets = rcSheetsWorkbook({ beam: [], line: [line], column: [], slab: [], wall: [], code: 'CIRSOC 201-2025' }, (k) => k, s);
+    expect(sheets.map((x) => x.name)).toContain('rcSheets.bbs.title');
+  });
+});

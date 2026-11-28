@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Plate mesh preview</title></head><body>
+<main></main>
+<script type="module">
+  import { mount, tick } from 'svelte';
+  import Dialog from '../../../src/components/pro/plates/PlateMeshDialog.svelte';
+  import { modelStore, uiStore } from '../../../src/lib/store';
+  import { applyPlateMeshes, createPlate, plateEntry, planPlateMesh, planPlateMeshes, setPlateMeshSpec } from '../../../src/lib/store/physical-plates';
+  import { setLocale } from '../../../src/lib/i18n';
+  import '../../../src/lib/i18n/full-dictionaries';
+  setLocale('en');
+  modelStore.clear();
+  uiStore.analysisMode = 'pro';
+  const query = new URLSearchParams(location.search);
+  const ids = [0, 3].map((z, index) => {
+    const outline = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x, y, z));
+    const id = createPlate({ outline, materialId: 1, thickness: 0.15 }).id;
+    if (index < Number(query.get('refused'))) modelStore.updateNode(outline[2], 2, 2, z + 1);
+    return id;
+  });
+  if (new URLSearchParams(location.search).has('adopted')) {
+    const id = ids[0];
+    applyPlateMeshes([planPlateMesh(id)]);
+    const { group, surface } = plateEntry(id);
+    modelStore.setGroupData(id, { ...group.data, surface: { ...surface, meshed: { ...surface.meshed, original: true } } });
+    setPlateMeshSpec([id], { size: Number(new URLSearchParams(location.search).get('a') ?? 2), sizeV: Number(new URLSearchParams(location.search).get('b') ?? 1.5), pattern: 'rect' });
+  }
+  const testid = id => document.querySelector('[data-testid="' + id + '"]');
+  window.previewFixture = {
+    closed: false,
+    refusal: () => uiStore.toasts.findLast(toast => toast.type === 'error')?.message,
+    async batch(count, stopAt) {
+      const controller = new AbortController();
+      if (stopAt === 0) controller.abort();
+      const plans = await planPlateMeshes(ids.slice(0, count), undefined, {
+        signal: controller.signal,
+        onProgress: done => { if (done === stopAt) controller.abort(); },
+      });
+      return plans?.map(plan => plan.id) ?? null;
+    },
+    async stopReplacement() {
+      testid('plate-mesh-tri').click();
+      await tick();
+      testid('plate-mesh-progress').querySelector('button').click();
+      await tick();
+      const disabled = testid('plate-mesh-apply').disabled;
+      testid('plate-mesh-apply').click();
+      return disabled;
+    },
+    cells: () => [modelStore.quads.size, modelStore.plates.size],
+  };
+  mount(Dialog, { target: document.querySelector('main'), props: { ids, onclose: () => { window.previewFixture.closed = true; } } });
+</script>
+</body></html>

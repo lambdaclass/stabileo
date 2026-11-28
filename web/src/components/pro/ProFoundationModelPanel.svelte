@@ -16,6 +16,7 @@
     type BeamProposal, type PropertyLines,
   } from '../../lib/model/foundation/generate';
   import { presizeModelFootings, type PresizeOutcome } from '../../lib/store/foundation-tools';
+  import * as SheetLines from './design/PropertyLinesPicker.svelte';
   import FootingKindPicker from './building/FootingKindPicker.svelte';
   import SoilStrataCard from './building/SoilStrataCard.svelte';
   import FoundationsPanel from './design/FoundationsPanel.svelte';
@@ -46,7 +47,7 @@
     } else {
       const ids = placeFootings(targets, {
         kind, thickness, // The property lines are the sides of the building: read off every support.
-        anchors: anchorsFor(supports.all, lines),
+        anchors: anchorsFor(supports.all, __PUBLIC_FEATURES__.proRcSheets ? SheetLines.savedLines() : lines),
         ...(kind === 'pileCap' ? { piles: { count: 2, diameter: pileDiameter, length: pileLength, spacing: 3 * pileDiameter } } : {}),
       });
       status = tp('fdn.placed', { n: ids.length });
@@ -122,9 +123,13 @@
     {#if kind === 'isolated' || kind === 'pileCap'}
       <div class="fd-row" role="group" aria-label={t('fdn.propertyLines')}>
         <span class="fd-label">{t('fdn.propertyLines')}</span>
+        {#if __PUBLIC_FEATURES__.proRcSheets}
+          <SheetLines.default testid="foundation-line" />
+        {:else}
         {#each [['minX', '−X'], ['maxX', '+X'], ['minY', '−Y'], ['maxY', '+Y']] as const as [k, label]}
           <label><input type="checkbox" checked={!!lines[k]} onchange={() => (lines = { ...lines, [k]: !lines[k] })} data-testid="foundation-line-{k}" /> {label}</label>
         {/each}
+        {/if}
       </div>
       <label class="fd-row"><input type="checkbox" bind:checked={onlySelected} /> {tp('fdn.onlySelected', { n: selectedSupported.length })}</label>
       <button class="pk-btn pk-btn-primary" disabled={targets.length === 0} onclick={place} data-testid="foundation-place">{tp('fdn.placeUnder', { n: targets.length })}</button>

@@ -33,6 +33,7 @@ import type { DesignOutcomeSummary } from '../../element-status';
 import '../../../design/adapters/cirsoc201-adapter';
 import '../../../design/adapters/unsupported-adapter';
 import { stateSuiteLateral } from '../../../../store/__tests__/suite-lateral';
+import { stateSuiteCovers } from '../../../../store/__tests__/suite-covers';
 
 export interface WorkspaceScene {
   doc: DocumentModel;
@@ -51,18 +52,62 @@ export interface WorkspaceScene {
  * ratio fell from 0.11–0.24 to 0.010–0.028. A beam turned about its axis under gravity bends
  * about both of its own axes for a reason that is real: M·cos θ and M·sin θ.
  */
-export interface Variant { rollBeams: { ids: readonly number[]; degrees: number } }
+export interface Variant {
+  rollBeams?: { ids: readonly number[]; degrees: number };
+  unheldNodes?: readonly number[];
+}
 
 /** The five beams the flagship building's biaxial tests turn, and by how much. */
-export const ROLLED_BEAMS: Variant = { rollBeams: { ids: [88, 151, 153, 157, 164], degrees: 20 } };
+export const ROLLED_BEAMS = { rollBeams: { ids: [88, 151, 153, 157, 164], degrees: 20 } } satisfies Variant;
+
+/** The flagship building as released before `example-core-foundation`, its core held at node 1 alone. */
+export const RELEASED_CORE: Variant = { unheldNodes: [118, 119, 120] };
 
 /** Apply a variant to the loaded model, before it is solved. */
 export function applyVariant(variant: Variant): void {
-  for (const id of variant.rollBeams.ids) {
+  for (const nodeId of variant.unheldNodes ?? []) {
+    const held = [...modelStore.supports.values()].filter((s) => s.nodeId === nodeId);
+    expect(held.length, `node ${nodeId} is held in the loaded example`).toBe(1);
+    modelStore.removeSupport(held[0].id);
+  }
+  for (const id of variant.rollBeams?.ids ?? []) {
     const e = modelStore.elements.get(id);
     expect(e, `element ${id} exists in the loaded example`).toBeTruthy();
-    modelStore.updateElement(id, { rollAngle: ((e!.rollAngle ?? 0) + variant.rollBeams.degrees) % 360 });
+    modelStore.updateElement(id, { rollAngle: ((e!.rollAngle ?? 0) + variant.rollBeams!.degrees) % 360 });
   }
+}
+
+export function expectEveryFrameMemberAccounted(w: WorkspaceScene, turned: readonly number[] = []): void {
+  const { doc, scene, outcomes } = w;
+  const frameSolids = scene.solids.filter((s) => s.kind === 'beam' || s.kind === 'column');
+  const beams = new Set(frameSolids.filter((s) => s.kind === 'beam').flatMap((s) => s.elementIds));
+  expect(beams.size, 'the scene draws the beams').toBeGreaterThan(100);
+  const frameBars = scene.bars.filter((b) => b.ownerScope === 'frame');
+  const inScene = new Set(frameBars.flatMap((b) => b.elementIds));
+  const inDoc = new Set(doc.assemblies.flatMap(frameBarsInAssembly).flatMap((b) => b.ownerElementIds));
+  expect([...inDoc].filter((id) => !inScene.has(id)), 'document steel reaches the scene').toEqual([]);
+  const withMain = new Set(frameBars.filter((b) => b.role === 'longitudinal').flatMap((b) => b.elementIds));
+  const bare = new Set(scene.unreinforcedMembers);
+  expect([...beams].filter((id) => !withMain.has(id)).sort((a, b) => a - b), 'a beam without main steel is named bare')
+    .toEqual([...beams].filter((id) => bare.has(id)).sort((a, b) => a - b));
+  for (const id of turned.length ? scene.provisionalMembers : []) expect(turned, `member ${id} was turned`).toContain(id);
+  if (!turned.length) expect(scene.provisionalMembers).toEqual([]);
+  let armed = 0;
+  for (const id of frameSolids.flatMap((s) => s.elementIds)) {
+    if (!bare.has(id)) {
+      expect(inScene.has(id), `member ${id} is drawn with steel`).toBe(true);
+      armed += 1;
+      continue;
+    }
+    const o = outcomes.get(id);
+    expect(o?.outcome, `member ${id} has an outcome`).toBeDefined();
+    expect(['VERIFIED', 'PROVISIONAL_BIAXIAL'], `member ${id}`).not.toContain(o!.outcome);
+    expect((o!.limiting ?? []).length > 0 || !!o!.reasonKey, `member ${id} states a reason`).toBe(true);
+    expect(scene.provisionalMembers, `member ${id}`).not.toContain(id);
+    expect(frameBars.some((b) => b.elementIds.includes(id) && b.role === 'transverse'
+      && b.piece !== 'jointTie' && b.piece !== 'jointCrosstie'), `member ${id} has no cage either`).toBe(false);
+  }
+  expect(armed, 'some frame members are armed').toBeGreaterThan(0);
 }
 
 export const GALLERY_REFUSED_BEAM_IDS = [
@@ -107,8 +152,9 @@ async function compute(example: string, variant?: Variant): Promise<WorkspaceSce
   await modelStore.loadExample(example);
   expect(isSolverReady(), 'real WASM solver, not the Vite stub').toBe(true);
   if (variant) applyVariant(variant);
-  // The reading of the beams' role in the lateral system these suites were written under.
+  // The reading of the beams' role in the lateral system these suites were written under, and their covers.
   stateSuiteLateral();
+  stateSuiteCovers();
 
   const solved = await modelStore.solveCombinations3DParallel(true, false, true);
   expect(typeof solved, 'the solver returned results rather than an error string')

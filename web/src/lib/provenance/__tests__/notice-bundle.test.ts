@@ -1,15 +1,23 @@
 import { expect, it } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { setImmediate } from 'node:timers/promises';
 import { readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
-import packed from 'virtual:result-change-packed';
-import { RESULT_CHANGES } from '../full-registry';
-import { REGISTRY_LOCALES } from '../registry';
+import { packResultChangeNotices } from '../../../../scripts/result-change-metadata.mjs';
+import { REGISTRY_LOCALES, type ResultChangeRegistry } from '../registry';
+import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
 import { sharedBuild, SHARED_PLAIN_BUILD } from '../../utils/__tests__/shared-build';
 
 const SHARED = sharedBuild(SHARED_PLAIN_BUILD);
+const { packed, shipped } = packResultChangeNotices(readRegistry());
+const RESULT_CHANGES: ResultChangeRegistry = shipped;
+
+it('uses the production notice inventory for the build expectation', () => {
+  expect(RESULT_CHANGES.changes.some(change => change.id === 'plates-coarse-as-modelled-meshed'))
+    .toBe(true);
+});
 
 it('loads translated recheck notices outside the static app route closure', async () => {
   const web = resolve(__dirname, '../../../../..', 'web');
@@ -49,6 +57,7 @@ it('loads translated recheck notices outside the static app route closure', asyn
     expect(JSON.parse(inflateRawSync(Buffer.from(emitted!, 'base64')).toString('utf8'))).toEqual(RESULT_CHANGES);
     expect(allProduct.split(packed).length - 1).toBe(1);
     for (const change of RESULT_CHANGES.changes) {
+      await setImmediate();
       const entry = `id:${JSON.stringify(change.id)},resultsVersion:${change.resultsVersion}`;
       expect(allProduct.includes(entry), `duplicate registry entry: ${change.id}`).toBe(false);
       expect(initial.includes(entry), `eager registry entry: ${change.id}`).toBe(false);

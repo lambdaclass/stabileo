@@ -7,6 +7,7 @@
  */
 import { modelStore } from '../store/model.svelte';
 import { gradeById } from './structural-grades';
+import { wallFoundation } from '../model/foundation/wall-foundation';
 
 type Fix = () => void;
 
@@ -51,6 +52,8 @@ export function declareSteelGrades(): void {
 }
 
 export const PRO_EXAMPLE_FIXES: Readonly<Record<string, Fix>> = {
+  ...(wallFoundation ? { 'pro-edificio-7p': wallFoundation.holdExampleCore } : {}),
+
   /*
    * The runway beam carried only its own dead load: there was no crane. One case now stands the
    * crane in the middle bay, two wheels a side 4 m apart, 60 kN a wheel on the loaded side with

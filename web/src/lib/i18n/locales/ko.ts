@@ -1,12 +1,20 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  'project.adoptedReinforcementIgnored': "이 버전은 프로젝트에 저장된 채택 배근을 무시하고 설계 배근을 사용합니다.",
+  'wall.tensionRequiresBarLayout': "인장과 휨의 조합 검토에는 수직 철근 배치가 필요합니다.",
+  'wall.boundaryBarCount': "벽 양쪽 끝의 경계 철근 개수를 0 이상의 정수로 입력하세요.",
+  'wall.tensionAtOpenings': "벽체 개구부 인장 검토에는 순단면과 그 단면을 관통하는 연속 철근이 필요합니다.",
+  'wall.tensionShearEdition': "{edition} 판으로는 벽체의 인장과 전단 조합을 검토할 수 없습니다.",
   'svc.accountingMismatch': "해석을 거부했습니다. 하중 케이스 {case}, 성분 {component}. 입력값 {entered}, 조립값 {assembled}.",
   'svc.accountingUnsupported': "해석을 거부했습니다. 하중 케이스 {case}의 {kind} {id}에 대한 힘과 모멘트를 집계할 수 없습니다.",
   'svc.accountingArea': "해석을 거부했습니다. 솔버의 판 {plate} 면적 또는 경계가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",
   'svc.accountingSweep': "해석을 거부했습니다. 솔버의 판 {plate} 곡선 모서리 경로가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",
   'svc.accountingShellEdits': "판 {plate}의 메시를 다시 생성하면 셸 오프셋 또는 곡률 편집이 사라지므로 실행할 수 없습니다.",
   "plates.remeshAmbiguousSweep": "{name}의 곡선 경계에서 사용할 원호 구간이 불분명합니다. 메시를 다시 생성하기 전에 중간점과 두 끝점 사이의 곡선 부재를 확인하세요.",
+  "loadPlan.warning.replacedDefinitions": "계획에서 생성한 바닥 하중 정의 {n}개를 교체합니다.",
+  "loadPlan.warning.independentLoadsKept": "해당 하중 케이스에서 다른 도구가 생성한 하중 {n}개를 유지합니다.",
+  "plates.meshFieldsKept": "{names}의 메시를 유지했습니다. 제거하거나 교체하면 하중이 사라지거나 셀의 재료, 두께, 편심 또는 곡률이 바뀝니다.",
   "plates.remeshShellEdits": "셸 요소의 오프셋 또는 곡률 변경을 정확히 옮길 수 없어 {name}의 메시를 교체할 수 없습니다.",
   'loadPlan.gravity.coveragePrecision': "쉘 피복 좌표가 지원되는 부재 구간 정밀도를 초과합니다.",
   'loadPlan.gravity.roundedRoofBoundary': "부재 {id}의 중점 반올림으로 지붕 가장자리의 덮임 여부가 달라집니다. 부재 또는 지붕 형상을 수정하거나 하중을 수동으로 지정하세요.",
@@ -2799,10 +2807,8 @@ const ko: Translations = {
   'pro.unknown': '알 수 없음',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates}개 판, {quads}개 사각형',
   'pro.plateTriDKT': '삼각 판 (DKT)',
   'pro.quadMITC4': '사각형 MITC4',
-  'pro.meshGenerator': '메쉬 생성기',
   'pro.meshHint': '4개 모서리 절점(반시계 방향)과 NxM 분할을 정의하세요. 중간 절점과 사각형이 자동 생성됩니다.',
   'pro.corners': '모서리',
   'pro.subdivisions': '분할',

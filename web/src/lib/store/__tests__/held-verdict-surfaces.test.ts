@@ -48,6 +48,7 @@ import { solveCombinations3D, validateAndSolve3D } from '../../engine/solver-ser
 import * as wasmSolver from '../../engine/wasm-solver';
 import qa8 from '../../templates/fixtures/rc-design-qa-8.json';
 import { building, designAndDocument } from './span-fixture';
+import { stateSuiteCovers } from './suite-covers';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
@@ -235,6 +236,7 @@ function qa8Model(): void {
     supports: qa8.supports.map((s: any) => [s.id, s]) as never, loads: qa8.loads as never, loadCases: qa8.loadCases as never,
     combinations: qa8.combinations as never, nextId: { node: 100, material: 10, section: 10, element: 100, support: 10, load: 100 },
   } as never);
+  stateSuiteCovers();
   const combo = solveCombinations3D(modelStore.model as never, modelStore.model.loadCases, modelStore.model.combinations, true, false);
   if (typeof combo === 'string' || !combo) throw new Error(`solve: ${combo}`);
   resultsStore.setResults3D(validateAndSolve3D(modelStore.model as never, true, false) as never);

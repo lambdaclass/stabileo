@@ -1,12 +1,9 @@
 <script lang="ts">
-  /**
-   * The certificate and the discretization error, folded under the results: closed with a one-line
-   * summary, and opened by itself when one of them warns, so a warning is never folded away unseen.
-   */
   import { t } from '../lib/i18n';
   import { uiStore } from '../lib/store';
   import { certificateStore } from '../lib/store/certificate.svelte';
   import { discretizationStore } from '../lib/store/discretization.svelte';
+  import * as UnifiedResultCheckDetails from './UnifiedResultCheckDetails.svelte';
   import CertificateStatus from './CertificateStatus.svelte';
   import DiscretizationStatus from './DiscretizationStatus.svelte';
 
@@ -15,7 +12,7 @@
   const est = $derived(discretizationStore.estimate);
   const study = $derived(discretizationStore.study);
   const discretizationShown = $derived(is3D && est.status !== 'idle' && discretizationStore.applies());
-  const discretizationHigh = $derived(discretizationShown && (
+  const discretizationHigh = $derived((__PUBLIC_FEATURES__.proPlatesUnified ? discretizationShown && UnifiedResultCheckDetails.discretizationVisible() : discretizationShown) && (
     (est.status === 'done' && est.estimate.exceedsThreshold) || (study.status === 'done' && study.study.exceedsThreshold)));
   const notCertified = $derived(cert.status === 'done' && (cert.certificate.status !== 'certified' || cert.endToEnd?.status === 'failed'));
   const warn = $derived(notCertified || discretizationHigh);
@@ -23,14 +20,20 @@
   const summary = $derived([
     cert.status === 'pending' ? t('resultChecks.pending')
       : cert.status === 'done' ? t(notCertified ? 'resultChecks.notCertified' : 'resultChecks.certified') : null,
-    discretizationHigh ? t('resultChecks.discretizationHigh') : null,
+    discretizationHigh ? t(__PUBLIC_FEATURES__.proPlatesUnified ? 'plates.unified.discretizationHigh' : 'resultChecks.discretizationHigh') : null,
   ].filter(Boolean).join(' · '));
 
   let open = $state(false);
-  $effect(() => { if (warn) open = true; });
+  $effect(() => { if (__PUBLIC_FEATURES__.proPlatesUnified ? notCertified : warn) open = true; });
 </script>
 
 {#if cert.status !== 'idle' || discretizationShown}
+  {#if __PUBLIC_FEATURES__.proPlatesUnified}
+  <UnifiedResultCheckDetails.default bind:open {warn} {notCertified} {summary}>
+    <CertificateStatus />
+    <DiscretizationStatus />
+  </UnifiedResultCheckDetails.default>
+  {:else}
   <details class="rc" class:warn bind:open data-testid="result-checks">
     <summary data-testid="result-checks-toggle">
       <span class="rc-title">{t('resultChecks.title')}</span>
@@ -39,6 +42,7 @@
     <CertificateStatus />
     <DiscretizationStatus />
   </details>
+  {/if}
 {/if}
 
 <style>

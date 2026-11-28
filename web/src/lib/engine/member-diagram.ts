@@ -42,16 +42,21 @@ export function fullSpanFallback(length: number, loads: DistributedAction[] | un
   return loads?.length ? loads : qI || qJ ? [{ a: 0, b: length, qI, qJ }] : [];
 }
 
-export function distributedActionTerms(load: DistributedAction, x: number): [force: number, moment: number] {
+function distributedActionTerm(load: DistributedAction, x: number, component: 0 | 1): number {
   const span = load.b - load.a;
   const distance = x - load.a;
-  if (span <= 0 || distance <= 0) return [0, 0];
+  if (span <= 0 || distance <= 0) return 0;
   const s = Math.min(span, distance);
   const u = s / span;
   const left = load.qI * s;
   const right = load.qJ * s;
   const force = left * (1 - u / 2) + right * (u / 2);
-  return [force, (left * (0.5 - u / 6) + right * (u / 6)) * s + force * (distance - s)];
+  if (component === 0) return force;
+  return (left * (0.5 - u / 6) + right * (u / 6)) * s + force * (distance - s);
+}
+
+export function distributedActionTerms(load: DistributedAction, x: number): [force: number, moment: number] {
+  return [distributedActionTerm(load, x, 0), distributedActionTerm(load, x, 1)];
 }
 
 export function diagramLineValue(start: number, change: number, rate: number, x: number, t: number): number {
@@ -76,9 +81,41 @@ export function memberDiagram(
     return cutDistances = mapped;
   };
   const component = order === 'force' ? 0 : 1;
+  const boundedLoads = distributed.length > 1 && Math.abs(sign) === 1 && distributed.every(load =>
+    Number.isFinite(load.qI) && Number.isFinite(load.qJ) && load.a >= 0 && load.b <= length && load.b > load.a);
+  const loaded = boundedLoads ? distributed.filter(load => load.qI !== 0 || load.qJ !== 0) : distributed;
+  const orderedForces = boundedLoads && component === 0 && change === 0 && rate === 0 && !points.length
+    && loaded.every((load, i) => i === 0 || loaded[i - 1]!.b <= load.a);
+  const omittedZeros = loaded.length !== distributed.length;
+  const minSpan = omittedZeros ? distributed.reduce((span, load) => Math.min(span, load.b - load.a), length) : length;
+  const completedForces: number[] = [];
+  if (orderedForces) {
+    completedForces.push(diagramLineValue(start, change, rate, 0, 0));
+    for (const load of loaded) {
+      completedForces.push(completedForces[completedForces.length - 1]! + sign * distributedActionTerm(load, load.b, 0));
+    }
+  }
+  const completedCount = (x: number) => {
+    let lo = 0, hi = loaded.length;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (loaded[mid]!.b <= x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
   const physicalValue = (x: number, t: number, right: boolean) => {
     let result = diagramLineValue(start, change, rate, x, t);
-    for (const load of distributed) result += sign * distributedActionTerms(load, x)[component];
+    const inMember = x >= 0 && x <= length && t >= 0 && t <= 1;
+    const skipZeros = omittedZeros && inMember && !Object.is(result, -0);
+    if (orderedForces && inMember && (!omittedZeros || skipZeros) && Object.is(completedForces[0], result)) {
+      const end = completedCount(x);
+      let value = completedForces[end]!;
+      if (end < loaded.length) value += sign * distributedActionTerm(loaded[end]!, x, 0);
+      if (end + 1 < loaded.length) value += sign * 0;
+      return value;
+    }
+    for (const load of skipZeros ? loaded : distributed) result += sign * distributedActionTerm(load, x, component);
     for (const point of points) {
       if (point.a < x || (right && point.a === x)) {
         if (point.slope) result += point.slope * (x - point.a);
@@ -88,6 +125,20 @@ export function memberDiagram(
     return result;
   };
 
+  let leftValues: Map<number, number> | undefined;
+  let rightValues: Map<number, number> | undefined;
+  const pointStations = points.length ? new Set(points.map(point => point.a)) : undefined;
+  const cutValue = (x: number, t: number, right: boolean) => {
+    if (!hasActions) return diagramLineValue(start, change, rate, x, t);
+    if (Object.is(t, -0)) return physicalValue(x, t, right);
+    const values = right && pointStations?.has(x) ? (rightValues ??= new Map()) : (leftValues ??= new Map());
+    const cached = values.get(t);
+    if (cached !== undefined) return cached;
+    const value = physicalValue(x, t, right);
+    values.set(t, value);
+    return value;
+  };
+
   return {
     hasDistributedActions,
     get cuts() { return [...distances().keys()]; },
@@ -95,7 +146,7 @@ export function memberDiagram(
     value({ t, right }) {
       if (!hasActions) return diagramLineValue(start, change, rate, t * length, t);
       const cut = distances().get(t);
-      if (cut !== undefined) return physicalValue(cut, t, right === true);
+      if (cut !== undefined) return cutValue(cut, t, right === true);
       const x = t * length;
       const rounded = distances().get(at(x));
       return physicalValue(x, t, rounded === x ? at(x) < t : right === true);
@@ -108,8 +159,15 @@ export function memberDiagram(
       for (const point of points) {
         if (point.slope && point.a <= x0) linear += point.slope * width;
       }
-      for (const load of distributed) {
-        if (component === 1) linear += sign * distributedActionTerms(load, x0)[0] * width;
+      const skipZeros = omittedZeros && x0 >= 0 && x1 >= x0 && x1 <= length
+        && Number.isFinite(width / minSpan) && !Object.is(linear, -0);
+      const loads = skipZeros ? loaded : distributed;
+      const indexed = orderedForces && (!omittedZeros || skipZeros);
+      const from = indexed ? completedCount(x0) : 0;
+      const until = indexed ? Math.min(from + 1, loads.length) : loads.length;
+      for (let i = from; i < until; i++) {
+        const load = loads[i]!;
+        if (component === 1) linear += sign * distributedActionTerm(load, x0, 0) * width;
         if (x0 < load.a || x0 >= load.b) continue;
         const span = load.b - load.a;
         const u = (x0 - load.a) / span;
@@ -124,7 +182,8 @@ export function memberDiagram(
           cubic += delta * (width / 6);
         }
       }
-      return [physicalValue(x0, lo, true), linear, quadratic, cubic];
+      const base = distances().get(lo) === x0 ? cutValue(x0, lo, true) : physicalValue(x0, lo, true);
+      return [base, linear, quadratic, cubic];
     },
   };
 }

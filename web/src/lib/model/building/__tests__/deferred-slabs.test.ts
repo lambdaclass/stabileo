@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as wasmSolver from '../../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '../../../store';
 import { placeFrame, placeSlabs } from '../build-on-grid';
-import { meshDeferredSlabs, simplifySlabs, slabsToMesh, slabsToSimplify } from '../deferred-slabs';
+import { meshDeferredSlabs, simplifySlabs, deferredSlabMeshes } from '../deferred-slabs';
 import { physicalGroups } from '../../../store/physical';
 import type { AnalysisResults3D } from '../../../engine/types-3d';
 import type { StructuralGrid } from '../../grid';
@@ -66,7 +66,7 @@ describe('a slab meshed at the analysis', () => {
     expect(placed.quads).toBe(1);
     // The beams whole: 4 columns and 4 beams, nothing cut.
     expect(placed.elements).toBe(8);
-    expect(slabsToMesh()).toBe(1);
+    expect(deferredSlabMeshes().waiting.length).toBe(1);
     expect(physicalGroups().find((g) => g.physical.kind === 'slab')!.physical.meshAtSolve).toMatchObject({ size: 1, meshed: false });
 
     const m = meshDeferredSlabs();
@@ -80,8 +80,8 @@ describe('a slab meshed at the analysis', () => {
     expect(atSolveCensus.nodes).toBeGreaterThan(now.nodes);
     const ties = (modelStore.model.constraints ?? []).filter((k) => k.type === 'rigidLink');
     expect(ties).toHaveLength(12);
-    expect(slabsToMesh()).toBe(0);
-    expect(slabsToSimplify()).toBe(1);
+    expect(deferredSlabMeshes().waiting.length).toBe(0);
+    expect(deferredSlabMeshes().meshed.length).toBe(1);
     const atSolve = probes(solve());
     // The same slab under the same load, on a grid a little different: the middle and the beams
     // move as the slab meshed at placement does, within 5 % (0,2 % at the middle, measured).
@@ -102,7 +102,7 @@ describe('a slab meshed at the analysis', () => {
     expect(census()).toEqual(placed);
     const load = modelStore.loads.find((l) => l.type === 'surface3d')!;
     expect((load.data as { q: number }).q).toBe(-5);
-    expect(slabsToMesh()).toBe(1);
+    expect(deferredSlabMeshes().waiting.length).toBe(1);
 
     expect(meshDeferredSlabs().slabs).toBe(1);
     expect(census()).toEqual(meshed);

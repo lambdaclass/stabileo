@@ -32,3 +32,44 @@ describe('a beam in the plane of a slab', () => {
     expect(beamsInSlabPlane({ nodes, elements, sections, quads: low }).size).toBe(0);
   });
 });
+
+it.each(['edge', 'interior'] as const)('known wrong result: #1928 an individual beam uses its accepted plan length at a %s flange', async kind => {
+  const { effectiveFlange } = await import('../../../codes/cirsoc201/effective-flange');
+  const beam = { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1 };
+  const elements = new Map([[beam.id, beam]]);
+  const cell = { id: 1, nodes: [1, 2, 3, 4], thickness: 0.3 };
+  const quads = new Map([[1, cell]]);
+  if (kind === 'interior') quads.set(2, { ...cell, id: 2, nodes: [2, 1, 11, 12] });
+  const sides = [...quads.values()].map(q => ({ hf: q.thickness, clear: 4 - sections.get(1)!.b / 2 }));
+  for (const z of [0, 0.001, -0.001, 0.001001]) {
+    const floor = new Map([...nodes].map(([id, node]) => [id, { ...node, z: id === 2 ? z : 0 }]));
+    floor.set(11, { id: 11, x: 0, y: -4, z: 0 });
+    floor.set(12, { id: 12, x: 4, y: -4, z: 0 });
+    const m = { nodes: floor, elements, sections, quads };
+    for (const spanOf of [undefined, () => [], () => [1]]) {
+      const result = beamFlanges({ ...m, spanOf }).get(1);
+      if (Math.abs(z) > 0.001) {
+        expect(result).toBeUndefined();
+      } else {
+        const length = spanOf?.().length ? Math.hypot(4, z) : 4;
+        expect(result).toEqual({ ...effectiveFlange(sections.get(1)!.b, length, sides), datum: 'assumed' });
+      }
+    }
+  }
+});
+
+it('rechecks an ungrouped near-level concrete beam sharing its two ends with one slab', async () => {
+  const { modelFeatures } = await import('../../../provenance/model-features');
+  const beam = { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, reinforcement: {} };
+  const nodeRows = (z: number): [number, { x: number; y: number; z: number }][] =>
+    [...nodes].map(([id, p]) => [id, { ...p, z: id === 2 ? z : 0 }]);
+  const features = (z: number, grouped: boolean, corners: number[]) => modelFeatures({
+    nodes: nodeRows(z), elements: [[1, beam]], quads: [[1, { nodes: corners }]],
+    groups: grouped ? [[1, { kind: 'physicalMember', data: { kind: 'beam' }, members: { elements: [1] } }]] : [],
+  });
+  expect(features(0.001, false, [1, 2, 3, 4]).has('individualNearLevelFlange')).toBe(true);
+  expect(features(0, false, [1, 2, 3, 4]).has('individualNearLevelFlange')).toBe(false);
+  expect(features(0.001001, false, [1, 2, 3, 4]).has('individualNearLevelFlange')).toBe(false);
+  expect(features(0.001, true, [1, 2, 3, 4]).has('individualNearLevelFlange')).toBe(false);
+  expect(features(0.001, false, [1, 5, 3, 4]).has('individualNearLevelFlange')).toBe(false);
+});

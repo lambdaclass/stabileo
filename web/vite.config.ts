@@ -3,14 +3,15 @@ import { defineConfig, searchForWorkspaceRoot, type Plugin, type UserConfig } fr
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
-import { resolve } from 'path';
+import { dirname, resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
+import { mesherLabels } from './src/lib/i18n/locales/mesher-labels';
 import { loadedPreloads } from './scripts/loaded-preloads';
 import { buildPublicLocales } from './src/lib/i18n/offered-research';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
 import { prunePublicBuildBranches } from './scripts/prune-public-build-branches.mjs';
 import { researchLocaleBuildPlugin } from './scripts/research-locale-build.mjs';
-import { switchOnUnitFiles } from './scripts/switch-on-unit.mjs';
+import { sharedSwitchOnUnitFiles, switchOnUnitFiles } from './scripts/switch-on-unit.mjs';
 import { blogTranslations } from './scripts/blog-translations';
 
 /**
@@ -55,7 +56,12 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
       const profile = testing ? unitFeatureProfile()
         : command === 'build' && process.env.VITE_E2E === '1' ? process.env.STABILEO_E2E_PROFILE || mode
         : mode;
-      features = featuresForMode(profile, featureConfig);
+      const declared = featuresForMode(profile, featureConfig);
+      features = {
+        ...declared,
+        proPlatesUnified: declared.proPlatesUnified ?? false,
+        proRcSheets: declared.proRcSheets ?? false,
+      };
       const define = featureDefines(features, command === 'build');
       if (testing) return { environments: { client: { define } } };
       if (command === 'build' && mode === 'production' && process.env.STABILEO_ROUTE_BUDGET_LEGACY === '1') {
@@ -63,6 +69,69 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
         define['import.meta.env.VITE_TOOLS'] = JSON.stringify(features.tools ? '1' : '0');
       }
       return { define };
+    },
+    resolveId: {
+      order: 'pre',
+      handler(id, importer) {
+        if (features.proPlatesUnified && importer && id.endsWith('/recheck-board-provider') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/recheck-board-provider')) {
+          return resolve(__dirname, 'src/lib/store/active-recheck-board-provider.svelte.ts');
+        }
+        if (features.proPlatesUnified && importer && id === './building-files' && dirname(importer) === resolve(__dirname, 'src/lib/templates/examples')) {
+          return resolve(dirname(importer), 'unified-building-files.ts');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/AnalysisMeshControl.svelte') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/pro/plates/AnalysisMeshControl.svelte')) {
+          return resolve(__dirname, 'src/components/pro/plates/UnifiedAnalysisMeshControl.svelte');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/example-load-progress') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/example-load-progress')) {
+          return resolve(__dirname, 'src/lib/store/unified-example-load-progress.ts');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/ContainmentBanner.svelte') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/ContainmentBanner.svelte')) {
+          return resolve(__dirname, 'src/components/UnifiedContainmentBanner.svelte');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/SelfCheckBanner.svelte') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/advanced/SelfCheckBanner.svelte')) {
+          return resolve(__dirname, 'src/components/advanced/UnifiedSelfCheckBanner.svelte');
+        }
+        if (features.proPlatesUnified && id === './physical-load-provider' && importer && dirname(importer) === resolve(__dirname, 'src/lib/store')) {
+          return resolve(dirname(importer), 'unified-physical-load-provider.ts');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/physical-footprint-grid') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/model/building/physical-footprint-grid')) {
+          return resolve(__dirname, 'src/lib/model/building/unified-footprint-grid.ts');
+        }
+        if (features.proPlatesUnified && id === './slab-mesh-commands' && importer && dirname(importer) === resolve(__dirname, 'src/components/pro/building')) {
+          return resolve(dirname(importer), 'unified-slab-mesh-commands.ts');
+        }
+        if (features.proRcSheets && id === './sheet-option-reader' && importer && dirname(importer) === resolve(__dirname, 'src/lib/model')) {
+          return resolve(dirname(importer), 'active-sheet-option-reader.ts');
+        }
+        if (importer && features.proRcSheets && id === './sheet-anchors'
+          && dirname(importer) === resolve(__dirname, 'src/lib/model/foundation')) {
+          return resolve(dirname(importer), 'active-' + id.slice(2) + '.ts');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/wall-foundation') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/model/foundation/wall-foundation')) {
+          return resolve(__dirname, 'src/lib/model/foundation/active-wall-foundation.ts');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/occupancy-tables') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/codes/families/occupancy-tables')) {
+          return resolve(__dirname, 'src/lib/codes/families/active-occupancy-tables.ts');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/selected-floor-load') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/selected-floor-load')) {
+          return resolve(__dirname, 'src/lib/store/selected-floor-load-enabled.svelte.ts');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/selected-plate-spec') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/selected-plate-spec')) {
+          return resolve(__dirname, 'src/lib/store/active-selected-plate-spec.ts');
+        }
+        if (features.proRcSheets && importer && id.endsWith('/sheet-placement') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/sheet-placement')) {
+          return resolve(__dirname, 'src/lib/store/active-sheet-placement.ts');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/bound-basis') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/pro/load-codes/bound-basis')) {
+          return resolve(__dirname, 'src/components/pro/load-codes/active-bound-basis.ts');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/registry') && resolve(dirname(importer), id) === resolve(__dirname, 'src/components/pro/load-codes/registry')) {
+          return resolve(__dirname, 'src/components/pro/load-codes/active-registry.ts');
+        }
+        if (features.proRcSheets && (id === './rc-sheet-readers' || id === './rc-sheets-documents') && importer?.startsWith(resolve(__dirname, 'src/lib/store') + '/')) {
+          return resolve(__dirname, 'src/lib/store/active-' + id.slice(2) + '.ts');
+        }
+      },
     },
     configResolved(config) {
       e2e = config.env.VITE_E2E === '1';
@@ -77,17 +146,56 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
 function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): Plugin {
   const id = 'virtual:public-i18n';
   const app = 'virtual:app-i18n';
-  const offered = (code: string) => buildPublicLocales(features().research).some(locale => locale === code);
-  const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
+  const mesher = 'virtual:mesher-i18n';
+  const locales = () => buildPublicLocales(features().research);
+  const offered = (code: string) => locales().some(locale => locale === code);
+  const entries = (loc: string, dictionary: 'public' | 'app' | 'mesher', watch: (file: string) => void) => {
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
     const pruneEntries = !eager();
-    const { accounts, diagramGame, tools } = features();
+    const { accounts, diagramGame, proPlatesUnified, proRcSheets, tools } = features();
+    const entryKey = (line: string) => /^\s*(['"])([^'"]+)\1: /.exec(line)?.[2];
+    const translatedMesherLabels = mesherLabels[loc] ?? {};
     const lines = readFileSync(file, 'utf8').split('\n').filter((line) => {
-      const key = /^\s*(['"])([^'"]+)\1: /.exec(line)?.[2];
-      if (!key) return false;
+      const key = entryKey(line);
+      if (!key || Object.hasOwn(translatedMesherLabels, key)) return false;
+      if (proPlatesUnified && key.startsWith('mesher.')) return dictionary === 'mesher';
+      if (dictionary === 'mesher') return false;
       const publicAccountEntry = /^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(key);
       if (pruneEntries) {
+        if (proPlatesUnified && /^plates\.(?:qualityCell|planTotal|meshSummary)$/.test(key)) return false;
+        if (!proPlatesUnified) {
+          if (/^plates\.(?:firstSide|drawingLabel|qualityGood|qualityPoor|qualityHint|planTotalOnly|localLoadsWarnOne|keptNodesNoteOne|remeshNote(?:One|Some|All))$/.test(key)) return false;
+          if (/^plates\.(?:state\.|summary\.|(?:meshHeading|filterKind|kindAll|kindSlabs|kindWalls|filterLevel|allLevels|nSelectedOf|selectAll|scopePlates|scopeElements|elementsNote|header)$)/.test(key)) return false;
+          if (/^building\.(?:walls\.mesh(?:AtSolve|Now)Hint|slabs\.(?:withMesh|clearMesh|cleared))$/.test(key)) return false;
+          if (/^plates\.(?:openSpec(?:Element|Many)?|fromLevel|onItsElements)$/.test(key) || key === 'pro.curvedShellAuto' || key === 'surface.summaryFolded') return false;
+          if (key.startsWith('diag.reviewSummary')) return false;
+          if (/^autoLoad\.(?:occupancy|roof\.(?:occupancyOf|maintenanceCode|occupancyCode)|fromTableLoCode|live\.(?:partitionTitleCode|partitionOnCode|partitionValueCode|partitionChoice|reductionTitleCode)|applyLiveReductionCode|reductionElementCode|patterns(?:Code|NoRef|HintCode)|dead\.codeHint)$/.test(key)) return false;
+          if (key === 'file.workspaceNoticeClose') return false;
+          if (/^loads\.(asce7|ec|tr)\./.test(key)) return false;
+          if (/^ex\.pro-rc-(house|four-storey|steel-columns|lift-core|party-wall)(\.|$)/.test(key)) return false;
+          if (/^pro\.(examples\.(loading\.|group(Rc|Steel)Buildings$)|tag(Core|Stair)$|stats\.plates$)/.test(key)) return false;
+          if (key === 'ex.pro-steel-building-slabs.generatedDesc') return false;
+          if (key === 'physical.automaticExplain' || key === 'desk.prep.automaticExistingHint' || key === 'pro.physical.diag.review' || key === 'physical.diag.review' || key === 'physical.pending' || key === 'physical.pendingReview') return false;
+          if (/^designData\.(?:executionControl|slabBars|diametersHint)$/.test(key)) return false;
+          if (/^autoLoad\.(?:family(?:Hint|Name\..+)?|noFamilySeismic)$/.test(key)) return false;
+          if (key.startsWith('centres.') || key === 'pro.elementQualityTitle') return false;
+          if (key.startsWith('solveProgress.')) return false;
+          if (key === 'plates.openInLoads' || /^floorLoad\.(?:pickedPlates|addedPlates|plateDefault)$/.test(key)) return false;
+          if (/^plates\.progress(?:Planning|Meshing|Title|TitleAnalysis|Undo)$/.test(key)) return false;
+          if (key.startsWith('notices.') || /^containment\.(?:restore|dismissHintPro|dismissHintBasic|toDiagnostics|dismiss)$/.test(key)) return false;
+          if (key === 'quickEdit.meshPlate' || /^combos\.rules\.(seed|none)Code$/.test(key)) return false;
+          if (key === 'drawBar.circle' || /^plates\.(circle|shape|shapeProblem|meshShort|unified)\./.test(key)) return false;
+          if (/^plates\.meshState(?:WillMesh|Missing|AsCame|Ready|Kept)$/.test(key)) return false;
+        }
+        if (!proRcSheets) {
+          if (/^codes\.cirsoc201\.anchorage\.developmentGeneral(?:Minimum)?$/.test(key)) return false;
+          if (/^(?:footing\.ui\.(?:inSheets|openSheets)|memo\.rc\.(?:line|notAdopted|supportTop))$/.test(key)) return false;
+          if (key === 'spec.section.placement' || key.startsWith('rcSheets.')) return false;
+          if (/^designData\.(alt|crit|criteria|deflectionSupports|flange|opt)\./.test(key)) return false;
+          if (/^designData\.(?:seismic\.|presumedBearing|foundingElevation|deflection(?:Months|Sustained|Creep|Always)|minTieSpacing|maxAggregate)/.test(key)) return false;
+          if (/^designData\.(?:analysis|detailing|seismicSection|alternatives|criteria|foundations|foundingAuto|propertyLinesHint|deflectionSupports|solveAgain|assignedSolve|concreteKeep|slabBaseNone)$/.test(key)) return false;
+        }
         if (!ADMIN && key.startsWith('admin.')) return false;
         if (!tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(key)) return false;
         if (!ADMIN && !accounts) {
@@ -97,22 +205,39 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
         if (!diagramGame && key === 'landing.navGame') return false;
       }
       const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => key.startsWith(prefix)) && (!publicAccountEntry || accounts);
-      return publicEntry === publicOnly;
+      return publicEntry === (dictionary === 'public');
     });
+    if (dictionary === (proPlatesUnified ? 'mesher' : 'app')) {
+      lines.push(...Object.entries(translatedMesherLabels).map(([key, value]) => JSON.stringify(key) + ': ' + JSON.stringify(value) + ','));
+    }
+    if (dictionary === 'app') {
+      const resources = ['load-basis', 'reinforcement-results', 'model-diagnostics'].map(group => {
+        const messages = resolve(__dirname, 'src/lib/i18n/locales', group, `${loc}.ts`);
+        watch(messages);
+        return readFileSync(messages, 'utf8').split('\n').filter(entryKey);
+      });
+      const resourceKeys = new Set(resources.flat().map(entryKey));
+      const baseLines = lines.filter(line => !resourceKeys.has(entryKey(line)));
+      return `{\n${[...resources.map(messages => `...{\n${messages.join('\n')}\n},`), ...baseLines].join('\n')}\n}`;
+    }
     return `{\n${lines.join('\n')}\n}`;
   };
   return {
     name: 'public-i18n',
     resolveId(s) {
-      return [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? '\0' + s : null;
+      return s === mesher || [id, app].some((v) => s === v || s.startsWith(`${v}/`)) ? '\0' + s : null;
     },
     load(resolved) {
       const watch = (f: string) => this.addWatchFile(f);
-      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), true, watch)};\n`;
+      if (resolved === '\0' + mesher && features().proPlatesUnified) {
+        const dictionaries = locales().map(loc => `${loc}: ${entries(loc, 'mesher', watch)}`);
+        return `export default {${dictionaries.join(',')}};\n`;
+      }
+      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), 'public', watch)};\n`;
       if (resolved === `\0${app}` || resolved.startsWith(`\0${app}/`)) {
         const locale = resolved.slice(app.length + 2);
         return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'])
-          .map((loc) => `export const ${loc} = ${offered(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
+          .map((loc) => `export const ${loc} = ${offered(loc) ? entries(loc, 'app', watch) : '{}'};\n`).join('');
       }
       if (resolved !== '\0' + id) return null;
       let out = '';
@@ -123,7 +248,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
           if (offered(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
           continue;
         }
-        out += `export const ${loc} = ${entries(loc, true, watch)};\n`;
+        out += `export const ${loc} = ${entries(loc, 'public', watch)};\n`;
       }
       return out + `export const loaders = {${lazy.join(', ')}};\n`;
     },
@@ -138,6 +263,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
 const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/**', '**/.stryker-tmp/**', 'scripts/**/*.test.mjs'];
 
 const EXCLUDED_SWITCH_ON_UNIT_TESTS = process.env.STABILEO_UNIT_PROFILE === 'production' ? switchOnUnitFiles : [];
+const INCLUDED_SWITCH_ON_UNIT_TESTS = [...switchOnUnitFiles, ...sharedSwitchOnUnitFiles];
 
 /**
  * Tests that shell out to a real build or another project script, plus timing budgets
@@ -353,7 +479,7 @@ const baseConfig = defineConfig({
           setupFiles: ['./vitest.setup.ts'],
           // Everything except the production-build tests, which get their own pass.
           exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS, ...EXCLUDED_SWITCH_ON_UNIT_TESTS],
-          ...(process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: switchOnUnitFiles } : {}),
+          ...(process.env.STABILEO_UNIT_PROFILE === 'test' ? { include: INCLUDED_SWITCH_ON_UNIT_TESTS } : {}),
           // THREADS, NOT FORKS — and this is the line that fixed the RPC timeout.
           //
           // `onTaskUpdate` is the worker → coordinator RPC, and birpc gives it a SIXTY

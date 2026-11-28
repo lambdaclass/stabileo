@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  bentUpPermitted, evaluateCutoff, generateBeamBars, mergeStirrupZones, theoreticalCutoff,
+  bentUpPermitted, generateBeamBars, mergeStirrupZones, theoreticalCutoff,
   type BeamGenerationInput, type BentUpPolicy, type MomentStation, type StirrupZone,
 } from '../generate-beam';
 
@@ -11,7 +11,7 @@ function envelope(L = 6, mMid = 200, mEnd = 150, v = 180): MomentStation[] {
     const x = (i / 10) * L;
     const s = x / L;
     out.push({
-      x,
+      x, axialCompression: 0,
       mPos: Math.max(0, mMid * 4 * s * (1 - s)),
       mNeg: Math.max(0, mEnd * (1 - 4 * s * (1 - s))),
       v: v * Math.abs(1 - 2 * s),
@@ -25,7 +25,6 @@ function input(over: Partial<BeamGenerationInput> = {}): BeamGenerationInput {
     elementId: 7, L: 6, b: 0.30, h: 0.60, d: 0.55, cover: 0.025, stirrupDia: 8,
     fc: 25, fy: 420, maxAggregateSizeMm: 20, edition: '2025',
     stations: envelope(), supportI: 'continuous', supportJ: 'continuous',
-    vn: 400,
     bottom: { count: 6, diameterMm: 20 },
     topStart: { count: 4, diameterMm: 16 },
     topEnd: { count: 4, diameterMm: 16 },
@@ -100,82 +99,6 @@ describe('§9.7.3 cut-off computation', () => {
   it('returns null when the envelope never drops that far', () => {
     expect(theoreticalCutoff(st, 'mPos', 200, 0.0, 3, 2.9)).toBeNull();
   });
-
-  it('extends by max(d, 12 d_b) per §9.7.3.3', () => {
-    // d = 0.55 governs over 12 × 0.020 = 0.24.
-    const c = evaluateCutoff({
-      theoretical: 2.0, d: 0.55, diameterMm: 20, stations: st, vn: 400,
-      b: 0.30, fy: 420, continuingDoubleArea: false, inTensionZone: false,
-      edition: '2025', towardEnd: true,
-    });
-    expect(c.actual).toBeCloseTo(2.55, 9);
-    expect(c.refs[0].clause).toBe('9.7.3.3');
-  });
-
-  it('lets 12 d_b govern for a large bar in a shallow beam', () => {
-    // 12 × 0.032 = 0.384 > d = 0.30.
-    const c = evaluateCutoff({
-      theoretical: 2.0, d: 0.30, diameterMm: 32, stations: st, vn: 400,
-      b: 0.30, fy: 420, continuingDoubleArea: false, inTensionZone: false,
-      edition: '2025', towardEnd: true,
-    });
-    expect(c.actual).toBeCloseTo(2.384, 6);
-  });
-
-  it('does not apply §9.7.3.5 outside a tension zone', () => {
-    const c = evaluateCutoff({
-      theoretical: 2.0, d: 0.55, diameterMm: 20, stations: st, vn: 400,
-      b: 0.30, fy: 420, continuingDoubleArea: false, inTensionZone: false,
-      edition: '2025', towardEnd: true,
-    });
-    expect(c.legality).toBe('notInTension');
-  });
-
-  it('legalises via §9.7.3.5(a) when shear is low', () => {
-    // Cut near midspan, where the envelope shear is small.
-    const c = evaluateCutoff({
-      theoretical: 2.9, d: 0.55, diameterMm: 20, stations: st, vn: 400,
-      b: 0.30, fy: 420, continuingDoubleArea: false, inTensionZone: true,
-      edition: '2025', towardEnd: true,
-    });
-    expect(c.legality).toBe('lowShear');
-    expect(c.note).toMatch(/9\.7\.3\.5\(a\)/);
-  });
-
-  it('legalises via §9.7.3.5(b) with double area and moderate shear', () => {
-    const c = evaluateCutoff({
-      theoretical: 0.8, d: 0.55, diameterMm: 25, stations: envelope(6, 200, 150, 300),
-      vn: 400, b: 0.30, fy: 420, continuingDoubleArea: true, inTensionZone: true,
-      edition: '2025', towardEnd: false,
-    });
-    expect(['doubleArea', 'lowShear']).toContain(c.legality);
-  });
-
-  it('falls back to §9.7.3.5(c) extra stirrups when (a) and (b) both fail', () => {
-    const c = evaluateCutoff({
-      theoretical: 0.2, d: 0.55, diameterMm: 20, stations: envelope(6, 200, 150, 390),
-      vn: 400, b: 0.30, fy: 420, continuingDoubleArea: false, inTensionZone: true,
-      edition: '2025', towardEnd: false,
-    });
-    expect(c.legality).toBe('extraStirrups');
-    expect(c.extraStirrups!.length).toBeCloseTo(0.75 * 0.55, 9);
-    expect(c.extraStirrups!.maxSpacing).toBeCloseTo(0.55 / 8, 9);
-    expect(c.extraStirrups!.minAvOverS).toBeCloseTo(0.41 * 0.30 / 420, 9);
-    expect(c.note).toMatch(/βb adoptado = 1/);
-  });
-
-  it('never invents a convenient cut-off position', () => {
-    // The actual position is always the theoretical one plus the mandated extension,
-    // in the stated direction — never nudged to make a rule pass.
-    for (const toward of [true, false]) {
-      const c = evaluateCutoff({
-        theoretical: 1.5, d: 0.55, diameterMm: 20, stations: st, vn: 400,
-        b: 0.30, fy: 420, continuingDoubleArea: false, inTensionZone: true,
-        edition: '2025', towardEnd: toward,
-      });
-      expect(c.actual).toBeCloseTo(toward ? 1.5 + 0.55 : 1.5 - 0.55, 9);
-    }
-  });
 });
 
 // ─── Stirrup zones ───────────────────────────────────────────────
@@ -228,6 +151,28 @@ describe('stirrup zone merging', () => {
 // ─── End-to-end generation ───────────────────────────────────────
 
 describe('beam bar generation', () => {
+  it('known wrong result: #2670 checks the actual end and diameter of a fused cutoff bar', () => {
+    const beam = generateBeamBars(input());
+    const cut = beam.cutoffs.find(c => c.legality !== 'illegal')!;
+    expect(cut).toBeDefined();
+    const original = beam.bars.find(bar => bar.segments.some(segment =>
+      segment.start.x === cut.actual || segment.end.x === cut.actual))!;
+    expect(original).toBeDefined();
+    const placed = { ...original, id: 'through' };
+    const others = [...beam.bars.filter(bar => bar !== original), ...beam.transverse.map(piece => piece.path)];
+    const sources = new Map([[placed.id, new Set([original.id])]]);
+    const check = (replacement: typeof placed, identities = sources) =>
+      beam.checkPlacedCuts([...others, replacement], identities).cuts.find(c => c.actual === cut.actual)!.legality;
+    expect(check(placed)).toBe(cut.legality);
+    expect(check(placed, new Map())).toBe('illegal');
+    expect(check({ ...placed, diameterMm: original.diameterMm / 2 })).toBe('illegal');
+    const moved = placed.segments.map(segment => ({ ...segment,
+      start: { ...segment.start, x: segment.start.x + cut.actual },
+      end: { ...segment.end, x: segment.end.x + cut.actual },
+    }));
+    expect(check({ ...placed, segments: moved })).toBe('illegal');
+  });
+
   it('generates physical bars, cut-offs and stirrup zones', () => {
     const g = generateBeamBars(input());
     expect(g.bars.length).toBeGreaterThan(0);
@@ -283,6 +228,19 @@ describe('beam bar generation', () => {
     expect(cut[0].cuttingLength).toBeLessThan(cont.cuttingLength);
   });
 
+  it.each(['I', 'J'] as const)('known wrong result: #2670 automatic bottom bars run into the support when a cut reaches face %s', side => {
+    const beam = input();
+    const bare = generateBeamBars(beam);
+    const limits = bare.cutoffs.slice(0, 2).map(cut => cut.actual);
+    const face = side === 'I' ? limits[0]! : beam.L - limits[1]!;
+    expect(face).toBeGreaterThan(0);
+    for (const shift of [-0.001, 0, 0.001]) {
+      const generated = generateBeamBars({ ...beam, [side === 'I' ? 'supportFaceI' : 'supportFaceJ']: face + shift });
+      expect(generated.bars.filter(bar => bar.id.includes('bot-cut'))).toHaveLength(shift < 0 ? 4 : 0);
+      expect(generated.bars.filter(bar => bar.id.includes('bot-run'))).toHaveLength(shift < 0 ? 0 : 4);
+    }
+  });
+
   it('runs bars through rather than inventing a cut-off when none exists', () => {
     // A flat envelope never drops to the retained level.
     const flat: MomentStation[] = Array.from({ length: 11 }, (_, i) =>
@@ -324,7 +282,7 @@ describe('beam bar generation', () => {
   });
 
   it('adds a §9.7.3.5(c) stirrup zone when a cut-off needs one', () => {
-    const g = generateBeamBars(input({ stations: envelope(6, 200, 150, 390), vn: 400 }));
+    const g = generateBeamBars(input({ stations: envelope(6, 200, 150, 390) }));
     const hasCutoffZone = g.stirrupZones.some((z) => z.reason === 'cutoff');
     const needed = g.cutoffs.some((c) => c.legality === 'extraStirrups');
     expect(hasCutoffZone).toBe(needed);

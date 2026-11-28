@@ -3,6 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test as base, expect, type Page } from '@playwright/test';
+import { BUILD_FEATURES } from './build-features';
+import type { GlobalSolveOutcome } from '../src/lib/engine/live-calc';
+import { plateMeshExample } from '../src/lib/store/__tests__/fixtures/plate-mesh-example';
 
 /**
  * A project a spec writes stands for one made in this build: stamped as solved with it, so opening
@@ -173,9 +176,11 @@ export interface TestHooks {
 export interface TestActions {
   seedSelfCheckWarning(count?: number, cases?: number): void;
   loadExample(name: string): Promise<void>;
+  loadModelData(json: Record<string, unknown>): void;
   /** Open a project from its `.ded` JSON, as File → Open does. False when refused. */
   loadProject(file: Record<string, unknown>): boolean;
-  solve(): Promise<void>;
+  solve(): Promise<GlobalSolveOutcome | void>;
+  setMeshBeforeAnalysis?(on: boolean): void;
   openDesignTab(): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
@@ -266,16 +271,18 @@ export async function bootPro(page: Page, appLocale = 'en'): Promise<void> {
  * needs Spanish sets `test.use({ appLocale: 'es' })` — which is how the bilingual journeys
  * prove that engine output is translated rather than pasted.
  */
-export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: 'acknowledge' | 'assert' }>({
+export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: 'continue' | 'assert' }>({
   appLocale: ['en', { option: true }],
   /**
    * The re-check notice (`RecheckNotice.svelte`) opens over a project solved with an earlier
    * results version, which every committed fixture becomes at the next results-version bump.
-   * By default it is acknowledged whenever it would block an action, so a bump does not fail
-   * specs that are about something else (eight of them did, the last time). A spec about the
-   * notice itself sets `test.use({ recheckNotice: 'assert' })` and sees it untouched.
+   * By default, whenever it would block an action, it is closed the way a person closes it:
+   * «Continue, results stay marked stale», which keeps the results stale and the banner up. A
+   * bump then does not fail specs that are about something else (eight of them did, the last
+   * time). A spec about the notice itself sets `test.use({ recheckNotice: 'assert' })` and sees
+   * it untouched.
    */
-  recheckNotice: ['acknowledge', { option: true }],
+  recheckNotice: ['continue', { option: true }],
   /**
    * `page.goto` to the application, with the test hooks asked for, returns once the hooks are
    * there. The application is loaded on demand (main.ts imports it for an app address), so it can
@@ -283,9 +290,9 @@ export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: '
    * `goto` used to find it already installed beside an application that mounted at once.
    */
   page: async ({ page, recheckNotice }, use) => {
-    if (recheckNotice === 'acknowledge') {
+    if (recheckNotice === 'continue') {
       await page.addLocatorHandler(page.getByTestId('recheck-notice'), async () => {
-        await page.getByTestId('recheck-ack').check();
+        if (!BUILD_FEATURES.proPlatesUnified) await page.getByTestId('recheck-ack').check();
         await page.getByTestId('recheck-later').click();
       });
     }
@@ -347,6 +354,15 @@ export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: '
  */
 export const ROLLED_BEAMS = { ids: [88, 151, 153, 157, 164], degrees: 20 } as const;
 
+/** The core base nodes `pro-edificio-7p` was released without, before `example-core-foundation` held them. */
+export const RELEASED_CORE_NODES = [118, 119, 120] as const;
+
+/** Release `RELEASED_CORE_NODES` in the loaded seven-storey model, so its core stands on node 1 alone. */
+export async function releaseCore(page: Page): Promise<void> {
+  const removed = await page.evaluate((ids) => window.__stabileoActions.releaseNodes([...ids]), RELEASED_CORE_NODES);
+  expect(removed, 'each released core node was held in the loaded example').toBe(RELEASED_CORE_NODES.length);
+}
+
 /** Turn `ROLLED_BEAMS` in the loaded model. */
 export async function turnRolledBeams(page: Page): Promise<void> {
   await page.evaluate(({ ids, degrees }) => window.__stabileoActions.turnElements([...ids], degrees), ROLLED_BEAMS);
@@ -376,7 +392,18 @@ export async function placeSlabsFromGrid(page: Page): Promise<void> {
   await expect(page.getByTestId('building-result')).toBeVisible();
 }
 
-export async function loadModel(page: Page, name: string): Promise<number[]> {
+export async function loadPlateMeshExample(page: Page): Promise<void> {
+  await withCrashGuard(page, page.evaluate(model => window.__stabileoActions.loadModelData(model), plateMeshExample()));
+}
+
+export async function loadModel(
+  page: Page,
+  name: string,
+  { meshBeforeAnalysis }: { meshBeforeAnalysis?: boolean } = {},
+): Promise<number[]> {
+  if (meshBeforeAnalysis !== undefined) {
+    await page.evaluate(on => window.__stabileoActions.setMeshBeforeAnalysis?.(on), meshBeforeAnalysis);
+  }
   await withCrashGuard(page, page.evaluate(async (n) => {
     await window.__stabileoActions.loadExample(n);
   }, name));
@@ -560,18 +587,18 @@ export async function solveModel(page: Page): Promise<void> {
 
   const solved = withCrashGuard(
     page,
-    page.evaluate(async () => { await window.__stabileoActions.solve(); }),
-  ).then(() => 'done' as const);
-  solved.catch(() => { /* reported below, or irrelevant once the page is gone */ });
+    page.evaluate(() => window.__stabileoActions.solve()),
+  );
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<'timeout'>((resolve) => {
     timer = setTimeout(() => resolve('timeout'), SOLVE_DEADLINE_MS);
   });
-  const outcome = await Promise.race([solved, deadline]);
-  clearTimeout(timer);
+  const outcome = await Promise.race([solved, deadline]).finally(() => {
+    clearTimeout(timer);
+    page.off('console', onConsole);
+  });
 
   if (outcome === 'timeout') {
-    page.off('console', onConsole);
     const elapsed = Math.round((Date.now() - started) / 1000);
     const fellBack = solveFallbacks.length > 0 || localFallbacks.length > 0;
     throw new Error(
@@ -585,7 +612,7 @@ export async function solveModel(page: Page): Promise<void> {
     );
   }
 
-  page.off('console', onConsole);
+  if (outcome && !outcome.ok) throw new Error(outcome.error);
 
   await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 90_000 })
     .toBeGreaterThan(before);
@@ -788,6 +815,29 @@ export async function leaveDesign(page: Page): Promise<void> {
   await expect(page.getByTestId('design-desk')).toBeHidden();
 }
 
+/** The 25 mm covers the RC design specs were written under, before the defaults became CIRSOC 201-2025 Table 20.5.1.3.1's (`suite-covers.ts` in the unit suites). */
+export async function stateSuiteCovers(page: Page): Promise<void> {
+  await designPlace(page, 'designData');
+  for (const kind of ['beam', 'column', 'footing']) {
+    const input = page.getByTestId(`design-data-cover-${kind}`);
+    await input.fill('25');
+    await input.press('Enter');
+    await expect(input).toHaveValue('25');
+  }
+  await designPlace(page, 'list');
+}
+
+/** The beams' role in the lateral-force-resisting system, set in the design data's chapter 18 section, which opens folded. */
+export async function setLateralBeams(page: Page, role: string): Promise<void> {
+  if (!BUILD_FEATURES.proPlatesUnified) {
+    await page.getByTestId('design-data-lateral-beams').selectOption(role);
+    return;
+  }
+  const seismic = page.getByTestId('design-options-seismic').first();
+  if (!(await seismic.evaluate((d) => (d as HTMLDetailsElement).open))) await seismic.locator('> summary').click();
+  await seismic.getByTestId('design-data-lateral-beams').selectOption(role);
+}
+
 /**
  * Declare the beams NOT part of the lateral-force-resisting system, through the design data
  * panel, and come back to the design table. Call it after `loadModel` and before designing.
@@ -801,7 +851,7 @@ export async function leaveDesign(page: Page): Promise<void> {
  */
 export async function declareBeamsNotLateral(page: Page): Promise<void> {
   await designPlace(page, 'designData');
-  await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
+  await setLateralBeams(page, 'gravity');
   await designPlace(page, 'list');
 }
 

@@ -876,6 +876,16 @@ describe('Kd of a chimney (CIRSOC 102 Tabla 1.6-1)', () => {
   });
 });
 
+it.each(['floor', 'roof'])('refuses a saved %s occupancy missing from the bound table without generating a substitute load', surface => {
+  const key = 'saved-unknown';
+  const plan = buildLoadPlan(input(surface === 'floor' ? { occupancyKey: key } : {
+    roof: { use: 'occupancy', occupancyKey: key, weight: 'heavy', dead: 1, slopeDeg: 0 },
+  }));
+  expect(plan.outcome).toBe('BLOCKED');
+  expect(plan.blockedKeys).toContainEqual({ key: 'loadPlan.blocked.unknownOccupancy', params: { key } });
+  expect(plan.cases).toEqual([]);
+});
+
 describe('the companion live load factor reads the roof occupancy too', () => {
   // Wind, for combination 4 (1,2 D + 1,0 W + L), where L is a companion.
   const wind = { enabled: true, basicSpeed: 45, exposure: 'C' as const, enclosure: 'enclosed' as const,

@@ -60,6 +60,20 @@ describe('EC2 beams', () => {
     expect(d.rows[0]!.derivation!.join(' ')).toContain('compression steel');
   });
 
+  it('known wrong result: #2365 keeps the saved UK compression-steel transition for both concrete strength ranges', () => {
+    for (const fck of [30, 50, 51]) {
+      const saved = { ...EC2_RECOMMENDED, code: EC2_UK.code, alphaCC: EC2_UK.alphaCC, alphaCCShear: EC2_UK.alphaCCShear };
+      const section = [0.3, 0.55, 0.05, fck, 500] as const;
+      const { Kp } = ec2FlexuralSteel(0, ...section, saved);
+      const limit = Kp * section[0] * section[1] ** 2 * fck * 1000;
+      for (const scale of [0.99, 1.01]) {
+        const expected = ec2FlexuralSteel(limit * scale, ...section, saved);
+        expect(expected.as2 > 0).toBe(scale > 1);
+        expect(ec2FlexuralSteel(limit * scale, ...section, EC2_UK)).toEqual(expected);
+      }
+    }
+  });
+
   it('the UK National Annex (αcc = 0,85) asks for more steel than the recommended values', () => {
     const uk = ec2FlexuralSteel(250, 0.3, 0.55, 0.05, 30, 500, EC2_UK);
     expect(uk.Kp).toBeCloseTo(0.16728, 4);

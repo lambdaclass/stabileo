@@ -183,3 +183,11 @@ describe('quantities', () => {
     expect(memberFormwork('column', 0.3, 0.3, 3)).toBeCloseTo(3.6, 12);
   });
 });
+
+it('names an archived TS 500 assessment and keeps its experimental limitation in the printed scope', () => {
+  const m = input();
+  const print = (code: string) => renderMemoriaHtml({ ...m, scope: [{ ...m.scope[0]!, code, offered: false }] }, new Set<ChapterId>(['scope']), ctx());
+  expect(print('ts-500')).toContain('TS 500');
+  expect(print('ts-500')).toContain(en['memo.scope.experimental']!);
+  expect(print('cirsoc-201')).toContain(en['memo.scope.excluded']!);
+});

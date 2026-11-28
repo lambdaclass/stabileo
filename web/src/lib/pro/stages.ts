@@ -348,6 +348,9 @@ function allProStages(ctx: ProStageContext): ProStage[] {
           labelKey: 'proRibbon.groupOutput',
           cmds: [
             { id: 'report', labelKey: 'pro.reportBtn', icon: 'project', action: onReport, enabled: () => canReport },
+            ...(__PUBLIC_FEATURES__.proRcSheets ? [{
+              id: 'rcSheets', labelKey: 'rcSheets.cmd', descKey: 'rcSheets.cmdDesc', icon: 'data', tab: 'rcSheets',
+            } satisfies ProCmd] : []),
           ],
         },
       ],
@@ -466,6 +469,7 @@ export const PRO_TAB_STAGE: Record<string, string> = {
     /* Conditions is a GROUP inside Model now, not a stage of its own. */
     supports: 'model', specifications: 'model', loads: 'model',
     advanced: 'analyse', results: 'analyse', diagnostics: 'analyse',
+    ...(__PUBLIC_FEATURES__.proRcSheets ? { rcSheets: 'analyse' as const } : {}),
     /*
      * Design's views name the desk's places (`DESK_PLACE_OF_TAB` in `design-navigation.ts`, the
      * same list): `desk` the stage itself, the others the places that were panels of their own.

@@ -1,3 +1,4 @@
+import { needsOccupancyReview } from '../provenance/occupancy-selection';
 /**
  * Applies a previewed load plan (`engine/loads/load-plan.ts`) to the model, as one undo step.
  *
@@ -6,17 +7,20 @@
  * times.
  */
 import { modelStore } from './index';
+import { physicalPlanRefusal } from './load-plan-model';
 import { addGeneratedCombinations, takeBackCompositeCases } from './generated-combinations';
 import type { LoadPlan } from '../engine/loads/load-plan';
 import { eligibleCombinationCase, isCompositeCase, loadCasesWithDirectEffects, type CaseCombination } from '../engine/loads/combination-cases';
 import { describePlanDelta, expandPlannedCombinations, type CurrentLoadState } from '../engine/loads/load-plan-delta';
-import { findPlannedCase, plannedCaseName, type Load, type LoadCase, type LoadCombination } from './model.svelte';
+import { findPlannedCase, plannedCaseName, type Load, type LoadCase, type LoadCombination, type ModelGroup } from './model.svelte';
 import { designData, patchDesignData } from './design-data';
-import { fromLoadPlan, loadsGeneratedWith, unverifiedSeismicLoads } from '../provenance/model-features';
+import { fromLoadPlan, loadGenerationOwner } from '../model/loads/generation-owner';
+import { loadsGeneratedWith, unverifiedSeismicLoads } from '../provenance/model-features';
 import { RESULTS_VERSION } from '../provenance/registry';
 import { untouchedDefaults, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import { t } from '../i18n';
 import { msg } from '../codes/message';
+import { physicalLoadProvider } from './physical-load-provider';
 import { hasModalSeismicDerivation, MODAL_SEISMIC_UNAVAILABLE } from '../engine/loads/seismic-generation';
 
 export interface ApplyLoadPlanOptions {
@@ -48,6 +52,8 @@ export interface ApplyLoadPlanOptions {
  * they go only when the user asks (`alsoUnmarked`).
  */
 export interface ReplaceScope {
+  definitions?: number[];
+  independentLoads?: number;
   /** What "replace" takes: the generator's loads in the regenerated actions, and the combinations a code wrote. */
   generated: { loads: number[]; combinations: number[] };
   /** What carries no generator mark in the cases the plan writes into: kept unless asked. */
@@ -74,7 +80,7 @@ export const codeWritten = (c: { origin?: { code?: string; edited?: boolean } })
 
 export function replaceScope(
   p: LoadPlan, loads: readonly Load[], cases: readonly ScopeCase[], combinations: readonly ScopeCombination[],
-  nameOf?: ApplyLoadPlanOptions['nameOf'],
+  nameOf?: ApplyLoadPlanOptions['nameOf'], groups: Iterable<ModelGroup> = [],
 ): ReplaceScope {
   const types = new Set(p.cases.map((c) => String(c.type)));
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
@@ -90,20 +96,39 @@ export function replaceScope(
     : { cases: [], combinations: [] };
   const defaults = { cases: untouched.cases.filter((id) => !targets.has(id)), combinations: untouched.combinations };
   const defaultCombo = new Set(defaults.combinations);
-  const marked = (l: Load) => !!(l.data as { generatedBy?: string }).generatedBy;
-  const defined = (l: Load) => (l.data as { fromDef?: number }).fromDef !== undefined;
+  const definitions = new Set<number>();
+  for (const g of groups) {
+    if (g.kind !== 'floorLoad' || !fromLoadPlan(g.data?.generatedBy)) continue;
+    const caseId = g.data?.caseId;
+    if (typeof caseId === 'number' && types.has(caseType.get(caseId) ?? '')) definitions.add(g.id);
+  }
+  const source = (l: Load) => l.data as { fromDef?: number; generatedBy?: string };
   const caseOf = (l: Load) => l.data.caseId ?? 1;
+  const relevant = loads.filter(l => types.has(caseType.get(caseOf(l)) ?? ''));
+  const generated: number[] = [], defined: number[] = [], unmarked: number[] = [];
+  let independentLoads = 0;
+  for (const l of relevant) {
+    const { fromDef, generatedBy } = source(l);
+    if (fromDef !== undefined) {
+      (definitions.has(fromDef) ? generated : defined).push(l.data.id);
+      continue;
+    }
+    switch (loadGenerationOwner(generatedBy)) {
+      case 'plan': generated.push(l.data.id); break;
+      case 'independent': independentLoads++; break;
+      case 'unmarked': if (targets.has(caseOf(l))) unmarked.push(l.data.id); break;
+    }
+  }
   return {
-    generated: {
-      loads: loads.filter((l) => marked(l) && types.has(caseType.get(caseOf(l)) ?? '')).map((l) => l.data.id),
-      combinations: combinations.filter(codeWritten).map((c) => c.id),
-    },
+    ...(definitions.size ? { definitions: [...definitions] } : {}),
+    ...(independentLoads ? { independentLoads } : {}),
+    generated: { loads: generated, combinations: combinations.filter(codeWritten).map(c => c.id) },
     unmarked: {
-      loads: loads.filter((l) => !marked(l) && !defined(l) && targets.has(caseOf(l))).map((l) => l.data.id),
+      loads: unmarked,
       combinations: combinations.filter((c) => !codeWritten(c) && !defaultCombo.has(c.id) && (c.factors ?? []).some((f) => f.factor !== 0 && targets.has(f.caseId))).map((c) => c.id),
     },
     targets: [...targets],
-    defined: { loads: loads.filter((l) => defined(l) && types.has(caseType.get(caseOf(l)) ?? '')).map((l) => l.data.id) },
+    defined: { loads: defined },
     defaults,
   };
 }
@@ -111,9 +136,9 @@ export function replaceScope(
 /** What "replace" removes: the generated, and the unmarked too when asked. */
 export function replacedByPlan(
   p: LoadPlan, loads: readonly Load[], cases: readonly ScopeCase[], combinations: readonly ScopeCombination[],
-  opts: { alsoUnmarked?: boolean; nameOf?: ApplyLoadPlanOptions['nameOf'] } = {},
+  opts: { alsoUnmarked?: boolean; nameOf?: ApplyLoadPlanOptions['nameOf']; groups?: Iterable<ModelGroup> } = {},
 ): { loads: number[]; combinations: number[] } {
-  return replacementFromScope(replaceScope(p, loads, cases, combinations, opts.nameOf), opts.alsoUnmarked);
+  return replacementFromScope(replaceScope(p, loads, cases, combinations, opts.nameOf, opts.groups), opts.alsoUnmarked);
 }
 
 function replacementFromScope(scope: ReplaceScope, alsoUnmarked?: boolean): ReplaceScope['generated'] {
@@ -159,7 +184,7 @@ const NODAL_TYPES: readonly string[] = ['nodal', 'nodal3d'];
  */
 export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nameOf']): CurrentLoadState {
   const loads = modelStore.loads, cases = modelStore.model.loadCases, combinations = modelStore.model.combinations;
-  return describeCurrentLoads(replaceScope(p, loads, cases, combinations, nameOf));
+  return describeCurrentLoads(replaceScope(p, loads, cases, combinations, nameOf, modelStore.model.groups.values()));
 }
 
 function describeCurrentLoads(s: ReplaceScope): CurrentLoadState {
@@ -185,6 +210,8 @@ function describeCurrentLoads(s: ReplaceScope): CurrentLoadState {
     generated: { byType: byType(s.generated.loads), combinations: s.generated.combinations.length },
     unmarked: { byType: byType(s.unmarked.loads), combinations: s.unmarked.combinations.length },
     defined: { byType: byType(s.defined.loads) },
+    ...(s.definitions?.length ? { generatedDefinitions: s.definitions.length } : {}),
+    ...(s.independentLoads ? { independentLoads: s.independentLoads } : {}),
     defaults: {
       cases: cases.filter((c) => s.defaults.cases.includes(c.id)).map((c) => ({ name: c.name, type: String(c.type) })),
       combinations: s.defaults.combinations.length,
@@ -250,7 +277,7 @@ function prepareCombinationCases(
 export function previewLoadPlan(
   p: LoadPlan, nameOf: ApplyLoadPlanOptions['nameOf'], options: Parameters<typeof describePlanDelta>[2],
 ) {
-  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf);
+  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf, modelStore.model.groups.values());
   const replaced = options.replaceExisting ? replacementFromScope(scope, options.alsoUnmarked) : undefined;
   const { cases, retainedCases } = prepareCombinationCases(p, nameOf, scope, replaced);
   return describePlanDelta(p, describeCurrentLoads(scope), { ...options, retainedCases }, cases);
@@ -258,8 +285,10 @@ export function previewLoadPlan(
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
   if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return p.blockedKeys[0];
+  const refusal = physicalPlanRefusal(p);
+  if (refusal) return refusal;
   const expandOptions = { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions };
-  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, opts.nameOf);
+  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, opts.nameOf, modelStore.model.groups.values());
   const replaced = opts.clearExisting ? replacementFromScope(scope, opts.alsoUnmarked) : undefined;
   const { bindings, cases, retainedCases, caseRetirement } = prepareCombinationCases(p, opts.nameOf, scope, replaced);
   const expanded = expandPlannedCombinations(p, { ...expandOptions, retainedCases }, cases);
@@ -270,12 +299,14 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     const saved = { designData: designData(), loads: modelStore.loads as never, loadCases: modelStore.loadCases, regulations: modelStore.model.regulations };
     const legacySeismic = new Set(unverifiedSeismicLoads(saved).map(l => l.data?.id));
     const before = loadsGeneratedWith(saved);
+    const oldOccupancyNeedsReview = needsOccupancyReview(saved.designData.loadBasis);
     // The basis of what is about to be written, for the memoria (`LoadBasis`).
     const { windGust: _gust, ...scalars } = p.factors;
     const factors = Object.fromEntries(Object.entries(scalars).filter(([, v]) => v !== undefined)) as Record<string, NonNullable<(typeof scalars)[keyof typeof scalars]>>;
     patchDesignData({ loadBasis: {
       at: new Date().toISOString(), resultsVersion: RESULTS_VERSION, ...(p.generatedBy ? { generatedBy: p.generatedBy } : {}), factors,
       levels: (p.seismicModel?.levels ?? p.levels).map(({ nodeIds: _n, ...l }) => l), ...(p.seismic ? { seismic: p.seismic } : {}),
+      ...(needsOccupancyReview(p) ? { occupancySelection: 'preserved' as const } : {}),
       derivation: p.derivation, assumptions: p.assumptions, refs: p.refs,
     } });
     for (const id of scope.defaults.combinations) modelStore.removeCombination(id);
@@ -283,14 +314,22 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     if (replaced) {
       const ids = new Set(replaced.loads);
       modelStore.replaceLoads(modelStore.loads.filter((l) => !ids.has(l.data.id)));
+      for (const id of scope.definitions ?? []) modelStore.removeGroup(id);
     }
     for (const [id, autoLoadsRetired] of caseRetirement) {
       modelStore.updateLoadCaseFields(id, { autoLoadsRetired });
     }
-    if (modelStore.loads.some(l => !legacySeismic.has(l.data.id) && fromLoadPlan((l.data as { generatedBy?: string }).generatedBy))) {
-      patchDesignData({ loadBasis: { ...designData().loadBasis!, resultsVersion: Math.min(before, RESULTS_VERSION) } });
+    const retainedLoads = modelStore.loads.filter(l => !legacySeismic.has(l.data.id) && fromLoadPlan((l.data as { generatedBy?: string }).generatedBy));
+    const retainedDefinitions = [...modelStore.model.groups.values()].filter(g => g.kind === 'floorLoad' && fromLoadPlan(g.data?.generatedBy));
+    if (retainedLoads.length || retainedDefinitions.length) {
+      const liveCases = new Set(modelStore.loadCases.filter(c => c.type === 'L' || c.type === 'Lr').map(c => c.id));
+      const keptLive = retainedLoads.some(l => liveCases.has(l.data.caseId ?? 1)) || retainedDefinitions.some(g => liveCases.has(g.data?.caseId as number));
+      patchDesignData({ loadBasis: {
+        ...designData().loadBasis!, resultsVersion: Math.min(before, RESULTS_VERSION),
+        ...(oldOccupancyNeedsReview && keptLive ? { occupancySelection: 'review' } : {}),
+      } });
     }
-    const firstNewLoad = Math.max(0, ...modelStore.loads.map((l) => l.data.id)) + 1;
+    const firstNewLoad = modelStore.loads.reduce((max, load) => Math.max(max, load.data.id), 0) + 1;
 
     // Every planned case to a real id, creating only what is missing. A case the plan has no
     // match for is still reused when one of the same type already carries its name, so applying
@@ -314,36 +353,42 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     }
     const caseOf = (type: string, index?: number) => (index !== undefined ? caseIds[index] : caseIdByType.get(type)?.[0]);
 
-    for (const d of p.distributed) {
-      const id = caseOf(d.caseType, d.caseIndex);
-      if (id === undefined) continue;
-      const qJ = d.qJ ?? d.q;
-      if (d.frame === 'global' || d.frame === 'projected') {
-        modelStore.addDistributedLoad3D(d.elementId, d.qY ?? 0, d.qYJ ?? d.qY ?? 0, d.q, qJ, d.a, d.b, id,
-          { frame: d.frame, ...(d.qX || d.qXJ ? { qXI: d.qX ?? 0, qXJ: d.qXJ ?? d.qX ?? 0 } : {}) });
-      } else {
-        modelStore.addDistributedLoad3D(d.elementId, 0, 0, d.q, qJ, d.a, d.b, id);
-      }
-    }
-    // A floor's share at a re-entrant corner keeps the member it belongs to, which carries its mass.
     const carrierOf = new Map<number, number>();
-    for (const n of p.nodal) {
-      const id = caseOf(n.caseType, n.caseIndex);
-      if (id === undefined) continue;
-      const loadId = modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, n.mz ?? 0, id);
-      if (n.carrier !== undefined) carrierOf.set(loadId, n.carrier);
-    }
-    for (const th of p.thermal) {
-      const id = caseOf('T', th.caseIndex);
-      if (id === undefined) continue;
-      if (th.elementId !== undefined) modelStore.addThermalLoad(th.elementId, th.dtUniform, th.dtGradient, id);
-      else if (th.quadId !== undefined) modelStore.addThermalLoadQuad3D(th.quadId, th.dtUniform, th.dtGradient, id);
-    }
-    for (const s of p.surface) {
-      const id = caseOf(s.caseType, s.caseIndex);
-      if (id === undefined) continue;
-      modelStore.addSurfaceLoad3D(s.quadId, s.q, id, { ...(s.frame ? { frame: s.frame, dir: s.dir, vary: s.vary } : {}), ...(s.on ? { on: s.on } : {}) });
-    }
+    const pressures = physicalLoadProvider?.pressures(p.generatedBy ?? 'generator');
+    if (p.distributed.length || p.nodal.length) modelStore.ensureSpaceCoordinates();
+    modelStore.bulkMutate(() => {
+      for (const d of p.distributed) {
+        const id = caseOf(d.caseType, d.caseIndex);
+        if (id === undefined) continue;
+        const qJ = d.qJ ?? d.q;
+        if (d.frame === 'global' || d.frame === 'projected') {
+          modelStore.addDistributedLoad3D(d.elementId, d.qY ?? 0, d.qYJ ?? d.qY ?? 0, d.q, qJ, d.a, d.b, id,
+            { frame: d.frame, ...(d.qX || d.qXJ ? { qXI: d.qX ?? 0, qXJ: d.qXJ ?? d.qX ?? 0 } : {}) });
+        } else {
+          modelStore.addDistributedLoad3D(d.elementId, 0, 0, d.q, qJ, d.a, d.b, id);
+        }
+      }
+      // A floor's share at a re-entrant corner keeps the member it belongs to, which carries its mass.
+      for (const n of p.nodal) {
+        const id = caseOf(n.caseType, n.caseIndex);
+        if (id === undefined) continue;
+        const loadId = modelStore.addNodalLoad3D(n.nodeId, n.fx, n.fy, n.fz, 0, 0, n.mz ?? 0, id);
+        if (n.carrier !== undefined) carrierOf.set(loadId, n.carrier);
+      }
+      for (const th of p.thermal) {
+        const id = caseOf('T', th.caseIndex);
+        if (id === undefined) continue;
+        if (th.elementId !== undefined) modelStore.addThermalLoad(th.elementId, th.dtUniform, th.dtGradient, id);
+        else if (th.quadId !== undefined && th.quadId > 0) modelStore.addThermalLoadQuad3D(th.quadId, th.dtUniform, th.dtGradient, id);
+      }
+      for (const s of p.surface) {
+        const id = caseOf(s.caseType, s.caseIndex);
+        if (id === undefined) continue;
+        if (pressures?.collect(s, id)) continue;
+        modelStore.addSurfaceLoad3D(s.quadId, s.q, id, { ...(s.frame ? { frame: s.frame, dir: s.dir, vary: s.vary } : {}), ...(s.on ? { on: s.on } : {}) });
+      }
+    });
+    pressures?.write();
 
     const combinations = expanded.map(combination => ({
       ...combination,

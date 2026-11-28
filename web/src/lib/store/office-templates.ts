@@ -3,7 +3,7 @@
  * the open project as one undo step (`model/office-template.ts`).
  */
 import { designData, setDesignData } from './design-data';
-import { migrateDesignData } from '../model/design-data';
+import { migrateStoredDesignData } from '../model/design-data';
 import type { DrawnSection } from '../section/drawn';
 import { modelStore } from './model.svelte';
 import { regulationsStore } from './regulations.svelte';
@@ -126,7 +126,7 @@ export function applyTemplate(t: OfficeTemplate): ReturnType<typeof planTemplate
     if (plan.deflectionLimits) modelStore.setDeflectionLimits(plan.deflectionLimits);
     // The open project's own members keep the roles they declare; the template brings its default.
     if (plan.designData) {
-      const next = migrateDesignData(plan.designData), own = designData().lateralSystem?.members;
+      const next = migrateStoredDesignData(plan.designData) ?? { version: 1 as const }, own = designData().lateralSystem?.members;
       setDesignData(own ? { ...next, lateralSystem: { ...withProjectLateralOnly(next).lateralSystem, members: own } } : withProjectLateralOnly(next));
     }
   });

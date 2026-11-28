@@ -10,15 +10,18 @@
  *  - undo and redo take the creation and the mesh back and forth without orphans;
  *  - saved and opened, the plate keeps its outline, its mesh and its load.
  */
-import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, assert, beforeEach, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
 import {
-  addPlateLoad, applyPlateMeshes, clearPlateMesh, createPlate, deletePlate, meshBeforeAnalysis, physicalPlates, planPlateMesh,
+  addPlateLoad, applyPlateMeshes, applyPlateMeshesAsync, clearPlateMesh, createPlate, deletePlate, meshBeforeAnalysis, physicalPlates, planPlateMesh,
   plateOfShell, plateShellKeys, plateStatus, preparePlatesForAnalysis, setShellProperties,
 } from '../physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { serializeProject, deserializeProject } from '../file';
+import { loadCodeFile } from '../../templates/examples';
+import { GENERATED_BUILDING_FILES } from '../../templates/examples/unified-building-files';
+import { planPlateMeshes } from '../physical-plates';
 import { plateLoops } from '../../model/physical/plate';
 import { copyTransformed } from '../../model/edit/transformed-copy';
 import { compose, rotation, translation } from '../../model/edit/affine';
@@ -67,6 +70,37 @@ beforeAll(async () => {
 
 describe('a physical plate', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); meshBeforeAnalysis.value = true; });
+
+  it('known wrong result: #2365 rectangular neighbors plan the same stations before a batch is applied', async () => {
+    const node = (x: number, y: number) => modelStore.addNode(x, y, 0);
+    const middle = [node(2, 0), node(2, 3)] as const;
+    const outlines = [[node(0, 0), middle[0], middle[1], node(0, 3)], [middle[0], node(4, 0), node(4, 3), middle[1]]];
+    modelStore.addElement(node(3, 0.75), node(4, 0.75));
+    const ids = outlines.map(outline => {
+      const result = createPlate({ outline, mesh: { size: 1, element: 'quad', pattern: 'rect', followMembers: true }, materialId: 1, thickness: 0.15 });
+      if (!('id' in result)) throw new Error(result.problem);
+      return result.id;
+    });
+    const plans = (await planPlateMeshes(ids))!;
+    expect(plans).toHaveLength(2);
+    const stations = plans.map(p => p.mesh!.points.filter(point => point[0] === 2).map(point => point[1]).sort((a, b) => a - b));
+    expect(stations[0]).toEqual(stations[1]);
+    expect(stations[0]).toContain(0.75);
+  });
+
+  for (const [example, name] of [
+    ['pro-steel-building-slabs', 'Losa 0–6 × 3–6 · 1º piso'],
+    ['pro-rc-party-wall', 'Tabique escalera 3 · 1º piso (abajo)'],
+  ] as const) it(`known wrong result: #2365 honors the declared rectangular grid on ${name}`, async () => {
+    await loadCodeFile(example, GENERATED_BUILDING_FILES[example]);
+    const plate = physicalPlates().find(p => p.name === name);
+    assert(plate, name);
+    for (const plan of [planPlateMesh(plate.id), ...(await planPlateMeshes([plate.id]))!]) {
+      expect(plan?.refused).toBeUndefined();
+      expect(plan?.mesh?.cells.length).toBeGreaterThan(0);
+      expect(plan?.mesh?.cells.every(cell => cell.length === 4)).toBe(true);
+    }
+  });
 
   it('is made without a mesh and refuses outlines that make no plate', () => {
     const { id, corners, hole } = build();
@@ -240,7 +274,7 @@ describe('a physical plate', () => {
     expect(loaded.length).toBe(copy.group.members.quads!.length);
   });
 
-  it('meets the plate beside it node to node, whatever the two sizes, and stays current', () => {
+  async function checkSharedEdge(apply: typeof applyPlateMeshes | typeof applyPlateMeshesAsync) {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
     const n = (x: number, y: number) => modelStore.addNode(x, y, 0);
     const a0 = n(0, 0), a1 = n(4, 0), a2 = n(4, 4), a3 = n(0, 4), b1 = n(7, 0), b2 = n(7, 4);
@@ -251,14 +285,20 @@ describe('a physical plate', () => {
       const of = (id: number) => new Set((modelStore.model.groups.get(id)!.members.quads ?? []).flatMap((q) => on(modelStore.quads.get(q)!)));
       return { a: [...of(A)].sort(), b: [...of(B)].sort() };
     };
-    applyPlateMeshes([planPlateMesh(A, { size: 0.5, element: 'quad', followMembers: true })!, planPlateMesh(B, { size: 0.8, element: 'quad', followMembers: true })!]);
+    expect((await apply([planPlateMesh(A, { size: 0.5, element: 'quad', followMembers: true })!, planPlateMesh(B, { size: 0.8, element: 'quad', followMembers: true })!])).refused).toEqual([]);
+    expect(shared().a.length).toBeGreaterThan(2);
     expect(shared().a).toEqual(shared().b);
     expect([plateStatus(A), plateStatus(B)]).toEqual(['current', 'current']);
     // B meshed again at another size: it still meets A, and A is not disturbed.
-    applyPlateMeshes([planPlateMesh(B, { size: 0.3, element: 'quad', followMembers: true })!]);
+    expect((await apply([planPlateMesh(B, { size: 0.3, element: 'quad', followMembers: true })!])).refused).toEqual([]);
+    expect(shared().a.length).toBeGreaterThan(2);
     expect(shared().a).toEqual(shared().b);
     expect([plateStatus(A), plateStatus(B)]).toEqual(['current', 'current']);
-  });
+  }
+
+  it('meets the plate beside it node to node, whatever the two sizes, and stays current', () => checkSharedEdge(applyPlateMeshes));
+
+  it('known wrong result: #2365 asynchronous remeshing preserves all shared edge nodes', () => checkSharedEdge(applyPlateMeshesAsync));
 
   it('keeps the loads of the members its mesh cuts, on their pieces', async () => {
     const { meshQuad } = await import('../../model/edit/mesh-region');
@@ -348,4 +388,35 @@ describe('a physical plate', () => {
     syncDefinedLoadsForAnalysis();
     expect(modelStore.model.loads.filter((l) => (l.data as { caseId?: number }).caseId === 1)).toHaveLength(0);
   });
+});
+
+describe('manually applying mixed plate previews', () => {
+  for (const [entry, apply] of [['sync', applyPlateMeshes], ['async', applyPlateMeshesAsync]] as const) {
+    it(entry + ' applies independent accepted plans and refuses a changed batch', async () => {
+      for (const stale of [false, true]) {
+        modelStore.clear();
+        historyStore.clear();
+        const rings = [0, 3].map(z => [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, z)));
+        const ids = rings.map(outline => {
+          const result = createPlate({ outline, materialId: 1, thickness: 0.15 });
+          if ('problem' in result) throw Error(result.problem);
+          return result.id;
+        });
+        const warp = () => modelStore.updateNode(rings[0]![2]!, 2, 2, 1);
+        if (!stale) warp();
+        const plans = ids.map(id => {
+          const plan = planPlateMesh(id);
+          if (!plan) throw Error('Missing plate plan');
+          return plan;
+        });
+        expect(plans.map(p => !!p.mesh)).toEqual([stale, true]);
+        if (stale) warp();
+        const result = await apply(plans);
+        expect(result.refused.map(r => r.id)).toContain(ids[0]);
+        expect(result.plates).toBe(stale ? 0 : 1);
+        expect(plateShellKeys(ids[0]!)).toHaveLength(0);
+        expect(plateShellKeys(ids[1]!).length > 0).toBe(!stale);
+      }
+    });
+  }
 });

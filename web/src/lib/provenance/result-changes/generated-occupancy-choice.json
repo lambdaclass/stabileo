@@ -1,0 +1,53 @@
+{
+  "id": "generated-occupancy-choice",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "loads",
+  "when": {
+    "all": [
+      "possibleOccupancySubstitution"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Verify occupancies used in generated floor and roof loads",
+    "es": "Verificar los usos de las cargas generadas de piso y cubierta",
+    "pt": "Verificar as ocupações das cargas geradas de piso e cobertura",
+    "de": "Nutzungen für erzeugte Decken- und Dachlasten prüfen",
+    "fr": "Vérifier les usages retenus pour les charges générées de plancher et de toiture",
+    "tr": "Üretilen döşeme ve çatı yüklerinin kullanım sınıflarını doğrulayın",
+    "zh": "复核生成楼面和屋面荷载时采用的用途",
+    "hu": "A generált födém- és tetőterhek használati kategóriájának ellenőrzése",
+    "ar": "التحقق من استخدامات أحمال الأرضيات والأسقف المولدة",
+    "hi": "उत्पन्न फ़र्श और छत के भारों की उपयोग श्रेणियाँ जाँचें",
+    "id": "Periksa penggunaan lantai dan atap untuk beban yang dihasilkan",
+    "it": "Verificare gli usi dei solai e delle coperture per i carichi generati",
+    "ja": "床・屋根の生成荷重に用いた用途を確認",
+    "ko": "생성된 바닥 및 지붕 하중의 용도 확인",
+    "ru": "Проверить назначение перекрытий и крыш для созданных нагрузок"
+  },
+  "explanation": {
+    "en": "An integration build could replace an unavailable occupancy with the first table row. Check the stored floor and roof uses. If either is wrong, replace the generated loads and rerun the analysis.",
+    "es": "Una versión de integración podía sustituir un uso no disponible por la primera fila de la tabla. Verificá los usos guardados de piso y cubierta. Si alguno es incorrecto, reemplazá las cargas generadas y repetí el análisis.",
+    "pt": "Uma versão de integração podia trocar uma ocupação indisponível pela primeira linha da tabela. Verifique as ocupações salvas de piso e cobertura. Em caso de erro, substitua as cargas geradas e repita a análise.",
+    "de": "Eine Integrationsversion konnte eine nicht verfügbare Nutzung durch die erste Tabellenzeile ersetzen. Prüfen Sie die gespeicherten Decken- und Dachnutzungen. Ersetzen Sie bei einem Fehler die erzeugten Lasten und wiederholen Sie die Berechnung.",
+    "fr": "Une version d’intégration pouvait remplacer un usage indisponible par la première ligne du tableau. Vérifiez les usages enregistrés du plancher et de la toiture. En cas d’erreur, remplacez les charges générées et relancez le calcul.",
+    "tr": "Bir entegrasyon sürümü, bulunamayan kullanım sınıfı yerine tablonun ilk satırını seçebiliyordu. Kayıtlı döşeme ve çatı kullanım sınıflarını kontrol edin. Yanlışsa üretilen yükleri değiştirip analizi yeniden çalıştırın.",
+    "zh": "集成版本可能会用表格首行替换不可用的用途。请核对已保存的楼面和屋面用途。如有错误，请替换生成的荷载并重新分析。",
+    "hu": "Egy integrációs verzió az elérhetetlen kategóriát a táblázat első sorával helyettesíthette. Ellenőrizze a födém és a tető mentett használati kategóriáját. Eltérés esetén cserélje le a generált terheket, majd ismételje meg a számítást.",
+    "ar": "كان من الممكن لإصدار تكاملي استبدال فئة استخدام غير متاحة بالصف الأول من الجدول. تحقق من الاستخدامات المحفوظة للأرضيات والأسقف. إذا كانت خاطئة فاستبدل الأحمال المولدة وأعد التحليل.",
+    "hi": "एक एकीकरण संस्करण अनुपलब्ध उपयोग श्रेणी को तालिका की पहली पंक्ति से बदल सकता था। फ़र्श और छत की सहेजी गई श्रेणियाँ जाँचें। यदि वे गलत हैं तो उत्पन्न भार बदलें और विश्लेषण दोहराएँ।",
+    "id": "Versi integrasi dapat mengganti penggunaan yang tidak tersedia dengan baris pertama tabel. Periksa penggunaan lantai dan atap yang tersimpan. Jika salah, ganti beban yang dihasilkan dan ulangi analisis.",
+    "it": "Una versione di integrazione poteva sostituire una destinazione d’uso non disponibile con la prima riga della tabella. Verificare gli usi salvati di solai e coperture. In caso di errore, sostituire i carichi generati e ripetere l’analisi.",
+    "ja": "統合版では、使用できない用途が表の先頭行に置き換わる場合がありました。保存されている床と屋根の用途を確認し、誤りがあれば生成荷重を置き換えて再解析してください。",
+    "ko": "통합 버전에서 사용할 수 없는 용도가 표의 첫 번째 행으로 바뀔 수 있었습니다. 저장된 바닥과 지붕 용도를 확인하세요. 잘못된 경우 생성된 하중을 교체하고 다시 해석하세요.",
+    "ru": "Интеграционная версия могла заменить отсутствующее назначение первой строкой таблицы. Проверьте сохранённое назначение перекрытий и крыш. Если оно ошибочно, замените созданные нагрузки и повторите расчёт."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-generated-occupancy-choice.md",
+    "heading": "Verify occupancies used in generated floor and roof loads"
+  }
+}

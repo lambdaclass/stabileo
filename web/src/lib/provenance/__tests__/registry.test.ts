@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { REGISTRY_LOCALES, validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
 import { assessProject } from '../applicability';
+import declaredQuantities from 'virtual:result-change-quantities';
 import { FEATURE_IDS, type FeatureSnapshot } from '../model-features';
 import { unknownStamp, type SolveStamp } from '../solve-stamp';
 import { readRegistry } from '../../../../scripts/result-changes/registry.mjs';
@@ -148,7 +149,7 @@ describe('result-change registry', () => {
   });
 
   it('takes an examples-scoped entry only with the example ids it changed, and no when or quantities', () => {
-    const entry = RESULT_CHANGES.changes.find((c) => c.scope === 'examples')!;
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === 'example-cantilever-small-rotations')!;
     expect(entry.examples).toEqual(['3d-cantilever-load']);
     const check = (over: Record<string, unknown>) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, resultsVersion: RESULT_CHANGES.currentResultsVersion, ...over } as typeof entry] }, new Set(FEATURE_IDS));
     expect(check({})).toEqual([]);
@@ -175,7 +176,7 @@ describe('result-change registry', () => {
   });
 
   it('accepts a scoped numerical quantity only with complete response fingerprints', () => {
-    const entry = { ...RESULT_CHANGES.changes[0], resultsVersion: RESULT_CHANGES.currentResultsVersion };
+    const entry = { ...RESULT_CHANGES.changes.find((c) => c.scope === undefined)!, resultsVersion: RESULT_CHANGES.currentResultsVersion };
     const scope = { quantity: 'displacements.rz', before: 'a'.repeat(64), after: 'b'.repeat(64) };
     const check = (q: unknown) => validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, quantities: [q] } as typeof entry] }, new Set(FEATURE_IDS));
     expect(check(scope)).toEqual([]);
@@ -199,7 +200,7 @@ describe('result-change registry', () => {
 });
 
 it('rejects missing or malformed PR metadata before a consumer reads includes', () => {
-  const entry = { ...RESULT_CHANGES.changes[0], resultsVersion: RESULT_CHANGES.currentResultsVersion };
+  const entry = { ...RESULT_CHANGES.changes.find((c) => c.scope === undefined)!, resultsVersion: RESULT_CHANGES.currentResultsVersion };
   for (const prs of [undefined, null, '2095', [0], [-1], [1.5], ['2095']]) {
     expect(validateRegistry({ ...RESULT_CHANGES, changes: [{ ...entry, prs } as typeof entry] }, new Set(FEATURE_IDS))).toContain(`change ${entry.id}: prs must be a list of positive integer issue or PR numbers`);
   }
@@ -231,4 +232,34 @@ it('known wrong result: #2588 — registers added load validation separately fro
   expect(badSelector).toContain('malformed-authored-loads');
   expect(badSelector).not.toContain('authored-load-validation');
   expect(found([distributed])).not.toContain('authored-load-validation');
+});
+
+describe('known wrong result: #1928 model edits and report filters do not explain unrelated saved analyses', () => {
+  const load = { type: 'nodal', data: { id: 1, nodeId: 1, fx: 2, fz: 0, my: 0, caseId: 1 } };
+  const cases = [{ id: 1, name: 'Permanent', type: 'D' }];
+  const combos = [{ id: 1, name: 'Factored', factors: [{ caseId: 1, factor: 2 }] }];
+  const notices = (s: FeatureSnapshot, mode = 'pro') => assessProject(s, unknownStamp(), mode).changes.map(change => change.id);
+
+  it('does not explain any changed solver quantity for a previously edited model', () => {
+    expect(declaredQuantities['bulk-load-and-constraint-edits']).toBeUndefined();
+    expect(notices({ loads: [load], loadCases: cases })).not.toContain('bulk-load-and-constraint-edits');
+    expect(notices({ loads: [load], loadCases: [{ ...cases[0]!, id: 2 }] })).toContain('bulk-load-and-constraint-edits');
+  });
+
+  it('checks constraint references against the saved node inventory', () => {
+    const nodes: FeatureSnapshot['nodes'] = [[1, { x: 0, y: 0 }], [2, { x: 1, y: 0 }]];
+    const constraints = [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] }];
+    expect(notices({ nodes, constraints })).not.toContain('bulk-load-and-constraint-edits');
+    expect(notices({ nodes: nodes.slice(0, 1), constraints })).toContain('bulk-load-and-constraint-edits');
+  });
+
+  it('restricts the member table notice to saved PRO combination choices', () => {
+    const base = { loadCases: cases, combinations: combos };
+    const scoped = { ...base, resultScopes: { active: [] } };
+    expect(notices(base)).not.toContain('member-force-table-scope');
+    expect(notices(scoped, '3d')).not.toContain('member-force-table-scope');
+    expect(notices(scoped)).toContain('member-force-table-scope');
+    expect(notices({ ...base, resultScopes: { active: [1] } } as FeatureSnapshot)).not.toContain('member-force-table-scope');
+    expect(notices({ ...base, combinations: [{ ...combos[0], method: 'srss' }] })).toContain('member-force-table-scope');
+  });
 });

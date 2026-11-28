@@ -23,12 +23,12 @@ describe('skin reinforcement (§9.7.2.3)', () => {
   it('the detailing places them on both side faces, inside the legs, within the spacing', () => {
     const stations: MomentStation[] = Array.from({ length: 11 }, (_, i) => {
       const s = i / 10;
-      return { x: 8 * s, mPos: 600 * 4 * s * (1 - s), mNeg: Math.max(0, 400 * (1 - 4 * s * (1 - s))), v: 300 * Math.abs(1 - 2 * s) };
+      return { x: 8 * s, axialCompression: 0, mPos: 600 * 4 * s * (1 - s), mNeg: Math.max(0, 400 * (1 - 4 * s * (1 - s))), v: 300 * Math.abs(1 - 2 * s) };
     });
     const input: BeamGenerationInput = {
       elementId: 3, L: 8, b: 0.3, h: 1.0, d: 0.94, cover: 0.025, stirrupDia: 8,
       fc: 25, fy: 420, maxAggregateSizeMm: 20, edition: '2025', stations,
-      supportI: 'continuous', supportJ: 'continuous', vn: 800,
+      supportI: 'continuous', supportJ: 'continuous',
       bottom: { count: 4, diameterMm: 20 }, topStart: { count: 3, diameterMm: 16 }, topEnd: { count: 3, diameterMm: 16 },
       lateralSystem: false, ld: (d) => 0.04 * d,
       origin: { x: 0, y: 0, z: 0 }, axis: { x: 1, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 },

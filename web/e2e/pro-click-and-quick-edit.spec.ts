@@ -1,3 +1,4 @@
+import { BUILD_FEATURES } from './build-features';
 import { test, expect, loadModel } from './fixtures';
 import type { Page } from '@playwright/test';
 
@@ -63,36 +64,66 @@ test.describe('@smoke PRO click selection and the quick editor', () => {
     await expect.poll(() => page.evaluate(() => window.__stabileo.nodePos(5)?.z)).toBe(3.5);
   });
 
-  test('double-click a quad: its nodes, turning it over, and meshing it', async ({ pro: page }) => {
-    await loadModel(page, 'mat-foundation');
-    await page.getByTestId('pr-select').click();
-    await page.getByTestId('select-mode-shells').click();
-    const quads = await page.evaluate(() => window.__stabileo.entityData('setting', 'quads') as Array<[number, { nodes: number[] }]>);
-    let target: { id: number; nodes: number[]; x: number; y: number } | null = null;
-    for (const [id, q] of quads) {
-      const ps = await Promise.all(q.nodes.map((n) => pos(page, n)));
-      if (ps.some((p) => !p)) continue;
-      const x = ps.reduce((s, p) => s + p!.x, 0) / 4, y = ps.reduce((s, p) => s + p!.y, 0) / 4;
-      if (x > 40 && x < 860 && y > 180 && y < 840) { target = { id, nodes: q.nodes, x, y }; break; }
-    }
-    expect(target).not.toBeNull();
-    const t0 = target!;
-    await page.mouse.dblclick(t0.x, t0.y);
-    const card = page.getByTestId('quick-edit');
-    await expect(card.getByTestId('qe-shell-nodes')).toHaveValue(t0.nodes.join(', '));
-    await card.getByTestId('qe-flip').click();
-    const [n0, n1, n2, n3] = t0.nodes;
-    await expect(card.getByTestId('qe-shell-nodes')).toHaveValue([n0, n3, n2, n1].join(', '));
-    const before = quads.length;
-    await card.getByTestId('qe-mesh-size').fill('0.25');
-    await card.getByTestId('qe-mesh').click();
-    await expect.poll(async () => (await page.evaluate(() => window.__stabileo.quadIds())).length).toBeGreaterThan(before);
-  });
+  if (BUILD_FEATURES.proPlatesUnified) {
+    test('double-click a quad: its nodes, turning it over, and meshing it', { tag: '@switch-on' }, async ({ pro: page }) => {
+      await loadModel(page, 'mat-foundation');
+      await page.getByTestId('pr-select').click();
+      await page.getByTestId('select-mode-shells').click();
+      const quads = await page.evaluate(() => window.__stabileo.entityData('setting', 'quads') as Array<[number, { nodes: number[] }]>);
+      let target: { id: number; nodes: number[]; x: number; y: number } | null = null;
+      for (const [id, q] of quads) {
+        const ps = await Promise.all(q.nodes.map((n) => pos(page, n)));
+        if (ps.some((p) => !p)) continue;
+        const x = ps.reduce((s, p) => s + p!.x, 0) / 4, y = ps.reduce((s, p) => s + p!.y, 0) / 4;
+        if (x > 40 && x < 860 && y > 180 && y < 840) { target = { id, nodes: q.nodes, x, y }; break; }
+      }
+      expect(target).not.toBeNull();
+      const t0 = target!;
+      await page.mouse.dblclick(t0.x, t0.y);
+      const card = page.getByTestId('quick-edit');
+      await expect(card.getByTestId('qe-shell-nodes')).toHaveValue(t0.nodes.join(', '));
+      await card.getByTestId('qe-flip').click();
+      const [n0, n1, n2, n3] = t0.nodes;
+      await expect(card.getByTestId('qe-shell-nodes')).toHaveValue([n0, n3, n2, n1].join(', '));
+      await card.getByTestId('qe-mesh-plate').click();
+      await expect(page.getByTestId('plate-mesh-dialog')).toBeVisible();
+      await expect(page.getByTestId('plate-mesh-dialog').locator('h3')).toHaveText(/^Mesh (?!\d+ plates$)/);
+      await expect(page.getByTestId('plate-mesh-plan')).toBeVisible();
+    });
+  } else {
+    test('double-click a quad: its nodes, turning it over, and meshing it', async ({ pro: page }) => {
+      await loadModel(page, 'mat-foundation');
+      await page.getByTestId('pr-select').click();
+      await page.getByTestId('select-mode-shells').click();
+      const quads = await page.evaluate(() => window.__stabileo.entityData('setting', 'quads') as Array<[number, { nodes: number[] }]>);
+      let target: { id: number; nodes: number[]; x: number; y: number } | null = null;
+      for (const [id, q] of quads) {
+        const ps = await Promise.all(q.nodes.map((n) => pos(page, n)));
+        if (ps.some((p) => !p)) continue;
+        const x = ps.reduce((s, p) => s + p!.x, 0) / 4, y = ps.reduce((s, p) => s + p!.y, 0) / 4;
+        if (x > 40 && x < 860 && y > 180 && y < 840) { target = { id, nodes: q.nodes, x, y }; break; }
+      }
+      expect(target).not.toBeNull();
+      const t0 = target!;
+      await page.mouse.dblclick(t0.x, t0.y);
+      const card = page.getByTestId('quick-edit');
+      await expect(card.getByTestId('qe-shell-nodes')).toHaveValue(t0.nodes.join(', '));
+      await card.getByTestId('qe-flip').click();
+      const [n0, n1, n2, n3] = t0.nodes;
+      await expect(card.getByTestId('qe-shell-nodes')).toHaveValue([n0, n3, n2, n1].join(', '));
+      const before = quads.length;
+      await card.getByTestId('qe-mesh-size').fill('0.25');
+      await card.getByTestId('qe-mesh').click();
+      await expect.poll(async () => (await page.evaluate(() => window.__stabileo.quadIds())).length).toBeGreaterThan(before);
+    });
+  }
 
-  test("the shells list edits a quad's nodes, and refuses three", async ({ pro: page }) => {
+  const shellEditTags = BUILD_FEATURES.proPlatesUnified ? { tag: '@switch-on' as const } : {};
+  test("the shells list edits a quad's nodes, and refuses three", shellEditTags, async ({ pro: page }) => {
     await loadModel(page, 'mat-foundation');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
+    if (BUILD_FEATURES.proPlatesUnified) await page.getByTestId('plates-scope-element').click();
     const q = (await page.evaluate(() => window.__stabileo.entityData('setting', 'quads') as Array<[number, { nodes: number[] }]>))[0]!;
     const input = page.getByTestId(`plate-nodes-q${q[0]}`);
     const [a, b, c, d] = q[1].nodes;

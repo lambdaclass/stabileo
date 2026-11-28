@@ -17,6 +17,7 @@ import { isSolverReady } from '../../wasm-solver';
 import type { RebarLayer } from '../../../design-contract/reinforcement';
 import '../../design/adapters/cirsoc201-adapter';
 import '../../design/adapters/unsupported-adapter';
+import { stateSuiteCovers } from '../../../store/__tests__/suite-covers';
 
 /** The design's seat: cover 25 mm, Ø6 stirrup, the bar's centre half its diameter inside. */
 const seat = (dMm: number) => 0.025 + 0.006 + dMm / 2000;
@@ -82,6 +83,7 @@ describe('the blog beam, designed and laid as the embed runs it', () => {
   it('designs the simply supported beam with free end rotations', async () => {
     resetDesign();
     await modelStore.loadExample('rc-beam-flexure');
+    stateSuiteCovers();
     const solved = await solveAndDesignBeam();
     for (const result of [...solved.perCase.values(), ...solved.perCombo.values()]) {
       expect(result.elementForces.find((f) => f.elementId === 1)!.myStart).toBeCloseTo(0, 9);
@@ -102,6 +104,7 @@ describe('a pin–fixed beam with mixed top layers', () => {
         { id: 2, nodeId: 3, type: 'fixed3d' },
       ],
     }));
+    stateSuiteCovers();
     await solveAndDesignBeam();
 
     const o = verificationStore.outcomeFor(1)!;
@@ -126,7 +129,7 @@ describe('a pin–fixed beam with mixed top layers', () => {
     const { bars } = generateBeamBars({
       ...groups, elementId: 1, L: ctx.L, b: ctx.section.b, h: ctx.section.h,
       d: ctx.section.h - cover - stirrupDia / 1000, cover, stirrupDia, fc, fy, maxAggregateSizeMm, edition,
-      stations, supportI: 'simple', supportJ: 'continuous', vn: Math.max(...stations.map(s => s.v)),
+      stations, supportI: 'simple', supportJ: 'continuous',
       lateralSystem: true, ld: anchorageFunctions({ fy, fc, favourableSpacing: true, psiT: 1.3, edition }).ld,
       origin: { x: 0, y: 0, z: 0 }, axis: { x: 1, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 },
       bentUp: { seismicDesign: 'unstated', optOut: false },

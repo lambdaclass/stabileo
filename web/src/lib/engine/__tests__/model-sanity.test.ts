@@ -14,7 +14,8 @@ import { uiStore } from '../../store/ui.svelte';
 import '../../store';
 import { initSolver } from '../wasm-solver';
 import { publishCombinations3D } from '../../store/active-results';
-import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { galleryExample } from '../../data/__tests__/gallery-examples';
+import { runGlobalSolve } from '../live-calc';
 import { CODE_EXAMPLES } from '../../templates/examples';
 import { INTENTIONALLY_UNSOLVABLE } from '../../templates/fixture-index';
 import { reviewModelSanity, sanityDiagnostics, type SanityReport } from '../model-sanity';
@@ -79,8 +80,9 @@ function expectOnly(id: string, r: SanityReport | null): void {
 
 describe('repository examples: no errors but the known-broken, every warning justified', () => {
   it.each(Object.keys(CODE_EXAMPLES))('PRO example %s', async (id) => {
-    await PRO_EXAMPLES.find((e) => e.id === id)!.load();
-    solve();
+    await galleryExample(id).load();
+    const outcome = await runGlobalSolve();
+    expect(outcome, outcome.ok ? undefined : outcome.error).toMatchObject({ ok: true, combinationsLeftOut: null });
     expectOnly(id, review());
   }, 600_000);
 

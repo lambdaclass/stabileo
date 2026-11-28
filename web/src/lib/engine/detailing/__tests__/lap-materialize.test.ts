@@ -60,6 +60,23 @@ function transition(from: number[], to: number[], jointX = 5): PlannedTransition
 }
 
 describe('materialiseLaps — the continuous case', () => {
+  it('known wrong result: #2670 retains all source bars of a through bar across successive joints', () => {
+    const result = materialiseLaps({
+      barsByMember: new Map([
+        [1, [bar('incoming+bar', 1, 0, 5, 0)]],
+        [2, [bar('middle', 2, 5, 10, 0)]],
+        [3, [bar('outgoing', 3, 10, 15, 0)]],
+      ]),
+      transitions: [transition([0], [0]), {
+        ...transition([0], [0], 10), jointId: 'n2', fromElementId: 2, toElementId: 3,
+      }],
+    });
+    expect(result.fused).toHaveLength(2);
+    const through = result.barsByMember.get(3)![0]!;
+    expect(result.sourcesByBar.get(through.id)).toEqual(new Set(['incoming+bar', 'middle', 'outgoing']));
+    expect(result.sourcesByBar.has('incoming')).toBe(false);
+  });
+
   it('fuses two bars on the same line into ONE bar owned by both members', () => {
     const t = transition([0], [0]);
     const r = materialiseLaps({

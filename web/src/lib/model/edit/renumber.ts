@@ -1,3 +1,4 @@
+import { authoredWallStrip, remapFootingNodes, type StoredFooting } from '../foundation/footing-nodes';
 /**
  * Renumber nodes and members by position.
  *
@@ -186,6 +187,9 @@ export function renumber(opts: RenumberOptions): RenumberResult {
   }));
   snap.plates = (snap.plates ?? []).map(([id, p]: [number, any]) => [rp(id), { ...p, id: rp(id), nodes: p.nodes.map(rn) }]);
   snap.quads = (snap.quads ?? []).map(([id, q]: [number, any]) => [rq(id), { ...q, id: rq(id), nodes: q.nodes.map(rn) }]);
+  if (Array.isArray(snap.footprintLinks)) {
+    snap.footprintLinks = snap.footprintLinks.map(link => ({ ...link, masterNode: rn(link.masterNode), slaveNode: rn(link.slaveNode) }));
+  }
   snap.constraints = (snap.constraints ?? []).map((c: any) => ({
     ...c,
     ...(typeof c.masterNode === 'number' ? { masterNode: rn(c.masterNode) } : {}),
@@ -194,8 +198,8 @@ export function renumber(opts: RenumberOptions): RenumberResult {
     ...(Array.isArray(c.terms) ? { terms: c.terms.map((t: any) => ({ ...t, nodeId: rn(t.nodeId) })) } : {}),
   }));
   if (snap.connectors) snap.connectors = snap.connectors.map(([id, c]: [number, any]) => [id, { ...c, nodeI: rn(c.nodeI), nodeJ: rn(c.nodeJ) }]);
-  if (snap.footings) snap.footings = snap.footings.map(([id, f]: [number, any]) => [id, {
-    ...f, nodeId: rn(f.nodeId), ...(f.columnElementId !== undefined ? { columnElementId: re(f.columnElementId) } : {}),
+  if (snap.footings) snap.footings = snap.footings.map(([id, f]: [number, StoredFooting]) => [id, {
+    ...remapFootingNodes(authoredWallStrip(f), nodeMap), ...(f.columnElementId !== undefined ? { columnElementId: re(f.columnElementId) } : {}),
   }]);
   if (snap.groups) snap.groups = snap.groups.map(([id, g]: [number, any]) => {
     const members = g.members;

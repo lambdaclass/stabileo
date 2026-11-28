@@ -26,6 +26,17 @@ const model = {
 describe('the project design data', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
+  it('known wrong result: #2365 restores stated bar diameters independently of the allowed lists', () => {
+    const saved = modelStore.snapshot();
+    saved.designData = { version: 1, stirrupDiaMm: 10, wallBarDiaMm: 10, stirrupDiametersMm: [8, 10] };
+    modelStore.restore(saved);
+    patchDesignData({ rebarFy: 500 });
+    modelStore.restore(modelStore.snapshot());
+    expect(designContextOptions()).toMatchObject({ stirrupDia: 10, stirrupDiametersMm: [8, 10] });
+    expect(wallBarDiameterMm()).toBe(10);
+    expect(verifyOptions().cover).toBe(DEFAULT_COVER);
+  });
+
   it('states nothing: the values the code always used', () => {
     expect(designContextOptions()).toMatchObject({ stirrupDia: DEFAULT_STIRRUP_DIA, rebarFy: DEFAULT_REBAR_FY });
     expect(designContextOptions().coverFor('beam')).toBe(DEFAULT_COVER);

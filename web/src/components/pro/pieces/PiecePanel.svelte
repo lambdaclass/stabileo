@@ -8,7 +8,6 @@
   import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { addCurveLoad, arcHandLoads, curveLoadDefs, remakeArc, removeCurveLoad, selectedPiece, type CurveLoadDef } from '../../../lib/store/curved-members';
-  import { plateRemeshMessage } from '../../../lib/engine/plate-analysis-refusal';
   import { arcThroughThree, chordError } from '../../../lib/model/curved-member';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
@@ -33,8 +32,8 @@
     if (!arc) return;
     const r = remakeArc(arc.id, { segments });
     if (!r) return;
-    if (r.refused?.length) {
-      message = r.refused.map(name => plateRemeshMessage(name, 'shellEdits')).join(' ');
+    if (r.error) {
+      message = r.error;
       return;
     }
     uiStore.selectElements(r.members);

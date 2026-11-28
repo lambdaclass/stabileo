@@ -20,7 +20,7 @@
  */
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
-import { clearPlateMesh, hasPlateShellEdits, physicalPlates } from './physical-plates';
+import { clearPlateMesh, physicalPlates } from './physical-plates';
 import { plateLoops } from '../model/physical/plate';
 import { arcMembers, pieceOf, type Piece } from '../model/curve-entity';
 import { arcThroughThree, buildArc, NODE_MERGE_TOL, type ArcSpec, type Vec3 } from '../model/curved-member';
@@ -133,19 +133,15 @@ export function arcHandLoads(arcId: number): number {
  * Build an arc again from its ends: another number of segments, or another point it passes
  * through. Keeps its id and what its members share. One undo step. Null when the arc is gone.
  */
-export function remakeArc(arcId: number, change: ArcRemake): { members: number[]; droppedLoads: number; keptNodes: number; platesCleared: number; refused?: string[] } | null {
+export function remakeArc(arcId: number, change: ArcRemake): { members: number[]; droppedLoads: number; keptNodes: number; platesCleared: number; refused?: string[]; error?: string } | null {
   if (!arcMembers(modelStore.model as never, arcId).length) return null;
   // The plates meshed on this arc's nodes lose their mesh first: it is out of date with the new
   // arc, and its shells would keep the old nodes in the model. They are meshed again on demand.
   const arcNodes = new Set(arcMembers(modelStore.model as never, arcId).flatMap((id) => { const e = modelStore.elements.get(id)!; return [e.nodeI, e.nodeJ]; }));
   const onArc = physicalPlates().filter((pl) => [...(pl.group.members.quads ?? []).map((q) => modelStore.quads.get(q)?.nodes ?? []), ...(pl.group.members.plates ?? []).map((q) => modelStore.plates.get(q)?.nodes ?? [])].some((ns) => ns.some((n) => arcNodes.has(n))));
-  const refused = onArc.filter(hasPlateShellEdits).map(pl => pl.name);
-  if (refused.length) return { members: [], droppedLoads: 0, keptNodes: 0, platesCleared: 0, refused };
   let result: ReturnType<typeof remakeArcNow> = null;
-  modelStore.batch(() => {
-    for (const pl of onArc) clearPlateMesh(pl.id);
-    result = remakeArcNow(arcId, change);
-  });
+  const cleared = clearPlateMesh(onArc.map(pl => pl.id), () => { result = remakeArcNow(arcId, change); });
+  if (cleared.refused) return { members: [], droppedLoads: 0, keptNodes: 0, platesCleared: 0, refused: cleared.refused, error: cleared.error };
   const r = result as ReturnType<typeof remakeArcNow>;
   return r ? { ...r, platesCleared: onArc.length } : null;
 }

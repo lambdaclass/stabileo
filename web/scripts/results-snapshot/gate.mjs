@@ -27,7 +27,7 @@ import { compareFrozen, FROZEN_DIR } from './frozen.mjs';
 import { fieldCovered } from './applicability.mjs';
 import { pathToFileURL } from 'node:url';
 import { compareValues, formatCaseReport, parseSnapshot, FORMAT, FORMAT_ADDITIONS } from './compare.mjs';
-import { compareSources, readSourcesAt, DIR } from '../result-changes/registry.mjs';
+import { compareSources, readSourcesAt, readRegistryAt, DIR } from '../result-changes/registry.mjs';
 
 export const SNAPSHOT_DIR = 'web/results-snapshots';
 export const REGISTRY = DIR;
@@ -35,6 +35,8 @@ export const FRAGMENT_DIR = 'changelog.d';
 export const FIXTURE_DIR = 'web/src/lib/templates/fixtures';
 export const CORPUS = 'web/src/lib/results-snapshot/corpus.ts';
 export const EQUIVALENCE_TEST = 'web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts';
+/** What compares, not what solves: the base checkout runs this build's, so both proofs read the engine entries alike. */
+export const EQUIVALENCE_HARNESS = [EQUIVALENCE_TEST, 'web/src/lib/results-snapshot/equivalence.ts', 'web/scripts/results-snapshot/applicability.mjs', 'web/scripts/results-snapshot/applicability.d.mts'];
 
 /** A fixture's model inputs: its JSON without the names and descriptions it shows, keys sorted. */
 export function modelInputs(fixtureText) {
@@ -77,9 +79,20 @@ export function newlyRecorded(path, baseFormat, headFormat, format = FORMAT, for
   return false;
 }
 
-export function decide({ snapshots, baseRegistry, headRegistry, fragments, format = FORMAT, formatAdditions = FORMAT_ADDITIONS, changedFixtures = [], caseExample = {}, caseFeatures = {} }) {
+export function decide({ snapshots, baseRegistry, headRegistry, baseVersions, headVersions, fragments, format = FORMAT, formatAdditions = FORMAT_ADDITIONS, changedFixtures = [], caseExample = {}, caseFeatures = {} }) {
   const changed = [];
   const { problems, added } = compareSources(baseRegistry, headRegistry);
+  if (baseVersions && headVersions) {
+    const released = new Map(baseVersions.changes.map(c => [c.id, c.resultsVersion]));
+    for (const change of headVersions.changes) {
+      if (released.has(change.id)) {
+        const version = released.get(change.id);
+        if (change.resultsVersion !== version) problems.push(`${change.id}: shipped at version ${version}, now numbered ${change.resultsVersion}`);
+      } else if (change.resultsVersion <= baseVersions.currentResultsVersion) {
+        problems.push(`${change.id}: new change numbered ${change.resultsVersion}, already released through ${baseVersions.currentResultsVersion}`);
+      }
+    }
+  }
   const entries = (headRegistry?.unnumbered ?? []).filter((c) => added.includes(c.id));
   if (problems.length) {
     return {
@@ -138,7 +151,7 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments, forma
   ];
   if (missing.length === 0) {
     return {
-      ok: true, changed, equivalence,
+      ok: true, changed, equivalence, engineEntries: entries.filter((e) => e.scope !== 'examples'),
       report: [...head,
         `Registered: ${entries.map((e) => e.id).join(', ')} (the next results version, when this reaches main);`,
         `changelog: ${breaking.map((f) => f.file).join(', ')}.`].join('\n'),
@@ -181,19 +194,29 @@ async function main(argv) {
   for (const s of snapshots.filter(s => s.file.startsWith(`${FROZEN_DIR}/`))) {
     caseFeatures[s.file] = (s.head ?? s.base)?.features;
   }
-  const r = decide({ caseFeatures, snapshots, baseRegistry: readSourcesAt(base, root), headRegistry: readSourcesAt('HEAD', root), fragments, changedFixtures, caseExample: corpusExamples(at('HEAD', CORPUS)) });
+  const baseRegistry = readSourcesAt(base, root);
+  const headRegistry = readSourcesAt('HEAD', root);
+  const r = decide({
+    caseFeatures, snapshots, baseRegistry, headRegistry,
+    baseVersions: readRegistryAt(base, root, baseRegistry),
+    headVersions: readRegistryAt('HEAD', root, headRegistry),
+    fragments, changedFixtures, caseExample: corpusExamples(at('HEAD', CORPUS)),
+  });
   (r.ok ? console.log : console.error)(r.report);
   if (!r.ok) return 1;
   if (!r.equivalence?.length) return 0;
-  return proveEquivalence(r.equivalence, base, at, { solve: (tree, list) => solveIn(tree ?? root, list), baseTree: () => checkoutBase(base, root, git) });
+  const excuse = r.engineEntries?.length ? { entries: r.engineEntries, features: await readExampleFeatures(r.equivalence, base, at, root) } : undefined;
+  return proveEquivalence(r.equivalence, base, at, { solve: (tree, list) => solveIn(tree ?? root, list), baseTree: () => checkoutBase(base, root, git), excuse });
 }
 
 /**
  * Both engines must agree on both fixtures: this build's on each listed example as it was at
  * `base`, and the `base` engine on the example as it is now, which an engine change that touches
- * only what the new fixture uses would fail.
+ * only what the new fixture uses would fail. With `excuse`, the engine entries of the same pull
+ * request (`{ entries, features: { [file]: { base, head } } }`), a value may differ only where one
+ * of them holds for the fixture solved and declares that value: saved models are told of those.
  */
-export async function proveEquivalence(cases, base, at, { solve, baseTree }) {
+export async function proveEquivalence(cases, base, at, { solve, baseTree, excuse }) {
   const { mkdtempSync, writeFileSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
@@ -217,7 +240,7 @@ export async function proveEquivalence(cases, base, at, { solve, baseTree }) {
       const snapshot = join(dir, `${name}.${tag}.snapshot.json`);
       writeFileSync(fixture, at(rev, fixtureOf(example)));
       writeFileSync(snapshot, at(rev, file));
-      return { case: name, fixture, snapshot };
+      return { case: name, fixture, snapshot, ...(excuse ? { excuse: { entries: excuse.entries, features: excuse.features[file]?.[rev === 'HEAD' ? 'head' : 'base'] ?? [] } } : {}) };
     });
     const path = join(dir, `${rev === 'HEAD' ? 'head' : 'base'}.json`);
     writeFileSync(path, JSON.stringify(list));
@@ -239,7 +262,8 @@ export async function proveEquivalence(cases, base, at, { solve, baseTree }) {
   } finally {
     tree.dispose();
   }
-  console.log(`Examples-only change proven: ${names} give the same numbers with the ${base} engine and this one, from both their ${base} and their new fixtures.`);
+  console.log(`Examples-only change proven: ${names} give the same numbers with the ${base} engine and this one, from both their ${base} and their new fixtures`
+    + (excuse ? `, but for what ${excuse.entries.map((e) => e.id).join(', ')} register for each fixture.` : '.'));
   return 0;
 }
 
@@ -270,6 +294,7 @@ async function checkoutBase(base, root, git) {
   else run('npm', ['ci'], join(dir, 'web'));
   if (headEngineServesBase(changed)) cpSync(join(root, 'web/src/lib/wasm'), join(dir, 'web/src/lib/wasm'), { recursive: true });
   else run('bash', ['scripts/wasm-cached.sh'], dir);
+  for (const harness of EQUIVALENCE_HARNESS) cpSync(join(root, harness), join(dir, harness));
   return { dir, dispose };
 }
 
@@ -293,25 +318,39 @@ export function corpusCases(text) {
 }
 
 export async function readCaseFeatures(files, base, at, root) {
+  const headCases = corpusCases(at('HEAD', CORPUS));
+  const baseCases = corpusCases(at(base, CORPUS));
+  return readFeatures(files.map((file) => {
+    const c = headCases[file] ?? baseCases[file];
+    if (!c) throw new Error(`No corpus model context for ${file}`);
+    if (c.source.snowRoof) return { key: file, case: c };
+    const path = c.source.example ? `${FIXTURE_DIR}/${c.source.example}.json` : `web/${c.source.ded}`;
+    const fixture = at(headCases[file] ? 'HEAD' : base, path);
+    if (fixture === null) throw new Error(`No opened fixture for ${file}: ${path}`);
+    return { key: file, case: c, fixture: JSON.parse(fixture) };
+  }), root);
+}
+
+/** The features of each listed example as it was at `base` and as it is now, opened by this build: what decides which engine entries reach each. */
+export async function readExampleFeatures(cases, base, at, root) {
+  const headCases = corpusCases(at('HEAD', CORPUS));
+  const features = await readFeatures(cases.flatMap(({ file, example }) => ['base', 'head'].map((side) => {
+    const fixture = at(side === 'base' ? base : 'HEAD', `${FIXTURE_DIR}/${example}.json`);
+    if (fixture === null || !headCases[file]) throw new Error(`No opened fixture for ${file} at ${side}`);
+    return { key: `${file}#${side}`, case: headCases[file], fixture: JSON.parse(fixture) };
+  })), root);
+  return Object.fromEntries(cases.map(({ file }) => [file, { base: features[`${file}#base`], head: features[`${file}#head`] }]));
+}
+
+async function readFeatures(requests, root) {
   const { mkdtempSync, readFileSync, writeFileSync, rmSync } = await import('node:fs');
   const { spawnSync } = await import('node:child_process');
   const { join } = await import('node:path');
-  const headCases = corpusCases(at('HEAD', CORPUS));
-  const baseCases = corpusCases(at(base, CORPUS));
   const dir = mkdtempSync(join(root, '.snapshot-features-'));
   try {
     const output = join(dir, 'features.json');
-    const cases = files.map((file) => {
-      const c = headCases[file] ?? baseCases[file];
-      if (!c) throw new Error(`No corpus model context for ${file}`);
-      if (c.source.snowRoof) return { file, case: c };
-      const path = c.source.example ? `${FIXTURE_DIR}/${c.source.example}.json` : `web/${c.source.ded}`;
-      const fixture = at(headCases[file] ? 'HEAD' : base, path);
-      if (fixture === null) throw new Error(`No opened fixture for ${file}: ${path}`);
-      return { file, case: c, fixture: JSON.parse(fixture) };
-    });
     const request = join(dir, 'request.json');
-    writeFileSync(request, JSON.stringify({ cases, output }));
+    writeFileSync(request, JSON.stringify({ cases: requests.map((r) => ({ file: r.key, case: r.case, fixture: r.fixture })), output }));
     const run = spawnSync('npx', [
       '--no-install', 'vitest', 'run', '--project', 'results',
       'src/lib/results-snapshot/__tests__/applicability-context.test.ts',

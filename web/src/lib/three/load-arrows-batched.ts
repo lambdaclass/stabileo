@@ -21,12 +21,11 @@
 //
 // Loads are not raycast: the batch records, per load, the world segments it
 // drew (`footprints`), and a click in loads mode is measured against those on
-// screen. Batched objects are overlay
-// visuals: depthTest/depthWrite off, renderOrder 3, frustumCulled off — the
-// same flags syncLoads used to stamp onto every child via traverse().
+// screen.
 //
 // Reactions/constraint forces keep using create-load-arrow.ts (few per model).
 
+import { unifiedPlates } from '../features';
 import { userComponent } from '../axes/display';
 import * as THREE from 'three';
 import { COLORS, createTextSpriteCached } from './selection-helpers';
@@ -407,6 +406,61 @@ export class LoadArrowsBatched {
   }
 
   /**
+   * A uniform area load over a whole plate of any outline, holes cut out: arrows at points spread
+   * inside it, a fill and its border at the arrows' tails, one label. `dir` is the way a positive
+   * value acts (down for a floor, normal to a wall).
+   */
+  addPlateLoad(
+    outer: Array<{ x: number; y: number; z: number }>,
+    holes: Array<Array<{ x: number; y: number; z: number }>>,
+    q: number, maxQ: number, dir: THREE.Vector3, caseColor?: number,
+  ): void {
+    if (!unifiedPlates() || Math.abs(q) < 1e-10 || outer.length < 3) return;
+    const V = (p: { x: number; y: number; z: number }) => new THREE.Vector3(p.x, p.y, p.z);
+    const o = V(outer[0]!);
+    const n = new THREE.Vector3();
+    for (let i = 0; i < outer.length; i++) { const a = outer[i]!, b = outer[(i + 1) % outer.length]!; n.x += (a.y - b.y) * (a.z + b.z); n.y += (a.z - b.z) * (a.x + b.x); n.z += (a.x - b.x) * (a.y + b.y); }
+    if (n.lengthSq() < 1e-18) return;
+    n.normalize();
+    const u = V(outer[1]!).sub(o);
+    u.addScaledVector(n, -u.dot(n)).normalize();
+    const v = new THREE.Vector3().crossVectors(n, u);
+    const to2 = (p: { x: number; y: number; z: number }) => { const d = V(p).sub(o); return new THREE.Vector2(d.dot(u), d.dot(v)); };
+    const to3 = (q2: THREE.Vector2) => o.clone().addScaledVector(u, q2.x).addScaledVector(v, q2.y);
+    const ring = outer.map(to2), rings = holes.map((h) => h.map(to2));
+    const inside = (q2: THREE.Vector2, l: THREE.Vector2[]) => {
+      let c = false;
+      for (let i = 0, j = l.length - 1; i < l.length; j = i++) { const a = l[i]!, b = l[j]!; if ((a.y > q2.y) !== (b.y > q2.y) && q2.x < ((b.x - a.x) * (q2.y - a.y)) / (b.y - a.y) + a.x) c = !c; }
+      return c;
+    };
+    const xs = ring.map((p) => p.x), ys = ring.map((p) => p.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const loadDir = (q > 0 ? dir.clone() : dir.clone().negate()).normalize();
+    const arrowColor = caseColor ?? COLORS.load;
+    const len = this.len(q, maxQ) * 0.5;
+    const N = 4;
+    const at: THREE.Vector2[] = [];
+    for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
+      const q2 = new THREE.Vector2(x0 + ((x1 - x0) * (i + 0.5)) / (N + 1), y0 + ((y1 - y0) * (j + 0.5)) / (N + 1));
+      if (inside(q2, ring) && !rings.some((h) => inside(q2, h))) at.push(q2);
+    }
+    for (const q2 of at) {
+      const pos = to3(q2);
+      this.arrow(loadDir, pos.clone().addScaledVector(loadDir, -len), len, arrowColor, ARROW_HEAD_LENGTH * 0.7, ARROW_HEAD_WIDTH * 0.7);
+    }
+    const lift = (q2: THREE.Vector2) => to3(q2).addScaledVector(loadDir, -len);
+    const c = new THREE.Color(this.paint(arrowColor));
+    for (const tri of THREE.ShapeUtils.triangulateShape(ring, rings)) {
+      const all = [...ring, ...rings.flat()];
+      for (const k of tri) { const p = lift(all[k]!); this.fillPos.push(p.x, p.y, p.z); this.fillCol.push(c.r, c.g, c.b); }
+    }
+    for (const l of [ring, ...rings]) for (let k = 0; k < l.length; k++) this.envelope(lift(l[k]!), lift(l[(k + 1) % l.length]!), arrowColor);
+    const mid = new THREE.Vector2((x0 + x1) / 2, (y0 + y1) / 2);
+    const labelAt = at.length ? at.reduce((b, p) => (p.distanceTo(mid) < b.distanceTo(mid) ? p : b)) : mid;
+    this.label(this.format.pressure(q), '#' + new THREE.Color(arrowColor).getHexString(), 26, lift(labelAt).addScaledVector(loadDir, -0.2));
+  }
+
+  /**
    * An area load that is not a plain downward one: an arrow at each sample, along `dir` for a
    * positive value, its length by the value there (`shellLoadSamples`), and the label of the
    * largest value at the shell's middle.
@@ -473,6 +527,7 @@ export class LoadArrowsBatched {
   // ── Build the renderable group ─────────────────────────────
 
   build(): THREE.Group {
+    const occluded = unifiedPlates();
     const group = new THREE.Group();
     group.name = 'loadsBatched';
 
@@ -487,7 +542,7 @@ export class LoadArrowsBatched {
       geo.setAttribute('position', new THREE.Float32BufferAttribute(this.shaftPos, 3));
       geo.setAttribute('color', new THREE.Float32BufferAttribute(this.shaftCol, 3));
       group.add(overlay(new THREE.LineSegments(geo, shared('shaft', () => new THREE.LineBasicMaterial({
-        vertexColors: true, toneMapped: false, depthTest: false, depthWrite: false,
+        vertexColors: true, toneMapped: false, depthTest: occluded, depthWrite: false,
       })))));
     }
 
@@ -496,8 +551,7 @@ export class LoadArrowsBatched {
       geo.setAttribute('position', new THREE.Float32BufferAttribute(this.envPos, 3));
       geo.setAttribute('color', new THREE.Float32BufferAttribute(this.envCol, 3));
       group.add(overlay(new THREE.LineSegments(geo, shared('envelope', () => new THREE.LineBasicMaterial({
-        vertexColors: true, toneMapped: false, transparent: true, opacity: 0.5,
-        depthTest: false, depthWrite: false,
+        vertexColors: true, toneMapped: false, transparent: true, opacity: 0.5, depthTest: occluded, depthWrite: false,
       })))));
     }
 
@@ -506,7 +560,7 @@ export class LoadArrowsBatched {
       // translated so the tip sits at the local origin.
       const geo = new THREE.ConeGeometry(0.5, 1, 8, 1);
       geo.translate(0, -0.5, 0);
-      const mat = shared('cone', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: false, depthWrite: false }));
+      const mat = shared('cone', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: occluded, depthWrite: false }));
       const mesh = new THREE.InstancedMesh(geo, mat, this.cones.length);
       const m = new THREE.Matrix4();
       const pos = new THREE.Vector3();
@@ -529,7 +583,7 @@ export class LoadArrowsBatched {
 
     if (this.toruses.length > 0) {
       const geo = new THREE.TorusGeometry(0.2, 0.007, 8, 24, Math.PI * 1.5);
-      const mat = shared('torus', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: false, depthWrite: false }));
+      const mat = shared('torus', () => new THREE.MeshBasicMaterial({ toneMapped: false, depthTest: occluded, depthWrite: false }));
       const mesh = new THREE.InstancedMesh(geo, mat, this.toruses.length);
       const m = new THREE.Matrix4();
       const pos = new THREE.Vector3();
@@ -552,18 +606,38 @@ export class LoadArrowsBatched {
       geo.setAttribute('color', new THREE.Float32BufferAttribute(this.fillCol, 3));
       group.add(overlay(new THREE.Mesh(geo, shared('fill', () => new THREE.MeshBasicMaterial({
         vertexColors: true, toneMapped: false, transparent: true, opacity: 0.15,
-        side: THREE.DoubleSide, depthTest: false, depthWrite: false,
+        side: THREE.DoubleSide, depthTest: occluded, depthWrite: false, ...(occluded ? { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 } : {}),
       })))));
     }
 
-    for (const l of this.labels) {
-      const sprite = createTextSpriteCached(l.text, l.colorHex, l.fontSize);
+    for (const l of occluded ? thinLabels(this.labels, LOAD_LABEL_BUDGET) : this.labels) {
+      const sprite = createTextSpriteCached(l.text, l.colorHex, l.fontSize, false, occluded);
       sprite.position.set(l.x, l.y, l.z);
       sprite.renderOrder = 3;
       group.add(sprite);
     }
 
     return group;
+  }
+}
+
+/** Most load values drawn at once: each is a draw call, and past a few hundred they cover one another and the model. */
+export const LOAD_LABEL_BUDGET = 250;
+
+/**
+ * At most `budget` labels, spread over the model: one a cell of a grid made coarser until they fit,
+ * the first of each cell kept, so every part of the model still shows its values.
+ */
+export function thinLabels<L extends { x: number; y: number; z: number }>(labels: readonly L[], budget: number): L[] {
+  if (labels.length <= budget) return [...labels];
+  let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (const l of labels) { lo = [Math.min(lo[0]!, l.x), Math.min(lo[1]!, l.y), Math.min(lo[2]!, l.z)]; hi = [Math.max(hi[0]!, l.x), Math.max(hi[1]!, l.y), Math.max(hi[2]!, l.z)]; }
+  let cell = Math.max(1e-3, Math.hypot(hi[0]! - lo[0]!, hi[1]! - lo[1]!, hi[2]! - lo[2]!) / Math.sqrt(budget) / 4);
+  for (;;) {
+    const kept = new Map<string, L>();
+    for (const l of labels) { const k = `${Math.floor((l.x - lo[0]!) / cell)},${Math.floor((l.y - lo[1]!) / cell)},${Math.floor((l.z - lo[2]!) / cell)}`; if (!kept.has(k)) kept.set(k, l); }
+    if (kept.size <= budget) return [...kept.values()];
+    cell *= 1.25;
   }
 }
 

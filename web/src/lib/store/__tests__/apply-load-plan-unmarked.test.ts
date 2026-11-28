@@ -228,3 +228,62 @@ it('#2316 applying wind preserves the legacy E notice independently from the win
   expect(assessProject(saved, stampSolve('linear', null), 'pro').changes.map(change => change.id))
     .toEqual(['seismic-modal-generation-unavailable']);
 });
+
+it.each([false, true])('known wrong result: #1928 replacing planned loads keeps stair and architectural loads with alsoUnmarked=%s', async alsoUnmarked => {
+  const { serializeProject, deserializeProject } = await import('../file');
+  const { uiStore } = await import('../ui.svelte');
+  frame();
+  uiStore.analysisMode = 'pro';
+  const p = buildLoadPlan(planInput());
+  const opts = { clearExisting: true, bothSenses: true, nameOf, alsoUnmarked };
+  applyLoadPlan(p, opts);
+  const example = modelStore.loads.find(l => l.type === 'distributed3d' && l.data.generatedBy)!;
+  expect(example).toBeDefined();
+  const { modelFeatures } = await import('../../provenance/model-features');
+  const requiresReview = (load: Load) => {
+    const generatedBy = 'generatedBy' in load.data ? load.data.generatedBy : undefined;
+    return modelFeatures({ loads: [{ type: load.type, data: { generatedBy } }] }).has('independentlyGeneratedLoads');
+  };
+  expect(requiresReview(example)).toBe(false);
+  const owners = ['stair:st1', 'arch:walls', 'arch:rooms'];
+  const independentlyGenerated = owners.map(owner => {
+    const load = { ...example, data: { ...example.data, generatedBy: owner } } as Load;
+    return modelStore.addLoadEntry(load);
+  });
+  const definition = modelStore.addGroup('Independent dead pressure', 'floorLoad', {}, { data: {
+    caseId: example.data.caseId, q: 1, distribution: 'slab', target: { by: 'own' }, generatedBy: owners[2],
+  } });
+  const text = serializeProject();
+  modelStore.clear();
+  expect(deserializeProject(text)).toBe(true);
+  const original = modelStore.loads.filter(l => independentlyGenerated.includes(l.data.id));
+  expect(original).toHaveLength(owners.length);
+  for (const load of original) expect(requiresReview(load)).toBe(true);
+  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf);
+  expect(scope.generated.loads).toContain(example.data.id);
+  expect.soft(scope.generated.loads.filter(id => independentlyGenerated.includes(id))).toEqual([]);
+  expect.soft(scope.unmarked.loads.filter(id => independentlyGenerated.includes(id))).toEqual([]);
+  applyLoadPlan(p, opts);
+  expect.soft(modelStore.loads.filter(l => independentlyGenerated.includes(l.data.id))).toEqual(original);
+  expect.soft(modelStore.model.groups.has(definition)).toBe(true);
+  expect(modelStore.loads.some(l => l.data.id === example.data.id)).toBe(false);
+});
+
+it('known wrong result: #1928 the preview identifies owned floor definitions before replacing them', async () => {
+  const { previewLoadPlan } = await import('../apply-load-plan');
+  frame();
+  const p = buildLoadPlan(planInput());
+  const opts = { clearExisting: true, bothSenses: true, nameOf };
+  applyLoadPlan(p, opts);
+  const caseId = modelStore.loads.find(l => l.type === 'distributed3d')!.data.caseId!;
+  const def = { caseId, q: 1, distribution: 'slab', target: { by: 'own' } };
+  const own = modelStore.addGroup('Planner pressure', 'floorLoad', {}, { data: { ...def, generatedBy: p.generatedBy } });
+  const other = modelStore.addGroup('Independent pressure', 'floorLoad', {}, { data: { ...def, generatedBy: 'arch:rooms' } });
+  const preview = (replaceExisting: boolean) => previewLoadPlan(p, nameOf, { replaceExisting, bothSenses: { E: true } }).warnings;
+  const key = 'loadPlan.warning.replacedDefinitions';
+  expect.soft(preview(true).filter(w => w.key === key)).toMatchObject([{ params: { n: 1 } }]);
+  expect(preview(false).some(w => w.key === key)).toBe(false);
+  applyLoadPlan(p, opts);
+  expect(modelStore.model.groups.has(own)).toBe(false);
+  expect(modelStore.model.groups.has(other)).toBe(true);
+});

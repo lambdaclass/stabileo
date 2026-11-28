@@ -34,7 +34,9 @@ import { floorLoadBlockMessage, syncDefinedLoadsForAnalysis } from './defined-lo
 import { spectralCaseResults } from './spectral-cases';
 import { physicalGroups } from './physical';
 import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
-import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
+import { ensurePhysicalModel } from './plates-from-shells';
+import { preparePlatesForAnalysis } from './physical-plates';
+import { prepareDeferredSolveSlabs, platePreparationError } from './solve-slabs';
 
 export const RESIZE_STEP_M = 0.05;
 export const RESIZE_MAX_M = 1.2;
@@ -67,12 +69,18 @@ const REFUSED = new Set(['SEARCH_EXHAUSTED', 'SECTION_INADEQUATE']);
 /** What a beam's bars need of the column at a joint: room for the hook, a way between its bars. */
 const JOINT_LIMITS = new Set(['anchorage', 'congestion']);
 
-/** Solve the model as the «Calculate» button does, without the toasts: the deferred meshes, the defined loads, the combinations. */
+/** Solve the model as the «Calculate» button does, without the toasts: the plates meshed, the defined loads, the combinations. */
 export function solveForDesign(): boolean {
-  representFootprints();
-  meshDeferredSlabs();
-  const error = floorLoadBlockMessage();
+  const deferredError = prepareDeferredSolveSlabs(uiStore.analysisMode);
+  if (deferredError) {
+    resultsStore.clear3D();
+    uiStore.toast(deferredError, 'error');
+    return false;
+  }
+  const mesh = preparePlatesForAnalysis(ensurePhysicalModel);
+  const error = mesh.ok ? floorLoadBlockMessage() : platePreparationError(mesh);
   if (error) {
+    resultsStore.clear3D();
     uiStore.toast(error, 'error');
     return false;
   }

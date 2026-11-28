@@ -51,6 +51,7 @@ export interface MemberBars {
   bars: BarPath[];
   /** Unsupported conditions the generator reported for this member. */
   unsupported: string[];
+  checkCutoffs?: (placed: BarPath[]) => { conditions: UnsupportedCondition[]; trace: string[] };
   /** Maturity of the calculations behind this member's bars. */
   maturity: Maturity;
   /** Clauses applied. */
@@ -896,6 +897,18 @@ export function coordinateFloor(input: FloorCoordinationInput): FloorCoordinatio
   }
 
   // ── 7. Marks and state ──
+  const cutMembers = new Map(input.members.filter(member => member.checkCutoffs).map(member => [member.elementId, [] as BarPath[]]));
+  if (cutMembers.size) {
+    for (const bar of repair.bars) {
+      for (const owner of bar.ownerElementIds) cutMembers.get(owner)?.push(bar);
+    }
+    for (const member of input.members) {
+      if (!member.checkCutoffs) continue;
+      const checked = member.checkCutoffs(cutMembers.get(member.elementId)!);
+      unsupported.push(...checked.conditions);
+      trace.push(...checked.trace);
+    }
+  }
   const marks = assignMarks(repair.bars, input.kind === 'columnStack' ? 'C' : 'B');
   const evaluation = evaluateState({
     bars: repair.bars,

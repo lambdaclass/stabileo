@@ -43,6 +43,14 @@ export const PUBLIC_POLICY_AVAILABLE = typeof __PUBLIC_FEATURES_COMPILED__ === '
   ? (['research', 'tools', 'diagramGame', 'accounts'] as const).some(key => buildFeatures()[key])
   : __PUBLIC_FEATURES__.research || __PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame || __PUBLIC_FEATURES__.accounts;
 
+export function unifiedPlates(): boolean {
+  return typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().proPlatesUnified : __PUBLIC_FEATURES__.proPlatesUnified;
+}
+
+export function reinforcementSheets(): boolean {
+  return typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().proRcSheets : __PUBLIC_FEATURES__.proRcSheets;
+}
+
 export function globalAxes(): boolean {
   return typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().globalAxes : __PUBLIC_FEATURES__.globalAxes;
 }

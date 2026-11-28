@@ -1,0 +1,1160 @@
+stabileo-model 1
+# A seven-storey concrete block of flats on an 8.6 m city lot, columns against both party walls
+# and at the ends of the core walls: a lift shaft open through every floor to its overrun over the
+# roof and the slab that closes it, and a stairwell of 15 cm walls entered by a door from the hall
+# onto the floor's landing, with a U stair of two flights of nine risers and a landing a storey up
+# to the last floor, 26 cm thick for the 5.8 m it spans between its walls. The floor's
+# landing reaches the back of the lift shaft, so the floors are cut on the lines the core already has
+# and their meshes stay even. The wind blows on the front and the back only.
+name "Edificio entre medianeras de PB y 6 pisos"
+mode pro
+axes zUpStrongAxis
+
+node 1 0 0 0
+node 2 0 0 3
+node 3 0 0 5.8
+node 4 0 0 8.6
+node 5 0 0 11.4
+node 6 0 0 14.2
+node 7 0 0 17
+node 8 0 0 19.8
+node 9 0 4.5 0
+node 10 0 4.5 3
+node 11 0 4.5 5.8
+node 12 0 4.5 8.6
+node 13 0 4.5 11.4
+node 14 0 4.5 14.2
+node 15 0 4.5 17
+node 16 0 4.5 19.8
+node 17 0 8.5 0
+node 18 0 8.5 3
+node 19 0 8.5 5.8
+node 20 0 8.5 8.6
+node 21 0 8.5 11.4
+node 22 0 8.5 14.2
+node 23 0 8.5 17
+node 24 0 8.5 19.8
+node 25 0 11.7 0
+node 26 0 11.7 3
+node 27 0 11.7 5.8
+node 28 0 11.7 8.6
+node 29 0 11.7 11.4
+node 30 0 11.7 14.2
+node 31 0 11.7 17
+node 32 0 11.7 19.8
+node 33 0 16.2 0
+node 34 0 16.2 3
+node 35 0 16.2 5.8
+node 36 0 16.2 8.6
+node 37 0 16.2 11.4
+node 38 0 16.2 14.2
+node 39 0 16.2 17
+node 40 0 16.2 19.8
+node 41 0 20.7 0
+node 42 0 20.7 3
+node 43 0 20.7 5.8
+node 44 0 20.7 8.6
+node 45 0 20.7 11.4
+node 46 0 20.7 14.2
+node 47 0 20.7 17
+node 48 0 20.7 19.8
+node 49 4.2 0 0
+node 50 4.2 0 3
+node 51 4.2 0 5.8
+node 52 4.2 0 8.6
+node 53 4.2 0 11.4
+node 54 4.2 0 14.2
+node 55 4.2 0 17
+node 56 4.2 0 19.8
+node 57 4.2 4.5 0
+node 58 4.2 4.5 3
+node 59 4.2 4.5 5.8
+node 60 4.2 4.5 8.6
+node 61 4.2 4.5 11.4
+node 62 4.2 4.5 14.2
+node 63 4.2 4.5 17
+node 64 4.2 4.5 19.8
+node 65 4.2 8.5 0
+node 66 4.2 8.5 3
+node 67 4.2 8.5 5.8
+node 68 4.2 8.5 8.6
+node 69 4.2 8.5 11.4
+node 70 4.2 8.5 14.2
+node 71 4.2 8.5 17
+node 72 4.2 8.5 19.8
+node 73 4.2 11.7 0
+node 74 4.2 11.7 3
+node 75 4.2 11.7 5.8
+node 76 4.2 11.7 8.6
+node 77 4.2 11.7 11.4
+node 78 4.2 11.7 14.2
+node 79 4.2 11.7 17
+node 80 4.2 11.7 19.8
+node 81 4.2 16.2 0
+node 82 4.2 16.2 3
+node 83 4.2 16.2 5.8
+node 84 4.2 16.2 8.6
+node 85 4.2 16.2 11.4
+node 86 4.2 16.2 14.2
+node 87 4.2 16.2 17
+node 88 4.2 16.2 19.8
+node 89 4.2 20.7 0
+node 90 4.2 20.7 3
+node 91 4.2 20.7 5.8
+node 92 4.2 20.7 8.6
+node 93 4.2 20.7 11.4
+node 94 4.2 20.7 14.2
+node 95 4.2 20.7 17
+node 96 4.2 20.7 19.8
+node 97 8.4 0 0
+node 98 8.4 0 3
+node 99 8.4 0 5.8
+node 100 8.4 0 8.6
+node 101 8.4 0 11.4
+node 102 8.4 0 14.2
+node 103 8.4 0 17
+node 104 8.4 0 19.8
+node 105 8.4 4.5 0
+node 106 8.4 4.5 3
+node 107 8.4 4.5 5.8
+node 108 8.4 4.5 8.6
+node 109 8.4 4.5 11.4
+node 110 8.4 4.5 14.2
+node 111 8.4 4.5 17
+node 112 8.4 4.5 19.8
+node 113 8.4 8.5 0
+node 114 8.4 8.5 3
+node 115 8.4 8.5 5.8
+node 116 8.4 8.5 8.6
+node 117 8.4 8.5 11.4
+node 118 8.4 8.5 14.2
+node 119 8.4 8.5 17
+node 120 8.4 8.5 19.8
+node 121 8.4 11.7 0
+node 122 8.4 11.7 3
+node 123 8.4 11.7 5.8
+node 124 8.4 11.7 8.6
+node 125 8.4 11.7 11.4
+node 126 8.4 11.7 14.2
+node 127 8.4 11.7 17
+node 128 8.4 11.7 19.8
+node 129 8.4 16.2 0
+node 130 8.4 16.2 3
+node 131 8.4 16.2 5.8
+node 132 8.4 16.2 8.6
+node 133 8.4 16.2 11.4
+node 134 8.4 16.2 14.2
+node 135 8.4 16.2 17
+node 136 8.4 16.2 19.8
+node 137 8.4 20.7 0
+node 138 8.4 20.7 3
+node 139 8.4 20.7 5.8
+node 140 8.4 20.7 8.6
+node 141 8.4 20.7 11.4
+node 142 8.4 20.7 14.2
+node 143 8.4 20.7 17
+node 144 8.4 20.7 19.8
+node 145 0 10.46 0
+node 146 0 10.46 1.5
+node 147 0 8.5 1.5
+node 148 0 10.46 3
+node 149 0 10.46 4.4
+node 150 0 8.5 4.4
+node 151 0 10.46 5.8
+node 152 0 10.46 7.2
+node 153 0 8.5 7.2
+node 154 0 10.46 8.6
+node 155 0 10.46 10
+node 156 0 8.5 10
+node 157 0 10.46 11.4
+node 158 0 10.46 12.8
+node 159 0 8.5 12.8
+node 160 0 10.46 14.2
+node 161 0 10.46 15.6
+node 162 0 8.5 15.6
+node 163 0 10.46 17
+node 164 0 10.46 18.4
+node 165 0 8.5 18.4
+node 166 0 10.46 19.8
+node 167 0 10.46 21
+node 168 0 8.5 21
+node 169 1.9 10.46 0
+node 170 1.9 10.46 1.5
+node 171 1.9 10.46 3
+node 172 1.9 10.46 4.4
+node 173 1.9 10.46 5.8
+node 174 1.9 10.46 7.2
+node 175 1.9 10.46 8.6
+node 176 1.9 10.46 10
+node 177 1.9 10.46 11.4
+node 178 1.9 10.46 12.8
+node 179 1.9 10.46 14.2
+node 180 1.9 10.46 15.6
+node 181 1.9 10.46 17
+node 182 1.9 10.46 18.4
+node 183 1.9 10.46 19.8
+node 184 1.9 10.46 21
+node 185 1.9 8.5 0
+node 186 1.9 8.5 1.5
+node 187 1.9 8.5 3
+node 188 1.9 8.5 4.4
+node 189 1.9 8.5 5.8
+node 190 1.9 8.5 7.2
+node 191 1.9 8.5 8.6
+node 192 1.9 8.5 10
+node 193 1.9 8.5 11.4
+node 194 1.9 8.5 12.8
+node 195 1.9 8.5 14.2
+node 196 1.9 8.5 15.6
+node 197 1.9 8.5 17
+node 198 1.9 8.5 18.4
+node 199 1.9 8.5 19.8
+node 200 1.9 8.5 21
+node 201 1.9 14.3 0
+node 202 1.9 14.3 1.5
+node 203 1.9 14.3 3
+node 204 1.9 14.3 4.4
+node 205 1.9 14.3 5.8
+node 206 1.9 14.3 7.2
+node 207 1.9 14.3 8.6
+node 208 1.9 14.3 10
+node 209 1.9 14.3 11.4
+node 210 1.9 14.3 12.8
+node 211 1.9 14.3 14.2
+node 212 1.9 14.3 15.6
+node 213 1.9 14.3 17
+node 214 1.9 14.3 18.4
+node 215 1.9 14.3 19.8
+node 216 4.2 14.3 0
+node 217 4.2 14.3 1.5
+node 218 4.2 14.3 3
+node 219 4.2 14.3 4.4
+node 220 4.2 14.3 5.8
+node 221 4.2 14.3 7.2
+node 222 4.2 14.3 8.6
+node 223 4.2 14.3 10
+node 224 4.2 14.3 11.4
+node 225 4.2 14.3 12.8
+node 226 4.2 14.3 14.2
+node 227 4.2 14.3 15.6
+node 228 4.2 14.3 17
+node 229 4.2 14.3 18.4
+node 230 4.2 14.3 19.8
+node 231 4.2 8.5 1.5
+node 232 4.2 8.5 4.4
+node 233 4.2 8.5 7.2
+node 234 4.2 8.5 10
+node 235 4.2 8.5 12.8
+node 236 4.2 8.5 15.6
+node 237 4.2 8.5 18.4
+node 238 3.05 8.5 0
+node 239 4.2 8.5 2.1
+node 240 3.05 8.5 2.1
+node 241 3.05 8.5 3
+node 242 1.9 8.5 2.1
+node 243 4.2 8.5 5.1
+node 244 3.05 8.5 5.1
+node 245 3.05 8.5 5.8
+node 246 1.9 8.5 5.1
+node 247 4.2 8.5 7.9
+node 248 3.05 8.5 7.9
+node 249 3.05 8.5 8.6
+node 250 1.9 8.5 7.9
+node 251 4.2 8.5 10.7
+node 252 3.05 8.5 10.7
+node 253 3.05 8.5 11.4
+node 254 1.9 8.5 10.7
+node 255 4.2 8.5 13.5
+node 256 3.05 8.5 13.5
+node 257 3.05 8.5 14.2
+node 258 1.9 8.5 13.5
+node 259 4.2 8.5 16.3
+node 260 3.05 8.5 16.3
+node 261 3.05 8.5 17
+node 262 1.9 8.5 16.3
+node 263 4.2 8.5 19.1
+node 264 3.05 8.5 19.1
+node 265 3.05 8.5 19.8
+node 266 1.9 8.5 19.1
+node 267 1.9 0 3
+node 268 3.05 0 3
+node 269 1.9 4.5 3
+node 270 3.05 4.5 3
+node 271 1.9 16.2 3
+node 272 3.05 16.2 3
+node 273 1.9 20.7 3
+node 274 3.05 20.7 3
+node 275 0 14.3 3
+node 276 8.4 10.46 3
+node 277 8.4 14.3 3
+node 278 1.9 11.7 3
+node 279 4.2 10.46 3
+node 280 3.05 14.3 3
+node 281 1.9 0 5.8
+node 282 3.05 0 5.8
+node 283 1.9 4.5 5.8
+node 284 3.05 4.5 5.8
+node 285 1.9 16.2 5.8
+node 286 3.05 16.2 5.8
+node 287 1.9 20.7 5.8
+node 288 3.05 20.7 5.8
+node 289 0 14.3 5.8
+node 290 8.4 10.46 5.8
+node 291 8.4 14.3 5.8
+node 292 1.9 11.7 5.8
+node 293 4.2 10.46 5.8
+node 294 3.05 14.3 5.8
+node 295 1.9 0 8.6
+node 296 3.05 0 8.6
+node 297 1.9 4.5 8.6
+node 298 3.05 4.5 8.6
+node 299 1.9 16.2 8.6
+node 300 3.05 16.2 8.6
+node 301 1.9 20.7 8.6
+node 302 3.05 20.7 8.6
+node 303 0 14.3 8.6
+node 304 8.4 10.46 8.6
+node 305 8.4 14.3 8.6
+node 306 1.9 11.7 8.6
+node 307 4.2 10.46 8.6
+node 308 3.05 14.3 8.6
+node 309 1.9 0 11.4
+node 310 3.05 0 11.4
+node 311 1.9 4.5 11.4
+node 312 3.05 4.5 11.4
+node 313 1.9 16.2 11.4
+node 314 3.05 16.2 11.4
+node 315 1.9 20.7 11.4
+node 316 3.05 20.7 11.4
+node 317 0 14.3 11.4
+node 318 8.4 10.46 11.4
+node 319 8.4 14.3 11.4
+node 320 1.9 11.7 11.4
+node 321 4.2 10.46 11.4
+node 322 3.05 14.3 11.4
+node 323 1.9 0 14.2
+node 324 3.05 0 14.2
+node 325 1.9 4.5 14.2
+node 326 3.05 4.5 14.2
+node 327 1.9 16.2 14.2
+node 328 3.05 16.2 14.2
+node 329 1.9 20.7 14.2
+node 330 3.05 20.7 14.2
+node 331 0 14.3 14.2
+node 332 8.4 10.46 14.2
+node 333 8.4 14.3 14.2
+node 334 1.9 11.7 14.2
+node 335 4.2 10.46 14.2
+node 336 3.05 14.3 14.2
+node 337 1.9 0 17
+node 338 3.05 0 17
+node 339 1.9 4.5 17
+node 340 3.05 4.5 17
+node 341 1.9 16.2 17
+node 342 3.05 16.2 17
+node 343 1.9 20.7 17
+node 344 3.05 20.7 17
+node 345 0 14.3 17
+node 346 8.4 10.46 17
+node 347 8.4 14.3 17
+node 348 1.9 11.7 17
+node 349 4.2 10.46 17
+node 350 3.05 14.3 17
+node 351 1.9 0 19.8
+node 352 3.05 0 19.8
+node 353 1.9 4.5 19.8
+node 354 3.05 4.5 19.8
+node 355 1.9 16.2 19.8
+node 356 3.05 16.2 19.8
+node 357 1.9 20.7 19.8
+node 358 3.05 20.7 19.8
+node 359 0 14.3 19.8
+node 360 8.4 10.46 19.8
+node 361 8.4 14.3 19.8
+node 362 1.9 11.7 19.8
+node 363 3.05 10.46 19.8
+node 364 4.2 10.46 19.8
+node 365 3.05 11.7 19.8
+node 366 3.05 14.3 19.8
+node 367 2 10.46 0
+node 368 3.05 10.46 0
+node 369 3.05 13.1 1.5
+node 370 2 13.1 1.5
+node 371 1.9 13.1 1.5
+node 372 4.2 13.1 1.5
+node 373 4.1 13.1 1.5
+node 374 3.05 10.46 3
+node 375 4.1 10.46 3
+node 376 2 10.46 3
+node 377 3.05 13.1 4.4
+node 378 2 13.1 4.4
+node 379 1.9 13.1 4.4
+node 380 4.2 13.1 4.4
+node 381 4.1 13.1 4.4
+node 382 3.05 10.46 5.8
+node 383 4.1 10.46 5.8
+node 384 2 10.46 5.8
+node 385 3.05 13.1 7.2
+node 386 2 13.1 7.2
+node 387 1.9 13.1 7.2
+node 388 4.2 13.1 7.2
+node 389 4.1 13.1 7.2
+node 390 3.05 10.46 8.6
+node 391 4.1 10.46 8.6
+node 392 2 10.46 8.6
+node 393 3.05 13.1 10
+node 394 2 13.1 10
+node 395 1.9 13.1 10
+node 396 4.2 13.1 10
+node 397 4.1 13.1 10
+node 398 3.05 10.46 11.4
+node 399 4.1 10.46 11.4
+node 400 2 10.46 11.4
+node 401 3.05 13.1 12.8
+node 402 2 13.1 12.8
+node 403 1.9 13.1 12.8
+node 404 4.2 13.1 12.8
+node 405 4.1 13.1 12.8
+node 406 3.05 10.46 14.2
+node 407 4.1 10.46 14.2
+node 408 2 10.46 14.2
+node 409 3.05 13.1 15.6
+node 410 2 13.1 15.6
+node 411 1.9 13.1 15.6
+node 412 4.2 13.1 15.6
+node 413 4.1 13.1 15.6
+node 414 3.05 10.46 17
+node 415 4.1 10.46 17
+
+material 1 name="Hormigón H-25" e=23500 nu=0.2 rho=25 alpha=0.00001 fy=25
+section 1 name="Col 20×60" shape="rect" b=0.2 h=0.6 a=0.12 iy=0.0036 iz=0.0004 j=0.001264345679
+section 2 name="Viga 20×45" shape="rect" b=0.2 h=0.45 a=0.09 iy=0.00151875 iz=0.0003 j=0.0008650925164
+section 3 name="Jamba 15×15" declared=true a=0.0225 iy=0.0000422 iz=0.0000422 j=0.0000713
+member 1 frame 1 2 materialId=1 sectionId=1 rollAngle=90
+member 2 frame 2 3 materialId=1 sectionId=1 rollAngle=90
+member 3 frame 3 4 materialId=1 sectionId=1 rollAngle=90
+member 4 frame 4 5 materialId=1 sectionId=1 rollAngle=90
+member 5 frame 5 6 materialId=1 sectionId=1 rollAngle=90
+member 6 frame 6 7 materialId=1 sectionId=1 rollAngle=90
+member 7 frame 7 8 materialId=1 sectionId=1 rollAngle=90
+member 8 frame 9 10 materialId=1 sectionId=1 rollAngle=90
+member 9 frame 10 11 materialId=1 sectionId=1 rollAngle=90
+member 10 frame 11 12 materialId=1 sectionId=1 rollAngle=90
+member 11 frame 12 13 materialId=1 sectionId=1 rollAngle=90
+member 12 frame 13 14 materialId=1 sectionId=1 rollAngle=90
+member 13 frame 14 15 materialId=1 sectionId=1 rollAngle=90
+member 14 frame 15 16 materialId=1 sectionId=1 rollAngle=90
+member 15 frame 17 18 materialId=1 sectionId=1 rollAngle=90
+member 16 frame 18 19 materialId=1 sectionId=1 rollAngle=90
+member 17 frame 19 20 materialId=1 sectionId=1 rollAngle=90
+member 18 frame 20 21 materialId=1 sectionId=1 rollAngle=90
+member 19 frame 21 22 materialId=1 sectionId=1 rollAngle=90
+member 20 frame 22 23 materialId=1 sectionId=1 rollAngle=90
+member 21 frame 23 24 materialId=1 sectionId=1 rollAngle=90
+member 22 frame 25 26 materialId=1 sectionId=1 rollAngle=90
+member 23 frame 26 27 materialId=1 sectionId=1 rollAngle=90
+member 24 frame 27 28 materialId=1 sectionId=1 rollAngle=90
+member 25 frame 28 29 materialId=1 sectionId=1 rollAngle=90
+member 26 frame 29 30 materialId=1 sectionId=1 rollAngle=90
+member 27 frame 30 31 materialId=1 sectionId=1 rollAngle=90
+member 28 frame 31 32 materialId=1 sectionId=1 rollAngle=90
+member 29 frame 33 34 materialId=1 sectionId=1 rollAngle=90
+member 30 frame 34 35 materialId=1 sectionId=1 rollAngle=90
+member 31 frame 35 36 materialId=1 sectionId=1 rollAngle=90
+member 32 frame 36 37 materialId=1 sectionId=1 rollAngle=90
+member 33 frame 37 38 materialId=1 sectionId=1 rollAngle=90
+member 34 frame 38 39 materialId=1 sectionId=1 rollAngle=90
+member 35 frame 39 40 materialId=1 sectionId=1 rollAngle=90
+member 36 frame 41 42 materialId=1 sectionId=1 rollAngle=90
+member 37 frame 42 43 materialId=1 sectionId=1 rollAngle=90
+member 38 frame 43 44 materialId=1 sectionId=1 rollAngle=90
+member 39 frame 44 45 materialId=1 sectionId=1 rollAngle=90
+member 40 frame 45 46 materialId=1 sectionId=1 rollAngle=90
+member 41 frame 46 47 materialId=1 sectionId=1 rollAngle=90
+member 42 frame 47 48 materialId=1 sectionId=1 rollAngle=90
+member 43 frame 49 50 materialId=1 sectionId=1 rollAngle=90
+member 44 frame 50 51 materialId=1 sectionId=1 rollAngle=90
+member 45 frame 51 52 materialId=1 sectionId=1 rollAngle=90
+member 46 frame 52 53 materialId=1 sectionId=1 rollAngle=90
+member 47 frame 53 54 materialId=1 sectionId=1 rollAngle=90
+member 48 frame 54 55 materialId=1 sectionId=1 rollAngle=90
+member 49 frame 55 56 materialId=1 sectionId=1 rollAngle=90
+member 50 frame 57 58 materialId=1 sectionId=1 rollAngle=90
+member 51 frame 58 59 materialId=1 sectionId=1 rollAngle=90
+member 52 frame 59 60 materialId=1 sectionId=1 rollAngle=90
+member 53 frame 60 61 materialId=1 sectionId=1 rollAngle=90
+member 54 frame 61 62 materialId=1 sectionId=1 rollAngle=90
+member 55 frame 62 63 materialId=1 sectionId=1 rollAngle=90
+member 56 frame 63 64 materialId=1 sectionId=1 rollAngle=90
+member 57 frame 65 66 materialId=1 sectionId=1 rollAngle=90
+member 58 frame 66 67 materialId=1 sectionId=1 rollAngle=90
+member 59 frame 67 68 materialId=1 sectionId=1 rollAngle=90
+member 60 frame 68 69 materialId=1 sectionId=1 rollAngle=90
+member 61 frame 69 70 materialId=1 sectionId=1 rollAngle=90
+member 62 frame 70 71 materialId=1 sectionId=1 rollAngle=90
+member 63 frame 71 72 materialId=1 sectionId=1 rollAngle=90
+member 64 frame 73 74 materialId=1 sectionId=1 rollAngle=90
+member 65 frame 74 75 materialId=1 sectionId=1 rollAngle=90
+member 66 frame 75 76 materialId=1 sectionId=1 rollAngle=90
+member 67 frame 76 77 materialId=1 sectionId=1 rollAngle=90
+member 68 frame 77 78 materialId=1 sectionId=1 rollAngle=90
+member 69 frame 78 79 materialId=1 sectionId=1 rollAngle=90
+member 70 frame 79 80 materialId=1 sectionId=1 rollAngle=90
+member 71 frame 81 82 materialId=1 sectionId=1 rollAngle=90
+member 72 frame 82 83 materialId=1 sectionId=1 rollAngle=90
+member 73 frame 83 84 materialId=1 sectionId=1 rollAngle=90
+member 74 frame 84 85 materialId=1 sectionId=1 rollAngle=90
+member 75 frame 85 86 materialId=1 sectionId=1 rollAngle=90
+member 76 frame 86 87 materialId=1 sectionId=1 rollAngle=90
+member 77 frame 87 88 materialId=1 sectionId=1 rollAngle=90
+member 78 frame 89 90 materialId=1 sectionId=1 rollAngle=90
+member 79 frame 90 91 materialId=1 sectionId=1 rollAngle=90
+member 80 frame 91 92 materialId=1 sectionId=1 rollAngle=90
+member 81 frame 92 93 materialId=1 sectionId=1 rollAngle=90
+member 82 frame 93 94 materialId=1 sectionId=1 rollAngle=90
+member 83 frame 94 95 materialId=1 sectionId=1 rollAngle=90
+member 84 frame 95 96 materialId=1 sectionId=1 rollAngle=90
+member 85 frame 97 98 materialId=1 sectionId=1 rollAngle=90
+member 86 frame 98 99 materialId=1 sectionId=1 rollAngle=90
+member 87 frame 99 100 materialId=1 sectionId=1 rollAngle=90
+member 88 frame 100 101 materialId=1 sectionId=1 rollAngle=90
+member 89 frame 101 102 materialId=1 sectionId=1 rollAngle=90
+member 90 frame 102 103 materialId=1 sectionId=1 rollAngle=90
+member 91 frame 103 104 materialId=1 sectionId=1 rollAngle=90
+member 92 frame 105 106 materialId=1 sectionId=1 rollAngle=90
+member 93 frame 106 107 materialId=1 sectionId=1 rollAngle=90
+member 94 frame 107 108 materialId=1 sectionId=1 rollAngle=90
+member 95 frame 108 109 materialId=1 sectionId=1 rollAngle=90
+member 96 frame 109 110 materialId=1 sectionId=1 rollAngle=90
+member 97 frame 110 111 materialId=1 sectionId=1 rollAngle=90
+member 98 frame 111 112 materialId=1 sectionId=1 rollAngle=90
+member 99 frame 113 114 materialId=1 sectionId=1 rollAngle=90
+member 100 frame 114 115 materialId=1 sectionId=1 rollAngle=90
+member 101 frame 115 116 materialId=1 sectionId=1 rollAngle=90
+member 102 frame 116 117 materialId=1 sectionId=1 rollAngle=90
+member 103 frame 117 118 materialId=1 sectionId=1 rollAngle=90
+member 104 frame 118 119 materialId=1 sectionId=1 rollAngle=90
+member 105 frame 119 120 materialId=1 sectionId=1 rollAngle=90
+member 106 frame 121 122 materialId=1 sectionId=1 rollAngle=90
+member 107 frame 122 123 materialId=1 sectionId=1 rollAngle=90
+member 108 frame 123 124 materialId=1 sectionId=1 rollAngle=90
+member 109 frame 124 125 materialId=1 sectionId=1 rollAngle=90
+member 110 frame 125 126 materialId=1 sectionId=1 rollAngle=90
+member 111 frame 126 127 materialId=1 sectionId=1 rollAngle=90
+member 112 frame 127 128 materialId=1 sectionId=1 rollAngle=90
+member 113 frame 129 130 materialId=1 sectionId=1 rollAngle=90
+member 114 frame 130 131 materialId=1 sectionId=1 rollAngle=90
+member 115 frame 131 132 materialId=1 sectionId=1 rollAngle=90
+member 116 frame 132 133 materialId=1 sectionId=1 rollAngle=90
+member 117 frame 133 134 materialId=1 sectionId=1 rollAngle=90
+member 118 frame 134 135 materialId=1 sectionId=1 rollAngle=90
+member 119 frame 135 136 materialId=1 sectionId=1 rollAngle=90
+member 120 frame 137 138 materialId=1 sectionId=1 rollAngle=90
+member 121 frame 138 139 materialId=1 sectionId=1 rollAngle=90
+member 122 frame 139 140 materialId=1 sectionId=1 rollAngle=90
+member 123 frame 140 141 materialId=1 sectionId=1 rollAngle=90
+member 124 frame 141 142 materialId=1 sectionId=1 rollAngle=90
+member 125 frame 142 143 materialId=1 sectionId=1 rollAngle=90
+member 126 frame 143 144 materialId=1 sectionId=1 rollAngle=90
+member 127 frame 24 168 materialId=1 sectionId=3
+member 128 frame 199 200 materialId=1 sectionId=3
+member 129 frame 183 184 materialId=1 sectionId=3
+member 130 frame 166 167 materialId=1 sectionId=3
+member 131 frame 2 267 materialId=1 sectionId=2
+member 132 frame 267 268 materialId=1 sectionId=2
+member 133 frame 268 50 materialId=1 sectionId=2
+member 134 frame 50 98 materialId=1 sectionId=2
+member 135 frame 10 269 materialId=1 sectionId=2
+member 136 frame 269 270 materialId=1 sectionId=2
+member 137 frame 270 58 materialId=1 sectionId=2
+member 138 frame 58 106 materialId=1 sectionId=2
+member 139 frame 18 187 materialId=1 sectionId=2
+member 140 frame 187 241 materialId=1 sectionId=2
+member 141 frame 241 66 materialId=1 sectionId=2
+member 142 frame 66 114 materialId=1 sectionId=2
+member 143 frame 74 122 materialId=1 sectionId=2
+member 144 frame 34 271 materialId=1 sectionId=2
+member 145 frame 271 272 materialId=1 sectionId=2
+member 146 frame 272 82 materialId=1 sectionId=2
+member 147 frame 82 130 materialId=1 sectionId=2
+member 148 frame 42 273 materialId=1 sectionId=2
+member 149 frame 273 274 materialId=1 sectionId=2
+member 150 frame 274 90 materialId=1 sectionId=2
+member 151 frame 90 138 materialId=1 sectionId=2
+member 152 frame 2 10 materialId=1 sectionId=2
+member 153 frame 10 18 materialId=1 sectionId=2
+member 154 frame 26 275 materialId=1 sectionId=2
+member 155 frame 275 34 materialId=1 sectionId=2
+member 156 frame 34 42 materialId=1 sectionId=2
+member 157 frame 50 58 materialId=1 sectionId=2
+member 158 frame 58 66 materialId=1 sectionId=2
+member 159 frame 74 218 materialId=1 sectionId=2
+member 160 frame 218 82 materialId=1 sectionId=2
+member 161 frame 82 90 materialId=1 sectionId=2
+member 162 frame 98 106 materialId=1 sectionId=2
+member 163 frame 106 114 materialId=1 sectionId=2
+member 164 frame 114 276 materialId=1 sectionId=2
+member 165 frame 276 122 materialId=1 sectionId=2
+member 166 frame 122 277 materialId=1 sectionId=2
+member 167 frame 277 130 materialId=1 sectionId=2
+member 168 frame 130 138 materialId=1 sectionId=2
+member 169 frame 148 26 materialId=1 sectionId=2
+member 170 frame 26 278 materialId=1 sectionId=2
+member 171 frame 3 281 materialId=1 sectionId=2
+member 172 frame 281 282 materialId=1 sectionId=2
+member 173 frame 282 51 materialId=1 sectionId=2
+member 174 frame 51 99 materialId=1 sectionId=2
+member 175 frame 11 283 materialId=1 sectionId=2
+member 176 frame 283 284 materialId=1 sectionId=2
+member 177 frame 284 59 materialId=1 sectionId=2
+member 178 frame 59 107 materialId=1 sectionId=2
+member 179 frame 19 189 materialId=1 sectionId=2
+member 180 frame 189 245 materialId=1 sectionId=2
+member 181 frame 245 67 materialId=1 sectionId=2
+member 182 frame 67 115 materialId=1 sectionId=2
+member 183 frame 75 123 materialId=1 sectionId=2
+member 184 frame 35 285 materialId=1 sectionId=2
+member 185 frame 285 286 materialId=1 sectionId=2
+member 186 frame 286 83 materialId=1 sectionId=2
+member 187 frame 83 131 materialId=1 sectionId=2
+member 188 frame 43 287 materialId=1 sectionId=2
+member 189 frame 287 288 materialId=1 sectionId=2
+member 190 frame 288 91 materialId=1 sectionId=2
+member 191 frame 91 139 materialId=1 sectionId=2
+member 192 frame 3 11 materialId=1 sectionId=2
+member 193 frame 11 19 materialId=1 sectionId=2
+member 194 frame 27 289 materialId=1 sectionId=2
+member 195 frame 289 35 materialId=1 sectionId=2
+member 196 frame 35 43 materialId=1 sectionId=2
+member 197 frame 51 59 materialId=1 sectionId=2
+member 198 frame 59 67 materialId=1 sectionId=2
+member 199 frame 75 220 materialId=1 sectionId=2
+member 200 frame 220 83 materialId=1 sectionId=2
+member 201 frame 83 91 materialId=1 sectionId=2
+member 202 frame 99 107 materialId=1 sectionId=2
+member 203 frame 107 115 materialId=1 sectionId=2
+member 204 frame 115 290 materialId=1 sectionId=2
+member 205 frame 290 123 materialId=1 sectionId=2
+member 206 frame 123 291 materialId=1 sectionId=2
+member 207 frame 291 131 materialId=1 sectionId=2
+member 208 frame 131 139 materialId=1 sectionId=2
+member 209 frame 151 27 materialId=1 sectionId=2
+member 210 frame 27 292 materialId=1 sectionId=2
+member 211 frame 4 295 materialId=1 sectionId=2
+member 212 frame 295 296 materialId=1 sectionId=2
+member 213 frame 296 52 materialId=1 sectionId=2
+member 214 frame 52 100 materialId=1 sectionId=2
+member 215 frame 12 297 materialId=1 sectionId=2
+member 216 frame 297 298 materialId=1 sectionId=2
+member 217 frame 298 60 materialId=1 sectionId=2
+member 218 frame 60 108 materialId=1 sectionId=2
+member 219 frame 20 191 materialId=1 sectionId=2
+member 220 frame 191 249 materialId=1 sectionId=2
+member 221 frame 249 68 materialId=1 sectionId=2
+member 222 frame 68 116 materialId=1 sectionId=2
+member 223 frame 76 124 materialId=1 sectionId=2
+member 224 frame 36 299 materialId=1 sectionId=2
+member 225 frame 299 300 materialId=1 sectionId=2
+member 226 frame 300 84 materialId=1 sectionId=2
+member 227 frame 84 132 materialId=1 sectionId=2
+member 228 frame 44 301 materialId=1 sectionId=2
+member 229 frame 301 302 materialId=1 sectionId=2
+member 230 frame 302 92 materialId=1 sectionId=2
+member 231 frame 92 140 materialId=1 sectionId=2
+member 232 frame 4 12 materialId=1 sectionId=2
+member 233 frame 12 20 materialId=1 sectionId=2
+member 234 frame 28 303 materialId=1 sectionId=2
+member 235 frame 303 36 materialId=1 sectionId=2
+member 236 frame 36 44 materialId=1 sectionId=2
+member 237 frame 52 60 materialId=1 sectionId=2
+member 238 frame 60 68 materialId=1 sectionId=2
+member 239 frame 76 222 materialId=1 sectionId=2
+member 240 frame 222 84 materialId=1 sectionId=2
+member 241 frame 84 92 materialId=1 sectionId=2
+member 242 frame 100 108 materialId=1 sectionId=2
+member 243 frame 108 116 materialId=1 sectionId=2
+member 244 frame 116 304 materialId=1 sectionId=2
+member 245 frame 304 124 materialId=1 sectionId=2
+member 246 frame 124 305 materialId=1 sectionId=2
+member 247 frame 305 132 materialId=1 sectionId=2
+member 248 frame 132 140 materialId=1 sectionId=2
+member 249 frame 154 28 materialId=1 sectionId=2
+member 250 frame 28 306 materialId=1 sectionId=2
+member 251 frame 5 309 materialId=1 sectionId=2
+member 252 frame 309 310 materialId=1 sectionId=2
+member 253 frame 310 53 materialId=1 sectionId=2
+member 254 frame 53 101 materialId=1 sectionId=2
+member 255 frame 13 311 materialId=1 sectionId=2
+member 256 frame 311 312 materialId=1 sectionId=2
+member 257 frame 312 61 materialId=1 sectionId=2
+member 258 frame 61 109 materialId=1 sectionId=2
+member 259 frame 21 193 materialId=1 sectionId=2
+member 260 frame 193 253 materialId=1 sectionId=2
+member 261 frame 253 69 materialId=1 sectionId=2
+member 262 frame 69 117 materialId=1 sectionId=2
+member 263 frame 77 125 materialId=1 sectionId=2
+member 264 frame 37 313 materialId=1 sectionId=2
+member 265 frame 313 314 materialId=1 sectionId=2
+member 266 frame 314 85 materialId=1 sectionId=2
+member 267 frame 85 133 materialId=1 sectionId=2
+member 268 frame 45 315 materialId=1 sectionId=2
+member 269 frame 315 316 materialId=1 sectionId=2
+member 270 frame 316 93 materialId=1 sectionId=2
+member 271 frame 93 141 materialId=1 sectionId=2
+member 272 frame 5 13 materialId=1 sectionId=2
+member 273 frame 13 21 materialId=1 sectionId=2
+member 274 frame 29 317 materialId=1 sectionId=2
+member 275 frame 317 37 materialId=1 sectionId=2
+member 276 frame 37 45 materialId=1 sectionId=2
+member 277 frame 53 61 materialId=1 sectionId=2
+member 278 frame 61 69 materialId=1 sectionId=2
+member 279 frame 77 224 materialId=1 sectionId=2
+member 280 frame 224 85 materialId=1 sectionId=2
+member 281 frame 85 93 materialId=1 sectionId=2
+member 282 frame 101 109 materialId=1 sectionId=2
+member 283 frame 109 117 materialId=1 sectionId=2
+member 284 frame 117 318 materialId=1 sectionId=2
+member 285 frame 318 125 materialId=1 sectionId=2
+member 286 frame 125 319 materialId=1 sectionId=2
+member 287 frame 319 133 materialId=1 sectionId=2
+member 288 frame 133 141 materialId=1 sectionId=2
+member 289 frame 157 29 materialId=1 sectionId=2
+member 290 frame 29 320 materialId=1 sectionId=2
+member 291 frame 6 323 materialId=1 sectionId=2
+member 292 frame 323 324 materialId=1 sectionId=2
+member 293 frame 324 54 materialId=1 sectionId=2
+member 294 frame 54 102 materialId=1 sectionId=2
+member 295 frame 14 325 materialId=1 sectionId=2
+member 296 frame 325 326 materialId=1 sectionId=2
+member 297 frame 326 62 materialId=1 sectionId=2
+member 298 frame 62 110 materialId=1 sectionId=2
+member 299 frame 22 195 materialId=1 sectionId=2
+member 300 frame 195 257 materialId=1 sectionId=2
+member 301 frame 257 70 materialId=1 sectionId=2
+member 302 frame 70 118 materialId=1 sectionId=2
+member 303 frame 78 126 materialId=1 sectionId=2
+member 304 frame 38 327 materialId=1 sectionId=2
+member 305 frame 327 328 materialId=1 sectionId=2
+member 306 frame 328 86 materialId=1 sectionId=2
+member 307 frame 86 134 materialId=1 sectionId=2
+member 308 frame 46 329 materialId=1 sectionId=2
+member 309 frame 329 330 materialId=1 sectionId=2
+member 310 frame 330 94 materialId=1 sectionId=2
+member 311 frame 94 142 materialId=1 sectionId=2
+member 312 frame 6 14 materialId=1 sectionId=2
+member 313 frame 14 22 materialId=1 sectionId=2
+member 314 frame 30 331 materialId=1 sectionId=2
+member 315 frame 331 38 materialId=1 sectionId=2
+member 316 frame 38 46 materialId=1 sectionId=2
+member 317 frame 54 62 materialId=1 sectionId=2
+member 318 frame 62 70 materialId=1 sectionId=2
+member 319 frame 78 226 materialId=1 sectionId=2
+member 320 frame 226 86 materialId=1 sectionId=2
+member 321 frame 86 94 materialId=1 sectionId=2
+member 322 frame 102 110 materialId=1 sectionId=2
+member 323 frame 110 118 materialId=1 sectionId=2
+member 324 frame 118 332 materialId=1 sectionId=2
+member 325 frame 332 126 materialId=1 sectionId=2
+member 326 frame 126 333 materialId=1 sectionId=2
+member 327 frame 333 134 materialId=1 sectionId=2
+member 328 frame 134 142 materialId=1 sectionId=2
+member 329 frame 160 30 materialId=1 sectionId=2
+member 330 frame 30 334 materialId=1 sectionId=2
+member 331 frame 7 337 materialId=1 sectionId=2
+member 332 frame 337 338 materialId=1 sectionId=2
+member 333 frame 338 55 materialId=1 sectionId=2
+member 334 frame 55 103 materialId=1 sectionId=2
+member 335 frame 15 339 materialId=1 sectionId=2
+member 336 frame 339 340 materialId=1 sectionId=2
+member 337 frame 340 63 materialId=1 sectionId=2
+member 338 frame 63 111 materialId=1 sectionId=2
+member 339 frame 23 197 materialId=1 sectionId=2
+member 340 frame 197 261 materialId=1 sectionId=2
+member 341 frame 261 71 materialId=1 sectionId=2
+member 342 frame 71 119 materialId=1 sectionId=2
+member 343 frame 79 127 materialId=1 sectionId=2
+member 344 frame 39 341 materialId=1 sectionId=2
+member 345 frame 341 342 materialId=1 sectionId=2
+member 346 frame 342 87 materialId=1 sectionId=2
+member 347 frame 87 135 materialId=1 sectionId=2
+member 348 frame 47 343 materialId=1 sectionId=2
+member 349 frame 343 344 materialId=1 sectionId=2
+member 350 frame 344 95 materialId=1 sectionId=2
+member 351 frame 95 143 materialId=1 sectionId=2
+member 352 frame 7 15 materialId=1 sectionId=2
+member 353 frame 15 23 materialId=1 sectionId=2
+member 354 frame 31 345 materialId=1 sectionId=2
+member 355 frame 345 39 materialId=1 sectionId=2
+member 356 frame 39 47 materialId=1 sectionId=2
+member 357 frame 55 63 materialId=1 sectionId=2
+member 358 frame 63 71 materialId=1 sectionId=2
+member 359 frame 79 228 materialId=1 sectionId=2
+member 360 frame 228 87 materialId=1 sectionId=2
+member 361 frame 87 95 materialId=1 sectionId=2
+member 362 frame 103 111 materialId=1 sectionId=2
+member 363 frame 111 119 materialId=1 sectionId=2
+member 364 frame 119 346 materialId=1 sectionId=2
+member 365 frame 346 127 materialId=1 sectionId=2
+member 366 frame 127 347 materialId=1 sectionId=2
+member 367 frame 347 135 materialId=1 sectionId=2
+member 368 frame 135 143 materialId=1 sectionId=2
+member 369 frame 163 31 materialId=1 sectionId=2
+member 370 frame 31 348 materialId=1 sectionId=2
+member 371 frame 8 351 materialId=1 sectionId=2
+member 372 frame 351 352 materialId=1 sectionId=2
+member 373 frame 352 56 materialId=1 sectionId=2
+member 374 frame 56 104 materialId=1 sectionId=2
+member 375 frame 16 353 materialId=1 sectionId=2
+member 376 frame 353 354 materialId=1 sectionId=2
+member 377 frame 354 64 materialId=1 sectionId=2
+member 378 frame 64 112 materialId=1 sectionId=2
+member 379 frame 24 199 materialId=1 sectionId=2
+member 380 frame 199 265 materialId=1 sectionId=2
+member 381 frame 265 72 materialId=1 sectionId=2
+member 382 frame 72 120 materialId=1 sectionId=2
+member 383 frame 80 128 materialId=1 sectionId=2
+member 384 frame 40 355 materialId=1 sectionId=2
+member 385 frame 355 356 materialId=1 sectionId=2
+member 386 frame 356 88 materialId=1 sectionId=2
+member 387 frame 88 136 materialId=1 sectionId=2
+member 388 frame 48 357 materialId=1 sectionId=2
+member 389 frame 357 358 materialId=1 sectionId=2
+member 390 frame 358 96 materialId=1 sectionId=2
+member 391 frame 96 144 materialId=1 sectionId=2
+member 392 frame 8 16 materialId=1 sectionId=2
+member 393 frame 16 24 materialId=1 sectionId=2
+member 394 frame 32 359 materialId=1 sectionId=2
+member 395 frame 359 40 materialId=1 sectionId=2
+member 396 frame 40 48 materialId=1 sectionId=2
+member 397 frame 56 64 materialId=1 sectionId=2
+member 398 frame 64 72 materialId=1 sectionId=2
+member 399 frame 80 230 materialId=1 sectionId=2
+member 400 frame 230 88 materialId=1 sectionId=2
+member 401 frame 88 96 materialId=1 sectionId=2
+member 402 frame 104 112 materialId=1 sectionId=2
+member 403 frame 112 120 materialId=1 sectionId=2
+member 404 frame 120 360 materialId=1 sectionId=2
+member 405 frame 360 128 materialId=1 sectionId=2
+member 406 frame 128 361 materialId=1 sectionId=2
+member 407 frame 361 136 materialId=1 sectionId=2
+member 408 frame 136 144 materialId=1 sectionId=2
+member 409 frame 166 32 materialId=1 sectionId=2
+member 410 frame 32 362 materialId=1 sectionId=2
+
+grid {"axes":[{"id":"ax-x1","name":"1","axis":"x","at":0},{"id":"ax-x2","name":"2","axis":"x","at":4.2},{"id":"ax-x3","name":"3","axis":"x","at":8.4},{"id":"ax-y1","name":"A","axis":"y","at":0},{"id":"ax-y2","name":"B","axis":"y","at":4.5},{"id":"ax-y3","name":"C","axis":"y","at":8.5},{"id":"ax-y4","name":"D","axis":"y","at":11.7},{"id":"ax-y5","name":"E","axis":"y","at":16.2},{"id":"ax-y6","name":"F","axis":"y","at":20.7}],"levels":[{"id":"lv-0","name":"PB","z":0},{"id":"lv-1","name":"1º piso","z":3},{"id":"lv-2","name":"2º piso","z":5.8},{"id":"lv-3","name":"3º piso","z":8.6},{"id":"lv-4","name":"4º piso","z":11.4},{"id":"lv-5","name":"5º piso","z":14.2},{"id":"lv-6","name":"6º piso","z":17},{"id":"lv-7","name":"Azotea","z":19.8},{"id":"lv-8","name":"Sobre-recorrido","z":21}]}
+support 1 1 fixed3d
+support 2 9 fixed3d
+support 3 17 fixed3d
+support 4 25 fixed3d
+support 5 33 fixed3d
+support 6 41 fixed3d
+support 7 49 fixed3d
+support 8 57 fixed3d
+support 9 65 fixed3d
+support 10 73 fixed3d
+support 11 81 fixed3d
+support 12 89 fixed3d
+support 13 97 fixed3d
+support 14 105 fixed3d
+support 15 113 fixed3d
+support 16 121 fixed3d
+support 17 129 fixed3d
+support 18 137 fixed3d
+support 19 145 fixed3d
+group 1 physicalMember "Tabique ascensor 1 · PB (abajo)" members={"nodes":[17,145,146,147]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[{"from":17,"to":145,"type":"fixed3d"}]}}
+group 2 physicalMember "Tabique ascensor 1 · PB (arriba)" members={"nodes":[147,146,148,18]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 3 physicalMember "Tabique ascensor 1 · 1º piso (abajo)" members={"nodes":[18,148,149,150]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 4 physicalMember "Tabique ascensor 1 · 1º piso (arriba)" members={"nodes":[150,149,151,19]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 5 physicalMember "Tabique ascensor 1 · 2º piso (abajo)" members={"nodes":[19,151,152,153]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 6 physicalMember "Tabique ascensor 1 · 2º piso (arriba)" members={"nodes":[153,152,154,20]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 7 physicalMember "Tabique ascensor 1 · 3º piso (abajo)" members={"nodes":[20,154,155,156]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 8 physicalMember "Tabique ascensor 1 · 3º piso (arriba)" members={"nodes":[156,155,157,21]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 9 physicalMember "Tabique ascensor 1 · 4º piso (abajo)" members={"nodes":[21,157,158,159]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 10 physicalMember "Tabique ascensor 1 · 4º piso (arriba)" members={"nodes":[159,158,160,22]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 11 physicalMember "Tabique ascensor 1 · 5º piso (abajo)" members={"nodes":[22,160,161,162]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 12 physicalMember "Tabique ascensor 1 · 5º piso (arriba)" members={"nodes":[162,161,163,23]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 13 physicalMember "Tabique ascensor 1 · 6º piso (abajo)" members={"nodes":[23,163,164,165]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 14 physicalMember "Tabique ascensor 1 · 6º piso (arriba)" members={"nodes":[165,164,166,24]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 15 physicalMember "Tabique ascensor 1 · Azotea" members={"nodes":[24,166,167,168]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-7","levelTo":"lv-8","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+support 20 169 fixed3d
+group 16 physicalMember "Tabique ascensor 2 · PB (abajo)" members={"nodes":[145,169,170,146]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[{"from":145,"to":169,"type":"fixed3d"}]}}
+group 17 physicalMember "Tabique ascensor 2 · PB (arriba)" members={"nodes":[146,170,171,148]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 18 physicalMember "Tabique ascensor 2 · 1º piso (abajo)" members={"nodes":[148,171,172,149]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 19 physicalMember "Tabique ascensor 2 · 1º piso (arriba)" members={"nodes":[149,172,173,151]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 20 physicalMember "Tabique ascensor 2 · 2º piso (abajo)" members={"nodes":[151,173,174,152]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 21 physicalMember "Tabique ascensor 2 · 2º piso (arriba)" members={"nodes":[152,174,175,154]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 22 physicalMember "Tabique ascensor 2 · 3º piso (abajo)" members={"nodes":[154,175,176,155]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 23 physicalMember "Tabique ascensor 2 · 3º piso (arriba)" members={"nodes":[155,176,177,157]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 24 physicalMember "Tabique ascensor 2 · 4º piso (abajo)" members={"nodes":[157,177,178,158]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 25 physicalMember "Tabique ascensor 2 · 4º piso (arriba)" members={"nodes":[158,178,179,160]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 26 physicalMember "Tabique ascensor 2 · 5º piso (abajo)" members={"nodes":[160,179,180,161]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 27 physicalMember "Tabique ascensor 2 · 5º piso (arriba)" members={"nodes":[161,180,181,163]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 28 physicalMember "Tabique ascensor 2 · 6º piso (abajo)" members={"nodes":[163,181,182,164]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 29 physicalMember "Tabique ascensor 2 · 6º piso (arriba)" members={"nodes":[164,182,183,166]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 30 physicalMember "Tabique ascensor 2 · Azotea" members={"nodes":[166,183,184,167]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-7","levelTo":"lv-8","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+support 21 185 fixed3d
+group 31 physicalMember "Tabique ascensor 3 · PB (abajo)" members={"nodes":[185,169,170,186]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[{"from":185,"to":169,"type":"fixed3d"}]}}
+group 32 physicalMember "Tabique ascensor 3 · PB (arriba)" members={"nodes":[186,170,171,187]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 33 physicalMember "Tabique ascensor 3 · 1º piso (abajo)" members={"nodes":[187,171,172,188]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 34 physicalMember "Tabique ascensor 3 · 1º piso (arriba)" members={"nodes":[188,172,173,189]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 35 physicalMember "Tabique ascensor 3 · 2º piso (abajo)" members={"nodes":[189,173,174,190]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 36 physicalMember "Tabique ascensor 3 · 2º piso (arriba)" members={"nodes":[190,174,175,191]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 37 physicalMember "Tabique ascensor 3 · 3º piso (abajo)" members={"nodes":[191,175,176,192]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 38 physicalMember "Tabique ascensor 3 · 3º piso (arriba)" members={"nodes":[192,176,177,193]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 39 physicalMember "Tabique ascensor 3 · 4º piso (abajo)" members={"nodes":[193,177,178,194]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 40 physicalMember "Tabique ascensor 3 · 4º piso (arriba)" members={"nodes":[194,178,179,195]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 41 physicalMember "Tabique ascensor 3 · 5º piso (abajo)" members={"nodes":[195,179,180,196]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 42 physicalMember "Tabique ascensor 3 · 5º piso (arriba)" members={"nodes":[196,180,181,197]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 43 physicalMember "Tabique ascensor 3 · 6º piso (abajo)" members={"nodes":[197,181,182,198]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 44 physicalMember "Tabique ascensor 3 · 6º piso (arriba)" members={"nodes":[198,182,183,199]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 45 physicalMember "Tabique ascensor 3 · Azotea" members={"nodes":[199,183,184,200]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-7","levelTo":"lv-8","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 46 physicalMember "Tabique ascensor frente · Azotea" members={"nodes":[24,199,200,168]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-7","levelTo":"lv-8","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 47 physicalMember "Losa de sobre-recorrido · Sobre-recorrido" members={"nodes":[168,200,184,167]} data={"kind":"slab","typology":"solid","levelFrom":"lv-8","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+support 22 201 fixed3d
+group 48 physicalMember "Tabique escalera 1 · PB (abajo)" members={"nodes":[169,201,202,170]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[{"from":169,"to":201,"type":"fixed3d"}]}}
+group 49 physicalMember "Tabique escalera 1 · PB (arriba)" members={"nodes":[170,202,203,171]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 50 physicalMember "Tabique escalera 1 · 1º piso (abajo)" members={"nodes":[171,203,204,172]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 51 physicalMember "Tabique escalera 1 · 1º piso (arriba)" members={"nodes":[172,204,205,173]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 52 physicalMember "Tabique escalera 1 · 2º piso (abajo)" members={"nodes":[173,205,206,174]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 53 physicalMember "Tabique escalera 1 · 2º piso (arriba)" members={"nodes":[174,206,207,175]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 54 physicalMember "Tabique escalera 1 · 3º piso (abajo)" members={"nodes":[175,207,208,176]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 55 physicalMember "Tabique escalera 1 · 3º piso (arriba)" members={"nodes":[176,208,209,177]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 56 physicalMember "Tabique escalera 1 · 4º piso (abajo)" members={"nodes":[177,209,210,178]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 57 physicalMember "Tabique escalera 1 · 4º piso (arriba)" members={"nodes":[178,210,211,179]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 58 physicalMember "Tabique escalera 1 · 5º piso (abajo)" members={"nodes":[179,211,212,180]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 59 physicalMember "Tabique escalera 1 · 5º piso (arriba)" members={"nodes":[180,212,213,181]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 60 physicalMember "Tabique escalera 1 · 6º piso (abajo)" members={"nodes":[181,213,214,182]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 61 physicalMember "Tabique escalera 1 · 6º piso (arriba)" members={"nodes":[182,214,215,183]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+support 23 216 fixed3d
+group 62 physicalMember "Tabique escalera 2 · PB (abajo)" members={"nodes":[201,216,217,202]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[{"from":201,"to":216,"type":"fixed3d"}]}}
+group 63 physicalMember "Tabique escalera 2 · PB (arriba)" members={"nodes":[202,217,218,203]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 64 physicalMember "Tabique escalera 2 · 1º piso (abajo)" members={"nodes":[203,218,219,204]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 65 physicalMember "Tabique escalera 2 · 1º piso (arriba)" members={"nodes":[204,219,220,205]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 66 physicalMember "Tabique escalera 2 · 2º piso (abajo)" members={"nodes":[205,220,221,206]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 67 physicalMember "Tabique escalera 2 · 2º piso (arriba)" members={"nodes":[206,221,222,207]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 68 physicalMember "Tabique escalera 2 · 3º piso (abajo)" members={"nodes":[207,222,223,208]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 69 physicalMember "Tabique escalera 2 · 3º piso (arriba)" members={"nodes":[208,223,224,209]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 70 physicalMember "Tabique escalera 2 · 4º piso (abajo)" members={"nodes":[209,224,225,210]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 71 physicalMember "Tabique escalera 2 · 4º piso (arriba)" members={"nodes":[210,225,226,211]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 72 physicalMember "Tabique escalera 2 · 5º piso (abajo)" members={"nodes":[211,226,227,212]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 73 physicalMember "Tabique escalera 2 · 5º piso (arriba)" members={"nodes":[212,227,228,213]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 74 physicalMember "Tabique escalera 2 · 6º piso (abajo)" members={"nodes":[213,228,229,214]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 75 physicalMember "Tabique escalera 2 · 6º piso (arriba)" members={"nodes":[214,229,230,215]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 76 physicalMember "Tabique escalera 3 · PB (abajo)" members={"nodes":[65,216,217,231]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[{"from":65,"to":216,"type":"fixed3d"}]}}
+group 77 physicalMember "Tabique escalera 3 · PB (arriba)" members={"nodes":[231,217,218,66]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 78 physicalMember "Tabique escalera 3 · 1º piso (abajo)" members={"nodes":[66,218,219,232]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 79 physicalMember "Tabique escalera 3 · 1º piso (arriba)" members={"nodes":[232,219,220,67]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 80 physicalMember "Tabique escalera 3 · 2º piso (abajo)" members={"nodes":[67,220,221,233]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 81 physicalMember "Tabique escalera 3 · 2º piso (arriba)" members={"nodes":[233,221,222,68]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 82 physicalMember "Tabique escalera 3 · 3º piso (abajo)" members={"nodes":[68,222,223,234]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 83 physicalMember "Tabique escalera 3 · 3º piso (arriba)" members={"nodes":[234,223,224,69]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 84 physicalMember "Tabique escalera 3 · 4º piso (abajo)" members={"nodes":[69,224,225,235]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 85 physicalMember "Tabique escalera 3 · 4º piso (arriba)" members={"nodes":[235,225,226,70]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 86 physicalMember "Tabique escalera 3 · 5º piso (abajo)" members={"nodes":[70,226,227,236]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 87 physicalMember "Tabique escalera 3 · 5º piso (arriba)" members={"nodes":[236,227,228,71]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 88 physicalMember "Tabique escalera 3 · 6º piso (abajo)" members={"nodes":[71,228,229,237]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 89 physicalMember "Tabique escalera 3 · 6º piso (arriba)" members={"nodes":[237,229,230,72]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+support 24 238 fixed3d
+group 90 physicalMember "Tabique escalera frente · PB (junto a la puerta)" members={"nodes":[238,65,239,240]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[{"from":238,"to":65,"type":"fixed3d"}]}}
+group 91 physicalMember "Tabique escalera frente · PB (arriba)" members={"nodes":[240,239,66,241]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 92 physicalMember "Tabique escalera frente · PB (dintel)" members={"nodes":[242,240,241,187]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-0","levelTo":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 93 physicalMember "Tabique escalera frente · 1º piso (junto a la puerta)" members={"nodes":[241,66,243,244]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 94 physicalMember "Tabique escalera frente · 1º piso (arriba)" members={"nodes":[244,243,67,245]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 95 physicalMember "Tabique escalera frente · 1º piso (dintel)" members={"nodes":[246,244,245,189]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-1","levelTo":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 96 physicalMember "Tabique escalera frente · 2º piso (junto a la puerta)" members={"nodes":[245,67,247,248]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 97 physicalMember "Tabique escalera frente · 2º piso (arriba)" members={"nodes":[248,247,68,249]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 98 physicalMember "Tabique escalera frente · 2º piso (dintel)" members={"nodes":[250,248,249,191]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-2","levelTo":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 99 physicalMember "Tabique escalera frente · 3º piso (junto a la puerta)" members={"nodes":[249,68,251,252]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 100 physicalMember "Tabique escalera frente · 3º piso (arriba)" members={"nodes":[252,251,69,253]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 101 physicalMember "Tabique escalera frente · 3º piso (dintel)" members={"nodes":[254,252,253,193]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-3","levelTo":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 102 physicalMember "Tabique escalera frente · 4º piso (junto a la puerta)" members={"nodes":[253,69,255,256]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 103 physicalMember "Tabique escalera frente · 4º piso (arriba)" members={"nodes":[256,255,70,257]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 104 physicalMember "Tabique escalera frente · 4º piso (dintel)" members={"nodes":[258,256,257,195]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-4","levelTo":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 105 physicalMember "Tabique escalera frente · 5º piso (junto a la puerta)" members={"nodes":[257,70,259,260]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 106 physicalMember "Tabique escalera frente · 5º piso (arriba)" members={"nodes":[260,259,71,261]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 107 physicalMember "Tabique escalera frente · 5º piso (dintel)" members={"nodes":[262,260,261,197]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-5","levelTo":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 108 physicalMember "Tabique escalera frente · 6º piso (junto a la puerta)" members={"nodes":[261,71,263,264]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 109 physicalMember "Tabique escalera frente · 6º piso (arriba)" members={"nodes":[264,263,72,265]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 110 physicalMember "Tabique escalera frente · 6º piso (dintel)" members={"nodes":[266,264,265,199]} data={"kind":"wall","typology":"concrete","levelFrom":"lv-6","levelTo":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.15,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 111 physicalMember "Losa 1A–2Ba · 1º piso" members={"nodes":[2,267,269,10]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 112 physicalMember "Losa 1A–2Bb · 1º piso" members={"nodes":[267,268,270,269]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 113 physicalMember "Losa 1A–2Bc · 1º piso" members={"nodes":[268,50,58,270]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 114 physicalMember "Losa 2A–3B · 1º piso" members={"nodes":[50,98,106,58]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 115 physicalMember "Losa 1B–2Ca · 1º piso" members={"nodes":[10,269,187,18]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 116 physicalMember "Losa 1B–2Cb · 1º piso" members={"nodes":[269,270,241,187]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 117 physicalMember "Losa 1B–2Cc · 1º piso" members={"nodes":[270,58,66,241]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 118 physicalMember "Losa 2B–3C · 1º piso" members={"nodes":[58,106,114,66]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 119 physicalMember "Losa 2C–3Da · 1º piso" members={"nodes":[66,114,276,279]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 120 physicalMember "Losa 1C–2Da · 1º piso" members={"nodes":[148,171,278,26]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 121 physicalMember "Losa 2C–3Db · 1º piso" members={"nodes":[279,276,122,74]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 122 physicalMember "Losa 1D–2Ea · 1º piso" members={"nodes":[26,278,203,275]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 123 physicalMember "Losa 2D–3Ea · 1º piso" members={"nodes":[74,122,277,218]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 124 physicalMember "Losa 1D–2Eb · 1º piso" members={"nodes":[275,203,271,34]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 125 physicalMember "Losa 1D–2Ec · 1º piso" members={"nodes":[203,280,272,271]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 126 physicalMember "Losa 1D–2Ed · 1º piso" members={"nodes":[280,218,82,272]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 127 physicalMember "Losa 2D–3Eb · 1º piso" members={"nodes":[218,277,130,82]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 128 physicalMember "Losa 1E–2Fa · 1º piso" members={"nodes":[34,271,273,42]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 129 physicalMember "Losa 1E–2Fb · 1º piso" members={"nodes":[271,272,274,273]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 130 physicalMember "Losa 1E–2Fc · 1º piso" members={"nodes":[272,82,90,274]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 131 physicalMember "Losa 2E–3F · 1º piso" members={"nodes":[82,130,138,90]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 132 physicalMember "Descanso de piso · 1º piso" members={"nodes":[187,66,279,171]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 133 physicalMember "Losa 1A–2Ba · 2º piso" members={"nodes":[3,281,283,11]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 134 physicalMember "Losa 1A–2Bb · 2º piso" members={"nodes":[281,282,284,283]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 135 physicalMember "Losa 1A–2Bc · 2º piso" members={"nodes":[282,51,59,284]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 136 physicalMember "Losa 2A–3B · 2º piso" members={"nodes":[51,99,107,59]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 137 physicalMember "Losa 1B–2Ca · 2º piso" members={"nodes":[11,283,189,19]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 138 physicalMember "Losa 1B–2Cb · 2º piso" members={"nodes":[283,284,245,189]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 139 physicalMember "Losa 1B–2Cc · 2º piso" members={"nodes":[284,59,67,245]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 140 physicalMember "Losa 2B–3C · 2º piso" members={"nodes":[59,107,115,67]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 141 physicalMember "Losa 2C–3Da · 2º piso" members={"nodes":[67,115,290,293]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 142 physicalMember "Losa 1C–2Da · 2º piso" members={"nodes":[151,173,292,27]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 143 physicalMember "Losa 2C–3Db · 2º piso" members={"nodes":[293,290,123,75]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 144 physicalMember "Losa 1D–2Ea · 2º piso" members={"nodes":[27,292,205,289]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 145 physicalMember "Losa 2D–3Ea · 2º piso" members={"nodes":[75,123,291,220]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 146 physicalMember "Losa 1D–2Eb · 2º piso" members={"nodes":[289,205,285,35]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 147 physicalMember "Losa 1D–2Ec · 2º piso" members={"nodes":[205,294,286,285]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 148 physicalMember "Losa 1D–2Ed · 2º piso" members={"nodes":[294,220,83,286]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 149 physicalMember "Losa 2D–3Eb · 2º piso" members={"nodes":[220,291,131,83]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 150 physicalMember "Losa 1E–2Fa · 2º piso" members={"nodes":[35,285,287,43]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 151 physicalMember "Losa 1E–2Fb · 2º piso" members={"nodes":[285,286,288,287]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 152 physicalMember "Losa 1E–2Fc · 2º piso" members={"nodes":[286,83,91,288]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 153 physicalMember "Losa 2E–3F · 2º piso" members={"nodes":[83,131,139,91]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 154 physicalMember "Descanso de piso · 2º piso" members={"nodes":[189,67,293,173]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 155 physicalMember "Losa 1A–2Ba · 3º piso" members={"nodes":[4,295,297,12]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 156 physicalMember "Losa 1A–2Bb · 3º piso" members={"nodes":[295,296,298,297]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 157 physicalMember "Losa 1A–2Bc · 3º piso" members={"nodes":[296,52,60,298]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 158 physicalMember "Losa 2A–3B · 3º piso" members={"nodes":[52,100,108,60]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 159 physicalMember "Losa 1B–2Ca · 3º piso" members={"nodes":[12,297,191,20]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 160 physicalMember "Losa 1B–2Cb · 3º piso" members={"nodes":[297,298,249,191]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 161 physicalMember "Losa 1B–2Cc · 3º piso" members={"nodes":[298,60,68,249]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 162 physicalMember "Losa 2B–3C · 3º piso" members={"nodes":[60,108,116,68]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 163 physicalMember "Losa 2C–3Da · 3º piso" members={"nodes":[68,116,304,307]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 164 physicalMember "Losa 1C–2Da · 3º piso" members={"nodes":[154,175,306,28]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 165 physicalMember "Losa 2C–3Db · 3º piso" members={"nodes":[307,304,124,76]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 166 physicalMember "Losa 1D–2Ea · 3º piso" members={"nodes":[28,306,207,303]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 167 physicalMember "Losa 2D–3Ea · 3º piso" members={"nodes":[76,124,305,222]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 168 physicalMember "Losa 1D–2Eb · 3º piso" members={"nodes":[303,207,299,36]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 169 physicalMember "Losa 1D–2Ec · 3º piso" members={"nodes":[207,308,300,299]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 170 physicalMember "Losa 1D–2Ed · 3º piso" members={"nodes":[308,222,84,300]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 171 physicalMember "Losa 2D–3Eb · 3º piso" members={"nodes":[222,305,132,84]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 172 physicalMember "Losa 1E–2Fa · 3º piso" members={"nodes":[36,299,301,44]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 173 physicalMember "Losa 1E–2Fb · 3º piso" members={"nodes":[299,300,302,301]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 174 physicalMember "Losa 1E–2Fc · 3º piso" members={"nodes":[300,84,92,302]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 175 physicalMember "Losa 2E–3F · 3º piso" members={"nodes":[84,132,140,92]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 176 physicalMember "Descanso de piso · 3º piso" members={"nodes":[191,68,307,175]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 177 physicalMember "Losa 1A–2Ba · 4º piso" members={"nodes":[5,309,311,13]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 178 physicalMember "Losa 1A–2Bb · 4º piso" members={"nodes":[309,310,312,311]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 179 physicalMember "Losa 1A–2Bc · 4º piso" members={"nodes":[310,53,61,312]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 180 physicalMember "Losa 2A–3B · 4º piso" members={"nodes":[53,101,109,61]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 181 physicalMember "Losa 1B–2Ca · 4º piso" members={"nodes":[13,311,193,21]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 182 physicalMember "Losa 1B–2Cb · 4º piso" members={"nodes":[311,312,253,193]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 183 physicalMember "Losa 1B–2Cc · 4º piso" members={"nodes":[312,61,69,253]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 184 physicalMember "Losa 2B–3C · 4º piso" members={"nodes":[61,109,117,69]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 185 physicalMember "Losa 2C–3Da · 4º piso" members={"nodes":[69,117,318,321]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 186 physicalMember "Losa 1C–2Da · 4º piso" members={"nodes":[157,177,320,29]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 187 physicalMember "Losa 2C–3Db · 4º piso" members={"nodes":[321,318,125,77]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 188 physicalMember "Losa 1D–2Ea · 4º piso" members={"nodes":[29,320,209,317]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 189 physicalMember "Losa 2D–3Ea · 4º piso" members={"nodes":[77,125,319,224]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 190 physicalMember "Losa 1D–2Eb · 4º piso" members={"nodes":[317,209,313,37]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 191 physicalMember "Losa 1D–2Ec · 4º piso" members={"nodes":[209,322,314,313]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 192 physicalMember "Losa 1D–2Ed · 4º piso" members={"nodes":[322,224,85,314]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 193 physicalMember "Losa 2D–3Eb · 4º piso" members={"nodes":[224,319,133,85]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 194 physicalMember "Losa 1E–2Fa · 4º piso" members={"nodes":[37,313,315,45]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 195 physicalMember "Losa 1E–2Fb · 4º piso" members={"nodes":[313,314,316,315]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 196 physicalMember "Losa 1E–2Fc · 4º piso" members={"nodes":[314,85,93,316]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 197 physicalMember "Losa 2E–3F · 4º piso" members={"nodes":[85,133,141,93]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 198 physicalMember "Descanso de piso · 4º piso" members={"nodes":[193,69,321,177]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 199 physicalMember "Losa 1A–2Ba · 5º piso" members={"nodes":[6,323,325,14]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 200 physicalMember "Losa 1A–2Bb · 5º piso" members={"nodes":[323,324,326,325]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 201 physicalMember "Losa 1A–2Bc · 5º piso" members={"nodes":[324,54,62,326]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 202 physicalMember "Losa 2A–3B · 5º piso" members={"nodes":[54,102,110,62]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 203 physicalMember "Losa 1B–2Ca · 5º piso" members={"nodes":[14,325,195,22]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 204 physicalMember "Losa 1B–2Cb · 5º piso" members={"nodes":[325,326,257,195]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 205 physicalMember "Losa 1B–2Cc · 5º piso" members={"nodes":[326,62,70,257]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 206 physicalMember "Losa 2B–3C · 5º piso" members={"nodes":[62,110,118,70]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 207 physicalMember "Losa 2C–3Da · 5º piso" members={"nodes":[70,118,332,335]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 208 physicalMember "Losa 1C–2Da · 5º piso" members={"nodes":[160,179,334,30]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 209 physicalMember "Losa 2C–3Db · 5º piso" members={"nodes":[335,332,126,78]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 210 physicalMember "Losa 1D–2Ea · 5º piso" members={"nodes":[30,334,211,331]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 211 physicalMember "Losa 2D–3Ea · 5º piso" members={"nodes":[78,126,333,226]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 212 physicalMember "Losa 1D–2Eb · 5º piso" members={"nodes":[331,211,327,38]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 213 physicalMember "Losa 1D–2Ec · 5º piso" members={"nodes":[211,336,328,327]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 214 physicalMember "Losa 1D–2Ed · 5º piso" members={"nodes":[336,226,86,328]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 215 physicalMember "Losa 2D–3Eb · 5º piso" members={"nodes":[226,333,134,86]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 216 physicalMember "Losa 1E–2Fa · 5º piso" members={"nodes":[38,327,329,46]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 217 physicalMember "Losa 1E–2Fb · 5º piso" members={"nodes":[327,328,330,329]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 218 physicalMember "Losa 1E–2Fc · 5º piso" members={"nodes":[328,86,94,330]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 219 physicalMember "Losa 2E–3F · 5º piso" members={"nodes":[86,134,142,94]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 220 physicalMember "Descanso de piso · 5º piso" members={"nodes":[195,70,335,179]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 221 physicalMember "Losa 1A–2Ba · 6º piso" members={"nodes":[7,337,339,15]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 222 physicalMember "Losa 1A–2Bb · 6º piso" members={"nodes":[337,338,340,339]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 223 physicalMember "Losa 1A–2Bc · 6º piso" members={"nodes":[338,55,63,340]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 224 physicalMember "Losa 2A–3B · 6º piso" members={"nodes":[55,103,111,63]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 225 physicalMember "Losa 1B–2Ca · 6º piso" members={"nodes":[15,339,197,23]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 226 physicalMember "Losa 1B–2Cb · 6º piso" members={"nodes":[339,340,261,197]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 227 physicalMember "Losa 1B–2Cc · 6º piso" members={"nodes":[340,63,71,261]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 228 physicalMember "Losa 2B–3C · 6º piso" members={"nodes":[63,111,119,71]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 229 physicalMember "Losa 2C–3Da · 6º piso" members={"nodes":[71,119,346,349]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 230 physicalMember "Losa 1C–2Da · 6º piso" members={"nodes":[163,181,348,31]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 231 physicalMember "Losa 2C–3Db · 6º piso" members={"nodes":[349,346,127,79]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 232 physicalMember "Losa 1D–2Ea · 6º piso" members={"nodes":[31,348,213,345]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 233 physicalMember "Losa 2D–3Ea · 6º piso" members={"nodes":[79,127,347,228]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 234 physicalMember "Losa 1D–2Eb · 6º piso" members={"nodes":[345,213,341,39]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 235 physicalMember "Losa 1D–2Ec · 6º piso" members={"nodes":[213,350,342,341]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 236 physicalMember "Losa 1D–2Ed · 6º piso" members={"nodes":[350,228,87,342]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 237 physicalMember "Losa 2D–3Eb · 6º piso" members={"nodes":[228,347,135,87]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 238 physicalMember "Losa 1E–2Fa · 6º piso" members={"nodes":[39,341,343,47]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 239 physicalMember "Losa 1E–2Fb · 6º piso" members={"nodes":[341,342,344,343]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 240 physicalMember "Losa 1E–2Fc · 6º piso" members={"nodes":[342,87,95,344]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 241 physicalMember "Losa 2E–3F · 6º piso" members={"nodes":[87,135,143,95]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 242 physicalMember "Descanso de piso · 6º piso" members={"nodes":[197,71,349,181]} data={"kind":"slab","typology":"solid","levelFrom":"lv-6","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 243 physicalMember "Losa 1A–2Ba · Azotea" members={"nodes":[8,351,353,16]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 244 physicalMember "Losa 1A–2Bb · Azotea" members={"nodes":[351,352,354,353]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 245 physicalMember "Losa 1A–2Bc · Azotea" members={"nodes":[352,56,64,354]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 246 physicalMember "Losa 2A–3B · Azotea" members={"nodes":[56,104,112,64]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 247 physicalMember "Losa 1B–2Ca · Azotea" members={"nodes":[16,353,199,24]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 248 physicalMember "Losa 1B–2Cb · Azotea" members={"nodes":[353,354,265,199]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 249 physicalMember "Losa 1B–2Cc · Azotea" members={"nodes":[354,64,72,265]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 250 physicalMember "Losa 2B–3C · Azotea" members={"nodes":[64,112,120,72]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 251 physicalMember "Losa 1C–2Da · Azotea" members={"nodes":[199,265,363,183]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 252 physicalMember "Losa 1C–2Db · Azotea" members={"nodes":[265,72,364,363]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 253 physicalMember "Losa 2C–3Da · Azotea" members={"nodes":[72,120,360,364]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 254 physicalMember "Losa 1C–2Dc · Azotea" members={"nodes":[166,183,362,32]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 255 physicalMember "Losa 1C–2Dd · Azotea" members={"nodes":[183,363,365,362]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 256 physicalMember "Losa 1C–2De · Azotea" members={"nodes":[363,364,80,365]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 257 physicalMember "Losa 2C–3Db · Azotea" members={"nodes":[364,360,128,80]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 258 physicalMember "Losa 1D–2Ea · Azotea" members={"nodes":[32,362,215,359]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 259 physicalMember "Losa 1D–2Eb · Azotea" members={"nodes":[362,365,366,215]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 260 physicalMember "Losa 1D–2Ec · Azotea" members={"nodes":[365,80,230,366]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 261 physicalMember "Losa 2D–3Ea · Azotea" members={"nodes":[80,128,361,230]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 262 physicalMember "Losa 1D–2Ed · Azotea" members={"nodes":[359,215,355,40]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 263 physicalMember "Losa 1D–2Ee · Azotea" members={"nodes":[215,366,356,355]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 264 physicalMember "Losa 1D–2Ef · Azotea" members={"nodes":[366,230,88,356]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 265 physicalMember "Losa 2D–3Eb · Azotea" members={"nodes":[230,361,136,88]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 266 physicalMember "Losa 1E–2Fa · Azotea" members={"nodes":[40,355,357,48]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 267 physicalMember "Losa 1E–2Fb · Azotea" members={"nodes":[355,356,358,357]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 268 physicalMember "Losa 1E–2Fc · Azotea" members={"nodes":[356,88,96,358]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 269 physicalMember "Losa 2E–3F · Azotea" members={"nodes":[88,136,144,96]} data={"kind":"slab","typology":"solid","levelFrom":"lv-7","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.12,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+support 25 367 pinned3d
+support 26 368 pinned3d
+group 270 physicalMember "Tramo 1 · PB" members={"nodes":[367,368,369,370]} data={"kind":"slab","typology":"solid","levelFrom":"lv-0","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 271 physicalMember "Descanso · PB" members={"nodes":[371,372,217,202]} data={"kind":"slab","typology":"solid","levelFrom":"lv-0","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 272 physicalMember "Tramo 2 · PB" members={"nodes":[373,369,374,375]} data={"kind":"slab","typology":"solid","levelFrom":"lv-0","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 273 physicalMember "Tramo 1 · 1º piso" members={"nodes":[376,374,377,378]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 274 physicalMember "Descanso · 1º piso" members={"nodes":[379,380,219,204]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 275 physicalMember "Tramo 2 · 1º piso" members={"nodes":[381,377,382,383]} data={"kind":"slab","typology":"solid","levelFrom":"lv-1","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 276 physicalMember "Tramo 1 · 2º piso" members={"nodes":[384,382,385,386]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 277 physicalMember "Descanso · 2º piso" members={"nodes":[387,388,221,206]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 278 physicalMember "Tramo 2 · 2º piso" members={"nodes":[389,385,390,391]} data={"kind":"slab","typology":"solid","levelFrom":"lv-2","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 279 physicalMember "Tramo 1 · 3º piso" members={"nodes":[392,390,393,394]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 280 physicalMember "Descanso · 3º piso" members={"nodes":[395,396,223,208]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 281 physicalMember "Tramo 2 · 3º piso" members={"nodes":[397,393,398,399]} data={"kind":"slab","typology":"solid","levelFrom":"lv-3","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 282 physicalMember "Tramo 1 · 4º piso" members={"nodes":[400,398,401,402]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 283 physicalMember "Descanso · 4º piso" members={"nodes":[403,404,225,210]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 284 physicalMember "Tramo 2 · 4º piso" members={"nodes":[405,401,406,407]} data={"kind":"slab","typology":"solid","levelFrom":"lv-4","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 285 physicalMember "Tramo 1 · 5º piso" members={"nodes":[408,406,409,410]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 286 physicalMember "Descanso · 5º piso" members={"nodes":[411,412,227,212]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+group 287 physicalMember "Tramo 2 · 5º piso" members={"nodes":[413,409,414,415]} data={"kind":"slab","typology":"solid","levelFrom":"lv-5","stair":{"steps":9},"provenance":"declared","surface":{"loops":[4],"materialId":1,"thickness":0.26,"mesh":{"size":1.2,"element":"quad","followMembers":true,"pattern":"rect","sizeV":1.2},"edgeSupports":[]}}
+designData {"version":1,"placement":{"reference":"slabTop","edges":true}}
+regulations {"version":2,"roles":{"basis":{"role":"basis","adapterId":"cirsoc101-2025-basis","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"generateCombinations":true,"dialog":{"comboSet":"ultimate","comboSource":"regulation","bothSenses":true,"patternsInCompanions":false}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"loads":{"role":"loads","adapterId":"cirsoc101-2025-loads","nameKey":"regulations.name.cirsoc101","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"occupancyKey":"vivienda","dead":[{"labelKey":"loads.dead.contrapiso_cemento","q":1.44},{"labelKey":"loads.dead.piso_baldosa_ceramica","q":0.28},{"labelKey":"loads.dead.cielo_acustico","q":0.05}],"tributaryWidth":3,"applyLiveReduction":true,"reductionElementKind":"interiorBeam","floorsSupported":1,"dialog":{"deadRows":[{"entryKey":"contrapiso_cemento","thickness":0.08,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"piso_baldosa_ceramica","thickness":0,"onBattens":false,"q":0,"isPartition":false},{"entryKey":"cielo_acustico","thickness":0,"onBattens":false,"q":0,"isPartition":false}],"partitionLive":{"on":true,"q":0.75},"gravityMode":"panels","gravitySlab":"twoWay","gravitySpan":"x","gravityLoadEveryPanel":false,"roofCfg":{"enabled":false,"use":"maintenance","dead":null,"weight":null,"occupancyKey":"azotea_privada","slopeDeg":null},"livePatterns":"all","special":{"thermal":{"on":false,"dt":20,"grad":0},"soil":{"on":false,"gradeZ":0,"gamma":17.3,"k":0.5,"surcharge":0,"permanent":true,"sideOn":false,"sideX":0,"sideY":0},"fluid":{"on":false,"levelZ":3,"gamma":10,"insideOn":false,"insideX":0,"insideY":0}}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"wind":{"role":"wind","adapterId":"cirsoc102-2025","nameKey":"regulations.name.cirsoc102","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{"basicSpeed":45,"exposure":"B","enclosure":"enclosed","siteAltitudeM":0,"kzt":1,"kztSurveyed":false,"roofSlopeDeg":0,"dynamics":{"n1Source":"approximate","system":"otherSteelOrConcrete","beta":0.02,"rigidG":"default"},"dialog":{"windDirs":["+y","-y"],"windCaseSet":"all","windService":{"enabled":false,"v50":0,"mri":10},"windStructure":{"kind":"building","roof":"pitched","blocked":false,"towerSection":"square","round":false,"solidity":0.2,"diagonal":true,"members":"flat","clearance":2,"chimney":"roundRough","width":0,"diameter":0,"areaX":0,"areaY":0}}},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"snow":{"role":"snow","adapterId":"cirsoc104-2005","nameKey":"regulations.name.cirsoc104","edition":"2005","maturity":"IMPLEMENTED_PROVISIONAL","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"applied","appliedAtRevision":0,"refs":[]},"seismic":{"role":"seismic","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"thermal":{"role":"thermal","adapterId":"cirsoc101-2025-thermal","nameKey":"regulations.name.cirsoc101Thermal","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"concrete":{"role":"concrete","adapterId":"cirsoc","nameKey":"regulations.name.cirsoc201","edition":"2025","maturity":"VALIDATED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":true,"state":"applied","appliedAtRevision":0,"refs":[]},"steel":{"role":"steel","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"masonry":{"role":"masonry","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]},"timber":{"role":"timber","adapterId":null,"nameKey":"","edition":"","maturity":"UNSUPPORTED","jurisdiction":"","adoption":"unstated","settings":{},"configComplete":false,"state":"unset","appliedAtRevision":null,"refs":[]}}}
+

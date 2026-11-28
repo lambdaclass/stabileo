@@ -13,7 +13,7 @@ import { physicalGroups } from '../physical';
 import { planRecognition, applyRecognition } from '../physical-recognition';
 import { groupReferences } from '../group-references';
 import { lateralData, lateralReadingFor, setBeamsLateral, setMemberLateral } from '../lateral-system';
-import { seismicRoleReadings, setSeismicRole, suggestedSeismicRoles, runSeismicChecks, adoptSuggestedRoles } from '../seismic-design.svelte';
+import { seismicRoleReadings, setSeismicRole, suggestedSeismicRoles, runSeismicChecks, applySeismicDetailing, seismicComboIds, adoptSuggestedRoles } from '../seismic-design.svelte';
 import { acceptAutosavePayload, buildProjectFile, deserializeProject, serializeProject } from '../file';
 import { placeFrame } from '../../model/building/build-on-grid';
 import { defaultDesignData } from '../../model/design-data';
@@ -167,6 +167,51 @@ describe('the geometry suggests, it never declares', () => {
     resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
     return { beam, tip };
   }
+
+  it.each(['gravity', 'complete', 'incomplete', 'nonfinite'] as const)('known wrong result: #1928 frame detailing requires a recorded seismic combination (%s)', evidence => {
+    cantilever();
+    for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+    const member = [...modelStore.elements.values()].find(e => modelStore.nodes.get(e.nodeI)!.z !== modelStore.nodes.get(e.nodeJ)!.z)!;
+    const bars = { column: { cornerDia: 20, faceDia: 20, nBottom: 1, nTop: 1, nLeft: 1, nRight: 1 }, stirrups: { diameter: 10, legs: 4, spacing: 0.15 } };
+    modelStore.reinforcementTransaction(api => api.setReinforcement(member.id, bars));
+    modelStore.addCombination('D', [{ caseId: 1, factor: 1 }]);
+    if (evidence !== 'gravity') {
+      const e = modelStore.addLoadCase('E test', 'E');
+      modelStore.addNodalLoad3D(member.nodeJ, 1, 0, 0, 0, 0, 0, e);
+      modelStore.addCombination('D+E', [{ caseId: 1, factor: 1 }, { caseId: e, factor: 1 }]);
+      modelStore.addCombination('D-E', [{ caseId: 1, factor: 1 }, { caseId: e, factor: -1 }]);
+    }
+    const solved = modelStore.solveCombinations3D(true, false, true);
+    if (!solved || typeof solved === 'string') throw new Error(String(solved));
+    resultsStore.setCombinationResults3D(solved.perCase, solved.perCombo, solved.envelope);
+    expect(designRunStore.computeDemands().ok).toBe(true);
+    const combos = seismicComboIds();
+    expect(combos.size).toBe(evidence === 'gravity' ? 0 : 2);
+    if (evidence === 'incomplete' || evidence === 'nonfinite') {
+      const stations = verificationStore.contextFor(member.id)!.stations!;
+      const first = stations.comboResults.find(c => combos.has(c.comboId))!;
+      if (evidence === 'incomplete') stations.comboResults = stations.comboResults.filter(c => c !== first);
+      else first.stations[0]!.vz = Number.NaN;
+    }
+    const report = runSeismicChecks();
+    const result = report.members.find(m => m.id === member.id)!;
+    if (evidence === 'complete') {
+      expect(result.confinement).toBeDefined();
+      const unreinforced = report.members.filter(m => m.role === 'primary' && !modelStore.elements.get(m.id)?.reinforcement);
+      expect(new Set(unreinforced.map(m => m.kind))).toEqual(new Set(['beam', 'column']));
+      for (const m of unreinforced) {
+        expect(m.ok).toBe(false);
+        expect(m.issues).toContain('seisDes.issue.reinforcementUnassessed');
+      }
+      applySeismicDetailing();
+      for (const m of unreinforced) expect(modelStore.elements.get(m.id)!.reinforcement).toBeUndefined();
+    } else {
+      expect(result.confinement).toBeUndefined();
+      expect(result.issues).toContain('seisDes.issue.confinementUnassessed');
+      expect(applySeismicDetailing().columns).toBe(0);
+      expect(modelStore.elements.get(member.id)!.reinforcement).toEqual(bars);
+    }
+  });
 
   it('a cantilever the geometry calls secondary is read primary and not declared, by the design and the seismic checks', () => {
     const { beam, tip } = cantilever();

@@ -266,6 +266,7 @@ export function localizeEngineText(message: string): string {
   if (rankRefusal instanceof CodedRefusal && !translatedRank) {
     out = `${tAt(REDUCED_STIFFNESS_RANK, i18n.locale)} ${out}`;
   }
+  out = out.replace(CONFLICTING_CONSTRAINTS, (_whole, dof: string, node: string, n: string) => fill('svc.engine.conflictingConstraints', { dof, node, n }));
   out = out.replace(/Non-finite number \((NaN|Infinity|-Infinity)\) at (\S+)/g, (_, value: string, path: string) =>
     fill('svc.engine.nonFiniteNumber', { value, path }));
   out = out.replace(UNKNOWN_FIELD, (_, prefix: string | undefined, path: string, allowed: string | undefined, empty: string | undefined, line: string | undefined, column: string | undefined) => {
@@ -287,6 +288,7 @@ export function localizeEngineText(message: string): string {
   });
 }
 
+const CONFLICTING_CONSTRAINTS = /DOF (\d+) \(node (\d+)\) is constrained by (\d+) constraints — last one wins/g;
 const UNKNOWN_FIELD = /(Parse error: (?:Error: )?)?unknown field [`']([^`'\n]+)[`'](?:, expected (?:one of )?(`[^`\n]+`(?:(?:, | or )`[^`\n]+`)*)|, (there are no fields))?(?: at line (\d+) column (\d+))?/g;
 
 const INVALID_FIELD = /(Parse error: (?:Error: )?)?(?:missing|unsupported|duplicate key in) field [`']([^`'\n]+)[`'](?: \(Staged construction analysis does not support [^\n)]+\)| \(Nine-node shell elements are not yet supported in staged construction\))?(?: at line (\d+) column (\d+))?/g;

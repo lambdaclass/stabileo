@@ -138,7 +138,7 @@ export function meshQuad(quadId: number, o: { density: MeshDensity; splitBeams: 
         }) : undefined;
         modelStore.addSurfaceLoad3D(q, qv, caseId, { ...extra, ...(at ? { qNodes: at } : {}) });
       }
-      for (const t of thermal) modelStore.addThermalLoadQuad3D(q, t.dtUniform, t.dtGradient, t.caseId);
+      modelStore.addLoadEntries(thermal.map(data => ({ type: 'thermalQuad3d', data: { ...data, quadId: q } })));
     }
     for (const gid of groups) {
       const g = modelStore.model.groups.get(gid);

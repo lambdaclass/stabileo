@@ -36,6 +36,7 @@ import { deserializeProjectOrThrow } from '../store/file';
 import { ModelAliasConflict } from '../model/canonical-aliases';
 import { getFixture } from '../templates/fixture-index';
 import type { JSONModel } from '../templates/load-fixture';
+import { meshBeforeAnalysis } from '../store/mesh-policy.svelte';
 import { solveNow } from '../actions/solve';
 import { runSteelCheck } from '../store/steel-check';
 import { centerlineInput, dynamicInput } from '../store/dynamic-input';
@@ -90,6 +91,9 @@ function reset(c: SnapshotCase): void {
   // Basic with it off.
   uiStore.includeSelfWeight = c.workspace === 'pro';
   uiStore.designInPro = !!c.design;
+  // A case is the model it was recorded on: plates that came as one shell per bay are solved as
+  // they came, not meshed at 0.5 m, which made the mat's snapshot thirty times its size.
+  meshBeforeAnalysis.value = false;
 }
 
 async function open(c: SnapshotCase, fixture?: unknown): Promise<ModelAliasConflict | undefined> {

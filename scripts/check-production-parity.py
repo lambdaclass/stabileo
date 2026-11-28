@@ -57,9 +57,17 @@ def production_changes(source, base, head, paths):
 
     remaining = declared.copy()
     merges = git(source, 'log', '--first-parent', '--ancestry-path', '--min-parents=2', '--max-parents=2',
-                 '--format=%P', f'{base}..{head}')
+                 '--format=%H %P', f'{base}..{head}')
     for parents in merges.decode().splitlines():
-        target, pr = parents.split()
+        merge, target, pr = parents.split()
+        if pr == base:
+            previously_declared = trailers(source, base, 'Production-Change', target)
+            absorbed = (remaining - paths) & previously_declared
+            if absorbed:
+                branch_edits = changed_paths(source, f'{base}...{target}')
+                upstream_edits = changed_paths(source, f'{target}...{base}')
+                merge_edits = changed_paths(source, f'{base}..{merge}')
+                remaining -= (absorbed & branch_edits & upstream_edits) - merge_edits
         if git(source, 'rev-list', '--max-count=1', base, '--not', target):
             continue
         incoming = trailers(source, target, 'Production-Change', pr)
@@ -189,9 +197,8 @@ def build(source, checkout, env, research=None):
         artifact, identity = research
         restore_research(artifact, checkout / RESEARCH_WASM, identity)
     web = checkout / 'web'
-    git_dir = git(source, 'rev-parse', '--absolute-git-dir').decode().strip()
     subprocess.run(['npm', 'run', 'build'], cwd=web,
-                   env={**env, 'GIT_DIR': git_dir, 'GIT_WORK_TREE': str(checkout)}, check=True)
+                   env={**env, 'GIT_DIR': str(checkout / '.git'), 'GIT_WORK_TREE': str(checkout)}, check=True)
     site = {f'web/dist/{name}': checksum for name, checksum in inventory(web / 'dist').items()}
     return runtime | site
 
@@ -352,7 +359,7 @@ def check(args, source):
         raise SystemExit('Switch-off production engine inputs differ from the reference:\n  ' + '\n  '.join(sorted(engine_paths)))
     timestamp = int(git(source, 'show', '-s', '--format=%ct', head))
     date = datetime.fromtimestamp(timestamp, timezone.utc).date().isoformat()
-    env = {**os.environ, 'GITHUB_SHA': base, 'PRERENDER_GITHUB_STARS': 'none', 'PRERENDER_BUILD_DATE': date}
+    env = {**os.environ, 'GITHUB_SHA': head, 'PRERENDER_GITHUB_STARS': 'none', 'PRERENDER_BUILD_DATE': date}
     for key in ('VITE_E2E', 'VITE_APP_TYPE', 'STABILEO_E2E_PROFILE', 'PRERENDER_ONLY', 'PRERENDER_OUT'):
         env.pop(key, None)
 

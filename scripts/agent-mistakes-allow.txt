@@ -224,7 +224,7 @@ test-env web/src/lib/engine/codes/argentina/__tests__/flex-robustness.test.ts: p
 ## The snapshot gate invokes this existing fixture reader with a manifest; ordinary runs assert committed corpus cases.
 
 ## The snapshot gate invokes an existing corpus adapter with its explicit examples list.
-test-env web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts: for (const item of cases) { it(`${item.case}: the example as it was gives the numbers it gave`, async () => { const c = CORPUS.find((x) => x.name === item.case); expect(c, item.cas … [202b9f0c6b68e4b9]
+test-env web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts: for (const item of cases) { it(`${item.case}: the example as it was gives the numbers it gave`, async () => { const c = CORPUS.find((x) => x.name === item.case); expect(c, item.cas … [1bd0dfdae8f4edd1]
 
 ## The snapshot gate invokes an existing corpus adapter with its explicit examples list.
 test-env web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts: if (!LIST) it.skip('runs only from the snapshot gate (EXAMPLES_EQUIVALENCE)', () => {});

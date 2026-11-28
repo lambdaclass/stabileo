@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 import spanAxial from '../../src/lib/provenance/result-changes/pdelta-span-axial.json';
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { decide, isBreakingResultsFragment, newlyRecorded, corpusExamples, modelInputs, proveEquivalence, headEngineServesBase, corpusCases } from '../results-snapshot/gate.mjs';
+import { decide, isBreakingResultsFragment, newlyRecorded, corpusExamples, modelInputs, proveEquivalence, headEngineServesBase, corpusCases, EQUIVALENCE_HARNESS, EQUIVALENCE_TEST } from '../results-snapshot/gate.mjs';
+import { unexplainedDiff } from '../results-snapshot/applicability.mjs';
 
 describe('the tolerance', () => {
   const ref = { 'r.m[e1].my': 100, 'r.m[e2].my': -40, 'r.m[e3].my': 0, 'r.d[n1].ux': 0.0123 };
@@ -108,6 +109,21 @@ describe('the gate', () => {
     });
     expect(r.changed).toHaveLength(1);
     expect(r.ok, r.report).toBe(true);
+  });
+
+  it('known wrong result: #2529 a new notice cannot share a version with a released save, even without snapshot changes', () => {
+    const baseVersions = { currentResultsVersion: 4, changes: [{ id: 'old', resultsVersion: 4 }] };
+    const check = (released: number, added: number) => decide({
+      snapshots: [], fragments: [], baseRegistry: registry, headRegistry: registered,
+      baseVersions, headVersions: { currentResultsVersion: Math.max(released, added), changes: [
+        { id: 'old', resultsVersion: released }, { id: 'new', resultsVersion: added },
+      ] },
+    });
+    expect(check(4, 4).ok).toBe(false);
+    expect(check(4, 3).ok).toBe(false);
+    expect(check(3, 5).ok).toBe(false);
+    expect(check(5, 6).ok).toBe(false);
+    expect(check(4, 5).ok).toBe(true);
   });
 
   it('passes a pull request whose snapshots did not move', () => {
@@ -237,6 +253,12 @@ describe('the gate', () => {
       const withEngineEntry = { ...examplesOnly, unnumbered: [{ id: 'engine', when: {}, quantities: ['*'] }, ...examplesOnly.unnumbered] };
       expect(run(moved, ['torsion'], withEngineEntry).equivalence).toEqual(proof);
     });
+    it('hands the proof the engine entries of the same pull request, and only those', () => {
+      const engine = { id: 'engine', when: { allOf: [['defaultDesignCovers']] }, area: 'design', quantities: ['rc'] };
+      const both = { ...examplesOnly, unnumbered: [engine, ...examplesOnly.unnumbered] };
+      expect(run(moved, ['torsion'], both).engineEntries).toEqual([engine]);
+      expect(run(moved, ['torsion']).engineEntries).toEqual([]);
+    });
     it('NEGATIVE: fails for a listed example no corpus case opens: nothing could prove its numbers', () => {
       const unknown = { ...examplesOnly, unnumbered: [{ ...examplesOnly.unnumbered[0], examples: ['torsion', 'nowhere'] }] };
       const r = run(moved, ['torsion', 'nowhere'], unknown);
@@ -325,6 +347,55 @@ describe('the examples-only equivalence proof, with both engines', () => {
       { solve: async () => { calls.push(1); return 0; }, baseTree: async () => ({ dir: 'x', dispose: () => {} }) });
     expect(code).toBe(1);
     expect(calls).toEqual([]);
+  });
+});
+
+describe('the proof reads the engine entries of the same pull request for the model it solved', () => {
+  const covers = { id: 'covers', when: { allOf: [['defaultDesignCovers']] }, area: 'design', quantities: ['rc', 'member'] };
+  const diff = compareValues(
+    { 'design.rc[e1]': 1, 'design.member[e1]': 2, 'base.displacements[n1]': 3, 'design.steelCheck[e2]': 4 },
+    { 'design.rc[e1]': 1.1, 'design.member[e1]': 2.2, 'base.displacements[n1]': 3, 'design.steelCheck[e2]': 4 },
+  );
+
+  it('drops what an entry holding for that model declares', () => {
+    const r = unexplainedDiff(diff, { entries: [covers], features: ['defaultDesignCovers', 'cirsoc201'] });
+    expect(r.differs).toBe(false);
+    expect(r.explainedBy).toEqual(['covers']);
+  });
+  it('NEGATIVE: keeps it when the entry does not hold for that model, as for a project that stored its covers', () => {
+    expect(unexplainedDiff(diff, { entries: [covers], features: ['cirsoc201'] }).changed.map((c) => c.path)).toEqual(['design.rc[e1]', 'design.member[e1]']);
+  });
+  it('NEGATIVE: keeps a value the entry does not declare, and one it would only explain outside its area', () => {
+    const wider = compareValues({ 'design.rc[e1]': 1, 'base.displacements[n1]': 3, 'design.steelCheck[e2]': 4 }, { 'design.rc[e1]': 1.1, 'base.displacements[n1]': 3.3, 'design.steelCheck[e2]': 5 });
+    const r = unexplainedDiff(wider, { entries: [{ ...covers, quantities: ['*'] }], features: ['defaultDesignCovers', 'analysis:linear'] });
+    expect(r.changed.map((c) => c.path)).toEqual(['base.displacements[n1]']);
+    expect(unexplainedDiff(wider, { entries: [covers], features: ['defaultDesignCovers'] }).changed.map((c) => c.path)).toEqual(['base.displacements[n1]', 'design.steelCheck[e2]']);
+  });
+  it('NEGATIVE: an examples-scoped entry explains nothing, and without an excuse everything counts', () => {
+    expect(unexplainedDiff(diff, { entries: [{ id: 'ex', scope: 'examples', quantities: ['*'], when: {} }], features: ['defaultDesignCovers'] }).changed).toHaveLength(2);
+    expect(unexplainedDiff(diff).changed).toHaveLength(2);
+  });
+  it('gives the old fixture\'s features to this engine\'s run and the new one\'s to the base engine\'s, and the base checkout this build\'s harness', async () => {
+    const { readFileSync } = await import('node:fs');
+    const base = 'base-sha';
+    const files: Record<string, Record<string, string>> = {
+      [base]: { 'web/results-snapshots/t.json': '{"v":1}', 'web/src/lib/templates/fixtures/t.json': '{"a":1}', [EQUIVALENCE_TEST]: 'proof' },
+      HEAD: { 'web/results-snapshots/t.json': '{"v":2}', 'web/src/lib/templates/fixtures/t.json': '{"a":2}' },
+    };
+    const seen: Array<{ tree: string | null; excuse: unknown }> = [];
+    const solve = async (tree: string | null, list: string) => {
+      for (const item of JSON.parse(readFileSync(list, 'utf8'))) seen.push({ tree, excuse: item.excuse });
+      return 0;
+    };
+    const excuse = { entries: [covers], features: { 'web/results-snapshots/t.json': { base: ['defaultDesignCovers'], head: ['cirsoc201'] } } };
+    const code = await proveEquivalence([{ file: 'web/results-snapshots/t.json', example: 't' }], base, (rev: string, path: string) => files[rev]?.[path] ?? null,
+      { solve, baseTree: async () => ({ dir: 'base-tree', dispose: () => {} }), excuse });
+    expect(code).toBe(0);
+    expect(seen).toEqual([
+      { tree: null, excuse: { entries: [covers], features: ['defaultDesignCovers'] } },
+      { tree: 'base-tree', excuse: { entries: [covers], features: ['cirsoc201'] } },
+    ]);
+    expect(EQUIVALENCE_HARNESS).toEqual(expect.arrayContaining([EQUIVALENCE_TEST, 'web/src/lib/results-snapshot/equivalence.ts', 'web/scripts/results-snapshot/applicability.mjs']));
   });
 });
 

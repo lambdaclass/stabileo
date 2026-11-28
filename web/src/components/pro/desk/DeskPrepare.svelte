@@ -7,9 +7,8 @@
    * With nothing to design yet (`empty`), it is design's way in, with two routes, each listing
    * what is missing for it:
    *
-   *  - prepare an existing model: the physical pieces recognised from the analytical model
-   *    (`ProPhysicalPanel`'s recognition, reviewed before it is applied), its levels from the
-   *    model, its solve;
+   *  - prepare an existing model: its levels from the model and its solve (the physical pieces
+   *    are read off it on their own, `ensurePhysicalModel`);
    *  - start from scratch, oriented to design: the building constructor on the grid and levels.
    *
    * Both open the existing tools of the model stage. Nothing here builds or changes the model.
@@ -17,10 +16,11 @@
   import { t, tp } from '../../../lib/i18n';
   import { modelStore, resultsStore } from '../../../lib/store';
   import { axesOf, sortedLevels } from '../../../lib/model/grid';
-  import { physicalGroups } from '../../../lib/store/physical';
   import { materialFamilyOf } from '../../../lib/engine/steel/material-family';
   import { catalogueGradeFamily } from '../../../lib/engine/steel/grade-family';
   import { openDeskAt, openModelTool } from '../../../lib/pro/design-navigation';
+  import { unifiedPlates } from '../../../lib/features';
+  import { physicalGroups } from '../../../lib/store/physical';
   import DesignOverview from '../design/DesignOverview.svelte';
 
   let { empty }: { empty: boolean } = $props();
@@ -45,7 +45,7 @@
     ...(members === 0 ? ['desk.prep.miss.members'] : []),
     ...(members > 0 && designable === 0 ? ['desk.prep.miss.material'] : []),
     ...(levels === 0 ? ['desk.prep.miss.levels'] : []),
-    ...(pieces === 0 ? ['desk.prep.miss.pieces'] : []),
+    ...(!unifiedPlates() && pieces === 0 ? ['desk.prep.miss.pieces'] : []),
     ...(!solved ? ['desk.prep.miss.solve'] : []),
   ]);
   /** What a model started for design still lacks. */
@@ -62,14 +62,19 @@
     <div class="pp-routes">
       <section class="pp-route" data-testid="desk-route-existing">
         <h4>{t('desk.prep.existing')}</h4>
-        <Hint text={t('desk.prep.existingHint')} />
+        <Hint text={t(unifiedPlates() ? 'desk.prep.automaticExistingHint' : 'desk.prep.existingHint')} />
         <h5>{t('desk.prep.missing')}</h5>
         {#if existingMissing.length}
           <ul data-testid="desk-route-existing-missing">{#each existingMissing as k (k)}<li>{t(k)}</li>{/each}</ul>
         {:else}<p class="pp-hint" data-testid="desk-route-existing-ready">{t('desk.prep.readyToDesign')}</p>{/if}
         <div class="pp-actions">
-          <button class="pp-primary" disabled={members === 0} onclick={() => openModelTool('physical')} data-testid="desk-route-recognize">{t('desk.prep.recognize')}</button>
-          <button disabled={members === 0} onclick={() => openModelTool('grid')} data-testid="desk-route-levels">{t('desk.prep.levelsFromModel')}</button>
+          {#if __PUBLIC_FEATURES__.proPlatesUnified}
+            <button class="pp-primary" disabled={members === 0} onclick={() => openModelTool('grid')} data-testid="desk-route-levels">{t('desk.prep.levelsFromModel')}</button>
+            <button disabled={members === 0} onclick={() => openModelTool('physical')} data-testid="desk-route-pieces">{t('physical.title')} ↗</button>
+          {:else}
+            <button class="pp-primary" disabled={members === 0} onclick={() => openModelTool('physical')} data-testid="desk-route-recognize">{t('desk.prep.recognize')}</button>
+            <button disabled={members === 0} onclick={() => openModelTool('grid')} data-testid="desk-route-levels">{t('desk.prep.levelsFromModel')}</button>
+          {/if}
         </div>
       </section>
       <section class="pp-route" data-testid="desk-route-scratch">

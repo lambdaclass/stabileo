@@ -109,3 +109,17 @@ it('#2566 — repeat Apply retains full strength and service identities with the
   expect(loadCatalog()).toStrictEqual(once);
   expect(modelStore.loads.find(l => l.data.id === manualLoad)?.data.caseId).toBe(oldWind);
 });
+
+it('retains a buffered manual force when a nested command applies a load plan', () => {
+  const { current, node, wind } = windPlans();
+  let manual = 0;
+  modelStore.bulkMutate(() => {
+    manual = modelStore.addNodalLoad3D(node, -2, 0, 0, 0, 0, 0, wind);
+    expect(applyLoadPlan(current, { ...replace, clearExisting: false })).toBeUndefined();
+  });
+  expect(modelStore.loads).toHaveLength(1 + current.nodal.length);
+  const retained = modelStore.loads.find(l => l.data.id === manual);
+  expect(retained?.data).toMatchObject({ nodeId: node, fx: -2, caseId: wind });
+  expect(retained?.data).not.toHaveProperty('generatedBy');
+  for (const load of modelStore.loads.filter(l => l !== retained)) expect(load.data).toHaveProperty('generatedBy', expect.any(String));
+});

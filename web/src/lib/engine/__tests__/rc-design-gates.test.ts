@@ -351,9 +351,9 @@ describe('GATE: ProPanel was decomposed', () => {
     expect(code).toContain("uiStore.proActiveTab = 'diagnostics'");
   });
 
-  it('the extracted example catalogue carries no markup and one loader per fixture', () => {
-    const examples = readCode('../../data/pro-examples.ts');
-    const fixtures = [...examples.matchAll(/entry\(\{ id: '([^']+)'/g)].map(m => m[1]);
+  it('the extracted example catalogue carries no markup and one loader per fixture', async () => {
+    const { PRO_EXAMPLES } = await import('../../data/pro-examples');
+    const fixtures = PRO_EXAMPLES.map(card => card.id);
     expect(fixtures.length).toBeGreaterThan(10);
     expect(new Set(fixtures).size, 'two cards loading the same fixture').toBe(fixtures.length);
   });

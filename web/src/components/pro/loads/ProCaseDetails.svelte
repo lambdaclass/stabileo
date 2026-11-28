@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OccupancySelect from '../OccupancySelect.svelte';
   import { caseNameShown } from '../../../lib/axes/case-names';
   import { signedAxisText } from '../../../lib/axes/typed-frame';
   import { modelAxisOf } from '../../../lib/axes/display';
@@ -24,7 +25,8 @@
   import { addsLoop, caseOrder } from '../../../lib/engine/case-effects';
   import { symbolOfType } from '../../../lib/engine/loads/combination-cases';
   import { caseReduction, caseReductionRefusal, holdsGeneratorReducedLoads } from '../../../lib/engine/loads/case-reduction';
-  import { OCCUPANCY_TABLE_2025, type ElementKind } from '../../../lib/codes/cirsoc101/live-loads';
+  import type { ElementKind } from '../../../lib/codes/cirsoc101/live-loads';
+  import { occupancyTableFor } from '../../../lib/codes/families/occupancy-tables';
   import { loadCodeFor } from '../../../lib/codes/families';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import type { LoadCase } from '../../../lib/store/model.svelte';
@@ -84,9 +86,10 @@
   let kind = $state(lc.reduction?.elementKind ?? 'interiorBeam');
   let floors = $state(String(lc.reduction?.floorsSupported ?? 1));
   // Lo and the row's exclusions: the occupancy stated, else the project's (the generator's).
-  let occupancyKey = $state(lc.reduction?.occupancyKey ?? String((regulationsStore.binding('loads')?.settings as Record<string, unknown> | undefined)?.occupancyKey ?? 'vivienda'));
-  const occupancies = OCCUPANCY_TABLE_2025.filter((o) => o.uniformKNm2 !== null);
   const imposedCode = $derived(loadCodeFor(loadsBinding?.adapterId));
+  let occupancyKey = $state(lc.reduction?.occupancyKey ?? String(loadsBinding?.settings?.occupancyKey
+    ?? (imposedCode?.role === 'loads' ? imposedCode.defaultOccupancy : undefined) ?? 'vivienda'));
+  const occupancies = $derived(occupancyTableFor(loadsBinding?.adapterId).filter(row => row.uniformKNm2 !== null));
   const reductionRefused = $derived(caseReductionRefusal(lc.type, holdsGeneratorReducedLoads(modelStore.loads, lc.id, loadsBinding?.settings as Record<string, unknown> | undefined)));
   const reductionPreview = $derived.by(() => {
     const a = area, f = parseDecimal(floors);
@@ -213,9 +216,8 @@
     {/if}
     <div class="cd-row">
       <label>{t('caseDetails.reductionOccupancy')}
-        <select bind:value={occupancyKey} class="cd-wide" data-testid="cd-red-occupancy">
-          {#each occupancies as o (o.key)}<option value={o.key}>{t(o.labelKey)} · {o.uniformKNm2} kN/m²</option>{/each}
-        </select>
+        <OccupancySelect id="cd-red-occupancy" value={occupancyKey} rows={occupancies}
+          formatPressure={value => `${value} kN/m²`} choose={key => { occupancyKey = key; }} />
       </label>
       <select bind:value={kind} data-testid="cd-red-kind">
         {#each KINDS as k (k)}<option value={k}>{t(`autoLoad.elementKind.${k}`)}</option>{/each}
@@ -223,11 +225,14 @@
       <label>A<sub>T</sub> <QuantityInput bind:value={area} nullable quantity="planArea" cls="cd-num" testid="cd-red-area" /></label>
       <label>{t('autoLoad.floorsSupported')} <input type="text" class="cd-num" bind:value={floors} data-testid="cd-red-floors" /></label>
     </div>
+    {#if !occupancies.some(row => row.key === occupancyKey)}
+      <p class="cd-warn">{tp('loadPlan.blocked.unknownOccupancy', { key: occupancyKey })}</p>
+    {/if}
     {#if reductionPreview}
       <p class="cd-hint" data-testid="cd-red-preview">{tp('caseDetails.reductionRatio', { r: reductionPreview.ratio.toFixed(3) })} {tp('caseDetails.reductionLo', { lo: reductionPreview.lo })} {te(reductionPreview.reason)}</p>
     {/if}
     <div class="cd-row">
-      <button class="pk-btn" disabled={!reductionPreview || reductionRefused !== null} onclick={() => reductionPreview && update({ reduction: { ratio: reductionPreview.ratio, tributaryAreaM2: reductionPreview.area, elementKind: kind, floorsSupported: reductionPreview.floors, occupancyKey } })} data-testid="cd-red-apply">{t('caseDetails.reductionApply')}</button>
+      <button class="pk-btn" disabled={!reductionPreview || reductionRefused !== null} onclick={() => reductionPreview && update({ reduction: { ratio: reductionPreview.ratio, tributaryAreaM2: reductionPreview.area, elementKind: kind, floorsSupported: reductionPreview.floors, occupancyKey, occupancyReviewed: true } })} data-testid="cd-red-apply">{t('caseDetails.reductionApply')}</button>
       {#if lc.reduction}<button class="pk-btn" onclick={() => update({ reduction: undefined })} data-testid="cd-red-clear">{t('caseDetails.reductionClear')}</button>
         <span class="cd-hint">{tp('caseDetails.reductionOn', { r: lc.reduction.ratio.toFixed(3) })}</span>{/if}
     </div>
@@ -240,7 +245,7 @@
   .cd-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
   .cd-row label { display: inline-flex; align-items: center; gap: 4px; }
   .cd :global(.cd-num) { width: 56px; font-family: var(--st-mono); }
-  .cd-wide { width: 110px; }
+  .cd-wide, .cd :global([data-testid="cd-red-occupancy"]) { width: 110px; }
   .cd-hint { margin: 0; font-size: 0.6rem; color: var(--st-text-3); line-height: 1.35; }
   .cd-warn { margin: 0; font-size: 0.62rem; color: var(--st-warn); line-height: 1.35; }
   .cd-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }

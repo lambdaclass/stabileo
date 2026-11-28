@@ -11,11 +11,12 @@
  * numerics.
  */
 
+import { unifiedPlates } from '../features';
 import { uiStore } from '../store/ui.svelte';
 import { modelStore } from '../store/model.svelte';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { checkModel } from './model-diagnostics';
-import type { SolverDiagnostic } from './types';
+import type { AnalysisResults, SolverDiagnostic } from './types';
 import { readSolverDiagnostic } from './engine-diagnostics';
 
 /** Max diagnostics surfaced at once, so a noisy model cannot bury the UI. */
@@ -34,6 +35,31 @@ export function reportSolverDiagnostics(diags?: SolverDiagnostic[]): void {
     const msg = t(d.message) !== d.message ? t(d.message) : d.message;
     uiStore.toast(msg, d.severity === 'error' ? 'error' : 'info');
   }
+}
+
+export function reportManualSolveDiagnostics(diags?: SolverDiagnostic[]): void {
+  reportSolverDiagnostics(unifiedPlates() ? diags?.filter(d => d.severity === 'error') : diags);
+}
+
+function planarSolveNotices<D extends { metric?: string }, S extends { severity: string }>(results: { diagnostics?: D[]; solverDiagnostics?: S[] }) {
+  return [...(results.diagnostics ?? []).filter(d => d.metric === 'negative_jacobian'),
+    ...(results.solverDiagnostics ?? []).filter(d => d.severity === 'warning')];
+}
+
+export function solverNoticeCount(results: { diagnostics?: Array<{ metric?: string }>; solverDiagnostics?: Array<{ severity: string }> }): number {
+  return planarSolveNotices(results).length;
+}
+
+export function noticesToReview(n: number, pro: boolean): string {
+  return tp(`solveProgress.${pro ? 'warnings' : 'warningsBasic'}.${n === 1 ? 'one' : 'other'}`, { n });
+}
+
+export function toolbarSolveNotice(results: AnalysisResults, pro: boolean): string {
+  const notices = planarSolveNotices(results);
+  if (!notices.length) return '';
+  if (unifiedPlates()) return ' · ' + noticesToReview(notices.length, pro);
+  uiStore.toast(notices.map(d => d.message).join(' | '), 'info');
+  return '';
 }
 
 /**

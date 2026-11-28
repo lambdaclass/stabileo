@@ -56,13 +56,13 @@ const stationComponents = ['Fx', 'Fy', 'Fz', 's·Fx', 's·Fy', 's·Fz'];
 
 function compare(label: string, entered: Wrench, assembled: Wrench): void {
   compareMeasures(label, components, entered, assembled);
-  const empty = new Wrench();
+  let empty: Wrench | undefined;
   for (const source of memberLineSources) {
     const first = entered.memberLineMeasures(source), second = assembled.memberLineMeasures(source);
     if (!first && !second) continue;
     for (const id of new Set([...(first?.keys() ?? []), ...(second?.keys() ?? [])])) {
       compareMeasures(`${label} · ${tp('whatif.member', { n: id })}`, stationComponents,
-        first?.get(id) ?? empty, second?.get(id) ?? empty);
+        first?.get(id) ?? (empty ??= new Wrench()), second?.get(id) ?? (empty ??= new Wrench()));
     }
   }
 }
@@ -254,7 +254,7 @@ function wrenchForModel(model: ModelData): Wrench {
   return new Wrench(model[accountingMemberPieces]);
 }
 
-function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, leftHand: boolean, caseId: number, definitions: ReadonlySet<number>): Wrench {
+function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, leftHand: boolean, caseId: number, definitions: ReadonlySet<number>, onNodes: (id: number) => boolean = () => false): Wrench {
   const out = wrenchForModel(model);
   const at = (id: number): Vector => {
     const node = model.nodes.get(id);
@@ -318,7 +318,7 @@ function enteredLoads(model: ModelData, loads: readonly Load[], frame: Frame, le
     const originalI = model.nodes.get(member.nodeI), originalJ = model.nodes.get(member.nodeJ);
     if (!originalI || !originalJ) unsupported(model, caseId, load.type, d.id);
     const drawnChord = sub(xyz(originalJ), xyz(originalI));
-    const spatial = frame === 'space' ? memberFrame3D(model, member) : null;
+    const spatial = frame === 'space' ? memberFrame3D(model, onNodes(member.id) ? { ...member, offset: undefined } : member) : null;
     if (frame === 'space' && !spatial) unsupported(model, caseId, load.type, d.id);
     const start = spatial?.ni ?? at(member.nodeI), end = spatial?.nj ?? at(member.nodeJ);
     const axis = unit(sub(end, start)), length = norm(sub(end, start));
@@ -643,21 +643,33 @@ export function weightSource3D(model: ModelData, embedded: boolean, source: Self
   return { label, expected, rows };
 }
 
-type GeneratedMeasure = Pick<WrenchSource3D, 'expected' | 'nodeId'>;
+type GeneratedMeasure = { measure: () => Wrench; nodeId?: number };
 
 function generatedExpected(
   model: ModelData, loads: readonly Load[], frame: 'xz' | 'space', leftHand: boolean, caseId: number, factor: number,
   select: (load: Load) => boolean = hasGeneratedSource,
+  onNodes?: (id: number) => boolean,
 ) {
-  const receipts = new Map<Load, GeneratedMeasure>();
+  const groups = new Map<Load, Load[]>();
   for (const load of loads) {
     if (!select(load)) continue;
     const original = accountingOrigin(load);
-    const receipt = receipts.get(original) ?? {
-      expected: new Wrench(), nodeId: load.type === 'nodal3d' ? load.data.nodeId : undefined,
+    const group = groups.get(original);
+    if (group) group.push(load);
+    else groups.set(original, [load]);
+  }
+  const receipts = new Map<Load, GeneratedMeasure>();
+  for (const [original, group] of groups) {
+    const first = group[0]!;
+    const measure = () => {
+      if (group.length === 1 && factor === 1) return enteredLoads(model, group, frame, leftHand, caseId, new Set(), onNodes);
+      const expected = new Wrench();
+      for (const load of group) {
+        expected.addScaled(enteredLoads(model, [load], frame, leftHand, caseId, new Set(), onNodes), factor);
+      }
+      return expected;
     };
-    receipt.expected.addScaled(enteredLoads(model, [load], frame, leftHand, caseId, new Set()), factor);
-    receipts.set(original, receipt);
+    receipts.set(original, { measure, nodeId: first.type === 'nodal3d' ? first.data.nodeId : undefined });
   }
   return receipts;
 }
@@ -745,6 +757,8 @@ export function loadAccounting3D(
   }
 
   const frame = embedded ? 'xz' : 'space';
+  // An input built without expanding the offsets carries each member, and its loads, on its nodes.
+  const onNodes = (id: number) => { const w = input.elements.get(id), m = source.elements.get(id); return !!w && !!m && !!m.offset && w.nodeI === m.nodeI && w.nodeJ === m.nodeJ; };
   type CaseMeasure = {
     totals: Wrench; names: Set<string>; slabs: Map<number, Map<string, SlabCell>>; generated: Map<Load, GeneratedMeasure>;
   };
@@ -755,12 +769,12 @@ export function loadAccounting3D(
     const batch = pressures.get(caseId) ?? new Map<number, SlabSource>();
     const definitions = new Set(batch.keys());
     const authoredLoads = authored.get(caseId) ?? [];
-    const totals = enteredLoads(source, authoredLoads, frame, leftHand, caseId, definitions);
+    const totals = enteredLoads(source, authoredLoads, frame, leftHand, caseId, definitions, onNodes);
     const names = new Set([...batch.values()].map(slab => slab.name));
     const rule = effects?.cases.get(caseId);
     const ratio = rule?.ratio ?? 1;
     const slabs = new Map<number, Map<string, SlabCell>>();
-    const receipts = generatedExpected(source, authoredLoads, frame, leftHand, caseId, ratio);
+    const receipts = generatedExpected(source, authoredLoads, frame, leftHand, caseId, ratio, hasGeneratedSource, onNodes);
     for (const [id, slab] of batch) {
       totals.addScaled(slab.expected, 1);
       addSlabSource(slabs, id, slab.cells, ratio);
@@ -772,7 +786,7 @@ export function loadAccounting3D(
       const { fromDef, on, quadId } = intent.baseline;
       const cell = slabs.get(fromDef)?.get(slabCell(on, quadId));
       if (!cell) continue;
-      cell.expected.addScaled(enteredLoads(source, [load], frame, leftHand, caseId, definitions), ratio);
+      cell.expected.addScaled(enteredLoads(source, [load], frame, leftHand, caseId, definitions, onNodes), ratio);
       const points = cell.nodeIds.map(nodeId => xyz(source.nodes.get(nodeId) ?? unsupported(model, caseId, 'node', nodeId)));
       const baseline = expectedSurfaceNodeForces(points, intent.baseline);
       if (!baseline) unsupported(model, caseId, load.type, quadId);
@@ -784,8 +798,8 @@ export function loadAccounting3D(
     result.addScaled(totals, ratio);
     const generated = effects?.generated.get(caseId);
     if (generated) {
-      result.addScaled(enteredLoads(source, generated, frame, leftHand, caseId, definitions), 1);
-      for (const [load, receipt] of generatedExpected(source, generated, frame, leftHand, caseId, 1, () => true)) {
+      result.addScaled(enteredLoads(source, generated, frame, leftHand, caseId, definitions, onNodes), 1);
+      for (const [load, receipt] of generatedExpected(source, generated, frame, leftHand, caseId, 1, () => true, onNodes)) {
         receipts.set(load, receipt);
       }
     }
@@ -795,9 +809,13 @@ export function loadAccounting3D(
       for (const name of part.names) names.add(name);
       for (const [id, cells] of part.slabs) addSlabSource(slabs, id, cells, factor);
       for (const [load, receipt] of part.generated) {
-        const copied = receipts.get(load) ?? { expected: new Wrench(), nodeId: receipt.nodeId };
-        copied.expected.addScaled(receipt.expected, factor);
-        receipts.set(load, copied);
+        const previous = receipts.get(load);
+        const measure = () => {
+          const expected = previous?.measure() ?? new Wrench();
+          expected.addScaled(receipt.measure(), factor);
+          return expected;
+        };
+        receipts.set(load, { measure, nodeId: previous ? previous.nodeId : receipt.nodeId });
       }
     }
     const entry = { totals: result, names, slabs, generated: receipts };
@@ -826,7 +844,7 @@ export function loadAccounting3D(
       if (!select(original)) continue;
       const expectedSource = receipts.get(original);
       const receipt: CheckedSource3D = {
-        label: sourceLabel(model, caseId, original), expected: expectedSource?.expected ?? new Wrench(),
+        label: sourceLabel(model, caseId, original), expected: expectedSource?.measure() ?? new Wrench(),
         rows: delivered.get(original) ?? [],
         nodeId: expectedSource?.nodeId,
       };
@@ -872,6 +890,9 @@ export function loadAccounting3D(
   };
 
   return {
+    releaseIndependentCase(id: number) {
+      if (!effects) cache.delete(id);
+    },
     cases: effects?.targets ?? new Set([...authored.keys(), ...pressures.keys()]),
     verifyGenerated,
     verifySlabs,

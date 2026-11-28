@@ -2614,7 +2614,6 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       ...(designedStirrups ? { designedStirrups } : {}),
       supportI: supportKindAt(el.nodeI, id, input.elements),
       supportJ: supportKindAt(el.nodeJ, id, input.elements),
-      vn: Math.max(...stations.map((s) => s.v), 1),
       bottom: groups.bottom, topStart: groups.topStart, topEnd: groups.topEnd,
       topPurpose: groups.topPurpose,
       lateralSystem: lateralOf(id),
@@ -2694,6 +2693,16 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       bars: [...gen.bars, ...transversePaths],
       requiredTransversePieces,
       unsupported: gen.unsupported,
+      checkCutoffs: gen.cutoffs.length ? (placed) => {
+        const checked = gen.checkPlacedCuts(placed, materialised.sourcesByBar);
+        return {
+          conditions: checked.cuts.filter(cut => cut.legality === 'illegal').map(cut => ({
+            key: 'detailing.cutoff.unverified', scope: { elementIds: [id] }, refs: cut.refs,
+            params: { element: id, x: cut.actual.toFixed(3) }, message: `§9.7.3.5 · ${id} · ${cut.actual.toFixed(3)} m`,
+          })),
+          trace: checked.trace,
+        };
+      } : undefined,
       maturity: deriveMaturity({
         implemented: true, refs: [...gen.refs, ...anchor.refs], benchmarks: [],
       }).maturity,
@@ -2707,7 +2716,7 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
        * stated rather than one summarised.
        */
       trace: [
-        ...gen.trace,
+        ...gen.trace.filter(note => !gen.cutoffTrace.includes(note)),
         ...(groups.topPurpose.start === 'stirrupHanger'
           ? [`Apoyo i: ${groups.provisions.start.note}`] : []),
         ...(groups.topPurpose.end === 'stirrupHanger'

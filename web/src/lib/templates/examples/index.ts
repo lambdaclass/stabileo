@@ -3,14 +3,18 @@
  *
  * Built by `scripts/build-pro-examples.ts` from their dimensions, and kept as code rather than
  * fixture JSON because the fixture loader carries neither member behaviour, releases per axis,
- * offsets nor self-weight as a case load, and these use them. They load as they are.
+ * offsets nor self-weight as a case load, and these use them. They load as they are; the buildings
+ * bring the load generator's settings, and the gallery writes their loads from them.
  */
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import { codeToModel } from '../../model/code/format';
 import { mergeCode } from '../../model/code/apply';
 
-export const CODE_EXAMPLES = {
+import { GENERATED_BUILDING_FILES } from './building-files';
+export { GENERATED_BUILDING_FILES };
+
+export const PUBLISHED_CODE_FILES = {
   'pro-plane-frame-seismic': () => import('./pro-plane-frame-seismic.stabileo.txt?raw'),
   'pro-rc-frame-area-loads': () => import('./pro-rc-frame-area-loads.stabileo.txt?raw'),
   'pro-steel-building-slabs': () => import('./pro-steel-building-slabs.stabileo.txt?raw'),
@@ -20,15 +24,27 @@ export const CODE_EXAMPLES = {
   'pro-guyed-tower': () => import('./pro-guyed-tower.stabileo.txt?raw'),
 } as const;
 
+export const CODE_EXAMPLES = { ...PUBLISHED_CODE_FILES, ...GENERATED_BUILDING_FILES };
+
 export type CodeExampleId = keyof typeof CODE_EXAMPLES;
 
+function offeredCodeFile(id: CodeExampleId) {
+  const file = CODE_EXAMPLES[id];
+  if (!file) throw new RangeError(id);
+  return file;
+}
+
 export async function codeExampleText(id: CodeExampleId): Promise<string> {
-  return (await CODE_EXAMPLES[id]()).default;
+  return (await offeredCodeFile(id)()).default;
 }
 
 /** Replace the open model with a model-code example, as one undo step. */
-export async function loadCodeExample(id: CodeExampleId): Promise<void> {
-  const parsed = codeToModel(await codeExampleText(id));
+export async function loadCodeExample(id: CodeExampleId, codeFile = offeredCodeFile(id)): Promise<void> {
+  return loadCodeFile(id, codeFile);
+}
+
+export async function loadCodeFile(id: string, codeFile: () => Promise<{ default: string }>): Promise<void> {
+  const parsed = codeToModel((await codeFile()).default);
   if (!parsed.snapshot) {
     throw new Error(`${id}: ${parsed.errors.map((e) => `line ${e.line}: ${e.message}`).join('; ')}`);
   }

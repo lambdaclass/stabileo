@@ -87,7 +87,7 @@ export function addPositionCases(
   } catch (error) {
     return { error: localizeEngineText(errorText(error, 'Error')) };
   }
-  modelStore.batch(() => {
+  modelStore.bulkMutate(() => {
     for (const { title, loads } of cases) {
       const id = modelStore.addLoadCase(title, 'Tr', { alternatives: group });
       for (const load of loads) modelStore.addLoadEntry({ ...load, data: { ...load.data, caseId: id } } as typeof load);

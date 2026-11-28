@@ -1,0 +1,52 @@
+{
+  "id": "plate-edit-node-ownership",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "physicalPlatePointMasses"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-edit-node-ownership.md",
+    "heading": "Point masses at physical plate nodes"
+  },
+  "title": {
+    "en": "Point masses at plate nodes",
+    "es": "Masas puntuales en nudos de placas",
+    "pt": "Massas pontuais nos nós das placas",
+    "de": "Punktmassen an Plattenknoten",
+    "fr": "Masses ponctuelles aux nœuds des plaques",
+    "hu": "Ponttömegek a lemezcsomópontokon",
+    "tr": "Plak düğümlerindeki noktasal kütleler",
+    "zh": "板节点上的集中质量",
+    "ar": "الكتل النقطية عند عقد البلاطات",
+    "hi": "प्लेट के नोडों पर बिंदु द्रव्यमान",
+    "id": "Massa titik pada simpul pelat",
+    "it": "Masse puntuali nei nodi delle piastre",
+    "ja": "板の節点にある集中質量",
+    "ko": "판 절점의 집중 질량",
+    "ru": "Сосредоточенные массы в узлах пластин"
+  },
+  "explanation": {
+    "en": "Plate edits preserve nodes carrying point masses. Check earlier edited models against a copy saved before the edit.",
+    "es": "La edición de placas conserva los nudos con masas puntuales. Compare los modelos editados con una copia anterior a la edición.",
+    "pt": "A edição de placas preserva os nós com massas pontuais. Compare os modelos editados com uma cópia anterior à edição.",
+    "de": "Beim Bearbeiten von Platten bleiben Knoten mit Punktmassen erhalten. Vergleichen Sie bearbeitete Modelle mit einer vor der Bearbeitung gespeicherten Kopie.",
+    "fr": "La modification des plaques conserve les nœuds portant des masses ponctuelles. Comparez les modèles modifiés avec une copie antérieure à la modification.",
+    "hu": "A lemezek szerkesztése megőrzi a ponttömeget hordozó csomópontokat. Hasonlítsa össze a korábban módosított modelleket a módosítás előtt mentett példánnyal.",
+    "tr": "Plak düzenlemelerinde noktasal kütle taşıyan düğümler korunur. Daha önce düzenlenen modelleri düzenleme öncesinde kaydedilmiş bir kopyayla karşılaştırın.",
+    "zh": "编辑板时会保留带有集中质量的节点。请将以前编辑过的模型与编辑前保存的副本进行比较。",
+    "ar": "يحافظ تحرير البلاطات على العقد التي تحمل كتلاً نقطية. قارن النماذج المعدلة سابقاً بنسخة محفوظة قبل التعديل.",
+    "hi": "प्लेट संपादित करते समय बिंदु द्रव्यमान वाले नोड सुरक्षित रहते हैं। पहले संपादित किए गए मॉडलों की तुलना संपादन से पहले सहेजी गई प्रति से करें।",
+    "id": "Penyuntingan pelat mempertahankan simpul yang memiliki massa titik. Bandingkan model yang telah disunting dengan salinan yang disimpan sebelum penyuntingan.",
+    "it": "Le modifiche alle piastre conservano i nodi con masse puntuali. Confrontare i modelli già modificati con una copia salvata prima della modifica.",
+    "ja": "板の編集時に集中質量を持つ節点を保持します。以前に編集したモデルは、編集前に保存したコピーと比較してください。",
+    "ko": "판을 편집할 때 집중 질량이 있는 절점을 유지합니다. 이전에 편집한 모델을 편집 전에 저장한 사본과 비교하세요.",
+    "ru": "При редактировании пластин сохраняются узлы с сосредоточенными массами. Сравните ранее изменённые модели с копией, сохранённой до редактирования."
+  }
+}

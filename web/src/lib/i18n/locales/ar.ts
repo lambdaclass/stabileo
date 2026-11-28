@@ -1,12 +1,20 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
+  'project.adoptedReinforcementIgnored': "يتجاهل هذا الإصدار التسليح المعتمد المحفوظ في المشروع ويستخدم تسليح التصميم.",
+  'wall.tensionRequiresBarLayout': "يتطلب التحقق من الشد مع الانحناء توزيع القضبان الرأسية.",
+  'wall.boundaryBarCount': "أدخل عدداً صحيحاً غير سالب لقضبان التسليح الحدّية عند كل طرف من طرفي الجدار.",
+  'wall.tensionAtOpenings': "يتطلب الشد عند فتحات الجدار المقطع الصافي والتسليح المستمر عبره.",
+  'wall.tensionShearEdition': "يتعذر التحقق من الشد والقص معاً في الجدار وفق إصدار {edition}.",
   'svc.accountingMismatch': "رُفض التحليل. حالة الحمل {case}، المركبة {component}. المُدخل {entered}، المُجمّع {assembled}.",
   'svc.accountingUnsupported': "رُفض التحليل. لا يمكن حساب قوى وعزوم {kind} {id} في حالة الحمل {case}.",
   'svc.accountingArea': "رُفض التحليل. مساحة اللوح {plate} أو حدوده مختلفة في نموذج الحل. المساحة المحددة {entered}، والمساحة المجمّعة {assembled}.",
   'svc.accountingSweep': "رُفض التحليل. مسار الحافة القوسية للوح {plate} مختلف في نموذج الحل. المساحة المحددة {entered}، والمساحة المجمّعة {assembled}.",
   'svc.accountingShellEdits': "لا يمكن إعادة تشبيك اللوح {plate} لأن ذلك سيحذف إزاحة القشرة أو تعديل انحنائها.",
   "plates.remeshAmbiguousSweep": "القوس عند الحافة المنحنية للوحة {name} غير محدد بوضوح. تحقق من النقطة الوسطية وأي عضو منحني بين نقطتي النهاية قبل إعادة إنشاء الشبكة.",
+  "loadPlan.warning.replacedDefinitions": "ستستبدل الخطة {n} من تعريفات أحمال الطوابق التي أنشأتها.",
+  "loadPlan.warning.independentLoadsKept": "تحتفظ الخطة بـ {n} من الأحمال التي أنشأتها أدوات أخرى في حالات التحميل المعنية.",
+  "plates.meshFieldsKept": "تم الاحتفاظ بشبكة {names}. تؤدي إزالتها أو استبدالها إلى فقدان حمل أو تغيير مادة خلية أو سمكها أو إزاحتها أو انحنائها.",
   "plates.remeshShellEdits": "يتعذر استبدال شبكة {name} لأن تعديلات إزاحة عناصر القشرة أو انحنائها لا يمكن نقلها بدقة.",
   'loadPlan.gravity.coveragePrecision': "تتجاوز إحداثيات تغطية القشريات دقة فواصل العناصر المدعومة.",
   'loadPlan.gravity.roundedRoofBoundary': "يؤثر تقريب منتصف العنصر {id} في تحديد ما إذا كان حد السقف يغطيه. صحّح هندسة العنصر أو السقف، أو عيّن الأحمال يدويًا.",
@@ -2661,10 +2669,8 @@ const ar: Translations = {
   'pro.unknown': 'غير معروف',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} لوحة، {quads} رباعي',
   'pro.plateTriDKT': 'لوحة مثلثية (DKT)',
   'pro.quadMITC4': 'رباعي MITC4',
-  'pro.meshGenerator': 'مولد الشبكة',
   'pro.meshHint': 'حدد 4 عقد زاوية (عكس عقارب الساعة) وتقسيمات N×M. العقد الوسيطة والعناصر الرباعية تُنشأ تلقائياً.',
   'pro.corners': 'الزوايا',
   'pro.subdivisions': 'التقسيمات',

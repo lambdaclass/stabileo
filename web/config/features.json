@@ -4,6 +4,8 @@
     "research": true,
     "tools": true,
     "globalAxes": false,
+    "proPlatesUnified": false,
+    "proRcSheets": false,
     "diagramGame": true
   },
   "development": {
@@ -11,6 +13,8 @@
     "research": true,
     "tools": true,
     "globalAxes": true,
+    "proPlatesUnified": true,
+    "proRcSheets": false,
     "diagramGame": true
   },
   "test": {
@@ -18,6 +22,8 @@
     "research": true,
     "tools": true,
     "globalAxes": true,
+    "proPlatesUnified": true,
+    "proRcSheets": true,
     "diagramGame": true
   }
 }

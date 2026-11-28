@@ -1,0 +1,39 @@
+{
+  "id": "saved-uk-beam-design",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "all": [
+      "ukConcreteDesign"
+    ]
+  },
+  "quantities": [
+    "rc",
+    "member"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-build-and-schedules.md",
+    "heading": "Saved UK concrete beam designs"
+  },
+  "title": {
+    "en": "UK concrete beam design",
+    "es": "Diseño de vigas de hormigón con el anexo británico",
+    "pt": "Dimensionamento de vigas de concreto pelo anexo britânico",
+    "de": "Stahlbetonbalken nach britischem Anhang",
+    "fr": "Poutres en béton selon l’annexe britannique",
+    "tr": "Birleşik Krallık ekine göre betonarme kiriş tasarımı",
+    "zh": "英国附录混凝土梁设计",
+    "hu": "Vasbeton gerendák brit melléklet szerinti tervezése"
+  },
+  "explanation": {
+    "en": "The build profile affects the limiting moment for compression reinforcement. Recheck UK beam designs.",
+    "es": "El perfil de compilación afecta al momento límite para la armadura de compresión. Vuelva a verificar las vigas con el anexo británico.",
+    "pt": "O perfil da compilação afeta o momento limite para a armadura de compressão. Verifique novamente as vigas pelo anexo britânico.",
+    "de": "Das Build-Profil beeinflusst das Grenzmoment für Druckbewehrung. Bemessen Sie Balken nach britischem Anhang erneut.",
+    "fr": "Le profil de compilation influe sur le moment limite exigeant des armatures comprimées. Revérifiez les poutres selon l’annexe britannique.",
+    "tr": "Derleme profili, basınç donatısı gerektiren sınır momenti etkiler. Birleşik Krallık ekine göre tasarlanan kirişleri yeniden kontrol edin.",
+    "zh": "构建配置会影响需要受压钢筋的界限弯矩。请重新验算按英国附录设计的梁。",
+    "hu": "A buildprofil befolyásolja a nyomott vasalást igénylő határnyomatékot. Ellenőrizze újra a brit melléklet szerint tervezett gerendákat."
+  }
+}

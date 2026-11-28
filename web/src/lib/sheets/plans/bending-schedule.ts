@@ -5,7 +5,7 @@
  * order is placed with. Read off the document's own marks and bars (`assignMarks`,
  * `rcShapeForMark`), so the schedule and the drawings cannot disagree.
  */
-import { rcShapeForMark } from '../../engine/detailing/bar-shape-diagram';
+import { rcShapeForMark } from '../../rc-sheets/schedule/bar-shape-diagram';
 import { buildSchedule } from '../../engine/detailing/drawings';
 import type { DocumentModel } from '../../engine/detailing/document-model';
 import type { DrawingInput } from '../compose';

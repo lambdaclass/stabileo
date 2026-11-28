@@ -132,6 +132,10 @@ const FRAME = { columnSide: 0.4 } as const;
  */
 function tally(mesh: number, prescribed?: ReadonlyMap<string, PrescribedForces>): Tally {
   building(mesh, FRAME);
+  return tallySolvedBuilding(mesh, prescribed);
+}
+
+function tallySolvedBuilding(mesh: number, prescribed?: ReadonlyMap<string, PrescribedForces>): Tally {
   const doc: DocumentModel = prescribed ? designAndDocumentUnder(prescribed) : designAndDocument();
   expect(verificationStore.runSummary, `complete design at mesh ${mesh}`).toMatchObject({
     aborted: false, notReached: 0,
@@ -364,11 +368,8 @@ function expectRefusedBeams(t: Tally, names: readonly string[]) {
 it.each(['solved', 'prescribed'] as const)(
   '#2338: the mesh guard reaches V10 under %s forces after a scheduling delay',
   (source) => {
-    let prescribed: ReadonlyMap<string, PrescribedForces> | undefined;
-    if (source === 'prescribed') {
-      building(0.5, FRAME);
-      prescribed = forcesByPlace();
-    }
+    building(0.5, FRAME);
+    const prescribed = source === 'prescribed' ? forcesByPlace() : undefined;
     const now = performance.now.bind(performance);
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => {
       const progress = designRunStore.progress;
@@ -376,7 +377,7 @@ it.each(['solved', 'prescribed'] as const)(
       return now() + (beforeLastMember ? DEFAULT_RUN_MS + 1 : 0);
     });
     try {
-      const t = tally(0.5, prescribed);
+      const t = tallySolvedBuilding(0.5, prescribed);
       expectRefusedBeams(t, REFUSED_BEAMS);
     } finally {
       clock.mockRestore();

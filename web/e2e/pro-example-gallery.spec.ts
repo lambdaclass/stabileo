@@ -4,9 +4,10 @@
  * The catalogue itself (sizes, texts, what a loaded example carries) is checked in
  * `pro-examples-catalogue.test.ts`; this checks the gallery reaches it.
  */
+import { BUILD_FEATURES } from './build-features';
 import { test, expect } from './fixtures';
 
-test.describe('@slow PRO example gallery', () => {
+if (!BUILD_FEATURES.proPlatesUnified) test.describe('@slow PRO example gallery', () => {
   test.describe.configure({ timeout: 180_000 });
 
   test('lists the groups in order, loads a card, and asks before replacing the open model', async ({ pro: page }) => {

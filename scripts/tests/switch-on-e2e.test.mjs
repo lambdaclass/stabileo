@@ -3,6 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { featuresForMode } from '../../web/config/public-features.mjs';
 import { fileURLToPath } from 'node:url';
 
 const web = fileURLToPath(new URL('../../web/', import.meta.url));
@@ -11,14 +12,14 @@ const playwright = 'node_modules/@playwright/test/cli.js';
 const expectedSpecsFile = 'config/switch-on-e2e-specs.json';
 
 function fixture(t, specs, { config = '', sameProfiles = false, expectedSpecs = [] } = {}) {
-  const cwd = mkdtempSync(resolve(web, '.switch-on-collector-'));
+  const cwd = mkdtempSync(fileURLToPath(new URL('.switch-on-collector-', import.meta.url)));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   for (const subdir of ['config', 'scripts', 'e2e']) mkdirSync(resolve(cwd, subdir));
   for (const path of [collector, 'config/public-features.mjs']) {
     copyFileSync(resolve(web, path), resolve(cwd, path));
   }
-  const production = { accounts: true, research: true, tools: true, diagramGame: false, globalAxes: false };
-  const enabled = { ...production, globalAxes: !sameProfiles };
+  const production = featuresForMode('production');
+  const enabled = { ...production, globalAxes: sameProfiles ? production.globalAxes : !production.globalAxes };
   writeFileSync(resolve(cwd, 'config/features.json'), JSON.stringify({ production, test: enabled, development: enabled }));
   writeFileSync(resolve(cwd, expectedSpecsFile), JSON.stringify(expectedSpecs));
   symlinkSync(resolve(web, 'node_modules'), resolve(cwd, 'node_modules'), 'dir');

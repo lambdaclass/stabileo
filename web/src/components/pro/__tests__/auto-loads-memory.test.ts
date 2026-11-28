@@ -24,6 +24,7 @@ import { findDeadEntry, deadComponentLoad, checkPartitionAllowance } from '../..
 import { findOccupancy, partitionLiveAllowance, PARTITION_LIVE_MINIMUM_KNM2 } from '../../../lib/codes/cirsoc101/live-loads';
 
 const dialog = readFileSync(join(process.cwd(), 'src/components/pro/ProAutoLoadsDialog.svelte'), 'utf8');
+const planner = readFileSync(join(process.cwd(), 'src/components/pro/auto-loads-plan.ts'), 'utf8');
 const BOTH = { wind: true, seismic: true };
 
 /** Saves what the dialog's Preview saves, with something other than the defaults in every object. */
@@ -101,10 +102,11 @@ describe('the dialog edits a copy of what the project saved', () => {
 
   it('the save path writes snapshots, never the dialog\'s own objects', () => {
     const record = dialog.match(/function recordRoleConfiguration\(\) \{([\s\S]*?)\n  \}\n/)?.[1];
-    expect(record).toBeDefined();
-    for (const d of record!.matchAll(/dialog: ([^\n]*)/g)) expect(d[1]).toMatch(/^\$state\.snapshot\(/);
+    expect(record).toMatch(/roleSettingsOf\(memoryNow\(\)\)/);
+    expect(dialog).toMatch(/function memoryNow\(\): AutoLoadsMemory \{\s*return \$state\.snapshot\(/);
+    for (const d of planner.matchAll(/dialog: ([^\n]*)/g)) expect(d[1]).toMatch(/^copy\(/);
     // The combinations' choices are saved with the basis, so a reopening has them to restore.
-    expect(record).toMatch(/configureRole\('basis'[\s\S]*dialog: \$state\.snapshot\(\{ comboSet, comboSource, bothSenses, patternsInCompanions \}\)/);
+    expect(planner).toMatch(/\['basis', \{[\s\S]*?dialog: copy\(\{ comboSet: m\.comboSet, comboSource: m\.comboSource, bothSenses: m\.bothSenses, patternsInCompanions: m\.patternsInCompanions \}\)/);
   });
 });
 

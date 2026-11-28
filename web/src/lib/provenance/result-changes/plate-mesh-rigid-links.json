@@ -1,0 +1,54 @@
+{
+  "id": "plate-mesh-rigid-links",
+  "date": "2026-11-27",
+  "prs": [
+    2670
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "plateMeshRigidLinks"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-edit-node-ownership.md",
+    "heading": "Rigid links retained during plate mesh edits"
+  },
+  "title": {
+    "en": "Rigid links at plate mesh nodes",
+    "es": "Vínculos rígidos en nudos de la malla de placas",
+    "pt": "Ligações rígidas nos nós da malha de placas",
+    "de": "Starre Kopplungen an Plattennetzknoten",
+    "fr": "Liaisons rigides aux nœuds du maillage des plaques",
+    "hu": "Merev kapcsolatok a lemezháló csomópontjain",
+    "tr": "Plak ağı düğümlerindeki rijit bağlantılar",
+    "zh": "板网格节点上的刚性连接",
+    "ar": "الروابط الصلبة عند عقد شبكة البلاطات",
+    "hi": "प्लेट मेश के नोडों पर कठोर लिंक",
+    "id": "Sambungan kaku pada simpul jaring pelat",
+    "it": "Collegamenti rigidi nei nodi della mesh delle piastre",
+    "ja": "板メッシュの節点にある剛体リンク",
+    "ko": "판 메시 절점의 강체 연결",
+    "ru": "Жёсткие связи в узлах сетки пластин"
+  },
+  "explanation": {
+    "en": "Mesh edits retain authored rigid links. Compare earlier edited models with a copy saved before the edit.",
+    "es": "La edición de la malla conserva los vínculos rígidos definidos por el usuario. Compare los modelos editados con una copia anterior a la edición.",
+    "pt": "A edição da malha preserva as ligações rígidas definidas pelo usuário. Compare os modelos editados com uma cópia anterior à edição.",
+    "de": "Beim Bearbeiten des Netzes bleiben benutzerdefinierte starre Kopplungen erhalten. Vergleichen Sie bearbeitete Modelle mit einer zuvor gespeicherten Kopie.",
+    "fr": "La modification du maillage conserve les liaisons rigides définies par l’utilisateur. Comparez les modèles modifiés avec une copie antérieure à la modification.",
+    "hu": "A háló szerkesztése megőrzi a megadott merev kapcsolatokat. Hasonlítsa össze a módosított modelleket egy korábban mentett példánnyal.",
+    "tr": "Ağ düzenlenirken kullanıcının tanımladığı rijit bağlantılar korunur. Düzenlenen modelleri düzenleme öncesi bir kopyayla karşılaştırın.",
+    "zh": "编辑网格时会保留用户定义的刚性连接。请将以前编辑过的模型与编辑前保存的副本进行比较。",
+    "ar": "يحافظ تحرير الشبكة على الروابط الصلبة التي حددها المستخدم. قارن النماذج المعدلة بنسخة محفوظة قبل التعديل.",
+    "hi": "मेश संपादित करते समय उपयोगकर्ता के बनाए कठोर लिंक सुरक्षित रहते हैं। पहले संपादित मॉडलों की तुलना संपादन से पहले सहेजी गई प्रति से करें।",
+    "id": "Penyuntingan jaring mempertahankan sambungan kaku yang ditentukan pengguna. Bandingkan model yang disunting dengan salinan sebelum penyuntingan.",
+    "it": "Le modifiche alla mesh conservano i collegamenti rigidi definiti dall’utente. Confrontare i modelli modificati con una copia precedente alla modifica.",
+    "ja": "メッシュの編集時にユーザー定義の剛体リンクを保持します。以前に編集したモデルは、編集前に保存したコピーと比較してください。",
+    "ko": "메시를 편집할 때 사용자가 정의한 강체 연결을 유지합니다. 이전에 편집한 모델을 편집 전의 사본과 비교하세요.",
+    "ru": "При редактировании сетки сохраняются заданные пользователем жёсткие связи. Сравните ранее изменённые модели с копией, сохранённой до редактирования."
+  }
+}

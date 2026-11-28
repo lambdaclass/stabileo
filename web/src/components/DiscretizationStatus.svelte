@@ -13,6 +13,7 @@
     discretizationStore, discretizationClaims, isInconclusive, approxPercent, percentText, thresholdTick, studyUnit, type QuantityConvergence,
   } from '../lib/store/discretization.svelte';
   import { localizeEngineText } from '../lib/i18n/engine-text';
+  import DiscretizationWarning from './DiscretizationWarning.svelte';
   import { shellContourColor } from '../lib/three/stress-heatmap';
 
   const is3D = $derived(uiStore.is3DWorkspace);
@@ -71,12 +72,16 @@
       const v = r.min + (i / 10) * (r.max - r.min);
       stops.push('#' + shellContourColor(v, r.min, r.max).toString(16).padStart(6, '0'));
     }
-    return { max: r.max, tick: thresholdTick(thresholdPct, r.max), gradient: `linear-gradient(to right, ${stops.join(', ')})` };
+    return { max: r.max, ...(__PUBLIC_FEATURES__.proPlatesUnified ? { clipped: r.clipped } : {}), tick: thresholdTick(thresholdPct, r.max), gradient: `linear-gradient(to right, ${stops.join(', ')})` };
   });
 </script>
 
 {#if visible}
-  <div class="disc" class:warn data-testid="discretization-status" title={t('discretization.tooltip')}>
+  <div class="disc" class:warn
+    style:font-size={__PUBLIC_FEATURES__.proPlatesUnified ? '12px' : null}
+    style:line-height={__PUBLIC_FEATURES__.proPlatesUnified ? '1.4' : null}
+    style:border-color={__PUBLIC_FEATURES__.proPlatesUnified && warn ? 'var(--st-info)' : null}
+    data-testid="discretization-status" title={t('discretization.tooltip')}>
     <div class="line">
       <span class="algebraic">{algebraic}</span>
       <span class="sep">·</span>
@@ -91,10 +96,14 @@
       {/if}
     </div>
 
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      <DiscretizationWarning unestimable={claims?.warnUnestimable} {warn} {threshold} />
+    {:else}
     {#if claims?.warnUnestimable}
       <div class="warning" data-testid="discretization-warning">{t(claims.warnUnestimable)}</div>
     {:else if warn}
       <div class="warning" data-testid="discretization-warning">{t('discretization.warning').replace('{threshold}', threshold)}</div>
+    {/if}
     {/if}
 
     {#if claims?.framesExact}
@@ -123,10 +132,10 @@
           <div class="bar" style:background={legend.gradient}>
             <span class="mark" style:left="{legend.tick.at}%"></span>
           </div>
-          <div class="ticks">
+          <div class="ticks" style:font-size={__PUBLIC_FEATURES__.proPlatesUnified ? '11px' : null}>
             <span>0 %</span>
             {#if legend.tick.label}<span class="thr" style:left="{legend.tick.at}%" data-testid="discretization-legend-threshold">{threshold} %</span>{/if}
-            <span>{legend.max.toFixed(0)} %</span>
+            {#if __PUBLIC_FEATURES__.proPlatesUnified}<span data-testid="discretization-legend-max">{legend.clipped ? '≥ ' : ''}{legend.max.toFixed(0)} %</span>{:else}<span>{legend.max.toFixed(0)} %</span>{/if}
           </div>
           <div class="note">{t('discretization.mapExplain')}</div>
         </div>

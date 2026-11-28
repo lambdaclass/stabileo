@@ -1,19 +1,11 @@
 <script lang="ts" module>
   import Hint from './Hint.svelte';
+  import OccupancySelect from './OccupancySelect.svelte';
   // The config, its default and its dead load's reader live with the dialog's other sections
   // (`auto-loads-sections.ts`).
   import { readRoofDead, type RoofConfig } from './auto-loads-sections';
-  import { roofLiveLoad as lrOf, roofWeightClass as weightOf } from '../../lib/codes/cirsoc101/roof-live';
-  /**
-   * Lr over a member of large (80 m²) and small (10 m²) tributary area, kN/m², for the readouts.
-   * `autoWeight`: the class the plan finds for the roof's structure and cladding (`roofWeightFor`);
-   * absent, the dead load's alone.
-   */
-  export function roofLrRange(c: RoofConfig, floorDead: number, modelSlopeDeg: number, autoWeight?: 'heavy' | 'light'): { lo: number; hi: number } {
-    const weight = c.weight ?? autoWeight ?? weightOf(c.dead ?? floorDead);
-    const pct = Math.tan(((c.slopeDeg ?? modelSlopeDeg) * Math.PI) / 180) * 100;
-    return { lo: lrOf({ weight, atM2: 80, slopePercent: pct }).lr, hi: lrOf({ weight, atM2: 10, slopePercent: pct }).lr };
-  }
+  import type { ImposedLoadCode } from '../../lib/codes/families/load-codes';
+  export { roofLrRange } from './roof-live-range';
 </script>
 
 <script lang="ts">
@@ -40,10 +32,15 @@
     modelSlopeDeg: number;
     /** The weight class the plan finds for the roof (§4.8.1, structure and cladding, `roofWeightFor`). */
     autoWeight?: 'heavy' | 'light' | EngineMessage;
+    /** The project's imposed loads code; absent, CIRSOC 101. */
+    code?: ImposedLoadCode;
   }
-  let { config = $bindable(), floorDead, modelSlopeDeg, autoWeight }: Props = $props();
+  let { config = $bindable(), floorDead, modelSlopeDeg, autoWeight, code }: Props = $props();
 
-  const roofRows = OCCUPANCY_TABLE_2025.filter((o) => o.category === 'roof' && o.uniformKNm2 !== null && !o.key.startsWith('cubierta_usual') && o.key !== 'azotea_inaccesible' && o.key !== 'cubierta_otras');
+  const foreign = $derived(__PUBLIC_FEATURES__.proPlatesUnified && !!code && code.family !== 'cirsoc');
+  const roofRows = $derived((foreign ? code?.roofOccupancies?.() : undefined)?.filter((o) => o.uniformKNm2 !== null)
+    ?? OCCUPANCY_TABLE_2025.filter((o) => o.category === 'roof' && o.uniformKNm2 !== null && !o.key.startsWith('cubierta_usual') && o.key !== 'azotea_inaccesible' && o.key !== 'cubierta_otras'));
+  const weighted = $derived(!foreign || !code?.roofLive);
   const dead = $derived(config.dead ?? floorDead);
   const autoWeightError = $derived(typeof autoWeight === 'object' ? autoWeight : undefined);
   const weightLabel = $derived(typeof autoWeight === 'object' ? t('autoLoad.blocked')
@@ -63,8 +60,8 @@
       <div class="al-row">
         <label class="al-field"><span class="al-label">{t('autoLoad.roof.use')}</span>
           <select bind:value={config.use} data-testid="al-roof-use">
-            <option value="maintenance">{t('autoLoad.roof.maintenance')}</option>
-            <option value="occupancy">{t('autoLoad.roof.occupancy')}</option>
+            <option value="maintenance">{t(foreign ? 'autoLoad.roof.maintenanceCode' : 'autoLoad.roof.maintenance')}</option>
+            <option value="occupancy">{t(foreign ? 'autoLoad.roof.occupancyCode' : 'autoLoad.roof.occupancy')}</option>
           </select>
         </label>
         <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.roof.dead')}</span>
@@ -74,6 +71,7 @@
       </div>
       {#if config.use === 'maintenance'}
         <div class="al-row">
+          {#if weighted}
           <label class="al-field"><span class="al-label">{t('autoLoad.roof.weight')}</span>
             <select value={config.weight ?? 'auto'} onchange={(e) => { const v = e.currentTarget.value; config.weight = v === 'auto' ? null : (v as 'heavy' | 'light'); }} data-testid="al-roof-weight">
               <option value="auto">{weightLabel}</option>
@@ -81,17 +79,17 @@
               <option value="light">{t('autoLoad.roof.light')}</option>
             </select>
           </label>
+          {/if}
           <label class="al-field al-field-narrow"><span class="al-label">{t('autoLoad.roof.slope')}</span>
             <span class="al-unit-field"><input type="number" step="1" min="0" max="80" value={config.slopeDeg ?? ''} placeholder={modelSlopeDeg.toFixed(1)}
               onchange={(e) => { const v = parseFloat(e.currentTarget.value); config.slopeDeg = Number.isFinite(v) && v >= 0 ? v : null; }} data-testid="al-roof-slope" /><span>°</span></span>
           </label>
         </div>
-        <Hint text={t('autoLoad.roof.weightHint')} />
+        {#if weighted}<Hint text={t('autoLoad.roof.weightHint')} />{/if}
       {:else}
-        <label class="al-field"><span class="al-label">{t('loads.cirsoc101.occupancy')}</span>
-          <select bind:value={config.occupancyKey} data-testid="al-roof-occupancy">
-            {#each roofRows as o (o.key)}<option value={o.key}>{t(o.labelKey)} · {o.uniformKNm2} kN/m²</option>{/each}
-          </select>
+        <label class="al-field" for="al-roof-occupancy"><span class="al-label">{t(foreign ? 'autoLoad.roof.occupancyOf' : 'loads.cirsoc101.occupancy')}</span>
+          <OccupancySelect id="al-roof-occupancy" value={config.occupancyKey} rows={roofRows}
+            formatPressure={q => `${q} kN/m²`} choose={key => { config.occupancyKey = key; }} />
         </label>
       {/if}
 </div>

@@ -48,6 +48,11 @@ export function seismicComboIds(): Set<number> {
   return new Set(activeCombinations().filter((c) => c.factors.some((f) => e.has(f.caseId) && f.factor !== 0)).map((c) => c.id));
 }
 export const isSeismicProject = (): boolean => seismicCaseIds().size > 0;
+/** Whether a seismic case carries loads: the empty earthquake case every new model lists is not one. */
+export function hasSeismicLoads(): boolean {
+  const e = seismicCaseIds();
+  return e.size > 0 && modelStore.model.loads.some((l) => e.has((l.data as { caseId?: number }).caseId ?? 1));
+}
 
 const P = (id: number) => modelStore.model.nodes.get(id);
 
@@ -161,6 +166,22 @@ export function applySoftStoreys(contexts: ReadonlyMap<number, MemberContext>): 
   return n;
 }
 
+function columnSeismicForces(stations: MemberContext['stations'], combos: ReadonlySet<number>): Pick<FrameMember, 'axial' | 'vu'> {
+  const observed = new Set<number>();
+  let min = Infinity, max = -Infinity, vu = 0;
+  for (const c of stations?.comboResults ?? []) {
+    if (!combos.has(c.comboId) || !c.stations.length) continue;
+    observed.add(c.comboId);
+    for (const station of c.stations) {
+      min = Math.min(min, -station.n);
+      max = Math.max(max, -station.n);
+      vu = Math.max(vu, Math.hypot(station.vy, station.vz));
+    }
+  }
+  if (observed.size !== combos.size || !Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(vu)) return {};
+  return { axial: { min, max }, vu };
+}
+
 /** The frame as the checks read it, from the design contexts and the bars in the model. */
 function frameInput(): FrameMember[] {
   const { roles } = seismicRoleReadings(), combos = seismicComboIds();
@@ -209,13 +230,8 @@ function frameInput(): FrameMember[] {
       const slab = sides.length * Math.min(8 * hf, ln / 8) * perM;
       out.push({ ...base, criticalSections: ctx.criticalSections, drawnStirrups: drawnStirrups.get(e.id)?.stirrups, faceHalf: [ctx.criticalSections?.start.halfDepth ?? 0, ctx.criticalSections?.end.halfDepth ?? 0], vg: [Math.abs(vg[0]), Math.abs(vg[1])], slabTop: [slab, slab] });
     } else {
-      const ps: number[] = [], vs: number[] = [];
-      for (const c of ctx.stations?.comboResults ?? []) {
-        if (combos.size && !combos.has(c.comboId)) continue;
-        for (const s of c.stations) { ps.push(-s.n); vs.push(Math.hypot(s.vy, s.vz)); }
-      }
       const sec = columnSectionOf(ctx, r);
-      out.push({ ...base, b: ctx.section.b, h: ctx.section.h, ...(sec ? { section: sec } : {}), axial: { min: ps.length ? Math.min(...ps) : 0, max: ps.length ? Math.max(...ps) : 0 }, vu: vs.length ? Math.max(...vs) : 0 });
+      out.push({ ...base, b: ctx.section.b, h: ctx.section.h, ...(sec ? { section: sec } : {}), ...columnSeismicForces(ctx.stations, combos) });
     }
   }
   return out;

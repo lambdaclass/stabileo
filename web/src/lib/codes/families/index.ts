@@ -5,14 +5,23 @@
  * A role bound to an adapter with no module here cannot generate loads: the plan says so, and the
  * selector does not offer it.
  */
+import { unifiedPlates } from '../../features';
 import type { ProjectRegulations, RegulationRole } from '../roles';
 import { roleUsable } from '../roles';
 import type { AnyLoadCode, CodeFamilyId, CombinationCode, LoadCodes } from './load-codes';
 import type { LoadCombinationSpec } from '../cirsoc101/combinations';
 import { CIRSOC_FAMILY } from './cirsoc';
+import { europeanLoadCodes } from '../eurocode/family';
+import { ASCE7_FAMILY } from '../asce7/family';
+import { TURKEY_FAMILY } from '../turkey/family';
 
 const MODULES = new Map<string, AnyLoadCode>();
 for (const m of CIRSOC_FAMILY) MODULES.set(m.adapterId, m);
+if (unifiedPlates()) {
+  for (const family of [europeanLoadCodes('eurocode'), europeanLoadCodes('uk'), ASCE7_FAMILY, TURKEY_FAMILY]) {
+    for (const m of family) MODULES.set(m.adapterId, m);
+  }
+}
 
 /**
  * Add a family's modules (an implementation, or a test's). Returns a function that removes them,

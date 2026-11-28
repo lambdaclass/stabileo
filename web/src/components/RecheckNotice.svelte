@@ -1,12 +1,15 @@
 <script lang="ts">
   import { saveWorkspaceSettled, saveSession } from '../lib/store/file';
+  import { unifiedPlates } from '../lib/features';
   import { recheckStore } from '../lib/store/recheck.svelte';
+  import { observeRecheckBoard, showLocalBanner } from '../lib/store/recheck-board-provider';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, concernsLoadBasis, registryLocale, type ResultChange } from '../lib/provenance/registry';
   import { advisoryName, type Advisory } from '../lib/provenance/advisories';
   import { cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
 
+  let { hostedOnBoard = false }: { hostedOnBoard?: boolean } = $props();
   const details = $derived(!recheckStore.pending);
   const loadFailed = $derived(recheckStore.loadFailed);
   let recoveryFailed = $state(false);
@@ -18,8 +21,13 @@
 
   function loadDetails() { return recheckStore.retry(); }
 
-  let readIt = $state(false);
   let reviewing = $state(false);
+  let readIt = $state(false);
+  const needsAcknowledgement = $derived(!unifiedPlates() && recheckStore.noticeOpen && !readIt);
+  $effect(() => {
+    void recheckStore.assessment;
+    readIt = false;
+  });
   let busy = $state(false);
   let dialog = $state<HTMLDivElement | null>(null);
 
@@ -49,12 +57,6 @@
     return x.analysis ? tp('recheck.advisoryAnalysis', vars) + (banner ? '.' : '') : tp('recheck.advisory', vars);
   };
 
-  // A new notice (another project) starts unticked.
-  $effect(() => {
-    void recheckStore.assessment;
-    readIt = false;
-  });
-
   // A safety notice belongs in the browser's top layer, above every app z-index.
   // showModal also makes the desk and other background dialogs inert and restores
   // focus on close. Do not use the `open` attribute: it creates a non-modal dialog.
@@ -71,17 +73,27 @@
   }
 
   function acknowledge() {
+    if (!details || needsAcknowledgement) return;
     recheckStore.acknowledge();
     reviewing = false;
   }
 
   async function rerun() {
-    if (busy) return;
+    if (busy || !details || needsAcknowledgement) return;
     busy = true;
     recheckStore.acknowledge();
     reviewing = false;
     try { await rerunAnalysisAndDesign(); } finally { busy = false; }
   }
+  const bannerText = $derived(!open && details && recheckStore.stale && a
+    ? openAdvisories.length
+      ? [certain.length ? tp('recheck.advisoryBanner', { names: certain.map(advisoryName).join(', ') }) : '', ...openAdvisories.filter((x) => x.analysis || maybe(x)).map((adv) => advisoryText(adv, true))].filter(Boolean).join(' ')
+      : tp('recheck.banner', { n: a.changes.length })
+    : null);
+  observeRecheckBoard?.(() => hostedOnBoard, () => ({
+    text: bannerText, alert: openAdvisories.length > 0, canRerun: resolve && !recheckStore.solvedAgain,
+    busy, review: () => { reviewing = true; }, rerun,
+  }));
 </script>
 
 {#if open && a}
@@ -148,20 +160,22 @@
       <footer class="rc-footer">
         {#if regenerate}<p class="rc-stale" data-testid="recheck-regenerate">{tp('recheck.regenerateLoads', { button: t('autoLoad.autoGenBtn') })}</p>{/if}
         {#if resolve}<p class="rc-stale">{t('recheck.staleWarning')}</p>{/if}
-        {#if recheckStore.noticeOpen}
-          <label class="rc-ack">
-            <input type="checkbox" disabled={!details} bind:checked={readIt} data-testid="recheck-ack" />
-            {t('recheck.ack')}
-          </label>
+        {#if !__PUBLIC_FEATURES__.proPlatesUnified}
+          {#if recheckStore.noticeOpen}
+            <label class="rc-ack">
+              <input type="checkbox" disabled={!details} bind:checked={readIt} data-testid="recheck-ack" />
+              {t('recheck.ack')}
+            </label>
+          {/if}
         {/if}
         <div class="rc-actions">
           {#if recheckStore.noticeOpen}
-            <button class="rc-btn" disabled={!details || !readIt} onclick={acknowledge} data-testid="recheck-later">{t('recheck.later')}</button>
+            <button class="rc-btn" disabled={!details || needsAcknowledgement} onclick={acknowledge} data-testid="recheck-later">{t('recheck.later')}</button>
           {:else}
             <button class="rc-btn" onclick={() => (reviewing = false)} data-testid="recheck-close">{t('provenance.reproduce.close')}</button>
           {/if}
           {#if resolve}
-            <button class="rc-btn rc-primary" disabled={!details || (recheckStore.noticeOpen && !readIt) || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
+            <button class="rc-btn rc-primary" disabled={!details || needsAcknowledgement || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
           {/if}
         </div>
       </footer>
@@ -169,16 +183,9 @@
   </dialog>
 {/if}
 
-{#if !open && details && recheckStore.stale && a}
-  <div class="rc-banner" class:rc-banner-advisory={openAdvisories.length > 0} role={openAdvisories.length ? 'alert' : 'status'} data-testid="recheck-stale-banner">
-    {#if openAdvisories.length}
-      <span data-testid="recheck-advisory-banner">
-        {#if certain.length}{tp('recheck.advisoryBanner', { names: certain.map(advisoryName).join(', ') })}{/if}
-        {#each openAdvisories.filter((x) => x.analysis || maybe(x)) as adv (adv.id)} {advisoryText(adv, true)}{/each}
-      </span>
-    {:else}
-      <span>{tp('recheck.banner', { n: a.changes.length })}</span>
-    {/if}
+{#if bannerText && (showLocalBanner?.(hostedOnBoard) ?? true)}
+  <div class="rc-banner" style:z-index={__PUBLIC_FEATURES__.proPlatesUnified ? 920 : null} class:rc-banner-advisory={openAdvisories.length > 0} role={openAdvisories.length ? 'alert' : 'status'} data-testid="recheck-stale-banner">
+    <span data-testid={openAdvisories.length ? 'recheck-advisory-banner' : undefined}>{bannerText}</span>
     <button class="rc-banner-btn" onclick={() => (reviewing = true)} data-testid="recheck-banner-details">{t('recheck.bannerDetails')}</button>
     {#if resolve && !recheckStore.solvedAgain}<button class="rc-banner-btn rc-primary" disabled={busy} onclick={rerun} data-testid="recheck-banner-rerun">{t('recheck.bannerRerun')}</button>{/if}
   </div>
@@ -256,12 +263,20 @@
   }
   .rc-btn:disabled, .rc-banner-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .rc-primary { background: var(--st-accent, #4a90d9); border-color: var(--st-accent, #4a90d9); color: #fff; }
+  .rc-advisory { border-color: var(--st-danger, #d9534f); }
+  /* Only one of .rc and .rc-list may scroll: a drag on a nested list never reaches the controls below it. */
+  @media (max-height: 520px) {
+    .rc-list { flex-shrink: 0; overflow-y: visible; overscroll-behavior: auto; }
+  }
+  @media (max-width: 600px) {
+    .rc { padding: 12px; max-height: calc(100dvh - 24px); }
+    .rc-actions .rc-btn { flex: 1 1 100%; }
+  }
   .rc-banner {
     position: fixed;
     left: 50%;
     bottom: 44px;
     transform: translateX(-50%);
-    /* Above the app's own bars and drawers, below the notice itself. */
     z-index: 250;
     display: flex;
     gap: 8px;
@@ -280,15 +295,8 @@
     box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
   }
   .rc-banner-btn { padding: 3px 8px; font-size: 0.75rem; }
-  .rc-banner-advisory, .rc-advisory { border-color: var(--st-danger, #d9534f); }
-  .rc-banner-advisory { z-index: 920; }
-  /* Only one of .rc and .rc-list may scroll: a drag on a nested list never reaches the controls below it. */
-  @media (max-height: 520px) {
-    .rc-list { flex-shrink: 0; overflow-y: visible; overscroll-behavior: auto; }
-  }
+  .rc-banner-advisory { z-index: 920; border-color: var(--st-danger, #d9534f); }
   @media (max-width: 600px) {
-    .rc { padding: 12px; max-height: calc(100dvh - 24px); }
-    .rc-actions .rc-btn { flex: 1 1 100%; }
     .rc-banner { width: calc(100vw - 24px); }
     .rc-banner > span { flex-basis: 100%; }
     .rc-banner-btn { flex: 1; }

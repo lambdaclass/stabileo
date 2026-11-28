@@ -20,7 +20,7 @@
  *    declared role in the lateral-force-resisting system (`P{id}`, `model/lateral-system.ts`): design.
  */
 import { modelStore } from './model.svelte';
-import { designData } from './design-data';
+import { designData, storedDesignData } from './design-data';
 import type { ProjectDesignData } from '../model/design-data';
 
 export type GroupRefPlace =
@@ -171,7 +171,7 @@ export function remapGroupReferences(
   const lateral = want('lateral') ? moveKeys(dd.lateralSystem?.members, 'P', map, 'lateral', dropped) : dd.lateralSystem?.members;
   if (lateral !== dd.lateralSystem?.members) next.lateralSystem = { ...dd.lateralSystem, members: lateral };
   const n = Object.keys(next).length;
-  if (n > 0) { modelStore.setDesignData({ ...dd, ...next } as ProjectDesignData); moved += n; }
+  if (n > 0) { modelStore.setDesignData({ ...storedDesignData(), ...next }); moved += n; }
 
   const dec = modelStore.designDecisions as ({ joists?: Record<string, unknown> } & Record<string, unknown>) | undefined;
   const joists = want('joist') ? moveKeys(dec?.joists, 'J', map, 'joist', dropped) : dec?.joists;

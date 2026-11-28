@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { parse } from 'svelte/compiler';
 import { prunePublicBuildBranches } from './prune-public-build-branches.mjs';
 
-const off = { accounts: false, research: false, tools: false, diagramGame: false };
+const off = { proRcSheets: false, accounts: false, research: false, tools: false, diagramGame: false };
 const on = Object.fromEntries(Object.keys(off).map(key => [key, true]));
 const cases = [
   ['disabled branch', '{#if __PUBLIC_FEATURES__.research}<p>Research</p>{:else}<p>Main</p>{/if}', off, '<p>Main</p>'],
@@ -32,6 +32,7 @@ test('else-if chains retain their syntax and runtime decision', () => {
 });
 
 for (const [file, tags] of [
+  ['src/components/pro/ProPanel.svelte', ['ProRcSheetsTab']],
   ['src/App.svelte', ['MohrDialog', 'ResultsDisclaimer', 'UsageNotice', 'TermsUpdateDialog', 'AccountGateDialog', 'FeedbackDialog']],
   ['src/components/account/ProfileDialog.svelte', ['CloudProjectsDialog']],
   ['src/components/toolbar/ToolbarProject.svelte', ['CloudProjectsDialog']],
@@ -61,3 +62,99 @@ for (const [file, attribute] of [
     }
   });
 }
+
+test('removes the component import when its only use was in discarded markup', () => {
+  const header = "<script>import Panel from './Panel.svelte';</script>";
+  const branch = '{#if __PUBLIC_FEATURES__.proRcSheets}<Panel />{/if}';
+  assert.equal(prunePublicBuildBranches(header + branch, off).code, '<script></script>');
+  assert.equal(prunePublicBuildBranches(header + branch, on).code, header + '<Panel />');
+  assert.equal(prunePublicBuildBranches(header + branch + '<Panel />', off).code, header + '<Panel />');
+  const scripted = header.replace('</script>', 'const other = Panel;</script>');
+  assert.equal(prunePublicBuildBranches(scripted + branch, off).code, scripted);
+  const combined = header.replace('import Panel from', 'import Panel, { initialize } from');
+  assert.equal(prunePublicBuildBranches(combined + branch, off).code, combined);
+  const sideEffect = "<script>import './Panel.svelte';</script>";
+  assert.equal(prunePublicBuildBranches(sideEffect + branch, off).code, sideEffect);
+});
+
+test('known wrong result: #1928 the original switches retain the published component module dependency', () => {
+  const header = "<script>import Picker from './Picker.svelte';</script>";
+  for (const flag of ['research', 'accounts', 'tools', 'globalAxes', 'diagramGame']) {
+    const code = header + `{#if __PUBLIC_FEATURES__.${flag}}<Picker />{/if}`;
+    assert.equal(prunePublicBuildBranches(code, { ...off, globalAxes: false }).code, header);
+  }
+  const independent = header + '{#if false && __PUBLIC_FEATURES__.proRcSheets}<Picker />{/if}';
+  assert.equal(prunePublicBuildBranches(independent, off).code, header);
+});
+
+test('known wrong result: #1928 resolve physical report options before Svelte compiles the released script', () => {
+  const wrap = body => '<script>' + body + '</script>';
+  const source = wrap("const rows = [first(), ...(__PUBLIC_FEATURES__.proPlatesUnified ? [centres()] : []), last()]; const label = __PUBLIC_FEATURES__.proPlatesUnified ? 'quality' : 'diagnostics';");
+  for (const enabled of [false, true]) {
+    const output = prunePublicBuildBranches(source, { ...off, proPlatesUnified: enabled }).code;
+    const read = code => {
+      const ast = parse(code, { modern: true }).instance.content;
+      return JSON.stringify(ast.body, (key, value) => ['start', 'end', 'loc', 'raw'].includes(key) ? undefined : value);
+    };
+    const rows = enabled ? '[first(), ...([centres()]), last()]' : '[first(), last()]';
+    assert.equal(read(output), read(wrap('const rows = ' + rows + "; const label = '" + (enabled ? 'quality' : 'diagnostics') + "';")));
+  }
+});
+
+test('script choices preserve sparse arrays, side effects, comments and local feature bindings', () => {
+  const flags = { ...off, proPlatesUnified: false };
+  const run = (source, prune) => {
+    const input = '<script>' + source + '</script>';
+    const code = prune ? prunePublicBuildBranches(input, flags).code : input;
+    return Function('__PUBLIC_FEATURES__', code.slice(8, -9) + '\nreturn result;')(flags);
+  };
+  for (const source of [
+    'let n = 0; const items = [n++, ...(__PUBLIC_FEATURES__.proPlatesUnified ? [n++] : []) /* trailing */, n++]; const result = [items, n];',
+    'const items = [1,, ...(__PUBLIC_FEATURES__.proPlatesUnified ? [3] : []),,4]; const result = [items.length, Object.keys(items)];',
+    'let n = 0; const result = [n++ && __PUBLIC_FEATURES__.proPlatesUnified ? 7 : 9, n];',
+    'const local = __PUBLIC_FEATURES__ => __PUBLIC_FEATURES__.proPlatesUnified ? 1 : 2; const result = local({proPlatesUnified: true});',
+    'const result = 2 * (__PUBLIC_FEATURES__.proPlatesUnified ? 1 : 2 + 3);',
+  ]) assert.deepEqual(run(source, true), run(source, false));
+});
+
+test('only remove the optional report namespace when its view and script uses have gone', () => {
+  const source = "<script>import * as Panel from './Panel.svelte'; const count = __PUBLIC_FEATURES__.proPlatesUnified ? Panel.count() : 0;</script>{#if __PUBLIC_FEATURES__.proPlatesUnified}<Panel.default />{/if}";
+  assert.doesNotMatch(prunePublicBuildBranches(source, { proPlatesUnified: false }).code, /Panel/);
+  assert.match(prunePublicBuildBranches(source, { proPlatesUnified: true }).code, /import \* as Panel/);
+  const used = source.replace('</script>', ' Panel.initialize();</script>');
+  assert.match(prunePublicBuildBranches(used, { proPlatesUnified: false }).code, /import \* as Panel/);
+});
+
+test('a similarly named component or comment cannot remove a separate module initialization', () => {
+  const header = "<script>import * as Panel from './Panel.svelte';</script>";
+  for (const markup of ['<PanelOptions />', '<!-- <Panel.default /> -->']) {
+    const input = header + '{#if __PUBLIC_FEATURES__.proRcSheets}' + markup + '{/if}';
+    assert.equal(prunePublicBuildBranches(input, off).code, header);
+  }
+});
+
+test('known wrong result: #1928 a disabled form attribute has the same reactive dependencies as its released markup', () => {
+  const source = '<button disabled={__PUBLIC_FEATURES__.proPlatesUnified ? unavailable() : blocked}>Apply</button>';
+  for (const [enabled, expression] of [[false, 'blocked'], [true, 'unavailable()']]) {
+    const produced = prunePublicBuildBranches(source, { proPlatesUnified: enabled }).code;
+    const attribute = parse(produced, { modern: true }).fragment.nodes[0].attributes[0];
+    assert.equal(produced.slice(attribute.value.expression.start, attribute.value.expression.end), expression);
+  }
+  const scoped = '{#each options as __PUBLIC_FEATURES__}' + source + '{/each}';
+  assert.equal(prunePublicBuildBranches(scoped, { proPlatesUnified: false }).code, scoped);
+});
+
+test('known wrong result: #1928 literal class choices compile as static class attributes', () => {
+  const source = '<button class={__PUBLIC_FEATURES__.proRcSheets ? "pk-btn primary" : "pro-btn"}></button>';
+  assert.equal(prunePublicBuildBranches(source, off).code, '<button class="pro-btn"></button>');
+  assert.equal(prunePublicBuildBranches(source, on).code, '<button class="pk-btn primary"></button>');
+  for (const content of ['<button class={runtime ? "a" : "b"}></button>', '<button class="prefix {runtime}"></button>']) {
+    assert.equal(prunePublicBuildBranches(content, off).code, content);
+  }
+});
+
+test('known wrong result: #1928 inactive solve progress has no compiled effect dependencies', () => {
+  const contents = '<script>function run() { if (__PUBLIC_FEATURES__.proPlatesUnified) { untrack(progress); } done(); }</script>';
+  assert.doesNotMatch(prunePublicBuildBranches(contents, { ...off, proPlatesUnified: false }).code, /untrack/);
+  assert.match(prunePublicBuildBranches(contents, { ...on, proPlatesUnified: true }).code, /untrack\(progress\)/);
+});

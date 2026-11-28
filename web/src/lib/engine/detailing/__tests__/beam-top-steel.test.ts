@@ -30,7 +30,7 @@ function saggingOnly(L = 6, mMid = 40, v = 40): MomentStation[] {
   const out: MomentStation[] = [];
   for (let i = 0; i <= 10; i++) {
     const s = i / 10;
-    out.push({ x: s * L, mPos: mMid * 4 * s * (1 - s), mNeg: 0, v: v * Math.abs(1 - 2 * s) });
+    out.push({ x: s * L, axialCompression: 0, mPos: mMid * 4 * s * (1 - s), mNeg: 0, v: v * Math.abs(1 - 2 * s) });
   }
   return out;
 }
@@ -60,7 +60,6 @@ function beam(over: Partial<BeamGenerationInput> = {}): BeamGenerationInput {
     elementId: 7, L: 6, b: 0.30, h: 0.65, d: 0.60, cover: 0.025, stirrupDia: 8,
     fc: 25, fy: 420, maxAggregateSizeMm: 20, edition: '2025',
     stations: saggingOnly(), supportI: 'continuous', supportJ: 'continuous',
-    vn: 400,
     bottom: { count: 2, diameterMm: 20 },
     topStart: { count: 2, diameterMm: 10 },
     topEnd: { count: 2, diameterMm: 10 },

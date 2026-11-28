@@ -1,11 +1,19 @@
 import type { Translations } from '../types';
 const it: Translations = {
+  'project.adoptedReinforcementIgnored': "Questa versione ignora l’armatura adottata salvata nel progetto e usa l’armatura di progetto.",
+  'wall.tensionRequiresBarLayout': "La verifica a trazione e flessione richiede la disposizione delle barre verticali.",
+  'wall.boundaryBarCount': "Inserire un numero intero non negativo di barre di bordo a ciascuna estremità della parete.",
+  'wall.tensionAtOpenings': "La trazione in corrispondenza delle aperture richiede la sezione netta e le armature continue che la attraversano.",
+  'wall.tensionShearEdition': "La verifica della parete a trazione e taglio combinati non è disponibile per l’edizione {edition}.",
   'svc.accountingMismatch': "Analisi rifiutata. Caso di carico {case}, {component}. Valore inserito {entered}, valore assemblato {assembled}.",
   'svc.accountingUnsupported': "Analisi rifiutata. Non è possibile contabilizzare forze e momenti di {kind} {id} nel caso di carico {case}.",
   'svc.accountingArea': "Analisi rifiutata. La piastra {plate} ha un’area o un contorno diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",
   'svc.accountingSweep': "Analisi rifiutata. Il bordo curvo della piastra {plate} segue un arco diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",
   'svc.accountingShellEdits': "Non è possibile rigenerare la mesh della piastra {plate}, perché si perderebbe un’eccentricità o una modifica di curvatura del guscio.",
   "plates.remeshAmbiguousSweep": "L’arco del bordo curvo di {name} è ambiguo. Prima di rigenerare la mesh, controlla il punto intermedio e le aste curve tra le estremità.",
+  "loadPlan.warning.replacedDefinitions": "Il piano sostituirà {n} definizioni di carico di piano che ha generato.",
+  "loadPlan.warning.independentLoadsKept": "Il piano conserva {n} carichi creati da altri strumenti nei casi interessati.",
+  "plates.meshFieldsKept": "La mesh di {names} è stata mantenuta. Rimuoverla o sostituirla eliminerebbe un carico o modificherebbe il materiale, lo spessore, l’eccentricità o la curvatura di una cella.",
   "plates.remeshShellEdits": "Impossibile sostituire la mesh di {name} perché le modifiche all’offset o alla curvatura dei gusci non possono essere trasferite esattamente.",
   'loadPlan.gravity.coveragePrecision': "Le coordinate di copertura dei gusci superano la precisione supportata per gli intervalli degli elementi.",
   'loadPlan.gravity.roundedRoofBoundary': "L’arrotondamento del punto medio dell’asta {id} cambia se questa è coperta dal bordo del tetto. Correggere la geometria dell’asta o del tetto oppure assegnare i carichi manualmente.",
@@ -2813,10 +2821,8 @@ const it: Translations = {
   'pro.unknown': 'Sconosciuto',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} piastre, {quads} quad',
   'pro.plateTriDKT': 'Piastra triangolare (DKT)',
   'pro.quadMITC4': 'Quad MITC4',
-  'pro.meshGenerator': 'Generatore di mesh',
   'pro.meshHint': 'Definisci 4 nodi angolari (senso antiorario) e suddivisioni NxM. I nodi intermedi e i quad vengono creati automaticamente.',
   'pro.corners': 'Angoli',
   'pro.subdivisions': 'Suddivisioni',

@@ -1,12 +1,20 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
+  'project.adoptedReinforcementIgnored': "このバージョンはプロジェクトに保存された採用配筋を無視し、設計配筋を使用します。",
+  'wall.tensionRequiresBarLayout': "引張と曲げの組合せを照査するには縦筋の配置が必要です。",
+  'wall.boundaryBarCount': "壁の各端部の境界鉄筋の本数には、0 以上の整数を入力してください。",
+  'wall.tensionAtOpenings': "壁開口部の引張照査には純断面と、その断面を連続して通る鉄筋が必要です。",
+  'wall.tensionShearEdition': "{edition} 年版に基づく壁の引張とせん断の組合せ照査はできません。",
   'svc.accountingMismatch': "解析を拒否しました。荷重ケース {case}、成分 {component}。入力値 {entered}、組立値 {assembled}。",
   'svc.accountingUnsupported': "解析を拒否しました。荷重ケース {case} の {kind} {id} の力とモーメントを集計できません。",
   'svc.accountingArea': "解析を拒否しました。ソルバー内のプレート {plate} の面積または境界が異なります。指定面積 {entered}、組立面積 {assembled}。",
   'svc.accountingSweep': "解析を拒否しました。ソルバー内のプレート {plate} の円弧境界の経路が異なります。指定面積 {entered}、組立面積 {assembled}。",
   'svc.accountingShellEdits': "プレート {plate} を再メッシュするとシェルのオフセットまたは曲率の変更が失われるため、実行できません。",
   "plates.remeshAmbiguousSweep": "{name} の曲線境界で円弧の範囲を一意に決められません。メッシュを再生成する前に、中間点と両端間の曲線部材を確認してください。",
+  "loadPlan.warning.replacedDefinitions": "計画が生成した床荷重定義 {n} 件を置換します。",
+  "loadPlan.warning.independentLoadsKept": "対象の荷重ケースで他のツールが作成した荷重 {n} 件は保持されます。",
+  "plates.meshFieldsKept": "{names} のメッシュを保持しました。削除または置換すると、荷重が失われるか、要素の材料、厚さ、オフセットまたは曲率が変わります。",
   "plates.remeshShellEdits": "シェル要素のオフセットまたは曲率の変更を正確に引き継げないため、{name} のメッシュを置き換えられません。",
   'loadPlan.gravity.coveragePrecision': "シェルの被覆座標が部材区間で対応できる精度を超えています。",
   'loadPlan.gravity.roundedRoofBoundary': "部材 {id} の中点の丸めにより、屋根の縁で覆われるかどうかの判定が変わります。部材または屋根の形状を修正するか、荷重を手動で設定してください。",
@@ -2659,10 +2667,8 @@ const ja: Translations = {
   'pro.unknown': '不明',
 
   // ─── PRO: Shell ───
-  'pro.nPlatesQuads': '{plates} プレート、{quads} クワッド',
   'pro.plateTriDKT': '三角プレート (DKT)',
   'pro.quadMITC4': 'クワッド MITC4',
-  'pro.meshGenerator': 'メッシュジェネレーター',
   'pro.meshHint': '4つのコーナー節点（反時計回り）とNxM分割を定義します。中間節点とクワッドが自動生成されます。',
   'pro.corners': 'コーナー',
   'pro.subdivisions': '分割数',

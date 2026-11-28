@@ -1,12 +1,14 @@
 <script lang="ts">
+  import PhysicalRecognitionPending from './PhysicalRecognitionPending.svelte';
   import Hint from './Hint.svelte';
   /**
    * The model's physical elements: what each set of bars and shells IS to the engineer.
    *
-   * Recognise reads them off the model (the generator's role first, the geometry last, said as
-   * inferred); a person corrects the kind or the typology, and the element becomes declared, so a
-   * later recognition leaves it alone. Design reads the kind from here: a bar declared a column
-   * is designed as a column. A click on a row selects its bars and shells in the model.
+   * They are read off the model as it changes (`ensurePhysicalModel`: the generator's role first,
+   * the geometry last, said as inferred); a person corrects the kind or the typology, and the
+   * element becomes declared, so the reading leaves it alone. A reading that would move a design
+   * decision waits here for review. Design reads the kind from here: a bar declared a column is
+   * designed as a column. A click on a row selects its bars and shells in the model.
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -15,12 +17,13 @@
     physicalGroups, declarePhysicalKind, declarePhysicalTypology,
     physicalSection, physicalThickness, setPhysicalSection, setPhysicalThickness,
   } from '../../lib/store/physical';
-  import { planRecognition, type RecognitionOutcome, type RecognitionPlan } from '../../lib/store/physical-recognition';
+  import { pendingPhysicalRecognition, planRecognition, type RecognitionOutcome, type RecognitionPlan } from '../../lib/store/physical-recognition';
   import PhysicalRecognitionReview from './PhysicalRecognitionReview.svelte';
 
   /** The proposal under review, and what the last application did. */
   let review = $state<RecognitionPlan | null>(null);
   let outcome = $state<RecognitionOutcome | null>(null);
+  function pendingCount() { void modelStore.modelVersion; void modelStore.model.groups; return pendingPhysicalRecognition(); }
   function recognise() { outcome = null; review = planRecognition(); }
   function done(o: RecognitionOutcome | null) { review = null; outcome = o; }
 
@@ -58,11 +61,22 @@
 <div class="pk ph" data-testid="physical-panel">
   <section class="pk-card">
     <h4 class="pk-heading">{t('physical.title')}</h4>
-    <Hint text={t('physical.explain')} />
-    <div class="pk-row">
-      <button class="pk-btn pk-btn-primary" onclick={recognise} disabled={review !== null} data-testid="physical-recognize">{t('physical.recognize')}</button>
-      {#if list.length > 0}<span class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</span>{/if}
-    </div>
+    {#if __PUBLIC_FEATURES__.proPlatesUnified}
+      <Hint text={t('physical.automaticExplain')} />
+      {#if list.length > 0}<p class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</p>{/if}
+      {#if !review}
+        {@const pending = pendingCount()}
+        {#if pending > 0}
+          <PhysicalRecognitionPending {pending} onreview={recognise} />
+        {/if}
+      {/if}
+    {:else}
+      <Hint text={t('physical.explain')} />
+      <div class="pk-row">
+        <button class="pk-btn pk-btn-primary" onclick={recognise} disabled={review !== null} data-testid="physical-recognize">{t('physical.recognize')}</button>
+        {#if list.length > 0}<span class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</span>{/if}
+      </div>
+    {/if}
     {#if outcome && outcome.channel !== 'none'}
       <p class="pk-hint" data-testid="recognition-outcome">{tp('physical.review.done', { applied: outcome.applied, created: outcome.created, removed: outcome.removed, remapped: outcome.remapped })}
         {#if outcome.frozen}{tp('physical.review.doneFrozen', { n: outcome.frozen })}{/if}

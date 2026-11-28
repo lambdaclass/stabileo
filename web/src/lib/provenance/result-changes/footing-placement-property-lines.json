@@ -1,0 +1,35 @@
+{
+  "id": "footing-placement-property-lines",
+  "date": "2026-11-27",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "any": [
+      "savedFootingPropertyLines"
+    ]
+  },
+  "title": {
+    "en": "Review footing placement near property lines",
+    "es": "Revisá la posición de las bases cerca de las medianeras",
+    "pt": "Revise a posição das fundações junto às divisas",
+    "de": "Fundamentlage an Grundstücksgrenzen prüfen",
+    "fr": "Vérifier la position des fondations en limite de propriété",
+    "tr": "Parsel sınırındaki temellerin konumunu denetleyin",
+    "zh": "检查地界附近的基础位置",
+    "hu": "A telekhatár melletti alaptestek helyzetének ellenőrzése"
+  },
+  "explanation": {
+    "en": "The ordinary foundation tool previously used saved reinforcement-sheet boundaries and column faces to anchor new isolated footings and pile caps. Review the positions of previously placed foundations. Choose the applicable boundaries in the placement form before placing new ones.",
+    "es": "La herramienta de fundaciones usaba las medianeras guardadas en las planillas de armaduras y las caras de columnas para ubicar nuevas bases aisladas y cabezales. Revisá las posiciones existentes y elegí las medianeras aplicables en el formulario antes de colocar nuevas fundaciones.",
+    "pt": "A ferramenta comum de fundações usava as divisas salvas nas folhas de armaduras e as faces dos pilares para posicionar sapatas isoladas e blocos de estacas. Confira as posições existentes e selecione as divisas aplicáveis no formulário antes de inserir novas fundações.",
+    "de": "Das reguläre Gründungswerkzeug verwendete gespeicherte Grundstücksgrenzen der Bewehrungsblätter und Stützenkanten, um Einzelfundamente und Pfahlkopfplatten zu platzieren. Prüfen Sie vorhandene Fundamente und wählen Sie die zutreffenden Grenzen vor dem Einfügen im Formular aus.",
+    "fr": "L’outil courant utilisait les limites de propriété enregistrées dans les feuilles de ferraillage et les faces des poteaux pour placer les semelles isolées et les semelles sur pieux. Contrôlez les positions existantes et choisissez les limites dans le formulaire avant toute nouvelle implantation.",
+    "tr": "Standart temel aracı tekil temelleri ve kazık başlıklarını yerleştirirken donatı paftalarında kayıtlı parsel sınırlarını ve kolon yüzlerini kullanıyordu. Mevcut temel konumlarını denetleyin ve yeni yerleşimden önce formda geçerli sınırları seçin.",
+    "zh": "常规基础工具曾按配筋表中保存的地界和柱面布置独立基础和桩承台。请核查已有基础的位置，并在布置新基础前在表单中选择适用的地界。",
+    "hu": "A szokásos alapozási eszköz a vasalási lapokon mentett telekhatárokat és az oszlopok külső síkjait használta a pontalapok és cölöpfejek elhelyezéséhez. Ellenőrizze a már elhelyezett alaptesteket, és új elhelyezés előtt válassza ki az érintett határokat az űrlapon."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-footing-placement-property-lines.md",
+    "heading": "Review footing placement near property lines"
+  }
+}

@@ -83,6 +83,8 @@ export interface PlanDelta {
 }
 
 export interface CurrentLoadState {
+  generatedDefinitions?: number;
+  independentLoads?: number;
   distributed: number;
   nodal: number;
   combinations: number;
@@ -201,6 +203,8 @@ export function describePlanDelta(
       };
 
   const warnings: EngineMessage[] = [];
+  if (options.replaceExisting && current.generatedDefinitions) warnings.push(msg('loadPlan.warning.replacedDefinitions', { n: current.generatedDefinitions }));
+  if (current.independentLoads) warnings.push(msg('loadPlan.warning.independentLoadsKept', { n: current.independentLoads }));
   if (defaultCases.length > 0 || defaultCombos > 0) {
     warnings.push(msg('loadPlan.warning.defaultsRemoved', {
       cases: defaultCases.map((c) => c.name).join(', ') || '—', combinations: defaultCombos,

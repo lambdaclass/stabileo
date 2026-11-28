@@ -119,7 +119,7 @@ it('does not claim results changed when the change list could not be loaded', ()
   expect(html).toContain(t('recheck.checkingTitle'));
   expect(html).toContain(t('recheck.loadFailed'));
   expect(html).not.toContain(t('recheck.title'));
-  expect(html).toMatch(/<input[^>]*disabled[^>]*data-testid="recheck-ack"/);
+  expect(html).toMatch(/<button[^>]*disabled[^>]*data-testid="recheck-later"/);
 });
 
 
@@ -168,4 +168,15 @@ it('renders the malformed-input notice for a saved null load', async () => {
   recheckStore.openProject(JSON.parse('{"analysisMode":"2d","loads":[null]}'));
   await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
   expect(render(RecheckNotice).body).toContain('data-change-id="malformed-authored-loads"');
+});
+
+it('known wrong result: #1928 published rechecks require reading the notice before deferring or rerunning', async () => {
+  recheckStore.openProject({ elements: [[1, { type: 'frame' }]] } as never, 'pro');
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  const html = render(RecheckNotice).body;
+  expect(html).toContain('data-testid="recheck-ack"');
+  for (const action of ['recheck-later', 'recheck-rerun']) {
+    const button = html.match(new RegExp('<button[^>]*data-testid="' + action + '"[^>]*>'));
+    expect(button?.[0]).toContain('disabled');
+  }
 });

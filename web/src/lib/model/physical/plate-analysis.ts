@@ -2,8 +2,8 @@ import type { Constraint3D, LinearMpcConstraint } from '../../engine/types-3d';
 import { cross, dot, type Vec3 } from '../edit/affine';
 import { pieceOf, type PieceModel } from '../curve-entity';
 import {
-  arcInterior, circleThrough, externalFeatures, frameOfLoop, plateGeometry, plateKindOf, plateLoops,
-  PLANE_TOL, plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateFrame, type PlateMeshSpec,
+  arcInterior, circleThrough, externalFeatures, frameOfLoop, onOutline, plateGeometry, plateKindOf, plateLoops,
+  PLANE_TOL, analysedSignature, plateProblem, plateSignature, plateSurfaceOf, type ArcSampler, type PlateFrame, type PlateMeshSpec,
 } from './plate';
 
 type Shell = { id: number; nodes: readonly number[]; curved?: boolean };
@@ -95,10 +95,16 @@ function meshSampler(model: PieceModel, size: number): ArcSampler {
   };
 }
 
-export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, spec: PlateMeshSpec) {
+export function plateMeshGeometry(model: PlateAnalysisModel, group: PlateGroup, spec: PlateMeshSpec) {
   if (invalidPlateDefinition(model, group)) return { refused: 'invalid' as const };
   const geo = plateGeometry(model, group, meshSampler(model, spec.size));
-  if (!geo) return { refused: 'ambiguousSweep' as const };
+  return geo ? { geo } : { refused: 'ambiguousSweep' as const };
+}
+
+export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, spec: PlateMeshSpec) {
+  const geometry = plateMeshGeometry(model, group, spec);
+  if (geometry.refused) return geometry;
+  const { geo } = geometry;
   const loops = plateLoops(group);
   const mine = new Set(loops.owned);
   const owned = new Set<number>();
@@ -113,7 +119,12 @@ export function plateMeshFeatures(model: PlateAnalysisModel, group: PlateGroup, 
     }
   }
   const loopNodes = new Set([...loops.outer, ...loops.holes.flat()]);
-  return { geo, features: externalFeatures(model, geo, owned, loopNodes, { mine, neighbours }) };
+  const shellNeighbours = [...neighbours].flatMap((n): Vec3[] => {
+    const node = model.nodes.get(n);
+    const p: Vec3 | null = node ? [node.x, node.y, node.z ?? 0] : null;
+    return p && onOutline(geo, p) ? [p] : [];
+  });
+  return { refused: undefined, geo, features: externalFeatures(model, geo, owned, loopNodes, { mine, neighbours }), shellNeighbours };
 }
 
 export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
@@ -129,7 +140,8 @@ function plateMeshStatus(model: PlateAnalysisModel, group: PlateGroup): PlateSta
   const mesh = plateMeshFeatures(model, group, surface.mesh);
   if (mesh.refused) return mesh.refused;
   if (!count || !surface.meshed) return 'unmeshed';
-  return plateSignature(mesh.geo, surface.mesh, mesh.features) === surface.meshed.signature ? 'current' : 'stale';
+  const shellNeighbours = surface.mesh.followMembers ? [] : mesh.shellNeighbours;
+  return plateSignature(mesh.geo, surface.mesh, mesh.features, shellNeighbours) === analysedSignature(surface.meshed) ? 'current' : 'stale';
 }
 
 export function plateStatusOf(model: PlateAnalysisModel, group: PlateGroup): PlateStatus {

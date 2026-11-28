@@ -44,6 +44,7 @@ import type { Maturity } from '../../codes/maturity';
 import { msg, type EngineMessage } from '../../codes/message';
 import { designSlabPanel, type SlabDesignResult } from './slab-design';
 import { designWall, type WallDesignResult } from './wall-design';
+import { wallBaseResultants } from '../../rc-sheets/wall-design';
 import {
   familyHash, familyRecordId,
   FAMILY_RECORD_SCHEMA_VERSION, recordStatusFor,
@@ -610,19 +611,12 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
     const bottom = group.filter((g) => Math.abs(Math.min(...g.pts.map((p) => p.z ?? 0)) - baseZ) < 1e-6);
 
     const supplied = input.wallDemands?.get(first.shell.id);
-    let pu = 0, mu = 0, vu = 0;
-    for (const g of bottom) {
+    const { pu, mu, vu } = wallBaseResultants(bottom.map((g) => {
       const us = g.pts.map(u);
-      const w = Math.max(...us) - Math.min(...us);
-      const uc = us.reduce((s, x) => s + x, 0) / us.length;
-      // Compression is a negative σyy; the wall carries it as a positive Pu.
-      const f = -g.stress.sigmaYy * g.shell.thickness * w;
-      pu += f;
-      mu += f * (uc - centre);
-      vu += g.stress.tauXy * g.shell.thickness * w;
-    }
+      return { u: us.reduce((s, x) => s + x, 0) / us.length, width: Math.max(...us) - Math.min(...us), thickness: g.shell.thickness, sigma: g.stress.sigmaYy, tau: g.stress.tauXy };
+    }), centre);
     const resolvedMoment = bottom.length > 1;
-    const demands = supplied ?? { pu: Math.max(0, pu), muInPlane: Math.abs(mu), vuInPlane: Math.abs(vu) };
+    const demands = supplied ?? { pu, muInPlane: Math.abs(mu), vuInPlane: Math.abs(vu) };
     if (!supplied && !resolvedMoment) {
       unsupported.push({
         elementId: first.shell.id,
@@ -662,7 +656,7 @@ export function runFloorDesign(input: RunFloorDesignInput): RunFloorDesignResult
       geometry: wallGeom,
       barDiameterMm: input.wallBarDiameterMm,
       record: wallRecord({
-        pieces: bottom, geometry: wallGeom, design, demands,
+        pieces: bottom, geometry: wallGeom, design,
         fromMembraneOnly: !supplied && !resolvedMoment, input,
       }),
     };
@@ -1010,7 +1004,6 @@ function wallRecord(args: {
   pieces: readonly WallPiece[];
   geometry: WallGeometry;
   design: WallDesignResult;
-  demands: { pu: number; muInPlane: number; vuInPlane: number };
   fromMembraneOnly: boolean;
   input: RunFloorDesignInput;
 }): FamilyRecordDraft<WallDesignRecord> {
@@ -1021,22 +1014,21 @@ function wallRecord(args: {
     start: { ...geometry.start }, end: { ...geometry.end },
     length, height: geometry.height,
     thickness: geometry.thickness, cover: geometry.cover,
-    // §11.7.2.3: two curtains once the wall passes 250 mm. Read off the thickness that was
-    // designed, not off a flag a caller could set.
-    twoCurtains: geometry.thickness > 0.25,
+    twoCurtains: design.reinforcement.curtains === 2,
   };
   // One row per base piece, each with the wall's resolved demands: the stresses are the
   // evidence, the forces are the wall's.
   const demandSnapshot: WallDesignRecord['demands'] = args.pieces.map(({ shell, stress }) => ({
     elementId: shell.id,
     sigmaXx: stress.sigmaXx, sigmaYy: stress.sigmaYy, tauXy: stress.tauXy,
-    pu: args.demands.pu, muInPlane: args.demands.muInPlane, vuInPlane: args.demands.vuInPlane,
+    pu: design.axialFlexure.pu, muInPlane: design.axialFlexure.mu, vuInPlane: design.shear.vu,
     governingCombination: null,
     fromMembraneOnly: args.fromMembraneOnly,
   }));
   const axialFlexure: WallDesignRecord['axialFlexure'] = {
     status: design.axialFlexure.ok ? 'OK' : 'FAIL',
     pu: design.axialFlexure.pu,
+    ...(design.axialFlexure.phiPn !== undefined ? { phiPn: design.axialFlexure.phiPn } : {}),
     phiMn: design.axialFlexure.phiMn ?? design.axialFlexure.mn,
     utilization: design.axialFlexure.utilization,
   };
@@ -1051,9 +1043,9 @@ function wallRecord(args: {
     webCrushingGoverns: design.shear.atLimit,
   };
   const reinforcement: WallDesignRecord['reinforcement'] = {
-    verticalDiameterMm: args.input.wallBarDiameterMm,
+    verticalDiameterMm: design.reinforcement.vertical.diameter,
     verticalSpacing: design.verticalSpacing,
-    horizontalDiameterMm: args.input.wallBarDiameterMm,
+    horizontalDiameterMm: design.reinforcement.horizontal.diameter,
     horizontalSpacing: design.horizontalSpacing,
     rhoVertical: design.ratios.rhoL,
     rhoHorizontal: design.ratios.rhoT,

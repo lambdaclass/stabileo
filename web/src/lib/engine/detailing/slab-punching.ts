@@ -71,7 +71,6 @@ import {
   type ColumnPosition,
 } from './punching-shear';
 import type { CheckStatus } from './foundation-check';
-import type { FloorNode } from './run-floor-design';
 
 // ─── What the store collects ─────────────────────────────────────
 
@@ -135,7 +134,7 @@ export interface SlabColumnJoint {
 export interface AdjoiningShell {
   elementId: number;
   nodeIds: readonly number[];
-  points: readonly FloorNode[];
+  points: readonly { x: number; y: number; z?: number }[];
 }
 
 export type JointPattern =

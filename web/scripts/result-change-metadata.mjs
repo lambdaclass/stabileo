@@ -5,6 +5,14 @@ import { deflateRawSync } from 'node:zlib';
 import { resultChangeLocaleProblems } from './result-changes/locales.mjs';
 import { readRegistry } from './result-changes/registry.mjs';
 
+export function packResultChangeNotices(registry) {
+  const problems = registry.changes.flatMap(resultChangeLocaleProblems);
+  if (problems.length) throw new Error(problems.join('\n'));
+  const shipped = { ...registry, changes: registry.changes.map(({ quantities: _, ...change }) => change) };
+  const packed = deflateRawSync(JSON.stringify(shipped), { level: 9 }).toString('base64');
+  return { shipped, packed };
+}
+
 /** @returns {import('vite').Plugin} */
 export function resultChangeMetadataPlugin() {
   const ids = ['virtual:result-change-metadata', 'virtual:result-change-packed', 'virtual:result-change-quantities'];
@@ -19,10 +27,7 @@ export function resultChangeMetadataPlugin() {
       /** @type {import('../src/lib/provenance/registry').ResultChangeRegistry} */
       const registry = readRegistry();
       if (id === 'virtual:result-change-packed') {
-        const problems = registry.changes.flatMap(resultChangeLocaleProblems);
-        if (problems.length) throw new Error(problems.join('\n'));
-        const shipped = { ...registry, changes: registry.changes.map(({ quantities: _, ...change }) => change) };
-        const packed = deflateRawSync(JSON.stringify(shipped), { level: 9 }).toString('base64');
+        const { packed } = packResultChangeNotices(registry);
         return `export default ${JSON.stringify(packed)};`;
       }
       if (id === 'virtual:result-change-quantities') {

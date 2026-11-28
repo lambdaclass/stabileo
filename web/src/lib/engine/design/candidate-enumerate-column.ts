@@ -22,6 +22,7 @@ import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import type { ProvidedReinforcement, StirrupDef } from '../../store/model.svelte';
 import { computeColumnLayout } from '../station-design-forces';
 import type { MemberContext } from './member-context';
+import { columnEndZoneGeometry, minimumColumnTieSpacing } from './column-end-zone';
 import { grossAreaOf, minClear, shapedBarPositions, type ColumnShape } from './shaped-column';
 import { DESIGN_TARGET_UTILIZATION } from './outcome';
 import { STANDARD_LONG_DIAS, STANDARD_STIRRUP_DIAS, SPACING_GRID, computeCandidateCost } from './objective';
@@ -34,7 +35,7 @@ export const COLUMN_LIMITS = {
   maxPerFace: 6,
   maxLongOptions: 60,
   maxTieOptions: 24,
-  minSpacing: 0.05,
+  minSpacing: minimumColumnTieSpacing,
   maxLegs: 4,
 } as const;
 
@@ -114,9 +115,7 @@ type Knob = 'long' | 'tie';
  */
 export function endZoneFor(ctx: MemberContext, spacing: number): ProvidedReinforcement['tieZones'] {
   if (!ctx.material.columnEndZones) return undefined;
-  const endLength = +Math.max(Math.max(ctx.section.b, ctx.section.h), ctx.L / 6, 0.45).toFixed(3);
-  const endSpacing = Math.max(COLUMN_LIMITS.minSpacing, Math.floor((spacing / 2) / SPACING_GRID + 1e-9) * SPACING_GRID);
-  return { endLength, endSpacing: +endSpacing.toFixed(4) };
+  return columnEndZoneGeometry(ctx.section.b, ctx.section.h, ctx.L, spacing, COLUMN_LIMITS.minSpacing);
 }
 
 /** The least dimension a tie spacing reads on a shaped column: D, or the thinnest web. */

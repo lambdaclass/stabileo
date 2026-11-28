@@ -1,3 +1,4 @@
+import { unifiedPlates } from '../features';
 import { errorText } from '../utils/error-text';
 import { knownIssueRefusal } from './known-issues';
 /**
@@ -14,8 +15,9 @@ import { knownIssueRefusal } from './known-issues';
  */
 
 import { noteSolve } from '../telemetry/instrument.svelte';
-import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
-import { platesNeedingMesh, preparePlatesForAnalysis } from '../store/physical-plates';
+import { platePreparationError, prepareDeferredSolveSlabs } from '../store/solve-slabs';
+import { ensurePhysicalModel } from '../store/plates-from-shells';
+import { physicalPlates, platesNeedingMesh, preparePlatesForAnalysis, preparePlatesForAnalysisAsync } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
 import { floorLoadBlockMessage, syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { spectralOrSay } from '../actions/solve';
@@ -34,9 +36,13 @@ import { hasNonlinearBehaviour } from './member-behaviour';
 import { allLoadsResult3D } from './shell-combos';
 import { markAllLoads } from './solver-service';
 import { singleSolveFactors } from './case-effects';
-import { reportSolverDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
+import { reportManualSolveDiagnostics, reportModelDiagnostics } from './solve-diagnostics';
 import { solveForEdu } from '../../components/edu/edu-solver';
 import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
+import { solveProgress, type SolvePhase } from '../store/solve-progress.svelte';
+import { reviewCount } from '../pro/diagnostics-list';
+import { onCaseSolved } from './solver-pool';
+import { captureSolveSteps, onSolveStep } from './solve-steps';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -112,11 +118,15 @@ export function lastSolveFailure(): string | null {
  * @param prevDiagram  Diagram type the user was viewing before clear() — restored after solve
  */
 export async function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): Promise<void> {
+  // A manual solve meshes plates and rewrites floor loads before it solves; the edits that makes would
+  // fire a live calc that supersedes it. Held until the manual solve ends.
+  if (manualSolves > 0) { deferredLive = [analysisMode, axisConvention3D, prevDiagram]; return; }
   // Skip if model is incomplete (e.g., mid-example-load after clear but before fixture applied)
   if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
   // Floor loads kept as definitions, current before the guard is taken: the edit that started this
   // solve may not have been rewritten yet (`store/defined-loads.ts`).
   if (is3DWorkspace(analysisMode)) {
+    if (unifiedPlates()) ensurePhysicalModel();
     const blocked = floorLoadBlockMessage();
     if (blocked) {
       nextSolveGuard();
@@ -173,7 +183,7 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
   const isPro = uiStore.analysisMode === 'pro';
   // A plate with no mesh, or one out of date, is not in the model the solve reads: results now would
   // leave it out. Live calc does not mesh behind an edit; the manual analysis does.
-  const unmeshed = platesNeedingMesh();
+  const unmeshed = platesNeedingMesh({ coarse: false });
   if (unmeshed.length > 0) {
     uiStore.liveCalcError = tp('plates.liveNeedsMesh', { n: unmeshed.length });
     return;
@@ -267,43 +277,86 @@ async function liveCalc2D(isStale: () => boolean): Promise<void> {
  * model nobody touched, or publish the live calc's single solve in its place.
  */
 let cancelPendingLiveCalc: (() => void) | null = null;
+let manualSolves = 0;
+let latestRun = 0;
+let deferredLive: [string, string, string | undefined] | null = null;
+let solvedInput: string | null = null;
 
 export function registerLiveCalcCanceller(cancel: (() => void) | null): void {
   cancelPendingLiveCalc = cancel;
 }
 
 export async function runGlobalSolve(options: { directBase?: boolean } = {}): Promise<GlobalSolveOutcome> {
+  manualSolves++;
+  const run = ++latestRun;
+  const latest = () => run === latestRun;
+  const showProgress = __PUBLIC_FEATURES__.proPlatesUnified;
+  const step: ProgressStep = (phase, done = 0, total = 0) => {
+    if (showProgress && latest()) solveProgress.step(phase, done, total);
+  };
+  solvedInput = null;
+  if (showProgress) {
+    solveProgress.begin();
+    onCaseSolved((done, total) => step('cases', done, total));
+    onSolveStep(step);
+  }
+  let outcome: GlobalSolveOutcome | undefined;
+  try {
+    outcome = await globalSolve(options, { latest, step });
+    return outcome;
+  } catch (e) {
+    outcome = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    throw e;
+  } finally {
+    manualSolves--;
+    if (showProgress && latest()) {
+      onCaseSolved(null);
+      onSolveStep(null);
+      const warnings = !outcome?.ok ? 0 : uiStore.analysisMode === 'pro' ? reviewCount(uiStore.is3DWorkspace).total : uiStore.is3DWorkspace
+        ? resultsStore.diagnostics3D.length + resultsStore.solverDiagnostics3D.length + resultsStore.structuredDiagnostics3D.length
+        : resultsStore.diagnostics.length + resultsStore.solverDiagnostics.length + resultsStore.structuredDiagnostics.length;
+      const error = outcome && !outcome.ok ? outcome.error : '';
+      solveProgress.finish(outcome?.ok ? { ok: true, warnings } : { ok: false, error, warnings });
+      if (error) uiStore.dismissToastsSaying(error);
+    }
+    const held = deferredLive;
+    if (manualSolves === 0 && held) {
+      deferredLive = null;
+      if (solveInputKey() !== solvedInput) void runLiveCalc(...held);
+    }
+  }
+}
+
+type ProgressStep = (phase: Exclude<SolvePhase, 'done' | 'failed'>, done?: number, total?: number) => void;
+
+function refuseSpatialMesh(error: string): GlobalSolveOutcome {
+  nextSolveGuard();
+  resultsStore.clear3D();
+  uiStore.toast(error, 'error');
+  return { ok: false, error };
+}
+
+async function globalSolve(options: { directBase?: boolean }, run: { latest: () => boolean; step: ProgressStep }): Promise<GlobalSolveOutcome> {
   const startedAt = performance.now();
   cancelPendingLiveCalc?.();
   // A solve that was asked for the combinations and did not get them must not end the stale state
   // (`store/recheck.svelte.ts`): its single-solve publish stamps the project, so the stamp before it
   // is put back below. Every entry point, not only the re-check's re-run.
   const stampBefore = recheckStore.capture();
-  // Slabs placed to be meshed at the analysis get their mesh first, so what follows (the floor
-  // loads, the solve, the results, the slab design) reads the mesh (`deferred-slabs.ts`).
   if (uiStore.is3DWorkspace) {
-    // A slab meshed before its columns' sections were represented is meshed again with them
-    // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.
-    const f = representFootprints();
-    if (f.slabs > 0) uiStore.toast(tp('building.slabs.footprintsAtSolve', { n: f.slabs }), 'info');
-    const m = meshDeferredSlabs();
-    if (m.slabs > 0) uiStore.toast(tp('building.slabs.meshedAtSolve', { n: m.slabs, shells: m.shells }), 'info');
+    const deferredError = prepareDeferredSolveSlabs(uiStore.analysisMode, message => uiStore.toast(message, 'info'));
+    if (deferredError) return refuseSpatialMesh(deferredError);
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
-    const p = preparePlatesForAnalysis();
-    if (!p.ok) {
-      const error = 'error' in p ? p.error : tp({
-        needsMesh: 'plates.analysisNeedsMesh',
-        invalid: 'plates.analysisInvalid',
-        localLoads: 'plates.analysisLocalLoads',
-        refused: 'plates.analysisMeshRefused',
-      }[p.reason], { names: p.plates.join(', ') });
-      nextSolveGuard();
-      resultsStore.clear3D();
-      uiStore.toast(error, 'error');
-      return { ok: false, error };
+    if (unifiedPlates()) run.step('mesh');
+    const p = unifiedPlates() ? await preparePlatesForAnalysisAsync(ensurePhysicalModel) : preparePlatesForAnalysis();
+    if (!run.latest()) return { ok: false, error: t('results.editedDuringSolve') };
+    if (!p.ok) return refuseSpatialMesh(platePreparationError(p));
+    if (p.stale?.length) uiStore.toast(tp('plates.analysisStale', { names: p.stale.join(', ') }), 'info', undefined, true);
+    if (p.meshed > 0) {
+      const kept = physicalPlates().length - p.meshed;
+      uiStore.toast(tp(kept > 0 ? 'plates.meshedAtAnalysisKept' : 'plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells, kept }), 'info');
     }
-    if (p.meshed > 0) uiStore.toast(tp('plates.meshedAtAnalysis', { n: p.meshed, cells: p.cells }), 'info');
   }
   // Floor loads kept as definitions are rewritten first when the model moved under them, so the
   // guard below starts from the model that is solved (`store/defined-loads.ts`).
@@ -318,8 +371,10 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
     syncDefinedLoadsForAnalysis();
   }
   // Supersede any in-flight solve (live calc or an earlier manual solve).
+  cancelPendingLiveCalc?.();
   const isStale = nextSolveGuard();
   const input = solveInputKey();
+  solvedInput = input;
 
   // Pre-solve model hygiene, for the modes that had none. The PRO exclusion
   // is inside `reportModelDiagnostics` itself, so this call site — like the
@@ -332,7 +387,7 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   let outcome: GlobalSolveOutcome;
   if (uiStore.is3DWorkspace) {
     await ensureWasmReady('runGlobalSolve');
-    outcome = await globalSolve3D(isStale, options.directBase ?? false);
+    outcome = await globalSolve3D(isStale, options.directBase ?? false, run.step);
   } else if (uiStore.analysisMode === 'edu') {
     // Education owns its own solve lifecycle (results are withheld until the
     // student answers), so dispatch to it explicitly.
@@ -371,18 +426,13 @@ async function ensureWasmReady(context: string): Promise<void> {
   }
 }
 
-/** Show solver diagnostic warnings/errors as toasts (max 2 to avoid spam).
- *  Lives in `solve-diagnostics.ts` so Education shares the same reporting. */
-const showSolverWarningToasts = reportSolverDiagnostics;
-
 /**
- * The action a failed solve's message offers. When members pass nodes they are not cut at,
- * which is how a first model usually falls apart, the fix is one command away and the message
- * offers it; otherwise a mechanism message offers the kinematic panel.
+ * The action a failed solve's message offers when the model is a mechanism: cutting the members
+ * at the nodes they pass, which is how a first model usually falls apart, else the kinematic panel.
  */
 function solveErrorAction(msg: string): string | undefined {
-  if (nodesOnMembers(modelStore.nodes, modelStore.elements.values()).length > 0) return 'split-at-nodes';
-  return isMechanismError(msg) ? 'kinematic' : undefined;
+  if (!isMechanismError(msg)) return undefined;
+  return nodesOnMembers(modelStore.nodes, modelStore.elements.values()).length > 0 ? 'split-at-nodes' : 'kinematic';
 }
 
 /** Detect if an error message is mechanism/hipostatic-related */
@@ -392,7 +442,7 @@ function isMechanismError(msg: string): boolean {
     || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
 }
 
-async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promise<GlobalSolveOutcome> {
+async function globalSolve3D(isStale: () => boolean, directBase: boolean, step: ProgressStep): Promise<GlobalSolveOutcome> {
   const isPro = uiStore.analysisMode === 'pro';
   const leftHand = uiStore.axisConvention3D === 'leftHand';
   // Basic with load cases off shows no combinations: none are solved.
@@ -403,6 +453,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
   const failed = (error: string): GlobalSolveOutcome => ({ ok: false, error });
 
   const runSingleSolve = async (announceSuccess = true): Promise<GlobalSolveOutcome> => {
+    step('single');
     const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro, { isCancelled: isStale });
     if (isStale()) return stale;
     if (typeof r === 'string') {
@@ -426,7 +477,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       `${t('results.analysis3dSuccess')}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
       'success',
     );
-    showSolverWarningToasts(r.solverDiagnostics);
+    reportManualSolveDiagnostics(r.solverDiagnostics);
     return { ok: true, combinationsLeftOut: null };
   };
 
@@ -439,6 +490,8 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     // edit already cleared. Discard silently instead (no fallback re-solve, no
     // toast): the next live-calc pass / manual solve will pick up the new model.
     const solveEpoch = modelStore.modelVersion;
+    const solveStep = captureSolveSteps?.();
+    step('cases', 0, modelStore.model.loadCases.length);
     const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined, { isCancelled: isStale });
     if (isStale()) return stale;
     if (typeof comboResult === 'string') return comboResult;
@@ -474,6 +527,8 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       if (firstCaseResult) markAllLoads(firstCaseResult, comboResult.perCase, factors);
     }
     if (!firstCaseResult) return t('results.emptyModelError');
+    if (solveStep) await solveStep('publish');
+    if (isStale() || modelStore.modelVersion !== solveEpoch) return stale;
     // The same check the single solve makes, on everything this path would publish: the base and
     // every case and combination. A NaN here goes back as the combinations' failure, and the
     // single-solve fallback refuses a NaN base by itself.
@@ -498,7 +553,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
       `${t('results.analysis3dSuccess')} (${timeStr}) — ${nBars} ${t('results.bars')}, ${nReac} ${t('results.reactions')} + ${comboResult.perCombo.size} ${t('results.combinations')}`,
       'success',
     );
-    showSolverWarningToasts(firstCaseResult.solverDiagnostics);
+    reportManualSolveDiagnostics(firstCaseResult.solverDiagnostics);
     return { ok: true, combinationsLeftOut: null };
   };
 
@@ -577,6 +632,6 @@ async function globalSolve2D(isStale: () => boolean): Promise<GlobalSolveOutcome
   );
 
   // Show solver warnings/errors as separate toasts
-  showSolverWarningToasts(r.solverDiagnostics);
+  reportManualSolveDiagnostics(r.solverDiagnostics);
   return { ok: true, combinationsLeftOut };
 }

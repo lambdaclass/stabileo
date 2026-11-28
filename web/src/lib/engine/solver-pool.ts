@@ -329,12 +329,21 @@ export async function certifyCallInWorker(name: string, args: unknown[]): Promis
  * @param cases Array of { id, input } where input is the plain-object wire form of SolverInput3D
  * @returns Map from id to the solved result object (structured-cloned from the worker)
  */
+let caseSolved: ((done: number, total: number) => void) | null = null;
+
+/** Told after each load case a parallel solve finishes, with how many are done of how many; null stops it. */
+export function onCaseSolved(listener: ((done: number, total: number) => void) | null): void {
+  if (__PUBLIC_FEATURES__.proPlatesUnified) caseSolved = listener;
+}
+
 export async function solveParallel(
   cases: Array<{ id: number; input: any }>,
 ): Promise<Map<number, any>> {
   await ensurePool();
 
   const results = new Map<number, any>();
+  const told = __PUBLIC_FEATURES__.proPlatesUnified ? caseSolved : null;
+  const settle = (id: number, result: any) => { results.set(id, result); told?.(results.size, cases.length); };
   const queue = [...cases];
 
   /*
@@ -361,13 +370,13 @@ export async function solveParallel(
     const target = reachable.find((pw) => !pw.warmed);
     if (!target) break;
     const { id, input } = queue.shift()!;
-    results.set(id, await runJob('solve3d', input, target));
+    settle(id, await runJob('solve3d', input, target));
   }
 
   // Everything left runs the way the pool exists to run it.
   await Promise.all(
     queue.map(({ id, input }) =>
-      runJob('solve3d', input).then(result => { results.set(id, result); }),
+      runJob('solve3d', input).then(result => { settle(id, result); }),
     ),
   );
   return results;

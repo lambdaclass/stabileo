@@ -3764,6 +3764,21 @@
       "id": 12,
       "nodeId": 12,
       "type": "fixed3d"
+    },
+    {
+      "id": 13,
+      "nodeId": 118,
+      "type": "fixed3d"
+    },
+    {
+      "id": 14,
+      "nodeId": 119,
+      "type": "fixed3d"
+    },
+    {
+      "id": 15,
+      "nodeId": 120,
+      "type": "fixed3d"
     }
   ],
   "loads": [

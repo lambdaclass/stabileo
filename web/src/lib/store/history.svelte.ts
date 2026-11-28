@@ -9,7 +9,8 @@ import { pruneDeletedMembers, pruneStaleSelection } from './selection-prune';
 import type { Release, ProvidedReinforcement } from './model.svelte';
 import type { Element3DMetadata } from '../model/element-3d-metadata';
 import type { ModelProvenance } from '../model/provenance';
-import type { Footing, FootingMatPreferences } from '../model/footing';
+import type { StoredFooting } from '../model/foundation/footing-nodes';
+import type { FootingMatPreferences } from '../model/footing';
 import type { ProjectGeotechnical } from '../model/geotechnical';
 import type { ExportRecord } from '../flow/rc-export-record';
 import type { StoredJointDesigns } from '../connection/joint-choices';
@@ -53,6 +54,7 @@ export interface ModelSnapshot {
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseId: number; factor: number }> }>;
   plates?: Array<[number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }]>;
   quads?: Array<[number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }]>;
+  footprintLinks?: import('../model/building/footprint-link-owners').SavedFootprintLink[];
   constraints?: Array<{ type: string; [key: string]: unknown }>;
   /**
    * Named, persisted groups. Absent on every model saved before they existed, and on any
@@ -75,7 +77,7 @@ export interface ModelSnapshot {
   notes?: import('../model/annotations').ViewNote[];
   /** Background drawings laid at levels (`model/underlay.ts`). Absent: none. */
   underlays?: import('../model/underlay').Underlay[];
-  designData?: import('../model/design-data').ProjectDesignData;
+  designData?: import('../model/design-data').StoredDesignData;
   designDecisions?: import('../design-contract/decisions').StoredDecisions;
   /** Structural grid and named levels. Absent: none defined. */
   grid?: import('../model/grid').StructuralGrid;
@@ -93,7 +95,7 @@ export interface ModelSnapshot {
   /** Joint/spring/bearing primitives. Each entry is [id, ConnectorElement-shaped object]. */
   connectors?: Array<[number, { id: number; nodeI: number; nodeJ: number; kAxial?: number; kShear?: number; kMoment?: number; kShearZ?: number; kBendY?: number; kBendZ?: number }]>;
   /** Isolated spread footings. Each entry is [id, Footing]. Absent before foundations. */
-  footings?: Array<[number, Footing]>;
+  footings?: Array<[number, StoredFooting]>;
   /** Project ground conditions, referenced by footings rather than copied into them. */
   geotechnical?: ProjectGeotechnical;
   /**

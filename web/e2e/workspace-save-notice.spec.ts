@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { BUILD_FEATURES } from './build-features';
 import { test, expect } from './fixtures';
 
 for (const [label, viewport] of [['phone', { width: 390, height: 844 }], ['tablet', { width: 820, height: 1180 }]] as const) {
@@ -54,5 +55,29 @@ for (const [label, viewport] of [['phone', { width: 390, height: 844 }], ['table
       expect(session.tabs[0].modelSnapshot.nodes.length).toBeGreaterThan(0);
       await expect(notice, 'still not autosaved: still shown').toBeVisible();
     });
+  });
+}
+
+if (BUILD_FEATURES.proPlatesUnified) {
+  test('@smoke the notice of a refused workspace save closes with its cross and stays closed while saves keep failing', async ({ page }) => {
+    await page.addInitScript(() => {
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key: string, value: string) {
+        if (key === 'stabileo-workspace') throw new DOMException('quota', 'QuotaExceededError');
+        return setItem.call(this, key, value);
+      };
+    });
+    await page.clock.install();
+    await page.goto('/app/basic?e2e=1');
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 30_000 });
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    const notice = page.getByTestId('workspace-save-notice');
+    await page.clock.fastForward(31_000);
+    await expect(notice).toBeVisible();
+    await page.getByTestId('workspace-save-dismiss').click();
+    await expect(notice).toHaveCount(0);
+    await page.evaluate(() => window.__stabileoActions.loadExample('continuous-beam'));
+    await page.clock.fastForward(31_000);
+    await expect(notice, 'the next refused save does not bring it back').toHaveCount(0);
   });
 }

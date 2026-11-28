@@ -31,7 +31,17 @@ const GAP = 12, CAPTION = 8;
 /** The band under each drawing that holds its title and scale, paper mm. */
 export const CAPTION_MM = CAPTION;
 
-export function composeSheets(drawings: readonly DrawingInput[], format: SheetFormat, geometryOf: (f: SheetFormat) => FormatGeometry = formatGeometry): ComposedSheet[] {
+/**
+ * `dense`: each drawing hangs where it stands highest over those already placed, beside the title
+ * block too, rows 8 mm apart and side by side with only their own margins between.
+ */
+export const composeSheets: typeof composeWithLayout = __PUBLIC_FEATURES__.proRcSheets ? composeWithLayout : composeRows;
+
+function composeWithLayout(drawings: readonly DrawingInput[], format: SheetFormat, geometryOf = formatGeometry, dense?: boolean): ComposedSheet[] {
+  return dense ? composeDense(drawings, format, geometryOf) : composeRows(drawings, format, geometryOf);
+}
+
+function composeRows(drawings: readonly DrawingInput[], format: SheetFormat, geometryOf: (f: SheetFormat) => FormatGeometry = formatGeometry): ComposedSheet[] {
   const sheets: ComposedSheet[] = [];
   let cur: ComposedSheet | null = null, x = 0, top = 0, rowH = 0;
   let group: string | undefined;
@@ -60,6 +70,60 @@ export function composeSheets(drawings: readonly DrawingInput[], format: SheetFo
     c.primitives.push({ kind: 'text', layer: 'RC-TITLE', at: { x, y: y + 2 }, text: d.paper ? d.title : `${d.title} — 1:${s}`, height: 3 });
     c.drawings.push({ key: d.key, title: d.title, scale: s, ...(d.paper ? { paper: true } : {}), x, y, w, h, mw: d.width, mh: d.height, from, to: c.primitives.length });
     x += w + GAP; rowH = Math.max(rowH, h);
+  }
+  return sheets;
+}
+
+const DENSE_GAP = 8;
+
+/** Whether a drawing `w × h` paper mm (its caption included) fits the dense area: the drawable rectangle, or the column beside the title block down to the frame. */
+export function fitsDense(g: FormatGeometry, w: number, h: number): boolean {
+  const tbLeft = Math.min(g.drawable.x1, g.titleBlock.x0 - 5), floor = Math.min(g.drawable.y0, g.frame.y0 + 5);
+  return (w <= g.drawable.x1 - g.drawable.x0 + 1e-6 && h <= g.drawable.y1 - g.drawable.y0 + 1e-6) || (w <= tbLeft - g.drawable.x0 + 1e-6 && h <= g.drawable.y1 - floor + 1e-6);
+}
+
+/** Drawings hung from the top of each sheet, each where it stands highest and then leftmost over what is placed already (a skyline), in their order. */
+function composeDense(drawings: readonly DrawingInput[], format: SheetFormat, geometryOf: (f: SheetFormat) => FormatGeometry): ComposedSheet[] {
+  const sheets: ComposedSheet[] = [];
+  let cur: ComposedSheet | null = null;
+  let sky: Array<{ x0: number; x1: number; y: number }> = [];
+  let group: string | undefined;
+  const open = (f: SheetFormat) => { const g = geometryOf(f); cur = { format: f, ...(group ? { group } : {}), drawings: [], primitives: [] }; sheets.push(cur); sky = [{ x0: g.drawable.x0, x1: g.drawable.x1, y: g.drawable.y1 + DENSE_GAP }]; };
+  for (const d of drawings) {
+    if (d.group !== group) { group = d.group; cur = null; }
+    let f = d.format ?? format, g = geometryOf(f);
+    const room = (gg: FormatGeometry) => ({ W: gg.drawable.x1 - gg.drawable.x0, H: gg.drawable.y1 - gg.drawable.y0 - CAPTION });
+    let s = d.paper ? 1 : d.scale ?? fittingScale(d.width, d.height, room(g).W, room(g).H);
+    if (s === null) {
+      for (const b of SHEET_FORMATS.slice(0, SHEET_FORMATS.indexOf(f)).reverse()) { const sb = fittingScale(d.width, d.height, room(geometryOf(b)).W, room(geometryOf(b)).H); if (sb !== null) { f = b; g = geometryOf(b); s = sb; break; } }
+      if (s === null) s = 500;
+    }
+    const w = d.width / s, h = d.height / s + CAPTION;
+    const spot = (gg: FormatGeometry) => {
+      const tbTop = gg.titleBlock.y1 + 5, tbLeft = Math.min(gg.drawable.x1, gg.titleBlock.x0 - 5), floor = Math.min(gg.drawable.y0, gg.frame.y0 + 5);
+      const right = (bottom: number) => (bottom < tbTop - 1e-6 ? tbLeft : gg.drawable.x1);
+      let best: { x: number; top: number } | null = null;
+      for (const seg of sky) {
+        const x = seg.x0;
+        const top = Math.min(...sky.filter((q) => q.x1 > x + 1e-6 && q.x0 < x + w - 1e-6).map((q) => q.y)) - DENSE_GAP;
+        if (top - h < floor - 1e-6 || x + w > right(top - h) + 1e-6) continue;
+        if (!best || top > best.top + 1e-6) best = { x, top };
+      }
+      return best;
+    };
+    const now = cur as ComposedSheet | null;
+    let at = now && (now.format === f || (SHEET_FORMATS.indexOf(now.format) < SHEET_FORMATS.indexOf(f) && fitsDense(geometryOf(now.format), w, h))) ? spot(geometryOf(now.format)) : null;
+    if (!at) { open(f); at = spot(g) ?? { x: g.drawable.x0, top: g.drawable.y1 }; }
+    const y = at.top - h, x1 = at.x + w;
+    sky = [...sky.flatMap((q) => [
+      ...(q.x0 < at!.x - 1e-6 ? [{ x0: q.x0, x1: Math.min(q.x1, at!.x), y: q.y }] : []),
+      ...(q.x1 > x1 + 1e-6 ? [{ x0: Math.max(q.x0, x1), x1: q.x1, y: q.y }] : []),
+    ]), { x0: at.x, x1, y }].sort((p, q) => p.x0 - q.x0);
+    const c = cur as unknown as ComposedSheet;
+    const from = c.primitives.length;
+    c.primitives.push(...place(d.primitives, s, { x: at.x, y: y + CAPTION }, d.origin));
+    c.primitives.push({ kind: 'text', layer: 'RC-TITLE', at: { x: at.x, y: y + 2 }, text: d.paper ? d.title : `${d.title} — 1:${s}`, height: 3 });
+    c.drawings.push({ key: d.key, title: d.title, scale: s, ...(d.paper ? { paper: true } : {}), x: at.x, y, w, h, mw: d.width, mh: d.height, from, to: c.primitives.length });
   }
   return sheets;
 }
