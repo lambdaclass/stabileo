@@ -18,7 +18,7 @@ const ctx = () => ({ initialized: true, scene: new THREE.Scene(), nodeLabelsGrou
 describe('the labels the 3D view draws', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro'; uiStore.showNodeLabels3D = true; uiStore.clearSelection(); });
 
-  it.skip.each(['3d', 'pro'] as const)('known wrong result: #1928 hiding mesh edges retains ordinary %s analytical node labels', mode => {
+  it.each(['3d', 'pro'] as const)('known wrong result: #1928 hiding mesh edges retains ordinary %s analytical node labels', mode => {
     uiStore.analysisMode = mode;
     const outline = [[0, 0], [6, 0], [6, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
     const plate = createPlate({ outline, materialId: 1, thickness: 0.15 });

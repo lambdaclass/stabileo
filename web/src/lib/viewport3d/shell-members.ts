@@ -11,6 +11,7 @@
  * drawn, and a shell is still picked by the face it was hit on. Results, the view's own switch,
  * the volume views and the build timelapse bring the mesh back.
  */
+import { unifiedPlates } from '../features';
 import * as THREE from 'three';
 import { modelStore } from '../store/model.svelte';
 import { resultsStore } from '../store/results.svelte';
@@ -45,7 +46,8 @@ export function platesAsPieces(): boolean {
 }
 
 /** The nodes a plate's mesh made (its ties and edge supports with it), but for one a load was put on: not drawn while plates are drawn as pieces. */
-export function plateMeshNodes(): Set<number> {
+export function hiddenPlateMeshNodes(): Set<number> | null {
+  if (!unifiedPlates() || !platesAsPieces()) return null;
   const out = new Set<number>();
   for (const p of physicalPlates()) for (const n of plateLoops(p.group).owned) out.add(n);
   if (!out.size) return out;

@@ -6,7 +6,7 @@
 
 import { unifiedPlates } from '../features';
 import { userVecParts } from '../axes/user-names';
-import { meshHidden, meshOnlyNodes, plateMeshNodes, platesAsPieces, syncShellMembers } from './shell-members';
+import { meshHidden, meshOnlyNodes, hiddenPlateMeshNodes, platesAsPieces, syncShellMembers } from './shell-members';
 import { plateLoadLayers, type PieceLoad } from './plate-load-layers';
 import { shellLoadDirection, shellLoadExtent, shellLoadSamples } from '../engine/shell-load-integration';
 import { distributedGlobalEnds } from '../engine/member-loads';
@@ -160,7 +160,7 @@ export function syncNodes(ctx: SceneSyncContext): void {
   // Hidden in the view (store/view-state): not drawn, not picked. The model is untouched.
   const visible = visibleNodes();
   // While the slabs and walls are drawn as members, the nodes only their mesh has are not drawn.
-  const meshOnly = meshHidden() ? meshOnlyNodes() : unifiedPlates() && platesAsPieces() ? plateMeshNodes() : null;
+  const meshOnly = meshHidden() ? meshOnlyNodes() : hiddenPlateMeshNodes();
   const storeNodes = meshOnly?.size ? new Map([...visible].filter(([id]) => !meshOnly.has(id))) : visible;
   const project2D = projectFlag();
   const ni = ctx.nodesInstanced;
