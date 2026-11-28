@@ -16,6 +16,7 @@
     "fr": "Signalement d’une masse volumique invalide pour le poids propre des coques en statique",
     "hu": "Figyelmeztetés érvénytelen sűrűségre a héjak statikai önsúlyszámításában",
     "tr": "Statik kabuk öz ağırlığında geçersiz yoğunluk uyarısı",
+    "vi": "Cảnh báo khối lượng riêng không hợp lệ trong trọng lượng bản thân của vỏ tĩnh",
     "zh": "标记壳单元静力自重计算中的无效密度"
   },
   "explanation": {
@@ -26,6 +27,7 @@
     "fr": "Une plaque ou une coque visée par une règle de poids propre présente une masse volumique invalide. Les résultats statiques antérieurs pouvaient omettre son poids propre si la masse volumique était enregistrée avec la valeur null. Saisissez une masse volumique finie, positive ou nulle, puis relancez le calcul.",
     "hu": "Egy önsúlyszabály által érintett lemez vagy héj anyagsűrűsége érvénytelen. A korábbi statikai eredményekből kimaradhatott az önsúlya, ha a sűrűséget null értékként mentették. Adjon meg véges, nemnegatív sűrűséget, majd futtassa újra a számítást.",
     "tr": "Bir öz ağırlık kuralı kapsamındaki plak veya kabuğun malzeme yoğunluğu geçersiz. Yoğunluk null olarak kaydedildiyse önceki statik sonuçlar öz ağırlığı atlamış olabilir. Sonlu ve negatif olmayan bir yoğunluk girip analizi yeniden çalıştırın.",
+    "vi": "Một tấm hoặc vỏ thuộc quy tắc trọng lượng bản thân có khối lượng riêng vật liệu không hợp lệ. Các kết quả tĩnh trước đây có thể bỏ sót trọng lượng bản thân của nó khi khối lượng riêng được lưu là null. Hãy nhập khối lượng riêng hữu hạn, không âm và chạy lại phân tích.",
     "zh": "自重规则覆盖的板或壳单元的材料密度无效。密度保存为 null 时，早期静力分析结果可能漏算该单元的自重。请输入有限且非负的密度，然后重新运行分析。"
   },
   "changelog": {

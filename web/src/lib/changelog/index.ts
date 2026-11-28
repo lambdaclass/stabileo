@@ -154,6 +154,23 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A termék ütemterve előre sorolja a terhek és lemezterületek független ellenőrzését, az egzakt igénybevételi függvényeket, a teljes méretezési bizonyítékot és az egységes kanonikus modellt az átalakítások ellenőrzésével. (#2469)',
         ],
       },
+      vi: {
+        title: 'Stabileo 0.6.4: Sửa kết quả thanh, phân tích tấm và kiểm tra bê tông',
+        items: [
+          'Biểu đồ nội lực của thanh và biểu đồ bao tải trọng di động nay thu lại các đỉnh nằm giữa các mặt cắt, ở cả hai phía của tác động tập trung và các lực ngay sát đầu thanh. Biểu đồ tổ hợp có thể hiển thị các cận bảo thủ có ghi nhãn khi không xác định được cực trị chính xác. Mặt cắt chưa rõ, đỉnh chi phối chưa xác định hoặc lưới mặt cắt thiết kế chưa đầy đủ sẽ chặn kết quả bị ảnh hưởng. Các đoạn nhịp bê tông bị đảo chiều giữ đúng mặt chịu kéo thực tế. Kiểm tra thép dùng mô men cân bằng tại đỉnh và tại các điểm một phần tư, đồng thời không tính hệ số gradien mô men khi thiếu thông tin biểu đồ cần thiết. Báo cáo có nhiều mặt cắt tái sử dụng các biểu đồ đã chuẩn bị. (#2403)',
+          'Cả hai lệnh đảo chiều thanh đều giữ nguyên hướng, đoạn chịu tải và cường độ ở hai đầu của tải trọng phân bố. Phân tích dùng giá trị khác không không mơ hồ trong các trường ngẫu lực phẳng kiểu cũ và từ chối các giá trị mâu thuẫn nhau. Trong mô hình không gian, một ngẫu lực thuần ở đầu thanh có thể được đặt tại nút gốc của nó dù không có hình chiếu thanh dùng được. Những tác động kiểu cũ khác vẫn cần hình chiếu có thể chặn phép giải. (#2456)',
+          'Việc chỉnh sửa một giá trị hữu hạn của ngẫu lực tập trung phẳng hoặc mô men nút đã khôi phục sẽ thay thế mô men đã lưu, kể cả khi đặt bằng không. Mô men mâu thuẫn hoặc không hợp lệ chặn phân tích ngay cả sau khi lưu và mở lại. Hãy kiểm tra mô men dự kiến, nhập lại rồi chạy lại phân tích và thiết kế. (#2467, SA-2026-105)',
+          'PRO từ chối phân tích nếu còn lưới tấm không hợp lệ hoặc đã lỗi thời, hoặc nếu một mối nối vách-sàn không tương thích. Bộ chia lưới yêu cầu đường biên và lỗ đầy đủ, hợp lệ trước khi Áp dụng. Bộ ví dụ bảy tầng đã cập nhật và ví dụ DXF kiến trúc có lưới tại các mối nối tương thích. Các bản nháp CAD mới được chia lưới căn chỉnh mặt cắt của sàn và vách. Xuất sổ làm việc chỉ chứa mô hình có thể bao gồm các tấm chưa chia lưới. (#2409)',
+          'Việc chia lại lưới đi theo biên cong qua điểm trung gian do tấm chỉ định. Một lần quét không rõ ràng sẽ chặn việc chia lại lưới và phân tích. Hãy kiểm tra biên, dựng lại các lưới đã lỗi thời và chạy lại phân tích và thiết kế. (#2466, SA-2026-106)',
+          'Việc chia lại lưới chỉ chuyển độ lệch vỏ và các chỉnh sửa độ cong sang những ô duy nhất khớp chính xác. Nếu không thể khớp một vỏ đã chỉnh sửa, việc chia lại lưới dừng và giữ nguyên lưới hiện có. Hãy kiểm tra đặc trưng của vỏ so với mô hình dự kiến, khôi phục các chỉnh sửa đã mất trước đó và chạy lại phân tích và thiết kế. (#2466, SA-2026-107)',
+          'Kiểm tra CIRSOC 201-2025 xét cốt thép ngang tối thiểu chịu xoắn theo cả hai phương và dùng giới hạn bê tông đã đánh giá cho xoắn thuần túy khi có khung cốt thép. Kiểm tra xoắn và cắt có thể từ chối khi khung cốt thép đã vẽ thiếu căn cứ về cốt thép chu vi, chiều cao hữu hiệu thứ cấp hoặc chiều dài neo qua mối nối. Kiểm tra cắt dùng các thanh chịu kéo riêng biệt có mặt tại mặt cắt, kể cả giữa các mặt cắt đã lấy mẫu. Ví dụ bảy tầng nay có thể hiển thị các từ chối đối với những kiểm tra trước đây đạt. (#2433)',
+          'Không gian làm việc cốt thép 3D mở nhanh hơn, và việc lưu, khôi phục và chuyển tab trong các mô hình chi tiết tái sử dụng hình học cốt thép bất biến. Hoàn tác và làm lại khôi phục chi tiết cốt thép khớp với hình học bê tông. (#2438, #2444, #2458)',
+          'Basic hiển thị mô men phản lực gối tựa 3D theo dấu toàn cục của bộ giải. Các giá trị vật thể tự do dùng hệ trục đã chọn và khớp với các mũi tên phía nút trong 2D. Basic và PRO báo cáo các thành phần lực tập trung và ngẫu lực trong mặt phẳng và hệ trục của bộ giải. Hãy chạy lại các kiểm tra bị ảnh hưởng và tạo lại báo cáo. (#2396)',
+          'Phần cài đặt khóa AI cho các nút nhà cung cấp, ô nhập khóa và các thao tác với khóa kích thước tối thiểu 44 điểm ảnh CSS theo cả hai chiều. (#2440)',
+          'Các trang nghiên cứu đã đăng về elastica của Mattiasson, MacNeal–Harder và chuỗi chướng ngại cho vỏ hiển thị kết quả hoàn chỉnh của lần chạy chuẩn đầu tiên hoặc từ chối đã báo cáo của nó. (#2445)',
+          'Lộ trình sản phẩm ưu tiên các kiểm tra độc lập về tải trọng và diện tích tấm, các hàm nội lực chính xác, bằng chứng thiết kế đầy đủ và một mô hình chuẩn duy nhất có kiểm tra xuyên suốt các phép biến đổi. (#2469)',
+        ],
+      },
       zh: {
         title: 'Stabileo 0.6.4：修正杆件结果、板分析和混凝土验算',
         items: [
@@ -345,6 +362,29 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A Research új kísérlete Heyman munkája alapján vizsgálja a falazott ívek legkisebb vastagságát és összeomlását.',
         ],
       },
+      vi: {
+        title: 'Kiểm tra bê tông, ứng suất tiết diện và tải trọng di động',
+        items: [
+          'Ứng suất tiết diện chi tiết giữ lại kết quả tổ hợp khi xoắn và cắt ngang cùng tồn tại. Các mặt cắt nay bao gồm cả hai thành phần ngang trong lực cắt tổng và von Mises. Hãy tính lại các ứng suất bị ảnh hưởng và rà soát báo cáo (SA-2026-092). Ví dụ minh họa của thông báo đưa tọa độ thớ theo cả hệ trục cục bộ của thanh và hệ trục bản vẽ tiết diện.',
+          'Tải trọng di động phẳng giữ nguyên bước nhảy lực dọc tại các trục tải tập trung. Hãy tính lại các biểu đồ, biểu đồ bao và đường ảnh hưởng lực dọc bị ảnh hưởng (SA-2026-093).',
+          'Các tổ hợp 2D và 3D giữ hệ số ròng của các trường hợp lặp lại và từ chối khi triệt tiêu hoàn toàn. Phân tích cáp và tương tác đất-kết cấu từ chối độ cứng lò xo không hữu hạn. Hãy chạy lại các tổ hợp bị ảnh hưởng.',
+          'Khung và dầm vượt qua kiểm tra ổn định đã chứng nhận nhanh hơn. Việc khôi phục tổ hợp 3D nhanh hơn, và bộ tiền điều kiện lặp cho tấm đã được sửa.',
+          'Phân tích đồng xoay 2D dùng chung một bộ điều khiển phi tuyến và giữ nguyên kết quả Newton và Newton cải tiến hiện có. (#2394)',
+          'Kiểm tra bê tông cốt thép chặn các kiểm tra cắt, xoắn và cốt đai chịu động đất khi không đủ căn cứ và giải thích lý do. Hãy chạy lại các thiết kế đã chứng nhận và rà soát các mặt cắt chi phối cùng bản vẽ cốt thép (SA-2026-091).',
+          'Tải trọng động đất tĩnh theo khối lượng vật lý và cao độ đặt của nó. Việc tạo tải theo phương pháp dao động bị chặn. Hãy tạo lại các tải bị ảnh hưởng bằng phương pháp tĩnh nếu áp dụng được, sau đó chạy lại phân tích và thiết kế (SA-2026-086 và SA-2026-087).',
+          'Việc tạo tải trọng lực chặn các ô chồng lên nhau có thể đặt tải lên cùng một diện tích hai lần. Hãy tạo lại các tải bị ảnh hưởng trước khi chạy lại phân tích và kiểm tra thiết kế.',
+          'Các phép biến đổi chặn việc di chuyển hoặc sao chép có thể làm thay đổi các phương bị ngăn của một gối di động chưa rõ. Ảnh chụp trạng thái giữ nguyên loại gối đã ghi.',
+          'Việc tạo tải động đất tĩnh kiểm tra căn cứ về sàn tại các điểm giao giằng và nút mái. Riêng dầm nóc không thể xác lập một sàn. Các đoạn chia thanh thẳng được nhận diện nhất quán sau khi tịnh tiến, và việc tạo tải bị chặn nếu độ chính xác tọa độ không đủ hoặc tầng chưa rõ. Khi cả hai đầu đều có căn cứ về sàn, các kèo nâng cao nhận quán tính phân bố dọc theo các nhịp tham gia. Một sàn đã xác lập cũng tách đoạn xiên liên tục tại nút sàn. Điều này có thể làm thay đổi lực từng tầng, lực cắt đáy cũng như mô men uốn và độ võng của kèo. Hãy tạo lại các trường hợp động đất tĩnh bị ảnh hưởng và rà soát lực cắt đáy cùng nội lực của kèo. (#2404)',
+          'Việc tạo tải trọng lực theo ô chặn đường truyền tải trùng lặp, nơi một ô dầm và một tấm sàn vỏ chồng lên nhau đều sẽ bị đặt tải và mối nối sàn được liên kết hoàn toàn qua các nút chủ nằm ngoài mối nối. Tải tự động cũng chặn trước khi xem trước nếu sai số làm tròn tọa độ khiến phân loại độ dốc của cấu kiện nhận tải trọng lực không xác định được. Phân loại đó trước đây có thể thay đổi sau khi xoay mặt bằng hoặc chia nhỏ thanh. Trên mái phẳng và mái dốc, việc tạo tải tuyết bị chặn khi tuyết tích tụ tại bậc mái tại chỗ cần truyền sang thanh hoặc không xác lập được khả năng áp dụng. Việc truyền tải trước đây có thể làm mất lực và mô men lệch tâm. Hãy tạo lại các tải trọng lực và tải tuyết bị ảnh hưởng và giải quyết các điều kiện chặn trước khi dùng kết quả. (#2406)',
+          'Kiểm tra CIRSOC 201 dùng lực dọc đồng thời cho bước cốt đai, kiểm tra neo tại các điểm không mô men chính xác và kiểm tra các khoảng cốt đai cục bộ. Giới hạn cốt đai chịu động đất xét tất cả các lớp thanh ở đầu. Khả năng chịu xoắn và hệ số sử dụng phản ánh giới hạn đã đánh giá thấp hơn. Việc kiểm tra có thể bị chặn khi đầu thanh đã vẽ không tới mặt cắt đang kiểm tra hoặc khi chưa xác minh được chiều dài neo của thanh chu vi. Kiểm tra cắt thứ cấp chỉ dùng bê tông yêu cầu các thanh dọc nằm trong cả hai góc uốn trên của cốt đai. Kiểm tra lại ở chiều cao cuối dùng bản vẽ dầm thay thế khi được cung cấp. Bảng thống kê cột giữ nguyên các đường kính thanh hỗn hợp và không đưa ra chi tiết cốt thép vật lý khi không tái tạo được khung cốt thép đã chỉ định. Hãy chạy lại kiểm tra theo các bản vẽ cốt thép hiện hành và rà soát các tổ hợp chi phối cùng kết luận. (#2398)',
+          'Tiếng Trung giản thể là ngôn ngữ thứ tám của Stabileo và có trong ứng dụng, trang web và các thông báo kết quả.',
+          'Nhập sổ làm việc từ chối các tên trang tính trùng nhau, tiêu đề trùng lặp, thiếu tiêu đề bắt buộc, đơn vị không hợp lệ, lỗi bảng tính, cờ liên kết ngăn mâu thuẫn và các trường tải không được hỗ trợ có giá trị. Với tải trọng phẳng, nó từ chối các thành phần mô men khác không quanh một trong hai trục sổ làm việc đã khai báo nằm trong mặt phẳng mô hình. Một lần nhập bị từ chối giữ nguyên mô hình hiện tại. Các liên kết ngăn tường minh đầy đủ được giữ trong các trục sổ làm việc đã khai báo, kể cả trong các bản xuất trước khi giải. Lò xo xoay phẳng được xuất dưới dạng kr [kN·m/rad], và tiêu đề kiểu cũ vẫn đọc được. Hãy nhập lại các sổ làm việc bị ảnh hưởng và kiểm tra tọa độ, tải trọng, trọng lực và liên kết ngăn trước khi giải lại. (#2395)',
+          'Việc xóa lưới tấm nhanh hơn, kể cả khi dựng lại lưới sàn. (#2394)',
+          'Stabileo 0.6.2 đã phát hành cùng các bản sửa cho tải trọng thanh, gối tựa 3D, cốt đai thứ cấp và tải trọng được tạo tự động. Ghi chú phát hành nêu rõ cần tính lại gì và tạo lại tải trọng nào.',
+          'Các hình ở trang chủ tiếp tục chuyển động khi con trỏ đứng trên chúng. Bảng dự án giải thích thao tác nào cần tài khoản, và trang đăng ký dùng các hình của trang chủ.',
+          'Mục Nghiên cứu bổ sung một thí nghiệm về độ dày tối thiểu và sự sụp đổ của vòm xây, dựa trên công trình của Heyman.',
+        ],
+      },
       zh: {
         title: '混凝土验算、截面应力与移动荷载',
         items: [
@@ -526,6 +566,26 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A 3D analízis elutasítja az ismeretlen támasztípusokat. A többértelmű görgős és az egyedi támaszoknál meg kell adni a gátolt mozgásokat. A vasbeton gerenda példája a tervezett egyszerű támaszokat használja. Ellenőrizze az érintett támaszok gátolt mozgásait, majd ismételje meg az analíziseket, kombinációkat és méretezési ellenőrzéseket (SA-2026-089).',
           'A 0.6.0 és 0.6.1 verziójegyzetei és cikkei ismertetik, mely projekteket kell újraszámítani és mely terheket újragenerálni. Az itt felsorolt későbbi javítások a 0.6.2-es verzióban jelentek meg. A nyitott auditmegállapítások továbbra is követhetők.',
           'A Research új kísérlete Heyman falazatokról szóló munkája alapján vizsgálja a boltívek legkisebb vastagságát és teher alatti összeomlását.',
+        ],
+      },
+      vi: {
+        title: 'Tải trọng thanh, tải trọng lực và gối tựa 3D đã được sửa',
+        items: [
+          'Các giá trị hiển thị khi rê chuột trên thanh và hình dạng biến dạng bao gồm ngẫu lực tập trung và tải trọng phân bố một phần thông qua cơ chế khôi phục dùng chung trong 2D và 3D. Việc khôi phục khi có tải mà không đủ độ cứng chống uốn sẽ từ chối một cách tường minh. Hãy chạy lại các phân tích bị ảnh hưởng và rà soát độ võng bên trong cùng các kiểm tra sử dụng bình thường (SA-2026-070).',
+          'Tải trọng tương thích với góc xoay được giải phóng giữ nguyên kết quả sau khi xoay hoặc đổi đơn vị. Các mô men nút triệt tiêu nhau được giữ lại; các mô men dư thực sự không được hỗ trợ vẫn bị từ chối. Hãy chạy lại các phân tích bị ảnh hưởng.',
+          'Tải trọng phân bố trên các nhịp quá ngắn bị từ chối kèm thông báo nêu rõ thanh và đoạn liên quan. Kiểm tra cân bằng lực tính tải trọng đặt vào một cách độc lập. Hãy rà soát các đoạn bị từ chối và chạy lại các phân tích bị ảnh hưởng.',
+          'Biểu đồ thanh 3D theo ABS và SRSS bao gồm các đỉnh giữa các điểm vẽ và các giá trị ở hai phía của bước nhảy. Hãy tính lại các biểu đồ bị ảnh hưởng và rà soát các kiểm tra đã dùng đỉnh của chúng.',
+          'Các kiểm tra tương tác bê tông và thép giữ các lực từ cùng một tổ hợp và cùng một mặt cắt. Hệ số gradien mô men của thép, hệ số khuếch đại mô men của bê tông và cốt đai chịu xoắn đã bố trí đã được sửa. Hãy chạy lại thiết kế các thanh bị ảnh hưởng và rà soát các tổ hợp chi phối cùng cốt thép (SA-2026-064, SA-2026-066, SA-2026-068).',
+          'Giới hạn tiết diện cắt-xoắn theo CIRSOC 201 bao gồm cả hai phương cắt đồng thời trong dầm, cột và vách. Các tiết diện trước đây được chấp nhận có thể không đạt; cốt đai bổ sung không thể khắc phục giới hạn tiết diện đã bị vượt. Hãy chạy lại các thiết kế bê tông bị ảnh hưởng (SA-2026-069).',
+          'Thiết kế và chứng nhận thanh từ chối khi thiếu tổ hợp, thanh hoặc mặt cắt đã khai báo, thay vì chỉ kiểm tra các nội lực có sẵn. Các lưới mặt cắt không đều vẫn giữ mọi tổ hợp trong biểu đồ bao của dải dầm. Hãy chạy lại các thiết kế bê tông và thép đã lưu, rà soát các từ chối và chứng nhận (SA-2026-071).',
+          'Tuyết tích tụ tại bậc mái trên các mái dốc nhận tuyết và bề rộng mái theo các mặt phẳng mái vật lý, không phụ thuộc vào việc xoay mặt bằng. Các vùng mái liên thông giữ nguyên các dạng tuyết tích tụ, trượt và không cân bằng. Hãy tạo lại các tải tuyết bị ảnh hưởng trước khi chạy lại phân tích, tổ hợp và kiểm tra thiết kế (SA-2026-065, SA-2026-067).',
+          'Thêm nút không còn làm dịch chuyển các đường nóc tuyết hoặc biến các ô mái vòm đã chia nhỏ thành sàn. Tải trên các thanh cắt qua đường nóc giữ nguyên lực và mô men, kể cả các tập con cấu kiện nhận tải được chọn. Hãy tạo lại mọi tải diện tích đã được tạo tự động bị ảnh hưởng, gồm cả tải mái và tải sàn, rồi chạy lại phân tích, tổ hợp và kiểm tra thiết kế; chỉ giải các tải đã lưu là chưa đủ (SA-2026-072, SA-2026-073, SA-2026-074).',
+          'Trong các ô có vỏ, dầm nhận tải trên những dải không được phủ mà chúng có thể đỡ. Việc tạo tải dừng lại khi phạm vi phủ chưa rõ. Ở chế độ bề rộng truyền tải, tải diện tích theo tầng và khối lượng động đất theo các thanh chịu tải. Các vùng sàn bị từ chối khi tải lệch tâm của chúng không thể biểu diễn được. Hãy tạo lại các tải trọng lực và động đất bị ảnh hưởng trước khi chạy lại phân tích và kiểm tra.',
+          'Bản dịch tiếng Hungary bao gồm hướng dẫn phát hành và thông báo về dự án đã lưu. Các điều khiển nghiên cứu Fehér mở rộng, Công cụ được hợp nhất, các điểm vào Mohr mới và trò chơi biểu đồ vẫn là tùy chọn và tắt theo mặc định. Tài khoản và đo lường quảng cáo vẫn tắt theo mặc định.',
+          'Các công cụ ứng suất giữ lại ứng suất chính và ứng suất cắt khác không nhỏ, và các liên kết Mohr được chia sẻ giữ nguyên trạng thái ứng suất đã nhập. Các máy tính giữ kết quả gắn với dữ liệu nhập hiện tại. Mở không gian làm việc cốt thép ít phải lặp lại việc tính hình học hơn, với hình học và kết quả phân tích không đổi.',
+          'Phân tích 3D từ chối các loại gối tựa không xác định. Gối di động chưa rõ và gối tùy chỉnh yêu cầu liên kết ngăn tường minh. Ví dụ dầm bê tông dùng các gối đơn giản theo ý định. Hãy xác nhận gối bị ảnh hưởng ngăn những chuyển động nào, rồi chạy lại phân tích, tổ hợp và kiểm tra thiết kế (SA-2026-089).',
+          'Ghi chú phát hành và bài blog cho 0.6.0 và 0.6.1 giải thích dự án nào cần tính lại và tải trọng nào cần tạo lại. Các bản sửa sau đó được liệt kê ở đây đã phát hành trong 0.6.2. Các phát hiện kiểm toán còn mở vẫn được theo dõi.',
+          'Một thí nghiệm Nghiên cứu mới dựa trên công trình của Heyman về khối xây khám phá độ dày nhỏ nhất của vòm và cách chúng sụp đổ dưới tải.',
         ],
       },
       zh: {
@@ -756,6 +816,34 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A német, a francia és a török nyelv ismét elérhető. A Research egy tengerfenékkel érintkező offshore riserrel és egy hajlított szalag alakszabályozásával bővül, az oldalaikon bemutatott összehasonlításokkal és korlátokkal. A munkaterület mentése megőrzi a méretezett épületeket, és jelzi, ha a böngésző nem tud menteni."
         ]
       },
+      vi: {
+        title: 'Kiểm tra ổn định trước khi giải, tải trọng di động và P-Delta đã sửa, giới hạn rõ ràng hơn',
+        items: [
+          'Các phân tích tuyến tính 2D và 3D kiểm tra tính ổn định của độ cứng trước khi giải. Cơ cấu, độ cứng âm và độ cứng quá bất định để xác định đều bị từ chối kèm lý do, thay vì được giải bằng lò xo nhân tạo hoặc dịch chuyển nhân tạo. Hãy chạy lại các phân tích tuyến tính bị ảnh hưởng và các kiểm tra thiết kế của chúng.',
+          'Lò xo đặt trên một bậc tự do bị ngăn cứng bị từ chối trong cả 2D và 3D. Tải trọng di động 3D thu được các đỉnh dưới một trục tải nằm trong nhịp, gồm cả lực dọc của nó trên các thanh nghiêng và các lực đầu thanh. Hãy chạy lại các biểu đồ bao tải trọng di động bị ảnh hưởng.',
+          'P-Delta tích phân lực dọc biến thiên dọc theo từng thanh trong 2D và 3D, sửa việc đánh giá thấp hệ số khuếch đại dưới tải trọng nhịp. Phân tích điều hòa giải các tần số mà không cắt cụt dạng dao động có chặn một cách đầy đủ, kể cả với các mô hình vượt giới hạn kích thước ma trận đặc. Hãy chạy lại các phân tích này và các kiểm tra phát sinh.',
+          'Phá hoại dẻo 3D đã kiểm tra báo cáo cận dưới đã chứng nhận của nó và từ chối một chứng nhận không đáng tin cậy. Phân tích dẻo kiểm tra khối lượng tính toán và bộ nhớ cần thiết trước khi cấp phát. Điều khiển tải theo thớ kẹp giới hạn tải của nó thay vì báo cáo một giá trị thay đổi theo kích thước bước.',
+          'Phân tích tiếp xúc từ chối trạng thái đóng băng không đạt các điều kiện tiếp xúc cuối cùng. Phần tử cáp bị từ chối ngoài phân tích cáp chuyên dụng, nơi không thể biểu diễn việc cáp chùng. Các giới hạn này áp dụng cho cả phân tích gốc và phân tích trong trình duyệt.',
+          'Tổ hợp vỏ giữ lại ứng suất từ các trường hợp chuyển vị cưỡng bức và bao gồm ứng suất nút của phần tử tứ giác; SSI trả về phản lực gối tựa trong 2D và 3D. Phân tích mất ổn định và nhiều trường hợp tải từ chối các kết quả không hữu hạn. Các dự án đã lưu nhận diện những phân tích từ các phiên bản có kết quả sai đã biết và yêu cầu chạy lại phân tích bị ảnh hưởng.',
+          'Phân tích mất ổn định 2D và 3D giữ các cận sai số làm tròn của lực dọc trong những phần thực sự liên kết với nhau. Một liên kết trong kết cấu độc lập không còn ngăn một cột khác được giải; lực nén không chắc chắn trong một phần liên kết vẫn bị từ chối. Hãy chạy lại các phân tích mất ổn định và P-Delta đã lưu để làm mới hệ số B2 và độ ổn định.',
+          'Các kiểm tra hồi quy bao phủ 28 mô hình đã báo cáo nay bị từ chối kèm lý do; việc rà soát bằng chứng cho phép đóng 25 vấn đề ứng viên. Bảy mô hình vỏ cũ có chuyển động xoay cứng trong mặt phẳng tự do: các thử nghiệm gốc và trong trình duyệt xác nhận việc từ chối chúng và kiểm tra kết quả sau khi thêm liên kết ngăn còn thiếu.',
+          'Phân tích theo giai đoạn 2D và 3D dùng chung cách xử lý góc xoay tự do của phân tích tuyến tính. Giải phóng đầu thanh và đổi đơn vị không còn thêm độ cứng xoay nhân tạo, và các chuyển vị lún giữ đúng chuyển động dự kiến. Hãy chạy lại các phân tích theo giai đoạn bị ảnh hưởng và các kiểm tra thiết kế phát sinh (SA-2026-060). Các từ chối đàn hồi ban đầu trong phân tích dẻo 3D nay vẫn là từ chối thay vì trở thành hệ số phá hoại bằng không một cách âm thầm (SA-2026-062).',
+          'Kiểm tra cân bằng dẻo không còn bị lỗi với các mô hình nhập vào có nhãn bản ghi khác với mã thanh và nút. Chứng nhận dẻo đếm đúng dung lượng lưu trữ thực sự cần và giữ các cận hợp lệ cuối cùng khi một bước tinh chỉnh tùy chọn vượt quá giới hạn. Các khung trước đây bị từ chối nay có thể được chứng nhận trong cùng các giới hạn.',
+          'Chứng nhận dẻo chạy nhanh hơn với kết quả và giới hạn tài nguyên không đổi. Ví dụ dầm ngoại vi cũng giải nhanh hơn trong khi vẫn giữ khoảng thanh trượt đã kiểm tra.',
+          'Các phân tích phi tuyến 2D và 3D kiểm tra cân bằng vật lý nhất quán sau khi xoay, đối xứng và đổi đơn vị. P-Delta, chuyển vị lún cưỡng bức và lò xo đất giữ các đáp ứng nhỏ đã xác định được mà không nới lỏng các giới hạn hội tụ. Hãy chạy lại các phân tích phi tuyến, P-Delta và tương tác đất-kết cấu bị ảnh hưởng.',
+          'Hệ số mất ổn định được khôi phục từ các ma trận độ cứng gốc trong 2D và 3D, sửa các đánh giá cao nhẹ và việc từ chối sai các mô hình có liên kết hoặc thanh cong. Các dạng giảng dạy hợp lệ được giữ lại giữa các đơn vị khác nhau. Hãy chạy lại các phân tích mất ổn định bị ảnh hưởng; giới hạn chứng nhận không đổi.',
+          'Tải trọng thanh giàn nay đi vào kiểm tra cân bằng trong 2D và 3D, nên các mô hình có tải trên thanh hợp lệ không còn bị từ chối khi các tải nút tương đương giải được. Hãy chạy lại các phân tích giàn bị ảnh hưởng.',
+          'Phân tích dao động riêng giữ hạng khối lượng vật lý qua các liên kết và gối nghiêng. Các mô hình có phương không khối lượng có thể trả về các dạng dao động hữu hạn hợp lệ mà không bị một dạng giả dư gây từ chối. Hãy chạy lại các phân tích dao động riêng bị ảnh hưởng và các đáp ứng động phụ thuộc.',
+          'Các chuyển vị lún và góc xoay cưỡng bức tại các nút chủ bị ngăn nay truyền tới các nút phụ thuộc trong phân tích theo giai đoạn, Winkler, tiếp xúc, phi tuyến vật liệu, đồng xoay 2D và chiều dài cung. Phân tích phần tử cáp và phân tích lịch sử thời gian tuyến tính từ chối chuyển động gối cưỡng bức khác không mà chúng không thể biểu diễn. Hãy chạy lại các phân tích bị ảnh hưởng và các kiểm tra phát sinh (SA-2026-063).',
+          'Chiều dài cung và điều khiển chuyển vị khôi phục phản lực gối tựa và nội lực thanh tại hệ số tải cuối cùng. Việc khôi phục phi tuyến và theo giai đoạn bao gồm các lực truyền qua liên kết, loại trừ độ cứng nhân tạo và dùng trạng thái vật lý cuối cùng và hệ trục thanh. Hãy chạy lại các phân tích bị ảnh hưởng và các kiểm tra phát sinh (SA-2026-061).',
+          'P-Delta phân biệt phần dư vật lý bị lỗi với hạn chế cân bằng mô men trên hình học đã chuyển vị. Cân bằng vật lý bị lỗi sẽ giữ lại lực và ứng suất; hạn chế còn lại giữ các kết quả chuyển vị nhỏ hợp lệ kèm cảnh báo. Phân tích lịch sử thời gian giữ lại phản lực gối tổng và đỉnh không có sẵn trong khi vẫn giữ lịch sử chuyển vị và các đỉnh. Hãy kiểm tra lại các lực đã lưu (SA-2026-061).',
+          'Các lịch sử theo giai đoạn loại bỏ một thanh đang chịu nội lực bị từ chối trong 2D và 3D. Thay đổi độ cứng hoặc lò xo gối sau khi chất tải hoặc chuyển động có thể khiến lực và ứng suất không có sẵn kèm chẩn đoán. Việc loại bỏ chính xác khi chưa chịu tải và các giai đoạn chỉ có liên kết được xác định đầy đủ giữ nguyên kết quả; việc phân phối lại lực của thanh đang chịu tải vẫn chưa được hỗ trợ (SA-2026-061).',
+          'Tương tác đất-kết cấu sửa cân bằng đàn hồi mà không khởi động lại một phép giải không đổi. Các mô hình đã xoay và đổi tỷ lệ đơn vị không có đất hoặc có đất trong miền tuyến tính ban đầu có thể hội tụ trong dung sai và giới hạn lặp hiện có. Hãy chạy lại các phân tích SSI bị ảnh hưởng.',
+          'Các khung và giàn có liên kết đã xoay hoặc đối xứng không còn bị từ chối sai bởi cận làm tròn. Các phép giải ban đầu tuyến tính, theo giai đoạn, từ biến và P-Delta giữ độ cứng vật lý có thể xác định trong 2D và 3D; giới hạn cơ cấu và độ chính xác không đổi. Hãy chạy lại các phân tích bị ảnh hưởng.',
+          'Thiết kế thép CIRSOC 301 đọc gradien mô men và đặc trưng tiết diện từ bộ giải. Hệ số gradien mô men bao gồm đổi dấu ở hai đầu của đoạn không giằng; diện tích thực chịu kéo kiểm tra mọi chuỗi bu lông so le và từ chối mối nối dùng mọi phần tử thiếu bu lông ở bụng hoặc cánh thứ hai. Hãy kiểm tra lại các thanh thép bị ảnh hưởng.',
+          'Tiếng Đức, tiếng Pháp và tiếng Thổ Nhĩ Kỳ lại được cung cấp. Mục Nghiên cứu bổ sung một ống đứng ngoài khơi có tiếp xúc đáy biển và điều khiển hình dạng của một dải bị uốn, với các phép so sánh và giới hạn được nêu trên trang của chúng. Việc lưu không gian làm việc giữ các công trình đã thiết kế và báo cáo khi trình duyệt không thể lưu.',
+        ],
+      },
       zh: {
         "title": "求解前先检查稳定性，移动荷载与 P-Δ 已更正，限制更清晰",
         "items": [
@@ -874,6 +962,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Visszatért az Alap mód tananyaga statikával, hatásábrákkal, másodrendű analízissel, kihajlással, képlékenységgel és dinamikával. Elérhetők paraméteres példák és egy saját Anthropic- vagy OpenAI-kulccsal működő asszisztens. A Research és a Tools oldalak gyorsabban nyílnak meg telefonon."
         ]
       },
+      vi: {
+        title: 'Sửa tải trọng, thiết kế và phân tích; thêm cách tính toán và học tập',
+        items: [
+          'Các tải được tạo tự động giữ tải sàn khi che phủ một phần và trên các sàn đã xoay, đồng thời bao gồm vỏ trong trọng lượng chịu động đất. Kiểm tra cân bằng nêu tên các tải mà nó không thể cộng. Hãy tạo lại các tải bị ảnh hưởng.',
+          'Kiểm tra thép và bê tông sửa diện tích chịu cắt, uốn quá cốt thép, cột chữ nhật và nén ống. Mối nối và thanh có xoắn chưa kiểm tra nêu rõ phần chưa đánh giá. Mỗi thành phần của biểu đồ bao vỏ giữ cực trị riêng. Hãy chạy lại các thiết kế bị ảnh hưởng.',
+          'Phân tích mất ổn định 2D tích phân lực dọc dọc theo thanh; các cơ cấu phía sau liên kết cứng bị từ chối, và phân tích đồng xoay 3D hợp thành các góc xoay lớn. Phân tích động giữ tải ban đầu trên các nút không khối lượng và từ chối cơ cấu. Kết quả không hữu hạn bị từ chối kèm lý do.',
+          'Đã thêm phân tích giới hạn dẻo 2D, nhưng phá hoại dẻo vẫn bị giữ lại cho đến khi hoàn tất việc kiểm chứng cho #758. Phân tích mất ổn định 3D phân biệt nén với sai số làm tròn; phân tích điều hòa chọn phương pháp theo từng mô hình và tần số mà không thay đổi theo tải. Phân tích tuyến tính cảnh báo về các góc xoay lớn và các hiệu ứng bậc hai có thể xảy ra.',
+          "Vỏ MITC4 và MITC9 vẫn quá mềm trên hình học vênh: trong bài chuẩn có độ xoắn 90°, chuyển vị cao hơn tham chiếu khoảng 30% với MITC4 và tới 2,4 lần tham chiếu với MITC9. Sai số tăng theo độ xoắn và không có trên các phần tử phẳng. Công thức vẫn chưa được sửa (#1057). PR #1074 đã thêm các cảnh báo và từ chối tại các giới hạn đo được; biện pháp hạn chế đó không sửa công thức.",
+          'Báo cáo PRO in bộ kết quả đã chọn và kiểm tra các bảng đã xuất. Có các góc nhìn đã lưu, góc nhìn kết hợp mặt bằng và 3D, tham chiếu IFC, liên kết chỉ đọc và thêm nhiều kết quả tấm. Nhập Excel và IFC giữ đúng trục quán tính của tiết diện chữ nhật.',
+          'Khóa học Basic trở lại với tĩnh học, đường ảnh hưởng, bậc hai, mất ổn định, dẻo và động lực học. Có các ví dụ tham số và một trợ lý dùng khóa Anthropic hoặc OpenAI của riêng bạn. Các trang Nghiên cứu và Công cụ mở nhanh hơn trên điện thoại.',
+        ],
+      },
       zh: {
         "title": "荷载、设计与分析的更正；更多的计算与学习方式",
         "items": [
@@ -990,6 +1090,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A JAIE 2026 cikk teljes terjedelmében a /paper oldalon, valamint ez a változásnapló."
         ]
       },
+      vi: {
+        title: 'Stabileo Research, Công cụ và ứng dụng bằng tiếng Đức, tiếng Pháp và tiếng Thổ Nhĩ Kỳ',
+        items: [
+          'Ứng suất vỏ khối của các vỏ nằm ngoài mặt phẳng X–Y nay đã đúng; ứng dụng yêu cầu bạn chạy lại các dự án bị ảnh hưởng.',
+          'Bộ giải được kiểm thử bằng các kiểm tra bất biến sau mỗi thay đổi và bằng các mô hình ngẫu nhiên mỗi đêm; ba lỗi bộ giải bị nghi ngờ hóa ra là mô hình thử sai, và mọi bài chuẩn nay cần hai tham chiếu độc lập, kiểm tra mô hình và nghiên cứu hội tụ.',
+          'Tấm như đối tượng vật lý được chia lưới khi bạn giải, thanh cong là một khối duy nhất, bản vẽ nền DXF nhiều cao độ, và vùng công năng theo từng tầng cùng hoạt tải của chúng.',
+          'Các bản xuất được chọn theo kết quả đầu ra (kết quả, thuyết minh tính toán, bản vẽ và IFC), và thuyết minh tính toán còn có dạng Word, kèm hình vẽ.',
+          'Sao chép và dán trong Basic như trong PRO, có xem trước vị trí đặt; Ctrl+S không còn làm dịch chuyển góc nhìn 3D, hoàn tác không còn làm mô hình 2D nằm phẳng trong 3D, và chuyển vị trên hình dạng biến dạng hiển thị khi được yêu cầu.',
+          'Ứng dụng và trang web nay cũng có bằng tiếng Đức, tiếng Pháp và tiếng Thổ Nhĩ Kỳ.',
+          'Stabileo Research: 17 bài báo đã công bố và các bài chuẩn cơ học tính toán kinh điển chạy trong trình duyệt trên bộ giải của Stabileo, mỗi bài nêu rõ so sánh với gì và kiểm tra thế nào.',
+          'Công cụ: tám máy tính miễn phí (dầm, công xôn, cột Euler và hơn thế nữa) giải trên bộ giải thực, hiển thị công thức kinh điển bên cạnh kết quả và mở mô hình trong Stabileo.',
+          'Toàn văn bài báo JAIE 2026 tại /paper, và nhật ký thay đổi này.',
+        ],
+      },
       zh: {
         "title": "Stabileo Research、Tools，以及德语、法语和土耳其语版本的应用",
         "items": [
@@ -1080,6 +1194,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Két új blogbejegyzés, megújult tartalomjegyzék, és egy oldal, amely felsorolja, mit ellenőriz a Stabileo az egyes CIRSOC szabványokból."
         ]
       },
+      vi: {
+        title: 'Kiểm tra thiết kế trong bộ giải, và các phiên bản 0.2.0 và 0.3.0',
+        items: [
+          'Kiểm tra thiết kế theo tiêu chuẩn cho bê tông cốt thép (CIRSOC 201) và thép (CIRSOC 301) nay chạy bên trong bộ giải, với các bộ kiểm chứng đối chiếu các mô hình tham chiếu đã công bố.',
+          'Với những kết quả cho phép, bộ giải tính cận sai số bằng số học khoảng.',
+          'Các phiên bản 0.2.0 và 0.3.0 đã phát hành, với ghi chú bằng tiếng Tây Ban Nha, tiếng Anh và tiếng Bồ Đào Nha. Khi một thay đổi ảnh hưởng đến kết quả, ứng dụng yêu cầu bạn chạy lại các dự án đã lưu.',
+          'Trang chủ thêm một phần về kiểm chứng và nay chỉ tải 152 KB thay vì 6,4 MB.',
+          'Hai bài blog mới, trang mục lục được thiết kế lại và một trang liệt kê những gì Stabileo kiểm tra từ mỗi tiêu chuẩn CIRSOC.',
+        ],
+      },
       zh: {
         "title": "引擎中的设计验算，以及 0.2.0 和 0.3.0 版本",
         "items": [
@@ -1107,6 +1231,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'La boîte de dialogue de la note de calcul du mode Basique, avec la liste des contenus où l\'on choisit ce qu\'elle inclut',
         tr: 'Temel modundaki hesap raporu iletişim kutusu; neyin dahil edileceğini seçmek için içerik listesiyle',
         hu: 'Az Alap mód számítási jelentésének párbeszédablaka a tartalomlistával, amelyből kiválasztható, mi kerüljön bele',
+        vi: 'Hộp thoại báo cáo tính toán của chế độ Basic, với danh sách mục lục để chọn nội dung đưa vào',
         zh: '基础模式的计算书对话框，列出可选择包含哪些内容的目录',
       },
     },
@@ -1188,6 +1313,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mértékegységek a teljes PRO-ban, valamint exportálás Excelbe, CSV-be, PDF-jelentésbe, DXF-be és képekbe, mindegyik egy párbeszédablakkal, amely megmutatja, mi készül."
         ]
       },
+      vi: {
+        title: 'Báo cáo bạn tự soạn trong Basic, và tải trọng động trong PRO',
+        items: [
+          'Thu phóng từ kilômét xuống milimét, chọn các thanh chồng nhau, ẩn các phần của mô hình và nhãn dễ đọc hơn.',
+          'Bạn dựng báo cáo tính toán PDF bằng cách chọn nội dung đưa vào, gồm cả phân tích động học và các sơ đồ vật thể tự do cân bằng, và hình vẽ xuất ra sẵn sàng để in.',
+          'Một video cho thấy kết cấu được dựng lên từng tầng một.',
+          'Các trường hợp tải tổ hợp và tham chiếu, tải trọng giả định, và các tổ hợp SRSS và ABS.',
+          'Tải trọng động và tải trọng di động: phổ phản ứng riêng của dự án và các phương tiện trong danh mục.',
+          'Đơn vị trong toàn PRO, và xuất ra Excel, CSV, báo cáo PDF, DXF và hình ảnh, mỗi loại có một hộp thoại cho thấy những gì sẽ xuất ra.',
+        ],
+      },
       zh: {
         "title": "在基础模式中自行组合的报告，以及 PRO 中的动力荷载",
         "items": [
@@ -1268,6 +1404,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egy teljes épület vasbeton méretezése kevesebb mint feleannyi ideig tart, mint korábban."
         ]
       },
+      vi: {
+        title: 'Tải trọng theo tiêu chuẩn trong PRO',
+        items: [
+          'Bộ tạo tải theo tiêu chuẩn bao gồm mái, tuyết tích tụ và xếp tải so le, và tính hệ số giật gió theo CIRSOC 102.',
+          'Tải trọng lên thanh, nút và tấm có thể nhập kèm hướng, cách biến thiên và diện tích mà chúng bao phủ.',
+          'Đơn vị hiển thị, thanh tiết diện thay đổi và các cải tiến cho trình soạn thảo tiết diện.',
+          'Thiết kế bê tông cốt thép cho cả một tòa nhà nay mất chưa đến một nửa thời gian trước đây.',
+        ],
+      },
       zh: {
         "title": "PRO 中基于规范的荷载",
         "items": [
@@ -1294,6 +1439,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un bâtiment de plusieurs étages modélisé dans le mode PRO, avec grilles et niveaux',
         tr: 'PRO modunda aks ızgaraları ve katlarla modellenmiş çok katlı bir bina',
         hu: 'Többszintes épület a PRO módban modellezve, raszterrel és szintekkel',
+        vi: 'Một tòa nhà nhiều tầng được mô hình hóa ở chế độ PRO, với lưới trục và cao độ',
         zh: '在 PRO 模式中建模的多层建筑，带轴网和标高',
       },
     },
@@ -1396,6 +1542,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Megoldó, amely sokkal gyorsabbá teszi a nagy modelleket, és javítás a lemezelemekben."
         ]
       },
+      vi: {
+        title: 'Từ bài tập đến dự án thực tế trong PRO',
+        items: [
+          'Các thanh được vẽ từ điểm này đến điểm kia, bắt vào nút, trung điểm và giao điểm, và ứng dụng hỏi có nối những gì cắt nhau hay không.',
+          'Lời giải từng bước có giải thích bao gồm mười lăm phương pháp phân tích.',
+          'Phân tích động vẽ các dạng dao động.',
+          'Lưới trục và cao độ, bộ tạo kết cấu chèn vào mô hình, và sao chép, dán.',
+          'Tải sàn theo diện tích truyền tải, chia lưới tấm, gối đàn hồi và móng.',
+          'Bảng kết quả, giới hạn độ võng, đường đồng mức tấm, sổ làm việc Excel của dự án và một báo cáo.',
+          'Một trình soạn thảo để vẽ tiết diện ghép, và tìm tiết diện nhẹ nhất đạt yêu cầu.',
+          'Bảy kết cấu tham chiếu đã công bố, được mô hình hóa để đối chiếu kết quả, và bộ sưu tập 24 ví dụ.',
+          'Một bộ giải giúp các mô hình lớn nhanh hơn nhiều, và một bản sửa cho các phần tử tấm.',
+        ],
+      },
       zh: {
         "title": "在 PRO 中从练习走向真实项目",
         "items": [
@@ -1427,6 +1587,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les armatures dimensionnées d\'une structure en béton armé, vues en 3D dans le mode PRO',
         tr: 'Betonarme bir yapının boyutlandırılmış donatıları, PRO modunda 3B olarak',
         hu: 'Vasbeton szerkezet méretezett vasalása 3D-ben, a PRO módban',
+        vi: 'Cốt thép đã thiết kế của một kết cấu bê tông cốt thép, hiển thị trong 3D ở chế độ PRO',
         zh: '在 PRO 模式中以 3D 显示的钢筋混凝土结构设计配筋',
       },
     },
@@ -1529,6 +1690,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A hibásan felépített modellt az alkalmazás most üzenettel elutasítja ahelyett, hogy nullákat adna vissza."
         ]
       },
+      vi: {
+        title: 'Thiết kế bê tông cốt thép trong PRO',
+        items: [
+          'Trang chủ ngắn gọn hơn, với đề xuất bảng giá và bảng liên hệ cũng hiển thị bên trong ứng dụng.',
+          'Một bài blog mới về khi nào mô hình hóa bằng thanh và khi nào bằng phần tử hữu hạn, và một hướng dẫn sử dụng.',
+          'Máy tính bê tông cốt thép CIRSOC Flex nay đề xuất các thanh cốt thép, và đã được kiểm tra đối chiếu với bảng tính gốc.',
+          'Lời giải từng bước theo phương pháp độ cứng và phương pháp độ mềm, trong 2D và 3D.',
+          'Tải trọng nhiệt độ trong mọi phân tích.',
+          'Chế độ Giáo dục trở thành một bảng bên trong Basic.',
+          'Thiết kế bê tông cốt thép, và giao diện PRO được sắp xếp lại.',
+          'Kiểm tra cân bằng của mô hình, và các phân tích động: dao động riêng, phổ phản ứng và lịch sử thời gian.',
+          'Một mô hình dựng sai nay bị từ chối kèm thông báo thay vì trả về toàn số không.',
+        ],
+      },
       zh: {
         "title": "PRO 中的钢筋混凝土设计",
         "items": [
@@ -1560,6 +1735,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Le mode Basique sur un téléphone, avec le diagramme des moments d\'un portique',
         tr: 'Telefonda Temel modu; bir çerçevenin eğilme momenti diyagramıyla',
         hu: 'Az Alap mód telefonon, egy keret hajlítónyomatéki ábrájával',
+        vi: 'Chế độ Basic trên điện thoại, với biểu đồ mô men uốn của một khung',
         zh: '手机上的基础模式，显示框架的弯矩图',
       },
     },
@@ -1627,6 +1803,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Acélszerkezetek: keresztmetszet- és anyagválasztók, generátorok, acél munkafolyamat és kapcsolatok méretezése."
         ]
       },
+      vi: {
+        title: 'Stabileo trên điện thoại của bạn',
+        items: [
+          'Giao diện điện thoại, với bố cục giống nhau cho Basic và PRO.',
+          'Nhập mô hình từ Excel, và các liên kết chia sẻ lại mở được toàn bộ mô hình.',
+          'Thiết kế cốt thép tiết diện theo CIRSOC Flex, bảng tính mà hầu hết kỹ sư xây dựng ở Argentina dùng.',
+          'Kết cấu thép: bộ chọn tiết diện và vật liệu, bộ tạo, quy trình thép và thiết kế mối nối.',
+        ],
+      },
       zh: {
         "title": "手机上的 Stabileo",
         "items": [
@@ -1653,6 +1838,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Une halle industrielle métallique générée à partir de paramètres modifiables',
         tr: 'Düzenlenebilir parametrelerle oluşturulmuş çelik bir endüstriyel yapı',
         hu: 'Szerkeszthető paraméterekből felépített acél ipari csarnok',
+        vi: 'Một nhà xưởng công nghiệp bằng thép dựng từ các tham số có thể chỉnh sửa',
         zh: '由可编辑参数构建的钢结构工业厂房',
       },
     },
@@ -1720,6 +1906,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Három számítási hiba javítva: a kör keresztmetszetű cső nyírása, a csúcs-nyíróerő, és egy építési fázisokra bontott analízis, amely kihagyta a födémeket és a falakat."
         ]
       },
+      vi: {
+        title: 'Kết cấu thép, và trang web bằng ba ngôn ngữ',
+        items: [
+          'Bộ tạo giàn, cột giàn và nhà xưởng công nghiệp từ các tham số có thể chỉnh sửa, với bộ chọn tiết diện có danh mục và bộ lọc.',
+          'Trang chủ và blog bằng tiếng Tây Ban Nha, tiếng Anh và tiếng Bồ Đào Nha. Trang web có thể được công cụ tìm kiếm lập chỉ mục, với mười tám trang và bốn bài viết.',
+          'Bảy hướng dẫn ngắn, thay cho chuyến tham quan có hướng dẫn.',
+          'Đã sửa ba lỗi tính toán: lực cắt của ống tròn, lực cắt đỉnh, và một phân tích theo giai đoạn bỏ sót sàn và vách.',
+        ],
+      },
       zh: {
         "title": "钢结构，以及三种语言的网站",
         "items": [
@@ -1746,6 +1941,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'L\'analyse de section du mode Basique, avec l\'état de contrainte sur le contour réel du profilé',
         tr: 'Temel modunda kesit analizi; profilin gerçek konturu üzerindeki gerilme durumuyla',
         hu: 'Keresztmetszet-vizsgálat az Alap módban, a feszültségi állapottal a keresztmetszet valós kontúrján',
+        vi: 'Phân tích tiết diện ở chế độ Basic, với trạng thái ứng suất trên đường biên thực của tiết diện',
         zh: '基础模式的截面分析，应力状态绘制在截面的真实轮廓上',
       },
     },
@@ -1813,6 +2009,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A PRO-t újratervezték, az Alap móddal azonos arculattal."
         ]
       },
+      vi: {
+        title: 'Phân tích tiết diện, và giao diện PRO mới',
+        items: [
+          'Bấm vào bất kỳ điểm nào của kết cấu sẽ cho trạng thái ứng suất trên tiết diện thực, với ứng suất chính, vòng tròn Mohr, lõi tiết diện và một điểm đặt tải mà bạn kéo để xem ảnh hưởng của độ lệch tâm.',
+          'Cơ sở dữ liệu vật liệu và tiết diện cho Argentina, châu Âu, Hoa Kỳ và Brazil, với hơn 700 tiết diện được kiểm tra đối chiếu với tiêu chuẩn của chúng.',
+          'Công cụ chọn và di chuyển dễ dùng hơn, và bản đồ ứng suất có thang màu.',
+          'PRO được thiết kế lại với cùng bản sắc hình ảnh như Basic.',
+        ],
+      },
       zh: {
         "title": "截面分析，以及全新的 PRO 界面",
         "items": [
@@ -1839,6 +2044,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un exercice du mode Enseignement, avec les diagrammes tracés par l\'étudiant corrigés par rapport au calcul',
         tr: 'Eğitim modunda bir alıştırma; öğrencinin çizdiği diyagramlar hesaba göre değerlendiriliyor',
         hu: 'Feladat az Oktatási módban, a hallgató által rajzolt ábrákkal, amelyeket az alkalmazás az analízis alapján értékel',
+        vi: 'Một bài tập ở chế độ Giáo dục, với các biểu đồ do học sinh vẽ được chấm theo kết quả phân tích',
         zh: '教学模式中的练习，学生绘制的图形会对照分析结果评分',
       },
     },
@@ -1913,6 +2119,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a méretezési ellenőrzésekben: a biztonság kárára tévedő alapértékek, hiányzó határállapotok és figyelmen kívül hagyott bemenetek."
         ]
       },
+      vi: {
+        title: 'Bản sắc hình ảnh mới, và chế độ Giáo dục',
+        items: [
+          'Toàn bộ giao diện Basic mang bản sắc hình ảnh của trang chủ mới.',
+          'Mỗi tiết diện được xác định theo đường biên chính xác của nó. Khi không có, ứng dụng từ chối tính ứng suất thay vì tự đặt ra các độ dày còn thiếu.',
+          'Giáo viên dựng bài tập ngay trong ứng dụng và học sinh giải; các biểu đồ do học sinh vẽ được chấm theo kết quả phân tích.',
+          'Móng bê tông cốt thép: từ thiết kế cốt thép đến tệp CAD, kèm bảng thống kê thanh cốt thép trong 3D.',
+          'Sửa các kiểm tra thiết kế: giá trị mặc định thiên về phía không an toàn, thiếu trạng thái giới hạn và các dữ liệu nhập bị bỏ qua.',
+        ],
+      },
       zh: {
         "title": "全新的视觉标识，以及教学模式",
         "items": [
@@ -1985,6 +2201,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Gyorsabb utófeldolgozás és 3D megjelenítő nagy modelleken."
         ]
       },
+      vi: {
+        title: 'Trang chủ mới, và các tiêu chuẩn CIRSOC 2025',
+        items: [
+          'Trang chủ được xây dựng lại: giải thích Stabileo là gì, cái gì đang hoạt động hôm nay và cái gì đang phát triển, với các phần cho Basic, Giáo dục và PRO.',
+          'Tải trọng và kiểm tra thiết kế theo các tiêu chuẩn CIRSOC 2025, với phiên bản của từng tiêu chuẩn được ghi trong dự án.',
+          'Hậu xử lý và trình xem 3D nhanh hơn trên các mô hình lớn.',
+        ],
+      },
       zh: {
         "title": "全新的落地页，以及 2025 版 CIRSOC 规范",
         "items": [
@@ -2055,6 +2279,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a kényszerekben és a ferde támaszokban."
         ]
       },
+      vi: {
+        title: 'Kết quả luôn khớp với mô hình',
+        items: [
+          'Chỉnh sửa mô hình sẽ làm mất hiệu lực các kết quả và kiểm tra thiết kế đã lỗi thời, nên không bao giờ hiển thị kết quả không còn áp dụng.',
+          'Phân tích nhanh hơn: các trường hợp tải tái sử dụng phân rã ma trận, các tổ hợp được giải theo lô và phân tích chạy nền.',
+          'Sửa các liên kết và gối nghiêng.',
+        ],
+      },
       zh: {
         "title": "结果始终与模型一致",
         "items": [
@@ -2111,6 +2343,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A DXF-rajzimportáló előnézettel és diagnosztikával, mértékegység-kezeléssel, több szinttel és gerendafelismeréssel bővült, áttekinthetőbb varázslóval."
         ]
       },
+      vi: {
+        title: 'Trình nhập bản vẽ DXF',
+        items: [
+          'Trình nhập bản vẽ DXF bổ sung xem trước và chẩn đoán, kiểm soát đơn vị, nhiều tầng và nhận diện dầm, với trình hướng dẫn rõ ràng hơn.',
+        ],
+      },
       zh: {
         "title": "DXF 图纸导入器",
         "items": [
@@ -2164,6 +2402,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         "items": [
           "Rudak szabadtest-ábrái 2D-ben és 3D-ben, 2D-ben csúszó csuklókkal, 3D-ben hat szabadságfokú kioldásokkal, és az erővektorokkal minden rúdvégen."
         ]
+      },
+      vi: {
+        title: 'Sơ đồ vật thể tự do của thanh trong Basic',
+        items: [
+          'Sơ đồ vật thể tự do của thanh trong 2D và 3D, với khớp trượt trong 2D và giải phóng sáu bậc tự do trong 3D, cùng các vectơ lực ở mỗi đầu.',
+        ],
       },
       zh: {
         "title": "基础模式中的杆件隔离体图",
@@ -2233,6 +2477,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egységes tengelyek és keresztmetszetek az Alap mód 2D és 3D nézetében."
         ]
       },
+      vi: {
+        title: 'Từ bản vẽ CAD đến mô hình bê tông',
+        items: [
+          'Từ bản vẽ DXF đến bản nháp kết cấu bê tông cốt thép: một trình hướng dẫn phân loại các lớp, một mẫu có thể tải về và các ví dụ.',
+          'Quy ước hệ trục cục bộ 3D được cố định trong giao diện và trong bộ giải, các mô hình hiện có đã được chuyển đổi.',
+          'Hệ trục và tiết diện được thống nhất giữa Basic 2D và 3D.',
+        ],
+      },
       zh: {
         "title": "从 CAD 图纸到混凝土模型",
         "items": [
@@ -2258,6 +2510,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les efforts normaux d\'un bâtiment dans le mode PRO, avec les formes réelles des sections dans la vue 3D',
         tr: 'PRO modunda bir binanın normal kuvvetleri; 3B görüntüleyicide gerçek kesit şekilleriyle',
         hu: 'Normálerők egy épületben a PRO módban, valós keresztmetszet-alakokkal a 3D megjelenítőben',
+        vi: 'Lực dọc trong một tòa nhà ở chế độ PRO, với hình dạng tiết diện thực trong trình xem 3D',
         zh: 'PRO 模式中某建筑的轴力，3D 查看器中显示真实的截面形状',
       },
     },
@@ -2331,6 +2584,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Födémek és falak megjelenítéssel, tengelyekkel, főfeszültségekkel és jelentéssel.",
           "Az Alap módot újraírták, világosabb határvonallal közte és a PRO között."
         ]
+      },
+      vi: {
+        title: 'Quy trình chuyên nghiệp trong PRO',
+        items: [
+          'Thiết kế, tải trọng và báo cáo tính toán phối hợp với nhau trong PRO, với các kiểm tra thiết kế thống nhất.',
+          'Kết quả theo trường hợp tải, tổ hợp và biểu đồ bao.',
+          'Trình xem 3D với hình dạng tiết diện thực và hệ trục cục bộ, cùng độ lệch đầu thanh để mô hình hóa dầm gối vào mặt cột.',
+          'Sàn và vách với hiển thị, hệ trục, ứng suất chính và báo cáo.',
+          'Chế độ Basic được viết lại, với ranh giới rõ ràng hơn giữa nó và PRO.',
+        ],
       },
       zh: {
         "title": "PRO 中的专业工作流程",
@@ -2426,6 +2689,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a mentésben, a megosztott hivatkozásokban és az exportálásban."
         ]
       },
+      vi: {
+        title: 'Trình xem 3D mượt hơn và bộ giải vững chắc hơn',
+        items: [
+          'Trang chủ được thiết kế lại.',
+          'Gần một nghìn kiểm thử độ bền vững mới, cùng các bản sửa độ chính xác trong bộ giải, các phần tử và các liên kết, và cảnh báo mất ổn định trước khi phân tích chạy.',
+          'Khớp trong 3D được giải phóng theo từng trục tại mỗi đầu thanh.',
+          'Trình xem 3D chuyển động mượt trên các mô hình có hơn một nghìn nút: các nút được vẽ trong một lượt và chọn thanh nhanh hơn.',
+          'Các trục được thống nhất với Z hướng lên trong toàn ứng dụng, và các mô men My và Mz đã được sửa trong ứng suất và kiểm tra thiết kế.',
+          'Sửa việc lưu, liên kết chia sẻ và xuất.',
+        ],
+      },
       zh: {
         "title": "更流畅的 3D 查看器和更稳固的引擎",
         "items": [
@@ -2455,6 +2729,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique spatial avec son diagramme des moments en 3D',
         tr: '3B eğilme momenti diyagramıyla bir uzay çerçeve',
         hu: 'Térbeli keret a hajlítónyomatéki ábrájával 3D-ben',
+        vi: 'Một khung không gian với biểu đồ mô men uốn trong 3D',
         zh: '带 3D 弯矩图的空间框架',
       },
     },
@@ -2564,6 +2839,21 @@ export const CHANGELOG: ChangelogEntry[] = [
           "MI-asszisztens, amely beszélgetés alapján épít és szerkeszt modelleket."
         ]
       },
+      vi: {
+        title: 'Bộ giải bằng Rust, chế độ PRO và tên Stabileo',
+        items: [
+          'Bộ giải phân tích được viết lại bằng Rust và chạy trong trình duyệt qua WebAssembly. Trước khi thay thế bộ giải cũ, hai bộ giải đã được so sánh trên 90 mô hình.',
+          'Hơn hai nghìn kiểm thử kiểm chứng đối chiếu với lời giải trong sách giáo khoa và các trường hợp tham chiếu đã công bố.',
+          'Phân tích phi tuyến hình học và vật liệu, động lực học dao động riêng, phổ phản ứng và lịch sử thời gian, tấm và vỏ, cáp, thi công theo giai đoạn và móng trên lò xo.',
+          'Bộ giải ma trận thưa giúp các mô hình lớn nhanh hơn: phân tích dao động riêng 3D nhanh hơn 11,8 lần.',
+          'Dự án được đổi tên thành Stabileo, với tên miền riêng, một trang chủ và giao diện bằng 14 ngôn ngữ.',
+          'Chế độ PRO, với kiểm tra bê tông cốt thép theo CIRSOC 201, tải trọng tự động, chẩn đoán và báo cáo tính toán.',
+          'Quy trình bê tông cốt thép với tổ hợp chi phối cho từng thanh, kiểm tra tự động, bố trí chi tiết và mối nối, cùng các ví dụ lớn như sân vận động 1005 nút.',
+          'Chế độ Giáo dục, với các bài tập có hướng dẫn được kiểm tra từng bước.',
+          'Chế độ Basic bổ sung góc nhìn 3D và chuyển các mô hình 3D thành mô hình 2D.',
+          'Một trợ lý AI dựng và chỉnh sửa mô hình từ một cuộc hội thoại.',
+        ],
+      },
       zh: {
         "title": "Rust 引擎、PRO 模式和 Stabileo 之名",
         "items": [
@@ -2597,6 +2887,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique plan avec son diagramme des moments fléchissants dans le mode Basique',
         tr: 'Temel modunda eğilme momenti diyagramıyla bir düzlem çerçeve',
         hu: 'Síkbeli keret a hajlítónyomatéki ábrájával az Alap módban',
+        vi: 'Một khung phẳng với biểu đồ mô men uốn ở chế độ Basic',
         zh: '基础模式中带弯矩图的平面框架',
       },
     },
@@ -2685,6 +2976,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mobil felület, a modellt magukban hordozó megosztott hivatkozások, bemutató túra és billentyűparancsok."
         ]
       },
+      vi: {
+        title: 'Khởi đầu: một trình soạn thảo kết cấu trong trình duyệt',
+        items: [
+          'Phiên bản đầu tiên, ngày 10 tháng 2: thanh, gối tựa và tải trọng trong 2D, với phản lực, biểu đồ và hình dạng võng, không cần cài đặt gì.',
+          'Tải trọng tập trung, phân bố một phần và di động, các trường hợp tải, tổ hợp và biểu đồ bao với cả hai đường cong.',
+          'Tiết diện thép và bê tông với trình dựng tiết diện, và ứng suất trong tiết diện theo Navier, Jourawski và Von Mises.',
+          'Gối nghiêng, lò xo và lún gối, và trọng lượng bản thân của thanh.',
+          'Một bộ giải 3D với sáu bậc tự do mỗi nút và trình xem của nó, cùng P-Delta, mất ổn định và đường ảnh hưởng trong 2D.',
+          'Một phân tích động học giảng dạy giải thích, từng thanh một, vì sao một kết cấu là hoặc không là cơ cấu.',
+          'Giao diện di động, các liên kết chia sẻ mang theo mô hình, chuyến tham quan có hướng dẫn và phím tắt.',
+        ],
+      },
       zh: {
         "title": "开端：浏览器中的结构编辑器",
         "items": [
@@ -2709,6 +3012,7 @@ export const AREA_LABELS: Record<PublicLocale, Record<ChangelogArea, string>> = 
   fr: { basic: 'Basique', pro: 'PRO', edu: 'Enseignement', app: 'Application', engine: 'Moteur', site: 'Site' },
   tr: { basic: 'Temel', pro: 'PRO', edu: 'Eğitim', app: 'Uygulama', engine: 'Motor', site: 'Site' },
   hu: { basic: 'Alap', pro: 'PRO', edu: 'Oktatás', app: 'Alkalmazás', engine: 'Számítómag', site: 'Weboldal' },
+  vi: { basic: 'Basic', pro: 'PRO', edu: 'Giáo dục', app: 'Ứng dụng', engine: 'Bộ giải', site: 'Trang web' },
   zh: { basic: '基础', pro: 'PRO', edu: '教学', app: '应用', engine: '计算引擎', site: '网站' },
 };
 

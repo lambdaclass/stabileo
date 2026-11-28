@@ -19,6 +19,7 @@
     "fr": "Préserver les charges aux appuis roulants inclinés en analyse non linéaire plane",
     "hu": "A terhek megőrzése ferde görgős támaszoknál síkbeli nemlineáris számításban",
     "tr": "Düzlemsel doğrusal olmayan analizde eğik makaralı mesnetlerde yükleri koru",
+    "vi": "Giữ các tải phi tuyến phẳng tại các gối di động nghiêng",
     "zh": "保留平面非线性分析中倾斜滚动支座处的荷载"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "fr": "Les analyses planes par longueur d’arc et corotation projettent les chargements assemblés sur les axes de l’appui incliné avant l’arrondi. Les faibles charges tangentielles sont ainsi conservées en présence de fortes charges normales.",
     "hu": "A síkbeli ívhossz- és korotációs számítás az összeállított terhelési mintákat kerekítés előtt vetíti a ferde támasz tengelyeire. Így nagy normálirányú terhek mellett is megmaradnak a kis érintőirányú terhek.",
     "tr": "Düzlemsel yay uzunluğu ve eş dönel analizler, birleştirilmiş yük düzenlerini yuvarlamadan önce eğik mesnet eksenlerine izdüşürür. Büyük normal yüklerin yanında küçük teğetsel yükler de korunur.",
+    "vi": "Các phân tích chiều dài cung và đồng xoay phẳng chiếu các dạng tải đã ghép lên các trục gối nghiêng trước khi làm tròn. Các tải tiếp tuyến nhỏ được giữ cạnh các tải pháp tuyến lớn.",
     "zh": "平面弧长法和共旋分析在舍入前将组装的荷载模式投影到倾斜支座的轴线上，从而在法向荷载很大时保留较小的切向荷载。"
   },
   "changelog": {

@@ -154,6 +154,28 @@ export const LINK_NAMES: Record<string, Record<string, string>> = {
     "newmark-1959": "Newmark-féle időintegrálás: egy szabadságfok",
     "cqc-1981": "SRSS és CQC: modális kombináció"
   },
+  'vi': {
+    "simply-supported-beam": "Máy tính dầm đơn giản tựa hai đầu",
+    "cantilever-beam": "Máy tính độ võng dầm công xôn",
+    "column-buckling": "Máy tính mất ổn định cột Euler",
+    "continuous-beam": "Máy tính dầm liên tục",
+    "portal-frame": "Máy tính khung cổng",
+    "truss-2d": "Máy tính giàn 2D",
+    "influence-line": "Máy tính đường ảnh hưởng",
+    "beam-natural-frequency": "Máy tính tần số riêng của dầm",
+    "macneal-harder-1985": "Các bài toán chuẩn phần tử hữu hạn MacNeal–Harder",
+    "navier-plate": "Uốn tấm Navier: bài toán chuẩn chuỗi Fourier",
+    "mattiasson-elastica": "Đường đàn hồi Mattiasson: độ võng lớn của công xôn",
+    "ferrari-sigmund-2025": "Mất ổn định khung Roorda: Ferrari–Sigmund",
+    "biggins-2026": "Vồng ngược của vòm bằng mẫu độ cong",
+    "lee-frame-1968": "Bài toán chuẩn phi tuyến khung Lee (1968)",
+    "plastic-collapse": "Bài toán chuẩn phá hoại dẻo khung cổng",
+    "grossman-2026": "Mạng lò xo auxetic: Grossman–Boudaoud",
+    "pastrana-2026": "Tìm dạng dây cáp: phương pháp mật độ lực",
+    "riks-crisfield": "Vồng ngược theo chiều dài cung Riks–Crisfield",
+    "newmark-1959": "Tích phân theo thời gian Newmark: bài toán chuẩn SDOF",
+    "cqc-1981": "SRSS và CQC: bài toán chuẩn tổ hợp dạng dao động"
+  },
   "zh": {
     "simply-supported-beam": "简支梁计算器",
     "cantilever-beam": "悬臂梁挠度计算器",

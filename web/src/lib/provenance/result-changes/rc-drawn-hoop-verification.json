@@ -18,6 +18,7 @@
     "de": "Nachweis von Stahlbetonrahmen anhand eingezeichneter Bügel",
     "fr": "Vérification des portiques en béton à partir des cadres dessinés",
     "tr": "Betonarme çerçevelerin çizilen etriyelerle doğrulanması",
+    "vi": "Kiểm tra khung bê tông cốt thép theo các vùng đai kín đã vẽ",
     "zh": "按图示箍筋分区验算钢筋混凝土框架"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "de": "Die Erdbebennachweise prüfen nun Durchmesser, Schenkelzahl und Abstand im gesamten eingezeichneten Bügelbereich. Die Exporte kennzeichnen Betonbauteile ohne verfügbaren Tragfähigkeitsnachweis als offen. Wiederholen Sie die betroffenen Nachweise und erstellen Sie die Exporte erneut.",
     "fr": "Les contrôles sismiques vérifient désormais le diamètre, le nombre de brins et l’espacement sur toute la zone de cadres dessinée. Les exports indiquent que l’élément reste à vérifier si le contrôle de résistance est indisponible. Relancez les contrôles concernés et régénérez les exports.",
     "tr": "Deprem kontrolleri artık çizilen her etriye bölgesinin tamamında çapı, kol sayısını ve aralığı doğrular. Dayanım doğrulaması yapılamadığında tasarım çıktıları betonarme elemanı doğrulanmamış olarak gösterir. İlgili kontrolleri yeniden çalıştırın ve çıktıları yeniden oluşturun.",
+    "vi": "Các phép kiểm tra kháng chấn nay xác minh đường kính, số nhánh và bước đai trên toàn bộ từng vùng đai kín đã vẽ. Các bản xuất thiết kế báo cáo cấu kiện bê tông là chưa hoàn tất khi không có kết quả kiểm tra cường độ của nó. Hãy chạy lại các phép kiểm tra bị ảnh hưởng và tạo lại các bản xuất.",
     "zh": "抗震验算现在检查每个图示箍筋分区全段的箍筋直径、肢数和间距。无法验算混凝土构件承载力时，设计导出文件将该构件标记为待验算。请重新运行受影响的验算并重新生成导出文件。"
   },
   "changelog": {

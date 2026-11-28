@@ -27,6 +27,7 @@
     "fr": "Les ressorts modifiés par phases retiennent les efforts non récupérables",
     "hu": "A megváltozott fázisos támaszrugók visszatartják a nem támogatott erőket",
     "tr": "Aşamalarda değişen mesnet yayları desteklenmeyen kuvvetleri sunmaz",
+    "vi": "Các lò xo gối tựa theo giai đoạn bị thay đổi giữ lại các lực không được hỗ trợ",
     "zh": "分阶段支座弹簧变更后，暂不提供无法可靠恢复的内力"
   },
   "explanation": {
@@ -37,6 +38,7 @@
     "fr": "Ajouter, retirer ou modifier la rigidité des ressorts après chargement ou mouvement retient les réactions et efforts par phases avec des avertissements structurés. Les phases suivantes restent indisponibles; les déplacements incrémentaux ne certifient pas l’équilibre. Les ressorts inchangés et les changements avant chargement conservent leurs résultats. Revérifiez les résultats par phases (#1952).",
     "hu": "A támaszrugó-merevség korábbi terhelés vagy mozgás utáni hozzáadása, eltávolítása vagy változtatása visszatartja a fázisos reakciókat és erőket, strukturált figyelmeztetéssel. A későbbi fázisok is nem elérhetők maradnak; a megtartott növekményes elmozdulások nem tanúsítják az egyensúlyt. A változatlan rugók és a terhelés előtti módosítások válaszai megmaradnak. Ellenőrizze újra a mentett fázisos eredményeket (#1952).",
     "tr": "Önceki yük veya hareketten sonra mesnet yayı eklemek, kaldırmak ya da rijitliğini değiştirmek aşama tepkileri ve kuvvetlerini yapılandırılmış uyarılarla sunmaz. Sonraki aşamalar da kullanılamaz; artımlı yer değiştirmeler dengeyi doğrulamaz. Değişmeyen yaylar ve yükleme öncesi değişiklikler sonuçlarını korur. Kayıtlı aşamalı sonuçları yeniden denetleyin (#1952).",
+    "vi": "Việc thêm, bớt hoặc thay đổi độ cứng lò xo gối tựa sau khi đã chịu tải hoặc chuyển động trước đó nay giữ lại các phản lực và nội lực theo giai đoạn kèm các cảnh báo không khả dụng có cấu trúc. Các giai đoạn sau vẫn không khả dụng; các chuyển vị gia số được giữ lại không chứng nhận được cân bằng. Các lò xo không đổi và các thay đổi trước khi đặt tải giữ nguyên kết quả của chúng. Hãy kiểm tra lại các kết quả theo giai đoạn đã lưu (#1952).",
     "zh": "在早先的加载或运动之后添加、移除或更改支座弹簧刚度，现在会暂不提供分阶段反力和内力，并给出结构化的不可用警告。之后的阶段保持不可用；保留下来的增量位移不能证明平衡。未改变的弹簧和加载前的更改保留其结果。请重新核对已保存的分阶段结果（#1952）。"
   },
   "changelog": {

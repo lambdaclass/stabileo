@@ -15,6 +15,7 @@
     "fr": "Les résultats linéaires fournis exigent un cas de charge stable",
     "hu": "A megadott lineáris eredményekhez stabil tehereset szükséges",
     "tr": "Sağlanan doğrusal sonuçlar kararlı bir yük durumu gerektirir",
+    "vi": "Các kết quả tuyến tính được cung cấp yêu cầu một trường hợp tải ổn định",
     "zh": "提交的线性分析结果必须对应稳定的荷载工况"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "fr": "Les API natives de certification 2D et 3D vérifient les cas de charge fournis avec le solveur linéaire avant de certifier leurs réponses. Un cas refusé ne reçoit aucune borne certifiée, tout comme les combinaisons et enveloppes qui en dépendent.",
     "hu": "A natív 2D és 3D tanúsítási API-k a lineáris megoldóval ellenőrzik a megadott tehereseteket az eredmények tanúsítása előtt. Elutasított teheresethez és az attól függő kombinációkhoz és burkolókhoz nem tartozik tanúsított korlát.",
     "tr": "Yerel 2B ve 3B sertifikasyon API’leri, yanıtları sertifikalandırmadan önce sağlanan yük durumlarını doğrusal çözücüyle denetler. Reddedilen yük durumu ve ona bağlı kombinasyonlar ile zarflar sertifikalı bir hata sınırı almaz.",
+    "vi": "Các API chứng nhận 2D và 3D gốc kiểm tra các trường hợp tải được cung cấp bằng bộ giải tuyến tính trước khi chứng nhận đáp ứng của chúng. Một trường hợp bị từ chối không có cận chứng nhận và ngăn các tổ hợp và biểu đồ bao phụ thuộc nhận được cận đó.",
     "zh": "原生二维和三维认证 API 在认证响应前，使用线性求解器检查提交的荷载工况。被拒绝的工况及其相关组合与包络均不提供认证误差界。"
   },
   "changelog": {

@@ -22,6 +22,7 @@
     "fr": "La neige partielle reste une charge de barre",
     "tr": "Kısmi kar yükü eleman yükü olarak korunur",
     "hu": "A részleges hóteher rúdteher marad",
+    "vi": "Tuyết một phần vẫn là tải trọng lên thanh",
     "zh": "局部雪荷载仍作为杆件荷载"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "fr": "Les barres inclinées conservent la neige axiale et transversale comme charge projetée sur son intervalle réel. Les forces nodales perdaient la variation axiale et le déplacement sous charge partielle. Les emprises de panneaux connectés conservent leur propre toit lors des subdivisions. Régénérez les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. (#2197).",
     "tr": "Eğimli elemanlarda eksenel ve enine kar yükü gerçek aralığında izdüşümlü eleman yükü olarak korunur. Düğüm kuvvetleri eksenel değişimi ve kısmi yük deplasmanını kaybediyordu. Bağlı panel izdüşümleri bölünme sonrasında kendi çatılarını korur. Etkilenen üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. (#2197).",
     "hu": "A ferde rudak tengelyirányú és keresztirányú hóterhe vetületi rúdteherként megmarad a tényleges terhelt szakaszon. A csomóponti erők elvesztették a normálerő változását és a részleges teher elmozdulását. Az összekapcsolt panelek alaprajza felosztás után is megőrzi saját tetőjét. Állítsa elő újra az érintett generált felületi terheket, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. (#2197).",
+    "vi": "Các thanh nghiêng nay giữ tuyết dọc trục và tuyết ngang dưới dạng tải trọng lên thanh được chiếu trên khoảng thực của nó. Lực tại nút đầu mút trước đây mất biến thiên dọc trục và chuyển vị khi chịu tải một phần. Các vùng chiếm chỗ của tấm liên kết cũng giữ mái riêng của chúng qua các lần chia nhỏ tấm. Hãy tạo lại các tải trọng diện tích đã tạo bị ảnh hưởng, rồi chạy lại các phân tích, tổ hợp và phép kiểm tra thiết kế. (#2197).",
     "zh": "斜杆现在将轴向和横向的雪荷载，作为投影在其真实区间上的杆件荷载保留。以前端节点力丢失了轴向变化和局部荷载位移。相连的屋面板投影范围在板的细分之间也保留其自身的屋面。请重新生成受影响的生成面荷载，然后重新运行分析、组合和设计验算。（#2197）。"
   },
   "changelog": {

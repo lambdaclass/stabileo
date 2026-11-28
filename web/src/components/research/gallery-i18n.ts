@@ -41,6 +41,12 @@ export const galleryStrings: Record<string, { researchTitle: string; galleryLead
     "reviewOne": "{count} felülvizsgálati kör",
     "reviewMany": "{count} felülvizsgálati kör"
   },
+  'vi': {
+    "researchTitle": "Nghiên cứu trong kỹ thuật kết cấu",
+    "galleryLead": "Các bài báo kinh điển và gần đây, bài toán chuẩn và phương pháp mà bạn có thể chạy và kiểm tra trong Stabileo, phần mềm kỹ thuật kết cấu có AI. Mỗi trang nêu rõ điều gì được tái hiện và đã được kiểm tra như thế nào.",
+    "reviewOne": "{count} vòng rà soát",
+    "reviewMany": "{count} vòng rà soát"
+  },
   "zh": {
     "researchTitle": "结构工程研究",
     "galleryLead": "经典与近期的论文、基准算例和方法，可在 Stabileo（AI 结构工程软件）中运行并验证。每个页面都会说明复现了哪些内容，以及是如何验证的。",

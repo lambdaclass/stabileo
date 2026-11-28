@@ -28,6 +28,7 @@
     "fr": "Les réactions par phases utilisent la rigidité physique",
     "hu": "A fázisos reakciók fizikai merevséget használnak",
     "tr": "Aşama tepkileri fiziksel rijitlik kullanır",
+    "vi": "Phản lực theo giai đoạn dùng độ cứng vật lý",
     "zh": "分阶段反力使用物理刚度"
   },
   "explanation": {
@@ -38,6 +39,7 @@
     "fr": "La récupération des réactions par phases assemble la rigidité physique via un type de matrice privé unique. La stabilisation artificielle stockée ne peut produire de forces de liaison ni de réactions. Ressorts physiques, charges cumulées et précontrainte restent inclus. Revérifiez les efforts par phases enregistrés (#1952).",
     "hu": "Minden fázisos reakció-helyreállítás egyetlen privát mátrixtípuson keresztül állítja össze a fizikai merevséget. A gyorsítótárazott mesterséges stabilizálás nem válhat kényszererővé vagy támaszreakcióvá. A fizikai rugók, az összegzett terhek és az előfeszítés megmaradnak. Ellenőrizze újra a mentett fázisos erőeredményeket (#1952).",
     "tr": "Aşama tepkilerinin hesabı fiziksel rijitliği tek bir özel matris türüyle oluşturur. Önbellekteki yapay stabilizasyon kısıt kuvvetine veya mesnet tepkisine dönüşemez. Fiziksel yaylar, birikmiş yükler ve öngerme korunur. Kayıtlı aşama kuvvetlerini yeniden denetleyin (#1952).",
+    "vi": "Mọi việc khôi phục phản lực theo giai đoạn nay ghép nối độ cứng vật lý qua một kiểu ma trận riêng duy nhất. Sự ổn định nhân tạo được lưu đệm không thể trở thành lực liên kết hay phản lực gối tựa. Các lò xo vật lý, tải trọng tích lũy và ứng suất trước vẫn được tính. Hãy kiểm tra lại các kết quả lực theo giai đoạn đã lưu (#1952).",
     "zh": "所有分阶段反力恢复现在都通过一种私有矩阵类型装配物理刚度。缓存的人为稳定化不会变成约束力或支座反力。物理弹簧、累积荷载和预应力仍然包含在内。请重新核对已保存的分阶段内力结果（#1952）。"
   },
   "changelog": {

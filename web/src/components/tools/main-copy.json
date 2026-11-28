@@ -29,6 +29,11 @@
     "tools.lead": "Kirişler, kolonlar, çerçeveler, kafes sistemler, tesir çizgileri ve doğal frekanslar; üretimdeki Stabileo motoruyla çözülür ve klasik formüllerle karşılaştırılır.",
     "tools.indexAssumptions": "Doğrusal elastik, küçük yer değiştirmeler, prizmatik Euler–Bernoulli elemanları; kafes çubukları yalnız eksenel kuvvet taşır. SI birimleri. Öz ağırlık hariçtir. Her araç kendi varsayımlarını, işaret kuralını ve klasik referansını belirtir. Yönetmelik tasarım kontrolü değildir."
   },
+  "vi": {
+    "tools.index": "Máy tính kỹ thuật miễn phí",
+    "tools.lead": "Dầm, cột, khung, giàn, đường ảnh hưởng và tần số riêng, được giải bằng bộ giải Stabileo dùng trong sản xuất và so sánh với các công thức cổ điển.",
+    "tools.indexAssumptions": "Đàn hồi tuyến tính, chuyển vị nhỏ, thanh Euler–Bernoulli lăng trụ; thanh giàn chỉ chịu lực dọc. Đơn vị SI. Không tính trọng lượng bản thân. Mỗi công cụ nêu giả thiết, quy ước dấu và tham chiếu cổ điển của riêng nó. Không phải kiểm tra thiết kế theo tiêu chuẩn."
+  },
   "zh": {
     "tools.index": "免费工程计算器",
     "tools.lead": "梁、柱、框架、桁架、影响线和自振频率，由 Stabileo 生产版计算引擎求解，并与经典公式对比。",

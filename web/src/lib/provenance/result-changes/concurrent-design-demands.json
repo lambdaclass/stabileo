@@ -16,6 +16,7 @@
     "de": "Interaktionsnachweise verwenden gleichzeitige Schnittgrößen",
     "fr": "Les interactions utilisent les efforts simultanés par section",
     "tr": "Etkileşim kontrolleri eşzamanlı istasyon kuvvetlerini kullanır",
+    "vi": "Các kiểm tra tương tác dùng lực mặt cắt đồng thời",
     "zh": "相互作用验算采用同时作用的站点内力"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "de": "Die Nachweise werten jede Kombination an jeder Stelle mit ihrer eigenen Normalkraft, ihren Momenten, Querkräften und ihrer Torsion aus und nennen die maßgebende Kombination. Umhüllende ohne gleichzeitige Daten werden abgelehnt. Gespeicherte Beton- und Stahlbemessungen erneut ausführen; Ausnutzung, Bewehrung, Status und Kombination können sich ändern (#1316). Stahl-Tragfähigkeitsfaktoren für Momentengradienten verwenden das Diagramm der eigenen Kombination; zuvor konnten Ausnutzungen ohne Warnung unterschätzt werden.",
     "fr": "Les vérifications évaluent chaque combinaison à chaque section avec ses propres efforts normal, moments, cisaillement et torsion et indiquent la combinaison déterminante. Les enveloppes sans données simultanées sont refusées. Recalculer les projets enregistrés en béton et acier ; taux, armatures, états et combinaisons peuvent changer (#1316). Les facteurs de résistance liés au gradient de moment de l’acier utilisent le diagramme de leur propre combinaison ; des taux pouvaient auparavant être sous-estimés sans avertissement.",
     "tr": "Kontroller her kombinasyonu her istasyonda kendi eksenel kuvveti, momentleri, kesmesi ve burulmasıyla değerlendirir ve belirleyici kombinasyonu bildirir. Eşzamanlı verisi olmayan zarflar reddedilir. Kayıtlı betonarme ve çelik tasarımlarını yeniden çalıştırın; kullanım oranı, donatı, durumlar ve kombinasyonlar değişebilir (#1316). Çelik moment gradyanı kapasite katsayıları artık kendi kombinasyon diyagramlarını kullanır; önceden oranlar uyarı verilmeden düşük hesaplanabiliyordu.",
+    "vi": "Kiểm tra thanh nay đánh giá từng tổ hợp tại từng mặt cắt với lực dọc, mô men, lực cắt và mô men xoắn riêng của nó, và báo cáo tổ hợp chi phối. Các biểu đồ bao không có dữ liệu đồng thời bị từ chối. Hãy chạy lại các thiết kế bê tông và thép đã lưu; hệ số sử dụng, cốt thép, trạng thái và nhãn tổ hợp có thể thay đổi (#1316). Hệ số khả năng gradien mô men của thép nay dùng biểu đồ tổ hợp riêng của chúng; trước đây các tỷ số có thể bị đánh giá thấp một cách âm thầm.",
     "zh": "杆件验算现在对每个组合在每个站点上，以其自身的轴力、弯矩、剪力和扭矩进行评估，并报告控制组合。没有同时作用数据的包络会被拒绝求解。请重新运行已保存的混凝土和钢结构设计；利用率、配筋、状态和组合标签可能发生变化（#1316）。钢材的弯矩梯度承载力系数现在使用其自身组合的内力图；此前比值可能被悄悄低估。"
   },
   "changelog": {

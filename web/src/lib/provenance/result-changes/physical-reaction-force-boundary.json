@@ -27,6 +27,7 @@
     "fr": "Les réactions excluent la stabilisation artificielle",
     "hu": "A reakció-helyreállítás kizárja a mesterséges stabilizálást",
     "tr": "Tepki hesabı yapay stabilizasyonu dışlar",
+    "vi": "Khôi phục phản lực loại trừ ổn định hóa nhân tạo",
     "zh": "反力恢复排除人为稳定化"
   },
   "explanation": {
@@ -37,6 +38,7 @@
     "fr": "La récupération des réactions non linéaires accepte uniquement les forces physiques des barres et ressorts. La rigidité artificielle d’une rotation esclave libérée ne peut produire un moment de liaison ou une réaction au maître bloqué. Revérifiez les réactions non linéaires enregistrées avec liaisons (#1952).",
     "hu": "A nemlineáris reakció-helyreállítás csak fizikai rúd- és rugóerőket fogad el. Egy kioldott szolga-forgás mesterséges merevsége nem válhat kényszernyomatékká vagy a megtámasztott mestercsomópont reakciójává. Ellenőrizze újra a mentett kényszeres nemlineáris reakciókat (#1952).",
     "tr": "Doğrusal olmayan tepki hesabı yalnızca fiziksel eleman ve yay kuvvetlerini kabul eder. Serbest bırakılmış bağımlı dönmedeki yapay rijitlik bir kısıt momentine veya mesnetli ana düğüm tepkisine dönüşemez. Kaydedilmiş kısıtlı doğrusal olmayan tepkileri yeniden kontrol edin (#1952).",
+    "vi": "Khôi phục phản lực phi tuyến nay chỉ chấp nhận các lực thật của thanh và lò xo. Độ cứng nhân tạo trên một góc xoay phụ thuộc đã giải phóng không thể trở thành mô men liên kết hoặc phản lực tại nút chủ bị ngăn của nó. Hãy kiểm tra lại các phản lực phi tuyến có liên kết đã lưu (#1952).",
     "zh": "非线性反力恢复现在只接受物理的杆件力和弹簧力。已释放从属转动上的人为刚度，不会变成约束力矩，也不会变成其受约束主节点处的反力。请重新核对已保存的受约束非线性反力（#1952）。"
   },
   "changelog": {

@@ -25,6 +25,7 @@
     "fr": "Appliquer la charge des poteaux traversés à la hauteur de l’étage",
     "hu": "A keresztezett oszlopok terhe a szint magasságában marad",
     "tr": "Çaprazla kesişen kolon yüklerini kat kotunda tutma",
+    "vi": "Giữ tải trọng của các cột bị giao cắt tại cao độ tầng",
     "zh": "将交叉柱的荷载保持在楼层标高"
   },
   "explanation": {
@@ -35,6 +36,7 @@
     "fr": "Régénérez les charges sismiques concernées. Le croisement avec une diagonale maintient l’inertie du poteau à la hauteur de l’étage et conserve son moment de renversement.",
     "hu": "Generálja újra az érintett szeizmikus terheket. Az átló keresztezésekor az oszlop tehetetlenségi ereje a szint magasságában hat, így megmarad a billentőnyomatéka.",
     "tr": "Etkilenen deprem yüklerini yeniden oluşturun. Diyagonal kesişimi kolon ataletini kat kotunda ve devrilme momentini korur.",
+    "vi": "Hãy tạo lại các tải trọng động đất bị ảnh hưởng. Một thanh chéo giao cắt giữ quán tính của cột tại cao độ tầng và bảo toàn mô men lật của nó.",
     "zh": "请重新生成受影响的地震荷载。斜撑交叉时，柱的惯性荷载保持在楼层标高，倾覆力矩得以保留。"
   },
   "changelog": {

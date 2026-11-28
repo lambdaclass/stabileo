@@ -23,6 +23,7 @@
     "fr": "Les câbles par phases sont refusés et la traction utilise la tolérance de contact",
     "hu": "Az építési fázisos kábeleket a program elutasítja, a felületi húzás a kontakttűrést használja",
     "tr": "Aşamalı kablolar reddedilir ve yüzey çekmesinde temas toleransı kullanılır",
+    "vi": "Từ chối dây cáp theo giai đoạn và lực căng bề mặt dùng dung sai tiếp xúc",
     "zh": "分阶段分析拒绝索，表面拉力使用接触容差"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Les deux solveurs par phases refusent tous les câbles avec cable_analysis_required. L’exception 2D est retirée : la convergence de l’itération de rigidité d’Ernst et des efforts positifs aux extrémités ne prouvent pas l’équilibre des câbles avec flèche. Les paires de surface fermées comparent la force assemblée divisée par la rigidité à la tolérance de contact inchangée ; au-delà, elles renvoient toujours contact_state_invalid. Revérifiez les résultats de câbles et de contact (#417, #432 ; PR #1921).",
     "hu": "Mindkét építési fázisos megoldó minden kábelt elutasít cable_analysis_required kóddal. A korábbi 2D kivétel visszavonva: a konvergált Ernst-féle merevségi iteráció és a pozitív rúdvégi erők nem igazolják a belógásra érzékeny kábelegyensúlyt. A zárt felületpárok most az összegzett erő és a merevség hányadosát vetik össze a változatlan kontakttűréssel; a határ feletti állapotok továbbra is contact_state_invalid eredményt adnak. Ellenőrizze újra a kábel- és kontakteredményeket (#417, #432; #1921-es PR).",
     "tr": "Her iki aşamalı çözücü tüm kabloları cable_analysis_required ile reddeder. Önceki 2B istisnası kaldırılmıştır: Ernst rijitlik iterasyonunun yakınsaması ve pozitif uç kuvvetleri, sehim etkili kablo dengesini kanıtlamaz. Kapalı yüzey çiftleri, birleştirilmiş kuvvetin rijitliğe oranını değişmeyen temas toleransıyla karşılaştırır; sınırın üzerinde yine contact_state_invalid döndürülür. Kablo ve temas sonuçlarını yeniden denetleyin (#417, #432; PR #1921).",
+    "vi": "Cả hai bộ giải theo giai đoạn từ chối mọi dây cáp với cable_analysis_required. Ngoại lệ 2D trước đây bị rút lại: phép lặp độ cứng Ernst hội tụ và các lực đầu mút dương không xác lập được cân bằng dây cáp nhạy với độ võng. Các cặp bề mặt kín nay so sánh lực đã ghép nối chia cho độ cứng với dung sai tiếp xúc không đổi; các trạng thái vượt giới hạn vẫn trả về contact_state_invalid. Hãy kiểm tra lại các kết quả dây cáp và tiếp xúc (#417, #432; PR #1921).",
     "zh": "两个分阶段求解器都以 cable_analysis_required 拒绝每一根索。以前 2D 的例外已撤销：收敛的 Ernst 刚度迭代和为正的端力，并不能证明对垂度敏感的索处于平衡。闭合的表面对现在将装配后的力除以刚度，再与不变的接触容差比较；超出限值的状态仍返回 contact_state_invalid。请重新核对索和接触的结果（#417、#432；PR #1921）。"
   },
   "changelog": {

@@ -21,6 +21,7 @@
     "de": "Schneelastfälle erfassen jede Firstrichtung",
     "fr": "Les cas de neige couvrent chaque orientation de faîtage",
     "tr": "Kar yükü durumları her mahya yönünü kapsıyor",
+    "vi": "Các trường hợp tuyết phủ mọi hướng đỉnh mái",
     "zh": "雪荷载工况涵盖每种屋脊朝向"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "de": "Ungleichmäßige Schneelast erfasst jede Dachrichtung, auch rechtwinklige Satteldächer und Walmflächen. Ausgewählte überdeckte Dächer bleiben belastbar; unbestimmte Quellen über der aufnehmenden Fläche werden abgelehnt. Benachbarte Verwehung meldet ihre geltenden Randabschnitte. Schneelasten neu erzeugen und betroffene Analysen, Kombinationen und Nachweise wiederholen (#2095). In 0.6.1 enthalten.",
     "fr": "La neige déséquilibrée couvre chaque orientation, y compris les pignons perpendiculaires et les croupes. Les toitures couvertes sélectionnées restent chargées ; les sources indéterminées traversant une toiture réceptrice sont refusées. Les accumulations adjacentes indiquent leurs intervalles applicables. Régénérez les charges de neige et relancez analyses, combinaisons et vérifications concernées (#2095). Correction incluse dans 0.6.1.",
     "tr": "Dengesiz kar yükü, dik beşik çatılar ve kırma çatı yüzeyleri dahil her çatı yönünü kapsıyor. Seçilen örtülü alt çatılar yüklerini korur; alıcı çatıyı kesen belirsiz kaynaklar reddedilir. Bitişik kar birikimi geçerli kenar aralıklarını bildirir. Kar yüklerini yeniden üretip etkilenen analizleri, birleşimleri ve tasarım kontrollerini çalıştırın (#2095). Düzeltme 0.6.1 sürümüne dahildir.",
+    "vi": "Tuyết không cân bằng nay phủ từng hướng mái, kể cả đầu hồi vuông góc và các mặt mái bốn góc. Các mái được phủ đã chọn vẫn có thể chịu tải; các nguồn chưa xác định giao cắt qua bề mặt nhận sẽ bị từ chối. Tuyết tích tụ liền kề báo cáo các khoảng mép áp dụng của nó. Hãy tạo lại các tải trọng tuyết và chạy lại các phân tích, tổ hợp và phép kiểm tra thiết kế bị ảnh hưởng (#2095). Bản sửa này có trong 0.6.1.",
     "zh": "不平衡雪荷载现在涵盖每种屋面朝向，包括垂直相交的山墙和四坡屋面的各个坡面。被选中的被覆盖屋面仍可加载；跨越某个接收面的未解析荷载源会被拒绝。相邻的堆积会报告其适用的边缘区间。请重新生成雪荷载，并重新运行受影响的分析、组合和设计验算（#2095）。此修正已包含在 0.6.1 中。"
   },
   "changelog": {

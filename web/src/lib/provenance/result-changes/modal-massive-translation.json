@@ -17,6 +17,7 @@
     "fr": "L’analyse modale refuse les mécanismes avec inertie de translation",
     "hu": "A modális vizsgálat elutasítja a transzlációs tehetetlenséggel rendelkező mechanizmusokat",
     "tr": "Modal analiz öteleme ataletine sahip mekanizmaları reddediyor",
+    "vi": "Phân tích dao động từ chối các cơ cấu có quán tính tịnh tiến",
     "zh": "模态分析拒绝求解具有平动惯性的机构"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "fr": "Un nœud avec inertie peut se déplacer dans une direction libre que ses barres et ses appuis ne bloquent pas. L’arrondi pouvait transformer la fréquence nulle en une petite fréquence positive. L’analyse modale plane et spatiale vérifie désormais la rigidité physique sous contraintes et l’espace de la masse avant de restituer les modes. Relancez les analyses modales concernées et les réponses qui en dépendent. La vérification couvre aussi les nœuds qui se déplacent ensemble sous l’effet des contraintes.",
     "hu": "Egy tehetetlenséggel rendelkező csomópont elmozdulhat olyan irányban, amelyet a rudak és a támaszok nem korlátoznak. A kerekítés a zérus frekvenciából kis pozitív frekvenciát adhatott. A síkbeli és térbeli modális vizsgálat a módusok visszaadása előtt ellenőrzi a kényszerek utáni fizikai merevséget és a tömeg képterét. Futtassa újra az érintett modális vizsgálatokat és a belőlük számított válaszokat. Az ellenőrzés a kényszerek miatt együtt elmozduló csomópontokra is kiterjed.",
     "tr": "Ataleti olan bir düğüm, çubukların ve mesnetlerin kısıtlamadığı bir yönde hareket edebilir. Yuvarlama sıfır frekansı küçük bir pozitif frekansa dönüştürebiliyordu. Düzlemsel ve uzaysal modal analiz artık modları vermeden önce kısıtlanmış fiziksel rijitliği ve kütlenin görüntü uzayını denetler. Etkilenen modal analizleri ve bunlara bağlı tepkileri yeniden hesaplayın. Kontrol, kısıtlar nedeniyle birlikte ötelenen düğümleri de kapsar.",
+    "vi": "Một nút có quán tính có thể chuyển động theo một phương mà các thanh và gối tựa của nó không ngăn. Sai số làm tròn có thể biến tần số không thành một tần số dương nhỏ. Phân tích dao động phẳng và không gian nay kiểm tra độ cứng vật lý bị ràng buộc và khoảng khối lượng trước khi trả về các dạng dao động. Hãy chạy lại các phân tích dao động bị ảnh hưởng và các đáp ứng phụ thuộc. Phép kiểm tra cũng bao gồm các nút tịnh tiến cùng nhau dưới các ràng buộc.",
     "zh": "具有惯性的节点可沿构件和支座无法约束的方向移动。舍入可能使零频率变成一个很小的正频率。平面和空间模态分析现在会在返回振型前检查施加约束后的物理刚度和质量矩阵的值域。请重新运行受影响的模态分析及其相关响应计算。该检查也涵盖受约束而一起平移的节点。"
   },
   "changelog": {

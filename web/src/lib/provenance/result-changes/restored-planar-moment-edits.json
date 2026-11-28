@@ -23,6 +23,7 @@
     "fr": "Modification des moments plans restaurés",
     "hu": "Visszaállított síkbeli nyomatékok szerkesztése",
     "tr": "Geri yüklenen düzlemsel momentlerin düzenlenmesi",
+    "vi": "Chỉnh sửa các mô men phẳng đã khôi phục",
     "zh": "编辑恢复的平面力矩"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "La modification d’un couple ponctuel plan restauré remplace le moment enregistré, y compris par zéro. Des valeurs incompatibles de moment nodal arrêtent le calcul. Vérifiez les moments prévus dans les projets concernés et relancez le calcul. Une saisie vide ou invalide conserve la charge d’origine. Un moment enregistré invalide bloque toujours le calcul après la réouverture du projet.",
     "hu": "A visszaállított síkbeli pontnyomaték szerkesztése felülírja a tárolt nyomatékot, akkor is, ha az új érték nulla. Az ellentmondó csomóponti nyomatékértékek leállítják a számítást. Ellenőrizze a kívánt nyomatékokat az érintett projektekben, és futtassa újra a számítást. Az üres vagy érvénytelen bevitel megőrzi az eredeti terhet. Az érvénytelen mentett nyomaték a projekt újranyitása után is megakadályozza a számítást.",
     "tr": "Geri yüklenen düzlemsel noktasal moment düzenlendiğinde, girilen değer sıfır olsa bile kayıtlı moment değiştirilir. Çelişkili düğüm momenti değerleri çözümü durdurur. Etkilenen projelerde amaçlanan momentleri doğrulayın ve analizi yeniden çalıştırın. Boş veya geçersiz girişlerde özgün yük korunur. Geçersiz bir kayıtlı moment, proje yeniden açıldıktan sonra da analizi engeller.",
+    "vi": "Chỉnh sửa một ngẫu lực phẳng tập trung đã khôi phục nay thay thế mô men đã lưu, kể cả khi chỉnh về không. Các giá trị mô men nút mâu thuẫn nhau sẽ dừng phép giải. Hãy xác minh các mô men dự định trong các dự án bị ảnh hưởng và chạy lại phân tích. Các chỉnh sửa rỗng hoặc không hợp lệ giữ nguyên tải trọng ban đầu. Một mô men đã lưu không hợp lệ vẫn tiếp tục chặn phân tích sau khi mở lại.",
     "zh": "编辑恢复的平面集中力偶时，输入的值（包括零）会替换已保存的力矩。节点力矩值冲突时会停止求解。请核对受影响项目中的预期力矩并重新运行分析。清空输入或输入无效值时，原荷载保持不变。重新打开项目后，保存的无效力矩仍会阻止分析。"
   },
   "changelog": {

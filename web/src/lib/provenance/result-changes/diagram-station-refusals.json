@@ -12,6 +12,7 @@
     "de": "Ablehnung mehrdeutiger Diagrammpositionen",
     "fr": "Refus des positions ambiguës dans les diagrammes",
     "tr": "Belirsiz diyagram konumlarının reddedilmesi",
+    "vi": "Từ chối các mặt cắt biểu đồ không rõ ràng",
     "zh": "拒绝内力图中有歧义的测点",
     "hu": "Kétértelmű rúddiagram-helyek elutasítása"
   },
@@ -22,6 +23,7 @@
     "de": "Punktabfragen werden abgelehnt, wenn die normierte Position den analytischen Extremwert nicht reproduziert. Einhüllende und Diagramme werden abgelehnt, wenn die Rundung unterschiedliche Schnitte auf dieselbe Position abbildet und einen Sprung oder unterschiedliche Extremwerte vermischt.",
     "fr": "Les requêtes ponctuelles sont refusées lorsque la position normalisée ne reproduit pas l’extrémum analytique. Les enveloppes et les diagrammes sont refusés si l’arrondi associe des sections distinctes à la même position et confond un saut ou des valeurs extrêmes différentes.",
     "tr": "Normalize edilmiş konum analitik uç değeri yeniden üretemediğinde nokta sorguları reddedilir. Yuvarlama farklı kesitleri aynı konuma getirip bir sıçramayı veya farklı uç değerleri karıştırdığında zarflar ve diyagramlar reddedilir.",
+    "vi": "Các truy vấn điểm từ chối khi mặt cắt chuẩn hóa không tái tạo được đỉnh giải tích. Biểu đồ bao và đồ thị từ chối khi việc làm tròn ánh xạ các mặt cắt khác nhau vào cùng một mặt cắt và trộn một bước nhảy hoặc các tung độ đỉnh khác nhau.",
     "zh": "若归一化位置无法重现解析极值，则拒绝该点的查询。若舍入将不同截面映射到同一位置，导致跳跃或不同的极值混在一起，则拒绝生成包络和内力图。",
     "hu": "A pontlekérdezés elutasításra kerül, ha a normalizált helyen az analitikus szélsőérték nem reprodukálható. A burkolók és diagramok számítása elutasításra kerül, ha a kerekítés eltérő metszeteket rendel egy helyhez, és ugrást vagy különböző szélsőértékeket mos össze."
   },

@@ -17,7 +17,7 @@ import {
 } from '..';
 import { findStandingPage } from '../../blog/pages';
 
-const LOCALES = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const;
+const LOCALES = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'vi'] as const;
 const changelogPage = findStandingPage('/changelog')!;
 const SCREENSHOTS = resolve(__dirname, '../../../../public/screenshots');
 
@@ -111,6 +111,7 @@ describe('the changelog', () => {
     expect(formatChangeDate('2026-10-23', 'tr')).toBe('23 Ekim 2026');
     expect(formatChangeDate('2026-10-23', 'hu')).toBe('2026. október 23.');
     expect(formatChangeDate('2026-10-23', 'zh')).toBe('2026年10月23日');
+    expect(formatChangeDate('2026-10-23', 'vi')).toBe('23 tháng 10 2026');
   });
 });
 
@@ -183,5 +184,7 @@ describe('the changelog helpers', () => {
     expect(formatChangeMonth('2026-02-01', 'hu')).toBe('2026. február');
     expect(changeStamp(week, 'zh')).toEqual({ big: '2', small: '10月' });
     expect(formatChangeMonth('2026-02-01', 'zh')).toBe('2026年2月');
+    expect(changeStamp(week, 'vi')).toEqual({ big: '2', small: 'Tháng 10' });
+    expect(formatChangeMonth('2026-02-01', 'vi')).toBe('Tháng 2 năm 2026');
   });
 });

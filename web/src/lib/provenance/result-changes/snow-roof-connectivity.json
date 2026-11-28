@@ -21,6 +21,7 @@
     "de": "Schnee verwendet durchgehende Dächer und ausgewählte Geometrie",
     "fr": "La neige suit les toits continus et la géométrie sélectionnée",
     "tr": "Kar yükleri sürekli çatıları ve seçilen geometriyi izliyor",
+    "vi": "Chiều dài đón tuyết theo các mái liên tục và hình học đã chọn",
     "zh": "雪的风吹距离沿连续屋面和所选几何"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "de": "Dachverbindungen prüfen alle Flächengrenzen, bevor sie die Verwehungslänge erweitern oder abrutschenden Schnee aufnehmen. Ausgewählte Dächer bestimmen ihre eigenen Achsen, Breiten und Richtungen. Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2095). In 0.6.1 enthalten.",
     "fr": "Les jonctions vérifient toutes les limites de surface avant de prolonger la longueur de congère ou de recevoir la neige glissée. Le toit sélectionné définit ses propres axes, largeur et directions. Régénérez les charges de neige et relancez analyses, combinaisons et vérifications (#2095). Correction incluse dans 0.6.1.",
     "tr": "Çatı bağlantıları sürüklenme uzunluğunu artırmadan veya kayan karı almadan önce tüm yüzey sınırlarını denetler. Seçilen çatılar kendi eksenlerini, genişliklerini ve yönlerini belirler. Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri çalıştırın (#2095). Düzeltme 0.6.1 sürümüne dahildir.",
+    "vi": "Các mối nối mái kiểm tra mọi ranh giới bề mặt trước khi kéo dài chiều dài đón tuyết tích tụ hoặc nhận tuyết trượt. Các mái đã chọn tự xác định khung tuyết, bề rộng và hướng của chúng. Hãy tạo lại các tải trọng tuyết và chạy lại các phân tích, tổ hợp và phép kiểm tra thiết kế (#2095). Bản sửa này có trong 0.6.1.",
     "zh": "屋面相接时，在延长堆积风吹距离或接收滑落的雪之前，会检查所有表面边界。被选中的屋面决定其自身的雪荷载框架、宽度和方向。请重新生成雪荷载，并重新运行分析、组合和设计验算（#2095）。此修正已包含在 0.6.1 中。"
   },
   "changelog": {

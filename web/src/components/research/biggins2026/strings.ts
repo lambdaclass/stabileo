@@ -219,6 +219,40 @@ const hu: Strings = {
     "Euler f1 relative error": "Második Euler-teher"
   }
 };
+const vi: Strings = {
+  resultParameters: "Các tham số đã tính",
+  alpha: "Độ cong ưu tiên α = Lκ₀",
+  force: "Lực dọc f = NL²/EI (dương: nén; âm: kéo)",
+  coordinates: "Ngàm hai đầu. Tọa độ là x/L và w/L; α là độ cong ưu tiên nhân với nhịp L.",
+  referenceCaveat: "Bộ tối ưu mặc định của các tác giả và phép cầu phương cho tiết diện chữ nhật tạo ra những bất thường nhỏ; kết quả 70% của họ là {software}, trong khi bài báo công bố {published}.",
+
+  title: 'Vòm bật qua độ cong theo mẫu',
+  lead: 'Thay đổi bề rộng của một đoạn cong và dịch chuyển ngưỡng tại đó một vòm thoải chuyển sang phía bên kia.',
+  model: 'Từ mất ổn định Euler đến bước nhảy cân bằng',
+  theory: 'Một vòm phẳng ngàm hai đầu tích trữ độ co ngắn đầu mút trong hình dạng của nó. Một mẫu độ cong ưu tiên liên kết với các dạng mất ổn định của nó. Các phương trình (2) và (3), arXiv v2 trang 3–4, cho cân bằng góc nhỏ và phổ nén. Chúng tôi giới hạn thí nghiệm này ở một mẫu chữ nhật đặt ở giữa.',
+  method: 'Bộ giải mất ổn định khung 2D của Stabileo bản sản xuất tính 16 dạng trên 64 phần tử. Một lớp nghiên cứu chiếu độ cong lên các dạng này và giải ràng buộc nén của bài báo. Cùng một mã Rust chạy ở đây dưới dạng WASM và tạo ra bản phát lại.',
+  limits: 'Đây là mô hình cân bằng thoải, không giãn. Bước nhảy nối các trạng thái cân bằng; nó không mô phỏng động lực học bật và cũng không tái hiện các phép đo trong phòng thí nghiệm. Phương pháp chiều dài cung trong bộ giải bản sản xuất từ chối chuyển vị cưỡng bức và tải nhiệt, nên không được dùng cho đường đi do độ cong điều khiển này. Chỉ các mẫu đặt ở giữa và độ co ngắn đầu mút nhỏ được đề cập.',
+  evidence: 'Tại bề rộng kích thích 70%, bài báo cho α/√ε = {threshold} (arXiv v2 trang 3, sau Pt. 2). Lớp phủ được tạo lại từ phần mềm góc nhỏ của các tác giả trong bản ghi Zenodo 18256271, cấp phép CC-BY-4.0. Đây là tham chiếu số, không phải kiểm chứng thực nghiệm.',
+  checks: 'Kiểm chứng và nguồn',
+  checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Đường cong Zenodo: sai số tương đối lớn nhất', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": 'Tinh chỉnh lưới và dạng dao động', "Euler f0 relative error": 'Tải Euler thứ nhất', "Euler f1 relative error": 'Tải Euler thứ hai'} as Record<string, string>,
+  publishedValue: 'Ngưỡng đã công bố tại bề rộng 70%',
+  width: 'Bề rộng được kích thích γ',
+  compression: 'Độ co ngắn đầu mút ε',
+  threshold: 'Ngưỡng bật α',
+  normalized: 'Ngưỡng chuẩn hóa α/√ε',
+  mode: 'Dạng mất ổn định phản đối xứng thứ nhất',
+  arch: 'Cân bằng của vòm',
+  jump: 'Chuỗi cân bằng; bước nhảy không có thời lượng vật lý',
+  run: 'Tính lại trực tiếp', stop: 'Dừng', restart: 'Chạy lại',
+  error: 'Bộ giải không tải được hoặc không hoàn tất. Kết quả trước đó vẫn còn.',
+  computing: 'Đang tính với Stabileo…',
+  paper: 'Bài báo và các phương trình bổ sung',
+  data: 'Dữ liệu và phần mềm Zenodo',
+  ours: 'Các dạng của Stabileo + phương trình vòm thoải',
+  reference: 'Phần mềm Zenodo của các tác giả',
+  parameterNotice: 'Các kết quả hiển thị giữ nguyên tham số đã tính cho đến khi tính lại hoàn tất.',
+};
+
 const zh: Strings = {
   "title": "曲率分布诱发拱的突跳屈曲",
   "lead": "改变曲线段的宽度，移动浅拱换向的阈值。",
@@ -258,5 +292,5 @@ const zh: Strings = {
     "Euler f1 relative error": "第二 Euler 荷载"
   }
 };
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, vi, zh };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

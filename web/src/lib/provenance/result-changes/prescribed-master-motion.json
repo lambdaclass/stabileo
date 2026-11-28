@@ -19,6 +19,7 @@
     "fr": "Conserver le mouvement imposé du maître dans les solutions contraintes",
     "hu": "A kényszerített mestercsomópont-elmozdulás megőrzése",
     "tr": "Kısıtlı çözümlerde tanımlı ana düğüm hareketini koru",
+    "vi": "Bảo toàn chuyển động cưỡng bức của nút chủ trong các nghiệm có liên kết",
     "zh": "在受约束的解中保留给定的主节点运动"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "fr": "Les analyses par étapes, de fondation, de contact et non linéaires incluent le mouvement imposé du maître dans les déplacements de l’esclave et l’équilibre (#2008). Les analyses de câbles et les historiques temporels refusent les mouvements imposés non pris en charge. Relancer les analyses concernées.",
     "hu": "Az építési fázisok, alapozás, érintkezés és nemlineáris vizsgálatok a kényszerek mestercsomópontjainak előírt mozgását is figyelembe veszik a szolga-elmozdulásokban és az egyensúlyban (#2008). A kábeles vizsgálatok kábelelemek mellett, valamint az időtörténetek elutasítják a nem támogatott előírt támaszmozgást. Futtassa újra az érintett vizsgálatokat.",
     "tr": "Aşamalı, temel, temas ve doğrusal olmayan analizler ana düğüm hareketini bağımlı düğüm deplasmanlarına ve dengeye dahil eder (#2008). Kablo ve zaman tanım alanı analizleri desteklenmeyen mesnet hareketlerini reddeder. Etkilenen analizleri yeniden çalıştırın.",
+    "vi": "Các phân tích theo giai đoạn, móng, tiếp xúc và phi tuyến nay bao gồm chuyển động cưỡng bức của nút chủ liên kết trong chuyển vị của nút phụ thuộc và cân bằng (#2008). Các phân tích dây có phần tử dây và các lịch sử thời gian từ chối chuyển động cưỡng bức của gối tựa mà chúng không triển khai. Hãy chạy lại các phân tích bị ảnh hưởng.",
     "zh": "分阶段、基础、接触和非线性分析现在在从节点位移和平衡中包含给定的约束主节点运动（#2008）。含索单元的索分析和时程分析，会拒绝其未实现的给定支座运动。请重新运行受影响的分析。"
   },
   "changelog": {

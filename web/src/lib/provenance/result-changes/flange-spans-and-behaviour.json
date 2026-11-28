@@ -18,6 +18,7 @@
     "de": "Bemessung berücksichtigt Stabverhalten und Flanschlängen",
     "fr": "Les efforts de calcul respectent le comportement et les portées des semelles",
     "tr": "Tasarım talepleri davranış ve başlık açıklıklarını izler",
+    "vi": "Nội lực thiết kế tuân theo ứng xử và nhịp cánh",
     "zh": "设计内力考虑工作性状和翼缘跨度"
   },
   "explanation": {
@@ -27,6 +28,7 @@
     "de": "Ausgeschlossene Normalkräfte werden in allen maßgebenden Datensätzen entfernt. Cb verwendet die gewählte Flanschlänge; fehlt das zugehörige Diagramm, entfällt dessen günstiger Einfluss. Betonberichte beschreiben die geprüfte gemeinsame Bewehrung. Gespeicherte Bemessungen erneut ausführen und Ausnutzung, Kombinationen, Zertifikate und Berichte prüfen (PR #2080).",
     "fr": "L’effort normal exclu est retiré de chaque enregistrement déterminant. Cb utilise la portée de la semelle sélectionnée, sans bénéfice du diagramme si cette portée est indisponible. Les rapports béton décrivent l’armature commune évaluée. Relancer les calculs enregistrés et vérifier taux, combinaisons, certificats et rapports (PR #2080).",
     "tr": "Dışlanan eksenel kuvvet tüm belirleyici kayıtlardan kaldırılır. Cb seçilen başlık açıklığını kullanır; bu açıklığın diyagramı yoksa diyagram avantajı verilmez. Beton raporları değerlendirilen ortak donatıyı açıklar. Kayıtlı tasarımları yeniden çalıştırıp oranları, kombinasyonları, sertifikaları ve raporları inceleyin (PR #2080).",
+    "vi": "Lực dọc bị loại trừ được che đi trong mọi bản ghi chi phối. Cb của thép dùng nhịp cánh đã chọn và không được tính hệ số từ biểu đồ khi nhịp đó không có sẵn. Các báo cáo lồng cốt thép dùng chung mô tả đúng cốt thép đã được đánh giá. Hãy chạy lại các thiết kế đã lưu và rà soát hệ số sử dụng, tổ hợp, chứng nhận và báo cáo (PR #2080).",
     "zh": "被排除的轴力会在每条控制记录中被屏蔽。钢材 Cb 采用所选的翼缘跨度，该跨度不可用时不计内力图的折减。混凝土共用钢筋笼的报告描述的是被验算的配筋。请重新运行已保存的设计，并复核利用率、组合、证书和报告（PR #2080）。"
   },
   "quantities": [

@@ -18,6 +18,7 @@ const locales: [PublicLocale, string, string][] = [
   ['tr', 'Yüksek', '0.6.2 sürümünde düzeltildi'],
   ['hu', 'Magas', 'Javítva a 0.6.2 verzióban'],
   ['zh', '高', '已在 0.6.2 中修复'],
+  ['vi', 'Cao', 'Đã sửa trong 0.6.2'],
 ];
 
 it('#2207 covers every public advisory locale', () => {

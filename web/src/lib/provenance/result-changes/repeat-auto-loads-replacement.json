@@ -15,6 +15,7 @@
     "de": "Ersetzen automatischer Lasten stabil halten",
     "fr": "Stabiliser le remplacement des charges automatiques",
     "tr": "Otomatik Yükleri değiştirirken birleşimleri koru",
+    "vi": "Giữ cho việc thay thế Tải tự động có tính lũy đẳng",
     "zh": "保持自动荷载替换结果一致",
     "hu": "Az automatikus terhek cseréjének stabilizálása"
   },
@@ -25,6 +26,7 @@
     "de": "Beim Ersetzen automatischer Lasten konnten Kombinationen einen dabei geleerten Lastfall enthalten. Prüfen Sie leere Lastfälle und behalten Sie beabsichtigte Varianten bei. Erzeugen Sie anschließend die Kombinationen neu und berechnen Sie Analysen und Einhüllende erneut.",
     "fr": "Le remplacement des charges automatiques pouvait générer des combinaisons incluant un cas vidé par ce remplacement. Vérifiez les cas vides et conservez les variantes voulues. Régénérez ensuite les combinaisons, puis relancez les analyses et le calcul des enveloppes.",
     "tr": "Otomatik Yükleri değiştirmek, bu işlemde boşalan bir yük durumunu içeren birleşimler oluşturabiliyordu. Boş durumları gözden geçirin ve amaçlanan alternatifleri koruyun. Ardından birleşimleri yeniden oluşturun ve analizleri ve zarfları yeniden hesaplayın.",
+    "vi": "Việc thay thế Tải tự động có thể tạo ra các tổ hợp chứa một trường hợp tải đã bị làm rỗng do thay thế. Hãy rà soát các trường hợp tải rỗng và giữ lại các phương án thay thế có chủ đích, sau đó tạo lại các tổ hợp và chạy lại các phân tích cùng biểu đồ bao.",
     "zh": "替换自动荷载时，生成的组合可能包含在替换过程中被清空的荷载工况。请检查空工况并保留有意设置的备选工况，然后重新生成组合并重新计算分析和包络。",
     "hu": "Az automatikus terhek cseréje olyan kombinációkat hozhatott létre, amelyek egy a csere során kiürült teheresetet tartalmaztak. Ellenőrizze az üres tehereseteket, és tartsa meg a szándékos alternatívákat. Ezután hozza létre újra a kombinációkat, és számítsa újra az elemzéseket és a burkológörbéket."
   },

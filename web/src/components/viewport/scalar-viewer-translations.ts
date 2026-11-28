@@ -140,6 +140,26 @@ export const hu = {
   "scalarViewer.keyboard": "Billentyűzet: a nyilak mozgatják a nézetet, a Shift+nyilak 3D-ben forgatnak, a + és a - nagyít, a 0 vagy a Home a nézethez igazít",
 } satisfies ViewerStrings;
 
+export const vi = {
+  "scalarViewer.view": "Xem",
+  "scalarViewer.viewOptions": "Tùy chọn xem",
+  "scalarViewer.close": "Đóng",
+  "scalarViewer.fit": "Thu phóng vừa khung nhìn",
+  "scalarViewer.plan": "2D (mặt bằng, khóa xoay)",
+  "scalarViewer.orbit": "3D (xoay quanh)",
+  "scalarViewer.switchProjection": "Chuyển giữa mặt bằng và xoay quanh trong 3D",
+  "scalarViewer.viewer": "Trình xem Stabileo",
+  "scalarViewer.position": "vị trí:",
+  "scalarViewer.zoom": "thu phóng:",
+  "scalarViewer.model": "mô hình:",
+  "scalarViewer.bars": "{nodes} nút, {cells} thanh",
+  "scalarViewer.elements": "{nodes} nút, {cells} phần tử",
+  "scalarViewer.openEditor": "Mở trong trình soạn thảo",
+  "scalarViewer.soon": " (sắp có)",
+  "scalarViewer.editorNote": "Việc mở thí nghiệm trong trình soạn thảo sẽ có trong chế độ nghiên cứu",
+  "scalarViewer.keyboard": "Bàn phím: phím mũi tên để di chuyển, Shift+mũi tên để xoay trong 3D, + và - để thu phóng, 0 hoặc Home để vừa khung nhìn",
+};
+
 export const zh = {
   "scalarViewer.view": "视图",
   "scalarViewer.viewOptions": "视图选项",
