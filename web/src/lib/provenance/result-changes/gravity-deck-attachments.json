@@ -22,6 +22,7 @@
     "de": "Schwerkraftlasten auf gekoppelten unabhängigen Geschossen und angeschlossenen Dächern erhalten",
     "fr": "Préserver les charges gravitaires des étages indépendants liés et des toitures raccordées",
     "tr": "Bağlı bağımsız katlarda ve çatı döşemelerinde yerçekimi yüklerini koruma",
+    "ru": "Сохранение гравитационной нагрузки на независимо связанных этажах и присоединённых кровельных настилах",
     "zh": "保留受约束的独立楼层和相连屋面的重力荷载",
     "hu": "A gravitációs terhek megőrzése összekötött független szinteken és csatlakozó tetőfödémeken"
   },
@@ -32,6 +33,7 @@
     "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Gekoppelte Schalen in getrennten Geschossen behalten ihre Lasten. Die Erzeugung stoppt, wenn Anschlüsse an kurzen Trägern die Zuordnung einer versetzten Schale nicht klären. Die eigenen Träger der Schale unterdrücken ihre gleichmäßig verteilte Dachnutzlast nicht.",
     "fr": "Régénérez les charges gravitaires par panneaux. Les coques liées à des étages distincts conservent chacune leurs charges. La génération s’arrête si les liaisons aux poutres courtes laissent indéterminée l’attribution d’une coque décalée. Les poutres de sa travée ne suppriment pas sa charge d’exploitation uniforme de toiture.",
     "tr": "Panel yerçekimi yüklerini yeniden üretin. Farklı katlardaki bağlı kabuklar kendi yüklerini korur. Kısa kiriş bağlantıları kotu farklı bir kabuğun döşeme aidiyetini belirsiz bırakırsa üretim durur. Kabuğun kendi açıklığındaki kirişler düzgün yayılı çatı hareketli yükünü kaldırmaz.",
+    "ru": "Сгенерируйте гравитационные нагрузки панелей заново. Связанные оболочки на разных этажах сохраняют каждая свои гравитационные нагрузки. Генерация останавливается, когда короткие связи каркаса оставляют неразрешённой принадлежность настила смещённой оболочки. Оболочка сохраняет равномерную временную нагрузку на кровлю под собственным каркасом пролёта.",
     "zh": "请重新生成按板格分配的重力荷载。不同楼层的壳即使通过约束连接，也各自保留重力荷载。如果短梁端部的约束无法确定有高差壳单元的归属，则停止生成。壳所属板格的梁不会消除其均布屋面活荷载。",
     "hu": "Generálja újra a mezőnkénti gravitációs terheket. A külön szinteken lévő összekötött héjak megtartják saját terheiket. A generálás leáll, ha a rövid gerendák kapcsolatai alapján nem egyértelmű az eltolt héj hozzárendelése. A mező saját gerendái nem szüntetik meg a héj egyenletes tetőhasznos terhét."
   },

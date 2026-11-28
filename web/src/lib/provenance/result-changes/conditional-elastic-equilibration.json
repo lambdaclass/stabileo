@@ -20,6 +20,7 @@
     "fr": "Calcul de la réponse élastique sous conditions en coordonnées mises à l’échelle",
     "hu": "Feltételes rugalmas válasz számítása skálázott koordinátákban",
     "tr": "Ölçeklenmiş koordinatlarda koşullu elastik yanıtın hesaplanması",
+    "ru": "Условное восстановление упругого отклика в масштабированных координатах",
     "zh": "在缩放坐标中恢复有条件通过的弹性响应"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "fr": "Le solveur affine en coordonnées mises à l’échelle les réponses élastiques admises sous conditions. Relancez les analyses concernées qui ont été refusées pour précision insuffisante de la réponse.",
     "hu": "A megoldó skálázott koordinátákban pontosítja a feltételesen befogadott rugalmas válaszokat. Futtassa újra az érintett elemzéseket, ha a válasz pontossága miatt elutasítást kapott.",
     "tr": "Çözücü, koşullu kabul edilen elastik yanıtları ölçeklenmiş koordinatlarda iyileştirir. Yanıt doğruluğu nedeniyle reddedilen ilgili analizleri yeniden çalıştırın.",
+    "ru": "Решатель уточняет условно допущенные упругие отклики в масштабированных координатах. Повторите затронутые расчёты, ранее отклонённые из-за точности отклика.",
     "zh": "求解器在缩放坐标中细化有条件通过的弹性响应。请重新运行此前因响应精度而被拒绝的受影响分析。"
   },
   "changelog": {

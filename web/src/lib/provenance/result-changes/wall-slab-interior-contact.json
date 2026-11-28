@@ -23,6 +23,7 @@
     "fr": "Contact de maillage entre voile et dalle",
     "hu": "A fal és a födém hálójának érintkezése",
     "tr": "Duvar ve döşeme ağlarının teması",
+    "ru": "Контакт сетки стены и плиты",
     "zh": "墙体与楼板的网格接触"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Le calcul spatial s’arrête lorsqu’un voile rencontre une dalle sans bord de maillage commun. Cela inclut une face de voile qui traverse la dalle entre deux sommets communs et un sommet de voile incliné dans la bande de contact. Remaillez la jonction avec des bords communs. Le calcul reste possible quand toute l’intersection du voile et de la dalle forme une arête de maillage commune.",
     "hu": "A térbeli számítás leáll, ha a fal közös hálóél nélkül találkozik a födémmel. Ide tartozik a födémet közös csúcsok között metsző falfelület és az érintkezési sávon belüli ferde falél. Hálózza újra a csatlakozást közös élekkel. A fal és a födém számítható, ha a teljes metszésvonal közös hálóél.",
     "tr": "Bir duvar döşemeye ortak ağ kenarı olmadan temas ederse üç boyutlu analiz durur. Buna döşemeyi ortak köşeler arasında kesen duvar yüzü ve temas bandı içindeki eğimli duvar tepesi dahildir. Birleşimi ortak kenarlarla yeniden ağlayın. Kesişimin tamamı ortak bir ağ kenarıysa duvar ve döşeme analiz edilebilir.",
+    "ru": "Пространственный расчёт останавливается там, где стена примыкает к плите без общего ребра сетки. Это включает грань стены, пересекающую плиту между общими углами, и наклонный верх внутри зоны контакта. Пересоздайте сетку в месте сопряжения с общими рёбрами. Стена и плита, у которых всё пересечение является общим ребром сетки, могут рассчитываться.",
     "zh": "墙体与楼板相接但没有共用网格边时，空间分析会停止。这包括墙面在共用角点之间穿过楼板，以及位于接触带内的倾斜墙顶。请重新划分连接处的网格，使两者共用边。 墙体与楼板的整条交线均为共用网格边时，可以进行分析。"
   },
   "changelog": {

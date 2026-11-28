@@ -6,6 +6,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Module volumique triangulaire",
     "tr": "Üçgen hacim modülü",
     "hu": "Háromszögrács térfogati modulusa",
+    'ru': "Модуль объёмной упругости, треугольная решётка",
     "zh": "三角形点阵体积模量"
   },
   "triangular-shear": {
@@ -15,6 +16,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Module de cisaillement triangulaire",
     "tr": "Üçgen kayma modülü",
     "hu": "Háromszögrács nyírási modulusa",
+    'ru': "Модуль сдвига, треугольная решётка",
     "zh": "三角形点阵剪切模量"
   },
   "triangular-poisson": {
@@ -24,6 +26,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Poisson triangulaire = 1/3",
     "tr": "Üçgen Poisson = 1/3",
     "hu": "Háromszögrács Poisson-tényezője = 1/3",
+    'ru': "Коэффициент Пуассона, треугольная решётка = 1/3",
     "zh": "三角形点阵泊松比 = 1/3"
   },
   "triangular-isotropy": {
@@ -33,6 +36,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Isotropie triangulaire",
     "tr": "Üçgen izotropi",
     "hu": "Háromszögrács izotrópiája",
+    'ru': "Изотропия, треугольная решётка",
     "zh": "三角形点阵各向同性"
   },
   "triangular-affinity": {
@@ -42,6 +46,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Déplacement non affine nul",
     "tr": "Afin olmayan yer değiştirme sıfır",
     "hu": "Nincs nem affin elmozdulás",
+    'ru': "Нулевое неаффинное перемещение",
     "zh": "无非仿射位移"
   },
   "bravais-stiffness": {
@@ -51,6 +56,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Rigidité périodique = Cauchy–Born",
     "tr": "Periyodik rijitlik = Cauchy–Born",
     "hu": "Periodikus merevség = Cauchy–Born",
+    'ru': "Периодическая жёсткость = Коши–Борн",
     "zh": "周期性刚度 = Cauchy–Born"
   },
   "bravais-cauchy": {
@@ -60,6 +66,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Relation de Cauchy",
     "tr": "Cauchy bağıntısı",
     "hu": "Cauchy-reláció",
+    'ru': "Соотношение Коши",
     "zh": "Cauchy 关系"
   },
   "square-shear": {
@@ -69,6 +76,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Réseau carré : cisaillement nul",
     "tr": "Kare kafes: kayma sıfır",
     "hu": "Négyzetrács: zérus nyírási modulus",
+    'ru': "Квадратная решётка: нулевой сдвиг",
     "zh": "正方形点阵：剪切模量为零"
   },
   "square-stiffness": {
@@ -78,6 +86,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Réseau carré : rigidité axiale",
     "tr": "Kare kafes: eksenel rijitlik",
     "hu": "Négyzetrács: tengelyirányú merevség",
+    'ru': "Квадратная решётка: осевая жёсткость",
     "zh": "正方形点阵：轴向刚度"
   },
   "square-tension": {
@@ -87,6 +96,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Réseau carré en traction : C33 = 2t",
     "tr": "Çekmedeki kare kafes: C33 = 2t",
     "hu": "Húzott négyzetrács: C33 = 2t",
+    'ru': "Квадратная решётка при растяжении: C33 = 2t",
     "zh": "受拉正方形点阵：C33 = 2t"
   },
   "energy": {
@@ -96,6 +106,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Énergie non linéaire et tenseur C",
     "tr": "Doğrusal olmayan enerji ve C tensörü",
     "hu": "Nemlineáris energia és a C tenzor",
+    'ru': "Нелинейная энергия и тензор C",
     "zh": "非线性能量与 C 张量"
   },
   "energy-prestress": {
@@ -105,6 +116,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Énergie avec précontrainte",
     "tr": "Öngerilmeli enerji",
     "hu": "Energia előfeszítéssel",
+    'ru': "Энергия с предварительным напряжением",
     "zh": "含预应力的能量"
   },
   "rotation": {
@@ -114,6 +126,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Invariance par rotation",
     "tr": "Dönme değişmezliği",
     "hu": "Forgatási invariancia",
+    'ru': "Инвариантность относительно поворота",
     "zh": "旋转不变性"
   },
   "dilution-floppy": {
@@ -123,6 +136,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Dilution z = 3 : G nul",
     "tr": "Seyreltme z = 3: G sıfır",
     "hu": "Ritkítás z = 3: G zérus",
+    'ru': "Разрежение z = 3: G равен нулю",
     "zh": "稀化 z = 3：G 为零"
   },
   "dilution-rigid": {
@@ -132,6 +146,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Dilution z = 5.4 : G/k ≥ 0.1",
     "tr": "Seyreltme z = 5.4: G/k ≥ 0.1",
     "hu": "Ritkítás z = 5.4: G/k ≥ 0.1",
+    'ru': "Разрежение z = 5.4: G/k ≥ 0.1",
     "zh": "稀化 z = 5.4：G/k ≥ 0.1"
   },
   "engine-displacement": {
@@ -141,6 +156,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Déplacements comparés au solveur de production",
     "tr": "Üretim çözücüsüyle yer değiştirmeler",
     "hu": "Elmozdulások a termékben használt megoldóval",
+    'ru': "Перемещения в сравнении с рабочим ядром",
     "zh": "位移与生产环境求解器对比"
   },
   "engine-force": {
@@ -150,6 +166,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Efforts comparés au solveur de production",
     "tr": "Üretim çözücüsüyle kuvvetler",
     "hu": "Erők a termékben használt megoldóval",
+    'ru': "Силы в сравнении с рабочим ядром",
     "zh": "力与生产环境求解器对比"
   },
   "strip-bias": {
@@ -159,6 +176,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Bande 13 × 52 : effet de taille",
     "tr": "Şerit 13 × 52: boyut etkisi",
     "hu": "13 × 52-es sáv: méreteffektus",
+    'ru': "Полоса 13 × 52: смещение из-за размера",
     "zh": "13 × 52 条带：尺寸效应"
   },
   "strip-26": {
@@ -168,6 +186,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Bande de largeur 26 : ν = 0.354",
     "tr": "Şerit genişliği 26: ν = 0.354",
     "hu": "26-os sávszélesség: ν = 0.354",
+    'ru': "Полоса шириной 26: ν = 0.354",
     "zh": "条带宽度 26：ν = 0.354"
   },
   "strip-52": {
@@ -177,6 +196,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Bande de largeur 52 : ν = 0.345",
     "tr": "Şerit genişliği 52: ν = 0.345",
     "hu": "52-es sávszélesség: ν = 0.345",
+    'ru': "Полоса шириной 52: ν = 0.345",
     "zh": "条带宽度 52：ν = 0.345"
   },
   "strip-extrapolation": {
@@ -186,6 +206,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Extrapolation de Richardson",
     "tr": "Richardson ekstrapolasyonu",
     "hu": "Richardson-extrapoláció",
+    'ru': "Экстраполяция Ричардсона",
     "zh": "Richardson 外推"
   },
   "eq9": {
@@ -195,6 +216,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Éq. (9) du supplément : rigidité inverse au carré",
     "tr": "Ek Denk. (9): ters kare rijitlik",
     "hu": "Kiegészítő (9) egyenlet: fordított négyzetes merevség",
+    'ru': "Дополнительное ур. (9): обратная жёсткость в квадрате",
     "zh": "补充材料式 (9)：反平方刚度"
   },
   "hookean-convention": {
@@ -204,6 +226,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Constantes égales : ν = 1/6",
     "tr": "Eşit sabitler: ν = 1/6",
     "hu": "Azonos állandók: ν = 1/6",
+    'ru': "Равные постоянные: ν = 1/6",
     "zh": "相同常数：ν = 1/6"
   },
   "eq9-convention": {
@@ -213,6 +236,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Éq. (9) : ν = 8/27",
     "tr": "Denk. (9): ν = 8/27",
     "hu": "(9) egyenlet: ν = 8/27",
+    'ru': "Ур. (9): ν = 8/27",
     "zh": "式 (9)：ν = 8/27"
   },
   "fig7": {
@@ -222,6 +246,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Fig. 7 : courbe calculée, 741 points",
     "tr": "Şekil 7: hesap eğrisi, 741 nokta",
     "hu": "7. ábra: számított görbe, 741 pont",
+    'ru': "Рис. 7: рассчитанная линия, 741 точка",
     "zh": "图 7：计算线，741 个点"
   },
   "honey-3": {
@@ -231,6 +256,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Nid-d’abeilles : éq. (23), k = 10⁻³",
     "tr": "Petek: Denk. (23), k = 10⁻³",
     "hu": "Méhsejtrács: (23) egyenlet, k = 10⁻³",
+    'ru': "Соты: ур. (23), k = 10⁻³",
     "zh": "蜂窝：式 (23)，k = 10⁻³"
   },
   "honey-6": {
@@ -240,6 +266,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Nid-d’abeilles : éq. (23), k = 10⁻⁶",
     "tr": "Petek: Denk. (23), k = 10⁻⁶",
     "hu": "Méhsejtrács: (23) egyenlet, k = 10⁻⁶",
+    'ru': "Соты: ур. (23), k = 10⁻⁶",
     "zh": "蜂窝：式 (23)，k = 10⁻⁶"
   },
   "fig9": {
@@ -249,6 +276,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Fig. 9 : modules sans désordre",
     "tr": "Şekil 9: düzensiz olmayan modüller",
     "hu": "9. ábra: rendezetlenség nélküli modulusok",
+    'ru': "Рис. 9: модули без беспорядка",
     "zh": "图 9：无无序度时的模量"
   },
   "fig5-periodic": {
@@ -258,6 +286,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Fig. 5 : comparaison entre cellules périodiques et bandes",
     "tr": "Şekil 5: periyodik hücre ve şerit karşılaştırması",
     "hu": "5. ábra: periodikus cella és sáv összevetése",
+    'ru': "Рис. 5: сравнение периодических протоколов и полос",
     "zh": "图 5：周期性单元与条带的比较"
   },
   "zero-crossing": {
@@ -267,6 +296,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Passage à zéro entre protocoles",
     "tr": "Protokoller arası sıfır geçişi",
     "hu": "Zérushely-átmenet a protokollok között",
+    'ru': "Переход через нуль между протоколами",
     "zh": "不同方案间的过零点"
   },
   "ensemble-regression": {
@@ -276,6 +306,7 @@ const labels: Record<string, Record<string, string>> = {
     "fr": "Régression de l’ensemble périodique à η = 0.5",
     "tr": "η = 0.5 için periyodik topluluk regresyonu",
     "hu": "Periodikus sokaság regressziója η = 0.5 esetén",
+    'ru': "Регрессия периодического ансамбля при η = 0.5",
     "zh": "η = 0.5 时周期性系综的回归"
   }
 };

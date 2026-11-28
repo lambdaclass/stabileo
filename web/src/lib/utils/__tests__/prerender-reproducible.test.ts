@@ -104,7 +104,7 @@ describe('two prerenders of one build are byte-identical (#875)', () => {
 
   it('known wrong result: #2365 — captures completed Mattiasson results when the solver starts late', async () => {
     await withDelayedSolver([MATTIASSON], html => {
-      for (const locale of ['en', 'tr', 'zh']) {
+      for (const locale of ['en', 'tr', 'zh', 'ru']) {
         expect(html(locale, MATTIASSON), locale).toMatch(/data-testid="mattiasson-summary"[^>]*>[^<]*5\/5/);
       }
     });

@@ -18,6 +18,7 @@ export const GAMES: readonly GameCard[] = [
       fr: { title: 'Diagrammes : choisissez le bon', description: 'Une structure, ses charges et trois ou quatre diagrammes : choisissez le bon avant la fin du temps. On commence par des poutres simples et on arrive aux portiques et aux treillis.' },
       tr: { title: 'Diyagramlar: doğru olanı seçin', description: 'Bir yapı, yükleri ve üç ya da dört diyagram: süre bitmeden doğru olanı seçin. Basit kirişlerle başlar, çerçevelere ve kafes sistemlere kadar ilerler.' },
       hu: { title: 'Válassza ki a helyes ábrát', description: 'Egy szerkezet, a terhei és három-négy ábra: válassza ki a helyeset, mielőtt lejár az idő. Egyszerű gerendáktól keretekig és rácsos tartókig.' },
+      ru: { title: 'Выберите верную эпюру', description: 'Конструкция, её нагрузки и три-четыре эпюры: выберите верную, пока не истекло время. Игра начинается с простых балок и доходит до рам и ферм.' },
       zh: { title: '哪幅图是正确的？', description: '观察结构及其荷载，在倒计时结束前从三到四个选项中选出正确的内力图或变形图。从简单的梁开始，逐步过渡到框架和桁架。' },
     },
   },

@@ -24,6 +24,7 @@
     "fr": "Transfert de l’inertie sur les diagonales en X connectées",
     "hu": "A kapcsolt X-merevítők tehetetlenségi terhei a rudakon hatnak",
     "tr": "Bağlı X çaprazlarda ataletin çapraz açıklıklarına aktarılması",
+    "ru": "Передача инерции связанных X-образных связей на их пролёты",
     "zh": "沿连接式 X 形支撑传递惯性力"
   },
   "explanation": {
@@ -34,6 +35,7 @@
     "fr": "Lorsque les diagonales sont appariées sans ambiguïté et leurs extrémités établies, l’inertie sismique statique agit le long des tronçons affectés à l’étage actif. Régénérez les charges sismiques concernées.",
     "hu": "Egyértelmű párosítás és igazolt végpontok esetén a statikus szeizmikus tehetetlenség az aktív szinthez rendelt rúdszakaszokon hat. Generálja újra az érintett szeizmikus terheket.",
     "tr": "Benzersiz eşleştirilmiş ve uçları doğrulanmış kesişimde statik deprem ataleti, etkin kata atanan çapraz parçaları boyunca etkir. Etkilenen deprem yüklerini yeniden oluşturun.",
+    "ru": "При однозначно сопоставленном пересечении с подтверждёнными конечными точками статическая сейсмическая инерция действует вдоль каждого пролёта связи, отнесённого к активному этажу. Заново сформируйте затронутые сейсмические нагрузки.",
     "zh": "交叉支撑可唯一配对且端点有楼层依据时，等效静力地震惯性力沿分配给有效楼层的支撑区段作用。请重新生成受影响的地震荷载。"
   },
   "changelog": {

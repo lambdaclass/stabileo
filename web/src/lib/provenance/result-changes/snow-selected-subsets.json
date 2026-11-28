@@ -22,6 +22,7 @@
     "fr": "Les barres sélectionnées conservent la force et les moments de neige en plan",
     "tr": "Seçili kar yükü taşıyıcılarında kuvvet ve plan momentleri korunur",
     "hu": "A kijelölt hóteherhordozók megőrzik az erőt és az alaprajzi nyomatékokat",
+    "ru": "Выбранные снеговые несущие элементы сохраняют силу и моменты в плане",
     "zh": "所选的雪荷载承载杆件保留合力和平面力矩"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "fr": "La sélection partielle d’un alignement subdivisé découpe désormais la bande physique de neige aux limites actives avant l’approximation des charges de barre. Le découpage d’une bande complète déjà approchée pouvait perdre la force et les deux moments en plan. Régénérez les charges de neige générées concernées puis relancez analyses, combinaisons et vérifications. (#2197).",
     "tr": "Bölünmüş bir taşıyıcı dizisinin yalnızca bir kısmı seçildiğinde fiziksel kar şeridi, eleman yükleri yaklaştırılmadan önce etkin seçim sınırlarında bölünür. Daha önce yaklaştırılmış tam şeridin kesilmesi kuvveti ve plandaki iki momenti değiştirebiliyordu. Etkilenen üretilmiş kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. (#2197).",
     "hu": "Felosztott rúdsor részleges kijelölésekor a fizikai hótehersáv most az aktív kijelölési határoknál oszlik szét a rúdterhek közelítése előtt. A teljes sáv korábbi közelítésének levágása megváltoztathatta az erőt és mindkét alaprajzi nyomatékot. Állítsa elő újra az érintett generált hóterheket, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. (#2197).",
+    "ru": "Выбор только части разбитой цепочки несущих элементов теперь делит физическую снеговую полосу по границам активного выбора, прежде чем подбирать нагрузки на стержни. Обрезка ранее подобранной полной полосы могла терять силу и оба момента в плане. Заново сформируйте затронутые сформированные снеговые нагрузки, затем повторите расчёты, сочетания и проверки проектирования. (#2197).",
     "zh": "只选中已细分的承载杆件连续段的一部分时，现在会在拟合杆件荷载之前，于有效选择边界处拆分实际的雪荷载条带。裁剪以前已拟合的整条条带，可能丢失合力和两个平面力矩。请重新生成受影响的生成雪荷载，然后重新运行分析、组合和设计验算。（#2197）。"
   },
   "changelog": {

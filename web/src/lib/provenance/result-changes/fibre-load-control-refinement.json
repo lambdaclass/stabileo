@@ -33,6 +33,7 @@
     "fr": "Le contrôle en charge des fibres de béton affine son intervalle d’arrêt",
     "hu": "A betonszálas terhelésvezérlés finomítja a leállási intervallumát",
     "tr": "Beton liflerinde yük kontrolü durma aralığını daraltır",
+    "ru": "Управление нагрузкой в бетонных волокнах уточняет интервал остановки",
     "zh": "混凝土纤维模型的荷载控制细化其终止区间"
   },
   "explanation": {
@@ -43,6 +44,7 @@
     "fr": "Les analyses de fibres de béton réduisent les incréments en échec ou à tangente non positive et fournissent un intervalle affiné non certifié. Relancez les analyses 2D arrêtées. La dernière charge convergée est un équilibre, pas une capacité certifiée.",
     "hu": "A betonszálas futtatások most visszalépnek a sikertelen vagy nem pozitív érintőmerevségű próbáknál, és finomított, nem tanúsított terhelésvezérlési intervallumot közölnek. Futtassa újra a leállt 2D szálas pushover-analíziseket. Az utolsó konvergált teher egyensúlyi állapot, nem tanúsított teherbírás.",
     "tr": "Beton lifi analizleri başarısız veya pozitif olmayan teğetli adımları küçültür ve daraltılmış, sertifikasız bir aralık bildirir. Durmuş 2B analizleri yeniden çalıştırın. Son yakınsayan yük bir denge durumudur, sertifikalı kapasite değildir.",
+    "ru": "Расчёты бетона по волокнам теперь откатывают неудачные пробные шаги или шаги с неположительным касательным модулем и сообщают уточнённый несертифицированный интервал управления нагрузкой. Повторите остановленные 2D-расчёты пушовера по волокнам. Последняя сошедшаяся нагрузка есть равновесие, а не сертифицированная несущая способность.",
     "zh": "混凝土纤维模型的运行现在会回退失败或切线非正的试算步，并报告经细化的、未经认证的荷载控制区间。请重新运行已停止的 2D 纤维 pushover。最后一个收敛的荷载是一个平衡状态，而不是经认证的承载力。"
   },
   "changelog": {

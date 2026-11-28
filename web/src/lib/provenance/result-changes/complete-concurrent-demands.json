@@ -23,6 +23,7 @@
     "de": "Bauteilnachweise benötigen vollständige Stationsdaten",
     "fr": "Les vérifications exigent des données complètes par section",
     "tr": "Eleman kontrolleri eksiksiz istasyon verisi gerektirir",
+    "ru": "Для проверок стержней нужны полные данные по сечениям",
     "zh": "杆件验算要求完整的站点数据"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "de": "Nachweise und Zertifikate lehnen fehlende Stationskombinationen sowie fehlende oder leere vollständige Krafttupel ab. Die Mindestbewehrung verwendet die gewählte wirksame Höhe; erforderliche und vorhandene Stahldehnungen werden getrennt ausgegeben. Gespeicherte Bemessungen erneut ausführen und Status, Bewehrung und Zertifikate prüfen (PR #2080).",
     "fr": "Les vérifications et certificats refusent les combinaisons sans sections et les jeux complets de tuples absents ou vides. Les armatures minimales utilisent la hauteur utile choisie ; les déformations des armatures requises et fournies sont séparées. Relancer les calculs enregistrés et vérifier états, armatures et certificats (PR #2080).",
     "tr": "Kontroller ve sertifikalar, istasyonları eksik birleşimleri ve eksik veya boş tam kuvvet kümelerini reddeder. Asgari donatı seçilen faydalı yüksekliği kullanır; gerekli ve sağlanan donatı şekil değiştirmeleri ayrı gösterilir. Kayıtlı tasarımları yeniden çalıştırıp durumları, donatıyı ve sertifikaları inceleyin (PR #2080).",
+    "ru": "Проверки стержней и сертификаты отказывают при отсутствии сочетаний по сечениям и при отсутствующих или пустых кортежах полных сечений. Минимальная сталь в бетоне использует выбранную рабочую высоту; требуемые и принятые деформации стали выдаются раздельно. Повторите сохранённые расчёты бетона и стали и просмотрите статусы, армирование и сертификаты (PR #2080).",
     "zh": "杆件验算和证书会拒绝求解缺少站点组合、或缺少或为空的整站点内力组的情形。混凝土最小配筋采用所选的截面有效高度；所需钢筋应变与实配钢筋应变分别报告。请重新运行已保存的混凝土和钢结构设计，并复核状态、配筋和证书（PR #2080）。"
   },
   "changelog": {

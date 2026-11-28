@@ -18,6 +18,7 @@
     "fr": "Translations libres aux nœuds de treillis",
     "hu": "Szabad elmozdulások a rácsos tartó csomópontjain",
     "tr": "Kafes düğümlerinde serbest ötelenmeler",
+    "ru": "Свободные перемещения в узлах ферм",
     "zh": "桁架节点的自由平移"
   },
   "explanation": {
@@ -28,6 +29,7 @@
     "fr": "Le solveur refuse le modèle si un nœud peut se déplacer sans déformer les barres de treillis connectées ni violer les contraintes. Vérifiez à nouveau les résultats enregistrés des modèles concernés.",
     "hu": "A megoldó elutasítja a modellt, ha egy csomópont a kapcsolódó rácsrudak alakváltozása és a kényszerek megsértése nélkül elmozdulhat. Ellenőrizze újra az érintett modellek mentett eredményeit.",
     "tr": "Bir düğüm bağlı kafes çubuklarını deforme etmeden ve kısıtları ihlal etmeden ötelenebiliyorsa çözücü modeli reddeder. Etkilenen modellerin kayıtlı sonuçlarını yeniden kontrol edin.",
+    "ru": "Решатель отказывает в расчёте модели, если узел может перемещаться, не деформируя присоединённые стержни фермы и не нарушая своих закреплений. Перепроверьте сохранённые результаты расчёта затронутых моделей.",
     "zh": "如果节点可以平移而不使相连的桁架杆产生应变，也不违反约束，求解器将拒绝求解。请重新检查受影响模型的已保存分析结果。"
   },
   "changelog": {

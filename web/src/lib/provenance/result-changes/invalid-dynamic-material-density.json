@@ -25,6 +25,7 @@
     "fr": "Masse volumique requise pour la masse dynamique",
     "hu": "A dinamikai tömeghez szükséges az anyagsűrűség",
     "tr": "Dinamik kütle için malzeme yoğunluğu gerekli",
+    "ru": "Требование плотности материала для динамической массы",
     "zh": "计算动力分析质量时必须提供材料密度"
   },
   "explanation": {
@@ -35,6 +36,7 @@
     "fr": "Le calcul dynamique refuse désormais une barre ou une coque dont la masse volumique est absente ou invalide. Saisissez une masse volumique finie et positive ou nulle, puis relancez le calcul.",
     "hu": "A dinamikai elemzés elutasítja a rudat vagy héjat, ha az anyagsűrűsége hiányzik vagy érvénytelen. Adjon meg véges, nemnegatív sűrűséget, majd futtassa újra az elemzést.",
     "tr": "Dinamik analiz artık malzeme yoğunluğu eksik veya geçersiz olan çubukları veya kabukları reddeder. Sonlu ve negatif olmayan malzeme yoğunluğunu girip analizi yeniden çalıştırın.",
+    "ru": "Динамический расчёт теперь отклоняет стержень или оболочку, у которых плотность материала отсутствует или недопустима. Введите конечную неотрицательную плотность материала и повторите расчёт.",
     "zh": "如果杆件或壳单元的材料密度缺失或无效，动力分析现在会拒绝该输入。请输入有限且非负的材料密度，然后重新运行分析。"
   },
   "changelog": {

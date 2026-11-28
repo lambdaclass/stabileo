@@ -18,6 +18,7 @@ const LANGUAGE: Record<Locale, string> = {
   fr: 'Français',
   tr: 'Türkçe',
   hu: 'Magyar',
+  ru: 'Русский',
   zh: '中文',
 };
 
@@ -84,6 +85,15 @@ const COPY: Record<Locale, Copy> = {
     tools: 'Eszközök',
     blog: 'Blog',
     app: 'Az alkalmazás megnyitása',
+  },
+  ru: {
+    title: 'Страница не найдена',
+    lead: 'По этому адресу страницы нет. Возможно, она переехала или в ссылке опечатка.',
+    home: 'Главная',
+    research: 'Исследования',
+    tools: 'Инструменты',
+    blog: 'Блог',
+    app: 'Открыть приложение',
   },
   zh: {
     title: '页面未找到',

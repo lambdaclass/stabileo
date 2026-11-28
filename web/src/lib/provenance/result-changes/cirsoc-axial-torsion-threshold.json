@@ -12,6 +12,7 @@
     "de": "Der Torsionsgrenzwert nach CIRSOC 201 berücksichtigt die gleichzeitig wirkende Normalkraft",
     "fr": "Le seuil de torsion du CIRSOC 201 tient compte de l’effort normal concomitant",
     "hu": "A CIRSOC 201 csavarási küszöbértéke figyelembe veszi az egyidejű normálerőt",
+    "ru": "Порог кручения в CIRSOC 201 учитывает одновременную продольную силу",
     "zh": "CIRSOC 201 扭转阈值计入同时作用的轴力",
     "tr": "CIRSOC 201 burulma eşiği eşzamanlı eksenel kuvveti hesaba katar"
   },
@@ -22,6 +23,7 @@
     "de": "Torsionsnachweis und Bewehrungsbemessung verwenden die Normalkraft aus derselben Lastkombination und demselben Querschnitt wie das Torsionsmoment. Berechnen Sie die betroffenen räumlichen Betontragwerke erneut (#2171).",
     "fr": "La vérification en torsion et le dimensionnement des armatures utilisent l’effort normal de la même combinaison de charges et de la même section que le moment de torsion. Recalculez les structures spatiales en béton concernées (#2171).",
     "hu": "A csavarási ellenőrzés és a vasalás méretezése a csavarónyomatékkal azonos teherkombináció és keresztmetszet normálerőjét használja. Számítsa újra az érintett térbeli betonszerkezeteket (#2171).",
+    "ru": "Проверки кручения и подбор армирования используют продольную силу из того же сочетания нагрузок и сечения, что и крутящий момент. Повторите затронутые расчёты пространственного бетона (#2171).",
     "zh": "扭转验算和配筋计算采用与扭矩处于同一荷载组合、同一截面的轴力。请重新运行受影响的空间混凝土设计（#2171）。",
     "tr": "Burulma denetimi ve donatı boyutlandırması, burulma momentiyle aynı yük birleşimi ve kesitteki eksenel kuvveti kullanır. Etkilenen üç boyutlu betonarme tasarımları yeniden hesaplayın (#2171)."
   },

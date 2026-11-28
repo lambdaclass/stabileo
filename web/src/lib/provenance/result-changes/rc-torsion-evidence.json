@@ -16,6 +16,7 @@
     "de": "Nachweisgrundlagen für Torsion und Querkraft nach CIRSOC",
     "fr": "Justificatifs de vérification de la torsion et du cisaillement selon le CIRSOC",
     "tr": "CIRSOC burulma ve kesme doğrulamasında donatı bilgileri",
+    "ru": "Обоснование проверки по кручению и поперечной силе по CIRSOC",
     "zh": "CIRSOC 受扭及受剪验算依据"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "de": "Nachweise für Torsion und Querkraft nach CIRSOC 201 können die Freigabe blockieren, wenn der ermittelte Betonwiderstand oder die Bewehrung im Schnitt dafür nicht ausreichen. Prüfen Sie die betroffenen Betonbauteile erneut und beachten Sie die angegebenen Gründe. Bei den betroffenen Querkraftnachweisen können die im selben Schnitt gezeichneten Stäbe gemeinsam die angesetzte Stahlfläche und statische Nutzhöhe nachweisen.",
     "fr": "Les vérifications de torsion et de cisaillement du CIRSOC 201 peuvent bloquer l’approbation si la résistance évaluée du béton ou les armatures de la section ne la justifient pas. Recalculez les éléments concernés et consultez les motifs de refus. Pour les vérifications au cisaillement concernées, les barres représentées dans la même section peuvent justifier ensemble la section d’acier et la hauteur utile retenues.",
     "tr": "CIRSOC 201 burulma ve kesme kontrolleri, hesaplanan beton dayanımı veya kesitteki donatı yeterli doğrulamayı sağlayamadığında onayı engelleyebilir. Etkilenen beton elemanları yeniden kontrol edin ve ret gerekçelerini inceleyin. Etkilenen kesme kontrollerinde aynı kesitte çizilen çubuklar, hesaba katılan donatı alanını ve faydalı yüksekliği birlikte doğrulayabilir.",
+    "ru": "Действующие проверки по CIRSOC 201 на кручение и поперечную силу теперь могут блокировать верификацию, если вычисленное сопротивление бетона или арматура в разрезе не позволяют подтвердить несущую способность. Повторите затронутые проверки бетонных элементов и просмотрите сообщения об отказе. В затронутых проверках на поперечную силу стержни, нарисованные в том же разрезе, могут совместно обосновать учитываемую площадь стали и рабочую высоту.",
     "zh": "当评估得到的混凝土抗力或截面钢筋不足以支持通过时，CIRSOC 201 的受扭及受剪验算现在会阻止批准。请重新验算受影响的混凝土构件并查看拒绝原因。 在受影响的受剪验算中，同一截面绘制的钢筋可以共同证明所采用的钢筋面积和有效高度。"
   },
   "changelog": {

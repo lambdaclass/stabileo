@@ -21,6 +21,7 @@
     "de": "Früher erzeugte statische Erdbebenlasten prüfen",
     "fr": "Vérifiez les charges sismiques statiques générées précédemment",
     "tr": "Daha önce üretilen statik deprem yüklerini inceleyin",
+    "ru": "Пересмотр ранее сформированных статических сейсмических нагрузок",
     "zh": "复核以往生成的等效静力地震荷载",
     "hu": "Ellenőrizze a korábban generált statikus szeizmikus terheket"
   },
@@ -31,6 +32,7 @@
     "de": "Die frühere statische Erdbebenlasterzeugung konnte an Aussteifungs- oder Netzknoten fiktive Geschosse ableiten und die Trägheitslasten geneigter Dachträger an deren Endknoten ansetzen. Dies betrifft auch durchlaufende geneigte Stäbe an Geschossknoten und Dachfirste mit einem Längsträger. Prüfen Sie betroffene E-Lastfälle und erzeugen Sie sie neu, bevor Sie Analysen oder Nachweise wiederholen.",
     "fr": "La génération précédente des charges sismiques statiques pouvait déduire des niveaux fictifs aux nœuds de contreventement ou de maillage et reporter l’inertie des éléments inclinés aux extrémités. Cela concerne aussi les barres inclinées continues aux nœuds d’étage et les faîtages munis d’une poutre longitudinale. Vérifiez et régénérez les cas E concernés avant de reprendre les analyses ou les vérifications.",
     "tr": "Önceki statik deprem yükü üretimi çapraz bağlantılarında veya ağ düğümlerinde gerçekte olmayan katlar oluşturabiliyor ve eğimli çatı elemanlarının atalet yüklerini uç düğümlere taşıyabiliyordu. Kat düğümlerinden geçen sürekli eğimli elemanlar ve boyuna kirişli çatı mahyaları da etkilenir. Analizleri veya tasarım kontrollerini yinelemeden önce etkilenen E yük durumlarını inceleyin ve yeniden üretin.",
+    "ru": "Прежнее статическое формирование сейсмических нагрузок могло определять ложные этажи в узлах связей или сетки и переносить инерцию стропильных ног на концевые узлы. Это касается непрерывных уклонов через узлы перекрытий и коньков кровли с продольной балкой. Просмотрите затронутые загружения E и заново сформируйте их, прежде чем повторять расчёты или проверки проектирования.",
     "zh": "旧版等效静力地震荷载生成器可能在支撑节点或网格节点推断出虚假楼层，并将斜梁的惯性荷载移到端节点。这包括穿过楼层节点的连续斜构件以及设有纵向屋脊梁的屋脊。请复核受影响的 E 工况并重新生成，再进行分析或设计验算。",
     "hu": "A korábbi statikus szeizmikus tehergenerálás fiktív szinteket hozhatott létre merevítési vagy hálócsomópontoknál, és a tetőgerendák tehetetlenségi terhét a végcsomópontokra helyezhette. Ez a szintcsomópontokon áthaladó folytonos ferde rudakat és a hosszirányú gerendás tetőgerinceket is érinti. Az elemzések vagy ellenőrzések megismétlése előtt vizsgálja felül és generálja újra az érintett E tehereseteket."
   },

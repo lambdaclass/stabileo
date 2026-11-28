@@ -18,6 +18,7 @@
     "de": "Spannweiten verbleibender Deckenflächen und tatsächliche Stabmittelpunkte prüfen",
     "fr": "Vérifier les portées des surfaces restantes et les milieux réels des barres",
     "tr": "Kalan döşeme açıklıklarını ve çubukların gerçek orta noktalarını denetle",
+    "ru": "Проверка сохраняемых пролётов настила и физических середин стержней",
     "zh": "检查保留板区的跨度和杆件的实际中点",
     "hu": "A megmaradt födémrészek fesztávjának és a rudak tényleges felezőpontjának ellenőrzése"
   },
@@ -28,6 +29,7 @@
     "de": "Die automatische Flächenlastgenerierung wird abgelehnt, wenn eine nach der Prüfung der lichten Höhe verbleibende Deckenfläche die maximale Spannweite überschreitet. Die Exposition eines Stabs wird in der tatsächlichen Höhe seines Mittelpunkts bestimmt. Erzeugen Sie betroffene Schwerkraft-, Dachwind- und Schneelasten neu und wiederholen Sie Analysen und Kombinationen.",
     "fr": "La génération automatique par panneaux est bloquée si une surface restante dépasse la portée maximale après découpage selon la hauteur libre. L’exposition des barres est évaluée à l’altitude réelle de leur milieu. Régénérez les charges gravitaires, de vent en toiture et de neige concernées, puis relancez les analyses et les combinaisons.",
     "tr": "Net yükseklik kırpmasından sonra kalan bir döşeme alanı açıklık sınırını aşarsa otomatik panel yükü üretimi reddedilir. Çubukların örtülü olup olmadığı orta noktalarının gerçek kotunda belirlenir. Etkilenen yerçekimi, çatı rüzgârı ve kar yüklerini yeniden üretip analizleri ve birleşimleri tekrarlayın.",
+    "ru": "Автоматическая генерация панелей отклоняет сохраняемый контур пролёта, превышающий предел пролёта настила после обрезки по свободной высоте. Открытость стержня определяется по фактической отметке в его середине. Сгенерируйте заново затронутые гравитационные, ветровые и снеговые нагрузки на кровлю, затем повторите расчёты и сочетания.",
     "zh": "按净高剪裁后，若保留板区超过板跨上限，系统将拒绝自动生成板区荷载。杆件是否被覆盖按其中点的实际标高判定。请重新生成受影响的重力、屋面风和雪荷载，并重新运行分析和组合计算。",
     "hu": "Az automatikus panelteher-generálás leáll, ha a szabad magasság szerinti levágás után megmaradt födémrész túllépi a fesztávhatárt. A rudak fedettségét a felezőpont tényleges magasságán értékeli. Generálja újra az érintett gravitációs, tetőszél- és hóterheket, majd ismételje meg az elemzéseket és a kombinációkat."
   },

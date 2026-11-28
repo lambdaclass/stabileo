@@ -20,6 +20,7 @@
     "de": "Unbekannte Felder in 3D-Bauzuständen",
     "fr": "Champs inconnus dans les phases de construction 3D",
     "tr": "3B yapım aşamalarındaki bilinmeyen alanlar",
+    "ru": "Неизвестные поля в этапах 3D-строительства",
     "zh": "三维施工阶段中的未知字段"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "de": "Die 3D-Bauzustandsanalyse weist unbekannte Felder zurück, auch falsch geschriebene Lastindizes.",
     "fr": "Le solveur 3D par phases rejette les champs inconnus des phases, y compris les noms mal orthographiés des indices de charge.",
     "tr": "3B aşamalı çözücü, yanlış yazılmış yük indeksi alanları dahil bilinmeyen aşama alanlarını reddeder.",
+    "ru": "Поэтапный 3D-расчёт отклоняет неизвестные поля этапов, в том числе неверно написанные индексы нагрузок.",
     "zh": "三维分阶段求解器拒绝未知的阶段字段，包括拼写错误的荷载索引字段。"
   },
   "changelog": {

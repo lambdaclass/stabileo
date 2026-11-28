@@ -23,6 +23,7 @@
     "fr": "Préserver la composante plane des charges réparties spatiales",
     "hu": "A térbeli megoszló terhek síkbeli komponensének megőrzése",
     "tr": "Uzaysal yayılı yüklerin düzlem içi bileşenini koru",
+    "ru": "Сохранение плоской компоненты пространственных распределённых нагрузок",
     "zh": "保留空间分布荷载的平面分量"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "L’analyse Basic en XY peut traiter les charges réparties spatiales représentables en utilisant les valeurs de qY aux extrémités et les limites d’application d’origine. XZ et YZ utilisent qZ. Les charges dont les composantes ne peuvent pas être représentées dans le plan restent refusées.",
     "hu": "A Basic XY számítás a síkban ábrázolható térbeli megoszló terheket a qY végértékekkel és az eredeti terhelési határokkal kezeli. Az XZ és YZ sík qZ-t használ. A síkban nem ábrázolható komponenseket tartalmazó terheket a számítás továbbra is elutasítja.",
     "tr": "Basic XY analizi, düzlemde temsil edilebilen uzaysal yayılı yükleri qY uç değerleri ve özgün yükleme sınırlarıyla çözebilir. XZ ve YZ qZ kullanır. Düzlemde temsil edilemeyen bileşenleri olan yükler yine reddedilir.",
+    "ru": "Расчёт Basic в плоскости XY может решать представимые пространственные распределённые нагрузки, используя их концевые значения qY и исходные границы пролёта. XZ и YZ используют qZ. Нагрузки с компонентами, которые нельзя представить в плоскости, по-прежнему отклоняются.",
     "zh": "Basic 的 XY 分析可使用 qY 两端值及原始加载区间求解能够在平面内表示的空间分布荷载。XZ 和 YZ 使用 qZ。含有无法在平面内表示的分量的荷载仍会被拒绝。"
   },
   "changelog": {

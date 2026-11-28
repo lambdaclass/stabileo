@@ -60,6 +60,14 @@ const S: Record<'es' | 'en', PaperStrings> & Partial<Record<PublicLocale, PaperS
     metaTitle: 'Developing a structural calculation agent on top of a verified solver (cikk, angol nyelven) — Stabileo',
     metaDescription: 'A teljes cikk angolul: egy szerkezetszámításra szolgáló MI-ügynök csak akkor megbízható, ha egy verifikált megoldót vezérel, és maga soha nem állít elő számot.',
   },
+  ru: {
+    venue: 'Представлено на 29-й Аргентинской конференции по строительной инженерии (JAIE 2026).',
+    download: 'Скачать PDF',
+    original: 'Оригинал на испанском (PDF)',
+    language: '',
+    metaTitle: 'Разработка агента для расчёта конструкций на основе проверенного решателя (статья) — Stabileo',
+    metaDescription: 'Полный текст статьи: ИИ-агент для расчёта конструкций надёжен, только если он управляет проверенным решателем и никогда не выдаёт число сам.',
+  },
   zh: {
     venue: '发表于第 29 届阿根廷结构工程会议（JAIE 2026）。',
     download: '下载 PDF',

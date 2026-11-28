@@ -23,6 +23,7 @@
     "fr": "L’appui de contact et les échecs des câbles par phases sont vérifiés",
     "hu": "Ellenőrzött kontakt-teherátadás és építési fázisos kábelhibák",
     "tr": "Temas basıncı ve aşamalı kablo hataları denetlenir",
+    "ru": "Проверяются опирание контактов и отказы поэтапных тросов",
     "zh": "接触承压和分阶段索的失效会被检查"
   },
   "explanation": {
@@ -33,6 +34,7 @@
     "fr": "Les contacts actifs figés exigent une compression assemblée compatible avec la pénétration finale dans la tolérance. Les deux solveurs par phases refusent tous les câbles avec cable_analysis_required. L’exception 2D est retirée : la convergence de l’itération de rigidité d’Ernst et des efforts positifs aux extrémités ne prouvent pas l’équilibre des câbles avec flèche. Les paires de surface fermées comparent la force assemblée divisée par la rigidité à la tolérance de contact inchangée ; au-delà, elles renvoient toujours contact_state_invalid. Revérifiez les résultats de câbles et de contact (#417, #432 ; PR #1921).",
     "hu": "Az aktív befagyasztott kontaktok mostantól olyan összegzett nyomást követelnek meg, amely a kontakttűrésen belül összhangban van a végső behatolással. Mindkét építési fázisos megoldó minden kábelt elutasít cable_analysis_required kóddal. A korábbi 2D kivétel visszavonva: a konvergált Ernst-féle merevségi iteráció és a pozitív rúdvégi erők nem igazolják a belógásra érzékeny kábelegyensúlyt. A zárt felületpárok most az összegzett erő és a merevség hányadosát vetik össze a változatlan kontakttűréssel; a határ feletti állapotok továbbra is contact_state_invalid eredményt adnak. Ellenőrizze újra a kábel- és kontakteredményeket (#417, #432; #1921-es PR).",
     "tr": "Aktif sabitlenmiş temaslar, tolerans içinde son penetrasyonla tutarlı birleştirilmiş basınç gerektirir. Her iki aşamalı çözücü tüm kabloları cable_analysis_required ile reddeder. Önceki 2B istisnası kaldırılmıştır: Ernst rijitlik iterasyonunun yakınsaması ve pozitif uç kuvvetleri, sehim etkili kablo dengesini kanıtlamaz. Kapalı yüzey çiftleri, birleştirilmiş kuvvetin rijitliğe oranını değişmeyen temas toleransıyla karşılaştırır; sınırın üzerinde yine contact_state_invalid döndürülür. Kablo ve temas sonuçlarını yeniden denetleyin (#417, #432; PR #1921).",
+    "ru": "Активные замороженные контакты теперь требуют собранного сжатия, согласованного с итоговым проникновением в пределах допуска контакта. Оба поэтапных решателя отказывают для каждого троса с cable_analysis_required. Прежнее исключение для 2D отменено: сошедшаяся итерация жёсткости Эрнста и положительные концевые усилия не устанавливают равновесия троса с учётом провисания. Замкнутые пары поверхностей теперь сравнивают собранную силу, делённую на жёсткость, с неизменным допуском контакта; состояния выше предела по-прежнему возвращают contact_state_invalid. Перепроверьте результаты по тросам и контактам (#417, #432; PR #1921).",
     "zh": "处于激活状态的冻结接触现在要求装配后的压力与最终穿透量一致，且在接触容差范围内。两个分阶段求解器都会以 cable_analysis_required 拒绝求解每一根索。此前 2D 的例外已被撤回：收敛的 Ernst 刚度迭代和正的杆端力并不能证明对垂度敏感的索处于平衡。闭合的面对现在把装配后的力除以刚度，与不变的接触容差比较；超过限值的状态仍返回 contact_state_invalid。请重新检查索和接触的结果（#417，#432；PR #1921）。"
   },
   "changelog": {

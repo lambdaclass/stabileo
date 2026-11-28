@@ -19,6 +19,7 @@
     "pt": "Os modelos incluídos mantêm as restrições explícitas",
     "de": "Mitgelieferte Modelle behalten ihre expliziten Lagerbindungen",
     "fr": "Les modèles fournis conservent leurs blocages explicites",
+    "ru": "Встроенные модели сохраняют явные закрепления опор",
     "zh": "内置模型保留其明确的支座约束",
     "tr": "Hazır modeller açık mesnet kısıtlarını koruyor"
   },
@@ -28,6 +29,7 @@
     "pt": "O carregamento dos modelos incluídos agora preserva as restrições explícitas em todos os adaptadores. Adaptadores que omitiam esses campos podiam recusar um apoio móvel ou resolver outras restrições. Revise os apoios e repita análise, combinações e dimensionamento. Apoios salvos ambíguos ainda exigem uma escolha explícita.",
     "de": "Das Laden mitgelieferter Modelle erhält nun explizite Lagerbindungen über alle Adapter hinweg. Adapter, die diese Felder verwarfen, konnten Rollenlager ablehnen oder andere Bindungen berechnen. Prüfen Sie die Lager und wiederholen Sie Analyse, Kombinationen und Bemessung. Gespeicherte mehrdeutige Rollenlager erfordern weiterhin eine explizite Auswahl.",
     "fr": "Le chargement des modèles fournis préserve désormais les blocages explicites dans tous les adaptateurs. Les adaptateurs qui perdaient ces champs pouvaient refuser un appui à rouleaux ou calculer d’autres blocages. Vérifiez les appuis et relancez analyse, combinaisons et dimensionnement. Les appuis enregistrés ambigus exigent toujours un choix explicite.",
+    "ru": "Загрузка встроенных моделей теперь сохраняет явные закрепления опор через адаптеры фикстур. Адаптеры, которые раньше отбрасывали эти поля, могли отклонить шарнирно-подвижную опору или решить с другими закреплениями. Проверьте закрепления опор и повторите расчёт, сочетания и проектирование. Сохранённые неоднозначные шарнирно-подвижные опоры по-прежнему требуют явного выбора.",
     "zh": "加载内置模型时，各算例文件适配器现在都会保留明确的支座约束。此前丢失这些字段的适配器可能会拒绝某个滚动支座，或按不同的约束求解。请复核支座约束，并重新运行分析、组合和设计。已保存的含义不明确的滚动支座仍需要明确选择。",
     "tr": "Hazır model yükleme artık tüm bağdaştırıcılarda açık mesnet kısıtlarını koruyor. Bu alanları kaybeden bağdaştırıcılar kayıcı mesnedi reddedebilir veya farklı kısıtlarla çözebilirdi. Mesnetleri gözden geçirip analiz, kombinasyon ve tasarımı yeniden çalıştırın. Kaydedilmiş belirsiz kayıcı mesnetler hâlâ açık bir seçim gerektirir."
   },
