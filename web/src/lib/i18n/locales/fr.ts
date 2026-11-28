@@ -17064,12 +17064,8 @@ const fr: Translations = {
   "containment.dismiss": "Fermer l’avis",
   'physical.diag.review': "Des lectures du modèle physique attendent une révision dans Éléments : elles modifieraient des décisions de dimensionnement enregistrées",
   "rcSheets.scopeNote": "Armatures principales avec ancrages, recouvrements, arrêts de barres et nomenclature des poutres continues. Utilisable, mais encore en grande partie en développement : vérifiez les résultats.",
-  "rcSheets.wallsToMesh": "{n} voiles n'ont pas de maillage ou sont un seul élément : les feuilles de voiles ont besoin d'un maillage de 0,5 m pour résoudre le moment dans le plan.",
   "rcSheets.counts": "{n} éléments · {fail} non vérifiés",
-  "rcSheets.basis.combinations": "Efforts de {n} combinaisons de calcul",
-  "rcSheets.elev.totals": "{n} cadres sur {h} cm",
   "rcSheets.line.showMarks": "Repères",
-  "rcSheets.punchFig.stirrups": "{n} files de cadres Ø{dia} e = {s} à {legs} brins, jusqu'à {ext} cm de la face",
   "rcSheets.designHint": "Les feuilles dimensionnent les armatures de tous les éléments à la fois, ce qui prend un moment sur un grand bâtiment. Rien n’est dimensionné tant que vous ne le demandez pas.",
 };
 

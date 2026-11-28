@@ -17064,12 +17064,8 @@ const de: Translations = {
   "containment.dismiss": "Hinweis schließen",
   'physical.diag.review': 'Erkennungen des physischen Modells warten in Bauteile auf Prüfung: Sie würden gespeicherte Bemessungsentscheidungen ändern',
   "rcSheets.scopeNote": "Hauptbewehrung mit Verankerung, Stößen, Abschnittpunkten und Biegeliste der Durchlaufträger. Nutzbar, aber großenteils noch in Entwicklung: Prüfen Sie die Ergebnisse.",
-  "rcSheets.wallsToMesh": "{n} Wände haben kein Netz oder bestehen aus einem einzigen Element: Die Wandtabellen brauchen ein Netz von 0,5 m, um das Moment in der Ebene zu bestimmen.",
   "rcSheets.counts": "{n} Bauteile · {fail} nicht erfüllt",
-  "rcSheets.basis.combinations": "Schnittgrößen aus {n} Bemessungskombinationen",
-  "rcSheets.elev.totals": "{n} Bügel auf {h} cm",
   "rcSheets.line.showMarks": "Positionen",
-  "rcSheets.punchFig.stirrups": "{n} Bügelreihen Ø{dia}/{s} mit {legs} Schenkeln, bis {ext} cm von der Stützenseite",
   "rcSheets.designHint": "Die Listen bemessen die Bewehrung aller Bauteile auf einmal, was bei einem großen Gebäude eine Weile dauert. Bemessen wird erst, wenn Sie es anstoßen.",
 };
 

@@ -17228,12 +17228,8 @@ const en: Record<string, string> = {
   "containment.dismiss": "Close the notice",
   'physical.diag.review': "Readings of the physical model wait for review in Elements: they would change stored design decisions",
   "rcSheets.scopeNote": "Main reinforcement with development, splices, cut-off points and the bar schedule of continuous beams. Usable, but mostly still in development: check the results.",
-  "rcSheets.wallsToMesh": "{n} walls have no mesh or are a single element: the wall sheets need them meshed at 0.5 m to resolve the in-plane moment.",
   "rcSheets.counts": "{n} members · {fail} failing",
-  "rcSheets.basis.combinations": "Forces from {n} design combinations",
-  "rcSheets.elev.totals": "{n} ties over {h} cm",
   "rcSheets.line.showMarks": "Marks",
-  "rcSheets.punchFig.stirrups": "{n} lines of stirrups Ø{dia} @ {s} with {legs} legs, out to {ext} cm from the face",
   "rcSheets.designHint": "The sheets design the reinforcement of every member at once, which takes a while on a large building. Nothing is designed until you ask for it.",
 };
 export default en;

@@ -16870,12 +16870,8 @@ const pt: Translations = {
   "containment.dismiss": "Fechar o aviso",
   'physical.diag.review': "Leituras do modelo físico aguardam revisão em Elementos: mudariam decisões de dimensionamento salvas",
   "rcSheets.scopeNote": "Armaduras principais com ancoragens, emendas, pontos de corte e detalhamento de vigas contínuas. Pode ser usado, mas boa parte ainda está em desenvolvimento: confira os resultados.",
-  "rcSheets.wallsToMesh": "{n} paredes não têm malha ou são um único elemento: a planilha de paredes precisa da malha de 0,5 m para resolver o momento no plano.",
   "rcSheets.counts": "{n} elementos · {fail} não verificam",
-  "rcSheets.basis.combinations": "Esforços de {n} combinações de projeto",
-  "rcSheets.elev.totals": "{n} estribos em {h} cm",
   "rcSheets.line.showMarks": "Marcas",
-  "rcSheets.punchFig.stirrups": "{n} linhas de estribos Ø{dia} c/{s} com {legs} ramos, até {ext} cm da face",
   "rcSheets.designHint": "As planilhas dimensionam a armadura de todos os elementos de uma vez, o que leva um tempo num edifício grande. Nada é dimensionado até você pedir.",
 };
 export default pt;

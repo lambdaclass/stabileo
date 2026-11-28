@@ -17065,12 +17065,8 @@ const tr: Translations = {
   "containment.dismiss": "Uyarıyı kapat",
   'physical.diag.review': "Fiziksel model okumaları Elemanlar bölümünde incelenmeyi bekliyor: kayıtlı tasarım kararlarını değiştirirler",
   "rcSheets.scopeNote": "Kenetlenme, bindirme, kesim noktaları ve sürekli kiriş donatı listesiyle ana donatı. Kullanılabilir, ancak büyük kısmı hâlâ geliştirme aşamasında: sonuçları kontrol edin.",
-  "rcSheets.wallsToMesh": "{n} perdenin ağı yok veya tek bir elemandan oluşuyor: perde tabloları düzlem içi momenti çözmek için 0,5 m ağa ihtiyaç duyar.",
   "rcSheets.counts": "{n} eleman · {fail} sağlamıyor",
-  "rcSheets.basis.combinations": "{n} tasarım kombinasyonunun kuvvetleri",
-  "rcSheets.elev.totals": "{h} cm boyunca {n} etriye",
   "rcSheets.line.showMarks": "İşaretler",
-  "rcSheets.punchFig.stirrups": "{n} sıra Ø{dia}/{s} etriye, {legs} kollu, yüzden {ext} cm'e kadar",
   "rcSheets.designHint": "Tablolar tüm elemanların donatısını tek seferde boyutlandırır; büyük bir binada bu biraz zaman alır. Siz istemeden hiçbir şey boyutlandırılmaz.",
 };
 

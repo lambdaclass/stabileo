@@ -16803,12 +16803,8 @@ const zh: Translations = {
   "containment.dismiss": "关闭提示",
   "physical.diag.review": "识别出的物理构件需要在「构件」中复核，因为这些识别结果会更改已保存的设计选择",
   "rcSheets.scopeNote": "连续梁纵向主筋、锚固、搭接、截断位置和钢筋明细表。功能可用，但大部分仍在开发中，请复核结果。",
-  "rcSheets.wallsToMesh": "有 {n} 面墙无网格或仅由单个单元表示。墙的设计表需要按 0.5 m 划分网格，以求得面内弯矩。",
   "rcSheets.counts": "{n} 个构件 · {fail} 个未通过",
-  "rcSheets.basis.combinations": "来自 {n} 个设计组合的内力",
-  "rcSheets.elev.totals": "在 {h} cm 范围内布置 {n} 道箍筋",
   "rcSheets.line.showMarks": "钢筋编号",
-  "rcSheets.punchFig.stirrups": "{n} 道 {legs} 肢箍筋 Ø{dia} @ {s}，最外道距柱面 {ext} cm",
   "rcSheets.designHint": "设计表一次完成所有构件的配筋设计，大型建筑可能需要较长时间。仅在发出请求后才进行设计。",
 };
 

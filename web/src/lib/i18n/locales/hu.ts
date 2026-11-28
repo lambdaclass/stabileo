@@ -16780,11 +16780,7 @@ const hu: Translations = {
   "rcSheets.scopeNote": "Főbb vasalás lehorgonyzással, toldásokkal, elhagyási pontokkal és a folytatólagos gerendák vaskivonatával. Használható, de nagyrészt még fejlesztés alatt áll: ellenőrizze az eredményeket.",
   "rcSheets.line.showMarks": "Pozíciók",
   "rcSheets.designHint": "A táblázatok egyszerre méretezik az összes elem vasalását, ami nagy épületnél eltart egy ideig. Semmi sem lesz méretezve, amíg Ön nem kéri.",
-  "rcSheets.wallsToMesh": "{n} falnak nincs hálója, vagy egyetlen elemből áll: a faltáblázatokhoz 0,5 m-es háló kell a síkbeli nyomaték meghatározásához.",
   "rcSheets.counts": "{n} elem · {fail} nem felel meg",
-  "rcSheets.basis.combinations": "Igénybevételek {n} tervezési kombinációból",
-  "rcSheets.elev.totals": "{n} kengyel {h} cm-en",
-  "rcSheets.punchFig.stirrups": "{n} sor Ø{dia} kengyel {s} osztással, {legs} szárral, az oldaltól {ext} cm-ig",
 };
 
 export default hu;

@@ -17217,12 +17217,8 @@ const es: Record<string, string> = {
   "containment.dismiss": "Cerrar el aviso",
   'physical.diag.review': "Lecturas del modelo físico esperan revisión en Elementos: cambiarían decisiones de diseño guardadas",
   "rcSheets.scopeNote": "Armaduras principales con anclajes, empalmes, puntos de corte y despiece de vigas continuas. Se puede usar, pero buena parte sigue en desarrollo: revisá los resultados.",
-  "rcSheets.wallsToMesh": "{n} tabiques no tienen malla o son un solo elemento: la planilla de tabiques necesita su malla de 0,5 m para resolver el momento en el plano.",
   "rcSheets.counts": "{n} elementos · {fail} no verifican",
-  "rcSheets.basis.combinations": "Esfuerzos de {n} combinaciones de diseño",
-  "rcSheets.elev.totals": "{n} estribos en {h} cm",
   "rcSheets.line.showMarks": "Marcas",
-  "rcSheets.punchFig.stirrups": "{n} líneas de estribos Ø{dia} c/{s} con {legs} ramas, hasta {ext} cm de la cara",
   "rcSheets.designHint": "Las planillas dimensionan la armadura de todos los elementos a la vez, lo que lleva un rato en un edificio grande. No se dimensiona nada hasta que lo pidas.",
 };
 export default es;

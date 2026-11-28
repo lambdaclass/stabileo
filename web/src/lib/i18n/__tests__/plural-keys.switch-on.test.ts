@@ -5,10 +5,12 @@ import pt from '../locales/pt';
 import de from '../locales/de';
 import fr from '../locales/fr';
 import tr from '../locales/tr';
+import hu from '../locales/hu';
+import zh from '../locales/zh';
 import { setLocale, tpn } from '../index';
 import { ensureLocale } from '../store.svelte';
 
-const DICTS: Record<string, Record<string, string>> = { en, es, pt, de, fr, tr };
+const DICTS: Record<string, Record<string, string>> = { en, es, pt, de, fr, tr, hu, zh };
 const PLURAL_STEMS = [
   'solveProgress.warnings', 'solveProgress.warningsBasic',
   'rcSheets.countMembers', 'rcSheets.countFailing', 'rcSheets.wallsToMesh', 'rcSheets.basis.combinations',
