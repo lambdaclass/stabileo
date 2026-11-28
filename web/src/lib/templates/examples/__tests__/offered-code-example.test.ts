@@ -12,7 +12,8 @@ it('known wrong result: #1928 the direct text and model readers open the steel b
   expect(generated).not.toBe(published);
   expect(await codeExampleText('pro-steel-building-slabs')).toBe(text);
   await loadCodeExample('pro-steel-building-slabs');
-  const expected = codeToModel(text).snapshot!;
+  const expected = codeToModel(text).snapshot;
+  if (!expected?.nodes?.length || !expected.elements?.length) throw new Error('Referenced steel building is missing its structure');
   expect([...modelStore.nodes.keys()]).toEqual(expected.nodes.map(([id]) => id));
   expect([...modelStore.elements.keys()]).toEqual(expected.elements.map(([id]) => id));
   expect('pro-rc-house' in CODE_EXAMPLES).toBe(__PUBLIC_FEATURES__.proPlatesUnified === true);
