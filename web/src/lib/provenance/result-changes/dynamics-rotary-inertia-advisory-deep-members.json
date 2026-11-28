@@ -8,7 +8,7 @@
   "when": {
     "allOf": [
       [
-        "potentialStructuralElements", "connectors", "springs", "contactElements", "malformedAuthoredStructure"
+        "members", "shells", "massCarryingElements", "connectors", "springs", "contactElements", "malformedAuthoredStructure"
       ],
       [
         "frameMembers",

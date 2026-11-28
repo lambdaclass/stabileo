@@ -21,7 +21,7 @@ const frame: FeatureSnapshot = {
   elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
 };
 
-it.skip.each(['2d', '3d', 'pro', 'edu'])('known wrong result: #2223 — %s nonlinear notice requires authored structure', mode => {
+it.each(['2d', '3d', 'pro', 'edu'])('known wrong result: #2223 — %s nonlinear notice requires authored structure', mode => {
   for (const analysis of ['linear', 'nonlinear', 'modal', 'spectral', 'timeHistory', 'harmonic'] as const) {
     for (const offset of [-1, 0, 1]) {
       const stamp = { ...stampSolve(analysis, null), resultsVersion: notice.resultsVersion + offset };
@@ -35,7 +35,7 @@ it.skip.each(['2d', '3d', 'pro', 'edu'])('known wrong result: #2223 — %s nonli
   }
 });
 
-it.skip.each(['2d', '3d', 'pro', 'edu'])('known wrong result: #2223 — %s opens and recovers notices using concrete saved features', async mode => {
+it.each(['2d', '3d', 'pro', 'edu'])('known wrong result: #2223 — %s opens and recovers notices using concrete saved features', async mode => {
   for (const analysis of ['linear', 'nonlinear'] satisfies AnalysisKind[]) {
     const stamp = { ...stampSolve(analysis, null), resultsVersion: notice.resultsVersion - 1 };
     const store = createRecheckStore();

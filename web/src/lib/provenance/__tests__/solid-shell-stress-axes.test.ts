@@ -12,6 +12,5 @@ it('asks older shell models to recheck local stresses, including explicit solid 
   }
   const stamp = { resultsVersion: 4, analyses: ['linear'] } as SolveStamp;
   expect(assessProject({ analysisMode: 'pro', elements: [] }, stamp, 'pro').changes).toEqual([]);
-  expect(assessProject({ analysisMode: 'pro' }, stamp, 'pro').changes.map(c => c.id))
-    .toEqual(['dynamics-rotary-inertia-advisory-deep-members']);
+  expect(assessProject({ analysisMode: 'pro' }, stamp, 'pro').changes).toEqual([]);
 });

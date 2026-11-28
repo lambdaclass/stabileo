@@ -145,7 +145,8 @@ describe('results versions', () => {
 
   it('#370 includes a material nonlinear solve without any dynamic analysis', () => {
     const change = RESULT_CHANGES.changes.find(c => c.id === 'dynamics-rotary-inertia-advisory-deep-members')!;
-    const notices = (analysis: 'nonlinear' | 'linear') => assessProject({}, {
+    const frame: FeatureSnapshot = { elements: [[1, { id: 1, type: 'frame', materialId: 1, nodeI: 1, nodeJ: 2 }]] };
+    const notices = (analysis: 'nonlinear' | 'linear') => assessProject(frame, {
       resultsVersion: change.resultsVersion - 1, recorded: [...ANALYSIS_KINDS], analyses: [analysis],
     } as SolveStamp, 'pro').changes.map(c => c.id);
     expect(notices('nonlinear')).toContain(change.id);

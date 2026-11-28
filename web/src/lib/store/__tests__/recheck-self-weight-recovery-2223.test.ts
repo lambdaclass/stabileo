@@ -154,8 +154,5 @@ it('#2364 saves the same notice stamp and features as main with global axes off'
   expect(store.noticeOpen).toBe(true);
   const knownEmpty = store.captureNotice()!;
   store.openProject(saved, '2d');
-  const incomplete = store.captureNotice()!;
-  expect(incomplete.stamp).toEqual(knownEmpty.stamp);
-  expect(incomplete.features).toContain('potentialStructuralElements');
-  expect(incomplete.features.filter(feature => feature !== 'potentialStructuralElements')).toEqual(knownEmpty.features);
+  expect(store.captureNotice()).toEqual(knownEmpty);
 });
