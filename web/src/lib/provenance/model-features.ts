@@ -1,3 +1,5 @@
+import { FLANGE_LEVEL_TOLERANCE } from '../engine/design/beam-flange';
+import { PHYSICAL_GROUP_KIND } from '../model/physical/types';
 import { SHELL_OFFSET_EXPANSION_THRESHOLD } from '../engine/shell-offsets';
 import { fromLoadPlan, loadGenerationOwner } from '../model/loads/generation-owner';
 import { cellPressureDefinitions, hasLocalCellProperties, pressureFollowsMesh } from '../model/physical/mesh-cell-fields';
@@ -78,7 +80,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
-  'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateSubthresholdOffsets', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'individualNearLevelFlange', 'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateSubthresholdOffsets', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'shortOffAxisStrap', 'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
@@ -592,6 +594,26 @@ function hasSubthresholdPlateOffset(snapshot: FeatureSnapshot, ids: ReadonlySet<
     (group?.members?.quads?.some(cell => quads.has(cell)) || group?.members?.plates?.some(cell => triangles.has(cell))));
 }
 
+function hasIndividualNearLevelFlange(s: FeatureSnapshot, concrete: (e: Elem) => boolean): boolean {
+  if (!s.quads?.length) return false;
+  const grouped = new Set(values(s.groups).filter(g => g.kind === PHYSICAL_GROUP_KIND
+    && (g.data as { kind?: string } | undefined)?.kind === 'beam').flatMap(g => g.members?.elements ?? []));
+  const points = new Map(s.nodes);
+  const candidates = new Map<number, Set<number>>();
+  for (const e of values(s.elements)) {
+    if (!concrete(e) || grouped.has(e.id)) continue;
+    const a = points.get(e.nodeI), b = points.get(e.nodeJ);
+    if (!a || !b) continue;
+    const rise = Math.abs((a.z ?? 0) - (b.z ?? 0));
+    if (!(rise > 0 && rise <= FLANGE_LEVEL_TOLERANCE)) continue;
+    const ends = candidates.get(e.nodeI) ?? new Set<number>();
+    ends.add(e.nodeJ);
+    candidates.set(e.nodeI, ends);
+  }
+  return candidates.size > 0 && values(s.quads).some(q => Array.isArray(q.nodes)
+    && q.nodes.some(i => q.nodes!.some(j => candidates.get(i)?.has(j))));
+}
+
 function hasPhysicalPlateCellFields(s: FeatureSnapshot, ids: ReadonlySet<number>): boolean {
   const groups = new Map(s.groups), quads = new Map(s.quads), triangles = new Map(s.plates);
   const loads = featureLoads(s.loads).filter(load => load.type === 'surface3d' || load.type === 'thermalQuad3d');
@@ -713,6 +735,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (concrete) {
     f.add('concreteMembers');
+    if (hasIndividualNearLevelFlange(s, e => familyOf(e.materialId) === 'concrete' || !!e.reinforcement)) f.add('individualNearLevelFlange');
     if (concreteCode === null || concreteCode.startsWith('cirsoc')) f.add('cirsoc201');
     if (concreteCode === 'aci-aisc') f.add('aci318');
   }

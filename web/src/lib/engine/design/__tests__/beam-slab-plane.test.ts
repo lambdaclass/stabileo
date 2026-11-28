@@ -33,7 +33,7 @@ describe('a beam in the plane of a slab', () => {
   });
 });
 
-it.skip.each(['edge', 'interior'] as const)('known wrong result: #1928 an individual beam uses its accepted plan length at a %s flange', async kind => {
+it.each(['edge', 'interior'] as const)('known wrong result: #1928 an individual beam uses its accepted plan length at a %s flange', async kind => {
   const { effectiveFlange } = await import('../../../codes/cirsoc201/effective-flange');
   const beam = { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1 };
   const elements = new Map([[beam.id, beam]]);
@@ -56,4 +56,20 @@ it.skip.each(['edge', 'interior'] as const)('known wrong result: #1928 an indivi
       }
     }
   }
+});
+
+it('rechecks an ungrouped near-level concrete beam sharing its two ends with one slab', async () => {
+  const { modelFeatures } = await import('../../../provenance/model-features');
+  const beam = { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, reinforcement: {} };
+  const nodeRows = (z: number): [number, { x: number; y: number; z: number }][] =>
+    [...nodes].map(([id, p]) => [id, { ...p, z: id === 2 ? z : 0 }]);
+  const features = (z: number, grouped: boolean, corners: number[]) => modelFeatures({
+    nodes: nodeRows(z), elements: [[1, beam]], quads: [[1, { nodes: corners }]],
+    groups: grouped ? [[1, { kind: 'physicalMember', data: { kind: 'beam' }, members: { elements: [1] } }]] : [],
+  });
+  expect(features(0.001, false, [1, 2, 3, 4]).has('individualNearLevelFlange')).toBe(true);
+  expect(features(0, false, [1, 2, 3, 4]).has('individualNearLevelFlange')).toBe(false);
+  expect(features(0.001001, false, [1, 2, 3, 4]).has('individualNearLevelFlange')).toBe(false);
+  expect(features(0.001, true, [1, 2, 3, 4]).has('individualNearLevelFlange')).toBe(false);
+  expect(features(0.001, false, [1, 5, 3, 4]).has('individualNearLevelFlange')).toBe(false);
 });

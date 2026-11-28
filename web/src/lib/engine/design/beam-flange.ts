@@ -35,13 +35,16 @@ export interface FlangeModel {
 /** A flange, and whether the model placed the slab at the beam's top or that was assumed. */
 export type PlacedFlange = Flange & { datum: 'insertion' | 'assumed' };
 
+export const FLANGE_LEVEL_TOLERANCE = 1e-3;
+type FlangeGeometry = { bw: number; planLength: number; sides: FlangeSide[]; datum: PlacedFlange['datum'] };
+
 export function beamFlanges(m: FlangeModel): Map<number, PlacedFlange> {
   const out = new Map<number, PlacedFlange>();
   const P = (id: number) => m.nodes.get(id)!;
   const len = (id: number) => { const e = m.elements.get(id)!; const a = P(e.nodeI), b = P(e.nodeJ); return Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)); };
-  for (const [id, { bw, sides, datum }] of beamFlangeSides(m)) {
+  for (const [id, { bw, planLength, sides, datum }] of beamFlangeSides(m)) {
     const span = m.spanOf?.(id);
-    const ln = span && span.length ? span.reduce((s, x) => s + len(x), 0) : len(id);
+    const ln = span && span.length ? span.reduce((s, x) => s + len(x), 0) : planLength;
     const f = effectiveFlange(bw, ln, sides);
     if (f && f.bf > bw + 1e-6) out.set(id, { ...f, datum });
   }
@@ -49,15 +52,15 @@ export function beamFlanges(m: FlangeModel): Map<number, PlacedFlange> {
 }
 
 /** Each horizontal beam's flange sides (slab thickness and clear distance to the next web), before §6.3.2.1's span term. */
-export function beamFlangeSides(m: FlangeModel): Map<number, { bw: number; sides: FlangeSide[]; datum: PlacedFlange['datum'] }> {
-  const out = new Map<number, { bw: number; sides: FlangeSide[]; datum: PlacedFlange['datum'] }>();
+export function beamFlangeSides(m: FlangeModel): Map<number, FlangeGeometry> {
+  const out = new Map<number, FlangeGeometry>();
   const byNode = new Map<number, number[]>();
   for (const q of m.quads.values()) for (const n of q.nodes) (byNode.get(n) ?? byNode.set(n, []).get(n)!).push(q.id);
   const P = (id: number) => m.nodes.get(id)!;
   for (const e of m.elements.values()) {
     const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
     const bw = m.sections.get(e.sectionId)?.b;
-    if (!a || !b || !bw || Math.abs((a.z ?? 0) - (b.z ?? 0)) > 1e-3) continue;
+    if (!a || !b || !bw || Math.abs((a.z ?? 0) - (b.z ?? 0)) > FLANGE_LEVEL_TOLERANCE) continue;
     const L = Math.hypot(b.x - a.x, b.y - a.y);
     if (L < 1e-6) continue;
     const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
@@ -109,7 +112,7 @@ export function beamFlangeSides(m: FlangeModel): Map<number, { bw: number; sides
       if (!prev || q.thickness < prev.hf) sides.set(side, { hf: q.thickness, clear });
     }
     if (sides.size === 0) continue;
-    out.set(e.id, { bw, sides: [...sides.values()], datum });
+    out.set(e.id, { bw, planLength: L, sides: [...sides.values()], datum });
   }
   return out;
 }
