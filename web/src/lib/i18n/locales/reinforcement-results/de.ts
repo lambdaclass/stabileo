@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "seisDes.issue.confinementUnassessed": "Umschnürung ungeprüft. Prüfen Sie die erfassten Normalkräfte und die Bügelanordnung vor der Bewehrungsplanung der Stütze.",
   "detailing.cutoff.unverified": "Träger {element}, x = {x} m. Der örtliche Querkraftwiderstand und die Bewehrung weisen das Stabende hier nicht nach.",
   "detailing.schedule.spliceNote": "Position {mark} ({length} m) ist länger als der Handelsstab von {stock} m und braucht einen Stoß.",
   'project.adoptedReinforcementIgnored': "Diese Version ignoriert die im Projekt gespeicherte übernommene Bewehrung und verwendet die bemessene Bewehrung.",

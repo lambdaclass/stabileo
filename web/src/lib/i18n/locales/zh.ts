@@ -13690,7 +13690,6 @@ const zh: Translations = {
   "seisDes.issue.confinedLength": "约束区短于 lo",
   "seisDes.issue.confinedSpacing": "箍筋间距超过 so",
   "seisDes.issue.ash": "Ash 过小",
-  "seisDes.issue.confinementUnassessed": "约束未通过验算。绘制柱配筋详图前，请核实记录的轴力和箍筋布置。",
   "fdnEd.none": "模型没有基础。请从「模型 › 基础」中布置。",
   "fdnEd.list": "基础",
   "fdnEd.locked": "已锁定",

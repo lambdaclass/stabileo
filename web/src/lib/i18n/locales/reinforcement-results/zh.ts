@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "seisDes.issue.confinementUnassessed": "约束未通过验算。绘制柱配筋详图前，请核实记录的轴力和箍筋布置。",
   "detailing.cutoff.unverified": "梁 {element}，x = {x} m。局部抗剪承载力和配筋不足以证明钢筋可在此处截断。",
   "detailing.schedule.spliceNote": "编号 {mark}（{length} m）长于 {stock} m 的定尺钢筋，需要搭接。",
   'project.adoptedReinforcementIgnored': "此版本忽略项目中保存的已选用配筋，使用设计配筋。",

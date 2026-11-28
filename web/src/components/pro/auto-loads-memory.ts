@@ -151,13 +151,11 @@ export function autoLoadsDefaults(roles?: Partial<ProjectRegulations>): AutoLoad
   const wind = windCode?.role === 'wind' ? windCode.defaults : null;
   const seismic = seismicCode?.role === 'seismic' ? seismicCode.defaults : null;
   // Another family starts from its own table, no CIRSOC build-up and its own partition rule.
-  const other = __PUBLIC_FEATURES__.proPlatesUnified ? otherLoads(roles) : null;
-  const occupancies = other?.occupancies?.() ?? [];
-  return {
+  const defaults: AutoLoadsMemory = {
     genCombos: true, comboSet: 'ultimate', comboSource: 'regulation', bothSenses: true, patternsInCompanions: false,
-    selectedOccupancy: other ? (other.defaultOccupancy ?? occupancies[0]?.key ?? 'vivienda') : 'vivienda',
+    selectedOccupancy: 'vivienda',
     tributaryWidth: 3.0, applyLiveReduction: true, reductionElementKind: 'interiorBeam', floorsSupported: 1,
-    deadRows: other ? [] : defaultDeadRows(), partitionLive: other ? familyPartition(other) : defaultPartitionLive(), gravityMode: 'panels', gravitySlab: 'twoWay', gravitySpan: 'x', gravityLoadEveryPanel: false,
+    deadRows: defaultDeadRows(), partitionLive: defaultPartitionLive(), gravityMode: 'panels', gravitySlab: 'twoWay', gravitySpan: 'x', gravityLoadEveryPanel: false,
     roofCfg: defaultRoofConfig(), livePatterns: 'all', special: defaultSpecialLoads(),
     enableWind: false,
     windV: wind?.basicSpeed ?? 45, windExposure: (wind?.exposure ?? 'B') as Exposure, windEnclosure: (wind?.enclosure ?? 'enclosed') as Enclosure,
@@ -173,6 +171,15 @@ export function autoLoadsDefaults(roles?: Partial<ProjectRegulations>): AutoLoad
     seismicOccupancy: 'reduced', elasticDesign: false,
     seismicMethod: defaultSeismicMethod(), seismicDirectionX: true, seismicDirectionZ: true,
   };
+  if (__PUBLIC_FEATURES__.proPlatesUnified) {
+    const other = otherLoads(roles);
+    if (other) {
+      defaults.selectedOccupancy = other.defaultOccupancy ?? other.occupancies?.()[0]?.key ?? defaults.selectedOccupancy;
+      defaults.deadRows = [];
+      defaults.partitionLive = familyPartition(other);
+    }
+  }
+  return defaults;
 }
 
 /**

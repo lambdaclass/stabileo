@@ -13218,7 +13218,6 @@ const hu: Translations = {
   "seisDes.issue.confinedLength": "a befogott zóna rövidebb lo-nál",
   "seisDes.issue.confinedSpacing": "a kengyeltávolság meghaladja so-t",
   "seisDes.issue.ash": "Az Ash túl kicsi",
-  "seisDes.issue.confinementUnassessed": "A körülzárás nincs igazolva. Az oszlop vasalásának részletezése előtt ellenőrizze a rögzített normálerőket és a kengyelek elrendezését.",
   "fdnEd.none": "A modellben nincsenek alapok. Helyezze el őket a Modell › Alapok alatt.",
   "fdnEd.list": "Alapok",
   "fdnEd.locked": "Zárolt",

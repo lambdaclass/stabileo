@@ -8,7 +8,7 @@ import { workspaceSaveStatus } from '../workspace-save-status.svelte';
 it('closed, the notice stays away while saves fail, and comes back after one goes through', () => {
   workspaceSaveStatus.report(false);
   expect([workspaceSaveStatus.failed, workspaceSaveStatus.shown]).toEqual([true, true]);
-  workspaceSaveStatus.dismiss();
+  workspaceSaveStatus.dismiss?.();
   expect([workspaceSaveStatus.failed, workspaceSaveStatus.shown]).toEqual([true, false]);
   workspaceSaveStatus.report(false);
   expect(workspaceSaveStatus.shown).toBe(false);

@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "seisDes.issue.confinementUnassessed": "Confinamento não verificado. Verifique os esforços axiais registrados e a disposição dos estribos antes de detalhar o pilar.",
   "detailing.cutoff.unverified": "Viga {element}, x = {x} m. A resistência local ao cisalhamento e a armadura não justificam terminar a barra aqui.",
   "detailing.schedule.spliceNote": "A marca {mark} ({length} m) excede a barra comercial de {stock} m e requer emenda.",
   'project.adoptedReinforcementIgnored': "Esta versão ignora a armadura adotada salva no projeto e usa a armadura de dimensionamento.",

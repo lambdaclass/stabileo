@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "seisDes.issue.confinementUnassessed": "Confinement non vérifié. Vérifiez les efforts axiaux enregistrés et la disposition des cadres avant de détailler le poteau.",
   "detailing.cutoff.unverified": "Poutre {element}, x = {x} m. La résistance locale au cisaillement et les armatures ne justifient pas un arrêt de barre ici.",
   "detailing.schedule.spliceNote": "La position {mark} ({length} m) dépasse la barre commerciale de {stock} m et demande un recouvrement.",
   'project.adoptedReinforcementIgnored': "Cette version ignore les armatures adoptées enregistrées dans le projet et utilise les armatures de dimensionnement.",

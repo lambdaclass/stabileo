@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "seisDes.issue.confinementUnassessed": "Sargı doğrulanmadı. Kolonu detaylandırmadan önce kayıtlı eksenel kuvvetleri ve etriye düzenini kontrol edin.",
   "detailing.cutoff.unverified": "Kiriş {element}, x = {x} m. Yerel kesme dayanımı ve donatı, çubuğun burada sonlandırılabileceğini doğrulamıyor.",
   "detailing.schedule.spliceNote": "{mark} işaretli donatı ({length} m) {stock} m'lik ticari boydan uzun ve bindirme gerektirir.",
   'project.adoptedReinforcementIgnored': "Bu sürüm projede kayıtlı kabul edilmiş donatıyı dikkate almaz ve tasarım donatısını kullanır.",

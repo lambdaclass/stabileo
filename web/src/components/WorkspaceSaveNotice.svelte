@@ -9,7 +9,7 @@
     <p>{t('file.workspaceNotSaved')}</p>
     <button type="button" data-testid="workspace-save-session" onclick={() => saveSession()}>{t('file.workspaceSaveToFile')}</button>
     {#if __PUBLIC_FEATURES__.proPlatesUnified}
-      <button type="button" class="close" data-testid="workspace-save-dismiss" aria-label={t('file.workspaceNoticeClose')} title={t('file.workspaceNoticeClose')} onclick={() => workspaceSaveStatus.dismiss()}>×</button>
+      <button type="button" class="close" data-testid="workspace-save-dismiss" aria-label={t('file.workspaceNoticeClose')} title={t('file.workspaceNoticeClose')} onclick={() => workspaceSaveStatus.dismiss?.()}>×</button>
     {/if}
   </div>
 {/if}

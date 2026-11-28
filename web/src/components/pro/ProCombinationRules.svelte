@@ -81,10 +81,10 @@
   /** Start from the bound basis code (CIRSOC 101 without one), strength and service, for the loads the model has. */
   function seed() {
     const present = presentSymbols(modelCombinationCases(modelStore.model));
-    const b = __PUBLIC_FEATURES__.proPlatesUnified ? basis : undefined;
-    const specs = runEngineAction(() => (b
-      ? [...b.strength({ present }).combinations, ...b.service({ present })]
-      : [...generateCombinations({ present }), ...generateServiceCombinations({ present })]));
+    const specs = runEngineAction(() => {
+      if (__PUBLIC_FEATURES__.proPlatesUnified && basis) return [...basis.strength({ present }).combinations, ...basis.service({ present })];
+      return [...generateCombinations({ present }), ...generateServiceCombinations({ present })];
+    });
     if (!specs) return;
     const ids = freshRuleIds(rules, specs.length);
     write([...rules, ...specs.map((s, i) => specToRule(s, ids[i]!))]);

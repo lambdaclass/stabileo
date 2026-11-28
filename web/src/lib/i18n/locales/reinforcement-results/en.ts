@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "seisDes.issue.confinementUnassessed": "Confinement unverified. Check the recorded axial forces and tie layout before detailing this column.",
   "detailing.cutoff.unverified": "Beam {element}, x = {x} m. The local shear resistance and reinforcement do not establish that the bar may end here.",
   "detailing.schedule.spliceNote": "Mark {mark} ({length} m) is longer than the {stock} m stock bar and needs a splice.",
   'project.adoptedReinforcementIgnored': "This build ignores the adopted reinforcement saved in the project and uses the designed reinforcement.",

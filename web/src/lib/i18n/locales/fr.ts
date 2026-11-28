@@ -13580,7 +13580,6 @@ const fr: Translations = {
   'seisDes.issue.confinedLength': 'zone confinée plus courte que lo',
   'seisDes.issue.confinedSpacing': 'espacement des cadres supérieur à so',
   'seisDes.issue.ash': 'Ash insuffisante',
-  "seisDes.issue.confinementUnassessed": "Confinement non vérifié. Vérifiez les efforts axiaux enregistrés et la disposition des cadres avant de détailler le poteau.",
   'fdnEd.none': 'Le modèle n\'a aucune fondation. Placez-les depuis Modèle › Fondations.',
   'fdnEd.list': 'Fondations',
   'fdnEd.locked': 'Verrouillées',

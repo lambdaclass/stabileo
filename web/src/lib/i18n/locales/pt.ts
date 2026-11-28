@@ -13768,7 +13768,6 @@ const pt: Translations = {
   'seisDes.issue.confinedLength': 'zona confinada menor que lo',
   'seisDes.issue.confinedSpacing': 'espaçamento de estribos maior que so',
   'seisDes.issue.ash': 'Ash insuficiente',
-  "seisDes.issue.confinementUnassessed": "Confinamento não verificado. Verifique os esforços axiais registrados e a disposição dos estribos antes de detalhar o pilar.",
   'fdnEd.none': 'O modelo não tem fundações. Posicione-as em Modelo › Fundações.',
   'fdnEd.list': 'Fundações',
   'fdnEd.locked': 'Com bloqueios',

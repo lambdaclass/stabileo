@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PhysicalRecognitionPending from './PhysicalRecognitionPending.svelte';
   import Hint from './Hint.svelte';
   /**
    * The model's physical elements: what each set of bars and shells IS to the engineer.
@@ -23,7 +24,7 @@
   let review = $state<RecognitionPlan | null>(null);
   let outcome = $state<RecognitionOutcome | null>(null);
   function pendingCount() { void modelStore.modelVersion; void modelStore.model.groups; return pendingPhysicalRecognition(); }
-  function open() { outcome = null; review = planRecognition(); }
+  function recognise() { outcome = null; review = planRecognition(); }
   function done(o: RecognitionOutcome | null) { review = null; outcome = o; }
 
   const KINDS: PhysicalKind[] = ['column', 'beam', 'brace', 'slab', 'wall'];
@@ -66,16 +67,13 @@
       {#if !review}
         {@const pending = pendingCount()}
         {#if pending > 0}
-        <div class="pk-row ph-pending" data-testid="physical-pending">
-          <span>{tp('physical.pending', { n: pending })}</span>
-          <button class="pk-btn pk-btn-primary" onclick={open} data-testid="physical-review">{t('physical.pendingReview')}</button>
-        </div>
+          <PhysicalRecognitionPending {pending} onreview={recognise} />
         {/if}
       {/if}
     {:else}
       <Hint text={t('physical.explain')} />
       <div class="pk-row">
-        <button class="pk-btn pk-btn-primary" onclick={open} disabled={review !== null} data-testid="physical-recognize">{t('physical.recognize')}</button>
+        <button class="pk-btn pk-btn-primary" onclick={recognise} disabled={review !== null} data-testid="physical-recognize">{t('physical.recognize')}</button>
         {#if list.length > 0}<span class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</span>{/if}
       </div>
     {/if}
@@ -146,7 +144,6 @@
 </div>
 
 <style>
-  .ph-pending { align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--st-warn, #d9a441); border-radius: var(--st-radius); color: var(--st-text); }
   .ph-filter { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
   .ph-filter .on { border-color: var(--st-accent); color: var(--st-text); }
   .ph-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }

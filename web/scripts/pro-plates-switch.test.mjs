@@ -1120,7 +1120,7 @@ test('known wrong result: #1928 the public manual solver allocates no invisible 
   }
 });
 
-test.skip('known wrong result: #1928 physical review styling and foreign seed calls ship only with their controls', async () => {
+test('known wrong result: #1928 physical review styling and foreign seed calls ship only with their controls', async () => {
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       for (const file of ['ProPhysicalPanel', 'ProCombinationRules']) {
