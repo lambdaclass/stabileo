@@ -151,6 +151,28 @@ describe('stirrup zone merging', () => {
 // ─── End-to-end generation ───────────────────────────────────────
 
 describe('beam bar generation', () => {
+  it.skip('known wrong result: #2670 checks the actual end and diameter of a fused cutoff bar', () => {
+    const beam = generateBeamBars(input());
+    const cut = beam.cutoffs.find(c => c.legality !== 'illegal')!;
+    expect(cut).toBeDefined();
+    const original = beam.bars.find(bar => bar.segments.some(segment =>
+      segment.start.x === cut.actual || segment.end.x === cut.actual))!;
+    expect(original).toBeDefined();
+    const placed = { ...original, id: 'through' };
+    const others = [...beam.bars.filter(bar => bar !== original), ...beam.transverse.map(piece => piece.path)];
+    const sources = new Map([[placed.id, new Set([original.id])]]);
+    const check = (replacement: typeof placed, identities = sources) =>
+      beam.checkPlacedCuts([...others, replacement], identities).cuts.find(c => c.actual === cut.actual)!.legality;
+    expect(check(placed)).toBe(cut.legality);
+    expect(check(placed, new Map())).toBe('illegal');
+    expect(check({ ...placed, diameterMm: original.diameterMm / 2 })).toBe('illegal');
+    const moved = placed.segments.map(segment => ({ ...segment,
+      start: { ...segment.start, x: segment.start.x + cut.actual },
+      end: { ...segment.end, x: segment.end.x + cut.actual },
+    }));
+    expect(check({ ...placed, segments: moved })).toBe('illegal');
+  });
+
   it('generates physical bars, cut-offs and stirrup zones', () => {
     const g = generateBeamBars(input());
     expect(g.bars.length).toBeGreaterThan(0);
