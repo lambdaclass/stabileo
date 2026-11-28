@@ -67,11 +67,12 @@ describe('normative design behind PRO settings', () => {
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
     const e = modelStore.addElement(a, b);
     modelStore.updateElement(e, { reinforcement: { kind: 'beam' } } as never);
-    const before = uiStore.toasts.filter((x) => x.actionId === 'enable-design').length;
+    const said = vi.spyOn(uiStore, 'toast');
     onProjectOpened(undefined, 'pro');
     onProjectOpened(undefined, 'pro');
     noteDesignHeldIfOff('pro');
-    expect(uiStore.toasts.filter((x) => x.actionId === 'enable-design').length).toBe(before + 1);
+    expect(said.mock.calls.filter((c) => c[2] === 'enable-design')).toHaveLength(1);
+    said.mockRestore();
   });
 
   // A post's embed names a place of design (`?proTab=design`): it asks, and only the reader's

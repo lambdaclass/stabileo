@@ -258,7 +258,7 @@
         <SectionStressPanel docked />
       </div>
     {:else if panel === 'settings'}
-      <ToolbarConfig flat />
+      <ToolbarConfig />
     {:else if panel === 'project'}
       <ToolbarProject flat />
     {:else if panel === 'ai'}

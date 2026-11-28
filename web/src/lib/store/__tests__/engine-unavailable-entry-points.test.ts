@@ -76,6 +76,7 @@ function planInput(): LoadPlanInput {
 }
 
 beforeEach(() => { flags.loads = 'up'; flags.init = 'up'; flags.combos = 'up'; });
+beforeEach(() => { uiStore.toasts.splice(0); });
 afterEach(() => { flags.loads = 'up'; flags.init = 'up'; flags.combos = 'up'; });
 
 describe('the helpers', () => {

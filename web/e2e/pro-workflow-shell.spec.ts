@@ -83,7 +83,7 @@ test.describe('@smoke PRO shell — settings', () => {
 
     /* Real content, not a heading over nothing — `inline` used to leave every
        sub-section collapsed, which is a panel with a title and no body. */
-    expect(await page.locator('.input-group').count(),
+    expect(await page.locator('.cfg-field').count(),
       'the settings themselves are there').toBeGreaterThan(3);
   });
 

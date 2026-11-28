@@ -1286,6 +1286,8 @@ function createUIStore() {
     /** `sticky`: kept until it is acted on or dismissed, for a question the reader has to answer. */
     toast(message: string, type: 'success' | 'error' | 'info' = 'info', actionId?: string, sticky = false) {
       const id = ++toastCounter;
+      const same = toasts.findIndex(t => t.message === message && t.type === type && t.actionId === actionId);
+      if (same >= 0) toasts.splice(same, 1);
       toasts.push({ id, message, type, actionId });
       if (sticky) return;
       setTimeout(() => {

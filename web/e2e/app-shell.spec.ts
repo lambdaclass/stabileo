@@ -247,6 +247,37 @@ test.describe('@smoke reaching us from the title bar', () => {
   });
 });
 
+async function hintUnderItsBox(page: Page, testid: string) {
+  return page.getByTestId(testid).evaluate((box) => {
+    const row = box.closest('label')!, hint = row.nextElementSibling as HTMLElement, panel = row.closest('.cfg')!;
+    const r = row.getBoundingClientRect(), h = hint.getBoundingClientRect(), p = panel.getBoundingClientRect();
+    return { below: h.top >= r.bottom - 1, wide: h.width > p.width * 0.7, short: h.height < 40 };
+  });
+}
+
+test.describe('@smoke settings in every mode', () => {
+  test('sections in order, and each explanation under its box at full width', async ({ page }) => {
+    await openBasic(page);
+    await page.getByTestId('rb-settings').click();
+    const headings = () => page.locator('.cfg .cfg-heading').allInnerTexts();
+    expect((await headings()).map((h) => h.toLowerCase())).toEqual(['view', 'grid', 'model', 'results', 'general']);
+    expect(await hintUnderItsBox(page, 'cfg-edu-in-basic')).toEqual({ below: true, wide: true, short: true });
+
+    await page.getByTestId('ws-space').click();
+    await expect(page.getByTestId('cfg-grid-extent')).toBeVisible();
+    await expect(page.getByTestId('cfg-node-style')).toBeVisible();
+
+    await page.getByTestId('ws-pro').click();
+    await page.getByTestId('pro-settings').click();
+    expect((await headings()).map((h) => h.toLowerCase())).toEqual(['view', 'grid', 'model', 'results', 'general']);
+    for (const id of ['cfg-inline-help', 'cfg-design-in-pro']) {
+      expect(await hintUnderItsBox(page, id), id).toEqual({ below: true, wide: true, short: true });
+    }
+    await page.getByTestId('cfg-live-calc').check();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('liveCalc'))).toBe('true');
+  });
+});
+
 test.describe('@smoke one tab, three modes', () => {
   const tabs = (page: Page) => page.locator('.tab-bar .tab');
   const members = (page: Page) => page.evaluate(() => window.__stabileo.elementIds().length);

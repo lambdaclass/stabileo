@@ -307,14 +307,7 @@
         {#if activeTab === 'selection'}
           <SelectionPanel />
         {:else if activeTab === 'settings'}
-          <!--
-            Settings in the panel, like Basic. PRO hung them off the header
-            button in a dropdown: a second surface with its own scroll and
-            close, for content this panel already exists to show. `flat`
-            because `inline` leaves every sub-section collapsed, which in a
-            panel is a heading with nothing under it.
-          -->
-          <ToolbarConfig flat={true} />
+          <ToolbarConfig />
         {:else if activeTab === 'grid'}
           <ProGridPanel />
         {:else if activeTab === 'transform'}
