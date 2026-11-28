@@ -8,7 +8,7 @@ import { wallBaseResultants } from './wall-design';
 import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
 import type { BeamComboForces, BeamDemand, BeamEnd, SectionEnv, SupportPost } from './beam-row';
 import type { ColumnCase, ColumnDemand, ColumnSway } from './column-row';
-import type { StoreyStability } from '../engine/design/sway';
+import type { StoreyStability, StoreyCaseStability } from '../engine/design/sway';
 import type { SlabComboForces, SlabDemand, SlabFace } from './slab-row';
 import type { WallComboForces, WallDemand } from './wall-row';
 import type { PunchingDemand } from './punching-row';
@@ -22,6 +22,10 @@ import { resolveShellOffsetGlobal } from '../engine/shell-offsets';
 
 type Pt = { id: number; x: number; y: number; z?: number };
 type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: string; rollAngle?: number; offset?: import('../model/element-3d-metadata').MemberOffset };
+
+export interface SheetStoreyStability extends StoreyStability {
+  byCombo: Map<string, StoreyCaseStability>;
+}
 
 export interface DemandGroup {
   id: number; name: string; kind: string;
@@ -62,7 +66,7 @@ export interface DemandInput {
   /** Moments at the support faces and shear and torsion at d from them, instead of at the axes. */
   faces?: boolean;
   /** A column element's storey as read for sway. */
-  storeyOf?: (elementId: number) => StoreyStability | undefined;
+  storeyOf?: (elementId: number) => SheetStoreyStability | undefined;
   /** Half the support's extent along the beam at an element's end, m. */
   faceOffset?: (elementId: number, end: 'i' | 'j') => number;
   /** The slab beside a beam element as flange sides, none where it has no slab; given only when beams are designed with the slab as a compression flange (Table 6.3.2.1), and undefined for a beam left out of it. */

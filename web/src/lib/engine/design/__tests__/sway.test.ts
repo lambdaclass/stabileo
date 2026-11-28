@@ -65,11 +65,35 @@ describe('sway storeys', () => {
   });
 });
 
-it.skip.each([0.006, 0.012, 0.06])('known wrong result: #1928 the ordinary stability query at drift %s reads joint restraints only for the capacity method', drift => {
+it.each([0.006, 0.012, 0.06])('known wrong result: #1928 the ordinary stability query at drift %s reads joint restraints only for the capacity method', drift => {
   let reads = 0;
   const psi = () => { reads++; return { psiA: 1, psiB: 1 }; };
   const [storey] = storeyStability({ nodes, elements, sections, materials, columns: [10, 11], perCombo: results(drift), psi });
   expect(storey).toBeDefined();
   expect(reads).toBe(storey!.method === 'Pc' || storey!.method === 'unstable' ? 2 : 0);
   expect(storey).not.toHaveProperty('byCombo');
+});
+
+it('sheet storeys keep each combination and use their specified effective length', async () => {
+  const { modelStore } = await import('../../../store');
+  const { sheetStoreys } = await import('../../../store/rc-sheets-sway');
+  modelStore.clear();
+  const ids = [...nodes.values()].map(n => modelStore.addNode(n.x, n.y, n.z));
+  const columns = [modelStore.addElement(ids[0]!, ids[1]!), modelStore.addElement(ids[2]!, ids[3]!)];
+  const sets = [0.006, 0.06].map((drift, i) => {
+    const result: import('../../types-3d').AnalysisResults3D = results(drift).get(1)!;
+    return { name: String(i), result: { ...result, elementForces: result.elementForces.map((f, j) => ({ ...f, elementId: columns[j]! })) } };
+  });
+  const k = swayK(20, 20) + 1;
+  const readings = sheetStoreys(columns, sets, k);
+  const doubled = sheetStoreys(columns, sets, 2 * k);
+  expect(readings.get(columns[0]!)).toBe(readings.get(columns[1]!));
+  const byCombo = readings.get(columns[0]!)!.byCombo;
+  expect([...byCombo.keys()]).toEqual(['0', '1']);
+  for (const [i, drift] of [0.006, 0.06].entries()) {
+    const own = byCombo.get(String(i))!;
+    expect(own.Q).toBe(run(drift).Q);
+    expect(own.sumPc).toBeGreaterThan(0);
+    expect(doubled.get(columns[0]!)!.byCombo.get(String(i))!.sumPc).toBe(own.sumPc / 4);
+  }
 });
