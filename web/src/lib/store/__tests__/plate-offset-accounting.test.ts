@@ -45,3 +45,20 @@ it.skip.each(['quad', 'tri'] as const)('known wrong result: #2461 %s refuses a m
   modelStore.setShellOffset(kind, id, { frame: 'global', x: 0, y: 0, z: 2e-9 });
   expect(modelStore.buildSolverInput3D()).not.toBeNull();
 });
+
+it.skip.each(['quad', 'tri'] as const)('known wrong result: #2461 %s case and notional loads reject a shifted shell put back on its joints', async element => {
+  const { caseSolverLoads3D, notionalSourceLoads3D } = await import('../../engine/solver-service');
+  const id = plate(element);
+  const expanded = modelStore.buildSolverInput3D()!;
+  const bare = modelStore.buildSolverInput3D(false, false, { expandMemberOffsets: false })!;
+  const model = modelStore.model;
+  const checkCases = (input: typeof bare) => caseSolverLoads3D(model, model.loadCases, false, false, input);
+  const checkNotional = (input: typeof bare) => notionalSourceLoads3D(model, false, model.loadCases[0]!.id, [], input);
+  const cell = (input: typeof bare) => (element === 'quad' ? input.quads : input.plates)!.get(id)!;
+  expect(cell(bare).nodes).not.toEqual(cell(expanded).nodes);
+  expect(() => checkCases(bare)).not.toThrow();
+  expect(() => checkNotional(expanded)).not.toThrow();
+  cell(expanded).nodes = cell(bare).nodes;
+  expect(() => checkCases(expanded)).toThrow(SolveAccountingError);
+  expect(() => checkNotional(expanded)).toThrow(SolveAccountingError);
+});
