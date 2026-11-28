@@ -29,6 +29,7 @@ export const switchOnUnitFiles = [
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/lib/store/__tests__/physical-design-thickness.test.ts',
   'src/components/__tests__/initial-plate-selection.test.ts',
   'src/components/pro/__tests__/building-input-profile.test.ts',
   'src/lib/store/__tests__/drawn-plate-levels.test.ts',

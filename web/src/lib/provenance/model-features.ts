@@ -81,7 +81,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
-  'unreviewedLoadRoleStamp', 'individualNearLevelFlange', 'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateSubthresholdOffsets', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'physicalDesignThickness', 'unreviewedLoadRoleStamp', 'individualNearLevelFlange', 'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateSubthresholdOffsets', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'shortOffAxisStrap', 'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
@@ -798,6 +798,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
   if (mode !== 'pro' && (quads.length || values(s.plates).length)) f.add('shellsInBasic');
   const physicalPlates = new Set<number>();
+  const quadThickness = new Map(s.quads);
+  const triangleThickness = new Map(s.plates);
   for (const entry of Array.isArray(s.groups) ? s.groups : []) {
     const group = entry?.[1];
     const slab = group?.data as { kind?: string; meshAtSolve?: { panel?: unknown } } | undefined;
@@ -805,6 +807,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     const surface = plateSurfaceOf({ data: entry?.[1]?.data as Record<string, unknown> });
     if (!surface) continue;
     if ((group?.data as { kind?: string } | undefined)?.kind === 'wall' && Array.isArray(surface.edgeSupports) && surface.edgeSupports.length) f.add('wallEdgeRestraints');
+    const q = group?.members?.quads ?? [], p = group?.members?.plates ?? [];
+    if ((!unifiedPlates() && !q.length && !p.length)
+      || q.some(id => quadThickness.get(id)?.thickness !== surface.thickness)
+      || p.some(id => triangleThickness.get(id)?.thickness !== surface.thickness)) f.add('physicalDesignThickness');
     if (surface.springs != null) f.add('physicalPlateSprings');
     physicalPlates.add(entry[0]);
     if (surface.loops.length > 1 && Array.isArray(surface.arcMids)) {

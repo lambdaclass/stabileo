@@ -1,12 +1,13 @@
 import { afterEach, expect, it } from 'vitest';
 import { modelStore } from '..';
 import { fireChecks, patchFire } from '../fire';
+import { modelFeatures } from '../../provenance/model-features';
 import { physicalThickness } from '../physical';
 import { applyPlateMeshes, createPlate, planPlateMesh } from '../physical-plates';
 
 afterEach(() => modelStore.clear());
 
-it.skip.each(['quad', 'tri'] as const)('known wrong result: #1928 fire dimensions follow the saved %s mesh', element => {
+it.each(['quad', 'tri'] as const)('known wrong result: #1928 fire dimensions follow the saved %s mesh', element => {
   modelStore.clear();
   const outline = [[0, 0], [6, 0], [6, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
   const nominal = 0.15;
@@ -23,17 +24,19 @@ it.skip.each(['quad', 'tri'] as const)('known wrong result: #1928 fire dimension
   expect(ids.length).toBeGreaterThan(1);
   const set = (id: number) => element === 'quad' ? modelStore.updateQuad(id, { thickness: edited }) : modelStore.updatePlate(id, { thickness: edited });
   expect(fire()?.data).toContainEqual(['h', nominal * 1000 + ' mm']);
+  expect(modelFeatures(modelStore.snapshot()).has('physicalDesignThickness')).toBe(false);
   set(ids[0]!);
   modelStore.restore(modelStore.snapshot());
   expect(physicalThickness(group())).toBeNull();
   expect(fire()).toBeUndefined();
+  expect(modelFeatures(modelStore.snapshot()).has('physicalDesignThickness')).toBe(true);
   ids.forEach(set);
   modelStore.restore(modelStore.snapshot());
   expect(physicalThickness(group())).toBe(edited);
   expect(fire()?.data).toContainEqual(['h', edited * 1000 + ' mm']);
 });
 
-it.skip('known wrong result: #1928 an unmeshed plate contributes a design dimension only with unified plates', () => {
+it('known wrong result: #1928 an unmeshed plate contributes a design dimension only with unified plates', () => {
   modelStore.clear();
   const outline = [[0, 0], [6, 0], [6, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
   const plate = createPlate({ outline, materialId: 1, thickness: 0.15 });
