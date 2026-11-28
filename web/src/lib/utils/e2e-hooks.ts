@@ -487,6 +487,8 @@ export interface StabileoTestActions {
    * both axes for a real reason (see `ROLLED_BEAMS` in `e2e/fixtures.ts`).
    */
   turnElements(ids: number[], degrees: number): void;
+  /** Remove every support at these nodes in one undo step; returns how many were removed. */
+  releaseNodes(nodeIds: number[]): number;
   /** Reset the selection between gestures — the position, not the subject. */
   clearSelection(): void;
   /** Runs the same global solve the toolbar button triggers. */
@@ -983,6 +985,11 @@ export function installE2EHooks(): void {
           if (e) modelStore.updateElement(id, { rollAngle: ((e.rollAngle ?? 0) + degrees) % 360 });
         }
       });
+    },
+    releaseNodes: (nodeIds: number[]) => {
+      const held = [...modelStore.supports.values()].filter((s) => nodeIds.includes(s.nodeId));
+      modelStore.batch(() => { for (const s of held) modelStore.removeSupport(s.id); });
+      return held.length;
     },
     /** Reset the selection between gestures — the position, not the subject. */
     clearSelection: () => { uiStore.clearSelection(); },

@@ -1,15 +1,15 @@
 import { BUILD_FEATURES } from './build-features';
 import type { Page } from '@playwright/test';
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, releaseCore, solveModel } from './fixtures';
 import { setDesignOption } from './design-options';
 if (BUILD_FEATURES.proRcSheets) {
 
   /**
    * The seven-storey concrete building solved as the app solves it and designed by the sheets with
    * chapter 18: opened from its gallery card no row fails, the core's walls standing on the base the
-   * card holds, and a column states its hoops against Ash and hx; loaded as tests load it, without the
-   * card's correction, the core's ground-floor walls fail, for resting on a node, until one click holds
-   * their bases. The balconies are 15 cm thick for a 1.85 m projection: under Table 7.3.1.1's ℓ/10
+   * card holds, and a column states its hoops against Ash and hx; with its core base released, the
+   * core's ground-floor walls fail, for resting on a node, until one click holds their bases. The
+   * balconies are 15 cm thick for a 1.85 m projection: under Table 7.3.1.1's ℓ/10
    * their long-term deflection is calculated, and the bottom mesh at the root, read as compression
    * steel (§24.2.4.1.2), brings it within ℓ/240.
    */
@@ -75,9 +75,10 @@ if (BUILD_FEATURES.proRcSheets) {
     await expect(checks).toContainText('§18.7.5.2');
   });
 
-  test('@slow the seven-storey building as tests load it fails at its unheld core walls, and not once they are held', async ({ pro: page }) => {
+  test('@slow the seven-storey building with its core released fails at its unheld core walls, and not once they are held', async ({ pro: page }) => {
     test.setTimeout(300_000);
     await loadModel(page, 'pro-edificio-7p');
+    await releaseCore(page);
     await solveModel(page);
     await designSeismic(page);
     for (const f of ['beam', 'footing']) await expect(page.getByTestId(`rc-open-${f}`), `${f} rows`).toContainText(/\b0 failing/);

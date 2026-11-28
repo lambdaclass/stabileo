@@ -1,5 +1,5 @@
 import { BUILD_FEATURES } from './build-features';
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, releaseCore, solveModel } from './fixtures';
 import { setDesignOption } from './design-options';
 if (BUILD_FEATURES.proRcSheets) {
 
@@ -15,6 +15,7 @@ if (BUILD_FEATURES.proRcSheets) {
   test('@slow the reinforcement sheets design beams, columns, slabs and walls of a solved building', async ({ pro: page }) => {
     test.setTimeout(300_000);
     await loadModel(page, 'pro-edificio-7p');
+    await releaseCore(page);
     await page.evaluate(() => window.__stabileoActions.setMeshBeforeAnalysis(false));
     // Two combinations by the same name, as a file of one's own beside the generated ones can hold: each keeps its row.
     await page.evaluate(() => {
@@ -172,7 +173,6 @@ if (BUILD_FEATURES.proRcSheets) {
     await expect(slabFig.getByTestId('rc-slab-plan-bottomY')).toHaveCount(1);
     await ws.getByTestId('rc-tab-vertical').click();
     await expect(ws.getByTestId('rc-table-vertical')).toBeVisible();
-    // The fixture as tests load it, without the card's correction, stands its core on the corner column alone.
     const walls = ws.locator('[data-testid="rc-row"][data-family="wall"]');
     const ground = walls.filter({ hasText: 'N0' });
     await expect(ground).toHaveCount(3);

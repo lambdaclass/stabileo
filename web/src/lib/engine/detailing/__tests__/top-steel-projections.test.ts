@@ -21,7 +21,7 @@
 
 import { noteText } from '../drawings';
 import { describe, it, expect, beforeAll } from 'vitest';
-import { GALLERY_REFUSED_BEAM_IDS, workspaceScene } from './helpers/workspace-scene';
+import { expectEveryFrameMemberAccounted, GALLERY_REFUSED_BEAM_IDS, RELEASED_CORE, workspaceScene } from './helpers/workspace-scene';
 import { verificationStore } from '../../../store/verification.svelte';
 import { renderReportHtml, renderDrawings, renderSchedule } from '../document-render';
 import { reportElementStatus, type DesignOutcomeSummary } from '../element-status';
@@ -30,7 +30,7 @@ import type { DocumentModel } from '../document-model';
 
 const RENDER = { projectName: 'Top steel QA', locale: 'es' } as const;
 
-describe('top assembly reinforcement, across every projection', { timeout: 60_000 }, () => {
+describe('top assembly reinforcement, across every projection, on the released core', { timeout: 60_000 }, () => {
   let scene: SceneModel;
   let doc: DocumentModel;
   /** Members whose top steel is the §25.7.1.2 pair, from the scene. */
@@ -39,7 +39,7 @@ describe('top assembly reinforcement, across every projection', { timeout: 60_00
   let outcomes: Map<number, DesignOutcomeSummary>;
 
   beforeAll(async () => {
-    const w = await workspaceScene('pro-edificio-7p');
+    const w = await workspaceScene('pro-edificio-7p', RELEASED_CORE);
     scene = w.scene;
     doc = w.doc;
     outcomes = w.outcomes;
@@ -207,4 +207,10 @@ describe('top assembly reinforcement, across every projection', { timeout: 60_00
       }
     }
   });
+});
+
+describe('top assembly reinforcement with the core founded', () => {
+  it('leaves no frame member with a cage and no main steel, and loses none on the way', async () => {
+    expectEveryFrameMemberAccounted(await workspaceScene('pro-edificio-7p'));
+  }, 900_000);
 });

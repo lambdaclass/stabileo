@@ -23,7 +23,7 @@
 
 import { noteText } from '../drawings';
 import { describe, it, expect, beforeAll } from 'vitest';
-import { workspaceScene, ROLLED_BEAMS } from './helpers/workspace-scene';
+import { expectEveryFrameMemberAccounted, workspaceScene, RELEASED_CORE, ROLLED_BEAMS } from './helpers/workspace-scene';
 import { modelStore } from '../../../store/model.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import { detailingStore } from '../../../store/detailing.svelte';
@@ -50,14 +50,14 @@ const NOT_FOR_CONSTRUCTION = /NO APTO PARA EMISI/i;
  * A ceiling rather than no ceiling: 30 s is still an order of magnitude below anything that
  * would indicate a real regression, so a genuine slowdown is still caught.
  */
-describe('a provisional proposal, across every projection', { timeout: 30_000 }, () => {
+describe('a provisional proposal, across every projection, on the released core', { timeout: 30_000 }, () => {
   let scene: SceneModel;
   let doc: DocumentModel;
   let provisional: number[];
 
   beforeAll(async () => {
     // Five beams turned about their axis, so they bend about both (see `ROLLED_BEAMS`).
-    const w = await workspaceScene('pro-edificio-7p', ROLLED_BEAMS);
+    const w = await workspaceScene('pro-edificio-7p', { ...ROLLED_BEAMS, ...RELEASED_CORE });
     scene = w.scene;
     doc = w.doc;
     provisional = scene.provisionalMembers;
@@ -215,4 +215,10 @@ describe('a provisional proposal, across every projection', { timeout: 30_000 },
     expect(run, 'the detailing run is available').toBeTruthy();
     expect(run!.provisionalMembers).toEqual(provisional);
   });
+});
+
+describe('a provisional proposal with the core founded', () => {
+  it('names only turned beams and accounts for every frame member', async () => {
+    expectEveryFrameMemberAccounted(await workspaceScene('pro-edificio-7p', ROLLED_BEAMS), ROLLED_BEAMS.rollBeams.ids);
+  }, 900_000);
 });

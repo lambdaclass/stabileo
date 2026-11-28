@@ -21,7 +21,7 @@
  * only a structural loss can breach them.
  */
 
-import { applyVariant, frameBarsInAssembly, ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
+import { applyVariant, frameBarsInAssembly, RELEASED_CORE, ROLLED_BEAMS } from '../../engine/detailing/__tests__/helpers/workspace-scene';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { modelStore } from '../../store/model.svelte';
@@ -163,7 +163,7 @@ describe('the 7-storey building is more than column longitudinals', () => {
      * drilling defect; see beam-reinforcement-audit.test.ts), so five beams are turned about
      * their axis here, which makes some bend about both axes for a real reason.
      */
-    const rolled = await build(async () => { await modelStore.loadExample('pro-edificio-7p'); applyVariant(ROLLED_BEAMS); });
+    const rolled = await build(async () => { await modelStore.loadExample('pro-edificio-7p'); applyVariant({ ...ROLLED_BEAMS, ...RELEASED_CORE }); });
     const named = rolled.scene.provisionalMembers;
     expect(named.length, 'the proposals are named').toBeGreaterThan(0);
     for (const id of named) expect(ROLLED_BEAMS.rollBeams.ids, `member ${id} was turned`).toContain(id);
@@ -194,6 +194,39 @@ describe('the 7-storey building is more than column longitudinals', () => {
     });
     // And the building as committed names none.
     expect(built.scene.provisionalMembers).toEqual([]);
+  }, 240_000);
+
+  it('accounts for every frame member of the turned beams with the core founded', async () => {
+    const rolled = await build(async () => { await modelStore.loadExample('pro-edificio-7p'); applyVariant(ROLLED_BEAMS); });
+    const named = rolled.scene.provisionalMembers;
+    for (const id of named) expect(ROLLED_BEAMS.rollBeams.ids, `member ${id} was turned`).toContain(id);
+
+    const frameIds = rolled.scene.solids
+      .filter((s) => s.kind === 'beam' || s.kind === 'column')
+      .flatMap((s) => s.elementIds);
+    expect(rolled.scene.solids.filter((s) => s.kind === 'beam').length).toBeGreaterThan(50);
+
+    const inDoc = new Set(rolled.doc.assemblies.flatMap((a) => frameBarsInAssembly(a)).flatMap((b) => b.ownerElementIds));
+    const inScene = new Set(rolled.scene.bars.filter((b) => b.ownerScope === 'frame').flatMap((b) => b.elementIds));
+    expect([...inDoc].filter((id) => !inScene.has(id)), 'document steel reaches the scene').toEqual([]);
+
+    const bare = new Set(rolled.scene.unreinforcedMembers);
+    let armed = 0;
+    for (const id of frameIds) {
+      if (inScene.has(id)) {
+        expect(bare.has(id), `member ${id} is not both armed and bare`).toBe(false);
+        armed += 1;
+        continue;
+      }
+      expect(bare.has(id), `member ${id} without steel is named bare`).toBe(true);
+      const o = rolled.outcomes[id];
+      expect(o?.outcome, `member ${id} has an outcome`).toBeDefined();
+      expect(o!.outcome, `member ${id}`).not.toBe('PROVISIONAL_BIAXIAL');
+      expect(named, `member ${id}`).not.toContain(id);
+      expect(o!.limiting.length + (o!.reasons ?? []).length, `member ${id} states a reason`).toBeGreaterThan(0);
+    }
+    expect(armed, 'some frame members are armed').toBeGreaterThan(0);
+    expect(armed + bare.size, 'every frame member is accounted for').toBe(frameIds.length);
   }, 240_000);
 });
 

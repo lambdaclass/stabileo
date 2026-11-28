@@ -77,6 +77,39 @@ export function applyVariant(variant: Variant): void {
   }
 }
 
+export function expectEveryFrameMemberAccounted(w: WorkspaceScene, turned: readonly number[] = []): void {
+  const { doc, scene, outcomes } = w;
+  const frameSolids = scene.solids.filter((s) => s.kind === 'beam' || s.kind === 'column');
+  const beams = new Set(frameSolids.filter((s) => s.kind === 'beam').flatMap((s) => s.elementIds));
+  expect(beams.size, 'the scene draws the beams').toBeGreaterThan(100);
+  const frameBars = scene.bars.filter((b) => b.ownerScope === 'frame');
+  const inScene = new Set(frameBars.flatMap((b) => b.elementIds));
+  const inDoc = new Set(doc.assemblies.flatMap(frameBarsInAssembly).flatMap((b) => b.ownerElementIds));
+  expect([...inDoc].filter((id) => !inScene.has(id)), 'document steel reaches the scene').toEqual([]);
+  const withMain = new Set(frameBars.filter((b) => b.role === 'longitudinal').flatMap((b) => b.elementIds));
+  const bare = new Set(scene.unreinforcedMembers);
+  expect([...beams].filter((id) => !withMain.has(id)).sort((a, b) => a - b), 'a beam without main steel is named bare')
+    .toEqual([...beams].filter((id) => bare.has(id)).sort((a, b) => a - b));
+  for (const id of turned.length ? scene.provisionalMembers : []) expect(turned, `member ${id} was turned`).toContain(id);
+  if (!turned.length) expect(scene.provisionalMembers).toEqual([]);
+  let armed = 0;
+  for (const id of frameSolids.flatMap((s) => s.elementIds)) {
+    if (!bare.has(id)) {
+      expect(inScene.has(id), `member ${id} is drawn with steel`).toBe(true);
+      armed += 1;
+      continue;
+    }
+    const o = outcomes.get(id);
+    expect(o?.outcome, `member ${id} has an outcome`).toBeDefined();
+    expect(['VERIFIED', 'PROVISIONAL_BIAXIAL'], `member ${id}`).not.toContain(o!.outcome);
+    expect((o!.limiting ?? []).length > 0 || !!o!.reasonKey, `member ${id} states a reason`).toBe(true);
+    expect(scene.provisionalMembers, `member ${id}`).not.toContain(id);
+    expect(frameBars.some((b) => b.elementIds.includes(id) && b.role === 'transverse'
+      && b.piece !== 'jointTie' && b.piece !== 'jointCrosstie'), `member ${id} has no cage either`).toBe(false);
+  }
+  expect(armed, 'some frame members are armed').toBeGreaterThan(0);
+}
+
 export const GALLERY_REFUSED_BEAM_IDS = [
   88, 91, 109, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
   124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138,

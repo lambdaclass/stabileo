@@ -354,6 +354,15 @@ export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: '
  */
 export const ROLLED_BEAMS = { ids: [88, 151, 153, 157, 164], degrees: 20 } as const;
 
+/** The core base nodes `pro-edificio-7p` was released without, before `example-core-foundation` held them. */
+export const RELEASED_CORE_NODES = [118, 119, 120] as const;
+
+/** Release `RELEASED_CORE_NODES` in the loaded seven-storey model, so its core stands on node 1 alone. */
+export async function releaseCore(page: Page): Promise<void> {
+  const removed = await page.evaluate((ids) => window.__stabileoActions.releaseNodes([...ids]), RELEASED_CORE_NODES);
+  expect(removed, 'each released core node was held in the loaded example').toBe(RELEASED_CORE_NODES.length);
+}
+
 /** Turn `ROLLED_BEAMS` in the loaded model. */
 export async function turnRolledBeams(page: Page): Promise<void> {
   await page.evaluate(({ ids, degrees }) => window.__stabileoActions.turnElements([...ids], degrees), ROLLED_BEAMS);
