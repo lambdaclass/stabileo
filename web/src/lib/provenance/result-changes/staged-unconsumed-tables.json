@@ -21,6 +21,7 @@
     "fr": "Tables incompatibles avec l’analyse par phases",
     "hu": "Az építési ütemek elemzésében nem támogatott táblák",
     "tr": "Aşamalı yapım analizinde desteklenmeyen tablolar",
+    "ja": "段階施工が対応しないテーブル",
     "zh": "施工阶段分析不支持的表"
   },
   "explanation": {
@@ -31,6 +32,7 @@
     "fr": "L’analyse par phases refuse les tables renseignées qu’elle ne peut pas utiliser, notamment celles des coques volumiques et courbes.",
     "hu": "Az építési ütemek elemzése elutasítja a kitöltött, nem használható táblákat, így a tömör és görbült héjakét is.",
     "tr": "Aşamalı analiz, katı kabuklar ve eğrisel kabuklar dahil kullanamadığı dolu tabloları reddeder.",
+    "ja": "段階解析は、ソリッドシェルや曲面シェルを含め、使用できない入力済みのテーブルを拒否します。",
     "zh": "施工阶段分析会拒绝含有数据但无法使用的表，包括实体壳和曲面壳表。"
   },
   "changelog": {

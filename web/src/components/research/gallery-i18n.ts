@@ -41,6 +41,12 @@ export const galleryStrings: Record<string, { researchTitle: string; galleryLead
     "reviewOne": "{count} felülvizsgálati kör",
     "reviewMany": "{count} felülvizsgálati kör"
   },
+  'ja': {
+    "researchTitle": "構造工学のリサーチ",
+    "galleryLead": "AI を備えた構造工学ソフトウェア Stabileo で実行し、検証できる、古典的・最新の論文、ベンチマーク、手法を集めました。各ページに、何を再現し、どう確認したかを記しています。",
+    "reviewOne": "レビュー {count} 回",
+    "reviewMany": "レビュー {count} 回"
+  },
   "zh": {
     "researchTitle": "结构工程研究",
     "galleryLead": "经典与近期的论文、基准算例和方法，可在 Stabileo（AI 结构工程软件）中运行并验证。每个页面都会说明复现了哪些内容，以及是如何验证的。",

@@ -37,6 +37,7 @@
     "fr": "La récupération physique P-Delta utilise des résidus compensés",
     "hu": "A P-Delta fizikai helyreállítása kompenzált maradékot használ",
     "tr": "P-Delta fiziksel geri kazanımı telafili artıklar kullanır",
+    "ja": "P-Δ の物理的な回復は、補償付きの残差を使います",
     "zh": "P-Delta 物理恢复使用经补偿的残差"
   },
   "explanation": {
@@ -47,6 +48,7 @@
     "fr": "Revérifiez les résultats P-Delta enregistrés. La récupération partage assemblage tangent et arithmétique compensée avec l’itération, conservant les réponses correctes près du critère après rotation ou changement d’unités. Les résidus physiques en échec retirent toujours forces et contraintes (#1952).",
     "hu": "Ellenőrizze újra a mentett P-Delta eredményeket. A fizikai helyreállítás közös érintőmerevség-összeállítást és kompenzált maradékaritmetikát használ az iterációval, megőrizve a helyes választ a kért feltétel közelében forgatás és egységváltás mellett is. A sikertelen fizikai maradék továbbra is visszatartja az erő- és feszültségértékeket (#1952).",
     "tr": "Kayıtlı P-Delta sonuçlarını yeniden denetleyin. Fiziksel geri kazanım, iterasyonla aynı teğet montajını ve telafili artık aritmetiğini kullanır; dönme ve birim değişimlerinde ölçüte yakın doğru yanıtları korur. Başarısız fiziksel artıklar kuvvet ve gerilmeleri kullanılamaz kılmaya devam eder (#1952).",
+    "ja": "保存済みの P-Δ の結果を再確認してください。物理的な回復は、接線の組み立てと補償付きの残差の演算を反復と共有するようになり、回転や単位の変更をまたいで、要求された基準付近で正しい答えを保持します。物理的な残差が不合格の場合は、これまでどおり力と応力度の量が表示されません (#1952)。",
     "zh": "请重新核对已保存的 P-Delta 结果。物理恢复现在与迭代共用切线装配和经补偿的残差算法，在各种转动和单位变换下，对接近所要求判据的情形仍保留正确结果。物理残差失败时，仍会暂不提供力和应力量（#1952）。"
   },
   "changelog": {

@@ -28,6 +28,7 @@
     "de": "Schnittgrenzen und maßgebende Diagrammwerte",
     "fr": "Limites de section et valeurs déterminantes du diagramme",
     "tr": "Diyagram kesit sınırları ve belirleyici değerler",
+    "ja": "図の断面の限界と支配に関する主張",
     "zh": "内力图的截面极限与控制值",
     "hu": "A rúdábrák szelvényhatárértékei és mértékadó értékei"
   },
@@ -38,6 +39,7 @@
     "de": "Einhüllende wandernder Lasten enthalten die ermittelten Schnittgrenzwerte an den Stabenden. Axialkraftsprünge in der Ebene folgen dem Gleichgewichtsvorzeichen. Nicht darstellbare Extremwerte und mehrdeutige Schnitte werden abgelehnt. Obere Schranken verschachtelter Betragskombinationen gelten nicht als erreichte Spitzenwerte. Bei unvereinbaren Profilorientierungen werden Bemessungsspannweiten getrennt. Betroffene Berechnungen und Nachweise erneut ausführen.",
     "fr": "Les enveloppes de charges mobiles incluent les limites de section aux extrémités des barres. Les sauts axiaux en plan suivent le signe de l’équilibre. Les extrema non représentables et les coupes ambiguës sont refusés. Les bornes des combinaisons de magnitudes imbriquées ne sont pas présentées comme des pics atteints. Les travées sont séparées si les orientations des sections sont incompatibles. Relancez les analyses et vérifications concernées.",
     "tr": "Hareketli yük zarfları, eleman uçlarındaki kesit sınır değerlerini içerir. Düzlemsel eksenel kuvvet sıçramaları denge işaretine uyar. Temsil edilemeyen uç değerler ve belirsiz kesitler reddedilir. İç içe büyüklük birleşimlerinin sınırları erişilen tepe değerleri olarak gösterilmez. Uyumsuz kesit yönleri tasarım açıklıklarını ayırır. Etkilenen analizleri ve kontrolleri yineleyin.",
+    "ja": "移動荷重の包絡線は、部材端で回復した限界を含みます。平面の軸力の跳びは、釣合いの符号を使います。図の照会は、表現できない極値や曖昧な切断を拒否します。入れ子になった大きさの上下限を、達成された支配的なピークとして報告することはできません。設計スパンは、互換性のない断面の向きで分割されます。影響を受ける解析と部材の検定を再実行してください。",
     "zh": "移动荷载包络计入杆端恢复的截面极限值。平面轴力跳跃遵循平衡符号。无法表示的极值和有歧义的截面将被拒绝。嵌套幅值组合的上界不会被标为实际达到的控制峰值。截面方向不兼容时拆分设计跨。请重新运行受影响的分析和验算。",
     "hu": "A mozgó teher burkolói a rúdvégek számított szelvényhatárértékeit is tartalmazzák. A síkbeli tengelyerőugrások előjele az egyensúlyt követi. Az ábrázolhatatlan szélsőértékeket és a többértelmű metszeteket a számítás elutasítja. A beágyazott magnitúdókombinációk korlátai nem jelennek meg elért csúcsértékként. Az össze nem illő szelvényirányok elválasztják a méretezési szakaszokat. Futtassa újra az érintett elemzéseket és ellenőrzéseket."
   },

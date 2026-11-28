@@ -31,6 +31,7 @@
     "fr": "P-Delta utilise des corrections d’équilibre après rotation",
     "hu": "A P-Delta forgatás alatt egyensúlyi korrekciókat használ",
     "tr": "P-Delta dönüş altında denge düzeltmelerini kullanır",
+    "ja": "P-Δ は、回転のもとで釣合いの補正を使います",
     "zh": "P-Delta 在转动下使用平衡修正"
   },
   "explanation": {
@@ -41,6 +42,7 @@
     "fr": "Les corrections de déplacement fondées sur le résidu évitent les faux défauts de convergence P-Delta après rotation sans modifier les tolérances. Convergence, déplacements, efforts et réactions peuvent changer. Relancer les analyses P-Delta (PR #1940).",
     "hu": "A maradékból számított elmozduláskorrekciók megakadályozzák a forgatás utáni téves P-Delta konvergenciahibát, a tűrések módosítása nélkül. A konvergencia, elmozdulások, erők és reakciók változhatnak. Futtassa újra a P-Delta vizsgálatokat (PR #1940).",
     "tr": "Artığa dayalı yer değiştirme düzeltmeleri, toleransları değiştirmeden dönüşten sonra hatalı P-Delta yakınsamama durumlarını önler. Yakınsama, yer değiştirmeler, kuvvetler ve tepkiler değişebilir. P-Delta analizlerini yeniden çalıştırın (PR #1940).",
+    "ja": "残差に基づく変位の補正により、許容値を変えずに、回転後の P-Δ の誤った不収束を防ぎます。収束、変位、力、反力は変わる場合があります。P-Δ 解析を再実行してください (PR #1940)。",
     "zh": "由残差驱动的位移修正，可在不改变容差的情况下避免转动后出现虚假的 P-Delta 不收敛。收敛情况、位移、内力和反力可能变化。请重新运行 P-Delta 分析（PR #1940）。"
   },
   "changelog": {

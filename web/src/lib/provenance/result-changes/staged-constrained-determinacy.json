@@ -27,6 +27,7 @@
     "fr": "Les phases entièrement liées conservent les résultats d’équilibre",
     "hu": "A teljesen kényszerezett fázisok megtartják az egyensúlyi eredményeket",
     "tr": "Tam kısıtlanmış aşamalar denge sonuçlarını korur",
+    "ja": "完全に拘束された段階は平衡の結果を保持する",
     "zh": "完全约束的阶段保留平衡结果"
   },
   "explanation": {
@@ -37,6 +38,7 @@
     "fr": "Revérifiez les résultats par phases enregistrés avec uniquement des liaisons. Dans les deux dimensions, réactions et efforts restent disponibles si appuis et liaisons déterminent chaque degré de liberté et si l’état correspond exactement au mouvement prescrit. Les liaisons partielles, mouvements incompatibles et échecs d’équilibre physique restent indisponibles ou refusés. Les refus publics des appuis inclinés par phases restent inchangés (#1952).",
     "hu": "Ellenőrizze újra a mentett, csak kényszereket tartalmazó fázisos eredményeket. Mindkét dimenzió megőrzi a reakciókat és erőket, ha a támaszok és kényszerek minden szabadságfokot meghatároznak, és az állapot pontosan egyezik az előírt mozgással. A részleges kényszerek, összeférhetetlen mozgás és sikertelen fizikai egyensúly továbbra is nem elérhető vagy elutasított. A nyilvános fázisos ferde támaszok elutasítása változatlan (#1952).",
     "tr": "Yalnızca kısıtlar içeren kayıtlı aşama sonuçlarını yeniden denetleyin. Her iki boyutta mesnetler ve kısıtlar her serbestlik derecesini belirlediğinde ve durum öngörülen harekete tam uyduğunda tepkiler ve kuvvetler korunur. Kısmi kısıtlar, uyumsuz hareket ve başarısız fiziksel denge kullanılamaz kalır veya reddedilir. Aşamalı analizde eğimli mesnetlere yönelik genel kullanıma açık retler değişmez (#1952).",
+    "ja": "保存済みの拘束のみの段階結果を再確認してください。支点と拘束がすべての自由度を決め、状態が規定の運動と厳密に一致する場合、どちらの次元でも反力と力が保持されるようになりました。部分的な拘束、不適合な運動、物理的な平衡の不成立は、引き続き使用不可または拒否されます。公開されている段階解析の傾斜支点の拒否は変わりません（#1952）。",
     "zh": "请重新核对已保存的仅有约束的分阶段结果。当支座和约束确定了每个自由度，并且状态与给定运动完全吻合时，两种维度现在都保留反力和内力。部分约束、不相容的运动和失败的物理平衡仍然不可用或被拒绝。公开的分阶段斜支座拒绝不变（#1952）。"
   },
   "changelog": {

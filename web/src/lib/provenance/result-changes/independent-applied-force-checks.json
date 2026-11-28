@@ -38,6 +38,7 @@
     "de": "Lastsummen werden unabhängig von der Assemblierung geprüft",
     "fr": "Les totaux de forces sont vérifiés indépendamment de l’assemblage",
     "hu": "A terhek összege az összeállítástól függetlenül ellenőrzött",
+    "ja": "作用力の合計は組み立てと独立に検査される",
     "zh": "外加力合计独立于装配进行检查",
     "tr": "Uygulanan kuvvet toplamları montajdan bağımsız denetlenir"
   },
@@ -48,6 +49,7 @@
     "de": "Die Gleichgewichtssummen integrieren die Lastdefinitionen direkt, damit eine bei der Assemblierung ausgelassene Kraft nicht auch aus der Prüfung verschwindet. Summen können von der Rücktransformation geneigter Auflager abweichen. Die unabhängige Kraftprüfung erhält das bisherige Kraft- und Momentenurteil und prüft ihre eigene Kraftabweichung mit unveränderter Toleranz (#2222, #2223).",
     "fr": "Les totaux intègrent directement les charges définies, pour qu’une force omise à l’assemblage reste visible au contrôle. Ils peuvent différer des totaux reconstruits par transformation des appuis inclinés. Le contrôle indépendant conserve le verdict des forces et moments et évalue son propre déséquilibre sans modifier la tolérance (#2222, #2223).",
     "hu": "Az egyensúlyi összegek közvetlenül a teherdefiníciókból készülnek, így az összeállításkor kihagyott erő az ellenőrzésből nem tűnik el. Az összegek eltérhetnek a ferde támaszokból visszatranszformált értékektől. A független erőellenőrzés megtartja az erő- és nyomatékellenőrzés eredményét, saját erőeltérését változatlan tűréssel vizsgálja (#2222, #2223).",
+    "ja": "釣合いの要約は、作用荷重の定義を直接積分するため、組み立てた力の欠落が釣合い検査からも消えることはありません。作用力の合計は、傾斜した支点の変換を通じて再構成した合計と異なる場合があります。独立した力の検査は、既存の力とモーメントの判定を保持し、独自の力の不釣合いを使います。許容値は変わりません（#2222、#2223）。",
     "zh": "平衡汇总直接对外加荷载定义积分，因此装配时遗漏的力不会同时从平衡检查中消失。外加合计可能与经斜支座变换重建的合计不同。独立的力检查保留现有的力和弯矩判定，并使用其自身的力不平衡量；其容差不变（#2222，#2223）。",
     "tr": "Denge toplamları yük tanımlarını doğrudan bütünler; montajda atlanan bir kuvvet denetimden kaybolmaz. Toplamlar eğik mesnet dönüşümlerinden hesaplananlardan farklı olabilir. Bağımsız kuvvet denetimi mevcut kuvvet ve moment kararını korur, kendi kuvvet dengesizliğini değişmeyen toleransla değerlendirir (#2222, #2223)."
   },

@@ -32,6 +32,7 @@
     "fr": "La convergence non linéaire suit l’équilibre physique",
     "hu": "A nemlineáris konvergencia a fizikai egyensúlyt követi",
     "tr": "Doğrusal olmayan yakınsama fiziksel dengeyi izler",
+    "ja": "非線形の収束は物理的な釣合いに従う",
     "zh": "非线性收敛遵循物理平衡"
   },
   "explanation": {
@@ -42,6 +43,7 @@
     "fr": "P-Delta, fibres, corotation, matériau non linéaire et correcteurs de trajectoire partagent une métrique résiduelle invariante avec des unités de force et de moment cohérentes. Les charges uniquement aux appuis ne provoquent plus de refus erronés après rotation ou réflexion (#761). La convergence, la charge atteinte et la réponse finale peuvent changer. Relancer les analyses concernées.",
     "hu": "A P-Delta, szálas, korotációs, anyagilag nemlineáris és út-korrektorok közös, koordinátarendszertől független maradékmértéket használnak, következetes erő- és nyomatékegységekkel. A csak támaszra ható terhek forgatás vagy tükrözés után többé nem okoznak téves elutasítást (#761). A konvergencia állapota, a viselt teher és az elfogadott végső válasz változhat. Futtassa újra az érintett nemlineáris vizsgálatokat.",
     "tr": "P-Delta, lif, eşdönel, doğrusal olmayan malzeme ve yol düzelticileri tutarlı kuvvet ve moment birimleriyle aynı koordinat sisteminden bağımsız artık ölçütünü kullanır. Yalnız mesnet yönlerindeki yükler dönüş veya yansıma sonrasında hatalı ret oluşturmaz (#761). Yakınsama, ulaşılan yük ve son yanıt değişebilir. Etkilenen analizleri yeniden çalıştırın.",
+    "ja": "P-Delta、繊維、共回転、材料非線形、経路の修正子は、力とモーメントの単位が整合した、骨組不変の残差の指標を共有します。支点のみの荷重が、回転や反転の後に誤った拒否を引き起こすことはなくなりました（#761）。収束の状態、支持した荷重、受理された最終応答が変わる場合があります。影響を受ける非線形解析を再実行してください。",
     "zh": "P-Delta、纤维、共旋、材料非线性和路径修正器共用一个与坐标系无关的残差度量，采用一致的力单位和力矩单位。仅含支座荷载的情形，在旋转或镜像之后不再引起错误的拒绝求解（#761）。收敛状态、承担的荷载以及被接受的最终响应可能变化。请重新运行受影响的非线性分析。"
   },
   "changelog": {

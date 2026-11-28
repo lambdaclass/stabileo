@@ -25,6 +25,7 @@
     "fr": "Calculer le poids propre des quadrilatères à partir des arêtes locales",
     "hu": "Négyszögelemek önsúlyának számítása helyi élkülönbségekből",
     "tr": "Dörtgen öz ağırlığını yerel kenar farklarından hesapla",
+    "ja": "局所的な辺の差から四角形要素の自重を計算します",
     "zh": "使用局部边向量差计算四边形自重"
   },
   "explanation": {
@@ -35,6 +36,7 @@
     "fr": "Le poids propre des quadrilatères est calculé à partir des arêtes locales. Les petits écarts d’arrondi n’interrompent plus un calcul valide. La force à chaque sommet est vérifiée avec une borne dérivée de sa somme de quadrature. Les arrondis peuvent décaler les indices d’échantillonnage près d’extrema de moment presque confondus.",
     "hu": "A négyszögelemek önsúlya helyi élkülönbségekből számítódik. A kis kerekítési eltérések nem állítják le az érvényes számítást. Minden sarokerő ellenőrzése a kvadratúra összegéből levezetett korláttal történik. A kerekítés eltolhatja a mintavételi indexeket a közel egybeeső nyomatéki szélsőértékeknél.",
     "tr": "Dörtgen öz ağırlığı yerel kenar farklarından hesaplanır. Küçük yuvarlama farkları artık geçerli analizi durdurmaz. Her köşe kuvveti, kendi kuadratür toplamından türetilen bir sınırla denetlenir. Yuvarlama, neredeyse çakışan moment ekstremumlarının yakınındaki örnekleme indekslerini kaydırabilir.",
+    "ja": "四角形要素の自重は、局所的な辺の差を使います。小さな丸め誤差で、有効な解析が止まることはなくなりました。各隅の力は、その求積の合計から導かれる限界に対して検証されます。丸め誤差により、ほぼ一致するモーメントの極値のまわりで、サンプルの添字がずれる場合があります。",
     "zh": "四边形自重由局部边向量差计算。微小的舍入差异不再中止有效分析。每个角节点的力均用从其积分求和推导出的误差限值进行校核。 舍入可能使近乎重合的弯矩极值附近的采样索引发生偏移。"
   },
   "changelog": {

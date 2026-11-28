@@ -16,6 +16,7 @@
     "de": "Interaktionsnachweise verwenden gleichzeitige Schnittgrößen",
     "fr": "Les interactions utilisent les efforts simultanés par section",
     "tr": "Etkileşim kontrolleri eşzamanlı istasyon kuvvetlerini kullanır",
+    "ja": "相互作用の検定は同時に作用する着目点の力を使う",
     "zh": "相互作用验算采用同时作用的站点内力"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "de": "Die Nachweise werten jede Kombination an jeder Stelle mit ihrer eigenen Normalkraft, ihren Momenten, Querkräften und ihrer Torsion aus und nennen die maßgebende Kombination. Umhüllende ohne gleichzeitige Daten werden abgelehnt. Gespeicherte Beton- und Stahlbemessungen erneut ausführen; Ausnutzung, Bewehrung, Status und Kombination können sich ändern (#1316). Stahl-Tragfähigkeitsfaktoren für Momentengradienten verwenden das Diagramm der eigenen Kombination; zuvor konnten Ausnutzungen ohne Warnung unterschätzt werden.",
     "fr": "Les vérifications évaluent chaque combinaison à chaque section avec ses propres efforts normal, moments, cisaillement et torsion et indiquent la combinaison déterminante. Les enveloppes sans données simultanées sont refusées. Recalculer les projets enregistrés en béton et acier ; taux, armatures, états et combinaisons peuvent changer (#1316). Les facteurs de résistance liés au gradient de moment de l’acier utilisent le diagramme de leur propre combinaison ; des taux pouvaient auparavant être sous-estimés sans avertissement.",
     "tr": "Kontroller her kombinasyonu her istasyonda kendi eksenel kuvveti, momentleri, kesmesi ve burulmasıyla değerlendirir ve belirleyici kombinasyonu bildirir. Eşzamanlı verisi olmayan zarflar reddedilir. Kayıtlı betonarme ve çelik tasarımlarını yeniden çalıştırın; kullanım oranı, donatı, durumlar ve kombinasyonlar değişebilir (#1316). Çelik moment gradyanı kapasite katsayıları artık kendi kombinasyon diyagramlarını kullanır; önceden oranlar uyarı verilmeden düşük hesaplanabiliyordu.",
+    "ja": "部材の検定は、各組合せを各着目点で、それ自身の軸力、モーメント、せん断、ねじりとともに評価し、支配的な組合せを報告するようになりました。同時に作用するデータのない包絡線は拒否されます。保存済みのコンクリートと鋼の設計を再実行してください。検定比、配筋、ステータス、組合せのラベルが変わることがあります（#1316）。鋼の曲げモーメント勾配による耐力係数は、それぞれの組合せの図を使うようになりました。以前は、比が黙って過小評価されることがありました。",
     "zh": "杆件验算现在对每个组合在每个站点上，以其自身的轴力、弯矩、剪力和扭矩进行评估，并报告控制组合。没有同时作用数据的包络会被拒绝求解。请重新运行已保存的混凝土和钢结构设计；利用率、配筋、状态和组合标签可能发生变化（#1316）。钢材的弯矩梯度承载力系数现在使用其自身组合的内力图；此前比值可能被悄悄低估。"
   },
   "changelog": {

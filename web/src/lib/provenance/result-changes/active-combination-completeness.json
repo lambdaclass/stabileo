@@ -23,6 +23,7 @@
     "de": "Bauteilnachweise benötigen jede aktive Kombination",
     "fr": "Les vérifications exigent toutes les combinaisons actives",
     "tr": "Eleman kontrolleri tüm etkin birleşimleri gerektirir",
+    "ja": "部材の検定は全ての有効な組合せを必要とする",
     "zh": "杆件验算要求所有生效的荷载组合齐备"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "de": "Die Bemessung lehnt fehlende Ergebnisse aktiver Kombinationen, fehlende Stationsdaten und unvollständige gleichzeitige Krafttupel ab. Eine unvollständige Stationskarte wird nicht durch Endkräfte ersetzt. Gespeicherte Beton- und Stahlbemessungen erneut ausführen und abgelehnte Nachweise prüfen (PR #2080).",
     "fr": "Le dimensionnement refuse les résultats manquants des combinaisons actives, les données de section absentes et les jeux incomplets de forces simultanées. Une carte incomplète ne peut pas utiliser les forces aux extrémités comme remplacement. Relancer les calculs béton et acier et examiner les vérifications refusées (PR #2080).",
     "tr": "Tasarım, etkin birleşimlerin eksik sonuçlarını, eksik istasyon verilerini ve eksik eşzamanlı kuvvet kümelerini reddeder. Eksik istasyon haritası uç kuvvetlerle tamamlanamaz. Kayıtlı beton ve çelik tasarımlarını yeniden çalıştırıp reddedilen kontrolleri inceleyin (PR #2080).",
+    "ja": "部材設計は、有効な組合せの結果の欠落、部材の着目点データの欠落、同時に作用する組の一部欠落を拒否します。供給された着目点マップが不完全な場合、端部の力に代用することはできません。保存済みのコンクリートと鋼の設計を再実行し、拒否された検定を確認してください（PR #2080）。",
     "zh": "杆件设计会拒绝求解缺少生效荷载组合结果、缺少杆件截面站点数据以及同时作用的内力组数不完整的情形。提供的站点映射不完整时，不能退回到仅用杆端内力。请重新运行已保存的混凝土和钢结构设计，并复核被拒绝的验算（PR #2080）。"
   },
   "changelog": {

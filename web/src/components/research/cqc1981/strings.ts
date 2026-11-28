@@ -31,7 +31,7 @@ const en = {
 
 export type CqcStrings = typeof en;
 
-export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', CqcStrings> = {
+export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'ja', CqcStrings> = {
   en,
   es: {
     srss: 'SRSS', cqc: 'CQC',
@@ -201,6 +201,34 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu'
     step: 'Burkoló megjelenítése', rule: 'Kombináció',
     error: 'Az élő számítás nem sikerült',
   },
+  ja: {
+  srss: 'SRSS', cqc: 'CQC',
+  title: '近接したモード：SRSS と CQC',
+  metaTitle: 'SRSS と CQC (1981) — Stabileo Research',
+  metaDescription: '近接した建物のモードを、閉じた式の基準と比較します。',
+  lead: '小さな 3D せん断型建物の理想化モデル一つを、製品版のモード解析・応答スペクトルエンジンで解いています。',
+  citation: '」に基づく手法の説明図',
+  model: '例題', description: '基部固定の柱四本、高さ 3 m、平面は 4 × 3 m です。各屋根節点には X 方向に 5 t が載ります。屋根の回転と Y/Z 方向の並進は拘束し、横方向の各対は X 方向の変位を等しくする拘束で結びます。軸方向の屋根のタイ二本が、残る二つの座標を連成させます。これは手法を説明するための例で、論文の元の建物ではありません。',
+  method: '閉じた式の基準', equations: '縮約した行列は M = diag(10, 10) t、K = [[1020, −20], [−20, 1230]] kN/m です。det(K − ω²M) = 0 を解き、各モードを単位のモード質量に正規化します。Sa = 1 m/s² のとき、モードのベースシアは Γ²Sa です。SRSS は交差項を捨てますが、CQC は ξ = 5% の等減衰の相関を保ちます。',
+  rhoSource: 'これは Wilson、Der Kiureghian、Bayo (1981) の式 (14)、191 ページにある等減衰の相関係数です。190 ページには、交差項が符号を保つ理由の説明があります。モード減衰が等しいこと、地動がモードの周期に比べて長く続くこと、スペクトルが広く滑らかであることを仮定します。以下の基準値はこの例題についての閉じた式の結果で、論文の表 I のデータではありません。',
+  explanation: '論文は、モード結合の誤差を減らすために CQC を提案し、振動数が十分に離れている場合は SRSS に帰着することを示しています。ここではベースシアで SRSS が CQC より小さくなります。この差は CQC の推定値に対するもので、地震記録に対して測った誤差ではありません。',
+  referenceLabel: '閉じた式との照合',
+  publishedNote: '論文の建物と表は使いません。このページは、独自の二モードの例題を閉じた式と照合します。',
+  comparison: 'ベースシア · kN', roofHeading: '屋根の X 方向変位の包絡線 · mm', node: '節点',
+  modalHeading: 'モードのデータ', quantity: '量', f1: '振動数 1 · Hz', f2: '振動数 2 · Hz', rho: 'モード相関 ρ',
+  impliedNote: 'Stabileo の ρ は自身の結果から逆算します。ρ = (V_CQC² − V_SRSS²) / (2 V₁ V₂)。Vᵢ はそのモードのベースシアです。',
+  reference: '閉じた式', result: 'Stabileo', delta: '差 · %',
+  deficit: 'CQC に対する SRSS · %',
+  checksHeading: '検査',
+  tolerance: '回帰の許容値：相対差が 1 × 10⁻⁸ 未満であること。対象は、二つの振動数、X 方向の質量参加、二つのベースシア、二つの屋根変位（計9項目）のすべてです。ネイティブ実行での差は最大でも 6.4 × 10⁻¹⁵ です。この許容値は、小さく条件のよい二座標の問題を回帰から守るためのもので、精度の目標ではありません。また、ソルバーと閉じた式が一致しても、物理的な精度については何も言えません。',
+  scope: '適用範囲',
+  limitations: ['比較の相手は、この二座標の例題の閉じた式です。論文自身の建物と数値表は再現していません。', '時刻歴はありません。どちらの規則も、地動記録に対して測っていません。', '一層のみで、ねじれ応答もパラメータスイープもありません。'],
+  run: 'ライブで再計算', stop: '停止', restart: '再開', running: '計算中…',
+  replay: '事前計算したリプレイ（同じソルバー）', live: 'ライブの結果（製品版 WASM）',
+  viewer: '屋根の X 方向変位 · mm', viewNote: 'Stabileo のビューアーでの軸測投影です。変形は 40 倍。アニメーションは包絡線を拡大縮小するもので、時刻歴ではありません。',
+  step: '包絡線の表示', rule: '組合せ',
+  error: 'ライブ計算に失敗しました',
+},
   zh: {
     srss: 'SRSS', cqc: 'CQC',
     title: '密集模态：SRSS 与 CQC',

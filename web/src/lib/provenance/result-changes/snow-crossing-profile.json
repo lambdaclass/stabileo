@@ -22,6 +22,7 @@
     "fr": "Les charges de neige conservent leur moment au passage du faîtage",
     "tr": "Kar yükleri mahyayı geçerken yük momentini korur",
     "hu": "A hóterhek megőrzik a gerinckeresztezés nyomatékát",
+    "ja": "積雪荷重は棟をまたぐモーメントを保持する",
     "zh": "雪荷载保留其跨屋脊的弯矩"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "fr": "Les barres traversant le faîtage recevaient une pression uniforme et perdaient le moment physique. Les charges sont désormais divisées au faîtage géométrique. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2176; SA-2026-073).",
     "tr": "Mahyayı geçen çubuklara düzgün basınç uygulanıyor ve fiziksel yük momenti kayboluyordu. Yükler artık fiziksel mahyada bölünür. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2176; SA-2026-073).",
     "hu": "A hógerincet keresztező rudak egyetlen egyenletes nyomást kaptak, így elveszett a fizikai teher nyomatéka. A terhek most a fizikai gerincnél oszlanak meg. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2176; SA-2026-073).",
+    "ja": "積雪の棟をまたぐ部材には一様な圧力が 1 つだけ与えられ、物理的な荷重モーメントが失われていました。荷重は物理的な棟で分割されるようになりました。生成された影響を受けるすべての面荷重を再生成し、解析、荷重組合せ、設計の検討を再実行してください。保存済みの生成荷重を再計算するだけでは修正されません。（#2176、SA-2026-073）。",
     "zh": "跨越雪脊的杆件以前受到一个均匀压力，丢失了荷载的实际弯矩。现在荷载在实际屋脊处分开。请重新生成所有受影响的生成面荷载，然后重新运行分析、组合和设计验算。仅重新求解已存储的生成荷载并不能更正它们。（#2176；SA-2026-073）。"
   },
   "changelog": {

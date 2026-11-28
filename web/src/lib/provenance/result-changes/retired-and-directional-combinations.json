@@ -15,6 +15,7 @@
     "de": "Kombinationen mit den zulässigen Lastfällen erzeugen",
     "fr": "Générer les combinaisons avec les cas de charge admissibles",
     "tr": "Birleşimleri uygun yük durumlarıyla oluştur",
+    "ja": "生成される荷重組合せを、対象となる荷重ケースと整合させる",
     "zh": "使用符合条件的荷载工况生成组合",
     "hu": "Kombinációk létrehozása a figyelembe vehető teheresetekkel"
   },
@@ -25,6 +26,7 @@
     "de": "Regeln konnten leere, von den automatischen Lasten ausgemusterte Lastfälle aufnehmen oder einen zulässigen Richtungslastfall auslassen. Prüfen Sie die Lastfälle und Alternativgruppen, erzeugen Sie die Kombinationen neu und berechnen Sie Analysen und Einhüllende erneut.",
     "fr": "Les règles pouvaient inclure des cas vides retirés par les charges automatiques ou omettre un cas directionnel admissible. Vérifiez les cas et les ensembles de variantes, régénérez les combinaisons, puis relancez les analyses et le calcul des enveloppes.",
     "tr": "Kurallar, Otomatik Yüklerin kullanımdan kaldırdığı boş durumları içerebiliyor veya uygun bir yönlü yük durumunu atlayabiliyordu. Durumları ve alternatif kümelerini gözden geçirin, birleşimleri yeniden oluşturun ve analizleri ve zarfları yeniden hesaplayın.",
+    "ja": "ルールが、自動荷重で廃止された空のケースを含んだり、対象となる方向別のケースを除外したりすることがありました。ケースと択一セットを確認し、荷重組合せを再生成して、解析と包絡線を再実行してください。",
     "zh": "规则可能纳入已由自动荷载停用的空工况，或遗漏符合条件的方向荷载工况。请检查工况和备选组，重新生成组合，并重新运行分析和计算包络。",
     "hu": "A szabályok tartalmazhattak az automatikus terhek által kivont üres tehereseteket, vagy kihagyhattak egy figyelembe vehető irányított teheresetet. Ellenőrizze a tehereseteket és az alternatívakészleteket, hozza létre újra a kombinációkat, majd számítsa újra az elemzéseket és a burkológörbéket."
   },

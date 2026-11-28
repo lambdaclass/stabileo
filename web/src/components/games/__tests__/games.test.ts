@@ -10,7 +10,7 @@ import { loadGamesPage } from '../load-page';
 import GamesPage from '../GamesPage.svelte';
 
 const LOCALES: Locale[] = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'];
-const width = (s: string) => s.length + (s.match(/[\p{Script=Han}　-〿＀-￯]/gu)?.length ?? 0);
+const width = (s: string) => s.length + (s.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯]/gu)?.length ?? 0);
 afterEach(() => setPublicLocale('en'));
 
 it('lists one card per game, each under /games, titled as the game page heads itself', () => {

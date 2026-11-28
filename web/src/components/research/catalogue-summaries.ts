@@ -1,4 +1,4 @@
-type Summary = { en: string; es: string; pt: string; hu: string; zh: string };
+type Summary = { en: string; es: string; pt: string; hu: string; zh: string; ja: string };
 
 export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
   'feher-2026': {
@@ -6,6 +6,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Estudia cómo los cortes simétricos modifican la estabilidad de una lámina inicialmente plana, curvada entre mordazas verticales y cargada en su punto medio, mediante un modelo de elástica con rigidez a flexión variable.',
     pt: 'Estuda como os cortes simétricos alteram a estabilidade de uma lâmina inicialmente plana, curvada entre garras verticais e carregada em seu ponto médio, por meio de um modelo de elástica com rigidez à flexão variável.',
     hu: 'Azt vizsgálja, hogyan változtatják meg a szimmetrikus bevágások egy kezdetben sík, függőleges befogások között meghajlított és a közepén terhelt csík stabilitását, változó hajlítási merevségű elasztikamodell segítségével.',
+    ja: '鉛直のクランプの間で曲げ、中央に荷重をかけた初期に平らな帯板について、対称な切り込みが安定性をどう変えるかを、剛性が変化するエラスティカのモデルで調べています。',
     zh: "研究对称切口如何改变一条初始为平直、在竖向夹具之间弯曲并在跨中受荷的窄板条的稳定性，采用变刚度弹性曲线（elastica）模型。",
   },
   'gilbert-2003': {
@@ -13,6 +14,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'La optimización de la disposición de reticulados por estructura base está limitada por la cantidad de barras potenciales. El artículo presenta un método iterativo que agrega barras, basado en la generación de columnas de la programación lineal, que parte de una estructura base poco conectada y agrega barras según hace falta hasta alcanzar la disposición demostrablemente óptima, lo que permite resolver problemas con cantidades muy grandes de barras potenciales.',
     pt: 'A otimização do arranjo de treliças por estrutura base é limitada pelo número de barras potenciais. O artigo apresenta um método iterativo que acrescenta barras, baseado na geração de colunas da programação linear, que parte de uma estrutura base pouco conectada e acrescenta barras conforme necessário até alcançar o arranjo comprovadamente ótimo, tratando problemas com números muito grandes de barras potenciais.',
     hu: "A rácsos tartók alapszerkezetes (ground structure) elrendezés-optimalizálását a lehetséges rudak száma korlátozza. A cikk lineáris programozási oszlopgeneráláson alapuló iteratív, rudakat hozzáadó módszert mutat be, amely ritkán összekötött alapszerkezetből indul, és szükség szerint ad hozzá rudakat, amíg el nem éri a bizonyíthatóan optimális elrendezést; így igen sok lehetséges rudat tartalmazó feladatokat is kezel.",
+    ja: 'トラスのグランドストラクチャー法による配置最適化は、候補部材の数に制約されます。この論文は、線形計画の列生成に基づく、部材を逐次追加する反復法を示します。疎につないだグランドストラクチャーから始めて、必要に応じて部材を追加し、最適性が証明される配置に到達します。非常に多数の候補部材を持つ問題も扱えます。',
     zh: "桁架的基结构（ground structure）布局优化受限于潜在杆件的数量。该论文提出一种基于线性规划列生成的迭代加杆方法：从稀疏连接的基结构出发，按需逐步加入杆件，直至得到可证明的最优布局，能够处理潜在杆件数量极大的问题。",
   },
   'zheng-2014': {
@@ -20,6 +22,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Microrredes de reticulado octeto fabricadas por microestereolitografía de proyección en polímeros, metales y cerámicas. Como sus barras trabajan axialmente en lugar de a flexión, los materiales son muy rígidos y resistentes para su baja densidad.',
     pt: 'Microrredes de treliça octeto fabricadas por microestereolitografia de projeção em polímeros, metais e cerâmicas. Como suas barras trabalham axialmente em vez de à flexão, os materiais são muito rígidos e resistentes para sua baixa densidade.',
     hu: "Projekciós mikrosztereolitográfiával polimerekből, fémekből és kerámiákból készült oktett-rácsos mikrorácsok. Mivel rúdjaik hajlítás helyett normálerővel viselik a terhet, az anyagok kis sűrűségükhöz képest igen merevek és szilárdak.",
+    ja: '投影型マイクロ光造形法により、ポリマー、金属、セラミックスで作るオクテットトラスのマイクロ格子です。ストラットは曲げではなく軸方向に荷重を受けるため、低密度でありながら非常に剛く強い材料になります。',
     zh: "采用投影微立体光刻技术，以聚合物、金属和陶瓷制成的八面体桁架（octet-truss）微点阵。由于杆件以轴向受力而非受弯方式承载，这类材料在密度很低的情况下仍具有很高的刚度和强度。",
   },
   'hrennikoff-1941': {
@@ -27,6 +30,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Aproxima un continuo elástico con un entramado regular de barras de propiedades elásticas adecuadas. El enfoque abarca varios problemas de tensiones y de flexión y se ilustra con ejemplos.',
     pt: 'Aproxima um contínuo elástico por uma malha regular de barras com propriedades elásticas adequadas. A abordagem cobre vários problemas de tensões e de flexão e é ilustrada com exemplos.',
     hu: "A rugalmas kontinuumot megfelelő rugalmas tulajdonságú rudakból álló, szabályos mintázatú rácsszerkezettel közelíti. A módszer több feszültségi és hajlítási feladatot lefed, és példákkal szemlélteti.",
+    ja: '弾性連続体を、適切な弾性特性をもつ棒のパターン状の骨組で近似します。この手法はいくつかの応力問題と曲げ問題に適用でき、例で示されています。',
     zh: "以具有合适弹性性质的杆件按规则图案组成的框架来近似弹性连续体。该方法可用于多类应力和弯曲问题，并通过算例加以说明。",
   },
   'wilson-1981': {
@@ -34,6 +38,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Introduce la combinación cuadrática completa para los máximos modales sísmicos. En los ejemplos estudiados reduce los errores de combinación modal y se aproxima a SRSS cuando las frecuencias naturales están bien separadas.',
     pt: 'Introduz a combinação quadrática completa para os máximos modais sísmicos. Nos exemplos estudados reduz os erros de combinação modal e se aproxima da SRSS quando as frequências naturais estão bem separadas.',
     hu: "Bevezeti a teljes négyzetes kombinációt a földrengési modális maximumokra. A vizsgált példákban csökkenti a modális kombináció hibáit, és jól elkülönülő sajátfrekvenciák esetén az SRSS-hez közelít.",
+    ja: '地震時のモード最大値に対する完全二次結合を導入します。検討した例ではモード結合の誤差を減らし、固有振動数が十分に離れている場合は SRSS に近づきます。',
     zh: "针对地震模态最大值提出完全二次组合（CQC）。在所研究的算例中，它减小了模态组合误差；当自振频率相隔较远时，它趋近于 SRSS。",
   },
   'bathe-dvorkin-1986': {
@@ -41,6 +46,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Discute los requisitos prácticos de los elementos de cáscara generales, explica una formulación de interpolación mixta de cuatro nodos y presenta un elemento de ocho nodos con el mismo enfoque.',
     pt: 'Discute os requisitos práticos de elementos de casca gerais, explica uma formulação de interpolação mista de quatro nós e apresenta um elemento de oito nós com a mesma abordagem.',
     hu: "Tárgyalja az általános héjelemekkel szemben támasztott gyakorlati követelményeket, ismertet egy négycsomópontos, vegyes interpolációs formulációt, és ugyanezzel a megközelítéssel bevezet egy nyolccsomópontos elemet.",
+    ja: '一般的なシェル要素に求められる実用上の要件を論じ、四節点の混合補間による定式化を説明したうえで、同じ方法による八節点要素を導入します。',
     zh: "讨论一般壳单元的实用要求，阐述一种四节点混合插值格式，并采用同样的方法提出一种八节点单元。",
   },
   'zienkiewicz-zhu-1987': {
@@ -48,6 +54,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Presenta un estimador económico del error global en norma de energía y de los errores locales de elementos finitos. Las estimaciones guían el refinamiento adaptativo o el rediseño de la malla para alcanzar una precisión elegida.',
     pt: 'Apresenta um estimador econômico do erro global em norma de energia e dos erros locais de elementos finitos. As estimativas orientam o refinamento adaptativo ou o redesenho da malha para alcançar uma precisão escolhida.',
     hu: "Olcsó becslőt mutat be a globális energianormabeli és a lokális végeselemes hibákra. A becslések az adaptív finomítást vagy a háló újratervezését irányítják a választott pontosság eléréséig.",
+    ja: '全体のエネルギーノルムと局所の有限要素誤差を、低コストで推定する方法を示します。この推定値は、目標の精度に達するための適応的な細分化やメッシュの再設計の指針になります。',
     zh: "提出一种低成本的估计方法，用于估计全局能量范数误差和局部有限元误差。这些估计可用于指导自适应加密或网格重新划分，以达到所选定的精度。",
   },
   'bathe-dvorkin-1985': {
@@ -55,6 +62,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Deduce un elemento de placa a flexión elástico lineal de cuatro nodos como caso particular de una formulación general de cáscaras y usa soluciones de ejemplo para evaluar sus predicciones.',
     pt: 'Deduz um elemento de placa à flexão elástico linear de quatro nós como caso particular de uma formulação geral de cascas e usa soluções de exemplo para avaliar suas previsões.',
     hu: "Négycsomópontos, lineárisan rugalmas lemezhajlítási elemet vezet le egy általános héjformuláció speciális eseteként, és mintapéldák megoldásaival értékeli az előrejelzéseit.",
+    ja: '四節点の線形弾性板曲げ要素を、一般的なシェル定式化の特別な場合として導出し、例題の解でその予測性能を評価します。',
     zh: "将四节点线弹性板弯曲单元作为一般壳格式的特例推导出来，并通过算例解评估其预测结果。",
   },
   'batoz-1980': {
@@ -62,6 +70,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Compara elementos triangulares de placa a flexión de tres nodos con nueve grados de libertad de desplazamiento. Las evaluaciones teóricas y numéricas favorecen, entre las alternativas examinadas, las formulaciones de Kirchhoff discreto y de tensiones híbridas.',
     pt: 'Compara elementos triangulares de placa à flexão de três nós com nove graus de liberdade de deslocamento. As avaliações teóricas e numéricas favorecem, entre as alternativas examinadas, as formulações de Kirchhoff discreto e de tensões híbridas.',
     hu: "Kilenc elmozdulási szabadságfokú, háromcsomópontos háromszög lemezhajlítási elemeket hasonlít össze. Az elméleti és numerikus értékelések a vizsgált változatok közül a diszkrét Kirchhoff- és a hibrid feszültségi formulációt részesítik előnyben.",
+    ja: '変位の自由度が九つの三節点三角形板曲げ要素を比較します。理論的評価と数値的評価の両方で、検討した中では離散 Kirchhoff 型とハイブリッド応力型の定式化が優れていました。',
     zh: "比较九位移自由度的三节点三角形板弯曲单元。理论与数值评估表明，在所考察的方案中，离散 Kirchhoff 格式和混合应力格式更优。",
   },
   'bucalem-1993': {
@@ -69,6 +78,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Presenta elementos de cáscara MITC de nueve y dieciséis nodos que vinculan las deformaciones covariantes interpoladas de membrana y de corte con el campo de desplazamientos. Ensayos numéricos evalúan su capacidad predictiva.',
     pt: 'Apresenta elementos de casca MITC de nove e dezesseis nós que vinculam as deformações covariantes interpoladas de membrana e de cisalhamento ao campo de deslocamentos. Testes numéricos avaliam seu desempenho preditivo.',
     hu: "Kilenc- és tizenhat csomópontos MITC héjelemeket mutat be, amelyek az interpolált kovariáns membrán- és nyírási alakváltozásokat az elmozdulásmezőhöz kötik. Numerikus tesztek értékelik az előrejelző képességüket.",
+    ja: '補間した共変の膜ひずみとせん断ひずみを変位場に結びつける、九節点と十六節点の MITC シェル要素を示します。数値試験でその予測性能を評価します。',
     zh: "提出九节点和十六节点 MITC 壳单元，将插值的协变薄膜应变和剪切应变与位移场联系起来。数值试验评估了它们的预测性能。",
   },
   'chapelle-1998': {
@@ -76,6 +86,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Explica cómo la geometría y las condiciones de borde determinan si en una cáscara delgada domina la acción de membrana o la flexión. Propone casos de prueba para evaluar la convergencia y su dependencia del espesor de la cáscara.',
     pt: 'Explica como a geometria e as condições de contorno determinam se em uma casca fina domina a ação de membrana ou a flexão. Propõe casos de teste para avaliar a convergência e sua dependência da espessura da casca.',
     hu: "Elmagyarázza, hogyan határozza meg a geometria és a peremfeltételek, hogy egy vékony héjban a membránhatás vagy a hajlítás dominál. Tesztfeladatokat javasol a konvergencia és annak héjvastagságtól való függésének értékelésére.",
+    ja: '薄いシェルが膜作用と曲げのどちらに支配されるかを、形状と境界条件がどう決めるかを説明します。収束性とその板厚依存性を評価するための試験問題も提案します。',
     zh: "阐明几何和边界条件如何决定薄壳以薄膜作用还是以弯曲作用为主。提出用于评估收敛性及其对壳厚度依赖性的测试算例。",
   },
   'zupan-2004': {
@@ -83,6 +94,7 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Compara tres interpretaciones de una viga inicialmente torcida con distintas distribuciones de torsión y secciones transversales. Los resultados numéricos identifican la referencia de MacNeal-Harder como una viga con torsión lineal y bordes curvos.',
     pt: 'Compara três interpretações de uma viga inicialmente torcida com diferentes distribuições de torção e seções transversais. Os resultados numéricos identificam a referência de MacNeal-Harder como uma viga com torção linear e bordas curvas.',
     hu: "Egy kezdetben csavart gerenda három értelmezését hasonlítja össze különböző csavarodáseloszlásokkal és keresztmetszetekkel. A numerikus eredmények szerint a MacNeal–Harder-referencia görbült élű, lineárisan csavart gerenda.",
+    ja: 'ねじれの分布や断面が異なる、初期ねじれのある梁の三つの解釈を比較します。数値結果から、MacNeal-Harder の基準は、縁が曲線になった線形ねじれの梁であると分かります。',
     zh: "比较初始扭转梁的三种解释，涉及不同的扭转分布和截面。数值结果表明，MacNeal-Harder 基准算例是一根边缘弯曲的线性扭转梁。",
   },
   'bathe-2000': {
@@ -90,12 +102,13 @@ export const CATALOGUE_SUMMARIES: Record<string, Summary> = {
     es: 'Evalúa elementos de cáscara MITC en problemas de prueba seleccionados con criterios fundamentales del análisis de cáscaras. Los resultados informados respaldan su uso en aplicaciones generales de ingeniería.',
     pt: 'Avalia elementos de casca MITC em problemas de teste selecionados com critérios fundamentais da análise de cascas. Os resultados relatados apoiam seu uso em aplicações gerais de engenharia.',
     hu: "MITC héjelemeket értékel kiválasztott tesztfeladatokon, a héjanalízis alapvető kritériumai szerint. A közölt eredmények alátámasztják általános mérnöki alkalmazásukat.",
+    ja: 'シェル解析の基本的な基準に基づき、選んだ試験問題で MITC シェル要素を評価します。報告された結果は、一般的な工学の用途での使用を裏づけています。',
     zh: "以壳分析的基本准则，在若干选定的测试问题上评估 MITC 壳单元。所报告的结果支持将其用于一般工程应用。",
   },
 };
 
 export function summaryIn(paper: { id: string; summary?: string | null }, locale: string): string {
   const own = CATALOGUE_SUMMARIES[paper.id];
-  if (own && own.en === paper.summary && (locale === 'es' || locale === 'pt' || locale === 'hu' || locale === 'zh')) return own[locale];
+  if (own && own.en === paper.summary && (locale === 'es' || locale === 'pt' || locale === 'hu' || locale === 'zh' || locale === 'ja')) return own[locale];
   return paper.summary ?? '';
 }

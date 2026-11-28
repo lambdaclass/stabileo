@@ -13,6 +13,7 @@
     "fr": "Analyse matérielle des extrémités de barre articulées",
     "hu": "Csuklós rúdvégek anyagi vizsgálata",
     "tr": "Mafsallı çubuk uçlarında malzeme analizi",
+    "ja": "解放された骨組端の材料解析",
     "zh": "杆端释放的材料分析"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "L’analyse matérielle 3D fixe désormais une référence pour une rotation libérée en bout de barre qui peut se produire sans déformation ni travail des charges. Vérifiez les analyses matérielles enregistrées pour les modèles articulés.",
     "hu": "A térbeli anyagi vizsgálat referenciaszöget jelöl ki az olyan felszabadított rúdvégi elforduláshoz, amely alakváltozás és a terhek munkája nélkül lehetséges. Ellenőrizze újra a csuklós modellek mentett anyagi vizsgálatait.",
     "tr": "Uzaysal malzeme analizi artık şekil değiştirme veya yük işi olmadan gerçekleşebilen serbest uç dönmesi için bir referans belirliyor. Mafsallı modellerin kaydedilmiş malzeme analizlerini yeniden kontrol edin.",
+    "ja": "空間の材料解析は、ひずみも作用する仕事もなしに動ける解放された端部回転に対して、基準を設定するようになりました。解放を持つモデルの保存済み材料解析を再確認してください。",
     "zh": "空间材料分析现为可在无应变且外力不做功的情况下发生的释放端转动设置参考值。请复核含杆端释放模型的已保存材料分析。"
   },
   "changelog": {

@@ -21,6 +21,7 @@
     "de": "Torsion prüft jede ausgegebene Bügelbewehrung",
     "fr": "La torsion vérifie tous les étriers fournis",
     "tr": "Burulma verilen tüm etriyeleri kontrol eder",
+    "ja": "ねじりは、返されたすべてのあばら筋の鉄筋かごを検定します",
     "zh": "扭转验算每个返回的箍筋笼"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "de": "Die Betonprüfung prüft Torsionstragfähigkeit und Abstand festgelegter oder bemessener Bügel auch ohne festgelegte Längsbewehrung. Unzureichende Bügel führen zum Versagen. Die Bemessungshöhe gehört zu den erforderlichen Bewehrungswerten; providedDepth erfasst die tatsächlich geprüften Stäbe. Gespeicherte Bemessungen erneut ausführen und Bügel sowie Torsionsfehler prüfen (SA-2026-068, #2141; PR #2080).",
     "fr": "La vérification béton contrôle la capacité en torsion et l’espacement des étriers imposés ou dimensionnés même sans armature longitudinale imposée. Les étriers insuffisants échouent. La hauteur utile de dimensionnement accompagne les armatures requises ; providedDepth indique les barres réellement vérifiées. Relancer les calculs et examiner les étriers et les échecs en torsion (SA-2026-068, #2141; PR #2080).",
     "tr": "Beton doğrulaması, boyuna burulma donatısı sabitlenmese bile sabit veya tasarlanan etriyelerin burulma kapasitesini ve aralığını kontrol eder. Yetersiz etriyeler başarısız olur. Boyutlandırma derinliği gerekli donatı değerleriyle kalır; providedDepth kontrol edilen çubukları kaydeder. Kayıtlı tasarımları yeniden çalıştırıp etriyeleri ve burulma hatalarını inceleyin (SA-2026-068, #2141; PR #2080).",
+    "ja": "コンクリートの検証は、固定された縦方向のねじり配分がなくても、固定または設計されたあばら筋のねじり耐力と間隔を検定するようになりました。不十分な鉄筋かごは不合格になります。曲げの断面算定のせいは、必要鉄筋量とともに残り、providedDepth は、実際に検定された鉄筋を記録します。保存済みのコンクリートの設計を再実行し、あばら筋とねじりの不合格を確認してください (SA-2026-068, #2141; PR #2080)。",
     "zh": "混凝土验证现在会验算固定或设计的箍筋的抗扭承载力和间距，即使没有固定的纵向抗扭分配也是如此。不足的箍筋笼判为不通过。受弯配筋计算所用的有效高度仍与所需钢筋量对应；providedDepth 记录实际验算的钢筋。请重新运行已保存的混凝土设计，并复核箍筋和扭转的不通过情况（SA-2026-068，#2141；PR #2080）。"
   },
   "changelog": {

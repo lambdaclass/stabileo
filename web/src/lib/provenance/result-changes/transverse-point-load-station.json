@@ -13,6 +13,7 @@
     "fr": "Charges transversales ponctuelles près des extrémités des barres",
     "hu": "Keresztirányú pontterhek a rúdvégek közelében",
     "tr": "Eleman uçlarına yakın enine noktasal yükler",
+    "ja": "部材端付近の横方向集中荷重",
     "zh": "构件端部附近的横向集中荷载"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "Le calcul spatial applique la charge transversale ponctuelle à sa position intérieure saisie, ce qui conserve son bras de levier par rapport à un appui ou à une liaison.",
     "hu": "A térbeli számítás a keresztirányú pontterhet a megadott belső helyen veszi figyelembe, megőrizve a támaszhoz vagy kapcsolathoz viszonyított erőkart.",
     "tr": "Uzaysal çözüm, enine noktasal yükü girilen iç konumunda uygular ve mesnede veya bağlantıya göre moment kolunu korur.",
+    "ja": "立体ソルバーは、横方向の集中荷重を入力した内部の着目点で扱い、支点や接合部でのてこの腕を保持します。",
     "zh": "空间分析在输入的构件内部位置施加横向集中荷载，保留其相对于支座或连接的力臂。"
   },
   "changelog": {

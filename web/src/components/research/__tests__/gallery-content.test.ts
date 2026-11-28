@@ -21,7 +21,7 @@ it('renders citations without empty separators and descriptive leads for every l
       const byline = card.match(/<p class="rs-g-by[^>]*>([\s\S]*?)<\/p>/)![1].replace(/<[^>]*>/g, '');
       expect(byline).not.toMatch(/(?:[,·]\s*[,·]|\.\s+[,·])/);
       const lead = card.match(/<p class="rs-g-hook[^>]*>([\s\S]*?)<\/p>/)![1].replace(/<[^>]*>/g, '');
-      expect(lead.length).toBeGreaterThan(locale === 'zh' ? 12 : 30);
+      expect(lead.length).toBeGreaterThan((locale === 'zh' || locale === 'ja') ? 12 : 30);
       expect(lead).not.toMatch(/^(First version|Primera versión|Primeira versão).*\d+ (reviews|revisiones|revisões)/);
     }
   }
@@ -59,7 +59,7 @@ it('translates the gallery scope in all six locales', () => {
   for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);
     titles.add(rs().researchTitle);
-    expect(rs().galleryLead.length).toBeGreaterThan(locale === 'zh' ? 30 : 80);
+    expect(rs().galleryLead.length).toBeGreaterThan((locale === 'zh' || locale === 'ja') ? 30 : 80);
     expect(rs().galleryLead).toContain('Stabileo');
   }
   expect(titles.size).toBe(PUBLIC_LOCALES.length);
@@ -91,7 +91,7 @@ it('titles the Riks card in the language its article is written in', async () =>
 
 it('names each thumbnail link by its localized card title and keeps the image decorative', async () => {
   const { cardTitle } = await import('../card-title');
-  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'zh'].includes(locale))) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'zh', 'ja'].includes(locale))) {
     setLocale(locale);
     expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);
@@ -106,7 +106,7 @@ it('names each thumbnail link by its localized card title and keeps the image de
 
 it('the bent-strip card shows its own localized lead', async () => {
   const { translations } = await import('../feher2026/strings');
-  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'zh'].includes(locale))) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'zh', 'ja'].includes(locale))) {
     setLocale(locale);
     expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);

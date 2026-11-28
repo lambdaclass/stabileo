@@ -21,6 +21,7 @@
     "de": "Endliche exzentrische Windlast an Trägerspitzen",
     "fr": "Charge excentrée finie du vent aux sommets des porteurs",
     "tr": "Taşıyıcı tepelerinde sonlu eksantrik rüzgâr yükü",
+    "ja": "支持部材の頂部での有限の偏心風荷重",
     "zh": "承载构件交汇顶点处的有限偏心风荷载",
     "hu": "Véges excentrikus szélteher a teherhordók csúcsainál"
   },
@@ -31,6 +32,7 @@
     "de": "Nicht zusammengeführte Builds von PR #2220 konnten gültige exzentrische Windfälle bei an einem Endpunkt zusammentreffenden Trägern ablehnen und erzeugte Windfälle verwerfen. Der endliche Grenzwert überträgt Druck und Torsion durch verteilte Stabkräfte. W/Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2220).",
     "fr": "Les versions non fusionnées de la PR #2220 pouvaient refuser des cas excentrés valides lorsque les porteurs se rejoignent à une extrémité et annuler les cas générés. La limite finie transfère pression et torsion par des forces réparties sur les barres. Régénérez W/Wa et relancez analyses, combinaisons et vérifications (#2220).",
     "tr": "Birleştirilmemiş PR #2220 sürümleri, fiziksel taşıyıcılar bir uçta birleştiğinde geçerli eksantrik rüzgâr durumlarını reddedip üretilen durumları geri alabiliyordu. Sonlu uç limiti, basınç ve burulmayı yayılı çubuk kuvvetleriyle aktarır. W/Wa yüklerini yeniden üretip analiz, birleşim ve kontrolleri tekrarlayın (#2220).",
+    "ja": "未マージの PR #2220 のビルドでは、物理的な支持部材が端点で交わると、有効な偏心風のケースが拒否され、生成された風のケースが元に戻ることがありました。有限の端点の極限は、分布した部材力を通じて圧力とトルクを伝達するようになりました。W/Wa を再生成し、解析、荷重組合せ、設計の検討を再実行してください（#2220）。",
     "zh": "尚未合并的 PR #2220 构建，在实际承载构件交汇于一个端点时，可能拒绝有效的偏心风荷载工况，并撤销已生成的风荷载工况。现在端点处的有限极限通过沿杆件分布的内力传递压力和扭矩。请重新生成 W 和 Wa，然后重新运行分析、组合和设计验算。（#2220）",
     "hu": "A még nem egyesített #2220 PR elutasíthatta az érvényes excentrikus széleseteket a közös végpontban találkozó teherhordóknál, és visszavonhatta az összes előállított szélesetet. A véges határérték megoszló rúderőkkel adja át a nyomást és a csavarónyomatékot. Állítsa elő újra a W/Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2220)."
   },

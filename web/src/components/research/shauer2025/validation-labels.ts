@@ -245,6 +245,22 @@ const labels: Record<string, Record<string, string>> = {
     "force": "Erő a töréssel együtt",
     "mirror": "Csomóponti károsodás, referencia vagy tükörkép"
   },
+  'ja': {
+    "mesh": "メッシュのフィンガープリント",
+    "steps": "荷重ステップ数",
+    "iterations": "各ステップの反復回数",
+    "damage": "各ステップの最大損傷",
+    "stress": "各ステップの中央の応力度",
+    "damageField": "節点の損傷",
+    "displacementField": "節点の変位",
+    "analytic": "中央の応力度 / 1D AT2 の解、最大 d < 0.25",
+    "peakStep": "ピーク力のステップ",
+    "peak": "ピーク力",
+    "preForce": "ピークまでの力",
+    "preDamage": "ピークまでの最大損傷",
+    "force": "破壊を含む力",
+    "mirror": "節点の損傷、参照または鏡像"
+  },
   "zh": {
     "mesh": "网格指纹",
     "steps": "荷载步数",
@@ -314,6 +330,14 @@ const metrics: Record<string, Record<string, string>> = {
   "hu": {
     "exact": "Pontos",
     "relative difference": "Relatív eltérés",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "max |Δd|",
+    "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
+  'ja': {
+    "exact": "厳密",
+    "relative difference": "相対差",
     "absolute difference / AT2 peak stress": "|Δσ| / σc",
     "max absolute difference": "max |Δd|",
     "max absolute difference / max |u|": "max |Δu| / max |u|",

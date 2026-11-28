@@ -140,6 +140,26 @@ export const hu = {
   "scalarViewer.keyboard": "Billentyűzet: a nyilak mozgatják a nézetet, a Shift+nyilak 3D-ben forgatnak, a + és a - nagyít, a 0 vagy a Home a nézethez igazít",
 } satisfies ViewerStrings;
 
+export const ja = {
+  "scalarViewer.view": "ビュー",
+  "scalarViewer.viewOptions": "表示オプション",
+  "scalarViewer.close": "閉じる",
+  "scalarViewer.fit": "全体表示",
+  "scalarViewer.plan": "2D（平面、軌道回転なし）",
+  "scalarViewer.orbit": "3D（軌道回転）",
+  "scalarViewer.switchProjection": "平面表示と 3D の軌道回転を切り替えます",
+  "scalarViewer.viewer": "Stabileo ビューアー",
+  "scalarViewer.position": "位置：",
+  "scalarViewer.zoom": "ズーム：",
+  "scalarViewer.model": "モデル：",
+  "scalarViewer.bars": "節点 {nodes}、部材 {cells}",
+  "scalarViewer.elements": "節点 {nodes}、要素 {cells}",
+  "scalarViewer.openEditor": "エディターで開く",
+  "scalarViewer.soon": "（近日対応）",
+  "scalarViewer.editorNote": "エディターで実験を開く機能は、リサーチモードで提供します",
+  "scalarViewer.keyboard": "キーボード：矢印キーでパン、Shift+矢印キーで 3D の軌道回転、+ と - でズーム、0 または Home で全体表示",
+};
+
 export const zh = {
   "scalarViewer.view": "视图",
   "scalarViewer.viewOptions": "视图选项",

@@ -21,6 +21,7 @@
     "fr": "Les charges mobiles planes conservent les forces axiales ponctuelles",
     "hu": "A síkbeli mozgó terhek megőrzik a koncentrált tengelyirányú erőt",
     "tr": "Düzlemsel hareketli yükler tekil eksenel kuvvetleri korur",
+    "ja": "平面の移動荷重は、集中した軸力を保持します",
     "zh": "平面移动荷载保留集中轴向力"
   },
   "explanation": {
@@ -31,6 +32,7 @@
     "fr": "La composante axiale d’une force mobile sur une barre de portique reste au point d’application. Les lignes d’influence planes, les diagrammes et les enveloppes retrouvent ainsi le saut d’effort normal.",
     "hu": "A keretrúdon mozgó erő tengelyirányú összetevője a terhelés helyén marad. Így a normálerő ugrása megjelenik a síkbeli hatásábrákon, igénybevételi ábrákon és burkológörbéken.",
     "tr": "Çerçeve elemanı üzerindeki hareketli bir kuvvetin eksenel bileşeni yükün uygulandığı noktada kalır. Böylece düzlemsel etki çizgileri, kuvvet diyagramları ve zarflar normal kuvvet sıçramasını gösterir.",
+    "ja": "骨組部材上の移動する力は、荷重位置での軸方向成分を保持するようになりました。これにより、平面の影響線、移動荷重の図、包絡線で、荷重位置での力の跳びが復元されます。",
     "zh": "框架杆件上移动荷载的轴向分量保留在作用点。平面影响线、移动荷载内力图和包络因此能反映轴力在作用点处的跳变。"
   },
   "changelog": {

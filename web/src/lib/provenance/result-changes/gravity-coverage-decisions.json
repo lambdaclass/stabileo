@@ -23,6 +23,7 @@
     "de": "Schwerkraftlasten für gültige Decken- und Dachgeometrie erhalten",
     "fr": "Préserver les charges gravitaires pour les planchers et toitures de géométrie valide",
     "tr": "Geçerli döşeme ve çatı geometrisinde yerçekimi yüklerini koru",
+    "ja": "有効なデッキと屋根の形状で重力を維持",
     "zh": "保留有效楼层和屋面几何上的重力荷载",
     "hu": "A gravitációs terhek megőrzése érvényes födém- és tetőgeometria esetén"
   },
@@ -33,6 +34,7 @@
     "de": "Erzeugen Sie die automatischen Schwerkraftlasten neu. Öffnungen gehören nicht zum Trägerfeld, getrennte Überlappungen werden einzeln geprüft, und am kollinearen Dachrand bestimmen die Stabenden die Lage des Mittelpunkts.",
     "fr": "Régénérez les charges gravitaires automatiques. L’attribution de la travée exclut les ouvertures, les zones de chevauchement disjointes sont vérifiées séparément et les extrémités de la barre déterminent la position de son milieu sur une rive colinéaire.",
     "tr": "Otomatik yerçekimi yüklerini yeniden üretin. Açıklıkların yük alanından boşluklar çıkarılır, bağlantısız örtüşmeler ayrı denetlenir ve doğrudaş çatı kenarındaki orta nokta eleman uçlarıyla belirlenir.",
+    "ja": "自動の重力荷重を再生成してください。ベイの帰属は開口部を除外し、連結していない重なりは別々に検査され、屋根の被覆は、共線の縁上の中点に対して部材の端点を使います。",
     "zh": "请重新生成自动重力荷载。梁格的承载范围排除开口，各个不连通的重叠区分别检查。构件与屋面边缘共线时，通过构件端点确定中点是否受到遮盖。",
     "hu": "Generálja újra az automatikus gravitációs terheket. A mező teherterülete kizárja a nyílásokat. A különálló átfedéseket egyenként ellenőrizzük, és a rúddal egy egyenesbe eső tetőszélen a rúdvégek határozzák meg a felezőpont helyét."
   },
