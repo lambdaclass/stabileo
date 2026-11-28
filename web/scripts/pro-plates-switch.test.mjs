@@ -1103,3 +1103,19 @@ for (const [name, source] of [['recheck notice', 'RecheckNotice'], ['result aler
     }
   });
 }
+
+test.skip('known wrong result: #1928 the public manual solver allocates no invisible progress state', async () => {
+  const entry = resolve(root, 'src/lib/engine/live-calc.ts');
+  const reporter = resolve(root, 'src/lib/store/solve-progress.svelte.ts');
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, minify: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external: (id, from) => !!from && !id.includes('solve-progress.svelte'),
+        },
+      } });
+      const chunks = (Array.isArray(result) ? result[0] : result).output.filter(item => item.type === 'chunk');
+      assert.equal(chunks.some(chunk => (chunk.modules[reporter]?.renderedLength ?? 0) > 0), plates);
+    });
+  }
+});
