@@ -27,6 +27,7 @@
  * is delivered on a microtask, and the pool never comes up.)
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as pool from '../solver-pool';
 import { setWorkerFactoryForTests, destroyPool, solveParallel, type WorkerLike } from '../solver-pool';
 
 /** Records each hand-over and how many jobs were already outstanding at that moment. */
@@ -130,4 +131,19 @@ describe('warm workers go back to being dispatched together', () => {
 
     expect(peakOverlap()).toBeGreaterThan(0);
   });
+});
+
+it.skip('known wrong result: #1928 an ordinary worker solve does not emit private case-progress events', async () => {
+  const seen: number[] = [];
+  const subscribe = 'onCaseSolved' in pool ? pool.onCaseSolved : undefined;
+  subscribe?.(count => seen.push(count));
+  try {
+    for (let run = 0; run < 2; run++) {
+      const result = await solveParallel(CASES);
+      expect([...result.keys()].sort()).toEqual(CASES.map(c => c.id));
+    }
+    expect(seen).toEqual(__PUBLIC_FEATURES__.proPlatesUnified ? [1, 2, 3, 1, 2, 3] : []);
+  } finally {
+    subscribe?.(null);
+  }
 });
