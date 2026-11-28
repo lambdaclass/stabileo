@@ -1,18 +1,22 @@
 import { beforeEach, expect, it } from 'vitest';
 import { modelStore, uiStore } from '..';
-import { bindRole } from '../../codes/roles';
+import { bindRole, defaultRegulations, REGULATIONS_SCHEMA_VERSION, unsetBinding } from '../../codes/roles';
 import { parseTemplate } from '../../model/office-template';
 import { applyTemplate, templateFromProject } from '../office-templates';
 import { deserializeProject, serializeProject } from '../file';
 import { regulationsStore } from '../regulations.svelte';
 
-beforeEach(() => { regulationsStore.cancelPending(); modelStore.clear(); });
+beforeEach(() => {
+  regulationsStore.cancelPending();
+  modelStore.clear();
+  modelStore.model.regulations = { version: REGULATIONS_SCHEMA_VERSION, roles: { ...defaultRegulations(), concrete: unsetBinding('concrete') } };
+});
 
 it.skip.each(['direct', 'office template', 'reopened project'] as const)('known wrong result: #1928 a design selection preserves the load review from a %s', source => {
   const before = { ...regulationsStore.revisions };
   if (source === 'office template') {
     const template = parseTemplate(JSON.stringify({ ...templateFromProject('Mixed codes'), regulations: { roles: {
-      seismic: bindRole('seismic', 'inpres103-2018'), concrete: bindRole('concrete', 'cirsoc-2005'),
+      seismic: bindRole('seismic', 'inpres103-2018'), concrete: bindRole('concrete', 'cirsoc'),
     } } }));
     expect(applyTemplate(template).regulationChanges.review).toEqual(['seismic', 'concrete']);
   } else {
@@ -22,7 +26,7 @@ it.skip.each(['direct', 'office template', 'reopened project'] as const)('known 
       modelStore.clear();
       expect(deserializeProject(text)).toBe(true);
     }
-    expect(regulationsStore.requestChange('concrete', 'cirsoc-2005')).toEqual({ kind: 'needsLoadReview', role: 'seismic', navigateTo: 'loads' });
+    expect(regulationsStore.requestChange('concrete', 'cirsoc')).toEqual({ kind: 'needsLoadReview', role: 'seismic', navigateTo: 'loads' });
   }
   expect(regulationsStore.pending).toEqual(['seismic', 'concrete']);
   expect(regulationsStore.revisions).toEqual(before);
@@ -35,10 +39,10 @@ it.skip.each(['2d', '3d'] as const)('known wrong result: #1928 a deferred change
   uiStore.analysisMode = mode;
   const was = JSON.stringify(regulationsStore.roles);
   regulationsStore.requestChange('seismic', 'inpres103-2018');
-  regulationsStore.requestChange('concrete', 'cirsoc-2005');
+  regulationsStore.requestChange('concrete', 'cirsoc');
   regulationsStore.cancelPending();
   expect(JSON.stringify(regulationsStore.roles)).toBe(was);
-  const lone = regulationsStore.requestChange('concrete', 'cirsoc-2005');
+  const lone = regulationsStore.requestChange('concrete', 'cirsoc');
   expect(lone).toMatchObject({ kind: 'applied', consequence: { requiresSolve: false } });
   expect(regulationsStore.pending).toEqual([]);
 });

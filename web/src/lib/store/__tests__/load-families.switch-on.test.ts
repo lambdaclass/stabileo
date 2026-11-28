@@ -69,7 +69,7 @@ it.skip('known wrong result: #1928 changing a design after a family selection ke
   expect(regulationsStore.requestStack(FAMILY_STACKS.us).kind).toBe('needsLoadReview');
   const before = [...regulationsStore.pending];
   expect(before).toContain('wind');
-  expect(regulationsStore.requestChange('concrete', 'aci-aisc').kind).toBe('needsLoadReview');
+  expect(regulationsStore.requestChange('concrete', 'cirsoc').kind).toBe('needsLoadReview');
   expect(regulationsStore.pending).toEqual(expect.arrayContaining(before));
   expect(regulationsStore.pendingNeedsLoadRegeneration).toBe(true);
   regulationsStore.cancelPending();
