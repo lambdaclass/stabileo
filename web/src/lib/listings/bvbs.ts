@@ -10,7 +10,7 @@
  *
  * Pure.
  */
-import { minMandrelDiameter } from '../codes/cirsoc201/bar-geometry';
+export { scheduleMandrelMm as mandrelOf } from '../engine/design/adapters/cirsoc201-fabrication';
 
 type Point3 = { x: number; y: number; z: number };
 
@@ -69,11 +69,6 @@ export function legsOf(bar: { segments: ReadonlyArray<{ start: Point3; end: Poin
     } else out.push({ l: acc * 1000, w: 0 });
   }
   return out;
-}
-
-export function mandrelOf(diameterMm: number, transverse: boolean): number {
-  const role = transverse && diameterMm <= 25 ? 'transverse' : 'longitudinal';
-  return 1000 * minMandrelDiameter(diameterMm, role).value;
 }
 
 /** A file of records, one per mark. */

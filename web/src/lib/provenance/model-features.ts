@@ -50,7 +50,7 @@ import { ignoresAdoptedReinforcement, inactivePlacementRules } from '../model/ig
 import { findOccupancy } from '../codes/cirsoc101/live-loads';
 import type { ZoneUse } from '../model/use-zones';
 import { AXIS_TOLERANCE, inwardFooting } from '../model/foundation/support-axes';
-import { longerSheetCompressionLap } from '../codes/cirsoc201/anchorage';
+import { longerSheetCompressionLap } from '../engine/design/adapters/cirsoc201-fabrication';
 import { concreteFc } from '../model/design-data';
 import { globalAxes, reinforcementSheets, unifiedPlates } from '../features';
 import { GRAVITY_SELF_WEIGHT, type AnalysisSettings, type SelfWeightLoad } from '../engine/analysis-settings';
