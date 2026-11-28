@@ -1079,3 +1079,27 @@ for (const [label, source, selected, endpoint] of [
     }
   });
 }
+
+for (const [name, source] of [['recheck notice', 'RecheckNotice'], ['result alert', 'tables/ResultsTable']]) {
+  test.skip('known wrong result: #1928 published presentation of the ' + name, async () => {
+    for (const active of [false, true]) {
+      await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: active }, async configFile => {
+        const entry = resolve(root, 'src/components/' + source + '.svelte');
+        const result = await build({ root, configFile, logLevel: 'silent', build: {
+          write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+            external: (id, importer) => !!importer && !id.includes('?svelte&type=style') && !id.includes('recheck-board-provider'),
+          },
+        } });
+        const files = (Array.isArray(result) ? result[0] : result).output;
+        const css = files.filter(f => f.type === 'asset' && f.fileName.endsWith('.css')).map(f => f.source).join('');
+        if (name === 'result alert') {
+          assert.equal(/\.containment-banner[^{}]*\{[^{}]*border:\s*2px solid currentColor/i.test(css), !active);
+        } else {
+          const chunk = files.find(f => f.type === 'chunk');
+          assert.equal(chunk.imports.some(id => id.includes('/recheck-banner.svelte')), active);
+          assert.match(css, /\.rc-banner[^{,]*\{[^{}]*z-index:\s*250\b/);
+        }
+      });
+    }
+  });
+}
