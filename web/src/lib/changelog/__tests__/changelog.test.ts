@@ -111,7 +111,8 @@ describe('the changelog', () => {
     expect(formatChangeDate('2026-10-23', 'tr')).toBe('23 Ekim 2026');
     expect(formatChangeDate('2026-10-23', 'hu')).toBe('2026. október 23.');
     expect(formatChangeDate('2026-10-23', 'zh')).toBe('2026年10月23日');
-    expect(formatChangeDate('2026-10-23', 'vi')).toBe('23 tháng 10 2026');
+    // Older ICU data puts a comma before the year in Vietnamese, and CI runs an older Node than local machines.
+    expect(formatChangeDate('2026-10-23', 'vi')).toMatch(/^23 tháng 10,? 2026$/);
   });
 });
 
