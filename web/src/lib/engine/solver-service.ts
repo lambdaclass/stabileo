@@ -66,7 +66,7 @@ import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
 import { constraintsTo2D, planeConstraintRefusal } from './constraint-2d-remap';
 import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, pdelta3DInWorker, PoolUnavailableError, nonlinearSessionInWorker, checkSolveCancelled, type NonlinearSolveOptions } from './solver-pool';
-import { solveSteps } from './solve-steps';
+import { captureSolveSteps } from './solve-steps';
 import { i18n, t, tp } from '../i18n';
 // Counts app-side structural-solve dispatches so browser tests can assert that a
 // reinforcement-only edit triggers none. Not part of the solver.
@@ -3464,7 +3464,7 @@ async function solveCombinations3DParallelCore(
   const prepared = linearCombinationLoads3D(model, loadCases, combinations, includeSelfWeight, leftHand);
   if (typeof prepared === 'string') return prepared;
   const { baseInput, caseLoads } = prepared;
-  const solveStep = solveSteps();
+  const solveStep = captureSolveSteps?.();
   const hasShells = (model.quads?.size ?? 0) > 0 || (model.plates?.size ?? 0) > 0;
 
   // Plain-object wire form of the base structure (shared across all cases).
@@ -3500,7 +3500,7 @@ async function solveCombinations3DParallelCore(
 
     // Collect results (already plain objects — no JSON.parse) and build per-case map
     const perCase = new Map<number, AnalysisResults3D>();
-    if (hasShells) await solveStep('shells', 0, caseInputs.length);
+    if (hasShells && solveStep) await solveStep('shells', 0, caseInputs.length);
     for (const [k, ci] of caseInputs.entries()) {
       const result: AnalysisResults3D | undefined = caseResults.get(ci.caseId);
       if (result) {
@@ -3509,7 +3509,7 @@ async function solveCombinations3DParallelCore(
         if (hasShells) postProcessShellStresses(result, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
         perCase.set(ci.caseId, result);
       }
-      if (hasShells) await solveStep('shells', k + 1, caseInputs.length);
+      if (hasShells && solveStep) await solveStep('shells', k + 1, caseInputs.length);
     }
 
     const missing = missingCombinationCaseRefusal(perCase.keys(), combinations);
@@ -3518,7 +3518,7 @@ async function solveCombinations3DParallelCore(
 
     const t1 = performance.now();
     const perCombo = new Map<number, AnalysisResults3D>();
-    await solveStep('combine', 0, combinations.length);
+    if (solveStep) await solveStep('combine', 0, combinations.length);
     const factors = combinations.map(combo => combo.factors.map(f => ({ caseId: f.caseId, factor: f.factor })));
     const fused = !hasShells && new Set(combinations.map(combo => combo.id)).size === combinations.length
       ? combineResultsEnvelope3D(factors, perCase, model.plates ?? new Map())
@@ -3532,10 +3532,10 @@ async function solveCombinations3DParallelCore(
         }
         perCombo.set(combo.id, combined);
       }
-      await solveStep('combine', index + 1, combinations.length);
+      if (solveStep) await solveStep('combine', index + 1, combinations.length);
     }
 
-    await solveStep('envelope');
+    if (solveStep) await solveStep('envelope');
     const envelope = fused ? fused.envelope : computeEnvelope3D([...perCombo.values()]);
     if (!envelope) return t('svc.envelopeError3d');
     if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations, model.plates ?? new Map());
@@ -3562,7 +3562,7 @@ async function solveCombinations3DParallelCore(
     const tPost = performance.now() - t1;
     console.log(`[solveCombinations3D parallel] Solve: ${tSolve.toFixed(0)} ms | Combine+envelope: ${tPost.toFixed(0)} ms | Cases: ${perCase.size} | Combos: ${perCombo.size} | Workers: ${Math.min(caseInputs.length, navigator.hardwareConcurrency ?? 4)}`);
 
-    await solveStep('checks');
+    if (solveStep) await solveStep('checks');
     return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
   } catch (err: any) {
     // Fallback to synchronous solving if workers fail

@@ -42,7 +42,7 @@ import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometr
 import { solveProgress, type SolvePhase } from '../store/solve-progress.svelte';
 import { reviewCount } from '../pro/diagnostics-list';
 import { onCaseSolved } from './solver-pool';
-import { onSolveStep, solveSteps } from './solve-steps';
+import { captureSolveSteps, onSolveStep } from './solve-steps';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -506,7 +506,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean, step: 
     // edit already cleared. Discard silently instead (no fallback re-solve, no
     // toast): the next live-calc pass / manual solve will pick up the new model.
     const solveEpoch = modelStore.modelVersion;
-    const solveStep = solveSteps();
+    const solveStep = captureSolveSteps?.();
     step('cases', 0, modelStore.model.loadCases.length);
     const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined, { isCancelled: isStale });
     if (isStale()) return stale;
@@ -543,7 +543,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean, step: 
       if (firstCaseResult) markAllLoads(firstCaseResult, comboResult.perCase, factors);
     }
     if (!firstCaseResult) return t('results.emptyModelError');
-    await solveStep('publish');
+    if (solveStep) await solveStep('publish');
     if (isStale() || modelStore.modelVersion !== solveEpoch) return stale;
     // The same check the single solve makes, on everything this path would publish: the base and
     // every case and combination. A NaN here goes back as the combinations' failure, and the

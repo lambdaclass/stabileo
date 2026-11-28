@@ -864,19 +864,19 @@ test('known wrong result: #1928 national load controls and their styling ship on
   }
 });
 
-test.skip('known wrong result: #1928 a released solve cannot yield to a disabled progress reporter', async () => {
+test('known wrong result: #1928 a released solve cannot yield to a disabled progress reporter', async () => {
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       for (const [source, phase] of [['solver-service', 'combine'], ['live-calc', 'publish']]) {
         const entry = resolve(root, 'src/lib/engine', source + '.ts');
         const result = await build({ root, configFile, logLevel: 'silent', build: {
-          write: false, minify: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          write: false, minify: false, lib: { entry: { solve: entry, reporter: resolve(root, 'src/lib/engine/solve-steps.ts') }, formats: ['es'] }, rollupOptions: {
             external: (id, from) => !!from && !id.includes('solve-steps'),
           },
         } });
-        const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
+        const js = (Array.isArray(result) ? result[0] : result).output.filter(item => item.type === 'chunk').map(item => item.code).join('\n');
         const reports = new RegExp(`await [\\w$]+\\(["']${phase}["']`);
-        assert.equal(reports.test(chunk.code), plates, source);
+        assert.equal(reports.test(js), plates, source);
       }
     });
   }

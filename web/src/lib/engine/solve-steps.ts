@@ -37,3 +37,9 @@ export function solveSteps(): SolveStepReporter {
     lastYield = performance.now();
   };
 }
+
+function currentReporter(): SolveStepReporter | undefined {
+  return listener ? solveSteps() : undefined;
+}
+
+export const captureSolveSteps = __PUBLIC_FEATURES__.proPlatesUnified ? currentReporter : undefined;
