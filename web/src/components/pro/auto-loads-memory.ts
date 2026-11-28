@@ -110,6 +110,7 @@ const defaultPartitionLive = (): PartitionLiveSetting => ({ on: true, q: PARTITI
 
 /** The bound loads code when it is another family's than CIRSOC 101. */
 function otherLoads(roles?: Partial<ProjectRegulations>): ImposedLoadCode | null {
+  if (!__PUBLIC_FEATURES__.proPlatesUnified) return null;
   const m = loadCodeFor(roles?.loads?.adapterId);
   return m?.role === 'loads' && m.family !== 'cirsoc' ? m : null;
 }

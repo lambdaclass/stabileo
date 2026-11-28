@@ -14,3 +14,6 @@ export interface CodeInputProps<T = unknown> {
 export type CodeInputComponent = Component<CodeInputProps<any>>;
 
 export const CODE_INPUTS: Readonly<Record<string, CodeInputComponent>> = {};
+
+export const LoadFamilyChooser: typeof import('./LoadFamilyChooser.svelte').default | undefined = undefined;
+export const basisTitle: (() => string | undefined) | undefined = undefined;

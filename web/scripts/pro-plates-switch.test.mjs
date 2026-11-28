@@ -826,7 +826,7 @@ test('known wrong result: #1928 the published load writer excludes unmeshed plat
   }
 });
 
-test.skip('known wrong result: #1928 the automatic load dialog only reads national family stacks when the chooser ships', async () => {
+test('known wrong result: #1928 the automatic load dialog only reads national family stacks when the chooser ships', async () => {
   const entry = resolve(root, 'src/components/pro/ProAutoLoadsDialog.svelte');
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
@@ -842,13 +842,13 @@ test.skip('known wrong result: #1928 the automatic load dialog only reads nation
   }
 });
 
-test.skip('known wrong result: #1928 national load controls and their styling ship only with the family chooser', async () => {
+test('known wrong result: #1928 national load controls and their styling ship only with the family chooser', async () => {
   const entry = resolve(root, 'src/components/pro/ProAutoLoadsDialog.svelte');
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       const result = await build({ root, configFile, logLevel: 'silent', build: {
         write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
-          external: (id, from) => !!from && !id.includes('?svelte&type=style') && !/family-chooser|LoadFamilyChooser/.test(id),
+          external: (id, from) => !!from && !id.includes('?svelte&type=style') && !/load-codes\/(?:active-)?registry|LoadFamilyChooser/.test(id),
         },
       } });
       const output = (Array.isArray(result) ? result[0] : result).output;

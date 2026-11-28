@@ -48,8 +48,8 @@
   import { loadCodeFor } from '../../lib/codes/families';
   import { codeInputStatus } from './load-codes/nav-status';
   import type { ImposedLoadCode } from '../../lib/codes/families/load-codes';
-  import { FAMILY_STACKS, LOAD_FAMILY_CHOICES, loadFamilyOfRegulations, type LoadFamilyChoice } from '../../lib/codes/families/stacks';
-  import { CODE_INPUTS } from './load-codes/registry';
+  import { FAMILY_STACKS, loadFamilyOfRegulations } from '../../lib/codes/families/stacks';
+  import { CODE_INPUTS, LoadFamilyChooser } from './load-codes/registry';
   import { defaultBeta, isBuildingKind, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
   import { applyLoadPlan, previewLoadPlan } from '../../lib/store/apply-load-plan';
   import { engineGuarded } from '../../lib/store/engine-action';
@@ -116,7 +116,7 @@
 
   // ─── Live load config ──────────────────
   let selectedOccupancy = $state(start.selectedOccupancy);
-  const loadsCode = $derived(loadCodeFor(regulationsStore.binding('loads')?.adapterId) as ImposedLoadCode | undefined);
+  const loadsCode = $derived(__PUBLIC_FEATURES__.proPlatesUnified ? loadCodeFor(regulationsStore.binding('loads')?.adapterId) as ImposedLoadCode | undefined : undefined);
   const occupancyTable = $derived(loadsCode?.occupancies?.() ?? OCCUPANCY_TABLE_2025);
   const occupancyEntry = $derived(occupancyTable.find(o => o.key === selectedOccupancy));
   const occupancyQ = $derived(occupancyEntry?.uniformKNm2 ?? 0);
@@ -128,7 +128,7 @@
   let partitionLive = $state(start.partitionLive);
   const partitionAllowance = $derived((loadsCode?.partition ?? partitionLiveAllowance)(occupancyQ, partitionLive.on ? partitionLive.q : 0));
   /** The bound loads code is CIRSOC 101's: its Tabla 3.1 build-up, §4.3.2 minimum and K_LL labels are shown; another code's are not. */
-  const cirsocLoads = $derived(!__PUBLIC_FEATURES__.proPlatesUnified || !loadsCode || loadsCode.family === 'cirsoc');
+  const usesForeignLoads = __PUBLIC_FEATURES__.proPlatesUnified ? () => !!loadsCode && loadsCode.family !== 'cirsoc' : undefined;
   const partitionInput = $derived(loadsCode?.partitionInput ?? { kind: 'minimum' as const, min: PARTITION_LIVE_MINIMUM_KNM2 });
   const loadsRef = (k: string) => loadsCode?.sections?.[k] ?? '';
   // §4.7.2 reduction inputs — a real code feature the legacy path did not have at all.
@@ -392,14 +392,11 @@
   /** Each non-CIRSOC code's own inputs, by adapter (`load-codes/registry.ts`). */
   let codeInputs = $state<Record<string, unknown>>({});
   const codeAdapter = (role: 'wind' | 'snow' | 'seismic') => regulationsStore.binding(role)?.adapterId ?? '';
-  const family = $derived(loadFamilyOfRegulations(regulationsStore.roles) ?? 'cirsoc');
-  let familyError = $state<string | null>(null);
-  function chooseFamily(f: LoadFamilyChoice) {
-    familyError = null;
-    const r = regulationsStore.requestStack(FAMILY_STACKS[f]);
-    if (r.kind === 'refused') familyError = r.problems.map((p) => te(p)).join(' · ');
-    else restoreFromRoles();
-    plan = null; delta = null;
+  const family = $derived(__PUBLIC_FEATURES__.proPlatesUnified ? loadFamilyOfRegulations(regulationsStore.roles) ?? 'cirsoc' : 'cirsoc');
+  function familyChanged(applied: boolean) {
+    if (applied) restoreFromRoles();
+    plan = null;
+    delta = null;
   }
 
   /** The dialog's settings as they stand. */
@@ -663,14 +660,7 @@
   <div class="al-dialog" onclick={(e) => e.stopPropagation()}>
     <div class="al-header">
       <h2>{t('autoLoad.title')}</h2>
-      {#if __PUBLIC_FEATURES__.proPlatesUnified}
-        <label class="al-family" title={t('autoLoad.familyHint')}><span>{t('autoLoad.family')}</span>
-          <select value={family} onchange={(e) => chooseFamily(e.currentTarget.value as LoadFamilyChoice)} data-testid="al-family">
-            {#each LOAD_FAMILY_CHOICES as f (f)}<option value={f}>{t(`autoLoad.familyName.${f}`)}</option>{/each}
-          </select>
-        </label>
-        {#if familyError}<span class="al-warn" data-testid="al-family-error">{familyError}</span>{/if}
-      {/if}
+      {#if LoadFamilyChooser}<LoadFamilyChooser {family} onchange={familyChanged} />{/if}
       <button class="al-close" onclick={onclose} aria-label={t('report.cancel')}>&times;</button>
     </div>
 
@@ -767,7 +757,7 @@
                 </details>
               {/if}
               <p><strong>{t('autoLoad.designLive')}:</strong> {aq(plan.factors.liveReduced.value)}
-                ({cirsocLoads ? tp('autoLoad.fromTableLo', { lo: plan.factors.occupancy.value.toFixed(2) }) : tp('autoLoad.fromTableLoCode', { lo: plan.factors.occupancy.value.toFixed(2), code: codeHead('loads', 'live') })})</p>
+                ({!usesForeignLoads?.() ? tp('autoLoad.fromTableLo', { lo: plan.factors.occupancy.value.toFixed(2) }) : tp('autoLoad.fromTableLoCode', { lo: plan.factors.occupancy.value.toFixed(2), code: codeHead('loads', 'live') })})</p>
               {#if plan.factors.partitionLive && plan.factors.partitionLive.value > 0}
                 <p data-testid="al-partition-live-plan">{tp('autoLoad.live.partitionInPlan', { q: aq(plan.factors.partitionLive.value) })}</p>
               {/if}
@@ -849,7 +839,7 @@
             </div>
             <div class="al-pane-scroll" data-testid="al-dead-section">
               <div class="al-pane-body"><ProDeadLoadBuilder bind:rows={deadRows} liveLo={occupancyQ} liveAllowance={partitionAllowance.qKNm2}
-                catalogue={cirsocLoads} codeHint={cirsocLoads ? null : tp('autoLoad.dead.codeHint', { code: codeHead('loads', 'dead') })} /></div>
+                catalogue={!usesForeignLoads?.()} codeHint={!usesForeignLoads?.() ? null : tp('autoLoad.dead.codeHint', { code: codeHead('loads', 'dead') })} /></div>
             </div>
 
           {:else if section === 'live'}
@@ -860,15 +850,15 @@
             </div>
             <div class="al-pane-scroll" data-testid="al-live-section">
               <div class="al-pane-body">
-                <label class="al-field" for="al-occupancy"><span class="al-label">{t(cirsocLoads ? 'loads.cirsoc101.occupancy' : 'autoLoad.occupancy')}</span>
+                <label class="al-field" for="al-occupancy"><span class="al-label">{t(!usesForeignLoads?.() ? 'loads.cirsoc101.occupancy' : 'autoLoad.occupancy')}</span>
                   <OccupancySelect id="al-occupancy" value={selectedOccupancy} rows={occupancyTable}
                     formatPressure={aq} choose={key => { selectedOccupancy = key; }} />
                 </label>
                 <div class="al-sub" data-testid="al-partition-live">
-                  <span class="al-sub-title">{cirsocLoads ? t('autoLoad.live.partitionTitle') : tp('autoLoad.live.partitionTitleCode', { ref: loadsRef('partition') })}</span>
+                  <span class="al-sub-title">{!usesForeignLoads?.() ? t('autoLoad.live.partitionTitle') : tp('autoLoad.live.partitionTitleCode', { ref: loadsRef('partition') })}</span>
                   <label class="al-check">
                     <input type="checkbox" bind:checked={partitionLive.on} data-testid="al-partition-live-on" />
-                    {cirsocLoads ? t('autoLoad.live.partitionOn') : t('autoLoad.live.partitionOnCode')}
+                    {!usesForeignLoads?.() ? t('autoLoad.live.partitionOn') : t('autoLoad.live.partitionOnCode')}
                   </label>
                   {#if partitionLive.on}
                     {#if __PUBLIC_FEATURES__.proPlatesUnified && partitionInput.kind === 'choices'}
@@ -878,7 +868,7 @@
                         </select>
                       </label>
                     {:else}
-                      <label class="al-field"><span class="al-label">{cirsocLoads ? t('autoLoad.live.partitionValue') : t('autoLoad.live.partitionValueCode')}</span>
+                      <label class="al-field"><span class="al-label">{!usesForeignLoads?.() ? t('autoLoad.live.partitionValue') : t('autoLoad.live.partitionValueCode')}</span>
                         <QuantityInput bind:value={partitionLive.q} quantity="areaLoad" min={partitionInput.kind === 'minimum' ? partitionInput.min : 0} testid="al-partition-live-q" wrap="al-unit-field" />
                       </label>
                     {/if}
@@ -886,14 +876,14 @@
                   <p class="al-hint" data-testid="al-partition-live-note">{te(partitionAllowance.message)}</p>
                 </div>
                 <div class="al-sub">
-                  <span class="al-sub-title">{cirsocLoads ? t('autoLoad.live.reductionTitle') : tp('autoLoad.live.reductionTitleCode', { ref: loadsRef('reduction') })}</span>
+                  <span class="al-sub-title">{!usesForeignLoads?.() ? t('autoLoad.live.reductionTitle') : tp('autoLoad.live.reductionTitleCode', { ref: loadsRef('reduction') })}</span>
                   <label class="al-check">
                     <input type="checkbox" bind:checked={applyLiveReduction} data-testid="al-live-reduction" />
-                    {cirsocLoads ? t('autoLoad.applyLiveReduction') : t('autoLoad.applyLiveReductionCode')}
+                    {!usesForeignLoads?.() ? t('autoLoad.applyLiveReduction') : t('autoLoad.applyLiveReductionCode')}
                   </label>
                   {#if applyLiveReduction}
                     <div class="al-grid">
-                      <label class="al-field"><span class="al-label">{cirsocLoads || loadsCode?.family === 'aci-aisc' ? t('autoLoad.reductionElement') : t('autoLoad.reductionElementCode')}</span>
+                      <label class="al-field"><span class="al-label">{!usesForeignLoads?.() || loadsCode?.family === 'aci-aisc' ? t('autoLoad.reductionElement') : t('autoLoad.reductionElementCode')}</span>
                         <select bind:value={reductionElementKind} data-testid="al-elemkind">
                           {#each ['interiorColumn','exteriorColumnNoCantilever','edgeColumnWithCantilever','cornerColumnWithCantilever','edgeBeamNoCantilever','interiorBeam','other'] as k (k)}
                             <option value={k}>{t(`autoLoad.elementKind.${k}`)}</option>
@@ -907,7 +897,7 @@
                   {/if}
                 </div>
                 <div class="al-sub">
-                  <span class="al-sub-title">{cirsocLoads ? t('autoLoad.patterns') : loadsRef('patterns') ? tp('autoLoad.patternsCode', { ref: loadsRef('patterns') }) : t('autoLoad.patternsNoRef')}</span>
+                  <span class="al-sub-title">{!usesForeignLoads?.() ? t('autoLoad.patterns') : loadsRef('patterns') ? tp('autoLoad.patternsCode', { ref: loadsRef('patterns') }) : t('autoLoad.patternsNoRef')}</span>
                   <label class="al-field"><span class="al-label">{t('autoLoad.patternsMode')}</span>
                     <select bind:value={livePatterns} data-testid="al-live-patterns">
                       <option value="all">{t('autoLoad.patterns.all')}</option>
@@ -915,7 +905,7 @@
                       <option value="none">{t('autoLoad.patterns.none')}</option>
                     </select>
                   </label>
-                  <Hint text={cirsocLoads ? t('autoLoad.patternsHint') : t('autoLoad.patternsHintCode')} />
+                  <Hint text={!usesForeignLoads?.() ? t('autoLoad.patternsHint') : t('autoLoad.patternsHintCode')} />
                 </div>
               </div>
             </div>
@@ -1184,8 +1174,7 @@
               <span class="al-sec-code">{codeHead('basis', 'combinations')}</span>
             </div>
             <div class="al-pane-scroll">
-              <ProAutoLoadsCombos generate={genCombos} bind:source={comboSource} bind:set={comboSet} bind:bothSenses bind:patternsInCompanions
-                basisTitle={loadCodeFor(regulationsStore.binding('basis')?.adapterId)?.title ?? ''} />
+              <ProAutoLoadsCombos generate={genCombos} bind:source={comboSource} bind:set={comboSet} bind:bothSenses bind:patternsInCompanions />
             </div>
           {/if}
         {/if}
@@ -1265,8 +1254,6 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     font-family: var(--st-sans); font-size: 0.72rem; color-scheme: dark;
   }
-  .al-family { display: inline-flex; gap: 6px; align-items: center; margin-left: auto; margin-right: 12px; font-size: 0.78rem; color: var(--st-text-2); }
-  .al-family select { font: inherit; padding: 3px 6px; background: var(--st-surface); color: var(--st-text); border: 1px solid var(--st-hair-strong); border-radius: 4px; }
   .al-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 10px; border-bottom: 1px solid var(--st-hair); }
   .al-header h2 { margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--st-text); }
   .al-close { background: none; border: none; color: var(--st-text-3); font-size: 1.2rem; line-height: 1; cursor: pointer; }

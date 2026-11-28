@@ -1,5 +1,6 @@
 <script lang="ts">
   import Hint from './Hint.svelte';
+  import { basisTitle } from './load-codes/registry';
   /**
    * The regulation dialog's Combinations tab: whether applying makes combinations, and from
    * what. Either the bound basis code (strength, service or both) or the project's own rules, which
@@ -17,10 +18,8 @@
     bothSenses: boolean;
     /** Patterns of partial loading also as companions (`combination-cases.ts`). */
     patternsInCompanions: boolean;
-    /** The bound basis code's name: the combinations it writes, and the rules it can seed. */
-    basisTitle?: string;
   }
-  let { generate, source = $bindable(), set = $bindable(), bothSenses = $bindable(), patternsInCompanions = $bindable(), basisTitle = '' }: Props = $props();
+  let { generate, source = $bindable(), set = $bindable(), bothSenses = $bindable(), patternsInCompanions = $bindable() }: Props = $props();
   const rules = $derived(modelStore.combinationRules);
   // A source with nothing in it is not a choice: the last rule removed falls back to the regulation.
   $effect(() => { if (source === 'project' && rules.length === 0) source = 'regulation'; });
@@ -33,7 +32,7 @@
       <div class="ac-source" role="radiogroup" aria-label={t('autoLoad.comboSource')}>
         <label class="al-check">
           <input type="radio" name="al-combo-source" value="regulation" bind:group={source} data-testid="al-combo-source-regulation" />
-          {basisTitle || t('autoLoad.comboSource.regulation')}
+          {basisTitle?.() || t('autoLoad.comboSource.regulation')}
         </label>
         {#if source === 'regulation'}
           <div class="al-row ac-sub" role="radiogroup" aria-label={t('autoLoad.comboSet')} data-testid="al-combo-set">

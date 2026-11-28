@@ -1,3 +1,5 @@
+import { regulationsStore } from '../../../lib/store/regulations.svelte';
+import { loadCodeFor } from '../../../lib/codes/families';
 import type { CodeInputComponent } from './registry';
 import { EUROCODE_INPUTS } from './eurocode';
 import { ASCE7_INPUTS } from './asce7';
@@ -8,3 +10,7 @@ export const CODE_INPUTS: Readonly<Record<string, CodeInputComponent>> = {
   ...ASCE7_INPUTS,
   ...TURKEY_INPUTS,
 };
+
+export { default as LoadFamilyChooser } from './LoadFamilyChooser.svelte';
+
+export const basisTitle = () => loadCodeFor(regulationsStore.binding('basis')?.adapterId)?.title;
