@@ -167,6 +167,10 @@
   --st-radius: 3px;
   --st-radius-lg: 6px;
 
+  /* Basic's ribbon over its options row and PRO's stage tabs over its ribbon stack to one height. */
+  --st-ribbon-strip-h: 26px;
+  --st-ribbon-body-h: 65px;
+
   /* ── Layout: the phone's bottom sheet ──────────────────────────────────
      How much of a phone screen the Basic panel takes when it lays itself out
      as a sheet, below 768 px.
@@ -414,4 +418,8 @@
   --rs-plot-grid: var(--st-canvas-grid);
   --rs-plot-axis: var(--st-text-2);
   --rs-viewer-h: clamp(16rem, 42dvh, 24rem);
+}
+
+@media (max-width: 1240px) {
+  :root { --st-ribbon-body-h: 49px; }
 }

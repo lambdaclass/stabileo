@@ -82,6 +82,19 @@ test.describe('@smoke the title bar and the panel side', () => {
     await expect(page.getByTestId('basic-panel')).toHaveCount(0);
   });
 
+  for (const width of [1440, 1100]) {
+    test(`at ${width} px the model starts at the same height in Basic and in Professional`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await openBasic(page);
+      const top = async () => Math.round((await page.locator('.viewport-container').boundingBox())!.y);
+      await expect(page.getByTestId('tool-options-bar')).toBeVisible();
+      const basic = await top();
+      await page.getByTestId('ws-pro').click();
+      await expect(page.getByTestId('pro-ribbon')).toBeVisible();
+      expect(await top()).toBe(basic);
+    });
+  }
+
   test('File › New project opens a tab', async ({ page }) => {
     await openBasic(page);
     const tabs = page.locator('.tab-bar .tab');

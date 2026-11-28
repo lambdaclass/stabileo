@@ -34,7 +34,7 @@
    * labels and scale give way:
    *
    *     ≥ 1500   large icons, a label under every command
-   *     ≥ 1180   smaller icons, labels kept
+   *     ≥ 1240   smaller icons, labels kept (where PRO drops its labels too)
    *     ≥  900   icons only; the group label carries the meaning
    *     <  900   the ribbon yields to the mobile tool strip entirely
    *
@@ -1066,7 +1066,7 @@
     .rb-group { padding: 0 0.45rem 0.2rem; }
   }
 
-  @media (max-width: 1180px) {
+  @media (max-width: 1240px) {
     .rb-label { display: none; }
     .rb-cmd { min-width: 34px; padding: 0.35rem 0.3rem; }
     .rb-group { padding: 0 0.35rem 0.2rem; }
@@ -1084,6 +1084,14 @@
      a scroll and at 390 px and above it fits outright. Twenty pixels and four
      hundred and sixty are not the same problem.
      ────────────────────────────────────────────────────────────────── */
+  @media (min-width: 768px) {
+    .ribbon { height: calc(var(--st-ribbon-body-h) + 1px); }
+    .rb-row { height: 100%; padding-top: 0.2rem; }
+    .rb-cmd { padding-top: 0.18rem; padding-bottom: 0.18rem; }
+    .rb-group { padding-bottom: 0.15rem; }
+    .rb-group-label { margin-top: 0.15rem; }
+  }
+
   @media (max-width: 767px) {
     /*
        Nine slots that share the width, whatever the width is.

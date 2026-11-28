@@ -13,8 +13,6 @@ test.use({ viewport: { width: 1440, height: 900 } });
  */
 
 const census = (page: Page) => page.evaluate(() => window.__stabileo.modelCensus());
-/* The drawing bar changes height with the tool, and the viewport follows it a frame later: the
-   node is read where it has settled, not mid-resize. */
 const click = async (page: Page, id: number) => {
   const at = () => page.evaluate((n) => window.__stabileo.nodeScreenPos(n), id);
   let p = await at();
@@ -35,14 +33,18 @@ test.beforeEach(async ({ pro: page }) => {
   await loadModel(page, '3d-portal-frame');
 });
 
-test('the bar sits under the ribbon, names the tool, and Escape leaves it', async ({ pro: page }) => {
+test('the card floats over the model, which does not move, names the tool, and Escape leaves it', async ({ pro: page }) => {
+  const viewport = page.locator('.viewport-container');
   for (const [cmd, btn] of [['nodes', 'draw-node'], ['elements', 'draw-element']] as const) {
     await open(page, cmd);
+    const before = (await viewport.boundingBox())!;
     await page.getByTestId(btn).click();
     const bar = page.getByTestId('pro-draw-bar');
     await expect(bar).toBeVisible();
-    const ribbon = (await page.getByTestId('pr-stage-model').boundingBox())!;
-    expect((await bar.boundingBox())!.y, `${cmd}: under the top bar`).toBeGreaterThan(ribbon.y);
+    const box = (await bar.boundingBox())!;
+    expect(box.y, `${cmd}: inside the model's area`).toBeGreaterThanOrEqual(before.y);
+    expect(box.x, `${cmd}: inside the model's area`).toBeGreaterThanOrEqual(before.x);
+    expect((await viewport.boundingBox())!.y, `${cmd}: the model stays where it was`).toBe(before.y);
     await page.keyboard.press('Escape');
     await expect(bar).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => window.__stabileo.currentTool())).toBe('select');

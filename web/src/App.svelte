@@ -1868,10 +1868,12 @@
     {:else}
       <div class="ribbon-shell">
         <WorkspaceSwitch current={workspace} onSwitch={switchWorkspace} />
-        <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
+        <div class="ribbon-stack">
+          <Ribbon onOpenPanel={openBasicPanel} activePanel={basicPanel} activeDataTab={basicDataTab} />
+          <ToolOptionsBar />
+        </div>
       </div>
     {/if}
-    <ToolOptionsBar />
   {/if}
 
   {#if !uiStore.is3DWorkspace && uiStore.analysisPlane2D === undefined}
@@ -1918,8 +1920,6 @@
         />
       </div>
     {/if}
-    <!-- What the next click in the model does while drawing, under the bar that started it. -->
-    {#if uiStore.appMode === 'pro' && !uiStore.viewerMode}<ProDrawBar />{/if}
 
     <!--
       PRO's phone bar.
@@ -2127,6 +2127,7 @@
         {/if}
         </ContainmentBanner>
         {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
+        {#if uiStore.appMode === 'pro' && !uiStore.viewerMode}<ProDrawBar />{/if}
         {#if (uiStore.appMode === 'pro' || uiStore.appMode === 'basico') && !uiStore.viewerMode && !uiStore.embedMode && !eduStore.isHandout && !(deskDocked && deskUi.open)}
           <StartCard mode={uiStore.appMode === 'pro' ? 'pro' : 'basico'} />
         {/if}
@@ -3306,6 +3307,7 @@
     min-width: 0;
   }
   .ribbon-shell > :global(.ribbon), .ribbon-shell > :global(.pro-ribbon) { flex: 1; min-width: 0; }
+  .ribbon-stack { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .panels-left :global(.basic-panel),
   .panels-left .sidebar.right,
   .panels-left .pro-panel-reopen { order: -1; }

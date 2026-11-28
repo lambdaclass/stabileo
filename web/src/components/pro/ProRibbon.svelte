@@ -528,7 +528,7 @@
     gap: 0.15rem;
     padding: 0 0.4rem;
     border-bottom: 1px solid var(--st-hair);
-    min-height: 26px;
+    height: var(--st-ribbon-strip-h);
   }
 
   .pr-tools {
@@ -610,6 +610,7 @@
   .pr-groups {
     display: flex;
     align-items: stretch;
+    height: var(--st-ribbon-body-h);
     padding: 0.2rem 0.4rem 0;
     overflow-x: auto;
     scrollbar-width: thin;

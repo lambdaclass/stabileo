@@ -5,16 +5,9 @@
   const editorActive = editorActivity();
   import { OSNAP_MODES } from '../../lib/model/osnap-modes';
   /**
-   * What the next click in the model does, while PRO is drawing.
-   *
-   * Under the ribbon, across the model, because that is where the eye is while drawing. It
-   * replaces the strip Basic uses, which PRO borrowed for loads and supports: it sat above the
-   * top bar, spoke in Basic's terms (one direction and one value, the 2D support kinds) and said
-   * nothing for nodes, members and plates. Each tool here gets the choices PRO has for it, the
-   * step it is at ("node I is 5, pick node J"), and one way out.
-   *
-   * Supports and loads are not drawn: each is added from its panel's "Add" card, on the selection
-   * or on what is named. A support or load tool still armed from Basic is put down here.
+   * What the next click in the model does, while PRO is drawing: a card over the model's corner,
+   * so arming a tool never moves the model down. Supports and loads are not drawn here; each is
+   * added from its panel's "Add" card, and a support or load tool still armed from Basic is put down.
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { drawState } from '../../lib/store/draw-state.svelte';
@@ -75,23 +68,25 @@
 <svelte:window onkeydown={onKey} />
 
 {#if drawState.active}
-  <div class="db" data-testid="pro-draw-bar" data-tool={tool}>
-    <span class="db-title"><Icon name={icon} size={14} /> {capitalized(tp('pro.drawWhat', { what: title }))}</span>
-    <span class="db-step" data-testid="draw-step">{step}</span>
-    <span class="db-sep" aria-hidden="true"></span>
-
-    <details class="db-osnap" data-testid="osnap-menu">
-      <summary title={t('osnap.hint')}>{t('osnap.title')}{uiStore.snapToAxes ? '' : ' ·'}</summary>
-      <div class="db-osnap-list">
-        <label><input type="checkbox" bind:checked={uiStore.snapToAxes} data-testid="osnap-master" /> {t('osnap.master')}</label>
-        {#each OSNAP_MODES as m (m)}
-          <label class:off={!uiStore.snapToAxes}><input type="checkbox" checked={uiStore.osnapModes.has(m)} disabled={!uiStore.snapToAxes} onchange={() => uiStore.toggleOsnap(m)} data-testid="osnap-mode-{m}" /> {t(`osnap.${m}`)}</label>
-        {/each}
-        <p>{t('osnap.hint')}</p>
-      </div>
-    </details>
-    <span class="db-sep" aria-hidden="true"></span>
-
+  <div class="db" role="toolbar" aria-label={capitalized(tp('pro.drawWhat', { what: title }))} data-testid="pro-draw-bar" data-tool={tool}>
+    <div class="db-head">
+      <span class="db-title"><Icon name={icon} size={14} /> {capitalized(tp('pro.drawWhat', { what: title }))}</span>
+      <details class="db-osnap" data-testid="osnap-menu">
+        <summary title={t('osnap.hint')}>{t('osnap.title')}{uiStore.snapToAxes ? '' : ' ·'}</summary>
+        <div class="db-osnap-list">
+          <label><input type="checkbox" bind:checked={uiStore.snapToAxes} data-testid="osnap-master" /> {t('osnap.master')}</label>
+          {#each OSNAP_MODES as m (m)}
+            <label class:off={!uiStore.snapToAxes}><input type="checkbox" checked={uiStore.osnapModes.has(m)} disabled={!uiStore.snapToAxes} onchange={() => uiStore.toggleOsnap(m)} data-testid="osnap-mode-{m}" /> {t(`osnap.${m}`)}</label>
+          {/each}
+          <p>{t('osnap.hint')}</p>
+        </div>
+      </details>
+      <button class="db-stop" onclick={() => drawState.stop()} title={t('pro.drawStopHint')} data-testid="draw-stop">
+        {t('pro.drawStop')} <kbd>Esc</kbd>
+      </button>
+    </div>
+    <p class="db-step" data-testid="draw-step">{step}</p>
+    <div class="db-body">
     <div class="db-opts">
       {#if tool === 'node'}
         <label>{t('drawBar.plane')}
@@ -131,36 +126,45 @@
         </label>
       {/if}
     </div>
-
-    <button class="db-stop" onclick={() => drawState.stop()} title={t('pro.drawStopHint')} data-testid="draw-stop">
-      {t('pro.drawStop')} <kbd>Esc</kbd>
-    </button>
+    </div>
   </div>
 {/if}
 
 <style>
-  .db-osnap { position: relative; font-size: 0.72rem; }
+  .db-osnap { position: relative; margin-left: auto; font-size: 0.72rem; }
   .db-osnap summary { cursor: pointer; padding: 2px 8px; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); list-style: none; color: var(--st-text-2); }
   .db-osnap[open] summary { border-color: var(--st-accent); color: var(--st-text); }
-  .db-osnap-list { position: absolute; left: 0; top: calc(100% + 4px); z-index: 30; width: 240px; padding: 8px; display: flex; flex-direction: column; gap: 4px; background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); box-shadow: 0 6px 18px rgb(0 0 0 / 0.3); }
+  .db-osnap-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; width: 240px; padding: 8px; display: flex; flex-direction: column; gap: 4px; background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); box-shadow: 0 6px 18px rgb(0 0 0 / 0.3); }
   .db-osnap-list label { display: flex; gap: 6px; align-items: center; color: var(--st-text); }
   .db-osnap-list label.off { color: var(--st-text-3); }
   .db-osnap-list p { margin: 4px 0 0; color: var(--st-text-3); font-size: 0.66rem; line-height: 1.4; }
   .db {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 25;
+    width: max-content;
+    max-width: min(560px, calc(100% - 20px));
     display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 5px 12px;
-    background: var(--st-surface-2);
-    border-bottom: 1px solid var(--st-hair-strong);
-    box-shadow: inset 3px 0 0 var(--st-accent);
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    background: color-mix(in srgb, var(--st-surface) 94%, transparent);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius-lg);
+    box-shadow: inset 3px 0 0 var(--st-accent), 0 10px 28px -12px rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
     font-size: 0.72rem;
     color: var(--st-text-2);
   }
+  .db-head { display: flex; align-items: center; gap: 12px; }
   .db-title { display: inline-flex; align-items: center; gap: 5px; color: var(--st-accent); font-weight: 600; white-space: nowrap; }
-  .db-step { color: var(--st-text); white-space: nowrap; }
-  .db-sep { width: 1px; align-self: stretch; background: var(--st-hair); }
+  .db-step { margin: 0; color: var(--st-text); }
+  .db-body { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .db-body:not(:has(.db-opts > *)) { display: none; }
+  @media (max-width: 767px) {
+    .db { top: 8px; left: 8px; max-width: calc(100% - 16px); }
+  }
   .db-opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; }
   .db-opts label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
   .db-opts :global(input.db-num), .db-opts select {
@@ -190,7 +194,6 @@
     background: none; color: var(--st-text-2); font: inherit; cursor: pointer; white-space: nowrap;
   }
   .db-btn:disabled { opacity: 0.4; cursor: default; }
-  .db-stop { margin-left: auto; }
   .db-stop:hover, .db-btn:hover:not(:disabled) { color: var(--st-text); border-color: var(--st-accent); }
   kbd { font-size: 0.6rem; padding: 0 3px; border: 1px solid var(--st-hair); border-radius: 3px; color: var(--st-text-3); }
 </style>
