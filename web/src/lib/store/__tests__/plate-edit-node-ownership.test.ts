@@ -3,6 +3,8 @@ import { modelStore } from '..';
 import { modelFeatures } from '../../provenance/model-features';
 import { meshDeferredSlabs, simplifySlabs } from '../../model/building/deferred-slabs';
 import { tieFootprints } from '../../model/building/column-footprints';
+import { applyCode } from '../../model/code/apply';
+import { modelToCode } from '../../model/code/format';
 import { renumber } from '../../model/edit/renumber';
 import { closePlateHole, setPlateSideSagitta } from '../plate-shape';
 import { applyPlateMeshes, applyPlateMeshesAsync, clearPlateMesh, createPlate, deletePlate, plateEntry, plateSides, planPlateMesh, setPlateSideArc } from '../physical-plates';
@@ -173,4 +175,18 @@ it('keeps a constraint when its saved footprint record no longer matches the con
   expect(deserializeProject(JSON.stringify(file))).toBe(true);
   clearPlateMesh(id);
   expect(modelStore.model.constraints).toEqual([{ type: 'rigidLink', masterNode, slaveNode, dofs: [0] }]);
+});
+
+
+it.skip.each([false, true])('known wrong result: #2670 model code replaces footprint ownership with the imported constraint (%s)', owned => {
+  const { id, outline, hole } = fixture();
+  tieFootprints([hole[0]!], [{ node: outline[0]!, x: 0, y: 0, hx: 3, hy: 2 }], id);
+  const snapshot = modelStore.snapshot();
+  expect(snapshot.footprintLinks).toHaveLength(1);
+  if (!owned) delete snapshot.footprintLinks;
+  const text = modelToCode(snapshot);
+  if (owned) modelStore.clear();
+  expect(applyCode(text).applied).toBe(true);
+  clearPlateMesh(id);
+  expect(modelStore.model.constraints).toHaveLength(owned ? 0 : 1);
 });

@@ -381,3 +381,15 @@ for (const entry of ['integral', 'member'] as const) {
     });
   }
 }
+
+it.skip('known wrong result: #2220 floor levels split the wind on an apex carrier without a pressure jump', () => {
+  const model = mesh([-1, 1].map(y => [[0, 0, 0], [0, y, 4]]));
+  const input = { model, axis: 'x' as const, from: 0, to: 4, pressure: () => 1, levels: [0, 2, 4] };
+  const half = Math.hypot(1, 4) / 2;
+  for (const id of model.elements.keys()) {
+    const rows = windHeightField(input).members.filter(row => row.elementId === id);
+    expect(rows.some(row => row.b === half)).toBe(true);
+    expect(rows.some(row => row.a === half)).toBe(true);
+    expect(rows.every(row => row.b <= half || row.a >= half)).toBe(true);
+  }
+});
