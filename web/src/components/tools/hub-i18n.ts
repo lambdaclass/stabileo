@@ -367,7 +367,7 @@ export const hubTranslations: Record<string, Record<string, string>> = {
     "tools.slab-on-columns": "柱で支えられたスラブ",
     "tools.slab-on-columns.subtitle": "柱の格子の上にある平らなコンクリートスラブを MITC4 シェル要素で分割し、たわみの分布をリアルタイムに表示します。",
     "tools.earthquake-frame": "地震時の骨組の時刻歴",
-    "tools.earthquake-frame.subtitle": "脚部を揺らした鉄筋コンクリート骨組を、Newmark の平均加速度法でステップごとに積分します。",
+    "tools.earthquake-frame.subtitle": "基部を揺らした鉄筋コンクリート骨組の応答を、Newmark の平均加速度法で時間ステップごとに積分して求めます。",
     "tools.rc-column": "鉄筋コンクリート柱",
     "tools.rc-column.subtitle": "帯筋入りの矩形柱：断面と帯筋を縮尺どおりに描き、CIRSOC 201 の相互作用図と荷重の検定を示します。",
     "tools.outrigger": "高いコアのアウトリガーの掃引",
