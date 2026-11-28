@@ -57,6 +57,7 @@
  * code plus a Spanish sentence, the checker's language; surfaces translate the code.
  */
 
+import { shearLagTrace } from '../../codes/cirsoc301/shear-lag-trace';
 import { nominalHoleMm, type HoleKind } from '../../connection/bolt-geometry';
 import { ALL_PROFILES, profileToSectionFull } from '../../data/steel-profiles';
 import { msg, round, type EngineMessage } from '../../codes/message';
@@ -282,7 +283,9 @@ function render(ev: EngineEvent): [string, EngineMessage] {
     case 'xBarWeld':
       return [`  x̄ = ${mm(ev.xBar)} mm (Figura D.3.1), L = ${mm(ev.L, 0)} mm`, msg('steel.tc.calc.xBarWeld', { xBar: r1mm(ev.xBar), L: round(ev.L * 1000, 0) })];
     case 'u':
-      return [`  U = 1 − x̄/L = 1 − ${mm(ev.xBar)}/${mm(ev.L, 0)} = ${f3(ev.raw)} ≤ 0,9 → ${f3(ev.U)}  (D.3.2)`,
+      return ['  ' + shearLagTrace(',', {
+        xBar: mm(ev.xBar), length: mm(ev.L, 0), raw: f3(ev.raw), capped: f3(ev.U),
+      }),
         msg('steel.tc.calc.u', { xBar: r1mm(ev.xBar), L: round(ev.L * 1000, 0), raw: r3(ev.raw), U: r3(ev.U) })];
     case 'uFloor':
       return [`  U ≥ A unida/Ag = ${mm2(ev.Aconn)}/${mm2(ev.Ag)} = ${f3(ev.U)}  (D.3, secciones abiertas)`, msg('steel.tc.calc.uFloor', { Aconn: r0(ev.Aconn), Ag: r0(ev.Ag), U: r3(ev.U) })];

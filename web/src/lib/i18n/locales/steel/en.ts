@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 import c301En from './c301-en';
 /**
  * English counterpart of `steel/es.ts`. Same keys, same order — a test asserts it.
@@ -538,7 +539,6 @@ const steelEn: Record<string, string> = {
   'steel.assume.route.bracingData': 'Declare the Lb on the member (Geometry and bracing), or have the model record braces and the generator keep the ones it places.',
   'steel.assume.route.implementClassification': 'Requires implementing the §B.4 section classification.',
   'steel.assume.route.boltGeometry': 'Requires the bolt group geometry: rows, pitches and gauges.',
-  'steel.assume.route.implementCap': 'It would take computing My and applying the F.2.1 cap.',
   'steel.assume.route.torsionalRestraint': 'Requires the torsional restraint at the member ends and the torsional bracing points.',
   'steel.assume.route.momentDiagram': 'Requires reading the span\'s moment diagram to compute Cb.',
   'steel.assume.route.torsionalConstant': 'Requires the section to declare its torsional constant.',
@@ -607,14 +607,14 @@ const steelEn: Record<string, string> = {
   'steel.f62.classified': 'Table B.4.1b case 14: λpf = 0.38·√(E/Fy), λrf = 1.00·√(E/Fy). The branch below is the one the CIRSOC 301 check applies.',
   'steel.f62.outOfScope': 'F.6 covers I sections and channels bent about the minor axis. This section is not one of them.',
   'steel.f62.geometryUnavailable': 'The flange width or thickness is missing, so not even the slenderness λf can be formed.',
-  'steel.f62.classificationUnavailable': 'The geometry is there: λf, Sy and Fcr are computed. What cannot be done is selecting the branch, because λpf and λrf are Table B.4.1b case 14, which is an image in the source PDF.',
+  'steel.f62.classificationUnavailable': 'Flange geometry gives λf. Selecting the branch of Table B.4.1b case 14 requires a positive yield strength Fy.',
   'steel.f62.branch.notApplicableCompact': 'compact flange: local buckling does not apply (F.6.2(a))',
   'steel.f62.branch.nonCompact': 'non-compact flange (F.6.2(b))',
   'steel.f62.branch.slender': 'slender flange (F.6.2(c))',
   'steel.f62.branch.undetermined': 'branch undetermined',
   'steel.f62.missing.flangeGeometry': 'Flange width and thickness.',
-  'steel.f62.missing.slendernessLimits': 'The λpf and λrf slenderness limits of Table B.4.1b, case 14. That table’s numeric cells are not in the shipped markdown: only its caption, footnotes and symbol list.',
-  'steel.f62.lambdaLabel': 'Flange slenderness λf = bf/tf',
+  'steel.f62.missing.slendernessLimits': 'Enter positive Fy for Table B.4.1b case 14: λpf = 0.38√(E/Fy), λrf = 1.00√(E/Fy).',
+  'steel.f62.lambdaLabel': 'Flange slenderness λf',
   'steel.f62.fcrLabel': 'Fcr if the flange turns out slender (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — moment gradient factor (F.1.1)',
   'steel.workflow.clause.cbState': 'Computed from the moment diagram when stations exist and the section is within F.1.1’s scope; otherwise Cb = 1, which the code permits. Computing it does not certify the bracing.',
@@ -1273,7 +1273,7 @@ const steelEn: Record<string, string> = {
   'steel.tc.calc.connection': 'Connection: {what}',
   'steel.tc.calc.bolted': 'bolted, {lines} line(s) × {n} M{d} bolt(s), {hole} holes, pitch {pitch} mm, connected through: {connected}',
   'steel.tc.calc.welded': 'welded, {weld} welds, L = {L} mm, connected through: {connected}',
-  'steel.tc.calc.u': 'U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0.9 → {U}  (D.3.2)',
+  'steel.tc.calc.u': `${shearLagTrace('.')}`,
   'steel.tc.calc.uFloor': 'U ≥ A connected/Ag = {Aconn}/{Ag} = {U}  (D.3, open sections)',
   'steel.tc.calc.weldNoHoles': 'No holes in the welded connection: An = Ag  (B.4.2.2)',
   'steel.tc.calc.plateTable': 'Plate welded along both edges: L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))',
@@ -1313,7 +1313,7 @@ const steelEn: Record<string, string> = {
   'steel.b41.c14': 'Flanges of I-shapes and channels bent about the minor axis',
   'steel.b41.c15': 'Stems of tees',
   'steel.b41.c16': 'Webs of doubly symmetric I-shapes and of channels',
-  'steel.b41.c17': 'Webs of singly symmetric I-shapes (λp with hc/hp; here the doubly symmetric one, on the safe side)',
+  'steel.b41.c17': 'Webs of singly symmetric I-shapes (λp with hc/hp; here the doubly symmetric one)',
   'steel.b41.c18': 'Flanges of rectangular and square tubes of uniform thickness',
   'steel.b41.c19': 'Cover plates and diaphragm plates between lines of bolts or welds',
   'steel.b41.c20': 'Webs of rectangular and square tubes',

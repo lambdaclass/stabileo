@@ -27,8 +27,16 @@ export const archCard = {
     title: 'Milyen vékony lehet egy kőív?',
     hook: 'Merev ívkövek, húzószilárdság nélkül: keresse meg egy körív legkisebb vastagságát és azt a terhet, amelytől egy gyűrű összeomlik, lineáris programmal és az összes csuklós mechanizmussal.',
   },
+  it: {
+    title: 'Quanto può essere sottile un arco in pietra?',
+    hook: 'Conci rigidi, nessuna trazione: trova lo spessore minimo di un arco circolare e il carico che fa collassare un anello, con un programma lineare e ogni meccanismo a cerniere.',
+  },
   zh: {
     title: '石拱可以有多薄？',
     hook: '刚性拱石，不承受拉力：用线性规划和所有铰机构，求出圆弧拱的最小厚度，以及使拱环倒塌的荷载。',
+  },
+  nl: {
+    title: 'Hoe dun kan een stenen boog zijn?',
+    hook: 'Stijve wigstenen, geen trek: vind de minimale dikte van een cirkelboog en de belasting waarbij een ring bezwijkt, met een lineair programma en alle scharniermechanismen.',
   },
 };

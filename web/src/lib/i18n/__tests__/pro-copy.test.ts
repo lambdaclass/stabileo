@@ -5,7 +5,7 @@ import { POSTS } from '../../blog';
 import { STANDING_PAGES } from '../../blog/pages';
 import { inLocale } from '../../blog/types';
 
-const LOCALES: CopyLocale[] = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'zh'];
+const LOCALES: CopyLocale[] = ['es', 'en', 'pt', 'de', 'fr', 'tr', 'it', 'zh', 'nl'];
 
 function proPartOfTour(tour: string): string {
   const start = tour.indexOf('PRO</strong>');
@@ -39,4 +39,12 @@ describe('PRO is presented as available', () => {
     expect(unfinishedProClaims('PRO 仍处于开发中。', 'zh', { aboutPro: false })).toHaveLength(1);
     expect(unfinishedProClaims('Die normgemäße Bemessung in PRO ist noch in Entwicklung.', 'de', { aboutPro: false })).toEqual([]);
   });
+});
+
+it.each([
+  ['it', 'L’AI è in beta.', false],
+  ['nl', 'De AI-assistent is in bètafase.', false],
+  ['nl', 'PRO is in bètafase.', true],
+] as const)('known wrong result: #2613 — classifies %s: %s', (locale, sentence, unfinished) => {
+  expect(unfinishedProClaims(sentence, locale, { aboutPro: true })).toEqual(unfinished ? [sentence] : []);
 });

@@ -1,0 +1,1 @@
+export const certificateFigureAlt = 'Stabileo Basic met het berekende portaal. Onder Resultaatcontroles staan twee regels: „Gecertificeerd: verplaatsingsfout ≤ 3,41e-16” en „End-to-end gecontroleerd: een onafhankelijke herassemblage van het model komt overeen; verplaatsingsfout ≤ 3,68e-15”.';

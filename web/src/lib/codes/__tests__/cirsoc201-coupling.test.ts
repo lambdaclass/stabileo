@@ -22,7 +22,6 @@ const COUPLED = [
   'lib/engine/codes/argentina/cirsoc201.ts',
   'lib/engine/design/beam-flange.ts',
   'lib/engine/design/candidate-enumerate-beam.ts',
-  'lib/engine/design/candidate-enumerate-column.ts',
   'lib/engine/design/crack-spacing.ts',
   'lib/engine/design/end-support-anchorage.ts',
   'lib/engine/design/joint-threading-check.ts',

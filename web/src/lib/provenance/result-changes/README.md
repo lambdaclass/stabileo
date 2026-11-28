@@ -18,11 +18,15 @@ project solved before it is told on opening ([testing/docs/PROVENANCE.md](../../
      "area": "analysis",
      "when": { "allOf": [["plane2D"], ["connectors"]] },
      "quantities": ["solve.ok"],
-     "title": { "en": "…", "es": "…", "pt": "…", "de": "…", "fr": "…", "tr": "…", "zh": "…" },
-     "explanation": { "en": "…", "es": "…", "pt": "…", "de": "…", "fr": "…", "tr": "…", "zh": "…" },
+     "title": { "en": "…", "es": "…", "pt": "…", "de": "…", "fr": "…", "hu": "…", "tr": "…", "it": "…", "nl": "…", "zh": "…" },
+     "explanation": { "en": "…", "es": "…", "pt": "…", "de": "…", "fr": "…", "hu": "…", "tr": "…", "it": "…", "nl": "…", "zh": "…" },
      "changelog": { "file": "docs/results-changes/….md", "heading": "…" }
    }
    ```
+
+   Italian and Dutch translations added after a notice was published live in
+   `../result-change-translations/{it,nl}.json`, keyed by the original change ID. For a new notice,
+   include Italian and Dutch in its title and explanation as shown above.
 
    Every field is as in PROVENANCE.md, except `resultsVersion`, which you leave out.
 2. Add the `changelog.d/` fragment under `### BREAKING (results)` and the write-up the entry links to.

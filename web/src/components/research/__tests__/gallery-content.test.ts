@@ -54,7 +54,7 @@ it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed 
 it('omits absent bibliographic fields without dangling separators', () => {
   expect(citation({ crossref: { title: 'Book', authors: [], venue: '', year: 1979 } })).toBe('1979');
 });
-it('translates the gallery scope in all six locales', () => {
+it('translates the gallery scope in every public locale', () => {
   const titles = new Set<string>();
   for (const locale of PUBLIC_LOCALES) {
     setLocale(locale);
@@ -91,7 +91,7 @@ it('titles the Riks card in the language its article is written in', async () =>
 
 it('names each thumbnail link by its localized card title and keeps the image decorative', async () => {
   const { cardTitle } = await import('../card-title');
-  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'zh'].includes(locale))) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'it', 'zh', 'nl'].includes(locale))) {
     setLocale(locale);
     expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);
@@ -106,7 +106,7 @@ it('names each thumbnail link by its localized card title and keeps the image de
 
 it('the bent-strip card shows its own localized lead', async () => {
   const { translations } = await import('../feher2026/strings');
-  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'zh'].includes(locale))) {
+  for (const locale of PUBLIC_LOCALES.filter(locale => ['en', 'es', 'pt', 'hu', 'it', 'zh', 'nl'].includes(locale))) {
     setLocale(locale);
     expect(publicI18n.locale).toBe(locale);
     const { body } = render(Gallery);
@@ -132,4 +132,12 @@ it('gives every card its own paper’s lead in every language, never another pap
     const { body } = render(Gallery);
     for (const [, hook] of hooks) expect(body).toContain(hook.replace(/&/g, '&amp;').replace(/</g, '&lt;'));
   }
+});
+
+it('known wrong result: #2613 — Italian gallery identifies the English-only article before navigation', () => {
+  setLocale('it');
+  const cards = render(Gallery).body.match(/<li class="rs-g-runcard[^>]*>[\s\S]*?<\/li>/g) ?? [];
+  const notice = 'Questo articolo è disponibile solo in inglese.';
+  expect(cards.filter(card => card.includes(notice))).toHaveLength(1);
+  expect(cards.find(card => card.includes(notice))).toContain('shell-obstacle-course');
 });

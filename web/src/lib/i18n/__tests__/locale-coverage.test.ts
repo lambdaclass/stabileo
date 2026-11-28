@@ -10,12 +10,14 @@ import { SAME_AS_ENGLISH as deSame } from '../locales/same-as-english/de';
 import { SAME_AS_ENGLISH as frSame } from '../locales/same-as-english/fr';
 import { SAME_AS_ENGLISH as huSame } from '../locales/same-as-english/hu';
 import { SAME_AS_ENGLISH as trSame } from '../locales/same-as-english/tr';
+import { SAME_AS_ENGLISH as nlSame } from '../locales/same-as-english/nl';
+import { SAME_AS_ENGLISH as itSame } from '../locales/same-as-english/it';
 import { POSTS } from '../../blog';
 import { STANDING_PAGES } from '../../blog/pages';
 
 const en = ALL_DICTS.en;
 const enKeys = Object.keys(en);
-const SAME: Record<string, readonly string[]> = { de: deSame, fr: frSame, tr: trSame, hu: huSame };
+const SAME: Record<string, readonly string[]> = { de: deSame, fr: frSame, tr: trSame, hu: huSame, it: itSame, nl: nlSame };
 const BASELINE: Record<string, number> = JSON.parse(
   readFileSync(join(import.meta.dirname, 'coverage-baseline.json'), 'utf8'),
 );
@@ -35,7 +37,11 @@ function placeholderMismatch(key: string, value: string): string | null {
 function translated(code: string): string[] {
   const dict = ALL_DICTS[code];
   const same = new Set(SAME[code] ?? []);
-  return enKeys.filter((k) => k in dict && (dict[k] !== en[k] || same.has(k) || !SAME[code]));
+  return enKeys.filter(key => {
+    if (!(key in dict)) return false;
+    if (key === 'adv.failed' && dict[key] === '{analysis}: {error}') return en[key] === dict[key];
+    return dict[key] !== en[key] || same.has(key) || !SAME[code];
+  });
 }
 
 describe('the languages offered', () => {
@@ -116,5 +122,27 @@ for (const code of OFFERED_LOCALES) {
 it('#2532 translates the discarded session history warning in every locale dictionary', () => {
   for (const [code, dict] of Object.entries(ALL_DICTS)) {
     expect.soft(dict['file.sessionHistoryDiscarded'], code).toContain('{names}');
+  }
+});
+
+it.each(['it', 'nl'])('#2613 — a changed English failure message needs review in %s', code => {
+  const original = en['adv.failed'];
+  const localized = ALL_DICTS[code]['adv.failed'];
+  try {
+    en['adv.failed'] = ALL_DICTS[code]['adv.failed'] = 'Analysis failed';
+    expect(translated(code)).not.toContain('adv.failed');
+  } finally {
+    en['adv.failed'] = original;
+    ALL_DICTS[code]['adv.failed'] = localized;
+  }
+});
+
+it.each(['nl', 'it'])('known wrong result: #2613 — an English-only change invalidates the neutral %s template', code => {
+  const original = en['adv.failed'];
+  try {
+    en['adv.failed'] = '{analysis} failed: {error}';
+    expect(translated(code)).not.toContain('adv.failed');
+  } finally {
+    en['adv.failed'] = original;
   }
 });

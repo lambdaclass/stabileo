@@ -1,3 +1,4 @@
+import { courseMethodCounts } from '../../posts/course-method-counts';
 import type { PostBody } from '../../types';
 
 const body: PostBody = {
@@ -129,52 +130,52 @@ const body: PostBody = {
       "rows": [
         [
           "Merevségi módszer",
-          "1",
+          courseMethodCounts.stiffness,
           "Mátrixos módszer, varázslóként"
         ],
         [
           "Hajlékonysági módszer",
-          "1",
+          courseMethodCounts.flexibility,
           "Erőmódszer, varázslóként"
         ],
         [
           "Folytatólagos gerendák",
-          "2",
+          courseMethodCounts.continuous,
           "Háromnyomatéki egyenlet (Clapeyron); nyomatékosztás (Hardy Cross)"
         ],
         [
           "Keretek",
-          "4",
+          courseMethodCounts.frames,
           "Kinematikai ismeretlenek; nyomatékosztás oldalkitérés nélkül és oldalkitéréssel; szögelfordulási módszer"
         ],
         [
           "Rácsos tartók",
-          "3",
+          courseMethodCounts.trusses,
           "Csomóponti módszer; átmetszés (Ritter); kompatibilitási mátrix"
         ],
         [
           "Alakváltozások és energia",
-          "5",
+          courseMethodCounts.deformation,
           "Kettős integrálás; nyomatéki területek módszere; virtuális munka; Castigliano; igénybevételek átmetszéssel"
         ],
         [
           "Hatásvonalak",
-          "1",
+          courseMethodCounts.influence,
           "Hatásvonal"
         ],
         [
           "Másodrendű analízis és kihajlás",
-          "2",
+          courseMethodCounts.secondOrder,
           "Másodrendű analízis φ függvényekkel és geometriai mátrixszal; kihajlás módusszámlálással és sajátértékekkel"
         ],
         [
           "Képlékeny analízis",
-          "2",
+          courseMethodCounts.plastic,
           "Kinematikai módszer; statikai módszer (visszatartva a #758 javításáig)"
         ],
         [
           "Szerkezetdinamika",
-          "3",
+          courseMethodCounts.dynamics,
           "Egy szabadságfok; több szabadságfok modális felbontással; megoszló tömeg"
         ]
       ]

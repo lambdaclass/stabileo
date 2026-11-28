@@ -109,7 +109,9 @@ const pdeltaPhysicalResidual: Record<Locale, string> = {
   hu: "A P-Delta-eredmények nem érhetők el, mert a szabad szabadságfokok fizikai maradéka nem teljesítette a kért tűrést.",
   pt: "Os resultados de P-Delta foram retidos porque o resíduo físico nos graus de liberdade livres não atendeu à tolerância solicitada.",
   tr: "Serbestlik derecelerindeki fiziksel artık istenen toleransı karşılamadığı için P-Delta sonuçları verilmedi.",
+  it: "I risultati P-Delta non sono stati forniti perché il residuo fisico dei gradi di libertà liberi non rispettava la tolleranza richiesta.",
   zh: "自由自由度的物理残差未达到要求的容差，因此未提供 P-Delta 结果。",
+  nl: "De P-Delta-resultaten zijn achtergehouden omdat het fysieke residu van de vrije vrijheidsgraden niet aan de gevraagde tolerantie voldeed.",
 };
 registerFeatureDictionaries(Object.fromEntries(
   Object.entries(pdeltaPhysicalResidual).map(([locale, message]) => [locale, { [PDELTA_PHYSICAL_RESIDUAL]: message }]),
@@ -122,9 +124,11 @@ const reducedStiffnessRank: Record<Locale, string> = {
   es: 'El rango de la rigidez reducida no se puede determinar con la precisión del ensamblaje. Revisá las liberaciones, los apoyos, los resortes y las restricciones para detectar un mecanismo.',
   fr: 'Le rang de la raideur réduite ne peut pas être déterminé à la précision de l’assemblage. Vérifiez les relâchements, les appuis, les ressorts et les contraintes pour détecter un mécanisme.',
   hu: 'A redukált merevségi mátrix rangja az összeállítás pontosságával nem határozható meg. Mechanizmus kereséséhez ellenőrizze a rúdvégi feloldásokat, a támaszokat, a rugókat és a kényszereket.',
+  it: 'Non è possibile determinare il rango della matrice di rigidezza ridotta con la precisione dell’assemblaggio. Controlla svincoli delle aste, appoggi, molle e vincoli per individuare un meccanismo.',
   pt: 'Não é possível determinar o posto da rigidez reduzida com a precisão da montagem. Verifique as liberações, os apoios, as molas e as restrições para identificar um mecanismo.',
   tr: 'İndirgenmiş rijitlik matrisinin mertebesi montaj hassasiyetiyle belirlenemiyor. Bir mekanizma olup olmadığını görmek için eleman mafsallarını, mesnetleri, yayları ve kısıtları kontrol edin.',
   zh: '在组装精度下无法判定约化刚度矩阵的秩。请检查杆端释放、支座、弹簧和约束是否形成机构。',
+  nl: 'De rang van de gereduceerde stijfheidsmatrix kan met de nauwkeurigheid van de assemblage niet worden bepaald. Controleer staafvrijgaven, opleggingen, veren en koppelingen op een mechanisme.',
 };
 registerFeatureDictionaries(Object.fromEntries(
   Object.entries(reducedStiffnessRank).map(([locale, message]) => [locale, { [REDUCED_STIFFNESS_RANK]: message }]),
@@ -138,9 +142,11 @@ const constraintStiffnessRank: Record<Locale, [string, string]> = {
   es: ['La reducción de las restricciones cancela aportes de rigidez{where}. El redondeo impide determinar la rigidez restante. Reducí los contrastes extremos de rigidez o revisá las restricciones.', ' en los nodos {nodes}'],
   fr: ['La réduction des contraintes annule des contributions à la raideur{where}. L’arrondi empêche de déterminer la raideur restante. Réduisez les contrastes extrêmes de raideur ou révisez les contraintes.', ' aux nœuds {nodes}'],
   hu: ['A kényszerek redukciója kioltja a merevségi hozzájárulásokat{where}. A kerekítés miatt a fennmaradó merevség nem határozható meg. Csökkentse a szélsőséges merevségkülönbségeket, vagy módosítsa a kényszereket.', ' a(z) {nodes} csomópontokban'],
+  it: ['La riduzione dei vincoli annulla contributi di rigidezza{where}. Gli arrotondamenti impediscono di determinare la rigidezza residua. Riduci le differenze estreme di rigidezza o modifica i vincoli.', ' ai nodi {nodes}'],
   pt: ['A redução das restrições cancela contribuições de rigidez{where}. O arredondamento impede determinar a rigidez restante. Reduza os contrastes extremos de rigidez ou revise as restrições.', ' nos nós {nodes}'],
   tr: ['Kısıtların indirgenmesi{where} rijitlik katkılarını birbirini götürecek şekilde birleştiriyor. Yuvarlama kalan rijitliğin belirlenmesini engelliyor. Aşırı rijitlik farklarını azaltın veya kısıtları gözden geçirin.', ' {nodes} düğümlerinde'],
   zh: ['约束消元使刚度贡献{where}相互抵消。舍入误差导致剩余刚度无法判定。请减小过大的刚度差异或调整约束。', '在节点 {nodes} 处'],
+  nl: ['Het reduceren van de koppelingen heft stijfheidsbijdragen{where} op. Door afronding kan de resterende stijfheid niet worden bepaald. Verklein extreme stijfheidsverschillen of herzie de koppelingen.', ' in knopen {nodes}'],
 };
 registerFeatureDictionaries(Object.fromEntries(
   Object.entries(constraintStiffnessRank).map(([locale, [message, nodes]]) => [locale, {
@@ -157,6 +163,8 @@ const axialJointMechanism: Record<Locale, string> = {
   es: 'Hay un mecanismo en el nudo {node}. El nudo puede desplazarse sin deformar las barras articuladas conectadas ni violar las restricciones.',
   fr: 'Le nœud {node} présente un mécanisme. Il peut se déplacer sans déformer les barres de treillis connectées ni violer les contraintes.',
   hu: 'A(z) {node} csomópontnál mechanizmus van. A csomópont elmozdulhat a kapcsolódó rácsrudak alakváltozása és a kényszerek megsértése nélkül.',
+  it: 'Il nodo {node} presenta un meccanismo. Può traslare senza deformare le aste reticolari collegate né violare i vincoli.',
+  nl: 'Knoop {node} vormt een mechanisme. De knoop kan zich verplaatsen zonder de aangesloten vakwerkstaven te vervormen of de kinematische rand- en koppelvoorwaarden te schenden.',
   pt: 'Há um mecanismo no nó {node}. O nó pode se deslocar sem deformar as barras de treliça ligadas a ele e sem violar as restrições.',
   tr: '{node} düğümünde bir mekanizma var. Düğüm, bağlı kafes çubuklarını deforme etmeden ve kısıtları ihlal etmeden ötelenebilir.',
   zh: '节点 {node} 处存在机构。该节点可以平移，而不使相连的桁架杆产生应变，也不违反约束。',
@@ -167,6 +175,8 @@ const axialJointComponents: Record<Locale, string> = {
   es: 'Componentes posibles del movimiento: {components}.',
   fr: 'Composantes possibles du mouvement : {components}.',
   hu: 'A mozgás lehetséges összetevői: {components}.',
+  it: 'Possibili componenti del moto: {components}.',
+  nl: 'Mogelijke bewegingscomponenten: {components}.',
   pt: 'Componentes possíveis do movimento: {components}.',
   tr: 'Olası hareket bileşenleri: {components}.',
   zh: '可能的运动分量：{components}。',
@@ -187,6 +197,8 @@ const frameSwingMechanism: Record<Locale, string> = {
   es: 'Hay un mecanismo en el nudo {node}. Una barra puede girar alrededor de un extremo liberado sin deformarse ni mover sus restricciones.',
   fr: 'Le nœud {node} présente un mécanisme. Une barre peut pivoter autour d’une extrémité articulée sans se déformer ni déplacer ses appuis.',
   hu: 'A(z) {node} csomópontnál mechanizmus van. Egy rúd a csuklós vége körül alakváltozás és a megtámasztások elmozdulása nélkül elfordulhat.',
+  it: 'Il nodo {node} presenta un meccanismo. Un’asta del telaio può ruotare attorno a un’estremità svincolata senza deformarsi né spostare gli appoggi.',
+  nl: 'Knoop {node} vormt een mechanisme. Een raamwerkstaaf kan om een vrijgegeven uiteinde draaien zonder vervorming of verplaatsing van de opleggingen.',
   pt: 'Há um mecanismo no nó {node}. Uma barra pode girar em torno de uma extremidade liberada sem se deformar nem deslocar seus apoios.',
   tr: '{node} düğümünde bir mekanizma var. Bir çubuk, şekil değiştirmeden veya mesnetlerini hareket ettirmeden mafsallı ucu etrafında dönebilir.',
   zh: '节点 {node} 处存在机构。一根框架杆可绕释放端转动，杆件无应变，约束处无位移。',

@@ -15,8 +15,16 @@ export const shapeCard = {
     title: 'Egy hajlított csík vezetése két alak között',
     hook: 'Forgassa el egy aktívan hajlított csík két befogását állandó teher alatt, és vigye át ívből az átfordult alakjába átpattanás nélkül.',
   },
+  it: {
+    title: 'Guidare una striscia piegata tra due forme',
+    hook: 'Ruota i due morsetti di una striscia piegata attivamente sotto un carico fisso e portala da un arco alla sua forma invertita senza scatto.',
+  },
   zh: {
     title: '引导弯曲板条在两种形状之间转换',
     hook: '在固定荷载下转动主动弯曲板条的两个夹具，使其由拱形转为反向形状，而不发生突跳。',
+  },
+  nl: {
+    title: 'Een gebogen strip sturen tussen twee vormen',
+    hook: 'Draai de twee klemmen van een actief gebogen strip onder een vaste belasting en breng hem van een boog naar zijn omgekeerde vorm zonder doorklappen.',
   },
 };

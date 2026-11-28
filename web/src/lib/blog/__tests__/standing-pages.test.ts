@@ -37,7 +37,7 @@ describe('the CIRSOC page', () => {
   });
 
   it('keeps steel labelled experimental and names the CIRSOC 201 editions, in every language', () => {
-    const experimental: Record<string, RegExp> = { de: /experimentell/i, fr: /expérimental/i, tr: /deneysel/i, hu: /kísérleti/i, zh: /试验/ };
+    const experimental: Record<string, RegExp> = { de: /experimentell/i, fr: /expérimental/i, tr: /deneysel/i, hu: /kísérleti/i, it: /sperimentale/i, zh: /试验/, nl: /experimenteel/i };
     for (const l of LOCALES) {
       const text = JSON.stringify(cirsocPage.i18n[l]);
       expect(text).toMatch(experimental[l] ?? /experimental/);
@@ -107,4 +107,9 @@ describe('the standing page paths', () => {
     expect(isStandingPagePath('/changelog')).toBe(true);
     expect(isStandingPagePath('/cirsoc/extra')).toBe(false);
   });
+});
+
+it.each(['tutto è gratuito', 'tutto gratuito'])('known wrong result: #2595 — catches obsolete Italian pricing "%s"', text => {
+  expect(text).toMatch(OBSOLETE_PRICING.it);
+  expect(PRICING.it.intro).not.toMatch(OBSOLETE_PRICING.it);
 });

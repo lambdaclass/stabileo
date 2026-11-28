@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
@@ -61,5 +61,36 @@ describe('the typecheck gate cannot report a false green', () => {
     const src = readFileSync(SCRIPT, 'utf8');
     expect(src).toContain('crashed && errors.length === 0');
     expect(src).toMatch(/reported no parseable diagnostics/);
+  });
+});
+
+describe('compiler completion during the baseline check', () => {
+  const baseline = JSON.parse(readFileSync(resolve(WEB, 'scripts/typecheck-baseline.json'), 'utf8'));
+  const { file, code, message } = baseline.entries[0];
+  const diagnostic = JSON.stringify(`${file}(1,1): error ${code}: ${message}\n`);
+
+  function runCompiler(termination: string) {
+    const dir = mkdtempSync(resolve(WEB, 'node_modules/.typecheck-test-'));
+    try {
+      const compiler = resolve(dir, 'tsc.cjs');
+      writeFileSync(compiler, `require('fs').writeSync(1, ${diagnostic});\n${termination}`);
+      return runGate({ STABILEO_TYPECHECK_TSC: compiler });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it('accepts a completed check reporting an allowed diagnostic', () => {
+    expect(runCompiler('process.exit(2)').code).toBe(0);
+  });
+
+  it.each([
+    ['compiler exception', "throw new Error('internal compiler failure')"],
+    ['compiler terminated by a signal', "process.kill(process.pid, 'SIGTERM')"],
+    ['project-wide error', "console.log('error TS5083: Cannot read file tsconfig.json'); process.exit(1)"],
+  ])('rejects a %s after an allowed diagnostic', (_, termination) => {
+    const { code, out } = runCompiler(termination);
+    expect(code).toBe(2);
+    expect(out).not.toMatch(/no new type errors/);
   });
 });

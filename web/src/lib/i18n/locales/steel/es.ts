@@ -1,3 +1,4 @@
+import { shearLagTrace } from '../../../codes/cirsoc301/shear-lag-trace';
 import c301Es from './c301-es';
 /**
  * Claves de la superficie metálica y de los generadores, en un diccionario aparte.
@@ -552,7 +553,6 @@ const steelEs: Record<string, string> = {
   'steel.assume.route.bracingData': 'Declarar la Lb en la barra (Geometría y arriostramiento), o que el modelo registre las riostras y el generador conserve las que ya coloca.',
   'steel.assume.route.implementClassification': 'Haría falta implementar la clasificación de sección del §B.4.',
   'steel.assume.route.boltGeometry': 'Haría falta la geometría del grupo de bulones: filas, pasos y gramiles.',
-  'steel.assume.route.implementCap': 'Haría falta calcular My y aplicar el tope de la expresión F.2.1.',
   'steel.assume.route.torsionalRestraint': 'Haría falta la restricción torsional en los extremos y los puntos de arriostramiento a torsión.',
   'steel.assume.route.momentDiagram': 'Haría falta leer el diagrama de momentos del tramo para calcular Cb.',
   'steel.assume.route.torsionalConstant': 'Haría falta que la sección declare su constante torsional.',
@@ -621,14 +621,14 @@ const steelEs: Record<string, string> = {
   'steel.f62.classified': 'Tabla B.4.1b caso 14: λpf = 0,38·√(E/Fy), λrf = 1,00·√(E/Fy). La rama indicada es la que aplica la verificación CIRSOC 301.',
   'steel.f62.outOfScope': 'F.6 cubre secciones doble te y canales flexadas alrededor del eje menor. Esta sección no es una de ellas.',
   'steel.f62.geometryUnavailable': 'Falta el ancho o el espesor del ala, así que ni la esbeltez λf se puede formar.',
-  'steel.f62.classificationUnavailable': 'La geometría está: λf, Sy y Fcr se calculan. Lo que no se puede es elegir la rama, porque λpf y λrf son la Tabla B.4.1b caso 14, que es una imagen en el PDF fuente.',
+  'steel.f62.classificationUnavailable': 'La geometría del ala permite calcular λf. Para seleccionar la rama de la Tabla B.4.1b, caso 14, se necesita una tensión de fluencia Fy positiva.',
   'steel.f62.branch.notApplicableCompact': 'ala compacta: el pandeo local no es aplicable (F.6.2(a))',
   'steel.f62.branch.nonCompact': 'ala no compacta (F.6.2(b))',
   'steel.f62.branch.slender': 'ala esbelta (F.6.2(c))',
   'steel.f62.branch.undetermined': 'rama indeterminada',
   'steel.f62.missing.flangeGeometry': 'Ancho y espesor del ala.',
-  'steel.f62.missing.slendernessLimits': 'Los límites de esbeltez λpf y λrf de la Tabla B.4.1b, caso 14. Las celdas numéricas de esa tabla no están en el markdown embarcado: sólo su título, sus notas y la simbología.',
-  'steel.f62.lambdaLabel': 'Esbeltez del ala λf = bf/tf',
+  'steel.f62.missing.slendernessLimits': 'Ingresá una Fy positiva para el caso 14 de la Tabla B.4.1b: λpf = 0,38√(E/Fy), λrf = 1,00√(E/Fy).',
+  'steel.f62.lambdaLabel': 'Esbeltez del ala λf',
   'steel.f62.fcrLabel': 'Fcr si el ala resultara esbelta (F.6.3)',
   'steel.workflow.clause.cb': 'Cb — factor de gradiente de momento (F.1.1)',
   'steel.workflow.clause.cbState': 'Calculado del diagrama de momentos cuando hay estaciones y la sección está dentro del alcance de F.1.1; si no, Cb = 1, que el reglamento permite. Calcularlo no certifica el arriostramiento.',
@@ -1279,7 +1279,7 @@ const steelEs: Record<string, string> = {
   'steel.tc.calc.connection': 'Unión: {what}',
   'steel.tc.calc.bolted': 'abulonada, {lines} fila(s) × {n} bulón(es) M{d}, agujeros {hole}, paso {pitch} mm, unida por: {connected}',
   'steel.tc.calc.welded': 'soldada, cordones: {weld}, L = {L} mm, unida por: {connected}',
-  'steel.tc.calc.u': 'U = 1 − x̄/L = 1 − {xBar}/{L} = {raw} ≤ 0,9 → {U}  (D.3.2)',
+  'steel.tc.calc.u': `${shearLagTrace(',')}`,
   'steel.tc.calc.uFloor': 'U ≥ A unida/Ag = {Aconn}/{Ag} = {U}  (D.3, secciones abiertas)',
   'steel.tc.calc.weldNoHoles': 'Sin agujeros en la unión soldada: An = Ag  (B.4.2.2)',
   'steel.tc.calc.plateTable': 'Chapa con cordones en ambos bordes: L = {L} mm, w = {w} mm → U = {U}  (D.3(2)(d))',
@@ -1319,7 +1319,7 @@ const steelEs: Record<string, string> = {
   'steel.b41.c14': 'Alas de secciones doble Te y canales en flexión alrededor del eje débil',
   'steel.b41.c15': 'Almas de secciones Te',
   'steel.b41.c16': 'Almas de secciones doble Te con doble simetría y de canales',
-  'steel.b41.c17': 'Almas de secciones doble Te con simple simetría (λp con hc/hp; aquí el de doble simetría, del lado seguro)',
+  'steel.b41.c17': 'Almas de secciones doble Te con simple simetría (λp con hc/hp; aquí el de doble simetría)',
   'steel.b41.c18': 'Alas de tubos rectangulares y cuadrados de espesor uniforme',
   'steel.b41.c19': 'Platabandas y placas diafragma entre líneas de bulones o soldaduras',
   'steel.b41.c20': 'Almas de tubos rectangulares y cuadrados',

@@ -3,7 +3,6 @@ import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { BATCH_IDS } from '../src/components/tools/batch';
 import { TOOL_IDS, formula, format, workedExamples } from '../src/components/tools/calculators';
-import { isComplete } from '../src/lib/i18n/offered';
 import { TOOLS, TOPICS } from '../src/components/tools/registry';
 
 test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON);
@@ -248,7 +247,8 @@ for (const locale of BUILD_PUBLIC_LOCALES) test(`@smoke tools localized index ${
   await expect(page.locator('nav [data-nav="examples"]')).toHaveCount(0);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://stabileo.com/${locale}/tools/`);
   for (const lang of BUILD_PUBLIC_LOCALES) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveAttribute('href', `https://stabileo.com/${lang}/tools/`);
-  for (const lang of ['de', 'fr', 'tr', 'zh'].filter((l) => !isComplete(l))) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveCount(0);
+  const alternates = await page.locator('link[hreflang]').evaluateAll(links => links.map(link => link.getAttribute('hreflang')));
+  expect(alternates.sort()).toEqual([...BUILD_PUBLIC_LOCALES, 'x-default'].sort());
 });
 
 

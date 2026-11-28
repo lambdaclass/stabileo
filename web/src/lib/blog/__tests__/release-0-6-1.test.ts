@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { findPost } from '..';
 
-const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh'] as const;
+const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'it', 'zh', 'nl'] as const;
 const repo = 'https://github.com/lambdaclass/stabileo/blob/main';
 const route = '/blog/stabileo-0-6-1';
 
@@ -98,4 +98,10 @@ describe('0.6.1 release article', () => {
     expect(JSON.stringify(body)).not.toMatch(/\bCI\b|continuous integration/);
     expect(JSON.stringify(body)).not.toMatch(/\binfra(?:structure)?\b|\breview counts?\b|\bpull requests?\b|\bworkflow\b|\bbenchmark\b|\bcache\b|\bmigration\b/i);
   });
+});
+
+it.each([0, 1, 2, 3, 4])('known wrong result: #2595 — Italian 0.6.%i requires independent verification before use', patch => {
+  const text = readFileSync(new URL(`../../../../../docs/releases/v0.6.${patch}.it.md`, import.meta.url), 'utf8');
+  const limitation = text.split('\n').find(line => line.startsWith('- **') && line.includes('SA-2026-056'));
+  expect(limitation).toMatch(/verifica in modo indipendente le sollecitazioni dinamiche.*prima di usarle/i);
 });

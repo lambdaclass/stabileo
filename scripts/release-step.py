@@ -21,7 +21,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "web/src/lib/provenance/result-changes"
-LANGUAGES = [("es", "Spanish"), ("pt", "Portuguese"), ("de", "German"), ("fr", "French"), ("tr", "Turkish"), ("hu", "Hungarian"), ("zh", "Chinese")]
+LANGUAGES = [("es", "Spanish"), ("pt", "Portuguese"), ("de", "German"), ("fr", "French"), ("tr", "Turkish"), ("hu", "Hungarian"), ("it", "Italian"), ("zh", "Chinese"), ("nl", "Dutch")]
 ENGINE = "dedaliano-engine"
 INLINE = re.compile(r"(\]\(\s*<?)\.\./")
 REFERENCE = re.compile(r"^( {0,3}\[[^\]]+\]:\s*<?)\.\./", re.M)

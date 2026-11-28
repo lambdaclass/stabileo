@@ -1,3 +1,4 @@
+import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { modelStore, uiStore } from '../../store';
 import { ensureLocale, i18n, setLocale, t } from '../../i18n';
@@ -5,9 +6,6 @@ import { conditionHolds } from '../../provenance/applicability';
 import { registryLocale } from '../../provenance/registry';
 import { G } from '../dynamics/requests';
 import { modelFeatures } from '../../provenance/model-features';
-import resultChange from '../../provenance/result-changes/invalid-solver-numbers.json';
-import torsionChange from '../../provenance/result-changes/planar-member-torsion-refusal.json';
-import dynamicDensityChange from '../../provenance/result-changes/invalid-dynamic-material-density.json';
 import { runDirectAnalysis } from '../direct-analysis';
 import { withSectionMass } from '../dynamics/section-mass';
 import {
@@ -17,6 +15,10 @@ import {
 } from '../solver-service';
 import { finiteObjectWire, input2DToWireObject, input3DToWireObject } from '../wasm-solver';
 import * as wasm from '../../wasm/dedaliano_engine.js';
+
+const resultChange = RESULT_CHANGES.changes.find(change => change.id === 'invalid-solver-numbers')!;
+const torsionChange = RESULT_CHANGES.changes.find(change => change.id === 'planar-member-torsion-refusal')!;
+const dynamicDensityChange = RESULT_CHANGES.changes.find(change => change.id === 'invalid-dynamic-material-density')!;
 
 const cases = [{ id: 1, name: 'Load', type: 'D' as const }];
 const combinations = [{ id: 1, name: 'Load', factors: [{ caseId: 1, factor: 1 }] }];
@@ -201,16 +203,16 @@ it('#2472 the null-moment notice follows explicit null and has its own translati
     ] as const) {
       const loads = [{ type, data: { ...snapshot.loads[0]!.data, ...fields } }];
       const features = modelFeatures({ ...snapshot, loads });
-      expect.soft(conditionHolds(resultChange.when, features), JSON.stringify(loads)).toBe(applies);
-      expect.soft(conditionHolds(torsionChange.when, features), JSON.stringify(loads))
+      expect.soft(conditionHolds(resultChange.when!, features), JSON.stringify(loads)).toBe(applies);
+      expect.soft(conditionHolds(torsionChange.when!, features), JSON.stringify(loads))
         .toBe(type === 'pointOnElement' && 'mx' in fields);
-      expect.soft(conditionHolds(resultChange.when, modelFeatures(snapshot, { storedLoads: loads }))).toBe(applies);
+      expect.soft(conditionHolds(resultChange.when!, modelFeatures(snapshot, { storedLoads: loads }))).toBe(applies);
     }
   }
-  for (const locale of ['ar', 'hi', 'id', 'it', 'ja', 'ko', 'ru']) {
+  for (const locale of ['ar', 'hi', 'id', 'it', 'nl', 'ja', 'ko', 'ru']) {
     expect(registryLocale(locale, resultChange.title, resultChange.explanation)).toBe(locale);
     expect(registryLocale(locale, torsionChange.title, torsionChange.explanation)).toBe(locale);
-    expect(registryLocale(locale, dynamicDensityChange.title, dynamicDensityChange.explanation)).toBe('en');
+    expect(registryLocale(locale, dynamicDensityChange.title, dynamicDensityChange.explanation)).toBe(['it', 'nl'].includes(locale) ? locale : 'en');
     for (const text of [resultChange.title, resultChange.explanation, torsionChange.title, torsionChange.explanation]) {
       const translated = (text as Record<string, string>)[locale];
       expect.soft(translated, locale).toBeTruthy();
@@ -228,7 +230,7 @@ it('#2472 the dynamic density notice requires an affected material and analysis'
     const snapshot = modelStore.snapshot();
     for (const kind of ['linear', 'modal', 'spectral', 'timeHistory', 'harmonic']) {
       const features = modelFeatures(snapshot, { analysesRun: [kind], analysesRecorded: ['linear', 'modal', 'spectral', 'timeHistory', 'harmonic'] });
-      expect(conditionHolds(dynamicDensityChange.when, features), `${kind}/${rho}`)
+      expect(conditionHolds(dynamicDensityChange.when!, features), `${kind}/${rho}`)
         .toBe(kind !== 'linear' && (rho === undefined || rho === null || rho < 0));
     }
   }

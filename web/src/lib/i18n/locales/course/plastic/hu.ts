@@ -1,3 +1,4 @@
+import { axialPlasticWork } from './axial-work';
 import type { Translations } from '../../../types';
 
 const words: Translations = {
@@ -132,7 +133,7 @@ const words: Translations = {
   "course.plastic.mech.show": "A mechanizmus megrajzolása",
   "course.plastic.mech.hide": "Vissza a nyomatékokhoz",
   "course.plastic.mech.manyDof": "A csuklók {k} szabadságfokot hagynak; a megrajzolt mozgás az, amelyben a terhek a legtöbb munkát végzik.",
-  "course.plastic.mech.axialNote": "Néhány rúd normálirányban folyt: az Np·Δ munkájuk is belép az egyenletbe, amelyet itt nem írunk fel.",
+  "course.plastic.mech.axialNote": `Néhány rúd normálirányban folyt: az ${axialPlasticWork} munkájuk is belép az egyenletbe, amelyet itt nem írunk fel.`,
   "course.plastic.mech.vwLead": "Virtuális munka ezzel a mechanizmussal:",
   "course.plastic.mech.vwAgree": "A lépésenkénti analízis λc = {lambda} értéket adott.",
   "course.plastic.mech.vwDiffer": "Eltérnek: az ábrán látható mechanizmus nem az, amelyhez a lépésenkénti analízis eljutott. A λc használata előtt ellenőrizze a modellt.",

@@ -6,9 +6,10 @@
  * included, on a truss and on a frame. Every word a document uses exists in
  * the three offered languages.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../../store/model.svelte';
 import * as wasm from '../../wasm-solver';
+import * as compatibility from '../truss-compatibility-solve';
 import { planeModel } from '../plane-model';
 import { solveReference } from '../reference';
 import type { MethodContext } from '../registry';
@@ -311,7 +312,8 @@ describe('compatibility-matrix method', () => {
     expectCompareAgrees(doc, 1e-6);
     expectWordsExist(doc);
     const cm = internals.compatSolve(ctx.pm)!;
-    expect(cm.residual).toBeLessThan(1e-8);
+    expect(cm.forceResidual).toBeLessThan(1e-8);
+    expect(cm.momentResidual).toBeLessThan(1e-8);
   });
 
   it('refuses special supports and too many degrees of freedom', async () => {
@@ -395,7 +397,8 @@ describe('compatibility-matrix method, inextensible frame members', () => {
       expect(cm.dofs.length + cm.deps.length).toBe(flex.dofs.length);
       // No frame member keeps an elongation coordinate.
       expect(cm.coords.some((c) => c.local === 3)).toBe(false);
-      expect(cm.residual).toBeLessThan(1e-8);
+      expect(cm.forceResidual).toBeLessThan(1e-8);
+      expect(cm.momentResidual).toBeLessThan(1e-8);
       const doc = compat.build!(ctx);
       expect(notes(doc)).toContain('steps.trusses.compat.inext.on');
       const w = worstCompare(doc);
@@ -471,4 +474,58 @@ describe('compatibility-matrix method, inextensible frame members', () => {
       expectTexParses(compat.build!(ctxNow()));
     }
   });
+});
+
+it.each(['portal-frame', 'truss'])('known wrong result: #2595 — separate free force and moment residuals on %s', async name => {
+  const ctx = await example(name);
+  const report = txtsOf(compat.build!(ctx)).find(text => text.key === 'steps.trusses.compat.residual');
+  expect(report?.params).toEqual({ force: expect.any(String), moment: expect.any(String) });
+});
+
+describe.each([false, true])('global force balance with inextensible option %s', inextensible => {
+  it.each([
+    [4, 0, 0.49e-9, true],
+    [4, 0, 0.5e-9, false],
+    [0, 4, -0.51e-9, false],
+    [4, 0, 0, true],
+  ] as const)('known wrong result: #2595 — member (%s,%s), half residual %s', (x, z, px, balanced) => {
+    const base = modelStore.addNode(0, 0);
+    const tip = modelStore.addNode(x, z);
+    modelStore.addElement(base, tip, 'frame');
+    modelStore.addSupport(base, 'fixed');
+    const ctx = { ...ctxNow(), options: { inextensible } };
+    expect(compat.applies(ctx)).toEqual({ ok: true });
+    const solved = compatibility.compatSolve(ctx.pm, inextensible)!;
+    const reaction = solved.reactions.get(base)!;
+    if (x) reaction.rx += 2 * px;
+    else reaction.rz += 2 * px;
+    const injected = vi.spyOn(compatibility, 'compatSolve').mockReturnValue(solved);
+    let doc: StepDoc;
+    try {
+      doc = compat.build!(ctx);
+    } finally {
+      injected.mockRestore();
+    }
+    const blocks = doc.steps.flatMap(step => step.blocks);
+    const row = blocks.find(b => b.kind === 'calc' && b.label?.key === 'steps.trusses.compat.globalCheck');
+    if (row?.kind !== 'calc') throw new Error('Missing global equilibrium calculation');
+    expect(row.result === '0, \\qquad 0').toBe(balanced);
+    expect(row.check?.includes('checkmark') ?? false).toBe(balanced);
+    expect(blocks.some(b => b.kind === 'note' && b.tone === 'warn' && b.text.key === 'steps.trusses.compat.globalUnbalanced')).toBe(!balanced);
+    expect(blocks.some(b => b.kind === 'note' && b.text.key === 'steps.trusses.compat.residualOk')).toBe(balanced);
+    expect(blocks.some(b => b.kind === 'p' && b.text.key === 'steps.trusses.compat.residual')).toBe(true);
+  });
+});
+
+it.each([true, false])('known wrong result: #2595 — balances two small axial point loads, inextensible %s', inextensible => {
+  const base = modelStore.addNode(0, 0), tip = modelStore.addNode(4, 0);
+  const bar = modelStore.addElement(base, tip, 'frame');
+  modelStore.addSupport(base, 'fixed');
+  const px = 0.5e-9;
+  for (const position of [1, 3]) modelStore.addPointLoadOnElement(bar, position, 0, { px });
+  const ctx = { ...ctxNow(), options: { inextensible } };
+  expect(compat.applies(ctx)).toEqual({ ok: true });
+  expect(compatibility.compatSolve(ctx.pm, inextensible)!.reactions.get(base)!.rx).toBe(-2 * px);
+  const row = compat.build!(ctx).steps.flatMap(step => step.blocks).find(b => b.kind === 'calc' && b.label?.key === 'steps.trusses.compat.globalCheck');
+  expect(row?.kind === 'calc' && row.result).toBe('0, \\qquad 0');
 });

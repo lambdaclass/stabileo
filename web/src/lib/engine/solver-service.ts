@@ -1,3 +1,4 @@
+import { planeLettersShown } from '../axes/user-names';
 import { accountingCaseSources, accountingMemberPieces, accountingProjection, accountingSource, copyAccountingLoad, scenarioSurfaceIntentOf, type AccountingCaseSources, type ScenarioSurfaceIntent } from './accounting-source';
 import { EngineCheckError, EngineUnavailableError } from './engine-unavailable';
 import { LoadVector, scaleAssembledMagnitudes3D, zero, type MemberLinePieces, type Wrench } from './accounting-math';
@@ -802,8 +803,8 @@ function structuralChecks2D(input: SolverInput): string | null {
   {
     const rollers = supports.filter(s => s.type === 'rollerX' || s.type === 'rollerZ' || s.type === 'inclinedRoller');
     if (supports.length >= 2) {
-      if (supports.every(s => s.type === 'rollerX')) return t('svc.unstableAllRollersX');
-      if (supports.every(s => s.type === 'rollerZ')) return t('svc.unstableAllRollersY');
+      if (supports.every(s => s.type === 'rollerX')) return planeLettersShown(t('svc.unstableAllRollersX'));
+      if (supports.every(s => s.type === 'rollerZ')) return planeLettersShown(t('svc.unstableAllRollersY'));
       const pts = supports.map(s => input.nodes.get(s.nodeId)).filter((n): n is NonNullable<typeof n> => !!n);
       const allCollinear = pts.length < 3 ? false : (() => {
         const x0 = pts[0].x, z0 = pts[0].z;

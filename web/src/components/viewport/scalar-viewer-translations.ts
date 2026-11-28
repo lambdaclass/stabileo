@@ -140,6 +140,26 @@ export const hu = {
   "scalarViewer.keyboard": "Billentyűzet: a nyilak mozgatják a nézetet, a Shift+nyilak 3D-ben forgatnak, a + és a - nagyít, a 0 vagy a Home a nézethez igazít",
 } satisfies ViewerStrings;
 
+export const it = {
+  "scalarViewer.view": "Vista",
+  "scalarViewer.viewOptions": "Opzioni di vista",
+  "scalarViewer.close": "Chiudi",
+  "scalarViewer.fit": "Adatta alla vista",
+  "scalarViewer.plan": "2D (pianta, orbita bloccata)",
+  "scalarViewer.orbit": "3D (orbita)",
+  "scalarViewer.switchProjection": "Passa tra la vista in pianta e l’orbita in 3D",
+  "scalarViewer.viewer": "Visualizzatore di Stabileo",
+  "scalarViewer.position": "pos.:",
+  "scalarViewer.zoom": "zoom:",
+  "scalarViewer.model": "modello:",
+  "scalarViewer.bars": "{nodes} nodi, {cells} aste",
+  "scalarViewer.elements": "{nodes} nodi, {cells} elementi",
+  "scalarViewer.openEditor": "Apri nell’editor",
+  "scalarViewer.soon": " (a breve)",
+  "scalarViewer.editorNote": "L’apertura degli esperimenti nell’editor arriva con la modalità ricerca",
+  "scalarViewer.keyboard": "Tastiera: i tasti freccia spostano la vista, Maiusc+frecce orbitano in 3D, + e - zoom, 0 o Home adatta la vista",
+};
+
 export const zh = {
   "scalarViewer.view": "视图",
   "scalarViewer.viewOptions": "视图选项",
@@ -158,4 +178,24 @@ export const zh = {
   "scalarViewer.soon": "（即将推出）",
   "scalarViewer.editorNote": "在编辑器中打开实验将随研究模式提供",
   "scalarViewer.keyboard": "键盘：方向键平移，Shift+方向键在 3D 中旋转，+ 和 - 缩放，0 或 Home 缩放至全部",
+} satisfies ViewerStrings;
+
+export const nl = {
+  "scalarViewer.view": "Weergave",
+  "scalarViewer.viewOptions": "Weergave-opties",
+  "scalarViewer.close": "Sluiten",
+  "scalarViewer.fit": "Zoomen tot alles in beeld is",
+  "scalarViewer.plan": "2D (plattegrond, draaien vergrendeld)",
+  "scalarViewer.orbit": "3D (draaien)",
+  "scalarViewer.switchProjection": "Wisselen tussen de plattegrond en draaien in 3D",
+  "scalarViewer.viewer": "Stabileo-viewer",
+  "scalarViewer.position": "pos:",
+  "scalarViewer.zoom": "zoom:",
+  "scalarViewer.model": "model:",
+  "scalarViewer.bars": "{nodes} knopen, {cells} staven",
+  "scalarViewer.elements": "{nodes} knopen, {cells} elementen",
+  "scalarViewer.openEditor": "Openen in de editor",
+  "scalarViewer.soon": " (binnenkort)",
+  "scalarViewer.editorNote": "Experimenten openen in de editor komt met de onderzoeksmodus",
+  "scalarViewer.keyboard": "Toetsenbord: pijltjestoetsen verschuiven, Shift+pijlen draaien in 3D, + en - zoomen, 0 of Home past de weergave aan",
 } satisfies ViewerStrings;

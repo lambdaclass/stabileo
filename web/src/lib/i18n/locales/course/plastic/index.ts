@@ -1,3 +1,4 @@
+import { axialPlasticWork } from './axial-work';
 import type { Translations } from '../../../types';
 
 export const es: Translations = {
@@ -146,7 +147,7 @@ export const es: Translations = {
   'course.plastic.mech.show': 'Dibujar el mecanismo',
   'course.plastic.mech.hide': 'Volver a los momentos',
   'course.plastic.mech.manyDof': 'Las rótulas dejan {k} grados de libertad; se dibuja el movimiento en el que más trabajan las cargas.',
-  'course.plastic.mech.axialNote': 'Hay barras que fluyeron por esfuerzo axil: su trabajo Np·Δ también entra en la ecuación, que acá no se escribe.',
+  'course.plastic.mech.axialNote': `Hay barras que fluyeron por esfuerzo axil: su trabajo ${axialPlasticWork} también entra en la ecuación, que acá no se escribe.`,
   'course.plastic.mech.vwLead': 'Trabajos virtuales con este mecanismo:',
   'course.plastic.mech.vwAgree': 'El paso a paso dio λc = {lambda}.',
   'course.plastic.mech.vwDiffer': 'No coinciden: el mecanismo que muestra la figura no es el del paso a paso. Revisá el modelo antes de usar λc.',
@@ -329,7 +330,7 @@ export const en: Translations = {
   'course.plastic.mech.show': 'Draw the mechanism',
   'course.plastic.mech.hide': 'Back to the moments',
   'course.plastic.mech.manyDof': 'The hinges leave {k} degrees of freedom; the motion drawn is the one in which the loads do the most work.',
-  'course.plastic.mech.axialNote': 'Some members yielded axially: their work Np·Δ also enters the equation, which is not written here.',
+  'course.plastic.mech.axialNote': `Some members yielded axially: their work ${axialPlasticWork} also enters the equation, which is not written here.`,
   'course.plastic.mech.vwLead': 'Virtual work with this mechanism:',
   'course.plastic.mech.vwAgree': 'The step-by-step analysis gave λc = {lambda}.',
   'course.plastic.mech.vwDiffer': 'They differ: the mechanism in the figure is not the one the step-by-step analysis reached. Check the model before using λc.',
@@ -512,7 +513,7 @@ export const pt: Translations = {
   'course.plastic.mech.show': 'Desenhar o mecanismo',
   'course.plastic.mech.hide': 'Voltar aos momentos',
   'course.plastic.mech.manyDof': 'As rótulas deixam {k} graus de liberdade; desenha-se o movimento em que as cargas mais trabalham.',
-  'course.plastic.mech.axialNote': 'Algumas barras escoaram por esforço normal: seu trabalho Np·Δ também entra na equação, que aqui não é escrita.',
+  'course.plastic.mech.axialNote': `Algumas barras escoaram por esforço normal: seu trabalho ${axialPlasticWork} também entra na equação, que aqui não é escrita.`,
   'course.plastic.mech.vwLead': 'Trabalhos virtuais com este mecanismo:',
   'course.plastic.mech.vwAgree': 'O passo a passo deu λc = {lambda}.',
   'course.plastic.mech.vwDiffer': 'Não coincidem: o mecanismo da figura não é o do passo a passo. Revise o modelo antes de usar λc.',

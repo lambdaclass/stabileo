@@ -223,6 +223,38 @@ const hu: Strings = {
   largest: 'Legnagyobb PR²/EI az úton',
   chartLabel: 'PR²/EI a lépésszám függvényében', chartData: 'A görbe adatai (20 lépésenként)', slider: '{step}. lépés: PR²/EI = {load}',
 };
+const it: Strings = {
+  title: 'DaDeppo–Schmidt: un arco alto al suo limite',
+  hook: 'Un arco di 215°, un carico in chiave e il solutore arc-length di produzione, confrontati con il carico limite pubblicato e lo stato in chiave.',
+  model: 'Un arco incastrato–incernierato',
+  description: 'Un arco circolare con estremità sinistra incastrata ed estremità destra a cerniera porta in chiave un carico concentrato verso il basso di direzione fissa. Quaranta elementi di telaio corotazionali rettilinei approssimano l’apertura di 215°. I vincoli asimmetrici lasciano che la chiave oscilli verso l’estremità a cerniera prima del primo punto limite.',
+  units: 'Usiamo R = 1 m, EI = 1 kN·m² ed EA = 10⁶ kN. Il carico di riferimento è 1 kN, quindi il moltiplicatore dei carichi del solutore è uguale a PR²/EI. Il P = 897 spesso citato usa R = 100 ed EI = 10⁶: il suo valore normalizzato è 8.97, non 897.',
+  comparison: 'Confronto con l’articolo',
+  referenceText: 'Confrontiamo con la Tabella 1 dell’articolo del 1975 citata dal coautore R. Schmidt in una discussione del 2000 (J. Eng. Mech. 126(12), p. 1308): al punto limite PR²/EI = 8.97, in chiave u/R = 0.6116, v/R = 1.1372 e rotazione 0.0498, arrotondati alle cifre mostrate.',
+  signs: 'u è positivo verso l’estremità a cerniera e v verso il basso; la rotazione è confrontata con la rotazione in chiave ry di Stabileo, che è positiva al punto limite.',
+  sourceLink: 'Leggi i valori citati da Schmidt',
+  method: 'Il solutore arc-length di Crisfield di produzione segue l’equilibrio oltre il picco con i telai corotazionali esistenti. Il punto limite è collocato da una parabola per i tre passi attorno al carico massimo; lo stato in chiave lì è interpolato da esecuzioni fermate a quei tre passi. Il visualizzatore usa la vera scala degli spostamenti.',
+  studyHeading: 'Studio della mesh e tolleranze',
+  studyText: 'Lo stesso arco è stato risolto con 20, 40 e 80 elementi. Ogni tolleranza è 1.25 volte l’errore di discretizzazione stimato a 40 elementi (estrapolazione di Richardson con l’ordine osservato) più mezza unità nell’ultima cifra pubblicata. Estrapolata a lunghezza degli elementi nulla, ogni grandezza concorda con il valore pubblicato entro il suo arrotondamento e la stima dell’errore a 80 elementi, quindi il +0.46% nel carico limite a 40 elementi è errore di discretizzazione. Dimezzare il passo arc-length cambia il carico limite per meno di 10⁻⁶ (relativo); una rigidezza assiale dieci volte maggiore lo cambia per meno di 10⁻⁴.',
+  studyCaption: 'Valori al punto limite con 20, 40 e 80 elementi',
+  extrapolated: 'Estrapolato',
+  inspect: 'Esamina l’arco vicino al picco (passo 260)',
+  replayNote: 'I fotogrammi della riproduzione sono risultati finali di esecuzioni ripetute dello stesso solutore, fermate ogni venti passi. Il worker dal vivo ripete quelle esecuzioni perché l’API di produzione restituisce gli spostamenti nodali completi solo al passo finale. La curva mostra ogni passo convergente; il suo asse orizzontale è il numero di passo, non lo spostamento in chiave.',
+  notYet: 'Fuori da questa pagina',
+  limitations: ['La curva di equilibrio pubblicata completa e il secondo punto limite.', 'Altri angoli di apertura, instabilità fuori piano, contatto o non linearità del materiale.'],
+  noAuthorCode: 'Non confrontato: non è stato usato alcun codice degli autori.',
+  livePath: 'Percorso dal vivo', shortPath: 'Percorso breve · 20 passi (prima del picco)', fullPath: 'Benchmark completo · 400 passi',
+  replay: 'Riproduzione precalcolata (stesso solutore)', live: 'Calcolo dal vivo', cached: 'Risultato nella cache del browser', running: 'Calcolo in corso…',
+  run: 'Ricalcola dal vivo', stop: 'Ferma', restart: 'Riavvia', step: 'Passo', displacement: 'Modulo dello spostamento',
+  limit: 'Al punto limite', quantity: 'Grandezza', reference: 'Pubblicato', stabileo: 'Stabileo, 40 elementi', difference: 'Differenza', tolerance: 'Tolleranza',
+  pass: 'Superato', fail: 'Non superato',
+  verdictPass: 'Tutte e quattro entro la tolleranza; ramo discendente raggiunto', verdictFail: 'Fuori tolleranza', incomplete: 'Percorso incompleto: {n} passi su {total}',
+  errorSolve: 'Il solutore non ha completato questo percorso.', errorInvalid: 'Il solutore ha restituito un risultato incompleto.',
+  qLoad: 'Carico limite PR²/EI', qU: 'In chiave u/R', qV: 'In chiave v/R', qRot: 'Rotazione in chiave (rad)',
+  largest: 'Massimo PR²/EI lungo il percorso',
+  chartLabel: 'PR²/EI rispetto al numero di passo', chartData: 'Dati della curva (ogni 20 passi)', slider: 'Passo {step}: PR²/EI = {load}',
+};
+
 const zh: Strings = {
   title: 'DaDeppo–Schmidt：处于极限状态的深拱',
   hook: '一个 215° 的拱，拱顶受荷载，用生产环境的弧长求解器计算，并与已发表的极限荷载和拱顶状态核对。',
@@ -255,5 +287,37 @@ const zh: Strings = {
   chartLabel: 'PR²/EI 随步数的变化', chartData: '曲线数据（每 20 步）', slider: '第 {step} 步：PR²/EI = {load}',
 };
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', Strings> = { en, es, pt, de, fr, tr, hu, zh };
+const nl: Strings = {
+  title: 'DaDeppo–Schmidt: een diepe boog op zijn grens',
+  hook: 'Een boog van 215°, een last in de sleutel en de booglengtesolver van de productieversie, getoetst aan de gepubliceerde grenslast en sleuteltoestand.',
+  model: 'Eén ingeklemde, scharnierende boog',
+  description: 'Een cirkelboog met een ingeklemd linkeruiteinde en een scharnierend rechteruiteinde draagt in de sleutel een neerwaartse puntlast met vaste richting. Veertig rechte meedraaiende raamwerkelementen benaderen de opening van 215°. Door de asymmetrische opleggingen kan de sleutel vóór het eerste grenspunt naar het scharnierende uiteinde uitwijken.',
+  units: 'We gebruiken R = 1 m, EI = 1 kN·m² en EA = 10⁶ kN. De referentielast is 1 kN, dus de lastfactor van de solver is gelijk aan PR²/EI. De vaak genoemde P = 897 gebruikt R = 100 en EI = 10⁶: de genormaliseerde waarde is 8.97, niet 897.',
+  comparison: 'Vergelijking met het artikel',
+  referenceText: 'We vergelijken met tabel 1 van het artikel uit 1975, zoals aangehaald door medeauteur R. Schmidt in een discussie uit 2000 (J. Eng. Mech. 126(12), p. 1308): in het grenspunt is PR²/EI = 8.97, sleutel u/R = 0.6116, v/R = 1.1372 en rotatie 0.0498, afgerond op de getoonde cijfers.',
+  signs: 'u is positief richting het scharnierende uiteinde en v naar beneden; de rotatie wordt vergeleken met de sleutelrotatie ry van Stabileo, die in het grenspunt positief is.',
+  sourceLink: 'Lees de door Schmidt aangehaalde waarden',
+  method: 'De Crisfield-booglengtesolver van de productieversie volgt het evenwicht voorbij de piek met de bestaande meedraaiende raamwerkelementen. Het grenspunt wordt bepaald met een parabool door de drie stappen rond de grootste last; de sleuteltoestand daar wordt geïnterpoleerd uit berekeningen die bij die drie stappen zijn gestopt. De viewer gebruikt de ware verplaatsingsschaal.',
+  studyHeading: 'Elementennetstudie en toleranties',
+  studyText: 'Dezelfde boog is opgelost met 20, 40 en 80 elementen. Elke tolerantie is 1.25 keer de geschatte discretisatiefout bij 40 elementen (Richardson-extrapolatie met de waargenomen orde) plus een halve eenheid in het laatste gepubliceerde cijfer. Geëxtrapoleerd naar elementlengte nul komt elke grootheid overeen met de gepubliceerde waarde binnen de afronding en de foutschatting bij 80 elementen, dus de +0.46% in de grenslast bij 40 elementen is discretisatiefout. Een halvering van de booglengtestap verandert de grenslast met minder dan 10⁻⁶ (relatief); tien keer zo grote axiale stijfheid verandert haar met minder dan 10⁻⁴.',
+  studyCaption: 'Waarden in het grenspunt met 20, 40 en 80 elementen',
+  extrapolated: 'Geëxtrapoleerd',
+  inspect: 'Bekijk de boog bij de piek (stap 260)',
+  replayNote: 'De weergaveframes zijn eindresultaten van herhaalde berekeningen met dezelfde solver, om de twintig stappen gestopt. De live worker herhaalt die berekeningen omdat de API van de productieversie alleen aan het einde de volledige knoopverplaatsingen teruggeeft. De curve toont elke geconvergeerde stap; de horizontale as is het stapnummer, niet de verplaatsing van de sleutel.',
+  notYet: 'Buiten deze pagina',
+  limitations: ['De volledige gepubliceerde evenwichtscurve en het tweede grenspunt.', 'Andere openingshoeken, knik buiten het vlak, contact of materiaalnietlineariteit.'],
+  noAuthorCode: 'Niet vergeleken: er is geen code van de auteurs gebruikt.',
+  livePath: 'Live pad', shortPath: 'Kort pad · 20 stappen (vóór de piek)', fullPath: 'Volledige benchmark · 400 stappen',
+  replay: 'Vooraf berekende weergave (dezelfde solver)', live: 'Live berekening', cached: 'In de browser opgeslagen resultaat', running: 'Berekenen…',
+  run: 'Live herberekenen', stop: 'Stoppen', restart: 'Opnieuw starten', step: 'Stap', displacement: 'Grootte van de verplaatsing',
+  limit: 'In het grenspunt', quantity: 'Grootheid', reference: 'Gepubliceerd', stabileo: 'Stabileo, 40 elementen', difference: 'Verschil', tolerance: 'Tolerantie',
+  pass: 'Voldoet', fail: 'Voldoet niet',
+  verdictPass: 'Alle vier binnen de tolerantie; dalende tak bereikt', verdictFail: 'Buiten de tolerantie', incomplete: 'Onvolledig pad: {n} van {total} stappen',
+  errorSolve: 'De solver heeft dit pad niet afgerond.', errorInvalid: 'De solver gaf een onvolledig resultaat terug.',
+  qLoad: 'Grenslast PR²/EI', qU: 'Sleutel u/R', qV: 'Sleutel v/R', qRot: 'Sleutelrotatie (rad)',
+  largest: 'Grootste PR²/EI op het pad',
+  chartLabel: 'PR²/EI tegen stapnummer', chartData: 'Curvegegevens (elke 20 stappen)', slider: 'Stap {step}: PR²/EI = {load}',
+};
+
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'it' | 'zh' | 'nl', Strings> = { en, es, pt, de, fr, tr, hu, it, zh, nl };
 export const archStrings = (locale: string): Strings => strings[locale as keyof typeof strings] ?? en;

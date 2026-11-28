@@ -416,7 +416,9 @@ describe('the safety-advisories post quotes the advisories', () => {
     fr: 'Supprimez du modèle les cas de charge vides dont vous avez confirmé qu’ils sont obsolètes, y compris ceux qui étaient déjà vides dans la version 0.6.4. Régénérez les combinaisons et vérifiez qu’elles excluent les identifiants de ces cas avant de relancer les analyses concernées.',
     hu: 'Távolítsa el a modellből a bizonyítottan elavult üres tehereseteket, azokat is, amelyek már a 0.6.4-es verzióban üresek voltak. Hozza létre újra a kombinációkat, és az érintett számítások megismétlése előtt ellenőrizze, hogy a kombinációk nem tartalmazzák ezeket a tehereset-azonosítókat.',
     tr: 'Artık geçerli olmadığını doğruladığınız boş yük durumlarını, 0.6.4 sürümünde zaten boş olanlar dahil, modelden kaldırın. Birleşimleri yeniden oluşturun ve etkilenen analizleri tekrarlamadan önce bu yük durumu kimliklerinin birleşimlerde yer almadığını doğrulayın.',
+    it: 'Rimuovi dal modello i casi di carico vuoti che hai verificato essere obsoleti, compresi quelli già vuoti nella versione 0.6.4. Rigenera le combinazioni e verifica che escludano gli identificativi di questi casi prima di ripetere le analisi interessate.',
     zh: '从模型中删除经确认已失效的空荷载工况，包括在 0.6.4 版中已经为空的工况。重新生成组合，并在重新进行受影响的分析前，核实新组合不含这些工况的编号。',
+    nl: "Verwijder bevestigde verouderde lege belastinggevallen uit het model, inclusief gevallen die in 0.6.4 al leeg waren. Genereer de combinaties opnieuw en verifieer dat ze die gevals-ID's uitsluiten voordat je getroffen analyses opnieuw uitvoert.",
   };
 
   it.each(advisoryLocales)('known wrong result: #2589 — %s summarizes how to exclude obsolete empty cases from regenerated combinations', (locale) => {
@@ -456,12 +458,16 @@ describe('the safety-advisories post quotes the advisories', () => {
     ['fr', 'sur toute la longueur de la jonction prévue'],
     ['hu', 'a tervezett csatlakozás teljes hosszában'],
     ['tr', 'amaçlanan birleşimin tamamı boyunca'],
+    ['it', 'lungo tutta la giunzione prevista'],
+    ['nl', 'langs de hele bedoelde aansluiting'],
     ['zh', '沿整个预期连接线'],
   ])('SA-2026-127 %s requires full-length shared mesh connectivity', (locale, wording) => {
     expectAdvisoryWording(locale, 'SA-2026-127', wording);
   });
 
   it.each<[PublicLocale, string]>([
+    ['it', 'aste dei modelli piani (2D), indipendentemente dalla sezione'],
+    ['nl', 'staven van vlakke (2D-)modellen, ongeacht hun doorsnede'],
     ['es', 'barras de modelos planos (2D), independientemente de su sección'],
     ['pt', 'barras de modelos planos (2D), independentemente da seção transversal'],
   ])('SA-2026-128 %s identifies 2D models regardless of section', (locale, wording) => {
@@ -476,7 +482,9 @@ describe('the safety-advisories post quotes the advisories', () => {
     fr: 'Lorsque l’essieu et la charge ponctuelle permanente coïncident exactement, ils produisent un seul saut d’effort tranchant dû aux deux charges. L’effort tranchant entre les charges a des limites unilatérales lorsque l’essieu s’approche de la charge permanente ou la dépasse. Vérifiez les deux limites avec l’essieu juste avant et juste après la charge permanente.',
     hu: 'Az egy helyre eső tengelyterhelés és állandó pontteher egyetlen, együttes nyíróerőugrást okoz. A két teher közötti nyíróerőnek egyoldali határértékei vannak, amikor a tengely megközelíti vagy éppen elhagyja a pontterhet. Ellenőrizze mindkét határértéket a pontteher előtt és után közvetlenül elhelyezkedő tengellyel.',
     tr: 'Aks ve kalıcı tekil yük tam olarak aynı konumdayken iki yük birlikte tek bir kesme kuvveti sıçraması oluşturur. Aks tekil yüke yaklaşırken veya onu geçerken iki yük arasındaki kesme kuvvetinin tek taraflı limitleri vardır. Aks tekil yükün hemen önündeyken ve hemen arkasındayken her iki limiti de kontrol edin.',
+    it: 'Quando l’asse e il carico puntuale permanente coincidono esattamente, producono un unico salto di taglio combinato. Il taglio tra i due carichi ha limiti unilaterali quando l’asse si avvicina al carico o lo oltrepassa. Verifica entrambi i limiti con l’asse appena prima e appena dopo il carico.',
     zh: '车轴与永久点荷载的位置完全重合时，两项荷载共同产生一次剪力跳变。车轴接近或刚越过该荷载时，两者之间的剪力分别趋于相应的单侧极限。请检查车轴紧邻该荷载前后两个位置所对应的单侧极限。',
+    nl: 'Bij exact samenvallen geven de as en de permanente puntlast samen één sprong in de dwarskracht. De dwarskracht ertussen heeft eenzijdige limieten wanneer de as de last nadert of passeert. Controleer beide limieten met de as net vóór en net na de last.',
   };
 
   it.each(advisoryLocales)('SA-2026-129 coincidence and both approach limits appear in %s', (locale) => {
@@ -593,7 +601,9 @@ describe('the safety-advisories post quotes the advisories', () => {
       fr: 'Corrigé dans 0.6.2',
       tr: '0.6.2 sürümünde düzeltildi',
       hu: 'Javítva a 0.6.2 verzióban',
+      it: 'Risolto nella 0.6.2',
       zh: '已在 0.6.2 中修复',
+      nl: 'Verholpen in 0.6.2',
     };
     const fixedIds = fixed.map(({ id }) => id).sort();
     const november20 = readdirSync(directory).filter(file => /^SA-2026-09[1-5]-/.test(file));
@@ -725,4 +735,60 @@ describe('translations added as files', () => {
   it('refuse a file that names nothing', () => {
     expect(() => addTranslations([item()], (p) => p.slug, { './translations/de/no-such-post.ts': { title: 'de' } })).toThrow();
   });
+});
+
+it.each([
+  ['en', 'Mechanism modes detected', 'Unconstrained degrees of freedom'],
+  ['it', 'Modi di meccanismo rilevati', 'Gradi di libertà non vincolati'],
+] as const)('%s counts the unrestrained frame coordinates separately from the mechanism', (locale, modes, coordinates) => {
+  const post = findPost('conceptual-side-advanced-tools')!;
+  const rows = post.i18n[locale]!.blocks.flatMap(block => block.k === 'table' ? block.rows : []);
+  const result = (label: string) => rows.find(row => row[1] === label)?.[2];
+  expect(result(modes)).toBe('1');
+  expect(result(coordinates)).toBe(String(3 * 3 - 3));
+});
+
+it.each([
+  ['en', '.', 'the minimum', 'strength'],
+  ['it', ',', 'il minimo', 'la resistenza'],
+] as const)('%s sizes the four bending examples at the depth shown for the illustrated bars', (locale, decimal, minimum, strength) => {
+  const post = findPost('verificacion-flexion-cirsoc-201')!;
+  const table = post.i18n[locale]!.blocks.find(block => block.k === 'table' && block.head.includes('As,min [cm²]'));
+  if (table?.k !== 'table') throw new Error('Missing minimum-steel table');
+  expect(table.rows).toEqual([
+    ['15', '1.13', '2.38', minimum], ['30', '2.30', '2.38', minimum],
+    ['60', '4.76', '2.38', strength], ['90', '7.43', '2.38', strength],
+  ].map(row => row.map(cell => cell.replace('.', decimal))));
+});
+
+function checkCrossover(note: Block) {
+  expect(note.k === 'p' && note.t).toMatch(/Mu = 31[.,]1 kN·m/);
+  expect(note.k === 'p' && note.t).toMatch(/§9\.6\.1\.2.*§9\.6\.1\.3.*4\/3/);
+}
+
+it('known wrong result: #2595 — detects the obsolete reinforcement crossover', () => {
+  expect(() => checkCrossover({ k: 'p', t: 'Mu = 31.5 kN·m. §9.6.1.2, §9.6.1.3, 4/3' })).toThrow();
+});
+
+it.each(['en', 'es', 'pt', 'de', 'fr', 'hu', 'it', 'tr', 'zh', 'nl'] as const)(
+  'known wrong result: #2595 — %s states the minimum reinforcement assumption at the crossover',
+  locale => {
+    const blocks = findPost('verificacion-flexion-cirsoc-201')!.i18n[locale]!.blocks;
+    const table = blocks.findIndex(block => block.k === 'table' && block.head.some(cell => /^As,m[ií]n \[cm²\]$/.test(cell)));
+    expect(table).toBeGreaterThanOrEqual(0);
+    const note = blocks[table + 1];
+    checkCrossover(note);
+  },
+);
+
+it('The thick-wall case has a numeric ratio and a qualified description', () => {
+  const table = findPost('torsion-bredt-saint-venant')!.i18n.nl!.blocks.find(b => b.k === 'table')!;
+  expect(table.rows.at(-1)?.slice(0, 2)).toEqual(['0,50', 'wand van 25,0 mm (dikwandig)']);
+});
+
+it('The Dutch three-roller example distinguishes free coordinates from mechanism modes', () => {
+  const blocks = findPost('conceptual-side-advanced-tools')!.i18n.nl!.blocks;
+  const rows = blocks.flatMap(block => block.k === 'table' ? block.rows : []);
+  expect(rows).toContainEqual(['3 · Stijfheidsmatrix', 'Gedetecteerde mechanismevormen', '1']);
+  expect(rows).toContainEqual(['3 · Stijfheidsmatrix', 'Onverhinderde vrijheidsgraden', String(3 * 3 - 3)]);
 });

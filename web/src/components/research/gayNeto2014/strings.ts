@@ -283,6 +283,46 @@ const hu: Strings = {
   wholeLine: 'a teljes vezeték',
 };
 
+const it: Strings = {
+  title: riserTitle.it,
+  lead: riserHook.it,
+  model: 'Il modello',
+  theory: 'Un’asta geometricamente esatta: ogni sezione si muove e ruota liberamente, e l’energia dipende da allungamento, taglio, flessione e torsione misurati nel riferimento proprio della sezione. Elementi a tre nodi con due punti di Gauss. Il fondale è un piano rigido che reagisce con una molla di penalizzazione in ogni nodo, con attrito di Coulomb.',
+  method: 'Leggiamo i file di input del codice di riferimento e risolviamo gli stessi tre passi statici: peso proprio con contatto, una trazione orizzontale di 1 MN, poi un sollevamento di 186 m dell’estremità libera. Il solutore è un nuovo crate Rust, compilato in WASM per questa pagina. La sua tangente deriva dalla doppia derivazione dell’energia dell’elemento, ottenendo una tangente consistente. La convergenza quadratica di Newton è locale e richiede un equilibrio regolare con tangente non singolare, senza transizioni di contatto o attrito.',
+  comparison: 'Alla fine del passo 3 confrontiamo il momento flettente e il taglio di tutti i 134 elementi con i valori riportati nella guida di tutorial del codice di riferimento. Anche il punto di contatto con il fondale e la forma sospesa sono verificati rispetto alla catenaria elastica. Una mensola di 1 m (tutorial 1) verifica la sola trave.',
+  limits: 'Solo statica: nessuna corrente marina, nessun carico di onde o di resistenza, nessun contatto tra linee. La concordanza con il codice di riferimento è numerica; non è un esperimento né una verifica di progetto.',
+  checks: 'Validazione e fonti',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': 'Mensola: X, Z della punta all’estremità (m)',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': 'Mensola, 5 elementi: X, Z della punta (m)',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': 'Mensola, 40 elementi: X, Z della punta (m)',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': 'Riser: momento flettente, confronto elemento per elemento (N·m)',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': 'Riser: taglio, confronto elemento per elemento (N)',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': 'Riser: contatto stimato dove il momento raggiunge metà del valore di plateau (m lungo la linea)',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': 'Riser: ultimo nodo sul fondale (m lungo la linea)',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': 'Riser: forma sospesa (m)',
+  } as Record<string, string>,
+  riser: 'Riser', forces: 'Sollecitazioni', cantilever: 'Mensola',
+  pull: 'Trazione orizzontale', lift: 'Sollevamento dell’estremità libera', friction: 'Attrito del fondale μ',
+  run: 'Ricalcola in tempo reale', stop: 'Ferma', restart: 'Riavvia',
+  computing: 'Calcolo con Stabileo… (qualche secondo)',
+  caseLabel: 'Caso',
+  error: 'Il solutore non è riuscito a caricarsi o a completare. Il risultato precedente resta disponibile.',
+  ours: 'Stabileo', reference: 'Codice di riferimento, fine del passo 3', figure: 'Codice di riferimento, Figura 1-6',
+  moment: 'Momento flettente M(e1)', shear: 'Taglio V(e2)', length: 'Posizione lungo la linea (m)', time: 'Fattore di carico',
+  tipX: 'X della punta (m)', tipZ: 'Z della punta (m)',
+  steps: ['Peso proprio sul fondale', 'Trazione orizzontale', 'Sollevamento dell’estremità libera'],
+  fairlead: 'Estremità libera', touchdown: 'Punto di contatto (lungo la linea)', anchor: 'Tensione all’ancoraggio',
+  defaults: 'I valori di riferimento sono per i parametri propri del tutorial (1 MN, 186 m, μ = 0.2).',
+  coordinates: 'Scala reale, x lungo il fondale e z verso l’alto, in metri. Colore: momento flettente.',
+  cantileverNote: 'Una mensola di 1 m con una forza di 1000 N trasversale alla punta, in dieci incrementi.',
+  inputs: 'File di input', code: 'Codice di riferimento (BSD-3-Clause)',
+  tableIntro: 'Non abbiamo confrontato le figure dell’articolo: non avevamo accesso al testo completo. I riferimenti sono i risultati pubblicati con GIRAFFE, il codice dell’autore, una soluzione esatta indipendente per la mensola e la catenaria analitica per il riser. La differenza è la massima su tutto ciò che è stato confrontato: i dieci incrementi della mensola rispetto alla figura, i 134 elementi del riser per momento e taglio, e l’intera parte sospesa della linea.',
+  table: { quantity: 'Grandezza', reference: 'Riferimento', ours: 'Stabileo', difference: 'Differenza max.', tolerance: 'Tolleranza' },
+  sources: { figure: 'GIRAFFE, Figura 1-6 della sua guida', exact: 'Soluzione esatta dell’asta, indipendente', giraffe: 'GIRAFFE, risultati del tutorial 16', catenary: 'Catenaria elastica analitica' } as Record<string, string>,
+  wholeLine: 'tutta la linea',
+};
+
 const zh: Strings = {
   title: riserTitle.zh,
   lead: riserHook.zh,
@@ -323,5 +363,45 @@ const zh: Strings = {
   wholeLine: '整条管线',
 };
 
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+const nl: Strings = {
+  title: riserTitle.nl,
+  lead: riserHook.nl,
+  model: 'Het model',
+  theory: 'Een geometrisch exacte staaf: elke doorsnede beweegt en roteert vrij, en de energie hangt af van rek, afschuiving, buiging en wringing gemeten in het eigen assenstelsel van de doorsnede. Elementen met drie knopen en twee gausspunten. De zeebodem is een stijf vlak dat bij elke knoop terugduwt met een penaltyveer, met coulombwrijving.',
+  method: 'We lezen de eigen invoerbestanden van de referentiecode en lossen dezelfde drie statische stappen op: eigen gewicht met contact, een horizontale trekkracht van 1 MN en daarna een lift van 186 m van het vrije uiteinde. De solver is een nieuwe Rust-crate, voor deze pagina gecompileerd naar WASM. De tangentiële stijfheid komt uit het tweemaal differentiëren van de elementenergie, zodat Newton lokaal kwadratisch kan convergeren nabij een reguliere oplossing op een gladde tak met ongewijzigde contact- en wrijvingstoestand.',
+  comparison: 'Aan het einde van stap 3 vergelijken we het buigend moment en de dwarskracht van alle 134 elementen met de waarden in de tutorialhandleiding van de referentiecode. Het touchdownpunt en de hangende vorm worden ook getoetst aan de elastische kettinglijn. Een ligger van 1 m op één inklemming (tutorial 1) toetst de ligger alleen.',
+  limits: 'Alleen statica: geen zeestroming, geen golf- of sleepbelastingen, geen contact tussen leidingen. Overeenstemming met de referentiecode is numeriek; het is geen experiment en geen ontwerptoetsing.',
+  checks: 'Validatie en bronnen',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': 'Ligger op één inklemming: uiteinde X, Z aan het einde (m)',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': 'Ligger op één inklemming, 5 elementen: uiteinde X, Z (m)',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': 'Ligger op één inklemming, 40 elementen: uiteinde X, Z (m)',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': 'Riser: momentprofiel, maximale absolute afwijking per element (N·m)',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': 'Riser: dwarskrachtprofiel, maximale absolute afwijking per element (N)',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': 'Riser: touchdown geschat bij de helft van het momentplateau (m langs de leiding)',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': 'Riser: touchdown bij de laatste knoop op de zeebodem (m langs de leiding)',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': 'Riser: hangende vorm (m)',
+  } as Record<string, string>,
+  riser: 'Riser', forces: 'Snedekrachten', cantilever: 'Ligger op één inklemming',
+  pull: 'Horizontale trekkracht', lift: 'Lift van het vrije uiteinde', friction: 'Wrijving zeebodem μ',
+  run: 'Live herberekenen', stop: 'Stoppen', restart: 'Opnieuw starten',
+  computing: 'Berekenen met Stabileo… (enkele seconden)',
+  caseLabel: 'Geval',
+  error: 'De solver kon niet laden of niet afronden. Het vorige resultaat blijft beschikbaar.',
+  ours: 'Stabileo', reference: 'Referentiecode, einde van stap 3', figure: 'Referentiecode, figuur 1-6',
+  moment: 'Buigend moment M(e1)', shear: 'Dwarskracht V(e2)', length: 'Positie langs de leiding (m)', time: 'Belastingfactor',
+  tipX: 'Uiteinde X (m)', tipZ: 'Uiteinde Z (m)',
+  steps: ['Eigen gewicht op de zeebodem', 'Horizontale trekkracht', 'Lift van het vrije uiteinde'],
+  fairlead: 'Vrij uiteinde', touchdown: 'Touchdown (langs de leiding)', anchor: 'Trekkracht bij het anker',
+  defaults: 'De referentiewaarden gelden voor de eigen parameters van de tutorial (1 MN, 186 m, μ = 0.2).',
+  coordinates: 'Ware schaal, x langs de zeebodem en z omhoog, in meter. Kleur: buigend moment.',
+  cantileverNote: 'Een ligger van 1 m op één inklemming met een dwarskracht van 1000 N op het uiteinde, in tien stappen.',
+  inputs: 'Invoerbestanden', code: 'Referentiecode (BSD-3-Clause)',
+  tableIntro: 'We hebben de figuren van het artikel niet vergeleken: we hadden geen toegang tot de volledige tekst. De referenties zijn de resultaten die met GIRAFFE, de code van de auteur, zijn gepubliceerd, een onafhankelijke exacte oplossing voor de ligger op één inklemming en de analytische kettinglijn voor de riser. Het verschil is het grootste over alles wat is vergeleken: de tien stappen van de ligger op één inklemming ten opzichte van de figuur, de 134 elementen van de riser voor moment en dwarskracht, en het hele hangende deel van de leiding.',
+  table: { quantity: 'Grootheid', reference: 'Referentie', ours: 'Stabileo', difference: 'Max. verschil', tolerance: 'Tolerantie' },
+  sources: { figure: 'GIRAFFE, figuur 1-6 van de handleiding', exact: 'Exacte staafoplossing, onafhankelijk', giraffe: 'GIRAFFE, resultaten van tutorial 16', catenary: 'Analytische elastische kettinglijn' } as Record<string, string>,
+  wholeLine: 'hele leiding',
+};
+
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, it, zh, nl };
 export const riserStrings = (): Strings => translations[publicI18n.locale] ?? en;

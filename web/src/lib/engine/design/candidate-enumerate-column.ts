@@ -17,7 +17,7 @@
  */
 
 import type { RegulationEdition } from '../../codes/regulation';
-import { columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
+import { cirsoc201ColumnTies } from './adapters/cirsoc201-column-ties';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import type { ProvidedReinforcement, StirrupDef } from '../../store/model.svelte';
 import { computeColumnLayout } from '../station-design-forces';
@@ -81,7 +81,7 @@ export function buildColumnLongOptions(ctx: MemberContext): ColumnLongOption[] {
 
 /** Maximum tie spacing for the edition designed to (`columnTieSpacing`). */
 export function maxTieSpacing(cornerDia: number, tieDia: number, b: number, h: number, edition: RegulationEdition): number {
-  return columnTieSpacing(edition, cornerDia, tieDia, Math.min(b, h)).spacing;
+  return cirsoc201ColumnTies(edition).maxSpacing(cornerDia, tieDia, Math.min(b, h));
 }
 
 /** Ordered tie options for a given longitudinal diameter. */

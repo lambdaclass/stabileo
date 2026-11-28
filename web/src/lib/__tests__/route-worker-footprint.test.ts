@@ -1,7 +1,6 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const budget = await import(new URL('../../../scripts/research-route-budget.mjs', import.meta.url).href);
+const { checkRouteSize } = await import(new URL('../../../scripts/check-research-route-size.mjs', import.meta.url).href);
 
 async function measure(worker: boolean, options: {
   switches?: { research: boolean; tools: boolean };
@@ -35,30 +34,30 @@ async function measure(worker: boolean, options: {
     'assets/worker-dependency.js': '"worker implementation";',
   };
   const logs: string[] = [];
-  const source = readFileSync(new URL('../../../scripts/check-research-route-size.mjs', import.meta.url), 'utf8')
-    .replace(/^import .*;\n/gm, '');
-  const names = ['build', 'readFileSync', 'writeFileSync', 'appendFileSync', 'mkdtempSync', 'rmSync', 'statSync', 'existsSync', 'tmpdir', 'join', 'process', 'console', ...Object.keys(budget)];
   const relative = (path: string) => path.replace('/fixture/', '');
-  const run = new Function(...names, `return (async () => {${source}})();`);
   const process = { argv: ['node', 'check', '--ceiling', 'ceiling.json'], env: options.env ?? {}, exitCode: 0 };
-  await run(
-    async (config: { plugins: { configResolved?: (resolved: unknown) => void }[] }) => {
+  await checkRouteSize({
+    build: async (config: { plugins: { configResolved?: (resolved: unknown) => void }[] }) => {
       for (const plugin of config.plugins) plugin.configResolved?.({
         env: options.env ?? {},
         define: Object.fromEntries(Object.entries(switches).map(([key, value]) => [`__PUBLIC_FEATURES__.${key}`, JSON.stringify(value)])),
       });
     },
-    (path: string) => path.endsWith('manifest.json') ? JSON.stringify(manifest) : path === 'ceiling.json' ? JSON.stringify({ routes: Object.fromEntries([
+    files: {
+      readFileSync: (path: string) => path.endsWith('manifest.json') ? JSON.stringify(manifest) : path === 'ceiling.json' ? JSON.stringify({ routes: Object.fromEntries([
       '/en/', '/es/', '/pt/', '/app/basic', '/app/education', '/app/pro', '/en/research/', '/en/tools/',
       '/en/tools/simply-supported-beam/', '/en/tools/continuous-beam/', '/en/tools/beam-frame/', '/en/tools/mohr-2d/',
     ].map(route => [route, options.ceilings?.[route] ?? 10000])) }) : files[relative(path)],
-    () => {}, () => {}, () => '/fixture', () => {},
-    (path: string) => ({ size: Buffer.byteLength(files[relative(path)]), isFile: () => true }),
-    (path: string) => relative(path) in files,
-    () => '/tmp', (...parts: string[]) => parts.join('/'),
+      writeFileSync() {},
+      appendFileSync() {},
+      mkdtempSync: () => '/fixture',
+      rmSync() {},
+      statSync: (path: string) => ({ size: Buffer.byteLength(files[relative(path)]), isFile: () => true }),
+      existsSync: (path: string) => relative(path) in files,
+    },
     process,
-    { log: (text: string) => logs.push(text) }, ...Object.values(budget),
-  );
+    log: (text: string) => logs.push(text),
+  });
   return { logs, files, exitCode: process.exitCode };
 }
 

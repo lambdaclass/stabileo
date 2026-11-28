@@ -66,6 +66,7 @@ export interface F62Report {
   flangeSlenderness: number | null;
   /** The `bf` the clause's convention gives for this shape, metres. Null when unavailable. */
   bfM: number | null;
+  slendernessFormula: 'bf/tf' | null;
   /** `Fcr = 138000/(bf/tf)²`, MPa — F.6.3. Meaningful only in branch (c), and labelled as such. */
   fcrMPa: number | null;
   /** `Sy`, m³. Null when the inputs are not there. */
@@ -82,6 +83,7 @@ export interface F62Input {
   tf?: number;
   /** Minor-axis inertia, m⁴ — the app's `iz` for a tall section. */
   iMinor?: number;
+  minimumSy?: number;
   /** Yield strength, MPa. With it the branch is selected (Table B.4.1b case 14). */
   fy?: number;
   /** Elastic modulus, MPa (default 200 000 — Table B.4.1b's own E). */
@@ -97,18 +99,17 @@ export interface F62Input {
  *
  * Returns null for a shape the convention does not name, rather than guessing which half applies.
  */
-export function flangeWidthForSlenderness(shape: string | undefined, b: number | undefined): number | null {
-  if (b == null || b <= 0) return null;
+function flangeWidthDivisor(shape: string | undefined): 1 | 2 | null {
   switch (shape) {
-    case 'I': case 'H': return b / 2;
-    case 'U': case 'C': return b;
+    case 'I': case 'H': return 2;
+    case 'U': case 'C': return 1;
     default: return null;
   }
 }
 
-/** F.6 covers doubly-symmetric I sections and channels bent about the minor axis. */
-function inScope(shape: string | undefined): boolean {
-  return shape === 'I' || shape === 'H' || shape === 'U' || shape === 'C';
+export function flangeWidthForSlenderness(shape: string | undefined, b: number | undefined): number | null {
+  const divisor = flangeWidthDivisor(shape);
+  return divisor === null || b == null || b <= 0 ? null : b / divisor;
 }
 
 /**
@@ -120,10 +121,11 @@ function inScope(shape: string | undefined): boolean {
 export function f62Report(input: F62Input): F62Report {
   const { shape, b, tf, iMinor } = input;
   const none = {
-    flangeSlenderness: null, bfM: null, fcrMPa: null, syM3: null,
+    flangeSlenderness: null, slendernessFormula: null, bfM: null, fcrMPa: null, syM3: null,
   };
 
-  if (!inScope(shape)) {
+  const divisor = flangeWidthDivisor(shape);
+  if (divisor === null) {
     return {
       state: 'outOfScope', branch: 'undetermined',
       reasonKey: 'steel.f62.outOfScope', ...none, missingKeys: [],
@@ -146,7 +148,14 @@ export function f62Report(input: F62Input): F62Report {
    * can use immediately: if their λrf says the flange is slender, this is their Fcr.
    */
   const fcr = 138000 / (lambdaF * lambdaF);
-  const sy = iMinor != null && iMinor > 0 && b != null && b > 0 ? iMinor / (b / 2) : null;
+  const sy = divisor === 2 && iMinor != null && Number.isFinite(iMinor) && iMinor > 0
+    ? iMinor / bf
+    : input.minimumSy != null && Number.isFinite(input.minimumSy) && input.minimumSy > 0 ? input.minimumSy : null;
+
+  const geometry = {
+    bfM: bf, flangeSlenderness: lambdaF, slendernessFormula: 'bf/tf' as const,
+    fcrMPa: fcr, syM3: sy,
+  };
 
   if (input.fy != null && input.fy > 0) {
     const c = b41Case(14), i = { E: input.e ?? 2e5, Fy: input.fy };
@@ -154,21 +163,14 @@ export function f62Report(input: F62Input): F62Report {
     const branch: F62Branch = lambdaF <= lp ? 'notApplicableCompact' : lambdaF <= lr ? 'nonCompact' : 'slender';
     return {
       state: 'classified', branch, reasonKey: 'steel.f62.classified',
-      flangeSlenderness: lambdaF, bfM: bf, fcrMPa: fcr, syM3: sy, missingKeys: [],
+      ...geometry, missingKeys: [],
     };
   }
   return {
     state: 'classificationUnavailable',
     branch: 'undetermined',
     reasonKey: 'steel.f62.classificationUnavailable',
-    flangeSlenderness: lambdaF,
-    bfM: bf,
-    fcrMPa: fcr,
-    syM3: sy,
-    /*
-     * Both limits come from the same cell of the same table, and that table is an image. Listed as
-     * one missing datum rather than two, because no partial source closes half of it.
-     */
+    ...geometry,
     missingKeys: ['steel.f62.missing.slendernessLimits'],
   };
 }

@@ -245,6 +245,22 @@ const labels: Record<string, Record<string, string>> = {
     "force": "Erő a töréssel együtt",
     "mirror": "Csomóponti károsodás, referencia vagy tükörkép"
   },
+  'it': {
+    "mesh": "Impronte della mesh",
+    "steps": "Numero di passi di carico",
+    "iterations": "Iterazioni a ogni passo",
+    "damage": "Danno massimo a ogni passo",
+    "stress": "Tensione al centro a ogni passo",
+    "damageField": "Danno nodale",
+    "displacementField": "Spostamento nodale",
+    "analytic": "Tensione al centro / soluzione 1D AT2, max d < 0.25",
+    "peakStep": "Passo del picco di forza",
+    "peak": "Picco di forza",
+    "preForce": "Forza attraverso il picco",
+    "preDamage": "Danno massimo attraverso il picco",
+    "force": "Forza con la frattura inclusa",
+    "mirror": "Danno nodale, riferimento o specchio"
+  },
   "zh": {
     "mesh": "网格指纹",
     "steps": "荷载步数",
@@ -260,6 +276,22 @@ const labels: Record<string, Record<string, string>> = {
     "preDamage": "直至峰值的最大损伤",
     "force": "含断裂阶段的力",
     "mirror": "节点损伤，参考值或镜像"
+  },
+  "nl": {
+    "mesh": "Vingerafdrukken van het elementennet",
+    "steps": "Aantal belastingstappen",
+    "iterations": "Iteraties bij elke stap",
+    "damage": "Maximale schade bij elke stap",
+    "stress": "Spanning in het midden bij elke stap",
+    "damageField": "Schade in de knopen",
+    "displacementField": "Verplaatsing van de knopen",
+    "analytic": "Spanning in het midden / 1D AT2-oplossing, max d < 0.25",
+    "peakStep": "Stap met de piekkracht",
+    "peak": "Piekkracht",
+    "preForce": "Kracht tot en met de piek",
+    "preDamage": "Maximale schade tot en met de piek",
+    "force": "Kracht inclusief breuk",
+    "mirror": "Schade in de knopen, referentie of spiegelbeeld"
   }
 };
 const metrics: Record<string, Record<string, string>> = {
@@ -319,9 +351,25 @@ const metrics: Record<string, Record<string, string>> = {
     "max absolute difference / max |u|": "max |Δu| / max |u|",
     "absolute difference, kN": "|ΔF| (kN)"
   },
+  'it': {
+    "exact": "Esatto",
+    "relative difference": "Differenza relativa",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "max |Δd|",
+    "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
   "zh": {
     "exact": "精确",
     "relative difference": "相对差异",
+    "absolute difference / AT2 peak stress": "|Δσ| / σc",
+    "max absolute difference": "max |Δd|",
+    "max absolute difference / max |u|": "max |Δu| / max |u|",
+    "absolute difference, kN": "|ΔF| (kN)"
+  },
+  "nl": {
+    "exact": "Exact",
+    "relative difference": "Relatief verschil",
     "absolute difference / AT2 peak stress": "|Δσ| / σc",
     "max absolute difference": "max |Δd|",
     "max absolute difference / max |u|": "max |Δu| / max |u|",

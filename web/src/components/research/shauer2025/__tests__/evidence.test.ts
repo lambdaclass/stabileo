@@ -6,6 +6,7 @@ import { shauerLocales, shauerLocaleKeys } from '../locales';
 import { checkMetadata, checkLabel, metricLabel } from '../validation-labels';
 import validation from '../../../../../../research/fracture/shauer-2025/VALIDATION.json';
 import { num } from '../../shell/format';
+import { comparisonFailureLabel } from '../failure-labels';
 import { MESHES } from '../model';
 import { PUBLIC_LOCALES } from '../../../../lib/i18n/offered';
 
@@ -109,4 +110,30 @@ it('bundles viewer translations for all public locales', () => {
     const source = readFileSync(new URL(`../../../../lib/i18n/locales/${locale}.ts`, import.meta.url), 'utf8');
     expect(source).toContain('scalarViewer.viewOptions');
   }
+});
+
+it('names every comparison failure in every public locale', () => {
+  const previous = publicI18n.locale;
+  try {
+    for (const locale of PUBLIC_LOCALES) {
+      setLocale(locale);
+      for (const id of ['frame-order', 'nonfinite-step', 'nonconverged', 'load-coordinate-mismatch', 'damage-max', 'fields', 'force-relative', 'force-absolute', 'peak-step', 'iterations'] as const) {
+        const label = comparisonFailureLabel(id);
+        expect(label, locale + '.' + id).toBeTruthy();
+        expect(label).not.toBe(id);
+      }
+    }
+  } finally { setLocale(previous); }
+});
+
+it.each(PUBLIC_LOCALES.filter(locale => locale !== 'en'))('#2613 — %s owns each comparison diagnosis', locale => {
+  const previous = publicI18n.locale;
+  try {
+    for (const id of ['frame-order', 'nonfinite-step', 'nonconverged', 'load-coordinate-mismatch', 'damage-max', 'fields', 'force-relative', 'force-absolute', 'peak-step', 'iterations'] as const) {
+      setLocale('en');
+      const english = comparisonFailureLabel(id);
+      setLocale(locale);
+      expect(comparisonFailureLabel(id), id).not.toBe(english);
+    }
+  } finally { setLocale(previous); }
 });

@@ -20,7 +20,7 @@ import { REGISTRY_LOCALES, resultChangeLocaleProblems } from '../../../scripts/r
 
 export { REGISTRY_LOCALES };
 export type RegistryLocale = (typeof REGISTRY_LOCALES)[number];
-const supplementalLocales = ['ar', 'hi', 'id', 'it', 'ja', 'ko', 'ru'] as const;
+const supplementalLocales = ['ar', 'hi', 'id', 'ja', 'ko', 'ru'] as const;
 type SupplementalLocale = (typeof supplementalLocales)[number] | 'hu';
 export type Localised = Record<RegistryLocale, string> & Partial<Record<SupplementalLocale, string>>;
 

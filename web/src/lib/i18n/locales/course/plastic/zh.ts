@@ -1,3 +1,4 @@
+import { axialPlasticWork } from './axial-work';
 import type { Translations } from '../../../types';
 
 const words: Translations = {
@@ -135,7 +136,7 @@ const words: Translations = {
   "course.plastic.mech.show": "绘制机构",
   "course.plastic.mech.hide": "返回弯矩图",
   "course.plastic.mech.manyDof": "这些铰留下 {k} 个自由度；所绘的运动是荷载做功最大的那一种。",
-  "course.plastic.mech.axialNote": "有些杆件发生了轴向屈服：它们的功 Np·Δ 也进入方程，此处未写出。",
+  "course.plastic.mech.axialNote": `有些杆件发生了轴向屈服：它们的功 ${axialPlasticWork} 也进入方程，此处未写出。`,
   "course.plastic.mech.vwLead": "该机构的虚功：",
   "course.plastic.mech.vwAgree": "逐步分析得到 λc = {lambda}。",
   "course.plastic.mech.vwDiffer": "二者不同：图中的机构不是逐步分析所得到的机构。使用 λc 之前请检查模型。",

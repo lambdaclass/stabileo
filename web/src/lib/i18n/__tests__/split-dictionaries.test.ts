@@ -5,7 +5,9 @@ import { de as lazyDe } from 'virtual:app-i18n/de';
 import { fr as lazyFr } from 'virtual:app-i18n/fr';
 import { tr as lazyTr } from 'virtual:app-i18n/tr';
 import { hu as lazyHu } from 'virtual:app-i18n/hu';
+import { it as lazyIt } from 'virtual:app-i18n/it';
 import { zh as lazyZh } from 'virtual:app-i18n/zh';
+import { nl as lazyNl } from 'virtual:app-i18n/nl';
 import en from '../locales/en';
 import es from '../locales/es';
 import pt from '../locales/pt';
@@ -13,7 +15,9 @@ import de from '../locales/de';
 import fr from '../locales/fr';
 import tr from '../locales/tr';
 import hu from '../locales/hu';
+import itDict from '../locales/it';
 import zh from '../locales/zh';
+import nl from '../locales/nl';
 import browserDe from '../locales/browser/de';
 import fullDe from '../locales/full/de';
 import browserFr from '../locales/browser/fr';
@@ -22,12 +26,16 @@ import browserTr from '../locales/browser/tr';
 import fullTr from '../locales/full/tr';
 import browserHu from '../locales/browser/hu';
 import fullHu from '../locales/full/hu';
+import browserIt from '../locales/browser/it';
+import fullIt from '../locales/full/it';
 import browserZh from '../locales/browser/zh';
 import fullZh from '../locales/full/zh';
+import browserNl from '../locales/browser/nl';
+import fullNl from '../locales/full/nl';
 import { isComplete } from '../offered';
 
-const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const;
-const LAZY = ['de', 'fr', 'tr', 'hu', 'zh'] as const;
+const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'] as const;
+const LAZY = ['de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'] as const;
 
 it('#2399 retains the diagram-game navigation label in the eager dictionary', () => {
   expect(publicEntries.en['landing.navGame']).toBe(en['landing.navGame']);
@@ -35,7 +43,7 @@ it('#2399 retains the diagram-game navigation label in the eager dictionary', ()
 
 it.each(LOCALES.filter(isComplete))('%s dictionary split preserves every translation exactly once', locale => {
   expect(Object.keys(appEntries[locale]).filter(key => key in publicEntries[locale])).toEqual([]);
-  expect({ ...publicEntries[locale], ...appEntries[locale] }).toEqual({ en, es, pt, de, fr, tr, hu, zh }[locale]);
+  expect({ ...publicEntries[locale], ...appEntries[locale] }).toEqual({ en, es, pt, de, fr, tr, hu, it: itDict, zh, nl }[locale]);
 });
 
 it.each(LOCALES.filter((l) => !isComplete(l)))('%s, not offered, ships no public or app entries', locale => {
@@ -44,7 +52,7 @@ it.each(LOCALES.filter((l) => !isComplete(l)))('%s, not offered, ships no public
 });
 
 it.each(LAZY.filter(isComplete))('%s lazy app dictionary shares public strings without dropping app translations', locale => {
-  expect({ de: lazyDe, fr: lazyFr, tr: lazyTr, hu: lazyHu, zh: lazyZh }[locale]).toEqual(appEntries[locale]);
+  expect({ de: lazyDe, fr: lazyFr, tr: lazyTr, hu: lazyHu, it: lazyIt, zh: lazyZh, nl: lazyNl }[locale]).toEqual(appEntries[locale]);
 });
 
 it.each(([
@@ -52,7 +60,9 @@ it.each(([
   ['fr', browserFr, fullFr],
   ['tr', browserTr, fullTr],
   ['hu', browserHu, fullHu],
+  ['it', browserIt, fullIt],
   ['zh', browserZh, fullZh],
+  ['nl', browserNl, fullNl],
 ] as const).filter(([locale]) => isComplete(locale)))('%s browser dictionary matches the Node-compatible full dictionary', (_locale, browser, full) => {
   expect(browser).toEqual(full);
 });

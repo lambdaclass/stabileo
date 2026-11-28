@@ -141,7 +141,9 @@ export function searchMetadataSuite(dist: string) {
         fr: ['logiciel open source d’ingénierie des structures'],
         tr: ['açık kaynaklı yapı mühendisliği yazılımı'],
         hu: ['nyílt forráskódú szerkezettervező szoftver'],
+        it: ['open source', 'ingegneria strutturale'],
         zh: ['开源结构工程软件'],
+        nl: ['open-source constructiesoftware'],
       };
       const aiInDevelopment: Record<string, string> = {
         en: 'AI assistant in development',
@@ -151,7 +153,9 @@ export function searchMetadataSuite(dist: string) {
         fr: 'assistant IA en développement',
         tr: 'geliştirilmekte olan yapay zekâ asistanı',
         hu: 'AI-asszisztens fejlesztés alatt áll',
+        it: 'Assistente AI in sviluppo',
         zh: 'AI 助手开发中',
+        nl: 'AI-assistent in ontwikkeling',
       };
       const problems = ownPages()
         .filter((p) => p.path === '/' || p.path === '/tools')

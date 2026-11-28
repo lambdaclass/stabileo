@@ -18,7 +18,9 @@ const LANGUAGE: Record<Locale, string> = {
   fr: 'Français',
   tr: 'Türkçe',
   hu: 'Magyar',
+  it: 'Italiano',
   zh: '中文',
+  nl: 'Nederlands',
 };
 
 const COPY: Record<Locale, Copy> = {
@@ -85,6 +87,15 @@ const COPY: Record<Locale, Copy> = {
     blog: 'Blog',
     app: 'Az alkalmazás megnyitása',
   },
+  it: {
+    title: 'Pagina non trovata',
+    lead: 'A questo indirizzo non c’è nessuna pagina. Potrebbe essere stata spostata, o il link potrebbe essere scritto male.',
+    home: 'Home',
+    research: 'Ricerca',
+    tools: 'Strumenti',
+    blog: 'Blog',
+    app: 'Apri l’app',
+  },
   zh: {
     title: '页面未找到',
     lead: '此地址没有页面。它可能已被移动，或者链接拼写有误。',
@@ -93,6 +104,15 @@ const COPY: Record<Locale, Copy> = {
     tools: '工具',
     blog: '博客',
     app: '打开应用',
+  },
+  nl: {
+    title: 'Pagina niet gevonden',
+    lead: 'Op dit adres staat geen pagina. Misschien is ze verplaatst, of bevat de link een tikfout.',
+    home: 'Home',
+    research: 'Onderzoek',
+    tools: 'Tools',
+    blog: 'Blog',
+    app: 'App openen',
   },
 };
 

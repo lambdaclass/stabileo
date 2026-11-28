@@ -32,7 +32,7 @@ import type { PlaneModel, PMember } from './plane-model';
 import { loadsOn, membersAt, nodalLoadAt } from './plane-model';
 import { fixedEnd } from './fem';
 import { rref } from './sway-modes';
-import { EPS, nodeName, pinEnded, solveDense } from './truss-common';
+import { nodeName, pinEnded, solveDense } from './truss-common';
 
 export type DofKind = 'ux' | 'uz' | 'ry';
 export interface Dof { node: number; kind: DofKind }
@@ -78,7 +78,8 @@ export interface Compat {
   /** End actions on each member (local): N tension positive at each end, V along +y, M counter-clockwise. */
   ends: Map<number, { Ni: number; Nj: number; Vi: number; Vj: number; Mi: number; Mj: number }>;
   reactions: Map<number, { rx: number; rz: number; my: number }>;
-  residual: number;
+  forceResidual: number;
+  momentResidual: number;
 }
 
 export const memberKind = (m: PMember): MKind => (pinEnded(m) ? 'truss' : m.hingeI ? 'hingeI' : m.hingeJ ? 'hingeJ' : 'frame');
@@ -116,7 +117,7 @@ function fixedEndActs(pm: PlaneModel, m: PMember, kind: MKind): FixedEndActs {
   Mi += dMi; Mj += dMj; Vi += (dMi + dMj) / m.L; Vj -= (dMi + dMj) / m.L;
   // Axial point loads: a fixed bar takes P·b/L in tension before the load and P·a/L in compression after it.
   let Ni = 0, px = 0;
-  for (const l of loads) if (l.kind === 'point' && Math.abs(l.px) > EPS) { Ni += (l.px * (m.L - l.a)) / m.L; px += l.px; }
+  for (const l of loads) if (l.kind === 'point') { Ni += (l.px * (m.L - l.a)) / m.L; px += l.px; }
   return { Mi, Mj, Vi, Vj, Ni, Nj: Ni - px, loaded: true };
 }
 
@@ -328,7 +329,8 @@ function assemble(
 
   const F = nodeForces(ends);
   const reactions = new Map<number, { rx: number; rz: number; my: number }>();
-  let residual = 0;
+  let forceResidual = 0;
+  let momentResidual = 0;
   for (const id of pm.nodeOrder) {
     const f = F.get(id) ?? { x: 0, z: 0, m: 0 };
     const l = nodalLoadAt(pm, id);
@@ -336,13 +338,13 @@ function assemble(
     const r = { rx: f.x - l.fx, rz: f.z - l.fz, my: f.m - l.my };
     const hasRy = allIndex.has(`${id}:ry`) || !!s?.ry;
     if (s) reactions.set(id, { rx: s.ux ? r.rx : 0, rz: s.uz ? r.rz : 0, my: s.ry ? r.my : 0 });
-    if (!s?.ux) residual = Math.max(residual, Math.abs(r.rx));
-    if (!s?.uz) residual = Math.max(residual, Math.abs(r.rz));
-    if (!s?.ry && hasRy) residual = Math.max(residual, Math.abs(r.my));
+    if (!s?.ux) forceResidual = Math.max(forceResidual, Math.abs(r.rx));
+    if (!s?.uz) forceResidual = Math.max(forceResidual, Math.abs(r.rz));
+    if (!s?.ry && hasRy) momentResidual = Math.max(momentResidual, Math.abs(r.my));
   }
   return {
     inext, all, allIndex, dofs, indep, T, deps, rigid, coords, byMember, kinds, kBlock, A, k, K,
-    QjAll, QeAll, Qj, Qe, Q, q, u, p, P0, P, fe, axialRows, ends, reactions, residual,
+    QjAll, QeAll, Qj, Qe, Q, q, u, p, P0, P, fe, axialRows, ends, reactions, forceResidual, momentResidual,
   };
 }
 

@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { measuredLocales } from './route-locale-bytes.mjs';
 
 export const RESEARCH_ISOLATION_BYTES = 128;
 
@@ -15,32 +16,128 @@ export function routeAllowances(text, exists) {
   return Object.fromEntries(Object.entries(routes).map(([route, entry]) => {
     const list = Array.isArray(entry) ? entry : [entry];
     for (const a of list) {
-      if (!Number.isInteger(a?.bytes) || a.bytes <= 0 || typeof a.reason !== 'string' || !a.reason.trim() || typeof a.module !== 'string' || !exists(a.module)) {
+      if ((a?.locale !== undefined && !measuredLocales.includes(a.locale)) || !Number.isInteger(a?.bytes) || a.bytes <= 0 || typeof a.reason !== 'string' || !a.reason.trim() || typeof a.module !== 'string' || !exists(a.module)) {
         throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
       }
     }
     if (!list.length) throw new Error(`invalid route allowance for ${route}: bytes, reason and an existing module are required`);
-    return [route, { bytes: list.reduce((n, a) => n + a.bytes, 0), reason: list.map((a) => a.reason).join(' + '), modules: list.map((a) => a.module) }];
+    const localeLimits = Object.fromEntries(measuredLocales.map(locale => [
+      locale, list.filter(a => a.locale === locale).reduce((total, a) => total + a.bytes, 0),
+    ]));
+    return [route, { ...(list.some(a => a.locale) ? { localeLimits } : {}), bytes: list.reduce((n, a) => n + a.bytes, 0), reason: list.map((a) => a.reason).join(' + '), modules: list.map((a) => a.module) }];
   }));
 }
 
+let shipped;
 function shippedAllowances() {
   const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
-  return routeAllowances(read('./research-route-allowances.json'), (module) => existsSync(new URL(`../${module}`, import.meta.url)));
+  if (!shipped) {
+    const data = read('./research-route-allowances.json');
+    shipped = routeAllowances(data, module => existsSync(new URL('../' + module, import.meta.url)));
+    const { routes, bytes, measurement } = JSON.parse(data).landingPublicDictionaries;
+    if (!measurement.trim() || !measuredLocales.every(locale => Number.isSafeInteger(bytes[locale]) && bytes[locale] > 0)) {
+      throw new Error('Invalid landing dictionary measurement');
+    }
+    for (const route of routes) shipped[route].publicDictionaryLimits = bytes;
+    for (const allowance of Object.values(shipped)) allowance.introduction = Boolean(allowance.localeLimits);
+  }
+  return shipped;
 }
 
-export function checkResearchIsolation(rows, allowances = {}) {
+function checkLocaleGrowth(route, locale, limit, before, after, allowance) {
+  const count = (value) => {
+    if (!Number.isSafeInteger(value) || value < 0) throw new Error(`Invalid ${route} ${locale} resource measurement`);
+    return value;
+  };
+  const dictionaryLimit = allowance.publicDictionaryLimits?.[locale];
+  function outsideDictionary(parts) {
+    const total = count(parts?.[locale]);
+    if (dictionaryLimit === undefined) return total;
+    const dictionary = count(parts.alternatives?.[locale]?.localized[locale] ?? 0);
+    if (dictionary > total) throw new Error(`Invalid ${route} ${locale} dictionary measurement`);
+    return total - dictionary;
+  }
+  const dictionary = after?.alternatives?.[locale]?.localized[locale];
+  if (dictionaryLimit !== undefined && dictionary > dictionaryLimit) {
+    throw new Error(`${route} ${locale} public dictionary size ${dictionary} exceeds ${dictionaryLimit} bytes`);
+  }
+  const current = outsideDictionary(after);
+  const growth = current - outsideDictionary(before);
+  if (growth > limit) throw new Error(`${route} ${locale} resource growth ${growth} exceeds ${limit} bytes`);
+  if (allowance.introduction && current > limit) {
+    throw new Error(`${route} ${locale} resource size ${current} exceeds ${limit} bytes`);
+  }
+}
+
+export function checkResearchIsolation(rows, allowances = {}, beforeLocales, afterLocales) {
   const limit = (route) => RESEARCH_ISOLATION_BYTES + (allowances[route]?.bytes ?? 0);
   const grown = rows.filter((r) => r.growth > limit(r.route));
   if (grown.length) {
     throw new Error(grown.map((r) => `${r.route} grew: ${r.before} -> ${r.after} bytes (${limit(r.route)} byte tolerance${allowances[r.route] ? `, with ${allowances[r.route].bytes} allowed for ${allowances[r.route].reason}` : ''}, research isolation: the change touches research code shipped to the browser)`).join('\n'));
   }
+  for (const row of rows) {
+    const allowance = allowances[row.route];
+    if (!allowance?.localeLimits) continue;
+    const before = beforeLocales?.[row.route];
+    const after = afterLocales?.[row.route];
+    const limits = Object.entries(allowance.localeLimits);
+    for (const [locale, limit] of limits) {
+      checkLocaleGrowth(row.route, locale, limit, before, after, allowance);
+    }
+    const shared = (total, parts) => parts.shared ?? total - limits.reduce((sum, [locale]) => sum + parts[locale], 0);
+    const sharedBefore = shared(row.before, before);
+    const sharedAfter = shared(row.after, after);
+    const sharedLimit = allowance.bytes - limits.reduce((sum, [, limit]) => sum + limit, 0);
+    if (![sharedBefore, sharedAfter].every(Number.isSafeInteger) || sharedBefore > row.before || sharedAfter > row.after) throw new Error(`Invalid shared measurement for ${row.route}`);
+    if (sharedBefore < 0 || sharedAfter < 0) throw new Error(`Locale data exceeds total bytes for ${row.route}`);
+    if (after.alternatives || before.alternatives) {
+      if (!after.alternatives || !before.alternatives) throw new Error('Missing public dictionary measurements');
+      const sharedIn = chunk => chunk.bytes - measuredLocales.reduce((sum, locale) => sum + chunk.localized[locale], 0);
+      const commonGrowth = (sharedAfter - after.sharedAlternative) - (sharedBefore - before.sharedAlternative);
+      for (const [locale, chunk] of Object.entries(after.alternatives)) {
+        const previous = before.alternatives[locale];
+        const growth = commonGrowth + sharedIn(chunk) - (previous ? sharedIn(previous) : 0);
+        if (growth > sharedLimit + RESEARCH_ISOLATION_BYTES) {
+          throw new Error(row.route + ' ' + locale + ' shared bytes grew by ' + growth + ' (research isolation)');
+        }
+      }
+    }
+    if (sharedAfter - sharedBefore > sharedLimit + RESEARCH_ISOLATION_BYTES) {
+      throw new Error(`${row.route} shared bytes grew: ${sharedBefore} -> ${sharedAfter} (research isolation limit ${sharedLimit + RESEARCH_ISOLATION_BYTES})`);
+    }
+  }
 }
 
-export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances()) {
+export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances(), beforeLocales, afterLocales) {
   const rows = routeGrowth(baseline, measured);
-  if (isolation !== 'false') checkResearchIsolation(rows, allowances);
+  if (isolation !== 'false') checkResearchIsolation(rows, allowances, beforeLocales, afterLocales);
   return rows;
+}
+
+export function reviewPartitionedBaseline(previous, measured, localized, isolation, allowances) {
+  if (previous.version !== 3) throw new Error('Measure the base revision with this meter and --update');
+  for (const route of Object.keys(previous.routes)) {
+    for (const parts of [previous.localized?.[route], localized?.[route]]) {
+      if (!parts?.alternatives || !parts.publicPayload || !Number.isSafeInteger(parts.sharedAlternative) || !Number.isSafeInteger(parts.shared)) {
+        throw new Error('Invalid ' + route + ' resource measurement');
+      }
+      for (const chunk of Object.values(parts.alternatives)) {
+        const counts = measuredLocales.map(locale => chunk.localized?.[locale]);
+        if (![chunk.bytes, ...counts].every(n => Number.isSafeInteger(n) && n >= 0) || counts.reduce((a, b) => a + b, 0) > chunk.bytes) {
+          throw new Error('Invalid ' + route + ' dictionary measurement');
+        }
+      }
+    }
+  }
+  return reviewRouteGrowth(previous.routes, measured, isolation, allowances, previous.localized, localized);
+}
+
+export function reviewRouteBaseline(previous, measured, localized, isolation = process.env.RESEARCH_ISOLATION, allowances = shippedAllowances()) {
+  if (previous.version !== undefined) return reviewPartitionedBaseline(previous, measured, localized, isolation, allowances);
+  const sharedOnly = Object.fromEntries(Object.entries(allowances).map(([route, entry]) => [
+    route, { ...entry, localeLimits: undefined, bytes: entry.bytes - Object.values(entry.localeLimits ?? {}).reduce((sum, n) => sum + n, 0) },
+  ]));
+  return reviewRouteGrowth(previous.routes, measured, isolation, sharedOnly);
 }
 
 export function overCeilings(measured, ceilings) {

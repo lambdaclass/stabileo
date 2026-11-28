@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deflateRawSync } from 'node:zlib';
 import { resultChangeLocaleProblems } from './result-changes/locales.mjs';
-import { readRegistry } from './result-changes/registry.mjs';
+import { TRANSLATION_FILES, readRegistry } from './result-changes/registry.mjs';
 
 /** @returns {import('vite').Plugin} */
 export function resultChangeMetadataPlugin() {
@@ -15,6 +15,7 @@ export function resultChangeMetadataPlugin() {
     load(resolved) {
       const id = resolved.slice(1).split('?')[0];
       if (resolved[0] !== '\0' || !ids.includes(id)) return null;
+      for (const path of Object.values(TRANSLATION_FILES)) this.addWatchFile(fileURLToPath(new URL(`../../${path}`, import.meta.url)));
       for (const name of readdirSync(dir)) if (name.endsWith('.json')) this.addWatchFile(join(dir, name));
       /** @type {import('../src/lib/provenance/registry').ResultChangeRegistry} */
       const registry = readRegistry();

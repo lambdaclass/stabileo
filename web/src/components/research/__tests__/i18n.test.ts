@@ -25,7 +25,7 @@ it('preserves numeric values and interpolation tokens in research translations',
   try {
     setLocale('en');
     const english = rs();
-    for (const locale of ['es', 'pt', 'hu', 'zh']) {
+    for (const locale of ['es', 'pt', 'hu', 'it', 'zh', 'nl']) {
       setLocale(locale);
       const translated = rs();
       expect(translated.paperOverview).not.toBe(english.paperOverview);
@@ -56,7 +56,7 @@ it('preserves topology article numbers and translates every research string', ()
   expect(topoptStrings('de')).not.toBe(english);
 });
 
-it('formats numbers in all six public locales', async () => {
+it('formats numbers in every public locale', async () => {
   const { researchLocale } = await import('../i18n');
   const original = publicI18n.locale;
   try {

@@ -17,14 +17,12 @@ export const WHATS_NEW_STORAGE_KEY = 'stabileo-whats-new-seen';
 
 const NOTES_BASE = 'https://github.com/lambdaclass/stabileo/blob/main/docs/releases';
 
-const NOTES_LOCALES = ['es', 'pt', 'de', 'fr', 'tr'];
-NOTES_LOCALES.push('hu');
-NOTES_LOCALES.push('zh');
+const NOTES_LOCALES = ['es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh', 'it', 'nl'];
 
 /** The release notes in the reader's language (English for any locale without a translation). */
 export function releaseNotesUrl(locale: string, version: string = RESULTS_CHANGED_IN): string {
   const [major, minor] = version.split('.').map(Number);
-  const locales = major > 0 || minor >= 6 ? NOTES_LOCALES : ['es', 'pt'];
+  const locales = major > 0 || minor >= 6 ? NOTES_LOCALES : version === '0.4.0' ? ['es', 'pt', 'it', 'nl'] : ['es', 'pt'];
   const suffix = locales.includes(locale) ? `.${locale}` : '';
   return `${NOTES_BASE}/v${version}${suffix}.md`;
 }

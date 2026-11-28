@@ -9,9 +9,11 @@ import fullFr from '../src/lib/i18n/locales/full/fr';
 import fullTr from '../src/lib/i18n/locales/full/tr';
 import fullHu from '../src/lib/i18n/locales/full/hu';
 import fullZh from '../src/lib/i18n/locales/full/zh';
+import fullIt from '../src/lib/i18n/locales/full/it';
+import fullNl from '../src/lib/i18n/locales/full/nl';
 
-const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '中文' };
-const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR', hu: 'hu_HU', zh: 'zh_CN' };
+const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '中文', it: 'Italiano', nl: 'Nederlands' };
+const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR', hu: 'hu_HU', zh: 'zh_CN', it: 'it_IT', nl: 'nl_NL' };
 /** The Open Graph alternates a public page in `locale` declares: every other public language. */
 const ogAlternates = (locale: Locale) => BUILD_PUBLIC_LOCALES.filter((l) => l !== locale).map((l) => OG[l]);
 
@@ -69,6 +71,11 @@ const SECTIONS = [
   'pricing',
   'blog',
 ] as const;
+
+async function expectSectionOrder(page: Page) {
+  const sections = page.locator('.landing > section[data-section]');
+  await expect.poll(() => sections.evaluateAll(items => items.map(item => item.getAttribute('data-section')))).toEqual([...SECTIONS]);
+}
 
 async function bootWithHeroClock(page: Page) {
   await page.clock.install({ time: 0 });
@@ -227,10 +234,7 @@ test.describe('@landing landing page', () => {
   test('composes the expected section inventory, in order', async ({ page }) => {
     await bootLanding(page);
 
-    const order = await page
-      .locator('.landing > section[data-section]')
-      .evaluateAll((els) => els.map((el) => el.getAttribute('data-section')));
-    expect(order).toEqual([...SECTIONS]);
+    await expectSectionOrder(page);
 
     // The single public header persists outside the lazy page's scroll container.
     await expect(page.locator('nav.nav')).toHaveCount(1);
@@ -396,7 +400,7 @@ test.describe('@landing landing page', () => {
   });
 
   test('any other browser language gets the English landing', async ({ browser }) => {
-    const ctx = await browser.newContext({ locale: 'it-IT' });
+    const ctx = await browser.newContext({ locale: 'ja-JP' });
     const page = await ctx.newPage();
     await bootLanding(page, { manual: false });
     await expect(page.locator('.landing h1')).toHaveText('Structural analysis you can check.');
@@ -1169,22 +1173,19 @@ test.describe('@landing every language gets the whole deck', () => {
     es: 'Cómo pensamos sostener un proyecto abierto',
     en: 'How we plan to sustain an open project',
     pt: 'Como pensamos sustentar um projeto aberto',
-    de: fullDe['landing.pricingH'], fr: fullFr['landing.pricingH'], tr: fullTr['landing.pricingH'], hu: fullHu['landing.pricingH'], zh: fullZh['landing.pricingH'],
+    de: fullDe['landing.pricingH'], fr: fullFr['landing.pricingH'], tr: fullTr['landing.pricingH'], hu: fullHu['landing.pricingH'], zh: fullZh['landing.pricingH'], it: fullIt['landing.pricingH'], nl: fullNl['landing.pricingH'],
   };
 
   const FREE: Record<Locale, string> = {
     es: 'Gratis', en: 'Free', pt: 'Grátis',
-    de: fullDe['landing.priceFree'], fr: fullFr['landing.priceFree'], tr: fullTr['landing.priceFree'], hu: fullHu['landing.priceFree'], zh: fullZh['landing.priceFree'],
+    de: fullDe['landing.priceFree'], fr: fullFr['landing.priceFree'], tr: fullTr['landing.priceFree'], hu: fullHu['landing.priceFree'], zh: fullZh['landing.priceFree'], it: fullIt['landing.priceFree'], nl: fullNl['landing.priceFree'],
   };
 
   for (const locale of BUILD_PUBLIC_LOCALES) {
     test(`${locale}: ten sections, no raw keys, and a priced table`, async ({ page }) => {
       await bootLanding(page, { locale });
 
-      const order = await page
-        .locator('.landing > section[data-section]')
-        .evaluateAll((els) => els.map((el) => el.getAttribute('data-section')));
-      expect(order).toEqual([...SECTIONS]);
+      await expectSectionOrder(page);
 
       // A key that reached the page as text is a missing translation.
       const body = await page.locator('.landing').innerText();

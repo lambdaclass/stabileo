@@ -11,16 +11,17 @@
  *     resurrect exactly the half-translated state this exists to remove"
  *
  * That comment is a product commitment. This spec is the test of it: with `stabileo-lang` set to
- * `it` and the manual flag on (the state of a user who picked Italian when fourteen were listed),
+ * `ja` and the manual flag on (the state of a user who picked Japanese when fourteen were listed),
  * the app has to boot in a language it can actually sustain, and the metallic
  * surfaces have to read as one language rather than as a mixture.
  *
  * It matters for the metallic namespace specifically because those eleven dictionaries are NOT
  * empty: each already carries 22 `conn.*` labels written before the namespace existed. So the
- * failure mode is not "everything in English" — it is 22 Italian strings among 292 English ones,
+ * failure mode is not "everything in English" — it is 22 Japanese strings among 292 English ones,
  * inside the joints panel. See `docs/handoffs/m1-steel-i18n-audit.md` §1.3.
  */
 
+import japanese from '../src/lib/i18n/locales/ja';
 import { BUILD_OFFERED_LOCALES } from './build-locales';
 import { test, expect, PRO_URL, clickStage, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
@@ -59,16 +60,16 @@ function activeLocale(page: Page): Promise<string | null> {
 test.describe('a stored locale the app no longer offers', () => {
   test('does not survive the boot, for any of the eleven @smoke', async ({ page }) => {
     // One representative: the barrier is `isOfferedLocale`, which does not know which code it is refusing.
-    await bootWithStoredLocale(page, 'it');
+    await bootWithStoredLocale(page, 'ja');
     const settled = await activeLocale(page);
     expect(BUILD_OFFERED_LOCALES, `settled on ${settled}`).toContain(settled);
   });
 
   test('leaves the metallic panel reading as ONE language, not a mixture', async ({ page }) => {
-    await bootWithStoredLocale(page, 'it');
+    await bootWithStoredLocale(page, 'ja');
 
     // Generate a truss so the panel has rows, then read the joints panel — the one surface where
-    // a partial Italian dictionary would show through, because those 22 keys are its labels.
+    // a partial Japanese dictionary would show through, because those 22 keys are its labels.
     await openTab(page, 'generators');
     await pickGenerator(page, 'truss');
     await pickGenerator(page, 'truss');
@@ -79,19 +80,27 @@ test.describe('a stored locale the app no longer offers', () => {
     await expect(page.getByTestId('conn-experimental-banner')).toBeVisible();
 
     /*
-     * The 22 pre-existing keys, in Italian, are what a mixture would look like: `conn.verify` is
-     * "Check" in English and "Verifica" in the Italian dictionary.
+     * The 22 pre-existing keys, in Japanese, are what a mixture would look like: `conn.verify` is
+     * "Check" in English and "検定" in the Japanese dictionary.
      */
     const body = await page.getByTestId('conn-experimental-banner').innerText();
     expect(body.trim().length).toBeGreaterThan(20);
 
+    await expect(page.getByTestId('conn-sec-bolts').locator('.title')).toHaveText('Bolts');
+    await expect(page.getByTestId('conn-sec-welds').locator('.title')).toHaveText('Welds');
+
     const leak = await page.evaluate(() => {
       const root = document.querySelector('.conn-tab') ?? document.body;
       const text = root.textContent ?? '';
-      return ['Verifica', 'Bulloni', 'Saldatura', 'Rifollamento', 'Utilizzazione']
+      return ['検定', '支圧', '利用率']
         .filter((w) => text.includes(w));
     });
-    expect(leak, `Italian strings leaked: ${leak.join(', ')}`).toEqual([]);
+    expect(leak, `Japanese strings leaked: ${leak.join(', ')}`).toEqual([]);
+    const panel = page.locator('.conn-tab');
+    await expect(panel).toBeVisible();
+    for (const key of ['conn.verify', 'conn.bearing', 'conn.utilization', 'conn.boltCheck', 'conn.weldCheck']) {
+      await expect(panel).not.toContainText(japanese[key]);
+    }
   });
 
   test('renders no raw key on the metallic surfaces after falling back', async ({ page }) => {

@@ -78,7 +78,7 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
   const id = 'virtual:public-i18n';
   const app = 'virtual:app-i18n';
   const offered = (code: string) => buildPublicLocales(features().research).some(locale => locale === code);
-  const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
+  const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void, grouped = false) => {
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
     const pruneEntries = !eager();
@@ -99,6 +99,18 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
       const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => key.startsWith(prefix)) && (!publicAccountEntry || accounts);
       return publicEntry === publicOnly;
     });
+    if (grouped) {
+      const groups = new Map<string, string[]>();
+      for (const line of lines) {
+        const match = /^\s*(['"])([^.'"]+)\.([^'"]+)\1: (.*)$/.exec(line);
+        if (!match) throw new Error(`Invalid public translation entry in ${file}: ${line}`);
+        const [, , namespace, key, value] = match;
+        if (!groups.has(namespace)) groups.set(namespace, []);
+        groups.get(namespace)!.push(`${JSON.stringify(key)}: ${value}`);
+      }
+      return '{' + [...groups].map(([namespace, fields]) =>
+        `${JSON.stringify(namespace)}: {\n${fields.join('\n')}\n}`).join(',\n') + '}';
+    }
     return `{\n${lines.join('\n')}\n}`;
   };
   return {
@@ -108,19 +120,19 @@ function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): 
     },
     load(resolved) {
       const watch = (f: string) => this.addWatchFile(f);
-      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), true, watch)};\n`;
+      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), true, watch, resolved !== `\0${id}/en`)};\n`;
       if (resolved === `\0${app}` || resolved.startsWith(`\0${app}/`)) {
         const locale = resolved.slice(app.length + 2);
-        return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'])
+        return (locale ? [locale] : ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl'])
           .map((loc) => `export const ${loc} = ${offered(loc) ? entries(loc, false, watch) : '{}'};\n`).join('');
       }
       if (resolved !== '\0' + id) return null;
-      let out = '';
+      let out = eager() ? '' : "import { unpackPublicDictionary } from '/src/lib/i18n/public-dictionary';\n";
       const lazy: string[] = [];
-      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']) {
+      for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl']) {
         if (!offered(loc) || (!eager() && loc !== 'en')) {
           out += `export const ${loc} = {};\n`;
-          if (offered(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
+          if (offered(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)}).then(unpackPublicDictionary)`);
           continue;
         }
         out += `export const ${loc} = ${entries(loc, true, watch)};\n`;

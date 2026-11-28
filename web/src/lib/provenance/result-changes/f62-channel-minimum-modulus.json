@@ -1,0 +1,49 @@
+{
+  "id": "f62-channel-minimum-modulus",
+  "date": "2026-11-27",
+  "prs": [
+    2595
+  ],
+  "area": "design",
+  "when": {
+    "allOf": [
+      [
+        "steelCirsoc301"
+      ],
+      [
+        "steelChannelMembers"
+      ]
+    ]
+  },
+  "quantities": [
+    "steel"
+  ],
+  "title": {
+    "en": "F.6 reports the minimum weak-axis modulus of channels",
+    "es": "F.6 informa el módulo resistente mínimo del eje débil de los canales",
+    "pt": "F.6 informa o módulo resistente mínimo no eixo fraco dos canais",
+    "de": "F.6 gibt das kleinste Widerstandsmoment von U-Profilen um die schwache Achse an",
+    "fr": "F.6 indique le module de résistance minimal des profilés en U selon l’axe faible",
+    "tr": "F.6 kanal kesitlerin zayıf eksendeki en küçük mukavemet momentini bildirir",
+    "hu": "Az F.6 a csatornaszelvény gyenge tengelyéhez tartozó legkisebb keresztmetszeti tényezőt adja meg",
+    "it": "F.6 riporta il modulo resistente minimo dei canali rispetto all’asse debole",
+    "nl": "F.6: Sy om de zwakke as van een kanaalprofiel ontbreekt zonder geverifieerd weerstandsmoment",
+    "zh": "F.6 报告槽形截面绕弱轴的最小弹性截面模量"
+  },
+  "explanation": {
+    "en": "If you used Sy from the F.6 report for a channel, check the distance from the centroid to the farther flange edge. The report previously used half the width. It now requires a verified modulus and leaves Sy unavailable without one. This field was not used for the member capacity.",
+    "es": "Si usaste Sy del informe F.6 para un canal, revisá la distancia del centroide al borde más alejado. Antes se usaba la mitad del ancho. Ahora Sy requiere un módulo verificado y queda sin valor si falta. El campo no intervenía en la resistencia de la barra.",
+    "pt": "Se usou Sy do relatório F.6 para um canal, verifique a distância do centroide à borda mais afastada. Antes o relatório usava metade da largura. Agora Sy só é informado com um módulo verificado. O campo não participava do cálculo da resistência da barra.",
+    "de": "Wer Sy aus dem F.6-Bericht für ein U-Profil verwendet hat, sollte den Abstand vom Schwerpunkt zum ferneren Flanschrand prüfen. Zuvor wurde die halbe Breite verwendet. Ohne bestätigtes Widerstandsmoment bleibt Sy jetzt offen. Dieser Berichtswert ging nicht in die Stabtragfähigkeit ein.",
+    "fr": "Si vous avez utilisé Sy du rapport F.6 pour un profilé en U, vérifiez la distance entre le centre de gravité et le bord le plus éloigné. Le rapport utilisait la demi-largeur. Désormais Sy reste indisponible en l’absence de module vérifié. Ce champ ne servait pas au calcul de la résistance de la barre.",
+    "tr": "Bir kanal kesit için F.6 raporundaki Sy değerini kullandıysanız ağırlık merkezinden en uzak başlık kenarına olan mesafeyi kontrol edin. Önceden genişliğin yarısı kullanılıyordu. Doğrulanmış bir mukavemet momenti yoksa Sy artık verilmez. Bu alan eleman dayanımında kullanılmıyordu.",
+    "hu": "Ha csatornaszelvényhez az F.6 jelentés Sy értékét használta, ellenőrizze a súlypont és a távolabbi övszél távolságát. A jelentés korábban a szélesség felét használta. Igazolt keresztmetszeti tényező hiányában az Sy most nem érhető el. Ez a mező nem szerepelt a rúd teherbírásának számításában.",
+    "it": "Se hai usato Sy dal rapporto F.6 per un canale, verifica la distanza dal baricentro al bordo più lontano dell’ala. Il rapporto usava metà della larghezza. Ora Sy richiede un modulo verificato e resta indisponibile se manca. Il campo non interveniva nella resistenza dell’asta.",
+    "nl": "Bij gebruik van Sy uit het F.6-rapport voor een kanaalprofiel moet je de afstand van het zwaartepunt tot de verst verwijderde flensrand controleren. Het rapport gebruikte de halve breedte. Zonder geverifieerd weerstandsmoment is Sy nu niet beschikbaar. Dit veld speelde geen rol in de berekende staafcapaciteit.",
+    "zh": "如果使用过 F.6 报告中的槽形截面 Sy，请核查形心至最远翼缘边缘的距离。报告先前采用截面宽度的一半。现在仅在有经核实的截面模量时给出 Sy。该报告字段未用于构件承载力计算。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-f62-channel-modulus.md",
+    "heading": "Minimum weak-axis modulus in the F.6 channel report"
+  }
+}

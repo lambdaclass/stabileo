@@ -16,12 +16,12 @@ const original = publicI18n.locale;
 afterEach(() => setLocale(original));
 const empty = createRawSnippet(() => ({ render: () => '<p></p>' }));
 const header = (paperId: string) => render(ExperimentShell, { props: { paperId, name: 'N', lead: 'L', sourcePath: 'x', actions: { goToStep: () => {}, setParams: () => {}, showTab: () => {} }, article: empty, app: empty } }).body;
-const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu|Első változat|felülvizsgálati köre?\b/;
+const REVIEW_NOTE = /First version|Prima versione|Eerste versie|Revisieronde|Turno di revisione|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu|Első változat|felülvizsgálati köre?\b/;
 
 it('shows no first-version or review-round note in any paper header, while the catalogue keeps the records', () => {
   expect(reviewCount('mattiasson-elastica')).toBe(3);
   expect(reviewCount('newmark-1959')).toBe(2);
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']) {
+  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'it', 'zh', 'nl']) {
     setLocale(locale);
     for (const e of EXPERIMENTS) {
       const body = header(e.paperId);
@@ -38,4 +38,8 @@ it('keeps no first-version or review-round text in the article strings of any pa
       expect(strings, `${page} ${locale}`).not.toHaveProperty('stage');
     }
   }
+});
+
+it.each(['Prima versione', 'Eerste versie', 'Revisieronde', 'Turno di revisione'])('known wrong result: #2613 — detects the header %s', text => {
+  expect(text).toMatch(REVIEW_NOTE);
 });

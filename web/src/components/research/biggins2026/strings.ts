@@ -219,6 +219,40 @@ const hu: Strings = {
     "Euler f1 relative error": "Második Euler-teher"
   }
 };
+const it: Strings = {
+  resultParameters: "Parametri calcolati",
+  alpha: "Curvatura preferita α = Lκ₀",
+  force: "Sforzo normale f = NL²/EI (positivo: compressione; negativo: trazione)",
+  coordinates: "Incastrato a entrambe le estremità. Le coordinate sono x/L e w/L; α è la curvatura preferita moltiplicata per la luce L.",
+  referenceCaveat: "L’ottimizzatore predefinito degli autori e la quadratura del profilo rettangolare producono piccole irregolarità; il loro risultato al 70% è {software}, mentre l’articolo riporta {published}.",
+
+  title: 'Archi a scatto con disegno della curvatura',
+  lead: 'Cambia la larghezza di un tratto curvo e sposta la soglia a cui un arco ribassato passa da un lato all’altro.',
+  model: 'Dall’instabilità di Eulero a un salto di equilibrio',
+  theory: 'Un arco piatto incastrato immagazzina l’accorciamento delle estremità nella sua forma. Un disegno di curvatura preferita si accoppia ai suoi modi di instabilità. Le equazioni (2) e (3), pagine 3–4 di arXiv v2, danno l’equilibrio ad angolo ridotto e lo spettro di compressione. Limitiamo questo esperimento a un disegno rettangolare centrato.',
+  method: 'Il solutore di instabilità per telai 2D di produzione di Stabileo calcola 16 modi su 64 elementi. Uno strato di ricerca proietta la curvatura su questi modi e risolve il vincolo di compressione dell’articolo. Lo stesso codice Rust gira qui come WASM e genera la riproduzione.',
+  limits: 'Questo è un modello di equilibrio ribassato e inestensibile. Il salto collega stati di equilibrio; non simula la dinamica dello scatto né riproduce misure di laboratorio. L’arc-length nel motore di produzione rifiuta spostamenti imposti e carichi termici, quindi non viene usato per questo percorso guidato dalla curvatura. Sono coperti solo disegni centrati e piccoli accorciamenti delle estremità.',
+  evidence: 'A una larghezza stimolata del 70%, l’articolo dà α/√ε = {threshold} (arXiv v2 pagina 3, dopo l’Eq. 2). La sovrapposizione è rigenerata dal software ad angolo ridotto degli autori nel record Zenodo 18256271, con licenza CC-BY-4.0. È un riferimento numerico, non una validazione sperimentale.',
+  checks: 'Validazione e fonti',
+  checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Curva Zenodo: errore relativo massimo', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": 'Raffinamento della mesh e dei modi', "Euler f0 relative error": 'Primo carico di Eulero', "Euler f1 relative error": 'Secondo carico di Eulero'} as Record<string, string>,
+  publishedValue: 'Soglia pubblicata a larghezza 70%',
+  width: 'Larghezza stimolata γ',
+  compression: 'Accorciamento delle estremità ε',
+  threshold: 'Soglia di scatto α',
+  normalized: 'Soglia normalizzata α/√ε',
+  mode: 'Primo modo di instabilità antisimmetrico',
+  arch: 'Equilibrio dell’arco',
+  jump: 'Sequenza di equilibrio; il salto non ha durata fisica',
+  run: 'Ricalcola dal vivo', stop: 'Ferma', restart: 'Riavvia',
+  error: 'Il solutore non ha potuto caricarsi o completare. Il risultato precedente resta disponibile.',
+  computing: 'Calcolo con Stabileo…',
+  paper: 'Articolo ed equazioni supplementari',
+  data: 'Dati e software Zenodo',
+  ours: 'Modi di Stabileo + equazioni dell’arco ribassato',
+  reference: 'Software Zenodo degli autori',
+  parameterNotice: 'I risultati mostrati mantengono i parametri calcolati finché il ricalcolo non termina.',
+};
+
 const zh: Strings = {
   "title": "曲率分布诱发拱的突跳屈曲",
   "lead": "改变曲线段的宽度，移动浅拱换向的阈值。",
@@ -258,5 +292,44 @@ const zh: Strings = {
     "Euler f1 relative error": "第二 Euler 荷载"
   }
 };
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+const nl: Strings = {
+  "title": "Doorklappende bogen door krommingspatronen",
+  "lead": "Verander de breedte van een gekromd segment en verschuif de drempel waarbij een flauwe boog naar de andere kant omklapt.",
+  "model": "Van euler-knik naar een evenwichtssprong",
+  "theory": "Een aan beide uiteinden ingeklemde vlakke boog slaat de verkorting van de uiteinden op in zijn vorm. Een patroon van voorkeurskromming koppelt aan de knikvormen. Vergelijkingen (2) en (3), arXiv v2 pagina 3–4, geven het evenwicht bij kleine hoeken en het drukspectrum. We beperken dit experiment tot een gecentreerd rechthoekig patroon.",
+  "method": "De Stabileo-productiesolver voor 2D-raamwerkknik berekent 16 vormen op 64 elementen. Een onderzoekslaag projecteert de kromming op deze vormen en lost de drukvoorwaarde van het artikel op. Dezelfde Rust-code draait hier als WASM en genereert de weergave.",
+  "limits": "Dit is een evenwichtsmodel voor flauwe, onuitrekbare bogen. De sprong verbindt evenwichtstoestanden; hij simuleert de dynamica van het doorklappen niet en reproduceert geen laboratoriummetingen. De booglengtemethode van de productie-engine weigert opgelegde verplaatsingen en temperatuurbelasting en wordt daarom niet gebruikt voor dit door kromming gestuurde pad. Alleen gecentreerde patronen en kleine verkorting van de uiteinden worden behandeld.",
+  "evidence": "Bij een gestimuleerde breedte van 70% geeft het artikel α/√ε = {threshold} (arXiv v2 pagina 3, na vgl. 2). De overlay wordt opnieuw gegenereerd met de software voor kleine hoeken van de auteurs in Zenodo-record 18256271, onder licentie CC-BY-4.0. Het is een numerieke referentie, geen experimentele validatie.",
+  "checks": "Validatie en bronnen",
+  "publishedValue": "Gepubliceerde drempel bij 70% breedte",
+  "width": "Gestimuleerde breedte γ",
+  "compression": "Verkorting van de uiteinden ε",
+  "threshold": "Klapdrempel α",
+  "normalized": "Genormaliseerde drempel α/√ε",
+  "mode": "Eerste antisymmetrische knikvorm",
+  "arch": "Evenwicht van de boog",
+  "jump": "Reeks evenwichtstoestanden; de sprong heeft geen fysieke duur",
+  "run": "Live herberekenen",
+  "stop": "Stoppen",
+  "restart": "Opnieuw starten",
+  "error": "De solver kon niet laden of niet afronden. Het vorige resultaat blijft beschikbaar.",
+  "computing": "Berekenen met Stabileo…",
+  "paper": "Artikel en aanvullende vergelijkingen",
+  "data": "Zenodo-data en -software",
+  "ours": "Stabileo-vormen + vergelijkingen voor flauwe bogen",
+  "reference": "Zenodo-software van de auteurs",
+  "parameterNotice": "Getoonde resultaten behouden hun berekende parameters totdat de herberekening klaar is.",
+  "resultParameters": "Berekende parameters",
+  "alpha": "Voorkeurskromming α = Lκ₀",
+  "force": "Normaalkracht f = NL²/EI (positief: druk; negatief: trek)",
+  "coordinates": "Aan beide uiteinden ingeklemd. De coördinaten zijn x/L en w/L; α is de voorkeurskromming vermenigvuldigd met de overspanning L.",
+  "referenceCaveat": "De standaardoptimalisatie en de kwadratuur voor rechthoekige profielen van de auteurs geven kleine onregelmatigheden; hun uitvoer bij 70% is {software}, terwijl het artikel {published} vermeldt.",
+  "checkLabels": {
+    "max relative threshold error against 31 Zenodo software outputs": "Zenodo-curve: maximale relatieve fout",
+    "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Verfijning van elementennet en vormen",
+    "Euler f0 relative error": "Relatieve fout in de eerste eulerlast",
+    "Euler f1 relative error": "Relatieve fout in de tweede eulerlast"
+  }
+};
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, it, zh, nl };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

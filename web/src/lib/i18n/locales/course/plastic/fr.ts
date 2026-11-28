@@ -1,3 +1,4 @@
+import { axialPlasticWork } from './axial-work';
 import type { Translations } from '../../../types';
 
 const words: Translations = {
@@ -143,7 +144,7 @@ const words: Translations = {
   'course.plastic.mech.show': 'Dessiner le mécanisme',
   'course.plastic.mech.hide': 'Revenir aux moments',
   'course.plastic.mech.manyDof': 'Les rotules laissent {k} degrés de liberté ; on dessine le mouvement dans lequel les charges travaillent le plus.',
-  'course.plastic.mech.axialNote': 'Certaines barres se sont plastifiées en effort normal : leur travail Np·Δ entre aussi dans l\'équation, qui n\'est pas écrite ici.',
+  'course.plastic.mech.axialNote': `Certaines barres se sont plastifiées en effort normal : leur travail ${axialPlasticWork} entre aussi dans l'équation, qui n'est pas écrite ici.`,
   'course.plastic.mech.vwLead': 'Travaux virtuels avec ce mécanisme :',
   'course.plastic.mech.vwAgree': 'Le calcul pas à pas a donné λc = {lambda}.',
   'course.plastic.mech.vwDiffer': 'Ils ne concordent pas : le mécanisme de la figure n’est pas celui du calcul pas à pas. Vérifiez le modèle avant d’utiliser λc.',
