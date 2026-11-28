@@ -1473,12 +1473,14 @@ function prepared(meshed: number, cells: number, stale?: string[]): PlatePrepara
   return stale ? { ok: true, meshed, cells, stale } : { ok: true, meshed, cells };
 }
 
+const plateNames = (ids: readonly number[]) => ids.map(id => plateEntry(id)?.name ?? `#${id}`);
+
 /** Without meshing: a plate with no mesh, or whose mesh leaves nodes hanging on a neighbour, stops the solve; one whose mesh is only out of date solves on it and is named. */
-function unmeshedOrStale(need: number[], names: (ids: number[]) => string[]): PlatePreparation {
-  if (!unifiedPlates()) return { ok: false, reason: 'needsMesh', plates: names(need) };
+function unmeshedOrStale(need: number[]): PlatePreparation {
+  if (!unifiedPlates()) return { ok: false, reason: 'needsMesh', plates: plateNames(need) };
   const missing = need.filter((id) => { const e = plateStatus(id) === 'stale' ? plateEntry(id) : undefined; return !e || meshHangsNeighbours(e); });
-  if (missing.length) return { ok: false, reason: 'needsMesh', plates: names(missing) };
-  return prepared(0, 0, names(need));
+  if (missing.length) return { ok: false, reason: 'needsMesh', plates: plateNames(missing) };
+  return prepared(0, 0, plateNames(need));
 }
 
 function checkPreparedPlates(report: PlateMeshReport): PlatePreparation {
@@ -1493,21 +1495,28 @@ function checkPreparedPlates(report: PlateMeshReport): PlatePreparation {
   return prepared(report.plates, report.cells);
 }
 
+function preparationTargets(recognizePhysicalModel?: () => number): PlatePreparation | { ids: number[] } {
+  sheetPlacement?.applyPlacement();
+  const invalid = invalidPreparation();
+  if (invalid) return invalid;
+  if (recognizePhysicalModel?.()) {
+    const invalidRecognized = invalidPreparation();
+    if (invalidRecognized) return invalidRecognized;
+  }
+  const ids = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
+  if (!ids.length) return prepared(0, 0);
+  return meshBeforeAnalysis.value ? { ids } : unmeshedOrStale(ids);
+}
+
 /**
  * Mesh what an analysis needs and nothing else: the plates with no mesh or an out-of-date one,
  * each at its own settings, as one undo step. With meshing before the analysis turned off, says
  * which plates stop it instead. Runs once per solve, before its inputs are taken.
  */
 export function preparePlatesForAnalysis(): PlatePreparation {
-  sheetPlacement?.applyPlacement();
-  // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
-  const invalid = invalidPreparation();
-  if (invalid) return invalid;
-  const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
-  if (!need.length) return prepared(0, 0);
-  const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
-  if (!meshBeforeAnalysis.value) return unmeshedOrStale(need, names);
-  const r = applyMeshingRun(meshingRun(planPlateMeshesNow(need), true));
+  const targets = preparationTargets();
+  if ('ok' in targets) return targets;
+  const r = applyMeshingRun(meshingRun(planPlateMeshesNow(targets.ids), true));
   return checkPreparedPlates(r);
 }
 
@@ -1515,21 +1524,11 @@ export function preparePlatesForAnalysis(): PlatePreparation {
 export async function preparePlatesForAnalysisAsync(recognizePhysicalModel?: () => number): Promise<PlatePreparation> {
   // A mesh the plates' dialog started is let finish: two runs would write the model at once.
   while (meshProgress.now) await nextFrame();
-  sheetPlacement?.applyPlacement();
-  // Plates still on the coarse shells they came with are meshed when asked to; otherwise they solve as they came.
-  const invalid = invalidPreparation();
-  if (invalid) return invalid;
-  if (recognizePhysicalModel?.()) {
-    const invalidRecognized = invalidPreparation();
-    if (invalidRecognized) return invalidRecognized;
-  }
-  const need = platesNeedingMesh({ coarse: meshBeforeAnalysis.value });
-  if (!need.length) return prepared(0, 0);
-  const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
-  if (!meshBeforeAnalysis.value) return unmeshedOrStale(need, names);
+  const targets = preparationTargets(recognizePhysicalModel);
+  if ('ok' in targets) return targets;
   try {
-    const plans = await planPlateMeshes(need, undefined, { onProgress: (done, total) => setMeshProgress('planning', done, total) });
-    if (!plans) return { ok: false, reason: 'refused', plates: names(need) };
+    const plans = await planPlateMeshes(targets.ids, undefined, { onProgress: (done, total) => setMeshProgress('planning', done, total) });
+    if (!plans) return { ok: false, reason: 'refused', plates: plateNames(targets.ids) };
     const r = await applyMeshingRunAsync(meshingRun(plans, true), (done, total) => setMeshProgress('meshing', done, total));
     return checkPreparedPlates(r);
   } finally {

@@ -17,7 +17,7 @@ import { knownIssueRefusal } from './known-issues';
 import { noteSolve } from '../telemetry/instrument.svelte';
 import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
 import { ensurePhysicalModel } from '../store/plates-from-shells';
-import { physicalPlates, platesNeedingMesh, preparePlatesForAnalysisAsync } from '../store/physical-plates';
+import { physicalPlates, platesNeedingMesh, preparePlatesForAnalysis, preparePlatesForAnalysisAsync } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
 import { floorLoadBlockMessage, syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { spectralOrSay } from '../actions/solve';
@@ -126,7 +126,7 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
   // Floor loads kept as definitions, current before the guard is taken: the edit that started this
   // solve may not have been rewritten yet (`store/defined-loads.ts`).
   if (is3DWorkspace(analysisMode)) {
-    ensurePhysicalModel();
+    if (unifiedPlates()) ensurePhysicalModel();
     const blocked = floorLoadBlockMessage();
     if (blocked) {
       nextSolveGuard();
@@ -356,8 +356,8 @@ async function globalSolve(options: { directBase?: boolean }, run: { latest: () 
     }
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
-    run.step('mesh');
-    const p = await preparePlatesForAnalysisAsync(ensurePhysicalModel);
+    if (unifiedPlates()) run.step('mesh');
+    const p = unifiedPlates() ? await preparePlatesForAnalysisAsync(ensurePhysicalModel) : preparePlatesForAnalysis();
     if (!run.latest()) return { ok: false, error: t('results.editedDuringSolve') };
     if (!p.ok) {
       const error = 'error' in p ? p.error : tp({

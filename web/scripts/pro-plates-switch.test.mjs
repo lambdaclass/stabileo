@@ -882,13 +882,13 @@ test('known wrong result: #1928 a released solve cannot yield to a disabled prog
   }
 });
 
-test.skip('known wrong result: #1928 the published manual solve prepares plates through the synchronous mesh path', async () => {
+test('known wrong result: #1928 the published manual solve prepares plates through the synchronous mesh path', async () => {
   const entry = resolve(root, 'src/lib/engine/live-calc.ts');
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       const result = await build({ root, configFile, logLevel: 'silent', build: {
         write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
-          external: (id, from) => !!from && !id.endsWith('/features'),
+          external: (id, from) => !!from && !id.includes('/features'),
         },
       } });
       const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
