@@ -563,7 +563,7 @@ const ja: Translations = {
   'contact.waGreeting': "こんにちは！stabileo.com からご連絡しています。",
   'contact.linksLabel': "連絡先と SNS",
   'landing.pricePaid': "有料",
-  'landing.pricingFreeNowNote': "一部の専門モジュールは有料ですが、大学は無料で利用できます。",
+  'landing.pricingFreeNowNote': "一部の専門モジュールは有料で、大学ではそれらのモジュールを無料でご利用いただけます。",
   'landing.pricingAiNote': "Stabileo AI と大規模なクラウド計算は、大学を含むすべての方に有料で、かかる費用をまかなう価格に設定しています。",
   'landing.priceAtCost': "実費で有料",
   'landing.colUnis': "大学",
