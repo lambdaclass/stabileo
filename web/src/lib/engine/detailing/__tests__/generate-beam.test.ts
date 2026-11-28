@@ -206,6 +206,19 @@ describe('beam bar generation', () => {
     expect(cut[0].cuttingLength).toBeLessThan(cont.cuttingLength);
   });
 
+  it.skip.each(['I', 'J'] as const)('known wrong result: #2670 automatic bottom bars run into the support when a cut reaches face %s', side => {
+    const beam = input();
+    const bare = generateBeamBars(beam);
+    const limits = bare.cutoffs.slice(0, 2).map(cut => cut.actual);
+    const face = side === 'I' ? limits[0]! : beam.L - limits[1]!;
+    expect(face).toBeGreaterThan(0);
+    for (const shift of [-0.001, 0, 0.001]) {
+      const generated = generateBeamBars({ ...beam, [side === 'I' ? 'supportFaceI' : 'supportFaceJ']: face + shift });
+      expect(generated.bars.filter(bar => bar.id.includes('bot-cut'))).toHaveLength(shift < 0 ? 4 : 0);
+      expect(generated.bars.filter(bar => bar.id.includes('bot-run'))).toHaveLength(shift < 0 ? 0 : 4);
+    }
+  });
+
   it('runs bars through rather than inventing a cut-off when none exists', () => {
     // A flat envelope never drops to the retained level.
     const flat: MomentStation[] = Array.from({ length: 11 }, (_, i) =>
