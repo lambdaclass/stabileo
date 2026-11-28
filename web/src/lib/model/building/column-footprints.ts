@@ -59,8 +59,17 @@ export interface FootprintCells { ax: number; ay: number; element?: 'quad' | 'tr
  * columns given and at the `forced` coordinates; null when the corners are not such a rectangle.
  * Cells keep the panel's winding.
  */
-export function footprintGrid(corners: ReadonlyArray<{ x: number; y: number; z?: number }>, cell: number | FootprintCells, columns: readonly ColumnFootprint[], forced: { xs: readonly number[]; ys: readonly number[] } = { xs: [], ys: [] }): MeshOutput | null {
-  const { ax, ay, element = 'quad' } = typeof cell === 'number' ? { ax: cell, ay: cell } : cell;
+export function footprintGrid(corners: readonly FootprintCorner[], size: number, columns: readonly ColumnFootprint[]): MeshOutput | null {
+  return buildFootprintGrid(corners, columns, (a, b, faces) => sideStations(a, b, size, faces));
+}
+
+export type FootprintCorner = { x: number; y: number; z?: number };
+
+export function buildFootprintGrid(
+  corners: readonly FootprintCorner[], columns: readonly ColumnFootprint[],
+  stations: (a: number, b: number, faces: number[], axis: 'x' | 'y') => number[],
+  triangles?: (cells: number[][], corners: number[], i: number, j: number) => void,
+): MeshOutput | null {
   if (corners.length !== 4) return null;
   const z = corners[0]!.z ?? 0;
   if (corners.some((c) => Math.abs((c.z ?? 0) - z) > EPS)) return null;
@@ -70,8 +79,8 @@ export function footprintGrid(corners: ReadonlyArray<{ x: number; y: number; z?:
   const [x0, x1] = xs0 as [number, number], [y0, y1] = ys0 as [number, number];
   const inside = (c: ColumnFootprint) => c.x > x0 - c.hx - EPS && c.x < x1 + c.hx + EPS && c.y > y0 - c.hy - EPS && c.y < y1 + c.hy + EPS;
   const near = columns.filter(inside);
-  const xs = sideStations(x0, x1, ax, [...near.flatMap((c) => [c.x - c.hx, c.x + c.hx]), ...forced.xs]);
-  const ys = sideStations(y0, y1, ay, [...near.flatMap((c) => [c.y - c.hy, c.y + c.hy]), ...forced.ys]);
+  const xs = stations(x0, x1, near.flatMap(c => [c.x - c.hx, c.x + c.hx]), 'x');
+  const ys = stations(y0, y1, near.flatMap(c => [c.y - c.hy, c.y + c.hy]), 'y');
   // The panel's winding: positive signed area turns +X to +Y.
   let area = 0;
   for (let i = 0; i < 4; i++) { const p = corners[i]!, q = corners[(i + 1) % 4]!; area += p.x * q.y - q.x * p.y; }
@@ -83,17 +92,15 @@ export function footprintGrid(corners: ReadonlyArray<{ x: number; y: number; z?:
     for (let i = 0; i + 1 < xs.length; i++) {
       const q = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
       const c = area > 0 ? q : [q[0]!, q[3]!, q[2]!, q[1]!];
-      if (element === 'quad') { cells.push(c); continue; }
-      // Diagonals alternate cell by cell, so the mesh has no preferred direction.
-      if ((i + j) % 2 === 0) cells.push([c[0]!, c[1]!, c[2]!], [c[0]!, c[2]!, c[3]!]);
-      else cells.push([c[0]!, c[1]!, c[3]!], [c[1]!, c[2]!, c[3]!]);
+      if (triangles) triangles(cells, c, i, j);
+      else cells.push(c);
     }
   }
   const boundary = new Set<number>();
   for (let j = 0; j < ys.length; j++) for (let i = 0; i < xs.length; i++) {
     if (i === 0 || j === 0 || i === xs.length - 1 || j === ys.length - 1) boundary.add(at(i, j));
   }
-  return { points, cells, structured: element === 'quad', boundary, plane: { o: [x0, y0, z], u: [1, 0, 0], v: [0, 1, 0] } };
+  return { points, cells, structured: !triangles, boundary, plane: { o: [x0, y0, z], u: [1, 0, 0], v: [0, 1, 0] } };
 }
 
 /** The columns that reach the floor at elevation `z`: every vertical bar with a node there, by its plan section. */

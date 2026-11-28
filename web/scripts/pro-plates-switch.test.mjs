@@ -794,13 +794,13 @@ test('known wrong result: #1928 the building slab controls load only the mesh co
   }
 });
 
-test.skip('known wrong result: #1928 the published deferred-column footprint grid excludes the unified triangle subdivision', async () => {
+test('known wrong result: #1928 the published deferred-column footprint grid excludes the unified triangle subdivision', async () => {
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       const entry = resolve(root, 'src/lib/model/building/deferred-slabs.ts');
       const result = await build({ root, configFile, logLevel: 'silent', build: {
         write: false, minify: false, lib: { entry, formats: ['es'] }, rollupOptions: {
-          external: (id, from) => !!from && !id.endsWith('/column-footprints'),
+          external: (id, from) => !!from && !id.includes('/column-footprints'),
         },
       } });
       const chunk = (Array.isArray(result) ? result[0] : result).output.find(x => x.type === 'chunk');

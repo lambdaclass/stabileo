@@ -1,3 +1,4 @@
+import { physicalFootprintGrid } from '../model/building/physical-footprint-grid';
 import { cellPressureDefinitions, hasLocalCellProperties, pressureFollowsMesh } from '../model/physical/mesh-cell-fields';
 import { scenarioSurfaceIntentOf } from '../engine/accounting-source';
 import { unifiedPlates } from '../features';
@@ -900,7 +901,7 @@ function footprintMesh(f: NonNullable<ReturnType<typeof featuresOf>>, fp: NonNul
   if (segments.some(([a, b]) => Math.abs(a[0] - b[0]) > 1e-6 && Math.abs(a[1] - b[1]) > 1e-6)) return null;
   const points = follow ? follow.points : [...f.neighbours].map(v3).filter((p): p is Vec3 => !!p && onLoops(loops, p));
   const ends = segments.flat(), lines = tartanXY(spec, cells);
-  const mesh = footprintGrid(fp.corners, { ...cells, ...(lines?.xs ? { ax: Infinity } : {}), ...(lines?.ys ? { ay: Infinity } : {}) }, fp.columns, {
+  const mesh = physicalFootprintGrid?.(fp.corners, { ...cells, ...(lines?.xs ? { ax: Infinity } : {}), ...(lines?.ys ? { ay: Infinity } : {}) }, fp.columns, {
     xs: [...[...points, ...ends].map((p) => p[0]), ...(lines?.xs ?? [])],
     ys: [...[...points, ...ends].map((p) => p[1]), ...(lines?.ys ?? [])],
   });
@@ -1102,9 +1103,9 @@ function withSharedMesh(p: ReadyPlateMesh, mesh: MeshOutput): ReadyPlateMesh {
 function footprintRefined(p: ReadyPlateMesh, outer: readonly Vec3[], fixedPoints: readonly Vec3[]): MeshOutput | null {
   const grid = gridOfSpec(p.spec), alongX = (p.aDir?.[0] ?? 1) !== 0;
   const a = grid?.a ?? p.spec.size, b = grid?.b ?? p.spec.size, cells = { ax: alongX ? a : b, ay: alongX ? b : a }, lines = tartanXY(p.spec, cells);
-  return footprintGrid(outer.map(([x, y, z]) => ({ x, y, z })), { ax: lines?.xs ? Infinity : cells.ax, ay: lines?.ys ? Infinity : cells.ay, element: p.spec.element }, p.footprints!.columns, {
+  return physicalFootprintGrid?.(outer.map(([x, y, z]) => ({ x, y, z })), { ax: lines?.xs ? Infinity : cells.ax, ay: lines?.ys ? Infinity : cells.ay, element: p.spec.element }, p.footprints!.columns, {
     xs: [...fixedPoints.map((q) => q[0]), ...(lines?.xs ?? [])], ys: [...fixedPoints.map((q) => q[1]), ...(lines?.ys ?? [])],
-  });
+  }) ?? null;
 }
 
 /**

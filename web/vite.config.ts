@@ -68,6 +68,12 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (features.proPlatesUnified && importer && id.endsWith('/physical-footprint-grid') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/model/building/physical-footprint-grid')) {
+          return resolve(__dirname, 'src/lib/model/building/unified-footprint-grid.ts');
+        }
+        if (features.proPlatesUnified && id === './slab-mesh-commands' && importer && dirname(importer) === resolve(__dirname, 'src/components/pro/building')) {
+          return resolve(dirname(importer), 'unified-slab-mesh-commands.ts');
+        }
         if (features.proRcSheets && id === './sheet-option-reader' && importer && dirname(importer) === resolve(__dirname, 'src/lib/model')) {
           return resolve(dirname(importer), 'active-sheet-option-reader.ts');
         }
