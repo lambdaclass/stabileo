@@ -80,7 +80,7 @@ it('applies the sheet limits only to the active read model and keeps unstated de
   for (const key of Object.keys(ranges)) expect(JSON.parse(serializeProject()).snapshot.designData).not.toHaveProperty(key);
 });
 
-it.skip.each(openers)('known wrong result: #1928 %s preserves the order of reinforcement lists while both consumers are absent', async opener => {
+it.each(openers)('known wrong result: #1928 %s preserves the order of reinforcement lists while both consumers are absent', async opener => {
   const savedLists = { wallDiametersMm: [12, 8, 12], slabDiametersMm: [10, 8, 10] };
   await openDesignData(opener, { ...savedLists, wallBarDiaMm: 10 });
   patchDesignData({ rebarGrade: 'reviewed grade' });

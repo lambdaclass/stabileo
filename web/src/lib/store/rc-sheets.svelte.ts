@@ -1,3 +1,4 @@
+import { SLAB_MESH_DIAMETERS } from '../model/reinforcement-bars';
 import { sheetAssumptionDefaults } from '../model/sheet-design-assumptions';
 import { sheetStairs } from './rc-sheets-stairs';
 import type { StairRow } from '../rc-sheets/stair-row';
@@ -672,7 +673,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   }
   const joint = { fc: (r: ColumnRow) => fcOfElements(groupOf(r.key)?.members.elements), beamFc: (b: BeamRow) => fcOfElements(groupOf(b.key)?.members.elements), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() };
   if (seismic) column = strongColumns(column, beam, joint, (minMn) => { below.clear(); return D.columns.map((d) => columnAt(d, minMn)); });
-  const slabBars = listIn(dd.slabDiametersMm, SLAB_BAR_RANGE);
+  const slabBars = listIn(dd.slabDiametersMm ?? SLAB_MESH_DIAMETERS, SLAB_BAR_RANGE);
   const baseFaces = Object.entries(dd.slabBase ?? {}).filter((x): x is [string, { diameter: number; spacing: number }] => !!x[1]);
   const slabBase = baseFaces.length ? { base: Object.fromEntries(baseFaces.map(([k, v]) => [k, { dia: v.diameter, spacing: v.spacing }])) } : {};
   const slab: SlabRow[] = [];

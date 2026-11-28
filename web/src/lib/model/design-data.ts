@@ -61,13 +61,13 @@ export interface ProjectDesignData {
   longDiametersMm: number[];
   stirrupDiametersMm: number[];
   /** The diameters a slab's meshes may choose from, mm, within `SLAB_BAR_RANGE`. */
-  slabDiametersMm: number[];
+  slabDiametersMm?: number[];
   /** The closest spacing stirrups, hoops and ties are proposed at, mm: room for the concrete to pass between them. */
   minTieSpacingMm?: number;
   /** The nominal size of the largest aggregate, mm: the 4/3·dagg of the clear spacing between bars (§25.2.1, §25.2.3; dg in EN 1992 8.2(2)). */
   maxAggregateMm?: number;
   /** The diameters a wall's meshes may choose from, mm, within `WALL_BAR_RANGE`. */
-  wallDiametersMm: number[];
+  wallDiametersMm?: number[];
   /** The wall bar a design without the list reads, mm: from `wallDiametersMm` (`preferredBar`), never stated. */
   wallBarDiaMm: number;
   /** The allowable bearing pressure footings are presized for where the model states no soil, kPa: a presumption to confirm with the soil study. */
@@ -179,9 +179,28 @@ export const BAR_DIAMETERS_MM: readonly number[] = REBAR_DB.map((r) => r.diamete
 export const preferredBar = (list: readonly number[], usual: number): number =>
   list.includes(usual) ? usual : [...list].sort((p, q) => p - q).find((x) => x > usual) ?? Math.max(...list);
 
+export function usesMeshBarLists(): boolean {
+  return unifiedPlates() || readSheetOptions !== undefined;
+}
+
+function knownBarList(list: unknown, fallback: number[], range?: { min: number; max: number }): number[] {
+  if (!Array.isArray(list)) return fallback;
+  const valid = list.filter((value): value is number => BAR_DIAMETERS_MM.includes(value) && (!range || inRange(value, range)));
+  return valid.length ? [...new Set(valid)].sort((a, b) => a - b) : fallback;
+}
+
+function meshBarLists(source: Record<string, unknown> = {}) {
+  if (!usesMeshBarLists()) return undefined;
+  return {
+    slab: knownBarList(source.slabDiametersMm, [...SLAB_MESH_DIAMETERS], SLAB_BAR_RANGE),
+    wall: knownBarList(source.wallDiametersMm, BAR_DIAMETERS_MM.filter(d => inRange(d, WALL_BAR_RANGE) && d <= 16), WALL_BAR_RANGE),
+  };
+}
+
 export function defaultDesignData(): ProjectDesignData {
   const assumptions = readSheetAssumptions?.();
-  const stirrups = BAR_DIAMETERS_MM.filter((d) => d <= 12), walls = BAR_DIAMETERS_MM.filter((d) => inRange(d, WALL_BAR_RANGE) && d <= 16);
+  const meshBars = meshBarLists();
+  const stirrups = BAR_DIAMETERS_MM.filter(d => d <= 12);
   return {
     version: 1,
     rebarGrade: 'ADN 420', rebarFy: 420,
@@ -192,10 +211,10 @@ export function defaultDesignData(): ProjectDesignData {
     exposure: { beam: 'interior', column: 'interior', slab: 'interior', wall: 'interior', footing: 'ground' },
     longDiametersMm: BAR_DIAMETERS_MM.filter((d) => d >= 10),
     stirrupDiametersMm: stirrups,
-    slabDiametersMm: [...SLAB_MESH_DIAMETERS],
+    ...(meshBars && { slabDiametersMm: meshBars.slab }),
     ...assumptions?.detailing,
-    wallDiametersMm: walls,
-    wallBarDiaMm: preferredBar(walls, 12),
+    ...(meshBars && { wallDiametersMm: meshBars.wall }),
+    wallBarDiaMm: 12,
     ...assumptions?.foundation,
   };
 }
@@ -222,8 +241,8 @@ export const minimumCoverFor = (d: ProjectDesignData, kind: DesignKind): number 
 /** The largest bar a kind of element takes under these data, mm: from the bars its rows choose among, not another family's. */
 export function largestBar(d: ProjectDesignData, kind: DesignKind): number {
   if (!unifiedPlates()) return kind === 'wall' ? d.wallBarDiaMm : Math.max(0, ...d.longDiametersMm);
-  if (kind === 'wall') return Math.max(...d.wallDiametersMm);
-  if (kind === 'slab') return Math.max(...d.slabDiametersMm);
+  if (kind === 'wall') return Math.max(...(d.wallDiametersMm ?? [d.wallBarDiaMm]));
+  if (kind === 'slab') return Math.max(...(d.slabDiametersMm ?? SLAB_MESH_DIAMETERS));
   const range = kind === 'beam' ? BEAM_BAR_RANGE : kind === 'column' ? COLUMN_BAR_RANGE : null;
   const own = range ? d.longDiametersMm.filter((x) => inRange(x, range)) : d.longDiametersMm;
   return Math.max(0, ...(own.length ? own : d.longDiametersMm));
@@ -248,19 +267,15 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
   if (!raw || typeof raw !== 'object') return def;
   const e = raw as Record<string, unknown>;
   const pos = (v: unknown, fb: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : fb);
-  const known = (list: unknown, fb: number[]) => {
-    const l = Array.isArray(list) ? [...new Set(list.filter((x): x is number => BAR_DIAMETERS_MM.includes(x as number)))].sort((a, b) => a - b) : [];
-    return l.length ? l : fb;
-  };
   const byKind = <T>(v: unknown, fb: Record<DesignKind, T>, ok: (x: unknown) => x is T): Record<DesignKind, T> => {
     const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
     return Object.fromEntries(DESIGN_KINDS.map((k) => [k, ok(o[k]) ? o[k] : fb[k]])) as Record<DesignKind, T>;
   };
   const assumptions = readSheetAssumptions?.(e);
-  const stirrups = known(e.stirrupDiametersMm, def.stirrupDiametersMm);
-  const walls = known(Array.isArray(e.wallDiametersMm) ? e.wallDiametersMm.filter((x) => inRange(x as number, WALL_BAR_RANGE)) : undefined, def.wallDiametersMm);
-  const selectedBar = (stored: unknown, allowed: number[], fallback: number) => {
-    if (unifiedPlates()) return preferredBar(allowed, fallback);
+  const stirrups = knownBarList(e.stirrupDiametersMm, def.stirrupDiametersMm);
+  const meshBars = meshBarLists(e);
+  const selectedBar = (stored: unknown, allowed: number[] | undefined, fallback: number) => {
+    if (unifiedPlates() && allowed) return preferredBar(allowed, fallback);
     return typeof stored === 'number' && BAR_DIAMETERS_MM.includes(stored) ? stored : fallback;
   };
   return {
@@ -270,12 +285,12 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     stirrupDiaMm: selectedBar(e.stirrupDiaMm, stirrups, def.stirrupDiaMm),
     covers: byKind(e.covers, def.covers, (x): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 0),
     exposure: byKind(e.exposure, def.exposure, (x): x is Exposure => x === 'interior' || x === 'exterior' || x === 'ground'),
-    longDiametersMm: known(e.longDiametersMm, def.longDiametersMm),
+    longDiametersMm: knownBarList(e.longDiametersMm, def.longDiametersMm),
     stirrupDiametersMm: stirrups,
-    slabDiametersMm: known(Array.isArray(e.slabDiametersMm) ? e.slabDiametersMm.filter((x) => inRange(x as number, SLAB_BAR_RANGE)) : undefined, def.slabDiametersMm),
+    ...(meshBars && { slabDiametersMm: meshBars.slab }),
     ...assumptions?.detailing,
-    wallDiametersMm: walls,
-    wallBarDiaMm: selectedBar(e.wallBarDiaMm, walls, def.wallBarDiaMm),
+    ...(meshBars && { wallDiametersMm: meshBars.wall }),
+    wallBarDiaMm: selectedBar(e.wallBarDiaMm, meshBars?.wall, def.wallBarDiaMm),
     ...assumptions?.foundation,
     ...((l) => (l ? { propertyLines: l } : {}))(propertyLinesOf(e.propertyLines)),
     ...assumptions?.elevation,

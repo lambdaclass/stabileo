@@ -42,7 +42,7 @@
     return on.length ? on.join(' · ') : t('designData.slabBaseNone');
   });
   const toggle = (key: ListKey, dia: number) => {
-    const list = d[key];
+    const list = d[key] ?? [];
     const next = list.includes(dia) ? list.filter((x) => x !== dia) : [...list, dia].sort((a, b) => a - b);
     if (next.length > 0) patchDesignData({ [key]: next } as Partial<ProjectDesignData>);
   };
@@ -87,7 +87,7 @@
       <div class="dd-sub">{t(l.label)}</div>
       <div class="dd-chips">
         {#each BAR_DIAMETERS_MM.filter((x) => inRange(x, l.range)) as dia}
-          <button class="dd-chip" class:on={d[l.key].includes(dia)} aria-pressed={d[l.key].includes(dia)} onclick={() => toggle(l.key, dia)} data-testid="design-data-{l.id}-{dia}">Ø{dia}</button>
+          <button class="dd-chip" class:on={d[l.key]?.includes(dia)} aria-pressed={d[l.key]?.includes(dia)} onclick={() => toggle(l.key, dia)} data-testid="design-data-{l.id}-{dia}">Ø{dia}</button>
         {/each}
       </div>
     {/each}

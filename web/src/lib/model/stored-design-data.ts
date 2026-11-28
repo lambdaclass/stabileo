@@ -1,7 +1,7 @@
 import { retainedSheetOptions } from './retained-sheet-options';
 import { readSheetOptions } from './sheet-option-reader';
 import { unifiedPlates } from '../features';
-import { DESIGN_KINDS, migrateDesignData, type StoredDesignData } from './design-data';
+import { DESIGN_KINDS, migrateDesignData, usesMeshBarLists, type StoredDesignData } from './design-data';
 
 const sheetAssumptionKeys = ['minTieSpacingMm', 'maxAggregateMm', 'presumedBearingKPa', 'presumedPile', 'foundingElevation'] as const;
 export type ArchivedSheetAssumptions = Partial<Record<(typeof sheetAssumptionKeys)[number], unknown>>;
@@ -23,6 +23,9 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
     const own = e[k] && typeof e[k] === 'object' ? e[k] as Record<string, unknown> : {};
     const kinds = DESIGN_KINDS.filter((kind) => kind in own && full[k][kind] === own[kind]);
     if (kinds.length) out[k] = Object.fromEntries(kinds.map((kind) => [kind, full[k][kind]]));
+  }
+  if (!usesMeshBarLists()) {
+    for (const key of ['slabDiametersMm', 'wallDiametersMm'] as const) if (Object.hasOwn(e, key)) out[key] = e[key];
   }
   if (!readSheetOptions) {
     for (const key of sheetAssumptionKeys) {

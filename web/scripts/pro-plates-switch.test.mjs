@@ -929,3 +929,22 @@ for (const component of ['advanced/ModalCertificate', 'ResultSelfChecks', 'pro/P
     }
   });
 }
+
+test('either reinforcement consumer reads the stored mesh bar lists; only the unified editor derives the wall bar', async () => {
+  for (const plates of [false, true]) {
+    for (const sheets of [false, true]) {
+      await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates, proRcSheets: sheets }, async configFile => {
+        const entry = resolve(root, 'src/lib/model/design-data.ts');
+        const probe = resolve(root, '.mesh-bar-probe.mjs');
+        const result = await build({ root, configFile, logLevel: 'silent',
+          plugins: [{ name: 'mesh-bar-probe', resolveId: id => id === probe ? '\0' + probe : null, load: id => id === '\0' + probe
+            ? `import { migrateDesignData } from ${JSON.stringify(entry)}; const d = migrateDesignData({ slabDiametersMm: [10, 8, 10], wallDiametersMm: [12, 8, 12], wallBarDiaMm: 10 }); export default [d.slabDiametersMm, d.wallDiametersMm, d.wallBarDiaMm, d.presumedBearingKPa !== undefined];` : null }],
+          build: { write: false, lib: { entry: probe, formats: ['es'] } },
+        });
+        const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
+        const { default: read } = await import('data:text/javascript;base64,' + Buffer.from(chunk.code).toString('base64'));
+        assert.deepEqual(read, [plates || sheets ? [8, 10] : undefined, plates || sheets ? [8, 12] : undefined, plates ? 12 : 10, sheets]);
+      });
+    }
+  }
+});
