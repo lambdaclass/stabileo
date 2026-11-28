@@ -216,18 +216,6 @@
     setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 600);
   }
 
-  /* ── The phone's command grid ──────────────────────────────────────────
-  /*
-   * The phone shell, built ONCE and handed to both halves.
-   *
-   * The pills render outside `.pro-content` and the grid inside it, so they cannot be one
-   * element — and the pills decide what the grid shows, so the state cannot live in either.
-   * `lib/pro/phone-shell.svelte.ts` holds it, and explains why neither component builds the
-   * stage context for itself: the copy that already shipped threw on mount.
-   *
-   * `handleSolve` is passed rather than `runGlobalSolve` because the pre-solve gate is this
-   * panel's own refusal and stays here.
-   */
   const shell = createPhoneShell({
     hasModel: () => hasModel,
     solving: () => solving,

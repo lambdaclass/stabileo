@@ -23,6 +23,9 @@ it('known wrong result: #1928 the direct text and model readers open the steel b
 });
 
 it('describes the loads supplied by each steel gallery card', () => {
+  const ids = PRO_EXAMPLES.map(card => card.id);
+  expect(ids.length).toBeGreaterThan(10);
+  expect(new Set(ids).size).toBe(ids.length);
   const id = 'pro-steel-building-slabs';
   const published = publishedBuildingExamples.find(card => card.id === id)!;
   expect(published.loads).toBe('model');
