@@ -1027,10 +1027,10 @@ test('known wrong result: #1928 published containment does not initialize groupe
   }
 });
 
-test.skip('known wrong result: #1928 ordinary machine listings use the shared BVBS writer without loading sheet schedules', async () => {
+test('known wrong result: #1928 ordinary machine listings use the shared BVBS writer without loading sheet schedules', async () => {
   const entry = resolve(root, 'src/lib/store/listing-export.ts');
   const result = await build({ root, logLevel: 'silent', build: { write: false, lib: { entry, formats: ['es'] },
-    rollupOptions: { external: (id, from) => !!from && !id.endsWith('/bvbs') },
+    rollupOptions: { external: (id, from) => !!from && !/\/bvbs(?:\.ts)?$/.test(id) },
   } });
   const chunk = (Array.isArray(result) ? result[0] : result).output.find(item => item.type === 'chunk');
   assert.ok(chunk.code.includes('BF2D@Hj'));

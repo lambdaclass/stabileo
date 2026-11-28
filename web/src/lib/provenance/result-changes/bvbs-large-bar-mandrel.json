@@ -1,0 +1,35 @@
+{
+  "id": "bvbs-large-bar-mandrel",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "design",
+  "when": {
+    "all": [
+      "largeBvbsMark"
+    ]
+  },
+  "title": {
+    "en": "BVBS bend diameter for large bars",
+    "es": "Diámetro de mandril BVBS para barras grandes",
+    "pt": "Diâmetro de mandril BVBS para barras grossas",
+    "de": "BVBS-Biegedurchmesser für große Stabdurchmesser",
+    "fr": "Diamètre de cintrage BVBS des grosses barres",
+    "hu": "Nagy átmérőjű rudak BVBS hajlítási átmérője",
+    "tr": "Büyük çaplı çubuklar için BVBS büküm çapı",
+    "zh": "大直径钢筋的 BVBS 弯芯直径"
+  },
+  "explanation": {
+    "en": "Review the bend diameter of large bars and regenerate the machine files before fabrication.",
+    "es": "Revise el diámetro del mandril de las barras grandes y vuelva a generar los archivos de máquina antes de la fabricación.",
+    "pt": "Verifique o mandril das barras grossas e gere novamente os arquivos da máquina antes da fabricação.",
+    "de": "Prüfen Sie den Biegerollendurchmesser großer Stäbe und erzeugen Sie die Maschinendateien vor der Fertigung neu.",
+    "fr": "Vérifiez le mandrin des grosses barres et régénérez les fichiers machine avant la fabrication.",
+    "hu": "Gyártás előtt ellenőrizze a vastag rudak hajlítótüskéjét, és készítse el újra a gépi fájlokat.",
+    "tr": "İmalattan önce büyük çaplı çubukların büküm çapını kontrol edip makine dosyalarını yeniden oluşturun.",
+    "zh": "加工前核对大直径钢筋的弯芯直径，并重新生成机器文件。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-bvbs-large-bar-mandrel.md",
+    "heading": "Machine bend diameter for large reinforcement bars"
+  }
+}
