@@ -274,9 +274,10 @@ export function statedSelfWeightCaseId(): number | null {
 
 export function serializeProject(): string {
   const file = buildProjectFile();
+  if (!unifiedPlates()) return JSON.stringify(file);
   const detailing = file.snapshot.detailing;
   const refusals = detailing?.designRefusals;
-  const compact = unifiedPlates() && refusals && compactDesignRefusals(refusals);
+  const compact = refusals && compactDesignRefusals(refusals);
   if (!compact) return JSON.stringify(file);
   return JSON.stringify({
     ...file,
