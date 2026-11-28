@@ -261,3 +261,22 @@ it.skip.each([false, true])('known wrong result: #1928 replacing planned loads k
   expect.soft(modelStore.model.groups.has(definition)).toBe(true);
   expect(modelStore.loads.some(l => l.data.id === example.data.id)).toBe(false);
 });
+
+it.skip('known wrong result: #1928 the preview identifies owned floor definitions before replacing them', async () => {
+  const { previewLoadPlan } = await import('../apply-load-plan');
+  frame();
+  const p = buildLoadPlan(planInput());
+  const opts = { clearExisting: true, bothSenses: true, nameOf };
+  applyLoadPlan(p, opts);
+  const caseId = modelStore.loads.find(l => l.type === 'distributed3d')!.data.caseId!;
+  const def = { caseId, q: 1, distribution: 'slab', target: { by: 'own' } };
+  const own = modelStore.addGroup('Planner pressure', 'floorLoad', {}, { data: { ...def, generatedBy: p.generatedBy } });
+  const other = modelStore.addGroup('Independent pressure', 'floorLoad', {}, { data: { ...def, generatedBy: 'arch:rooms' } });
+  const preview = (replaceExisting: boolean) => previewLoadPlan(p, nameOf, { replaceExisting, bothSenses: true }).warnings;
+  const key = 'loadPlan.warning.replacedDefinitions';
+  expect.soft(preview(true).filter(w => w.key === key)).toMatchObject([{ params: { n: 1 } }]);
+  expect(preview(false).some(w => w.key === key)).toBe(false);
+  applyLoadPlan(p, opts);
+  expect(modelStore.model.groups.has(own)).toBe(false);
+  expect(modelStore.model.groups.has(other)).toBe(true);
+});
