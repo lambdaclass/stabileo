@@ -178,7 +178,7 @@ it('keeps a constraint when its saved footprint record no longer matches the con
 });
 
 
-it.skip.each([false, true])('known wrong result: #2670 model code replaces footprint ownership with the imported constraint (%s)', owned => {
+it.each([false, true])('known wrong result: #2670 model code replaces footprint ownership with the imported constraint (%s)', owned => {
   const { id, outline, hole } = fixture();
   tieFootprints([hole[0]!], [{ node: outline[0]!, x: 0, y: 0, hx: 3, hy: 2 }], id);
   const snapshot = modelStore.snapshot();

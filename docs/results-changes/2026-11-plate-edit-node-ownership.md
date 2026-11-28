@@ -21,3 +21,5 @@ Replacing, adding or removing the control point of an outside plate edge previou
 The plate editor now retains curve control points by their node identity and derives their positions in the new boundary list. Entering an exterior midpoint by node ID and editing a side by its sagitta use the same rule. Adding or removing a single opening preserves every other opening.
 
 Review plates with curved openings that were saved after an outside-edge edit. A missing arc marker cannot be recovered from its node coordinates alone. Compare the opening with the original project, restore its curves and remesh before rerunning affected analyses.
+
+Model-code export and apply carry footprint ownership alongside the physical groups and the constraints. Applying older model text without ownership makes its constraints authored. Clearing a plate mesh therefore preserves an authored link even when it has the same endpoints and degrees of freedom as a previously generated link.

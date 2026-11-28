@@ -382,7 +382,7 @@ for (const entry of ['integral', 'member'] as const) {
   }
 }
 
-it.skip('known wrong result: #2220 floor levels split the wind on an apex carrier without a pressure jump', () => {
+it('known wrong result: #2220 floor levels split the wind on an apex carrier without a pressure jump', () => {
   const model = mesh([-1, 1].map(y => [[0, 0, 0], [0, y, 4]]));
   const input = { model, axis: 'x' as const, from: 0, to: 4, pressure: () => 1, levels: [0, 2, 4] };
   const half = Math.hypot(1, 4) / 2;

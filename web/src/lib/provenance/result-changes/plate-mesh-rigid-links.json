@@ -1,7 +1,9 @@
 {
   "id": "plate-mesh-rigid-links",
   "date": "2026-11-27",
-  "prs": [],
+  "prs": [
+    2670
+  ],
   "area": "analysis",
   "when": {
     "all": [

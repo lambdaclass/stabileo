@@ -14,12 +14,15 @@
  * defines" true as the model grows.
  */
 
+export const MODEL_CODE_SETTINGS = [
+  'massSource', 'resultScopes', 'combinationRules', 'views', 'grid', 'dynamics', 'deflectionLimits', 'analysis', 'projectInfo', 'notes', 'underlays', 'footprintLinks', 'designData', 'designDecisions', 'geotechnical', 'footingMatPreferences', 'codeSettings', 'regulations',
+] as const;
+
 /** Top-level snapshot fields the code carries, in the order it writes them. */
 export const COVERED_FIELDS = [
   'name', 'analysisMode', 'localAxisConvention',
   'materials', 'sections', 'nodes', 'elements', 'plates', 'quads', 'supports',
-  'loadCases', 'combinations', 'loads', 'constraints', 'connectors', 'groups', 'massSource', 'resultScopes', 'combinationRules', 'views', 'grid', 'dynamics', 'deflectionLimits', 'analysis', 'projectInfo', 'notes', 'underlays', 'designData', 'designDecisions',
-  'footings', 'geotechnical', 'footingMatPreferences', 'codeSettings', 'regulations',
+  'loadCases', 'combinations', 'loads', 'constraints', 'connectors', 'groups', 'footings', ...MODEL_CODE_SETTINGS,
 ] as const;
 
 /** Top-level snapshot fields the code leaves out, and why. */
