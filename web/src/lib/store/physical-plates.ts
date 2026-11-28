@@ -403,9 +403,10 @@ function withMemberArcs(outline: number[], arcMids: number[]): { outline: number
 
 /** Names for new plates, L for a slab and M for a wall, each the next number no group of the model has. */
 export function plateNamer(): (kind: string) => string {
-  const used = new Set([...modelStore.model.groups.values()].map((g) => g.name));
   const unified = unifiedPlates();
-  const first = unified ? 1 : physicalPlates().length + 1;
+  const groups = unified ? [...modelStore.model.groups.values()] : physicalPlates();
+  const used = new Set(groups.map(group => group.name));
+  const first = unified ? 1 : groups.length + 1;
   return (kind) => {
     const prefix = unified ? (kind === 'wall' ? 'M' : 'L') : 'P';
     let n = first;
@@ -417,8 +418,8 @@ export function plateNamer(): (kind: string) => string {
 
 /** The levels a plate's nodes span, as the physical elements read them. */
 export function plateLevels(nodes: readonly number[]): { levelFrom?: string; levelTo?: string } {
+  if (!unifiedPlates() || !nodes.length) return {};
   const zs = nodes.map((n) => modelStore.nodes.get(n)?.z ?? 0);
-  if (!zs.length) return {};
   const levels = modelStore.grid?.levels ?? [];
   return { levelFrom: levelAt(Math.min(...zs), levels), levelTo: levelAt(Math.max(...zs), levels) };
 }

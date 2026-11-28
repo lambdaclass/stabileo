@@ -5,7 +5,7 @@ import { drawState } from '../draw-state.svelte';
 import { createPlate, physicalPlates, plateEntry, planPlateMesh, applyPlateMeshes } from '../physical-plates';
 import { deserializeProject, serializeProject } from '../file';
 
-it.skip.each(['node entry', 'viewport outline'] as const)('known wrong result: #1928 a plate from %s participates only in its profile’s level assignments', command => {
+it.each(['node entry', 'viewport outline'] as const)('known wrong result: #1928 a plate from %s participates only in its profile’s level assignments', command => {
   const unified = __PUBLIC_FEATURES__.proPlatesUnified;
   modelStore.clear();
   uiStore.analysisMode = 'pro';
@@ -25,8 +25,9 @@ it.skip.each(['node entry', 'viewport outline'] as const)('known wrong result: #
       drawState.pickPlateNode(outline[0]!);
     }
     const p = physicalPlates().find(e => e.physical.kind === kind)!;
-    expect(planPlateMesh(p.id)).not.toBeNull();
-    expect(applyPlateMeshes([planPlateMesh(p.id)!])).toMatchObject({ plates: 1 });
+    const plan = planPlateMesh(p.id);
+    expect(plan).not.toBeNull();
+    expect(applyPlateMeshes([plan!])).toMatchObject({ plates: 1 });
     expect(deserializeProject(serializeProject())).toBe(true);
     const saved = plateEntry(p.id)!;
     const ids = saved.group.members.quads!;
@@ -39,4 +40,24 @@ it.skip.each(['node entry', 'viewport outline'] as const)('known wrong result: #
     expect.soft(ids.map(id => modelStore.quads.get(id)!.materialId)).toEqual(ids.map(() => unified ? material : 1));
     expect(assignConcrete(kind, material)).toBe(unified ? 0 : ids.length);
   }
+});
+
+it('preserves explicit level assignments and does not invent a published level without a grid', () => {
+  modelStore.clear();
+  const outline = [[0, 0], [2, 0], [2, 2], [0, 2]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+  const made = createPlate({ name: 'Authored name', outline, materialId: 1, thickness: 0.2 });
+  if (!('id' in made)) throw new Error(JSON.stringify(made));
+  const p = plateEntry(made.id)!;
+  expect(p.name).toBe('Authored name');
+  expect(p.physical.levelFrom).toBe(__PUBLIC_FEATURES__.proPlatesUnified ? 'z:3.000' : undefined);
+  modelStore.setGroupData(p.id, { ...p.group.data, levelFrom: 'authored' });
+  const plan = planPlateMesh(p.id);
+  expect(plan).not.toBeNull();
+  expect(applyPlateMeshes([plan!])).toMatchObject({ plates: 1 });
+  expect(deserializeProject(serializeProject())).toBe(true);
+  const material = modelStore.addMaterial({ ...modelStore.materials.get(1)!, name: 'Specified material' });
+  const cells = plateEntry(p.id)!.group.members.quads!;
+  expect(cells.length).toBeGreaterThan(0);
+  expect(assignConcrete('slab', material, 'authored')).toBe(cells.length);
+  expect(cells.every(id => modelStore.quads.get(id)?.materialId === material)).toBe(true);
 });
