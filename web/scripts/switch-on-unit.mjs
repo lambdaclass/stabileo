@@ -29,6 +29,7 @@ export const switchOnUnitFiles = [
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/lib/store/__tests__/inactive-sheet-record.test.ts',
   'src/lib/store/__tests__/review-pending-load-regulations.test.ts',
   'src/lib/store/__tests__/legacy-project-refusal-table.test.ts',
   'src/lib/data/__tests__/core-foundation.test.ts',

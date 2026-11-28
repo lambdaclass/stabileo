@@ -12,15 +12,13 @@ import type { OccupancyBasis } from '../provenance/occupancy-selection';
  */
 import { BEAM_BAR_RANGE, COLUMN_BAR_RANGE, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, WALL_BAR_RANGE, inRange, type SlabFace } from './reinforcement-bars';
 import { unifiedPlates } from '../features';
-import { AGGREGATE_RANGE, DEFAULT_AGGREGATE_MM, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, type SheetCode } from '../rc-sheets/types';
+import { AGGREGATE_RANGE, DEFAULT_AGGREGATE_MM, DEFAULT_MIN_TIE_SPACING } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
-import { readSheetOptions } from './sheet-option-reader';
+import { readSheetOptions, readSheetRecord } from './sheet-option-reader';
 import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
 import { specifiedCoverMm } from '../codes/cirsoc201/cover';
 import { PROPERTY_SIDES, type PropertyLines } from './foundation/edges';
-import { footingSetupOf } from '../rc-sheets/footing-types';
-import { fixedPointsOf } from '../rc-sheets/fixed-points';
 import { placementWithLegacy } from './stored-placement';
 
 export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
@@ -287,22 +285,6 @@ export function withCirsocCovers(d: ProjectDesignData): ProjectDesignData {
 }
 
 /** Read any stored shape, including none; what it does not state is the default. */
-const SCOPES = ['element', 'level', 'project'] as const;
-function scheduleOf(x: unknown): { schedule?: { waste?: number; scope?: (typeof SCOPES)[number] } } {
-  if (!x || typeof x !== 'object') return {};
-  const { waste, scope } = x as { waste?: unknown; scope?: unknown };
-  const out: { waste?: number; scope?: (typeof SCOPES)[number] } = {};
-  if (typeof waste === 'number' && Number.isFinite(waste) && waste >= 0 && waste <= 0.5) out.waste = waste;
-  if (SCOPES.includes(scope as never)) out.scope = scope as (typeof SCOPES)[number];
-  return Object.keys(out).length ? { schedule: out } : {};
-}
-
-const bentLinesOf = (v: unknown): { bentLines?: Record<string, boolean> } => {
-  if (!v || typeof v !== 'object') return {};
-  const kept = Object.entries(v as Record<string, unknown>).filter((x): x is [string, boolean] => typeof x[1] === 'boolean');
-  return kept.length ? { bentLines: Object.fromEntries(kept) } : {};
-};
-
 export function migrateDesignData(raw: unknown): ProjectDesignData {
   const def = defaultDesignData();
   if (!raw || typeof raw !== 'object') return def;
@@ -346,7 +328,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
     ...placementWithLegacy(e.placement, (e.rcSheets as { fixedPoints?: unknown } | undefined)?.fixedPoints),
-    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), ...bentLinesOf((e.rcSheets as { bentLines?: unknown }).bentLines), ...(['full', 'minimum', 'reinforce'].includes((e.rcSheets as { footingSizing?: unknown }).footingSizing as string) ? { footingSizing: (e.rcSheets as { footingSizing: 'full' | 'minimum' | 'reinforce' }).footingSizing } : {}), ...(['auto', 'footings', 'strips', 'mat', 'piles'].includes((e.rcSheets as { foundationSystem?: unknown }).foundationSystem as string) ? { foundationSystem: (e.rcSheets as { foundationSystem: 'auto' | 'footings' | 'strips' | 'mat' | 'piles' }).foundationSystem } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), ...footingSetupOf((e.rcSheets as { footingSetup?: unknown }).footingSetup), ...fixedPointsOf((e.rcSheets as { fixedPoints?: unknown }).fixedPoints), ...(Array.isArray((e.rcSheets as { edited?: unknown }).edited) ? { edited: ((e.rcSheets as { edited: unknown[] }).edited).filter((k): k is string => typeof k === 'string') } : {}), ...(SHEET_CODE_LIST.includes((e.rcSheets as { adoptedCode?: unknown }).adoptedCode as never) ? { adoptedCode: (e.rcSheets as { adoptedCode: SheetCode }).adoptedCode } : {}), ...((e.rcSheets as { adoptedSeismic?: unknown }).adoptedSeismic === true ? { adoptedSeismic: true as const } : {}), ...((x) => (typeof x === 'number' && Number.isInteger(x) && x > 0 ? { adoptedLogic: x } : {}))((e.rcSheets as { adoptedLogic?: unknown }).adoptedLogic), ...((x) => (typeof x === 'string' && x ? { adoptedBasis: x } : {}))((e.rcSheets as { adoptedBasis?: unknown }).adoptedBasis), ...((x) => (typeof x === 'string' && x ? { adoptedFoundationBasis: x } : {}))((e.rcSheets as { adoptedFoundationBasis?: unknown }).adoptedFoundationBasis), ...((e.rcSheets as { foundationSystem?: unknown }).foundationSystem === null ? { foundationSystem: null } : {}), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
+    ...readSheetRecord?.(e.rcSheets),
     // The seismic roles fixed by hand are the lateral-system declaration under its older name:
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
     ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),

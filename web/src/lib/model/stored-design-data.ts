@@ -22,6 +22,7 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
     if (kinds.length) out[k] = Object.fromEntries(kinds.map((kind) => [kind, full[k][kind]]));
   }
   if (!readSheetOptions) {
+    if (e.rcSheets && typeof e.rcSheets === 'object' && !Array.isArray(e.rcSheets)) out.rcSheets = { ...e.rcSheets };
     const options = retainedSheetOptions(e.designOptions, e.rcSheets);
     if (options) out.designOptions = options;
   }

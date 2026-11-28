@@ -1,9 +1,10 @@
 import { expect, it } from 'vitest';
 import { modelStore } from '..';
+import { applyTemplate, templateFromProject } from '../office-templates';
 import { designData, patchDesignData } from '../design-data';
 import { acceptAutosavePayload, acceptSessionTabs, buildProjectFile, deserializeProject, loadFile, loadProject, serializeProject } from '../file';
 
-it.skip.each(['project', 'loadProject', 'loadFile', 'autosave', 'tab'] as const)('known wrong result: #1928 an inactive sheet record survives %s and an unrelated design edit', async opener => {
+it.each(['project', 'loadProject', 'loadFile', 'autosave', 'tab', 'office template'] as const)('known wrong result: #1928 an inactive sheet record survives %s and an unrelated design edit', async opener => {
   modelStore.clear();
   modelStore.addNode(0, 0);
   const sheets = __PUBLIC_FEATURES__.proRcSheets;
@@ -17,6 +18,8 @@ it.skip.each(['project', 'loadProject', 'loadFile', 'autosave', 'tab'] as const)
     const accepted = acceptAutosavePayload(project);
     expect(accepted).not.toBeNull();
     modelStore.restore(accepted!.snapshot);
+  } else if (opener === 'office template') {
+    applyTemplate({ ...templateFromProject('Sheet archive'), designData: project.snapshot.designData });
   } else {
     const accepted = acceptSessionTabs([{ id: 't', name: 'archive', analysisMode: 'pro', modelSnapshot: project.snapshot, undoStack: [], redoStack: [] }]);
     expect(accepted.dropped).toEqual([]);
