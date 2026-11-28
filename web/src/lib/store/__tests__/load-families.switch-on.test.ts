@@ -63,7 +63,7 @@ it('offers every implemented family in the load dialog', async () => {
   for (const family of LOAD_FAMILY_CHOICES) expect(select).toContain(`value="${family}"`);
 });
 
-it.skip('known wrong result: #1928 changing a design after a family selection keeps every pending load role under review', () => {
+it('known wrong result: #1928 changing a design after a family selection keeps every pending load role under review', () => {
   regulationsStore.cancelPending();
   modelStore.clear();
   expect(regulationsStore.requestStack(FAMILY_STACKS.us).kind).toBe('needsLoadReview');

@@ -1,3 +1,4 @@
+import { LOAD_AFFECTING_ROLES } from '../codes/roles';
 import { FLANGE_LEVEL_TOLERANCE } from '../engine/design/beam-flange';
 import { PHYSICAL_GROUP_KIND } from '../model/physical/types';
 import { SHELL_OFFSET_EXPANSION_THRESHOLD } from '../engine/shell-offsets';
@@ -80,7 +81,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
-  'individualNearLevelFlange', 'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateSubthresholdOffsets', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'unreviewedLoadRoleStamp', 'individualNearLevelFlange', 'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateSubthresholdOffsets', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'shortOffAxisStrap', 'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
@@ -159,7 +160,8 @@ interface FeatureSnapshotFields {
   footings?: Entries<unknown>;
   jointDesigns?: unknown;
   groups?: Entries<{ name?: string; kind?: string; data?: unknown; members?: { nodes?: number[]; elements?: number[]; quads?: number[]; plates?: number[] } | null }>;
-  regulations?: { roles?: Record<string, { adapterId?: string | null; settings?: Record<string, unknown> } | undefined> };
+  revisions?: { regulationConfig?: number };
+  regulations?: { roles?: Record<string, { adapterId?: string | null; settings?: Record<string, unknown>; state?: string; appliedAtRevision?: number | null } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
   analysis?: { selfWeight?: unknown[]; standaloneSelfWeight?: string };
@@ -699,6 +701,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const familyOf = (id: number) => materialFamilyOf(materials.get(id) as never, catalogueGradeFamily).family;
 
   const roles = s.regulations?.roles ?? {};
+  const configRevision = s.revisions?.regulationConfig;
+  if (typeof configRevision === 'number' && LOAD_AFFECTING_ROLES.some(role => {
+    const binding = roles[role];
+    return binding?.state === 'applied' && typeof binding.appliedAtRevision === 'number' && binding.appliedAtRevision > configRevision;
+  })) f.add('unreviewedLoadRoleStamp');
   const steelCode = roles.steel?.adapterId ?? null;
   const concreteCode = roles.concrete?.adapterId ?? null;
   const loadsCode = roles.loads?.adapterId ?? null;

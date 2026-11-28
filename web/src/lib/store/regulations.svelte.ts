@@ -77,6 +77,61 @@ function createRegulationsStore() {
     modelStore.model.revisions = next;
   }
 
+  type AwaitingReview = Extract<ChangeRequest, { kind: 'needsLoadReview' }>;
+
+  function requestReview(role: RegulationRole): AwaitingReview {
+    reviewRequested = role;
+    return { kind: 'needsLoadReview', role, navigateTo: 'loads' };
+  }
+
+  function applyPending(kind: 'loadRegulation'): ChangeConsequence;
+  function applyPending(kind: 'designRegulation'): ChangeConsequence | AwaitingReview;
+  function applyPending(kind: 'loadRegulation' | 'designRegulation'): ChangeConsequence | AwaitingReview {
+    const next = { ...currentRoles() };
+    const pending = pendingRoles(next);
+    const loadRole = pending.find(isLoadAffecting);
+    if (loadRole && kind !== 'loadRegulation') return requestReview(loadRole);
+    const rev = currentRevisions();
+    for (const role of pending) {
+      next[role] = { ...next[role], state: 'applied', appliedAtRevision: rev.regulationConfig + 1 };
+    }
+    writeRoles(next);
+    displaced = {};
+    const { revisions, consequence } = applyChange(rev, kind);
+    writeRevisions(revisions);
+    reviewRequested = null;
+    return consequence;
+  }
+
+  function stageBindings(bindings: Partial<Record<RegulationRole, string | null>>, single?: RegulationRole): ChangeRequest {
+    const archive = { ...(stored().settingsByCode ?? {}) };
+    const next = { ...currentRoles() };
+    const staged = { ...displaced };
+    for (const [role, adapterId] of Object.entries(bindings) as Array<[RegulationRole, string | null]>) {
+      const previous = next[role];
+      if (!single && previous.adapterId === adapterId) continue;
+      if (previous.adapterId && previous.settings && Object.keys(previous.settings).length) archive[previous.adapterId] = previous.settings;
+      staged[role] ??= previous;
+      if (adapterId === null) {
+        next[role] = { ...previous, state: 'pending', adapterId: null, nameKey: '', edition: '' };
+        continue;
+      }
+      const opt = findOption(adapterId);
+      if (!opt || opt.role !== role) {
+        return { kind: 'refused', problems: [{ severity: 'error', roles: [role], key: 'regulations.problem.unknownAdapter', params: { adapter: adapterId } }] };
+      }
+      const settings = previous.adapterId === adapterId ? previous.settings : archive[adapterId] ?? {};
+      next[role] = { ...bindRole(role, adapterId, { jurisdiction: previous.jurisdiction, adoption: previous.adoption, settings }), state: 'pending' };
+    }
+    const blocking = validateStack(next).problems.filter(p => p.severity === 'error' && (!single || p.roles.includes(single)));
+    if (blocking.length) return { kind: 'refused', problems: blocking };
+    displaced = staged;
+    writeRoles(next, archive);
+    if (!single || isLoadAffecting(single)) return requestReview(single ?? 'basis');
+    const result = applyPending('designRegulation');
+    return result.kind === 'needsLoadReview' ? result : { kind: 'applied', consequence: result };
+  }
+
   return {
     get roles() { return currentRoles(); },
     get revisions() { return currentRevisions(); },
@@ -165,50 +220,7 @@ function createRegulationsStore() {
      * here — the user has to see the before/after in Loads first.
      */
     requestChange(role: RegulationRole, adapterId: string): ChangeRequest {
-      const opt = findOption(adapterId);
-      if (!opt || opt.role !== role) {
-        return { kind: 'refused', problems: [{
-          severity: 'error', roles: [role],
-          key: 'regulations.problem.unknownAdapter', params: { adapter: adapterId },
-        }] };
-      }
-
-      const previous = currentRoles()[role];
-      // Settings belong to a code: the previous one's are kept under it, and the new one takes
-      // what was stated for it before, never another code's.
-      const archive = { ...(stored().settingsByCode ?? {}) };
-      if (previous.adapterId && previous.settings && Object.keys(previous.settings).length) archive[previous.adapterId] = previous.settings;
-      const carried = previous.adapterId === adapterId ? previous.settings : (archive[adapterId] ?? {});
-      const next: ProjectRegulations = {
-        ...currentRoles(),
-        [role]: {
-          ...bindRole(role, adapterId, {
-            jurisdiction: previous.jurisdiction,
-            adoption: previous.adoption,
-            settings: carried,
-          }),
-          state: 'pending',
-        },
-      };
-
-      const v = validateStack(next);
-      const blocking = v.problems.filter(
-        (p) => p.severity === 'error' && p.roles.includes(role));
-      if (blocking.length > 0) {
-        return { kind: 'refused', problems: blocking };
-      }
-
-      // Remember what we displaced BEFORE writing, so Cancel is lossless.
-      if (displaced[role] === undefined) displaced = { ...displaced, [role]: previous };
-      writeRoles(next, archive);
-
-      if (isLoadAffecting(role)) {
-        reviewRequested = role;
-        return { kind: 'needsLoadReview', role, navigateTo: 'loads' };
-      }
-
-      // Design-only: the forces do not move, so apply in place.
-      return { kind: 'applied', consequence: this.applyPending('designRegulation') };
+      return stageBindings({ [role]: adapterId }, role);
     },
 
     /**
@@ -217,28 +229,7 @@ function createRegulationsStore() {
      * not be valid; otherwise the loads have to be reviewed, as for one role.
      */
     requestStack(bindings: Partial<Record<RegulationRole, string | null>>): ChangeRequest {
-      const archive = { ...(stored().settingsByCode ?? {}) };
-      const next: ProjectRegulations = { ...currentRoles() };
-      const staged = { ...displaced };
-      for (const [r, adapterId] of Object.entries(bindings) as Array<[RegulationRole, string | null]>) {
-        const previous = currentRoles()[r];
-        if (previous.adapterId === adapterId) continue;
-        if (previous.adapterId && previous.settings && Object.keys(previous.settings).length) archive[previous.adapterId] = previous.settings;
-        if (staged[r] === undefined) staged[r] = previous;
-        if (adapterId === null) { next[r] = { ...previous, state: 'pending', adapterId: null, nameKey: '', edition: '' }; continue; }
-        const opt = findOption(adapterId);
-        if (!opt || opt.role !== r) {
-          return { kind: 'refused', problems: [{ severity: 'error', roles: [r], key: 'regulations.problem.unknownAdapter', params: { adapter: adapterId } }] };
-        }
-        next[r] = { ...bindRole(r, adapterId, { jurisdiction: previous.jurisdiction, adoption: previous.adoption, settings: archive[adapterId] ?? {} }), state: 'pending' };
-      }
-      const v = validateStack(next);
-      const blocking = v.problems.filter((p) => p.severity === 'error');
-      if (blocking.length > 0) return { kind: 'refused', problems: blocking };
-      displaced = staged;
-      writeRoles(next, archive);
-      reviewRequested = 'basis';
-      return { kind: 'needsLoadReview', role: 'basis', navigateTo: 'loads' };
+      return stageBindings(bindings);
     },
 
     /** What applying the staged change would cost. */
@@ -255,19 +246,7 @@ function createRegulationsStore() {
      * actually regenerated — applying a load-regulation change without regenerating would
      * leave the model's loads inconsistent with its stated regulation.
      */
-    applyPending(kind: ChangeKind): ChangeConsequence {
-      const next = { ...currentRoles() };
-      const rev = currentRevisions();
-      for (const role of pendingRoles(currentRoles())) {
-        next[role] = { ...next[role], state: 'applied', appliedAtRevision: rev.regulationConfig + 1 };
-      }
-      writeRoles(next);
-      displaced = {};
-      const { revisions: bumped, consequence } = applyChange(rev, kind);
-      writeRevisions(bumped);
-      reviewRequested = null;
-      return consequence;
-    },
+    applyPending,
 
     /** Discard staged bindings, restoring exactly what was applied before. */
     cancelPending(): void {

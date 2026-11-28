@@ -1,0 +1,35 @@
+{
+  "id": "pending-load-regulation-review",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "loads",
+  "when": {
+    "any": [
+      "unreviewedLoadRoleStamp"
+    ]
+  },
+  "title": {
+    "en": "Review mixed changes to load and design codes",
+    "es": "Revisar cambios simultáneos de reglamentos de cargas y diseño",
+    "pt": "Revisar alterações conjuntas das normas de cargas e dimensionamento",
+    "de": "Gemeinsame Änderungen von Last- und Bemessungsnormen prüfen",
+    "fr": "Vérifier les changements conjoints de normes de charges et de calcul",
+    "tr": "Yük ve tasarım yönetmeliği değişikliklerini inceleyin",
+    "hu": "A teher- és méretezési szabvány együttes módosításának ellenőrzése",
+    "zh": "复核荷载与设计规范的组合更改"
+  },
+  "explanation": {
+    "en": "A load code is marked applied beyond the recorded configuration revision. Review and regenerate loads and combinations, then rerun analysis and design.",
+    "es": "Un reglamento de cargas figura como aplicado después de la revisión de configuración registrada. Revise y regenere las cargas y combinaciones, y repita el análisis y el diseño.",
+    "pt": "Uma norma de cargas consta como aplicada após a revisão registrada da configuração. Revise e regenere as cargas e combinações e refaça a análise e o dimensionamento.",
+    "de": "Eine Lastnorm ist mit einem späteren Stand als die gespeicherte Konfiguration als angewendet markiert. Lasten und Kombinationen prüfen und neu erzeugen, anschließend Berechnung und Bemessung wiederholen.",
+    "fr": "Une norme de charges est marquée appliquée à une révision postérieure à la configuration enregistrée. Vérifiez et régénérez les charges et combinaisons, puis relancez le calcul et le dimensionnement.",
+    "tr": "Bir yük yönetmeliği, kayıtlı yapılandırma sürümünden sonraki bir sürümde uygulanmış görünüyor. Yükleri ve birleşimleri inceleyip yeniden üretin, ardından analiz ve tasarımı tekrarlayın.",
+    "hu": "Egy teherszabvány a mentett beállításoknál későbbi változatban szerepel alkalmazottként. Ellenőrizze és generálja újra a terheket és kombinációkat, majd ismételje meg a számítást és a méretezést.",
+    "zh": "某项荷载规范被标记为已应用，但其修订号晚于保存的配置。请复核并重新生成荷载和组合，然后重新运行分析和设计。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-pending-load-regulation-review.md",
+    "heading": "Review staged load regulations before applying mixed code changes"
+  }
+}
