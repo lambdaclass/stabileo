@@ -255,7 +255,7 @@ function createUIStore() {
    */
   let selectedPlates = $state<Set<number>>(new Set());
   /** What a click on a plate's mesh picks: the plate whole, or the one element clicked. */
-  let shellPickScope = $state<'plate' | 'element'>(unifiedPlates() ? 'plate' : 'element');
+  let shellPickScope = $state<'plate' | 'element'>('plate');
   /** Whether a meshed physical plate is drawn with its mesh's edges or as the piece (its outline); null follows whether there are results. Picking does not depend on it. */
   let platesShowMesh = $state<boolean | null>(null);
   let plateShells: ((id: number) => string[]) | null = null;

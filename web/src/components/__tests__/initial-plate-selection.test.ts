@@ -3,12 +3,12 @@ import { expect, it } from 'vitest';
 import SelectionPanel from '../SelectionPanel.svelte';
 import { uiStore } from '../../lib/store';
 
-it.skip('known wrong result: #1928 meshed plates are selected whole until an element is requested', () => {
-  const oldMode = uiStore.appMode;
+it('known wrong result: #1928 meshed plates are selected whole until an element is requested', () => {
+  const oldMode = uiStore.analysisMode;
   const oldSelection = uiStore.selectMode;
   const oldScope = uiStore.shellPickScope;
   try {
-    uiStore.appMode = 'pro';
+    uiStore.analysisMode = 'pro';
     uiStore.selectMode = 'shells';
     function selected(scope: string) {
       const button = render(SelectionPanel).body.match(new RegExp('<button[^>]*data-testid="shell-pick-' + scope + '"[^>]*>'));
@@ -22,6 +22,6 @@ it.skip('known wrong result: #1928 meshed plates are selected whole until an ele
   } finally {
     uiStore.shellPickScope = oldScope;
     uiStore.selectMode = oldSelection;
-    uiStore.appMode = oldMode;
+    uiStore.analysisMode = oldMode;
   }
 });
