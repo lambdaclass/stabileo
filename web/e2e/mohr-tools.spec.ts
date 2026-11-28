@@ -437,11 +437,13 @@ test('@smoke the advanced list opens the Mohr function, and the section analysis
   await expect(dialog).toHaveCount(0);
 
   await page.getByRole('button', { name: /^Section analysis$/i }).click();
-  const canvas = page.locator('canvas').first();
-  const box = (await canvas.boundingBox())!;
   const panel = page.locator('.ssp-panel');
-  for (const [fx, fy] of [[0.45, 0.5], [0.4, 0.45], [0.5, 0.55], [0.35, 0.5], [0.55, 0.5], [0.45, 0.4]]) {
-    await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
+  const [a, b] = await page.evaluate(() => {
+    const ids = window.__stabileo.nodeIds();
+    return [window.__stabileo.nodeScreenPos(ids[0]!)!, window.__stabileo.nodeScreenPos(ids[ids.length - 1]!)!];
+  });
+  for (const f of [0.45, 0.5, 0.4, 0.55]) {
+    await page.mouse.click(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f);
     if (await panel.isVisible().catch(() => false)) break;
     await page.waitForTimeout(300);
   }

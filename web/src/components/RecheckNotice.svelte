@@ -259,7 +259,7 @@
   .rc-banner {
     position: fixed;
     left: 50%;
-    bottom: 44px;
+    bottom: 92px;
     transform: translateX(-50%);
     /* Above the app's own bars and drawers, below the notice itself. */
     z-index: 250;
@@ -289,7 +289,7 @@
   @media (max-width: 600px) {
     .rc { padding: 12px; max-height: calc(100dvh - 24px); }
     .rc-actions .rc-btn { flex: 1 1 100%; }
-    .rc-banner { width: calc(100vw - 24px); }
+    .rc-banner { width: calc(100vw - 24px); bottom: 44px; }
     .rc-banner > span { flex-basis: 100%; }
     .rc-banner-btn { flex: 1; }
   }

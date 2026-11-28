@@ -1,16 +1,9 @@
 <script lang="ts">
+  import LibraryButtons from '../library/LibraryButtons.svelte';
   import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
   import { authStore } from '../../lib/store/auth.svelte';
   import { accountGate } from '../../lib/store/account-gate.svelte';
-  import ProVideos from './ProVideos.svelte';
-  import ProProjectInfo from './ProProjectInfo.svelte';
-  import ProExampleGallery from './ProExampleGallery.svelte';
-  import type { ProExample, ProExampleGroup } from '../../lib/data/pro-examples';
-  import ProOfficeTemplates from './ProOfficeTemplates.svelte';
   import { proNav } from '../../lib/store/pro-nav.svelte';
-  import ProjectRegulationsPanel from './design/ProjectRegulationsPanel.svelte';
-  let regulationsEl: HTMLElement | undefined = $state();
-  $effect(() => { if (proNav.regulationsOpen) regulationsEl?.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
   import { t, tp, i18n } from '../../lib/i18n';
   import { exportProjectIfc } from '../../lib/store/ifc-export';
   import { prepareExportProvenance } from '../../lib/export/provenance-attach';
@@ -32,25 +25,6 @@
   import { MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { codeShareUrl } from '../../lib/model/code/share';
   import { autosaveStatus, autosaveRevisions } from '../../lib/store/autosave-db';
-
-  /**
-   * PRO's project view: what you have open, and how it gets in and out.
-   *
-   * PRO had no such place. Saving was a keyboard shortcut, opening was a file
-   * input owned by another component, exporting lived at the bottom of a tab
-   * about something else, and "Examples" was a button that opened a floating
-   * gallery over the canvas and nothing else. So the one screen every project
-   * starts and ends at did not exist.
-   *
-   * Basic answered this with a Project panel, and the answer transfers — but
-   * the content does not. PRO's examples are curated engineering cases with a
-   * stated intent and a size, so they keep more than a name; at panel width
-   * that is the name, one line of description and the model's size, which is
-   * what anyone actually chooses on.
-   */
-
-  type Props = { groups: ProExampleGroup[]; onLoadExample: (ex: ProExample) => void };
-  let { groups, onLoadExample }: Props = $props();
 
   /* Saving asks what and where, exactly as Basic does. */
   let showSave = $state(false);
@@ -187,18 +161,6 @@
 
   $effect(() => { void refreshStatus(); });
 
-  /*
-   * The gallery lives IN the panel, not over the canvas.
-   *
-   * It was a floating menu with a backdrop, anchored to a button — so choosing
-   * a model meant covering the model, and the one screen a project starts at
-   * threw a dialog at you. At panel width the cards drop to one line of name
-   * plus one of description, which is what you actually choose on; the tags
-   * and the node counts follow underneath.
-   */
-  let videosOpen = $state(false);
-  let showExamples = $state(false);
-
   const hasModel = $derived(modelStore.nodes.size > 0);
   /** Where the project workbook reads each member. */
   /* The export dialogs: each button opens one, with its format chosen. */
@@ -215,8 +177,6 @@
     if (r === 'save') showSave = true;
     else if (r === 'data') dataOpen = true;
     else if (r === 'drawings') openDrawings();
-    else if (r === 'examples') showExamples = true;
-    else if (r === 'videos') videosOpen = true;
     else if (r === 'viewerLink') void copyViewerLink();
   });
   function pickDrawing(f: DrawingFormat) {
@@ -250,61 +210,6 @@
 </script>
 
 <div class="pp" data-testid="pro-project-tab">
-  <!--
-    Starting a model comes before describing the one that is open.
-    ─────────────────────────────────────────────────────────────
-    The panel opened on "Documento abierto", which is the right FIRST FACT for a
-    session already under way and the wrong first thing for the reader who came
-    here to begin. Examples, a DXF plan and an IFC import are the three ways a
-    PRO model starts, and the reader who needs them is the one who has nothing
-    open to read about.
-  -->
-  <section class="pp-card">
-  <h4 class="pp-heading pp-heading-first">{t('proProject.newModel')}</h4>
-
-  <HelpTip text={t('proProject.examplesHelp')}>
-  <button
-    class="pp-btn pp-btn-wide pp-disclose"
-    onclick={() => (showExamples = !showExamples)}
-    aria-expanded={showExamples}
-    data-testid="pp-examples"
-  >
-    <span>{t('pro.exampleBtn')}</span>
-    <span class="pp-caret">{showExamples ? '▾' : '▸'}</span>
-  </button>
-  </HelpTip>
-
-  {#if showExamples}
-    <!--
-      Over the viewport, not inside the panel: twenty-four cards of four lines each read as a
-      column of text in the panel's width; here they sit side by side, grouped. Moved to the
-      document (`utils/portal.ts`), or the panel's resize handle lit up through it.
-    -->
-    <div class="pg-overlay" use:portal role="dialog" aria-modal="true" aria-label={t('pro.exampleBtn')} tabindex="-1"
-      onkeydown={(e) => { if (e.key === 'Escape') showExamples = false; }}>
-      <button class="pg-backdrop" aria-label={t('pro.examples.cancel')} onclick={() => (showExamples = false)}></button>
-      <div class="pg-sheet">
-        <div class="pg-sheet-head">
-          <h3>{t('pro.exampleBtn')}</h3>
-          <button class="pg-close" onclick={() => (showExamples = false)} aria-label={t('pro.examples.cancel')} data-testid="pp-gallery-close">×</button>
-        </div>
-        <ProExampleGallery {groups} onLoad={(ex) => { onLoadExample(ex); showExamples = false; }} />
-      </div>
-    </div>
-  {/if}
-
-  <ProVideos bind:open={videosOpen} />
-
-  <!--
-    DXF and IFC are not here any more.
-    ─────────────────────────────────
-    They are IMPORTS, and the section below is called Import — the same two
-    buttons existed in both places, which is two routes to one operation and
-    a reader wondering whether they differ. What belongs here is what
-    STARTS a model without a file to start it from, which today is Examples
-    and will be the tutorials.
-  -->
-  </section>
 
   <!--
     ── Archivo, in Basic's shape ──────────────────────────────────────
@@ -314,22 +219,6 @@
     instant they were pressed, with the difference between "pestaña" and
     "sesión" explained nowhere a reader would meet it.
   -->
-  <!-- The job's data: what the documents' covers and title blocks state. -->
-  <section class="pp-card">
-    <ProProjectInfo />
-  </section>
-  <section class="pp-card">
-    <ProOfficeTemplates />
-  </section>
-
-  <!-- The project's regulations, where the loads that need them are made — not only in Design. -->
-  <section class="pp-card" data-testid="pp-regulations">
-    <details bind:open={proNav.regulationsOpen} bind:this={regulationsEl}>
-      <summary class="pp-heading">{t('regulations.title')}</summary>
-      <ProjectRegulationsPanel />
-    </details>
-  </section>
-
   <section class="pp-card">
     <h4 class="pp-heading">{t('project.fileSection')}</h4>
     <div class="pp-grid">
@@ -411,6 +300,7 @@
     the project workbook (`store/project-workbook.ts`): the model and every
     case and combination, built from the result tables the screen shows.
   -->
+  {#if uiStore.isMobile}<section class="pp-card"><LibraryButtons pro /></section>{/if}
   <section class="pp-card">
     <h4 class="pp-heading">{t('project.importExport')}</h4>
 
@@ -599,13 +489,6 @@
 {#if __PUBLIC_FEATURES__.accounts}<CloudProjectsDialog bind:open={cloudOpen} />{/if}
 
 <style>
-  .pg-overlay { position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center; }
-  .pg-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); border: none; cursor: default; }
-  .pg-sheet { position: relative; width: min(1080px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto; background: var(--st-surface); border: 1px solid var(--st-hair); border-radius: 8px; padding: 12px 14px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
-  .pg-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  .pg-sheet-head h3 { margin: 0; font-size: 0.9rem; color: var(--st-text); }
-  .pg-close { background: none; border: none; color: var(--st-text-2); font-size: 1.1rem; cursor: pointer; }
-  @media (max-width: 767px) { .pg-sheet { width: 100vw; max-height: 100vh; border-radius: 0; } }
   /*
      The panel's own gutter.
      ────────────────────────────────────────────────────────────────
@@ -764,9 +647,7 @@
     border-bottom: 1px solid var(--st-hair);
   }
 
-  /* Every heading is now first inside its own card, so the top margin never applies. */
-  .pp-heading:first-child,
-  .pp-heading-first { margin-top: 0; }
+  .pp-heading:first-child { margin-top: 0; }
 
   /*
      Sized by content, not by count: a three-column grid gives three items a
@@ -778,8 +659,6 @@
     grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
     gap: 0.3rem;
   }
-
-  .pp-btn-wide { grid-column: 1 / -1; }
 
   .pp-btn {
     display: flex;
@@ -872,7 +751,5 @@
   .pp-xls-aside:hover:not(:disabled) { color: var(--st-accent); border-color: var(--st-accent); }
   .pp-io :global(.ht-wrap > button) { display: block; height: 32px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
 
-  .pp-disclose { justify-content: space-between; margin-top: 0.3rem; }
-  .pp-caret { font-size: 0.6rem; color: var(--st-text-3); }
 
 </style>

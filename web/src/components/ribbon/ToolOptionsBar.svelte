@@ -118,8 +118,8 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    min-height: 34px;
-    padding: 0.2rem 0.6rem;
+    min-height: var(--st-ribbon-strip-h);
+    padding: 0 0.6rem;
     background: var(--st-surface-2);
     border-bottom: 1px solid var(--st-hair);
     font-family: var(--st-sans);
@@ -140,6 +140,14 @@
   }
 
   .tool-bar.phone { justify-content: space-between; }
+
+  .tb-opts :global(.ft-opt-btn), .tb-opts :global(input), .tb-opts :global(select) {
+    padding-top: 0;
+    padding-bottom: 0;
+    min-height: 0;
+    height: 20px;
+    line-height: 18px;
+  }
 
   /* ── Model state ──────────────────────────────────────────────────── */
 

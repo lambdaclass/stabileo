@@ -16,7 +16,8 @@ test.describe('@slow PRO project workbook', () => {
   test('downloads the model and every result at the stations asked for', async ({ pro: page }) => {
     await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 }).toBe(true);
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-open-example').click();
     await page.getByTestId('pp-gallery').locator('[data-example="pro-plane-frame-seismic"] .pp-ex').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 }).toBe(28);
     await page.evaluate(() => window.__stabileoActions.solve());
@@ -47,7 +48,8 @@ test.describe('@slow PRO project workbook', () => {
 
   test('CSV of a single sheet is that sheet, with the cover and the conventions', async ({ pro: page }) => {
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-open-example').click();
     await page.getByTestId('pp-gallery').locator('[data-example="pro-plane-frame-seismic"] .pp-ex').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 }).toBe(28);
     await page.getByTestId('pr-project').click();

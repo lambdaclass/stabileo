@@ -8,6 +8,7 @@
    */
   import { t } from '../../lib/i18n';
   import { modelStore } from '../../lib/store';
+  import ExamplePreview from '../library/ExamplePreview.svelte';
   import { isHeavyExample, type ProExample, type ProExampleGroup } from '../../lib/data/pro-examples';
 
   type Props = { groups: ProExampleGroup[]; onLoad: (ex: ProExample) => void };
@@ -29,6 +30,8 @@
     {#each g.examples as ex (ex.id)}
       <div class="pg-card" class:asking={asking === ex.id} data-example={ex.id}>
         <button class="pp-ex" onclick={() => choose(ex)} aria-expanded={asking === ex.id}>
+          <span class="pg-thumb"><ExamplePreview id={ex.id} /></span>
+          <span class="pg-text">
           <span class="pg-name">{t(ex.nameKey)}</span>
           <span class="pg-purpose">{t(ex.purposeKey)}</span>
           <span class="pg-desc">{t(ex.descKey)}</span>
@@ -38,6 +41,7 @@
             {#if ex.stats.shells}· {ex.stats.shells} {t('pro.stats.shells')}{/if}
             {#each ex.tags as tag (tag)}<span class="pg-tag">{t(tag)}</span>{/each}
             {#if isHeavyExample(ex)}<span class="pg-heavy">{t('pro.stats.heavy')}</span>{/if}
+          </span>
           </span>
         </button>
         {#if asking === ex.id}
@@ -55,7 +59,7 @@
 <style>
   .pg {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
     gap: 6px;
   }
 
@@ -77,8 +81,8 @@
 
   .pp-ex {
     display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
+    align-items: flex-start;
+    gap: 0.6rem;
     width: 100%;
     text-align: left;
     background: none;
@@ -88,6 +92,8 @@
   }
 
   .pp-ex:hover { background: var(--st-surface-3); }
+  .pg-thumb { flex: none; width: 112px; border-radius: 4px; overflow: hidden; border: 1px solid var(--st-hair); }
+  .pg-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
   .pg-name { font-size: 0.76rem; color: var(--st-text); }
   .pg-purpose { font-family: var(--st-mono); font-size: 0.6rem; color: var(--st-text-3); }
   .pg-desc { font-size: 0.66rem; color: var(--st-text-2); }

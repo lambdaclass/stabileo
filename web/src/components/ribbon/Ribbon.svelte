@@ -2,7 +2,7 @@
   import { t } from '../../lib/i18n';
   import { showDiagram, armTool } from '../../lib/store/view-mode';
   import { commandShowsQuantity, showStressMap, activeMapMeasure } from '../../lib/store/result-view';
-  import { needsPlaneChoice, switchPlain, hasBackup, restore3D } from '../../lib/store/switch-2d';
+  import { enterPlane, enterSpace } from '../../lib/store/workspace-switch';
   import { TWO_D_INTERNAL_FORCE_LABELS as F2D } from '../../lib/geometry/coordinate-system';
   import { uiStore, EDIT_TOOLS } from '../../lib/store/ui.svelte';
   import { historyStore } from '../../lib/store/history.svelte';
@@ -10,7 +10,6 @@
   import Icon from './Icon.svelte';
   import { runSolve } from '../../lib/actions/solve';
   import { TOOL_KEY_MAP, TOOL_DATA_TAB } from '../../lib/tool-keys';
-  import { saveProject } from '../../lib/store/file';
 
   /**
    * Ribbon toolbar.
@@ -35,7 +34,7 @@
    * labels and scale give way:
    *
    *     ≥ 1500   large icons, a label under every command
-   *     ≥ 1180   smaller icons, labels kept
+   *     ≥ 1240   smaller icons, labels kept (where PRO drops its labels too)
    *     ≥  900   icons only; the group label carries the meaning
    *     <  900   the ribbon yields to the mobile tool strip entirely
    *
@@ -209,39 +208,15 @@
          */
         { id: 'move', icon: 'move', labelKey: 'move.title', panel: 'move' },
         { id: 'select', icon: 'select', labelKey: 'ribbon.selection', panel: 'selection' },
-        /*
-         * One button, not two. A pair where one is always lit reads as a
-         * permanent alarm — the accent is for what you are doing now, and
-         * "the view is 2D" is a condition, not an action. The button shows the
-         * mode you would switch TO, which is how a toggle explains itself.
-         */
-        {
+        ...(narrow ? [{
           id: 'dim',
           icon: () => (threeD ? 'view2d' : 'view3d'),
           labelKey: () => (threeD ? 'ribbon.view2d' : 'ribbon.view3d'),
-          /*
-           * Going UP is free — a 2D model is a 3D model with one coordinate
-           * at zero. Coming DOWN throws a dimension away, and what to do with
-           * it is a decision only the author can make: flatten everything, or
-           * take the frame on one grid line. So that direction asks, unless
-           * the model is already flat and there is nothing to decide.
-           */
           action: () => {
-            /*
-             * Coming back up restores the 3D original if this 2D model was cut
-             * or flattened out of one. Without that the trip is one-way: the
-             * button returns to a 3D viewport showing the derived model, and
-             * the structure the user built is gone with no message saying so.
-             */
-            if (!threeD) {
-              if (hasBackup()) restore3D();
-              else uiStore.analysisMode = '3d';
-              return;
-            }
-            if (needsPlaneChoice()) uiStore.switchTo2DPrompt = true;
-            else switchPlain();
+            if (!threeD) enterSpace();
+            else if (enterPlane() === 'ask') uiStore.switchTo2DPrompt = true;
           },
-        },
+        }] : []),
       ],
     },
     /*
@@ -706,8 +681,6 @@
     return false;  // `dim` is a switch, not a state: it never lights up.
   }
 
-  const mod = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl';
-
   /** Keyboard shortcuts the application already listens for (lib/tool-keys.ts). */
   const KEYS: Record<string, string> = { ...TOOL_KEY_MAP, solve: 'Enter' };
 
@@ -847,55 +820,6 @@
     {/if}
   {:else}
   <div class="rb-row">
-    <!--
-      Document-level commands, in their own box before the first group.
-      ─────────────────────────────────────────────────────────────────
-      Project, Save, Undo and Redo do not act on the model in front of you —
-      they act on WHICH model you have. Filing them under a group heading would
-      misstate their scope, and scattering them (two in the title bar, three at
-      the far right) made the most consequential commands the hardest to find.
-
-      Two rows of two, not a row of four: at ribbon height a single row of small
-      square buttons reads as a strip of unrelated glyphs, while a 2×2 block
-      reads as one control with the document pair above and the history pair
-      below. It also costs half the width, which the groups want.
-    -->
-    <div class="rb-quick" data-testid="rb-quick">
-      <div class="rb-quick-row">
-        <button
-          class="rb-quick-btn"
-          class:active={activePanel === 'project'}
-          onclick={() => onOpenPanel('project')}
-          title={t('ribbon.project')}
-          aria-label={t('ribbon.project')}
-          data-testid="hdr-project"
-        ><Icon name="project" size={21} /></button>
-        <button
-          class="rb-quick-btn"
-          onclick={() => saveProject()}
-          title="{t('project.saveTab')} ({mod}+S)"
-          aria-label={t('project.saveTab')}
-          data-testid="rb-save"
-        ><Icon name="save" size={21} /></button>
-      </div>
-      <div class="rb-quick-row">
-        <button
-          class="rb-quick-btn"
-          onclick={() => historyStore.undo()}
-          disabled={!historyStore.canUndo}
-          title="{t('toolbar.undo')} ({mod}+Z)"
-          aria-label={t('toolbar.undo')}
-        ><Icon name="undo" size={16} /></button>
-        <button
-          class="rb-quick-btn"
-          onclick={() => historyStore.redo()}
-          disabled={!historyStore.canRedo}
-          title="{t('toolbar.redo')} ({mod}+Y)"
-          aria-label={t('toolbar.redo')}
-        ><Icon name="redo" size={16} /></button>
-      </div>
-    </div>
-
     {#each GROUPS as g (g.id)}
       <section class="rb-group" data-group={g.id} aria-label={t(g.labelKey)}>
         <div class="rb-cmds">
@@ -1112,24 +1036,6 @@
     flex: none;
   }
 
-  /* The grid places the four cells; the rows are transparent wrappers. */
-  .rb-quick-row {
-    display: contents;
-  }
-
-  /*
-     The document pair carries the dividers; history sits plain beneath it.
-     `--st-hair-strong` rather than `--st-hair`: the group separators run the
-     ribbon's full height, so they read at a low alpha — these are short
-     segments and disappear at the same value.
-
-     With `display: contents` the rows vanish from the box model but remain in
-     the DOM, so the rules are still addressed through them — `:nth-child` on
-     the buttons would count within each row and hit both.
-  */
-  .rb-quick-row:first-child .rb-quick-btn { border-bottom: 1px solid var(--st-hair-strong); }
-  .rb-quick-row:first-child .rb-quick-btn:first-child { border-right: 1px solid var(--st-hair-strong); }
-
 
   .rb-quick-btn {
     display: flex;
@@ -1160,7 +1066,7 @@
     .rb-group { padding: 0 0.45rem 0.2rem; }
   }
 
-  @media (max-width: 1180px) {
+  @media (max-width: 1240px) {
     .rb-label { display: none; }
     .rb-cmd { min-width: 34px; padding: 0.35rem 0.3rem; }
     .rb-group { padding: 0 0.35rem 0.2rem; }
@@ -1178,6 +1084,14 @@
      a scroll and at 390 px and above it fits outright. Twenty pixels and four
      hundred and sixty are not the same problem.
      ────────────────────────────────────────────────────────────────── */
+  @media (min-width: 768px) {
+    .ribbon { height: calc(var(--st-ribbon-body-h) + 1px); }
+    .rb-row { height: 100%; padding-top: 0.2rem; }
+    .rb-cmd { padding-top: 0.18rem; padding-bottom: 0.18rem; }
+    .rb-group { padding-bottom: 0.15rem; }
+    .rb-group-label { margin-top: 0.15rem; }
+  }
+
   @media (max-width: 767px) {
     /*
        Nine slots that share the width, whatever the width is.

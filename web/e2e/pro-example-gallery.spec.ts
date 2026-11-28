@@ -1,5 +1,5 @@
 /**
- * The PRO example gallery under Project › New model: its groups in order, a card that says what
+ * The PRO example gallery, opened from File › Open example: its groups in order, a card that says what
  * to look at, a first load straight away, and a second one that asks before replacing the model.
  * The catalogue itself (sizes, texts, what a loaded example carries) is checked in
  * `pro-examples-catalogue.test.ts`; this checks the gallery reaches it.
@@ -11,7 +11,8 @@ test.describe('@slow PRO example gallery', () => {
 
   test('lists the groups in order, loads a card, and asks before replacing the open model', async ({ pro: page }) => {
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-open-example').click();
     const gallery = page.getByTestId('pp-gallery');
     await expect(gallery).toBeVisible();
     await expect(gallery.locator('.pg-group')).toHaveText([
@@ -29,7 +30,8 @@ test.describe('@slow PRO example gallery', () => {
 
     // A model open: the next card asks first; cancelling keeps it, loading replaces it.
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-open-example').click();
     const shed = page.getByTestId('pp-gallery').locator('[data-example="pro-simple-shed"]');
     await shed.locator('.pp-ex').click();
     const ask = page.getByTestId('pp-example-confirm');

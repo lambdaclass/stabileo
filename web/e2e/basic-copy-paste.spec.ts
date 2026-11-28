@@ -77,7 +77,7 @@ test.describe('@smoke copy and paste in Basic', () => {
     await portal2D(page);
     await page.evaluate(() => window.__stabileoActions.selectNodes([1, 2, 3]));
     await page.keyboard.press('Control+c');
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-space').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.cameraState() !== null), { timeout: 15_000 }).toBe(true);
     const before = await nodes(page);
     await page.mouse.move(400, 300);
@@ -97,7 +97,7 @@ test.describe('@smoke copy and paste in Basic', () => {
 
   test('3D: the ghost follows the pointer and a click puts the anchor there', async ({ page }) => {
     await portal2D(page);
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-space').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.cameraState() !== null), { timeout: 15_000 }).toBe(true);
     await page.waitForTimeout(800);
     const before = await nodes(page);
@@ -116,7 +116,7 @@ test.describe('@smoke copy and paste in Basic', () => {
 
   test('3D: copied and pasted in 3D, nodes alone, placed by typed coordinates', async ({ page }) => {
     await portal2D(page);
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-space').click();
     await expect.poll(() => page.evaluate(() => window.__stabileo.cameraState() !== null), { timeout: 15_000 }).toBe(true);
     const before = await nodes(page);
     const elementsBefore = await elementCount(page);

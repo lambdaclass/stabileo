@@ -62,10 +62,11 @@ test.describe('@smoke PRO results, report, view and tools', () => {
 
   test('the report takes a figure of the view, and the job from the project', async ({ pro: page }) => {
     await results(page);
-    await page.getByTestId('pr-project').click();
-    await page.getByTestId('project-info').locator('summary').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-project-settings').click();
     await page.getByTestId('pi-job').fill('Nave Norte');
     await page.getByTestId('pi-job').blur();
+    await page.getByTestId('project-settings-close').click();
     expect((await data(page, 'projectInfo')).job).toBe('Nave Norte');
     await page.getByTestId('pr-stage-analyse').click();
     await page.getByTestId('pr-cmd-report').click();

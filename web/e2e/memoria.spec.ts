@@ -49,7 +49,8 @@ test.describe('@slow memoria', () => {
 
   test('the steel shed: its members within the limit, never satisfying', async ({ pro: page }) => {
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-open-example').click();
     await page.getByTestId('pp-gallery').locator('[data-example="pro-simple-shed"] .pp-ex').click();
     await withCrashGuard(page, expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBeGreaterThan(0));
     await solveModel(page);

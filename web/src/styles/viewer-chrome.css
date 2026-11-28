@@ -60,6 +60,46 @@
 
   .cam-menu-wrap { position: relative; display: flex; }
 
+  .camera-controls.view-dock {
+    top: auto;
+    bottom: 14px;
+    left: 0;
+    right: 0;
+    width: max-content;
+    margin: 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: color-mix(in srgb, var(--st-surface) 92%, transparent);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+    transition: none;
+  }
+
+  .camera-controls.view-dock > button,
+  .camera-controls.view-dock > .cam-menu-wrap > .cam-btn {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .camera-controls.view-dock .cam-menu {
+    top: auto;
+    bottom: calc(100% + 10px);
+    right: auto;
+    left: 0;
+    max-height: calc(100cqh - 76px);
+    overflow-y: auto;
+  }
+
+  .view-dock-rule {
+    width: 1px;
+    height: 18px;
+    margin: 0 3px;
+    background: var(--st-hair-strong);
+  }
+
   /* The chevron says the cube opens something. */
   .cam-cube { position: relative; }
 

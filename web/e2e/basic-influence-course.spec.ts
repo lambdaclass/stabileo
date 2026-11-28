@@ -11,7 +11,7 @@ test.describe('@slow influence lines and envelopes in Basic', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem('liveCalc', 'false');
-      localStorage.setItem('stabileo-basic-panel-width', '290');
+      localStorage.setItem('stabileo-panel-width', '290');
     });
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });

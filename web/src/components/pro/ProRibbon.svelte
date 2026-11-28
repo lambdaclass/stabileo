@@ -13,8 +13,7 @@
    * so the ribbon's own highlight followed the click and the panel never did.
    * One module specifier, one store.
    */
-  import { uiStore, modelStore, resultsStore, historyStore, verificationStore } from '../../lib/store';
-  import { saveProject } from '../../lib/store/file';
+  import { uiStore, modelStore, resultsStore, verificationStore } from '../../lib/store';
   import { canOpenRebar3D, openRebar3DView, rebar3DMissingSteps } from '../../lib/store/rebar-open';
   import Icon from '../ribbon/Icon.svelte';
   import { buildProStages, PRO_TAB_STAGE, type ProStage, type ProCmd } from '../../lib/pro/stages';
@@ -309,32 +308,6 @@
         things that outrank the tab you happen to be on.
       -->
       <div class="pr-tools">
-        <button
-          class="pr-tool"
-          class:active={proPanel === 'project'}
-          onclick={() => onOpenProject()}
-          title={t('ribbon.project')}
-          data-testid="pr-project"
-        ><Icon name="project" size={16} /></button>
-        <button
-          class="pr-tool"
-          onclick={() => saveProject()}
-          title="{t('project.saveTab')} ({mod}+S)"
-          data-testid="pr-save"
-        ><Icon name="save" size={16} /></button>
-        <button
-          class="pr-tool"
-          onclick={() => historyStore.undo()}
-          disabled={!historyStore.canUndo}
-          title="{t('toolbar.undo')} ({mod}+Z)"
-        ><Icon name="undo" size={16} /></button>
-        <button
-          class="pr-tool"
-          onclick={() => historyStore.redo()}
-          disabled={!historyStore.canRedo}
-          title="{t('toolbar.redo')} ({mod}+Y)"
-        ><Icon name="redo" size={16} /></button>
-        <span class="pr-tool-sep" aria-hidden="true"></span>
         <!--
           ── Move and Select, back beside undo and redo ──────────────────
           Two different things wear these two buttons, and the difference is
@@ -501,14 +474,6 @@
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
   }
 
-  .pr-tool-sep {
-    width: 1px;
-    height: 16px;
-    margin: 0 0.25rem;
-    background: var(--st-hair);
-    flex: none;
-  }
-
   .pr-quick {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -563,7 +528,7 @@
     gap: 0.15rem;
     padding: 0 0.4rem;
     border-bottom: 1px solid var(--st-hair);
-    min-height: 26px;
+    height: var(--st-ribbon-strip-h);
   }
 
   .pr-tools {
@@ -645,6 +610,7 @@
   .pr-groups {
     display: flex;
     align-items: stretch;
+    height: var(--st-ribbon-body-h);
     padding: 0.2rem 0.4rem 0;
     overflow-x: auto;
     scrollbar-width: thin;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LibraryButtons from '../library/LibraryButtons.svelte';
   import { askAboutOverlapsInModel } from '../../lib/model/edit/connection-questions';
   import { uiStore, modelStore } from '../../lib/store';
   import {
@@ -7,12 +8,10 @@
   } from '../../lib/store/file';
   import { generateShareURL, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { t } from '../../lib/i18n';
-  import ToolbarExamples from './ToolbarExamples.svelte';
   import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
   import SignInNotice from '../account/SignInNotice.svelte';
   import { authStore } from '../../lib/store/auth.svelte';
   import { accountGate } from '../../lib/store/account-gate.svelte';
-  import DemoMenu from '../DemoMenu.svelte';
   import CalcReportDialog from '../CalcReportDialog.svelte';
   import ExportViewDialog from '../export/ExportViewDialog.svelte';
   import ResultsExportDialog from '../export/ResultsExportDialog.svelte';
@@ -278,27 +277,7 @@
       </div>
     </div>
   {/if}
-  <!--
-    Examples belong to the document, like everything else here: they answer
-    "which model am I working on". They had their own panel and their own
-    button, which put one of the six commands in the window's most valuable
-    corner on the same footing as Save. Between opening a file and exporting
-    one is where starting from a supplied model actually falls.
-  -->
-  <div class="proj-block">
-    <ToolbarExamples flat={true} />
-  </div>
-
-  <!--
-    Directly under the examples, and for the same reason they are here: both
-    are things the app hands you rather than things you build. A reader who
-    has just been offered a model to open is the reader most likely to want
-    to be shown what to do with it.
-  -->
-  <div class="proj-block">
-    <DemoMenu />
-  </div>
-
+  {#if uiStore.isMobile}<div class="proj-lib"><LibraryButtons /></div>{/if}
   <!--
     A heading, not a toggle. Below it opens on `flat ||` regardless, so in the
     right panel this chevron changed direction and did nothing else.
@@ -424,6 +403,8 @@
 {#if __PUBLIC_FEATURES__.accounts}<CloudProjectsDialog bind:open={cloudOpen} />{/if}
 
 <style>
+  .proj-lib { margin-top: 0.9rem; }
+
   /* ─── The Excel import report ────────────────────────────────────
      Framed but not alarmed: most imports that produce one still produced a
      model, so this is a list of things to go and fix, not a failure. The
@@ -632,8 +613,6 @@
 
 
   /* Examples brings its own headings, so it only needs the spacing. */
-  .proj-block { margin: 0.9rem 0 0; }
-
   .file-btn:hover:not(:disabled) {
     background: var(--st-surface-3);
     color: white;

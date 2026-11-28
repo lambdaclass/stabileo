@@ -31,7 +31,7 @@ test.describe('switching a 3D model to 2D', () => {
   });
 
   test('asks before throwing the third dimension away', async ({ page }) => {
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-plane').click();
     await expect(page.locator('.s2d')).toBeVisible();
     // And staying in 3D leaves the model exactly as it was.
     const before = await count(page);
@@ -41,7 +41,7 @@ test.describe('switching a 3D model to 2D', () => {
   });
 
   test('offers the cuts the model actually has', async ({ page }) => {
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-plane').click();
     // The warehouse has frames every 2.5 m along Y — the cuts are read off
     // the model, so this is the model's own grid, not a guess.
     const chips = page.locator('.s2d-cut');
@@ -54,7 +54,7 @@ test.describe('switching a 3D model to 2D', () => {
     const before = await count(page);
     expect(before).toBeGreaterThan(100);
 
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-plane').click();
     await page.getByTestId('s2d-cut-10').click();
     await page.getByTestId('s2d-apply').click();
 
@@ -74,13 +74,21 @@ test.describe('switching a 3D model to 2D', () => {
     await expect(droppedLoads).toBeVisible();
     expect(Number(await droppedLoads.getAttribute('data-count'))).toBeGreaterThan(0);
 
-    // Back up: the original returns, not the frame in a 3D viewport.
-    await page.getByTestId('rb-cmd-dim').click();
+    // The frame is a tab of its own; the building never left its tab.
+    const tabs = page.locator('.tab-bar .tab');
+    await expect(tabs).toHaveCount(2);
+    await expect(tabs.nth(1)).toHaveAttribute('data-mode', '2D');
+    await tabs.nth(0).click();
     await expect.poll(() => count(page), { timeout: 30_000 }).toBe(before);
+    await expect(tabs.nth(0)).toHaveAttribute('data-mode', '3D');
+    await expect(page.locator('.simplified-banner')).toHaveCount(0);
+    // And the banner is the frame tab's, still there when it comes back.
+    await tabs.nth(1).click();
+    await expect(page.locator('.simplified-banner')).toContainText('Y = 10');
   });
 
   test('flags a cut that brings nothing to stand on', async ({ page }) => {
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-plane').click();
     // Cutting by height takes a roof level: members, and no support under them.
     await page.getByTestId('s2d-plane-xy').click();
     await expect(page.locator('.s2d-cut-flag').first()).toBeVisible();
@@ -88,7 +96,7 @@ test.describe('switching a 3D model to 2D', () => {
 
   test('projects the whole structure when that is what was asked', async ({ page }) => {
     const before = await count(page);
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-plane').click();
     await page.getByTestId('s2d-mode-project').click();
     await page.getByTestId('s2d-apply').click();
     await expect(page.locator('.simplified-banner')).toBeVisible();
@@ -108,9 +116,9 @@ test.describe('switching a 3D model to 2D', () => {
     expect(projected).toBeGreaterThan(0);
     expect(projected).toBeLessThan(before);
 
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.locator('.tab-bar .tab').nth(0).click();
     await expect.poll(() => count(page), { timeout: 30_000 }).toBe(before);
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-plane').click();
     // Back to slice explicitly: the dialog remembers the mode across
     // openings, which is right for a user repeating a choice and a trap for
     // a test that assumes the default.
@@ -120,14 +128,16 @@ test.describe('switching a 3D model to 2D', () => {
     await expect.poll(() => count(page)).toBeLessThan(projected);
   });
 
-  test('asks twice before erasing the model', async ({ page }) => {
+  test('starts an empty plane tab, and leaves the model in its own', async ({ page }) => {
     const before = await count(page);
-    await page.getByTestId('rb-cmd-dim').click();
-    await page.getByTestId('s2d-erase').click();
-    // Still there: the first press only asks.
-    expect(await count(page)).toBe(before);
-    await page.getByTestId('s2d-erase-confirm').click();
+    await page.getByTestId('ws-plane').click();
+    await page.getByTestId('s2d-new-tab').click();
     await expect.poll(() => count(page)).toBe(0);
+    const tabs = page.locator('.tab-bar .tab');
+    await expect(tabs).toHaveCount(2);
+    await expect(tabs.nth(1)).toHaveAttribute('data-mode', '2D');
+    await tabs.nth(0).click();
+    await expect.poll(() => count(page), { timeout: 30_000 }).toBe(before);
   });
 });
 
@@ -136,8 +146,8 @@ test.describe('a flat model needs no question', () => {
     await openBasic(page);
     await loadModel(page, 'two-story-frame');
     // Already 2D; going up and back down must not interrogate the user.
-    await page.getByTestId('rb-cmd-dim').click();   // → 3D
-    await page.getByTestId('rb-cmd-dim').click();   // → 2D
+    await page.getByTestId('ws-space').click();
+    await page.getByTestId('ws-plane').click();
     await expect(page.locator('.s2d')).toHaveCount(0);
   });
 });

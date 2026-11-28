@@ -228,7 +228,7 @@ async function assertClean(page: Page, w: Watch, step: string) {
 async function boot(page: Page) {
   await page.addInitScript(() => {
     try {
-      localStorage.clear();
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right'); localStorage.setItem('stabileo-panel-open', 'closed');
       // Cleared with the rest: the normative design is turned back on, as the specs use it.
       localStorage.setItem('stabileo-design-in-pro', '1');
       localStorage.setItem('stabileo-lang', 'es');

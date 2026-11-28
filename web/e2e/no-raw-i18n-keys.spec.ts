@@ -105,7 +105,7 @@ async function expectNoRawKeys(page: Page, screen: string): Promise<void> {
 async function bootBasic(page: Page, locale: string): Promise<void> {
   await page.addInitScript((loc) => {
     try {
-      localStorage.clear();
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right'); localStorage.setItem('stabileo-panel-open', 'closed');
       localStorage.setItem('stabileo-lang', loc);
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch { /* private mode */ }
@@ -119,7 +119,7 @@ async function bootBasic(page: Page, locale: string): Promise<void> {
 async function bootProDesignOff(page: Page, locale: string): Promise<void> {
   await page.addInitScript((loc) => {
     try {
-      localStorage.clear();
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right'); localStorage.setItem('stabileo-panel-open', 'closed');
       localStorage.setItem('stabileo-lang', loc);
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch { /* private mode */ }
@@ -166,7 +166,7 @@ for (const locale of LOCALES) {
 
       // A dialog: switching a 3D model to 2D.
       await loadModel(page, '3d-portal-frame');
-      await page.getByTestId('rb-cmd-dim').click();
+      await page.getByTestId('ws-plane').click();
       await expect(page.locator('.s2d')).toBeVisible();
       await expectNoRawKeys(page, `the switch-to-2D dialog (${locale})`);
       await page.getByTestId('s2d-cancel').click();

@@ -16,8 +16,10 @@ test.describe('@smoke PRO project tab overlays', () => {
     await expect(tip).toBeVisible();
     expect(await tip.evaluate((el) => el.parentElement === document.body)).toBe(true);
     const t = (await tip.boundingBox())!, b = (await save.boundingBox())!;
-    expect(t.x + t.width).toBeLessThanOrEqual(b.x);       // to the left of the button
+    const beside = t.x + t.width <= b.x || t.x >= b.x + b.width;
+    expect(beside, 'beside the button, on the side with room').toBe(true);
     expect(t.x).toBeGreaterThanOrEqual(0);
+    expect(t.x + t.width).toBeLessThanOrEqual(1440);
     // Over the viewport and above it: fixed on the document, at a z-index the page's panels do not reach.
     const style = await tip.evaluate((el) => ({ position: getComputedStyle(el).position, z: Number(getComputedStyle(el).zIndex) }));
     expect(style.position).toBe('fixed');
@@ -26,13 +28,15 @@ test.describe('@smoke PRO project tab overlays', () => {
 
   test('pressing the button does the thing and leaves no tip pinned', async ({ pro: page }) => {
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-open-example').click();
     await expect(page.getByRole('tooltip')).toHaveCount(0);
   });
 
   test('the gallery covers the panel\'s resize handle', async ({ pro: page }) => {
     await page.getByTestId('pr-project').click();
-    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-open-example').click();
     const handle = (await page.locator('.pro-resize-handle').boundingBox())!;
     const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.className ?? '',
       [handle.x + handle.width / 2, handle.y + handle.height / 2]);

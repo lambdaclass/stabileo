@@ -24,46 +24,9 @@
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { announceDesignOn, DESIGN_LIMITS } from '../../lib/store/design-presence';
 
-  /*
-   * The grid is kept in metres and shown in the chosen length unit. The xz
-   * label's translations carry "(m)" in their text, so that suffix is taken
-   * off and the unit in use is written instead.
-   */
-  const gridSizeLabel = (is3D: boolean) =>
-    `${is3D ? t('config.gridSizeXZ') : t('config.gridSize')} (${unitQ('length')})`;
+  const gridSizeLabel = () => `${t('config.gridSpacing')} (${unitQ('length')})`;
   /** A floor extent in whole units: they are round numbers of metres, 20 to 10 000. */
   const extentLabel = (m: number) => String(Math.round(toQ(m, 'length')));
-
-  /** When true, skip outer toggle and show content directly (used in PRO dropdown). */
-
-  /**
-   * `flat` — everything open, no accordions.
-   *
-   * These sections collapse because they used to be stacked in one narrow left
-   * column where five of them competed for the same vertical space. In the
-   * ribbon layout only ONE of them is ever mounted, in a panel that already
-   * names it and that the user can widen, so a disclosure triangle just hides
-   * what they explicitly asked to see.
-   */
-  let { inline = false, flat = false }: any = $props();
-
-  let showConfig = $state(false);
-  let showGridSub = $state(false);
-  let showStructureSub = $state(false);
-  let showResultsSub = $state(false);
-
-
-  // Listen for tour events to auto-open/close config section
-  $effect(() => {
-    const openConfig = () => { showConfig = true; };
-    const closeConfig = () => { showConfig = false; };
-    window.addEventListener('stabileo-open-config', openConfig);
-    window.addEventListener('stabileo-close-config', closeConfig);
-    return () => {
-      window.removeEventListener('stabileo-open-config', openConfig);
-      window.removeEventListener('stabileo-close-config', closeConfig);
-    };
-  });
 
   function setUsageSharing(granted: boolean) {
     usageConsent.set(granted ? 'granted' : 'denied');
@@ -73,50 +36,31 @@
     .replace('{up}', upLabel(axesStore.frame).replace('+', ''))
     .replace('{hand}', t(axesStore.choice.hand === 'right' ? 'axes.right' : 'axes.left'))
     .replace('{local}', t(uiStore.axisConvention3D === 'leftHand' ? 'axes.left' : 'axes.right')));
+  const is3D = $derived(uiStore.is3DWorkspace);
+  const isPro = $derived(uiStore.appMode === 'pro');
+  const gridVisible = $derived(is3D ? uiStore.showGrid3D : uiStore.showGrid);
 </script>
 
-<div class="toolbar-section" data-tour="config-section">
-  {#if !inline}
-  {#if !flat}<button class="section-toggle" onclick={() => showConfig = !showConfig}>
-    {showConfig ? '▾' : '▸'} {t('config.title')}
-  </button>
-  {/if}
-  {/if}
-  <!--
-    `flat` belongs in this gate. Every sub-section below already opens on
-    `flat ||`, but the outer one did not, and `showConfig` starts closed —
-    so pressing Settings in the ribbon opened a right panel with a heading
-    and nothing underneath it.
-  -->
-  {#if showConfig || inline || flat}
-  <div class="config-children">
-    <!--
-      Everything that only exists on a phone, under a heading that says so.
-      ─────────────────────────────────────────────────────────────────────
-      FIRST in the panel, and its own section. These sat loose among the model
-      settings — inside a sub-section that PRO renders collapsed, so in PRO the
-      control size could not be found at all, and in Basic it sat under a
-      heading reading MODELO, which is not what it configures.
+{#snippet check(tip: string | null, label: string, checked: boolean, set: (v: boolean) => void, testid?: string, disabled = false)}
+  <label class="cfg-check" class:cfg-disabled={disabled}>
+    {#if tip}
+      <HelpTip text={tip}>
+        <input type="checkbox" {checked} {disabled} data-testid={testid} onchange={(e) => set(e.currentTarget.checked)} />
+        <span>{label}</span>
+      </HelpTip>
+    {:else}
+      <input type="checkbox" {checked} {disabled} data-testid={testid} onchange={(e) => set(e.currentTarget.checked)} />
+      <span>{label}</span>
+    {/if}
+  </label>
+{/snippet}
 
-      Nothing here can leak into a desktop session. The section is not
-      rendered above 768 px, and every rule it drives lives inside a
-      `max-width: 767px` query in `styles/touch-density.css` — so choosing
-      "comfortable" on a phone and then widening the window changes nothing:
-      the preference is remembered and simply has no rules answering to it
-      at that width. It is a phone setting in the strong sense, not a global
-      one that a phone happens to be where you set it.
-    -->
-    {#if uiStore.isMobile}
-      <h4 class="cfg-mobile-heading">{t('config.mobileSection')}</h4>
-      <!--
-        Language. The header selector is hidden below 768 px — it held a
-        permanent slot in the tightest row in the application for a control
-        touched once — so the setting lives here instead.
-      -->
-      <div class="input-group cfg-lang">
-        <HelpTip text={t('config.tip.language')}><label>{t('app.language')}:</label></HelpTip>
-        <!-- Same drawn list as the landing: a native popup lands where the
-             platform chooses, which on macOS is beside the control. -->
+<div class="cfg" data-tour="config-section">
+  {#if uiStore.isMobile}
+    <section class="cfg-sec">
+      <h4 class="cfg-heading cfg-mobile-heading">{t('config.mobileSection')}</h4>
+      <div class="cfg-field cfg-lang">
+        <HelpTip text={t('config.tip.language')}><label for="cfg-lang">{t('app.language')}</label></HelpTip>
         <LocaleSelect
           value={i18n.locale}
           options={OFFERED_LOCALES}
@@ -126,692 +70,367 @@
           testid="cfg-lang"
         />
       </div>
-      <!--
-        Control size. The panels came from a desktop sidebar and their rows
-        are 22–25 px. Compact fits more of a results table on a small
-        screen; comfortable hits a 44 px target and costs about 125 px of
-        extra scrolling to reach that table. Both are defensible, which is
-        why this is offered rather than decided.
-      -->
-      <div class="input-group cfg-density">
-        <HelpTip text={t('config.tip.touchDensity')}><label>{t('config.touchDensity')}:</label></HelpTip>
-        <select bind:value={uiStore.touchDensity} data-testid="cfg-density-select">
+      <div class="cfg-field cfg-density">
+        <HelpTip text={t('config.tip.touchDensity')}><label for="cfg-density">{t('config.touchDensity')}</label></HelpTip>
+        <select id="cfg-density" bind:value={uiStore.touchDensity} data-testid="cfg-density-select">
           <option value="compact">{t('config.densityCompact')}</option>
           <option value="comfortable">{t('config.densityComfortable')}</option>
         </select>
       </div>
-    {/if}
-    {#if flat}
-      <span class="sub-heading">{t('config.grid')}</span>
-    {:else}
-      <button class="sub-toggle" onclick={() => showGridSub = !showGridSub}>
-        {showGridSub ? '▾' : '▸'} {t('config.grid')}
-      </button>
-    {/if}
-    {#if flat || showGridSub}
-      {@const is3D = uiStore.is3DWorkspace}
-      {@const isPro = uiStore.analysisMode === 'pro'}
-      {@const gridVisible = is3D ? uiStore.showGrid3D : uiStore.showGrid}
-      <div class="sub-content" data-tour="cfg-grid">
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.showAxes')}>
-          <input type="checkbox" checked={is3D ? uiStore.showAxes3D : uiStore.showAxes}
-            onchange={(e) => { if (is3D) uiStore.showAxes3D = e.currentTarget.checked; else uiStore.showAxes = e.currentTarget.checked; }} />
-          <span>{t('config.showAxes')}</span>
-          </HelpTip>
-        </label>
-        <!-- Basic mode: one "Local axes" control (members only — Basic has no shells).
-             PRO keeps the member/shell split. Works in both Basic 2D and Basic 3D. -->
-        <div class="input-group">
-          <HelpTip text={t('config.tip.localAxes')}><label>{isPro ? t('config.localAxesMembers') : t('config.localAxes')}:</label></HelpTip>
-          <select bind:value={uiStore.localAxesMode3D}>
-            <option value="selected">{t('config.localAxesSelected')}</option>
-            <option value="always">{t('config.localAxesAlways')}</option>
-            <option value="never">{t('config.localAxesNever')}</option>
-          </select>
-        </div>
-        {#if isPro}
-          <div class="input-group">
-            <HelpTip text={t('config.tip.localAxesShells')}><label>{t('config.localAxesShells')}:</label></HelpTip>
-            <select bind:value={uiStore.shellAxesMode3D}>
-              <option value="selected">{t('config.localAxesSelected')}</option>
-              <option value="always">{t('config.localAxesAlways')}</option>
-              <option value="never">{t('config.localAxesNever')}</option>
-            </select>
-          </div>
-          <label class="checkbox-item">
-            <HelpTip text={t('config.tip.smoothOrbit')}>
-            <input type="checkbox" checked={uiStore.smoothOrbit3D}
-              onchange={(e) => { uiStore.smoothOrbit3D = e.currentTarget.checked; }} />
-            <span>{t('config.smoothOrbit')}</span>
-            </HelpTip>
-          </label>
-        {/if}
-        {#if !is3D}
-          <!-- The same switch as the member tool's "Dimensions" button; not the grid's. -->
-          <label class="checkbox-item">
-            <HelpTip text={t('config.tip.memberDims')}>
-            <input type="checkbox" checked={uiStore.showMemberDimensions}
-              onchange={(e) => { uiStore.showMemberDimensions = e.currentTarget.checked; }} data-testid="cfg-member-dims" />
-            <span>{t('config.memberDims')}</span>
-            </HelpTip>
-          </label>
-        {/if}
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.showGrid')}>
-          <input type="checkbox" checked={gridVisible}
-            onchange={(e) => { if (is3D) uiStore.showGrid3D = e.currentTarget.checked; else uiStore.showGrid = e.currentTarget.checked; }} />
-          <span>{t('config.showGrid')}</span>
-          </HelpTip>
-        </label>
-        <div style="opacity: {gridVisible ? 1 : 0.4}; pointer-events: {gridVisible ? 'auto' : 'none'}; display: flex; flex-direction: column; gap: 0.35rem;">
-          <label class="checkbox-item">
-            <HelpTip text={t('config.tip.snapGrid')}>
-            <input type="checkbox" checked={is3D ? uiStore.snapToGrid3D : uiStore.snapToGrid}
-              onchange={(e) => { if (is3D) uiStore.snapToGrid3D = e.currentTarget.checked; else uiStore.snapToGrid = e.currentTarget.checked; }} />
-            <span>{t('config.snapGrid')}</span>
-            </HelpTip>
-          </label>
-          <div class="input-group">
-            <HelpTip text={t('config.tip.gridSize')}><label>{gridSizeLabel(is3D)}:</label></HelpTip>
-            <UnitInput
-              value={is3D ? uiStore.gridSize3D : uiStore.gridSize}
-              qty="length"
-              unit={false}
-              live
-              min={0.001}
-              onchange={(v) => { if (v > 0) { if (is3D) uiStore.gridSize3D = v; else uiStore.gridSize = v; } }}
-            />
-          </div>
-          {#if is3D}
-            <div class="input-group" style="flex-direction: column; align-items: stretch;">
-              <HelpTip text={t('config.tip.gridExtent')}><label>{t('config.gridExtent')}: {extentLabel(uiStore.gridExtent3D)}×{extentLabel(uiStore.gridExtent3D)} {unitQ('length')}</label></HelpTip>
-              <!--
-                Stops, not a linear slider. The range runs from 20 m to 10 km
-                and a linear track would spend nine tenths of its length on
-                sizes nobody uses; the useful sizes are round numbers an order
-                of magnitude apart.
-              -->
-              <input
-                type="range"
-                min="0"
-                max={GRID_EXTENTS.length - 1}
-                step="1"
-                value={Math.max(0, GRID_EXTENTS.indexOf(uiStore.gridExtent3D))}
-                oninput={(e) => {
-                  uiStore.gridExtent3D = GRID_EXTENTS[parseInt(e.currentTarget.value)];
-                }}
-                data-testid="cfg-grid-extent"
-              />
-            </div>
-          {/if}
-        </div>
+    </section>
+  {/if}
+
+  <section class="cfg-sec" data-tour="cfg-view">
+    <h4 class="cfg-heading">{t('config.view')}</h4>
+    {@render check(t('config.tip.showAxes'), t('config.showAxes'), is3D ? uiStore.showAxes3D : uiStore.showAxes,
+      (v) => { if (is3D) uiStore.showAxes3D = v; else uiStore.showAxes = v; })}
+    <div class="cfg-field">
+      <HelpTip text={t('config.tip.localAxes')}><label for="cfg-local-axes">{isPro ? t('config.localAxesMembers') : t('config.localAxes')}</label></HelpTip>
+      <select id="cfg-local-axes" bind:value={uiStore.localAxesMode3D}>
+        <option value="selected">{t('config.localAxesSelected')}</option>
+        <option value="always">{t('config.localAxesAlways')}</option>
+        <option value="never">{t('config.localAxesNever')}</option>
+      </select>
+    </div>
+    {#if isPro}
+      <div class="cfg-field">
+        <HelpTip text={t('config.tip.localAxesShells')}><label for="cfg-shell-axes">{t('config.localAxesShells')}</label></HelpTip>
+        <select id="cfg-shell-axes" bind:value={uiStore.shellAxesMode3D}>
+          <option value="selected">{t('config.localAxesSelected')}</option>
+          <option value="always">{t('config.localAxesAlways')}</option>
+          <option value="never">{t('config.localAxesNever')}</option>
+        </select>
       </div>
     {/if}
-
-    {#if flat}
-
-      <span class="sub-heading">{t('config.model')}</span>
-
+    {#if is3D}
+      <div class="cfg-field">
+        <HelpTip text={t('config.tip.renderMode')}><label for="cfg-render">{t('config.renderMode')}</label></HelpTip>
+        <select id="cfg-render" bind:value={uiStore.renderMode3D}>
+          <option value="wireframe">{t('config.wireframe')}</option>
+          <option value="solid">{t('config.solid')}</option>
+          <option value="sections">{t('config.sections')}</option>
+        </select>
+      </div>
+      <div class="cfg-field">
+        <HelpTip text={t('config.tip.nodeStyle')}><label for="cfg-node-style">{t('config.nodeStyle')}</label></HelpTip>
+        <select id="cfg-node-style" bind:value={uiStore.nodeStyle3D} data-testid="cfg-node-style">
+          <option value="auto">{t('config.nodeStyleAuto')}</option>
+          <option value="points">{t('config.nodeStylePoints')}</option>
+          <option value="spheres">{t('config.nodeStyleSpheres')}</option>
+        </select>
+      </div>
+      <div class="cfg-field">
+        <HelpTip text={t('config.tip.momentStyle')}><label for="cfg-moments">{t('config.momentStyle')}</label></HelpTip>
+        <select id="cfg-moments" bind:value={uiStore.momentStyle3D}>
+          <option value="double-arrow">{t('config.momentArrowDouble')}</option>
+          <option value="curved">{t('config.momentArrowCurved')}</option>
+        </select>
+      </div>
     {:else}
-
-      <button class="sub-toggle" onclick={() => showStructureSub = !showStructureSub}>
-
-        {showStructureSub ? '▾' : '▸'} {t('config.model')}
-
-      </button>
-
-    {/if}
-    {#if flat || showStructureSub}
-      {@const is3Dm = uiStore.is3DWorkspace}
-      <div class="sub-content" data-tour="cfg-model">
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.nodeIds')}>
-          <input type="checkbox" data-testid="cfg-node-ids" checked={is3Dm ? uiStore.showNodeLabels3D : uiStore.showNodeLabels}
-            onchange={(e) => { if (is3Dm) uiStore.showNodeLabels3D = e.currentTarget.checked; else uiStore.showNodeLabels = e.currentTarget.checked; }} />
-          <span>{t('config.nodeIds')}</span>
-          </HelpTip>
-        </label>
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.elementIds')}>
-          <input type="checkbox" checked={is3Dm ? uiStore.showElementLabels3D : uiStore.showElementLabels}
-            onchange={(e) => { if (is3Dm) uiStore.showElementLabels3D = e.currentTarget.checked; else uiStore.showElementLabels = e.currentTarget.checked; }} />
-          <span>{t('config.elementIds')}</span>
-          </HelpTip>
-        </label>
-        <!--
-          Plate ids, under member ids.
-          ───────────────────────────
-          Shells were the one kind of element you could not label, and PRO is
-          where they are modelled: a raft of sixty quads and no way to tell
-          which one the results table is talking about. 3-D only, because a
-          2D model has no shells to number.
-        -->
-        {#if is3Dm}
-          <label class="checkbox-item">
-            <HelpTip text={t('config.tip.shellIds')}>
-            <input type="checkbox" checked={uiStore.showShellLabels3D}
-              data-testid="cfg-shell-ids"
-              onchange={(e) => { uiStore.showShellLabels3D = e.currentTarget.checked; }} />
-            <span>{t('config.shellIds')}</span>
-            </HelpTip>
-          </label>
-        {/if}
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.lengths')}>
-          <input type="checkbox" checked={is3Dm ? uiStore.showLengths3D : uiStore.showLengths}
-            onchange={(e) => { if (is3Dm) uiStore.showLengths3D = e.currentTarget.checked; else uiStore.showLengths = e.currentTarget.checked; }} />
-          <span>{t('config.lengths')}</span>
-          </HelpTip>
-        </label>
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.showLoads')}>
-          <input type="checkbox" checked={is3Dm ? uiStore.showLoads3D : uiStore.showLoads}
-            onchange={(e) => { if (is3Dm) uiStore.showLoads3D = e.currentTarget.checked; else uiStore.showLoads = e.currentTarget.checked; }} />
-          <span>{t('config.showLoads')}</span>
-          </HelpTip>
-        </label>
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.showSupports')}>
-          <input type="checkbox" checked={uiStore.showSupports} data-testid="cfg-show-supports"
-            onchange={(e) => { uiStore.showSupports = e.currentTarget.checked; }} />
-          <span>{t('config.showSupports')}</span>
-          </HelpTip>
-        </label>
-        <!-- Sizes: what each slider does on its left, the slider, its value; one row each. -->
-        <div class="slider-row">
-          <HelpTip text={t('config.tip.labelSize')}><label for="cfg-label-size">{t('config.labelSize')}</label></HelpTip>
-          <input id="cfg-label-size" type="range" data-testid="cfg-label-size"
-            min={uiStore.labelScaleRange[0]} max={uiStore.labelScaleRange[1]} step="0.1"
-            value={uiStore.labelScale}
-            oninput={(e) => { uiStore.labelScale = parseFloat(e.currentTarget.value); }} />
-          <span class="slider-val">{Math.round(uiStore.labelScale * 100)} %</span>
-        </div>
-        <!-- PRO sets the same factor from its load cases panel. -->
-        {#if uiStore.appMode !== 'pro'}
-          <div class="slider-row">
-            <HelpTip text={t('config.tip.loadSize')}><label for="cfg-load-size">{t('config.loadSize')}</label></HelpTip>
-            <input id="cfg-load-size" type="range" data-testid="cfg-load-size"
-              min={uiStore.loadArrowScaleRange[0]} max={uiStore.loadArrowScaleRange[1]} step="0.1"
-              value={uiStore.loadArrowScale}
-              oninput={(e) => { uiStore.loadArrowScale = parseFloat(e.currentTarget.value); }} />
-            <span class="slider-val">{Math.round(uiStore.loadArrowScale * 100)} %</span>
-          </div>
-        {/if}
-        {#if !uiStore.isMobile}
-          <label class="checkbox-item">
-            <HelpTip text={t('config.tip.panelScrollbars')}>
-            <input type="checkbox" checked={uiStore.panelScrollbars} data-testid="cfg-panel-scrollbars"
-              onchange={(e) => { uiStore.panelScrollbars = e.currentTarget.checked; }} />
-            <span>{t('config.panelScrollbars')}</span>
-            </HelpTip>
-          </label>
-        {/if}
-        {#if !is3Dm}
-          <label class="checkbox-item">
-            <HelpTip text={t('config.tip.autoSplit')}>
-            <input type="checkbox" bind:checked={uiStore.autoSplitOnNodePlace} />
-            <span>{t('config.autoSplitElements')}</span>
-            </HelpTip>
-          </label>
-        {/if}
-        <div class="input-group">
-        <HelpTip text={t('config.tip.units')}><label>{t('config.units')}:</label></HelpTip>
-          <select bind:value={uiStore.unitSystem} data-testid="cfg-units">
-            <option value="SI">{t('config.unitSI')}</option>
-            <option value="SImm">{t('config.unitSImm')}</option>
-            <option value="MKS">{t('config.unitMKS')}</option>
-            <option value="Imperial">{t('config.unitImperial')}</option>
-          </select>
-        </div>
-        <div class="input-group">
-          {#if __PUBLIC_FEATURES__.globalAxes}
-          <HelpTip text={t('axes.configTip')}><label>{t('axes.configLabel')}:</label></HelpTip>
-          <span class="axes-summary" data-testid="cfg-axes-summary">{axesSummary}</span>
-          <button type="button" class="axes-open-btn" data-testid="cfg-axes-open" onclick={() => { axesStore.pickerOpen = true; }}>{t('axes.configOpen')}</button>
-          {:else}
-          <HelpTip text={t('config.tip.axisConvention')}><label>{t('config.localAxes')}:</label></HelpTip>
-          <select bind:value={uiStore.axisConvention3D}>
-            <option value="rightHand">{t('config.rightHand')}</option>
-            <option value="leftHand">{t('config.leftHand')}</option>
-          </select>
-          <span class="help-hint" title={t('config.axisConventionHelp')}>?</span>
-          {/if}
-        </div>
-        {#if is3Dm}
-          <div class="input-group">
-            <HelpTip text={t('config.tip.momentStyle')}>
-            <select bind:value={uiStore.momentStyle3D}>
-              <option value="double-arrow">{t('config.momentsDoubleArrow')}</option>
-              <option value="curved">{t('config.momentsCurved')}</option>
-            </select>
-            </HelpTip>
-          </div>
-          <div class="input-group">
-            <HelpTip text={t('config.tip.renderMode')}>
-            <select bind:value={uiStore.renderMode3D}>
-              <option value="wireframe">{t('config.wireframe')}</option>
-              <option value="solid">{t('config.solid')}</option>
-              <option value="sections">{t('config.sections')}</option>
-            </select>
-            </HelpTip>
-          </div>
-          <div class="input-group">
-            <HelpTip text={t('config.tip.nodeStyle')}><label for="cfg-node-style">{t('config.nodeStyle')}:</label></HelpTip>
-            <select id="cfg-node-style" bind:value={uiStore.nodeStyle3D} data-testid="cfg-node-style">
-              <option value="auto">{t('config.nodeStyleAuto')}</option>
-              <option value="points">{t('config.nodeStylePoints')}</option>
-              <option value="spheres">{t('config.nodeStyleSpheres')}</option>
-            </select>
-          </div>
-        {:else}
-          <div class="input-group">
-            <HelpTip text={t('config.tip.color')}><label>{t('config.color')}:</label></HelpTip>
-            <select bind:value={uiStore.elementColorMode}>
-              <option value="uniform">{t('config.uniform')}</option>
-              <option value="byMaterial">{t('config.byMaterial')}</option>
-              <option value="bySection">{t('config.bySection')}</option>
-              <option value="byGroup">{t('config.byGroup')}</option>
-            </select>
-          </div>
-        {/if}
+      <div class="cfg-field">
+        <HelpTip text={t('config.tip.color')}><label for="cfg-color">{t('config.color')}</label></HelpTip>
+        <select id="cfg-color" bind:value={uiStore.elementColorMode}>
+          <option value="uniform">{t('config.uniform')}</option>
+          <option value="byMaterial">{t('config.byMaterial')}</option>
+          <option value="bySection">{t('config.bySection')}</option>
+          <option value="byGroup">{t('config.byGroup')}</option>
+        </select>
       </div>
     {/if}
-
-    {#if flat}
-
-      <span class="sub-heading">{t('config.resultsSection')}</span>
-
-    {:else}
-
-      <button class="sub-toggle" onclick={() => showResultsSub = !showResultsSub}>
-
-        {showResultsSub ? '▾' : '▸'} {t('config.resultsSection')}
-
-      </button>
-
+    {#if isPro}
+      {@render check(t('config.tip.smoothOrbit'), t('config.smoothOrbit'), uiStore.smoothOrbit3D, (v) => { uiStore.smoothOrbit3D = v; })}
     {/if}
-    {#if flat || showResultsSub}
-      <div class="sub-content" data-tour="cfg-results">
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.showValues')}>
-          <input type="checkbox" bind:checked={resultsStore.showDiagramValues} />
-          <span>{t('config.showValues')}</span>
-          </HelpTip>
-        </label>
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.showReactions')}>
-          <input type="checkbox" bind:checked={resultsStore.showReactions} />
-          <span>{t('config.showReactions')}</span>
-          </HelpTip>
-        </label>
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.showConstraintForces')}>
-          <input type="checkbox" bind:checked={resultsStore.showConstraintForces} />
-          <span>{t('config.showConstraintForces')}</span>
-          </HelpTip>
-        </label>
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.hideLoadsWithDiagram')}>
-          <input type="checkbox" bind:checked={uiStore.hideLoadsWithDiagram} />
-          <span>{t('config.hideLoadsWithDiagram')}</span>
-          </HelpTip>
-        </label>
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.showPrimarySelector')}>
-          <input type="checkbox" bind:checked={uiStore.showPrimarySelector} />
-          <span>{t('config.showPrimarySelector')}</span>
-          </HelpTip>
-        </label>
-        <label class="checkbox-item" class:checkbox-disabled={!uiStore.showPrimarySelector}>
-          <HelpTip text={t('config.tip.showSecondarySelector')}>
-          <input type="checkbox" bind:checked={uiStore.showSecondarySelector}
-                 disabled={!uiStore.showPrimarySelector} />
-          <span>{t('config.showSecondarySelector')}</span>
-          </HelpTip>
-        </label>
-        <label class="checkbox-item">
-          <HelpTip text={t('config.tip.drawPositiveTowardLocalAxes')}>
-          <input type="checkbox" bind:checked={resultsStore.drawPositiveTowardLocalAxes} />
-          <span>{t('config.drawPositiveTowardLocalAxes')}</span>
-          </HelpTip>
-        </label>
+  </section>
+
+  <section class="cfg-sec" data-tour="cfg-grid">
+    <h4 class="cfg-heading">{t('config.grid')}</h4>
+    {@render check(t('config.tip.showGrid'), t('config.showGrid'), gridVisible,
+      (v) => { if (is3D) uiStore.showGrid3D = v; else uiStore.showGrid = v; })}
+    <div class="cfg-dependent" class:cfg-disabled={!gridVisible}>
+      {@render check(t('config.tip.snapGrid'), t('config.snapGrid'), is3D ? uiStore.snapToGrid3D : uiStore.snapToGrid,
+        (v) => { if (is3D) uiStore.snapToGrid3D = v; else uiStore.snapToGrid = v; })}
+      <div class="cfg-field">
+        <HelpTip text={t('config.tip.gridSize')}><label>{gridSizeLabel()}</label></HelpTip>
+        <div class="cfg-num">
+          <UnitInput
+            value={is3D ? uiStore.gridSize3D : uiStore.gridSize}
+            qty="length"
+            unit={false}
+            live
+            min={0.001}
+            onchange={(v) => { if (v > 0) { if (is3D) uiStore.gridSize3D = v; else uiStore.gridSize = v; } }}
+          />
+        </div>
+      </div>
+      {#if is3D}
+        <div class="cfg-slider">
+          <HelpTip text={t('config.tip.gridExtent')}><label for="cfg-grid-extent">{t('config.gridExtent')}</label></HelpTip>
+          <input
+            id="cfg-grid-extent"
+            type="range"
+            min="0"
+            max={GRID_EXTENTS.length - 1}
+            step="1"
+            value={Math.max(0, GRID_EXTENTS.indexOf(uiStore.gridExtent3D))}
+            oninput={(e) => { uiStore.gridExtent3D = GRID_EXTENTS[parseInt(e.currentTarget.value)]; }}
+            data-testid="cfg-grid-extent"
+          />
+          <span class="cfg-slider-val">{extentLabel(uiStore.gridExtent3D)} {unitQ('length')}</span>
+        </div>
+      {/if}
+    </div>
+  </section>
+
+  <section class="cfg-sec" data-tour="cfg-model">
+    <h4 class="cfg-heading">{t('config.model')}</h4>
+    {@render check(t('config.tip.nodeIds'), t('config.nodeIds'), is3D ? uiStore.showNodeLabels3D : uiStore.showNodeLabels,
+      (v) => { if (is3D) uiStore.showNodeLabels3D = v; else uiStore.showNodeLabels = v; }, 'cfg-node-ids')}
+    {@render check(t('config.tip.elementIds'), t('config.elementIds'), is3D ? uiStore.showElementLabels3D : uiStore.showElementLabels,
+      (v) => { if (is3D) uiStore.showElementLabels3D = v; else uiStore.showElementLabels = v; })}
+    {#if is3D}
+      {@render check(t('config.tip.shellIds'), t('config.shellIds'), uiStore.showShellLabels3D, (v) => { uiStore.showShellLabels3D = v; }, 'cfg-shell-ids')}
+    {/if}
+    {@render check(t('config.tip.lengths'), t('config.lengths'), is3D ? uiStore.showLengths3D : uiStore.showLengths,
+      (v) => { if (is3D) uiStore.showLengths3D = v; else uiStore.showLengths = v; })}
+    {@render check(t('config.tip.showLoads'), t('config.showLoads'), is3D ? uiStore.showLoads3D : uiStore.showLoads,
+      (v) => { if (is3D) uiStore.showLoads3D = v; else uiStore.showLoads = v; })}
+    {@render check(t('config.tip.showSupports'), t('config.showSupports'), uiStore.showSupports, (v) => { uiStore.showSupports = v; }, 'cfg-show-supports')}
+    <div class="cfg-slider">
+      <HelpTip text={t('config.tip.labelSize')}><label for="cfg-label-size">{t('config.labelSize')}</label></HelpTip>
+      <input id="cfg-label-size" type="range" data-testid="cfg-label-size"
+        min={uiStore.labelScaleRange[0]} max={uiStore.labelScaleRange[1]} step="0.1"
+        value={uiStore.labelScale}
+        oninput={(e) => { uiStore.labelScale = parseFloat(e.currentTarget.value); }} />
+      <span class="cfg-slider-val">{Math.round(uiStore.labelScale * 100)} %</span>
+    </div>
+    <!-- PRO sets the same factor from its load cases panel. -->
+    {#if !isPro}
+      <div class="cfg-slider">
+        <HelpTip text={t('config.tip.loadSize')}><label for="cfg-load-size">{t('config.loadSize')}</label></HelpTip>
+        <input id="cfg-load-size" type="range" data-testid="cfg-load-size"
+          min={uiStore.loadArrowScaleRange[0]} max={uiStore.loadArrowScaleRange[1]} step="0.1"
+          value={uiStore.loadArrowScale}
+          oninput={(e) => { uiStore.loadArrowScale = parseFloat(e.currentTarget.value); }} />
+        <span class="cfg-slider-val">{Math.round(uiStore.loadArrowScale * 100)} %</span>
       </div>
     {/if}
+    {#if !is3D}
+      {@render check(t('config.tip.memberDims'), t('config.memberDims'), uiStore.showMemberDimensions, (v) => { uiStore.showMemberDimensions = v; }, 'cfg-member-dims')}
+      {@render check(t('config.tip.autoSplit'), t('config.autoSplitElements'), uiStore.autoSplitOnNodePlace, (v) => { uiStore.autoSplitOnNodePlace = v; })}
+    {/if}
+  </section>
 
-    <!--
-      ── The Educational panel, offered from Basic ────────────────────
-      Educational is a whole mode at the top level, beside Básico and PRO,
-      and that placement claims it is a different application. It is not: the
-      same model, the same solver and the same canvas, with a panel that
-      turns an exercise into a sequence of questions — so a student who
-      wanted to check something the ordinary way had to leave the exercise.
+  <section class="cfg-sec" data-tour="cfg-results">
+    <h4 class="cfg-heading">{t('config.resultsSection')}</h4>
+    {@render check(t('config.tip.showValues'), t('config.showValues'), resultsStore.showDiagramValues, (v) => { resultsStore.showDiagramValues = v; })}
+    {@render check(t('config.tip.showReactions'), t('config.showReactions'), resultsStore.showReactions, (v) => { resultsStore.showReactions = v; })}
+    {@render check(t('config.tip.showConstraintForces'), t('config.showConstraintForces'), resultsStore.showConstraintForces, (v) => { resultsStore.showConstraintForces = v; })}
+    {@render check(t('config.tip.hideLoadsWithDiagram'), t('config.hideLoadsWithDiagram'), uiStore.hideLoadsWithDiagram, (v) => { uiStore.hideLoadsWithDiagram = v; })}
+    {@render check(t('config.tip.drawPositiveTowardLocalAxes'), t('config.drawPositiveTowardLocalAxes'), resultsStore.drawPositiveTowardLocalAxes, (v) => { resultsStore.drawPositiveTowardLocalAxes = v; })}
+    {@render check(t('config.tip.showPrimarySelector'), t('config.showPrimarySelector'), uiStore.showPrimarySelector, (v) => { uiStore.showPrimarySelector = v; })}
+    <div class="cfg-dependent">
+      {@render check(t('config.tip.showSecondarySelector'), t('config.showSecondarySelector'), uiStore.showSecondarySelector,
+        (v) => { uiStore.showSecondarySelector = v; }, undefined, !uiStore.showPrimarySelector)}
+    </div>
+  </section>
 
-      Last in Settings and off by default, because most sessions are not
-      teaching. Switched on, a command appears at the right-hand end of the
-      ribbon and opens the panel where every other panel opens.
-    -->
+  <section class="cfg-sec" data-tour="cfg-general">
+    <h4 class="cfg-heading">{t('config.general')}</h4>
+    <div class="cfg-field">
+      <HelpTip text={t('config.tip.units')}><label for="cfg-units">{t('config.units')}</label></HelpTip>
+      <select id="cfg-units" bind:value={uiStore.unitSystem} data-testid="cfg-units">
+        <option value="SI">{t('config.unitSI')}</option>
+        <option value="SImm">{t('config.unitSImm')}</option>
+        <option value="MKS">{t('config.unitMKS')}</option>
+        <option value="Imperial">{t('config.unitImperial')}</option>
+      </select>
+    </div>
+    {#if __PUBLIC_FEATURES__.globalAxes}
+      <div class="cfg-field">
+        <HelpTip text={t('axes.configTip')}><label for="cfg-axes-open">{t('axes.configLabel')}</label></HelpTip>
+        <div class="cfg-axes">
+          <span class="cfg-axes-summary" data-testid="cfg-axes-summary">{axesSummary}</span>
+          <button type="button" id="cfg-axes-open" class="cfg-btn" data-testid="cfg-axes-open" onclick={() => { axesStore.pickerOpen = true; }}>{t('axes.configOpen')}</button>
+        </div>
+      </div>
+    {:else}
+      <div class="cfg-field">
+        <HelpTip text={t('config.tip.axisConvention')}><label for="cfg-axis-conv">{t('config.localAxes')}</label></HelpTip>
+        <select id="cfg-axis-conv" bind:value={uiStore.axisConvention3D} title={t('config.axisConventionHelp')}>
+          <option value="rightHand">{t('config.rightHand')}</option>
+          <option value="leftHand">{t('config.leftHand')}</option>
+        </select>
+      </div>
+    {/if}
+    {@render check(t('config.liveCalcTooltip'), t('config.liveCalc'), uiStore.liveCalc, (v) => { uiStore.liveCalc = v; }, 'cfg-live-calc')}
+    {#if !uiStore.isMobile}
+      {@render check(t('config.tip.panelScrollbars'), t('config.panelScrollbars'), uiStore.panelScrollbars, (v) => { uiStore.panelScrollbars = v; }, 'cfg-panel-scrollbars')}
+    {/if}
     {#if uiStore.appMode === 'basico'}
-      <div class="input-group">
-        <label class="cfg-check">
-          <input
-            type="checkbox"
-            checked={uiStore.eduInBasic}
-            onchange={(e) => { uiStore.eduInBasic = e.currentTarget.checked; }}
-            data-testid="cfg-edu-in-basic"
-          />
-          <span>{t('config.eduInBasic')}</span>
-        </label>
-        <p class="cfg-hint">{t('config.eduInBasicHint')}</p>
-      </div>
+      {@render check(null, t('config.eduInBasic'), uiStore.eduInBasic, (v) => { uiStore.eduInBasic = v; }, 'cfg-edu-in-basic')}
+      <p class="cfg-hint">{t('config.eduInBasicHint')}</p>
     {/if}
+    {#if isPro}
+      {@render check(null, t('config.inlineHelp'), uiStore.inlineHelp, (v) => { uiStore.inlineHelp = v; }, 'cfg-inline-help')}
+      <p class="cfg-hint">{t('config.inlineHelpSummary')}</p>
+      {@render check(null, t('config.designInPro'), uiStore.designInPro,
+        (v) => { uiStore.designInPro = v; if (v) announceDesignOn(); }, 'cfg-design-in-pro')}
+      <p class="cfg-hint">{t('config.designInProSummary')}</p>
+      <details class="cfg-limits" data-testid="cfg-design-limits">
+        <summary>{t('config.designLimits.title')}</summary>
+        <p>{t('config.designLimits.rule')}</p>
+        <ul>
+          {#each DESIGN_LIMITS as key (key)}<li>{t(`config.designLimits.${key}`)}</li>{/each}
+        </ul>
+      </details>
+    {/if}
+  </section>
 
-    <!--
-      ── The normative design, offered from PRO ──────────────────────
-      PRO's modelling and analysis stand on their own; the normative design (members,
-      reinforcement, detailing, drawings) is still being built. Off by default and remembered per
-      browser, as Basic's Educational; on, the Design stage and its desk appear. What a project
-      holds of design is kept either way.
-    -->
-    {#if uiStore.appMode === 'pro'}
-      <div class="input-group">
-        <label class="cfg-check">
-          <input
-            type="checkbox"
-            checked={uiStore.designInPro}
-            onchange={(e) => { uiStore.designInPro = e.currentTarget.checked; if (e.currentTarget.checked) announceDesignOn(); }}
-            data-testid="cfg-design-in-pro"
-          />
-          <span>{t('config.designInPro')}</span>
-        </label>
-        <p class="cfg-hint">{t('config.designInProHint')}</p>
-        <label class="cfg-check">
-          <input
-            type="checkbox"
-            checked={uiStore.inlineHelp}
-            onchange={(e) => { uiStore.inlineHelp = e.currentTarget.checked; }}
-            data-testid="cfg-inline-help"
-          />
-          <span>{t('config.inlineHelp')}</span>
-        </label>
-        <p class="cfg-hint">{t('config.inlineHelpHint')}</p>
-        <details class="cfg-limits" data-testid="cfg-design-limits">
-          <summary>{t('config.designLimits.title')}</summary>
-          <p class="cfg-hint">{t('config.designLimits.rule')}</p>
-          <ul>
-            {#each DESIGN_LIMITS as key (key)}<li>{t(`config.designLimits.${key}`)}</li>{/each}
-          </ul>
-        </details>
-      </div>
-    {/if}
-
-    {#if __PUBLIC_FEATURES__.accounts && authStore.usageTelemetryEnabled}
-      <div class="cfg-privacy" data-testid="cfg-privacy">
-        <h4 class="cfg-privacy-heading">{t('usage.settingsHeading')}</h4>
-        <label class="cfg-check">
-          <input
-            type="checkbox"
-            checked={usageConsent.granted}
-            onchange={(e) => setUsageSharing(e.currentTarget.checked)}
-            data-testid="cfg-usage-sharing"
-          />
-          <span>{t('usage.share')}</span>
-        </label>
-        <p class="cfg-privacy-hint">{t('usage.settingsHint')} <a href={legalHref(USAGE_DATA_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('usage.whatIsSent')}</a></p>
-      </div>
-    {/if}
-
-    {#if !inline}
-    <button class="config-action-btn live-calc-btn" class:live-calc-active={uiStore.liveCalc}
-      onclick={() => uiStore.liveCalc = !uiStore.liveCalc}
-      title={t('config.liveCalcTooltip')}>
-      {t('config.liveCalc')} — {uiStore.liveCalc ? t('config.liveCalcOn') : t('config.liveCalcOff')}
-    </button>
-    {/if}
-  </div>
+  {#if __PUBLIC_FEATURES__.accounts && authStore.usageTelemetryEnabled}
+    <section class="cfg-sec" data-testid="cfg-privacy">
+      <h4 class="cfg-heading">{t('usage.settingsHeading')}</h4>
+      {@render check(null, t('usage.share'), usageConsent.granted, setUsageSharing, 'cfg-usage-sharing')}
+      <p class="cfg-hint">{t('usage.settingsHint')} <a href={legalHref(USAGE_DATA_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('usage.whatIsSent')}</a></p>
+    </section>
   {/if}
 </div>
 
 <style>
-  .cfg-privacy { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.4rem 0 0.6rem; }
-  .cfg-privacy-hint { margin: 0; font-size: 0.68rem; line-height: 1.45; color: var(--st-text-3); }
-  .cfg-privacy-hint a { color: var(--st-interactive, var(--st-accent)); }
-  .cfg-privacy-heading { margin: 0.6rem 0 0.3rem; font-family: var(--st-mono); font-size: 0.66rem; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; color: var(--st-text-3); }
-  .cfg-check {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    cursor: pointer;
-  }
-
-  .cfg-limits { margin: 2px 0 6px; font-size: 0.72rem; color: var(--st-text-2, var(--st-text)); }
-  .cfg-limits summary { cursor: pointer; }
-  .cfg-limits ul { margin: 4px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; }
-  .cfg-hint {
-    margin: 0.2rem 0 0 1.35rem;
-    font-size: 0.62rem;
-    line-height: 1.4;
-    color: var(--st-text-3);
-  }
-
-  .toolbar-section {
+  .cfg {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .section-toggle {
-    width: 100%;
-    padding: 0.4rem 0.5rem;
-    background: none;
-    border: 1px solid var(--st-hair);
-    border-radius: 4px;
-    color: var(--st-text-2);
-    cursor: pointer;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-align: left;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    transition: all 0.2s;
-  }
-
-  .section-toggle:hover {
-    background: var(--st-bg);
+    gap: 0.9rem;
+    padding: 0 0.2rem 0.6rem;
+    font-size: 0.8rem;
     color: var(--st-text);
-    border-color: var(--st-hair-strong);
   }
 
-  /* Configuración sub-sections */
-  .config-children {
+  .cfg-sec {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
-    padding-left: 0.2rem;
-    padding-right: 0.2rem;
+    gap: 0.4rem;
   }
 
-  /*
-     The phone section's heading, and the "General" one that closes it.
-     Same treatment as `.sub-heading` beside it — they are peers in the panel
-     and a second heading style would imply a second kind of grouping.
-  */
-  .cfg-mobile-heading {
+  .cfg-heading {
+    margin: 0 0 0.15rem;
+    padding: 0.35rem 0 0.25rem;
+    border-bottom: 1px solid var(--st-hair);
     font-family: var(--st-mono);
     font-size: 0.66rem;
     font-weight: 400;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--st-text-2);
-    padding: 0.5rem 0 0.2rem;
-    border-bottom: 1px solid var(--st-hair);
-    margin: 0.4rem 0 0.35rem;
   }
 
-  .sub-heading {
-    display: block;
-    font-family: var(--st-mono);
-    font-size: 0.66rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--st-text-2);
-    padding: 0.5rem 0 0.2rem;
-    border-bottom: 1px solid var(--st-hair);
-    margin-bottom: 0.25rem;
-  }
-
-  .sub-toggle {
-    width: 100%;
-    padding: 0.25rem 0.4rem;
-    background: none;
-    border: 1px solid var(--st-hair);
-    border-radius: 3px;
-    color: var(--st-text-2);
-    cursor: pointer;
-    font-size: 0.68rem;
-    font-weight: 500;
-    text-align: left;
-    letter-spacing: 0.03em;
-    transition: all 0.2s;
-  }
-  .sub-toggle:hover {
-    background: var(--st-bg);
-    color: var(--st-text);
-    border-color: var(--st-hair-strong);
-  }
-
-  .sub-content {
-    padding: 0.4rem 0.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    border: 1px solid var(--st-hair);
-    border-radius: 4px;
-    margin-top: 0.15rem;
-    overflow: hidden;
-  }
-
-  .sub-content select {
-    font-size: 0.68rem;
-    padding: 0.2rem 0.3rem;
-  }
-  .sub-content .input-group label {
-    font-size: 0.65rem;
-  }
-
-  .checkbox-item {
+  .cfg-check {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.875rem;
+    min-height: 22px;
     cursor: pointer;
   }
+  .cfg-check :global(.ht-wrap) { gap: 0.5rem; }
+  .cfg-check input { margin: 0; flex: none; }
 
-  .checkbox-item.checkbox-disabled {
+  .cfg-disabled {
     opacity: 0.4;
     pointer-events: none;
   }
 
-  .input-group {
+  .cfg-dependent {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .cfg-dependent > .cfg-check { padding-left: 1.35rem; }
+
+  .cfg-field {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 38%) minmax(0, 1fr);
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 26px;
+  }
+  .cfg-field label { color: var(--st-text-2); }
+
+  .cfg-field select {
+    width: 100%;
+    min-width: 0;
+    height: 26px;
+    padding: 0 0.35rem;
+    font-size: 0.75rem;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
+    cursor: pointer;
+  }
+
+  .cfg-num :global(input) {
+    width: 80px;
+    height: 26px;
+    padding: 0 0.35rem;
+    font-size: 0.75rem;
+    background: var(--st-surface-2);
+    border: 1px solid var(--st-hair-strong);
+    border-radius: var(--st-radius);
+    color: var(--st-text);
+  }
+
+  .cfg-slider {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 38%) minmax(0, 1fr) 5.5em;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 26px;
+  }
+  .cfg-slider label { color: var(--st-text-2); }
+  .cfg-slider input[type="range"] { width: 100%; min-width: 0; margin: 0; accent-color: var(--st-accent); }
+  .cfg-slider-val {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.72rem;
+    color: var(--st-text-3);
+    white-space: nowrap;
+  }
+
+  .cfg-axes {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.875rem;
+    min-width: 0;
   }
-
-  .slider-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) 3.2em;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-  }
-  .slider-row input[type="range"] { width: 100%; min-width: 0; accent-color: var(--st-accent); }
-  .slider-val { text-align: right; font-variant-numeric: tabular-nums; color: var(--st-text-3); font-size: 0.75rem; }
-
-  /* :global because the grid size is an input inside UnitInput. */
-  .input-group :global(input) {
-    width: 70px;
-    padding: 0.25rem;
-    background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 4px;
-    color: var(--st-text);
+  .cfg-axes-summary { flex: 1; min-width: 0; font-size: 0.72rem; color: var(--st-text-2); }
+  .cfg-btn {
+    flex: none;
+    height: 24px;
+    padding: 0 10px;
+    font: inherit;
+    font-size: 0.72rem;
+    color: var(--st-interactive);
+    background: var(--st-surface-3);
+    border: 1px solid var(--st-border);
+    border-radius: var(--st-radius);
     cursor: pointer;
   }
 
-  .input-group select {
-    flex: 1;
-    min-width: 100px;
-    padding: 0.25rem;
-    background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 4px;
-    color: var(--st-text);
-    cursor: pointer;
-  }
-
-  input[type="radio"],
-  input[type="checkbox"] {
-    accent-color: var(--st-accent);
-  }
-
-  .help-hint {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 1px solid var(--st-hair-strong);
-    color: var(--st-text-3);
-    font-size: 0.6rem;
-    font-weight: 600;
-    cursor: help;
-    flex-shrink: 0;
-  }
-  .help-hint:hover {
-    border-color: var(--st-interactive);
-    color: var(--st-value);
-  }
-
-  .config-action-btn {
-    width: 100%;
-    padding: 0.25rem 0.4rem;
-    background: var(--st-surface-2);
-    border: 1px solid var(--st-hair-strong);
-    border-radius: 3px;
-    color: var(--st-value);
-    cursor: pointer;
+  .cfg-hint {
+    margin: -0.25rem 0 0.15rem 1.35rem;
     font-size: 0.68rem;
-    transition: all 0.2s;
-  }
-  .config-action-btn:hover {
-    background: var(--st-surface-3);
-    color: white;
-  }
-  .live-calc-btn {
+    line-height: 1.4;
     color: var(--st-text-3);
-    background: var(--st-bg);
-    border-color: var(--st-hair);
   }
-  .live-calc-btn:hover {
-    background: var(--st-bg);
-    color: var(--st-text);
+  .cfg-hint a { color: var(--st-interactive, var(--st-accent)); }
+
+  .cfg-limits {
+    margin-left: 1.35rem;
+    font-size: 0.7rem;
+    color: var(--st-text-2);
   }
-  .live-calc-active {
-    color: var(--st-value);
-    background: var(--st-surface-2);
-    border-color: var(--st-interactive);
-  }
-  .live-calc-active:hover {
-    background: var(--st-surface-3);
-    color: white;
-  }
-  .axes-summary { font-size: 0.75rem; color: var(--st-text-2); flex: 1; min-width: 0; }
-  .axes-open-btn {
-    font: inherit; font-size: 0.75rem; padding: 3px 10px; cursor: pointer;
-    color: var(--st-interactive); background: var(--st-surface-3);
-    border: 1px solid var(--st-border); border-radius: var(--st-radius);
-  }
+  .cfg-limits summary { cursor: pointer; }
+  .cfg-limits p { margin: 0.3rem 0 0; color: var(--st-text-3); line-height: 1.4; }
+  .cfg-limits ul { margin: 0.3rem 0 0; padding-left: 1rem; display: flex; flex-direction: column; gap: 3px; line-height: 1.4; }
+
+  input[type="checkbox"] { accent-color: var(--st-accent); }
 </style>

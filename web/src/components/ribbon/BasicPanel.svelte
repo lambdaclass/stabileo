@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { shellLayout } from '../../lib/store/shell-layout.svelte';
   import { onMount } from 'svelte';
   import { t } from '../../lib/i18n';
   import ToolbarResults from '../toolbar/ToolbarResults.svelte';
@@ -43,40 +44,30 @@
   };
   let { panel, dataTab = $bindable('nodes'), onClose }: Props = $props();
 
-  /**
-   * Width is dragged and remembered.
-   *
-   * A fixed 300 px is a guess that is wrong for both ends of the work: the
-   * results panel wants to be narrow and the model data table wants to be wide.
-   * Persisting it in localStorage means the guess only has to be corrected
-   * once, ever.
-   */
   const MIN = 240;
   const MAX = 620;
-  const KEY = 'stabileo-basic-panel-width';
-
-  function stored(): number {
-    try {
-      const v = Number(localStorage.getItem(KEY));
-      return Number.isFinite(v) && v >= MIN && v <= MAX ? v : 320;
-    } catch { return 320; }
-  }
-
-  let width = $state(stored());
+  const width = $derived(Math.min(MAX, Math.max(MIN, shellLayout.panelWidth)));
   let dragging = $state(false);
   let widthPublishFrame = 0;
 
+  const onLeft = $derived(shellLayout.panelSide === 'left' && !uiStore.isMobile);
+
   function publishWidth() {
-    document.documentElement.style.setProperty('--st-right-panel-w', `${width}px`);
+    document.documentElement.style.setProperty('--st-right-panel-w', `${onLeft ? 0 : width}px`);
+    document.documentElement.style.setProperty('--st-left-panel-w', `${onLeft ? width : 0}px`);
   }
+
+  $effect(() => {
+    void onLeft;
+    publishWidth();
+  });
 
   function startResize(e: PointerEvent) {
     dragging = true;
     const startX = e.clientX;
     const startW = width;
     const move = (ev: PointerEvent) => {
-      // The handle is on the panel's LEFT edge, so dragging left widens it.
-      width = Math.min(MAX, Math.max(MIN, startW - (ev.clientX - startX)));
+      shellLayout.panelWidth = Math.min(MAX, Math.max(MIN, startW + (onLeft ? 1 : -1) * (ev.clientX - startX)));
       // Publishing the width writes a custom property on the ROOT element,
       // which re-resolves styles document-wide — that must happen at most
       // once per frame, not once per pointermove.
@@ -89,7 +80,7 @@
     };
     const up = () => {
       dragging = false;
-      try { localStorage.setItem(KEY, String(Math.round(width))); } catch { /* private mode */ }
+      shellLayout.rememberWidth();
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
     };
@@ -144,6 +135,7 @@
     return () => {
       if (widthPublishFrame) cancelAnimationFrame(widthPublishFrame);
       document.documentElement.style.removeProperty('--st-right-panel-w');
+      document.documentElement.style.removeProperty('--st-left-panel-w');
     };
   });
 
@@ -182,6 +174,7 @@
 
 <aside
   class="basic-panel"
+  class:on-left={onLeft}
   class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile}
   data-testid="basic-panel"
   data-panel={panel}
@@ -265,7 +258,7 @@
         <SectionStressPanel docked />
       </div>
     {:else if panel === 'settings'}
-      <ToolbarConfig flat />
+      <ToolbarConfig />
     {:else if panel === 'project'}
       <ToolbarProject flat />
     {:else if panel === 'ai'}
@@ -338,6 +331,9 @@
     cursor: col-resize;
     z-index: 2;
   }
+
+  .on-left { border-left: none; border-right: 1px solid var(--st-hair); }
+  .on-left .bp-resize { left: auto; right: -2px; }
 
   .bp-resize:hover,
   .bp-resize.dragging { background: var(--st-accent); }

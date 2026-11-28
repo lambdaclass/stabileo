@@ -50,10 +50,10 @@ async function openBasic(page: Page) {
     .toBe(true);
 }
 
-/** Open Project → Tutorials and start one. */
+/** Open File → View tutorials and start one. */
 async function startDemo(page: Page, id: string) {
-  await page.getByTestId('hdr-project').click();
-  await page.getByTestId('demo-menu-toggle').click();
+  await page.getByTestId('tb-file').click();
+  await page.getByTestId('tb-tutorials').click();
   await page.getByTestId(`demo-${id}`).click();
   await expect(page.locator('.tour-card')).toBeVisible();
 }
@@ -85,15 +85,15 @@ async function advance(page: Page, want: string) {
 test.describe('@smoke the tutorials menu', () => {
   test('offers every walkthrough, with a duration on each', async ({ page }) => {
     await openBasic(page);
-    await page.getByTestId('hdr-project').click();
-    await page.getByTestId('demo-menu-toggle').click();
+    await page.getByTestId('tb-file').click();
+    await page.getByTestId('tb-tutorials').click();
 
     for (const d of DEMOS) {
       await expect(page.getByTestId(`demo-${d.id}`), d.id).toBeVisible();
     }
     // The duration is what makes the list one somebody tries rather than
     // closes, so its absence is a defect and not a detail.
-    const items = page.locator('.dm-item .dm-secs');
+    const items = page.getByTestId('tutorials-dialog').locator('[data-testid^="demo-"] .tut-secs');
     expect(await items.count()).toBe(DEMOS.length);
     for (const text of await items.allInnerTexts()) {
       expect(text, 'every entry says how long it takes').toMatch(/^\d+s$/);
@@ -176,8 +176,10 @@ test.describe('@slow drawing a beam', () => {
      * was: a click there went to the card, the node never appeared, and the step waited.
      */
     const click = async (x: number, y: number) => {
-      const under = await page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.tagName ?? null, [x, y]);
-      expect(under, `the canvas, not something over it, at (${Math.round(x)}, ${Math.round(y)})`).toBe('CANVAS');
+      await expect.poll(
+        () => page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.tagName ?? null, [x, y]),
+        { message: `the canvas, not something over it, at (${Math.round(x)}, ${Math.round(y)})`, timeout: 3_000 },
+      ).toBe('CANVAS');
       await page.mouse.click(x, y);
       await page.waitForTimeout(400);
     };

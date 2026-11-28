@@ -37,7 +37,7 @@ async function openTab(page: Page, tab: keyof typeof STAGE_OF): Promise<void> {
 async function bootWithStoredLocale(page: Page, locale: string): Promise<void> {
   await page.addInitScript((loc) => {
     try {
-      localStorage.clear();
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right'); localStorage.setItem('stabileo-panel-open', 'closed');
       // Cleared with the rest: the normative design is turned back on, as the specs use it.
       localStorage.setItem('stabileo-design-in-pro', '1');
       localStorage.setItem('stabileo-lang', loc);

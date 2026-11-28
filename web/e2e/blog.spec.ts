@@ -58,7 +58,7 @@ async function expectChangelogMonths(page: Page, locale: (typeof BUILD_PUBLIC_LO
 async function boot(page: Page, path: string, locale = 'en') {
   await page.addInitScript((l) => {
     try {
-      localStorage.clear();
+      localStorage.clear(); localStorage.setItem('stabileo-start-card', 'off'); localStorage.setItem('stabileo-panel-side', 'right'); localStorage.setItem('stabileo-panel-open', 'closed');
       localStorage.setItem('stabileo-lang', l);
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch {

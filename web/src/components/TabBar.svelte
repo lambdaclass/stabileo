@@ -1,10 +1,17 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { tabManager } from '../lib/store/tabs.svelte';
-  import { modelStore } from '../lib/store';
+  import { modelStore, uiStore } from '../lib/store';
+  import { is3DWorkspace } from '../lib/utils/workspace';
   import { t } from '../lib/i18n';
 
   let tabBarEl: HTMLDivElement;
+
+  /** The mode a tab is in, as its badge reads it; the tab on screen answers from the live mode. */
+  function modeBadge(mode: string): string {
+    if (mode === 'pro') return 'PRO';
+    return is3DWorkspace(mode) ? '3D' : '2D';
+  }
 
   function handleNameInput(tabId: string, e: Event) {
     const el = e.target as HTMLInputElement;
@@ -54,6 +61,7 @@
     <div
       class="tab"
       class:active={tab.id === tabManager.activeTabId}
+      data-mode={modeBadge(tab.id === tabManager.activeTabId ? uiStore.analysisMode : tab.analysisMode)}
       onclick={(e) => handleTabClick(tab.id, e)}
       role="tab"
       tabindex="0"
@@ -129,6 +137,21 @@
     background: rgba(255, 255, 255, 0.04);
     border-color: #333;
   }
+
+  .tab::before {
+    content: attr(data-mode);
+    flex: none;
+    margin-right: 0.2rem;
+    padding: 0 0.25rem;
+    border: 1px solid var(--st-hair-strong);
+    border-radius: 3px;
+    font-family: var(--st-mono);
+    font-size: 0.56rem;
+    line-height: 1.5;
+    color: var(--st-text-3);
+  }
+
+  .tab.active::before { color: var(--st-accent); border-color: color-mix(in srgb, var(--st-accent) 45%, transparent); }
 
   .tab.active {
     background: rgba(233, 69, 96, 0.1);

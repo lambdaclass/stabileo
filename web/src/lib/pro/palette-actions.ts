@@ -4,6 +4,8 @@
  */
 import type { ProCmd } from './stages';
 import { proNav } from '../store/pro-nav.svelte';
+import { projectSettings } from '../store/project-settings.svelte';
+import { examplesUi } from '../store/examples-ui.svelte';
 import { uiStore } from '../store';
 import { viewCategories } from '../store/view-categories.svelte';
 import { viewState, viewVisibility } from '../store/view-state.svelte';
@@ -20,14 +22,16 @@ export function paletteActions(): PaletteAction[] {
   return [
     a('save', 'project.save', project, () => proNav.ask('save')),
     a('save-now', 'save.clickToSave', project, () => { void requestAutosave('manual'); }),
-    a('examples', 'pro.exampleBtn', project, () => proNav.ask('examples')),
-    a('videos', 'videos.button', project, () => proNav.ask('videos')),
+    a('examples', 'pro.exampleBtn', project, () => examplesUi.open('examples')),
+    a('videos', 'videos.button', project, () => examplesUi.open('tutorials')),
     a('viewer-link', 'viewer.copyLink', project, () => proNav.ask('viewerLink')),
     a('report', 'proExport.reportBtn', project, () => window.dispatchEvent(new Event('stabileo-open-report'))),
     a('results', 'proExport.resultsBtn', project, () => proNav.ask('data')),
     a('drawings', 'proExport.drawingsBtn', project, () => proNav.ask('drawings')),
     a('reproduce', 'provenance.reproduce.link', project, () => window.dispatchEvent(new Event('stabileo-reproduce'))),
+    a('project-data', 'projectInfo.title', project, () => proNav.openProjectInfo()),
     a('regulations', 'regulations.title', project, () => proNav.openRegulations()),
+    a('templates', 'templates.title', project, () => projectSettings.show('templates')),
     ...(['top', 'front', 'right', 'iso'] as const).map((f) => a(`view-${f}`, `view.preset.${f}`, view, camera(f))),
     a('split', 'viewport.split', view, () => { viewState.split = !viewState.split; }),
     a('plan', 'viewport.planView', view, () => { uiStore.planView3D = !uiStore.planView3D; }),

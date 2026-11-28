@@ -46,7 +46,7 @@ test.describe('@smoke PRO — the Project panel', () => {
     await expect(page.getByRole('button', { name: /DXF/ })).toHaveCount(1);
     const newModel = page.locator('.pp-card').first();
     await expect(newModel.getByRole('button', { name: /IFC/ })).toHaveCount(0);
-    await expect(page.getByTestId('pp-examples')).toBeVisible();
+    await expect(page.getByTestId('pp-examples'), 'examples open from File, not from Project').toHaveCount(0);
   });
 
   test('a help tip opens on a pause over its button, and a press on the button leaves none', async ({ pro: page }) => {
@@ -54,9 +54,9 @@ test.describe('@smoke PRO — the Project panel', () => {
        every press was what the Project tab showed. The explanation is a hover away. */
     const tip = page.locator('.ht-tip');
     await expect(tip).toHaveCount(0);
-    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('pp-save').click();
     await expect(tip).toHaveCount(0);
-    await page.getByTestId('pp-gallery-close').click();
+    await page.mouse.move(5, 5);
     await page.getByTestId('pp-save').hover();
     await expect(tip.first()).toBeVisible();
   });

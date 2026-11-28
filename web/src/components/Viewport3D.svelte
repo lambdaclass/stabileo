@@ -4483,7 +4483,7 @@
     canvas is not competing with a nine-high column.
   -->
   {#if !(uiStore.isMobile && uiStore.appMode === 'pro')}
-  <div class="camera-controls" data-tour="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
+  <div class="camera-controls" class:view-dock={!uiStore.isMobile} data-tour="camera-controls" style:top={uiStore.isMobile ? `${uiStore.floatingToolsTopOffset}px` : undefined}>
     <!--
       ── Two buttons, not nine ────────────────────────────────────────
       The stack had grown to nine: fit, three axis views, projection,
@@ -4498,6 +4498,15 @@
       picking a view is a thing you do once, not a mode you live in.
     -->
     <PointerModeButton />
+    {#if !uiStore.isMobile}
+      <button onclick={() => zoomToFit()} title={t('viewport3d.zoomToFit')} aria-label={t('viewport3d.zoomToFit')} data-testid="dock-fit">
+        <Icon name="fit" size={17} />
+      </button>
+      <button onclick={() => setView('iso')} title={t('appShell.homeView')} aria-label={t('appShell.homeView')} data-testid="dock-home">
+        <Icon name="home" size={17} />
+      </button>
+      <span class="view-dock-rule" aria-hidden="true"></span>
+    {/if}
 
     <div class="cam-menu-wrap">
       <button
@@ -4719,6 +4728,7 @@
     height: 100%;
     position: relative;
     overflow: hidden;
+    container-type: size;
   }
   .viewport3d-wrapper.split-main { width: 50%; }
 

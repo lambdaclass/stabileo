@@ -117,7 +117,7 @@ test.describe('@slow both walkthroughs: back, matrix view, isostatic, 3D', () =>
     test.setTimeout(120_000);
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-space').click();
     await page.evaluate(() => (window as never as { __stabileoActions: { loadExample(n: string): Promise<void> } })
       .__stabileoActions.loadExample('3d-portal-frame'));
     await openMethod(page, 'fm');
@@ -133,7 +133,7 @@ test.describe('@slow both walkthroughs: back, matrix view, isostatic, 3D', () =>
     test.setTimeout(120_000);
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
-    await page.getByTestId('rb-cmd-dim').click();
+    await page.getByTestId('ws-space').click();
     await page.evaluate(() => (window as never as { __stabileoActions: { loadExample(n: string): Promise<void> } })
       .__stabileoActions.loadExample('mat-foundation'));
     await openMethod(page, 'dsm');
