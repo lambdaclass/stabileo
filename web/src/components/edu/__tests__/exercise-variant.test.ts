@@ -48,7 +48,7 @@ const beam = (over: Partial<EduExerciseSpec> = {}): EduExerciseSpec => ({
 beforeEach(() => setLocale('en'));
 
 describe('variantOf', () => {
-  it.skip('known wrong result: #1927 — the handout can grade the cantilever at both ends of its span range', () => {
+  it('known wrong result: #1927 — the handout can grade the cantilever at both ends of its span range', () => {
     const parsed = fromFile(JSON.stringify(PARAMETRIC_HANDOUT));
     if (!parsed.ok) throw new Error(parsed.error);
     const { min, max } = PARAMETRIC_HANDOUT.exercise.params.values.L;

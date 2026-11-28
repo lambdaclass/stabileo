@@ -823,6 +823,21 @@ impl PreparedStatic2D<'_> {
     /// load vector (prescribed-displacement coupling included), reuses the
     /// stored factorization, then runs the same postprocessing as `solve_2d`.
     pub fn solve_loads(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
+        self.solve_checked_loads(loads, |r| {
+            #[cfg(test)]
+            PLANE_SECOND_ORDER_REPORTS.with(|count| count.set(count.get() + 1));
+            let (second, ratio, physical) = crate::known_issues::second_order_2d_with_bound(&self.input, loads, r);
+            r.result_summary.get_or_insert_with(Default::default).second_order_physical_bound = physical;
+            crate::known_issues::attach(&mut r.structured_diagnostics, second);
+            r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
+        })
+    }
+
+    pub(super) fn solve_member_forces(&self, loads: &[SolverLoad]) -> Result<Vec<ElementForces>, String> {
+        Ok(self.solve_checked_loads(loads, |_| {})?.element_forces)
+    }
+
+    fn solve_checked_loads(&self, loads: &[SolverLoad], report: impl FnOnce(&mut AnalysisResults)) -> Result<AnalysisResults, String> {
         let mut r = self.solve_loads_by_path(loads)?;
         if self.rotation_demand.demanded(loads) {
             crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("CERT-MECHANISM")]);
@@ -834,12 +849,7 @@ impl PreparedStatic2D<'_> {
         let summary = r.result_summary.get_or_insert_with(Default::default);
         summary.member_chords = Some(chords);
         summary.member_spans = Some(spans);
-        #[cfg(test)]
-        PLANE_SECOND_ORDER_REPORTS.with(|count| count.set(count.get() + 1));
-        let (second, ratio, physical) = crate::known_issues::second_order_2d_with_bound(&self.input, loads, &r);
-        r.result_summary.get_or_insert_with(Default::default).second_order_physical_bound = physical;
-        crate::known_issues::attach(&mut r.structured_diagnostics, second);
-        r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
+        report(&mut r);
         crate::known_issues::refuse(&r.structured_diagnostics)?;
         let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
             if r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ExcessiveDisplacement) {

@@ -173,7 +173,6 @@ fn portal(h: f64, w: f64, hl: f64, v: f64) -> SolverInput {
 }
 
 #[test]
-#[ignore = "known wrong result: #1927"]
 fn issue_1927_plastic_self_stresses_share_one_prepared_frame() {
     use crate::solver::linear::{PLANE_PREPARATIONS, PLANE_SECOND_ORDER_REPORTS};
     use crate::solver::plastic_limit::{limit_analysis_2d, Confirmation};

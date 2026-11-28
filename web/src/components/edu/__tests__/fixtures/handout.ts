@@ -1,3 +1,5 @@
+import type { ExerciseFile } from '../../exercise-capture';
+
 export const EXERCISE = {
   stabileoExercise: 1,
   exercise: {
@@ -13,9 +15,18 @@ export const EXERCISE = {
       nodalLoads: [{ node: 1, fy: -10 }],
     },
     supports: [{ label: 'Fixed end', nodeIndex: 0, dofs: ['Ry', 'M'] }],
-    characteristics: [{ label: 'M max', unit: 'kN·m', answer: { kind: 'maxAbsMoment' } }],
+    characteristics: [{ label: 'M max', unit: 'kN·m', answer: { kind: 'maxAbs', force: 'moment' } }],
     diagramQuestions: [],
   },
-};
+} satisfies ExerciseFile;
 
-export const PARAMETRIC_HANDOUT = { ...EXERCISE, exercise: { ...EXERCISE.exercise, title: 'Span {L} m', params: { values: { L: { min: 3, max: 5, step: 1 } } } } };
+export const PARAMETRIC_HANDOUT = {
+  ...EXERCISE,
+  exercise: {
+    ...EXERCISE.exercise,
+    title: 'Span {L} m',
+    description: 'A {L} m cantilever with a 10 kN point load at the tip.',
+    model: { ...EXERCISE.exercise.model, nodes: [[0, 0], ['L', 0]] },
+    params: { values: { L: { min: 3, max: 5, step: 1 } } },
+  },
+} satisfies ExerciseFile;

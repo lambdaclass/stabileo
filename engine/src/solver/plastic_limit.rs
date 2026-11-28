@@ -408,11 +408,14 @@ fn self_stresses(input: &SolverInput, members: &[usize]) -> Result<Vec<(HashMap<
             cases.push((vec![thermal(h, 0.0, 1.0)], ei));
         }
     }
+    let prepared = s.constraints.is_empty().then(|| super::linear::prepare_static_2d(&s)).transpose()?;
     let mut out = Vec::with_capacity(cases.len());
     for (loads, reference) in cases {
-        s.loads = loads;
-        let r = super::linear::solve_2d(&s)?;
-        let ef: HashMap<usize, &ElementForces> = r.element_forces.iter().map(|f| (f.element_id, f)).collect();
+        let forces = match &prepared {
+            Some(frame) => frame.solve_member_forces(&loads)?,
+            None => super::linear::solve_2d(&SolverInput { loads, ..s.clone() })?.element_forces,
+        };
+        let ef: HashMap<usize, &ElementForces> = forces.iter().map(|f| (f.element_id, f)).collect();
         let mut field = HashMap::new();
         for &id in members {
             let (Some(a), Some(b)) = (ef.get(&id), ef.get(halves.get(&id).unwrap_or(&id))) else {

@@ -81,6 +81,10 @@ test.describe('@smoke Education — a handed-out exercise', () => {
     await page.goto(EDU_URL + '?e2e=1#edu-ex=' + Buffer.from(JSON.stringify(PARAMETRIC_HANDOUT)).toString('base64'));
     await expect(page.getByTestId('edu-variant-gate')).toBeVisible();
     await expect(page.getByTestId('edu-handout-title')).toHaveText('Span 3–5 m');
+    await page.getByTestId('edu-legajo').fill('45');
+    await page.getByTestId('edu-legajo-start').click();
+    await expect(page.locator('.exercise-view')).toHaveAttribute('data-solved', 'yes');
+    await expect(page.getByTestId('edu-handout-title')).toHaveText(/^Span [3-5] m$/);
   });
 
   test('a link opens the exercise it carries, not the exercise list', async ({ page }) => {
