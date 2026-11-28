@@ -240,7 +240,10 @@ it.each([false, true])('known wrong result: #1928 replacing planned loads keeps 
   const example = modelStore.loads.find(l => l.type === 'distributed3d' && l.data.generatedBy)!;
   expect(example).toBeDefined();
   const { modelFeatures } = await import('../../provenance/model-features');
-  const requiresReview = (load: Load) => modelFeatures({ loads: [{ type: load.type, data: { generatedBy: load.data.generatedBy } }] }).has('independentlyGeneratedLoads');
+  const requiresReview = (load: Load) => {
+    const generatedBy = 'generatedBy' in load.data ? load.data.generatedBy : undefined;
+    return modelFeatures({ loads: [{ type: load.type, data: { generatedBy } }] }).has('independentlyGeneratedLoads');
+  };
   expect(requiresReview(example)).toBe(false);
   const owners = ['stair:st1', 'arch:walls', 'arch:rooms'];
   const independentlyGenerated = owners.map(owner => {
