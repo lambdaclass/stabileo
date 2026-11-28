@@ -832,7 +832,7 @@ test('known wrong result: #1928 the automatic load dialog only reads national fa
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
       const result = await build({ root, configFile, logLevel: 'silent', build: {
         write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
-          external: (id, from) => !!from && !id.includes('?svelte&type=style') && !id.includes('families/stacks'),
+          external: (id, from) => !!from && !id.includes('?svelte&type=style') && !id.includes('families/stacks') && !/load-codes\/(?:active-)?registry/.test(id),
         },
       } });
       const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');

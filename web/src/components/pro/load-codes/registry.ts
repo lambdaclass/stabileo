@@ -17,3 +17,11 @@ export const CODE_INPUTS: Readonly<Record<string, CodeInputComponent>> = {};
 
 export const LoadFamilyChooser: typeof import('./LoadFamilyChooser.svelte').default | undefined = undefined;
 export const basisTitle: (() => string | undefined) | undefined = undefined;
+
+interface LoadFamilyEditor {
+  familyOf: typeof import('../../../lib/codes/families/stacks').loadFamilyOfRegulations;
+  bindings: typeof import('../../../lib/codes/families/stacks').FAMILY_STACKS;
+  status: typeof import('./nav-status').codeInputStatus;
+}
+
+export const familyEditor: LoadFamilyEditor | undefined = undefined;

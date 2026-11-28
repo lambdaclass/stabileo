@@ -46,10 +46,8 @@
   import { regionNodes, regionMembers, type ActionRegion } from '../../lib/model/loads/region-nodes';
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { loadCodeFor } from '../../lib/codes/families';
-  import { codeInputStatus } from './load-codes/nav-status';
   import type { ImposedLoadCode } from '../../lib/codes/families/load-codes';
-  import { FAMILY_STACKS, loadFamilyOfRegulations } from '../../lib/codes/families/stacks';
-  import { CODE_INPUTS, LoadFamilyChooser } from './load-codes/registry';
+  import { CODE_INPUTS, LoadFamilyChooser, familyEditor } from './load-codes/registry';
   import { defaultBeta, isBuildingKind, isLowRise, type WindDynamics, type fundamentalFrequencies } from '../../lib/engine/loads/wind-dynamics';
   import { applyLoadPlan, previewLoadPlan } from '../../lib/store/apply-load-plan';
   import { engineGuarded } from '../../lib/store/engine-action';
@@ -392,7 +390,7 @@
   /** Each non-CIRSOC code's own inputs, by adapter (`load-codes/registry.ts`). */
   let codeInputs = $state<Record<string, unknown>>({});
   const codeAdapter = (role: 'wind' | 'snow' | 'seismic') => regulationsStore.binding(role)?.adapterId ?? '';
-  const family = $derived(__PUBLIC_FEATURES__.proPlatesUnified ? loadFamilyOfRegulations(regulationsStore.roles) ?? 'cirsoc' : 'cirsoc');
+  const family = $derived(familyEditor?.familyOf(regulationsStore.roles) ?? 'cirsoc');
   function familyChanged(applied: boolean) {
     if (applied) restoreFromRoles();
     plan = null;
@@ -610,12 +608,12 @@
   const f2 = (v: number) => v.toFixed(2);
   /** Wind and seismic beside their section, from the code's own inputs when it has them; null when it has them and they are still empty. */
   function navOf(role: 'wind' | 'seismic', cirsoc: () => string): string | null {
-    if (!__PUBLIC_FEATURES__.proPlatesUnified) return cirsoc();
+    if (!familyEditor) return cirsoc();
     const id = codeAdapter(role);
     // A family with no code bound for the role (UK has no seismic one) has no CIRSOC zone to show either.
     if (!id && family !== 'cirsoc') return null;
     if (!CODE_INPUTS[id]) return cirsoc();
-    const s = codeInputStatus(role, codeInputs[id]);
+    const s = familyEditor.status(role, codeInputs[id]);
     if (!s) return null;
     return s.kind === 'speed' ? `${s.symbol} ${+toQ(s.value, 'speed').toFixed(1)} ${unitQ('speed')}` : `${s.symbol} ${+s.value.toFixed(3)}`;
   }
@@ -1223,12 +1221,12 @@
     <label class="al-field"><span class="al-label">{t('autoLoad.bindHere')}</span>
       <select value="" onchange={(e) => bindRegulation(role, e.currentTarget.value)} data-testid={`al-bind-${role}-select`}>
         <option value="">{t('regulations.none')}</option>
-        {#each roleSelectOptions(role, null).filter((o) => !o.noModule && (!__PUBLIC_FEATURES__.proPlatesUnified || o.option.adapterId === FAMILY_STACKS[family][role])) as { option: o } (o.adapterId)}
+        {#each roleSelectOptions(role, null).filter((o) => !o.noModule && (!familyEditor || o.option.adapterId === familyEditor.bindings[family][role])) as { option: o } (o.adapterId)}
           <option value={o.adapterId}>{te(optionLabel(o))}</option>
         {/each}
       </select>
     </label>
-    {#if __PUBLIC_FEATURES__.proPlatesUnified && !FAMILY_STACKS[family][role]}<p class="al-hint" data-testid={`al-bind-${role}-none`}>{t(role === 'seismic' ? 'autoLoad.noFamilySeismic' : 'autoLoad.windNeedsRole')}</p>{/if}
+    {#if familyEditor && !familyEditor.bindings[family][role]}<p class="al-hint" data-testid={`al-bind-${role}-none`}>{t(role === 'seismic' ? 'autoLoad.noFamilySeismic' : 'autoLoad.windNeedsRole')}</p>{/if}
     <button class="al-link" data-testid={role === 'wind' ? 'al-goto-regulations-wind' : 'al-goto-regulations'}
             onclick={() => { proNav.openRegulations(); onclose(); }}>{t('autoLoad.openRegulations')}</button>
   </div>

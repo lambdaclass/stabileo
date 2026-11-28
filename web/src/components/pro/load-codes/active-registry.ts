@@ -1,3 +1,5 @@
+import { FAMILY_STACKS, loadFamilyOfRegulations } from '../../../lib/codes/families/stacks';
+import { codeInputStatus } from './nav-status';
 import { regulationsStore } from '../../../lib/store/regulations.svelte';
 import { loadCodeFor } from '../../../lib/codes/families';
 import type { CodeInputComponent } from './registry';
@@ -14,3 +16,5 @@ export const CODE_INPUTS: Readonly<Record<string, CodeInputComponent>> = {
 export { default as LoadFamilyChooser } from './LoadFamilyChooser.svelte';
 
 export const basisTitle = () => loadCodeFor(regulationsStore.binding('basis')?.adapterId)?.title;
+
+export const familyEditor = { familyOf: loadFamilyOfRegulations, bindings: FAMILY_STACKS, status: codeInputStatus };
