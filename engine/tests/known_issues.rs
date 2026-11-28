@@ -3375,3 +3375,34 @@ fn material_nonlinear_evidence_is_listed_for_the_increment_warning() {
     let row = include_str!("../../testing/docs/CONTAINMENT.md").lines().find(|row| row.starts_with("| #370 |")).unwrap();
     assert!(row.contains("material_nonlinear_results_are_flagged"));
 }
+
+fn check_modal_member_references_370(
+    solve: impl Fn(&SolverInput3D, &HashMap<String, f64>) -> dedaliano_engine::solver::modal::ModalResult3D,
+) {
+    let input: ModalInput3D = serde_json::from_str(include_str!("fixtures/modal-arch-370.json")).unwrap();
+    let mut model = input.solver;
+    for with_frame in [true, false] {
+        if !with_frame { model.elements.clear(); }
+        let result = solve(&model, &input.densities);
+        assert_eq!(result.modes.len(), 2);
+        assert!(result.modes.iter().all(|m| m.frequency > 0.0));
+        let references: Vec<_> = result.structured_diagnostics.iter()
+            .filter(|d| d.phase.as_deref() == Some("NL-DYNAMIC-GAPS"))
+            .map(|d| (serde_json::to_value(d.element_kind).unwrap(), d.element_ids.as_slice())).collect();
+        assert!(references.contains(&(serde_json::json!("curved_beam"), &[0][..])));
+        if with_frame { assert!(references.contains(&(serde_json::json!("frame"), &[1][..]))); }
+        assert_eq!(references.len(), if with_frame { 2 } else { 1 }, "{references:?}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #370"]
+fn modal_reports_only_authored_member_references_370() {
+    check_modal_member_references_370(|s, densities| dedaliano_engine::solver::modal::solve_modal_3d(s, densities, 2).unwrap());
+}
+
+#[test]
+#[ignore = "known wrong result: #370"]
+fn certified_modal_reports_only_authored_member_references_370() {
+    check_modal_member_references_370(|s, densities| dedaliano_engine::certify::modal::certify_modal_3d(s, densities, 2).unwrap().results);
+}
