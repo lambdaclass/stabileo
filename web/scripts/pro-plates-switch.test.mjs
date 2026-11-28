@@ -776,3 +776,20 @@ test('known wrong result: #1928 the design-data reader imports the sheet option 
     });
   }
 });
+
+test.skip('known wrong result: #1928 the building slab controls load only the mesh commands used by their profile', async () => {
+  const entry = resolve(root, 'src/components/pro/building/BuildingSlabs.svelte');
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external: (id, from) => !!from && !id.includes('?svelte&type=style') && !id.includes('slab-mesh-commands'),
+        },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(x => x.type === 'chunk');
+      const imports = Object.keys(chunk.importedBindings);
+      assert.equal(imports.some(id => id.endsWith('/physical-plates')), plates);
+      assert.equal(imports.some(id => id.endsWith('/deferred-slabs')), !plates);
+    });
+  }
+});
