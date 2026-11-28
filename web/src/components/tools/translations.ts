@@ -388,7 +388,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.mode": "一次座屈モード",
   "tools.structure": "構造と変形図",
   "tools.deformedNote": "変形は見やすいよう拡大しています。",
-  "tools.referenceBooks": "Timoshenko & Gere, Theory of Elastic Stability, 2nd ed. (1961), 第 2 章；Young & Budynas, Roark’s Formulas for Stress and Strain, 7th ed. (2002), 表 8.1（片持ち梁：ケース 1a と 2a、単純支持：ケース 1e と 2e）。",
+  "tools.referenceBooks": "Timoshenko & Gere, Theory of Elastic Stability，第 2 版（1961），第 2 章；Young & Budynas, Roark’s Formulas for Stress and Strain，第 7 版（2002），表 8.1（片持ち梁：ケース 1a と 2a、単純支持：ケース 1e と 2e）。",
   "tools.index": (__PUBLIC_FEATURES__.tools ? "無料の構造設計ツール" : "無料の工学計算ツール"),
   "tools.lead": (__PUBLIC_FEATURES__.tools ? "梁、骨組、トラス、柱、スラブ、タワーの計算ツールとライブモデル。値を変更すると、実運用の Stabileo エンジンがブラウザでモデルをもう一度解き、すべての図が即座に更新され、古典的な解がある場合は並べて表示します。" : "梁、柱、骨組、トラス、影響線、固有振動数を、実運用の Stabileo エンジンで解析し、古典的な式と比較します。"),
   "tools.simply-supported-beam": "単純梁",

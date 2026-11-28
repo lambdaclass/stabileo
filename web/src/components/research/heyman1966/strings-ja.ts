@@ -42,7 +42,7 @@ export const ja: Strings = {
   limitsHeading: '制約',
   limits: '迫石は剛で、滑りはなく、圧縮強度は無制限です。条件は目地でのみ確認し、裏込めや沈下は考慮しません。集中荷重は鉛直で、外輪に作用します。公表された解析解や別の実装との一致は数値的な比較であり、実験室での試験ではなく、実在するアーチの評価でもありません。',
   paper: 'Heyman (1966)',
-  rizzi: 'Rizzi et al. (2010)',
+  rizzi: 'Rizzi ら（2010）',
 
   caseLabel: 'ケース',
   tabs: { weight: '自重', load: '集中荷重' },
