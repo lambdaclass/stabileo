@@ -11,3 +11,5 @@ Automatic beam detailing continues bottom bars into their supports when the calc
 The seven-storey reinforcement audit, design-family counts, scene, top-steel, provisional and empty-beam projections, and the sheets' unheld-core flow run on the released model with its core on one support, the model they were measured on. The example with its founded core is audited separately: every beam and column is verified or refused with its reason and without a stray cage, and every bar reaches the 3D scene. [Core foundation](../docs/results-changes/2026-11-example-core-foundation.md).
 
 The stored member and plate offsets notice loads its translated text with the other result-change notices instead of in the app's startup code. Its wording in every language is unchanged.
+
+CI change selection finds the slow end-to-end specs in one pass over their imports, reading each file once, so its own tests run in seconds again. The selected specs are unchanged.

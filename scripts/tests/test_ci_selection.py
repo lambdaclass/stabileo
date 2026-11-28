@@ -600,6 +600,39 @@ exit 0
             (e2e / 'rc-design-visual.spec.ts').write_text("test('visual @slow', async () => {});\n")
             self.assertEqual(selection.discover_slow_specs(e2e), ('url-title.spec.ts', 'via-helper.spec.ts'))
 
+    def test_slow_discovery_follows_import_cycles_to_a_tag_behind_them(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            e2e = Path(tmp)
+            (e2e / 'a.ts').write_text("import { b } from './b';\nexport const a = 1;\n")
+            (e2e / 'b.ts').write_text("import { a } from './a';\nimport { t } from './tag.mjs';\nexport const b = 2;\n")
+            (e2e / 'tag.mjs').write_text("export const t = '@slow';\n")
+            (e2e / 'c.ts').write_text("import { d } from './d';\nexport const c = 3;\n")
+            (e2e / 'd.ts').write_text("import { c } from './c';\nexport const d = 4;\n")
+            (e2e / 'notes.json').write_text('"@slow"\n')
+            (e2e / 'cycle-tagged.spec.ts').write_text("import { a } from './a';\ntest('x', async () => {});\n")
+            (e2e / 'cycle-untagged.spec.ts').write_text("import { c } from './c';\ntest('y', async () => {});\n")
+            (e2e / 'json-only.spec.ts').write_text("import n from './notes.json';\ntest('z', async () => {});\n")
+            self.assertEqual(selection.discover_slow_specs(e2e), ('cycle-tagged.spec.ts',))
+
+    def test_slow_discovery_reads_each_file_once_however_many_specs_share_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            e2e = Path(tmp)
+            for i in range(30):
+                (e2e / f'h{i}.ts').write_text(f"import {{ x }} from './h{i + 1}';\nexport const h{i} = 1;\n")
+            (e2e / 'h30.ts').write_text("export const x = 1;\n")
+            for i in range(20):
+                (e2e / f's{i:02}.spec.ts').write_text("import { h0 } from './h0';\ntest('x', async () => {});\n")
+            (e2e / 'tagged.spec.ts').write_text("import { h0 } from './h0';\ntest('x @slow', async () => {});\n")
+            reads = []
+            original = Path.read_text
+            def counted(path, *args, **kwargs):
+                reads.append(path)
+                return original(path, *args, **kwargs)
+            with patch.object(Path, 'read_text', counted):
+                self.assertEqual(selection.discover_slow_specs(e2e), ('tagged.spec.ts',))
+            self.assertEqual(len(reads), len(set(reads)))
+            self.assertEqual(len(reads), 52)
+
     def test_a_smoke_only_spec_change_selects_no_slow_run(self):
         smoke_only = next(p.name for p in sorted((ROOT / 'web/e2e').glob('*.spec.ts')) if p.name not in selection.ALL_SLOW_SET)
         self.assertEqual(selection.slow_specs_for_path(f'web/e2e/{smoke_only}'), ())
