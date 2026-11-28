@@ -29,6 +29,7 @@ export const switchOnUnitFiles = [
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/lib/store/__tests__/plate-offset-accounting.test.ts',
   'src/lib/store/__tests__/apply-load-plan-unmarked.test.ts',
   'src/lib/store/__tests__/clear-plate-fields.test.ts',
   'src/lib/model/foundation/__tests__/generate.test.ts',
