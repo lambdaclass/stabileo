@@ -1,6 +1,8 @@
 import { setLocale } from '../../../lib/i18n';
 import { beforeEach, beforeAll, describe, expect, it } from 'vitest';
 import { initSolver } from '../../../lib/engine/wasm-solver';
+import { PARAMETRIC_HANDOUT } from './fixtures/handout';
+import { fromFile } from '../exercise-capture';
 import { getExerciseSpecs } from '../exercise-data';
 import type { EduExerciseSpec } from '../exercise-spec';
 import { seedFrom } from '../exercise-params';
@@ -46,6 +48,21 @@ const beam = (over: Partial<EduExerciseSpec> = {}): EduExerciseSpec => ({
 beforeEach(() => setLocale('en'));
 
 describe('variantOf', () => {
+  it.skip('known wrong result: #1927 — the handout can grade the cantilever at both ends of its span range', () => {
+    const parsed = fromFile(JSON.stringify(PARAMETRIC_HANDOUT));
+    if (!parsed.ok) throw new Error(parsed.error);
+    const { min, max } = PARAMETRIC_HANDOUT.exercise.params.values.L;
+    for (const L of [min, max]) {
+      const assigned = variantOf(parsed.exercise, { values: { L }, supports: {} });
+      expect(assigned.title).toBe(`Span ${L} m`);
+      expect(assigned.model.nodes[1]).toEqual([L, 0]);
+      const result = solveModel(assigned.model);
+      if (typeof result === 'string') throw new Error(result);
+      const question = toExercise(assigned).characteristics[0]!;
+      expect(question.getCorrect(result.elementForces as ElementForces[])).toBeCloseTo(Math.abs(L * assigned.model.nodalLoads![0]!.fy!), 10);
+    }
+  });
+
   it('leaves an exercise without params meaning exactly what it meant', () => {
     const plain = getExerciseSpecs().find((s) => s.id === 'pdelta-column')!;
     expect(isParametric(plain)).toBe(false);

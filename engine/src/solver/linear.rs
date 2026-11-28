@@ -551,10 +551,18 @@ struct PreparedPcg2D {
 
 
 
+#[cfg(test)]
+thread_local! {
+    pub(crate) static PLANE_PREPARATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    pub(crate) static PLANE_SECOND_ORDER_REPORTS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// Prepare a 2D structure for one or more static solves: numbering, assembly,
 /// and factorization of the free-free stiffness block happen exactly once here.
 /// This is exactly the load-independent part of `solve_2d`.
 pub fn prepare_static_2d(input: &SolverInput) -> Result<PreparedStatic2D<'_>, String> {
+    #[cfg(test)]
+    PLANE_PREPARATIONS.with(|count| count.set(count.get() + 1));
     prepare_static_2d_impl(input, false, ElasticProperties2D::from_legacy(input))
 }
 
@@ -826,6 +834,8 @@ impl PreparedStatic2D<'_> {
         let summary = r.result_summary.get_or_insert_with(Default::default);
         summary.member_chords = Some(chords);
         summary.member_spans = Some(spans);
+        #[cfg(test)]
+        PLANE_SECOND_ORDER_REPORTS.with(|count| count.set(count.get() + 1));
         let (second, ratio, physical) = crate::known_issues::second_order_2d_with_bound(&self.input, loads, &r);
         r.result_summary.get_or_insert_with(Default::default).second_order_physical_bound = physical;
         crate::known_issues::attach(&mut r.structured_diagnostics, second);

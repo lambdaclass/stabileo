@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { EXERCISE, PARAMETRIC_HANDOUT } from '../src/components/edu/__tests__/fixtures/handout';
 
 declare global {
   interface Window { __stabileo?: { solverReady?: () => boolean } }
@@ -24,27 +25,6 @@ declare global {
  */
 
 const EDU_URL = '/app/education';
-
-/** An exercise a teacher would hand out, in the format the app writes. */
-const EXERCISE = {
-  stabileoExercise: 1,
-  exercise: {
-    id: 'e2e-cantilever',
-    title: 'E2E cantilever',
-    description: 'A 4 m cantilever with a 10 kN point load at the tip.',
-    difficulty: 'easy',
-    category: 'statics',
-    model: {
-      nodes: [[0, 0], [4, 0]],
-      elements: [[0, 1]],
-      supports: [{ node: 0, type: 'fixed' }],
-      nodalLoads: [{ node: 1, fy: -10 }],
-    },
-    supports: [{ label: 'Fixed end', nodeIndex: 0, dofs: ['Ry', 'M'] }],
-    characteristics: [{ label: 'M max', unit: 'kN·m', answer: { kind: 'maxAbsMoment' } }],
-    diagramQuestions: [],
-  },
-};
 
 /** The same encoding `toShareLink` uses, so the spec exercises the real reader. */
 function shareLink(): string {
@@ -98,8 +78,7 @@ async function bootEducation(page: Page, url = EDU_URL) {
 
 test.describe('@smoke Education — a handed-out exercise', () => {
   test('known wrong result: #1927 — a pending handout title shows its parameter range', async ({ page }) => {
-    const envelope = { ...EXERCISE, exercise: { ...EXERCISE.exercise, title: 'Span {L} m', params: { values: { L: { min: 3, max: 5, step: 1 } } } } };
-    await page.goto(EDU_URL + '?e2e=1#edu-ex=' + Buffer.from(JSON.stringify(envelope)).toString('base64'));
+    await page.goto(EDU_URL + '?e2e=1#edu-ex=' + Buffer.from(JSON.stringify(PARAMETRIC_HANDOUT)).toString('base64'));
     await expect(page.getByTestId('edu-variant-gate')).toBeVisible();
     await expect(page.getByTestId('edu-handout-title')).toHaveText('Span 3–5 m');
   });

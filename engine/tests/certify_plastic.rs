@@ -173,6 +173,23 @@ fn portal(h: f64, w: f64, hl: f64, v: f64) -> SolverInput {
 }
 
 #[test]
+#[ignore = "known wrong result: #1927"]
+fn issue_1927_plastic_self_stresses_share_one_prepared_frame() {
+    use crate::solver::linear::{PLANE_PREPARATIONS, PLANE_SECOND_ORDER_REPORTS};
+    use crate::solver::plastic_limit::{limit_analysis_2d, Confirmation};
+
+    let model = portal(4.0, 6.0, 1.0, 1.0);
+    let capacity = model.elements.values().map(|member| (member.id, MP)).collect();
+    PLANE_PREPARATIONS.with(|count| count.set(0));
+    PLANE_SECOND_ORDER_REPORTS.with(|count| count.set(0));
+    let limit = limit_analysis_2d(&model, &capacity, &HashMap::new()).unwrap();
+    assert_eq!(limit.confirmation, Confirmation::Exact);
+    assert!((limit.lambda - 6.0 * MP / 7.0).abs() <= MP * 1e-12);
+    let counts = (PLANE_PREPARATIONS.with(|n| n.get()), PLANE_SECOND_ORDER_REPORTS.with(|n| n.get()));
+    assert_eq!(counts, (2, 1));
+}
+
+#[test]
 fn portal_frame_mechanisms() {
     // beam 4Mp/(V a), sway 4Mp/(H h), combined 6Mp/(H h + V a), a = w/2
     let (h, w) = (4.0, 6.0);
