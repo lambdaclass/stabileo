@@ -118,3 +118,20 @@ it('#2217 every regional layer or group participates in the smallest-bar limit',
   }
   expect(beamSteel({ regions: { ...layers, topEndGroups: [{ layers: [large, small] }] } }).minDia).toBe(10);
 });
+
+it.skip.each(['below', 'boundary', 'above', 'strong', 'unrecorded'] as const)('known wrong result: #1928 seismic column confinement retains only assessed results for %s', state => {
+  const primary = column(1, 1, 2);
+  const bound = 0.3 * primary.b * primary.h * primary.fc * 1000;
+  if (state === 'strong') primary.fc = 71;
+  primary.axial = state === 'unrecorded' ? undefined : { min: 0, max: bound + (state === 'above' ? 1 : state === 'below' ? -1 : 0) };
+  const report = seismicFrameChecks({ nodes, members: [primary, column(2, 3, 4), beam], settings: defaultSeismicDesign() });
+  const checked = report.members.find(member => member.id === primary.id)!;
+  if (state === 'below' || state === 'boundary') {
+    expect(checked.confinement?.ashOk).toBe(true);
+    expect(checked.issues).not.toContain('seisDes.issue.confinementUnassessed');
+  } else {
+    expect(checked.confinement).toBeUndefined();
+    expect(checked.ok).toBe(false);
+    expect(checked.issues).toContain('seisDes.issue.confinementUnassessed');
+  }
+});
