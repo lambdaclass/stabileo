@@ -73,6 +73,9 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     resolveId: {
       order: 'pre',
       handler(id, importer) {
+        if (features.proPlatesUnified && importer && id.endsWith('/recheck-board-provider') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/recheck-board-provider')) {
+          return resolve(__dirname, 'src/lib/store/active-recheck-board-provider.svelte.ts');
+        }
         if (features.proPlatesUnified && importer && id === './building-files' && dirname(importer) === resolve(__dirname, 'src/lib/templates/examples')) {
           return resolve(dirname(importer), 'unified-building-files.ts');
         }

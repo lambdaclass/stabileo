@@ -2,7 +2,7 @@
   import { saveWorkspaceSettled, saveSession } from '../lib/store/file';
   import { unifiedPlates } from '../lib/features';
   import { recheckStore } from '../lib/store/recheck.svelte';
-  import { recheckBanner, boardCovered } from '../lib/store/recheck-banner.svelte';
+  import { observeRecheckBoard, showLocalBanner } from '../lib/store/recheck-board-provider';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
   import { changelogUrl, concernsLoadBasis, registryLocale, type ResultChange } from '../lib/provenance/registry';
   import { advisoryName, type Advisory } from '../lib/provenance/advisories';
@@ -90,20 +90,10 @@
       ? [certain.length ? tp('recheck.advisoryBanner', { names: certain.map(advisoryName).join(', ') }) : '', ...openAdvisories.filter((x) => x.analysis || maybe(x)).map((adv) => advisoryText(adv, true))].filter(Boolean).join(' ')
       : tp('recheck.banner', { n: a.changes.length })
     : null);
-  $effect(() => {
-    if (!hostedOnBoard || !unifiedPlates()) return;
-    recheckBanner.text = bannerText;
-    recheckBanner.alert = openAdvisories.length > 0;
-    recheckBanner.canRerun = resolve && !recheckStore.solvedAgain;
-    recheckBanner.busy = busy;
-    recheckBanner.review = () => { reviewing = true; };
-    recheckBanner.rerun = rerun;
-  });
-  $effect(() => () => {
-    if (!hostedOnBoard || !unifiedPlates()) return;
-    recheckBanner.text = null;
-    recheckBanner.alert = false;
-  });
+  observeRecheckBoard?.(() => hostedOnBoard, () => ({
+    text: bannerText, alert: openAdvisories.length > 0, canRerun: resolve && !recheckStore.solvedAgain,
+    busy, review: () => { reviewing = true; }, rerun,
+  }));
 </script>
 
 {#if open && a}
@@ -193,8 +183,8 @@
   </dialog>
 {/if}
 
-{#if bannerText && (!hostedOnBoard || boardCovered())}
-  <div class="rc-banner" class:rc-banner-advisory={openAdvisories.length > 0} role={openAdvisories.length ? 'alert' : 'status'} data-testid="recheck-stale-banner">
+{#if bannerText && (showLocalBanner?.(hostedOnBoard) ?? true)}
+  <div class="rc-banner" style:z-index={__PUBLIC_FEATURES__.proPlatesUnified ? 920 : null} class:rc-banner-advisory={openAdvisories.length > 0} role={openAdvisories.length ? 'alert' : 'status'} data-testid="recheck-stale-banner">
     <span data-testid={openAdvisories.length ? 'recheck-advisory-banner' : undefined}>{bannerText}</span>
     <button class="rc-banner-btn" onclick={() => (reviewing = true)} data-testid="recheck-banner-details">{t('recheck.bannerDetails')}</button>
     {#if resolve && !recheckStore.solvedAgain}<button class="rc-banner-btn rc-primary" disabled={busy} onclick={rerun} data-testid="recheck-banner-rerun">{t('recheck.bannerRerun')}</button>{/if}
@@ -287,7 +277,7 @@
     left: 50%;
     bottom: 44px;
     transform: translateX(-50%);
-    z-index: 920;
+    z-index: 250;
     display: flex;
     gap: 8px;
     align-items: center;
@@ -305,7 +295,7 @@
     box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
   }
   .rc-banner-btn { padding: 3px 8px; font-size: 0.75rem; }
-  .rc-banner-advisory { border-color: var(--st-danger, #d9534f); }
+  .rc-banner-advisory { z-index: 920; border-color: var(--st-danger, #d9534f); }
   @media (max-width: 600px) {
     .rc-banner { width: calc(100vw - 24px); }
     .rc-banner > span { flex-basis: 100%; }

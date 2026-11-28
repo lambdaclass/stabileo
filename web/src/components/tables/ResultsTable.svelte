@@ -74,7 +74,7 @@
 
 {#if __PUBLIC_FEATURES__.proPlatesUnified}
   {#if containment.refused}
-    <div role="alert" class="containment-banner" data-testid="results-withheld">
+    <div role="alert" class="withheld-banner" data-testid="results-withheld">
       <NoticeRow kind="withheld" level="blocking" summary={t('notices.kind.withheld')} details={containment.messages} open />
     </div>
   {/if}
@@ -298,7 +298,8 @@
 {/if}
 
 <style>
-  .containment-banner { margin-bottom: 8px; }
+  .containment-banner { padding: 12px; border: 2px solid currentColor; margin-bottom: 8px; }
+  .withheld-banner { margin-bottom: 8px; }
   .results-case-bar {
     display: flex;
     align-items: center;

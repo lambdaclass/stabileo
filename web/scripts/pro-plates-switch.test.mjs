@@ -1081,7 +1081,7 @@ for (const [label, source, selected, endpoint] of [
 }
 
 for (const [name, source] of [['recheck notice', 'RecheckNotice'], ['result alert', 'tables/ResultsTable']]) {
-  test.skip('known wrong result: #1928 published presentation of the ' + name, async () => {
+  test('known wrong result: #1928 published presentation of the ' + name, async () => {
     for (const active of [false, true]) {
       await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: active }, async configFile => {
         const entry = resolve(root, 'src/components/' + source + '.svelte');
