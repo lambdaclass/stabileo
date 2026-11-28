@@ -73,7 +73,7 @@ import { i18n, t, tp } from '../i18n';
 import { noteStructuralSolve } from '../utils/solve-counter';
 import { get2DDisplayNodalLoadVertical } from '../geometry/coordinate-system';
 
-import { loadMemberId, loadNodeId } from '../store/model.svelte';
+import { LOAD_TARGET, loadMemberId, loadNodeId } from '../store/model.svelte';
 import type {
   Node, Element, Support, Load, Material, Section,
   LoadCase, LoadCombination,
@@ -559,8 +559,11 @@ function convertSolverLoads2D(
   return solverLoads;
 }
 
-export function shellsRequirePro3D(model: Pick<ModelData, 'plates' | 'quads'>): string | null {
-  return model.plates?.size || model.quads?.size ? t('svc.shellsRequirePro3d') : null;
+export function shellsRequirePro3D(model: Pick<ModelData, 'plates' | 'quads' | 'loads'>): string | null {
+  if (!model.plates?.size && !model.quads?.size) return null;
+  const message = t('svc.shellsRequirePro3d');
+  const load = model.loads?.find(l => l && LOAD_TARGET[l.type] === 'shell' && Number.isSafeInteger(l.data?.id));
+  return load ? message + ' (' + load.type + ' ' + load.data.id + ')' : message;
 }
 
 /**
