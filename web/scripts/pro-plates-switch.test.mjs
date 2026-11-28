@@ -825,3 +825,19 @@ test('known wrong result: #1928 the published load writer excludes unmeshed plat
     });
   }
 });
+
+test.skip('known wrong result: #1928 the automatic load dialog only reads national family stacks when the chooser ships', async () => {
+  const entry = resolve(root, 'src/components/pro/ProAutoLoadsDialog.svelte');
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external: (id, from) => !!from && !id.includes('?svelte&type=style') && !id.includes('families/stacks'),
+        },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(output => output.type === 'chunk');
+      const stacks = Object.entries(chunk.modules).find(([id]) => id.endsWith('/codes/families/stacks.ts'));
+      assert.equal((stacks?.[1].renderedLength ?? 0) > 0, plates);
+    });
+  }
+});
