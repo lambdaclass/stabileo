@@ -40,6 +40,8 @@ beam input indices separately, using the circular arc length for a curved member
 `NL-DYNAMIC-MODES` because the mode-specific error is unknown. Material nonlinear analyses
 receive `NL-UNCONVERGED-INCREMENT`. On reopening an older project, a nonlinear analysis setting alone can no longer trigger this notice for a node-only model. The recheck uses saved evidence of members, shells, springs, connectors or contact, including when an older file omits its member list. Malformed authored structure still receives conservative review. Only diagnostic codes and references change.
 
+In a 3D modal solve and its certificate, a deep arch is identified once by its curved-beam input index. A deep straight member alongside it keeps its own frame reference. The straight segments generated to assemble the arch have no separate warning. The modal frequencies and mode shapes are unchanged.
+
 ## Basic 2D plastic collapse at the certified limit-analysis factor
 
 Results-change entry `basic-plastic-2d-certified-limit` (#758, SA-2026-044).

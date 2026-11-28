@@ -770,8 +770,8 @@ pub fn solve_modal_3d(
     densities: &HashMap<String, f64>,
     num_modes: usize,
 ) -> Result<ModalResult3D, String> {
-    let known_model = crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal);
-    crate::known_issues::refuse(&known_model)?;
+    let mut structured_diagnostics = crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal);
+    crate::known_issues::refuse(&structured_diagnostics)?;
     let input = &super::linear::expand_curved_beams_3d(input);
     super::linear::validate_input_3d_for_analysis(input, crate::known_issues::Analysis::Modal)?;
     super::dynamic_validation::validate_mass_3d(input, densities)?;
@@ -824,8 +824,6 @@ pub fn solve_modal_3d(
         &mass_range, &dof_num, cs.as_ref(), its, &[0, 1, 2], &rank,
         || rank.check_rounding(&sasm.k_ff, cs.as_ref().map(|_| k_solve), sasm.support_magnitude.as_ref()),
     )?;
-    let mut structured_diagnostics = known_model;
-    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
     let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
         mass_range.solve_sparse(k_solve, m_solve, num_modes, observe)

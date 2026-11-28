@@ -3396,13 +3396,11 @@ fn check_modal_member_references_370(
 }
 
 #[test]
-#[ignore = "known wrong result: #370"]
 fn modal_reports_only_authored_member_references_370() {
     check_modal_member_references_370(|s, densities| dedaliano_engine::solver::modal::solve_modal_3d(s, densities, 2).unwrap());
 }
 
 #[test]
-#[ignore = "known wrong result: #370"]
 fn certified_modal_reports_only_authored_member_references_370() {
     check_modal_member_references_370(|s, densities| dedaliano_engine::certify::modal::certify_modal_3d(s, densities, 2).unwrap().results);
 }
