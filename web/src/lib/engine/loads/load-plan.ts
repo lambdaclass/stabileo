@@ -281,6 +281,12 @@ export function windDirectionsOf(w: { directions: { x: boolean; y: boolean }; bo
 // ─── Plan ────────────────────────────────────────────────────────
 
 export interface PlannedCase {
+  /**
+   * The part of its action this case holds, where the code combines the parts at their own
+   * factors (`CombinationTerm.group`): the live load of a roof whose category of use is not the
+   * floors' (EN 1990 ψ by category). Absent: the action whole.
+   */
+  group?: string;
   snowBasis?: 'flatRoof';
   /** Existing case id when one matches, else null → a new case is needed. */
   existingId: number | null;
@@ -292,12 +298,6 @@ export interface PlannedCase {
   alternatives?: string;
   /** An arrangement over part of the structure (see LoadCase.pattern). */
   pattern?: boolean;
-  /**
-   * The part of its action this case holds, where the code combines the parts at their own
-   * factors (`CombinationTerm.group`): the live load of a roof whose category of use is not the
-   * floors' (EN 1990 ψ by category). Absent: the action whole.
-   */
-  group?: string;
   /** What the action is, code-neutral (`codes/families/load-codes.ts`): set by the plan. */
   category?: import('../../codes/families/origin').ActionCategory;
   /**

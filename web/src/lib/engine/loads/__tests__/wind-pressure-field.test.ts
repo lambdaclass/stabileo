@@ -88,7 +88,7 @@ it('a storey column under a CIRSOC 102 pressure takes a few loads that carry its
   }
 });
 
-for (const curvature of [-1, 0, 1]) it(`known wrong result: #2529 member cuts retain the pressure integral for curvature ${curvature}`, () => {
+for (const curvature of [-1, 0, 1]) it(`#2529 member cuts retain the pressure integral for curvature ${curvature}`, () => {
   const model = mesh([[[0, 0, 0], [0, 0, 1]]]);
   const field = windHeightField({
     model, axis: 'x', width: 1, from: 0, to: 1,
@@ -113,7 +113,7 @@ for (const curvature of [-1, 0, 1]) it(`known wrong result: #2529 member cuts re
   }
 });
 
-for (const side of [-1, 1]) it(`known wrong result: #2529 whole-band pressure compression on side ${side} of the midpoint limit`, () => {
+for (const side of [-1, 1]) it(`#2529 whole-band pressure compression on side ${side} of the midpoint limit`, () => {
   const curvature = 0.002 * (1 + side * 1e-5);
   const pressure = Object.assign((s: number) => 1 + curvature * (s - 0.5) ** 2, { curvatureBreaks: [] });
   const parts = integrateWindPressure(1, [], pressure);
@@ -127,7 +127,7 @@ for (const side of [-1, 1]) it(`known wrong result: #2529 whole-band pressure co
   }
 });
 
-it('known wrong result: #2529 a storey column emits the compact pressure bands as member loads', () => {
+it('#2529 a storey column emits the compact pressure bands as member loads', () => {
   const model = mesh([[[0, 0, 2.8], [0, 0, 5.6]]]);
   const field = windHeightField({
     model, axis: 'x', width: 1, from: 2.8, to: 5.6, boundaries: [5],

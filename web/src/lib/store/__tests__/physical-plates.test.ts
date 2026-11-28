@@ -10,7 +10,7 @@
  *  - undo and redo take the creation and the mesh back and forth without orphans;
  *  - saved and opened, the plate keeps its outline, its mesh and its load.
  */
-import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, assert, beforeEach, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
 import {
@@ -19,7 +19,8 @@ import {
 } from '../physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { serializeProject, deserializeProject } from '../file';
-import { loadCodeExample } from '../../templates/examples';
+import { loadCodeFile } from '../../templates/examples';
+import { GENERATED_BUILDING_FILES } from '../../templates/examples/unified-building-files';
 import { planPlateMeshes } from '../physical-plates';
 import { plateLoops } from '../../model/physical/plate';
 import { copyTransformed } from '../../model/edit/transformed-copy';
@@ -91,8 +92,9 @@ describe('a physical plate', () => {
     ['pro-steel-building-slabs', 'Losa 0–6 × 3–6 · 1º piso'],
     ['pro-rc-party-wall', 'Tabique escalera 3 · 1º piso (abajo)'],
   ] as const) it(`known wrong result: #2365 honors the declared rectangular grid on ${name}`, async () => {
-    await loadCodeExample(example);
-    const plate = physicalPlates().find(p => p.name === name)!;
+    await loadCodeFile(example, GENERATED_BUILDING_FILES[example]);
+    const plate = physicalPlates().find(p => p.name === name);
+    assert(plate, name);
     for (const plan of [planPlateMesh(plate.id), ...(await planPlateMeshes([plate.id]))!]) {
       expect(plan?.refused).toBeUndefined();
       expect(plan?.mesh?.cells.length).toBeGreaterThan(0);

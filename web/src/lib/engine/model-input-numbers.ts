@@ -614,7 +614,8 @@ const supportPlaneFields = {
   ky: 'transverseSpring', kz: 'local',
   drx: 'neutral', krx: 'neutral', kry: 'neutral', krz: 'neutral',
   normalX: 'neutral', normalY: 'neutral', normalZ: 'neutral',
-  isInclined: 'neutral', uplift: 'neutral', plateSpring: 'spatial',
+  isInclined: 'neutral', uplift: 'neutral',
+  plateSpring: 'spatial',
   dofFrame: 'spatial', dofRestraints: 'spatial', dofLocalElementId: 'spatial', curves: 'spatial',
 } satisfies Record<keyof Support, SupportPlaneField>;
 

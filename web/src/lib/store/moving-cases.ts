@@ -87,10 +87,10 @@ export function addPositionCases(
   } catch (error) {
     return { error: localizeEngineText(errorText(error, 'Error')) };
   }
-  modelStore.batch(() => {
+  modelStore.bulkMutate(() => {
     for (const { title, loads } of cases) {
       const id = modelStore.addLoadCase(title, 'Tr', { alternatives: group });
-      modelStore.addLoadEntries(loads.map(load => ({ ...load, data: { ...load.data, caseId: id } } as typeof load)));
+      for (const load of loads) modelStore.addLoadEntry({ ...load, data: { ...load.data, caseId: id } } as typeof load);
     }
   });
   return { cases: cases.length, notes };

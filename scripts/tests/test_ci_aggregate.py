@@ -405,7 +405,6 @@ class ParityWorkflow(unittest.TestCase):
         repaired = self.commit('Keep the target caption')
         self.parity(repaired, f'BASE={target}', 'REQUIRE_PARITY=1')
 
-    @unittest.skip('known wrong result: #2670')
     def test_hosted_merge_checks_declarations_absorbed_inside_the_incoming_branch(self):
         self.git('switch', '--quiet', '--detach', self.target)
         (self.repo / 'web/page').write_text('candidate page\n')
@@ -423,6 +422,13 @@ class ParityWorkflow(unittest.TestCase):
                             f'PARITY_RESEARCH_OUT=research-{side}')
                 self.assertEqual((self.repo / f'research-{side}/assets/asset').read_text(), 'candidate page\n')
         self.parity(merge, f'BASE={target}', 'REQUIRE_PARITY=1')
+        self.git('switch', '--quiet', '--detach', target)
+        self.git('merge', '--quiet', '--no-ff', '--no-commit', integrated)
+        (self.repo / 'web/page').write_text('merge-only change')
+        self.git('add', 'web/page')
+        self.git('commit', '--quiet', '-m', 'Change the absorbed file in the outer merge')
+        result = self.parity(self.git('rev-parse', 'HEAD'), f'BASE={target}', 'REQUIRE_PARITY=1', succeeds=False)
+        self.assertIn('Production-Change trailers must name actual changed paths', result.stderr)
 
     def test_target_merge_does_not_validate_a_declaration_for_a_target_only_edit(self):
         self.git('switch', '--quiet', '--detach', self.head)
