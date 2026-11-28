@@ -594,7 +594,7 @@ export interface GeneratedBeam {
   bars: BarPath[];
   cutoffs: Cutoff[];
   cutoffTrace: string[];
-  checkPlacedCuts: (bars: readonly BarPath[]) => { cuts: Cutoff[]; trace: string[] };
+  checkPlacedCuts: (bars: readonly BarPath[], sourcesByBar?: ReadonlyMap<string, ReadonlySet<string>>) => { cuts: Cutoff[]; trace: string[] };
   stirrupZones: StirrupZone[];
   /**
    * PHYSICAL transverse reinforcement — every closed stirrup and crosstie as a real bar.
@@ -1754,7 +1754,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   trace.push(`${transverse.length} pieza(s) transversales fabricadas ` +
     `(${transverse.filter((p) => p.shape === 'crosstie').length} ganchos suplementarios).`);
 
-  function checkPlacedCuts(paths: readonly BarPath[]) {
+  function checkPlacedCuts(paths: readonly BarPath[], sourcesByBar?: ReadonlyMap<string, ReadonlySet<string>>) {
     if (!cutoffs.length) return { cuts: [], trace: [] };
     const byId = new Map(paths.map(path => [path.id, path]));
     const longitudinal = projectCage(paths);
@@ -1775,7 +1775,8 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
             && (placed.segments === piece.segments || JSON.stringify(placed.segments) === JSON.stringify(piece.segments));
         }));
       const endsInPlace = cageBars.filter(bar => Math.abs(bar.from - x) < 1e-9 || Math.abs(bar.to - x) < 1e-9)
-        .every(bar => longitudinal.some(actual => actual.id === bar.id && actual.diameterMm === bar.diameterMm
+        .every(bar => longitudinal.some(actual => (actual.id === bar.id || sourcesByBar?.get(actual.id)?.has(bar.id))
+          && actual.diameterMm === bar.diameterMm
           && (bar.from === actual.from || Math.abs(bar.from - x) >= 1e-9)
           && (bar.to === actual.to || Math.abs(bar.to - x) >= 1e-9)));
       const capacity = complete && endsInPlace ? resistanceAt(x, stirrupZones, 0, longitudinal) : NaN;

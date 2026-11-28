@@ -2694,7 +2694,7 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       requiredTransversePieces,
       unsupported: gen.unsupported,
       checkCutoffs: gen.cutoffs.length ? (placed) => {
-        const checked = gen.checkPlacedCuts(placed);
+        const checked = gen.checkPlacedCuts(placed, materialised.sourcesByBar);
         return {
           conditions: checked.cuts.filter(cut => cut.legality === 'illegal').map(cut => ({
             key: 'detailing.cutoff.unverified', scope: { elementIds: [id] }, refs: cut.refs,

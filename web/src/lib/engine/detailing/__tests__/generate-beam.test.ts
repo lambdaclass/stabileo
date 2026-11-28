@@ -151,7 +151,7 @@ describe('stirrup zone merging', () => {
 // ─── End-to-end generation ───────────────────────────────────────
 
 describe('beam bar generation', () => {
-  it.skip('known wrong result: #2670 checks the actual end and diameter of a fused cutoff bar', () => {
+  it('known wrong result: #2670 checks the actual end and diameter of a fused cutoff bar', () => {
     const beam = generateBeamBars(input());
     const cut = beam.cutoffs.find(c => c.legality !== 'illegal')!;
     expect(cut).toBeDefined();

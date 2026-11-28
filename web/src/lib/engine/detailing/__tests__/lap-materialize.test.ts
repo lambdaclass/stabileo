@@ -60,7 +60,7 @@ function transition(from: number[], to: number[], jointX = 5): PlannedTransition
 }
 
 describe('materialiseLaps — the continuous case', () => {
-  it.skip('known wrong result: #2670 retains all source bars of a through bar across successive joints', () => {
+  it('known wrong result: #2670 retains all source bars of a through bar across successive joints', () => {
     const result = materialiseLaps({
       barsByMember: new Map([
         [1, [bar('incoming+bar', 1, 0, 5, 0)]],

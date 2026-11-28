@@ -21,14 +21,14 @@
     "zh": "梁钢筋截断处的抗剪承载力"
   },
   "explanation": {
-    "en": "Regenerate beam detailing. A remote shear demand could change whether a bar was allowed to end. The check now uses the local section and stirrups.",
-    "es": "Regenerá el detallado de vigas. Una demanda de corte alejada podía cambiar si se permitía cortar una barra. Ahora se verifican la sección y los estribos locales.",
-    "pt": "Gere novamente o detalhamento das vigas. Um esforço cortante distante podia permitir o corte de uma barra. A verificação agora usa a seção e os estribos locais.",
-    "de": "Erstellen Sie die Trägerbewehrung erneut. Eine entfernte Querkraft konnte ein Stabende zulassen. Der Nachweis verwendet jetzt den örtlichen Querschnitt und seine Bügel.",
-    "fr": "Régénérez le ferraillage des poutres. Un effort tranchant éloigné pouvait autoriser un arrêt de barre. La vérification utilise désormais la section et les étriers locaux.",
-    "hu": "Készítse el újra a gerendák vasalási tervét. Egy távoli nyíróerő megengedhetett egy rúdelhagyást. Az ellenőrzés most a helyi szelvényt és kengyelezést használja.",
-    "tr": "Kiriş donatı detaylarını yeniden oluşturun. Uzaktaki bir kesme kuvveti çubuğun sonlandırılmasına izin verebiliyordu. Artık yerel kesit ve etriyeler kontrol ediliyor.",
-    "zh": "请重新生成梁配筋详图。远处的剪力曾可能使钢筋被允许截断，现在按截断处的截面和箍筋进行验算。"
+    "en": "Regenerate beam detailing. A remote shear demand could change whether a bar was allowed to end. The check now uses the local section and stirrups. Cutoff checks follow each placed bar through joints where bars are fused.",
+    "es": "Regenerá el detallado de vigas. Una demanda de corte alejada podía cambiar si se permitía cortar una barra. Ahora se verifican la sección y los estribos locales. La verificación sigue cada barra colocada a través de los nudos en los que se unen las barras.",
+    "pt": "Gere novamente o detalhamento das vigas. Um esforço cortante distante podia permitir o corte de uma barra. A verificação agora usa a seção e os estribos locais. A verificação acompanha cada barra colocada através dos nós onde as barras são unidas.",
+    "de": "Erstellen Sie die Trägerbewehrung erneut. Eine entfernte Querkraft konnte ein Stabende zulassen. Der Nachweis verwendet jetzt den örtlichen Querschnitt und seine Bügel. Der Nachweis verfolgt jeden verlegten Stab durch die Knoten, an denen Stäbe zusammengeführt werden.",
+    "fr": "Régénérez le ferraillage des poutres. Un effort tranchant éloigné pouvait autoriser un arrêt de barre. La vérification utilise désormais la section et les étriers locaux. La vérification suit chaque barre posée à travers les nœuds où les barres sont réunies.",
+    "hu": "Készítse el újra a gerendák vasalási tervét. Egy távoli nyíróerő megengedhetett egy rúdelhagyást. Az ellenőrzés most a helyi szelvényt és kengyelezést használja. Az ellenőrzés az elhelyezett rudakat azokon a csomópontokon át is követi, ahol a rudakat egyesítik.",
+    "tr": "Kiriş donatı detaylarını yeniden oluşturun. Uzaktaki bir kesme kuvveti çubuğun sonlandırılmasına izin verebiliyordu. Artık yerel kesit ve etriyeler kontrol ediliyor. Kontrol, yerleştirilen her çubuğu birleştirildiği düğümlerde de izler.",
+    "zh": "请重新生成梁配筋详图。远处的剪力曾可能使钢筋被允许截断，现在按截断处的截面和箍筋进行验算。验算会跟踪每根已布置的钢筋，包括在节点处合并为通长钢筋的情况。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-beam-cutoff-and-splice-stock.md",
