@@ -26,6 +26,7 @@
     "fr": "Vérification des charges générées avant le calcul",
     "hu": "Generált terhek ellenőrzése számítás előtt",
     "tr": "Çözümden önce üretilen yük kaynaklarının denetimi",
+    "ja": "解析前に生成された荷重源を検証",
     "zh": "求解前校核生成荷载来源"
   },
   "explanation": {
@@ -36,6 +37,7 @@
     "fr": "Le calcul s’arrête si une charge générée, une pression sur une coque ou une source de poids propre perd une force ou un moment pendant la préparation. La vérification couvre le poids propre utilisé pour les charges notionnelles et les actions nodales qui en résultent.",
     "hu": "A számítás leáll, ha az előkészítés során egy generált terhelés, felületi nyomás vagy önsúlyforrás erőt vagy nyomatékot veszít. Az ellenőrzés kiterjed a helyettesítő vízszintes terhekhez használt önsúlyra és az ebből származó csomóponti terhekre.",
     "tr": "Hazırlık sırasında üretilen bir yük, kabuk basıncı veya öz ağırlık kaynağı kuvvet ya da moment kaybederse analiz durur. Denetim, fiktif yükleri türetmek için kullanılan öz ağırlığı ve oluşan düğüm yüklerini de kapsar.",
+    "ja": "個々の生成荷重、シェルの圧力、自重の荷重源がソルバーの準備中に力またはモーメントを失った場合、解析は停止します。これには、仮想水平力の算出に使う自重と、その結果得られる節点作用力も含まれます。",
     "zh": "若准备求解时单个生成荷载、壳面压力或自重来源的力或力矩丢失，分析将停止。校核也涵盖用于推导名义荷载的自重及由此得到的节点作用。"
   },
   "changelog": {

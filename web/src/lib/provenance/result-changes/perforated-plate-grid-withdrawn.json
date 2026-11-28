@@ -22,6 +22,7 @@
     "de": "Änderung an rechteckigen Plattennetzen in vereinheitlichtem PRO zurückgezogen",
     "fr": "Retrait de la modification des maillages rectangulaires de plaques de PRO unifié",
     "tr": "Birleşik PRO dikdörtgen plak ağı değişikliği geri çekildi",
+    "ja": "統合された PRO の矩形板グリッドの変更は取り下げられました",
     "zh": "统一版 PRO 的板矩形网格变更已撤回"
   },
   "explanation": {
@@ -31,6 +32,7 @@
     "de": "PR #2509 hat die Plattenintegration des vereinheitlichten PRO (#2365) rückgängig gemacht. Das Verfahren zum Einfügen rechteckiger Netzlinien an gemeinsamen Knoten um Öffnungen ist nicht mehr aktiv. Wiederholen Sie betroffene Plattenberechnungen aus dem vereinheitlichten PRO.",
     "fr": "La PR #2509 a annulé l’intégration des plaques dans PRO unifié (#2365). La méthode d’ajout de lignes de maillage rectangulaire aux nœuds communs autour des ouvertures ne s’applique plus. Relancez les calculs de plaques concernés qui ont été effectués avec PRO unifié.",
     "tr": "#2509, birleşik PRO plak entegrasyonunu (#2365) geri aldı. Açıklıkların çevresindeki ortak düğümlere dikdörtgen ağ çizgileri ekleme yöntemi artık geçerli değil. Birleşik PRO ile yapılan ve bu değişiklikten etkilenen plak analizlerini yeniden çalıştırın.",
+    "ja": "PR #2509 は、統合された PRO の板の統合 (#2365) を元に戻しました。開口部の周囲の共有節点に矩形のグリッド線を追加する方法は、もはや有効ではありません。統合された PRO で行った、影響を受ける板の解析を再実行してください。",
     "zh": "#2509 已回退统一版 PRO 的板功能集成（#2365）。在开孔周围的共用节点处添加矩形网格线的方法已不再生效。请重新运行曾使用统一版 PRO 执行且受影响的板分析。"
   },
   "changelog": {

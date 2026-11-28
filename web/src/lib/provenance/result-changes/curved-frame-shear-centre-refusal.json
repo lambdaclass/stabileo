@@ -13,6 +13,7 @@
     "fr": "L’analyse corotationnelle des barres courbes vérifie le centre de cisaillement",
     "hu": "Az íves rudak korotációs elemzése ellenőrzi a nyírási középpontot",
     "tr": "Eğri çubukların eş dönel analizi kayma merkezi kaçıklığını denetler",
+    "ja": "曲線フレームの共回転はせん断中心のオフセットを検査する",
     "zh": "曲梁共旋分析检查剪切中心偏移"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "L’analyse corotationnelle spatiale refuse les sections utilisées par des barres courbes dont le centre de cisaillement est excentré, car le solveur omet le couplage flexion-torsion.",
     "hu": "A térbeli korotációs elemzés elutasítja az eltolt nyírási középpontú íves rúdszelvényeket, mert a megoldó nem veszi figyelembe a hajlítás és csavarás csatolását.",
     "tr": "Uzaysal eş dönel analiz, eğilme-burulma bağlaşımını içermediği için kayma merkezi kaçık eğri çubuk kesitlerini reddeder.",
+    "ja": "空間の共回転解析は、使用する曲線フレームの断面にせん断中心のオフセットがある場合、ソルバーが曲げねじりの連成を省略しているため、拒否するようになりました。",
     "zh": "空间共旋分析拒绝使用剪切中心偏移截面的曲梁，因为求解器省略了弯扭耦合。"
   },
   "changelog": {

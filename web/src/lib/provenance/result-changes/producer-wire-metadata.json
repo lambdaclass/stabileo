@@ -15,6 +15,7 @@
     "fr": "Accepter les métadonnées produites par Stabileo lors de l’analyse",
     "hu": "A Stabileo által előállított metaadatok elfogadása az elemzésben",
     "tr": "Analizde Stabileo tarafından üretilen üst verileri kabul et",
+    "ja": "解析中に Stabileo の生成元メタデータを受け入れます",
     "zh": "分析时接受 Stabileo 生成的元数据"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "fr": "Les lignes de matériaux, de sections et d’appuis de Stabileo peuvent inclure certaines métadonnées. Le solveur lit les mêmes propriétés structurelles avec ou sans elles.",
     "hu": "A Stabileo anyag-, szelvény- és támaszsorai meghatározott metaadatokat tartalmazhatnak. A megoldó ezekkel és ezek nélkül is ugyanazokat a szerkezeti jellemzőket olvassa.",
     "tr": "Stabileo’nun malzeme, kesit ve mesnet satırları belirli üst veriler içerebilir. Çözücü bu üst veriler olsa da olmasa da aynı yapısal özellikleri okur.",
+    "ja": "Stabileo の材料、断面、支点の行は、指定されたメタデータを持つ場合があります。ソルバーは、それがあってもなくても、同じ構造特性を読みます。",
     "zh": "Stabileo 的材料、截面和支座记录可以包含指定的元数据。无论是否包含这些元数据，求解器读取的结构属性均相同。"
   },
   "changelog": {

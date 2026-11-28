@@ -27,6 +27,7 @@
     "pt": "Os fatores repetidos são somados exatamente nos cálculos de combinações",
     "de": "Wiederholte Lastfallfaktoren werden in Kombinationen exakt summiert",
     "fr": "Les coefficients répétés sont additionnés exactement dans les combinaisons",
+    "ja": "繰り返されるケース係数を、すべての荷重組合せの計算で正確な和として扱う",
     "zh": "组合计算对同一工况的重复系数求精确和",
     "hu": "A kombinációk pontosan összeadják az ismétlődő tehereset-tényezőket",
     "tr": "Birleşimlerde yinelenen yük durumu katsayıları tam olarak toplanır"
@@ -37,6 +38,7 @@
     "pt": "A recuperação de tensões em placas, as verificações de cargas aplicadas e os casos gerados calculam primeiro o total dos fatores repetidos de cada caso. Recalcule as combinações afetadas e reveja os resultados.",
     "de": "Die Berechnung der Schalenspannungen, die Prüfung der aufgebrachten Lasten und die erzeugten Lastfälle verwenden die Summe der wiederholten Faktoren je Lastfall. Berechnen Sie betroffene Kombinationen neu und prüfen Sie die Ergebnisse.",
     "fr": "La récupération des contraintes de coque, la vérification des charges appliquées et les cas générés regroupent les coefficients répétés de chaque cas avant leur application. Recalculez les combinaisons concernées et vérifiez les résultats.",
+    "ja": "シェルの応力度の算出、載荷荷重の検討、生成されるケースは、各ケースの繰り返された係数を適用前に解決するようになりました。影響を受ける荷重組合せを再実行し、結果を確認してください。",
     "zh": "壳应力恢复、施加载荷校核和生成工况现在先求出每个工况的重复系数之和，再施加该工况。请重新计算受影响的组合并检查结果。",
     "hu": "A héjfeszültségek számítása, a terhek ellenőrzése és a generált teheresetek alkalmazás előtt összevonják az adott tehereset ismétlődő tényezőit. Számítsa újra az érintett kombinációkat, és ellenőrizze az eredményeket.",
     "tr": "Kabuk gerilmelerinin hesaplanmasında, uygulanan yük kontrollerinde ve oluşturulan durumlarda her yük durumunun yinelenen katsayıları uygulanmadan önce toplanır. Etkilenen birleşimleri yeniden hesaplayıp sonuçları inceleyin."

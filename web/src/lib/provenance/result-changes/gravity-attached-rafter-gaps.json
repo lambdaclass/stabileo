@@ -25,6 +25,7 @@
     "fr": "Transfert des charges gravitaires sur un intervalle découvert d’une toiture liée",
     "hu": "Gravitációs terhek átadása a kapcsolt tető határolt nyílásában",
     "tr": "Bağlı çatının sınırları belirli açıklığında düşey yük aktarımı",
+    "ja": "取り付けた屋根の連続区間で、有限の隙間にわたって重力を伝達",
     "zh": "在连接屋面的有界缺口处传递重力荷载"
   },
   "explanation": {
@@ -35,6 +36,7 @@
     "fr": "Les liaisons rigides aux extrémités doivent définir les mêmes intervalles découverts pour les coques liées. La largeur tributaire choisie ne charge que les autres tronçons du chevron. Régénérez les charges concernées.",
     "hu": "A merev végkapcsolatoknak ugyanazokat a fedetlen szakaszokat kell kijelölniük a kapcsolt héjaknál. A megadott tehergyűjtő szélesség csak a többi szarufaszakaszt terheli. Generálja újra az érintett terheket.",
     "tr": "Rijit uç bağlantıları, bağlı kabuklar için aynı açık aralıkları belirlemelidir. Seçilen yük toplama genişliği yalnızca kalan mertek parçalarına yük uygular. Etkilenen düşey yükleri yeniden oluşturun.",
+    "ja": "剛な端部のタイは、取り付けたシェルの跡をまたいで、覆われていない同じ区間を特定しなければなりません。設定した負担幅は、残った垂木の区間にのみ荷重をかけます。影響を受ける重力荷重を再生成してください。",
     "zh": "两端刚性连接必须为相连的壳单元确定相同的未覆盖区间。设定的负荷宽度仅作用于其余椽条区间。请重新生成受影响的重力荷载。"
   },
   "changelog": {

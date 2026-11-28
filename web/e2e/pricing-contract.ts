@@ -169,6 +169,27 @@ export const PRICING = {
       "部分专业模块为付费功能；高校可免费使用这些模块。",
       "Stabileo AI 和大规模云计算对所有人（包括高校）均为付费，价格按成本核定。"
     ]
+  },
+  "ja": {
+    "modules": [
+      "Basic",
+      "PRO · 解析",
+      "PRO · 基準設計",
+      "Stabileo AI",
+      "教育"
+    ],
+    "audiences": [
+      "企業・個人",
+      "大学"
+    ],
+    "free": "無料",
+    "paid": "有料",
+    "atCost": "実費で有料",
+    "intro": "構造解析をブラウザーで行うコアプログラムは、オープンソースで、すべての方に無料です。一部の専門モジュールは有料で、大学ではそれらのモジュールを無料でご利用いただけます。Stabileo AI と大規模なクラウド計算は、大学を含むすべての方に有料で、かかる費用をまかなう価格に設定しています。",
+    "notes": [
+      "一部の専門モジュールは有料で、大学ではそれらのモジュールを無料でご利用いただけます。",
+      "Stabileo AI と大規模なクラウド計算は、大学を含むすべての方に有料で、かかる費用をまかなう価格に設定しています。"
+    ]
   }
 } satisfies Record<Locale, { modules: string[]; audiences: string[]; free: string; paid: string; atCost: string; intro: string; notes: string[] }>;
 
@@ -181,6 +202,7 @@ export const OBSOLETE_PRICING: Record<Locale, RegExp> = {
   fr: /gratuit(?:e|s)? (?:pendant|durant|tant qu)|tout est gratuit|sans exception|universités publiques|particip\w+ à son développement/i,
   tr: /geliştirme (?:süresince|boyunca|aşamasında)[^.]*ücretsiz|her şey ücretsiz|istisnasız|devlet üniversiteleri|geliştirilmesine katkıda/i,
   hu: /fejleszt\w* (?:alatt|idején|során)[^.]*ingyenes|minden ingyenes|kivétel nélkül|állami egyetemek|fejlesztésében részt/i,
+  ja: /開発(?:期間)?中は無料|すべて無料|全て無料|例外なく|国公立大学|開発に参加/,
   zh: /开发期间[^。]*免费|开发阶段[^。]*免费|一切(?:均)?免费|全部免费|无一例外|公立高校|参与其开发|参与开发/,
 };
 

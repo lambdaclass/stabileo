@@ -240,7 +240,7 @@ describe('page language coverage', () => {
     }
   });
   it('falls back to English for other locales', () => {
-    expect(pageLocale('ja')).toBe('en');
+    expect(pageLocale('ar')).toBe('en');
   });
   it.each(locales)('registers the shared viewer strings for %s on research pages', locale => {
     expect(Object.keys(scalarViewerTranslations[locale]).sort()).toEqual(Object.keys(scalarViewerTranslations.en).sort());

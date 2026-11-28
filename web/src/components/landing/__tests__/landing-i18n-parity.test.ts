@@ -132,7 +132,7 @@ describe('public landing i18n', () => {
     const numbers = (v: string) => (v.match(/\d+(?:[.,]\d+)?/g) ?? []).sort();
     const tech = (v: string) => [...new Set(v.match(TECH) ?? [])].sort();
     // A Chinese character carries about what three Latin letters do; counted as one, every complete translation reads as a third of the English.
-    const visualLength = (v: string) => v.length + 2 * (v.match(/\p{Script=Han}/gu)?.length ?? 0);
+    const visualLength = (v: string) => v.length + 2 * (v.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu)?.length ?? 0);
 
     it('has a plausible number of public keys to check', () => {
       /*

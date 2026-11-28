@@ -219,6 +219,40 @@ const hu: Strings = {
     "Euler f1 relative error": "Második Euler-teher"
   }
 };
+const ja: Strings = {
+  resultParameters: "計算パラメータ",
+  alpha: "指定曲率 α = Lκ₀",
+  force: "軸力 f = NL²/EI（正：圧縮、負：引張）",
+  coordinates: "両端固定。座標は x/L と w/L で、α は指定曲率にスパン L を掛けた値です。",
+  referenceCaveat: "著者らの既定のオプティマイザーと矩形プロファイルの求積では小さな不規則性が生じます。70% での出力は {software} で、論文の報告値は {published} です。",
+
+  title: '曲率パターンによるアーチのスナップ',
+  lead: '曲がった区間の幅を変えて、浅いアーチが反対側へ反転するしきい値がどう動くかを確かめます。',
+  model: 'Euler 座屈から平衡の跳躍へ',
+  theory: '両端を平らに固定したアーチは、端部の縮みを形状に蓄えます。指定曲率のパターンは、その座屈モードと結合します。式 (2) と (3)（arXiv v2 の 3–4 ページ）が、浅い角度での平衡と圧縮スペクトルを与えます。この実験は、中央に置いた矩形パターンに限ります。',
+  method: '製品版 Stabileo の 2D 骨組座屈ソルバーが、16モードを64要素で計算します。研究用のレイヤーが曲率をこれらのモードに射影し、論文の圧縮の拘束条件を解きます。同じ Rust コードが WASM としてここで動き、リプレイを生成します。',
+  limits: 'これは浅く、伸びない部材を仮定した平衡モデルです。跳躍は平衡どうしをつなぐもので、スナップの動力学を模擬したり、実験室の計測値を再現したりするものではありません。製品版エンジンの弧長法は強制変位と熱荷重を拒否するため、曲率で駆動するこの経路には使いません。対象は、中央のパターンと小さな端部の縮みに限ります。',
+  evidence: '刺激幅 70% のとき、論文は α/√ε = {threshold} を与えています（arXiv v2 の 3 ページ、式 2 の続き）。重ね描きは、Zenodo の記録 18256271（CC-BY-4.0）にある著者らの浅い角度のソフトウェアから再生成したものです。数値上の基準であり、実験による検証ではありません。',
+  checks: '検証と出典',
+  checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Zenodo の曲線：最大相対誤差', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": 'メッシュとモードの細分化', "Euler f0 relative error": '一次 Euler 荷重', "Euler f1 relative error": '二次 Euler 荷重'} as Record<string, string>,
+  publishedValue: '幅 70% での公表しきい値',
+  width: '刺激幅 γ',
+  compression: '端部の縮み ε',
+  threshold: 'スナップのしきい値 α',
+  normalized: '正規化したしきい値 α/√ε',
+  mode: '一次の逆対称座屈モード',
+  arch: 'アーチの平衡',
+  jump: '平衡の列です。跳躍に物理的な継続時間はありません',
+  run: 'ライブで再計算', stop: '停止', restart: '再開',
+  error: 'ソルバーを読み込めなかったか、計算を完了できませんでした。前回の結果はそのまま残っています。',
+  computing: 'Stabileo で計算中…',
+  paper: '論文と補足の式',
+  data: 'Zenodo のデータとソフトウェア',
+  ours: 'Stabileo のモード + 浅いアーチの式',
+  reference: '著者らの Zenodo ソフトウェア',
+  parameterNotice: '表示中の結果は、再計算が完了するまで、計算に使ったパラメータを保持します。',
+};
+
 const zh: Strings = {
   "title": "曲率分布诱发拱的突跳屈曲",
   "lead": "改变曲线段的宽度，移动浅拱换向的阈值。",
@@ -258,5 +292,5 @@ const zh: Strings = {
     "Euler f1 relative error": "第二 Euler 荷载"
   }
 };
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, ja, zh };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

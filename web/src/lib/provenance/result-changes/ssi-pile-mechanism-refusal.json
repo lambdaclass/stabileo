@@ -16,6 +16,7 @@
     "fr": "Refuser les mécanismes des pieux articulés sous charge axiale en SSI",
     "hu": "Axiálisan terhelt, csuklós megtámasztású cölöpmechanizmusok elutasítása az SSI-ben",
     "tr": "SSI analizinde mafsallı ve eksenel yüklü kazık mekanizmalarını reddet",
+    "ja": "SSI でピン端の軸方向杭のメカニズムを拒否する",
     "zh": "拒绝求解土与结构相互作用分析中铰支轴向受力桩的机构"
   },
   "explanation": {
@@ -26,6 +27,7 @@
     "fr": "Un pieu vertical à base articulée peut tourner librement si tous les ressorts de sol agissent suivant son axe. Le calcul SSI est désormais bloqué lorsque la raideur réduite ne permet pas de résoudre ce mouvement. Vérifiez les résultats SSI enregistrés pour ces pieux.",
     "hu": "A csuklós talpú függőleges cölöp szabadon elfordulhat, ha minden talajrugó a cölöp tengelye mentén hat. Az SSI-számítás megszakad, ha a redukált merevség alapján ez a mozgás nem oldható meg. Ellenőrizze újra az ilyen cölöpökhöz mentett SSI-eredményeket.",
     "tr": "Tüm zemin yayları kazık ekseni boyunca etkirse mafsallı tabana sahip düşey kazık serbestçe dönebilir. İndirgenmiş rijitlik bu hareketi çözümlemeye yetmediğinde SSI artık çözümü reddeder. Bu kazıklar için kaydedilmiş SSI sonuçlarını yeniden kontrol edin.",
+    "ja": "基部がピンの鉛直杭は、すべての地盤ばねが杭に沿って作用する場合、自由に回転できます。縮約した剛性でこの運動を解決できない場合、SSI は拒否するようになりました。これらの杭について、以前に保存した SSI 結果を再確認してください。",
     "zh": "如果所有土弹簧均沿桩轴作用，底部铰支的竖直桩可自由转动。当约化刚度无法判定该运动时，土与结构相互作用分析会拒绝求解。请重新检查此类桩的已保存分析结果。"
   },
   "changelog": {

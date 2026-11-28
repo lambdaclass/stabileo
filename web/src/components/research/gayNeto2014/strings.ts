@@ -283,6 +283,46 @@ const hu: Strings = {
   wholeLine: 'a teljes vezeték',
 };
 
+const ja: Strings = {
+  title: riserTitle.ja,
+  lead: riserHook.ja,
+  model: 'モデル',
+  theory: '幾何学的に厳密なロッドです。各断面は自由に動いて回転し、エネルギーは、断面自身の座標系で測った伸び、せん断、曲げ、ねじれに依存します。要素は三節点で、Gauss 点は二つです。海底は剛な平面で、各節点のペナルティばねと Coulomb 摩擦で押し返します。',
+  method: '基準コード自身の入力ファイルを読み込み、同じ三つの静的ステップを解きます。接触を伴う自重、水平方向 1 MN の引張、そして自由端の 186 m の持ち上げです。ソルバーは新しい Rust クレートで、このページ用に WASM にコンパイルしています。接線剛性は要素エネルギーを二回微分して求めるため、Newton 法は二次収束します。',
+  comparison: 'ステップ 3 の終了時に、全 134 要素の曲げモーメントとせん断力を、基準コードのチュートリアルガイドに載っている値と比較します。接地点と吊り下がる形も、弾性カテナリーと照合します。長さ 1 m の片持ち梁（チュートリアル 1）は、梁だけを検査します。',
+  limits: '静的解析のみで、海流も、波荷重や抗力荷重も、線どうしの接触もありません。基準コードとの一致は数値上のもので、実験でも設計検定でもありません。',
+  checks: '検証と出典',
+  checkLabels: {
+    'T1 tip X and Z at t = 0.1 … 1.0 vs reference Figure 1-6 [m, max abs]': '片持ち梁：先端の X、Z（m）',
+    'T1 tip at t = 1, 5 elements vs Reissner rod boundary-value solution [m, max abs]': '片持ち梁、5 要素：先端の X、Z（m）',
+    'T1 tip at t = 1, 40 elements vs Reissner rod boundary-value solution [m, max abs]': '片持ち梁、40 要素：先端の X、Z（m）',
+    'T16 step 3: M(e1) per element vs reference Figure 16-12 data [N·m, max abs over 134 elements]': 'ライザー：曲げモーメントの最大値（N·m）',
+    'T16 step 3: V(e2) per element vs reference Figure 16-13 data [N, max abs over 134 elements]': 'ライザー：せん断力の最大値（N）',
+    'T16 step 3: touchdown (moment at half its plateau) vs reference data [m]': 'ライザー：接地点（線に沿った m）',
+    'T16 step 3: touchdown, last node on the seabed vs elastic catenary [m of line]': 'ライザー：接地点（線に沿った m）',
+    'T16 step 3: suspended shape vs elastic catenary hung from the computed fairlead [m, max distance]': 'ライザー：吊り下がる形（m）',
+  } as Record<string, string>,
+  riser: 'ライザー', forces: '断面力', cantilever: '片持ち梁',
+  pull: '水平方向の引張', lift: '自由端の持ち上げ', friction: '海底の摩擦 μ',
+  run: 'ライブで再計算', stop: '停止', restart: '再開',
+  computing: 'Stabileo で計算中…（数秒）',
+  caseLabel: 'ケース',
+  error: 'ソルバーを読み込めなかったか、計算を完了できませんでした。前回の結果はそのまま残っています。',
+  ours: 'Stabileo', reference: '基準コード、ステップ 3 の終了時', figure: '基準コード、図 1-6',
+  moment: '曲げモーメント M(e1)', shear: 'せん断力 V(e2)', length: '線に沿った位置（m）', time: '荷重係数',
+  tipX: '先端 X（m）', tipZ: '先端 Z（m）',
+  steps: ['海底上での自重', '水平方向の引張', '自由端の持ち上げ'],
+  fairlead: '自由端', touchdown: '接地点（線に沿った位置）', anchor: 'アンカーでの張力',
+  defaults: '基準値は、チュートリアル自身のパラメータ（1 MN、186 m、μ = 0.2）に対するものです。',
+  coordinates: '実寸のスケールで、x は海底に沿い、z は上向き、単位は m です。色は曲げモーメントを表します。',
+  cantileverNote: '長さ 1 m の片持ち梁の先端に、直角方向に 1000 N の力を、十回の増分で載せます。',
+  inputs: '入力ファイル', code: 'Reference code (BSD-3-Clause)',
+  tableIntro: '論文の図とは比較していません。全文を読めなかったためです。基準にしたのは、著者のコード GIRAFFE と一緒に公表されている結果、片持ち梁についての独立した厳密解、ライザーについての解析的なカテナリーです。差は、比較したすべてのうち最大のものです。図と比べた片持ち梁の 十回の増分、モーメントとせん断力についてのライザーの 134 要素、線の吊り下がる部分全体が対象です。',
+  table: { quantity: '量', reference: '基準', ours: 'Stabileo', difference: '最大差', tolerance: '許容値' },
+  sources: { figure: 'GIRAFFE、そのガイドの図 1-6', exact: 'ロッドの厳密解（独立）', giraffe: 'GIRAFFE、チュートリアル 16 の結果', catenary: '解析的な弾性カテナリー' } as Record<string, string>,
+  wholeLine: '線全体',
+};
+
 const zh: Strings = {
   title: riserTitle.zh,
   lead: riserHook.zh,
@@ -323,5 +363,5 @@ const zh: Strings = {
   wholeLine: '整条管线',
 };
 
-export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr, hu, ja, zh };
 export const riserStrings = (): Strings => translations[publicI18n.locale] ?? en;

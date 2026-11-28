@@ -26,6 +26,7 @@
     "fr": "La certification plastique exacte refuse un travail excessif du programme linéaire",
     "hu": "A pontos képlékeny tanúsítás elutasítja a túl nagy LP-felépítési munkát",
     "tr": "Kesin plastik sertifikalama aşırı doğrusal program işini reddediyor",
+    "ja": "厳密な塑性の保証は、過大な LP の構築作業を拒否します",
     "zh": "精确塑性认证拒绝过大的 LP 构造工作量"
   },
   "explanation": {
@@ -36,6 +37,7 @@
     "fr": "Cette entrée historique a introduit des limites de ressources pour la certification plastique exacte. PR #1888 remplace la limite initiale de pivots et l’estimation incomplète par le stockage cumulé et des contrôles des mots machine (limbs) des nombres rationnels ; le petit grillage est désormais admis. Voir plastic-exact-storage-accounting.",
     "hu": "Ez a korábbi bejegyzés vezette be a pontos képlékeny számítás erőforrás-ellenőrzését. A #1888-as PR a kezdeti pivotmunka-korlátot és a csak beágyazott tárolást figyelembe vevő becslést összesített tárolási és racionális limbellenőrzésekkel váltja fel; a kis tárolásigényű rácsot a program most elfogadja. Lásd a plastic-exact-storage-accounting bejegyzést.",
     "tr": "Bu tarihsel kayıt kesin plastik sertifikalama için kaynak sınırlarını getirdi. PR #1888 ilk pivot sınırını ve eksik tahmini toplam depolama ve rasyonel sayıların makine sözcükleri (limb) üzerindeki denetimlerle değiştirir; küçük ızgara artık kabul edilir. plastic-exact-storage-accounting kaydına bakın.",
+    "ja": "この過去の項目は、厳密な塑性のリソース受け入れを導入しました。PR #1888 は、最初のピボット作業の上限とインラインのみの見積りを、記憶域の合計と有理数のリムのチェックに置き換えました。小さな記憶域のグリッドは、受け入れられるようになりました。plastic-exact-storage-accounting の項目を参照してください。",
     "zh": "这是一条历史条目，引入了精确塑性的资源准入。PR #1888 以汇总存储和有理数肢检查，取代了最初的主元工作量限制和仅内联的估算；小存储网格现在被接纳。参见 plastic-exact-storage-accounting 条目。"
   },
   "changelog": {

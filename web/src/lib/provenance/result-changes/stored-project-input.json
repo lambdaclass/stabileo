@@ -20,6 +20,7 @@
     "de": "Ungültige Daten im gespeicherten Projekt",
     "fr": "Données invalides dans le projet enregistré",
     "tr": "Kaydedilen projede geçersiz veri",
+    "ja": "無効な保存済みプロジェクト入力",
     "zh": "已保存项目中的无效输入"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "de": "Beim Öffnen werden doppelte Schlüssel in Tragwerkstabellen, ungültige Ebenen und achsenabhängige ebene Zwangsbedingungen ohne gespeicherte Ebene abgelehnt. Ein doppelter Schlüssel konnte einen Knoten oder Verbinder ersetzen und die Berechnung verändern.",
     "fr": "L’ouverture refuse les clés en double dans les tables structurelles, les plans invalides et les liaisons planes sensibles aux axes si le plan enregistré manque. Une clé en double pouvait remplacer un nœud ou un connecteur et modifier le calcul.",
     "tr": "Proje açılırken yapı tablolarındaki yinelenen anahtarlar, geçersiz düzlemler ve kayıtlı düzlemi eksik olan eksene bağlı düzlemsel kısıtlar reddedilir. Yinelenen bir anahtar bir düğümü veya bağlantı elemanını değiştirip analizi etkileyebiliyordu.",
+    "ja": "プロジェクトを開くとき、構造テーブルのキーの重複、無効な作図平面、保存した平面が欠けている軸依存の平面拘束は拒否されます。以前は、重複によって節点やコネクタが置き換わり、解析が変わることがありました。",
     "zh": "打开项目时会拒绝结构表中的重复键、无效的绘图平面，以及缺少已保存平面的轴向相关约束。重复键以前可能替换节点或连接件并改变分析结果。"
   },
   "changelog": {

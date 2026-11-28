@@ -23,6 +23,7 @@
     "de": "Exzentrische Flächenlastbereiche werden abgelehnt",
     "fr": "Les zones de charge de plancher excentrées sont refusées",
     "tr": "Eksantrik döşeme yükü bölgeleri reddedilir",
+    "ja": "偏心のある床荷重ゾーンを拒否",
     "zh": "偏心的楼面荷载区域会被拒绝",
     "hu": "A külpontos födémteher-zónák elutasítása"
   },
@@ -33,6 +34,7 @@
     "de": "Lastbereiche mit erforderlichen exzentrischen Stablasten werden abgelehnt. Prüfen Sie die Flächenlastdefinition vor der Berechnung. Ein Lastbereich, der ein ganzes Feld abdeckt, verwendet die üblichen Feldreaktionen.",
     "fr": "Les zones nécessitant des charges excentrées sur les barres sont refusées. Vérifiez la définition de la charge de plancher avant de calculer. Une zone qui couvre un panneau entier applique les réactions habituelles du panneau.",
     "tr": "Eksantrik eleman yükü gerektiren bölgeler reddedilir. Çözümden önce döşeme yükü tanımını gözden geçirin. Bir paneli tamamen kaplayan bölge, panelin olağan mesnet tepkilerini uygular.",
+    "ja": "偏心した部材荷重を必要とする床ゾーンは拒否されます。解析する前に床荷重の定義を確認してください。パネル全体を覆うゾーンには、通常のパネル反力が適用されます。",
     "zh": "需要施加偏心杆件荷载的楼面区域会被拒绝。求解前请复核楼面荷载的定义。覆盖完整板块的区域施加普通的板块支座反力。",
     "hu": "A külpontos rúdterhet igénylő zónák nem használhatók. Számítás előtt ellenőrizze a födémteher meghatározását. A teljes mezőt lefedő zóna a mező szokásos támaszreakcióit adja."
   },

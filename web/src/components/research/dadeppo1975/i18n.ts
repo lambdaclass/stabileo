@@ -223,6 +223,38 @@ const hu: Strings = {
   largest: 'Legnagyobb PR²/EI az úton',
   chartLabel: 'PR²/EI a lépésszám függvényében', chartData: 'A görbe adatai (20 lépésenként)', slider: '{step}. lépés: PR²/EI = {load}',
 };
+const ja: Strings = {
+  title: 'DaDeppo–Schmidt：限界に達する深いアーチ',
+  hook: '開き角 215° のアーチと頂部の荷重を、製品版の弧長法ソルバーで解き、公表された限界荷重と頂部の状態に照らして確かめます。',
+  model: '固定–ヒンジのアーチ一つ',
+  description: '左端を固定、右端をピンとした円弧アーチの頂部に、方向が変わらない下向きの集中荷重が作用します。開き角 215° は、四十本の直線の共回転骨組要素で近似します。支持が非対称なため、最初の限界点の前に、頂部がピン側へ横にずれます。',
+  units: 'R = 1 m、EI = 1 kN·m²、EA = 10⁶ kN を用います。基準荷重は 1 kN なので、ソルバーの荷重係数は PR²/EI に等しくなります。よく引用される P = 897 は R = 100、EI = 10⁶ の値で、その正規化した値は 8.97 で、897 ではありません。',
+  comparison: '論文との比較',
+  referenceText: '表 1（1975年の論文）と比較します。値は共著者の R. Schmidt が2000年の討論（J. Eng. Mech. 126(12)、1308 ページ）で引用したものです。限界点では PR²/EI = 8.97、頂部の u/R = 0.6116、v/R = 1.1372、回転角 0.0498 で、示した桁に丸めています。',
+  signs: 'u はピン側を正、v は下向きを正とします。回転角は Stabileo の頂部の回転 ry と比較し、限界点では正になります。',
+  sourceLink: 'Schmidt が引用した値を見る',
+  method: '製品版の Crisfield 弧長法ソルバーが、既存の共回転骨組を使って、ピークを越えた先まで平衡を追跡します。限界点は、最大荷重の前後三ステップを通る放物線で求め、そこでの頂部の状態は、その三ステップで止めた計算から補間します。ビューアーは実際の変位スケールを使います。',
+  studyHeading: 'メッシュの検討と許容値',
+  studyText: '同じアーチを 20、40、80 要素で解きました。各許容値は、1.25 倍した 40 要素での離散化誤差の推定値（観測した次数での Richardson 外挿）に、公表値の最後の桁の半分を加えたものです。要素長ゼロへ外挿すると、どの量も、その丸めと 80 要素の誤差推定の範囲内で公表値に一致します。したがって、限界荷重の +0.46%（40 要素）は離散化誤差です。弧長の刻みを半分にしても限界荷重の変化は（相対値で）10⁻⁶ 未満、軸剛性を十倍にしても 10⁻⁴ 未満です。',
+  studyCaption: '20、40、80 要素での限界点の値',
+  extrapolated: '外挿値',
+  inspect: 'ピーク付近のアーチを確認する（ステップ 260）',
+  replayNote: 'リプレイのフレームは、同じソルバーを 二十ステップごとに止めて繰り返した計算の終点の結果です。製品版 API は終点でしか全節点の変位を返さないため、ライブのワーカーも同じ計算を繰り返します。曲線は収束した全ステップを示し、横軸は頂部の変位ではなくステップ番号です。',
+  notYet: 'このページの対象外',
+  limitations: ['公表された平衡曲線の全体と、二つ目の限界点。', 'ほかの開き角、面外座屈、接触、材料非線形。'],
+  noAuthorCode: '比較していません。著者のコードは使っていません。',
+  livePath: 'ライブの経路', shortPath: '短い経路 · 20 ステップ（ピークの手前）', fullPath: '完全なベンチマーク · 400 ステップ',
+  replay: '事前計算したリプレイ（同じソルバー）', live: 'ライブ計算', cached: 'ブラウザのキャッシュ結果', running: '計算中…',
+  run: 'ライブで再計算', stop: '停止', restart: '再開', step: 'ステップ', displacement: '変位の大きさ',
+  limit: '限界点で', quantity: '量', reference: '公表値', stabileo: 'Stabileo、40 要素', difference: '差', tolerance: '許容値',
+  pass: '合格', fail: '不合格',
+  verdictPass: '四項目すべてが許容範囲内で、下降域に到達しました', verdictFail: '許容範囲外', incomplete: '経路が未完了：{total} ステップ中 {n} ステップ',
+  errorSolve: 'ソルバーはこの経路を完了できませんでした。', errorInvalid: 'ソルバーは未完了の結果を返しました。',
+  qLoad: '限界荷重 PR²/EI', qU: '頂部 u/R', qV: '頂部 v/R', qRot: '頂部の回転角（rad）',
+  largest: '経路上の PR²/EI の最大値',
+  chartLabel: 'ステップ番号に対する PR²/EI', chartData: '曲線のデータ（20 ステップごと）', slider: 'ステップ {step}：PR²/EI = {load}',
+};
+
 const zh: Strings = {
   title: 'DaDeppo–Schmidt：处于极限状态的深拱',
   hook: '一个 215° 的拱，拱顶受荷载，用生产环境的弧长求解器计算，并与已发表的极限荷载和拱顶状态核对。',
@@ -255,5 +287,5 @@ const zh: Strings = {
   chartLabel: 'PR²/EI 随步数的变化', chartData: '曲线数据（每 20 步）', slider: '第 {step} 步：PR²/EI = {load}',
 };
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'ja', Strings> = { en, es, pt, de, fr, tr, hu, ja, zh };
 export const archStrings = (locale: string): Strings => strings[locale as keyof typeof strings] ?? en;

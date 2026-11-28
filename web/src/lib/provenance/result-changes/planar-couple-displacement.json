@@ -20,6 +20,7 @@
     "fr": "La reconstruction des déplacements plans inclut les couples sur les barres",
     "hu": "A síkbeli elmozdulások helyreállítása tartalmazza a rúdon ható nyomatékokat",
     "tr": "Düzlemsel yer değiştirme hesabı eleman momentlerini içeriyor",
+    "ja": "平面の変位の回復は、部材の偶力を含みます",
     "zh": "平面位移恢复包含杆件力偶"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "fr": "Rouvrir les modèles de portiques 2D avec des moments concentrés sur les barres. Le déplacement affiché entre les nœuds inclut désormais la solution particulière du couple et la correction des relâchements. Le jeu de diagrammes utilise la même reconstruction. Les courbes conservent les couples avec ou sans WASM. Les déplacements nodaux du solveur, les efforts et la reconstruction 3D restent inchangés (#2099).",
     "hu": "Nyissa meg újra az érintett 2D keretmodelleket, amelyek rúdjain koncentrált nyomaték hat. A csomópontok közötti megjelenített elmozdulás tartalmazza a nyomaték partikuláris megoldását és a felszabadítás korrekcióját. A diagramjáték ugyanezt a helyreállítást használja. A görbék WASM mellett és anélkül is tartalmazzák a nyomatékokat. A megoldó csomóponti elmozdulásai, az igénybevételek és a 3D helyreállítás változatlan (#2099).",
     "tr": "Eleman üzerinde tekil moment bulunan etkilenen 2B çerçeve modellerini yeniden açın. Düğümler arasında gösterilen yer değiştirme artık momentin özel çözümünü ve uç serbestliği düzeltmesini içeriyor. Diyagram oyunu aynı hesabı kullanıyor. Eğriler WASM varken de yokken de momentleri koruyor. Çözücünün düğüm yer değiştirmeleri, kesit kuvvetleri ve 3B hesabı değişmiyor (#2099).",
+    "ja": "集中した部材モーメントがある 2D 骨組モデルのうち、影響を受けるものを開き直してください。節点間に表示される変位は、偶力の特解とその解放の補正を含むようになりました。図の演習の答えも、同じ回復を使います。サンプリングされた曲線は、WASM が利用できてもできなくても、偶力を保持します。節点の解析の変位、力、3D の回復は変わりません (#2099)。",
     "zh": "请重新打开受影响的带杆件集中弯矩的 2D 框架模型。节点之间显示的位移现在包含力偶的特解及其释放修正。图示游戏的答案使用相同的恢复方法。无论 WASM 是否可用，采样曲线都保留力偶。求解器的节点位移、内力以及 3D 恢复不变（#2099）。"
   },
   "changelog": {

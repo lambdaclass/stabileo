@@ -21,7 +21,7 @@ it('publishes every paper page, in English at least and never in a language with
   for (const path of ['/research', ...RESEARCH_PAPER_PATHS]) {
     const locales = researchLocales(path);
     expect(locales).toContain('en');
-    for (const locale of ['de', 'fr', 'tr', 'hu', 'zh'] as PublicLocale[]) {
+    for (const locale of ['de', 'fr', 'tr', 'hu', 'zh', 'ja'] as PublicLocale[]) {
       const published = locales.includes(locale) && PUBLIC_LOCALES.includes(locale);
       expect(publishedLocales(path).includes(locale)).toBe(published);
       expect(publishedLocale(path, locale)).toBe(published ? locale : 'en');
@@ -29,8 +29,8 @@ it('publishes every paper page, in English at least and never in a language with
   }
   expect(researchLocales('/research/benchmarks/shell-obstacle-course')).toEqual(['en']);
   const optionalHungarian = buildFeatures().research ? ['hu'] : [];
-  expect(researchLocales('/research/stability/ferrari-sigmund-2025')).toEqual(['en', 'es', 'pt', ...optionalHungarian, 'zh']);
-  expect(researchLocales('/research/benchmarks/lee-frame-1968')).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr', ...optionalHungarian, 'zh']);
+  expect(researchLocales('/research/stability/ferrari-sigmund-2025')).toEqual(['en', 'es', 'pt', ...optionalHungarian, 'zh', 'ja']);
+  expect(researchLocales('/research/benchmarks/lee-frame-1968')).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr', ...optionalHungarian, 'zh', 'ja']);
   expect(publishedLocale('/research/benchmarks/shell-obstacle-course', 'es')).toBe('en');
   expect(publishedLocale('/research/stability/ferrari-sigmund-2025', 'de')).toBe('en');
   expect(publishedLocale('/research/benchmarks/lee-frame-1968#edit', 'es')).toBe('es');

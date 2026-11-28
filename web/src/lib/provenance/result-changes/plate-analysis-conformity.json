@@ -13,6 +13,7 @@
     "fr": "Vérification des plaques et des jonctions voile–dalle",
     "tr": "Fiziksel plak ve perde–döşeme ağı denetimi",
     "hu": "Lemezek és fal–födém csatlakozások hálójának ellenőrzése",
+    "ja": "物理的な板と壁・スラブのメッシュの検証",
     "zh": "物理板与墙板交界网格检查"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "Le calcul s’arrête si une plaque physique est invalide, si son maillage est obsolète ou si la jonction voile–dalle ne dispose ni de nœuds communs ni de contraintes complètes sur le bord. Corrigez ou remaillez la plaque et relancez le calcul. Le bâtiment de sept étages, le DXF d’architecture et les nouvelles ébauches CAD maillées utilisent des nœuds communs.",
     "tr": "Fiziksel plak geçersizse, ağı güncel değilse veya perde–döşeme birleşiminde ortak düğümler veya tam kenar kısıtları yoksa analiz durur. Plağı düzeltin veya yeniden ağ oluşturup çözümü tekrarlayın. Yedi katlı örnek, mimari DXF örneği ve yeni ağ oluşturulan CAD taslakları ortak düğümler kullanıyor.",
     "hu": "A számítás leáll, ha egy lemez érvénytelen, a hálója elavult, vagy a fal–födém csatlakozásnál hiányoznak a közös csomópontok vagy a teljes élkényszerek. Javítsa ki vagy hálózza újra a lemezt, majd számítsa újra a modellt. A hétszintes példa, az építészeti DXF és az újonnan hálózott CAD-vázlatok közös csomópontokat használnak.",
+    "ja": "物理的な板が無効な場合、そのメッシュが最新でない場合、または壁とスラブの接合部に共有節点や完全な縁の拘束がない場合、解析は停止します。板を修復または再メッシュして、再度解析してください。7 階建ての例、意匠のみの DXF の例、新しくメッシュした CAD の素案は、共有された壁とスラブの節点を使います。",
     "zh": "物理板无效、网格已过时，或墙板交界处既无共用节点也无完整边缘约束时，分析会停止。请修正板或重新划分网格，然后再次求解。七层建筑、纯建筑 DXF 示例和新划分网格的 CAD 草稿采用共享节点。"
   },
   "changelog": {

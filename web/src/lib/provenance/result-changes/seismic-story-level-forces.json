@@ -22,6 +22,7 @@
     "de": "Statische Erdbebenkräfte greifen auf Geschosshöhe an",
     "fr": "Les forces sismiques statiques agissent à la cote de chaque étage",
     "tr": "Statik deprem kuvvetleri kat kotlarında uygulanır",
+    "ja": "静的地震力は階の高さに作用する",
     "zh": "等效静力地震力作用于楼层标高处",
     "hu": "A statikus földrengéserők a szintek magasságában hatnak"
   },
@@ -32,6 +33,7 @@
     "de": "Statische Erdbebenkräfte greifen an den Geschossknoten proportional zur jeweils zugeordneten Masse an. Modelle mit mitwirkender Masse unterhalb der Auflagerhöhe werden abgelehnt. Erzeugen Sie betroffene E-Lasten neu und wiederholen Sie die Analysen und Nachweise (#2316).",
     "fr": "Les forces sismiques statiques sont appliquées aux nœuds des étages proportionnellement à leur masse tributaire. Les modèles avec une masse participante sous la cote des appuis sont refusés. Régénérez les charges E concernées et répétez les analyses et les vérifications (#2316).",
     "tr": "Statik deprem kuvvetleri, düğümlere düşen kütleyle orantılı olarak kat düğümlerine uygulanır. Mesnet kotunun altında katılan kütle bulunan modeller reddedilir. Etkilenen E yüklerini yeniden oluşturun ve analizleri ve tasarım kontrollerini tekrarlayın (#2316).",
+    "ja": "静的地震力は、負担質量に比例して階の節点に作用します。基準面より下に有効質量があるモデルは拒否されます。影響を受ける E 荷重を再生成し、解析と設計の検討を繰り返してください（#2316）。",
     "zh": "等效静力地震力按各楼层节点的从属质量分配。参与地震作用的质量位于支座基准标高下方时，将拒绝生成荷载。请重新生成受影响的 E 荷载并重做分析和设计验算（#2316）。",
     "hu": "A statikus földrengéserők a szint csomópontjain a hozzájuk tartozó tömeggel arányosan hatnak. A támaszszint alatt figyelembe vett tömeget tartalmazó modelleket a program elutasítja. Generálja újra az érintett E terheket, és ismételje meg az elemzéseket és ellenőrzéseket (#2316)."
   },

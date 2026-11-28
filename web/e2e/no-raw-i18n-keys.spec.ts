@@ -34,6 +34,7 @@ import fullFr from '../src/lib/i18n/locales/full/fr';
 import fullTr from '../src/lib/i18n/locales/full/tr';
 import fullHu from '../src/lib/i18n/locales/full/hu';
 import fullZh from '../src/lib/i18n/locales/full/zh';
+import fullJa from '../src/lib/i18n/locales/full/ja';
 import { rawKeyIndex, findRawKeys } from '../src/lib/i18n/raw-keys';
 import { type Locale } from '../src/lib/i18n/offered';
 
@@ -50,7 +51,7 @@ const LOCALES = BUILD_OFFERED_LOCALES;
  * A fresh project's name, in each language, from the dictionaries: «New structure», «Nueva
  * estructura», «Nova estrutura». The tab shows it in its name field, where the key once stood.
  */
-const DICTS: Record<Locale, Record<string, string>> = { es, en, pt, de: fullDe, fr: fullFr, tr: fullTr, hu: fullHu, zh: fullZh } as never;
+const DICTS: Record<Locale, Record<string, string>> = { es, en, pt, de: fullDe, fr: fullFr, tr: fullTr, hu: fullHu, zh: fullZh, ja: fullJa } as never;
 const NEW_STRUCTURE = (locale: Locale): string => DICTS[locale]['tabBar.newStructure'];
 
 /** The project tab names a fresh project in the reader's language. */

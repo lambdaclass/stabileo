@@ -23,6 +23,7 @@ const OG_LOCALE: Record<PublicLocale, string> = {
 	fr: 'fr_FR',
 	tr: 'tr_TR',
 	hu: 'hu_HU',
+	ja: 'ja_JP',
 	zh: 'zh_CN'
 };
 

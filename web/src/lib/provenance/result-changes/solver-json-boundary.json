@@ -13,6 +13,7 @@
     "fr": "Les combinaisons planes conservent le cas de charge nommé __proto__",
     "hu": "A síkbeli kombinációk megtartják a __proto__ nevű teheresetet",
     "tr": "Düzlemsel birleşimler __proto__ adlı yük durumunu korur",
+    "ja": "平面の荷重組合せは __proto__ という名前の荷重ケースを保持する",
     "zh": "平面组合保留名为 __proto__ 的荷载工况"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "Une combinaison plane pouvait omettre ce cas de charge. Son coefficient net est désormais appliqué. Recalculez les combinaisons planes.",
     "hu": "Egy síkbeli kombináció kihagyhatta ezt a teheresetet. A kombináció most alkalmazza a tehereset nettó tényezőjét. Számítsa újra a síkbeli kombinációkat.",
     "tr": "Düzlemsel bir birleşim bu yük durumunu atlayabiliyordu. Birleşim artık durumun net katsayısını uygular. Düzlemsel birleşimleri yeniden hesaplayın.",
+    "ja": "平面の荷重組合せが、このケースを省くことがありました。荷重組合せは、そのケースの解決済みの係数を適用するようになりました。平面の荷重組合せを再実行してください。",
     "zh": "平面组合以前可能遗漏此荷载工况。现在组合会应用该工况的净系数。请重新计算平面组合。"
   },
   "changelog": {

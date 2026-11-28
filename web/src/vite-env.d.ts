@@ -10,7 +10,8 @@ declare module 'virtual:public-i18n' {
   export const tr: Record<string, string>;
   export const hu: Record<string, string>;
   export const zh: Record<string, string>;
-  export const loaders: Partial<Record<'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', () => Promise<{ default: Record<string, string> }>>>;
+  export const ja: Record<string, string>;
+  export const loaders: Partial<Record<'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'ja', () => Promise<{ default: Record<string, string> }>>>;
 }
 
 declare module 'virtual:app-i18n' {
@@ -22,6 +23,7 @@ declare module 'virtual:app-i18n' {
   export const tr: Record<string, string>;
   export const hu: Record<string, string>;
   export const zh: Record<string, string>;
+  export const ja: Record<string, string>;
 }
 
 declare module 'virtual:app-i18n/de' {
@@ -38,6 +40,9 @@ declare module 'virtual:app-i18n/hu' {
 }
 declare module 'virtual:app-i18n/zh' {
   export const zh: Record<string, string>;
+}
+declare module 'virtual:app-i18n/ja' {
+  export const ja: Record<string, string>;
 }
 
 declare module 'virtual:result-change-metadata' {

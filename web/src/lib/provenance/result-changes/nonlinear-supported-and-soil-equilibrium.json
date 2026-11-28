@@ -33,6 +33,7 @@
     "fr": "La convergence des appuis et des sols vérifie l’équilibre libre",
     "hu": "A nemlineáris támasz- és talajkonvergencia a szabad egyensúlyt ellenőrzi",
     "tr": "Doğrusal olmayan mesnet ve zemin yakınsaması serbest dengeyi denetler",
+    "ja": "非線形の支点と地盤の収束は自由な釣合いを検査する",
     "zh": "非线性分析中支座与土的收敛检查针对自由平衡"
   },
   "explanation": {
@@ -43,6 +44,7 @@
     "fr": "Les réactions bloquées ne peuvent masquer les résidus libres. Les contrôles des déplacements imposés, ressorts coïncidents, charges de trajectoire contraintes, gauchissement, capacités positives et courbes de sol sont corrigés. SSI vérifie aussi l’équilibre avec la raideur actualisée. Relancer les analyses non linéaires, P-Delta et SSI concernées (#761 ; PR #1940).",
     "hu": "A megtámasztott reakciók nem fedhetik el a szabad maradékot. Az előírt mozgás, egybeeső rugók, kényszeres útterhek, vetemedés, pozitív anyagi kapacitások és nemlineáris talajgörbék következetes konvergenciaellenőrzést használnak. Az SSI a frissített talajmerevséggel is ellenőrzi az erőegyensúlyt. Futtassa újra az érintett nemlineáris, P-Delta és SSI vizsgálatokat; a konvergencia, viselt teher és eredmények változhatnak (#761; PR #1940).",
     "tr": "Kısıtlı tepkiler serbest artıkları gizleyemez. Verilen hareketler, çakışan yaylar, kısıtlı yol yükleri, çarpılma, pozitif kapasiteler ve zemin eğrileri için denetimler düzeltildi. SSI güncellenmiş zemin rijitliğiyle kuvvet dengesini de denetler. Etkilenen doğrusal olmayan, P-Delta ve SSI analizlerini yeniden çalıştırın (#761; PR #1940).",
+    "ja": "拘束された反力は、自由な残差を隠すことができません。強制運動、一致するばね、拘束された経路荷重、ワーピング、正の材料耐力、非線形の地盤曲線は、整合した収束の検査を使うようになりました。SSI は、更新した地盤剛性での力の釣合いも検査します。影響を受ける非線形、P-Delta、SSI の解析を再実行してください。収束、支持した荷重、結果が変わる場合があります（#761; PR #1940）。",
     "zh": "受约束的反力不能掩盖自由残差。强制运动、重合弹簧、受约束的路径荷载、翘曲、正的材料承载力以及非线性土曲线，现在采用一致的收敛检查。SSI 还会用更新后的土刚度检查力的平衡。请重新运行受影响的非线性、P-Delta 和 SSI 分析；收敛性、承担的荷载和结果可能变化（#761；PR #1940）。"
   },
   "changelog": {

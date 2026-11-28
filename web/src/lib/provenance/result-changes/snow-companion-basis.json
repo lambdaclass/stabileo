@@ -18,6 +18,7 @@
     "de": "Flachdachschnee in Begleitkombinationen",
     "fr": "Neige de toiture plate dans les combinaisons accompagnatrices",
     "tr": "Eşlikçi birleşimlerde düz çatı kar yükü",
+    "ja": "従たる荷重組合せにおける平屋根の積雪",
     "zh": "伴随组合中的平屋面雪荷载",
     "hu": "Lapos tető hóterhe a kísérő kombinációkban"
   },
@@ -28,6 +29,7 @@
     "de": "Begleitkombinationen wählen eine eigene pf-Stablast statt der durch Dachneigung reduzierten Schneelast. Physischer Schnee bleibt in Haupt- und Erdbebenkombinationen sowie in der Masse. Schneelasten und Kombinationen neu erzeugen, danach Analysen und Nachweise wiederholen. (#2211).",
     "fr": "Les combinaisons accompagnatrices sélectionnent une charge de barre pf distincte au lieu de la neige réduite par la pente. La neige physique reste dans les combinaisons principales et sismiques et dans la masse. Régénérez les charges de neige et les combinaisons, puis relancez analyses et vérifications. (#2211).",
     "tr": "Eşlikçi birleşimler eğimle azaltılmış çatı karı yerine ayrı pf eleman yükünü seçer. Fiziksel kar ana ve deprem birleşimlerinde ve kütlede korunur. Kar yüklerini ve birleşimleri yeniden üretip analizleri ve kontrolleri tekrarlayın. (#2211).",
+    "ja": "従たる荷重組合せは、勾配で低減した屋根の積雪ではなく、別の pf の部材荷重を選ぶようになりました。物理的な積雪は、主たる荷重組合せ、地震の荷重組合せ、質量に残ります。積雪荷重と荷重組合せを再生成し、解析と検討を再実行してください。（#2211）。",
     "zh": "伴随组合现在选用单独的 pf 杆件荷载，而不是经坡度折减的屋面雪荷载。实际雪荷载保留在主组合、地震组合和质量中。请重新生成雪荷载和组合，然后重新运行分析和验算。（#2211）。",
     "hu": "A kísérő kombinációk a lejtéssel csökkentett tetőhó helyett külön pf rúdterhet választanak. A fizikai hóteher megmarad a fő- és földrengési kombinációkban, valamint a tömegben. Generálja újra a hóterheket és a kombinációkat, majd futtassa újra az analíziseket és ellenőrzéseket. (#2211)."
   },

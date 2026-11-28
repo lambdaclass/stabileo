@@ -60,6 +60,14 @@ const S: Record<'es' | 'en', PaperStrings> & Partial<Record<PublicLocale, PaperS
     metaTitle: 'Developing a structural calculation agent on top of a verified solver (cikk, angol nyelven) — Stabileo',
     metaDescription: 'A teljes cikk angolul: egy szerkezetszámításra szolgáló MI-ügynök csak akkor megbízható, ha egy verifikált megoldót vezérel, és maga soha nem állít elő számot.',
   },
+  ja: {
+    venue: '第29回アルゼンチン構造工学会議（JAIE 2026）で発表しました。',
+    download: 'PDF をダウンロード',
+    original: 'スペイン語原文（PDF）',
+    language: '',
+    metaTitle: '検証済みソルバーの上に構造計算エージェントを構築する（論文） — Stabileo',
+    metaDescription: '論文全文：構造計算の AI エージェントが信頼できるのは、検証済みのソルバーを統括し、自分で数値を生成しない場合に限られます。',
+  },
   zh: {
     venue: '发表于第 29 届阿根廷结构工程会议（JAIE 2026）。',
     download: '下载 PDF',

@@ -108,7 +108,7 @@ describe('preferredPublicLocale', () => {
   it('falls back to English for a browser it does not speak', () => {
     // The x-default rule: Italian and Japanese browsers get English, not a
     // half-translated page and not a 404.
-    expect(preferredPublicLocale(['it-IT', 'ja'])).toBe('en');
+    expect(preferredPublicLocale(['it-IT', 'ar'])).toBe('en');
     expect(preferredPublicLocale([])).toBe('en');
   });
 });

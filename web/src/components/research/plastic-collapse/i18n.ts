@@ -39,7 +39,7 @@ const en = {
 };
 export type PlasticStrings = typeof en;
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', PlasticStrings> = {
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'ja', PlasticStrings> = {
   en,
   es: {
     publisher: 'Elsevier',
@@ -263,6 +263,43 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'z
     places: { leftBase: 'Bal oszloptalp', leftCorner: 'Bal felső sarok', midspan: 'Fesztávközép', rightCorner: 'Jobb felső sarok', rightBase: 'Jobb oszloptalp' },
     nodalHeading: 'Csomóponti elmozdulások a(z) {event}. eseménynél · m', node: 'Csomópont',
   },
+  ja: {
+  publisher: 'Elsevier',
+  title: '古典的な塑性崩壊',
+  metaTitle: '古典的な塑性崩壊 — Stabileo Research',
+  metaDescription: '門型ラーメンを、梁機構、側方移動機構、複合機構の手計算と比較します。',
+  thumbnailAlt: '実運用ソルバーの実行による、崩壊時の門型ラーメンの変形図',
+  lead: '脚部固定の門型ラーメン 一つ、手計算した 三つの機構、そして実運用の 3D 塑性崩壊ソルバー。',
+  citation: '」、機構法の計算例：',
+  model: 'スパン L = {span} m、高さ h = {height} m、一様な Mp = {mp} kN·m。両方の脚部は固定です。屋根には、左隅で右向きに λH = λ × {horizontal} kN、スパン中央で下向きに λV = λ × {vertical} kN が作用します。梁は荷重位置で分割します。骨組は XZ 平面内にあり、面外の荷重は作用しません。',
+  method: '部材を剛とし回転を微小とした仮想仕事から、次の 三つの上界が得られます。複合機構では左の屋根のヒンジが打ち消され、内部仕事は 6Mpθ、外部仕事は λ(Hh + VL/2)θ です。その最小値が支配します。軸変形は弾性とし、軸方向とせん断の降伏、硬化、幾何学的な不安定性は、この手計算の範囲外です。',
+  provenance: '三つの上界は、仮想仕事による機構法で当方が手計算で導いたものです。この方法は Horne, Plastic Theory of Structures (1979) の方法であり、背景として読むべき文献として挙げています。同書のページや式の番号は確認していません。寸法は当方のものであり、同書の図や計算例は再現していません。Crossref はタイトルと年を示すだけで著者は示さず、出版社は',
+  provenanceEnd: 'M. R. Horne と特定しています。',
+  referenceLabel: '手計算との比較',
+  publishedNote: '同書の図や表は使っていません。例題とその寸法は当方のものであるため、手計算が参照になります。',
+  checksHeading: '検証',
+  checks: {
+    collapse: '崩壊荷重係数は、複合機構の上界 6Mp / (Hh + VL/2) と 1 × 10⁻⁶ 以内で一致します。',
+    mechanism: 'ソルバーは完全な機構を報告し、警告はありません。',
+    hinges: 'ヒンジは両方の脚部、スパン中央、右の屋根隅に生じ、左の屋根隅は降伏しません。',
+    yield: '崩壊時には、すべての部材端で |My| ≤ Mp です。',
+    equilibrium: '反力は作用荷重と釣り合います：ΣFx、ΣFz、ΣMy が 1 × 10⁻⁹ 以内。',
+    corner: '静力学から、左の屋根隅は 3Mp − λHh = {corner} kN·m を負担し、梁の式 3Mp + M = λVL/2 が成り立ちます。',
+  },
+  passed: '合格', failed: '不合格',
+  comparison: '手計算と Stabileo の比較', mechanism: '機構', reference: '手計算の λ', difference: 'Δ (Stabileo − 手計算)',
+  beam: '梁', sway: '側方移動', combined: '複合',
+  explanation: '最小値だけが、予測される崩壊荷重係数です。ほかの 二つの上界との差は想定内であり、ソルバーの誤差ではありません。λ の許容値 1 × 10⁻⁶ は回帰の上限であり、精度の目標ではありません。この小さく条件のよい問題では、ネイティブの実行で複合機構の上界と 1.4 × 10⁻¹¹ まで一致します。',
+  scope: '範囲', limits: ['設計の検定ではありません。', '荷重比は 一つ、断面は一様な 一種類のみで、軸力と曲げの相互作用、座屈、大変位は扱いません。', 'ここでは 2D の塑性ソルバーは使いません。このページは 3D ソルバーを実行します（issue #758 を参照）。', 'ビューアーは、変位した節点を直線で結び、ヒンジの記号は描きません。'],
+  run: 'ライブで再計算', stop: '停止', restart: '再開', running: 'ライブ計算中…', replay: '事前計算したリプレイ（同じソルバー）', live: 'ライブ計算',
+  error: 'ライブ計算に失敗しました。事前計算したリプレイを表示しています', errorDetail: 'ソルバーのメッセージ',
+  step: 'ヒンジの発生', displacement: '節点の変位',
+  pending: '事前計算した実行結果はありません', warning: 'ソルバーの警告 / 不完全な機構',
+  amplified: '変位 ×{scale}', planeNote: 'XZ 平面を平らに描いています：X は右、Z は上。',
+  eventsHeading: 'ヒンジの発生', event: '事象', location: 'ヒンジの位置', moment: 'My · kN·m',
+  places: { leftBase: '左の脚部', leftCorner: '左の屋根隅', midspan: 'スパン中央', rightCorner: '右の屋根隅', rightBase: '右の脚部' },
+  nodalHeading: '事象 {event} での節点変位 · m', node: '節点',
+},
   zh: {
     publisher: 'Elsevier',
     title: '经典塑性倒塌',

@@ -20,6 +20,7 @@
     "fr": "Préserver les charges et les déplacements imposés en analyse non linéaire plane",
     "hu": "A terhek és az előírt elmozdulások megőrzése síkbeli nemlineáris számításban",
     "tr": "Düzlemsel doğrusal olmayan analizde yükleri ve tanımlanmış hareketleri koru",
+    "ja": "平面の非線形の荷重と強制運動を保持します",
     "zh": "保留平面非线性分析中的荷载和规定的位移"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "fr": "L’analyse non linéaire plane somme les charges de barre coïncidentes avant de calculer les actions nodales, préserve les faibles charges tangentielles aux appuis inclinés et reconstitue les déplacements liés ou imposés à chaque état.",
     "hu": "A síkbeli nemlineáris számítás a csomóponti terhek meghatározása előtt összegzi az egy helyen ható rúdterheket, megőrzi a ferde támaszok kis érintőirányú terheit, és minden állapotban újraszámítja a kapcsolt vagy előírt elmozdulásokat.",
     "tr": "Düzlemsel doğrusal olmayan analiz, düğüm yüklerini hesaplamadan önce aynı konumdaki eleman yüklerini toplar, eğik mesnetlerdeki küçük teğetsel yükleri korur ve her durumda bağlı veya tanımlanmış yer değiştirmeleri yeniden hesaplar.",
+    "ja": "平面の非線形解析は、節点の作用を計算する前に、一致する部材荷重を合成し、傾斜した支点の小さな接線方向の荷重を保持し、各状態について、連結された変位または強制変位を再構成します。",
     "zh": "平面非线性分析先合并同位置的杆件荷载再计算节点等效力，保留倾斜支座处较小的切向荷载，并在每个状态重建受约束或规定的位移。"
   },
   "changelog": {

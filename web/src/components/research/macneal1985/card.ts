@@ -27,6 +27,10 @@ export const card = {
     title: 'MacNeal–Harder (1985): a számítómotor benchmarkjai',
     hook: 'Futtassa az éles számítómotort a MacNeal–Harder-féle konzolokon, és vizsgáljon meg minden eredményt, a sikerteleneket is.',
   },
+  ja: {
+    title: 'MacNeal–Harder (1985)：エンジンのベンチマーク',
+    hook: '実運用エンジンで MacNeal–Harder の片持ち梁のケースを実行し、失敗を含むすべての結果を確認します。',
+  },
   zh: {
     title: 'MacNeal–Harder (1985)：计算引擎基准算例',
     hook: '用生产环境计算引擎运行 MacNeal–Harder 悬臂梁算例；检查每个结果，包括失败的算例。',

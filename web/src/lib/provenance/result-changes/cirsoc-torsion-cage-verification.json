@@ -12,6 +12,7 @@
     "de": "CIRSOC 201 prüft Querkraft und Torsion mit der vorhandenen Bewehrung",
     "fr": "Le CIRSOC 201 vérifie le cisaillement et la torsion avec le ferraillage évalué",
     "hu": "A CIRSOC 201 a vizsgált vasalással ellenőrzi a nyírást és a csavarást",
+    "ja": "CIRSOC 201 は評価したかご筋でせん断とねじりを検定する",
     "zh": "CIRSOC 201 以所评估的钢筋笼验算剪力和扭转",
     "tr": "CIRSOC 201, kesme ve burulmayı değerlendirilen donatıyla denetler"
   },
@@ -22,6 +23,7 @@
     "de": "Der Torsionsnachweis verwendet den Betontraganteil der vorhandenen Bewehrung und den Grenzwert der Norm. Bei unbekannter Geometrie für die sekundäre Querkraft oder fehlendem Nachweis der Umfangsbewehrung für die Torsion von Wänden wird der Nachweis verweigert. Berechnen Sie die betroffenen räumlichen Betontragwerke erneut (#2171).",
     "fr": "La torsion est vérifiée avec la résistance au cisaillement du béton associée au ferraillage évalué et le seuil réglementaire. La vérification est refusée si la géométrie du cisaillement secondaire est inconnue ou si le ferraillage périphérique en torsion des voiles est insuffisamment établi. Recalculez les structures spatiales en béton concernées (#2171).",
     "hu": "A csavarási ellenőrzés a vizsgált vasaláshoz tartozó betonszilárdságot és a szabványos küszöbértéket használja. Ismeretlen másodlagos nyírási geometria vagy a fal kerületi csavarási vasalásának hiányzó igazolása esetén az ellenőrzés nem végezhető el. Számítsa újra az érintett térbeli betonszerkezeteket (#2171).",
+    "ja": "ねじりは、評価したかご筋のコンクリートのせん断強度と、基準の閾値を使います。検定は、未解決の第2せん断のジオメトリと、周囲の鉄筋が確認できない壁のねじりを拒否します。影響を受ける立体のコンクリート設計を再実行してください（#2171）。",
     "zh": "扭转验算采用所评估钢筋笼的混凝土抗剪强度和规范阈值。次要方向的抗剪几何未确定时，以及墙的扭转没有经验证的周边钢筋时，验算会被拒绝。请重新运行受影响的空间混凝土设计（#2171）。",
     "tr": "Burulma denetimi, değerlendirilen donatıya karşılık gelen beton kesme dayanımını ve yönetmelik eşiğini kullanır. İkincil kesme geometrisi belirsizse veya perde burulması için çevre donatısı doğrulanmamışsa denetim reddedilir. Etkilenen üç boyutlu betonarme tasarımları yeniden hesaplayın (#2171)."
   },

@@ -91,6 +91,32 @@ const hu: Strings = {
   paper: 'A cikk egy időléptetéses eljárást ír le a szerkezetdinamikához. Itt annak átlagos gyorsulású változatát próbáljuk ki egy szándékosan kicsi lineáris referenciafeladaton; nem állítjuk, hogy a cikk valamelyik ábráját reprodukáljuk.',
   alt: 'Tengelyirányú elmozdulás időtörténete a termékben használt Newmark-megoldó futtatásából',
 };
+const ja: Strings = {
+  title: 'Newmark の平均加速度法',
+  metaTitle: 'Newmark (1959) — Stabileo Research',
+  metaDescription: '実運用の Newmark 平均加速度法を、厳密な 一自由度系のステップ応答と比較します。',
+  lead: '減衰のない 一自由度系に、突然一定の力が加わる場合です。時間刻みを大きくすると、数値的な周期が伸びる様子が分かります。',
+  model: '例題',
+  description: '長さ {L} m の骨組の軸部材で、左端を固定し、右端は軸方向の並進のみを自由とします。E = {E} MPa、A = {A} m²、仮想の密度 = {rho} kg/m³。整合軸方向質量により m = ρAL/3 = {m} t、k = EA/L = {k} kN/m。{F} kN のステップ荷重を t = 0 から加え、初期変位と初期速度はゼロです。これは厳密な 一自由度系の有限要素ベンチマークであり、連続体の棒の解ではありません。',
+  method: '実運用の 3D 時刻歴ソルバーを既存の WASM ラッパー経由で実行し、β = ¼、γ = ½、減衰なしとします。リプレイは同じ Rust ソルバーのネイティブ実行です。新しい積分法は使っていません。',
+  reference: '厳密な参照値', difference: '差', measured: 'Stabileo の T (s)', predicted: '離散的な予測 Tₙ (s)',
+  formula: 'u(t) = (F/k)[1 − cos(ωt)]、ω = √(k/m) = {omega} rad/s、T = 2π/ω = {T} s。離散的な平均加速度の解は uₙ = (F/k)[1 − cos(nθ)]、θ = 2 atan(ωΔt/2) であり、その周期は Tₙ = πΔt / atan(ωΔt/2) です。以下の周期は、u = F/k を上向きに横切る連続する点から測定しており、粗い時間刻みの測定では補間が影響します。',
+  comparison: '時間刻みに対する周期の伸び', elongation: 'T に対する伸び (%)',
+  errors: '変位の差', discreteError: '最大 |u − uₙ| (m)', continuousError: '最大 |u − u(t)| (mm)', bound: '位相遅れの上限 (mm)',
+  error: '変位差の最大値 (mm)',
+  tolerance: '検証は、表示している時刻歴から計算します（ライブで再計算すると更新されます）。すべてのサンプルが離散解 uₙ と 10⁻¹⁰ m 以内で一致すること、測定したすべての周期が Tₙ と 0.5% 以内で一致すること、連続解との最大差が、N ステップにわたる uₙ から導かれる位相遅れの上限 (F/k)·min(2, N(ωΔt − θ)) を下回ること、Δt/T = 0.025 では 四周期にわたって 0.5 mm も下回ることを確認します。時間刻みが粗いほど誤差が大きく出るのは意図したものです。',
+  published: 'なし：このページは、手法を厳密な閉形式解と照合するもので、論文に掲載された図や表は再現しません。',
+  notYet: '未対応', limitations: ['論文に掲載された図と数値例。', '減衰、調和荷重、非線形応答、多自由度の骨組。', 'これは工学的な認証ではありません。'],
+  replay: '事前計算したリプレイ（同じソルバー）', live: 'お使いのブラウザでのライブ計算', cached: 'キャッシュした結果（このブラウザで計算）',
+  run: 'ライブで再計算', stop: '停止', restart: '再開', busy: '計算中…', step: '時間刻み', sample: 'サンプル',
+  sampleValue: 'サンプル {i} / {n}、t = {t} s',
+  speed: '再生は、どの時間刻みでも実時間の {x} 倍遅く進むため、周期が長いほど実際に時間がかかります。',
+  displacement: '軸方向変位', time: '時間 (s)', scaled: '変形 ×10、左の節点は固定、右の節点は軸方向にガイド。',
+  tryCoarse: '最も粗い時間刻みを試す', failure: '計算に失敗しました。前の結果を保持しています。',
+  paper: 'この論文は、構造動力学の時間積分の手順を述べています。ここでは、その平均加速度の特別な場合を、意図的に小さくした線形のベンチマークで動かします。論文の図を再現するとは主張しません。',
+  alt: '実運用の Newmark 実行による軸方向変位の時刻歴',
+};
+
 const zh: Strings = {
   title: 'Newmark 平均加速度法',
   metaTitle: 'Newmark (1959) — Stabileo Research',
@@ -116,7 +142,7 @@ const zh: Strings = {
   paper: '论文描述了一种用于结构动力学的时间步进方法。这里我们在一个有意设计得很小的线性基准算例上，运用其平均加速度的特例；我们并不声称复现了论文中的某幅图。',
   alt: '生产环境 Newmark 运行得到的轴向位移时程',
 };
-export const translations = { en, es, pt, hu, zh };
+export const translations = { en, es, pt, hu, ja, zh };
 export const strings = () => translations[researchLocale() as keyof typeof translations] ?? translations.en;
 export const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);

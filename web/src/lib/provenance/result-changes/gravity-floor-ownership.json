@@ -27,6 +27,7 @@
     "de": "Jeden Bereich der automatischen Schwerkraftlast einem Träger zuweisen",
     "fr": "Attribuer chaque zone de charge de gravité automatique à un seul porteur",
     "tr": "Her otomatik yerçekimi yükü bölgesini tek bir taşıyıcıya atama",
+    "ja": "自動重力荷重の床領域を 1 つの支持部材に割り当てる",
     "zh": "将每个自动重力荷载区域分配给单个承载体",
     "hu": "Az automatikus gravitációs teher minden területének hozzárendelése egyetlen teherhordóhoz"
   },
@@ -37,6 +38,7 @@
     "de": "Erzeugen Sie die Schwerkraftlasten im Feldmodus neu. Schalen übernehmen die Last eines Trägerfelds, wenn sie dasselbe Deck vollständig abdecken. Schalen auf getrennten Decks behalten ihre Lasten. Bei unklarer Zuordnung stoppt die Erzeugung.",
     "fr": "Régénérez les charges gravitaires par panneaux. Les coques reprennent la charge d’une travée lorsqu’elles couvrent entièrement le même plancher. Les coques sur des planchers distincts conservent leurs charges. La génération s’arrête si l’attribution reste indéterminée.",
     "tr": "Panel yerçekimi yüklerini yeniden üretin. Kabuklar aynı döşemeyi bütünüyle kapladıklarında kiriş açıklığının yükünü alır. Ayrı döşemelerdeki kabuklar kendi yüklerini korur. Yükün nereye atanacağı belirlenemezse üretim durur.",
+    "ja": "パネルの重力荷重を再生成してください。シェルが同じデッキを完全に覆う場合は、梁のベイを引き継ぎます。別々のデッキ上のシェルは、それぞれの荷重を保持します。帰属が未解決の場合、生成は停止します。",
     "zh": "请重新生成板格重力荷载。壳单元完全覆盖同一楼层时，承受梁格荷载。独立楼层上的壳单元保留各自的荷载。无法确定荷载归属时停止生成。",
     "hu": "Generálja újra a mezőnkénti gravitációs terheket. A héjak átveszik a gerendamező terhét, ha teljesen lefedik ugyanazt a födémet. A különálló födémek héjai megtartják saját terheiket. A generálás leáll, ha a hozzárendelés nem egyértelmű."
   },

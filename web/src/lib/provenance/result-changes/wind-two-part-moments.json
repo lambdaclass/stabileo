@@ -22,6 +22,7 @@
     "de": "Schnittgrößen im Stabinneren nach Neuerzeugung der Windlasten",
     "fr": "Efforts à l’intérieur des barres après régénération des charges de vent",
     "tr": "Rüzgâr yükleri yeniden üretildiğinde eleman iç kuvvetleri",
+    "ja": "再生成した風荷重での部材内部の力",
     "zh": "重新生成风荷载后的杆件内部剪力和弯矩",
     "hu": "A rudak belső erői a szélterhek újragenerálása után"
   },
@@ -32,6 +33,7 @@
     "de": "Für angegebene Drucksprünge und gekrümmte Druckverläufe zwischen angegebenen Knickstellen können nun Stablasten erzeugt werden. Die Windlasterzeugung integriert zwischen den angegebenen Knickstellen des Druckverlaufs auch bei veränderlicher Lasteinzugsbreite. Sie prüft die Querkraft in Bereichen bekannter Krümmung und verwendet für eine Last und für ein Lastpaar dieselben Grenzwerte für die Lastmomente. Stabkräfte, Auflagerreaktionen und Verschiebungen können sich ändern. W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise erneut ausführen.",
     "fr": "Les sauts de pression déclarés et les impulsions de pression courbes entre deux points de rupture déclarés peuvent désormais produire des charges sur les barres. Le générateur intègre entre les points de rupture déclarés du profil de pression même si la largeur tributaire varie. Il vérifie l’effort tranchant dans les bandes de courbure connue et applique les mêmes limites aux moments de charge pour une charge ou une paire de charges. Les efforts dans les barres, les réactions et les déplacements peuvent changer. Régénérez W et Wa, puis relancez les analyses, les combinaisons et les vérifications.",
     "tr": "Bildirilen basınç sıçramaları ve bildirilen kırılma noktaları arasındaki eğrisel basınç darbeleri için artık eleman yükleri üretilebilir. Rüzgâr yükü üreticisi, yük toplama genişliği değiştiğinde de bildirilen basınç kırılma noktaları arasında integral alır. Eğriliği bilinen bantlarda kesme kuvvetini denetler ve tek yük ile yük çiftine aynı yük momenti sınırlarını uygular. Eleman iç kuvvetleri, mesnet tepkileri ve yer değiştirmeler değişebilir. W ve Wa yüklerini yeniden üretip analizleri, birleşimleri ve tasarım kontrollerini tekrarlayın.",
+    "ja": "宣言した段差と、宣言した折れ点の間の曲線パルスから、部材荷重を生成できるようになりました。風荷重の生成は、テーパー部材でも、宣言した圧力の折れ点の間で積分します。既知の曲率の帯の中でせん断を検討し、単一荷重と荷重対に同じ仕事モーメントの限界を適用します。部材力、反力、変位が変わることがあります。W と Wa を再生成し、解析、荷重組合せ、設計の検討を再実行してください。",
     "zh": "现在可为已声明的风压阶跃及两个已声明分段点之间的曲线形风压脉冲生成杆件荷载。即使分担宽度变化，风荷载生成器也会在声明的风压分段点之间分别积分。它检查已知曲率区段内的剪力，并对单个荷载和成对荷载采用相同的荷载矩误差限值。杆件内力、支座反力和位移可能改变。请重新生成 W 和 Wa，再重新进行分析、荷载组合和设计验算。",
     "hu": "A megadott nyomásugrásokhoz és a megadott töréspontok közötti görbült nyomásimpulzusokhoz most már előállíthatók a rúdterhek. A szélteher-generátor változó teherviselő szélességnél is a megadott nyomástöréspontok között integrál. Az ismert görbületű sávokban ellenőrzi a nyíróerőt, és egy terhelésre, illetve két terhelés együttesére azonos hibahatárokat alkalmaz a tehereloszlás nyomatékaira. A rudak belső erői, a támaszerők és az elmozdulások változhatnak. Generálja újra a W és Wa terheket, majd ismételje meg a számításokat, a kombinációkat és a méretezési ellenőrzéseket."
   },

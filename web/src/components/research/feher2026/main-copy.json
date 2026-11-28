@@ -15,6 +15,10 @@
     "openNote": "A ✗-gel jelölt sorok nyitottak. A 4. alak éppen a csúcsponton túl helyezkedik el, ahol a magasság gyorsan változik a befogási szögekkel: az általunk számított út az ábrán közölt magasságot körülbelül 0,08-cal kisebb Δ-nál éri el. Fél fesztávon ható teher esetén a határterheink 5–7%-kal kisebbek, és az a bifurkációs görbe, ahol a cikk az optimumot találja, a futtatásainkban körülbelül 0,2-del kisebb Δ-nál helyezkedik el, így az 1. táblázat (0,64; 1,16) pontja is éppen erre esik. A (0,96; 0) pontbeli, fél fesztávon ható tehernél az átpattanás egy 14,1 görbületű stabil állapotba vezet, szemben a cikk 7,6 értékével. Az út végén kialakuló, az ábrával egyező fordított alak legnagyobb görbülete körülbelül 10,6, meghaladva a cikkben az útra előírt 6-os küszöböt. Ezek a szerzők számára nyitott kérdések.",
     "runNote": "Mozgassa a téglalap távoli sarkát, majd számítsa újra. A csúcspont alatt a csík ívként tér vissza; a redőn túl az út megszakad."
   },
+  "ja": {
+    "openNote": "✗ を付けた行は未解決です。形 4 はカスプをわずかに越えた位置にあり、クランプ角に対して高さが急に変わります。私たちの経路が論文の高さに達するのは、Δ で約 0.08 低い位置です。荷重をスパンの半分に載せた場合、限界荷重は 5〜7% 低く出ます。論文が最適値を見つける分岐曲線は、私たちの計算では Δ で約 0.2 低い位置にあり、表 1 の点 (0.64, 1.16) もちょうどその上に乗ります。(0.96, 0) での半スパン荷重では、スナップの着地点は曲率 14.1 の安定状態で、論文の 7.6 ではありません。経路の終点での反転した形は図と一致しますが、最大曲率は約 10.6 で、論文が経路に設けたしきい値 6 を上回ります。これらは著者への未解決の質問です。",
+    "runNote": "長方形の遠い角を動かして、再計算します。カスプより下では、帯板はアーチに戻ります。折り返し点を越えると、経路は止まります。"
+  },
   "zh": {
     "openNote": "标有 ✗ 的行仍未解决。形状 4 刚好越过尖点，在该处高度随夹具角度变化很快：我们的路径达到论文高度时，Δ 约低 0.08。荷载作用在半跨时，我们的极限荷载低 5% 至 7%；在我们的运行中，论文找到最优值的分岔曲线在 Δ 上约低 0.2，这也使表 1 的点 (0.64, 1.16) 恰好落在该曲线上。对于 (0.96, 0) 处的半跨荷载，突跳后落在曲率为 14.1 的稳定状态，而不是论文的 7.6。路径末端的反向形状与图相符，其最大曲率约为 10.6，超过论文为该路径设定的阈值 6。这些是留给作者的未决问题。",
     "runNote": "移动矩形的远端角点并重新计算。在尖点以下，板条会以拱形返回；越过折点后，路径中断。"

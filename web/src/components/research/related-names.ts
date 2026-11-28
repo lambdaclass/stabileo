@@ -154,6 +154,28 @@ export const LINK_NAMES: Record<string, Record<string, string>> = {
     "newmark-1959": "Newmark-féle időintegrálás: egy szabadságfok",
     "cqc-1981": "SRSS és CQC: modális kombináció"
   },
+  'ja': {
+    "simply-supported-beam": "単純梁の計算ツール",
+    "cantilever-beam": "片持ち梁のたわみ計算ツール",
+    "column-buckling": "Euler 座屈の計算ツール",
+    "continuous-beam": "連続梁の計算ツール",
+    "portal-frame": "門型ラーメンの計算ツール",
+    "truss-2d": "2D トラスの計算ツール",
+    "influence-line": "影響線の計算ツール",
+    "beam-natural-frequency": "梁の固有振動数の計算ツール",
+    "macneal-harder-1985": "MacNeal–Harder の有限要素ベンチマーク",
+    "navier-plate": "Navier の板の曲げ：Fourier 級数のベンチマーク",
+    "mattiasson-elastica": "Mattiasson のエラスティカ：片持ち梁の大たわみ",
+    "ferrari-sigmund-2025": "Roorda の骨組の座屈：Ferrari–Sigmund",
+    "biggins-2026": "曲率のパターン化によるアーチのスナップスルー",
+    "lee-frame-1968": "Lee 骨組の非線形ベンチマーク (1968)",
+    "plastic-collapse": "門型ラーメンの塑性崩壊ベンチマーク",
+    "grossman-2026": "オーゼティックなばねネットワーク：Grossman–Boudaoud",
+    "pastrana-2026": "ケーブルのフォームファインディング：力密度法",
+    "riks-crisfield": "Riks–Crisfield の弧長法によるスナップスルー",
+    "newmark-1959": "Newmark の時間積分：一自由度系のベンチマーク",
+    "cqc-1981": "SRSS と CQC：モード合成のベンチマーク"
+  },
   "zh": {
     "simply-supported-beam": "简支梁计算器",
     "cantilever-beam": "悬臂梁挠度计算器",

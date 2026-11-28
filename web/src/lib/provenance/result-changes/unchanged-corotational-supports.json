@@ -18,6 +18,7 @@
     "fr": "Conserver les positions d’appui inchangées dans la continuation corotationnelle plane",
     "hu": "A változatlan támaszhelyzetek megőrzése a síkbeli korotációs folytatásban",
     "tr": "Düzlemsel eş dönel çözümün devamında değişmeyen mesnet konumlarını koru",
+    "ja": "平面の共回転の連続解析で、変化しない支点位置を保持する",
     "zh": "平面共旋延续分析保持未变化的支座位置"
   },
   "explanation": {
@@ -28,6 +29,7 @@
     "fr": "Lorsque les positions initiale et imposée de l’appui coïncident, le calcul conserve cette position exacte à chaque incrément. L’arrondi de l’interpolation pouvait entraîner une correction inutile ou empêcher la convergence.",
     "hu": "Ha a kezdeti és az előírt támaszhelyzet megegyezik, a megoldó minden folytatási lépésben pontosan megtartja ezt a helyzetet. Az interpoláció kerekítése korábban felesleges korrekciót okozhatott vagy megakadályozhatta a konvergenciát.",
     "tr": "Başlangıç ve tanımlanan mesnet konumları aynıysa çözücü her artımda bu konumu tam olarak korur. Enterpolasyonun yuvarlanması gereksiz bir düzeltmeye yol açabiliyor veya yakınsamayı engelleyebiliyordu.",
+    "ja": "開始時と規定の支点位置が一致する場合、ソルバーは、すべての連続増分でその厳密な位置を保持します。支点ランプの丸めが、不要な補正を起こしたり、収束を妨げたりすることがありました。",
     "zh": "当支座的起始位置和指定位移对应的位置一致时，求解器在每个延续增量中保持该位置。先前插值的舍入误差可能触发多余的修正或阻止收敛。"
   },
   "changelog": {

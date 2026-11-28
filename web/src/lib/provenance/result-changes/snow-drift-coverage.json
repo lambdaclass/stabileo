@@ -21,6 +21,7 @@
     "de": "Schneeverwehungen folgen durchgehenden Dachkanten",
     "fr": "Les congères suivent les bords continus du toit",
     "tr": "Kar birikmesi sürekli çatı kenarlarını izliyor",
+    "ja": "吹きだまりの範囲は連続した屋根の縁に従う",
     "zh": "雪堆积范围沿连续的屋面边缘"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "de": "Durchgehende geneigte Dachfelder teilen Verwehungs- und Gleitlaststreifen anhand ihrer tatsächlichen Kantenhöhen. Einzugsstreifen verwenden die horizontale Tiefe. Teilweise oder unterbrochene Traufüberdeckung wird ohne Schneelasten abgelehnt. Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2095). In 0.6.1 enthalten.",
     "fr": "Les panneaux inclinés continus partagent bandes et longueurs de congères selon les altitudes réelles du bord. Les bandes tributaires utilisent la profondeur horizontale. Les égouts à couverture partielle ou discontinue sont refusés sans générer de charges de neige. Régénérez les charges et relancez analyses, combinaisons et vérifications (#2095). Correction incluse dans 0.6.1.",
     "tr": "Sürekli eğimli paneller gerçek kenar kotlarına göre birikme ve kayma şeritlerini paylaşır. Yük şeritleri yatay derinliği kullanır. Kısmi veya kesintili saçak kapsamı kar yükü üretilmeden reddedilir. Kar yüklerini yeniden üretip analizleri, birleşimleri ve tasarım kontrollerini çalıştırın (#2095). Düzeltme 0.6.1 sürümüne dahildir.",
+    "ja": "連結した勾配パネルは、実際の縁の標高を用いて、吹きだまりと滑雪の帯、フェッチを共有するようになりました。勾配のある負担帯は水平方向の奥行きを用います。部分的または非連結の滑雪する軒の範囲は、積雪荷重を生成せずに拒否されるようになりました。影響を受ける積雪荷重を再生成し、解析、荷重組合せ、設計の検討を再実行してください（#2095）。この修正は 0.6.1 に含まれます。",
     "zh": "相连的坡屋面板现在共用堆积带和滑落带，并使用其实际边缘标高计算风吹距离。坡屋面的从属条带使用水平深度。部分或不相连的滑落檐口覆盖现在会拒绝求解，不生成雪荷载。请重新生成受影响的雪荷载，并重新运行分析、组合和设计验算（#2095）。此修正已包含在 0.6.1 中。"
   },
   "changelog": {

@@ -19,6 +19,7 @@
     "fr": "Mécanismes de pivotement des barres articulées",
     "hu": "Csuklós rudak elfordulási mechanizmusai",
     "tr": "Mafsallı çubuk dönme mekanizmaları",
+    "ja": "解放された骨組のスイング機構",
     "zh": "释放框架杆的转动机构"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "fr": "Le solveur refuse le modèle si un nœud terminal peut pivoter autour d’une extrémité articulée sans déformation ni déplacement des appuis. Vérifiez les résultats enregistrés concernés.",
     "hu": "A megoldó elutasítja a modellt, ha egy végcsomópont a csuklós vég körül alakváltozás és a támaszok elmozdulása nélkül elfordulhat. Ellenőrizze az érintett mentett eredményeket.",
     "tr": "Uç düğümü, bir mafsal etrafında şekil değiştirmeden veya mesnetleri hareket ettirmeden dönebiliyorsa çözücü modeli reddeder. Etkilenen kayıtlı sonuçları yeniden kontrol edin.",
+    "ja": "端部が解放された終端の接合部が、ひずみや拘束の移動なしにスイングできる場合、ソルバーはその骨組を拒否します。影響を受ける保存済みの結果を再確認してください。",
     "zh": "如果末端节点可绕释放端转动，且杆件无应变、约束处无位移，求解器会拒绝该模型。请复核受影响的已保存结果。"
   },
   "changelog": {
