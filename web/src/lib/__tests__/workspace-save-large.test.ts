@@ -672,3 +672,8 @@ it.each(['2d', '3d', 'pro'] as const)('the %s published workspace keeps the file
   expect(await saveWorkspaceSettled()).toBe(true);
   expect(notice()).not.toContain('workspace-save-notice');
 });
+
+it.skip('known wrong result: #1928 published workspace failures expose no dismissal control', () => {
+  expect('dismiss' in workspaceSaveStatus).toBe(false);
+  expect('shown' in workspaceSaveStatus).toBe(false);
+});

@@ -1119,3 +1119,26 @@ test('known wrong result: #1928 the public manual solver allocates no invisible 
     });
   }
 });
+
+test.skip('known wrong result: #1928 physical review styling and foreign seed calls ship only with their controls', async () => {
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      for (const file of ['ProPhysicalPanel', 'ProCombinationRules']) {
+        const entry = resolve(root, 'src/components/pro/' + file + '.svelte');
+        const result = await build({ root, configFile, logLevel: 'silent', build: {
+          write: false, minify: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+            external: (id, from) => !!from && !id.includes('?svelte&type=style') && !id.includes('PhysicalRecognitionPending'),
+          },
+        } });
+        const output = (Array.isArray(result) ? result[0] : result).output;
+        if (file === 'ProPhysicalPanel') {
+          const css = output.filter(item => item.type === 'asset').map(item => item.source).join('');
+          assert.equal(css.includes('.ph-pending'), plates);
+        } else {
+          const js = output.filter(item => item.type === 'chunk').map(item => item.code).join('');
+          assert.equal(js.includes('.strength('), plates);
+        }
+      }
+    });
+  }
+});
