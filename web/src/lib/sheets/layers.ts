@@ -62,8 +62,10 @@ export const DIAMETER_COLORS: Record<number, number> = { 6: 4, 8: 3, 10: 2, 12: 
 export const layerDef = (name: string): LayerDef => {
   const own = BY.get(name);
   if (own) return own;
-  const arm = __PUBLIC_FEATURES__.proRcSheets && /^ST-ARM-(.+)-Ø(\d+)$/.exec(name);
-  if (arm) return { name, color: DIAMETER_COLORS[Number(arm[2])] ?? 7, weight: arm[1] === 'EST' ? 0.25 : 0.35 };
+  if (__PUBLIC_FEATURES__.proRcSheets) {
+    const arm = /^ST-ARM-(.+)-Ø(\d+)$/.exec(name);
+    if (arm) return { name, color: DIAMETER_COLORS[Number(arm[2])] ?? 7, weight: arm[1] === 'EST' ? 0.25 : 0.35 };
+  }
   const m = /^(.*)-D(\d+)$/.exec(name);
   if (m) { const base = BY.get(m[1]!) ?? { name: m[1]!, color: 7, weight: 0.25 }; return { ...base, name, color: DIAMETER_COLORS[Number(m[2])] ?? 7 }; }
   return { name, color: 7, weight: 0.25 };
