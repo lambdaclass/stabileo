@@ -39,7 +39,7 @@ it.each(openers)('known wrong result: #1928 an inactive sheet record survives %s
   expect(saved.rebarGrade).toBe('changed grade');
 });
 
-it.skip.each(openers)('known wrong result: #1928 inactive sheet assumptions survive %s without being interpreted', async opener => {
+it.each(openers)('known wrong result: #1928 inactive sheet assumptions survive %s without being interpreted', async opener => {
   const pile = { length: 9, soilReference: 'BH-2' };
   const inputs = { presumedPile: pile, foundingElevation: -2, presumedBearingKPa: 200, minTieSpacingMm: 110, maxAggregateMm: 20 };
   await openDesignData(opener, inputs);
@@ -57,4 +57,25 @@ it.skip.each(openers)('known wrong result: #1928 inactive sheet assumptions surv
     expect(saved.presumedPile).toEqual(pile);
   }
   expect(saved.rebarGrade).toBe('reviewed grade');
+});
+
+it('applies the sheet limits only to the active read model and keeps unstated defaults out of the file', async () => {
+  const { readSheetAssumptions, FOUNDING_RANGE, MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE } = await import('../../model/sheet-design-assumptions');
+  const { AGGREGATE_RANGE } = await import('../../rc-sheets/types');
+  const defaults = readSheetAssumptions();
+  const ranges = { minTieSpacingMm: MIN_TIE_SPACING_RANGE, maxAggregateMm: AGGREGATE_RANGE, presumedBearingKPa: PRESUMED_BEARING_RANGE, foundingElevation: FOUNDING_RANGE };
+  const sheets = __PUBLIC_FEATURES__.proRcSheets;
+  for (const [key, range] of Object.entries(ranges)) {
+    const fallback = { ...defaults.detailing, ...defaults.foundation, ...defaults.elevation }[key as keyof typeof ranges];
+    for (const value of [range.min - 1, range.min, range.max, range.max + 1]) {
+      await openDesignData('project', { [key]: value });
+      const accepted = value >= range.min && value <= range.max;
+      const expected = accepted ? value : fallback;
+      expect(designData()[key as keyof typeof ranges]).toBe(sheets ? expected : undefined);
+      const saved = JSON.parse(serializeProject()).snapshot.designData;
+      expect(saved[key]).toBe(sheets ? expected : value);
+    }
+  }
+  await openDesignData('project', {});
+  for (const key of Object.keys(ranges)) expect(JSON.parse(serializeProject()).snapshot.designData).not.toHaveProperty(key);
 });

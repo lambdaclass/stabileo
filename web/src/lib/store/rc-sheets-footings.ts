@@ -1,3 +1,4 @@
+import { sheetAssumptionDefaults } from '../model/sheet-design-assumptions';
 import { modelStore } from './model.svelte';
 import { criteriaOf } from '../rc-sheets/criteria';
 import { resultsStore } from './results.svelte';
@@ -39,7 +40,7 @@ const fcOfMaterial = (id: number | null | undefined): number | undefined =>
 export function soilOf(profileId: number | null): FootingSoil {
   const geo = modelStore.model.geotechnical;
   const p = findProfile(geo, profileId ?? geo?.defaultProfileId ?? null);
-  if (!p || p.bearing.kind !== 'allowablePressure' || !(p.bearing.allowableBearingKPa > 0)) return { name: '', allowable: designData().presumedBearingKPa, presumed: true };
+  if (!p || p.bearing.kind !== 'allowablePressure' || !(p.bearing.allowableBearingKPa > 0)) return { name: '', allowable: designData().presumedBearingKPa ?? sheetAssumptionDefaults.presumedBearingKPa, presumed: true };
   return {
     name: p.name, allowable: p.bearing.allowableBearingKPa,
     ...(p.bearing.edgeFactor ? { edgeFactor: p.bearing.edgeFactor } : {}),

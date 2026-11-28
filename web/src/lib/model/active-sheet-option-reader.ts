@@ -45,3 +45,5 @@ export function readSheetRecord(raw: unknown): { rcSheets?: StoredRcSheets } {
     adopted: { ...(row.adopted as StoredRcSheets['adopted']) },
   } };
 }
+
+export { readSheetAssumptions } from './sheet-design-assumptions';

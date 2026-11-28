@@ -12,13 +12,14 @@ import type { OccupancyBasis } from '../provenance/occupancy-selection';
  */
 import { BEAM_BAR_RANGE, COLUMN_BAR_RANGE, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, WALL_BAR_RANGE, inRange, type SlabFace } from './reinforcement-bars';
 import { unifiedPlates } from '../features';
-import { AGGREGATE_RANGE, DEFAULT_AGGREGATE_MM, DEFAULT_MIN_TIE_SPACING } from '../rc-sheets/types';
+import type { ArchivedSheetAssumptions } from './stored-design-data';
+import type { PresumedPile } from './sheet-design-assumptions';
 import { migrateSeismicDesign } from './seismic-design';
-import { readSheetOptions, readSheetRecord } from './sheet-option-reader';
+import { readSheetOptions, readSheetRecord, readSheetAssumptions } from './sheet-option-reader';
 import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
 import { specifiedCoverMm } from '../codes/cirsoc201/cover';
-import { PROPERTY_SIDES, type PropertyLines } from './foundation/edges';
+import { PROPERTY_SIDES, type PropertyLines } from './foundation/support-axes';
 import { placementWithLegacy } from './stored-placement';
 
 export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
@@ -62,15 +63,15 @@ export interface ProjectDesignData {
   /** The diameters a slab's meshes may choose from, mm, within `SLAB_BAR_RANGE`. */
   slabDiametersMm: number[];
   /** The closest spacing stirrups, hoops and ties are proposed at, mm: room for the concrete to pass between them. */
-  minTieSpacingMm: number;
+  minTieSpacingMm?: number;
   /** The nominal size of the largest aggregate, mm: the 4/3·dagg of the clear spacing between bars (§25.2.1, §25.2.3; dg in EN 1992 8.2(2)). */
-  maxAggregateMm: number;
+  maxAggregateMm?: number;
   /** The diameters a wall's meshes may choose from, mm, within `WALL_BAR_RANGE`. */
   wallDiametersMm: number[];
   /** The wall bar a design without the list reads, mm: from `wallDiametersMm` (`preferredBar`), never stated. */
   wallBarDiaMm: number;
   /** The allowable bearing pressure footings are presized for where the model states no soil, kPa: a presumption to confirm with the soil study. */
-  presumedBearingKPa: number;
+  presumedBearingKPa?: number;
   /** The piles a pile foundation is designed with: their diameter and length, m, and, where the soil profile states no strata, the allowable load of one, kN: a presumption to confirm with the soil study. Absent: the defaults. */
   presumedPile?: PresumedPile;
   /** The sides of the building that are property lines: the footings there are held at the line, and the foundation tools read the same. Absent: none. */
@@ -157,7 +158,7 @@ export interface ProjectDesignData {
  * The design data as the project stores it: only what someone stated. What it leaves out is read
  * from the defaults in force (`migrateDesignData`), so a default that later changes is not frozen.
  */
-export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure' | 'designOptions'>>
+export type StoredDesignData = { version: 1 } & ArchivedSheetAssumptions & Partial<Omit<ProjectDesignData, keyof ArchivedSheetAssumptions | 'version' | 'covers' | 'exposure' | 'designOptions'>>
   & { designOptions?: Record<string, unknown>; covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
 
 export { migrateStoredDesignData } from './stored-design-data';
@@ -168,51 +169,8 @@ const propertyLinesOf = (v: unknown): PropertyLines | undefined => {
   return on.length ? Object.fromEntries(on.map((k) => [k, true])) : undefined;
 };
 
-/** The floor of the stirrups' spacing the project may state, mm. */
-export const MIN_TIE_SPACING_RANGE = { min: 25, max: 150 } as const;
-
-/** The founding elevation the project may state, m. */
-export const FOUNDING_RANGE = { min: -30, max: 30 } as const;
-
-/** The presumed allowable bearing pressure the project may state, kPa, and its default (1,5 kg/cm²). */
-export const PRESUMED_BEARING_RANGE = { min: 50, max: 1000, default: 150 } as const;
-
-/** A pile as the project presumes it: diameter and length, m, and allowable load, kN. */
-/** A layer of ground down to `to`, m below the ground at the column's foot, as a soil study gives its depths: the allowable shaft friction on the pile's skin there and the allowable tip pressure under a pile ending in it, kPa, as the soil study gives them. */
-export interface PileLayer { to: number; shaft: number; tip: number }
-export interface PresumedPile {
-  diameter: number; length: number; capacity: number;
-  /** More piles the design may use, each its diameter and, where no ground is stated, its allowable load: every cap tries them all and keeps the one that verifies with the least concrete. */
-  more?: Array<{ diameter: number; capacity: number }>;
-  /** The ground by depth, top down: where stated, the pile's allowable load is read from it, tip on its section and friction on its skin, and `capacity` is not used. */
-  layers?: PileLayer[];
-}
-
-/** The presumed pile's ranges and defaults: a bored pile of 50 cm, 12 m long, 600 kN allowable. */
-export const PRESUMED_PILE_RANGE = { diameter: { min: 0.3, max: 1.5, default: 0.5 }, length: { min: 3, max: 50, default: 12 }, capacity: { min: 100, max: 10000, default: 600 } } as const;
-
-/** How many piles besides the first the design tries. */
-export const MORE_PILES_MAX = 5;
-
-/** The presumed pile with the defaults where it states none. */
-export const presumedPileOf = (p: Partial<PresumedPile> | undefined): PresumedPile => {
-  const pick = (k: 'diameter' | 'length' | 'capacity') => { const v = p?.[k], r = PRESUMED_PILE_RANGE[k]; return typeof v === 'number' && Number.isFinite(v) && v >= r.min && v <= r.max ? v : r.default; };
-  const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
-  const layers = Array.isArray(p?.layers)
-    ? p!.layers.filter((l): l is PileLayer => !!l && num(l.to, 0.1, 200) && num(l.shaft, 0, 2000) && num(l.tip, 0, 50000)).sort((a, b) => a.to - b.to)
-    : [];
-  const R = PRESUMED_PILE_RANGE, diameter = pick('diameter');
-  const more = Array.isArray(p?.more)
-    ? p!.more.filter((x) => !!x && num(x.diameter, R.diameter.min, R.diameter.max) && num(x.capacity, R.capacity.min, R.capacity.max))
-      .filter((x, i, all) => Math.abs(x.diameter - diameter) > 1e-9 && all.findIndex((y) => Math.abs(y.diameter - x.diameter) < 1e-9) === i).slice(0, MORE_PILES_MAX)
-      .map((x) => ({ diameter: x.diameter, capacity: x.capacity }))
-    : [];
-  return { diameter, length: pick('length'), capacity: pick('capacity'), ...(more.length ? { more } : {}), ...(layers.length ? { layers } : {}) };
-};
-
-/** The layers as strata top down, each as thick as the step to its bottom. */
-export const pileLayerStrata = (layers: readonly PileLayer[]): Array<{ name: string; thickness: number; shaftFrictionKPa: number; tipResistanceKPa: number }> =>
-  layers.map((l, i) => ({ name: `${i + 1}`, thickness: l.to - (i ? layers[i - 1]!.to : 0), shaftFrictionKPa: l.shaft, tipResistanceKPa: l.tip }));
+export { FOUNDING_RANGE, MIN_TIE_SPACING_RANGE, MORE_PILES_MAX, PRESUMED_BEARING_RANGE, PRESUMED_PILE_RANGE, pileLayerStrata, presumedPileOf } from './sheet-design-assumptions';
+export type { PileLayer, PresumedPile } from './sheet-design-assumptions';
 
 /** Every diameter the bar table knows, mm. */
 export const BAR_DIAMETERS_MM: readonly number[] = REBAR_DB.map((r) => r.diameter);
@@ -222,6 +180,7 @@ export const preferredBar = (list: readonly number[], usual: number): number =>
   list.includes(usual) ? usual : [...list].sort((p, q) => p - q).find((x) => x > usual) ?? Math.max(...list);
 
 export function defaultDesignData(): ProjectDesignData {
+  const assumptions = readSheetAssumptions?.();
   const stirrups = BAR_DIAMETERS_MM.filter((d) => d <= 12), walls = BAR_DIAMETERS_MM.filter((d) => inRange(d, WALL_BAR_RANGE) && d <= 16);
   return {
     version: 1,
@@ -234,11 +193,10 @@ export function defaultDesignData(): ProjectDesignData {
     longDiametersMm: BAR_DIAMETERS_MM.filter((d) => d >= 10),
     stirrupDiametersMm: stirrups,
     slabDiametersMm: [...SLAB_MESH_DIAMETERS],
-    minTieSpacingMm: DEFAULT_MIN_TIE_SPACING * 1000,
-    maxAggregateMm: DEFAULT_AGGREGATE_MM,
+    ...assumptions?.detailing,
     wallDiametersMm: walls,
     wallBarDiaMm: preferredBar(walls, 12),
-    presumedBearingKPa: PRESUMED_BEARING_RANGE.default,
+    ...assumptions?.foundation,
   };
 }
 
@@ -298,6 +256,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
     return Object.fromEntries(DESIGN_KINDS.map((k) => [k, ok(o[k]) ? o[k] : fb[k]])) as Record<DesignKind, T>;
   };
+  const assumptions = readSheetAssumptions?.(e);
   const stirrups = known(e.stirrupDiametersMm, def.stirrupDiametersMm);
   const walls = known(Array.isArray(e.wallDiametersMm) ? e.wallDiametersMm.filter((x) => inRange(x as number, WALL_BAR_RANGE)) : undefined, def.wallDiametersMm);
   const selectedBar = (stored: unknown, allowed: number[], fallback: number) => {
@@ -314,14 +273,12 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     longDiametersMm: known(e.longDiametersMm, def.longDiametersMm),
     stirrupDiametersMm: stirrups,
     slabDiametersMm: known(Array.isArray(e.slabDiametersMm) ? e.slabDiametersMm.filter((x) => inRange(x as number, SLAB_BAR_RANGE)) : undefined, def.slabDiametersMm),
-    minTieSpacingMm: typeof e.minTieSpacingMm === 'number' && Number.isFinite(e.minTieSpacingMm) && e.minTieSpacingMm >= MIN_TIE_SPACING_RANGE.min && e.minTieSpacingMm <= MIN_TIE_SPACING_RANGE.max ? e.minTieSpacingMm : def.minTieSpacingMm,
-    maxAggregateMm: typeof e.maxAggregateMm === 'number' && Number.isFinite(e.maxAggregateMm) && e.maxAggregateMm >= AGGREGATE_RANGE.min && e.maxAggregateMm <= AGGREGATE_RANGE.max ? e.maxAggregateMm : def.maxAggregateMm,
+    ...assumptions?.detailing,
     wallDiametersMm: walls,
     wallBarDiaMm: selectedBar(e.wallBarDiaMm, walls, def.wallBarDiaMm),
-    presumedBearingKPa: typeof e.presumedBearingKPa === 'number' && Number.isFinite(e.presumedBearingKPa) && e.presumedBearingKPa >= PRESUMED_BEARING_RANGE.min && e.presumedBearingKPa <= PRESUMED_BEARING_RANGE.max ? e.presumedBearingKPa : def.presumedBearingKPa,
-    ...(e.presumedPile && typeof e.presumedPile === 'object' ? { presumedPile: presumedPileOf(e.presumedPile as Partial<PresumedPile>) } : {}),
+    ...assumptions?.foundation,
     ...((l) => (l ? { propertyLines: l } : {}))(propertyLinesOf(e.propertyLines)),
-    ...(typeof e.foundingElevation === 'number' && Number.isFinite(e.foundingElevation) && e.foundingElevation >= FOUNDING_RANGE.min && e.foundingElevation <= FOUNDING_RANGE.max ? { foundingElevation: e.foundingElevation } : {}),
+    ...assumptions?.elevation,
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
     ...((o) => (o ? { designOptions: o } : {}))(readSheetOptions?.(e.designOptions, e.rcSheets)),
     ...(e.executionControl === false ? { executionControl: false as const } : {}),

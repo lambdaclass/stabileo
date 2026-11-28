@@ -8,6 +8,7 @@
    * Each says the clause it applies under the code the sheets design to, and why it does not apply
    * where it does not.
    */
+  import { sheetAssumptionDefaults } from '../../../lib/model/sheet-design-assumptions';
   import Hint from '../Hint.svelte';
   import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
@@ -30,7 +31,7 @@
   import { PROPERTY_SIDES } from '../../../lib/model/foundation/edges';
 
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
-  const d = $derived.by(() => { void modelStore.designData; return designData(); });
+  const d = $derived.by(() => { void modelStore.designData; return { ...sheetAssumptionDefaults, ...designData() }; });
   const o = $derived.by(() => { void modelStore.designData; return rcSheetsData(); });
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const rule = (k: DesignOptionKey) => ((r) => ({ ...r, clause: localizeCriterion(r.clause, t) }))(optionRule(k, code));

@@ -8,8 +8,7 @@
 import { AXIS_TOLERANCE, axisAnchors, inwardFooting, type PropertyLines, type PlanPoint } from './support-axes';
 
 export type { PropertyLines };
-export type PropertySide = keyof PropertyLines;
-export const PROPERTY_SIDES: readonly PropertySide[] = ['minX', 'maxX', 'minY', 'maxY'];
+export { PROPERTY_SIDES, type PropertySide } from './support-axes';
 
 /** A point with the half widths of the column on it, m: its faces are what meets a line. */
 type Faced = PlanPoint & { hx?: number; hy?: number };

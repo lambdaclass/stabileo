@@ -1,3 +1,4 @@
+import { DEFAULT_MIN_TIE_SPACING } from '../model/sheet-design-assumptions';
 import { inRange } from '../model/reinforcement-bars';
 import type { WallReinforcement } from '../design-contract/reinforcement';
 
@@ -27,11 +28,11 @@ export { SLAB_MESH_DIAMETERS, SLAB_BAR_RANGE, BEAM_BAR_RANGE, COLUMN_BAR_RANGE, 
 /** The stirrups, hoops and ties a context may use when it states none, mm. */
 export const DEFAULT_TIE_DIAMETERS: readonly number[] = [6, 8, 10, 12];
 /** The closest stirrups, hoops and ties are proposed, m, when the project states none: room for the concrete to pass. */
-export const DEFAULT_MIN_TIE_SPACING = 0.075;
+export { DEFAULT_MIN_TIE_SPACING } from '../model/sheet-design-assumptions';
 /** The nominal size of the largest aggregate, mm, when the project states none: the usual 19 mm (3/4"). */
-export const DEFAULT_AGGREGATE_MM = 19;
+export { DEFAULT_AGGREGATE_MM } from '../model/sheet-design-assumptions';
 /** The largest aggregate a project may state, mm. */
-export const AGGREGATE_RANGE = { min: 6, max: 50 } as const;
+export { AGGREGATE_RANGE } from '../model/sheet-design-assumptions';
 
 export interface TransverseList {
   /** The diameters the project allows for stirrups, hoops and ties, mm. */

@@ -1,4 +1,6 @@
 export type PropertyLines = { minX?: boolean; maxX?: boolean; minY?: boolean; maxY?: boolean };
+export type PropertySide = keyof PropertyLines;
+export const PROPERTY_SIDES: readonly PropertySide[] = ['minX', 'maxX', 'minY', 'maxY'];
 export type PlanPoint = { id: number; x: number; y: number };
 export const AXIS_TOLERANCE = 1e-3;
 const STRAP_CONE = Math.PI / 12;

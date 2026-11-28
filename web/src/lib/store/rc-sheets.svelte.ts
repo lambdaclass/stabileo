@@ -1,3 +1,4 @@
+import { sheetAssumptionDefaults } from '../model/sheet-design-assumptions';
 import { sheetStairs } from './rc-sheets-stairs';
 import type { StairRow } from '../rc-sheets/stair-row';
 import { tp } from '../i18n';
@@ -535,7 +536,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const rules = rulesFor(code);
   const codeName = SHEET_CODES[code].name;
   if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], footing: [], stair: [], code: codeName, basis, combos: 0 };
-  const dd = designData();
+  const dd = { ...sheetAssumptionDefaults, ...designData() };
   const adoptedNow = liveAdopted(rcSheetsData(), code);
   const data = rcSheetsData();
   const key = basis === 'combinations' ? resultsStore.perCombo3D : sets[0]!.result;

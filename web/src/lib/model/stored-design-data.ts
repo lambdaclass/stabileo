@@ -3,6 +3,9 @@ import { readSheetOptions } from './sheet-option-reader';
 import { unifiedPlates } from '../features';
 import { DESIGN_KINDS, migrateDesignData, type StoredDesignData } from './design-data';
 
+const sheetAssumptionKeys = ['minTieSpacingMm', 'maxAggregateMm', 'presumedBearingKPa', 'presumedPile', 'foundingElevation'] as const;
+export type ArchivedSheetAssumptions = Partial<Record<(typeof sheetAssumptionKeys)[number], unknown>>;
+
 const STATED_BY_DEFAULT = ['stirrupDiaMm', 'wallBarDiaMm', 'rebarGrade', 'rebarFy', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'wallDiametersMm', 'minTieSpacingMm', 'maxAggregateMm', 'presumedBearingKPa'] as const;
 const derivedDesignKeys: readonly string[] = unifiedPlates() ? ['stirrupDiaMm', 'wallBarDiaMm'] : [];
 
@@ -22,6 +25,9 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
     if (kinds.length) out[k] = Object.fromEntries(kinds.map((kind) => [kind, full[k][kind]]));
   }
   if (!readSheetOptions) {
+    for (const key of sheetAssumptionKeys) {
+      if (Object.hasOwn(e, key)) out[key] = e[key];
+    }
     if (e.rcSheets && typeof e.rcSheets === 'object' && !Array.isArray(e.rcSheets)) out.rcSheets = { ...e.rcSheets };
     const options = retainedSheetOptions(e.designOptions, e.rcSheets);
     if (options) out.designOptions = options;
