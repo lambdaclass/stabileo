@@ -29,6 +29,7 @@ export const switchOnUnitFiles = [
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/lib/data/__tests__/core-foundation.test.ts',
   'src/lib/engine/design/__tests__/beam-slab-plane.test.ts',
   'src/lib/store/__tests__/plate-offset-accounting.test.ts',
   'src/lib/store/__tests__/apply-load-plan-unmarked.test.ts',

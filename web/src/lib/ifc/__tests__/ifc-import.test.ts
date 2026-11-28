@@ -23,7 +23,7 @@ describe('a building file brought in by one call', () => {
   });
 });
 
-it.skip('known wrong result: #1928 the released IFC feet command assigns point supports on an existing wall', async () => {
+it('known wrong result: #1928 the released IFC feet command assigns point supports on an existing wall', async () => {
   const { createPlate, plateEntry, planPlateMesh, applyPlateMeshes } = await import('../../store/physical-plates');
   const { fixBases } = await import('../ifc-physical');
   modelStore.clear();

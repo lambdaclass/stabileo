@@ -431,7 +431,7 @@ export function createPlate(p: NewPlate): { id: number } | { problem: PlateProbl
   if (problem) return { problem };
   p = { ...p, outline: arcs.outline };
   const mids = [...arcs.arcMids, ...(p.holeArcMids ?? []).map((i) => p.outline.length + i)];
-  const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, edgeSupports: [], ...(mids.length ? { arcMids: mids } : {}) };
+  const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, ...(unifiedPlates() ? { edgeSupports: [] } : {}), ...(mids.length ? { arcMids: mids } : {}) };
   const temp = { id: 0, members: { nodes: [...p.outline, ...holes.flat()] }, data: { surface } };
   const geo = plateGeometry(plateModel(), temp)!;
   const kind = plateKindOf(geo);
@@ -1286,7 +1286,7 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
       for (const q of r.quads) modelStore.setShellOffset('quad', q, e.surface.offset);
       for (const t of r.plates) modelStore.setShellOffset('plate', t, e.surface.offset);
     }
-    writeSurface(p.id, (s) => ({ ...s, edgeSupports: edges, mesh: p.spec, meshed: { ...meshedKey(p.signature), cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supports.length ? {
+    writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { ...meshedKey(p.signature), cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supports.length ? {
       supported: supports.map(support => support.nodeId),
       supportIds: supports.map(support => support.id),
     } : {}) } }));

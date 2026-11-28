@@ -5,8 +5,7 @@
  * left out. Bars and shells share their nodes where they meet; the bars are cut at the shells'
  * nodes once the fragment is in the model (`connectShells`).
  */
-import { holdPlateSidesAt, physicalPlates } from '../store/physical-plates';
-import { ensurePlates } from '../store/plates-from-shells';
+import { wallFoundation } from '../model/foundation/wall-foundation';
 import type { Fragment } from '../model/edit/fragment';
 import { generateMesh } from '../model/edit/mesher';
 import { splitAtNodes } from '../model/edit/cut-members';
@@ -189,8 +188,7 @@ export function fixBases(tol = 1e-3): number {
     modelStore.addSupport(n, 'fixed3d' as never);
     added++;
   }
-  ensurePlates();
-  for (const p of physicalPlates()) if (p.physical.kind === 'wall') holdPlateSidesAt(p.id, zMin, 'fixed3d');
+  wallFoundation?.holdWallBases(zMin);
   return added;
 }
 

@@ -80,9 +80,12 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
         if (features.proRcSheets && id === './sheet-option-reader' && importer && dirname(importer) === resolve(__dirname, 'src/lib/model')) {
           return resolve(dirname(importer), 'active-sheet-option-reader.ts');
         }
-        if (importer && ((features.proRcSheets && id === './sheet-anchors') || (features.proPlatesUnified && id === './wall-foundation'))
+        if (importer && features.proRcSheets && id === './sheet-anchors'
           && dirname(importer) === resolve(__dirname, 'src/lib/model/foundation')) {
           return resolve(dirname(importer), 'active-' + id.slice(2) + '.ts');
+        }
+        if (features.proPlatesUnified && importer && id.endsWith('/wall-foundation') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/model/foundation/wall-foundation')) {
+          return resolve(__dirname, 'src/lib/model/foundation/active-wall-foundation.ts');
         }
         if (features.proPlatesUnified && importer && id.endsWith('/selected-floor-load') && resolve(dirname(importer), id) === resolve(__dirname, 'src/lib/store/selected-floor-load')) {
           return resolve(__dirname, 'src/lib/store/selected-floor-load-enabled.svelte.ts');

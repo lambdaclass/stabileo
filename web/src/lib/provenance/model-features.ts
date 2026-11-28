@@ -71,7 +71,7 @@ export const GLOBAL_AXES_EVIDENCE = 'axisNamedLoads';
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'native:supplied-linear-certificate',
+  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'example:pro-edificio-7p', 'sevenStoreyCoreMissingSupport', 'native:supplied-linear-certificate',
   'native:planar-nodal-vector', 'native:analysis-wire-unknown-fields', 'native:wasm-iterable-solver-tables',
   'native:duplicate-json-connector-keys', 'native:staged-unconsumed-tables', 'native:staged-unknown-fields',
   'native:duplicate-json-analysis-table-keys', 'native:wasm-iterable-load-fields', 'native:producer-wire-metadata',
@@ -594,6 +594,18 @@ function hasSubthresholdPlateOffset(snapshot: FeatureSnapshot, ids: ReadonlySet<
     (group?.members?.quads?.some(cell => quads.has(cell)) || group?.members?.plates?.some(cell => triangles.has(cell))));
 }
 
+function sevenStoreyCoreMissingSupport(s: FeatureSnapshot): boolean {
+  const walls = [[57, 1, 120, 123, 13], [58, 1, 118, 121, 13], [59, 119, 120, 123, 122]];
+  if (!s.quads || s.quads.length < walls.length) return false;
+  const cells = new Map(s.quads);
+  if (!walls.every(([id, ...corners]) => {
+    const nodes = cells.get(id!)?.nodes;
+    return Array.isArray(nodes) && nodes.length === corners.length && corners.every(n => nodes.includes(n));
+  })) return false;
+  const fixed = new Set(values(s.supports).filter(s => s.type === 'fixed3d').map(s => s.nodeId));
+  return [1, 118, 119, 120].some(id => !fixed.has(id));
+}
+
 function hasIndividualNearLevelFlange(s: FeatureSnapshot, concrete: (e: Elem) => boolean): boolean {
   if (!s.quads?.length) return false;
   const grouped = new Set(values(s.groups).filter(g => g.kind === PHYSICAL_GROUP_KIND
@@ -752,6 +764,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (jd && (Array.isArray(jd) ? jd.length : typeof jd === 'object' && Object.keys(jd as object).length)) f.add('jointDesigns');
 
   const quads = values(s.quads);
+  if (sevenStoreyCoreMissingSupport(s)) f.add('sevenStoreyCoreMissingSupport');
   const massCarriers = [...elements, ...quads, ...values(s.plates), ...values(s.quad9s), ...values(s.solidShells), ...values(s.curvedShells)];
   let minElasticModulus = Infinity;
   let maxElasticModulus = 0;
