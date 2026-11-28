@@ -1110,12 +1110,17 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     const xLeft = theoreticalCutoff(input.stations, 'mPos', peakPos, retained, midpoint, 0);
     const xRight = theoreticalCutoff(input.stations, 'mPos', peakPos, retained, midpoint, input.L);
 
+    const calculated = xLeft === null || xRight === null ? null : {
+      theoreticalLeft: xLeft, theoreticalRight: xRight,
+      left: cutoffPosition(xLeft, input.d, input.bottom.diameterMm, false),
+      right: cutoffPosition(xRight, input.d, input.bottom.diameterMm, true),
+    };
+
     if (edited) {
       // The person's cut points. Checked against where §9.7.3.3 would let the bars stop.
       const from = Math.max(0, input.cuts!.bottomFrom!), to = Math.min(input.L, input.cuts!.bottomTo!);
-      if (xLeft !== null && xRight !== null) {
-        const l = cutoffPosition(xLeft, input.d, input.bottom.diameterMm, false);
-        const r = cutoffPosition(xRight, input.d, input.bottom.diameterMm, true);
+      if (calculated) {
+        const { left: l, right: r } = calculated;
         if (from > l + 1e-3 || to < r - 1e-3) {
           unsupported.push(`Corte editado de ${curtailable}Ø${input.bottom.diameterMm} inferiores en x = ${from.toFixed(2)}–${to.toFixed(2)} m, ` +
             `más corto que el que admite 9.7.3.3 (${Math.max(0, l).toFixed(2)}–${Math.min(input.L, r).toFixed(2)} m).`);
@@ -1137,13 +1142,14 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
           ownerElementIds: [input.elementId], edition: input.edition,
         }));
       }
-    } else if (xLeft === null || xRight === null) {
+    } else if (!calculated || calculated.left <= (input.supportFaceI ?? 0)
+      || input.L - calculated.right <= (input.supportFaceJ ?? 0)) {
       // NOT an unsupported condition. Running the bottom bars continuous is the correct
       // and conservative outcome when the envelope never drops far enough to curtail —
       // §9.7.3.8 requires continuity into the supports regardless. Reporting it as
       // unsupported held every ordinary beam at COORDINATED and made CONSTRUCTIBLE, and
       // therefore the whole review-and-issue workflow, unreachable in practice.
-      trace.push('Sin punto de corte teórico: la armadura inferior se corre completa.');
+      trace.push('Sin dos cortes dentro de la luz libre: la armadura inferior se corre completa.');
       for (let i = 0; i < curtailable; i++) {
         const o = botSlots[continuing + i] ?? { layer: 0, x: 0, y: 0, z: 0 };
         barLayers[`e${input.elementId}-bot-run-${i}`] = o.layer;
@@ -1154,8 +1160,8 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
         }));
       }
     } else {
-      const from = Math.max(0, termination(xLeft, input.bottom.diameterMm, false, 'Corte izquierdo'));
-      const to = Math.min(input.L, termination(xRight, input.bottom.diameterMm, true, 'Corte derecho'));
+      const from = termination(calculated.theoreticalLeft, input.bottom.diameterMm, false, 'Corte izquierdo', calculated.left);
+      const to = termination(calculated.theoreticalRight, input.bottom.diameterMm, true, 'Corte derecho', calculated.right);
       for (let i = 0; i < curtailable; i++) {
         const o = botSlots[continuing + i] ?? { layer: 0, x: 0, y: 0, z: 0 };
         barLayers[`e${input.elementId}-bot-cut-${i}`] = o.layer;

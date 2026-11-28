@@ -6,6 +6,8 @@ Regenerate beam detailing before relying on a previous cutoff or stirrup schedul
 
 In the one-bay regression the right top cut lies at 4.668 m. Its bracketing absolute shears are 70 and 105 kN. The Ø20 bottom bars govern the depth bound. With 25 mm cover, an Ø8 stirrup and a 20 mm bend centreline radius, the effective depth is 600 − 25 − 4 − [20 − (20 − 14)/√2] = 555.243 mm. The section has zero axial load. Under CIRSOC 201-2025 Table 22.5.5.1, the concrete contributes 0.17√25 × 300 × 555.243 / 1000 = 141.587 kN. Two 50.3 mm² legs at 150 mm add 2 × 50.3 × 420 × 555.243 / (150 × 1000) = 156.401 kN. Two thirds of the design resistance is 148.994 kN, displayed as 149.0 kN. Both 105 kN at the top cut and 140 kN at the bottom cut meet that limit. The old integration trace reported 93.3 or 186.7 kN according to the remote demand.
 
+If an automatically calculated bottom-bar cutoff reaches either support face, the detailer now continues those bars into the supports and applies the existing end anchorage and coordination checks. A manually placed cutoff still requires evidence of adequate resistance where the bar actually ends.
+
 ## Commercial stock for spliced bars
 
 Regenerate the schedule and workbook for marks longer than a commercial stock bar. Each mark now reports the purchased lengths needed for its cutting length and declared pieces, together with the unused length and a translated splice note.

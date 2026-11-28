@@ -1,7 +1,9 @@
 {
   "id": "beam-cutoff-section-shear",
   "date": "2026-11-27",
-  "prs": [],
+  "prs": [
+    2670
+  ],
   "area": "design",
   "when": {
     "any": [

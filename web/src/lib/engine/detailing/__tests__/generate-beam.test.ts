@@ -206,7 +206,7 @@ describe('beam bar generation', () => {
     expect(cut[0].cuttingLength).toBeLessThan(cont.cuttingLength);
   });
 
-  it.skip.each(['I', 'J'] as const)('known wrong result: #2670 automatic bottom bars run into the support when a cut reaches face %s', side => {
+  it.each(['I', 'J'] as const)('known wrong result: #2670 automatic bottom bars run into the support when a cut reaches face %s', side => {
     const beam = input();
     const bare = generateBeamBars(beam);
     const limits = bare.cutoffs.slice(0, 2).map(cut => cut.actual);
