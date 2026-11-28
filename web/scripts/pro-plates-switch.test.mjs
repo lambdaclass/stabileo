@@ -777,7 +777,7 @@ test('known wrong result: #1928 the design-data reader imports the sheet option 
   }
 });
 
-test.skip('known wrong result: #1928 the building slab controls load only the mesh commands used by their profile', async () => {
+test('known wrong result: #1928 the building slab controls load only the mesh commands used by their profile', async () => {
   const entry = resolve(root, 'src/components/pro/building/BuildingSlabs.svelte');
   for (const plates of [false, true]) {
     await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
@@ -790,6 +790,22 @@ test.skip('known wrong result: #1928 the building slab controls load only the me
       const imports = Object.keys(chunk.importedBindings);
       assert.equal(imports.some(id => id.endsWith('/physical-plates')), plates);
       assert.equal(imports.some(id => id.endsWith('/deferred-slabs')), !plates);
+    });
+  }
+});
+
+test.skip('known wrong result: #1928 the published deferred-column footprint grid excludes the unified triangle subdivision', async () => {
+  for (const plates of [false, true]) {
+    await withProductionFeatures({ ...featuresForMode('production'), proPlatesUnified: plates }, async configFile => {
+      const entry = resolve(root, 'src/lib/model/building/deferred-slabs.ts');
+      const result = await build({ root, configFile, logLevel: 'silent', build: {
+        write: false, minify: false, lib: { entry, formats: ['es'] }, rollupOptions: {
+          external: (id, from) => !!from && !id.endsWith('/column-footprints'),
+        },
+      } });
+      const chunk = (Array.isArray(result) ? result[0] : result).output.find(x => x.type === 'chunk');
+      assert.ok(chunk.code.includes('sideStations'));
+      assert.doesNotMatch(chunk.code, /cells\.push\(\[c\[0\], c\[1\], c\[2\]\]/);
     });
   }
 });
