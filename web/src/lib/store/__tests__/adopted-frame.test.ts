@@ -14,6 +14,8 @@ import { modelStore, resultsStore, uiStore } from '../index';
 import { memoriaInput } from '../memoria-inputs';
 import { deflectionChecks } from '../serviceability';
 import saved from './fixtures/adopted-frame.json';
+import placementNotice from '../../provenance/result-changes/saved-placement-offsets.json';
+import { registryLocale } from '../../provenance/registry';
 
 beforeAll(async () => { await initSolver(); });
 afterEach(() => {
@@ -130,9 +132,19 @@ it('identifies inactive placement rules before calculation, including legacy col
     project.designData = rules as ModelSnapshot['designData'];
     modelStore.restore(project);
     const expected = !sheets && active;
-    expect(render(AdoptedReinforcementNotice).body.includes('data-testid="stored-placement-offsets"')).toBe(expected);
+    const body = render(AdoptedReinforcementNotice).body;
+    expect(body.includes('data-testid="stored-placement-offsets"')).toBe(expected);
+    expect(body.includes(t('recheck.loading'))).toBe(expected);
     expect([...modelFeatures({ designData: project.designData })].map(String).includes('inactivePlacementRules')).toBe(expected);
   }
+});
+
+it('loads the stored-offsets notice in every locale from the lazily loaded result changes', async () => {
+  const { noticeExplanation } = await import('../../provenance/applicability');
+  for (const locale of allShippedLocales()) {
+    expect(noticeExplanation('saved-placement-offsets', locale)).toBe(placementNotice.explanation[registryLocale(locale, placementNotice.explanation)]);
+  }
+  expect(noticeExplanation('saved-placement-offsets', 'en')).toBe(placementNotice.explanation.en);
 });
 
 it('keeps placement editing and specification navigation in the build that applies the rules', async () => {

@@ -36,8 +36,8 @@ export interface RecheckAssessment {
   maybe: string[];
 }
 
-export function combinedSectionShearExplanation(locale: string): string | undefined {
-  const notice = RESULT_CHANGES.changes.find(change => change.id === 'combined-section-shear-refusal');
+export function noticeExplanation(id: string, locale: string): string | undefined {
+  const notice = RESULT_CHANGES.changes.find(change => change.id === id);
   return notice ? notice.explanation[registryLocale(locale, notice.explanation)] : undefined;
 }
 
