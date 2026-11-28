@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, createServer, resolveConfig } from 'vite';
 import { readRegistry, readRegistryAt } from './result-changes/registry.mjs';
@@ -946,5 +947,28 @@ test('either reinforcement consumer reads the stored mesh bar lists; only the un
         assert.deepEqual(read, [plates || sheets ? [8, 10] : undefined, plates || sheets ? [8, 12] : undefined, plates ? 12 : 10, sheets]);
       });
     }
+  }
+});
+
+test.skip('known wrong result: #1928 a validated released profile compiles absent plate and sheet selectors as disabled', async () => {
+  const revision = '4ec9619b4c5e742bf282dd33e0809b3f0e813d1f';
+  const directory = mkdtempSync(resolve(root, 'scripts/.released-profile-'));
+  const configFile = resolve(root, basename(directory) + '.mts');
+  try {
+    for (const file of ['features.json', 'public-features.mjs']) {
+      writeFileSync(resolve(directory, file), execFileSync('git', ['show', revision + ':web/config/' + file], { cwd: root }));
+    }
+    const schema = './scripts/' + basename(directory) + '/public-features.mjs';
+    writeFileSync(configFile, readFileSync(resolve(root, 'vite.config.ts'), 'utf8').replace("'./config/public-features.mjs'", JSON.stringify(schema)));
+    const released = await resolveConfig({ root, configFile }, 'build', 'production');
+    const current = await resolveConfig({ root }, 'build', 'production');
+    for (const key of ['proPlatesUnified', 'proRcSheets']) {
+      assert.equal(released.define['__PUBLIC_FEATURES__.' + key], 'false', key);
+      assert.equal(released.define['__PUBLIC_FEATURES__.' + key], current.define['__PUBLIC_FEATURES__.' + key]);
+    }
+    assert.equal(released.define['__PUBLIC_FEATURES__.diagramGame'], 'true');
+  } finally {
+    if (existsSync(configFile)) rmSync(configFile);
+    rmSync(directory, { recursive: true });
   }
 });
