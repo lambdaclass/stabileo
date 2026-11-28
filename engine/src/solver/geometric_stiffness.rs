@@ -155,9 +155,13 @@ impl KgTriplets {
     /// through `sym_mat_vec` and quadratically through `reduce_sparse` on the
     /// constrained path — eroding the O(nnz) win this assembly exists for.
     pub fn into_csc(self) -> CscMatrix {
-        let mut k = CscMatrix::from_triplets(self.nf, &self.rows, &self.cols, &self.vals);
+        let mut k = self.into_full_precision_csc();
         k.drop_below_threshold(1e-30);
         k
+    }
+
+    pub(crate) fn into_full_precision_csc(self) -> CscMatrix {
+        CscMatrix::from_triplets(self.nf, &self.rows, &self.cols, &self.vals)
     }
 }
 

@@ -4,6 +4,8 @@ defmodule StabileoWeb.RouterForwardTest do
   test "each prefix reaches the router that owns it", %{conn: conn} do
     for path <- [
           "/api/v1/projects",
+          "/api/v1/assignments",
+          "/api/v1/exams/K7Q2M9XWPA",
           "/api/v1/admin/projects",
           "/api/v1/admin/insights/summary",
           "/api/v1/admin/users"

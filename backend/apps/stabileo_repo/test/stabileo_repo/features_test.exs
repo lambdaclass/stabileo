@@ -26,6 +26,7 @@ defmodule StabileoRepo.FeaturesTest do
         {"usage_telemetry_enabled", :usage_telemetry_enabled?, :set_usage_telemetry_enabled},
         {"cloud_projects_enabled", :cloud_projects_enabled?, :set_cloud_projects_enabled},
         {"save_requires_account", :save_requires_account?, :set_save_requires_account},
+        {"assignments_enabled", :assignments_enabled?, :set_assignments_enabled},
         {"editor_requires_account", :editor_requires_account?, :set_editor_requires_account}
       ] do
     test "#{flag} starts off and persists both ways" do

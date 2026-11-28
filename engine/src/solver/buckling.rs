@@ -74,6 +74,10 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     super::linear::validate_input_2d_for_analysis(input, crate::known_issues::Analysis::Buckling)?;
     // 1. Linear solve to get axial forces
     let linear = super::linear::solve_2d(input)?;
+    buckling_system_of_linear_2d(input, linear)
+}
+
+fn buckling_system_of_linear_2d(input: &SolverInput, linear: AnalysisResults) -> Result<BucklingSystem2D, String> {
     let dof_num = DofNumbering::build_2d(input);
     let nf = dof_num.n_free;
 
@@ -147,6 +151,58 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     let neg_kg_csc = assemble(&[resolved]);
     let neg_kg_round_off_csc = has_round_off_member(&mean_n, &axial_noise).then(|| assemble(&[resolved, round_off]));
     Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, neg_kg_round_off_csc, inclined_transforms_2d, cs, mean_n, span_axial, axial_noise })
+}
+
+/// 1/λ_cr of `loads` from their linear result, without a new linear solve: the linear solve calls it.
+/// Round-off members enter compressed by their round-off, which can only raise it.
+pub(crate) fn critical_factor_reciprocal_2d(input: &SolverInput, loads: &[SolverLoad], linear: &AnalysisResults, compression: &HashMap<usize, f64>) -> Option<(f64, Option<f64>)> {
+    let model = SolverInput { loads: loads.to_vec(), ..input.clone() };
+    let system = buckling_system_of_linear_2d(&model, linear.clone()).ok()?;
+    let neg_kg = system.neg_kg_round_off_csc.as_ref().unwrap_or(&system.neg_kg_csc);
+    let (spectrum, _) = buckling_eigen(&system.k_ff, neg_kg, system.cs.as_ref(), 1);
+    let largest = spectrum?.values.last().copied()?;
+    let reciprocal = largest.is_finite().then(|| crate::check::positive_part(largest))?;
+    Some((reciprocal, continuous_frame_bound(input, &system, compression)))
+}
+
+fn continuous_frame_bound(input: &SolverInput, system: &BucklingSystem2D, compression: &HashMap<usize, f64>) -> Option<f64> {
+    use crate::linalg::sparse_chol::{sparse_negative_inertia, symbolic_cholesky};
+    if system.cs.is_some() || !input.connectors.is_empty() { return None; }
+    let numbering = &system.dof_num;
+    let nodes: HashMap<_, _> = input.nodes.values().map(|n| (n.id, n)).collect();
+    let materials: HashMap<_, _> = input.materials.values().map(|m| (m.id, m)).collect();
+    let sections: HashMap<_, _> = input.sections.values().map(|s| (s.id, s)).collect();
+    let nf = numbering.n_free;
+    let mut chord = KgTriplets::new(if system.inclined_transforms_2d.is_empty() { nf } else { numbering.n_total });
+    let mut local = 0.0_f64;
+    for e in crate::ordered::values(&input.elements) {
+        let force = *compression.get(&e.id)?;
+        if force <= 0.0 { continue; }
+        let (ni, nj) = (nodes.get(&e.node_i)?, nodes.get(&e.node_j)?);
+        let (dx, dz) = (nj.x - ni.x, nj.z - ni.z);
+        let length = dx.hypot(dz);
+        if !length.is_finite() || length <= 0.0 { return None; }
+        let geo = super::geometric_stiffness::truss_kg_2d(force / length, dx / length, dz / length);
+        let dofs = [numbering.global_dof(e.node_i, 0)?, numbering.global_dof(e.node_i, 1)?, numbering.global_dof(e.node_j, 0)?, numbering.global_dof(e.node_j, 1)?];
+        for i in 0..4 { for j in 0..4 { if dofs[i] >= dofs[j] { chord.add(dofs[i], dofs[j], geo[4 * i + j]); } } }
+        if e.elem_type == "truss" { continue; }
+        if e.elem_type != "frame" { return None; }
+        let (mat, sec) = (materials.get(&e.material_id)?, sections.get(&e.section_id)?);
+        let modulus = mat.e * 1000.0;
+        let bending = length.powi(2) / (std::f64::consts::PI.powi(2) * modulus * sec.iz);
+        let shear = sec.as_y.filter(|&area| area > 0.0).map_or(0.0, |area| 2.0 * (1.0 + mat.nu) / (modulus * area));
+        let ratio = force * (bending + shear);
+        if !ratio.is_finite() || ratio < 0.0 { return None; }
+        local = local.max(ratio);
+    }
+    if !system.inclined_transforms_2d.is_empty() { chord = chord.rotate_inclined(&system.inclined_transforms_2d, nf); }
+    let chord = chord.into_full_precision_csc();
+    if chord.values.iter().all(|&v| v == 0.0) { return Some(local); }
+    let top = buckling_eigen(&system.k_ff, &chord, None, 1).0?.values.last().copied()?;
+    let upper = top * (1.0 + 1e-8);
+    if !upper.is_finite() || upper <= 0.0 { return None; }
+    let shifted = CscMatrix::linear_combination(upper, &system.k_ff, -1.0, &chord);
+    (sparse_negative_inertia(&symbolic_cholesky(&shifted), &shifted) == Some(0)).then_some(local + upper)
 }
 
 /// Per member, the axial force that is round-off: 100 ε times the magnitudes N = EA·δ/L is

@@ -1,11 +1,11 @@
 import { WindPressureRefusal } from './wind-pressure-field';
-import { roofMembers, type WindModel, type RoofMember } from './wind-cases';
+import type { WindModel, RoofMember } from './wind-cases';
 import { roofSurfaceModel, snowSegmentCuts, containsSnowPanel, SnowRoofPlaneRefusal } from './snow-roof-surfaces';
 
 export function windRoofCarriers(model: WindModel, only?: ReadonlySet<number>) {
   const surfaces = roofSurfaceModel(model, only);
   const geometry = surfaces.geometry;
-  const members = roofMembers(model, only).map((m): RoofMember => {
+  const members = surfaces.carriers.map((m): RoofMember => {
     const planes = (() => { try { return surfaces.memberPlanes(m.id); } catch (error) { if (error instanceof SnowRoofPlaneRefusal) throw new WindPressureRefusal('wind.pressure.roofUnresolved'); throw error; } })();
     const length = Math.hypot(m.lh, m.dz);
     const cuts = snowSegmentCuts([m.a.x, m.a.y], [m.b.x, m.b.y], planes.map(p => p.polygon));

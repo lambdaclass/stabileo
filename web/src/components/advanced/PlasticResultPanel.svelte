@@ -3,10 +3,11 @@
    * The collapse analysis, as it happened: step through the events, see λ and
    * the hinges formed at each, and read the whole sequence in one table.
    */
-  import { t, tp } from '../../lib/i18n';
+  import { i18n, t, tp } from '../../lib/i18n';
   import { resultsStore } from '../../lib/store';
   import { DEFAULT_FY, type SectionMp } from '../../lib/engine/plastic-moments';
   import type { PlasticCollapseResult } from '../../lib/engine/plastic-collapse';
+  import { hingePlaceAt } from '../../lib/engine/plastic/hinge-place';
   import { fmtQ, fmtCoord, unitQ, toQ, sigQ } from '../../lib/store/display-units.svelte';
   import { plainNumber } from '../../lib/utils/units';
   import PlasticCertificate from './PlasticCertificate.svelte';
@@ -30,6 +31,7 @@
   const fy = (mpa: number) => `${plainNumber(toQ(mpa, 'stress'), 1)} ${unitQ('stress')}`;
   /** The assumed-fy note, with the value in the chosen unit. */
   const fyAssumedNote = () => t('advanced.mpFyAssumed').replace('{fy}', fy(DEFAULT_FY));
+  const factor = (v: number) => v.toLocaleString(i18n.locale, { minimumFractionDigits: 3, maximumFractionDigits: 3, useGrouping: false });
   const goTo = (k: number) => { resultsStore.plasticStep = k; plasticCourse.view = 'steps'; };
   /** Plastic rotation of hinge h at the step on screen (none before it forms, none for an axial yield). */
   const rotation = (h: number) => r?.steps[step]?.rotations?.[h];
@@ -40,7 +42,9 @@
   }
 </script>
 
-{#if r}
+{#if r?.historyUnavailable}
+  <p class="adv-result-info" data-testid="plastic-history-unavailable">{tp('course.plastic.historyUnavailable', { lambda: factor(r.collapseFactor) })}</p>
+{:else if r}
   <div class="adv-result-row">
     <button class="adv-result-btn" class:active={resultsStore.diagramType === 'plasticHinges'} onclick={() => { resultsStore.diagramType = 'plasticHinges'; plasticCourse.view = 'steps'; }}>{t('advanced.plasticLabel')}</button>
     <button class="small-btn" onclick={() => { if (step > 0) goTo(step - 1); }} disabled={step === 0} data-testid="plastic-prev">&#9664;</button>
@@ -56,7 +60,8 @@
     {/if}
     · GH = {Math.max(0, r.degree)}
   </div>
-  {#if collapseVerdict(r) === 'unresolved'}<p class="adv-result-info pl-unresolved" data-testid="plastic-unresolved">{t('course.plastic.unresolved')}</p>{/if}
+  {#if r.limit}<p class="adv-result-info pl-unresolved" data-testid="plastic-limit">{tp('course.plastic.limitOnly', { lambda: factor(r.limit.lambda), history: factor(r.limit.historyLambda) })}</p>
+  {:else if collapseVerdict(r) === 'unresolved'}<p class="adv-result-info pl-unresolved" data-testid="plastic-unresolved">{t('course.plastic.unresolved')}</p>{/if}
   <PlasticCertificate result={r} />
   <table class="pl-table" data-testid="plastic-hinges">
     <thead>
@@ -67,7 +72,7 @@
         <tr class:now={h.step === step} class:later={h.step > step}>
           <td>{i + 1}</td>
           <td>{h.elementId}{h.kind === 'axial' ? ` (${t('plastic.axial')})` : ''}{#if h.unloadedAt !== undefined && h.unloadedAt <= (r.steps[step]?.loadFactor ?? 0)}<span class="pl-closed" title={tp('course.plastic.closedTitle', { lambda: h.unloadedAt.toFixed(3) })}> · {t('course.plastic.closed')}</span>{/if}</td>
-          <td>{fmtCoord(h.x)}</td>
+          <td>{fmtCoord(hingePlaceAt(h, Math.max(step, h.step)).x)}</td>
           <td>{h.kind === 'axial' ? `N = ${fmtQ(h.moment, 'force')} ${unitQ('force')}` : `M = ${fmtQ(h.moment, 'moment')} ${unitQ('moment')}`}</td>
           <td>{h.loadFactor.toFixed(3)}</td>
           <td data-testid="plastic-rotation">{h.kind === 'axial' || h.step > step || rotation(i) === undefined ? '—' : fmtQ(Math.abs(rotation(i)!), 'rotation')}</td>
@@ -85,9 +90,9 @@
     <button class="small-btn" onclick={() => openMethod('plasticKinematic')} data-testid="plastic-open-kinematic">{t('steps.m.plasticKinematic.title')}</button>
     <button class="small-btn" onclick={() => openMethod('plasticStatic')} data-testid="plastic-open-static">{t('steps.m.plasticStatic.title')}</button>
   </div>
-  {#each mps as m (m.sectionId)}
+  {#each mps as m (m.memberIds[0])}
     <div class="adv-result-info" data-testid="plastic-mp">
-      {m.name}: Mp = {fmtQ(m.mp, 'moment')} {unitQ('moment')} (Zp = {sigQ(m.zp, 'sectionModulus')} {unitQ('sectionModulus')}, fy = {fy(m.fy)}) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {fyAssumedNote()}{/if}
+      {m.name} · {t('plastic.member')} {m.memberIds.join(', ')}: Mp = {fmtQ(m.mp, 'moment')} {unitQ('moment')} (Zp = {sigQ(m.zp, 'sectionModulus')} {unitQ('sectionModulus')}, fy = {fy(m.fy)}) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {fyAssumedNote()}{/if}
     </div>
   {/each}
 {/if}

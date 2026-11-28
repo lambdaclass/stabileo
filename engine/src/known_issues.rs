@@ -41,7 +41,9 @@ pub struct Entry {
 
 pub const ENTRIES: &[Entry] = &[
     Entry { id: "SH-MITC4-CONVERGENCE", issue: 810, mode: Mode::Warn, message: "MITC4 shell benchmarks show excessive stiffness and error increasing with mesh refinement. The affected subset is unresolved; independently verify shell response before design" },
-    Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Material nonlinear analysis may continue after an unconverged increment. Beam dynamic models omit bending rotary inertia. Independently verify convergence and deep-member dynamic response" },
+    Entry { id: "NL-DYNAMIC-MODES", issue: 370, mode: Mode::Warn, message: "Omitting bending rotary inertia can overestimate bending frequencies. The member geometry alone does not bound the error for the modes used. Verify the dynamic response" },
+    Entry { id: "NL-DYNAMIC-GAPS", issue: 370, mode: Mode::Warn, message: "Omitting bending rotary inertia can overestimate bending frequencies. These members exceed the geometric screen r/L > 0.045. The actual error depends on the mode. Verify the dynamic response" },
+    Entry { id: "NL-UNCONVERGED-INCREMENT", issue: 370, mode: Mode::Warn, message: "Material nonlinear analysis may continue after an unconverged increment. Independently verify convergence" },
     Entry { id: "PL-3D-CERTIFICATE-MISMATCH", issue: 1760, mode: Mode::Warn, message: "The raw incremental 3D plastic collapse factor lies outside the certified interval. The returned collapse factor is the certified lower bound; incremental steps and hinges retain raw solver values" },
     Entry { id: "PL-3D-INVARIANCE", issue: 758, mode: Mode::Warn, message: "3D plastic collapse of curved beams has shown numbering-dependent factors. Independently verify the collapse factor" },
     Entry { id: "NUM-INVARIANCE", issue: 762, mode: Mode::Warn, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design" },
@@ -491,9 +493,8 @@ pub fn for_2d_loads(input: &SolverInput, loads: &[SolverLoad], analysis: Analysi
     if all_hinged_demand_2d(input, loads) {
         out.push(diagnostic("CERT-MECHANISM"));
     }
-    if analysis == Analysis::MaterialNonlinear || (matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic) && input.elements.values().any(|e| e.elem_type == "frame")) {
-        out.push(diagnostic("NL-DYNAMIC-GAPS"));
-    }
+    if analysis == Analysis::MaterialNonlinear { out.push(diagnostic("NL-UNCONVERGED-INCREMENT")); }
+    if is_dynamic(analysis) { out.extend(rotary_inertia(&screen_model_2d(input, &Default::default()), Vec::new(), false)); }
     if analysis == Analysis::Plastic { out.push(diagnostic("PL-2D-INVARIANCE")); }
     out.extend(loads_2d(loads));
     out
@@ -505,9 +506,8 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
 
     if analysis == Analysis::Buckling { out.push(diagnostic("BU-ACCURACY")); }
 
-    if analysis == Analysis::MaterialNonlinear || (matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic) && (!input.curved_beams.is_empty() || input.elements.values().any(|e| e.elem_type == "frame"))) {
-        out.push(diagnostic("NL-DYNAMIC-GAPS"));
-    }
+    if analysis == Analysis::MaterialNonlinear { out.push(diagnostic("NL-UNCONVERGED-INCREMENT")); }
+    if is_dynamic(analysis) { out.extend(rotary_inertia(&screen_model_3d(input, &Default::default()), deep_curved_beams(input), !input.curved_beams.is_empty())); }
     if analysis == Analysis::Plastic && !input.curved_beams.is_empty() { out.push(diagnostic("PL-3D-INVARIANCE")); }
     if analysis == Analysis::Modal { out.push(diagnostic("MD-ORTHOGONALITY")); }
     out.extend(model_3d(input));
@@ -933,6 +933,8 @@ pub(crate) struct ScreenBar {
     pub frame: bool,
     pub hinged: [bool; 2],
     pub ei_min: f64,
+    /// √(I_max/A): the larger radius of gyration, unlike `ei_min`.
+    pub radius: f64,
     pub compression: f64,
 }
 
@@ -940,7 +942,7 @@ pub(crate) struct ScreenModel {
     pub bars: Vec<ScreenBar>,
     pub position: std::collections::HashMap<usize, [f64; 3]>,
     pub supported: std::collections::HashSet<usize>,
-    pub braced: std::collections::HashSet<usize>,
+    pub translations: std::collections::HashMap<usize, [bool; 3]>,
     pub clamped: std::collections::HashSet<usize>,
     pub other_parts: bool,
 }
@@ -959,9 +961,10 @@ fn norm(v: [f64; 3]) -> f64 {
     (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
 }
 
-/// Frame members as the physical members they belong to: chains of collinear frame elements
-/// through nodes no other element, support or hinge touches. Each chain is its element indices.
-fn member_chains(m: &ScreenModel) -> Vec<Vec<usize>> {
+/// Frame members as the physical members they belong to: chains of frame elements through nodes no
+/// other element, support or hinge touches, turning there by less than acos(`straight`), so 1 keeps
+/// them collinear. Each chain is its element indices.
+fn member_chains(m: &ScreenModel, straight: f64) -> Vec<Vec<usize>> {
     let mut at: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
     for (i, b) in m.bars.iter().enumerate() {
         for n in b.ends {
@@ -980,7 +983,7 @@ fn member_chains(m: &ScreenModel) -> Vec<Vec<usize>> {
         let (pa, pb, here) = (p(a)?, p(b)?, *m.position.get(&node)?);
         let (u, v) = (sub(pa, here), sub(pb, here));
         let cos = (u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (norm(u) * norm(v));
-        (cos < -1.0 + 1e-9).then_some((i, j))
+        (cos < -straight.min(1.0 - 1e-9)).then_some((i, j))
     };
     let mut seen = vec![false; m.bars.len()];
     let mut chains = Vec::new();
@@ -1016,13 +1019,21 @@ fn chain_ends(m: &ScreenModel, chain: &[usize]) -> Vec<usize> {
 
 /// A linear result's second-order screen (#1551). The K = 2 and K = 1 bounds hold for the frame
 /// only because the clamp or both braces are supports: restraint from other members does not count.
-pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) {
+pub(crate) fn second_order(m: &ScreenModel, global: impl FnOnce() -> Option<f64>) -> (Vec<StructuredDiagnostic>, f64) {
     if !m.bars.iter().any(|b| b.compression > 0.0) { return (Vec::new(), 0.0); }
     let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
         (Some(&a), Some(&c)) => norm(sub(c, a)),
         _ => f64::NAN,
     };
-    let braced = |chain: &[usize]| { let ends = chain_ends(m, chain); ends.len() == 2 && ends.iter().all(|n| m.braced.contains(n)) };
+    let braced = |chain: &[usize]| {
+        let ends = chain_ends(m, chain);
+        let [a, b] = ends.as_slice() else { return false };
+        let (Some(pa), Some(pb)) = (m.position.get(a), m.position.get(b)) else { return false };
+        let chord = sub(*pb, *pa);
+        ends.iter().all(|node| m.translations.get(node).is_some_and(|held| {
+            (0..3).all(|axis| held[axis] || (chord[axis] != 0.0 && (0..3).all(|j| j == axis || chord[j] == 0.0)))
+        }))
+    };
     let clamped = |chain: &[usize]| chain.iter().any(|&i| {
         let b = &m.bars[i];
         (0..2).any(|k| m.clamped.contains(&b.ends[k]) && !b.hinged[k])
@@ -1037,15 +1048,43 @@ pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) 
         Some(r) => *largest = largest.max(r),
         None => unbounded = true,
     };
-    for i in 0..m.bars.len() {
-        let b = &m.bars[i];
-        if !b.frame && b.compression > 0.0 && !b.ends.iter().all(|n| m.braced.contains(n)) { unbound(&[i], b.compression, &mut largest); }
-    }
-    for chain in member_chains(m) {
+    let mut local_unbounded = false;
+    let mut chains = member_chains(m, 1.0);
+    chains.extend(m.bars.iter().enumerate().filter(|(_, bar)| !bar.frame).map(|(i, _)| vec![i]));
+    for chain in chains {
         let n = chain.iter().map(|&i| m.bars[i].compression).fold(0.0, f64::max);
         if n <= 0.0 { continue; }
-        let k = if clamped(&chain) { 2.0 } else if braced(&chain) { 1.0 } else { unbound(&chain, n, &mut largest); continue };
-        let ratio = n * k * k / euler(&chain);
+        let frame = m.bars[chain[0]].frame;
+        let k = if frame && clamped(&chain) {
+            2.0
+        } else if braced(&chain) {
+            1.0
+        } else {
+            if !frame && let_off(&chain, n).is_none() { local_unbounded = true; }
+            unbound(&chain, n, &mut largest);
+            continue;
+        };
+        let compression = if frame && k == 1.0 && chain.len() > 1 {
+            let ends = chain_ends(m, &chain);
+            let start = m.position[&ends[0]];
+            let span = norm(sub(m.position[&ends[1]], start));
+            let chord = sub(m.position[&ends[1]], start);
+            let straight = span.is_finite() && span > 0.0 && chain.iter().all(|&i| m.bars[i].ends.iter().all(|id| {
+                let delta = sub(m.position[id], start);
+                (0..3).all(|j| delta[j] * chord[(j+1)%3] == delta[(j+1)%3] * chord[j])
+                    && dot(delta, chord) >= 0.0 && dot(delta, chord) <= dot(chord, chord)
+            }));
+            if straight {
+                let cosine_weight = |t: f64| t + (std::f64::consts::TAU * t).sin() / std::f64::consts::TAU;
+                let first = chain.iter().map(|&i| {
+                    let bar = &m.bars[i];
+                    let [a, b] = bar.ends.map(|id| norm(sub(m.position[&id], start)) / span);
+                    bar.compression.max(0.0) * (cosine_weight(b) - cosine_weight(a)).abs()
+                }).sum::<f64>();
+                n.min(first + n / 4.0)
+            } else { n }
+        } else { n };
+        let ratio = compression * k * k / euler(&chain);
         let ids = chain.iter().map(|&i| m.bars[i].id);
         largest = if ratio.is_nan() { f64::INFINITY } else { largest.max(ratio) };
         if !(ratio <= SECOND_ORDER_RATIO) {
@@ -1055,7 +1094,21 @@ pub(crate) fn second_order(m: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64) 
         }
     }
     let mut found: Vec<StructuredDiagnostic> = [("LIN-SECOND-ORDER", over), ("LIN-SECOND-ORDER-NEAR", near)].into_iter().filter_map(|(id, e)| on_elements(id, e)).collect();
-    if unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
+    if unbounded {
+        match global() {
+            Some(ratio) => {
+                largest = if ratio.is_nan() { f64::INFINITY } else { largest.max(ratio) };
+                if !(ratio <= SECOND_ORDER_RATIO) {
+                    found.push(whole_frame("LIN-SECOND-ORDER"));
+                } else if ratio * SECOND_ORDER_NEAR_FACTOR > SECOND_ORDER_RATIO
+                    && !found.iter().any(|d| matches!(d.phase.as_deref(), Some("LIN-SECOND-ORDER" | "LIN-SECOND-ORDER-NEAR"))) {
+                    found.push(whole_frame("LIN-SECOND-ORDER-NEAR"));
+                }
+            }
+            None => local_unbounded = true,
+        }
+    }
+    if local_unbounded { found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED")); }
     (found, largest)
 }
 
@@ -1128,6 +1181,11 @@ fn compression(n_start: f64, n_end: f64, span: Option<&f64>) -> f64 {
 
 /// [`second_order`] for a 2D result.
 pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Vec<StructuredDiagnostic>, f64) {
+    let (findings, ratio, _) = second_order_2d_with_bound(input, loads, r);
+    (findings, ratio)
+}
+
+pub(crate) fn second_order_2d_with_bound(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults) -> (Vec<StructuredDiagnostic>, f64, Option<f64>) {
     let mut span: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in loads {
         let (id, total) = match load {
@@ -1138,21 +1196,107 @@ pub fn second_order_2d(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisRe
         *span.entry(id).or_default() += total;
     }
     let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
+    let model = screen_model_2d(input, &n);
+    if !model.other_parts && n.values().any(|&force| force > 0.0) {
+        let mut incident = std::collections::BTreeMap::<usize, Vec<usize>>::new();
+        for bar in &model.bars {
+            let [i, j] = bar.ends;
+            incident.entry(i).or_default().push(j);
+            incident.entry(j).or_default().push(i);
+        }
+        let mut components = Vec::new();
+        while let Some((&first, _)) = incident.first_key_value() {
+            let mut nodes = std::collections::HashSet::new();
+            let mut stack = vec![first];
+            while let Some(id) = stack.pop() {
+                if let Some(neighbors) = incident.remove(&id) {
+                    nodes.insert(id);
+                    stack.extend(neighbors);
+                }
+            }
+            components.push(nodes);
+        }
+        if components.len() > 1 {
+            let (mut found, mut ratio, mut physical) = (Vec::new(), 0.0_f64, Some(0.0_f64));
+            for nodes in components {
+                let mut part = input.clone();
+                part.nodes.retain(|_, nd| nodes.contains(&nd.id));
+                part.supports.retain(|_, sp| nodes.contains(&sp.node_id));
+                part.elements.retain(|_, e| nodes.contains(&e.node_i));
+                let members: std::collections::HashSet<_> = part.elements.values().map(|e| e.id).collect();
+                let part_loads: Vec<_> = loads.iter().filter(|load| match load {
+                    SolverLoad::Nodal(p) => nodes.contains(&p.node_id),
+                    SolverLoad::Distributed(p) => members.contains(&p.element_id),
+                    SolverLoad::Thermal(p) => members.contains(&p.element_id),
+                    SolverLoad::PointOnElement(p) => members.contains(&p.element_id),
+                    SolverLoad::AxialDistributed(p) => members.contains(&p.element_id),
+                }).cloned().collect();
+                let mut response = r.clone();
+                response.displacements.retain(|d| nodes.contains(&d.node_id));
+                response.element_forces.retain(|f| members.contains(&f.element_id));
+                let (diagnostics, observed, upper) = second_order_component(&part, &part_loads, &response, &n, &screen_model_2d(&part, &n));
+                let part_bound = physical_screen_bound(&diagnostics, upper, Some(observed));
+                physical = physical.zip(part_bound).map(|(a, b)| a.max(b));
+                attach(&mut found, diagnostics);
+                ratio = ratio.max(observed);
+            }
+            return (found, ratio, physical.filter(|&p| p > ratio));
+        }
+    }
+    second_order_component(input, loads, r, &n, &model)
+}
+
+fn second_order_component(input: &SolverInput, loads: &[SolverLoad], r: &AnalysisResults, n: &std::collections::HashMap<usize, f64>, model: &ScreenModel) -> (Vec<StructuredDiagnostic>, f64, Option<f64>) {
+    let mut physical = None;
+    let mut global_needed = false;
+    let (mut found, ratio) = second_order(model, || {
+        global_needed = true;
+        let (estimate, upper) = crate::solver::buckling::critical_factor_reciprocal_2d(input, loads, r, n)?;
+        physical = upper;
+        Some(estimate)
+    });
+    let locally_unresolved = found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-UNBOUNDED"));
+    if global_needed { check_physical_band(&mut found, physical); }
+    (found, ratio, physical.filter(|&upper| !locally_unresolved && upper > ratio))
+}
+
+pub(crate) fn physical_screen_bound(findings: &[StructuredDiagnostic], upper: Option<f64>, observed: Option<f64>) -> Option<f64> {
+    upper.or_else(|| {
+        if findings.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-UNBOUNDED")) { None } else { observed }
+    })
+}
+
+pub(crate) fn check_physical_band(found: &mut Vec<StructuredDiagnostic>, upper: Option<f64>) {
+    let known_band = if found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER")) {
+        f64::INFINITY
+    } else if found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-NEAR")) {
+        SECOND_ORDER_RATIO
+    } else { SECOND_ORDER_RATIO / SECOND_ORDER_NEAR_FACTOR };
+    if upper.is_none_or(|upper| upper > known_band)
+        && !found.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-UNBOUNDED")) {
+        found.push(whole_frame("LIN-SECOND-ORDER-UNBOUNDED"));
+    }
+
+}
+
+fn screen_model_2d(input: &SolverInput, n: &std::collections::HashMap<usize, f64>) -> ScreenModel {
     let bars = crate::ordered::values(&input.elements).map(|e| {
-        let ei = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
-            .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iz);
-        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged: [e.hinge_start, e.hinge_end], ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0) }
+        let (ei, radius) = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
+            .map_or((f64::NAN, f64::NAN), |(m, s)| (m.e * 1000.0 * s.iz, (s.iz / s.a).sqrt()));
+        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged: [e.hinge_start, e.hinge_end], ei_min: ei, radius, compression: n.get(&e.id).copied().unwrap_or(0.0) }
     }).collect();
     let square = |s: &&crate::types::SolverSupport| s.angle.is_none_or(|a| a == 0.0);
-    let model = ScreenModel {
+    ScreenModel {
         bars,
         position: input.nodes.values().map(|n| (n.id, [n.x, 0.0, n.z])).collect(),
         supported: input.supports.values().map(|s| s.node_id).collect(),
-        braced: input.supports.values().filter(square).filter(|s| matches!(s.support_type.as_str(), "fixed" | "pinned")).map(|s| s.node_id).collect(),
+        translations: input.supports.values().filter(square).filter(|s| s.support_type != "inclinedRoller").map(|s| {
+            let [x, z, _] = crate::solver::support::support_dofs_2d(s).map(|d| d.restrained);
+            (s.node_id, [x, true, z])
+        }).collect(),
         clamped: input.supports.values().filter(square).filter(|s| s.support_type == "fixed").map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty(),
-    };
-    second_order(&model)
+    }
 }
 
 /// [`second_order`] for a 3D result: I_min is the lesser of Iy and Iz.
@@ -1165,30 +1309,91 @@ pub fn second_order_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &Analys
         }
     }
     let n: std::collections::HashMap<usize, f64> = r.element_forces.iter().map(|f| (f.element_id, compression(f.n_start, f.n_end, span.get(&f.element_id)))).collect();
+    let model = screen_model_3d(input, &n);
+    // No global bound in 3D: its buckling factors can be unconservatively high (BU-ACCURACY, #818),
+    // and a factor too high would clear a frame that needs a second-order analysis.
+    second_order(&model, || None)
+}
+
+fn screen_model_3d(input: &SolverInput3D, n: &std::collections::HashMap<usize, f64>) -> ScreenModel {
     let bars = crate::ordered::values(&input.elements).map(|e| {
-        let ei = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
-            .map_or(f64::NAN, |(m, s)| m.e * 1000.0 * s.iy.min(s.iz));
+        let (ei, radius) = input.materials.values().find(|m| m.id == e.material_id).zip(input.sections.values().find(|s| s.id == e.section_id))
+            .map_or((f64::NAN, f64::NAN), |(m, s)| (m.e * 1000.0 * s.iy.min(s.iz), (s.iy.max(s.iz) / s.a).sqrt()));
         let hinged = [e.release_my_start || e.release_mz_start, e.release_my_end || e.release_mz_end];
-        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged, ei_min: ei, compression: n.get(&e.id).copied().unwrap_or(0.0) }
+        ScreenBar { id: e.id, ends: [e.node_i, e.node_j], frame: e.elem_type == "frame", hinged, ei_min: ei, radius, compression: n.get(&e.id).copied().unwrap_or(0.0) }
     }).collect();
     let held = |s: &&crate::types::SolverSupport3D| s.rx && s.ry && s.rz && [s.kx, s.ky, s.kz].iter().all(Option::is_none) && s.is_inclined != Some(true);
-    let model = ScreenModel {
+    ScreenModel {
         bars,
         position: input.nodes.values().map(|n| (n.id, [n.x, n.y, n.z])).collect(),
         supported: input.supports.values().map(|s| s.node_id).collect(),
-        braced: input.supports.values().filter(held).map(|s| s.node_id).collect(),
+        translations: input.supports.values().filter(|s| s.is_inclined != Some(true)).map(|s| {
+            (s.node_id, [s.rx && s.kx.is_none(), s.ry && s.ky.is_none(), s.rz && s.kz.is_none()])
+        }).collect(),
         clamped: input.supports.values().filter(held).filter(|s| s.rrx && s.rry && s.rrz && [s.krx, s.kry, s.krz].iter().all(Option::is_none)).map(|s| s.node_id).collect(),
         other_parts: !input.constraints.is_empty() || !input.connectors.is_empty() || !input.plates.is_empty() || !input.quads.is_empty()
             || !input.quad9s.is_empty() || !input.solid_shells.is_empty() || !input.curved_shells.is_empty() || !input.curved_beams.is_empty(),
+    }
+}
+
+fn is_dynamic(analysis: Analysis) -> bool {
+    matches!(analysis, Analysis::Modal | Analysis::TimeHistory | Analysis::Harmonic)
+}
+
+pub const ROTARY_INERTIA_DEPTH: f64 = 0.045;
+
+/// cos 30°: a curved beam's segments (18° each for a half circle in the default 10) stay one member
+/// for the rotary-inertia length, a frame knee (60° or more) does not.
+const SMOOTH_TURN_COS: f64 = 0.866_025_403_784_438_6;
+
+fn rotary_inertia(m: &ScreenModel, curved: Vec<usize>, has_curved: bool) -> Vec<StructuredDiagnostic> {
+    let length = |b: &ScreenBar| match (m.position.get(&b.ends[0]), m.position.get(&b.ends[1])) {
+        (Some(&a), Some(&c)) => norm(sub(c, a)),
+        _ => f64::NAN,
     };
-    second_order(&model)
+    let mut deep: Vec<usize> = member_chains(m, SMOOTH_TURN_COS).into_iter().filter(|chain| {
+        let l: f64 = chain.iter().map(|&i| length(&m.bars[i])).sum();
+        let r = chain.iter().map(|&i| m.bars[i].radius).fold(0.0, |a: f64, r| if r.is_nan() { f64::NAN } else { a.max(r) });
+        !(r <= ROTARY_INERTIA_DEPTH * l)
+    }).flatten().map(|i| m.bars[i].id).collect();
+    if deep.is_empty() && curved.is_empty() {
+        return if has_curved || m.bars.iter().any(|bar| bar.frame) {
+            vec![diagnostic("NL-DYNAMIC-MODES")]
+        } else {
+            Vec::new()
+        };
+    }
+    deep.sort_unstable();
+    deep.dedup();
+    [(ElementKind::Frame, deep), (ElementKind::CurvedBeam, curved)].into_iter()
+        .filter(|(_, ids)| !ids.is_empty())
+        .map(|(kind, ids)| {
+            let mut d = diagnostic("NL-DYNAMIC-GAPS");
+            d.threshold = Some(ROTARY_INERTIA_DEPTH);
+            d.element_kind = Some(kind);
+            d.element_ids = ids;
+            d
+        }).collect()
+}
+
+fn deep_curved_beams(input: &SolverInput3D) -> Vec<usize> {
+    let at = |id: usize| input.nodes.values().find(|n| n.id == id).map(|n| [n.x, n.y, n.z]);
+    input.curved_beams.iter().enumerate().filter(|(_, c)| {
+        let l = match (at(c.node_start), at(c.node_mid), at(c.node_end)) {
+            (Some(a), Some(b), Some(e)) => crate::element::curved_beam::arc_length(a, b, e),
+            _ => f64::NAN,
+        };
+        let r = input.sections.values().find(|s| s.id == c.section_id).map_or(f64::NAN, |s| (s.iy.max(s.iz) / s.a).sqrt());
+        !(r <= ROTARY_INERTIA_DEPTH * l)
+    }).map(|(i, _)| i).collect()
 }
 
 /// Add warnings to a result's diagnostics, once each: a path that already attached a finding
 /// (a prepared solve under the solve that called it) does not repeat it.
 pub fn attach(target: &mut Vec<StructuredDiagnostic>, new: Vec<StructuredDiagnostic>) {
     for d in new {
-        let seen = target.iter().any(|t| t.code == d.code && t.phase == d.phase);
+        let seen = target.iter().any(|t| t.code == d.code && t.phase == d.phase
+            && (d.code != DiagnosticCode::KnownIssue || (t.element_kind == d.element_kind && t.element_ids == d.element_ids)));
         if !seen {
             target.push(d);
         }
@@ -1240,7 +1445,7 @@ mod tests {
     fn known_issues_analysis_predicates_have_negative_controls() {
         for (id, analysis, space) in [
             ("NL-5", Analysis::MaterialNonlinear, false),
-            ("NL-DYNAMIC-GAPS", Analysis::MaterialNonlinear, false),
+            ("NL-UNCONVERGED-INCREMENT", Analysis::MaterialNonlinear, false),
             ("PL-2D-INVARIANCE", Analysis::Plastic, false),
             ("TH-RECIPROCITY", Analysis::TimeHistory, false),
             ("MD-ORTHOGONALITY", Analysis::Modal, true),
@@ -1250,12 +1455,36 @@ mod tests {
             assert!(has(&diagnostics(analysis), id), "{id}");
             assert!(!has(&diagnostics(Analysis::Linear), id), "{id}");
         }
+        assert!(!has(&for_2d(&input2(), Analysis::Modal), "NL-UNCONVERGED-INCREMENT"), "a linear dynamic analysis has no increments");
+        // input2's member: r = √(1e-4/0.01) = 0.1 over L = 1, deep; 0.03 over L = 1 is not.
         let mut trusses = input2();
         for e in trusses.elements.values_mut() { e.elem_type = "truss".into(); }
+        let mut slender = input2();
+        for s in slender.sections.values_mut() { s.iz = 0.03_f64.powi(2) * s.a; }
         for analysis in [Analysis::Modal, Analysis::TimeHistory, Analysis::Harmonic] {
-            assert!(has(&for_2d(&input2(), analysis), "NL-DYNAMIC-GAPS"));
+            let deep = for_2d(&input2(), analysis);
+            assert!(has(&deep, "NL-DYNAMIC-GAPS"));
+            assert_eq!(deep.iter().find(|d| d.phase.as_deref() == Some("NL-DYNAMIC-GAPS")).unwrap().element_ids, vec![1]);
             assert!(!has(&for_2d(&trusses, analysis), "NL-DYNAMIC-GAPS"));
+            assert!(!has(&for_2d(&slender, analysis), "NL-DYNAMIC-GAPS"));
+            assert!(!has(&for_2d(&input2(), Analysis::MaterialNonlinear), "NL-DYNAMIC-GAPS"));
         }
+    }
+
+    #[test]
+    fn the_rotary_inertia_limit_is_one_percent_on_a_members_first_mode() {
+        let overestimate = |rho: f64| (1.0 + (std::f64::consts::PI * rho).powi(2)).sqrt() - 1.0;
+        assert!(overestimate(ROTARY_INERTIA_DEPTH) < 0.0101 && overestimate(ROTARY_INERTIA_DEPTH) > 0.0099, "{}", overestimate(ROTARY_INERTIA_DEPTH));
+    }
+
+    #[test]
+    fn rotary_inertia_is_judged_on_the_physical_member_not_its_elements() {
+        // r = 0.1 on a 3 m beam split into ten elements: each element's r/L is 0.33, the member's 0.033.
+        let mut value = serde_json::to_value(input2()).unwrap();
+        value["elements"] = serde_json::Value::Object((1..=10).map(|i| (i.to_string(), serde_json::json!({"id": i, "type": "frame", "nodeI": i, "nodeJ": i + 1, "materialId": 1, "sectionId": 1}))).collect());
+        for i in 1..=11 { value["nodes"][i.to_string()] = serde_json::json!({"id": i, "x": 0.3 * (i - 1) as f64, "z": 0.0}); }
+        let split: SolverInput = serde_json::from_value(value).unwrap();
+        assert!(!has(&for_2d(&split, Analysis::Modal), "NL-DYNAMIC-GAPS"));
     }
 
     #[test]

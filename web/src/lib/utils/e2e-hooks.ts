@@ -29,6 +29,8 @@
  */
 
 import { openDeskAt } from '../pro/design-navigation';
+import { computeElementDiagram } from '../engine/diagrams';
+import type { ElementForces } from '../engine/types';
 import { viewportCanvas } from './viewport-canvas';
 import { discretizationStore } from '../store/discretization.svelte';
 import { drawState } from '../store/draw-state.svelte';
@@ -63,6 +65,9 @@ import { loadFixture } from '../templates/load-fixture';
 import { currentResultProvenance, provenanceForExport, captureProvenanceToken } from '../store/result-provenance';
 import { recheckStore } from '../store/recheck.svelte';
 import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
+
+const maxAbsMoment = (r: { elementForces: readonly ElementForces[] }) =>
+  r.elementForces.reduce((peak, f) => Math.max(peak, Math.abs(computeElementDiagram('moment', f, 0, 0, f.length, 0).maxAbsValue)), 0);
 
 export const E2E_QUERY_FLAG = 'e2e';
 
@@ -207,6 +212,10 @@ export interface StabileoTestHooks {
   diagramType(): string;
   /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
   hasDrawnResults(): boolean;
+  /** What the 2D viewport draws this frame: a diagram or not, whether it is the held picture, and its largest |M|. */
+  screenFrame(): { drawn: boolean; held: boolean; diagram: string; maxMoment: number | null };
+  /** The largest |M| of a fresh plane solve of the model as it is now, outside the stores. */
+  freshMaxMoment(): number | null;
   verticalReaction3D(): number | null;
   verticalReaction2D(): number | null;
   /**
@@ -461,6 +470,7 @@ export interface StabileoTestActions {
   /** Test-only fault injection: append a runtime warning to already solved results. */
   seedSelfCheckWarning(count?: number, cases?: number): void;
   loadExample(name: string): Promise<void>;
+  tieNodes(masterNode: number, slaveNode: number, dofs: number[]): void;
   /** Move a node, as editing its coordinates in the node table does: an undo step, then the move. */
   moveNode(id: number, x: number, y: number, z: number): void;
   /**
@@ -520,6 +530,7 @@ export interface StabileoTestActions {
    * section that genuinely cannot carry its demand — not a state written into a store.
    */
   updateSection(id: number, data: unknown): void;
+  setLiveCalc(enabled: boolean): void;
   /**
    * One combination adding every load case at 1,0, as the combinations table would.
    *
@@ -690,6 +701,16 @@ export function installE2EHooks(): void {
     diagramType: () => String(resultsStore.diagramType),
     /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
     hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
+    screenFrame: () => {
+      const paint = viewportCanvas()?.dataset;
+      const diagram = paint?.paintedDiagram ?? 'none';
+      return { drawn: diagram !== 'none', held: paint?.paintedHold === 'true', diagram,
+        maxMoment: paint?.paintedMoment === undefined ? null : Number(paint.paintedMoment) };
+    },
+    freshMaxMoment: () => {
+      const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
+      return r && typeof r !== 'string' ? maxAbsMoment(r) : null;
+    },
     verticalReaction3D: () => resultsStore.results3D?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0) ?? null,
     verticalReaction2D: () => resultsStore.results?.reactions.reduce((sum, reaction) => sum + reaction.rz, 0) ?? null,
     cameraState: () => readCamera(),
@@ -932,6 +953,7 @@ export function installE2EHooks(): void {
       rebarWorkspace.selectConflict(conflict);
       return true;
     },
+    setLiveCalc: (enabled: boolean) => { uiStore.liveCalc = enabled; },
     updateSection: (id: number, data: unknown) => {
       modelStore.updateSection(id, data as never);
     },
@@ -957,6 +979,8 @@ export function installE2EHooks(): void {
     },
     toggleBarLock: (barId: string) => { detailingStore.toggleLock(barId); },
     loadExample: async (name: string) => { await modelStore.loadExample(name); },
+    /** Tie two nodes' degrees of freedom (`equalDOF`), as the constraints panel does. */
+    tieNodes: (masterNode: number, slaveNode: number, dofs: number[]) => modelStore.addConstraint({ type: 'equalDOF', masterNode, slaveNode, dofs }),
     moveNode: (id: number, x: number, y: number, z: number) => { historyStore.pushState(); modelStore.updateNode(id, x, y, z); },
     loadModelData: (json: Record<string, unknown>) => {
       modelStore.clear();

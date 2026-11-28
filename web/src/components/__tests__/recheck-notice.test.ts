@@ -5,6 +5,10 @@ import { recheckStore } from '../../lib/store/recheck.svelte';
 import { t, setLocale } from '../../lib/i18n';
 import { OFFERED_LOCALES } from '../../lib/i18n/offered';
 
+function htmlText(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+}
+
 vi.mock('../../lib/store/file', () => ({ saveWorkspaceSettled: vi.fn() }));
 vi.mock('../../lib/actions/recheck', () => ({
   rerunAnalysisAndDesign: vi.fn(),
@@ -92,20 +96,19 @@ it.each(OFFERED_LOCALES.filter((l) => l !== 'en'))('shows the complete result-ch
   const changes = recheckStore.assessment!.changes;
   expect(changes.map(c => c.id)).toContain('cirsoc301-tension-needs-connection');
   const html = render(RecheckNotice).body;
-  const text = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   for (const change of changes) {
     const title = change.title[locale], explanation = change.explanation[locale];
     if (locale === 'hu' && (!title || !explanation)) {
       const notice = html.split(`data-change-id="${change.id}"`)[1].split('</li>')[0];
-      expect(notice).toContain(text(change.title.en));
-      expect(notice).toContain(text(change.explanation.en));
+      expect(notice).toContain(htmlText(change.title.en));
+      expect(notice).toContain(htmlText(change.explanation.en));
       continue;
     }
     if (title === undefined || explanation === undefined) throw new Error(`Missing ${locale} notice for ${change.id}`);
     expect(title, change.id).not.toBe(change.title.en);
-    expect(html).toContain(text(title));
-    expect(html).toContain(text(explanation));
-    expect(html).not.toContain(text(change.explanation.en));
+    expect(html).toContain(htmlText(title));
+    expect(html).toContain(htmlText(explanation));
+    expect(html).not.toContain(htmlText(change.explanation.en));
   }
 });
 
@@ -140,9 +143,8 @@ it('known wrong result: #2099 — renders a complete English snow notice when Hu
       };
       vi.spyOn(recheckStore, 'assessment', 'get').mockReturnValue({ solvedVersion: 1, currentVersion: RESULT_CHANGES.currentResultsVersion, older: true, newer: false, changes: [change], advisories: [], maybe: [] });
       const html = render(RecheckNotice).body;
-      const escaped = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      expect(html).toContain(escaped(translated === 'both' ? change.title.hu! : change.title.en));
-      expect(html).toContain(escaped(translated === 'both' ? change.explanation.hu! : change.explanation.en));
+      expect(html).toContain(htmlText(translated === 'both' ? change.title.hu! : change.title.en));
+      expect(html).toContain(htmlText(translated === 'both' ? change.explanation.hu! : change.explanation.en));
     }
   } finally { vi.unstubAllGlobals(); }
 });

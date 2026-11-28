@@ -53,6 +53,7 @@ pub fn compute_result_summary_2d(results: &AnalysisResults) -> ResultSummary {
         displacement_resultant: res,
         reaction_resultant: rxn,
         second_order_ratio: None,
+        second_order_physical_bound: None,
         member_chords: None,
         member_spans: None,
     }
@@ -82,6 +83,7 @@ pub fn compute_result_summary_3d(results: &AnalysisResults3D) -> ResultSummary {
         displacement_resultant: res,
         reaction_resultant: rxn,
         second_order_ratio: None,
+        second_order_physical_bound: None,
         member_chords: None,
         member_spans: None,
     }

@@ -60,6 +60,7 @@ fn material_nonlinear_results_are_flagged() {
     };
     let r = solve_nonlinear_material_2d(&input).unwrap();
     assert!(ids(&r.results.structured_diagnostics).contains(&"NL-5".to_string()));
+    assert!(ids(&r.results.structured_diagnostics).contains(&"NL-UNCONVERGED-INCREMENT".to_string()));
 }
 
 fn beam3d() -> SolverInput3D {
@@ -774,7 +775,7 @@ fn rotation_demand_large_sweep() {
 #[test]
 fn curved_only_dynamic_solvers_warn() {
     use dedaliano_engine::solver::{harmonic::*, reduction::*, time_integration::*};
-    let mut solver = beam3d();
+    let mut solver = deep(beam3d());
     solver.elements.clear();
     solver.nodes.retain(|_, n| n.id == 1 || n.id == 5);
     solver.nodes.insert("200".into(), SolverNode3D { id: 200, x: 2.0, y: 0.0, z: 1.0 });
@@ -964,8 +965,15 @@ fn conditioning_cost_large_frame() {
         k.n, k.values.len(), standalone, reused, factor.l_values.len() * 8, symbolic_bytes, k.n * 8);
 }
 
+/// The section of `s` made deep enough for omitted rotary inertia to matter on its 4.5 m arch
+/// (r = √(4e-3/0.01) = 0.63, r/L = 0.14 against the limit 0.045); beam3d's r/L is 0.022.
+fn deep(mut s: SolverInput3D) -> SolverInput3D {
+    for sec in s.sections.values_mut() { sec.iy = 4e-3; sec.iz = 4e-3; }
+    s
+}
+
 fn arch3d() -> SolverInput3D {
-    let mut s = beam3d();
+    let mut s = deep(beam3d());
     s.elements.clear();
     for id in [2, 3, 4] { s.nodes.remove(&id.to_string()); }
     s.nodes.insert("200".into(), SolverNode3D { id: 200, x: 2.0, y: 0.0, z: 1.0 });
@@ -988,8 +996,12 @@ fn arch_only_dynamic_models_carry_the_issues_of_the_model_as_given() {
     let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: arch.clone(), boundary_nodes: vec![5], n_modes: 2, densities: densities.clone() }).unwrap();
     assert_warning(&cb.structured_diagnostics, "NL-DYNAMIC-GAPS", 370.0);
     assert_warning(&cb.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
-    let guyan = guyan_reduce_3d(&GuyanInput3D { solver: arch, boundary_nodes: vec![5] }).unwrap();
+    let guyan = guyan_reduce_3d(&GuyanInput3D { solver: arch.clone(), boundary_nodes: vec![5] }).unwrap();
     assert!(!ids(&guyan.structured_diagnostics).contains(&"NL-DYNAMIC-GAPS".to_string()), "{:?}", guyan.structured_diagnostics);
+    let mut slender = arch;
+    for sec in slender.sections.values_mut() { sec.iy = 1e-4; sec.iz = 1e-4; }
+    let modal = solve_modal_3d(&slender, &densities, 2).unwrap();
+    assert!(!ids(&modal.structured_diagnostics).contains(&"NL-DYNAMIC-GAPS".to_string()), "a slender arch: {:?}", modal.structured_diagnostics);
 
     let mut truss = beam3d();
     for e in truss.elements.values_mut() { e.elem_type = "truss".into(); }
@@ -2826,6 +2838,9 @@ fn issue_1753_three_hinge_arch_snapshot_preserves_exact_statics_and_current_warn
         node["z"] = node["y"].take();
         node.as_object_mut().unwrap().remove("y");
     }
+    for material in fixture["materials"].as_array_mut().unwrap() {
+        material["e"] = (material["e"].as_f64().unwrap() * 1000.0).into();
+    }
     for field in ["nodes", "materials", "sections", "elements", "supports"] {
         fixture[field] = fixture[field].as_array().unwrap().iter()
             .map(|entry| (entry["id"].to_string(), entry.clone()))
@@ -3219,4 +3234,173 @@ fn issue_2588_exported_default_rigid_link_3d() {
     let archived = json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3, "dofs": []}]);
     assert_eq!(analyze(archived.clone()), (archived.clone(), tied));
     assert_eq!(analyze(json!([{"type": "rigidLink", "masterNode": 1, "slaveNode": 3}])), (archived, tied));
+}
+
+#[test]
+fn certified_limit_keeps_the_equilibrium_proven_axial_yield_mechanism_2608() {
+    use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
+    use serde_json::json;
+
+    let capacity = 30.0;
+    for load in [-15.0, 15.0] {
+        let mut input: LimitInput = serde_json::from_value(json!({
+            "solver": {
+                "nodes": {"1":{"id":1,"x":-3,"z":0},"2":{"id":2,"x":3,"z":0},"3":{"id":3,"x":0,"z":0},"4":{"id":4,"x":0,"z":4}},
+                "elements": {"1":{"id":1,"type":"truss","nodeI":1,"nodeJ":3,"sectionId":1,"materialId":1},
+                             "2":{"id":2,"type":"truss","nodeI":2,"nodeJ":3,"sectionId":1,"materialId":1},
+                             "3":{"id":3,"type":"truss","nodeI":3,"nodeJ":4,"sectionId":1,"materialId":1}},
+                "materials":{"1":{"id":1,"e":200000,"nu":0.3}}, "sections":{"1":{"id":1,"a":0.01,"iz":1e-4}},
+                "supports":{"1":{"id":1,"nodeId":1,"type":"pinned"},"2":{"id":2,"nodeId":2,"type":"pinned"},"4":{"id":4,"nodeId":4,"type":"pinned"}},
+                "loads":[{"type":"nodal","data":{"nodeId":3,"fx":0,"fz":load,"my":0}}]
+            },
+            "np":{"3":capacity}
+        })).unwrap();
+        let expected = capacity / f64::abs(load);
+        let result = certified_limit_2d(&input).unwrap();
+        assert_eq!(result.confirmation, Confirmation::Exact);
+        assert!((result.lambda - expected).abs() <= f64::EPSILON * expected);
+        let np = HashMap::from([(3, capacity)]);
+        for wrong in [expected.next_down(), expected.next_up(), expected * 0.5, expected * 2.0] {
+            assert_ne!(confirm_2d(&input.solver, &HashMap::new(), &np, wrong), Confirmation::Exact);
+        }
+        let mut redundant = input.solver.clone();
+        let mut parallel = redundant.elements["3"].clone();
+        parallel.id = 4;
+        redundant.elements.insert("4".into(), parallel);
+        assert_ne!(confirm_2d(&redundant, &HashMap::new(), &np, expected), Confirmation::Exact);
+        input.np.clear();
+        assert!(certified_limit_2d(&input).is_err());
+    }
+}
+
+#[test]
+fn diagonal_truss_certifies_the_enclosed_irrational_axial_factor_2608() {
+    use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
+    for load in [-1.0, 1.0] {
+        let input: LimitInput = serde_json::from_value(serde_json::json!({
+            "solver": {
+                "nodes": {"1":{"id":1,"x":0,"z":0},"2":{"id":2,"x":1,"z":1}},
+                "elements": {"1":{"id":1,"type":"truss","nodeI":1,"nodeJ":2,"sectionId":1,"materialId":1}},
+                "materials":{"1":{"id":1,"e":200000,"nu":0.3}}, "sections":{"1":{"id":1,"a":0.01,"iz":1e-4}},
+                "supports":{"1":{"id":1,"nodeId":1,"type":"pinned"},"2":{"id":2,"nodeId":2,"type":"rollerZ"}},
+                "loads":[{"type":"nodal","data":{"nodeId":2,"fx":0,"fz":load,"my":0}}]
+            },
+            "np":{"1":1}
+        })).unwrap();
+        let result = certified_limit_2d(&input).unwrap();
+        assert_eq!(result.confirmation, Confirmation::Exact, "{result:?}");
+        let upper = std::f64::consts::FRAC_1_SQRT_2;
+        let lower = upper.next_down();
+        assert!((lower..=upper).contains(&result.lambda));
+        let np = HashMap::from([(1, 1.0)]);
+        for outside in [lower.next_down(), upper.next_up()] {
+            assert_ne!(confirm_2d(&input.solver, &HashMap::new(), &np, outside), Confirmation::Exact);
+        }
+    }
+}
+
+#[test]
+fn bending_limit_checks_the_axial_field_under_span_loads_758() {
+    use dedaliano_engine::solver::plastic_limit::{certified_limit_2d, confirm_2d, Confirmation, LimitInput};
+    for sign in [-1, 1] {
+        let mut input: LimitInput = serde_json::from_value(serde_json::json!({
+            "solver":{
+                "nodes":{"1":{"id":1,"x":0,"z":0},"2":{"id":2,"x":4,"z":0}},
+                "elements":{"1":{"id":1,"nodeI":1,"nodeJ":2,"sectionId":1,"materialId":1,"type":"frame"}},
+                "materials":{"1":{"id":1,"e":200000,"nu":0.3}},"sections":{"1":{"id":1,"a":0.01,"iz":1e-4}},
+                "supports":{"1":{"id":1,"nodeId":1,"type":"fixed"},"2":{"id":2,"nodeId":2,"type":"fixed"}},
+                "loads":[{"type":"distributed","data":{"elementId":1,"qI":-1,"qJ":-1}},
+                         {"type":"axialDistributed","data":{"elementId":1,"qI":sign,"qJ":sign}}]
+            },"mp":{"1":1},"np":{"1":4}
+        })).unwrap();
+        let result = certified_limit_2d(&input).unwrap();
+        assert_eq!(result.confirmation, Confirmation::Exact);
+        assert!((result.lambda - 1.0).abs() <= 1e-12);
+        input.np.insert("1".into(), 2.0);
+        assert_eq!(certified_limit_2d(&input).unwrap().confirmation, Confirmation::Exact);
+        assert_ne!(confirm_2d(&input.solver, &HashMap::from([(1, 1.0)]), &HashMap::from([(1, 1.0)]), 1.0), Confirmation::Exact);
+        let SolverLoad::AxialDistributed(span) = &mut input.solver.loads[1] else { unreachable!() };
+        span.a = Some(1.5);
+        span.b = Some(2.5);
+        span.q_i = 4.0 * f64::from(sign);
+        span.q_j = -span.q_i;
+        let transverse = HashMap::from([(1, 1.0)]);
+        assert_eq!(confirm_2d(&input.solver, &transverse, &HashMap::from([(1, 1.0)]), 1.0), Confirmation::Exact);
+        assert_ne!(confirm_2d(&input.solver, &transverse, &HashMap::from([(1, 0.4)]), 1.0), Confirmation::Exact);
+    }
+}
+
+#[test]
+fn rotary_inertia_warns_about_unbounded_modes_and_identifies_each_member_family_370() {
+    for analysis in [Analysis::Modal, Analysis::Harmonic, Analysis::TimeHistory] {
+        let beam = make_beam(2, 1.0, E, 1.0, 0.03_f64.powi(2), "fixed", None, vec![]);
+        assert_warning(&dedaliano_engine::known_issues::for_2d(&beam, analysis), "NL-DYNAMIC-MODES", 370.0);
+        let mut mixed = arch3d();
+        let mut e = beam3d().elements["1"].clone();
+        e.node_i = 1;
+        e.node_j = 5;
+        mixed.elements.insert(e.id.to_string(), e);
+        let refs: Vec<_> = for_3d(&mixed, analysis).into_iter()
+            .filter(|d| d.phase.as_deref() == Some("NL-DYNAMIC-GAPS"))
+            .map(|d| (serde_json::to_value(d.element_kind).unwrap(), d.element_ids)).collect();
+        assert!(refs.contains(&(serde_json::json!("frame"), vec![1])));
+        assert!(refs.contains(&(serde_json::json!("curved_beam"), vec![0])));
+        assert_eq!(refs.len(), 2);
+        for section in mixed.sections.values_mut() { section.iy = 1e-7; section.iz = 1e-7; }
+        assert_warning(&for_3d(&mixed, analysis), "NL-DYNAMIC-MODES", 370.0);
+        mixed.elements.clear();
+        assert_warning(&for_3d(&mixed, analysis), "NL-DYNAMIC-MODES", 370.0);
+        mixed.curved_beams.clear();
+        assert!(!ids(&for_3d(&mixed, analysis)).contains(&"NL-DYNAMIC-MODES".into()));
+    }
+}
+
+#[test]
+fn a_semicircle_uses_its_arc_for_the_deep_member_screen() {
+    let mut arch = arch3d();
+    for (id, x, z) in [("1", 0.0, 0.0), ("200", 1.0, 1.0), ("5", 2.0, 0.0)] {
+        let node = arch.nodes.get_mut(id).unwrap();
+        (node.x, node.y, node.z) = (x, 0.0, z);
+    }
+    for (radius, expected) in [(0.135_f64, "NL-DYNAMIC-MODES"), (0.15, "NL-DYNAMIC-GAPS")] {
+        for section in arch.sections.values_mut() { section.iy = section.a * radius.powi(2); section.iz = section.iy; }
+        for analysis in [Analysis::Modal, Analysis::TimeHistory, Analysis::Harmonic] {
+            assert_warning(&for_3d(&arch, analysis), expected, 370.0);
+        }
+    }
+}
+
+#[test]
+fn material_nonlinear_evidence_is_listed_for_the_increment_warning() {
+    let row = include_str!("../../testing/docs/CONTAINMENT.md").lines().find(|row| row.starts_with("| #370 |")).unwrap();
+    assert!(row.contains("material_nonlinear_results_are_flagged"));
+}
+
+fn check_modal_member_references_370(
+    solve: impl Fn(&SolverInput3D, &HashMap<String, f64>) -> dedaliano_engine::solver::modal::ModalResult3D,
+) {
+    let input: ModalInput3D = serde_json::from_str(include_str!("fixtures/modal-arch-370.json")).unwrap();
+    let mut model = input.solver;
+    for with_frame in [true, false] {
+        if !with_frame { model.elements.clear(); }
+        let result = solve(&model, &input.densities);
+        assert_eq!(result.modes.len(), 2);
+        assert!(result.modes.iter().all(|m| m.frequency > 0.0));
+        let references: Vec<_> = result.structured_diagnostics.iter()
+            .filter(|d| d.phase.as_deref() == Some("NL-DYNAMIC-GAPS"))
+            .map(|d| (serde_json::to_value(d.element_kind).unwrap(), d.element_ids.as_slice())).collect();
+        assert!(references.contains(&(serde_json::json!("curved_beam"), &[0][..])));
+        if with_frame { assert!(references.contains(&(serde_json::json!("frame"), &[1][..]))); }
+        assert_eq!(references.len(), if with_frame { 2 } else { 1 }, "{references:?}");
+    }
+}
+
+#[test]
+fn modal_reports_only_authored_member_references_370() {
+    check_modal_member_references_370(|s, densities| dedaliano_engine::solver::modal::solve_modal_3d(s, densities, 2).unwrap());
+}
+
+#[test]
+fn certified_modal_reports_only_authored_member_references_370() {
+    check_modal_member_references_370(|s, densities| dedaliano_engine::certify::modal::certify_modal_3d(s, densities, 2).unwrap().results);
 }

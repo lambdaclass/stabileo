@@ -60,6 +60,15 @@ for (const width of [390, 820]) {
       test.setTimeout(120_000);
       await boot(page, width, 'portal-frame');
       await page.locator('button.adv-btn', { hasText: /Plastic collapse|Colapso plástico/ }).click();
+      await expect(page.getByTestId('plastic-verdict')).toBeVisible();
+      await page.getByTestId('plastic-curve').locator('summary').click();
+      await noOverflow(page, 'plastic-curve', `${width}-plastic`);
+    });
+    test('plastic collapse refusal', async ({ page }) => {
+      test.setTimeout(120_000);
+      await boot(page, width, 'cantilever-point');
+      await page.evaluate(() => window.__stabileoActions.tieNodes(1, 2, [0]));
+      await page.locator('button.adv-btn', { hasText: /Plastic collapse|Colapso plástico/ }).click();
       const withheld = page.getByTestId('plastic-withheld');
       await expect(withheld).toContainText(/4[.,]6/);
       await expect(withheld.locator('a')).toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/758');

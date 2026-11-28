@@ -69,7 +69,7 @@ import type { ElementColorMode } from '../viewport/element-colour';
 /** The parts of PRO's Specifications, and what each one selects. */
 export type SpecSection = 'members' | 'supports' | 'links' | 'surfaces' | 'analysis' | 'list';
 const SPEC_SELECT = { members: 'elements', supports: 'supports', links: 'nodes', surfaces: 'shells', analysis: 'elements', list: 'elements' } as const;
-export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring';
+export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'guidedX' | 'guidedZ' | 'spring';
 
 // 3D-specific types
 export type NodalLoadDir3D = 'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz';
@@ -537,6 +537,7 @@ function createUIStore() {
 
   // Live calculation
   let liveCalc = $state(hasLocalStorage() && localStorage.getItem('liveCalc') === 'true');
+  let releaseLiveScreen: (() => void) | undefined;
   let liveCalcError = $state<string | null>(null);
 
   // Analysis mode: 2D, 3D, PRO or EDU (educational)
@@ -1298,9 +1299,11 @@ function createUIStore() {
       if (idx >= 0) toasts.splice(idx, 1);
     },
 
+    _setReleaseLiveScreen(fn: () => void) { releaseLiveScreen = fn; },
     get liveCalc() { return liveCalc; },
     set liveCalc(v: boolean) {
       liveCalc = v;
+      if (!v) releaseLiveScreen?.();
       if (hasLocalStorage()) localStorage.setItem('liveCalc', String(v));
     },
     get liveCalcError() { return liveCalcError; },

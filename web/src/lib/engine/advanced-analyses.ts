@@ -1,3 +1,4 @@
+import { plasticWireSections, type plasticInput3D } from './plastic-moments';
 /**
  * What the Advanced panel sends to the engine, built where it can be tested.
  *
@@ -264,27 +265,9 @@ export function stagedRefusal(input: SolverInput3D): string | null {
 
 // ─── Pushover ─────────────────────────────────────────────────────
 
-/**
- * The plastic payload keyed by the sections the solve actually uses. A member with stiffness
- * modifiers is solved on a section of its own (`applyStiffnessModifiers`); its Mp is its model
- * section's, since a cracked inertia does not change a steel member's strength.
- */
-export function plasticForSolve<P extends { sections: Record<string, unknown>; mpOverrides: Record<string, [number, number]> }>(
-  p: P,
-  input: SolverInput3D,
-  modelSectionOf: (elementId: number) => number | undefined,
-): P {
-  const sections = { ...p.sections };
-  const mpOverrides = { ...p.mpOverrides };
-  for (const [id, el] of input.elements) {
-    const own = modelSectionOf(id);
-    if (own === undefined || own === el.sectionId) continue;
-    const from = String(own), to = String(el.sectionId);
-    if (mpOverrides[to] || !mpOverrides[from]) continue;
-    mpOverrides[to] = mpOverrides[from]!;
-    if (sections[from]) sections[to] = sections[from];
-  }
-  return { ...p, sections, mpOverrides };
+export function plasticForSolve(p: ReturnType<typeof plasticInput3D>, input: SolverInput3D) {
+  const { elements, elastic, sections, mpOverrides } = plasticWireSections(input, p.moments, (m): [number, number] => [m.mp, m.mpz]);
+  return { solver: { ...input, elements, sections: elastic }, sections, mpOverrides, materials: p.materials, assumed: p.assumed };
 }
 
 /**

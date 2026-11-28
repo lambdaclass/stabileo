@@ -4,23 +4,19 @@
  * that the solver resolves internally. The student must find the answers.
  */
 
-import type { SupportType } from '../../lib/store/ui.svelte';
 import { t } from '../../lib/i18n';
 import type { ElementForces } from '../../lib/engine/types';
+import type { Variant } from './exercise-params';
+import type { EduExerciseAPI, ModelSpec } from './exercise-spec';
+import { exerciseBars, type FreeBodyBar } from './free-body-step';
 
-export interface EduExerciseAPI {
-  addNode: (x: number, y: number) => number;
-  addElement: (nI: number, nJ: number) => number;
-  addSupport: (nodeId: number, type: SupportType) => void;
-  addNodalLoad: (nodeId: number, fx: number, fy: number, mz?: number) => void;
-  addDistributedLoad: (elementId: number, qI: number, qJ?: number) => void;
-}
+export type { EduExerciseAPI };
 
 export interface DiagramQuestion {
   /** i18n key or plain text — the question prompt */
   question: string;
   /** Function that extracts the correct answer from element forces */
-  getCorrect: (forces: ElementForces[]) => number;
+  getCorrect: (forces: ElementForces[]) => number | null;
   unit: string;
 }
 
@@ -36,10 +32,8 @@ export interface KinematicQuestion {
 }
 
 export interface DiagramShapeQuestion {
-  /** Which internal force diagram */
   diagram: 'N' | 'V' | 'M';
-  /** Correct shape */
-  correct: DiagramShape;
+  getCorrect: (forces: ElementForces[]) => DiagramShape | null;
 }
 
 /** A diagram the student draws instead of naming. */
@@ -62,6 +56,7 @@ export interface SectionDataItem {
 }
 
 export interface EduExercise {
+  revision?: string;
   id: string;
   title: string;
   description: string;
@@ -79,7 +74,7 @@ export interface EduExercise {
     label: string;
     unit: string;
     /** Function that extracts the correct value from element forces */
-    getCorrect: (forces: ElementForces[]) => number;
+    getCorrect: (forces: ElementForces[]) => number | null;
   }>;
   /** Questions about diagrams (Step 2) — the solver computes answers from results */
   diagramQuestions: DiagramQuestion[];
@@ -91,28 +86,38 @@ export interface EduExercise {
   diagramSketchQuestions?: DiagramSketchQuestion[];
   /** Whether "show me the answer" is offered. Absent means yes. */
   allowReveal?: boolean;
+  /** The structure and its bars, when the exercise asks for free-body diagrams. */
+  freeBody?: { model: ModelSpec; bars: FreeBodyBar[] };
   /** Section data to display as given info (strength/advanced exercises) */
   sectionData?: SectionDataItem[];
+  variant?: Variant;
+  seed?: number;
+  legajo?: string;
 }
 
 export interface ExerciseSection {
   category: ExerciseCategory;
   title: string;
-  exercises: EduExercise[];
+  exercises: EduExerciseSpec[];
 }
 
-// ─── Exercise definitions ────────────────────────────────────────
-//
-// The exercises themselves now live in `exercise-data.ts` as DATA. What
-// remains here is the translation into the shape the panel and the store
-// already consume, so nothing downstream had to change when authoring moved.
-
 import { getExerciseSpecs } from './exercise-data';
-import { buildFromSpec, evaluateAnswer, type EduExerciseSpec } from './exercise-spec';
+import { buildFromSpec, evaluateAnswer, type AnswerContext, type EduExerciseSpec, type ResolvedExerciseSpec } from './exercise-spec';
+import { stressContext } from './exercise-stress';
+import { exerciseRevision, shapeAnswer } from './exercise-variant';
 
-/** Adapt a declared exercise to the interface the UI consumes. */
-function fromSpec(spec: EduExerciseSpec): EduExercise {
+/** The stress resolver meshes a section, so it is built once, and only cached once the engine could actually build it. */
+export function toExercise(spec: ResolvedExerciseSpec, who: { legajo?: string } = {}): EduExercise {
+  let ctx: AnswerContext | undefined;
+  const stressCtx = (): AnswerContext => {
+    if (ctx) return ctx;
+    const built = stressContext(spec.model.profile, spec.model.fy);
+    if (built.stress || !spec.model.profile) ctx = built;
+    return built;
+  };
+  const bars = exerciseBars(spec);
   return {
+    revision: exerciseRevision(spec),
     id: spec.id,
     title: spec.title,
     description: spec.description,
@@ -124,45 +129,40 @@ function fromSpec(spec: EduExerciseSpec): EduExercise {
     characteristics: spec.characteristics.map((c) => ({
       label: c.label,
       unit: c.unit,
-      // An answer that cannot be evaluated returns 0 here rather than null,
-      // because the UI's contract is a number. The validation suite is what
-      // makes sure that case never ships: it fails the build instead.
-      getCorrect: (forces) => evaluateAnswer(c.answer, forces) ?? 0,
+      getCorrect: (forces) => spec.questionsOnly ? null : evaluateAnswer(c.answer, forces, stressCtx()),
     })),
     diagramQuestions: spec.diagramQuestions.map((q) => ({
       question: q.question,
       unit: q.unit,
-      getCorrect: (forces) => evaluateAnswer(q.answer, forces) ?? 0,
+      getCorrect: (forces) => spec.questionsOnly ? null : evaluateAnswer(q.answer, forces, stressCtx()),
     })),
     kinematicQuestion: spec.kinematicQuestion,
-    diagramShapeQuestions: spec.diagramShapeQuestions,
+    diagramShapeQuestions: spec.diagramShapeQuestions?.map((q) => ({
+      diagram: q.diagram,
+      getCorrect: (forces) => spec.questionsOnly ? null : shapeAnswer(q, forces),
+    })),
     diagramSketchQuestions: spec.diagramSketchQuestions,
     allowReveal: spec.allowReveal,
+    ...(bars.length ? { freeBody: { model: spec.model, bars } } : {}),
     sectionData: spec.sectionData,
+    variant: spec.variant,
+    seed: spec.seed,
+    legajo: who.legajo,
   };
 }
 
-export function getExercises(): EduExercise[] {
-  return getExerciseSpecs().map(fromSpec);
-}
-
-// ─── Grouped + sorted exercises ─────────────────────────────────
-
 const difficultyOrder: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
 
-function sortByDifficulty(exercises: EduExercise[]): EduExercise[] {
+function sortByDifficulty(exercises: EduExerciseSpec[]): EduExerciseSpec[] {
   return [...exercises].sort((a, b) => difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty]);
 }
 
 export function getExerciseSections(): ExerciseSection[] {
-  const all = getExercises();
-  const statics = sortByDifficulty(all.filter(e => e.category === 'statics'));
-  const strength = sortByDifficulty(all.filter(e => e.category === 'strength'));
-  const advanced = sortByDifficulty(all.filter(e => e.category === 'advanced'));
-
+  const all = getExerciseSpecs();
+  const of = (c: ExerciseCategory) => sortByDifficulty(all.filter((e) => e.category === c));
   return [
-    { category: 'statics', title: t('edu.sectionStatics'), exercises: statics },
-    { category: 'strength', title: t('edu.sectionStrength'), exercises: strength },
-    { category: 'advanced', title: t('edu.sectionAdvanced'), exercises: advanced },
+    { category: 'statics', title: t('edu.sectionStatics'), exercises: of('statics') },
+    { category: 'strength', title: t('edu.sectionStrength'), exercises: of('strength') },
+    { category: 'advanced', title: t('edu.sectionAdvanced'), exercises: of('advanced') },
   ];
 }

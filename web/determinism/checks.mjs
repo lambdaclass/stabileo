@@ -41,6 +41,19 @@ function multiCaseProblems(v) {
  */
 const statusCheck = (v) => (certifiedStatus(v?.certificate) ? [] : ['certificate not certified']);
 
+function plasticCollapseProblems(value) {
+  const r = value?.results;
+  const c = value?.certificate;
+  const factor = r?.collapseFactor;
+  const lo = c?.lambdaLower, hi = c?.lambdaUpper;
+  const valid = r?.isMechanism === true && c?.certified === true
+    && [factor, lo, hi].every(x => Number.isFinite(x) && x > 0) && lo <= hi
+    && c.solverCollapseFactor === factor && c.solverWithinBounds === (lo <= factor && factor <= hi)
+    && Number.isFinite(c.solverDeviation) && c.solverDeviation >= 0 && c.solverDeviation <= 1e-9
+    && Math.max(lo - factor, factor - hi, 0) / hi <= 1e-9 && hi - lo <= 1e-6 * factor;
+  return valid ? [] : ['2D plastic collapse not released at its certified factor (#758)'];
+}
+
 export const MUST_CERTIFY = [
   [/\/certify_linear_[23]d$/, statusCheck],
   [/\/certify_pdelta_[23]d$/, statusCheck],
@@ -56,6 +69,8 @@ export const MUST_CERTIFY = [
     return out;
   }],
   [/^plastic-.*\/certify_plastic_3d$/, (v) => (v?.certificate?.certified === true ? [] : ['plastic certificate not certified'])],
+  [/^plastic-2d-portal\/certify_plastic_2d$/, plasticCollapseProblems],
+  [/^plastic-2d-continuous\/certify_plastic_2d$/, plasticCollapseProblems],
   [/\/certify_multi_case_[23]d$/, multiCaseProblems],
   [/\/certify_steel_multi_case_[23]d$/, (v) => {
     const out = multiCaseProblems(v?.analysis).map((p) => `analysis: ${p}`);
@@ -76,7 +91,7 @@ export function requirementProblems(reference) {
     if (![...names].some((n) => re.test(n))) problems.push(`no case matches ${re}`);
   }
   const refusedNames = ['plastic-2d-portal', 'plastic-2d-continuous'].flatMap(id =>
-    ['solve_plastic_2d', 'certify_plastic_2d', 'export_plastic_bundle_2d'].map(entry => `${id}/${entry}`));
+    ['solve_plastic_2d', 'export_plastic_bundle_2d'].map(entry => `${id}/${entry}`));
   for (const name of refusedNames) {
     const r = reference.find(r => r.name === name);
     let valid = false;

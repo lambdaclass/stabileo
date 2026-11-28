@@ -10,10 +10,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  statusOf, reportElementStatus, ELEMENT_STATUS_ORDER, NOT_FOR_CONSTRUCTION_STATUSES,
+  findElementStatus, statusOf, reportElementStatus, ELEMENT_STATUS_ORDER, NOT_FOR_CONSTRUCTION_STATUSES,
   type DesignOutcomeSummary,
 } from '../element-status';
 import type { SceneModel, SceneSolid, SceneBar } from '../scene-model';
+
+import { selectedWorkspaceStatus } from '../../../store/rebar-workspace.svelte';
+import { filterScene, statusOwnerOf } from '../scene-model';
 
 function solid(id: number, over: Partial<SceneSolid> = {}): SceneSolid {
   return {
@@ -152,6 +155,43 @@ describe('the document is the authority on a proposal, not the session', () => {
     const r = reportElementStatus(s, new Map<number, DesignOutcomeSummary>());
     expect(r.entries[0].status, 'floor steel with no outcome stays MODELLED').toBe('MODELLED');
   });
+});
+
+it.each(['beam', 'column'] as const)('known wrong result: #1927 — family bars cannot supply a %s with steel', kind => {
+  const frame = solid(5, { kind });
+  const familyBar: SceneBar = { ...barFor(5), ownerScope: 'family', family: 'slab', layerId: 'e5:topRun:0' };
+  const report = reportElementStatus(scene([frame], [familyBar]), new Map());
+  expect(report.entries[0]).toMatchObject({ status: 'NOT_EVALUATED', hasSteel: false, topSteel: 'none' });
+});
+
+it.each([true, false])('known wrong result: #1927 — coincident footing and frame owners stay distinct, footing first %s', footingFirst => {
+  const frame = solid(5, { kind: 'column' });
+  const footing = solid(5, { id: 'footing:5', kind: 'footing', reinforced: true });
+  const report = reportElementStatus(scene(footingFirst ? [footing, frame] : [frame, footing]), new Map([
+    [5, { outcome: 'VERIFIED' }],
+  ]));
+  expect(report.counts.DESIGNED_NOT_MODELLED).toBe(1);
+  expect(report.counts.MODELLED).toBe(1);
+  expect(findElementStatus(report, 5, statusOwnerOf(footing))?.hasSteel).toBe(true);
+  expect(findElementStatus(report, 5, statusOwnerOf(frame))?.hasSteel).toBe(false);
+  const bars: SceneBar[] = [
+    { ...barFor(5), ownerScope: 'family', family: 'slab' },
+    { ...barFor(5), ownerScope: 'family', family: 'footing' },
+  ];
+  expect(findElementStatus(report, 5, statusOwnerOf(bars[0]!))).toBeUndefined();
+  const member = { elementIds: [5] };
+  expect(selectedWorkspaceStatus(report, member, null)?.hasSteel).toBe(false);
+  expect(selectedWorkspaceStatus(report, { ...member, solidId: footing.id }, footing)?.hasSteel).toBe(true);
+  expect(selectedWorkspaceStatus(report, { ...member, solidId: footing.id }, null)).toBeNull();
+  expect(selectedWorkspaceStatus(report, { ...member, barId: bars[0]!.barId }, bars[0]!)).toBeNull();
+  expect(selectedWorkspaceStatus(report, { ...member, barId: bars[1]!.barId }, null)).toBeNull();
+  const model = scene([frame, footing], bars);
+  const bare = filterScene(model, { elementIds: [5], statusFootingIds: [] });
+  expect(bare.solids).toEqual([frame]);
+  expect(bare.bars).toEqual([]);
+  const modelled = filterScene(model, { elementIds: [], statusFootingIds: [5] });
+  expect(modelled.solids).toEqual([footing]);
+  expect(modelled.bars).toEqual([bars[1]]);
 });
 
 describe('the report covers what is on screen', () => {

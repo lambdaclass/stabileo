@@ -497,10 +497,10 @@
   /** The Mp each section went in with, shown under the result. */
   let plasticMps = $state<SectionMp[]>([]);
   let plasticWithheld = $state<PlasticWithheld | null>(null);
-
   function handlePlastic() {
     if (blockedBySlidingJoints()) return;
     plasticWithheld = null;
+    if (resultsStore.plasticResult) resultsStore.clearPlastic();
     try {
       const t0 = performance.now();
       /* The step-by-step collapse analysis (lib/engine/plastic-collapse.ts). */
@@ -1024,7 +1024,6 @@
     {/if}
   </div>
   {/if}
-  {#each (is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues).messages as message}<p role="alert">{message}</p>{/each}
   {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}

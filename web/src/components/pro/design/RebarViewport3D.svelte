@@ -202,11 +202,11 @@
    * then clicks the next member expects to arrive there facing the same way. Re-deriving an
    * isometric each time throws away the orientation they just chose.
    */
-  export function focusElement(elementId: number): boolean {
+  export function focusElement(elementId: number, owner?: 'frame' | 'footing'): boolean {
     if (!camera || !controls) return false;
     // Restricted to what is visible: a request for a member the user has switched off cannot be
     // served, and reporting a move that never happened is worse than not moving.
-    const extent = elementExtent(scene, elementId, filter);
+    const extent = elementExtent(scene, elementId, filter, owner);
     const f = frameExtent(extent, camera.fov, camera.aspect);
     if (!f) return false;
     const dir = new THREE.Vector3()

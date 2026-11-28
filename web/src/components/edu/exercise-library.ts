@@ -11,7 +11,7 @@
  * beside it rather than instead of it.
  */
 
-import { fromFile, toFile, type ParseResult } from './exercise-capture';
+import { fromFile, readExerciseEnvelope, toFile, type ParseResult } from './exercise-capture';
 import type { EduExerciseSpec } from './exercise-spec';
 import { t } from '../../lib/i18n';
 
@@ -35,7 +35,7 @@ export function loadLibrary(): EduExerciseSpec[] {
     // our own storage: a half-written entry from an interrupted save, or one
     // from a newer version of the app, must not break the exercise list.
     return list
-      .map((e) => fromFile(JSON.stringify({ stabileoExercise: 1, exercise: e })))
+      .map((e) => readExerciseEnvelope(JSON.stringify({ stabileoExercise: 1, exercise: e })))
       .filter((r): r is Extract<ParseResult, { ok: true }> => r.ok)
       .map((r) => r.exercise);
   } catch {

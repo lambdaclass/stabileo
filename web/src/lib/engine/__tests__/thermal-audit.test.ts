@@ -17,6 +17,7 @@ import { expectPlasticRefusal } from './containment-helper';
  */
 import { describe, it, expect } from 'vitest';
 import { solve, solve3D, solvePDelta, solveBuckling, solveBuckling3D, solvePDelta3D, solvePlastic } from '../wasm-solver';
+import { plasticCollapse2D } from '../plastic-collapse';
 import { axialShares } from '../axial-shares';
 import { solveDetailed } from '../solver-detailed';
 import { solveDetailed3D } from '../solver-detailed-3d';
@@ -361,14 +362,21 @@ describe('temperature in the advanced analyses', () => {
     for (const extra of [...withoutGradient, [th(1, 0, 30)]]) expectPlasticRefusal(() => beam(extra));
   });
 
-  it.skip('plastic, plane: collapse at 8Mp/(PL), with a uniform ΔT or a gradient on both halves (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', () => {
+  const panel = (extra: SolverLoad[]) => plasticCollapse2D(m2([[1, 0, 0], [2, 3, 0], [3, 6, 0]], [[1, 1, 2, 'frame'], [2, 2, 3, 'frame']],
+    [[1, 'fixed'], [3, 'fixed']], [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -50, my: 0 } }, ...extra]), { mp: () => MP, np: () => Infinity });
+
+  it('plastic, plane, in the Basic panel: collapse at 8Mp/(PL), with a uniform ΔT or a gradient on both halves', () => {
     for (const extra of withoutGradient) {
-      expect(beam(extra).collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
+      const r = panel(extra);
+      expect(r.isMechanism && !r.withheld).toBe(true);
+      expect(r.collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 9);
     }
   });
 
-  it.skip('plastic, plane: collapse at 8Mp/(PL), with a gradient on one half (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', () => {
-    expect(beam([th(1, 0, 30)]).collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
+  it('plastic, plane, in the Basic panel: collapse at 8Mp/(PL), with a gradient on one half', () => {
+    const r = panel([th(1, 0, 30)]);
+    expect(r.isMechanism && !r.withheld).toBe(true);
+    expect(r.collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 9);
   });
 });
 

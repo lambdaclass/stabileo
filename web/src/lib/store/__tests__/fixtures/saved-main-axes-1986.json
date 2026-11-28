@@ -888,20 +888,20 @@
           "code": "known_issue",
           "severity": "warning",
           "message": "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER)",
-          "elementIds": [
-            1,
-            3
-          ],
           "phase": "LIN-SECOND-ORDER",
           "value": 1551,
           "threshold": 0.07483,
-          "elementKind": "frame"
+          "elementKind": "frame",
+          "elementIds": [
+            1,
+            3
+          ]
         },
         {
           "code": "known_issue",
           "severity": "warning",
-          "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
-          "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+          "message": "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER)",
+          "phase": "LIN-SECOND-ORDER",
           "value": 1551,
           "threshold": 0.07483
         },
@@ -1359,20 +1359,20 @@
             "code": "known_issue",
             "severity": "warning",
             "message": "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER)",
-            "elementIds": [
-              1,
-              3
-            ],
             "phase": "LIN-SECOND-ORDER",
             "value": 1551,
             "threshold": 0.07483,
-            "elementKind": "frame"
+            "elementKind": "frame",
+            "elementIds": [
+              1,
+              3
+            ]
           },
           {
             "code": "known_issue",
             "severity": "warning",
-            "message": "Members are in compression and the critical load could not be bounded from the members alone, so it is unknown whether second-order effects amplify these linear displacements and moments by more than 10 %. Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER-UNBOUNDED)",
-            "phase": "LIN-SECOND-ORDER-UNBOUNDED",
+            "message": "Axial compression is a significant fraction of the critical load: second-order effects may amplify these linear displacements and moments by more than 10 % (N/Ncr > 0.075, CIRSOC 301 Appendix 7). Run a P-Delta or second-order analysis before using these moments for design (known issue #1551, LIN-SECOND-ORDER)",
+            "phase": "LIN-SECOND-ORDER",
             "value": 1551,
             "threshold": 0.07483
           },

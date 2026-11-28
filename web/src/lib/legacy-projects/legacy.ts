@@ -40,7 +40,7 @@ import declaredQuantities from 'virtual:result-change-quantities';
 import { resultValues, type Values } from './capture-results';
 import { compareValues, formatCaseReport, parseSnapshot, storeNumber, type SnapshotDiff } from '../../../scripts/results-snapshot/compare.mjs';
 import { compareLegacy } from './vector-floor';
-import { conditionAllowsResult } from '../../../scripts/results-snapshot/applicability.mjs';
+import { conditionAllowsResult, matchesDeclaredQuantity } from '../../../scripts/results-snapshot/applicability.mjs';
 
 export type Workspace = '2d' | '3d' | 'pro';
 
@@ -431,9 +431,7 @@ export function declaresMove(change: Pick<ResultChange, 'quantities' | 'when'>, 
   const rest = set[1] ?? '';
   if (rest === 'errorCodes') return declared.includes('errorCodes');
   if (declared.includes('*')) return true;
-  const collection = /^[A-Za-z0-9]+/.exec(rest)?.[0];
-  const field = /\]\.([A-Za-z0-9]+)$/.exec(rest)?.[1];
-  return !!collection && (declared.includes(collection) || (!!field && declared.includes(`${collection}.${field}`)));
+  return matchesDeclaredQuantity(declared, rest);
 }
 
 export interface Verdict {

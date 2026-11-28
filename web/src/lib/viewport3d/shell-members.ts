@@ -34,12 +34,12 @@ export function meshHidden(): boolean {
   if (asked === 'show') return false;
   // A result drawn on the shells is drawn on their mesh.
   if (asked === 'hide') return !shellResultDrawn();
-  return modelStore.quads.size + modelStore.plates.size > MESH_SHOWN_UP_TO && !resultsStore.results3D;
+  return modelStore.quads.size + modelStore.plates.size > MESH_SHOWN_UP_TO && !resultsStore.screen.results3D;
 }
 
 /** Whether a contour is drawn on the shells now. */
 function shellResultDrawn(): boolean {
-  if (!resultsStore.results3D || resultsStore.diagramType !== 'colorMap') return false;
+  if (!resultsStore.screen.results3D || resultsStore.screen.diagram !== 'colorMap') return false;
   const k = resultsStore.colorMapKind;
   return k === 'shellVonMises' || k === 'shellBending' || (k === 'stress' && !!resultsStore.stressShowShells);
 }

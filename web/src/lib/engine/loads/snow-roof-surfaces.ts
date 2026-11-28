@@ -227,7 +227,8 @@ export interface RoofGeometry {
 
 export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
   const exposed = roofMembers(model);
-  const targetIds = new Set((only ? roofMembers(model, only) : exposed).map(m => m.id));
+  const carriers = only ? roofMembers(model, only) : exposed;
+  const targetIds = new Set(carriers.map(m => m.id));
   const roofIds = new Set([...exposed.map(m => m.id), ...targetIds]);
   const roof = [...model.elements.values()].filter(e => (e as { type?: string }).type !== 'truss' && beamLike(model, e).ok).flatMap(e => {
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
@@ -617,7 +618,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     };
     return { at: field, boundaries, memberLoads };
   };
-  return { approximation, geometry, roofPoint, profilePoints, pressureProfile, memberValues, planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
+  return { carriers, approximation, geometry, roofPoint, profilePoints, pressureProfile, memberValues, planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
 }
 
 export function snowRoofSurfaces(model: WindModel, layout?: GravityLayout, surfaces = roofSurfaceModel(model)) {

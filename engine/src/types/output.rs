@@ -320,6 +320,7 @@ pub struct StructuredDiagnostic {
 #[serde(rename_all = "snake_case")]
 pub enum ElementKind {
     Frame,
+    CurvedBeam,
     Plate,
     Quad,
     Quad9,
@@ -476,6 +477,8 @@ pub struct ResultSummary {
     /// compressed, absent when the result was not screened. Combinations sum it by |factor|.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub second_order_ratio: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub second_order_physical_bound: Option<f64>,
     /// Each two-node member's relative end displacement over its length, in global x, y, z (2D:
     /// x, 0, z), for combinations to judge chords on their own: absent when not recorded.
     #[serde(default, skip_serializing_if = "Option::is_none")]

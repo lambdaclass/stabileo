@@ -118,3 +118,51 @@ it('#2532 translates the discarded session history warning in every locale dicti
     expect.soft(dict['file.sessionHistoryDiscarded'], code).toContain('{names}');
   }
 });
+
+it.each([
+  ['en', 'transverse component', 'point couple', 'upper extreme fiber', 'every attempt', 'independently'],
+  ['es', 'componente transversal', 'par puntual', 'fibra extrema superior', 'todos los intentos', 'independiente'],
+  ['pt', 'componente transversal', 'binário pontual', 'fibra extrema superior', 'todas as tentativas', 'independente'],
+  ['de', 'Querkomponente', 'Einzelmoment', 'oberen Randfaser', 'alle Bearbeitungs-', 'unabhängig'],
+  ['fr', 'composante transversale', 'couple ponctuel', 'fibre extrême supérieure', 'chaque tentative', 'indépendamment'],
+  ['tr', 'enine bileşen', 'Tekil moment', 'en üst lif', 'tüm denemelerin', 'bağımsız'],
+  ['hu', 'keresztirányú összetevő', 'Pontszerű nyomaték', 'felső szélső szál', 'valamennyi kitöltési', 'önállóan'],
+  ['zh', '横向分量', '集中力偶', '上缘纤维', '每次作答', '独立'],
+])('known wrong result: #1927 — %s distinguishes point forces from couples and names the grading conditions', (locale, transverse, couple, fiber, attempts, grading) => {
+  const dict = ALL_DICTS[locale];
+  const shape = dict['exam.explain.shape'].toLowerCase();
+  expect(shape).toContain(transverse.toLowerCase());
+  expect(shape).toContain(couple.toLowerCase());
+  for (const key of ['edu.ex11Desc', 'edu.ex11DescP']) expect(dict[key]).toContain(fiber);
+  for (const key of ['exam.revealAfterClose', 'exam.resultsLater']) expect(dict[key]).toContain(attempts);
+  expect(dict['exam.gradedHere']).toContain(grading);
+});
+
+it('states the factor units, the modal estimate assumptions and the scope of explained methods', () => {
+  const { hu, zh } = ALL_DICTS;
+  expect(zh['course.plastic.limitOnly']).toMatch(/荷载系数[^。]*λ = \{history\}[^。]*。[^。]*倒塌荷载系数[^。]*λc = \{lambda\}/);
+  expect(hu['course.plastic.limitOnly']).toMatch(/teherszorzó[^.]*λc = \{lambda\}/);
+  expect(zh['knownIssue.NL-DYNAMIC-GAPS']).toContain('一阶瑞利估算适用于均匀的简支直梁');
+  const notice = JSON.parse(readFileSync(join(import.meta.dirname, '../../provenance/result-changes/basic-plastic-2d-certified-limit.json'), 'utf8'));
+  expect(notice.explanation.hu).toMatch(/lépésenkénti statikai és kinematikai módszer.*teherszorzó közölhető/i);
+});
+
+it('known wrong result: #1927 — review checks exam attempts, determinacy and rotary-inertia assumptions', () => {
+  for (const key of ['exam.revealAfterClose', 'exam.resultsLater']) {
+    expect.soft(ALL_DICTS.fr[key]).toContain('chaque tentative');
+    expect.soft(ALL_DICTS.zh[key]).toContain('每次作答');
+  }
+  expect.soft(ALL_DICTS.de['edu.ex14Desc']).toContain('Klassifizieren Sie das Tragwerk');
+  for (const locale of ['pt', 'tr']) expect.soft(ALL_DICTS[locale]['knownIssue.NL-DYNAMIC-GAPS']).toContain('Rayleigh');
+});
+
+it('known wrong result: #1551 — review publishes the continuous bound and combination warning in each translation', () => {
+  const change = JSON.parse(readFileSync(join(import.meta.dirname, '../../provenance/result-changes/linear-second-order-critical-factor-2d.json'), 'utf8'));
+  for (const [lang, bound, combination] of [
+    ['es', 'continuas', 'combinaciones'], ['pt', 'contínuas', 'combinações'], ['de', 'kontinuierliche', 'Lastkombinationen'],
+    ['fr', 'continues', 'combinaisons'], ['tr', 'sürekli', 'birleşim'], ['hu', 'folytonos', 'teherkombináció'], ['zh', '连续', '荷载组合'],
+  ]) {
+    expect.soft(change.explanation[lang], lang).toContain(bound);
+    expect.soft(change.explanation[lang], lang).toContain(combination);
+  }
+});

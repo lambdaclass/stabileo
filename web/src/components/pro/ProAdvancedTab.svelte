@@ -562,21 +562,14 @@
         }
         // Keyed by the sections the solve uses: a member with stiffness modifiers is solved on a
         // section of its own, which had no Mp and took it as infinite.
-        const { sections, materials, mpOverrides, assumed } = plasticForSolve(
-          plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements),
-          input, (id) => modelStore.elements.get(id)?.sectionId,
-        );
-        nlAssumed = assumed;
         const loads = pushLoads(input);
         if (typeof loads === 'string') { solveError = loads; solving = false; return; }
-        input = { ...input, loads };
-        nlResult = solvePlastic3D({
-          solver: input,
-          sections,
-          materials,
-          maxHinges: nlMaxHinges,
-          mpOverrides,
-        });
+        const { assumed, ...payload } = plasticForSolve(
+          plasticInput3D(modelStore.sections, modelStore.materials, modelStore.elements),
+          { ...input, loads },
+        );
+        nlAssumed = assumed;
+        nlResult = solvePlastic3D({ ...payload, maxHinges: nlMaxHinges });
         nlVersion = modelStore.modelVersion;
       } else {
         const co: any = solveCorotational3D(input, nlMaxIter, nlTol, nlIncrements);

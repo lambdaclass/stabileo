@@ -32,7 +32,7 @@
  * Pure: no store, no runes, no i18n, no DOM.
  */
 
-import type { SceneModel } from './scene-model';
+import { statusOwnerOf, type SceneModel, type SceneSolid } from './scene-model';
 
 /** The seven states the workspace distinguishes, worst last. */
 export type ElementStatus =
@@ -166,6 +166,7 @@ export interface DesignOutcomeSummary {
 export type MemberTopSteel = 'resistant' | 'hangerProvisional' | 'none';
 
 export interface ElementStatusEntry {
+  footing?: Pick<SceneSolid, 'id' | 'label'>;
   elementId: number;
   status: ElementStatus;
   /** True when the scene holds at least one bar owned by this element. */
@@ -444,6 +445,10 @@ export interface ElementStatusReport {
   hangerTopMembers: number[];
 }
 
+export function findElementStatus(report: ElementStatusReport, id: number, owner: ReturnType<typeof statusOwnerOf>): ElementStatusEntry | undefined {
+  return report.entries.find(entry => entry.elementId === id && (entry.footing ? 'footing' : 'frame') === owner);
+}
+
 /**
  * Status for every member the scene draws.
  *
@@ -456,7 +461,8 @@ export function reportElementStatus(
   scene: SceneModel,
   outcomes: ReadonlyMap<number, DesignOutcomeSummary>,
 ): ElementStatusReport {
-  const steelOf = new Set(scene.bars.flatMap((b) => b.elementIds));
+  const frameBars = scene.bars.filter(bar => bar.ownerScope === 'frame');
+  const steelOf = new Set(frameBars.flatMap(bar => bar.elementIds));
   /**
    * TOP longitudinal steel per member, split by what it is for.
    *
@@ -473,7 +479,7 @@ export function reportElementStatus(
    */
   const hangerOf = new Set<number>();
   const resistantOf = new Set<number>();
-  for (const b of scene.bars) {
+  for (const b of frameBars) {
     if (b.role !== 'longitudinal') continue;
     if (!b.layerId?.split(':')[1]?.startsWith('top')) continue;
     for (const id of b.elementIds) {
@@ -496,16 +502,20 @@ export function reportElementStatus(
   const documentProvisional = new Set(scene.provisionalMembers);
 
   for (const s of scene.solids) {
+    const owner = statusOwnerOf(s);
+    if (!owner || s.kind === 'joint') continue;
+    const footing = owner === 'footing';
     for (const id of s.elementIds) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const summary = outcomes.get(id);
-      const hasSteel = steelOf.has(id) || s.reinforced;
+      if (!footing && seen.has(id)) continue;
+      if (!footing) seen.add(id);
+      const summary = footing ? undefined : outcomes.get(id);
+      const hasSteel = s.reinforced || (!footing && steelOf.has(id));
       entries.push({
         elementId: id,
-        status: statusOf(hasSteel, summary, documentProvisional.has(id)),
+        ...(footing && { footing: { id: s.id, label: s.label } }),
+        status: statusOf(hasSteel, summary, !footing && documentProvisional.has(id)),
         hasSteel,
-        topSteel: topSteelOf(id),
+        topSteel: footing ? 'none' : topSteelOf(id),
         outcome: summary?.outcome,
         limiting: summary?.limiting ?? [],
         reasonKey: summary?.reasonKey,

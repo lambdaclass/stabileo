@@ -6,12 +6,14 @@ import { createRawSnippet } from 'svelte';
 import { modelStore, resultsStore, uiStore } from '../../store';
 import { timeHistoryView } from '../../store/time-history-view.svelte';
 import { solveNow } from '../../actions/solve';
-import { runPlasticCollapse } from '../../actions/plastic';
+import { PlasticWithheld, runPlasticCollapse } from '../../actions/plastic';
 import { lastSolveFailure } from '../live-calc';
 import { validateAndSolve3D, validateAndSolve3DAsync } from '../solver-service';
 import * as wasm from '../wasm-solver';
 import * as pool from '../solver-pool';
-import { setLocale } from '../../i18n';
+import * as certifyTags from '../certify-tags';
+import { refusalDiagnostic } from '../containment-error';
+import { i18n, setLocale, tp } from '../../i18n';
 import { ensureLocale, tAt } from '../../i18n/store.svelte';
 import ContainmentBanner from '../../../components/ContainmentBanner.svelte';
 import { OFFERED_LOCALES } from '../../i18n/offered';
@@ -20,7 +22,10 @@ const refusal = JSON.stringify({ structuredDiagnostics: [{
   code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE',
 }] });
 
+const initialLocale = i18n.locale;
+
 afterEach(() => {
+  setLocale(initialLocale);
   vi.restoreAllMocks();
   timeHistoryView.clear();
   resultsStore.clear();
@@ -104,18 +109,47 @@ describe('production containment', () => {
     expect(resultsStore.knownIssues3D.refused).toBe(false);
   });
 
-  it('Basic plastic refuses before displaying or tagging a legacy result', async () => {
+  async function tiedPlasticRefusal(example: string, masterNode: number, slaveNode: number) {
     modelStore.clear();
     uiStore.analysisMode = '2d';
-    await modelStore.loadExample('cantilever-point');
+    await modelStore.loadExample(example);
+    modelStore.addConstraint({ type: 'equalDOF', masterNode, slaveNode, dofs: [0] });
     resultsStore.clear();
+    const tag = vi.spyOn(certifyTags, 'tagCertifyJob');
     const certify = vi.spyOn(wasm, 'callCertify');
-    expect(() => runPlasticCollapse()).toThrow(/#758/);
+    const run = vi.fn(runPlasticCollapse);
+    expect(run).toThrow();
     expect(resultsStore.plasticResult).toBeNull();
     expect(resultsStore.hasAnyResults).toBe(false);
     expect(resultsStore.knownIssues.refused).toBe(false);
+    expect(tag).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ name: 'certify_plastic_2d' }));
     expect(certify).not.toHaveBeenCalled();
-    certify.mockRestore();
+    return run.mock.results[0].value;
+  }
+
+  it.each(OFFERED_LOCALES)('Basic plastic reports the released portal stiffness refusal in %s before checking the limit', async locale => {
+    await ensureLocale(locale);
+    setLocale(locale);
+    const rank = vi.spyOn(wasm, 'analyzeKinematics');
+    const limit = vi.spyOn(wasm, 'plasticLimit2D');
+    const error = await tiedPlasticRefusal('portal-frame', 2, 3);
+    expect(rank.mock.results[0].value.isSolvable).toBe(true);
+    const released = rank.mock.results.at(-1)!.value;
+    expect(released).toMatchObject({ classification: 'indeterminate', isSolvable: false });
+    const diagnostic = refusalDiagnostic(released.diagnosis, 'reduced_stiffness_rank');
+    const nodes = diagnostic?.message.match(/at nodes (\[[\d, ]+\]): constraint reduction cancels stiffness contributions/)?.[1];
+    expect(nodes).toBeDefined();
+    const where = tp('svc.engine.constraintStiffnessNodes', { nodes: nodes! });
+    expect(error).toEqual(new Error(tp('svc.engine.constraintStiffnessRank', { where })));
+    expect(limit).not.toHaveBeenCalled();
+  });
+
+  it('Basic plastic reports #758 when the tied cantilever reaches the limit check without a certificate', async () => {
+    const limit = vi.spyOn(wasm, 'plasticLimit2D');
+    const error = await tiedPlasticRefusal('cantilever-point', 1, 2);
+    expect(limit).toHaveBeenCalledOnce();
+    expect(error).toBeInstanceOf(PlasticWithheld);
+    expect(error).toHaveProperty('message', expect.stringMatching(/#758/));
   });
 });
 

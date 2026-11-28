@@ -1,0 +1,16 @@
+{
+  "solver": {
+    "nodes": {
+      "1": {"id": 1, "x": 0, "y": 0, "z": 0},
+      "200": {"id": 200, "x": 2, "y": 0, "z": 1},
+      "5": {"id": 5, "x": 4, "y": 0, "z": 0}
+    },
+    "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 5, "materialId": 1, "sectionId": 1}},
+    "curvedBeams": [{"nodeStart": 1, "nodeMid": 200, "nodeEnd": 5, "materialId": 1, "sectionId": 1, "numSegments": 8}],
+    "materials": {"1": {"id": 1, "e": 200000, "nu": 0.3}},
+    "sections": {"1": {"id": 1, "a": 0.01, "iy": 0.004, "iz": 0.004, "j": 0.00001}},
+    "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+    "loads": []
+  },
+  "densities": {"1": 7850}
+}

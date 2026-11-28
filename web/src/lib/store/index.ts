@@ -1,7 +1,7 @@
 import { withSavedBeamEvidence } from './beam-line-store';
 import { collapseVariableResults, collapseVariableEnvelope, collapseVariablePDelta, collapseVariableModes, variableExpansionFor } from '../engine/variable-members';
 import { clearMaterialChecks } from './material-check.svelte';
-import { modelStore } from './model.svelte';
+import { modelStore, type Element, type Plate, type Quad } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { resultsStore } from './results.svelte';
 import { certificateStore } from './certificate.svelte';
@@ -35,6 +35,7 @@ import { rebarWorkspace } from './rebar-workspace.svelte';
 import { pruneDeletedMembers } from './selection-prune';
 import { recheckStore } from './recheck.svelte';
 import { noteBaseSolve } from './result-provenance';
+import { liveCalcFollowsEdits } from '../engine/live-calc-state';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -54,6 +55,7 @@ modelStore._setOnReplaced(() => connectionPrompt.clear());
  * Not on every restore: undo, a what-if slider and an applied edit keep them.
  */
 modelStore._setOnNewProject(() => {
+  resultsStore.releaseScreen();
   viewVisibility.showAll();
   uiStore.selfWeightCaseId = null;
   // The last floor and footing runs were the previous project's; its own are in its file.
@@ -93,7 +95,7 @@ modelStore._setBeforeAnalysisInput(flushDefinedLoadsSync);
 modelStore._setOnMutation(() => {
   // A deleted member leaves every selection, once the edit that deletes it has run.
   queueMicrotask(pruneDeletedMembers);
-  resultsStore.clear();
+  resultsStore.clear({ keepScreen: liveCalcFollowsEdits(uiStore.liveCalc, uiStore.analysisMode) });
   verificationStore.invalidateAnalysis();
   // The other materials' checks read the results just cleared.
   clearMaterialChecks();
@@ -176,6 +178,47 @@ resultsStore._setTransverseSignProvider((elementId) => {
   if (!a || !b) return 1;
   const pa = projectNode(uiStore.drawPlane2D, a), pb = projectNode(uiStore.drawPlane2D, b);
   return transverseSign(pb.x - pa.x, pb.y - pa.y);
+});
+
+uiStore._setReleaseLiveScreen(() => resultsStore.releaseScreen());
+
+resultsStore._setScreenModelCapture(() => {
+  const nodes = new Map([...modelStore.nodes].map(([id, n]) => [id, { ...n }]));
+  const elements = new Map([...modelStore.elements].map(([id, e]) => [id, { ...e }]));
+  const memberGeometry = (e: Element) => JSON.stringify([e.type, e.nodeI, e.nodeJ, e.offset, e.localYx, e.localYy, e.localYz, e.rollAngle]);
+  const shellGeometry = (s: Plate | Quad) => JSON.stringify([s.nodes, s.offset]);
+  const geometry = new Map([...elements].map(([id, e]) => [id, memberGeometry(e)]));
+  const plates = new Map([...modelStore.plates].map(([id, s]) => [id, shellGeometry(s)]));
+  const quads = new Map([...modelStore.quads].map(([id, s]) => [id, shellGeometry(s)]));
+  const sections = new Map(modelStore.sections), materials = new Map(modelStore.materials);
+  type GeometryMaps = Pick<typeof modelStore, 'nodes' | 'elements' | 'plates' | 'quads'>;
+  let cached: (GeometryMaps & { version: number; result: unknown; ok: boolean }) | undefined;
+  return {
+    nodes, elements, sections, materials, supports: new Map([...modelStore.supports].map(([id, support]) => [id, { ...support }])),
+    loads: modelStore.loads.map(load => ({ ...load, data: { ...load.data } } as typeof load)),
+    loadCases: modelStore.model.loadCases.map(c => ({ ...c })), combinations: modelStore.model.combinations.map(c => ({ ...c, factors: c.factors.map(f => ({ ...f })) })),
+    plates: new Map(modelStore.plates), quads: new Map(modelStore.quads), groups: new Map(modelStore.model.groups),
+    includeSelfWeight: uiStore.includeSelfWeight, planeAnalysis: modelStore.solveAnalysis(false, uiStore.includeSelfWeight),
+    analysis: { ...modelStore.analysis },
+    fits(result) {
+      const version = modelStore.modelVersion;
+      if (cached?.version === version && cached.result === result && cached.nodes === modelStore.nodes
+          && cached.elements === modelStore.elements && cached.plates === modelStore.plates && cached.quads === modelStore.quads) return cached.ok;
+      const ok = nodes.size === modelStore.nodes.size && elements.size === modelStore.elements.size
+        && plates.size === modelStore.plates.size && quads.size === modelStore.quads.size
+        && [...nodes].every(([id, { x, y, z }]) => {
+          const n = modelStore.nodes.get(id);
+          return n?.x === x && n.y === y && n.z === z;
+        })
+        && [...modelStore.elements].every(([id, e]) => geometry.get(id) === memberGeometry(e))
+        && [...modelStore.plates].every(([id, s]) => plates.get(id) === shellGeometry(s))
+        && [...modelStore.quads].every(([id, s]) => quads.get(id) === shellGeometry(s))
+        && result.elementForces.every(f => elements.has(f.elementId))
+        && result.displacements.every(d => nodes.has(d.nodeId));
+      cached = { version, result, ok, nodes: modelStore.nodes, elements: modelStore.elements, plates: modelStore.plates, quads: modelStore.quads };
+      return ok;
+    },
+  };
 });
 
 // Members of variable section are published as one member each, from any analysis that solved

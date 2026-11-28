@@ -3,7 +3,7 @@
 // Extracted from individual TS solver files that have been replaced by Rust WASM.
 // Types are still needed by stores, canvas drawing, and UI components.
 
-import type { AnalysisResults } from './types';
+import type { AnalysisResults, Displacement } from './types';
 import type { AnalysisResults3D } from './types-3d';
 import type { SolverDiagnostic, StructuredDiagnostic } from './types';
 import type { BucklingCertificate } from './wasm-solver';
@@ -108,7 +108,7 @@ export interface ModeShape {
   frequency: number;
   period: number;
   omega: number;
-  displacements: Array<{ nodeId: number; ux: number; uy: number; rz: number }>;
+  displacements: Displacement[];
   participationX: number;
   participationY: number;
   effectiveMassX: number;

@@ -24,6 +24,18 @@ describe('known-issue warnings in the reader’s language', () => {
     expect(knownIssueMessage(d)).toMatch(/Material-nonlinear/);
   });
 
+  it('uses the localized curved member name and the absolute yield condition in every offered language', async () => {
+    for (const locale of OFFERED_LOCALES) {
+      setLocale(locale);
+      await ensureLocale(locale);
+      const dictionary = dictFor(locale);
+      const warning = knownIssueMessage({ code: 'known_issue', phase: 'NL-DYNAMIC-GAPS', elementKind: 'curved_beam', elementIds: [7], message: 'ENGINE' });
+      expect(warning).toContain(`[${dictionary['knownIssue.curvedBeam']}: 7]`);
+      expect(warning).not.toContain('curved_beam');
+      expect(dictionary['course.plastic.trace.moved']).toMatch(/\|M\|\s*=\s*Mp/);
+    }
+  });
+
   it('keeps the engine’s text for an id the app does not know, and leaves other codes alone', () => {
     expect(knownIssueMessage({ ...d, phase: 'XX-99' })).toBe(d.message);
     expect(knownIssueMessage({ code: 'residual_high', message: 'r' })).toBe('r');

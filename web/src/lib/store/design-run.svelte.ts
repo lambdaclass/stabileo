@@ -338,7 +338,7 @@ function createDesignRunStore() {
      * never redesigned.
      */
     opts: { maxRunMs?: number; deferDetailing?: boolean; edited?: 'keep' | 'overwrite' } = {},
-  ): CommandResult {
+  ): CommandResult & { outcomes?: ReadonlyMap<number, MemberDesignOutcome>; unreached?: ReadonlySet<number> } {
     lastError = null;
     const a = adapter();
     if (!a) return fail('design.error.noAdapter');
@@ -376,8 +376,12 @@ function createDesignRunStore() {
         onProgress: (p) => { progress = p; },
       });
       summary.outcomes = spanOutcomesToPieces(summary.outcomes, ctxOf);
-      publishOutcomes(summary, opts.deferDetailing ?? false);
-      return { ok: true };
+      summary.notReached = all.length - summary.outcomes.size;
+      publishOutcomes(summary, summary.aborted || !!opts.deferDetailing);
+      const status = summary.aborted
+        ? fail('design.cmd.truncated', { notReached: summary.notReached })
+        : { ok: true };
+      return { ...status, outcomes: summary.outcomes, unreached: summary.aborted ? new Set(all.map(ctx => ctx.elementId).filter(id => !summary.outcomes.has(id))) : undefined };
     } finally {
       running = false;
       phase = 'idle';
@@ -584,29 +588,37 @@ function createDesignRunStore() {
         const target = FRAME_FAMILIES
           .filter((f) => chosen.has(f))
           .flatMap((f) => byFamily.get(f) ?? []);
-        if (target.length > 0) {
-          // The global command owns detailing, including its verifier. Run its feedback
-          // once, before reading the repaired outcomes into the family summaries.
-          autoDesign(target, { deferDetailing: true, maxRunMs: opts.maxRunMs, ...(opts.edited ? { edited: opts.edited } : {}) });
-          detailingStore.generate({ verifierId: opts.verifierId });
+        const run = target.length ? autoDesign(target, { ...opts, deferDetailing: true }) : undefined;
+        let completion = run;
+        if (run?.ok && !detailingStore.generate({ verifierId: opts.verifierId })) {
+          completion = detailingStore.lastError
+            ? fail('design.reason.generic', { detail: detailingStore.lastError })
+            : fail('report.qty.noDetailing');
         }
 
         for (const f of FRAME_FAMILIES) {
           if (!chosen.has(f)) { families.push(emptyFamilyResult(f, 'skipped')); continue; }
           const ids = byFamily.get(f) ?? [];
           if (ids.length === 0) { families.push(emptyFamilyResult(f, 'noElements')); continue; }
+          let processed = 0;
           let designed = 0;
           let refused = 0;
           let notModelled = 0;
           for (const id of ids) {
-            const o = verificationStore.outcomeFor(id);
-            if (!o) continue;
+            const reached = run?.outcomes?.get(id);
+            if (!reached) continue;
+            processed++;
+            const o = verificationStore.outcomeFor(id) ?? reached;
             if (o.outcome !== 'VERIFIED') refused += 1;
-            else if (o.accepted) designed += 1;
-            else notModelled += 1;
+            else if (!o.accepted) notModelled += 1;
+            else if (completion?.ok) designed += 1;
           }
+          const notReached = ids.filter(id => run?.unreached?.has(id)).length;
+          const failure = completion?.ok === false ? completion : undefined;
           families.push({
-            family: f, state: 'designed', processed: ids.length, designed, refused, notModelled,
+            family: f, state: failure ? 'failed' : 'designed',
+            processed, designed, refused, notModelled,
+            ...(failure && { errorKey: failure.reasonKey, errorParams: run?.unreached ? { notReached } : failure.params }),
           });
         }
       }

@@ -26,6 +26,8 @@ export type MpSource = 'geometry' | 'rectangle' | 'estimated';
 
 export interface SectionMp {
   sectionId: number;
+  materialId: number;
+  memberIds: number[];
   name: string;
   /** kN·m */
   mp: number;
@@ -100,23 +102,39 @@ function turned<G extends { polygons: Array<{ vertices: Array<[number, number]> 
   };
 }
 
-/** Mp of every section the model's members use, with the material of the first member using it. */
 export function plasticMoments(
   sections: Map<number, Section>,
   materials: Map<number, Material>,
   elements: Map<number, Element>,
 ): SectionMp[] {
-  const out: SectionMp[] = [];
-  for (const [id, sec] of sections) {
-    const elem = [...elements.values()].find((e) => e.sectionId === id);
-    if (!elem) continue;
-    const fyDeclared = materials.get(elem.materialId)?.fy;
-    const fyAssumed = !(fyDeclared && fyDeclared > 0);
-    const fy = fyAssumed ? DEFAULT_FY : fyDeclared!;
-    const { zp, source } = plasticModulus(sec);
-    out.push({ sectionId: id, name: sec.name, mp: fy * 1000 * zp, zp, fy, source, fyAssumed });
+  const groups = new Map<string, SectionMp>();
+  const moduli = new Map<number, ReturnType<typeof plasticModulus>>();
+  for (const e of elements.values()) {
+    const key = `${e.sectionId}/${e.materialId}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.memberIds.push(e.id);
+      continue;
+    }
+    const section = sections.get(e.sectionId);
+    if (!section) continue;
+    const declared = materials.get(e.materialId)?.fy;
+    const fyAssumed = !(declared !== undefined && declared > 0);
+    const fy = fyAssumed ? DEFAULT_FY : declared;
+    const modulus = moduli.get(e.sectionId) ?? plasticModulus(section);
+    moduli.set(e.sectionId, modulus);
+    groups.set(key, {
+      sectionId: e.sectionId, materialId: e.materialId, memberIds: [e.id], name: section.name,
+      mp: fy * 1000 * modulus.zp, ...modulus, fy, fyAssumed,
+    });
   }
-  return out;
+  return [...groups.values()];
+}
+
+export function capacitiesByMember<M extends SectionMp>(moments: M[]): Map<number, M> {
+  const members = new Map<number, M>();
+  for (const m of moments) for (const id of m.memberIds) members.set(id, m);
+  return members;
 }
 
 /**
@@ -148,13 +166,6 @@ export function plasticModulusWeak(sec: Section): { zp: number; source: MpSource
 /** Both plastic moments of a section, kN·m — `[Mp about y (strong), Mp about z (weak)]`, the engine's 3-D `mpOverrides` pair. */
 export interface SectionMp3D extends SectionMp { mpz: number; zpz: number; sourceZ: MpSource }
 
-/**
- * Mp about both axes of every section the model's members use, for the 3-D plastic analysis.
- *
- * The engine's 3-D fallback is the same rectangle, `b·h²/4` and `h·b²/4`, and it reads a
- * section's material from a `materialId` the section does not have — so every section was
- * analysed with the default 250 MPa. Here the material is the first member's, as in 2-D.
- */
 export function plasticMoments3D(
   sections: Map<number, Section>,
   materials: Map<number, Material>,
@@ -169,30 +180,49 @@ export function plasticMoments3D(
   });
 }
 
-/**
- * The engine's 3-D plastic payload: sections with their members' material, dimensions only when
- * present, and Mp about both axes as `mpOverrides`; plus the sections whose Mp rests on an
- * assumption, so a surface can say so.
- */
 export function plasticInput3D(
   sections: Map<number, Section>,
   materials: Map<number, Material>,
   elements: Map<number, Element>,
-): { sections: Record<string, unknown>; materials: Record<string, { fy: number }>; mpOverrides: Record<string, [number, number]>; assumed: string[] } {
-  const mps = plasticMoments3D(sections, materials, elements);
-  const out: Record<string, unknown> = {};
-  const mpOverrides: Record<string, [number, number]> = {};
-  for (const m of mps) {
-    const sec = sections.get(m.sectionId)!;
-    const member = [...elements.values()].find((e) => e.sectionId === m.sectionId)!;
-    out[String(m.sectionId)] = {
-      a: sec.a, iy: sec.iy ?? sec.iz, iz: sec.iz, materialId: member.materialId,
-      ...(sec.b ? { b: sec.b } : {}), ...(sec.h ? { h: sec.h } : {}),
-    };
-    mpOverrides[String(m.sectionId)] = [m.mp, m.mpz];
+) {
+  const moments = plasticMoments3D(sections, materials, elements);
+  const assumed = moments.filter(m => m.fyAssumed || m.source === 'estimated' || m.sourceZ === 'estimated').map(m => m.name);
+  return { moments, assumed, materials: plasticMaterials(materials) };
+}
+
+export function plasticMaterials(materials: Map<number, Material>) {
+  return Object.fromEntries([...materials].map(([id, mat]) => [id, { fy: mat.fy && mat.fy > 0 ? mat.fy : DEFAULT_FY }]));
+}
+
+export function plasticWireSections<
+  E extends { id: number; sectionId: number; materialId: number },
+  S extends { id: number; a: number; iz: number },
+  M extends SectionMp,
+  V extends number | [number, number],
+>(input: { elements: Map<number, E>; sections: Map<number, S> }, moments: M[], value: (m: M) => V) {
+  const byMember = capacitiesByMember(moments);
+  const byPair = new Map(moments.map(m => [`${m.sectionId}/${m.materialId}`, m]));
+  const elements = new Map(input.elements);
+  const elastic = new Map(input.sections);
+  const sections: Record<string, S & { materialId: number }> = {};
+  const mpOverrides: Record<string, V> = {};
+  const ids = new Map<string, number>();
+  let nextId = 0;
+  for (const id of elastic.keys()) nextId = Math.max(nextId, id);
+  for (const e of elements.values()) {
+    const key = `${e.sectionId}/${e.materialId}`;
+    const m = byMember.get(e.id) ?? byPair.get(key);
+    const section = elastic.get(e.sectionId);
+    if (!section || !m || m.materialId !== e.materialId) throw new Error(`Missing plastic capacity for member ${e.id}`);
+    let id = ids.get(key);
+    if (id === undefined) {
+      id = sections[e.sectionId] ? ++nextId : e.sectionId;
+      ids.set(key, id);
+      elastic.set(id, { ...section, id });
+      sections[id] = { ...section, id, materialId: e.materialId };
+      mpOverrides[id] = value(m);
+    }
+    if (id !== e.sectionId) elements.set(e.id, { ...e, sectionId: id });
   }
-  const mats: Record<string, { fy: number }> = {};
-  for (const [id, mat] of materials) mats[String(id)] = { fy: mat.fy && mat.fy > 0 ? mat.fy : DEFAULT_FY };
-  const assumed = mps.filter((m) => m.fyAssumed || m.source === 'estimated' || m.sourceZ === 'estimated').map((m) => m.name);
-  return { sections: out, materials: mats, mpOverrides, assumed };
+  return { elements, elastic, sections, mpOverrides };
 }

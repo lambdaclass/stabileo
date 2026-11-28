@@ -419,6 +419,31 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     Ok(r)
 }
 
+pub(super) struct PlasticIncrement2D {
+    pub element_forces: Vec<ElementForces>,
+    pub displacements: Vec<Displacement>,
+    pub reactions: Vec<Reaction>,
+    pub constraint_forces: Vec<ConstraintForce>,
+}
+
+impl From<AnalysisResults> for PlasticIncrement2D {
+    fn from(result: AnalysisResults) -> Self {
+        Self {
+            element_forces: result.element_forces,
+            displacements: result.displacements,
+            reactions: result.reactions,
+            constraint_forces: result.constraint_forces,
+        }
+    }
+}
+
+pub(super) fn plastic_increment_2d(input: &SolverInput) -> Result<PlasticIncrement2D, String> {
+    if !input.constraints.is_empty() {
+        return solve_2d(input).map(Into::into);
+    }
+    prepare_static_2d(input)?.plastic_increment(&input.loads)
+}
+
 /// Typed direct API. Frame properties stay typed from serde to stiffness/recovery.
 pub fn solve_2d_typed(input: &ElasticInput2D) -> Result<AnalysisResults, String> {
     let legacy = input.legacy_view();
@@ -551,10 +576,18 @@ struct PreparedPcg2D {
 
 
 
+#[cfg(test)]
+thread_local! {
+    pub(crate) static PLANE_PREPARATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    pub(crate) static PLANE_SECOND_ORDER_REPORTS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// Prepare a 2D structure for one or more static solves: numbering, assembly,
 /// and factorization of the free-free stiffness block happen exactly once here.
 /// This is exactly the load-independent part of `solve_2d`.
 pub fn prepare_static_2d(input: &SolverInput) -> Result<PreparedStatic2D<'_>, String> {
+    #[cfg(test)]
+    PLANE_PREPARATIONS.with(|count| count.set(count.get() + 1));
     prepare_static_2d_impl(input, false, ElasticProperties2D::from_legacy(input))
 }
 
@@ -815,6 +848,21 @@ impl PreparedStatic2D<'_> {
     /// load vector (prescribed-displacement coupling included), reuses the
     /// stored factorization, then runs the same postprocessing as `solve_2d`.
     pub fn solve_loads(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
+        self.solve_checked_loads(loads, |r| {
+            #[cfg(test)]
+            PLANE_SECOND_ORDER_REPORTS.with(|count| count.set(count.get() + 1));
+            let (second, ratio, physical) = crate::known_issues::second_order_2d_with_bound(&self.input, loads, r);
+            r.result_summary.get_or_insert_with(Default::default).second_order_physical_bound = physical;
+            crate::known_issues::attach(&mut r.structured_diagnostics, second);
+            r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
+        })
+    }
+
+    pub(super) fn plastic_increment(&self, loads: &[SolverLoad]) -> Result<PlasticIncrement2D, String> {
+        self.solve_checked_loads(loads, |_| {}).map(Into::into)
+    }
+
+    fn solve_checked_loads(&self, loads: &[SolverLoad], report: impl FnOnce(&mut AnalysisResults)) -> Result<AnalysisResults, String> {
         let mut r = self.solve_loads_by_path(loads)?;
         if self.rotation_demand.demanded(loads) {
             crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("CERT-MECHANISM")]);
@@ -826,9 +874,7 @@ impl PreparedStatic2D<'_> {
         let summary = r.result_summary.get_or_insert_with(Default::default);
         summary.member_chords = Some(chords);
         summary.member_spans = Some(spans);
-        let (second, ratio) = crate::known_issues::second_order_2d(&self.input, loads, &r);
-        crate::known_issues::attach(&mut r.structured_diagnostics, second);
-        r.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
+        report(&mut r);
         crate::known_issues::refuse(&r.structured_diagnostics)?;
         let residual = self.check_returned_displacements(loads, &r).map_err(|error| {
             if r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ExcessiveDisplacement) {

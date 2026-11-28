@@ -130,13 +130,18 @@ export function tieColumnFootprints(side: number): number {
 }
 
 /** Design columns and beams, detail them and build the document the sheets print. */
+function designFrameFamilies() {
+  const report = designRunStore.designFamilies(['column', 'beam']);
+  expect(report.ok, report.families.find(family => family.state === 'failed')?.errorKey).toBe(true);
+}
+
 export function designAndDocument(): DocumentModel {
-  designRunStore.designFamilies(['column', 'beam']);
+  designFrameFamilies();
   return buildTestDocument();
 }
 
 export async function designAndDocumentWithWorkerYields(): Promise<DocumentModel> {
-  await runBetweenWorkerTurns(() => designRunStore.designFamilies(['column', 'beam']));
+  await runBetweenWorkerTurns(designFrameFamilies);
   return buildTestDocument();
 }
 

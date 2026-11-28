@@ -33,6 +33,8 @@ let accessToken: string | null = null;
 // The refresh token this tab last stored. Other tabs share the stored key and may replace it.
 let ownRefreshToken: string | null = null;
 let refreshing: Promise<RefreshOutcome> | null = null;
+let initializing: Promise<void> | null = null;
+let initialized = false;
 
 /**
  * A "no" to anonymous usage holds from either side once someone signs in: the account's turns this
@@ -134,6 +136,7 @@ export const authStore = {
   get userLoginEnabled() { return userLoginEnabled; },
   get showAccountEntry() { return accounts() && (userLoginEnabled || account !== null); },
   get cloudProjectsEnabled() { return serverConfig?.cloud_projects_enabled === true; },
+  get assignmentsEnabled() { return serverConfig?.assignments_enabled === true; },
   get saveRequiresAccount() { return userLoginEnabled && serverConfig?.google_login === true && serverConfig?.save_requires_account === true; },
   get editorRequiresAccount() { return userLoginEnabled && serverConfig?.google_login === true && serverConfig?.editor_requires_account === true; },
   get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
@@ -142,12 +145,26 @@ export const authStore = {
   get configKnown() { return serverConfig !== null; },
   get needsTerms() { return account !== null && account.consents?.terms_current === false; },
 
-  async init(): Promise<void> {
-    if (!accounts()) return;
+  init(): Promise<void> {
+    if (!accounts()) return Promise.resolve();
+    // A second caller during the first read must wait for its session refresh, not start a config-only read.
+    if (initializing) return initializing;
     const restore = status === 'anonymous' && readRefreshToken() !== null;
     if (restore) status = 'loading';
-    const [, outcome] = await Promise.all([loadConfig(), restore ? refreshSession() : Promise.resolve('ok')]);
-    if (outcome !== 'ok' && status === 'loading') status = account ? 'authenticated' : 'anonymous';
+    initialized = false;
+    initializing = Promise.all([loadConfig(), restore ? refreshSession() : Promise.resolve('ok')]).then(([, outcome]) => {
+      initialized = serverConfig !== null && outcome !== 'unavailable';
+      if (outcome !== 'ok' && status === 'loading') status = account ? 'authenticated' : 'anonymous';
+    }).catch(error => {
+      if (status === 'loading') status = account ? 'authenticated' : 'anonymous';
+      throw error;
+    }).finally(() => { initializing = null; });
+    return initializing;
+  },
+
+  /** Settles once the server's switches and any stored session have been read, starting that if nothing has. */
+  ready(): Promise<void> {
+    return initializing ?? (initialized ? Promise.resolve() : authStore.init());
   },
 
   /**

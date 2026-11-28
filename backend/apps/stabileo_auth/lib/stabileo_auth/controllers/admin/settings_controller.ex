@@ -11,6 +11,7 @@ defmodule StabileoAuth.Controllers.Admin.SettingsController do
     "usage_telemetry_enabled" => &Features.set_usage_telemetry_enabled/1,
     "cloud_projects_enabled" => &Features.set_cloud_projects_enabled/1,
     "save_requires_account" => &Features.set_save_requires_account/1,
+    "assignments_enabled" => &Features.set_assignments_enabled/1,
     "editor_requires_account" => &Features.set_editor_requires_account/1
   }
   @numbers %{"cloud_projects_limit" => &Features.set_cloud_projects_limit/1}
@@ -69,6 +70,7 @@ defmodule StabileoAuth.Controllers.Admin.SettingsController do
       usage_telemetry_enabled: Features.usage_telemetry_enabled?(),
       cloud_projects_enabled: Features.cloud_projects_enabled?(),
       save_requires_account: Features.save_requires_account?(),
+      assignments_enabled: Features.assignments_enabled?(),
       editor_requires_account: Features.editor_requires_account?(),
       cloud_projects_limit: Features.cloud_projects_limit(),
       terms_version: Consents.terms_version()

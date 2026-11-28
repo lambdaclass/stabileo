@@ -11,7 +11,7 @@ import { t, tp } from '../i18n';
 
 const WARNING_BANDS = new Set(['SH-MITC4-DISTORTION', 'SH-WARPED-MITC4', 'SH-WARPED-MITC9']);
 
-export function knownIssueMessage(d: { code: string; phase?: string; value?: number; message: string; severity?: string; elementIds?: number[]; nodeIds?: number[] }): string {
+export function knownIssueMessage(d: { code: string; phase?: string; value?: number; message: string; severity?: string; elementKind?: string; elementIds?: number[]; nodeIds?: number[] }): string {
   // A thermal load solved with a default it did not state (#407): `phase` names the default.
   if (d.code === 'thermal_default_assumed' && d.phase) {
     const key = `thermalDefault.${d.phase}`;
@@ -44,5 +44,9 @@ export function knownIssueMessage(d: { code: string; phase?: string; value?: num
   const text = t(key);
   if (text === key) return d.message;
   const sentence = d.value !== undefined ? `${text} (#${d.value})` : text;
+  if (d.phase === 'NL-DYNAMIC-GAPS' && d.elementIds?.length && d.elementKind) {
+    const kind = d.elementKind === 'curved_beam' ? t('knownIssue.curvedBeam') : t('table.frame');
+    return `${sentence} [${kind}: ${d.elementIds.join(', ')}]`;
+  }
   return d.phase === 'PL-3D-CERTIFICATE-MISMATCH' ? `${sentence}\n${d.message}` : sentence;
 }

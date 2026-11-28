@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, uiStore } from '../../store';
 import { runLegacyPlasticCollapse } from './legacy-plastic-helper';
+import { runPlasticCollapse } from '../../actions/plastic';
+import { computeDiagramValueAt } from '../diagrams';
 import { solveLimit } from '../plastic/solve-limit';
 import { initSolver } from '../wasm-solver';
 import { generate, type Family } from './helpers/random-models-2d';
@@ -25,15 +27,16 @@ function collapseAndLimit() {
   return { r: run.result, limit };
 }
 
-describe('a hinge under a distributed load drifts to the peak before the collapse is accepted', () => {
-  it('the spring-support example ends at the rigid-plastic collapse load, with its span hinge at √2 − 1', async () => {
+describe('a hinge under a distributed load sits at the peak of the collapse state', () => {
+  it('the spring-support example ends at the rigid-plastic collapse load, with one span hinge at √2 − 1', async () => {
     uiStore.analysisMode = '2d';
     historyStore.clear();
     await modelStore.loadExample('spring-support');
     const { r, limit } = collapseAndLimit();
     expect(r.unresolved).toBeUndefined();
     expect(r.isMechanism).toBe(true);
-    expect(r.hinges.filter((h) => h.unloadedAt !== undefined).length).toBeGreaterThan(10);
+    expect(r.hinges.every((h) => h.unloadedAt === undefined)).toBe(true);
+    expect(r.hinges.length).toBeLessThanOrEqual(r.degree + 1);
     expect(limit.positions.get(1)).toBeCloseTo(Math.SQRT2 - 1, 2);
     const open = r.hinges.filter((h) => h.unloadedAt === undefined && h.elementId === 1 && (h.position ?? 0) > 0 && (h.position ?? 1) < 1);
     expect(open.map((h) => h.position)).toEqual([expect.closeTo(Math.SQRT2 - 1, 2)]);
@@ -50,4 +53,25 @@ describe('a hinge under a distributed load drifts to the peak before the collaps
     expect(r.collapseFactor).toBeLessThanOrEqual(limit.best.lambda * (1 + 1e-5));
     expect(r.collapseFactor).toBeGreaterThan(limit.best.lambda * (1 - 2e-3));
   });
+});
+
+it.each([['history', runLegacyPlasticCollapse], ['Basic', runPlasticCollapse]] as const)('known wrong result: #1927 — both simultaneously yielded spans follow their moment peaks in %s', (_name, run) => {
+  uiStore.analysisMode = '2d';
+  historyStore.clear();
+  generate('mixed', 29);
+  const { result } = run()!;
+  const formation = result.steps[0].hingesFormed;
+  expect(formation.map(h => h.elementId)).toEqual([1, 2]);
+  const final = result.steps.at(-1)!;
+  expect(final.loadFactor).toBeGreaterThan(result.steps[0].loadFactor);
+  const fromPin = 1 / (1 + Math.SQRT2);
+  for (const [i, expected] of [fromPin, 1 - fromPin].entries()) {
+    const hinge = result.hinges.find(h => h.elementId === formation[i].elementId && h.step === 0)!;
+    expect(hinge.position).toBeCloseTo(expected, 9);
+    expect(hinge.unloadedAt).toBeUndefined();
+    const force = final.results.elementForces.find(ef => ef.elementId === hinge.elementId)!;
+    expect(computeDiagramValueAt('shear', hinge.position!, force)).toBeCloseTo(0, 8);
+    expect(computeDiagramValueAt('moment', hinge.position!, force)).toBeCloseTo(hinge.moment, 8);
+    expect(formation[i].position).not.toEqual(hinge.position);
+  }
 });

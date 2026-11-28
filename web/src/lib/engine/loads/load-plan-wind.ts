@@ -9,7 +9,7 @@ import {
 } from '../../codes/cirsoc102/wind';
 import { gustEffectFactor, dynamicSensitivity, meanHourlySpeed, equivalentHeight, type GustResult } from '../../codes/cirsoc102/gust';
 import { gustInputsFor, isLowRise } from './wind-dynamics';
-import { windLoadCases, type WindAxis, type WindLevel } from './wind-cases';
+import { windCasesForModel, type WindAxis, type WindLevel } from './wind-cases';
 import { integrateWindPressure, windHeightField, WindPressureRefusal } from './wind-pressure-field';
 import { otherStructureWind } from './wind-other';
 import { REF_FREE_ROOF, REF_SIGN, REF_OTHER, REF_MIN_OTHER } from '../../codes/cirsoc102/other-structures';
@@ -286,12 +286,13 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
         for (const d of c.distributed) distributed.push({ ...d, elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.qZ, qJ: d.qZJ, qX: d.qX, qY: d.qY, frame: 'global' });
       }
     } else windAxes.push(...axesFor(input.wind.basicSpeed, false));
+    const generateWindCases = windCasesForModel(input.model);
     if (windAxes.length > 0) {
       // A profile is a net lateral pressure: case 1, without the code's roof pressures.
       const set = profile ? 'case1' : input.wind.caseSet ?? 'all';
       if (profile) derivation.push(msg('loadPlan.derivation.windProfile', { n: profile.length, h: round(Math.max(...profile.map(([z]) => z)), 2) }));
-      const generated = windLoadCases({
-        model: input.model, axes: windAxes, set, directions: windDirs,
+      const generated = generateWindCases({
+        axes: windAxes, set, directions: windDirs,
         tributaryWidth: input.tributaryWidth, speed: input.wind.basicSpeed,
       });
       unsupportedKeys.push(...generated.notes);
@@ -319,8 +320,8 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
       const speed = sw.v50 * factor;
       const waAxes = axesFor(speed, true);
       if (waAxes.length > 0) {
-        const generated = windLoadCases({
-          model: input.model, axes: waAxes, set: 'case1', directions: windDirs,
+        const generated = generateWindCases({
+          axes: waAxes, set: 'case1', directions: windDirs,
           tributaryWidth: input.tributaryWidth, speed: round(speed, 1),
         });
         refs.push(R102('B.4.2', 'servicio'));

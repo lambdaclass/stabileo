@@ -43,7 +43,7 @@ describe('finite spectrum result warnings', () => {
       uiStore.analysisMode = workspace;
       if (workspace === '3d') resultsStore.setModalResult3D(result);
       else resultsStore.setModalResult({ ...result, modes: result.modes.map(m => ({
-        ...m, displacements: m.displacements.map(d => ({ nodeId: d.nodeId, ux: d.ux, uy: d.uz, rz: d.ry })),
+        ...m, displacements: m.displacements.map(d => ({ nodeId: d.nodeId, ux: d.ux, uz: d.uz, ry: d.ry })),
       })) });
       const html = render(ToolbarAdvanced, { props: { flat: true } }).body;
       expect(html).toContain('data-testid="finite-spectrum-warning"');

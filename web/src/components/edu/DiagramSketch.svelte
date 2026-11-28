@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { readAnswer } from './exercise-marking';
   /**
    * The student draws a diagram.
    *
@@ -146,8 +147,8 @@
   }
 
   function setValue(i: number, raw: string) {
-    const n = parseFloat(raw.replace(',', '.'));
-    if (isNaN(n)) return;
+    const n = readAnswer(raw);
+    if (n === null) return;
     const points = sketch.points.map((p, k) => (k === i ? { ...p, value: n } : p));
     commit({ ...sketch, points });
   }

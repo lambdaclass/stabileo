@@ -1181,6 +1181,27 @@ pub struct CableInput<S> {
     pub pretension: HashMap<String, f64>,
 }
 
+fn member_capacity_data<'a, S, O: Copy>(
+    sections: &'a HashMap<String, S>, materials: &HashMap<String, PlasticMaterialData>, overrides: Option<&HashMap<String, O>>,
+    section_id: usize, material_id: usize,
+) -> Option<(&'a S, f64, Option<O>)> {
+    let section = section_id.to_string();
+    let fy = materials.get(&material_id.to_string()).and_then(|material| material.fy).unwrap_or(250.0);
+    Some((sections.get(&section)?, fy, overrides.and_then(|table| table.get(&section)).copied()))
+}
+
+impl PlasticInput {
+    pub(crate) fn capacity_data(&self, member: &SolverElement) -> Option<(&PlasticSectionData, f64, Option<f64>)> {
+        member_capacity_data(&self.sections, &self.materials, self.mp_overrides.as_ref(), member.section_id, member.material_id)
+    }
+}
+
+impl PlasticInput3D {
+    pub(crate) fn capacity_data(&self, member: &SolverElement3D) -> Option<(&PlasticSectionData3D, f64, Option<[f64; 2]>)> {
+        member_capacity_data(&self.sections, &self.materials, self.mp_overrides.as_ref(), member.section_id, member.material_id)
+    }
+}
+
 /// Plastic analysis input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

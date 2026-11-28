@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { dictFor } from '../store.svelte';
+import { EXPLAIN_KEYS } from '../../../components/edu/exam-explain';
 
 const SUPPORTED = ['en', 'es', 'pt'] as const;
 
@@ -69,6 +70,7 @@ function literalKeys(): Set<string> {
     out.add(`edu.sketch.power.${s}`);
   }
   for (const s of ['above', 'below']) out.add(`edu.sketch.side.${s}`);
+  for (const k of EXPLAIN_KEYS) out.add(k);
   // Concatenation stubs the scan picks up but which are never asked for whole.
   out.delete('edu.');
   out.delete('edu.shape.');

@@ -9,7 +9,8 @@
  *   collapse.
  */
 import { describe, it, expect } from 'vitest';
-import { plasticCollapse2D, loadsOffRemoved } from '../plastic-collapse';
+import { plasticCollapse2D, plasticHistory2D, loadsOffRemoved } from '../plastic-collapse';
+import { plasticLimit2D } from '../wasm-solver';
 import { buildKinematics, workRow } from '../plastic/kinematics';
 import type { SolverInput, SolverLoad } from '../types';
 
@@ -25,16 +26,94 @@ function model(L: number, elementIds: number[], type: 'truss' | 'frame', support
 }
 
 describe('plastic collapse under loads along members', () => {
+  it('the public WASM factor uses the governing tie when parallel bars share its force', () => {
+    const input = model(1, [1, 2, 3], 'truss', [[1, 'pinned'], [2, 'rollerX'], [3, 'rollerX']], [
+      { type: 'nodal', data: { nodeId: 3, fx: 1, fz: 0, my: 0 } },
+    ]);
+    input.nodes.set(3, { id: 3, x: 2, z: 0 });
+    for (const id of [2, 3]) input.elements.set(id, { ...input.elements.get(id)!, nodeI: 2, nodeJ: 3 });
+    for (const pathCapacity of [5, 6]) {
+      const value = plasticLimit2D(input, new Map(), new Map([[1, 10], [2, pathCapacity], [3, pathCapacity]]));
+      expect(value.confirmation.kind).toBe('exact');
+      expect([value.lambda, value.lambdaUpper]).toEqual([10, 10]);
+    }
+  });
+
+  it('omitting and specifying the far end of a diagonal span give identical certified WASM results', () => {
+    const beam = model(1, [1], 'frame', [[1, 'fixed']], [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1, my: 0 } }]);
+    beam.nodes.set(2, { id: 2, x: 1, z: 1 });
+    const solve = (b?: number) => plasticLimit2D({ ...beam, loads: [...beam.loads, {
+      type: 'axialDistributed', data: { elementId: 1, qI: 1, qJ: 1, b },
+    }] }, new Map([[1, 1]]), new Map([[1, 10]]));
+    const reference = solve();
+    expect(reference.confirmation.kind).toBe('exact');
+    expect(solve(Math.sqrt(2))).toEqual(reference);
+    expect(() => solve(2)).toThrow();
+  });
+
+  it('known wrong result: #758 — partial axial load on a diagonal retains certified bending collapse', () => {
+    const beam = model(1, [1], 'frame', [[1, 'fixed']], [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -1, my: 0 } }]);
+    beam.nodes.set(2, { id: 2, x: 1, z: 1 });
+    const solve = (b?: number) => plasticLimit2D({ ...beam, loads: [...beam.loads, {
+      type: 'axialDistributed', data: { elementId: 1, qI: 1, qJ: 1, b },
+    }] }, new Map([[1, 1]]), new Map([[1, 10]]));
+    const reference = solve();
+    expect(reference.confirmation.kind).toBe('exact');
+    expect(solve(0.75).confirmation.kind).toBe('exact');
+    expect(solve(0.75).lambda).toBeCloseTo(reference.lambda, 12);
+    expect(() => solve(2)).toThrow();
+  });
+
+  it('known wrong result: #758 — two independent diagonal span loads publish the certified interval', () => {
+    const input = model(1, [1, 2], 'frame', [[1, 'fixed']], []);
+    for (const id of [1, 2]) {
+      input.nodes.set(id + 1, { id: id + 1, x: id === 1 ? 1 : -1, z: 1 });
+      input.elements.set(id, { ...input.elements.get(id)!, nodeI: id + 1, nodeJ: 1 });
+      input.loads.push({ type: 'nodal', data: { nodeId: id + 1, fx: 0, fz: -1, my: 0 } });
+      for (const [a, b, qI, qJ] of [[0.1, 0.75, -1, -2], [0.5, 1.125, 1, 0]]) {
+        input.loads.push({ type: 'axialDistributed', data: { elementId: id, a, b, qI, qJ } });
+      }
+    }
+    const result = plasticLimit2D(input, new Map([[1, 1], [2, 2]]), new Map([[1, 10], [2, 10]]));
+    expect(result.confirmation.kind).toBe('exact');
+    expect([result.lambda, result.lambdaUpper]).toEqual([1, 1]);
+    expect(plasticCollapse2D(input, { mp: id => id, np: () => 10 }).collapseFactor).toBe(1);
+  });
+
   it('a truss yields where |N| peaks inside it, not at its ends', () => {
     // Fixed at both ends, 4 m, q_x = 10 → −10 kN/m over [1.8, 2.2]: the load's resultant is 0,
     // the ends carry N = 1/15 and midspan N = −14/15. With Np = 1, λc = 15/14 (it was 15).
     const m = model(4, [1], 'truss', [[1, 'fixed'], [2, 'fixed']], [
       { type: 'axialDistributed', data: { elementId: 1, qI: 10, qJ: -10, a: 1.8, b: 2.2 } },
     ]);
-    const r = plasticCollapse2D(m, { mp: () => Infinity, np: () => 1 });
+    const r = plasticHistory2D(m, { mp: () => Infinity, np: () => 1 });
     expect(r.collapseFactor).toBeCloseTo(15 / 14, 6);
     expect(r.hinges[0].kind).toBe('axial');
     expect(r.hinges[0].x).toBeCloseTo(2, 6);
+
+  });
+
+  it('known wrong result: #1927 — both restrained ends allow redistribution beyond first axial yield', () => {
+    for (const sign of [-1, 1]) {
+      const m = model(4, [1], 'truss', [[1, 'fixed'], [2, 'fixed']], [
+        { type: 'axialDistributed', data: { elementId: 1, qI: sign * 10, qJ: -sign * 10, a: 1.8, b: 2.2 } },
+      ]);
+      const limit = 2 / (10 * (2.2 - 1.8) / 4);
+      const panel = plasticCollapse2D(m, { mp: () => Infinity, np: () => 1 });
+      expect(panel.withheld).toBeFalsy();
+      expect(panel.collapseFactor).toBeCloseTo(limit, 12);
+      const wire = plasticLimit2D(m, new Map(), new Map([[1, 1]]));
+      expect(wire.confirmation.kind).toBe('exact');
+      const scale = 2 ** 52;
+      const width = BigInt(2.2 * scale) - BigInt(1.8 * scale);
+      const demand = 10n * width;
+      const capacity = 8n * BigInt(scale) ** 2n;
+      const lower = BigInt(wire.lambda * scale);
+      const upper = BigInt(wire.lambdaUpper * scale);
+      expect(lower * demand).toBeLessThanOrEqual(capacity);
+      expect(upper * demand).toBeGreaterThanOrEqual(capacity);
+      expect(upper - lower).toBe(1n);
+    }
   });
 
   for (const type of ['truss', 'frame'] as const) {
@@ -48,7 +127,7 @@ describe('plastic collapse under loads along members', () => {
       const m = model(6, [1, 2], type, [[1, 'pinned'], [2, 'rollerX']], [
         { type: 'pointOnElement', data: { elementId: 1, a: 3, p: 0, px: 20 } },
       ]);
-      const r = plasticCollapse2D(m, { mp: () => Infinity, np: (id) => (id === 1 ? 10 : 100) });
+      const r = plasticHistory2D(m, { mp: () => Infinity, np: (id) => (id === 1 ? 10 : 100) });
       expect(r.hinges.map((h) => [h.elementId, h.kind])).toEqual([[1, 'axial'], [2, 'axial']]);
       expect(r.hinges[0].loadFactor).toBeCloseTo(2 / 3, 6);
       expect(r.collapseFactor).toBeCloseTo(31 / 3, 6);
@@ -71,7 +150,7 @@ describe('the unloading check counts the loads a yielded bar left on its nodes',
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 3, type: 'pinned' }]]),
       loads: [{ type: 'pointOnElement', data: { elementId: 2, a: 2 * Math.SQRT2, p: P } }],
     } as unknown as SolverInput;
-    const r = plasticCollapse2D(m, { mp: () => MP, np: (id: number) => (id === 2 ? NP : Infinity) });
+    const r = plasticHistory2D(m, { mp: () => MP, np: (id: number) => (id === 2 ? NP : Infinity) });
     expect(r.unresolved).toBeFalsy();
     expect(r.hinges.map((h) => h.kind).sort()).toEqual(['axial', 'bending']);
     const fx = (lambda: number) => lambda * (P / 2) * Math.SQRT1_2;
@@ -85,7 +164,7 @@ describe('a frame member that yields axially while it carries a transverse span 
       { type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } },
       { type: 'distributed', data: { elementId: 1, qI: -1, qJ: -1 } },
     ] as SolverLoad[]);
-    const r = plasticCollapse2D(m, { mp: () => 1e6, np: () => 30 });
+    const r = plasticHistory2D(m, { mp: () => 1e6, np: () => 30 });
     expect(r.isMechanism).toBe(true);
     expect(r.collapseFactor).toBeCloseTo(3, 10);
     expect(r.steps).toHaveLength(1);
@@ -110,7 +189,7 @@ describe('the drawn mechanism after a bar yields under its own transverse load',
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 3, type: 'pinned' }]]),
       loads: [{ type: 'pointOnElement', data: { elementId: 2, a: 2 * Math.SQRT2, p: P } }],
     } as unknown as SolverInput;
-    const r = plasticCollapse2D(m, { mp: () => 20, np: (id: number) => (id === 2 ? 5 : Infinity) });
+    const r = plasticHistory2D(m, { mp: () => 20, np: (id: number) => (id === 2 ? 5 : Infinity) });
     const view = collapseMechanism(m, r);
     expect(view).not.toBeNull();
     const work = dot(view!.km.work, view!.d);

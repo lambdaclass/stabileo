@@ -28,7 +28,7 @@ import { prepareSection, type Bar as SectionBar, type PreparedSection } from './
 import { drawnBeamReinforcement } from '../design-contract/reinforcement';
 import { skinMaxSpacing, skinRequired } from '../codes/cirsoc201/skin';
 import { flangedCapacity } from './codes/argentina/cirsoc201-capacity';
-import { checkTorsion2025, columnShearTensionRatio, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, torsionActivation, weakestMemberCages, type SecondaryLongitudinalLayout } from '../codes/cirsoc201/torsion';
+import { checkTorsion2025, columnShearTensionRatio, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, torsionActivation, weakestMemberCages, type SecondaryLongitudinalLayout, type SecondaryShearFace } from '../codes/cirsoc201/torsion';
 import { tensionControlledStrain, shearSqrtFc, shearFy, CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 
 /** fy as Po reads it, kN/m²: CIRSOC 201-2025 §22.4.2.1 limits it to 500 MPa. */
@@ -1510,6 +1510,22 @@ export function computeShearCapacity(
   };
 }
 
+function byLayoutAndAxialForce<Layout, Result extends object>(evaluate: (layout: Layout, compression: number) => Result) {
+  const layouts = new Map<Layout, Map<number, Result>>();
+  return (layout: Layout, compression: number): Result => {
+    let forces = layouts.get(layout);
+    if (!forces) {
+      forces = new Map();
+      layouts.set(layout, forces);
+    }
+    const cached = forces.get(compression);
+    if (cached) return cached;
+    const result = evaluate(layout, compression);
+    forces.set(compression, result);
+    return result;
+  };
+}
+
 /**
  * Compute column P-M interaction capacity from provided longitudinal bars.
  * Uses CIRSOC 201 §10.3 simplified interaction (same as checkColumn):
@@ -2187,16 +2203,20 @@ function evaluateProvidedReinforcement(
     const stirrups = stirrupsAt(t);
     return stirrups?.length ? stirrups.flatMap(stir => drawnCages.get(stir)!) : missingDrawnCage;
   };
-  const atTorsion = (t: Tuple, d: number, primaryRhoW: number, primaryDepthLimit?: number) => secondaryCagesAt(t).flatMap(({ cage, face }) => {
+  const atTorsion = (t: Tuple, d: number, primaryRhoW: number, primaryDepthLimit?: number) => {
     if (!section || t.tq === 0) return [];
-    const r = checkTorsion2025({ ...section, d, dSecondary: face, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
-      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition, primarySteelAreaM2: primaryRhoW * section.b * d, primaryDepthLimit });
-    const gap = isDrawnGap(t);
-    const missing = gap || (cage.kind === 'refusal' && cage.missing === true);
-    if (gap && !r.neglect) return [{ r: { ...r, ratio: Infinity, refusal: 'diag.rcShearGap' }, t, missing, cage }];
-    if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, missing, cage }];
-    return r.neglect ? [] : [{ r, t, missing, cage }];
-  });
+    const demand = t.section(axes.flexure);
+    if (rectangular && torsionActivation(section, spacingRule.edition, demand).neglect) return [];
+    return secondaryCagesAt(t).flatMap(({ cage, face }) => {
+      const r = checkTorsion2025({ ...section, d, dSecondary: face, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
+        demand, stirrup: cage, edition: spacingRule.edition, primarySteelAreaM2: primaryRhoW * section.b * d, primaryDepthLimit });
+      const gap = isDrawnGap(t);
+      const missing = gap || (cage.kind === 'refusal' && cage.missing === true);
+      if (gap && !r.neglect) return [{ r: { ...r, ratio: Infinity, refusal: 'diag.rcShearGap' }, t, missing, cage }];
+      if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, missing, cage }];
+      return r.neglect ? [] : [{ r, t, missing, cage }];
+    });
+  };
   type TorsionAtStation = ReturnType<typeof atTorsion>[number];
   const governsTorsion = (candidate: TorsionAtStation, incumbent?: TorsionAtStation) =>
     !incumbent || (candidate.r.refusal && !incumbent.r.refusal) || candidate.r.ratio > incumbent.r.ratio;
@@ -2255,6 +2275,9 @@ function evaluateProvidedReinforcement(
         .map(bar => section.b / 2 + side * bar.across)));
       return Math.min(...depths);
     };
+    const secondaryCapacity = byLayoutAndAxialForce((f: SecondaryShearFace, compression) =>
+      computeShearCapacity(f.stirrupDia, f.legs, f.spacing, f.b, f.d, section.fc, section.fy, compression,
+        { Ag: section.b * section.h, h: f.h, edition: spacingRule.edition, rhoW: f.rhoW, unrounded: true }));
     const cases = [...allTuples, ...zoneCuts, ...cornerCuts].filter(t => !isDrawnGap(t) && hasSecondaryShearDemand(V2(t)));
     for (const t of cases) for (const { face: f } of secondaryCagesAt(t)) {
       const demand = Math.abs(V2(t));
@@ -2262,8 +2285,7 @@ function evaluateProvidedReinforcement(
         worst = governing({ t, demand, capacity: 0, ratio: Infinity, reason: f.reason, refusal: f }, worst);
         continue;
       }
-      const cap = computeShearCapacity(f.stirrupDia, f.legs, f.spacing, f.b, f.d, section.fc, section.fy, -t.n,
-        { Ag: section.b * section.h, h: f.h, edition: spacingRule.edition, rhoW: f.rhoW, unrounded: true });
+      const cap = secondaryCapacity(f, -t.n);
       const minimumThreshold = secondaryShearMinimumThreshold(spacingRule.edition, f, section.fc, cap.phiVc);
       const minShort = cap.avBelowMin && demand > minimumThreshold;
       const spacingShortfall = secondaryShearSpacingShortfall(spacingRule.edition, f, section.cover, section.fc, demand, cap.phiVc);
@@ -2973,13 +2995,13 @@ function evaluateProvidedReinforcement(
       let count = 0;
       const support = ss === shearSpecs[0];
       const inRegion = (t: Tuple) => supportAt(t.stationT) === support;
-      const shearAtCage = (t: Tuple, stir: StirrupDef) => {
+      const shearCapacityFor = byLayoutAndAxialForce((stir: StirrupDef, compression) => {
         const depth = bottomLayers.length ? d + (section.stirrupDia - stir.diameter) / 1000 : d;
         const rhoW = depth === d ? ss.rhoW : ss.rhoW * d / depth;
-        const capacity = computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, depth, section.fc, section.fy, -t.n,
+        const capacity = computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, depth, section.fc, section.fy, compression,
           { Ag: section.b * section.h, rhoW, h: section.h, edition: spacingRule.edition, unrounded: true });
         return { depth, capacity };
-      };
+      });
       const shearEvidenceRefusal = (t: Tuple, cages?: readonly StirrupDef[]) => {
         if (!drawnBars) return !forSelection && tensionDepth(t) < d ? 'diag.rcShearDepth' : undefined;
         const supportTop = t.stationT <= tStartEnd ? topStartLayers : topEndLayers;
@@ -2992,7 +3014,7 @@ function evaluateProvidedReinforcement(
           const tensionFace = moment < -0.001 ? 'top' : moment > 0.001 ? 'bottom' : regionalFace;
           if (tensionFace !== regionalFace) {
             const stirrups = cages ?? stirrupsAt(t) ?? (ss.stir ? [ss.stir] : []);
-            const sparse = stirrups.map(stir => ({ stir, ...shearAtCage(t, stir) })).filter(check => check.capacity.avBelowMin);
+            const sparse = stirrups.map(stir => ({ stir, ...shearCapacityFor(stir, -t.n) })).filter(check => check.capacity.avBelowMin);
             if (sparse.length) {
               const steel = shearSteelAt(tensionFace, t.stationT);
               if (!(steel.area >= ss.steelArea)) return 'diag.rcShearTensionSteel';
@@ -3033,7 +3055,7 @@ function evaluateProvidedReinforcement(
         // compression took the tension branch (Vc reduced to 0 → gross false
         // failures) and tension the enhancement branch (Vc inflated → unsafe).
         for (const stir of stirrups) {
-          const { depth, capacity: cap } = shearAtCage(t, stir);
+          const { depth, capacity: cap } = shearCapacityFor(stir, -t.n);
           if (!reason) {
             const phiVn = +cap.phiVn.toFixed(2);
             const ratio = phiVn > 1e-6 ? Vu / phiVn : Number.POSITIVE_INFINITY;
@@ -3553,6 +3575,10 @@ function evaluateProvidedReinforcement(
         { axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) },
       ];
       for (const ts of tieSpecs) {
+        const ties = provided.stirrups;
+        const tieCapacity = ties && byLayoutAndAxialForce((spacing: number, compression) =>
+          computeShearCapacity(ties.diameter, ties.legs, spacing, ts.width, ts.dTie, section.fc, section.fy, compression,
+            { Ag: section.b * section.h, rhoW: colRhoW, h: Math.max(ts.dTie, section.h), edition: spacingRule.edition }));
         let worst: { util: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
         let count = 0; let peakVu = 0; let peakCombo = ''; let peakX = 0;
         for (const t of allTuples) {
@@ -3560,12 +3586,11 @@ function evaluateProvidedReinforcement(
           if (Vu < 0.001) continue;
           count++;
           if (Vu > peakVu) { peakVu = Vu; peakCombo = t.comboName; peakX = t.stationX; }
-          if (!provided.stirrups) continue;
-          const sTie = endSpacing !== undefined && atColumnEnd(t) ? endSpacing : provided.stirrups.spacing;
+          if (!tieCapacity) continue;
+          const sTie = endSpacing !== undefined && atColumnEnd(t) ? endSpacing : ties.spacing;
           // Solver convention is + = tension; computeShearCapacity expects
           // + = compression — pass -t.n (see the beam shear path above).
-          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, sTie, ts.width, ts.dTie, section.fc, section.fy, -t.n,
-            { Ag: section.b * section.h, rhoW: colRhoW, h: Math.max(ts.dTie, section.h), edition: spacingRule.edition });
+          const cap = tieCapacity(sTie, -t.n);
           const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
           if (!worst || u > worst.util) worst = { util: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
         }

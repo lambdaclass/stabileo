@@ -1,0 +1,45 @@
+{
+  "id": "plastic-simultaneous-span-hinges",
+  "date": "2026-11-27",
+  "prs": [
+    1927
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "plane2D"
+      ],
+      [
+        "analysis:plastic"
+      ]
+    ]
+  },
+  "quantities": [
+    "hinges"
+  ],
+  "title": {
+    "en": "Simultaneous moving span hinges",
+    "es": "Rótulas móviles simultáneas en el vano",
+    "pt": "Rótulas móveis simultâneas no vão",
+    "de": "Gleichzeitig wandernde Feldgelenke",
+    "fr": "Déplacement simultané des rotules en travée",
+    "tr": "Açıklıkta eşzamanlı hareket eden mafsallar",
+    "hu": "Egyidejűleg mozgó mezőbeli csuklók",
+    "zh": "跨内塑性铰同步移动"
+  },
+  "explanation": {
+    "en": "The step history now tracks both moment peaks when simultaneous span hinges admit only a motion with zero external work. Review previous hinge positions.",
+    "es": "El historial sigue ambos picos de momento cuando las rótulas simultáneas solo permiten un movimiento sin trabajo externo. Revisá las posiciones anteriores.",
+    "pt": "O histórico acompanha ambos os picos de momento quando as rótulas simultâneas permitem apenas um movimento sem trabalho externo. Reveja as posições anteriores.",
+    "de": "Der Verlauf verfolgt beide Momentenextrema, wenn gleichzeitig entstehende Feldgelenke nur eine Bewegung ohne äußere Arbeit zulassen. Prüfen Sie frühere Gelenklagen.",
+    "fr": "L’historique suit les deux pics de moment lorsque les rotules simultanées ne permettent qu’un mouvement sans travail extérieur. Vérifiez les anciennes positions.",
+    "tr": "Eşzamanlı mafsallar yalnızca dış işin sıfır olduğu bir harekete izin verdiğinde adım geçmişi her iki moment tepesini izler. Önceki mafsal konumlarını kontrol edin.",
+    "hu": "Ha az egyidejű csuklók csak külső munka nélküli mozgást tesznek lehetővé, a lépéstörténet mindkét nyomatéki szélsőértéket követi. Ellenőrizze a korábbi csuklóhelyeket.",
+    "zh": "当同时形成的跨内塑性铰只允许外力做功为零的运动时，分步记录会跟踪两个弯矩峰值。请复核先前的塑性铰位置。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plastic-simultaneous-span-hinges.md",
+    "heading": "Simultaneous moving span hinges"
+  }
+}

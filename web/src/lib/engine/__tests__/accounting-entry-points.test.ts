@@ -34,7 +34,7 @@ it('keeps WASM structural entry points and raw load conversion in the audited ca
   expect([...callers].sort()).toEqual([
     'App.svelte dynamic',
     'components/diagram-game/game-model.ts solve',
-    'components/edu/edu-solver.ts solvePDelta',
+    'components/edu/edu-pdelta.ts solvePDelta',
     'components/examples/run.worker.ts *',
     'components/pro/ProAdvancedTab.svelte solve3D',
     'components/pro/ProAdvancedTab.svelte solveBuckling3D',
