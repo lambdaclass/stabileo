@@ -775,6 +775,7 @@ function createUIStore() {
       try { localStorage.setItem('stabileo-inline-help', v ? '1' : '0'); } catch { /* private mode */ }
     },
 
+    get buildingDesignInputsAvailable() { return reinforcementSheets() || designInPro; },
     get designInPro() { return designInPro; },
     set designInPro(v: boolean) {
       designInPro = v;

@@ -29,6 +29,7 @@ export const switchOnUnitFiles = [
 ];
 
 export const sharedSwitchOnUnitFiles = [
+  'src/components/pro/__tests__/building-input-profile.test.ts',
   'src/lib/store/__tests__/drawn-plate-levels.test.ts',
   'src/lib/store/__tests__/inactive-sheet-record.test.ts',
   'src/lib/store/__tests__/shared-plate-findings.test.ts',

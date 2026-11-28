@@ -1,13 +1,5 @@
 <script lang="ts">
-  /**
-   * The building's general data, stated once before any element is placed: the concrete it is
-   * built in, the reinforcing steel, the structural steel for steel typologies, and the codes in
-   * force. Every tool below places with these. Covers, exposure and the diameters the reinforcement
-   * sheets and the design use are the project's design data, opened here in place
-   * (`ProDesignDataPanel`, the same panel the sheets and the design desk show), whether design is on
-   * or not: the sheets read them either way.
-   */
-  import { modelStore } from '../../../lib/store';
+  import { modelStore, uiStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { te } from '../../../lib/i18n/engine-text';
   import { buildingUi } from '../../../lib/store/building-ui.svelte';
@@ -18,6 +10,7 @@
   import { proNav } from '../../../lib/store/pro-nav.svelte';
   import { assignConcrete } from '../../../lib/model/building/assign-concrete';
   import { physicalGroups } from '../../../lib/store/physical';
+  import ProConcreteByLevel from '../ProConcreteByLevel.svelte';
   import ProDesignDataPanel from '../ProDesignDataPanel.svelte';
 
   const materials = $derived([...modelStore.materials.values()]);
@@ -51,12 +44,14 @@
         {#each concretes as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
       </select>
     </label>
-    <label>{t('building.general.rebar')}
-      <select value={d.rebarGrade} onchange={(e) => grade(e.currentTarget.value)} data-testid="building-rebar-grade">
-        {#each REBAR_GRADES as g (g.name)}<option value={g.name}>{g.name}</option>{/each}
-        {#if !REBAR_GRADES.some((g) => g.name === d.rebarGrade)}<option value={d.rebarGrade}>{d.rebarGrade}</option>{/if}
-      </select>
-    </label>
+    {#if uiStore.buildingDesignInputsAvailable}
+      <label>{t('building.general.rebar')}
+        <select value={d.rebarGrade} onchange={(e) => grade(e.currentTarget.value)} data-testid="building-rebar-grade">
+          {#each REBAR_GRADES as g (g.name)}<option value={g.name}>{g.name}</option>{/each}
+          {#if !REBAR_GRADES.some((g) => g.name === d.rebarGrade)}<option value={d.rebarGrade}>{d.rebarGrade}</option>{/if}
+        </select>
+      </label>
+    {/if}
     {#if steels.length > 0}
       <label>{t('building.general.steel')}
         <select value={buildingUi.steelId} onchange={(e) => (buildingUi.steelId = Number(e.currentTarget.value))} data-testid="building-steel">
@@ -77,10 +72,14 @@
     </div>
   {/if}
   {#if applied !== null}<p class="pk-hint" role="status">{tp('building.general.applied', { n: applied })}</p>{/if}
-  <details class="bg-more" data-testid="building-general-more">
-    <summary>{t('building.general.more')} <span class="pk-hint">· {tp('building.general.moreSummary', { c: Math.round(d.covers.beam * 1000), e: t(`designData.exp.${d.exposure.beam}`) })}</span></summary>
-    <ProDesignDataPanel />
-  </details>
+  {#if uiStore.buildingDesignInputsAvailable}
+    <details class="bg-more" data-testid="building-general-more">
+      <summary>{t('building.general.more')} <span class="pk-hint">· {tp('building.general.moreSummary', { c: Math.round(d.covers.beam * 1000), e: t(`designData.exp.${d.exposure.beam}`) })}</span></summary>
+      <ProDesignDataPanel />
+    </details>
+  {:else}
+    <ProConcreteByLevel />
+  {/if}
 </section>
 
 <style>

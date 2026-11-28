@@ -4,7 +4,7 @@ import BuildingGeneral from '../building/BuildingGeneral.svelte';
 import ProSurfaces from '../ProSurfaces.svelte';
 import { uiStore } from '../../../lib/store';
 
-it.skip.each([false, true])('known wrong result: #1928 building design inputs follow available sheets and design mode %s', design => {
+it.each([false, true])('known wrong result: #1928 building design inputs follow available sheets and design mode %s', design => {
   const previous = uiStore.designInPro;
   try {
     uiStore.designInPro = design;
@@ -19,7 +19,7 @@ it.skip.each([false, true])('known wrong result: #1928 building design inputs fo
   }
 });
 
-it.skip('known wrong result: #1928 ordinary analytical surfaces retain their published action styles', () => {
+it('known wrong result: #1928 ordinary analytical surfaces retain their published action styles', () => {
   const html = render(ProSurfaces).body;
   function classes(id: string) {
     const element = html.match(new RegExp('<button[^>]*data-testid="' + id + '"[^>]*>'))?.[0];
