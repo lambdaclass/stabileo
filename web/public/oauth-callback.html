@@ -20,7 +20,7 @@
   try { localStorage.setItem('stabileo-oauth-result', JSON.stringify(msg)); localStorage.removeItem('stabileo-oauth-result'); } catch (e) {}
   history.replaceState(null, '', location.pathname);
   var l = (navigator.language || 'en').slice(0, 2);
-  var t = { es: 'Listo. Podés cerrar esta ventana.', pt: 'Pronto. Pode fechar esta janela.', de: 'Fertig. Sie können dieses Fenster schließen.', fr: 'C’est fait. Vous pouvez fermer cette fenêtre.', tr: 'Tamam. Bu pencereyi kapatabilirsiniz.', zh: '完成。您可以关闭此窗口。' };
+  var t = { es: 'Listo. Podés cerrar esta ventana.', pt: 'Pronto. Pode fechar esta janela.', de: 'Fertig. Sie können dieses Fenster schließen.', fr: 'C’est fait. Vous pouvez fermer cette fenêtre.', tr: 'Tamam. Bu pencereyi kapatabilirsiniz.', zh: '完成。您可以关闭此窗口。', id: 'Selesai. Anda dapat menutup jendela ini.' };
   document.getElementById('m').textContent = t[l] || 'Done. You can close this window.';
   setTimeout(function () { window.close(); }, 150);
 })();

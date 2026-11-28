@@ -31,6 +31,7 @@
     "fr": "Les modèles ponctuels contraints utilisent les mouvements admissibles",
     "hu": "A kényszeres pontmodellek megengedett mozgási kategóriákat használnak",
     "tr": "Kısıtlı nokta modelleri izin verilen hareketleri kullanır",
+    "id": "Model titik berkekangan memakai kategori gerak yang diizinkan",
     "zh": "受约束的点模型采用容许的运动类别"
   },
   "explanation": {
@@ -41,6 +42,7 @@
     "fr": "Relancer les modèles coïncidents à ressorts refusés : les rotations éliminées par les contraintes ne nécessitent plus une échelle de rigidité en rotation (#761, PR #1940).",
     "hu": "Futtassa újra az elutasított egybeeső rugómodelleket: a kényszerekkel megszüntetett forgások többé nem igényelnek forgási merevségskálát (#761, PR #1940).",
     "tr": "Reddedilen çakışık yay modellerini yeniden hesaplayın: kısıtlarla kaldırılan dönmeler artık dönme rijitliği ölçeği gerektirmez (#761, PR #1940).",
+    "id": "Jalankan ulang model pegas berimpit yang ditolak: rotasi yang dieliminasi oleh kekangan tidak lagi memerlukan skala kekakuan rotasi (#761, PR #1940).",
     "zh": "请重新运行此前被拒绝求解的重合弹簧模型：被约束消除的转动不再需要转动刚度比例系数（#761，PR #1940）。"
   },
   "changelog": {

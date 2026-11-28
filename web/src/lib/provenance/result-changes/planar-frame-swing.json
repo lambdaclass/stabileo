@@ -15,6 +15,7 @@
     "fr": "Rotation de corps rigide d’un groupe de barres dans le plan",
     "hu": "Síkbeli rúdcsoport merevtest-elfordulása",
     "tr": "Düzlemsel çubuk grubunun rijit cisim dönmesi",
+    "id": "Ayunan benda kaku pada kelompok portal planar",
     "zh": "平面杆系的刚体转动"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "fr": "L’analyse élastique plane rejette le modèle si un groupe de barres connectées peut tourner sans déformation autour d’un nœud commun. Relancez les analyses concernées.",
     "hu": "A síkbeli rugalmas számítás elutasítja a modellt, ha egy összekapcsolt rúdcsoport alakváltozás nélkül elfordulhat egy közös csomópont körül. Futtassa újra az érintett számításokat.",
     "tr": "Düzlemsel elastik analiz, bağlı bir çubuk grubu ortak bir düğüm etrafında şekil değiştirmeden dönebildiğinde modeli reddeder. Etkilenen analizleri yeniden çalıştırın.",
+    "id": "Analisis elastis planar menolak ketika sekelompok batang yang terhubung dapat berotasi tanpa regangan terhadap titik simpul bersama. Jalankan ulang analisis yang terdampak.",
     "zh": "如果相连的杆件组可绕同一节点作无应变转动，平面弹性分析将拒绝求解。请重新运行受影响的分析。"
   },
   "changelog": {

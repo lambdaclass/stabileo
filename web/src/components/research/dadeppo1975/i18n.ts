@@ -223,6 +223,38 @@ const hu: Strings = {
   largest: 'Legnagyobb PR²/EI az úton',
   chartLabel: 'PR²/EI a lépésszám függvényében', chartData: 'A görbe adatai (20 lépésenként)', slider: '{step}. lépés: PR²/EI = {load}',
 };
+const id: Strings = {
+  title: 'DaDeppo–Schmidt: lengkung dalam pada batasnya',
+  hook: 'Lengkung 215°, beban di mahkota, dan solver panjang busur versi produksi, diperiksa terhadap beban batas dan keadaan mahkota yang dipublikasikan.',
+  model: 'Satu lengkung jepit–sendi',
+  description: 'Lengkung lingkaran dengan ujung kiri jepit dan ujung kanan sendi memikul beban terpusat ke bawah dengan arah tetap di mahkotanya. Empat puluh elemen portal korotasional lurus mendekati bukaan 215°. Tumpuan asimetris membuat mahkota bergoyang ke arah ujung sendi sebelum titik batas pertama.',
+  units: 'Kami menggunakan R = 1 m, EI = 1 kN·m² dan EA = 10⁶ kN. Beban acuannya 1 kN, sehingga faktor beban solver sama dengan PR²/EI. P = 897 yang sering dikutip menggunakan R = 100 dan EI = 10⁶: nilai ternormalisasinya 8.97, bukan 897.',
+  comparison: 'Perbandingan dengan makalah',
+  referenceText: 'Kami membandingkan dengan Tabel 1 makalah 1975 sebagaimana dikutip oleh rekan penulisnya R. Schmidt dalam diskusi tahun 2000 (J. Eng. Mech. 126(12), hal. 1308): pada titik batas PR²/EI = 8.97, mahkota u/R = 0.6116, v/R = 1.1372 dan rotasi 0.0498, dibulatkan ke digit yang ditampilkan.',
+  signs: 'u positif ke arah ujung sendi dan v ke bawah; rotasi dibandingkan dengan rotasi mahkota ry Stabileo, yang positif pada titik batas.',
+  sourceLink: 'Baca nilai yang dikutip Schmidt',
+  method: 'Solver panjang busur Crisfield versi produksi menelusuri keseimbangan melewati puncak dengan portal korotasional yang sudah ada. Titik batas ditempatkan oleh parabola melalui tiga langkah di sekitar beban terbesar; keadaan mahkota di sana diinterpolasi dari eksekusi yang dihentikan pada ketiga langkah itu. Penampil menggunakan skala perpindahan sebenarnya.',
+  studyHeading: 'Studi mesh dan toleransi',
+  studyText: 'Lengkung yang sama dihitung dengan 20, 40 dan 80 elemen. Setiap toleransi adalah 1.25 kali galat diskretisasi 40 elemen yang ditaksir (ekstrapolasi Richardson dengan orde teramati) ditambah setengah satuan pada digit terakhir yang dipublikasikan. Diekstrapolasi ke panjang elemen nol, setiap besaran sesuai dengan nilai yang dipublikasikan dalam pembulatannya dan taksiran galat 80 elemen, sehingga +0.46% pada beban batas dengan 40 elemen adalah galat diskretisasi. Membagi dua langkah panjang busur mengubah beban batas kurang dari 10⁻⁶ (relatif); kekakuan aksial sepuluh kali lipat mengubahnya kurang dari 10⁻⁴.',
+  studyCaption: 'Nilai pada titik batas dengan 20, 40 dan 80 elemen',
+  extrapolated: 'Diekstrapolasi',
+  inspect: 'Periksa lengkung di dekat puncaknya (langkah 260)',
+  replayNote: 'Bingkai pemutaran ulang adalah hasil titik ujung dari eksekusi berulang solver yang sama, dihentikan setiap dua puluh langkah. Worker langsung mengulang eksekusi itu karena API produksi hanya mengembalikan perpindahan nodal penuh di titik ujung. Kurva menampilkan setiap langkah yang konvergen; sumbu horizontalnya adalah nomor langkah, bukan perpindahan mahkota.',
+  notYet: 'Di luar halaman ini',
+  limitations: ['Kurva keseimbangan lengkap yang dipublikasikan dan titik batas kedua.', 'Sudut bukaan lain, tekuk keluar bidang, kontak atau nonlinearitas material.'],
+  noAuthorCode: 'Tidak dibandingkan: tidak ada kode penulis yang digunakan.',
+  livePath: 'Jalur langsung', shortPath: 'Jalur pendek · 20 langkah (sebelum puncak)', fullPath: 'Tolok ukur lengkap · 400 langkah',
+  replay: 'Pemutaran ulang prahitung (solver yang sama)', live: 'Perhitungan langsung', cached: 'Hasil peramban yang disimpan', running: 'Menghitung…',
+  run: 'Hitung ulang langsung', stop: 'Berhenti', restart: 'Mulai ulang', step: 'Langkah', displacement: 'Besar perpindahan',
+  limit: 'Pada titik batas', quantity: 'Besaran', reference: 'Dipublikasikan', stabileo: 'Stabileo, 40 elemen', difference: 'Selisih', tolerance: 'Toleransi',
+  pass: 'Lulus', fail: 'Gagal',
+  verdictPass: 'Keempatnya dalam toleransi; cabang menurun tercapai', verdictFail: 'Di luar toleransi', incomplete: 'Jalur tidak lengkap: {n} dari {total} langkah',
+  errorSolve: 'Solver tidak menyelesaikan jalur ini.', errorInvalid: 'Solver mengembalikan hasil yang tidak lengkap.',
+  qLoad: 'Beban batas PR²/EI', qU: 'Mahkota u/R', qV: 'Mahkota v/R', qRot: 'Rotasi mahkota (rad)',
+  largest: 'PR²/EI terbesar pada jalur',
+  chartLabel: 'PR²/EI terhadap nomor langkah', chartData: 'Data kurva (setiap 20 langkah)', slider: 'Langkah {step}: PR²/EI = {load}',
+};
+
 const zh: Strings = {
   title: 'DaDeppo–Schmidt：处于极限状态的深拱',
   hook: '一个 215° 的拱，拱顶受荷载，用生产环境的弧长求解器计算，并与已发表的极限荷载和拱顶状态核对。',
@@ -255,5 +287,5 @@ const zh: Strings = {
   chartLabel: 'PR²/EI 随步数的变化', chartData: '曲线数据（每 20 步）', slider: '第 {step} 步：PR²/EI = {load}',
 };
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', Strings> = { en, es, pt, de, fr, tr, hu, zh };
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'id', Strings> = { en, es, pt, de, fr, tr, hu, id, zh };
 export const archStrings = (locale: string): Strings => strings[locale as keyof typeof strings] ?? en;

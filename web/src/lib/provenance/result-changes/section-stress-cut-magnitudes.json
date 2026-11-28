@@ -22,6 +22,7 @@
     "fr": "Cisaillement total sur les coupes de contraintes de section",
     "hu": "Teljes nyírófeszültség a keresztmetszeti feszültségdiagramokon",
     "tr": "Kesit gerilmesi diyagramlarında toplam kayma gerilmesi",
+    "id": "Besaran geser penuh pada potongan tegangan penampang",
     "zh": "截面应力分布图中的总剪应力"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "fr": "Le cisaillement total et la contrainte de von Mises tiennent désormais compte des deux composantes du cisaillement transversal sur les deux coupes.",
     "hu": "A két diagramon a teljes nyírófeszültség és a von Mises-feszültség most mindkét keresztirányú nyírófeszültség-komponenst figyelembe veszi.",
     "tr": "Her iki diyagramda toplam kayma ve von Mises gerilmeleri artık iki enine kayma bileşenini de hesaba katıyor.",
+    "id": "Geser total dan von Mises pada kedua potongan kini memperhitungkan kedua komponen geser transversal.",
     "zh": "两条截面剖线上的总剪应力和 von Mises 等效应力现均计入两个横向剪应力分量。"
   },
   "changelog": {

@@ -140,6 +140,26 @@ export const hu = {
   "scalarViewer.keyboard": "Billentyűzet: a nyilak mozgatják a nézetet, a Shift+nyilak 3D-ben forgatnak, a + és a - nagyít, a 0 vagy a Home a nézethez igazít",
 } satisfies ViewerStrings;
 
+export const id = {
+  "scalarViewer.view": "Tampilan",
+  "scalarViewer.viewOptions": "Opsi tampilan",
+  "scalarViewer.close": "Tutup",
+  "scalarViewer.fit": "Zoom ke seluruh model",
+  "scalarViewer.plan": "2D (denah, orbit terkunci)",
+  "scalarViewer.orbit": "3D (orbit)",
+  "scalarViewer.switchProjection": "Beralih antara tampilan denah dan orbit 3D",
+  "scalarViewer.viewer": "Penampil Stabileo",
+  "scalarViewer.position": "pos:",
+  "scalarViewer.zoom": "zoom:",
+  "scalarViewer.model": "model:",
+  "scalarViewer.bars": "{nodes} titik simpul, {cells} batang",
+  "scalarViewer.elements": "{nodes} titik simpul, {cells} elemen",
+  "scalarViewer.openEditor": "Buka di editor",
+  "scalarViewer.soon": " (segera)",
+  "scalarViewer.editorNote": "Membuka eksperimen di editor hadir bersama mode riset",
+  "scalarViewer.keyboard": "Papan ketik: tombol panah menggeser, Shift+panah mengorbit dalam 3D, + dan - memperbesar atau memperkecil, 0 atau Home menyesuaikan tampilan",
+};
+
 export const zh = {
   "scalarViewer.view": "视图",
   "scalarViewer.viewOptions": "视图选项",

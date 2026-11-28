@@ -154,6 +154,23 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A termék ütemterve előre sorolja a terhek és lemezterületek független ellenőrzését, az egzakt igénybevételi függvényeket, a teljes méretezési bizonyítékot és az egységes kanonikus modellt az átalakítások ellenőrzésével. (#2469)',
         ],
       },
+      id: {
+        title: 'Stabileo 0.6.4: hasil batang, analisis pelat, dan pemeriksaan beton yang dikoreksi',
+        items: [
+          'Diagram batang dan selubung beban bergerak kini menangkap nilai puncak di antara titik tinjau, di kedua sisi aksi terpusat, dan gaya tepat di dalam ujung batang. Diagram kombinasi dapat menampilkan batas konservatif berlabel jika nilai ekstrem eksak tidak tersedia. Titik tinjau yang ambigu, puncak penentu yang belum terselesaikan, dan grid titik tinjau desain yang tidak lengkap akan memblokir hasil yang terkait. Bentang beton yang dibalik tetap mempertahankan sisi tarik fisiknya. Pemeriksaan baja memakai momen puncak keseimbangan dan momen titik seperempat bentang, dan menahan kredit gradien momen jika informasi diagram yang diperlukan tidak lengkap. Laporan dengan banyak titik tinjau memakai ulang diagram yang sudah disiapkan. (#2403)',
+          'Kedua perintah pembalikan batang mempertahankan arah, interval yang dibebani, dan intensitas ujung dari beban merata. Analisis memakai nilai tak nol yang tidak ambigu pada bidang kopel planar lama dan menolak nilai yang saling bertentangan. Pada model spasial, kopel awal murni dapat diterapkan pada titik simpul asalnya meskipun proyeksi batangnya tidak dapat dipakai. Aksi lama lain yang masih memerlukan proyeksi dapat memblokir proses hitung. (#2456)',
+          'Perubahan terhingga pada kopel titik planar atau momen nodal yang dipulihkan kini menggantikan momen yang tersimpan, termasuk saat diatur ke nol. Momen yang bertentangan atau tidak valid memblokir analisis bahkan setelah disimpan dan dibuka kembali. Periksa momen yang dimaksud, masukkan ulang, lalu jalankan ulang analisis dan desain. (#2467, SA-2026-105)',
+          'PRO menolak analisis jika masih ada mesh pelat yang tidak valid atau kedaluwarsa, atau jika sambungan dinding–pelat lantai tidak kompatibel. Mesher mewajibkan kontur dan lubang yang lengkap dan valid sebelum Terapkan. Galeri tujuh tingkat yang diperbarui dan contoh DXF arsitektural memiliki mesh pertemuan yang kompatibel. Draf CAD ber-mesh yang baru menyelaraskan titik tinjau pelat lantai dan dinding. Ekspor buku kerja khusus model dapat menyertakan pelat yang belum di-mesh. (#2409)',
+          'Pembuatan mesh ulang mengikuti batas lengkung melalui titik tengah yang ditentukan pada pelat. Sapuan yang ambigu memblokir pembuatan mesh ulang dan analisis. Periksa batasnya, bangun ulang mesh yang kedaluwarsa, lalu jalankan ulang analisis dan desain. (#2466, SA-2026-106)',
+          'Pembuatan mesh ulang memindahkan offset cangkang dan hasil sunting kelengkungan hanya ke sel yang unik dan cocok persis. Jika cangkang yang disunting tidak dapat dicocokkan, pembuatan mesh ulang dihentikan dan mesh yang ada dipertahankan. Periksa properti cangkang terhadap model yang dimaksud, pulihkan hasil sunting yang sebelumnya hilang, lalu jalankan ulang analisis dan desain. (#2466, SA-2026-107)',
+          'CIRSOC 201-2025 memeriksa tulangan transversal minimum untuk torsi pada kedua arah dan memakai batas beton hasil evaluasi untuk torsi murni jika sangkar tersedia. Pemeriksaan torsi dan geser dapat menolak jika sangkar yang digambar tidak memiliki bukti untuk batang tulangan keliling, tinggi efektif sekunder, atau penyaluran batang tulangan melintasi sambungan. Pemeriksaan geser memakai batang tarik berbeda yang ada pada potongan, termasuk di antara titik tinjau yang disampel. Contoh tujuh tingkat kini dapat menampilkan penolakan pada pemeriksaan yang sebelumnya lolos. (#2433)',
+          'Ruang kerja tulangan 3D terbuka lebih cepat, dan penyimpanan, pemulihan, serta pergantian tab pada model yang detail memakai ulang geometri tulangan yang tidak dapat diubah. Urungkan dan ulangi memulihkan detailing yang sesuai dengan geometri beton. (#2438, #2444, #2458)',
+          'Basic menampilkan momen reaksi tumpuan 3D dengan tanda global dari solver. Pembacaan benda bebas memakai sumbu yang dipilih dan sesuai dengan panah sisi titik simpul pada 2D. Basic dan PRO melaporkan komponen gaya terpusat dan kopel pada bidang dan sumbu solver. Jalankan ulang inspeksi yang terpengaruh dan buat ulang laporan. (#2396)',
+          'Pengaturan kunci AI memberi tombol penyedia, kolom kunci, dan aksi kunci ukuran minimum 44 piksel CSS pada kedua arah. (#2440)',
+          'Halaman riset elastica Mattiasson, MacNeal–Harder, dan arena rintangan cangkang yang dipublikasikan menampilkan hasil selesai dari proses benchmark pertama atau penolakan yang dilaporkan. (#2445)',
+          'Peta jalan produk memprioritaskan pemeriksaan beban dan luas pelat yang independen, fungsi gaya dalam yang eksak, bukti desain yang lengkap, dan satu model kanonis dengan pemeriksaan lintas transformasi. (#2469)',
+        ],
+      },
       zh: {
         title: 'Stabileo 0.6.4：修正杆件结果、板分析和混凝土验算',
         items: [
@@ -345,6 +362,29 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A Research új kísérlete Heyman munkája alapján vizsgálja a falazott ívek legkisebb vastagságát és összeomlását.',
         ],
       },
+      id: {
+        title: 'Pemeriksaan beton, tegangan penampang, dan beban bergerak',
+        items: [
+          'Tegangan penampang yang detail menahan hasil gabungan jika geser torsional dan geser transversal ada bersamaan. Potongan kini menyertakan kedua komponen transversal dalam geser total dan von Mises. Hitung ulang tegangan yang terpengaruh dan tinjau laporannya (SA-2026-092). Contoh kerja pada pemberitahuan memberikan koordinat serat pada sumbu lokal batang maupun sumbu gambar penampang.',
+          'Beban bergerak planar mempertahankan lompatan gaya aksial pada gandar terpusat. Hitung ulang diagram, selubung, dan garis pengaruh aksial yang terpengaruh (SA-2026-093).',
+          'Kombinasi 2D dan 3D mempertahankan faktor netto untuk kasus yang berulang dan menolak pembatalan penuh. Analisis kabel dan interaksi tanah–struktur menolak kekakuan pegas yang tidak terhingga. Jalankan ulang kombinasi yang terpengaruh.',
+          'Portal dan balok lolos pemeriksaan stabilitas tersertifikasi lebih cepat. Pemulihan kombinasi 3D lebih cepat, dan prakondisioner iteratif untuk pelat telah dikoreksi.',
+          'Analisis korotasional 2D memakai driver nonlinear bersama dan mempertahankan hasil Newton dan Newton termodifikasi yang sudah ada. (#2394)',
+          'Pemeriksaan beton bertulang memblokir pemeriksaan geser, torsi, dan sengkang pengekang seismik yang buktinya tidak memadai, dan menjelaskan alasannya. Jalankan ulang desain tersertifikasi dan tinjau potongan penentu serta gambar tulangannya (SA-2026-091).',
+          'Beban gempa statik mengikuti massa fisik dan tinggi penerapannya. Pembuatan beban modal diblokir. Buat ulang beban yang terpengaruh dengan metode statik jika sesuai, lalu jalankan ulang analisis dan desain (SA-2026-086 dan SA-2026-087).',
+          'Pembuatan beban gravitasi memblokir panel yang saling tumpang tindih dan dapat membebani area yang sama dua kali. Buat ulang beban yang terpengaruh sebelum menjalankan ulang analisis dan pemeriksaan desain.',
+          'Transformasi memblokir pemindahan atau penyalinan yang dapat mengubah arah yang dikekang pada tumpuan rol yang ambigu. Snapshot mempertahankan jenis tumpuan yang tercatat.',
+          'Pembuatan beban gempa statik memeriksa bukti lantai pada perpotongan bresing dan titik simpul atap. Balok bubungan saja tidak dapat menetapkan sebuah lantai. Subdivisi batang lurus kini dikenali secara konsisten setelah translasi, dan pembuatan beban diblokir jika presisi koordinat tidak mencukupi atau tingkatnya ambigu. Jika kedua ujung memiliki bukti lantai, balok atap yang ditinggikan menerima inersia merata sepanjang bentang yang berpartisipasi. Lantai yang sudah ditetapkan juga membagi lintasan miring yang menerus pada titik simpul lantai. Hal ini dapat mengubah gaya tingkat, geser dasar, serta lentur dan lendutan balok atap. Buat ulang kasus gempa statik yang terpengaruh dan tinjau geser dasar serta aksi pada balok atap. (#2404)',
+          'Pembuatan beban gravitasi panel memblokir jalur beban ganda ketika bentang balok yang tumpang tindih dan dek cangkang sama-sama akan dibebani, serta sambungan dek terikat penuh melalui titik simpul master di luar sambungan. Beban Otomatis juga memblokir sebelum pratinjau jika galat pembulatan koordinat membuat klasifikasi kemiringan penopang gravitasi menjadi tak tentu. Klasifikasi itu sebelumnya dapat berubah setelah rotasi denah atau subdivisi batang. Pada atap datar dan atap miring, pembuatan beban salju memblokir jika timbunan salju pada undakan di lokasi perlu dipindahkan ke batang atau penerapannya tidak dapat ditetapkan. Pemindahan sebelumnya dapat kehilangan gaya dan momen eksentris. Buat ulang beban gravitasi dan salju yang terpengaruh dan selesaikan kondisi yang memblokir sebelum memakai hasilnya. (#2406)',
+          'Pemeriksaan CIRSOC 201 memakai gaya aksial yang bersamaan untuk jarak sengkang, memeriksa angkur pada titik momen nol yang eksak, dan memeriksa interval sengkang lokal. Batas sengkang pengekang seismik memperhitungkan semua lapisan batang tulangan ujung. Kapasitas torsi dan pemanfaatan mencerminkan batas hasil evaluasi yang lebih rendah. Pemeriksaan dapat diblokir jika ujung batang tulangan yang digambar kurang dari penampang yang diperiksa atau jika penyaluran batang tulangan keliling belum terverifikasi. Pemeriksaan geser sekunder khusus beton mensyaratkan batang tulangan longitudinal duduk pada kedua tekukan sengkang atas. Pemeriksaan ulang kedalaman akhir memakai gambar balok pengganti jika disediakan. Daftar kolom mempertahankan diameter batang tulangan yang bercampur dan menahan detailing fisik jika sangkar yang ditentukan tidak dapat direproduksi. Jalankan ulang pemeriksaan terhadap gambar tulangan terkini dan tinjau kombinasi penentu serta putusannya. (#2398)',
+          'Mandarin sederhana adalah bahasa Stabileo yang kedelapan dan tersedia di aplikasi, situs web, dan pemberitahuan hasil.',
+          'Impor buku kerja menolak nama lembar yang menjadi sama setelah diselesaikan, header ganda, header wajib yang hilang, satuan yang tidak valid, kesalahan lembar kerja, penanda kekangan yang bertentangan, dan kolom beban tak didukung yang terisi. Untuk beban planar, impor menolak komponen momen bukan nol terhadap salah satu dari dua sumbu buku kerja yang dideklarasikan yang terletak pada bidang model. Impor yang ditolak membiarkan model saat ini tetap di tempatnya. Kekangan eksplisit yang lengkap dipertahankan pada sumbu buku kerja yang dideklarasikan, termasuk pada ekspor sebelum proses hitung. Pegas rotasi planar diekspor sebagai kr [kN·m/rad], dan header lama tetap dapat dibaca. Impor ulang buku kerja yang terpengaruh dan verifikasi koordinat, beban, gravitasi, dan kekangan sebelum menghitung lagi. (#2395)',
+          'Pembersihan mesh pelat kini lebih cepat, termasuk saat membangun ulang mesh pelat lantai. (#2394)',
+          'Stabileo 0.6.2 dirilis dengan koreksi pada beban batang, tumpuan 3D, tulangan sengkang sekunder, dan beban hasil pembuatan. Catatan rilis menjelaskan apa yang perlu dihitung ulang dan beban mana yang perlu dibuat ulang.',
+          'Gambar pada halaman landing tetap bergerak di bawah penunjuk. Panel proyek menjelaskan aksi mana yang memerlukan akun, dan halaman pendaftaran memakai gambar landing.',
+          'Riset menambahkan eksperimen tentang ketebalan minimum dan keruntuhan busur pasangan bata berdasarkan karya Heyman.',
+        ],
+      },
       zh: {
         title: '混凝土验算、截面应力与移动荷载',
         items: [
@@ -526,6 +566,26 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A 3D analízis elutasítja az ismeretlen támasztípusokat. A többértelmű görgős és az egyedi támaszoknál meg kell adni a gátolt mozgásokat. A vasbeton gerenda példája a tervezett egyszerű támaszokat használja. Ellenőrizze az érintett támaszok gátolt mozgásait, majd ismételje meg az analíziseket, kombinációkat és méretezési ellenőrzéseket (SA-2026-089).',
           'A 0.6.0 és 0.6.1 verziójegyzetei és cikkei ismertetik, mely projekteket kell újraszámítani és mely terheket újragenerálni. Az itt felsorolt későbbi javítások a 0.6.2-es verzióban jelentek meg. A nyitott auditmegállapítások továbbra is követhetők.',
           'A Research új kísérlete Heyman falazatokról szóló munkája alapján vizsgálja a boltívek legkisebb vastagságát és teher alatti összeomlását.',
+        ],
+      },
+      id: {
+        title: 'Beban batang, beban gravitasi, dan tumpuan 3D yang dikoreksi',
+        items: [
+          'Pembacaan saat kursor di atas batang dan bentuk terdeformasi kini menyertakan kopel terpusat dan beban merata parsial melalui pemulihan bersama pada 2D dan 3D. Pemulihan berbeban tanpa kekakuan lentur yang memadai menolak secara eksplisit. Jalankan ulang analisis yang terpengaruh dan tinjau lendutan interior serta pemeriksaan kemampuan layan (SA-2026-070).',
+          'Beban yang kompatibel dengan rotasi yang dilepas mempertahankan jawabannya setelah rotasi atau konversi satuan. Momen nodal yang saling meniadakan dipertahankan; momen sisa yang benar-benar tidak ditumpu tetap ditolak. Jalankan ulang analisis yang terpengaruh.',
+          'Beban merata pada bentang yang terlalu pendek ditolak dengan pesan yang menyebutkan batang dan intervalnya. Pemeriksaan keseimbangan gaya menghitung beban yang bekerja secara independen. Tinjau interval yang ditolak dan jalankan ulang analisis yang terpengaruh.',
+          'Diagram batang 3D ABS dan SRSS menyertakan nilai puncak di antara titik plot dan nilai di kedua sisi lompatan. Hitung ulang diagram yang terpengaruh dan tinjau pemeriksaan yang memakai nilai puncaknya.',
+          'Pemeriksaan interaksi beton dan baja mempertahankan gaya dari kombinasi dan titik tinjau yang sama. Faktor gradien momen baja, pembesaran momen beton, dan sengkang torsi yang disediakan telah dikoreksi. Jalankan ulang desain batang yang terpengaruh dan tinjau kombinasi penentu serta tulangannya (SA-2026-064, SA-2026-066, SA-2026-068).',
+          'Batas penampang geser–torsi CIRSOC 201 menyertakan kedua arah geser yang bersamaan pada balok, kolom, dan dinding. Penampang yang sebelumnya diterima dapat gagal; sengkang tambahan tidak dapat memperbaiki batas penampang yang terlampaui. Jalankan ulang desain beton yang terpengaruh (SA-2026-069).',
+          'Desain dan sertifikasi batang menolak kombinasi, batang, atau titik tinjau yang dideklarasikan tetapi hilang, alih-alih hanya memeriksa gaya yang tersedia. Grid titik tinjau yang tidak sama mempertahankan setiap kombinasi dalam selubung garis balok. Jalankan ulang desain beton dan baja yang tersimpan dan tinjau penolakan serta sertifikatnya (SA-2026-071).',
+          'Timbunan salju pada undakan atap miring penerima dan lebar atap mengikuti bidang atap fisik, tidak bergantung pada rotasi denah. Daerah atap yang terhubung mempertahankan pola timbunan, peluncuran, dan tak seimbang. Buat ulang beban salju yang terpengaruh sebelum menjalankan ulang analisis, kombinasi, dan pemeriksaan desain (SA-2026-065, SA-2026-067).',
+          'Menambah titik simpul tidak lagi menggeser bubungan salju atau mengubah panel kubah yang diperhalus menjadi lantai. Beban pada batang yang melintasi bubungan mempertahankan gaya dan momen, termasuk subset penopang yang dipilih. Buat ulang semua beban area hasil pembuatan yang terpengaruh, termasuk beban atap dan lantai, lalu jalankan ulang analisis, kombinasi, dan pemeriksaan desain; menyelesaikan beban tersimpan saja tidak cukup (SA-2026-072, SA-2026-073, SA-2026-074).',
+          'Pada bentang dengan cangkang, balok memikul beban pada jalur tak tertutup yang dapat mereka dukung. Pembuatan beban berhenti jika cakupannya tidak jelas. Pada mode lebar tributari, luas lantai dan massa gempa mengikuti batang yang dibebani. Zona lantai ditolak jika pembebanan eksentriknya tidak dapat direpresentasikan. Buat ulang beban gravitasi dan gempa yang terpengaruh sebelum menjalankan ulang analisis dan pemeriksaan.',
+          'Terjemahan Hongaria menyertakan panduan rilis dan pemberitahuan proyek tersimpan. Kontrol riset Fehér yang diperluas, Alat yang dikonsolidasikan, titik masuk Mohr yang baru, dan permainan diagram tetap bersifat opsional dan nonaktif secara default. Akun dan pengukuran iklan tetap nonaktif secara default.',
+          'Alat tegangan mempertahankan tegangan utama dan geser yang kecil tetapi tidak nol, dan tautan Mohr yang dibagikan mempertahankan keadaan tegangan yang dimasukkan. Kalkulator menjaga jawaban tetap terkait dengan masukan saat ini. Membuka ruang kerja tulangan kini mengurangi pekerjaan geometri yang berulang, dengan geometri dan hasil analisis yang tidak berubah.',
+          'Analisis 3D menolak jenis tumpuan yang tidak dikenal. Tumpuan rol yang ambigu dan tumpuan kustom memerlukan kekangan eksplisit. Contoh balok beton memakai tumpuan sederhana yang dimaksud. Pastikan gerakan mana yang dikekang oleh tumpuan yang terpengaruh, lalu jalankan ulang analisis, kombinasi, dan pemeriksaan desain (SA-2026-089).',
+          'Catatan rilis dan pos blog untuk 0.6.0 dan 0.6.1 menjelaskan proyek mana yang perlu dihitung ulang dan beban mana yang perlu dibuat ulang. Koreksi berikutnya yang tercantum di sini dirilis pada 0.6.2. Temuan audit yang masih terbuka tetap dilacak.',
+          'Eksperimen Riset baru berdasarkan karya Heyman tentang pasangan bata menelusuri ketebalan minimum busur dan bagaimana busur runtuh di bawah beban.',
         ],
       },
       zh: {
@@ -756,6 +816,34 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A német, a francia és a török nyelv ismét elérhető. A Research egy tengerfenékkel érintkező offshore riserrel és egy hajlított szalag alakszabályozásával bővül, az oldalaikon bemutatott összehasonlításokkal és korlátokkal. A munkaterület mentése megőrzi a méretezett épületeket, és jelzi, ha a böngésző nem tud menteni."
         ]
       },
+      id: {
+        title: 'Stabilitas diperiksa sebelum menghitung, beban bergerak dan P-Delta yang dikoreksi, batas yang lebih jelas',
+        items: [
+          'Analisis linear 2D dan 3D memeriksa stabilitas kekakuan sebelum menghitung. Mekanisme, kekakuan negatif, dan kekakuan yang terlalu tidak pasti untuk diselesaikan ditolak beserta alasannya, alih-alih diselesaikan dengan pegas atau pergeseran buatan. Jalankan ulang analisis linear yang terpengaruh dan pemeriksaan desainnya.',
+          'Pegas pada derajat kebebasan yang dikekang kaku ditolak pada 2D maupun 3D. Beban bergerak 3D menangkap nilai puncak di bawah gandar di dalam bentang, termasuk gaya aksialnya pada batang miring dan gaya ujungnya. Jalankan ulang selubung beban bergerak yang terpengaruh.',
+          'P-Delta mengintegrasikan gaya aksial yang berubah sepanjang setiap batang pada 2D dan 3D, mengoreksi amplifikasi yang terlalu kecil di bawah beban bentang. Analisis harmonik menyelesaikan frekuensi tanpa pemotongan modal terbatas secara penuh, termasuk pada model di atas batas ukuran padat. Jalankan ulang analisis ini dan pemeriksaan turunannya.',
+          'Keruntuhan plastis 3D yang diperiksa melaporkan batas bawah tersertifikasinya dan menolak sertifikat yang tidak sahih. Analisis plastis memeriksa kebutuhan kerja dan memorinya sebelum mengalokasikan. Kontrol beban serat mengurung batas bebannya alih-alih melaporkan batas yang berubah menurut ukuran langkah.',
+          'Analisis kontak menolak keadaan beku yang gagal memenuhi kondisi kontak akhir. Elemen kabel ditolak di luar analisis kabel khusus, tempat pengenduran kabel tidak dapat direpresentasikan. Batas ini berlaku untuk analisis native dan peramban.',
+          'Kombinasi cangkang mempertahankan tegangan dari kasus perpindahan paksa dan menyertakan tegangan nodal segi empat; SSI mengembalikan reaksi tumpuan pada 2D dan 3D. Analisis tekuk dan multi-kasus menolak hasil yang tidak terhingga. Proyek tersimpan mengidentifikasi analisis dari versi yang diketahui memberikan hasil keliru dan meminta analisis yang terpengaruh dijalankan lagi.',
+          'Tekuk 2D dan 3D menjaga batas galat pembulatan gaya aksial dalam bagian yang benar-benar terkopel. Kekangan pada struktur independen tidak lagi mencegah kolom lain diselesaikan; gaya tekan yang tidak pasti dalam bagian terkopel tetap ditolak. Jalankan ulang analisis tekuk dan P-Delta yang tersimpan untuk memperbarui faktor B2 dan stabilitas.',
+          'Pemeriksaan regresi mencakup 28 model yang dilaporkan dan kini ditolak beserta alasannya; peninjauan bukti memungkinkan 25 isu kandidat ditutup. Tujuh model cangkang lama memiliki rotasi kaku bebas dalam bidang: pengujian native dan peramban mengonfirmasi penolakannya dan memeriksa jawaban setelah kekangan yang hilang ditambahkan.',
+          'Analisis bertahap 2D dan 3D berbagi penanganan rotasi bebas dengan analisis linear. Pelepasan ujung dan perubahan satuan tidak lagi menambah kekakuan rotasi buatan, dan penurunan tumpuan mempertahankan gerakan yang dimaksud. Jalankan ulang analisis bertahap yang terpengaruh dan pemeriksaan desain turunannya (SA-2026-060). Penolakan elastis awal pada analisis plastis 3D kini tetap menjadi penolakan alih-alih menjadi faktor keruntuhan nol yang senyap (SA-2026-062).',
+          'Pemeriksaan keseimbangan plastis tidak lagi macet pada model impor yang label rekamannya berbeda dari ID batang dan titik simpulnya. Sertifikat plastis menghitung penyimpanan yang benar-benar diperlukan dan mempertahankan batas valid terakhir saat penghalusan opsional melampaui batas. Portal yang sebelumnya ditolak kini dapat tersertifikasi dalam batas yang sama.',
+          'Sertifikasi plastis berjalan lebih cepat dengan jawaban dan batas sumber daya yang tidak berubah. Contoh outrigger juga diselesaikan lebih cepat sambil mempertahankan rentang penggeser yang telah diperiksa.',
+          'Analisis nonlinear 2D dan 3D memeriksa keseimbangan fisik secara konsisten setelah rotasi, pencerminan, dan perubahan satuan. P-Delta, penurunan tumpuan yang ditentukan, dan pegas tanah mempertahankan respons kecil yang terselesaikan tanpa melonggarkan batas konvergensi. Jalankan ulang analisis nonlinear, P-Delta, dan interaksi tanah–struktur yang terpengaruh.',
+          'Faktor tekuk dipulihkan dari matriks kekakuan asli pada 2D dan 3D, mengoreksi kelebihan taksiran kecil dan penolakan keliru pada model berkekangan atau berbatang lengkung. Ragam pengajaran yang valid dipertahankan pada berbagai satuan. Jalankan ulang analisis tekuk yang terpengaruh; batas sertifikat tidak berubah.',
+          'Beban batang rangka batang kini masuk ke pemeriksaan keseimbangan pada 2D dan 3D, sehingga model berbeban batang yang valid tidak lagi ditolak ketika beban nodal ekuivalennya dapat diselesaikan. Jalankan ulang analisis rangka batang yang terpengaruh.',
+          'Analisis modal mempertahankan rank massa fisik melalui kekangan dan tumpuan miring. Model dengan arah tanpa massa dapat mengembalikan ragam hingganya yang valid tanpa ragam tambahan palsu yang menyebabkan penolakan. Jalankan ulang analisis modal yang terpengaruh dan respons dinamis yang bergantung padanya.',
+          'Penurunan dan rotasi yang ditentukan pada master kekangan yang dikekang kini mencapai titik simpul yang bergantung pada analisis bertahap, Winkler, kontak, nonlinear material, korotasional 2D, dan panjang busur. Analisis elemen kabel dan riwayat waktu linear menolak gerakan tumpuan yang ditentukan bukan nol yang tidak dapat direpresentasikannya. Jalankan ulang analisis yang terpengaruh dan pemeriksaan turunannya (SA-2026-063).',
+          'Kontrol panjang busur dan perpindahan memulihkan reaksi tumpuan dan gaya batang pada faktor beban akhir. Pemulihan nonlinear dan bertahap menyertakan gaya yang dipindahkan melalui kekangan, mengecualikan kekakuan buatan, dan memakai keadaan fisik akhir serta kerangka batang. Jalankan ulang analisis yang terpengaruh dan pemeriksaan turunannya (SA-2026-061).',
+          'P-Delta membedakan residu fisik yang gagal dari keterbatasan keseimbangan momen pada geometri yang berpindah. Keseimbangan fisik yang gagal menahan gaya dan tegangan; keterbatasan yang disebut belakangan mempertahankan jawaban perpindahan kecil yang valid disertai peringatan. Riwayat waktu menahan reaksi tumpuan total dan puncak yang tidak tersedia sambil mempertahankan riwayat perpindahan dan puncaknya. Periksa ulang gaya yang tersimpan (SA-2026-061).',
+          'Riwayat bertahap yang melepas batang yang memikul gaya dalam ditolak pada 2D dan 3D. Perubahan kekakuan atau pegas tumpuan setelah pembebanan atau gerakan dapat membuat gaya dan tegangan tidak tersedia disertai diagnostik. Pelepasan yang benar-benar tanpa beban dan tahap hanya-kekangan yang tertentu sepenuhnya mempertahankan jawabannya; redistribusi gaya batang berbeban tetap tidak didukung (SA-2026-061).',
+          'Interaksi tanah–struktur mengoreksi keseimbangan elastis tanpa memulai ulang penyelesaian yang tidak berubah. Model yang diputar dan diskalakan satuannya tanpa tanah atau dengan tanah pada rentang linear awalnya dapat konvergen dalam toleransi dan batas iterasi yang ada. Jalankan ulang analisis SSI yang terpengaruh.',
+          'Portal dan rangka batang berkekangan yang diputar atau dicerminkan tidak lagi mendapat penolakan keliru dari batas galat pembulatan. Penyelesaian awal linear, bertahap, rangkak, dan P-Delta mempertahankan kekakuan fisik yang dapat diselesaikan pada 2D dan 3D; batas mekanisme dan akurasi tetap tidak berubah. Jalankan ulang analisis yang terpengaruh.',
+          'Desain baja CIRSOC 301 membaca gradien momen dan properti penampang dari mesin. Faktor gradien momen menyertakan perubahan tanda pada ujung bentang tanpa pengaku; luas neto tarik memeriksa setiap rantai baut zig-zag dan menolak sambungan semua-elemen yang kehilangan baut pada badan atau kaki kedua. Periksa ulang batang baja yang terpengaruh.',
+          'Bahasa Jerman, Prancis, dan Turki ditawarkan kembali. Riset menambahkan riser lepas pantai dengan kontak dasar laut dan kontrol bentuk jalur lengkung, dengan perbandingan dan batasnya ditampilkan pada halamannya. Penyimpanan ruang kerja mempertahankan gedung yang didesain dan melaporkan ketika peramban tidak dapat menyimpan.',
+        ],
+      },
       zh: {
         "title": "求解前先检查稳定性，移动荷载与 P-Δ 已更正，限制更清晰",
         "items": [
@@ -874,6 +962,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Visszatért az Alap mód tananyaga statikával, hatásábrákkal, másodrendű analízissel, kihajlással, képlékenységgel és dinamikával. Elérhetők paraméteres példák és egy saját Anthropic- vagy OpenAI-kulccsal működő asszisztens. A Research és a Tools oldalak gyorsabban nyílnak meg telefonon."
         ]
       },
+      id: {
+        title: 'Beban, desain, dan analisis yang dikoreksi; lebih banyak cara untuk menghitung dan belajar',
+        items: [
+          'Beban hasil pembuatan mempertahankan beban lantai di bawah penutup parsial dan pada dek yang diputar, serta menyertakan cangkang dalam berat gempa. Pemeriksaan keseimbangan menyebutkan beban yang tidak dapat dijumlahkannya. Buat ulang beban yang terpengaruh.',
+          'Pemeriksaan baja dan beton mengoreksi luas geser, lentur bertulangan berlebih, kolom persegi panjang, dan gaya tekan pada tabung. Sambungan dan batang dengan torsi yang tidak diperiksa menyatakan apa yang belum dievaluasi. Setiap komponen selubung cangkang mempertahankan nilai ekstremnya sendiri. Jalankan ulang desain yang terpengaruh.',
+          'Tekuk 2D mengintegrasikan gaya aksial sepanjang batang; mekanisme di balik kekangan kaku ditolak, dan analisis korotasional 3D menyusun rotasi besar. Dinamika mempertahankan beban awal pada titik simpul tanpa massa dan menolak mekanisme. Hasil yang tidak terhingga ditolak beserta alasannya.',
+          'Analisis batas plastis 2D ditambahkan, tetapi keruntuhan plastis tetap ditahan sampai validasi untuk #758 selesai. Tekuk 3D membedakan gaya tekan dari galat pembulatan; analisis harmonik memilih metodenya per model dan frekuensi tanpa mengubahnya menurut beban. Analisis linear memperingatkan tentang rotasi besar dan kemungkinan efek orde kedua.',
+          "Cangkang MITC4 dan MITC9 tetap terlalu lentur pada geometri yang melintir: pada benchmark dengan puntiran 90°, perpindahan sekitar 30% di atas acuan untuk MITC4 dan hingga 2,4 kali acuan untuk MITC9. Galat bertambah seiring puntiran dan tidak ada pada elemen datar. Formulasinya belum diperbaiki (#1057). PR #1074 menambahkan peringatan dan penolakan pada batas terukur; pembatasan itu tidak mengoreksi formulasinya.",
+          'Laporan PRO mencetak kumpulan hasil yang dipilih dan memeriksa tabel yang diekspornya. Tersedia tampilan tersimpan, tampilan denah dan 3D gabungan, referensi IFC, tautan hanya-baca, dan lebih banyak hasil pelat. Impor Excel dan IFC mempertahankan sumbu inersia yang benar pada penampang persegi panjang.',
+          'Kursus Basic kembali dengan statika, garis pengaruh, orde kedua, tekuk, plastisitas, dan dinamika. Tersedia contoh parametrik dan asisten yang memakai kunci Anthropic atau OpenAI milik Anda sendiri. Halaman Riset dan Alat terbuka lebih cepat di ponsel.',
+        ],
+      },
       zh: {
         "title": "荷载、设计与分析的更正；更多的计算与学习方式",
         "items": [
@@ -990,6 +1090,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A JAIE 2026 cikk teljes terjedelmében a /paper oldalon, valamint ez a változásnapló."
         ]
       },
+      id: {
+        title: 'Stabileo Research, Alat, dan aplikasi dalam bahasa Jerman, Prancis, dan Turki',
+        items: [
+          'Tegangan cangkang-padat untuk cangkang di luar bidang X–Y kini benar; aplikasi meminta Anda menjalankan ulang proyek yang terpengaruh.',
+          'Mesin diuji dengan pemeriksaan invariansi pada setiap perubahan dan dengan model acak setiap malam; tiga dugaan galat mesin ternyata adalah model uji yang keliru, dan setiap benchmark kini memerlukan dua acuan independen, pemeriksaan model, dan studi konvergensi.',
+          'Pelat sebagai objek fisik yang di-mesh saat Anda menghitung, batang lengkung sebagai satu kesatuan, templat DXF di beberapa elevasi, dan zona penggunaan per lantai beserta beban hidupnya.',
+          'Ekspor dipilih menurut hasil yang keluar (hasil, laporan perhitungan, gambar, dan IFC), dan laporan perhitungan juga tersedia dalam Word, lengkap dengan gambarnya.',
+          'Salin dan tempel di Basic seperti di PRO, dengan pratinjau tempat hasil tempelan mendarat; Ctrl+S tidak lagi menggeser tampilan 3D, urungkan tidak lagi merebahkan model 2D di 3D, dan perpindahan pada bentuk terdeformasi ditampilkan sesuai permintaan.',
+          'Aplikasi dan situs kini juga tersedia dalam bahasa Jerman, Prancis, dan Turki.',
+          'Stabileo Research: 17 makalah yang dipublikasikan dan benchmark klasik mekanika komputasi yang berjalan di peramban pada mesin Stabileo, masing-masing menyatakan apa pembandingnya dan bagaimana diperiksa.',
+          'Alat: delapan kalkulator gratis (balok, kantilever, kolom Euler, dan lainnya) yang menghitung pada mesin yang sebenarnya, menampilkan rumus klasik di samping hasilnya, dan membuka model di Stabileo.',
+          'Makalah JAIE 2026 secara lengkap di /paper, dan log perubahan ini.',
+        ],
+      },
       zh: {
         "title": "Stabileo Research、Tools，以及德语、法语和土耳其语版本的应用",
         "items": [
@@ -1080,6 +1194,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Két új blogbejegyzés, megújult tartalomjegyzék, és egy oldal, amely felsorolja, mit ellenőriz a Stabileo az egyes CIRSOC szabványokból."
         ]
       },
+      id: {
+        title: 'Pemeriksaan desain di dalam mesin, serta versi 0.2.0 dan 0.3.0',
+        items: [
+          'Pemeriksaan kode desain beton bertulang (CIRSOC 201) dan baja (CIRSOC 301) kini berjalan di dalam mesin, dengan rangkaian validasi terhadap model acuan yang dipublikasikan.',
+          'Untuk hasil yang memungkinkan, mesin menghitung batas galat dengan aritmetika interval.',
+          'Versi 0.2.0 dan 0.3.0 dirilis, dengan catatan dalam bahasa Spanyol, Inggris, dan Portugis. Ketika suatu perubahan memengaruhi hasil, aplikasi meminta Anda menjalankan ulang proyek tersimpan.',
+          'Halaman landing menambahkan bagian tentang verifikasi dan kini memuat 152 KB, bukan 6,4 MB.',
+          'Dua pos blog baru, indeks yang didesain ulang, dan halaman yang mendaftar apa yang diperiksa Stabileo dari setiap kode CIRSOC.',
+        ],
+      },
       zh: {
         "title": "引擎中的设计验算，以及 0.2.0 和 0.3.0 版本",
         "items": [
@@ -1107,6 +1231,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'La boîte de dialogue de la note de calcul du mode Basique, avec la liste des contenus où l\'on choisit ce qu\'elle inclut',
         tr: 'Temel modundaki hesap raporu iletişim kutusu; neyin dahil edileceğini seçmek için içerik listesiyle',
         hu: 'Az Alap mód számítási jelentésének párbeszédablaka a tartalomlistával, amelyből kiválasztható, mi kerüljön bele',
+        id: 'Dialog laporan perhitungan mode Basic, dengan daftar isi untuk memilih apa yang disertakan',
         zh: '基础模式的计算书对话框，列出可选择包含哪些内容的目录',
       },
     },
@@ -1188,6 +1313,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mértékegységek a teljes PRO-ban, valamint exportálás Excelbe, CSV-be, PDF-jelentésbe, DXF-be és képekbe, mindegyik egy párbeszédablakkal, amely megmutatja, mi készül."
         ]
       },
+      id: {
+        title: 'Laporan yang Anda susun di Basic, dan beban dinamis di PRO',
+        items: [
+          'Zoom dari kilometer hingga milimeter, memilih batang yang saling tumpang tindih, menyembunyikan bagian model, dan label yang lebih mudah dibaca.',
+          'Anda menyusun laporan perhitungan PDF dengan memilih apa yang masuk, termasuk analisis kinematik dan diagram benda bebas yang seimbang, dan gambar diekspor siap cetak.',
+          'Video struktur yang berdiri lantai demi lantai.',
+          'Kasus beban komposit dan acuan, beban notional, serta kombinasi SRSS dan ABS.',
+          'Beban dinamis dan bergerak: spektrum respons khusus proyek dan kendaraan dari katalog.',
+          'Satuan di seluruh PRO, dan ekspor ke Excel, CSV, laporan PDF, DXF, dan gambar, masing-masing dengan dialog yang menunjukkan apa yang keluar.',
+        ],
+      },
       zh: {
         "title": "在基础模式中自行组合的报告，以及 PRO 中的动力荷载",
         "items": [
@@ -1268,6 +1404,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egy teljes épület vasbeton méretezése kevesebb mint feleannyi ideig tart, mint korábban."
         ]
       },
+      id: {
+        title: 'Beban berbasis kode di PRO',
+        items: [
+          'Generator beban berbasis kode mencakup atap, timbunan salju, dan pembebanan pola, serta menghitung faktor embusan angin menurut CIRSOC 102.',
+          'Beban pada batang, titik simpul, dan pelat dapat diketik beserta arahnya, variasinya, dan area yang dicakupnya.',
+          'Satuan tampilan, batang bertampang berubah, dan peningkatan pada editor penampang.',
+          'Desain beton bertulang untuk seluruh gedung kini memakan waktu kurang dari separuh waktu sebelumnya.',
+        ],
+      },
       zh: {
         "title": "PRO 中基于规范的荷载",
         "items": [
@@ -1294,6 +1439,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un bâtiment de plusieurs étages modélisé dans le mode PRO, avec grilles et niveaux',
         tr: 'PRO modunda aks ızgaraları ve katlarla modellenmiş çok katlı bir bina',
         hu: 'Többszintes épület a PRO módban modellezve, raszterrel és szintekkel',
+        id: 'Gedung bertingkat banyak yang dimodelkan dalam mode PRO, dengan grid dan elevasi',
         zh: '在 PRO 模式中建模的多层建筑，带轴网和标高',
       },
     },
@@ -1396,6 +1542,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Megoldó, amely sokkal gyorsabbá teszi a nagy modelleket, és javítás a lemezelemekben."
         ]
       },
+      id: {
+        title: 'Dari latihan ke proyek nyata di PRO',
+        items: [
+          'Batang digambar dari titik ke titik, dengan snap ke titik simpul, titik tengah, dan perpotongan, dan aplikasi menanyakan apakah yang saling bersilang perlu dihubungkan.',
+          'Penyelesaian langkah demi langkah yang dijelaskan, mencakup lima belas metode analisis.',
+          'Analisis dinamis menggambar ragam getarnya.',
+          'Grid dan elevasi, generator struktur yang disisipkan ke dalam model, serta salin dan tempel.',
+          'Beban lantai menurut luas tributari, mesh pelat, tumpuan elastis, dan pondasi.',
+          'Tabel hasil, batas lendutan, kontur pelat, buku kerja Excel proyek, dan laporan.',
+          'Editor untuk menggambar penampang tersusun, dan pencarian penampang teringan yang memenuhi syarat.',
+          'Tujuh struktur acuan yang dipublikasikan, dimodelkan untuk mencocokkan hasilnya, dan galeri 24 contoh.',
+          'Solver yang membuat model besar jauh lebih cepat, dan perbaikan pada elemen pelat.',
+        ],
+      },
       zh: {
         "title": "在 PRO 中从练习走向真实项目",
         "items": [
@@ -1427,6 +1587,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les armatures dimensionnées d\'une structure en béton armé, vues en 3D dans le mode PRO',
         tr: 'Betonarme bir yapının boyutlandırılmış donatıları, PRO modunda 3B olarak',
         hu: 'Vasbeton szerkezet méretezett vasalása 3D-ben, a PRO módban',
+        id: 'Tulangan hasil desain pada struktur beton bertulang, ditampilkan dalam 3D di mode PRO',
         zh: '在 PRO 模式中以 3D 显示的钢筋混凝土结构设计配筋',
       },
     },
@@ -1529,6 +1690,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A hibásan felépített modellt az alkalmazás most üzenettel elutasítja ahelyett, hogy nullákat adna vissza."
         ]
       },
+      id: {
+        title: 'Desain beton bertulang di PRO',
+        items: [
+          'Halaman landing yang lebih ringkas, dengan usulan harga dan panel kontak yang juga tampil di dalam aplikasi.',
+          'Pos blog baru tentang kapan memodelkan dengan batang dan kapan dengan elemen hingga, serta panduan pengguna.',
+          'Kalkulator beton bertulang CIRSOC Flex kini mengusulkan batang tulangan, dan telah diperiksa terhadap lembar kerja aslinya.',
+          'Penyelesaian langkah demi langkah dengan metode kekakuan dan fleksibilitas, pada 2D dan 3D.',
+          'Beban suhu pada setiap analisis.',
+          'Mode edukasi menjadi panel di dalam Basic.',
+          'Desain beton bertulang, dan antarmuka PRO yang ditata ulang.',
+          'Pemeriksaan keseimbangan model, dan analisis dinamis: modal, spektrum respons, dan riwayat waktu.',
+          'Model yang dibangun dengan buruk kini ditolak beserta pesan, bukan mengembalikan nol.',
+        ],
+      },
       zh: {
         "title": "PRO 中的钢筋混凝土设计",
         "items": [
@@ -1560,6 +1735,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Le mode Basique sur un téléphone, avec le diagramme des moments d\'un portique',
         tr: 'Telefonda Temel modu; bir çerçevenin eğilme momenti diyagramıyla',
         hu: 'Az Alap mód telefonon, egy keret hajlítónyomatéki ábrájával',
+        id: 'Mode Basic di ponsel, dengan diagram momen lentur sebuah portal',
         zh: '手机上的基础模式，显示框架的弯矩图',
       },
     },
@@ -1627,6 +1803,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Acélszerkezetek: keresztmetszet- és anyagválasztók, generátorok, acél munkafolyamat és kapcsolatok méretezése."
         ]
       },
+      id: {
+        title: 'Stabileo di ponsel Anda',
+        items: [
+          'Antarmuka ponsel, dengan tata letak yang sama untuk Basic dan PRO.',
+          'Impor model dari Excel, dan tautan yang dibagikan kembali membuka model secara utuh.',
+          'Desain tulangan penampang menurut CIRSOC Flex, lembar kerja yang dipakai kebanyakan insinyur sipil di Argentina.',
+          'Struktur baja: pemilih penampang dan material, generator, alur kerja baja, dan desain sambungan.',
+        ],
+      },
       zh: {
         "title": "手机上的 Stabileo",
         "items": [
@@ -1653,6 +1838,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Une halle industrielle métallique générée à partir de paramètres modifiables',
         tr: 'Düzenlenebilir parametrelerle oluşturulmuş çelik bir endüstriyel yapı',
         hu: 'Szerkeszthető paraméterekből felépített acél ipari csarnok',
+        id: 'Gudang industri baja yang dibangun dari parameter yang dapat disunting',
         zh: '由可编辑参数构建的钢结构工业厂房',
       },
     },
@@ -1720,6 +1906,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Három számítási hiba javítva: a kör keresztmetszetű cső nyírása, a csúcs-nyíróerő, és egy építési fázisokra bontott analízis, amely kihagyta a födémeket és a falakat."
         ]
       },
+      id: {
+        title: 'Struktur baja, dan situs dalam tiga bahasa',
+        items: [
+          'Generator untuk rangka batang, kolom kisi, dan gudang industri dari parameter yang dapat disunting, dengan pemilih penampang yang memiliki katalog dan filter.',
+          'Halaman landing dan blog dalam bahasa Spanyol, Inggris, dan Portugis. Situs menjadi dapat diindeks mesin pencari, dengan delapan belas halaman dan empat pos.',
+          'Tujuh tutorial singkat, menggantikan tur berpemandu.',
+          'Tiga galat perhitungan diperbaiki: geser pada tabung bulat, geser puncak, dan analisis bertahap yang menghilangkan pelat lantai dan dinding.',
+        ],
+      },
       zh: {
         "title": "钢结构，以及三种语言的网站",
         "items": [
@@ -1746,6 +1941,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'L\'analyse de section du mode Basique, avec l\'état de contrainte sur le contour réel du profilé',
         tr: 'Temel modunda kesit analizi; profilin gerçek konturu üzerindeki gerilme durumuyla',
         hu: 'Keresztmetszet-vizsgálat az Alap módban, a feszültségi állapottal a keresztmetszet valós kontúrján',
+        id: 'Analisis penampang mode Basic, dengan keadaan tegangan pada kontur penampang yang sebenarnya',
         zh: '基础模式的截面分析，应力状态绘制在截面的真实轮廓上',
       },
     },
@@ -1813,6 +2009,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A PRO-t újratervezték, az Alap móddal azonos arculattal."
         ]
       },
+      id: {
+        title: 'Analisis penampang, dan antarmuka PRO yang baru',
+        items: [
+          'Mengeklik titik mana pun pada struktur menampilkan keadaan tegangan pada penampang sebenarnya, dengan tegangan utama, lingkaran Mohr, inti pusat penampang, dan titik beban yang dapat Anda seret untuk melihat pengaruh eksentrisitas.',
+          'Basis data material dan penampang untuk Argentina, Eropa, Amerika Serikat, dan Brasil, dengan lebih dari 700 penampang yang diperiksa terhadap standarnya.',
+          'Alat pilih dan pindah yang lebih mudah, serta peta tegangan dengan skala warna.',
+          'PRO didesain ulang dengan identitas visual yang sama seperti Basic.',
+        ],
+      },
       zh: {
         "title": "截面分析，以及全新的 PRO 界面",
         "items": [
@@ -1839,6 +2044,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un exercice du mode Enseignement, avec les diagrammes tracés par l\'étudiant corrigés par rapport au calcul',
         tr: 'Eğitim modunda bir alıştırma; öğrencinin çizdiği diyagramlar hesaba göre değerlendiriliyor',
         hu: 'Feladat az Oktatási módban, a hallgató által rajzolt ábrákkal, amelyeket az alkalmazás az analízis alapján értékel',
+        id: 'Latihan mode Edukasi, dengan diagram yang digambar mahasiswa dinilai terhadap analisis',
         zh: '教学模式中的练习，学生绘制的图形会对照分析结果评分',
       },
     },
@@ -1913,6 +2119,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a méretezési ellenőrzésekben: a biztonság kárára tévedő alapértékek, hiányzó határállapotok és figyelmen kívül hagyott bemenetek."
         ]
       },
+      id: {
+        title: 'Identitas visual baru, dan mode Edukasi',
+        items: [
+          'Seluruh antarmuka Basic dengan identitas visual halaman landing yang baru.',
+          'Setiap penampang diselesaikan menjadi kontur eksaknya. Jika tidak punya kontur, aplikasi menolak menghitung tegangan alih-alih mengarang ketebalan yang hilang.',
+          'Dosen menyusun latihan di dalam aplikasi dan mahasiswa mengerjakannya; diagram yang digambar mahasiswa dinilai terhadap analisis.',
+          'Pondasi telapak beton bertulang: dari desain tulangan hingga berkas CAD, dengan daftar tulangan dalam 3D.',
+          'Perbaikan pada pemeriksaan desain: nilai default yang tidak konservatif, kondisi batas yang hilang, dan masukan yang diabaikan.',
+        ],
+      },
       zh: {
         "title": "全新的视觉标识，以及教学模式",
         "items": [
@@ -1985,6 +2201,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Gyorsabb utófeldolgozás és 3D megjelenítő nagy modelleken."
         ]
       },
+      id: {
+        title: 'Halaman landing baru, dan kode CIRSOC 2025',
+        items: [
+          'Halaman landing dibangun ulang: menjelaskan apa itu Stabileo, apa yang berfungsi saat ini dan apa yang sedang dikembangkan, dengan bagian untuk Basic, Edukasi, dan PRO.',
+          'Beban dan pemeriksaan desain menurut kode CIRSOC 2025, dengan edisi setiap kode dicatat dalam proyek.',
+          'Pascapemrosesan dan penampil 3D yang lebih cepat pada model besar.',
+        ],
+      },
       zh: {
         "title": "全新的落地页，以及 2025 版 CIRSOC 规范",
         "items": [
@@ -2055,6 +2279,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a kényszerekben és a ferde támaszokban."
         ]
       },
+      id: {
+        title: 'Hasil yang selalu sesuai dengan model',
+        items: [
+          'Menyunting model membuat hasil dan pemeriksaan desain yang menjadi kedaluwarsa tidak berlaku, sehingga hasil yang sudah tidak berlaku tidak pernah ditampilkan.',
+          'Analisis lebih cepat: kasus beban memakai ulang faktorisasi, kombinasi diselesaikan dalam kelompok, dan analisis berjalan di latar belakang.',
+          'Perbaikan pada kekangan dan tumpuan miring.',
+        ],
+      },
       zh: {
         "title": "结果始终与模型一致",
         "items": [
@@ -2111,6 +2343,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A DXF-rajzimportáló előnézettel és diagnosztikával, mértékegység-kezeléssel, több szinttel és gerendafelismeréssel bővült, áttekinthetőbb varázslóval."
         ]
       },
+      id: {
+        title: 'Pengimpor gambar DXF',
+        items: [
+          'Pengimpor gambar DXF menambahkan pratinjau dan diagnostik, kontrol satuan, banyak lantai, dan interpretasi balok, dengan wizard yang lebih jelas.',
+        ],
+      },
       zh: {
         "title": "DXF 图纸导入器",
         "items": [
@@ -2164,6 +2402,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         "items": [
           "Rudak szabadtest-ábrái 2D-ben és 3D-ben, 2D-ben csúszó csuklókkal, 3D-ben hat szabadságfokú kioldásokkal, és az erővektorokkal minden rúdvégen."
         ]
+      },
+      id: {
+        title: 'Diagram benda bebas batang di Basic',
+        items: [
+          'Diagram benda bebas batang pada 2D dan 3D, dengan sendi luncur pada 2D dan pelepasan enam derajat kebebasan pada 3D, serta vektor gaya pada setiap ujung.',
+        ],
       },
       zh: {
         "title": "基础模式中的杆件隔离体图",
@@ -2233,6 +2477,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egységes tengelyek és keresztmetszetek az Alap mód 2D és 3D nézetében."
         ]
       },
+      id: {
+        title: 'Dari gambar CAD ke model beton',
+        items: [
+          'Dari gambar DXF ke draf struktur beton bertulang: wizard yang mengklasifikasikan layer, templat yang dapat diunduh, dan contoh.',
+          'Konvensi sumbu lokal 3D diperbaiki pada antarmuka dan mesin, dengan model yang sudah ada dimigrasikan.',
+          'Sumbu dan penampang disatukan pada Basic 2D dan 3D.',
+        ],
+      },
       zh: {
         "title": "从 CAD 图纸到混凝土模型",
         "items": [
@@ -2258,6 +2510,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les efforts normaux d\'un bâtiment dans le mode PRO, avec les formes réelles des sections dans la vue 3D',
         tr: 'PRO modunda bir binanın normal kuvvetleri; 3B görüntüleyicide gerçek kesit şekilleriyle',
         hu: 'Normálerők egy épületben a PRO módban, valós keresztmetszet-alakokkal a 3D megjelenítőben',
+        id: 'Gaya aksial pada gedung dalam mode PRO, dengan bentuk penampang nyata di penampil 3D',
         zh: 'PRO 模式中某建筑的轴力，3D 查看器中显示真实的截面形状',
       },
     },
@@ -2331,6 +2584,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Födémek és falak megjelenítéssel, tengelyekkel, főfeszültségekkel és jelentéssel.",
           "Az Alap módot újraírták, világosabb határvonallal közte és a PRO között."
         ]
+      },
+      id: {
+        title: 'Alur kerja profesional di PRO',
+        items: [
+          'Desain, beban, dan laporan perhitungan bekerja bersama di PRO, dengan pemeriksaan desain yang terpadu.',
+          'Hasil menurut kasus beban, kombinasi, dan selubung.',
+          'Penampil 3D dengan bentuk penampang nyata dan sumbu lokal, serta offset batang untuk memodelkan balok yang bertemu pada muka kolom.',
+          'Pelat lantai dan dinding dengan tampilan, sumbu, tegangan utama, dan laporan.',
+          'Mode Basic ditulis ulang, dengan garis pemisah yang lebih jelas dari PRO.',
+        ],
       },
       zh: {
         "title": "PRO 中的专业工作流程",
@@ -2426,6 +2689,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a mentésben, a megosztott hivatkozásokban és az exportálásban."
         ]
       },
+      id: {
+        title: 'Penampil 3D yang lebih halus dan mesin yang lebih kokoh',
+        items: [
+          'Halaman landing yang didesain ulang.',
+          'Hampir seribu pengujian ketahanan baru, dengan perbaikan akurasi pada mesin, elemen, dan kekangan, serta peringatan ketidakstabilan sebelum analisis berjalan.',
+          'Sendi pada 3D dilepas sumbu demi sumbu pada setiap ujung batang.',
+          'Penampil 3D bergerak mulus pada model dengan lebih dari seribu titik simpul: titik simpul digambar dalam satu lintasan dan pemilihan batang lebih cepat.',
+          'Sumbu disatukan dengan Z ke atas di seluruh aplikasi, dan momen My dan Mz diperbaiki pada tegangan dan pemeriksaan desain.',
+          'Perbaikan pada penyimpanan, tautan yang dibagikan, dan ekspor.',
+        ],
+      },
       zh: {
         "title": "更流畅的 3D 查看器和更稳固的引擎",
         "items": [
@@ -2455,6 +2729,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique spatial avec son diagramme des moments en 3D',
         tr: '3B eğilme momenti diyagramıyla bir uzay çerçeve',
         hu: 'Térbeli keret a hajlítónyomatéki ábrájával 3D-ben',
+        id: 'Portal ruang dengan diagram momen lenturnya dalam 3D',
         zh: '带 3D 弯矩图的空间框架',
       },
     },
@@ -2564,6 +2839,21 @@ export const CHANGELOG: ChangelogEntry[] = [
           "MI-asszisztens, amely beszélgetés alapján épít és szerkeszt modelleket."
         ]
       },
+      id: {
+        title: 'Mesin dalam Rust, mode PRO, dan nama Stabileo',
+        items: [
+          'Mesin analisis ditulis ulang dalam Rust dan berjalan di peramban melalui WebAssembly. Sebelum menggantikan mesin lama, keduanya dibandingkan pada 90 model.',
+          'Lebih dari dua ribu pengujian validasi terhadap solusi buku teks dan kasus acuan yang dipublikasikan.',
+          'Analisis nonlinear geometri dan material, dinamika modal, spektral, dan riwayat waktu, pelat dan cangkang, kabel, konstruksi bertahap, dan pondasi di atas pegas.',
+          'Solver matriks jarang yang mempercepat model besar: analisis modal 3D menjadi 11,8 kali lebih cepat.',
+          'Proyek diganti namanya menjadi Stabileo, dengan domain sendiri, halaman landing, dan antarmuka dalam 14 bahasa.',
+          'Mode PRO, dengan pemeriksaan beton bertulang menurut CIRSOC 201, beban otomatis, diagnostik, dan laporan perhitungan.',
+          'Alur kerja beton bertulang dengan kombinasi penentu untuk setiap batang, pemeriksaan otomatis, detailing dan sambungan, serta contoh besar seperti stadion 1005 titik simpul.',
+          'Mode Edukasi, dengan latihan terpandu yang diperiksa langkah demi langkah.',
+          'Mode Basic menambahkan tampilan 3D dan pengubahan model 3D menjadi model 2D.',
+          'Asisten AI yang membangun dan menyunting model dari percakapan.',
+        ],
+      },
       zh: {
         "title": "Rust 引擎、PRO 模式和 Stabileo 之名",
         "items": [
@@ -2597,6 +2887,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique plan avec son diagramme des moments fléchissants dans le mode Basique',
         tr: 'Temel modunda eğilme momenti diyagramıyla bir düzlem çerçeve',
         hu: 'Síkbeli keret a hajlítónyomatéki ábrájával az Alap módban',
+        id: 'Portal bidang dengan diagram momen lenturnya dalam mode Basic',
         zh: '基础模式中带弯矩图的平面框架',
       },
     },
@@ -2685,6 +2976,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mobil felület, a modellt magukban hordozó megosztott hivatkozások, bemutató túra és billentyűparancsok."
         ]
       },
+      id: {
+        title: 'Awal mula: editor struktur di peramban',
+        items: [
+          'Versi pertama, pada 10 Februari: batang, tumpuan, dan beban pada 2D, dengan reaksi, diagram, dan bentuk terdefleksi, tanpa perlu memasang apa pun.',
+          'Beban terpusat, merata parsial, dan bergerak, kasus beban, kombinasi, dan selubung dengan kedua kurvanya.',
+          'Penampang baja dan beton dengan pembangun penampang, serta tegangan pada penampang menurut Navier, Jourawski, dan Von Mises.',
+          'Tumpuan miring, pegas, dan penurunan tumpuan, serta berat sendiri batang.',
+          'Mesin 3D dengan enam derajat kebebasan per titik simpul beserta penampilnya, ditambah P-Delta, tekuk, dan garis pengaruh pada 2D.',
+          'Analisis kinematik pengajaran yang menjelaskan, batang demi batang, mengapa suatu struktur adalah atau bukan mekanisme.',
+          'Antarmuka seluler, tautan yang dibagikan yang membawa model, tur berpemandu, dan pintasan papan ketik.',
+        ],
+      },
       zh: {
         "title": "开端：浏览器中的结构编辑器",
         "items": [
@@ -2709,6 +3012,7 @@ export const AREA_LABELS: Record<PublicLocale, Record<ChangelogArea, string>> = 
   fr: { basic: 'Basique', pro: 'PRO', edu: 'Enseignement', app: 'Application', engine: 'Moteur', site: 'Site' },
   tr: { basic: 'Temel', pro: 'PRO', edu: 'Eğitim', app: 'Uygulama', engine: 'Motor', site: 'Site' },
   hu: { basic: 'Alap', pro: 'PRO', edu: 'Oktatás', app: 'Alkalmazás', engine: 'Számítómag', site: 'Weboldal' },
+  id: { basic: 'Basic', pro: 'PRO', edu: 'Edukasi', app: 'Aplikasi', engine: 'Mesin', site: 'Situs web' },
   zh: { basic: '基础', pro: 'PRO', edu: '教学', app: '应用', engine: '计算引擎', site: '网站' },
 };
 

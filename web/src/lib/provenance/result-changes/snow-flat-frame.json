@@ -21,6 +21,7 @@
     "de": "Schneeachsen flacher Dächer folgen verbundenen Stabzügen",
     "fr": "Le repère de neige suit les tronçons connectés du toit plat",
     "tr": "Düz çatının kar eksenleri bağlı eleman dizilerini izler",
+    "id": "Portal salju datar mengikuti lintasan atap yang terhubung",
     "zh": "平面雪荷载框架沿相连的屋面连续段"
   },
   "explanation": {
@@ -30,6 +31,7 @@
     "de": "Das Unterteilen langer Stäbe eines flachen Dachs mit vorgegebener Neigung erhält Schneeachsen, Breite und erzeugte Lasten. Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2095). In 0.6.1 enthalten.",
     "fr": "Diviser les longues poutres d’un toit plat avec pente imposée conserve son repère de neige, sa largeur et ses charges générées. Régénérez les charges et relancez analyses, combinaisons et vérifications (#2095). Correction incluse dans 0.6.1.",
     "tr": "Eğimi belirtilen düz çatının uzun kirişlerini bölmek kar eksenlerini, genişliğini ve üretilen yüklerini korur. Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri çalıştırın (#2095). Düzeltme 0.6.1 sürümüne dahildir.",
+    "id": "Membagi balok panjang pada atap datar dengan penggantian kemiringan mempertahankan portal salju, lebar, dan beban yang dihasilkannya. Buat ulang beban salju dan jalankan ulang analisis, kombinasi, dan pemeriksaan desain (#2095). Koreksi ini termasuk dalam 0.6.1.",
     "zh": "在带坡度覆盖值的平屋面上细分长梁时，保留其雪荷载框架、宽度和生成的荷载。请重新生成雪荷载，并重新运行分析、组合和设计验算（#2095）。此修正已包含在 0.6.1 中。"
   },
   "changelog": {

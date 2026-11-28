@@ -39,7 +39,7 @@ const en = {
 };
 export type PlasticStrings = typeof en;
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', PlasticStrings> = {
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh' | 'id', PlasticStrings> = {
   en,
   es: {
     publisher: 'Elsevier',
@@ -263,6 +263,43 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'z
     places: { leftBase: 'Bal oszloptalp', leftCorner: 'Bal felső sarok', midspan: 'Fesztávközép', rightCorner: 'Jobb felső sarok', rightBase: 'Jobb oszloptalp' },
     nodalHeading: 'Csomóponti elmozdulások a(z) {event}. eseménynél · m', node: 'Csomópont',
   },
+  id: {
+  publisher: 'Elsevier',
+  title: 'Keruntuhan plastis klasik',
+  metaTitle: 'Keruntuhan plastis klasik — Stabileo Research',
+  metaDescription: 'Portal dibandingkan dengan hitungan tangan mekanisme balok, goyangan, dan gabungan.',
+  thumbnailAlt: 'Portal terdeformasi saat keruntuhan, dari eksekusi solver produksi',
+  lead: 'Satu portal berpangkal jepit, tiga mekanisme yang dihitung dengan tangan, dan solver keruntuhan plastis 3D produksi.',
+  citation: '”, contoh hitungan metode mekanisme dalam',
+  model: 'Bentang L = {span} m, tinggi h = {height} m, Mp seragam = {mp} kN·m. Kedua pangkal dijepit. Atap memikul λH = λ × {horizontal} kN ke kanan di sudut kiri dan λV = λ × {vertical} kN ke bawah di tengah bentang. Balok dibagi pada titik beban. Portal terletak pada bidang XZ; tidak ada beban di luar bidang.',
+  method: 'Kerja virtual dengan batang tegar dan rotasi kecil memberikan tiga batas atas di bawah. Mekanisme gabungan meniadakan sendi atap kiri: kerja dalam adalah 6Mpθ, kerja luar adalah λ(Hh + VL/2)θ. Nilai minimumnya menentukan. Deformasi aksial bersifat elastis; pelelehan aksial dan geser, pengerasan, serta ketidakstabilan geometrik berada di luar hitungan tangan ini.',
+  provenance: 'Ketiga batas adalah turunan hitungan tangan kami sendiri dengan metode mekanisme kerja virtual, yaitu metode Horne, Plastic Theory of Structures (1979), yang kami kutip sebagai bacaan latar: kami belum memeriksa nomor halaman atau persamaan dalam buku itu. Dimensinya milik kami; tidak ada gambar atau contoh hitungan dari buku yang direproduksi. Crossref memberikan judul dan tahun tanpa penulis; penerbit',
+  provenanceEnd: 'mengidentifikasi M. R. Horne.',
+  referenceLabel: 'Terhadap hitungan tangan',
+  publishedNote: 'Tidak ada gambar atau tabel dari buku yang dipakai: contoh dan dimensinya milik kami, sehingga hitungan tangan adalah referensinya.',
+  checksHeading: 'Pemeriksaan',
+  checks: {
+    collapse: 'Faktor keruntuhan sama dengan batas gabungan 6Mp / (Hh + VL/2) dalam 1 × 10⁻⁶.',
+    mechanism: 'Solver melaporkan mekanisme lengkap dan tanpa peringatan.',
+    hinges: 'Sendi terbentuk di kedua pangkal, di tengah bentang, dan di sudut atap kanan; sudut atap kiri tidak pernah leleh.',
+    yield: 'Saat keruntuhan |My| ≤ Mp di setiap ujung batang.',
+    equilibrium: 'Reaksi tumpuan menyeimbangkan beban yang bekerja: ΣFx, ΣFz, dan ΣMy dalam 1 × 10⁻⁹.',
+    corner: 'Menurut statika, sudut atap kiri memikul 3Mp − λHh = {corner} kN·m, dan persamaan balok 3Mp + M = λVL/2 terpenuhi.',
+  },
+  passed: 'lulus', failed: 'gagal',
+  comparison: 'Hitungan tangan vs Stabileo', mechanism: 'Mekanisme', reference: 'λ hitungan tangan', difference: 'Δ (Stabileo − hitungan tangan)',
+  beam: 'Balok', sway: 'Goyangan', combined: 'Gabungan',
+  explanation: 'Hanya nilai minimum yang merupakan faktor keruntuhan yang diprediksi. Selisih terhadap dua batas atas lainnya memang diharapkan, bukan galat solver. Toleransi 1 × 10⁻⁶ pada λ adalah batas regresi, bukan target akurasi: masalah kecil yang berkondisi baik ini cocok dengan batas gabungan hingga 1.4 × 10⁻¹¹ pada eksekusi native.',
+  scope: 'Cakupan', limits: ['Bukan pemeriksaan desain.', 'Satu rasio beban dan satu penampang seragam; tanpa interaksi aksial–momen, tekuk, atau perpindahan besar.', 'Solver plastis 2D tidak dipakai di sini; halaman ini menjalankan solver 3D (lihat isu #758).', 'Penampil menghubungkan titik simpul yang berpindah dengan garis lurus dan tidak menggambar simbol sendi.'],
+  run: 'Hitung ulang langsung', stop: 'Hentikan', restart: 'Mulai ulang', running: 'Menghitung langsung…', replay: 'Pemutaran ulang yang dihitung sebelumnya (solver yang sama)', live: 'Perhitungan langsung',
+  error: 'Perhitungan langsung gagal; menampilkan pemutaran ulang yang dihitung sebelumnya', errorDetail: 'Pesan solver',
+  step: 'Kejadian sendi', displacement: 'Perpindahan titik simpul',
+  pending: 'Tidak ada eksekusi yang dihitung sebelumnya', warning: 'Peringatan solver / mekanisme tidak lengkap',
+  amplified: 'Perpindahan ×{scale}', planeNote: 'Bidang XZ digambar datar: X ke kanan, Z ke atas.',
+  eventsHeading: 'Kejadian sendi', event: 'Kejadian', location: 'Sendi di', moment: 'My · kN·m',
+  places: { leftBase: 'Pangkal kiri', leftCorner: 'Sudut atap kiri', midspan: 'Tengah bentang', rightCorner: 'Sudut atap kanan', rightBase: 'Pangkal kanan' },
+  nodalHeading: 'Perpindahan titik simpul pada kejadian {event} · m', node: 'Titik simpul',
+},
   zh: {
     publisher: 'Elsevier',
     title: '经典塑性倒塌',

@@ -13,6 +13,7 @@
     "fr": "Champs équivalents contradictoires",
     "hu": "Ellentmondó modellmezők",
     "tr": "Çelişkili model alanları",
+    "id": "Alias model yang bertentangan",
     "zh": "模型字段别名冲突"
   },
   "explanation": {
@@ -23,6 +24,7 @@
     "fr": "À l’ouverture ou à l’importation d’un modèle, les valeurs différentes pour une même grandeur sont refusées, y compris un moment plan donné avec une valeur nulle et une valeur non nulle. Vérifiez les valeurs sources des charges, appuis et relâchements concernés, corrigez le conflit et relancez le calcul.",
     "hu": "A modell megnyitásakor vagy importálásakor a program elutasítja az azonos mennyiség eltérő értékeit, akkor is, ha egy síkbeli nyomaték egyik értéke nulla, a másik pedig nem. Ellenőrizze az érintett terhek, támaszok és csuklók forrásértékeit, javítsa az eltérést, és futtassa újra a számítást.",
     "tr": "Model açılırken veya içe aktarılırken aynı büyüklüğe ait farklı değerler reddedilir. Bu kural, bir düzlemsel moment için biri sıfır olan iki farklı değer girildiğinde de geçerlidir. Etkilenen yük, mesnet ve uç serbestliği değerlerini kaynakta doğrulayın, çelişkiyi giderin ve analizi yeniden çalıştırın.",
+    "id": "Membuka atau mengimpor model kini menolak nilai berbeda untuk besaran yang sama, termasuk nol yang dipasangkan dengan momen planar bukan nol. Periksa nilai sumber untuk beban, tumpuan, dan pelepasan yang terpengaruh, perbaiki konfliknya, lalu jalankan ulang analisis.",
     "zh": "打开或导入模型时，同一物理量有不同数值会被拒绝，包括平面力矩的两个字段分别为零和非零的情况。请核对受影响的荷载、支座和杆端释放在原始模型中的值，解决冲突后重新分析。"
   },
   "changelog": {

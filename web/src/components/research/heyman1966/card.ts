@@ -27,6 +27,10 @@ export const archCard = {
     title: 'Milyen vékony lehet egy kőív?',
     hook: 'Merev ívkövek, húzószilárdság nélkül: keresse meg egy körív legkisebb vastagságát és azt a terhet, amelytől egy gyűrű összeomlik, lineáris programmal és az összes csuklós mechanizmussal.',
   },
+  id: {
+    title: 'Seberapa tipis lengkung batu dapat dibuat?',
+    hook: 'Voussoir kaku, tanpa tarik: temukan tebal minimum lengkung lingkaran dan beban yang membuat cincin runtuh, dengan program linear dan setiap mekanisme sendi.',
+  },
   zh: {
     title: '石拱可以有多薄？',
     hook: '刚性拱石，不承受拉力：用线性规划和所有铰机构，求出圆弧拱的最小厚度，以及使拱环倒塌的荷载。',

@@ -13,6 +13,7 @@
     "de": "Geschosse der Windlastplanung sind von der Erdbebenlasterzeugung unabhängig",
     "fr": "Les niveaux du plan de vent sont indépendants de la génération sismique",
     "tr": "Rüzgâr planı seviyeleri deprem yükü üretiminden bağımsızdır",
+    "id": "Level denah angin tidak bergantung pada pembuatan beban seismik",
     "zh": "风荷载方案的楼层数据独立于地震荷载生成",
     "hu": "A szélteherterv szintjei függetlenek a szeizmikus terhek előállításától"
   },
@@ -23,6 +24,7 @@
     "de": "Die Windlastplanung behält ihre Geschossgewichte bei aktivierter statischer Erdbebenlasterzeugung. Die Erdbebenvorschau verwendet ihre eigenen Geschossgewichte. Für diese Korrektur der Plandaten müssen keine Lasten neu erzeugt werden.",
     "fr": "Le plan de vent conserve les poids de ses niveaux lorsque la génération sismique statique est activée. L’aperçu sismique utilise les poids de ses propres étages. Cette correction des données du plan ne nécessite pas de régénérer les charges.",
     "tr": "Statik deprem yükü üretimi etkinleştirildiğinde rüzgâr planı seviye ağırlıklarını korur. Deprem önizlemesi kendi kat ağırlıklarını kullanır. Plan verilerindeki bu düzeltme yüklerin yeniden üretilmesini gerektirmez.",
+    "id": "Denah angin mempertahankan bobot levelnya saat pembuatan beban seismik statis diaktifkan. Pratinjau seismik menggunakan bobot tingkatnya sendiri. Koreksi data denah ini tidak memerlukan pembuatan ulang beban.",
     "zh": "启用等效静力地震荷载生成时，风荷载方案仍保留自己的楼层重量。地震预览使用地震方案的楼层重量。此次方案数据修正无需重新生成荷载。",
     "hu": "A szélteherterv szintsúlyai a statikus szeizmikus terhek bekapcsolásakor is megmaradnak. A szeizmikus előnézet a saját szintjeinek súlyait használja. A tervadatok javítása miatt nem kell újra előállítani a terheket."
   },

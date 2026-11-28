@@ -24,6 +24,7 @@
     "fr": "Les barres unilatérales figées exigent des efforts axiaux finaux compatibles",
     "hu": "A befagyasztott, egy irányban dolgozó rudak végső normálerejének összeférhetőnek kell lennie",
     "tr": "Durumu sabitlenen tek yönlü elemanların son eksenel kuvvetleri uyumlu olmalıdır",
+    "id": "Batang satu arah yang dibekukan memerlukan gaya aksial akhir yang kompatibel",
     "zh": "冻结的单向杆件要求最终轴力相容"
   },
   "explanation": {
@@ -34,6 +35,7 @@
     "fr": "Les deux solveurs de contact limitent les changements d’état des barres et conservent leur historique entre passes de Lagrangien augmenté. Des efforts axiaux finaux de signe incompatible dépassant la tolérance de contact multipliée par la rigidité axiale renvoient contact_state_invalid, même sans contacts. Les signes permis et les forces dans la tolérance inchangée restent acceptés (#432 ; PR #1921).",
     "hu": "Mindkét kontaktmegoldó betartatja a rudak átváltási korlátait, és a kiterjesztett Lagrange-menetek között megőrzi a befagyasztás előzményeit. Ha a végső visszanyert rúdvégi normálerők a kontakttűrés és a tengelyirányú merevség szorzatánál jobban ellentmondanak a csak húzott vagy csak nyomott viselkedésnek, az eredmény contact_state_invalid, rések vagy felületpárok nélkül is. A megengedett előjelek és a változatlan skálázott tűrésen belüli erők továbbra is megoldódnak (#432; #1921-es PR).",
     "tr": "Her iki temas çözücüsü eleman durum değişimi sınırını uygular ve geçmişi artırılmış Lagrange geçişlerinde korur. Temas toleransı ile eksenel rijitliğin çarpımını aşan, yalnız çekme veya yalnız basınç davranışına aykırı son eksenel uç kuvvetleri, boşluk veya yüzey çifti olmasa da contact_state_invalid döndürür. İzin verilen işaretler ve değişmeyen ölçekli tolerans içindeki kuvvetler çözülmeye devam eder (#432; PR #1921).",
+    "id": "Kedua solver kontak memberlakukan batas pembalikan batang dan mempertahankan riwayat pembekuan di seluruh iterasi Lagrangian teraugmentasi. Gaya aksial ujung akhir hasil pemulihan yang tidak kompatibel dengan perilaku tarik saja atau tekan saja melampaui toleransi kontak dikali kekakuan aksial mengembalikan contact_state_invalid, bahkan tanpa celah atau pasangan permukaan. Tanda yang diizinkan dan gaya dalam toleransi berskala yang tidak berubah tetap dapat dihitung (#432; PR #1921).",
     "zh": "两个接触求解器都会强制执行杆件翻转次数限制，并在增广 Lagrange 各轮迭代之间保留冻结历史。最终恢复的杆端轴力若与仅受拉或仅受压的行为不相容，且超过接触容差乘以轴向刚度，则即使没有间隙或接触面配对，也会返回 contact_state_invalid。容许的符号以及处于不变的缩放容差之内的力仍可求解（#432；PR #1921）。"
   },
   "changelog": {

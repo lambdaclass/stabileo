@@ -22,6 +22,7 @@
     "fr": "Choix de base des rotations libérées",
     "hu": "A felszabadított elfordulások bázisának kiválasztása",
     "tr": "Serbest dönmeler için baz seçimi",
+    "id": "Pemilihan basis rotasi yang dilepas",
     "zh": "已释放转动基的选择"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "fr": "Des directions libérées presque parallèles pouvaient amplifier l’incertitude. Les vérifications communes choisissent des directions indépendantes par pivotage et conservent l’incertitude de normalisation. Recalculer les portiques spatiaux avec plusieurs libérations à un nœud ; les moments incompatibles restent refusés (#2074).",
     "hu": "A közel párhuzamos, felszabadított elfordulásirányok jelöltjei felerősíthették az irány bizonytalanságát. A közös ellenőrzések most pivotálással választanak független irányokat, és megőrzik a normalizálás bizonytalanságát. Futtassa újra azokat a térbeli kereteket, amelyekben egy csomóponthoz több rúdvégi felszabadítás tartozik; a valóban meg nem támasztott nyomatékok elutasítása megmarad (#2074).",
     "tr": "Neredeyse paralel serbest dönme yönleri belirsizliği büyütebiliyordu. Ortak denetimler bağımsız yönleri pivotlama ile seçer ve normalleştirme belirsizliğini korur. Bir düğümde birden çok uç serbestliği olan uzay çerçevelerini yeniden çözün; uyumsuz momentler reddedilmeye devam eder (#2074).",
+    "id": "Kandidat pelepasan yang hampir sejajar dapat memperbesar ketidakpastian arah. Pemeriksaan bersama kini memilih arah yang independen dengan pivoting dan mempertahankan ketidakpastian normalisasi. Jalankan ulang portal ruang dengan beberapa pelepasan ujung pada satu titik simpul; momen tak tertumpu yang sesungguhnya tetap ditolak (#2074).",
     "zh": "近乎平行的释放候选方向可能放大方向的不确定性。共用检查现在通过选主元来选择独立的方向，并保留归一化的不确定性。请重新运行在同一节点有多个杆端释放的空间框架；真正没有支撑的弯矩仍会被拒绝（#2074）。"
   },
   "changelog": {

@@ -7,7 +7,7 @@ import { hubTranslations as mohrToolTranslations } from '../../tools/hub-i18n';
 import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 
 const SAME_AS_ENGLISH = [
-  'pt mohr.face', 'fr mohr.face', 'fr mohr.conventions', 'fr mohr.compression', 'de mohr.sym', 'fr mohr.sym',
+  'pt mohr.face', 'fr mohr.face', 'fr mohr.conventions', 'fr mohr.compression', 'de mohr.sym', 'fr mohr.sym', 'id mohr.sym', 'id mohr.help', 'id mohr.r.vm', 'id mohr.r.minor', 'id mohr.r.p3',
   ...['es', 'pt', 'fr'].flatMap((l) => ['uniaxial', 'biaxial', 'triaxial'].map((id) => `${l} mohr.presetShort.${id}`)),
   'es mohr.presetShort.general',
 ];

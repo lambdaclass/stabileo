@@ -91,6 +91,32 @@ const hu: Strings = {
   paper: 'A cikk egy időléptetéses eljárást ír le a szerkezetdinamikához. Itt annak átlagos gyorsulású változatát próbáljuk ki egy szándékosan kicsi lineáris referenciafeladaton; nem állítjuk, hogy a cikk valamelyik ábráját reprodukáljuk.',
   alt: 'Tengelyirányú elmozdulás időtörténete a termékben használt Newmark-megoldó futtatásából',
 };
+const id: Strings = {
+  title: 'Percepatan rata-rata Newmark',
+  metaTitle: 'Newmark (1959) — Stabileo Research',
+  metaDescription: 'Percepatan rata-rata Newmark produksi terhadap respons langkah SDOF eksak.',
+  lead: 'Satu derajat kebebasan tanpa redaman di bawah gaya konstan mendadak. Perbesar langkah waktu untuk melihat periode numerik memanjang.',
+  model: 'Contoh',
+  description: 'Batang portal aksial sepanjang {L} m, dijepit di kiri, dengan hanya translasi aksial yang bebas di kanan. E = {E} MPa, A = {A} m², massa jenis sintetis = {rho} kg/m³. Massa aksial konsisten memberikan m = ρAL/3 = {m} t dan k = EA/L = {k} kN/m. Gaya langkah {F} kN bekerja mulai t = 0; perpindahan dan kecepatan awal sama dengan nol. Ini adalah benchmark elemen hingga SDOF eksak, bukan solusi batang kontinu.',
+  method: 'Solver riwayat waktu 3D produksi dijalankan melalui pembungkus WASM yang ada, dengan β = ¼, γ = ½ dan tanpa redaman. Pemutaran ulang adalah eksekusi native dari solver Rust yang sama. Tidak ada integrator baru yang digunakan.',
+  reference: 'Referensi eksak', difference: 'Selisih', measured: 'T Stabileo (s)', predicted: 'Prediksi diskret Tₙ (s)',
+  formula: 'u(t) = (F/k)[1 − cos(ωt)], ω = √(k/m) = {omega} rad/s, T = 2π/ω = {T} s. Solusi percepatan rata-rata diskret adalah uₙ = (F/k)[1 − cos(nθ)] dengan θ = 2 atan(ωΔt/2), sehingga periodenya Tₙ = πΔt / atan(ωΔt/2). Periode di bawah ini diukur dari perpotongan naik berturut-turut pada u = F/k; interpolasi memengaruhi pengukuran pada langkah kasar.',
+  comparison: 'Pemanjangan periode terhadap langkah waktu', elongation: 'Pemanjangan terhadap T (%)',
+  errors: 'Selisih perpindahan', discreteError: 'Maks. |u − uₙ| (m)', continuousError: 'Maks. |u − u(t)| (mm)', bound: 'Batas kelambatan fase (mm)',
+  error: 'Selisih perpindahan maksimum (mm)',
+  tolerance: 'Pemeriksaan, dihitung dari riwayat yang ditampilkan (mengikuti perhitungan ulang langsung): setiap sampel sesuai dengan solusi diskret uₙ dalam 10⁻¹⁰ m; setiap periode terukur sesuai dengan Tₙ dalam 0.5%; selisih maksimum dari solusi kontinu tetap di bawah batas kelambatan fase (F/k)·min(2, N(ωΔt − θ)) yang diturunkan dari uₙ selama N langkah; pada Δt/T = 0.025 selisihnya juga di bawah 0.5 mm selama empat periode. Langkah yang lebih kasar sengaja menunjukkan galat yang lebih besar.',
+  published: 'Tidak ada: halaman ini memeriksa metode terhadap solusi bentuk tertutup eksak; halaman ini tidak mereproduksi gambar atau tabel yang dicetak dalam makalah.',
+  notYet: 'Belum', limitations: ['Gambar terbitan dan contoh numerik dari makalah.', 'Redaman, pembebanan harmonik, respons nonlinier, dan portal dengan banyak derajat kebebasan.', 'Ini bukan sertifikasi rekayasa.'],
+  replay: 'Pemutaran ulang yang dihitung sebelumnya (solver yang sama)', live: 'Perhitungan langsung di peramban Anda', cached: 'Hasil tersimpan (dihitung di peramban ini)',
+  run: 'Hitung ulang langsung', stop: 'Hentikan', restart: 'Mulai ulang', busy: 'Menghitung…', step: 'Langkah waktu', sample: 'Sampel',
+  sampleValue: 'Sampel {i} dari {n}, t = {t} s',
+  speed: 'Pemutaran berjalan {x} kali lebih lambat daripada waktu nyata pada setiap langkah waktu, sehingga periode yang lebih panjang memang berlangsung lebih lama.',
+  displacement: 'Perpindahan aksial', time: 'Waktu (s)', scaled: 'Deformasi ×10; titik simpul kiri dijepit, titik simpul kanan dipandu secara aksial.',
+  tryCoarse: 'Coba langkah waktu terkasar', failure: 'Perhitungan gagal; hasil sebelumnya dipertahankan.',
+  paper: 'Makalah menjelaskan prosedur pelangkahan waktu untuk dinamika struktur. Di sini kami menjalankan spesialisasi percepatan rata-ratanya pada benchmark linier yang sengaja dibuat kecil; kami tidak mengklaim mereproduksi gambar dari makalah.',
+  alt: 'Riwayat perpindahan aksial dari eksekusi Newmark produksi kami',
+};
+
 const zh: Strings = {
   title: 'Newmark 平均加速度法',
   metaTitle: 'Newmark (1959) — Stabileo Research',
@@ -116,7 +142,7 @@ const zh: Strings = {
   paper: '论文描述了一种用于结构动力学的时间步进方法。这里我们在一个有意设计得很小的线性基准算例上，运用其平均加速度的特例；我们并不声称复现了论文中的某幅图。',
   alt: '生产环境 Newmark 运行得到的轴向位移时程',
 };
-export const translations = { en, es, pt, hu, zh };
+export const translations = { en, es, pt, hu, id, zh };
 export const strings = () => translations[researchLocale() as keyof typeof translations] ?? translations.en;
 export const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);

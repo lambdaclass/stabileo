@@ -29,6 +29,7 @@
     "fr": "Les charges suivent le repère final de la barre",
     "hu": "A rúdterhek a végső rúd-koordinátarendszert követik",
     "tr": "Eleman yükleri son eleman eksenlerini izler",
+    "id": "Beban batang mengikuti kerangka batang akhir",
     "zh": "杆件荷载跟随最终的杆件坐标系"
   },
   "explanation": {
@@ -39,6 +40,7 @@
     "fr": "Les solveurs corotationnels 2D/3D et de cheminement plan font tourner les efforts et moments d’encastrement des charges mécaniques mortes depuis les coordonnées de référence avant de les combiner aux actions élastiques d’extrémité. Les actions de déformation thermique propre restent dans le repère actuel de la barre ; les refus publics des analyses non linéaires thermiques restent inchangés. Revérifiez les efforts sous charges mécaniques de barre lorsque sa corde ou son repère spatial tourne (#1952 ; SA-2026-061).",
     "hu": "A 2D/3D korotációs és síkbeli útmegoldók a rögzített irányú mechanikai befogási erőket és nyomatékokat a referencia-koordinátákból elforgatják, mielőtt a rugalmas véghatásokkal összevonják őket. A termikus sajátalakváltozás hatásai az aktuális rúd-koordinátarendszerben maradnak; a nyilvános nemlineáris termikus elutasítások változatlanok. Ellenőrizze újra a mechanikai rúdterhek rúderőit, ha a húr vagy térbeli koordinátarendszer elfordul (#1952; SA-2026-061).",
     "tr": "Eş dönel 2B/3B ve düzlemsel yol çözücüleri, yönü sabit mekanik yüklerin ankastrelik kuvvetlerini ve momentlerini elastik uç etkileriyle birleştirmeden önce referans koordinatlarından döndürür. Isıl öz şekil değiştirme etkileri mevcut eleman eksenlerinde kalır; genel kullanıma açık doğrusal olmayan ısıl analiz retleri değişmez. Kiriş doğrultusu veya uzaysal eksenleri döndüğünde mekanik eleman yükleri altındaki kuvvetleri yeniden denetleyin (#1952; SA-2026-061).",
+    "id": "Penyelesai lintasan korotasional 2D/3D dan planar kini memutar gaya dan momen ujung terjepit mekanis mati dari koordinat acuan sebelum menggabungkannya dengan aksi ujung elastis. Aksi regangan eigen termal tetap pada kerangka batang saat ini; penolakan termal nonlinear publik tidak berubah. Periksa ulang gaya batang di bawah beban batang mekanis ketika tali busur atau portal spasial berputar (#1952; SA-2026-061).",
     "zh": "共旋 2D/3D 以及平面路径求解器现在会先把恒定的机械固端力和固端弯矩从参考坐标旋转，再与弹性杆端作用合并。温度本征应变作用仍保留在当前杆件坐标系中；公开的非线性温度作用拒绝求解情形不变。当弦或空间框架发生旋转时，请重新检查杆件机械荷载作用下的杆件内力（#1952；SA-2026-061）。"
   },
   "changelog": {

@@ -154,6 +154,28 @@ export const LINK_NAMES: Record<string, Record<string, string>> = {
     "newmark-1959": "Newmark-féle időintegrálás: egy szabadságfok",
     "cqc-1981": "SRSS és CQC: modális kombináció"
   },
+  'id': {
+    "simply-supported-beam": "Kalkulator balok tumpuan sederhana",
+    "cantilever-beam": "Kalkulator lendutan balok kantilever",
+    "column-buckling": "Kalkulator tekuk kolom Euler",
+    "continuous-beam": "Kalkulator balok menerus",
+    "portal-frame": "Kalkulator portal",
+    "truss-2d": "Kalkulator rangka batang 2D",
+    "influence-line": "Kalkulator garis pengaruh",
+    "beam-natural-frequency": "Kalkulator frekuensi alami balok",
+    "macneal-harder-1985": "Benchmark elemen hingga MacNeal–Harder",
+    "navier-plate": "Lentur pelat Navier: benchmark deret Fourier",
+    "mattiasson-elastica": "Elastika Mattiasson: lendutan besar kantilever",
+    "ferrari-sigmund-2025": "Tekuk portal Roorda: Ferrari–Sigmund",
+    "biggins-2026": "Snap-through busur melalui pola kelengkungan",
+    "lee-frame-1968": "Benchmark nonlinier portal Lee (1968)",
+    "plastic-collapse": "Benchmark keruntuhan plastis portal",
+    "grossman-2026": "Jaringan pegas auksetik: Grossman–Boudaoud",
+    "pastrana-2026": "Pencarian bentuk kabel: metode kerapatan gaya",
+    "riks-crisfield": "Snap-through panjang busur Riks–Crisfield",
+    "newmark-1959": "Integrasi waktu Newmark: benchmark SDOF",
+    "cqc-1981": "SRSS vs CQC: benchmark kombinasi modal"
+  },
   "zh": {
     "simply-supported-beam": "简支梁计算器",
     "cantilever-beam": "悬臂梁挠度计算器",

@@ -22,6 +22,7 @@
     "de": "Mehrdeutige Schwerkraftlasten an verbundenen Schalen und Sparren sperren",
     "fr": "Bloquer les charges gravitaires ambiguës sur les coques et chevrons liés",
     "tr": "Bağlı kabuk ve merteklerde belirsiz yerçekimi yüklerini engelle",
+    "id": "Blokir gravitasi yang ambigu pada cangkang dan balok atap yang terpasang",
     "zh": "阻止在相连壳单元和椽条上生成归属不明的重力荷载",
     "hu": "A nem egyértelmű gravitációs terhek tiltása kapcsolt héjakon és szarufákon"
   },
@@ -32,6 +33,7 @@
     "de": "Erzeugen Sie die Schwerkraftlasten für Felder neu. Der Lastplan wird gesperrt, wenn ein Schalenversatz oder ein Sparrenanschluss die Zuordnung der Flächenlast offenlässt.",
     "fr": "Régénérez les charges gravitaires par travée. Le plan se bloque lorsqu’un décalage de coque ou une liaison de chevron rend ambiguë l’attribution de la charge surfacique.",
     "tr": "Panel yerçekimi yüklerini yeniden üretin. Kabuk kot farkı veya mertek bağlantısı alan yükünün hangi elemana ait olduğunu belirsiz bıraktığında plan durur.",
+    "id": "Buat ulang gravitasi panel. Perencana memblokir ketika pemasangan cangkang atau balok atap ber-offset membuat penugasan beban area ambigu.",
     "zh": "请重新生成板区重力荷载。如果壳单元高差或椽条连接导致面荷载归属无法确定，系统会阻止生成。",
     "hu": "Generálja újra a mezők gravitációs terheit. A terv leáll, ha a héj eltolása vagy a szarufa kapcsolata miatt a felületi teher hozzárendelése nem egyértelmű."
   },

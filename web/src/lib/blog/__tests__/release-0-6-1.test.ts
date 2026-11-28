@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { findPost } from '..';
 
-const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh'] as const;
+const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', 'id'] as const;
 const repo = 'https://github.com/lambdaclass/stabileo/blob/main';
 const route = '/blog/stabileo-0-6-1';
 

@@ -7,6 +7,7 @@ const strings: Record<string, { axes: string; table: string }> = {
   fr: { axes: '{y} en fonction de {x}', table: 'Afficher les données du graphique' },
   tr: { axes: '{x} ile {y}', table: 'Grafik verilerini göster' },
   hu: { axes: '{y} a(z) {x} függvényében', table: 'Diagramadatok megjelenítése' },
+  id: { axes: '{y} terhadap {x}', table: 'Lihat data grafik' },
   zh: { axes: '{y} 随 {x} 的变化', table: '查看图表数据' },
 };
 export const chartStrings = () => strings[publicI18n.locale] ?? strings.en;

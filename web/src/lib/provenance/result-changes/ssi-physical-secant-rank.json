@@ -42,6 +42,7 @@
     "fr": "Vérifier le rang de la raideur sécante physique en interaction sol-structure",
     "hu": "A talaj–szerkezet kölcsönhatás szelőmerevségének rangellenőrzése fizikai merevséggel",
     "tr": "Zemin-yapı etkileşiminde sekant rijitliğinin mertebesini fiziksel rijitlikle denetle",
+    "id": "Periksa rank sekan SSI menggunakan kekakuan fisik",
     "zh": "使用物理刚度检查土与结构相互作用分析的割线刚度矩阵秩"
   },
   "explanation": {
@@ -52,6 +53,7 @@
     "fr": "Les blocages artificiels de rotation ne contribuent plus à la vérification du rang en interaction sol-structure. Vérifiez à nouveau les résultats enregistrés des modèles à rotations libérées ou peu raides.",
     "hu": "A mesterséges forgási megtámasztások már nem járulnak hozzá a rangellenőrzéshez a talaj–szerkezet kölcsönhatás vizsgálatában. Ellenőrizze újra a felszabadított vagy gyengén megtámasztott forgású modellek mentett eredményeit.",
     "tr": "Yapay dönme mesnetleri artık zemin-yapı etkileşimindeki mertebe denetimine rijitlik katmaz. Serbest bırakılmış veya düşük dönme rijitliğine sahip modellerin kayıtlı sonuçlarını yeniden denetleyin.",
+    "id": "Sendi rotasi buatan tidak lagi dapat memberikan kekakuan pada pemeriksaan rank interaksi tanah-struktur. Periksa kembali hasil SSI tersimpan untuk model dengan rotasi yang dilepas atau lemah.",
     "zh": "人工转动约束不再为土与结构相互作用分析的秩检查提供刚度。请重新检查含转动释放或转动刚度较低的模型的已保存结果。"
   },
   "changelog": {

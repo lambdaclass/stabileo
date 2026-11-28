@@ -15,6 +15,7 @@
     "fr": "Spectres modaux spatiaux avec rotations libérées aux extrémités",
     "hu": "Térbeli modális spektrumok felszabadított végelfordulásokkal",
     "tr": "Uç dönmeleri serbest bırakılmış uzaysal modal spektrumlar",
+    "id": "Spektrum modal spasial dengan rotasi ujung yang dilepas",
     "zh": "存在端部转动释放时的空间模态频谱"
   },
   "explanation": {
@@ -25,6 +26,7 @@
     "fr": "L’analyse modale spatiale peut retrouver les modes finis lorsqu’une rotation d’extrémité libérée et isolée est dépourvue de raideur et d’inertie. Relancez les analyses modales concernées et les spectres de réponse qui en dépendent.",
     "hu": "A térbeli modális vizsgálat meghatározhatja a véges módusokat, ha egy elszigetelt, felszabadított végelforduláshoz sem merevség, sem tehetetlenség nem tartozik. Futtassa újra az érintett modális vizsgálatokat és a belőlük számított válaszspektrumokat.",
     "tr": "Uzaysal modal analiz, yalıtılmış bir serbest uç dönmesinde rijitlik ve atalet yoksa sonlu modları hesaplayabilir. Etkilenen modal analizleri ve bunlara bağlı tepki spektrumlarını yeniden hesaplayın.",
+    "id": "Analisis modal spasial dapat memulihkan mode terhingga ketika rotasi ujung terisolasi yang dilepas tidak memiliki kekakuan maupun inersia. Jalankan ulang analisis modal yang terpengaruh dan spektrum respons yang bergantung.",
     "zh": "孤立的端部转动释放方向同时没有刚度和惯性时，空间模态分析可以求得有限模态。请重新计算受影响的模态分析和依赖这些结果的反应谱。"
   },
   "changelog": {

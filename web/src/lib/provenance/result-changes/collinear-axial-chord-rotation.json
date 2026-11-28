@@ -24,6 +24,7 @@
     "fr": "Le mouvement axial pur conserve une rotation de corde nulle",
     "hu": "A tiszta tengelyirányú mozgás megőrzi a nulla húrforgást",
     "tr": "Saf eksenel hareket sıfır kiriş doğrultusu dönmesini korur",
+    "id": "Gerak aksial murni mempertahankan rotasi tali busur nol",
     "zh": "纯轴向运动保持零弦转角"
   },
   "explanation": {
@@ -34,6 +35,7 @@
     "fr": "Relancer les analyses corotationnelles et de continuation 2D des barres de portique. Compenser les deux produits du produit vectoriel de la corde empêche une translation axiale exactement colinéaire de créer une flexion artificielle. Cela corrige une implémentation non intégrée de la PR #1940 ; les tolérances de convergence restent inchangées (#761).",
     "hu": "Futtassa újra a keretrudak 2D korotációs és folytatásos vizsgálatait. A húr keresztszorzatának mindkét szorzatát kompenzálva a pontosan egyirányú tengelymozgás nem kelt mesterséges hajlítást. Ez a még be nem olvasztott PR #1940 megvalósítását javítja; a konvergenciatűrések változatlanok (#761).",
     "tr": "Çerçeve elemanlarının 2B eşdönüşlü ve devam analizlerini yeniden çalıştırın. Kiriş doğrultusunun vektörel çarpımındaki her iki çarpımın dengelenmesi, tam eşdoğrusal eksenel hareketin yapay eğilme üretmesini önler. Bu, henüz birleştirilmemiş PR #1940 uygulamasını düzeltir; yakınsama toleransları değişmez (#761).",
+    "id": "Jalankan ulang analisis korotasional dan kelanjutan 2D untuk batang portal. Mengompensasi kedua hasil kali pada perkalian silang tali busur mencegah gerak aksial yang benar-benar kolinear menyuntikkan lentur buatan. Ini mengoreksi implementasi PR #1940 yang belum di-merge; toleransi konvergensi tidak berubah (#761).",
     "zh": "请重新运行框架杆件的 2D 共旋分析和延续分析。对弦向量叉积的两个乘积项都进行补偿，可防止严格共线的轴向运动引入虚假的弯曲。这纠正了尚未合并的 PR #1940 实现；收敛容差不变（#761）。"
   },
   "changelog": {
