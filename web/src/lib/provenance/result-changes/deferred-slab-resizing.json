@@ -1,0 +1,38 @@
+{
+  "id": "deferred-slab-resizing",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "deferredSlabPanels"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Deferred slab meshes between design rounds",
+    "es": "Mallado de losas diferidas entre iteraciones de diseño",
+    "pt": "Malha de lajes diferidas entre ciclos de dimensionamento",
+    "de": "Nachträgliche Deckenvernetzung zwischen Bemessungsschritten",
+    "fr": "Maillage différé des dalles entre itérations de dimensionnement",
+    "hu": "Födémháló készítése a méretezési lépések között",
+    "tr": "Tasarım yinelemeleri arasında ertelenen döşeme ağları",
+    "zh": "设计迭代间的延迟楼板网格划分"
+  },
+  "explanation": {
+    "en": "Repeat design resizing if a slab was saved for meshing at the next analysis.",
+    "es": "Repita el dimensionamiento si se guardó una losa para mallarla durante el análisis.",
+    "pt": "Repita o dimensionamento se uma laje foi salva para gerar a malha na análise.",
+    "de": "Wiederholen Sie die Bemessung, wenn für eine Decke die Vernetzung beim nächsten Rechenlauf vorgesehen war.",
+    "fr": "Relancez le dimensionnement si une dalle devait être maillée lors de la prochaine analyse.",
+    "hu": "Ismételje meg a méretezést, ha egy födém hálózását a következő számításra halasztották.",
+    "tr": "Bir döşemenin ağı sonraki analizde oluşturulmak üzere kaydedildiyse boyutlandırmayı tekrarlayın.",
+    "zh": "若模型中有计划在下次分析时划分网格的楼板，请重新运行构件尺寸设计。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-deferred-slab-resizing.md",
+    "heading": "Deferred slab meshes in design resizing"
+  }
+}

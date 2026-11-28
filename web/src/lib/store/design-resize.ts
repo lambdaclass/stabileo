@@ -36,6 +36,7 @@ import { physicalGroups } from './physical';
 import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
 import { ensurePhysicalModel } from './plates-from-shells';
 import { preparePlatesForAnalysis } from './physical-plates';
+import { prepareDeferredSolveSlabs, platePreparationError } from './solve-slabs';
 
 export const RESIZE_STEP_M = 0.05;
 export const RESIZE_MAX_M = 1.2;
@@ -70,10 +71,16 @@ const JOINT_LIMITS = new Set(['anchorage', 'congestion']);
 
 /** Solve the model as the «Calculate» button does, without the toasts: the plates meshed, the defined loads, the combinations. */
 export function solveForDesign(): boolean {
-  ensurePhysicalModel();
-  if (!preparePlatesForAnalysis().ok) return false;
-  const error = floorLoadBlockMessage();
+  const deferredError = prepareDeferredSolveSlabs(uiStore.analysisMode);
+  if (deferredError) {
+    resultsStore.clear3D();
+    uiStore.toast(deferredError, 'error');
+    return false;
+  }
+  const mesh = preparePlatesForAnalysis(ensurePhysicalModel);
+  const error = mesh.ok ? floorLoadBlockMessage() : platePreparationError(mesh);
   if (error) {
+    resultsStore.clear3D();
     uiStore.toast(error, 'error');
     return false;
   }

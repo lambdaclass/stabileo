@@ -6,7 +6,7 @@ import { solveForDesign } from '../design-resize';
 beforeAll(async () => { await initSolver(); });
 afterEach(() => { modelStore.clear(); uiStore.analysisMode = 'pro'; });
 
-it.skip.each(['3d', 'pro'] as const)('known wrong result: #1928 the %s design solve uses the saved deferred panel mesh', mode => {
+it.each(['3d', 'pro'] as const)('known wrong result: #1928 the %s design solve uses the saved deferred panel mesh', mode => {
   for (const method of ['linear', 'pdelta'] as const) {
     modelStore.clear();
     uiStore.analysisMode = mode;

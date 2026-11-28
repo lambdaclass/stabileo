@@ -15,7 +15,7 @@ import { knownIssueRefusal } from './known-issues';
  */
 
 import { noteSolve } from '../telemetry/instrument.svelte';
-import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
+import { platePreparationError, prepareDeferredSolveSlabs } from '../store/solve-slabs';
 import { ensurePhysicalModel } from '../store/plates-from-shells';
 import { physicalPlates, platesNeedingMesh, preparePlatesForAnalysis, preparePlatesForAnalysisAsync } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
@@ -344,30 +344,14 @@ async function globalSolve(options: { directBase?: boolean }, run: { latest: () 
   // is put back below. Every entry point, not only the re-check's re-run.
   const stampBefore = recheckStore.capture();
   if (uiStore.is3DWorkspace) {
-    // Basic 3D has no plates: a slab waiting for the analysis is meshed in place (`deferred-slabs.ts`).
-    if (!unifiedPlates() || uiStore.analysisMode !== 'pro') {
-      // A slab meshed before its columns' sections were represented is meshed again with them
-      // (`column-footprints.ts`): held at one node, its load split is the mesh's, not the building's.
-      const f = representFootprints();
-      if (f.refused.length) return refuseSpatialMesh(tp('building.slabs.cannotSimplify', { names: f.refused.join(', ') }));
-      if (f.slabs > 0) uiStore.toast(tp('building.slabs.footprintsAtSolve', { n: f.slabs }), 'info');
-      const m = meshDeferredSlabs();
-      if (m.slabs > 0) uiStore.toast(tp('building.slabs.meshedAtSolve', { n: m.slabs, shells: m.shells }), 'info');
-    }
+    const deferredError = prepareDeferredSolveSlabs(uiStore.analysisMode, message => uiStore.toast(message, 'info'));
+    if (deferredError) return refuseSpatialMesh(deferredError);
     // Physical plates with no mesh or an out-of-date one (`store/physical-plates.ts`): meshed here,
     // once for the whole solve and before its inputs are taken, or the solve stops and says which.
     if (unifiedPlates()) run.step('mesh');
     const p = unifiedPlates() ? await preparePlatesForAnalysisAsync(ensurePhysicalModel) : preparePlatesForAnalysis();
     if (!run.latest()) return { ok: false, error: t('results.editedDuringSolve') };
-    if (!p.ok) {
-      const error = 'error' in p ? p.error : tp({
-        needsMesh: 'plates.analysisNeedsMesh',
-        invalid: 'plates.analysisInvalid',
-        localLoads: 'plates.analysisLocalLoads',
-        refused: 'plates.analysisMeshRefused',
-      }[p.reason], { names: p.plates.join(', ') });
-      return refuseSpatialMesh(error);
-    }
+    if (!p.ok) return refuseSpatialMesh(platePreparationError(p));
     if (p.stale?.length) uiStore.toast(tp('plates.analysisStale', { names: p.stale.join(', ') }), 'info', undefined, true);
     if (p.meshed > 0) {
       const kept = physicalPlates().length - p.meshed;

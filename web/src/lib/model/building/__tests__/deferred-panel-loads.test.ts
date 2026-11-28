@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
 import { modelStore, resultsStore, uiStore } from '../../../store';
+import { solveForDesign } from '../../../store/design-resize';
 import { runGlobalSolve } from '../../../engine/live-calc';
 import { tp } from '../../../i18n';
 import { modelFeatures } from '../../../provenance/model-features';
@@ -82,6 +83,10 @@ it.each(['3d', 'pro'] as const)('stops the %s solve before replacing a loaded sl
       loadedFootprint();
       modelStore.setAnalysis({ combinationMethod: 'solveEach', perCombination });
       const before = modelStore.snapshot();
+      expect(solveForDesign()).toBe(false);
+      expect(uiStore.toasts.at(-1)?.message).toBe(tp('building.slabs.cannotSimplify', { names: 'L1' }));
+      expect(modelStore.snapshot().quads).toEqual(before.quads);
+      expect(modelStore.snapshot().loads).toEqual(before.loads);
       expect(await runGlobalSolve()).toMatchObject({ ok: false, error: tp('building.slabs.cannotSimplify', { names: 'L1' }) });
       expect(resultsStore.results3D).toBeNull();
       expect(modelStore.snapshot().loads).toEqual(before.loads);

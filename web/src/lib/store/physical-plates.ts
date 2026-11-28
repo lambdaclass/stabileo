@@ -1514,8 +1514,8 @@ function preparationTargets(recognizePhysicalModel?: () => number): PlatePrepara
  * each at its own settings, as one undo step. With meshing before the analysis turned off, says
  * which plates stop it instead. Runs once per solve, before its inputs are taken.
  */
-export function preparePlatesForAnalysis(): PlatePreparation {
-  const targets = preparationTargets();
+export function preparePlatesForAnalysis(recognizePhysicalModel?: () => number): PlatePreparation {
+  const targets = preparationTargets(recognizePhysicalModel);
   if ('ok' in targets) return targets;
   const r = applyMeshingRun(meshingRun(planPlateMeshesNow(targets.ids), true));
   return checkPreparedPlates(r);
