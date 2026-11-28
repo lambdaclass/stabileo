@@ -43,6 +43,14 @@ export function prunePublicBuildBranches(content, features) {
   }
   function visit(node, parent) {
     if (!node || typeof node !== 'object') return;
+    if (node.type === 'Attribute' && node.name === 'class' && parent?.type === 'RegularElement') {
+      const parts = Array.isArray(node.value) ? node.value : [node.value];
+      const branch = parts.length === 1 && parts[0]?.type === 'ExpressionTag' && selectedBranch(parts[0].expression);
+      if (branch?.type === 'Literal' && typeof branch.value === 'string' && /^[A-Za-z0-9 _-]+$/.test(branch.value)) {
+        changes.push([node.start, node.end, `class="${branch.value}"`]);
+        return;
+      }
+    }
     if (node.type === 'ExpressionTag' && parent?.type === 'Attribute') {
       scriptChoices(node.expression);
       return;
@@ -91,20 +99,30 @@ export function prunePublicBuildBranches(content, features) {
       !['proPlatesUnified', 'proRcSheets'].includes(key) || typeof features[key] !== 'boolean')) return null;
     return condition ? expression.consequent : expression.alternate;
   }
-  function scriptChoices(node) {
+  function scriptChoices(node, parent) {
+    if (parent?.type === 'BlockStatement' && node.type === 'IfStatement' && !node.alternate
+      && node.consequent.type === 'BlockStatement' && node.consequent.body.every(statement => statement.type === 'ExpressionStatement')) {
+      const flags = new Set();
+      if (value(node.test, flags) === false && flags.size && [...flags].every(key => ['proPlatesUnified', 'proRcSheets'].includes(key))) {
+        remove(node.start, node.end);
+        return;
+      }
+    }
     const chosen = selectedBranch(node);
     if (chosen) {
       changes.push([node.start, chosen.start, '('], [chosen.end, node.end, ')']);
       scriptChoices(chosen);
       return;
     }
-    if (node.type === 'ArrayExpression' && node.elements.every(Boolean)) {
-      for (const item of node.elements) {
+    const items = node.type === 'ObjectExpression' ? node.properties : node.type === 'ArrayExpression' ? node.elements : null;
+    if (items?.every(Boolean)) {
+      for (const item of items) {
         const branch = item.type === 'SpreadElement' && selectedBranch(item.argument);
-        if (branch?.type === 'ArrayExpression' && !branch.elements.length) {
+        if ((node.type === 'ArrayExpression' && branch?.type === 'ArrayExpression' && !branch.elements.length)
+          || (node.type === 'ObjectExpression' && branch?.type === 'ObjectExpression' && !branch.properties.length)) {
           const suffix = content.slice(item.end, node.end);
           const comma = /^\s*,/.exec(suffix);
-          if (comma || /^\s*\]$/.test(suffix)) {
+          if (comma || /^\s*[\]}]$/.test(suffix)) {
             remove(item.start, item.end + (comma?.[0].length ?? 0));
             continue;
           }
@@ -113,7 +131,7 @@ export function prunePublicBuildBranches(content, features) {
       }
       return;
     }
-    for (const child of children(node)) scriptChoices(child);
+    for (const child of children(node)) scriptChoices(child, node);
   }
   const scripts = [component.instance, component.module].filter(Boolean);
   if (scripts.some(script => shadowsFeatures(script.content)) || shadowsFeatures(component.fragment)) return { code: content };

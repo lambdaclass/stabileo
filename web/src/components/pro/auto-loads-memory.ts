@@ -110,7 +110,6 @@ const defaultPartitionLive = (): PartitionLiveSetting => ({ on: true, q: PARTITI
 
 /** The bound loads code when it is another family's than CIRSOC 101. */
 function otherLoads(roles?: Partial<ProjectRegulations>): ImposedLoadCode | null {
-  if (!__PUBLIC_FEATURES__.proPlatesUnified) return null;
   const m = loadCodeFor(roles?.loads?.adapterId);
   return m?.role === 'loads' && m.family !== 'cirsoc' ? m : null;
 }
@@ -152,7 +151,7 @@ export function autoLoadsDefaults(roles?: Partial<ProjectRegulations>): AutoLoad
   const wind = windCode?.role === 'wind' ? windCode.defaults : null;
   const seismic = seismicCode?.role === 'seismic' ? seismicCode.defaults : null;
   // Another family starts from its own table, no CIRSOC build-up and its own partition rule.
-  const other = otherLoads(roles);
+  const other = __PUBLIC_FEATURES__.proPlatesUnified ? otherLoads(roles) : null;
   const occupancies = other?.occupancies?.() ?? [];
   return {
     genCombos: true, comboSet: 'ultimate', comboSource: 'regulation', bothSenses: true, patternsInCompanions: false,
@@ -262,7 +261,7 @@ export function autoLoadsMemory(roles: ProjectRegulations, available: { wind: bo
     m.enableWind = available.wind;
   }
   const snow = set('snow');
-  if (otherLoads(regs)) m.deadRows = typedDeadRows(m.deadRows);
+  if (__PUBLIC_FEATURES__.proPlatesUnified && otherLoads(regs)) m.deadRows = typedDeadRows(m.deadRows);
   if (snow && typeof snow.enabled === 'boolean') m.snowCfg = { ...defaultSnowConfig(), ...snow } as SnowConfig;
   const seismic = set('seismic');
   if (seismic && seismic.zone !== undefined) {

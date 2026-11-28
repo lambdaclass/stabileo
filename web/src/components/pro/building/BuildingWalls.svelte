@@ -48,7 +48,7 @@
     // The wall and, asked for, its strip footing with its base stood on the ground: one step.
     modelStore.batch(() => {
       const before = new Set(physicalGroups().map((x) => x.id));
-      res = placeWall(g, { axis, from, to, levelFrom, levelTo, thickness, materialId: buildingUi.concreteId, meshSize, typology, openings, meshAtSolve: __PUBLIC_FEATURES__.proPlatesUnified && meshWhen === 'solve' });
+      res = placeWall(g, { axis, from, to, levelFrom, levelTo, thickness, materialId: buildingUi.concreteId, meshSize, typology, openings, ...(__PUBLIC_FEATURES__.proPlatesUnified ? { meshAtSolve: meshWhen === 'solve' } : {}) });
       if (!withStrip || res.created === 0) return;
       const zOf = (id?: string) => levels.find((l) => l.id === id)?.z ?? Infinity;
       const fresh = physicalGroups().filter((x) => x.physical.kind === 'wall' && !before.has(x.id));

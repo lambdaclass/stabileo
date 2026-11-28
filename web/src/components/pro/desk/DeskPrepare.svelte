@@ -25,11 +25,11 @@
 
   let { empty }: { empty: boolean } = $props();
 
-  const pieces = $derived.by(() => { void modelStore.model.groups; return physicalGroups().length; });
   const members = $derived(modelStore.elements.size);
   const solved = $derived(!!resultsStore.results3D || !!resultsStore.results);
   const levels = $derived(sortedLevels(modelStore.grid).length);
   const axes = $derived(modelStore.grid ? axesOf(modelStore.grid, 'x').length + axesOf(modelStore.grid, 'y').length : 0);
+  const pieces = $derived.by(() => { void modelStore.model.groups; return physicalGroups().length; });
   /** Members of a material design reads: concrete or steel. */
   const designable = $derived.by(() => {
     let n = 0;
@@ -44,8 +44,8 @@
   const existingMissing = $derived([
     ...(members === 0 ? ['desk.prep.miss.members'] : []),
     ...(members > 0 && designable === 0 ? ['desk.prep.miss.material'] : []),
-    ...(!unifiedPlates() && pieces === 0 ? ['desk.prep.miss.pieces'] : []),
     ...(levels === 0 ? ['desk.prep.miss.levels'] : []),
+    ...(!unifiedPlates() && pieces === 0 ? ['desk.prep.miss.pieces'] : []),
     ...(!solved ? ['desk.prep.miss.solve'] : []),
   ]);
   /** What a model started for design still lacks. */

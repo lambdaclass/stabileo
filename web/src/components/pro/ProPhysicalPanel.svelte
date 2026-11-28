@@ -22,7 +22,7 @@
   /** The proposal under review, and what the last application did. */
   let review = $state<RecognitionPlan | null>(null);
   let outcome = $state<RecognitionOutcome | null>(null);
-  const pending = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return pendingPhysicalRecognition(); });
+  function pendingCount() { void modelStore.modelVersion; void modelStore.model.groups; return pendingPhysicalRecognition(); }
   function open() { outcome = null; review = planRecognition(); }
   function done(o: RecognitionOutcome | null) { review = null; outcome = o; }
 
@@ -63,11 +63,14 @@
     {#if __PUBLIC_FEATURES__.proPlatesUnified}
       <Hint text={t('physical.automaticExplain')} />
       {#if list.length > 0}<p class="pk-hint">{tp('physical.summary', { n: list.length, inferred })}</p>{/if}
-      {#if pending > 0 && !review}
+      {#if !review}
+        {@const pending = pendingCount()}
+        {#if pending > 0}
         <div class="pk-row ph-pending" data-testid="physical-pending">
           <span>{tp('physical.pending', { n: pending })}</span>
           <button class="pk-btn pk-btn-primary" onclick={open} data-testid="physical-review">{t('physical.pendingReview')}</button>
         </div>
+        {/if}
       {/if}
     {:else}
       <Hint text={t('physical.explain')} />

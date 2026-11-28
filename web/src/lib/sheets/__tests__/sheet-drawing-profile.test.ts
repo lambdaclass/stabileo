@@ -28,7 +28,7 @@ it.each(['ST-COTA', 'ST-ARM-EST-Ø16'])('known wrong result: #1928 imported draw
   expect(layerDef('SHEET-FRAME').name).toBe('SHEET-FRAME');
 });
 
-it.skip('known wrong result: #1928 ordinary sheet exports never read the dense packing option', async () => {
+it('known wrong result: #1928 ordinary sheet exports never read the dense packing option', async () => {
   const { buildSheetSet } = await import('../sheet-set');
   let reads = 0;
   const settings = { format: 'A3' as const, prefix: 'E-', start: 1 };

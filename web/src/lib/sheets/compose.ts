@@ -35,7 +35,7 @@ export const CAPTION_MM = CAPTION;
  * `dense`: each drawing hangs where it stands highest over those already placed, beside the title
  * block too, rows 8 mm apart and side by side with only their own margins between.
  */
-export function composeSheets(drawings: readonly DrawingInput[], format: SheetFormat, geometryOf: (f: SheetFormat) => FormatGeometry = formatGeometry, dense = false): ComposedSheet[] {
+export function composeSheets(drawings: readonly DrawingInput[], format: SheetFormat, geometryOf: (f: SheetFormat) => FormatGeometry = formatGeometry, dense?: boolean): ComposedSheet[] {
   if (__PUBLIC_FEATURES__.proRcSheets && dense) return composeDense(drawings, format, geometryOf);
   const sheets: ComposedSheet[] = [];
   let cur: ComposedSheet | null = null, x = 0, top = 0, rowH = 0;

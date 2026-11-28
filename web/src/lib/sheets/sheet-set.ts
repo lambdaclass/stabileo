@@ -68,7 +68,9 @@ export function buildSheetSet(i: SheetSetInput): SetSheet[] {
   const arranged = arrangeDrawings(i.drawings, i.layout);
   const conflicts = [...arranged.conflicts];
   const byKey = new Map(arranged.drawings.map((d) => [d.key, d]));
-  const composed = composeSheets(arranged.drawings, i.settings.format, geometryOf, i.dense === true);
+  const composed = __PUBLIC_FEATURES__.proRcSheets
+    ? composeSheets(arranged.drawings, i.settings.format, geometryOf, i.dense === true)
+    : composeSheets(arranged.drawings, i.settings.format, geometryOf);
   // The adjustments that place: a drawing at its point, texts moved inside it, annotations.
   for (const c of composed) {
     for (const p of c.drawings) {
