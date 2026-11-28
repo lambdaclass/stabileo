@@ -12,6 +12,7 @@ const ko: Translations = {
   'svc.accountingSweep': "해석을 거부했습니다. 솔버의 판 {plate} 곡선 모서리 경로가 다릅니다. 지정 면적 {entered}, 조립 면적 {assembled}.",
   'svc.accountingShellEdits': "판 {plate}의 메시를 다시 생성하면 셸 오프셋 또는 곡률 편집이 사라지므로 실행할 수 없습니다.",
   "plates.remeshAmbiguousSweep": "{name}의 곡선 경계에서 사용할 원호 구간이 불분명합니다. 메시를 다시 생성하기 전에 중간점과 두 끝점 사이의 곡선 부재를 확인하세요.",
+  "plates.meshFieldsKept": "{names}의 메시를 유지했습니다. 제거하거나 교체하면 하중이 사라지거나 셀의 재료, 두께, 편심 또는 곡률이 바뀝니다.",
   "plates.remeshShellEdits": "셸 요소의 오프셋 또는 곡률 변경을 정확히 옮길 수 없어 {name}의 메시를 교체할 수 없습니다.",
   'loadPlan.gravity.coveragePrecision': "쉘 피복 좌표가 지원되는 부재 구간 정밀도를 초과합니다.",
   'loadPlan.gravity.roundedRoofBoundary': "부재 {id}의 중점 반올림으로 지붕 가장자리의 덮임 여부가 달라집니다. 부재 또는 지붕 형상을 수정하거나 하중을 수동으로 지정하세요.",

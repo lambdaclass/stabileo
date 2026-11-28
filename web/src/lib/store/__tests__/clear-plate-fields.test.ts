@@ -22,7 +22,7 @@ function pressure(key: string, q: number) {
 }
 
 for (const element of ['quad', 'tri'] as const) {
-  it.skip.each(['pressure', 'offset', 'thickness'] as const)('known wrong result: #2461 clearing a ' + element + ' mesh retains a cell-specific %s', field => {
+  it.each(['pressure', 'offset', 'thickness'] as const)('known wrong result: #2461 clearing a ' + element + ' mesh retains a cell-specific %s', field => {
     const { id, keys } = panel(element);
     const key = keys.at(-1)!;
     if (field === 'pressure') pressure(key, -2);
@@ -37,7 +37,7 @@ for (const element of ['quad', 'tri'] as const) {
     expect(plateShellKeys(id)).toHaveLength(0);
   });
 
-  it.skip('known wrong result: #2461 clearing a ' + element + ' mesh preserves exactly uniform pressure over a remesh', () => {
+  it('known wrong result: #2461 clearing a ' + element + ' mesh preserves exactly uniform pressure over a remesh', () => {
     const { id, keys } = panel(element);
     for (const key of keys) pressure(key, -2);
     expect(clearPlateMesh(id)).not.toHaveProperty('refused');
@@ -50,7 +50,7 @@ for (const element of ['quad', 'tri'] as const) {
   });
 }
 
-it.skip('known wrong result: #2461 changing an arc preserves the touching plate and its hand load', () => {
+it('known wrong result: #2461 changing an arc preserves the touching plate and its hand load', () => {
   const { nodes, keys } = panel('quad');
   const arc = createArc(nodes[0]!, { x: 2, y: -1, z: 0 }, nodes[1]!, 4);
   const arcId = modelStore.elements.get(arc[0]!)!.arc!.id;
@@ -61,7 +61,7 @@ it.skip('known wrong result: #2461 changing an arc preserves the touching plate 
 });
 
 
-it.skip.each(['quad', 'tri'] as const)('known wrong result: #2461 preserves local %s stiffness during synchronous and asynchronous replacement', async element => {
+it.each(['quad', 'tri'] as const)('known wrong result: #2461 preserves local %s stiffness during synchronous and asynchronous replacement', async element => {
   const { id, keys } = panel(element);
   const shell = Number(keys.at(-1)!.slice(1));
   const update = element === 'quad' ? modelStore.updateQuad : modelStore.updatePlate;
@@ -75,7 +75,7 @@ it.skip.each(['quad', 'tri'] as const)('known wrong result: #2461 preserves loca
   }
 });
 
-it.skip('known wrong result: #2461 checks an entire selection before clearing either mesh', () => {
+it('known wrong result: #2461 checks an entire selection before clearing either mesh', () => {
   const empty = panel('quad'), loaded = panel('quad', 8);
   pressure(loaded.keys[0]!, -2);
   const before = modelStore.snapshot();
@@ -86,7 +86,7 @@ it.skip('known wrong result: #2461 checks an entire selection before clearing ei
   expect(plateShellKeys(empty.id)).toHaveLength(0);
 });
 
-it.skip.each(['own', 'other group', 'orphan'] as const)('known wrong result: #2461 refuses to clear a pressure whose %s target cannot follow the mesh', async owner => {
+it.each(['own', 'other group', 'orphan'] as const)('known wrong result: #2461 refuses to clear a pressure whose %s target cannot follow the mesh', async owner => {
   const { addFloorLoadDef } = await import('../defined-loads');
   const { id, keys } = panel('quad');
   const quadId = Number(keys[0]!.slice(1));
@@ -100,4 +100,22 @@ it.skip.each(['own', 'other group', 'orphan'] as const)('known wrong result: #24
   const before = modelStore.snapshot();
   expect.soft(clearPlateMesh(id)).toMatchObject({ refused: ['Loaded panel'] });
   expect(modelStore.snapshot()).toEqual(before);
+});
+
+it('flags only mesh-owned cell fields and preserves repeatable whole-plate definitions', async () => {
+  const { modelFeatures } = await import('../../provenance/model-features');
+  const { addPlateLoad } = await import('../physical-plates');
+  const { id, keys } = panel('quad');
+  const affected = () => modelFeatures(modelStore.snapshot()).has('physicalPlateCellFields');
+  expect(affected()).toBe(false);
+  addPlateLoad(id, 1, -1);
+  expect(affected()).toBe(false);
+  const local = pressure(keys.at(-1)!, -2);
+  expect(affected()).toBe(true);
+  modelStore.removeLoad(local);
+  expect(affected()).toBe(false);
+  expect(clearPlateMesh(id)).not.toHaveProperty('refused');
+  expect(plateLoadDefs(id)).toHaveLength(1);
+  expect(applyPlateMeshes([planPlateMesh(id)!]).plates).toBe(1);
+  expect(modelStore.loads.filter(l => l.type === 'surface3d')).toHaveLength(plateShellKeys(id).length);
 });

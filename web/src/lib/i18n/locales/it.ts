@@ -11,6 +11,7 @@ const it: Translations = {
   'svc.accountingSweep': "Analisi rifiutata. Il bordo curvo della piastra {plate} segue un arco diverso nel solutore. Area specificata {entered}, area assemblata {assembled}.",
   'svc.accountingShellEdits': "Non è possibile rigenerare la mesh della piastra {plate}, perché si perderebbe un’eccentricità o una modifica di curvatura del guscio.",
   "plates.remeshAmbiguousSweep": "L’arco del bordo curvo di {name} è ambiguo. Prima di rigenerare la mesh, controlla il punto intermedio e le aste curve tra le estremità.",
+  "plates.meshFieldsKept": "La mesh di {names} è stata mantenuta. Rimuoverla o sostituirla eliminerebbe un carico o modificherebbe il materiale, lo spessore, l’eccentricità o la curvatura di una cella.",
   "plates.remeshShellEdits": "Impossibile sostituire la mesh di {name} perché le modifiche all’offset o alla curvatura dei gusci non possono essere trasferite esattamente.",
   'loadPlan.gravity.coveragePrecision': "Le coordinate di copertura dei gusci superano la precisione supportata per gli intervalli degli elementi.",
   'loadPlan.gravity.roundedRoofBoundary': "L’arrotondamento del punto medio dell’asta {id} cambia se questa è coperta dal bordo del tetto. Correggere la geometria dell’asta o del tetto oppure assegnare i carichi manualmente.",

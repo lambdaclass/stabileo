@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "plates.meshFieldsKept": "{names} ağı korundu. Ağın kaldırılması veya değiştirilmesi bir yükü kaldırır ya da bir hücrenin malzemesini, kalınlığını, dışmerkezliğini veya eğriliğini değiştirir.",
   "loadPlan.blocked.meshPhysicalPlate": "#{id} numaralı fiziksel plağın ağını oluşturup yükleri yeniden üretin. Yük planı plağın analiz elemanlarını gerektirir.",
   "loadPlan.blocked.unmeshedPlatePressure": "Henüz ağı oluşturulmamış bir plağa zemin veya sıvı basıncı etkiyor. Plağın ağını oluşturun (veya bir kez hesaplayın) ve yükleri yeniden üretin.",
   "loadPlan.blocked.unmeshedPlateThermal": "Henüz ağı oluşturulmamış bir plağa sıcaklık yükü etkiyor. Plağın ağını oluşturun (veya bir kez hesaplayın) ve yükleri yeniden üretin.",

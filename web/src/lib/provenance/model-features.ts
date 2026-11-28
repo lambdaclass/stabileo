@@ -1,3 +1,4 @@
+import { cellPressureDefinitions, hasLocalCellProperties, pressureFollowsMesh } from '../model/physical/mesh-cell-fields';
 import { isMagnitudeCombination } from '../engine/result-scopes';
 import { needsOccupancyReview, type OccupancyBasis } from './occupancy-selection';
 import { classifyEccentricNormalOffset, constraintsInXZ, hasReducedPlanarMpc } from '../engine/constraint-2d-remap';
@@ -75,7 +76,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
-  'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'shortOffAxisStrap', 'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
@@ -119,7 +120,7 @@ interface Sup {
 }
 
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
-type ShellSnapshot = { id?: number; materialId?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 };
+type ShellSnapshot = { id?: number; materialId?: number; thickness?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 };
 type FeatureLoad = { type?: unknown; data?: Record<string, unknown> };
 
 interface FeatureSnapshotFields {
@@ -578,6 +579,23 @@ function hasOpposedGeneratedLines(cases: NonNullable<FeatureSnapshot['loadCases'
   return false;
 }
 
+function hasPhysicalPlateCellFields(s: FeatureSnapshot, ids: ReadonlySet<number>): boolean {
+  const groups = new Map(s.groups), quads = new Map(s.quads), triangles = new Map(s.plates);
+  const loads = featureLoads(s.loads).filter(load => load.type === 'surface3d' || load.type === 'thermalQuad3d');
+  for (const id of ids) {
+    const group = groups.get(id);
+    const surface = plateSurfaceOf({ data: group?.data as Record<string, unknown> });
+    if (!surface) continue;
+    const q = new Set(group?.members?.quads), p = new Set(group?.members?.plates);
+    if (cellPressureDefinitions(groups, id, q, p).size) return true;
+    if ([...q].some(key => hasLocalCellProperties(quads.get(key) ?? {}, surface, true))
+      || [...p].some(key => hasLocalCellProperties(triangles.get(key) ?? {}, surface, false))) return true;
+    if (loads.some(({ data }) => data && typeof data.quadId === 'number' && (data.on === 'plate' ? p : q).has(data.quadId)
+      && (typeof data.fromDef !== 'number' || !pressureFollowsMesh(groups.get(data.fromDef), id)))) return true;
+  }
+  return false;
+}
+
 function addPlateEditFeatures(s: FeatureSnapshot, physicalPlates: ReadonlySet<number>, features: Set<FeatureId>): void {
   const points = (s.massSource as { points?: unknown } | undefined)?.points;
   const links = Array.isArray(s.constraints) ? s.constraints.filter(c => c?.type === 'rigidLink') : [];
@@ -741,6 +759,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   addPlateEditFeatures(s, physicalPlates, f);
   if (physicalPlates.size) {
     f.add('physicalPlateDefinitions');
+    if (hasPhysicalPlateCellFields(s, physicalPlates)) f.add('physicalPlateCellFields');
     for (const group of values(s.groups)) {
       if (group?.kind !== 'floorLoad') continue;
       const data = group.data as { distribution?: string; target?: { by?: string; groupId?: number } } | undefined;

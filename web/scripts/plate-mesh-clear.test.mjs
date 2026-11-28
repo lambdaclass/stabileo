@@ -4,13 +4,15 @@ import { withComponent } from './component-browser-fixture.mjs';
 
 const script = `
 import { mount } from 'svelte';
+import '/src/lib/i18n/full-dictionaries.ts';
 import Panel from '/src/components/pro/plates/PlatePanel.svelte';
 import Slabs from '/src/components/pro/building/BuildingSlabs.svelte';
 import { modelStore, uiStore } from '/src/lib/store/index.ts';
 import { applyPlateMeshes, createPlate, planPlateMesh, plateShellKeys } from '/src/lib/store/physical-plates.ts';
 import { initSolver } from '/src/lib/engine/wasm-solver.ts';
-import { setLocale } from '/src/lib/i18n/index.ts';
+import { ensureLocale, setLocale } from '/src/lib/i18n/store.svelte.ts';
 await initSolver();
+await ensureLocale('en');
 setLocale('en');
 modelStore.clear();
 uiStore.analysisMode = 'pro';
@@ -29,12 +31,13 @@ window.meshState = () => ({ keys: ids.map(plateShellKeys), loads: modelStore.loa
 `;
 
 for (const mode of ['production', 'test']) {
-  test.skip(`known wrong result: #2461 ${mode} mesh removal reports a refusal and leaves both panels intact`, async () => {
+  test(`known wrong result: #2461 ${mode} mesh removal reports a refusal and leaves both panels intact`, async () => {
     await withComponent(mode, script, async (page, url) => {
       for (const slabs of mode === 'test' ? [false, true] : [false]) {
+        const failed = page.waitForEvent('pageerror').then(error => { throw error; });
         await page.goto(url + (slabs ? '?slabs' : ''));
         const clear = page.getByTestId(slabs ? 'building-slabs-simplify' : 'plate-mesh-clear');
-        await clear.waitFor();
+        await Promise.race([clear.waitFor(), failed]);
         const original = await page.evaluate(() => window.meshState());
         await clear.click();
         assert.deepEqual(await page.evaluate(() => window.meshState()), original);

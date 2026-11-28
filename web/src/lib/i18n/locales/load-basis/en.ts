@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "plates.meshFieldsKept": "The mesh of {names} was kept. Removing or replacing it would discard a load or change a cell’s material, thickness, offset or curvature.",
   "loadPlan.blocked.meshPhysicalPlate": "Mesh physical plate #{id} and regenerate the loads. The plan needs its analytical elements.",
   "loadPlan.blocked.unmeshedPlatePressure": "Soil or fluid pressure acts on a plate that has no mesh yet. Mesh the plate (or run an analysis once) and generate the loads again.",
   "loadPlan.blocked.unmeshedPlateThermal": "A temperature load acts on a plate that has no mesh yet. Mesh the plate (or run an analysis once) and generate the loads again.",

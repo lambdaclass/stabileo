@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "plates.meshFieldsKept": "Das Netz von {names} wurde beibehalten. Beim Entfernen oder Ersetzen ginge eine Last verloren oder Material, Dicke, Versatz oder Krümmung einer Zelle würden geändert.",
   "loadPlan.blocked.meshPhysicalPlate": "Vernetzen Sie die physische Platte #{id} und erzeugen Sie die Lasten erneut. Der Lastplan benötigt ihre analytischen Elemente.",
   "loadPlan.blocked.unmeshedPlatePressure": "Erd- oder Flüssigkeitsdruck wirkt auf eine Platte, die noch nicht vernetzt ist. Vernetzen Sie die Platte (oder rechnen Sie einmal) und erzeugen Sie die Lasten erneut.",
   "loadPlan.blocked.unmeshedPlateThermal": "Eine Temperaturlast wirkt auf eine Platte, die noch nicht vernetzt ist. Vernetzen Sie die Platte (oder rechnen Sie einmal) und erzeugen Sie die Lasten erneut.",

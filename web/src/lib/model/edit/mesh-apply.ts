@@ -74,6 +74,8 @@ export const modelSegments = (): Array<[Vec3, Vec3]> => [...modelStore.elements.
 });
 
 interface PlacedCell {
+  materialId?: number;
+  thickness?: number;
   nodes: number[];
   offset?: ShellOffset;
   curved?: boolean;
@@ -138,10 +140,12 @@ export function applyPlacedMesh(mesh: MeshOutput, o: MeshApplyOptions, placement
       out.nodeIds = placement.nodeIds.map(id => created.get(id) ?? id);
       for (const cell of placement.cells) {
         const nodes = cell.nodes.map(id => created.get(id) ?? id);
+        const materialId = cell.materialId ?? o.materialId;
+        const thickness = cell.thickness ?? o.thickness;
         if (nodes.length === 4) {
-          out.quads.push(modelStore.addQuad(nodes as [number, number, number, number], o.materialId, o.thickness, cell));
+          out.quads.push(modelStore.addQuad(nodes as [number, number, number, number], materialId, thickness, cell));
         } else {
-          out.plates.push(modelStore.addPlate(nodes as [number, number, number], o.materialId, o.thickness, cell));
+          out.plates.push(modelStore.addPlate(nodes as [number, number, number], materialId, thickness, cell));
         }
       }
     });

@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "plates.meshFieldsKept": "Le maillage de {names} a été conservé. Le supprimer ou le remplacer ferait perdre une charge ou modifierait le matériau, l’épaisseur, l’excentrement ou la courbure d’une maille.",
   "loadPlan.blocked.meshPhysicalPlate": "Maillez la plaque physique nº {id} et générez de nouveau les charges. Le plan nécessite ses éléments analytiques.",
   "loadPlan.blocked.unmeshedPlatePressure": "Une poussée de sol ou de fluide agit sur une plaque qui n'est pas encore maillée. Maillez la plaque (ou lancez un calcul) puis générez à nouveau les charges.",
   "loadPlan.blocked.unmeshedPlateThermal": "Une charge de température agit sur une plaque qui n'est pas encore maillée. Maillez la plaque (ou lancez un calcul) puis générez à nouveau les charges.",

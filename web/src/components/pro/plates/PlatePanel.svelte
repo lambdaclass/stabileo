@@ -110,8 +110,8 @@
     addPlateLoad(one.id, loadCase, loadQ);
   }
   function clearMeshes() {
-    let kept = 0;
-    modelStore.batch(() => { for (const e of entries) kept += clearPlateMesh(e.id).keptNodes; });
+    const { keptNodes: kept, error } = clearPlateMesh(entries.map(e => e.id));
+    if (error) { message = error; return; }
     message = kept ? tp('plates.meshClearedKept', { n: kept }) : t('plates.meshCleared');
     uiStore.selectPlates(ids);
   }

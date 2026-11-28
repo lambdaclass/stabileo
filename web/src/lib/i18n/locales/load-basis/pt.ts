@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "plates.meshFieldsKept": "A malha de {names} foi mantida. Removê-la ou substituí-la eliminaria uma carga ou alteraria o material, a espessura, a excentricidade ou a curvatura de uma célula.",
   "loadPlan.blocked.meshPhysicalPlate": "Gere a malha da placa física #{id} e gere as cargas novamente. O plano precisa dos seus elementos analíticos.",
   "loadPlan.blocked.unmeshedPlatePressure": "Há empuxo de solo ou de fluido sobre uma placa que ainda não tem malha. Gere a malha da placa (ou calcule uma vez) e gere as cargas de novo.",
   "loadPlan.blocked.unmeshedPlateThermal": "Há uma carga de temperatura sobre uma placa que ainda não tem malha. Gere a malha da placa (ou calcule uma vez) e gere as cargas novamente.",

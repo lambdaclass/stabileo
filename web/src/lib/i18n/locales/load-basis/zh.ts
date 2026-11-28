@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "plates.meshFieldsKept": "已保留 {names} 的网格。移除或替换网格会丢失荷载，或改变单元的材料、厚度、偏移量或曲率。",
   "loadPlan.blocked.meshPhysicalPlate": "请为物理板 #{id} 划分网格，然后重新生成荷载。荷载方案需要该板的分析单元。",
   "loadPlan.blocked.unmeshedPlatePressure": "土压力或流体压力作用在尚未划分网格的板上。请先为该板划分网格（或计算一次），再重新生成荷载。",
   "loadPlan.blocked.unmeshedPlateThermal": "温度荷载作用在尚未划分网格的板上。请先为该板划分网格（或计算一次），再重新生成荷载。",

@@ -1,6 +1,7 @@
 import type { Translations } from '../../types';
 
 const messages: Translations = {
+  "plates.meshFieldsKept": "Se conservó la malla de {names}. Quitarla o reemplazarla eliminaría una carga o cambiaría el material, el espesor, la excentricidad o la curvatura de una celda.",
   "loadPlan.blocked.meshPhysicalPlate": "Mallá la placa física #{id} y volvé a generar las cargas. El plan necesita sus elementos analíticos.",
   "loadPlan.blocked.unmeshedPlatePressure": "Hay empuje de suelo o de fluido sobre una placa que todavía no tiene malla. Mallá la placa (o calculá una vez) y volvé a generar las cargas.",
   "loadPlan.blocked.unmeshedPlateThermal": "Hay una temperatura sobre una placa que todavía no tiene malla. Mallá la placa (o calculá una vez) y volvé a generar las cargas.",

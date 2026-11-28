@@ -290,7 +290,7 @@ export function placeWall(g: StructuralGrid, o: {
         ...(openings.length ? { openings: openings.map((w) => ({ offset: w.offset, width: w.width, sill: w.sill, height: w.height })) } : {}),
       });
       const made = platesFromShells([...r.quads.map((q) => `q${q}`), ...r.plates.map((q) => `p${q}`)], { size: o.meshSize });
-      if (made.length && o.meshAtSolve) { for (const id of made) clearPlateMesh(id); shells -= r.quads.length + r.plates.length; }
+      if (made.length && o.meshAtSolve && !clearPlateMesh(made).refused) shells -= r.quads.length + r.plates.length;
 
     }
   });

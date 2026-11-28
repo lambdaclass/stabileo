@@ -1,3 +1,4 @@
+import { cellPressureDefinitions, hasLocalCellProperties, pressureFollowsMesh } from '../model/physical/mesh-cell-fields';
 import { scenarioSurfaceIntentOf } from '../engine/accounting-source';
 import { unifiedPlates } from '../features';
 import { arcEdgeBetween as modelArcEdgeBetween, physicalPlateProblems, plateMeshGeometry, type PlateStatus } from '../model/physical/plate-analysis';
@@ -50,7 +51,7 @@ import { expandDefinition, type DefinitionModel, type Expansion, type FloorLoadD
 import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, releaseFootprintLinks, type ColumnFootprint, type FootprintCells } from '../model/building/column-footprints';
 import { designData } from './design-data';
 import { agreesWithPlateSpring, inconsistentPlateSprings, plateSpringRequirements, springSupport } from '../model/physical/plate-springs';
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import type { ModelGroup, SupportType, SurfaceLoad3D } from './model.svelte';
 
 export type { PlateStatus };
@@ -698,15 +699,20 @@ export function liftableLoads(e: PlateEntry, byShell = shellAreaLoads()): Return
   return e.physical.kind === 'slab' ? uniformLoads(plateShellKeys(e.id), byShell) : { gone: [], cases: [] };
 }
 
-function localLoadsOn(e: PlateEntry): number {
-  const liftable = new Set(liftableLoads(e).gone);
+function localLoadsOn(e: PlateEntry, lifted = liftableLoads(e)): number {
+  const liftable = new Set(lifted.gone);
   const quads = new Set(e.group.members.quads ?? []), plates = new Set(e.group.members.plates ?? []);
-  return modelStore.loads.filter((l) => {
-    if (l.type !== 'surface3d' && l.type !== 'thermalQuad3d') return false;
-    const d = l.data as { id: number; quadId: number; on?: string; fromDef?: number };
-    if (d.fromDef !== undefined || liftable.has(d.id)) return false;
-    return d.on === 'plate' ? plates.has(d.quadId) : quads.has(d.quadId);
-  }).length;
+  const groups = modelStore.model.groups;
+  const unmaterialized = cellPressureDefinitions(groups, e.id, quads, plates);
+  const local = modelStore.loads.filter(load => {
+    if (load.type !== 'surface3d' && load.type !== 'thermalQuad3d') return false;
+    const d = load.data;
+    if (liftable.has(d.id) || !(d.on === 'plate' ? plates : quads).has(d.quadId)) return false;
+    if (!('fromDef' in d) || d.fromDef === undefined) return true;
+    unmaterialized.delete(d.fromDef);
+    return !pressureFollowsMesh(groups.get(d.fromDef), e.id);
+  });
+  return local.length + unmaterialized.size;
 }
 
 /** Nodes of a plate's mesh that something other than its own shells holds. */
@@ -926,8 +932,34 @@ function plateAreaEstimate(geo: NonNullable<ReturnType<typeof plateGeometry>>, s
  * the cut, and the nodes it created that nothing holds. The plate keeps its definition and its
  * area loads. One undo step with the caller's.
  */
-export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: number } {
-  return removePlateMesh(id);
+export function clearPlateMesh(selection: number | readonly number[], afterClear?: () => void): { removedNodes: number; keptNodes: number; refused?: string[]; error?: string } {
+  const ids = new Set(typeof selection === 'number' ? [selection] : selection);
+  const byShell = shellAreaLoads();
+  const plans = [...ids].flatMap(id => {
+    const entry = plateEntry(id);
+    return entry ? [{ entry, lifted: liftableLoads(entry, byShell) }] : [];
+  });
+  const refused = plans.filter(({ entry, lifted }) => localLoadsOn(entry, lifted) || editedPlateShells(entry).length).map(({ entry }) => entry.name);
+  if (refused.length) return { removedNodes: 0, keptNodes: 0, refused, error: tp('plates.meshFieldsKept', { names: refused.join(', ') }) };
+  const total = { removedNodes: 0, keptNodes: 0 };
+  modelStore.batch(() => {
+    for (const { entry, lifted } of plans) {
+      keepPlatePressures(entry, lifted);
+      const removed = removePlateMesh(entry.id);
+      total.removedNodes += removed.removedNodes;
+      total.keptNodes += removed.keptNodes;
+    }
+    afterClear?.();
+  });
+  return total;
+}
+
+function keepPlatePressures(entry: PlateEntry, lifted: ReturnType<typeof liftableLoads>): void {
+  if (!lifted.gone.length) return;
+  modelStore.removeLoads(lifted.gone);
+  for (const load of lifted.cases) {
+    modelStore.addGroup(`${entry.name} · q`, 'floorLoad', {}, { data: plateLoadDef(entry.id, load.caseId, load.q) as unknown as Record<string, unknown> });
+  }
 }
 
 function removePlateMesh(id: number, updateNeighbours = true, preserveNodes?: ReadonlySet<number>): { removedNodes: number; keptNodes: number } {
@@ -980,24 +1012,16 @@ function removePlateMesh(id: number, updateNeighbours = true, preserveNodes?: Re
 }
 
 function editedPlateShells(e: PlateEntry) {
-  const inheritedOffset = e.surface.offset;
-  const isLocalOffset = (offset: PlateSurface['offset']) => {
-    if (!offset || !inheritedOffset) return offset !== inheritedOffset;
-    return offset.frame !== inheritedOffset.frame || offset.x !== inheritedOffset.x
-      || offset.y !== inheritedOffset.y || offset.z !== inheritedOffset.z;
-  };
   const quads = (e.group.members.quads ?? []).flatMap(id => {
     const quad = modelStore.quads.get(id);
-    return quad && (isLocalOffset(quad.offset) || !!quad.curved !== !!e.surface.curved) ? [quad] : [];
+    return quad && hasLocalCellProperties(quad, e.surface, true) ? [quad] : [];
   });
   const plates = (e.group.members.plates ?? []).flatMap(id => {
     const plate = modelStore.plates.get(id);
-    return plate && isLocalOffset(plate.offset) ? [plate] : [];
+    return plate && hasLocalCellProperties(plate, e.surface, false) ? [plate] : [];
   });
   return [...quads, ...plates];
 }
-
-export const hasPlateShellEdits = (e: PlateEntry): boolean => editedPlateShells(e).length > 0;
 
 function cycleKey(nodes: readonly number[]): string {
   const first = nodes.indexOf(Math.min(...nodes));
@@ -1033,6 +1057,8 @@ function placePlateEdits(e: PlateEntry, mesh: MeshOutput): MeshPlacement | undef
     byFootprint.delete(key);
     cell.nodes = [...edit.nodes];
     cell.offset = edit.offset;
+    cell.materialId = edit.materialId;
+    cell.thickness = edit.thickness;
     if (cell.nodes.length === 4) cell.curved = 'curved' in edit && !!edit.curved;
   }
   for (const cell of placement.cells) {
@@ -1224,11 +1250,7 @@ function meshingRun(plans: readonly PlateMeshPlan[], forAnalysis = false) {
   const meshed: number[] = [];
   let loadDefsChanged = false;
   const clear = (e: PlateEntry, planned: PlateMeshPlan, byShell: ReturnType<typeof shellAreaLoads>, preserve?: ReadonlySet<number>) => {
-    const lifted = liftableLoads(e, byShell);
-    if (lifted?.gone.length) {
-      modelStore.removeLoads(lifted.gone);
-      for (const c of lifted.cases) modelStore.addGroup(`${e.name} · q`, 'floorLoad', {}, { data: plateLoadDef(e.id, c.caseId, c.q) as unknown as Record<string, unknown> });
-    }
+    keepPlatePressures(e, liftableLoads(e, byShell));
     loadDefsChanged ||= plateLoadDefs(e.id).length > 0;
     report.droppedLocalLoads += planned.localLoads;
     report.keptNodes += removePlateMesh(planned.id, false, preserve).keptNodes;
@@ -1415,7 +1437,7 @@ function shellNodes(key: string): number[] {
 export function deletePlate(id: number): void {
   if (!plateEntry(id)) return;
   modelStore.batch(() => {
-    clearPlateMesh(id);
+    removePlateMesh(id);
     for (const d of plateLoadDefs(id)) modelStore.removeGroup(d.id);
     const g = modelStore.model.groups.get(id);
     const corner = new Set(g?.members.nodes ?? []);

@@ -12,6 +12,7 @@ const ja: Translations = {
   'svc.accountingSweep': "解析を拒否しました。ソルバー内のプレート {plate} の円弧境界の経路が異なります。指定面積 {entered}、組立面積 {assembled}。",
   'svc.accountingShellEdits': "プレート {plate} を再メッシュするとシェルのオフセットまたは曲率の変更が失われるため、実行できません。",
   "plates.remeshAmbiguousSweep": "{name} の曲線境界で円弧の範囲を一意に決められません。メッシュを再生成する前に、中間点と両端間の曲線部材を確認してください。",
+  "plates.meshFieldsKept": "{names} のメッシュを保持しました。削除または置換すると、荷重が失われるか、要素の材料、厚さ、オフセットまたは曲率が変わります。",
   "plates.remeshShellEdits": "シェル要素のオフセットまたは曲率の変更を正確に引き継げないため、{name} のメッシュを置き換えられません。",
   'loadPlan.gravity.coveragePrecision': "シェルの被覆座標が部材区間で対応できる精度を超えています。",
   'loadPlan.gravity.roundedRoofBoundary': "部材 {id} の中点の丸めにより、屋根の縁で覆われるかどうかの判定が変わります。部材または屋根の形状を修正するか、荷重を手動で設定してください。",

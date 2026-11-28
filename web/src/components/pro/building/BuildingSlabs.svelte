@@ -38,8 +38,8 @@
   function simplify() {
     const ids = meshes.meshed;
     if (__PUBLIC_FEATURES__.proPlatesUnified) {
-      modelStore.batch(() => { for (const id of ids) clearPlateMesh(id); });
-      simplified = tp('building.slabs.cleared', { n: ids.length });
+      const result = clearPlateMesh(ids);
+      simplified = result.error ?? tp('building.slabs.cleared', { n: ids.length });
     } else {
       const result = simplifySlabs(ids);
       simplified = result.refused.length ? tp('building.slabs.cannotSimplify', { names: result.refused.join(', ') })

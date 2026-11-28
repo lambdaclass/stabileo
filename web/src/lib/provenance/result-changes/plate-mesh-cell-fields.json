@@ -1,0 +1,35 @@
+{
+  "id": "plate-mesh-cell-fields",
+  "date": "2026-11-28",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "physicalPlateCellFields"
+    ]
+  },
+  "title": {
+    "en": "Preserve cell loads and stiffness when editing a plate mesh",
+    "es": "Conservar las cargas y la rigidez de las celdas al editar la malla de una placa",
+    "fr": "Conserver les charges et la rigidité des mailles lors de la modification du maillage d’une plaque",
+    "de": "Zelllasten und Steifigkeiten beim Bearbeiten eines Plattennetzes erhalten",
+    "pt": "Preservar cargas e rigidez das células ao editar a malha de uma placa",
+    "hu": "A cellaterhek és merevségek megőrzése a lemezháló szerkesztésekor",
+    "tr": "Plak ağı düzenlenirken hücre yükleri ve rijitlikleri korunur",
+    "zh": "编辑板网格时保留单元荷载和刚度"
+  },
+  "explanation": {
+    "en": "Compare cell pressures, thermal loads and local shell properties with the authored model after editing a mesh or a touching arc. Restore missing assignments before rerunning analysis.",
+    "es": "Después de editar una malla o un arco en contacto, compará las presiones, cargas térmicas y propiedades locales de las celdas con el modelo original. Restituí las asignaciones faltantes antes de recalcular.",
+    "fr": "Après modification d’un maillage ou d’un arc en contact, comparez les pressions, charges thermiques et propriétés locales des coques au modèle initial. Rétablissez les affectations manquantes avant de relancer le calcul.",
+    "de": "Nach dem Bearbeiten eines Netzes oder eines angrenzenden Bogens Zelldrücke, Temperaturlasten und lokale Schaleneigenschaften mit dem ursprünglichen Modell vergleichen. Fehlende Zuordnungen vor der Neuberechnung wiederherstellen.",
+    "pt": "Após editar uma malha ou um arco em contato, compare as pressões, cargas térmicas e propriedades locais das cascas com o modelo original. Restaure as atribuições ausentes antes de recalcular.",
+    "hu": "A háló vagy egy érintkező ív módosítása után hasonlítsa össze a cellanyomásokat, a hőterheket és a helyi héjtulajdonságokat az eredeti modellel. Újraszámítás előtt állítsa vissza a hiányzó hozzárendeléseket.",
+    "tr": "Ağı veya temas eden bir yayı düzenledikten sonra hücre basınçlarını, sıcaklık yüklerini ve yerel kabuk özelliklerini özgün modelle karşılaştırın. Analizi yinelemeden önce eksik atamaları geri yükleyin.",
+    "zh": "编辑网格或与其相接的弧形构件后，请对照原始模型检查单元压力、温度荷载及壳单元局部属性。重新分析前请恢复缺失的赋值。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-mesh-cell-fields.md",
+    "heading": "Preserve cell loads and stiffness when editing a plate mesh"
+  }
+}

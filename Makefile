@@ -1438,7 +1438,7 @@ test.engine.kinematics-2222:
 
 .PHONY: test.web.pro-plates-switch
 test.web.pro-plates-switch:
-	$(NIX_RUN) bash -c 'cd web && node --test scripts/pro-plates-switch.test.mjs scripts/plate-foundation-ownership.test.mjs scripts/result-checks-disclosure.test.mjs'
+	$(NIX_RUN) bash -c 'cd web && node --test scripts/pro-plates-switch.test.mjs scripts/plate-foundation-ownership.test.mjs scripts/result-checks-disclosure.test.mjs scripts/plate-mesh-clear.test.mjs'
 
 .PHONY: test.web.production-mesher
 test.web.production-mesher:
