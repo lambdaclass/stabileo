@@ -228,3 +228,36 @@ it('#2316 applying wind preserves the legacy E notice independently from the win
   expect(assessProject(saved, stampSolve('linear', null), 'pro').changes.map(change => change.id))
     .toEqual(['seismic-modal-generation-unavailable']);
 });
+
+it.skip.each([false, true])('known wrong result: #1928 replacing planned loads keeps stair and architectural loads with alsoUnmarked=%s', async alsoUnmarked => {
+  const { serializeProject, deserializeProject } = await import('../file');
+  const { uiStore } = await import('../ui.svelte');
+  frame();
+  uiStore.analysisMode = 'pro';
+  const p = buildLoadPlan(planInput());
+  const opts = { clearExisting: true, bothSenses: true, nameOf, alsoUnmarked };
+  applyLoadPlan(p, opts);
+  const example = modelStore.loads.find(l => l.type === 'distributed3d' && l.data.generatedBy)!;
+  expect(example).toBeDefined();
+  const owners = ['stair:st1', 'arch:walls', 'arch:rooms'];
+  const independentlyGenerated = owners.map(owner => {
+    const load = { ...example, data: { ...example.data, generatedBy: owner } } as Load;
+    return modelStore.addLoadEntry(load);
+  });
+  const definition = modelStore.addGroup('Independent dead pressure', 'floorLoad', {}, { data: {
+    caseId: example.data.caseId, q: 1, distribution: 'slab', target: { by: 'own' }, generatedBy: owners[2],
+  } });
+  const text = serializeProject();
+  modelStore.clear();
+  expect(deserializeProject(text)).toBe(true);
+  const original = modelStore.loads.filter(l => independentlyGenerated.includes(l.data.id));
+  expect(original).toHaveLength(owners.length);
+  const scope = replaceScope(p, modelStore.loads, modelStore.loadCases, modelStore.combinations, nameOf);
+  expect(scope.generated.loads).toContain(example.data.id);
+  expect.soft(scope.generated.loads.filter(id => independentlyGenerated.includes(id))).toEqual([]);
+  expect.soft(scope.unmarked.loads.filter(id => independentlyGenerated.includes(id))).toEqual([]);
+  applyLoadPlan(p, opts);
+  expect.soft(modelStore.loads.filter(l => independentlyGenerated.includes(l.data.id))).toEqual(original);
+  expect.soft(modelStore.model.groups.has(definition)).toBe(true);
+  expect(modelStore.loads.some(l => l.data.id === example.data.id)).toBe(false);
+});
