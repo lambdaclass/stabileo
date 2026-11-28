@@ -195,6 +195,11 @@ function diagnosticsIn(result: unknown, root: object | null, absent: Absent | nu
   return diagnostics;
 }
 
+export function reviewKnownIssueResult(result: unknown) {
+  const diagnostics = knownIssueDiagnosticsIn(result);
+  return { diagnostics, disposition: knownIssueDisposition(diagnostics) };
+}
+
 export function knownIssueResultDisposition(result: unknown): ReturnType<typeof knownIssueDisposition> {
-  return knownIssueDisposition(knownIssueDiagnosticsIn(result));
+  return reviewKnownIssueResult(result).disposition;
 }

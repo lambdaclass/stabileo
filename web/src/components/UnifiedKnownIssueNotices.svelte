@@ -1,12 +1,12 @@
 <script module lang="ts">
-  import { knownIssueDiagnosticsIn, knownIssueDisposition, knownIssueMessage } from '../lib/engine/known-issues';
+  import { reviewKnownIssueResult, knownIssueMessage } from '../lib/engine/known-issues';
   import { noticePrefs } from '../lib/store/notice-prefs.svelte';
   import { groupKnownIssues, visibleNotices, type ResultNotice } from '../lib/store/result-notices';
 
   export function review(result: unknown) {
-    const diagnostics = knownIssueDiagnosticsIn(result);
+    const { diagnostics, disposition } = reviewKnownIssueResult(result);
     return {
-      ...knownIssueDisposition(diagnostics),
+      ...disposition,
       notices: visibleNotices(groupKnownIssues(diagnostics, knownIssueMessage), kind => noticePrefs.isHidden(kind)),
     };
   }
