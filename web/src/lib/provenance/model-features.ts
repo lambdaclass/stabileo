@@ -1,3 +1,4 @@
+import { SHELL_OFFSET_EXPANSION_THRESHOLD } from '../engine/shell-offsets';
 import { fromLoadPlan, loadGenerationOwner } from '../model/loads/generation-owner';
 import { cellPressureDefinitions, hasLocalCellProperties, pressureFollowsMesh } from '../model/physical/mesh-cell-fields';
 import { isMagnitudeCombination } from '../engine/result-scopes';
@@ -77,7 +78,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns', 'ukConcreteDesign', 'defaultDesignCovers',
   'shells', 'shellsInBasic', 'physicalPlateRemesh', 'plateAnalysisIssue', 'wallSlabInteriorContact', 'curvedShells', 'savedWallDesign', 'ignoredAdoptedReinforcement', 'inactivePlacementRules', 'savedBeamDetailing', 'savedBarSchedule', 'shellEdgeLoads', 'eccentricities', 'unifiedCoarseShellRemesh', 'unifiedPlateSurfaceMesh',
-  'deferredSlabPanels', 'physicalPlateDefinitions', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
+  'deferredSlabPanels', 'physicalPlateDefinitions', 'physicalPlateSubthresholdOffsets', 'independentlyGeneratedLoads', 'physicalPlateCellFields', 'physicalPlatePointMasses', 'plateMeshRigidLinks', 'curvedPlateOpenings', 'wholeSlabLoadDefinitions', 'planarQuarterTurnMemberLoads', 'planarGlobalAxisMemberLoads', 'prestressMemberLoads', 'nearEndSpatialPointLoads', 'tinyDistributedLoads',
   'shortOffAxisStrap', 'secondaryFootingReactions', 'wallEdgeRestraints', 'savedFootingPropertyLines', 'physicalPlateSprings', 'orphanedBatchAssignment', 'restrictedMemberForceTable', 'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'invalidStoredProjectInput', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'opposedShellPressures', 'roofShellFrameLinks', 'smallMemberSelfWeight', 'smallGeneratedLineLoads', 'opposedGeneratedLineLoads', 'generatedLoads', 'generatedWindLoads', 'windMemberAcrossLevel', 'generatedSeismicLoads', 'connectedSeismicBraceCrossing', 'crossedSeismicColumn', 'supportedSeismicGable', 'unverifiedGeneratedSeismicLoads',
@@ -580,6 +581,17 @@ function hasOpposedGeneratedLines(cases: NonNullable<FeatureSnapshot['loadCases'
   return false;
 }
 
+function hasSubthresholdPlateOffset(snapshot: FeatureSnapshot, ids: ReadonlySet<number>): boolean {
+  const belowThreshold = (shell: ShellSnapshot) => {
+    const o = shell.offset;
+    return o && offsetMoves(o) && Math.max(Math.abs(o.x ?? 0), Math.abs(o.y ?? 0), Math.abs(o.z ?? 0)) <= SHELL_OFFSET_EXPANSION_THRESHOLD;
+  };
+  const quads = new Set((snapshot.quads ?? []).filter(([, shell]) => belowThreshold(shell)).map(([id]) => id));
+  const triangles = new Set((snapshot.plates ?? []).filter(([, shell]) => belowThreshold(shell)).map(([id]) => id));
+  return (snapshot.groups ?? []).some(([id, group]) => ids.has(id) &&
+    (group?.members?.quads?.some(cell => quads.has(cell)) || group?.members?.plates?.some(cell => triangles.has(cell))));
+}
+
 function hasPhysicalPlateCellFields(s: FeatureSnapshot, ids: ReadonlySet<number>): boolean {
   const groups = new Map(s.groups), quads = new Map(s.quads), triangles = new Map(s.plates);
   const loads = featureLoads(s.loads).filter(load => load.type === 'surface3d' || load.type === 'thermalQuad3d');
@@ -760,6 +772,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   addPlateEditFeatures(s, physicalPlates, f);
   if (physicalPlates.size) {
     f.add('physicalPlateDefinitions');
+    if (hasSubthresholdPlateOffset(s, physicalPlates)) f.add('physicalPlateSubthresholdOffsets');
     if (hasPhysicalPlateCellFields(s, physicalPlates)) f.add('physicalPlateCellFields');
     for (const group of values(s.groups)) {
       if (group?.kind !== 'floorLoad') continue;

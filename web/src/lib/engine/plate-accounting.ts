@@ -6,6 +6,7 @@ import type { ModelData } from './solver-service';
 import type { SolverInput3D } from './types-3d';
 import { add, agrees, cross, dot, mul, norm, polygonMeasure, roundoff, sub, Sum, unit, xyz, zero, type Vector } from './accounting-math';
 
+type OffsetLayout = 'original' | 'expanded';
 type PlateGroup = NonNullable<ModelData['groups']> extends Map<number, infer Group> ? Group : never;
 type Edge = { a: Vector; b: Vector; from: number; to: number; count: number };
 type Interval = { start: number; end: number; a: Vector };
@@ -124,7 +125,7 @@ function signedPlateArcSegmentArea(radius: number, sweep: number): number {
   return (radius ** 2 / 2) * (sweep - Math.sin(sweep));
 }
 
-function measurePlate(model: ModelData, input: SolverInput3D, group: PlateGroup): PlateMeasure {
+function measurePlate(model: ModelData, input: SolverInput3D, group: PlateGroup, offsets: OffsetLayout): PlateMeasure {
   const name = group.name ?? String(group.id);
   const surface = plateSurfaceOf(group)!;
   const { outer, holes } = plateLoops(group);
@@ -178,9 +179,7 @@ function measurePlate(model: ModelData, input: SolverInput3D, group: PlateGroup)
       return { x: point.x, y: point.y, z: point.z ?? 0 };
     });
     const offset = (declared as { offset?: ShellOffset }).offset;
-    // An input built without expanding the offsets keeps the shell on its own nodes.
-    const expanded = wire.nodes.some((id, i) => id !== nodeIds[i]);
-    const shift = offset && expanded ? resolveShellOffsetGlobal(offset, corners) : null;
+    const shift = offset && offsets === 'expanded' ? resolveShellOffsetGlobal(offset, corners) : null;
     const expectedShift = shift ? xyz(shift) : zero();
     const boundaryPoints = corners.map(xyz);
     if (points.some((p, i) => norm(sub(sub(p, boundaryPoints[i]!), expectedShift)) > roundoff * scale)) {
@@ -252,10 +251,10 @@ function measurePlate(model: ModelData, input: SolverInput3D, group: PlateGroup)
   return { name, specifiedArea, area: area.value, centroid: add(origin, mul(first, 1 / area.value)), normal };
 }
 
-export function accountPlateGeometry(model: ModelData, input: SolverInput3D): Map<number, PlateMeasure> {
+export function accountPlateGeometry(model: ModelData, input: SolverInput3D, offsets: OffsetLayout): Map<number, PlateMeasure> {
   const plates = new Map<number, PlateMeasure>();
   for (const [id, group] of model.groups ?? []) {
-    if (plateSurfaceOf(group)) plates.set(id, measurePlate(model, input, group));
+    if (plateSurfaceOf(group)) plates.set(id, measurePlate(model, input, group, offsets));
   }
   return plates;
 }

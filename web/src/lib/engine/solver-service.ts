@@ -1924,6 +1924,12 @@ function verifySelfWeightLoads3D(
   }
 }
 
+const inputsWithOriginalShellNodes = new WeakSet<SolverInput3D>();
+
+function plateMeasures(model: ModelData, input: SolverInput3D) {
+  return accountPlateGeometry(model[accountingSource] ?? model, input, inputsWithOriginalShellNodes.has(input) ? 'original' : 'expanded');
+}
+
 export function notionalSourceLoads3D(
   model: ModelData, leftHand: boolean, caseId: number, expectedPressures: readonly ScenarioSurfaceIntent[], input: SolverInput3D,
 ): SolverLoad3D[] {
@@ -1932,7 +1938,7 @@ export function notionalSourceLoads3D(
   const scenarioSurfaces = model.loads.filter(load => load.type === 'surface3d' && scenarioSurfaceIntentOf(load));
   verifyScenarioSurfaceLoads(model, caseId, scenarioSurfaces, sources, undefined, expectedPressures);
   const accounting = loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand,
-    accountPlateGeometry(model[accountingSource] ?? model, input), true);
+    plateMeasures(model, input), true);
   accounting.verifySlabs(caseId, model.loads, sources);
   accounting.verifyGenerated(caseId, model.loads, sources);
   return loads;
@@ -1949,7 +1955,7 @@ function checkedSolverLoads3D(
   model: ModelData, input: SolverInput3D, loads: Load[], weights: boolean | SelfWeightLoad[], leftHand: boolean,
   plateCases: boolean | readonly number[],
   accounting = loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand,
-    accountPlateGeometry(model[accountingSource] ?? model, input), plateCases !== false),
+    plateMeasures(model, input), plateCases !== false),
   checkedCase?: (caseId: number, loads: readonly SolverLoad3D[], totals: Wrench) => void,
   checkedSource?: (source: CheckedSource3D) => void,
 ): SolverLoad3D[] {
@@ -1999,7 +2005,7 @@ export function reviewedStructure3D(model: ModelData, leftHand: boolean): Omit<S
   assertPlateAnalysisReady(model);
   return buildStructuralInput3D(model, true, (active, input) => {
     const accounting = loadAccounting3D(active, input, shouldEmbedFlat2DModelIn3D(active), leftHand,
-      accountPlateGeometry(active[accountingSource] ?? active, input), true);
+      plateMeasures(active, input), true);
     for (const [id, loads] of loadCaseBatches(active.loads, [...accounting.cases])) {
       checkedSolverLoads3D(active, input, loads, [], leftHand, [id], accounting);
       accounting.releaseIndependentCase(id);
@@ -2178,6 +2184,7 @@ function buildStructuralInput3D(
   // Stiffness modifiers, through solve-only sections, before offsets split any member.
   applyStiffnessModifiers(input, model);
 
+  if (expandOffsets === false || project2DToXZ) inputsWithOriginalShellNodes.add(input);
   if (expandOffsets !== false) {
     // Member/shell offsets are a genuine-3D concept (an offset of a flat-2D
     // embed is ill-defined), so they expand only on the non-embedded path.
@@ -3327,7 +3334,7 @@ function assembleCaseLoads3D(
   input ??= buildSolverInput3D({ ...model, loads: [] }, [], leftHand, { plateCases: false }) ?? undefined;
   if (!input) return caseLoads;
   const accounting = loadAccounting3D(model, input, shouldEmbedFlat2DModelIn3D(model), leftHand,
-    accountPlateGeometry(model[accountingSource] ?? model, input), true);
+    plateMeasures(model, input), true);
   const enteredByCase = loadCaseBatches(model.loads);
   const entered = new Map<number, Wrench>();
   const authored = new WeakSet<SolverLoad3D>();
