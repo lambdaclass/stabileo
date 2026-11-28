@@ -60,7 +60,7 @@ it('known wrong result: #1928 a completed 2D manual solve delivers a returned wa
   expect(uiStore.toasts.some(item => item.message === 'Reported planar solver path')).toBe(false);
 });
 
-it.skip('known wrong result: #1928 the ordinary 2D toolbar displays the returned warning text', async () => {
+it('known wrong result: #1928 the ordinary 2D toolbar displays the returned warning text', async () => {
   uiStore.analysisMode = '2d';
   cantilever(false);
   const original = modelStore.solve.bind(modelStore);
