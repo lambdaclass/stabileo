@@ -33,15 +33,19 @@ describe('a beam in the plane of a slab', () => {
   });
 });
 
-it.skip.each(['triangle', 'quad'] as const)('known wrong result: #1928 an individual beam uses its accepted plan length at a %s flange', async kind => {
+it.skip.each(['edge', 'interior'] as const)('known wrong result: #1928 an individual beam uses its accepted plan length at a %s flange', async kind => {
   const { effectiveFlange } = await import('../../../codes/cirsoc201/effective-flange');
   const beam = { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1 };
   const elements = new Map([[beam.id, beam]]);
-  const cell = { nodes: kind === 'quad' ? [1, 2, 3, 4] : [1, 2, 3], thickness: 0.3 };
-  const sides = [{ hf: cell.thickness, clear: 4 - sections.get(1)!.b / 2 }];
+  const cell = { id: 1, nodes: [1, 2, 3, 4], thickness: 0.3 };
+  const quads = new Map([[1, cell]]);
+  if (kind === 'interior') quads.set(2, { ...cell, id: 2, nodes: [2, 1, 11, 12] });
+  const sides = [...quads.values()].map(q => ({ hf: q.thickness, clear: 4 - sections.get(1)!.b / 2 }));
   for (const z of [0, 0.001, -0.001, 0.001001]) {
     const floor = new Map([...nodes].map(([id, node]) => [id, { ...node, z: id === 2 ? z : 0 }]));
-    const m = { nodes: floor, elements, sections, [kind === 'quad' ? 'quads' : 'plates']: new Map([[1, cell]]) };
+    floor.set(11, { id: 11, x: 0, y: -4, z: 0 });
+    floor.set(12, { id: 12, x: 4, y: -4, z: 0 });
+    const m = { nodes: floor, elements, sections, quads };
     for (const spanOf of [undefined, () => [], () => [1]]) {
       const result = beamFlanges({ ...m, spanOf }).get(1);
       if (Math.abs(z) > 0.001) {
